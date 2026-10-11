@@ -2,26 +2,48 @@
 name = "PyAthena"
 description = "Python DB API 2.0 (PEP 249) client for Amazon Athena"
 authors = [
+    {name = "The PyAthena authors"},
+]
+maintainers = [
     {name = "laughingman7743", email = "laughingman7743@gmail.com"},
 ]
 dependencies = [
-    "boto3>=1.41.2",
-    "botocore>=1.41.2",
-    "tenacity>=4.1.0",
-    "fsspec",
-    "python-dateutil",
+    "boto3>=1.43.31",
+    "botocore>=1.43.31",
+    "tenacity>=8.0.1",
+    "fsspec>=2026.9.0",
+    "tzdata",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
+keywords = [
+    "athena",
+    "aws",
+    "amazon-athena",
+    "dbapi",
+    "pep249",
+    "sql",
+    "sqlalchemy",
+    "pandas",
+    "pyarrow",
+    "polars",
+    "fsspec",
+    "s3",
+    "spark",
+    "asyncio",
+]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: AsyncIO",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Topic :: Database",
     "Topic :: Database :: Front-Ends",
+    "Typing :: Typed",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -30,10 +52,11 @@ classifiers = [
 dynamic = ["version"]
 
 [project.urls]
-homepage = "https://github.com/pyathena-dev/PyAthena/"
+homepage = "https://pyathena.dev/"
 repository = "https://github.com/pyathena-dev/PyAthena/"
 documentation = "https://pyathena.dev/"
 issues = "https://github.com/pyathena-dev/PyAthena/issues"
+changelog = "https://github.com/pyathena-dev/PyAthena/releases"
 
 [project.entry-points."sqlalchemy.dialects"]
 awsathena = "pyathena.sqlalchemy.rest:AthenaRestDialect"
@@ -49,32 +72,26 @@ awsathena = "pyathena.sqlalchemy.rest:AthenaRestDialect"
 "awsathena.aios3fs" = "pyathena.aio.sqlalchemy.s3fs:AthenaAioS3FSDialect"
 
 [project.optional-dependencies]
-sqlalchemy = ["sqlalchemy>=1.0.0"]
+sqlalchemy = ["sqlalchemy>=2.0.0"]
 aiosqlalchemy = [
     "sqlalchemy[asyncio]>=2.0.0",
 ]
 pandas = [
-    "pandas>=1.3.0; python_version<'3.13'",
-    "pandas>=2.3.0; python_version>='3.13'",
+    "pandas>=3.0.0",
 ]
 arrow = [
-    "pyarrow>=10.0.0; python_version<'3.14'",
-    "pyarrow>=22.0.0; python_version>='3.14'",
+    "pyarrow>=22.0.0",
 ]
 polars = [
-    "polars>=1.0.0",
+    "polars>=1.39.0",
 ]
 
 [dependency-groups]
 dev = [
-    "sqlalchemy[asyncio]>=1.0.0",
-    "pandas>=1.3.0; python_version<'3.13'",
-    "pandas>=2.3.0; python_version>='3.13'",
-    "numpy>=1.26.0; python_version<'3.13'",
-    "numpy>=2.3.0; python_version>='3.14'",
-    "pyarrow>=10.0.0; python_version<'3.14'",
-    "pyarrow>=22.0.0; python_version>='3.14'",
-    "polars>=1.0.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "pandas>=3.0.0",
+    "pyarrow>=22.0.0",
+    "polars>=1.39.0",
     "Jinja2>=3.1.0",
     "mypy>=0.900",
     "pytest>=3.5",
@@ -89,15 +106,12 @@ dev = [
     "furo",
     "myst-parser",
     "sphinx-design",
-    "types-python-dateutil",
+    "cfn-lint>=1",
 ]
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling>=1.27", "hatch-vcs"]
 build-backend = "hatchling.build"
-
-[tool.hatch.metadata]
-allow-direct-references = true
 
 [tool.hatch.build.targets.sdist]
 ignore-vcs = true
@@ -117,6 +131,9 @@ source = "vcs"
 [tool.hatch.build.hooks.vcs]
 version-file = "pyathena/_version.py"
 
+[tool.uv.workspace]
+members = ["benchmarks"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
@@ -134,7 +151,7 @@ exclude = [
     ".tox",
     "benchmarks",
 ]
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 # https://docs.astral.sh/ruff/rules/
@@ -159,15 +176,25 @@ select = [
     "PGH",  # pygrep-hooks
     "G",  # flake8-logging-format
     "PT",  # flake8-pytest-style
+    "D",  # pydocstyle
 ]
 ignore = [
     "RUF059",  # unused-unpacked-variable (too noisy for interface-heavy code)
     "G004",  # logging-f-string (f-strings are preferred for log messages)
+    "D105",  # undocumented-magic-method (protocol methods need no docstring)
 ]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+# Overrides marked with @override inherit the base method's documentation.
+ignore-decorators = ["pyathena.util.override"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
     "RUF012",  # mutable-class-default (test classes often use mutable defaults)
+]
+"!pyathena/**" = [
+    "D",  # docstring rules apply to the package only
 ]
 "pyathena/sqlalchemy/compiler.py" = [
     "N802",  # SQLAlchemy TypeCompiler requires visit_UPPERCASE method names
@@ -177,7 +204,6 @@ ignore = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
 follow_imports = "silent"
 disallow_any_generics = true
 strict_optional = true
@@ -189,6 +215,8 @@ warn_no_return = true
 warn_return_any = true
 warn_unreachable = true
 warn_unused_configs = true
+# Overrides are marked with pyathena.util.override (PEP 698).
+enable_error_code = ["explicit-override"]
 exclude = [
     "benchmarks.*",
     "tests.*",
@@ -201,11 +229,10 @@ exclude = [
 legacy_tox_ini = """
 [tox]
 isolated_build = true
-envlist = py{310,311,312,313,314}-{pyathena,sqla,sqla_async}
+envlist = py{311,312,313,314}-{pyathena,sqla,sqla_async}
 
 [gh-actions]
 python =
-    3.10: py310
     3.11: py311
     3.12: py312
     3.13: py313

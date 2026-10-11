@@ -133,8 +133,14 @@ class ConversationResolver:
         responder_is_version: bool = False,
         responder_mandate_key: str | None = None,
         responder_variables: dict[str, Any] | None = None,
+        model_this_turn_only: bool = False,
     ) -> UnifiedConfig:
         """Return a UnifiedConfig ready for execution.
+
+        ``model_this_turn_only`` — "this message only": ``config_overrides.model``
+        (and its class) apply to THIS turn; the conversation keeps its own model
+        for storage and for the next turn. See
+        ``UnifiedConfig.begin_model_this_turn_only``.
 
         Appends user_input (if provided) and applies config_overrides before
         returning. Updates AgentCache after a cold DB load so subsequent calls
@@ -209,6 +215,7 @@ class ConversationResolver:
                 conversation_id=conversation_id,
                 user_input=user_input,
                 config_overrides=config_overrides,
+                model_this_turn_only=model_this_turn_only,
             )
 
         agent = AgentCache.get(conversation_id)
@@ -387,6 +394,7 @@ class ConversationResolver:
             conversation_id=conversation_id,
             user_input=user_input,
             config_overrides=config_overrides,
+            model_this_turn_only=model_this_turn_only,
         )
 
     @staticmethod
@@ -396,6 +404,7 @@ class ConversationResolver:
         conversation_id: str,
         user_input: str | list[dict[str, Any]] | None,
         config_overrides: LLMParams | None,
+        model_this_turn_only: bool = False,
     ) -> UnifiedConfig:
         """Overrides, the new user turn, and THE SEND BOUNDARY — for every source
         of the structural config, so a responder turn can never skip them."""
@@ -430,7 +439,13 @@ class ConversationResolver:
                 config.messages.clear()
                 config.messages.extend(bounded)
 
+        # A previous turn's one-turn model (carried here by the process cache)
+        # never leaks into this turn: the conversation's own model comes back
+        # first, then this turn's overrides apply.
+        config.end_model_this_turn_only()
         if config_overrides is not None:
+            if model_this_turn_only and config_overrides.model is not None:
+                config.begin_model_this_turn_only()
             config.apply_overrides(config_overrides)
 
         if user_input:

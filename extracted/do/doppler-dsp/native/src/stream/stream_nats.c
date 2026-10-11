@@ -24,6 +24,7 @@
  * load-balance and a crashed consumer's un-acked frames redeliver.
  */
 
+#include "doppler/dp_thread.h"
 #include "doppler/stream/stream.h"
 #include "stream_internal.h"
 #include <nats.h>
@@ -193,7 +194,7 @@ nats_pull_subscribe (struct dp_ctx *ctx, jsCtx *js, natsSubscription **out)
   so.ManualAck            = true; /* caller acks via dp_msg_ack */
   so.Config.Durable       = durable;
   so.Config.AckPolicy     = js_AckExplicit;
-  so.Config.MaxAckPending = 1000;               /* HWM-style backpressure */
+  so.Config.MaxAckPending = DP_WORK_QUEUE_MAX_ACK_PENDING; /* backpressure */
   so.Config.AckWait = 5LL * 1000 * 1000 * 1000; /* 5s ns -> fast redeliver */
 
   return (js_PullSubscribe (out, js, filter, durable, NULL, &so, NULL)
@@ -269,6 +270,66 @@ nats_wire_role (struct dp_ctx *ctx, natsConnection *conn)
   return 0;
 }
 
+/* =========================================================================
+ * The context <-> message link (#2016)
+ * ========================================================================= */
+
+/* `closed` is set under the mutex BEFORE the context's NATS objects are torn
+   down, and a Pull message's ack reads it under the same mutex, so an ack
+   already in flight finishes before teardown begins and one that comes
+   after is refused (DP_ERR_CLOSED) rather than reading a freed
+   subscription. `role` is the context's: only a PULL message is a
+   JetStream message, so only it is acked. nats.c's ack is wrong for any
+   other, close or no close: a SUB message has no reply subject, so it is
+   refused (NATS_ILLEGAL_STATE); a REP request has one, so nats.c reads its
+   subscription's JetStream context, which is NULL -- undefined, and in a
+   Release build "+ACK" published to the requester's inbox. */
+struct dp_msg_link
+{
+  dp_mutex_t mu;
+  size_t     refs;
+  int        closed;
+  dp_role_t  role;
+};
+
+static dp_msg_link_t *
+link_create (dp_role_t role)
+{
+  /* Fixed size, so only OOM can fail it: the abort-on-OOM helper. */
+  dp_msg_link_t *l = (dp_msg_link_t *)dp_xcalloc (1, sizeof *l);
+  dp_mutex_init (&l->mu);
+  l->refs = 1;
+  l->role = role;
+  return l;
+}
+
+static dp_msg_link_t *
+link_retain (dp_msg_link_t *l)
+{
+  dp_mutex_lock (&l->mu);
+  l->refs++;
+  dp_mutex_unlock (&l->mu);
+  return l;
+}
+
+/* The count drops under the mutex, but the mutex is destroyed only after
+   it is unlocked, and only by the holder of the last reference: nobody
+   else can be waiting on it then. */
+static void
+link_release (dp_msg_link_t *l)
+{
+  if (!l)
+    return;
+  dp_mutex_lock (&l->mu);
+  int last = --l->refs == 0;
+  dp_mutex_unlock (&l->mu);
+  if (last)
+    {
+      dp_mutex_destroy (&l->mu);
+      free (l);
+    }
+}
+
 struct dp_ctx *
 dp__nats_ctx_create (dp_role_t role, const char *endpoint,
                      dp_frame_kind_t kind, dp_sample_type_t format)
@@ -299,12 +360,21 @@ dp__nats_ctx_create (dp_role_t role, const char *endpoint,
   /* Cache the server's max message size; frames above it are chunked. */
   ctx->nats.max_payload
       = natsConnection_GetMaxPayload ((natsConnection *)ctx->nats.conn);
+  ctx->nats.link = link_create (role);
   return ctx;
 }
 
 void
 dp__nats_ctx_destroy (struct dp_ctx *ctx)
 {
+  /* Closed first, under the mutex: an ack in flight completes before the
+     subscription it reads goes, and every later one is refused. */
+  if (ctx->nats.link)
+    {
+      dp_mutex_lock (&ctx->nats.link->mu);
+      ctx->nats.link->closed = 1;
+      dp_mutex_unlock (&ctx->nats.link->mu);
+    }
   if (ctx->nats.sub)
     natsSubscription_Destroy ((natsSubscription *)ctx->nats.sub);
   if (ctx->nats.js)
@@ -315,6 +385,9 @@ dp__nats_ctx_destroy (struct dp_ctx *ctx)
     natsInbox_Destroy ((natsInbox *)ctx->nats.inbox);
   free (ctx->nats.base);
   free (ctx->nats.last_reply);
+  dp_reasm_reset (&ctx->nats.reasm);
+  link_release (ctx->nats.link);
+  ctx->nats.link = NULL;
 }
 
 /* =========================================================================
@@ -566,11 +639,61 @@ dp_wait_slice_ms (void)
   return (int64_t)dp_stream_interrupt_latency_ms ();
 }
 
+/* A receive's waiting: ONE deadline, in nats_Now() milliseconds (-1 for
+ * none), taken once per receive and carried across every message it
+ * reads. A chunked frame takes several, and a fresh timeout per message
+ * let a run of chunks that never completes a frame -- two publishers
+ * interleaving, or a stream of forged chunks -- hold recv(timeout_ms) for
+ * as long as messages kept coming (#2010). nats_Now() is the client's own
+ * clock, the one natsSubscription_NextMsg and _Fetch time their waits
+ * with, so no other clock could make the bound tighter. */
+typedef struct
+{
+  int64_t deadline; /* nats_Now() ms, or -1: no deadline */
+  int     polled;   /* this receive has waited at least once */
+} nats_wait_t;
+
+static nats_wait_t
+nats_wait_begin (const struct dp_ctx *ctx)
+{
+  int         to = ctx->nats.recv_timeout_ms;
+  nats_wait_t w  = { -1, 0 };
+  if (to >= 0)
+    w.deadline = nats_Now () + (int64_t)(to == 0 ? 1 : to);
+  return w;
+}
+
+/* The next wait: one interrupt slice, cut to what is left of the
+ * deadline; -1 once it has passed. The receive's FIRST wait always gets
+ * at least 1 ms, however late it starts: a timeout of 0 is a poll, and
+ * the millisecond tick turning between nats_wait_begin() and here must
+ * not make it a no-op. Later waits get no such floor, which is what keeps
+ * a flood of messages from holding the receive past its deadline. */
+static int64_t
+nats_wait_next (nats_wait_t *w)
+{
+  int64_t slice = dp_wait_slice_ms ();
+  if (w->deadline >= 0)
+    {
+      int64_t left = w->deadline - nats_Now ();
+      if (left <= 0)
+        {
+          if (w->polled)
+            return -1;
+          left = 1;
+        }
+      if (left < slice)
+        slice = left;
+    }
+  w->polled = 1;
+  return slice;
+}
+
 /* Pull one message from the durable JetStream consumer (batch of 1).  The
  * message is NOT acked here — the caller acks via dp_msg_ack once it has been
  * processed, so a crash before ack triggers redelivery (at-least-once). */
 static int
-nats_pull_fetch (struct dp_ctx *ctx, natsMsg **out)
+nats_pull_fetch (struct dp_ctx *ctx, natsMsg **out, nats_wait_t *w)
 {
   natsSubscription *sub = (natsSubscription *)ctx->nats.sub;
   if (!sub)
@@ -579,30 +702,22 @@ nats_pull_fetch (struct dp_ctx *ctx, natsMsg **out)
   if (dp_stream_interrupted ())
     return DP_ERR_INTERRUPTED;
 
-  int         to        = ctx->nats.recv_timeout_ms;
-  int64_t     remaining = (to < 0) ? -1 : (int64_t)(to == 0 ? 1 : to);
-  natsMsgList list      = { NULL, 0 };
+  natsMsgList list = { NULL, 0 };
   natsStatus  s;
 
   /* Sliced for the same reason the SUB path is: a worker parked on an
      empty work queue has to be able to hear dp_stream_interrupt(). */
   for (;;)
     {
-      int64_t slice = dp_wait_slice_ms ();
-      if (remaining >= 0 && remaining < slice)
-        slice = remaining;
+      int64_t slice = nats_wait_next (w);
+      if (slice < 0)
+        return DP_ERR_TIMEOUT;
 
-      s = natsSubscription_Fetch (&list, sub, 1, (int64_t)slice, NULL);
+      s = natsSubscription_Fetch (&list, sub, 1, slice, NULL);
       if (s != NATS_TIMEOUT)
         break;
       if (dp_stream_interrupted ())
         return DP_ERR_INTERRUPTED;
-      if (remaining >= 0)
-        {
-          remaining -= slice;
-          if (remaining <= 0)
-            return DP_ERR_TIMEOUT;
-        }
     }
 
   if (s == NATS_TIMEOUT)
@@ -618,13 +733,14 @@ nats_pull_fetch (struct dp_ctx *ctx, natsMsg **out)
   return DP_OK;
 }
 
-/* Block for the next message honouring the stored timeout.  recv_timeout_ms
- * < 0 means block indefinitely (emulated by re-polling on NATS_TIMEOUT). */
+/* Block for the next message until the receive's deadline (`w`, from
+ * nats_wait_begin()); no deadline blocks indefinitely, emulated by
+ * re-polling on NATS_TIMEOUT. */
 static int
-nats_next (struct dp_ctx *ctx, natsMsg **out)
+nats_next (struct dp_ctx *ctx, natsMsg **out, nats_wait_t *w)
 {
   if (ctx->nats.role == DP_ROLE_PULL)
-    return nats_pull_fetch (ctx, out);
+    return nats_pull_fetch (ctx, out, w);
 
   natsSubscription *sub = (natsSubscription *)ctx->nats.sub;
   if (!sub)
@@ -636,33 +752,24 @@ nats_next (struct dp_ctx *ctx, natsMsg **out)
   if (dp_stream_interrupted ())
     return DP_ERR_INTERRUPTED;
 
-  int to = ctx->nats.recv_timeout_ms;
-
   /* Both paths are the same loop; the only difference is whether there is
      a deadline to run out of. Slicing the caller's own timeout matters as
      much as slicing an infinite wait: a five-second recv that ignores
-     Ctrl+C for five seconds is the same defect, smaller. */
-  int64_t remaining = (to < 0) ? -1 : (int64_t)(to == 0 ? 1 : to);
-
+     Ctrl+C for five seconds is the same defect, smaller. The deadline is
+     checked BEFORE each wait, so a message already queued is not taken
+     once it has passed: it waits for the next receive. */
   for (;;)
     {
-      int64_t slice = dp_wait_slice_ms ();
-      if (remaining >= 0 && remaining < slice)
-        slice = remaining;
+      int64_t slice = nats_wait_next (w);
+      if (slice < 0)
+        return DP_ERR_TIMEOUT;
 
-      natsStatus s = natsSubscription_NextMsg (out, sub, (int64_t)slice);
+      natsStatus s = natsSubscription_NextMsg (out, sub, slice);
       if (s != NATS_TIMEOUT)
         return (s == NATS_OK) ? DP_OK : DP_ERR_RECV;
 
       if (dp_stream_interrupted ())
         return DP_ERR_INTERRUPTED;
-
-      if (remaining >= 0)
-        {
-          remaining -= slice;
-          if (remaining <= 0)
-            return DP_ERR_TIMEOUT;
-        }
     }
 }
 
@@ -698,89 +805,11 @@ nats_parse_frame (const natsMsg *m, dp_header_t *hdr, dp_chunk_t *chunk,
   return rc;
 }
 
-/* Validate one chunk message and copy its payload into the reassembly buffer
- * at its byte offset.  Idempotent: a redelivered chunk (seen[idx]) is a no-op.
- * Does not destroy m. */
+/* Wrap a reassembled payload as a doppler-owned message. */
 static int
-nats_place_chunk (char *buf, size_t total_bytes, uint32_t nchunks,
-                  uint64_t sequence, natsMsg *m, unsigned char *seen,
-                  uint64_t *received)
+nats_owned_msg (char *buf, const dp_header_t *fh, dp_msg_t **out_msg,
+                dp_header_t *out_hdr)
 {
-  dp_header_t h;
-  dp_chunk_t  ch;
-  int         chunked = 0;
-  const char *body    = NULL;
-  size_t      cbytes  = 0;
-
-  int rc = nats_parse_frame (m, &h, &ch, &chunked, &body, &cbytes);
-  if (rc != DP_OK)
-    return rc;
-  if (!chunked || h.sequence != sequence || ch.count != nchunks)
-    return DP_ERR_INVALID;
-  if (ch.index >= nchunks || ch.offset + cbytes > total_bytes)
-    return DP_ERR_INVALID;
-
-  if (!seen[ch.index])
-    {
-      memcpy (buf + ch.offset, body, cbytes);
-      seen[ch.index] = 1;
-      (*received)++;
-    }
-  return DP_OK;
-}
-
-/* Reassemble a chunked frame into one doppler-owned buffer.  `first` is the
- * already-received chunk; fhdr/fch are its parsed header and chunk block.
- * Consumes `first` and any further chunks fetched.  Returns a DP_MSG_OWNED
- * message on success. */
-static int
-nats_reassemble (struct dp_ctx *ctx, natsMsg *first, const dp_header_t *fhdr,
-                 const dp_chunk_t *fch, dp_msg_t **out_msg,
-                 dp_header_t *out_hdr)
-{
-  size_t   elem        = dp_element_size ((dp_frame_kind_t)fhdr->kind,
-                                          (dp_sample_type_t)fhdr->format);
-  uint32_t nchunks     = fch->count;
-  size_t   total_bytes = (size_t)fch->total_bytes;
-  if (elem == 0 || nchunks == 0 || total_bytes % elem != 0)
-    {
-      natsMsg_Destroy (first);
-      return DP_ERR_INVALID;
-    }
-
-  char          *buf  = (char *)malloc (total_bytes ? total_bytes : 1);
-  unsigned char *seen = (unsigned char *)calloc ((size_t)nchunks, 1);
-  if (!buf || !seen)
-    {
-      free (buf);
-      free (seen);
-      natsMsg_Destroy (first);
-      return DP_ERR_MEMORY;
-    }
-
-  natsMsg *m        = first;
-  uint64_t received = 0;
-  int      rc       = DP_OK;
-  for (;;)
-    {
-      rc = nats_place_chunk (buf, total_bytes, nchunks, fhdr->sequence, m,
-                             seen, &received);
-      natsMsg_Destroy (m);
-      m = NULL;
-      if (rc != DP_OK || received == nchunks)
-        break;
-      rc = nats_next (ctx, &m); /* next chunk of this frame */
-      if (rc != DP_OK)
-        break;
-    }
-
-  free (seen);
-  if (rc != DP_OK)
-    {
-      free (buf);
-      return rc;
-    }
-
   dp_msg_t *msg = (dp_msg_t *)malloc (sizeof (dp_msg_t));
   if (!msg)
     {
@@ -788,21 +817,16 @@ nats_reassemble (struct dp_ctx *ctx, natsMsg *first, const dp_header_t *fhdr,
       return DP_ERR_MEMORY;
     }
   msg->owner       = DP_MSG_OWNED;
+  msg->link        = NULL; /* owns its buffer: no context to outlive */
   msg->u.owned.ptr = buf;
-  msg->u.owned.len = total_bytes;
+  msg->u.owned.len = fh->payload_bytes;
   msg->data_offset = 0;
-  msg->kind        = (dp_frame_kind_t)fhdr->kind;
-  msg->format      = (dp_sample_type_t)fhdr->format;
-  msg->num_samples = total_bytes / elem;
-
-  *out_msg = msg;
+  msg->kind        = (dp_frame_kind_t)fh->kind;
+  msg->format      = (dp_sample_type_t)fh->format;
+  msg->num_samples = fh->num_samples;
+  *out_msg         = msg;
   if (out_hdr)
-    {
-      *out_hdr = *fhdr; /* present a clean logical-frame header */
-      out_hdr->flags &= (uint16_t)~DP_FLAG_CHUNKED;
-      out_hdr->num_samples   = msg->num_samples;
-      out_hdr->payload_bytes = (uint32_t)total_bytes;
-    }
+    *out_hdr = *fh;
   return DP_OK;
 }
 
@@ -810,105 +834,143 @@ int
 dp__nats_recv_signal (struct dp_ctx *ctx, dp_msg_t **out_msg,
                       dp_header_t *out_hdr)
 {
-  natsMsg *m  = NULL;
-  int      rc = nats_next (ctx, &m);
-  if (rc != DP_OK)
-    return rc;
-
-  dp_header_t hdr;
-  dp_chunk_t  chunk    = { 0 };
-  int         chunked  = 0;
-  const char *body     = NULL;
-  size_t      body_len = 0;
-
-  rc = nats_parse_frame (m, &hdr, &chunk, &chunked, &body, &body_len);
-  if (rc != DP_OK)
+  /* One message at a time until a whole frame is in hand. Each chunk of a
+     large PUB frame is fed to the reassembler (stream_core.c), whose state
+     outlives this call: a timeout between chunks keeps the frame in
+     progress for the next receive, and a chunk of a different frame starts
+     that frame rather than being thrown away (#2010). */
+  nats_wait_t wait = nats_wait_begin (ctx);
+  for (;;)
     {
-      /* A frame nothing can parse is not work, and on an explicit-ack work
-         queue leaving it unacked blocks the queue for everyone, forever: it
-         redelivers every AckWait, is never removed, and occupies one of
-         MaxAckPending's slots until they are all gone. This is the hazard
-         the EOS branch below documents, in its other form -- there because
-         the caller is handed no message to ack with, here because no
-         consumer can ever succeed at this one.
+      natsMsg *m  = NULL;
+      int      rc = nats_next (ctx, &m, &wait);
+      if (rc != DP_OK)
+        {
+          if (rc == DP_ERR_TIMEOUT && ctx->nats.reasm.buf)
+            ctx->nats.reasm.stats.mid_frame_timeouts++;
+          return rc;
+        }
 
-         Term, not Ack: Ack means "processed", and this was not. Term tells
-         the server not to redeliver regardless of MaxDeliver, which is the
-         only thing that lets the queue move past it.
+      dp_header_t hdr;
+      dp_chunk_t  chunk    = { 0 };
+      int         chunked  = 0;
+      const char *body     = NULL;
+      size_t      body_len = 0;
 
-         The error is still returned rather than skipping to the next frame,
-         so a corrupt frame is REPORTED instead of silently swallowed -- the
-         queue drains and the caller learns. That is the trade this makes:
-         an unparseable frame is dropped, which is a real loss if the parser
-         is ever the thing at fault, and the alternative is a queue that no
-         consumer can use again.
+      rc = nats_parse_frame (m, &hdr, &chunk, &chunked, &body, &body_len);
+      if (rc != DP_OK)
+        {
+          /* A frame nothing can parse is not work, and on an explicit-ack work
+             queue leaving it unacked blocks the queue for everyone, forever:
+             it redelivers every AckWait, is never removed, and occupies one of
+             MaxAckPending's slots until they are all gone. This is the hazard
+             the EOS branch below documents, in its other form -- there because
+             the caller is handed no message to ack with, here because no
+             consumer can ever succeed at this one.
 
-         Measured 2026-08-28: two long-lived `dp-chain-*` work queues had
-         accumulated frames an older build wrote, and every recv against
-         them failed instantly and permanently -- a fresh subject on the
-         same broker and build round-tripped fine. */
-      if (ctx->nats.role == DP_ROLE_PULL)
-        (void)natsMsg_Term (m, NULL);
-      natsMsg_Destroy (m);
-      return rc;
-    }
+             Term, not Ack: Ack means "processed", and this was not. Term tells
+             the server not to redeliver regardless of MaxDeliver, which is the
+             only thing that lets the queue move past it.
 
-  if (ctx->nats.role == DP_ROLE_REP)
-    nats_stash_reply (ctx, m);
+             The error is still returned rather than skipping to the next
+             frame, so a corrupt frame is REPORTED instead of silently
+             swallowed -- the queue drains and the caller learns. That is the
+             trade this makes: an unparseable frame is dropped, which is a real
+             loss if the parser is ever the thing at fault, and the alternative
+             is a queue that no consumer can use again.
 
-  /* End of stream is a STATEMENT, so it is reported rather than handed back
-     as an empty frame a caller would have to recognise for itself. Checked
-     here -- after the envelope is validated, before anything sizes a payload
-     -- because an EOS frame has no format and no samples, so the element-size
-     arithmetic below has nothing to work with. */
-  if ((dp_frame_kind_t)hdr.kind == DP_KIND_EOS)
-    {
+             Measured 2026-08-28: two long-lived `dp-chain-*` work queues had
+             accumulated frames an older build wrote, and every recv against
+             them failed instantly and permanently -- a fresh subject on the
+             same broker and build round-tripped fine. */
+          if (ctx->nats.role == DP_ROLE_PULL)
+            (void)natsMsg_Term (m, NULL);
+          natsMsg_Destroy (m);
+          return rc;
+        }
+
+      if (ctx->nats.role == DP_ROLE_REP)
+        nats_stash_reply (ctx, m);
+
+      /* End of stream is a STATEMENT, so it is reported rather than handed
+         back as an empty frame a caller would have to recognise for itself.
+         Checked here -- after the envelope is validated, before anything
+         sizes a payload -- because an EOS frame has no format and no
+         samples, so the element-size arithmetic below has nothing to work
+         with. */
+      if ((dp_frame_kind_t)hdr.kind == DP_KIND_EOS)
+        {
+          /* The publisher has finished, so a frame still in progress lost
+             a chunk and never will complete: give it up, counted. */
+          dp_reasm_unchunked (&ctx->nats.reasm, &hdr);
+          if (out_hdr)
+            memcpy (out_hdr, &hdr, sizeof (dp_header_t));
+          /* Ack it HERE, which is the one place that can. PULL is an
+             explicit-ack consumer on a work-queue stream, and the caller is
+             handed no message -- so if this frame is not acked now, nothing
+             can ever ack it: it redelivers every AckWait forever and is never
+             removed from the stream, and the NEXT run against the subject
+             opens onto an ending that belongs to the previous one. The other
+             roles have no ack to give. */
+          if (ctx->nats.role == DP_ROLE_PULL)
+            (void)natsMsg_Ack (m, NULL);
+          natsMsg_Destroy (m);
+          *out_msg = NULL;
+          return DP_ERR_EOF;
+        }
+
+      /* Large fan-out frames arrive as several chunks: feed this one to the
+       * reassembler, and keep reading until a frame completes. (PULL never
+       * chunks: the work-queue carries whole frames.) */
+      if (chunked && ctx->nats.role != DP_ROLE_PULL)
+        {
+          int         complete = 0;
+          char       *frame    = NULL;
+          dp_header_t fh;
+          rc = dp_reasm_feed (&ctx->nats.reasm, &hdr, &chunk, body, body_len,
+                              &complete, &frame, &fh);
+          natsMsg_Destroy (m); /* the reassembler copied what it needed */
+          if (rc == DP_ERR_MEMORY)
+            return rc;
+          if (complete)
+            return nats_owned_msg (frame, &fh, out_msg, out_hdr);
+          continue; /* placed, or a chunk no frame could hold (counted) */
+        }
+
+      /* Single message: zero-copy, data lives in the natsMsg past the
+         header. With one publisher per subject, an unchunked frame of the
+         SAME stream after a chunked one proves that one lost a chunk: give
+         it up, counted, rather than hold its buffer and call every idle
+         timeout a mid-frame one. Another type's frame on the base leaves
+         it alone. */
+      dp_reasm_unchunked (&ctx->nats.reasm, &hdr);
+      dp_msg_t *msg = (dp_msg_t *)malloc (sizeof (dp_msg_t));
+      if (!msg)
+        {
+          natsMsg_Destroy (m);
+          return DP_ERR_MEMORY;
+        }
+      msg->owner       = DP_MSG_NATS;
+      msg->u.nats      = m;
+      msg->link        = link_retain (ctx->nats.link);
+      msg->data_offset = (size_t)(body - natsMsg_GetData (m));
+      msg->kind        = (dp_frame_kind_t)hdr.kind;
+      msg->format      = (dp_sample_type_t)hdr.format;
+      msg->num_samples = hdr.num_samples;
+
+      *out_msg = msg;
       if (out_hdr)
         memcpy (out_hdr, &hdr, sizeof (dp_header_t));
-      /* Ack it HERE, which is the one place that can. PULL is an
-         explicit-ack consumer on a work-queue stream, and the caller is
-         handed no message -- so if this frame is not acked now, nothing
-         can ever ack it: it redelivers every AckWait forever and is never
-         removed from the stream, and the NEXT run against the subject
-         opens onto an ending that belongs to the previous one. The other
-         roles have no ack to give. */
-      if (ctx->nats.role == DP_ROLE_PULL)
-        (void)natsMsg_Ack (m, NULL);
-      natsMsg_Destroy (m);
-      *out_msg = NULL;
-      return DP_ERR_EOF;
+      return DP_OK;
     }
-
-  /* Large fan-out frames arrive as several chunks — reassemble into one owned
-   * buffer.  (PULL never chunks: the work-queue carries whole frames.) */
-  if (chunked && ctx->nats.role != DP_ROLE_PULL)
-    return nats_reassemble (ctx, m, &hdr, &chunk, out_msg, out_hdr);
-
-  /* Single message: zero-copy, data lives in the natsMsg past the header. */
-  dp_msg_t *msg = (dp_msg_t *)malloc (sizeof (dp_msg_t));
-  if (!msg)
-    {
-      natsMsg_Destroy (m);
-      return DP_ERR_MEMORY;
-    }
-  msg->owner       = DP_MSG_NATS;
-  msg->u.nats      = m;
-  msg->data_offset = (size_t)(body - natsMsg_GetData (m));
-  msg->kind        = (dp_frame_kind_t)hdr.kind;
-  msg->format      = (dp_sample_type_t)hdr.format;
-  msg->num_samples = hdr.num_samples;
-
-  *out_msg = msg;
-  if (out_hdr)
-    memcpy (out_hdr, &hdr, sizeof (dp_header_t));
-  return DP_OK;
 }
 
 int
 dp__nats_recv_raw (struct dp_ctx *ctx, dp_msg_t **out_msg, size_t *out_size)
 {
-  natsMsg *m  = NULL;
-  int      rc = nats_next (ctx, &m);
+  natsMsg    *m    = NULL;
+  nats_wait_t wait = nats_wait_begin (ctx);
+  int         rc   = nats_next (ctx, &m, &wait);
   if (rc != DP_OK)
     return rc;
 
@@ -923,6 +985,7 @@ dp__nats_recv_raw (struct dp_ctx *ctx, dp_msg_t **out_msg, size_t *out_size)
     }
   msg->owner       = DP_MSG_NATS;
   msg->u.nats      = m;
+  msg->link        = link_retain (ctx->nats.link);
   msg->data_offset = 0;
   msg->kind        = DP_KIND_IQ; /* not meaningful for raw recv */
   msg->format      = CF64;
@@ -960,12 +1023,29 @@ dp__nats_msg_size (dp_msg_t *msg)
 void
 dp__nats_msg_free (dp_msg_t *msg)
 {
+  /* natsMsg_Destroy never touches the subscription, so this is safe after
+     the context is gone; the link outlives both until the last of them. */
   natsMsg_Destroy ((natsMsg *)msg->u.nats);
+  link_release (msg->link);
 }
 
 int
 dp__nats_msg_ack (dp_msg_t *msg)
 {
-  natsStatus s = natsMsg_Ack ((natsMsg *)msg->u.nats, NULL);
-  return (s == NATS_OK) ? DP_OK : DP_ERR_SEND;
+  dp_msg_link_t *l = msg->link;
+  /* Role first, and without the lock: it is fixed when the link is created,
+     before any message can hold it. A core-NATS message has nothing to
+     acknowledge, so its ack is DP_OK whether or not its context is still
+     open -- the same answer a reassembled frame from that context gets. */
+  if (l->role != DP_ROLE_PULL)
+    return DP_OK;
+  int rc;
+  dp_mutex_lock (&l->mu);
+  if (l->closed)
+    rc = DP_ERR_CLOSED; /* the broker redelivers it: ack before close */
+  else
+    rc = natsMsg_Ack ((natsMsg *)msg->u.nats, NULL) == NATS_OK ? DP_OK
+                                                               : DP_ERR_SEND;
+  dp_mutex_unlock (&l->mu);
+  return rc;
 }

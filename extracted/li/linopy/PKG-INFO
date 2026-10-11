@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linopy
-Version: 0.9.1
+Version: 0.10.0
 Summary: Linear optimization with N-D labeled arrays in Python
 Author-email: Fabian Hofmann <fabianmarikhofmann@gmail.com>
 Maintainer-email: Fabian Hofmann <fabianmarikhofmann@gmail.com>, Felix Bumann <dev@fxbumann.de>
@@ -40,9 +40,9 @@ Requires-Dist: ipython==9.15.0; extra == "docs"
 Requires-Dist: numpydoc==1.10.0; extra == "docs"
 Requires-Dist: sphinx_rtd_theme==3.1.0; extra == "docs"
 Requires-Dist: sphinx==9.0.4; extra == "docs"
-Requires-Dist: sphinx_book_theme==1.2.0; extra == "docs"
+Requires-Dist: sphinx_book_theme==1.4.0; extra == "docs"
 Requires-Dist: sphinx-copybutton==0.5.2; extra == "docs"
-Requires-Dist: nbsphinx==0.9.4; extra == "docs"
+Requires-Dist: nbsphinx==0.9.8; extra == "docs"
 Requires-Dist: nbsphinx-link==1.4.1; extra == "docs"
 Requires-Dist: docutils<0.24; extra == "docs"
 Requires-Dist: gurobipy>=13.0.0; extra == "docs"
@@ -61,6 +61,7 @@ Requires-Dist: types-requests; extra == "dev"
 Requires-Dist: gurobipy; extra == "dev"
 Requires-Dist: highspy; extra == "dev"
 Requires-Dist: jupyter; extra == "dev"
+Requires-Dist: matplotlib; extra == "dev"
 Provides-Extra: benchmarks
 Requires-Dist: highspy==1.15.1; extra == "benchmarks"
 Requires-Dist: netcdf4==1.7.4; extra == "benchmarks"
@@ -68,11 +69,12 @@ Requires-Dist: numpy==2.4.6; extra == "benchmarks"
 Requires-Dist: scipy==1.17.1; extra == "benchmarks"
 Requires-Dist: xarray==2026.7.0; extra == "benchmarks"
 Requires-Dist: pandas==3.0.5; extra == "benchmarks"
-Requires-Dist: polars==1.42.1; extra == "benchmarks"
+Requires-Dist: polars==1.44.1; extra == "benchmarks"
 Requires-Dist: dask==2026.7.1; extra == "benchmarks"
 Requires-Dist: pytest==9.1.1; extra == "benchmarks"
-Requires-Dist: pytest-benchmark==5.2.3; extra == "benchmarks"
-Requires-Dist: pytest-memray==1.9.0; extra == "benchmarks"
+Requires-Dist: pytest-benchmark==5.3.0; extra == "benchmarks"
+Requires-Dist: pytest-benchmem[plot-static]==0.5.5; extra == "benchmarks"
+Requires-Dist: pytest-memray==1.10.0; extra == "benchmarks"
 Requires-Dist: pytest-codspeed==5.0.3; extra == "benchmarks"
 Provides-Extra: solvers
 Requires-Dist: gurobipy; extra == "solvers"
@@ -85,6 +87,8 @@ Requires-Dist: coptpy!=7.2.1; extra == "solvers"
 Requires-Dist: xpress; platform_system != "Darwin" and extra == "solvers"
 Requires-Dist: pyscipopt; platform_system != "Darwin" and extra == "solvers"
 Requires-Dist: knitro>=15.1.0; extra == "solvers"
+Provides-Extra: gpu
+Requires-Dist: cuopt-cu12>=26.8; platform_system == "Linux" and extra == "gpu"
 Dynamic: license-file
 
 # linopy: Optimization with array-like variables and constraints
@@ -239,6 +243,7 @@ Fri    0          4
 * [Cplex](https://www.ibm.com/de-de/analytics/cplex-optimizer)
 * [MOSEK](https://www.mosek.com/)
 * [COPT](https://www.shanshu.ai/copt)
+* [cuOpt](https://docs.nvidia.com/cuopt/)
 * [cuPDLPx](https://github.com/MIT-Lu-Lab/cuPDLPx)
 * [Knitro](https://www.artelys.com/solvers/knitro/)
 

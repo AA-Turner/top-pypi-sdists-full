@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
-Beartype **Python expression indentation substring unit tests.**
+Beartype **Python expression indentation substring** unit tests.
 
 This submodule unit tests the public API of the public
 :mod:`beartype._data.hint.sign.datahintsignset` submodule.
@@ -19,13 +19,13 @@ This submodule unit tests the public API of the public
 # ....................{ TESTS                              }....................
 def test_data_indent_level_to_code() -> None:
     '''
-    Test the :obj:`beartype._data.code.datacodeindent.INDENT_LEVEL_TO_CODE`
+    Test the :obj:`beartype._data.check.code.datacodeindent.INDENT_LEVEL_TO_CODE`
     dictionary singleton.
     '''
 
     # ....................{ IMPORTS                        }....................
     # Defer test-specific imports.
-    from beartype._data.code.datacodeindent import INDENT_LEVEL_TO_CODE
+    from beartype._data.check.code.datacodeindent import INDENT_LEVEL_TO_CODE
     from pytest import raises
 
     # ....................{ PASS                           }....................

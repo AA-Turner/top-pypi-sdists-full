@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -26,7 +26,7 @@ from beartype.roar import BeartypeClawHookUnpackagedException
 from beartype._cave._cavefast import CallableFrameType
 from beartype._conf.confmain import BeartypeConf
 from beartype._conf.confcommon import BEARTYPE_CONF_DEFAULT
-from beartype._data.api.standard.datapy import SCRIPT_MODULE_NAME
+from beartype._data.py.datascript import SCRIPT_MODULE_NAME
 from beartype._util.func.utilfuncfile import get_func_filename_or_none
 from beartype._util.func.utilfuncframe import (
     get_frame,

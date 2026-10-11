@@ -89,12 +89,38 @@ class FakeArm:
         self.records[record_id]["deleted_at"] = "2026-09-27T10:05:00Z"
         return {"record_id": record_id, "deleted": True, "applied": True}
 
+    # 61947e7bd6: reads never narrow by the active organization - the tool asks the host's
+    # *_anywhere / *_everywhere doors, which try every organization the person belongs to
+    # (this fake: one, ORG) and skip those still on today's table. Same shape as
+    # aidream services/kind_records/routed.py.
+    async def get_anywhere(self, *, user_id, record_id, preferred_organization_id=None):
+        if not await self.through_the_store(user_id=user_id, organization_id=ORG):
+            return None
+        found = await self.get(user_id=user_id, organization_id=ORG, record_id=record_id)
+        return None if found is None else {**found, "organization_id": ORG}
+
+    async def list_everywhere(self, *, user_id, match, organization_id=None):
+        if not await self.through_the_store(user_id=user_id, organization_id=ORG):
+            return []
+        rows = await self.list(user_id=user_id, organization_id=ORG, match=match)
+        return [{**row, "organization_id": ORG} for row in rows]
+
     def verbs(self) -> list[str]:
         return [name for name, _ in self.calls]
 
 
 class LegacyTableUntouchable:
     """``content_ir.kind_instance`` for a store organization: reaching it is the defect."""
+
+    def filter(self, **_filters: Any) -> Any:
+        # instance_list reads the store AND today's table (61947e7bd6: a list never narrows
+        # to one organization, and a person's legacy-organization rows live only there).
+        # The READ is allowed and empty for a store organization; every write/other verb raises.
+        class _Empty:
+            async def all(self_inner) -> list[Any]:
+                return []
+
+        return _Empty()
 
     def __getattr__(self, name: str) -> Any:
         raise AssertionError(

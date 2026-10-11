@@ -16,6 +16,7 @@ from typing import (
 )
 
 from opentelemetry import trace as trace_api
+from opentelemetry.util.types import AttributeValue
 from wrapt import ObjectProxy
 
 from openinference.instrumentation import REDACTED_VALUE, TraceConfig, safe_json_dumps
@@ -28,7 +29,6 @@ from openinference.instrumentation.google_genai._context import (
 from openinference.instrumentation.google_genai._image_utils import (
     redact_images_from_output_value,
 )
-from openinference.instrumentation.google_genai._types import AttributeValue
 from openinference.instrumentation.google_genai._utils import (
     _as_output_attributes,
     _finish_tracing,
@@ -102,7 +102,13 @@ class _Stream(ObjectProxy):  # type: ignore[misc,name-defined,type-arg,unused-ig
                 self._capture_request_once()
                 self._response_accumulator.process_chunk(item)
                 yield item
-        except Exception as exception:
+        except GeneratorExit:
+            # the caller stopped iterating early (break, close(), or the iterator was
+            # garbage collected); end the span with the output received so far,
+            # leaving the status unset like the anthropic and mistralai instrumentors
+            self._finish_tracing()
+            raise
+        except BaseException as exception:
             status = trace_api.Status(
                 status_code=trace_api.StatusCode.ERROR,
                 description=f"{type(exception).__name__}: {exception}",
@@ -122,7 +128,13 @@ class _Stream(ObjectProxy):  # type: ignore[misc,name-defined,type-arg,unused-ig
                 self._capture_request_once()
                 self._response_accumulator.process_chunk(item)
                 yield item
-        except Exception as exception:
+        except GeneratorExit:
+            # the caller stopped iterating early (break, close(), or the iterator was
+            # garbage collected); end the span with the output received so far,
+            # leaving the status unset like the anthropic and mistralai instrumentors
+            self._finish_tracing()
+            raise
+        except BaseException as exception:
             status = trace_api.Status(
                 status_code=trace_api.StatusCode.ERROR,
                 description=f"{type(exception).__name__}: {exception}",

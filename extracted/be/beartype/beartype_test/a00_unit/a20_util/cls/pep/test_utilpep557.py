@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
-Project-wide :pep:`557`-compliant **class-specific utility function** unit
-tests.
+Project-wide :pep:`557`-compliant **dataclass utility** unit tests.
 
 This submodule unit tests the public API of the private
 :mod:`beartype._util.cls.pep.clspep557` submodule.
@@ -36,7 +35,7 @@ def test_die_unless_type_pep557_dataclass() -> None:
     # ....................{ PASS                           }....................
     # Implicitly assert that this raiser raises *NO* exception when passed a
     # dataclass type.
-    die_unless_type_pep557_dataclass(DataclassDefault) is True
+    die_unless_type_pep557_dataclass(DataclassDefault)
 
     # ....................{ FAIL                           }....................
     # Assert that this raiser raises the expected exception when passed a
@@ -131,7 +130,7 @@ def test_get_pep557_dataclass_kwargs() -> None:
         :func:`.get_pep557_dataclass_kwargs` getter encapsulates all keyword
         parameters configuring the default dataclass *except* the ``frozen``
         parameter, which the caller is required to manually assert.
-    
+
         Note that the public API of the standard :mod:`dataclasses` module is
         extremely deficient and currently provides no sane means of
         differentiating default from non-default keyword parameters. Our only

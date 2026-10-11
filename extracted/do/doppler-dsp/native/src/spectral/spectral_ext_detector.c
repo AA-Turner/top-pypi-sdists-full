@@ -124,17 +124,17 @@ CorrDetectorObj_push (CorrDetectorObject *self, PyObject *args)
       return NULL;
     }
   size_t       n_in = (size_t)PyArray_SIZE (in_arr);
-  det_result_t results[64];
+  det_result_t results[1024];
   size_t       n_out = dp_detector_push (
       self->handle, (const float _Complex *)PyArray_DATA (in_arr), n_in,
-      results, 64);
+      results, 1024);
   Py_DECREF (in_arr);
-  if ((size_t)(n_out) > (size_t)(64))
+  if ((size_t)(n_out) > (size_t)(1024))
     {
       PyErr_Format (
           PyExc_RuntimeError,
           "CorrDetector.push: wrote %zu elements into a buffer of %zu",
-          (size_t)(n_out), (size_t)(64));
+          (size_t)(n_out), (size_t)(1024));
       return NULL;
     }
   PyObject *lst = PyList_New ((Py_ssize_t)n_out);
@@ -328,31 +328,33 @@ CorrDetector_getprop_last_corr (CorrDetectorObject *self,
   return arr;
 }
 
-static PyGetSetDef CorrDetector_getset[]
-    = { { "n", (getter)CorrDetector_getprop_n, NULL,
-          "Frame / FFT length in complex samples.\n", NULL },
-        { "dwell", (getter)CorrDetector_getprop_dwell, NULL,
-          "Integration depth: a detection statistic is dumped every `dwell` "
-          "frames.\n",
-          NULL },
-        { "count", (getter)CorrDetector_getprop_count, NULL,
-          "Frames accumulated toward the next dump (0 ... dwell-1).\n", NULL },
-        { "ring_cap", (getter)CorrDetector_getprop_ring_cap, NULL,
-          "Ring buffer capacity in complex samples.\n", NULL },
-        { "noise_lo", (getter)CorrDetector_getprop_noise_lo, NULL,
-          "Noise bin range lower bound (inclusive).\n", NULL },
-        { "noise_hi", (getter)CorrDetector_getprop_noise_hi, NULL,
-          "Noise bin range upper bound (inclusive).\n", NULL },
-        { "threshold", (getter)CorrDetector_getprop_threshold, NULL,
-          "0 = always fire; >0 = gate on test_stat.\n", NULL },
-        { "last_corr", (getter)CorrDetector_getprop_last_corr, NULL,
-          "The correlation vector from the most recent push() that produced a "
-          "result (None before that). This is a zero-copy view into a buffer "
-          "owned by the detector and reused every push() -- the next push() "
-          "(even one that doesn't produce a result) overwrites it in place. "
-          "Copy the array before the next push() if you need to retain it.\n",
-          NULL },
-        { NULL, NULL, NULL, NULL, NULL } };
+static PyGetSetDef CorrDetector_getset[] = {
+  { "n", (getter)CorrDetector_getprop_n, NULL,
+    "Frame / FFT length in complex samples.\n", NULL },
+  { "dwell", (getter)CorrDetector_getprop_dwell, NULL,
+    "Integration depth: a detection statistic is dumped every `dwell` "
+    "frames.\n",
+    NULL },
+  { "count", (getter)CorrDetector_getprop_count, NULL,
+    "Frames accumulated toward the next dump (0 ... dwell-1).\n", NULL },
+  { "ring_cap", (getter)CorrDetector_getprop_ring_cap, NULL,
+    "Ring buffer capacity in complex samples.\n", NULL },
+  { "noise_lo", (getter)CorrDetector_getprop_noise_lo, NULL,
+    "Noise bin range lower bound (inclusive).\n", NULL },
+  { "noise_hi", (getter)CorrDetector_getprop_noise_hi, NULL,
+    "Noise bin range upper bound (inclusive).\n", NULL },
+  { "threshold", (getter)CorrDetector_getprop_threshold, NULL,
+    "0 = always fire; >0 = gate on test_stat.\n", NULL },
+  { "last_corr", (getter)CorrDetector_getprop_last_corr, NULL,
+    "The correlation vector from the most recent push() that produced a "
+    "result (None before that, and after reset() or set_state(): the vector "
+    "is not part of the serialized state). This is a zero-copy view into a "
+    "buffer owned by the detector and reused every push() -- the next push() "
+    "(even one that doesn't produce a result) overwrites it in place. Copy "
+    "the array before the next push() if you need to retain it.\n",
+    NULL },
+  { NULL, NULL, NULL, NULL, NULL }
+};
 
 static PyObject *
 CorrDetectorObj_destroy (CorrDetectorObject *self,
@@ -387,10 +389,10 @@ CorrDetectorObj_exit (CorrDetectorObject *self, PyObject *args)
 
 static PyMethodDef CorrDetectorObj_methods[] = {
   { "reset", (PyCFunction)CorrDetectorObj_reset, METH_NOARGS,
-    "Reset the correlator, ring buffer, and last-corr flag. Discards any\n"
-    "partial frame buffered in the ring and zeroes the coherent accumulator.\n"
-    "Equivalent to starting fresh from the same reference without rebuilding\n"
-    "any internal object.\n"
+    "Reset the correlator, the carry, and last-corr flag. Discards any\n"
+    "partial frame carried between pushes and zeroes the coherent\n"
+    "accumulator. Equivalent to starting fresh from the same reference\n"
+    "without rebuilding any internal object.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -408,12 +410,22 @@ static PyMethodDef CorrDetectorObj_methods[] = {
     "push(x) -> list[tuple]\n"
     "\n"
     "Stream an arbitrary-length CF32 chunk through the detector pipeline.\n"
-    "Writes samples into the ring buffer, drains complete n-sample frames\n"
-    "through the correlator, and on every int-dump computes the test\n"
-    "statistic peak_mag / noise_est. Detections that pass the threshold are\n"
-    "appended to the Python return list as (lag, peak_mag, noise_est,\n"
-    "test_stat) tuples. In Python the result is always a list, even when\n"
-    "empty.\n"
+    "Takes the input in order, runs each complete n-sample frame through the\n"
+    "correlator, and on every int-dump computes the test statistic peak_mag\n"
+    "/ noise_est. Detections that pass the threshold are appended to the\n"
+    "Python return list as (lag, peak_mag, noise_est, test_stat) tuples. In\n"
+    "Python the result is always a list, even when empty.\n"
+    "\n"
+    "Python's push() has room for 1024 detections a call, so a push that\n"
+    "completes at most 1024 frames, counting the carry, loses nothing. One\n"
+    "that fills the room loses the rest of its input, every later frame\n"
+    "whether or not it would have made a detection, unless the rest is\n"
+    "shorter than a frame: that is kept as the carry. The next push stays on\n"
+    "the frame grid only when what was lost is a whole number of frames;\n"
+    "otherwise its lags are off by the remainder. Before v0.66 the room was\n"
+    "64, and a push past it kept up to ring_cap/n - 1 of those frames for\n"
+    "the next call and dropped the rest. #1992 and\n"
+    "just-buildit/just-makeit#2184 track sizing the list to the call.\n"
     "\n"
     "Parameters\n"
     "----------\n"

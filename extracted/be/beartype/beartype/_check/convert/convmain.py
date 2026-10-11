@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -12,35 +12,34 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype.typing import Optional
 from beartype._cave._cavemap import NoneTypeOr
 from beartype._check.convert._convcoerce import (
     coerce_func_hint_root,
     coerce_hint_root,
 )
 from beartype._check.convert._reduce.redmain import reduce_hint
-from beartype._check.metadata.hint.hintsane import HintSane
-from beartype._check.metadata.metadecor import BeartypeDecorMeta
+from beartype._check.cls.hint.hintsane import HintSane
+from beartype._check.cls.call.calldataabc import BeartypeCallDataABC
+from beartype._check.cls.call.calldatadecorfunc import BeartypeCallDecorFuncData
+from beartype._check.cls.call.calldataexternal import (
+    BEARTYPE_CALL_EXTERNAL_META)
 from beartype._conf.confmain import BeartypeConf
 from beartype._conf.confcommon import BEARTYPE_CONF_DEFAULT
-from beartype._data.error.dataerrmagic import EXCEPTION_PLACEHOLDER
+from beartype._data.check.error.dataerrmagic import EXCEPTION_PLACEHOLDER
 from beartype._data.func.datafuncarg import ARG_NAME_RETURN
-from beartype._data.hint.sign.datahintsigncls import HintSign
 from beartype._data.kind.datakindiota import SENTINEL
 from beartype._data.typing.datatypingport import Hint
-from beartype._data.typing.datatyping import (
-    HintSignOrNoneOrSentinel,
-    TypeStack,
-)
+from beartype._data.typing.datatyping import HintSignOrNoneOrSentinel
 from beartype._util.func.arg.utilfuncargiter import ArgKind
 from beartype._util.hint.pep.proposal.pep484585.pep484585func import (
     reduce_hint_pep484585_func_return)
+from typing import Optional
 
 # ....................{ SANIFIERS ~ root                   }....................
 #FIXME: Unit test us up, please.
 def sanify_hint_root_func(
     # Mandatory parameters.
-    decor_meta: BeartypeDecorMeta,
+    decor_func: BeartypeCallDecorFuncData,
     hint: Hint,
     pith_name: str,
 
@@ -53,8 +52,8 @@ def sanify_hint_root_func(
     type hint** (i.e., possibly PEP-noncompliant hint annotating the parameter
     or return with the passed name of the passed callable) if this hint is both
     reducible and unignorable, this hint unmodified if this hint is both
-    irreducible and unignorable, or :data:`.HINT_SANE_IGNORABLE` otherwise (i.e., if
-    this hint is ignorable).
+    irreducible and unignorable, or :data:`.HINT_SANE_IGNORABLE` otherwise
+    (i.e., if this hint is ignorable).
 
     Specifically, this function:
 
@@ -87,8 +86,9 @@ def sanify_hint_root_func(
 
     Parameters
     ----------
-    decor_meta : BeartypeDecorMeta
-        Decorated callable directly annotated by this hint.
+    decor_func : BeartypeCallDecorFuncData
+        **Beartype decorator call metadata** (i.e., dataclass aggregating *all*
+        metadata encapsulating the currently decorated callable).
     hint : Hint
         Possibly PEP-noncompliant root type hint to be sanified.
     pith_name : str
@@ -96,7 +96,7 @@ def sanify_hint_root_func(
 
         * If this hint annotates a parameter, the name of that parameter.
         * If this hint annotates the return, ``"return"``.
-    arg_kind : Optional[ArgKind]
+    arg_kind : Optional[ArgKind], default: None
         Either:
 
         * If this hint annotates a parameter, that parameter's **kind** (i.e.,
@@ -106,7 +106,7 @@ def sanify_hint_root_func(
         * If this hint annotates the return, :data:`None`.
 
         Defaults to :data:`None`.
-    exception_prefix : str, optional
+    exception_prefix : str, default: EXCEPTION_PLACEHOLDER
         Human-readable substring prefixing raised exception messages. Defaults
         to :data:`.EXCEPTION_PLACEHOLDER`.
 
@@ -136,30 +136,33 @@ def sanify_hint_root_func(
     # CAUTION: Synchronize with the sanify_hint_root_statement() sanitizer.
     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+    # ....................{ COERCE                         }....................
     # PEP-compliant hint coerced from this possibly PEP-noncompliant hint if
     # this hint is coercible *OR* this hint as is otherwise. Since the passed
     # hint is *NOT* necessarily PEP-compliant, perform this coercion *BEFORE*
     # validating this hint to be PEP-compliant.
     hint_coerced = coerce_func_hint_root(
-        decor_meta=decor_meta,
+        decor_func=decor_func,
         hint=hint,
         pith_name=pith_name,
         exception_prefix=exception_prefix,
     )
+    # print(f'Coerced hint {repr(hint)} -> {repr(hint_coerced)}!')
 
     # If this possibly PEP-noncompliant hint was actually coerced into a
     # PEP-compliant hint...
     if hint_coerced is not hint:
-        # Note this coercion.
+        # Preserve this coercion.
         hint = hint_coerced
 
         # Safely set the hint annotating the parameter or return with the passed
         # name of the decorated callable to the passed hint in a portable manner
-        # consistent with both PEP 649 and Python >= 3.14.
-        decor_meta.set_func_pith_hint(pith_name=pith_name, hint=hint)
+        # consistent with both PEPs 649 and 749 under Python >= 3.14.
+        decor_func.set_func_pith_hint(pith_name=pith_name, hint=hint)
     # Else, this possibly PEP-noncompliant hint was *NOT* coerced into a
     # PEP-compliant hint, implying this hint to already be PEP-compliant.
 
+    # ....................{ REDUCE                         }....................
     # If this hint annotates the return, then (in order):
     # * If this hint is contextually invalid for this callable (e.g., generator
     #   whose return is not annotated as "Generator[...]"), raise an exception.
@@ -173,8 +176,8 @@ def sanify_hint_root_func(
     # thus *NOT* performed by the sanify_hint_root_statement() sanitizer.
     if pith_name == ARG_NAME_RETURN:
         hint = reduce_hint_pep484585_func_return(
-            func=decor_meta.func_wrappee,
-            func_annotations=decor_meta.func_annotations,
+            func=decor_func.func_wrappee,
+            func_annotations=decor_func.decoratee_annotations,
             exception_prefix=exception_prefix,
         )
     # Else, this hint annotates a parameter.
@@ -202,21 +205,22 @@ def sanify_hint_root_func(
     # their current form and thus temporarily reduced in-memory into a more
     # convenient form for beartype-specific type-checking elsewhere.
     hint_sane = reduce_hint(
-        hint=hint,
-        conf=decor_meta.conf,
-        decor_meta=decor_meta,
         arg_kind=arg_kind,
-        cls_stack=decor_meta.cls_stack,
+        call_curr=decor_func,
+        conf=decor_func.conf,
+        hint=hint,
         pith_name=pith_name,
         exception_prefix=exception_prefix,
     )
 
+    # ....................{ RETURN                         }....................
     # Return this hint if this hint is unignorable *OR* "typing.Any" otherwise.
     return hint_sane
 
 
 #FIXME: Unit test us up, please.
 def sanify_hint_root_statement(
+    call_curr: BeartypeCallDataABC,
     hint: Hint,
     conf: BeartypeConf,
     exception_prefix: str,
@@ -234,7 +238,7 @@ def sanify_hint_root_statement(
     type hinting annotation like a user-defined class variable, callable
     parameter or return, or assignment statement). Such factories include:
 
-    * The private :func:`beartype._check.checkmake.make_func_tester` factory,
+    * The private :func:`beartype._check.make.checkmakefunc.make_func_tester` factory,
       internally called by:
 
       * The public :func:`beartype.door.die_if_unbearable` function.
@@ -244,6 +248,9 @@ def sanify_hint_root_statement(
 
     Parameters
     ----------
+    call_curr : BeartypeCallDataABC
+        **Beartype call metadata** (i.e., dataclass aggregating *all* common
+        metadata encapsulating the lexical scope of this external statement).
     hint : Hint
         Possibly PEP-noncompliant root type hint to be sanified.
     conf : BeartypeConf
@@ -289,9 +296,13 @@ def sanify_hint_root_statement(
 
     # Metadata encapsulating the sanification of this hint.
     hint_sane = reduce_hint(
-        hint=hint, conf=conf, exception_prefix=exception_prefix)
+        call_curr=call_curr,
+        conf=conf,
+        hint=hint,
+        exception_prefix=exception_prefix,
+    )
 
-    # Return this metadat.
+    # Return this metadata.
     return hint_sane
 
 # ....................{ SANIFIERS ~ any                    }....................
@@ -304,11 +315,11 @@ def sanify_hint_root_statement(
 #FIXME: Unit test us up, please.
 def sanify_hint_child(
     # Mandatory parameters.
+    call_curr: BeartypeCallDataABC,
     hint: Hint,
     hint_parent_sane: Optional[HintSane],
 
     # Optional parameters.
-    cls_stack: TypeStack = None,
     conf: BeartypeConf = BEARTYPE_CONF_DEFAULT,
     hint_sign_seed: HintSignOrNoneOrSentinel = SENTINEL,
     pith_name: Optional[str] = None,
@@ -325,22 +336,21 @@ def sanify_hint_child(
 
     Parameters
     ----------
+    call_curr : BeartypeCallDataABC
+        **Beartype call metadata** (i.e., dataclass aggregating *all* common
+        metadata encapsulating the user-defined callable, type, or statement
+        currently being type-checked by the end user).
     hint : Hint
         Child type hint to be sanified.
     hint_parent_sane : Optional[HintSane]
         Either:
 
         * If this hint is actually a **root type hint,** :data:`None`.
-        * Else, **Sanified parent type hint metadata** (i.e., immutable and thus
+        * Else, **sanified parent type hint metadata** (i.e., immutable and thus
           hashable object encapsulating *all* metadata previously returned by
           :mod:`beartype._check.convert.convmain` sanifiers after sanitizing
           the possibly PEP-noncompliant parent hint of this child hint into a
           fully PEP-compliant parent hint).
-    cls_stack : TypeStack, default: None
-        **Type stack** (i.e., either a tuple of the one or more
-        :func:`beartype.beartype`-decorated classes lexically containing the
-        class variable or method annotated by this hint *or* :data:`None`).
-        Defaults to :data:`None`.
     conf : BeartypeConf, default: BEARTYPE_CONF_DEFAULT
         **Beartype configuration** (i.e., self-caching dataclass encapsulating
         all settings configuring type-checking for the passed object). Defaults
@@ -420,11 +430,11 @@ def sanify_hint_child(
     # exists *NO* space to be compacted here and thus *NO* demonstrable
     # reason to perform hint coercion.
     hint_sane = reduce_hint(
+        call_curr=call_curr,
+        conf=conf,
         hint=hint,
         hint_parent_sane=hint_parent_sane,
         hint_sign_seed=hint_sign_seed,
-        conf=conf,
-        cls_stack=cls_stack,
         pith_name=pith_name,
         exception_prefix=exception_prefix,
     )
@@ -439,6 +449,7 @@ def sanify_hint_any(
     hint: Hint,
 
     # Optional parameters.
+    call_curr: BeartypeCallDataABC = BEARTYPE_CALL_EXTERNAL_META,
     hint_parent_sane: Optional[HintSane] = None,
     **kwargs
 ) -> HintSane:
@@ -455,15 +466,22 @@ def sanify_hint_any(
     -------
     **The more fine-grained** :func:`.sanify_hint_child` **sanifier should
     typically be called instead.** This more coarse-grained sanifier drops the
-    mandatory ``hint_parent_sane`` parameter required by the former, which is
-    *not* necessarily a good thing. That parameter should typically be passed.
-    Failing to pass that parameter drops essential metadata required to properly
-    sanitize many insane type hints.
+    mandatory ``call_curr`` and ``hint_parent_sane`` parameters required by the
+    former, which is *not* necessarily a good thing. Those parameters should
+    typically be passed. Failing to pass those parameters drops essential
+    metadata required to properly sanitize many kinds of insane type hints.
 
     Parameters
     ----------
     hint : Hint
-        Child type hint to be sanified.
+        Type hint to be sanified.
+    call_curr : BeartypeCallDataABC, default: BEARTYPE_CALL_EXTERNAL_META
+        **Beartype call metadata** (i.e., dataclass aggregating *all* common
+        metadata encapsulating the user-defined callable, type, or statement
+        currently being type-checked by the end user). Defaults to the beartype
+        external call metadata singleton, thus sanifying :pep:`484`-compliant
+        stringified forward reference type hints against the local and global
+        scope of the first third-party caller on the current call stack.
     hint_parent_sane : Optional[HintSane], default: None
         Either:
 
@@ -476,7 +494,7 @@ def sanify_hint_any(
 
         Defaults to :data:`None`.
 
-    All remaining keyword parameters are as accepted by the comparable
+    All remaining keyword parameters are passed as is to the lower-level
     :func:`.sanify_hint_child` sanifier.
 
     Returns
@@ -493,4 +511,8 @@ def sanify_hint_any(
 
     # Defer to our betters.
     return sanify_hint_child(
-        hint=hint, hint_parent_sane=hint_parent_sane, **kwargs)
+        call_curr=call_curr,
+        hint=hint,
+        hint_parent_sane=hint_parent_sane,
+        **kwargs
+    )

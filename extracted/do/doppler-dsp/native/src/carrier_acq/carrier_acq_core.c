@@ -55,9 +55,14 @@ dp_carrier_acq_create (double sample_rate_hz, double symbol_rate_hz,
 
   if (resolution_hz <= 0.0)
     resolution_hz = symbol_rate_hz / 10.0;
+  /* Floored at 3, the shortest block whose window has gain under every
+   * window offered: the symmetric Hann (the default) is all zeros at 2,
+   * which PSD refuses, and a caller wrapping this create in dp_xnn --
+   * AsyncDsssReceiver does, with refine_n_fft as the block -- aborted on
+   * it (#1959, #1985).  At 2 the estimate was NaN anyway. */
   size_t n_fft = (size_t)llround (sample_rate_hz / resolution_hz);
-  if (n_fft < 2)
-    n_fft = 2;
+  if (n_fft < 3)
+    n_fft = 3;
 
   dp_carrier_acq_state_t *s = calloc (1, sizeof (*s));
   if (!s)
@@ -368,7 +373,16 @@ dp_carrier_acq_get_state (const dp_carrier_acq_state_t *s, void *blob)
   dp_w_bytes (&_w, &extra, sizeof extra);
   DP_W_CHILD (&_w, dp_psd, s->psd);
   DP_W_CHILD (&_w, dp_detector, s->det);
-  dp_w_cf32 (&_w, s->carry_buf, s->psd->n);
+  /* Only the first carry_len samples are state. The rest of the buffer is
+     whatever an earlier block left there, or what malloc handed back, so
+     writing it made the blob a function of the allocator, not of the
+     object (#2076). The region keeps its fixed psd->n size, as
+     state_bytes() promises, and carries zeros past the carry. */
+  const size_t tail = s->psd->n - s->carry_len;
+  dp_w_cf32 (&_w, s->carry_buf, s->carry_len);
+  void *zeros = dp_w_reserve (&_w, tail * sizeof (float _Complex));
+  if (zeros)
+    memset (zeros, 0, tail * sizeof (float _Complex));
 }
 
 int

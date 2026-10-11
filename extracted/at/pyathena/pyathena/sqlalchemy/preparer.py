@@ -1,3 +1,12 @@
+# Copyright 2020 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""SQLAlchemy identifier preparers for Athena DML and DDL statements."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -59,6 +68,17 @@ class AthenaDDLIdentifierPreparer(IdentifierPreparer):
         quote_case_sensitive_collations: bool = True,
         omit_schema: bool = False,
     ):
+        """Initialize the preparer with backtick quoting by default.
+
+        Args:
+            dialect: The dialect that uses this preparer.
+            initial_quote: Character that begins a delimited identifier.
+            final_quote: Character that ends a delimited identifier. ``None``
+                uses ``initial_quote``.
+            escape_quote: Character that escapes a quote inside an identifier.
+            quote_case_sensitive_collations: Forwarded to ``IdentifierPreparer``.
+            omit_schema: Do not prepend the schema name to identifiers.
+        """
         super().__init__(
             dialect=dialect,
             initial_quote=initial_quote,

@@ -54,11 +54,9 @@ from typing import Any
 from matrx_ai.db._registry import get_model as get_db_model
 from matrx_ai.tools.implementations.kind_shared import (
     CODE_SECTIONS,
-    COMPONENT_DESIGN_DOCTRINE,
     COMPONENT_PLATFORMS,
     COMPONENT_ROLES,
-    PLATFORM_COMPONENT_CONTRACTS,
-    PROPS_CONTRACT,
+    SHAPE_AUTHORING_POINTER,
     can_access_kind,
     component_globals_lint,
     component_import_lint,
@@ -201,12 +199,8 @@ async def kindcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
     contain another user's business data, and only someone who can fix the
     component needs them.
 
-    The result includes ``props_contract`` — READ IT before writing any
-    component code: the frontend mounts DB components as
-    ``<Component data={value} kind={kind} config={config} />``, so the kind
-    instance arrives as ``props.data`` (never flat props), props_transform
-    output ALSO lands under ``props.data``, and 'generic_structured' is the
-    only routable input-role component key.
+    Authoring rules: the ``shape-authoring`` skill (attached to every run
+    holding this tool); the result carries only a ``rules`` pointer to it.
 
     Use this as the FIRST call when creating or fixing any kind component.
     """
@@ -293,9 +287,7 @@ async def kindcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
                 component_ids=[str(c.id) for c in comp_rows],
                 open_incidents=[KindComponentIncidentGroup(**g) for g in incidents],
                 incidents_visible=is_editor,
-                props_contract=PROPS_CONTRACT,
-                platform_components=PLATFORM_COMPONENT_CONTRACTS,
-                design_doctrine=COMPONENT_DESIGN_DOCTRINE,
+                rules=SHAPE_AUTHORING_POINTER,
                 summary=KindComponentContextSummary(
                     kind=kd.kind,
                     kind_definition_id=str(kd.id),
@@ -330,15 +322,8 @@ async def kindcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
 async def kindcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Create a new DB-authored render component for a kind.
 
-    PROPS CONTRACT (the #1 failure class — read carefully): the frontend
-    mounts DB components as ``<Component data={value} kind={kind}
-    config={config} />``. The kind instance arrives as ``props.data`` —
-    destructure ``{ data }`` and read every field from it
-    (``data.title``, ``data.items.map(...)``). Flat props (``props.title``)
-    are NEVER provided; a component reading them renders EMPTY with no error
-    and no incident. If you set ``props_transform``, its output ALSO arrives
-    as ``props.data`` — it reshapes the value, it does not spread keys into
-    props. Sources that never reference ``data`` are refused at write time.
+    Authoring rules: the ``shape-authoring`` skill. Sources that never
+    reference ``data`` are refused at write time.
 
     Required: ``kind`` (slug or kind_definition_id), ``component_key`` (short
     stable identifier, e.g. 'invoice_card'), and ``component_source`` — the
@@ -589,11 +574,8 @@ async def kindcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
     the DB on every save regardless, and the prior row is snapshotted to
     history automatically.
 
-    PROPS CONTRACT: the component receives the kind instance as ``props.data``
-    (``<Component data={value} kind={kind} config={config} />`` — flat props
-    are never provided; props_transform output also lands under
-    ``props.data``). A component_source that never references ``data`` is
-    refused — it would mount as a silent empty render.
+    Authoring rules: the ``shape-authoring`` skill. A component_source that
+    never references ``data`` is refused.
     """
     from matrx_ai.tools._generated_declarations import KindcompUpdateCodeArgs
 
@@ -681,10 +663,8 @@ async def kindcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
     normalized → quote+whitespace-normalized). If any patch fails all rounds
     the WHOLE operation aborts and nothing is written.
 
-    PROPS CONTRACT: the component receives the kind instance as ``props.data``
-    (flat props are never provided; props_transform output also lands under
-    ``props.data``). If patching would leave component_source with no ``data``
-    reference, the whole operation is refused — the silent-empty-render class.
+    Authoring rules: the ``shape-authoring`` skill. A patch that leaves
+    component_source with no ``data`` reference is refused.
     """
     from matrx_ai.tools._generated_declarations import KindcompPatchCodeArgs
 

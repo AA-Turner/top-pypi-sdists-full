@@ -1,7 +1,10 @@
+"""DB API 2.0 connection to Amazon Athena."""
+
 from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 from collections.abc import Callable
 from typing import (
@@ -23,6 +26,7 @@ from pyathena.converter import Converter
 from pyathena.cursor import Cursor
 from pyathena.error import NotSupportedError, ProgrammingError
 from pyathena.formatter import DefaultParameterFormatter, Formatter
+from pyathena.glue import GlueMetadataClient
 from pyathena.util import RetryConfig
 
 if TYPE_CHECKING:
@@ -102,6 +106,7 @@ class Connection(Generic[ConnectionCursor]):
     @overload
     def __init__(
         self: Connection[Cursor],
+        *,
         s3_staging_dir: str | None = ...,
         region_name: str | None = ...,
         schema_name: str | None = ...,
@@ -128,12 +133,15 @@ class Connection(Generic[ConnectionCursor]):
         result_reuse_minutes: int = ...,
         on_start_query_execution: Callable[[str], None] | None = ...,
         on_poll: OnPollCallback | None = ...,
+        glue_metadata_fallback: bool = ...,
+        s3_config: Config | None = ...,
         **kwargs,
     ) -> None: ...
 
     @overload
     def __init__(
         self: Connection[ConnectionCursor],
+        *,
         s3_staging_dir: str | None = ...,
         region_name: str | None = ...,
         schema_name: str | None = ...,
@@ -160,11 +168,14 @@ class Connection(Generic[ConnectionCursor]):
         result_reuse_minutes: int = ...,
         on_start_query_execution: Callable[[str], None] | None = ...,
         on_poll: OnPollCallback | None = ...,
+        glue_metadata_fallback: bool = ...,
+        s3_config: Config | None = ...,
         **kwargs,
     ) -> None: ...
 
     def __init__(
         self,
+        *,
         s3_staging_dir: str | None = None,
         region_name: str | None = None,
         schema_name: str | None = "default",
@@ -191,6 +202,8 @@ class Connection(Generic[ConnectionCursor]):
         result_reuse_minutes: int = CursorIterator.DEFAULT_RESULT_REUSE_MINUTES,
         on_start_query_execution: Callable[[str], None] | None = None,
         on_poll: OnPollCallback | None = None,
+        glue_metadata_fallback: bool = True,
+        s3_config: Config | None = None,
         **kwargs,
     ) -> None:
         """Initialize a new Athena database connection.
@@ -198,6 +211,7 @@ class Connection(Generic[ConnectionCursor]):
         Args:
             s3_staging_dir: S3 location to store query results. Required if not
                 using workgroups or if workgroup doesn't have result location.
+                None uses the ``AWS_ATHENA_S3_STAGING_DIR`` environment variable.
                 Pass an empty string to explicitly disable S3 staging and skip
                 the ``AWS_ATHENA_S3_STAGING_DIR`` environment variable fallback.
                 This is required when connecting to a workgroup with managed
@@ -207,6 +221,9 @@ class Connection(Generic[ConnectionCursor]):
             catalog_name: Data catalog name. Defaults to "awsdatacatalog".
             work_group: Athena workgroup name. Can substitute for s3_staging_dir
                 if workgroup has result location configured.
+                None uses the ``AWS_ATHENA_WORK_GROUP`` environment variable.
+                Pass an empty string to skip that environment variable fallback
+                and leave the workgroup unset.
             poll_interval: Seconds between query status polls. Defaults to 1.0.
             encryption_option: S3 encryption for results ("SSE_S3", "SSE_KMS", "CSE_KMS").
             kms_key: KMS key ID when using SSE_KMS or CSE_KMS encryption.
@@ -221,16 +238,24 @@ class Connection(Generic[ConnectionCursor]):
             retry_config: Retry configuration for API calls. Uses default if None.
             cursor_class: Default cursor class for this connection.
             cursor_kwargs: Default keyword arguments for cursor creation.
+                Arguments passed to ``cursor()`` override the same keys.
             kill_on_interrupt: Cancel running queries on interrupt. Defaults to True.
             session: Pre-configured boto3 Session. Creates new session if None.
             config: Boto3 Config object for client configuration.
             result_reuse_enable: Enable Athena query result reuse. Defaults to False.
             result_reuse_minutes: Minutes to reuse cached results.
-            on_start_query_execution: Callback function called when query starts.
+            on_start_query_execution: Callback invoked with each query ID before the cursor
+                waits for the query, as for the ``execute()`` argument of the same name.
             on_poll: Callback invoked once per poll iteration with the current
                 execution object (``AthenaQueryExecution``, or
                 ``AthenaCalculationExecutionStatus`` for Spark). Useful for
                 monitoring live query progress. Defaults to None.
+            glue_metadata_fallback: In ``AwsDataCatalog`` and S3 Tables catalogs,
+                answer a throttled table-metadata, table-listing or
+                database-listing request from the AWS Glue Data Catalog before
+                retrying it. Defaults to True.
+            s3_config: Botocore Config options for the S3 client only, such as
+                ``max_pool_connections``. They are merged over ``config``.
             **kwargs: Additional arguments passed to boto3 Session and client.
 
         Raises:
@@ -239,7 +264,8 @@ class Connection(Generic[ConnectionCursor]):
         Note:
             Either s3_staging_dir or work_group must be specified. Environment
             variables AWS_ATHENA_S3_STAGING_DIR and AWS_ATHENA_WORK_GROUP are
-            checked if parameters are not provided.
+            checked only when the corresponding argument is omitted or None.
+            An explicit empty string disables that fallback and becomes None.
 
             When using a workgroup with managed query result storage, pass
             ``s3_staging_dir=""`` to prevent the environment variable fallback
@@ -261,8 +287,8 @@ class Connection(Generic[ConnectionCursor]):
         self.region_name = region_name
         self.schema_name = schema_name
         self.catalog_name = catalog_name
-        if work_group:
-            self.work_group: str | None = work_group
+        if work_group is not None:
+            self.work_group: str | None = work_group or None
         else:
             self.work_group = os.getenv(self._ENV_WORK_GROUP)
         self.poll_interval = poll_interval
@@ -277,6 +303,9 @@ class Connection(Generic[ConnectionCursor]):
         if self.s3_staging_dir and not self.s3_staging_dir.endswith("/"):
             self.s3_staging_dir = f"{self.s3_staging_dir}/"
 
+        # Whether the session was given rather than built from the arguments,
+        # which then do not reproduce its credentials.
+        self._session_given = bool(session)
         if session:
             self._session = session
         else:
@@ -319,16 +348,16 @@ class Connection(Generic[ConnectionCursor]):
                 **self._session_kwargs,
             )
 
-        if not self.config.user_agent_extra or (
-            pyathena.user_agent_extra not in self.config.user_agent_extra
-        ):
-            self.config.user_agent_extra = (
-                f"{pyathena.user_agent_extra}"
-                f"{' ' + self.config.user_agent_extra if self.config.user_agent_extra else ''}"
-            )
+        self._add_user_agent(self.config)
+        self.s3_config: Config = self.config.merge(s3_config) if s3_config else self.config
+        self._add_user_agent(self.s3_config)
         self._client = self._session.client(
             "athena", region_name=self.region_name, config=self.config, **self._client_kwargs
         )
+        # Built on first use, once per connection even when several threads
+        # need it at the same time.
+        self._s3_client_lock = threading.Lock()
+        self._s3_client: BaseClient | None = None
         self._converter = converter
         self._formatter = formatter if formatter else DefaultParameterFormatter()
         self._retry_config = retry_config if retry_config else RetryConfig()
@@ -339,6 +368,23 @@ class Connection(Generic[ConnectionCursor]):
         self.result_reuse_minutes = result_reuse_minutes
         self.on_start_query_execution = on_start_query_execution
         self.on_poll = on_poll
+        self.glue_metadata_fallback = glue_metadata_fallback
+        self._glue = GlueMetadataClient(
+            self._session, self.region_name, self.config, self._client_kwargs
+        )
+
+    @staticmethod
+    def _add_user_agent(config: Config) -> None:
+        """Add PyAthena's user agent to a botocore config unless it has it.
+
+        Args:
+            config: The config to update in place.
+        """
+        if not config.user_agent_extra or pyathena.user_agent_extra not in config.user_agent_extra:
+            config.user_agent_extra = (
+                f"{pyathena.user_agent_extra}"
+                f"{' ' + config.user_agent_extra if config.user_agent_extra else ''}"
+            )
 
     def _assume_role(
         self,
@@ -462,6 +508,18 @@ class Connection(Generic[ConnectionCursor]):
         return {k: v for k, v in self._kwargs.items() if k in self._CLIENT_PASSING_ARGS}
 
     @property
+    def _s3_client_kwargs(self) -> dict[str, Any]:
+        """Get client keyword arguments for S3 client creation.
+
+        Returns:
+            The client keyword arguments without Athena's ``endpoint_url``
+            and ``api_version``.
+        """
+        return {
+            k: v for k, v in self._client_kwargs.items() if k not in ("endpoint_url", "api_version")
+        }
+
+    @property
     def session(self) -> Session:
         """Get the boto3 session used for AWS API calls.
 
@@ -478,6 +536,24 @@ class Connection(Generic[ConnectionCursor]):
             The configured boto3 Athena client.
         """
         return self._client
+
+    @property
+    def s3_client(self) -> BaseClient:
+        """The S3 client shared by the connection's result sets, filesystems and Spark cursors.
+
+        It is built on first use from the connection's session, region,
+        ``s3_config`` and client arguments, except Athena's ``endpoint_url``
+        and ``api_version``.
+        """
+        with self._s3_client_lock:
+            if self._s3_client is None:
+                self._s3_client = self._session.client(
+                    "s3",
+                    region_name=self.region_name,
+                    config=self.s3_config,
+                    **self._s3_client_kwargs,
+                )
+            return self._s3_client
 
     @property
     def retry_config(self) -> RetryConfig:
@@ -525,7 +601,8 @@ class Connection(Generic[ConnectionCursor]):
             cursor: Custom cursor class to use. If not provided, uses the
                 connection's default cursor class.
             **kwargs: Additional keyword arguments to pass to the cursor
-                constructor. These override connection defaults.
+                constructor. These override the connection's ``cursor_kwargs``
+                and its defaults.
 
         Returns:
             A cursor object that can execute SQL queries.
@@ -540,7 +617,21 @@ class Connection(Generic[ConnectionCursor]):
             >>> pandas_cursor = connection.cursor(PandasCursor)
             >>> df = pandas_cursor.execute("SELECT * FROM my_table").fetchall()
         """
-        kwargs.update(self.cursor_kwargs)
+        return self._cursor(cursor, **{**self.cursor_kwargs, **kwargs})
+
+    def _cursor(
+        self, cursor: type[FunctionalCursor] | None, /, **kwargs: Any
+    ) -> FunctionalCursor | ConnectionCursor:
+        """Create a cursor without applying the connection's ``cursor_kwargs``.
+
+        Args:
+            cursor: The cursor class. If None, the connection's default cursor class.
+            **kwargs: The cursor constructor arguments. Omitted connection settings
+                default to the connection's values.
+
+        Returns:
+            The created cursor.
+        """
         _cursor = cursor or self.cursor_class
         converter = kwargs.pop("converter", self._converter)
         if not converter:
@@ -567,17 +658,42 @@ class Connection(Generic[ConnectionCursor]):
             **kwargs,
         )
 
+    def _internal_cursor(self, cursor: type[FunctionalCursor]) -> FunctionalCursor:
+        """Create a cursor for queries that PyAthena runs on its own behalf.
+
+        Only the connection's ``cursor_kwargs`` that the cursor class accepts are
+        applied, leaving out options of the default cursor class such as ``unload``
+        of a DataFrame cursor. ``arraysize`` is left out too, since a DataFrame
+        cursor allows values above this cursor's page size limit. The cursor
+        class's default converter is used.
+
+        Args:
+            cursor: The cursor class.
+
+        Returns:
+            The created cursor.
+        """
+        accepted = cursor._constructor_keyword_names() - {"arraysize"}
+        kwargs = {k: v for k, v in self.cursor_kwargs.items() if k in accepted}
+        kwargs["converter"] = cursor.get_default_converter()
+        return cast(FunctionalCursor, self._cursor(cursor, **kwargs))
+
     def close(self) -> None:
         """Close the connection.
 
-        Closes the database connection. This method is provided for DB API 2.0
-        compatibility. Since Athena connections are stateless, this method
-        currently does not perform any actual cleanup operations.
+        Closes the network connections of the Athena client and of the Glue and
+        S3 clients if they were built. A client used after this opens new
+        network connections.
 
         Note:
             This method is called automatically when using the connection
             as a context manager (with statement).
         """
+        self._client.close()
+        self._glue.close()
+        with self._s3_client_lock:
+            if self._s3_client is not None:
+                self._s3_client.close()
 
     def commit(self) -> None:
         """Commit any pending transaction.

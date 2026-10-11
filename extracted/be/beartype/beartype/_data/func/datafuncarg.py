@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -9,8 +9,6 @@ describing arguments accepted by various functions and methods).
 
 This private submodule is *not* intended for importation by downstream callers.
 '''
-
-# ....................{ IMPORTS                            }....................
 
 # ....................{ NAMES ~ return                     }....................
 ARG_NAME_RETURN = 'return'

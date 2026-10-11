@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -132,6 +132,12 @@ def beartyping(
 
 # ....................{ CONTEXTS ~ test                    }....................
 #FIXME: Unit test us up, please.
+#FIXME: *RESURRECT THIS*. We currently lack sufficient time and motivation to
+#implement this properly, as doing so requires transitively defining copy_deep()
+#methods across *ALL* data structures utilized by the "beartype.claw._clawstate"
+#submodule. In the meanwhile, callers are encouraged to simply isolate
+#"beartype.claw" to subprocesses with @pytest.mark.run_in_subprocess. Since most
+#already do, there's not much incentive to actually do this properly. *sigh*
 @contextmanager
 def packages_trie_reverted() -> Iterator[None]:
     '''
@@ -156,55 +162,59 @@ def packages_trie_reverted() -> Iterator[None]:
     None
         This context manager yields *no* objects.
     '''
+
+    # It is what it is. *sigh*
+    yield
     # print('Clearing "beartype.claw" state...')
 
-    # Avoid circular import dependencies.
-    from beartype.claw._clawstate import (
-        claw_lock,
-        claw_state,
-    )
-
-    #FIXME: Uncomment this *AFTER*:
-    #* Correctly implementing the copy_deep() method called below. *sigh*
-    #* Defining and calling the set_claw_state() function documented below.
-    # # With a submodule-specific thread-safe reentrant lock, capture the prior
-    # # global state of the "beartype.claw" subpackage *BEFORE* performing the
-    # # caller-defined body of the parent "with" statement.
-    # with claw_lock:
-    #     # Deep copy of the current beartype import hook state, enabling this
-    #     # context manager below to transparently restore this state *BEFORE*
-    #     # returning.
-    #     claw_state_prior = claw_state.copy_deep()
-
-    # Perform the caller-defined body of the parent "with" statement.
-    try:
-        yield
-    # After doing so, regardless of whether doing so raised an exception...
-    finally:
-        # print(f'claw_state [after test]: {repr(claw_state)}')
-
-        # With a submodule-specific thread-safe reentrant lock...
-        with claw_lock:
-            #FIXME: *UHM. NO. WE NOW NEED TO RESTORE THE DEEP COPY MADE ABOVE.*
-            #This is sorta trivial, but sorta not. For safety, we probably want
-            #to define a new *THREAD-SAFE* utility function in the "_clawstate"
-            #submodule resembling:
-            #    def set_claw_state(claw_state_new: BeartypeClawState) -> None:
-            #        assert isinstance(claw_state_new, BeartypeClawState), (
-            #            f'{repr(claw_state_new)} not "beartype.claw" state.')
-            #
-            #        global claw_state
-            #
-            #        with claw_lock:
-            #            claw_state = claw_state_new
-
-            # Restore the global state of the "beartype.claw" subpackage back to
-            # its prior state *BEFORE* performing the caller-defined body of the
-            # parent "with" statement.
-            claw_state.reinit()
-
-            # If *NO* packages are currently hooked by "beartype.claw" import
-            # hooks, remove the beartype import path hook added by any import
-            # hooks registered by the caller-defined body of the parent "with"
-            # statement. Phew!
-            remove_beartype_pathhook_unless_packages_trie()
+    # # Avoid circular import dependencies.
+    # from beartype.claw._clawstate import (
+    #     claw_lock,
+    #     claw_state,
+    # )
+    #
+    # #FIXME: Uncomment this *AFTER*:
+    # #* Correctly implementing the copy_deep() method called below. *sigh*
+    # #* Defining and calling the set_claw_state() function documented below.
+    # # # With a submodule-specific thread-safe reentrant lock, capture the prior
+    # # # global state of the "beartype.claw" subpackage *BEFORE* performing the
+    # # # caller-defined body of the parent "with" statement.
+    # # with claw_lock:
+    # #     # Deep copy of the current beartype import hook state, enabling this
+    # #     # context manager below to transparently restore this state *BEFORE*
+    # #     # returning.
+    # #     claw_state_prior = claw_state.copy_deep()
+    #
+    # # Perform the caller-defined body of the parent "with" statement.
+    # try:
+    #     yield
+    # # After doing so, regardless of whether doing so raised an exception...
+    # finally:
+    #     # print(f'claw_state [after test]: {repr(claw_state)}')
+    #
+    #     # With a submodule-specific thread-safe reentrant lock...
+    #     with claw_lock:
+    #         #FIXME: *UHM. NO. WE NOW NEED TO RESTORE THE DEEP COPY MADE ABOVE.*
+    #         #This is sorta trivial, but sorta not. For safety, we probably want
+    #         #to define a new *THREAD-SAFE* utility function in the "_clawstate"
+    #         #submodule resembling:
+    #         #    def set_claw_state(claw_state_new: BeartypeClawState) -> None:
+    #         #        assert isinstance(claw_state_new, BeartypeClawState), (
+    #         #            f'{repr(claw_state_new)} not "beartype.claw" state.')
+    #         #
+    #         #        global claw_state
+    #         #
+    #         #        with claw_lock:
+    #         #            claw_state = claw_state_new
+    #         #
+    #         #Calling claw_state.reinit() is fundamentally dangerous. Stop.
+    #         # Restore the global state of the "beartype.claw" subpackage back to
+    #         # its prior state *BEFORE* performing the caller-defined body of the
+    #         # parent "with" statement.
+    #         #claw_state.reinit()
+    #
+    #         # If *NO* packages are currently hooked by "beartype.claw" import
+    #         # hooks, remove the beartype import path hook added by any import
+    #         # hooks registered by the caller-defined body of the parent "with"
+    #         # statement. Phew!
+    #         remove_beartype_pathhook_unless_packages_trie()

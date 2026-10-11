@@ -104,7 +104,11 @@ pub use mmcif::{
     MmcifAtomRecord, MmcifError, MmcifParseLimits, MmcifResult, parse_mmcif,
     parse_mmcif_with_limits, write_mmcif,
 };
-pub use mol2_tripos::{Mol2Error, Mol2ParseLimits, parse_mol2, parse_mol2_with_limits, write_mol2};
+pub use mol2_tripos::{
+    Mol2AtomRecord, Mol2BondRecord, Mol2Error, Mol2OpaqueSection, Mol2ParseLimits, Mol2Record,
+    Mol2UnityAtomAttributes, parse_mol2, parse_mol2_record, parse_mol2_record_with_limits,
+    parse_mol2_with_limits, write_mol2, write_mol2_record,
+};
 pub use mol2000::{
     CoordinateDimension, GeometryRank, MolFormat, MolMetadata, MolReadReport, MolStereoLoss,
     MolStereoWriteError, SquarePlanarPerceptionDiagnostic, SquarePlanarRejectionReason,
@@ -187,3 +191,35 @@ pub use xyz::{
     parse_extxyz, parse_extxyz_all, parse_extxyz_with_limits, parse_xyz, parse_xyz_all,
     parse_xyz_all_with_limits, parse_xyz_with_limits, write_extxyz, write_xyz,
 };
+
+#[cfg(test)]
+mod semantic_contract_tests;
+#[cfg(test)]
+mod xyz_contract_tests;
+
+#[cfg(test)]
+mod nucleic_acid_boundary_tests;
+#[cfg(test)]
+mod orca_boundary_tests;
+
+#[cfg(test)]
+mod xml_boundary_tests;
+
+#[cfg(test)]
+mod lammps_boundary_contract_tests;
+#[cfg(test)]
+mod mol_boundary_contract_tests;
+#[cfg(test)]
+mod stream_boundary_contract_tests;
+
+#[cfg(test)]
+mod docking_boundary_contract_tests;
+
+#[cfg(test)]
+mod cdxml_boundary_contract_tests;
+
+#[cfg(test)]
+mod format_limit_contract_tests;
+
+#[cfg(test)]
+mod format_bridge_boundary_contract_tests;

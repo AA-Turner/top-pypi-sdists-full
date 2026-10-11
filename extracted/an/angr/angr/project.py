@@ -8,7 +8,7 @@ import types
 from collections import defaultdict
 from io import BytesIO, IOBase
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import archinfo
 import cle
@@ -24,6 +24,9 @@ from .llm_client import LLMClient
 from .procedures import SIM_LIBRARIES, SIM_PROCEDURES
 from .sim_procedure import SimProcedure
 from .simos import SimOS, os_mapping
+
+if TYPE_CHECKING:
+    from angr.go.utils.version import GoVersionRange
 
 l = logging.getLogger(name=__name__)
 
@@ -74,6 +77,7 @@ CACHE_CONFIG_KEYS = {"functions", "cfg_nodes", "cfg_segment_bytes"}
 CFG_PAGED_EXECUTABLE_BYTES = 1024 * 1024
 CFG_SEGMENT_BUDGET_MIN = 128 * 1024 * 1024
 CFG_SEGMENT_BUDGET_MAX = 512 * 1024 * 1024
+_SIM_LIBRARY_COMPATIBILITY_ALIASES = {"wsock32.dll": "ws2_32.dll"}
 
 _UNSET = object()
 
@@ -263,6 +267,7 @@ class Project:
         self._languages: list[str] | None = None
         self._language_confidence: str | None = None
         self._detected_languages: list[str] | None = None
+        self._go_version_range: Any = _UNSET
         self.is_java_project = isinstance(self.arch, ArchSoot)
         self.is_java_jni_project = isinstance(self.arch, ArchSoot) and getattr(
             self.simos, "is_javavm_with_jni_support", False
@@ -342,12 +347,13 @@ class Project:
         # Step 1: get the set of libraries we are allowed to use to resolve unresolved symbols
         missing_libs = []
         missing_wincore_dlls = False
-        for lib_name in self.loader.missing_dependencies:
+        for requested_lib_name in self.loader.missing_dependencies:
+            lib_name = _SIM_LIBRARY_COMPATIBILITY_ALIASES.get(requested_lib_name, requested_lib_name)
             try:
                 missing_libs.extend(SIM_LIBRARIES[lib_name])
             except KeyError:
-                l.info("There are no simprocedures for missing library %s :(", lib_name)
-                if lib_name.startswith("api-ms-win-"):
+                l.info("There are no simprocedures for missing library %s :(", requested_lib_name)
+                if requested_lib_name.startswith("api-ms-win-"):
                     missing_wincore_dlls = True
         if missing_wincore_dlls:
             # some of the missing api-ms-win-*.dll libraries are actually provided by kernel32.dll and advapi32.dll
@@ -359,8 +365,11 @@ class Project:
         # additionally provide libraries we _have_ loaded as a fallback fallback
         # this helps in the case that e.g. CLE picked up a linux arm libc to satisfy an android arm binary
         for lib in self.loader.all_objects:
-            if lib.provides is not None and lib.provides in SIM_LIBRARIES:
-                simlibs = SIM_LIBRARIES[lib.provides]
+            if lib.provides is None:
+                continue
+            lib_name = _SIM_LIBRARY_COMPATIBILITY_ALIASES.get(lib.provides, lib.provides)
+            if lib_name in SIM_LIBRARIES:
+                simlibs = SIM_LIBRARIES[lib_name]
                 for simlib in simlibs:
                     if simlib not in missing_libs:
                         missing_libs.append(simlib)
@@ -417,6 +426,7 @@ class Project:
                 owner_name = export.owner.provides
                 if isinstance(self.loader.main_object, cle.backends.pe.PE):
                     owner_name = owner_name.lower()
+                owner_name = _SIM_LIBRARY_COMPATIBILITY_ALIASES.get(owner_name, owner_name)
                 if owner_name not in SIM_LIBRARIES:
                     continue
                 sim_libs = SIM_LIBRARIES[owner_name]
@@ -433,8 +443,12 @@ class Project:
             # An important consideration is that even if we're stubbing a function out,
             # we still want to try as hard as we can to figure out where it comes from
             # so we can get the calling convention as close to right as possible.
-            elif reloc.resolvewith is not None and reloc.resolvewith in SIM_LIBRARIES:
-                sim_lib = max(SIM_LIBRARIES[reloc.resolvewith], key=lambda lib: lib.has_prototype(export.name))
+            elif (
+                reloc.resolvewith is not None
+                and (sim_lib_name := _SIM_LIBRARY_COMPATIBILITY_ALIASES.get(reloc.resolvewith, reloc.resolvewith))
+                in SIM_LIBRARIES
+            ):
+                sim_lib = max(SIM_LIBRARIES[sim_lib_name], key=lambda lib: lib.has_prototype(export.name))
                 if self._check_user_blacklists(export.name):
                     if not func.is_weak:
                         l.info("Using stub SimProcedure for unresolved %s from %s", func.name, sim_lib.name)
@@ -852,6 +866,7 @@ class Project:
 
     def __setstate__(self, s):
         self.__dict__.update(s)
+        self.__dict__.setdefault("_go_version_range", _UNSET)
         self._llm_client = _UNSET
         self._pcode_block_lifter = None
         try:
@@ -962,6 +977,25 @@ class Project:
         argument and return value, so a low-confidence detection is deliberately not enough.
         """
         return "go" in self.languages() and self.language_is_certain
+
+    @property
+    def go_version_range(self) -> GoVersionRange | None:
+        """
+        The (oldest, newest) Go releases the main binary may have been built with; see
+        :func:`angr.go.utils.version.go_version_range`.
+        """
+        if self._go_version_range is _UNSET:
+            from angr.go.utils.version import go_version_range  # pylint:disable=import-outside-toplevel
+
+            self._go_version_range = go_version_range(self)
+        return self._go_version_range
+
+    @property
+    def goos(self) -> str | None:
+        """The main binary's GOOS, when its container format tells."""
+        from angr.go.utils.version import identify_goos  # pylint:disable=import-outside-toplevel
+
+        return identify_goos(self)
 
     #
     # Cache limit settings

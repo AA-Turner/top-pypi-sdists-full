@@ -89,6 +89,7 @@ from local_operator.harness.wake_types import WakeSchedule
 # loop on this module's path for every entry point — the same mistake the
 # ``wake_types`` split above records.
 from local_operator.monitors.spec import MonitorSpec
+from local_operator.supplements.contract import SupplementState
 
 # ---------------------------------------------------------------------------
 # Errors
@@ -158,6 +159,14 @@ OUTPUT_LIMIT_ARGUMENTS = "arguments"
 #: did not have while the identical arguments executed fine on the next turn
 #: (review F1 == QA Q1).
 OUTPUT_LIMIT_TURN = "turn"
+
+#: THE QUIET-TURN MARKER (``docs/design/quiet-turns.md`` §4): stamped on the
+#: ``no_reply`` tool's successful result's ``details``, and the single fact the
+#: loop's batch-end check (``_batch_ends_quiet``) and the session's quiet
+#: predicate (``Session._run_ended_quiet``) read. A consumer keys on the
+#: MARKER, never on the result's "Quiet." wording, so a later reword of the
+#: model-facing text cannot change what a reader decides.
+QUIET_TURN_KEY = "__quiet_turn"
 
 
 class InvalidToolArgumentsError(ValueError):
@@ -1358,6 +1367,23 @@ class ToolContext(BaseModel):
     record_resolved_path: Callable[[str, bool], None] | None = Field(
         default=None, exclude=True, repr=False
     )
+    # The channel-spend ingest seam (``docs/design/spend-channels.md``): a tool
+    # that spends money OUTSIDE the token path (image, web search, voice)
+    # builds a frozen ``session.channel_spend.ChannelSpendRecord`` and hands it
+    # here; the session folds it, journals it and publishes it. Declared rather
+    # than probed because every capability a built-in tool looks for is
+    # declared (see the class docstring). ``None`` is the documented "this host
+    # does not track channels" value — an emission site must skip QUIETLY then,
+    # never fail the call; a record it never records is money nobody can see,
+    # which is today's behaviour and strictly better than a broken turn.
+    #
+    # The parameter is typed ``Any`` because ``harness`` must not import the
+    # session package: ``session`` imports ``harness``, and a module-level
+    # import here would close that cycle. The record's OWN module is a leaf
+    # precisely so the tools can import it directly.
+    record_channel_spend: Callable[[Any], None] | None = Field(
+        default=None, exclude=True, repr=False
+    )
     session_id: str = ""
     # Human-readable title is display metadata only. Security-sensitive tools
     # must continue using ``session_id`` for identity and authorization.
@@ -1539,6 +1565,23 @@ class ToolContext(BaseModel):
     # advertised at all (createIf) rather than advertised and always
     # failing.
     jobs: JobManagerProtocol | None = None
+    #: True on a call the harness runs as a MONITOR CHECK (one tick of an
+    #: armed watch): unattended — no turn, no user waiting, nothing that
+    #: could carry a rehomed call forward. A cancellation of such a call is
+    #: teardown or the scheduler's own deadline, never a steering redirect,
+    #: so a tool that would otherwise convert the cancel into a background
+    #: job must stop the call instead. Read by bash's cancel handler; set
+    #: by ``Session._run_monitor_check``.
+    monitor_check: bool = False
+    # The video lane's durable-record writer (``Session.journal_video_job``):
+    # appends one ``video_job_v1`` transcript row. Declared rather than probed
+    # for, per this class's contract; ``None`` on a host that cannot journal
+    # (a reduced host or a test) — the video runner then logs and continues,
+    # losing restart durability for that transition but never the generation.
+    # Typed as a plain callable: the payload is the record mapping
+    # ``local_operator.video.records.build_record`` returns, and this module
+    # must not import that module's way up the graph.
+    journal_video_job: Callable[[dict[str, Any]], Awaitable[None]] | None = None
     # Set by the session on each inbound ``lop send`` delivery so a blocking
     # ``wait`` can return early and let the model read its mailbox. Declared
     # rather than probed for, per this class's contract above. ``None`` means
@@ -1598,6 +1641,28 @@ class ToolContext(BaseModel):
     #: tool-side guard around the await is the last line so even a contract
     #: breach cannot lose the ask (design §2.2's failure-semantics table).
     gate_ask: Callable[..., Awaitable[Mapping[str, Any] | None]] | None = None
+    #: THE QUIET-END DOOR (docs/design/quiet-turns.md §4). Async, mirroring
+    #: :attr:`gate_ask`: the ``no_reply`` tool awaits it for the run's refusal
+    #: decision, and its presence IS the fact that this session may end a turn
+    #: quietly — ``build_no_reply_tool`` returns ``None`` without it
+    #: (footprint ladder rung 3: the tool is absent, not inert, where a quiet
+    #: end cannot be honoured). The session binds it per turn; ``None`` for a
+    #: subagent child (a parent's ``wait`` reads the child's final text as the
+    #: report), a one-shot/headless host (the final text is the product), a
+    #: session with an output contract (the gate reads a textless end as a
+    #: missing final response), and under the ``LOP_NO_REPLY`` kill switch.
+    #:
+    #: TWO OF THOSE ARE ONLY KNOWABLE AFTER CONSTRUCTION (the contract, the
+    #: one-shot declaration), so those setters also re-filter the MOUNTED
+    #: inventory through ``refresh_tools`` — a door that turns ``None`` under an
+    #: already-advertised tool would fire a refusal once per attempt. Door and
+    #: inventory agree in both directions; see
+    #: ``Session._quiet_end_callable`` and ``Session.set_output_contract``.
+    #:
+    #: TOTAL by contract, like the door pair above: it returns either a refusal
+    #: SENTENCE the model must act on (write text instead) or ``None`` when the
+    #: quiet end is allowed. A refusal is never coerced into a message.
+    quiet_end: Callable[[], Awaitable[str | None]] | None = None
     #: Live read of "an interface is attached to the SESSION this tool is running
     #: in" — ``RuntimeServer.attached_surfaces`` seen through the session's own
     #: goal-state probe, so it is re-read per call rather than snapshotted per
@@ -2541,6 +2606,41 @@ class OutputValidationEvent(AgentEvent[Literal["output_validation"]]):
     payload_text: str = ""
 
 
+class SupplementProgressEvent(AgentEvent[Literal["supplement_progress"]]):
+    """One beat of a turn supplement's ("Highlights") life, AFTER the turn's ``agent_end``.
+
+    Contract frozen by lane C0 of ``docs/design/turn-supplements.md`` (§2.7); nothing
+    emits it yet (the runner is lane C1). A NEW event family rather than a synthetic tool
+    call on purpose: a tool row after the answer would break the UI fold and native
+    condensing, risk ``lop exec --json`` consumers reading it as part of the turn, and
+    inherit turn-interrupt cancel, which is precisely wrong for a background errand.
+
+    ``anchor`` is the final assistant message id the supplement attaches to, so a late
+    event (the next turn already started) still lands on the right answer. ``state`` is
+    the image-gen vocabulary plus ``decided`` ("files known, graphics queued", painted as
+    ``queued``); ``running``/``cancelling`` are LIVE-ONLY and never journaled (see
+    :mod:`local_operator.supplements.contract`). ``files`` rides only ``decided``/``done``
+    and ``components`` only ``done``, in the row's own shapes.
+
+    Additive on a tolerant frame (``AgentEvent`` is ``extra="allow"``), the
+    ``AgentEndEvent.cut_off`` precedent: no ``PROTOCOL_VERSION`` bump. The runtime sends it
+    only to viewers that negotiated ``supplements-v1``.
+    """
+
+    type: Literal["supplement_progress"] = "supplement_progress"
+    anchor: str
+    job: str
+    version: int
+    state: SupplementState
+    #: "deciding" | "generating" | "validating" | "repairing"; "" outside ``running``.
+    stage: str = ""
+    elapsed_s: float = 0.0
+    files: list[dict[str, Any]] = Field(default_factory=list)
+    components: list[dict[str, Any]] = Field(default_factory=list)
+    error: str = ""
+    error_type: str = ""
+
+
 EventHandler = Callable[[AgentEvent], Awaitable[None] | None]
 
 
@@ -2732,6 +2832,18 @@ class LoopConfig(BaseModel):
         default=None, exclude=True
     )
     has_steering_messages: Callable[[], bool] | None = Field(default=None, exclude=True)
+    #: Run-scoped opt-in: drain the steering queue ONCE before this run's first
+    #: event/request, instead of only from the second inner iteration onward.
+    #: Set by a host whose run exists BECAUSE of the queue — a session opening
+    #: a turn for an idle-admitted steer — so the run's first call carries the
+    #: queued message rather than spending an empty warm-up call and delivering
+    #: it on a continuation. A run whose opening drain finds the queue already
+    #: emptied retires BEFORE its first event: no ``agent_start``/``agent_end``
+    #: pair, no provider call (the session documents the same silent settle for
+    #: a dropped turn in ``_drop_pre_aborted_turn``). Off by default, so every
+    #: ordinary turn keeps the historical shape where a steer can never appear
+    #: in its first request (the loop comment carries the full rationale).
+    drain_steering_on_open: bool = False
     #: Asks the host whether a boundary-respecting cancel is pending. Consulted
     #: at the post-tool boundary, where every call in the batch has produced a
     #: paired result and the next model request has not yet been spent — so a

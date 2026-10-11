@@ -4,13 +4,14 @@ import json
 import math
 import time
 import warnings
+from collections import Counter
 
 import numpy as np
 from webcolors import hex_to_rgb, name_to_rgb, rgb_to_hex
 
 
 def round_sig(x, sig):
-    return round(x, sig - int(math.floor(math.log10(abs(x)))) - 1)
+    return round(x, sig - math.floor(math.log10(abs(x))) - 1)
 
 
 def warn(message, warning=RuntimeWarning, when="always"):
@@ -22,7 +23,7 @@ def warn(message, warning=RuntimeWarning, when="always"):
         lineno: int,
         line: str | None = None,
     ) -> str:
-        return "%s: %s" % (category.__name__, message)
+        return f"{category.__name__}: {message}"
 
     warn_format = warnings.formatwarning
     # replacing the module-level formatter is the documented warnings idiom,
@@ -63,11 +64,9 @@ class Color:
             self.b = c.blue
         elif isinstance(color, (tuple, list)) and len(color) >= 3:
             rgb = color[:3]
-            if any([isinstance(c, float) for c in rgb]) and all([
-                0.0 <= c <= 1.0 for c in rgb
-            ]):
+            if any(isinstance(c, float) for c in rgb) and all(0.0 <= c <= 1.0 for c in rgb):
                 self.r, self.g, self.b = (int(round(c * 255, 0)) for c in rgb)
-            elif all([isinstance(c, int) and (0 <= c <= 255) for c in rgb]):
+            elif all(isinstance(c, int) and (0 <= c <= 255) for c in rgb):
                 self.r, self.g, self.b = rgb
             else:
                 self._invalid(color)
@@ -123,9 +122,9 @@ class Color:
         return rgb_to_hex((self.r, self.g, self.b))
 
     def set_saturation(self, sat_target):
-        h, s, v = colorsys.rgb_to_hsv(self.r / 255, self.g / 255, self.b / 255)
+        h, _s, v = colorsys.rgb_to_hsv(self.r / 255, self.g / 255, self.b / 255)
         r, g, b = colorsys.hsv_to_rgb(h, sat_target, v)
-        return Color((int(round(r * 255)), int(round(g * 255)), int(round(b * 255))))
+        return Color((round(r * 255), round(g * 255), round(b * 255)))
 
 
 #
@@ -148,7 +147,7 @@ class Timer:
 
     def __enter__(self):
         if self.newline:
-            print("", flush=True)
+            print(flush=True)
 
         return self
 
@@ -162,14 +161,7 @@ class Timer:
                 self.name = f'"{self.name}"'
 
             print(
-                "%8.3f sec: %s%s %s %s"
-                % (
-                    time.time() - self.start,
-                    prefix,
-                    self.activity,
-                    self.name,
-                    self.info,
-                ),
+                f"{time.time() - self.start:8.3f} sec: {prefix}{self.activity} {self.name} {self.info}",
                 flush=True,
             )
 
@@ -186,7 +178,35 @@ def get_color(in_color, def_color, alpha):
     return color
 
 
-def make_unique(names: list[str | None]) -> list[str | None]:
+def make_unique(
+    names: list[str | None], python_enumeration: bool = False
+) -> list[str | None]:
+    """
+    Make repeated names unique by appending a counter.
+
+    @param names: The names, None entries are kept as None
+    @param python_enumeration: False keeps the first occurrence unchanged and
+        counts the repetitions from 2: a, a(2), a(3). True counts every
+        occurrence of a repeated name from 0: a(0), a(1), a(2). Names that occur
+        only once are unchanged in both schemes
+
+    @return: The unique names
+    """
+    if python_enumeration:
+        counts = Counter(name for name in names if name is not None)
+        seen: dict[str, int] = {}
+        unique_names: list[str | None] = []
+        for name in names:
+            if name is None:
+                unique_names.append(None)
+            elif counts[name] == 1:
+                unique_names.append(name)
+            else:
+                index = seen.get(name, 0)
+                seen[name] = index + 1
+                unique_names.append(f"{name}({index})")
+        return unique_names
+
     found = {}
     unique_names = []
     for name in names:
@@ -274,7 +294,7 @@ def numpy_to_json(obj, indent=None):
             if isinstance(o, np.ndarray):
                 return o.tolist()
 
-            return super(NumpyArrayEncoder, self).default(o)
+            return super().default(o)
 
     return json.dumps(obj, cls=NumpyArrayEncoder, indent=indent)
 

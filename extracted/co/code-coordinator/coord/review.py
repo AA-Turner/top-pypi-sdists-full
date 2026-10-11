@@ -53,6 +53,7 @@ import httpx
 from coord import github_ops
 from coord.config import Config, ReviewsConfig
 from coord.dispatch import AGENT_PORT, ASSIGN_POST_TIMEOUT_SECS
+from coord.prereview_gate import GateResult, run_prereview_gate
 from coord.models import (
     CLOSES_ISSUE_TYPES,
     SEALED_PATH_AUTHOR_TYPES,
@@ -1039,6 +1040,29 @@ def parse_test_verdict_from_log(log_path: str | Path) -> TestVerdictFindings | N
         return _parse_test_verdict_from_lines(text.splitlines(), stream_json=False)
 
 
+# #3676: cross-repo gaps are the coordinator's to file. A worker that hits a
+# capability missing from another repo emits a `BLOCKED_ON_UPSTREAM: <repo>:
+# <title>` marker in its final message (`coord.upstream_gaps`), and the
+# coordinator files, links and blocks on the upstream issue itself. Reviewers
+# had come to REQUIRE a prose draft of that issue in a `PENDING_*` tracking
+# doc instead (vimcode#1869's blocking finding was the draft's absence) —
+# a paid fix round of prose per gap plus a later manual filing. Shared by the
+# reviewer system prompt and the per-review briefing so the two can't drift.
+UPSTREAM_GAP_REVIEW_RULE = (
+    "Cross-repo gaps (#3676): never request changes because a "
+    "`PENDING_*` tracking doc (e.g. `docs/PENDING_QUADRAUI_ISSUES.md`) or "
+    "any other prose draft of an upstream issue is missing or un-updated — "
+    "such drafts are NOT required, whatever older repo docs say. A gap in "
+    "another repo is reported with a `BLOCKED_ON_UPSTREAM: <repo>: <title>` "
+    "marker in the worker's final message, and the coordinator files that "
+    "upstream issue, links it, and blocks this issue's queue row on it. "
+    "Judge whether the gap is real and the diff's handling of it is honest "
+    "(e.g. `ISSUE_RESOLUTION: partial`, not `resolved`, when the gap leaves "
+    "the issue unfixed) — a drafted or marker-reported gap never makes the "
+    "issue `resolved` on its own."
+)
+
+
 REVIEWER_SYSTEM_PROMPT = """\
 You are an independent code reviewer dispatched by the coordinator. \
 Your job is to find problems — do NOT rubber-stamp.
@@ -1117,8 +1141,8 @@ it. Do not stop as soon as your review prose feels finished; write the \
 `END_REVIEW` line and then stop. Before you end your session, re-read your \
 final message and confirm its last line is `END_REVIEW`.
 
-If the diff is clean, approve — but be thorough first.\
-"""
+If the diff is clean, approve — but be thorough first.
+""" + "\n" + UPSTREAM_GAP_REVIEW_RULE
 
 
 # ── Machine selection ───────────────────────────────────────────────────────
@@ -2309,6 +2333,21 @@ def build_review_briefing(
         lines.append("- Did the worker stay within the assigned file scope?")
         lines.append("- Any security issues (injection, auth bypass, credential exposure)?")
 
+    lines.append("")
+    lines.append(
+        "- NOTE (#3674): a pre-review mechanical gate already ran against "
+        "this diff before you were dispatched and found nothing — stray "
+        "issue-number/history comments, a missing CHANGELOG entry, a semver "
+        "break, a non-additive smoke-spec edit, and a feature-gating "
+        "regression are all checked with zero tolerance by script, not by "
+        "you. Do NOT re-derive those by hand and do NOT put a finding about "
+        "them under `## Blocking findings` — if you still notice one (the "
+        "gate is per-repo configured and may not cover everything here), "
+        "file it under `## Nits` instead. The same goes for CLAUDE.md's "
+        "*Code Style* rules generally: style is a nit, never a blocking "
+        "finding."
+    )
+
     lines.extend(repo_focus_lines(reviews_cfg, repo_name))
     lines.extend(
         shared_scenario_focus_lines(
@@ -2711,8 +2750,8 @@ def build_review_briefing(
         "cause is in another repo and only a dependent half of the fix "
         "landed here). Add `— <what remains>` after the value, e.g. "
         "`ISSUE_RESOLUTION: partial — root cause is a quadraui gap, "
-        "quadraui#NNN now FILED (not just drafted in a docs file — an "
-        "actual GitHub issue) and must land before this can close`."
+        "blocked on upstream (BLOCKED_ON_UPSTREAM marker) and must land "
+        "before this can close`."
     )
     lines.append(
         "- `investigation` — this PR is investigation-only (no production "
@@ -2721,13 +2760,17 @@ def build_review_briefing(
         "as `partial`."
     )
     lines.append(
-        "A drafted-but-unfiled upstream issue (e.g. a bullet in a design "
-        "doc, a TODO comment) is NOT \"filed\" — only a real GitHub issue "
-        "number counts. If the worker's own completion summary above "
-        "already flagged `partial`/`investigation`, your own line can "
-        "only confirm it or make it MORE cautious, never silently revert "
-        "it to `resolved` without saying why that worker claim was wrong."
+        "If the worker's own completion summary above already flagged "
+        "`partial`/`investigation`, your own line can only confirm it or "
+        "make it MORE cautious, never silently revert it to `resolved` "
+        "without saying why that worker claim was wrong."
     )
+    # #3676: cross-repo gaps are filed by the coordinator from the worker's
+    # `BLOCKED_ON_UPSTREAM` marker — a reviewer must never demand a
+    # `PENDING_*` prose draft (vimcode#1869's blocking finding was exactly
+    # that draft's absence, costing a fix round of prose per gap).
+    lines.append("")
+    lines.append(UPSTREAM_GAP_REVIEW_RULE)
     # #1456: the coordinator's #476 gate (an advisory-only request-changes must
     # not burn another fix round) counts bullets under the body's section
     # headings, and since #1456 it fails CLOSED — an unparseable body keeps the
@@ -3158,7 +3201,7 @@ def _fetch_agent_claude_credential_ok(
     return True
 
 
-def _record_mechanical_review_verdict(
+def _record_terminal_mechanical_verdict(
     completed: Assignment,
     board: Board,
     config: Config,
@@ -3166,14 +3209,29 @@ def _record_mechanical_review_verdict(
     repo,
     pr: dict | None,
     candidates: list[tuple[Machine, bool]],
-    kind: str,
-    touched_paths: list[str],
-    banner_lines: list[str],
+    reason: str,
+    summary: str,
+    body: str,
+    log_label: str,
     now: float | None,
 ) -> Assignment:
-    """(#3180) Record a MANDATORY request-changes verdict directly, WITHOUT
-    ever dispatching a reviewer session — the "detected before dispatch,
-    then re-derived by a full review leg" waste this issue closes.
+    """(#3180, generalised for #3674 review round 1) The ONE terminal-write
+    seam every mechanically-recorded request-changes verdict goes through —
+    record a MANDATORY request-changes verdict directly, WITHOUT ever
+    dispatching a reviewer session, the "detected before dispatch, then
+    re-derived by a full review leg" waste #3180 closed first.
+
+    #3674 review round 1 (blocking, "one question, one answer" / #2096):
+    this used to be two independently-maintained near-duplicates —
+    ``_record_mechanical_review_verdict`` (#3180: sealed-path/coordinator-
+    doc tamper) and ``_record_prereview_gate_verdict`` (#3674: the
+    script-checked mechanical gate) — that answered the exact same
+    question ("record a mechanical request-changes verdict for a completed
+    leg without ever dispatching a review") with separately-copied
+    ``Assignment``/``ResultRecord`` construction. A future change to
+    either shape only had to land at one of the two call sites to silently
+    diverge the other. Both callers below now build their own *reason*/
+    *summary*/*body* text and delegate the actual terminal write here.
 
     Inserts a real ``type="review"`` row (so every existing surface that
     scans board rows for a review's own verdict — ``coord gates``, the merge
@@ -3215,14 +3273,6 @@ def _record_mechanical_review_verdict(
     from coord.issue_store import ResultRecord, post_result  # noqa: PLC0415
     from coord.state import record_dispatched_assignment  # noqa: PLC0415
 
-    kind_label = {
-        "coordinator_doc": "coordinator-owned doc(s) edited",
-        "sealed_path": "sealed path(s) violated",
-        "lane_entrypoint_weakened": "Tier-2 lane smoke-spec entry point weakened",
-    }.get(kind, kind)
-    touched_str = ", ".join(touched_paths)
-    reason = f"{kind_label}: {touched_str}"
-    body = "\n".join(banner_lines)
     attributed_machine = candidates[0][0].name
     review_assignment_id = uuid.uuid4().hex[:12]
     dispatched_at = now if now is not None else time.time()
@@ -3256,11 +3306,7 @@ def _record_mechanical_review_verdict(
         issue_number=completed.issue_number,
         status="done",
         verdict="request-changes",
-        summary=(
-            f"Mechanical rule violation detected before dispatch ({kind_label}: "
-            f"{touched_str}) — no review leg was spent; see the findings "
-            "below for the rule text."
-        ),
+        summary=summary,
         branch=completed.branch,
         findings_body=body,
         verdict_source="mechanical",
@@ -3269,7 +3315,7 @@ def _record_mechanical_review_verdict(
     log.warning(
         "[review] %s: %s (%s) — recording request-changes mechanically, no "
         "review leg dispatched (findings posted=%s)",
-        completed.assignment_id, kind_label, touched_str, outcome.posted,
+        completed.assignment_id, log_label, reason, outcome.posted,
     )
 
     # Mirror the DB state we just wrote onto the in-memory copy so the
@@ -3284,6 +3330,107 @@ def _record_mechanical_review_verdict(
     propagate_review_verdict(review_assignment, board, config, refresh_merge_queue=False)
 
     return review_assignment
+
+
+def _record_mechanical_review_verdict(
+    completed: Assignment,
+    board: Board,
+    config: Config,
+    *,
+    repo,
+    pr: dict | None,
+    candidates: list[tuple[Machine, bool]],
+    kind: str,
+    touched_paths: list[str],
+    banner_lines: list[str],
+    now: float | None,
+) -> Assignment:
+    """(#3180) The sealed-path/coordinator-doc-tamper mechanical verdict —
+    computes this check's own *reason*/*summary*/*body* text and delegates
+    the actual terminal write to :func:`_record_terminal_mechanical_verdict`
+    (#3674 review round 1: the shared seam both mechanical paths now go
+    through, see that function's docstring)."""
+    kind_label = {
+        "coordinator_doc": "coordinator-owned doc(s) edited",
+        "sealed_path": "sealed path(s) violated",
+        "lane_entrypoint_weakened": "Tier-2 lane smoke-spec entry point weakened",
+    }.get(kind, kind)
+    touched_str = ", ".join(touched_paths)
+    reason = f"{kind_label}: {touched_str}"
+    body = "\n".join(banner_lines)
+    summary = (
+        f"Mechanical rule violation detected before dispatch ({kind_label}: "
+        f"{touched_str}) — no review leg was spent; see the findings "
+        "below for the rule text."
+    )
+    return _record_terminal_mechanical_verdict(
+        completed, board, config,
+        repo=repo,
+        pr=pr,
+        candidates=candidates,
+        reason=reason,
+        summary=summary,
+        body=body,
+        log_label=kind_label,
+        now=now,
+    )
+
+
+def _record_prereview_gate_verdict(
+    completed: Assignment,
+    board: Board,
+    config: Config,
+    *,
+    repo,
+    pr: dict | None,
+    candidates: list[tuple[Machine, bool]],
+    findings: list[str],
+    now: float | None,
+) -> Assignment:
+    """(#3674) Record a request-changes verdict for a pre-review mechanical
+    gate failure, WITHOUT ever dispatching a reviewer session. Computes
+    this check's own *reason*/*summary*/*body* text and delegates the
+    actual terminal write to :func:`_record_terminal_mechanical_verdict`
+    (#3674 review round 1: no longer an independent copy of #3180's
+    ``_record_mechanical_review_verdict`` — both now share one seam).
+
+    Unlike the #3180 checks (sealed-path/coordinator-doc tampering, always a
+    structural violation of this repo's own rules), a gate finding here is a
+    deterministic rule a script already caught with zero tolerance — see
+    ``coord/prereview_gate.py``'s module docstring for the check list. The
+    reviewer never sees these findings at all: they are never posted to a
+    review briefing, because no review briefing is ever built for this leg.
+    """
+    reason = "prereview mechanical gate: " + "; ".join(findings)
+    body_lines = [
+        "## \U0001f6a8 PRE-REVIEW MECHANICAL GATE FAILED",
+        "",
+        (
+            "This diff tripped one or more zero-tolerance, script-checked "
+            "rules BEFORE a reviewer was ever dispatched (#3674) — fix these "
+            "and push again; a fresh review will be dispatched once the "
+            "gate passes."
+        ),
+        "",
+    ]
+    body_lines.extend(f"- {finding}" for finding in findings)
+    body = "\n".join(body_lines)
+    summary = (
+        "Pre-review mechanical gate failed before dispatch (#3674) — no "
+        "review leg was spent; see the findings below for the rules "
+        "violated."
+    )
+    return _record_terminal_mechanical_verdict(
+        completed, board, config,
+        repo=repo,
+        pr=pr,
+        candidates=candidates,
+        reason=reason,
+        summary=summary,
+        body=body,
+        log_label="prereview mechanical gate failed",
+        now=now,
+    )
 
 
 def dispatch_review(
@@ -4086,6 +4233,71 @@ def dispatch_review(
         except Exception:  # noqa: BLE001 — fail-open: advisory, never blocking
             oracle_contract_note_text = None
 
+        # #3674: the pre-review mechanical gate runs FIRST, ahead of the
+        # #3180 sealed-path/coordinator-doc check below — both are "mechanical,
+        # before a review leg is spent" short-circuits, but this one's checks
+        # (added-lines comment lint, CHANGELOG, smoke-spec additive-only,
+        # semver, feature matrix) are configured per repo via
+        # `config.prereview_gate`, disabled (a no-op) for any repo that never
+        # sets one. Same UNTRUNCATED `full_diff_text` as the #3180 check, for
+        # the same reason.
+        #
+        # #3674 review round 1 (blocking): `repo_path` here MUST be the
+        # original WORKER machine's checkout (`completed.machine_name`), not
+        # `candidates[0][0]` — the top-ranked REVIEWER candidate, which
+        # `_ranked_reviewer_candidates` prefers to be a DIFFERENT machine
+        # from the worker precisely for review independence, and so has no
+        # reason to hold this branch at all. The worker machine is the one
+        # place this fleet already trusts to have the branch checked out
+        # without a fetch (see the #586 branch_not_on_remote handling above
+        # — "only the original worker machine has it locally"). Even then,
+        # `run_prereview_gate` re-verifies that local checkout's actual HEAD
+        # against `review_head_sha` (computed above, #821) before trusting
+        # it for a `semver_command`/`feature_matrix` `subprocess.run` — see
+        # that function's docstring. A gate CRASH (hung command past its
+        # internal timeout turning into a `TimeoutExpired`-derived finding
+        # rather than an exception aside, a misconfigured command raising
+        # something unexpected, ...) must never abort the entire
+        # `dispatch_pending_reviews` batch the way an uncaught exception
+        # here would (the #3113 outer except in `dispatch_review` releases
+        # the claim and RE-RAISES past this call) — fail OPEN (log loudly,
+        # treat as "gate found nothing") and fall through to the #3180
+        # check / real review dispatch below, exactly like every other
+        # advisory-only computation already in this function.
+        _gate_worker_machine = next(
+            (m for m in config.machines if m.name == completed.machine_name), None
+        )
+        _gate_repo_path = (
+            _gate_worker_machine.repo_path(completed.repo_name)
+            if _gate_worker_machine is not None else None
+        )
+        try:
+            _gate_result: GateResult = run_prereview_gate(
+                diff_text=full_diff_text,
+                repo_config=config.prereview_gate.for_repo(completed.repo_name),
+                repo_path=_gate_repo_path,
+                expected_head_sha=review_head_sha,
+            )
+        except Exception:  # noqa: BLE001 — fail-open: a gate crash must never
+            # abort the whole bulk review-dispatch pass (see comment above).
+            log.exception(
+                "[review] %s: prereview mechanical gate crashed — treating "
+                "as passed (fail-open) and continuing to review dispatch",
+                completed.assignment_id,
+            )
+            _gate_result = GateResult(passed=True)
+        if not _gate_result.passed:
+            gate_review = _record_prereview_gate_verdict(
+                completed, board, config,
+                repo=repo,
+                pr=pr,
+                candidates=candidates,
+                findings=_gate_result.findings,
+                now=now,
+            )
+            _claim_held = False  # released by the terminal write above (#3113)
+            return gate_review
+
         # #3180: short-circuit BEFORE spending a review leg. `build_review_
         # briefing` below would compute this exact same check purely to
         # decide which paragraph to print in the reviewer's prompt — the
@@ -4402,6 +4614,281 @@ def dispatch_review(
         raise
 
 
+def newest_done_work_leg(
+    board: Board, repo_name: str, issue_number: int
+) -> Assignment | None:
+    """The newest ``status="done"`` work-like leg for ``(repo_name,
+    issue_number)`` — the leg whose head the Review gate must judge (#3668).
+
+    Keyed on :func:`coord.models.effective_issue_number` (#1553), ordered by
+    ``dispatched_at`` with the assignment id as a stable tie-break, matching
+    :func:`coord.claim.superseding_work_row`.
+    """
+    from coord.models import effective_issue_number  # noqa: PLC0415
+
+    legs = [
+        a
+        for a in list(board.active) + list(board.completed)
+        if a.type in WORK_LIKE_TYPES
+        and a.status == "done"
+        and a.repo_name == repo_name
+        and effective_issue_number(a) == issue_number
+    ]
+    if not legs:
+        return None
+    return max(legs, key=lambda a: (a.dispatched_at or 0.0, a.assignment_id or ""))
+
+
+def superseded_review_gap(
+    board: Board, repo_name: str, issue_number: int
+) -> tuple[Assignment, Assignment] | None:
+    """``(newest_leg, latest_review)`` when the issue's latest review judged
+    an OLDER work leg than the newest done one, and that newest leg has no
+    review of its own (#3668) — else ``None``.
+
+    That is the vimcode#1877 shape: a request-changes review of leg A, a fix
+    leg B completed and passed Test, and nothing ever reviewed B — yet
+    every reader that looked at "the latest review" (``coord diagnose
+    --stage review``) saw a perfectly healthy terminal review and stopped
+    there. A review of a superseded leg says nothing about the newest head.
+    """
+    newest = newest_done_work_leg(board, repo_name, issue_number)
+    if newest is None or not newest.assignment_id:
+        return None
+    reviews = [
+        a
+        for a in list(board.active) + list(board.completed)
+        if a.type == "review"
+        and a.repo_name == repo_name
+        and a.issue_number == newest.issue_number
+    ]
+    if not reviews:
+        return None
+    if any(r.review_of_assignment_id == newest.assignment_id for r in reviews):
+        return None
+    latest = max(reviews, key=lambda a: (a.dispatched_at or 0.0, a.assignment_id or ""))
+    # A review dispatched after the newest leg finished already saw its head
+    # (the #3161 scoped re-review deliberately carries the OLDER leg's id),
+    # so it is not a gap.
+    head_ready_at = newest.finished_at or newest.dispatched_at or 0.0
+    if (latest.dispatched_at or 0.0) >= head_ready_at:
+        return None
+    return newest, latest
+
+
+# #3668: how long a newest done leg must have been finished before a stale
+# `review_state="dispatched"` with no review row is trusted as stale rather
+# than as a dispatch still being persisted. Mirrors `coord.diagnose`'s
+# `_REVIEW_CLAIM_LEAK_GRACE_SECS` — it has to outlast a worst-case
+# multi-candidate `dispatch_review` (several 60s `/assign` POSTs).
+_NEWEST_HEAD_HEAL_GRACE_SECS = 600.0
+
+
+def heal_unreviewed_newest_work_legs(
+    board: Board, *, logger=None, now: float | None = None
+) -> list[str]:
+    """Reset a stale ``review_state="dispatched"`` back to ``"pending"`` on
+    the newest done work leg of an issue when no review of that leg exists
+    (#3668). Returns the healed assignment ids; mutates *board* in memory
+    (the caller persists it, as with every other write here).
+
+    ``dispatch_pending_reviews`` only ever considers rows whose
+    ``review_state`` is ``None``/``"pending"``, so a leg left at
+    ``"dispatched"`` with nothing actually dispatched for it (a racing
+    whole-board save, a dispatch whose review row never landed) is skipped
+    by every pass, forever ("[review dispatched]" with no review anywhere).
+    This is the sibling of the vimcode#1877 stall, not that stall itself:
+    #1877's leg read "[awaiting review]" (``pending``), which the bulk pass
+    DOES consider — that shape is closed by isolating per-row dispatch
+    failures in :func:`dispatch_pending_reviews` (#3668 review round 1).
+
+    Deliberately narrow — every condition below is evidence nothing will
+    review this head on its own:
+
+    * the row is the issue's **newest** done work-like leg (an older leg is
+      superseded; reviewing it is the wrong target);
+    * no ``type="review"`` row anywhere carries its id;
+    * no review for the issue is in flight right now, and none was
+      dispatched after this leg finished (a #3161 scoped re-review covers
+      the newest head while carrying the OLDER leg's id — don't double it);
+    * no terminal verdict is recorded for it (in memory or in the DB, #3670
+      — one review per leg);
+    * it finished at least :data:`_NEWEST_HEAD_HEAL_GRACE_SECS` ago (a row
+      with no ``finished_at`` is never healed — no evidence it is stale);
+    * no review-dispatch claim is held for it — a held claim means a
+      ``dispatch_review`` is in flight right now (or a leaked claim, which
+      ``coord diagnose --stage review --reset`` releases; re-pending the row
+      would only make every pass deny on the claim).
+    """
+    from coord.models import effective_issue_number  # noqa: PLC0415
+    from coord.state import has_recorded_review_verdict, has_review_claim  # noqa: PLC0415
+
+    log_ = logger or log
+    now_ = time.time() if now is None else now
+    healed: list[str] = []
+    pool = list(board.active) + list(board.completed)
+    active_ids = {id(a) for a in board.active}
+    for c in board.completed:
+        if (
+            c.review_state != "dispatched"
+            or c.type not in WORK_LIKE_TYPES
+            or c.status != "done"
+            or not c.assignment_id
+            or c.review_verdict is not None
+        ):
+            continue
+        if c.finished_at is None or now_ - c.finished_at < _NEWEST_HEAD_HEAL_GRACE_SECS:
+            continue
+        if newest_done_work_leg(board, c.repo_name, effective_issue_number(c)) is not c:
+            continue
+        if any(
+            r.type == "review" and r.review_of_assignment_id == c.assignment_id
+            for r in pool
+        ):
+            continue
+        head_ready_at = c.finished_at or c.dispatched_at or 0.0
+        if any(
+            r.type == "review"
+            and r.repo_name == c.repo_name
+            and r.issue_number == c.issue_number
+            and (
+                id(r) in active_ids
+                or r.status in ("running", "pending")
+                or (r.dispatched_at or 0.0) >= head_ready_at
+            )
+            for r in pool
+        ):
+            continue
+        if has_recorded_review_verdict(c.assignment_id):
+            continue
+        if has_review_claim(c.assignment_id):
+            continue
+        log_.warning(
+            "newest-head review gap (#3668): %s (%s #%s) is the newest done "
+            "work leg and reads review_state='dispatched', but no review of "
+            "it exists or is in flight — resetting to 'pending' so it is "
+            "dispatched instead of waiting forever.",
+            c.assignment_id, c.repo_name, c.issue_number,
+        )
+        c.review_state = "pending"
+        healed.append(c.assignment_id)
+    return healed
+
+
+def bulk_review_eligibility_blockers(
+    c: Assignment, board: Board, *, gate_test: bool
+) -> list[str]:
+    """Why :func:`dispatch_pending_reviews`'s bulk pass will NOT consider
+    *c* for a review — empty when it is eligible (#3668).
+
+    This IS the bulk pass's eligibility filter (it calls this, never a copy
+    of it), so ``coord diagnose --stage review`` reports exactly the
+    condition that is holding a pending newest head back — the vimcode#1877
+    stall left a test-passed fix leg at "[awaiting review]" for 2h12m and
+    nothing anywhere said which guard was declining it.
+    """
+    from coord.claim import has_active_work_followup  # noqa: PLC0415
+    from coord.models import effective_issue_number  # noqa: PLC0415
+
+    reasons: list[str] = []
+    if c.review_state not in (None, "pending"):
+        reasons.append(f"review_state={c.review_state!r} (only None/'pending' is eligible)")
+    if c.type not in WORK_LIKE_TYPES:
+        reasons.append(f"type={c.type!r} is not reviewable work")
+    # #1534: only a genuinely SUCCESSFUL completion is review-eligible.
+    # `dispatch_review` has always refused a non-`done` row internally, but
+    # the bulk loop used to feed it every `failed`/`advisory` row on the
+    # board on every pass (they carry `review_state=None`), which made this
+    # loop's own eligibility list read as "review is pending for these" when
+    # it was not — and made the surge/flood counters count rows that could
+    # never dispatch.
+    if c.status != "done":
+        reasons.append(f"status={c.status!r} (only 'done' work is reviewed)")
+    # #555: NEVER auto-dispatch a headless `claude -p` review for an
+    # *interactive* (`provider_name="claude-pty"`) work completion. The
+    # interactive Work→Review handoff is human-attended; the explicit `coord
+    # review <id>` escape hatch (→ dispatch_review) still works.
+    if c.provider_name == "claude-pty":
+        reasons.append(
+            "interactive work (provider claude-pty) — review is human-attended "
+            "(#555); request one with coord review"
+        )
+    if gate_test and c.test_state not in ("passed", "skipped"):
+        reasons.append(
+            f"Test precedes Review and test_state={c.test_state or 'none'!r} "
+            "is not passed/skipped"
+        )
+    # #1553: effective issue, not raw — the same key has_active_work_followup
+    # itself matches on.
+    if c.type in WORK_LIKE_TYPES and has_active_work_followup(
+        board, repo_name=c.repo_name, issue_number=effective_issue_number(c)
+    ):
+        live = [
+            a.assignment_id or "?"
+            for a in board.active
+            if a.type in ("work", "conflict-fix")
+            and a.status != "failed"
+            and a.repo_name == c.repo_name
+            and effective_issue_number(a) == effective_issue_number(c)
+        ]
+        reasons.append(
+            "a work/conflict-fix leg is live on the same issue (#459): "
+            + ", ".join(live)
+        )
+    return reasons
+
+
+def newest_head_review_dispatch_blockers(
+    board: Board, config: Config, leg: Assignment
+) -> list[str]:
+    """Every reason the automatic review pass is not dispatching a review of
+    *leg* — the bulk eligibility filter
+    (:func:`bulk_review_eligibility_blockers`) plus the pass-wide gates in
+    front of it (reviews disabled, the review-iteration cap, the 2026-06-08
+    flood guard). Empty means the next pass should dispatch it (#3668).
+    """
+    import os  # noqa: PLC0415
+
+    reasons: list[str] = []
+    reviews = getattr(config, "reviews", None)
+    if reviews is not None and (not reviews.enabled or not reviews.auto_dispatch):
+        reasons.append(
+            f"automatic review dispatch is off (reviews.enabled={reviews.enabled!r}, "
+            f"reviews.auto_dispatch={reviews.auto_dispatch!r})"
+        )
+    gate_test = (
+        getattr(config, "pipeline", None) is not None
+        and config.pipeline.test_precedes_review()
+    )
+    reasons.extend(bulk_review_eligibility_blockers(leg, board, gate_test=gate_test))
+    pipeline = getattr(config, "pipeline", None)
+    if pipeline is not None and (leg.review_iteration or 0) >= pipeline.max_review_iterations:
+        reasons.append(
+            f"review_iteration={leg.review_iteration or 0} >= "
+            f"max_review_iterations={pipeline.max_review_iterations} (#1612 cap)"
+        )
+    if reviews is not None and not reasons:
+        threshold = reviews.flood_threshold
+        override = (
+            reviews.allow_review_flood
+            or os.environ.get("COORD_ALLOW_REVIEW_FLOOD") == "1"
+        )
+        if threshold and not override:
+            eligible = sum(
+                1
+                for c in board.completed
+                if not bulk_review_eligibility_blockers(c, board, gate_test=gate_test)
+            )
+            if eligible > threshold:
+                reasons.append(
+                    f"review flood guard: {eligible} rows are pending review "
+                    f"(> reviews.flood_threshold={threshold}), so the bulk pass "
+                    "dispatches nothing — clear the stale backlog or set "
+                    "reviews.allow_review_flood"
+                )
+    return reasons
+
+
 def dispatch_pending_reviews(board, config, *, test_gate_active: bool = False, now=None):
     """Bounded bulk review dispatch — the flood guard (incident 2026-06-08).
 
@@ -4442,9 +4929,6 @@ def dispatch_pending_reviews(board, config, *, test_gate_active: bool = False, n
     """
     import logging
     import os
-
-    from coord.claim import has_active_work_followup
-    from coord.models import effective_issue_number
 
     logger = logging.getLogger("coord.review")
 
@@ -4544,6 +5028,12 @@ def dispatch_pending_reviews(board, config, *, test_gate_active: bool = False, n
         c.review_verdict = prior_verdict
         record_work_review_verdict(c.assignment_id, prior_verdict)
 
+    # #3668: newest-head backstop — a newest done work leg whose
+    # `review_state` claims a review is in flight, while no review of THAT
+    # leg exists anywhere, is invisible to the eligibility filter below
+    # forever. Hand it back to "pending" so this pass can dispatch it.
+    heal_unreviewed_newest_work_legs(board, logger=logger, now=now)
+
     # #1612 step 2: enforce max_review_iterations here too, not just in
     # run_for_fix_transition. A fix row whose test verdict isn't in yet gets
     # deferred to this function (its review_state is set back to "pending"
@@ -4575,35 +5065,13 @@ def dispatch_pending_reviews(board, config, *, test_gate_active: bool = False, n
             _post_max_iterations_notice(c, config)
             c.review_state = "cap_hit"
 
+    # #3668: the predicate lives in `bulk_review_eligibility_blockers` so
+    # `coord diagnose --stage review` can name WHICH condition is holding a
+    # pending, test-passed newest head back instead of guessing.
     eligible = [
         c
         for c in board.completed
-        if c.review_state in (None, "pending")
-        and c.type in WORK_LIKE_TYPES
-        # #1534: only a genuinely SUCCESSFUL completion is review-eligible.
-        # `dispatch_review` has always refused a non-`done` row internally,
-        # but the bulk loop used to feed it every `failed`/`advisory` row on
-        # the board on every pass (they carry `review_state=None`), which
-        # made this loop's own eligibility list read as "review is pending
-        # for these" when it was not — and made the surge/flood counters
-        # below count rows that could never dispatch. Stating the invariant
-        # here keeps the loop and the chokepoint agreeing.
-        and c.status == "done"
-        # #555: NEVER auto-dispatch a headless `claude -p` review for an
-        # *interactive* (`provider_name="claude-pty"`) work completion. The
-        # interactive Work→Review handoff is human-attended (TUI confirm →
-        # interactive review); a metered headless review must not silently
-        # follow it. This guard lives only in the automatic bulk path — the
-        # explicit `coord review <id>` escape hatch (→ dispatch_review) still
-        # lets a human deliberately request a headless review if they want one.
-        and c.provider_name != "claude-pty"
-        and (not gate_test or c.test_state in ("passed", "skipped"))
-        # #1553: effective issue, not raw — see the matching comment on the
-        # ``dispatch_review`` call site above; both must key on the same
-        # thing has_active_work_followup itself keys on internally.
-        and not has_active_work_followup(
-            board, repo_name=c.repo_name, issue_number=effective_issue_number(c)
-        )
+        if not bulk_review_eligibility_blockers(c, board, gate_test=gate_test)
     ]
     if not eligible:
         return []
@@ -4642,14 +5110,37 @@ def dispatch_pending_reviews(board, config, *, test_gate_active: bool = False, n
         # `maybe_scoped_review_for_completed_fix`'s docstring for why the
         # race exists at all.
         review = None
-        if completed.review_of_assignment_id is not None:
-            review = maybe_scoped_review_for_completed_fix(
-                completed, board, config, now=now, terminal_cache=terminal_cache,
+        # #3668: one row's dispatch raising (a gh/PR lookup failure, a
+        # transport error, a bad repo config — `dispatch_review` re-raises
+        # after releasing its claim, by design) used to abort this whole
+        # pass. Every caller swallows the exception, so the pass simply
+        # ended there — and because `eligible` is rebuilt in the same board
+        # order every tick, the same poisoned row aborted every later pass
+        # too, starving every eligible row behind it forever. That is a
+        # pending, test-passed fix leg sitting at "[awaiting review]"
+        # indefinitely with no review row and no held claim (vimcode#1877).
+        # Isolate each row: log it loudly, leave it "pending" for the next
+        # pass, and carry on with the rest.
+        try:
+            if completed.review_of_assignment_id is not None:
+                review = maybe_scoped_review_for_completed_fix(
+                    completed, board, config, now=now,
+                    terminal_cache=terminal_cache,
+                )
+            if review is None:
+                review = dispatch_review(
+                    completed, board, config, now=now,
+                    terminal_cache=terminal_cache,
+                )
+        except Exception:  # noqa: BLE001 — isolate; see comment above
+            logger.exception(
+                "bulk review dispatch (#3668): dispatching a review for %s "
+                "(%s #%s) raised — leaving it pending for the next pass and "
+                "continuing with the remaining eligible rows",
+                completed.assignment_id, completed.repo_name,
+                completed.issue_number,
             )
-        if review is None:
-            review = dispatch_review(
-                completed, board, config, now=now, terminal_cache=terminal_cache
-            )
+            continue
         if review is not None:
             # #3180: a mechanical short-circuit (coordinator-doc/sealed-path
             # violation) already finalized `review` AND propagated the

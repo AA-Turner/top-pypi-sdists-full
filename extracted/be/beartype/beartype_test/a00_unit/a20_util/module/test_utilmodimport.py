@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -50,7 +50,7 @@ def test_import_module_or_none() -> None:
     # fully-qualified name of an unimportable module.
     with warns(BeartypeModuleUnimportableWarning):
         assert import_module_or_none(
-            'beartype_test.a00_unit.data.util.mod.data_utilmodule_bad') is (
+            'beartype_test.a00_unit.data.util.module.data_utilmodule_bad') is (
                 None)
 
 # ....................{ TESTS ~ attr                       }....................
@@ -70,7 +70,7 @@ def test_import_module_attr() -> None:
     # Fully-qualified name of an importable module defining attributes intended
     # to be dynamically imported below.
     MODULE_IMPORTABLE_NAME = (
-        'beartype_test.a00_unit.data.util.mod.data_utilmodule_good')
+        'beartype_test.a00_unit.data.util.module.data_utilmodule_good')
 
     # Fully-qualified name of an unimportable module.
     MODULE_UNIMPORTABLE_NAME = 'to.thy_delightful.realms'
@@ -131,7 +131,7 @@ def test_import_module_attr_or_none() -> None:
     # ....................{ LOCALS                         }....................
     # Fully-qualified name of an importable module defining attributes intended
     # to be dynamically imported below.
-    MODULE_NAME = 'beartype_test.a00_unit.data.util.mod.data_utilmodule_good'
+    MODULE_NAME = 'beartype_test.a00_unit.data.util.module.data_utilmodule_good'
 
     # ....................{ PASS                           }....................
     # Assert that passing this importer the fully-qualified name of an
@@ -167,7 +167,7 @@ def test_import_module_attr_or_sentinel() -> None:
     # ....................{ LOCALS                         }....................
     # Fully-qualified name of a test-specific module defining attributes
     # intended to be dynamically imported below.
-    MODULE_NAME = 'beartype_test.a00_unit.data.util.mod.data_utilmodule_good'
+    MODULE_NAME = 'beartype_test.a00_unit.data.util.module.data_utilmodule_good'
 
     # ....................{ PASS                           }....................
     # Assert that passing this importer an arbitrary attribute name of an
@@ -210,7 +210,7 @@ def test_import_module_attr_or_sentinel() -> None:
     # unimportable module.
     with warns(BeartypeModuleUnimportableWarning):
         bad_module_attr = import_module_attr_or_sentinel(
-            'beartype_test.a00_unit.data.util.mod.data_utilmodule_bad.attrbad')
+            'beartype_test.a00_unit.data.util.module.data_utilmodule_bad.attrbad')
         assert bad_module_attr is SENTINEL
 
     # Assert this function raises the expected exception when passed a

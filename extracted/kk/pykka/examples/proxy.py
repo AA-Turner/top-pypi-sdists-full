@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = ">=3.10"
+# requires-python = ">=3.11"
 # dependencies = [
 #     "pykka",
 # ]
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     # Field writing
     log("writing FooActor.field ...")
     # Assignment does not block:
-    proxy.field = "new value"  # type: ignore[assignment]
+    proxy.field = "new value"  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     # Does not block, returns a future:
     result = proxy.field
     log("printing new field value ... (blocking)")

@@ -16,6 +16,7 @@
 #include "doppler/burst_capture/burst_capture_core.h"
 #include "doppler/pn/pn_core.h"
 
+#include "dp_chunk_inv.h"
 #include "dp_preamble_test.h"
 #include "dp_rng_test.h"
 #include "dp_state_test.h"
@@ -541,6 +542,12 @@ test_block_size_below_min_gap (void)
  * push of four such bursts lost one and dropped tens of thousands of
  * samples, where 333-sample blocks lost nothing. Asserted: nothing dropped,
  * and every burst at its exact start, whole and in blocks.
+ *
+ * Since push() stopped refusing input (doppler#2015) this scene cannot lose
+ * a burst that way: a stall behind a held head now costs latency -- trim
+ * sweeps the held entry once the tail passes it -- not samples, so putting
+ * the stall back leaves this test green. The stall is caught where it
+ * still loses one, test_release_on_every_window_never_wedges.
  */
 static int
 test_a_held_head_does_not_stall_long_bursts (void)
@@ -599,6 +606,893 @@ test_a_held_head_does_not_stall_long_bursts (void)
         DP_CHECK (seen[b] == 1u);
       dp_burst_capture_destroy (s);
     }
+  return 0;
+}
+
+/**
+ * release() of every window never wedges the history ring (doppler#2028),
+ * and every epoch is the burst's stream position (doppler#2015).
+ *
+ * A dense train -- dead air 0.08 to 0.18 of `min_gap` -- pushed in constant
+ * 8192-sample blocks, the consumer releasing every window it is handed. Here
+ * a burst's early anchor lands inside the previous window, is shadowed, and
+ * comes back on release. emit() used to SWAP the next entry to the queue
+ * head, so the released burst sat behind a newer one whose window had not
+ * arrived; drain stopped there, the complete burst pinned the ring, and at
+ * this block size the ring refused every later push -- and every epoch after
+ * the first refusal was early by what it had refused. Asserted at each gap:
+ * every burst exactly once at its true start, nothing dropped, and the
+ * stream position equal to what was pushed.
+ */
+static int
+test_release_on_every_window_never_wedges (void)
+{
+  static float _Complex cap[5000u + 12u * (BURST_LEN + 200u) + 3u * BURST_LEN];
+  const size_t              n_cap = sizeof cap / sizeof *cap;
+  dp_burst_capture_state_t *probe = make ();
+  DP_REQUIRE (probe != NULL);
+  const size_t min_gap = dp_burst_capture_get_min_gap (probe);
+  dp_burst_capture_destroy (probe);
+
+  const double frac[3] = { 0.08, 0.13, 0.18 };
+  for (size_t g = 0; g < 3u; g++)
+    {
+      const size_t gap = (size_t)(frac[g] * (double)min_gap);
+      DP_REQUIRE (gap > 0u && gap <= 200u);
+      size_t at[12];
+      for (size_t k = 0; k < 12u; k++)
+        at[k] = 5000u + k * (BURST_LEN + gap);
+      build_capture (cap, n_cap, at, 12u, 0.02, 2028u + (uint32_t)g);
+
+      dp_burst_capture_state_t *s = make ();
+      DP_REQUIRE (s != NULL);
+      size_t seen[12] = { 0 };
+      for (size_t off = 0; off < n_cap; off += 8192u)
+        {
+          size_t blk = n_cap - off < 8192u ? n_cap - off : 8192u;
+          (void)dp_burst_capture_push (s, cap + off, blk, NULL, 0);
+          for (size_t i = 0; i < dp_burst_capture_ready (s); i++)
+            {
+              uint64_t ps = dp_burst_capture_event_at (s, i)->preamble_start;
+              for (size_t k = 0; k < 12u; k++)
+                seen[k] += ps == at[k];
+              DP_CHECK (dp_burst_capture_release (s, i) == DP_OK);
+            }
+        }
+      DP_CHECK (s->dropped == 0);
+      DP_CHECK (s->samples_fed == n_cap);
+      for (size_t k = 0; k < 12u; k++)
+        DP_CHECK (seen[k] == 1u);
+      dp_burst_capture_destroy (s);
+    }
+  return 0;
+}
+
+/**
+ * A detection whose history is gone is swept, counted, and never wedges the
+ * ring (doppler#2015).
+ *
+ * The fault is INJECTED: an entry refined to a start the ring has already
+ * released. Its window's first sample is behind the tail, no push can bring
+ * it back, and left in place it would block drain and pin trim until the
+ * ring filled. The sweep at the next trim takes it, and `dropped` counts
+ * exactly the part of its window that is gone -- 300 samples here.
+ *
+ * Asserted: the bursts on either side of where it would have stalled the
+ * stream -- one arriving while it is queued, one well after -- come out at
+ * their exact starts as the input's own samples, nothing spliced across a
+ * gap, and the stream position equals what was pushed. With the sweep
+ * removed, push() stops (aborts) rather than spinning.
+ */
+static int
+test_a_dead_entry_is_swept (void)
+{
+  static float _Complex cap[40000];
+  const size_t n_cap = sizeof cap / sizeof *cap, LEAD = 12000u;
+  const size_t at[2] = { 14000u, 26000u };
+  build_capture (cap, n_cap, at, 2u, 0.02, 2015u);
+
+  dp_burst_capture_state_t *s = make ();
+  DP_REQUIRE (s != NULL);
+  (void)dp_burst_capture_push (s, cap, LEAD, NULL, 0);
+  DP_REQUIRE (dp_burst_capture_ready (s) == 0u && s->pending == 0u);
+  DP_REQUIRE (s->hist->tail > 300u);
+
+  /* Refined, unshadowed, its window starting 300 samples behind the tail. */
+  burst_capture_pending_t *dead = &s->q[s->q_head];
+  memset (dead, 0, sizeof *dead);
+  dead->start   = (uint64_t)s->hist->tail - 300u;
+  dead->anchor  = dead->start;
+  dead->refined = 1;
+  s->pending    = 1u;
+
+  size_t found[2] = { 0 };
+  for (size_t off = LEAD; off < n_cap; off += 8192u)
+    {
+      size_t blk = n_cap - off < 8192u ? n_cap - off : 8192u;
+      (void)dp_burst_capture_push (s, cap + off, blk, NULL, 0);
+      for (size_t i = 0; i < dp_burst_capture_ready (s); i++)
+        for (size_t k = 0; k < 2u; k++)
+          if (dp_burst_capture_event_at (s, i)->preamble_start == at[k])
+            {
+              found[k]++;
+              DP_CHECK (memcmp (dp_burst_capture_window (s, i), cap + at[k],
+                                BURST_LEN * sizeof *cap)
+                        == 0);
+            }
+    }
+  DP_CHECK (found[0] == 1u && found[1] == 1u);
+  DP_CHECK (s->dropped == 300u);
+  DP_CHECK (s->samples_fed == n_cap);
+  dp_burst_capture_destroy (s);
+  return 0;
+}
+
+/**
+ * A resume is EXACT: a capture restored from its blob emits what the live one
+ * does (doppler#2015 review).
+ *
+ * A live queue can hold history past `retain_span`: a burst released after
+ * its push keeps its look-back until the next push emits it. A blob that
+ * carried only `retain_span` dropped that burst -- a checkpoint that resumed
+ * as something else, which is a reset. The blob now carries everything the
+ * ring holds. The scene is gate (a)'s; a live capture and one restored from
+ * its blob after every push and release() run in lockstep, and every window
+ * the restored one emits is compared with the live one's. The ring is
+ * required to have held more than `retain_span` somewhere -- the case the old
+ * blob lost -- so the test cannot pass on a scene that never reaches it.
+ */
+static int
+test_a_resume_is_exact (void)
+{
+  static float _Complex cap[5000u + 12u * (BURST_LEN + 200u) + 3u * BURST_LEN];
+  const size_t              n_cap = sizeof cap / sizeof *cap;
+  dp_burst_capture_state_t *a     = make ();
+  dp_burst_capture_state_t *b     = make ();
+  DP_REQUIRE (a != NULL && b != NULL);
+  const size_t gap = (size_t)(0.13 * (double)dp_burst_capture_get_min_gap (a));
+  size_t       at[12];
+  for (size_t k = 0; k < 12u; k++)
+    at[k] = 5000u + k * (BURST_LEN + gap);
+  build_capture (cap, n_cap, at, 12u, 0.02, 2029u);
+
+  const size_t   cb   = dp_burst_capture_state_bytes (a);
+  unsigned char *blob = malloc (cb);
+  DP_REQUIRE (blob != NULL);
+  size_t over = 0, seen = 0;
+  for (size_t off = 0; off < n_cap; off += 8192u)
+    {
+      size_t blk = n_cap - off < 8192u ? n_cap - off : 8192u;
+      (void)dp_burst_capture_push (a, cap + off, blk, NULL, 0);
+      (void)dp_burst_capture_push (b, cap + off, blk, NULL, 0);
+      DP_CHECK (dp_burst_capture_ready (b) == dp_burst_capture_ready (a));
+      for (size_t i = 0;
+           i < dp_burst_capture_ready (a) && i < dp_burst_capture_ready (b);
+           i++)
+        {
+          DP_CHECK (dp_burst_capture_event_at (b, i)->preamble_start
+                    == dp_burst_capture_event_at (a, i)->preamble_start);
+          DP_CHECK (memcmp (dp_burst_capture_window (b, i),
+                            dp_burst_capture_window (a, i),
+                            BURST_LEN * sizeof (float _Complex))
+                    == 0);
+          seen++;
+        }
+      for (size_t i = 0; i < dp_burst_capture_ready (a); i++)
+        DP_CHECK (dp_burst_capture_release (a, i) == DP_OK);
+      over += dp_f32_available (a->hist) > a->retain_span;
+      dp_burst_capture_get_state (a, blob);
+      DP_REQUIRE (dp_burst_capture_set_state (b, blob) == DP_OK);
+      DP_CHECK (b->pending == a->pending);
+      DP_CHECK (b->dropped == a->dropped);
+    }
+  DP_CHECK (over > 0u); /* the premise: past retain_span, where it shed */
+  DP_CHECK (seen >= 12u);
+  DP_CHECK (a->dropped == 0u);
+  free (blob);
+  dp_burst_capture_destroy (a);
+  dp_burst_capture_destroy (b);
+  return 0;
+}
+
+/**
+ * A blob's queue is checked, not trusted (doppler#2015 review).
+ *
+ * set_state() takes a blob's queue as bytes, so a forged one can name
+ * anything, and the ring bound push() relies on rests on that queue. An
+ * entry whose span the restored ring cannot reach -- here refined 100
+ * samples behind the tail, which left in place would pin the ring for
+ * ever -- is swept and counted, and the stream goes on: the later burst is
+ * exact. What the bound rests on is refused: phases past their array,
+ * anchors out of order, a refined start outside the range refine chooses
+ * from.
+ * Refine's own first and last candidates are accepted, so the check is not
+ * too tight.
+ */
+static int
+test_a_forged_blob_is_checked (void)
+{
+  static float _Complex cap[40000];
+  const size_t n_cap = sizeof cap / sizeof *cap, LEAD = 12000u;
+  const size_t AT = 26000u;
+  build_capture (cap, n_cap, &AT, 1u, 0.02, 2030u);
+
+  dp_burst_capture_state_t *a = make ();
+  dp_burst_capture_state_t *b = make ();
+  DP_REQUIRE (a != NULL && b != NULL);
+  (void)dp_burst_capture_push (a, cap, LEAD, NULL, 0);
+  DP_REQUIRE (a->pending == 0u && a->hist->tail > 100u);
+  const size_t   cb   = dp_burst_capture_state_bytes (a);
+  unsigned char *blob = malloc (cb);
+  DP_REQUIRE (blob != NULL);
+  const uint64_t P    = a->code_period;
+  const uint64_t head = a->hist->head;
+
+  /* A live-looking entry: unarrived, its phase its anchor's own. */
+  burst_capture_pending_t live;
+  memset (&live, 0, sizeof live);
+  live.anchor   = head - 100u;
+  live.n_phase  = 1u;
+  live.phase[0] = (uint32_t)(live.anchor % P);
+
+  /* Dead: swept and counted, never left to pin the ring. */
+  {
+    burst_capture_pending_t *e = &a->q[a->q_head];
+    memset (e, 0, sizeof *e);
+    e->start   = (uint64_t)a->hist->tail - 100u;
+    e->anchor  = e->start;
+    e->refined = 1;
+    a->pending = 1u;
+    dp_burst_capture_get_state (a, blob);
+    DP_CHECK (dp_burst_capture_set_state (b, blob) == DP_OK);
+    DP_CHECK (b->pending == 0u);
+    DP_CHECK (b->dropped == a->dropped + 100u);
+    size_t found = 0;
+    for (size_t off = LEAD; off < n_cap; off += 8192u)
+      {
+        size_t blk = n_cap - off < 8192u ? n_cap - off : 8192u;
+        (void)dp_burst_capture_push (b, cap + off, blk, NULL, 0);
+        for (size_t i = 0; i < dp_burst_capture_ready (b); i++)
+          found += dp_burst_capture_event_at (b, i)->preamble_start == AT;
+      }
+    DP_CHECK (found == 1u);
+    DP_CHECK (b->samples_fed == n_cap);
+  }
+
+  /* What the bound rests on. Each case restores into a fresh instance, so
+     one refusal cannot leave the next one's target dirty. */
+  static const char *const what[6]
+      = { "phases past their array",
+          "anchors out of order",
+          "a start past refine's last candidate",
+          "a start before refine's first candidate",
+          "refine's last candidate",
+          "refine's first candidate" };
+  static const int ok[6] = { 0, 0, 0, 0, 1, 1 };
+  for (size_t c = 0; c < 6u; c++)
+    {
+      burst_capture_pending_t *e0 = &a->q[a->q_head];
+      burst_capture_pending_t *e1 = &a->q[(a->q_head + 1u) % a->q_cap];
+      *e0                         = live;
+      a->pending                  = 1u;
+      switch (c)
+        {
+        case 0:
+          e0->n_phase = BURST_CAPTURE_MAX_PHASES + 1u;
+          break;
+        case 1:
+          *e1 = live;
+          e1->anchor -= 1u;
+          e1->phase[0] = (uint32_t)(e1->anchor % P);
+          a->pending   = 2u;
+          break;
+        case 2:
+          e0->refined = 1;
+          e0->start   = live.anchor + (a->k_hi + 1u) * P;
+          break;
+        case 3:
+          e0->refined = 1;
+          e0->start   = live.anchor - (a->k_lo + 1u) * P;
+          break;
+        case 4:
+          e0->refined = 1;
+          e0->start   = live.anchor + a->k_hi * P;
+          break;
+        default:
+          e0->refined = 1;
+          e0->start   = live.anchor - a->k_lo * P;
+          break;
+        }
+      dp_burst_capture_get_state (a, blob);
+      dp_burst_capture_state_t *t = make ();
+      DP_REQUIRE (t != NULL);
+      const int rc = dp_burst_capture_set_state (t, blob);
+      if ((rc == DP_OK) != ok[c])
+        printf ("  forged blob, %s: set_state returned %d\n", what[c], rc);
+      DP_CHECK ((rc == DP_OK) == ok[c]);
+      dp_burst_capture_destroy (t);
+    }
+  free (blob);
+  dp_burst_capture_destroy (a);
+  dp_burst_capture_destroy (b);
+  return 0;
+}
+
+/**
+ * A refused blob changes nothing a checkpoint holds (doppler#2033 review).
+ *
+ * set_state() checks a blob whole before it writes anything, so a refusal
+ * leaves the SAME instance as it was: its next get_state() is
+ * byte-identical, and push() goes on from where it stood -- no abort, the
+ * later burst exact, nothing dropped. Each forgery edits a copy of the
+ * capture's own blob, so all but the forged field is a blob it accepts:
+ *   (A) a queue the trim bound cannot rest on: phases past their array, and
+ *       anchors out of order;
+ *   (B) a look-back longer than the stream, which would wrap the tail;
+ *   (C) an anchor past the stream position;
+ *   (D) an acquisition child taken at another stream position, which acq
+ *       itself accepts -- refused after it is restored, and put back;
+ *   (1) a stream position at 2^63 or past it, with an acquisition child
+ *       that stands there too, so nothing else refuses it;
+ *   (2) a suppression span that ends past the stream position;
+ *   (3) a queued entry with a non-finite Doppler, C/N0 or peak;
+ *   (4) an engine whose state no longer fits the blob's child region (a C
+ *       caller raised max_peaks after create) -- on its own instance, since
+ *       raising max_peaks clears the engine's peaks.
+ * Every case restores into the instance it compares; none starts afresh.
+ */
+static int
+test_a_refused_blob_changes_nothing (void)
+{
+  static float _Complex cap[40000];
+  const size_t n_cap = sizeof cap / sizeof *cap, LEAD = 6000u;
+  const size_t AT = 26000u;
+  build_capture (cap, n_cap, &AT, 1u, 0.02, 2033u);
+
+  dp_burst_capture_state_t *a = make ();
+  dp_burst_capture_state_t *b = make ();
+  DP_REQUIRE (a != NULL && b != NULL);
+  (void)dp_burst_capture_push (a, cap, LEAD, NULL, 0);
+  (void)dp_burst_capture_push (b, cap, LEAD + 1000u, NULL, 0);
+  DP_REQUIRE (!a->backed && a->samples_fed == LEAD);
+
+  const size_t   cb    = dp_burst_capture_state_bytes (a);
+  unsigned char *blob  = malloc (cb);
+  unsigned char *other = malloc (cb);
+  unsigned char *bad   = malloc (cb);
+  unsigned char *now   = malloc (cb);
+  unsigned char *huge  = malloc (cb);
+  DP_REQUIRE (blob && other && bad && now && huge);
+  dp_burst_capture_get_state (a, blob);
+  dp_burst_capture_get_state (b, other);
+
+  /* An acquisition child past 2^63 that acq itself accepts: b's engine moved
+     on by a whole number of dwells -- its position, its framer's frame count
+     and written count together -- so the carry, the block epoch and the
+     look count all still agree with the position. */
+  uint64_t huge_fed;
+  {
+    dp_acq_state_t *e   = b->acq->engine;
+    const uint64_t  per = (uint64_t)e->coherent_bins * e->n_noncoh;
+    const uint64_t  k
+        = ((UINT64_C (1) << 63) / (per * e->frame_n) + 1u) * per * e->frame_n;
+    e->samples_consumed += k;
+    e->framer.frames += k / e->frame_n;
+    e->framer.written += k;
+    huge_fed = dp_acq_position (e);
+    DP_REQUIRE (huge_fed >= (UINT64_C (1) << 63));
+    dp_burst_capture_get_state (b, huge);
+  }
+
+  /* The blob's layout, as get_state writes it; the last line proves it. */
+  const size_t E      = sizeof (burst_capture_pending_t);
+  const size_t o_fed  = sizeof (dp_state_hdr_t);
+  const size_t o_sup  = o_fed + 7u * 8u;
+  const size_t o_pend = sizeof (dp_state_hdr_t) + 8u * 8u;
+  const size_t o_q    = o_pend + 2u * sizeof (uint32_t);
+  const size_t o_n    = o_q + a->q_cap * E;
+  const size_t o_an
+      = o_n + sizeof (uint32_t) + a->hist->capacity * sizeof (float _Complex);
+  DP_REQUIRE (o_an + sizeof (uint32_t) + a->acq_blob_max == cb);
+  uint32_t q_head;
+  memcpy (&q_head, blob + o_pend + sizeof (uint32_t), sizeof q_head);
+  DP_REQUIRE (q_head < a->q_cap);
+  DP_REQUIRE ((uint64_t)LEAD + 1u <= a->hist->capacity);
+
+  const uint64_t          P = a->code_period;
+  burst_capture_pending_t live;
+  memset (&live, 0, sizeof live);
+  live.anchor   = LEAD - 100u;
+  live.n_phase  = 1u;
+  live.phase[0] = (uint32_t)(live.anchor % P);
+
+  static const char *const what[10]
+      = { "(A) phases past their array",
+          "(A) anchors out of order",
+          "(B) look-back longer than the stream",
+          "(C) anchor past the stream position",
+          "(D) acquisition child at another position",
+          "(1) stream position past 2^63, child there too",
+          "(2) suppression past the stream position",
+          "(3) NaN Doppler",
+          "(3) infinite C/N0",
+          "(3) NaN peak" };
+  for (size_t c = 0; c < 10u; c++)
+    {
+      memcpy (bad, blob, cb);
+      burst_capture_pending_t e0 = live, e1 = live;
+      uint32_t                pending = 1u;
+      switch (c)
+        {
+        case 0:
+          e0.n_phase = BURST_CAPTURE_MAX_PHASES + 1u;
+          break;
+        case 1:
+          e1.anchor -= 1u;
+          e1.phase[0] = (uint32_t)(e1.anchor % P);
+          pending     = 2u;
+          break;
+        case 2:
+          {
+            const uint32_t n = (uint32_t)LEAD + 1u;
+            memcpy (bad + o_n, &n, sizeof n);
+            pending = 0u;
+          }
+          break;
+        case 3:
+          e0.anchor   = LEAD + 1u;
+          e0.phase[0] = (uint32_t)(e0.anchor % P);
+          break;
+        case 4:
+          memcpy (bad + o_an, other + o_an,
+                  sizeof (uint32_t) + a->acq_blob_max);
+          pending = 0u;
+          break;
+        case 5:
+          memcpy (bad + o_an, huge + o_an,
+                  sizeof (uint32_t) + a->acq_blob_max);
+          memcpy (bad + o_fed, &huge_fed, sizeof huge_fed);
+          pending = 0u;
+          break;
+        case 6:
+          {
+            const uint64_t sup = LEAD + 1u;
+            memcpy (bad + o_sup, &sup, sizeof sup);
+            pending = 0u;
+          }
+          break;
+        case 7:
+          e0.doppler_hz = NAN;
+          break;
+        case 8:
+          e0.cn0_dbhz = INFINITY;
+          break;
+        default:
+          e0.peak_mag = NAN;
+          break;
+        }
+      if (pending)
+        {
+          memcpy (bad + o_pend, &pending, sizeof pending);
+          memcpy (bad + o_q + q_head * E, &e0, E);
+          if (pending > 1u)
+            memcpy (bad + o_q + ((q_head + 1u) % a->q_cap) * E, &e1, E);
+        }
+      const int rc = dp_burst_capture_set_state (a, bad);
+      dp_burst_capture_get_state (a, now);
+      if (rc != DP_ERR_INVALID || memcmp (now, blob, cb) != 0)
+        fprintf (stderr, "  refused blob: %s\n", what[c]);
+      DP_CHECK (rc == DP_ERR_INVALID);
+      DP_CHECK (memcmp (now, blob, cb) == 0);
+    }
+
+  /* And the stream goes on from where it stood. */
+  size_t found = 0;
+  for (size_t off = LEAD; off < n_cap; off += 8192u)
+    {
+      size_t blk = n_cap - off < 8192u ? n_cap - off : 8192u;
+      (void)dp_burst_capture_push (a, cap + off, blk, NULL, 0);
+      for (size_t i = 0; i < dp_burst_capture_ready (a); i++)
+        found += dp_burst_capture_event_at (a, i)->preamble_start == AT;
+    }
+  DP_CHECK (found == 1u);
+  DP_CHECK (a->samples_fed == n_cap);
+  DP_CHECK (a->dropped == 0u);
+
+  /* (4) The engine outgrew the child region: refused before the undo
+     snapshot or acq's restore could run past it. get_state() leaves a child
+     it cannot fit unwritten, so both reads start from zeroed buffers. */
+  {
+    dp_burst_capture_state_t *d = make ();
+    DP_REQUIRE (d != NULL);
+    (void)dp_burst_capture_push (d, cap, LEAD, NULL, 0);
+    DP_REQUIRE (dp_burst_acq_set_max_peaks (d->acq, ACQ_MAX_PEAKS) == 0);
+    DP_REQUIRE (dp_acq_state_bytes (d->acq->engine) > d->acq_blob_max);
+    memset (now, 0, cb);
+    memset (bad, 0, cb);
+    dp_burst_capture_get_state (d, now);
+    const int rc = dp_burst_capture_set_state (d, blob);
+    dp_burst_capture_get_state (d, bad);
+    if (rc != DP_ERR_INVALID || memcmp (now, bad, cb) != 0)
+      fprintf (stderr, "  refused blob: (4) engine outgrew its region\n");
+    DP_CHECK (rc == DP_ERR_INVALID);
+    DP_CHECK (memcmp (now, bad, cb) == 0);
+    for (size_t off = LEAD; off < n_cap; off += 8192u)
+      (void)dp_burst_capture_push (
+          d, cap + off, n_cap - off < 8192u ? n_cap - off : 8192u, NULL, 0);
+    DP_CHECK (d->samples_fed == n_cap);
+    dp_burst_capture_destroy (d);
+  }
+
+  free (blob);
+  free (other);
+  free (bad);
+  free (now);
+  free (huge);
+  dp_burst_capture_destroy (a);
+  dp_burst_capture_destroy (b);
+  return 0;
+}
+
+/**
+ * The history ring always has room after trim, so push() never stops on a
+ * full one -- at the worst case the geometry allows.
+ *
+ * burst_capture_trim states the bound: after sweep, drain and trim,
+ * head - tail < max(burst_len, reps*P) + (2*k_lo + k_hi + 2)*P, below the
+ * ring's capacity. The worst case is planted directly: two entries with the
+ * same anchor, X refined at its LATEST candidate on a phase half a period
+ * late, Y at its EARLIEST on a phase half a period early. X is first in
+ * anchor order and arrives last, so Y's window completes behind it and Y
+ * pins the tail as far back as anything can. The stream is silence, so no
+ * detection disturbs the pair. One sample per push, so trim runs at every
+ * position: the occupancy it leaves must stay under the bound, must REACH it
+ * (it is tight, so this is the worst case), and does exceed
+ * retain_span + P -- which is why the bound is not that.
+ */
+static int
+test_the_ring_always_has_room (void)
+{
+  static float _Complex z[20000];
+  dp_burst_capture_state_t *s = make ();
+  DP_REQUIRE (s != NULL);
+  (void)dp_burst_capture_push (s, z, sizeof z / sizeof *z, NULL, 0);
+  DP_REQUIRE (s->pending == 0u);
+
+  const uint64_t          P = s->code_period, head0 = s->hist->head;
+  const uint64_t          A = head0 + (s->k_lo + 1u) * P;
+  burst_capture_pending_t x, y;
+  memset (&x, 0, sizeof x);
+  memset (&y, 0, sizeof y);
+  x.anchor = y.anchor = A;
+  x.n_phase = y.n_phase = 1u;
+  x.peak_mag = y.peak_mag = 1e30;
+  /* The fold is [-P/2, P/2): P/2 - 1 is the latest phase, -P/2 the
+     earliest. */
+  x.phase[0] = (uint32_t)((A + P / 2u - 1u) % P);
+  y.phase[0] = (uint32_t)((A + P - P / 2u) % P);
+  x.refined = y.refined             = 1;
+  x.start                           = A + P / 2u - 1u + s->k_hi * P;
+  y.start                           = A - P / 2u - s->k_lo * P;
+  s->q[s->q_head]                   = x;
+  s->q[(s->q_head + 1u) % s->q_cap] = y;
+  s->pending                        = 2u;
+
+  const uint64_t big   = BURST_LEN > REPS * P ? BURST_LEN : REPS * P;
+  const uint64_t bound = big + (2u * s->k_lo + s->k_hi + 2u) * P;
+  DP_REQUIRE (bound < s->hist->capacity); /* the claim, at this geometry */
+
+  /* Up to one sample short of X's window: every trim on the way is checked,
+     and Y pins the tail throughout. */
+  static const float _Complex one[1] = { 0 };
+  uint64_t worst                     = 0;
+  for (uint64_t t = head0; t + 1u < x.start + BURST_LEN; t++)
+    {
+      (void)dp_burst_capture_push (s, one, 1u, NULL, 0);
+      /* What trim left, before this push's one sample was written. */
+      const uint64_t occ = (uint64_t)(s->hist->head - s->hist->tail) - 1u;
+      if (occ > worst)
+        worst = occ;
+    }
+  DP_CHECK (worst < bound);
+  DP_CHECK (dp_burst_capture_ready (s) == 0u);
+  /* The next trim cannot release anything -- Y still pins and X has not
+     arrived -- so this is what it leaves: the peak, one short of the bound
+     less the sample about to be written. Tight: this IS the worst case. And
+     past retain_span + P, which is why the bound is not that. */
+  const uint64_t peak = (uint64_t)(s->hist->head - s->hist->tail);
+  DP_CHECK (peak < bound);
+  DP_CHECK (peak + 2u == bound);
+  DP_CHECK (peak > s->retain_span + P);
+
+  /* At that peak a whole slice does not fit -- the room is less than
+     chunk_max -- and it is taken anyway: written as it fits, X emitted on
+     arrival, trim releasing behind it. An all-or-nothing write refused it. */
+  DP_REQUIRE (dp_f32_space (s->hist) < s->chunk_max);
+  const uint64_t fed   = s->samples_fed;
+  size_t         x_out = 0;
+  (void)dp_burst_capture_push (s, z, s->chunk_max, NULL, 0);
+  for (size_t i = 0; i < dp_burst_capture_ready (s); i++)
+    x_out += dp_burst_capture_event_at (s, i)->preamble_start == x.start;
+  DP_CHECK (s->samples_fed == fed + s->chunk_max);
+  DP_CHECK (x_out == 1u);
+  DP_CHECK (s->dropped == 0u);
+  dp_burst_capture_destroy (s);
+  return 0;
+}
+
+/**
+ * A resume into a FULL ring makes room on the first push (doppler#2015
+ * review).
+ *
+ * A live push can end with the history ring exactly full -- its last write
+ * took all the room there was -- and the blob then carries every sample.
+ * Restored behind a dead head, a complete burst Y holds trim below the tail:
+ * its window has arrived, but its need sits a period past the restored tail.
+ * What makes room is the ORDER push() keeps: the sweep takes the dead entry,
+ * the drain emits Y, and only then does trim release. With the drain moved
+ * after trim, trim releases nothing, the ring has no room, and push()
+ * aborts. Asserted: Y comes out at its start, the dead entry is counted, and
+ * the one sample is taken.
+ */
+static int
+test_a_full_ring_restored_makes_room (void)
+{
+  static float _Complex z[20000];
+  dp_burst_capture_state_t *a = make ();
+  dp_burst_capture_state_t *b = make ();
+  DP_REQUIRE (a != NULL && b != NULL);
+  (void)dp_burst_capture_push (a, z, sizeof z / sizeof *z, NULL, 0);
+  DP_REQUIRE (a->pending == 0u);
+
+  /* Full: the rest of the ring's room, as the stream's next samples. */
+  const size_t room = dp_f32_space (a->hist);
+  DP_REQUIRE (room > 0u && room <= sizeof z / sizeof *z);
+  DP_REQUIRE (dp_f32_write (a->hist, (const float *)z, room));
+  a->samples_fed += room;
+  DP_REQUIRE (dp_f32_space (a->hist) == 0u);
+  /* acq takes the same samples, as push() would have it: set_state refuses
+     a child that stands anywhere but the capture's stream position. */
+  for (size_t took = 0; took < room;)
+    {
+      acq_result_t hits[BURST_CAPTURE_HITS];
+      (void)dp_burst_acq_push (a->acq, z + took, room - took, hits,
+                               BURST_CAPTURE_HITS);
+      DP_REQUIRE (dp_burst_acq_consumed (a->acq) > 0u);
+      took += dp_burst_acq_consumed (a->acq);
+    }
+  DP_REQUIRE (dp_acq_position (a->acq->engine) == a->samples_fed);
+
+  const uint64_t           P    = a->code_period;
+  const uint64_t           tail = a->hist->tail;
+  burst_capture_pending_t *d    = &a->q[a->q_head];
+  burst_capture_pending_t *y    = &a->q[(a->q_head + 1u) % a->q_cap];
+  memset (d, 0, sizeof *d);
+  memset (y, 0, sizeof *y);
+  /* Dead: refined 50 samples behind the tail. */
+  d->start   = tail - 50u;
+  d->anchor  = d->start;
+  d->refined = 1;
+  /* Complete, behind it: refined at the first candidate of its anchor, 10
+     samples past the tail, so its window is in the ring and its need is a
+     period behind the tail. */
+  y->start    = tail + 10u;
+  y->anchor   = y->start + a->k_lo * P;
+  y->n_phase  = 1u;
+  y->phase[0] = (uint32_t)(y->anchor % P);
+  y->refined  = 1;
+  a->pending  = 2u;
+  DP_REQUIRE (y->start + BURST_LEN <= (uint64_t)a->hist->head);
+
+  const size_t   cb   = dp_burst_capture_state_bytes (a);
+  unsigned char *blob = malloc (cb);
+  DP_REQUIRE (blob != NULL);
+  dp_burst_capture_get_state (a, blob);
+  DP_REQUIRE (dp_burst_capture_set_state (b, blob) == DP_OK);
+  DP_CHECK (dp_f32_space (b->hist) == 0u);
+  DP_CHECK (b->dropped == a->dropped + 50u);
+
+  /* set_state swept that one, so push()'s own opening drain would emit Y
+     unaided. A second dead head, dying after the restore, blocks that
+     drain: the loop's sweep takes it, and only the drain after the sweep
+     can emit Y before trim -- which is the order under test. */
+  DP_REQUIRE (b->pending == 1u);
+  {
+    const burst_capture_pending_t yb = b->q[b->q_head];
+    burst_capture_pending_t      *d2 = &b->q[b->q_head];
+    memset (d2, 0, sizeof *d2);
+    d2->start                         = tail - 30u;
+    d2->anchor                        = d2->start;
+    d2->refined                       = 1;
+    b->q[(b->q_head + 1u) % b->q_cap] = yb;
+    b->pending                        = 2u;
+  }
+
+  static const float _Complex one[1] = { 0 };
+  (void)dp_burst_capture_push (b, one, 1u, NULL, 0);
+  DP_CHECK (dp_burst_capture_ready (b) == 1u
+            && dp_burst_capture_event_at (b, 0)->preamble_start == y->start);
+  DP_CHECK (b->dropped == a->dropped + 50u + 30u);
+  DP_CHECK (b->samples_fed == a->samples_fed + 1u);
+  free (blob);
+  dp_burst_capture_destroy (a);
+  dp_burst_capture_destroy (b);
+  return 0;
+}
+
+/** @brief 1 if the queue is in anchor order, which the ring bound rests on. */
+static int
+q_in_anchor_order (const dp_burst_capture_state_t *s)
+{
+  for (size_t j = 1; j < s->pending; j++)
+    if (s->q[(s->q_head + j) % s->q_cap].anchor
+        < s->q[(s->q_head + j - 1u) % s->q_cap].anchor)
+      return 0;
+  return 1;
+}
+
+/**
+ * A merge that moves an anchor forward keeps the queue in anchor order
+ * (doppler#2015 review).
+ *
+ * The claim rule merges a hit into the FIRST queued entry within
+ * refine_span, not the nearest, and a stronger hit moves that entry's
+ * anchor to its own epoch -- which can pass the entries queued after it.
+ * The ring bound rests on anchor order (burst_capture_trim), so the moved
+ * entry is put back in place. Planted ahead of a burst whose first hit lands
+ * at epoch e (found by a probe over the same stream in the same blocks): D
+ * at e - 10 with the weakest peak there is, then L at e - 5. Both are
+ * unarrived, so neither is emitted first. The hit merges into D, moves it to
+ * e -- past L -- and the queue must come out sorted.
+ */
+static int
+test_a_moved_anchor_keeps_anchor_order (void)
+{
+  static float _Complex cap[40000];
+  const size_t n_cap = sizeof cap / sizeof *cap, LEAD = 12000u;
+  const size_t AT = 20000u, BLK = 1000u;
+  build_capture (cap, n_cap, &AT, 1u, 0.02, 2031u);
+
+  uint64_t e       = 0;
+  size_t   hit_off = 0;
+  {
+    dp_burst_capture_state_t *p = make ();
+    DP_REQUIRE (p != NULL);
+    (void)dp_burst_capture_push (p, cap, LEAD, NULL, 0);
+    DP_REQUIRE (p->det_len == 0u);
+    for (size_t off = LEAD; off + BLK <= n_cap && !e; off += BLK)
+      {
+        (void)dp_burst_capture_push (p, cap + off, BLK, NULL, 0);
+        if (p->det_len)
+          {
+            e       = p->det[0].epoch;
+            hit_off = off;
+          }
+      }
+    dp_burst_capture_destroy (p);
+  }
+  DP_REQUIRE (e > LEAD + 100u);
+
+  dp_burst_capture_state_t *s = make ();
+  DP_REQUIRE (s != NULL);
+  (void)dp_burst_capture_push (s, cap, LEAD, NULL, 0);
+  DP_REQUIRE (s->pending == 0u);
+  const uint64_t           P = s->code_period;
+  burst_capture_pending_t *d = &s->q[s->q_head];
+  burst_capture_pending_t *l = &s->q[(s->q_head + 1u) % s->q_cap];
+  memset (d, 0, sizeof *d);
+  memset (l, 0, sizeof *l);
+  d->anchor   = e - 10u;
+  d->n_phase  = 1u;
+  d->phase[0] = (uint32_t)(d->anchor % P);
+  d->peak_mag = 0.0;
+  l->anchor   = e - 5u;
+  l->n_phase  = 1u;
+  l->phase[0] = (uint32_t)(l->anchor % P);
+  l->peak_mag = 1e30;
+  s->pending  = 2u;
+
+  for (size_t off = LEAD; off <= hit_off; off += BLK)
+    {
+      (void)dp_burst_capture_push (s, cap + off, BLK, NULL, 0);
+      DP_CHECK (q_in_anchor_order (s));
+    }
+  /* The premise: the hit did move D to e, past L. */
+  int moved = 0;
+  for (size_t j = 0; j < s->pending; j++)
+    moved |= s->q[(s->q_head + j) % s->q_cap].anchor == e;
+  DP_REQUIRE (moved);
+  DP_CHECK (q_in_anchor_order (s));
+  dp_burst_capture_destroy (s);
+  return 0;
+}
+
+/* ── Chunk invariance (native/tests/dp_chunk_inv.h) ───────────────────── */
+
+/** One emitted window and its epoch: what the harness compares, so a
+ *  partition that moves an epoch fails as surely as one that moves a
+ *  sample. */
+typedef struct
+{
+  uint64_t start;
+  float _Complex w[BURST_LEN];
+} bc_ci_rec_t;
+
+static void *
+bc_ci_create (void *arg)
+{
+  (void)arg;
+  return make ();
+}
+
+static void
+bc_ci_destroy (void *obj)
+{
+  dp_burst_capture_destroy (obj);
+}
+
+static size_t
+bc_ci_process (void *obj, const void *in, size_t n, void *out, size_t out_cap)
+{
+  dp_burst_capture_state_t *s = obj;
+  bc_ci_rec_t              *r = out;
+  (void)dp_burst_capture_push (s, in, n, NULL, 0);
+  size_t k = 0;
+  for (; k < dp_burst_capture_ready (s) && k < out_cap; k++)
+    {
+      r[k].start = dp_burst_capture_event_at (s, k)->preamble_start;
+      memcpy (r[k].w, dp_burst_capture_window (s, k), sizeof r[k].w);
+    }
+  return k;
+}
+
+/**
+ * The windows and their epochs are a function of the STREAM, not of how it
+ * was split into calls (doppler#1896): single samples, a prime, the burst
+ * length and its neighbours, sizes straddling the internal slice
+ * (`chunk_max`), and seeded random splits all reproduce the one-shot run.
+ * The scene is test_block_size_below_min_gap's -- four bursts a quarter of
+ * `min_gap` apart -- because there the one-shot answer depends on the claim
+ * loop draining before it claims, and that is the chunk dependence this
+ * object has actually had (doppler#1527).
+ */
+static int
+test_chunk_invariance (void)
+{
+  static float _Complex cap[24000];
+  const size_t              n_cap = sizeof cap / sizeof *cap;
+  dp_burst_capture_state_t *probe = make ();
+  DP_REQUIRE (probe != NULL);
+  const size_t gap       = dp_burst_capture_get_min_gap (probe) / 4u;
+  const size_t chunk_max = probe->chunk_max;
+  dp_burst_capture_destroy (probe);
+
+  size_t at[4];
+  for (size_t k = 0; k < 4u; k++)
+    at[k] = 3000u + k * (BURST_LEN + gap);
+  DP_REQUIRE (at[3] + 3u * BURST_LEN < n_cap);
+  build_capture (cap, n_cap, at, 4u, 0.02, 11u);
+
+  const size_t extra[4]
+      = { chunk_max, chunk_max + 1u, 2u * chunk_max + 3u, 0 };
+  dp_ci_spec_t spec = { .name        = "burst_capture",
+                        .create      = bc_ci_create,
+                        .destroy     = bc_ci_destroy,
+                        .process     = bc_ci_process,
+                        .in_size     = sizeof (float _Complex),
+                        .out_size    = sizeof (bc_ci_rec_t),
+                        .out_cap     = 16u,
+                        .frame_n     = BURST_LEN,
+                        .extra_sizes = extra };
+  DP_CHECK (dp_chunk_invariance (&spec, cap, n_cap) == 0);
+
+  /* ...and the one-shot it compares against found every burst: invariance
+     over a run that lost one would certify the loss. */
+  dp_burst_capture_state_t *s = make ();
+  DP_REQUIRE (s != NULL);
+  (void)dp_burst_capture_push (s, cap, n_cap, NULL, 0);
+  DP_CHECK (real_windows_once (s, at, 4u));
+  dp_burst_capture_destroy (s);
   return 0;
 }
 
@@ -1489,7 +2383,14 @@ test_backed_finds_the_same_burst_with_a_smaller_blob (void)
   const size_t at = 9000u;
   build_capture (cap, sizeof cap / sizeof *cap, &at, 1u, 0.02, 7u);
 
-  dp_burst_capture_state_t *ram = make ();
+  /* The same configuration on both sides, so the backing is the ONE
+     difference: make()'s cn0 design differs, which picks a different
+     acquisition grid and so a different acq blob. That used to hide under
+     the ring's power-of-two capacity; the framer's snapshot is sized by the
+     frame itself, so it no longer does. */
+  dp_burst_capture_state_t *ram
+      = capture_from_code (acq_code (), ACQ_SF, BURST_LEN, REPS, SPC, 1.0e6,
+                           55.0, 0.0, 1e-3, 0.9, 0, 0.0);
   dp_burst_capture_state_t *dsk
       = capture_from_code_backed (path, acq_code (), ACQ_SF, BURST_LEN, REPS,
                                   SPC, 1.0e6, 55.0, 0.0, 1e-3, 0.9, 0, 0.0);
@@ -1517,7 +2418,7 @@ test_backed_finds_the_same_burst_with_a_smaller_blob (void)
      page size as much as the feature -- it passed on 4 kB pages and failed on
      macOS's 16 kB. What the feature actually claims is that the blob stops
      carrying the retained span, and that is exact everywhere. */
-  DP_CHECK (cb_ram - cb_dsk == ram->retain_span * sizeof (float _Complex));
+  DP_CHECK (cb_ram - cb_dsk == ram->hist->capacity * sizeof (float _Complex));
   DP_CHECK (cb_dsk < cb_ram);
 
   dp_burst_capture_destroy (ram);
@@ -2193,6 +3094,187 @@ test_a_wide_doppler_search_is_searched (void)
   return 0;
 }
 
+/** A tiled capture anchors each hit at its own dwell (doppler#2090).
+ *
+ * Past the native span the engine tiles Doppler: its rows are W frequency
+ * hypotheses over ONE frame of P samples, so a hit's code phase is measured
+ * in a frame of P, while the engine's `n` is W*P. Backing the epoch off `n`
+ * anchored every hit (W - 1)*P early. With reps = 1, refine looks only one
+ * period ahead and could not reach the true start; a burst in the stream's
+ * first (W - 1)*P samples wrapped its anchor to about 2^64 -- a window at a
+ * garbage start, and a live checkpoint set_state() refuses because the
+ * anchor is past the stream position. Asserted, tiled with W - 1 > reps + 1
+ * and reps = 1: a burst mid-stream comes back exactly once at its true start;
+ * one at sample 50 does too, pushed in 128-sample blocks, and a checkpoint
+ * taken while it is still queued restores into the same capture.
+ */
+static int
+test_a_tiled_capture_anchors_at_its_dwell (void)
+{
+  enum
+  {
+    NP  = 127,
+    PAY = 400
+  };
+  uint8_t        code[NP];
+  dp_pn_state_t *pn = dp_pn_create (pn_mls_poly (7), 1u, 7u, 0);
+  DP_REQUIRE (pn != NULL);
+  for (size_t i = 0; i < NP; i++)
+    code[i] = pn_step (pn);
+  dp_pn_destroy (pn);
+  float _Complex *pre = dp_code_preamble (code, NP, 1);
+
+  static float _Complex cap[20000];
+  const size_t n_cap  = sizeof cap / sizeof *cap;
+  const double span   = 1.0 / (double)NP;
+  const size_t ats[2] = { 9001u, 50u };
+  for (size_t j = 0; j < 2u; j++)
+    {
+      const size_t at = ats[j];
+      const double f  = 1.3 * span;
+      uint32_t     st = 2090u + (uint32_t)j;
+      for (size_t i = 0; i < n_cap; i++)
+        {
+          const float re = (float)(0.02 * dp_gauss (&st));
+          const float im = (float)(0.02 * dp_gauss (&st));
+          cap[i]         = re + im * I;
+        }
+      for (size_t i = 0; i < NP; i++)
+        cap[at + i]
+            += pre[i] * (float _Complex)cexp (I * 2.0 * M_PI * f * (double)i);
+
+      dp_burst_capture_state_t *s
+          = dp_burst_capture_create (pre, NP, NP + PAY, 1u, 1.0, ACQ_CN0_NONE,
+                                     2.5 * span, 1e-6, 0.9, 0, 0.0);
+      DP_REQUIRE (s != NULL);
+      const dp_acq_state_t *e = s->acq->engine;
+      /* The premise that makes the 9001 case discriminate: the old anchor,
+         (W - 1) periods early, is out of refine's reach (k_hi = reps), even
+         with the deciding frame a period past the start. */
+      DP_REQUIRE (e->window_bins - 1u > 1u + 1u);
+      DP_REQUIRE (j == 0u || at < (e->window_bins - 1u) * NP);
+
+      size_t found = 0, other = 0, restored = 0;
+      for (size_t off = 0; off < n_cap; off += 128u)
+        {
+          size_t blk = n_cap - off < 128u ? n_cap - off : 128u;
+          (void)dp_burst_capture_push (s, cap + off, blk, NULL, 0);
+          for (size_t i = 0; i < dp_burst_capture_ready (s); i++)
+            {
+              const uint64_t ps
+                  = dp_burst_capture_event_at (s, i)->preamble_start;
+              found += ps == at;
+              other += ps != at;
+            }
+          /* A checkpoint while the detection is queued, before its window
+             has arrived, restores into the capture that took it. */
+          if (!restored && s->pending > 0u && found == 0u)
+            {
+              const size_t   cb   = dp_burst_capture_state_bytes (s);
+              unsigned char *blob = malloc (cb);
+              DP_REQUIRE (blob != NULL);
+              dp_burst_capture_get_state (s, blob);
+              DP_CHECK (dp_burst_capture_set_state (s, blob) == DP_OK);
+              free (blob);
+              restored = 1;
+            }
+        }
+      if (found != 1u || other != 0u)
+        fprintf (stderr, "  tiled at %zu: found %zu, other %zu\n", at, found,
+                 other);
+      DP_CHECK (restored == 1u);
+      DP_CHECK (found == 1u);
+      DP_CHECK (other == 0u);
+      DP_CHECK (s->dropped == 0u);
+      dp_burst_capture_destroy (s);
+    }
+  free (pre);
+  return 0;
+}
+
+/** A tiled burst that follows a window closely is not shadowed by it
+ *  (doppler#2090).
+ *
+ * The third symptom of an anchor (W - 1) periods early: emitting a window
+ * arms `suppress_until` at its end, and a hit anchored before that is
+ * shadowed -- taken for the window's own payload -- and dropped at the next
+ * push. So a second burst whose start sits fewer than (W - 1)*P samples past
+ * the first window was lost, silently. Here reps >= W - 1, so refine reaches
+ * the first burst even from the old anchor, and the second alone carries the
+ * symptom: the gap clears min_gap (the capture promises both) and is under
+ * (W - 1)*P (the old anchor lands inside the first window's span). Both come
+ * out exactly once at their true starts.
+ */
+static int
+test_a_tiled_burst_after_a_window_is_not_shadowed (void)
+{
+  enum
+  {
+    NP  = 127,
+    RP  = 4,
+    PAY = 2600
+  };
+  uint8_t        code[NP];
+  dp_pn_state_t *pn = dp_pn_create (pn_mls_poly (7), 1u, 7u, 0);
+  DP_REQUIRE (pn != NULL);
+  for (size_t i = 0; i < NP; i++)
+    code[i] = pn_step (pn);
+  dp_pn_destroy (pn);
+  float _Complex *pre = dp_code_preamble (code, NP, 1);
+
+  static float _Complex cap[20000];
+  const size_t              n_cap = sizeof cap / sizeof *cap;
+  const double              span  = 1.0 / (double)NP;
+  const size_t              BL    = RP * NP + PAY;
+  dp_burst_capture_state_t *s     = dp_burst_capture_create (
+      pre, NP, BL, RP, 1.0, ACQ_CN0_NONE, 2.5 * span, 1e-6, 0.9, 0, 0.0);
+  DP_REQUIRE (s != NULL);
+  const size_t W   = s->acq->engine->window_bins;
+  const size_t gap = 300u;
+  /* The premises: tiled; the first burst within refine's reach of the old
+     anchor; a gap the capture promises to resolve, under (W - 1)*P. */
+  DP_REQUIRE (W >= 3u && W - 1u <= RP);
+  DP_REQUIRE (gap >= s->min_gap && gap < (W - 1u) * NP);
+
+  const size_t at[2] = { 3000u, 3000u + BL + gap };
+  const double f     = 0.7 * span;
+  uint32_t     st    = 2090u;
+  for (size_t i = 0; i < n_cap; i++)
+    {
+      const float re = (float)(0.02 * dp_gauss (&st));
+      const float im = (float)(0.02 * dp_gauss (&st));
+      cap[i]         = re + im * I;
+    }
+  for (size_t b = 0; b < 2u; b++)
+    for (size_t i = 0; i < RP * NP; i++)
+      cap[at[b] + i]
+          += pre[i % NP]
+             * (float _Complex)cexp (I * 2.0 * M_PI * f * (double)i);
+
+  size_t seen[2] = { 0 }, other = 0;
+  for (size_t off = 0; off < n_cap; off += 1000u)
+    {
+      size_t blk = n_cap - off < 1000u ? n_cap - off : 1000u;
+      (void)dp_burst_capture_push (s, cap + off, blk, NULL, 0);
+      for (size_t i = 0; i < dp_burst_capture_ready (s); i++)
+        {
+          const uint64_t ps = dp_burst_capture_event_at (s, i)->preamble_start;
+          seen[0] += ps == at[0];
+          seen[1] += ps == at[1];
+          other += ps != at[0] && ps != at[1];
+        }
+    }
+  if (seen[0] != 1u || seen[1] != 1u || other != 0u)
+    fprintf (stderr, "  tiled pair: first %zu, second %zu, other %zu\n",
+             seen[0], seen[1], other);
+  DP_CHECK (seen[0] == 1u);
+  DP_CHECK (seen[1] == 1u);
+  DP_CHECK (other == 0u);
+  dp_burst_capture_destroy (s);
+  free (pre);
+  return 0;
+}
+
 int
 main (void)
 {
@@ -2212,11 +3294,33 @@ main (void)
     return 1;
   if (test_a_wide_doppler_search_is_searched ())
     return 1;
+  if (test_a_tiled_capture_anchors_at_its_dwell ())
+    return 1;
+  if (test_a_tiled_burst_after_a_window_is_not_shadowed ())
+    return 1;
   if (test_every_burst_is_emitted_once ())
     return 1;
   if (test_block_size_below_min_gap ())
     return 1;
   if (test_a_held_head_does_not_stall_long_bursts ())
+    return 1;
+  if (test_release_on_every_window_never_wedges ())
+    return 1;
+  if (test_a_dead_entry_is_swept ())
+    return 1;
+  if (test_a_resume_is_exact ())
+    return 1;
+  if (test_a_forged_blob_is_checked ())
+    return 1;
+  if (test_a_refused_blob_changes_nothing ())
+    return 1;
+  if (test_the_ring_always_has_room ())
+    return 1;
+  if (test_a_full_ring_restored_makes_room ())
+    return 1;
+  if (test_a_moved_anchor_keeps_anchor_order ())
+    return 1;
+  if (test_chunk_invariance ())
     return 1;
   if (test_block_size_does_not_change_the_answer ())
     return 1;

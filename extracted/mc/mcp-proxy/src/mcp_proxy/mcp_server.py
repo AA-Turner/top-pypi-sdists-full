@@ -47,6 +47,7 @@ class MCPServerSettings:
 # To store last activity for multiple servers if needed, though status endpoint is global for now.
 _global_status: dict[str, Any] = {
     "api_last_activity": datetime.now(timezone.utc).isoformat(),
+    "active_sse_connections": 0,
     "server_instances": {},  # Could be used to store per-instance status later
 }
 
@@ -93,17 +94,30 @@ def create_single_instance_routes(
     )
 
     async def handle_sse_instance(request: Request) -> Response:
-        async with sse_transport.connect_sse(
-            request.scope,
-            request.receive,
-            request._send,  # noqa: SLF001
-        ) as (read_stream, write_stream):
-            _update_global_activity()
-            await mcp_server_instance.run(
-                read_stream,
-                write_stream,
-                mcp_server_instance.create_initialization_options(),
-                stateless=stateless_instance,
+        try:
+            async with sse_transport.connect_sse(
+                request.scope,
+                request.receive,
+                request._send,  # noqa: SLF001
+            ) as (read_stream, write_stream):
+                _update_global_activity()
+                _global_status["active_sse_connections"] += 1
+                try:
+                    await mcp_server_instance.run(
+                        read_stream,
+                        write_stream,
+                        mcp_server_instance.create_initialization_options(),
+                        stateless=stateless_instance,
+                    )
+                finally:
+                    _global_status["active_sse_connections"] -= 1
+        except Exception:  # noqa: BLE001
+            # SSE response already started — cannot send HTTP error response.
+            # Log and let the connection close gracefully.
+            logger.warning(
+                "SSE connection for '%s' terminated with error (upstream disconnect?)",
+                mcp_server_instance.name,
+                exc_info=True,
             )
         return Response()
 

@@ -1,13 +1,19 @@
 # %%
-from numpy.ma.testutils import assert_array_equal
 import unittest
 
 import build123d as bd
 import webcolors
 from build123d import *
 
-from ocp_tessellate.convert import OcpConverter, OcpGroup
+# BuildSheet is not part of every build123d release (e.g. missing in 0.13.0 on PyPI)
+HAS_BUILDSHEET = hasattr(bd, "BuildSheet")
+SKIP_NO_BUILDSHEET = unittest.skipUnless(
+    HAS_BUILDSHEET, "BuildSheet is not available in this build123d version"
+)
+
+from ocp_tessellate.convert import OcpConverter, OcpGroup, to_ocpgroup
 from ocp_tessellate.ocp_utils import *
+from ocp_tessellate.utils import make_unique
 
 
 class MyUnitTest(unittest.TestCase):
@@ -36,9 +42,11 @@ r2 = Rectangle(1, 2) - Rectangle(2, 0.2)
 with BuildSketch(Plane.YZ) as bs:
     Rectangle(1, 1)
 
-with BuildSheet(Plane.YZ, thickness=0.1) as bsh:
-    with BuildSketch():
+if HAS_BUILDSHEET:
+    with BuildSheet(Plane.YZ, thickness=0.1) as bsh, BuildSketch():
         Rectangle(1, 1)
+else:
+    bsh = None
 
 with BuildSketch(Plane.YZ) as bs2:
     Rectangle(1, 1)
@@ -284,7 +292,6 @@ class TestsConvert(MyUnitTest):
         """Test that the name is set correctly for a part"""
         c = OcpConverter()
         g = c.to_ocp(bp, names=["bp"])
-        i = c.instances
         if hasattr(bp, "part_local"):
             self.assertEqual(g.length, 2)
             self.assertEqual(g.name, "bp")
@@ -293,6 +300,7 @@ class TestsConvert(MyUnitTest):
             self.assertEqual(g.length, 1)
             self.assertEqual(o.name, "bp")
 
+    @SKIP_NO_BUILDSHEET
     def test_buildsheet(self):
         """Test that a sheet is converted correctly"""
         c = OcpConverter(show_locals=False)
@@ -306,6 +314,7 @@ class TestsConvert(MyUnitTest):
         self.assertIsNone(o.obj)
         self.assertTrue(is_topods_face(i[o.ref]["obj"]))
 
+    @SKIP_NO_BUILDSHEET
     def test_buildsheet_in_context(self):
         """Test that a sheet is converted the same way from inside its context"""
         c = OcpConverter()
@@ -318,12 +327,12 @@ class TestsConvert(MyUnitTest):
         for o in g.objects:
             self.assertEqual(o.kind, "face")
 
+    @SKIP_NO_BUILDSHEET
     def test_buildsheet_two_placements(self):
         """Test that a sheet with several placements is one face object"""
         c = OcpConverter(show_locals=False)
-        with BuildSheet(Plane.XY, Plane.YZ, thickness=0.1) as multi:
-            with BuildSketch():
-                Rectangle(1, 1)
+        with BuildSheet(Plane.XY, Plane.YZ, thickness=0.1) as multi, BuildSketch():
+            Rectangle(1, 1)
         g = c.to_ocp(multi)
         i = c.instances
         self.assertEqual(g.length, 1)
@@ -332,6 +341,7 @@ class TestsConvert(MyUnitTest):
         self.assertEqual(o.kind, "face")
         self.assertEqual(len(list(get_faces(i[o.ref]["obj"]))), 2)
 
+    @SKIP_NO_BUILDSHEET
     def test_buildsheet_local_name(self):
         """Test that the name and locations are set correctly for a sheet_local"""
         c = OcpConverter()
@@ -358,19 +368,27 @@ class TestsConvert(MyUnitTest):
         with BuildPart() as ebp:
             g = c.to_ocp(ebp)
             self.assertEqual(g.objects[0].name, "Solid (empty)")
-        with BuildSheet(thickness=0.1) as ebsh:
-            g = c.to_ocp(ebsh)
-            self.assertEqual(g.objects[0].name, "Shell (empty)")
         with BuildSketch() as ebs:
             g = c.to_ocp(ebs)
             self.assertEqual(g.objects[0].name, "Face (empty)")
         with BuildLine() as ebl:
             g = c.to_ocp(ebl, names=["ebl"])
             self.assertEqual(g.objects[0].name, "ebl (empty)")
-        for e in (ebp, ebsh, ebs, ebl):
+        for e in (ebp, ebs, ebl):
             o = c.to_ocp(e).objects[0]
             self.assertEqual(o.kind, "vertex")
             self.assertTrue(is_topods_vertex(o.obj))
+
+    @SKIP_NO_BUILDSHEET
+    def test_buildsheet_empty_in_context(self):
+        """Test that a sheet builder without geometry yet gives an empty placeholder"""
+        c = OcpConverter()
+        with BuildSheet(thickness=0.1) as ebsh:
+            g = c.to_ocp(ebsh)
+            self.assertEqual(g.objects[0].name, "Shell (empty)")
+        o = c.to_ocp(ebsh).objects[0]
+        self.assertEqual(o.kind, "vertex")
+        self.assertTrue(is_topods_vertex(o.obj))
 
     def test_buildsketch_name(self):
         """Test that the name is set correctly for a sketch"""
@@ -600,7 +618,6 @@ class TestsConvert(MyUnitTest):
         for o in g.objects:
             self.assertEqual(o.color.web_color, "#ba55d3")
 
-    #
 
     def test_show_solid_colors_names(self):
         c = OcpConverter()
@@ -764,7 +781,6 @@ class TestsConvert(MyUnitTest):
             self.assertEqual(o.color.web_color, colormap[ind][1])
             self.assertEqual(o.name, f"MyVertex_{ind}")
 
-    #
 
     def test_show_mixed_builder_shape(self):
         c = OcpConverter()
@@ -782,7 +798,6 @@ class TestsConvert(MyUnitTest):
         self.assertEqual(o.name, "Solid")
         self.assertEqual(o.kind, "solid")
 
-    #
 
     def test_show_plane(self):
         c = OcpConverter()
@@ -1288,7 +1303,7 @@ class TestConvertMixedCompounds(MyUnitTest):
         i = c.instances
         o = g.objects[0]
         self.assertTrue(is_topods_compound(i[o.ref]["obj"]))
-        self.assertEqual(o.name, f"Solid")
+        self.assertEqual(o.name, "Solid")
         self.assertEqual(o.kind, "solid")
 
 
@@ -1332,7 +1347,6 @@ class TestCompund(MyUnitTest):
     def test_compound_wire(self):
         c = OcpConverter()
         g = c.to_ocp(Compound(b2.wires()))
-        i = c.instances
         self.assertEqual(g.length, 1)
         o = g.objects[0]
         self.assertEqual(o.name, "Wire")
@@ -1345,7 +1359,6 @@ class TestCompund(MyUnitTest):
     def test_compound_edge(self):
         c = OcpConverter()
         g = c.to_ocp(Compound(b2.edges()))
-        i = c.instances
         self.assertEqual(g.length, 1)
         o = g.objects[0]
         self.assertEqual(o.name, "Edge")
@@ -1355,10 +1368,9 @@ class TestCompund(MyUnitTest):
         self.assertEqual(len(o.obj), 24)
         self.assertTrue(is_topods_edge(o.obj[0]))
 
-    def test_compound_solid(self):
+    def test_compound_vertex(self):
         c = OcpConverter()
         g = c.to_ocp(Compound(b2.vertices()))
-        i = c.instances
         self.assertEqual(g.length, 1)
         o = g.objects[0]
         self.assertEqual(o.name, "Vertex")
@@ -1867,3 +1879,69 @@ class TestsBuildPartJoints(MyUnitTest):
         else:
             self.assertEqual(g.length, 1)
             self.assertEqual(g.objects[0].name, "p")
+
+
+class TestPythonEnumeration(MyUnitTest):
+    """Numbering of repeated names, vscode-ocp-cad-viewer issue 242"""
+
+    spheres = [Pos(2 * i) * Sphere(1) for i in range(5)]
+
+    def test_make_unique_default(self):
+        """The default keeps the first occurrence and counts repetitions from 2"""
+        self.assertEqual(
+            make_unique(["a", None, "a", "b", "a"]),
+            ["a", None, "a(2)", "b", "a(3)"],
+        )
+
+    def test_make_unique_python_enumeration(self):
+        """Every occurrence of a repeated name is counted from 0, single names stay"""
+        self.assertEqual(
+            make_unique(["a", None, "a", "b", "a"], python_enumeration=True),
+            ["a(0)", None, "a(1)", "b", "a(2)"],
+        )
+
+    def test_list_default(self):
+        """A list of solids keeps the 1-based scheme by default"""
+        g = OcpConverter().to_ocp(self.spheres)
+        self.assertEqual(
+            [o.name for o in g.objects],
+            ["Solid", "Solid(2)", "Solid(3)", "Solid(4)", "Solid(5)"],
+        )
+
+    def test_list_python_enumeration(self):
+        """A list of solids is numbered from 0 like its Python indices"""
+        g = OcpConverter(python_enumeration=True).to_ocp(self.spheres)
+        self.assertEqual(
+            [o.name for o in g.objects],
+            ["Solid(0)", "Solid(1)", "Solid(2)", "Solid(3)", "Solid(4)"],
+        )
+
+    def test_mixed_list_python_enumeration(self):
+        """The counter is per name, not the list position"""
+        g = OcpConverter(python_enumeration=True).to_ocp(
+            [Sphere(1), Rectangle(1, 1), Sphere(1)]
+        )
+        self.assertEqual([o.name for o in g.objects], ["Solid(0)", "Face", "Solid(1)"])
+
+    def test_groupby_python_enumeration(self):
+        """Nested groups are numbered from 0 too"""
+        g = OcpConverter(python_enumeration=True).to_ocp(b.edges().group_by(Axis.Z))
+        self.assertEqual(
+            [o.name for o in g.objects],
+            ["ShapeList(0)", "ShapeList(1)", "ShapeList(2)"],
+        )
+
+    def test_names_python_enumeration(self):
+        """Repeated names passed via names= are numbered from 0"""
+        g = OcpConverter(python_enumeration=True).to_ocp(
+            Box(1, 1, 1), Box(1, 1, 1), Box(1, 1, 1), names=["b", "b", "c"]
+        )
+        self.assertEqual([o.name for o in g.objects], ["b(0)", "b(1)", "c"])
+
+    def test_to_ocpgroup_python_enumeration(self):
+        """to_ocpgroup passes the flag to the converter"""
+        g, _ = to_ocpgroup(self.spheres, python_enumeration=True)
+        self.assertEqual(
+            [o.name for o in g.objects],
+            ["Solid(0)", "Solid(1)", "Solid(2)", "Solid(3)", "Solid(4)"],
+        )

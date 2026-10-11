@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -16,19 +16,18 @@ from beartype_test.a00_unit.data.api.external.data_apinumpy import (
     numpy_arrays,
 )
 from beartype_test.a00_unit.data.hint.data_hintfixture import (
-    hints_meta,
+    hints_piths_meta,
+    hints_reduction_meta,
     hints_ignorable,
+    iter_hints_piths_meta,
     not_hints_nonpep,
 )
 from beartype_test.a00_unit.data.hint.nonpep.data_nonpepfixture import (
-    hints_nonpep_meta,
+    hints_piths_nonpep_meta,
 )
 from beartype_test.a00_unit.data.hint.pep.data_pepfixture import (
     hints_pep_hashable,
     hints_pep_ignorable_deep,
     hints_pep_ignorable_shallow,
-    hints_pep_meta,
-)
-from beartype_test.a00_unit.data.hint.util.data_hintmetautil import (
-    iter_hints_piths_meta,
+    hints_piths_pep_meta,
 )

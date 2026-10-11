@@ -17,7 +17,9 @@ class CarrierAcquisition:
         Symbol rate, Hz -- builds the default template (required).
     resolution_hz : float, default 0.0
         Desired FFT frequency resolution, Hz. <= 0.0 is a sentinel meaning
-        "auto": symbol_rate_hz/10.0.
+        "auto": symbol_rate_hz/10.0. The block is
+        round(sample_rate_hz/resolution_hz) samples, floored at 3 -- the
+        shortest whose default Hann window has any gain.
     zero_pad : int, default 4
         PSD zero-pad factor (>= 1); see psd_core.h.
     window : Literal["hann", "kaiser", "blackman-harris"], default "hann"
@@ -26,9 +28,9 @@ class CarrierAcquisition:
         Kaiser beta (ignored for hann/blackman-harris).
     psd_template : NDArray[np.float32], default ...
         Known PSD-shape template override, length must equal nfft =
-        next_pow_two(round(sample_rate_hz /resolution_hz) * zero_pad);
-        NULL/length-0 means "not supplied" -- the default rectangular-pulse
-        sinc^2 template (from symbol_rate_hz) is used.
+        next_pow_two(block * zero_pad), block as above; NULL/length-0 means
+        "not supplied" -- the default rectangular-pulse sinc^2 template (from
+        symbol_rate_hz) is used.
     pfa : float, default 1e-3
         Target per-test false-alarm probability.
     pd : float, default 0.9
@@ -398,7 +400,7 @@ class Acquisition:
     def push(
         self,
         x: complex,
-    ) -> list[tuple[int, int, float, float, float, float, int]]:
+    ) -> list[tuple[int, int, float, float, float, float, int, float]]:
         """Stream raw samples; emit one event per CFAR dump above threshold.
 
         Buffers x, then for every complete frame applies the slow-time Doppler
@@ -409,6 +411,18 @@ class Acquisition:
         (the two search axes), its CFAR statistic, and an estimated C/N0 — see
         acq_result_t.
 
+        Python's push() has room for 1024 events a call, so a push that ends at
+        most 1024 / max_peaks dwells, counting the carry, loses nothing. Once
+        fewer than max_peaks slots are left, the call stops before the next
+        frame that would end a dwell -- and once all 1024 are used, before the
+        next frame of any kind -- and the rest of its input is lost, unless the
+        rest completes no frame, counting the carry already held: that is kept
+        as the carry. The next push stays on the frame grid only when what was
+        lost is a whole number of frames. Before v0.66 the room was 64, and a
+        push past it kept up to ring_cap/frame_n - 1 frames for the next call,
+        dropped the rest, and could cut a dwell's list short. #1992 and
+        just-buildit/just-makeit#2184 track sizing the list to the call.
+
         Parameters
         ----------
         x : complex
@@ -416,7 +430,7 @@ class Acquisition:
 
         Returns
         -------
-        list[tuple[int, int, float, float, float, float, int]]
+        list[tuple[int, int, float, float, float, float, int, float]]
             Number of events written (0 … max_results).
 
         Examples
@@ -1398,13 +1412,16 @@ class BurstAcquisition:
     def push(
         self,
         x: complex,
-    ) -> list[tuple[int, int, float, float, float, float, int]]:
+    ) -> list[tuple[int, int, float, float, float, float, int, float]]:
         """Stream raw samples; emit one event per CFAR dump above threshold.
 
         Forwards to dp_acq_push() on the embedded engine (see its doc comment
         in acq_core.h for the framing/CFAR mechanics). Each event carries the
         peak's Doppler bin and code phase (the two search axes), its CFAR
         statistic, and an estimated C/N0 — see acq_result_t.
+
+        Python's push() has room for 1024 events a call, with dp_acq_push()'s
+        rule for what a push that fills it loses.
 
         Parameters
         ----------
@@ -1413,7 +1430,7 @@ class BurstAcquisition:
 
         Returns
         -------
-        list[tuple[int, int, float, float, float, float, int]]
+        list[tuple[int, int, float, float, float, float, int, float]]
             Number of events written (0 … max_results).
 
         Examples
@@ -1872,6 +1889,15 @@ class BurstCapture:
         starting at `i*burst_len`, and events() returns the matching record for
         each. Every sample of x is consumed. An empty return is normal -- it
         means no burst completed in this call.
+
+        It aborts the process in two places, both a defect in this object and
+        neither reachable from any input or from any blob set_state() accepts:
+        a history ring with no room after trim (the bound in the
+        implementation's trim proves room), and an acquisition call that took
+        nothing while input was left (each call starts with its result empty,
+        and a push with its result empty takes at least the next frame, or the
+        rest as carry). Each stops rather than spinning forever -- and in a
+        Python host it ends the interpreter.
 
         Parameters
         ----------
@@ -2409,8 +2435,16 @@ class BurstCapture:
 
     @property
     def dropped(self) -> int:
-        """Samples the history ring refused, lifetime. A LOST BURST each, not a
-        statistic -- it survives reset().
+        """Samples of look-back discarded while a queued detection still needed
+        them, lifetime: the part of a dead detection's span -- one whose
+        history is gone, so it can never be emitted -- behind the ring's tail.
+        A shadowed detection is not counted. On a live stream this stays 0:
+        push() never refuses input, a moved anchor is a later one, and a
+        re-armed refine reads no further back than the history kept for an
+        unarrived detection at or ahead of it. A resume carries all the
+        look-back, so what makes it non-zero is a blob that names history it
+        does not hold. A LOST BURST each, not a statistic -- it survives
+        reset().
         """
 
     @property
@@ -2523,10 +2557,12 @@ class PersistentBurstCapture:
     ...                             reps=4, fs=2e6)
     >>> ram = BurstCapture(pre, burst_len=512, reps=4, fs=2e6)
     >>> _ = cap.push(np.zeros(4096, dtype=np.complex64))
-    >>> # the look-back is in the file, so the blob stops carrying it
-    >>> ram.state_bytes() - cap.state_bytes() == ram.retain_span * 8
+    >>> # the look-back is in the file, so the blob stops carrying the
+    >>> # ring: twice retain_span rounded up to a power of two, 8 B a sample
+    >>> ring = 1 << (2 * ram.retain_span - 1).bit_length()
+    >>> ram.state_bytes() - cap.state_bytes() == ring * 8
     True
-    >>> os.path.getsize(path) > 0
+    >>> os.path.getsize(path) >= ring * 8   # rounded up to a page
     True
 
     """
@@ -2570,6 +2606,15 @@ class PersistentBurstCapture:
         starting at `i*burst_len`, and events() returns the matching record for
         each. Every sample of x is consumed. An empty return is normal -- it
         means no burst completed in this call.
+
+        It aborts the process in two places, both a defect in this object and
+        neither reachable from any input or from any blob set_state() accepts:
+        a history ring with no room after trim (the bound in the
+        implementation's trim proves room), and an acquisition call that took
+        nothing while input was left (each call starts with its result empty,
+        and a push with its result empty takes at least the next frame, or the
+        rest as carry). Each stops rather than spinning forever -- and in a
+        Python host it ends the interpreter.
 
         Parameters
         ----------
@@ -3110,8 +3155,16 @@ class PersistentBurstCapture:
 
     @property
     def dropped(self) -> int:
-        """Samples the history ring refused, lifetime. A LOST BURST each, not a
-        statistic -- it survives reset().
+        """Samples of look-back discarded while a queued detection still needed
+        them, lifetime: the part of a dead detection's span -- one whose
+        history is gone, so it can never be emitted -- behind the ring's tail.
+        A shadowed detection is not counted. On a live stream this stays 0:
+        push() never refuses input, a moved anchor is a later one, and a
+        re-armed refine reads no further back than the history kept for an
+        unarrived detection at or ahead of it. A resume carries all the
+        look-back, so what makes it non-zero is a blob that names history it
+        does not hold. A LOST BURST each, not a statistic -- it survives
+        reset().
         """
 
     @property

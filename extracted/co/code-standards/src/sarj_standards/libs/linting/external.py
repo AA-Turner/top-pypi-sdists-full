@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import ast
 import contextlib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from enum import StrEnum
 from functools import partial
@@ -47,11 +48,12 @@ from sarj_standards.libs.typed_containers import is_object_list, is_object_mappi
 from sarj_standards.libs.yaml_boundary import parse_yaml
 
 from . import mobile_tools, security_tools
-from .runner import GroupedPaths, group_paths
+from .runner import GroupedPaths, accepts_hook_path, group_paths
+from .shell_policy import SHELLCHECK_ARGS
 
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from typing import BinaryIO
 
     from .policy import Policy
@@ -115,6 +117,9 @@ _CGROUP_MEMORY_LIMIT_FILES: Final = (
 )
 _ESLINT_FORMATTER: Final = Path(__file__).parents[2] / "configs" / "eslint-compact-formatter.mjs"
 _ESLINT_SELECTED_RUNNER: Final = Path(__file__).parents[2] / "configs" / "eslint-selected-rules.mjs"
+_PYTHON_TEST_PATHS: Final = PathSpec.from_lines(
+    "gitignore", ("**/test/**", "**/tests/**", "**/test_*.py", "**/*_test.py", "**/conftest.py")
+)
 
 
 class _JsonToolReport(RootModel[dict[str, object]]):
@@ -359,8 +364,11 @@ def analyze_external(
             security_selection=security_selection,
         )
     )
-    if capabilities is None or "shellcheck" in capabilities:
-        reports.extend(_shellcheck_reports(routed, root=root, runner=execute, attest_version=runner is None))
+    reports.extend(
+        _shell_source_reports(
+            routed, root=root, runner=execute, capabilities=capabilities, attest_version=runner is None
+        )
+    )
     try:
         reports.extend(
             _mobile_source_reports(
@@ -372,7 +380,7 @@ def analyze_external(
             )
         )
     except (OSError, TypeError, ValueError, RecursionError, yaml.YAMLError, zipfile.BadZipFile) as exc:
-        issue = ExecutionIssue("mobile-tools", "provisioning-failure", _redact_message(str(exc), root))
+        issue = ExecutionIssue("mobile-tools", "provisioning-failure", redact_message(str(exc), root))
         reports.append(ToolReport("mobile-tools", Completion.FAILED, issues=(issue,)))
 
     def collect_python_reports() -> None:
@@ -414,7 +422,11 @@ def analyze_external(
             selected=SUPPORTED if capabilities is None else SUPPORTED.intersection(capabilities),
             trust_repository_code=normalized_trust is TrustMode.TRUSTED,
             runner=execute,
+            shared_shellcheck=capabilities is None or "shellcheck" in capabilities,
         )
+    )
+    reports.extend(
+        _quality_reports(root, capabilities=capabilities, policy=policy, trust=normalized_trust, runner=execute)
     )
     if capabilities is None or "devops-schema" in capabilities:
         from .devops_schema import analyze_source_schemas  # ruff: ignore[import-outside-top-level] -- schema validation is a selected local runtime adapter.
@@ -429,7 +441,7 @@ def analyze_external(
                 root, routed.typescript, label="analysis", expand_directories=True
             )
         except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
-            message = _redact_message(f"{type(exc).__name__}: {exc}", root)
+            message = redact_message(f"{type(exc).__name__}: {exc}", root)
             issue = ExecutionIssue("eslint", "configuration-failure", message)
             reports.append(ToolReport("eslint", Completion.FAILED, issues=(issue,)))
             return tuple(reports)
@@ -574,6 +586,32 @@ def analyze_external(
     )
 
 
+def _quality_reports(
+    root: Path, *, capabilities: frozenset[str] | None, policy: Policy | None, trust: TrustMode, runner: ProcessRunner
+) -> tuple[ToolReport, ...]:
+    if capabilities is None or capabilities.isdisjoint(manifest.QUALITY_ANALYZERS):
+        return ()
+    from .duplicate_code import analyze_duplicates  # ruff: ignore[import-outside-top-level] -- whole-tree adapters reuse this module's bounded runner.
+    from .unused_modules import analyze_application_modules  # ruff: ignore[import-outside-top-level] -- application ownership depends on the whole native production graph.
+
+    allows_path: Callable[[str], bool] = (lambda _path: True) if policy is None else policy.allows_path
+    reports: list[ToolReport] = []
+    # Both adapters require unchanged source, so neither uses the changed-file selection.
+    if "jscpd" in capabilities:
+        adopted = manifest.load(root)
+        reports.append(
+            analyze_duplicates(
+                root=root,
+                paths=(".",) if adopted is None else adopted.verify_paths,
+                allows_path=allows_path,
+                runner=runner,
+            )
+        )
+    if "knip" in capabilities:
+        reports.append(analyze_application_modules(root=root, trust=trust, allows_path=allows_path, runner=runner))
+    return tuple(reports)
+
+
 def _security_reports(
     files: Sequence[str],
     *,
@@ -591,7 +629,7 @@ def _security_reports(
             files, root=root, capabilities=capabilities, checkov_rule_ids=checkov_checks
         )
     except (OSError, TypeError, ValueError) as exc:
-        issue = ExecutionIssue("security-tools", "invalid-input", _redact_message(str(exc), root))
+        issue = ExecutionIssue("security-tools", "invalid-input", redact_message(str(exc), root))
         return (ToolReport("security-tools", Completion.FAILED, issues=(issue,)),)
     reports: list[ToolReport] = []
     if selected.workflows and (capabilities is None or "zizmor" in capabilities):
@@ -968,7 +1006,7 @@ def _invoke_text_tool(
     try:  # ruff: ignore[too-many-statements-in-try-clause] -- one boundary normalizes process failures and diagnostics.
         output = runner(argv, cwd=cwd)
         if output.returncode in fatal_codes or output.returncode not in {0, *finding_codes}:
-            message = _redact_message(output.stderr.strip() or f"{name} exited {output.returncode}", root)
+            message = redact_message(output.stderr.strip() or f"{name} exited {output.returncode}", root)
             issue = ExecutionIssue(name, "tool-failure", message, output.returncode)
             return ToolReport(name, Completion.FAILED, issues=(issue,))
         payload = output.stdout.strip() or empty_payload
@@ -977,7 +1015,7 @@ def _invoke_text_tool(
         else:
             diagnostics = parser(payload, root=root)
         if output.returncode in finding_codes and not diagnostics:
-            message = _redact_message(output.stderr.strip() or f"{name} reported findings without diagnostics", root)
+            message = redact_message(output.stderr.strip() or f"{name} reported findings without diagnostics", root)
             issue = ExecutionIssue(name, "protocol-mismatch", message, output.returncode)
             return ToolReport(name, Completion.FAILED, issues=(issue,))
         return ToolReport(
@@ -990,7 +1028,7 @@ def _invoke_text_tool(
             file_count=file_count,
         )
     except (OSError, TypeError, ValueError, RecursionError, json.JSONDecodeError, subprocess.SubprocessError) as exc:
-        issue = ExecutionIssue(name, "tool-failure", _redact_message(f"{type(exc).__name__}: {exc}", root))
+        issue = ExecutionIssue(name, "tool-failure", redact_message(f"{type(exc).__name__}: {exc}", root))
         return ToolReport(
             name,
             Completion.FAILED,
@@ -1016,13 +1054,13 @@ def _invoke_detekt(
             report_path = Path(temporary_directory) / "report.sarif"
             output = runner((*argv, "--report", f"sarif:{report_path}"), cwd=cwd)
             if output.returncode in {1, 3} or output.returncode not in {0, _DETEKT_FINDINGS}:
-                message = _redact_message(output.stderr.strip() or f"detekt exited {output.returncode}", root)
+                message = redact_message(output.stderr.strip() or f"detekt exited {output.returncode}", root)
                 issue = ExecutionIssue("detekt", "tool-failure", message, output.returncode)
                 return ToolReport("detekt", Completion.FAILED, issues=(issue,))
-            payload = _read_bounded_report(report_path)
+            payload = read_bounded_report(report_path, tool="detekt", format_name="SARIF")
             diagnostics = parse_sarif(payload, root=root)
             if output.returncode == _DETEKT_FINDINGS and not diagnostics:
-                message = _redact_message(
+                message = redact_message(
                     output.stderr.strip() or "detekt reported findings without diagnostics",
                     root,
                 )
@@ -1038,7 +1076,7 @@ def _invoke_detekt(
             file_count=file_count,
         )
     except (OSError, TypeError, ValueError, RecursionError, json.JSONDecodeError, subprocess.SubprocessError) as exc:
-        issue = ExecutionIssue("detekt", "tool-failure", _redact_message(f"{type(exc).__name__}: {exc}", root))
+        issue = ExecutionIssue("detekt", "tool-failure", redact_message(f"{type(exc).__name__}: {exc}", root))
         return ToolReport(
             "detekt",
             Completion.FAILED,
@@ -1050,19 +1088,19 @@ def _invoke_detekt(
         )
 
 
-def _read_bounded_report(path: Path) -> str:
+def read_bounded_report(path: Path, *, tool: str, format_name: str = "JSON") -> str:
     try:
         metadata = path.lstat()
     except FileNotFoundError as exc:
-        msg = "detekt did not create its SARIF report"
+        msg = f"{tool} did not create its {format_name} report"
         raise OSError(msg) from exc
     if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
-        msg = "detekt SARIF report is not a regular file"
+        msg = f"{tool} {format_name} report is not a regular file"
         raise OSError(msg)
     with path.open("rb") as stream:
         payload = stream.read(_MAX_STDOUT_BYTES + 1)
     if len(payload) > _MAX_STDOUT_BYTES:
-        msg = f"detekt SARIF report exceeded {_MAX_STDOUT_BYTES} bytes"
+        msg = f"{tool} {format_name} report exceeded {_MAX_STDOUT_BYTES} bytes"
         raise OutputLimitError(msg)
     return payload.decode("utf-8")
 
@@ -1797,20 +1835,28 @@ def _invoke_python_projects(
             file_count=len(scoped_files),
         )
         selected = frozenset(_relative(Path(path), root) for path in scoped_files)
+        unused_helpers: dict[Path, frozenset[int] | None] = {}
+        diagnostics = tuple(
+            bounded
+            for diagnostic in report.diagnostics
+            if diagnostic.location.path in selected
+            and (bounded := _bounded_python_diagnostic(diagnostic, root=root, helpers=unused_helpers)) is not None
+        )
+        helper_issues = tuple(
+            ExecutionIssue(
+                name, "helper-source-inconclusive", f"Cannot bound unused helper evidence for {_relative(path, root)}"
+            )
+            for path, lines in unused_helpers.items()
+            if lines is None
+        )
         reports.append(
-            ToolReport(
-                report.name,
-                report.completion,
-                diagnostics=tuple(
-                    diagnostic for diagnostic in report.diagnostics if diagnostic.location.path in selected
-                ),
-                issues=report.issues,
-                analyzer_id=report.analyzer_id,
-                invocation_id=report.invocation_id,
-                version=report.version,
-                duration_ms=report.duration_ms,
-                file_count=report.file_count,
-                cache_status=report.cache_status,
+            replace(
+                report,
+                completion=Completion.PARTIAL
+                if helper_issues and report.completion is Completion.COMPLETE
+                else report.completion,
+                diagnostics=diagnostics,
+                issues=(*report.issues, *helper_issues),
             )
         )
     return tuple(reports)
@@ -1864,7 +1910,7 @@ def _invoke_deptry_projects(
             payload = "\n".join(value for value in (output.stdout, output.stderr) if value)
             diagnostics = parse_deptry(payload, root=root, project=project)
             if output.returncode not in {0, 1} or (output.returncode == 1 and not diagnostics):
-                message = _redact_message(output.stderr.strip() or f"deptry exited {output.returncode}", root)
+                message = redact_message(output.stderr.strip() or f"deptry exited {output.returncode}", root)
                 issue = ExecutionIssue("deptry", "tool-failure", message, output.returncode)
                 reports.append(
                     ToolReport(
@@ -1890,7 +1936,7 @@ def _invoke_deptry_projects(
                 )
             )
         except (OSError, TypeError, ValueError, RecursionError, subprocess.SubprocessError) as exc:
-            issue = ExecutionIssue("deptry", "tool-failure", _redact_message(f"{type(exc).__name__}: {exc}", root))
+            issue = ExecutionIssue("deptry", "tool-failure", redact_message(f"{type(exc).__name__}: {exc}", root))
             reports.append(
                 ToolReport(
                     "deptry",
@@ -1903,6 +1949,37 @@ def _invoke_deptry_projects(
                 )
             )
     return tuple(reports)
+
+
+def _shell_source_reports(
+    grouped: GroupedPaths,
+    *,
+    root: Path,
+    runner: ProcessRunner,
+    capabilities: frozenset[str] | None,
+    attest_version: bool,
+) -> tuple[ToolReport, ...]:
+    from .shell_format import analyze_sources as analyze_shell_format  # ruff: ignore[import-outside-top-level] -- formatter reuses the bounded input runner without introducing an import cycle.
+
+    reports: list[ToolReport] = []
+    if capabilities is None or "shellcheck" in capabilities:
+        reports.extend(_shellcheck_reports(grouped, root=root, runner=runner, attest_version=attest_version))
+    if capabilities is None or "shfmt" in capabilities:
+        reports.extend(analyze_shell_format(root=root, paths=(*grouped.shellcheck, *grouped.unsupported_shell)))
+    reports.extend(_embedded_shell_reports(grouped, root=root, capabilities=capabilities))
+    return tuple(reports)
+
+
+def _embedded_shell_reports(
+    grouped: GroupedPaths, *, root: Path, capabilities: frozenset[str] | None
+) -> tuple[ToolReport, ...]:
+    from .embedded_shell import analyze_sources as analyze_embedded  # ruff: ignore[import-outside-top-level] -- stdin adapters reuse this module's protocol parser and bounded process runner.
+
+    selected = frozenset({"shellcheck", "shfmt"}) if capabilities is None else capabilities & {"shellcheck", "shfmt"}
+    if not selected:
+        return ()
+    paths = tuple(path for path in grouped.text if path not in {*grouped.shellcheck, *grouped.unsupported_shell})
+    return analyze_embedded(root=root, paths=paths, selected=selected)
 
 
 def _shellcheck_reports(
@@ -1951,12 +2028,7 @@ def _invoke_shellcheck(files: Sequence[str], *, root: Path, runner: ProcessRunne
         "shellcheck",
         (
             "shellcheck",
-            "--norc",
-            "--extended-analysis=true",
-            "--enable=check-extra-masked-returns",
-            "--severity=info",
-            "--source-path=SCRIPTDIR",
-            "--format=json1",
+            *SHELLCHECK_ARGS,
             "--",
             *files,
         ),
@@ -1985,7 +2057,7 @@ def _shellcheck_version_issue(root: Path) -> ExecutionIssue | None:
     try:
         output = run_process(("shellcheck", "--version"), cwd=root)
     except (OSError, subprocess.SubprocessError) as exc:
-        return ExecutionIssue("shellcheck", "missing-dependency", _redact_message(str(exc), root))
+        return ExecutionIssue("shellcheck", "missing-dependency", redact_message(str(exc), root))
     match = _SHELLCHECK_VERSION_RE.search(output.stdout)
     actual = None if match is None else match.group("version")
     if output.returncode != 0 or actual != _SHELLCHECK_VERSION:
@@ -2447,7 +2519,7 @@ def _invoke(
             version=version if report.completion is Completion.COMPLETE else None,
         )
     except (OSError, TypeError, ValueError, RecursionError, json.JSONDecodeError, subprocess.SubprocessError) as exc:
-        message = _redact_message(f"{type(exc).__name__}: {exc}", root)
+        message = redact_message(f"{type(exc).__name__}: {exc}", root)
         issue = ExecutionIssue(name, "tool-failure", message)
         return ToolReport(
             name,
@@ -2472,13 +2544,13 @@ def _invoke_unchecked(
 ) -> ToolReport:
     output = runner(argv, cwd=cwd)
     if output.returncode not in {0, 1}:
-        message = _redact_message(output.stderr.strip() or f"{name} exited {output.returncode}", root)
+        message = redact_message(output.stderr.strip() or f"{name} exited {output.returncode}", root)
         issue = ExecutionIssue(name, "tool-failure", message, output.returncode)
         return ToolReport(name, Completion.FAILED, issues=(issue,))
     if not output.stdout.strip():
         stderr = output.stderr.strip()
         kind = "tool-failure" if stderr else "protocol-mismatch"
-        message = _redact_message(stderr or f"{name} returned empty structured output", root)
+        message = redact_message(stderr or f"{name} returned empty structured output", root)
         issue = ExecutionIssue(name, kind, message, output.returncode)
         return ToolReport(name, Completion.FAILED, issues=(issue,))
     try:
@@ -2486,10 +2558,10 @@ def _invoke_unchecked(
     except json.JSONDecodeError as exc:
         stderr = output.stderr.strip()
         message = stderr or f"{name} returned invalid structured JSON at line {exc.lineno}, column {exc.colno}"
-        issue = ExecutionIssue(name, "protocol-mismatch", _redact_message(message, root), output.returncode)
+        issue = ExecutionIssue(name, "protocol-mismatch", redact_message(message, root), output.returncode)
         return ToolReport(name, Completion.FAILED, issues=(issue,))
     if output.returncode == 1 and not diagnostics:
-        message = _redact_message(output.stderr.strip() or f"{name} exited 1 but reported no diagnostics", root)
+        message = redact_message(output.stderr.strip() or f"{name} exited 1 but reported no diagnostics", root)
         issue = ExecutionIssue(name, "protocol-mismatch", message, output.returncode)
         return ToolReport(name, Completion.FAILED, issues=(issue,))
     if validator is not None and (issue := validator(output.stdout, root=root)) is not None:
@@ -2522,7 +2594,7 @@ def parse_ruff(payload: str, *, root: Path) -> tuple[Diagnostic, ...]:
         diagnostics.append(
             Diagnostic(
                 code,
-                _redact_message(_text(item, "message"), root),
+                redact_message(_text(item, "message"), root),
                 Severity.ERROR,
                 "ruff",
                 Location(_relative(path, root), region=Region(start, end)),
@@ -2548,7 +2620,7 @@ def parse_deptry(payload: str, *, root: Path, project: Path | None = None) -> tu
         diagnostics.append(
             Diagnostic(
                 code,
-                _redact_message(_github_command_unescape(match.group("message")), root),
+                redact_message(_github_command_unescape(match.group("message")), root),
                 Severity.WARNING,
                 "deptry",
                 Location(_relative(path, root), position=position),
@@ -2594,7 +2666,7 @@ def parse_swiftformat(payload: str, *, root: Path) -> tuple[Diagnostic, ...]:
         diagnostics.append(
             Diagnostic(
                 rule,
-                _redact_message(match.group("message"), root),
+                redact_message(match.group("message"), root),
                 Severity.ERROR,
                 "swiftformat",
                 Location(_relative(path, root), position=position),
@@ -2631,7 +2703,7 @@ def parse_swiftlint(payload: str, *, root: Path) -> tuple[Diagnostic, ...]:
         diagnostics.append(
             Diagnostic(
                 rule,
-                _redact_message(_text(item, "reason"), root),
+                redact_message(_text(item, "reason"), root),
                 severity,
                 "swiftlint",
                 Location(_relative(path, root), position=position),
@@ -2671,7 +2743,7 @@ def parse_ktlint(  # ruff: ignore[too-many-locals] -- protocol normalization kee
             diagnostics.append(
                 Diagnostic(
                     rule,
-                    _redact_message(message_value, root),
+                    redact_message(message_value, root),
                     Severity.ERROR,
                     "ktlint",
                     Location(_relative(path, root), position=position),
@@ -2722,7 +2794,7 @@ def parse_mobsfscan(  # ruff: ignore[too-many-locals] -- protocol normalization 
         diagnostics.append(
             Diagnostic(
                 rule,
-                _redact_message(_text(extra, "message"), root),
+                redact_message(_text(extra, "message"), root),
                 severity,
                 "mobsfscan",
                 Location(_relative(path, root), position=position),
@@ -2787,7 +2859,7 @@ def parse_sarif(  # ruff: ignore[too-many-locals] -- protocol normalization keep
             diagnostics.append(
                 Diagnostic(
                     rule,
-                    _redact_message(message, root),
+                    redact_message(message, root),
                     severity,
                     "detekt",
                     Location(_relative(path, root), position=position),
@@ -2812,7 +2884,7 @@ def parse_basedpyright(payload: str, *, root: Path) -> tuple[Diagnostic, ...]:
         diagnostics.append(
             Diagnostic(
                 rule,
-                _redact_message(item.message, root),
+                redact_message(item.message, root),
                 _severity_text(item.severity),
                 "basedpyright",
                 location,
@@ -2822,12 +2894,55 @@ def parse_basedpyright(payload: str, *, root: Path) -> tuple[Diagnostic, ...]:
     return tuple(diagnostics)
 
 
-def parse_shellcheck(payload: str, *, root: Path) -> tuple[Diagnostic, ...]:
+def _bounded_python_diagnostic(
+    diagnostic: Diagnostic, *, root: Path, helpers: dict[Path, frozenset[int] | None]
+) -> Diagnostic | None:
+    if diagnostic.rule_id != "reportUnusedFunction":
+        return diagnostic
+    path = root / diagnostic.location.path
+    if not _PYTHON_TEST_PATHS.match_file(_relative(path, root)):
+        return diagnostic
+    region = diagnostic.location.region
+    if not accepts_hook_path(path, root=root):
+        return None
+    if region is None:
+        helpers[path] = None
+        return None
+    if path not in helpers:
+        helpers[path] = _private_helper_lines(path)
+    lines = helpers[path]
+    if lines is None or region.start.line + 1 not in lines:
+        return None
+    return replace(diagnostic, severity=Severity.WARNING)
+
+
+def _private_helper_lines(path: Path) -> frozenset[int] | None:
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except OSError, UnicodeDecodeError, SyntaxError:
+        return None
+    # BasedPyright owns whether the function is unused. This only bounds its
+    # diagnostic to authored module-level helpers, preserving fixture, method,
+    # decorator, and production callback contracts.
+    return frozenset(
+        node.lineno
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name.startswith("_")
+        and not node.name.endswith("__")
+        and not node.decorator_list
+    )
+
+
+def parse_shellcheck(
+    payload: str, *, root: Path, source: SourceDocument | None = None, path: Path | None = None
+) -> tuple[Diagnostic, ...]:
     report = _ShellCheckReport.model_validate_json(payload)
-    documents: dict[Path, SourceDocument | None] = {}
+    documents = _shellcheck_documents(root, source, path)
+    virtual = None if path is None else path.resolve()
     diagnostics: list[Diagnostic] = []
     for item in report.comments:
-        path = _reported_path(item.file, root)
+        path = _shellcheck_reported_path(item.file, root, virtual)
         rule = f"SC{item.code}"
         try:
             level = _ShellCheckLevel(item.level)
@@ -2843,7 +2958,7 @@ def parse_shellcheck(payload: str, *, root: Path) -> tuple[Diagnostic, ...]:
         diagnostics.append(
             Diagnostic(
                 rule,
-                _redact_message(item.message, root),
+                redact_message(item.message, root),
                 severity,
                 "shellcheck",
                 Location(_relative(path, root), region=Region(start, end)),
@@ -2862,6 +2977,26 @@ def parse_shellcheck(payload: str, *, root: Path) -> tuple[Diagnostic, ...]:
             ),
         )
     )
+
+
+def _shellcheck_documents(
+    root: Path, source: SourceDocument | None, path: Path | None
+) -> dict[Path, SourceDocument | None]:
+    if source is None and path is None:
+        return {}
+    if source is None or path is None:
+        message = "embedded ShellCheck input requires a source document and authored path"
+        raise ValueError(message)
+    return {_reported_path(str(path), root): source}
+
+
+def _shellcheck_reported_path(value: str, root: Path, virtual: Path | None) -> Path:
+    if virtual is None:
+        return _reported_path(value, root)
+    if value != "-":
+        message = "embedded ShellCheck output must refer to stdin"
+        raise ValueError(message)
+    return virtual
 
 
 def parse_eslint(payload: str, *, root: Path) -> tuple[Diagnostic, ...]:
@@ -2939,7 +3074,7 @@ def _parse_react_doctor_report(
             diagnostics.append(
                 Diagnostic(
                     rule,
-                    _redact_message(item.message, root),
+                    redact_message(item.message, root),
                     Severity.ERROR,
                     "react-doctor",
                     location,
@@ -3368,7 +3503,7 @@ def _parse_eslint_message(
         raise ValueError(msg)
     return Diagnostic(
         rule,
-        _redact_message(_text(item, "message"), root),
+        redact_message(_text(item, "message"), root),
         severity,
         "eslint",
         location,
@@ -3418,7 +3553,7 @@ def _relative(path: Path, root: Path) -> str:
         raise ValueError(msg) from exc
 
 
-def _redact_message(value: str, root: Path) -> str:
+def redact_message(value: str, root: Path) -> str:
     message = value.replace(str(root), ".")
     message = re.sub(r"(?i)\b(token|secret|password|api[_-]?key)=\S+", r"\1=<redacted>", message)
     message = re.sub(r"(?i)\b(authorization\s*:\s*bearer)\s+\S+", r"\1 <redacted>", message)

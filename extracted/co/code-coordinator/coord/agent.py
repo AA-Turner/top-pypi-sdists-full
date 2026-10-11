@@ -7,6 +7,7 @@ tests can drive it directly without standing up a real server.
 from __future__ import annotations
 
 import fnmatch
+import functools
 import json
 import logging
 import os
@@ -325,6 +326,12 @@ def _format_truncation_reason(stop_reason: str, provider_name: str | None) -> st
 _REAP_POLL_INTERVAL = 5.0        # seconds between proc.wait timeout attempts
 _REAP_GRACE_AFTER_RESULT = 30.0  # grace period after result line before SIGTERM
 _REAP_MAX_WAIT = 2 * 60 * 60.0   # absolute max wait (2 hours) — last-resort safety net
+# #3681: a workflow leg (implement → adversarial review → fix, all run as one
+# `claude -p` workflow) is several ordinary legs chained end to end, so the
+# single-leg `_REAP_MAX_WAIT` safety net is too tight — it would fire on a
+# workflow that is still legitimately working. Generous multiple (8 hours);
+# only ever consulted for legs that opted in via ``AssignmentSpec.workflow``.
+_REAP_MAX_WAIT_WORKFLOW = 8 * 60 * 60.0
 _RESULT_LINE_MARKER = b'"type":"result"'
 # PTY workers (ClaudePtyProvider) never emit stream-json, so the pump thread
 # stamps this sentinel after the subprocess exits.  MUST stay byte-equal to
@@ -601,6 +608,72 @@ def _log_has_result(log_path: str) -> bool:
         return False
 
 
+def _log_last_event_is_result(
+    log_path: str, *, marker: bytes = _RESULT_LINE_MARKER
+) -> bool:
+    """Workflow-aware counterpart to :func:`_log_has_result` (#3681).
+
+    `claude -p` running a **workflow** (multiple agents: implement → review
+    → fix) emits a `result` event when the *outer* turn ends — the one that
+    says "the workflow is running in background" — and only emits the real,
+    final `result` once the workflow (and every subagent it spawned)
+    actually finishes. `_log_has_result` latches on the FIRST matching line
+    it finds anywhere in the log, so used naively it would treat that
+    placeholder as completion and let the reap thread's grace-period
+    teardown kill the still-running workflow out from under itself.
+
+    This variant instead asks "is the **last** event in the log a result
+    event (or the PTY exit sentinel)?" — true only while nothing has been
+    appended since. `_wait_for_proc_or_result`'s `workflow=True` branch
+    re-arms (clears) `result_seen_at` the moment this flips back to False,
+    so a result line with more stream output after it is never treated as
+    final — only a result line that stays the last line of the log for the
+    whole grace window is.
+
+    `#`-comment lines — the spawn header and the reap thread's own
+    bookkeeping lines it appends to this same file while polling (e.g.
+    `"# reap: worker emitted result; awaiting clean exit"`) — are never
+    real worker output, so they are skipped rather than treated as
+    "something new was appended" (except the PTY sentinel itself, which IS
+    a legitimate completion signal despite the `#` prefix).
+
+    ``marker`` lets `_reap` reuse this one implementation for a
+    non-default-provider result marker too (mirroring how `_log_has_result`
+    is reused/wrapped there) rather than hand-rolling a second "is this line
+    a result line" check — only the default marker gets the extra per-line
+    JSON validation `_log_has_result` also applies, since a provider with a
+    different marker isn't necessarily emitting JSON lines at all.
+    """
+    try:
+        last_match = False
+        with open(log_path, "rb") as f:
+            for raw in f:
+                line = raw.strip()
+                if not line:
+                    continue
+                if line.startswith(b"#"):
+                    if line.startswith(_PTY_RESULT_LINE_MARKER):
+                        last_match = True
+                    continue
+                if marker not in raw:
+                    last_match = False
+                    continue
+                if marker == _RESULT_LINE_MARKER:
+                    try:
+                        event = json.loads(raw)
+                    except (ValueError, TypeError):
+                        last_match = False
+                        continue
+                    last_match = (
+                        isinstance(event, dict) and event.get("type") == "result"
+                    )
+                else:
+                    last_match = True
+        return last_match
+    except OSError:
+        return False
+
+
 def _log_has_output(log_path: str) -> bool:
     """Return True once the worker has produced any output beyond the spawn header.
 
@@ -680,6 +753,7 @@ def _wait_for_proc_or_result(
     log_has_output: Callable[[str], bool] = _log_has_output,
     clock: Callable[[], float] = time.monotonic,
     wall_clock: Callable[[], float] = time.time,
+    workflow: bool = False,
 ) -> int:
     """Wait for `proc` to exit; force-kill its process group if it hangs after
     the worker emitted its final result event.
@@ -741,6 +815,30 @@ def _wait_for_proc_or_result(
       well before, the runtime ceiling above: a leg that slept through a
       multi-hour suspend should never be trusted to resume cleanly, whatever
       its eventual wall-clock age would have been.
+
+    Workflow legs (#3681): ``claude -p`` running a **workflow** (multiple
+    agents — implement, then adversarial review, then fix — chained inside
+    one invocation) emits a `result` event when the *outer* turn ends, before
+    the workflow it kicked off in the background has actually finished; the
+    real, final `result` only appears once the workflow (and every subagent
+    it spawned) completes. With the default ``workflow=False`` behavior above
+    — a one-way latch on ``log_has_result`` — that placeholder would be
+    mistaken for completion and the grace-period teardown below would kill
+    the still-running workflow out from under itself.
+
+    When ``workflow=True``, ``log_has_result`` is expected to be a
+    workflow-aware callable (built from :func:`_log_last_event_is_result`)
+    that answers "is the **last** line of the log right now a result event?"
+    rather than "has a result event ever appeared?". The completion gate
+    below then RE-ARMS: if ``log_has_result`` ever reports ``False`` again
+    after having reported ``True`` (because the workflow appended more
+    output), ``result_seen_at`` is cleared back to ``None`` so the grace
+    period restarts from scratch on the next real completion. A result line
+    only triggers the grace-period teardown once it has stayed the last line
+    of the log for the whole grace window — exactly the semantics needed to
+    survive the placeholder result without disabling the safety net
+    entirely. The default ``workflow=False`` path is untouched: the latch
+    never resets, byte-identical to pre-#3681 behavior.
 
     The keyword-only parameters exist for tests to inject short timeouts and
     mock kill/clock/cost/wall-clock behavior.
@@ -827,11 +925,28 @@ def _wait_for_proc_or_result(
                 return NO_FIRST_OUTPUT_EXIT
 
         # Detect logical completion: worker emitted its final result event.
-        if result_seen_at is None and log_has_result(log_path):
+        #
+        # #3681: for a workflow leg, `log_has_result` answers "is the last
+        # line of the log a result event right now?" (see
+        # `_log_last_event_is_result`), so it can flip back to False after
+        # having been True — the outer turn's placeholder result, followed
+        # by more workflow/subagent output. Re-arm by clearing
+        # `result_seen_at` in that case so the grace period never fires off
+        # a result line that turned out not to be final. Non-workflow legs
+        # keep the one-way latch: once set, never cleared.
+        has_result_now = log_has_result(log_path)
+        if result_seen_at is None and has_result_now:
             result_seen_at = clock()
             _append_log_line(
                 log_path,
                 "# reap: worker emitted result; awaiting clean exit\n",
+            )
+        elif workflow and result_seen_at is not None and not has_result_now:
+            result_seen_at = None
+            _append_log_line(
+                log_path,
+                "# reap: workflow still running after result event; "
+                "resuming wait\n",
             )
 
         # #2638: wall-clock runtime ceiling — measured from `wall_start`, NOT
@@ -926,6 +1041,14 @@ def _wait_for_proc_or_result(
             except subprocess.TimeoutExpired:
                 pass
             return 137  # SIGKILL convention
+
+
+# #3681: the GitHub issue label that opts a ``type="work"`` dispatch into
+# ``AssignmentSpec.workflow=True`` — see that field's docstring below.
+# ``coord/dispatch.py`` checks ``proposal.issue_labels`` for exactly this
+# string, gated to ``type="work"`` the same way the existing #2188
+# ``issue_labels`` precedent (``provider_issue_labels``) already is.
+WORKFLOW_LEG_LABEL = "coord:workflow"
 
 
 @dataclass
@@ -1041,6 +1164,71 @@ class AssignmentSpec:
     # the wire the same way `cost_ceiling_usd` is, for the same config-free-
     # agent reason (docs/EPHEMERAL_WORKERS.md).
     runtime_ceiling_s: float | None = None
+    # #3673: "make the Test stage a plain runner by default" — when True AND
+    # ``type == "smoke"`` AND ``smoke_needs_judgement`` is False AND
+    # ``smoke_command`` is set, ``_spawn`` runs ``smoke_command`` directly as
+    # a subprocess (:func:`run_plain_runner_command`) instead of spawning a
+    # ``claude -p`` session, and derives the Test-stage verdict from its exit
+    # code alone — an LLM session is spawned only to SUMMARISE a failure
+    # (:func:`AgentServer._spawn_plain_runner_failure_summary`), never to
+    # decide pass/fail. Defaults to ``False`` — the same "unrecognized kwarg
+    # 400s a config-free/older agent" discipline every other optional field
+    # above follows — so only ``coord.smoke``'s own smoke dispatch (which
+    # sets this ``True`` unconditionally for every leg it builds, #3673's
+    # actual default-on policy) opts a leg into this path; every other
+    # assignment type, and any caller that predates this field, is
+    # completely unaffected.
+    plain_runner: bool = False
+    # #3673: the resolved shell command a plain-runner leg executes
+    # (``coord.smoke.resolve_smoke_command``'s result, carried structurally
+    # instead of only embedded in the ``claude -p`` briefing prose) — the
+    # plain-runner path has no LLM to parse the briefing and extract it.
+    # ``None`` when ``plain_runner`` is False, or for every spec predating
+    # this field.
+    smoke_command: str | None = None
+    # #3673: the hard subprocess timeout (seconds) for ``smoke_command`` —
+    # ``smoke_tests.timeout_seconds``, carried structurally because the
+    # plain-runner path has no `claude -p` session to read it out of the
+    # briefing prose and apply it itself the way `SMOKE_SYSTEM_PROMPT` step 2
+    # asks a worker to. Deliberately a DIFFERENT field from
+    # ``runtime_ceiling_s`` (the generic whole-assignment watchdog, several
+    # hours by default) rather than overloading it: a plain-runner leg IS
+    # just this one subprocess call, but a judgement-needing smoke leg is
+    # still a full `claude -p` session that legitimately needs the much
+    # longer generic ceiling, and the two must not collide.
+    smoke_timeout_s: float | None = None
+    # #3673: True when this leg's required capabilities need genuine
+    # judgement rather than a bare exit code (GUI/real-host drivers — see
+    # ``coord.smoke.smoke_needs_judgement``). ``_spawn`` falls through to
+    # the ordinary ``claude -p`` chat path whenever this is True, even if
+    # ``plain_runner`` is also True — the opt-out, not a second on/off
+    # switch of its own.
+    smoke_needs_judgement: bool = False
+    # #3681: opts a ``type="work"`` leg into running as a Claude Code
+    # *workflow* — multiple agents (implement → adversarial review → fix)
+    # chained inside one `claude -p` invocation instead of coord dispatching
+    # separate Work/Review legs. When True: `Workflow` (and `Task`, for
+    # subagents) are no longer added to `--disallowedTools`
+    # (`worker_disallowed_tools`); `WORKER_SYSTEM_PROMPT` gets an extra
+    # section telling the worker to run the task as a workflow, wait for it,
+    # and commit+push before its own final message; and the reap thread's
+    # `log_has_result` check becomes workflow-aware (`workflow=True` into
+    # `_wait_for_proc_or_result`, built from `_log_last_event_is_result`) so
+    # the workflow's own placeholder "running in background" result event
+    # never trips the grace-period teardown early. Defaults to ``False`` —
+    # the same "unrecognized kwarg 400s a config-free/older agent" discipline
+    # every other optional field above follows — so only a dispatch that
+    # explicitly opted an issue in (the `coord:workflow` label; see
+    # `coord/dispatch.py`) ever sets this, and every other leg, including
+    # Review/smoke/new-issue-chat, is completely unaffected.
+    #
+    # #3681 item 6: this leg's `mode` ("single" vs "workflow") is also
+    # recorded on the board row (`coord/state.py`) so review rounds, the
+    # request-changes rate, and cost can be compared between the two leg
+    # kinds over a sample of issues before anyone considers relaxing Test or
+    # Review for workflow legs — a decision this field intentionally does
+    # NOT make on its own.
+    workflow: bool = False
 
 
 class _GitError(RuntimeError):
@@ -1172,6 +1360,16 @@ def _is_linked_worktree(repo_path: Path) -> bool:
             return repo_path / p
 
     return _abs(git_dir) != _abs(common_dir)
+
+
+def _resolved_path_str(raw: str | Path) -> str:
+    """*raw* with ``~`` expanded and symlinks resolved, for comparing a
+    config checkout path against an assignment's ``repo_path``."""
+    p = Path(raw).expanduser()
+    try:
+        return str(p.resolve())
+    except OSError:
+        return str(p)
 
 
 def _graphify_update(repo_path: Path, *, timeout: float = 600.0) -> tuple[bool, str]:
@@ -3863,6 +4061,13 @@ Rules:
 other files, do so only if strictly necessary and note it.
 - If the briefing lists forbidden files, do NOT read or modify them. \
 They are managed by the coordinator.
+- Code comments describe the code as it is now, never its history. No \
+issue or PR numbers, no "used to" / "previously" / "the reviewer found" / \
+"this fix" in comments: that belongs in your commit message and final \
+message, which is where a reviewer reads it. When you edit next to an \
+existing comment like that, rewrite it in the present tense or delete it. \
+The one exception is a workaround to remove when an issue closes: \
+`TODO(#N): <what to remove>`.
 - You are already on a feature branch. Commit your work to this branch. \
 Push with `git push origin HEAD`. \
 NEVER commit or push to main or develop directly. \
@@ -4006,11 +4211,16 @@ or
 unknown>
 
 Omit the line entirely (it defaults to `resolved`, today's behaviour) \
-when this PR genuinely fixes the issue. A drafted-but-unfiled upstream \
-issue — a bullet in a design doc, a TODO comment, a line in a tracking \
-markdown file — is NOT "filed"; only a real GitHub issue number counts, \
-so don't write `partial — see quadraui issue` unless that issue actually \
-exists and you name its number. This is read by the coordinator's merge \
+when this PR genuinely fixes the issue. If what remains is a capability \
+missing from ANOTHER repo, don't draft that upstream issue as prose (a \
+bullet in a design doc, a TODO comment, a `PENDING_*` tracking markdown \
+file) and don't try to file it yourself: emit the \
+`BLOCKED_ON_UPSTREAM: <repo>: <title>` marker your briefing describes \
+(#3676) — the coordinator files the issue and holds this one on it — and \
+write `ISSUE_RESOLUTION: partial — blocked on upstream \
+(BLOCKED_ON_UPSTREAM above)`; you never need its number. Any OTHER \
+issue you cite in a `partial` line must be a real, existing one named by \
+number. This is read by the coordinator's merge \
 gate (not posted to GitHub by you — never run `gh` commands): a `partial`/ \
 `investigation` here keeps the issue OPEN after your PR merges, with a \
 comment on the issue quoting what remains, instead of auto-closing work \
@@ -5522,6 +5732,52 @@ def _claude_md_system_prompt_suffix(repo_path: str) -> str:
     return "\n\n## Project rules (from CLAUDE.md)\n\n" + claude_md.strip() + "\n"
 
 
+def _workflow_leg_system_prompt_suffix() -> str:
+    """Return the system-prompt suffix for an opted-in workflow leg (#3681).
+
+    Only appended when ``spec.workflow`` is True — every other leg (the
+    overwhelming majority) is completely unaffected. Tells the worker to run
+    its assignment as a Claude Code *workflow* (multiple agents: implement
+    then adversarial-review then fix, chained inside this one ``claude -p``
+    invocation) instead of just editing and stopping, to wait for the
+    workflow to actually finish before writing its own final message, and
+    that the ONE-SHOT / commit-and-push-before-final-message rules above
+    still apply in full once the workflow completes.
+
+    Item 5 of #3681: the workflow's own in-workflow review step must grade
+    against coord's real reviewer rules, not lenses the worker invents on
+    the spot — on #3676 a hand-run workflow used generic review lenses and
+    missed the exact #2096 duplication pattern (a duplicated helper plus a
+    hardcoded port) that coord's own external Review leg caught immediately
+    after. So this text is built from ``REVIEWER_SYSTEM_PROMPT`` itself — the
+    SAME source :func:`coord.review.default_worker_command`'s review branch
+    hands a dispatched Review leg (see the ``elif spec.type == "review"``
+    branch above) — never a second, hand-copied description of what a
+    reviewer checks (#2096: one question, one answer).
+    """
+    from coord.review import REVIEWER_SYSTEM_PROMPT  # noqa: PLC0415
+
+    return (
+        "\n\n## Running this assignment as a workflow (#3681)\n\n"
+        "This leg has been opted in to running as a Claude Code *workflow*: "
+        "multiple agents chained inside this one session — implement, then "
+        "an adversarial review step, then fix — rather than a single pass. "
+        "Start the workflow for your assignment and let it run to "
+        "completion; do not treat the workflow's own first progress update "
+        "as your final answer, and do not write your own final message "
+        "until the workflow itself has actually finished. The ONE-SHOT "
+        "rules above still apply in full: once the workflow completes, "
+        "`git add`/`git commit`/`git push origin HEAD` still happen BEFORE "
+        "your final message, exactly as they would for a non-workflow leg.\n\n"
+        "The workflow's own final review step must grade your diff with "
+        "coord's real reviewer rules — not lenses you write yourself. Use "
+        "exactly the following as that review step's system prompt/lens "
+        "(this is the identical text coord's own dispatched Review leg "
+        "receives for this repo, byte for byte):\n\n"
+        "-----\n" + REVIEWER_SYSTEM_PROMPT + "\n-----\n"
+    )
+
+
 # #3420: every `claude -p` leg loads the full JSON schema for all built-in
 # tools regardless of `--allowedTools`, which is a *permission* filter, not a
 # tool-surface one — a leg with `Read,Bash` in `--allowedTools` still pays
@@ -5599,7 +5855,10 @@ def worker_disallowed_tools(spec: AssignmentSpec, allowed_tools: str) -> list[st
     Layers, in argv order (each skips entries an earlier layer already
     added, so the result is de-duplicated but order-stable):
 
-    1. #3420 ``UNUSABLE_TOOL_SCHEMAS`` — unconditional, every spec type.
+    1. #3420 ``UNUSABLE_TOOL_SCHEMAS`` — unconditional, every spec type,
+       EXCEPT ``Workflow`` (and ``Task``, needed for the workflow's own
+       subagents) are omitted when ``spec.workflow`` is True (#3681) — the
+       whole point of a workflow leg is running ``Workflow``.
     2. #1315 sealed-oracle write guard, from ``spec.files_forbidden``.
     3. #1642 base-checkout write guard — only when *allowed_tools*
        actually grants ``Edit``; for the Read/Bash-only chat types the
@@ -5638,7 +5897,15 @@ def worker_disallowed_tools(spec: AssignmentSpec, allowed_tools: str) -> list[st
     # Workflow/Skill/Task/etc. schemas as a work leg and benefit identically.
     # This is FIRST so the guards below, which each append to this same
     # list, keep working unchanged.
-    disallowed_tools = list(UNUSABLE_TOOL_SCHEMAS)
+    if spec.workflow:
+        # #3681: a workflow leg's whole point is running `Workflow` (and its
+        # subagents via `Task`) — un-disallow just those two, leaving every
+        # other #3420 schema (and every other leg type's behavior) unchanged.
+        disallowed_tools = [
+            t for t in UNUSABLE_TOOL_SCHEMAS if t not in ("Workflow", "Task")
+        ]
+    else:
+        disallowed_tools = list(UNUSABLE_TOOL_SCHEMAS)
     # #1315: structural sealing enforcement — see _sealed_write_guard_tools.
     for pattern in _sealed_write_guard_tools(spec.files_forbidden):
         if pattern not in disallowed_tools:
@@ -5849,6 +6116,14 @@ def default_worker_command(spec: AssignmentSpec, *, binary: str = DEFAULT_WORKER
         # and needs the target repo's conventions. See
         # _claude_md_system_prompt_suffix.
         system_prompt += _claude_md_system_prompt_suffix(spec.repo_path)
+        # #3681: opted-in workflow legs only — see
+        # _workflow_leg_system_prompt_suffix for why this is appended here
+        # rather than baked into WORKER_SYSTEM_PROMPT itself (it must embed
+        # REVIEWER_SYSTEM_PROMPT, which only exists per dispatch, and every
+        # non-workflow leg — the overwhelming majority — must see none of
+        # this text).
+        if spec.workflow:
+            system_prompt += _workflow_leg_system_prompt_suffix()
         # #2169: `Monitor` is the sanctioned way to poll a backgrounded
         # long-running command in bounded steps (see the ONE-SHOT section of
         # WORKER_SYSTEM_PROMPT) instead of a foreground loop that blocks
@@ -5989,6 +6264,185 @@ def _user_message_line(text: str) -> bytes:
     """Encode a user message as a single stream-json line (with newline)."""
     payload = {"type": "user", "message": {"role": "user", "content": text}}
     return (json.dumps(payload) + "\n").encode("utf-8")
+
+
+# ── #3673: plain-runner smoke executor ──────────────────────────────────────
+#
+# A Test-stage leg's whole job is "pull the branch, run the smoke command,
+# report the exit code" — none of that needs an LLM. This section is the
+# PLAIN runner: it executes the command as a bare subprocess (no `claude -p`
+# session) and derives the verdict from the exit code alone. An LLM session
+# is spawned only to SUMMARISE a failure for a human-readable report — never
+# to decide pass/fail — via `AgentServer._spawn_plain_runner_failure_summary`.
+# `coord.smoke.smoke_needs_judgement` is the opt-out for GUI/real-host-driver
+# specs that genuinely need more than an exit code.
+
+#: How much of a plain-runner command's combined stdout+stderr survives into
+#: the leg's log (and, on failure, the summary request) — generous enough to
+#: carry a real stack trace/test-failure block, bounded so a runaway command
+#: can't blow up the log file.
+PLAIN_RUNNER_LOG_TAIL_CHARS = 8000
+
+
+def _tail_text(text: str, limit: int = PLAIN_RUNNER_LOG_TAIL_CHARS) -> str:
+    """The last *limit* characters of *text*, with a marker when truncated."""
+    if len(text) <= limit:
+        return text
+    return f"...[truncated, {len(text) - limit} earlier chars omitted]...\n{text[-limit:]}"
+
+
+@dataclass(frozen=True)
+class PlainRunnerVerdict:
+    """The Test-stage verdict a plain runner derives from a subprocess exit
+    code alone (#3673) — mirrors :class:`coord.smoke.PlainRunnerVerdict`
+    (duplicated, not imported: `coord.smoke` is coordinator-side dispatch
+    policy, this module is where the subprocess the verdict describes
+    actually runs — the two sides of the same question, in two different
+    processes on two different machines, never need to share a Python
+    import for that to be true).
+    """
+
+    passed: bool
+    exit_code: int
+    log_tail: str
+    #: True for the one exit/marker combination `SMOKE_SYSTEM_PROMPT` step 4
+    #: treats specially — the suite re-ran its own failures against the
+    #: merge-base and found every one of them fails there too, i.e. a
+    #: statement about the MACHINE/base, not the branch. Mirrors the
+    #: claude-driven path's `SMOKE: baseline-red` marker exactly so
+    #: downstream verdict parsing (`coord.notify._record_smoke_verdict`)
+    #: reads the plain-runner's log identically to a worker-printed one.
+    baseline_red: bool = False
+
+
+def run_plain_runner_command(
+    command: str,
+    cwd: str,
+    *,
+    timeout: float,
+    run: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+) -> PlainRunnerVerdict:
+    """Execute *command* as a bare subprocess in *cwd* and derive a
+    :class:`PlainRunnerVerdict` from its exit code alone (#3673) — no
+    `claude -p` session is spawned here, ever; this function cannot call one.
+
+    *run* is injectable (defaults to :func:`subprocess.run`) purely for
+    tests — production always uses the real default.
+
+    Exit-code mapping mirrors `SMOKE_SYSTEM_PROMPT`'s steps 3-5 exactly, so a
+    plain-runner leg's log reads the same way a worker-printed one would:
+      * ``0`` → passed.
+      * :data:`coord.revalidate.RUNNER_BASELINE_RED_EXIT` AND the combined
+        output contains :data:`coord.revalidate.BASELINE_RED_OUTPUT_MARKER`
+        → ``baseline_red=True``, not a plain failure (the suite already
+        re-ran its own failures against the merge-base and found them red
+        there too — a statement about the machine/base, not the branch).
+      * any other non-zero exit → failed.
+    A timeout is reported as a failure with exit_code ``-1`` — a smoke
+    command that cannot finish within its own configured budget never
+    passes by default (fail-closed, matching every other inconclusive case
+    in this stage).
+    """
+    from coord.revalidate import (  # noqa: PLC0415 — avoid a module-load-time cycle
+        BASELINE_RED_OUTPUT_MARKER,
+        RUNNER_BASELINE_RED_EXIT,
+    )
+
+    try:
+        # #3673 review round 1 (nit): `shell=True` is not a new injection
+        # surface — `command` is `spec.smoke_command`, sourced from this
+        # repo's OPERATOR-authored `coordinator.yml` (`ci_command`/
+        # `default_command`/`test_command`), never from the branch/PR
+        # content a worker or a smoke runner is actually testing.
+        result = run(
+            command, shell=True, cwd=cwd, capture_output=True, text=True, timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        combined = (exc.stdout or "") + (exc.stderr or "")
+        tail = _tail_text(
+            f"timed out after {timeout:.0f}s\n{combined}" if combined else f"timed out after {timeout:.0f}s"
+        )
+        return PlainRunnerVerdict(passed=False, exit_code=-1, log_tail=tail)
+
+    combined = (result.stdout or "") + (result.stderr or "")
+    tail = _tail_text(combined)
+    if result.returncode == 0:
+        return PlainRunnerVerdict(passed=True, exit_code=0, log_tail=tail)
+    baseline_red = (
+        result.returncode == RUNNER_BASELINE_RED_EXIT
+        and BASELINE_RED_OUTPUT_MARKER in combined
+    )
+    return PlainRunnerVerdict(
+        passed=False, exit_code=result.returncode, log_tail=tail, baseline_red=baseline_red,
+    )
+
+
+def execute_plain_runner_smoke(
+    spec: AssignmentSpec,
+    cwd: str,
+    *,
+    timeout: float,
+    run: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+    spawn_failure_summary: Callable[[AssignmentSpec, PlainRunnerVerdict], None] | None = None,
+) -> PlainRunnerVerdict:
+    """The full #3673 plain-runner decision for one smoke leg: run
+    ``spec.smoke_command`` directly (:func:`run_plain_runner_command`, no
+    LLM involved) and, ONLY when the verdict is a genuine failure (not a
+    pass, and not a `baseline_red` — that is a statement about the machine,
+    not a code defect, so it gets no failure summary either), call
+    *spawn_failure_summary* to produce a human-readable explanation.
+
+    This is the seam the acceptance test drives directly: pass a fake *run*
+    that returns a failing/passing `CompletedProcess` and a recording
+    *spawn_failure_summary*, and assert it was invoked exactly once per
+    failure and never on a pass — with no `claude`/`subprocess.Popen` of a
+    `claude -p` argv anywhere in this call graph for the verdict itself.
+
+    A missing ``smoke_command`` is reported as a failed verdict (exit_code
+    ``-1``) rather than an exception, so a caller that accidentally reaches
+    this path for an unconfigured leg still gets a reportable Test-stage
+    outcome instead of an agent-crashing exception. #3673 review round 1
+    (nit): that is NOT a blanket "raises nothing" guarantee —
+    :func:`run_plain_runner_command` only catches ``subprocess.
+    TimeoutExpired`` around its own ``run()`` call; any OTHER
+    ``subprocess.run`` exception (e.g. a bad *cwd*) still propagates out of
+    this function. The current caller
+    (:meth:`AgentServer._run_plain_runner_smoke_blocking`) already wraps the
+    whole call in a broad ``except Exception``, so this is harmless today —
+    just don't rely on this function's own signature to make that promise.
+    """
+    if not spec.smoke_command:
+        verdict = PlainRunnerVerdict(
+            passed=False, exit_code=-1,
+            log_tail="#3673 plain-runner: no smoke_command on this assignment spec",
+        )
+    else:
+        verdict = run_plain_runner_command(spec.smoke_command, cwd, timeout=timeout, run=run)
+
+    if not verdict.passed and not verdict.baseline_red and spawn_failure_summary is not None:
+        spawn_failure_summary(spec, verdict)
+    return verdict
+
+
+def plain_runner_smoke_marker_lines(spec: AssignmentSpec, verdict: PlainRunnerVerdict) -> str:
+    """The exact `SMOKE:` marker text a plain-runner leg's log carries
+    (#3673) — byte-for-byte the same vocabulary `SMOKE_SYSTEM_PROMPT` asks a
+    `claude -p` smoke worker to print, so `coord.notify._record_smoke_verdict`
+    parses a plain-runner leg's log identically to a worker-printed one; no
+    downstream verdict-parsing code needs to know which path produced it.
+    """
+    header = (
+        f"# plain-runner (#3673): executing `{spec.smoke_command}` — no claude -p "
+        "session spawned for the verdict itself\n"
+    )
+    body = verdict.log_tail.rstrip("\n")
+    if verdict.baseline_red:
+        marker = f"SMOKE: baseline-red exit={verdict.exit_code}"
+    elif verdict.passed:
+        marker = "SMOKE: pass"
+    else:
+        marker = f"SMOKE: fail exit={verdict.exit_code}"
+    return f"{header}{body}\n{marker}\n"
 
 
 # #425: assignment types that **mutate** the repo or external state.  The
@@ -6323,6 +6777,22 @@ class AgentServer:
         self._graph_heal_skipped_active: int = 0
         self._graph_heal_last_skip_at: float | None = None
         self._graph_heal_passes: int = 0
+
+        # Base-checkout refresh: a graph that matches HEAD still describes
+        # stale code when HEAD is behind origin, and every worktree borrows
+        # the base checkout's graph. `_refresh_base_checkouts` fast-forwards
+        # clean, on-branch base checkouts on its own (slower) interval and
+        # rebuilds their graph. `_graph_refresh_results` holds the latest
+        # outcome per checkout path for /health's `graph_refresh` block;
+        # `_graph_refresh_pending` maps a path whose HEAD moved but whose
+        # graph is not rebuilt yet (deferred while the machine is busy) to
+        # the time it moved.
+        self._graph_refresh_interval: float = float(
+            os.environ.get("COORD_AGENT_GRAPH_REFRESH_INTERVAL", "1800")
+        )
+        self._graph_refresh_last_run_at: float | None = None
+        self._graph_refresh_results: dict[str, dict] = {}
+        self._graph_refresh_pending: dict[str, float] = {}
 
         # Skills self-heal (#319 follow-up): `coord install-skills` was a
         # real fix (coord/skills/*/SKILL.md) for a real problem, but was a
@@ -6788,6 +7258,15 @@ class AgentServer:
                 "skipped_active": self._graph_heal_skipped_active,
                 "last_skip_at": self._graph_heal_last_skip_at,
             },
+            # Per base checkout: the last fast-forward attempt (or why it was
+            # refused — dirty, off-branch, diverged, ...) and the commit and
+            # time the graph was last built/verified against. Rendered by
+            # `coord doctor`; absent on an agent that predates it.
+            "graph_refresh": {
+                "interval_s": self._graph_refresh_interval,
+                "last_run_at": self._graph_refresh_last_run_at,
+                "checkouts": [dict(v) for v in self._graph_refresh_results.values()],
+            },
             # Same idea as `graph_self_heal` above, for the bundled
             # `coord/skills/*/SKILL.md` sync: `coord install-skills` existed
             # as a real fix but was a 100%-manual step nothing in
@@ -6882,6 +7361,14 @@ class AgentServer:
 
             ctx = build_context(self._health_config, allow_network=False, now=now)
             _mark("build_context")
+            try:
+                # Before the checks run, so this same report's `graph` results
+                # already describe the fast-forwarded HEAD and rebuilt graph.
+                # Own try/except for the same reason as the graph pass below.
+                self._refresh_base_checkouts(ctx)
+            except Exception as exc:  # noqa: BLE001 — refresh is best-effort
+                _log.warning("base checkout refresh pass failed: %s", exc)
+            _mark("refresh_base_checkouts")
             report = run_all(ctx, scopes=("machine", "checkout"))
             _mark("run_checks")
             check_durations_ms = report.check_durations_ms
@@ -6955,6 +7442,150 @@ class AgentServer:
 
         self._local_health_cache = (now, payload)
         return payload
+
+    def _refresh_base_checkouts(self, ctx: Any) -> None:
+        """Keep each base checkout's HEAD, and so its graph, current with
+        origin.
+
+        Rides the cached local-health tick but on its own interval
+        (``COORD_AGENT_GRAPH_REFRESH_INTERVAL``, default 1800s), because the
+        fetch is network I/O. Per configured checkout in *ctx*:
+
+        * :func:`coord.graph_health.fast_forward_base_checkout` fetches and
+          fast-forwards the integration branch only when the checkout is
+          clean, on that branch, not mid-operation and not diverged; any
+          other state is left untouched and its outcome recorded.
+        * A repo with an assignment still in setup (PENDING — worktree
+          creation fetches and runs ``git worktree add`` in the same base
+          repo) is skipped this round rather than raced.
+        * After a fast-forward, ``graphify update .`` runs — but only while
+          no assignment is RUNNING, the same idle rule the stale-graph heal
+          follows. A busy machine records the rebuild as deferred and every
+          later tick retries until it is idle; the deferral is not
+          interval-gated.
+        * A rebuild failure is recorded in ``_graph_rebuild_failed`` for the
+          new HEAD, so the stale-graph pass surfaces it as WARN and does not
+          retry it.
+
+        Runs before the health checks, so the same report already reflects
+        the new HEAD. Never raises out to /health (the caller wraps it).
+        """
+        from coord.graph_health import fast_forward_base_checkout  # noqa: PLC0415
+
+        now = time.time()
+        with self._lock:
+            last = self._graph_refresh_last_run_at
+            due = last is None or (now - last) >= self._graph_refresh_interval
+            if due:
+                self._graph_refresh_last_run_at = now
+            busy = any(a.status == RUNNING for a in self._assignments.values())
+            setting_up = {
+                _resolved_path_str(a.spec.repo_path)
+                for a in self._assignments.values()
+                if a.status == PENDING and a.spec.repo_path
+            }
+
+        for checkout in ctx.checkouts:
+            path_str = str(checkout.path)
+            if due and _resolved_path_str(path_str) not in setting_up:
+                with self._lock:
+                    if path_str in self._graph_rebuild_in_progress:
+                        continue
+                    self._graph_rebuild_in_progress.add(path_str)
+                try:
+                    result = fast_forward_base_checkout(
+                        checkout.path, checkout.home_branches
+                    )
+                finally:
+                    with self._lock:
+                        self._graph_rebuild_in_progress.discard(path_str)
+                entry = {"repo": checkout.name, **result.to_dict()}
+                previous = self._graph_refresh_results.get(path_str) or {}
+                for key in ("graph_detail", "graph_rebuild_ok"):
+                    if key in previous:
+                        entry[key] = previous[key]
+                if result.refreshed:
+                    self._graph_refresh_pending[path_str] = result.at
+                    self._graph_rebuild_failed.pop(path_str, None)
+                    entry.pop("graph_detail", None)
+                    entry.pop("graph_rebuild_ok", None)
+                self._graph_refresh_results[path_str] = entry
+
+            entry = self._graph_refresh_results.get(path_str)
+            if entry is None:
+                continue
+            if path_str in self._graph_refresh_pending:
+                self._rebuild_refreshed_graph(checkout, entry, busy=busy)
+            self._stamp_graph_refresh_entry(checkout, entry)
+
+    def _rebuild_refreshed_graph(self, checkout: Any, entry: dict, *, busy: bool) -> None:
+        """Rebuild the graph of a checkout whose HEAD the refresh pass moved.
+
+        Clears the pending mark once the graph is current — rebuilt here,
+        rebuilt by the stale-graph pass meanwhile, or absent (building an
+        absent graph is the stale-graph pass's job). Leaves it pending while
+        *busy*. A failed rebuild clears it too: the failure is recorded once
+        for this HEAD instead of being retried every tick.
+        """
+        from coord.graph_health import graph_status  # noqa: PLC0415
+
+        path_str = str(checkout.path)
+        moved_at = self._graph_refresh_pending.get(path_str, 0.0)
+        before = graph_status(checkout.path, checkout.default_branch)
+        if not before.present:
+            self._graph_refresh_pending.pop(path_str, None)
+            entry["graph_detail"] = "no graph here yet — the graph self-heal builds it"
+            return
+        if before.in_sync or (before.verified_at is not None and before.verified_at >= moved_at):
+            self._graph_refresh_pending.pop(path_str, None)
+            entry.setdefault("graph_detail", "graph current")
+            return
+        if busy:
+            entry["graph_detail"] = "rebuild deferred: machine busy"
+            return
+
+        with self._lock:
+            if path_str in self._graph_rebuild_in_progress:
+                return
+            self._graph_rebuild_in_progress.add(path_str)
+        try:
+            ok, detail = _graphify_update(checkout.path)
+        finally:
+            with self._lock:
+                self._graph_rebuild_in_progress.discard(path_str)
+        self._graph_refresh_pending.pop(path_str, None)
+
+        if not ok:
+            if before.head_sha:
+                self._graph_rebuild_failed[path_str] = (before.head_sha, detail)
+            entry["graph_rebuild_ok"] = False
+            entry["graph_detail"] = f"rebuild failed: {detail}"
+            return
+        after = graph_status(checkout.path, checkout.default_branch)
+        if after.present and not after.stale:
+            self._graph_rebuild_failed.pop(path_str, None)
+            entry["graph_rebuild_ok"] = True
+            entry["graph_detail"] = "graph rebuilt"
+        else:
+            entry["graph_rebuild_ok"] = False
+            entry["graph_detail"] = (
+                "graphify update exited 0 but the graph is still stale "
+                f"(built from {after.built_sha or '?'}, HEAD {(after.head_sha or '?')[:8]})"
+            )
+
+    @staticmethod
+    def _stamp_graph_refresh_entry(checkout: Any, entry: dict) -> None:
+        """Record which commit the checkout's graph was last built from and
+        when graphify last verified it, for `coord doctor`."""
+        from coord.graph_health import graph_status  # noqa: PLC0415
+
+        st = graph_status(checkout.path, checkout.default_branch)
+        entry["graph_built_sha"] = st.built_sha
+        refreshed_at = st.verified_at
+        if refreshed_at is None and st.age_seconds is not None:
+            refreshed_at = time.time() - st.age_seconds
+        entry["graph_refreshed_at"] = refreshed_at
+        entry["graph_current"] = bool(st.present and not st.stale)
 
     def _self_heal_stale_graphs(self, ctx: Any, report: Any) -> None:
         """React to the ``graph`` check's STATE verdict instead of chasing
@@ -9551,6 +10182,143 @@ class AgentServer:
             assignment.finished_at = time.time()
         self._persist()
 
+    def _run_plain_runner_smoke(self, assignment: AgentAssignment, repo_path: Path) -> None:
+        """#3673: entry point for a plain-runner smoke leg — never spawns
+        `claude -p` for the verdict itself (see :func:`execute_plain_runner_
+        smoke`). Runs on a background thread for the same reason `_spawn_
+        pty` does: this is reached synchronously from the async HTTP
+        `/assign` handler, and the smoke command itself can block for
+        minutes — doing that inline here would freeze the event loop.
+        """
+        with self._lock:
+            assignment.status = RUNNING
+            assignment.started_at = time.time()
+        self._persist()
+        thread = threading.Thread(
+            target=self._run_plain_runner_smoke_blocking,
+            args=(assignment, repo_path),
+            daemon=True,
+            name=f"agent-plain-runner-{assignment.id}",
+        )
+        with self._lock:
+            self._threads[assignment.id] = thread
+        thread.start()
+
+    def _run_plain_runner_smoke_blocking(
+        self, assignment: AgentAssignment, repo_path: Path,
+    ) -> None:
+        """The actual (blocking) plain-runner execution — runs on the
+        background thread started by :meth:`_run_plain_runner_smoke`.
+
+        Writes the SAME ``SMOKE:`` marker vocabulary a `claude -p` smoke
+        worker would print (:func:`plain_runner_smoke_marker_lines`) into
+        the assignment's log, so `coord.notify._record_smoke_verdict` reads
+        a plain-runner leg's log exactly like a worker-printed one — no
+        downstream verdict-parsing change needed for this path to exist.
+        """
+        spec = assignment.spec
+        timeout = (
+            spec.smoke_timeout_s
+            if spec.smoke_timeout_s and spec.smoke_timeout_s > 0
+            else 600.0
+        )
+        try:
+            verdict = execute_plain_runner_smoke(
+                spec, str(repo_path), timeout=timeout,
+                spawn_failure_summary=lambda s, v: self._spawn_plain_runner_failure_summary(
+                    assignment, s, v,
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001 — must still reach a terminal state
+            _log.exception(
+                "plain-runner smoke %s: execute_plain_runner_smoke raised", assignment.id,
+            )
+            self._fail(assignment, f"plain-runner smoke crashed: {exc}")
+            return
+
+        try:
+            with open(assignment.log_path, "a", encoding="utf-8") as fh:
+                fh.write(
+                    f"# agent={self.machine_name} repo={spec.repo_name} "
+                    f"issue=#{spec.issue_number} plain-runner (#3673), "
+                    f"timeout={timeout:.0f}s\n"
+                )
+                fh.write(plain_runner_smoke_marker_lines(spec, verdict))
+        except OSError:
+            _log.exception(
+                "plain-runner smoke %s: failed to write verdict to log %s",
+                assignment.id, assignment.log_path,
+            )
+
+        with self._lock:
+            assignment.status = DONE
+            assignment.exit_code = verdict.exit_code
+            assignment.finished_at = time.time()
+        self._persist()
+
+    def _spawn_plain_runner_failure_summary(
+        self, assignment: AgentAssignment, spec: AssignmentSpec, verdict: PlainRunnerVerdict,
+    ) -> None:
+        """#3673: the ONLY place a plain-runner leg spawns `claude -p` — a
+        short, bounded one-shot session whose sole job is to read the
+        failing command's output and write a human-readable summary, never
+        to re-decide pass/fail (the exit code already settled that before
+        this is ever called — see :func:`execute_plain_runner_smoke`).
+
+        Best-effort and bounded: a summary that fails, times out, or crashes
+        appends nothing beyond the raw log tail already written by
+        :meth:`_run_plain_runner_smoke_blocking` — never escalates a
+        summarisation problem into the Test-stage verdict itself, and never
+        blocks the leg beyond its own short timeout.
+
+        #3673 review round 1: routes through :func:`coord.brain.call_claude`
+        — the SAME provider-routing seam (:meth:`_resolve_provider_best_effort`
+        -> ``provider.oneshot_command()``) brain planning and the liveness
+        auditor already use for an unattended one-shot prompt/response call
+        — rather than a second, independent ``[DEFAULT_WORKER_BINARY, "-p",
+        ...]`` invocation that bypasses both the injectable
+        :attr:`worker_command` seam and the provider layer entirely. A
+        fleet machine configured with a non-default worker binary or a
+        different provider now gets a failure summary from the SAME
+        backend its real Test-stage leg would have used, rather than
+        silently producing none.
+        """
+        system_prompt = (
+            "You summarise failing Test-stage smoke commands for a human "
+            "reviewing a CI-style run. Read the command and its output and "
+            "write a SHORT (2-4 sentence) plain-English summary of why it "
+            "failed — no fix, no code changes, just the diagnosis a human "
+            "would want up front."
+        )
+        prompt = (
+            f"Command: {spec.smoke_command}\n"
+            f"Exit code: {verdict.exit_code}\n\n"
+            f"Output:\n{verdict.log_tail}"
+        )
+        provider_obj = self._resolve_provider_best_effort(spec)
+        try:
+            from coord.brain import call_claude  # noqa: PLC0415 — avoid a module-load-time cycle
+
+            summary = call_claude(
+                system_prompt, prompt, provider=provider_obj, timeout=120,  # type: ignore[arg-type]
+            ).strip()
+        except Exception:  # noqa: BLE001 — best-effort, must never break the leg
+            _log.exception(
+                "plain-runner smoke %s: failure-summary call_claude call failed",
+                assignment.id,
+            )
+            return
+        if not summary:
+            return
+        try:
+            with open(assignment.log_path, "a", encoding="utf-8") as fh:
+                fh.write(f"\n# plain-runner failure summary (#3673):\n{summary}\n")
+        except OSError:
+            _log.exception(
+                "plain-runner smoke %s: failed to append failure summary to log",
+                assignment.id,
+            )
+
     def _spawn(self, assignment: AgentAssignment, repo_path: Path) -> None:
         # #324/#425/#1796: provider-layer routing.
         #
@@ -9569,6 +10337,20 @@ class AgentServer:
         # but unresolvable provider), which `assign()` now refuses before
         # `_spawn` is ever reached.
         spec = assignment.spec
+
+        # #3673: the plain-runner path — a smoke leg this policy applies to
+        # never spawns `claude -p` for its verdict at all, so it must be
+        # checked before any provider resolution/argv-building below, which
+        # exists purely to build THAT spawn.
+        if (
+            spec.type == "smoke"
+            and spec.plain_runner
+            and not spec.smoke_needs_judgement
+            and spec.smoke_command
+        ):
+            self._run_plain_runner_smoke(assignment, repo_path)
+            return
+
         provider_obj = self._resolve_provider(spec)
         if provider_obj is not None:
             # Deferred import keeps the cycle latent at module load time.
@@ -10244,6 +11026,26 @@ class AgentServer:
         else:
             _log_has_result_fn = _log_has_result
 
+        # #3681: a workflow leg's result line is a one-way latch's enemy —
+        # the placeholder "workflow is running in background" result must
+        # never trip the grace-period teardown. Build the workflow-aware
+        # variant from the SAME marker resolved above (reusing
+        # `_log_last_event_is_result` rather than a second hand-rolled
+        # check) and only pass it (plus `workflow=True` and the larger
+        # workflow max-wait) into the wait loop when this leg actually opted
+        # in — every other leg's call below is untouched.
+        _is_workflow_leg = bool(
+            _reap_start is not None and getattr(_reap_start.spec, "workflow", False)
+        )
+        _workflow_marker = (
+            _reap_provider.result_marker().encode()
+            if _reap_provider is not None
+            else _RESULT_LINE_MARKER
+        )
+        _log_last_event_is_result_fn = functools.partial(
+            _log_last_event_is_result, marker=_workflow_marker
+        )
+
         # #2131: arm the per-leg spend ceiling when the coordinator sent one.
         # The meter is built here (not inside the wait loop) so the same
         # instance survives the whole run and can be re-read afterwards for
@@ -10283,10 +11085,14 @@ class AgentServer:
         exit_code = _wait_for_proc_or_result(
             proc, log_path,
             first_output_timeout=self.first_output_timeout,
-            log_has_result=_log_has_result_fn,
+            log_has_result=(
+                _log_last_event_is_result_fn if _is_workflow_leg else _log_has_result_fn
+            ),
             cost_ceiling_usd=_cost_ceiling,
             read_cost_usd=_cost_meter.read if _cost_meter is not None else None,
             runtime_ceiling_s=_runtime_ceiling,
+            workflow=_is_workflow_leg,
+            max_wait=_REAP_MAX_WAIT_WORKFLOW if _is_workflow_leg else _REAP_MAX_WAIT,
         )
         log_fh.close()
 

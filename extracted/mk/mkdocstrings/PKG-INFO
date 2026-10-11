@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: mkdocstrings
-Version: 1.0.6
+Version: 1.0.7
 Summary: Automatic documentation from sources, for MkDocs.
 Keywords: mkdocs,mkdocs-plugin,docstrings,autodoc,documentation
-Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
+Author-Email: Timothée Mazzucotelli <dev@pawamoy.fr>
 License-Expression: ISC
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
@@ -11,11 +11,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Documentation
@@ -29,7 +29,7 @@ Project-URL: Issues, https://github.com/mkdocstrings/mkdocstrings/issues
 Project-URL: Discussions, https://github.com/mkdocstrings/mkdocstrings/discussions
 Project-URL: Gitter, https://gitter.im/mkdocstrings/community
 Project-URL: Funding, https://github.com/sponsors/pawamoy
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: Jinja2>=3.1
 Requires-Dist: Markdown>=3.6
 Requires-Dist: MarkupSafe>=1.1

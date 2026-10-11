@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pykka
-Version: 4.4.2
+Version: 4.5.0
 Summary: Pykka is a Python implementation of the actor model
 Project-URL: Source code, https://github.com/jodal/pykka
 Project-URL: Documentation, https://pykka.readthedocs.io/
@@ -11,7 +11,7 @@ Keywords: actor,concurrency,threading
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 
 # &#x1F300; Pykka
@@ -33,7 +33,7 @@ which makes it easier to build concurrent applications.
 
 ## Installation
 
-Pykka has no dependencies other than Python 3.10 or newer.
+Pykka has no dependencies other than Python 3.11 or newer.
 It can be installed from [PyPI](https://pypi.org/project/pykka/):
 
 ```console

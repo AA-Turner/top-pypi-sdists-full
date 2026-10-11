@@ -13,7 +13,14 @@ first time the provider hands over model output:
   provider, a reply that is only a tool call, or a run with no emitter at all —
   the moment that call's response arrived.
 
-It is measured from the first iteration's ``TimingUsage.start_time`` — the
+The same watcher also stamps the request's PROVIDER FIRST RESPONSE
+(``matrx_connect.request_latency.mark_provider_first_response``): the first
+provider event of ANY kind — reasoning started, a reasoning or text delta, a
+citation, a tool event, or the call returning — plus the stream-open stamps
+the provider parsers take themselves. That is LEG 2's end; ``ttft_ms`` (first
+visible text, thinking included) is a different, later number.
+
+``ttft_ms`` is measured from the first iteration's ``TimingUsage.start_time`` — the
 same origin and the same clock (``time.time()``) as ``total_duration`` — so
 ``ttft_ms`` can never exceed ``total_duration_ms``. It is persisted by the executor's finalize as ``chat.user_request.metadata.
 ttft_ms`` and the completion event's ``timing_stats.first_token_seconds``.
@@ -25,6 +32,12 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
+
+from matrx_connect.request_latency import mark_provider_first_response
+
+#: Emitter calls a provider makes only because the provider answered (besides the three
+#: methods the watcher defines itself). Each is the provider's FIRST RESPONSE when it is first.
+_PROVIDER_EVENT_METHODS = frozenset({"send_citation", "send_tool_event"})
 
 
 class _FirstOutputWatcher:
@@ -39,15 +52,29 @@ class _FirstOutputWatcher:
             self._state.ttft_first_output_at = time.time()
 
     async def send_chunk(self, text: str) -> None:
+        mark_provider_first_response("text_delta")
         self._stamp(text)
         await self._inner.send_chunk(text)
 
     async def send_reasoning_chunk(self, text: str) -> None:
+        mark_provider_first_response("reasoning_delta")
         self._stamp(text)
         await self._inner.send_reasoning_chunk(text)
 
+    async def send_reasoning_state(self, state: Any) -> None:
+        mark_provider_first_response(f"reasoning_{state}")
+        await self._inner.send_reasoning_state(state)
+
     def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
+        attr = getattr(self._inner, name)
+        if name in _PROVIDER_EVENT_METHODS and callable(attr):
+
+            async def _marked(*args: Any, **kwargs: Any) -> Any:
+                mark_provider_first_response(name.removeprefix("send_"))
+                return await attr(*args, **kwargs)
+
+            return _marked
+        return attr
 
     def __setattr__(self, name: str, value: Any) -> None:
         setattr(self._inner, name, value)
@@ -77,6 +104,7 @@ def watching_first_output(state: Any) -> Iterator[None]:
                 set_app_context(current.with_overrides(emitter=inner))
     # Reached only when the call returned: it produced a response, so the
     # model's first output exists even if nothing streamed.
+    mark_provider_first_response("response_returned")
     if state.ttft_first_output_at is None:
         state.ttft_first_output_at = time.time()
 

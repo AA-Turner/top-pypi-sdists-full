@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -24,7 +24,7 @@ from beartype._data.typing.datatyping import (
     LexicalScope,
     TypeOrTupleTypes,
 )
-from beartype._util.cache.utilcachecall import callable_cached
+from beartype._util.cache.func.utilcachefunc import callable_cached
 from beartype._util.cls.utilclstest import is_type_subclass
 from beartype._util.cls.pep.clspep3119 import (
     die_unless_type_isinstanceable,
@@ -33,7 +33,7 @@ from beartype._util.cls.pep.clspep3119 import (
     die_unless_object_issubclassable,
 )
 from beartype._util.func.utilfuncscope import add_func_scope_attr
-from beartype._util.utilobject import get_object_name
+from beartype._util.utilobjget import get_object_name
 
 # ....................{ SUBCLASSES ~ instance              }....................
 class _IsInstanceFactory(_BeartypeValidatorFactoryABC):

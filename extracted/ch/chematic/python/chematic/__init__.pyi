@@ -33,6 +33,38 @@ class SmartsParityRefusal(TypedDict):
 
 SmartsParityResult = Union[SmartsParityOk, SmartsParityRefusal]
 
+class SmartsQuery:
+    """A SMARTS query compiled once for repeated matching."""
+
+    def __init__(self, smarts: str) -> None: ...
+
+    @property
+    def source(self) -> str: ...
+
+    def matches(self, mol: Mol) -> bool: ...
+
+    def matches_many(self, molecules: Iterable[Mol]) -> list[bool]: ...
+
+    def matches_batch(self, batch: MoleculeBatch) -> list[bool]: ...
+
+    def find_matches(self, mol: Mol) -> list[list[int]]: ...
+
+def compile_smarts(smarts: str) -> SmartsQuery:
+    """Compile a SMARTS query for repeated matching."""
+    ...
+
+class MoleculeBatch:
+    """Molecules retained in Rust for repeated batch operations."""
+
+    def __init__(self, molecules: Iterable[Mol]) -> None: ...
+
+    @staticmethod
+    def from_smiles(smiles: Iterable[str]) -> MoleculeBatch: ...
+
+    def __len__(self) -> int: ...
+
+    def hbd_counts(self) -> list[int]: ...
+
 # ---------------------------------------------------------------------------
 # Mol
 # ---------------------------------------------------------------------------
@@ -3353,6 +3385,32 @@ def rgroup_decompose(
     """
     ...
 
+def rgroup_decompose_labeled(
+    scaffold_smarts: str, mols: list[Mol]
+) -> list[dict[str, object] | None]:
+    """Decompose molecules into stable, explicitly labelled R-group rows.
+
+    The core may use terminal mapped wildcards such as
+    ``c1cc([*:1])ccc1[*:2]`` or mapped core atoms such as
+    ``[c:1]1ccccc1``. Returned dictionaries contain ``Core`` and stable
+    ``R1``, ``R2``, ... keys. Output wildcards retain their atom-map labels.
+
+    This is a bounded subset of RDKit's R-group decomposition. Ambiguous
+    multiple attachments, duplicate labels, non-terminal mapped wildcards,
+    and searches that reach the match cap raise ``ValueError``.
+    """
+    ...
+
+def rgroup_decompose_columns(
+    scaffold_smarts: str, mols: list[Mol]
+) -> dict[str, list[str | None]]:
+    """Return labelled R-group decomposition as ``Core``/``R<n>`` columns.
+
+    Every column remains parallel to ``mols``. Unmatched molecules and missing
+    substituents are represented by ``None``.
+    """
+    ...
+
 def similarity_map_svg(mol: Mol, weights: list[float]) -> str:
     """Render a molecule SVG with atoms coloured by per-atom weights.
 
@@ -3461,7 +3519,10 @@ def run_smirks_checked(
     ``typed_unsupported``. ``partial_products`` is not a parity claim.
     With ``rdkit_compat=True``, ``rejected_products`` holds the
     valence-rejected product sets as RDKit returns them, as
-    ``[[(mol, sanitizable), ...], ...]``.
+    ``[[(mol, sanitizable), ...], ...]``. ``rejection_diagnostics`` is aligned
+    with those sets and gives a stable rejection reason plus implicated atom
+    indices, product-template maps, elements, explicit H counts and reliable
+    observed/maximum valences.
     """
     ...
 

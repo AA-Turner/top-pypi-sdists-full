@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 import openai as openai_sdk
 import rich
 from matrx_connect.context.events import CitationPayload
+from matrx_connect.request_latency import mark_provider_stream_open
 from matrx_utils import vcprint
 from openai import AsyncOpenAI
 from openai.types.responses import Response as OpenAIResponse
@@ -445,6 +446,7 @@ class OpenAIChat:
                 extra_body=wire_body,
             ) as stream:
                 async for event in stream:
+                    mark_provider_stream_open()
                     await self._handle_event(event, emitter)
                     if getattr(event, "type", None) == "error":
                         stream_error_text = _stream_error_text(event)

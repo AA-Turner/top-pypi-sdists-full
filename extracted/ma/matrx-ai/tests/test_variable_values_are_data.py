@@ -1,51 +1,75 @@
-"""A variable's value is DATA: braces it brings are never slots (verify-RC-B5 r3 F5).
+"""THE ONE VARIABLE RULE (Arman, 2026-10-10) — config/template_substitution.py.
 
-Live: Clean up ran on a chat answer holding ``{{pilot_region}}``. The agent's
-template put the answer in ``{{transcript}}``; a second substitution pass took
-the first pass's output as its template, counted ``{{pilot_region}}`` as an
-authored placeholder, and told the model it was "NOT DELIVERED" — the agent
-replied only "{{pilot_region}} was not delivered." (conversation 119f9545).
+Only declared variables are filled, once. A declared variable with no value becomes "".
+Every other {{...}} is left exactly as written; nothing is added to the prompt.
+The one escape: {{!name}} in the author's text becomes {{name}}.
 """
 
 from __future__ import annotations
 
-from matrx_ai.config.undeclared import begin_turn, undelivered
+import pytest
+
+from matrx_ai.config.unified_config import UnifiedConfig
 from matrx_ai.config.unified_content import TextContent
 
-ANSWER = "Phase one covers the 12 pilot stores in {{pilot_region}} on {{launch_date}}."
+PROMPT = "This is {{my}} little {{fake}} prompt and /{{my}} example"
 
 
-def _fresh() -> None:
-    begin_turn()
+@pytest.mark.parametrize(
+    ("variables", "expected"),
+    [
+        ({"fake": "VALUE"}, "This is {{my}} little VALUE prompt and /{{my}} example"),
+        ({"fake": ""}, "This is {{my}} little  prompt and /{{my}} example"),
+        ({"fake": None}, "This is {{my}} little  prompt and /{{my}} example"),
+        ({"fake": "VALUE", "my": "ARMAN"}, "This is ARMAN little VALUE prompt and /ARMAN example"),
+        ({}, PROMPT),
+    ],
+)
+def test_the_owners_example_in_a_message(variables: dict, expected: str) -> None:
+    block = TextContent(text=PROMPT)
+    block.replace_variables({k: ("" if v is None else v) for k, v in variables.items()})
+    assert block.text == expected
 
 
-def test_braces_inside_a_value_are_never_announced_as_undelivered_across_passes() -> None:
-    _fresh()
-    block = TextContent(text="Clean up this transcript:\n{{transcript}}")
-    block.replace_variables({"transcript": ANSWER})  # pass 1 (agent definition)
-    block.replace_variables({"transcript": ANSWER, "tone": "plain"})  # pass 2 (the run)
-    assert block.text == f"Clean up this transcript:\n{ANSWER}"
-    assert undelivered() == ()
+@pytest.mark.parametrize(
+    ("variables", "expected"),
+    [
+        ({"fake": "VALUE"}, "This is {{my}} little VALUE prompt and /{{my}} example"),
+        ({"fake": ""}, "This is {{my}} little  prompt and /{{my}} example"),
+        ({"fake": "VALUE", "my": "ARMAN"}, "This is ARMAN little VALUE prompt and /ARMAN example"),
+    ],
+)
+def test_the_owners_example_in_a_system_prompt_adds_nothing(variables: dict, expected: str) -> None:
+    config = UnifiedConfig(model="claude-opus-5-5", system_instruction=PROMPT, messages=[])
+    config.replace_variables(variables)
+    assert config.system_instruction.base_instruction == expected
 
 
-def test_a_value_holding_another_variables_placeholder_is_not_filled() -> None:
-    _fresh()
-    block = TextContent(text="{{transcript}}\n\nRegion hint: {{pilot_region}}")
-    block.replace_variables({"transcript": ANSWER, "pilot_region": "Arizona"})
-    # The author's slot is filled; the braces inside the answer stay the answer's.
-    assert block.text == f"{ANSWER}\n\nRegion hint: Arizona"
+def test_a_value_is_never_filled_by_another_variable() -> None:
+    block = TextContent(text="{{transcript}} for {{region}}")
+    block.replace_variables({"transcript": "stores in {{region}}", "region": "Arizona"})
+    assert block.text == "stores in {{region}} for Arizona"
 
 
-def test_an_authored_slot_left_for_a_later_pass_is_still_filled_then() -> None:
-    _fresh()
-    block = TextContent(text="{{transcript}} — for {{audience}}")
-    block.replace_variables({"transcript": ANSWER})
-    block.replace_variables({"audience": "store managers"})
-    assert block.text == f"{ANSWER} — for store managers"
+def test_the_escape_becomes_plain_braces_and_is_never_filled() -> None:
+    block = TextContent(text="Write {{!name}} literally; hello {{name}}.")
+    block.replace_variables({"name": "Ada"})
+    assert block.text == "Write {{name}} literally; hello Ada."
 
 
-def test_an_authored_slot_nobody_filled_is_still_announced() -> None:
-    _fresh()
-    block = TextContent(text="Write for {{audience}}: {{transcript}}")
-    block.replace_variables({"transcript": ANSWER})
-    assert undelivered() == ("audience",)
+def test_the_escape_is_removed_even_with_no_variables() -> None:
+    config = UnifiedConfig(model="claude-opus-5-5", system_instruction="Use {{!slot}} in templates.", messages=[])
+    config.replace_variables({})
+    assert config.system_instruction.base_instruction == "Use {{slot}} in templates."
+
+
+def test_a_values_escape_is_data() -> None:
+    block = TextContent(text="Quote: {{quote}}")
+    block.replace_variables({"quote": "say {{!x}}"})
+    assert block.text == "Quote: say {{!x}}"
+
+
+def test_backslashes_and_spaces_mean_nothing() -> None:
+    block = TextContent(text=r"a \{{fake}} b {{ fake }} c")
+    block.replace_variables({"fake": "V"})
+    assert block.text == r"a \V b {{ fake }} c"

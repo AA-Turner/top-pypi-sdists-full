@@ -22,7 +22,6 @@ from ..errors.unauthorized_error import UnauthorizedError
 from ..types.app import App
 from ..types.app_deployment import AppDeployment
 from ..types.app_list_item import AppListItem
-from ..types.v1error_response import V1ErrorResponse
 from .types.create_apps_request_app_type import CreateAppsRequestAppType
 from .types.create_apps_request_icon import CreateAppsRequestIcon
 from .types.delete_apps_response import DeleteAppsResponse
@@ -96,7 +95,7 @@ class RawAppsClient:
             A search string matched against app names.
 
         order : typing.Optional[ListAppsRequestOrder]
-            The field to sort apps by. Defaults to discoverable_at, showing the most recently published apps first. `template_usage` ranks Whop-verified apps first, then by how many businesses created apps from each app as a template.
+            The field to sort apps by. Defaults to discoverable_at, showing the most recently published apps first. `template_usage` ranks Whop-verified apps first, then by how many businesses created apps from each app as a template. `template_recent_sales` ranks them by how many of those businesses processed a payment in the last 24 hours, recounted hourly, breaking ties by `template_usage`.
 
         direction : typing.Optional[ListAppsRequestDirection]
             Sort direction.
@@ -212,6 +211,7 @@ class RawAppsClient:
         account_id: typing.Optional[str] = OMIT,
         app_type: typing.Optional[CreateAppsRequestAppType] = OMIT,
         base_url: typing.Optional[str] = OMIT,
+        domain_id: typing.Optional[str] = OMIT,
         icon: typing.Optional[CreateAppsRequestIcon] = OMIT,
         imported_from_url: typing.Optional[str] = OMIT,
         redirect_uris: typing.Optional[typing.Sequence[str]] = OMIT,
@@ -235,6 +235,9 @@ class RawAppsClient:
         base_url : typing.Optional[str]
             The base production URL where the app is hosted, such as `https://myapp.example.com`.
 
+        domain_id : typing.Optional[str]
+            A domain on the account (`dom_` tag) to serve the app at, such as a whop.site address claimed with `POST /domains`. Required with `template_id`.
+
         icon : typing.Optional[CreateAppsRequestIcon]
             The icon image for the app in PNG, JPEG, or GIF format, referencing an uploaded file: `{ id }` for an existing attachment or `{ direct_upload_id }` for a new direct upload.
 
@@ -245,7 +248,7 @@ class RawAppsClient:
             The whitelisted OAuth callback URLs that users are redirected to after authorizing the app.
 
         route : typing.Optional[str]
-            The subdomain route where the app's hosted web builds are served, such as `myapp` for myapp.whop.site.
+            Deprecated: claim an address with `POST /domains` and pass `domain_id`. The subdomain route where the app's hosted web builds are served, such as `myapp` for myapp.whop.site.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -263,6 +266,7 @@ class RawAppsClient:
                 "account_id": account_id,
                 "app_type": app_type,
                 "base_url": base_url,
+                "domain_id": domain_id,
                 "icon": convert_and_respect_annotation_metadata(
                     object_=icon, annotation=CreateAppsRequestIcon, direction="write"
                 ),
@@ -335,9 +339,9 @@ class RawAppsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -745,9 +749,9 @@ class RawAppsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1057,7 +1061,7 @@ class AsyncRawAppsClient:
             A search string matched against app names.
 
         order : typing.Optional[ListAppsRequestOrder]
-            The field to sort apps by. Defaults to discoverable_at, showing the most recently published apps first. `template_usage` ranks Whop-verified apps first, then by how many businesses created apps from each app as a template.
+            The field to sort apps by. Defaults to discoverable_at, showing the most recently published apps first. `template_usage` ranks Whop-verified apps first, then by how many businesses created apps from each app as a template. `template_recent_sales` ranks them by how many of those businesses processed a payment in the last 24 hours, recounted hourly, breaking ties by `template_usage`.
 
         direction : typing.Optional[ListAppsRequestDirection]
             Sort direction.
@@ -1176,6 +1180,7 @@ class AsyncRawAppsClient:
         account_id: typing.Optional[str] = OMIT,
         app_type: typing.Optional[CreateAppsRequestAppType] = OMIT,
         base_url: typing.Optional[str] = OMIT,
+        domain_id: typing.Optional[str] = OMIT,
         icon: typing.Optional[CreateAppsRequestIcon] = OMIT,
         imported_from_url: typing.Optional[str] = OMIT,
         redirect_uris: typing.Optional[typing.Sequence[str]] = OMIT,
@@ -1199,6 +1204,9 @@ class AsyncRawAppsClient:
         base_url : typing.Optional[str]
             The base production URL where the app is hosted, such as `https://myapp.example.com`.
 
+        domain_id : typing.Optional[str]
+            A domain on the account (`dom_` tag) to serve the app at, such as a whop.site address claimed with `POST /domains`. Required with `template_id`.
+
         icon : typing.Optional[CreateAppsRequestIcon]
             The icon image for the app in PNG, JPEG, or GIF format, referencing an uploaded file: `{ id }` for an existing attachment or `{ direct_upload_id }` for a new direct upload.
 
@@ -1209,7 +1217,7 @@ class AsyncRawAppsClient:
             The whitelisted OAuth callback URLs that users are redirected to after authorizing the app.
 
         route : typing.Optional[str]
-            The subdomain route where the app's hosted web builds are served, such as `myapp` for myapp.whop.site.
+            Deprecated: claim an address with `POST /domains` and pass `domain_id`. The subdomain route where the app's hosted web builds are served, such as `myapp` for myapp.whop.site.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1227,6 +1235,7 @@ class AsyncRawAppsClient:
                 "account_id": account_id,
                 "app_type": app_type,
                 "base_url": base_url,
+                "domain_id": domain_id,
                 "icon": convert_and_respect_annotation_metadata(
                     object_=icon, annotation=CreateAppsRequestIcon, direction="write"
                 ),
@@ -1299,9 +1308,9 @@ class AsyncRawAppsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1711,9 +1720,9 @@ class AsyncRawAppsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

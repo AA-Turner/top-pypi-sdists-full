@@ -1,6 +1,5 @@
 import re
-import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .utils import datetime_utcoffset
 
@@ -36,7 +35,7 @@ def parse(timestamp: str, utc: bool = False, produce_naive: bool = False) -> dat
 
     Exceptions will, however, be thrown for blatantly invalid input:
 
-    >>> parse('2009-01-01T25:01:02Z')
+    >>> parse('2009-01-01T25:01:02Z') # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
     ...
     ValueError: hour must be in 0..23
@@ -55,23 +54,10 @@ def parse(timestamp: str, utc: bool = False, produce_naive: bool = False) -> dat
     # substitution here.
     timestamp = re.sub("Z$", "+00:00", timestamp, flags=re.IGNORECASE)
 
-    # Python releases prior to 3.11 only support three or six digits of fractional
-    # seconds. RFC 3339 is more lenient, so pad to six digits and truncate any
-    # excessive digits.
-    # This can be removed in October 2026, once Python 3.10 and earlier
-    # have been retired.
-    # noinspection PyUnreachableCode
-    if sys.version_info < (3, 11):
-        timestamp = re.sub(
-            r"(\.)([0-9]+)(?=[+\-][0-9]{2}:[0-9]{2}$)",
-            lambda match: match.group(1) + match.group(2).ljust(6, "0")[:6],
-            timestamp,
-        )
-
     dt_out = datetime.fromisoformat(timestamp)
 
     if utc:
-        dt_out = dt_out.astimezone(timezone.utc)
+        dt_out = dt_out.astimezone(UTC)
 
     if produce_naive:
         if datetime_utcoffset(dt_out) == 0:

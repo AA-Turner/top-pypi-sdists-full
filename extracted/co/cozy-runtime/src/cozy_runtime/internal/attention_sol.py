@@ -32,14 +32,20 @@ from importlib import import_module
 from inspect import Parameter, Signature, signature
 from pathlib import Path
 from types import MethodType
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from torch import Tensor, device as Device
+    from torch.nn import Module
+
+    from cozy_runtime.internal.attention_producer import RequestState
 
 from cozy_runtime.author._attention_scope import _ACTIVE_LAYOUT, AttentionLayout
 from cozy_runtime.author._observations import Scalar
 from cozy_runtime.internal import accel, config, kernel_cache, kernel_compile
 from cozy_runtime.internal.attention_ulysses import Local
 
-# Tensors, devices, modules and the dense reference are `Any`: torch is not in the check venv.
+# Tensor and module imports remain type-only, preserving the Torch-free base surface.
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,15 +55,17 @@ class Site:
 
 
 _SITE: ContextVar[Site | None] = ContextVar("cozy_sol_site", default=None)
-_DENSE: Callable[..., Any] | None = None
+_DENSE: Callable[..., Tensor] | None = None
 _DENSE_IDENTITY = ""
 NAMES = frozenset(
     {
         "sol-attn",
+        "sol-attn-sage2-fixed-kmean",
         "kitchen-sol",
         "kitchen-sol-fp4-lowmem",
         "kitchen-sol-producer-fast-shared-qkv",
         "kitchen-sol-producer-fp4-lowmem-shared-qkv",
+        "kitchen-sol-producer-fp4-fixed-means-shared-qkv",
     }
 )
 _COUNTS: ContextVar[dict[str, int] | None] = ContextVar("cozy_sol_counts", default=None)
@@ -74,6 +82,7 @@ def observing(
     *,
     ranks: dict[int, dict[str, int]] | None = None,
     kernels: list[dict[str, Scalar]] | None = None,
+    producer_state: RequestState | None = None,
 ) -> Iterator[dict[str, int]]:
     """Count successful calls in this request, restoring any outer observation. `kernels`
     receives one row per kernel this request started building or resolved."""
@@ -84,7 +93,7 @@ def observing(
     from cozy_runtime.internal.attention_producer import request_scope
 
     try:
-        with request_scope():
+        with request_scope(producer_state):
             yield counts
     finally:
         _COUNTS.reset(token)
@@ -121,7 +130,7 @@ def record_rank(rank: int, counts: dict[str, int]) -> None:
         total[name] += value
 
 
-def bind_dense(call: Callable[..., Any], identity: str) -> None:
+def bind_dense(call: Callable[..., Tensor], identity: str) -> None:
     """Install the dense reference a selection resolved. Selection runs at preparation and at
     a run's step and stage boundaries, so a rebind never changes a running step."""
     if not callable(call) or not identity:
@@ -131,6 +140,10 @@ def bind_dense(call: Callable[..., Any], identity: str) -> None:
 
 
 def dense_identity(kernel: str = "sol-attn") -> str:
+    if kernel == "kitchen-sol-producer-fp4-fixed-means-shared-qkv":
+        return "sageattention3-fp4-fixed-means; sparse-prefix=kitchen-int8"
+    if kernel == "sol-attn-sage2-fixed-kmean":
+        return "sageattention-fixed-kmean"
     if kernel in {"kitchen-sol-fp4-lowmem", "kitchen-sol-producer-fp4-lowmem-shared-qkv"}:
         return "sageattention3-fp4-global-lowmem; sparse-prefix=kitchen-int8"
     if kernel in {"kitchen-sol", "kitchen-sol-producer-fast-shared-qkv"}:
@@ -141,14 +154,14 @@ def dense_identity(kernel: str = "sol-attn") -> str:
 @dataclass(frozen=True, slots=True)
 class _InstalledSite:
     site: Site
-    forward: Callable[..., Any]
-    original: Callable[..., Any]
+    forward: Callable[..., Tensor]
+    original: Callable[..., Tensor]
     bind_original: bool
     had_instance_forward: bool
-    prior_instance_forward: Any
+    prior_instance_forward: object
 
 
-def install_site(module: Any, component: str, path: str) -> None:
+def install_site(module: Module, component: str, path: str) -> None:
     """Scope the actual forward, after pre-hooks and before post-hooks.
 
     Paired hooks cannot identify an invocation whose pre-hook never ran: an
@@ -206,7 +219,7 @@ def install_site(module: Any, component: str, path: str) -> None:
         raise
 
 
-def remove_site(module: Any, component: str, path: str) -> None:
+def remove_site(module: Module, component: str, path: str) -> None:
     """Restore the previous forward only while our exact wrapper still owns it."""
     existing = getattr(module, "_cozy_sol_site", None)
     if existing is None:
@@ -222,7 +235,7 @@ def remove_site(module: Any, component: str, path: str) -> None:
     del module._cozy_sol_site
 
 
-def _dense(query: Any, key: Any, value: Any, scale: float | None) -> Any:
+def _dense(query: Tensor, key: Tensor, value: Tensor, scale: float | None) -> Tensor:
     if _DENSE is None:
         raise RuntimeError("Sol dense reference was not resolved before execution")
     output = _DENSE(query=query, key=key, value=value, scale=scale)
@@ -230,7 +243,7 @@ def _dense(query: Any, key: Any, value: Any, scale: float | None) -> Any:
     return output
 
 
-def _validate_result(output: Any, query: Any) -> None:
+def _validate_result(output: Tensor, query: Tensor) -> None:
     import torch
 
     if (
@@ -270,7 +283,7 @@ def variant(tokens: int, capability: tuple[int, int]) -> dict[str, Any]:
     return {"blocks": -(-tokens // _BLOCK), "full": tokens % _BLOCK == 0}
 
 
-def _capability(device: Any) -> tuple[int, int] | None:
+def _capability(device: Device) -> tuple[int, int] | None:
     if device.type != "cuda":
         return None
     found = tuple(import_module("torch").cuda.get_device_capability(device))
@@ -337,7 +350,7 @@ class _Placeholder:
     """A host tensor that reports CUDA device 0 through DLPack. Tracing reads only dtype, rank,
     strides and memory space; no pointer is dereferenced, so no GPU is needed."""
 
-    def __init__(self, tensor: Any) -> None:
+    def __init__(self, tensor: Tensor) -> None:
         self.tensor = tensor
         self.ndim = tensor.ndim
 
@@ -434,7 +447,7 @@ def _job_for(tokens: int, capability: tuple[int, int]) -> kernel_compile.Job:
     return _job(shape.get("blocks", 1), shape.get("full", False), capability)
 
 
-def specialize(tokens: int, device: Any, step: int) -> None:
+def specialize(tokens: int, device: Device, step: int) -> None:
     """The first sight of a length (a model's intake statement, or a dense step): submit its
     object's compile to the machine's compile manager, so dense steps cover it."""
     capability = _capability(device)
@@ -494,7 +507,7 @@ def _scope(capability: tuple[int, int]) -> str:
     return f"{KERNEL}-{target(capability)}-{digest[:16]}"
 
 
-def expect(tokens: int, device: Any) -> None:
+def expect(tokens: int, device: Device) -> None:
     """A model stated its live length at request intake: a whole conditioning ahead of the
     first dense step. Its row carries step -1."""
     specialize(tokens, device, -1)
@@ -514,7 +527,7 @@ def _row(
     }
 
 
-def _ready(tokens: int, device: Any, step: int) -> Loaded | None:
+def _ready(tokens: int, device: Device, step: int) -> Loaded | None:
     """The object for this length, after waiting for its compile when it is not built yet.
     None only when there is no store or its compile failed this machine run: the step then
     runs dense and its row says so."""
@@ -557,8 +570,8 @@ def _pin_preprocess() -> None:
 
 
 def _native(
-    query: Any, key: Any, value: Any, scale: float | None, sink_tokens: int, loaded: Loaded
-) -> Any:
+    query: Tensor, key: Tensor, value: Tensor, scale: float | None, sink_tokens: int, loaded: Loaded
+) -> Tensor:
     """Call the upstream kernel through the compiled variant; a full-document sink selects
     every KV block. This does not perform the wrapper's protected-query recomputation."""
     _pin_preprocess()
@@ -581,16 +594,16 @@ def _native(
 
 
 def sol_attention(
-    query: Any,
-    key: Any,
-    value: Any,
+    query: Tensor,
+    key: Tensor,
+    value: Tensor,
     *,
-    attn_mask: Any = None,
+    attn_mask: Tensor | None = None,
     dropout_p: float = 0.0,
     is_causal: bool = False,
     scale: float | None = None,
     enable_gqa: bool = False,
-) -> Any:
+) -> Tensor:
     """One BF16 NHD document; preserve its prefix and zero explicit trailing padding.
 
     Policy v1 uses upstream tau=1, exact threshold statistics and one KV split.
@@ -612,20 +625,20 @@ def sol_attention(
 
 
 def _attention(
-    query: Any,
-    key: Any,
-    value: Any,
+    query: Tensor,
+    key: Tensor,
+    value: Tensor,
     *,
-    attn_mask: Any = None,
+    attn_mask: Tensor | None = None,
     dropout_p: float = 0.0,
     is_causal: bool = False,
     scale: float | None = None,
     enable_gqa: bool = False,
-    sparse: Callable[..., Any] | None = None,
-    dense: Callable[..., Any] = _dense,
-    prefix_dense: Callable[..., Any] | None = None,
-    validate_device: Callable[[Any], None] | None = None,
-) -> Any:
+    sparse: Callable[..., Tensor] | None = None,
+    dense: Callable[..., Tensor] = _dense,
+    prefix_dense: Callable[..., Tensor] | None = None,
+    validate_device: Callable[[Device], None] | None = None,
+) -> Tensor:
     """Shared input and model-policy boundary for the opt-in sparse implementations."""
     import torch
 
@@ -668,7 +681,7 @@ def _attention(
     )
 
 
-def backend(device: Any) -> str:
+def backend(device: Device) -> str:
     """The route upstream selects on this device: `cute_<sm>`, or its silent Triton fallback."""
     return str(import_module("sol_attn").get_sol_attn_backend(device))
 
@@ -677,16 +690,16 @@ SOL = Local(sol_attention, lambda query, *_: backend(query.device))
 
 
 def _execute(
-    query: Any,
-    key: Any,
-    value: Any,
+    query: Tensor,
+    key: Tensor,
+    value: Tensor,
     scale: float | None,
     layout: AttentionLayout,
     site: Site,
     *,
-    sparse: Callable[..., Any] | None = None,
-    dense: Callable[..., Any] = _dense,
-    prefix_dense: Callable[..., Any] | None = None,
+    sparse: Callable[..., Tensor] | None = None,
+    dense: Callable[..., Tensor] = _dense,
+    prefix_dense: Callable[..., Tensor] | None = None,
 ) -> Any:
     """Apply the model's explicit policy after hardware/operand validation."""
     import torch

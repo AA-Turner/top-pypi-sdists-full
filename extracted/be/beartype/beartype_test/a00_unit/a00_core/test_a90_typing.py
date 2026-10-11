@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -33,11 +33,33 @@ testing the behaviour of these attributes to the subsequent
 # WARNING: To raise human-readable test errors, avoid importing from
 # package-specific submodules at module scope.
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+from beartype_test._util.mark.pytmark import ignore_warnings
 
 # ....................{ TESTS                              }....................
+# *ORDER IS SIGNIFICANT.* This unit test must be defined *BEFORE* the sibling
+# test_api_typing() unit test, which otherwise squelches "DeprecationWarning"
+# warnings on the first importation of the "beartype.typing" subpackage.
+def test_api_typing_importability() -> None:
+    '''
+    Test whether the :mod:`beartype.typing` subpackage erroneously emits
+    non-fatal :exc:`DeprecationWarning` warnings as an accidental side effect of
+    merely being imported, which that subpackage occasionally does due to the
+    unavoidable non-triviality of its internal implementation.
+    '''
+
+    # Import "beartype.typing" as a trivial means of implicitly detecting
+    # whether doing so erroneously emits a "DeprecationWarning", which the
+    # test_api_typing() unit test defined below unconditionally ignores and thus
+    # has *NO* means of detecting.
+    from beartype import typing
+
+
+# Prevent pytest from capturing and displaying all expected non-fatal
+# beartype-specific warnings emitted by this test. Urgh!
+@ignore_warnings(DeprecationWarning)
 def test_api_typing() -> None:
     '''
-    Test the public API of the :mod:`beartype.meta` submodule.
+    Test the public API of the :mod:`beartype.typing` subpackage.
 
     This test exercises that there exists a one-to-one mapping between public
     attributes exported by the :mod:`beartype.typing` and :mod:`typing`
@@ -50,10 +72,30 @@ def test_api_typing() -> None:
     from beartype import typing as beartype_typing
     from beartype._util.py.utilpyversion import (
         IS_PYTHON_AT_MOST_3_16,
+        # IS_PYTHON_AT_LEAST_3_15,
         IS_PYTHON_AT_LEAST_3_13,
     )
 
-    # ..................{ MAGIC                              }..................
+    # ..................{ LOCALS ~ beartype                  }..................
+    # Set of the unqualified basenames of all public attributes exported by the
+    # "beartype.typing.__init__" submodule, initialized to the proper subset of
+    # these basenames *EXPLICITLY* defined by that submodule.
+    #
+    # Note that this fails to account for the remainder of these basenames only
+    # *DYNAMICALLY* defined by that submodule's __getattr__() dunder function,
+    # which the dir() builtin fails to capture.
+    BEARTYPE_TYPING_ATTR_NAMES = set(dir(beartype_typing))
+
+    # Set of the names of *ALL* attributes (both public and private) declared by
+    # the standard "typing" module, initialized to the proper subset of these
+    # basenames *EXPLICITLY* defined by that submodule.
+    #
+    # Note that this fails to account for the remainder of these basenames only
+    # *DYNAMICALLY* defined by that submodule's __getattr__() dunder function,
+    # which the dir() builtin fails to capture.
+    OFFICIAL_TYPING_ATTR_NAMES = set(dir(official_typing))
+
+    # ..................{ LOCALS ~ typing                    }..................
     # Set of the basenames of all erroneously publicized public attributes of
     # all "typing" modules across all Python versions. Ideally, these attributes
     # would have been privatized by prefixing these basenames by "_". Ideally,
@@ -98,14 +140,9 @@ def test_api_typing() -> None:
         'warnings',
     }
 
-    # Set of all soft-deprecated public "typing" attributes only dynamically
-    # defined by the typing.__getattr__() dunder method and thus inaccessible to
-    # the standard introspection performed below.
-    TYPING_ATTR_PUBLIC_DYNAMIC_NAMES = set()
-
     # Set of the basenames of all public attributes declared by the "typing"
-    # module whose *VALUES* differ from those declared by the "beartype.typing"
-    # submodule.
+    # module whose *VALUES* are expected to differ from those declared by the
+    # "beartype.typing" submodule.
     TYPING_ATTR_UNEQUAL_NAMES = {
         # Names of all PEP 484-specific "typing" type hint factories obsoleted
         # by equivalent PEP 585-specific type hint factories.
@@ -161,11 +198,13 @@ def test_api_typing() -> None:
         'SupportsRound',
     }
 
-    # ..................{ MAGIC ~ version                    }..................
+    # ..................{ LOCALS ~ version                   }..................
     # If the active Python interpreter targets Python <= 3.16...
     if IS_PYTHON_AT_MOST_3_16:
-        # Add all hard-deprecated public "typing" attributes that have since
-        # been permanently removed under newer Python versions.
+        # Add deprecated "typing" attributes that have since been permanently
+        # removed under newer Python versions to various sets defined above.
+        BEARTYPE_TYPING_ATTR_NAMES.add('ByteString')
+        OFFICIAL_TYPING_ATTR_NAMES.add('ByteString')
         TYPING_ATTR_UNEQUAL_NAMES.add('ByteString')
     # Else, the active Python interpreter targets Python >= 3.17.
 
@@ -174,7 +213,7 @@ def test_api_typing() -> None:
         # Add all soft-deprecated public "typing" attributes only dynamically
         # defined by the typing.__getattr__() dunder method and thus
         # inaccessible to the introspection performed above.
-        TYPING_ATTR_PUBLIC_DYNAMIC_NAMES.add(
+        OFFICIAL_TYPING_ATTR_NAMES.add(
             # This is an odd one, frankly. The typing.__getattr__() dunder
             # method now dynamically exports both the "AsyncContextManager" and
             # "ContextManager" ABCs. For unknown reasons, the introspection
@@ -184,20 +223,15 @@ def test_api_typing() -> None:
         )
     # Else, the active Python interpreter targets Python <= 3.12.
 
-    # ..................{ LOCALS                             }..................
-    # Set of the names of *ALL* attributes (both public and private) declared by
-    # the standard "typing" module.
-    OFFICIAL_TYPING_ATTR_NAMES = (
-        set(dir(official_typing)) | TYPING_ATTR_PUBLIC_DYNAMIC_NAMES)
-
+    # ..................{ LOCALS ~ beartype : values         }..................
     # Dictionary mapping from the basenames of all public attributes declared
     # by the "beartype.typing" subpackage to those attributes.
     BEARTYPE_TYPING_ATTR_NAME_TO_VALUE = {
-        # Public attribute declared by the "beartype.typing" submodule.
+        # Public attribute declared by the "beartype.typing" subpackage.
         beartype_typing_attr_name: getattr(
             beartype_typing, beartype_typing_attr_name)
-        # For the basename of each attribute declared by this submodule...
-        for beartype_typing_attr_name in dir(beartype_typing)
+        # For the basename of each attribute declared by that subpackage...
+        for beartype_typing_attr_name in BEARTYPE_TYPING_ATTR_NAMES
         # If this basename is...
         if (
             beartype_typing_attr_name[0] not in {
@@ -214,13 +248,17 @@ def test_api_typing() -> None:
         # Else, this attribute is public and thus unignorable.
     }
 
+    # Set of all public attributes exposed by "beartype.typing".
+    BEARTYPE_TYPING_ATTR_NAMES = BEARTYPE_TYPING_ATTR_NAME_TO_VALUE.keys()
+
+    # ..................{ LOCALS ~ typing : values           }..................
     # Dictionary mapping from the basenames of all public attributes declared
     # by the standard "typing" module to those attributes.
     OFFICIAL_TYPING_ATTR_NAME_TO_VALUE = {
         # Public attribute declared by the "typing" submodule.
         official_typing_attr_name: getattr(
             official_typing, official_typing_attr_name)
-        # For the basename of each attribute declared by this submodule...
+        # For the basename of each attribute declared by that module...
         for official_typing_attr_name in OFFICIAL_TYPING_ATTR_NAMES
         # If this basename is...
         if (
@@ -235,10 +273,10 @@ def test_api_typing() -> None:
         # Else, this attribute is public and thus unignorable.
     }
 
-    # Sets of all public attributes exposed by "beartype.typing" and "typing".
-    BEARTYPE_TYPING_ATTR_NAMES = BEARTYPE_TYPING_ATTR_NAME_TO_VALUE.keys()
+    # Sets of all public attributes exposed by "typing".
     OFFICIAL_TYPING_ATTR_NAMES = OFFICIAL_TYPING_ATTR_NAME_TO_VALUE.keys()
 
+    # ..................{ LOCALS ~ compare                   }..................
     # Set of all desynchronized public attributes (i.e., exposed in exactly one
     # of either "beartype.typing" or "typing" but *NOT* both).
     DIFFERENT_TYPING_ATTR_NAMES = (
@@ -263,7 +301,20 @@ def test_api_typing() -> None:
     # Assert that these two modules expose the same number of public attributes.
     # Since a simple assertion statement would produce non-human-readable
     # output, we expand this assertion to identify all differing attributes.
-    assert DIFFERENT_TYPING_ATTR_NAMES == set()
+    if DIFFERENT_TYPING_ATTR_NAMES:
+        # Set of all public attributes exposed by "beartype.typing" but *NOT*
+        # "typing" if any.
+        BEARTYPE_NOT_OFFICIAL_TYPING_ATTR_NAMES = (
+            BEARTYPE_TYPING_ATTR_NAMES - OFFICIAL_TYPING_ATTR_NAMES)
+
+        # Set of all public attributes exposed by "typing" but *NOT*
+        # "beartype.typing" if any.
+        OFFICIAL_NOT_BEARTYPE_TYPING_ATTR_NAMES = (
+            BEARTYPE_TYPING_ATTR_NAMES - OFFICIAL_TYPING_ATTR_NAMES)
+
+        # Assert whichever of these are non-empty to aid in debuggability.
+        assert BEARTYPE_NOT_OFFICIAL_TYPING_ATTR_NAMES == set()
+        assert OFFICIAL_NOT_BEARTYPE_TYPING_ATTR_NAMES == set()
 
     # For the basename of each typing attribute whose values *SHOULD* be
     # identical across these two modules...

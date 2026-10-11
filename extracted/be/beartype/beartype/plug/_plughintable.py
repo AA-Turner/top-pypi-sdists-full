@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -19,7 +19,7 @@ from beartype.typing import (
     Optional,
     Tuple,
 )
-from beartype._util.cache.utilcachecall import callable_cached
+from beartype._util.cache.func.utilcachefunc import callable_cached
 
 # ....................{ MIXINS                             }....................
 class BeartypeHintable(object):

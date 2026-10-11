@@ -7,7 +7,9 @@ import hashlib
 import json
 import sqlite3
 import tempfile
-from collections.abc import Callable, Iterator
+from collections import deque
+from collections.abc import Iterable, Iterator
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from contextlib import nullcontext
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -18,19 +20,24 @@ import httpx2
 from trajectory import Client
 from trajectory.lib._exceptions import FileUploadError
 from trajectory.lib.benchmark_operations import BenchmarkOperation
-from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UPLOAD_BATCH_FILES, UploadFile, put_files
+from trajectory.lib.benchmark_progress import _SubmissionProgress
+from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UPLOAD_BATCH_FILES, UploadFile
+from trajectory.lib.upload_pool import DEFAULT_UPLOAD_CONCURRENCY, UploadPool
 
 MAX_PART_BYTES = 4 * 1024 * 1024
 MAX_PART_TASKS = 256
 MAX_REQUEST_BYTES = 128 * 1024
 MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024 * 1024
 MAX_RUNTIME_CONTEXT_FILES = 4096
+MAX_PENDING_HASHES = 64
+MIN_PARALLEL_HASH_BYTES = 1024 * 1024
 BENCHMARK_NAME_MIN_LENGTH = 3
 BENCHMARK_NAME_MAX_LENGTH = 1024
 
 
 class SubmissionUpload:
-  def __init__(self) -> None:
+  def __init__(self, progress: _SubmissionProgress | None = None) -> None:
+    self.progress = progress or _SubmissionProgress()
     self.directory = tempfile.TemporaryDirectory(prefix="benchmark-submission-")
     self.root = Path(self.directory.name)
     self.database = sqlite3.connect(self.root / "uploads.db")
@@ -88,6 +95,65 @@ class SubmissionUpload:
     self.part, self.part_bytes = [], 2
 
   def add_file(self, file: UploadFile, kind: str = "artifact") -> None:
+    """Hash and record one file, preserving the synchronous API."""
+    self.progress.discover(file.size_bytes)
+    self._record_file(file, self._hash_file(file, kind))
+
+  def add_files(self, files: Iterable[UploadFile], *, max_concurrency: int | None = None) -> None:
+    """Hash a bounded number of artifacts concurrently and record them in input order."""
+    if max_concurrency is not None and max_concurrency <= 0:
+      raise ValueError("max_concurrency must be greater than zero")
+    if max_concurrency == 1:
+      for file in files:
+        self.add_file(file)
+      return
+
+    pending: deque[tuple[UploadFile, Future[dict[str, Any]] | dict[str, Any] | Exception]] = deque()
+    source = iter(files)
+    max_pending = MAX_PENDING_HASHES if max_concurrency is None else max_concurrency
+    with ThreadPoolExecutor(max_workers=max_concurrency) as pool:
+      try:
+        for _ in range(max_pending):
+          try:
+            file = next(source)
+          except StopIteration:
+            break
+          pending.append((file, self._schedule_hash(pool, file)))
+        while pending:
+          file, result = pending.popleft()
+          if isinstance(result, Exception):
+            raise result
+          if isinstance(result, Future):
+            while not result.done():
+              wait((result,), timeout=self.progress.interval)
+              self.progress.emit()
+          declaration = result.result() if isinstance(result, Future) else result
+          self._record_file(file, declaration)
+          try:
+            next_file = next(source)
+          except StopIteration:
+            continue
+          pending.append((next_file, self._schedule_hash(pool, next_file)))
+      except BaseException:
+        for _, result in pending:
+          if isinstance(result, Future):
+            result.cancel()
+        raise
+    # ThreadPoolExecutor waits for running readers before the caller can clean up.
+
+  def _schedule_hash(
+    self, pool: ThreadPoolExecutor, file: UploadFile
+  ) -> Future[dict[str, Any]] | dict[str, Any] | Exception:
+    self.progress.discover(file.size_bytes)
+    # Small files cost more to schedule than to hash; larger files release the GIL during MD5.
+    if file.size_bytes < MIN_PARALLEL_HASH_BYTES:
+      try:
+        return self._hash_file(file, "artifact")
+      except Exception as error:
+        return error  # Surface errors in input order after earlier hashes finish.
+    return pool.submit(self._hash_file, file, "artifact")
+
+  def _hash_file(self, file: UploadFile, kind: str) -> dict[str, Any]:
     if kind == "artifact" and file.path.startswith("parts/"):
       raise ValueError("Artifact paths cannot use the reserved parts/ prefix")
     source_stat = file.content.stat() if isinstance(file.content, Path) else None
@@ -95,9 +161,6 @@ class SubmissionUpload:
       raise ValueError(f"Upload source for {file.path!r} changed size after it was declared")
     if file.size_bytes > MAX_FILE_SIZE_BYTES:
       raise ValueError(f"Artifact {file.path!r} exceeds the 3 GiB file limit")
-    existing = self.database.execute(
-      "SELECT source, size, declaration FROM files WHERE path = ?", (file.path,)
-    ).fetchone()
     digest = hashlib.md5(usedforsecurity=False)
     size = 0
     with file.open() as content:
@@ -106,19 +169,28 @@ class SubmissionUpload:
         if size > file.size_bytes:
           raise ValueError(f"Upload source for {file.path!r} changed size while hashing")
         digest.update(chunk)
+        self.progress.hashed(len(chunk))
     if size != file.size_bytes:
       raise ValueError(f"Upload source for {file.path!r} changed size while hashing")
     mtime_ns = source_stat.st_mtime_ns if source_stat is not None else None
     if isinstance(file.content, Path) and file.content.stat().st_mtime_ns != mtime_ns:
       raise ValueError(f"Upload source for {file.path!r} changed modification time while hashing")
-    declaration = {
+    return {
       **file.declaration(),
       "kind": kind,
       "md5": base64.b64encode(digest.digest()).decode(),
+      "_mtime_ns": mtime_ns,
     }
+
+  def _record_file(self, file: UploadFile, declaration: dict[str, Any]) -> None:
+    mtime_ns = declaration.pop("_mtime_ns")
+    existing = self.database.execute(
+      "SELECT source, size, declaration FROM files WHERE path = ?", (file.path,)
+    ).fetchone()
     if existing is not None:
       if json.loads(existing[2]) != declaration:
         raise ValueError(f"Conflicting artifact path: {file.path}")
+      self.progress.hashed_file()
       return
     # Only caller-provided bytes need disk backing; paths stay caller-owned.
     source = file.content
@@ -135,6 +207,7 @@ class SubmissionUpload:
         mtime_ns,
       ),
     )
+    self.progress.hashed_file()
 
   def submit(
     self,
@@ -145,15 +218,19 @@ class SubmissionUpload:
     agent_name: str | None = None,
     build_images: bool = False,
     idempotency_key: str | None = None,
-    progress: Callable[[dict[str, int]], None] | None = None,
     http_client: Any = None,
     upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
   ) -> BenchmarkOperation:
+    reporter = self.progress
     self.validate_benchmark_name(bench_name)
     self.validate_agent(agent_id, agent_name)
     self._flush_part()
     if not self.part_count:
       raise ValueError("Submission must contain tasks")
+    total_files, total_bytes = self.database.execute(
+      "SELECT COUNT(*), COALESCE(SUM(size), 0) FROM files"
+    ).fetchone()
+    reporter.final_totals(total_files, total_bytes)
     self._validate_runtime_contexts(metadata)
     digest = hashlib.sha256()
     for (declaration,) in self.database.execute("SELECT declaration FROM files ORDER BY path"):
@@ -175,48 +252,37 @@ class SubmissionUpload:
     )
     operation_id = session.session_id
     if session.accepted:
+      reporter.set_stage("accepted")
       return BenchmarkOperation(client, operation_id)
-    total_files, total_bytes = self.database.execute(
-      "SELECT COUNT(*), SUM(size) FROM files"
-    ).fetchone()
-    uploaded_files = uploaded_bytes = 0
+    reporter.set_stage("uploading")
     client_context = (
       nullcontext(http_client)
       if http_client is not None
       else httpx2.Client(timeout=upload_timeout, follow_redirects=True)
     )
     with client_context as upload_client:
-      for batch in self._upload_batches():
-        declarations = [declaration for _, declaration, _ in batch]
-        body = {"files": declarations}
-        self._require_bounded(body)
-        response = client.benchmarks.ingestion.allocate_uploads(operation_id, files=declarations)
-        files = [
-          self._declared_file(source, declaration, mtime_ns)
-          for source, declaration, mtime_ns in batch
-        ]
-        put_files(
-          files,
-          response.urls,
-          http_client=upload_client,
-          timeout=upload_timeout,
-          max_retries=client.max_retries,
-          max_concurrency=8,
-        )
-        uploaded_files += len(files)
-        uploaded_bytes += sum(file.size_bytes for file in files)
-        if progress is not None:
-          progress(
-            {
-              "uploaded_files": uploaded_files,
-              "uploaded_bytes": uploaded_bytes,
-              "total_files": total_files,
-              "total_bytes": total_bytes,
-            }
-          )
+      with UploadPool(
+        upload_client,
+        timeout=upload_timeout,
+        max_retries=client.max_retries,
+        max_concurrency=DEFAULT_UPLOAD_CONCURRENCY,
+        progress=reporter,
+      ) as pool:
+        for batch in self._upload_batches():
+          declarations = [declaration for _, declaration, _ in batch]
+          self._require_bounded({"files": declarations})
+          response = client.benchmarks.ingestion.allocate_uploads(operation_id, files=declarations)
+          files = [
+            self._declared_file(source, declaration, mtime_ns)
+            for source, declaration, mtime_ns in batch
+          ]
+          pool.add(files, response.urls)
+        pool.finish()
+    reporter.set_stage("finalizing")
     status = client.benchmarks.ingestion.finalize(
       operation_id, object_count=total_files, part_count=self.part_count
     )
+    reporter.set_stage("completed")
     return BenchmarkOperation(client, operation_id, status)
 
   def _validate_runtime_contexts(self, metadata: dict[str, Any]) -> None:

@@ -118,12 +118,15 @@ typedef struct {
  *                        (required).
  * @param resolution_hz   Desired FFT frequency resolution, Hz. <= 0.0 is
  *                         a sentinel meaning "auto": symbol_rate_hz/10.0.
+ *                         The block is round(sample_rate_hz/resolution_hz)
+ *                         samples, floored at 3 -- the shortest whose
+ *                         default Hann window has any gain.
  * @param zero_pad        PSD zero-pad factor (>= 1); see psd_core.h.
  * @param window          Enum index; 0=hann, 1=kaiser, 2=blackman-harris.
  * @param beta            Kaiser beta (ignored for hann/blackman-harris).
  * @param psd_template     Known PSD-shape template override, length
- *                        must equal nfft = next_pow_two(round(sample_rate_hz
- *                        /resolution_hz) * zero_pad); NULL/length-0 means
+ *                        must equal nfft = next_pow_two(block * zero_pad),
+ *                        block as above; NULL/length-0 means
  *                        "not supplied" -- the default rectangular-pulse
  *                        sinc^2 template (from symbol_rate_hz) is used.
  * @param psd_template_len Length of @p psd_template (0 if not supplied).
@@ -251,8 +254,9 @@ void dp_carrier_acq_steps(dp_carrier_acq_state_t *state, const float _Complex *x
 /* ── Serializable state (standard bytes interface; see dp_state.h) ──────────
  * Composition: psd + detector children (self-contained sub-blobs) + own
  * running fields (n_blocks/ready/residual_hz/carry_len) + the carry
- * buffer (fixed psd->n capacity, only the first carry_len samples
- * meaningful). nfft/dwell_target/max_n_blocks are config -- validated
+ * buffer (fixed psd->n capacity: the first carry_len samples, then zeros,
+ * so the blob is a function of the object -- #2076). nfft/dwell_target/
+ * max_n_blocks are config -- validated
  * against the live instance, not restored from the blob (a resumed
  * instance must be
  * constructed with the same sample_rate_hz/symbol_rate_hz/psd_template/

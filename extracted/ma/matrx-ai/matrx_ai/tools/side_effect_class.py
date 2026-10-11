@@ -83,17 +83,88 @@ _INVOCATION_ACTION_CLASSES: Final[dict[str, tuple[str, dict[str, str]]]] = {
             "delete": DB_WRITE,
         },
     ),
+    # aidream/tools/spaces_tool.py: read and list only read content.document;
+    # create/save/archive stay at the definition class (db_write).
+    "spaces": (
+        "action",
+        {
+            "read": READ_ONLY,
+            "list": READ_ONLY,
+        },
+    ),
 }
 
 
-def effective_side_effect_class(row: Any) -> str:
+# Classes decided by RULE, not by a per-tool row. A rule is structural: it names
+# a family of tools whose effect is the same by construction, so a new member
+# never needs a register entry and never trips the guard.
+#
+# ``bundle:list_*`` — chair ruling 2026-09-30: a lister only LOADS its bundle's
+# members into the run (and may refresh the platform's cached member list,
+# idempotently). Every loaded member is decided by its OWN class when called,
+# so the lister itself changes nothing a person can see.
+BUNDLE_LISTER_PREFIX: Final = "bundle:list_"
+
+
+def ruled_side_effect_class(tool_name: str | None) -> str | None:
+    """The class a tool has by RULE (independent of its row), or ``None``."""
+    if isinstance(tool_name, str) and tool_name.startswith(BUNDLE_LISTER_PREFIX):
+        return READ_ONLY
+    return None
+
+
+def side_effect_class_from_mcp_annotations(annotations: Any) -> str | None:
+    """Derive the class an MCP server DECLARES for one of its tools.
+
+    ``annotations`` is the MCP ``Tool.annotations`` object (``readOnlyHint``,
+    ``destructiveHint``, ``idempotentHint``, ``openWorldHint``), or the stored
+    list form ``[{...}]`` / ``[{"type": "readOnlyHint", "value": true}]``.
+
+    * ``readOnlyHint: true`` (and no ``destructiveHint: true``) ⇒ ``read_only``.
+    * any other declared hint ⇒ ``external_write`` — the tool acts on the remote
+      service's data; per the MCP spec a non-read-only tool defaults to
+      destructive and open-world, so we take the most destructive class an
+      external server's own data implies.
+    * no hints at all ⇒ ``None`` (stays unclassified, contained as the maximum).
+    """
+    hints: dict[str, Any] = {}
+    items = annotations if isinstance(annotations, list) else [annotations]
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if "type" in item and "value" in item and isinstance(item["type"], str):
+            hints[item["type"]] = item["value"]
+        else:
+            hints.update(item)
+    hint_keys = ("readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint")
+    declared = {k: hints[k] for k in hint_keys if k in hints}
+    if not declared:
+        return None
+    if declared.get("readOnlyHint") is True and declared.get("destructiveHint") is not True:
+        return READ_ONLY
+    return EXTERNAL_WRITE
+
+
+def effective_side_effect_class(row: Any, *, tool_name: str | None = None) -> str:
     """The class to ACT on for a tool.definition row (or a raw class string / mapping).
 
-    NULL / missing / unrecognized ⇒ ``UNCLASSIFIED_AS`` (the most destructive class).
-    An unrecognized non-null value is treated the same way rather than raising: a
-    guard that kills a live request over a spelling is worse than one that contains
-    it maximally and lets ``scripts/check_side_effect_class.py`` scream about it.
+    A tool whose class is decided by RULE (``ruled_side_effect_class``) gets the
+    ruled class. Otherwise NULL / missing / unrecognized ⇒ ``UNCLASSIFIED_AS``
+    (the most destructive class). An unrecognized non-null value is treated the
+    same way rather than raising: a guard that kills a live request over a
+    spelling is worse than one that contains it maximally and lets
+    ``scripts/check_side_effect_class.py`` scream about it.
     """
+    name = tool_name
+    if name is None:
+        if isinstance(row, dict):
+            name = row.get("name")
+        elif not isinstance(row, str):
+            name = getattr(row, "name", None)
+    ruled = ruled_side_effect_class(name if isinstance(name, str) else None)
+    if ruled is not None:
+        return ruled
+
     if isinstance(row, str):
         raw: Any = row
     elif isinstance(row, dict):
@@ -118,7 +189,7 @@ def effective_invocation_side_effect_class(
     action-dispatched tool, a reviewed action map may narrow a concrete call.
     Missing, malformed, or unrecognized arguments keep the definition class.
     """
-    fallback = effective_side_effect_class(row)
+    fallback = effective_side_effect_class(row, tool_name=tool_name)
     name = tool_name
     if name is None:
         if isinstance(row, dict):

@@ -16,8 +16,8 @@
  *   - **searching** (`tracking() == 0`): samples feed the embedded
  *     `Acquisition`. Nothing is emitted. On a hit, the carrier loop/
  *     `Dll`/`RateConverter`/`MpskReceiver` are built from the hit's code
- *     phase and Doppler estimate (the exact `dll_init_chip_from_acq`
- *     phase-inversion and `RateConverter`-bridged sample-rate hand-off
+ *     phase and Doppler estimate (the exact `acq_result_t::chip_phase`
+ *     hand-off phase and `RateConverter`-bridged sample-rate hand-off
  *     this repo's gallery pages validated by hand), and the **unconsumed
  *     tail** of the same `steps()` call is handed straight to them — no
  *     samples are dropped at the transition.
@@ -149,10 +149,6 @@ extern "C"
     int      tracking; /**< 0 = searching, 1 = locked and demodulating.    */
     double   doppler_hz_est; /**< Cached from the winning acquisition hit. */
     double   cn0_dbhz_est;   /**< Cached from the winning acquisition hit. */
-    uint64_t samples_fed;    /**< Running total handed to dp_acq_push() so far
-                                   — diffed against acq->samples_consumed
-                                   right after a hit to find the exact
-                                   unconsumed tail of the current call.    */
   } dp_dsss_receiver_state_t;
 
   /* SPEC-derived defaults for the pre-despread carrier loop (bn<=0.01
@@ -298,15 +294,15 @@ extern "C"
    * @brief Stream raw cf32 samples; emit demodulated symbols once locked.
    *
    * While searching, samples feed the embedded Acquisition and nothing
-   * is emitted (0 return is normal, not an error). The moment a hit
-   * fires, `Dll`/`RateConverter`/`MpskReceiver` are built and seeded
-   * from it, and the unconsumed tail of THIS call — computed exactly
-   * from `acq->samples_consumed`, no samples dropped or double-fed — is
-   * handed straight to them in the same call. While tracking, samples
-   * feed `Dll -> RateConverter -> MpskReceiver` in sequence. Accepts any
-   * block size; state carries across calls (`Acquisition`/`Dll`/
-   * `RateConverter`/`MpskReceiver` are all already block-size invariant,
-   * so this object needs no ring-buffering of its own).
+   * is emitted (0 return is normal, not an error). The moment a hit fires,
+   * `Dll`/`RateConverter`/`MpskReceiver` are built and seeded from it, and the
+   * rest of THIS call from where the hit's frame ended — the hit's own
+   * `samples_consumed`, so no samples are dropped or double-fed — is handed
+   * straight to them in the same call. While tracking, samples feed `Dll ->
+   * RateConverter -> MpskReceiver` in sequence. Accepts any block size; state
+   * carries across calls (`Acquisition`/`Dll`/ `RateConverter`/`MpskReceiver`
+   * are all already block-size invariant, so this object needs no
+   * ring-buffering of its own).
    *
    * @param state    Must be non-NULL.
    * @param x        Input cf32 samples.

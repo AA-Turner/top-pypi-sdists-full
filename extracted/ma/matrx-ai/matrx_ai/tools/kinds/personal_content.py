@@ -4,7 +4,7 @@ action dispatchers with NO active ``tool.binding`` row (the census's
 no-binding set) — runtime proven by direct call, the ``sql`` precedent.
 
 WHY ``note`` DOES NOT REUSE ``task_list``-style content kinds: these are the
-workbench ``notes`` rows (label/folder/content/tags receipts), a tool surface,
+workbench ``notes`` rows (label/home/content/tags receipts), a tool surface,
 not authored content. ``memory_tool_result`` is the memory TOOL's receipt
 union — not the registered mnemonic content kinds (``memory_aid`` /
 ``memory_hint``, a different subject entirely).
@@ -26,7 +26,7 @@ from matrx_graph.content_ir.sdk import kind
     disposition="record",
     label="Note Tool Result",
     family="workbench",
-    example={"id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "label": "Ideas", "folder_name": "inbox", "content": "…", "tags": []},
+    example={"id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "label": "Ideas", "home": "Ideas", "content": "…", "tags": []},
     # PLACEHOLDER — get/list/create/update/patch/delete over workbench notes.
     maturity="placeholder",
 )
@@ -34,7 +34,7 @@ class NoteToolResult(KindModel):
     #: `get` (flat full view) / `create` / `update` / `patch` receipts.
     id: str | None = None
     label: str | None = None
-    folder_name: str | None = None
+    home: str | None = None
     content: str | None = None
     tags: list[str] | None = None
     # Pre-T-13 note receipts use this retiring projection.  Preserve it at the

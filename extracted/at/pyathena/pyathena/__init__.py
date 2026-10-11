@@ -1,3 +1,5 @@
+"""DB API 2.0 interface to Amazon Athena: ``connect()``, ``aio_connect()``, and type objects."""
+
 from __future__ import annotations
 
 import datetime
@@ -5,6 +7,7 @@ from typing import TYPE_CHECKING, Any, overload
 
 from pyathena.error import *  # noqa: F403
 from pyathena.options import ExecuteOptions as ExecuteOptions
+from pyathena.util import override
 
 if TYPE_CHECKING:
     from pyathena.aio.connection import AioConnection
@@ -29,21 +32,24 @@ paramstyle: str = "pyformat"
 
 
 class DBAPITypeObject(frozenset[str]):
-    """Type Objects and Constructors
+    """A DB API type object that compares equal to each of its Athena type names.
 
     https://www.python.org/dev/peps/pep-0249/#type-objects-and-constructors
     """
 
+    @override
     def __eq__(self, other: object):
         if isinstance(other, frozenset):
             return frozenset.__eq__(self, other)
         return other in self
 
+    @override
     def __ne__(self, other: object):
         if isinstance(other, frozenset):
             return frozenset.__ne__(self, other)
         return other not in self
 
+    @override
     def __hash__(self):
         return frozenset.__hash__(self)
 
@@ -67,22 +73,20 @@ Binary: type[bytes] = bytes
 
 
 @overload
-def connect(*args, cursor_class: None = ..., **kwargs) -> Connection[Cursor]: ...
+def connect(*, cursor_class: None = ..., **kwargs) -> Connection[Cursor]: ...
 
 
 @overload
-def connect(
-    *args, cursor_class: type[ConnectionCursor], **kwargs
-) -> Connection[ConnectionCursor]: ...
+def connect(*, cursor_class: type[ConnectionCursor], **kwargs) -> Connection[ConnectionCursor]: ...
 
 
-def connect(*args, **kwargs) -> Connection[Any]:
+def connect(**kwargs) -> Connection[Any]:
     """Create a new database connection to Amazon Athena.
 
     This function provides the main entry point for establishing connections
     to Amazon Athena. It follows the DB API 2.0 specification and returns
     a Connection object that can be used to create cursors for executing
-    SQL queries.
+    SQL queries. Connection settings must be passed as keyword arguments.
 
     Args:
         s3_staging_dir: S3 location to store query results. Required if not
@@ -96,6 +100,8 @@ def connect(*args, **kwargs) -> Connection[Any]:
         catalog_name: Athena data catalog name. Defaults to "awsdatacatalog".
         work_group: Athena workgroup name. Can be used instead of s3_staging_dir
             if the workgroup has a result location configured.
+            Pass an empty string to skip the ``AWS_ATHENA_WORK_GROUP``
+            environment variable fallback.
         poll_interval: Time in seconds between polling for query completion.
             Defaults to 1.0.
         encryption_option: S3 encryption option for query results. Can be
@@ -129,10 +135,10 @@ def connect(*args, **kwargs) -> Connection[Any]:
     """
     from pyathena.connection import Connection
 
-    return Connection(*args, **kwargs)
+    return Connection(**kwargs)
 
 
-async def aio_connect(*args, **kwargs) -> AioConnection:
+async def aio_connect(**kwargs) -> AioConnection:
     """Create a new async database connection to Amazon Athena.
 
     This is the async counterpart of :func:`connect`. It returns an
@@ -158,4 +164,4 @@ async def aio_connect(*args, **kwargs) -> AioConnection:
     """
     from pyathena.aio.connection import AioConnection
 
-    return await AioConnection.create(*args, **kwargs)
+    return await AioConnection.create(**kwargs)

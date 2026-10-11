@@ -1,5 +1,6 @@
 from collections.abc import Callable
 
+from trilogy.constants import PRESENCE_MARKER_PREFIX
 from trilogy.core.constants import UNNEST_NAME
 from trilogy.core.enums import FunctionType, JoinType, Modifier, UnnestMode
 from trilogy.core.models.build import (
@@ -13,11 +14,12 @@ from trilogy.core.models.build import (
 from trilogy.core.models.execute import (
     CTE,
     ConceptPair,
-    CTEConceptPair,
-    InstantiatedUnnestJoin,
+    GuardTerm,
     Join,
     UnionCTE,
+    UnnestJoin,
     _datasource_column_for_concept,
+    pair_modifiers,
 )
 
 # Renders one join key. The join type is passed because dialects may restrict
@@ -76,7 +78,7 @@ def render_join_concept(
 
 
 def _render_unnest_join(
-    join: InstantiatedUnnestJoin,
+    join: UnnestJoin,
     unnest_mode: UnnestMode,
     quote_character: str,
     render_expr_func: Callable,
@@ -97,12 +99,7 @@ def _render_unnest_join(
 
 
 def _collect_modifiers(pair: ConceptPair, join: Join) -> list[Modifier]:
-    return (
-        pair.modifiers
-        + (pair.left.modifiers or [])
-        + (pair.right.modifiers or [])
-        + (join.modifiers or [])
-    )
+    return pair_modifiers(pair, join.modifiers)
 
 
 def _renders_in_from(consumer: CTE, join: Join, node: CTE | UnionCTE) -> bool:
@@ -113,27 +110,27 @@ def _renders_in_from(consumer: CTE, join: Join, node: CTE | UnionCTE) -> bool:
         return True
     alias = join.name_for(consumer, node)
     return alias == consumer.base_alias or any(
-        isinstance(j, Join) and join.name_for(consumer, j.right_cte) == alias
+        isinstance(j, Join) and join.name_for(consumer, j.right) == alias
         for j in consumer.joins
     )
 
 
 def _render_left_concept(
-    pair: CTEConceptPair,
+    pair: ConceptPair,
     join: Join,
     consumer: CTE | UnionCTE,
     quote_character: str,
     render_expr_func: Callable,
     use_map: dict[str, set[str]],
 ) -> str:
-    node = join.authoritative(consumer, pair.cte)
-    if join.left_is_local:
+    node = join.authoritative(consumer, pair.node)
+    if join.left_local is not None:
         # LHS key is the rendering branch's own base column (no self-alias).
         # If the key also resolves through a hoisted dim, the generic concept
         # render would COALESCE the fact FK with the dim's own key into a
         # tautological ON clause (cross join). Pin the LHS to its own
         # left-base datasource column in that case.
-        ds = pair.existing_datasource
+        ds = join.left_local
         sources = (
             consumer.source_map.get(pair.left.address)
             if isinstance(consumer, CTE)
@@ -177,7 +174,7 @@ def _render_right_concept(
     render_expr_func: Callable,
     use_map: dict[str, set[str]],
 ) -> str:
-    node = join.authoritative(consumer, join.right_cte)
+    node = join.authoritative(consumer, join.right)
     col = (
         consumer.column_for(node, pair.right)
         if isinstance(consumer, CTE)
@@ -194,6 +191,54 @@ def _render_right_concept(
     )
 
 
+def render_guard_term(
+    term: GuardTerm,
+    join: Join,
+    consumer: CTE | UnionCTE,
+    quote_character: str,
+    render_expr_func: Callable,
+    use_map: dict[str, set[str]],
+) -> str:
+    node = join.authoritative(consumer, term.node)
+    col = (
+        consumer.column_for(node, term.concept)
+        if isinstance(consumer, CTE)
+        else term.concept.safe_address
+    )
+    if PRESENCE_MARKER_PREFIX in term.concept.address and not isinstance(col, str):
+        # inlined, the constant would test itself, not the side's row
+        raise ValueError(f"Presence marker {term.concept.address} lost its column")
+    column = render_join_concept(
+        join.name_for(consumer, node),
+        quote_character,
+        node,
+        term.concept,
+        col,
+        render_expr_func,
+        use_map=use_map,
+    )
+    return f"{column} is {'not ' if term.present else ''}null"
+
+
+def _render_guard(
+    join: Join,
+    consumer: CTE | UnionCTE,
+    quote_character: str,
+    render_expr_func: Callable,
+    use_map: dict[str, set[str]],
+) -> list[str]:
+    clauses = []
+    for clause in join.guard:
+        terms = [
+            render_guard_term(
+                term, join, consumer, quote_character, render_expr_func, use_map
+            )
+            for term in clause
+        ]
+        clauses.append(terms[0] if len(terms) == 1 else f"({' or '.join(terms)})")
+    return clauses
+
+
 def _build_joinkeys(
     join: Join,
     consumer: CTE | UnionCTE,
@@ -202,13 +247,13 @@ def _build_joinkeys(
     use_map: dict[str, set[str]],
     null_wrapper: NullWrapper,
 ) -> list[str]:
-    if not join.joinkey_pairs:
+    if not join.pairs:
         return ["1=1"]
     # Group pairs by right concept address to detect coalesce scenarios.
     # When multiple pairs share the same right concept but come from
     # different left CTEs, use COALESCE on the left values.
     right_groups: dict[str, list] = {}
-    for pair in join.joinkey_pairs:
+    for pair in join.pairs:
         right_groups.setdefault(pair.right.address, []).append(pair)
 
     result: list[str] = []
@@ -216,7 +261,7 @@ def _build_joinkeys(
         right_render = _render_right_concept(
             pairs[0], join, consumer, quote_character, render_expr_func, use_map
         )
-        if join.jointype in (
+        if join.join_type in (
             JoinType.LEFT_OUTER,
             JoinType.RIGHT_OUTER,
             JoinType.FULL,
@@ -239,7 +284,7 @@ def _build_joinkeys(
                             for pair in pairs
                             for modifier in _collect_modifiers(pair, join)
                         ],
-                        join.jointype,
+                        join.join_type,
                     )
                 )
                 continue
@@ -259,21 +304,32 @@ def _build_joinkeys(
             unique_renders = list(dict.fromkeys(left_renders))
             if len(unique_renders) > 1:
                 coalesced = f"coalesce({', '.join(unique_renders)})"
-                result.append(f"{coalesced} = {right_render}")
+                result.append(
+                    null_wrapper(
+                        coalesced,
+                        right_render,
+                        [
+                            modifier
+                            for pair in sub_pairs
+                            for modifier in _collect_modifiers(pair, join)
+                        ],
+                        join.join_type,
+                    )
+                )
             else:
                 result.append(
                     null_wrapper(
                         unique_renders[0],
                         right_render,
                         _collect_modifiers(sub_pairs[0], join),
-                        join.jointype,
+                        join.join_type,
                     )
                 )
     return result or ["1=1"]
 
 
 def render_join(
-    join: Join | InstantiatedUnnestJoin,
+    join: Join | UnnestJoin,
     quote_character: str,
     render_expr_func: Callable[
         [
@@ -290,7 +346,7 @@ def render_join(
     null_wrapper: NullWrapper,
     unnest_mode: UnnestMode = UnnestMode.CROSS_APPLY,
 ) -> str | None:
-    if isinstance(join, InstantiatedUnnestJoin):
+    if isinstance(join, UnnestJoin):
         return _render_unnest_join(
             join, unnest_mode, quote_character, render_expr_func, cte
         )
@@ -301,8 +357,10 @@ def render_join(
             )
         )
     )
-    right_ref = join.reference_for(cte, join.right_cte, quote_character)
-    base = f"{join.jointype.value.upper()} JOIN {right_ref} on {joinkeys}"
+    right_ref = join.reference_for(cte, join.right, quote_character)
+    base = f"{join.join_type.value.upper()} JOIN {right_ref} on {joinkeys}"
+    for clause in _render_guard(join, cte, quote_character, render_expr_func, use_map):
+        base = f"{base} and {clause}"
     if join.condition:
         base = f"{base} and {render_expr_func(join.condition, cte)}"
     return base

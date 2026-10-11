@@ -7,11 +7,10 @@ use std::{
 
 use crate::resolve_json_pointer;
 use crate::{
-    AllOfSchema, AnyOfSchema, CatalogUri, DocumentSchema, OneOfSchema, PatternAccessor,
-    PatternAccessors, SchemaDocumentResources, SchemaView, SourceSchema, SubSchemaLink,
-    SubSchemaLinkMap, get_tombi_schemastore_content,
-    http_client::{DefaultHttpClient, HttpClient},
-    json::JsonCatalog,
+    AllOfSchema, AnyOfSchema, CatalogUri, DefaultHttpClient, DocumentSchema, OneOfSchema,
+    PatternAccessor, PatternAccessors, SchemaDocumentResources, SchemaView, SourceSchema,
+    SubSchemaLink, SubSchemaLinkMap, get_tombi_schemastore_content, http_client::HttpClient,
+    json::JsonCatalog, schema_fetch_policy::SchemaFetchPolicy,
 };
 use itertools::{Either, Itertools};
 use parking_lot::RwLock as ParkingRwLock;
@@ -19,8 +18,11 @@ use tokio::sync::RwLock;
 #[cfg(feature = "ast-syntax")]
 use tombi_ast_syntax::SchemaDocumentCommentDirective;
 use tombi_cache::{get_cache_file_path, read_from_cache, refresh_cache, save_to_cache};
-use tombi_config::{SchemaItem, SchemaOverviewOptions, TomlVersion, config_base_dir};
+use tombi_config::{
+    BoolDefaultTrue, SchemaItem, SchemaOverviewOptions, TomlVersion, config_base_dir,
+};
 use tombi_future::{BoxFuture, Boxable};
+use tombi_severity_level::SeverityLevelDefaultWarn;
 use tombi_uri::SchemaUri;
 
 type DocumentSchemas = Arc<RwLock<tombi_hashmap::HashMap<SchemaUri, CachedDocumentSchema>>>;
@@ -165,6 +167,7 @@ pub struct AssociateSchemaOptions {
 #[derive(Debug, Clone)]
 pub struct SchemaStore {
     http_client: Arc<dyn HttpClient>,
+    fetch_policy: Arc<SchemaFetchPolicy>,
     document_schemas: DocumentSchemas,
     schema_resource_index: SchemaResourceIndex,
     schemas: Arc<RwLock<Vec<StoredSchema>>>,
@@ -270,17 +273,36 @@ impl SchemaStore {
     ///
     /// Create a store with the given options.
     /// Note that the new_with_options() does not automatically load schemas from Config etc.
+    ///
+    /// `options.trusted_hosts` extends `TOMBI_SCHEMA_TRUSTED_HOSTS`. Invalid
+    /// entries are not reported here: every schema access is refused instead.
     pub fn new_with_options(options: crate::Options) -> Self {
-        Self::new_with_options_and_http_client(options, Arc::new(DefaultHttpClient::new()))
+        let fetch_policy = Arc::new(SchemaFetchPolicy::from_options(&options));
+        let http_client = Arc::new(DefaultHttpClient::with_policy(fetch_policy.clone()));
+        Self::new_with_policy_and_http_client(options, http_client, fetch_policy)
     }
 
     /// Create a store with a caller-provided HTTP client.
+    ///
+    /// The injected client is trusted transport code: it must apply equivalent
+    /// DNS and redirect checks itself. The store checks the initial URL, but
+    /// cannot inspect a custom client's connections.
     pub fn new_with_options_and_http_client(
         options: crate::Options,
         http_client: Arc<dyn HttpClient>,
     ) -> Self {
+        let fetch_policy = Arc::new(SchemaFetchPolicy::from_options(&options));
+        Self::new_with_policy_and_http_client(options, http_client, fetch_policy)
+    }
+
+    fn new_with_policy_and_http_client(
+        options: crate::Options,
+        http_client: Arc<dyn HttpClient>,
+        fetch_policy: Arc<SchemaFetchPolicy>,
+    ) -> Self {
         Self {
             http_client,
+            fetch_policy,
             document_schemas: Arc::new(RwLock::default()),
             schema_resource_index: Arc::new(ParkingRwLock::default()),
             schemas: Arc::new(RwLock::new(Vec::new())),
@@ -302,6 +324,36 @@ impl SchemaStore {
     /// Strict mode in global level.
     pub fn strict(&self) -> Option<tombi_schema_type::BoolDefaultTrue> {
         self.options.strict
+    }
+
+    /// Global schema deprecation severity from `[schema.lint.rules]`.
+    pub fn deprecated_lint_level(&self) -> Option<SeverityLevelDefaultWarn> {
+        self.options
+            .lint
+            .as_ref()
+            .and_then(|lint| lint.rules.as_ref())
+            .and_then(|rules| rules.deprecated)
+            .map(Into::into)
+    }
+
+    /// Global `[schema.format.rules.array-values-order].enabled`.
+    pub fn array_values_order_enabled(&self) -> Option<BoolDefaultTrue> {
+        self.options
+            .format
+            .as_ref()
+            .and_then(|format| format.rules.as_ref())
+            .and_then(|rules| rules.array_values_order.as_ref())
+            .and_then(|rule| rule.enabled)
+    }
+
+    /// Global `[schema.format.rules.table-keys-order].enabled`.
+    pub fn table_keys_order_enabled(&self) -> Option<BoolDefaultTrue> {
+        self.options
+            .format
+            .as_ref()
+            .and_then(|format| format.rules.as_ref())
+            .and_then(|rules| rules.table_keys_order.as_ref())
+            .and_then(|rule| rule.enabled)
     }
 
     pub async fn refresh_cache(
@@ -442,6 +494,15 @@ impl SchemaStore {
         &self,
         catalog_uri: &CatalogUri,
     ) -> Result<Option<JsonCatalog>, crate::Error> {
+        if matches!(catalog_uri.scheme(), "http" | "https") {
+            self.fetch_policy
+                .check_http_url(catalog_uri)
+                .map_err(|err| crate::Error::CatalogUriFetchFailed {
+                    catalog_uri: catalog_uri.clone(),
+                    reason: err.to_string(),
+                })?;
+        }
+
         Ok(Some(match catalog_uri.scheme() {
             "file" => {
                 let catalog_path = catalog_uri.to_file_path().map_err(|_| {
@@ -475,7 +536,7 @@ impl SchemaStore {
                     && let Ok(Some(catalog)) = load_catalog_from_cache(
                         catalog_uri,
                         catalog_cache_path,
-                        self.options.cache.as_ref(),
+                        self.cache_options(),
                     )
                     .await
                 {
@@ -486,7 +547,7 @@ impl SchemaStore {
                     if let Ok(Some(catalog)) = load_catalog_from_cache_ignoring_ttl(
                         catalog_uri,
                         catalog_cache_path.as_deref(),
-                        self.options.cache.clone(),
+                        self.cache_options().cloned(),
                     )
                     .await
                     {
@@ -502,10 +563,16 @@ impl SchemaStore {
                         bytes
                     }
                     Err(err) => {
+                        if err.is_policy_denied() {
+                            return Err(crate::Error::CatalogUriFetchFailed {
+                                catalog_uri: catalog_uri.clone(),
+                                reason: err.to_string(),
+                            });
+                        }
                         if let Ok(Some(catalog)) = load_catalog_from_cache_ignoring_ttl(
                             catalog_uri,
                             catalog_cache_path.as_deref(),
-                            self.options.cache.clone(),
+                            self.cache_options().cloned(),
                         )
                         .await
                         {
@@ -601,13 +668,29 @@ impl SchemaStore {
             && let Some(document_schema) = self.fetch_document_schema(&schema_uri).await.transpose()
         {
             let version = schema_cache_version(&schema_uri).await;
-            self.document_schemas.write().await.insert(
-                schema_uri.clone(),
-                CachedDocumentSchema {
-                    version,
-                    document_schema,
-                },
-            );
+            {
+                let mut document_schemas = self.document_schemas.write().await;
+                // Other local schemas may `$ref` this one and hold its old content,
+                // so drop them and let them be rebuilt on next use.
+                if schema_uri.scheme() == "file" {
+                    // Cached under an `$id` alias, a local document is keyed by a non-`file:` URI,
+                    // so also check the physical document URI.
+                    document_schemas.retain(|uri, cached| {
+                        *uri == schema_uri
+                            || !(uri.scheme() == "file"
+                                || cached.document_schema.as_ref().is_ok_and(|schema| {
+                                    schema.schema_document_uri().scheme() == "file"
+                                }))
+                    });
+                }
+                document_schemas.insert(
+                    schema_uri.clone(),
+                    CachedDocumentSchema {
+                        version,
+                        document_schema,
+                    },
+                );
+            }
             log::debug!("update schema: {}", schema_uri);
             return Ok(true);
         }
@@ -619,6 +702,12 @@ impl SchemaStore {
         &self,
         schema_uri: &SchemaUri,
     ) -> Result<Option<tombi_json::Document>, crate::Error> {
+        if matches!(schema_uri.scheme(), "http" | "https") {
+            self.fetch_policy
+                .check_http_url(schema_uri)
+                .map_err(|err| crate::Error::from_schema_fetch_error(schema_uri, err.into()))?;
+        }
+
         let mut schema_resource_uri = schema_uri.clone();
         schema_resource_uri.set_fragment(None);
         let location = self
@@ -679,7 +768,7 @@ impl SchemaStore {
                     && let Ok(Some(schema_document)) = load_json_schema_from_cache(
                         schema_uri,
                         schema_cache_path,
-                        self.options.cache.as_ref(),
+                        self.cache_options(),
                     )
                     .await
                 {
@@ -690,7 +779,7 @@ impl SchemaStore {
                     if let Ok(Some(schema_document)) = load_json_schema_from_cache_ignoring_ttl(
                         schema_uri,
                         schema_cache_path.as_deref(),
-                        self.options.cache.clone(),
+                        self.cache_options().cloned(),
                     )
                     .await
                     {
@@ -711,11 +800,14 @@ impl SchemaStore {
                             reason: err.to_string(),
                         });
                     }
+                    Err(err) if err.is_policy_denied() => {
+                        return Err(crate::Error::from_schema_fetch_error(schema_uri, err));
+                    }
                     Err(err) => {
                         if let Ok(Some(schema_document)) = load_json_schema_from_cache_ignoring_ttl(
                             schema_uri,
                             schema_cache_path.as_deref(),
-                            self.options.cache.clone(),
+                            self.cache_options().cloned(),
                         )
                         .await
                         {
@@ -1941,14 +2033,19 @@ mod tests {
         fs,
         path::{Path, PathBuf},
         str::FromStr,
+        sync::Arc,
         time::Duration,
     };
 
     use super::{
-        SchemaStore, load_catalog_from_cache_ignoring_ttl,
-        load_json_schema_from_cache_ignoring_ttl, matches_schema_patterns,
+        SchemaStore, get_cache_file_path, load_catalog_from_cache_ignoring_ttl,
+        load_json_schema_from_cache_ignoring_ttl, matches_schema_patterns, save_to_cache,
     };
-    use crate::{CatalogUri, SchemaView};
+    use crate::{
+        CatalogUri, SchemaView, http_client::ReqwestHttpClient,
+        schema_fetch_policy::SchemaFetchPolicy,
+    };
+    use tombi_test_lib::TestCacheHome;
     use tombi_uri::SchemaUri;
 
     fn temp_cache_path(test_name: &str) -> PathBuf {
@@ -1957,6 +2054,38 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("tombi-schema-store-{test_name}-{unique}.json"))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test(flavor = "current_thread")]
+    async fn private_dns_denial_does_not_use_a_stale_schema_cache() {
+        let _cache_home = TestCacheHome::new();
+        let schema_uri = SchemaUri::from_str("http://localhost/security/schema.json").unwrap();
+        let cache_path = get_cache_file_path(&schema_uri).await.unwrap();
+        save_to_cache(Some(&cache_path), br#"{"type":"object"}"#)
+            .await
+            .unwrap();
+
+        let fetch_policy = Arc::new(SchemaFetchPolicy::default());
+        let http_client = Arc::new(ReqwestHttpClient::with_policy(fetch_policy.clone()));
+        let schema_store = SchemaStore::new_with_policy_and_http_client(
+            crate::Options {
+                cache: Some(tombi_cache::Options {
+                    no_cache: Some(false),
+                    cache_ttl: Some(Duration::ZERO),
+                }),
+                ..Default::default()
+            },
+            http_client,
+            fetch_policy,
+        );
+
+        assert!(
+            schema_store
+                .fetch_schema_document(&schema_uri)
+                .await
+                .is_err()
+        );
     }
 
     fn bump_modified(path: &Path) {

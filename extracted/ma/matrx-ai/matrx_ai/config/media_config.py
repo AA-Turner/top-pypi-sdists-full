@@ -126,6 +126,8 @@ def _substitute_and_coerce_media_fields(content: Any, variables: dict[str, Any])
         coerce_to_media_ref,
     )
 
+    from matrx_ai.config.template_substitution import substitute_authored
+
     # Track which fields originally carried a template — those are the
     # ones the user "intended to fill". Empty result on any of them means
     # the user opted out of an optional slot → caller should drop block.
@@ -140,12 +142,13 @@ def _substitute_and_coerce_media_fields(content: Any, variables: dict[str, Any])
         current = getattr(content, field_name, None)
         if not current or not isinstance(current, str):
             continue
-        substituted = current
-        for var_name, var_value in variables.items():
-            substituted = substituted.replace(
-                f"{{{{{var_name}}}}}",
-                "" if var_value is None else str(var_value),
-            )
+        # THE one substitution rule (one pass): config/template_substitution.py.
+        substituted = substitute_authored(
+            current,
+            current,
+            variables,
+            lambda value: "" if value is None else str(value),
+        )
         # Trim — variable value can include leading/trailing whitespace.
         if substituted != current:
             substituted = substituted.strip()

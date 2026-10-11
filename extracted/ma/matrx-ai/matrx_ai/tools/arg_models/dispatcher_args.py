@@ -138,7 +138,7 @@ class NoteCreateWire(ToolArgs):
     content: str | None = None
     tags: list | None = None
     is_public: bool = False
-    folder_name: str | None = None
+    home: str | None = None
 
     @field_validator("tags", mode="before")
     @classmethod
@@ -153,7 +153,7 @@ class NoteUpdateWire(ToolArgs):
     content: str | None = None
     tags: list | None = None
     is_public: bool = False
-    folder_name: str | None = None
+    home: str | None = None
 
     @field_validator("tags", mode="before")
     @classmethod

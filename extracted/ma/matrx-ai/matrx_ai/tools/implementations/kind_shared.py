@@ -59,52 +59,14 @@ CODE_SECTIONS = ("component_source", "props_transform")
 # routes exclusively through it; custom input keys are refused by the FE.
 GENERIC_INPUT_COMPONENT_KEY = "generic_structured"
 
-# ── The component props contract (verified against the frontend mount site,
-#    features/content-ir/react/db-component/DbKindComponentImpl.tsx:
-#    `<Component data={data} kind={kind} config={config} runAction={runAction}
-#    itemState={itemState} />`; actions and item state: skill `kind-actions`).
-#    This is THE #1 silent-failure class for authored components: a component
-#    reading flat props (props.wine_name) renders empty with no crash and no
-#    incident. Stated in every authoring tool's docstring, returned by
-#    kindcomp_get_context, and enforced by component_source_lint at write time.
-PROPS_CONTRACT: dict[str, str] = {
-    "component_receives": (
-        "The frontend mounts your component as <Component data={value} kind={kind} "
-        "config={config} />. The kind instance arrives as props.data — read every field "
-        "from it (e.g. `function Card({ data }) { return <div>{data.title}</div>; }`). "
-        "Flat props (props.title) are NEVER provided; reading them renders empty with no "
-        "error."
-    ),
-    "props_transform": (
-        "props_transform reshapes the raw kind value BEFORE mounting, but its output "
-        "STILL arrives as props.data — it never spreads keys into flat props. Your "
-        "component always destructures { data }."
-    ),
-    "actions": (
-        "Your component ALSO receives runAction(key, input) — the one way to make "
-        "something happen (it never throws; it resolves {ok:true,result} or "
-        "{ok:false,error}). Run AI on this item with "
-        "runAction('run_shortcut', { shortcutId, scope: { selection: <text of the "
-        "piece> }, saveAs?: 'idea_3_brief', expect?: 'json'|'text'|'image' }): "
-        "without saveAs it opens the shortcut in its own window; with saveAs it runs "
-        "in the background and the host saves the result onto this item. Save a "
-        "person's own pick or edit with runAction('save_item_state', { patch }). "
-        "Render the ready-made button: import { KindActionButton } from "
-        "\"@/components/kind-kit/KindActionButton\" (props: runAction, action, "
-        "input, label, confirm). Name shortcuts, never raw agent ids. Network calls "
-        "(fetch) are refused; runAction is the door."
-    ),
-    "item_state": (
-        "Your component also receives itemState: what actions saved onto this item "
-        "({} when nothing yet; it survives reload). Results never go into data. A "
-        "saved image is { file_id, mime_type, width, height, src } — render "
-        "<img src={itemState.idea_3_image.src} /> (src is null while loading)."
-    ),
-    "input_component_key": (
-        f"'{GENERIC_INPUT_COMPONENT_KEY}' is the only routable input-role component key. "
-        "kind_create seeds it automatically; never create custom input-role components."
-    ),
-}
+# ── The rules for WRITING a component (props contract, kit, design bar, platform
+#    component contracts, import list) live in ONE place: the `shape-authoring`
+#    skill (common-docs/skills/shape-authoring/SKILL.md). It is attached to every
+#    run that holds a kindcomp_* / kind_create tool (skill.definition
+#    config.attach_with_tools). This module only ENFORCES (lints below); it never
+#    restates the rules — a second copy is how the doctrine drifted (Arman 2026-10-11).
+SHAPE_AUTHORING_SKILL = "shape-authoring"
+SHAPE_AUTHORING_POINTER = "Follow the shape-authoring skill in your instructions."
 
 # ── The component import allowlist.
 #    CROSS-REPO MIRROR of matrx-frontend
@@ -133,6 +95,7 @@ COMPONENT_ALLOWED_IMPORTS: frozenset[str] = frozenset(
         "@/components/kind-kit/KindPanelGrid",
         "@/components/kind-kit/KindPanel",
         "@/components/kind-kit/KindActionButton",
+        "@/components/kind-kit/KindImage",
         "@/components/kind-kit/KindHeaderBar",
         "@/components/kind-kit/StreamingSkeleton",
         "@/components/kind-kit/TagList",
@@ -186,194 +149,6 @@ COMPONENT_ALLOWED_IMPORTS: frozenset[str] = frozenset(
     }
 )
 
-# ── The component design bar (Arman, 2026-08-22). Returned to the authoring
-#    agent beside the props contract; the reference implementation is the
-#    keyword-research component family. This is the QUALITY floor, not a
-#    suggestion.
-COMPONENT_DESIGN_DOCTRINE = (
-    "Design bar for every kind component — modern, professional, delicate:\n"
-    "- KIT FIRST: the registered kind-kit primitives (SortableList, KindPanelGrid, "
-    "KindPanel, KindHeaderBar, StreamingSkeleton/useStreamingValue, TagList/"
-    "KeywordChip — contracts in platform_components) are the ONLY way to build "
-    "lists, panels, grids, headers, chips, and skeletons. Hand-rolling any of "
-    "them is a defect; they are what make every component correct and consistent "
-    "by construction.\n"
-    "- DENSE, never cramped: minimal outer padding, tight internal spacing, "
-    "use the full width; the layout should feel open while wasting no space.\n"
-    "- A compact header: the instance's primary identity (title_key) plus "
-    "at-a-glance counts/stats — one line, no hero banners.\n"
-    "- INTERACTIVE everywhere the data invites it: lists support reordering "
-    "(drag handles), inline editing, add/remove; sections have one-click "
-    "copy; the header carries a delicate copy bar (JSON / Markdown / CSV / "
-    "TXT / XML-for-AI) using CopyButtons/CopyForAiButton.\n"
-    "- DRAG FEEDBACK IS MANDATORY (Arman, 2026-08-22): while an item is "
-    "dragged over a slot, the displaced item must visibly move aside "
-    "(translate in the drop direction) and a shadowed drop placeholder must "
-    "show exactly where the dragged item will land — without this the user "
-    "cannot tell where the item ends up. Implement on dragOver: give the "
-    "hovered row a transform (e.g. translate-y) plus an insertion indicator "
-    "with shadow (border/gap + shadow-md), cleared on dragLeave/drop.\n"
-    "- Subtle motion and a touch of color (Tailwind semantic tokens only: "
-    "bg-card, text-foreground, text-muted-foreground, border-border and "
-    "variants — no arbitrary values, no emojis).\n"
-    "- Fully responsive and mobile-friendly; long content collapses or "
-    "scrolls within the component — NEVER a raw JSON dump.\n"
-    "- Null-guard every optional field; a partial payload must render "
-    "gracefully, never crash, never show 'undefined' or [object Object].\n"
-    "- Images are welcome when the shape carries them (render <img> with "
-    "max-width, rounded corners, and an alt).\n"
-    "- THE LAYOUT LAW (Arman, 2026-08-23 — after a four-panel keyword map that "
-    "truncated every keyword to three characters): budget WIDTH from the "
-    "CONTENT, never from the count of things you want side by side. Text-bearing "
-    "panels need ~280px minimum each; use an auto-fit grid (repeat(auto-fit, "
-    "minmax(280px, 1fr))) so four panels become 2x2 or a single column when "
-    "space is short — never four cramped columns. A keyword, phrase, or chip "
-    "WRAPS; it is never truncated with an ellipsis. A subline (rationale, "
-    "description) spans the FULL panel width under the header — never squeezed "
-    "beside the title. A header row carries the title, ONE count/badge, and at "
-    "most two controls; every further control collapses into an overflow menu. "
-    "Per-row actions appear on hover/focus, not permanently. Side-by-side panels "
-    "are equal height (flex column) with footer actions (Add, Copy) PINNED to "
-    "the bottom (mt-auto) so they align across panels. Long lists scroll inside "
-    "the panel (max-h + overflow-y) rather than stretching the page. Prefer "
-    "one excellent column over four unreadable ones.\n"
-    "- STREAMING IS A REQUIREMENT, not a feature (Arman, 2026-08-22): the "
-    "value arrives PROGRESSIVELY during the LLM stream, so the component must "
-    "render its full layout immediately and fill in as data lands. Ship its "
-    "own brief skeleton state that MIMICS the finished layout (never the "
-    "generic fallback, never a spinner-until-complete), render list items the "
-    "moment each one parses (stable keys — no flicker, no reordering jumps), "
-    "let true prose fields grow as text streams in, and reveal structured "
-    "details in chunks as they complete. A component that waits for the "
-    "complete object before rendering is broken by definition — every field "
-    "access must tolerate absence mid-stream."
-)
-
-# ── Platform component contracts the allowlist exposes.
-#    CROSS-REPO MIRROR of matrx-frontend components/agent-copy/
-#    {CopyButtons,CopyForAiButton}.tsx + buildAgentPayload.ts. The Artisan's
-#    first live build (2026-08-22) had to GUESS these props (it passed
-#    `content=` / `data=`, which do not exist) and honestly flagged it — the
-#    copy bar would have rendered and silently done nothing. Exact contracts
-#    ride the authoring bundle so no component author ever guesses again.
-#    Change BOTH sides together.
-PLATFORM_COMPONENT_CONTRACTS: dict[str, str] = {
-    "CopyButtons": (
-        'import { CopyButtons } from "@/components/agent-copy/CopyButtons" — the '
-        "copy / copy-for-AI (+ optional download) pair. REQUIRED prop `label: string` "
-        "(toast + tooltip text). `human?: string | (() => string)` — the plain-text "
-        "copy; `agent?: AgentPayloadInput | string | (() => AgentPayloadInput | string)` "
-        "— the Copy-for-AI payload (see AgentPayloadInput); `json?: unknown | (() => "
-        "unknown)` — adds a pretty-printed JSON entry to the AI dropdown; `size?: "
-        "'xs' | 'icon' | 'sm'` (xs = dense list items, icon = rows/cards, sm = "
-        "header); `export?: { items, sheetRows }` — a download dropdown (CSV/MD/TXT "
-        "etc.); `hide?: ('copy'|'ai'|'export')[]`; `stopPropagation` defaults true. "
-        "There is NO `content` prop and NO format map — build the markdown/CSV/TXT "
-        "strings yourself and pass them via `human` (one format) or `export` items."
-    ),
-    "CopyForAiButton": (
-        'import { CopyForAiButton } from "@/components/agent-copy/CopyForAiButton" — '
-        "the single Copy-for-AI action. REQUIRED `label: string` and REQUIRED "
-        "`agent: AgentPayloadInput | string | (() => …)`; optional `size?: 'icon' | "
-        "'sm'`, `compact?: boolean` (icon-only h-6 for headers), `showLabel`, "
-        "`disabled`, `className`. There is NO `data` prop — wrap your value in an "
-        "AgentPayloadInput."
-    ),
-    "AgentPayloadInput": (
-        "{ kind: string (stable slug, e.g. 'reading-list'), location: string (where the "
-        "user is, in words), description: string (one line: what was copied), data: "
-        "unknown (the raw object/array — dumped as JSON in full), summary?: string, "
-        "attributes?: Record<string, string | number> }. Prefer passing a builder "
-        "FUNCTION so URL/timestamp are captured at click time."
-    ),
-    "KIND_KIT": (
-        "THE KIT COMES FIRST (Arman, 2026-08-23): these registered, tested primitives "
-        "(matrx-frontend components/kind-kit) exist so every component gets the same "
-        "correct drag feedback, content-aware grids, pinned footers, wrapping chips, "
-        "and streaming skeletons. Never hand-roll what the kit provides. Import each "
-        "by its exact path with the named export."
-    ),
-    "SortableList": (
-        'import { SortableList } from "@/components/kind-kit/SortableList" — '
-        "drag-to-reorder list: rows DISPLACE and a shadowed dashed placeholder marks "
-        "the landing slot; grip handle; arrow buttons as keyboard/touch fallback. Props: "
-        "items: readonly T[] (required; never mutated), onReorder(items: T[]) "
-        "(required; full new order), getKey?(item, index) => string (default id/key/"
-        "index), renderItem?(item, {index, isDragging}) => ReactNode (default "
-        "label/title/name/text), onRemove?(item, index) (adds inline X), disabled?, "
-        "hideArrows?, emptyState?, className?, itemClassName?, ariaLabel?."
-    ),
-    "KindPanelGrid": (
-        'import { KindPanelGrid } from "@/components/kind-kit/KindPanelGrid" — '
-        "content-aware auto-fit grid with EQUAL-HEIGHT panels. Props: children "
-        "(required), minColumnWidth?: number px (default 280 — never smaller for "
-        "text panels), maxColumns?, gap?: 'sm'|'md'|'lg' (default md), fill?: "
-        "'auto-fit'|'auto-fill', className?."
-    ),
-    "KindPanel": (
-        'import { KindPanel } from "@/components/kind-kit/KindPanel" — header (icon '
-        "· wrapping title · count · badge · spinner · at most 2 `actions` · overflow "
-        "menu) → FULL-WIDTH `subline` → body → `footer` PINNED to the bottom (mt-auto) "
-        "so Add/Copy align across sibling panels. Props: title (required), icon? "
-        "accepts `Icon` or `<Icon />`, "
-        "count?: number|string, badge?, streaming?, actions? (≤2 controls), "
-        "menuItems?: [{label, onSelect, icon?, disabled?, destructive?, "
-        "separatorBefore?}], subline?, children?, footer?, variant?: 'card'|'bare', "
-        "dense?, className?, bodyClassName?."
-    ),
-    "KindHeaderBar": (
-        'import { KindHeaderBar } from "@/components/kind-kit/KindHeaderBar" — the '
-        "standard compact kind header: title (title_key) · stats · streaming indicator "
-        "· copy bar. Props: title (required), icon? accepts `Icon` or `<Icon />`, "
-        "subtitle?, stats?: [{label, value, icon? accepts either form, title?}], "
-        "streaming?, streamingLabel?, copy?: CopyButtonsProps "
-        "minus size/className (label REQUIRED; human?, agent?, json?, export?, hide?), "
-        "actions?, size?: 'sm'|'md', className?."
-    ),
-    "StreamingSkeleton": (
-        "import { StreamingSkeleton, useStreamingValue, streamList, streamText } from "
-        '"@/components/kind-kit/StreamingSkeleton" — <StreamingSkeleton layout='
-        "'list'|'cards'|'table'|'text' rows={3} columns={} header label /> mimics the "
-        "finished layout before data lands. useStreamingValue(value, fallback) → "
-        "{value, arrived} keeps the latest DEFINED value sticky during the stream "
-        "(call unconditionally with a field read like data?.summary — never a fresh "
-        "per-render expression; use streamList(value) for arrays and "
-        "streamText(value, fallback) for strings)."
-    ),
-    "TagList": (
-        'import { KeywordChip, TagList } from "@/components/kind-kit/TagList" — chips '
-        "that WRAP and never truncate. KeywordChip: label (required), meta?, icon?, "
-        "selected?, onSelect?(next), onRemove?(), onEdit?(next), disabled?, tone?: "
-        "'default'|'primary'|'muted', size?: 'sm'|'md'. TagList: items (required; "
-        "strings or {label, key?, meta?, disabled?}), selected?, onToggle?(key, next), "
-        "onRemove?(key, index), onEdit?(key, index, next), onAdd?(label) (renders the "
-        "add input), addPlaceholder?, emptyState?, tone?, size?, disabled?."
-    ),
-    "kit_usage": (
-        "Four keyword lists, correctly: <KindHeaderBar title={data.primary_keyword} "
-        "stats={[{label:'lists', value: lists.length}, {label:'keywords', value: total}]} "
-        "copy={{ label: 'Keyword map', human: () => markdownText, json: () => data, "
-        "agent: () => ({ kind: 'keyword-map', location: 'Chat', description: 'Keyword "
-        "relationship map', data }) }} /> then <KindPanelGrid minColumnWidth={300}> "
-        "{lists.map(list => <KindPanel key={list.label} title={list.label} count={list."
-        "keywords.length} subline={list.rationale} actions={<CopyButtons label={list."
-        "label} size=\"xs\" human={() => list.keywords.join('\\n')} hide={['export']} />} "
-        'footer={<TagList items={[]} onAdd={add} addPlaceholder="Add keyword" />}> '
-        "<SortableList items={list.keywords} onReorder={reorder} onRemove={remove} "
-        "renderItem={(k) => <KeywordChip label={k} />} /></KindPanel>)}</KindPanelGrid>."
-    ),
-    "usage": (
-        'Header: <CopyButtons label="Reading list" size="sm" human={() => markdownText} '
-        "json={() => exportObject} agent={() => ({ kind: 'reading-list', location: "
-        "'Chat', description: 'A curated reading list', data: exportObject })} "
-        "export={{ items: [{ id: 'csv', label: 'CSV', filename: 'list.csv', "
-        "content: () => csvText }, { id: 'md', label: 'Markdown', filename: 'list.md', "
-        "content: () => markdownText }] }} />. Per row: <CopyButtons label={book.title} "
-        "size=\"xs\" human={() => rowText} agent={() => ({ kind: 'book', location: "
-        "'Chat', description: 'One book', data: book })} hide={['export']} />."
-    ),
-}
-
 _DATA_REFERENCE_RE = re.compile(r"\bdata\b")
 _IMPORT_RE = re.compile(r"""^\s*import\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]""", re.MULTILINE)
 
@@ -398,12 +173,9 @@ def component_import_lint(source: str) -> str | None:
     if not unknown:
         return None
     return (
-        f"Component imports modules outside the sandbox allowlist: {unknown}. "
-        "The browser compiler skips unknown imports silently, so these would be "
-        "undefined at runtime and the component would break with no error. "
-        f"Allowed imports: {sorted(COMPONENT_ALLOWED_IMPORTS)}. Rewrite using "
-        "only allowlisted modules (lucide-react icons, @/components/ui/* "
-        "shadcn primitives, recharts, CopyButtons/CopyForAiButton, Markdown)."
+        f"Unknown import(s) {unknown}: the browser skips them silently and the "
+        "component breaks at render. Import only paths listed in <available_imports> "
+        f"of the {SHAPE_AUTHORING_SKILL} skill."
     )
 
 
@@ -634,13 +406,9 @@ def component_source_lint(source: str) -> str | None:
     if _DATA_REFERENCE_RE.search(source):
         return None
     return (
-        "Component source never references `data`, so it cannot render the kind "
-        "instance and would mount as a silent empty component. The frontend mounts "
-        "DB components as <Component data={value} kind={kind} config={config} /> — "
-        "read every field from props.data (e.g. `function Card({ data }) { ... "
-        "data.title ... }`). props_transform output ALSO arrives as props.data; "
-        "flat props are never provided. Rewrite the component to destructure "
-        "{ data } and resubmit."
+        "Component never reads props.data, so it would mount empty with no error. "
+        "Destructure { data } and read every field from it — see <props_contract> "
+        f"in the {SHAPE_AUTHORING_SKILL} skill."
     )
 
 
@@ -1491,15 +1259,20 @@ def bound_kind_bodies(
         )
         return json_schema, (head or None), note
     props = json_schema.get("properties") if isinstance(json_schema, dict) else None
+    # The head rides as a JSON STRING inside the result, so every quote in it is escaped again
+    # (and kindcomp_get_context adds ~12K of fixed contracts plus the property-name list around
+    # it). Half the budget keeps the whole result under the soft cap with room to spare; the
+    # complete schema is held for fetch_tool_result either way.
+    head_chars = budget // 2
     stand_in = {
         "__truncated__": True,
         "total_chars": len(schema_text),
         "top_level_properties": sorted(props.keys()) if isinstance(props, dict) else None,
-        "head": schema_text[:budget],
+        "head": schema_text[:head_chars],
     }
     note = (
         f"json_schema is {len(schema_text):,} chars, over the {budget:,} one result carries: "
         f"json_schema here is a stand-in (__truncated__) with its top-level property names "
-        f"and the first {budget:,} chars of its JSON text; canonical_example was omitted. {rest}"
+        f"and the first {head_chars:,} chars of its JSON text; canonical_example was omitted. {rest}"
     )
     return stand_in, None, note

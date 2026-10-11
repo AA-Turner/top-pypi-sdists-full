@@ -1,0 +1,5 @@
+# Public PyPI index for the example project (shipped in sdist as example_project/uv.toml).
+[[index]]
+name = "pypi"
+url = "https://pypi.org/simple/"
+default = true

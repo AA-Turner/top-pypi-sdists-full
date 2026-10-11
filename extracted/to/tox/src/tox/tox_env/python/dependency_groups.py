@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import sys
+import tomllib
 from collections import defaultdict
 from typing import TYPE_CHECKING, TypedDict
 
@@ -16,18 +16,14 @@ if TYPE_CHECKING:
     from packaging.utils import NormalizedName
 
 
-if sys.version_info >= (3, 11):  # pragma: >=3.11 cover
-    import tomllib
-else:  # pragma: <3.11 cover
-    import tomli as tomllib
-
 _IncludeGroup = TypedDict("_IncludeGroup", {"include-group": str})
 
 
 def resolve(root: Path, groups: set[str]) -> set[Requirement]:
     pyproject_file = root / "pyproject.toml"
-    if not pyproject_file.exists():  # check if it's static PEP-621 metadata
-        return set()
+    if not pyproject_file.exists():
+        msg = f"no pyproject.toml found at {pyproject_file} to read dependency groups from"
+        raise Fail(msg)
     with pyproject_file.open("rb") as file_handler:
         pyproject = tomllib.load(file_handler)
     if "dependency-groups" not in pyproject:

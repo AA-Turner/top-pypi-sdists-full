@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -47,26 +47,25 @@ This private submodule is *not* intended for importation by downstream callers.
 #Checkmate, "typing". Checkmate.
 
 # ....................{ IMPORTS                            }....................
-from beartype.typing import (
-    Union,
-)
 from beartype._cave._cavefast import NotImplementedType
 # from beartype._cave._cavemap import NoneTypeOr
 from beartype._data.func.datafunc import METHOD_NAMES_DUNDER_BINARY
 from beartype._data.func.datafuncarg import ARG_NAME_RETURN
 from beartype._data.typing.datatypingport import Hint
-from beartype._check.forward.fwdresolve import resolve_hint
-from beartype._check.metadata.metadecor import BeartypeDecorMeta
-from beartype._util.cache.map.utilmapbig import CacheUnboundedStrong
+from beartype._check.forward.fwdresolve import resolve_hint_pep484_ref_str_decor_curr
+from beartype._check.cls.call.calldatadecorfunc import BeartypeCallDecorFuncData
+from beartype._cache.cls.cacheclsmega import CacheMegaStrongCaller
 from beartype._util.hint.pep.proposal.pep484.pep484union import (
     make_hint_pep484_union)
+from beartype._util.hint.utilhintget import get_hint_repr
 from beartype._util.hint.utilhinttest import is_hint_cacheworthy
+from typing import Union
 
 # ....................{ COERCERS ~ root                    }....................
 #FIXME: Document mypy-specific coercion in the docstring as well, please.
 def coerce_func_hint_root(
     hint: Hint,
-    decor_meta: BeartypeDecorMeta,
+    decor_func: BeartypeCallDecorFuncData,
     pith_name: str,
     exception_prefix: str,
 ) -> Hint:
@@ -96,7 +95,7 @@ def coerce_func_hint_root(
     ----------
     hint : Hint
         Possibly PEP-noncompliant type hint to be possibly coerced.
-    decor_meta : BeartypeDecorMeta
+    decor_func : BeartypeCallDecorFuncData
         Decorated callable directly annotated by this hint.
     pith_name : str
         Either:
@@ -118,19 +117,35 @@ def coerce_func_hint_root(
     '''
     assert isinstance(pith_name, str), (
         f'{repr(pith_name)} not string.')
-    assert isinstance(decor_meta, BeartypeDecorMeta), (
-        f'{repr(decor_meta)} not @beartype metadata.')
+    assert isinstance(decor_func, BeartypeCallDecorFuncData), (
+        f'{repr(decor_func)} not @beartype metadata.')
     # print(f'Coercing pith "{pith_name}" annotated by type hint {repr(hint)}...')
 
     # ..................{ FORWARD REFERENCE                  }..................
+    #FIXME: Unconvinced this is universally useful. Lower-level reducers (e.g.,
+    #reduce_hint_pep484749_ref()) already efficiently reduce forward references to
+    #more useful objects across a variety of common use cases. We *REALLY* don't
+    #want to duplicate that logic across both those reducers *AND* the
+    #resolve_hint_pep484_ref_str_decor_curr() function called below.
+    #
+    #Ideally, this code path should *ONLY* be performed to resolve PEP
+    #563-compliant forward references. Even in that case, though, shouldn't we
+    #efficiently resolve *ALL* PEP 563-compliant forward references for the
+    #decorated callable all at once by calling beartype.peps.resolve_pep563()
+    #instead? In other words, this logic smells. The smell is wafting badly.
+    #FIXME: For generality, shouldn't this also apply to "typing.ForwardRef"
+    #instances? That's yet another reason to defer to the more general-purpose
+    #reduce_hint_pep484749_ref() reducer discussed above.
+
     # If this hint is stringified (e.g., as a PEP 484- or 563-compliant forward
     # reference), resolve this hint to the non-string hint to which this hint
     # refers *BEFORE* performing any subsequent logic with this hint -- *ALL* of
     # which assumes this hint to be a non-string hint.
     if isinstance(hint, str):
-        # print(f'Resolving {repr(decor_meta)} string hint {repr(hint)}...')
-        hint = resolve_hint(
-            hint=hint, decor_meta=decor_meta, exception_prefix=exception_prefix)  # pyright: ignore
+        # print(f'Coercing forward ref hint {repr(hint)} to...')
+        hint = resolve_hint_pep484_ref_str_decor_curr(
+            hint=hint, decor_curr=decor_func, exception_prefix=exception_prefix)  # pyright: ignore
+        # print(f'...non-forward ref hint {repr(hint)}!')
     # Else, this hint is *NOT* stringified.
     #
     # In either case, this hint is guaranteed to now be a non-string hint.
@@ -141,7 +156,7 @@ def coerce_func_hint_root(
         # This hint annotates the return for the decorated callable *AND*...
         pith_name == ARG_NAME_RETURN and
         # The decorated callable is a binary dunder method (e.g., __eq__())...
-        decor_meta.func_wrapper_name in METHOD_NAMES_DUNDER_BINARY
+        decor_func.func_wrapper_name in METHOD_NAMES_DUNDER_BINARY
     ):
         # Expand this hint to accept both this hint *AND* the "NotImplemented"
         # singleton as valid returns from this method. Why? Because this
@@ -189,8 +204,12 @@ def coerce_func_hint_root(
         # performed here. *applause*
         return Union[hint, NotImplementedType]  # type: ignore[return-value]  # pyright: ignore
 
+    # ..................{ COERCE                             }..................
     # Defer to the function-agnostic root hint coercer as a generic fallback.
-    return coerce_hint_root(hint=hint, exception_prefix=exception_prefix)
+    hint = coerce_hint_root(hint=hint, exception_prefix=exception_prefix)
+
+    # Return this possibly coerced root hint.
+    return hint
 
 
 def coerce_hint_root(hint: Hint, exception_prefix: str) -> Hint:
@@ -229,8 +248,7 @@ def coerce_hint_root(hint: Hint, exception_prefix: str) -> Hint:
     hint : object
         Possibly PEP-noncompliant type hint to be possibly coerced.
     exception_prefix : str
-        Human-readable label prefixing the representation of this object in the
-        exception message.
+        Human-readable substring prefixing raised exception messages.
 
     Returns
     -------
@@ -251,6 +269,7 @@ def coerce_hint_root(hint: Hint, exception_prefix: str) -> Hint:
         return make_hint_pep484_union(hint)
     # Else, this hint is *NOT* a PEP-noncompliant tuple union.
 
+    # ..................{ RETURN                             }..................
     # Since none of the above conditions applied, this hint could *NOT* be
     # specifically coerced as a root type hint. Nonetheless, this hint may
     # still be generically coercible as a hint irrespective of its contextual
@@ -333,7 +352,7 @@ def coerce_hint_any(hint: Hint) -> Hint:
     who, what, or how is caching those type hints -- only that they are cached
     before being passed to utility functions in the :mod:`beartype` codebase.
     Why? Because most such utility functions are memoized for efficiency by the
-    :func:`beartype._util.cache.utilcachecall.callable_cached` decorator, which
+    :func:`beartype._util.cache.func.utilcachefunc.callable_cached` decorator, which
     maps passed parameters (typically including the standard ``hint`` parameter
     accepting a type hint) based on object identity to previously cached return
     values. You see the problem, we trust.
@@ -381,7 +400,7 @@ def coerce_hint_any(hint: Hint) -> Hint:
         * Else, this hint as is unmodified.
     '''
 
-    # ..................{ NON-SELF-CACHING                   }..................
+    # ..................{ CACHE                              }..................
     # If this hint is *NOT* self-caching, this hint *MUST* thus be explicitly
     # cached here. Failing to do so would disable subsequent memoization,
     # reducing decoration- and call-time efficiency when decorating callables
@@ -397,23 +416,18 @@ def coerce_hint_any(hint: Hint) -> Hint:
         # print(f'Self-caching type hint {repr(hint)}...')
 
         #FIXME: [SPEED] Globalize the
-        #_hint_repr_to_hint.cache_or_get_cached_value() bound method and call
+        #_hint_repr_to_hint.cache_value() bound method and call
         #that globalized bound method here instead as a negligible speedup.
-
-        # Note that we intentionally call the unmemoized low-level repr()
-        # builtin here rather than our memoized higher-level get_hint_repr()
-        # getter. Why? Because the latter would significantly increase the space
-        # consumption of that memoization, as the passed hint has *NOT* yet been
-        # deduplicated by the logic performed here.
-        return _hint_repr_to_hint.cache_or_get_cached_value(  # type: ignore[return-value]
-            key=repr(hint), value=hint)
+        hint = _hint_repr_to_hint.cache_value(  # type: ignore[return-value]
+            key=get_hint_repr(hint), value=hint)
     # Else, this hint is (hopefully) self-caching.
 
-    # Return this uncoerced hint as is.
+    # ..................{ RETURN                             }..................
+    # Return this possibly coerced hint.
     return hint
 
 # ....................{ PRIVATE ~ mappings                 }....................
-_hint_repr_to_hint = CacheUnboundedStrong()
+_hint_repr_to_hint = CacheMegaStrongCaller()
 '''
 **Type hint cache** (i.e., thread-safe cache mapping from the machine-readable
 representations of all non-self-cached type hints to cached singleton instances
@@ -445,7 +459,7 @@ contending over that variable, this dictionary *must* be thread-safe.
 
 **This dictionary is intentionally designed as a naive dictionary rather than a
 robust LRU cache,** for the same reasons that callables accepting hints are
-memoized by the :func:`beartype._util.cache.utilcachecall.callable_cached`
+memoized by the :func:`beartype._util.cache.func.utilcachefunc.callable_cached`
 rather than the :func:`functools.lru_cache` decorator. Why? Because:
 
 * The number of different type hints instantiated across even worst-case

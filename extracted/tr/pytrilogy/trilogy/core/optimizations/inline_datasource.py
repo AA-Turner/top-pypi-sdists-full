@@ -2,16 +2,16 @@ import re
 from collections import defaultdict
 
 from trilogy.constants import CONFIG
-from trilogy.core.enums import JoinType
+from trilogy.core.enums import Derivation, JoinType
 from trilogy.core.models.build import BuildConcept, BuildDatasource
 from trilogy.core.models.datasource import RawColumnExpr
 from trilogy.core.models.execute import (
     CTE,
     DatasourceCTE,
-    InstantiatedUnnestJoin,
     Join,
     RecursiveCTE,
     UnionCTE,
+    UnnestJoin,
 )
 from trilogy.core.optimizations.base_optimization import MergedCTEMap, OptimizationRule
 from trilogy.core.optimizations.utils import (
@@ -94,11 +94,7 @@ def _consumer_scope_names(cte: CTE, parent: DatasourceCTE) -> set[str]:
                 for c in source.datasource.columns
                 if isinstance(c.alias, str)
             }
-    names |= {
-        join.alias.lower()
-        for join in cte.joins
-        if isinstance(join, InstantiatedUnnestJoin)
-    }
+    names |= {join.alias.lower() for join in cte.joins if isinstance(join, UnnestJoin)}
     return names
 
 
@@ -137,15 +133,15 @@ def _raw_columns_inline_safely(
             return False
     joins = [join for join in cte.joins if isinstance(join, Join)]
     if len(joins) != len(cte.joins) or any(
-        join.jointype in (JoinType.FULL, JoinType.RIGHT_OUTER) for join in joins
+        join.join_type in (JoinType.FULL, JoinType.RIGHT_OUTER) for join in joins
     ):
         return False
     if cte.base_name == parent.name:
         return True
     return all(
-        join.jointype == JoinType.INNER
+        join.join_type == JoinType.INNER
         for join in joins
-        if join.right_cte.name == parent.name
+        if join.right.name == parent.name
     )
 
 
@@ -156,8 +152,27 @@ def _can_inline_filtered_parent(
 ) -> bool:
     if not parent.condition or not is_sole_consumer(cte, parent, inverse_map):
         return False
+    # the WHERE moves onto the consumer, which binds only the raw columns; a
+    # concept the scan computes (a presence probe) would render as no column
+    root = parent.source.base_datasource
+    if not isinstance(root, BuildDatasource):
+        return False
+    columns = {c.address for c in root.output_concepts}
+    if any(c.address not in columns for c in parent.condition.row_arguments):
+        return False
     return all(
-        isinstance(join, Join) and join.jointype == JoinType.INNER for join in cte.joins
+        isinstance(join, Join) and join.join_type == JoinType.INNER
+        for join in cte.joins
+    )
+
+
+def _derivable_from(concept: BuildConcept, columns: set[str]) -> bool:
+    """Whether a row-level scalar renders from `columns` alone."""
+    if concept.derivation != Derivation.BASIC:
+        return False
+    return all(
+        arg.address in columns or _derivable_from(arg, columns)
+        for arg in concept.concept_arguments
     )
 
 
@@ -175,8 +190,8 @@ def _rename_fold_plan(
     column to the rename's base object (see rebind_rename_to_consumed) and
     drop its source_map entry, so the merged CTE renders `<raw column> as
     <name>` exactly as the scan did. Returns None when any missing address is
-    not such a rename; a derived expression needs re-derivation this fold
-    cannot prove."""
+    not such a rename or a scalar the raw columns compute (which renders from
+    its own lineage post-fold, as it would have in the scan)."""
     by_address: dict[str, tuple[int, BuildConcept]] = {}
     for i, col in enumerate(cte.output_columns):
         by_address.setdefault(col.address, (i, col))
@@ -193,6 +208,9 @@ def _rename_fold_plan(
         consumed = consumed_parent_column(col, cte, parent)
         if consumed is None:
             return None
+        if consumed.address == col.address and _derivable_from(consumed, root_outputs):
+            plan.append((i, consumed))
+            continue
         base = rename_reference(consumed)
         if base is None or (
             base.address not in root_outputs and not (base.pseudonyms & root_outputs)
@@ -205,18 +223,18 @@ def _rename_fold_plan(
 def _join_key_demand(cte: CTE, parent_name: str) -> set[str]:
     """Addresses the consumer renders from ``parent_name`` as a join key.
 
-    Join legs resolve their column through ``CTEConceptPair.cte`` /
-    ``Join.right_cte``, never through ``source_map``, so a key can be demanded
+    Join legs resolve their column through ``ConceptPair.node`` /
+    ``Join.right``, never through ``source_map``, so a key can be demanded
     from a parent the source_map does not attribute it to (the synthesized
     ``__preql_internal.all_rows`` broadcast constant is the common case)."""
     demand: set[str] = set()
     for join in cte.joins:
         if not isinstance(join, Join):
             continue
-        for pair in join.joinkey_pairs or []:
-            if pair.cte is not None and pair.cte.name == parent_name:
+        for pair in join.pairs or []:
+            if pair.node is not None and pair.node.name == parent_name:
                 demand.add(pair.left.address)
-            if join.right_cte.name == parent_name:
+            if join.right.name == parent_name:
                 demand.add(pair.right.address)
     return demand
 
@@ -225,7 +243,6 @@ def _fold_plan(
     cte: CTE,
     parent: DatasourceCTE,
     base: BuildDatasource,
-    inverse_map: dict[str, list[CTE | UnionCTE]],
 ) -> tuple[set[str], list[tuple[int, BuildConcept]] | None]:
     """The join keys the raw scan cannot supply, and the rename-fold plan
     covering whatever else the consumer reads through this parent. An empty
@@ -234,13 +251,10 @@ def _fold_plan(
     A merged key present as one datasource column also satisfies its pseudonym
     addresses (a fact FK covers the canonical dim key it was merged with); the
     base datasource only declares the native address, and the join resolver is
-    pseudonym-aware. Gated to a single-consumer scan: inlining a scan shared by
-    more than one consumer duplicates it into each, and a shared scan is
-    cheaper kept as one CTE."""
+    pseudonym-aware."""
     root_outputs = {x.address for x in base.output_concepts}
-    if len(inverse_map.get(parent.name, [])) <= 1:
-        for x in base.output_concepts:
-            root_outputs |= x.pseudonyms
+    for x in base.output_concepts:
+        root_outputs |= x.pseudonyms
     join_demand = _join_key_demand(cte, parent.name) - root_outputs
     if join_demand:
         return join_demand, []
@@ -302,6 +316,11 @@ class InlineDatasource(OptimizationRule):
             if parent_cte.dependency_nodes():
                 self.debug(f"Cannot inline: parent {parent_cte.name} has parents")
                 continue
+            if parent_cte.source.presence_marker is not None:
+                self.debug(
+                    f"Cannot inline: a padding guard reads {parent_cte.name}'s presence marker"
+                )
+                continue
             filtered_inline = _can_inline_filtered_parent(cte, parent_cte, inverse_map)
             if parent_cte.condition and not filtered_inline:
                 self.debug(
@@ -329,7 +348,7 @@ class InlineDatasource(OptimizationRule):
                     "the consumer's joins would misattribute"
                 )
                 continue
-            join_demand, plan = _fold_plan(cte, parent_cte, root, inverse_map)
+            join_demand, plan = _fold_plan(cte, parent_cte, root)
             if join_demand:
                 self.log(
                     f"Cannot inline: join keys {join_demand} read from "
@@ -373,9 +392,7 @@ class InlineDatasource(OptimizationRule):
             assert isinstance(replaceable_base, BuildDatasource)
             # Recompute at apply time: candidacy was established on a prior
             # visit and other merges may have shifted this CTE's source_map.
-            join_demand, plan = _fold_plan(
-                cte, replaceable, replaceable_base, inverse_map
-            )
+            join_demand, plan = _fold_plan(cte, replaceable, replaceable_base)
             if join_demand:
                 self.log(
                     f"Failed to inline {replaceable.name}: join keys {join_demand} "

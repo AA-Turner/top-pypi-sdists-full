@@ -1,3 +1,12 @@
+# Copyright 2017 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""DB API 2.0 exception hierarchy used by PyAthena."""
+
 __all__ = [
     "DataError",
     "DatabaseError",

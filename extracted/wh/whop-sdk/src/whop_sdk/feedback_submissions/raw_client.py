@@ -12,7 +12,6 @@ from ..core.request_options import RequestOptions
 from ..errors.bad_request_error import BadRequestError
 from ..errors.conflict_error import ConflictError
 from ..errors.unauthorized_error import UnauthorizedError
-from ..types.v1error_response import V1ErrorResponse
 from .types.create_feedback_submissions_request_source import CreateFeedbackSubmissionsRequestSource
 from .types.create_feedback_submissions_response import CreateFeedbackSubmissionsResponse
 from pydantic import ValidationError
@@ -34,7 +33,7 @@ class RawFeedbackSubmissionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateFeedbackSubmissionsResponse]:
         """
-        Submits an issue or an unanswered question to Whop for internal review, recorded under the authenticated user, account, or app. Returns a receipt once the submission is accepted; processing is asynchronous and no reply is sent. Accepts user, account, and app credentials.
+        Submits an issue or an unanswered question to Whop for review, recorded under the authenticated user, account, or app. Returns a receipt once the submission is accepted; processing is asynchronous and no reply is sent. Accepts user, account, and app credentials.
 
         Parameters
         ----------
@@ -106,9 +105,9 @@ class RawFeedbackSubmissionsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -136,7 +135,7 @@ class AsyncRawFeedbackSubmissionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateFeedbackSubmissionsResponse]:
         """
-        Submits an issue or an unanswered question to Whop for internal review, recorded under the authenticated user, account, or app. Returns a receipt once the submission is accepted; processing is asynchronous and no reply is sent. Accepts user, account, and app credentials.
+        Submits an issue or an unanswered question to Whop for review, recorded under the authenticated user, account, or app. Returns a receipt once the submission is accepted; processing is asynchronous and no reply is sent. Accepts user, account, and app credentials.
 
         Parameters
         ----------
@@ -208,9 +207,9 @@ class AsyncRawFeedbackSubmissionsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

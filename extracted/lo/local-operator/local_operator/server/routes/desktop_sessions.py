@@ -14,7 +14,7 @@ from contextlib import aclosing, asynccontextmanager
 from typing import Annotated, Any, Callable, Literal, NamedTuple
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -51,6 +51,7 @@ from local_operator.server.models.desktop_sessions import (
     DraftReceipt,
     HistoryPage,
     InterruptReceipt,
+    JobCancelReceipt,
     MessageAdmission,
     MoveReceipt,
     NotificationClaim,
@@ -117,6 +118,7 @@ from local_operator.session.frontend_state import (
     SlashResult,
     sync_wire_payload,
 )
+from local_operator.session.index_prewarm import start_session_warm
 from local_operator.session.remote_open import PeerSessionUnresolved
 from local_operator.session.runtime.presence import PRESENCE_TTL_S
 from local_operator.slash_commands import (
@@ -3142,6 +3144,7 @@ async def snapshot(
     session_id: str,
     request: Request,
     entry_ts: int = Query(default=0, ge=0),
+    open_frame: int = Query(default=0, ge=0),
 ):
     # READ: an existing but silent owner must not fail a read. The durable answer
     # is on disk in this same process, so the attempt is bounded
@@ -3173,6 +3176,13 @@ async def snapshot(
     # ``allow_draft``: one of the five doors a new-chat pane may hold before a
     # session exists (spec §1.3); a draft answers the cold/empty shape.
     #
+    # ``open_frame=1`` IS THE OTHER ADDITIVE FLAG, and it is on this route for
+    # the same reason ``entry_ts`` is: the snapshot embeds a history page, and a
+    # renderer that paints from the paint-only page must get the same shape from
+    # the snapshot as from ``/history`` — two unit systems for one page is the
+    # defect this capability exists to avoid. See ``docs/DESKTOP_API.md``
+    # §"The open frame".
+    #
     # ``entry_ts=1`` RIDES THIS ROUTE TOO, because the snapshot embeds a history
     # page (``payload.history``) and that page is served by the same reader — so a
     # renderer that declared the vocabulary must get the SAME answer from the
@@ -3183,7 +3193,7 @@ async def snapshot(
         errors(request),
         host(request).session(session_id, read=True, allow_draft=True) as bridge,
     ):
-        return reply(await bridge.snapshot(entry_times=bool(entry_ts)))
+        return reply(await bridge.snapshot(entry_times=bool(entry_ts), open_frame=bool(open_frame)))
 
 
 async def _remote_open_refusal(request: Request, session_id: str) -> None:
@@ -3240,6 +3250,7 @@ async def history(
     after: int | None = Query(default=None, ge=0, le=500),
     limit: int = Query(default=100, ge=1, le=500),
     entry_ts: int = Query(default=0, ge=0),
+    open_frame: int = Query(default=0, ge=0),
 ):
     # READ, for the same reason as ``snapshot`` beside it — and on a draft the
     # empty page is the correct answer (the open frame's own ``history()``
@@ -3251,6 +3262,14 @@ async def history(
     # named with a cursor, counts with no anchor) through ``errors()``, so the
     # request fails the same way whichever door it came through; the numeric
     # bounds here are the wire's (0..500 per side) and fail as the ordinary 422.
+    #
+    # ``open_frame=1`` ASKS FOR THE PAINT-ONLY, RUN-ALIGNED PAGE of
+    # ``docs/DESKTOP_API.md`` §"The open frame" — a page counted in paintable
+    # rows, cut back to a run's opening user row under a hard cap (with an honest
+    # ``head_cut`` when the cap binds), with non-painted bytes stripped and the
+    # per-run facts a collapsed turn's bar needs. It is additive in both
+    # directions: without it every answer is byte-for-byte today's, and this
+    # route's own reading is unchanged.
     #
     # ``entry_ts=1`` IS THE SAME KIND OF ADDITIVE NEGOTIATION as
     # ``frontend_replace`` on ``events`` beside it: it says this renderer can
@@ -3272,6 +3291,7 @@ async def history(
                 after=after,
                 limit=limit,
                 entry_times=bool(entry_ts),
+                open_frame=bool(open_frame),
             )
         )
 
@@ -3598,6 +3618,42 @@ async def attachment(session_id: str, digest: AttachmentDigest, request: Request
         # re-deciding that for itself. `tunnels/gateway.py` sets the same
         # header on this repo's other byte-serving surface.
         headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.get("/v1/desktop/sessions/{session_id}/supplements/{digest}/document")
+async def supplement_document(session_id: str, digest: AttachmentDigest, request: Request):
+    """The assembled HTML document of one stored supplement component, as ``{html}``.
+
+    The document (``docs/design/turn-supplements.md`` §2.6/§2.7) is assembled by
+    ``supplements.document`` from the component blob this digest names and
+    returned as JSON -- **never** a navigable ``text/html`` URL, because no host
+    may point a frame at a URL (§4.1): the frame mounts these bytes at an opaque
+    origin under the document's own meta CSP. The route is digest-only by
+    construction: there is no caller-supplied path anywhere in the request, and
+    ``digest`` reuses :data:`AttachmentDigest`, the traversal gate of the
+    attachment route beside it (a non-matching path is a 422 before any handler
+    code runs).
+
+    Response headers are the executing-document family's (file-serving RFC D5):
+    ``X-Content-Type-Options: nosniff`` and ``Cache-Control: no-store``. The
+    digest-addressing would make an ``immutable`` cache semantically safe about
+    the bytes, and it is still the wrong header: ``managed_desktop_boundary``
+    applies ``no-store`` to everything under ``/v1/desktop/`` because these are
+    bearer-gated session documents, and D5 names ``no-store`` for this family
+    explicitly. The frame's own CSP rides INSIDE the document (the tunnel strips
+    response headers; §2.7), so no policy depends on this response's headers --
+    they are belt beside it.
+
+    A digest held by another device is 409 ``attachment_on_peer`` (passed
+    through by the error ladder); a missing or unassemblable blob is an ordinary
+    404, and the frame-level fallback line is what the reader paints (§2.8).
+    """
+    async with errors(request):
+        html = await host(request).supplement_document(session_id, digest)
+    return JSONResponse(
+        {"html": html},
+        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store"},
     )
 
 
@@ -4473,6 +4529,21 @@ async def warm(session_id: str, body: Warm, request: Request):
     # feature adds nothing to (spec §0.1/§1.3).
     async with errors(request), host(request).session(session_id, allow_draft=True) as bridge:
         assert bridge.remote is not None
+        # THE INDEX WARM RIDES THIS ROUTE (the per-session warm path), scheduled HERE
+        # rather than before the admission checks (review round 3, F12): above this
+        # line the call can still be refused — an unknown session (404) or a daemon
+        # that has LATCHED against new work (503, ``daemon-retiring``) — and a
+        # retiring daemon must not start a scan on its way out. Fire-and-forget by
+        # contract: ``start_session_warm`` schedules and returns, never raises, and is
+        # never awaited, so the engage below does not wait on a scan and a session
+        # whose index cannot be warmed still opens, paying the scan itself.
+        #
+        # WHAT IT IS WORTH, stated honestly: the desktop UI fires ``sessions.warm``
+        # on the FIRST KEYSTROKE while the manifest read on MOUNT already starts the
+        # same refresh (``checkpoints_view`` -> ``start_refresh``), so the index half
+        # usually JOINS a build that is already running. It is the anchor write the
+        # stacked anchor change adds here that is new work on every open.
+        start_session_warm(store_root(request), session_id)
         return reply({"state": await bridge.warm()})
 
 
@@ -4757,6 +4828,143 @@ async def interrupt(session_id: str, body: Interrupt, request: Request):
         )
 
 
+#: The job id a desktop cancel names, bounded the way the wire spells it
+#: (``desktop-contract``'s ``jobId``: 1..64 characters). Deliberately NOT
+#: patterned to the manager's 12-hex mint: ``AsyncJobManager.get`` also
+#: resolves historical attempt ALIASES, and the lookup — never a regex — is
+#: the one arbiter of whether an id names a job.
+JobId = Annotated[str, Path(min_length=1, max_length=64)]
+
+#: What a job cancel's refusal means, as an HTTP status. One table for every
+#: refusal this route can surface, so the same mistake can never mean two
+#: different statuses depending on which side raised it.
+_JOB_STATUS_FOR_CODE = {
+    # Our own payload could not be read — a protocol bug, not user input; the
+    # same client-error class the wake/monitor ladders reserve for it.
+    "jobs_invalid": 422,
+    # The roster does not know the id: the frozen ``not_found`` class.
+    "jobs_not_found": 404,
+    # The row exists but was not running — the press asked for a stop that
+    # cannot happen (it settled first, or a retried cancel arrived late).
+    "jobs_not_cancelled": 409,
+    # No manager attached — a session SHAPE, like the wake surface's
+    # "unavailable" arm, so 409 rather than a transport 503.
+    "jobs_unavailable": 409,
+    # No live runtime to ask, or no receipt from the one asked: nothing was
+    # cancelled and the client's move is to come back (the sibling routes' 503).
+    "jobs_owner_unavailable": 503,
+}
+
+
+@router.post(
+    "/v1/desktop/sessions/{session_id}/jobs/{job_id}/cancel",
+    response_model=CRUDResponse[JobCancelReceipt],
+)
+async def cancel_job(session_id: str, job_id: JobId, request: Request) -> Any:
+    """Cancel ONE background job on this conversation — the job rail's server half.
+
+    ``POST`` rather than the wake/monitor cancels' ``DELETE``, and the
+    difference is the resource's fate (the contract's own note): a cancelled
+    wake or monitor is GONE from its listing, while a cancelled job is a row
+    that stays and settles — the press is an action ON it, so the route is one
+    too.
+
+    WHO CANCELS. ``AsyncJobManager.cancel`` is the engine's one cancel call —
+    the same call ``jobs op='cancel'`` makes — and the manager lives in the
+    process that owns the session, so this route resolves the owner first and
+    DELEGATES through ``route_shared_slash("jobs", …)`` to
+    ``serving._jobs_slash`` inside that process (the wakes/monitors ladder's
+    shape, deliberately the same seam). Nothing here cancels anything itself,
+    and nothing here is a second mechanism: the runner's own cancellation
+    semantics — a video runner's bounded ``best_effort_cancel`` — apply
+    identically whoever asked.
+
+    THE PRESS IS AN ACKNOWLEDGEMENT, NOT AN OUTCOME (the honesty rule every
+    surface keeps): a 2xx says the manager received the cancel and signalled
+    the job; only the job's own settle paints ``cancelled``. A refusal is a
+    sentence the surface renders where it asked — the frozen ``not_found``
+    phrase for an unknown id (the engine authors it from its own wording map,
+    so no client has to substitute for it) and the engine's own "not
+    cancelled (status: …)" sentence for a row that settled first.
+
+    NO RECEIPT JOURNAL, the wake/monitor cancels' own reading: a retried
+    cancel about a job the first attempt already stopped answers an honest
+    refusal rather than a second side effect, so there is no duplicate a
+    journal would prevent — and the call site sends no request id for one to
+    claim on.
+    """
+    async with errors(request), host(request).session(session_id) as bridge:
+        assert bridge.remote is not None
+        return reply(await _cancel_job_on_owner(bridge, session_id, job_id))
+
+
+async def _cancel_job_on_owner(bridge: Any, session_id: str, job_id: str) -> dict[str, Any]:
+    """Ask the session's runtime to cancel one job, inside its own process.
+
+    The route never holds a manager: job state lives in the runtime's
+    ``AsyncJobManager``, and with no live owner there is nothing to reach (job
+    state does not persist outside a runtime the way wake/monitor state does,
+    so unlike those surfaces there is no cold path here — only an honest
+    refusal). A RECOVERING facade is not folded into "no owner": it is dialled
+    like a live one, and a dial that cannot be served is the ladder's 503
+    (``runtime_unreachable``) — the interrupt route's own distinction, one
+    rung over.
+    """
+    if not bridge.remote.owner_reachable and not bridge.remote.recovering:
+        raise _job_refusal(
+            503,
+            "jobs_owner_unavailable",
+            "The conversation has no live runtime, so the job cannot be cancelled.",
+            session_id=session_id,
+        )
+    payload = json.dumps({"op": "cancel", "job_id": job_id})
+    outcome = await bridge.remote.route_shared_slash("jobs", payload)
+    if not isinstance(outcome, Mapping):
+        # NOT a job refusal the runtime decided: the bridge answered nothing
+        # at all (no ack shape from the owner). Nothing was cancelled, and the
+        # client's move is to come back — the wake/monitor twins' 503 sentence
+        # for the same state.
+        raise _job_refusal(
+            503,
+            "jobs_owner_unavailable",
+            "The conversation's runtime answered nothing for this job.",
+            session_id=session_id,
+        )
+    if outcome.get("kind") == "error":
+        data = outcome.get("data") or {}
+        code = str(data.get("code") or "jobs_refused")
+        raise _job_refusal(
+            _JOB_STATUS_FOR_CODE.get(code, 409),
+            code,
+            str(outcome.get("text") or "The job was refused."),
+            session_id=session_id,
+        )
+    data = outcome.get("data") or {}
+    if not str(data.get("job_id") or ""):
+        # AN OWNER THAT DOES NOT KNOW THE WORD. An older build falls through
+        # the routed dispatch to its configuration notice — a non-error shape
+        # with no job id — and reporting THAT as a receipt would be a silently
+        # dead cancel with a 2xx (the class the wake/monitor routes exist to
+        # remove), so an answer without a job id is treated as "no receipt".
+        raise _job_refusal(
+            503,
+            "jobs_owner_unavailable",
+            "The conversation's runtime did not confirm the job cancel.",
+            session_id=session_id,
+        )
+    return {"job_id": str(data.get("job_id")), "cancelled": bool(data.get("cancelled"))}
+
+
+def _job_refusal(status: int, code: str, message: str, *, session_id: str = "") -> HTTPException:
+    """A job refusal, in the shape the wake and monitor surfaces' refusals use,
+    so the desktop client unwraps all three families with one reader. The
+    status is the caller's (the map's, or the ladder's own)."""
+    detail: dict[str, Any] = {"code": code, "message": message}
+    if session_id:
+        detail["session_id"] = session_id
+    return HTTPException(status, detail)
+
+
 @router.post(
     "/v1/desktop/sessions/{session_id}/working-directory",
     response_model=CRUDResponse[MoveReceipt],
@@ -4891,6 +5099,8 @@ async def events(
     after_seq: int = Query(default=0, ge=0),
     frontend_replace: int = Query(default=0, ge=0),
     entry_ts: int = Query(default=0, ge=0),
+    open_frame: int = Query(default=0, ge=0),
+    supplements: int = Query(default=0, ge=0),
 ):
     # Acquire BEFORE returning response headers: invalid identity/capacity must
     # return JSON status, not a misleading 200 followed by a broken SSE stream.
@@ -4908,7 +5118,16 @@ async def events(
             # and the move path then refuses rather than leaving that mounted
             # viewer stale. The flag is retained on the subscription so the
             # fence in ``subscribe`` can refuse a LEGACY mount during a move.
-            sub = bridge.subscribe(frontend_replace=bool(frontend_replace))
+            #
+            # ``supplements=1`` is the same kind of declaration for the
+            # ``supplements-v1`` family (memo §2.7): only a subscriber that
+            # sends it is handed ``supplement_progress`` frames -- live or from
+            # replay -- so an older renderer never meets the family. The rows
+            # themselves are journaled either way; this gates the live carriage,
+            # not the record.
+            sub = bridge.subscribe(
+                frontend_replace=bool(frontend_replace), supplements=bool(supplements)
+            )
         except LegacySubscriberDuringMove as error:
             await context.__aexit__(None, None, None)
             raise HTTPException(409, str(error)) from None
@@ -4961,7 +5180,13 @@ async def events(
             # silently skipped there. Closing it *inside* the ``try`` is the
             # load-bearing part: the outer ``finally`` below has not run yet.
             async with aclosing(
-                bridge.events(sub, epoch=epoch, after_seq=after_seq, entry_times=bool(entry_ts))
+                bridge.events(
+                    sub,
+                    epoch=epoch,
+                    after_seq=after_seq,
+                    entry_times=bool(entry_ts),
+                    open_frame=bool(open_frame),
+                )
             ) as frames:
                 try:
                     async for frame in frames:

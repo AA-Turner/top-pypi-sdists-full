@@ -19,7 +19,7 @@ XML_TEMPLATE_FULL = """\
 <note>
   <id>{id}</id>
   <label>{label}</label>
-  <folder_name>{folder_name}</folder_name>
+  <home>{home}</home>
   <content>
 {content}
   </content>
@@ -59,7 +59,7 @@ def render_note_snapshot_xml(data: dict[str, Any], template: str = DEFAULT_XML_T
     return tmpl.format(
         id=data.get("id") or "",
         label=data.get("label") or "",
-        folder_name=data.get("folder_name") or "",
+        home=data.get("home_name") or data.get("home") or "",
         content=content,
     )
 
@@ -88,7 +88,6 @@ _MUTABLE_FIELDS = frozenset(
     {
         "label",
         "content",
-        "folder_name",
         "tags",
         "metadata",
         "published_to_web",
@@ -282,7 +281,7 @@ class NotesManager(NotesBase):
         *,
         organization_id: str,
         content: str,
-        folder_name: str = "",
+        home_scope_id: str | None = None,
         tags: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
         is_public: bool = False,
@@ -295,8 +294,9 @@ class NotesManager(NotesBase):
         ``is_public`` affordance maps to ``published_to_web``, always written
         explicitly (never the table default).
 
-        ``organization_id`` is required — workbench.notes.organization_id is NOT
-        NULL and only a folder supplies one by trigger. The caller passes the
+        ``home_scope_id`` is optional: omitted, the database trigger homes the note in
+        its organization's General. ``organization_id`` is required — it is NOT NULL
+        and never defaulted here. The caller passes the
         organization its request carries (``ToolContext.organization_id``); it is
         never looked up or defaulted here.
         """
@@ -307,14 +307,15 @@ class NotesManager(NotesBase):
                 "error": "organization_id is required to create a note; none was carried.",
             }
         try:
+            home = {"home_scope_id": home_scope_id} if home_scope_id else {}
             note = await self.create_notes(
                 created_by=user_id,
                 organization_id=organization_id,
                 label=label,
                 content=content,
-                folder_name=folder_name,
                 tags=tags or [],
                 metadata=metadata or {},
+                **home,
                 **publish_columns(is_public, user_id),
             )
             return _ok(note)
@@ -393,9 +394,29 @@ class NotesManager(NotesBase):
         """Replace the tag list on a note."""
         return await self.update_note(note_id, tags=tags)
 
-    async def move_note_to_folder(self, note_id: str, folder_name: str) -> dict[str, Any]:
-        """Move a note to a different folder."""
-        return await self.update_note(note_id, folder_name=folder_name)
+    async def move_note_to_home(self, note_id: str, scope_id: str) -> dict[str, Any]:
+        """Move a note to another home (a scope) through ``platform.set_home`` as the caller.
+
+        The database moves the organization with the home; this never writes
+        ``organization_id`` or ``home_scope_id`` directly.
+        """
+        from matrx_ai.tools.implementations.note_homes import set_home
+
+        note = None
+        try:
+            note = await self._read_live(note_id)
+        except Exception as e:
+            return _err("move_note_to_home", note_id, e)
+        if note is None:
+            return _not_visible("move_note_to_home", note_id)
+        try:
+            moved = await set_home(note_id, scope_id, getattr(note, "version", None))
+        except Exception as e:
+            if any(marker in str(e) for marker in _RLS_REFUSAL_MARKERS):
+                return _no_write_access("move_note_to_home", note_id)
+            return _err("move_note_to_home", note_id, e)
+        fresh = await self._read_live(note_id)
+        return {"success": True, "note": fresh.to_dict() if fresh else note.to_dict(), "moved": moved}
 
     # ------------------------------------------------------------------
     # Patch (fuzzy find-and-replace inside content)
@@ -517,7 +538,7 @@ class NotesManager(NotesBase):
         return tmpl.format(
             id=note.id,
             label=note.label,
-            folder_name=getattr(note, "folder_name", ""),
+            home=getattr(note, "home_name", "") or "",
             content=content,
         )
 

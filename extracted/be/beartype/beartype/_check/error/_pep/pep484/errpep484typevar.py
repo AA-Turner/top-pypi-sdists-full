@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -16,12 +16,12 @@ This private submodule is *not* intended for importation by downstream callers.
 # from beartype.typing import Optional
 # from beartype._data.typing.datatypingport import Hint
 # from beartype._data.hint.sign.datahintsigns import HintSignTypeVar
-# from beartype._check.error.errcause import ViolationCause
+# from beartype._check.cls.hint.tree.hinttreeerror import HintTreeError
 # from beartype._util.hint.pep.proposal.pep484.pep484typevar import (
 #     get_hint_pep484_typevar_bounded_constraints_or_none)
 #
 # # ....................{ GETTERS                            }....................
-# def find_cause_pep484_typevar(cause: ViolationCause) -> ViolationCause:
+# def find_cause_pep484_typevar(cause: HintTreeError) -> HintTreeError:
 #     '''
 #     Output cause describing describing the failure of the decorated callable to
 #     *not* return a value in violation of the passed **type variable** (i.e.,
@@ -29,22 +29,22 @@ This private submodule is *not* intended for importation by downstream callers.
 #
 #     Parameters
 #     ----------
-#     cause : ViolationCause
+#     cause : HintTreeError
 #         Input cause providing this data.
 #
 #     Returns
 #     -------
-#     ViolationCause
+#     HintTreeError
 #         Output cause type-checking this data.
 #     '''
-#     assert isinstance(cause, ViolationCause), f'{repr(cause)} not cause.'
-#     assert cause.hint_sign is HintSignTypeVar, (
-#         f'{repr(cause.hint)} not "HintSignTypeVar".')
+#     assert isinstance(cause, HintTreeError), f'{repr(cause)} not cause.'
+#     assert cause.hint_curr.hint_sign is HintSignTypeVar, (
+#         f'{repr(cause.hint_curr_sanified)} not "HintSignTypeVar".')
 #
 #     # ....................{ LOCALS                         }....................
 #     # Hint mapped to by this type variable if one or more transitive parent
 #     # hints previously mapped this type variable to a hint *OR* "None".
-#     hint_child: Optional[Hint] = cause.typearg_to_hint.get(cause.hint)  # pyright: ignore
+#     hint_child: Optional[Hint] = cause.typearg_to_hint.get(cause.hint_curr_sanified)  # pyright: ignore
 #
 #     # ....................{ REDUCTION                      }....................
 #     # If *NO* transitive parent hints previously mapped this type variable to a
@@ -56,7 +56,7 @@ This private submodule is *not* intended for importation by downstream callers.
 #         # Note this call is intentionally passed positional rather positional
 #         # keywords due to memoization.
 #         hint_curr_bound = get_hint_pep484_typevar_bounded_constraints_or_none(
-#             cause.hint, cause.exception_prefix)  # type: ignore[arg-type]
+#             cause.hint_curr_sanified, cause.exception_prefix)  # type: ignore[arg-type]
 #
 #         # If this type variable was parametrized by one or more bounded
 #         # constraints, reduce this type variable to these bounded constraints.

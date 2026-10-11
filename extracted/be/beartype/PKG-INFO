@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: beartype
-Version: 0.22.9
+Version: 0.23.1
 Summary: Unbearably fast near-real-time pure-Python runtime-static type-checker.
 Project-URL: Docs, https://beartype.readthedocs.io
 Project-URL: GitHub, https://github.com/beartype/beartype
@@ -8,27 +8,7 @@ Project-URL: Forums, https://github.com/beartype/beartype/discussions
 Project-URL: Issues, https://github.com/beartype/beartype/issues
 Project-URL: Releases, https://github.com/beartype/beartype/releases
 Author-email: Cecil Curry <leycec@gmail.com>
-License: MIT License
-        
-        Copyright (c) 2014-2025 Beartype authors.
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
+License-Expression: MIT
 License-File: LICENSE
 Keywords: annotations,python,type checking,type hints
 Classifier: Development Status :: 5 - Production/Stable
@@ -48,19 +28,19 @@ Requires-Dist: autoapi>=0.9.0; extra == 'dev'
 Requires-Dist: celery; extra == 'dev'
 Requires-Dist: click; extra == 'dev'
 Requires-Dist: coverage>=5.5; extra == 'dev'
-Requires-Dist: docutils>=0.22.0; extra == 'dev'
+Requires-Dist: crosshair-tool; extra == 'dev'
 Requires-Dist: equinox; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'dev'
-Requires-Dist: fastmcp; (python_version < '3.14.0') and extra == 'dev'
+Requires-Dist: fastmcp>=4.0.0; (python_version < '3.16.0') and extra == 'dev'
 Requires-Dist: jax[cpu]; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'dev'
 Requires-Dist: jaxtyping; (sys_platform == 'linux') and extra == 'dev'
-Requires-Dist: langchain; (python_version < '3.14.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'dev'
+Requires-Dist: langchain; (python_version < '3.15.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'dev'
 Requires-Dist: mypy>=0.800; (platform_python_implementation != 'PyPy') and extra == 'dev'
-Requires-Dist: nuitka>=1.2.6; (sys_platform == 'linux' and python_version < '3.14.0') and extra == 'dev'
-Requires-Dist: numba; (python_version < '3.14.0') and extra == 'dev'
+Requires-Dist: nuitka>=1.2.6; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'dev'
+Requires-Dist: numba; (python_version < '3.15.0') and extra == 'dev'
 Requires-Dist: numpy; (python_version < '3.15.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'dev'
-Requires-Dist: pandera>=0.26.0; (python_version < '3.14.0') and extra == 'dev'
+Requires-Dist: pandera>=0.26.0; (python_version < '3.15.0') and extra == 'dev'
 Requires-Dist: poetry; extra == 'dev'
-Requires-Dist: polars; (python_version < '3.14.0') and extra == 'dev'
+Requires-Dist: polars; (python_version < '3.15.0') and extra == 'dev'
 Requires-Dist: pydata-sphinx-theme<=0.7.2; extra == 'dev'
 Requires-Dist: pygments; extra == 'dev'
 Requires-Dist: pyinstaller; extra == 'dev'
@@ -69,19 +49,18 @@ Requires-Dist: pytest>=6.2.0; extra == 'dev'
 Requires-Dist: redis; extra == 'dev'
 Requires-Dist: rich-click; extra == 'dev'
 Requires-Dist: setuptools; extra == 'dev'
-Requires-Dist: sphinx; extra == 'dev'
 Requires-Dist: sphinx<6.0.0,>=4.2.0; extra == 'dev'
 Requires-Dist: sphinxext-opengraph>=0.7.5; extra == 'dev'
-Requires-Dist: sqlalchemy; extra == 'dev'
-Requires-Dist: torch; (sys_platform == 'linux' and python_version < '3.14.0') and extra == 'dev'
+Requires-Dist: sqlalchemy[asyncio]; extra == 'dev'
+Requires-Dist: torch; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'dev'
 Requires-Dist: tox>=3.20.1; extra == 'dev'
 Requires-Dist: typer; extra == 'dev'
 Requires-Dist: typing-extensions>=3.10.0.0; extra == 'dev'
 Requires-Dist: xarray; (python_version < '3.15.0') and extra == 'dev'
 Provides-Extra: doc-ghp
-Requires-Dist: mkdocs-material[imaging]>=9.6.0; extra == 'doc-ghp'
-Requires-Dist: mkdocstrings-python-xref>=1.16.0; extra == 'doc-ghp'
-Requires-Dist: mkdocstrings-python>=1.16.0; extra == 'doc-ghp'
+Requires-Dist: mkdocstrings-python-xref>=2.1.1; extra == 'doc-ghp'
+Requires-Dist: mkdocstrings-python>=2.0.3; extra == 'doc-ghp'
+Requires-Dist: zensical>=0.0.43; extra == 'doc-ghp'
 Provides-Extra: doc-rtd
 Requires-Dist: autoapi>=0.9.0; extra == 'doc-rtd'
 Requires-Dist: pydata-sphinx-theme<=0.7.2; extra == 'doc-rtd'
@@ -92,28 +71,27 @@ Provides-Extra: test
 Requires-Dist: celery; extra == 'test'
 Requires-Dist: click; extra == 'test'
 Requires-Dist: coverage>=5.5; extra == 'test'
-Requires-Dist: docutils>=0.22.0; extra == 'test'
+Requires-Dist: crosshair-tool; extra == 'test'
 Requires-Dist: equinox; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'test'
-Requires-Dist: fastmcp; (python_version < '3.14.0') and extra == 'test'
+Requires-Dist: fastmcp>=4.0.0; (python_version < '3.16.0') and extra == 'test'
 Requires-Dist: jax[cpu]; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'test'
 Requires-Dist: jaxtyping; (sys_platform == 'linux') and extra == 'test'
-Requires-Dist: langchain; (python_version < '3.14.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'test'
+Requires-Dist: langchain; (python_version < '3.15.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'test'
 Requires-Dist: mypy>=0.800; (platform_python_implementation != 'PyPy') and extra == 'test'
-Requires-Dist: nuitka>=1.2.6; (sys_platform == 'linux' and python_version < '3.14.0') and extra == 'test'
-Requires-Dist: numba; (python_version < '3.14.0') and extra == 'test'
+Requires-Dist: nuitka>=1.2.6; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'test'
+Requires-Dist: numba; (python_version < '3.15.0') and extra == 'test'
 Requires-Dist: numpy; (python_version < '3.15.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'test'
-Requires-Dist: pandera>=0.26.0; (python_version < '3.14.0') and extra == 'test'
+Requires-Dist: pandera>=0.26.0; (python_version < '3.15.0') and extra == 'test'
 Requires-Dist: poetry; extra == 'test'
-Requires-Dist: polars; (python_version < '3.14.0') and extra == 'test'
+Requires-Dist: polars; (python_version < '3.15.0') and extra == 'test'
 Requires-Dist: pygments; extra == 'test'
 Requires-Dist: pyinstaller; extra == 'test'
 Requires-Dist: pyright>=1.1.370; extra == 'test'
 Requires-Dist: pytest>=6.2.0; extra == 'test'
 Requires-Dist: redis; extra == 'test'
 Requires-Dist: rich-click; extra == 'test'
-Requires-Dist: sphinx; extra == 'test'
-Requires-Dist: sqlalchemy; extra == 'test'
-Requires-Dist: torch; (sys_platform == 'linux' and python_version < '3.14.0') and extra == 'test'
+Requires-Dist: sqlalchemy[asyncio]; extra == 'test'
+Requires-Dist: torch; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'test'
 Requires-Dist: tox>=3.20.1; extra == 'test'
 Requires-Dist: typer; extra == 'test'
 Requires-Dist: typing-extensions>=3.10.0.0; extra == 'test'
@@ -121,28 +99,27 @@ Requires-Dist: xarray; (python_version < '3.15.0') and extra == 'test'
 Provides-Extra: test-tox
 Requires-Dist: celery; extra == 'test-tox'
 Requires-Dist: click; extra == 'test-tox'
-Requires-Dist: docutils>=0.22.0; extra == 'test-tox'
+Requires-Dist: crosshair-tool; extra == 'test-tox'
 Requires-Dist: equinox; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'test-tox'
-Requires-Dist: fastmcp; (python_version < '3.14.0') and extra == 'test-tox'
+Requires-Dist: fastmcp>=4.0.0; (python_version < '3.16.0') and extra == 'test-tox'
 Requires-Dist: jax[cpu]; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'test-tox'
 Requires-Dist: jaxtyping; (sys_platform == 'linux') and extra == 'test-tox'
-Requires-Dist: langchain; (python_version < '3.14.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'test-tox'
+Requires-Dist: langchain; (python_version < '3.15.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'test-tox'
 Requires-Dist: mypy>=0.800; (platform_python_implementation != 'PyPy') and extra == 'test-tox'
-Requires-Dist: nuitka>=1.2.6; (sys_platform == 'linux' and python_version < '3.14.0') and extra == 'test-tox'
-Requires-Dist: numba; (python_version < '3.14.0') and extra == 'test-tox'
+Requires-Dist: nuitka>=1.2.6; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'test-tox'
+Requires-Dist: numba; (python_version < '3.15.0') and extra == 'test-tox'
 Requires-Dist: numpy; (python_version < '3.15.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'test-tox'
-Requires-Dist: pandera>=0.26.0; (python_version < '3.14.0') and extra == 'test-tox'
+Requires-Dist: pandera>=0.26.0; (python_version < '3.15.0') and extra == 'test-tox'
 Requires-Dist: poetry; extra == 'test-tox'
-Requires-Dist: polars; (python_version < '3.14.0') and extra == 'test-tox'
+Requires-Dist: polars; (python_version < '3.15.0') and extra == 'test-tox'
 Requires-Dist: pygments; extra == 'test-tox'
 Requires-Dist: pyinstaller; extra == 'test-tox'
 Requires-Dist: pyright>=1.1.370; extra == 'test-tox'
 Requires-Dist: pytest>=6.2.0; extra == 'test-tox'
 Requires-Dist: redis; extra == 'test-tox'
 Requires-Dist: rich-click; extra == 'test-tox'
-Requires-Dist: sphinx; extra == 'test-tox'
-Requires-Dist: sqlalchemy; extra == 'test-tox'
-Requires-Dist: torch; (sys_platform == 'linux' and python_version < '3.14.0') and extra == 'test-tox'
+Requires-Dist: sqlalchemy[asyncio]; extra == 'test-tox'
+Requires-Dist: torch; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'test-tox'
 Requires-Dist: typer; extra == 'test-tox'
 Requires-Dist: typing-extensions>=3.10.0.0; extra == 'test-tox'
 Requires-Dist: xarray; (python_version < '3.15.0') and extra == 'test-tox'
@@ -151,7 +128,7 @@ Requires-Dist: coverage>=5.5; extra == 'test-tox-coverage'
 Description-Content-Type: text/x-rst
 
 .. # ------------------( LICENSE                             )------------------
-.. # Copyright (c) 2014-2025 Beartype authors.
+.. # Copyright (c) 2014-2026 Beartype authors.
 .. # See "LICENSE" for further details.
 .. #
 .. # ------------------( SEO                                 )------------------
@@ -377,7 +354,7 @@ developed Python versions <Python status_>`__, `all Python package managers
 .. # required above -- which should be most of them, frankly.
 
 .. # ------------------( IMAGES                              )------------------
-.. |beartype-banner| image:: https://raw.githubusercontent.com/beartype/beartype-assets/main/banner/logo.png
+.. |beartype-banner| image:: https://raw.githubusercontent.com/beartype/beartype-assets/main/banner/logo.svg
    :target: https://beartype.readthedocs.io
    :alt: beartype —[ the bare-metal type checker ]—
 .. |beartype-contributors| image:: https://contrib.rocks/image?repo=beartype/beartype

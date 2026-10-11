@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -18,14 +18,14 @@ This submodule unit tests the subset of the public API of the public
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 # ....................{ TESTS ~ testers                    }....................
-def test_door_is_subhint(
-    door_cases_is_subhint: 'Iterable[Tuple[object, object, bool]]') -> None:
+def test_door_is_subhint(door_cases_subhint: (
+    'collections.abc.Iterable[tuple[object, object, bool]]')) -> None:
     '''
     Test the :func:`beartype.door.is_subhint` tester.
 
     Parameters
     ----------
-    door_cases_is_subhint : Iterable[Tuple[object, object, bool]]
+    door_cases_subhint : Iterable[Tuple[object, object, bool]]
         Iterable of **type subhint cases** (i.e., 3-tuples ``(subhint,
         superhint, is_subhint)`` describing the subhint relations between two
         type hints).
@@ -35,6 +35,6 @@ def test_door_is_subhint(
     from beartype.door import is_subhint
 
     # For each type subhint case to be tested...
-    for subhint, superhint, IS_SUBHINT in door_cases_is_subhint:
+    for subhint, superhint, is_subhint_expect in door_cases_subhint:
         # Assert this tester returns the expected boolean for these hints.
-        assert is_subhint(subhint, superhint) is IS_SUBHINT
+        assert is_subhint(subhint, superhint) is is_subhint_expect

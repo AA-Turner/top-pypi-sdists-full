@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -38,11 +38,11 @@ def attach_func_locals(**kwargs) -> 'collections.abc.Callable':
     Parameters
     ----------
     This decorator forwards all passed keyword parameters as is to the
-    :func:`beartype._util.func.utilfuncscope.get_func_locals` getter.
+    :func:`beartype._util.func.utilfuncscope.find_func_locals_frame` getter.
     '''
 
     # Defer scope-specific imports for sanity.
-    from beartype._util.func.utilfuncscope import get_func_locals
+    from beartype._util.func.utilfuncscope import find_func_locals_frame
 
     def _attach_func_locals(func) -> 'collections.abc.Callable':
         '''
@@ -50,7 +50,11 @@ def attach_func_locals(**kwargs) -> 'collections.abc.Callable':
         '''
 
         # Attach the local scope of that parent callable to the passed callable.
-        func.func_locals = get_func_locals(func=func, **kwargs)
+        #
+        # Ignore the stack frame associated with that local scope. Storing
+        # strong references to stack frames is generally inadvisable. Even if we
+        # did so here, it's unclear how the caller would test this stack frame.
+        func.func_locals, _ = find_func_locals_frame(func=func, **kwargs)
 
         # Reduce to the identity decorator.
         return func
@@ -65,12 +69,14 @@ def when_in_the_springtime_of_the_year():
     '''
 
     # Defer scope-specific imports for sanity.
-    from beartype.typing import Union
+    from beartype._util.func.utilfuncframe import GET_FRAME_CALLER_PARENT
+    from typing import Union
 
     # Arbitrary PEP-compliant type hint localized to this parent callable.
     type_hint = Union[int, str]
 
-    @attach_func_locals(func_stack_frames_ignore=1)
+    # Ignore the call to this @attach_func_locals() decorator.
+    @attach_func_locals(ignore_frames=GET_FRAME_CALLER_PARENT)
     def when_the_trees_are_crowned_with_leaves() -> type_hint:
         '''
         Arbitrary nested callable annotated by a type hint localized to the
@@ -103,8 +109,9 @@ def long_past_their_woodland_days():
                 # Ignore both this nested "AmidstTheLanternLight" class and its
                 # parent "TheShadowsOfTheTreesAppear" class when searching for
                 # the closure lexical scope declaring the "type_hint" local.
-                func_scope_names_ignore=2,
-                func_stack_frames_ignore=1,
+                ignore_func_scope_names=2,
+                # Ignore the call to this @attach_func_locals() decorator.
+                ignore_frames=1,
             )
             def weve_been_rambling_all_the_night(self) -> type_hint:
                 '''
@@ -118,36 +125,6 @@ def long_past_their_woodland_days():
 
     # Return the root class of this class hierarchy.
     return TheShadowsOfTheTreesAppear
-
-# ....................{ TESTS ~ tester                     }....................
-def test_is_func_nested() -> None:
-    '''
-    Test the
-    :func:`beartype._util.func.utilfuncscope.is_func_nested` tester.
-    '''
-
-    # Defer test-specific imports.
-    from beartype._util.func.utilfunctest import is_func_nested
-
-    # Nested callable returned by the above callable.
-    when_the_ash_and_oak_and_the_birch_and_yew = (
-        when_in_the_springtime_of_the_year())
-
-    # Assert this tester accepts methods.
-    assert is_func_nested(
-        WhenOwlsCallTheBreathlessMoon.in_the_blue_veil_of_the_night) is True
-
-    # Assert this tester accepts nested callables.
-    # print(f'__nested__: {repr(when_the_ash_and_oak_and_the_birch_and_yew.__nested__)}')
-    assert is_func_nested(when_the_ash_and_oak_and_the_birch_and_yew) is True
-
-    # Assert this tester rejects non-nested parent callables declaring nested
-    # callables.
-    # print(f'__nested__: {repr(when_in_the_springtime_of_the_year.__nested__)}')
-    assert is_func_nested(when_in_the_springtime_of_the_year) is False
-
-    # Assert this tester rejects C-based builtins.
-    assert is_func_nested(iter) is False
 
 
 #FIXME: Unclear whether we'll ever require this, but preserved as is for now.
@@ -164,7 +141,7 @@ def test_is_func_nested() -> None:
 #
 #     # Arbitrary callable *NOT* decorated by @wraps.
 #     def the_journey_begins_with_curiosity() -> str:
-#         return 'And envolves into soul-felt questions'
+#         return 'And evolves into soul-felt questions'
 #
 #     # Arbitrary callable decorated by @wraps.
 #     @wraps(the_journey_begins_with_curiosity)
@@ -185,19 +162,59 @@ def test_is_func_nested() -> None:
 #         the_journey_begins_with_curiosity)
 
 # ....................{ TESTS ~ getter                     }....................
-def test_get_func_locals() -> None:
+def test_get_func_freevars() -> None:
     '''
     Test the
-    :func:`beartype._util.func.utilfuncscope.get_func_locals` getter.
+    :func:`beartype._util.func.utilfuncscope.get_func_freevars` getter.
     '''
 
     # ..................{ IMPORTS                            }..................
     # Defer test-specific imports.
     from beartype.roar._roarexc import _BeartypeUtilCallableException
-    from beartype.typing import Union
-    from beartype._util.func.utilfuncmake import make_func
-    from beartype._util.func.utilfuncscope import get_func_locals
+    from beartype._util.func.utilfuncscope import get_func_freevars
+    from beartype_test.a00_unit.data.data_type import (
+        closure_factory,
+        func_nested_nonclosure_factory,
+    )
     from pytest import raises
+
+    # ....................{ LOCALS                         }....................
+    # Closure created and returned by this factory.
+    func_closure = closure_factory()
+
+    # Nested non-closure callable created and returned by this factory.
+    func_nested_nonclosure = func_nested_nonclosure_factory()
+
+    # ....................{ PASS                           }....................
+    # Assert that this getter returns the expected closure scope associated with
+    # this closure.
+    assert get_func_freevars(func_closure) == {
+        'outer_freevar_one': "Diffus'd unseen throughout eternal space",
+        'outer_freevar_two': (
+            "Of these new-form'd art thou, oh brightest child!"),
+    }
+
+    # ..................{ FAIL                               }..................
+    # Assert that this getter raises the expected exception when passed a nested
+    # non-closure callable.
+    with raises(_BeartypeUtilCallableException):
+        get_func_freevars(func_nested_nonclosure)
+
+# ....................{ TESTS ~ finder                     }....................
+def test_find_func_locals_frame() -> None:
+    '''
+    Test the
+    :func:`beartype._util.func.utilfuncscope.find_func_locals_frame` finder.
+    '''
+
+    # ..................{ IMPORTS                            }..................
+    # Defer test-specific imports.
+    from beartype.roar._roarexc import _BeartypeUtilCallableException
+    from beartype._data.kind.datakindmap import FROZENDICT_EMPTY
+    from beartype._util.func.utilfuncmake import make_func
+    from beartype._util.func.utilfuncscope import find_func_locals_frame
+    from pytest import raises
+    from typing import Union
 
     # ..................{ CALLABLES                          }..................
     def and_summon_the_shadows_there():
@@ -223,17 +240,24 @@ def test_get_func_locals() -> None:
         '<locals>.who_will_go_down_to_the_shady_groves')
 
     # ..................{ PASS ~ noop                        }..................
+    # 2-tuple returned by this getter for callables lacking a local scope.
+    GET_FUNC_LOCALS_FRAME_NONE = (FROZENDICT_EMPTY, None)
+
     # Assert this getter returns the empty dictionary for callables dynamically
     # declared in-memory.
-    assert get_func_locals(when_the_ash_and_oak_and_the_birch_and_yew) == {}
+    assert find_func_locals_frame(
+        when_the_ash_and_oak_and_the_birch_and_yew) == (
+        GET_FUNC_LOCALS_FRAME_NONE)
 
     # Assert this getter returns the empty dictionary for unnested callables.
-    assert get_func_locals(when_in_the_springtime_of_the_year) == {}
+    assert find_func_locals_frame(when_in_the_springtime_of_the_year) == (
+        GET_FUNC_LOCALS_FRAME_NONE)
 
     # Assert this getter returns the empty dictionary for nested callables
     # ignoring *ALL* of their parent lexical scopes.
-    assert get_func_locals(
-        func=and_summon_the_shadows_there, func_scope_names_ignore=1) == {}
+    assert find_func_locals_frame(
+        func=and_summon_the_shadows_there, ignore_func_scope_names=1) == (
+        GET_FUNC_LOCALS_FRAME_NONE)
 
     # ..................{ PASS ~ callable                    }..................
     # Arbitrary nested callable declared by a module-scoped callable.
@@ -270,19 +294,19 @@ def test_get_func_locals() -> None:
     # Assert this getter raises the expected exception for nested callables
     # whose unqualified and fully-qualified names are desynchronized.
     with raises(_BeartypeUtilCallableException):
-        get_func_locals(are_dressed_in_ribbons_fair)
+        find_func_locals_frame(are_dressed_in_ribbons_fair)
 
     # Assert this getter raises the expected exception for nested callables
     # whose fully-qualified name is prefixed by "<locals>".
     with raises(_BeartypeUtilCallableException):
-        get_func_locals(who_will_go_down_to_the_shady_groves)
+        find_func_locals_frame(who_will_go_down_to_the_shady_groves)
 
     # Assert this getter raises the expected exception for nested callables
     # erroneously ignoring more parent lexical scopes than actually exist.
     with raises(_BeartypeUtilCallableException):
-        get_func_locals(
+        find_func_locals_frame(
             func=and_summon_the_shadows_there,
-            func_scope_names_ignore=2,
+            ignore_func_scope_names=2,
         )
 
 # ....................{ TESTS ~ adder                      }....................

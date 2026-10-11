@@ -122,7 +122,14 @@ import re
 import subprocess
 import sys
 
-from _gitbase import BaseUnreadableError, resolve_base, show_at
+from _c_source import strip_comments
+from _gitbase import (
+    BaseUnreadableError,
+    added_since_base,
+    resolve_base,
+    show_at,
+    show_at_base,
+)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TESTS = ROOT / "native" / "tests"
@@ -342,56 +349,6 @@ RNG_HOME = "dp_rng_test.h"
 #: Pre-existing private generators, one per line, each with a reason.
 #: A RATCHET: it may only shrink. See the file's own header.
 RNG_RATCHET = ROOT / "scripts" / ".private-rng-ratchet"
-
-
-def strip_comments(text: str) -> str:
-    """Blank out C comments, preserving line numbering.
-
-    Required, not tidiness: `dp_rng_test.h` documents the broken generator it
-    replaced by QUOTING it, and `test_costas_core.c` explains in prose what it
-    no longer does. A scanner that reads comments would fire on the
-    documentation of the very rule it enforces — the failure mode where
-    describing a detector's target blinds or trips the detector.
-
-    String- and char-literal aware, which the first version was not. A regex
-    split treats the `/*` inside `"a/*b"` as opening a comment and blanks
-    everything up to the next `*/` in any later literal — taking real code
-    with it and reporting zero violations for the span. A false NEGATIVE, in
-    a gate whose entire value is being absolute, triggered by a test gaining
-    a URL or a format string. Found by review, not by the sabotage battery,
-    which only ever fed it well-formed code.
-    """
-    out, i, n = [], 0, len(text)
-    while i < n:
-        c = text[i]
-        if c == '"' or c == "'":  # literal: copied out verbatim
-            quote, j = c, i + 1
-            while j < n:
-                if text[j] == "\\":
-                    j += 2
-                    continue
-                if text[j] == quote:
-                    j += 1
-                    break
-                if text[j] == "\n":  # unterminated; do not run away
-                    break
-                j += 1
-            out.append(text[i:j])
-            i = j
-        elif text.startswith("/*", i):
-            j = text.find("*/", i + 2)
-            j = n if j < 0 else j + 2
-            out.append("".join(ch if ch == "\n" else " " for ch in text[i:j]))
-            i = j
-        elif text.startswith("//", i):
-            j = text.find("\n", i)
-            j = n if j < 0 else j
-            out.append(" " * (j - i))
-            i = j
-        else:
-            out.append(c)
-            i += 1
-    return "".join(out)
 
 
 #: A draw call from `dp_rng_test.h`, with the state it advances.
@@ -809,6 +766,99 @@ def ratchet_added(path: pathlib.Path, base: str) -> list[str]:
     ]
 
 
+#: A RATCHET over a Python gate's list: src/doppler/tests/test_mutator_state.py
+#: judges each entry against the probe, and mutator_list_added() stops the
+#: list growing. The gate's own file is ``since`` for added_since_base.
+MUTATOR_LIST = ROOT / "scripts" / ".mutator-state-exempt"
+MUTATOR_GATE = "src/doppler/tests/test_mutator_state.py"
+
+
+def parse_mutator_list(text: str) -> list[tuple[str, str, str]]:
+    """`key verdict reason` lines of the mutator-state list, in file order.
+
+    The one reader of that file's format: the gate imports it, and so does
+    the growth check below. A list rather than a dict, so a key written
+    twice reaches the gate as two entries and is refused there, instead of
+    the second silently winning.
+    """
+    out: list[tuple[str, str, str]] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line and not line.startswith("#"):
+            key, *rest = line.split(None, 2)
+            verdict = rest[0] if rest else ""
+            out.append(
+                (key, verdict, rest[1].strip() if len(rest) > 1 else "")
+            )
+    return out
+
+
+#: Verdicts a listed key may not move INTO: each says a value is lost or
+#: cannot be judged, and relabelling an entry to one is forgiving a new
+#: failure by an edit. A key moving OUT of these two never ran a probe
+#: before, so where it lands is news, not growth.
+MUTATOR_FAILING = frozenset({"LOST", "NONDETERMINISTIC", "CRASHES"})
+MUTATOR_UNPROBED_BEFORE = frozenset({"NO_RECIPE", "C_ONLY"})
+
+
+def mutator_list_added(base: str) -> list[str]:
+    """What the mutator-state list GAINED since the merge base with `base`.
+
+    The gate's stale checks make the list shrink; this stops it growing,
+    so a PR that breaks a mutator cannot forgive it with an edit (#2085
+    review). An entry is its (key, verdict), so two things are growth: a
+    key the base did not hold, and a key that moved INTO a failing verdict
+    (`UNPROBED` -> `LOST` after a regression is round 1's blocker done by
+    relabelling). A move out of `NO_RECIPE` or `C_ONLY` is free: the probe
+    newly ran. Asked through _gitbase.added_since_base, the one ratchet
+    read: a list absent at the base holds nothing, unless the gate is new
+    too. A list absent at HEAD is an error, not an empty list, or moving it
+    would disarm this.
+    """
+
+    def pairs(text: str) -> list[tuple[str, str]]:
+        return [(k, v) for k, v, _ in parse_mutator_list(text)]
+
+    rel = MUTATOR_LIST.relative_to(ROOT).as_posix()
+    if not MUTATOR_LIST.exists():
+        raise LookupError(
+            f"{rel} is missing at HEAD; {MUTATOR_GATE} reads it from this "
+            "path (MUTATOR_LIST), so a ratchet over nothing has not passed."
+        )
+    try:
+        added = added_since_base(
+            ROOT,
+            base,
+            rel,
+            pairs(MUTATOR_LIST.read_text()),
+            pairs,
+            since=MUTATOR_GATE,
+        )
+        was = dict(pairs(show_at_base(ROOT, base, rel) or "")) if added else {}
+    except BaseUnreadableError:
+        raise LookupError(
+            f"base ref {base!r} does not resolve.\n"
+            "  A ratchet that cannot read its baseline has not passed."
+        ) from None
+    bad = []
+    for key, verdict in sorted(set(added)):
+        before = was.get(key)
+        if before is None:
+            bad.append(
+                f"{rel}: '{key}' ADDED -- the list may only shrink; make "
+                "the blob carry the value instead of forgiving it"
+            )
+        elif (
+            verdict in MUTATOR_FAILING
+            and before not in MUTATOR_UNPROBED_BEFORE
+        ):
+            bad.append(
+                f"{rel}: '{key}' moved {before} -> {verdict} -- a move into "
+                "a failing verdict is growth; fix the cause"
+            )
+    return bad
+
+
 IGNORE = TESTS / ".assertion-ratchet-ignore"
 
 # What counts as an assertion, on either side of the migration. Both sets are
@@ -1139,6 +1189,7 @@ def main() -> int:
         added = (
             ratchet_added(STATE_RATCHET, base)
             + ratchet_added(CHUNK_RATCHET, base)
+            + mutator_list_added(base)
             if base
             else []
         )

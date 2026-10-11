@@ -10,7 +10,8 @@ import logging
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
-from typing import Any, Literal
+from functools import partial
+from typing import Any, Literal, NoReturn
 
 from confiture.core.ddl_objects import DDLObject, pair_definitions
 from confiture.core.ddl_walk import (
@@ -67,6 +68,7 @@ from confiture.core.schema_model import (
     Index,
     ObjectRef,
     Provenance,
+    RelationKind,
     RelationName,
     Routine,
     SchemaModel,
@@ -79,6 +81,7 @@ from confiture.core.schema_model import (
     parity_routine,
     parity_tview,
     parity_view,
+    ref_for,
 )
 from confiture.core.schema_read import SchemaRead, read_text
 from confiture.core.sql_utils import comment_text
@@ -180,7 +183,9 @@ class Side:
     the ``CREATE`` a migration writes. ``warnings`` is what the read has to say
     that is not a change: two definitions of one object, resolved the way
     ``confiture build`` resolves them (#313). ``quoted`` lists every name that
-    needs quotes, which :meth:`SchemaDiffer.compare_sides` refuses.
+    needs quotes, which :meth:`SchemaDiffer.compare_sides` refuses. ``dangling``
+    holds each index written on a relation the tree had not declared when it ran
+    (``SchemaRead.dangling_indexes``, #679); a database holds none.
     """
 
     model: SchemaModel = field(default_factory=SchemaModel)
@@ -188,6 +193,7 @@ class Side:
     warnings: list[BuildWarning] = field(default_factory=list)
     quoted: list[QuotedName] = field(default_factory=list)
     constants: ConstantSpellings = AS_WRITTEN
+    dangling: Mapping[ObjectRef, tuple[Index, ...]] = field(default_factory=dict)
 
     @classmethod
     def of(cls, read: SchemaRead, *, held: bool = False) -> Side:
@@ -198,7 +204,9 @@ class Side:
         side a database is compared with.
         """
         model = read.catalogued if held else read.model
-        return cls(model, read.declared.objects, read.warnings, read.quoted)
+        return cls(
+            model, read.declared.objects, read.warnings, read.quoted, dangling=read.dangling_indexes
+        )
 
     @property
     def tables(self) -> list[Table]:
@@ -290,6 +298,95 @@ def _identity(schema: str | None, name: str) -> tuple[str, str]:
     return (schema or DEFAULT_SCHEMA).lower(), name
 
 
+def _declares(model: SchemaModel, ref: ObjectRef) -> bool:
+    """Whether *model* declares the relation *ref* keys: a table, a materialized view or a TVIEW."""
+    return (
+        ref in model.tables
+        or ref_for("matview", ref.schema, ref.name) in model.views
+        or ref_for("tview", ref.schema, ref.name) in model.tviews
+    )
+
+
+def undeclared(side: Side) -> dict[ObjectRef, tuple[Index, ...]]:
+    """The indexes *side* writes on a relation it never declares: someone else's table (#679)."""
+    return {ref: found for ref, found in side.dangling.items() if not _declares(side.model, ref)}
+
+
+def misordered(side: Side) -> dict[ObjectRef, tuple[Index, ...]]:
+    """The indexes *side* writes before the relation it declares them on: the build fails at each."""
+    return {ref: found for ref, found in side.dangling.items() if _declares(side.model, ref)}
+
+
+def refuse_undeclared_relations(old: Side, new: Side) -> None:
+    """Refuse a desired state that indexes a relation it cannot have (``DIFFER_406``, #679).
+
+    A desired state is whole: a relation it does not declare is one the
+    migration drops. An index it writes on a relation the current side
+    declares therefore contradicts it — the migration would drop the table and
+    index it. Against a database, an index on a relation the database does
+    not hold could not be created either. Only between two trees, neither of
+    which declares the relation, is the index carried (``DIFFER_405``). An
+    index written before the relation the desired state declares is one its
+    build fails at.
+
+    Raises:
+        DifferError: ``DIFFER_406``, naming the first such index and its relation.
+    """
+    for ref in sorted(misordered(new), key=_object_sort_key):
+        _refuse(
+            new.dangling[ref][0],
+            "the desired schema declares it only after the index, so its build fails there",
+        )
+    for ref, found in sorted(undeclared(new).items(), key=lambda item: _object_sort_key(item[0])):
+        if _declares(old.model, ref):
+            reason = "the current schema declares it, so the migration would drop it"
+        elif old.model.source != "author":
+            reason = "the database does not hold it, so the migration could not create the index"
+        else:
+            continue
+        _refuse(found[0], f"the desired schema does not declare it, and {reason}")
+
+
+def _refuse(index: Index, reason: str) -> NoReturn:
+    raise DifferError(
+        f"Index {comment_text(index.name or ', '.join(index.columns))} is on "
+        f"{comment_text(index.table.qualified)}: {reason}",
+        error_code="DIFFER_406",
+        resolution_hint=(
+            "Declare the relation in the desired schema, before the index — compose the "
+            "fragment into the environment's include_dirs, after the file that creates it — "
+            "or remove the index"
+        ),
+    )
+
+
+def _misordered_warnings(side: Side) -> list[BuildWarning]:
+    """``DIFFER_408``: an index the current tree writes before its relation, not compared.
+
+    A committed ref cannot be reordered, so it is said rather than refused.
+    """
+    return [
+        BuildWarning.of(
+            "DIFFER_408",
+            index=index.name or ", ".join(index.columns),
+            table=index.table.qualified,
+        )
+        for ref in sorted(misordered(side), key=_object_sort_key)
+        for index in side.dangling[ref]
+    ]
+
+
+def _assumed(change: SchemaChange) -> BuildWarning:
+    """``DIFFER_405``: an index the migration carries onto a table neither tree declares."""
+    assert isinstance(change, IndexAdded | IndexDropped)
+    return BuildWarning.of(
+        "DIFFER_405",
+        index=change.index.name or ", ".join(change.index.columns),
+        table=change.table.qualified,
+        action="creates" if isinstance(change, IndexAdded) else "drops",
+    )
+
+
 def _merged_warnings(old_schema: Side, new_schema: Side) -> list[BuildWarning]:
     """Both sides' parse warnings, each said once.
 
@@ -338,6 +435,20 @@ def _content_identity(obj: Any, fields: tuple[str, ...]) -> tuple[Any, ...]:
             for value in (getattr(obj, field) for field in fields)
         ),
     )
+
+
+def _named_as(after: Any, before: Any) -> Any:
+    """*after*, rebuilt in *before*'s place: an unnamed index takes the name it replaces.
+
+    An index the tree leaves unnamed is paired by what it says with the one the
+    database named; rebuilt, it must be created again, and an unnamed index
+    cannot be written (``differ_sql._unnamed``) — dropped and never re-created
+    would be worse than left as it was. A constraint keeps no name it was not
+    given: PostgreSQL names it as it would the author's own.
+    """
+    if isinstance(after, Index) and after.name is None and before.name:
+        return replace(after, name=before.name)
+    return after
 
 
 def _pair_by_content(
@@ -389,10 +500,13 @@ def _rebuilt(old: Index, new: Index) -> bool:
 
     Its keys, uniqueness, ``NULLS NOT DISTINCT`` and predicate, each as the policy's
     rules leave it: under the structural tier an expression key or a predicate is
-    only *one exists*. No statement changes ``NULLS NOT DISTINCT`` in place.
+    only *one exists*. No statement changes ``NULLS NOT DISTINCT`` in place. An index
+    a failed concurrent build left INVALID on one side only is rebuilt too.
     """
     rebuilt = _fields_differ(("columns", "unique", "nulls_not_distinct", "where"))
-    return _built_otherwise(old, new) or rebuilt(old, new)
+    # An INVALID index enforces and serves nothing, and `CREATE … IF NOT EXISTS`
+    # skips it: the one remedy is to drop it and build it again (#689).
+    return old.valid != new.valid or _built_otherwise(old, new) or rebuilt(old, new)
 
 
 def _names(indexes: Iterable[Index]) -> frozenset[str]:
@@ -521,12 +635,43 @@ def _redefined(
             return False
         return parity_routine(old_routine, rules) != parity_routine(new_routine, rules)
     if section == "views":
-        return parity_view(old.views[ref], rules) != parity_view(new.views[ref], rules)
+        # A matview's indexes are compared as a table's are, not as its definition.
+        old_view, new_view = (
+            replace(old.views[ref], indexes=()),
+            replace(new.views[ref], indexes=()),
+        )
+        return parity_view(old_view, rules) != parity_view(new_view, rules)
     if section == "tviews":
         return _tview_redefined(old.tviews[ref], new.tviews[ref], policy)
     if section == "other_objects" and old.coverage.shared(new.coverage, section) == "definition":
         return before.definition != after.definition
     return False
+
+
+def _matview_indexes(model: SchemaModel, ref: ObjectRef) -> tuple[Index, ...]:
+    """The indexes a materialized view is created with: none backs a constraint.
+
+    A side may hold a matview's statement and no model entry for it (a slot side
+    compares one slot of a view alone), and then it carries none.
+    """
+    found = getattr(model.views.get(ref), "indexes", ())
+    return tuple(index for index in found if not index.backs_constraint)
+
+
+def _with_indexes(change: SchemaChange, old: SchemaModel, new: SchemaModel) -> SchemaChange:
+    """*change*, carrying the indexes of the materialized view it adds, drops or redefines."""
+    if not isinstance(change, ObjectAdded | ObjectDropped | ObjectReplaced):
+        return change
+    ref = change.ref
+    if ref.kind != "matview":
+        return change
+    if isinstance(change, ObjectAdded):
+        return replace(change, indexes=_matview_indexes(new, ref))
+    if isinstance(change, ObjectDropped):
+        return replace(change, indexes=_matview_indexes(old, ref))
+    return replace(
+        change, old_indexes=_matview_indexes(old, ref), new_indexes=_matview_indexes(new, ref)
+    )
 
 
 def _tview_redefined(old: TView, new: TView, policy: ComparisonPolicy) -> bool:
@@ -608,10 +753,13 @@ class SchemaDiffer:
                 sources call for (:func:`policy_between`).
 
         Raises:
-            DifferError: ``DIFFER_403`` when either side names an object that needs quotes.
+            DifferError: ``DIFFER_403`` when either side names an object that needs quotes;
+                ``DIFFER_406`` when *new* indexes a relation it does not declare and
+                *old* declares, or, as a database, does not hold.
         """
         refuse_quoted_names("old", old.quoted)
         refuse_quoted_names("new", new.quoted)
+        refuse_undeclared_relations(old, new)
         if policy is None:
             policy = policy_between(old.model.source, new.model.source)
         if policy.rules and old.model.source != new.model.source:
@@ -620,12 +768,24 @@ class SchemaDiffer:
             policy = replace(policy, constants=policy.constants | old.constants | new.constants)
 
         changes = self._compare_tables(old.tables, new.tables, policy)
+        unattached = self._compare_unattached_indexes(old, new)
+        changes.extend(unattached)
         changes.extend(self._compare_enum_types(old.enum_types, new.enum_types))
         changes.extend(self._compare_sequences(old.sequences, new.sequences))
         # Objects compared by definition: views, routines and the rest (#288).
         objects, unwritable = self._compare_objects(old, new, policy)
-        changes.extend(objects)
-        return SchemaDiff(changes=changes, warnings=[*_merged_warnings(old, new), *unwritable])
+        changes.extend(_with_indexes(change, old.model, new.model) for change in objects)
+        whole = {c.ref for c in objects if c.ref.kind == "matview"}
+        changes.extend(self._compare_matview_indexes(old.model, new.model, policy, whole))
+        return SchemaDiff(
+            changes=changes,
+            warnings=[
+                *_merged_warnings(old, new),
+                *_misordered_warnings(old),
+                *unwritable,
+                *map(_assumed, unattached),
+            ],
+        )
 
     # ------------------------------------------------------------------
     # Table comparison
@@ -678,7 +838,9 @@ class SchemaDiffer:
         """What changed inside one table: columns, indexes and every constraint kind."""
         return [
             *self._compare_table_columns(old_table, new_table, policy),
-            *self._compare_indexes(old_table, new_table, policy),
+            *self._compare_indexes(
+                old_table.indexes, new_table.indexes, old_table.relation, policy
+            ),
             *self._compare_foreign_keys(old_table, new_table, policy),
             *self._compare_check_constraints(old_table, new_table, policy),
             *self._compare_unique_constraints(old_table, new_table, policy),
@@ -896,27 +1058,85 @@ class SchemaDiffer:
     # ------------------------------------------------------------------
 
     def _compare_indexes(
-        self, old_table: Table, new_table: Table, policy: ComparisonPolicy
+        self,
+        old_indexes: tuple[Index, ...],
+        new_indexes: tuple[Index, ...],
+        relation: RelationName,
+        policy: ComparisonPolicy,
+        relation_kind: RelationKind = "table",
+        *,
+        table_declared: bool = True,
     ) -> list[SchemaChange]:
-        """Detect added / dropped indexes.
+        """Added, dropped and rebuilt indexes on one relation: the one index comparison.
 
         The variant carries the ``Index`` itself, not its name under a key two
         modules have to spell alike: a generator that misses the key takes its
         fallback and creates ``idx_{table}`` instead of the index the author
-        declared.
+        declared. *relation_kind* names what the relation is, and
+        *table_declared* is false for a table neither tree declares (#679).
         """
+        kind = {"relation_kind": relation_kind, "table_declared": table_declared}
         return self._compare_named_objects(
             author=policy.author,
-            old=parity_indexes(old_table.indexes, policy.rules, _names(new_table.indexes)),
-            new=parity_indexes(new_table.indexes, policy.rules, _names(old_table.indexes)),
-            added=IndexAdded,
-            dropped=IndexDropped,
-            table=old_table.relation,
+            old=parity_indexes(old_indexes, policy.rules, _names(new_indexes)),
+            new=parity_indexes(new_indexes, policy.rules, _names(old_indexes)),
+            added=partial(IndexAdded, **kind),
+            dropped=partial(IndexDropped, **kind),
+            table=relation,
             # The access method is part of what an index *is*: a btree and a hash
             # index on one column are two indexes.
             identity=("columns", "unique", "method"),
             differs=_rebuilt,
         )
+
+    def _compare_unattached_indexes(self, old: Side, new: Side) -> list[SchemaChange]:
+        """Indexes on a table neither tree declares (#679), compared as a table's are.
+
+        Only between two trees: a database holds every index on a table it has.
+        A table one side declares is that side's whole — added or dropped with
+        the indexes it holds — so the other side's indexes on it add nothing.
+        """
+        if not old.model.source == new.model.source == "author":
+            return []
+        before_all, after_all = undeclared(old), undeclared(new)
+        changes: list[SchemaChange] = []
+        for ref in sorted(before_all.keys() | after_all.keys(), key=_object_sort_key):
+            if any(_declares(side.model, ref) for side in (old, new)):
+                continue
+            before, after = before_all.get(ref, ()), after_all.get(ref, ())
+            relation = (after or before)[0].table
+            changes.extend(
+                self._compare_indexes(before, after, relation, AUTHOR, table_declared=False)
+            )
+        return changes
+
+    def _compare_matview_indexes(
+        self,
+        old: SchemaModel,
+        new: SchemaModel,
+        policy: ComparisonPolicy,
+        whole: set[ObjectRef],
+    ) -> list[SchemaChange]:
+        """The indexes of each materialized view both sides hold, compared as a table's are.
+
+        A matview added, dropped or redefined is in *whole*: its change carries its
+        indexes, which are created with it, so none of them is a change of its own.
+        A side that did not read views says nothing about a matview's indexes.
+        """
+        if not old.coverage.shared(new.coverage, "views"):
+            return []
+        changes: list[SchemaChange] = []
+        for ref in sorted(old.views.keys() & new.views.keys(), key=_object_sort_key):
+            before, after = old.views[ref], new.views[ref]
+            if ref in whole or not (before.materialized and after.materialized):
+                continue
+            relation = RelationName(before.schema, before.name)
+            changes.extend(
+                self._compare_indexes(
+                    before.indexes, after.indexes, relation, policy, relation_kind="matview"
+                )
+            )
+        return changes
 
     @staticmethod
     def _constraints(table: Table, kind: str, policy: ComparisonPolicy) -> list[tuple[Any, Any]]:
@@ -1119,7 +1339,7 @@ class SchemaDiffer:
             ):
                 if differs is not None and differs(before_seen, after_seen):
                     changes.append(dropped(table, before))
-                    changes.append(added(table, after))
+                    changes.append(added(table, _named_as(after, before)))
 
         return changes
 

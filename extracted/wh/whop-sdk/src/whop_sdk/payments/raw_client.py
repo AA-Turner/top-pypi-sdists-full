@@ -22,8 +22,8 @@ from ..errors.unauthorized_error import UnauthorizedError
 from ..types.payment import Payment
 from ..types.payment_input_line_items_item import PaymentInputLineItemsItem
 from ..types.payment_input_plan import PaymentInputPlan
+from ..types.payment_pdf import PaymentPdf
 from ..types.payment_status import PaymentStatus
-from ..types.v1error_response import V1ErrorResponse
 from .types.create_payments_request_payment_method import CreatePaymentsRequestPaymentMethod
 from .types.create_payments_request_shipping_address import CreatePaymentsRequestShippingAddress
 from .types.list_fees_payments_response import ListFeesPaymentsResponse
@@ -302,7 +302,7 @@ class RawPaymentsClient:
             The stored payment method to charge, prefixed `payt_`. It must belong to the member. Required unless `confirmation_token` is provided.
 
         quote_id : typing.Optional[str]
-            A payment quote from `POST /payment_quotes`, prefixed `pq_`. The payment charges exactly the quote: its purchase (its variants and quantities, or the `plan` it priced), which this body may then omit, its promo code, and its tax, the quote's `tax_amount` rather than a figure calculated now. Omit it, or send null, to have tax calculated when the payment is charged. The quote must belong to `account_id`. A purchase field you omit or send as null takes the quote's value; the buyer's email, the addresses and the payment method are this request's own, never the quote's. Whatever you do send must describe the quoted purchase: the same variants, quantities and promo code. A quote that priced `plan` takes only the same `plan` you sent to `POST /payment_quotes` (or omit the purchase to take the quoted one), never `plan_id` or `line_items`, and a quote that priced variants by id never takes `plan`. Unless the quote located no buyer (`located_by` is null), the address the payment carries (its shipping address, else its billing address) must put the buyer where the quote priced tax, by country, state and postal code; otherwise the payment is refused with 400 before the payment method is used. A quote located by IP address (`located_by` is `ip_address`) is a preview and cannot be paid. A quote is consumed by one payment: a declined payment keeps it and can be retried; a new payment needs a new quote. A quote cannot be charged through PayPal; such a payment is refused before the payment method is used. A quote priced in a `presentment_currency` is charged in that currency at the quote's `exchange_rate`. A payment refused over its quote carries an error `code`. `quote_expired`: the quote has expired; quote again. `quote_tax_unavailable`: the quote could not price tax; quote again, or omit `quote_id`. `quote_preview_only`: the quote was located by IP address; quote again with the buyer's address. `quote_in_use` (409): another payment holds the quote. `quote_mismatch`: the purchase or the buyer's address is not the one quoted. `quote_rate_expired`: the exchange rate the quote was priced at has moved too far to charge; quote again. `payment_method_currency_unsupported`: the payment method cannot pay in the quote's currency; use another method, or quote again in another currency. `quote_processor_unsupported`: the payment method cannot pay a quote, as with PayPal; use another method, or omit `quote_id` to have tax calculated when the payment is charged.
+            A payment quote from `POST /payment_quotes`, prefixed `pq_`. The payment charges exactly the quote: its purchase (its variants and quantities, or the `plan` it priced), which this body may then omit, its promo code, and its tax, the quote's `tax_amount` rather than a figure calculated now. Omit it, or send null, to have tax calculated when the payment is charged. The quote must belong to `account_id`. A purchase field you omit or send as null takes the quote's value; the buyer's email, the addresses and the payment method are this request's own, never the quote's. Whatever you do send must describe the quoted purchase: the same variants, quantities and promo code. A quote that priced `plan` takes only the same `plan` you sent to `POST /payment_quotes` (or omit the purchase to take the quoted one), never `plan_id` or `line_items`, and a quote that priced variants by id never takes `plan`. Unless the quote located no buyer (`located_by` is null), the address the payment carries (its shipping address, else its billing address) must put the buyer where the quote priced tax, by country, state and postal code; otherwise the payment is refused with 400 before the payment method is used. A quote located by IP address or by the country the buyer chose (`located_by` is `ip_address` or `presentment_country`) is a preview and cannot be paid. A quote is consumed by one payment: a declined payment keeps it and can be retried; a new payment needs a new quote. A quote cannot be charged through PayPal; such a payment is refused before the payment method is used. A quote priced in a `presentment_currency` is charged in that currency at the quote's `exchange_rate`. A payment refused over its quote carries an error `code`. `quote_expired`: the quote has expired; quote again. `quote_tax_unavailable`: the quote could not price tax; quote again, or omit `quote_id`. `quote_preview_only`: the quote was located by IP address or by the country the buyer chose; quote again with the buyer's address. `quote_in_use` (409): another payment holds the quote. `quote_mismatch`: the purchase or the buyer's address is not the one quoted. `quote_rate_expired`: the exchange rate the quote was priced at has moved too far to charge; quote again. `payment_method_currency_unsupported`: the payment method cannot pay in the quote's currency; use another method, or quote again in another currency. `quote_processor_unsupported`: the payment method cannot pay a quote, as with PayPal; use another method, or omit `quote_id` to have tax calculated when the payment is charged.
 
         return_url : typing.Optional[str]
             Where the buyer continues after completing an off-site step such as 3D Secure. An absolute https URL without credentials, at most 2,048 characters. Required when a saved payment method is charged with `off_session` false; otherwise ignored unless `confirmation_token` is provided.
@@ -439,9 +439,9 @@ class RawPaymentsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -713,9 +713,9 @@ class RawPaymentsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -777,6 +777,94 @@ class RawPaymentsClient:
                 )
             if _response.status_code == 404:
                 raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def generate_pdf(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[PaymentPdf]:
+        """
+        Generates the payment's receipt (invoice) as a PDF and returns a short-lived link to download it. Each call generates a new file and link, so this endpoint does not replay `Idempotency-Key` responses.
+
+        Parameters
+        ----------
+        id : str
+            The payment whose receipt to generate, prefixed `pay_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[PaymentPdf]
+            receipt PDF generated
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"payments/{encode_path_param(id)}/generate_pdf",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    PaymentPdf,
+                    parse_obj_as(
+                        type_=PaymentPdf,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -892,9 +980,9 @@ class RawPaymentsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -967,9 +1055,9 @@ class RawPaymentsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1042,9 +1130,9 @@ class RawPaymentsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1141,9 +1229,9 @@ class RawPaymentsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1576,7 +1664,7 @@ class AsyncRawPaymentsClient:
             The stored payment method to charge, prefixed `payt_`. It must belong to the member. Required unless `confirmation_token` is provided.
 
         quote_id : typing.Optional[str]
-            A payment quote from `POST /payment_quotes`, prefixed `pq_`. The payment charges exactly the quote: its purchase (its variants and quantities, or the `plan` it priced), which this body may then omit, its promo code, and its tax, the quote's `tax_amount` rather than a figure calculated now. Omit it, or send null, to have tax calculated when the payment is charged. The quote must belong to `account_id`. A purchase field you omit or send as null takes the quote's value; the buyer's email, the addresses and the payment method are this request's own, never the quote's. Whatever you do send must describe the quoted purchase: the same variants, quantities and promo code. A quote that priced `plan` takes only the same `plan` you sent to `POST /payment_quotes` (or omit the purchase to take the quoted one), never `plan_id` or `line_items`, and a quote that priced variants by id never takes `plan`. Unless the quote located no buyer (`located_by` is null), the address the payment carries (its shipping address, else its billing address) must put the buyer where the quote priced tax, by country, state and postal code; otherwise the payment is refused with 400 before the payment method is used. A quote located by IP address (`located_by` is `ip_address`) is a preview and cannot be paid. A quote is consumed by one payment: a declined payment keeps it and can be retried; a new payment needs a new quote. A quote cannot be charged through PayPal; such a payment is refused before the payment method is used. A quote priced in a `presentment_currency` is charged in that currency at the quote's `exchange_rate`. A payment refused over its quote carries an error `code`. `quote_expired`: the quote has expired; quote again. `quote_tax_unavailable`: the quote could not price tax; quote again, or omit `quote_id`. `quote_preview_only`: the quote was located by IP address; quote again with the buyer's address. `quote_in_use` (409): another payment holds the quote. `quote_mismatch`: the purchase or the buyer's address is not the one quoted. `quote_rate_expired`: the exchange rate the quote was priced at has moved too far to charge; quote again. `payment_method_currency_unsupported`: the payment method cannot pay in the quote's currency; use another method, or quote again in another currency. `quote_processor_unsupported`: the payment method cannot pay a quote, as with PayPal; use another method, or omit `quote_id` to have tax calculated when the payment is charged.
+            A payment quote from `POST /payment_quotes`, prefixed `pq_`. The payment charges exactly the quote: its purchase (its variants and quantities, or the `plan` it priced), which this body may then omit, its promo code, and its tax, the quote's `tax_amount` rather than a figure calculated now. Omit it, or send null, to have tax calculated when the payment is charged. The quote must belong to `account_id`. A purchase field you omit or send as null takes the quote's value; the buyer's email, the addresses and the payment method are this request's own, never the quote's. Whatever you do send must describe the quoted purchase: the same variants, quantities and promo code. A quote that priced `plan` takes only the same `plan` you sent to `POST /payment_quotes` (or omit the purchase to take the quoted one), never `plan_id` or `line_items`, and a quote that priced variants by id never takes `plan`. Unless the quote located no buyer (`located_by` is null), the address the payment carries (its shipping address, else its billing address) must put the buyer where the quote priced tax, by country, state and postal code; otherwise the payment is refused with 400 before the payment method is used. A quote located by IP address or by the country the buyer chose (`located_by` is `ip_address` or `presentment_country`) is a preview and cannot be paid. A quote is consumed by one payment: a declined payment keeps it and can be retried; a new payment needs a new quote. A quote cannot be charged through PayPal; such a payment is refused before the payment method is used. A quote priced in a `presentment_currency` is charged in that currency at the quote's `exchange_rate`. A payment refused over its quote carries an error `code`. `quote_expired`: the quote has expired; quote again. `quote_tax_unavailable`: the quote could not price tax; quote again, or omit `quote_id`. `quote_preview_only`: the quote was located by IP address or by the country the buyer chose; quote again with the buyer's address. `quote_in_use` (409): another payment holds the quote. `quote_mismatch`: the purchase or the buyer's address is not the one quoted. `quote_rate_expired`: the exchange rate the quote was priced at has moved too far to charge; quote again. `payment_method_currency_unsupported`: the payment method cannot pay in the quote's currency; use another method, or quote again in another currency. `quote_processor_unsupported`: the payment method cannot pay a quote, as with PayPal; use another method, or omit `quote_id` to have tax calculated when the payment is charged.
 
         return_url : typing.Optional[str]
             Where the buyer continues after completing an off-site step such as 3D Secure. An absolute https URL without credentials, at most 2,048 characters. Required when a saved payment method is charged with `off_session` false; otherwise ignored unless `confirmation_token` is provided.
@@ -1713,9 +1801,9 @@ class AsyncRawPaymentsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1989,9 +2077,9 @@ class AsyncRawPaymentsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -2053,6 +2141,94 @@ class AsyncRawPaymentsClient:
                 )
             if _response.status_code == 404:
                 raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def generate_pdf(
+        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[PaymentPdf]:
+        """
+        Generates the payment's receipt (invoice) as a PDF and returns a short-lived link to download it. Each call generates a new file and link, so this endpoint does not replay `Idempotency-Key` responses.
+
+        Parameters
+        ----------
+        id : str
+            The payment whose receipt to generate, prefixed `pay_`.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[PaymentPdf]
+            receipt PDF generated
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"payments/{encode_path_param(id)}/generate_pdf",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    PaymentPdf,
+                    parse_obj_as(
+                        type_=PaymentPdf,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -2168,9 +2344,9 @@ class AsyncRawPaymentsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -2245,9 +2421,9 @@ class AsyncRawPaymentsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -2322,9 +2498,9 @@ class AsyncRawPaymentsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -2421,9 +2597,9 @@ class AsyncRawPaymentsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

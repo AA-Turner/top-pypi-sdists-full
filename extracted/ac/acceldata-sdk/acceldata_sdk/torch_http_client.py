@@ -1,12 +1,14 @@
 import json
 import logging
+import ssl
 import time
 import warnings
 from abc import ABC
 from dataclasses import asdict
-from typing import List
+from typing import List, Union
 
 import requests
+from requests.adapters import HTTPAdapter
 from acceldata_sdk.client import TorchClientInterFace
 from acceldata_sdk.common import Executor
 from acceldata_sdk.constants import AssetSourceType, SdkSupportedVersions, TorchBuildVersion
@@ -41,9 +43,19 @@ catalog_api_path = "/catalog-server/api"
 pipeline_api_path = "/torch-pipeline/api"
 admin_api_path = "/admin/api"
 
-import urllib3
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+class _SSLContextAdapter(HTTPAdapter):
+    """Requests adapter that uses a caller-supplied SSLContext."""
+
+    def __init__(self, ssl_context, **kwargs):
+        self._ssl_context = ssl_context
+        super(_SSLContextAdapter, self).__init__(**kwargs)
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs["ssl_context"] = self._ssl_context
+        return super(_SSLContextAdapter, self).init_poolmanager(
+            connections, maxsize, block, **pool_kwargs
+        )
 
 
 class TorchHttpClient(TorchClientInterFace, ABC):
@@ -54,7 +66,8 @@ class TorchHttpClient(TorchClientInterFace, ABC):
 
     # Create torch client by passing secret and access keys of catalog server for a given url
     def __init__(self, url, torch_connection_timeout_ms=TORCH_CONNECTION_TIMEOUT_MS, access_key: str = None,
-                 secret_key: str = None, torch_read_timeout_ms=TORCH_READ_TIMEOUT_MS):
+                 secret_key: str = None, torch_read_timeout_ms=TORCH_READ_TIMEOUT_MS,
+                 verify_ssl: Union[bool, str, ssl.SSLContext] = True):
         """
             Description : Torch client is used to send data to catalog server.
 
@@ -64,12 +77,22 @@ class TorchHttpClient(TorchClientInterFace, ABC):
             :param access_key: (String) Access key of API key. You can generate API key from torch ui's setting
             :param secret_key: (String) Secret key of API key.
             :param torch_read_timeout_ms: (int) Maximum time (in milliseconds) to wait for a response from the ADOC server after a successful connection. Default: 15000 ms.
+            :param verify_ssl: TLS certificate check passed to Requests. ``True`` (default) uses the
+                        default CA bundle. A string is a PEM CA bundle path for a private enterprise CA.
+                        An ``ssl.SSLContext`` is used as-is. ``False`` turns verification off and should
+                        not be used against an untrusted network.
 
             : TorchClient = TorchClient(url='https://torch.acceldata.local:5443', access_key='OY2VVIN2N6LJ', secret_key='da6bDBimQfXSMsyyhlPVJJfk7Zc2gs')
         """
+        if not isinstance(verify_ssl, (bool, str, ssl.SSLContext)):
+            raise TypeError(
+                "verify_ssl must be True, False, a CA bundle path, or an ssl.SSLContext."
+            )
         self.logger.debug(f'timeout_ms {torch_connection_timeout_ms}')
         self._torch_connection_timeout = torch_connection_timeout_ms / 1000
         self._torch_read_timeout = torch_read_timeout_ms / 1000
+        self._verify_ssl = verify_ssl
+        self._ssl_context_session = None
         self._catalog_api_base = f"{url}{catalog_api_path}"
         self._pipeline_api_base = f"{url}{pipeline_api_path}"
         is_onprem = url.endswith('/torch')
@@ -1117,16 +1140,29 @@ class TorchHttpClient(TorchClientInterFace, ABC):
     def now_ms():
         return int(round(time.time() * 1000))
 
-    def _post(self, url, payload=None, as_json=True):
-        now_ms = self.now_ms()
+    def _session_for_ssl_context(self):
+        if self._ssl_context_session is None:
+            session = requests.Session()
+            session.mount("https://", _SSLContextAdapter(self._verify_ssl))
+            self._ssl_context_session = session
+        return self._ssl_context_session
+
+    def _send(self, method, url, **kwargs):
+        """Send one HTTP request with the client's TLS verification setting."""
         if _HEADERS['accessKey'] is None:
             _HEADERS['accessKey'] = self.access_key
         if _HEADERS['secretKey'] is None:
             _HEADERS['secretKey'] = self.secret_key
-        response = requests.post(
-            url=url, headers=_HEADERS, json=payload, timeout=(self._torch_connection_timeout, self._torch_read_timeout),
-            verify=False
-        )
+        kwargs.setdefault("headers", _HEADERS)
+        kwargs["timeout"] = (self._torch_connection_timeout, self._torch_read_timeout)
+        if isinstance(self._verify_ssl, ssl.SSLContext):
+            return self._session_for_ssl_context().request(method=method, url=url, **kwargs)
+        kwargs["verify"] = self._verify_ssl
+        return requests.request(method=method, url=url, **kwargs)
+
+    def _post(self, url, payload=None, as_json=True):
+        now_ms = self.now_ms()
+        response = self._send("post", url, json=payload)
         self.logger.info(
             f" POST {url} "
             f"payload={json.dumps(payload)} "
@@ -1137,14 +1173,7 @@ class TorchHttpClient(TorchClientInterFace, ABC):
 
     def _put(self, url, payload=None, as_json=True):
         now_ms = self.now_ms()
-        if _HEADERS['accessKey'] is None:
-            _HEADERS['accessKey'] = self.access_key
-        if _HEADERS['secretKey'] is None:
-            _HEADERS['secretKey'] = self.secret_key
-        response = requests.put(
-            url=url, headers=_HEADERS, json=payload, timeout=(self._torch_connection_timeout, self._torch_read_timeout),
-            verify=False
-        )
+        response = self._send("put", url, json=payload)
         self.logger.info(
             f" PUT {url} "
             f"payload={json.dumps(payload)} "
@@ -1155,14 +1184,7 @@ class TorchHttpClient(TorchClientInterFace, ABC):
 
     def _get(self, url, params=None, as_json=True):
         now_ms = self.now_ms()
-        if _HEADERS['accessKey'] is None:
-            _HEADERS['accessKey'] = self.access_key
-        if _HEADERS['secretKey'] is None:
-            _HEADERS['secretKey'] = self.secret_key
-        response = requests.get(
-            url=url, params=params, headers=_HEADERS,
-            timeout=(self._torch_connection_timeout, self._torch_read_timeout), verify=False
-        )
+        response = self._send("get", url, params=params)
         self.logger.info(
             f" GET {url} "
             f"duration_ms={self.now_ms() - now_ms}"
@@ -1172,20 +1194,12 @@ class TorchHttpClient(TorchClientInterFace, ABC):
 
     def _post_form_data(self, url, payload=None, as_json=True):
         now_ms = self.now_ms()
-        if _HEADERS['accessKey'] is None:
-            _HEADERS['accessKey'] = self.access_key
-        if _HEADERS['secretKey'] is None:
-            _HEADERS['secretKey'] = self.secret_key
-
         params = {
             'request': json.dumps(payload)
         }
         data = MultipartEncoder(fields=params)
         _HEADERS['Content-Type'] = data.content_type
-        response = requests.post(
-            url=url, headers=_HEADERS, data=data, timeout=(self._torch_connection_timeout, self._torch_read_timeout),
-            verify=False
-        )
+        response = self._send("post", url, data=data)
         self.logger.info(
             f" POST {url} "
             f"payload={json.dumps(payload)} "
@@ -1196,20 +1210,12 @@ class TorchHttpClient(TorchClientInterFace, ABC):
 
     def _put_form_data(self, url, payload=None, as_json=True):
         now_ms = self.now_ms()
-        if _HEADERS['accessKey'] is None:
-            _HEADERS['accessKey'] = self.access_key
-        if _HEADERS['secretKey'] is None:
-            _HEADERS['secretKey'] = self.secret_key
-
         params = {
             'request': json.dumps(payload)
         }
         data = MultipartEncoder(fields=params)
         _HEADERS['Content-Type'] = data.content_type
-        response = requests.put(
-            url=url, headers=_HEADERS, data=data, timeout=(self._torch_connection_timeout, self._torch_read_timeout),
-            verify=False
-        )
+        response = self._send("put", url, data=data)
         self.logger.info(
             f" POSPUTT {url} "
             f"payload={json.dumps(payload)} "
@@ -1220,14 +1226,7 @@ class TorchHttpClient(TorchClientInterFace, ABC):
 
     def _delete(self, url, params=None, as_json=True):
         now_ms = self.now_ms()
-        if _HEADERS['accessKey'] is None:
-            _HEADERS['accessKey'] = self.access_key
-        if _HEADERS['secretKey'] is None:
-            _HEADERS['secretKey'] = self.secret_key
-        response = requests.delete(
-            url=url, params=params, headers=_HEADERS,
-            timeout=(self._torch_connection_timeout, self._torch_read_timeout), verify=False
-        )
+        response = self._send("delete", url, params=params)
         self.logger.info(
             f" DELETE {url} "
             f"duration_ms={self.now_ms() - now_ms}"

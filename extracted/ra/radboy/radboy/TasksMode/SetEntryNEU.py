@@ -663,6 +663,53 @@ class NEUSetter:
         except Exception as e:
             print(e)
 
+    def display_entry(self):
+        try:
+            while True:
+                try:
+                    if self.code in [None,]:
+                        barcode=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"[Entry.Tax[Decimal]&&CRV] {Fore.light_green}Barcode|{Fore.turquoise_4}Code|{Fore.light_magenta}Name{Fore.light_yellow}:",helpText="what are you looking for?",data="string")
+                        if barcode in ['d',None]:
+                            return
+                    else:
+                        barcode=self.code
+                    with Session(ENGINE) as session:
+                        query=session.query(Entry).filter(or_(
+                            Entry.Barcode==barcode,
+                            Entry.Code==barcode,
+                            Entry.Barcode.icontains(barcode),
+                            Entry.Code.icontains(barcode),
+                            Entry.Name.icontains(barcode)
+                            ))
+                        results=query.all()
+                        ct=len(results)
+                        if ct == 0:
+                            print("Nothing Found")
+                            if self.code in [None,]:
+                                continue
+                            else:
+                                return
+
+                        for num,entry in enumerate(results):
+                            msg=f'{Fore.light_green}{num}/{Fore.light_yellow}{num+1} of {Fore.light_red}{ct} -> {entry.seeShort()}'
+                            print(msg)
+                        which=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"[Entry.Tax[Decimal]&&CRV] which {Fore.light_green}index{Fore.light_yellow}?: ",helpText=f"{Fore.light_steel_blue}which index {Fore.light_yellow}number in light yellow{Style.reset}",data="integer")
+                        if which in [None,]:
+                            if not self.code:
+                                continue
+                            else:
+                                break
+                        elif which in ['d',]:
+                            which=0
+                        selected=results[which]
+                        
+                        print(selected)
+                        break
+                except Exception as ee:
+                    print(ee)
+        except Exception as e:
+            print(e)
+            
     def rm_DoNotTotal(self):
         try:
             while True:

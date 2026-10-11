@@ -37,7 +37,6 @@ from .adapter import (
     fp_or_f_obj_or_stream_to_stream,
 )
 from .coordinate import generate_coordinate_grid
-from .deprecation import deprecation_notice
 from .egress import (
     appearance_streams_handler,
     rebuild_acroform_fields,
@@ -109,8 +108,6 @@ class PdfWrapper:
                 - `use_full_widget_name` (bool): Whether to use the full widget name when filling the form.
                 - `need_appearances` (bool): Whether to set the `NeedAppearances` flag in the PDF's AcroForm dictionary.
                 - `generate_appearance_streams` (bool): Whether to explicitly generate appearance streams for all form fields using pikepdf.
-                - `preserve_metadata` (bool): Deprecated compatibility attribute;
-                  input PDF metadata is preserved automatically.
                 - `title` (str | None): The title stored in the PDF's document
                   metadata. A non-None value replaces the existing title; None
                   preserves it.
@@ -121,7 +118,6 @@ class PdfWrapper:
         ("use_full_widget_name", False),
         ("need_appearances", False),
         ("generate_appearance_streams", False),
-        ("preserve_metadata", False),
         ("title", None),
     ]
 
@@ -137,9 +133,7 @@ class PdfWrapper:
         The template is normalized to bytes and existing widgets are loaded immediately.
         The title and document-open JavaScript remain in the PDF stream and are read
         lazily when their properties are accessed. A non-None `title` keyword updates
-        the title in the PDF stream; None leaves the template's title unchanged. The
-        deprecated `preserve_metadata` keyword is accepted for backward compatibility
-        and emits a deprecation warning. Enabling
+        the title in the PDF stream; None leaves the template's title unchanged. Enabling
         `generate_appearance_streams` also enables `need_appearances`.
 
         Args:
@@ -167,10 +161,6 @@ class PdfWrapper:
 
         # sets attrs from kwargs
         for attr, default in self.USER_PARAMS:
-            if attr == "preserve_metadata" and attr in kwargs:
-                deprecation_notice("", "preserve_metadata").emit_notice(
-                    self, "__init__"
-                )
             setattr(self, attr, kwargs.get(attr, default))
 
         if getattr(self, "generate_appearance_streams") is True:
@@ -677,17 +667,11 @@ class PdfWrapper:
                 Values can be strings, booleans, integers, file-like objects, or bytes.
             **kwargs: Additional keyword arguments:
                 - `readonly` (bool): Whether to make form fields read-only when filling (default: False).
-                - `flatten` (bool): Deprecated alias for `readonly` (default: False).
-                  Emits a deprecation warning when True. Fields become read-only
-                  if either option is True; False does not make existing read-only fields editable.
+                  False does not make existing read-only fields editable.
 
         Returns:
             PdfWrapper: The `PdfWrapper` object, allowing for method chaining.
         """
-
-        flatten = kwargs.get("flatten", False)
-        if flatten:
-            deprecation_notice("fill.readonly", "flatten").emit_notice(self, "fill")
 
         for key, value in data.items():
             if key in self.widgets:
@@ -698,7 +682,7 @@ class PdfWrapper:
             self.widgets,
             need_appearances=getattr(self, "need_appearances"),
             use_full_widget_name=getattr(self, "use_full_widget_name"),
-            readonly=kwargs.get("readonly", False) or flatten,
+            readonly=kwargs.get("readonly", False),
         )
 
         if image_drawn_stream is not None:

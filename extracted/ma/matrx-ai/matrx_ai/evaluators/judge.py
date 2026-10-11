@@ -296,6 +296,21 @@ def _assert_rubric_isolation(contract: JudgeContract, *subjects: JudgeSubject | 
             )
 
 
+def _why_no_parsed_output(res: Any) -> str:
+    """The run's own reason for having no parsed output — refused/failed vs. unparseable."""
+    if not getattr(res, "success", True):
+        kind = getattr(res, "error_kind", None) or "unknown"
+        error = str(getattr(res, "error", None) or "").strip() or "(the run named no error)"
+        return f"the mandated agent run did not succeed ({kind}): {error}"
+    parse_error = str(getattr(res, "parse_error", None) or "").strip()
+    if parse_error:
+        return f"the mandated agent's answer did not parse: {parse_error}"
+    output = str(getattr(res, "output", "") or "")
+    if not output.strip():
+        return "the mandated agent run succeeded but returned no answer text"
+    return f"the mandated agent returned no parsed output (answer began: {output[:200]!r})"
+
+
 def _verdict_model(contract: JudgeContract) -> type[JudgeAssessment]:
     """A per-contract strict model whose `verdict` is the contract's enumeration.
 
@@ -585,7 +600,10 @@ class Judge:
         )
         parsed = res.parsed
         if parsed is None:
-            raise JudgeError(f"judge {contract.key!r}: mandated agent returned no parsed output")
+            # Name WHY: a run that never ran (refused, failed) and a run whose answer did not
+            # parse are different defects. "no parsed output" alone hid a protected-account
+            # refusal behind a parse-shaped message (2026-10-11, mandate.candidate).
+            raise JudgeError(f"judge {contract.key!r}: {_why_no_parsed_output(res)}")
         raw = parsed.model_dump() if isinstance(parsed, BaseModel) else dict(parsed)
         value = str(raw.get("verdict") or "").strip()
         if value not in contract.verdict_values:

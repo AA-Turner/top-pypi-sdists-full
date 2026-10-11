@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 #
 # --------------------( SYNOPSIS                           )--------------------
@@ -94,11 +94,12 @@ from beartype.meta import (
     URL_REPO,
     URL_REPO_ORG_NAME,
     URL_REPO_BASENAME,
+    URL_ZULIP,
     VERSION,
 )
-from beartype.typing import Optional
 from beartype._util.module.utilmodimport import import_module_attr
 from beartype._util.module.utilmodtest import is_module
+from typing import Optional
 # from warnings import warn
 
 # ....................{ PRIVATE ~ path : more              }....................
@@ -166,8 +167,7 @@ rst_prolog = '''
 
    💗 **Upbear us** at `GitHub Sponsors`_ and `SonarQube Advanced Security
    (Tidelift) <SonarQube Advanced Security_>`__. **Follow us** `on Bluesky
-   <beartype Bluesky_>`__.
-
+   <beartype Bluesky_>`__. **Friendzone us** `at Zulip <beartype Zulip_>`__.
    Your generous support is our quality assurance. 💗
 '''
 
@@ -486,15 +486,15 @@ intersphinx_mapping = {
 # 'sphinx.ext.napoleon'-specific settings. See also:
 #     https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html
 
-# Force Napolean to *ONLY* parse docstrings in the NumPy format used by this
-# project. By default, Napolean attempts and often fails to permissively parse
+# Force Napoleon to *ONLY* parse docstrings in the NumPy format used by this
+# project. By default, Napoleon attempts and often fails to permissively parse
 # docstrings in both Google and NumPy formats.
 napoleon_numpy_docstring = True
 napoleon_google_docstring = False
 
 # List of the names of all non-standard section headers (i.e., headers *NOT*
 # already supported out-of-the-box by Napoleon) embedded in docstrings
-# throughout this project. By default, Napolean silently ignores *ALL* content
+# throughout this project. By default, Napoleon silently ignores *ALL* content
 # in non-standard section headers.
 #
 # See also:
@@ -590,6 +590,13 @@ html_theme_options = {
     #   * "fa-regular" -> "far".
     #   * "fa-solid" -> "fas".
     'icon_links': [
+        {
+            'name': 'Zulip',
+            'url': URL_ZULIP,
+            #FIXME: Does Zulip even have a FontAwesome icon? Probably... not.
+            # 'icon': 'fab fa-zulip',
+            'icon': 'fas fa-comments',  # <-- whatevahs!
+        },
         {
             'name': 'Bluesky',
             'url': URL_BLUESKY,

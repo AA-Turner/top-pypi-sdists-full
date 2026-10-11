@@ -34,10 +34,13 @@ False
 from __future__ import annotations
 
 import subprocess
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
     from pathlib import Path
+
+T = TypeVar("T")
 
 
 class BaseUnreadableError(Exception):
@@ -124,3 +127,44 @@ def show_at_base(root: Path, ref: str, rel: str) -> str | None:
         See :func:`resolve_base`.
     """
     return show_at(root, resolve_base(root, ref), rel)
+
+
+def added_since_base(
+    root: Path,
+    ref: str,
+    rel: str,
+    entries: Iterable[T],
+    parse: Callable[[str], Iterable[T]],
+    *,
+    since: str,
+) -> list[T]:
+    """The ``entries`` a shrink-only list has GAINED since the merge base.
+
+    The ratchet question, answered once: which of ``entries`` (the list as
+    it is now) did ``rel`` not hold at the merge base with ``ref``?
+    ``parse`` turns the file's text into its entries.
+
+    **Absent at the base means EMPTY.** A list that is missing at the base,
+    whether deleted, renamed or never committed, has held nothing, so every
+    entry is added. Reading "absent" as "new, skip the check" turned the
+    ratchet off for any branch that moved the list (#1976 review).
+
+    The one exception is the change that introduces the ratchet itself:
+    the gate's own file (``since``) AND the list are both absent at the
+    base, so there is no baseline yet and nothing counts as added. That
+    lets the PR that brings a gate also bring its first list. Both, not
+    the gate alone: otherwise renaming the gate (``git mv``, then point
+    ``since`` at the new name) would make its file "absent at the base"
+    and switch the ratchet off for a list that is right there.
+
+    Raises
+    ------
+    BaseUnreadableError
+        See :func:`resolve_base`. A ratchet that cannot read its baseline
+        has not been checked, so callers fail closed.
+    """
+    then = show_at_base(root, ref, rel)
+    if then is None and show_at_base(root, ref, since) is None:
+        return []
+    before = set(parse(then)) if then is not None else set()
+    return [e for e in entries if e not in before]

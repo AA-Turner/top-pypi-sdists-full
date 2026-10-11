@@ -1,4 +1,13 @@
+# Copyright 2023 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
 """Utility classes for PyAthena SQLAlchemy dialect."""
+
+from pyathena.util import override
 
 
 def _split_type_arguments(value: str) -> list[str]:
@@ -41,5 +50,6 @@ class _HashableDict(dict):  # type: ignore[type-arg]
     making them hashable through tuple conversion.
     """
 
-    def __hash__(self):  # type: ignore[override]
+    @override
+    def __hash__(self):
         return hash(tuple(sorted(self.items())))

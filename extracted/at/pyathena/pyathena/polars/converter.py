@@ -1,18 +1,34 @@
+# Copyright 2019 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""Type converters for Polars cursor results."""
+
 from __future__ import annotations
 
 import logging
 from collections.abc import Callable
 from copy import deepcopy
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pyathena.converter import (
+    _TIMESTAMP_TEXT_LENGTHS,
     Converter,
     _to_binary,
     _to_date,
+    _to_datetime_with_tz,
     _to_default,
     _to_json,
     _to_time,
+    _to_time_with_tz,
 )
+from pyathena.util import override
+
+if TYPE_CHECKING:
+    import polars as pl
 
 _logger = logging.getLogger(__name__)
 
@@ -20,9 +36,43 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_POLARS_CONVERTERS: dict[str, Callable[[str | None], Any | None]] = {
     "date": _to_date,
     "time": _to_time,
+    "time with time zone": _to_time_with_tz,
+    "timestamp with time zone": _to_datetime_with_tz,
     "varbinary": _to_binary,
     "json": _to_json,
 }
+
+
+def _to_datetimes(df: pl.DataFrame, dtypes: dict[str, Any]) -> pl.DataFrame:
+    """Convert timestamp text columns to Datetime dtypes, truncating finer fractions.
+
+    Athena writes up to 12 fractional digits, which Polars does not parse into a
+    Datetime whose time unit holds fewer.
+
+    Args:
+        df: The DataFrame with the timestamp text columns, with NULL as null or as
+            an empty string.
+        dtypes: The Datetime dtypes keyed by column name.
+
+    Returns:
+        The DataFrame with the columns converted.
+    """
+    import polars as pl
+
+    exprs = []
+    for name, dtype in dtypes.items():
+        if name not in df.columns:
+            # Not read, such as a column that the read options leave out.
+            continue
+        time_unit = (dtype() if isinstance(dtype, type) else dtype).time_unit
+        text = pl.col(name)
+        exprs.append(
+            pl.when(text != "")
+            .then(text.str.slice(0, _TIMESTAMP_TEXT_LENGTHS[time_unit]))
+            .str.to_datetime("%Y-%m-%d %H:%M:%S%.f", time_unit=time_unit)
+            .cast(dtype)
+        )
+    return df.with_columns(exprs) if exprs else df
 
 
 class DefaultPolarsTypeConverter(Converter):
@@ -32,10 +82,11 @@ class DefaultPolarsTypeConverter(Converter):
     optimized type conversion for Polars DataFrames.
 
     The converter focuses on:
-        - Converting date/time types to appropriate Python objects
-        - Handling decimal and binary types
-        - Preserving JSON and complex types
-        - Maintaining high performance for columnar operations
+        - Mapping Athena types to Polars dtypes when reading CSV results,
+          including ``decimal`` as ``pl.Decimal(precision, scale)``
+        - Converting date, time, and varbinary values, and parsing JSON values,
+          in rows returned by fetchone(), fetchmany(), and fetchall()
+        - Keeping array, map, and row values as strings
 
     Example:
         >>> from pyathena.polars.converter import DefaultPolarsTypeConverter
@@ -51,6 +102,7 @@ class DefaultPolarsTypeConverter(Converter):
     """
 
     def __init__(self) -> None:
+        """Initialize the converter with the default Polars conversion functions and dtypes."""
         super().__init__(
             mappings=deepcopy(_DEFAULT_POLARS_CONVERTERS),
             default=_to_default,
@@ -77,6 +129,8 @@ class DefaultPolarsTypeConverter(Converter):
                 "timestamp": pl.Datetime,
                 "date": pl.Date,
                 "time": pl.String,
+                "time with time zone": pl.String,
+                "timestamp with time zone": pl.String,
                 "varbinary": pl.String,
                 "array": pl.String,
                 "map": pl.String,
@@ -86,6 +140,7 @@ class DefaultPolarsTypeConverter(Converter):
             }
         return self.__dtypes
 
+    @override
     def get_dtype(self, type_: str, precision: int = 0, scale: int = 0) -> Any:
         """Get the Polars data type for a given Athena type.
 
@@ -103,6 +158,7 @@ class DefaultPolarsTypeConverter(Converter):
             return pl.Decimal(precision=precision, scale=scale)
         return self._types.get(type_)
 
+    @override
     def convert(self, type_: str, value: str | None, type_hint: str | None = None) -> Any | None:
         converter = self.get(type_)
         return converter(value)
@@ -122,11 +178,13 @@ class DefaultPolarsUnloadTypeConverter(Converter):
     """
 
     def __init__(self) -> None:
+        """Initialize the converter with no type mappings."""
         super().__init__(
             mappings={},
             default=_to_default,
         )
 
+    @override
     def convert(self, type_: str, value: str | None, type_hint: str | None = None) -> Any | None:
         converter = self.get(type_)
         return converter(value)

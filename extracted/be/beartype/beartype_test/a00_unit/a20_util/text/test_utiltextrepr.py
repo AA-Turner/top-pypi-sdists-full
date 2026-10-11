@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -95,7 +95,7 @@ def test_represent_func() -> None:
     # ....................{ IMPORTS                        }....................
     # Defer test-specific imports.
     from beartype._util.text.utiltextrepr import represent_func
-    from beartype._util.utilobject import get_object_basename_scoped
+    from beartype._util.utilobjget import get_object_basename_scoped
     from beartype_test.a00_unit.data.data_type import (
         function,
         function_lambda,

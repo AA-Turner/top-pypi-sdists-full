@@ -1,3 +1,12 @@
+# Copyright 2017 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""Result set that reads Athena CSV query results through an fsspec filesystem."""
+
 from __future__ import annotations
 
 import logging
@@ -11,13 +20,13 @@ from pyathena.error import OperationalError, ProgrammingError
 from pyathena.filesystem.s3 import S3FileSystem
 from pyathena.model import AthenaQueryExecution
 from pyathena.result_set import AthenaResultSet
-from pyathena.s3fs.reader import AthenaCSVReader, DefaultCSVReader
-from pyathena.util import RetryConfig, parse_output_location
+from pyathena.s3fs.reader import AthenaCSVReader, CSVReader
+from pyathena.util import RetryConfig, override, parse_output_location
 
 if TYPE_CHECKING:
     from pyathena.connection import Connection
 
-CSVReaderType = type[DefaultCSVReader] | type[AthenaCSVReader]
+CSVReaderType = type[CSVReader]
 
 _logger = logging.getLogger(__name__)
 
@@ -67,6 +76,30 @@ class AthenaS3FSResultSet(AthenaResultSet):
         result_set_type_hints: dict[str | int, str] | None = None,
         **kwargs,
     ) -> None:
+        """Initialize the result set and prepare to read the query results.
+
+        Args:
+            connection: The connection that ran the query.
+            converter: The converter for result values.
+            query_execution: The query execution whose results to read.
+            arraysize: The number of rows read from the CSV results per fetch and the
+                default ``fetchmany()`` size.
+            retry_config: The retry configuration for API calls.
+            block_size: The default block size in bytes for the filesystem. If not set,
+                ``DEFAULT_BLOCK_SIZE`` is used.
+            csv_reader: The CSV reader class for the results. If None,
+                ``AthenaCSVReader`` is used. Custom readers must satisfy the
+                :class:`~pyathena.s3fs.reader.CSVReader` protocol.
+            filesystem_class: The filesystem class for reading the results. If None,
+                PyAthena's ``S3FileSystem`` is used.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
+            **kwargs: Additional keyword arguments, which are ignored.
+
+        Raises:
+            ProgrammingError: If ``query_execution`` is not given.
+            OperationalError: If reading the query results fails.
+        """
         super().__init__(
             connection=connection,
             converter=converter,
@@ -83,13 +116,14 @@ class AthenaS3FSResultSet(AthenaResultSet):
         self._csv_reader_class: CSVReaderType = csv_reader or AthenaCSVReader
         self._filesystem_class: type[AbstractFileSystem] = filesystem_class or S3FileSystem
         self._fs = self._create_s3_file_system()
-        self._csv_reader: Any | None = None
+        self._csv_reader: CSVReader | None = None
 
         if self.state == AthenaQueryExecution.STATE_SUCCEEDED and self.output_location:
             self._init_csv_reader()
         elif self.state == AthenaQueryExecution.STATE_SUCCEEDED:
-            # Managed query result storage: no output_location, use API
-            rows = self._fetch_all_rows()
+            # Managed query result storage: no output_location, use API.
+            # The converter reads text values, as from the CSV result file.
+            rows = self._fetch_all_rows(self._converter)
             self._rows.extend(rows)
 
         # If CSV reader was not initialized (e.g., CTAS, DDL),
@@ -99,9 +133,12 @@ class AthenaS3FSResultSet(AthenaResultSet):
 
     def _create_s3_file_system(self) -> AbstractFileSystem:
         """Create S3FileSystem using connection settings."""
+        # Not cached by fsspec so that the connection and the dircache are
+        # released with the result set.
         return self._filesystem_class(
             connection=self.connection,
             default_block_size=self._block_size,
+            skip_instance_cache=True,
         )
 
     def _init_csv_reader(self) -> None:
@@ -144,6 +181,7 @@ class AthenaS3FSResultSet(AthenaResultSet):
             _logger.exception(f"Failed to open {path}.")
             raise OperationalError(*e.args) from e
 
+    @override
     def _fetch(self) -> None:
         """Fetch next batch of rows from CSV."""
         if not self._csv_reader:
@@ -162,40 +200,22 @@ class AthenaS3FSResultSet(AthenaResultSet):
             except StopIteration:
                 break
 
-            # Convert row values using converters
-            # AthenaCSVReader returns None for NULL values directly,
-            # DefaultCSVReader returns empty string which needs conversion
-            if self._csv_reader_class is DefaultCSVReader:
-                if col_hints:
-                    converted_row = tuple(
-                        self._converter.convert(
-                            col_type, value if value != "" else None, type_hint=hint
-                        )
-                        if hint
-                        else self._converter.convert(col_type, value if value != "" else None)
-                        for col_type, value, hint in zip(col_types, row, col_hints, strict=False)
-                    )
-                else:
-                    converted_row = tuple(
-                        self._converter.convert(col_type, value if value != "" else None)
-                        for col_type, value in zip(col_types, row, strict=False)
-                    )
+            if col_hints:
+                converted_row = tuple(
+                    self._converter.convert(col_type, value, type_hint=hint)
+                    if hint
+                    else self._converter.convert(col_type, value)
+                    for col_type, value, hint in zip(col_types, row, col_hints, strict=False)
+                )
             else:
-                if col_hints:
-                    converted_row = tuple(
-                        self._converter.convert(col_type, value, type_hint=hint)
-                        if hint
-                        else self._converter.convert(col_type, value)
-                        for col_type, value, hint in zip(col_types, row, col_hints, strict=False)
-                    )
-                else:
-                    converted_row = tuple(
-                        self._converter.convert(col_type, value)
-                        for col_type, value in zip(col_types, row, strict=False)
-                    )
+                converted_row = tuple(
+                    self._converter.convert(col_type, value)
+                    for col_type, value in zip(col_types, row, strict=False)
+                )
             self._rows.append(converted_row)
             rows_fetched += 1
 
+    @override
     def fetchone(
         self,
     ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
@@ -213,45 +233,7 @@ class AthenaS3FSResultSet(AthenaResultSet):
         self._rownumber += 1
         return self._rows.popleft()
 
-    def fetchmany(
-        self, size: int | None = None
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        """Fetch the next set of rows of the result set.
-
-        Args:
-            size: Maximum number of rows to fetch. Defaults to arraysize.
-
-        Returns:
-            A list of tuples representing the rows.
-        """
-        if not size or size <= 0:
-            size = self._arraysize
-        rows = []
-        for _ in range(size):
-            row = self.fetchone()
-            if row:
-                rows.append(row)
-            else:
-                break
-        return rows
-
-    def fetchall(
-        self,
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        """Fetch all remaining rows of the result set.
-
-        Returns:
-            A list of tuples representing all remaining rows.
-        """
-        rows = []
-        while True:
-            row = self.fetchone()
-            if row:
-                rows.append(row)
-            else:
-                break
-        return rows
-
+    @override
     def close(self) -> None:
         """Close the result set and release resources."""
         super().close()

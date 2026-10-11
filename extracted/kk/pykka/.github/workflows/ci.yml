@@ -6,22 +6,27 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
-      - uses: hynek/build-and-inspect-python-package@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+      - uses: hynek/build-and-inspect-python-package@2abe76da66d0a6a4a227101f9348ee855797cfa5 # v3.0.1
 
   main:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: "pytest (3.10)"
-            python: "3.10"
-            tox: "3.10"
+          - name: "Docs"
+            python: "3.15"
+            tox: docs
           - name: "pytest (3.11)"
             python: "3.11"
             tox: "3.11"
@@ -34,38 +39,48 @@ jobs:
           - name: "pytest (3.14)"
             python: "3.14"
             tox: "3.14"
+          - name: "pytest (3.15)"
+            python: "3.15"
+            tox: "3.15"
             coverage: true
           - name: "mypy"
-            python: "3.13"
+            python: "3.15"
             tox: mypy
           - name: "pyright"
-            python: "3.13"
+            python: "3.15"
             tox: pyright
           - name: "ruff format"
-            python: "3.13"
+            python: "3.15"
             tox: ruff-format
           - name: "ruff lint"
-            python: "3.13"
-            tox: ruff-lint
-          - name: "Docs"
-            python: "3.13"
-            tox: docs
+            python: "3.15"
+            tox: ruff-check
+          - name: "ty"
+            python: "3.15"
+            tox: ty
+          - name: "zizmor"
+            python: "3.15"
+            tox: zizmor
 
     name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: ${{ matrix.python }}
-          activate-environment: true
-      - run: uv pip install tox tox-uv
+      - run: uv tool install tox --with tox-uv
       - run: tox -e ${{ matrix.tox }}
         if: ${{ ! matrix.coverage }}
       - run: tox -e ${{ matrix.tox }} -- --cov-report=xml
         if: ${{ matrix.coverage }}
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         if: ${{ matrix.coverage }}
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true

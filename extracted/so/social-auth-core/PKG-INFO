@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: social-auth-core
-Version: 6.1.0
+Version: 6.1.1
 Summary: Python social authentication made simple.
 Author-email: Matias Aguirre <matiasaguirre@gmail.com>, Michal Čihař <michal@weblate.org>
 License-Expression: BSD-3-Clause
@@ -47,7 +47,7 @@ Requires-Dist: pytest-profiling==1.8.1; extra == "dev"
 Requires-Dist: pytest-xdist==3.8.0; extra == "dev"
 Requires-Dist: pytest==9.1.1; extra == "dev"
 Requires-Dist: responses==0.26.3; extra == "dev"
-Requires-Dist: ty==0.0.85; extra == "dev"
+Requires-Dist: ty==0.0.86; extra == "dev"
 Requires-Dist: types-defusedxml==0.7.0.20260504; extra == "dev"
 Requires-Dist: types-lxml==2026.2.16; extra == "dev"
 Requires-Dist: types-oauthlib==3.3.0.20260724; extra == "dev"

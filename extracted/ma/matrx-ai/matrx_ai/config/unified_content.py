@@ -91,7 +91,9 @@ class TextContent:
         """Get the output text of the content."""
         return self.text
 
-    def replace_variables(self, variables: dict[str, Any]) -> bool:
+    def replace_variables(
+        self, variables: dict[str, Any], blocks: dict[str, str] | None = None
+    ) -> bool:
         """Substitute ``{{variable_name}}`` patterns in the text.
 
         Returns True iff this block should be DROPPED from the message —
@@ -115,25 +117,16 @@ class TextContent:
         from matrx_ai.config.prompt_values import prompt_safe_value
         from matrx_ai.config.template_substitution import substitute_authored
 
-        # Values are DATA: only placeholders the author wrote are slots, across
-        # every pass (config/template_substitution.py). The first-seen text is
-        # the authored template for the life of this block.
+        # THE ONE RULE (config/template_substitution.py): declared slots only, one pass,
+        # the first-seen text is the authored template for the life of this block.
         template = getattr(self, "_authored_template", None)
         if template is None:
             template = original_text
             self._authored_template = template
-        replaced_text = substitute_authored(original_text, template, variables, prompt_safe_value)
+        replaced_text = substitute_authored(
+            original_text, template, variables, prompt_safe_value, unescape=True, blocks=blocks
+        )
         self.text = replaced_text
-        # AGT-N-7's first case: a placeholder nobody declared is still standing here,
-        # verbatim, and used to reach the model with no warning anywhere in the chain.
-        # This is the same choke point `prompt_safe_value` uses, so the law is recorded
-        # once rather than remembered by every caller. It RECORDS and does not erase —
-        # substitution is multi-pass (picklist envelopes, staged fence swaps, the
-        # executor's send-clone), so eating an unresolved brace here would destroy a
-        # later pass. See matrx_ai/config/undeclared.py.
-        from matrx_ai.config.undeclared import note_unresolved
-
-        note_unresolved(replaced_text, template=template)
         role = (self.metadata or {}).get("role")
         had_template = "{{" in original_text and "}}" in original_text
         if role and had_template and not replaced_text.strip():

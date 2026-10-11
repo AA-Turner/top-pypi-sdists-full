@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -17,13 +17,10 @@ This private submodule is *not* intended for importation by downstream callers.
 # by this submodule. This submodule is typically called from the "__init__"
 # submodules of public subpackages.
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-from beartype.typing import (
-    Any,
-    Mapping,
-)
+from typing import Any
 from beartype._data.kind.datakindiota import SENTINEL
 from beartype._data.kind.datakindmap import FROZENDICT_EMPTY
-from collections.abc import Mapping as MappingABC
+from collections.abc import Mapping
 from warnings import warn
 
 # ....................{ IMPORTERS                          }....................
@@ -95,16 +92,16 @@ def deprecate_module_attr(
     '''
     assert isinstance(attr_deprecated_name, str), (
         f'{repr(attr_deprecated_name)} not string.')
-    assert isinstance(attr_deprecated_name_to_nondeprecated_name, MappingABC), (
+    assert isinstance(attr_deprecated_name_to_nondeprecated_name, Mapping), (
         f'{repr(attr_deprecated_name_to_nondeprecated_name)} not mapping.')
-    assert isinstance(attr_nondeprecated_name_to_value, MappingABC), (
+    assert isinstance(attr_nondeprecated_name_to_value, Mapping), (
         f'{repr(attr_nondeprecated_name_to_value)} not mapping.')
 
     # Fully-qualified name of the caller's submodule. Since all physical
     # submodules (i.e., those defined on-disk) define this dunder attribute
     # *AND* since this function is only ever called by such submodules, this
     # attribute is effectively guaranteed to exist.
-    MODULE_NAME = attr_nondeprecated_name_to_value['__name__']
+    module_name = attr_nondeprecated_name_to_value['__name__']
 
     # Unqualified basename of the non-deprecated attribute originating this
     # deprecated attribute if this attribute is deprecated *OR* the sentinel
@@ -148,7 +145,7 @@ def deprecate_module_attr(
         if attr_nondeprecated_value is SENTINEL:
             raise ImportError(
                 f'Deprecated attribute '
-                f'"{attr_deprecated_name}" in submodule "{MODULE_NAME}" '
+                f'"{attr_deprecated_name}" in submodule "{module_name}" '
                 f'originates from missing non-deprecated attribute '
                 f'"{attr_nondeprecated_name}" not defined by that submodule.'
             )
@@ -157,8 +154,8 @@ def deprecate_module_attr(
         # Warning message to be emitted below.
         warning_message = (
             f'Deprecated attribute '
-            f'"{attr_deprecated_name}" in submodule "{MODULE_NAME}" '
-            f'scheduled for removal under a future release.'
+            f'"{attr_deprecated_name}" in submodule "{module_name}" '
+            f'scheduled for removal under a future beartype release.'
         )
 
         # If this deprecated attribute originates from a public non-deprecated
@@ -206,4 +203,4 @@ def deprecate_module_attr(
     # Note that Python's non-trivial import machinery silently coerces this
     # "AttributeError" exception into an "ImportError" exception. Just do it!
     raise AttributeError(
-        f"module '{MODULE_NAME}' has no attribute '{attr_deprecated_name}'")
+        f"module '{module_name}' has no attribute '{attr_deprecated_name}'")

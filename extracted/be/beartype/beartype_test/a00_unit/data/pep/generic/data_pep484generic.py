@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
 Test-wide :pep:`484`-compliant **generics** (i.e., subclasses of the standard
-:pep:`484`-compliant :class:`typing.Generic` superclass, exercising edge cases
+:pep:`484`-compliant :class:`typing.Generic` superclass, validating edge cases
 in unit tests requiring non-trivial generics).
 '''
 
 # ....................{ IMPORTS                            }....................
 # Defer fixture-specific imports.
-from beartype.typing import Generic
 from beartype_test.a00_unit.data.data_type import Class
-from beartype_test.a00_unit.data.pep.data_pep484 import (
+from beartype_test.a00_unit.data.pep.pep484.data_pep484 import (
     S,
     T,
+    U,
 )
 from collections.abc import (
     Sized as SizedABC,
@@ -25,6 +25,7 @@ from collections.abc import (
 # forward-compatible "beartype.typing" subpackage to ensure PEP
 # 484-compliance.
 from typing import (
+    Generic,
     Container as Pep484Container,
     ContextManager as Pep484ContextManager,
     Iterable as Pep484Iterable,
@@ -41,7 +42,7 @@ Arbitrary PEP-noncompliant non-generic type.
 '''
 
 # ....................{ PEP 484 ~ non-T                    }....................
-class Pep484ListUnsubscripted(Pep484List):
+class Pep484ListUnsubbed(Pep484List):
     '''
     :pep:`484`-compliant generic subclassing an unsubscripted :mod:`typing` type
     hint factory.
@@ -67,7 +68,7 @@ class Pep484ListListStr(Pep484List[Pep484List[str]]):
 
     pass
 
-# ....................{ PEP 484 : T                        }....................
+# ....................{ PEP 484 ~ T : hierarchy            }....................
 class Pep484GenericT(Generic[T]):
     '''
     :pep:`484`-compliant generic superclass parametrized by one unconstrained
@@ -77,19 +78,46 @@ class Pep484GenericT(Generic[T]):
     pass
 
 
-class Pep484GenericSubT(Pep484GenericT[T]):
+class Pep484GenericTSubclass(Pep484GenericT[T]):
     '''
-    :pep:`484`-compliant generic subclass inheriting a :pep:`484`-compliant
-    generic parametrized by the same unconstrained type variable.
+    :pep:`484`-compliant generic subclassing a :pep:`484`-compliant
+    generic superclass subscripted by the same unconstrained type variable
+    parametrizing that superclass.
     '''
 
     pass
 
 
-class Pep484GenericSubTToS(Pep484GenericT[S]):
+class Pep484GenericTSubclassSubclass(Pep484GenericTSubclass[T]):
+    '''
+    :pep:`484`-compliant generic subclassing yet another a :pep:`484`-compliant
+    generic subclassing yet another :pep:`484`-compliant generic subscripted by
+    the same unconstrained type variable parametrizing that superclass.
+
+    See Also
+    --------
+    https://github.com/beartype/beartype/issues/607
+        GitHub issue guarded against regressions by this subclass.
+    '''
+
+    pass
+
+# ....................{ PEP 484 ~ T : subscription         }....................
+class Pep484GenericTToSSubbed(Pep484GenericT[S]):
     '''
     :pep:`484`-compliant generic subclass inheriting a :pep:`484`-compliant
-    generic parametrized by a different unconstrained type variable.
+    generic superclass subscripted by a different unconstrained type variable
+    than the type variable parametrizing that superclass.
+    '''
+
+    pass
+
+
+class Pep484GenericTUnsubbed(Pep484GenericT):
+    '''
+    :pep:`484`-compliant generic subclass inheriting a :pep:`484`-compliant
+    generic superclass subscripted by *no* child hints and thus implicitly
+    parametrized by the same type variable parametrizing that superclass.
     '''
 
     pass
@@ -104,9 +132,20 @@ class Pep484GenericST(Generic[S, T]):
     pass
 
 
+class Pep484GenericTS(Pep484GenericST[T, S], Generic[S, T]):
+    '''
+    :pep:`484`-compliant generic subclassing the root :class:`typing.Generic`
+    superclass parametrized by two type variables *and* another
+    :pep:`484`-compliant generic subclassing the same superclass parametrized by
+    the same type variables in a different order.
+    '''
+
+    pass
+
+
 class Pep484GenericSInt(Pep484GenericST[S, int]):
     '''
-    :pep:`484`-compliant partially concrete generic subclass inheriting a
+    :pep:`484`-compliant partially concrete generic subclassing a
     :pep:`484`-compliant generic superclass subscripted first by an
     unconstrained type variable and then by the builtin :class:`int` type.
     '''
@@ -116,9 +155,51 @@ class Pep484GenericSInt(Pep484GenericST[S, int]):
 
 class Pep484GenericIntInt(Pep484GenericST[int, int]):
     '''
-    :pep:`484`-compliant concrete generic subclass inheriting a
-    :pep:`484`-compliant generic superclass subscripted twice by the
-    builtin :class:`int` type.
+    :pep:`484`-compliant concrete generic subclassing a :pep:`484`-compliant
+    generic superclass subscripted twice by the builtin :class:`int` type.
+    '''
+
+    pass
+
+# ....................{ PEP 484 : S, T, U                  }....................
+class Pep484GenericIntUT(Pep484GenericST[int, T], Generic[U, T]):
+    '''
+    :pep:`484`-compliant partially concrete generic subclassing the root
+    :class:`typing.Generic` superclass parametrized by two type variables *and*
+    another :pep:`484`-compliant generic subclassing the same superclass
+    parametrized by one of the same type variables and a different type variable
+    but subscripted in this subclass first by the builtin :class:`int` type and
+    then by that same type variable.
+
+    This partially concrete generic is transitively parametrized by three type
+    variables, one of which (i.e., ``S``) are constrained to a concrete type
+    (i.e., :class:`int`) and  the remaining two of which (i.e., ``U`` and ``T``)
+    are free for subscription by downstream users.
+    '''
+
+    pass
+
+
+class Pep484GenericSTToUU(Pep484GenericST[S, U], Generic[S, T, U]):
+    '''
+    :pep:`484`-compliant generic subclass parametrized by three type variables
+    but inheriting a :pep:`484`-compliant generic superclass subscripted by only
+    two of those type variables **non-sequentially** (i.e., only the first type
+    variable ``S`` and third type variable ``U`` parametrizing this subclass,
+    thus excluding the second type variable ``T`` also parametrizing this
+    subclass).
+
+    This subclass validates edge cases in which generic subclasses subscript
+    generic superclasses by non-sequentially ordered type parameters, requiring
+    the :func:`beartype.door.is_subhint` tester to resolve type parameters by
+    their predefined ordering in the :pep:`484`-compliant ``__parameters__``
+    dunder tuple rather than their dynamic ordering while visiting generic
+    pseudo-superclasses in the depth-first search (DFS) underlying that tester.
+
+    See Also
+    --------
+    https://github.com/beartype/beartype/issues/612
+        GitHub issue partially validated by this subclass.
     '''
 
     pass
@@ -168,7 +249,7 @@ class Pep484ContextManagerTSequenceT(
         return len(self._sequence)
 
     def __reversed__(self) -> Pep484Tuple[T]:
-        return self._sequence.reverse()
+        return reversed(self._sequence)
 
 
 class Pep484IterableTContainerT(Pep484Iterable[T], Pep484Container[T]):

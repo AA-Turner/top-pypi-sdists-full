@@ -170,6 +170,8 @@ def _restore_singleton_state():
 # (no "none" ask, no numeric effort, accepts' nearest == value_map's nearest)
 # must leave the wire byte-identical.
 K6_FIELDS_THAT_ACT_ON_ASKS = frozenset({"drop", "to_number"})
+# off.send / off.floor act only on an ask whose output cap is under 1024 (see below): field -> value sent.
+K6_OFF_SENT_ON_A_TINY_CAP = {"off_send": "none", "off_floor": "low"}
 
 
 @pytest.mark.parametrize("field", sorted(K6_FIELDS))
@@ -194,6 +196,20 @@ def test_a_rule_carrying_a_k6_field_compiles_and_changes_nothing_on_the_wire(
         assert getattr(rule, name) is not None, name
     if field in K6_FIELDS_THAT_ACT_ON_ASKS:
         assert _wire(manager) != baseline
+    elif field in K6_OFF_SENT_ON_A_TINY_CAP:
+        # 62e656dc4c: when the wire's output cap is below 1024 a scalar reasoning rule
+        # sends its declared off/floor so the answer fits. That is the ONLY ask here it
+        # touches (the 100-token one); every other ask stays byte-identical.
+        sent = K6_OFF_SENT_ON_A_TINY_CAP[field]
+        got = _wire(manager)
+        for ask, base, now in zip(ASKS, baseline, got, strict=True):
+            if ask.get("max_output_tokens", 4096) < 1024:
+                assert now == [
+                    json.dumps({"max_completion_tokens": 100, "reasoning_effort": sent}),
+                    [("reasoning_effort", "clamped", "None", repr(sent), True)],
+                ], (ask, now)
+            else:
+                assert now == base, ask
     else:
         assert _wire(manager) == baseline
     # And a client host still receives the same rules for rows without K6

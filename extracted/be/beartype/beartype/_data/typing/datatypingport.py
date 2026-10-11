@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -107,7 +107,11 @@ if TYPE_CHECKING:
     #     https://github.com/python/mypy/issues/19227
     MYPY = False  # <-- don't ask, don't tell
     if MYPY:  # <------ don't see what you don't want to see
-        from beartype.typing import (
+        # Abuse the fact that mypy doesn't seem to care about assertions but
+        # pyright does. @Glinte said this makes sense. Choose to believe him.
+        assert False
+
+        from typing import (
             Any as Hint,
             Generic,
         )
@@ -125,7 +129,7 @@ if TYPE_CHECKING:
             This factory is intentionally defined as a generic to prevent mypy
             from emitting false positives resembling:
 
-                beartype/door/_func/doorcheck.py:131: error: "HintBare" expects
+                beartype/door/_func/doorfunc.py:131: error: "HintBare" expects
                 no type arguments, but 1 given  [type-arg]
             '''
 

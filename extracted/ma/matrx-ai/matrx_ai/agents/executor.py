@@ -145,9 +145,9 @@ def _early_exit_meters(history: list[TokenUsage], *, label: str) -> dict[str, An
     the known subtotal plus ``unpriced_calls``, never a silent 0."""
     if not history:
         return None
-    from matrx_ai.config.usage_config import cost_meters_from_totals
+    from matrx_ai.config.usage_config import cost_meters_from_aggregate
 
-    return cost_meters_from_totals(TokenUsage.aggregate_by_model(history).total, label=label) or None
+    return cost_meters_from_aggregate(TokenUsage.aggregate_by_model(history), label=label) or None
 
 # ---------------------------------------------------------------------------
 # Result type
@@ -936,10 +936,13 @@ async def run_agent(
             # a silent $0 on the spend ledger (139 zero-cost internal_agent_run
             # rows in 30 days, 2026-09-12). The shared builder records the
             # catalog-known subtotal plus an explicit `unpriced_calls` meter.
-            from matrx_ai.config.usage_config import cost_meters_from_totals
+            from matrx_ai.config.usage_config import cost_meters_from_aggregate
 
-            meters: dict[str, Any] = cost_meters_from_totals(
-                getattr(execute_result.usage, "total", None), label=label
+            # The aggregate (not just its total) so the meters also name the model and
+            # provider and carry cached tokens: this run writes no chat.request, and the
+            # meter payload is the only place the usage rules can read them from.
+            meters: dict[str, Any] = cost_meters_from_aggregate(
+                execute_result.usage, label=label
             )
             # A run the loop STOPPED (tree budget, deadline, subtree time
             # budget, a person's cancel between calls) returns normally with

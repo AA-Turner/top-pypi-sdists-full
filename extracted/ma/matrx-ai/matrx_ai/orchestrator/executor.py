@@ -62,6 +62,7 @@ from matrx_ai.orchestrator.loop_guard import LoopHealth, evaluate_loop_health
 from matrx_ai.orchestrator.mandate_carrier import (
     MANDATE_BYPASS_METADATA_KEY,
     MANDATE_KEY_METADATA_KEY,
+    mandate_carrier_passthrough,
     note_mandate_carrier,
 )
 from matrx_ai.orchestrator.requests import AIMatrixRequest, CompletedRequest
@@ -450,6 +451,10 @@ def _request_metadata(
     return resolved
 
 
+@mandate_carrier_passthrough(
+    "the funnel itself: the Holder that owns the call arrives as its mandate_key argument or "
+    "its metadata, from the caller, and is forwarded unchanged when a held call re-enters."
+)
 async def execute_ai_request(
     config: UnifiedConfig,
     max_iterations: int = 100,
@@ -565,14 +570,15 @@ async def execute_ai_request(
             )
         )
         try:
+            # The Holder rides the metadata into the re-entry (the same stamp the
+            # request metadata carries), so the carrier is data, not an argument.
             completed = await execute_ai_request(
                 config,
                 max_iterations,
                 max_retries_per_iteration,
-                metadata,
+                _request_metadata(ctx, metadata, mandate_key, None),
                 conversation_id=own_conversation_id,
                 store=held_store,
-                mandate_key=mandate_key,
             )
         finally:
             clear_app_context(token)

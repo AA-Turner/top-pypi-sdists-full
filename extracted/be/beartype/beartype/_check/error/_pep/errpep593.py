@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
-Beartype :pep:`593`-compliant **type hint violation describers** (i.e.,
+Beartype :pep:`593`-compliant **type metahint violation describers** (i.e.,
 functions returning human-readable strings explaining violations of
-:pep:`593`-compliant :obj:`typing.Annotated` type hints).
+:pep:`593`-compliant :obj:`typing.Annotated` type metahints).
 
 This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar._roarexc import _BeartypeCallHintPepRaiseException
-from beartype._check.error.errcause import ViolationCause
+from beartype._check.cls.hint.tree.hinttreeerror import HintTreeError
 from beartype._data.hint.sign.datahintsigns import HintSignAnnotated
 from beartype._util.hint.pep.proposal.pep593 import (
     get_hint_pep593_metadata,
     get_hint_pep593_metahint,
 )
-from beartype._data.code.datacodeindent import CODE_INDENT_1
+from beartype._data.check.code.datacodeindent import CODE_INDENT_1
 from beartype._util.text.utiltextrepr import represent_pith
 
 # ....................{ FINDERS                            }....................
-def find_cause_pep593_annotated(cause: ViolationCause) -> ViolationCause:
+def find_cause_pep593_annotated(cause: HintTreeError) -> HintTreeError:
     '''
     Output cause describing whether the pith of the passed input cause either
     satisfies or violates the :pep:`593`-compliant :mod:`beartype`-specific
@@ -34,37 +34,41 @@ def find_cause_pep593_annotated(cause: ViolationCause) -> ViolationCause:
 
     Parameters
     ----------
-    cause : ViolationCause
+    cause : HintTreeError
         Input cause providing this data.
 
     Returns
     -------
-    ViolationCause
+    HintTreeError
         Output cause type-checking this data.
     '''
-    assert isinstance(cause, ViolationCause), f'{repr(cause)} not cause.'
-    assert cause.hint_sign is HintSignAnnotated, (
-        f'{cause.hint_sign} not "HintSignAnnotated".')
+    assert isinstance(cause, HintTreeError), f'{repr(cause)} not cause.'
+    assert cause.hint_curr.hint_sign is HintSignAnnotated, (
+        f'{cause.hint_curr.hint_sign} not "HintSignAnnotated".')
 
+    # ....................{ IMPORTS                        }....................
     # Defer heavyweight imports.
     from beartype.vale._core._valecore import BeartypeValidator
 
+    # ....................{ LOCALS                         }....................
     # Type hint annotated by this metahint.
-    metahint = get_hint_pep593_metahint(cause.hint)
+    metahint = get_hint_pep593_metahint(cause.hint_curr_sanified)
 
     # Tuple of zero or more arbitrary objects annotating this metahint.
-    hint_validators = get_hint_pep593_metadata(cause.hint)
+    hint_validators = get_hint_pep593_metadata(cause.hint_curr_sanified)
 
+    # ....................{ SHALLOW                        }....................
     # Shallow output cause to be returned, type-checking only whether this pith
     # satisfies this metahint.
     # print(f'[593] Finding {cause} shallow cause...')
     cause_shallow = cause.permute_cause_hint_child_insane(metahint).find_cause()
 
-    # If this pith fails to satisfy this metahint, return this cause as is.
+    # If this pith violates this metahint, return this shallow output cause.
     if cause_shallow.cause_str_or_none is not None:
         return cause_shallow
     # Else, this pith satisfies this metahint.
 
+    # ....................{ DEEP                           }....................
     # Deep output cause to be returned, permuted from this input cause.
     cause_deep = cause.permute_cause()
 
@@ -74,17 +78,17 @@ def find_cause_pep593_annotated(cause: ViolationCause) -> ViolationCause:
         #
         # Note that this object should already be a beartype validator, as the
         # @beartype decorator enforces this constraint at decoration time.
-        if not isinstance(hint_validator, BeartypeValidator):
+        if not isinstance(hint_validator, BeartypeValidator):  # pragma: no cover
             raise _BeartypeCallHintPepRaiseException(
                 f'{cause_deep.exception_prefix}PEP 593 type hint '
-                f'{repr(cause_deep.hint)} argument {repr(hint_validator)} '
+                f'{repr(cause.hint_curr_sanified)} argument {repr(hint_validator)} '
                 f'not beartype validator '
                 f'(i.e., "beartype.vale.Is*[...]" object).'
             )
         # Else, this is a beartype validator.
         #
-        # If this pith fails to satisfy this validator and is thus the cause of
-        # this failure...
+        # If this pith violates this validator and is thus the cause of this
+        # failure...
         elif not hint_validator.is_valid(cause_deep.pith):
             #FIXME: Unit test this up, please.
             # Human-readable string diagnosing this failure.
@@ -106,5 +110,6 @@ def find_cause_pep593_annotated(cause: ViolationCause) -> ViolationCause:
         # Else, this pith satisfies this validator. Ergo, this validator is
         # *NOT* the cause of this failure. Silently continue to the next.
 
+    # ....................{ RETURN                         }....................
     # Return this output cause.
     return cause_deep

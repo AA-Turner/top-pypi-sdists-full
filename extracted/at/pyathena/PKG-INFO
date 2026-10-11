@@ -1,61 +1,57 @@
 Metadata-Version: 2.5
 Name: PyAthena
-Version: 3.38.0
+Version: 4.0.0
 Summary: Python DB API 2.0 (PEP 249) client for Amazon Athena
-Project-URL: homepage, https://github.com/pyathena-dev/PyAthena/
+Project-URL: homepage, https://pyathena.dev/
 Project-URL: repository, https://github.com/pyathena-dev/PyAthena/
 Project-URL: documentation, https://pyathena.dev/
 Project-URL: issues, https://github.com/pyathena-dev/PyAthena/issues
-Author-email: laughingman7743 <laughingman7743@gmail.com>
-License: Copyright 2017 laughingman7743
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy of
-        this software and associated documentation files (the "Software"), to deal in
-        the Software without restriction, including without limitation the rights to
-        use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-        the Software, and to permit persons to whom the Software is furnished to do so,
-        subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-        FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-        COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
-        AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-        CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+Project-URL: changelog, https://github.com/pyathena-dev/PyAthena/releases
+Author: The PyAthena authors
+Maintainer-email: laughingman7743 <laughingman7743@gmail.com>
+License-Expression: MIT
 License-File: LICENSE
-Classifier: Development Status :: 4 - Beta
+License-File: NOTICE
+Keywords: amazon-athena,asyncio,athena,aws,dbapi,fsspec,pandas,pep249,polars,pyarrow,s3,spark,sql,sqlalchemy
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Database
 Classifier: Topic :: Database :: Front-Ends
-Requires-Python: >=3.10
-Requires-Dist: boto3>=1.41.2
-Requires-Dist: botocore>=1.41.2
-Requires-Dist: fsspec
-Requires-Dist: python-dateutil
-Requires-Dist: tenacity>=4.1.0
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
+Requires-Dist: boto3>=1.43.31
+Requires-Dist: botocore>=1.43.31
+Requires-Dist: fsspec>=2026.9.0
+Requires-Dist: tenacity>=8.0.1
+Requires-Dist: tzdata
 Provides-Extra: aiosqlalchemy
 Requires-Dist: sqlalchemy[asyncio]>=2.0.0; extra == 'aiosqlalchemy'
 Provides-Extra: arrow
-Requires-Dist: pyarrow>=10.0.0; (python_version < '3.14') and extra == 'arrow'
-Requires-Dist: pyarrow>=22.0.0; (python_version >= '3.14') and extra == 'arrow'
+Requires-Dist: pyarrow>=22.0.0; extra == 'arrow'
 Provides-Extra: pandas
-Requires-Dist: pandas>=1.3.0; (python_version < '3.13') and extra == 'pandas'
-Requires-Dist: pandas>=2.3.0; (python_version >= '3.13') and extra == 'pandas'
+Requires-Dist: pandas>=3.0.0; extra == 'pandas'
 Provides-Extra: polars
-Requires-Dist: polars>=1.0.0; extra == 'polars'
+Requires-Dist: polars>=1.39.0; extra == 'polars'
 Provides-Extra: sqlalchemy
-Requires-Dist: sqlalchemy>=1.0.0; extra == 'sqlalchemy'
+Requires-Dist: sqlalchemy>=2.0.0; extra == 'sqlalchemy'
 Description-Content-Type: text/markdown
+
+<!--
+Copyright 2017 The PyAthena authors
+
+Licensed under the MIT License.
+See LICENSE or https://opensource.org/licenses/MIT.
+
+SPDX-License-Identifier: MIT
+-->
 
 # PyAthena
 
@@ -66,7 +62,7 @@ Description-Content-Type: text/markdown
 [![PyPI - Version](https://badge.fury.io/py/pyathena.svg)](https://badge.fury.io/py/pyathena)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/PyAthena.svg)](https://pypi.org/project/PyAthena/)
 [![PyPI - Downloads](https://static.pepy.tech/badge/pyathena/month)](https://pepy.tech/project/pyathena)
-[![CI - Test](https://github.com/pyathena-dev/PyAthena/actions/workflows/test.yaml/badge.svg)](https://github.com/pyathena-dev/PyAthena/actions/workflows/test.yaml)
+[![CI - Test](https://github.com/pyathena-dev/PyAthena/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/pyathena-dev/PyAthena/actions/workflows/test.yaml?query=branch%3Amaster)
 [![CD - Docs](https://github.com/pyathena-dev/PyAthena/actions/workflows/docs.yaml/badge.svg)](https://github.com/pyathena-dev/PyAthena/actions/workflows/docs.yaml)
 [![License - MIT](https://img.shields.io/pypi/l/PyAthena.svg)](https://github.com/pyathena-dev/PyAthena/blob/master/LICENSE)
 [![linting - Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -82,7 +78,7 @@ PyAthena is a Python [DB API 2.0 (PEP 249)](https://www.python.org/dev/peps/pep-
 
 - Python
 
-  - CPython 3.10, 3.11, 3.12, 3.13, 3.14
+  - CPython 3.11, 3.12, 3.13, 3.14
 
 ## Installation
 
@@ -94,11 +90,11 @@ Extra packages:
 
 | Package       | Install command                         | Version  |
 |---------------|-----------------------------------------|----------|
-| SQLAlchemy    | `pip install PyAthena[SQLAlchemy]`      | >=1.0.0  |
+| SQLAlchemy    | `pip install PyAthena[SQLAlchemy]`      | >=2.0.0  |
 | AioSQLAlchemy | `pip install PyAthena[AioSQLAlchemy]`   | >=2.0.0  |
-| Pandas        | `pip install PyAthena[Pandas]`          | >=1.3.0  |
-| Arrow         | `pip install PyAthena[Arrow]`           | >=10.0.0 |
-| Polars        | `pip install PyAthena[Polars]`          | >=1.0.0  |
+| Pandas        | `pip install PyAthena[Pandas]`          | >=3.0.0  |
+| Arrow         | `pip install PyAthena[Arrow]`           | >=22.0.0 |
+| Polars        | `pip install PyAthena[Polars]`          | >=1.39.0 |
 
 ## Usage
 
@@ -128,11 +124,18 @@ async def main():
 asyncio.run(main())
 ```
 
+## Contributing
+
+Contributions, including AI-assisted contributions, are welcome.
+Please read [CONTRIBUTING.md](https://github.com/pyathena-dev/PyAthena/blob/master/CONTRIBUTING.md) before starting a change.
+
 ## License
 
-[MIT license](LICENSE)
+[MIT license](https://github.com/pyathena-dev/PyAthena/blob/master/LICENSE)
 
-Many of the implementations in this library are based on [PyHive](https://github.com/dropbox/PyHive), thanks for [PyHive](https://github.com/dropbox/PyHive).
+PyAthena's early development was informed by [PyHive](https://github.com/dropbox/PyHive), including its DB-API tests and implementation patterns.
+PyAthena has since evolved with substantial Athena-specific functionality and additional backends.
+See [NOTICE](https://github.com/pyathena-dev/PyAthena/blob/master/NOTICE) for acknowledgements.
 
 ## Links
 

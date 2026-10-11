@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -16,7 +16,7 @@ callers.
 # ....................{ IMPORTS                            }....................
 from beartype._conf.confmain import BeartypeConf
 from beartype._conf.confenum import BeartypeStrategy
-from beartype._util.cache.utilcachecall import callable_cached
+from beartype._util.cache.func.utilcachefunc import callable_cached
 
 # ....................{ GLOBALS                            }....................
 BEARTYPE_CONF_DEFAULT = BeartypeConf()
@@ -28,6 +28,20 @@ codebase.
 
 This global is intentionally *not* publicized to end users, who can simply
 instantiate ``BeartypeConf()`` to efficiently obtain the same singleton.
+'''
+
+
+BEARTYPE_CONF_NONRANDOM = BeartypeConf(is_random=False)
+'''
+**Deterministic beartype configuration** (i.e., :class:`BeartypeConf` object
+parametrized so as to type-check pure-Python sequences deterministically in
+:math:`O(1)` time, typically by type-checking only the first item of those
+sequences rather than a pseudo-randomly selected item of those sequences),
+globalized to trivially optimize external access to this configuration
+throughout this codebase.
+
+This global is intentionally *not* publicized to end users, who can simply
+instantiate ``BeartypeConf(is_random=False)`` to obtain the same singleton.
 '''
 
 # ....................{ GETTERS                            }....................

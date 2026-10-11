@@ -974,11 +974,12 @@ test_every_burst_survives_any_block_size (void)
   return 0;
 }
 
-/* dp_acq_push() stops once it has filled the caller's result array and
- * abandons the rest of its input (acq_core.c:925). push() slices at chunk_max,
- * so a chunk can easily carry more than BURST_CAPTURE_HITS dumps -- and a
- * single dp_burst_acq_push() per chunk then leaves acq un-fed over samples
- * this object is holding, losing detections rather than samples.
+/* dp_acq_push() takes no more than its result array has room for, and the
+ * caller offers it the rest again. push() slices at chunk_max, so a chunk
+ * can easily carry more than BURST_CAPTURE_HITS dumps -- so it keeps looping
+ * until acq has absorbed the whole chunk. A single dp_burst_acq_push() per
+ * chunk would leave acq un-fed over samples this object is holding, losing
+ * detections rather than samples.
  *
  * Pinning the grid to one coherent bin makes the acquisition frame ONE code
  * period, so a chunk spans ~92 frames and saturation is certain.
@@ -1024,11 +1025,12 @@ test_acq_saturation_does_not_lose_bursts (void)
         found++;
   DP_CHECK (found == 3);
   DP_CHECK (dp_dsss_burst_receiver_get_dropped (s) == 0);
-  /* Dropped samples mean the history ring refused a chunk: something held
-     the tail further back than retain_span, which this geometry is sized to
-     rule out. It has only ever happened on Windows (doppler#1360), never on
-     Linux across 400 noise seeds, so a failure reports the numbers that
-     decide it rather than a bare count. */
+  /* `dropped` counts look-back abandoned with a dead detection -- one whose
+     history went before it could be emitted -- and nothing in this geometry
+     should make one. Before push() stopped refusing input (doppler#2015) it
+     counted refused chunks, which only ever happened on Windows
+     (doppler#1360), never on Linux across 400 noise seeds, so a failure
+     reports the numbers that decide it rather than a bare count. */
   if (dp_dsss_burst_receiver_get_dropped (s) != 0)
     {
       const dp_burst_capture_state_t *c = s->cap;

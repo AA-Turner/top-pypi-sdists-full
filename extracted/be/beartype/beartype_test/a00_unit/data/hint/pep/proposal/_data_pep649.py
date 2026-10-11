@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -10,25 +10,26 @@ cases in unit tests requiring these fixtures).
 '''
 
 # ....................{ FIXTURES                           }....................
-def hints_pep649_meta() -> 'List[HintPepMetadata]':
+def hints_pep649_meta() -> 'list[HintPepMetadata]':
     '''
     List of :pep:`649`-compliant **type hint metadata** (i.e.,
-    :class:`beartype_test.a00_unit.data.hint.util.data_hintmetacls.HintPepMetadata`
+    :class:`beartype_test.a00_unit.data.hint.cls.pith.data_clshintpith.HintPepMetadata`
     instances describing test-specific :pep:`649`-compliant sample type hints
     with metadata generically leveraged by various PEP-agnostic unit tests).
     '''
 
     # ..................{ IMPORTS                            }..................
     # Defer fixture-specific imports.
-    from beartype.typing import ForwardRef
     from beartype._data.hint.sign.datahintsigns import HintSignForwardRef
     from beartype._util.py.utilpyversion import IS_PYTHON_AT_MOST_3_13
     from beartype_test.a00_unit.data.data_type import Subclass
-    from beartype_test.a00_unit.data.hint.util.data_hintmetacls import (
-        HintPepMetadata,
-        HintPithSatisfiedMetadata,
-        HintPithUnsatisfiedMetadata,
+    from beartype_test.a00_unit.data.hint.cls.pith.data_clshint import (
+        HintPepMetadata)
+    from beartype_test.a00_unit.data.hint.cls.pith.data_clspith import (
+        PithSatisfiedMetadata,
+        PithUnsatisfiedMetadata,
     )
+    from typing import ForwardRef
 
     # ....................{ CONSTANTS ~ forwardref         }....................
     # Fully-qualified classname of an arbitrary class guaranteed to be
@@ -40,7 +41,7 @@ def hints_pep649_meta() -> 'List[HintPepMetadata]':
 
     # ..................{ LISTS                              }..................
     # List of all PEP-specific type hint metadata to be returned.
-    hints_pep_meta = [
+    hints_piths_pep_meta = [
         # ................{ FORWARDREF                         }................
         # Forward references defined below are *ONLY* intended to shallowly
         # exercise support for types of forward references across the codebase;
@@ -57,9 +58,9 @@ def hints_pep649_meta() -> 'List[HintPepMetadata]':
             is_type_typing=False,
             piths_meta=(
                 # Instance of the class referred to by this reference.
-                HintPithSatisfiedMetadata(_FORWARDREF_CLASSNAME_TYPE()),
+                PithSatisfiedMetadata(_FORWARDREF_CLASSNAME_TYPE()),
                 # String constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     'Empirical Ṗath after‐mathematically harvesting agro‐'),
             ),
         ),
@@ -78,13 +79,13 @@ def hints_pep649_meta() -> 'List[HintPepMetadata]':
             is_type_typing=IS_PYTHON_AT_MOST_3_13,
             piths_meta=(
                 # Instance of the class referred to by this reference.
-                HintPithSatisfiedMetadata(_FORWARDREF_CLASSNAME_TYPE()),
+                PithSatisfiedMetadata(_FORWARDREF_CLASSNAME_TYPE()),
                 # String constant.
-                HintPithUnsatisfiedMetadata('Silvicultures of'),
+                PithUnsatisfiedMetadata('Silvicultures of'),
             ),
         ),
     ]
 
     # ..................{ RETURN                             }..................
     # Return this list of all PEP-specific type hint metadata.
-    return hints_pep_meta
+    return hints_piths_pep_meta

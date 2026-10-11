@@ -1,6 +1,6 @@
 [project]
 name = "excel-mcp-server"
-version = "1.1.2"
+version = "2.0.0"
 description = "MCP server for creating, reading and editing Excel workbooks without Microsoft Excel"
 readme = "README.md"
 license = "MIT"
@@ -8,21 +8,34 @@ license-files = ["LICENSE"]
 requires-python = ">=3.11"
 keywords = [
     "mcp",
+    "mcp-server",
     "model-context-protocol",
     "excel",
     "xlsx",
+    "xlsm",
     "spreadsheet",
     "openpyxl",
+    "charts",
+    "pivot-table",
+    "formulas",
+    "vba",
+    "llm",
+    "ai",
+    "claude",
+    "cursor",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
     "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business",
     "Topic :: Office/Business :: Financial :: Spreadsheet",
     "Typing :: Typed",
 ]
@@ -53,6 +66,7 @@ excel-mcp-server = "excel_mcp.cli:main"
 dev = [
     "pyright>=1.1.414",
     "pytest>=9.1",
+    "pytest-timeout>=2.4.0",
     "ruff>=0.16",
 ]
 
@@ -98,7 +112,12 @@ addopts = [
     "--strict-markers",
     "--strict-config",
 ]
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    "ignore:.* extension is not supported and will be removed:UserWarning",
+]
+faulthandler_timeout = 60
+timeout = 120
 
 [tool.uv.build-backend]
 module-name = "excel_mcp"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,18 +13,15 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar import BeartypeDecorHintPep612Exception
-from beartype.typing import (
-    Callable,
-    Optional,
-    Union,
-)
 from beartype._cave._cavefast import (
     EllipsisType,
     HintPep612ParamSpecType,
     HintPep612ParamSpecArgType,
     HintPep612ParamSpecKwargType,
 )
-from beartype._check.metadata.metadecor import BeartypeDecorMeta
+from beartype._check.cls.call.calldataabc import BeartypeCallDataABC
+from beartype._check.cls.call.calldatadecorabc import (
+    BeartypeCallDecorDataABC)
 from beartype._data.typing.datatypingport import (
     Hint,
     ListHints,
@@ -49,6 +46,11 @@ from beartype._util.func.arg.utilfuncargtest import (
     is_func_arg_name_variadic_positional,
 )
 from beartype._data.kind.datakindiota import SENTINEL
+from collections.abc import Callable
+from typing import (
+    Optional,
+    Union,
+)
 
 # ....................{ GETTERS                            }....................
 def get_hint_pep612_paramspec(
@@ -309,11 +311,11 @@ def _reduce_hint_pep612_args_or_kwargs(
     # General-purpose parameters passed by the higher-level
     # beartype._check.convert._reduce.redmain.reduce_hint() reducer to this
     # lower-level reducer.
-    hint: object,
-    decor_meta: Optional[BeartypeDecorMeta],
-    pith_name: Optional[str],
+    call_curr: BeartypeCallDataABC,
     arg_kind: Optional[ArgKind],
     exception_prefix: str,
+    hint: object,
+    pith_name: Optional[str],
 
     # PEP 612-specific parameters passed by the higher-level
     # reduce_hint_pep612_args() or reduce_hint_pep612_kwargs() reducer to this
@@ -327,8 +329,7 @@ def _reduce_hint_pep612_args_or_kwargs(
     other_pith_name_label: str,
 
     # Ignorable general-purpose parameters passed by the higher-level
-    # beartype._check.convert._reduce.redmain.reduce_hint() reducer *NOT* required
-    # by this lower-level reducer.
+    # reduce_hint() reducer *NOT* required by this lower-level reducer.
     **kwargs
 ) -> object:
     '''
@@ -353,24 +354,10 @@ def _reduce_hint_pep612_args_or_kwargs(
 
     Parameters
     ----------
-    hint : object
-        :pep:`612`-compliant parameter specification variadic positional or
-        keyword parameter type hint to be reduced.
-    decor_meta : Optional[BeartypeDecorMeta]
-        Either:
-
-        * If this hint annotates a parameter or return of some callable, the
-          :mod:`beartype`-specific decorator metadata describing that callable.
-        * Else, :data:`None`.
-    pith_name : Optional[str]
-        Either:
-
-        * If this hint annotates a parameter of some callable, the name of that
-          parameter.
-        * If this hint annotates the return of some callable, ``"return"``.
-        * Else, :data:`None`.
-
-        Defaults to :data:`None`.
+    call_curr : BeartypeCallDataABC
+        **Beartype call metadata** (i.e., dataclass aggregating *all* common
+        metadata encapsulating the user-defined callable, type, or statement
+        currently being type-checked by the end user).
     arg_kind : Optional[ArgKind]
         Either:
 
@@ -382,6 +369,18 @@ def _reduce_hint_pep612_args_or_kwargs(
     exception_prefix : str
         Human-readable substring prefixing exception messages raised by this
         reducer.
+    hint : object
+        :pep:`612`-compliant parameter specification variadic positional or
+        keyword parameter type hint to be reduced.
+    pith_name : Optional[str]
+        Either:
+
+        * If this hint annotates a parameter of some callable, the name of that
+          parameter.
+        * If this hint annotates the return of some callable, ``"return"``.
+        * Else, :data:`None`.
+
+        Defaults to :data:`None`.
     arg_kind_expected : ArgKind
         **Expected parameter kind**, defined as either:
 
@@ -462,27 +461,44 @@ def _reduce_hint_pep612_args_or_kwargs(
     # ....................{ VALIDATE                       }....................
     # Validate basic sanity.
 
+    # If this beartype call metadata does *NOT* describe a decoration call,
+    # raise an exception. By definition, PEP 612-compliant parameter
+    # specification variadic positional and keyword parameter type hints *MUST*
+    # directly annotate the variadic positional and keyword parameter
+    # (respectively) of a callable decorated by the @beartype decorator.
+    if not isinstance(call_curr, BeartypeCallDecorDataABC):
+        raise BeartypeDecorHintPep612Exception(
+            f'{exception_prefix}PEP 612 "ParamSpec" '
+            f'variadic {pith_name_label} parameter '
+            f'type hint {repr(hint)} valid only when '
+            f'directly annotating '
+            f'variadic {pith_name_label} parameter "{pith_name_syntax}" as '
+            f'root type hint'
+            f'{_get_pep612_exception_message_suffix()}'
+        )
+    # Else, this beartype call metadata describes a decoration call.
+    #
     # If this hint does *NOT* directly annotate a callable parameter or return,
     # raise an exception. By definition, PEP 612-compliant parameter
     # specification variadic positional and keyword parameter type hints *MUST*
     # directly annotate the variadic positional and keyword parameter
     # (respectively) of a callable.
-    if decor_meta is None:
+    elif pith_name is None:
         raise BeartypeDecorHintPep612Exception(
             f'{exception_prefix}PEP 612 "ParamSpec" '
             f'variadic {pith_name_label} parameter '
             f'type hint {repr(hint)} erroneously subscripts '
-            f'a parent type hint as a nested child type hint rather than '
+            f'parent type hint as nested child type hint rather than '
             f'directly annotating '
-            f'variadic {pith_name_label} parameter "{pith_name_syntax}" as a '
+            f'variadic {pith_name_label} parameter "{pith_name_syntax}" as '
             f'root type hint'
             f'{_get_pep612_exception_message_suffix()}'
         )
     # Else, this hint directly annotates a callable parameter or return.
 
     # ....................{ LOCALS                         }....................
-    # Callable directly annotated by this hint, localized for readability.
-    func = decor_meta.func_wrappee_wrappee
+    # Callable directly annotated by this hint, localized for no good reason.
+    func = call_curr.decoratee
 
     # Metadata describing the other variadic parameter accepted by that callable
     # if that callable accepts the other variadic parameter *OR* "None"
@@ -537,7 +553,7 @@ def _reduce_hint_pep612_args_or_kwargs(
 
     # Type hint subscripting the other variadic parameter if any *OR* the
     # sentinel placeholder otherwise.
-    other_arg_hint = decor_meta.func_annotations_get(
+    other_arg_hint = call_curr.decoratee_annotations.get(
         other_arg_name, SENTINEL)
 
     # If the other variadic parameter is unannotated, raise an exception.
@@ -577,6 +593,7 @@ def _reduce_hint_pep612_args_or_kwargs(
     # other variadic positional or keyword parameter type hint required by PEP
     # 612 to be paired with the passed hint, raise an exception.
 
+    # ....................{ RETURN                         }....................
     # Reduce *ALL* PEP 612 type hints to an arbitrary ignorable type hint.
     return object
 

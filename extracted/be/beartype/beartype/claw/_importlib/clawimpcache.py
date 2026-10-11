@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,20 +13,18 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype._data.claw.dataclawmagic import BEARTYPE_OPTIMIZATION_MARKER
 from beartype.roar import BeartypeClawImportConfException
-from beartype.typing import Dict
 from beartype._conf.confmain import BeartypeConf
 from pprint import pformat
 
 # Original cache_from_source() function defined by the private (*gulp*)
 # "importlib._bootstrap_external" submodule, preserved *BEFORE* temporarily
 # replacing that function with our beartype-specific variant in the
-# "beartype.claw._importlib._clawimpload" submodule.
+# "beartype.claw._importlib._clawimpfileloader" submodule.
 from importlib.util import cache_from_source as cache_from_source_original
 
 # ....................{ SUBCLASSES                         }....................
-class ModuleNameToBeartypeConf(Dict[str, 'BeartypeConf']):
+class ModuleNameToBeartypeConf(dict[str, 'BeartypeConf']):
     '''
     Non-thread-safe **hooked module beartype configuration cache** (i.e.,
     dictionary mapping from the fully-qualified name of each previously imported
@@ -73,7 +71,7 @@ class ModuleNameToBeartypeConf(Dict[str, 'BeartypeConf']):
     '''
 
     # ....................{ DUNDERS                        }....................
-    def __getitem__(self, module_name: str) -> 'BeartypeConf':
+    def __getitem__(self, module_name: str) -> BeartypeConf:
         '''
         Return the previously instantiated beartype configuration associated
         with the module with the passed name.
@@ -86,7 +84,7 @@ class ModuleNameToBeartypeConf(Dict[str, 'BeartypeConf']):
 
         Returns
         -------
-        beartype.BeartypeConf
+        BeartypeConf
             Beartype configuration associated with this module.
 
         Raises
@@ -103,7 +101,7 @@ class ModuleNameToBeartypeConf(Dict[str, 'BeartypeConf']):
         except KeyError as exception:  # pragma: no cover
             #FIXME: Also, consider dropping the parallel
             #"BeartypeSourceFileLoader._main_module_name" attribute.
-            #Does this nonsense supercede that nonsense? Probably. Which leads
+            #Does this nonsense supersede that nonsense? Probably. Which leads
             #us directly to...
 
             # If the module to be inspected is the "__main__" pseudo-module
@@ -126,7 +124,7 @@ class ModuleNameToBeartypeConf(Dict[str, 'BeartypeConf']):
                 #
                 # Ideally, this import would be performed earlier (e.g., in the
                 # BeartypeSourceFileLoader.__init__() method defined in the
-                # "beartype.claw._importlib._clawimpload" submodule) for
+                # "beartype.claw._importlib._clawimpfileloader" submodule) for
                 # debuggability, efficiency, and idempotency; for this reason, a
                 # prior implementation of the aforementioned method performed
                 # this import.
@@ -211,19 +209,22 @@ def cache_from_source_beartype(*args, **kwargs) -> str:
     This, in turn, ensures that submodules residing in packages registered by a
     prior call to the :func:`beartype_package` function are
     compiled to files with the filetype
-    ``".pyc{optimization}_{BEARTYPE_OPTIMIZATION_MARKER}"``, where
+    ``".pyc{optimization}_{OPTIMIZATION_MARKER_BEARTYPE}"``, where
     ``{optimization}`` is the original ``optimization`` parameter passed to this
     function call.
     '''
 
+    # Avoid circular import dependencies.
+    from beartype._data.claw.dataclawmagic import OPTIMIZATION_MARKER_BEARTYPE
+
     # Original optimization parameter passed to this function call if any *OR*
     # the empty string otherwise.
-    NONBEARTYPE_OPTIMIZATION_MARKER = kwargs.get('optimization', '')
+    optimization_marker_nonbeartype = kwargs.get('optimization', '')
 
     # New optimization parameter applied by this monkey-patch of that function,
     # uniquifying that parameter with a beartype-specific suffix.
     kwargs['optimization'] = (
-        f'{NONBEARTYPE_OPTIMIZATION_MARKER}{BEARTYPE_OPTIMIZATION_MARKER}')
+        f'{optimization_marker_nonbeartype}{OPTIMIZATION_MARKER_BEARTYPE}')
 
     # Defer to the implementation of the original cache_from_source() function.
     return cache_from_source_original(*args, **kwargs)

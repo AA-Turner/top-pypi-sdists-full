@@ -19,6 +19,7 @@ from pyathena.formatter import _ComplexParameter
 from pyathena.sqlalchemy.map import AthenaMap
 from pyathena.sqlalchemy.struct import AthenaStruct
 from pyathena.sqlalchemy.temporal import AthenaDate, AthenaTimestamp
+from pyathena.util import override
 
 # SQLAlchemy 2.0.0's ARRAY comparator is not generic at runtime.
 if TYPE_CHECKING:
@@ -56,6 +57,7 @@ class AthenaArray(sqltypes.ARRAY[Any]):
     class Comparator(_ArrayComparatorBase):
         """Build array indexing expressions with inclusive SQL slice bounds."""
 
+        @override
         def _setup_getitem(self, index):
             if isinstance(index, slice):
                 if index.step is not None and (type(index.step) is not int or index.step != 1):
@@ -78,6 +80,20 @@ class AthenaArray(sqltypes.ARRAY[Any]):
         dimensions: int | None = None,
         zero_indexes: bool = False,
     ) -> None:
+        """Initialize the ARRAY type.
+
+        Args:
+            item_type: SQLAlchemy type or type class of the array elements. A type
+                class is instantiated. Defaults to ``String``.
+            as_tuple: Return tuples instead of lists.
+            dimensions: Fixed number of array dimensions, a positive integer.
+            zero_indexes: Translate zero-based SQLAlchemy indexes to one-based SQL
+                indexes.
+
+        Raises:
+            ValueError: If ``dimensions`` is not a positive integer, or if both a
+                nested ARRAY ``item_type`` and ``dimensions`` are given.
+        """
         if dimensions is not None and (
             isinstance(dimensions, bool) or not isinstance(dimensions, int) or dimensions < 1
         ):
@@ -92,19 +108,23 @@ class AthenaArray(sqltypes.ARRAY[Any]):
         else:
             super().__init__(item_type or sqltypes.String(), as_tuple, dimensions, zero_indexes)
 
+    @override
     def bind_expression(self, bindvalue):
         """Cast a bound ARRAY value to its declared Athena element type."""
         # The cast also gives empty arrays and NULL-only arrays their element type.
         return cast(bindvalue, self)._annotate({"_pyathena_array_bind": True})
 
+    @override
     def bind_processor(self, dialect):
         """Return a processor that marks native ARRAY, MAP, and ROW parameters."""
         return _ArrayValueProcessor(self, dialect).bind
 
+    @override
     def literal_processor(self, dialect):
         """Return a processor that renders typed Athena array literals."""
         return _ArrayValueProcessor(self, dialect).literal
 
+    @override
     def column_expression(self, colexpr):
         """Project the outer ARRAY result as JSON while retaining its Python type."""
         return (
@@ -113,6 +133,7 @@ class AthenaArray(sqltypes.ARRAY[Any]):
             else _ArrayJSONProjection(colexpr, self)
         )
 
+    @override
     def result_processor(self, dialect, coltype):
         """Return a processor that restores the declared Python element types."""
         return _ArrayValueProcessor(self, dialect).result
@@ -124,11 +145,13 @@ class _ArraySliceStepType(types.TypeDecorator[int]):
     impl = types.Integer
     cache_ok = True
 
+    @override
     def process_bind_param(self, value, dialect):
         if type(value) is not int or value != 1:
             raise ValueError("Athena ARRAY slices support only step=None or step=1")
         return value
 
+    @override
     def process_literal_param(self, value, dialect):
         return self.process_bind_param(value, dialect)
 
@@ -166,25 +189,6 @@ class _ArrayJSONProjection(ColumnElement[Any]):
         self.array_type = type_
 
 
-def _variant_mapping(type_: TypeEngine[Any]) -> Mapping[str, TypeEngine[Any]]:
-    """Return the dialect-specific variants of a type.
-
-    SQLAlchemy 2.0 stores ``with_variant()`` variants in ``_variant_mapping``.
-    SQLAlchemy 1.x returns a ``Variant`` type decorator that keeps them in
-    ``mapping`` instead.
-
-    Args:
-        type_: The type to inspect.
-
-    Returns:
-        The variants keyed by dialect name, empty when the type has none.
-    """
-    mapping = getattr(type_, "_variant_mapping", None)
-    if mapping is None:
-        mapping = getattr(type_, "mapping", None)
-    return mapping or {}
-
-
 class _ArrayTypeInspector:
     """Interpret nested ARRAY element types for SQL compilation and value conversion.
 
@@ -214,16 +218,43 @@ class _ArrayTypeInspector:
             )
         return type_.item_type
 
+    def variant(self, type_: TypeEngine[Any]) -> TypeEngine[Any] | None:
+        """Return the type's ``with_variant()`` type for this dialect.
+
+        Args:
+            type_: The declared type.
+
+        Returns:
+            The variant type, or None when the type has no variant for this dialect.
+        """
+        return type_._variant_mapping.get(self.dialect.name)
+
     def decorator_impl(self, type_: types.TypeDecorator[Any]) -> TypeEngine[Any]:
-        variant = _variant_mapping(type_).get(self.dialect.name)
+        variant = self.variant(type_)
         if variant is not None:
             return variant
-        implementation = type_.load_dialect_impl(self.dialect)
-        if isinstance(implementation, AthenaTimestamp):
-            return types.TIMESTAMP()
-        if isinstance(implementation, AthenaDate):
-            return types.DATE()
-        return implementation
+        return type_.load_dialect_impl(self.dialect)
+
+    def dialect_type(self, type_: TypeEngine[Any]) -> TypeEngine[Any]:
+        """Resolve the type this dialect uses for a SQLAlchemy type.
+
+        Takes the Athena variant from ``with_variant()`` and the implementation
+        of a TypeDecorator until neither applies.
+
+        Args:
+            type_: The declared type.
+
+        Returns:
+            The resolved type.
+        """
+        while True:
+            variant = self.variant(type_)
+            if variant is not None:
+                type_ = variant
+            elif isinstance(type_, types.TypeDecorator):
+                type_ = self.decorator_impl(type_)
+            else:
+                return type_
 
     @staticmethod
     def has_unknown_element(type_: TypeEngine[Any]) -> bool:
@@ -304,14 +335,14 @@ class _ArrayValueProcessor:
         return None
 
     def _bind(self, value: Any, type_: TypeEngine[Any]) -> Any:
+        variant = self._type_inspector.variant(type_)
+        if variant is not None:
+            return self._bind(value, variant)
         if isinstance(type_, types.TypeDecorator):
-            if (
-                self.dialect.name not in _variant_mapping(type_)
-                and type(type_).bind_processor is not types.TypeDecorator.bind_processor
-            ):
+            if type(type_).bind_processor is not types.TypeDecorator.bind_processor:
                 processor = type_.bind_processor(self.dialect)
                 return processor(value) if processor else value
-            if self.dialect.name not in _variant_mapping(type_) and type_._has_bind_processor:
+            if type_._has_bind_processor:
                 value = type_.process_bind_param(value, self.dialect)
             return self._bind(value, self._type_inspector.decorator_impl(type_))
         if value is None:
@@ -335,19 +366,18 @@ class _ArrayValueProcessor:
         return processor(value) if processor else value
 
     def _literal(self, value: Any, type_: TypeEngine[Any]) -> str:
+        variant = self._type_inspector.variant(type_)
+        if variant is not None:
+            return self._literal(value, variant)
         if isinstance(type_, types.TypeDecorator):
-            if (
-                self.dialect.name not in _variant_mapping(type_)
-                and type(type_).literal_processor is not types.TypeDecorator.literal_processor
-            ):
+            if type(type_).literal_processor is not types.TypeDecorator.literal_processor:
                 literal_override = type_.literal_processor(self.dialect)
                 if literal_override is not None:
                     return literal_override(value)
-            if self.dialect.name not in _variant_mapping(type_):
-                if type_._has_literal_processor:
-                    value = type_.process_literal_param(value, self.dialect)
-                elif type_._has_bind_processor:
-                    value = type_.process_bind_param(value, self.dialect)
+            if type_._has_literal_processor:
+                value = type_.process_literal_param(value, self.dialect)
+            elif type_._has_bind_processor:
+                value = type_.process_bind_param(value, self.dialect)
             return self._literal(value, self._type_inspector.decorator_impl(type_))
         if value is None:
             return "NULL"
@@ -365,25 +395,21 @@ class _ArrayValueProcessor:
             raise TypeError("ARRAY element shape does not match its declared type.")
         if isinstance(type_, (types.LargeBinary, types.BINARY, types.VARBINARY)):
             return f"X'{bytes(value).hex()}'"
-        if isinstance(type_, types.DateTime) and isinstance(value, datetime):
-            return AthenaTimestamp.process(value)
-        if isinstance(type_, types.Date) and isinstance(value, date):
-            return AthenaDate.process(value)
         processor = type_.dialect_impl(self.dialect).literal_processor(self.dialect)
         if processor is None:
             raise exc.CompileError(f"No ARRAY element literal processor for {type_!r}.")
         return str(processor(value))
 
     def _decode(self, value: Any, type_: TypeEngine[Any], as_tuple: bool = False) -> Any:
+        variant = self._type_inspector.variant(type_)
+        if variant is not None:
+            return self._decode(value, variant, as_tuple)
         if isinstance(type_, types.TypeDecorator):
             value = self._decode(value, self._type_inspector.decorator_impl(type_), as_tuple)
-            if (
-                self.dialect.name not in _variant_mapping(type_)
-                and type(type_).result_processor is not types.TypeDecorator.result_processor
-            ):
+            if type(type_).result_processor is not types.TypeDecorator.result_processor:
                 processor = type_.result_processor(self.dialect, None)
                 return processor(value) if processor else value
-            if self.dialect.name not in _variant_mapping(type_) and type_._has_result_processor:
+            if type_._has_result_processor:
                 return type_.process_result_value(value, self.dialect)
             return value
         if value is None:
@@ -436,6 +462,7 @@ class _ArrayAssignmentType(types.TypeDecorator[Any]):
         super().__init__()
         self.item_type = item_type
 
+    @override
     def bind_processor(self, dialect):
         processor = _ArrayValueProcessor(self.item_type, dialect)
 
@@ -447,9 +474,11 @@ class _ArrayAssignmentType(types.TypeDecorator[Any]):
 
         return process
 
+    @override
     def literal_processor(self, dialect):
         return _ArrayValueProcessor(self.item_type, dialect).literal
 
+    @override
     def bind_expression(self, bindvalue):
         expression = self.item_type.bind_expression(bindvalue)
         return bindvalue if expression is None else expression
@@ -461,11 +490,13 @@ class _ArrayWriteIndexType(types.TypeDecorator[int]):
     impl = types.Integer
     cache_ok = True
 
+    @override
     def process_bind_param(self, value, dialect):
         if type(value) is not int:
             raise ValueError("ARRAY write indices must be non-NULL integers")
         return value
 
+    @override
     def process_literal_param(self, value, dialect):
         return self.process_bind_param(value, dialect)
 
@@ -496,6 +527,7 @@ class _ArrayUpdate(ColumnElement[Any]):
         )
 
     @property
+    @override
     def _from_objects(self):
         return self.column._from_objects + self.value._from_objects
 
@@ -568,7 +600,9 @@ class _ArrayUpdateCompiler:
         ):
             raise exc.CompileError("An ARRAY slice assignment requires a non-NULL array")
         rhs = compiler.process(value, **kw)
-        rhs_type = compiler._complex_dml_type(expression.value_type, require_precision=True)
+        rhs_type = compiler._dml_type_compiler.process_element(
+            expression.value_type, require_precision=True
+        )
         rhs = f"CAST({rhs} AS {rhs_type})"
         if final_slice:
             # Reject SQL expressions that evaluate to NULL without issuing a second statement.
@@ -615,7 +649,7 @@ class _ArrayUpdateCompiler:
         array_type = self._type_inspector.array_type(array_type)
         if array_type is None:
             raise exc.CompileError("Partial ARRAY updates require an ARRAY column type")
-        array_sql_type = compiler._complex_dml_type(array_type)
+        array_sql_type = compiler._dml_type_compiler.process_element(array_type)
         array = f"coalesce({array}, CAST(ARRAY[] AS {array_sql_type}))"
         bound = path[0]
         if isinstance(bound, Slice):
@@ -624,7 +658,9 @@ class _ArrayUpdateCompiler:
 
     def _prefix_and_padding(self, array, start, array_type):
         prefix = f"slice({array}, 1, least({start} - 1, cardinality({array})))"
-        element_type = self.compiler._complex_dml_type(_ArrayTypeInspector.item_type(array_type))
+        element_type = self.compiler._dml_type_compiler.process_element(
+            _ArrayTypeInspector.item_type(array_type)
+        )
         padding = (
             f"repeat(CAST(NULL AS {element_type}), "
             f"CAST(greatest({start} - 1 - cardinality({array}), 0) AS INTEGER))"

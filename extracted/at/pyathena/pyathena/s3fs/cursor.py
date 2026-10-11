@@ -1,3 +1,5 @@
+"""Cursor that reads Athena CSV query results through PyAthena's S3 filesystem."""
+
 from __future__ import annotations
 
 import logging
@@ -11,6 +13,7 @@ from pyathena.options import ExecuteOptions
 from pyathena.result_set import WithFetch
 from pyathena.s3fs.converter import DefaultS3FSTypeConverter
 from pyathena.s3fs.result_set import AthenaS3FSResultSet, CSVReaderType
+from pyathena.util import override
 
 _logger = logging.getLogger(__name__)
 
@@ -49,6 +52,7 @@ class S3FSCursor(WithFetch):
 
     def __init__(
         self,
+        *,
         s3_staging_dir: str | None = None,
         schema_name: str | None = None,
         catalog_name: str | None = None,
@@ -78,17 +82,18 @@ class S3FSCursor(WithFetch):
             csv_reader: CSV reader class to use for parsing results.
                 Use AthenaCSVReader (default) to distinguish between NULL
                 (unquoted empty) and empty string (quoted empty "").
-                Use DefaultCSVReader for backward compatibility where empty
-                strings are treated as NULL.
+                Use EmptyStringAsNullCSVReader to treat empty strings as NULL.
+                Custom readers must satisfy the
+                :class:`~pyathena.s3fs.reader.CSVReader` protocol.
             **kwargs: Additional connection parameters.
 
         Example:
             >>> cursor = connection.cursor(S3FSCursor)
             >>> cursor.execute("SELECT * FROM my_table")
             >>>
-            >>> # Use DefaultCSVReader for backward compatibility
-            >>> from pyathena.s3fs.reader import DefaultCSVReader
-            >>> cursor = connection.cursor(S3FSCursor, csv_reader=DefaultCSVReader)
+            >>> # Treat empty strings as NULL
+            >>> from pyathena.s3fs.reader import EmptyStringAsNullCSVReader
+            >>> cursor = connection.cursor(S3FSCursor, csv_reader=EmptyStringAsNullCSVReader)
         """
         super().__init__(
             s3_staging_dir=s3_staging_dir,
@@ -106,6 +111,7 @@ class S3FSCursor(WithFetch):
         self._csv_reader = csv_reader
 
     @staticmethod
+    @override
     def get_default_converter(
         unload: bool = False,
     ) -> DefaultS3FSTypeConverter:
@@ -119,10 +125,12 @@ class S3FSCursor(WithFetch):
         """
         return DefaultS3FSTypeConverter()
 
+    @override
     def execute(
         self,
         operation: str,
         parameters: dict[str, Any] | list[str] | None = None,
+        *,
         work_group: str | None = None,
         s3_staging_dir: str | None = None,
         cache_size: int | None = None,
@@ -132,7 +140,6 @@ class S3FSCursor(WithFetch):
         paramstyle: str | None = None,
         on_start_query_execution: Callable[[str], None] | None = None,
         result_set_type_hints: dict[str | int, str] | None = None,
-        *,
         options: ExecuteOptions | None = None,
         **kwargs,
     ) -> S3FSCursor:
@@ -151,14 +158,18 @@ class S3FSCursor(WithFetch):
             result_reuse_enable: Enable Athena result reuse for this query.
             result_reuse_minutes: Minutes to reuse cached results.
             paramstyle: Parameter style ('qmark' or 'pyformat').
-            on_start_query_execution: Callback called when query starts.
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion within
-                complex types.
+            on_start_query_execution: Callback invoked with the query ID before ``execute()``
+                waits for the query: after the ``StartQueryExecution`` call, or after a
+                reusable query ID is found through ``cache_size``.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
             options: Shared execution options as an
                 :class:`~pyathena.options.ExecuteOptions` instance. Individual
                 keyword arguments take precedence over ``options`` fields.
-            **kwargs: Additional execution parameters.
+            **kwargs: Supported S3FS result-set overrides. Unknown names raise TypeError.
+                ``block_size`` sets the read block size for this query, and
+                ``csv_reader`` overrides the cursor's value.
+                ``filesystem_class`` overrides the filesystem used to read results.
 
         Returns:
             Self reference for method chaining.
@@ -167,6 +178,7 @@ class S3FSCursor(WithFetch):
             >>> cursor.execute("SELECT * FROM my_table WHERE id = %(id)s", {"id": 123})
             >>> rows = cursor.fetchall()
         """
+        self._validate_execute_kwargs(kwargs, ("block_size", "csv_reader", "filesystem_class"))
         self._reset_state()
         options = ExecuteOptions.resolve(
             options,
@@ -197,7 +209,7 @@ class S3FSCursor(WithFetch):
                 query_execution=query_execution,
                 arraysize=self.arraysize,
                 retry_config=self._retry_config,
-                csv_reader=self._csv_reader,
+                csv_reader=kwargs.pop("csv_reader", self._csv_reader),
                 result_set_type_hints=options.result_set_type_hints,
                 **kwargs,
             )

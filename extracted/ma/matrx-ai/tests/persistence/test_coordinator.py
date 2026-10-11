@@ -1388,3 +1388,93 @@ async def test_late_completion_write_lands_before_teardown(monkeypatch, pk, comp
         "returned while its one-shot write was still in flight, and teardown "
         "cancelled it (tool_call stuck 'pending' → watchdog_timeout)"
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("queue_update", [False, True])
+async def test_concurrent_finalizer_waits_for_the_earlier_insert(monkeypatch, queue_update):
+    """Parallel browser delegations must not acknowledge a park before its INSERT commits."""
+    insert_started = asyncio.Event()
+    release_insert = asyncio.Event()
+    committed = {}
+
+    async def execute_tiers(tiers):
+        ops = [op for tier in tiers for op in tier]
+        if any(str(op.op_type) == "insert" for op in ops):
+            insert_started.set()
+            await release_insert.wait()
+        for op in ops:
+            if str(op.op_type) == "insert":
+                committed[op.payload["id"]] = dict(op.payload)
+            elif op.pk_value in committed:
+                committed[op.pk_value].update(op.payload)
+        return len(ops)
+
+    monkeypatch.setattr("matrx_orm.session.flush.execute_tiers", execute_tiers)
+    monkeypatch.setattr("matrx_orm.session.session.execute_tiers", execute_tiers)
+    coord = Coordinator()
+    coord.queue("public.cx_fake_a", {"id": "instagram-save", "status": "running"})
+    first = asyncio.create_task(coord.finalize(reason="first_browser_delegation"))
+    await asyncio.wait_for(insert_started.wait(), 3)
+    if queue_update:
+        coord.queue(
+            "public.cx_fake_a",
+            {"id": "instagram-save", "status": "delegated"},
+            op_type="update",
+            primary_key=("id", "instagram-save"),
+        )
+    second_started = asyncio.Event()
+
+    async def finalize_second():
+        second_started.set()
+        return await coord.finalize(reason="second_browser_delegation")
+
+    second = asyncio.create_task(finalize_second())
+    await second_started.wait()
+    # A scheduler checkpoint, not a timing guess: second has entered the real barrier.
+    await asyncio.sleep(0)
+    acknowledged_before_insert = second.done()
+    release_insert.set()
+    await asyncio.gather(first, second)
+    assert not acknowledged_before_insert, (
+        "parallel barrier acknowledged before earlier INSERT committed"
+    )
+    assert committed["instagram-save"]["status"] == ("delegated" if queue_update else "running")
+
+
+@pytest.mark.asyncio
+async def test_parallel_barrier_wait_is_bounded(monkeypatch):
+    """A wedged predecessor must refuse another browser park instead of hanging it."""
+    import matrx_ai.persistence.coordinator as coordinator_module
+
+    monkeypatch.setattr(coordinator_module, "_DRAIN_TIMEOUT_SECONDS", 0.01)
+    coord = Coordinator()
+    await coord._barrier_lock.acquire()
+    try:
+        with pytest.raises(PersistenceBarrierError, match="prior_barrier:overdue"):
+            await asyncio.wait_for(coord.finalize(reason="next_browser_delegation"), 0.5)
+    finally:
+        coord._barrier_lock.release()
+    assert coord.phase is CoordinatorPhase.ERRORED
+
+
+@pytest.mark.asyncio
+async def test_parallel_barrier_cannot_acknowledge_a_failed_predecessor(monkeypatch):
+    """A waiting browser park inherits the prior durable-write failure."""
+    coord = Coordinator()
+    await coord._barrier_lock.acquire()
+    started = asyncio.Event()
+
+    async def finalize_waiter():
+        started.set()
+        return await coord.finalize(reason="waiting_browser_delegation")
+
+    waiter = asyncio.create_task(finalize_waiter())
+    await started.wait()
+    # A failed earlier commit publishes its sticky verdict before releasing ownership.
+    from matrx_ai.persistence.coordinator import FlushReport
+
+    await coord._apply_verdict(FlushReport(reason="prior", error="insert refused"), errored=True)
+    coord._barrier_lock.release()
+    with pytest.raises(PersistenceBarrierError, match="insert refused"):
+        await waiter

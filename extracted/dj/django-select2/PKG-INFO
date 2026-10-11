@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: django-select2
-Version: 8.4.8
+Version: 8.6.0
 Summary: This is a Django_ integration of Select2_.
 Keywords: Django,select2,autocomplete,typeahead
 Author-email: Johannes Maron <johannes@maron.family>
-Requires-Python: >=3.10
+Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
@@ -14,19 +14,16 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Topic :: Software Development
 License-File: LICENSE
-Requires-Dist: django>=4.2
-Requires-Dist: django-appconf>=0.6.0
+Requires-Dist: django>=5.2.13
+Requires-Dist: django-appconf>=1.2.0
 Project-URL: Changelog, https://github.com/codingjoe/django-select2/releases
 Project-URL: Documentation, https://django-select2.rtfd.io/
 Project-URL: Funding, https://github.com/sponsors/codingjoe
@@ -55,6 +52,10 @@ Project-URL: Source, https://github.com/codingjoe/django-select2
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/codingjoe/django-select2/main/LICENSE.txt)
 
 Custom autocomplete fields for [Django](https://www.djangoproject.com/).
+
+## Sponsors
+
+[![Sponsors](https://sponsor.pics/codingjoe/django-select2.svg)](https://github.com/sponsors/codingjoe)
 
 ## Documentation
 

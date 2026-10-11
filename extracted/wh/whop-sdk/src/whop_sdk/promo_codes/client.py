@@ -107,7 +107,7 @@ class PromoCodesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -159,7 +159,7 @@ class PromoCodesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PromoCode:
         """
-        Creates a promo code for an account. First-party sessions may attach an affiliate.
+        Creates a promo code for an account.
 
         Parameters
         ----------
@@ -206,7 +206,7 @@ class PromoCodesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -262,7 +262,7 @@ class PromoCodesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -295,7 +295,7 @@ class PromoCodesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -328,7 +328,7 @@ class PromoCodesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -361,7 +361,7 @@ class PromoCodesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -461,7 +461,7 @@ class AsyncPromoCodesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -520,7 +520,7 @@ class AsyncPromoCodesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PromoCode:
         """
-        Creates a promo code for an account. First-party sessions may attach an affiliate.
+        Creates a promo code for an account.
 
         Parameters
         ----------
@@ -569,7 +569,7 @@ class AsyncPromoCodesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -633,7 +633,7 @@ class AsyncPromoCodesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -676,7 +676,7 @@ class AsyncPromoCodesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -717,7 +717,7 @@ class AsyncPromoCodesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -758,7 +758,7 @@ class AsyncPromoCodesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

@@ -236,6 +236,55 @@ ERROR_CODE_DEFINITIONS: tuple[dict[str, str | int | None], ...] = (
             "Write the statement by hand, or declare the object in the tree so the two sides agree"
         ),
     },
+    {
+        "code": "DIFFER_405",
+        "message_template": (
+            "Index '{index}' is on {table}, which neither schema declares: the migration "
+            "{action} it CONCURRENTLY and assumes the table exists"
+        ),
+        "severity": "warning",
+        "exit_code": 0,
+        "resolution_hint": (
+            "Make sure the table exists before the migration runs, or declare it in the schema"
+        ),
+    },
+    {
+        "code": "DIFFER_406",
+        "message_template": ("Index '{index}' is on {table}: {reason}"),
+        "severity": "error",
+        "exit_code": 5,
+        "resolution_hint": (
+            "Declare the relation in the desired schema, before the index — compose the "
+            "fragment into the environment's include_dirs, after the file that creates it — "
+            "or remove the index"
+        ),
+    },
+    {
+        "code": "DIFFER_407",
+        "message_template": (
+            "Index '{index}' is on TVIEW {tview}: migrate diff does not carry it and drift "
+            "does not check it yet"
+        ),
+        "severity": "warning",
+        "exit_code": 0,
+        "resolution_hint": (
+            "Keep it in the schema (the build creates it, and pg_tviews keeps it across a "
+            "rebuild); write any change to it in a migration by hand"
+        ),
+    },
+    {
+        "code": "DIFFER_408",
+        "message_template": (
+            "Index '{index}' is written before {table}, the relation it is on: the current "
+            "schema's build fails at it, so it is not compared"
+        ),
+        "severity": "warning",
+        "exit_code": 0,
+        "resolution_hint": (
+            "Move the index after the statement that creates its relation; confiture lint "
+            "reports it as build_004"
+        ),
+    },
     # ========== ROLLBACK (600-699): Rollback errors → exit code 8 ==========
     {
         "code": "ROLLBACK_600",
@@ -334,6 +383,19 @@ ERROR_CODE_DEFINITIONS: tuple[dict[str, str | int | None], ...] = (
             "contract confiture reads and whose registry holds every column it reads; an "
             "extension created by 0.1.0-beta.19 or earlier is moved with pg_tviews' "
             "scripts/migrate-from-0.1.0.sql"
+        ),
+    },
+    {
+        "code": "CONFIG_015",
+        "message_template": (
+            "The ledger {table!r} does not resolve for this session, but a relation of that "
+            "name exists in {elsewhere}"
+        ),
+        "severity": "error",
+        "exit_code": 5,
+        "resolution_hint": (
+            "Point at the existing ledger — set migration.tracking_table to it, or put its "
+            "schema on the connection's search_path"
         ),
     },
     # ========== Default error codes for exception types ==========

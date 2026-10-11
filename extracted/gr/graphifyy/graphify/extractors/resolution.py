@@ -39,7 +39,10 @@ _JS_INDEX_FILES = ("index.ts", "index.tsx", "index.svelte", "index.js", "index.j
 def _resolve_js_import_path(candidate: Path) -> Path:
     """Resolve a JS/TS/Svelte import target to a local file when it exists."""
     candidate = Path(os.path.normpath(candidate))
-    if candidate.is_file():
+    try:
+        if candidate.is_file():
+            return candidate
+    except OSError:
         return candidate
 
     # TS ESM convention: imports often spell .js/.jsx while source is .ts/.tsx.
@@ -341,8 +344,11 @@ def _resolve_tsconfig_alias(raw: str, aliases: dict[str, list[str]],
         if base_url is not None:
             candidate = Path(os.path.normpath(base_url / raw))
             resolved = _resolve_js_import_path(candidate)
-            if resolved.is_file():
-                return resolved
+            try:
+                if resolved.is_file():
+                    return resolved
+            except OSError:
+                pass
         return None
 
     _, captured, is_wildcard, targets = best
@@ -357,8 +363,11 @@ def _resolve_tsconfig_alias(raw: str, aliases: dict[str, list[str]],
             if captured:
                 cand = Path(os.path.normpath(cand / captured))
         resolved = _resolve_js_import_path(cand)
-        if resolved.is_file():
-            return resolved
+        try:
+            if resolved.is_file():
+                return resolved
+        except OSError:
+            pass
         if first is None:
             first = cand
     return first
@@ -944,6 +953,18 @@ def _vue_mask_non_script(src: str) -> tuple[str, str | None]:
     out.append(_blank(src[pos:]))
     return "".join(out), lang
 
+def _memo_cwd(path_str: str) -> str:
+    """The cwd part of a path-memo key: empty for an absolute path (#perf).
+
+    An absolute path resolves the same from any working directory, so only a
+    relative one keys on the cwd. That saves an ``os.getcwd()`` syscall on
+    every memo hit. Host rules are the right ones here: a driveless ``\\x``
+    on Windows depends on the current drive, and ``Path.is_absolute()``
+    keeps it keyed on the cwd.
+    """
+    return "" if Path(path_str).is_absolute() else os.getcwd()
+
+
 @functools.lru_cache(maxsize=65536)
 def _cached_source_key(source_file: str, root_str: str, _cwd: str) -> str:
     """Resolve-and-relativize one source path, memoized (#perf).
@@ -968,7 +989,7 @@ def _cached_source_key(source_file: str, root_str: str, _cwd: str) -> str:
 def _source_key(source_file: str, root: Path) -> str:
     if not source_file:
         return ""
-    return _cached_source_key(source_file, str(root), os.getcwd())
+    return _cached_source_key(source_file, str(root), _memo_cwd(source_file))
 
 def _node_disambiguation_source_key(node: dict, root: Path) -> str:
     source_file = str(node.get("source_file", ""))
@@ -1135,7 +1156,7 @@ def _cached_realpath(path_str: str, _cwd: str) -> Path:
 
 
 def _resolve_cached(path: "Path | str") -> Path:
-    """``Path.resolve()`` with a per-(path, cwd) memo (#perf).
+    """``Path.resolve()`` with a per-path memo, cwd-keyed when relative (#perf).
 
     The symbol-resolution passes resolve the same few hundred corpus paths
     once per FACT — per import, per export, per use, per node — which on
@@ -1147,7 +1168,8 @@ def _resolve_cached(path: "Path | str") -> Path:
     ``Path.resolve()`` — callers keep their own try/except — and an
     exception is never cached.
     """
-    return _cached_realpath(str(path), os.getcwd())
+    path_str = str(path)
+    return _cached_realpath(path_str, _memo_cwd(path_str))
 
 
 def _js_source_path(source_file: str, root: Path) -> Path | None:
@@ -1702,18 +1724,21 @@ def _parse_js_tree(path: Path):
         return None
 
 def _walk_js_tree(node):
-    # Iterative DFS avoids Python's O(depth) generator-chain overhead.
-    # Recursive yield-from creates one generator frame per level — at 26+
-    # levels deep each leaf's value had to propagate through 26 frames.
-    stack = [node]
-    while stack:
-        n = stack.pop()
-        yield n
-        stack.extend(reversed(n.children))
+    # Pre-order walk with a TreeCursor, which skips building a ``.children``
+    # list at every node. A cursor is bounded by the node it starts from, so
+    # goto_parent() fails at ``node`` and a subtree walk never leaves it.
+    cursor = node.walk()
+    while True:
+        yield cursor.node
+        if cursor.goto_first_child():
+            continue
+        while not cursor.goto_next_sibling():
+            if not cursor.goto_parent():
+                return
 
 def _js_module_specifier(node, source: bytes) -> str | None:
     source_node = node.child_by_field_name("source")
-    if source_node is None:
+    if source_node is None and node.type != "export_statement":
         for child in node.children:
             if child.type == "string":
                 source_node = child
@@ -2073,6 +2098,18 @@ def _ts_walk_class_members(class_node, source: bytes, path: Path, class_nid: str
                     _SymbolUseFact(path, class_nid, name, "references", ctx, m_line)
                 )
 
+# Node types the whole-tree passes of _collect_js_symbol_resolution_facts
+# filter on.
+_JS_FACT_NODE_TYPES = frozenset({
+    "export_statement",
+    "import_statement",
+    "lexical_declaration",
+    "class_declaration",
+    "abstract_class_declaration",
+    "interface_declaration",
+})
+
+
 def _collect_js_symbol_resolution_facts(paths: list[Path], facts: _SymbolResolutionFacts) -> None:
     js_paths = [
         path for path in paths
@@ -2081,7 +2118,7 @@ def _collect_js_symbol_resolution_facts(paths: list[Path], facts: _SymbolResolut
     if not js_paths:
         return
 
-    trees: dict[Path, tuple[bytes, object]] = {}
+    trees: dict[Path, tuple[bytes, object, list]] = {}
 
     for path in js_paths:
         resolved_path = _resolve_cached(path)
@@ -2089,9 +2126,13 @@ def _collect_js_symbol_resolution_facts(paths: list[Path], facts: _SymbolResolut
         if parsed is None:
             continue
         source, root_node = parsed
-        trees[resolved_path] = parsed
+        indexed = [
+            node for node in _walk_js_tree(root_node)
+            if node.type in _JS_FACT_NODE_TYPES
+        ]
+        trees[resolved_path] = (source, root_node, indexed)
 
-        for node in _walk_js_tree(root_node):
+        for node in indexed:
             if node.type == "export_statement":
                 for name in _js_exported_declaration_names(node, source):
                     facts.declarations.append(
@@ -2129,7 +2170,7 @@ def _collect_js_symbol_resolution_facts(paths: list[Path], facts: _SymbolResolut
                     )
                 )
 
-        for node in _walk_js_tree(root_node):
+        for node in indexed:
             for alias, target in _js_lexical_aliases(node, source):
                 facts.aliases.append(
                     _SymbolAliasFact(path, alias, target, node.start_point[0] + 1)
@@ -2140,9 +2181,9 @@ def _collect_js_symbol_resolution_facts(paths: list[Path], facts: _SymbolResolut
         parsed = trees.get(resolved_path)
         if parsed is None:
             continue
-        source, root_node = parsed
+        source, _root_node, indexed = parsed
 
-        for node in _walk_js_tree(root_node):
+        for node in indexed:
             if node.type != "export_statement":
                 continue
 
@@ -2236,7 +2277,7 @@ def _collect_js_symbol_resolution_facts(paths: list[Path], facts: _SymbolResolut
         parsed = trees.get(resolved_path)
         if parsed is None:
             continue
-        source, root_node = parsed
+        source, root_node, _indexed = parsed
         for source_id, body in _js_top_level_function_bodies(path, root_node, source):
             for node in _walk_js_tree(body):
                 imported_name = _js_call_identifier(node, source)
@@ -2258,9 +2299,9 @@ def _collect_js_symbol_resolution_facts(paths: list[Path], facts: _SymbolResolut
         parsed = trees.get(resolved_path)
         if parsed is None:
             continue
-        source, root_node = parsed
+        source, _root_node, indexed = parsed
         stem = _file_stem(path)
-        for node in _walk_js_tree(root_node):
+        for node in indexed:
             if node.type not in (
                 "class_declaration",
                 "abstract_class_declaration",
@@ -2310,8 +2351,7 @@ def _walk_python_tree(node):
     ancestor and re-propagated every node up the whole chain — ~25M frame
     resumptions on a 364-file corpus for ~2.8M actual nodes. An explicit stack
     yields each node exactly once in the identical preorder (children pushed
-    reversed so the first child pops first). Same rewrite, same reasoning as
-    ``_walk_js_tree`` above.
+    reversed so the first child pops first).
     """
     stack = [node]
     while stack:

@@ -1,3 +1,5 @@
+"""Native asyncio cursor that returns Athena query results as Apache Arrow tables."""
+
 from __future__ import annotations
 
 import asyncio
@@ -15,6 +17,7 @@ from pyathena.common import CursorIterator
 from pyathena.error import OperationalError, ProgrammingError
 from pyathena.model import AthenaQueryExecution
 from pyathena.options import ExecuteOptions
+from pyathena.util import override
 
 if TYPE_CHECKING:
     import polars as pl
@@ -38,6 +41,7 @@ class AioArrowCursor(WithAsyncFetch):
 
     def __init__(
         self,
+        *,
         s3_staging_dir: str | None = None,
         schema_name: str | None = None,
         catalog_name: str | None = None,
@@ -53,6 +57,28 @@ class AioArrowCursor(WithAsyncFetch):
         request_timeout: float | None = None,
         **kwargs,
     ) -> None:
+        """Initialize an AioArrowCursor.
+
+        Args:
+            s3_staging_dir: S3 location for query results.
+            schema_name: Default schema name.
+            catalog_name: Default catalog name.
+            work_group: Athena workgroup name.
+            poll_interval: Query status polling interval in seconds.
+            encryption_option: S3 encryption option for query results.
+            kms_key: KMS key for encrypting query results.
+            kill_on_interrupt: Cancel the query when the task is cancelled while
+                ``execute()`` starts or waits for the query.
+            unload: Whether to wrap queries in ``UNLOAD`` and read the Parquet output.
+            result_reuse_enable: Whether to enable Athena query result reuse.
+            result_reuse_minutes: Maximum age of a reused query result in minutes.
+            connect_timeout: Connection timeout in seconds of the pyarrow S3 filesystem
+                that reads the results. If None, the pyarrow default is used.
+            request_timeout: Request timeout in seconds of the pyarrow S3 filesystem
+                that reads the results. If None, the pyarrow default is used.
+            **kwargs: Other cursor arguments, such as ``connection`` and ``arraysize``,
+                passed to the parent ``__init__``.
+        """
         super().__init__(
             s3_staging_dir=s3_staging_dir,
             schema_name=schema_name,
@@ -72,6 +98,7 @@ class AioArrowCursor(WithAsyncFetch):
         self._result_set: AthenaArrowResultSet | None = None
 
     @staticmethod
+    @override
     def get_default_converter(
         unload: bool = False,
     ) -> DefaultArrowTypeConverter | DefaultArrowUnloadTypeConverter | Any:
@@ -79,10 +106,12 @@ class AioArrowCursor(WithAsyncFetch):
             return DefaultArrowUnloadTypeConverter()
         return DefaultArrowTypeConverter()
 
-    async def execute(  # type: ignore[override]
+    @override
+    async def execute(
         self,
         operation: str,
         parameters: dict[str, Any] | list[str] | None = None,
+        *,
         work_group: str | None = None,
         s3_staging_dir: str | None = None,
         cache_size: int | None = None,
@@ -92,7 +121,6 @@ class AioArrowCursor(WithAsyncFetch):
         paramstyle: str | None = None,
         on_start_query_execution: Callable[[str], None] | None = None,
         result_set_type_hints: dict[str | int, str] | None = None,
-        *,
         options: ExecuteOptions | None = None,
         **kwargs,
     ) -> AioArrowCursor:
@@ -108,18 +136,23 @@ class AioArrowCursor(WithAsyncFetch):
             result_reuse_enable: Enable Athena result reuse for this query.
             result_reuse_minutes: Minutes to reuse cached results.
             paramstyle: Parameter style ('qmark' or 'pyformat').
-            on_start_query_execution: Callback called when query starts.
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion within
-                complex types.
+            on_start_query_execution: Callback invoked with the query ID before ``execute()``
+                waits for the query: after the ``StartQueryExecution`` call, or after a
+                reusable query ID is found through ``cache_size``.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
             options: Shared execution options as an
                 :class:`~pyathena.options.ExecuteOptions` instance. Individual
                 keyword arguments take precedence over ``options`` fields.
-            **kwargs: Additional execution parameters.
+            **kwargs: Result-set overrides: ``block_size``, ``connect_timeout``,
+                and ``request_timeout``. Unknown names raise TypeError.
+                ``block_size`` sets the read block size for this query, and
+                ``connect_timeout`` and ``request_timeout`` override the cursor's values.
 
         Returns:
             Self reference for method chaining.
         """
+        self._validate_execute_kwargs(kwargs, ("block_size", "connect_timeout", "request_timeout"))
         self._reset_state()
         options = ExecuteOptions.resolve(
             options,
@@ -154,80 +187,14 @@ class AioArrowCursor(WithAsyncFetch):
                 retry_config=self._retry_config,
                 unload=self._unload,
                 unload_location=unload_location,
-                connect_timeout=self._connect_timeout,
-                request_timeout=self._request_timeout,
+                connect_timeout=kwargs.pop("connect_timeout", self._connect_timeout),
+                request_timeout=kwargs.pop("request_timeout", self._request_timeout),
                 result_set_type_hints=options.result_set_type_hints,
                 **kwargs,
             )
         else:
             raise OperationalError(query_execution.state_change_reason)
         return self
-
-    async def fetchone(  # type: ignore[override]
-        self,
-    ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
-        """Fetch the next row of the result set.
-
-        Wraps the synchronous fetch in ``asyncio.to_thread`` to avoid
-        blocking the event loop.
-
-        Returns:
-            A tuple representing the next row, or None if no more rows.
-
-        Raises:
-            ProgrammingError: If no result set is available.
-        """
-        if not self.has_result_set:
-            raise ProgrammingError("No result set.")
-        result_set = cast(AthenaArrowResultSet, self.result_set)
-        return await asyncio.to_thread(result_set.fetchone)
-
-    async def fetchmany(  # type: ignore[override]
-        self, size: int | None = None
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        """Fetch multiple rows from the result set.
-
-        Wraps the synchronous fetch in ``asyncio.to_thread`` to avoid
-        blocking the event loop.
-
-        Args:
-            size: Maximum number of rows to fetch. Defaults to arraysize.
-
-        Returns:
-            List of tuples representing the fetched rows.
-
-        Raises:
-            ProgrammingError: If no result set is available.
-        """
-        if not self.has_result_set:
-            raise ProgrammingError("No result set.")
-        result_set = cast(AthenaArrowResultSet, self.result_set)
-        return await asyncio.to_thread(result_set.fetchmany, size)
-
-    async def fetchall(  # type: ignore[override]
-        self,
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        """Fetch all remaining rows from the result set.
-
-        Wraps the synchronous fetch in ``asyncio.to_thread`` to avoid
-        blocking the event loop.
-
-        Returns:
-            List of tuples representing all remaining rows.
-
-        Raises:
-            ProgrammingError: If no result set is available.
-        """
-        if not self.has_result_set:
-            raise ProgrammingError("No result set.")
-        result_set = cast(AthenaArrowResultSet, self.result_set)
-        return await asyncio.to_thread(result_set.fetchall)
-
-    async def __anext__(self):
-        row = await self.fetchone()
-        if row is None:
-            raise StopAsyncIteration
-        return row
 
     def as_arrow(self) -> Table:
         """Return query results as an Apache Arrow Table.

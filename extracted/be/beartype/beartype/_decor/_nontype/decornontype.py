@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -17,19 +17,24 @@ from beartype.roar import (
     BeartypeDecorWrappeeException,
     BeartypeDecorWrapperException,
 )
-from beartype.typing import (
-    Optional,
-    no_type_check,
-)
-from beartype._check.metadata.metadecor import (
-    cull_beartype_call,
-    make_beartype_call,
+from beartype._check.cls.call.calldatadecorfunc import (
+    cull_decor_func,
+    make_decor_func,
 )
 from beartype._conf.confmain import BeartypeConf
 from beartype._conf.confenum import BeartypeStrategy
+from beartype._decor._nontype._api.decorstandard import (
+    beartype_func_contextlib_contextmanager,
+    beartype_func_functools_lru_cache,
+    beartype_func_warnings_deprecated,
+)
 from beartype._decor._nontype._decornontypemap import (
     MODULE_TO_TYPE_NAME_TO_BEARTYPE_DECORATOR_get,
     MODULE_TO_SUPERTYPE_NAME_TO_BEARTYPE_DECORATOR_get,
+)
+from beartype._data.py.databuiltins import (
+    BUILTINS_DICT,
+    GLOBAL_SCOPE_BUILTINS_BASENAME,
 )
 from beartype._data.typing.datatyping import BeartypeableT
 from beartype._decor._nontype._wrap.wrapmain import generate_code
@@ -41,18 +46,20 @@ from beartype._util.bear.utilbearfunc import (
 from beartype._util.api.standard.utilcontextlib import (
     get_func_contextlib_contextmanager_or_none)
 from beartype._util.api.standard.utilfunctools import (
-    beartype_functools_lru_cache,
-    is_func_functools_lru_cache,
-)
+    is_func_functools_lru_cache)
+from beartype._util.func.pep.utilfuncpep702 import (
+    is_func_pep702_deprecated)
 from beartype._util.func.utilfuncmake import make_func
-from beartype._util.func.utilfunctest import (
-    is_func_codeobjable,
-    is_func_wrapper,
-)
-from beartype._util.func.utilfuncwrap import unwrap_func_once
+from beartype._util.func.utilfuncscope import get_func_globals
+from beartype._util.func.utilfunctest import is_func_codeobjable
+from beartype._util.func.utilfuncwrap import is_func_wrapper
 from beartype._util.module.utilmodget import get_object_module_name_or_none
 from beartype._util.text.utiltextrepr import represent_object
 from collections.abc import Callable
+from typing import (
+    Optional,
+    no_type_check,
+)
 
 # ....................{ DECORATORS                         }....................
 def beartype_nontype(obj: BeartypeableT, **kwargs) -> BeartypeableT:
@@ -225,6 +232,10 @@ def beartype_nontype(obj: BeartypeableT, **kwargs) -> BeartypeableT:
     # the type of this callable and thus *CANNOT* be integrated into the
     # efficient mapping-based O(1) dispatch employed above.
 
+    # print(f'@beartype non-type PASS 3: {repr(obj)}')
+    # print(f'type(obj): {type(obj)}')
+    # print(f'dir(obj): {dir(obj)}')
+
     # If this object is beartype-blacklisted (i.e., defined in a third-party
     # package or module that is hostile to runtime type-checking), silently
     # reduce to a noop and preserve this object as is -- even if this object is
@@ -241,7 +252,7 @@ def beartype_nontype(obj: BeartypeableT, **kwargs) -> BeartypeableT:
             f'Uncallable {represent_object(obj)} not decoratable by @beartype.')
     # Else, this object is callable.
     #
-    # If this object is *NOT* a pure-Python function, this object is a
+    # If this object is *NOT* a pure-Python function, then this object is a
     # pseudo-callable (i.e., arbitrary pure-Python *OR* C-based object whose
     # class defines the __call__() dunder method enabling this object to be
     # called like a standard callable). In this case, attempt to monkey-patch
@@ -250,8 +261,70 @@ def beartype_nontype(obj: BeartypeableT, **kwargs) -> BeartypeableT:
     # dunder method with a comparable descriptor calling a @beartype-generated
     # runtime type-checking wrapper function. Go with it.
     elif not is_func_codeobjable(obj):
+        #FIXME: Almost certainly incorrect if the decorated callable is
+        #decorated by @warnings.deprecated. Oh, well. No time. No cares. *BLEGH*
         return _beartype_pseudofunc(obj, **kwargs)  # type: ignore[return-value]
     # Else, this object is a pure-Python function.
+    #
+    # If this object is an pure-Python isomorphic wrapper closure created and
+    # returned by the PEP 702-compliant @warnings.deprecated decorator, this
+    # object is a @warnings.deprecated-decorated callable. In this case,
+    # @beartype was listed above rather than below the @warnings.deprecated
+    # decorator creating and returning this closure in the chain of decorators
+    # decorating this decorated callable.
+    #
+    # This is non-ideal, as that callable directly decorated by
+    # @warnings.deprecated could itself be the indirect result of yet another
+    # decorator requiring redecoration by @beartype, in which case the type
+    # hints originally annotating the original callable may not necessarily
+    # apply to this indirect result. If @beartype failed to actively detect and
+    # intervene in this edge case, then runtime type-checkers dynamically
+    # generated by @beartype for this indirect result would erroneously raise
+    # type-checking violations after calling this indirect result and detecting
+    # the apparent type violation: e.g.,
+    #     >>> from beartype import beartype
+    #     >>> from collections.abc import Generator
+    #     >>> from contextlib import contextmanager
+    #     >>> from warnings import deprecated
+    #
+    #     >>> @beartype
+    #     ... @deprecated("So deprecated. So what!?")
+    #     ... @contextmanager
+    #     ... def muh_deprecated_context_manager() -> Generator: yield
+    #
+    #     # Without this logic, this call should succeed but fails with:
+    #     >>> muh_deprecated_context_manager()
+    #     beartype.roar.BeartypeCallHintReturnViolation: Function
+    #     __main__.muh_deprecated_context_manager() return
+    #     <contextlib._GeneratorContextManager object at 0x7f747209fe00>
+    #     violates type hint <class 'collections.abc.Generator'>, as <protocol
+    #     ABC "contextlib._GeneratorContextManager">
+    #     <contextlib._GeneratorContextManager object at 0x7f747209fe00> not
+    #     instance of <protocol ABC "collections.abc.Generator">.
+    #
+    # This conditional branch effectively reorders @beartype to be the first
+    # decorator decorating the callable underlying this @warnings.deprecated
+    # decoration, preserving consistency between types and type hints: e.g.,
+    #     # This branch detects and reorders this edge case...
+    #     @beartype
+    #     @deprecated("So deprecated. So what!?")
+    #     @contextmanager
+    #     def muh_deprecated_context_manager() -> Generator: yield
+    #
+    #     # ...to resemble this direct decoration instead.
+    #     @deprecated("So deprecated. So what!?")
+    #     @beartype
+    #     @contextmanager
+    #     def muh_deprecated_context_manager() -> Generator: yield
+    #
+    # Note that @warnings.deprecated handling *MUST* be performed before the
+    # comparable "contextlib" handling performed below, for uninteresting [read:
+    # unintelligible] reasons we cannot possibly explain.
+    elif is_func_pep702_deprecated(obj):  # type: ignore[arg-type]
+        return beartype_func_warnings_deprecated(func=obj, **kwargs)
+    # Else, this object is *NOT* an pure-Python isomorphic wrapper closure
+    # created and returned by the PEP 702-compliant @warnings.deprecated
+    # decorator.
 
     # Either:
     # * If this function is a "contextlib"-based isomorphic decorator closure
@@ -285,10 +358,7 @@ def beartype_nontype(obj: BeartypeableT, **kwargs) -> BeartypeableT:
     #
     # This conditional branch effectively reorders @beartype to be the first
     # decorator decorating the callable underlying this context manager,
-    # preserving consistency between return types *AND* return type hints: e.g.,
-    #     from beartype.typing import Iterator
-    #     from contextlib import contextmanager
-    #
+    # preserving consistency between return types and return type hints: e.g.,
     #     # This branch detects and reorders this edge case...
     #     @beartype
     #     @contextmanager
@@ -303,23 +373,24 @@ def beartype_nontype(obj: BeartypeableT, **kwargs) -> BeartypeableT:
     # extremely non-trivial. Notably, this detection requires Python >= 3.11 and
     # silently fails under Python <= 3.10. It is what it is. Not our fault!
     if func_contextmanager is not None:
-        return _beartype_func_contextlib_contextmanager(  # type: ignore[return-value]
+        return beartype_func_contextlib_contextmanager(  # type: ignore[return-value]
             func=obj, func_contextmanager=func_contextmanager, **kwargs)
     # Else, that function is *NOT* a "contextlib"-based isomorphic decorator
     # closure. By elimination, that function *MUST* be a standard pure-Python
     # function.
 
+    # ....................{ PASS 4 ~ function              }....................
     # Decorate that pure-Python function with runtime type-checking.
-    return beartype_func(obj, **kwargs)  # type: ignore[return-value]
+    return beartype_func(func=obj, **kwargs)  # type: ignore[return-value]
 
-
+# ....................{ DECORATORS ~ func                  }....................
 def beartype_func(
     # Mandatory parameters.
     func: BeartypeableT,
     conf: BeartypeConf,
 
     # Variadic keyword parameters.
-    wrapper: Optional[Callable] = None,
+    func_wrapper: Optional[Callable] = None,
     **kwargs
 ) -> BeartypeableT:
     '''
@@ -332,7 +403,7 @@ def beartype_func(
     conf : BeartypeConf
         Beartype configuration configuring :func:`beartype.beartype` uniquely
         specific to this callable.
-    wrapper : Optional[Callable]
+    func_wrapper : Optional[Callable]
         Wrapper callable to be unwrapped in the event that the callable to be
         unwrapped differs from the callable to be decorated. Typically, these
         two callables are the same. Edge cases in which these two callables
@@ -349,24 +420,28 @@ def beartype_func(
         defaults to ``func``.
 
     All remaining keyword parameters are passed as is to the
-    :meth:`beartype._check.metadata.metadecor.BeartypeDecorMeta.reinit` method.
+    :meth:`beartype._check.cls.call.calldatadecorfunc.BeartypeCallDecorFuncData.reinit`
+    method.
 
     Returns
     -------
     BeartypeableT
         New pure-Python callable wrapping this callable with type-checking.
     '''
+    # wrapper = None
+    # kwargs = {}
 
+    # ....................{ PREAMBLE                       }....................
     # If the caller failed to pass a callable to be unwrapped, default that to
     # the callable to be type-checked.
-    if wrapper is None:
-        wrapper = func  # type: ignore[assignment]
+    if func_wrapper is None:
+        func_wrapper = func  # type: ignore[assignment]
     # Else, the caller passed a callable to be unwrapped. Preserve it up!
 
     # Validate all explicitly passed parameters.
-    assert callable(func), f'{repr(func)} uncallable.'
-    assert callable(wrapper), f'{repr(wrapper)} uncallable.'
     assert isinstance(conf, BeartypeConf), f'{repr(conf)} not configuration.'
+    assert callable(func), f'{repr(func)} uncallable.'
+    assert callable(func_wrapper), f'{repr(func_wrapper)} uncallable.'
 
     #FIXME: Uncomment to display all annotations in "pytest" tracebacks.
     # func_hints = func.__annotations__
@@ -384,22 +459,29 @@ def beartype_func(
 
     # If the callable to be unwrapped is unbeartypeable (i.e., if this decorator
     # should preserve that callable as is rather than wrap that callable with
-    # type-checking), silently reduce to the identity decorator.
+    # type-checking), silently reduce to the identity decorator by preserving
+    # this non-type-checked callable as is.
     #
     # Note that this conditional implicitly handles the prior conditional! Ergo,
     # this conditional intentionally appears *AFTER* the prior conditional. :O
-    if is_func_unbeartypeable(wrapper):  # type: ignore[arg-type]
+    if is_func_unbeartypeable(func_wrapper):  # type: ignore[arg-type]
         # print(f'Ignoring unbeartypeable callable {repr(func)}...')
         return func  # type: ignore[return-value]
     # Else, that callable is beartypeable. Let's do this, folks.
 
+    # ....................{ CODE                           }....................
     # Beartype call metadata describing that callable.
-    decor_meta = make_beartype_call(
-        func=func, conf=conf, wrapper=wrapper, **kwargs)  # pyright: ignore
-    # print(f'Decorating {repr(decor_meta)} with wrapper {repr(wrapper)}...')
+    decor_func = make_decor_func(
+        conf=conf,
+        func_wrappee=func,
+        func_wrapper=func_wrapper,
+        **kwargs
+    )
+    # print(f'Decorating {repr(decor_func)} with wrapper {repr(wrapper)}...')
 
-    # Generate the raw string of Python statements implementing this wrapper.
-    func_wrapper_code = generate_code(decor_meta)
+    # Dynamically generated Pure-Python code snippet fully defining both the
+    # signature and body of the wrapper function type-checking that callable.
+    func_wrapper_code = generate_code(decor_func)
     # print(f'func_wrapper_code: {func_wrapper_code}')
 
     # If that callable requires *NO* type-checking, silently reduce to a noop
@@ -413,10 +495,101 @@ def beartype_func(
     # annotating that callable), register these changes in a manner compliant
     # with both PEP 649 and Python >= 3.14 *BEFORE* calling the make_func()
     # factory function below, which internally propagates these changes from the
-    # "decor_meta.func_wrapper" callable into the created type-checking wrapper
+    # "decor_func.func_wrapper" callable into the created type-checking wrapper
     # function returned by the @beartype decorator. Look. It's complicated.
-    decor_meta.set_func_annotations_if_dirty()
+    decor_func.set_func_annotations_if_dirty()
 
+    # ....................{ SCOPE                          }....................
+    # Global scope of the type-checking wrapper function to be defined below,
+    # initialized to the global scope of the currently decorated unwrapped
+    # callable. This global scope is subsequently defined as the semantic union
+    # of (in order):
+    # * The builtins dictionary mapping from the name to value of all builtin
+    #   attributes (i.e., globally available by default *WITHOUT* requiring
+    #   explicit importation).
+    #
+    #   In theory, this dictionary should *NOT* need to be explicitly specified;
+    #   *ALL* pure-Python code snippets dynamically executed by the eval() and
+    #   exec() builtins should *ALWAYS* have implicit access to builtin
+    #   attributes. That's the whole raison d'etre of builtins, after all;
+    #   they're supposed to be globally available by default *WITHOUT* requiring
+    #   explicit importation.
+    #
+    #   In practice, this dictionary *ABSOLUTELY* needs to be explicitly
+    #   specified. Failing to do so causes the type-checking wrapper function
+    #   dynamically generated by the make_func() factory function called below
+    #   to lack implicit access to builtins and thus raise an unreadable
+    #   exception on the first call to that wrapper function resembling:
+    #       NameError: name 'len' is not defined
+    # * The global scope of the currently decorated unwrapped callable. Doing so
+    #   propagates the global scope of that callable onto this wrapper. Although
+    #   *NO* code dynamically generated by beartype explicitly requires this
+    #   scope, preserving this global scope enables subsequent call stack
+    #   introspection to transparently access the global scopes of
+    #   beartype-created type-checking wrappers as if they were their decorated
+    #   unwrapped callables, improving integration with both external
+    #   third-party packages *AND* call stack introspection subsequently
+    #   performed in this package. This includes:
+    #   * The get_frame_parent_object_or_none() getter subsequently called by
+    #     the make_scope_forward_decor_curr() factory, enabling resolution of
+    #     PEP 484-compliant stringified forward references to PEP 695-compliant
+    #     type parameter scopes of parent callables of the currently decorated
+    #     closure. See also unit tests in the
+    #     test-specific "data_pep484ref_decor_pep695" data submodule.
+    func_wrapper_globals = get_func_globals(decor_func.func_wrappee_wrappee)
+
+    # If the global scope of the currently decorated unwrapped callable either
+    # fails to define the builtins scope under the standard dunder name expected
+    # by Python *OR* defines an empty builtins scope that destroys the
+    # type-checking code dynamically generated for the wrapper defined below...
+    #
+    # Note that it is *NOT* sufficient to test:
+    #     if GLOBAL_SCOPE_BUILTINS_BASENAME not in func_wrapper_globals:
+    #
+    # Why? Because the PEP 484-compliant "typing.NamedTuple" superclass. For
+    # unknown reasons, that superclass dynamically generates a problematic
+    # unique __new__() dunder method for each subclass of this superclass. That
+    # method suffers various deficiencies. Including those widely documented
+    # elsewhere (e.g., in our "data_pep563_pep484" submodule), that superclass
+    # *INSANELY* sets the "__builtins__" dunder attribute bound to that method
+    # to the empty dictionary. Accepting empty "__builtins__" dictionaries would
+    # induce syntax errors on the first call to the function defined below
+    # wrapping that __new__() dunder method with type-checking. Ergo, we
+    # intentionally prohibit empty "__builtins__" dictionaries as well. *sigh*
+    if not func_wrapper_globals.get(GLOBAL_SCOPE_BUILTINS_BASENAME):
+        # Shallowly copy this global scope to avoid harmfully mutating the
+        # currently decorated unwrapped callable in unexpected ways.
+        func_wrapper_globals = func_wrapper_globals.copy()
+
+        # Define the builtins scope under the standard dunder name expected by
+        # Python to the exact builtins dictionary expected by CPython. This
+        # builtins dictionary is unfiltered and thus contains fake builtins
+        # (i.e., types that are *NOT* builtin but nonetheless erroneously
+        # masquerade as being builtin, infamously including the type of the
+        # "None" singleton) generally considered harmful throughout the
+        # remainder of this codebase. Nonetheless, we intentionally set this
+        # builtins scope to the unfiltered dictionary "BUILTINS_DICT" rather
+        # than the filtered dictionary "BUILTINS_NAME_TO_VALUE". Why? Because
+        # the former grants us "supervisor privileges," whatever that means; the
+        # latter does not. @beartype prefers power. Ergo, we choose power:
+        #    [CPython] looks at the globals, which contain a special magic entry
+        #    __builtins__ (with an 's') which is the dict where built-in
+        #    functions are looked up. When this dict is the same object as the
+        #    default built-in dict (which is __builtin__.__dict__ where
+        #    __builtin__ -- without 's' -- is the module defining the built-in
+        #    functions) it gives you supervisor privileges;
+        #
+        #None of this particularly makes sense. But it doesn't have to. It's
+        #sacred religious dogma at this point. Indeed, the above quote hails
+        #from Guido the All-Father Himself at this ancient mailing list thread:
+        #    http://mail.python.org/pipermail/python-ideas/2009-March/003821.html
+        func_wrapper_globals[GLOBAL_SCOPE_BUILTINS_BASENAME] = BUILTINS_DICT
+    # Else, the global scope of the currently decorated unwrapped callable
+    # defines a non-empty builtins scope under its standard dunder name. In this
+    # case, we charitably assume that callable knew what it was doing by
+    # silently preserving this global scope unmodified.
+
+    # ....................{ FUNC                           }....................
     # Function wrapping that callable with type-checking to be returned.
     #
     # For efficiency, this wrapper accesses *ONLY* local rather than global
@@ -424,12 +597,21 @@ def beartype_func(
     # attributes take precedence over global attributes, implying all global
     # attributes are *ALWAYS* first looked up as local attributes before falling
     # back to being looked up as global attributes.
-    func_wrapper = make_func(
-        func_name=decor_meta.func_wrapper_name,
+    func_checked = make_func(
+        func_name=decor_func.func_wrapper_name,
         func_code=func_wrapper_code,
-        func_locals=decor_meta.func_wrapper_scope,
-        func_wrapped=decor_meta.func_wrapper,  # pyright: ignore
-        func_labeller=decor_meta.label_func_wrapper,
+        func_globals=func_wrapper_globals,
+
+        #FIXME: Ideally, we should also propagate the local scope of the
+        #unwrapped decorated callable onto the local scope of this wrapper. This
+        #is clearly complicated by the fact that we already use a fake local
+        #scope! Ergo, we'll need to composite these two scopes into a new
+        #unified scope -- with our fake local scope taking precedence. Since the
+        #latter *ONLY* defines "__beartype_"-prefixed variables, there should be
+        #*NO* conflict. Maybe? Let's give it a go, yo.
+        func_locals=decor_func.func_wrapper_locals,
+        func_wrapped=decor_func.func_wrapper,  # pyright: ignore
+        func_labeller=decor_func.label_func_wrapper,
         is_debug=conf.is_debug,
         exception_cls=BeartypeDecorWrapperException,
     )
@@ -437,70 +619,16 @@ def beartype_func(
     # Declare this wrapper to be generated by @beartype, which tests for the
     # existence of this attribute above to avoid re-decorating callables
     # already decorated by @beartype by efficiently reducing to a noop.
-    set_func_beartyped(func_wrapper)
+    set_func_beartyped(func_checked)
 
+    # ....................{ RETURN                         }....................
     # Deinitialize this beartype call metadata.
-    cull_beartype_call(decor_meta)
+    cull_decor_func(decor_func)
 
-    # Return this wrapper.
-    return func_wrapper  # type: ignore[return-value]
+    # Return this type-checking wrapper function.
+    return func_checked  # type: ignore[return-value]
 
 # ....................{ PRIVATE ~ decorators : pure-python }....................
-def _beartype_func_contextlib_contextmanager(
-    func: BeartypeableT,
-    func_contextmanager: Callable,
-    **kwargs
-) -> BeartypeableT:
-    '''
-    Decorate the passed :mod:`contextlib`-based **isomorphic decorator closure**
-    (i.e., closure both defined and returned by either the standard
-    :func:`contextlib.asynccontextmanager` or :func:`contextlib.contextmanager`
-    decorator where that closure isomorphically preserves both the number and
-    types of all passed parameters and returns by accepting only a variadic
-    positional argument and variadic keyword argument) with dynamically
-    generated type-checking.
-
-    Parameters
-    ----------
-    func : BeartypeableT
-        Context manager to be decorated by :func:`beartype.beartype`.
-    func_contextmanager : Callable
-        Either:
-
-        * If this context manager is a
-          :func:`contextlib.asynccontextmanager`-based isomorphic decorator
-          closure, :func:`contextlib.asynccontextmanager`.
-        * Else, this context manager is a
-          :func:`contextlib.contextmanager`-based isomorphic decorator closure.
-          In this case, :func:`contextlib.contextmanager`.
-
-    All remaining keyword parameters are passed as is to the lower-level
-    :func:`.beartype_func` decorator internally called by this higher-level
-    decorator on the pure-Python function encapsulated in this descriptor.
-
-    Returns
-    -------
-    BeartypeableT
-        New pure-Python callable wrapping this context manager with
-        type-checking.
-    '''
-    assert callable(func_contextmanager), (
-        f'{repr(func_contextmanager)} uncallable.')
-
-    # Original pure-Python generator factory function decorated by either the
-    # @contextlib.asynccontextmanager or @contextlib.contextmanager decorator.
-    generator = unwrap_func_once(func)  # type: ignore[arg-type]
-
-    # Decorate this generator factory function with type-checking.
-    generator_checked = beartype_func(func=generator, **kwargs)
-
-    # Re-decorate this generator factory function by the same decorator.
-    generator_checked_contextmanager = func_contextmanager(generator_checked)
-
-    # Return this context manager.
-    return generator_checked_contextmanager  # type: ignore[return-value]
-
-
 def _beartype_pseudofunc(pseudofunc: BeartypeableT, **kwargs) -> BeartypeableT:
     '''
     Monkey-patch the passed **pseudo-callable** (i.e., arbitrary pure-Python
@@ -586,7 +714,7 @@ def _beartype_pseudofunc(pseudofunc: BeartypeableT, **kwargs) -> BeartypeableT:
     #     def muh_lru_cache() -> None: pass
     elif is_func_functools_lru_cache(pseudofunc):
         # Return a new callable decorating that callable with type-checking.
-        return beartype_functools_lru_cache(  # type: ignore
+        return beartype_func_functools_lru_cache(  # type: ignore
             pseudofunc=pseudofunc, **kwargs)  # pyright: ignore
     # Else, this is *NOT* a C-based @functools.lru_cache-memoized callable.
     #
@@ -600,8 +728,9 @@ def _beartype_pseudofunc(pseudofunc: BeartypeableT, **kwargs) -> BeartypeableT:
         # print(f'Pseudo-callable wrapper {repr(pseudofunc)} identified!')
 
         # Transitively pass the optional "wrapper" parameter to the
-        # BeartypeDecorMeta.reinit() method, ensuring that this pseudo-callable
-        # wrapper object is correctly unwrapped.
+        # beartype_func() decorator (and thus the BeartypeCallDecorFuncData.reinit()
+        # method transitively called by that decorator) called below, ensuring
+        # that this pseudo-callable wrapper object is correctly unwrapped.
         #
         # This edge case handles edge-case pseudo-callable wrapper objects
         # defined by popular third-party packages, including:
@@ -614,7 +743,7 @@ def _beartype_pseudofunc(pseudofunc: BeartypeableT, **kwargs) -> BeartypeableT:
         #
         #           def __call__(self, *args, **kwargs):
         #               return self.__wrapped__(*args, **kwargs)
-        kwargs['wrapper'] = pseudofunc
+        kwargs['func_wrapper'] = pseudofunc
     # Else, either this pseudo-callable object is not a wrapper *OR* this
     # unbound __call__() dunder method is already a wrapper.
 

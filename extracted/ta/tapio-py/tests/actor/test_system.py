@@ -18,7 +18,7 @@ from tapio import (
 )
 from tapio.actor import ActorContext, SupervisorStrategy
 from tapio.testkit import IsolatedTapioSettings, assert_no_leaked_tasks
-from tests.failures import BoomError, well_inside
+from tests.failures import BoomError, eventually, well_inside
 from tests.messages import Increment
 
 
@@ -87,7 +87,8 @@ async def test_a_name_is_free_again_once_its_actor_stops(system: ActorSystem):
 
     first = system.spawn(Behaviors.receive_message(stop_now), name="worker")
     first.tell(Increment())
-    await asyncio.sleep(0.01)
+    # The ref leaves the registry in the same step that frees the name.
+    await eventually(lambda: system.refs.lookup(first.path) is None)
 
     second = system.spawn(idle(), name="worker")
 
@@ -106,6 +107,27 @@ async def test_anonymous_names_cannot_collide_with_chosen_ones(system: ActorSyst
     assert first.path.name != second.path.name
 
 
+async def test_a_chosen_name_cannot_take_the_generated_prefix(system: ActorSystem):
+    with pytest.raises(ActorNameError, match="reserved"):
+        system.spawn(idle(), name="$1")
+
+    # A child that took "$1" would have been overwritten in the map by this
+    # spawn, left running, and never stopped.
+    assert system.spawn_anonymous(idle()).path.name == "$1"
+
+
+@pytest.mark.parametrize("name", ["bad name", "a/b", ""])
+async def test_a_name_no_path_could_hold_raises_actor_name_error(
+    system: ActorSystem, name: str
+):
+    # A name built from user input is caught with ActorNameError, as that
+    # error's docs say. A bare ValueError from the path escaped that clause.
+    with pytest.raises(ActorNameError, match="cannot spawn"):
+        system.spawn(idle(), name=name)
+
+    assert system.spawn(idle(), name="good-name").path.name == "good-name"
+
+
 async def test_spawning_after_shutdown_raises_and_leaves_nothing_running():
     with assert_no_leaked_tasks():
         system = ActorSystem("closing")
@@ -117,11 +139,13 @@ async def test_spawning_after_shutdown_raises_and_leaves_nothing_running():
 
 async def test_spawning_from_a_handler_during_shutdown_raises(system: ActorSystem):
     gate = asyncio.Event()
+    inside = asyncio.Event()
     outcome: list[BaseException] = []
 
     async def spawn_late(
         ctx: ActorContext[Increment], message: Increment
     ) -> Behavior[Increment]:
+        inside.set()
         await gate.wait()
         try:
             ctx.spawn(idle(), name="child")
@@ -131,10 +155,10 @@ async def test_spawning_from_a_handler_during_shutdown_raises(system: ActorSyste
 
     actor = system.spawn(Behaviors.receive(spawn_late), name="slow")
     actor.tell(Increment())
-    await asyncio.sleep(0.01)
+    await inside.wait()
 
     shutdown = asyncio.create_task(system.terminate())
-    await asyncio.sleep(0.01)
+    await eventually(lambda: system.is_terminating)
     gate.set()
     await shutdown
 
@@ -147,6 +171,7 @@ async def test_a_wedged_actor_is_cancelled_at_the_deadline(
     shutdown_timeout = timedelta(seconds=0.2)
     settings = TapioSettings(shutdown_timeout=shutdown_timeout)
     depth = 5
+    blocked: list[int] = []
 
     def wedged(remaining: int) -> Behavior[Increment]:
         def build(ctx: ActorContext[Increment]) -> Behavior[Increment]:
@@ -154,6 +179,7 @@ async def test_a_wedged_actor_is_cancelled_at_the_deadline(
                 ctx.spawn(wedged(remaining - 1), name="child")
 
             async def on_message(message: Increment) -> Behavior[Increment]:
+                blocked.append(remaining)
                 await asyncio.sleep(30)
                 return Behaviors.same()
 
@@ -169,7 +195,7 @@ async def test_a_wedged_actor_is_cancelled_at_the_deadline(
     with assert_no_leaked_tasks():
         system = ActorSystem("wedged", settings)
         root = system.spawn(wedged(depth), name="chain")
-        await asyncio.sleep(0.05)
+        await eventually(lambda: len(blocked) == depth + 1)
 
         started = loop.time()
         with caplog.at_level(logging.WARNING, logger="tapio.actor"):
@@ -294,8 +320,11 @@ async def test_a_cancelled_terminate_does_not_wedge_the_system():
     # not the caller's.
     settings = TapioSettings(shutdown_timeout=timedelta(seconds=0.2))
 
+    inside = asyncio.Event()
+
     def wedged() -> Behavior[Increment]:
         async def on_message(message: Increment) -> Behavior[Increment]:
+            inside.set()
             await asyncio.sleep(30)
             return Behaviors.same()
 
@@ -307,7 +336,7 @@ async def test_a_cancelled_terminate_does_not_wedge_the_system():
         # In a handler when the stop arrives, so terminate() has real awaits to
         # be cancelled at rather than returning at once.
         actor.tell(Increment())
-        await asyncio.sleep(0.05)
+        await inside.wait()
 
         shutting = asyncio.create_task(system.terminate())
         await asyncio.sleep(0)

@@ -14,7 +14,6 @@ passing Python cdef-class instances into nogil code paths.
 """
 
 from cython cimport final
-from cython.operator cimport dereference as deref, preincrement as inc
 from py_ballisticcalc_exts.bind cimport _attribute_to_key, v3d_to_vector
 from py_ballisticcalc_exts.result cimport BCLIBC_Result, monostate, raise_std_error
 from libcpp.functional cimport reference_wrapper
@@ -24,7 +23,7 @@ __all__ = ('CythonizedBaseTrajSeq', 'CythonizedBaseTrajData')
 
 
 # @final is safe with abi3: no other Cython module subclasses this type.
-# If you need to subclass it from another .pyx, remove @final — see rk4_engine.pyx for context.
+# If you need to subclass it from another .pyx, remove @final — see engines.pyx for context.
 @final
 cdef class CythonizedBaseTrajSeq:
     """Contiguous C buffer of BCLIBC_BaseTrajData points with fast append and interpolation.
@@ -103,7 +102,7 @@ cdef class CythonizedBaseTrajSeq:
 
 
 # @final is safe with abi3: no other Cython module subclasses this type.
-# If you need to subclass it from another .pyx, remove @final — see rk4_engine.pyx for context.
+# If you need to subclass it from another .pyx, remove @final — see engines.pyx for context.
 @final
 cdef class CythonizedBaseTrajData:
     __slots__ = ('time', 'position', 'velocity', 'mach')  # for pure python mirror consistency
@@ -253,11 +252,10 @@ cdef object TrajectoryData_from_cpp(const BCLIBC_TrajectoryData& cpp_data):
 
 cdef list TrajectoryData_list_from_cpp(const vector[BCLIBC_TrajectoryData] &records):
     cdef list py_list = []
-    cdef vector[BCLIBC_TrajectoryData].const_iterator it = records.begin()
-    cdef vector[BCLIBC_TrajectoryData].const_iterator end = records.end()
+    cdef size_t i
+    cdef size_t n = records.size()
 
-    while it != end:
-        py_list.append(TrajectoryData_from_cpp(deref(it)))
-        inc(it)
+    for i in range(n):
+        py_list.append(TrajectoryData_from_cpp(records[i]))
 
     return py_list

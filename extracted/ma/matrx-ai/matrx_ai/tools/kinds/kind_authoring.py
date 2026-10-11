@@ -143,12 +143,13 @@ class KindChildEdge(KindSubModel):
 
 
 class ComponentAuthoringBundle(KindSubModel):
-    """Everything a component author needs, returned by ``kind_create``."""
+    """Where the component author's rules are, returned by ``kind_create``.
 
-    props_contract: dict[str, str] = {}
-    platform_components: dict[str, str] = {}
-    allowed_imports: list[str] = []
-    design_doctrine: str = ""
+    The rules themselves live ONLY in the ``shape-authoring`` skill, attached to
+    every run holding this tool — never restated in a tool result.
+    """
+
+    rules: str = ""
     compile_gate: str = ""
 
 

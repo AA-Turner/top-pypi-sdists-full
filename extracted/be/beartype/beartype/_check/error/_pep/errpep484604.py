@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,13 +13,14 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar._roarexc import _BeartypeCallHintPepRaiseException
+from beartype._check.cls.hint.data.hintdataerror import HintDataError
+from beartype._check.cls.hint.tree.hinttreeerror import HintTreeError
+from beartype._check.cls.hint.hintsane import HINT_SANE_IGNORABLE
 from beartype._data.hint.sign.datahintsignset import HINT_SIGNS_UNION
-from beartype._check.error.errcause import ViolationCause
-from beartype._check.metadata.hint.hintsane import HINT_SANE_IGNORABLE
 from beartype._util.hint.pep.utilpepget import (
     get_hint_pep_origin_type_isinstanceable_or_none)
 from beartype._util.hint.pep.utilpeptest import is_hint_pep
-from beartype._util.text.utiltextjoin import join_delimited_disjunction_types
+from beartype._util.text.utiltextjoin import join_types_commaed_or
 from beartype._util.text.utiltextmunge import (
     suffix_str_unless_suffixed,
     uppercase_str_char_first,
@@ -27,24 +28,24 @@ from beartype._util.text.utiltextmunge import (
 from beartype._util.text.utiltextrepr import represent_pith
 
 # ....................{ GETTERS                            }....................
-def find_cause_pep484604_union(cause: ViolationCause) -> ViolationCause:
+def find_cause_pep484604_union(cause: HintTreeError) -> HintTreeError:
     '''
     Output cause describing whether the pith of the passed input cause either
     satisfies or violates the PEP-compliant union type hint of that cause.
 
     Parameters
     ----------
-    cause : ViolationCause
+    cause : HintTreeError
         Input cause providing this data.
 
     Returns
     -------
-    ViolationCause
+    HintTreeError
         Output cause type-checking this data.
     '''
-    assert isinstance(cause, ViolationCause), f'{repr(cause)} not cause.'
-    assert cause.hint_sign in HINT_SIGNS_UNION, (
-        f'{repr(cause.hint)} not union sign.')
+    assert isinstance(cause, HintTreeError), f'{repr(cause)} not cause.'
+    assert cause.hint_curr.hint_sign in HINT_SIGNS_UNION, (
+        f'{repr(cause.hint_curr_sanified)} not union sign.')
     # print(f'[union] Finding cause for child hints {cause.hint_childs_sane}...')
 
     # ....................{ LOCALS                         }....................
@@ -107,10 +108,13 @@ def find_cause_pep484604_union(cause: ViolationCause) -> ViolationCause:
             # Child hint output cause to be returned, type-checking only whether
             # this pith deeply satisfies this child hint.
             cause_child = cause.permute_cause(
-                hint_sane=hint_child_sane, cause_indent=CAUSE_INDENT_CHILD,
+                hint_curr=HintDataError(hint_child_sane),
+                cause_indent=CAUSE_INDENT_CHILD,
             ).find_cause()
 
-            # If this pith deeply satisfies this child hint, return this cause.
+            # If this pith deeply satisfies this child hint, this pith
+            # necessarily also deeply satisfies this parent union hint. In this
+            # case, return this cause.
             if cause_child.cause_str_or_none is None:
                 # print('Union child {!r} pith {!r} deeply satisfied!'.format(hint_child, pith))
                 return cause
@@ -149,7 +153,7 @@ def find_cause_pep484604_union(cause: ViolationCause) -> ViolationCause:
             # hints or non-"typing" classes.
             assert isinstance(hint_child, type), (
                 f'{cause.exception_prefix}union type hint '
-                f'{repr(cause.hint)} child hint {repr(hint_child)} invalid '
+                f'{repr(cause.hint_curr_sanified)} child hint {repr(hint_child)} invalid '
                 f'(i.e., neither type hint nor non-"typing" class).')
             # Else, this child hint is a non-"typing" type.
 
@@ -170,7 +174,7 @@ def find_cause_pep484604_union(cause: ViolationCause) -> ViolationCause:
     if hint_types_violated:
         # Human-readable comma-delimited disjunction of the names of these
         # classes (e.g., "bool, float, int, or str").
-        cause_types_unsatisfied = join_delimited_disjunction_types(
+        cause_types_unsatisfied = join_types_commaed_or(
             types=hint_types_violated, is_color=cause.conf.is_color)
 
         # Prepend this cause as a discrete bullet-prefixed line.
@@ -205,7 +209,7 @@ def find_cause_pep484604_union(cause: ViolationCause) -> ViolationCause:
     if not cause_strs:
         raise _BeartypeCallHintPepRaiseException(
             f'{cause.exception_prefix}type hint '
-            f'{repr(cause.hint)} failure causes unknown.'
+            f'{repr(cause.hint_curr_sanified)} failure causes unknown.'
         )
     # Else, prior logic appended one or more strings describing these failures.
 
@@ -233,11 +237,11 @@ def find_cause_pep484604_union(cause: ViolationCause) -> ViolationCause:
                         suffix_str_unless_suffixed(text=cause_str, suffix='.')
                     )
                 )
-                # '{}* {}.'.format(cause_indent, uppercase_str_char_first(cause_union))
                 for cause_str in cause_strs
             )
         )
     ))
 
+    # ....................{ RETURN                         }....................
     # Return this cause.
     return cause_return

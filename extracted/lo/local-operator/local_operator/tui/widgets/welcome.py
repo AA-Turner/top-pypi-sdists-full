@@ -15,6 +15,7 @@ BORDERLESS block resting on the input card:
            ~/local-operator
       ! not logged in — /login openrouter
       ! anthropic quota low — falling back to zai/glm-5.3
+      ! No balance on DeepSeek — top up at the DeepSeek platform.
 
     /         command picker
     /help     all commands
@@ -68,6 +69,7 @@ from __future__ import annotations
 import math
 import os
 import random
+import re
 import time
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError
@@ -86,11 +88,46 @@ from textual.widgets import Static
 
 from local_operator import keymap as keymap_mod
 from local_operator import terminals
+from local_operator.i18n.keys import tui_status, tui_welcome
+from local_operator.i18n.messages import Msg
+from local_operator.i18n.text import tr
 from local_operator.providers.login_catalog import RECOMMENDED_LOGIN
 from local_operator.tui import theme as theme_mod
 from local_operator.tui.animation import animation_focused, motion_enabled
+from local_operator.tui.link_targets import _URL_START_RE, _body_end, _trim
+from local_operator.tui.quota_notice import QuotaNoticeLine, quota_notice_line
 from local_operator.tui.widgets.status_line import format_model_label
 from local_operator.tui.widgets.transcript import NOTICE_GLYPHS
+
+# ---------------------------------------------------------------------------
+# Catalogued copy: resolved through the i18n runtime (RFC §2.2/§3.1)
+# ---------------------------------------------------------------------------
+#
+# Every user-facing string this module composes lives in the `tui.welcome`
+# catalogue (T1), and `_t` materialises one message from it. The resolver
+# loads the namespace's en catalogue ONCE (local_operator.i18n.text), so the
+# import-time constants below and the per-frame status/step lines pay no file
+# read per message. Resolution is pinned to `en` — the only shipped locale
+# while the program ships dark (RFC §9 P1); the translation waves re-point
+# here (and the clients, which render the served catalogue by key, §2.6). A
+# broken wheel degrades each string to its message code rather than failing
+# the import, the same contract `messages.render` documents.
+#
+# MACHINE FIELDS STAY LITERALS, deliberately (RFC §2.7): the hint table's
+# command keys ("/", "/help", "ctrl/cmd+d"), the glyphs, and the model row's
+# state words — the last ones because they are half of a two-surface pair
+# (`app.py`'s band shows the same word, D1) and the pair moves together with
+# the status-line slice.
+#
+# The tips are also the pool's WIDTH BUDGET: TIP_MIN_WIDTH below is DERIVED
+# from the resolved strings, so every cell-length claim in this file is
+# measured on exactly the text a user reads; the en-only context sidecar
+# (`tui.welcome.context.json`) carries the per-entry maxCells contract.
+_t = tr("tui.welcome")
+#: The status namespace (T2): the model row's state words are catalogued with the
+#: band's, because the two surfaces MUST agree on them (D1) — a single key
+#: resolved here and by ``status_line`` is how they cannot drift.
+_s = tr("tui.status")
 
 #: The real local-operator mark, downsampled from the shipped raster asset
 #: (``static/local-operator-icon-2-light-clear.png``, also the app icon in
@@ -230,8 +267,9 @@ def mark_pulse_color(phase: float) -> str:
 
 
 #: Placeholder while the session factory is still being awaited. The band uses
-#: the same word for the same state, so the two never disagree on screen.
-MODEL_PENDING = "connecting…"
+#: the same word for the same state, so the two never disagree on screen — both
+#: resolve ``tui.status.model.connecting`` through the i18n runtime (T2).
+MODEL_PENDING = _s(tui_status.model_connecting())
 
 #: The model row's word in the first-run SETUP state — no session, no model,
 #: the app parked waiting on the user's `/login`. This is the same word the
@@ -240,8 +278,9 @@ MODEL_PENDING = "connecting…"
 #: `MODEL_PENDING` sentinel up here made the splash read `connecting…` while
 #: the band read `setup`, so the first screen a new user sees told them "it's
 #: busy, wait" (the opposite of "you need to act") and looked hung (D1). The
-#: two MUST answer "what state is this" with the same word.
-MODEL_SETUP = "setup"
+#: two MUST answer "what state is this" with the same word. Resolved from
+#: ``tui.status.model.setup`` (T2) — the same key the status band resolves.
+MODEL_SETUP = _s(tui_status.model_setup())
 
 #: The few affordances a first-time user actually needs. ``/`` and ``/help``
 #: are kept separate on purpose: one is the inline picker, the other prints the
@@ -257,9 +296,9 @@ MODEL_SETUP = "setup"
 #: kitty-protocol spelling; terminal apps may still intercept it before the TUI.
 #: The composer placeholder carried this hint for one release and no longer does.
 HINTS: tuple[tuple[str, str], ...] = (
-    ("/", "command picker"),
-    ("/help", "all commands"),
-    ("ctrl/cmd+d", "quit"),
+    ("/", _t(tui_welcome.hint_command_picker())),
+    ("/help", _t(tui_welcome.hint_all_commands())),
+    ("ctrl/cmd+d", _t(tui_welcome.hint_quit())),
 )
 
 #: The affordance table in the first-run SETUP state. `/login` leads because it
@@ -280,21 +319,23 @@ HINTS: tuple[tuple[str, str], ...] = (
 #: binding the user already has. Its row is what pays for the step line, so the
 #: first screen's height budget is unchanged.
 HINTS_SETUP: tuple[tuple[str, str], ...] = (
-    (f"/login {RECOMMENDED_LOGIN}", "sign in — recommended, no key to paste"),
-    ("/login", "another provider, including API keys"),
-    ("/help", "all commands"),
+    (f"/login {RECOMMENDED_LOGIN}", _t(tui_welcome.hint_sign_in())),
+    ("/login", _t(tui_welcome.hint_other_provider())),
+    ("/help", _t(tui_welcome.hint_all_commands())),
 )
 
 
-#: The checklist above the setup table, longest form first. Each entry is tried
-#: in order and the first that fits the width wins, so the step reading degrades
-#: to the two steps that matter rather than being truncated mid-word (the same
-#: rule the table's own width tiers follow). The numeral and the step are joined
-#: by a middle dot separator the whole line shares.
-SETUP_STEPS: tuple[str, ...] = (
-    "1 connect an account  ·  2 sign in or paste a key  ·  3 {aida} says hello",
-    "1 connect  ·  2 sign in or paste a key  ·  3 {aida} says hello",
-    "1 connect  ·  2 sign in  ·  3 {aida} says hello",
+#: The checklist above the setup table, longest form first: the generated
+#: messages `tui.welcome.step.full/medium/short`, tried IN THIS ORDER — the
+#: first that fits the width wins, so the step reading degrades to the two
+#: steps that matter rather than being truncated mid-word (the same rule the
+#: table's own width tiers follow). The numeral and the step are joined by a
+#: middle dot separator the whole line shares; `{aida}` is the render-time
+#: parameter (her live name, or the line is withdrawn by the caller).
+_SETUP_STEP_MESSAGES: tuple[Callable[..., Msg], ...] = (
+    tui_welcome.step_full,
+    tui_welcome.step_medium,
+    tui_welcome.step_short,
 )
 
 
@@ -311,8 +352,8 @@ def setup_step_line(width: int, aida_name: str | None) -> Text | None:
     """
     if not aida_name:
         return None
-    for template in SETUP_STEPS:
-        body = template.replace("{aida}", aida_name)
+    for build in _SETUP_STEP_MESSAGES:
+        body = _t(build(aida=aida_name))
         if cell_len(body) <= width:
             return Text(body, style=Style(color=theme_mod.semantic_color("fg")), no_wrap=True)
     return None
@@ -467,12 +508,12 @@ KEYED_TIPS: tuple[tuple[str, str | None], ...] = tuple(
     (action.tip, action.id)
     for action in keymap_mod.KEY_ACTIONS
     if action.tip
-) + (("/settings → Hotkeys remaps these keys", None),)
+) + ((_t(tui_welcome.tip_hotkeys()), None),)
 
 #: The ``ctrl+v`` paste sentence. Defined before :data:`TIPS` so the pool can
 #: reuse it rather than carrying a second copy that would drift. See the pin
 #: comment on :data:`TIP_SETUP` for why a Terminal.app launch opens on this.
-TIP_PASTE = "ctrl+v attaches an image from the system clipboard"
+TIP_PASTE = _t(tui_welcome.tip_paste())
 
 #: The mesh's own sentence — the FIRST step of the pairing path.
 #:
@@ -481,20 +522,20 @@ TIP_PASTE = "ctrl+v attaches an image from the system clipboard"
 #: cannot drift from the row the rotation reaches later, and pinning it cannot
 #: change the tip row's width budget (:data:`TIP_MIN_WIDTH` measures the pool, and
 #: this entry is the pool's).
-TIP_MESH = "/network new <name> makes a mesh other devices can join"
+TIP_MESH = _t(tui_welcome.tip_mesh())
 
 TIPS: tuple[str, ...] = (
-    "/resume picks up a recent session where you left off",
-    "/team <name> <message> sends work to the manager",
-    "/model <provider>/<id> switches this session only",
+    _t(tui_welcome.tip_resume()),
+    _t(tui_welcome.tip_team()),
+    _t(tui_welcome.tip_model()),
     TIP_PASTE,
-    "/approvals <ask|auto> sets whether tools ask first",
-    "esc stops the agent without ending the session",
-    "Ask for parallel work and the agent fans out subagents",
-    "! on an empty composer runs a shell command",
-    "/fork branches; /fork <message> starts divergent work",
-    "/settings → Fork → Where a fork opens sets placement",
-    "Under cmux, Where it opens sets workspace or surface",
+    _t(tui_welcome.tip_approvals()),
+    _t(tui_welcome.tip_esc()),
+    _t(tui_welcome.tip_subagents()),
+    _t(tui_welcome.tip_shell()),
+    _t(tui_welcome.tip_fork()),
+    _t(tui_welcome.tip_fork_placement()),
+    _t(tui_welcome.tip_cmux()),
     # The classification layer's two facts: how to stop it and how to give one
     # of its legs a credential. Appended at the END of the literal group rather
     # than interleaved, so the pinned opening tip stays `TIPS[0]` and the
@@ -528,8 +569,8 @@ TIPS: tuple[str, ...] = (
     # 60, and at 60 no tip row is drawn at all), and `len(TIPS)` sits exactly at
     # the ceiling `test_welcome.py` asserts. An entry that needs either budget
     # takes a slot from the pool rather than adding one.
-    "lop config edit classification.auto false turns hints off",
-    "lop login <radient|typesafe|openrouter> enables hints",
+    _t(tui_welcome.tip_classification_off()),
+    _t(tui_welcome.tip_classification_login()),
     # THE MESH'S OWN ENTRY, and it TOOK A SLOT rather than adding one: both
     # budgets were spent before it (see the note above). Which slot, and why.
     #
@@ -617,7 +658,7 @@ TIPS: tuple[str, ...] = (
 #: prior sessions to resume, so the most-read row would advertise a command that
 #: does nothing for them (D4). Once a session exists the rotation resumes into
 #: the normal ring, so this only replaces the opening frame.
-TIP_SETUP = f"New here? {RECOMMENDED_LOGIN.title()} is one browser sign-in; no key to paste"
+TIP_SETUP = _t(tui_welcome.tip_setup(login=RECOMMENDED_LOGIN.title()))
 
 #: The tip a Terminal.app launch opens on, in place of the pinned ``TIPS[0]``.
 #:
@@ -686,21 +727,25 @@ TIP_MIN_WIDTH = max(
 #: Warning body without its remedy, for widths that cannot hold the full
 #: `— /login <provider>` tail. A half-printed command is worse than none: the
 #: FACT is what must survive, the remedy is what may be dropped.
-WARNING_SHORT = "not logged in"
+WARNING_SHORT = _t(tui_welcome.status_login_required_short())
 
 #: Drop priorities for the status rows. Rows are shed lowest-first when the
 #: terminal is too short for all of them, so the credential warning — the
 #: only row that changes what the user must DO next — is the last one
-#: standing. A harness notice (quota fallback) is the same KIND of row but
-#: not the same urgency: you can still type, just on a different model, so
-#: it sheds one step before the login warning. An optional update row is
+#: standing. The pre-emptive quota advisory is one step less foundational
+#: than the login warning (a send MAY be refused, versus not being able to
+#: send at all) and one step more actionable than news, so it sheds after
+#: the notice and before the login warning. A harness notice (quota
+#: fallback) is a fact rather than an action: you can still type, just on a
+#: different model, so it sheds one step earlier. An optional update row is
 #: news, not an action that unblocks typing, so it sheds before both.
 _PRIORITY_VERSION = 0
 _PRIORITY_CWD = 1
 _PRIORITY_MODEL = 2
 _PRIORITY_UPDATE = 3
 _PRIORITY_NOTICE = 4
-_PRIORITY_WARNING = 5
+_PRIORITY_QUOTA = 5
+_PRIORITY_WARNING = 6
 
 
 @dataclass(frozen=True)
@@ -744,6 +789,13 @@ class WelcomeInfo:
     #: is the quota fallback, and an update probe must not hide a failover.
     #: Absent when current — the row is not reserved.
     update_available: str | None = None
+    #: The pre-emptive no-quota advisory for the session's own provider, or
+    #: ``None``. Computed cached-only (see
+    #: :func:`local_operator.tui.quota_notice.quota_notice_line`) from the row
+    #: the usage warmer maintains; rendered one row above the credential
+    #: warning, because both are amber actionable facts and the warning keeps
+    #: its place as the last row standing.
+    quota_notice: QuotaNoticeLine | None = None
     #: First-run SETUP state: the app opened with nothing configured so the user
     #: can `/login` from here (see ``app._enter_setup_state``). It changes what
     #: the empty splash SAYS — the model row's idle word, the affordance the
@@ -791,11 +843,13 @@ def session_welcome_info(
     — /login openrouter" on the first screen, pointing them at a login they do not
     need and cannot usefully perform.
 
-    Both reads are defended. ``model_label`` touches a session that may be
-    mid-teardown, and the credential check touches the store on disk; either raising
-    here would take down the app's very first render. A failed read degrades to *no
-    warning* rather than to a false alarm: telling a correctly configured user they
-    are logged out is worse than staying quiet.
+    Every read here is defended. ``model_label`` touches a session that may be
+    mid-teardown, the credential check touches the store on disk, and the quota
+    notice fans out over the usage cache, the auth store and the catalogue; any
+    raising here would take down the app's very first render. A failed read
+    degrades to *no warning* rather than to a false alarm: telling a correctly
+    configured user they are logged out — or out of credit — is worse than
+    staying quiet.
     """
     label = ""
     name = ""
@@ -818,12 +872,23 @@ def session_welcome_info(
                 missing = provider
         except Exception:
             missing = None
+    # The quota advisory answers "is there definite, fresh evidence this
+    # provider is empty" — cached-only, never a fetch on a paint path (see
+    # ``tui/quota_notice``). Its own read is attempted on every snapshot; it
+    # returns None for every state that must show nothing.
+    quota: QuotaNoticeLine | None = None
+    if providers is not None:
+        try:
+            quota = quota_notice_line(session, providers)
+        except Exception:  # noqa: BLE001 — same degradation as the reads above
+            quota = None
     return WelcomeInfo(
         version=app_version(),
         model_label=label,
         model_name=name,
         cwd=os.getcwd(),
         missing_credential=missing,
+        quota_notice=quota,
         notice=notice or None,
         notice_kind=notice_kind,
         # No update row in the setup state (audit D8): the first screen a new
@@ -874,6 +939,52 @@ def _fit_tail(text: str, width: int) -> str:
     while kept and cell_len(kept) > width - 1:
         kept = kept[1:]
     return "…" + kept
+
+
+#: A URL's introducer, left dangling when the URL under it is dropped
+#: (``…, or open``, ``…, visit``, ``…:``). Bounded to the verbs a link is
+#: actually introduced with — this finishes a clipped sentence, it does not
+#: parse grammar.
+_INTRO_TAIL_RE = re.compile(r"(?:,|;)?\s*(?:or|and)?\s*(?:open|visit|see)\s*$", re.IGNORECASE)
+
+
+def _drop_dangling_intro(head: str) -> str:
+    """Strip a URL introducer the URL's removal left dangling.
+
+    ``…verification email, or open`` → ``…verification email``. Also drops the
+    punctuation an introducer can end on, so a clipped row never stops on a
+    comma that introduces nothing.
+    """
+    head = head.rstrip()
+    while True:
+        trimmed = _INTRO_TAIL_RE.sub("", head).rstrip(",;:—- ")
+        if trimmed == head:
+            return head
+        head = trimmed
+
+
+def _clip_whole_url(row: str, width: int) -> str:
+    """Clip ``row`` to ``width`` without ever printing a partial URL.
+
+    The final truncation pass keeps a row's head and marks the loss with an
+    ellipsis — right for prose, wrong for a row whose tail CARRIES a URL:
+    ``…, or open https://cons…`` is half an address nobody can open and a word
+    nobody can read (design round 1, D2; QA Q2 measured it across content
+    widths 181–227). When the cut would land inside a URL, the row is cut at
+    the URL's start instead and the dangling introducer goes with it — the
+    same WHOLE-drop the appended URL gets in ``_status_rows``. Rows without a
+    URL, and rows that fit, come back untouched. The cut is a cell position,
+    not a character index: an em dash is one cell.
+    """
+    if width <= 1 or cell_len(row) <= width:
+        return row
+    cut = width - 1  # the cells a trailing ellipsis leaves for the text
+    for match in _URL_START_RE.finditer(row):
+        start = match.start()
+        end = start + len(_trim(row[start : _body_end(row, start)]))
+        if cell_len(row[:start]) < cut < cell_len(row[:end]):
+            return f"{_drop_dangling_intro(row[:start])}…"
+    return row
 
 
 def _center(line: Text, width: int) -> Text:
@@ -1013,9 +1124,9 @@ def _status_rows(info: WelcomeInfo, width: int) -> list[tuple[int, Text]]:
         # WHOLE when it does not fit — a half-printed ``/upd…`` is an
         # instruction nobody can follow, same rule as the login warning.
         glyph = NOTICE_GLYPHS["warning"]
-        body = f"{glyph} latest is v{info.update_available} — /update"
+        body = f"{glyph} {_t(tui_welcome.status_update(version=info.update_available))}"
         if cell_len(body) > width:
-            body = f"{glyph} latest is v{info.update_available}"
+            body = f"{glyph} {_t(tui_welcome.status_update_short(version=info.update_available))}"
         rows.append((_PRIORITY_UPDATE, Text(body, style=warn, no_wrap=True)))
     if info.notice:
         # KIND-AWARE GLYPH AND INK (design round 2, M2). This row used to paint
@@ -1041,13 +1152,31 @@ def _status_rows(info: WelcomeInfo, width: int) -> list[tuple[int, Text]]:
         if not body.startswith(glyph):
             body = f"{glyph} {body}"
         rows.append((_PRIORITY_NOTICE, Text(body, style=style, no_wrap=True)))
+    if info.quota_notice is not None:
+        # The pre-emptive no-quota advisory, in the same amber family as the
+        # login warning below it. The sentence is the verdict's own (never
+        # authored here); the URL is the remedy the TUI cannot click, so it
+        # trails the sentence and is dropped WHOLE when the row cannot hold
+        # it — a half-printed address is a link nobody can open, the same
+        # rule `/login <provider>` follows. A URL INSIDE the sentence (the
+        # Radient copy) gets the same WHOLE-drop via `_clip_whole_url`: its
+        # tail goes rather than being cut mid-address (design round 1, D2).
+        # When the sentence alone overflows, the final truncation keeps its
+        # head: that names the condition.
+        glyph = NOTICE_GLYPHS["warning"]
+        quota = info.quota_notice
+        body = f"{glyph} {quota.text}"
+        if quota.url is not None and cell_len(f"{body} {quota.url}") <= width:
+            body = f"{body} {quota.url}"
+        body = _clip_whole_url(body, width)
+        rows.append((_PRIORITY_QUOTA, Text(body, style=warn, no_wrap=True)))
     if info.missing_credential:
         # The single most common first-run failure, so it is spelled as the
         # command that fixes it. `!` is the app's warning glyph (D14). When the
         # remedy does not fit, the fact is kept and the command dropped whole —
         # a half-printed `/logi…` is an instruction the user cannot follow.
         glyph = NOTICE_GLYPHS["warning"]
-        body = f"{glyph} {WARNING_SHORT} — /login {info.missing_credential}"
+        body = f"{glyph} {_t(tui_welcome.status_login_required(provider=info.missing_credential))}"
         if cell_len(body) > width:
             body = f"{glyph} {WARNING_SHORT}"
         rows.append((_PRIORITY_WARNING, Text(body, style=warn, no_wrap=True)))
@@ -1390,7 +1519,24 @@ def build_welcome_lines(
     # a single left edge below the wordmark whatever the model label turns out to
     # be. The logo is centred separately because it is centred as a LOCKUP —
     # sharing the pad would left-align the mark against the text blocks.
-    status_lines, hints = _center_blocks([[line for _, line in status], hints], width)
+    #
+    # The quota row is excluded from that pad and centred on its own width,
+    # exactly like the tip below: it is a sentence, it is usually the widest
+    # line on screen, and the warmer paints it into a LIVE splash — folding it
+    # in would collapse the pad to zero the moment it lands, re-anchoring the
+    # whole stack left by half the row (design round 1, D1: measured as a
+    # 280 px jump at 96 cells, on the cold-boot path this feature exists for).
+    status_texts = [line for _, line in status]
+    quota_index = next(
+        (index for index, (priority, _) in enumerate(status) if priority == _PRIORITY_QUOTA),
+        None,
+    )
+    if quota_index is None:
+        status_lines, hints = _center_blocks([status_texts, hints], width)
+    else:
+        hosted = [line for index, line in enumerate(status_texts) if index != quota_index]
+        status_lines, hints = _center_blocks([hosted, hints], width)
+        status_lines.insert(quota_index, _center(status_texts[quota_index], width))
     lines: list[Text] = []
     if show_mark:
         lines.extend(mark)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acceldata_sdk
-Version: 26.9.0
+Version: 26.10.0
 Summary: Acceldata SDK
 Author-email: acceldata <apisupport@acceldata.io>
 License-Expression: MIT
@@ -30,6 +30,12 @@ Refer to the [documentation](https://docs.acceldata.io/documentation/python) for
 
 Version Log
 ========================
+
+26.10.0 (10/10/2026)
+-------------------
+- Released **acceldata_sdk** version 26.10.0.
+- TLS certificate verification is now enabled by default on every HTTP request.
+- Private enterprise CAs can be trusted by passing `verify_ssl` as a CA bundle path or an `ssl.SSLContext` on `TorchClient`.
 
 26.9.0 (20/09/2026)
 ------------------

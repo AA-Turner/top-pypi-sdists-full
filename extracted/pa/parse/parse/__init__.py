@@ -11,7 +11,7 @@ from decimal import Decimal
 from functools import partial
 
 
-__version__ = "1.22.2"
+__version__ = "1.22.3"
 __all__ = ["parse", "search", "findall", "with_pattern"]
 
 log = logging.getLogger(__name__)
@@ -286,7 +286,7 @@ def strf_date_convert(x, _, type):
     elif is_date:
         return dt.date()
     elif is_time:
-        return dt.time()
+        return dt.timetz()
     else:
         raise ValueError("Datetime not a date nor a time?")
 

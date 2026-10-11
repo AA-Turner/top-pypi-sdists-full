@@ -15,10 +15,11 @@ from pyathena.sqlalchemy.array import ARRAY, AthenaArray
 from pyathena.sqlalchemy.map import MAP, AthenaMap
 from pyathena.sqlalchemy.struct import STRUCT, AthenaStruct
 from pyathena.sqlalchemy.temporal import AthenaDate, AthenaTimestamp
+from pyathena.util import override
 
 if TYPE_CHECKING:
     from sqlalchemy import Dialect
-    from sqlalchemy.sql.type_api import _LiteralProcessorType
+    from sqlalchemy.sql.type_api import _LiteralProcessorType, _ResultProcessorType
 
 __all__ = [
     "ARRAY",
@@ -28,37 +29,54 @@ __all__ = [
     "AthenaArray",
     "AthenaBinary",
     "AthenaDate",
+    "AthenaJSON",
     "AthenaMap",
     "AthenaStruct",
     "AthenaTimestamp",
     "Tinyint",
-    "get_double_type",
 ]
-
-
-def get_double_type() -> type[Any]:
-    """Get the appropriate type for DOUBLE based on SQLAlchemy version.
-
-    SQLAlchemy 2.0+ provides a native DOUBLE type, while earlier versions
-    only have FLOAT. This function returns the appropriate type based on
-    what's available.
-
-    Returns:
-        types.DOUBLE for SQLAlchemy 2.0+, types.FLOAT for earlier versions.
-    """
-    if hasattr(types, "DOUBLE"):
-        return types.DOUBLE
-    return types.FLOAT
 
 
 class AthenaBinary(types.LargeBinary):
     """SQLAlchemy binary type with Athena hexadecimal literals."""
 
+    @override
     def literal_processor(self, dialect: Dialect) -> _LiteralProcessorType[bytes]:
         def process(value: bytes) -> str:
             return f"X'{value.hex()}'"
 
         return process
+
+
+class AthenaJSON(types.JSON):
+    """SQLAlchemy JSON type that keeps the values PyAthena has decoded.
+
+    PyAthena's default converters decode results of the Athena ``json`` type,
+    so this type returns them unchanged, and a JSON string scalar stays a
+    ``str``. If the cursor returns the text of a ``json`` result instead, for
+    example through a custom converter that does not decode it, this type
+    returns that text unchanged. Results of other Athena types, such as JSON
+    text in a ``varchar`` column, are decoded with the dialect's JSON
+    deserializer.
+    """
+
+    @override
+    def result_processor(
+        self, dialect: Dialect, coltype: object
+    ) -> _ResultProcessorType[Any] | None:
+        """Return a processor decoding JSON text of Athena types other than ``json``.
+
+        Args:
+            dialect: The dialect fetching the value.
+            coltype: The Athena type name from the cursor description.
+
+        Returns:
+            The processor, or None for the Athena ``json`` type.
+        """
+        if coltype == "json":
+            return None
+        processor: _ResultProcessorType[Any] | None = super().result_processor(dialect, coltype)
+        return processor
 
 
 class Tinyint(sqltypes.Integer):

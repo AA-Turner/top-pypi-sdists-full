@@ -29,11 +29,26 @@ from typing import Final
 
 __all__ = ["PROTOCOL_VERSION"]
 
-PROTOCOL_VERSION: Final = 1
+PROTOCOL_VERSION: Final = 2
 """What this node speaks, on the wire and in a handshake.
 
 It appears in every frame as `v`, and in both hellos, and a peer that answers
 with a different number is refused before anything else is read.
+
+**It became 2 when the handshake proofs were bound to a transcript.** Under 1,
+each proof was an HMAC of the other side's nonce alone, so a party with no
+secret could take a guarded system's challenge to an honest dialler and pass
+the answer on under an identity of its own choosing. Under 2, each proof covers
+which side wrote it, both nonces and the identities in the exchange. A proof
+written under 1 never matches one checked under 2, so the two cannot share a
+link whatever the number says, and raising it is what turns that into a
+refusal naming both protocols rather than a challenge that fails for no stated
+reason. Every node of a deployment has to move to a release speaking 2 before
+any two of them talk again, so this change cannot roll: a release with it is
+deployed by stopping the fleet, or by bringing up a new one beside the old.
+
+The rest of this note is about protocol 1, and stays as the record of why the
+number did not move for the two changes before that one.
 
 **One contract change has happened without raising this**, and it is recorded
 here because the rule above says it should have. The handshake stopped
@@ -63,5 +78,20 @@ instead of a protocol mismatch naming both versions. If you are reading this
 while debugging exactly that, the answer is that one end predates v0.6.0, and
 the fix is to upgrade it rather than to look for a version mismatch that will
 never be reported. The next contract change raises the number, and that one
-will gate something.
+will gate something. That was the transcript change above.
+
+**The `declined` frame did not raise it, which contradicts the sentence
+above.** That is a decision, made for the reason below. A dialled system can
+answer a client-hello with `declined` in place of a welcome, to refuse the
+dialler or to tell it that its own link wins a simultaneous dial. That adds a
+frame the dialler must understand, which by the rule above is a contract
+change. The number stays at 1 because no pair of releases that works together
+today stops working together. A system that predates the frame never sends it,
+so a newer dialler sees what it always saw. An older dialler that receives it
+fails the handshake with "expected a welcome frame, got 'declined'". For a
+refusal that is the right outcome. For a lost dial race it closes the
+association and dead-letters what it held, where before it wrote those frames
+into a closing link and lost them without a trace. Raising the number would
+make every earlier release refuse this one on every link, which costs far more
+than that one improvement for old diallers is worth.
 """

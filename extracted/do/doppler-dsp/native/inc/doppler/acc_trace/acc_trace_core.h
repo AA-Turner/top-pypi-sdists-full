@@ -54,10 +54,17 @@ typedef struct {
 /**
  * @brief Create a length-@p n trace accumulator.
  *
- * @param n      Trace length in bins.  Must be > 0; returns NULL otherwise.
+ * @param n      Trace length in bins.  Must be > 0, with n doubles a
+ *               byte count a size_t holds; returns NULL otherwise.
  * @param mode   Reduction mode index (0=mean, 1=exp, 2=maxhold, 3=minhold).
- * @param alpha  EMA smoothing factor used only by @c exp mode (0 < alpha <= 1).
- * @return Heap-allocated state, or NULL on invalid argument or OOM.
+ * @param alpha  EMA smoothing factor, read only by @c exp mode, where it must
+ *               lie in (0, 1].  Outside it the trace is not an average: 0
+ *               never leaves the first frame, a negative alpha extrapolates
+ *               away from the data (a power trace goes negative), and above
+ *               1 the EMA step saturates to pass-through.  A NaN is refused
+ *               too.  Ignored, and so not checked, in the other modes.
+ * @return Heap-allocated state, or NULL on invalid argument (including an
+ *         exp-mode @p alpha outside (0, 1]) or OOM.
  * @note Caller must call dp_acc_trace_destroy() when done.
  *
  * @code
@@ -68,6 +75,19 @@ typedef struct {
  * @endcode
  */
 dp_acc_trace_state_t *dp_acc_trace_create(size_t n, int mode, double alpha);
+
+/**
+ * @brief Set the EMA smoothing factor, under dp_acc_trace_create()'s rule.
+ *
+ * In @c exp mode an @p alpha outside (0, 1], or a NaN, is refused and the
+ * trace keeps the alpha it had; the other modes never read it and accept any
+ * value, as create() does.  The running trace is not touched either way.
+ *
+ * @param state  Must be non-NULL.
+ * @param alpha  New smoothing factor.
+ * @return DP_OK, or DP_ERR_INVALID when refused (state unchanged).
+ */
+int dp_acc_trace_set_alpha(dp_acc_trace_state_t *state, double alpha);
 
 /**
  * @brief Destroy an AccTrace instance and release all memory.
@@ -151,9 +171,14 @@ size_t dp_acc_trace_value_max_out(dp_acc_trace_state_t *state);
 size_t dp_acc_trace_value(dp_acc_trace_state_t *state, size_t n, float *out,
                        size_t max_out);
 /* ── Serializable state (standard bytes interface; see dp_state.h) ──────────
- * Field-wise: pack running trace + fold count; n/mode/alpha restored by create. */
+ * Field-wise: [u32 mode][u64 count][f64 alpha][running trace]; n is restored
+ * by create.  mode is a reject key: a blob from a trace in another mode is
+ * refused.  alpha travels because dp_acc_trace_set_alpha() can change it after
+ * create (version 2; version 1 blobs, without mode or alpha, are refused).
+ * set_state refuses an alpha the setter would refuse; either refusal leaves
+ * the state untouched. */
 #define ACC_TRACE_STATE_MAGIC DP_FOURCC ('A','T','R','C')
-#define ACC_TRACE_STATE_VERSION 1u
+#define ACC_TRACE_STATE_VERSION 2u
 size_t dp_acc_trace_state_bytes (const dp_acc_trace_state_t *state);
 void dp_acc_trace_get_state (const dp_acc_trace_state_t *state, void *blob);
 int dp_acc_trace_set_state (dp_acc_trace_state_t *state, const void *blob);

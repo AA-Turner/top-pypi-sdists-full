@@ -16,6 +16,7 @@ the test suite asserts.
 import asyncio
 import itertools
 import random
+import secrets
 from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -33,7 +34,12 @@ from tapio.actor.behavior import (
 )
 from tapio.actor.construction import construct
 from tapio.actor.context import ActorContext
-from tapio.actor.dead_letters import Carrier, DeadLetterOffice, DeadLetterReason
+from tapio.actor.dead_letters import (
+    Carrier,
+    DeadLetterOffice,
+    DeadLetterReason,
+    RuntimeMessage,
+)
 from tapio.actor.events import EventStream
 from tapio.actor.mailbox import Envelope, Mailbox, MailboxConfig
 from tapio.actor.path import ActorPath
@@ -42,7 +48,7 @@ from tapio.actor.restarts import RestartLog
 from tapio.actor.signals import ChildFailed, PostStop, PreRestart, Signal, Terminated
 from tapio.actor.stash import StashBuffer
 from tapio.actor.supervision import Decision, SupervisorStrategy
-from tapio.actor.timers import TimerScheduler
+from tapio.actor.timers import TimerScheduler, TimerTick
 from tapio.actor.watch import DeathWatch, Watcher, WatchTarget
 from tapio.dispatch.blocking import BlockingPool
 from tapio.dispatch.dispatcher import Dispatcher
@@ -108,6 +114,13 @@ def running_cell() -> "ActorCell[Any] | None":
         return cell
     return None
 
+
+_UID_BITS: Final = 63
+"""How much randomness goes into an actor's incarnation uid.
+
+63 bits, so the uid stays a non-negative signed 64-bit integer for any peer
+that reads a path into one.
+"""
 
 _CANCEL_GRACE: Final = 1.0
 """Seconds an actor cancelled at the shutdown deadline has to finish.
@@ -223,17 +236,20 @@ class ActorRuntime:
     `when_terminated`.
     """
 
-    # Quoted: itertools.count is only subscriptable to a type checker.
-    _uids: "itertools.count[int]" = field(default_factory=lambda: itertools.count(1))
-
     def next_uid(self) -> int:
-        """Return the next incarnation uid.
+        """Return a fresh incarnation uid.
 
-        Uid 0 means "no incarnation", so the counter starts at 1. The uid
-        stops a ref to a dead actor from addressing a new actor spawned under
-        the same name.
+        The uid stops a ref to a dead actor from addressing a new actor
+        spawned under the same name. It is random rather than counted. A
+        counter starts again at 1 when the system restarts, and the same
+        deployment spawns the same actors in the same order, so a ref held
+        from before a peer restarted would name a live actor in the new
+        incarnation. A random uid names nothing there, and the frame becomes
+        a dead letter on the peer.
+
+        Uid 0 means "no incarnation", so it is never returned.
         """
-        return next(self._uids)
+        return secrets.randbits(_UID_BITS) or 1
 
 
 class LocalActorRef(ActorRef[T]):
@@ -671,12 +687,30 @@ class ActorCell(Generic[T]):
                 "raising surfaces it instead of leaving an inert actor behind."
             )
             raise ActorSystemTerminating(msg)
+        if name.startswith("$"):
+            # Reserved for the names this cell generates. A child that took one
+            # would be overwritten in the map by the next anonymous spawn, and
+            # nothing would ever stop it.
+            msg = (
+                f"cannot spawn {name!r} under {self._path}: names starting "
+                "with '$' are reserved for the names spawn_anonymous and "
+                "message adapters generate"
+            )
+            raise ActorNameError(msg)
         if name in self._children:
             msg = (
                 f"{self._path} already has a live child named {name!r}; actor "
                 "names are unique among siblings"
             )
             raise ActorNameError(msg)
+        try:
+            # Checked here rather than left to the path the spawn builds, which
+            # raises a bare ValueError. A caller spawning a name built from
+            # user input catches ActorNameError, as the error's docs say.
+            self._path.child(name)
+        except ValueError as error:
+            msg = f"cannot spawn {name!r} under {self._path}: {error}"
+            raise ActorNameError(msg) from error
         return self._spawn_child(behavior, name, mailbox)
 
     def spawn_anonymous(
@@ -689,6 +723,8 @@ class ActorCell(Generic[T]):
                 "actor is terminating"
             )
             raise ActorSystemTerminating(msg)
+        # Cannot clash with a live child: `spawn` refuses every name with this
+        # prefix, so the counter is the only source of one.
         return self._spawn_child(behavior, f"${next(self._anonymous)}", mailbox)
 
     def message_adapter(
@@ -701,11 +737,14 @@ class ActorCell(Generic[T]):
         incarnation that created it, so a restart does not turn replies into
         dead letters for someone still holding a ref.
 
-        That also means nothing releases one on its own. An adapter per
-        protocol, made in `setup`, costs one registry entry for the life of
-        the actor and is what most actors want. An adapter per request wants
-        `AdapterRef.release`, or the entries accumulate for as long as the
-        actor runs.
+        That also means nothing releases one on its own. `setup` runs again
+        on every restart, so an adapter made in `setup` costs one registry
+        entry per incarnation, not one per actor. The adapters from earlier
+        incarnations keep working, with the translation the incarnation that
+        made them passed in. Release the previous one in `PreRestart`, or make
+        the adapter outside the part a restart runs again, if the actor
+        restarts often. An adapter per request wants `AdapterRef.release`, or
+        the entries accumulate for as long as the actor runs.
         """
         resolved = resolve_handler_msg_type(
             adapt, explicit=msg_type, message_param_index=0
@@ -987,7 +1026,18 @@ class ActorCell(Generic[T]):
 
     async def _on_message(self, message: Message) -> None:
         """Run one user message through the current behavior."""
-        if isinstance(message, AdaptedMessage):
+        if isinstance(message, TimerTick):
+            if message.generation != self._timers.generation:
+                # Fired before a restart and queued behind the failure. The
+                # incarnation that scheduled it is gone, and the one running
+                # now never asked for it.
+                self._log.debug(
+                    "dropped a tick from a replaced incarnation: %s",
+                    type(message.payload).__name__,
+                )
+                return
+            message = message.payload
+        elif isinstance(message, AdaptedMessage):
             try:
                 message = self._translate(message)
             except Exception as error:
@@ -1134,11 +1184,21 @@ class ActorCell(Generic[T]):
             "restarting after a failure in %s", self._describe_current(), exc_info=error
         )
         await self._run_lifecycle_hook(PreRestart())
+        # `PreRestart` was the failed incarnation's last signal. A stop that
+        # lands during the backoff below must not reach it as `PostStop` too,
+        # because a resource released in both handlers would be released
+        # twice. The handler is dropped here rather than after the backoff.
+        self._signalling = None
         # Both belong to the incarnation that just failed. A tick scheduled by
         # it must not arrive at its replacement, and messages it put aside are
         # not the replacement's to answer.
         self._timers.cancel_all()
         self._discard_stash()
+        # The restart stops these children itself. Their `Terminated` would
+        # otherwise reach the next incarnation, which never watched them and
+        # may already have spawned their replacements.
+        for child in list(self._children.values()):
+            self.unwatch(child.ref)
         await self._stop_children(self._own_deadline())
 
         if strategy.backoff is not None:
@@ -1149,10 +1209,6 @@ class ActorCell(Generic[T]):
             if not await self._backoff(delay):
                 return
 
-        # The failed incarnation's signal handler is not the new one's. Drop it
-        # before rebuilding, so a restart that lands on a directive carries no
-        # stale handler across.
-        self._signalling = None
         try:
             behavior = self._construct(self._initial)
         except Exception:
@@ -1473,10 +1529,17 @@ class ActorCell(Generic[T]):
         A message travelling inside a wrapper, through an adapter or out to a
         peer, is reported as what its sender sent. The wrapper is only how it
         travelled, and a subscriber matching on message types should not have
-        to know about it.
+        to know about it. A message the runtime sent itself is dropped, since
+        no sender is owed an account of it. That holds inside a wrapper too: a
+        timer tick carries an association's heartbeat as its payload.
         """
+        if isinstance(message, RuntimeMessage):
+            return
+        if isinstance(message, Carrier) and isinstance(message.payload, RuntimeMessage):
+            return
         if isinstance(message, Carrier):
-            message = message.payload
+            message.account(self._runtime.dead_letters, self._path, reason)
+            return
         self._runtime.dead_letters.publish(message, self._path, reason)
 
     def _still_alive(self) -> bool:

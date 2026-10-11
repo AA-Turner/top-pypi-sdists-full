@@ -34,9 +34,15 @@ probe ran this wave by operator decision):
   ``response_format``), the bounded downloader fetches it — tolerant, never
   the primary path.
 
-**Editing** (``/v1/images/edits``, documented with up to 5 refs) is a
-recorded v1 skip, like Google's — the design routes edits through
-Radient/FAL this wave.
+**Editing** (wired media wave-2 edit lane, 2026-10-10): ``POST
+/v1/images/edits`` with the single-image shape — ``"image": {"url": <data
+URI>, "type": "image_url"}`` — and the same ``data[]``/``usage`` parse as
+generations. Edits bill input AND output (the pricing page says so
+explicitly), so the generations flat rate must never be reused as an edit
+cost: the reported ``usage.cost_in_usd_ticks`` stays the only figure, and
+nothing replaces it when absent. Up to 5 references are documented for
+multi-image editing; that shape arrives with the multi-source wire, and
+``num_images > 1`` on the single-image shape is a recorded skip.
 """
 
 from __future__ import annotations
@@ -46,6 +52,7 @@ from typing import Any
 
 import httpx
 
+from local_operator.artifacts import BillingBasis
 from local_operator.artifacts.progress import ProgressFn
 from local_operator.artifacts.rung import RungResult, RungSkipped
 from local_operator.artifacts.walk import PauseFn
@@ -57,6 +64,9 @@ __all__ = ["run_xai"]
 
 XAI_IMAGE_BASE_URL = "https://api.x.ai/v1"
 XAI_IMAGES_PATH = "/images/generations"
+#: The edit endpoint (wired media wave-2 edit lane): the single-image shape,
+#: ``image`` object with a data URI in ``url``.
+XAI_IMAGES_EDITS_PATH = "/images/edits"
 
 #: The current Grok Imagine image model (the docs' own examples). A DEFAULT,
 #: never a pin: the caller's ``model`` overrides it.
@@ -91,25 +101,45 @@ async def run_xai(
     emit: ProgressFn | None,
     pause: PauseFn | None,
     client: httpx.AsyncClient | None = None,
+    credential_kind: str = "api_key",
 ) -> RungResult:
-    """Run one xAI image generation. See the module docstring."""
+    """Run one xAI image generation. See the module docstring.
+
+    ``credential_kind`` is the class of ``key`` (``"api_key"`` or ``"oauth"``,
+    from ``availability.xai_call_credential``); it decides only the result's
+    ``billing_basis``. Defaulting to ``api_key`` keeps every existing caller's
+    behaviour (a bare key is metered cash).
+    """
     # Observe a pre-aborted signal before anything else happens (reviewer
     # round 1 Q6): a single-request rung has no poll loop for the abort to
     # land in, so this zero-length wait is the only place the user's stop can
     # take effect before the spend. A no-op without a signal.
     if pause is not None:
         await pause(0.0)
-    if source_url is not None:
-        raise RungSkipped(
-            "xAI has no wired image-to-image route in this rung.", reason_class="unsupported"
-        )
     model_id = (model or XAI_DEFAULT_IMAGE_MODEL).strip()
     body: dict[str, Any] = {
         "model": model_id,
         "prompt": prompt,
-        "n": num_images,
         "response_format": "b64_json",
     }
+    path = XAI_IMAGES_PATH
+    if source_url is not None:
+        # The wired edit shape is the single-image one (docs fetched
+        # 2026-10-10): an ``image`` object whose ``url`` takes the data URI;
+        # ``n`` is a generations-only parameter, so an edit carries no count
+        # (the multi-image page's 1..5 references arrive with the
+        # multi-source wire). A larger request is a recorded SKIP rather
+        # than silently delivering one image (review round 1, R2).
+        if num_images > 1:
+            raise RungSkipped(
+                "xAI's edit endpoint documents no image count; a multi-image "
+                "request is skipped rather than silently delivering fewer.",
+                reason_class="unsupported",
+            )
+        body["image"] = {"url": source_url, "type": "image_url"}
+        path = XAI_IMAGES_EDITS_PATH
+    else:
+        body["n"] = num_images
     aspect = XAI_ASPECT_RATIOS.get(image_size)
     if aspect is not None:
         body["aspect_ratio"] = aspect
@@ -125,7 +155,7 @@ async def run_xai(
         payload = await image_rungs._request_json(
             http,
             "POST",
-            f"{XAI_IMAGE_BASE_URL}{XAI_IMAGES_PATH}",
+            f"{XAI_IMAGE_BASE_URL}{path}",
             label="xAI images",
             timeout_s=XAI_IMAGE_TIMEOUT_S,
             secrets=(key,),
@@ -178,9 +208,36 @@ async def run_xai(
             ticks = usage.get("cost_in_usd_ticks")
             if isinstance(ticks, int) and not isinstance(ticks, bool):
                 cost_usd = ticks / XAI_USD_TICKS_PER_USD
+        # BILLING BASIS by credential class. The amount is the same field on
+        # both paths - xAI's own per-request ``cost_in_usd_ticks`` - so
+        # ``cost_source`` stays ``reported`` either way. What differs is who
+        # pays: an API key is metered against the account's prepaid credits
+        # (``billed``); a Grok sign-in grant draws on the SUBSCRIPTION's
+        # allotment, so the provider-reported price is what that usage WOULD
+        # cost at API rates, not a charge - exactly the meaning of
+        # ``subscription-api-equivalent`` (``estimated`` would wrongly say
+        # the figure is modelled; ``billed`` wrongly says cash moved). Caveat,
+        # recorded because no live OAuth call has run (see the module
+        # docstring's 403 note): whether ``usage`` is populated on the OAuth
+        # path is unverified - when absent there is no figure and no basis,
+        # never a synthesized one.
+        basis: BillingBasis | None = None
+        provenance: str | None = None
+        if cost_usd is not None:
+            if credential_kind == "oauth":
+                basis = "subscription-api-equivalent"
+                provenance = (
+                    "xAI response usage.cost_in_usd_ticks on a Grok sign-in (subscription): "
+                    "API-equivalent per-request cost, not billed"
+                )
+            else:
+                basis = "billed"
+                provenance = "xAI response usage.cost_in_usd_ticks (API key, metered)"
         return RungResult(
             assets=assets,
             model=model_id,
             cost_usd=cost_usd,
             cost_source="reported" if cost_usd is not None else None,
+            billing_basis=basis,
+            cost_provenance=provenance,
         )

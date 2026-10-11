@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,18 +13,18 @@ This private submodule is *not* intended for importation by downstream callers.
 # ....................{ IMPORTS                            }....................
 from beartype.roar import BeartypeModuleUnimportableWarning
 from beartype.roar._roarexc import _BeartypeUtilModuleException
-from beartype.typing import (
-    Any,
-    Optional,
-)
 from beartype._cave._cavefast import ModuleType
 from beartype._cave._cavemap import NoneTypeOr
-from beartype._data.cls.datacls import TYPE_BUILTIN_NAME_TO_TYPE
+from beartype._data.kind.datakindiota import SENTINEL
+from beartype._data.py.databuiltins import BUILTIN_NAME_TO_TYPE
 from beartype._data.typing.datatyping import TypeException
 from beartype._util.error.utilerrwarn import issue_warning
 from beartype._util.text.utiltextidentifier import die_unless_identifier
-from beartype._data.kind.datakindiota import SENTINEL
 from importlib import import_module as importlib_import_module
+from typing import (
+    Any,
+    Optional,
+)
 
 # ....................{ IMPORTERS                          }....................
 #FIXME: Preserved until requisite, which shouldn't be long.
@@ -80,8 +80,9 @@ def import_module_or_none(
     module_name: str,
 
     # Optional parameters.
+    is_warn_import_exception: bool = True,
     exception_cls: TypeException = _BeartypeUtilModuleException,
-    exception_prefix: str = 'Module attribute ',
+    exception_prefix: str = 'Module ',
 ) -> Optional[ModuleType]:
     '''
     Dynamically import and return the module, package, or C extension with the
@@ -96,10 +97,14 @@ def import_module_or_none(
     ----------
     module_name : str
         Fully-qualified name of the module to be imported.
+    is_warn_import_exception : bool, default: True
+        :data:`True` only if this function coerces otherwise fatal exceptions
+        raised as a side effect by the importation of this module into non-fatal
+        warnings. Defaults to :data:`True` for safety.
     exception_cls : type[Exception], default: _BeartypeUtilModuleException
         Type of exception to be raised in the event of a fatal error. Defaults
         to :exc:`._BeartypeUtilModuleException`.
-    exception_prefix : str, default: "Module attribute "
+    exception_prefix : str, default: "Module "
         Human-readable substring prefixing raised exception messages. Defaults
         to a reasonably sensible prefix.
 
@@ -122,21 +127,20 @@ def import_module_or_none(
         If a module with this name exists *but* that module is unimportable due
         to raising module-scoped exceptions at importation time.
     '''
+    assert isinstance(is_warn_import_exception, bool), (
+        f'{repr(is_warn_import_exception)} not boolean.')
 
+    # ....................{ IMPORTS                        }....................
     # Avoid circular import dependencies.
     from beartype._util.module.utilmodget import get_module_imported_or_none
 
-    # If this module name is *NOT* a syntactically valid Python identifier,
-    # raise an exception.
-    die_unless_identifier(
-        text=module_name,
-        exception_cls=exception_cls,
-        exception_prefix=exception_prefix,
-    )
-    # Else, this module name is a syntactically valid Python identifier.
-
+    # ....................{ LOCALS                         }....................
     # Module cached with "sys.modules" if this module has already been imported
     # elsewhere under the active Python interpreter *OR* "None" otherwise.
+    #
+    # Note that this is an optimization, albeit an extremely valuable one.
+    # Module importation is one of the most (if not *THE* most) expensive
+    # operations made available by the core Python language.
     module = get_module_imported_or_none(module_name)
 
     # If this module has already been imported, return this cached module.
@@ -144,23 +148,47 @@ def import_module_or_none(
         return module
     # Else, this module has yet to be imported.
 
+    # If this module name is *NOT* a syntactically valid Python identifier,
+    # raise a human-readable exception.
+    #
+    # Note that we intentionally defer this validation until *AFTER* performing
+    # the above memoization. Since the get_module_imported_or_none() getter only
+    # trivially performs a dictionary lookup against this string, the validity
+    # of this string is irrelevant to that memoization.
+    die_unless_identifier(
+        text=module_name,
+        exception_cls=exception_cls,
+        exception_prefix=exception_prefix,
+    )
+    # Else, this module name is a syntactically valid Python identifier.
+
+    # ....................{ IMPORT                         }....................
     # Attempt to dynamically import and return this module.
     try:
         return importlib_import_module(module_name)
     # If this module does *NOT* exist, return "None".
     except ModuleNotFoundError:
         pass
-    # If this module exists but raises unexpected exceptions from module scope,
-    # first emit a non-fatal warning notifying the user and then return "None".
+    # Else, this module exists.
+    #
+    # If importing this module raises unexpected exceptions from module scope...
     except Exception as exception:
+        # If the caller requests we *NOT* coerce this exception into a warning,
+        # preserve this exception as is by re-raising this exception.
+        if not is_warn_import_exception:
+            raise
+        # Else, the caller requests we coerce this exception into a warning.
+
+        # First emit a warning with the same message and then return "None".
         issue_warning(
-            cls=BeartypeModuleUnimportableWarning,
+            warning_cls=BeartypeModuleUnimportableWarning,
             message=(
-                f'Ignoring module "{module_name}" importation exception:\n'
-                f'    {exception.__class__.__name__}: {exception}'
+                f'Ignoring module "{module_name}" importation exception:'
+                f'\n\t{exception.__class__.__name__}: {exception}'
             ),
         )
 
+    # ....................{ RETURN                         }....................
     # Inform the caller that this module is unimportable.
     return None
 
@@ -299,7 +327,7 @@ def import_module_attr(
     return module_attr
 
 
-#FIXME: Fix up all tests of this function, please.
+#FIXME: Fix up all tests of this function, please. *sigh*
 def import_module_attr_or_sentinel(
     # Mandatory parameters.
     attr_name: str,
@@ -331,7 +359,7 @@ def import_module_attr_or_sentinel(
     ----------
     attr_name : str
         Possibly unqualified name of the module attribute to be imported.
-    module_name: Optional[str]
+    module_name: Optional[str], default: None
         Either:
 
         * If this attribute name is unqualified (i.e., contains *no* ``.``
@@ -341,12 +369,12 @@ def import_module_attr_or_sentinel(
 
         Defaults to :data:`None`, in which case ``attr_name`` must be either
         fully-qualified *or* the unqualified name of a builtin type.
-    exception_cls : Type[Exception]
-        Type of exception to be raised by this function. Defaults to
-        :class:`._BeartypeUtilModuleException`.
-    exception_prefix : str, optional
-        Human-readable label prefixing the representation of this object in the
-        exception message. Defaults to the empty string.
+    exception_cls : type[Exception], default: _BeartypeUtilModuleException
+        Type of exception to be raised in the event of a fatal error. Defaults to
+        :exc:`._BeartypeUtilModuleException`.
+    exception_prefix : str, default: ''
+        Human-readable substring prefixing raised exception messages. Defaults
+        to the empty string.
 
     Returns
     -------
@@ -372,6 +400,7 @@ def import_module_attr_or_sentinel(
     assert isinstance(module_name, NoneTypeOr[str]), (
         f'{repr(module_name)} neither string nor "None".')
 
+    # ....................{ VALIDATE                       }....................
     # If this attribute name is *NOT* a syntactically valid Python identifier,
     # raise an exception.
     die_unless_identifier(
@@ -381,6 +410,7 @@ def import_module_attr_or_sentinel(
     )
     # Else, this attribute name is a syntactically valid Python identifier.
 
+    # ....................{ LOCALS                         }....................
     # True only if this attribute name contains *NO* "." characters and is thus
     # an unqualified basename relative to this module name.
     is_attr_name_unqualified = '.' not in attr_name
@@ -395,7 +425,7 @@ def import_module_attr_or_sentinel(
         if not module_name:
             # Builtin type with this name if any *OR* the sentinel otherwise
             # (i.e., if *NO* builtin type with this name exists).
-            module_attr = TYPE_BUILTIN_NAME_TO_TYPE.get(attr_name, SENTINEL)
+            module_attr = BUILTIN_NAME_TO_TYPE.get(attr_name, SENTINEL)
 
             # Return this object.
             return module_attr
@@ -417,6 +447,7 @@ def import_module_attr_or_sentinel(
     # * "module_name" is now a non-empty string.
     # * "attr_basename" is now an unqualified basename.
 
+    # ....................{ IMPORT                         }....................
     # Module with this fully-qualified name if importable *OR* "None" otherwise.
     module = import_module_or_none(module_name)
 
@@ -448,13 +479,14 @@ def import_module_attr_or_sentinel(
         # upon), Python *DOES* permit insanity like:
         #     # In some user-defined module at global scope...
         #     class int(object): ...  # <-- by all the gods never do this
-        module_attr = TYPE_BUILTIN_NAME_TO_TYPE.get(attr_basename, SENTINEL)
+        module_attr = BUILTIN_NAME_TO_TYPE.get(attr_basename, SENTINEL)
         # print(f'Attempting to import "{attr_basename}" as builtin type {repr(module_attr)}...')
-        # print(f'TYPE_BUILTIN_NAME_TO_TYPE: {TYPE_BUILTIN_NAME_TO_TYPE}')
+        # print(f'BUILTIN_NAME_TO_TYPE: {BUILTIN_NAME_TO_TYPE}')
     # Else, either that module declared this attribute *OR* this attribute name
     # is fully-qualified and thus not the name of a builtin type. In either
     # case, return this attribute as is.
 
+    # ....................{ RETURN                         }....................
     # Return this attribute.
     return module_attr
 

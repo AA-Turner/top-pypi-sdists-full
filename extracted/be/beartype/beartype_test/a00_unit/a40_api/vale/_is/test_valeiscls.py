@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                           )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -26,7 +26,7 @@ def test_api_vale_isinstance_pass() -> None:
     # Defer test-specific imports.
     from beartype.vale import IsInstance
     from beartype.vale._core._valecore import BeartypeValidator
-    from beartype._util.utilobject import get_object_name
+    from beartype._util.utilobjget import get_object_name
     from beartype_test.a00_unit.data.data_type import (
         Class, Subclass, SubclassSubclass)
 
@@ -156,7 +156,7 @@ def test_api_vale_issubclass_pass() -> None:
     # Defer test-specific imports.
     from beartype.vale import IsSubclass
     from beartype.vale._core._valecore import BeartypeValidator
-    from beartype._util.utilobject import get_object_name
+    from beartype._util.utilobjget import get_object_name
     from beartype_test.a00_unit.data.data_type import (
         Class, Subclass, SubclassSubclass)
 

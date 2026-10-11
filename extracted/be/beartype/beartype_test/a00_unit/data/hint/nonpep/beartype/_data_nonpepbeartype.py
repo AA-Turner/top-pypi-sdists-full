@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -19,7 +19,7 @@ These hints include:
 def hints_nonpepbeartype_meta() -> 'List[HintNonpepMetadata]':
     '''
     List of :mod:`beartype`-specific **type hint metadata** (i.e.,
-    :class:`beartype_test.a00_unit.data.hint.util.data_hintmetacls.HintNonpepMetadata`
+    :class:`beartype_test.a00_unit.data.hint.cls.pith.data_clshintpith.HintNonpepMetadata`
     instances describing test-specific :mod:`beartype`-specific PEP-noncompliant
     sample type hints with metadata generically leveraged by various
     PEP-agnostic unit tests).
@@ -27,22 +27,23 @@ def hints_nonpepbeartype_meta() -> 'List[HintNonpepMetadata]':
 
     # ..................{ IMPORTS                            }..................
     # Defer test-specific imports.
-    from beartype.plug import BeartypeHintable
-    from beartype.vale import Is
-    from beartype._util.api.standard.utiltyping import get_typing_attrs
-    from beartype_test.a00_unit.data.hint.util.data_hintmetacls import (
-        HintNonpepMetadata,
-        HintPithSatisfiedMetadata,
-        HintPithUnsatisfiedMetadata,
+    # from beartype.plug import BeartypeHintable
+    # from beartype.vale import Is
+    # from beartype._util.api.standard.utiltyping import get_typing_attrs
+    from beartype_test.a00_unit.data.hint.cls.pith.data_clshint import (
+        HintNonpepMetadata)
+    from beartype_test.a00_unit.data.hint.cls.pith.data_clspith import (
+        PithSatisfiedMetadata,
+        PithUnsatisfiedMetadata,
     )
 
     # ..................{ LOCALS                             }..................
     # List of all PEP-noncompliant type hint metadata to be returned.
-    hints_nonpep_meta = []
+    hints_piths_nonpep_meta = []
 
     # ..................{ LISTS                              }..................
     # Add beartype-specific PEP-noncompliant test type hints to this list.
-    hints_nonpep_meta.extend((
+    hints_piths_nonpep_meta.extend((
         # ................{ TUPLE UNION                        }................
         # Beartype-specific tuple unions (i.e., tuples containing one or more
         # isinstanceable classes).
@@ -52,9 +53,9 @@ def hints_nonpepbeartype_meta() -> 'List[HintNonpepMetadata]':
             hint=(str,),
             piths_meta=(
                 # String constant.
-                HintPithSatisfiedMetadata('Pinioned coin tokens'),
+                PithSatisfiedMetadata('Pinioned coin tokens'),
                 # Byte-string constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     pith=b'Murkily',
                     # Match that the exception message raised for this pith
                     # declares the types *NOT* satisfied by this object.
@@ -76,11 +77,11 @@ def hints_nonpepbeartype_meta() -> 'List[HintNonpepMetadata]':
             hint=(int, str),
             piths_meta=(
                 # Integer constant.
-                HintPithSatisfiedMetadata(12),
+                PithSatisfiedMetadata(12),
                 # String constant.
-                HintPithSatisfiedMetadata('Smirk‐opined — openly'),
+                PithSatisfiedMetadata('Smirk‐opined — openly'),
                 # Byte-string constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     pith=b'Betokening',
                     # Match that the exception message raised for this object
                     # declares the types *NOT* satisfied by this object.
@@ -99,80 +100,80 @@ def hints_nonpepbeartype_meta() -> 'List[HintNonpepMetadata]':
         ),
     ))
 
-    # ..................{ VALIDATORS ~ is                    }..................
-    # Beartype-specific validators defined as lambda functions.
-    IsNonempty = Is[lambda text: bool(text)]
-
-    # ..................{ FACTORIES                          }..................
-    # For each "Annotated" type hint factory importable from a typing module...
-    for Annotated in get_typing_attrs('Annotated'):
-        # ..................{ LOCALS ~ plugin                }..................
-        # Local variables requiring an "Annotated" type hint factory
-        # additionally exercising beartype's plugin API.
-
-        class StringNonempty(str, BeartypeHintable):
-            '''
-            **Non-empty string** (i.e., :class:`str` subclass satisfying the
-            :class:`BeartypeHintable` protocol by defining the
-            :meth:`__beartype_hint__` class method to return a type hint
-            constraining instances of this subclass to non-empty strings).
-            '''
-
-            @classmethod
-            def __beartype_hint__(cls) -> object:
-                '''
-                Beartype type hint transform reducing to an annotated of this
-                subclass validating instances of this subclass to be non-empty.
-                '''
-
-                # Munificent one-liner: I invoke thee!
-                return Annotated[cls, IsNonempty]
-
-        #FIXME: Uncomment after finalizing the "_plughintable" API, please.
-        # # ................{ TUPLES                             }................
-        # # Add PEP 593-specific test type hints to this tuple global.
-        # data_module.HINTS_NONPEP_META.extend((
-        #     # ..............{ ANNOTATED ~ beartype : is : plugin }..............
-        #     # Note that beartype's plugin API straddles the fine line between
-        #     # PEP-compliant and PEP-noncompliant type hints. Superficially, most
-        #     # isinstanceable types are PEP-noncompliant and thus exercised in
-        #     # unit tests via the "HintNonpepMetadata" dataclass. Semantically,
-        #     # isinstanceable type satisfying the "BeartypeHintable" protocol
-        #     # define __beartype_hint__() class methods returning PEP-compliant
-        #     # type hints instead exercised in unit tests via the
-        #     # "HintPepMetadata" dataclass. To avoid confusion, these types are:
-        #     # Superficially accepted as PEP-noncompliant. Treating them instead
-        #     # as PEP-compliant would be feasible but require non-trivial
-        #     # replacement of these types with the type hints returned by their
-        #     # __beartype_hint__() class methods. Doing so would also probably
-        #     # break literally everything. Did we mention that?
-        #
-        #     # Isinstanceable type satisfying the "BeartypeHintable" protocol,
-        #     # whose __beartype_hint__() class method returns an annotated of an
-        #     # isinstanceable type annotated by one beartype-specific validator
-        #     # defined as a lambda function.
-        #     HintNonpepMetadata(
-        #         hint=StringNonempty,
-        #         piths_meta=(
-        #             # String constant satisfying this validator.
-        #             HintPithSatisfiedMetadata(
-        #                 "Impell no pretty‐spoked fellahs’ prudently"),
-        #             # Byte-string constant *NOT* an instance of the expected
-        #             # type.
-        #             HintPithUnsatisfiedMetadata(
-        #                 pith=b'Impudent Roark-sparkful',
-        #                 # Match that the exception message raised for this
-        #                 # object embeds the code for this validator's lambda
-        #                 # function.
-        #                 exception_str_match_regexes=(
-        #                     r'Is\[.*\bbool\(text\).*\]',),
-        #             ),
-        #             # Empty string constant violating this validator.
-        #             HintPithUnsatisfiedMetadata(''),
-        #         ),
-        #     ),
-        # ))
+    #FIXME: Uncomment after finalizing the "_plughintable" API, please.
+    # # ..................{ VALIDATORS ~ is                    }..................
+    # # Beartype-specific validators defined as lambda functions.
+    # IsNonempty = Is[lambda text: bool(text)]
+    #
+    # # ..................{ FACTORIES                          }..................
+    # # For each "Annotated" type hint factory importable from a typing module...
+    # for Annotated in get_typing_attrs('Annotated'):
+    #     # ..................{ LOCALS ~ plugin                }..................
+    #     # Local variables requiring an "Annotated" type hint factory
+    #     # additionally exercising beartype's plugin API.
+    #
+    #     class StringNonempty(str, BeartypeHintable):
+    #         '''
+    #         **Non-empty string** (i.e., :class:`str` subclass satisfying the
+    #         :class:`BeartypeHintable` protocol by defining the
+    #         :meth:`__beartype_hint__` class method to return a type hint
+    #         constraining instances of this subclass to non-empty strings).
+    #         '''
+    #
+    #         @classmethod
+    #         def __beartype_hint__(cls) -> object:
+    #             '''
+    #             Beartype type hint transform reducing to an annotated of this
+    #             subclass validating instances of this subclass to be non-empty.
+    #             '''
+    #
+    #             # Munificent one-liner: I invoke thee!
+    #             return Annotated[cls, IsNonempty]
+    #
+    #     # ................{ TUPLES                             }................
+    #     # Add PEP 593-specific test type hints to this tuple global.
+    #     hints_piths_nonpep_meta.extend((
+    #         # ..............{ ANNOTATED ~ beartype : is : plugin }..............
+    #         # Note that beartype's plugin API straddles the fine line between
+    #         # PEP-compliant and PEP-noncompliant type hints. Superficially, most
+    #         # isinstanceable types are PEP-noncompliant and thus exercised in
+    #         # unit tests via the "HintNonpepMetadata" dataclass. Semantically,
+    #         # isinstanceable type satisfying the "BeartypeHintable" protocol
+    #         # define __beartype_hint__() class methods returning PEP-compliant
+    #         # type hints instead exercised in unit tests via the
+    #         # "HintPepMetadata" dataclass. To avoid confusion, these types are:
+    #         # Superficially accepted as PEP-noncompliant. Treating them instead
+    #         # as PEP-compliant would be feasible but require non-trivial
+    #         # replacement of these types with the type hints returned by their
+    #         # __beartype_hint__() class methods. Doing so would also probably
+    #         # break literally everything. Did we mention that?
+    #
+    #         # Isinstanceable type satisfying the "BeartypeHintable" protocol,
+    #         # whose __beartype_hint__() class method returns an annotated of an
+    #         # isinstanceable type annotated by one beartype-specific validator
+    #         # defined as a lambda function.
+    #         HintNonpepMetadata(
+    #             hint=StringNonempty,
+    #             piths_meta=(
+    #                 # String constant satisfying this validator.
+    #                 PithSatisfiedMetadata(
+    #                     "Impell no pretty‐spoked fellahs’ prudently"),
+    #                 # Byte-string constant *NOT* an instance of the expected
+    #                 # type.
+    #                 PithUnsatisfiedMetadata(
+    #                     pith=b'Impudent Roark-sparkful',
+    #                     # Match that the exception message raised for this
+    #                     # object embeds the code for this validator's lambda
+    #                     # function.
+    #                     exception_str_match_regexes=(
+    #                         r'Is\[.*\bbool\(text\).*\]',),
+    #                 ),
+    #                 # Empty string constant violating this validator.
+    #                 PithUnsatisfiedMetadata(''),
+    #             ),
+    #         ),
+    #     ))
 
     # ..................{ RETURN                             }..................
     # Return this list of all PEP-noncompliant type hint metadata.
-    return hints_nonpep_meta
+    return hints_piths_nonpep_meta

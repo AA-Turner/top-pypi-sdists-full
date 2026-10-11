@@ -1,7 +1,16 @@
+# Copyright 2017 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""Async SQLAlchemy dialect for Athena that uses ``AioPolarsCursor``."""
+
 from typing import TYPE_CHECKING
 
 from pyathena.aio.sqlalchemy.base import AthenaAioDialect
-from pyathena.util import strtobool
+from pyathena.util import override, strtobool
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -36,6 +45,7 @@ class AthenaAioPolarsDialect(AthenaAioDialect):
     driver = "aiopolars"
     supports_statement_cache = True
 
+    @override
     def create_connect_args(self, url):
         from pyathena.aio.polars.cursor import AioPolarsCursor
 
@@ -43,12 +53,13 @@ class AthenaAioPolarsDialect(AthenaAioDialect):
         opts.update({"cursor_class": AioPolarsCursor})
         cursor_kwargs = {}
         if "unload" in opts:
-            cursor_kwargs.update({"unload": bool(strtobool(opts.pop("unload")))})
+            cursor_kwargs.update({"unload": strtobool(opts.pop("unload"))})
         if cursor_kwargs:
             opts.update({"cursor_kwargs": cursor_kwargs})
         self._connect_options = opts
         return [[], opts]
 
     @classmethod
+    @override
     def import_dbapi(cls) -> "ModuleType":
         return super().import_dbapi()

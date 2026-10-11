@@ -17,7 +17,6 @@ from ..errors.forbidden_error import ForbiddenError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..types.economic_intelligence import EconomicIntelligence
-from ..types.v1error_response import V1ErrorResponse
 from .types.list_economic_intelligence_request_direction import ListEconomicIntelligenceRequestDirection
 from .types.list_economic_intelligence_request_order import ListEconomicIntelligenceRequestOrder
 from .types.list_economic_intelligence_request_status import ListEconomicIntelligenceRequestStatus
@@ -51,7 +50,7 @@ class RawEconomicIntelligenceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[EconomicIntelligence, ListEconomicIntelligenceResponse]:
         """
-        Lists an account's recommendations and generation requests, newest first by default. Without an account, signed-out visitors receive a business-setup template and eligible users receive their saved setup recommendation. With `has_run` and no account, users receive the recommendations run on every account they can read that has Economic Intelligence. An account's executed recommendations and runs stay listed after Economic Intelligence turns off. New recommendations are offered only while it is on. Visitor countries, page views, ad impressions and clicks, and payment volume for a time range come from `GET /stats/time_series/{metric}`.
+        Lists an account's recommendations and generation requests, newest first by default. For callers with company:update permission, listing queues generation when no recommendations are ready or in progress, with a ten-minute cooldown after an unsuccessful request; unsuccessful requests are not listed. Without an account, signed-out visitors receive a business-setup template and eligible users receive their saved setup recommendation. With `has_run` and no account, users receive the recommendations run on every account they can read that has Economic Intelligence. An account's executed recommendations and runs stay listed after Economic Intelligence turns off. New recommendations are offered only while it is on. Visitor countries, page views, ad impressions and clicks, and payment volume for a time range come from `GET /stats/time_series/{metric}`.
 
         Parameters
         ----------
@@ -316,9 +315,9 @@ class RawEconomicIntelligenceClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -353,7 +352,7 @@ class AsyncRawEconomicIntelligenceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[EconomicIntelligence, ListEconomicIntelligenceResponse]:
         """
-        Lists an account's recommendations and generation requests, newest first by default. Without an account, signed-out visitors receive a business-setup template and eligible users receive their saved setup recommendation. With `has_run` and no account, users receive the recommendations run on every account they can read that has Economic Intelligence. An account's executed recommendations and runs stay listed after Economic Intelligence turns off. New recommendations are offered only while it is on. Visitor countries, page views, ad impressions and clicks, and payment volume for a time range come from `GET /stats/time_series/{metric}`.
+        Lists an account's recommendations and generation requests, newest first by default. For callers with company:update permission, listing queues generation when no recommendations are ready or in progress, with a ten-minute cooldown after an unsuccessful request; unsuccessful requests are not listed. Without an account, signed-out visitors receive a business-setup template and eligible users receive their saved setup recommendation. With `has_run` and no account, users receive the recommendations run on every account they can read that has Economic Intelligence. An account's executed recommendations and runs stay listed after Economic Intelligence turns off. New recommendations are offered only while it is on. Visitor countries, page views, ad impressions and clicks, and payment volume for a time range come from `GET /stats/time_series/{metric}`.
 
         Parameters
         ----------
@@ -621,9 +620,9 @@ class AsyncRawEconomicIntelligenceClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

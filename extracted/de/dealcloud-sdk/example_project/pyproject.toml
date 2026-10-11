@@ -1,0 +1,39 @@
+[project]
+name = "dealcloud-sdk-example"
+version = "1.0.0"
+description = "Runnable sample for the DealCloud Python SDK (shipped in the dealcloud-sdk sdist)."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dealcloud-sdk>=1.0.0,<2",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+dealcloud-sdk-example = "dealcloud_sdk_example.main:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dealcloud_sdk_example"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/dealcloud_sdk_example",
+    "README.md",
+    "pyproject.toml",
+    "Makefile",
+    ".env.example",
+    "tests",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

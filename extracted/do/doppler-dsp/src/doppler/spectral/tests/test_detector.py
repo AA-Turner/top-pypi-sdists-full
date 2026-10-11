@@ -95,3 +95,63 @@ def test_dwell_defaults_to_one():
     obj = CorrDetector(ref, threshold=0.0)
     assert obj.dwell == 1
     assert obj.push(ref) is not None
+
+
+def test_overflowed_push_leaves_the_stream_frame_aligned():
+    # Python's push() has room for 1024 detections, and at threshold 0
+    # every frame fires, so a frame-aligned chunk of 1030 frames fills it.
+    # The 6 frames past the room are lost WHOLE: once full, a push takes
+    # the rest only when it completes no frame, and 48 samples do, so it
+    # takes nothing more and the next push starts on a frame boundary.
+    # A probe frame with its impulse at sample 5 must then report lag 5.
+    # Were the next frame's head carried (the pre-#2018 feed), the probe's
+    # first sample would complete that carried frame and the push would
+    # report its lag 0 instead.
+    n = 8
+    ref = np.zeros(n, dtype=np.complex64)
+    ref[0] = 1
+    obj = CorrDetector(ref, threshold=0.0)
+    frames = np.zeros((1030, n), dtype=np.complex64)
+    frames[:, 0] = 1
+    assert len(obj.push(frames.ravel())) == 1024
+    probe = np.zeros(n, dtype=np.complex64)
+    probe[5] = 1
+    assert [lag for lag, *_ in obj.push(probe)] == [5]
+
+
+def test_last_corr_none_after_set_state():
+    # The correlation vector is not part of the serialized state, so a
+    # detector restored from a blob has no last vector to view -- not a
+    # view of a buffer it never filled.
+    ref = np.ones(4, dtype=np.complex64)
+    a = CorrDetector(ref, threshold=0.0)
+    a.push(ref)
+    assert a.last_corr is not None
+    b = CorrDetector(ref, threshold=0.0)
+    b.set_state(a.get_state())
+    assert b.last_corr is None
+    a.push(ref)
+    b.push(ref)
+    np.testing.assert_array_equal(b.last_corr, a.last_corr)
+
+
+def test_a_full_push_keeps_a_remainder_shorter_than_a_frame():
+    # Chunks of 8191 samples at n = 8, every frame firing.  The first push
+    # completes 1023 frames and carries 7; the second completes 1024
+    # (7 + 8191 = 1024 * 8 + 6) and fills the room on the last, leaving 6
+    # samples that complete no frame.  Those are kept as the carry, so
+    # nothing is lost: the stream's last 2 samples finish that frame, and a
+    # probe frame with its impulse at sample 5 reports lag 5.  Were the 6
+    # dropped, the probe would arrive 6 samples early: lag 7, alone.
+    n = 8
+    ref = np.zeros(n, dtype=np.complex64)
+    ref[0] = 1
+    obj = CorrDetector(ref, threshold=0.0)
+    stream = np.zeros(2048 * n, dtype=np.complex64)
+    stream[::n] = 1
+    assert len(obj.push(stream[:8191])) == 1023
+    assert len(obj.push(stream[8191:16382])) == 1024
+    probe = np.zeros(n, dtype=np.complex64)
+    probe[5] = 1
+    hits = obj.push(np.concatenate([stream[16382:], probe]))
+    assert [lag for lag, *_ in hits] == [0, 5]

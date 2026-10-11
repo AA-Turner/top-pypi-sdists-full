@@ -1,7 +1,16 @@
+# Copyright 2017 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""Async SQLAlchemy dialect for Athena that uses ``AioPandasCursor``."""
+
 from typing import TYPE_CHECKING
 
 from pyathena.aio.sqlalchemy.base import AthenaAioDialect
-from pyathena.util import strtobool
+from pyathena.util import override, strtobool
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -38,6 +47,7 @@ class AthenaAioPandasDialect(AthenaAioDialect):
     driver = "aiopandas"
     supports_statement_cache = True
 
+    @override
     def create_connect_args(self, url):
         from pyathena.aio.pandas.cursor import AioPandasCursor
 
@@ -45,7 +55,7 @@ class AthenaAioPandasDialect(AthenaAioDialect):
         opts.update({"cursor_class": AioPandasCursor})
         cursor_kwargs = {}
         if "unload" in opts:
-            cursor_kwargs.update({"unload": bool(strtobool(opts.pop("unload")))})
+            cursor_kwargs.update({"unload": strtobool(opts.pop("unload"))})
         if "engine" in opts:
             cursor_kwargs.update({"engine": opts.pop("engine")})
         if "chunksize" in opts:
@@ -56,5 +66,6 @@ class AthenaAioPandasDialect(AthenaAioDialect):
         return [[], opts]
 
     @classmethod
+    @override
     def import_dbapi(cls) -> "ModuleType":
         return super().import_dbapi()

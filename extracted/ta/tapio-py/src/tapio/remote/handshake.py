@@ -10,6 +10,15 @@ client -> server   client-hello   name, address, uid, protocol, version, nonce, 
 server -> client   welcome        name, address, uid, version, proof
 ```
 
+The third frame can be `declined` instead of `welcome`. The server sends it
+when the dialler proved who it is and the server still will not use the link.
+There are two reasons. The server may refuse the dialler, for example because
+it quarantined that address. Or both ends dialled at once and the server's own
+link wins, which `superseded` says. Either way the server decides before it
+sends anything that would let the dialler write. A dialler that read a welcome
+and then saw the link close would write its first frames into a socket nobody
+reads, and lose them without knowing.
+
 **The side that was dialled says almost nothing first.** A listening port
 answers anything that can reach it, so whatever the first frame carries is
 readable by a scanner for the cost of one connection. It carries a challenge
@@ -24,9 +33,22 @@ where a listener chose nobody. Closing the remaining half means a fourth frame
 and a second round trip on every connection, which is a real cost for a case
 that begins with dialling somewhere you did not mean to.
 
-Both proofs are HMACs of the other side's nonce, so neither end can be
-replayed at the other, and a peer holding no secret cannot pass for one that
-does. Three things are established here:
+**Each proof covers the whole exchange, not just a challenge.** A proof is an
+HMAC of a transcript: which side wrote it, both nonces, the dialler's identity,
+and for the welcome the dialled system's identity too. A proof of the other
+side's nonce alone would be a signing oracle. Anything a node can be made to
+dial, through a ref in a message, a seed or a member address in gossip, could
+hand it a guarded system's challenge, take the answer, and pass that answer on
+under an identity of its own choosing. Bound to the transcript, an answer is
+good only for the exchange it was written in and the identity written beside
+it, so a party with no secret can neither rewrite who is speaking nor reuse one
+side's proof as the other's.
+
+A relay with no secret can still pass an exchange through unchanged, and so
+connect two honest systems under their real identities. Nothing at this layer
+can tell that apart from a direct connection, and only TLS, which
+authenticates the connection itself, prevents it. Three things are established
+here:
 
 * **Protocol equality.** Both ends must speak the same
   [PROTOCOL_VERSION][tapio.remote.protocol.PROTOCOL_VERSION]. A wire format
@@ -44,10 +66,12 @@ does. Three things are established here:
 """
 
 import hmac
+import json
 import secrets
+from collections.abc import Callable
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Final, TypeVar, final
+from typing import Final, TypeAlias, TypeVar, final
 
 from pydantic import SecretStr, ValidationError
 
@@ -57,9 +81,24 @@ from tapio.remote.protocol import PROTOCOL_VERSION
 from tapio.remote.transport import FrameLink, LinkFrame
 from tapio.version import __version__
 
-__all__ = ["PeerIdentity", "accept", "introduce"]
+__all__ = [
+    "Decide",
+    "Decline",
+    "LinkDeclinedError",
+    "LinkSupersededError",
+    "PeerIdentity",
+    "accept",
+    "introduce",
+]
 
 _NONCE_BYTES: Final = 16
+
+_TRANSCRIPT: Final = "tapio-handshake"
+"""The first field of every transcript, so no other HMAC under the secret can
+be mistaken for a handshake proof."""
+
+_Claim: TypeAlias = tuple[str, str, int, str]
+"""What one side says about itself: its system name, address, uid and release."""
 
 F = TypeVar("F", bound=LinkFrame)
 
@@ -84,6 +123,44 @@ class PeerIdentity:
     Kept for diagnostics. When two nodes disagree about something subtle, the
     first useful question is which releases they are running, and the answer
     should not require reading two deployment manifests.
+    """
+
+
+@final
+@dataclass(frozen=True, slots=True)
+class Decline:
+    """Why the system that was dialled will not use a link."""
+
+    reason: str
+    """What the dialler is told, and what it puts in its log."""
+
+    superseded: bool = False
+    """Whether the dialled system's own link to the dialler replaces this one.
+
+    `False` is a refusal: the dialler has no link and should give up on this
+    attempt. `True` means a link is coming the other way, so the dialler
+    keeps what it holds and waits for that link instead.
+    """
+
+
+Decide: TypeAlias = Callable[[PeerIdentity], Decline | None]
+"""What the dialled system asks once it knows who dialled: keep the link, or
+decline it and say why."""
+
+
+class LinkDeclinedError(HandshakeError):
+    """The dialled system refused this link before welcoming it.
+
+    It answered only after the dialler proved who it is. It proves nothing
+    about itself in the refusal, since a link that is not used needs no proof.
+    """
+
+
+class LinkSupersededError(HandshakeError):
+    """Both ends dialled at once, and the other end's link wins.
+
+    Not a failure of the peer. The association that dialled waits for the
+    peer's link to arrive, and keeps every frame it holds for it.
     """
 
 
@@ -129,6 +206,19 @@ class _Welcome(LinkFrame):
     proof: str
 
 
+class _Declined(LinkFrame):
+    """The server's answer when it will not use the link, sent instead of a welcome.
+
+    It carries nothing about the server's identity, for the same reason the
+    server-hello does not: the dialler gets no use out of a link it was
+    refused.
+    """
+
+    link: str = "declined"
+    reason: str
+    superseded: bool = False
+
+
 async def accept(
     link: FrameLink,
     *,
@@ -136,6 +226,7 @@ async def accept(
     uid: int,
     secret: SecretStr | None,
     timeout: float,  # noqa: ASYNC109 - the handshake deadline
+    decide: Decide,
 ) -> PeerIdentity:
     """Handshake as the system that was dialled.
 
@@ -145,6 +236,9 @@ async def accept(
         uid: This system's incarnation uid.
         secret: The shared secret, or `None` when nothing has to be proved.
         timeout: Seconds allowed for the whole exchange.
+        decide: Asked once the peer has proved who it is, and before anything
+            is sent that would let it write. A `Decline` is sent in place of
+            the welcome.
 
     Returns:
         Who dialled in.
@@ -152,6 +246,9 @@ async def accept(
     Raises:
         HandshakeError: If the peer speaks a different version, fails the
             challenge, or sends something that is not the expected frame.
+        LinkDeclinedError: If `decide` declined the link. The peer has been told.
+        LinkSupersededError: If `decide` declined the link because this system's
+            own link to the peer replaces it. The peer has been told.
         asyncio.IncompleteReadError: If the peer closed first.
         OSError: If the connection failed.
         TimeoutError: If the peer stopped talking part-way through.
@@ -160,7 +257,13 @@ async def accept(
     await link.write_link(_ServerHello(protocol=PROTOCOL_VERSION, nonce=nonce))
     hello = _read(_ClientHello, await link.read_link(timeout), "client-hello")
     _check_protocol(hello.protocol, hello.version)
-    _check_proof(secret, nonce, hello.proof, who="the peer that dialled in")
+    client = (hello.system, hello.address, hello.uid, hello.version)
+    _check_proof(
+        secret,
+        _transcript("client", nonce, hello.nonce, client),
+        hello.proof,
+        who="the peer that dialled in",
+    )
     # Every reason to refuse a peer is checked before the welcome is sent. A
     # welcome followed by a close would look like a peer that vanished, when
     # what really happened was a refusal with a reason. It is also what keeps
@@ -169,13 +272,23 @@ async def accept(
     identity = _identify(
         hello.system, hello.address, hello.uid, hello.protocol, hello.version
     )
+    decline = decide(identity)
+    if decline is not None:
+        await link.write_link(
+            _Declined(reason=decline.reason, superseded=decline.superseded)
+        )
+        error = LinkSupersededError if decline.superseded else LinkDeclinedError
+        raise error(f"declined a link from {identity.address}: {decline.reason}")
+    server = (address.system, str(address), uid, __version__)
     await link.write_link(
         _Welcome(
-            system=address.system,
-            address=str(address),
-            uid=uid,
-            version=__version__,
-            proof=_proof(secret, hello.nonce),
+            system=server[0],
+            address=server[1],
+            uid=server[2],
+            version=server[3],
+            proof=_proof(
+                secret, _transcript("server", nonce, hello.nonce, client, server)
+            ),
         )
     )
     return identity
@@ -205,6 +318,9 @@ async def introduce(
     Raises:
         HandshakeError: If the peer speaks a different version, fails the
             challenge, or sends something that is not the expected frame.
+        LinkDeclinedError: If the peer refused this link instead of welcoming it.
+        LinkSupersededError: If the peer's own link to this system replaces this
+            one, because both ends dialled at once.
         asyncio.IncompleteReadError: If the peer closed first.
         OSError: If the connection failed.
         TimeoutError: If the peer stopped talking part-way through.
@@ -215,19 +331,37 @@ async def introduce(
     # The peer's release is not known yet, which is the point of the change.
     _check_protocol(hello.protocol, None)
     nonce = secrets.token_hex(_NONCE_BYTES)
+    client = (address.system, str(address), uid, __version__)
     await link.write_link(
         _ClientHello(
-            system=address.system,
-            address=str(address),
-            uid=uid,
+            system=client[0],
+            address=client[1],
+            uid=client[2],
             protocol=PROTOCOL_VERSION,
-            version=__version__,
+            version=client[3],
             nonce=nonce,
-            proof=_proof(secret, hello.nonce),
+            proof=_proof(secret, _transcript("client", hello.nonce, nonce, client)),
         )
     )
-    welcome = _read(_Welcome, await link.read_link(timeout), "welcome")
-    _check_proof(secret, nonce, welcome.proof, who="the peer that was dialled")
+    answer = await link.read_link(timeout)
+    if answer.get("link") == "declined":
+        declined = _read(_Declined, answer, "declined")
+        # Not proved by an HMAC, unlike a welcome. Forging one needs a
+        # position on the connection, and that position can simply close it,
+        # which ends the dial just the same.
+        if declined.superseded:
+            msg = f"the peer is dialling this system too: {declined.reason}"
+            raise LinkSupersededError(msg)
+        msg = f"the peer refused this system: {declined.reason}"
+        raise LinkDeclinedError(msg)
+    welcome = _read(_Welcome, answer, "welcome")
+    server = (welcome.system, welcome.address, welcome.uid, welcome.version)
+    _check_proof(
+        secret,
+        _transcript("server", hello.nonce, nonce, client, server),
+        welcome.proof,
+        who="the peer that was dialled",
+    )
     # From the welcome, since the hello no longer carries any of it. The
     # protocol is the one the hello declared and this system already agreed to.
     return _identify(
@@ -235,17 +369,40 @@ async def introduce(
     )
 
 
-def _proof(secret: SecretStr | None, nonce: str) -> str:
-    """Answer a challenge, or answer nothing when there is no secret."""
+def _transcript(
+    role: str, server_nonce: str, client_nonce: str, *claims: _Claim
+) -> bytes:
+    """What a proof covers: the side writing it, both challenges, and who is who.
+
+    Encoded as JSON so the fields cannot run into each other. A peer chooses
+    its nonce and its address, and with a plain separator it could move a
+    boundary between two fields and still produce the same bytes.
+
+    Args:
+        role: `client` for the dialler's proof, `server` for the welcome's.
+            Naming it is what stops one side's proof standing in for the
+            other's.
+        server_nonce: The challenge in the server-hello.
+        client_nonce: The challenge in the client-hello.
+        *claims: The dialler's identity, then for the welcome the dialled
+            system's too. The dialler cannot cover the other side's, since
+            nothing has said who that is yet.
+    """
+    fields = [_TRANSCRIPT, PROTOCOL_VERSION, role, server_nonce, client_nonce]
+    return json.dumps([*fields, *map(list, claims)]).encode()
+
+
+def _proof(secret: SecretStr | None, transcript: bytes) -> str:
+    """Prove a transcript, or prove nothing when there is no secret."""
     if secret is None:
         return ""
-    return hmac.new(
-        secret.get_secret_value().encode(), nonce.encode(), sha256
-    ).hexdigest()
+    return hmac.new(secret.get_secret_value().encode(), transcript, sha256).hexdigest()
 
 
-def _check_proof(secret: SecretStr | None, nonce: str, proof: str, *, who: str) -> None:
-    """Check an answer to this side's challenge.
+def _check_proof(
+    secret: SecretStr | None, transcript: bytes, proof: str, *, who: str
+) -> None:
+    """Check the other side's proof of the exchange so far.
 
     A system with no secret checks nothing, which is the loopback default. A
     system with a secret refuses a peer that has none, because the empty proof
@@ -256,7 +413,10 @@ def _check_proof(secret: SecretStr | None, nonce: str, proof: str, *, who: str) 
     """
     if secret is None:
         return
-    if hmac.compare_digest(_proof(secret, nonce), proof):
+    # Compared as bytes. On str, compare_digest raises TypeError for a
+    # non-ASCII character, and the proof is whatever a peer with no secret
+    # chose to write.
+    if hmac.compare_digest(_proof(secret, transcript).encode(), proof.encode()):
         return
     detail = "sent no proof at all" if not proof else "failed the challenge"
     msg = (

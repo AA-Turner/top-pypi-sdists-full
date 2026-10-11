@@ -1,16 +1,17 @@
-"""Conditional formatting and data validation rules."""
+"""Data validation rules."""
 
+import datetime as dt
+import re
 from typing import Literal
 
-from openpyxl.formatting.rule import CellIsRule, ColorScaleRule, DataBarRule, FormulaRule
-from openpyxl.styles import Font, PatternFill
+from openpyxl.utils.datetime import to_excel
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.worksheet import Worksheet
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from excel_mcp.errors import InvalidArgumentError
-from excel_mcp.formulas import check_formula
-from excel_mcp.operations.formatting import parse_color
+from excel_mcp.formulas import storable_operand
+from excel_mcp.inputs import InputModel
 from excel_mcp.refs import parse_range
 from excel_mcp.workspace import sheet_names
 
@@ -25,96 +26,38 @@ Operator = Literal[
     "lessThanOrEqual",
 ]
 
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_CLOCK_TIME = re.compile(r"\d{1,2}:\d{2}(:\d{2})?")
+_AREA = re.compile(r"\$?[A-Za-z]{1,3}\$?\d+:\$?[A-Za-z]{1,3}\$?\d+")
 
-class ConditionalFormat(BaseModel):
-    """A conditional format rule. Which fields are used depends on ``type``."""
 
-    type: Literal["color_scale", "data_bar", "cell_value", "formula"] = Field(
-        description="Kind of rule."
-    )
-    colors: list[str] | None = Field(
+class DataValidationRule(InputModel):
+    type: Literal["list", "whole", "decimal", "date", "time", "text_length", "custom"]
+    options: list[str] | None = Field(default=None, description="list: allowed values.")
+    source: str | None = Field(
         default=None,
-        description="color_scale: 2 or 3 colors from lowest to highest. data_bar: 1 color.",
+        description="list, instead of options: one row or column or a name, e.g. "
+        "'=$A$2:$A$20' or '=Regions'.",
     )
-    operator: Operator | None = Field(default=None, description="cell_value only.")
-    values: list[str] | None = Field(
+    operator: Operator | None = Field(default=None, description="Not for list and custom.")
+    minimum: str | None = Field(
         default=None,
-        description="cell_value only: 1 value, or 2 for between/notBetween. "
-        "Numbers, quoted text such as '\"Done\"', or formulas.",
+        description="Number or formula; dates '2026-01-31', times '09:30'.",
     )
+    maximum: str | None = Field(default=None, description="For between.")
     formula: str | None = Field(
-        default=None, description="formula only: true for highlighted cells, e.g. '=$C2>100'."
+        default=None, description="custom: for the top-left cell, e.g. '=A2>B2'."
     )
-    fill_color: str | None = Field(default=None, description="cell_value and formula rules.")
-    font_color: str | None = Field(default=None, description="cell_value and formula rules.")
-
-
-class DataValidationRule(BaseModel):
-    """A data validation rule. Which fields are used depends on ``type``."""
-
-    type: Literal["list", "whole", "decimal", "date", "text_length", "custom"] = Field(
-        description="Kind of rule."
+    allow_blank: bool = True
+    prompt_title: str | None = Field(
+        default=None, max_length=32, description="Input message title."
     )
-    options: list[str] | None = Field(default=None, description="list only: allowed values.")
-    operator: Operator | None = Field(
-        default=None, description="whole, decimal, date and text_length."
+    prompt: str | None = Field(default=None, max_length=255, description="Input message.")
+    error_style: Literal["stop", "warning", "information"] = Field(
+        default="stop", description="stop rejects bad input; others let it stay."
     )
-    minimum: str | None = Field(default=None, description="First bound, number or formula.")
-    maximum: str | None = Field(default=None, description="Second bound for between/notBetween.")
-    formula: str | None = Field(default=None, description="custom only, e.g. '=A2>B2'.")
-    allow_blank: bool = Field(default=True, description="Allow empty cells.")
-    error_message: str | None = Field(default=None, description="Shown when input is rejected.")
-    prompt: str | None = Field(default=None, description="Hint shown when a cell is selected.")
-
-
-def add_conditional_format(sheet: Worksheet, ref: str, rule: ConditionalFormat) -> str:
-    target = str(parse_range(ref))
-    sheet.conditional_formatting.add(target, _build_conditional_rule(rule, sheet_names(sheet)))
-    return target
-
-
-def _build_conditional_rule(rule: ConditionalFormat, names: list[str]):
-    colors = [parse_color(color) for color in rule.colors or []]
-    fill = (
-        PatternFill(fill_type="solid", bgColor=parse_color(rule.fill_color))
-        if rule.fill_color
-        else None
-    )
-    font = Font(color=parse_color(rule.font_color)) if rule.font_color else None
-
-    match rule.type:
-        case "color_scale" if len(colors) == 2:
-            return ColorScaleRule(
-                start_type="min", start_color=colors[0], end_type="max", end_color=colors[1]
-            )
-        case "color_scale" if len(colors) == 3:
-            return ColorScaleRule(
-                start_type="min",
-                start_color=colors[0],
-                mid_type="percentile",
-                mid_value=50,
-                mid_color=colors[1],
-                end_type="max",
-                end_color=colors[2],
-            )
-        case "color_scale":
-            raise InvalidArgumentError("color_scale needs 2 or 3 colors.")
-        case "data_bar" if len(colors) == 1:
-            return DataBarRule(start_type="min", end_type="max", color=colors[0])
-        case "data_bar":
-            raise InvalidArgumentError("data_bar needs exactly 1 color.")
-        case "cell_value":
-            if rule.operator is None or not rule.values:
-                raise InvalidArgumentError("cell_value needs an operator and values.")
-            if any(not value.strip() for value in rule.values):
-                raise InvalidArgumentError("cell_value values cannot be empty.")
-            values = [_checked_operand(value, names) for value in rule.values]
-            return CellIsRule(operator=rule.operator, formula=values, fill=fill, font=font)
-        case "formula":
-            if not rule.formula:
-                raise InvalidArgumentError("formula rules need a formula.")
-            check_formula(rule.formula, names)
-            return FormulaRule(formula=[rule.formula.removeprefix("=")], fill=fill, font=font)
+    error_title: str | None = Field(default=None, max_length=32)
+    error_message: str | None = Field(default=None, max_length=255)
 
 
 def add_data_validation(sheet: Worksheet, ref: str, rule: DataValidationRule) -> str:
@@ -128,41 +71,62 @@ def add_data_validation(sheet: Worksheet, ref: str, rule: DataValidationRule) ->
 def _build_validation(rule: DataValidationRule, names: list[str]) -> DataValidation:
     messages = {
         "allow_blank": rule.allow_blank,
+        "errorStyle": rule.error_style,
+        "errorTitle": rule.error_title,
         "error": rule.error_message,
         "showErrorMessage": True,
+        "promptTitle": rule.prompt_title,
         "prompt": rule.prompt,
-        "showInputMessage": rule.prompt is not None,
+        "showInputMessage": bool(rule.prompt_title or rule.prompt),
     }
+    if rule.type != "list" and (rule.options or rule.source):
+        raise InvalidArgumentError("options and source are only for list validation.")
     match rule.type:
         case "list":
-            if not rule.options:
-                raise InvalidArgumentError("list validation needs options.")
-            if any("," in option or '"' in option for option in rule.options):
-                raise InvalidArgumentError("list options cannot contain commas or quotes.")
-            joined = ",".join(rule.options)
-            if len(joined) > 255:
-                raise InvalidArgumentError("list options can be at most 255 characters in total.")
-            return DataValidation(type="list", formula1=f'"{joined}"', **messages)
+            return DataValidation(type="list", formula1=_list_source(rule, names), **messages)
         case "custom":
             if not rule.formula:
                 raise InvalidArgumentError("custom validation needs a formula.")
-            check_formula(rule.formula, names)
-            return DataValidation(
-                type="custom", formula1=rule.formula.removeprefix("="), **messages
-            )
+            formula = storable_operand(rule.formula, names)
+            return DataValidation(type="custom", formula1=formula, **messages)
         case _:
             if rule.operator is None or rule.minimum is None:
                 raise InvalidArgumentError(f"{rule.type} validation needs an operator and minimum.")
             return DataValidation(
                 type="textLength" if rule.type == "text_length" else rule.type,
                 operator=rule.operator,
-                formula1=_checked_operand(rule.minimum, names),
-                formula2=_checked_operand(rule.maximum, names) if rule.maximum else None,
+                formula1=_operand(rule.minimum, rule.type, names),
+                formula2=_operand(rule.maximum, rule.type, names) if rule.maximum else None,
                 **messages,
             )
 
 
-def _checked_operand(value: str, names: list[str]) -> str:
-    """Rule operands are stored as formulas without the leading '='."""
-    check_formula(value if value.startswith("=") else f"={value}", names)
-    return value.removeprefix("=")
+def _list_source(rule: DataValidationRule, names: list[str]) -> str:
+    if bool(rule.options) == bool(rule.source):
+        raise InvalidArgumentError("list validation needs either options or source.")
+    if rule.source:
+        source = storable_operand(rule.source, names)
+        area = source.rpartition("!")[2]
+        if _AREA.fullmatch(area) and min(parse_range(area).rows, parse_range(area).cols) > 1:
+            raise InvalidArgumentError(f"A list source must be one row or column, not {area}.")
+        return source
+    options = rule.options or []
+    if any("," in option or '"' in option for option in options):
+        raise InvalidArgumentError("list options cannot contain commas or quotes.")
+    joined = ",".join(options)
+    if len(joined) > 255:
+        raise InvalidArgumentError("list options can be at most 255 characters in total.")
+    return f'"{joined}"'
+
+
+def _operand(value: str, kind: str, names: list[str]) -> str:
+    """Operands are stored as formulas without the '='; dates and times as serial numbers."""
+    try:
+        if kind == "date" and _ISO_DATE.fullmatch(value):
+            return str(int(to_excel(dt.date.fromisoformat(value))))
+        if kind == "time" and _CLOCK_TIME.fullmatch(value):
+            padded = value if value.count(":") == 2 else value + ":00"
+            return repr(to_excel(dt.time.fromisoformat(padded.zfill(8))))
+    except ValueError:
+        raise InvalidArgumentError(f"{value!r} is not a valid {kind}.") from None
+    return storable_operand(value, names)

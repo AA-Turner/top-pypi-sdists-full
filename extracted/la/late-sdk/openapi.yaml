@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.249.1"
+  version: "1.252.0"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -180,7 +180,7 @@ x-documentation:
     - `analytics.synced` - One connected account's analytics sync cycle finished. A trigger, not a transport: it carries no metrics and no cursor, so call `GET /v1/analytics/delta` with your own last `nextCursor` to read what changed across every account. Poll-driven (~hourly per account), not real-time. High volume: subscribe to it on a dedicated endpoint.
     - `message.received` - New inbound DM or SMS received (SMS arrives with `platform: "sms"`)
     - `conversation.started` - A new conversation opened between one of your accounts and a contact, in either direction (any DM platform, and SMS); fires only the first time the thread appears
-    - `conversation.control_changed` - Meta's handover protocol moved a conversation. WhatsApp: Meta Business Agent took it over or handed it to you; while `control.owner` is `ai_agent`, inbound messages arrive with `metadata.standby: true` and the agent answers them, and sending a message takes control back. Facebook and Instagram: another app (such as Page Inbox) passed or took the thread; while you are not the owner, inbound arrive with `metadata.standby: true` and sends fail with `not_thread_owner` until you take control with thread-control
+    - `conversation.control_changed` - Meta's handover protocol moved a conversation. WhatsApp: Meta Business Agent took it over or handed it to you; while `control.owner` is `ai_agent`, inbound messages arrive with `metadata.standby: true` and the agent answers them, and sending a message takes control back. Facebook and Instagram: another app (such as Page Inbox) passed or took the thread; while you are not the owner, inbound arrive with `metadata.standby: true` and sends fail with `not_thread_owner` until you take control with thread-control (accounts connected through a Facebook Page; an Instagram Login connection cannot take and waits for the owner to pass it)
     - `message.sent` - DM sent via the API. `message.sentVia` says which Zernio surface produced it, and `automationId`, `workflowId` / `executionId`, `broadcastId` or `sequenceId` name the automation, workflow run, broadcast or sequence that sent it
     - `message.edited` - A sender edited a message (Instagram, Messenger, Telegram, WhatsApp)
     - `message.deleted` - A sender deleted ("unsent") a message (Instagram; WhatsApp in both directions, whether the business deleted a message it sent or the customer deleted one they sent). `message.direction` tells the two apart.
@@ -5930,7 +5930,7 @@ components:
           properties:
             standby:
               type: boolean
-              description: 'true when this inbound arrived on Meta''s standby path because another app owned the conversation: Meta Business Agent on WhatsApp, another handover receiver (such as Page Inbox) on Facebook and Instagram. That app answers it, Zernio only observes, and no automation runs. On WhatsApp sending a reply takes control back; on Facebook and Instagram take control first with POST /v1/inbox/conversations/{conversationId}/thread-control. See conversation.control_changed.'
+              description: 'true when this inbound arrived on Meta''s standby path because another app owned the conversation: Meta Business Agent on WhatsApp, another handover receiver (such as Page Inbox) on Facebook and Instagram. That app answers it, Zernio only observes, and no automation runs. On WhatsApp sending a reply takes control back; on Facebook, and on Instagram accounts connected through a Facebook Page, take control first with POST /v1/inbox/conversations/{conversationId}/thread-control; an Instagram Login connection cannot take or request and waits for the owner to pass it. See conversation.control_changed.'
             quotedMessageId:
               type: string
               description: |
@@ -10459,7 +10459,7 @@ components:
           type: object
           additionalProperties: { type: number }
           example: { "0": 0.9923, "1": 0.9937, "4": 0.8637, "8": 0.5313, "12": 0.3605 }
-          description: 'Facebook Reels only: share still watching at each second of playback, fractions 0 to 1 (Meta post_video_retention_graph). The base is a subset of plays that Meta selects and does not expose: on small Reels it can be far below views (6 of 51 measured), so a value is a share of that subset, not of all plays. Keys are whole seconds from the start of a play ("3" is the share still watching at 3 s). Loops count as continued playback, so a short Reels curve runs past its length (an 8 s Reel has keys "0" to "12"); Meta returns at most 41 points, so a long Reel covers only its first 40 s. Empty object for other media and platforms. Views-weighted across accounts like impressionSources.'
+          description: 'Facebook Reels and TikTok business lane: share still watching at each second of playback, fractions 0 to 1. Keys are whole seconds from the start of a play ("3" is the share still watching at 3 s). Facebook Reels (Meta post_video_retention_graph): the base is a subset of plays that Meta selects and does not expose, on small Reels it can be far below views (6 of 51 measured), so a value is a share of that subset, not of all plays; loops count as continued playback, so a short Reels curve runs past its length (an 8 s Reel has keys "0" to "12"); Meta returns at most 41 points, so a long Reel covers only its first 40 s. TikTok accounts connected through the TikTok for Business app (TikTok video_view_retention): one point per whole second, at most 61 points, thinned evenly on videos longer than 60 s. Empty object for other media and platforms. On a cross-posted post this is the curve of the account with the most views among those reporting one, never a blend: curves from different platforms and accounts measure different audiences and different seconds. Each platformAnalytics entry keeps its own curve.'
         reposts: { type: integer, example: 0, description: 'Instagram accounts connected with Facebook Login only: reposts of the media by other users, minus deleted reposts, on feed posts, reels and stories. Meta does not expose this metric for accounts connected with Instagram Login, so those always report 0. 0 for other platforms, including Threads, where reposts are counted in shares instead.' }
         videoDurationSeconds: { type: [integer, "null"], example: 30, description: 'Video length in seconds. Currently Instagram Reels only; combine with igReelsAvgWatchTime (ms) to estimate retention. Null when unknown (other platforms, non-video media, or when Instagram does not expose the media URL, e.g. reels with copyrighted audio).' }
         engagementRate: { type: number, example: 6.59, description: 'Percentage, rounded to 2 decimals: (likes + comments + shares + saves) / (impressions or reach or views) * 100. Clicks and follows are never counted. The denominator is the FIRST of impressions, reach, views that is non-zero, so it is not the same basis on every post: a post with impressions divides by impressions, one without falls back to reach, then to views. If you need a single consistent basis (e.g. interactions / reach), compute it from the raw fields above. When this object is the post-level roll-up of a cross-posted post, the denominator is the SUM of the denominators resolved per platform entry: an entry reporting none of impressions, reach or views is excluded from both sides of the ratio. Each platformAnalytics entry below keeps its own single denominator. The engagementRate on the LinkedIn account endpoints is a different formula.' }
@@ -10688,7 +10688,7 @@ components:
             audienceTypes: { type: object, additionalProperties: { type: number }, description: 'TikTok business lane: follower / nonFollower and newViewer / returnViewer shares, fractions 0 to 1. Empty object elsewhere.' }
             audienceCountries: { type: object, additionalProperties: { type: number }, description: 'TikTok business lane: viewer-country shares keyed by ISO-3166 alpha-2, fractions 0 to 1, top 20 with the tail in `other`. Empty object elsewhere.' }
             replays: { type: integer, description: 'Facebook Reels only: plays that were replays. 0 elsewhere.' }
-            retentionCurve: { type: object, additionalProperties: { type: number }, description: 'Facebook Reels only: share still watching at each second of playback, fractions 0 to 1 (Meta post_video_retention_graph). The base is a subset of plays that Meta selects and does not expose: on small Reels it can be far below views (6 of 51 measured), so a value is a share of that subset, not of all plays. Keys are whole seconds from the start of a play ("3" is the share still watching at 3 s). Loops count as continued playback, so a short Reels curve runs past its length (an 8 s Reel has keys "0" to "12"); Meta returns at most 41 points, so a long Reel covers only its first 40 s. Empty object elsewhere.' }
+            retentionCurve: { type: object, additionalProperties: { type: number }, description: 'Facebook Reels and TikTok business lane: share still watching at each second of playback, fractions 0 to 1. Facebook Reels (Meta post_video_retention_graph): the base is a subset of plays that Meta selects and does not expose: on small Reels it can be far below views (6 of 51 measured), so a value is a share of that subset, not of all plays. Keys are whole seconds from the start of a play ("3" is the share still watching at 3 s). Loops count as continued playback, so a short Reels curve runs past its length (an 8 s Reel has keys "0" to "12"); Meta returns at most 41 points, so a long Reel covers only its first 40 s. TikTok accounts connected through the TikTok for Business app also fill it from TikTok video_view_retention: share still watching at each whole second, fractions 0 to 1, at most 61 points, thinned evenly on videos longer than 60 s. Empty object for other media and platforms.' }
     AnalyticsDeltaResponse:
       type: object
       required: [data, nextCursor, hasMore]
@@ -12044,7 +12044,7 @@ components:
         languages: { type: array, items: { type: string }, description: "Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X and Pinterest; rejected with 400 on OpenAI. A code the platform cannot target returns 400 listing the ones it can. On Meta, ISO 639-1 codes (e.g. ['en']); a bare code targets all regional variants (\"en\" = all English), or use a region-qualified code (\"en_GB\", \"pt_BR\") for a specific one. Unknown codes are rejected." }
         interests:
           type: array
-          description: "Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria (affinity and in-market categories) on Display and Search ad groups the request creates; rejected with 400 on Performance Max, on Demand Gen (use the Demand Gen audience `userInterests` there), when attaching to an existing ad group (`adSetId`), and on OpenAI. On Google, interests are create-only."
+          description: "Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria (affinity and in-market categories) on Display and Search ad groups the request creates; rejected with 400 on Performance Max, on Demand Gen (use the Demand Gen audience `userInterests` there), when attaching to an existing ad group (`adSetId`), and on OpenAI. On Google, interests are create-only. On TikTok, bare numeric ids are interest categories (`interest_category_ids`) and ids like `keyword:123456` from `dimension=interestKeyword` are additional interests (`interest_keyword_ids`); any other id returns 422 naming `targeting.interests`. TikTok matches people who fit ANY selected interest, additional interest or behavior (one OR'd group), and that group is ANDed with location, age, gender and the other dimensions."
           items:
             type: object
             required: [id]
@@ -12053,7 +12053,7 @@ components:
               name: { type: string }
         behaviors:
           type: array
-          description: "Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos (watched to the end, liked, commented or shared, last 15 days) or creators (followed or viewed the profile) in the picked categories, and the ad group uses the TikTok placement only."
+          description: "Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos (watched to the end, liked, commented or shared, last 15 days) or creators (followed or viewed the profile) in the picked categories, or who viewed videos with a picked hashtag (`hashtag:<id>` ids from `dimension=hashtag`, sent as a `HASHTAG_RELATED` action with `VIEW_HASHTAG`), and the ad group uses the TikTok placement only. On TikTok, behaviors are OR'd with interests and additional interests."
           items:
             type: object
             required: [id]
@@ -15068,7 +15068,8 @@ webhooks:
         (`owner: app`) or took or received it (`owner: other`, with `ownerAppId`); while you
         are not the owner, inbound arrive with `metadata.standby: true`, no automation runs,
         and sends fail with `not_thread_owner`. Change control with
-        `POST /v1/inbox/conversations/{conversationId}/thread-control`.
+        `POST /v1/inbox/conversations/{conversationId}/thread-control`. `take` and `request`
+        answer 400 `platform_not_supported` on Instagram Login connections.
       tags: [Webhook Events]
       requestBody:
         required: true
@@ -19513,7 +19514,7 @@ paths:
                         audienceTypes: { type: object, additionalProperties: { type: number }, description: "TikTok business lane: follower / nonFollower and newViewer / returnViewer shares on this date, fractions 0 to 1; empty object elsewhere" }
                         audienceCountries: { type: object, additionalProperties: { type: number }, description: "TikTok business lane: viewer-country shares on this date keyed by ISO-3166 alpha-2, fractions 0 to 1, top 20 with the tail in `other`; empty object elsewhere" }
                         replays: { type: integer, description: "Facebook Reels only: plays that were replays, as of this date; 0 elsewhere" }
-                        retentionCurve: { type: object, additionalProperties: { type: number }, description: 'Facebook Reels only: share still watching at each second of playback, fractions 0 to 1 (Meta post_video_retention_graph). The base is a subset of plays that Meta selects and does not expose: on small Reels it can be far below views (6 of 51 measured), so a value is a share of that subset, not of all plays. Keys are whole seconds from the start of a play ("3" is the share still watching at 3 s). Loops count as continued playback, so a short Reels curve runs past its length (an 8 s Reel has keys "0" to "12"); Meta returns at most 41 points, so a long Reel covers only its first 40 s. Values are as of this date; empty object elsewhere.' }
+                        retentionCurve: { type: object, additionalProperties: { type: number }, description: 'Facebook Reels and TikTok business lane: share still watching at each second of playback, fractions 0 to 1. Facebook Reels (Meta post_video_retention_graph): the base is a subset of plays that Meta selects and does not expose: on small Reels it can be far below views (6 of 51 measured), so a value is a share of that subset, not of all plays. Keys are whole seconds from the start of a play ("3" is the share still watching at 3 s). Loops count as continued playback, so a short Reels curve runs past its length (an 8 s Reel has keys "0" to "12"); Meta returns at most 41 points, so a long Reel covers only its first 40 s. TikTok accounts connected through the TikTok for Business app also fill it from TikTok video_view_retention: share still watching at each whole second, fractions 0 to 1, at most 61 points, thinned evenly on videos longer than 60 s. Values are as of this date; empty object for other media and platforms.' }
               examples:
                 single_platform:
                   summary: Single-platform post timeline
@@ -23881,7 +23882,7 @@ paths:
       operationId: getAllAccountsHealth
       tags: [Accounts]
       summary: Check accounts health
-      description: Returns health status of all connected accounts including token validity, permissions, and issues needing attention.
+      description: 'Returns health status of all connected accounts including token validity, permissions, and issues needing attention. A failing or stalled analytics sync (see `analyticsSync`) raises a healthy account to at least warning.'
       parameters:
         - name: profileId
           in: query
@@ -23932,6 +23933,12 @@ paths:
                         tokenExpiresAt: { type: string, format: date-time }
                         needsReconnect: { type: boolean, description: 'True when the token is expired or revoked, permissions are missing, the account is inactive, or the platform rejected its stored credentials (the same flag the account listing reports as needsReconnection).' }
                         issues: { type: array, items: { type: string } }
+                        analyticsSync:
+                          type: object
+                          description: 'Absent on platforms without analytics sync. failing: several consecutive sync attempts failed. stalled: a sync was requested over 6 hours ago and never completed. never_synced: no sync has completed yet. Failing and stalled raise the account status to at least warning.'
+                          properties:
+                            status: { type: string, enum: [ok, failing, stalled, never_synced] }
+                            lastSyncedAt: { type: [string, "null"], format: date-time, description: 'Last successful sync. Null when never synced or the latest attempt failed.' }
                         messagingRestriction:
                           type: [object, "null"]
                           description: 'Observed from Meta''s own errors on our own sends, not a live probe. Facebook/Instagram: error subcodes 2534122, 1893063, 2534029, set on the first refused send and cleared when a later send succeeds. WhatsApp: Cloud API error codes 131042 (payment or eligibility issue), 131031 (Business Account locked) and 368 (policy block), set when a send or a delivery status fails with one and cleared when a later message is delivered. It lags reality by one message in each direction. After subcode 1893063 (Meta refusing the Page''s messages), comment automation DMs are held and one is retried at `pausedUntil`: 30 minutes, doubling per refused retry up to 4 hours; held DMs stay pending and are sent once Meta accepts again, within the 7-day private-reply window.'
@@ -24152,6 +24159,8 @@ paths:
       description: |
         Returns detailed health info for a specific account including token status, permissions, and recommendations.
 
+        A failing or stalled analytics sync (see `analyticsSync`) raises a healthy account to at least `warning`.
+
         For WhatsApp accounts the response also includes `platformConnection`, a live probe of the
         Meta link behind the channel (the same read as `GET /v1/whatsapp/number-info`). The OAuth
         token can be perfectly valid while Meta refuses to serve the phone-number object (for
@@ -24231,6 +24240,12 @@ paths:
                     type: array
                     items: { type: string }
                     description: Actionable recommendations to fix issues
+                  analyticsSync:
+                    type: object
+                    description: 'Absent on platforms without analytics sync. failing: several consecutive sync attempts failed. stalled: a sync was requested over 6 hours ago and never completed. never_synced: no sync has completed yet. Failing and stalled raise the account status to at least warning.'
+                    properties:
+                      status: { type: string, enum: [ok, failing, stalled, never_synced] }
+                      lastSyncedAt: { type: [string, "null"], format: date-time, description: 'Last successful sync. Null when never synced or the latest attempt failed.' }
                   messagingRestriction:
                     type: [object, "null"]
                     description: 'Observed from Meta''s own errors on our own sends, not a live probe. Facebook/Instagram: error subcodes 2534122, 1893063, 2534029, set on the first refused send and cleared when a later send succeeds. WhatsApp: Cloud API error codes 131042 (payment or eligibility issue), 131031 (Business Account locked) and 368 (policy block), set when a send or a delivery status fails with one and cleared when a later message is delivered. It lags reality by one message in each direction. After subcode 1893063 (Meta refusing the Page''s messages), comment automation DMs are held and one is retried at `pausedUntil`: 30 minutes, doubling per refused retry up to 4 hours; held DMs stay pending and are sent once Meta accepts again, within the 7-day private-reply window.'
@@ -37205,7 +37220,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '409':
-          description: 'The same Idempotency-Key is still processing (retry after a short backoff), or, on Facebook and Instagram, another app owns the thread under Meta''s handover protocol (code not_thread_owner, Meta subcode 2534037 in platformError, `details.ownerAppId` names the owner when Meta reports it). Take control with POST /v1/inbox/conversations/{conversationId}/thread-control, then resend.'
+          description: 'The same Idempotency-Key is still processing (retry after a short backoff), or, on Facebook and Instagram, another app owns the thread under Meta''s handover protocol (code not_thread_owner, Meta subcode 2534037 in platformError, `details.ownerAppId` names the owner when Meta reports it). Take control with POST /v1/inbox/conversations/{conversationId}/thread-control (accounts connected through a Facebook Page only; an Instagram Login connection cannot take), then resend.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -37461,8 +37476,8 @@ paths:
 
         **Facebook and Instagram** (Messenger Platform handover between the apps on the Page, such as Page Inbox):
         - `pass` with `targetAppId`: give the thread to another app (`pass_thread_control`). Page Inbox is 263902037430900.
-        - `take`: take the thread back (`take_thread_control`); Meta allows it only to the Page's primary receiver.
-        - `request`: ask the current owner to pass the thread (`request_thread_control`); nothing changes until it does.
+        - `take`: take the thread back (`take_thread_control`); Meta allows it only to the Page's primary receiver, and only on accounts connected through a Facebook Page. On an Instagram Login connection it answers 400 `platform_not_supported`.
+        - `request`: ask the current owner to pass the thread (`request_thread_control`); nothing changes until it does. Not available on Instagram Login connections (400 `platform_not_supported`).
         - `release`: give the thread back to the primary receiver (`release_thread_control`).
 
         While another app owns a Facebook or Instagram thread, inbound arrive with `metadata.standby: true` and a send answers 409 `not_thread_owner`. The conversation's `threadControl` follows the result; a `conversation.control_changed` webhook fires when Meta later reports the change.
@@ -37486,7 +37501,7 @@ paths:
                 action:
                   type: string
                   enum: [release, take, pass, request]
-                  description: '`request` is Facebook and Instagram only.'
+                  description: '`request` is Facebook and Instagram only. `take` and `request` are refused with `platform_not_supported` on Instagram accounts connected with Instagram Login.'
                 target:
                   type: string
                   enum: [ai_agent]
@@ -37522,7 +37537,11 @@ paths:
                       ownerAppId:
                         type: string
                         description: 'The app that received the thread, on a Facebook or Instagram pass.'
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400':
+          description: 'Invalid field, or take / request on an Instagram account connected with Instagram Login (code platform_not_supported)'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
@@ -37584,7 +37603,7 @@ paths:
         '404':
           description: Account or conversation not found
         '409':
-          description: 'The same Idempotency-Key is still processing, or another app owns the thread under Meta''s handover protocol (code not_thread_owner, `details.ownerAppId` names it when Meta says). Take control with thread-control first.'
+          description: 'The same Idempotency-Key is still processing, or another app owns the thread under Meta''s handover protocol (code not_thread_owner, `details.ownerAppId` names it when Meta says). Take control with thread-control first (accounts connected through a Facebook Page only; an Instagram Login connection cannot take).'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -51653,6 +51672,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503': { $ref: '#/components/responses/TemporarilyUnavailable' }
   /v1/support/runs/{runId}:
     get:
       x-resource-group: "admin-plane"
@@ -64066,7 +64086,7 @@ paths:
                 ageMax: { type: integer, minimum: 13, maximum: 65 }
                 interests:
                   type: array
-                  description: "Interest objects from /v1/ads/interests. Each must include id and name."
+                  description: "Interest objects from /v1/ads/targeting/search?dimension=interest (or dimension=interestKeyword on TikTok). Each must include id and name. On TikTok, bare numeric ids are interest categories (`interest_category_ids`) and ids like `keyword:123456` from `dimension=interestKeyword` are additional interests (`interest_keyword_ids`); any other id returns 422 naming `targeting.interests`. TikTok matches people who fit ANY selected interest, additional interest or behavior (one OR'd group), and that group is ANDed with location, age, gender and the other dimensions."
                   items:
                     type: object
                     required: [id, name]
@@ -64110,7 +64130,7 @@ paths:
                       address: { type: string }
                 behaviors:
                   type: array
-                  description: "Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos (watched to the end, liked, commented or shared, last 15 days) or creators (followed or viewed the profile) in the picked categories, and the ad group uses the TikTok placement only. Each must include id."
+                  description: "Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos (watched to the end, liked, commented or shared, last 15 days) or creators (followed or viewed the profile) in the picked categories, or who viewed videos with a picked hashtag (`hashtag:<id>` ids from `dimension=hashtag`, sent as a `HASHTAG_RELATED` action with `VIEW_HASHTAG`), and the ad group uses the TikTok placement only. On TikTok, behaviors are OR'd with interests and additional interests. Each must include id."
                   items:
                     type: object
                     required: [id]
@@ -65769,10 +65789,17 @@ paths:
           Meta: its fixed behaviors catalog (e.g. `Small business owners`, `Frequent Travelers`).
           TikTok: video and creator interaction categories (e.g. `Software & Apps`), with ids like
           `video:1913101` or `creator:24001` and `path` starting with `Video interactions` or
-          `Creator interactions`. LinkedIn: member behaviors (e.g. `Frequent Travelers`,
+          `Creator interactions` (hashtags are their own `hashtag` dimension). LinkedIn: member behaviors (e.g. `Frequent Travelers`,
           `Job Seekers`, `Recently Promoted`), ids like `urn:li:memberBehavior:9`. Google has no
           separate behavior catalog: its in-market and affinity segments come back from `interest`,
           and X removed behavior targeting from its Ads API
+        - `interestKeyword`: TikTok only. The "Additional interests" of TikTok Ads Manager (e.g. `folk`
+          returns `Folk Music`), from TikTok's keyword recommendations for the seed `q`. Ids look like
+          `keyword:123456` and go in `TargetingSpec.interests`, next to interest categories. Only keywords
+          TikTok lets an ad group target come back (`status` `EFFECTIVE`). TikTok returns no audience size
+        - `hashtag`: TikTok only. Hashtags recommended for the seed `q`, to target people who viewed videos
+          with them. Ids look like `hashtag:123456` and go in `TargetingSpec.behaviors`. Only hashtags
+          TikTok reports `ONLINE` come back. Spaces in `q` are removed first, because TikTok recommends no hashtags for a multi-word seed (`acoustic guitar` searches `acousticguitar`)
         - `income`: the household-income tiers the platform can target (Meta, TikTok, Google).
           The id is the normalized tier (`top_5`, `top_10`, `top_10_25`, `top_25_50`) to pass as
           `TargetingSpec.incomeTier`, never a platform segment id. Meta's tiers are US-only
@@ -65792,6 +65819,10 @@ paths:
         TikTok `interest` searches TikTok's interest category catalog (about 700 categories over
         four levels, `path` holds the parent categories), matched by name in Zernio. The ids are
         what `TargetingSpec.interests` sends to TikTok as `interest_category_ids`.
+        For `interestKeyword` and `hashtag`, a `q` made only of prefixed ids (`keyword:101,keyword:102` or
+        `hashtag:201`) looks those ids up instead of searching, unavailable ones included with their `status`
+        (`INEFFECTIVE` or `OFFLINE`), so ids read back from an ad group (`interest_keyword_ids`, `actions`
+        in `nativeSettings`) resolve to names. An `interestKeyword` lookup takes at most 50 ids (more returns 400 naming `q`).
         Work industries are a fixed ~30-entry Meta catalog with no server-side query,
         so `workIndustry` matching, ranking and `limit` happen in Zernio. `language`
         is likewise a fixed, checked-in table of Google's targetable
@@ -65868,7 +65899,7 @@ paths:
       parameters:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: "Account ID (a connected account on the target ad platform)." }
         - { name: q, in: query, required: true, schema: { type: string }, description: "Search query. For geo, the locality name only (no region/country suffix)." }
-        - { name: dimension, in: query, required: false, schema: { type: string, enum: [geo, interest, behavior, income, language, workPosition, workEmployer, workIndustry, industry, jobFunction, seniority, companySize], default: interest }, description: "What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities (`behavior` is Meta only), `income` resolves the normalized income tiers, `language` resolves Google's targetable language_constant table (Google only), `workPosition`/`workEmployer`/`workIndustry` resolve Meta work demographics, `industry`/`jobFunction`/`seniority`/`companySize` resolve LinkedIn B2B facets (LinkedIn only). Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias." }
+        - { name: dimension, in: query, required: false, schema: { type: string, enum: [geo, interest, interestKeyword, behavior, hashtag, income, language, workPosition, workEmployer, workIndustry, industry, jobFunction, seniority, companySize], default: interest }, description: "What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities (`behavior` on Meta, TikTok and LinkedIn), `interestKeyword`/`hashtag` resolve TikTok additional interests and hashtags (TikTok only), `income` resolves the normalized income tiers, `language` resolves Google's targetable language_constant table (Google only), `workPosition`/`workEmployer`/`workIndustry` resolve Meta work demographics, `industry`/`jobFunction`/`seniority`/`companySize` resolve LinkedIn B2B facets (LinkedIn only). Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias." }
         - { name: geoType, in: query, required: false, schema: { type: string, enum: [all, country, country_group, region, city, subcity, neighborhood, place, zip, metro_area, geo_market], default: city }, description: "Only used when `dimension=geo`. The kind of location to resolve. `all` searches every type in one relevance-ranked call. Defaults to `city`." }
         - { name: countryCode, in: query, required: false, schema: { type: string, minLength: 2, maxLength: 2 }, description: "ISO 3166-1 alpha-2 country code (e.g. NL) to scope a geo search." }
         - { name: adAccountId, in: query, required: false, schema: { type: string }, description: "TikTok only: the advertiser to search as, when the connection holds several. Each TikTok advertiser has its own targetable regions and catalogs. Defaults to the connection's first advertiser; an advertiser the connection does not hold returns 400." }
@@ -65890,9 +65921,10 @@ paths:
                       properties:
                         id: { type: string, description: "The platform's opaque id. Use as a geo `key` (regions/cities/zips/metros) or an entity `id` (interests/behaviors) in TargetingSpec. A `country` result is the exception on every platform: its id is the ISO 3166-1 alpha-2 code, which is what `targeting.countries` takes." }
                         name: { type: string, description: "Human-readable label." }
-                        type: { type: string, description: "What the result is. Equals the requested dimension (interest, behavior, income, language, workPosition, workEmployer, workIndustry, industry, jobFunction, seniority, companySize), or the location level for geo (country, region, city, zip, metro, ...)." }
+                        type: { type: string, description: "What the result is. Equals the requested dimension (interest, interestKeyword, behavior, hashtag, income, language, workPosition, workEmployer, workIndustry, industry, jobFunction, seniority, companySize), or the location level for geo (country, region, city, zip, metro, ...)." }
                         path: { type: array, items: { type: string }, description: "Optional breadcrumb of parent labels (e.g. ['United States', 'California', 'Los Angeles']). Disambiguates same-named results." }
                         audienceSize: { type: [integer, "null"], description: "Optional estimated reachable users for this option, when the platform returns it." }
+                        status: { type: string, description: "TikTok `interestKeyword` and `hashtag` results only: TikTok's availability status. `EFFECTIVE` / `INEFFECTIVE` for additional interests, `ONLINE` / `OFFLINE` for hashtags. Only `EFFECTIVE` and `ONLINE` ids can be targeted." }
                         countryCode: { type: string, description: "ISO-3166 alpha-2 of the country a sub-country geo result (city, region, zip, metro) belongs to, when the platform reports it (Meta does). Useful to know whether a location falls under the EU DSA disclosure rules before creating the ad." }
                         platformId: { type: string, description: "Only on `country` results: the platform's own id for the country, which `id` replaced with the ISO code (TikTok's native location_id, a GeoNames id such as 2635167 for GB; Meta's country key; Google's geo target constant id; X's targeting value; LinkedIn's geo URN). Use it to match a country against what the platform reports back, e.g. `location_ids` in a TikTok `nativeSettings` read." }
         '400':
@@ -69244,6 +69276,8 @@ paths:
         `accountId` is a Facebook, Instagram or Meta ads (business login) connection;
         `pageId` picks the Page when that connection was granted several.
 
+        **WhatsApp number prerequisite.** For the WhatsApp destination, link the WhatsApp number to the Facebook Page used for the ad before creating it: Meta checks the pairing at creation. Link it from the WhatsApp Business app (Settings > Business tools > Facebook & Instagram) or from the Page settings (Linked accounts > WhatsApp). Linking does not affect the number's WhatsApp connection in Zernio (Cloud API or coexistence), so no reconnect or re-sync is needed. If Meta creates a new ad set without the requested `whatsappPhoneNumber`, the 201 response carries a `warnings` entry. This can happen even when the number is linked (Meta can drop a Page's second linked number).
+
         **Idempotency:** this endpoint is not idempotent at the platform level (a blind retry creates a second campaign/ad set/ad). Send an `Idempotency-Key` header to make retries safe: the first request with a given key creates the ad and we store the response; a retry with the same key replays that exact response (with `Idempotent-Replayed: true`) instead of creating duplicates. Reusing a key with a different body returns 422; a key whose first request is still in flight returns 409 (retry after a short backoff). Keys are scoped to your credential and expire after 24h.
       security:
         - bearerAuth: []
@@ -69476,6 +69510,8 @@ paths:
         `existingPostId`) or `objectStoryId`, either per creative or at the top level. Omit fresh
         media and copy for that creative. Optional `whatsappPhoneNumber` selects
         a number already paired with the Page (WhatsApp destination only).
+
+        **WhatsApp number prerequisite.** Link the WhatsApp number to the Facebook Page used for the ad before creating it: Meta checks the pairing at creation. Link it from the WhatsApp Business app (Settings > Business tools > Facebook & Instagram) or from the Page settings (Linked accounts > WhatsApp). Linking does not affect the number's WhatsApp connection in Zernio (Cloud API or coexistence), so no reconnect or re-sync is needed. If Meta creates a new ad set without the requested `whatsappPhoneNumber`, the 201 response carries a `warnings` entry. This can happen even when the number is linked (Meta can drop a Page's second linked number).
 
         **Idempotency:** this endpoint is not idempotent at the platform level (a blind retry creates a second campaign/ad set/ad). Send an `Idempotency-Key` header to make retries safe: the first request with a given key creates the ad and we store the response; a retry with the same key replays that exact response (with `Idempotent-Replayed: true`) instead of creating duplicates. Reusing a key with a different body returns 422; a key whose first request is still in flight returns 409 (retry after a short backoff). Keys are scoped to your credential and expire after 24h.
       security:

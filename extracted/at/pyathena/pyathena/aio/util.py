@@ -1,3 +1,12 @@
+# Copyright 2025 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""Asyncio helpers for retrying AWS API calls."""
+
 from __future__ import annotations
 
 import asyncio
@@ -13,6 +22,7 @@ async def async_retry_api_call(
     config: RetryConfig,
     logger: logging.Logger | None = None,
     *args: Any,
+    stop_on: Callable[[BaseException], bool] | None = None,
     **kwargs: Any,
 ) -> Any:
     """Execute a function with retry logic in a thread to avoid blocking the event loop.
@@ -25,9 +35,12 @@ async def async_retry_api_call(
         config: RetryConfig instance specifying retry behavior.
         logger: Optional logger for retry attempt logging.
         *args: Positional arguments to pass to ``retry_api_call``.
+        stop_on: Passed to ``retry_api_call``.
         **kwargs: Keyword arguments to pass to the function.
 
     Returns:
         The result of the successful function call.
     """
-    return await asyncio.to_thread(retry_api_call, func, config, logger, *args, **kwargs)
+    return await asyncio.to_thread(
+        retry_api_call, func, config, logger, *args, stop_on=stop_on, **kwargs
+    )

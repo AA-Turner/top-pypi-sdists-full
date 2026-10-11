@@ -227,7 +227,9 @@ async def test_browser_inline_merge_delegates_flat_arguments(monkeypatch) -> Non
     try:
         spec = browser_dom._build_auto_load_specs()[1]
         emitter = Emitter()
-        ctx = AppContext(emitter=emitter, client_tools=[])
+        # Ephemeral: since ffba17ba25 a stored run must prove an assistant checkpoint
+        # before delegating; this test is about argument merging only.
+        ctx = AppContext(emitter=emitter, client_tools=[], store=False)
         config = UnifiedConfig(model="test-model", messages=[], tools=[], custom_tools=[])
         ctx = merge_request_tools(
             config, ctx, [spec], active_executors=frozenset({"chrome-extension"})

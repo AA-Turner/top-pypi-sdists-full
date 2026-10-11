@@ -5,24 +5,45 @@ from trilogy.core.enums import (
     BooleanOperator,
     Derivation,
     FunctionType,
-    JoinType,
     SourceType,
 )
 from trilogy.core.models.build import (
     BoolExpr,
     BuildConcept,
+    BuildConceptArgs,
     BuildConditional,
     BuildDatasource,
+    BuildFilterItem,
     BuildFunction,
     BuildRowsetItem,
 )
-from trilogy.core.models.execute import CTE, Join, QueryDatasource, UnionCTE
+from trilogy.core.models.execute import (
+    CTE,
+    Join,
+    QueryDatasource,
+    UnionCTE,
+)
 from trilogy.core.processing.condition_utility import merge_conditions_and_dedup
+from trilogy.core.processing.utility import (
+    PADS_LEFT_JOIN_TYPES,
+    PADS_RIGHT_JOIN_TYPES,
+)
+from trilogy.utility import unique
 
 # Derivations whose rows cannot be re-scoped: a window, unnest or recursive
 # output changes meaning when its CTE is folded into, or filtered by, another.
 SENSITIVE_DERIVATIONS = frozenset(
     {Derivation.WINDOW, Derivation.UNNEST, Derivation.RECURSIVE}
+)
+
+# a CTE of these sources reshapes its rows; it is not a plain projection
+ROW_RESHAPING_SOURCE_TYPES = (
+    SourceType.GROUP,
+    SourceType.WINDOW,
+    SourceType.UNNEST,
+    SourceType.RECURSIVE,
+    SourceType.SUBSELECT,
+    SourceType.UNION,
 )
 
 
@@ -70,12 +91,22 @@ def carry_child_state(parent: CTE, cte: CTE) -> None:
     dropping NULL-keyed groups. Existence references: an `IN (<set>)` resolves
     its set columns through existence_source_map, and dropping those entries
     strands the membership and lets the feeder CTE be pruned as unreferenced.
-    LIMIT is the last logical operation of a SELECT, so the child's limit and
-    ORDER BY apply unchanged to the merged CTE."""
+    Partiality: a dropped partial mark lets UpgradeJoinOnGuards read a proof
+    on a key the merged CTE binds partially (a region domain's span on the
+    solid stream) as forcing it present, and INNER-narrow the join that pads
+    it. DISTINCT counts: the child's aggregates now render over the parent's
+    rows, the stream that repeats their counted keys. LIMIT is the last
+    logical operation of a SELECT, so the child's limit and ORDER BY apply
+    unchanged to the merged CTE."""
+    parent.distinct_counts = parent.distinct_counts | cte.distinct_counts
     nullable_addresses = {c.address for c in parent.nullable_concepts}
     for column in cte.nullable_concepts:
         if column.address not in nullable_addresses:
             parent.nullable_concepts.append(column)
+    partial_addresses = {c.address for c in parent.partial_concepts}
+    for column in cte.partial_concepts:
+        if column.address not in partial_addresses:
+            parent.partial_concepts.append(column)
     for address, sources in cte.existence_source_map.items():
         if address not in parent.existence_source_map:
             parent.existence_source_map[address] = sources
@@ -84,20 +115,128 @@ def carry_child_state(parent: CTE, cte: CTE) -> None:
         parent.order_by = cte.order_by
 
 
-def null_padded_nodes(cte: CTE) -> list[CTE | UnionCTE]:
-    """The sides ``cte``'s own outer joins NULL-pad: the right of a LEFT/FULL,
-    and the accumulated left (plus every joinkey source) of a RIGHT/FULL."""
-    padded: list[CTE | UnionCTE] = []
-    for join in cte.joins or []:
-        if not isinstance(join, Join) or join.jointype == JoinType.INNER:
+def output_addresses(cte: CTE | UnionCTE) -> set[str]:
+    return {c.address for c in cte.output_columns}
+
+
+def cte_source_keys(cte: CTE | UnionCTE) -> set[str]:
+    return {cte.name, cte.safe_identifier}
+
+
+def seed_ctes(cte: CTE | UnionCTE) -> list[CTE | UnionCTE]:
+    """The CTE supplying the FROM clause: the LEFT side of the chain's first
+    join, resolved in priority order:
+      - ``joins[0].left`` (explicit).
+      - The ``pair.node``\\s of the first join, which by construction
+        supply its left values and so name the FROM directly. This must beat
+        the parent scan: a parent consumed only through an existence subselect
+        never reaches the join chain, and seeding from it makes the real FROM
+        table's columns look right-only, so a WHERE proof on a shared join key
+        would falsely promote the join.
+      - A ``parent_cte`` that is not consumed as any join's right side,
+        skipping existence-only parents.
+      - A ``pair.node`` on any later join, covering a chain whose left
+        is an inlined CTE with no ``parent_cte`` and no explicit ``left``."""
+    if not isinstance(cte, CTE) or not cte.joins:
+        return []
+    first = cte.joins[0]
+    if not isinstance(first, Join):
+        return []
+    if first.left is not None:
+        return [first.left]
+    right_names = {j.right.name for j in cte.joins if isinstance(j, Join)}
+    first_pair_seeds: list[CTE | UnionCTE] = []
+    seen_pair_names: set[str] = set()
+    for pair in first.pairs or []:
+        if pair.node.name not in right_names and pair.node.name not in seen_pair_names:
+            seen_pair_names.add(pair.node.name)
+            first_pair_seeds.append(pair.node)
+    if first_pair_seeds:
+        return first_pair_seeds
+    existence = {s for vals in cte.existence_source_map.values() for s in vals}
+    for parent in cte.dependency_nodes(include_inlined=True):
+        if (
+            isinstance(parent, (CTE, UnionCTE))
+            and parent.name not in right_names
+            and not (cte_source_keys(parent) & existence)
+        ):
+            return [parent]
+    for j in cte.joins:
+        if not isinstance(j, Join):
             continue
-        if join.jointype in (JoinType.LEFT_OUTER, JoinType.FULL):
-            padded.append(join.right_cte)
-        if join.jointype in (JoinType.RIGHT_OUTER, JoinType.FULL):
-            if join.left_cte is not None:
-                padded.append(join.left_cte)
-            padded.extend(pair.cte for pair in join.joinkey_pairs or [])
-    return padded
+        for pair in j.pairs or []:
+            if pair.node.name not in right_names:
+                return [pair.node]
+    return []
+
+
+def accumulated_left_ctes(cte: CTE | UnionCTE, idx: int) -> list[CTE | UnionCTE]:
+    """What join ``idx`` reads on its left (left-deep): its explicit left, the
+    FROM (``seed_ctes``) and every prior join's right side."""
+    if not isinstance(cte, CTE):
+        return []
+    join = cte.joins[idx] if idx < len(cte.joins) else None
+    left: list[CTE | UnionCTE] = []
+    if isinstance(join, Join) and join.left is not None:
+        left.append(join.left)
+    left.extend(seed_ctes(cte))
+    left.extend(prior.right for prior in cte.joins[:idx] if isinstance(prior, Join))
+    return unique(left, "name")
+
+
+def zero_filled_reads(cte: CTE, condition: BoolExpr | None) -> set[str]:
+    """COUNTs ``condition`` reads that ``cte`` renders coalesced to 0
+    (``CTE.zero_fills_count``): a null-rejecting atom over one is satisfied by
+    a padded row, so it is not a non-null proof."""
+    if not isinstance(condition, BuildConceptArgs):
+        return set()
+    return cte.zero_filled_counts(condition.row_arguments)
+
+
+def join_padded_ctes(cte: CTE) -> list[tuple[Join, list[CTE | UnionCTE]]]:
+    """Each of ``cte``'s joins with the sides it NULL-pads: the right of a
+    LEFT/FULL, and everything on its left (plus its key sources) of a
+    RIGHT/FULL."""
+    out: list[tuple[Join, list[CTE | UnionCTE]]] = []
+    for idx, join in enumerate(cte.joins or []):
+        if not isinstance(join, Join):
+            continue
+        padded: list[CTE | UnionCTE] = []
+        if join.join_type in PADS_RIGHT_JOIN_TYPES:
+            padded.append(join.right)
+        if join.join_type in PADS_LEFT_JOIN_TYPES:
+            padded.extend(accumulated_left_ctes(cte, idx))
+            padded.extend(pair.node for pair in join.pairs or [])
+        out.append((join, padded))
+    return out
+
+
+def null_padded_nodes(cte: CTE) -> list[CTE | UnionCTE]:
+    """The sides ``cte``'s own outer joins NULL-pad (``join_padded_ctes``)."""
+    return [node for _, padded in join_padded_ctes(cte) for node in padded]
+
+
+def prune_strands_pseudonym_twin(parent: CTE, kept: list[BuildConcept]) -> bool:
+    """Whether narrowing `parent` to the `kept` columns drops a column a kept one
+    renders through. A lineage arg spelled by a lineage-less merge key (`upper(label)`
+    after `merge xx_label into label`) has no expression of its own; the
+    renderer reads it off the CTE's pseudonym-twin column."""
+    dropped = {c.address for c in parent.output_columns} - {c.address for c in kept}
+    stack = list(kept)
+    seen: set[str] = set()
+    while stack:
+        concept = stack.pop()
+        if concept.address in seen or concept.lineage is None:
+            continue
+        seen.add(concept.address)
+        for arg in concept.lineage.concept_arguments:
+            if arg.lineage is not None:
+                stack.append(arg)
+            elif not parent.source_map.get(arg.address) and any(
+                p in dropped for p in arg.pseudonyms
+            ):
+                return True
+    return False
 
 
 def is_grouped_cte(cte: CTE) -> bool:
@@ -193,13 +332,20 @@ def add_datasource_sorted(
 def rename_reference(column: BuildConcept) -> BuildConcept | None:
     """The single column a pure rename re-labels, else None.
 
-    Two rename shapes exist: a rowset boundary output (`with rs as select x ...`
-    exposing `rs.x` over `x`) and a concept alias (`select x as y`). Both render
-    as `<content's sql> as <new name>`, so a CTE whose novel outputs are all
-    renames of parent columns folds into the parent, which renders the rename
-    from lineage (no source_map entry) against its own columns."""
+    Three rename shapes exist: a rowset boundary output (`with rs as select x
+    ...` exposing `rs.x` over `x`), a concept alias (`select x as y`), and a
+    filter (`x ? cond`) whose predicate the CTE's rows already satisfy (the
+    renderer emits the content bare then; `consumed_parent_column` is what
+    confirms the bare render). All render as `<content's sql> as <new name>`,
+    so a CTE whose novel outputs are all renames of parent columns folds into
+    the parent, which renders the rename from lineage (no source_map entry)
+    against its own columns."""
     lineage = column.lineage
     if isinstance(lineage, BuildRowsetItem):
+        return lineage.content
+    if isinstance(lineage, BuildFilterItem) and isinstance(
+        lineage.content, BuildConcept
+    ):
         return lineage.content
     if isinstance(lineage, BuildFunction) and lineage.operator == FunctionType.ALIAS:
         args = lineage.concept_arguments
@@ -251,6 +397,9 @@ def rebind_rename_to_consumed(
     which NULLs one-sided keys on a FULL union-join axis). Pinning the consumed
     object makes the rename and the parent's own output the same object."""
     lineage = column.lineage
+    # A filter item is left alone: its consumed column may be the parent's own
+    # MAX-collapsed twin of the same filter, and `CASE WHEN cond THEN max(...)`
+    # nests aggregates. The merged parent renders it from its content.
     if isinstance(lineage, BuildRowsetItem) and lineage.content is not consumed:
         return dataclasses.replace(
             column, lineage=dataclasses.replace(lineage, content=consumed)

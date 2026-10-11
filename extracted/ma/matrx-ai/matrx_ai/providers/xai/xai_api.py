@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 import xai_sdk
 from matrx_connect.context.events import InfoPayload
+from matrx_connect.request_latency import mark_provider_stream_open
 from matrx_utils import vcprint
 
 from matrx_ai.config import (
@@ -414,6 +415,7 @@ class XAIChat:
         answer_started = False
         try:
             async for response, chunk in chat.stream():
+                mark_provider_stream_open()
                 final_response = response
                 # Reasoning signal (best-effort): on reasoning models the
                 # accumulating response exposes reasoning_content, which grows

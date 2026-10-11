@@ -61,7 +61,7 @@ ALLOWED_TABLES: dict[str, _TableSpec] = {
             "id",
             "label",
             "content",
-            "folder_name",
+            "home_scope_id",
             "tags",
             "published_to_web",
             "shown_to",

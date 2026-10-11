@@ -8,12 +8,15 @@ import zipfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import cast
+from typing import TypeVar, cast
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.chart import AreaChart
+from openpyxl.workbook.properties import CalcProperties
+from openpyxl.worksheet._read_only import ReadOnlyWorksheet
 from openpyxl.worksheet.worksheet import Worksheet
 
+from excel_mcp import chart_roundtrip, macros, package
 from excel_mcp.config import Limits
 from excel_mcp.errors import (
     InvalidArgumentError,
@@ -23,7 +26,12 @@ from excel_mcp.errors import (
     WorkbookExistsError,
     WorkbookNotFoundError,
 )
+from excel_mcp.lazy_workbook import Parts, load_lazy
 from excel_mcp.paths import MACRO_SUFFIXES, TEMPLATE_SUFFIXES, PathPolicy
+from excel_mcp.zip_limits import check_expansion
+
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+Sheet = TypeVar("Sheet")
 
 
 class Workspace:
@@ -33,9 +41,11 @@ class Workspace:
     and saves the whole file, so concurrent edits would otherwise lose data.
     """
 
-    def __init__(self, paths: PathPolicy, limits: Limits) -> None:
+    def __init__(self, paths: PathPolicy, limits: Limits, allow_macro_workbooks: bool) -> None:
+        chart_roundtrip.install()
         self.paths = paths
         self.limits = limits
+        self.allow_macro_workbooks = allow_macro_workbooks
         self._write_lock = threading.Lock()
 
     def resolve(self, raw_path: str) -> Path:
@@ -50,7 +60,29 @@ class Workspace:
             raise LimitExceededError(
                 f"Workbook is {size:,} bytes; the limit is {self.limits.max_file_bytes:,}."
             )
+        self._check_expansion(path)
         return path
+
+    def _check_expansion(self, path: Path) -> None:
+        if not zipfile.is_zipfile(path):
+            return
+        try:
+            with zipfile.ZipFile(path) as archive:
+                check_expansion(archive.infolist(), self.limits)
+        except zipfile.BadZipFile:
+            raise WorkbookError(f"{self.display(path)} is a damaged zip file.") from None
+
+    def read_image(self, raw_path: str) -> bytes:
+        """Read an image file confined like workbooks; its content is checked by the caller."""
+        path = self.paths.resolve_image(raw_path)
+        if not path.is_file():
+            raise InvalidArgumentError(f"Image {self.display(path)} does not exist.")
+        size = path.stat().st_size
+        if size > MAX_IMAGE_BYTES:
+            raise LimitExceededError(
+                f"Image is {size:,} bytes; the limit is {MAX_IMAGE_BYTES:,}. Use a smaller image."
+            )
+        return path.read_bytes()
 
     def resolve_directory(self, raw_path: str) -> Path:
         return self.paths.resolve_directory(raw_path)
@@ -59,9 +91,51 @@ class Workspace:
         return self.paths.display(path)
 
     @contextmanager
-    def read(self, raw_path: str, *, data_only: bool = False) -> Iterator[Workbook]:
-        """Open a workbook for reading; changes are never saved."""
-        workbook = self._load(self.resolve_existing(raw_path), data_only=data_only)
+    def read(
+        self, raw_path: str, *, data_only: bool = False, with_package: bool = False
+    ) -> Iterator[Workbook]:
+        """Open a workbook for reading; changes are never saved.
+
+        ``with_package`` also loads what openpyxl drops, as `edit` does, for readers of it.
+        """
+        path = self.resolve_existing(raw_path)
+        workbook = self._load(path, data_only=data_only)
+        if with_package:
+            package.capture(path, workbook, self.limits.max_file_bytes)
+        try:
+            yield workbook
+        finally:
+            close_workbook(workbook)
+
+    @contextmanager
+    def read_lazy(self, raw_path: str) -> Iterator[tuple[Workbook, Workbook]]:
+        """Open a workbook as its stored results and its formulas, parsing cells when needed.
+
+        For calculating some of a large sheet's formulas: only the rows that are asked for are
+        read, so the cells they use are the only ones that cost anything. Changes are never saved.
+        """
+        path = self.resolve_existing(raw_path)
+        self._check_zip(path)
+        parts: Parts = {}
+        try:
+            stored = load_lazy(path, parts, data_only=True)
+            formulas = load_lazy(path, parts, data_only=False)
+        except Exception as error:
+            raise self._unreadable(path, error) from None
+        try:
+            yield stored, formulas
+        finally:
+            close_workbook(stored)
+            close_workbook(formulas)
+
+    @contextmanager
+    def stream(self, raw_path: str, *, data_only: bool = False) -> Iterator[Workbook]:
+        """Open a workbook for streaming reads, which use constant memory on huge sheets.
+
+        Its worksheets are openpyxl read-only views: they hold only cell values (no
+        formatting, merged ranges, tables or charts) and re-parse the sheet on each pass.
+        """
+        workbook = self._load(self.resolve_existing(raw_path), data_only=data_only, stream=True)
         try:
             yield workbook
         finally:
@@ -74,31 +148,49 @@ class Workspace:
             path = self.resolve_existing(raw_path)
             workbook = self._load(path, data_only=False)
             _restore_area_chart_axes(workbook)
+            package.capture(path, workbook, self.limits.max_file_bytes)
+            workbook.calculation = workbook.calculation or CalcProperties()
+            workbook.calculation.fullCalcOnLoad = True
             try:
                 yield workbook
-                save_atomically(workbook, path)
+                # Imported here because the calculator imports this module.
+                from excel_mcp.operations.spill import refresh_spills
+
+                refresh_spills(workbook, self.limits.max_cells)
+                _pin_hyperlinks(workbook)
+                save_atomically(workbook, path, self.limits.max_file_bytes)
             finally:
                 close_workbook(workbook)
 
     def create(self, raw_path: str, sheets: list[str], *, overwrite: bool) -> Path:
         path = self.resolve(raw_path)
-        if path.suffix.lower() in MACRO_SUFFIXES:
+        macro_enabled = path.suffix.lower() in MACRO_SUFFIXES
+        if macro_enabled and not self.allow_macro_workbooks:
             raise InvalidArgumentError(
-                "New workbooks cannot contain macros. Create an .xlsx or .xltx file instead."
+                "New workbooks cannot contain macros unless the server allows VBA writing. "
+                "Create an .xlsx or .xltx file instead."
             )
         workbook = Workbook()
+        workbook.properties.creator = None
         workbook.worksheets[0].title = sheets[0]
         for name in sheets[1:]:
             workbook.create_sheet(name)
         workbook.template = path.suffix.lower() in TEMPLATE_SUFFIXES
+        if macro_enabled:
+            macros.store_project(workbook, macros.new_project(workbook))
         with self._write_lock:
-            self._check_overwrite(path, overwrite)
-            save_atomically(workbook, path)
+            try:
+                self._check_overwrite(path, overwrite)
+                save_atomically(workbook, path, self.limits.max_file_bytes)
+            finally:
+                close_workbook(workbook)
         return path
 
     def store(self, raw_path: str, content: bytes, *, overwrite: bool) -> Path:
-        """Save uploaded workbook bytes as a file."""
+        """Save uploaded workbook bytes as a file, without macros unless the file may hold them."""
         path = self.resolve(raw_path)
+        if path.suffix.lower() not in MACRO_SUFFIXES:
+            content = macros.without_macros(content)
         with self._write_lock:
             self._check_overwrite(path, overwrite)
             write_atomically(path, content)
@@ -110,32 +202,51 @@ class Workspace:
                 f"{self.display(path)} already exists. Pass overwrite=true to replace it."
             )
 
-    def _load(self, path: Path, *, data_only: bool) -> Workbook:
+    def _load(self, path: Path, *, data_only: bool, stream: bool = False) -> Workbook:
+        self._check_zip(path)
+        try:
+            return load_workbook(
+                path,
+                data_only=data_only,
+                read_only=stream,
+                keep_vba=not stream and path.suffix.lower() in MACRO_SUFFIXES,
+            )
+        except Exception as error:
+            raise self._unreadable(path, error) from None
+
+    def _check_zip(self, path: Path) -> None:
         if not zipfile.is_zipfile(path):
             raise WorkbookError(
                 f"{self.display(path)} is not an Excel workbook. Only .xlsx/.xlsm files are "
                 "supported; legacy .xls and CSV files must be converted first."
             )
-        try:
-            return load_workbook(
-                path, data_only=data_only, keep_vba=path.suffix.lower() in MACRO_SUFFIXES
-            )
-        except Exception as error:
-            # openpyxl raises many different exception types for damaged files.
-            raise WorkbookError(
-                f"{self.display(path)} could not be opened as an Excel workbook ({error})."
-            ) from None
+
+    def _unreadable(self, path: Path, error: Exception) -> WorkbookError:
+        # openpyxl raises many different exception types for damaged files.
+        return WorkbookError(
+            f"{self.display(path)} could not be opened as an Excel workbook ({error})."
+        )
 
 
-def save_atomically(workbook: Workbook, path: Path) -> None:
-    """Serialize the workbook in memory, then write it atomically."""
+def save_atomically(workbook: Workbook, path: Path, max_bytes: int) -> None:
+    """Serialize the workbook in memory, then write it atomically.
+
+    A result larger than the size limit is refused, because the server could not open it again.
+    """
     buffer = io.BytesIO()
     try:
+        package.prepare(workbook)
         workbook.save(buffer)
     except Exception as error:
         # openpyxl reports invalid workbook states with many exception types.
         raise WorkbookError(f"Could not save the workbook: {error}") from None
-    write_atomically(path, buffer.getvalue())
+    content = package.apply(workbook, buffer.getvalue())
+    if len(content) > max_bytes:
+        raise LimitExceededError(
+            f"The saved workbook would be {len(content):,} bytes; the limit is "
+            f"{max_bytes:,}. The file was not changed."
+        )
+    write_atomically(path, content)
 
 
 def write_atomically(path: Path, content: bytes) -> None:
@@ -179,18 +290,43 @@ def _restore_area_chart_axes(workbook: Workbook) -> None:
                         axis.delete = False
 
 
+def _pin_hyperlinks(workbook: Workbook) -> None:
+    """Point each link at the cell that holds it now.
+
+    openpyxl keeps the address a link had when it was read, so inserting or deleting rows
+    or columns would leave links on the cells that took their place.
+    """
+    for sheet in worksheets(workbook):
+        for cell in sheet._cells.values():
+            if cell.hyperlink:
+                cell.hyperlink.ref = cell.coordinate
+
+
 def get_sheet(workbook: Workbook, name: str) -> Worksheet:
-    if name not in workbook.sheetnames:
-        raise SheetNotFoundError(name, workbook.sheetnames)
-    sheet = workbook[name]
-    if not isinstance(sheet, Worksheet):
-        raise SheetNotFoundError(name, [sheet.title for sheet in worksheets(workbook)])
-    return sheet
+    return _find_sheet(workbook, name, Worksheet)
+
+
+def get_streamed_sheet(workbook: Workbook, name: str) -> ReadOnlyWorksheet:
+    return _find_sheet(workbook, name, ReadOnlyWorksheet)
 
 
 def worksheets(workbook: Workbook) -> list[Worksheet]:
     """The workbook's worksheets, leaving out chart sheets."""
     return [sheet for sheet in workbook.worksheets if isinstance(sheet, Worksheet)]
+
+
+def streamed_worksheets(workbook: Workbook) -> list[ReadOnlyWorksheet]:
+    return [sheet for sheet in workbook.worksheets if isinstance(sheet, ReadOnlyWorksheet)]
+
+
+def _find_sheet(workbook: Workbook, name: str, kind: type[Sheet]) -> Sheet:
+    if name not in workbook.sheetnames:
+        raise SheetNotFoundError(name, workbook.sheetnames)
+    sheet = workbook[name]
+    if not isinstance(sheet, kind):
+        available = [sheet.title for sheet in workbook.worksheets if isinstance(sheet, kind)]
+        raise SheetNotFoundError(name, available)
+    return sheet
 
 
 def sheet_names(sheet: Worksheet) -> list[str]:

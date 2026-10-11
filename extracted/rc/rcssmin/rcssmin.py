@@ -12,7 +12,7 @@ itself is based on `the rule list by Isaac Schlueter`_\\.
 
 :Copyright:
 
- Copyright 2011 - 2025
+ Copyright 2011 - 2026
  Andr\xe9 Malo or his licensors, as applicable
 
 :License:
@@ -68,7 +68,7 @@ rcssmin.c is a reimplementation of rcssmin.py in C and improves runtime up to
 factor 100 or so (depending on the input). docs/BENCHMARKS in the source
 distribution contains the details.
 
-Supported python versions are 2.7 and 3.6+.
+Supported python versions are 3.6 and above.
 
 .. _YUI compressor: https://github.com/yui/yuicompressor/
 
@@ -76,7 +76,7 @@ Supported python versions are 2.7 and 3.6+.
 """
 __author__ = u"Andr\xe9 Malo"
 __license__ = "Apache License, Version 2.0"
-__version__ = '1.2.2'
+__version__ = '1.3.0'
 __all__ = ['cssmin']
 
 import re as _re

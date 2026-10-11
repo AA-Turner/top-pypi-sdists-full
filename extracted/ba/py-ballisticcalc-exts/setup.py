@@ -92,7 +92,7 @@ IS_EMSCRIPTEN = "emscripten" in _SYSCONFIG_PLATFORM
 IS_ANDROID = "android" in _SYSCONFIG_PLATFORM
 IS_IOS = "ios" in _SYSCONFIG_PLATFORM
 
-# Stable ABI target: build once per platform, compatible with Python 3.11+.
+# Stable ABI target: build once per platform, compatible with Python 3.12+.
 # Disabled when:
 #   - coverage tracing is requested (CYTHON_TRACE uses internal CPython APIs)
 #   - building on free-threaded Python (Py_GIL_DISABLED conflicts with Py_LIMITED_API)
@@ -107,12 +107,12 @@ IS_IOS = "ios" in _SYSCONFIG_PLATFORM
 #     hardcodes a runtime dependency on one specific CPython point release
 #     regardless of the abi3 tag on the wheel, so stable ABI buys nothing
 #     here and only hides a real version pin (confirmed empirically: a
-#     cp311-abi3-android wheel built against the cp313 Android crossenv
+#     cp312-abi3-android wheel built against the cp313 Android crossenv
 #     failed to import on a 3.14 runtime with
 #     "library libpython3.13.so not found").
 #   - targeting iOS: same rationale as Android, app runtimes typically embed
 #     one specific CPython build.
-PY_LIMITED_API_HEX = "0x030B0000"  # CPython 3.11
+PY_LIMITED_API_HEX = "0x030C0000"  # CPython 3.12
 _GIL_DISABLED = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 USE_LIMITED_API = (
     not ENABLE_CYTHON_COVERAGE and not _GIL_DISABLED and not IS_EMSCRIPTEN and not IS_ANDROID and not IS_IOS
@@ -170,6 +170,14 @@ _CASH_KARP_DEPS = {*_ENGINE_DEPS, "cash_karp"}
 _DORMAND_PRINCE_DEPS = {*_ENGINE_DEPS, "dormand_prince"}
 _TSITOURAS_DEPS = {*_ENGINE_DEPS, "tsitouras"}
 _VELOCITY_VERLET_DEPS = {*_ENGINE_DEPS, "velocity_verlet"}
+_ENGINES_DEPS = {
+    *_RK4_DEPS,
+    *_EULER_DEPS,
+    *_CASH_KARP_DEPS,
+    *_DORMAND_PRINCE_DEPS,
+    *_TSITOURAS_DEPS,
+    *_VELOCITY_VERLET_DEPS,
+}
 _TEST_DEPS = {*_ENGINE_DEPS, *_RK4_DEPS, *_EULER_DEPS, *_VELOCITY_VERLET_DEPS}
 
 C_EXTENSION_DEPS = {
@@ -180,12 +188,7 @@ CPP_EXTENSION_DEPS = {
     "bind": _BIND_DEPS,
     "traj_data": _TRAJ_DATA_DEPS,
     "base_engine": _ENGINE_DEPS,
-    "rk4_engine": _RK4_DEPS,
-    "euler_engine": _EULER_DEPS,
-    "cashkarp_engine": _CASH_KARP_DEPS,
-    "dopri_engine": _DORMAND_PRINCE_DEPS,
-    "tsitouras_engine": _TSITOURAS_DEPS,
-    "velocity_verlet_engine": _VELOCITY_VERLET_DEPS,
+    "engines": _ENGINES_DEPS,
     # Test modules (expose internal C++ functions for tests only)
     "_test_helpers": _TEST_DEPS,
     "_test_engine": _TEST_DEPS,
@@ -201,7 +204,7 @@ is_macos = platform.system() == "Darwin"
 if is_msvc:
     # MSVC-specific flags
     c_compile_args = ["/O2", "/W3"]
-    cpp_compile_args = ["/O2", "/W3", "/std:c++17"]
+    cpp_compile_args = ["/O2", "/W3", "/std:c++17", "/EHs-c-", "/GR-"]
     cpp_extra_link_args = []
     # Crucial for MSVC on ARM
     if platform.machine().startswith("ARM"):
@@ -209,7 +212,7 @@ if is_msvc:
         cpp_compile_args.append("/fp:precise")
 elif is_macos:
     c_compile_args = ["-g", "-O0", "-std=c99"]
-    cpp_compile_args = ["-O2", "-Wall", "-std=c++17"]
+    cpp_compile_args = ["-O3", "-Wall", "-std=c++17", "-fno-exceptions", "-fno-rtti"]
     cpp_extra_link_args = ["-stdlib=libc++"]
     os.environ["CC"] = "clang"
     os.environ["CXX"] = "clang++"
@@ -221,13 +224,13 @@ elif IS_EMSCRIPTEN:
     # "-Wl,-strip-all" is dropped: em++'s linker wrapper does not reliably
     # support arbitrary native-ld passthrough flags for stripping.
     c_compile_args = ["-std=c99"]
-    cpp_compile_args = ["-x", "c++", "-std=c++17", "-Wall"]
+    cpp_compile_args = ["-x", "c++", "-std=c++17", "-Wall", "-fno-exceptions", "-fno-rtti"]
     cpp_extra_link_args = []
 else:
     # GCC/Clang flags (also covers Android and iOS cross-builds, which use a
     # GNU-compatible clang toolchain via their respective NDK/Xcode setups)
     c_compile_args = ["-g", "-O0", "-std=c99"]
-    cpp_compile_args = ["-x", "c++", "-std=c++17", "-O2", "-Wall", "-g"]
+    cpp_compile_args = ["-x", "c++", "-std=c++17", "-O3", "-Wall", "-g", "-fno-exceptions", "-fno-rtti"]
     if DISABLE_STRIP:
         cpp_extra_link_args = []
     else:
@@ -351,7 +354,7 @@ if USE_LIMITED_API:
     class _bdist_wheel_abi3(bdist_wheel):
         def finalize_options(self):
             super().finalize_options()
-            self.py_limited_api = "cp311"
+            self.py_limited_api = "cp312"
 
     cmdclass["bdist_wheel"] = _bdist_wheel_abi3
 

@@ -1,6 +1,6 @@
 [project]
 name = "aio-pika"
-version = "10.1.0"
+version = "10.1.1"
 description = "Wrapper around the aiormq for asyncio and humans"
 requires-python = ">=3.11,<4"
 readme = "README.md"
@@ -41,6 +41,9 @@ dependencies = [
 [[project.authors]]
 name = "Dmitry Orlov"
 email = "me@mosquito.su"
+
+[project.entry-points.pyinstaller40]
+hook-dirs = "aio_pika:_py_installer_hook"
 
 [project.urls]
 Homepage = "https://github.com/mosquito/aio-pika"
@@ -106,6 +109,10 @@ files = [
     "docs/source/rabbitmq-tutorial/examples/5-topics",
     "docs/source/rabbitmq-tutorial/examples/6-rpc",
 ]
+
+[[tool.mypy.overrides]]
+module = ["PyInstaller.*"]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]

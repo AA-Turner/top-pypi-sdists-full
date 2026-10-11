@@ -67,14 +67,14 @@ def picklist_placeholder(var_name: str) -> str:
 
 
 def neutralize_terminal(text: str) -> str:
-    """Make a resolved description a terminal literal: defang ``{{`` and ``<<MATRX`` so it
-    can NOT be re-expanded by a later ``replace_variables`` pass or by ``resolve_matrx_patterns``
-    (which ``SystemInstruction.__str__`` runs on every render)."""
+    """Make a resolved description a terminal literal: defang ``<<MATRX`` so it can NOT be
+    re-expanded by ``resolve_matrx_patterns`` (which ``SystemInstruction.__str__`` runs on
+    every render). Braces are left exactly as written (config/template_substitution.py)."""
     if not text:
         return text
-    # Zero-width space breaks the literal trigger sequences while staying visually identical.
+    # Zero-width space breaks the literal trigger sequence while staying visually identical.
     zwsp = "​"
-    return text.replace("{{", "{" + zwsp + "{").replace("<<MATRX", "<" + zwsp + "<MATRX")
+    return text.replace("<<MATRX", "<" + zwsp + "<MATRX")
 
 
 # ── Per-request wire swaps (NEVER persisted) ─────────────────────────────────────────────

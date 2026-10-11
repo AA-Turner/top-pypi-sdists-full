@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -14,7 +14,7 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype.claw._importlib.clawimpmain import remove_beartype_pathhook
+from beartype.claw._importlib.clawimpmain import remove_beartype_path_hook
 from beartype.roar import BeartypeClawHookException
 from beartype.typing import (
     TYPE_CHECKING,
@@ -803,4 +803,4 @@ def remove_beartype_pathhook_unless_packages_trie() -> None:
     # If all previously registered packages have been unregistered, safely
     # remove our import path hook from the "sys.path_hooks" list.
     if not is_packages_trie():
-        remove_beartype_pathhook()
+        remove_beartype_path_hook()

@@ -227,6 +227,15 @@ class FFT:
     def execute_ci16(self, iq: NDArray[np.int16]) -> NDArray[np.complex64]:
         """Out-of-place 1-D FFT directly on interleaved int16 I/Q (CF32 out). The int16->float convert (v/32768, full-scale +/-1.0) is fused into the transform, so it is faster than i16_to_f32 then execute_cf32.
 
+        Raises
+        ------
+        ValueError
+            If ``iq`` does not hold exactly ``2 * FFT.n`` values, two to a
+            complex sample; an odd count is not whole I/Q pairs and is
+            refused too (#1933). The message names the length it got,
+            ``execute_ci16 takes exactly one frame: 2 * FFT.n = <2n>
+            interleaved I/Q values, got <len>``.
+
         Examples
         --------
         >>> import numpy as np
@@ -240,6 +249,15 @@ class FFT:
 
     def execute_ci8(self, iq: NDArray[np.int8]) -> NDArray[np.complex64]:
         """Out-of-place 1-D FFT directly on interleaved int8 I/Q (CF32 out). As execute_ci16 but int8 input (v/128, full-scale +/-1.0).
+
+        Raises
+        ------
+        ValueError
+            If ``iq`` does not hold exactly ``2 * FFT.n`` values, two to a
+            complex sample; an odd count is not whole I/Q pairs and is
+            refused too (#1933). The message names the length it got,
+            ``execute_ci8 takes exactly one frame: 2 * FFT.n = <2n>
+            interleaved I/Q values, got <len>``.
 
         Examples
         --------
@@ -1183,10 +1201,10 @@ class CorrDetector:
         nthreads: int = 1,
     ) -> None: ...
     def reset(self) -> None:
-        """Reset the correlator, ring buffer, and last-corr flag. Discards any
-        partial frame buffered in the ring and zeroes the coherent accumulator.
-        Equivalent to starting fresh from the same reference without rebuilding
-        any internal object.
+        """Reset the correlator, the carry, and last-corr flag. Discards any
+        partial frame carried between pushes and zeroes the coherent
+        accumulator. Equivalent to starting fresh from the same reference
+        without rebuilding any internal object.
 
         Examples
         --------
@@ -1204,12 +1222,22 @@ class CorrDetector:
 
     def push(self, x: complex) -> list[tuple[int, float, float, float]]:
         """Stream an arbitrary-length CF32 chunk through the detector pipeline.
-        Writes samples into the ring buffer, drains complete n-sample frames
-        through the correlator, and on every int-dump computes the test
-        statistic peak_mag / noise_est. Detections that pass the threshold are
-        appended to the Python return list as (lag, peak_mag, noise_est,
-        test_stat) tuples. In Python the result is always a list, even when
-        empty.
+        Takes the input in order, runs each complete n-sample frame through the
+        correlator, and on every int-dump computes the test statistic peak_mag
+        / noise_est. Detections that pass the threshold are appended to the
+        Python return list as (lag, peak_mag, noise_est, test_stat) tuples. In
+        Python the result is always a list, even when empty.
+
+        Python's push() has room for 1024 detections a call, so a push that
+        completes at most 1024 frames, counting the carry, loses nothing. One
+        that fills the room loses the rest of its input, every later frame
+        whether or not it would have made a detection, unless the rest is
+        shorter than a frame: that is kept as the carry. The next push stays on
+        the frame grid only when what was lost is a whole number of frames;
+        otherwise its lags are off by the remainder. Before v0.66 the room was
+        64, and a push past it kept up to ring_cap/n - 1 of those frames for
+        the next call and dropped the rest. #1992 and
+        just-buildit/just-makeit#2184 track sizing the list to the call.
 
         Parameters
         ----------
@@ -1323,10 +1351,11 @@ class CorrDetector:
     @property
     def last_corr(self) -> NDArray[np.complex64]:
         """The correlation vector from the most recent push() that produced a
-        result (None before that). This is a zero-copy view into a buffer owned
-        by the detector and reused every push() -- the next push() (even one
-        that doesn't produce a result) overwrites it in place. Copy the array
-        before the next push() if you need to retain it.
+        result (None before that, and after reset() or set_state(): the vector
+        is not part of the serialized state). This is a zero-copy view into a
+        buffer owned by the detector and reused every push() -- the next push()
+        (even one that doesn't produce a result) overwrites it in place. Copy
+        the array before the next push() if you need to retain it.
         """
 
     def destroy(self) -> None:
@@ -1379,10 +1408,10 @@ class CorrDetector:
 class CorrDetector2D:
     """Allocate a 2-D streaming signal detector backed by a 2-D correlator.
     Two-dimensional extension of dp_detector_create(). Input frames are flat
-    row-major CF32 arrays of length ny*nx streamed through a ring buffer. On
-    every int-dump the peak flat index is decomposed into (row, col) and a
-    det_result2d_t is emitted when test_stat > threshold. The Python wrapper
-    accepts a (ny, nx) CF32 ndarray for both ref and the push input.
+    row-major CF32 arrays of length ny*nx, cut from the stream by the ring's
+    framer. On every int-dump the peak flat index is decomposed into (row, col)
+    and a det_result2d_t is emitted when test_stat > threshold. The Python
+    wrapper accepts a (ny, nx) CF32 ndarray for both ref and the push input.
 
     Parameters
     ----------
@@ -1426,8 +1455,8 @@ class CorrDetector2D:
         nthreads: int = 1,
     ) -> None: ...
     def reset(self) -> None:
-        """Reset the 2-D correlator, ring buffer, and last-corr flag. Discards
-        any partial frame buffered in the ring and zeroes the coherent
+        """Reset the 2-D correlator, the carry, and last-corr flag. Discards
+        any partial frame carried between pushes and zeroes the coherent
         accumulator. The reference spectrum and FFT plans are preserved.
 
         Examples
@@ -1445,11 +1474,23 @@ class CorrDetector2D:
         """
 
     def push(self, x: complex) -> list[tuple[int, int, float, float, float]]:
-        """Stream an arbitrary-length CF32 chunk through the 2-D detector.
-        Identical to dp_detector_push() except frames are ny*nx complex samples
-        and each detection event carries (row, col) for the peak location
-        instead of a single lag index. In Python the result is always a list of
-        (row, col, peak_mag, noise_est, test_stat) tuples.
+        """Stream an arbitrary-length CF32 chunk through the 2-D detector. The
+        same pipeline as dp_detector_push(), except that frames are ny*nx
+        complex samples and each detection event carries (row, col) for the
+        peak location instead of a single lag index. In Python the result is
+        always a list of (row, col, peak_mag, noise_est, test_stat) tuples.
+
+        Python's push() has room for 1024 detections a call, so a push that
+        completes at most 1024 frames, counting the carry, loses nothing. One
+        that fills the room loses the rest of its input, every later frame
+        whether or not it would have made a detection, unless the rest is
+        shorter than a frame: that is kept as the carry. The next push stays on
+        the frame grid, its peaks at their own (row, col), only when what was
+        lost is a whole number of frames; otherwise they are off by the
+        remainder. Before v0.66 the room was 64, and a push past it kept up to
+        ring_cap/n - 1 of those frames for the next call and dropped the rest.
+        #1992 and just-buildit/just-makeit#2184 track sizing the list to the
+        call.
 
         Parameters
         ----------
@@ -1573,10 +1614,11 @@ class CorrDetector2D:
     @property
     def last_corr(self) -> NDArray[np.complex64]:
         """The correlation vector from the most recent push() that produced a
-        result (None before that). This is a zero-copy view into a buffer owned
-        by the detector and reused every push() -- the next push() (even one
-        that doesn't produce a result) overwrites it in place. Copy the array
-        before the next push() if you need to retain it.
+        result (None before that, and after reset() or set_state(): the vector
+        is not part of the serialized state). This is a zero-copy view into a
+        buffer owned by the detector and reused every push() -- the next push()
+        (even one that doesn't produce a result) overwrites it in place. Copy
+        the array before the next push() if you need to retain it.
         """
 
     def destroy(self) -> None:
@@ -1634,24 +1676,38 @@ class PSD:
     n : int, default 1024
         Window / frame length in samples. Must be >= 2.
     fs : float, default 1.0
-        Sample rate in Hz (used for dB/Hz and band frequencies).
+        Sample rate in Hz (used for dB/Hz and band frequencies); finite and >
+        0.
     window : Literal["hann", "kaiser", "blackman-harris", "rect"], default "hann"
         Window index: 0 = Hann, 1 = Kaiser, 2 = Blackman-Harris, 3 =
         rectangular (no taper: best resolution, worst leakage).
     beta : float, default 0.0
-        Kaiser beta (ignored for Hann/Blackman-Harris).
+        Kaiser beta (ignored by every other window). One that makes the window
+        non-finite -- NaN, or large enough to overflow it -- is refused.
     pad : int, default 1
-        Zero-pad factor (>= 1); nfft = next_pow_two(n * pad).
+        Zero-pad factor (>= 1; 0 is refused); nfft = next_pow_two(n * pad).
     full_scale : float, default 1.0
-        Amplitude that reads 0 dBFS in the dB getters (> 0). Ignored when bits
-        > 0.
+        Amplitude that reads 0 dBFS in the dB getters; finite and > 0. Ignored
+        when bits > 0.
     bits : int, default 0
         ADC depth: when > 0, sets full_scale = 2^(bits-1) (the single
-        definition of the dBFS reference); 0 = use full_scale directly.
+        definition of the dBFS reference); 0 = use full_scale directly. At most
+        64.
     mode : Literal["mean", "exp", "maxhold", "minhold"], default "mean"
         Averaging mode index (0=mean, 1=exp, 2=maxhold, 3=minhold).
     alpha : float, default 0.1
-        EMA smoothing factor (exp mode only).
+        EMA smoothing factor, exp mode only, where it must lie in (0, 1]: the
+        rule is the AccTrace averager's, whose create refuses anything else, so
+        this does too. Ignored, and so not checked, in the other modes.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``PSD: invalid
+        parameter (need n >= 2, pad >= 1 with n * pad within the largest FFT,
+        finite fs > 0, bits <= 64, a finite full_scale > 0 when bits = 0, a
+        window whose taps sum to a finite nonzero value (not hann at n = 2, nor
+        a NaN or overflowing kaiser beta), and in exp mode 0 < alpha <= 1)``.
 
     Examples
     --------
@@ -1732,12 +1788,12 @@ class PSD:
             an `out=` buffer with the matching `_max_out()` when you need the
             worst case.
         out : npt.NDArray[np.float32] | None
-            Destination, at least n float32 elements.
+            Destination, at least nfft float32 elements.
 
         Returns
         -------
         NDArray[np.float32]
-            min(n, max_out), or 0 if empty.
+            min(nfft, max_out), or 0 if empty.
         """
 
     def psd_db_max_out(self) -> int:
@@ -1786,7 +1842,7 @@ class PSD:
         """
 
     def psd_dbhz_max_out(self) -> int:
-        """Output capacity hint for psd_dbhz(); equals n.
+        """Output capacity hint for psd_dbhz(); equals nfft.
 
         Returns
         -------
@@ -1864,6 +1920,8 @@ class PSD:
         out: npt.NDArray[np.float32] | None = None,
     ) -> NDArray[np.float32]:
         """Integrated power per band in dB; bands = [lo0,hi0,lo1,hi1,...] Hz.
+        None when there is nothing to report: before any accumulate, or no
+        complete lo/hi pair.
 
         Parameters
         ----------
@@ -1875,7 +1933,8 @@ class PSD:
         Returns
         -------
         NDArray[np.float32]
-            min(n_bands, max_out), or 0 if empty.
+            The number of bands written, min(n_bands, max_out); 0 (Python None)
+            when there is nothing to report.
 
         Examples
         --------
@@ -1915,15 +1974,34 @@ class PSD:
     def occupied_bw(self, fraction: float) -> float:
         """Occupied bandwidth in Hz holding the given fraction of total power.
 
+        Calls obw_from_power on the averaged spectrum, so the search and its
+        domain are that function's and the two cannot disagree.
+
         Parameters
         ----------
         fraction : float
-            Power fraction in (0, 1], e.g. 0.99.
+            Power fraction in the OPEN interval (0, 1), e.g. 0.99. 1 is
+            excluded: all of the power in float is every bin that rounding
+            residue reached, which has no stable answer.
 
         Returns
         -------
         float
-            Occupied bandwidth in Hz (0 if empty or no power).
+            Occupied bandwidth in Hz (0 if empty or no power); NaN when
+            fraction is outside (0, 1), before any frame too, rather than a
+            silently clamped answer.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from doppler.spectral import PSD
+        >>> w = PSD(n=64, fs=64.0, window="rect")
+        >>> w.accumulate(np.ones(64, dtype=np.complex64))  # all power at DC
+        >>> w.occupied_bw(0.99)                            # one bin, fs / 64
+        1.0
+        >>> w.occupied_bw(1.0)                             # outside (0, 1)
+        nan
+
         """
 
     def noise_floor(self) -> float:
@@ -2351,7 +2429,42 @@ def obw_from_power(
     fs: float,
     frac: float,
 ) -> float:
-    """Obw from power."""
+    """Occupied bandwidth: the width of the central interval holding frac
+    of the total power, with (1 - frac)/2 excluded at each end.
+
+    A cumulative walk over a DC-centred linear-power spectrum; the span is
+    whole bins, inclusive, times fs / pwr_len. Any constant per-bin scale
+    cancels, so the power need not be referenced.
+
+    Parameters
+    ----------
+    pwr : npt.NDArray[np.float64]
+        Linear power, DC-centred, non-negative.
+    fs : float
+        Sample rate, Hz.
+    frac : float
+        Power fraction in the OPEN interval (0, 1), e.g. 0.99. 1 is
+        excluded: all of the power in floating point is every bin rounding
+        residue reached, which has no stable answer.
+
+    Returns
+    -------
+    float
+        Occupied bandwidth in Hz; 0 for no bins or no power; NaN when frac
+        is outside (0, 1), whatever the data.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from doppler.spectral import obw_from_power
+    >>> pwr = np.zeros(64)
+    >>> pwr[32] = 1.0                    # one bin holds all the power
+    >>> obw_from_power(pwr, 64.0, 0.99)  # one bin wide, fs / 64
+    1.0
+    >>> obw_from_power(pwr, 64.0, 1.0)   # outside (0, 1)
+    nan
+
+    """
 
 def noise_floor_db(db: npt.NDArray[np.float32]) -> float:
     """Noise floor db."""

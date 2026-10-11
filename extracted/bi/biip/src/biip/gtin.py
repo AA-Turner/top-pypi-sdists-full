@@ -50,14 +50,12 @@ using it to query the product catalog.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, assert_never
 
 from biip import EncodeError, ParseError
 from biip._config import ParseConfig
-from biip._typing import assert_never
 from biip.checksums import gs1_standard_check_digit
 from biip.gs1_prefixes import GS1CompanyPrefix, GS1Prefix, GS18Prefix
 
@@ -229,8 +227,9 @@ class Gtin:
             case GtinFormat.GTIN_14:
                 packaging_level = int(payload[0])
                 prefixed_value = payload[1:]
-            case _:  # pyright: ignore[reportUnnecessaryComparison]  # pragma: no cover
-                assert_never()  # coverage.py cannot detect that all cases are covered
+            case _:  # pragma: no cover
+                # coverage.py cannot detect that all cases are covered
+                assert_never(gtin_format)
 
         prefix: GS1Prefix | GS18Prefix | None
         company_prefix: GS1CompanyPrefix | None
@@ -241,10 +240,11 @@ class Gtin:
             case GtinFormat.GTIN_12 | GtinFormat.GTIN_13 | GtinFormat.GTIN_14:
                 prefix = GS1Prefix.extract(prefixed_value)
                 company_prefix = GS1CompanyPrefix.extract(prefixed_value)
-            case _:  # pyright: ignore[reportUnnecessaryComparison]  # pragma: no cover
-                assert_never()  # coverage.py cannot detect that all cases are covered
+            case _:  # pragma: no cover
+                # coverage.py cannot detect that all cases are covered
+                assert_never(gtin_format)
 
-        from biip.rcn import Rcn, RcnUsage
+        from biip.rcn import Rcn, RcnUsage  # noqa: PLC0415
 
         rcn_usage = (
             RcnUsage._from_prefix(prefix)  # noqa: SLF001
@@ -268,8 +268,9 @@ class Gtin:
                     if company_prefix
                     else None
                 )
-            case _:  # pyright: ignore[reportUnnecessaryComparison]  # pragma: no cover
-                assert_never()  # coverage.py cannot detect that all cases are covered
+            case _:  # pragma: no cover
+                # coverage.py cannot detect that all cases are covered
+                assert_never(gtin_format)
 
         if rcn_usage:
             result = Rcn(

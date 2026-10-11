@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: btclib-secp256k1
-Version: 0.8.0.10
+Version: 0.8.0.11
 Summary: Simple python bindings to libsecp256k1
 Project-URL: homepage, https://btclib-secp256k1.readthedocs.io
 Project-URL: documentation, https://btclib-secp256k1.readthedocs.io

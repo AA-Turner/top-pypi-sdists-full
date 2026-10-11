@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import copy as pycopy
 import weakref
+from collections.abc import Callable
 from pathlib import Path
 from tempfile import gettempdir
 
@@ -43,17 +44,25 @@ def test_model_solver_dir() -> None:
     assert m.solver_dir == Path(d)
 
 
-def test_model_config_defaults() -> None:
-    m = Model(freeze_constraints=True, set_names_in_solver_io=False)
-    assert m.freeze_constraints is True
+SPARSE_CONFIG = pytest.mark.parametrize(
+    "sparse", [False, pytest.param(True, marks=pytest.mark.v1)]
+)
+
+
+@SPARSE_CONFIG
+def test_model_config_defaults(sparse: bool) -> None:
+    m = Model(sparse=sparse, set_names_in_solver_io=False)
+    assert m.sparse is sparse
+    assert m.freeze_constraints is sparse
     assert m.set_names_in_solver_io is False
 
 
-def test_model_copy_preserves_config() -> None:
-    m = Model(freeze_constraints=True, set_names_in_solver_io=False)
-    copied = m.copy()
-    assert copied.freeze_constraints is True
-    assert copied.set_names_in_solver_io is False
+@SPARSE_CONFIG
+def test_model_copy_preserves_config(sparse: bool) -> None:
+    copied = Model(sparse=sparse, set_names_in_solver_io=True).copy()
+    assert copied.sparse is sparse
+    assert copied.freeze_constraints is sparse
+    assert copied.set_names_in_solver_io is True
 
 
 def test_model_is_weakrefable() -> None:
@@ -167,7 +176,7 @@ def test_remove_masked_variable_keeps_unrelated_constraints(
     freeze: bool, quadratic: bool
 ) -> None:
     # https://github.com/PyPSA/linopy/issues/883
-    m: Model = Model(freeze_constraints=freeze)
+    m: Model = Model()
 
     i = pd.Index(range(3), name="i")
     mask = [True, False, True]
@@ -177,10 +186,12 @@ def test_remove_masked_variable_keeps_unrelated_constraints(
 
     # `b` is masked, so the constraint carries empty term slots (-1), but it
     # never references `a`
-    without_a = m.add_constraints(b.sum() + c, EQUAL, 0, name="without_a")
+    without_a = m.add_constraints(
+        b.sum() + c, EQUAL, 0, name="without_a", freeze=freeze
+    )
     assert not without_a.has_variable(a)
 
-    with_a = m.add_constraints(a.sum() + c, EQUAL, 0, name="with_a")
+    with_a = m.add_constraints(a.sum() + c, EQUAL, 0, name="with_a", freeze=freeze)
     assert with_a.has_variable(a)
 
     if quadratic:
@@ -392,6 +403,26 @@ def test_copy_model_with_expressions(
     original_coeff = m.expressions["lin"].coeffs.values.flat[0].item()
     deep.expressions["lin"].coeffs.values.flat[0] = original_coeff + 42
     assert m.expressions["lin"].coeffs.values.flat[0] == original_coeff
+
+
+@pytest.mark.parametrize(
+    "copy_fn",
+    [lambda m: m.copy(), pycopy.copy, pycopy.deepcopy],
+    ids=["copy", "shallowcopy", "deepcopy"],
+)
+def test_model_copy_preserves_quadratic_objective(
+    copy_fn: Callable[[Model], Model],
+) -> None:
+    """Copying a model keeps its objective quadratic instead of linearizing it."""
+    m: Model = Model()
+    x = m.add_variables(lower=-5, upper=5, name="x")
+    m.add_objective(x * x + 2 * x)
+
+    c = copy_fn(m)
+
+    assert type(c.objective.expression) is type(m.objective.expression)
+    assert c.type == m.type == "QP"
+    assert_model_equal(m, c)
 
 
 @pytest.mark.skipif(not available_solvers, reason="No solver installed")

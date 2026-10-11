@@ -1,3 +1,5 @@
+"""Result set that reads Athena query results into pandas DataFrames."""
+
 from __future__ import annotations
 
 import csv
@@ -6,7 +8,7 @@ from collections import abc
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import ExitStack
 from functools import partial
-from io import BufferedReader, StringIO, TextIOWrapper
+from io import BufferedReader, BytesIO, IOBase, StringIO, TextIOWrapper
 from multiprocessing import cpu_count
 from typing import (
     TYPE_CHECKING,
@@ -22,10 +24,10 @@ from pyathena.error import ProgrammingError
 from pyathena.model import AthenaQueryExecution
 from pyathena.pandas.reader import _BINARY_NULL, BinaryCSVReader
 from pyathena.result_set import AthenaResultSet
-from pyathena.util import RetryConfig, parse_output_location
+from pyathena.util import RetryConfig, override, parse_output_location
 
 if TYPE_CHECKING:
-    from pandas import DataFrame
+    from pandas import DataFrame, Index, Series
     from pandas.io.parsers import TextFileReader
 
     from pyathena.connection import Connection
@@ -39,6 +41,213 @@ def _convert_binary_csv(converter: Callable[[str | None], Any], value: str) -> A
 
 def _no_trunc_date(df: DataFrame) -> DataFrame:
     return df
+
+
+def _read_csv_with_pyarrow(source: str | IOBase, read_csv_kwargs: dict[str, Any]) -> DataFrame:
+    """Read a CSV result with pyarrow as ``pandas.read_csv(engine="pyarrow")`` does.
+
+    pandas' PyArrow engine does not set ``newlines_in_values``, so pyarrow
+    raises or returns wrong values when a quoted value containing a newline
+    crosses one of its read blocks. This reads the file with that option and
+    converts the table as pandas does for the options that
+    ``AthenaPandasResultSet._reads_csv_with_pyarrow()`` accepts: NULL-typed
+    columns become float64, integer columns without a ``dtype`` entry get
+    NumPy integer types, the ``dtype`` mapping is applied before and after the
+    ``parse_dates`` columns are parsed with ``pandas.to_datetime()``, and
+    without ``future.infer_string``, strings become objects.
+
+    Unlike pandas' PyArrow engine, columns with a string dtype are read as text,
+    except in a header-less file, and a NumPy str dtype keeps missing values
+    missing, as with pandas' C engine.
+
+    Args:
+        source: The result file.
+        read_csv_kwargs: The pandas.read_csv() options built by
+            ``AthenaPandasResultSet._get_csv_read_options()``.
+
+    Returns:
+        The result as a DataFrame.
+    """
+    import pandas as pd
+    import pyarrow as pa
+    from pyarrow import csv as pyarrow_csv
+
+    header = read_csv_kwargs["header"]
+    names = read_csv_kwargs["names"]
+    null_values = list(read_csv_kwargs["na_values"])
+    string_columns = set()
+    for column, value in read_csv_kwargs["dtype"].items():
+        try:
+            column_dtype = pd.api.types.pandas_dtype(value)
+        except (TypeError, ValueError, NotImplementedError):
+            # pandas validates only the entries of columns in the result.
+            continue
+        if isinstance(column_dtype, pd.StringDtype) or column_dtype.kind == "U":
+            string_columns.add(column)
+    # Columns with a string dtype keep their text instead of the type pyarrow infers,
+    # so "007" stays "007" as with pandas' C engine. The fields of a header-less file
+    # get their names only after reading, as pandas gives the names to the last
+    # fields, so they keep the inferred types. pandas ignores dtype keys that are not
+    # column names, such as positions.
+    column_types = (
+        {}
+        if header is None
+        else {column: pa.string() for column in string_columns if isinstance(column, str)}
+    )
+    table = pyarrow_csv.read_csv(
+        source,
+        read_options=pyarrow_csv.ReadOptions(autogenerate_column_names=header is None),
+        parse_options=pyarrow_csv.ParseOptions(
+            delimiter=read_csv_kwargs["sep"],
+            ignore_empty_lines=read_csv_kwargs["skip_blank_lines"],
+            newlines_in_values=True,
+        ),
+        convert_options=pyarrow_csv.ConvertOptions(
+            column_types=column_types,
+            null_values=null_values,
+            strings_can_be_null="" in null_values,
+        ),
+    )
+    schema = table.schema
+    for index, type_ in enumerate(schema.types):
+        if pa.types.is_null(type_):
+            schema = schema.set(index, schema.field(index).with_type(pa.float64()))
+    integer_dtypes = {
+        pa.int8(): pd.Int8Dtype(),
+        pa.int16(): pd.Int16Dtype(),
+        pa.int32(): pd.Int32Dtype(),
+        pa.int64(): pd.Int64Dtype(),
+    }
+    # Integers become nullable dtypes first so that a dtype entry converts them
+    # without going through float64.
+    df = table.cast(schema).to_pandas(types_mapper=integer_dtypes.get)
+    if header is None:
+        # pandas names the columns beyond the given names by their positions.
+        df.columns = [str(index) for index in range(len(df.columns) - len(names))] + names
+    dtype = dict(read_csv_kwargs["dtype"])
+    for column in df.columns:
+        # Integer columns without a dtype entry get NumPy integer types.
+        if column not in dtype and df[column].dtype in integer_dtypes.values():
+            dtype[column] = df[column].dtype.numpy_dtype
+    dtype = {
+        column: pd.api.types.pandas_dtype(value)
+        for column, value in dtype.items()
+        if column in df.columns
+    }
+    # astype() with a NumPy str dtype, which str means without future.infer_string,
+    # turns missing values into strings such as "nan", so these columns are
+    # converted after the dates instead.
+    numpy_string_columns = {
+        column
+        for column, value in dtype.items()
+        if not isinstance(value, pd.api.extensions.ExtensionDtype) and value.kind == "U"
+    }
+    dtype = {column: value for column, value in dtype.items() if column not in numpy_string_columns}
+    df = df.astype(dtype)
+    if not pd.get_option("future.infer_string"):
+        # Without the string dtype, pandas returns strings, and the string
+        # categories of categorical columns, as objects.
+        for index in range(len(df.columns)):
+            values = df.iloc[:, index]
+            if values.dtype == "str":
+                df.isetitem(index, values.astype(object).fillna(None))
+            elif isinstance(values.dtype, pd.CategoricalDtype) and (
+                values.dtype.categories.dtype == "str"
+            ):
+                categories = values.dtype.categories.astype(object)
+                df.isetitem(
+                    index,
+                    values.astype(pd.CategoricalDtype(categories, ordered=values.dtype.ordered)),
+                )
+    for column in read_csv_kwargs["parse_dates"]:
+        if isinstance(column, int) and column not in df.columns:
+            column = df.columns[column]
+        if df[column].dtype.kind in "Mm":
+            continue
+        values = df[column].astype("string")
+        try:
+            df[column] = pd.to_datetime(values, utc=False)
+        except (ValueError, TypeError):
+            # pandas keeps the column as strings if it cannot parse it.
+            df[column] = values.to_numpy(dtype=object, na_value=float("nan"))
+    # pandas applies the dtype mapping again after parsing dates.
+    df = df.astype(dtype)
+    for index, column in enumerate(df.columns):
+        if column in numpy_string_columns:
+            # Object strings with missing values kept, as pandas' C engine returns.
+            values = df.iloc[:, index]
+            strings = values.astype(str).astype(object)
+            df.isetitem(index, strings.where(values.notna(), float("nan")))
+    return df
+
+
+class _JSONConverter:
+    """A json converter for ``pandas.read_csv()`` that keeps NULL from making values floats.
+
+    pandas infers a dtype from the values that a converter returns, so JSON numbers
+    with NULL become float64. This converter returns ``NULL`` in place of None, which
+    keeps the column object, and ``restore()`` puts None back after reading.
+    """
+
+    NULL: ClassVar[object] = object()
+
+    __slots__ = ("_converter", "_has_null")
+
+    def __init__(self, converter: Callable[[str | None], Any]) -> None:
+        """Wrap a json conversion function.
+
+        Args:
+            converter: The conversion function, which returns None for NULL.
+        """
+        self._converter = converter
+        self._has_null = False
+
+    def __call__(self, value: str | None) -> Any:
+        """Convert a CSV value.
+
+        Args:
+            value: The value as text.
+
+        Returns:
+            The converted value, or ``NULL`` in place of None.
+        """
+        converted = self._converter(value)
+        if converted is None:
+            self._has_null = True
+            return self.NULL
+        return converted
+
+    def restore(self, df: DataFrame, name: Any) -> None:
+        """Put None back in place of ``NULL`` in a DataFrame that ``read_csv()`` returned.
+
+        Only does anything if this converter returned ``NULL`` since the last call,
+        so call it for each DataFrame or chunk right after reading it.
+
+        Args:
+            df: The DataFrame or chunk.
+            name: The name of the column that this converter converted, which can
+                also be an index level.
+        """
+        if not self._has_null:
+            return
+        self._has_null = False
+
+        import pandas as pd
+
+        index = df.index
+        if name in df.columns:
+            df[name] = pd.Series(self._restore_values(df[name]), index=index, dtype=object)
+        elif isinstance(index, pd.MultiIndex) and name in index.names:
+            levels = [index.get_level_values(i) for i in range(index.nlevels)]
+            i = index.names.index(name)
+            levels[i] = pd.Index(self._restore_values(levels[i]), dtype=object, name=name)
+            df.index = pd.MultiIndex.from_arrays(levels, names=index.names)
+        elif index.name == name:
+            df.index = pd.Index(self._restore_values(index), dtype=object, name=name)
+
+    @classmethod
+    def _restore_values(cls, values: Series | Index) -> list[Any]:
+        return [None if v is cls.NULL else v for v in values.to_numpy()]
 
 
 class PandasDataFrameIterator(abc.Iterator):  # type: ignore[type-arg]
@@ -70,13 +279,13 @@ class PandasDataFrameIterator(abc.Iterator):  # type: ignore[type-arg]
         self,
         reader: TextFileReader | DataFrame,
         trunc_date: Callable[[DataFrame], DataFrame],
-        csv_stream: TextIOWrapper | None = None,
+        csv_stream: IOBase | None = None,
     ) -> None:
         """Initialize the iterator.
 
         Args:
             reader: Either a TextFileReader (for chunked) or a single DataFrame.
-            trunc_date: Function to apply date truncation to each chunk.
+            trunc_date: Function to apply to each chunk, such as date truncation.
             csv_stream: Optional CSV stream owned and closed by this iterator.
         """
         from pandas import DataFrame
@@ -88,6 +297,7 @@ class PandasDataFrameIterator(abc.Iterator):  # type: ignore[type-arg]
         self._trunc_date = trunc_date
         self._csv_stream = csv_stream
 
+    @override
     def __next__(self) -> DataFrame:
         """Get the next DataFrame chunk.
 
@@ -104,6 +314,7 @@ class PandasDataFrameIterator(abc.Iterator):  # type: ignore[type-arg]
             self.close()
             raise
 
+    @override
     def __iter__(self) -> PandasDataFrameIterator:
         """Return self as iterator."""
         return self
@@ -153,14 +364,14 @@ class PandasDataFrameIterator(abc.Iterator):  # type: ignore[type-arg]
             size: Number of rows to retrieve. If None, returns entire chunk.
 
         Returns:
-            DataFrame chunk.
+            DataFrame chunk, with date truncation applied as in iteration.
         """
         from pandas.io.parsers import TextFileReader
 
         try:
             if isinstance(self._reader, TextFileReader):
-                return self._reader.get_chunk(size)
-            return next(self._reader)
+                return self._trunc_date(self._reader.get_chunk(size))
+            return self._trunc_date(next(self._reader))
         except BaseException:
             self.close()
             raise
@@ -207,11 +418,11 @@ class AthenaPandasResultSet(AthenaResultSet):
 
     This result set handles CSV and Parquet result files from S3, converting them to
     pandas DataFrames with configurable chunking for memory-efficient processing.
-    It automatically optimizes chunk sizes based on file size and provides iterative
-    processing capabilities for large datasets.
+    With ``auto_optimize_chunksize=True``, it chooses a chunk size based on file
+    size, and it provides iterative processing capabilities for large datasets.
 
     Features:
-        - Automatic chunk size optimization based on file size
+        - Optional chunk size optimization based on file size
         - Support for both CSV and Parquet result formats
         - Memory-efficient iterative processing
         - Automatic date/time parsing for pandas compatibility
@@ -228,10 +439,12 @@ class AthenaPandasResultSet(AthenaResultSet):
         >>> cursor.execute("SELECT * FROM large_table")
         >>>
         >>> # Get full DataFrame
-        >>> df = cursor.fetchall()
+        >>> df = cursor.as_pandas()
         >>>
         >>> # Or iterate through chunks for memory efficiency
-        >>> for chunk_df in cursor:
+        >>> cursor = connection.cursor(PandasCursor, chunksize=50_000)
+        >>> cursor.execute("SELECT * FROM large_table")
+        >>> for chunk_df in cursor.iter_chunks():
         ...     process_chunk(chunk_df)
 
     Note:
@@ -251,10 +464,36 @@ class AthenaPandasResultSet(AthenaResultSet):
     _PARSE_DATES: ClassVar[list[str]] = [
         "date",
         "time",
-        "time with time zone",
         "timestamp",
-        "timestamp with time zone",
     ]
+    # The pandas.read_csv() options given to execute() that _read_csv_with_pyarrow() reads.
+    _PYARROW_READ_CSV_OPTIONS: ClassVar[frozenset[str]] = frozenset({"dtype", "parse_dates"})
+    # The pandas.read_csv() options given to execute() that do not change how pandas reads
+    # the header row, with which _read_csv_header_as_labels() replaces the header.
+    _LABELED_HEADER_READ_CSV_OPTIONS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "cache_dates",
+            "converters",
+            "date_format",
+            "dayfirst",
+            "decimal",
+            "dtype_backend",
+            "false_values",
+            "float_precision",
+            "index_col",
+            "keep_default_na",
+            "low_memory",
+            "na_filter",
+            "na_values",
+            "nrows",
+            "on_bad_lines",
+            "parse_dates",
+            "skipfooter",
+            "thousands",
+            "true_values",
+            "usecols",
+        }
+    )
 
     def __init__(
         self,
@@ -283,8 +522,11 @@ class AthenaPandasResultSet(AthenaResultSet):
             connection: Database connection instance.
             converter: Data type converter for Athena types to pandas types.
             query_execution: Query execution metadata from Athena.
-            arraysize: Number of rows to fetch in each batch (not used for pandas processing).
-            retry_config: Retry configuration for S3 operations.
+            arraysize: Default number of rows that ``fetchmany()`` returns.
+            retry_config: Retry configuration for the ``GetQueryResults`` calls and
+                for the HeadObject and GetObject calls this result set makes. Result
+                files are read through the connection's S3 filesystem, which uses the
+                connection's retry configuration.
             keep_default_na: pandas option for handling NA values.
             na_values: Additional values to recognize as NA.
             quoting: CSV quoting behavior.
@@ -298,9 +540,13 @@ class AthenaPandasResultSet(AthenaResultSet):
             max_workers: Maximum worker threads for parallel operations.
             auto_optimize_chunksize: Enable automatic chunksize determination
                                    for large files when chunksize is None.
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
             **kwargs: Additional arguments passed to pandas.read_csv/read_parquet.
+                A given ``storage_options``, even None, replaces PyAthena's S3 filesystem
+                for reading the result files, and so does ``filesystem`` for UNLOAD results.
+                The UNLOAD manifest is still read with the connection's S3 client, and the
+                schema with PyAthena's filesystem.
         """
         super().__init__(
             connection=connection,
@@ -325,26 +571,40 @@ class AthenaPandasResultSet(AthenaResultSet):
         self._auto_optimize_chunksize = auto_optimize_chunksize
         self._data_manifest: list[str] = []
         self._kwargs = kwargs
-        self._fs = self.__s3_file_system()
-        self._csv_stream: TextIOWrapper | None = None
+        self._fs = self._create_s3_file_system()
+        self._csv_stream: IOBase | None = None
+        # The converters that pandas.read_csv() applies, keyed by column name.
+        self._csv_converters: dict[Any, Callable[[str | None], Any]] = {}
 
-        # Cache time column names for efficient _trunc_date processing
+        # Cache time column names for efficient _trunc_date processing. _read_csv()
+        # replaces them with the labels of the columns that it reads.
         description = self.description if self.description else []
-        self._time_columns: list[str] = [
-            d[0] for d in description if d[1] in ("time", "time with time zone")
-        ]
+        self._time_columns: list[Any] = [d[0] for d in description if d[1] == "time"]
 
-        if self.state == AthenaQueryExecution.STATE_SUCCEEDED and self.output_location:
-            df = self._as_pandas()
-            trunc_date = _no_trunc_date if self.is_unload else self._trunc_date
-            self._df_iter = PandasDataFrameIterator(df, trunc_date, self._csv_stream)
-        elif self.state == AthenaQueryExecution.STATE_SUCCEEDED:
-            df = self._as_pandas_from_api()
-            self._df_iter = PandasDataFrameIterator(df, self._trunc_date)
+        import pandas as pd
+
+        # The whole result when it was not read in chunks.
+        self._df: DataFrame | None = None
+        if self.state == AthenaQueryExecution.STATE_SUCCEEDED:
+            if self.output_location:
+                result = self._as_pandas()
+                trunc_date = _no_trunc_date if self.is_unload else self._finish_csv_frame
+            else:
+                # Without a result file, as with managed query result storage, the rows
+                # from GetQueryResults are read as a CSV result file, but not in chunks.
+                result = self._read_csv()
+                trunc_date = self._finish_csv_frame
+            if isinstance(result, pd.DataFrame):
+                self._df = trunc_date(result)
+            else:
+                self._df_iter = PandasDataFrameIterator(result, trunc_date, self._csv_stream)
         else:
-            import pandas as pd
-
-            self._df_iter = PandasDataFrameIterator(pd.DataFrame(), _no_trunc_date)
+            self._df = pd.DataFrame()
+        if self._df is not None:
+            # A shallow copy keeps assignments to the DataFrame from as_pandas()
+            # out of the rows that the fetch methods return. Mutable values in its
+            # cells, such as lists from JSON columns, are still shared.
+            self._df_iter = PandasDataFrameIterator(self._df.copy(deep=False), _no_trunc_date)
         self._iterrows = self._df_iter.iterrows()
 
     def _get_parquet_engine(self) -> str:
@@ -388,6 +648,12 @@ class AthenaPandasResultSet(AthenaResultSet):
                 effective_chunksize is None
                 and self._quoting == 1
                 and not self.converters
+                # The pyarrow engine does not rename columns with the same name, and
+                # the column labels cannot be resolved for it (see
+                # _get_csv_column_labels()).
+                and not self._needs_csv_column_name_resolution(
+                    [d[0] for d in self.description or []]
+                )
                 and (file_size_bytes is None or file_size_bytes >= self.PYARROW_MIN_FILE_SIZE_BYTES)
             )
             if is_compatible:
@@ -417,7 +683,7 @@ class AthenaPandasResultSet(AthenaResultSet):
             try:
                 module = importlib.import_module(engine)
                 return module.__name__
-            except ImportError as e:  # noqa: PERF203
+            except ImportError as e:
                 error_msgs += f"\n - {e!s}"
 
         available_engines = ", ".join(f"'{e}'" for e in engine_candidates)
@@ -452,14 +718,22 @@ class AthenaPandasResultSet(AthenaResultSet):
             return self.AUTO_CHUNK_SIZE_MEDIUM
         return None
 
-    def __s3_file_system(self):
+    def _create_s3_file_system(self):
+        """Create PyAthena's ``S3FileSystem`` from the connection settings.
+
+        Returns:
+            The S3 filesystem for reading the query results.
+        """
         from pyathena.filesystem.s3 import S3FileSystem
 
+        # Not cached by fsspec so that the connection and the dircache are
+        # released with the result set.
         return S3FileSystem(
             connection=self.connection,
             default_block_size=self._block_size,
             default_cache_type=self._cache_type,
             max_workers=self._max_workers,
+            skip_instance_cache=True,
         )
 
     @property
@@ -481,6 +755,7 @@ class AthenaPandasResultSet(AthenaResultSet):
     def converters(
         self,
     ) -> dict[Any | None, Callable[[str | None], Any | None]]:
+        """The conversion functions for the result columns the converter maps, keyed by name."""
         description = self.description if self.description else []
         return {
             d[0]: self._converter.get(d[1]) for d in description if d[1] in self._converter.mappings
@@ -488,16 +763,71 @@ class AthenaPandasResultSet(AthenaResultSet):
 
     @property
     def parse_dates(self) -> list[Any | None]:
+        """The names of the result columns with date, time, or timestamp types."""
         description = self.description if self.description else []
         return [d[0] for d in description if d[1] in self._PARSE_DATES]
 
+    def _get_column_names(self) -> list[Any]:
+        """Get the names of the result columns in the DataFrame.
+
+        Columns with the same name are renamed as pandas renames them when it reads
+        the header of a CSV file, such as ``x`` and ``x.1``.
+
+        Returns:
+            List of column names.
+        """
+        import pandas as pd
+
+        description = self.description if self.description else []
+        names = [d[0] for d in description]
+        if len(set(names)) == len(names):
+            return names
+        return self._resolve_csv_column_names(names, {}, pd.read_csv)[0]
+
+    def _finish_csv_frame(self, df: DataFrame) -> DataFrame:
+        """Finish a DataFrame read from the CSV result file.
+
+        Puts None back in the json columns and truncates the time columns.
+
+        Args:
+            df: The DataFrame or chunk that ``pandas.read_csv()`` returned.
+
+        Returns:
+            The same DataFrame.
+        """
+        for name, converter in self._csv_converters.items():
+            if isinstance(converter, _JSONConverter):
+                converter.restore(df, name)
+        return self._trunc_date(df)
+
+    def _get_csv_converter(self, type_: str) -> Callable[[str | None], Any]:
+        """Get the converter that ``pandas.read_csv()`` applies to a column type.
+
+        json columns get a ``_JSONConverter``, so that NULL does not make pandas infer
+        a numeric dtype, and ``_finish_csv_frame()`` puts None back.
+
+        Args:
+            type_: The Athena type of the column.
+
+        Returns:
+            The conversion function.
+        """
+        converter = self._converter.get(type_)
+        if type_ == "json":
+            return _JSONConverter(converter)
+        return converter
+
     def _trunc_date(self, df: DataFrame) -> DataFrame:
         if self._time_columns:
-            truncated = df.loc[:, self._time_columns].apply(lambda r: r.dt.time)
+            # A NULL is None, as with the GetQueryResults fallback and the other types.
+            truncated = df.loc[:, self._time_columns].apply(
+                lambda r: r.dt.time.astype(object).where(r.notna(), None)
+            )
             for time_col in self._time_columns:
                 df.isetitem(df.columns.get_loc(time_col), truncated[time_col])
         return df
 
+    @override
     def fetchone(
         self,
     ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
@@ -507,41 +837,23 @@ class AthenaPandasResultSet(AthenaResultSet):
             return None
         else:
             self._rownumber = row[0] + 1
-            description = self.description if self.description else []
-            return tuple([row[1][d[0]] for d in description])
-
-    def fetchmany(
-        self, size: int | None = None
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        if not size or size <= 0:
-            size = self._arraysize
-        rows = []
-        for _ in range(size):
-            row = self.fetchone()
-            if row:
-                rows.append(row)
-            else:
-                break
-        return rows
-
-    def fetchall(
-        self,
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        rows = []
-        while True:
-            row = self.fetchone()
-            if row:
-                rows.append(row)
-            else:
-                break
-        return rows
+            # By position, so that columns with the same name keep their own values.
+            return tuple(row[1].values())
 
     def _read_csv(self) -> TextFileReader | DataFrame:
+        """Read the CSV result file, or the GetQueryResults rows as one without it.
+
+        The GetQueryResults rows are read as a whole, not in chunks.
+
+        Returns:
+            The DataFrame of the results, or a reader of their chunks.
+
+        Raises:
+            OperationalError: If reading the results fails.
+        """
         import pandas as pd
 
-        if not self.output_location:
-            raise ProgrammingError("OutputLocation is none or empty.")
-        if not self.output_location.endswith((".csv", ".txt")):
+        if self.output_location and not self.output_location.endswith((".csv", ".txt")):
             return pd.DataFrame()
         if self.substatement_type and self.substatement_type.upper() in (
             "UPDATE",
@@ -550,15 +862,22 @@ class AthenaPandasResultSet(AthenaResultSet):
             "VACUUM_TABLE",
         ):
             return pd.DataFrame()
-        length = self._get_content_length()
+        if self.output_location:
+            data = None
+            length = self._get_content_length()
+            location = self.output_location
+        else:
+            data = self._fetch_all_rows_as_csv()
+            length = len(data)
+            location = "the GetQueryResults rows"
         if length == 0:
             return pd.DataFrame()
 
         # Chunksize determination with user preference priority
-        effective_chunksize = self._chunksize
+        effective_chunksize = self._chunksize if data is None else None
 
         # Only auto-optimize if user hasn't specified chunksize AND auto_optimize is enabled
-        if effective_chunksize is None and self._auto_optimize_chunksize:
+        if effective_chunksize is None and self._auto_optimize_chunksize and data is None:
             effective_chunksize = self._auto_determine_chunksize(length)
             if effective_chunksize:
                 _logger.debug(
@@ -568,24 +887,57 @@ class AthenaPandasResultSet(AthenaResultSet):
 
         csv_engine = self._get_csv_engine(length, effective_chunksize)
         read_csv_kwargs = self._get_csv_read_options(csv_engine, effective_chunksize)
+        labels = self._get_csv_column_labels(csv_engine, read_csv_kwargs)
+        if labels is not None:
+            self._key_csv_columns_by_labels(read_csv_kwargs, labels)
 
         try:
             with ExitStack() as stack:
-                source: str | TextIOWrapper = self.output_location
-                binary_columns = self._configure_binary_csv_read(read_csv_kwargs, pd.read_csv)
-                if binary_columns:
-                    storage_options = read_csv_kwargs.pop("storage_options", None) or {}
-                    self._csv_stream = stack.enter_context(
+                source: str | IOBase = location
+                binary_columns = self._configure_binary_csv_read(read_csv_kwargs, labels)
+                if labels is not None:
+                    # After _configure_binary_csv_read(), which checks for the header row.
+                    self._read_csv_header_as_labels(read_csv_kwargs, csv_engine)
+                self._csv_converters = read_csv_kwargs.get("converters") or {}
+                if csv_engine == "c" and any(
+                    isinstance(converter, _JSONConverter)
+                    for converter in self._csv_converters.values()
+                ):
+                    # A NULL placeholder can give internal parser blocks different dtypes.
+                    read_csv_kwargs.setdefault("low_memory", False)
+                if data is not None:
+                    # The rows are in memory, with nothing to open with storage options.
+                    read_csv_kwargs.pop("storage_options", None)
+                    if binary_columns:
+                        source = self._csv_stream = stack.enter_context(
+                            self._open_binary_csv_stream(binary_columns, None, data)
+                        )
+                    else:
+                        source = BytesIO(data)
+                elif binary_columns:
+                    # Given storage_options, even None, open the file through fsspec
+                    # as pandas does.
+                    storage_options = None
+                    if "storage_options" in read_csv_kwargs:
+                        storage_options = read_csv_kwargs.pop("storage_options") or {}
+                    source = self._csv_stream = stack.enter_context(
                         self._open_binary_csv_stream(binary_columns, storage_options)
                     )
-                    source = self._csv_stream
-                result = pd.read_csv(source, **read_csv_kwargs)
+                elif "storage_options" not in read_csv_kwargs:
+                    # With storage_options, pandas opens the file through fsspec.
+                    source = self._csv_stream = stack.enter_context(
+                        self._fs.open(self.output_location, mode="rb")
+                    )
+                if csv_engine == "pyarrow" and self._reads_csv_with_pyarrow():
+                    result = _read_csv_with_pyarrow(source, read_csv_kwargs)
+                else:
+                    result = pd.read_csv(source, **read_csv_kwargs)
                 if not isinstance(result, pd.DataFrame):
                     # The chunk iterator takes ownership of the stream.
                     stack.pop_all()
 
             # Log performance information for large files
-            if length > self.LARGE_FILE_THRESHOLD_BYTES:
+            if data is None and length > self.LARGE_FILE_THRESHOLD_BYTES:
                 mode = "chunked" if effective_chunksize else "full"
                 chunksize = f" with chunksize={effective_chunksize}" if effective_chunksize else ""
                 _logger.info(
@@ -596,15 +948,34 @@ class AthenaPandasResultSet(AthenaResultSet):
             return result
 
         except Exception as e:
-            _logger.exception(f"Failed to read {self.output_location}.")
+            _logger.exception(f"Failed to read {location}.")
             raise OperationalError(*e.args) from e
+
+    def _reads_csv_with_pyarrow(self) -> bool:
+        """Whether ``_read_csv_with_pyarrow()`` reads the CSV result for the PyArrow engine.
+
+        It reproduces ``pandas.read_csv(engine="pyarrow")`` for PyAthena's default NA
+        values and for ``dtype`` as a mapping and ``parse_dates`` as a list given to
+        ``execute()``. With other options, pandas reads the file.
+
+        Returns:
+            True if ``_read_csv_with_pyarrow()`` reads the result.
+        """
+        return (
+            not self._keep_default_na
+            and isinstance(self._na_values, (list, tuple))
+            and list(self._na_values) == [""]
+            and self._kwargs.keys() <= self._PYARROW_READ_CSV_OPTIONS
+            and isinstance(self._kwargs.get("dtype", {}), dict)
+            and isinstance(self._kwargs.get("parse_dates", []), list)
+        )
 
     def _get_csv_read_options(self, csv_engine: str, chunksize: int | None) -> dict[str, Any]:
         """Build pandas options for Athena CSV or tab-separated results."""
         if self.output_location and self.output_location.endswith(".txt"):
             sep = "\t"
             header = None
-            names = [d[0] for d in self.description or []]
+            names = self._get_column_names()
         else:
             sep = ","
             header = 0
@@ -615,18 +986,16 @@ class AthenaPandasResultSet(AthenaResultSet):
             "header": header,
             "names": names,
             "dtype": self.dtypes,
-            "converters": self.converters,
+            "converters": {
+                d[0]: self._get_csv_converter(d[1])
+                for d in self.description or []
+                if d[1] in self._converter.mappings
+            },
             "parse_dates": self.parse_dates,
             "skip_blank_lines": False,
             "keep_default_na": self._keep_default_na,
             "na_values": self._na_values,
             "quoting": self._quoting,
-            "storage_options": {
-                "connection": self.connection,
-                "default_block_size": self._block_size,
-                "default_cache_type": self._cache_type,
-                "max_workers": self._max_workers,
-            },
             "chunksize": chunksize,
             "engine": csv_engine,
         }
@@ -681,18 +1050,30 @@ class AthenaPandasResultSet(AthenaResultSet):
             )
         return column_names, selected_names
 
-    def _can_preserve_binary_csv_nulls(self, read_csv_kwargs: dict[str, Any]) -> bool:
-        """Whether CSV settings support distinguishing binary NULL from empty values."""
+    def _is_standard_csv_parsing(self, read_csv_kwargs: dict[str, Any]) -> bool:
+        """Whether the options read a CSV result file as Athena writes it.
+
+        Args:
+            read_csv_kwargs: The options for ``pandas.read_csv()``.
+
+        Returns:
+            True if pandas reads the header and quoted fields of the file as written.
+        """
         return not (
-            "varbinary" not in self._converter.mappings
-            or "converters" in self._kwargs
-            or not self.output_location
-            or not self.output_location.endswith(".csv")
+            (self.output_location and not self.output_location.endswith(".csv"))
             or read_csv_kwargs.get("header") != 0
             or read_csv_kwargs.get("skiprows") is not None
             or read_csv_kwargs.get("dialect") is not None
             or read_csv_kwargs.get("quoting") == csv.QUOTE_NONE
             or read_csv_kwargs.get("quotechar", '"') != '"'
+        )
+
+    def _can_preserve_binary_csv_nulls(self, read_csv_kwargs: dict[str, Any]) -> bool:
+        """Whether CSV settings support distinguishing binary NULL from empty values."""
+        return (
+            "varbinary" in self._converter.mappings
+            and "converters" not in self._kwargs
+            and self._is_standard_csv_parsing(read_csv_kwargs)
         )
 
     def _needs_csv_column_name_resolution(self, column_names: list[Any]) -> bool:
@@ -714,54 +1095,163 @@ class AthenaPandasResultSet(AthenaResultSet):
             )
         )
 
+    def _get_csv_column_labels(
+        self, csv_engine: str, read_csv_kwargs: dict[str, Any]
+    ) -> list[Any] | None:
+        """Get the labels that pandas gives the result columns when it reads the CSV file.
+
+        Args:
+            csv_engine: The CSV engine that reads the file.
+            read_csv_kwargs: The options for ``pandas.read_csv()``.
+
+        Returns:
+            The label of each result column in the description order, with None for a
+            column that ``usecols`` leaves out. None if the options do not read the file
+            as Athena writes it, or if the labels do not match the result columns one
+            to one, such as with fewer ``names``.
+        """
+        import pandas as pd
+
+        # The pyarrow engine runs only when no labels need resolving (see
+        # _get_csv_engine()), and does not support reading only the header.
+        if csv_engine == "pyarrow" or not self._is_standard_csv_parsing(read_csv_kwargs):
+            return None
+        column_names = [d[0] for d in self.description or []]
+        if not self._needs_csv_column_name_resolution(column_names):
+            return column_names
+        labels, selected_labels = self._resolve_csv_column_names(
+            column_names, read_csv_kwargs, pd.read_csv
+        )
+        if len(labels) != len(column_names):
+            return None
+        return [label if label in selected_labels else None for label in labels]
+
+    def _key_csv_columns_by_labels(
+        self, read_csv_kwargs: dict[str, Any], labels: list[Any]
+    ) -> None:
+        """Key the column options of ``pandas.read_csv()`` by the labels of the columns.
+
+        Columns with the same name keep their own converters and date parsing, and
+        options that rename or select columns get the types of the columns they
+        read. The ``dtype``, ``converters``, and ``parse_dates`` given to
+        ``execute()`` are kept as they are.
+
+        Args:
+            read_csv_kwargs: The options for ``pandas.read_csv()``, updated in place.
+            labels: The labels from ``_get_csv_column_labels()``.
+        """
+        description = self.description or []
+        columns = [
+            (label, d) for label, d in zip(labels, description, strict=True) if label is not None
+        ]
+        if "dtype" not in self._kwargs:
+            read_csv_kwargs["dtype"] = {
+                label: dtype
+                for label, d in columns
+                if (dtype := self._converter.get_dtype(d[1], d[4], d[5])) is not None
+            }
+        if "converters" not in self._kwargs:
+            read_csv_kwargs["converters"] = {
+                label: self._get_csv_converter(d[1])
+                for label, d in columns
+                if d[1] in self._converter.mappings
+            }
+        if "parse_dates" not in self._kwargs:
+            read_csv_kwargs["parse_dates"] = [
+                label for label, d in columns if d[1] in self._PARSE_DATES
+            ]
+        self._time_columns = [label for label, d in columns if d[1] == "time"]
+
+    def _read_csv_header_as_labels(self, read_csv_kwargs: dict[str, Any], csv_engine: str) -> None:
+        """Read the header of the CSV result file as the labels of columns with the same name.
+
+        pandas gives a column that it renames, such as ``x.1``, the dtype of the first
+        column with the name when it has none of its own. When PyAthena builds the
+        dtypes, the columns are read under their labels, so that each keeps its own type.
+
+        Args:
+            read_csv_kwargs: The options for ``pandas.read_csv()``, updated in place.
+            csv_engine: The CSV engine that reads the file.
+        """
+        import pandas as pd
+
+        names = [d[0] for d in self.description or []]
+        if len(set(names)) == len(names):
+            return
+        if not self._kwargs.keys() <= self._LABELED_HEADER_READ_CSV_OPTIONS:
+            # Other options, such as dtype, names, sep, comment, or encoding, keep the
+            # header row as pandas reads it.
+            return
+        # pandas renames the names in a header row, and copies their dtypes, even with
+        # names given, so the header row is skipped instead.
+        read_csv_kwargs["names"] = self._resolve_csv_column_names(
+            names, read_csv_kwargs, pd.read_csv
+        )[0]
+        read_csv_kwargs["header"] = None
+        if csv_engine == "python":
+            # The python engine skips lines, which a name with a newline spans.
+            header = StringIO(newline="")
+            csv.writer(header, quoting=csv.QUOTE_ALL, lineterminator="").writerow(names)
+            read_csv_kwargs["skiprows"] = len(StringIO(header.getvalue(), newline="").readlines())
+        else:
+            # The C engine skips parsed rows.
+            read_csv_kwargs["skiprows"] = 1
+
     def _configure_binary_csv_read(
-        self, read_csv_kwargs: dict[str, Any], read_csv: Callable[..., DataFrame]
+        self, read_csv_kwargs: dict[str, Any], labels: list[Any] | None
     ) -> set[int]:
-        """Wrap binary converters and return column positions needing NULL preservation."""
-        if not self._can_preserve_binary_csv_nulls(read_csv_kwargs):
+        """Wrap binary converters and return column positions needing NULL preservation.
+
+        Args:
+            read_csv_kwargs: The options for ``pandas.read_csv()``, whose converters
+                are keyed by the column labels.
+            labels: The labels from ``_get_csv_column_labels()``.
+
+        Returns:
+            The positions of the binary columns whose NULL fields the stream preserves.
+        """
+        if labels is None or not self._can_preserve_binary_csv_nulls(read_csv_kwargs):
             return set()
 
         description = self.description or []
-        binary_columns = {i for i, d in enumerate(description) if d[1] == "varbinary"}
-        if not binary_columns:
-            return set()
-
-        column_names = [d[0] for d in description]
-        converters = read_csv_kwargs["converters"]
-        if self._needs_csv_column_name_resolution(column_names):
-            column_names, selected_names = self._resolve_csv_column_names(
-                column_names, read_csv_kwargs, read_csv
-            )
-            if len(column_names) != len(description):
-                return set()
-            converters = {
-                name: self._converter.get(d[1])
-                for name, d in zip(column_names, description, strict=True)
-                if d[1] in self._converter.mappings and name in selected_names
-            }
-            binary_columns = {i for i in binary_columns if column_names[i] in selected_names}
-
+        binary_columns = {
+            i for i, d in enumerate(description) if d[1] == "varbinary" and labels[i] is not None
+        }
         if binary_columns:
+            converters = read_csv_kwargs["converters"]
             for index in binary_columns:
-                name = column_names[index]
-                converters[name] = partial(_convert_binary_csv, converters[name])
-            read_csv_kwargs["converters"] = converters
+                label = labels[index]
+                converters[label] = partial(_convert_binary_csv, converters[label])
         return binary_columns
 
     def _open_binary_csv_stream(
-        self, binary_columns: set[int], storage_options: dict[str, Any]
+        self,
+        binary_columns: set[int],
+        storage_options: dict[str, Any] | None,
+        data: bytes | None = None,
     ) -> TextIOWrapper:
-        """Open a stream that preserves binary NULL fields and original CSV newlines."""
+        """Open a stream that preserves binary NULL fields and original CSV newlines.
+
+        Args:
+            binary_columns: Zero-based indexes of the binary columns.
+            storage_options: The options to open the result file with through fsspec,
+                or None to open it with PyAthena's filesystem.
+            data: The CSV text to read in place of the result file.
+
+        Returns:
+            The text stream for ``pandas.read_csv()``.
+        """
+        text_options: dict[str, Any] = {"mode": "rt", "encoding": "utf-8", "newline": ""}
         with ExitStack() as stack:
-            source = stack.enter_context(
-                filesystem_open(
-                    self.output_location,
-                    mode="rt",
-                    encoding="utf-8",
-                    newline="",
-                    **storage_options,
+            source: IOBase
+            if data is not None:
+                source = StringIO(data.decode("utf-8"), newline="")
+            elif storage_options is None:
+                source = stack.enter_context(self._fs.open(self.output_location, **text_options))
+            else:
+                source = stack.enter_context(
+                    filesystem_open(self.output_location, **text_options, **storage_options)
                 )
-            )
             reader = stack.enter_context(BinaryCSVReader(source, binary_columns))
             buffer = stack.enter_context(BufferedReader(reader))
             stream = TextIOWrapper(buffer, encoding="utf-8", newline="")
@@ -778,26 +1268,22 @@ class AthenaPandasResultSet(AthenaResultSet):
             self._unload_location = "/".join(self._data_manifest[0].split("/")[:-1]) + "/"
 
         if engine == "pyarrow":
-            unload_location = self._unload_location
-            kwargs = {
-                "use_threads": True,
-            }
+            kwargs: dict[str, Any] = {"use_threads": True, **self._kwargs}
+            # Given storage_options, even None, pandas opens the files itself,
+            # as for CSV results.
+            if "filesystem" not in kwargs and "storage_options" not in kwargs:
+                kwargs["filesystem"] = self._fs
+            if kwargs.get("filesystem") is None:
+                unload_location = self._unload_location
+            else:
+                # pyarrow takes the path without the scheme with a filesystem.
+                bucket, key = parse_output_location(self._unload_location)
+                unload_location = f"{bucket}/{key}"
         else:
             raise ProgrammingError("Engine must be `pyarrow`.")
-        kwargs.update(self._kwargs)
 
         try:
-            return pd.read_parquet(
-                unload_location,
-                engine=self._engine,
-                storage_options={
-                    "connection": self.connection,
-                    "default_block_size": self._block_size,
-                    "default_cache_type": self._cache_type,
-                    "max_workers": self._max_workers,
-                },
-                **kwargs,
-            )
+            return pd.read_parquet(unload_location, engine=self._engine, **kwargs)
         except Exception as e:
             _logger.exception(f"Failed to read {self.output_location}.")
             raise OperationalError(*e.args) from e
@@ -832,37 +1318,34 @@ class AthenaPandasResultSet(AthenaResultSet):
             df = self._read_csv()
         return df
 
-    def _as_pandas_from_api(self, converter: Converter | None = None) -> DataFrame:
-        """Build a DataFrame from GetQueryResults API.
-
-        Used as a fallback when ``output_location`` is not available
-        (e.g. managed query result storage).
-
-        Args:
-            converter: Type converter for result values. Defaults to
-                ``DefaultTypeConverter`` if not specified.
-        """
-        import pandas as pd
-
-        rows = self._fetch_all_rows(converter)
-        if not rows:
-            return pd.DataFrame()
-        description = self.description if self.description else []
-        columns = [d[0] for d in description]
-        return pd.DataFrame(self._rows_to_columnar(rows, columns))
-
     def as_pandas(self) -> PandasDataFrameIterator | DataFrame:
+        """Return the query results as a DataFrame or an iterator of DataFrame chunks.
+
+        Returns:
+            If ``chunksize`` is None, the DataFrame of the whole result, the same one
+            on every call. When ``auto_optimize_chunksize`` chose a chunk size, one
+            DataFrame that joins the chunks the result iterator has not yet yielded,
+            which is the whole result only if neither the fetch methods nor
+            ``iter_chunks()`` read from it before, and a later call returns an empty
+            DataFrame. If ``chunksize`` is set, the iterator that ``iter_chunks()``
+            returns.
+        """
         if self._chunksize is None:
+            if self._df is not None:
+                return self._df
             return self._df_iter.as_pandas()
-        return self._df_iter
+        return self.iter_chunks()
 
     def iter_chunks(self) -> PandasDataFrameIterator:
         """Iterate over result chunks as pandas DataFrames.
 
         This method provides an iterator interface for processing large result sets.
-        When chunksize is specified, or ``auto_optimize_chunksize`` chose a chunk size
-        for a large CSV result, it yields DataFrames in chunks for memory-efficient
-        processing. Otherwise, it yields the entire result as a single DataFrame.
+        When a CSV result is read in chunks, because chunksize is specified or
+        ``auto_optimize_chunksize`` chose a chunk size, it yields DataFrames in chunks
+        for memory-efficient processing. These chunks come from the same iterator as
+        the fetch methods, so a chunk that one of them reads is not available to the
+        other. Otherwise, each call returns a new iterator that yields the entire
+        result as a single DataFrame, and the fetch methods keep their position.
 
         Returns:
             PandasDataFrameIterator that yields pandas DataFrames for each chunk
@@ -881,13 +1364,17 @@ class AthenaPandasResultSet(AthenaResultSet):
             >>> for df in cursor.iter_chunks():
             ...     process(df)  # Single DataFrame with all data
         """
+        if self._df is not None:
+            return PandasDataFrameIterator(self._df, _no_trunc_date)
         return self._df_iter
 
+    @override
     def close(self) -> None:
         import pandas as pd
 
         super().close()
         self._df_iter.close()
-        self._df_iter = PandasDataFrameIterator(pd.DataFrame(), _no_trunc_date)
+        self._df = pd.DataFrame()
+        self._df_iter = PandasDataFrameIterator(self._df, _no_trunc_date)
         self._iterrows = enumerate([])
         self._data_manifest = []

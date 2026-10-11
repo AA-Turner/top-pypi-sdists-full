@@ -11,11 +11,13 @@ bypass this resolver entirely.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 from uuid import UUID
 
 from matrx_ai.skills.models import (
     ResolvedSkills,
+    SkillBody,
     SkillConfig,
     SkillHint,
     SkillPreamble,
@@ -33,6 +35,7 @@ async def resolve_skills_for_agent(
     provider: "SkillProvider",
     *,
     user_id: UUID | None = None,
+    carried: Sequence[SkillBody] = (),
 ) -> ResolvedSkills:
     """Build the request-time skill envelope from the agent's config.
 
@@ -47,6 +50,10 @@ async def resolve_skills_for_agent(
           contribute to ``tools_to_inject`` (SK-R8 / agent stays in control).
         * The overview is generated even when no skills are pre-configured,
           so the agent always knows the library exists and how to search.
+        * ``carried`` — skills attached because the run's tool set includes a
+          tool they declare in ``config.attach_with_tools`` (the third input,
+          MODULE_README "two-input rule"). Appended to the included tier after
+          the agent's own, deduped by id, never when the agent forbids them.
     """
     cfg: SkillConfig = agent_config.skill_config or SkillConfig()
 
@@ -97,6 +104,20 @@ async def resolve_skills_for_agent(
         body = await provider.get_by_id(skill_uuid, user_id=user_id)
         if body is None:
             continue
+        included_skills.append(body)
+        if not body.disable_auto_invocation:
+            for tool_uuid in body.allowed_tools:
+                if tool_uuid in seen_tools:
+                    continue
+                seen_tools.add(tool_uuid)
+                tools_to_inject.append(tool_uuid)
+
+    # 4. Tool-carried skills — the platform attaches them wherever their tools are.
+    included_ids = {b.id for b in included_skills}
+    for body in carried:
+        if body.id in included_ids or cfg.is_forbidden(body.id):
+            continue
+        included_ids.add(body.id)
         included_skills.append(body)
         if not body.disable_auto_invocation:
             for tool_uuid in body.allowed_tools:

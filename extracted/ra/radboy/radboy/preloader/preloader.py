@@ -463,6 +463,11 @@ preloader={
 						'exec':bank_transfer_text,
 					},
 	f'{uuid1()}':{
+						'cmds':['backup','bkp',],
+						'desc':f'backup system data',
+						'exec':BACKUP,
+					},
+	f'{uuid1()}':{
 						'cmds':['bill paid text','bpt','bptxt','bp text'],
 						'desc':f'generate bill paid text for listmaking',
 						'exec':bill_paid_text,

@@ -1,4 +1,10 @@
-def resolve_object(data: dict, resolve: str):
+"""Reference resolution utilities."""
+
+from typing import Any
+
+
+def resolve_object(data: dict, resolve: str) -> Any:
+    """Resolve object to id or name."""
     try:
         resolved = data.get(resolve)
         if resolved:
@@ -7,3 +13,5 @@ def resolve_object(data: dict, resolve: str):
             return data
     except AttributeError:
         return data
+
+

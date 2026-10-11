@@ -183,9 +183,7 @@ async def _load_visible_conversation(conversation_id: str) -> Any | None:
     return live[0] if live else None
 
 
-async def _load_history_messages(
-    conversation_id: str, up_to_position: int | None
-) -> list[Any]:
+async def _load_history_messages(conversation_id: str, up_to_position: int | None) -> list[Any]:
     """The source conversation's model-visible history via the ONE rebuild
     funnel (``ConversationResolver``'s own load seam — model-hidden and
     soft-deleted rows already excluded, tool pairing already synthesized).
@@ -374,9 +372,9 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     source_conversation_id: str | None = None
     if history_mode != "none":
-        source_conversation_id = (
-            parsed.history_conversation_id or ""
-        ).strip() or (getattr(app_ctx, "conversation_id", None) or "")
+        source_conversation_id = (parsed.history_conversation_id or "").strip() or (
+            getattr(app_ctx, "conversation_id", None) or ""
+        )
         if not source_conversation_id:
             return _fail(
                 ctx,
@@ -502,13 +500,24 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     "helper, which is not configured in this environment.",
                     suggested_action="Use history_mode='snapshot' instead.",
                 )
+            # The fork row is written HERE, before the child runs, so the
+            # conversation gate (which puts every candidate conversation in the
+            # hidden lane) never stamps it: inside a mandate candidate the fork
+            # itself asks for that lane, never "subagent".
+            from matrx_graph.candidate import candidate_marker
+
+            fork_type = (
+                "mandate_candidate"
+                if candidate_marker(app_ctx.metadata) is not None
+                else "subagent"
+            )
             try:
                 fork_info = await forker(
                     source_conversation_id=source_conversation_id,
                     user_id=str(app_ctx.user_id),
                     up_to_position=parsed.history_up_to_position,
                     parent_conversation_id=app_ctx.conversation_id_for_lineage,
-                    conversation_type="subagent",
+                    conversation_type=fork_type,
                     title=None,
                 )
                 run_conversation_id = str(fork_info["conversation_id"])
@@ -791,8 +800,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             if not description:
                 description = f"Result of {getattr(agent, 'name', None) or agent_id}"
             descriptor = await writer(
-                key=(parsed.result_key or "").strip()
-                or (getattr(agent, "name", None) or agent_id),
+                key=(parsed.result_key or "").strip() or (getattr(agent, "name", None) or agent_id),
                 description=description,
                 value=result_value,
                 json_schema=getattr(agent, "output_schema", None)
@@ -886,7 +894,6 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         tool_name="agent_call",
         call_id=ctx.call_id,
     )
-
 
 
 def _child_conversation_extra(result: Any, collab_extras: dict[str, Any]) -> dict[str, Any]:

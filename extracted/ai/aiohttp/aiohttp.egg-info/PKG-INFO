@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiohttp
-Version: 3.14.4
+Version: 3.14.5
 Summary: Async http client/server framework (asyncio)
 Maintainer-email: aiohttp team <team@aiohttp.org>
 License-Expression: Apache-2.0 AND MIT
@@ -36,7 +36,7 @@ Requires-Dist: aiosignal>=1.4.0
 Requires-Dist: async-timeout<6.0,>=4.0; python_version < "3.11"
 Requires-Dist: attrs>=17.3.0
 Requires-Dist: frozenlist>=1.1.1
-Requires-Dist: multidict<7.0,>=4.5
+Requires-Dist: multidict<8.0,>=4.5
 Requires-Dist: propcache>=0.2.0
 Requires-Dist: typing_extensions>=4.4; python_version < "3.13"
 Requires-Dist: yarl<2.0,>=1.25.1

@@ -1619,6 +1619,13 @@ def _live_generation_is_user_facing(session_id: str) -> bool:
     return is_user_session_origin(session_origin(directory))
 
 
+#: Children whose todo snapshot the cold durable projection reads, newest first
+#: (see ``_durable_projection``). 96 covers every roster a person watches while
+#: keeping the added cold CPU under ~100 ms on the 255-child real rosters that
+#: measured a 2-3x projection regression without it.
+_COLD_TODO_CHILD_LIMIT = 96
+
+
 def _durable_projection(session_id: str) -> SessionProjection | None:
     """Fold a user conversation and its routable child lineage from disk.
 
@@ -1627,6 +1634,20 @@ def _durable_projection(session_id: str) -> SessionProjection | None:
     the bytes appended since. The projection object itself is rebuilt on
     every call (callers mutate and fence it), so what is cached is the fold,
     not the projection.
+
+    THE OPEN-FRAME SEAM (first-paint lanes T2/T3). This function is where the
+    phone's first frame is assembled: the fold's replay, then
+    ``ProjectionFold.fold_history``, then ``_cap_tail``. The desktop's
+    ``open_frame: 1`` page builder (``docs/DESKTOP_API.md``,
+    ``local_operator/session/open_frame.py``; docs-only at the time of
+    writing) serves the same question — the rows a surface paints, with the
+    turn facts and the bookkeeping stripped — so the day it lands, THIS is the
+    call to replace: the run facts would come from the server instead of being
+    re-derived here, and the phone would negotiate on the ``open_frame`` key
+    the relay already lifts from ``server/features.py``. Nothing here depends
+    on that landing: the fold's own boundary (``DurableFoldState.keep_start_id``)
+    is the anchor a bounded-suffix fold needs, so lane T3 can bound this read
+    without touching the shape above it.
     """
     from local_operator.mobile.projection import (
         SUBAGENT_ERROR_CHARS,
@@ -1665,6 +1686,11 @@ def _durable_projection(session_id: str) -> SessionProjection | None:
     # fold_history reads messages without mutating them, so the cached list
     # can be shared; the fold builds its own TranscriptEntry rows.
     fold.fold_history(state.history)
+    #: Turn supplements (memo §3.1 row 18): the durable rows are CUSTOM entries,
+    #: which fold_history (messages only) never sees, so the sibling map is
+    #: copied from the durable fold's own per-anchor collection. Old app builds
+    #: ignore the key; new ones render the settled blocks on a cold open.
+    projection.supplements = {anchor: dict(row) for anchor, row in state.supplements.items()}
 
     # The persisted roster is the restart-safe ownership record for child
     # routes. Rebuilding from it keeps old session projections useful without
@@ -1672,6 +1698,24 @@ def _durable_projection(session_id: str) -> SessionProjection | None:
     snapshot = state.latest_customs.get("subagent_roster") or {}
     jobs = {str(row.get("id") or ""): row for row in snapshot.get("jobs") or []}
     records = [row for row in snapshot.get("records") or [] if row.get("job_id")]
+    # WHICH CHILDREN GET THEIR TODO SNAPSHOT READ COLD (review round 1, F2).
+    # Every child costs one backward byte scan of its transcript — measured ~1 ms
+    # each, which is fine for the rosters this used to see (1 record) and not fine
+    # for the full one the sidecar now supplies: 255 children added ~255 ms to a
+    # projection whose whole base cost was 393-504 ms, against a 300 ms first-paint
+    # target. The snapshot is a FALLBACK (``todo_snapshot(child)`` is tried first
+    # and is a fold lookup), so the budget is spent on the children a user is most
+    # likely looking at: the newest ones, which is what a roster's append order
+    # makes the last rows. Older children still render — with their label, status,
+    # agent and prompt — and simply carry no todo rows, and NOTHING SAYS SO: the
+    # panel cannot tell "this child has no todos" from "this child is past the
+    # budget", which is a silent loss of information the phone used to show
+    # (review round 2, F10 — accepted with the loss recorded here). The follow-up
+    # that removes it is a LAZY per-child read: ``api_subagent_detail`` already
+    # serves one child on demand, so the todo snapshot belongs there rather than in
+    # a cold projection answering for 96 children at once. The alternative measured
+    # worse than the regression it was fixing (2-3x the whole projection).
+    todo_children = {str(record["job_id"]) for record in records[-_COLD_TODO_CHILD_LIMIT:]}
     by_parent: dict[str | None, list[str]] = {}
     for record in records:
         parent = str(record["parent_job_id"]) if record.get("parent_job_id") else None
@@ -1700,7 +1744,12 @@ def _durable_projection(session_id: str) -> SessionProjection | None:
             ancestors.insert(0, str(ancestor.get("label") or cursor))
             cursor = str(ancestor["parent_job_id"]) if ancestor.get("parent_job_id") else None
         raw_todos = todo_snapshot(child_dir.name) if child_dir else []
-        if not raw_todos and child_dir is not None and child_dir.is_dir():
+        if (
+            not raw_todos
+            and child_dir is not None
+            and child_dir.is_dir()
+            and job_id in todo_children
+        ):
             # The child's todo snapshot through the dedicated snapshot cache:
             # a deep roster used to full-parse every child transcript on every
             # durable projection, once per child. Routed around the fold cache
@@ -2470,6 +2519,39 @@ async def _engage_and_publish(
     return detail
 
 
+def _journal_page(
+    directory: Path,
+    state: Any,
+    *,
+    before: str,
+    limit: int,
+) -> tuple[list[Any], bool]:
+    """The journal's rows immediately older than ``before``, or an honest end.
+
+    The reader behind every cursor page (see :func:`_history_page` for why the
+    cursor pages the journal rather than the render). ``None`` from the reader
+    means the cursor names no journal row at all — a row from a transcript that
+    was replaced under the client, or an id narrowed wrongly — and the client
+    then treats the answer as end-of-history rather than looping on the same
+    rows.
+
+    ``prunes_complete`` is the fold state's own fact (see
+    ``DurableFoldState.scan_from_bof``): with a whole-journal fold its prune map
+    is the file's own, and with a bounded suffix fold it is not, in which case
+    the reader rebuilds the map before serving anything.
+    """
+    from local_operator.mobile.durable import journal_rows_older_than
+
+    rows = journal_rows_older_than(
+        directory,
+        state.prunes,
+        before_id=before,
+        limit=limit,
+        prunes_complete=bool(getattr(state, "scan_from_bof", True)),
+    )
+    return rows if rows is not None else ([], False)
+
+
 def _history_page(
     session_id: str, before: str | None, limit: int, *, durable_only: bool = True
 ) -> tuple[list[Any], bool]:
@@ -2481,6 +2563,30 @@ def _history_page(
     tail since — not the whole-file re-parse every page used to pay. Runs off
     the event loop (``asyncio.to_thread`` at the call site): even the cached
     path touches disk and the fold is not loop-safe work.
+
+    TWO SOURCES, CHOSEN BY THE QUESTION. Without a cursor this is the newest
+    page a surface shows on open, so it comes from the render. With one it comes
+    from the JOURNAL (:func:`_journal_page`) — and that split is what makes the
+    phone's history complete and loop-free.
+
+    WHY NOT THE RENDER, for a cursor page. Paging it alone stopped a phone
+    reader at the last compaction — measured on the S6 fixture, 640 of 3,348
+    journal rows were reachable and the rest were evidence of a conversation the
+    phone could not show — and it also served rows twice. The render's order is
+    not the journal's: it opens with the compaction marker and re-injects the
+    latest compaction's ``preserved_user_turns`` UNDER THEIR ORIGINAL ROW IDS,
+    and those same rows sit in the journal below the cut. A cursor that lands on
+    one of them therefore answers a page around the render's head plus a refill
+    from the compaction boundary — rows the client already holds — so
+    ``has_more`` stays true and the walk cycles (measured: 117,020 mounted rows
+    holding 408 distinct ids). 60 of the 60 largest journals on this host carry
+    preserved turns, so that is the ordinary shape, not a corner.
+
+    The desktop has always answered this question from the journal, and the rows
+    agree because both surfaces fold them with the same fold
+    (``fold_messages_to_entries``); the marker id fix in :mod:`.durable` is what
+    makes the row identities match. One row is served once, at its journal
+    position, in journal order.
     """
     if durable_only:
         directory = _durable_user_session_dir(session_id)
@@ -2499,7 +2605,6 @@ def _history_page(
         return [], False
     try:
         state = _durable_fold_cache().load(directory)
-        entries = state.render
     except FileNotFoundError:
         return [], False
     except Exception:  # noqa: BLE001 — an odd transcript yields no history, not a 500
@@ -2507,20 +2612,13 @@ def _history_page(
         return [], False
 
     if before:
-        # A ``before`` that resolves to nothing means the client's anchor was
-        # pruned (a compaction between scrolls). Serving the newest page then
-        # would duplicate the client's live window — return empty and let the
-        # client treat it as end-of-history rather than loop on the same rows.
-        anchor = next((i for i, e in enumerate(entries) if e.id == before), None)
-        if anchor is None:
-            return [], False
-        cut = anchor
-    else:
-        cut = len(entries)
-    older = entries[:cut]
-    page = older[-limit:] if len(older) > limit else older
-    has_more = len(older) > len(page)
-    return page, has_more
+        # Every cursor page comes from the journal: the render's order is not the
+        # journal's, and its head re-serves rows whose originals sit below the
+        # cut. See this function's docstring for the measurement.
+        return _journal_page(directory, state, before=before, limit=limit)
+    entries = state.render
+    page = entries[-limit:] if len(entries) > limit else list(entries)
+    return page, len(entries) > len(page)
 
 
 def _image_bytes(record: SessionRecord, entry_id: str, index: int) -> tuple[bytes, str] | None:
@@ -4150,6 +4248,54 @@ async def _wait_for_owner_to_unpublish(session_id: str, retired_pid: int, timeou
         await asyncio.sleep(0.05)
 
 
+# ---------------------------------------------------------------------------
+# Turn supplements (memo §2.7) -- the relay's read routes
+# ---------------------------------------------------------------------------
+
+#: A supplement JOB id: ``persistence.new_job_id`` mints 12 lowercase hex, and the
+#: file route keys on it. Shape-checked before any lookup so a crafted job segment
+#: can never be anything but a miss (it is a lookup key, never a path).
+_SUPPLEMENT_JOB = re.compile(r"^[a-f0-9]{12}$")
+
+#: The file route's per-request byte cap (memo §2.7: "a 10 MB cap"), re-applied here
+#: rather than trusted from the decision, because the bytes on disk are what is read.
+SUPPLEMENT_FILE_MAX_BYTES = 10 * 1024 * 1024
+
+#: The SUFFIX -> Content-Type allowlist for the file route. Never ``text/html``,
+#: ``image/svg+xml``, ``application/xhtml+xml``, or any ``+xml`` (memo §2.7, S15):
+#: the served type is decided by this table alone, never by the bytes, so a ``.txt``
+#: whose body opens with ``<script>`` is still served as ``text/plain`` under
+#: ``nosniff`` and cannot execute. ``svg`` and ``xml`` are deliberately absent.
+_SUPPLEMENT_FILE_TYPES: dict[str, str] = {
+    ".txt": "text/plain",
+    ".log": "text/plain",
+    ".md": "text/markdown",
+    ".markdown": "text/markdown",
+    ".csv": "text/csv",
+    ".tsv": "text/tab-separated-values",
+    ".json": "application/json",
+    ".pdf": "application/pdf",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+    ".avif": "image/avif",
+}
+
+#: The read family's response policy (file-serving RFC D5; memo §2.7): the pair rides
+#: EVERY response of both routes, errors included -- #2134 R4's lesson is that a policy
+#: attached only to the success path is silently absent where it matters. Stamped by
+#: ``_supplement_response`` at each return site below (the gate's refusals included).
+_SUPPLEMENT_POLICY: dict[str, str] = {
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "no-store",
+}
+
+
 def build_app(daemon: MobileDaemon):
     """The Starlette app. Imported inside the function so ``lop`` without the
     server extra never pays for starlette at startup."""
@@ -5239,6 +5385,263 @@ def build_app(daemon: MobileDaemon):
             media_type=mime_type,
             headers={"Cache-Control": "public, max-age=31536000, immutable"},
         )
+
+    # -- the supplement read family (memo §2.7; RFC D5) ----------------------------------
+    #
+    # The response policy and the journal-reference check are shared by the two routes
+    # below, so they live beside them rather than inside each handler.
+
+    def _supplement_response(response: Response) -> Response:
+        """Stamp the family policy (``_SUPPLEMENT_POLICY``) on ``response``.
+
+        EVERY return of the two routes below goes through this, errors included
+        (#2134 R4: a policy attached only to the success path is silently absent
+        where it matters). Plain assignment, not ``setdefault``: the 200s set the
+        same pair, and one spelling keeps the family uniform.
+        """
+        for name, value in _SUPPLEMENT_POLICY.items():
+            response.headers[name] = value
+        return response
+
+    def _journal_references_digest(payload: bytes, digest: str) -> bool:
+        """Whether a ``supplement_v1`` row of this journal references ``digest``.
+
+        §2.7's letter for the document route: the reference is read per
+        ``supplement_v1`` row. Deliberately narrower than a raw session-wide scan
+        with sync's byte grammar -- the grammar also matches ``"attachment"``
+        references on other row types (message media carries the same key today),
+        and a future text-mime producer must not become servable through this door
+        without the authorisation being reconsidered (round-1 review R4). The cheap
+        pre-filter keeps JSON parsing to the lines that can be supplement rows.
+        """
+        from local_operator.network.sync import _ATTACHMENT_REF
+        from local_operator.supplements.contract import SUPPLEMENT_CUSTOM_TYPE
+
+        marker = SUPPLEMENT_CUSTOM_TYPE.encode("ascii")
+        needle = digest.encode("ascii")
+        for line in payload.splitlines():
+            if marker not in line:
+                continue
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(row, dict):
+                continue
+            row_payload = row.get("payload")
+            if not isinstance(row_payload, dict):
+                continue
+            if row_payload.get("custom_type") != SUPPLEMENT_CUSTOM_TYPE:
+                continue
+            if any(match == needle for match in _ATTACHMENT_REF.findall(line)):
+                return True
+        return False
+
+    async def api_session_supplement_document(request: Request) -> Response:
+        """One stored supplement component, assembled to a document, as ``{html}``.
+
+        THE EXECUTING-DOCUMENT FAMILY (file-serving RFC §2 D5). Component blobs are
+        agent-written documents that run script in an opaque-origin frame, so they are
+        served ONLY from this digest-addressed family -- never by path, never through
+        ``/v1/static/*`` -- and the reply is JSON (``{html}``), never ``text/html``:
+        nothing here may become a URL a browsing context is navigated to (memo §4.1).
+        The digest is the whole address; there is no caller-supplied path anywhere in
+        the request. Headers carry ``X-Content-Type-Options: nosniff`` and
+        ``Cache-Control: no-store``; the document's own CSP rides inside it as a
+        <meta>, because the tunnel forwards a fixed response-header set (memo §2.7).
+
+        AUTHORISATION IS THREE FACTS, the memo's §2.7 (a)-(c): the cookie (``gate``),
+        the session existing on disk as a local USER conversation, and the digest
+        The digest is the whole address; there is no caller-supplied path anywhere in
+        the request. Headers carry ``X-Content-Type-Options: nosniff`` and
+        ``Cache-Control: no-store`` -- on EVERY response of the route, refusals
+        included (``_supplement_response``) -- and the document's own CSP rides
+        inside it as a <meta>, because the tunnel forwards a fixed response-header
+        set (memo §2.7).
+
+        AUTHORISATION IS THREE FACTS, the memo's §2.7 (a)-(c): the cookie (``gate``),
+        the session existing on disk as a local USER conversation, and the digest
+        being REFERENCED by a ``supplement_v1`` row of that session's journal
+        (``_journal_references_digest``). The third is what makes the route safe to
+        key on a digest alone: a blob no row references is not servable here even
+        when the caller holds a digest from somewhere else. It is deliberately
+        scoped to supplement rows rather than sync's whole-journal byte grammar --
+        the grammar also matches media references on other row types, and those
+        must not become servable through this door without the authorisation being
+        reconsidered (round-1 review R4). It deliberately does NOT use
+        ``_entry_for_session`` -- that serves only live generations, and an ended
+        conversation's history must still show its components.
+        """
+        denied = gate(request)
+        if denied is not None:
+            return _supplement_response(denied)
+        session_id = str(request.path_params["session_id"])
+        digest = str(request.path_params["digest"])
+
+        def load() -> str | None:
+            import base64
+
+            from local_operator.session.attachments import AttachmentStore
+            from local_operator.supplements.contract import is_digest
+            from local_operator.supplements.document import assemble_stored_component
+
+            if not is_digest(digest):
+                return None
+            directory = _durable_user_session_dir(session_id)
+            if directory is None:
+                return None
+            try:
+                payload = (directory / "transcript.jsonl").read_bytes()
+            except OSError:
+                return None
+            if not _journal_references_digest(payload, digest):
+                return None
+            resolved = AttachmentStore().get(digest)
+            if resolved is None:
+                return None
+            data_b64, _mime_type = resolved
+            try:
+                return assemble_stored_component(base64.b64decode(data_b64).decode("utf-8"))
+            except (ValueError, UnicodeDecodeError):
+                return None
+
+        html = await asyncio.to_thread(load)
+        if html is None:
+            return _supplement_response(
+                JSONResponse({"error": "no such supplement"}, status_code=404)
+            )
+        return JSONResponse({"html": html}, headers=dict(_SUPPLEMENT_POLICY))
+
+    async def api_session_supplement_file(request: Request) -> Response:
+        """One file callout's bytes, addressed by the row's own index (memo §2.7).
+
+        THERE IS NO PATH PARAMETER AND THERE NEVER MAY BE. The only addressable file
+        is ``row["files"][i]`` -- the path the row itself recorded, which the
+        pre-filter admitted -- so a caller cannot ask for an arbitrary file however
+        the query is shaped, and out-of-range indices (``-1``, past the end, a
+        non-integer) resolve to nothing.
+
+        Four refusals beyond that, each re-applied here rather than trusted from the
+        decision (memo §4.3/S15): the resolved path must stay under the session's cwd
+        or ``~`` (a tampered row does not become a read primitive); the §4.3
+        sensitive-path denylist is re-applied; the file must be a regular file of at
+        most 10 MB; and the ``Content-Type`` comes from a SUFFIX ALLOWLIST --
+        text/markdown/CSV/TSV/JSON/image/PDF -- never ``text/html``, ``image/svg+xml``,
+        ``application/xhtml+xml`` or any ``+xml``. A ``.txt`` whose body begins
+        ``<script>`` therefore renders as text under ``nosniff``: content-type and
+        disposition are decided by the allowlist alone, never by the bytes.
+        ``Content-Disposition: attachment`` rides every non-image class, and nothing
+        navigates a browsing context to this route (S-R6; bytes are rendered in-app).
+
+        An ended session's cwd is NOT recorded durably (the daemon's own resume notes
+        this), so a cwd-relative path without a live record is refused rather than
+        resolved against a guess; ``~``-relative paths serve in either case. A
+        peer-hosted conversation has no local directory and is refused the same way.
+        """
+        denied = gate(request)
+        if denied is not None:
+            return _supplement_response(denied)
+        session_id = str(request.path_params["session_id"])
+        job = str(request.path_params["job"])
+        raw_index = request.query_params.get("i", "")
+        try:
+            index = int(raw_index)
+        except ValueError:
+            return _supplement_response(JSONResponse({"error": "bad file index"}, status_code=400))
+
+        def load() -> tuple[bytes, str] | str:
+            """``(bytes, mime)``, or a refusal token the route maps to a status."""
+            import os
+
+            from local_operator.session.transcript import Transcript
+            from local_operator.supplements import denylist
+
+            directory = _durable_user_session_dir(session_id)
+            if directory is None or not _SUPPLEMENT_JOB.fullmatch(job):
+                return "missing"
+            try:
+                entries = Transcript(directory).entries()
+            except Exception:  # noqa: BLE001 -- an odd transcript serves no file
+                return "missing"
+            newest: dict[str, Any] | None = None
+            for entry in entries:
+                if entry.type != "custom":
+                    continue
+                payload = entry.payload if isinstance(entry.payload, dict) else {}
+                details = payload.get("details")
+                if not isinstance(details, dict) or details.get("job") != job:
+                    continue
+                version = details.get("version")
+                if not isinstance(version, int) or isinstance(version, bool):
+                    continue
+                if newest is None or version >= int(newest.get("version", -1)):
+                    newest = details
+            if newest is None:
+                return "missing"
+            files = newest.get("files")
+            if not isinstance(files, list) or not 0 <= index < len(files):
+                return "missing"
+            recorded = files[index] if isinstance(files[index], dict) else {}
+            raw = recorded.get("path")
+            if not isinstance(raw, str) or not raw:
+                return "missing"
+
+            home = str(Path.home())
+            entry = _entry_for_session(daemon, session_id)
+            cwd = entry.record.cwd if entry is not None else ""
+            expanded = os.path.expanduser(raw)
+            if not os.path.isabs(expanded):
+                if not cwd:
+                    # No live record: a cwd-relative path has no root we can
+                    # vouch for, and resolving it against a guess is the class
+                    # of silent wrong-directory this codebase refuses.
+                    return "no-cwd"
+                expanded = os.path.join(cwd, expanded)
+            resolved_path = Path(os.path.realpath(expanded))
+            allowed_roots = [Path(os.path.realpath(root)) for root in (cwd, home) if root]
+            if not any(
+                resolved_path == root or resolved_path.is_relative_to(root)
+                for root in allowed_roots
+            ):
+                return "missing"
+            if denylist.is_sensitive(str(resolved_path), cwd=cwd or home):
+                logger.info("supplement file refused by the denylist for %s", session_id)
+                return "missing"
+            try:
+                if not resolved_path.is_file():
+                    return "missing"
+                size = resolved_path.stat().st_size
+                if size > SUPPLEMENT_FILE_MAX_BYTES:
+                    return "too-large"
+                data = resolved_path.read_bytes()
+            except OSError:
+                return "missing"
+            if len(data) > SUPPLEMENT_FILE_MAX_BYTES:
+                return "too-large"
+            mime = _SUPPLEMENT_FILE_TYPES.get(resolved_path.suffix.lower())
+            if mime is None:
+                return "missing"
+            return data, mime
+
+        outcome = await asyncio.to_thread(load)
+        if outcome == "missing":
+            return _supplement_response(JSONResponse({"error": "no such file"}, status_code=404))
+        if outcome == "no-cwd":
+            return _supplement_response(
+                JSONResponse(
+                    {"error": "file previews for an ended session need the session running"},
+                    status_code=409,
+                )
+            )
+        if outcome == "too-large":
+            return _supplement_response(
+                JSONResponse({"error": "file is larger than the preview limit"}, status_code=413)
+            )
+        data, mime = outcome
+        headers = dict(_SUPPLEMENT_POLICY)
+        if not mime.startswith("image/"):
+            headers["Content-Disposition"] = "attachment"
+        return Response(content=data, media_type=mime, headers=headers)
 
     async def api_command(request: Request) -> Response:
         """The one mutation endpoint: {op, ...} → control frame. Keeping
@@ -6699,6 +7102,14 @@ def build_app(daemon: MobileDaemon):
             methods=["POST"],
         ),
         Route("/api/sessions/{session_id:str}/image", api_session_image),
+        Route(
+            "/api/sessions/{session_id:str}/supplements/{digest:str}/document",
+            api_session_supplement_document,
+        ),
+        Route(
+            "/api/sessions/{session_id:str}/supplements/{job:str}/file",
+            api_session_supplement_file,
+        ),
         Route("/api/sessions/{session_id:str}/command", api_command, methods=["POST"]),
         Route(
             "/api/sessions/{session_id:str}/operator/challenge",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipdeptree
-Version: 4.2.6
+Version: 4.2.7
 Summary: Command line utility to show dependency tree of packages.
 Keywords: application,cache,directory,log,user
 Maintainer-Email: Bernát Gábor <gaborjbernat@gmail.com>, Kemal Zebari <kemalzebra@gmail.com>, Vineet Naik <naikvin@gmail.com>
@@ -23,9 +23,9 @@ Project-URL: Homepage, https://github.com/tox-dev/pipdeptree
 Project-URL: Source, https://github.com/tox-dev/pipdeptree
 Project-URL: Tracker, https://github.com/tox-dev/pipdeptree/issues
 Requires-Python: >=3.11
-Requires-Dist: nab>=0.0.18
-Requires-Dist: nab-index>=0.0.18
-Requires-Dist: nab-project>=0.0.18
+Requires-Dist: nab>=0.0.19
+Requires-Dist: nab-index>=0.0.19
+Requires-Dist: nab-project>=0.0.19
 Description-Content-Type: text/markdown
 
 # pipdeptree

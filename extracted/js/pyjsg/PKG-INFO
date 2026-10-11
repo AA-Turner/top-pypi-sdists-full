@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: PyJSG
-Version: 0.12.4
+Version: 0.12.5
 Summary: Python JSON Schema Grammar interpreter
 Author-email: Harold Solbrig <solbrig@jhu.edu>, Wouter-Michiel Vierdag <michiel.vierdag@scverse.org>
 License: CC0 1.0 Universal
@@ -20,9 +20,10 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Code Generators
 Requires-Python: >=3.10
-Requires-Dist: antlr4-python3-runtime~=4.9.3
 Requires-Dist: jsonasobj>=1.2.1
 Requires-Dist: requests
+Provides-Extra: compiler
+Requires-Dist: antlr4-python3-runtime~=4.13.2; extra == 'compiler'
 Description-Content-Type: text/markdown
 
 This repository was originally developed by [Harold Solbrig](https://github.com/hsolbrig) and was kindly contributed

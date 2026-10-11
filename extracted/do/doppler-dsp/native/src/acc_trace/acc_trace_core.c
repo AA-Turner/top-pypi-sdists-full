@@ -9,11 +9,30 @@
  */
 #include "doppler/acc_trace/acc_trace_core.h"
 #include "doppler/util/util_core.h"
+#include <stdint.h>
+
+/* The one alpha rule, for create() and the setter alike.  Only the EMA reads
+ * alpha, and there it must be a smoothing factor in (0, 1]: 0 never leaves
+ * the first frame, a negative one extrapolates away from the data, and above
+ * 1 dp_ema_step saturates to pass-through -- none of them is an average.
+ * (dp_ema_step itself keeps alpha = 0 as "freeze"; this is AccTrace's
+ * contract, not the primitive's.)  The negated form also refuses a NaN. */
+static int
+acc_trace_alpha_ok (int mode, double alpha)
+{
+  return mode != ACC_TRACE_EXP || (alpha > 0.0 && alpha <= 1.0);
+}
 
 dp_acc_trace_state_t *
 dp_acc_trace_create (size_t n, int mode, double alpha)
 {
-  if (n == 0 || mode < ACC_TRACE_MEAN || mode > ACC_TRACE_MINHOLD)
+  /* n doubles must have a byte count a size_t holds: refused here, not
+     left to calloc's own overflow check, which ASan and TSan report as an
+     error rather than a NULL. */
+  if (n == 0 || n > SIZE_MAX / sizeof (double) || mode < ACC_TRACE_MEAN
+      || mode > ACC_TRACE_MINHOLD)
+    return NULL;
+  if (!acc_trace_alpha_ok (mode, alpha))
     return NULL;
 
   dp_acc_trace_state_t *s = (dp_acc_trace_state_t *)calloc (1, sizeof (*s));
@@ -34,6 +53,15 @@ dp_acc_trace_create (size_t n, int mode, double alpha)
   return s;
 }
 
+int
+dp_acc_trace_set_alpha (dp_acc_trace_state_t *state, double alpha)
+{
+  if (!acc_trace_alpha_ok ((int)state->mode, alpha))
+    return DP_ERR_INVALID;
+  state->alpha = alpha;
+  return DP_OK;
+}
+
 void
 dp_acc_trace_destroy (dp_acc_trace_state_t *state)
 {
@@ -50,12 +78,19 @@ dp_acc_trace_reset (dp_acc_trace_state_t *state)
   state->count = 0;
 }
 
-/* Serializable state — running trace + fold count; config restored by
- * create(). */
+/* Serializable state — mode, fold count, alpha, running trace.  n is config,
+ * restored by create() and checked by the blob's size.  mode is config too,
+ * and travels only as a REJECT key, the way DDC packs its rate: a mean
+ * trace's blob restored into an exp instance would otherwise come back OK and
+ * go on as an EMA.  alpha travels with the trace because a setter's value is
+ * STATE: anything a setter can change after create() is packed, and restored
+ * only past that setter's own predicate (#2022).  A resume that took alpha
+ * from create() went on averaging with the old one (#2000). */
 size_t
 dp_acc_trace_state_bytes (const dp_acc_trace_state_t *s)
 {
-  return sizeof (dp_state_hdr_t) + sizeof (uint64_t) + s->n * sizeof (double);
+  return sizeof (dp_state_hdr_t) + sizeof (uint32_t) + sizeof (uint64_t)
+         + sizeof (double) + s->n * sizeof (double);
 }
 
 void
@@ -63,7 +98,9 @@ dp_acc_trace_get_state (const dp_acc_trace_state_t *s, void *blob)
 {
   DP_GET_OPEN (ACC_TRACE_STATE_MAGIC, ACC_TRACE_STATE_VERSION,
                dp_acc_trace_state_bytes (s));
+  dp_w_u32 (&_w, (uint32_t)s->mode);
   dp_w_u64 (&_w, s->count);
+  dp_w_f64 (&_w, s->alpha);
   dp_w_bytes (&_w, s->acc, s->n * sizeof (double));
 }
 
@@ -72,7 +109,19 @@ dp_acc_trace_set_state (dp_acc_trace_state_t *s, const void *blob)
 {
   DP_SET_OPEN (ACC_TRACE_STATE_MAGIC, ACC_TRACE_STATE_VERSION,
                dp_acc_trace_state_bytes (s));
-  s->count = dp_r_u64 (&_r);
+  const uint32_t mode  = dp_r_u32 (&_r);
+  const uint64_t count = dp_r_u64 (&_r);
+  const double   alpha = dp_r_f64 (&_r);
+  /* Both checks before anything is written, so a refused blob leaves the
+   * state as it was: a blob from another mode is another configuration, and
+   * a blob cannot install an alpha that dp_acc_trace_set_alpha would refuse.
+   */
+  if (mode != (uint32_t)s->mode)
+    return DP_ERR_INVALID;
+  if (!acc_trace_alpha_ok ((int)s->mode, alpha))
+    return DP_ERR_INVALID;
+  s->count = count;
+  s->alpha = alpha;
   dp_r_bytes (&_r, s->acc, s->n * sizeof (double));
   return DP_OK;
 }

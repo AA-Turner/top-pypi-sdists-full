@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -11,24 +11,20 @@ cases on behalf of higher-level unit test submodules.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype.typing import (
-    AsyncGenerator,
-    AsyncIterator,
-    Callable,
-    Coroutine,
-    Generator,
-    Iterable,
-    Iterator,
-    Tuple,
-)
 from beartype._util.func.utilfuncmake import make_func
 from collections import defaultdict
 from collections.abc import (
-    Hashable as HashableABC,
-    ItemsView as ItemsViewABC,
-    KeysView as KeysViewABC,
-    ValuesView as ValuesViewABC,
-    Sized as SizedABC,
+    AsyncGenerator,
+    AsyncIterator,
+    Coroutine,
+    Generator,
+    Hashable,
+    ItemsView,
+    Iterable,
+    Iterator,
+    KeysView,
+    Sized,
+    ValuesView,
 )
 from contextlib import (
     asynccontextmanager,
@@ -42,6 +38,7 @@ from functools import (
     wraps,
 )
 from sys import exc_info
+from typing import Optional
 
 # ....................{ CALLABLES ~ async : factory        }....................
 # Note that we intentionally avoid declaring a factory function for deprecated
@@ -97,7 +94,7 @@ Arbitrary pure-Python asynchronous non-generator coroutine.
 # Prevent Python from emitting "ResourceWarning" warnings.
 async_coroutine.close()
 
-# ....................{ CALLABLES ~ sync : api : contextlib}....................
+# ....................{ CALLABLES ~ async : api : contextli}....................
 @asynccontextmanager
 async def async_context_manager_factory(obj: object) -> AsyncIterator[object]:
     '''
@@ -106,6 +103,12 @@ async def async_context_manager_factory(obj: object) -> AsyncIterator[object]:
     manager trivially yielding the passed object implemented as a generator
     factory function decorated by the standard
     :func:`contextlib.asynccontextmanager` decorator)).
+
+    Note that the context manager created and returned by this factory is
+    strictly **one-shot** (i.e., usable only in a single ``with`` statement
+    rather than reusable across multiple ``with`` statements). Why? Because the
+    :func:`.asynccontextmanager` decorator underlying this factory imposes that
+    constraint as a hard prerequisite, sadly.
     '''
 
     yield obj
@@ -256,21 +259,45 @@ update_wrapper(
     assigned=(),
 )
 
-# ....................{ CALLABLES ~ sync : closure         }....................
+# ....................{ CALLABLES ~ sync : nested          }....................
+def func_nested_nonclosure_factory():
+    '''
+    Arbitrary **nested non-closure function** (i.e., a closure-like pure-Python
+    function that does *not* reference local attributes of the parent callable
+    enclosing that function and is thus technically *not* a closure) factory
+    function.
+    '''
+
+    def func_nested_nonclosure():
+        '''
+        Arbitrary nested non-closure function.
+        '''
+
+        pass
+
+    # Return this non-closure.
+    return func_nested_nonclosure
+
+# ....................{ CALLABLES ~ sync : nested : closure}....................
 def closure_factory():
     '''
     Arbitrary pure-Python closure factory function.
     '''
 
-    # Arbitrary non-local variable.
-    outer_variable = 42
+    # Arbitrary local variables required by the closure defined below.
+    outer_freevar_one = "Diffus'd unseen throughout eternal space"
+    outer_freevar_two = "Of these new-form'd art thou, oh brightest child!"
 
     def closure():
         '''
         Arbitrary pure-Python closure.
         '''
 
-        nonlocal outer_variable
+        # Require the local variables defined by the parent callable, thus
+        # implicitly augmenting these variables into so-called "free" variables.
+        # Why? No idea, honestly. They're the opposite of free. We hardly shrug.
+        nonlocal outer_freevar_one
+        nonlocal outer_freevar_two
 
     # Return this closure.
     return closure
@@ -281,17 +308,10 @@ def closure_cell_factory():
     Arbitrary pure-Python closure cell factory function.
     '''
 
-    # Arbitrary non-local variable.
-    outer_variable = 1337
+    # Arbitrary closure.
+    closure = closure_factory()
 
-    def closure():
-        '''
-        Arbitrary pure-Python closure.
-        '''
-
-        nonlocal outer_variable
-
-    # Return this closure's first and only cell variable.
+    # Return an arbitrary cell variable associated with this closure.
     return closure.__closure__[0]
 
 # ....................{ CALLABLES ~ sync : generator       }....................
@@ -341,6 +361,12 @@ def context_manager_factory(obj: object) -> Iterator[object]:
     **identity context manager** (i.e., context manager trivially yielding the
     passed object implemented as a generator factory function decorated by the
     standard :func:`contextlib.contextmanager` decorator)).
+
+    Note that the context manager created and returned by this factory is
+    strictly **one-shot** (i.e., usable only in a single ``with`` statement
+    rather than reusable across multiple ``with`` statements). Why? Because the
+    :func:`.asynccontextmanager` decorator underlying this factory imposes that
+    constraint as a hard prerequisite, sadly.
     '''
 
     yield obj
@@ -452,7 +478,7 @@ class ClassSized(object):
     :class:`str`).
     '''
 
-    def __init__(self, sized: SizedABC) -> None: self._sized = sized
+    def __init__(self, sized: Sized) -> None: self._sized = sized
     def __len__(self) -> int: return len(self._sized)
 
 # ....................{ CLASSES ~ abc : mapping            }....................
@@ -472,12 +498,12 @@ class ClassMapping(object):
         return self._items == other._items
     def __ne__(self, other: 'ClassMapping') -> bool:
         return self._items != other._items
-    def __getitem__(self, key: HashableABC) -> object: return self._items[key]
+    def __getitem__(self, key: Hashable) -> object: return self._items[key]
     def get(self, *args, **kwargs) -> object:
         return self._items.get(*args, **kwargs)
-    def items(self) -> ItemsViewABC: return self._items.items()
-    def keys(self) -> KeysViewABC: return self._items.keys()
-    def values(self) -> ValuesViewABC: return self._items.values()
+    def items(self) -> ItemsView: return self._items.items()
+    def keys(self) -> KeysView: return self._items.keys()
+    def values(self) -> ValuesView: return self._items.values()
 
 
 class ClassMutableMapping(ClassMapping):
@@ -487,13 +513,13 @@ class ClassMutableMapping(ClassMapping):
     subclassing a builtin mutable dictionary type (e.g., :class:`dict`).
     '''
 
-    def __delitem__(self, key: HashableABC) -> None: del self._items[key]
-    def __setitem__(self, key: HashableABC, value: object) -> None:
+    def __delitem__(self, key: Hashable) -> None: del self._items[key]
+    def __setitem__(self, key: Hashable, value: object) -> None:
         self._items[key] = value
     def clear(self) -> None: self._items.clear()
     def pop(self, *args, **kwargs) -> object:
         return self._items.pop(*args, **kwargs)
-    def popitem(self) -> Tuple[object, object]: return self._items.popitem()
+    def popitem(self) -> tuple[object, object]: return self._items.popitem()
     def setdefault(self, *args, **kwargs) -> object:
         return self._items.setdefault(*args, **kwargs)
     def update(self, *args, **kwargs) -> object:
@@ -584,6 +610,24 @@ class ClassList(list):
 
     pass
 
+# ....................{ CLASSES ~ context                  }....................
+class ContextManagerNoop(object):
+    '''
+    Reusable **noop context manager type** (i.e., type satisfying the standard
+    context manager protocol but otherwise doing nothing).
+
+    See Also
+    --------
+    https://stackoverflow.com/a/48908462/2809027
+        StackOverflow answer strongly inspiring this implementation.
+    '''
+
+    def __enter__(self) -> None:
+        pass
+
+    def __exit__(self, *args, **kwargs) -> None:
+        pass
+
 # ....................{ CLASSES ~ enum                     }....................
 class MasterlessDecreeVenomlessWhich(Enum):
     '''
@@ -598,8 +642,8 @@ class MasterlessDecreeVenomlessWhich(Enum):
 # ....................{ CLASSES ~ dunder : call            }....................
 class ClassCallable(object):
     '''
-    **Callable class** (i.e., pure-Python class defining the :meth:`__call__`
-    dunder method implicitly called by Python when instances of this class are
+    **Callable class** (i.e., pure-Python type defining the :meth:`.__call__`
+    dunder method implicitly called by Python when instances of this type are
     called using the standard calling convention).
     '''
 
@@ -611,12 +655,13 @@ class ClassCallable(object):
         return len(args) + len(kwargs)
 
 # ....................{ CLASSES ~ dunder : instancecheck   }....................
+#FIXME: Shift into a new "beartype_test.a00_unit.data.pep.pep3119" submodule.
 class NonIsinstanceableMetaclass(type):
     '''
-    Metaclass overriding the ``__instancecheck__()`` dunder method to
-    unconditionally raise an exception, preventing classes with this metaclass
-    from being passed as the second parameter to the :func:`isinstance`
-    builtin.
+    :pep:`3119`-compliant metaclass overriding the ``__instancecheck__()``
+    dunder method to unconditionally raise an exception, preventing classes with
+    this metaclass from being passed as the second parameter to the
+    :func:`isinstance` builtin.
     '''
 
     def __instancecheck__(self, obj: object) -> bool:
@@ -624,22 +669,25 @@ class NonIsinstanceableMetaclass(type):
             f'{self} not passable as second parameter to isinstance().')
 
 
+#FIXME: Shift into a new "beartype_test.a00_unit.data.pep.pep3119" submodule.
 class NonIsinstanceableClass(object, metaclass=NonIsinstanceableMetaclass):
     '''
-    Class whose metaclass overrides the ``__instancecheck__()`` dunder method
-    to unconditionally raise an exception, preventing this class from being
-    passed as the second parameter to the :func:`isinstance` builtin.
+    Class whose :pep:`3119`-compliant metaclass overrides the
+    ``__instancecheck__()`` dunder method to unconditionally raise an exception,
+    preventing this class from being passed as the second parameter to the
+    :func:`isinstance` builtin.
     '''
 
     pass
 
 # ....................{ CLASSES ~ dunder : subclasscheck   }....................
+#FIXME: Shift into a new "beartype_test.a00_unit.data.pep.pep3119" submodule.
 class NonIssubclassableMetaclass(type):
     '''
-    Metaclass overriding the ``__subclasscheck__()`` dunder method to
-    unconditionally raise an exception, preventing classes with this metaclass
-    from being passed as the second parameter to the :func:`issubclass`
-    builtin.
+    :pep:`3119`-compliant metaclass overriding the ``__subclasscheck__()``
+    dunder method to unconditionally raise an exception, preventing classes with
+    this metaclass from being passed as the second parameter to the
+    :func:`issubclass` builtin.
     '''
 
     def __subclasscheck__(self, obj: object) -> bool:
@@ -647,11 +695,13 @@ class NonIssubclassableMetaclass(type):
             f'{self} not passable as second parameter to issubclass().')
 
 
+#FIXME: Shift into a new "beartype_test.a00_unit.data.pep.pep3119" submodule.
 class NonIssubclassableClass(object, metaclass=NonIssubclassableMetaclass):
     '''
-    Class whose metaclass overrides the ``__subclasscheck__()`` dunder method
-    to unconditionally raise an exception, preventing this class from being
-    passed as the second parameter to the :func:`issubclass` builtin.
+    Class whose :pep:`3119`-compliant metaclass overrides the
+    ``__subclasscheck__()`` dunder method to unconditionally raise an exception,
+    preventing this class from being passed as the second parameter to the
+    :func:`issubclass` builtin.
     '''
 
     pass
@@ -781,6 +831,68 @@ class OtherSubclassSubclass(OtherSubclass):
 
     pass
 
+# ....................{ CLASSES ~ hierarchy : local        }....................
+def class_nested_nonclosure_factory():
+    '''
+    Arbitrary **nested non-closure type** (i.e., a closure-like pure-Python
+    type that does *not* reference local attributes of the parent callable
+    enclosing that type and is thus technically *not* a closure) factory
+    function.
+    '''
+
+    class ClassNestedNonclosure(object):
+        '''
+        Arbitrary pure-Python nested non-closure class defining arbitrary
+        methods.
+        '''
+
+        # ....................{ NESTED                     }....................
+        class LocalNestedClass(object):
+            '''
+            Arbitrary pure-Python **nested class** whose definition is nested
+            inside the definition of another nested non-closure class.
+            '''
+
+            pass
+
+        # ....................{ METHODS                        }....................
+        def instance_method(self):
+            '''
+            Arbitrary pure-Python instance method.
+            '''
+
+            pass
+
+
+        @property
+        def instance_property(self):
+            '''
+            Arbitrary pure-Python instance property.
+            '''
+
+            pass
+
+
+        @classmethod
+        def class_method(cls):
+            '''
+            Arbitrary pure-Python class method.
+            '''
+
+            pass
+
+
+        @staticmethod
+        def static_method():
+            '''
+            Arbitrary pure-Python static method.
+            '''
+
+            pass
+
+    # Return the nested non-closure class defined above.
+    return ClassNestedNonclosure
+
 # ....................{ CONSTANTS                          }....................
 CALLABLE_CODE_OBJECT = function.__code__
 '''
@@ -890,7 +1002,7 @@ Frozen set of both pure-Python *and* C-based callables exercising edge cases.
 # '''
 
 # ....................{ SETS ~ type : builtin              }....................
-TYPES_BUILTIN = frozenset((
+BUILTIN_TYPES = frozenset((
     bool,
     complex,
     dict,
@@ -903,8 +1015,8 @@ TYPES_BUILTIN = frozenset((
     tuple,
 ))
 '''
-Frozen set of all **builtin types** i.e., globally accessible C-based type
-requiring *no* explicit importation)(.
+Frozen set of all **builtin types** (i.e., globally accessible C-based type
+requiring *no* explicit importation).
 '''
 
 # ....................{ SETS ~ type : non-builtin          }....................
@@ -939,8 +1051,8 @@ def _init() -> None:
 
     # Defer initialization-specific imports.
     import builtins, types
-    from beartype._data.api.standard.datapy import BUILTINS_MODULE_NAME
-    from beartype._util.utilobject import get_object_type_unless_type
+    from beartype._data.py.databuiltins import BUILTINS_MODULE_NAME
+    from beartype._util.utilobjget import get_object_type_unless_type
 
     # Global variables assigned to below.
     global TYPES_BUILTIN_FAKE, TYPES_NONBUILTIN

@@ -23,6 +23,7 @@ error`` status and can be retried with ``/reload`` (TUI-012).
 from __future__ import annotations
 
 import asyncio
+import base64
 import inspect
 import logging
 import os
@@ -208,7 +209,9 @@ from local_operator.slash_commands import (
     slash_command_for,
     unknown_flag_refusal,
 )
+from local_operator.supplements.contract import SUPERSEDED_ERROR, reader_disposition
 from local_operator.tui import images as images_mod
+from local_operator.tui import supplements as supplement_mod
 from local_operator.tui import theme as theme_mod
 from local_operator.tui.ask_open_policy import (
     AskOpenPolicy,
@@ -252,6 +255,7 @@ from local_operator.tui.events import (
     SubagentEnded,
     SubagentProgress,
     SubagentStarted,
+    SupplementProgress,
     ToolComposing,
     ToolEnded,
     ToolStarted,
@@ -265,7 +269,12 @@ from local_operator.tui.events import (
     WakeDelivered,
 )
 from local_operator.tui.glyphs import display_name
-from local_operator.tui.link_targets import LinkTarget, build_link_targets, is_openable
+from local_operator.tui.link_targets import (
+    LinkTarget,
+    build_link_targets,
+    file_affordance,
+    is_openable,
+)
 from local_operator.tui.liveness import (
     LIVENESS_PROBE_EVERY_S,
     LivenessProbe,
@@ -301,6 +310,7 @@ from local_operator.tui.notify import (
     remote_park_banner,
     remote_park_card,
 )
+from local_operator.tui.quota_notice import await_prewarm, start_prewarm
 from local_operator.tui.session_catalog import CatalogEntry, SidebarSettings
 from local_operator.tui.session_drafts import SessionDraftStore
 from local_operator.tui.session_interaction import (
@@ -485,6 +495,7 @@ from local_operator.tui.widgets.subagent_panel import (
     paused_child_ids,
 )
 from local_operator.tui.widgets.subagent_view import SubagentView, SubagentViewDismissed
+from local_operator.tui.widgets.supplement_block import SupplementBlock
 from local_operator.tui.widgets.toast import (
     _NETWORK_MARKER,
     TOAST_DEFAULT_MS,
@@ -522,6 +533,7 @@ from local_operator.tui.widgets.usage_panel import (
 from local_operator.tui.widgets.wake_panel import WakePanel
 from local_operator.tui.widgets.welcome import (
     MODEL_PENDING,
+    MODEL_SETUP,
     WelcomeView,
     session_welcome_info,
 )
@@ -4702,6 +4714,13 @@ class OperatorApp(App[None]):
         # commands; ``None`` degrades /provider /usage /model-switch to
         # pointer notices when it is absent.
         self._providers = provider_controller
+        # The splash's quota-verdict prewarm, engaged from CONSTRUCTION — not
+        # a mount hook — because Textual dispatches the welcome's own
+        # on_mount (its first read) before the app's; scheduling there ran
+        # one full read too late (CI review round 4, R4-1). See
+        # ``start_prewarm`` for why this is a plain thread, and
+        # ``_prewarm_quota_notice`` for the post-load re-snapshot.
+        start_prewarm()
         #: True once session construction has DEFINITIVELY failed and no
         #: replacement is in flight (U7-1).
         #:
@@ -4741,6 +4760,15 @@ class OperatorApp(App[None]):
         self._model_show_all = False
         self._model_activation_generation = 0
         self._model_activation_pending: int | None = None
+        #: A FIRST-LOGIN re-home whose session was not bound when the login
+        #: completed: the provider id to re-home for. Drained on the session-bind
+        #: edge and, as a backstop, at the next turn end (QA round 1, Q1 — the
+        #: repair used to evaporate silently in exactly this window).
+        self._rehome_await_bind: str | None = None
+        #: ``(old_label, login_provider, model_id)`` for a stranded conversation
+        #: that was BUSY when its first-login re-home ran. Retried at the next
+        #: turn end; the deferral sentence told the user so (UX review U1).
+        self._rehome_pending: tuple[str, str, str] | None = None
         #: The unknown provider id that put us in the setup state, when that is
         #: why we are here (``None`` for the nothing-configured case).
         #:
@@ -4943,6 +4971,24 @@ class OperatorApp(App[None]):
         #: reason before each of its calls, and each phase is its own block.
         self._reasoning_block: ReasoningBlock | None = None
         self._tool_cards: dict[str, ToolCard] = {}
+        # Turn supplements ("Highlights", memo §2.7/§2.8). One registry per
+        # attached conversation, reset with the transcript's own bookkeeping
+        # (`/clear`, source swap, canonical reset) exactly like `_tool_cards`:
+        # `_supplement_blocks` is the block mounted per answer ANCHOR (message
+        # id, not position — a late beat lands on the right answer),
+        # `_supplement_rows` is the newest row seen per anchor in recency
+        # order (the `/highlights` commands' target), `_supplement_images` is
+        # the image blocks mounted beside each (so a re-apply never doubles
+        # one), `_supplement_read` names anchors a settled read answered for
+        # (the lazy read fires only for anchors it has not answered), and
+        # `_supplement_live` names anchors a LIVE beat has spoken for — a read
+        # result must never overwrite a newer live state.
+        self._supplement_blocks: dict[str, SupplementBlock] = {}
+        self._supplement_rows: dict[str, dict[str, Any]] = {}
+        self._supplement_images: dict[str, dict[str, ImageBlock]] = {}
+        self._supplement_read: set[str] = set()
+        self._supplement_read_inflight: set[str] = set()
+        self._supplement_live: set[str] = set()
         # Rows for calls the model is still dictating. Separate from
         # `_tool_cards`, which holds calls that are RUNNING: a composing row has
         # no execution behind it yet, and treating the two as one dictionary let
@@ -5196,6 +5242,14 @@ class OperatorApp(App[None]):
         #: This session's OWN spend, accumulated per turn. The number the band
         #: shows is this plus every child's — see :meth:`_spend_total`.
         self._total_cost = 0.0
+        #: The LAST published ``spend_channels`` object this app applied (see
+        #: ``_apply_frontend_state``), or ``None`` when the runtime does not
+        #: publish one. When present it is the AUTHORITY for the band's money
+        #: (total and marks) and for ``/session``'s channel section: one number
+        #: computed in one place, so the band, the panel, the phone and the
+        #: Electron strip cannot disagree (design §5.1). ``None`` keeps every
+        #: reader on its legacy path, which is what an old runtime gets.
+        self._spend_channels_state: Any | None = None
         #: Delegated spend, keyed by job id and holding the LAST cost observed
         #: for that child. A dict rather than a running sum because a child's
         #: figure grows while it works, so each tick has to replace its entry
@@ -7887,6 +7941,15 @@ class OperatorApp(App[None]):
                 bound=_viewport_message_budget(self.size.height),
                 anchor_id=source.draft.scroll_anchor_id if not source.draft.following_tail else "",
                 live_call_ids=live_projection_call_ids(session),
+                # The width the revealed view WILL have, asked of the view it
+                # replaces: both are `1fr` children of `#session-conversation`
+                # with the same stylesheet, so the on-screen view's scrollable
+                # content width is this one's to the cell. Without it every
+                # block folded at the 80-column fallback and refolded after the
+                # reveal — the 3-to-6 painted states of a sidebar switch. A
+                # hidden on-screen view (subagent page open) reports 0, which
+                # keeps the fallback rather than guessing.
+                fold_width=self._transcript_view().scrollable_content_region.width,
             )
             preview_unavailable = (
                 not replay.blocks
@@ -7975,10 +8038,30 @@ class OperatorApp(App[None]):
                 )
                 welcome.set_navigation_visible(False)
                 await replay.view.mount(welcome)
+            # A SAVED POSITION IS NOT A TAIL OPEN, and the difference is a
+            # frame the reader sees. `follow_tail()` does two jobs: it arms the
+            # follower and queues a scroll to the end. For a source the reader
+            # left mid-conversation the second one is a POSITION it must not
+            # take, and it is why a `display_only` saved-anchor return painted
+            # the tail one frame after the commit's own restore put the viewport
+            # at the saved anchor (QA round 2, Q8: state-104ms at the top,
+            # state-146ms at the tail, settled at the saved position — three
+            # frames, two of them content, neither final). So the position is
+            # ARMED instead, before the batch mounts, and `arrange` takes it in
+            # the pass that gives the anchor its rows — the reveal's first frame
+            # is then already the reader's own position.
+            saved_position = not source.draft.following_tail and bool(source.draft.scroll_anchor_id)
+            if saved_position:
+                replay.view.arm_navigation_anchor(
+                    source.draft.scroll_anchor_id,
+                    source.draft.scroll_anchor_part,
+                    source.draft.scroll_offset,
+                )
             with replay.view.batch_append():
                 for block in replay.blocks:
                     replay.view.append_block(block)
-            replay.view.follow_tail()
+            if not saved_position:
+                replay.view.follow_tail()
             # Retained/canonical views benefit from a measured parked layout.
             # A first saved view has no existing geometry to preserve: painting
             # it offscreen first adds a whole extra layout/frame before useful
@@ -9518,6 +9601,50 @@ class OperatorApp(App[None]):
         if incoming.welcome is not None:
             incoming.welcome.set_navigation_visible(True)
         incoming.replay.view.styles.height = "1fr"
+        # A FOLLOWER IS PLACED AT THE TAIL IN THE REVEAL FRAME ITSELF. The view
+        # comes out of its park at a new height (the parked copy is sized to
+        # the old composer), so the reveal is a reflow whose tail scroll lands
+        # in `_size_updated` — AFTER the compositor placed the rows. Measured on
+        # S1 at 160x45: the first painted frame of every switch showed the rows
+        # 15 lines low (and, once the prepared transcript was authored at the
+        # destination width, that was the last state left to remove). One extra
+        # visual state per switch, gone.
+        #
+        # A SAVED POSITION IS THE OPPOSITE CASE AND IS ASKED FIRST. The hold is
+        # about the TAIL, and a source the reader left mid-conversation is not
+        # going to the tail — it is going back to its own anchor. The two cannot
+        # both win: `_prepare_sidebar_session` calls ``follow_tail()``
+        # unconditionally (the parked view has no saved geometry to hold), so a
+        # `display_only` source with a saved anchor arrives here with
+        # ``following`` armed, and the reveal would paint the end of a
+        # conversation whose reader is somewhere in the middle before
+        # ``restore_revealed_anchor`` walks it back — the two painted states.
+        # So the anchor is restored on the revealed geometry HERE, in the same
+        # synchronous section, and the post-reveal restore stays as the net it
+        # has always been (it exists because a parked measurement is not the
+        # final geometry for wrapped content; where the offset already agrees it
+        # changes nothing, so the frame count is unaffected).
+        saved_position = not source.draft.following_tail and bool(source.draft.scroll_anchor_id)
+        if saved_position:
+            # ONLY PLACE IT IF THE ANCHOR IS MEASURED, and this is the whole
+            # correctness of the saved-position reveal. A ``display_only`` first
+            # visit skips the prepare-time layout (see the comment in
+            # ``_prepare_sidebar_session``), so every block's region is still a
+            # zero one here: the restore would clamp to the TOP of the
+            # conversation, and the reveal would paint the first message of a
+            # conversation the reader left in the middle — worse than the
+            # tail-first frame it replaced, which at least shared the reader's
+            # end of the transcript. ``restore_revealed_anchor`` below is the net
+            # that places it on the revealed geometry, and the F2 guarantee (no
+            # tail hold for a saved position) is unaffected either way.
+            incoming.replay.view.restore_navigation_anchor(
+                source.draft.scroll_anchor_id,
+                source.draft.scroll_anchor_part,
+                source.draft.scroll_offset,
+                only_when_measured=True,
+            )
+        else:
+            self._hold_tail_for_reveal(incoming.replay.view)
         incoming.replay.view.set_on_clear(self._on_transcript_cleared)
         incoming.replay.view.set_on_user_scroll(self._transcript_scrolled)
         incoming.replay.view.set_on_tail_requested(self._jump_newer_resume_tail)
@@ -11554,6 +11681,10 @@ class OperatorApp(App[None]):
         # Cached: every appended block asks the splash to hide, and that path
         # should not pay for a DOM query per block.
         self._welcome = self.query_one(WelcomeView)
+        # Await the construction-time verdict prewarm and re-snapshot the
+        # splash once it lands (the read SKIPPED the row while the import
+        # was in flight — see `tui/quota_notice`).
+        self.run_worker(self._prewarm_quota_notice(), thread=False, group="quota-prewarm")
         # An empty transcript is the boot layout's whole precondition, and the
         # session starts empty — so the app opens in it. Set here rather than in
         # the stylesheet's base rules because this is state, not style: it is the
@@ -11669,6 +11800,17 @@ class OperatorApp(App[None]):
 
         await asyncio.to_thread(warm_session_imports)
 
+    async def _prewarm_quota_notice(self) -> None:
+        """Re-snapshot the splash once the construction-time prewarm lands.
+
+        The import itself starts at construction (``start_prewarm``, and see
+        there for why not a mount hook); this worker only waits for it OFF
+        the loop and refreshes, so the row a skip deferred is painted.
+        """
+        loaded = await await_prewarm()
+        if loaded and self._welcome is not None:
+            self._welcome.refresh_info()
+
     async def _construct_session(self) -> Any:
         """Apply the factory's import policy and await it. RAISES; adopts nothing.
 
@@ -11703,6 +11845,10 @@ class OperatorApp(App[None]):
         :meth:`_measure_preloaded_context` already puts its measurement in one.
         """
         self._invalidate_pending_frontend_state()
+        # A new conversation's supplement registries start empty: the previous
+        # session's blocks went with the cleared ledger, and its read/seen sets
+        # describe anchors THIS session may never carry.
+        self._reset_supplement_state()
         source = self._interactions.get(id(session))
         if source is None or source.retired:
             source = SessionInteraction(session)
@@ -12272,6 +12418,7 @@ class OperatorApp(App[None]):
             "value",
             "unknown",
         )
+        self._spend_channels_state = getattr(state, "spend_channels", None)
         if cost is not None:
             self._total_cost = float(getattr(state, "cumulative_parent_cost", 0.0) or 0.0)
             self._subagent_costs = self._frontend_child_costs(state)
@@ -12307,6 +12454,7 @@ class OperatorApp(App[None]):
         mcp_servers = list(getattr(state, "mcp_servers", []) or [])
         task_jobs = [j for j in getattr(state, "jobs", []) if getattr(j, "type", "") == "task"]
         bash_jobs = [j for j in getattr(state, "jobs", []) if getattr(j, "type", "") == "bash"]
+        video_jobs = [j for j in getattr(state, "jobs", []) if getattr(j, "type", "") == "video"]
         # Search spend rides the band cell here too. This path renders the
         # STORE's cumulative model cost rather than `_spend_total()` (which
         # already folds search spend in), so without this the canonical
@@ -12329,20 +12477,7 @@ class OperatorApp(App[None]):
             context_tokens=getattr(state, "context_tokens", None),
             context_is_estimate=getattr(state, "context_is_estimate", None),
             context_window=getattr(state, "context_window", None),
-            cost=(
-                self._spend_text((cost or 0.0) + search_usd)
-                if cost is not None
-                else (
-                    # Model money unpriceable, search money real: the cell can
-                    # only show the half it knows, so it carries the band's
-                    # floor mark (``≥``). Showing a partial figure as if it were
-                    # the total is the lie
-                    # ``_spend_text``'s docstring calls the more expensive one.
-                    self._spend_text(search_usd, floor=True)
-                    if search_usd
-                    else (UNKNOWN_COST_CELL if billed_unknown else None)
-                )
-            ),
+            cost=self._band_cost_cell(cost, search_usd, billed_unknown),
             # A local opener label is DISPLAY state until a generated title is
             # accepted. Canonical snapshots correctly keep their persisted title
             # empty during that interval, but must not turn "empty in storage"
@@ -12368,7 +12503,13 @@ class OperatorApp(App[None]):
             # is the hidden dock's only liveness cue, so a follower's band must
             # not go silent where the owner's would not (round 1, U2).
             subagents=sum(1 for j in task_jobs if j.status == "running"),
-            jobs=sum(1 for j in bash_jobs if j.status == "running" and not j.queued),
+            # Video rides the same rung here as the owner's band's
+            # `_job_count("bash") + _job_count("video")`, so the two cannot
+            # disagree about one session (the parity rule this block already
+            # states for `subagents`).
+            jobs=sum(
+                1 for j in (*bash_jobs, *video_jobs) if j.status == "running" and not j.queued
+            ),
             mcp=McpStatus(
                 configured=len(mcp_servers),
                 connected=sum(1 for server in mcp_servers if server.status == "connected"),
@@ -13358,6 +13499,18 @@ class OperatorApp(App[None]):
         #: Monotonic and never reset: a token from any earlier binding is simply
         #: unequal to the current one, which is all the comparison needs.
         self._binding_epoch += 1
+        # A first-login re-home that had no session to inspect (the login landed
+        # mid-swap) runs HERE, on the edge its decision was waiting for — the one
+        # writer of ``self._session``, so there is no second place the queue could
+        # be drained from a stale binding (QA round 1, Q1). Nothing runs on an
+        # UNBIND (``session is None``): the queue keeps its provider for the next
+        # bind or the turn-end backstop rather than firing against no session.
+        queued = self._rehome_await_bind
+        if queued is not None and session is not None:
+            self._rehome_await_bind = None
+            sentence = self._rehome_stranded_session(queued)
+            if sentence:
+                self._notice(sentence, "note")
 
     def _restore_search_spend(self, session: Any) -> None:
         """Seed a RESUMED conversation's search spend into the search ledger.
@@ -13609,6 +13762,10 @@ class OperatorApp(App[None]):
         screenful = _viewport_message_budget(self.size.height)
         first_cut = _resume_tail_start(history, screenful) if len(history) > screenful else 0
         if first_cut <= full_cut:
+            # The same first-frame tail placement the split branch below gets
+            # from its hold: without it a short conversation's first frame is
+            # placed at scroll 0 and moved to the tail one frame later.
+            self._hold_tail_for_reveal(self._transcript_view())
             self._project_settled_rows(history, bound=RESUME_RENDER_MESSAGES)
             # A message budget is a PROXY for height, and a poor one. Whether the
             # first frame can be scrolled is a question about ROWS, and only the
@@ -13637,6 +13794,36 @@ class OperatorApp(App[None]):
         view.hold_tail_through_layout(True)
         self._project_settled_rows(history, start=first_cut)
         self._backfill_resume_window(first_cut - full_cut, drop_notice=full_cut == 0)
+
+    @staticmethod
+    def _hold_tail_for_reveal(view: TranscriptView | None) -> None:
+        """Place a FOLLOWING view at its tail BEFORE the next layout, then let go.
+
+        For the frames that change the transcript's own geometry with rows
+        already on it, where the tail scroll otherwise runs after the compositor
+        has placed the rows — the frame the user sees as the conversation
+        jumping:
+
+        * a sidebar reveal, where the parked view comes back at the visible
+          height (measured at 160x45: the first painted frame of every switch
+          showed the rows 15 lines low, and the next frame moved them up, one
+          extra visual state per switch);
+        * a short resume, which fills in one go and would otherwise place its
+          first frame at scroll 0 and move to the tail a frame later (the long
+          case already holds through its backfill page).
+
+        ``TranscriptView.hold_tail_through_layout`` is the pre-placement seam,
+        and the release is scheduled for the refresh after, because a hold that
+        outlived its frame would re-land the tail on layouts the READER caused
+        by scrolling away. A view that is not following is never touched: a
+        restored scroll anchor must not be overridden (see
+        ``TranscriptView.arrange``).
+        """
+        if view is None or not view.is_following_tail:
+            return
+        view.hold_tail_through_layout(True)
+        if not view.call_after_refresh(view.hold_tail_through_layout, False):
+            view.hold_tail_through_layout(False)
 
     def _backfill_resume_window(self, count: int, *, drop_notice: bool) -> None:
         """Mount the newest ``count`` held messages as one page, after the paint.
@@ -14556,6 +14743,11 @@ class OperatorApp(App[None]):
                 # end that already arrived while the card was being painted.
                 self._controller.register_restored_tools(set(painted))
             self._refresh_working_activity()
+            # Turn supplements: an answer row that just mounted may already have
+            # a journaled row the history fold cannot carry (they are custom
+            # entries) — the §2.11 lazy read is the replay mechanism, so it is
+            # asked once per projection for the anchors that have no answer yet.
+            self._request_supplement_reads()
             return projected
         finally:
             self._projection_message_id = ""
@@ -14627,6 +14819,7 @@ class OperatorApp(App[None]):
         hide_cross_session = cross_session_hidden()
         from local_operator.harness.rows import (
             is_hidden_tool_call,
+            is_quiet_turn_call,
             is_settle_only_ask,
             queued_ask_engine_live,
         )
@@ -14645,8 +14838,12 @@ class OperatorApp(App[None]):
             # HIDDEN tools never paint a row on any seam: this one restores the
             # row for a call already in flight, so skipping it here is what
             # keeps a resumed ``patience`` call from appearing where the live
-            # path refuses to mount it (UX round 1, U2).
-            if is_hidden_tool_call(call):
+            # path refuses to mount it (UX round 1, U2). THE QUIET PAIR is the
+            # second member of that class (design docs/design/quiet-turns.md
+            # §5, S1): both live seams and the replay skip its call, so this
+            # restore painter must too, or a resumed quiet call would mount a
+            # row the rest of the app refuses to paint.
+            if is_hidden_tool_call(call) or is_quiet_turn_call(call):
                 continue
             if is_settle_only_ask(getattr(call, "name", ""), queued_engine=gate_settle_only):
                 continue
@@ -15519,9 +15716,12 @@ class OperatorApp(App[None]):
         The gate's ONE drop path (design docs/design/ask-gate.md §3): a
         diverted ask's row must vanish wherever a surface had mounted one
         before the mode could be read — the mixed-build fallback the design
-        records (today's mount, drop on the settle marker). Registries are
-        cleaned by IDENTITY first (the card may sit under a placeholder key),
-        then the view's ``remove_block`` takes the row off its retained list.
+        records (today's mount, drop on the settle marker). THE QUIET PAIR's
+        end frame rides the same path (design docs/design/quiet-turns.md §5,
+        S1): a card some seam older than the name gates could have mounted is
+        retired rather than settled. Registries are cleaned by IDENTITY first
+        (the card may sit under a placeholder key), then the view's
+        ``remove_block`` takes the row off its retained list.
         """
         for registry in (self._tool_cards, self._composing_cards):
             for key in [key for key, candidate in registry.items() if candidate is card]:
@@ -15878,10 +16078,12 @@ class OperatorApp(App[None]):
                 headline="No AI account connected",
             )
         if self._status is not None:
-            # "setup" rather than a model name: there is no model until the user
-            # picks a provider, and leaving MODEL_PENDING up would read as a
-            # session still booting rather than one waiting on the user.
-            self._status.update(model_label="setup", model_name="", streaming=False)
+            # MODEL_SETUP rather than a model name: there is no model until the
+            # user picks a provider, and leaving MODEL_PENDING up would read as a
+            # session still booting rather than one waiting on the user. The
+            # constant comes from the shared tui.status catalogue (T2), the same
+            # source the splash resolves, so band and splash agree by construction.
+            self._status.update(model_label=MODEL_SETUP, model_name="", streaming=False)
 
     async def _reload_session(
         self, *, keep_context: bool = False, preserve_outgoing: bool = False
@@ -25698,13 +25900,18 @@ class OperatorApp(App[None]):
         if stopped:
             text = f"stopped {stopped} subagent{'s' if stopped != 1 else ''}"
             # Sparing backgrounded `bash` is deliberate (`background=true`
-            # exists so a build outlives the turn) and genuinely surprising
-            # to a user who just escalated a stop, which reads as "stop all
-            # of it". Naming the survivors here, and only when there ARE
-            # any, prevents the "I stopped everything, why is the build
-            # still running" question at the one moment the answer is
-            # wanted (D3, design round 1). Unconditional, it would be noise.
-            spared = self._job_count("bash")
+            # exists so a build outlives the turn), and the media lane's video
+            # jobs outlive a stop for the same class of reason (the job is
+            # detached; contract §4.3) — both are genuinely surprising to a
+            # user who just escalated a stop, which reads as "stop all of
+            # it". Naming the survivors here, and only when there ARE any,
+            # prevents the "I stopped everything, why is the build still
+            # running" question at the one moment the answer is wanted (D3,
+            # design round 1). Unconditional, it would be noise. Video joins
+            # the count (remediation round 1, folded from the reviewer's
+            # observation): the sentence's own remedy — "jobs cancel to stop"
+            # — is exactly a video job's cancel rail (`jobs op='cancel'`).
+            spared = self._job_count("bash") + self._job_count("video")
             if spared:
                 text += (
                     f"; {spared} background job{'s' if spared != 1 else ''} "
@@ -27862,6 +28069,15 @@ class OperatorApp(App[None]):
         # refresh of delay is one painted frame of the question overhanging the
         # composer — the exact artifact this fixes, merely briefer.
         self._sync_boot_layout()
+        # THE READER DOES NOT MOVE BECAUSE A QUESTION APPEARED. The host is a
+        # dock child under the transcript, so its rows come out of the
+        # transcript's own height: a card mounting while the reader is at the
+        # tail pushed every visible row up by the card's height, one frame
+        # after the rows had already been placed and painted (measured on S4's
+        # live open: the card mounts ~600 ms after the first rows and the
+        # transcript shortens from 38 rows to 23). A follower is therefore held
+        # to the tail THROUGH the new layout, so the frame that carries the
+        # card already carries the reader at the end of the conversation.
         # ...and only while that something can actually be drawn. On a terminal
         # too short for even the card's footer the card hides itself, and a host
         # left visible would keep its own separation row for a prompt painting
@@ -28677,6 +28893,10 @@ class OperatorApp(App[None]):
         self._reasoning_block = None
         self._tool_cards = {}
         self._composing_cards = {}
+        # The supplement blocks went with the transcript like the cards above;
+        # their per-anchor registries (and the read/seen sets) reset with them,
+        # or a later beat would try to update a widget the view no longer holds.
+        self._reset_supplement_state()
         # The ask gate's settle-mount stash is turn state like the registries
         # beside it: the rows it described went with the transcript.
         self._ask_gate_settled_calls = {}
@@ -33830,7 +34050,12 @@ class OperatorApp(App[None]):
     def _poll_subagents(self) -> None:
         """Repaint the counter segments only when a running count changes."""
         agents = self._job_count("task")
-        jobs = self._job_count("bash")
+        # The jobs rung carries the video family too (§5.4's post-turn row): a
+        # video generation is a detached job whose card settles with the
+        # submit receipt (R5), so between submit and completion THIS counter is
+        # its only live presence — one number on the existing rung, never a
+        # second band row. Same predicate shape as `bash` (running, not queued).
+        jobs = self._job_count("bash") + self._job_count("video")
         # Delegated spend BEFORE the equality gate, because it moves on ticks
         # where the counts do not: a single child working for two minutes holds
         # `agents` at 1 the whole time while its bill climbs, so gating the
@@ -36798,12 +37023,17 @@ class OperatorApp(App[None]):
             self.screen.set_focus(None)
 
     def _job_count(self, kind: str) -> int:
-        """Jobs of one ``kind`` the band counts — ``task`` (subagents) or ``bash``.
+        """Jobs of one ``kind`` the band counts — ``task`` (subagents),
+        ``bash`` (backgrounded shell) or ``video`` (the media lane's detached
+        jobs).
 
-        The two are counted separately because they are different things an
+        The kinds are counted separately because they are different things an
         operator tracks: a subagent is delegated reasoning with no other
         representation on screen, while a backgrounded shell command already has
-        a tool card. Summing them would hide which kind is running.
+        a tool card. Summing them would hide which kind is running. ``video``
+        rides the same rungs as ``bash`` at the callers (the band's §5.4
+        post-turn row and the stop notice's spared count); it is named here so a
+        later reader cannot "simplify" the two-term callers back to one.
 
         ``task`` INCLUDES children still queued behind the capacity gate;
         ``bash`` does not. The asymmetry is the point. This counter is the
@@ -38336,12 +38566,18 @@ class OperatorApp(App[None]):
         attachments: Mapping[int, Marked] | None = None,
         *,
         _inline_remote: bool = False,
+        _rehome: bool = False,
     ) -> Awaitable[None] | None:
         """Dispatch a typed slash command (with arguments) to its handler.
 
         Ordinary callers schedule remote work and return None. The cold-bind
         worker requests the SAME operation inline so queued commands reach the
         owner before a later prompt can overtake an extra scheduling hop.
+
+        ``_rehome`` is the sign-in repair's private spelling of ``/model
+        <p>/<id>``: it suppresses the dispatch's own receipt, because the repair
+        paints ONE sentence of its own and two receipts for one switch read as
+        two events (design round 1, D1). See ``_activate_resolved_model``.
 
         ``attachments`` is the composer's index→image map at submit time, passed
         through so the two prompt-sending commands (``/team``/``/agent``) can
@@ -38716,7 +38952,7 @@ class OperatorApp(App[None]):
         elif command == "/delete":
             self._cmd_delete(arg, notice)
         elif command == "/model":
-            self._cmd_model(arg, notice)
+            self._cmd_model(arg, notice, _rehome=_rehome)
         elif command == "/effort":
             self._cmd_effort(arg, notice)
         elif command == "/fast":
@@ -38772,6 +39008,11 @@ class OperatorApp(App[None]):
             self._cmd_compact()
         elif command == "/stop":
             self._cmd_stop(arg, notice)
+        elif command == "/highlights":
+            # Beside `/stop` because both act on background work the turn left
+            # behind: a supplement job is not the turn (§2.9), so cancelling it
+            # is not `/stop` — this is the command that touches it.
+            self._cmd_highlights(arg, notice)
         elif command == "/copy":
             self._cmd_copy(notice)
         elif command == "/links":
@@ -39792,7 +40033,7 @@ class OperatorApp(App[None]):
         )
 
     # -- model --------------------------------------------------------------
-    def _cmd_model(self, arg: str, notice: NoticeFn) -> None:
+    def _cmd_model(self, arg: str, notice: NoticeFn, *, _rehome: bool = False) -> None:
         """``/model`` — open the picker; ``/model provider/id`` — switch directly.
 
         A bare ``/model`` OPENS THE LIST rather than printing the current label.
@@ -40008,10 +40249,15 @@ class OperatorApp(App[None]):
             # This is a user-command receipt, not background infrastructure.
             # Retire the splash before the wait so completion cannot move the
             # composer underneath a draft typed while capacity is being checked.
-            notice(f"Checking active capacity for {provider}/{model_id}…", "info")
+            if not _rehome:
+                # A machine-initiated repair is not a user command waiting on a
+                # capacity answer, so the wait line goes with the receipt it
+                # belongs to (design round 1, D1): the re-home has its own single
+                # sentence.
+                notice(f"Checking active capacity for {provider}/{model_id}…", "info")
             self.run_worker(
                 self._resolve_local_model_activation(
-                    session, provider, model_id, persist_default, notice, generation
+                    session, provider, model_id, persist_default, notice, generation, _rehome
                 ),
                 group="local-model-resolution",
                 exclusive=True,
@@ -40022,7 +40268,9 @@ class OperatorApp(App[None]):
         except Exception as error:  # unresolvable hosting/model pair
             self._system_notice(f"cannot resolve {provider}: {error}", "error")
             return
-        self._activate_resolved_model(session, provider, model_id, spec, persist_default, notice)
+        self._activate_resolved_model(
+            session, provider, model_id, spec, persist_default, notice, _rehome=_rehome
+        )
 
     async def _resolve_local_model_activation(
         self,
@@ -40032,6 +40280,7 @@ class OperatorApp(App[None]):
         persist_default: bool,
         notice: NoticeFn,
         generation: int,
+        _rehome: bool = False,
     ) -> None:
         providers = self._providers
         if providers is None:
@@ -40043,7 +40292,7 @@ class OperatorApp(App[None]):
             # selection settles, so a fast next prompt cannot reach the old model.
             if self._session is session and generation == self._model_activation_generation:
                 self._activate_resolved_model(
-                    session, provider, model_id, spec, persist_default, notice
+                    session, provider, model_id, spec, persist_default, notice, _rehome=_rehome
                 )
         except Exception as error:
             self._system_notice(f"cannot resolve {provider}: {error}", "error")
@@ -40080,6 +40329,8 @@ class OperatorApp(App[None]):
         spec: Any,
         persist_default: bool,
         notice: NoticeFn,
+        *,
+        _rehome: bool = False,
     ) -> None:
         # Consume the ONE-SHOT effort override FIRST, before any early return.
         # `_cmd_model_saved` and the persist path leave it here so the NEXT
@@ -40400,6 +40651,16 @@ class OperatorApp(App[None]):
             # that can land on a provider this host has no credential for.
             self._publish_model_access(session)
         suffix, warning = ("", None) if write_only else self._model_access_note(provider)
+        if _rehome:
+            # ONE STATEMENT OF THE MOVE (design round 1, D1). Everything below is
+            # the dispatch's RECEIPT — the `model: X → Y (this session) · … —
+            # /model default saves this for new sessions` row (and the mid-turn
+            # and access rows that qualify it) — and the sign-in repair paints a
+            # sentence of its own, written for a move the user did not ask for.
+            # Two receipts for one switch read as two events, and the persist
+            # hint advised an action the config row above had already taken
+            # (D2). The switch itself, and the band, have already happened.
+            return
         if persist_result is not None:
             notice(persist_result, "warning")
         elif persist_default:
@@ -42270,10 +42531,14 @@ class OperatorApp(App[None]):
         predicate every picker already filters by), so it publishes the claim
         rather than letting each reader re-read a credential store.
 
-        A ``None`` claim is published rather than nothing when the store cannot
-        be read or the session has no model yet: ``signed_out`` would be an
-        accusation the app failed to establish, and a stale claim from before
-        the store became unreadable is worse than no claim at all.
+        The MAPPING is not spelled here: ``model_access_claim`` owns it, one
+        spelling shared by every publishing host, so this host and a serve-side
+        runtime cannot describe the same store with two answers (cross-PR
+        unify with the re-home branch's publication). ``None`` inputs — no
+        selector yet, an unreadable store — make the builder answer ``None``,
+        and the claim is published rather than nothing: ``signed_out`` would be
+        an accusation the app failed to establish, and a stale claim from
+        before the store became unreadable is worse than no claim at all.
         """
         store = getattr(session, "_frontend_state_store", None) if session is not None else None
         if store is None:
@@ -42285,26 +42550,10 @@ class OperatorApp(App[None]):
         # try/except around every call site, which is how the routed lane came
         # to be missed in the first place.
         try:
-            from local_operator.session.frontend_state import FrontendModelAccess
+            from local_operator.session.frontend_state import model_access_claim
 
-            selector = self._current_selector()
-            if not selector:
-                store.refresh_model_access(None)
-                return
-            provider = selector.partition("/")[0]
-            usable = self._usable_providers()
-            if usable is None:
-                store.refresh_model_access(None)
-                return
-            from local_operator.providers.registry import get_provider_definition
-
-            definition = get_provider_definition(provider)
             store.refresh_model_access(
-                FrontendModelAccess(
-                    state="ok" if provider in usable else "signed_out",
-                    provider=provider,
-                    label=definition.name if definition is not None else provider,
-                )
+                model_access_claim(self._current_selector(), self._usable_providers())
             )
         except Exception:
             logger.debug("model access publication failed", exc_info=True)
@@ -44816,6 +45065,11 @@ class OperatorApp(App[None]):
             # read inside ``capture`` -- the panel then renders it even on a
             # frame whose ledger read failed.
             search_spend=self._session_search_spend(),
+            # The published channel object, attached on the same pass as the
+            # band's floor mark: it is the one source the section renders, and
+            # ``None`` (an old runtime) makes the panel draw the legacy search
+            # block instead.
+            spend_channels=self._spend_channels_state,
         )
         # Own a visible, cancellable surface before starting IO. A late disk
         # result must update this surface, never push over a user's new draft.
@@ -45294,13 +45548,21 @@ class OperatorApp(App[None]):
         Deliberately NOT the panel's ``group="usage"`` worker: a warm-up must
         neither cancel an in-flight panel fetch nor be cancelled by one, and it
         has no surface to update — its only output is the shared cache row the
-        next `/usage` reads.
+        next `/usage` reads. The one splash-facing line IS refreshed here: the
+        pre-emptive quota notice reads the row this worker maintains
+        (``tui/quota_notice``), so the empty session that was painted before
+        the row existed must re-snapshot once it lands — otherwise a cold boot
+        would show the notice only after some unrelated refresh event.
         """
         try:
             assert self._providers is not None
             await self._providers.fetch_usage([provider])
         except Exception:  # noqa: BLE001 — warm-up failure is a future live fetch
             pass
+        # Cheap and idempotent: `refresh_info` only repaints when the snapshot
+        # actually changed, so a failed fetch (cache unchanged) costs nothing.
+        if self._welcome is not None:
+            self._welcome.refresh_info()
 
     def on_usage_refresh_requested(self, message: UsageRefreshRequested) -> None:
         """``r`` in the panel — re-run the same fetch behind the same view.
@@ -47763,7 +48025,7 @@ class OperatorApp(App[None]):
             # A PAIR WITH NO VALUE IS REFUSED HERE, in this family's words. Left
             # to the CLI it would be one more argparse sentence, and a caller who
             # typed half a command should read the surface's own usage line
-            # (`_dispatch_network_cli` [redacted] the same way for a missing
+            # (`_dispatch_network_cli` refuses the same way for a missing
             # token). Any OTHER flag is refused rather than handed on: a leading
             # one would reach the CLI as the NETWORK NAME (`--network --expires`
             # is the same argparse failure this branch was filed for) and a
@@ -49338,10 +49600,33 @@ class OperatorApp(App[None]):
             # strictly narrower (it only knows about a value THIS boot
             # reported), so a config corrupted by another route was repaired by
             # the CLI and ignored here.
+            #
+            # ``accessible`` adds the OTHER half of the question the registry
+            # lookup cannot answer: a hosting the registry owns but this user
+            # has no credential for is STRANDED, and a sign-in to a working
+            # provider must replace it rather than bow to case 1 (see
+            # ``providers.model_access``; the read uses this app's own
+            # controller, so it sees the credential the login just stored).
+            # ``None`` on an unreadable store disables only that repair.
+            try:
+                from local_operator.providers.model_access import (
+                    credentialed_chat_providers,
+                )
+
+                accessible = (
+                    credentialed_chat_providers(
+                        self._providers, config_values=manager.get_config().values
+                    )
+                    if self._providers is not None
+                    else None
+                )
+            except Exception:  # noqa: BLE001 — the repair degrades, the login does not
+                accessible = None
             plan = plan_login_defaults(
                 provider,
                 manager.get_config_value("hosting"),
                 manager.get_config_value("model_name"),
+                accessible=accessible,
             )
             # A plan with nothing to write can still have something to SAY: a
             # decision-only provider (TypeSafe's Jev) leaves the routing exactly
@@ -49353,6 +49638,221 @@ class OperatorApp(App[None]):
             return plan.receipt
         except Exception as error:  # noqa: BLE001 — never fail a completed login
             return f"logged in, but could not save default hosting/model: {error}"
+
+    def _rehome_stranded_session(
+        self, login_provider: str, *, from_pending: bool = False
+    ) -> str | None:
+        """Move THIS session off a model the sign-in just proved unreachable.
+
+        The TUI's half of the re-home (the desktop's is ``server/utils/
+        desktop_rehome``; the policy, the predicate and the sentences all live in
+        ``providers/model_access``). A conversation's ``selected_model`` outranks
+        config — the owner is the only writer that may move it — so correcting
+        the default alone would leave the user staring at a chat pinned to a
+        provider whose credential is gone: the reported bug.
+
+        Runs AFTER the config write, so the target is the default the user now
+        has, and only for a session this process OWNS: a session reached over a
+        socket is governed by the config of the machine running it, whose own
+        sign-in path repairs it (the design's cross-process rule — lazy by
+        design, never pushed).
+
+        THE FIRST-LOGIN RULE (operator refinement, round 1) gates the move:
+        ``login_provider`` is the provider this login just added, and the repair
+        runs only when the credentialed chat providers other than it are empty
+        (``is_first_provider_login``; Radient counts). It exists for the state a
+        session can be in BEFORE any provider login — started by some earlier
+        build, pinned to ``radient/auto``, nothing behind it — and the first
+        OpenAI or Anthropic login is the one that moves it. Adding a second
+        provider later must never re-point open conversations. The gate runs on
+        EVERY attempt — the deferred retry included — because the authority can
+        lapse between the refusal and the turn end (a second login lands, or the
+        first provider is signed out again), and the queue is armed only once it
+        has passed (round-2 Q3: a non-first login must not even leave a string
+        waiting for the bind edge).
+
+        ``from_pending`` is the deferred retry of a first login that found the
+        conversation busy (see ``_settle_deferred_rehome``). It changes the
+        answer's SHAPE, not the checks: a still-busy conversation keeps the arm
+        silently (the sentence was said at the refusal), while every cannot-land
+        path closes the arm through :meth:`_deferred_close` — speaking the
+        close-out when the repair is still needed, silent when nothing is wrong
+        any more.
+
+        The switch goes through the ``/model`` dispatch rather than the raw
+        setter, for the reason ``_on_model_row_chosen`` gives: a picked or typed
+        selector and this repair must not be able to diverge, and the dispatch
+        carries ``_model_activation_generation`` with it. ``_rehome=True``
+        suppresses that dispatch's own receipt — the sentence returned here is
+        the ONE statement of the move (design round 1, D1). The check-then-
+        dispatch below is atomic by construction (both halves run in one
+        event-loop slot with no await between them), which is this front end's
+        equivalent of the owner-side compare-and-set the runtime uses.
+
+        Returns the sentence to paint — the move's notice, the deferral when the
+        conversation is busy, or the close-out ``_deferred_close`` writes — or
+        ``None`` when there is nothing to say. Never raises: the login it rides
+        on has already succeeded.
+        """
+        session = self._session
+        if self._providers is None:
+            # No controller to read a credential store with. The retry cannot be
+            # judged at all, so it closes rather than lapsing into silence; the
+            # conversation was stranded when the promise was made and nothing
+            # here shows that changed.
+            return self._deferred_close(from_pending, speak=True)
+        try:
+            from local_operator.config import ConfigManager
+            from local_operator.paths import config_dir
+            from local_operator.providers.model_access import (
+                credentialed_chat_providers,
+                is_accessible,
+                is_first_provider_login,
+                is_stranded,
+                rehome_deferred_notice,
+                rehome_notice,
+            )
+
+            manager = ConfigManager(config_dir())
+            accessible = credentialed_chat_providers(
+                self._providers, config_values=manager.get_config().values
+            )
+            provider = str(manager.get_config_value("hosting", "") or "").strip().lower()
+            model_id = str(manager.get_config_value("model_name", "") or "").strip()
+        except Exception:  # noqa: BLE001 — a repair must never fail a completed login
+            return self._deferred_close(from_pending, speak=True)
+        if not is_first_provider_login(accessible, login_provider):
+            return self._deferred_close(from_pending, speak=True)
+        if session is None:
+            # NO SESSION YET — the app is mid-swap, and there is no conversation
+            # to inspect (QA round 1, Q1: this window used to swallow the repair
+            # silently). The login authorised it, so it waits for the bind edge
+            # rather than evaporating. Not in the setup state, where no
+            # conversation exists to strand and the config write IS the repair.
+            if not from_pending and not self._setup_state:
+                self._rehome_await_bind = login_provider
+            return self._deferred_close(from_pending, speak=False)
+        if self._session_runs_elsewhere() or getattr(session, "is_cold", False):
+            # A follower is never ours to move (the design's cross-process
+            # rule), and a cold facade has no runtime to move — and in both
+            # states there is no local transcript for a sentence, so the arm is
+            # closed in silence rather than spoken into a conversation that is
+            # not here.
+            return self._deferred_close(from_pending, speak=False)
+        if not provider or not model_id or not is_accessible(provider, accessible):
+            # Nothing to move TO, or the target stopped being reachable: the
+            # repair is still needed (the conversation IS stranded) and cannot
+            # land, which is exactly what the close-out says.
+            return self._deferred_close(from_pending, speak=True)
+        old_label = str(getattr(session, "model_label", "") or "")
+        old_provider = old_label.partition("/")[0]
+        if not old_label or not is_stranded(old_provider, accessible):
+            # Either there is no model to move, or the old provider is
+            # credentialed again — nothing is wrong any more, and a "still on"
+            # sentence would invent a complaint.
+            return self._deferred_close(from_pending, speak=False)
+        if not self._idle_for_rehome(session):
+            # BUSY, and said so (UX review U1). The refusal is recorded here, so
+            # this is where the deferral sentence goes — and the repair is armed
+            # for the turn end instead of evaporating. A pending re-check keeps
+            # the arm rather than re-saying the sentence on every turn end.
+            self._rehome_pending = (old_label, login_provider, model_id)
+            if from_pending:
+                return None
+            return rehome_deferred_notice(old_label)
+        self._rehome_pending = None
+        self._run_slash_command(f"/model {provider}/{model_id}", _rehome=True)
+        return rehome_notice(old_label, f"{provider}/{model_id}")
+
+    def _deferred_close(self, from_pending: bool, *, speak: bool) -> str | None:
+        """Close the deferred arm; on a retry, return the sentence to paint.
+
+        ``speak`` is the caller's answer to "is the repair still NEEDED": a
+        conversation still stranded on a provider whose credential is gone gets
+        the close-out sentence, so the promise :func:`rehome_deferred_notice`
+        made ("until the turn ends") is either kept or visibly withdrawn
+        (round-2 U3/D5/Q1 — before this, every early return left the arm set and
+        the sentence unreachable, and a stale arm could move the session on a
+        much later, unrelated turn end). A state where nothing is wrong any
+        more — the old provider works again, or the user picked another model —
+        closes silently, because the sentence would invent a complaint.
+
+        A NON-pending call never owned an arm: it is a no-op returning ``None``.
+        """
+        if not from_pending:
+            return None
+        armed = self._rehome_pending
+        self._rehome_pending = None
+        if armed is None or not speak:
+            return None
+        from local_operator.providers.model_access import rehome_still_stranded_notice
+
+        return rehome_still_stranded_notice(armed[0])
+
+    def _settle_deferred_rehome(self) -> None:
+        """Complete — or close out — a re-home the login had to defer.
+
+        Runs at the ONE turn exit (see ``_finalize_turn``), where a busy
+        conversation becomes idle. Two queued repairs are honoured here, and both
+        were authorised at login time: the first-login move that had no session
+        yet (``_rehome_await_bind``, retried at this backstop if the bind edge
+        could not run it), and the deferred move itself (``_rehome_pending``).
+        The attempt returns the sentence to paint — the move, or the close-out
+        ``_deferred_close`` writes when the repair can no longer land — so
+        nothing stays armed across turn ends and nothing promised stays unsaid.
+        """
+        queued = self._rehome_await_bind
+        if queued is not None:
+            self._rehome_await_bind = None
+            sentence = self._rehome_stranded_session(queued)
+            if sentence:
+                self._notice(sentence, "note")
+            return
+        pending = self._rehome_pending
+        if pending is None:
+            return
+        old_label, login_provider, _model_id = pending
+        session = self._session
+        if session is None or self._session_runs_elsewhere() or getattr(session, "is_cold", False):
+            # No local conversation to paint into: the arm closes silently, for
+            # the same reason the same states do inside the attempt above.
+            self._rehome_pending = None
+            return
+        if str(getattr(session, "model_label", "") or "") != old_label:
+            # The user (or a reload) moved it themselves; whatever they chose
+            # wins, and there is nothing to explain.
+            self._rehome_pending = None
+            return
+        sentence = self._rehome_stranded_session(login_provider, from_pending=True)
+        if sentence:
+            self._notice(sentence, "note")
+
+    @staticmethod
+    def _idle_for_rehome(session: Any) -> bool:
+        """Whether a re-home would cut across nothing (the design's idle test).
+
+        Streaming is the live-turn signal, and a PARKED GATE is deliberately the
+        second term: the runbook already treats a parked approval as a running
+        turn (the tool slot is held mid-flight), so a model switch there would
+        land between the tool call and its result. Fails closed on an unreadable
+        probe — a skipped repair is recoverable, an interrupted turn is not.
+        """
+        try:
+            if bool(getattr(session, "is_streaming", False)):
+                return False
+            gate = getattr(session, "pending_gate", None)
+            if gate is None and not hasattr(session, "pending_gate"):
+                gate = getattr(getattr(session, "frontend_state", None), "pending_gate", None)
+            if gate is not None:
+                return False
+            count = getattr(session, "running_subagents", None)
+            if callable(count):
+                running = count()
+                if isinstance(running, int) and running > 0:
+                    return False
+            return True
+        except Exception:  # noqa: BLE001 — an unreadable state is assumed busy
+            return False
 
     async def _login_flow(self, provider: str) -> None:
         """Run the login on the event loop, reporting into the transcript.
@@ -49422,6 +49922,15 @@ class OperatorApp(App[None]):
                 # longest sentence in the block was also its least legible one while
                 # the two routine confirmations above it were bright.
                 await notice(set_msg, "note")
+            # Repair the conversation this sign-in stranded, if it is one this
+            # process owns and it is idle (see _rehome_stranded_session). AFTER
+            # the defaults write above, because the target is the default the
+            # user now has — and OUTSIDE the ``set_msg`` guard, because a login
+            # that wrote no config can still have stranded a session (its owner
+            # was pinned earlier, by a different sign-in or by /model).
+            rehome_msg = self._rehome_stranded_session(provider)
+            if rehome_msg:
+                await notice(rehome_msg, "note")
             # The credential set just changed, so the owner's offerable-model
             # publication is stale: a follower's picker must see the newly
             # usable provider without waiting for a session restart (D3).
@@ -50441,6 +50950,17 @@ class OperatorApp(App[None]):
             return self._archive_slash_result(False, SlashResult)
         if command == "delete":
             return await self._delete_slash_result(args, SlashResult)
+        # ``/highlights`` is deliberately NOT among the producers above, and
+        # that is host scope rather than an omission: turn supplements are a
+        # ``ServingSessionHandle`` surface — the runner, the lazy read and the
+        # three control ops all live on that handle (memo §2.2, "host scope
+        # follows from the seam") — and a session THIS app hosts has no runner
+        # for a branch to act on, so the refusal below is the honest answer.
+        # The runtime host implements the command
+        # (``ServingSessionHandle._highlights_slash``), which is the only host
+        # where the actions can exist; a no-op branch here would fabricate the
+        # "nothing is being prepared" stub — indistinguishable from a session
+        # that really is idle — for one that cannot run supplements at all.
         # Every authoritative capability must land on a producer ABOVE: a
         # success-shaped receipt for an operation that never ran is the round-2
         # MAJOR-1 defect, so an unhandled command answers with an honest
@@ -53056,6 +53576,13 @@ class OperatorApp(App[None]):
         # path regardless, because "held when the turn ended" is a fact this
         # handler can check and "which boundary the loop reached" is not.
         self._settle_queued_steer_notices_unsent()
+        # A re-home the sign-in deferred (the conversation was busy) becomes
+        # possible exactly here, and a repair that never revisited it was the
+        # silent half of the bug (UX review U1). Books kept with the queued
+        # steer rows above, and for the same reason: it reconciles state this
+        # turn end is the first to see, and it is not part of the outcome
+        # announcement the latch below owns.
+        self._settle_deferred_rehome()
         # THE LATCH lands here — the notification ladder is the tail this turn
         # owes AT MOST ONCE, whichever route retired it. Everything above ran
         # unconditionally because a turn already closed can still have live
@@ -53590,7 +54117,19 @@ class OperatorApp(App[None]):
         spend = self._spend_total() if total is None else total
         if not spend:
             return ""
-        is_floor = self._spend_is_floor or self._search_spend_is_floor() if floor is None else floor
+        published = self._spend_channels_state if total is None else None
+        if published is not None:
+            # The marks are the BACKEND's knowledge, not a re-derivation: a
+            # partial or floor total is a lower bound on every surface, and
+            # ``exact`` is the only state that may print an unmarked figure.
+            is_floor = str(getattr(published, "knowledge", "unknown")) in {
+                "floor",
+                "partial",
+            }
+        else:
+            is_floor = (
+                self._spend_is_floor or self._search_spend_is_floor() if floor is None else floor
+            )
         return f"{RESTORED_COST_PREFIX if is_floor else ''}{format_cost(spend)}"
 
     @staticmethod
@@ -53602,6 +54141,39 @@ class OperatorApp(App[None]):
             cost = getattr(state, "subagent_cost", None)
             return {"owner-ledger": cost} if cost is not None else {}
         return dict(getattr(state, "child_costs", {}) or {})
+
+    def _band_cost_cell(self, cost: Any, search_usd: float, billed_unknown: bool) -> str | None:
+        """The band's money cell: the published total when there is one.
+
+        The published ``spend_channels`` object spans this session's inference,
+        its channels AND its children, computed in ONE backend place — so when
+        it is present the cell is its ``total_micro`` with marks from its
+        ``knowledge``, rather than the local model+search sum this path used
+        before. Two sums is how the band and the other surfaces came to
+        disagree (design §5.1).
+
+        ``None`` (no published object — an old runtime, or a store that has not
+        republished yet) keeps the legacy arithmetic VERBATIM, including the
+        ``$—`` for billed-but-unpriceable money and the floor mark on a
+        search-only figure. ``knowledge == "unknown"`` on the published object
+        means "nothing is stateable", which renders exactly as the legacy
+        unpriceable case does: ``$—`` when there was billed activity, nothing at
+        all when there was none (the band's zero policy).
+        """
+        published = self._spend_channels_state
+        if published is not None:
+            if str(getattr(published, "knowledge", "unknown")) == "unknown":
+                return UNKNOWN_COST_CELL if billed_unknown else None
+            return self._spend_text() or None
+        if cost is not None:
+            return self._spend_text((cost or 0.0) + search_usd)
+        if search_usd:
+            # Model money unpriceable, search money real: the cell can only
+            # show the half it knows, so it carries the band's floor mark
+            # (``≥``). Showing a partial figure as if it were the total is the
+            # lie ``_spend_text``'s docstring calls the more expensive one.
+            return self._spend_text(search_usd, floor=True)
+        return UNKNOWN_COST_CELL if billed_unknown else None
 
     def _spend_total(self) -> float:
         """Everything this session has spent: its own turns, its children's, and
@@ -53636,7 +54208,17 @@ class OperatorApp(App[None]):
         ledger keys by the session that asked, a child's id is its own, and no
         parent-to-child map for it exists here. ``/analytics``' process-wide total
         is where a tree's search spend is complete; see ``_process_search_spend``.
+
+        THE PUBLISHED OBJECT WINS when the runtime has one: its
+        ``total_micro`` already spans this session's inference, its channels
+        AND its children, computed in one backend place, so the band simply
+        renders it rather than summing locally. A runtime that publishes
+        nothing (an old build, a reduced host) keeps the legacy sum below
+        verbatim.
         """
+        published = self._spend_channels_state
+        if published is not None:
+            return float(getattr(published, "total_micro", 0) or 0) / 1_000_000.0
         return (
             self._total_cost + sum(self._subagent_costs.values()) + self._session_search_spend().usd
         )
@@ -54134,6 +54716,7 @@ class OperatorApp(App[None]):
             self._resume_mounted_ids.clear()
             self._tool_cards = {}
             self._composing_cards = {}
+            self._reset_supplement_state()
             self._ask_gate_settled_calls = {}
             self._streaming_block = None
             self._working_block = None
@@ -54201,10 +54784,19 @@ class OperatorApp(App[None]):
         # is where the row first exists, and suppressing it at the SOURCE —
         # before the supersede/rekey bookkeeping — is what keeps the later
         # start/end frames from finding a registry to adopt. The rows stay in
-        # the model's context; only the screen skips them.
-        from local_operator.harness.rows import is_hidden_tool_name, is_settle_only_ask
+        # the model's context; only the screen skips them. THE QUIET PAIR
+        # (design docs/design/quiet-turns.md §5, S1) is the same suppression
+        # class for the same reason: the announcement is the first frame that
+        # could mount its row.
+        from local_operator.harness.rows import (
+            is_hidden_tool_name,
+            is_quiet_turn_name,
+            is_settle_only_ask,
+        )
 
-        if is_hidden_tool_name(getattr(event, "tool_name", None)):
+        if is_hidden_tool_name(getattr(event, "tool_name", None)) or is_quiet_turn_name(
+            getattr(event, "tool_name", None)
+        ):
             return
         # THE ASK GATE (design docs/design/ask-gate.md §3): while the queued
         # engine is live an `ask` call is SETTLE-ONLY — no row while it
@@ -54355,10 +54947,19 @@ class OperatorApp(App[None]):
         # composing gate above suppresses the announcement, and this one stops
         # a start frame from mounting a fresh card for a call with none — the
         # belt to that brace, because the two frames race and either can be a
-        # viewer's first sight of the call.
-        from local_operator.harness.rows import is_hidden_tool_name, is_settle_only_ask
+        # viewer's first sight of the call. THE QUIET PAIR (design
+        # docs/design/quiet-turns.md §5, S1) is gated here for exactly that
+        # race: suppressing only the composing seam would leave this one free
+        # to paint the ``no_reply`` card a moment later.
+        from local_operator.harness.rows import (
+            is_hidden_tool_name,
+            is_quiet_turn_name,
+            is_settle_only_ask,
+        )
 
-        if is_hidden_tool_name(getattr(event, "tool_name", None)):
+        if is_hidden_tool_name(getattr(event, "tool_name", None)) or is_quiet_turn_name(
+            getattr(event, "tool_name", None)
+        ):
             return
         # THE ASK GATE's belt (design docs/design/ask-gate.md §3): the same
         # settle-only suppression the composing gate applies, because the two
@@ -54485,7 +55086,10 @@ class OperatorApp(App[None]):
         card.set_live_details(getattr(message.event.partial_result, "details", None))
 
     def on_tool_ended(self, message: ToolEnded) -> None:
-        from local_operator.harness.rows import is_ask_gate_divert_details
+        from local_operator.harness.rows import (
+            is_ask_gate_divert_details,
+            is_quiet_turn_result,
+        )
 
         event = message.event
         card = self._tool_cards.pop(event.tool_call_id, None)
@@ -54514,6 +55118,18 @@ class OperatorApp(App[None]):
             # The settle-mount's stash goes with it: a diverted ask never
             # reaches `_mount_settle_only_ask`, which is the other pop site.
             self._ask_gate_settled_calls.pop(event.tool_call_id, None)
+            if card is not None:
+                self._drop_tool_card(card)
+            self._refresh_working_activity()
+            return
+        # THE QUIET RESULT SETTLES NOTHING (design docs/design/quiet-turns.md
+        # §5, S1): the marker is the quiet end's own fact, read off the result
+        # at the same seam the divert check above reads its gate marker. The
+        # composing and started gates are the first doors for the pair's row;
+        # this drop half guarantees a card any seam older than the gates could
+        # have mounted is retired rather than settled — the pair's end can only
+        # ever paint nothing.
+        if is_quiet_turn_result(getattr(event, "result", None)):
             if card is not None:
                 self._drop_tool_card(card)
             self._refresh_working_activity()
@@ -55710,6 +56326,508 @@ class OperatorApp(App[None]):
         # really is running. Cleared wherever the flag it serves is cleared.
         self._settled_child_ids.clear()
 
+    # -- turn supplements ("Highlights", memo §2.7/§2.8) ---------------------
+
+    def on_supplement_progress(self, message: SupplementProgress) -> None:
+        """A live supplement beat: place or refresh the block under its answer.
+
+        No generation guard and no deferral: the job is not the turn, the beat
+        IS the state, and the handler only mutates the transcript — so it can
+        never block input or delay the next turn (§2.9). A repeat or an
+        out-of-order beat repaints identically, because the block renders as a
+        pure function of the merged row.
+        """
+        anchor = str(message.anchor or "")
+        if not anchor:
+            return
+        self._supplement_live.add(anchor)
+        terminal = message.state in ("done", "failed", "cancelled", "skipped")
+        self._apply_supplement(anchor, message.details(), job_live=not terminal)
+
+    def _apply_supplement(self, anchor: str, details: Mapping[str, Any], *, job_live: bool) -> None:
+        """Fold one row (live beat or read result) into the block and registry.
+
+        MERGES over the newest known row for the anchor: a ``running`` beat
+        carries empty file lists by design (§2.7 — only decided/done carry
+        them), so replacing blindly would drop the callouts the ``decided``
+        beat had already put on screen. A version CHANGE replaces the lists
+        instead: version + 1 is a new attempt whose empty list means empty.
+        """
+        merged = self._merge_supplement(anchor, details)
+        state = str(merged.get("state", ""))
+        if merged.get("error") == SUPERSEDED_ERROR or merged.get("dismissed") or state == "skipped":
+            # Superseded / dismissed / skipped: nothing renders (§2.8), and the
+            # row leaves the registry so no command can target it again.
+            self._remove_supplement(anchor)
+            return
+        disposition = reader_disposition(merged, job_live=job_live)
+        if disposition == "nothing":
+            self._remove_supplement(anchor)
+            return
+        # Recency: keys keep insertion order, and a touched anchor moves to the
+        # end, which is what "/highlights ..." reads as "the newest row".
+        self._supplement_rows.pop(anchor, None)
+        self._supplement_rows[anchor] = merged
+
+        view = self._supplement_view()
+        if view is None:
+            return
+        block = self._supplement_blocks.get(anchor)
+        # MEMBERSHIP, not ``is_mounted``: a block mounted earlier in THIS call
+        # stack (the decided → done swap is one message apart) is in ``_blocks``
+        # but not yet reported as mounted by Textual, and the mount-time
+        # question here is only "does the container still hold it".
+        mounted_blocks = view.blocks()
+        if block is not None and block not in mounted_blocks:
+            self._supplement_blocks.pop(anchor, None)
+            block = None
+        if block is None:
+            # STRUCTURAL dedupe, independent of this method's own registry: a
+            # block already in the container for this anchor is adopted rather
+            # than doubled. The registry can be empty while the container holds
+            # one (a read result landing in the same stack as its beat), and two
+            # blocks under one answer is the visible failure that class causes.
+            block = next(
+                (
+                    candidate
+                    for candidate in mounted_blocks
+                    if isinstance(candidate, SupplementBlock) and candidate.anchor_id == anchor
+                ),
+                None,
+            )
+            if block is not None:
+                self._supplement_blocks[anchor] = block
+        shows_block = disposition != "block" or bool(merged.get("files"))
+        if not shows_block:
+            # A done row with images only: the block itself would be invisible
+            # (HTML is skipped by contract), so only the images mount — under
+            # the answer.
+            if block is not None:
+                self._remove_supplement(anchor, drop_row=False)
+        elif block is None:
+            answer = self._supplement_answer_block(anchor)
+            if answer is None:
+                # The answer row is not on screen (not in the rendered bound):
+                # the held row mounts when the answer's page does — the
+                # projection read re-arms for a live anchor whose block is not
+                # mounted (see `_request_supplement_reads`).
+                return
+            width = 0
+            try:
+                width = view.scrollable_content_region.width or view.size.width
+            except Exception:  # noqa: BLE001 — no layout yet: the fold hint stays 0
+                width = 0
+            block = SupplementBlock(
+                merged,
+                job_live=job_live,
+                fold_width=width if width and width > 0 else 0,
+                cwd=self._supplement_cwd(),
+            )
+            index = view.blocks().index(answer) + 1
+            view.insert_blocks(index, [block])
+            self._supplement_blocks[anchor] = block
+        else:
+            block.set_details(merged, job_live=job_live)
+        if state == "done":
+            self._mount_supplement_images(anchor, merged)
+        if (
+            state in ("done", "failed", "cancelled")
+            and anchor not in self._supplement_read
+            and anchor not in self._supplement_read_inflight
+            and callable(getattr(self._session, "supplements_for", None))
+        ):
+            # THE TERMINAL BEAT'S ROW UPGRADE. The event carries the FEATURED
+            # files only (memo §2.7: ``files``, "the same shape as the row") —
+            # ``files_more``/``more`` ride the ROW, and the read op is what
+            # serves it. One read per job makes the live block identical to
+            # the replayed one (the "N more files" disclosure included)
+            # instead of the disclosure appearing only after a reload; the
+            # cost is the read the design already documents (§2.11), and the
+            # guard keeps a read that already served this anchor from being
+            # asked twice.
+            self._supplement_read_inflight.add(anchor)
+            self.run_worker(self._read_supplements([anchor]), group="supplement-read")
+
+    def _merge_supplement(self, anchor: str, details: Mapping[str, Any]) -> dict[str, Any]:
+        """The row to paint: ``details`` with the same-version lists carried over."""
+        merged = dict(details)
+        prev = self._supplement_rows.get(anchor)
+        if not isinstance(prev, Mapping):
+            return merged
+        try:
+            same_version = int(merged.get("version", 0) or 0) == int(prev.get("version", 0) or 0)
+        except (TypeError, ValueError):
+            same_version = False
+        if same_version:
+            for key in ("files", "files_more", "more", "components", "images"):
+                if not merged.get(key) and prev.get(key):
+                    merged[key] = prev[key]
+        return merged
+
+    def _supplement_cwd(self) -> str | None:
+        """The session working directory callout paths resolve against."""
+        try:
+            cwd = str(getattr(self._session, "cwd", "") or "")
+        except Exception:  # noqa: BLE001 — no session: no relative resolution
+            return None
+        return cwd or None
+
+    def _supplement_view(self) -> Any:
+        """The transcript view, or ``None`` once it is gone (teardown)."""
+        try:
+            return self._transcript_view()
+        except Exception:  # noqa: BLE001 — NoMatches once the screen is gone
+            return None
+
+    def _supplement_answer_block(self, anchor: str) -> AssistantBlock | None:
+        """The mounted answer block whose message id is ``anchor``, if any."""
+        view = self._supplement_view()
+        if view is None:
+            return None
+        for block in view.blocks():
+            if (
+                isinstance(block, AssistantBlock)
+                and str(getattr(block, "completion_anchor_id", "") or "") == anchor
+            ):
+                return block
+        return None
+
+    def _mount_supplement_images(self, anchor: str, details: Mapping[str, Any]) -> None:
+        """Mount image entries as ImageBlocks beside the block (once per digest).
+
+        The SAME ImageBlock the transcript's ``append_image_blocks`` mounts —
+        one renderer — built directly because these must land at a POSITION
+        (right under the row they belong to), not at the tail the existing
+        helper appends to. A digest already mounted for this anchor is never
+        doubled, so a repeated ``done`` beat repaints idempotently.
+        """
+        entries = details.get("images")
+        if not isinstance(entries, list) or not entries:
+            return
+        view = self._supplement_view()
+        if view is None:
+            return
+        blocks = view.blocks()
+        after = self._supplement_blocks.get(anchor)
+        if after is None or after not in blocks:
+            after = self._supplement_answer_block(anchor)
+        if after is None:
+            return
+        from local_operator.session.attachments import AttachmentStore
+
+        store = AttachmentStore()
+        mounted = self._supplement_images.setdefault(anchor, {})
+        for entry in entries:
+            if not isinstance(entry, Mapping):
+                continue
+            digest = str(entry.get("attachment", "") or "")
+            if not digest or digest in mounted:
+                continue
+            mime = str(entry.get("mime", "") or "")
+            if mime and not mime.startswith("image/"):
+                # Only images render on this surface; anything else is skipped
+                # silently, with no placeholder (the operator's requirement).
+                continue
+            resolved = store.get_bytes(digest)
+            if resolved is None:
+                continue
+            raw, stored_mime = resolved
+            resolved_mime = mime or str(stored_mime or "image/png")
+            try:
+                image_block = ImageBlock(
+                    base64.b64encode(raw).decode("ascii"),
+                    resolved_mime,
+                    label=supplement_mod.display_text(entry.get("title")),
+                    fold_width=max(0, view.size.width),
+                )
+            except Exception:  # noqa: BLE001 — one bad blob must not take the row down
+                logger.debug("supplement image block construction failed", exc_info=True)
+                continue
+            index = view.blocks().index(after) + 1
+            view.insert_blocks(index, [image_block])
+            mounted[digest] = image_block
+            after = image_block
+
+    def _remove_supplement(self, anchor: str, *, drop_row: bool = True) -> None:
+        """Lift the block and its images; by default forget the row too.
+
+        ``remove_block`` is membership-guarded on its own side, so neither
+        caller here re-asks: a block mounted in the same stack that removes it
+        is in ``_blocks`` before Textual reports it as mounted.
+        """
+        view = self._supplement_view()
+        block = self._supplement_blocks.pop(anchor, None)
+        if block is not None and view is not None:
+            view.remove_block(block)
+        for image_block in self._supplement_images.pop(anchor, {}).values():
+            if view is not None:
+                view.remove_block(image_block)
+        if drop_row:
+            self._supplement_rows.pop(anchor, None)
+
+    def _request_supplement_reads(self) -> None:
+        """Issue the lazy read for mounted answers this app has not heard about.
+
+        The memo's §2.11 rule: a surface reads ``{anchor: newest row}`` when an
+        answer row mounts, because supplement rows are custom entries the
+        history fold does not carry — this read IS the replay mechanism. Titled
+        anchors are skipped once a read ANSWERED for them, and an empty answer
+        leaves the anchor unread on purpose: the first read can race a cold
+        attach, and a later projection then retries instead of losing the row.
+        """
+        session = self._session
+        if not callable(getattr(session, "supplements_for", None)):
+            return
+        view = self._supplement_view()
+        if view is None:
+            return
+        anchors: list[str] = []
+        for block in view.blocks():
+            if not isinstance(block, AssistantBlock):
+                continue
+            anchor = str(getattr(block, "completion_anchor_id", "") or "")
+            if not anchor or anchor in self._supplement_read:
+                continue
+            if anchor in self._supplement_read_inflight:
+                continue
+            # A live anchor is skipped only while its own block is mounted:
+            # that is the case its beat path owns end to end (the terminal
+            # beat asks this same read, below its mount branch). A live anchor
+            # with NO block fell out of that path — the beat landed while its
+            # answer was outside the rendered bound, so `_apply_supplement`
+            # returned before the read was asked — and this pass is the one
+            # that re-arms it when the answer's page mounts.
+            if anchor in self._supplement_live and anchor in self._supplement_blocks:
+                continue
+            anchors.append(anchor)
+        if not anchors:
+            return
+        self._supplement_read_inflight.update(anchors)
+        self.run_worker(self._read_supplements(anchors), group="supplement-read")
+
+    async def _read_supplements(self, anchors: list[str]) -> None:
+        """Fetch and apply the lazy read's rows; never let it raise into the app."""
+        session = self._session
+        reader = getattr(session, "supplements_for", None)
+        if not callable(reader):
+            return
+        read = cast(Callable[[list[str]], Awaitable[Any]], reader)
+        try:
+            rows = await read(anchors)
+        except Exception:  # noqa: BLE001 — a read that fails paints nothing
+            logger.debug("supplements_for failed", exc_info=True)
+            return
+        finally:
+            for anchor in anchors:
+                self._supplement_read_inflight.discard(anchor)
+        if self._session is not session:
+            return  # the conversation moved while the read was in flight
+        if not isinstance(rows, Mapping):
+            return
+        for anchor, details in rows.items():
+            key = str(anchor)
+            if not isinstance(details, Mapping):
+                continue
+            held = self._supplement_rows.get(key)
+            if isinstance(held, Mapping):
+                # ``(version, rank)``-GUARDED, not live-guarded: a read must
+                # never paint OLDER than what the surface already holds, but
+                # the same version at the same rank is the same journaled row
+                # and re-applying it is how the terminal beat's upgrade read
+                # lands the disclosure keys the event does not carry
+                # (``files_more``/``more``). Both halves are needed: live beats
+                # are never journaled, so a read of the SAME version can still
+                # carry the EARLIER journaled state (``running`` held,
+                # ``decided`` read) — applying that would repaint a running job
+                # as cancelled. A blanket "a live beat wins" skip also blocked
+                # the upgrade, because every beat's anchor IS marked live.
+                try:
+                    older = (
+                        int(details.get("version", 0) or 0),
+                        supplement_mod.state_rank(details.get("state")),
+                    ) < (
+                        int(held.get("version", 0) or 0),
+                        supplement_mod.state_rank(held.get("state")),
+                    )
+                except (TypeError, ValueError):
+                    older = False
+                if older:
+                    continue
+            if self._supplement_answer_block(key) is None:
+                continue  # nothing to hang it under yet; a later pass retries
+            self._supplement_read.add(key)
+            self._apply_supplement(key, details, job_live=False)
+
+    def _reset_supplement_state(self) -> None:
+        """Drop the per-conversation supplement bookkeeping (clear / swap)."""
+        self._supplement_blocks.clear()
+        self._supplement_rows.clear()
+        self._supplement_images.clear()
+        self._supplement_read.clear()
+        self._supplement_read_inflight.clear()
+        self._supplement_live.clear()
+
+    def open_transcript_file(self, url: str, *, source_path: str = "") -> None:
+        """Reveal a file callout in Finder — the open half of the affordance.
+
+        ``open -R``, never ``webbrowser``: the callout hands the user the FILE,
+        and revealing it is the least authority that answers "where is it".
+        The check is the SAME predicate as paint time and on the SAME input
+        (the row's own path + the session cwd), RE-RUN here: between the paint
+        and the click the path is attacker-changeable state, and this is the
+        moment it actually reaches a process.
+        """
+        source = self._interaction
+
+        def notice(body: str, kind: NoticeKind = "info") -> None:
+            self._notice_for(source, body, kind)
+
+        if not url.startswith("file:"):
+            notice("only file callouts can be revealed here", "warning")
+            return
+        checked = file_affordance(source_path, cwd=self._supplement_cwd())
+        if checked is None:
+            notice("that file can no longer be revealed", "warning")
+            return
+        if checked != url:
+            # The same input now resolves elsewhere (a replacement symlink, a
+            # moved root): refuse rather than reveal what was never vouched for.
+            notice("that file changed since it was listed", "warning")
+            return
+        from urllib.parse import unquote, urlparse
+
+        path = unquote(urlparse(checked).path)
+        self.run_worker(self._reveal_file(path, notice), group="reveal-file")
+
+    async def _reveal_file(self, path: str, notice: NoticeFn) -> None:
+        """Run ``open -R`` quietly and receipt the outcome."""
+        try:
+            process = await asyncio.create_subprocess_exec(
+                "open",
+                "-R",
+                path,
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            code = await process.wait()
+        except Exception as exc:  # noqa: BLE001 — no opener is a notice, not a crash
+            logger.debug("reveal-in-finder failed to start", exc_info=True)
+            notice(f"could not reveal that file: {exc}", "warning")
+            return
+        if code == 0:
+            notice("revealed in Finder")
+        else:
+            notice("could not reveal that file", "warning")
+
+    def _cmd_highlights(self, arg: str, notice: NoticeFn) -> None:
+        """``/highlights cancel | retry | adjust <text>`` — the supplement actions.
+
+        The block paints no pointer-only action pair (memo §3.2 T5: ``ctrl+c``
+        is the turn interrupt and stays unbound), so these commands are the
+        TUI's whole interaction with a supplement job. Each targets the NEWEST
+        row the app knows; the receipt names what happened.
+        """
+        words = arg.split(maxsplit=1)
+        verb = words[0].strip().lower() if words and words[0].strip() else ""
+        text = words[1].strip() if len(words) > 1 else ""
+        if verb not in ("cancel", "retry", "adjust"):
+            notice("Usage: /highlights cancel | retry | adjust <text>", "warning")
+            return
+        if verb == "adjust" and not text:
+            notice("Usage: /highlights adjust <text>", "warning")
+            return
+        target = self._supplement_target(verb)
+        if target is None:
+            missing = {
+                "cancel": "nothing is being prepared right now",
+                "retry": "nothing to retry — no highlights were cancelled or failed",
+                "adjust": "no highlights to adjust yet",
+            }
+            notice(missing[verb], "warning")
+            return
+        anchor, details = target
+        job = str(details.get("job", "") or "")
+        if not job:
+            notice("that highlight has no job to act on", "warning")
+            return
+        self.run_worker(
+            self._run_highlights_op(verb, anchor, job, text, notice), group="highlights"
+        )
+
+    def _supplement_target(self, verb: str) -> tuple[str, dict[str, Any]] | None:
+        """The newest actionable row for ``verb``, or ``None``.
+
+        ``cancel`` needs a job this app has seen LIVE (a cold row must not
+        promise a cancel it cannot deliver — the stale-row rule already paints
+        it as cancelled); ``retry`` takes the newest cancelled/failed row;
+        ``adjust`` the newest row of any state, since steering a finished row
+        is the documented re-run path.
+        """
+        for anchor, details in reversed(list(self._supplement_rows.items())):
+            state = str(details.get("state", ""))
+            if details.get("error") == SUPERSEDED_ERROR or details.get("dismissed"):
+                continue
+            if verb == "cancel":
+                if anchor in self._supplement_live and state in (
+                    "decided",
+                    "queued",
+                    "running",
+                    "cancelling",
+                ):
+                    return anchor, details
+                continue
+            if verb == "retry":
+                if state in ("failed", "cancelled"):
+                    return anchor, details
+                continue
+            if state in (
+                "decided",
+                "queued",
+                "running",
+                "cancelling",
+                "done",
+                "failed",
+                "cancelled",
+            ):
+                return anchor, details
+        return None
+
+    async def _run_highlights_op(
+        self, verb: str, anchor: str, job: str, text: str, notice: NoticeFn
+    ) -> None:
+        """Send one supplement op to the owner and receipt its answer."""
+        session = self._session
+        method_name = {
+            "cancel": "supplement_cancel",
+            "retry": "supplement_restart",
+            "adjust": "supplement_steer",
+        }[verb]
+        method = getattr(session, method_name, None)
+        if not callable(method):
+            notice("this session cannot manage highlights; update the owner", "warning")
+            return
+        # ``getattr`` resolves it as ``object``; the cast is what makes the
+        # await legal for the type checker while the ``callable`` check above
+        # is what makes it safe at runtime (the two halves are separate because
+        # the surface is duck-typed across several owners).
+        op = cast(Callable[..., Awaitable[str]], method)
+        try:
+            if verb == "adjust":
+                receipt = await op(anchor, job, text)
+            else:
+                receipt = await op(anchor, job)
+        except Exception as exc:  # noqa: BLE001 — refusals are the receipt
+            notice(str(exc) or "could not update highlights", "warning")
+            return
+        words = {
+            "cancelled": "Highlights cancelled",
+            "steering": "Updating highlights…",
+            "restarting": "Preparing highlights again…",
+            "already finished": "those highlights already finished",
+        }
+        notice(words.get(str(receipt), str(receipt)))
+
 
 def slot_rows(slot: Any) -> int:
     """Rows a docked band slot occupies, measured if possible and predicted if not.
@@ -55765,7 +56883,7 @@ def _is_viewer(session: Any) -> TypeGuard[ViewerSessionProtocol]:
 
     **Why a predicate and not ``isinstance(session, ViewerSessionProtocol)``.**
     The obvious conversion is the honest-looking one and it costs three orders
-    of magnitude (~10^3x): that protocol is ``runtime_checkable`` with 142
+    of magnitude (~10^3x): that protocol is ``runtime_checkable`` with 146
     public members, and a positive ``isinstance`` walks every one of them.
     (The figure is RECOMPUTED with ``len(typing._get_protocol_attrs(...))`` at
     the time of measurement rather than adjusted by the size of one's own

@@ -20,6 +20,7 @@ with a concurrent run on the same broker.
 
 from __future__ import annotations
 
+import gc
 import random
 import socket
 import time
@@ -38,6 +39,9 @@ from doppler.stream import (
     Requester,
     Subscriber,
     get_timestamp_ns,
+)
+from doppler.tests._nats import (
+    delete_stream_if_present as _delete_stream_if_present,
 )
 
 
@@ -231,48 +235,6 @@ def _ready_fanout(sender, receiver, probe) -> None:
             receiver.recv(timeout_ms=20)
         except Exception:
             return
-
-
-# The transport's own words for "that stream is already gone". The C layer
-# reports what the broker said rather than a bare code (doppler#1131), which
-# is what makes this distinguishable at all: the full text is
-# "delete_stream failed: Invalid argument -- Not Found".
-_STREAM_ALREADY_GONE = "Not Found"
-
-
-def _delete_stream_if_present(push) -> None:
-    """Delete a work-queue stream, tolerating one that is already absent.
-
-    ``Push.delete_stream()`` is deliberately strict -- deleting a stream
-    that is not there is an error, and
-    ``test_deleting_a_stream_twice_reports_the_brokers_refusal`` pins that.
-    Strictness is right for the API and wrong for CLEANUP: teardown runs
-    whatever the test did, and deleting something twice is the ordinary
-    shape of cleanup code. Unconditional deletion turned a passing test
-    into a CI ERROR against whichever test used the fixture last
-    (doppler#1147).
-
-    Only the ALREADY-ABSENT case is tolerated, so the gate doppler#1136
-    asked for survives: a stream that EXISTS and cannot be deleted still
-    fails the run, and so the 40 GB of work-queue residue that issue was
-    about would still be caught.
-
-    Not the cause, ruled out while fixing this: subject collision between
-    xdist workers. ``_unique_endpoint`` draws from ``random``, which each
-    worker seeds from urandom, and nothing in the suite calls
-    ``random.seed`` -- only ``numpy.random.seed``, in a different module.
-
-    Parameters
-    ----------
-    push : doppler.stream.Push
-        The producer that provisioned the stream. Any other ``RuntimeError``
-        -- an unreachable broker, a timeout -- propagates unchanged.
-    """
-    try:
-        push.delete_stream()
-    except RuntimeError as exc:
-        if _STREAM_ALREADY_GONE not in str(exc):
-            raise
 
 
 # ------------------------------------------------------------------ #
@@ -926,8 +888,23 @@ def test_nats_chunked_pub_sub():
     got, hdr = sub.recv(timeout_ms=5000)
     assert np.array_equal(got, big)
     assert hdr["num_samples"] == 100_000
+    # A clean stream loses nothing (#2010). The faults themselves -- a lost
+    # chunk, a late join, a mid-frame timeout -- are scripted against the
+    # reassembler in test_stream_wire.c; a broker cannot drop on cue.
+    assert sub.reasm_stats() == {
+        "abandoned": 0,
+        "rejected": 0,
+        "mid_frame_timeouts": 0,
+    }
     pub.close()
     sub.close()
+
+
+def test_reasm_stats_refuses_a_closed_subscriber():
+    sub = Subscriber(_unique_endpoint("reasm"))
+    sub.close()
+    with pytest.raises(RuntimeError, match="subscriber is closed"):
+        sub.reasm_stats()
 
 
 def test_nats_push_frame_too_large():
@@ -1154,3 +1131,84 @@ def test_cleanup_delete_swallows_only_the_brokers_absence_reply():
     )
     _delete_stream_if_present(already_gone)
     assert already_gone.calls == 1
+
+
+# ------------------------------------------------------------------ #
+# ack() after its Pull is gone (#2016 item 5)                          #
+# ------------------------------------------------------------------ #
+
+
+def test_ack_after_close_raises_value_error():
+    """An ack whose Pull is closed is refused, not a use-after-free.
+
+    nats.c's ack reads the message's subscription, and a message does not
+    keep it alive: acking after close() read freed memory. The message
+    shares a link with its Pull's context, so the refusal is clean, and the
+    array stays readable.
+    """
+    ep = _unique_endpoint("ackclose")
+    push = Push(ep, CF64)
+    pull = Pull(ep)
+    try:
+        _ready_queue(push, pull, np.zeros(1, dtype=np.complex128), ep)
+        push.send(np.full(2, 3 + 4j, dtype=np.complex128))
+        samples, _ = pull.recv(timeout_ms=2000)
+        pull.close()
+        with pytest.raises(ValueError, match="closed"):
+            pull.ack(samples)
+        np.testing.assert_array_equal(samples, np.full(2, 3 + 4j))
+    finally:
+        # The queue was made up here, so ending it is ours (#1136).
+        _delete_stream_if_present(push)
+        pull.close()
+        push.__exit__(None, None, None)
+
+
+def test_ack_after_the_pull_is_collected_raises_value_error():
+    """A garbage-collected Pull takes close()'s path, and the closed check
+    is the MESSAGE's: ack() accepts another Pull's array, so it is acked
+    through a second Pull here, and still refused."""
+    ep = _unique_endpoint("ackgc")
+    push = Push(ep, CF64)
+    pull = Pull(ep)
+    other = None
+    try:
+        _ready_queue(push, pull, np.zeros(1, dtype=np.complex128), ep)
+        push.send(np.ones(2, dtype=np.complex128))
+        samples, _ = pull.recv(timeout_ms=2000)
+        del pull
+        gc.collect()
+        other = Pull(ep)
+        with pytest.raises(ValueError, match="closed"):
+            other.ack(samples)
+    finally:
+        _delete_stream_if_present(push)
+        if other is not None:
+            other.close()
+        push.__exit__(None, None, None)
+
+
+def test_ack_on_a_subscriber_frame_is_a_noop():
+    """Only a work-queue frame is acked; on any other, ack() is the no-op
+    stream.h promises, before and after its Subscriber is closed. It used
+    to reach nats.c's JetStream ack and fail, and then, once acks after a
+    close were refused, to refuse this one too."""
+    ep = _unique_endpoint("acksub")
+    qep = _unique_endpoint("acksub_queue")
+    pub = Publisher(ep, CF64)
+    sub = Subscriber(ep)
+    qpush = Push(qep, CF64)  # the Pull's queue, so it can be deleted
+    pull = Pull(qep)
+    try:
+        _ready_fanout(pub, sub, np.zeros(1, dtype=np.complex128))
+        pub.send(np.ones(2, dtype=np.complex128), sample_rate=int(1e6))
+        samples, _ = sub.recv(timeout_ms=2000)
+        assert pull.ack(samples) is None
+        sub.close()
+        assert pull.ack(samples) is None
+    finally:
+        _delete_stream_if_present(qpush)
+        pull.close()
+        qpush.__exit__(None, None, None)
+        pub.__exit__(None, None, None)
+        sub.__exit__(None, None, None)

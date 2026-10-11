@@ -106,10 +106,10 @@ public static class License
     // LICENSE_EXIT_MESSAGES.
     private static readonly Dictionary<int, string> LicenseExitMessages = new()
     {
-        [76] = "CloakBrowser Pro: session limit reached for your plan. Close another running session or upgrade your plan.",
+        [76] = "CloakBrowser Pro: session limit reached for your plan. Close another running session or upgrade your plan. Always close with await browser.CloseAsync() (e.g. in a finally block). A session that crashed or was killed frees its seat automatically within 4 min (free/trial/solo), 15 min (team) or 30 min (business/scale).",
         [77] = "CloakBrowser Pro: license key is invalid, expired, or missing. Check CLOAKBROWSER_LICENSE_KEY.",
         [78] = "CloakBrowser Pro: couldn't verify your license (license server unreachable or a connection problem).",
-        [79] = "CloakBrowser Pro: local configuration problem, ~/.cloakbrowser is not writable.",
+        [79] = "CloakBrowser Pro: local configuration problem. Either ~/.cloakbrowser is not writable, or the --license-route value is invalid (use auto, direct, or proxy with a proxy set).",
     };
 
     // Playwright embeds the child-process exit as "<process did exit: exitCode=N, ...>".
@@ -136,10 +136,14 @@ public static class License
     /// <summary>
     /// Returns a <see cref="CloakBrowserLicenseError"/> if a launch failure was a
     /// license deny, else null so the original exception propagates unchanged.
+    /// Falls back to the launch's denial file: .NET Playwright's launch failure
+    /// carries no exit code in its message ("Target ... has been closed").
     /// </summary>
-    public static CloakBrowserLicenseError? LicenseErrorFrom(Exception ex)
+    public static CloakBrowserLicenseError? LicenseErrorFrom(Exception ex, string? denialPath = null)
     {
         var msg = LicenseErrorMessage(ex.Message);
+        if (msg is null && denialPath is not null && ReadDenialFile(denialPath) is int code)
+            LicenseExitMessages.TryGetValue(code, out msg);
         return msg is not null ? new CloakBrowserLicenseError(msg, ex) : null;
     }
 

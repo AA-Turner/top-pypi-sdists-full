@@ -90,9 +90,7 @@ class KindComponentContextSummary(KindSubModel):
         "component_ids": [],
         "open_incidents": [],
         "incidents_visible": True,
-        "props_contract": {},
-        "platform_components": {},
-        "design_doctrine": "",
+        "rules": "Follow the shape-authoring skill in your instructions.",
         "summary": {
             "kind": "invoice_summary",
             "kind_definition_id": "aa11aa11-0000-4000-8000-000000000000",
@@ -119,9 +117,8 @@ class KindComponentContext(KindModel):
     #: Editor-only: open incidents deduplicated by error signature.
     open_incidents: list[KindComponentIncidentGroup] = []
     incidents_visible: bool = False
-    props_contract: dict[str, str] = {}
-    platform_components: dict[str, str] = {}
-    design_doctrine: str = ""
+    #: Pointer to the ``shape-authoring`` skill — the ONE home of the authoring rules.
+    rules: str = ""
     summary: KindComponentContextSummary | None = None
     #: Set only when the schema / canonical example was cut to the result
     #: budget: what, and how to get the rest (``bound_kind_bodies``).

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,7 +13,7 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype._data.code.datacodename import VAR_NAME_PITH_PREFIX
+from beartype._data.check.code.datacodename import VAR_NAME_PITH_PREFIX
 
 # ....................{ PRIVATE ~ subclasses               }....................
 class _HintIndexToHintPlaceholder(dict):

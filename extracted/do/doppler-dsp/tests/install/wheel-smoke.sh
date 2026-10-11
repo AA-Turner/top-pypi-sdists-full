@@ -29,19 +29,36 @@
 #
 # Usage:
 #   tests/install/wheel-smoke.sh --wheel-dir dist
-#   tests/install/wheel-smoke.sh --pypi 0.49.0
+#   tests/install/wheel-smoke.sh --pypi 0.49.0 [--python 3.13]
 #
-# Needs: uv (the --pypi readiness wait resolves through uv itself).
+# --python 3.N builds the venv on that Python, so the wheel PyPI serves is that
+# Python's: release.yml's smoke-pypi runs one leg per supported Python on each
+# platform (doppler#1817 shipped uninstallable cp313/cp314 win_amd64 wheels
+# while the smoke only ever installed cp312). The venv is checked to BE that
+# Python, so a resolver that quietly picked another one cannot pass for it.
+#
+# --pypi retries the install itself while the index catches up with the
+# publish: WHEEL_SMOKE_ATTEMPTS (default 12) tries, WHEEL_SMOKE_DELAY seconds
+# apart (default 15), so 3 minutes before it fails with uv's own error.
+#
+# Needs: uv.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PKG="doppler-dsp"
 E2E="$ROOT/deploy/validation/wfm_e2e.py"
+USAGE="usage: wheel-smoke.sh --wheel-dir DIR | --pypi VERSION [--python 3.N]"
 
 case "${1:-}" in
-    --wheel-dir) MODE="wheel"; ARG="${2:?usage: wheel-smoke.sh --wheel-dir DIR}" ;;
-    --pypi)      MODE="pypi";  ARG="${2:?usage: wheel-smoke.sh --pypi VERSION}" ;;
-    *) echo "usage: wheel-smoke.sh --wheel-dir DIR | --pypi VERSION" >&2; exit 2 ;;
+    --wheel-dir) MODE="wheel"; ARG="${2:?$USAGE}" ;;
+    --pypi)      MODE="pypi";  ARG="${2:?$USAGE}" ;;
+    *) echo "$USAGE" >&2; exit 2 ;;
+esac
+PYVER=""
+case "${3:-}" in
+    "") ;;
+    --python) PYVER="${4:?$USAGE}" ;;
+    *) echo "$USAGE" >&2; exit 2 ;;
 esac
 
 work="$(mktemp -d)"
@@ -49,13 +66,19 @@ trap 'rc=$?; rm -rf "$work"; \
       [ "$rc" -eq 0 ] || echo "wheel-smoke: FAILED (exit $rc)" >&2; \
       exit "$rc"' EXIT
 
-uv venv --quiet "$work/venv"
+uv venv --quiet ${PYVER:+--python "$PYVER"} "$work/venv"
 # A Windows venv keeps its interpreter and console scripts in Scripts/, a POSIX
 # one in bin/. Derived from what uv just made, not from the OS name, so it is
 # right under any bash on Windows (Git Bash, MSYS2) without a second list.
 bindir="$work/venv/bin"
 [ -d "$bindir" ] || bindir="$work/venv/Scripts"
 py="$bindir/python"
+if [ -n "$PYVER" ]; then
+    have="$("$py" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+    [ "$have" = "$PYVER" ] \
+        || { echo "wheel-smoke: venv is Python $have, asked for $PYVER" >&2; exit 1; }
+    echo ">> Python $have"
+fi
 
 # ── obtain and install the artifact ──────────────────────────────────────────
 if [ "$MODE" = "wheel" ]; then
@@ -64,35 +87,53 @@ if [ "$MODE" = "wheel" ]; then
     echo ">> installing the built wheel from $ARG/"
     VIRTUAL_ENV="$work/venv" uv pip install --quiet "$ARG"/*.whl
 else
-    # The index lags the publish job, and the lag is per ENDPOINT. This used
-    # to wait on the per-version JSON API and then install through uv, which
-    # reads the /simple/ index behind PyPI's CDN. They disagree for seconds
-    # after a publish: on v0.51.0 the JSON said "0.51.0" 0.1 s into the wait,
-    # uv answered "there is no version of doppler-dsp==0.51.0", and the
-    # aarch64 job running the same steps two seconds later passed. So the wait
-    # asks the question the install needs, through the tool that will answer
-    # it: can uv resolve this exact version from the live index yet?
-    # (--refresh because uv caches index metadata; a cached index is how a
-    # post-publish check silently tests the PREVIOUS release.)
-    echo ">> waiting for uv to resolve $PKG==$ARG from PyPI"
+    # The index lags the publish job, and the lag is per REQUEST: PyPI's CDN
+    # serves /simple/ from many edges, and two requests a fraction of a second
+    # apart can see different indexes. v0.51.1 is the proof (doppler#1394): a
+    # `--dry-run` resolve here succeeded and the real install 0.2 s later got
+    # an index without the release. So there is no separate wait any more --
+    # the install IS the readiness check, retried until it succeeds or runs
+    # out of attempts, and the request that sees the release is the one that
+    # installs it. (--refresh because uv caches index metadata; a cached index
+    # is how a post-publish check silently tests the PREVIOUS release.)
+    #
+    # --only-binary: with no installable wheel for this Python and platform,
+    # the resolver falls back to the sdist and builds it, so the smoke would
+    # pass on exactly the defect it is here to catch -- doppler#1817's
+    # `cp313-cpwin_amd64` wheels, which pip skipped for the sdist.
+    attempts="${WHEEL_SMOKE_ATTEMPTS:-12}"
+    delay="${WHEEL_SMOKE_DELAY:-15}"
+    echo ">> installing $PKG==$ARG from PyPI (a wheel, never the sdist)"
     ok=0
-    for _ in $(seq 1 12); do
-        if VIRTUAL_ENV="$work/venv" uv pip install --quiet --dry-run \
-               --refresh "$PKG==$ARG" >/dev/null 2>&1; then
+    for i in $(seq 1 "$attempts"); do
+        if VIRTUAL_ENV="$work/venv" uv pip install --quiet --refresh \
+               --only-binary "$PKG" "$PKG==$ARG" 2>"$work/uv.err"; then
             ok=1; break
         fi
-        sleep 15
+        echo "   attempt $i/$attempts: not installable yet"
+        [ "$i" -lt "$attempts" ] && sleep "$delay"
     done
-    [ "$ok" = 1 ] \
-        || { echo "wheel-smoke: uv cannot resolve $PKG==$ARG after 3 min" >&2; exit 1; }
-    echo ">> installing $PKG==$ARG from PyPI"
-    VIRTUAL_ENV="$work/venv" uv pip install --quiet --refresh "$PKG==$ARG"
+    if [ "$ok" != 1 ]; then
+        # Both causes look the same from here -- a release the index does
+        # not serve yet, and one with no wheel this Python and platform can
+        # install -- so say neither; uv's own words say which.
+        echo "wheel-smoke: uv could not install $PKG==$ARG (a wheel only) in" \
+             "$attempts attempt(s); its last error:" >&2
+        cat "$work/uv.err" >&2
+        exit 1
+    fi
 fi
 
 # ── prove it ─────────────────────────────────────────────────────────────────
 echo ">> import check (clean cwd)"
 got="$(cd "$work" && "$py" -c 'import doppler; print(doppler.__version__)')"
 echo "   doppler $got"
+# Which wheel this leg tested, from the installed WHEEL metadata: the line a
+# reader of a per-Python leg's log needs, and the evidence it was that
+# Python's wheel (cp313-cp313-...) and not some other file.
+( cd "$work" && "$py" -c 'import importlib.metadata as m
+w = m.distribution("doppler-dsp").read_text("WHEEL") or ""
+print("\n".join("   wheel " + t[4:].strip() for t in w.splitlines() if t.startswith("Tag:")))' )
 
 # Only meaningful for --pypi: the resolver picks the version, so assert it
 # picked the one being released. In --wheel mode the file IS the artifact.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -14,7 +14,7 @@ from beartype.roar._roarexc import (
     _BeartypeUtilPythonInterpreterException,
 )
 from beartype._data.typing.datatyping import CommandWords
-from beartype._util.cache.utilcachecall import callable_cached
+from beartype._util.cache.func.utilcachefunc import callable_cached
 from platform import python_implementation
 from sys import executable as sys_executable
 from typing import TYPE_CHECKING

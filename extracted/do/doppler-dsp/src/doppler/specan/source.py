@@ -433,12 +433,13 @@ class SocketSource(Source):
         while len(self._buf) < n:
             try:
                 data, hdr = sub.recv(timeout_ms=self._timeout_ms)
+            except TimeoutError:
+                # Nothing within timeout_ms: return what we have (may be
+                # empty). The binding RAISES here; it never returns None.
+                break
             except EOFError:
                 # The publisher's end-of-stream frame: nothing more is
                 # coming, so hand back what is buffered, as on a timeout.
-                break
-            if data is None:
-                # Timeout — return what we have (may be empty)
                 break
             data = to_complex64(data)
             self._fs = float(hdr["sample_rate"])
@@ -477,6 +478,34 @@ class PullSource(Source):
         e.g. ``"nats://127.0.0.1:4222/iq"``.
     timeout_ms : int
         Receive timeout in milliseconds.
+
+    Attributes
+    ----------
+    duplicates : int
+        Frames skipped because their sequence was already taken: a
+        redelivery after an ack was lost (acks are fire-and-forget).
+    gaps : int
+        Sequence numbers never seen: frames lost upstream.
+    restarts : int
+        Backwards jumps too large to be a redelivery: a new producer,
+        whose sequence starts again at 0. Its frames are taken.
+    undecodable : int
+        Frames received but not readable as samples (a header with no
+        sequence or rate, or a dtype no decoder takes), acked and skipped
+        rather than redelivered every AckWait forever. A frame whose
+        sample type the BINDING cannot decode never gets this far: recv
+        raises ``ValueError`` and drops it unacked, so it does come back
+        every AckWait (#2029).
+
+    The header ``sequence`` counts frames per producer from 0. A frame
+    up to ``WORK_QUEUE_MAX_ACK_PENDING`` behind the next expected one is
+    a redelivery; a bigger backwards jump is a new producer; an
+    end-of-stream frame ends the old one outright. That assumes one
+    producer per subject, which is how ``doppler compose`` wires a work
+    queue (as the uno-q receiver's ``seq_account`` does). A producer that
+    crashes and restarts without an end-of-stream, inside that window,
+    is ambiguous on the header alone: its first frames are taken as
+    duplicates. Keying on JetStream's own delivery count is #2029.
     """
 
     def __init__(
@@ -487,6 +516,11 @@ class PullSource(Source):
         self._address = address
         self._timeout_ms = timeout_ms
         self._pull = None
+        self._next_seq: int | None = None
+        self.duplicates = 0
+        self.gaps = 0
+        self.restarts = 0
+        self.undecodable = 0
         self._fs: float = 0.0
         self._cf: float = 0.0
         self._buf = np.empty(0, dtype=np.complex64)
@@ -500,19 +534,47 @@ class PullSource(Source):
         return self._pull
 
     def read(self, n: int) -> tuple[np.ndarray, float, float]:
+        from doppler.stream import WORK_QUEUE_MAX_ACK_PENDING
+
         pull = self._get_pull()
 
         while len(self._buf) < n:
             try:
-                data, hdr = pull.recv(timeout_ms=self._timeout_ms)
+                frame, hdr = pull.recv(timeout_ms=self._timeout_ms)
+            except TimeoutError:
+                break  # nothing more for now -- see SocketSource
             except EOFError:
-                break  # end of stream -- see SocketSource.read
-            if data is None:
+                # That producer is gone; the next one counts from 0 again,
+                # and is not a redelivery of the old one's frames.
+                self._next_seq = None
                 break
-            data = to_complex64(data)
-            self._fs = float(hdr["sample_rate"])
-            self._cf = float(hdr["center_freq"])
-            self._buf = np.concatenate([self._buf, data.ravel()])
+            # Acked in `finally`, whatever happens: Pull is an explicit-ack
+            # work queue, and an unacked frame is redelivered every AckWait
+            # and stays queued for the next run. After MaxAckPending
+            # unacked frames the server sends ONLY redeliveries, which this
+            # loop would concatenate as new data (#2009). That holds for a
+            # frame read here and found undecodable, too. The end-of-stream
+            # frame is acked inside recv.
+            try:
+                seq = int(hdr["sequence"])
+                if self._next_seq is not None:
+                    behind = self._next_seq - seq
+                    if 0 < behind <= WORK_QUEUE_MAX_ACK_PENDING:
+                        self.duplicates += 1  # its ack was lost; taken
+                        continue
+                    if behind > WORK_QUEUE_MAX_ACK_PENDING:
+                        self.restarts += 1  # a new producer, from 0
+                    else:
+                        self.gaps -= behind  # 0 when in order
+                self._next_seq = seq + 1
+                data = to_complex64(frame)
+                self._fs = float(hdr["sample_rate"])
+                self._cf = float(hdr["center_freq"])
+                self._buf = np.concatenate([self._buf, data.ravel()])
+            except (KeyError, TypeError, ValueError):
+                self.undecodable += 1
+            finally:
+                pull.ack(frame)
 
         out = self._buf[:n].copy()
         self._buf = self._buf[n:]

@@ -1,13 +1,19 @@
 """Parsing and formatting of A1-style cell references."""
 
-from dataclasses import dataclass
+import re
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 
-from openpyxl.utils.cell import get_column_letter, range_boundaries
+from openpyxl.utils.cell import column_index_from_string, get_column_letter, range_boundaries
+from openpyxl.worksheet.cell_range import CellRange as SheetRange
 
 from excel_mcp.errors import InvalidArgumentError, LimitExceededError
 
 MAX_ROW = 1_048_576
 MAX_COLUMN = 16_384
+
+_COLUMN_SPAN = re.compile(r"([A-Za-z]{1,3}):([A-Za-z]{1,3})")
+_ROW_SPAN = re.compile(r"(\d+):(\d+)")
 
 
 @dataclass(frozen=True)
@@ -35,6 +41,10 @@ class CellRange:
     def top_left(self) -> str:
         return cell_name(self.min_row, self.min_col)
 
+    @classmethod
+    def of(cls, area: SheetRange) -> "CellRange":
+        return cls(area.min_row, area.min_col, area.max_row, area.max_col)
+
     def overlaps(self, other: "CellRange") -> bool:
         return not (
             self.max_row < other.min_row
@@ -42,6 +52,19 @@ class CellRange:
             or self.max_col < other.min_col
             or other.max_col < self.min_col
         )
+
+    def minus(self, hole: "CellRange") -> list["CellRange"]:
+        """The parts of this range outside ``hole``, as the bands above, below, left and right."""
+        if not self.overlaps(hole):
+            return [self]
+        top, bottom = max(self.min_row, hole.min_row), min(self.max_row, hole.max_row)
+        parts = [
+            replace(self, max_row=hole.min_row - 1),
+            replace(self, min_row=hole.max_row + 1),
+            replace(self, min_row=top, max_row=bottom, max_col=hole.min_col - 1),
+            replace(self, min_row=top, max_row=bottom, min_col=hole.max_col + 1),
+        ]
+        return [p for p in parts if p.min_row <= p.max_row and p.min_col <= p.max_col]
 
     def within(self, max_cells: int) -> "CellRange":
         """Return the range, or raise if it has more than ``max_cells`` cells."""
@@ -56,6 +79,17 @@ class CellRange:
         start = self.top_left
         end = cell_name(self.max_row, self.max_col)
         return start if start == end else f"{start}:{end}"
+
+
+def clip_areas(areas: list[CellRange], hole: CellRange) -> tuple[list[CellRange], int, int] | None:
+    """The areas without ``hole``, and how far their top-left corner moved down and right;
+    None when nothing is left. A rule's relative formulas follow its corner."""
+    kept = [part for area in areas for part in area.minus(hole)]
+    if not kept:
+        return None
+    rows = min(a.min_row for a in kept) - min(a.min_row for a in areas)
+    cols = min(a.min_col for a in kept) - min(a.min_col for a in areas)
+    return kept, rows, cols
 
 
 def cell_name(row: int, col: int) -> str:
@@ -80,9 +114,47 @@ def parse_range(ref: str) -> CellRange:
         max_row=max(min_row, max_row),
         max_col=max(min_col, max_col),
     )
-    if cell_range.min_row < 1 or cell_range.max_row > MAX_ROW or cell_range.max_col > MAX_COLUMN:
-        raise InvalidArgumentError(f"Range {ref!r} is outside the worksheet limits.")
+    _check_rows(cell_range.min_row, cell_range.max_row)
+    if cell_range.max_col > MAX_COLUMN:
+        raise InvalidArgumentError(
+            f"Column {get_column_letter(cell_range.max_col)} is past "
+            f"{get_column_letter(MAX_COLUMN)}, the last column."
+        )
     return cell_range
+
+
+def parse_clamped_range(ref: str, used: Callable[[], CellRange]) -> CellRange:
+    """`parse_range`, also accepting whole columns ('B:D') or rows ('2:3') limited to the
+    used range, which is only looked up for those."""
+    text = ref.strip().replace("$", "")
+    column_span = _COLUMN_SPAN.fullmatch(text)
+    if column_span:
+        first, last = sorted(_column_number(letters) for letters in column_span.groups())
+        area = used()
+        return CellRange(area.min_row, first, area.max_row, last)
+    row_span = _ROW_SPAN.fullmatch(text)
+    if row_span:
+        first, last = sorted(int(number) for number in row_span.groups())
+        _check_rows(first, last)
+        area = used()
+        return CellRange(first, area.min_col, last, area.max_col)
+    return parse_range(ref)
+
+
+def _check_rows(first: int, last: int) -> None:
+    if first < 1:
+        raise InvalidArgumentError("Row 0 is not valid; rows start at 1.")
+    if last > MAX_ROW:
+        raise InvalidArgumentError(f"Row {last} is past {MAX_ROW}, the last row.")
+
+
+def _column_number(letters: str) -> int:
+    number = column_index_from_string(letters.upper())
+    if number > MAX_COLUMN:
+        raise InvalidArgumentError(
+            f"Column {letters.upper()} is past {get_column_letter(MAX_COLUMN)}, the last column."
+        )
+    return number
 
 
 def parse_cell(ref: str) -> tuple[int, int]:

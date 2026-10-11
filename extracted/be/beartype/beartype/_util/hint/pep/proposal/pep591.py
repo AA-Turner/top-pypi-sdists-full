@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -50,10 +50,10 @@ def reduce_hint_pep591(
     '''
 
     # Avoid circular import dependencies.
-    from beartype._util.hint.pep.utilpepget import get_hint_pep_args
+    from beartype._util.hint.pep.utilpepget import get_hint_pep_childs
 
     # Tuple of zero or more child type hints subscripting this type hint.
-    hint_args = get_hint_pep_args(hint)
+    hint_args = get_hint_pep_childs(hint)
 
     # Number of child type hints subscripting this type hint.
     hint_args_len = len(hint_args)

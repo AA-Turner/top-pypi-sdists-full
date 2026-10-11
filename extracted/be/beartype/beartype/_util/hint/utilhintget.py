@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -12,7 +12,7 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype._util.cache.utilcachecall import callable_cached
+from beartype._util.cache.func.utilcachefunc import callable_cached
 
 # ....................{ TESTERS                            }....................
 #FIXME: Call this getter everywhere we currently call "repr(hint*)", please.
@@ -38,7 +38,7 @@ def get_hint_repr(hint: object) -> str:
         Type hint to be represented.
 
     Returns
-    ----------
+    -------
     str
         Representation of this hint.
     '''

@@ -41,7 +41,9 @@ _TOML_COLUMN_WIDTH: Final = 80  # Taplo's default; the shipped strict config doe
 class _UpstreamRuleEngine(StrEnum):
     CHECKOV = "checkov"
     ESLINT = "eslint"
+    KNIP = "knip"
     SHELLCHECK = "shellcheck"
+    SHFMT = "shfmt"
     ZIZMOR = "zizmor"
 
 
@@ -49,8 +51,8 @@ class _UpstreamRuleEngine(StrEnum):
 LINT_CONFIGS: Final = "code-standards"
 _PYTHON_LINT: Final = "sarj-python-lint"
 SIBLING_PACKAGES: Final = (_PYTHON_LINT, "sarj-sql-lint", "sarj-iac-lint")
-REPO_STANDARDS_VERSION: Final = "6.4.1"
-REPO_STANDARDS_REVISION: Final = "4574f12f272814c9f9dc9dab383e77c7baefb7f8"
+REPO_STANDARDS_VERSION: Final = "6.4.2"
+REPO_STANDARDS_REVISION: Final = "e5df61d2ed1f1473b402971453cdd5dc9bf9e9ad"
 
 
 def adopted_version() -> str:
@@ -104,8 +106,11 @@ ALL_CONFIGS: Final = (
     *SHARED_CONFIGS,
     *SECURITY_CONFIGS,
 )
-DEVOPS_ANALYZERS: Final = ("actionlint", "hadolint", "terraform", "tflint", "compose", "devops-schema")
-ALL_CAPABILITIES: Final = (*ALL_CONFIGS, *PYTHON_ANALYZERS, *DEVOPS_ANALYZERS)
+DEVOPS_ANALYZERS: Final = ("actionlint", "hadolint", "terraform", "tflint", "compose", "devops-schema", "shfmt")
+# Opt-in analyzers: new manifests and upgrades from older bundles both record them as disabled.
+QUALITY_ANALYZERS: Final = ("jscpd", "knip")
+_QUALITY_ANALYZERS_SINCE: Final = {"jscpd": Version("8.43.0"), "knip": Version("8.47.0")}
+ALL_CAPABILITIES: Final = (*ALL_CONFIGS, *PYTHON_ANALYZERS, *DEVOPS_ANALYZERS, *QUALITY_ANALYZERS)
 DEFAULT_DURABLE_ARTIFACTS: Final = (
     "**/README.md",
     "docs/**",
@@ -142,7 +147,7 @@ class Manifest:
     profile: Profile = "standard"
     verify_paths: tuple[str, ...] = (".",)
     hook_manager: HookManager = "pre-commit"
-    disabled_capabilities: tuple[str, ...] = dataclass_field(default=(), compare=False)
+    disabled_capabilities: tuple[str, ...] = dataclass_field(default=QUALITY_ANALYZERS, compare=False)
     excluded_paths: tuple[str, ...] = ()
     excluded_rules: tuple[str, ...] = ()
     exclusion_overrides: tuple[ExclusionOverride, ...] = ()
@@ -154,11 +159,17 @@ class Manifest:
     prepared_targets: tuple[PreparedTarget, ...] = ()
     compose_version: str | None = None
     ci_runner: str | None = None
+    knip_application: bool = False
 
     @property
     def enabled_capabilities(self) -> tuple[str, ...]:
         analyzers = PYTHON_ANALYZERS if not set(self.configs).isdisjoint(PYTHON_CONFIGS) else ()
-        enabled = (*self.configs, *analyzers, *DEVOPS_ANALYZERS)
+        quality = tuple(
+            name
+            for name in QUALITY_ANALYZERS
+            if Version(self.version) >= _QUALITY_ANALYZERS_SINCE[name] and (name != "knip" or self.knip_application)
+        )
+        enabled = (*self.configs, *analyzers, *DEVOPS_ANALYZERS, *quality)
         return tuple(name for name in enabled if name not in self.disabled_capabilities)
 
     def render(self) -> str:
@@ -203,6 +214,8 @@ class Manifest:
             sections.append(f"\n[ci]\n{ci_fields}")
         if self.compose_version is not None:
             sections.append(f"\n[devops]\ncompose_version = {_toml_string(self.compose_version)}\n")
+        if self.knip_application:
+            sections.append("\n[knip]\napplication = true\n")
         sections.extend(
             f"\n[[devops.prepared_targets]]\nid = {_toml_string(target.id)}\nsource = {_toml_string(target.source)}\n"
             for target in self.prepared_targets
@@ -362,6 +375,7 @@ def _load_schema(  # ruff: ignore[too-many-locals] - one validation boundary kee
         prepared_targets=_prepared_targets(root, _manifest_table(data, "devops")),
         compose_version=_compose_version(_manifest_table(data, "devops")),
         ci_runner=_ci_runner(ci_table),
+        knip_application=_knip_application(_manifest_table(data, "knip")),
     )
 
 
@@ -525,7 +539,19 @@ def _load_schema_less_manifest(  # ruff: ignore[too-many-locals] -- validate the
         excluded_paths=_path_patterns(root, exclude_table, "paths"),
         excluded_rules=_rule_selectors(exclude_table, "rules", discard_removed=True),
         exclusion_overrides=_exclusion_overrides(root, exclude_table, discard_removed=True),
+        knip_application=_knip_application(_manifest_table(data, "knip")),
     )
+
+
+def _knip_application(table: dict[str, object]) -> bool:
+    if table.keys() - {"application"}:
+        message = "manifest [knip] supports only the application declaration"
+        raise ValueError(message)
+    value = table.get("application", False)
+    if not isinstance(value, bool):
+        message = "manifest [knip].application must be a boolean"
+        raise TypeError(message)
+    return value
 
 
 def _applicable_configs(root: Path) -> tuple[str, ...]:
@@ -689,6 +715,10 @@ def _validate_source_tool_rule(engine: _UpstreamRuleEngine, rule: str, selector:
 
     if engine is _UpstreamRuleEngine.SHELLCHECK:
         valid = re.fullmatch(r"SC[0-9]{4}", rule) is not None
+    elif engine is _UpstreamRuleEngine.SHFMT:
+        valid = rule == "format"
+    elif engine is _UpstreamRuleEngine.KNIP:
+        valid = rule == "files"
     else:
         known = security_tools.CHECKOV_CHECKS if engine is _UpstreamRuleEngine.CHECKOV else security_tools.ZIZMOR_RULES
         valid = rule in known

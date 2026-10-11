@@ -623,3 +623,123 @@ mod tests {
         assert_eq!(best.atom_map.len(), 3);
     }
 }
+
+#[cfg(test)]
+mod weighted_fit_boundary_tests {
+    use super::*;
+
+    #[test]
+    fn weighted_rigid_and_reflected_fits_recover_known_geometry() {
+        let reference = [
+            [0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [0.0, 3.0, 0.0],
+            [0.0, 0.0, 4.0],
+        ];
+        for reflect in [false, true] {
+            for weights in [[1.0, 1.0, 1.0, 1.0], [1.0, 2.0, 3.0, 4.0]] {
+                let sign = if reflect { -1.0 } else { 1.0 };
+                let probe: Vec<_> = reference
+                    .iter()
+                    .map(|p| [5.0 - sign * p[1], -2.0 + sign * p[0], 7.0 + sign * p[2]])
+                    .collect();
+                let (ssr, transform) =
+                    align_points(&reference, &probe, Some(&weights), reflect, 100).unwrap();
+                let mut residual = 0.0;
+                for ((&probe, reference), weight) in probe.iter().zip(reference).zip(weights) {
+                    let actual = transform.transform_point(probe);
+                    for axis in 0..3 {
+                        let difference = actual[axis] - reference[axis];
+                        assert!(
+                            difference.abs() < 2e-6,
+                            "reflect={reflect}, weights={weights:?}, axis={axis}: actual={actual:?}, reference={reference:?}, ssr={ssr}"
+                        );
+                        residual += weight * difference * difference;
+                    }
+                }
+                assert!(ssr.abs() < 1e-9);
+                assert!((ssr - residual).abs() < 1e-9);
+                let rows = transform.rows();
+                let determinant = rows[0][0] * (rows[1][1] * rows[2][2] - rows[1][2] * rows[2][1])
+                    - rows[0][1] * (rows[1][0] * rows[2][2] - rows[1][2] * rows[2][0])
+                    + rows[0][2] * (rows[1][0] * rows[2][1] - rows[1][1] * rows[2][0]);
+                assert!((determinant - sign).abs() < 1e-12);
+                assert_eq!(rows[3], [0.0, 0.0, 0.0, 1.0]);
+            }
+        }
+    }
+
+    #[test]
+    fn point_and_weight_mismatches_are_explicit_errors() {
+        let points = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]];
+        for result in [
+            align_points(&points, &points[..1], None, false, 50),
+            align_points(&points, &points, Some(&[1.0]), false, 50),
+        ] {
+            assert!(
+                result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("Mismatch in number of points")
+            );
+        }
+        for weight in [0.0, -1.0] {
+            let result = align_points(&points, &points, Some(&[1.0, weight]), false, 50);
+            assert!(
+                result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("weight specified for a point")
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod dative_alignment_boundary_tests {
+    use crate::{parse, rdkit_align_mol, rdkit_best_rms, rdkit_calc_rms};
+
+    #[test]
+    fn equivalent_ammine_ligands_are_matched_without_reversing_dative_bonds() {
+        // RDKit 2026.03.1: CalcRMS=GetBestRMS=0; identity-map fit
+        // GetAlignmentTransform=0.9307312929830155 for these conformers.
+        let mol = parse("[NH3]->[Cu+2](<-[NH3])<-[NH3]").unwrap();
+        let reference = [[1., 0., 0.], [0., 0., 0.], [0., 2., 0.], [0., 0., 3.]];
+        let probe = [reference[2], reference[1], reference[3], reference[0]];
+        for symmetrize in [false, true] {
+            assert!(
+                rdkit_calc_rms(&mol, &probe, &reference, 100, symmetrize, None)
+                    .unwrap()
+                    .abs()
+                    < 1e-12
+            );
+            let result = rdkit_best_rms(&mol, &probe, &reference, 100, symmetrize, None).unwrap();
+            assert!(result.rmsd.abs() < 1e-7);
+            assert!(result.atom_map.contains(&(1, 1)), "Cu must map to Cu");
+            for &(p, r) in &result.atom_map {
+                let got = result.transform.transform_point(probe[p]);
+                for axis in 0..3 {
+                    assert!((got[axis] - reference[r][axis]).abs() < 1e-7);
+                }
+            }
+            for best_fit in [false, true] {
+                let error = if best_fit {
+                    rdkit_best_rms(&mol, &probe, &reference, 100, symmetrize, Some(&[1.]))
+                        .err()
+                        .unwrap()
+                } else {
+                    rdkit_calc_rms(&mol, &probe, &reference, 100, symmetrize, Some(&[1.]))
+                        .err()
+                        .unwrap()
+                };
+                assert!(error.to_string().contains("Mismatch in number of weights"));
+            }
+        }
+        let fit = rdkit_align_mol(&mol, &probe, &reference, None, None, false, 50).unwrap();
+        assert!((fit.rmsd - 0.9307312929830155).abs() < 1e-9);
+        let error = rdkit_align_mol(&mol, &probe, &reference, Some(&[(0, 4)]), None, false, 50)
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("atom map"));
+    }
+}

@@ -4,11 +4,12 @@
 //! Python runtime's existing type checks, missing-field factories, union
 //! selection, and frozen-slot construction semantics.
 
-use std::cell::{OnceCell, RefCell};
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap, HashSet};
+#[cfg(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED))))]
 use std::num::NonZeroUsize;
 use std::ops::Deref;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use jiter::JsonValue as JiterJsonValue;
 use jsonschema::{
@@ -16,20 +17,25 @@ use jsonschema::{
     PythonInstanceProvider,
 };
 use pyo3::Borrowed;
-#[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
-use pyo3::exceptions::PyAttributeError;
 use pyo3::exceptions::{PyIndexError, PyTypeError, PyValueError};
 use pyo3::ffi;
 use pyo3::prelude::*;
 use pyo3::pyclass::{PyTraverseError, PyVisit};
-#[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
-use pyo3::types::PyModule;
 use pyo3::types::{
     PyAny, PyBool, PyBytes, PyDict, PyFloat, PyInt, PyList, PyMapping, PySequence, PyString,
     PyTuple, PyType,
 };
+#[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
+use pyo3::{exceptions::PyAttributeError, types::PyModule};
 
-use super::PythonSchema;
+use super::prepared_schema::{NodeExt, PreparedSchema};
+
+mod input;
+mod output;
+mod prepared;
+mod projection;
+mod streaming;
+pub(crate) use streaming::rounded_integer_float;
 
 // Keep recursive conversion comfortably inside the smallest native thread
 // stacks used by supported platforms. In particular, Windows debug builds can
@@ -148,56 +154,42 @@ enum DiscriminatorKey {
     String(String),
 }
 
-struct ValidatedNativeSlot {
+// The interpreter ABI selects the storage at build time. Both forms retain
+// the exact owner and are constructed only after descriptor validation.
+struct ValidatedSlot {
     owner: Py<PyType>,
+    #[cfg(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED))))]
     offset: NonZeroUsize,
-}
-
-enum SlotInspection {
-    Native(ValidatedNativeSlot),
     #[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
-    Portable(ValidatedPortableDescriptor),
-}
-
-#[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
-struct ValidatedPortableDescriptor {
-    owner: Py<PyType>,
     descriptor: Py<PyAny>,
-}
-
-enum AttributeStorage {
-    NativeSlot(ValidatedNativeSlot),
-    #[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
-    PortableDescriptor(ValidatedPortableDescriptor),
 }
 
 struct ModelAttribute {
     name: Py<PyString>,
-    storage: AttributeStorage,
+    storage: ValidatedSlot,
 }
 
 impl ModelAttribute {
     fn compile(py: Python<'_>, model_type: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        let storage = match inspect_native_slot(model_type, name)? {
-            SlotInspection::Native(slot) => AttributeStorage::NativeSlot(slot),
-            #[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
-            SlotInspection::Portable(descriptor) => {
-                AttributeStorage::PortableDescriptor(descriptor)
-            }
-        };
+        let name = PyString::new(py, name);
+        let descriptor = model_type.getattr("__dict__")?.get_item(&name)?;
+        Self::compile_descriptor(model_type, &name, &descriptor)
+    }
+
+    fn compile_descriptor(
+        model_type: &Bound<'_, PyType>,
+        name: &Bound<'_, PyString>,
+        descriptor: &Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
         Ok(Self {
-            name: PyString::new(py, name).unbind(),
-            storage,
+            name: name.clone().unbind(),
+            storage: inspect_native_slot(model_type, name.to_str()?, descriptor)?,
         })
     }
 
     #[inline(always)]
     fn owner(&self) -> &Py<PyType> {
-        match &self.storage {
-            AttributeStorage::NativeSlot(slot) => &slot.owner,
-            #[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
-            AttributeStorage::PortableDescriptor(descriptor) => &descriptor.owner,
-        }
+        &self.storage.owner
     }
 
     #[inline(always)]
@@ -211,23 +203,18 @@ impl ModelAttribute {
         }
     }
 
+    #[cfg(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED))))]
     #[inline(always)]
     fn native_slot_ptr(
         &self,
         py: Python<'_>,
         object: *mut ffi::PyObject,
     ) -> Option<*mut *mut ffi::PyObject> {
-        #[cfg(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED))))]
-        let AttributeStorage::NativeSlot(slot) = &self.storage;
-        #[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
-        let slot = match &self.storage {
-            AttributeStorage::NativeSlot(slot) => slot,
-            AttributeStorage::PortableDescriptor(_) => return None,
-        };
+        let slot = &self.storage;
         if unsafe { ffi::Py_TYPE(object) } != slot.owner.bind(py).as_ptr().cast() {
             return None;
         }
-        // SAFETY: `ValidatedNativeSlot` is only created after proving that the
+        // SAFETY: `ValidatedSlot` is only created after proving that the
         // named member descriptor belongs to `owner` and identifies an
         // aligned object-pointer slot within the concrete allocation.
         Some(unsafe {
@@ -236,6 +223,16 @@ impl ModelAttribute {
                 .add(slot.offset.get())
                 .cast::<*mut ffi::PyObject>()
         })
+    }
+
+    #[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
+    #[inline(always)]
+    fn native_slot_ptr(
+        &self,
+        _py: Python<'_>,
+        _object: *mut ffi::PyObject,
+    ) -> Option<*mut *mut ffi::PyObject> {
+        None
     }
 
     #[inline(always)]
@@ -260,12 +257,13 @@ impl ModelAttribute {
             return Ok(unsafe { Bound::from_borrowed_ptr(py, value) });
         }
         #[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
-        if let AttributeStorage::PortableDescriptor(descriptor) = &self.storage {
-            return descriptor
+        {
+            self.storage
                 .descriptor
                 .bind(py)
-                .call_method1("__get__", (instance, descriptor.owner.bind(py)));
+                .call_method1("__get__", (instance, self.owner().bind(py)))
         }
+        #[cfg(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED))))]
         instance.getattr(self.name.bind(py))
     }
 
@@ -276,17 +274,19 @@ impl ModelAttribute {
             return Ok(!value.is_null());
         }
         #[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
-        if let AttributeStorage::PortableDescriptor(descriptor) = &self.storage {
-            return match descriptor
+        {
+            match self
+                .storage
                 .descriptor
                 .bind(py)
-                .call_method1("__get__", (instance, descriptor.owner.bind(py)))
+                .call_method1("__get__", (instance, self.owner().bind(py)))
             {
                 Ok(_) => Ok(true),
                 Err(error) if error.is_instance_of::<PyAttributeError>(py) => Ok(false),
                 Err(error) => Err(error),
-            };
+            }
         }
+        #[cfg(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED))))]
         instance.hasattr(self.name.bind(py))
     }
 
@@ -307,29 +307,50 @@ impl ModelAttribute {
         }
 
         #[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
-        if let AttributeStorage::PortableDescriptor(descriptor) = &self.storage {
-            descriptor
+        {
+            self.storage
                 .descriptor
                 .bind(py)
                 .call_method1("__set__", (instance, value.bind(py)))?;
+            Ok(())
+        }
+        #[cfg(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED))))]
+        unreachable!("native slot storage returned no native slot")
+    }
+
+    #[inline]
+    fn set_owned(
+        &self,
+        py: Python<'_>,
+        instance: &Bound<'_, PyAny>,
+        value: Py<PyAny>,
+    ) -> PyResult<()> {
+        self.ensure_owner(py, instance.as_ptr())?;
+        if let Some(slot) = self.native_slot_ptr(py, instance.as_ptr()) {
+            // SAFETY: the validated slot belongs to this exact instance, as
+            // in `set`. Transfer the owned reference instead of retaining it
+            // only to release the caller's reference immediately afterward.
+            unsafe {
+                let previous = std::ptr::replace(slot, value.into_ptr());
+                ffi::Py_XDECREF(previous);
+            }
             return Ok(());
         }
-        unreachable!("native slot storage returned no native slot")
+        self.set(py, instance, &value)
     }
 
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.name)?;
         visit.call(self.owner())?;
         #[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
-        if let AttributeStorage::PortableDescriptor(descriptor) = &self.storage {
-            visit.call(&descriptor.descriptor)?;
-        }
+        visit.call(&self.storage.descriptor)?;
         Ok(())
     }
 }
 
 struct FieldPlan {
     json_name: String,
+    json_prefix: Vec<u8>,
     attribute: ModelAttribute,
     value_node: NodeId,
     presence: FieldPresence,
@@ -353,16 +374,22 @@ struct FieldId(usize);
 struct ModelFields {
     serialized: Vec<FieldPlan>,
     by_json_name: HashMap<String, FieldId>,
-    by_py_name: HashMap<String, FieldId>,
+    by_py_name: Option<HashMap<String, FieldId>>,
     omittable: Vec<FieldId>,
 }
 
 impl ModelFields {
-    fn new(mut fields: Vec<(FieldPlan, String)>) -> PyResult<Self> {
+    fn new(mut fields: Vec<(FieldPlan, Option<String>)>) -> PyResult<Self> {
         fields.sort_unstable_by(|(left, _), (right, _)| left.json_name.cmp(&right.json_name));
         let mut serialized = Vec::with_capacity(fields.len());
         let mut by_json_name = HashMap::with_capacity(fields.len());
-        let mut by_py_name = HashMap::with_capacity(fields.len());
+        // Most generated names are already valid Python identifiers. In that
+        // case the JSON index is also the keyword index, with no extra strings
+        // or hash table needed. Aliased models retain a separate full index.
+        let mut by_py_name = fields
+            .iter()
+            .any(|(_, name)| name.is_some())
+            .then(|| HashMap::with_capacity(fields.len()));
         let mut omittable = Vec::new();
         for (field, py_name) in fields {
             let id = FieldId(serialized.len());
@@ -372,10 +399,13 @@ impl ModelFields {
                     field.json_name
                 )));
             }
-            if by_py_name.insert(py_name.clone(), id).is_some() {
-                return Err(PyErr::new::<PyValueError, _>(format!(
-                    "duplicate generated Python field name {py_name:?}"
-                )));
+            if let Some(index) = &mut by_py_name {
+                let py_name = py_name.unwrap_or_else(|| field.json_name.clone());
+                if index.insert(py_name, id).is_some() {
+                    return Err(PyErr::new::<PyValueError, _>(
+                        "duplicate generated Python field name",
+                    ));
+                }
             }
             if field.presence.is_omittable() {
                 omittable.push(id);
@@ -400,6 +430,8 @@ impl ModelFields {
     #[inline]
     fn by_py_name(&self, name: &str) -> Option<&FieldPlan> {
         self.by_py_name
+            .as_ref()
+            .unwrap_or(&self.by_json_name)
             .get(name)
             .map(|field| &self.serialized[field.0])
     }
@@ -641,37 +673,22 @@ enum JsonShape {
 }
 
 struct BranchSchema {
-    raw: serde_json::Value,
-    compiled: OnceCell<PythonSchema>,
+    program: Arc<PreparedSchema>,
 }
 
+type SchemaValidatorRef<'a> = &'a PreparedSchema;
+
 impl BranchSchema {
-    fn compiled(&self) -> PyResult<&PythonSchema> {
-        if self.compiled.get().is_none() {
-            let compiled = super::validated_python_schema(&self.raw).map_err(|error| {
-                PyErr::new::<PyValueError, _>(format!("Invalid schema: {error}"))
-            })?;
-            self.compiled.set(compiled).map_err(|_| {
-                PyErr::new::<PyValueError, _>("generated model schema initialized recursively")
-            })?;
-        }
-        Ok(self
-            .compiled
-            .get()
-            .expect("branch schema was initialized immediately above"))
-    }
-
     fn is_valid_instance(&self, instance: JsonInstanceRef<'_>) -> PyResult<bool> {
-        Ok(self.compiled()?.is_valid_instance(instance))
+        Ok(self.program.is_valid_instance(instance))
     }
-
     fn is_valid_python_value(&self, py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<bool> {
-        validate_python_value(self.compiled()?, py, value, false)
+        validate_python_value(&self.program, py, value, false)
     }
 }
 
 pub(crate) fn validate_python_value(
-    schema: &PythonSchema,
+    schema: SchemaValidatorRef<'_>,
     py: Python<'_>,
     value: &Bound<'_, PyAny>,
     assume_json: bool,
@@ -720,6 +737,8 @@ enum ConversionNode {
 
 pub(crate) struct ModelConverterPlan {
     nodes: Vec<ConversionNode>,
+    conversion_validates: Vec<bool>,
+    leaf_guards: Vec<Option<super::prepared_schema::Node>>,
     object_new: Py<PyAny>,
     missing_sentinel: MissingSentinel,
     frozen_list_type: Py<PyType>,
@@ -728,15 +747,17 @@ pub(crate) struct ModelConverterPlan {
 }
 
 pub(crate) struct ModelConverterPy {
-    plan: Rc<ModelConverterPlan>,
+    plan: Arc<ModelConverterPlan>,
     root: RootNode,
+    output_overrides: Cell<bool>,
+    checked_output: Cell<bool>,
 }
 
 #[derive(Clone, Copy)]
 struct RootNode(NodeId);
 
 pub(crate) struct RootedModelConverterPlan {
-    plan: std::rc::Weak<ModelConverterPlan>,
+    plan: std::sync::Weak<ModelConverterPlan>,
     root: RootNode,
 }
 
@@ -754,7 +775,9 @@ impl PythonCandidate<'_> {
         py: Python<'_>,
         value: &Bound<'_, PyAny>,
     ) -> PyResult<Option<Py<PyAny>>> {
-        if !validate_python_value(self.converter.schema()?, py, value, true)? {
+        if !self.converter.conversion_validates[self.converter.root.0.0]
+            && !validate_python_value(self.converter.schema()?, py, value, true)?
+        {
             return Ok(None);
         }
         Ok(Some(self.model.finish()))
@@ -777,6 +800,9 @@ impl KwargsCandidate<'_> {
             JsonShape::NeedsValidation => self.converter.schema()?.is_valid_instance(projected),
         };
         if !is_valid {
+            if let Some(failure) = self.converter.schema()?.explain_instance(projected) {
+                return Err(super::validation_error::from_failure(py, failure));
+            }
             return Ok(None);
         }
         Ok(Some(self.model.finish()))
@@ -1039,15 +1065,35 @@ impl RootedModelConverterPlan {
         self.plan.upgrade().map(|plan| ModelConverterPy {
             plan,
             root: self.root,
+            output_overrides: Cell::new(false),
+            checked_output: Cell::new(false),
         })
     }
 }
 
 impl ModelConverterPy {
-    pub(crate) fn schema(&self) -> PyResult<&PythonSchema> {
+    pub(crate) fn validate_emitted_json(&self, payload: &str) -> PyResult<bool> {
+        if self.schema()?.requires_exact_json_numbers() {
+            let exact: serde_json::Value = serde_json::from_str(payload)
+                .map_err(|error| PyValueError::new_err(error.to_string()))?;
+            return Ok(self
+                .schema()?
+                .is_valid_instance_assuming_json(JsonInstanceRef::from_serde(&exact)));
+        }
+        if self.conversion_validates[self.root.0.0] && !self.output_overrides.get() {
+            return Ok(true);
+        }
+        let parsed = JiterJsonValue::parse(payload.as_bytes(), false)
+            .map_err(|error| PyValueError::new_err(error.to_string()))?;
+        Ok(self
+            .schema()?
+            .is_valid_instance_assuming_json(JsonInstanceRef::from_jiter(&parsed)))
+    }
+
+    pub(crate) fn schema(&self) -> PyResult<SchemaValidatorRef<'_>> {
         match self.node(self.root.0) {
             ConversionNode::Model { branch_schema, .. }
-            | ConversionNode::Root { branch_schema, .. } => branch_schema.compiled(),
+            | ConversionNode::Root { branch_schema, .. } => Ok(&branch_schema.program),
             _ => unreachable!("rooted model converter must have a generated model root"),
         }
     }
@@ -1147,6 +1193,18 @@ impl ModelConverterPy {
         py: Python<'_>,
         value: &JiterJsonValue<'_>,
     ) -> PyResult<Option<Py<PyAny>>> {
+        if self.conversion_validates[self.root.0.0] {
+            return match self.convert_jiter(
+                py,
+                self.root.0,
+                value,
+                UnionSelection::ValidateAmbiguousBranches,
+            ) {
+                Ok(instance) => Ok(Some(instance)),
+                Err(ConversionFailure::Mismatch(_)) => Ok(None),
+                Err(ConversionFailure::Raised(error)) => Err(error),
+            };
+        }
         let is_valid = self
             .schema()?
             .is_valid_instance_assuming_json(JsonInstanceRef::from_jiter(value));
@@ -1164,18 +1222,17 @@ impl ModelConverterPy {
         Ok(Some(UnvalidatedModel(instance).finish()))
     }
 
-    pub(crate) fn serialize_json_value(
+    pub(crate) fn serialize_model_checked(
         &self,
         py: Python<'_>,
-        value: &MaterializedJsonValue,
+        value: &Bound<'_, PyAny>,
     ) -> PyResult<String> {
-        let mut output = Vec::with_capacity(256);
-        write_serializable_json_value(&mut output, value.0.bind(py), MAX_MODEL_DEPTH)?;
-        String::from_utf8(output).map_err(|error| {
-            PyErr::new::<PyValueError, _>(format!(
-                "JSON serialization produced invalid UTF-8: {error}"
-            ))
-        })
+        // Ambiguous branch guards need not describe the complete root
+        // language. Let the prepared general program validate emitted JSON
+        // whenever the generator could not prove the complete inline path.
+        self.checked_output
+            .set(self.conversion_validates[self.root.0.0]);
+        self.serialize_model_trusted(py, value)
     }
 
     pub(crate) fn serialize_model_trusted(
@@ -1192,11 +1249,11 @@ impl ModelConverterPy {
             ActiveContainers::default(),
             &mut output,
         )?;
-        String::from_utf8(output).map_err(|error| {
-            PyErr::new::<PyValueError, _>(format!(
-                "JSON serialization produced invalid UTF-8: {error}"
-            ))
-        })
+        // SAFETY: the writer only appends ASCII JSON punctuation/numbers,
+        // serde_json string output, and complete Rust str slices. Prepared
+        // field prefixes are parsed as JSON strings when loaded. Every write
+        // therefore preserves UTF-8, including rollback after a union miss.
+        Ok(unsafe { String::from_utf8_unchecked(output) })
     }
 
     pub(crate) fn materialize_json_value(
@@ -1212,2659 +1269,6 @@ impl ModelConverterPy {
             ActiveContainers::default(),
         )
         .map(MaterializedJsonValue)
-    }
-
-    fn convert(
-        &self,
-        py: Python<'_>,
-        node_id: NodeId,
-        value: &Bound<'_, PyAny>,
-        union_selection: UnionSelection,
-        remaining_depth: u16,
-        active_containers: ActiveContainers<'_>,
-    ) -> ConversionResult<Py<PyAny>> {
-        if remaining_depth == 0 {
-            return Err(ConversionFailure::Mismatch(ConversionMismatch::Depth));
-        }
-        let node = self.node(node_id);
-        if matches!(
-            node,
-            ConversionNode::List { .. }
-                | ConversionNode::Dict { .. }
-                | ConversionNode::Model { .. }
-        ) {
-            return active_containers.with(value, |active_containers| {
-                self.convert_node(
-                    py,
-                    node,
-                    value,
-                    union_selection,
-                    remaining_depth,
-                    active_containers,
-                )
-            });
-        }
-        self.convert_node(
-            py,
-            node,
-            value,
-            union_selection,
-            remaining_depth,
-            active_containers,
-        )
-    }
-
-    fn convert_node(
-        &self,
-        py: Python<'_>,
-        node: &ConversionNode,
-        value: &Bound<'_, PyAny>,
-        union_selection: UnionSelection,
-        remaining_depth: u16,
-        active_containers: ActiveContainers<'_>,
-    ) -> ConversionResult<Py<PyAny>> {
-        match node {
-            ConversionNode::Scalar { kind } => {
-                if matches!(kind, ScalarKind::Any) {
-                    self.freeze_python_json_value(py, value, remaining_depth, active_containers)
-                } else {
-                    convert_scalar(py, *kind, value)
-                }
-            }
-            ConversionNode::List { item } => self.convert_list(
-                py,
-                *item,
-                value,
-                union_selection,
-                remaining_depth,
-                active_containers,
-            ),
-            ConversionNode::Dict { value: value_node } => self.convert_dict(
-                py,
-                *value_node,
-                value,
-                union_selection,
-                remaining_depth,
-                active_containers,
-            ),
-            ConversionNode::Literal { values, .. } => convert_literal(py, values, value),
-            ConversionNode::Union(plan) => self.convert_union(
-                py,
-                plan,
-                value,
-                union_selection,
-                remaining_depth,
-                active_containers,
-            ),
-            ConversionNode::Model {
-                model_type,
-                fields,
-                extra,
-                ..
-            } => self.convert_model(
-                py,
-                model_type,
-                fields,
-                extra.as_ref(),
-                value,
-                union_selection,
-                remaining_depth,
-                active_containers,
-            ),
-            ConversionNode::Root {
-                model_type,
-                value: value_node,
-                root_attribute,
-                ..
-            } => {
-                let converted = self.convert(
-                    py,
-                    *value_node,
-                    value,
-                    union_selection,
-                    remaining_depth - 1,
-                    active_containers,
-                )?;
-                let instance = allocate_model(py, model_type, &self.object_new)?;
-                root_attribute.set(py, &instance, &converted)?;
-                Ok(instance.unbind())
-            }
-        }
-    }
-
-    fn convert_direct(
-        &self,
-        py: Python<'_>,
-        node_id: NodeId,
-        value: &Bound<'_, PyAny>,
-        remaining_depth: u16,
-        json_shape: &mut JsonShape,
-        active_containers: ActiveContainers<'_>,
-    ) -> ConversionResult<Py<PyAny>> {
-        if remaining_depth == 0 {
-            return Err(ConversionFailure::Mismatch(ConversionMismatch::Depth));
-        }
-        let node = self.node(node_id);
-        if matches!(
-            node,
-            ConversionNode::List { .. } | ConversionNode::Dict { .. }
-        ) {
-            return active_containers.with(value, |active_containers| {
-                self.convert_direct_node(
-                    py,
-                    node,
-                    value,
-                    remaining_depth,
-                    json_shape,
-                    active_containers,
-                )
-            });
-        }
-        self.convert_direct_node(
-            py,
-            node,
-            value,
-            remaining_depth,
-            json_shape,
-            active_containers,
-        )
-    }
-
-    fn convert_direct_node(
-        &self,
-        py: Python<'_>,
-        node: &ConversionNode,
-        value: &Bound<'_, PyAny>,
-        remaining_depth: u16,
-        json_shape: &mut JsonShape,
-        active_containers: ActiveContainers<'_>,
-    ) -> ConversionResult<Py<PyAny>> {
-        match node {
-            ConversionNode::Scalar { kind } => {
-                if matches!(kind, ScalarKind::Any) {
-                    self.freeze_python_json_value(py, value, remaining_depth, active_containers)
-                } else {
-                    convert_direct_scalar(py, *kind, value)
-                }
-            }
-            ConversionNode::List { item } => {
-                if value.is_instance(self.frozen_dict_type.bind(py))? {
-                    return Err(ConversionFailure::Mismatch(expected_type_mismatch(
-                        "sequence", value,
-                    )?));
-                }
-                let is_builtin_sequence =
-                    value.cast::<PyList>().is_ok() || value.cast::<PyTuple>().is_ok();
-                if !is_builtin_sequence
-                    && (value.is_instance_of::<PyString>()
-                        || value.is_instance_of::<PyBytes>()
-                        || value.cast::<PyMapping>().is_ok()
-                        || value.cast::<PySequence>().is_err())
-                {
-                    return Err(ConversionFailure::Mismatch(expected_type_mismatch(
-                        "sequence", value,
-                    )?));
-                }
-                let mut output = Vec::new();
-                if let Ok(input) = value.cast::<PyList>() {
-                    for item_value in input {
-                        output.push(self.convert_direct(
-                            py,
-                            *item,
-                            &item_value,
-                            remaining_depth - 1,
-                            json_shape,
-                            active_containers,
-                        )?);
-                    }
-                } else if let Ok(input) = value.cast::<PyTuple>() {
-                    for item_value in input {
-                        output.push(self.convert_direct(
-                            py,
-                            *item,
-                            &item_value,
-                            remaining_depth - 1,
-                            json_shape,
-                            active_containers,
-                        )?);
-                    }
-                } else {
-                    let Ok(input) = value.cast::<PySequence>() else {
-                        return Err(ConversionFailure::Mismatch(expected_type_mismatch(
-                            "sequence", value,
-                        )?));
-                    };
-                    for item_value in input.try_iter()? {
-                        output.push(self.convert_direct(
-                            py,
-                            *item,
-                            &item_value?,
-                            remaining_depth - 1,
-                            json_shape,
-                            active_containers,
-                        )?);
-                    }
-                }
-                self.freeze_list(py, output)
-                    .map_err(ConversionFailure::Raised)
-            }
-            ConversionNode::Dict { value: value_node } => {
-                if value.cast::<PyDict>().is_err() && value.cast::<PyMapping>().is_err() {
-                    return Err(ConversionFailure::Mismatch(expected_type_mismatch(
-                        "mapping", value,
-                    )?));
-                }
-                if let Ok(input) = value.cast::<PyDict>() {
-                    let mut output = PythonFrozenDictBuilder::with_capacity(input.len());
-                    for (key_value, item_value) in input {
-                        let converted_key = canonical_json_object_key(py, &key_value)?;
-                        let converted_value = self.convert_direct(
-                            py,
-                            *value_node,
-                            &item_value,
-                            remaining_depth - 1,
-                            json_shape,
-                            active_containers,
-                        )?;
-                        output.push(&key_value, converted_key, converted_value);
-                    }
-                    return output.finish(py, self).map_err(ConversionFailure::Raised);
-                }
-
-                let Ok(input) = value.cast::<PyMapping>() else {
-                    return Err(ConversionFailure::Mismatch(expected_type_mismatch(
-                        "mapping", value,
-                    )?));
-                };
-                let output = NormalizingFrozenDictBuilder::new(py);
-                for entry in input.items()? {
-                    let (key_value, item_value) = mapping_pair(&entry)?;
-                    let converted_key = canonical_json_object_key(py, &key_value)?;
-                    let converted_value = self.convert_direct(
-                        py,
-                        *value_node,
-                        &item_value,
-                        remaining_depth - 1,
-                        json_shape,
-                        active_containers,
-                    )?;
-                    output.insert(py, converted_key, converted_value)?;
-                }
-                output.finish(py, self).map_err(ConversionFailure::Raised)
-            }
-            ConversionNode::Literal { values, .. } => convert_literal(py, values, value),
-            ConversionNode::Union(plan) => {
-                let mut first_error = None;
-                for branch in plan {
-                    if let Some(converted) = branch_attempt(
-                        self.convert_direct(
-                            py,
-                            *branch,
-                            value,
-                            remaining_depth - 1,
-                            json_shape,
-                            active_containers,
-                        ),
-                        &mut first_error,
-                    )? {
-                        return Ok(converted);
-                    }
-                }
-                Err(no_union_branch_matched(first_error))
-            }
-            ConversionNode::Model { model_type, .. } | ConversionNode::Root { model_type, .. } => {
-                if value.get_type().is(model_type.bind(py)) {
-                    *json_shape = JsonShape::NeedsValidation;
-                    Ok(value.clone().unbind())
-                } else {
-                    let expected = model_type.bind(py).name()?.to_str()?.to_owned();
-                    Err(ConversionFailure::Mismatch(expected_type_mismatch(
-                        &expected, value,
-                    )?))
-                }
-            }
-        }
-    }
-
-    fn convert_missing_field_value(
-        &self,
-        py: Python<'_>,
-        field: &FieldPlan,
-    ) -> Result<Py<PyAny>, ConversionMismatch> {
-        if field.presence.is_omittable() {
-            return Ok(self.missing_sentinel.clone_ref(py));
-        }
-        Err(ConversionMismatch::MissingField(field.json_name.clone()))
-    }
-
-    fn freeze_list(&self, py: Python<'_>, items: Vec<Py<PyAny>>) -> PyResult<Py<PyAny>> {
-        #[cfg(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED))))]
-        {
-            let item_count = ffi::Py_ssize_t::try_from(items.len()).map_err(|_| {
-                PyErr::new::<PyValueError, _>("generated immutable sequence is too large")
-            })?;
-            let list_type = self
-                .frozen_list_type
-                .bind(py)
-                .as_ptr()
-                .cast::<ffi::PyTypeObject>();
-            // SAFETY: plan compilation verifies this is a tuple subtype. This
-            // is CPython's tuple-subtype construction sequence: allocate the
-            // final variable-sized object, transfer each owned item reference,
-            // then ensure the fully initialized tuple is GC-tracked.
-            if let Some(allocate) = unsafe { (*list_type).tp_alloc } {
-                let instance = unsafe { allocate(list_type, item_count) };
-                if instance.is_null() {
-                    return Err(PyErr::fetch(py));
-                }
-                for (index, item) in items.into_iter().enumerate() {
-                    let index = ffi::Py_ssize_t::try_from(index)
-                        .expect("item index fits the previously converted tuple length");
-                    unsafe { ffi::PyTuple_SET_ITEM(instance, index, item.into_ptr()) };
-                }
-                if unsafe { ffi::PyObject_GC_IsTracked(instance) } == 0 {
-                    unsafe { ffi::PyObject_GC_Track(instance.cast()) };
-                }
-                return Ok(unsafe { Bound::from_owned_ptr(py, instance) }.unbind());
-            }
-        }
-
-        let items = PyList::new(py, items)?;
-        Ok(self.frozen_list_type.bind(py).call1((items,))?.unbind())
-    }
-
-    #[inline]
-    fn freeze_normalized_dict(
-        &self,
-        py: Python<'_>,
-        items: &Bound<'_, PyDict>,
-    ) -> PyResult<Py<PyAny>> {
-        self.freeze_dict_pairs(
-            py,
-            items
-                .into_iter()
-                .map(|(key, value)| (key.unbind(), value.unbind()))
-                .collect(),
-        )
-    }
-
-    #[inline]
-    fn freeze_dict_pairs(&self, py: Python<'_>, items: Vec<FrozenDictPair>) -> PyResult<Py<PyAny>> {
-        let mut pairs = Vec::with_capacity(items.len());
-        for (key, value) in items {
-            pairs.push(PyTuple::new(py, [key, value])?.into_any().unbind());
-        }
-        let frozen_items = PyTuple::new(py, pairs)?.into_any().unbind();
-        let instance = allocate_model(py, &self.frozen_dict_type, &self.object_new)?;
-        self.frozen_dict_items_attribute
-            .set(py, &instance, &frozen_items)?;
-        Ok(instance.unbind())
-    }
-
-    fn frozen_dict_items<'py>(&self, value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyTuple>> {
-        self.frozen_dict_items_attribute
-            .get(value)?
-            .cast_into::<PyTuple>()
-            .map_err(|_| {
-                PyErr::new::<PyTypeError, _>("generated immutable mapping storage must be a tuple")
-            })
-    }
-
-    fn freeze_python_json_value(
-        &self,
-        py: Python<'_>,
-        value: &Bound<'_, PyAny>,
-        remaining_depth: u16,
-        active_containers: ActiveContainers<'_>,
-    ) -> ConversionResult<Py<PyAny>> {
-        if remaining_depth == 0 {
-            return Err(ConversionFailure::Mismatch(ConversionMismatch::Depth));
-        }
-        if let Ok(items) = value.cast::<PyList>() {
-            return active_containers.with(value, |active_containers| {
-                let output = items
-                    .iter()
-                    .map(|item| {
-                        self.freeze_python_json_value(
-                            py,
-                            &item,
-                            remaining_depth - 1,
-                            active_containers,
-                        )
-                    })
-                    .collect::<ConversionResult<Vec<_>>>()?;
-                self.freeze_list(py, output)
-                    .map_err(ConversionFailure::Raised)
-            });
-        }
-        if let Ok(properties) = value.cast::<PyDict>() {
-            return active_containers.with(value, |active_containers| {
-                let mut output = PythonFrozenDictBuilder::with_capacity(properties.len());
-                for (source_key, item) in properties {
-                    let key = canonical_json_object_key(py, &source_key)?;
-                    let value = self.freeze_python_json_value(
-                        py,
-                        &item,
-                        remaining_depth - 1,
-                        active_containers,
-                    )?;
-                    output.push(&source_key, key, value);
-                }
-                output.finish(py, self).map_err(ConversionFailure::Raised)
-            });
-        }
-        if let Ok(items) = value.cast::<PyTuple>() {
-            return active_containers.with(value, |active_containers| {
-                let output = items
-                    .iter()
-                    .map(|item| {
-                        self.freeze_python_json_value(
-                            py,
-                            &item,
-                            remaining_depth - 1,
-                            active_containers,
-                        )
-                    })
-                    .collect::<ConversionResult<Vec<_>>>()?;
-                self.freeze_list(py, output)
-                    .map_err(ConversionFailure::Raised)
-            });
-        }
-        if let Some(value) = canonical_python_scalar(py, value)? {
-            return Ok(value);
-        }
-        Err(ConversionFailure::Mismatch(expected_type_mismatch(
-            "a JSON-compatible value",
-            value,
-        )?))
-    }
-
-    fn freeze_jiter_json_value(
-        &self,
-        py: Python<'_>,
-        value: &JiterJsonValue<'_>,
-        remaining_depth: u16,
-    ) -> PyResult<Py<PyAny>> {
-        if remaining_depth == 0 {
-            return Err(PyErr::new::<PyValueError, _>(
-                "generated model conversion exceeds the maximum nesting depth",
-            ));
-        }
-        match value {
-            JiterJsonValue::Array(items) => {
-                let mut output = Vec::with_capacity(items.len());
-                for item in items.iter() {
-                    output.push(self.freeze_jiter_json_value(py, item, remaining_depth - 1)?);
-                }
-                self.freeze_list(py, output)
-            }
-            JiterJsonValue::Object(entries) => {
-                let mut output = JiterFrozenDictBuilder::with_capacity(entries.len());
-                for (key, item) in entries.iter() {
-                    output.push(
-                        key.as_ref(),
-                        PyString::new(py, key.as_ref()).into_any().unbind(),
-                        self.freeze_jiter_json_value(py, item, remaining_depth - 1)?,
-                    )?;
-                }
-                self.freeze_dict_pairs(py, output.finish())
-            }
-            JiterJsonValue::Null
-            | JiterJsonValue::Bool(_)
-            | JiterJsonValue::Int(_)
-            | JiterJsonValue::BigInt(_)
-            | JiterJsonValue::Float(_)
-            | JiterJsonValue::Str(_) => Ok(value.into_pyobject(py)?.unbind()),
-        }
-    }
-
-    fn convert_list(
-        &self,
-        py: Python<'_>,
-        item_node: NodeId,
-        value: &Bound<'_, PyAny>,
-        union_selection: UnionSelection,
-        remaining_depth: u16,
-        active_containers: ActiveContainers<'_>,
-    ) -> ConversionResult<Py<PyAny>> {
-        if value.is_instance(self.frozen_dict_type.bind(py))? {
-            return Err(ConversionFailure::Mismatch(expected_type_mismatch(
-                "sequence", value,
-            )?));
-        }
-        if value.cast::<PyList>().is_err() && value.cast::<PyTuple>().is_err() {
-            return Err(ConversionFailure::Mismatch(expected_type_mismatch(
-                "list", value,
-            )?));
-        }
-        let mut output = Vec::new();
-        if let Ok(items) = value.cast::<PyList>() {
-            for item in items {
-                let converted = self.convert(
-                    py,
-                    item_node,
-                    &item,
-                    union_selection,
-                    remaining_depth - 1,
-                    active_containers,
-                )?;
-                output.push(converted);
-            }
-        } else if let Ok(items) = value.cast::<PyTuple>() {
-            for item in items {
-                let converted = self.convert(
-                    py,
-                    item_node,
-                    &item,
-                    union_selection,
-                    remaining_depth - 1,
-                    active_containers,
-                )?;
-                output.push(converted);
-            }
-        }
-        self.freeze_list(py, output)
-            .map_err(ConversionFailure::Raised)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn convert_dict(
-        &self,
-        py: Python<'_>,
-        value_node: NodeId,
-        value: &Bound<'_, PyAny>,
-        union_selection: UnionSelection,
-        remaining_depth: u16,
-        active_containers: ActiveContainers<'_>,
-    ) -> ConversionResult<Py<PyAny>> {
-        if let Ok(input) = value.cast::<PyDict>() {
-            let mut output = PythonFrozenDictBuilder::with_capacity(input.len());
-            for (key, item) in input {
-                let converted_key = canonical_json_object_key(py, &key)?;
-                let converted_value = self.convert(
-                    py,
-                    value_node,
-                    &item,
-                    union_selection,
-                    remaining_depth - 1,
-                    active_containers,
-                )?;
-                output.push(&key, converted_key, converted_value);
-            }
-            return output.finish(py, self).map_err(ConversionFailure::Raised);
-        }
-
-        Err(ConversionFailure::Mismatch(expected_type_mismatch(
-            "dict", value,
-        )?))
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn convert_union(
-        &self,
-        py: Python<'_>,
-        plan: &UnionPlan,
-        value: &Bound<'_, PyAny>,
-        union_selection: UnionSelection,
-        remaining_depth: u16,
-        active_containers: ActiveContainers<'_>,
-    ) -> ConversionResult<Py<PyAny>> {
-        if let (Some(discriminator_name), Ok(object)) =
-            (plan.discriminator_name(), value.cast::<PyDict>())
-            && let Some(tag) = object.get_item(discriminator_name)?
-            && let Some(tag) = python_discriminator_key(&tag)
-            && let Some(branch) = plan.discriminated_branch(&tag)
-        {
-            return self.convert(
-                py,
-                branch,
-                value,
-                union_selection,
-                remaining_depth - 1,
-                active_containers,
-            );
-        }
-
-        let mut matching_branches = Vec::new();
-        for branch in plan {
-            if self.node_matches_kind(py, *branch, value)? {
-                matching_branches.push(*branch);
-            }
-        }
-        if matching_branches.len() == 1 {
-            return self.convert(
-                py,
-                matching_branches[0],
-                value,
-                union_selection,
-                remaining_depth - 1,
-                active_containers,
-            );
-        }
-
-        let mut first_error = None;
-        let candidate_branches = if matching_branches.is_empty() {
-            &plan[..]
-        } else {
-            matching_branches.as_slice()
-        };
-        for branch in candidate_branches {
-            let converted = branch_attempt(
-                self.convert(
-                    py,
-                    *branch,
-                    value,
-                    union_selection,
-                    remaining_depth - 1,
-                    active_containers,
-                ),
-                &mut first_error,
-            )?;
-            let Some(converted) = converted else {
-                continue;
-            };
-            if matching_branches.len() > 1
-                && union_selection == UnionSelection::ValidateAmbiguousBranches
-                && !self.node_can_represent_python_value(py, *branch, value, remaining_depth - 1)?
-            {
-                continue;
-            }
-            return Ok(converted);
-        }
-        Err(no_union_branch_matched(first_error))
-    }
-
-    fn node_matches_kind(
-        &self,
-        py: Python<'_>,
-        node_id: NodeId,
-        value: &Bound<'_, PyAny>,
-    ) -> PyResult<bool> {
-        let node = self.node(node_id);
-        Ok(match node {
-            ConversionNode::Scalar { kind, .. } => match kind {
-                ScalarKind::Any => true,
-                ScalarKind::String => value.is_instance_of::<PyString>(),
-                ScalarKind::Integer => {
-                    (value.is_instance_of::<PyInt>() && !value.is_instance_of::<PyBool>())
-                        || (value.is_instance_of::<PyFloat>()
-                            && value.extract::<f64>()?.fract() == 0.0)
-                }
-                ScalarKind::Number => {
-                    !value.is_instance_of::<PyBool>()
-                        && (value.is_instance_of::<PyInt>()
-                            || (value.is_instance_of::<PyFloat>()
-                                && value.extract::<f64>()?.is_finite()))
-                }
-                ScalarKind::Boolean => value.is_instance_of::<PyBool>(),
-                ScalarKind::Null => value.is_none(),
-            },
-            ConversionNode::List { .. } => is_python_json_array(value),
-            ConversionNode::Dict { .. } | ConversionNode::Model { .. } => {
-                value.is_instance_of::<PyDict>()
-            }
-            ConversionNode::Literal { values, .. } => {
-                matching_literal_index(py, values, value)?.is_some()
-            }
-            ConversionNode::Union(plan) => {
-                let mut matches = false;
-                for branch in plan {
-                    if self.node_matches_kind(py, *branch, value)? {
-                        matches = true;
-                        break;
-                    }
-                }
-                matches
-            }
-            ConversionNode::Root { value: child, .. } => {
-                self.node_matches_kind(py, *child, value)?
-            }
-        })
-    }
-
-    fn node_can_represent_python_value(
-        &self,
-        py: Python<'_>,
-        node_id: NodeId,
-        value: &Bound<'_, PyAny>,
-        remaining_depth: u16,
-    ) -> PyResult<bool> {
-        if remaining_depth == 0 {
-            return Ok(false);
-        }
-        let node = self.node(node_id);
-        match node {
-            ConversionNode::Scalar { .. } | ConversionNode::Literal { .. } => {
-                self.node_matches_kind(py, node_id, value)
-            }
-            ConversionNode::List { item } => {
-                if let Ok(values) = value.cast::<PyList>() {
-                    for item_value in values {
-                        if !self.node_can_represent_python_value(
-                            py,
-                            *item,
-                            &item_value,
-                            remaining_depth - 1,
-                        )? {
-                            return Ok(false);
-                        }
-                    }
-                    return Ok(true);
-                }
-                let Ok(values) = value.cast::<PyTuple>() else {
-                    return Ok(false);
-                };
-                for item_value in values {
-                    if !self.node_can_represent_python_value(
-                        py,
-                        *item,
-                        &item_value,
-                        remaining_depth - 1,
-                    )? {
-                        return Ok(false);
-                    }
-                }
-                Ok(true)
-            }
-            ConversionNode::Dict { value: value_node } => {
-                let Ok(values) = value.cast::<PyDict>() else {
-                    return Ok(false);
-                };
-                for (key_value, item_value) in values {
-                    if !key_value.is_instance_of::<PyString>()
-                        || !self.node_can_represent_python_value(
-                            py,
-                            *value_node,
-                            &item_value,
-                            remaining_depth - 1,
-                        )?
-                    {
-                        return Ok(false);
-                    }
-                }
-                Ok(true)
-            }
-            ConversionNode::Union(plan) => {
-                for branch in plan {
-                    if self.node_can_represent_python_value(
-                        py,
-                        *branch,
-                        value,
-                        remaining_depth - 1,
-                    )? {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            }
-            ConversionNode::Model {
-                branch_schema,
-                fields,
-                extra,
-                ..
-            } => {
-                let Ok(values) = value.cast::<PyDict>() else {
-                    return Ok(false);
-                };
-                if !branch_schema.is_valid_instance(JsonInstanceRef::from_python(value))? {
-                    return Ok(false);
-                }
-                for (key, item_value) in values {
-                    let Ok(key) = key.extract::<String>() else {
-                        return Ok(false);
-                    };
-                    let child = fields
-                        .by_json_name(&key)
-                        .map(|field| field.value_node)
-                        .or_else(|| extra.as_ref().map(|extra| extra.value_node));
-                    let Some(child) = child else {
-                        return Ok(false);
-                    };
-                    if !self.node_can_represent_python_value(
-                        py,
-                        child,
-                        &item_value,
-                        remaining_depth - 1,
-                    )? {
-                        return Ok(false);
-                    }
-                }
-                Ok(true)
-            }
-            ConversionNode::Root {
-                branch_schema,
-                value: child,
-                ..
-            } => {
-                if !branch_schema.is_valid_python_value(py, value)? {
-                    return Ok(false);
-                }
-                self.node_can_represent_python_value(py, *child, value, remaining_depth - 1)
-            }
-        }
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn convert_model(
-        &self,
-        py: Python<'_>,
-        model_type: &Py<PyType>,
-        fields: &ModelFields,
-        extra_plan: Option<&ExtraPropertiesPlan>,
-        value: &Bound<'_, PyAny>,
-        union_selection: UnionSelection,
-        remaining_depth: u16,
-        active_containers: ActiveContainers<'_>,
-    ) -> ConversionResult<Py<PyAny>> {
-        let Ok(input) = value.cast::<PyDict>() else {
-            return Err(ConversionFailure::Mismatch(expected_type_mismatch(
-                "JSON object",
-                value,
-            )?));
-        };
-        let instance = allocate_model(py, model_type, &self.object_new)?;
-        let mut extra_output =
-            extra_plan.map(|_| PythonFrozenDictBuilder::with_capacity(input.len()));
-        let mut present_fields = 0;
-        let mut normalization_required = false;
-
-        for (key, item) in input {
-            let key = key
-                .cast::<PyString>()
-                .map_err(|_| ConversionFailure::Mismatch(ConversionMismatch::JsonObjectKey))?;
-            normalization_required |= !key.is_exact_instance_of::<PyString>();
-            let key_string = key.to_str()?;
-            if let Some(field) = fields.by_json_name(key_string) {
-                let already_present =
-                    normalization_required && field.attribute.is_set(py, &instance)?;
-                let converted = self.convert(
-                    py,
-                    field.value_node,
-                    &item,
-                    union_selection,
-                    remaining_depth - 1,
-                    active_containers,
-                )?;
-                field.attribute.set(py, &instance, &converted)?;
-                if !already_present {
-                    present_fields += 1;
-                }
-            } else if let (Some(extra), Some(output)) = (extra_plan, extra_output.as_mut()) {
-                let converted = self.convert(
-                    py,
-                    extra.value_node,
-                    &item,
-                    union_selection,
-                    remaining_depth - 1,
-                    active_containers,
-                )?;
-                output.push(
-                    key.as_any(),
-                    PyString::new(py, key_string).into_any().unbind(),
-                    converted,
-                );
-            } else {
-                return Err(ConversionFailure::Mismatch(
-                    ConversionMismatch::UnknownProperty(key_string.to_owned()),
-                ));
-            }
-        }
-
-        if present_fields != fields.len() {
-            for field in fields {
-                if !field.attribute.is_set(py, &instance)? {
-                    let converted = self
-                        .convert_missing_field_value(py, field)
-                        .map_err(ConversionFailure::Mismatch)?;
-                    field.attribute.set(py, &instance, &converted)?;
-                }
-            }
-        }
-
-        let extra_value = extra_output
-            .map(|output| output.finish(py, self))
-            .transpose()
-            .map_err(ConversionFailure::Raised)?;
-
-        if let (Some(plan), Some(extra_value)) = (extra_plan, extra_value.as_ref()) {
-            plan.attribute.set(py, &instance, extra_value)?;
-        }
-        Ok(instance.unbind())
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn convert_root_kwargs(
-        &self,
-        py: Python<'_>,
-        model_type: &Py<PyType>,
-        value_node: NodeId,
-        root_attribute: &ModelAttribute,
-        kwargs: &Bound<'_, PyDict>,
-        json_shape: &mut JsonShape,
-        active_containers: ActiveContainers<'_>,
-    ) -> PyResult<Py<PyAny>> {
-        let model_name = model_type.bind(py).name()?.to_str()?.to_owned();
-        if kwargs.len() != 1 {
-            if kwargs.get_item("root")?.is_none() {
-                return Err(PyErr::new::<PyTypeError, _>(format!(
-                    "{model_name} is missing required field root"
-                )));
-            }
-            let unexpected = kwargs
-                .keys()
-                .iter()
-                .find_map(|key| {
-                    let key = key.extract::<String>().ok()?;
-                    (key != "root").then_some(key)
-                })
-                .unwrap_or_else(|| "<unknown>".to_owned());
-            return Err(unexpected_keyword(py, model_type, &unexpected));
-        }
-        let raw = kwargs.get_item("root")?.ok_or_else(|| {
-            PyErr::new::<PyTypeError, _>(format!("{model_name} is missing required field root"))
-        })?;
-        let converted = self
-            .convert_direct(
-                py,
-                value_node,
-                &raw,
-                MAX_MODEL_DEPTH - 1,
-                json_shape,
-                active_containers,
-            )
-            .map_err(ConversionFailure::into_pyerr)?;
-        let instance = allocate_model(py, model_type, &self.object_new)?;
-        root_attribute.set(py, &instance, &converted)?;
-        Ok(instance.unbind())
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn convert_model_kwargs(
-        &self,
-        py: Python<'_>,
-        model_type: &Py<PyType>,
-        fields: &ModelFields,
-        extra: Option<&ExtraPropertiesPlan>,
-        kwargs: &Bound<'_, PyDict>,
-        json_shape: &mut JsonShape,
-        active_containers: ActiveContainers<'_>,
-    ) -> PyResult<Py<PyAny>> {
-        let instance = allocate_model(py, model_type, &self.object_new)?;
-        let mut extra_input = None;
-        let mut present_fields = 0;
-
-        for (key, value) in kwargs {
-            let key = key.extract::<String>().map_err(|_| {
-                PyErr::new::<PyTypeError, _>("generated model keyword names must be strings")
-            })?;
-            if key == "__jsoncompat_extra__" {
-                if extra.is_none() {
-                    return Err(unexpected_keyword(py, model_type, &key));
-                }
-                extra_input = Some(value);
-                continue;
-            }
-            let Some(field) = fields.by_py_name(&key) else {
-                return Err(unexpected_keyword(py, model_type, &key));
-            };
-            if field.presence.is_omittable() && value.is(self.missing_sentinel.bind(py)) {
-                field
-                    .attribute
-                    .set(py, &instance, &self.missing_sentinel.0)?;
-                present_fields += 1;
-                continue;
-            }
-            let converted = self
-                .convert_direct(
-                    py,
-                    field.value_node,
-                    &value,
-                    MAX_MODEL_DEPTH - 1,
-                    json_shape,
-                    active_containers,
-                )
-                .map_err(ConversionFailure::into_pyerr)?;
-            field.attribute.set(py, &instance, &converted)?;
-            present_fields += 1;
-        }
-
-        if present_fields != fields.len() {
-            for field in fields {
-                if !field.attribute.is_set(py, &instance)? {
-                    let converted = self
-                        .convert_missing_field_value(py, field)
-                        .map_err(ConversionMismatch::into_pyerr)?;
-                    field.attribute.set(py, &instance, &converted)?;
-                }
-            }
-        }
-
-        if let Some(extra_plan) = extra {
-            let extra_value = if let Some(extra_input) = extra_input {
-                active_containers
-                    .with(&extra_input, |active_containers| {
-                        if let Ok(extra_input) = extra_input.cast::<PyDict>() {
-                            let mut output =
-                                PythonFrozenDictBuilder::with_capacity(extra_input.len());
-                            for (key, value) in extra_input {
-                                let key_string = key.extract::<String>().map_err(|_| {
-                                    PyErr::new::<PyTypeError, _>(
-                                        "JSON object keys must be strings",
-                                    )
-                                })?;
-                                if fields.by_json_name(&key_string).is_some() {
-                                    return Err(ConversionFailure::Raised(PyErr::new::<
-                                        PyValueError,
-                                        _,
-                                    >(
-                                        format!(
-                                            "additional property {key_string:?} collides with a declared field"
-                                        ),
-                                    )));
-                                }
-                                let converted = self.convert_direct(
-                                    py,
-                                    extra_plan.value_node,
-                                    &value,
-                                    MAX_MODEL_DEPTH - 1,
-                                    json_shape,
-                                    active_containers,
-                                )?;
-                                output.push(
-                                    &key,
-                                    PyString::new(py, &key_string).into_any().unbind(),
-                                    converted,
-                                );
-                            }
-                            output.finish(py, self).map_err(ConversionFailure::Raised)
-                        } else {
-                            let extra_input = extra_input.cast::<PyMapping>().map_err(|_| {
-                                PyErr::new::<PyTypeError, _>(
-                                    "generated additional properties must be a mapping",
-                                )
-                            })?;
-                            let output = NormalizingFrozenDictBuilder::new(py);
-                            for entry in extra_input.items()? {
-                                let (key, value) = mapping_pair(&entry)?;
-                                let key_string = key.extract::<String>().map_err(|_| {
-                                    PyErr::new::<PyTypeError, _>(
-                                        "JSON object keys must be strings",
-                                    )
-                                })?;
-                                if fields.by_json_name(&key_string).is_some() {
-                                    return Err(ConversionFailure::Raised(PyErr::new::<
-                                        PyValueError,
-                                        _,
-                                    >(
-                                        format!(
-                                            "additional property {key_string:?} collides with a declared field"
-                                        ),
-                                    )));
-                                }
-                                let converted = self.convert_direct(
-                                    py,
-                                    extra_plan.value_node,
-                                    &value,
-                                    MAX_MODEL_DEPTH - 1,
-                                    json_shape,
-                                    active_containers,
-                                )?;
-                                output.insert(
-                                    py,
-                                    PyString::new(py, &key_string).into_any().unbind(),
-                                    converted,
-                                )?;
-                            }
-                            output.finish(py, self).map_err(ConversionFailure::Raised)
-                        }
-                    })
-                    .map_err(ConversionFailure::into_pyerr)?
-            } else {
-                self.freeze_dict_pairs(py, Vec::new())?
-            };
-            extra_plan.attribute.set(py, &instance, &extra_value)?;
-        }
-
-        Ok(instance.unbind())
-    }
-
-    fn convert_jiter(
-        &self,
-        py: Python<'_>,
-        node_id: NodeId,
-        value: &JiterJsonValue<'_>,
-        union_selection: UnionSelection,
-    ) -> ConversionResult<Py<PyAny>> {
-        let node = self.node(node_id);
-        match node {
-            ConversionNode::Scalar { kind, .. } => {
-                if matches!(kind, ScalarKind::Any) {
-                    self.freeze_jiter_json_value(py, value, MAX_MODEL_DEPTH)
-                        .map_err(ConversionFailure::Raised)
-                } else {
-                    convert_jiter_scalar_value(py, *kind, value)
-                }
-            }
-            ConversionNode::Literal { values } => {
-                let python_value = value.into_pyobject(py)?.unbind();
-                convert_literal(py, values, python_value.bind(py))
-            }
-            ConversionNode::List { item } => {
-                let JiterJsonValue::Array(items) = value else {
-                    return Err(ConversionFailure::Mismatch(
-                        ConversionMismatch::ExpectedType {
-                            expected: "list".to_owned(),
-                            actual: None,
-                        },
-                    ));
-                };
-                let mut converted = Vec::with_capacity(items.len());
-                for item_value in items.iter() {
-                    converted.push(self.convert_jiter(py, *item, item_value, union_selection)?);
-                }
-                self.freeze_list(py, converted)
-                    .map_err(ConversionFailure::Raised)
-            }
-            ConversionNode::Dict { value: value_node } => {
-                let JiterJsonValue::Object(entries) = value else {
-                    return Err(ConversionFailure::Mismatch(
-                        ConversionMismatch::ExpectedType {
-                            expected: "dict".to_owned(),
-                            actual: None,
-                        },
-                    ));
-                };
-                let mut output = JiterFrozenDictBuilder::with_capacity(entries.len());
-                for (key_value, item) in entries.iter() {
-                    let converted_key = PyString::new(py, key_value.as_ref()).into_any().unbind();
-                    let converted_value =
-                        self.convert_jiter(py, *value_node, item, union_selection)?;
-                    output.push(key_value.as_ref(), converted_key, converted_value)?;
-                }
-                self.freeze_dict_pairs(py, output.finish())
-                    .map_err(ConversionFailure::Raised)
-            }
-            ConversionNode::Union(plan) => {
-                self.convert_jiter_union_value(py, plan, value, union_selection)
-            }
-            ConversionNode::Model {
-                model_type,
-                fields,
-                extra,
-                ..
-            } => self.convert_jiter_model_value(
-                py,
-                model_type,
-                fields,
-                extra.as_ref(),
-                value,
-                union_selection,
-            ),
-            ConversionNode::Root {
-                model_type,
-                value: value_node,
-                root_attribute,
-                ..
-            } => {
-                let converted = self.convert_jiter(py, *value_node, value, union_selection)?;
-                let instance = allocate_model(py, model_type, &self.object_new)?;
-                root_attribute.set(py, &instance, &converted)?;
-                Ok(instance.unbind())
-            }
-        }
-    }
-
-    fn convert_jiter_union_value(
-        &self,
-        py: Python<'_>,
-        plan: &UnionPlan,
-        value: &JiterJsonValue<'_>,
-        union_selection: UnionSelection,
-    ) -> ConversionResult<Py<PyAny>> {
-        if let (Some(discriminator_name), JiterJsonValue::Object(entries)) =
-            (plan.discriminator_name(), value)
-            && let Some((_, tag)) = entries
-                .iter()
-                .find(|(key, _)| key.as_ref() == discriminator_name)
-            && let Some(tag) = jiter_discriminator_key(tag)
-            && let Some(branch) = plan.discriminated_branch(&tag)
-        {
-            return self.convert_jiter(py, branch, value, union_selection);
-        }
-
-        let mut matching_branches = Vec::new();
-        for branch in plan {
-            if self.jiter_node_matches_kind(*branch, value) {
-                matching_branches.push(*branch);
-            }
-        }
-        if matching_branches.len() == 1 {
-            return self.convert_jiter(py, matching_branches[0], value, union_selection);
-        }
-        let mut first_error = None;
-        let candidate_branches = if matching_branches.is_empty() {
-            &plan[..]
-        } else {
-            matching_branches.as_slice()
-        };
-        for branch in candidate_branches {
-            if matching_branches.len() > 1
-                && union_selection == UnionSelection::ValidateAmbiguousBranches
-                && !self.jiter_node_can_represent_value(*branch, value, MAX_MODEL_DEPTH)?
-            {
-                continue;
-            }
-            if let Some(converted) = branch_attempt(
-                self.convert_jiter(py, *branch, value, union_selection),
-                &mut first_error,
-            )? {
-                return Ok(converted);
-            }
-        }
-        Err(no_union_branch_matched(first_error))
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn convert_jiter_model_value(
-        &self,
-        py: Python<'_>,
-        model_type: &Py<PyType>,
-        fields: &ModelFields,
-        extra_plan: Option<&ExtraPropertiesPlan>,
-        value: &JiterJsonValue<'_>,
-        union_selection: UnionSelection,
-    ) -> ConversionResult<Py<PyAny>> {
-        let JiterJsonValue::Object(entries) = value else {
-            return Err(ConversionFailure::Mismatch(
-                ConversionMismatch::ExpectedType {
-                    expected: "JSON object".to_owned(),
-                    actual: None,
-                },
-            ));
-        };
-        let instance = allocate_model(py, model_type, &self.object_new)?;
-        let mut extra_output =
-            extra_plan.map(|_| JiterFrozenDictBuilder::with_capacity(entries.len()));
-        let mut present_fields = 0;
-
-        for (key, item) in entries.iter() {
-            let key_string = key.as_ref();
-            if let Some(field) = fields.by_json_name(key_string) {
-                if field.attribute.is_set(py, &instance)? {
-                    return Err(ConversionFailure::Raised(duplicate_key(key)));
-                }
-                let converted = self.convert_jiter(py, field.value_node, item, union_selection)?;
-                field.attribute.set(py, &instance, &converted)?;
-                present_fields += 1;
-            } else if let (Some(extra), Some(output)) = (extra_plan, extra_output.as_mut()) {
-                output.push(
-                    key_string,
-                    PyString::new(py, key_string).into_any().unbind(),
-                    self.convert_jiter(py, extra.value_node, item, union_selection)?,
-                )?;
-            } else {
-                return Err(ConversionFailure::Mismatch(
-                    ConversionMismatch::UnknownProperty(key_string.to_owned()),
-                ));
-            }
-        }
-
-        let extra_value = extra_output
-            .map(|output| self.freeze_dict_pairs(py, output.finish()))
-            .transpose()?;
-        if present_fields != fields.len() {
-            for field in fields {
-                if !field.attribute.is_set(py, &instance)? {
-                    let converted = self
-                        .convert_missing_field_value(py, field)
-                        .map_err(ConversionFailure::Mismatch)?;
-                    field.attribute.set(py, &instance, &converted)?;
-                }
-            }
-        }
-        if let (Some(plan), Some(extra_value)) = (extra_plan, extra_value.as_ref()) {
-            plan.attribute.set(py, &instance, extra_value)?;
-        }
-        Ok(instance.unbind())
-    }
-
-    fn jiter_node_matches_kind(&self, node_id: NodeId, value: &JiterJsonValue<'_>) -> bool {
-        let node = self.node(node_id);
-        match node {
-            ConversionNode::Scalar { kind, .. } => match kind {
-                ScalarKind::Any => true,
-                ScalarKind::String => matches!(value, JiterJsonValue::Str(_)),
-                ScalarKind::Integer => match value {
-                    JiterJsonValue::Int(_) | JiterJsonValue::BigInt(_) => true,
-                    JiterJsonValue::Float(value) => value.fract() == 0.0,
-                    _ => false,
-                },
-                ScalarKind::Number => matches!(
-                    value,
-                    JiterJsonValue::Int(_) | JiterJsonValue::BigInt(_) | JiterJsonValue::Float(_)
-                ),
-                ScalarKind::Boolean => matches!(value, JiterJsonValue::Bool(_)),
-                ScalarKind::Null => matches!(value, JiterJsonValue::Null),
-            },
-            ConversionNode::List { .. } => matches!(value, JiterJsonValue::Array(_)),
-            ConversionNode::Dict { .. } | ConversionNode::Model { .. } => {
-                matches!(value, JiterJsonValue::Object(_))
-            }
-            ConversionNode::Literal { .. } => true,
-            ConversionNode::Union(plan) => plan
-                .iter()
-                .any(|branch| self.jiter_node_matches_kind(*branch, value)),
-            ConversionNode::Root { value: child, .. } => {
-                self.jiter_node_matches_kind(*child, value)
-            }
-        }
-    }
-
-    fn jiter_node_can_represent_value(
-        &self,
-        node_id: NodeId,
-        value: &JiterJsonValue<'_>,
-        remaining_depth: u16,
-    ) -> PyResult<bool> {
-        if remaining_depth == 0 {
-            return Ok(false);
-        }
-        let node = self.node(node_id);
-        Ok(match node {
-            ConversionNode::Scalar { .. } | ConversionNode::Literal { .. } => {
-                self.jiter_node_matches_kind(node_id, value)
-            }
-            ConversionNode::List { item } => {
-                let JiterJsonValue::Array(values) = value else {
-                    return Ok(false);
-                };
-                for value in values.iter() {
-                    if !self.jiter_node_can_represent_value(*item, value, remaining_depth - 1)? {
-                        return Ok(false);
-                    }
-                }
-                true
-            }
-            ConversionNode::Dict { value: value_node } => {
-                let JiterJsonValue::Object(values) = value else {
-                    return Ok(false);
-                };
-                for (_, item_value) in values.iter() {
-                    if !self.jiter_node_can_represent_value(
-                        *value_node,
-                        item_value,
-                        remaining_depth - 1,
-                    )? {
-                        return Ok(false);
-                    }
-                }
-                true
-            }
-            ConversionNode::Union(plan) => {
-                let mut represents = false;
-                for branch in plan {
-                    if self.jiter_node_can_represent_value(*branch, value, remaining_depth - 1)? {
-                        represents = true;
-                        break;
-                    }
-                }
-                represents
-            }
-            ConversionNode::Model {
-                branch_schema,
-                fields,
-                extra,
-                ..
-            } => {
-                let JiterJsonValue::Object(values) = value else {
-                    return Ok(false);
-                };
-                if !branch_schema.is_valid_instance(JsonInstanceRef::from_jiter(value))? {
-                    return Ok(false);
-                }
-                for (key, item_value) in values.iter() {
-                    let child = fields
-                        .by_json_name(key.as_ref())
-                        .map(|field| field.value_node)
-                        .or_else(|| extra.as_ref().map(|extra| extra.value_node));
-                    let Some(child) = child else {
-                        return Ok(false);
-                    };
-                    if !self.jiter_node_can_represent_value(
-                        child,
-                        item_value,
-                        remaining_depth - 1,
-                    )? {
-                        return Ok(false);
-                    }
-                }
-                true
-            }
-            ConversionNode::Root {
-                branch_schema,
-                value: child,
-                ..
-            } => {
-                if !branch_schema.is_valid_instance(JsonInstanceRef::from_jiter(value))? {
-                    return Ok(false);
-                }
-                self.jiter_node_can_represent_value(*child, value, remaining_depth - 1)?
-            }
-        })
-    }
-
-    fn normalize_output_leaf(
-        &self,
-        py: Python<'_>,
-        node: &ConversionNode,
-        value: &Bound<'_, PyAny>,
-    ) -> PyResult<Option<Py<PyAny>>> {
-        match node {
-            ConversionNode::Scalar {
-                kind: ScalarKind::Any,
-            } => canonical_python_scalar(py, value),
-            ConversionNode::Scalar { kind } => convert_scalar(py, *kind, value)
-                .map(Some)
-                .map_err(ConversionFailure::into_pyerr),
-            ConversionNode::Literal { values } => convert_literal(py, values, value)
-                .map(Some)
-                .map_err(ConversionFailure::into_pyerr),
-            _ => Ok(None),
-        }
-    }
-
-    fn write_output_leaf(
-        &self,
-        py: Python<'_>,
-        node: &ConversionNode,
-        value: &Bound<'_, PyAny>,
-        remaining_depth: u16,
-        output: &mut Vec<u8>,
-    ) -> PyResult<()> {
-        let exact_scalar = match node {
-            ConversionNode::Scalar {
-                kind: ScalarKind::Any,
-            } => is_exact_python_json_scalar(value),
-            ConversionNode::Scalar {
-                kind: ScalarKind::String,
-            } => value.is_exact_instance_of::<PyString>(),
-            ConversionNode::Scalar {
-                kind: ScalarKind::Integer,
-            } => value.is_exact_instance_of::<PyInt>(),
-            ConversionNode::Scalar {
-                kind: ScalarKind::Number,
-            } => value.is_exact_instance_of::<PyInt>() || value.is_exact_instance_of::<PyFloat>(),
-            ConversionNode::Scalar {
-                kind: ScalarKind::Boolean,
-            } => value.is_exact_instance_of::<PyBool>(),
-            ConversionNode::Scalar {
-                kind: ScalarKind::Null,
-            } => value.is_none(),
-            ConversionNode::Literal { values } => {
-                let index = matching_literal_index(py, values, value)?
-                    .ok_or_else(|| ConversionMismatch::Literal.into_pyerr())?;
-                return write_serializable_json_value(
-                    output,
-                    values[index].bind(py),
-                    remaining_depth,
-                );
-            }
-            _ => false,
-        };
-        if exact_scalar {
-            return write_serializable_json_value(output, value, remaining_depth);
-        }
-        let normalized = self
-            .normalize_output_leaf(py, node, value)?
-            .expect("scalar nodes always normalize to one leaf");
-        write_serializable_json_value(output, normalized.bind(py), remaining_depth)
-    }
-
-    #[inline]
-    #[allow(clippy::too_many_arguments)]
-    fn insert_pending_json_entry<'py>(
-        &self,
-        py: Python<'py>,
-        entries: &mut BTreeMap<String, (NodeId, Bound<'py, PyAny>)>,
-        key: String,
-        value_node: NodeId,
-        value: Bound<'py, PyAny>,
-        remaining_depth: u16,
-        active_containers: ActiveContainers<'_>,
-    ) -> PyResult<()> {
-        let Some((displaced_node, displaced_value)) = entries.insert(key, (value_node, value))
-        else {
-            return Ok(());
-        };
-
-        // Materialization proves values before assigning them into a Python
-        // dict, so a later canonical-key collision cannot hide an invalid
-        // earlier value. Preserve that invariant without taxing the unique-key
-        // path: only displaced values are written to a throwaway buffer.
-        let mut scratch = Vec::new();
-        self.write_json_node(
-            py,
-            displaced_node,
-            &displaced_value,
-            remaining_depth,
-            active_containers,
-            &mut scratch,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn write_any_json_node<'py>(
-        &self,
-        py: Python<'py>,
-        node_id: NodeId,
-        value: &Bound<'py, PyAny>,
-        remaining_depth: u16,
-        active_containers: ActiveContainers<'_>,
-        output: &mut Vec<u8>,
-    ) -> PyResult<()> {
-        if let Some(scalar) = canonical_python_scalar(py, value)? {
-            return write_serializable_json_value(output, scalar.bind(py), remaining_depth);
-        }
-        if let Ok(values) = value.cast::<PyMapping>() {
-            let mut entries = BTreeMap::new();
-            for entry in values.items()? {
-                let (key, value) = mapping_pair(&entry)?;
-                self.insert_pending_json_entry(
-                    py,
-                    &mut entries,
-                    canonical_output_key(py, &key)?,
-                    node_id,
-                    value,
-                    remaining_depth - 1,
-                    active_containers,
-                )?;
-            }
-            output.push(b'{');
-            for (index, (key, (value_node, value))) in entries.into_iter().enumerate() {
-                if index != 0 {
-                    output.push(b',');
-                }
-                write_json_string(output, &key)?;
-                output.push(b':');
-                self.write_json_node(
-                    py,
-                    value_node,
-                    &value,
-                    remaining_depth - 1,
-                    active_containers,
-                    output,
-                )?;
-            }
-            output.push(b'}');
-            return Ok(());
-        }
-        if let Ok(values) = value.cast::<PyList>() {
-            output.push(b'[');
-            for (index, value) in values.iter().enumerate() {
-                if index != 0 {
-                    output.push(b',');
-                }
-                self.write_json_node(
-                    py,
-                    node_id,
-                    &value,
-                    remaining_depth - 1,
-                    active_containers,
-                    output,
-                )?;
-            }
-            output.push(b']');
-            return Ok(());
-        }
-        if let Ok(values) = value.cast::<PyTuple>() {
-            output.push(b'[');
-            for (index, value) in values.iter().enumerate() {
-                if index != 0 {
-                    output.push(b',');
-                }
-                self.write_json_node(
-                    py,
-                    node_id,
-                    &value,
-                    remaining_depth - 1,
-                    active_containers,
-                    output,
-                )?;
-            }
-            output.push(b']');
-            return Ok(());
-        }
-        Err(PyErr::new::<PyTypeError, _>(format!(
-            "expected JSON value, got {}",
-            value.get_type().name()?
-        )))
-    }
-
-    fn write_json_node<'py>(
-        &self,
-        py: Python<'py>,
-        node_id: NodeId,
-        value: &Bound<'py, PyAny>,
-        remaining_depth: u16,
-        active_containers: ActiveContainers<'_>,
-        output: &mut Vec<u8>,
-    ) -> PyResult<()> {
-        if remaining_depth == 0 {
-            return Err(PyErr::new::<PyValueError, _>(
-                "generated model serialization exceeds the maximum nesting depth",
-            ));
-        }
-        let node = self.node(node_id);
-        if matches!(
-            node,
-            ConversionNode::Scalar {
-                kind: ScalarKind::Any
-            } | ConversionNode::List { .. }
-                | ConversionNode::Dict { .. }
-                | ConversionNode::Model { .. }
-                | ConversionNode::Root { .. }
-        ) {
-            return active_containers.with_pyresult(value, |active_containers| {
-                self.write_json_node_inner(
-                    py,
-                    node_id,
-                    node,
-                    value,
-                    remaining_depth,
-                    active_containers,
-                    output,
-                )
-            });
-        }
-        self.write_json_node_inner(
-            py,
-            node_id,
-            node,
-            value,
-            remaining_depth,
-            active_containers,
-            output,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn write_json_node_inner<'py>(
-        &self,
-        py: Python<'py>,
-        node_id: NodeId,
-        node: &ConversionNode,
-        value: &Bound<'py, PyAny>,
-        remaining_depth: u16,
-        active_containers: ActiveContainers<'_>,
-        output: &mut Vec<u8>,
-    ) -> PyResult<()> {
-        match node {
-            ConversionNode::Scalar {
-                kind: ScalarKind::Any,
-            } => self.write_any_json_node(
-                py,
-                node_id,
-                value,
-                remaining_depth,
-                active_containers,
-                output,
-            ),
-            ConversionNode::Scalar { .. } | ConversionNode::Literal { .. } => {
-                self.write_output_leaf(py, node, value, remaining_depth, output)
-            }
-            ConversionNode::List { item } => {
-                let items = value
-                    .cast::<PyTuple>()
-                    .map_err(|_| expected_type("immutable sequence", value).unwrap())?;
-                output.push(b'[');
-                for (index, item_value) in items.iter().enumerate() {
-                    if index != 0 {
-                        output.push(b',');
-                    }
-                    self.write_json_node(
-                        py,
-                        *item,
-                        &item_value,
-                        remaining_depth - 1,
-                        active_containers,
-                        output,
-                    )?;
-                }
-                output.push(b']');
-                Ok(())
-            }
-            ConversionNode::Dict { value: value_node } => {
-                let input = self.frozen_dict_items(value)?;
-                let mut entries = BTreeMap::new();
-                for entry in input {
-                    let (key, item) = mapping_pair(&entry)?;
-                    self.insert_pending_json_entry(
-                        py,
-                        &mut entries,
-                        canonical_output_key(py, &key)?,
-                        *value_node,
-                        item,
-                        remaining_depth - 1,
-                        active_containers,
-                    )?;
-                }
-                output.push(b'{');
-                for (index, (key, (item_node, item))) in entries.into_iter().enumerate() {
-                    if index != 0 {
-                        output.push(b',');
-                    }
-                    write_json_string(output, &key)?;
-                    output.push(b':');
-                    self.write_json_node(
-                        py,
-                        item_node,
-                        &item,
-                        remaining_depth - 1,
-                        active_containers,
-                        output,
-                    )?;
-                }
-                output.push(b'}');
-                Ok(())
-            }
-            ConversionNode::Union(plan) => {
-                let checkpoint = output.len();
-                let mut first_error = None;
-                for branch in plan {
-                    if self.node_matches_model_value(py, *branch, value)? {
-                        match self.write_json_node(
-                            py,
-                            *branch,
-                            value,
-                            remaining_depth - 1,
-                            active_containers,
-                            output,
-                        ) {
-                            Ok(()) => return Ok(()),
-                            Err(error) if first_error.is_none() => {
-                                output.truncate(checkpoint);
-                                first_error = Some(error);
-                            }
-                            Err(_) => output.truncate(checkpoint),
-                        }
-                    }
-                }
-                if let Some(error) = first_error {
-                    return Err(error);
-                }
-                Err(PyErr::new::<PyTypeError, _>(
-                    "value does not match any generated model union branch",
-                ))
-            }
-            ConversionNode::Model {
-                model_type,
-                fields,
-                extra,
-                ..
-            } => {
-                if !value.get_type().is(model_type.bind(py)) {
-                    let expected = model_type.bind(py).name()?.to_str()?.to_owned();
-                    return Err(expected_type(&expected, value)?);
-                }
-
-                if extra.is_none() {
-                    output.push(b'{');
-                    let mut first = true;
-                    for field in fields {
-                        let field_value = field.attribute.get(value)?;
-                        if field.presence.is_omittable()
-                            && field_value.is(self.missing_sentinel.bind(py))
-                        {
-                            continue;
-                        }
-                        if first {
-                            first = false;
-                        } else {
-                            output.push(b',');
-                        }
-                        write_json_string(output, &field.json_name)?;
-                        output.push(b':');
-                        self.write_json_node(
-                            py,
-                            field.value_node,
-                            &field_value,
-                            remaining_depth - 1,
-                            active_containers,
-                            output,
-                        )?;
-                    }
-                    output.push(b'}');
-                    return Ok(());
-                }
-
-                let mut entries = BTreeMap::new();
-                for field in fields {
-                    let field_value = field.attribute.get(value)?;
-                    if field.presence.is_omittable()
-                        && field_value.is(self.missing_sentinel.bind(py))
-                    {
-                        continue;
-                    }
-                    self.insert_pending_json_entry(
-                        py,
-                        &mut entries,
-                        field.json_name.clone(),
-                        field.value_node,
-                        field_value,
-                        remaining_depth - 1,
-                        active_containers,
-                    )?;
-                }
-                if let Some(extra_plan) = extra {
-                    let extra_value = extra_plan.attribute.get(value)?;
-                    let extra_items = self.frozen_dict_items(&extra_value)?;
-                    for entry in extra_items {
-                        let (key, item) = mapping_pair(&entry)?;
-                        self.insert_pending_json_entry(
-                            py,
-                            &mut entries,
-                            canonical_output_key(py, &key)?,
-                            extra_plan.value_node,
-                            item,
-                            remaining_depth - 1,
-                            active_containers,
-                        )?;
-                    }
-                }
-
-                output.push(b'{');
-                for (index, (key, (value_node, value))) in entries.into_iter().enumerate() {
-                    if index != 0 {
-                        output.push(b',');
-                    }
-                    write_json_string(output, &key)?;
-                    output.push(b':');
-                    self.write_json_node(
-                        py,
-                        value_node,
-                        &value,
-                        remaining_depth - 1,
-                        active_containers,
-                        output,
-                    )?;
-                }
-                output.push(b'}');
-                Ok(())
-            }
-            ConversionNode::Root {
-                model_type,
-                value: value_node,
-                root_attribute,
-                ..
-            } => {
-                if !value.get_type().is(model_type.bind(py)) {
-                    let expected = model_type.bind(py).name()?.to_str()?.to_owned();
-                    return Err(expected_type(&expected, value)?);
-                }
-                let root = root_attribute.get(value)?;
-                self.write_json_node(
-                    py,
-                    *value_node,
-                    &root,
-                    remaining_depth - 1,
-                    active_containers,
-                    output,
-                )
-            }
-        }
-    }
-
-    fn to_python_value_node(
-        &self,
-        py: Python<'_>,
-        node_id: NodeId,
-        value: &Bound<'_, PyAny>,
-        remaining_depth: u16,
-        active_containers: ActiveContainers<'_>,
-    ) -> PyResult<Py<PyAny>> {
-        if remaining_depth == 0 {
-            return Err(PyErr::new::<PyValueError, _>(
-                "generated model serialization exceeds the maximum nesting depth",
-            ));
-        }
-        let node = self.node(node_id);
-        if matches!(
-            node,
-            ConversionNode::List { .. }
-                | ConversionNode::Dict { .. }
-                | ConversionNode::Model { .. }
-                | ConversionNode::Root { .. }
-        ) {
-            return active_containers.with_pyresult(value, |active_containers| {
-                self.to_python_value_node_inner(py, node, value, remaining_depth, active_containers)
-            });
-        }
-        self.to_python_value_node_inner(py, node, value, remaining_depth, active_containers)
-    }
-
-    fn to_python_value_node_inner(
-        &self,
-        py: Python<'_>,
-        node: &ConversionNode,
-        value: &Bound<'_, PyAny>,
-        remaining_depth: u16,
-        active_containers: ActiveContainers<'_>,
-    ) -> PyResult<Py<PyAny>> {
-        match node {
-            ConversionNode::Scalar {
-                kind: ScalarKind::Any,
-                ..
-            } => copy_python_json_value(py, value, remaining_depth, active_containers),
-            ConversionNode::Scalar { .. } | ConversionNode::Literal { .. } => Ok(self
-                .normalize_output_leaf(py, node, value)?
-                .expect("scalar and literal nodes always normalize to one leaf")),
-            ConversionNode::List { item } => {
-                let input = value
-                    .cast::<PyTuple>()
-                    .map_err(|_| expected_type("immutable sequence", value).unwrap())?;
-                let output = PyList::empty(py);
-                for item_value in input {
-                    output.append(self.to_python_value_node(
-                        py,
-                        *item,
-                        &item_value,
-                        remaining_depth - 1,
-                        active_containers,
-                    )?)?;
-                }
-                Ok(output.into_any().unbind())
-            }
-            ConversionNode::Dict { value: value_node } => {
-                let input = self.frozen_dict_items(value)?;
-                let output = PyDict::new(py);
-                for entry in input {
-                    let (key, item) = mapping_pair(&entry)?;
-                    output.set_item(
-                        canonical_output_key(py, &key)?,
-                        self.to_python_value_node(
-                            py,
-                            *value_node,
-                            &item,
-                            remaining_depth - 1,
-                            active_containers,
-                        )?,
-                    )?;
-                }
-                Ok(output.into_any().unbind())
-            }
-            ConversionNode::Union(plan) => {
-                let mut first_error = None;
-                for branch in plan {
-                    if self.node_matches_model_value(py, *branch, value)? {
-                        match self.to_python_value_node(
-                            py,
-                            *branch,
-                            value,
-                            remaining_depth - 1,
-                            active_containers,
-                        ) {
-                            Ok(converted) => return Ok(converted),
-                            Err(error) if first_error.is_none() => first_error = Some(error),
-                            Err(_) => {}
-                        }
-                    }
-                }
-                if let Some(error) = first_error {
-                    return Err(error);
-                }
-                Err(PyErr::new::<PyTypeError, _>(
-                    "value does not match any generated model union branch",
-                ))
-            }
-            ConversionNode::Model {
-                model_type,
-                fields,
-                extra,
-                ..
-            } => {
-                if !value.get_type().is(model_type.bind(py)) {
-                    let expected = model_type.bind(py).name()?.to_str()?.to_owned();
-                    return Err(expected_type(&expected, value)?);
-                }
-                let output = PyDict::new(py);
-                for field in fields {
-                    let field_value = field.attribute.get(value)?;
-                    if field.presence.is_omittable()
-                        && field_value.is(self.missing_sentinel.bind(py))
-                    {
-                        continue;
-                    }
-                    output.set_item(
-                        field.json_name.as_str(),
-                        self.to_python_value_node(
-                            py,
-                            field.value_node,
-                            &field_value,
-                            remaining_depth - 1,
-                            active_containers,
-                        )?,
-                    )?;
-                }
-                if let Some(extra_plan) = extra {
-                    let extra_value = extra_plan.attribute.get(value)?;
-                    let extra_items = self.frozen_dict_items(&extra_value)?;
-                    for entry in extra_items {
-                        let (key, item) = mapping_pair(&entry)?;
-                        output.set_item(
-                            canonical_output_key(py, &key)?,
-                            self.to_python_value_node(
-                                py,
-                                extra_plan.value_node,
-                                &item,
-                                remaining_depth - 1,
-                                active_containers,
-                            )?,
-                        )?;
-                    }
-                }
-                Ok(output.into_any().unbind())
-            }
-            ConversionNode::Root {
-                model_type,
-                value: value_node,
-                root_attribute,
-                ..
-            } => {
-                if !value.get_type().is(model_type.bind(py)) {
-                    let expected = model_type.bind(py).name()?.to_str()?.to_owned();
-                    return Err(expected_type(&expected, value)?);
-                }
-                let root = root_attribute.get(value)?;
-                self.to_python_value_node(
-                    py,
-                    *value_node,
-                    &root,
-                    remaining_depth - 1,
-                    active_containers,
-                )
-            }
-        }
-    }
-
-    fn node_matches_model_value(
-        &self,
-        py: Python<'_>,
-        node_id: NodeId,
-        value: &Bound<'_, PyAny>,
-    ) -> PyResult<bool> {
-        let node = self.node(node_id);
-        Ok(match node {
-            ConversionNode::Scalar { kind, .. } => match kind {
-                ScalarKind::Any => true,
-                ScalarKind::String => value.is_instance_of::<PyString>(),
-                ScalarKind::Integer => {
-                    value.is_instance_of::<PyInt>() && !value.is_instance_of::<PyBool>()
-                }
-                ScalarKind::Number => {
-                    !value.is_instance_of::<PyBool>()
-                        && (value.is_instance_of::<PyInt>() || value.is_instance_of::<PyFloat>())
-                }
-                ScalarKind::Boolean => value.is_instance_of::<PyBool>(),
-                ScalarKind::Null => value.is_none(),
-            },
-            ConversionNode::List { .. } => {
-                value.is_instance_of::<PyTuple>()
-                    && !value.is_instance(self.frozen_dict_type.bind(py))?
-            }
-            ConversionNode::Dict { .. } => value.is_instance(self.frozen_dict_type.bind(py))?,
-            ConversionNode::Literal { values, .. } => {
-                matching_literal_index(py, values, value)?.is_some()
-            }
-            ConversionNode::Union(plan) => {
-                let mut matches = false;
-                for branch in plan {
-                    if self.node_matches_model_value(py, *branch, value)? {
-                        matches = true;
-                        break;
-                    }
-                }
-                matches
-            }
-            ConversionNode::Model { model_type, .. } | ConversionNode::Root { model_type, .. } => {
-                value.get_type().is(model_type.bind(py))
-            }
-        })
-    }
-}
-
-impl<'converter> ModelProjection<'converter> {
-    pub(crate) fn instance<'a, 'py>(&'a self, value: &'a Bound<'py, PyAny>) -> JsonInstanceRef<'a>
-    where
-        'py: 'a,
-    {
-        JsonInstanceRef::from_projected_python(value, self.converter.root.0.0, self)
-    }
-
-    fn retain<'a>(&'a self, node: NodeId, value: Bound<'a, PyAny>) -> ProjectedPythonValue<'a> {
-        let py = value.py();
-        let pointer = value.as_ptr();
-        self.retained.borrow_mut().push(value.unbind());
-        // SAFETY: `retained` owns a reference to this object until the
-        // projection is dropped, which is after every projected borrow.
-        let borrowed: Borrowed<'a, 'a, PyAny> = unsafe { Borrowed::from_ptr(py, pointer) };
-        ProjectedPythonValue::new(node.0, borrowed)
-    }
-
-    fn attribute<'a>(
-        &'a self,
-        value: ProjectedPythonValue<'a>,
-        name: &Py<PyString>,
-        node: NodeId,
-    ) -> Option<ProjectedPythonValue<'a>> {
-        let py = value.value().py();
-        let attribute = value.value().getattr(name.bind(py)).ok()?;
-        Some(self.retain(node, attribute))
-    }
-
-    fn model_attribute<'a>(
-        &'a self,
-        value: ProjectedPythonValue<'a>,
-        attribute: &ModelAttribute,
-        node: NodeId,
-    ) -> Option<ProjectedPythonValue<'a>> {
-        let py = value.value().py();
-        attribute.ensure_owner(py, value.value().as_ptr()).ok()?;
-        if let Some(child) = attribute.native_value_ptr_from_object(py, value.value().as_ptr()) {
-            return self.child_from_ptr(value, node, child);
-        }
-        self.attribute(value, &attribute.name, node)
-    }
-
-    fn child_from_ptr<'a>(
-        &'a self,
-        parent: ProjectedPythonValue<'a>,
-        node: NodeId,
-        child: *mut ffi::PyObject,
-    ) -> Option<ProjectedPythonValue<'a>> {
-        // SAFETY: callers obtain `child` as a borrowed entry from a Python
-        // container retained by `parent` for the full projection lifetime.
-        let child: Borrowed<'a, 'a, PyAny> =
-            unsafe { Borrowed::from_ptr_or_opt(parent.value().py(), child) }?;
-        Some(ProjectedPythonValue::new(node.0, child))
-    }
-
-    fn resolve<'a>(
-        &'a self,
-        value: ProjectedPythonValue<'a>,
-        remaining_depth: u16,
-    ) -> ProjectedPythonKind<'a> {
-        if remaining_depth == 0 {
-            return ProjectedPythonKind::Invalid;
-        }
-        let node_id = self.converter.projected_node_id(value.node());
-        let node = self.converter.node(node_id);
-        match node {
-            ConversionNode::Scalar {
-                kind: ScalarKind::Any,
-                ..
-            } => {
-                let py = value.value().py();
-                if value
-                    .value()
-                    .is_instance(self.converter.frozen_dict_type.bind(py))
-                    .unwrap_or(false)
-                {
-                    ProjectedPythonKind::Object(value)
-                } else if value.value().cast::<PyTuple>().is_ok() {
-                    ProjectedPythonKind::Array(value)
-                } else {
-                    ProjectedPythonKind::Native(value)
-                }
-            }
-            ConversionNode::Scalar { .. } | ConversionNode::Literal { .. } => {
-                ProjectedPythonKind::Native(value)
-            }
-            ConversionNode::List { .. } => {
-                let py = value.value().py();
-                if value.value().cast::<PyTuple>().is_ok()
-                    && !value
-                        .value()
-                        .is_instance(self.converter.frozen_dict_type.bind(py))
-                        .unwrap_or(false)
-                {
-                    ProjectedPythonKind::Array(value)
-                } else {
-                    ProjectedPythonKind::Invalid
-                }
-            }
-            ConversionNode::Dict { .. } => {
-                let py = value.value().py();
-                if value
-                    .value()
-                    .is_instance(self.converter.frozen_dict_type.bind(py))
-                    .unwrap_or(false)
-                {
-                    ProjectedPythonKind::Object(value)
-                } else {
-                    ProjectedPythonKind::Invalid
-                }
-            }
-            ConversionNode::Union(plan) => {
-                let py = value.value().py();
-                let cache_key = (node_id, value.value().as_ptr() as usize);
-                let selected = self.union_branches.borrow().get(&cache_key).copied();
-                let selected = selected.or_else(|| {
-                    let bound = value.value().to_owned();
-                    let mut first_match = None;
-                    let mut match_count = 0;
-                    for branch in plan {
-                        if self
-                            .converter
-                            .node_matches_model_value(py, *branch, &bound)
-                            .unwrap_or(false)
-                        {
-                            first_match.get_or_insert(*branch);
-                            match_count += 1;
-                        }
-                    }
-                    if match_count == 1 {
-                        let branch = first_match.expect("one matching branch was recorded");
-                        return Some(branch);
-                    }
-                    for branch in plan {
-                        if !self
-                            .converter
-                            .node_matches_model_value(py, *branch, &bound)
-                            .unwrap_or(false)
-                        {
-                            continue;
-                        }
-                        let mut scratch = Vec::new();
-                        if self
-                            .converter
-                            .write_json_node(
-                                py,
-                                *branch,
-                                &bound,
-                                remaining_depth - 1,
-                                ActiveContainers::default(),
-                                &mut scratch,
-                            )
-                            .is_ok()
-                        {
-                            self.union_branches.borrow_mut().insert(cache_key, *branch);
-                            return Some(*branch);
-                        }
-                    }
-                    None
-                });
-                if let Some(selected) = selected {
-                    self.resolve(
-                        ProjectedPythonValue::new(selected.0, value.value()),
-                        remaining_depth - 1,
-                    )
-                } else {
-                    ProjectedPythonKind::Invalid
-                }
-            }
-            ConversionNode::Model { model_type, .. } => {
-                let py = value.value().py();
-                if value.value().get_type().is(model_type.bind(py)) {
-                    ProjectedPythonKind::Object(value)
-                } else {
-                    ProjectedPythonKind::Invalid
-                }
-            }
-            ConversionNode::Root {
-                model_type,
-                value: value_node,
-                root_attribute,
-                ..
-            } => {
-                let py = value.value().py();
-                if !value.value().get_type().is(model_type.bind(py)) {
-                    return ProjectedPythonKind::Invalid;
-                }
-                self.model_attribute(value, root_attribute, *value_node)
-                    .map_or(ProjectedPythonKind::Invalid, |root| {
-                        self.resolve(root, remaining_depth - 1)
-                    })
-            }
-        }
-    }
-
-    fn normalized<'a>(&'a self, value: ProjectedPythonValue<'a>) -> ProjectedPythonValue<'a> {
-        match self.resolve(value, MAX_MODEL_DEPTH) {
-            ProjectedPythonKind::Native(value)
-            | ProjectedPythonKind::Array(value)
-            | ProjectedPythonKind::Object(value) => value,
-            ProjectedPythonKind::Invalid => value,
-        }
-    }
-
-    fn mapping_storage<'a>(
-        &'a self,
-        value: ProjectedPythonValue<'a>,
-    ) -> Option<Borrowed<'a, 'a, PyTuple>> {
-        let storage = self.model_attribute(
-            value,
-            &self.converter.frozen_dict_items_attribute,
-            self.converter.projected_node_id(value.node()),
-        )?;
-        storage.value().cast::<PyTuple>().ok()
-    }
-
-    fn extra_mapping<'a>(
-        &'a self,
-        value: ProjectedPythonValue<'a>,
-        extra_attribute: &ModelAttribute,
-    ) -> Option<Borrowed<'a, 'a, PyTuple>> {
-        let extra = self.model_attribute(
-            value,
-            extra_attribute,
-            self.converter.projected_node_id(value.node()),
-        )?;
-        self.mapping_storage(extra)
-    }
-
-    fn field_value<'a>(
-        &'a self,
-        value: ProjectedPythonValue<'a>,
-        field: &FieldPlan,
-    ) -> Option<ProjectedPythonValue<'a>> {
-        let child = self.model_attribute(value, &field.attribute, field.value_node)?;
-        if field.presence.is_omittable()
-            && child
-                .value()
-                .is(self.converter.missing_sentinel.bind(child.value().py()))
-        {
-            None
-        } else {
-            Some(self.normalized(child))
-        }
-    }
-
-    fn dict_get<'a>(
-        &'a self,
-        value: ProjectedPythonValue<'a>,
-        dictionary: Borrowed<'a, 'a, PyTuple>,
-        key: &str,
-        child_node: NodeId,
-    ) -> Option<ProjectedPythonValue<'a>> {
-        for index in 0..dictionary.len() {
-            let (candidate, child) = Self::mapping_entry(value, dictionary, index)?;
-            if candidate == key {
-                let child = self.child_from_ptr(value, child_node, child)?;
-                return Some(self.normalized(child));
-            }
-        }
-        None
-    }
-
-    fn dict_next<'a>(
-        &'a self,
-        value: ProjectedPythonValue<'a>,
-        dictionary: Borrowed<'a, 'a, PyTuple>,
-        position: &mut usize,
-        child_node: NodeId,
-    ) -> Option<(&'a str, ProjectedPythonValue<'a>)> {
-        if *position >= dictionary.len() {
-            return None;
-        }
-        let (key, child) = Self::mapping_entry(value, dictionary, *position)?;
-        *position += 1;
-        let child = self.child_from_ptr(value, child_node, child)?;
-        Some((key, self.normalized(child)))
-    }
-
-    fn mapping_entry<'a>(
-        value: ProjectedPythonValue<'a>,
-        dictionary: Borrowed<'a, 'a, PyTuple>,
-        index: usize,
-    ) -> Option<(&'a str, *mut ffi::PyObject)> {
-        let index = ffi::Py_ssize_t::try_from(index).ok()?;
-        // SAFETY: `dictionary` is a live tuple and callers bounds-check index.
-        let entry = unsafe { ffi::PyTuple_GetItem(dictionary.as_ptr(), index) };
-        if entry.is_null() || unsafe { ffi::PyTuple_Check(entry) } == 0 {
-            return None;
-        }
-        if unsafe { ffi::PyTuple_Size(entry) } != 2 {
-            return None;
-        }
-        // SAFETY: the pair length check proves both borrowed entries exist.
-        let key = unsafe { ffi::PyTuple_GetItem(entry, 0) };
-        let child = unsafe { ffi::PyTuple_GetItem(entry, 1) };
-        let key: Borrowed<'a, 'a, PyAny> =
-            unsafe { Borrowed::from_ptr_or_opt(value.value().py(), key) }?;
-        Some((borrowed_python_string(key)?, child))
-    }
-
-    fn mapping_contains(
-        value: ProjectedPythonValue<'_>,
-        dictionary: Borrowed<'_, '_, PyTuple>,
-        key: &str,
-    ) -> bool {
-        (0..dictionary.len()).any(|index| {
-            Self::mapping_entry(value, dictionary, index)
-                .is_some_and(|(candidate, _)| candidate == key)
-        })
-    }
-
-    fn mapping_keys_are_strings(
-        value: ProjectedPythonValue<'_>,
-        dictionary: Borrowed<'_, '_, PyTuple>,
-    ) -> bool {
-        (0..dictionary.len()).all(|index| Self::mapping_entry(value, dictionary, index).is_some())
-    }
-}
-
-impl PythonInstanceProvider for ModelProjection<'_> {
-    fn project<'a>(&'a self, value: ProjectedPythonValue<'a>) -> ProjectedPythonKind<'a> {
-        self.resolve(value, MAX_MODEL_DEPTH)
-    }
-
-    fn array_len(&self, value: ProjectedPythonValue<'_>) -> usize {
-        match self
-            .converter
-            .node(self.converter.projected_node_id(value.node()))
-        {
-            ConversionNode::List { .. }
-            | ConversionNode::Scalar {
-                kind: ScalarKind::Any,
-                ..
-            } => {}
-            _ => return 0,
-        }
-        value
-            .value()
-            .cast::<PyTuple>()
-            .map_or(0, |items| items.len())
-    }
-
-    fn array_get<'a>(
-        &'a self,
-        value: ProjectedPythonValue<'a>,
-        index: usize,
-    ) -> Option<ProjectedPythonValue<'a>> {
-        let item = match self
-            .converter
-            .node(self.converter.projected_node_id(value.node()))
-        {
-            ConversionNode::List { item } => *item,
-            ConversionNode::Scalar {
-                kind: ScalarKind::Any,
-                ..
-            } => self.converter.projected_node_id(value.node()),
-            _ => return None,
-        };
-        let items = value.value().cast::<PyTuple>().ok()?;
-        if index >= items.len() {
-            return None;
-        }
-        let index = ffi::Py_ssize_t::try_from(index).ok()?;
-        // SAFETY: the type and bounds checks above prove this returns a
-        // borrowed non-null tuple entry owned by `value`.
-        let child = unsafe { ffi::PyTuple_GetItem(items.as_ptr(), index) };
-        let child = self.child_from_ptr(value, item, child)?;
-        Some(self.normalized(child))
-    }
-
-    fn object_len(&self, value: ProjectedPythonValue<'_>) -> usize {
-        match self
-            .converter
-            .node(self.converter.projected_node_id(value.node()))
-        {
-            ConversionNode::Scalar {
-                kind: ScalarKind::Any,
-                ..
-            } => self
-                .mapping_storage(value)
-                .map_or(0, |dictionary| dictionary.len()),
-            ConversionNode::Dict { .. } => self
-                .mapping_storage(value)
-                .map_or(0, |dictionary| dictionary.len()),
-            ConversionNode::Model { fields, extra, .. } => {
-                if extra.is_none() {
-                    return fields.len() - fields.omittable.len()
-                        + fields
-                            .omittable
-                            .iter()
-                            .filter(|field| self.field_value(value, fields.get(**field)).is_some())
-                            .count();
-                }
-                let extra_mapping = extra
-                    .as_ref()
-                    .and_then(|extra| self.extra_mapping(value, &extra.attribute));
-                let mut len = extra_mapping.map_or(0, |dictionary| dictionary.len());
-                for field in fields {
-                    if extra_mapping.is_some_and(|dictionary| {
-                        Self::mapping_contains(value, dictionary, field.json_name.as_str())
-                    }) {
-                        continue;
-                    }
-                    if self.field_value(value, field).is_some() {
-                        len += 1;
-                    }
-                }
-                len
-            }
-            _ => 0,
-        }
-    }
-
-    fn object_keys_are_strings(&self, value: ProjectedPythonValue<'_>) -> bool {
-        match self
-            .converter
-            .node(self.converter.projected_node_id(value.node()))
-        {
-            ConversionNode::Scalar {
-                kind: ScalarKind::Any,
-                ..
-            } => self
-                .mapping_storage(value)
-                .is_some_and(|dictionary| Self::mapping_keys_are_strings(value, dictionary)),
-            ConversionNode::Dict { .. } => self
-                .mapping_storage(value)
-                .is_some_and(|dictionary| Self::mapping_keys_are_strings(value, dictionary)),
-            ConversionNode::Model {
-                extra: Some(extra), ..
-            } => self
-                .extra_mapping(value, &extra.attribute)
-                .is_some_and(|dictionary| Self::mapping_keys_are_strings(value, dictionary)),
-            ConversionNode::Model { .. } => true,
-            _ => false,
-        }
-    }
-
-    fn object_get<'a>(
-        &'a self,
-        value: ProjectedPythonValue<'a>,
-        key: &str,
-    ) -> Option<ProjectedPythonValue<'a>> {
-        match self
-            .converter
-            .node(self.converter.projected_node_id(value.node()))
-        {
-            ConversionNode::Scalar {
-                kind: ScalarKind::Any,
-                ..
-            } => {
-                let dictionary = self.mapping_storage(value)?;
-                self.dict_get(
-                    value,
-                    dictionary,
-                    key,
-                    self.converter.projected_node_id(value.node()),
-                )
-            }
-            ConversionNode::Dict {
-                value: child_node, ..
-            } => {
-                let dictionary = self.mapping_storage(value)?;
-                self.dict_get(value, dictionary, key, *child_node)
-            }
-            ConversionNode::Model { fields, extra, .. } => {
-                if let Some(extra_plan) = extra {
-                    let extra = self.extra_mapping(value, &extra_plan.attribute)?;
-                    if let Some(child) = self.dict_get(value, extra, key, extra_plan.value_node) {
-                        return Some(child);
-                    }
-                }
-                let field = fields.by_json_name(key)?;
-                self.field_value(value, field)
-            }
-            _ => None,
-        }
-    }
-
-    fn object_next<'a>(
-        &'a self,
-        value: ProjectedPythonValue<'a>,
-        state: &mut [usize; 2],
-    ) -> Option<(&'a str, ProjectedPythonValue<'a>)> {
-        match self
-            .converter
-            .node(self.converter.projected_node_id(value.node()))
-        {
-            ConversionNode::Scalar {
-                kind: ScalarKind::Any,
-                ..
-            } => {
-                let dictionary = self.mapping_storage(value)?;
-                self.dict_next(
-                    value,
-                    dictionary,
-                    &mut state[0],
-                    self.converter.projected_node_id(value.node()),
-                )
-            }
-            ConversionNode::Dict {
-                value: child_node, ..
-            } => {
-                let dictionary = self.mapping_storage(value)?;
-                self.dict_next(value, dictionary, &mut state[0], *child_node)
-            }
-            ConversionNode::Model { fields, extra, .. } => {
-                let extra_mapping = extra
-                    .as_ref()
-                    .and_then(|extra| self.extra_mapping(value, &extra.attribute));
-                while state[0] < fields.len() {
-                    let field_index = state[0];
-                    state[0] += 1;
-                    let field = &fields[field_index];
-                    if extra_mapping.is_some_and(|dictionary| {
-                        Self::mapping_contains(value, dictionary, field.json_name.as_str())
-                    }) {
-                        continue;
-                    }
-                    if let Some(child) = self.field_value(value, field) {
-                        return Some((field.json_name.as_str(), child));
-                    }
-                }
-                match (extra_mapping, extra) {
-                    (Some(extra_mapping), Some(extra_plan)) => {
-                        self.dict_next(value, extra_mapping, &mut state[1], extra_plan.value_node)
-                    }
-                    _ => None,
-                }
-            }
-            _ => None,
-        }
     }
 }
 
@@ -4165,7 +1569,39 @@ fn write_serializable_json_value(
 }
 
 fn write_json_string(output: &mut Vec<u8>, value: &str) -> PyResult<()> {
-    serde_json::to_writer(&mut *output, value).map_err(json_serialization_error)
+    if needs_json_escape(value.as_bytes()) {
+        return serde_json::to_writer(&mut *output, value).map_err(json_serialization_error);
+    }
+    output.reserve(value.len() + 2);
+    output.push(b'"');
+    output.extend_from_slice(value.as_bytes());
+    output.push(b'"');
+    Ok(())
+}
+
+/// Test eight bytes at a time for quotes, backslashes, or ASCII controls. The
+/// subtraction may flag an extra byte after a match, but can never miss one.
+/// Escaped strings retain serde_json's established escaping implementation.
+fn needs_json_escape(bytes: &[u8]) -> bool {
+    const LOW: u64 = 0x0101_0101_0101_0101;
+    const HIGH: u64 = 0x8080_8080_8080_8080;
+    let (chunks, remainder) = bytes.as_chunks::<8>();
+    for chunk in chunks {
+        let word = u64::from_ne_bytes(*chunk);
+        let quote = word ^ (LOW * u64::from(b'"'));
+        let slash = word ^ (LOW * u64::from(b'\\'));
+        if ((quote.wrapping_sub(LOW) & !quote)
+            | (slash.wrapping_sub(LOW) & !slash)
+            | (word.wrapping_sub(LOW * 0x20) & !word))
+            & HIGH
+            != 0
+        {
+            return true;
+        }
+    }
+    remainder
+        .iter()
+        .any(|byte| *byte < 0x20 || matches!(byte, b'"' | b'\\'))
 }
 
 fn borrowed_python_string<'a>(value: Borrowed<'a, 'a, PyAny>) -> Option<&'a str> {
@@ -4368,7 +1804,8 @@ pub(crate) fn compile_model_converter_plan(
     frozen_list_type: &Bound<'_, PyType>,
     frozen_dict_type: &Bound<'_, PyType>,
     missing_sentinel: Py<PyAny>,
-) -> PyResult<Rc<ModelConverterPlan>> {
+    prepared_plan: &[u8],
+) -> PyResult<Arc<ModelConverterPlan>> {
     if !frozen_list_type.is_subclass_of::<PyTuple>()? {
         return Err(PyErr::new::<PyTypeError, _>(
             "generated immutable sequence type must be a tuple subclass",
@@ -4376,23 +1813,28 @@ pub(crate) fn compile_model_converter_plan(
     }
     let mut nodes = Vec::with_capacity(descriptors.len());
     let node_count = descriptors.len();
+    let mut schemas = HashMap::new();
     for descriptor in descriptors {
-        nodes.push(parse_node(py, &descriptor, node_count)?);
+        nodes.push(parse_node(py, &descriptor, node_count, &mut schemas)?);
     }
     let object_new = py.get_type::<PyAny>().getattr("__new__")?.unbind();
-    Ok(Rc::new(ModelConverterPlan {
+    let mut plan = ModelConverterPlan {
+        conversion_validates: vec![false; nodes.len()],
+        leaf_guards: vec![None; nodes.len()],
         nodes,
         object_new,
         missing_sentinel: MissingSentinel(missing_sentinel),
         frozen_list_type: frozen_list_type.clone().unbind(),
         frozen_dict_type: frozen_dict_type.clone().unbind(),
         frozen_dict_items_attribute: ModelAttribute::compile(py, frozen_dict_type, "_items")?,
-    }))
+    };
+    plan.install_prepared_plan(prepared_plan)?;
+    Ok(Arc::new(plan))
 }
 
 pub(crate) fn root_model_converter_plan(
     py: Python<'_>,
-    plan: &Rc<ModelConverterPlan>,
+    plan: &Arc<ModelConverterPlan>,
     model_type: &Bound<'_, PyType>,
     root: usize,
 ) -> PyResult<RootedModelConverterPlan> {
@@ -4414,14 +1856,17 @@ pub(crate) fn root_model_converter_plan(
         )));
     }
     Ok(RootedModelConverterPlan {
-        plan: Rc::downgrade(plan),
+        plan: Arc::downgrade(plan),
         root: RootNode(root),
     })
 }
 
 #[cfg(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED))))]
-fn inspect_native_slot(model_type: &Bound<'_, PyType>, name: &str) -> PyResult<SlotInspection> {
-    let descriptor = model_type.getattr(name)?;
+fn inspect_native_slot(
+    model_type: &Bound<'_, PyType>,
+    name: &str,
+    descriptor: &Bound<'_, PyAny>,
+) -> PyResult<ValidatedSlot> {
     // SAFETY: exact member descriptors use the public CPython
     // PyMemberDescrObject/PyMemberDef layout. We validate that the descriptor
     // belongs to this concrete layout, names the requested member, and covers
@@ -4478,20 +1923,23 @@ fn inspect_native_slot(model_type: &Bound<'_, PyType>, name: &str) -> PyResult<S
                 "generated attribute {name:?} has an invalid slot offset"
             )));
         }
-        Ok(SlotInspection::Native(ValidatedNativeSlot {
+        Ok(ValidatedSlot {
             owner: model_type.clone().unbind(),
             offset: NonZeroUsize::new(offset).ok_or_else(|| {
                 PyErr::new::<PyTypeError, _>(format!(
                     "generated attribute {name:?} has a zero slot offset"
                 ))
             })?,
-        }))
+        })
     }
 }
 
 #[cfg(not(all(Py_3_11, not(any(PyPy, GraalPy, Py_GIL_DISABLED)))))]
-fn inspect_native_slot(model_type: &Bound<'_, PyType>, name: &str) -> PyResult<SlotInspection> {
-    let descriptor = model_type.getattr("__dict__")?.get_item(name)?;
+fn inspect_native_slot(
+    model_type: &Bound<'_, PyType>,
+    name: &str,
+    descriptor: &Bound<'_, PyAny>,
+) -> PyResult<ValidatedSlot> {
     let member_descriptor_type = PyModule::import(model_type.py(), "types")?
         .getattr("MemberDescriptorType")?
         .cast_into::<PyType>()?;
@@ -4507,16 +1955,17 @@ fn inspect_native_slot(model_type: &Bound<'_, PyType>, name: &str) -> PyResult<S
             "generated attribute {name:?} must be an owned data descriptor"
         )));
     }
-    Ok(SlotInspection::Portable(ValidatedPortableDescriptor {
+    Ok(ValidatedSlot {
         owner: model_type.clone().unbind(),
-        descriptor: descriptor.unbind(),
-    }))
+        descriptor: descriptor.clone().unbind(),
+    })
 }
 
 fn parse_node(
     py: Python<'_>,
     descriptor: &Bound<'_, PyAny>,
     node_count: usize,
+    schemas: &mut HashMap<Vec<u8>, Arc<PreparedSchema>>,
 ) -> PyResult<ConversionNode> {
     let descriptor = descriptor.cast::<PyTuple>()?;
     if descriptor.is_empty() {
@@ -4563,11 +2012,11 @@ fn parse_node(
             Ok(ConversionNode::Literal { values })
         }
         "union" => parse_union_node(descriptor, node_count),
-        "model" => parse_model_node(py, descriptor, node_count),
+        "model" => parse_model_node(py, descriptor, node_count, schemas),
         "root" => {
-            require_arity(descriptor, 3, "root model node")?;
+            require_arity(descriptor, 4, "root model node")?;
             let model_type = descriptor.get_item(1)?.cast_into::<PyType>()?.unbind();
-            let branch_schema = schema_for_model(model_type.bind(py))?;
+            let branch_schema = load_branch_schema(&descriptor.get_item(3)?, schemas)?;
             Ok(ConversionNode::Root {
                 branch_schema,
                 root_attribute: ModelAttribute::compile(py, model_type.bind(py), "root")?,
@@ -4711,17 +2160,20 @@ fn parse_model_node(
     py: Python<'_>,
     descriptor: &Bound<'_, PyTuple>,
     node_count: usize,
+    schemas: &mut HashMap<Vec<u8>, Arc<PreparedSchema>>,
 ) -> PyResult<ConversionNode> {
-    require_arity(descriptor, 4, "model node")?;
+    require_arity(descriptor, 5, "model node")?;
     let model_type = descriptor.get_item(1)?.cast_into::<PyType>()?;
-    let branch_schema = schema_for_model(&model_type)?;
+    let branch_schema = load_branch_schema(&descriptor.get_item(4)?, schemas)?;
+    let namespace = model_type.getattr("__dict__")?;
     let field_descriptors = descriptor.get_item(2)?.cast_into::<PyTuple>()?;
     let mut fields = Vec::with_capacity(field_descriptors.len());
     for field in field_descriptors.iter() {
         let field = field.cast_into::<PyTuple>()?;
         require_arity(&field, 4, "model field")?;
         let json_name = field.get_item(0)?.extract::<String>()?;
-        let py_name = field.get_item(1)?.extract::<String>()?;
+        let py_name_object = field.get_item(1)?.cast_into::<PyString>()?;
+        let py_name = py_name_object.to_str()?;
         if py_name == "__jsoncompat_extra__" {
             return Err(PyErr::new::<PyValueError, _>(format!(
                 "generated Python field name {py_name:?} is reserved by the model runtime"
@@ -4733,10 +2185,17 @@ fn parse_model_node(
                 "model field omittable flag must be bool",
             ));
         }
+        let alias = (py_name != json_name).then(|| py_name.to_owned());
+        let attribute = ModelAttribute::compile_descriptor(
+            &model_type,
+            &py_name_object,
+            &namespace.get_item(&py_name_object)?,
+        )?;
         fields.push((
             FieldPlan {
                 json_name,
-                attribute: ModelAttribute::compile(py, &model_type, &py_name)?,
+                json_prefix: Vec::new(),
+                attribute,
                 value_node: NodeId::parse(field.get_item(2)?.extract()?, node_count)?,
                 presence: if omittable.extract::<bool>()? {
                     FieldPresence::Omittable
@@ -4744,7 +2203,7 @@ fn parse_model_node(
                     FieldPresence::Required
                 },
             },
-            py_name,
+            alias,
         ));
     }
     let extra_value = descriptor.get_item(3)?;
@@ -4770,15 +2229,17 @@ fn parse_model_node(
     })
 }
 
-fn schema_for_model(model_type: &Bound<'_, PyType>) -> PyResult<BranchSchema> {
-    let schema = model_type
-        .getattr("__jsoncompat_schema__")?
-        .extract::<String>()?;
-    let schema = serde_json::from_str::<serde_json::Value>(&schema).map_err(|error| {
-        PyErr::new::<PyValueError, _>(format!("generated model schema is not valid JSON: {error}"))
-    })?;
-    Ok(BranchSchema {
-        raw: schema,
-        compiled: OnceCell::new(),
-    })
+fn load_branch_schema(
+    prepared: &Bound<'_, PyAny>,
+    schemas: &mut HashMap<Vec<u8>, Arc<PreparedSchema>>,
+) -> PyResult<BranchSchema> {
+    let bytes = prepared.cast::<PyBytes>()?;
+    if let Some(program) = schemas.get(bytes.as_bytes()) {
+        return Ok(BranchSchema {
+            program: Arc::clone(program),
+        });
+    }
+    let program = Arc::new(PreparedSchema::load(bytes.as_bytes()).map_err(PyValueError::new_err)?);
+    schemas.insert(bytes.as_bytes().to_vec(), Arc::clone(&program));
+    Ok(BranchSchema { program })
 }

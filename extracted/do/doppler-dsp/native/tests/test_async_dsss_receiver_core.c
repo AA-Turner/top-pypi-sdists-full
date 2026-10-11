@@ -2068,11 +2068,161 @@ _test_cell_state_roundtrip (void)
   return 0;
 }
 
+/* The hand-off resumes where the HIT's frame ended (#2042). At a design
+ * C/N0 of 58 dB-Hz the auto-sizer picks several non-coherent looks, so the
+ * frames after a hit decide nothing; before #2042's round 1 the embedded
+ * acquisition kept framing them, and the receiver took its tail from the
+ * engine's live counter, so a call that carried input past the hit began
+ * tracking whole frames late and lost those symbols without a word. One
+ * call over the whole capture must therefore equal the same capture in
+ * one-epoch chunks -- where no call carries a frame past the hit -- bit
+ * for bit. */
+static int
+_test_handoff_resumes_at_the_hit (void)
+{
+  const size_t sf = 7, spc = 4, te = sf * spc, n_sym = 400;
+  const double fs = 1.0e6 * (double)spc, tsym = fs / 35714.29;
+
+  float _Complex *x;
+  size_t          n;
+  double         *data;
+  dp_dsss_capture (CODE7, sf, spc, fs, tsym, 0.0, 90.0, n_sym, te * 5 + 3, 7,
+                   &x, &n, &data);
+
+  dp_async_dsss_receiver_state_t *one = dp_async_dsss_receiver_create (
+      CODE7, sf, 1.0e6, 35714.29, spc, 2, 58.0, 1e-2, 0.9, 500.0, 4, 8, 0, 0.5,
+      4, 14.0, 32, 8, false, 100000, 0.0, 0.0);
+  dp_async_dsss_receiver_state_t *chunked = dp_async_dsss_receiver_create (
+      CODE7, sf, 1.0e6, 35714.29, spc, 2, 58.0, 1e-2, 0.9, 500.0, 4, 8, 0, 0.5,
+      4, 14.0, 32, 8, false, 100000, 0.0, 0.0);
+  DP_CHECK (one != NULL && chunked != NULL);
+  if (!one || !chunked)
+    {
+      dp_async_dsss_receiver_destroy (one);
+      dp_async_dsss_receiver_destroy (chunked);
+      free (x);
+      free (data);
+      return 1;
+    }
+  /* The premise: frames after a hit that decide nothing. */
+  DP_CHECK (one->acq->n_noncoh > 1);
+
+  float _Complex *a, *b;
+  size_t          n_a = _stream (one, x, n, n, &a);
+  size_t          n_b = _stream (chunked, x, n, te, &b);
+  DP_CHECK (dp_async_dsss_receiver_get_tracking (one) == 1);
+  DP_CHECK (n_a > 20);
+  DP_CHECK (n_a == n_b && memcmp (a, b, n_a * sizeof *a) == 0);
+
+  free (a);
+  free (b);
+  dp_async_dsss_receiver_destroy (one);
+  dp_async_dsss_receiver_destroy (chunked);
+  free (x);
+  free (data);
+  return 0;
+}
+
+/* The hand-off's two counts must be one timebase (#2042's final round).
+ * The tail is where the hit's frame ended in the ENGINE's position; a count
+ * of what this receiver fed was a second timebase that configure_search_raw
+ * (an engine reset) and set_state (an engine restore) left behind, and the
+ * tail then started late or read outside x. Cut in the leading silence --
+ * two frames and a carry, no hit yet -- then (a) reconfigure and (b) carry
+ * the state into a fresh receiver: each must equal the run it stands for,
+ * bit for bit. */
+static int
+_test_handoff_survives_reconfigure_and_restore (void)
+{
+  const size_t    sf = 7, spc = 4, te = sf * spc, n_sym = 400;
+  const double    fs = 1.0e6 * (double)spc, tsym = fs / 35714.29;
+  float _Complex *x;
+  size_t          n;
+  double         *data;
+  dp_dsss_capture (CODE7, sf, spc, fs, tsym, 0.0, 90.0, n_sym, te * 5 + 3, 7,
+                   &x, &n, &data);
+  const size_t cut = 2 * te + 5; /* inside the silence: frames and a carry */
+
+  dp_async_dsss_receiver_state_t *a = dp_async_dsss_receiver_create (
+      CODE7, sf, 1.0e6, 35714.29, spc, 2, 58.0, 1e-2, 0.9, 500.0, 4, 8, 0, 0.5,
+      4, 14.0, 32, 8, false, 100000, 0.0, 0.0);
+  dp_async_dsss_receiver_state_t *ref = dp_async_dsss_receiver_create (
+      CODE7, sf, 1.0e6, 35714.29, spc, 2, 58.0, 1e-2, 0.9, 500.0, 4, 8, 0, 0.5,
+      4, 14.0, 32, 8, false, 100000, 0.0, 0.0);
+  dp_async_dsss_receiver_state_t *b = dp_async_dsss_receiver_create (
+      CODE7, sf, 1.0e6, 35714.29, spc, 2, 58.0, 1e-2, 0.9, 500.0, 4, 8, 0, 0.5,
+      4, 14.0, 32, 8, false, 100000, 0.0, 0.0);
+  dp_async_dsss_receiver_state_t *whole = dp_async_dsss_receiver_create (
+      CODE7, sf, 1.0e6, 35714.29, spc, 2, 58.0, 1e-2, 0.9, 500.0, 4, 8, 0, 0.5,
+      4, 14.0, 32, 8, false, 100000, 0.0, 0.0);
+  DP_CHECK (a && ref && b && whole);
+  if (!a || !ref || !b || !whole)
+    {
+      dp_async_dsss_receiver_destroy (a);
+      dp_async_dsss_receiver_destroy (ref);
+      dp_async_dsss_receiver_destroy (b);
+      dp_async_dsss_receiver_destroy (whole);
+      free (x);
+      free (data);
+      return 1;
+    }
+  float _Complex *o1 = malloc (n * sizeof *o1), *o2 = malloc (n * sizeof *o2);
+  DP_CHECK (o1 && o2);
+
+  /* (a) Reconfigured mid-search: the engine restarts at 0; a fresh
+     receiver configured the same way and fed the same rest is the truth. */
+  DP_CHECK (dp_async_dsss_receiver_steps (a, x, cut, o1, n) == 0);
+  DP_CHECK (dp_async_dsss_receiver_configure_search_raw (a, 1, 4) == 0);
+  DP_CHECK (dp_async_dsss_receiver_configure_search_raw (ref, 1, 4) == 0);
+  size_t na = dp_async_dsss_receiver_steps (a, x + cut, n - cut, o1, n);
+  size_t nr = dp_async_dsss_receiver_steps (ref, x + cut, n - cut, o2, n);
+  DP_CHECK (dp_async_dsss_receiver_get_tracking (a) == 1);
+  DP_CHECK (na > 20 && na == nr && memcmp (o1, o2, na * sizeof *o1) == 0);
+
+  /* (b) Restored mid-search into a fresh receiver: the uninterrupted run
+     over the whole capture is the truth. */
+  dp_async_dsss_receiver_state_t *src = dp_async_dsss_receiver_create (
+      CODE7, sf, 1.0e6, 35714.29, spc, 2, 58.0, 1e-2, 0.9, 500.0, 4, 8, 0, 0.5,
+      4, 14.0, 32, 8, false, 100000, 0.0, 0.0);
+  DP_CHECK (src != NULL);
+  if (src)
+    {
+      DP_CHECK (dp_async_dsss_receiver_steps (src, x, cut, o1, n) == 0);
+      void *blob = malloc (dp_async_dsss_receiver_state_bytes (src));
+      DP_CHECK (blob != NULL);
+      if (blob)
+        {
+          dp_async_dsss_receiver_get_state (src, blob);
+          DP_CHECK (dp_async_dsss_receiver_set_state (b, blob) == DP_OK);
+          size_t nb
+              = dp_async_dsss_receiver_steps (b, x + cut, n - cut, o1, n);
+          size_t nw = dp_async_dsss_receiver_steps (whole, x, n, o2, n);
+          DP_CHECK (dp_async_dsss_receiver_get_tracking (b) == 1);
+          DP_CHECK (nb > 20 && nb == nw
+                    && memcmp (o1, o2, nb * sizeof *o1) == 0);
+          free (blob);
+        }
+      dp_async_dsss_receiver_destroy (src);
+    }
+
+  free (o1);
+  free (o2);
+  dp_async_dsss_receiver_destroy (a);
+  dp_async_dsss_receiver_destroy (ref);
+  dp_async_dsss_receiver_destroy (b);
+  dp_async_dsss_receiver_destroy (whole);
+  free (x);
+  free (data);
+  return 0;
+}
+
 int
 main (void)
 {
   (void)_test_arg_validation ();
   (void)_test_acquire_and_decode ();
+  (void)_test_handoff_resumes_at_the_hit ();
+  (void)_test_handoff_survives_reconfigure_and_restore ();
   (void)_test_give_up_cap ();
   (void)_test_spec_ramp_decode ();
   (void)_test_handover_under_clock_offset ();

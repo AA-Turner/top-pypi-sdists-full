@@ -1,3 +1,5 @@
+"""Cursor that returns Athena query results as Apache Arrow tables."""
+
 from __future__ import annotations
 
 import logging
@@ -14,6 +16,7 @@ from pyathena.error import OperationalError, ProgrammingError
 from pyathena.model import AthenaQueryExecution
 from pyathena.options import ExecuteOptions
 from pyathena.result_set import WithFetch
+from pyathena.util import override
 
 if TYPE_CHECKING:
     import polars as pl
@@ -42,17 +45,18 @@ class ArrowCursor(WithFetch):
         >>> from pyathena.arrow.cursor import ArrowCursor
         >>> cursor = connection.cursor(ArrowCursor)
         >>> cursor.execute("SELECT * FROM large_table")
-        >>> table = cursor.fetchall()  # Returns pyarrow.Table
+        >>> table = cursor.as_arrow()  # Returns pyarrow.Table
         >>> df = table.to_pandas()  # Convert to pandas if needed
 
         # High-performance UNLOAD for large datasets
         >>> cursor = connection.cursor(ArrowCursor, unload=True)
         >>> cursor.execute("SELECT * FROM huge_table")
-        >>> table = cursor.fetchall()  # Faster Parquet-based result
+        >>> table = cursor.as_arrow()  # Faster Parquet-based result
     """
 
     def __init__(
         self,
+        *,
         s3_staging_dir: str | None = None,
         schema_name: str | None = None,
         catalog_name: str | None = None,
@@ -116,6 +120,7 @@ class ArrowCursor(WithFetch):
         self._request_timeout = request_timeout
 
     @staticmethod
+    @override
     def get_default_converter(
         unload: bool = False,
     ) -> DefaultArrowTypeConverter | DefaultArrowUnloadTypeConverter | Any:
@@ -123,10 +128,12 @@ class ArrowCursor(WithFetch):
             return DefaultArrowUnloadTypeConverter()
         return DefaultArrowTypeConverter()
 
+    @override
     def execute(
         self,
         operation: str,
         parameters: dict[str, Any] | list[str] | None = None,
+        *,
         work_group: str | None = None,
         s3_staging_dir: str | None = None,
         cache_size: int | None = None,
@@ -136,7 +143,6 @@ class ArrowCursor(WithFetch):
         paramstyle: str | None = None,
         on_start_query_execution: Callable[[str], None] | None = None,
         result_set_type_hints: dict[str | int, str] | None = None,
-        *,
         options: ExecuteOptions | None = None,
         **kwargs,
     ) -> ArrowCursor:
@@ -156,14 +162,18 @@ class ArrowCursor(WithFetch):
             result_reuse_enable: Enable Athena result reuse for this query.
             result_reuse_minutes: Minutes to reuse cached results.
             paramstyle: Parameter style ('qmark' or 'pyformat').
-            on_start_query_execution: Callback called when query starts.
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion within
-                complex types.
+            on_start_query_execution: Callback invoked with the query ID before ``execute()``
+                waits for the query: after the ``StartQueryExecution`` call, or after a
+                reusable query ID is found through ``cache_size``.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
             options: Shared execution options as an
                 :class:`~pyathena.options.ExecuteOptions` instance. Individual
                 keyword arguments take precedence over ``options`` fields.
-            **kwargs: Additional execution parameters.
+            **kwargs: Result-set overrides: ``block_size``, ``connect_timeout``,
+                and ``request_timeout``. Unknown names raise TypeError.
+                ``block_size`` sets the read block size for this query, and
+                ``connect_timeout`` and ``request_timeout`` override the cursor's values.
 
         Returns:
             Self reference for method chaining.
@@ -172,6 +182,7 @@ class ArrowCursor(WithFetch):
             >>> cursor.execute("SELECT * FROM sales WHERE year = 2023")
             >>> table = cursor.as_arrow()  # Returns Apache Arrow Table
         """
+        self._validate_execute_kwargs(kwargs, ("block_size", "connect_timeout", "request_timeout"))
         self._reset_state()
         options = ExecuteOptions.resolve(
             options,
@@ -204,8 +215,8 @@ class ArrowCursor(WithFetch):
                 retry_config=self._retry_config,
                 unload=self._unload,
                 unload_location=unload_location,
-                connect_timeout=self._connect_timeout,
-                request_timeout=self._request_timeout,
+                connect_timeout=kwargs.pop("connect_timeout", self._connect_timeout),
+                request_timeout=kwargs.pop("request_timeout", self._request_timeout),
                 result_set_type_hints=options.result_set_type_hints,
                 **kwargs,
             )

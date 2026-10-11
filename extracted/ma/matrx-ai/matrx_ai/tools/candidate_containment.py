@@ -10,8 +10,12 @@ the executor sees gets exactly one disposition before anything happens
   repeated read sees the live run's data, not fresher data.
 * ``real`` — the invocation's effective side-effect class is ``read_only`` or
   ``paid_read`` (external MCP only when ``read_only``), and it is not
-  client-delegated. Agent-as-tool calls (``ToolType.AGENT``) are also real: the
-  child inherits the marker and every one of ITS calls comes back through here.
+  client-delegated.
+* ``contained`` — a call that starts a CHILD agent run: ``agent_call``,
+  ``mandate_call``, ``staff_escalate`` and a saved agent offered as a tool
+  (``ToolType.AGENT``). The call runs; the child inherits the marker and the ONE
+  ledger, so every one of ITS calls comes back through here, and a stop in the
+  child is the parent's stop (``ToolExecutor`` ends the parent call with it).
 * ``stopped`` — everything else: every write class, an UNCLASSIFIED (NULL) tool
   (read as the most dangerous class), every client-delegated tool (no client
   exists in the background — the tool stays OFFERED, containment stops at the
@@ -66,13 +70,15 @@ REAL_CLASSES: frozenset[str] = frozenset({READ_ONLY, PAID_READ})
 #: What an external MCP tool must be classified to run for real.
 REAL_MCP_CLASSES: frozenset[str] = frozenset({READ_ONLY})
 #: LOCAL tools that start a nested agent run. They run CONTAINED (disposition
-#: ``real``): the child inherits the marker and the shared ledger in-process
+#: ``contained``): the child inherits the marker and the shared ledger in-process
 #: (agent_call copies ``AppContext.metadata`` into the child; mandate_call and
 #: staff_escalate never hand off inside a candidate — aidream
 #: ``mandates/tools.py::run_resolved_holder``), so every call the child makes is
 #: decided here, and a child's stop stops the parent. Reclassified from STOPPED
 #: by Mandate Candidates C2/C3 once the guard proved containment follows the
-#: child (``aidream/scripts/prove_candidate_sub_agent_containment_on_clone.py``).
+#: child. Guards: ``tests/test_candidate_sub_agent_containment.py`` (the real
+#: agent_call body), aidream ``mandates/candidates/tests/test_sub_agent_never_hands_off.py``
+#: and ``…/test_sub_agent_containment_live.py`` (live, end to end).
 SUB_AGENT_TOOLS: frozenset[str] = frozenset({"agent_call", "mandate_call", "staff_escalate"})
 #: The one sub-agent write that is NOT the child's own tool call: agent_call's
 #: ``remember`` enqueues a durable note INTO ANOTHER CONVERSATION. Stopped.
@@ -82,6 +88,10 @@ SUB_AGENT_STOP_REASON = (
 )
 #: The side_effect_class recorded for an agent-as-tool call (its children are contained).
 AGENT_TOOL_CLASS = "agent"
+#: The disposition recorded for a call that starts a contained child run.
+CONTAINED = "contained"
+#: Dispositions the executor dispatches (the others never reach the tool body).
+DISPATCHED_DISPOSITIONS: frozenset[str] = frozenset({"real", CONTAINED})
 
 
 class BorrowRequest(BaseModel):
@@ -234,7 +244,9 @@ async def decide(
     if borrowed is not None:
         decision = ContainmentDecision("borrowed", cls, seq, digest, borrowed=borrowed)
     elif stop_reason is None:
-        decision = ContainmentDecision("real", cls, seq, digest)
+        decision = ContainmentDecision(
+            CONTAINED if cls == AGENT_TOOL_CLASS else "real", cls, seq, digest
+        )
     else:
         decision = ContainmentDecision("stopped", cls, seq, digest, stopped_reason=stop_reason)
 
@@ -271,7 +283,9 @@ __all__ = [
     "BorrowedToolResult",
     "CANDIDATE_LEDGER_KEY",
     "CANDIDATE_STOPPED_STATUS",
+    "CONTAINED",
     "ContainmentDecision",
+    "DISPATCHED_DISPOSITIONS",
     "MANDATE_CANDIDATE_KEY",
     "REAL_CLASSES",
     "REAL_MCP_CLASSES",

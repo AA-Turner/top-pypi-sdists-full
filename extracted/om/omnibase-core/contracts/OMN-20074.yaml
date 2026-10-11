@@ -35,9 +35,10 @@ requirements:
       release while keeping the S5 shadow comparison enabled.
     acceptance:
       - id: AC3
-        statement: 'AC3: the Repo Evidence Gate caller pins receipt-gate.yml at omnibase_core#1912''s
-          squash commit and verifier-version at or above omnimarket v0.4.305, keeping compare-with-occ
-          "true". -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q'
+        statement: 'AC3: the Repo Evidence Gate caller pins receipt-gate.yml at omnibase_core#1914''s
+          squash commit, which carries #1912''s contract-home reusable, and verifier-version at or above
+          omnimarket v0.4.305, keeping compare-with-occ "true". -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py
+          -q'
   - id: req-omn20074-writer-release-cut
     statement: The dod-verify writer_pin_only step must derive the OCC writer-app release-cut exemption
       from the head's git diff against its merge base and fail closed for every other release shape.
@@ -49,6 +50,97 @@ requirements:
           and exempt=false for any other path, a rewritten or deleted changelog line, a heading/version
           mismatch or an already-released version. -- falsifier: uv run pytest tests/ci/test_receipt_gate_writer_release_cut_omn20074.py
           -q'
+  - id: req-omn20074-writer-workflow-pin
+    statement: The dod-verify writer_pin_only step must derive the OCC writer-app exemption for a workflow-only
+      diff that moves only the omnibase_core checkout pin, using the pinned verifier's classify_workflow_core_pin_only
+      over head and base git blobs, and fail closed for every other workflow diff.
+    acceptance:
+      - id: AC5
+        statement: 'AC5: for an OCC writer-app pull request whose whole diff is workflow files moving
+          only the omnibase_core checkout pin, the dod-verify writer_pin_only step derives exempt=true
+          from git objects through classify_workflow_core_pin_only, and derives exempt=false for a diff
+          with any non-workflow path, a workflow change outside the pin, an added or deleted workflow,
+          or a verifier without the classifier. -- falsifier: uv run pytest tests/ci/test_receipt_gate_writer_workflow_pin_omn20074.py
+          -q -p no:randomly'
+  - id: req-omn20074-writer-plugin-version
+    statement: The dod-verify writer_pin_only step must derive the OCC writer-app exemption for a diff
+      of .claude-plugin manifests alone through the pinned verifier's classify_plugin_manifest_version_only
+      over head and base git blobs, and fail closed for every other plugin manifest diff.
+    acceptance:
+      - id: AC6
+        statement: 'AC6: for an OCC writer-app pull request whose whole diff is .claude-plugin plugin.json
+          and marketplace.json files, the dod-verify writer_pin_only step derives exempt=true from git
+          objects through classify_plugin_manifest_version_only, and derives exempt=false for an edit
+          outside the version keys, an added or deleted manifest, a mixed diff that never reaches the
+          classifier, and a verifier without the classifier -- falsifier: uv run pytest tests/ci/test_receipt_gate_writer_plugin_version_omn20074.py
+          -q fails at the merge base'
+  - id: req-omn20074-topic-hook-handler
+    statement: The no-hardcoded-topics decisions of the pinned onex_change_control hook must be reproduced
+      by an omnibase_core handler, so the hook leaves the onex_change_control repository without a change
+      in what any fleet file is flagged for.
+    acceptance:
+      - id: AC7
+        statement: 'AC7: HandlerNoHardcodedTopics reproduces the check-hardcoded-topics decisions of onex_change_control
+          rev 8d7e85bc00e7 on verbatim fleet files, flagging a quoted onex.evt. or onex.cmd. literal and
+          skipping comment lines, docstring lines, block comments, test files, wire_schemas contracts
+          and the twelve approved basenames, with the hook''s output lines byte for byte -- falsifier:
+          uv run pytest tests/unit/handlers/test_handler_no_hardcoded_topics.py -q -p no:randomly fails
+          at the merge base'
+  - id: req-omn20074-topic-hook-export
+    statement: omnibase_core must export the handler as pre-commit hook id no-hardcoded-topics and run
+      it locally in place of the onex_change_control block, keeping the exclude unchanged.
+    acceptance:
+      - id: AC8
+        statement: 'AC8: .pre-commit-hooks.yaml exports id no-hardcoded-topics running the handler module
+          with types python, yaml, ts and javascript, and .pre-commit-config.yaml runs it as one local
+          hook carrying the 13-path exclude unchanged with no onex_change_control hook of that id -- falsifier:
+          uv run pytest tests/ci/test_precommit_hooks_local_omn20068.py -q -p no:randomly fails at the
+          merge base'
+  - id: req-omn20074-s6-folds
+    statement: Verification gates whose only enforcing context was an embedded occ-preflight must run
+      in ci.yml, where the required CI Summary poller fails on them, with no new required context, annotation,
+      allowlist or baseline entry.
+    acceptance:
+      - id: AC9
+        statement: 'AC9: cr-thread-gate-caller.yml is deleted and ci.yml carries an unconditional, needs-free
+          `gate` caller of cr-thread-gate.yml whose composed context "gate / CodeRabbit Thread Check"
+          is unchanged and whose required-checks row names ci.yml. -- falsifier: uv run pytest tests/ci/test_ci_fold_gates_omn20074.py
+          -q -p no:randomly -k cr_thread_gate'
+      - id: AC10
+        statement: 'AC10: handshake-policy-gate.yml no longer triggers on merge_group and keeps its schedule,
+          dispatch and workflow_call triggers with no embedded preflight, and ci.yml carries a handshake-policy-gate
+          caller that runs on merge_group only with the original permissions and inherited secrets. --
+          falsifier: uv run pytest tests/ci/test_ci_fold_gates_omn20074.py -q -p no:randomly -k handshake_policy_gate'
+      - id: AC11
+        statement: 'AC11: propagate-config.yml no longer carries dry-run-ci-check, and ci.yml carries
+          an unconditional propagate-dry-run job with the original steps and token scope whose in-run
+          path detection matches exactly the five propagate-config.yml path-filter entries on pull_request
+          and push, runs on workflow_dispatch, skips merge_group and schedule, and fails open when no
+          diff can be computed. -- falsifier: uv run pytest tests/ci/test_ci_fold_gates_omn20074.py -q
+          -p no:randomly -k "dry_run or detection"'
+      - id: AC12
+        statement: 'AC12: CI Summary registers the gate caller and the dry-run in both its completeness
+          anchor and its strict set, does not anchor or allowlist the merge_group-only caller, and fails
+          when any of the three folded jobs fails, is skipped (anchored two) or is absent (anchored two).
+          -- falsifier: uv run pytest tests/ci/test_ci_fold_gates_omn20074.py -q -p no:randomly -k "anchored
+          or folded_gate or baseline_run or soft_allowlist or jobs_api"'
+  - id: req-omn20074-binds-ac-occ-parity
+    statement: ModelTicketContract must refuse the two dod_evidence shapes that onex_change_control validate-yaml
+      refuses and core admitted, with OCC's semantics, so a product repo can validate its contracts without
+      OCC.
+    acceptance:
+      - id: AC13
+        statement: 'AC13: ModelTicketContract refuses a dod_evidence item that declares binds_ac with
+          an entry that is not a bare criterion label (for example "AC1 -- the gate is wired"), naming
+          the item id and the DOD_EVIDENCE_BINDS_AC_LABEL rule, and still admits AC1, ac-1, DoD2 and the
+          other label forms -- falsifier: uv run pytest tests/unit/models/ticket/test_model_ticket_contract_binds_ac_rules.py
+          -q -k TestBindsAcLabelRule fails at the merge base'
+      - id: AC14
+        statement: 'AC14: ModelTicketContract refuses a dod_evidence item that declares binds_ac with
+          a check type outside OCC''s eight (command_exit_0, rendered_output, runtime_sha_match, disposition),
+          naming the item id and the DOD_EVIDENCE_BINDS_AC_CHECK_TYPE rule, and still admits command_exit_0
+          on an item without binds_ac -- falsifier: uv run pytest tests/unit/models/ticket/test_model_ticket_contract_binds_ac_rules.py
+          -q -k TestBindsAcCheckTypeRule fails at the merge base'
 evidence_requirements:
   - kind: tests
     description: The workflow test asserts that verify has no job-level condition and that enforcing caller
@@ -59,13 +151,58 @@ evidence_requirements:
       absent and disabled behavior, and the unchanged refusal.
     command: uv run pytest tests/ci/test_receipt_gate_contract_home_omn20074.py -q -p no:randomly
   - kind: tests
-    description: The caller tests prove the immutable contract-home reusable pin, the matching verifier
-      release floor, and the enabled S5 shadow comparison.
+    description: 'The caller tests prove the immutable reusable pin at omnibase_core#1914''s squash commit
+      (carrying #1912''s contract-home reusable and the writer release-cut exemption), the matching verifier
+      release floor, and the enabled S5 shadow comparison.'
     command: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q
   - kind: tests
     description: Execute the writer-app verdict against git objects to prove release-cut shapes and fail-closed
       controls for paths, changelog edits, heading versions, and already-released versions.
     command: uv run pytest tests/ci/test_receipt_gate_writer_release_cut_omn20074.py -q
+  - kind: tests
+    description: Execute the writer-app verdict against git objects to prove the omnibase_core workflow
+      checkout pin exemption and its fail-closed controls for mixed paths, edits outside the pin, added
+      or deleted workflows, and an older verifier.
+    command: uv run pytest tests/ci/test_receipt_gate_writer_workflow_pin_omn20074.py -q -p no:randomly
+  - kind: tests
+    description: Execute the writer-app verdict against git objects to prove the plugin manifest version
+      exemption and its fail-closed controls for edits outside the version keys, added or deleted manifests,
+      mixed paths, and an older verifier.
+    command: uv run pytest tests/ci/test_receipt_gate_writer_plugin_version_omn20074.py -q
+  - kind: tests
+    description: Replay verbatim fleet files against the decisions of the pinned onex_change_control hook,
+      with a positive control, every skip class and the byte-exact output lines.
+    command: uv run pytest tests/unit/handlers/test_handler_no_hardcoded_topics.py -q -p no:randomly
+  - kind: tests
+    description: The exported and local hook declarations run the handler under the same hook id, with
+      the exclude unchanged and no onex_change_control hook of that id.
+    command: uv run pytest tests/ci/test_precommit_hooks_local_omn20068.py -q -p no:randomly
+  - kind: tests
+    description: The fold tests prove the CodeRabbit thread gate caller moved into ci.yml with its composed
+      context unchanged.
+    command: uv run pytest tests/ci/test_ci_fold_gates_omn20074.py -q -p no:randomly -k cr_thread_gate
+  - kind: tests
+    description: The fold tests prove the handshake policy gate runs from ci.yml on merge_group and keeps
+      its weekly and manual runs.
+    command: uv run pytest tests/ci/test_ci_fold_gates_omn20074.py -q -p no:randomly -k handshake_policy_gate
+  - kind: tests
+    description: The fold tests prove the propagate dry-run keeps its steps and token scope and detects
+      the original five paths in-run.
+    command: uv run pytest tests/ci/test_ci_fold_gates_omn20074.py -q -p no:randomly -k "dry_run or detection"
+  - kind: tests
+    description: The fold tests prove CI Summary anchors the unconditional folds and fails when any folded
+      job fails, with positive controls.
+    command: uv run pytest tests/ci/test_ci_fold_gates_omn20074.py -q -p no:randomly -k "anchored or folded_gate
+      or baseline_run or soft_allowlist or jobs_api"
+  - kind: tests
+    description: The ticket-contract tests prove the binds_ac label refusal and its admitted label forms.
+    command: uv run pytest tests/unit/models/ticket/test_model_ticket_contract_binds_ac_rules.py -q -k
+      TestBindsAcLabelRule
+  - kind: tests
+    description: The ticket-contract tests prove the binds_ac check-type refusal and that items without
+      binds_ac are unaffected.
+    command: uv run pytest tests/unit/models/ticket/test_model_ticket_contract_binds_ac_rules.py -q -k
+      TestBindsAcCheckTypeRule
 emergency_bypass:
   enabled: false
   justification: ''
@@ -91,8 +228,9 @@ dod_evidence:
     binds_ac:
       - AC2
   - id: dod-omn-20074-ac3
-    description: The caller tests prove the immutable contract-home reusable pin, the matching verifier
-      release floor, and the enabled S5 shadow comparison.
+    description: 'The caller tests prove the immutable reusable pin at omnibase_core#1914''s squash commit
+      (carrying #1912''s contract-home reusable and the writer release-cut exemption), the matching verifier
+      release floor, and the enabled S5 shadow comparison.'
     source: manual
     checks:
       - check_type: test_passes
@@ -110,3 +248,108 @@ dod_evidence:
         cwd: ${OMNI_HOME}/omnibase_core
     binds_ac:
       - AC4
+  - id: dod-omn-20074-ac5
+    description: The workflow tests prove the git-derived writer-app omnibase_core workflow checkout pin
+      exemption and its fail-closed refusal controls.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_receipt_gate_writer_workflow_pin_omn20074.py -q -p no:randomly
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC5
+  - id: dod-omn-20074-ac6
+    description: The workflow tests prove the git-derived writer-app plugin manifest version exemption
+      and its fail-closed refusal controls.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_receipt_gate_writer_plugin_version_omn20074.py -q -p
+          no:randomly
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC6
+  - id: dod-omn-20074-ac7
+    description: The handler tests prove the pinned hook's no-hardcoded-topics decisions on verbatim fleet
+      files, a positive control and every skip class.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/handlers/test_handler_no_hardcoded_topics.py -q -p no:randomly
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC7
+  - id: dod-omn-20074-ac8
+    description: The hook declaration tests prove the export under the same id and the local hook with
+      its unchanged exclude.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_precommit_hooks_local_omn20068.py -q -p no:randomly
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC8
+  - id: dod-omn-20074-ac9
+    description: The fold tests prove the CodeRabbit thread gate caller moved into ci.yml with its composed
+      context unchanged.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_ci_fold_gates_omn20074.py -q -p no:randomly -k cr_thread_gate
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC9
+  - id: dod-omn-20074-ac10
+    description: The fold tests prove the handshake policy gate runs from ci.yml on merge_group and keeps
+      its weekly and manual runs.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_ci_fold_gates_omn20074.py -q -p no:randomly -k handshake_policy_gate
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC10
+  - id: dod-omn-20074-ac11
+    description: The fold tests prove the propagate dry-run keeps its steps and token scope and detects
+      the original five paths in-run.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_ci_fold_gates_omn20074.py -q -p no:randomly -k "dry_run
+          or detection"
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC11
+  - id: dod-omn-20074-ac12
+    description: The fold tests prove CI Summary anchors the unconditional folds and fails when any folded
+      job fails, with positive controls.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_ci_fold_gates_omn20074.py -q -p no:randomly -k "anchored
+          or folded_gate or baseline_run or soft_allowlist or jobs_api"
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC12
+  - id: dod-omn-20074-ac13
+    description: The ticket-contract tests prove the binds_ac label refusal names the item and the rule,
+      and the well-formed label forms still pass.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/models/ticket/test_model_ticket_contract_binds_ac_rules.py
+          -q -k TestBindsAcLabelRule
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC13
+  - id: dod-omn-20074-ac14
+    description: The ticket-contract tests prove the binds_ac check-type refusal names the item and the
+      rule, and command_exit_0 without binds_ac still passes.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/models/ticket/test_model_ticket_contract_binds_ac_rules.py
+          -q -k TestBindsAcCheckTypeRule
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC14

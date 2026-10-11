@@ -214,6 +214,7 @@ async def insert_task(
     tags: list[str],
     taxonomy_node_id: str | None,
     organization_id: str,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Insert a new sch_task row. ``organization_id`` is REQUIRED: the task belongs
@@ -241,6 +242,8 @@ async def insert_task(
         payload["taxonomy_node_id"] = taxonomy_node_id
     if expires_at is not None:
         payload["expires_at"] = expires_at
+    if metadata:
+        payload["metadata"] = metadata
     async with rls_session(claims, role=claims["role"], database=_database()):
         instance = await SchTask.create(**payload)
     return _row(instance.to_dict())

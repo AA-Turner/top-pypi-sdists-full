@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -14,13 +14,17 @@ This private submodule is *not* intended for importation by downstream callers.
 from beartype.roar import BeartypeDecorHintPep484TypeVarException
 from beartype.typing import TypeVar
 from beartype._data.kind.datakindiota import SENTINEL
-from beartype._data.typing.datatyping import TypeException
+from beartype._data.typing.datatyping import (
+    Pep649749Hintable,
+    TypeException,
+)
 from beartype._data.typing.datatypingport import (
     Hint,
     HintOrNone,
     TypeIs,
 )
-from beartype._util.cache.utilcachecall import callable_cached
+# from beartype._util.cache.func.utilcachefunc import callable_cached
+from typing import Optional
 
 # ....................{ RAISERS                            }....................
 #FIXME: Unit test us up, please. *sigh*
@@ -126,7 +130,7 @@ def is_hint_pep484_typevar(hint: Hint) -> TypeIs[TypeVar]:  # pyright: ignore
 #            CONTRAVARIANCE = auto()
 #            INVARIANCE = auto()
 #  * Add a new "check_variance: CheckVariance = CheckVariance.COVARIANCE"
-#    instance variable to our existing "HintMeta" dataclass.
+#    instance variable to our existing "HintDataCode" dataclass.
 #  * Refactor this get_hint_pep484_typevar_bounded_constraints_or_none() to return a 2-tuple
 #    "(typevar_bound, check_variance)" where:
 #    * "typevar_bound" is the current return value.
@@ -135,25 +139,25 @@ def is_hint_pep484_typevar(hint: Hint) -> TypeIs[TypeVar]:  # pyright: ignore
 #      * "CheckVariance.COVARIANCE" if this type variable is bounded.
 #      * "CheckVariance.INVARIANCE" if this type variable is constrained.
 #  * Refactor make_check_expr() to:
-#    * Track this new "HintMeta.check_variance" instance variable. Mostly
+#    * Track this new "HintDataCode.check_variance" instance variable. Mostly
 #      trivial. Child hints inherit their parent hint's "check_variance".
 #    * Dynamically generate code appropriate for this new
-#      "HintMeta.check_variance" instance variable. That's the super-hard part.
+#      "HintDataCode.check_variance" instance variable. That's the super-hard part.
 #      Even if we initially ignore "CheckVariance.CONTRAVARIANCE" (which we
 #      really should), we'd still basically have to:
 #      * Refactor *MOST* single magic code string globals into dictionary
 #        globals mapping from all possible "CheckVariance" members to the
 #        corresponding magic code strings appropriate for those variances.
 #      * Lookup the appropriate magic code strings in those dictionaries with
-#        the current "hint_curr_meta.check_variable" instance variable.
+#        the current "hint_curr.check_variable" instance variable.
 #
 #  Kinda fun, but *REALLY* non-trivial -- and probably no one cares. Guh!
-@callable_cached
 def get_hint_pep484_typevar_bounded_constraints_or_none(
     # Mandatory parameters.
     hint: TypeVar,
 
     # Optional parameters.
+    hintable: Optional[Pep649749Hintable] = None,
     exception_prefix: str = '',
 ) -> HintOrNone:
     '''
@@ -172,6 +176,11 @@ def get_hint_pep484_typevar_bounded_constraints_or_none(
        caller to the :meth:`typing.TypeVar.__init__` call initializing this
        type variable), this getter returns that bound as is.
     #. Else, this getter returns the :data:`None` singleton.
+
+    This getter is intentionally *not* memoized (e.g., by the
+    ``callable_cached`` decorator). Why? Because the ``hintable`` parameter is
+    typically a module, type, or callable contextually depending on lexical
+    scope and thus effectively prohibiting memoization.
 
     Caveats
     -------
@@ -200,17 +209,21 @@ def get_hint_pep484_typevar_bounded_constraints_or_none(
     callables (edges) relating those objects. Runtime type-checkers have *no*
     analogous operations, due to runtime space and time constraints.
 
-    This getter is intentionally *not* memoized (e.g., by the
-    ``callable_cached`` decorator). If this type variable was parametrized by
-    one or more constraints, the :attr:`typing.Union` type hint factory already
-    caches these constraints; else, this getter performs no work. In any case,
-    this getter effectively performs to work.
-
     Parameters
     ----------
     hint : object
-        :pep:`484`-compliant type variable to be inspected.
-    exception_prefix : str, optional
+        Type variable to be inspected.
+    hintable : Optional[Pep649749Hintable], default: None
+        **Hintable** (i.e., pure-Python module, type, or callable annotated by
+        this hint) to be passed as the optional ``owner`` parameter to the
+        low-level :func:`annotationlib.call_evaluate_function` function
+        underlying this high-level getter if any *or* :data:`None` otherwise
+        (e.g., if this hint was passed directly to either the
+        :func:`beartype.door.is_bearable` or
+        :func:`beartype.door.die_if_unbearable` functions and thus originates
+        from no hintable). A non-:data:`None` hintable is required to resolve
+        unquoted forward references transitively subscripting this hint.
+    exception_prefix : str, default: ''
         Human-readable label prefixing the representation of this object in the
         exception message. Defaults to the empty string.
 
@@ -230,32 +243,36 @@ def get_hint_pep484_typevar_bounded_constraints_or_none(
         if this object is *not* a :pep:`484`-compliant type variable.
     '''
 
+    # ....................{ IMPORTS                        }....................
     # Avoid circular import dependencies.
-    from beartype._util.hint.pep.proposal.pep484604 import (
+    from beartype._util.hint.pep.proposal.pep484.pep484604union import (
         make_hint_pep484604_union)
-    from beartype._util.hint.pep.proposal.pep749 import (
-        get_hint_pep749_subhint_mandatory,
-        get_hint_pep749_subhint_optional,
+    from beartype._util.hint.pep.proposal.pep749.pep749evaluate import (
+        get_hint_pep749_evaluator_mandatory,
+        get_hint_pep749_evaluator_optional,
     )
 
+    # ....................{ VALIDATE                       }....................
     # If this hint is *NOT* a type variable, raise an exception.
     die_unless_hint_pep484_typevar(
         hint=hint, exception_prefix=exception_prefix)
     # Else, this hint is a type variable.
 
+    # ....................{ LOCALS                         }....................
     # Bounded constraints parametrizing this type variable to be returned.
     hint_bounded_constraints: Hint = None
 
     # Tuple of the zero or more child hints constraining this type variable.
-    hint_constraints = get_hint_pep749_subhint_mandatory(
+    hint_constraints = get_hint_pep749_evaluator_mandatory(
+        hintable=hintable,
         hint=hint,  # pyright: ignore
-        subhint_name_dynamic='evaluate_constraints',
-        subhint_name_static='__constraints__',
+        evaluator_name_dynamic='evaluate_constraints',
+        evaluator_name_static='__constraints__',
         exception_cls=BeartypeDecorHintPep484TypeVarException,
         exception_prefix=exception_prefix,
     )
 
-    #
+    # ....................{ UNION                          }....................
     # If this type variable was parametrized by one or more constraints, create
     # and return the PEP 484-compliant union of these constraints.
     if hint_constraints:
@@ -278,13 +295,14 @@ def get_hint_pep484_typevar_bounded_constraints_or_none(
         #   Ergo, a type variable bound to "None" would prevent that type
         #   variable from matching any hints other than "None". That type
         #   variable would thus be equivalent to "None", which is useless,
-        #   because "None" could (and should) just be used instead. PEP 484
-        #   thus treats "None" as an invalid bound synonymous with *NO* bound.
-        hint_bound = get_hint_pep749_subhint_optional(
+        #   because "None" could (and should) just be used instead. PEP 484 thus
+        #   treats "None" as an invalid bound synonymous with *NO* bound.
+        hint_bound = get_hint_pep749_evaluator_optional(
+            hintable=hintable,
             hint=hint,  # pyright: ignore
-            subhint_name_dynamic='evaluate_bound',
-            subhint_name_static='__bound__',
-            subhint_value_null=None,
+            evaluator_name_dynamic='evaluate_bound',
+            evaluator_name_static='__bound__',
+            evaluator_value_null=None,
             exception_cls=BeartypeDecorHintPep484TypeVarException,
             exception_prefix=exception_prefix,
         )
@@ -295,5 +313,6 @@ def get_hint_pep484_typevar_bounded_constraints_or_none(
         # Else, this type variable was parametrized by *NO* bound.
     # Else, this type variable was parametrized by *NO* constraints.
 
+    # ....................{ RETURN                         }....................
     # Return these bounded constraints.
     return hint_bounded_constraints

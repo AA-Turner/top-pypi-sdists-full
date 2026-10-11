@@ -29,7 +29,8 @@ class TorchClient:
     """
 
     def __init__(self, url, torch_connection_timeout_ms=TORCH_CONNECTION_TIMEOUT_MS, access_key: str = None,
-                 secret_key: str = None, do_version_check: bool = False, torch_read_timeout_ms=TORCH_READ_TIMEOUT_MS):
+                 secret_key: str = None, do_version_check: bool = False, torch_read_timeout_ms=TORCH_READ_TIMEOUT_MS,
+                 verify_ssl=True):
 
         """
                 Description : Torch user client is used to send data to catalog server.
@@ -39,6 +40,8 @@ class TorchClient:
                 :param secret_key: (String) Secret key of API key.
                 :param do_version_check: (bool) Enable/Disable version compatibility check between sdk and torch.
                 :param torch_read_timeout_ms: (int) Maximum time (in milliseconds) to wait for a response from the ADOC server after a successful connection. Default: 15000 ms.
+                :param verify_ssl: TLS certificate check. ``True`` (default) uses the default CA bundle.
+                        Pass a CA bundle path or an ``ssl.SSLContext`` for a private enterprise CA.
 
                 Ex.  TorchClient = TorchUserClient(url='https://torch.acceldata.local:5443', access_key='OY2VVIN2N6LJ', secret_key='da6bDBimQfXSMsyyhlPVJJfk7Zc2gs')
         """
@@ -48,7 +51,8 @@ class TorchClient:
             raise Exception("ADOC credentials are missing. Please provide both access_key and secret_key.")
         self.client = TorchHttpClient(url=url, access_key=access_key, secret_key=secret_key,
                                       torch_connection_timeout_ms=torch_connection_timeout_ms,
-                                      torch_read_timeout_ms=torch_read_timeout_ms)
+                                      torch_read_timeout_ms=torch_read_timeout_ms,
+                                      verify_ssl=verify_ssl)
         if do_version_check:
             warnings.warn(
                 "`do_version_check` is deprecated and will be removed in a future release.",

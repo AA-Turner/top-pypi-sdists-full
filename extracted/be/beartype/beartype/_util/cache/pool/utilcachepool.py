@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -23,12 +23,9 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar._roarexc import _BeartypeUtilCachedKeyPoolException
-from beartype.typing import (
-    Dict,
-    Union,
-)
+from beartype._data.typing.datatyping import TypeOrCallable
 from collections import defaultdict
-from collections.abc import Callable, Hashable
+from collections.abc import Hashable
 from threading import Lock
 
 # ....................{ CLASSES                            }....................
@@ -53,7 +50,7 @@ class KeyPool(object):
     _pool_item_id_to_is_acquired : dict
         Dictionary mapping from the unique object identifier of a **pool item**
         (i.e., arbitrary object cached under a pool of the :attr:`_key_to_pool`
-        ditionary) to a boolean that is either:
+        dictionary) to a boolean that is either:
 
         * :data:`True` if that item is currently **acquired** (i.e., most
           recently returned by a call to the :meth:`acquire` method).
@@ -87,7 +84,7 @@ class KeyPool(object):
     )
 
     # ..................{ INITIALIZER                        }..................
-    def __init__(self, item_maker: Union[type, Callable]) -> None:
+    def __init__(self, item_maker: TypeOrCallable) -> None:
         '''
         Initialize this key pool with the passed factory callable.
 
@@ -124,8 +121,8 @@ class KeyPool(object):
         #     >>> dd = defaultdict(default_factory=list)
         #     >>> dd['ee']
         #     KeyError: 'ee'
-        self._key_to_pool: Dict[Hashable, list] = defaultdict(list)
-        self._pool_item_id_to_is_acquired: Dict[int, bool] = {}
+        self._key_to_pool: dict[Hashable, list] = defaultdict(list)
+        self._pool_item_id_to_is_acquired: dict[int, bool] = {}
         self._thread_lock = Lock()
 
     # ..................{ METHODS                            }..................

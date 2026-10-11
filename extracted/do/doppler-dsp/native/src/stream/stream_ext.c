@@ -33,10 +33,16 @@ typedef struct
 static void
 dpMsg_dealloc (dpMsgObject *self)
 {
-  if (self->msg)
+  /* Without the GIL: freeing a NATS message releases its context link,
+     whose mutex a Pull ack on another thread holds while it publishes,
+     and the interpreter must not stall behind it (#2016). */
+  dp_msg_t *msg = self->msg;
+  self->msg     = NULL;
+  if (msg)
     {
-      dp_msg_free (self->msg);
-      self->msg = NULL;
+      Py_BEGIN_ALLOW_THREADS
+        dp_msg_free (msg);
+      Py_END_ALLOW_THREADS
     }
   Py_TYPE (self)->tp_free ((PyObject *)self);
 }
@@ -750,6 +756,23 @@ Subscriber_recv (SubscriberObject *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
+Subscriber_reasm_stats (SubscriberObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (self->closed || !self->ctx)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "subscriber is closed");
+      return NULL;
+    }
+  dp_reasm_stats_t st;
+  /* DP_OK: the only refusal is a NULL argument, and neither is. */
+  (void)dp_sub_reasm_stats (self->ctx, &st);
+  return Py_BuildValue ("{s:K,s:K,s:K}", "abandoned",
+                        (unsigned long long)st.abandoned, "rejected",
+                        (unsigned long long)st.rejected, "mid_frame_timeouts",
+                        (unsigned long long)st.mid_frame_timeouts);
+}
+
+static PyObject *
 Subscriber_close (SubscriberObject *self, PyObject *Py_UNUSED (ignored))
 {
   if (!self->closed && self->ctx)
@@ -777,6 +800,45 @@ Subscriber_exit (SubscriberObject *self, PyObject *Py_UNUSED (args))
 static PyMethodDef Subscriber_methods[] = {
   { "recv", (PyCFunction)Subscriber_recv, METH_VARARGS | METH_KEYWORDS,
     "recv(timeout_ms=-1) -> (samples, header) — zero-copy recv" },
+  { "reasm_stats", (PyCFunction)Subscriber_reasm_stats, METH_NOARGS,
+    "reasm_stats() -> dict\n"
+    "\n"
+    "What reassembling chunked frames has given up on this subscriber.\n"
+    "\n"
+    "A frame above the server's max_payload (1 MiB by default) arrives as\n"
+    "chunks, and recv() rebuilds one frame at a time. A frame it can no\n"
+    "longer complete is given up and counted here rather than hidden: the\n"
+    "next frame still arrives intact. A frame recv() DOES return is\n"
+    "complete and exact. The counts run from the subscriber's creation and\n"
+    "are never reset. Read them from the thread that calls recv(): a recv()\n"
+    "on another thread releases the GIL and updates them without a lock.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "dict\n"
+    "    ``abandoned``: partial assemblies given up -- a count of\n"
+    "    assemblies, not of frames lost (a late joiner abandons a frame it\n"
+    "    never had). Given up when a chunk of a different frame arrives, or\n"
+    "    an unchunked frame of the same stream, or an end-of-stream, which\n"
+    "    under one publisher per subject prove the frame in progress lost a\n"
+    "    chunk. ``rejected``:\n"
+    "    chunks no frame could hold, dropped (off the chunk grid, out of\n"
+    "    range, or overlapping). ``mid_frame_timeouts``: receives that timed\n"
+    "    out with a frame part-assembled; the frame is kept, and the next\n"
+    "    recv() resumes it.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "RuntimeError\n"
+    "    If the subscriber is closed.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.stream import Subscriber\n"
+    ">>> sub = Subscriber(\"nats://127.0.0.1:4222/t19124\")\n"
+    ">>> sub.reasm_stats()\n"
+    "{'abandoned': 0, 'rejected': 0, 'mid_frame_timeouts': 0}\n"
+    ">>> sub.close()\n" },
   { "close", (PyCFunction)Subscriber_close, METH_NOARGS, NULL },
   { "__enter__", (PyCFunction)Subscriber_enter, METH_NOARGS, NULL },
   { "__exit__", (PyCFunction)Subscriber_exit, METH_VARARGS, NULL },
@@ -998,11 +1060,30 @@ typedef struct
   int                      closed;
 } PullObject;
 
+/* The destroy behind close() and dealloc alike: marked closed BEFORE the
+   GIL is let go, so a second close on another thread finds nothing to do,
+   and run without the GIL, because it waits on the context's message link
+   while an ack in flight publishes -- a publish that can block on a full
+   socket (#2016). */
+static void
+Pull_destroy_ctx (PullObject *self)
+{
+  dp_pull_t *ctx = self->ctx;
+  if (self->closed || !ctx)
+    return;
+  self->ctx    = NULL;
+  self->closed = 1;
+  Py_BEGIN_ALLOW_THREADS
+    dp_pull_destroy (ctx);
+  Py_END_ALLOW_THREADS
+}
+
 static void
 Pull_dealloc (PullObject *self)
 {
-  if (!self->closed && self->ctx)
-    dp_pull_destroy (self->ctx);
+  /* The same path as close(): an array from this Pull that outlives it then
+     acks to DP_ERR_CLOSED (a ValueError), never into freed memory. */
+  Pull_destroy_ctx (self);
   Py_TYPE (self)->tp_free ((PyObject *)self);
 }
 
@@ -1059,11 +1140,23 @@ Pull_ack (PullObject *Py_UNUSED (self), PyObject *arr)
                        "array is not an un-freed recv() result");
       return NULL;
     }
+  /* Whether the Pull that received it is closed is the MESSAGE's question,
+     not self's: this method accepts another Pull's array, and the message's
+     own link knows its context's state (#2016). Hand-owned until stream's
+     migration (#900), which must carry this mapping. */
   dp_msg_t *msg = ((dpMsgObject *)base)->msg;
   int       rc;
   Py_BEGIN_ALLOW_THREADS
     rc = dp_msg_ack (msg);
   Py_END_ALLOW_THREADS
+  if (rc == DP_ERR_CLOSED)
+    {
+      PyErr_SetString (
+          PyExc_ValueError,
+          "ack() after the Pull that received this frame was "
+          "closed: the broker redelivers it, so ack before close");
+      return NULL;
+    }
   if (rc != DP_OK)
     {
       PyErr_Format (PyExc_RuntimeError, "ack failed: %s", dp_strerror (rc));
@@ -1075,12 +1168,7 @@ Pull_ack (PullObject *Py_UNUSED (self), PyObject *arr)
 static PyObject *
 Pull_close (PullObject *self, PyObject *Py_UNUSED (ignored))
 {
-  if (!self->closed && self->ctx)
-    {
-      dp_pull_destroy (self->ctx);
-      self->ctx    = NULL;
-      self->closed = 1;
-    }
+  Pull_destroy_ctx (self);
   Py_RETURN_NONE;
 }
 
@@ -1571,6 +1659,8 @@ PyInit_stream (void)
   PyModule_AddIntConstant (m, "CI16", CI16);
   PyModule_AddIntConstant (m, "CF32", CF32);
   PyModule_AddIntConstant (m, "TLM16", DP_KIND_TLM);
+  PyModule_AddIntConstant (m, "WORK_QUEUE_MAX_ACK_PENDING",
+                           DP_WORK_QUEUE_MAX_ACK_PENDING);
 
   /* ONE flag per process. The NATS receive path checks dp_interrupted()
      between slices, and this module is `no_generate`, so jm writes no

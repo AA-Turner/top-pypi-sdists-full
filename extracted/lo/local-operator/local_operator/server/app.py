@@ -54,12 +54,14 @@ from local_operator.server.routes import (
     desktop_monitors,
     desktop_profiles,
     desktop_projects,
+    desktop_quota,
     desktop_radient,
     desktop_runtimes,
     desktop_sessions,
     desktop_tunnel,
     desktop_wakes,
     health,
+    i18n,
     jobs,
     models,
     schedules,
@@ -71,7 +73,13 @@ from local_operator.server.routes import (
     transcription,
     tts,
 )
+from local_operator.server.utils import local_tokens
 from local_operator.server.utils.event_broker import EventBroker
+from local_operator.server.utils.static_roots import (
+    host_is_acceptable,
+    is_static_path,
+    response_policy,
+)
 
 # Annotating the lifespan's record publisher (`None` on a boot that was not
 # announced) needs the shared publisher's type. Zero runtime cost where it
@@ -151,6 +159,29 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from local_operator.paths import config_dir as resolve_config_dir
 
     config_dir = resolve_config_dir()
+
+    # THE INDEX CACHE WARM, and why it is the daemon that owes it. The open
+    # frame's first read answers "building" while the transcript index is not
+    # current — measured on this machine, 0 of 13,812 journals carry a current
+    # cache, and the scan costs 28-32 ms at 5.9 MB, 169 ms at 35 MB and 559 ms at
+    # 118 MB against a 120 ms budget — so the bars it needs settle a frame late on
+    # anything above roughly 20 MB. The journals someone opens next are the ones
+    # they touched last, so a bounded warm of the K newest (K = 32; ~277 MB
+    # scanned, ~25 MB of cache) removes that for the sessions that will actually
+    # be opened, at a moment when nobody is waiting.
+    #
+    # FIRE AND FORGET, AND WRAPPED INCLUDING THE IMPORT — the same two rules as
+    # the tokenizer and bytecode warms above: awaiting it would move the scan into
+    # daemon STARTUP (the thing an attach waits on), and a raise inside a FastAPI
+    # ``lifespan`` fails startup. The warm skips itself on a full disk or a busy
+    # host, and drops the rest of its queue when the host gets busy mid-warm.
+    try:
+        from local_operator.session.index_prewarm import start_index_prewarm
+
+        start_index_prewarm(config_dir)
+    except Exception:  # noqa: BLE001 — a warm-up must never be the failure
+        logger.debug("index prewarm unavailable at startup", exc_info=True)
+
     # Honour LOCAL_OPERATOR_HOME and create it at the point of use, matching the
     # CLI session path. The literal ``~/local-operator-home`` here ignored the
     # override, so a relocated home still had a stray workspace created in the
@@ -208,6 +239,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 logger.info("aida: boot terminal is under a foreign HOME; not auto-activating")
                 return
             await ensure_session(config_dir)
+            # Same attended moment, same reason as the TUI's boot hook: make her
+            # first banner clickable. Off the loop on a daemon thread (the macOS build
+            # blocks, and a default-executor thread would delay shutdown); the
+            # remembered-terminal half finds no emulator markers in a daemon the
+            # desktop spawned and is a no-op there, which is fine.
+            from local_operator.tui.resume_click import prepare_for_clicks_detached
+
+            await prepare_for_clicks_detached()
         except Exception:  # noqa: BLE001 — a bootstrap must never fail the daemon
             logger.warning("aida: boot ensure failed", exc_info=True)
 
@@ -320,6 +359,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # started further down, once the scheduler is up and the record exists.
         reload_stop = asyncio.Event()
         reload_watch = serve_reload.install(app, stop=reload_stop)
+        # THE LOCAL SURFACE KEYS (file-serving RFC §4.1): minted before the
+        # record exists, for the same reason claim_key is -- a reader that finds
+        # the record a millisecond later must find the credential it needs. The
+        # generation counter lives beside the records and bumps once per
+        # announced boot, so a surface holding a pre-restart token is
+        # classifiable as stale (Phase A: treated as absent, logged once). The
+        # seed and the URL signing key never leave this process; see
+        # ``server/utils/local_tokens.py``.
+        serve_dir = session_registry.ensure_run_dir(config_dir, serve_registry.SERVE_RUN_DIRNAME)
+        surface_keys = local_tokens.mint_process_keys(
+            generation=local_tokens.bump_generation(serve_dir / local_tokens.GENERATION_FILENAME)
+        )
         serve_record = serve_registry.build_record(
             instance_id=app.state.instance_id,
             announced=announced,
@@ -330,6 +381,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             # signal handlers all answer None, and all three would be lying if
             # this read `listener_fd is not None` instead.
             reloadable=reload_watch is not None,
+            access_token=surface_keys.access_token,
+            boot_generation=surface_keys.generation,
         )
         # The config root resolved above, passed explicitly: the publisher pins
         # the directory it publishes into for its whole life, so a heartbeat can
@@ -741,6 +794,10 @@ async def desktop_validation_error(request: Request, error: RequestValidationErr
 
 
 app.include_router(capabilities.router)
+# The i18n catalogue surface, beside the capability that advertises it. Public
+# like the capability route it is negotiated through; nothing calls it until a
+# client sees `features.i18n`, so it ships dark without a switch.
+app.include_router(i18n.router)
 # Aida's two routes, beside the capabilities that advertise them. Registered
 # unconditionally (the handlers answer `enabled: false` themselves): hiding
 # the routes on the env switch would make the desktop's discovery loop read a
@@ -772,6 +829,13 @@ app.include_router(desktop_radient.router)
 # whatever the order: no sibling declares a single-segment `/v1/desktop/{...}`
 # template that could swallow it.
 app.include_router(desktop_tunnel.router)
+# `/v1/desktop/quota-notice`, the pre-emptive no-quota notice (design:
+# "pre-emptive no-quota notice"). A single-segment literal path with nothing
+# registered above it that could swallow it, and its own module rather than a
+# `desktop_catalogues` child for two reasons: the model-access work edits that
+# module, and the catalogue usage route returns credential identities that
+# this advisory must never echo. See `routes/desktop_quota.py`.
+app.include_router(desktop_quota.router)
 # The machine-wide wake surface. Registered AFTER `desktop_sessions` and after
 # the lifecycle routes for the reason the sessions module documents about its
 # own ordering: FastAPI matches in declaration order, so a `/v1/desktop/...`
@@ -891,6 +955,106 @@ async def desktop_origin_cors(request: Request, call_next):
         # key is already a no-op there.
         del response.headers["access-control-allow-origin"]
         del response.headers["access-control-allow-credentials"]
+    return response
+
+
+@app.middleware("http")
+async def static_response_policy(request: Request, call_next):
+    """Harden every ``/v1/static/*`` response: CSP, ``nosniff``, no foreign CORS grant.
+
+    WHY A MIDDLEWARE AND NOT PER-HANDLER HEADERS. The policy has to ride the
+    error responses too (a JSON 403 wants ``nosniff``), and the CORS half can only
+    be done from here: ``CORSMiddleware`` writes its grant AFTER the handler, so a
+    handler cannot remove it. Registered after :func:`desktop_origin_cors`, i.e.
+    OUTERMOST, for the reason that function states: it is the only position that
+    observes the headers the CORS layer wrote. The preflight (``OPTIONS``) is
+    answered by ``CORSMiddleware`` itself without reaching a route, and this
+    wraps it too.
+
+    THE CORS DECISION. Unlike the rest of the legacy surface, which keeps its
+    historical wildcard echo because the shipped renderer reads ``/health``
+    cross-origin, nothing reads a static route with ``fetch``: the UI loads them
+    through ``<img>``, ``<video>``, ``<audio>`` and ``<iframe src>``, which are
+    not CORS-gated. So the grant is dropped for every origin that is not on the
+    admitted allowlist -- and with NO allowlist installed (the app-managed
+    default) for every origin, which is the case the echo was exploitable in. A
+    page can still *cause* a request (an ``<img>`` needs no grant); it can no
+    longer *read* the answer, and what bounds what it could have caused is now
+    the connection's posture (``static_roots.connection_mode`` -- unclamped
+    serving only on loopback-accepted sockets), the Host check below, and this
+    middleware's response policy, not a served-root allowlist (which survives
+    only as the rooted fallback; RFC §3).
+
+    THE HOST CHECK is the one thing here that is not about headers: a DNS-rebinding
+    page is same-origin with the daemon, so no CORS decision reaches it (review R8).
+    The ``Host`` it sends is its own name; see
+    :func:`~local_operator.server.utils.static_roots.host_is_acceptable` for what is
+    admitted and why the app's renderer is unaffected. It is answered HERE, before
+    the router, so the refusal cannot become a file-existence signal.
+
+    The policy is in ``utils/static_roots.py`` so it is testable without an app.
+    """
+    if not is_static_path(request.url.path):
+        return await call_next(request)
+    # Absent in a `--reload` child (the address arrives by environment and is
+    # consumed): the check then admits only IP literals and `localhost`, which is
+    # what a dev server is reached by.
+    announced = getattr(request.app.state, serve_registry.ANNOUNCED_STATE_ATTR, None)
+    if host_is_acceptable(request.headers.get("host"), announced[0] if announced else None):
+        response = await call_next(request)
+    else:
+        response = JSONResponse(
+            status_code=403, content={"detail": "This Host is not allowed to reach this server."}
+        )
+    allowed = desktop_posture().origins
+    for name, value in response_policy(request.url.path, allowed).items():
+        response.headers[name] = value
+    origin = request.headers.get("origin")
+    if origin is not None and origin not in allowed:
+        # `del` on an absent key is a no-op in Starlette's MutableHeaders.
+        del response.headers["access-control-allow-origin"]
+        del response.headers["access-control-allow-credentials"]
+    return response
+
+
+def is_desktop_supplement_path(path: str) -> bool:
+    """Whether ``path`` is in the desktop supplement read family.
+
+    The family today is the document route
+    (``/v1/desktop/sessions/{session_id}/supplements/{digest}/document``,
+    ``routes/desktop_sessions.py``) and the match is on the session's whole
+    ``/supplements/`` namespace, so a future read route added beside it is
+    covered without a second policy site. A named predicate rather than an
+    inline condition in the middleware below, so the family's scope is stated
+    once.
+    """
+    prefix = "/v1/desktop/sessions/"
+    if not path.startswith(prefix):
+        return False
+    session, sep, _rest = path[len(prefix) :].partition("/supplements/")
+    return bool(sep) and bool(session) and "/" not in session
+
+
+@app.middleware("http")
+async def desktop_supplement_response_policy(request: Request, call_next):
+    """The executing-document family's response policy: ``nosniff`` + ``no-store``.
+
+    WHY A MIDDLEWARE AND NOT PER-HANDLER HEADERS. The pair has to ride the error
+    responses too -- the ladder's 404, the digest gate's 422 and the bearer
+    dependency's 401 never pass through the handler that sets the pair on its
+    200 -- and #2134 R4 is the lesson that a policy attached only to the success
+    path is silently absent where it matters. Registered LAST, so it is
+    OUTERMOST and observes every response this family can produce. D5
+    (``docs/design/file-serving-and-surface-convergence.md``) names the pair for
+    this family: ``nosniff`` on a JSON reply, ``no-store`` for bearer-gated
+    session documents (``managed_desktop_boundary`` already applies that half to
+    everything under ``/v1/desktop/``; this adds the other).
+    """
+    if not is_desktop_supplement_path(request.url.path):
+        return await call_next(request)
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Cache-Control"] = "no-store"
     return response
 
 

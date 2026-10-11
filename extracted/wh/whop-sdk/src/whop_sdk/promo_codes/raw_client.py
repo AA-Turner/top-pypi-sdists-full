@@ -19,7 +19,6 @@ from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..types.promo_code import PromoCode
 from ..types.promo_code_list_item import PromoCodeListItem
-from ..types.v1error_response import V1ErrorResponse
 from .types.create_promo_codes_request_base_currency import CreatePromoCodesRequestBaseCurrency
 from .types.create_promo_codes_request_promo_type import CreatePromoCodesRequestPromoType
 from .types.delete_promo_codes_response import DeletePromoCodesResponse
@@ -217,7 +216,7 @@ class RawPromoCodesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PromoCode]:
         """
-        Creates a promo code for an account. First-party sessions may attach an affiliate.
+        Creates a promo code for an account.
 
         Parameters
         ----------
@@ -311,9 +310,9 @@ class RawPromoCodesClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -472,9 +471,9 @@ class RawPromoCodesClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -527,9 +526,9 @@ class RawPromoCodesClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -731,7 +730,7 @@ class AsyncRawPromoCodesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PromoCode]:
         """
-        Creates a promo code for an account. First-party sessions may attach an affiliate.
+        Creates a promo code for an account.
 
         Parameters
         ----------
@@ -825,9 +824,9 @@ class AsyncRawPromoCodesClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -990,9 +989,9 @@ class AsyncRawPromoCodesClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1045,9 +1044,9 @@ class AsyncRawPromoCodesClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

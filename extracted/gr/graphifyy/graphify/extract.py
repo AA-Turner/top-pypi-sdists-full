@@ -901,10 +901,7 @@ def _import_js(node, source: bytes, file_nid: str, stem: str, edges: list, str_p
     if is_reexport:
         has_from = any(child.type == "from" or (_read_text(child, source) == "from") for child in node.children if child.type in ("from", "identifier"))
         if not has_from:
-            # Check for string child (source path) as a more reliable indicator
-            has_from = any(child.type == "string" for child in node.children)
-            if not has_from:
-                return
+            return
 
     # `import type {...} from` / `export type {...} from` are erased by the
     # TypeScript compiler: no runtime emit, no module-graph edge. The
@@ -941,7 +938,11 @@ def _import_js(node, source: bytes, file_nid: str, stem: str, edges: list, str_p
             # `_resolve_js_import_path` returns the attempted path when no
             # local file exists. Static ES imports must treat that as unresolved
             # rather than minting a checkout-specific target ID (#2457).
-            if resolved_path is not None and not resolved_path.is_file():
+            try:
+                is_file = resolved_path is not None and resolved_path.is_file()
+            except OSError:
+                is_file = False
+            if resolved_path is not None and not is_file:
                 tgt_nid = _make_id("ref", raw)
                 resolved_path = None
             edge = {
@@ -1536,7 +1537,10 @@ _SCALA_CONFIG = LanguageConfig(
     # Scala 3 `enum` is a class-like container too: it owns methods and a set of
     # cases, so it needs a node and a body walk like the others (its cases are
     # emitted by _scala_extra_walk, the parity of Java #1719 / Kotlin #1738).
-    class_types=frozenset({"class_definition", "object_definition", "trait_definition", "enum_definition"}),
+    # A Scala 3 `given ... with` instance is a class-like container: its `def`s
+    # belong to the given instance, not to file scope (where they leak and collide
+    # with same-named trait methods, #4130). Its body is a `with_template_body`.
+    class_types=frozenset({"class_definition", "object_definition", "trait_definition", "enum_definition", "given_definition"}),
     # `function_declaration` is a bodyless `def area: Double` — a deferred
     # (abstract) method. In a `trait` or `abstract class` it is the contract a
     # subclass must implement, exactly like Java/C#/TS abstract methods. Only
@@ -1551,8 +1555,9 @@ _SCALA_CONFIG = LanguageConfig(
     call_accessor_field="field",
     name_fallback_child_types=("identifier",),
     # an enum wraps its members in `enum_body` rather than a `template_body`,
-    # so the body walk needs it to reach the enum's methods and cases.
-    body_fallback_child_types=("template_body", "enum_body"),
+    # so the body walk needs it to reach the enum's methods and cases; a
+    # `given ... with` instance wraps its members in a `with_template_body`.
+    body_fallback_child_types=("template_body", "enum_body", "with_template_body"),
     function_boundary_types=frozenset({"function_definition"}),
     import_handler=_import_scala,
 )
@@ -2015,6 +2020,33 @@ def _ts_mask_candidate_is_malformed(
     return False
 
 
+_TS_EXPORT_TYPE_STAR_RE = re.compile(rb"\bexport\s+(type)\s*\*")
+
+
+def _normalize_ts_export_type_star(source: bytes) -> bytes | None:
+    """Rewrite ``export type * from "..."`` to a plain ``export * from "..."``.
+
+    TS 5.0's type-only star re-export has no equivalent in tree-sitter-typescript
+    0.23 (the latest release as of #3942): the grammar raises an ERROR on the
+    ``type`` keyword in this position and the whole file is dropped, losing
+    every symbol, not just the one statement. The construct is erased at
+    compile time, the same as ``import type`` / ``export type { X }``, so the
+    graph only needs the re-export edge, not the type-only distinction —
+    blank out ``type`` (keeping every other byte and offset identical) so the
+    grammar parses the ordinary, already-supported ``export * from "..."``
+    form instead. Unlike ``import(...)``, this prefix is never ambiguous with
+    a runtime expression, so no AST-based disambiguation pass is needed here.
+    """
+    matches = list(_TS_EXPORT_TYPE_STAR_RE.finditer(source))
+    if not matches:
+        return None
+    masked = bytearray(source)
+    for match in matches:
+        start, end = match.span(1)
+        masked[start:end] = b" " * (end - start)
+    return bytes(masked)
+
+
 def _normalize_ts_import_types(source: bytes, *, tsx: bool = False) -> bytes | None:
     """Rewrite only syntactic TypeScript ``import(...)`` type arguments.
 
@@ -2128,7 +2160,11 @@ def extract_js(path: Path) -> dict:
     if is_ts:
         try:
             source = _read_source_bytes(path)
-            source_override = _normalize_ts_import_types(source, tsx=suffix == ".tsx")
+            working = _normalize_ts_export_type_star(source) or source
+            normalized = _normalize_ts_import_types(working, tsx=suffix == ".tsx")
+            source_override = normalized if normalized is not None else (
+                working if working is not source else None
+            )
         except OSError:
             pass
     result = _extract_generic(path, config, source_override=source_override)
@@ -3543,6 +3579,20 @@ def _rewire_unique_stub_nodes(nodes: list[dict], edges: list[dict]) -> None:
         if not stub_id:
             continue
         candidates = real_by_label.get(_node_label_key(stub), [])
+        if len(candidates) > 1 and all(
+            _lang_family(c.get("source_file")) == "rust" for c in candidates
+        ):
+            # #4283: a Rust type with `impl` blocks in other files has one node per
+            # file, but only its struct/enum/trait declaration carries
+            # `_rust_declaration_count`. Exactly one declaration in total is one
+            # type, so bind to it. Two or more (in separate nodes, or folded into
+            # one node by same-file inline modules) stay ambiguous and keep the
+            # stub, the same rule as the split-impl-block pass. The marker only
+            # tells a Rust declaration from a Rust impl block, so a same-named
+            # candidate in another language leaves the stub alone.
+            declared = [c for c in candidates if c.get("_rust_declaration_count")]
+            if len(declared) == 1 and declared[0].get("_rust_declaration_count") == 1:
+                candidates = declared
         if len(candidates) != 1:
             # No unique exact type match — fall back to a case-insensitive match, but
             # only against case-insensitive-language definitions (so a case-sensitive
@@ -7907,10 +7957,11 @@ def extract(
     _XAML_CSHARP_CLASS_CACHE.clear()
     _MD_LINK_INDEX_CACHE.clear()
     _SCAN_ROOT_NAMESPACE_CACHE.clear()
-    # Path-resolution memoization (#3500) is keyed by (path, cwd) with no mtime
-    # component, so — like the alias caches above — a symlink repoint or a path
-    # that starts/stops existing between rebuilds in a long-lived `graphify
-    # watch` / MCP process would otherwise replay a stale result. Clear per run.
+    # Path-resolution memoization (#3500) is keyed by path (plus the cwd for a
+    # relative path) with no mtime component, so — like the alias caches above —
+    # a symlink repoint or a path that starts/stops existing between rebuilds in
+    # a long-lived `graphify watch` / MCP process would otherwise replay a stale
+    # result. Clear per run.
     _cached_realpath.cache_clear()
     _cached_source_key.cache_clear()
 

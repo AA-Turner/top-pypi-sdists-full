@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -45,7 +45,7 @@ class BeartypeNodeTransformerModuleMixin(object):
         Add a new abstract syntax tree (AST) child node to the passed
         **module node** (i.e., node encapsulating the module currently being
         loaded by the
-        :class:`beartype.claw._importlib._clawimpload.BeartypeSourceFileLoader`)
+        :class:`beartype.claw._importlib._clawimpfileloader.BeartypeSourceFileLoader`)
         importing various attributes required by lower-level child nodes added
         by subsequent visitor methods defined by this transformer.
 

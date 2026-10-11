@@ -1,17 +1,24 @@
 """Worksheet management and structure: create, rename, copy, delete, insert and delete lines."""
 
-from typing import Literal
-
+from openpyxl.chartsheet import Chartsheet
+from openpyxl.utils.cell import get_column_letter
 from openpyxl.workbook import Workbook
-from openpyxl.worksheet.copier import WorksheetCopy
 from openpyxl.worksheet.worksheet import Worksheet
 
 from excel_mcp.errors import InvalidArgumentError
-from excel_mcp.operations.cells import used_range
-from excel_mcp.refs import MAX_COLUMN, MAX_ROW
+from excel_mcp.operations.pivot_index import workbook_pivots
+from excel_mcp.operations.sheet_refs import SheetRenameRefs
+from excel_mcp.operations.workbook_rewrite import (
+    gated_operand,
+    rewrite_charts,
+    rewrite_formulas,
+    rewrite_names,
+    rewrite_rules,
+)
+from excel_mcp.package.guards import check_sheet_removal
+from excel_mcp.package.lines import Axis
+from excel_mcp.package.references import rewrite_formulas as rewrite_preserved
 from excel_mcp.workspace import get_sheet
-
-Axis = Literal["rows", "columns"]
 
 _INVALID_NAME_CHARACTERS = set("[]:*?/\\")
 
@@ -36,42 +43,35 @@ def create_sheet(workbook: Workbook, name: str, position: int | None) -> Workshe
 def rename_sheet(workbook: Workbook, name: str, new_name: str) -> None:
     sheet = get_sheet(workbook, name)
     validate_sheet_name(new_name, workbook.sheetnames)
+    old_name = sheet.title
     sheet.title = new_name
-
-
-def copy_sheet(workbook: Workbook, name: str, new_name: str) -> None:
-    source = get_sheet(workbook, name)
-    validate_sheet_name(new_name, workbook.sheetnames)
-    WorksheetCopy(source, workbook.create_sheet(new_name)).copy_worksheet()
+    refs = SheetRenameRefs(old_name, new_name)
+    names = workbook.sheetnames
+    rewrite_formulas(workbook, refs, names)
+    rewrite_names(workbook, refs, names)
+    rewrite_rules(workbook, refs, names)
+    rewrite_charts(workbook, refs, names)
+    rewrite_preserved(workbook, lambda text, host: gated_operand(text, host, refs, names))
+    for pivot in workbook_pivots(workbook):
+        source = pivot.cache.cacheSource.worksheetSource
+        if source is not None and (source.sheet or "").casefold() == old_name.casefold():
+            source.sheet = new_name
 
 
 def delete_sheet(workbook: Workbook, name: str) -> None:
+    if name in workbook.sheetnames and isinstance(workbook[name], Chartsheet):
+        workbook.remove(workbook[name])
+        return
     sheet = get_sheet(workbook, name)
     visible = [other for other in workbook.worksheets if other.sheet_state == "visible"]
     if visible == [sheet]:
         raise InvalidArgumentError("A workbook must keep at least one visible worksheet.")
+    check_sheet_removal(sheet)
     workbook.remove(sheet)
 
 
-def insert_lines(sheet: Worksheet, axis: Axis, at: int, count: int) -> None:
-    area = used_range(sheet)
+def line_span(axis: Axis, start: int, count: int) -> str:
+    """The rows or columns from ``start``, like ``3:5`` or ``C:E``."""
     if axis == "rows":
-        _check_room(area.max_row + count, MAX_ROW, "rows")
-        sheet.insert_rows(at, count)
-    else:
-        _check_room(area.max_col + count, MAX_COLUMN, "columns")
-        sheet.insert_cols(at, count)
-
-
-def delete_lines(sheet: Worksheet, axis: Axis, at: int, count: int) -> None:
-    if axis == "rows":
-        sheet.delete_rows(at, count)
-    else:
-        sheet.delete_cols(at, count)
-
-
-def _check_room(needed: int, limit: int, axis: Axis) -> None:
-    if needed > limit:
-        raise InvalidArgumentError(
-            f"Inserting would push data past the last of Excel's {limit:,} {axis}."
-        )
+        return f"{start}:{start + count - 1}"
+    return f"{get_column_letter(start)}:{get_column_letter(start + count - 1)}"

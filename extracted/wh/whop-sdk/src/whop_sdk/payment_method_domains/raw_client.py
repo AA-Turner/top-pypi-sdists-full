@@ -19,7 +19,6 @@ from ..errors.forbidden_error import ForbiddenError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..types.payment_method_domain import PaymentMethodDomain
-from ..types.v1error_response import V1ErrorResponse
 from .types.delete_payment_method_domains_response import DeletePaymentMethodDomainsResponse
 from .types.list_payment_method_domains_request_direction import ListPaymentMethodDomainsRequestDirection
 from .types.list_payment_method_domains_request_order import ListPaymentMethodDomainsRequestOrder
@@ -304,9 +303,9 @@ class RawPaymentMethodDomainsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -557,9 +556,9 @@ class RawPaymentMethodDomainsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -849,9 +848,9 @@ class AsyncRawPaymentMethodDomainsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1102,9 +1101,9 @@ class AsyncRawPaymentMethodDomainsClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        V1ErrorResponse,
+                        typing.Any,
                         parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

@@ -23,6 +23,7 @@ from matrx_ai.tools._dispatch_util import format_args_error
 from matrx_ai.tools.arg_models import NoteArgs
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 from matrx_ai.tools.organization_hold import carried_organization_id, organization_required_result
+from matrx_ai.tools.implementations.note_homes import home_names, resolve_home
 from matrx_ai.tools.person_session import acts_as_the_person
 from matrx_ai.tools.surface_write import attach_surface_write
 
@@ -76,12 +77,14 @@ async def note_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 tool_name="note_get", call_id=ctx.call_id,
             )
         n = result["note"]
+        names = await home_names([n.get("home_scope_id")])
         return ToolResult(
             success=True,
             output={
                 "id": n.get("id"),
                 "label": n.get("label"),
-                "folder_name": n.get("folder_name"),
+                "home": names.get(str(n.get("home_scope_id"))),
+                "home_id": n.get("home_scope_id"),
                 "content": n.get("content"),
                 "tags": n.get("tags", []),
                 "published_to_web": bool(n.get("published_to_web")),
@@ -117,17 +120,21 @@ async def note_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 started_at=started_at, completed_at=time.time(),
                 tool_name="note_list", call_id=ctx.call_id,
             )
+        rows = result.get("notes", [])
         notes = [
             {
                 "id": n.get("id"),
                 "label": n.get("label"),
-                "folder_name": n.get("folder_name"),
+                "home_id": n.get("home_scope_id"),
                 "tags": n.get("tags", []),
                 "updated_at": n.get("updated_at"),
             }
-            for n in result.get("notes", [])
+            for n in rows
         ]
         notes, info = cap_list(notes, limit=limit)
+        names = await home_names([n["home_id"] for n in notes])
+        for n in notes:
+            n["home"] = names.get(str(n["home_id"]))
         output: dict[str, Any] = {"notes": notes, "count": info.total, "shown": info.shown}
         if info.truncated:
             output["truncated"] = True
@@ -169,12 +176,25 @@ async def note_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
     try:
         from matrx_ai.db.content_types.notes import notes_manager_instance
+
+        home_scope_id = None
+        home_arg = str(args.get("home") or "").strip()
+        if home_arg:
+            choice = await resolve_home(home_arg, organization_id)
+            if choice.error:
+                return ToolResult(
+                    success=False,
+                    error=ToolError(error_type="validation", message=choice.error, suggested_action="Omit home to use the organization's General."),
+                    started_at=started_at, completed_at=time.time(),
+                    tool_name="note_create", call_id=ctx.call_id,
+                )
+            home_scope_id = choice.scope_id
         result = await notes_manager_instance.create_note(
             user_id=ctx.user_id,
             organization_id=organization_id,
             label=label,
             content=content,
-            folder_name=args.get("folder_name", ""),
+            home_scope_id=home_scope_id,
             tags=args.get("tags", []),
             is_public=args.get("is_public", False),
         )
@@ -186,9 +206,10 @@ async def note_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 tool_name="note_create", call_id=ctx.call_id,
             )
         n = result["note"]
+        names = await home_names([n.get("home_scope_id")])
         return ToolResult(
             success=True,
-            output={"id": n.get("id"), "label": n.get("label"), "folder_name": n.get("folder_name"), "created_at": n.get("created_at")},
+            output={"id": n.get("id"), "label": n.get("label"), "home": names.get(str(n.get("home_scope_id"))), "created_at": n.get("created_at")},
             started_at=started_at, completed_at=time.time(),
             tool_name="note_create", call_id=ctx.call_id,
         )
@@ -223,10 +244,11 @@ async def _note_update_as_the_person(args: dict[str, Any], ctx: ToolContext) -> 
     if is_resource_read_only(note_id):
         return _read_only_result("note_update", started_at, ctx)
     updates = {k: v for k, v in args.items() if k != "note_id"}
-    if not updates:
+    home_arg = str(updates.pop("home", None) or "").strip()
+    if not updates and not home_arg:
         return ToolResult(
             success=False,
-            error=ToolError(error_type="validation", message="At least one field to update is required.", suggested_action="Provide one or more of: label, content, folder_name, tags, is_public."),
+            error=ToolError(error_type="validation", message="At least one field to update is required.", suggested_action="Provide one or more of: label, content, home, tags, is_public."),
             started_at=started_at, completed_at=time.time(),
             tool_name="note_update", call_id=ctx.call_id,
         )
@@ -241,16 +263,42 @@ async def _note_update_as_the_person(args: dict[str, Any], ctx: ToolContext) -> 
                 tool_name="note_update", call_id=ctx.call_id,
             )
         prior = before["note"]
-        result = await notes_manager_instance.update_note(note_id, actor_id=ctx.user_id, **updates)
-        if not result.get("success"):
-            return ToolResult(
-                success=False,
-                error=_manager_error(result, "execution", "Update failed."),
-                started_at=started_at, completed_at=time.time(),
-                tool_name="note_update", call_id=ctx.call_id,
-            )
+        target_home = None
+        if home_arg:
+            choice = await resolve_home(home_arg, str(prior.get("organization_id") or "") or None)
+            if choice.error:
+                return ToolResult(
+                    success=False,
+                    error=ToolError(error_type="validation", message=choice.error),
+                    started_at=started_at, completed_at=time.time(),
+                    tool_name="note_update", call_id=ctx.call_id,
+                )
+            target_home = choice.scope_id
+        result = {"success": True, "note": prior}
+        if updates:
+            result = await notes_manager_instance.update_note(note_id, actor_id=ctx.user_id, **updates)
+            if not result.get("success"):
+                return ToolResult(
+                    success=False,
+                    error=_manager_error(result, "execution", "Update failed."),
+                    started_at=started_at, completed_at=time.time(),
+                    tool_name="note_update", call_id=ctx.call_id,
+                )
+        if target_home and str(target_home) != str(prior.get("home_scope_id")):
+            # platform.set_home under the person's session; it moves the organization with the home.
+            moved = await notes_manager_instance.move_note_to_home(note_id, target_home)
+            if not moved.get("success"):
+                return ToolResult(
+                    success=False,
+                    error=_manager_error(moved, "execution", "Moving the note failed."),
+                    started_at=started_at, completed_at=time.time(),
+                    tool_name="note_update", call_id=ctx.call_id,
+                )
+            result = {**result, "note": {**result["note"], **moved["note"]} if isinstance(result["note"], dict) else moved["note"]}
         n = result["note"]
         out: dict[str, Any] = {"id": n.get("id"), "label": n.get("label"), "updated_at": n.get("updated_at")}
+        if home_arg:
+            out["home"] = (await home_names([n.get("home_scope_id")])).get(str(n.get("home_scope_id")))
         if result.get("warning_stripped_immutable"):
             out["warning"] = f"Ignored immutable fields: {result['warning_stripped_immutable']}"
         done = ToolResult(

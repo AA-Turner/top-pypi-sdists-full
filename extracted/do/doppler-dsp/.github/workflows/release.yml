@@ -32,6 +32,9 @@ jobs:
     outputs:
       version: ${{ steps.get.outputs.version }}
       jm_version: ${{ steps.get.outputs.jm_version }}
+      stock_registry: ${{ steps.get.outputs.stock_registry }}
+      uv_version: ${{ steps.get.outputs.uv_version }}
+      pythons: ${{ steps.get.outputs.pythons }}
       # The commit under release, read from the checkout above -- on a
       # dispatch, github.sha is main's head, not the tag's commit.
       sha: ${{ steps.get.outputs.sha }}
@@ -61,6 +64,23 @@ jobs:
           # pin had two extractions that agreed only by luck, and the image's
           # jm depended on which caller you went through.
           echo "jm_version=$(make -s print-jm-version)" >> "$GITHUB_OUTPUT"
+          # Where the images below pull their stock bases from: the
+          # Makefile's anonymous mirror, not Docker Hub's quota (#1950).
+          echo "stock_registry=$(make -s print-stock-registry)" >> "$GITHUB_OUTPUT"
+          # The uv pin the same image bakes in, asked of the Makefile the same
+          # way (pyproject.toml's [tool.uv] required-version, doppler#1940).
+          echo "uv_version=$(make -s print-uv-version)" >> "$GITHUB_OUTPUT"
+          # Every supported Python, from pyproject.toml's classifiers (the
+          # list ci.yml's matrix is built from), for smoke-pypi's matrix.
+          # Assigned first, so a failing derivation fails HERE: inside an
+          # `echo "$(…)"` its exit status is lost, and an empty list would
+          # surface only after the publish, as a smoke matrix with no legs.
+          pythons=$(make -s print-python-matrix)
+          [ -n "$pythons" ] && [ "$pythons" != "[]" ] || {
+            echo "::error::no supported Python derived from pyproject.toml"
+            exit 1
+          }
+          echo "pythons=$pythons" >> "$GITHUB_OUTPUT"
 
       # `make version-check` is the SSOT for "the manifests agree": it probes
       # pyproject.toml, CMakeLists.txt and ffi/rust/Cargo.toml, and fails if any
@@ -174,16 +194,22 @@ jobs:
         # (/opt/python/<cpXYZ>) and is built --no-isolation against pre-installed
         # deps for speed, which the generic target cannot express. Same backend
         # (just-buildit) either way; only the interpreter pinning differs.
+        #
+        # uv is here for the backend's repair step, `uvx auditwheel repair`.
+        # It is the pinned one (doppler#1940): a `uv tool run` does not
+        # enforce [tool.uv] required-version, so nothing else would notice
+        # an unpinned uv repairing the wheel we ship.
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/project" \
             -w /project \
+            -e UV_VERSION="${{ needs.verify-version.outputs.uv_version }}" \
             quay.io/pypa/manylinux_2_28_${{ matrix.arch.tag }} \
             bash -euxc "
               dnf install -y cmake pkg-config
               PYTHON=/opt/python/${{ matrix.python }}-${{ matrix.python }}/bin/python
               export PATH=\"\$(dirname \$PYTHON):\$PATH\"
-              \$PYTHON -m pip install --quiet numpy uv build just-buildit
+              \$PYTHON -m pip install --quiet numpy build just-buildit uv==\${UV_VERSION:?}
               mkdir -p dist
               \$PYTHON -m build --no-isolation --wheel --outdir dist/
             "
@@ -240,7 +266,7 @@ jobs:
           ref: ${{ inputs.tag || github.ref }}
 
       - name: Install uv + Python ${{ matrix.python }}
-        uses: astral-sh/setup-uv@v7
+        uses: ./.github/actions/setup-uv
         with:
           python-version: ${{ matrix.python }}
 
@@ -301,7 +327,7 @@ jobs:
         run: scripts/msvc-env.sh x64
 
       - name: Install uv + Python ${{ matrix.python }}
-        uses: astral-sh/setup-uv@v7
+        uses: ./.github/actions/setup-uv
         with:
           python-version: ${{ matrix.python }}
 
@@ -329,7 +355,7 @@ jobs:
           ref: ${{ inputs.tag || github.ref }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: ./.github/actions/setup-uv
 
       - name: Build sdist
         # `make sdist` = `uv build --sdist`, whose isolated PEP 517 build pulls
@@ -537,7 +563,7 @@ jobs:
       # `make wheel-smoke` builds the throwaway venv with uv (a make target,
       # not the old inline step), so uv must be on PATH — setup-python alone is
       # not enough.
-      - uses: astral-sh/setup-uv@v7
+      - uses: ./.github/actions/setup-uv
 
       - name: Download the cp312 wheel
         uses: actions/download-artifact@v8
@@ -573,7 +599,7 @@ jobs:
           ref: ${{ inputs.tag || github.ref }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: ./.github/actions/setup-uv
 
       - name: Download the wheels
         uses: actions/download-artifact@v8
@@ -700,6 +726,7 @@ jobs:
           file: deploy/docker/Dockerfile.cli
           platforms: ${{ matrix.arch.platform }}
           build-args: |
+            STOCK_REGISTRY=${{ needs.verify-version.outputs.stock_registry }}
             DOPPLER_VERSION=${{ needs.verify-version.outputs.version }}
           outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
 
@@ -716,7 +743,9 @@ jobs:
           target: sdk
           platforms: ${{ matrix.arch.platform }}
           build-args: |
+            STOCK_REGISTRY=${{ needs.verify-version.outputs.stock_registry }}
             JM_VERSION=${{ needs.verify-version.outputs.jm_version }}
+            UV_VERSION=${{ needs.verify-version.outputs.uv_version }}
           outputs: type=image,name=ghcr.io/${{ github.repository }}-sdk,push-by-digest=true,name-canonical=true,push=true
 
       # The iqtools showcase (ghcr.io/doppler-dsp/doppler-downstream-jm) — the
@@ -732,7 +761,9 @@ jobs:
           target: downstream-jm
           platforms: ${{ matrix.arch.platform }}
           build-args: |
+            STOCK_REGISTRY=${{ needs.verify-version.outputs.stock_registry }}
             JM_VERSION=${{ needs.verify-version.outputs.jm_version }}
+            UV_VERSION=${{ needs.verify-version.outputs.uv_version }}
           outputs: type=image,name=ghcr.io/${{ github.repository }}-downstream-jm,push-by-digest=true,name-canonical=true,push=true
 
       # One file per image per arch. The merge job globs them, so adding a
@@ -1019,14 +1050,23 @@ jobs:
   # ever exercised the index — the C tarball had a post-publish smoke and
   # the wheel did not (#1347). This is what catches a partial or yanked
   # upload, index metadata the resolver rejects, or platform tags that
-  # resolve wrongly on one arch; both manylinux wheels are exercised.
+  # resolve wrongly on one arch; every platform doppler publishes a wheel
+  # for is exercised: both manylinux, win_amd64 and macOS arm64.
   #
   # It cannot gate the publish (PyPI is immutable and already written by
   # now) — it gates the RELEASE, failing the run so a human sees that what
   # users can install is not what was tested.
+  #
+  # One leg per supported Python on each platform (doppler#1817): v0.55.0 to
+  # v0.61.0 shipped `cp313-cpwin_amd64` wheels that pip would not install, and
+  # this smoke never saw them because it ran cp312 alone. Every Python, not
+  # the oldest and newest: that defect hit two versions and not the rest, so a
+  # version-specific one can sit anywhere in the range. The list is read from
+  # pyproject.toml (verify-version's `pythons`), so a new Python is smoked
+  # without an edit here.
   # ------------------------------------------------------------------
   smoke-pypi:
-    name: Post-release PyPI smoke (${{ matrix.arch.tag }})
+    name: Post-release PyPI smoke (${{ matrix.arch.tag }}, py${{ matrix.python }})
     needs:
       - verify-version
       - publish-python
@@ -1037,6 +1077,8 @@ jobs:
           - { tag: x86_64, runner: ubuntu-latest }
           - { tag: aarch64, runner: ubuntu-24.04-arm }
           - { tag: win_amd64, runner: windows-latest }
+          - { tag: macos_arm64, runner: macos-14 }
+        python: ${{ fromJSON(needs.verify-version.outputs.pythons) }}
     runs-on: ${{ matrix.arch.runner }}
     timeout-minutes: 45
     defaults:
@@ -1048,13 +1090,33 @@ jobs:
           # The tag under release: pushed, or named by a dispatch.
           ref: ${{ inputs.tag || github.ref }}
 
-      - uses: actions/setup-python@v7
+      # The leg's own Python, from setup-python's builds (python.org's
+      # installers on Windows, actions/python-versions' builds on Linux);
+      # SMOKE_PYTHON below makes the throwaway venv use it and checks it did.
+      - if: matrix.arch.tag != 'macos_arm64'
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python }}
+
+      # macOS arm64 takes uv's managed build of the leg's Python, the one
+      # build-macos builds the wheels with, and ONLY a managed one: setup-uv's
+      # python-version sets UV_PYTHON, and uv prefers an interpreter already
+      # on the machine, so `--python 3.9` on macos-14 could resolve to
+      # Xcode's 3.9.6 instead and the leg would depend on the runner image.
+      - if: matrix.arch.tag == 'macos_arm64'
+        run: echo "UV_PYTHON_PREFERENCE=only-managed" >> "$GITHUB_ENV"
 
       # `make release-smoke-pypi` builds the throwaway venv with uv, so uv
       # must be on PATH — setup-python alone is not enough.
-      - uses: astral-sh/setup-uv@v7
+      - if: matrix.arch.tag != 'macos_arm64'
+        uses: ./.github/actions/setup-uv
+      - if: matrix.arch.tag == 'macos_arm64'
+        uses: ./.github/actions/setup-uv
+        with:
+          python-version: ${{ matrix.python }}
 
       - name: Install from PyPI and run the e2e
-        run: make release-smoke-pypi VERSION="${{ needs.verify-version.outputs.version }}"
+        run: >-
+          make release-smoke-pypi
+          VERSION="${{ needs.verify-version.outputs.version }}"
+          SMOKE_PYTHON="${{ matrix.python }}"

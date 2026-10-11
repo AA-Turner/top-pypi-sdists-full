@@ -38,6 +38,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 
 from django_resaas.saas.core.base.views import BaseAPIView
 from django_resaas.saas.core.base.response_mixin import ResaasResponseMixin
+from django_resaas.saas.core.services.group_access_service import require_permission
 
 
 
@@ -96,36 +97,47 @@ class UserAPIView(ResaasResponseMixin, viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         user = request.user
 
+        # Everything that can refuse the request is decided BEFORE anything is
+        # written: a returned (not raised) error does not roll back
+        # transaction.atomic(), so checking the Entity after serializer.save()
+        # used to leave a User without its Entity.
+        entity_id = None
+        if not user.is_superuser:
+            entity_id = getattr(request, "entity_id", None)
+            if not entity_id:
+                return error_response(request, "Entity not found", status.HTTP_400_BAD_REQUEST, code="entity_not_found")
+            # creating a user is an administrative act of the current Entity
+            require_permission(request, "add_user")
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         with transaction.atomic():
-
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            new_user = serializer.save()
-
-            if not user.is_superuser:
-                entity_id = getattr(request, "entity_id", None)
-
-                if not entity_id:
-                    return Response(
-                        {"error": "Entity not found"},
-                        status=400
-                    )
-
+            if entity_id:
                 # lock the Entity: two concurrent creates cannot both take the last seat
                 Entity.objects.select_for_update().filter(pk=entity_id).first()
                 require_capacity(request, "users")
+
+            new_user = serializer.save()
+
+            if entity_id:
                 EntityUser.objects.get_or_create(
                     user=new_user,
                     entity_id=entity_id
                 )
 
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     
 
     def update(self, request, *args, **kwargs):
         user = request.user
         instance = self.get_object()
+
+        # changing ANOTHER user needs change_user; a user's own personal
+        # settings (e.g. the Theme Studio, scope="user") stay self-service
+        if not user.is_superuser and instance != user:
+            require_permission(request, "change_user")
 
         # 🔥 segurança: user normal só pode atualizar users da mesma entidade
         if not user.is_superuser:
@@ -190,6 +202,8 @@ class UserAPIView(ResaasResponseMixin, viewsets.ModelViewSet):
                     {"error": "Entity not found"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+
+            require_permission(request, "delete_user")
 
             # checks if the user belongs to the current entity
             pertence = EntityUser.objects.filter(
@@ -276,6 +290,9 @@ class UserAPIView(ResaasResponseMixin, viewsets.ModelViewSet):
                     else None
                 ),
                 "logo": data.get("logo"),
+                # the Entity's website (public - the site/ endpoint returns it
+                # before sign-in): the header site button opens it
+                "site": data.get("site"),
             })
 
         return Response(result, status=status.HTTP_200_OK)

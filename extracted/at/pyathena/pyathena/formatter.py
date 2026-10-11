@@ -1,3 +1,5 @@
+"""Formatting of query parameters as SQL literals, and wrapping of queries in UNLOAD."""
+
 from __future__ import annotations
 
 import logging
@@ -8,12 +10,13 @@ from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
 from pyathena.error import ProgrammingError
 from pyathena.model import AthenaCompression, AthenaFileFormat
+from pyathena.util import override
 
 _logger = logging.getLogger(__name__)
 
@@ -38,7 +41,6 @@ class Formatter(metaclass=ABCMeta):
 
     Attributes:
         mappings: Dictionary mapping Python types to formatting functions.
-        default: Default formatting function for unmapped types.
     """
 
     def __init__(
@@ -46,6 +48,12 @@ class Formatter(metaclass=ABCMeta):
         mappings: dict[type[Any], Callable[[Formatter, Callable[[str], str], Any], Any]],
         default: Callable[[Formatter, Callable[[str], str], Any], Any] | None = None,
     ) -> None:
+        """Initialize the formatter.
+
+        Args:
+            mappings: Formatting functions keyed by Python type.
+            default: Formatting function for types not in ``mappings``.
+        """
         self._mappings = mappings
         self._default = default
 
@@ -76,18 +84,43 @@ class Formatter(metaclass=ABCMeta):
         type_: type[Any],
         formatter: Callable[[Formatter, Callable[[str], str], Any], Any],
     ) -> None:
+        """Set the formatting function for a Python type.
+
+        Args:
+            type_: The Python type.
+            formatter: The formatting function to use for this type.
+        """
         self.mappings[type_] = formatter
 
     def remove(self, type_: type[Any]) -> None:
+        """Remove the formatting function for a Python type.
+
+        Args:
+            type_: The Python type to remove.
+        """
         self.mappings.pop(type_, None)
 
     def update(
         self, mappings: dict[type[Any], Callable[[Formatter, Callable[[str], str], Any], Any]]
     ) -> None:
+        """Update multiple formatting functions at once.
+
+        Args:
+            mappings: Dictionary of Python types to formatting functions.
+        """
         self.mappings.update(mappings)
 
     @abstractmethod
     def format(self, operation: str, parameters: dict[str, Any] | None = None) -> str:
+        """Format a query with its parameters.
+
+        Args:
+            operation: SQL query string.
+            parameters: Query parameters.
+
+        Returns:
+            The formatted query.
+        """
         raise NotImplementedError  # pragma: no cover
 
     @staticmethod
@@ -105,8 +138,9 @@ class Formatter(metaclass=ABCMeta):
         for large datasets and preserves data types more accurately.
 
         Args:
-            operation: SQL query to wrap. Must be a SELECT or WITH statement.
-            s3_staging_dir: Base S3 directory for storing UNLOAD results.
+            operation: SQL query to wrap. Only SELECT and WITH statements are wrapped.
+            s3_staging_dir: Base S3 directory for storing UNLOAD results, ending
+                with ``/``.
             format_: Output file format. Defaults to Parquet for optimal performance.
             compression: Compression algorithm. Defaults to Snappy for balanced
                        compression ratio and speed.
@@ -125,11 +159,14 @@ class Formatter(metaclass=ABCMeta):
             UNLOAD (
                 SELECT * FROM sales WHERE year = 2023
             )
-            TO 's3://my-bucket/results/unload/20231215/uuid//'
+            TO 's3://my-bucket/results/unload/20231215/<uuid>/'
             WITH (
                 format = 'PARQUET',
                 compression = 'SNAPPY'
             )
+
+        Raises:
+            ProgrammingError: If the query is None, empty, or only whitespace.
 
         Note:
             Only SELECT and WITH statements are wrapped. Other statement types
@@ -140,7 +177,7 @@ class Formatter(metaclass=ABCMeta):
 
         operation_upper = operation.strip().upper()
         if operation_upper.startswith(("SELECT", "WITH")):
-            now = datetime.now(timezone.utc).strftime("%Y%m%d")
+            now = datetime.now(UTC).strftime("%Y%m%d")
             location = f"{s3_staging_dir}unload/{now}/{uuid.uuid4()!s}/"
             operation = textwrap.dedent(
                 f"""
@@ -162,16 +199,6 @@ class Formatter(metaclass=ABCMeta):
 def _escape_trino(val: str) -> str:
     escaped = val.replace("'", "''")
     return f"'{escaped}'"
-
-
-def _escape_presto(val: str) -> str:
-    # Backward-compatible alias. Athena's engine is Trino (engine v3; formerly
-    # Presto in engine v1/v2), and Trino and Presto escape string literals
-    # identically -- a single quote is doubled and a backslash is not an escape
-    # character. `_escape_trino` is the canonical name; `_escape_presto` is kept
-    # so external callers that import it (e.g. dbt-athena) keep working.
-    # Deprecated; candidate for removal in a future major release.
-    return _escape_trino(val)
 
 
 _LEADING_COMMENT_PATTERN = re.compile(
@@ -244,12 +271,47 @@ def _format_default(formatter: Formatter, escaper: Callable[[str], str], val: An
     return val
 
 
+def _date_literal(value: date) -> str:
+    """Render a date as an Athena DATE literal.
+
+    Args:
+        value: The date to render. A datetime is rendered as its date part.
+
+    Returns:
+        The DATE literal, with a four-digit year.
+    """
+    return f"DATE '{value.year:04d}-{value.month:02d}-{value.day:02d}'"
+
+
 def _format_date(formatter: Formatter, escaper: Callable[[str], str], val: Any) -> Any:
-    return f"DATE '{val:%Y-%m-%d}'"
+    return _date_literal(val)
+
+
+def _timestamp_literal(value: datetime, precision: int | None = None) -> str:
+    """Render a datetime as an Athena TIMESTAMP literal.
+
+    Without a precision, values with a sub-millisecond part keep all six
+    fractional digits and produce a ``timestamp(6)`` literal, and other values
+    use three digits and produce a ``timestamp(3)`` literal.
+
+    Args:
+        value: The datetime to render. Its time zone, if any, is not rendered.
+        precision: The number of fractional-second digits, from 0 to 6.
+            Digits beyond it are truncated.
+
+    Returns:
+        The TIMESTAMP literal, with a four-digit year.
+    """
+    if precision is None:
+        precision = 3 if value.microsecond % 1000 == 0 else 6
+    text = value.replace(tzinfo=None).isoformat(sep=" ", timespec="seconds")
+    if precision:
+        text += "." + f"{value.microsecond:06d}"[:precision]
+    return f"TIMESTAMP '{text}'"
 
 
 def _format_datetime(formatter: Formatter, escaper: Callable[[str], str], val: Any) -> Any:
-    return f"""TIMESTAMP '{val.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]}'"""
+    return _timestamp_literal(val)
 
 
 def _format_bool(formatter: Formatter, escaper: Callable[[str], str], val: Any) -> Any:
@@ -344,7 +406,7 @@ class DefaultParameterFormatter(Formatter):
         - Strings: Properly escaped and quoted
         - Binary data: bytes, bytearray, memoryview as hexadecimal literals
         - Numbers: int, float, Decimal
-        - Dates and times: date, datetime, time
+        - Dates and timestamps: date (DATE literal), datetime (TIMESTAMP literal)
         - Booleans: Converted to SQL boolean literals
         - Sequences: list, tuple, set (for IN clauses)
 
@@ -359,8 +421,10 @@ class DefaultParameterFormatter(Formatter):
     """
 
     def __init__(self) -> None:
+        """Initialize the formatter with the default formatting functions and no default."""
         super().__init__(mappings=deepcopy(_DEFAULT_FORMATTERS), default=None)
 
+    @override
     def format(self, operation: str, parameters: dict[str, Any] | None = None) -> str:
         if not operation or not operation.strip():
             raise ProgrammingError("Query is none or empty.")

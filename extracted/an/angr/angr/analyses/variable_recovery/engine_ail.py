@@ -55,15 +55,26 @@ class SimEngineVRAIL(
         tv_manager: typevars.TypeVariableManager | None = None,
         variable_map=None,
         flavor: str | None = None,
+        stack_region_vars=None,
+        multi_value_returns: bool = False,
         **kwargs,
     ):
-        super().__init__(*args, vvar_type_hints=vvar_type_hints, tv_manager=tv_manager, **kwargs)
+        super().__init__(
+            *args,
+            vvar_type_hints=vvar_type_hints,
+            tv_manager=tv_manager,
+            stack_region_vars=stack_region_vars,
+            **kwargs,
+        )
 
         self._reference_spoffset: bool = False
         self.call_info = call_info or {}
         self.vvar_to_vvar = vvar_to_vvar
         self.type_lifter = type_lifter
         self.func_ret_var = func_ret_var
+        # the words of a return are separate values (Go), not one value split across registers
+        self.multi_value_returns = multi_value_returns
+        self._extra_ret_typevars: dict[int, typevars.TypeVariable] = {}
         self._variable_map = variable_map
         # the decompilation flavor whose prototypes callees are looked up under
         self._flavor = flavor
@@ -573,7 +584,7 @@ class SimEngineVRAIL(
                 ret_typevar = self.tv_manager.new_tv()
                 self.state.typevars.add_type_variable(self.func_ret_var, ret_typevar)
 
-            for ret_expr in stmt.ret_exprs:
+            for i, ret_expr in enumerate(stmt.ret_exprs):
                 # On x87, the return value is widened to F64 for the ST0
                 # register (VEX models x87 as F64x8).  Strip this widening
                 # Conv so the return variable gets the actual FP type from
@@ -582,17 +593,21 @@ class SimEngineVRAIL(
                 inner_expr = self._unwrap_x87_return_widening(ret_expr)
 
                 src = self._expr(inner_expr)
-                # the pieces of a value split across registers (edx:eax) do not each carry the return type
-                if (
-                    isinstance(src, RichR)
-                    and src.typevar is not None
-                    and ret_typevar is not None
-                    and len(stmt.ret_exprs) == 1
-                ):
+                word_typevar = ret_typevar
+                if self.multi_value_returns:
+                    # one type variable per result: sharing one would unify all values of a multi-value return
+                    if i > 0 and ret_typevar is not None:
+                        word_typevar = self._extra_ret_typevars.get(i)
+                        if word_typevar is None:
+                            word_typevar = self._extra_ret_typevars[i] = self.tv_manager.new_tv()
+                elif len(stmt.ret_exprs) != 1:
+                    # the pieces of a value split across registers (edx:eax) do not each carry the return type
+                    word_typevar = None
+                if isinstance(src, RichR) and src.typevar is not None and word_typevar is not None:
                     if src.type_constraints is not None:
                         for tc in src.type_constraints:
                             self.state.add_type_constraint(tc)
-                    tc = typevars.Subtype(ret_typevar, src.typevar)
+                    tc = typevars.Subtype(word_typevar, src.typevar)
                     self.state.add_type_constraint(tc)
 
     def _handle_expr_DirtyExpression(self, expr: ailment.Expr.DirtyExpression) -> RichR:
@@ -889,12 +904,36 @@ class SimEngineVRAIL(
             # only an FP-sized value can be an FP value widened in place; `mov ax, imm16` is an integer write
             if ft is not None and (expr.bits == r_value.bits or self._fp_type(r_value.bits) is not None):
                 if expr.bits > r_value.bits:
+                    # a widened integer (a Go int64 written as two 32-bit halves) must not make the slot a float
+                    if not self._is_fp_value(expr.value, r_value):
+                        return self._top(expr.bits)
                     typevar = self.tv_manager.new_tv()
                     self.state.add_type_constraint(typevars.Subtype(ft, typevar))
                 else:
                     typevar = r_value.typevar
                 return RichR(self.state.top(expr.bits), typevar=typevar)
         return self._top(expr.bits)
+
+    def _is_fp_value(self, expr: ailment.Expr.Expression, r: RichR) -> bool:
+        """Whether an expression is known to produce a floating-point value, by its shape or its type so far."""
+        if isinstance(expr, ailment.Expr.Convert) and expr.to_type == ailment.Expr.Convert.TYPE_FP:
+            return True
+        if isinstance(expr, ailment.Expr.Reinterpret) and expr.to_type == "F":
+            return True
+        if isinstance(expr, (ailment.Expr.BinaryOp, ailment.Expr.UnaryOp)) and expr.floating_point:
+            return True
+        if isinstance(expr, ailment.Expr.Load) and (
+            expr.tags.get("long_double_load") or expr.tags.get("data_type") in ("Ity_F32", "Ity_F64", "Ity_F128")
+        ):
+            return True
+        if isinstance(r.typevar, typeconsts.Float):
+            return True
+        return bool(r.type_constraints) and any(
+            isinstance(tc, typevars.Subtype)
+            and tc.super_type == r.typevar
+            and isinstance(tc.sub_type, typeconsts.Float)
+            for tc in r.type_constraints
+        )
 
     def _handle_expr_Reinterpret(self, expr: ailment.Expr.Reinterpret):
         r = self._expr(expr.operand)
@@ -935,11 +974,18 @@ class SimEngineVRAIL(
         return richr
 
     def _handle_unop_Reference(self, expr: ailment.Expr.UnaryOp):
-        if isinstance(expr.operand, ailment.Expr.VirtualVariable) and expr.operand.was_stack:
+        operand = expr.operand
+        # a stack-passed parameter is a stack variable of the caller's frame (e.g., Go's all-stack ABI0)
+        is_stack_param = (
+            isinstance(operand, ailment.Expr.VirtualVariable)
+            and operand.was_parameter
+            and operand.parameter_category == ailment.Expr.VirtualVariableCategory.STACK
+        )
+        if isinstance(operand, ailment.Expr.VirtualVariable) and (operand.was_stack or is_stack_param):
             if expr.tags.get("extra_def", False):
                 self._assign_to_vvar(expr.operand, self._top(expr.operand.bits), dst=expr.operand)
             refbase_typevar = None
-            off = expr.operand.stack_offset
+            off = operand.parameter_stack_offset if is_stack_param else operand.stack_offset
 
             # does this variable exist?
             value: claripy.ast.BV | None = self.vvar_region.get(expr.operand.varid, None)

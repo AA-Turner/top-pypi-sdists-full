@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
 **Beartype cave.**
 
 This submodule collects common types (e.g., :class:`NoneType`, the type of the
-``None`` singleton) and tuples of common types (e.g., :data:`CallableTypes`, a
-tuple of the types of all callable objects).
+:data:`None` singleton) and tuples of common types (e.g., :data:`CallableTypes`,
+a tuple of the types of all callable objects).
 
 PEP 484
-----------
+-------
 This module is intentionally *not* compliant with the :pep:`484` standard
 implemented by the stdlib :mod:`typing` module, which formalizes type hinting
 annotations with a catalogue of generic classes and metaclasses applicable to
@@ -77,15 +77,10 @@ low-level primitive    :func:`isinstance`    :mod:`typing.TypingMeta`
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 from beartype.cave._cavelib import (
-    # Types.
     ArgParserType as ArgParserType,
     ArgSubparsersType as ArgSubparsersType,
-    WeakRefCType as WeakRefCType,
-
-    # Type tuples.
-    WeakRefProxyCTypes as WeakRefProxyCTypes,
 )
-from beartype._cave._caveabc import (
+from beartype.cave._caveabc import (
     BoolType as BoolType,
 )
 from beartype._cave._cavefast import (
@@ -112,8 +107,6 @@ from beartype._cave._cavefast import (
     GeneratorType as GeneratorType,
     HashableType as HashableType,
     HintGenericSubscriptedType as HintGenericSubscriptedType,
-    IntOrFloatType as IntOrFloatType,
-    IntType as IntType,
     IterableType as IterableType,
     IteratorType as IteratorType,
     MappingMutableType as MappingMutableType,
@@ -133,7 +126,6 @@ from beartype._cave._cavefast import (
     ModuleType as ModuleType,
     NoneType as NoneType,
     NotImplementedType as NotImplementedType,
-    NumberRealType as NumberRealType,
     NumberType as NumberType,
     SizedType as SizedType,
     QueueType as QueueType,
@@ -144,10 +136,10 @@ from beartype._cave._cavefast import (
     SequenceType as SequenceType,
     StrType as StrType,
     UnavailableType as UnavailableType,
+    WeakrefCallableType as WeakrefCallableType,
 
     # Type tuples.
     AsyncCTypes as AsyncCTypes,
-    BoolOrNumberTypes as BoolOrNumberTypes,
     CallableCTypes as CallableCTypes,
     CallableOrClassTypes as CallableOrClassTypes,
     CallableOrStrTypes as CallableOrStrTypes,
@@ -161,12 +153,22 @@ from beartype._cave._cavefast import (
     MethodTypes as MethodTypes,
     MappingOrSequenceTypes as MappingOrSequenceTypes,
     ModuleOrSequenceTypes as ModuleOrSequenceTypes,
-    NumberOrIterableTypes as NumberOrIterableTypes,
-    NumberOrSequenceTypes as NumberOrSequenceTypes,
-    RegexTypes as RegexTypes,
-    ScalarTypes as ScalarTypes,
     TestableTypes as TestableTypes,
     UnavailableTypes as UnavailableTypes,
+    WeakrefProxyTypes as WeakrefProxyTypes,
+)
+from beartype.cave._caveslow import (
+    # Types.
+    IntType as IntType,
+    NumberRealType as NumberRealType,
+
+    # Type tuples.
+    IntOrFloatType as IntOrFloatType,
+    NumberOrIterableTypes as NumberOrIterableTypes,
+    NumberOrSequenceTypes as NumberOrSequenceTypes,
+    BoolOrNumberTypes as BoolOrNumberTypes,
+    ScalarTypes as ScalarTypes,
+    RegexTypes as RegexTypes,
 )
 from beartype._cave._cavemap import (
     NoneTypeOr as NoneTypeOr,
@@ -192,17 +194,17 @@ def __getattr__(attr_deprecated_name: str) -> object:
         Unqualified name of the deprecated attribute to be retrieved.
 
     Returns
-    ----------
+    -------
     object
         Value of this deprecated attribute.
 
     Warns
-    ----------
+    -----
     :class:`DeprecationWarning`
         If this attribute is deprecated.
 
     Raises
-    ----------
+    ------
     :exc:`AttributeError`
         If this attribute is unrecognized and thus erroneous.
     '''
@@ -215,6 +217,8 @@ def __getattr__(attr_deprecated_name: str) -> object:
         attr_deprecated_name=attr_deprecated_name,
         attr_deprecated_name_to_nondeprecated_name={
             'HintPep585Type': 'HintGenericSubscriptedType',
+            'WeakRefCType': 'WeakrefCallableType',
+            'WeakRefProxyCTypes': 'WeakrefProxyTypes',
         },
         attr_nondeprecated_name_to_value=globals(),
     )

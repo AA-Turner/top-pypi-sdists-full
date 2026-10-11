@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -9,8 +9,6 @@ metadata associated with various types of exceptions).
 
 This private submodule is *not* intended for importation by downstream callers.
 '''
-
-# ....................{ IMPORTS                            }....................
 
 # ....................{ TESTERS                            }....................
 #FIXME: Unit test us up, please.

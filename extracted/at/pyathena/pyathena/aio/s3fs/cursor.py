@@ -1,18 +1,28 @@
+# Copyright 2017 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""Native asyncio cursor that reads Athena CSV query results through ``AioS3FileSystem``."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any
 
 from pyathena.aio.common import WithAsyncFetch
 from pyathena.common import CursorIterator
-from pyathena.error import OperationalError, ProgrammingError
+from pyathena.error import OperationalError
 from pyathena.filesystem.s3_async import AioS3FileSystem
 from pyathena.model import AthenaQueryExecution
 from pyathena.options import ExecuteOptions
 from pyathena.s3fs.converter import DefaultS3FSTypeConverter
 from pyathena.s3fs.result_set import AthenaS3FSResultSet, CSVReaderType
+from pyathena.util import override
 
 _logger = logging.getLogger(__name__)
 
@@ -34,6 +44,7 @@ class AioS3FSCursor(WithAsyncFetch):
 
     def __init__(
         self,
+        *,
         s3_staging_dir: str | None = None,
         schema_name: str | None = None,
         catalog_name: str | None = None,
@@ -47,6 +58,28 @@ class AioS3FSCursor(WithAsyncFetch):
         csv_reader: CSVReaderType | None = None,
         **kwargs,
     ) -> None:
+        """Initialize an AioS3FSCursor.
+
+        Args:
+            s3_staging_dir: S3 location for query results.
+            schema_name: Default schema name.
+            catalog_name: Default catalog name.
+            work_group: Athena workgroup name.
+            poll_interval: Query status polling interval in seconds.
+            encryption_option: S3 encryption option for query results.
+            kms_key: KMS key for encrypting query results.
+            kill_on_interrupt: Cancel the query when the task is cancelled while
+                ``execute()`` starts or waits for the query.
+            result_reuse_enable: Whether to enable Athena query result reuse.
+            result_reuse_minutes: Maximum age of a reused query result in minutes.
+            csv_reader: CSV reader class for parsing the result files. If None,
+                ``AthenaCSVReader`` is used, which distinguishes NULL from empty
+                strings. ``EmptyStringAsNullCSVReader`` treats both as NULL in cursor
+                results. Custom readers must satisfy the
+                :class:`~pyathena.s3fs.reader.CSVReader` protocol.
+            **kwargs: Other cursor arguments, such as ``connection`` and ``arraysize``,
+                passed to the parent ``__init__``.
+        """
         super().__init__(
             s3_staging_dir=s3_staging_dir,
             schema_name=schema_name,
@@ -64,6 +97,7 @@ class AioS3FSCursor(WithAsyncFetch):
         self._result_set: AthenaS3FSResultSet | None = None
 
     @staticmethod
+    @override
     def get_default_converter(
         unload: bool = False,
     ) -> DefaultS3FSTypeConverter:
@@ -77,10 +111,12 @@ class AioS3FSCursor(WithAsyncFetch):
         """
         return DefaultS3FSTypeConverter()
 
-    async def execute(  # type: ignore[override]
+    @override
+    async def execute(
         self,
         operation: str,
         parameters: dict[str, Any] | list[str] | None = None,
+        *,
         work_group: str | None = None,
         s3_staging_dir: str | None = None,
         cache_size: int | None = None,
@@ -90,7 +126,6 @@ class AioS3FSCursor(WithAsyncFetch):
         paramstyle: str | None = None,
         on_start_query_execution: Callable[[str], None] | None = None,
         result_set_type_hints: dict[str | int, str] | None = None,
-        *,
         options: ExecuteOptions | None = None,
         **kwargs,
     ) -> AioS3FSCursor:
@@ -106,18 +141,22 @@ class AioS3FSCursor(WithAsyncFetch):
             result_reuse_enable: Enable Athena result reuse for this query.
             result_reuse_minutes: Minutes to reuse cached results.
             paramstyle: Parameter style ('qmark' or 'pyformat').
-            on_start_query_execution: Callback called when query starts.
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion within
-                complex types.
+            on_start_query_execution: Callback invoked with the query ID before ``execute()``
+                waits for the query: after the ``StartQueryExecution`` call, or after a
+                reusable query ID is found through ``cache_size``.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
             options: Shared execution options as an
                 :class:`~pyathena.options.ExecuteOptions` instance. Individual
                 keyword arguments take precedence over ``options`` fields.
-            **kwargs: Additional execution parameters.
+            **kwargs: Supported S3FS result-set overrides. Unknown names raise TypeError.
+                ``block_size`` sets the read block size for this query, and
+                ``csv_reader`` overrides the cursor's value.
 
         Returns:
             Self reference for method chaining.
         """
+        self._validate_execute_kwargs(kwargs, ("block_size", "csv_reader"))
         self._reset_state()
         options = ExecuteOptions.resolve(
             options,
@@ -149,7 +188,7 @@ class AioS3FSCursor(WithAsyncFetch):
                 query_execution=query_execution,
                 arraysize=self.arraysize,
                 retry_config=self._retry_config,
-                csv_reader=self._csv_reader,
+                csv_reader=kwargs.pop("csv_reader", self._csv_reader),
                 filesystem_class=AioS3FileSystem,
                 result_set_type_hints=options.result_set_type_hints,
                 **kwargs,
@@ -157,69 +196,3 @@ class AioS3FSCursor(WithAsyncFetch):
         else:
             raise OperationalError(query_execution.state_change_reason)
         return self
-
-    async def fetchone(  # type: ignore[override]
-        self,
-    ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
-        """Fetch the next row of the result set.
-
-        Wraps the synchronous fetch in ``asyncio.to_thread`` because
-        ``AthenaS3FSResultSet`` reads rows lazily from S3.
-
-        Returns:
-            A tuple representing the next row, or None if no more rows.
-
-        Raises:
-            ProgrammingError: If no result set is available.
-        """
-        if not self.has_result_set:
-            raise ProgrammingError("No result set.")
-        result_set = cast(AthenaS3FSResultSet, self.result_set)
-        return await asyncio.to_thread(result_set.fetchone)
-
-    async def fetchmany(  # type: ignore[override]
-        self, size: int | None = None
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        """Fetch multiple rows from the result set.
-
-        Wraps the synchronous fetch in ``asyncio.to_thread`` because
-        ``AthenaS3FSResultSet`` reads rows lazily from S3.
-
-        Args:
-            size: Maximum number of rows to fetch. Defaults to arraysize.
-
-        Returns:
-            List of tuples representing the fetched rows.
-
-        Raises:
-            ProgrammingError: If no result set is available.
-        """
-        if not self.has_result_set:
-            raise ProgrammingError("No result set.")
-        result_set = cast(AthenaS3FSResultSet, self.result_set)
-        return await asyncio.to_thread(result_set.fetchmany, size)
-
-    async def fetchall(  # type: ignore[override]
-        self,
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        """Fetch all remaining rows from the result set.
-
-        Wraps the synchronous fetch in ``asyncio.to_thread`` because
-        ``AthenaS3FSResultSet`` reads rows lazily from S3.
-
-        Returns:
-            List of tuples representing all remaining rows.
-
-        Raises:
-            ProgrammingError: If no result set is available.
-        """
-        if not self.has_result_set:
-            raise ProgrammingError("No result set.")
-        result_set = cast(AthenaS3FSResultSet, self.result_set)
-        return await asyncio.to_thread(result_set.fetchall)
-
-    async def __anext__(self):
-        row = await self.fetchone()
-        if row is None:
-            raise StopAsyncIteration
-        return row

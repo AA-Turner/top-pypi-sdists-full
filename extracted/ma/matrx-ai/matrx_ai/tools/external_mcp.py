@@ -62,6 +62,13 @@ class MCPRuntime:
     tool_allowlist: frozenset[str] = frozenset()
 
 
+
+def _mcp_annotations(raw: Any) -> list[dict[str, Any]]:
+    """MCP ``Tool.annotations`` (one object) → the stored list form ``[{...}]``."""
+    if isinstance(raw, dict) and raw:
+        return [dict(raw)]
+    return []
+
 class ExternalMCPClient:
     """Client for calling tools on remote MCP servers over the MCP
     **Streamable HTTP** transport (JSON-RPC 2.0 over HTTP POST).
@@ -122,6 +129,10 @@ class ExternalMCPClient:
                     tool_data.get("inputSchema") or tool_data.get("input_schema", {})
                 ),
                 output_schema=tool_data.get("outputSchema") or tool_data.get("output_schema"),
+                # The server's declared behaviour hints (readOnlyHint,
+                # destructiveHint, ...). Dropping them left every discovered
+                # tool unclassified in the destructive-operations register.
+                annotations=_mcp_annotations(tool_data.get("annotations")),
                 tool_type=ToolType.EXTERNAL_MCP,
             )
             tools.append(td)
@@ -151,6 +162,11 @@ class ExternalMCPClient:
                 description=tool.description or "",
                 parameters=self._schema_to_params(tool.inputSchema or {}),
                 output_schema=tool.outputSchema,
+                annotations=_mcp_annotations(
+                    tool.annotations.model_dump(exclude_none=True)
+                    if getattr(tool, "annotations", None) is not None
+                    else None
+                ),
                 tool_type=ToolType.EXTERNAL_MCP,
                 mcp_transport="stdio",
                 mcp_command=command,

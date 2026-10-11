@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 from datetime import datetime, date
+from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
 import click
@@ -1388,3 +1389,65 @@ def test_cli_bulk_revoke_authentication_documents_requires_org(monkeypatch):
         )
         assert result.exit_code != 0
         assert "organisation id is required" in result.output
+
+
+def test_cli_update_system_options_allowed_domains(monkeypatch):
+    # ``--allowed-domains`` replaces and ``--add-allowed-domain`` appends; the
+    # domain-change preflight uses the latter for the new domain (IAF-2383).
+    # Exercise the real ``orgs.replace_system_options`` here so a click
+    # parameter wiring error (singular vs plural keyword) fails the test
+    # instead of surfacing at runtime.
+    runner = CliRunner()
+    m1, m2, m3, m4 = _cli_auth_mocks()
+
+    class FakeOptions:
+        def __init__(self):
+            self.allowed_domains = ["old.example.com"]
+            self.license_constraints = []
+            self.constraint_variables = None
+
+    class FakeOrgApi:
+        def __init__(self, options):
+            self.options = options
+            self.calls = []
+
+        def replace_system_options(self, **kwargs):
+            self.calls.append(kwargs)
+            body = {"allowed_domains": list(self.options.allowed_domains)}
+            return SimpleNamespace(to_dict=lambda: body)
+
+    options = FakeOptions()
+    org_api = FakeOrgApi(options)
+    monkeypatch.setattr(
+        main_module.orgs, "get_system_options", lambda ctx, org_id: options
+    )
+    monkeypatch.setattr(
+        main_module.orgs.context,
+        "get_apiclient",
+        lambda ctx: SimpleNamespace(org_api=org_api),
+    )
+    with runner.isolated_filesystem(), m1, m2, m3, m4:
+        result = runner.invoke(
+            main_module.cli,
+            [
+                "--output-format",
+                "json",
+                "update-system-options",
+                "org-1",
+                "--allowed-domains",
+                "a.example.com",
+                "--allowed-domains",
+                "b.example.com",
+                "--add-allowed-domain",
+                "c.example.com",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0, result.output
+    assert org_api.calls[0]["org_id"] == "org-1"
+    assert options.allowed_domains == [
+        "a.example.com",
+        "b.example.com",
+        "c.example.com",
+    ]

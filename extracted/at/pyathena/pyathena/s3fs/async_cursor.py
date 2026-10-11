@@ -1,3 +1,5 @@
+"""Asynchronous cursor that reads Athena CSV query results through PyAthena's S3 filesystem."""
+
 from __future__ import annotations
 
 import logging
@@ -12,6 +14,7 @@ from pyathena.model import AthenaQueryExecution
 from pyathena.options import ExecuteOptions
 from pyathena.s3fs.converter import DefaultS3FSTypeConverter
 from pyathena.s3fs.result_set import AthenaS3FSResultSet, CSVReaderType
+from pyathena.util import override
 
 _logger = logging.getLogger(__name__)
 
@@ -49,6 +52,7 @@ class AsyncS3FSCursor(AsyncCursor):
 
     def __init__(
         self,
+        *,
         s3_staging_dir: str | None = None,
         schema_name: str | None = None,
         catalog_name: str | None = None,
@@ -82,8 +86,9 @@ class AsyncS3FSCursor(AsyncCursor):
             csv_reader: CSV reader class to use for parsing results.
                 Use AthenaCSVReader (default) to distinguish between NULL
                 (unquoted empty) and empty string (quoted empty "").
-                Use DefaultCSVReader for backward compatibility where empty
-                strings are treated as NULL.
+                Use EmptyStringAsNullCSVReader to treat empty strings as NULL.
+                Custom readers must satisfy the
+                :class:`~pyathena.s3fs.reader.CSVReader` protocol.
             **kwargs: Additional connection parameters.
 
         Example:
@@ -108,6 +113,7 @@ class AsyncS3FSCursor(AsyncCursor):
         self._csv_reader = csv_reader
 
     @staticmethod
+    @override
     def get_default_converter(
         unload: bool = False,
     ) -> DefaultS3FSTypeConverter:
@@ -121,7 +127,8 @@ class AsyncS3FSCursor(AsyncCursor):
         """
         return DefaultS3FSTypeConverter()
 
-    @property
+    @property  # type: ignore[explicit-override]  # python/mypy#15900
+    @override
     def arraysize(self) -> int:
         """Get the number of rows to fetch at a time."""
         return self._arraysize
@@ -140,6 +147,7 @@ class AsyncS3FSCursor(AsyncCursor):
             raise ProgrammingError("arraysize must be a positive integer value.")
         self._arraysize = value
 
+    @override
     def _collect_result_set(
         self,
         query_id: str,
@@ -150,9 +158,8 @@ class AsyncS3FSCursor(AsyncCursor):
 
         Args:
             query_id: The Athena query execution ID.
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion within
-                complex types.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
             kwargs: Additional keyword arguments for result set.
 
         Returns:
@@ -167,15 +174,17 @@ class AsyncS3FSCursor(AsyncCursor):
             query_execution=query_execution,
             arraysize=self._arraysize,
             retry_config=self._retry_config,
-            csv_reader=self._csv_reader,
+            csv_reader=kwargs.pop("csv_reader", self._csv_reader),
             result_set_type_hints=result_set_type_hints,
             **kwargs,
         )
 
+    @override
     def execute(
         self,
         operation: str,
         parameters: dict[str, Any] | list[str] | None = None,
+        *,
         work_group: str | None = None,
         s3_staging_dir: str | None = None,
         cache_size: int | None = None,
@@ -184,7 +193,6 @@ class AsyncS3FSCursor(AsyncCursor):
         result_reuse_minutes: int | None = None,
         paramstyle: str | None = None,
         result_set_type_hints: dict[str | int, str] | None = None,
-        *,
         options: ExecuteOptions | None = None,
         **kwargs,
     ) -> tuple[str, Future[AthenaS3FSResultSet | Any]]:
@@ -203,13 +211,15 @@ class AsyncS3FSCursor(AsyncCursor):
             result_reuse_enable: Enable Athena result reuse for this query.
             result_reuse_minutes: Minutes to reuse cached results.
             paramstyle: Parameter style ('qmark' or 'pyformat').
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion within
-                complex types.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
             options: Shared execution options as an
                 :class:`~pyathena.options.ExecuteOptions` instance. Individual
                 keyword arguments take precedence over ``options`` fields.
-            **kwargs: Additional execution parameters.
+            **kwargs: Supported S3FS result-set overrides. Unknown names raise TypeError.
+                ``block_size`` sets the read block size for this query, and
+                ``csv_reader`` overrides the cursor's value.
+                ``filesystem_class`` overrides the filesystem used to read results.
 
         Returns:
             Tuple of (query_id, Future[AthenaS3FSResultSet]).
@@ -219,6 +229,7 @@ class AsyncS3FSCursor(AsyncCursor):
             >>> result_set = future.result()
             >>> rows = result_set.fetchall()
         """
+        self._validate_execute_kwargs(kwargs, ("block_size", "csv_reader", "filesystem_class"))
         options = ExecuteOptions.resolve(
             options,
             work_group=work_group,

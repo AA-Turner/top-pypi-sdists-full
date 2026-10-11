@@ -135,17 +135,17 @@ CorrDetector2DObj_push (CorrDetector2DObject *self, PyObject *args)
       return NULL;
     }
   size_t         n_in = (size_t)PyArray_SIZE (in_arr);
-  det_result2d_t results[64];
+  det_result2d_t results[1024];
   size_t         n_out = dp_detector2d_push (
       self->handle, (const float _Complex *)PyArray_DATA (in_arr), n_in,
-      results, 64);
+      results, 1024);
   Py_DECREF (in_arr);
-  if ((size_t)(n_out) > (size_t)(64))
+  if ((size_t)(n_out) > (size_t)(1024))
     {
       PyErr_Format (
           PyExc_RuntimeError,
           "CorrDetector2D.push: wrote %zu elements into a buffer of %zu",
-          (size_t)(n_out), (size_t)(64));
+          (size_t)(n_out), (size_t)(1024));
       return NULL;
     }
   PyObject *lst = PyList_New ((Py_ssize_t)n_out);
@@ -364,35 +364,36 @@ CorrDetector2D_getprop_last_corr (CorrDetector2DObject *self,
   return arr;
 }
 
-static PyGetSetDef CorrDetector2D_getset[]
-    = { { "ny", (getter)CorrDetector2D_getprop_ny, NULL, "Number of rows.\n",
-          NULL },
-        { "nx", (getter)CorrDetector2D_getprop_nx, NULL,
-          "Number of columns.\n", NULL },
-        { "n", (getter)CorrDetector2D_getprop_n, NULL,
-          "ny * nx — total frame length.\n", NULL },
-        { "dwell", (getter)CorrDetector2D_getprop_dwell, NULL,
-          "Integration depth: a detection statistic is dumped every `dwell` "
-          "frames.\n",
-          NULL },
-        { "count", (getter)CorrDetector2D_getprop_count, NULL,
-          "Frames accumulated toward the next dump (0 ... dwell-1).\n", NULL },
-        { "ring_cap", (getter)CorrDetector2D_getprop_ring_cap, NULL,
-          "Ring buffer capacity in complex samples.\n", NULL },
-        { "noise_lo", (getter)CorrDetector2D_getprop_noise_lo, NULL,
-          "Noise bin range lower bound (inclusive).\n", NULL },
-        { "noise_hi", (getter)CorrDetector2D_getprop_noise_hi, NULL,
-          "Noise bin range upper bound (inclusive).\n", NULL },
-        { "threshold", (getter)CorrDetector2D_getprop_threshold, NULL,
-          "0 = always fire; >0 = gate on test_stat.\n", NULL },
-        { "last_corr", (getter)CorrDetector2D_getprop_last_corr, NULL,
-          "The correlation vector from the most recent push() that produced a "
-          "result (None before that). This is a zero-copy view into a buffer "
-          "owned by the detector and reused every push() -- the next push() "
-          "(even one that doesn't produce a result) overwrites it in place. "
-          "Copy the array before the next push() if you need to retain it.\n",
-          NULL },
-        { NULL, NULL, NULL, NULL, NULL } };
+static PyGetSetDef CorrDetector2D_getset[] = {
+  { "ny", (getter)CorrDetector2D_getprop_ny, NULL, "Number of rows.\n", NULL },
+  { "nx", (getter)CorrDetector2D_getprop_nx, NULL, "Number of columns.\n",
+    NULL },
+  { "n", (getter)CorrDetector2D_getprop_n, NULL,
+    "ny * nx — total frame length.\n", NULL },
+  { "dwell", (getter)CorrDetector2D_getprop_dwell, NULL,
+    "Integration depth: a detection statistic is dumped every `dwell` "
+    "frames.\n",
+    NULL },
+  { "count", (getter)CorrDetector2D_getprop_count, NULL,
+    "Frames accumulated toward the next dump (0 ... dwell-1).\n", NULL },
+  { "ring_cap", (getter)CorrDetector2D_getprop_ring_cap, NULL,
+    "Ring buffer capacity in complex samples.\n", NULL },
+  { "noise_lo", (getter)CorrDetector2D_getprop_noise_lo, NULL,
+    "Noise bin range lower bound (inclusive).\n", NULL },
+  { "noise_hi", (getter)CorrDetector2D_getprop_noise_hi, NULL,
+    "Noise bin range upper bound (inclusive).\n", NULL },
+  { "threshold", (getter)CorrDetector2D_getprop_threshold, NULL,
+    "0 = always fire; >0 = gate on test_stat.\n", NULL },
+  { "last_corr", (getter)CorrDetector2D_getprop_last_corr, NULL,
+    "The correlation vector from the most recent push() that produced a "
+    "result (None before that, and after reset() or set_state(): the vector "
+    "is not part of the serialized state). This is a zero-copy view into a "
+    "buffer owned by the detector and reused every push() -- the next push() "
+    "(even one that doesn't produce a result) overwrites it in place. Copy "
+    "the array before the next push() if you need to retain it.\n",
+    NULL },
+  { NULL, NULL, NULL, NULL, NULL }
+};
 
 static PyObject *
 CorrDetector2DObj_destroy (CorrDetector2DObject *self,
@@ -428,8 +429,8 @@ CorrDetector2DObj_exit (CorrDetector2DObject *self, PyObject *args)
 
 static PyMethodDef CorrDetector2DObj_methods[] = {
   { "reset", (PyCFunction)CorrDetector2DObj_reset, METH_NOARGS,
-    "Reset the 2-D correlator, ring buffer, and last-corr flag. Discards\n"
-    "any partial frame buffered in the ring and zeroes the coherent\n"
+    "Reset the 2-D correlator, the carry, and last-corr flag. Discards\n"
+    "any partial frame carried between pushes and zeroes the coherent\n"
     "accumulator. The reference spectrum and FFT plans are preserved.\n"
     "\n"
     "Examples\n"
@@ -447,11 +448,23 @@ static PyMethodDef CorrDetector2DObj_methods[] = {
   { "push", (PyCFunction)CorrDetector2DObj_push, METH_VARARGS,
     "push(x) -> list[tuple]\n"
     "\n"
-    "Stream an arbitrary-length CF32 chunk through the 2-D detector.\n"
-    "Identical to dp_detector_push() except frames are ny*nx complex samples\n"
-    "and each detection event carries (row, col) for the peak location\n"
-    "instead of a single lag index. In Python the result is always a list of\n"
-    "(row, col, peak_mag, noise_est, test_stat) tuples.\n"
+    "Stream an arbitrary-length CF32 chunk through the 2-D detector. The\n"
+    "same pipeline as dp_detector_push(), except that frames are ny*nx\n"
+    "complex samples and each detection event carries (row, col) for the\n"
+    "peak location instead of a single lag index. In Python the result is\n"
+    "always a list of (row, col, peak_mag, noise_est, test_stat) tuples.\n"
+    "\n"
+    "Python's push() has room for 1024 detections a call, so a push that\n"
+    "completes at most 1024 frames, counting the carry, loses nothing. One\n"
+    "that fills the room loses the rest of its input, every later frame\n"
+    "whether or not it would have made a detection, unless the rest is\n"
+    "shorter than a frame: that is kept as the carry. The next push stays on\n"
+    "the frame grid, its peaks at their own (row, col), only when what was\n"
+    "lost is a whole number of frames; otherwise they are off by the\n"
+    "remainder. Before v0.66 the room was 64, and a push past it kept up to\n"
+    "ring_cap/n - 1 of those frames for the next call and dropped the rest.\n"
+    "#1992 and just-buildit/just-makeit#2184 track sizing the list to the\n"
+    "call.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -573,12 +586,13 @@ static PyTypeObject CorrDetector2DObjType = {
   = "Allocate a 2-D streaming signal detector backed by a 2-D correlator.\n"
     "Two-dimensional extension of dp_detector_create(). Input frames are "
     "flat\n"
-    "row-major CF32 arrays of length ny*nx streamed through a ring buffer. "
-    "On\n"
-    "every int-dump the peak flat index is decomposed into (row, col) and a\n"
-    "det_result2d_t is emitted when test_stat > threshold. The Python "
-    "wrapper\n"
-    "accepts a (ny, nx) CF32 ndarray for both ref and the push input.\n"
+    "row-major CF32 arrays of length ny*nx, cut from the stream by the "
+    "ring's\n"
+    "framer. On every int-dump the peak flat index is decomposed into (row, "
+    "col)\n"
+    "and a det_result2d_t is emitted when test_stat > threshold. The Python\n"
+    "wrapper accepts a (ny, nx) CF32 ndarray for both ref and the push "
+    "input.\n"
     "\n"
     "Parameters\n"
     "----------\n"

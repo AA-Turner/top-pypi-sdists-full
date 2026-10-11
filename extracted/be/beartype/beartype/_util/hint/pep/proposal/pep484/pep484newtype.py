@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -14,13 +14,18 @@ This private submodule is *not* intended for importation by downstream callers.
 from beartype.roar import BeartypeDecorHintPep484Exception
 from beartype._data.typing.datatypingport import Hint
 from beartype._data.hint.sign.datahintsigns import HintSignNewType
-from beartype._util.cache.utilcachecall import callable_cached
+from beartype._util.cache.func.utilcachefunc import callable_cached
 
 # ....................{ GETTERS                            }....................
 #FIXME: Unit test us up, please.
 @callable_cached
 def get_hint_pep484_newtype_alias(
-    hint: Hint, exception_prefix: str = '') -> Hint:
+    # Mandatory parameters.
+    hint: Hint,
+
+    # Optional parameters.
+    exception_prefix: str = '',
+) -> Hint:
     '''
     Unaliased type hint (i.e., type hint that is *not* a :obj:`typing.NewType`)
     encapsulated by the passed **newtype** (i.e., object created and returned by
@@ -43,7 +48,7 @@ def get_hint_pep484_newtype_alias(
     ----------
     hint : Hint
         Object to be inspected.
-    exception_prefix : str, optional
+    exception_prefix : str, default: ''
         Human-readable label prefixing the representation of this object in the
         exception message. Defaults to the empty string.
 

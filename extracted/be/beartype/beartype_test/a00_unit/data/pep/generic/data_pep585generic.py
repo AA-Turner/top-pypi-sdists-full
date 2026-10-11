@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,7 +13,7 @@ parameters, exercising edge cases in unit tests requiring non-trivial generics).
 # Defer fixture-specific imports.
 from beartype.typing import TypeVar
 from beartype_test.a00_unit.data.data_type import Class
-from beartype_test.a00_unit.data.pep.data_pep484 import (
+from beartype_test.a00_unit.data.pep.pep484.data_pep484 import (
     S,
     T,
     U,
@@ -62,10 +62,20 @@ class Pep585ListListStr(list[list[str]]):
 # generics are necessarily subscripted; when unsubscripted, the corresponding
 # subclasses are simply standard types.
 
-class Pep585SequenceT(Pep585Sequence[T]):
+class Pep585SequenceTSubbed(Pep585Sequence[T]):
     '''
     :pep:`585`-compliant generic sequence parametrized by one unconstrained type
     variable.
+    '''
+
+    pass
+
+
+class Pep585SequenceTUnsubbed(Pep585SequenceTSubbed):
+    '''
+    :pep:`585`-compliant generic subclass inheriting a :pep:`585`-compliant
+    generic superclass subscripted by *no* child hints and thus implicitly
+    parametrized by the same type variable parametrizing that superclass.
     '''
 
     pass
@@ -185,7 +195,7 @@ class Pep585ContextManagerTSequenceT(
         return len(self._sequence)
 
     def __reversed__(self) -> tuple[T]:
-        return self._sequence.reverse()
+        return reversed(self._sequence)
 
 # ....................{ PEP 585 ~ usable : S, T            }....................
 # Generics that are actually instantiable and usable as valid objects.

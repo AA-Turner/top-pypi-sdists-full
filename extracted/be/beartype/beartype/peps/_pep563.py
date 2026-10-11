@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -29,18 +29,16 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar import BeartypePep563Exception
-from beartype._check.forward.fwdresolve import resolve_hint
-from beartype._check.metadata.metadecor import (
-    cull_beartype_call,
-    make_beartype_call,
+from beartype._check.forward.fwdresolve import resolve_hint_pep484_ref_str_decor_curr
+from beartype._check.cls.call.calldatadecorfunc import (
+    cull_decor_func,
+    make_decor_func,
 )
 from beartype._conf.confcommon import BEARTYPE_CONF_DEFAULT
 from beartype._conf.confmain import BeartypeConf
 from beartype._data.typing.datatyping import TypeStack
-from beartype._util.hint.pep.proposal.pep649 import (
-    get_pep649_hintable_annotations,
-    set_pep649_hintable_annotations,
-)
+from beartype._util.hint.pep.proposal.pep749.pep649749annotate import (
+    get_hintable_pep649749_annotations)
 from collections.abc import Callable
 
 # ....................{ RESOLVERS                          }....................
@@ -162,7 +160,7 @@ def resolve_pep563(
     # parameter and return of the passed callable to the non-string type hint
     # resolved from the string type hint annotating that parameter or return --
     # raising an exception if that callable is *NOT* a pure-Python callable.
-    func_annotations = get_pep649_hintable_annotations(
+    func_annotations = get_hintable_pep649749_annotations(
         hintable=func, exception_cls=BeartypePep563Exception)
 
     # If that callable is unannotated, silently reduce to a noop.
@@ -240,7 +238,8 @@ def resolve_pep563(
 
     # ..................{ LOCALS                             }..................
     # Beartype call metadata describing the passed callable.
-    decor_meta = make_beartype_call(func=func, conf=conf, cls_stack=cls_stack)
+    decor_func = make_decor_func(
+        cls_stack=cls_stack, conf=conf, func_wrappee=func)
 
     # Shallow copy of the dictionary to be returned. Why? Because the
     # "func.__annotations__" dictionary *CANNOT* be safely directly assigned to
@@ -262,16 +261,16 @@ def resolve_pep563(
     #   sizes, as "func.__annotations__" usually is).
     for pith_name, hint in func_annotations.items():
         # Non-string hint to which this stringified hint refers
-        hint = resolve_hint(
+        hint = resolve_hint_pep484_ref_str_decor_curr(
+            decor_curr=decor_func,
             hint=hint,
-            decor_meta=decor_meta,
             exception_cls=BeartypePep563Exception,
         )
 
         # Safely set the hint annotating the parameter or return with the passed
         # name of the decorated callable to the passed hint in a portable manner
         # consistent with both PEP 649 and Python >= 3.14.
-        decor_meta.set_func_pith_hint(pith_name=pith_name, hint=hint)
+        decor_func.set_func_pith_hint(pith_name=pith_name, hint=hint)
 
     # ..................{ RETURN                             }..................
     # Deinitialize this beartype call metadata.
@@ -283,7 +282,7 @@ def resolve_pep563(
     # generically resolving postponed annotations for all downstream third-party
     # callers is justified. Everyone benefits from replacing useless postponed
     # annotations with useful real annotations; so, do so.
-    cull_beartype_call(decor_meta)
+    cull_decor_func(decor_func)
 
     # print(
     #     f'{func.__name__}() PEP 563-postponed annotations resolved:'

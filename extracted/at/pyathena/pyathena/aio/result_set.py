@@ -1,3 +1,5 @@
+"""Asyncio result sets that fetch Athena query results with ``GetQueryResults``."""
+
 from __future__ import annotations
 
 import logging
@@ -13,7 +15,7 @@ from pyathena.converter import Converter
 from pyathena.error import OperationalError, ProgrammingError
 from pyathena.model import AthenaQueryExecution
 from pyathena.result_set import AthenaDictResultSet, AthenaResultSet
-from pyathena.util import RetryConfig
+from pyathena.util import RetryConfig, override
 
 if TYPE_CHECKING:
     from pyathena.connection import Connection
@@ -39,6 +41,21 @@ class AthenaAioResultSet(AthenaResultSet):
         retry_config: RetryConfig,
         result_set_type_hints: dict[str | int, str] | None = None,
     ) -> None:
+        """Initialize the result set without fetching rows; ``create()`` fetches the first page.
+
+        Args:
+            connection: The connection that ran the query.
+            converter: The converter for result values.
+            query_execution: The query execution whose results to read.
+            arraysize: The number of rows per ``GetQueryResults`` page and the default
+                ``fetchmany()`` size.
+            retry_config: The retry configuration for API calls.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
+
+        Raises:
+            ProgrammingError: If ``query_execution`` is not given.
+        """
         super().__init__(
             connection=connection,
             converter=converter,
@@ -58,6 +75,7 @@ class AthenaAioResultSet(AthenaResultSet):
         arraysize: int,
         retry_config: RetryConfig,
         result_set_type_hints: dict[str | int, str] | None = None,
+        **kwargs: Any,
     ) -> AthenaAioResultSet:
         """Async factory method.
 
@@ -69,8 +87,10 @@ class AthenaAioResultSet(AthenaResultSet):
             query_execution: Query execution metadata.
             arraysize: Number of rows to fetch per request.
             retry_config: Retry configuration for API calls.
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
+            **kwargs: Additional arguments passed to the constructor of ``cls``,
+                such as ``dict_type`` for ``AthenaAioDictResultSet``.
 
         Returns:
             A fully initialized ``AthenaAioResultSet``.
@@ -82,26 +102,32 @@ class AthenaAioResultSet(AthenaResultSet):
             arraysize,
             retry_config,
             result_set_type_hints=result_set_type_hints,
+            **kwargs,
         )
         if result_set.state == AthenaQueryExecution.STATE_SUCCEEDED:
             await result_set._async_pre_fetch()
         return result_set
 
-    async def __async_get_query_results(
+    async def _async_get_query_results(
         self, max_results: int, next_token: str | None = None
     ) -> dict[str, Any]:
-        if not self.query_id:
-            raise ProgrammingError("QueryExecutionId is none or empty.")
-        if self.state != AthenaQueryExecution.STATE_SUCCEEDED:
-            raise ProgrammingError("QueryExecutionState is not SUCCEEDED.")
+        """Get a page of query results with ``GetQueryResults``.
+
+        Args:
+            max_results: The maximum number of rows in the page.
+            next_token: The token of the page to get; the first page if None.
+
+        Returns:
+            The ``GetQueryResults`` response.
+
+        Raises:
+            ProgrammingError: If the query ID is missing, the query has not
+                succeeded, or the result set is closed.
+            OperationalError: If the request fails.
+        """
+        request = self._build_get_query_results_request(max_results, next_token)
         if self.is_closed:
             raise ProgrammingError("AthenaAioResultSet is closed.")
-        request: dict[str, Any] = {
-            "QueryExecutionId": self.query_id,
-            "MaxResults": max_results,
-        }
-        if next_token:
-            request["NextToken"] = next_token
         try:
             response = await async_retry_api_call(
                 self.connection.client.get_query_results,
@@ -115,24 +141,35 @@ class AthenaAioResultSet(AthenaResultSet):
         else:
             return cast(dict[str, Any], response)
 
-    async def __async_fetch(self, next_token: str | None = None) -> dict[str, Any]:
-        return await self.__async_get_query_results(self._arraysize, next_token)
-
     async def _async_fetch(self) -> None:
+        """Fetch the next page of rows into the result set.
+
+        Raises:
+            ProgrammingError: If there is no next page.
+            OperationalError: If the request fails.
+        """
         if not self._next_token:
             raise ProgrammingError("NextToken is none or empty.")
-        response = await self.__async_fetch(self._next_token)
+        response = await self._async_get_query_results(self._arraysize, self._next_token)
         rows, self._next_token = self._parse_result_rows(response)
         self._process_rows(rows)
 
     async def _async_pre_fetch(self) -> None:
-        response = await self.__async_fetch()
+        """Fetch the first page of rows along with the result metadata.
+
+        Raises:
+            ProgrammingError: If the query ID is missing, the query has not
+                succeeded, or the result set is closed.
+            OperationalError: If the request fails.
+        """
+        response = await self._async_get_query_results(self._arraysize)
         self._process_metadata(response)
         self._process_update_count(response)
         rows, self._next_token = self._parse_result_rows(response)
         offset = 1 if rows and self._is_first_row_column_labels(rows) else 0
         self._process_rows(rows, offset)
 
+    @override
     async def fetchone(  # type: ignore[override]
         self,
     ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
@@ -142,7 +179,8 @@ class AthenaAioResultSet(AthenaResultSet):
         page is exhausted and more pages are available.
 
         Returns:
-            A tuple representing the next row, or None if no more rows.
+            The next row (a tuple, or a dict for ``AthenaAioDictResultSet``), or
+            None if no more rows.
         """
         if not self._rows and self._next_token:
             await self._async_fetch()
@@ -153,17 +191,18 @@ class AthenaAioResultSet(AthenaResultSet):
         self._rownumber += 1
         return self._rows.popleft()
 
+    @override
     async def fetchmany(  # type: ignore[override]
         self, size: int | None = None
     ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
         """Fetch multiple rows from the result set.
 
         Args:
-            size: Maximum number of rows to fetch. If None, uses arraysize.
+            size: Maximum number of rows to fetch. If None or not positive,
+                ``arraysize`` is used.
 
         Returns:
-            List of row tuples. May contain fewer rows than requested if
-            fewer are available.
+            The rows, fewer than ``size`` when the result is exhausted.
         """
         if not size or size <= 0:
             size = self._arraysize
@@ -176,13 +215,14 @@ class AthenaAioResultSet(AthenaResultSet):
                 break
         return rows
 
+    @override
     async def fetchall(  # type: ignore[override]
         self,
     ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
         """Fetch all remaining rows from the result set.
 
         Returns:
-            List of all remaining row tuples.
+            The remaining rows.
         """
         rows = []
         while True:
@@ -193,6 +233,7 @@ class AthenaAioResultSet(AthenaResultSet):
                 break
         return rows
 
+    @override
     def __iter__(self) -> NoReturn:
         """Reject synchronous iteration; use ``async for`` instead.
 

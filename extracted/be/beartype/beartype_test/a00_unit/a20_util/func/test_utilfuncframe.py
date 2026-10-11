@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -26,7 +26,7 @@ def test_get_frame_or_none() -> None:
     # ....................{ IMPORTS                        }....................
     # Defer test-specific imports.
     from beartype.roar._roarexc import _BeartypeUtilCallFrameException
-    from beartype._util.func.utilfunccodeobj import get_func_codeobj
+    from beartype._util.func.utilfunccodeobj import get_func_codeobject
     from beartype._util.func.utilfuncframe import get_frame_or_none
     from pytest import raises
     from sys import maxsize
@@ -59,23 +59,23 @@ def test_get_frame_or_none() -> None:
         # parameters.
         seemd_strangled_frame = get_frame_or_none()
         assert (
-            get_func_codeobj(seemd_strangled_frame) is
-            get_func_codeobj(seemd_strangled)
+            get_func_codeobject(seemd_strangled_frame) is
+            get_func_codeobject(seemd_strangled)
         )
 
         # Assert this getter returns the current stack frame when passed 0.
         in_my_nervous_grasp_frame = get_frame_or_none(0)
         assert (
-            get_func_codeobj(in_my_nervous_grasp_frame) is
-            get_func_codeobj(in_my_nervous_grasp)
+            get_func_codeobject(in_my_nervous_grasp_frame) is
+            get_func_codeobject(in_my_nervous_grasp)
         )
 
         # Assert this getter returns the parent parent stack frame when passed
         # 2.
         while_fate_frame = get_frame_or_none(2)
         assert (
-            get_func_codeobj(while_fate_frame) is
-            get_func_codeobj(while_fate)
+            get_func_codeobject(while_fate_frame) is
+            get_func_codeobject(while_fate)
         )
 
     # ....................{ PASS                           }....................
@@ -112,6 +112,78 @@ def test_get_frame() -> None:
     # Assert this attribute is a callable under both CPython and PyPy.
     assert callable(get_frame) is True
 
+# ....................{ TESTS ~ getters : scope            }....................
+def test_get_frame_locals_class() -> None:
+    '''
+    Test that modifying copied frame locals preserves a live class namespace.
+    '''
+
+    from beartype._util.func.utilfuncframe import (
+        get_frame_locals,
+        get_frame_or_none,
+    )
+
+    def modify_caller_locals() -> None:
+        caller_locals = get_frame_locals(get_frame_or_none())
+        caller_locals.update(marker='modified', injected='unexpected')
+
+    class ClassScope:
+        marker = 'original'
+        modify_caller_locals()
+
+    assert ClassScope.marker == 'original'
+    assert ClassScope.__dict__.get('injected') is None
+
+
+def test_get_frame_parent_object_or_none() -> None:
+    '''
+    Test the
+    :func:`beartype._util.func.utilfuncframe.get_frame_parent_object_or_none`
+    getter.
+    '''
+
+    # ....................{ IMPORTS                        }....................
+    # Defer test-specific imports.
+    #
+    # Note that importing this submodule suffices to fully validate this getter.
+    from beartype_test.a00_unit.data.util.func import data_utilfuncframe
+
+# ....................{ TESTS ~ finders                    }....................
+def test_find_frame_caller_external() -> None:
+    '''
+    Test the
+    :func:`beartype._util.func.utilfuncframe.find_frame_caller_external` getter.
+    '''
+
+    # ..................{ IMPORTS                            }..................
+    # Defer test-specific imports.
+    from beartype._util.func.utilfuncframe import (
+        find_frame_caller_external,
+        get_frame_globals,
+        get_frame_locals,
+    )
+
+    # ..................{ LOCALS                             }..................
+    # Arbitrary local variable to be detected below.
+    THE_PHANTOMS_PALE = "Bestirr'd themselves, thrice horrible and cold;"
+
+    # ..................{ PASS ~ noop                        }..................
+    # Stack frame encapsulating the call to (and thus the body of) this unit
+    # test function.
+    test_frame = find_frame_caller_external()
+
+    # Global and local scopes of the body of this unit test function.
+    test_globals = get_frame_globals(test_frame)
+    test_locals = get_frame_locals(test_frame)
+
+    # Assert that this global scope contains this unit test function itself.
+    test_func = test_globals.get('test_find_frame_caller_external')
+    assert test_func is test_find_frame_caller_external
+
+    # Assert that this local scope contains the local variable defined above.
+    test_local = test_locals.get('THE_PHANTOMS_PALE')
+    assert test_local == "Bestirr'd themselves, thrice horrible and cold;"
+
 # ....................{ TESTS ~ iterators                  }....................
 def test_iter_frames() -> None:
     '''
@@ -120,7 +192,7 @@ def test_iter_frames() -> None:
     '''
 
     # Defer test-specific imports.
-    from beartype._util.func.utilfunccodeobj import get_func_codeobj
+    from beartype._util.func.utilfunccodeobj import get_func_codeobject
     from beartype._util.func.utilfuncframe import iter_frames
 
     # For each stack frame on the current call stack iterated by this
@@ -128,7 +200,7 @@ def test_iter_frames() -> None:
     for frame in iter_frames():
         # Code object underlying the pure-Python function encapsulated by this
         # stack frame.
-        frame_codeobj = get_func_codeobj(frame)
+        frame_codeobj = get_func_codeobject(frame)
 
         # Unqualified name of this function.
         frame_name = frame_codeobj.co_name
@@ -151,4 +223,4 @@ def test_iter_frames() -> None:
     # chosen to avoid conflicts with "pytest" itself, which is implemented in
     # pure-Python and thus runs tests with Python functions that themselves add
     # an arbitrary number of stack frames to the call stack.
-    assert tuple(iter_frames(func_stack_frames_ignore=999999)) == ()
+    assert tuple(iter_frames(ignore_frames=999999)) == ()

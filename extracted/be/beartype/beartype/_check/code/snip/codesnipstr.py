@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -12,30 +12,10 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 #FIXME: Refactor the gutted remainder of this submodule into new submodules
-#residing in the new "beartype._data.code.pep" subpackage, please. *sigh*
+#residing in the new "beartype._data.check.code.pep" subpackage, please. *sigh*
 
 # ....................{ IMPORTS                            }....................
 from beartype._data.typing.datatyping import CallableStrFormat
-
-# ....................{ HINT ~ placeholder : forwardref    }....................
-CODE_HINT_REF_TYPE_BASENAME_PLACEHOLDER_PREFIX = '${FORWARDREF:'
-'''
-Prefix of each **placeholder unqualified forward reference classname
-substring** (i.e., placeholder to be globally replaced by a Python code snippet
-evaluating to the currently visited unqualified forward reference hint
-canonicalized into a fully-qualified classname relative to the external
-caller-defined module declaring the currently decorated callable).
-'''
-
-
-CODE_HINT_REF_TYPE_BASENAME_PLACEHOLDER_SUFFIX = ']?'
-'''
-Suffix of each **placeholder unqualified forward reference classname
-substring** (i.e., placeholder to be globally replaced by a Python code snippet
-evaluating to the currently visited unqualified forward reference hint
-canonicalized into a fully-qualified classname relative to the external
-caller-defined module declaring the currently decorated callable).
-'''
 
 # ....................{ HINT ~ pep : 572                   }....................
 CODE_PEP572_PITH_ASSIGN_EXPR = '''{pith_curr_var_name} := {pith_curr_expr}'''
@@ -100,7 +80,5 @@ failed hard after breaking everything. **Avoid the mistakes of the past.**
 # This is an absurd micro-optimization. *fight me, github developer community*
 CODE_PEP484_INSTANCE_format: CallableStrFormat = (
     CODE_PEP484_INSTANCE.format)
-# CODE_PEP572_PITH_ASSIGN_AND_format: CallableStrFormat = (
-#     CODE_PEP572_PITH_ASSIGN_AND.format)
 CODE_PEP572_PITH_ASSIGN_EXPR_format: CallableStrFormat = (
     CODE_PEP572_PITH_ASSIGN_EXPR.format)

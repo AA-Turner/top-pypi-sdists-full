@@ -438,7 +438,12 @@ rmc.quikRn(rootdir=ROOTDIR)'''
             'cmds':['boot','','bt'],
             'exec':self.legacy_start,
             'desc':"start the system by selecting instance"
-            }, 
+            },
+        str(uuid1()):{
+            'cmds':['sbt','sboot','s','bts'],
+            'exec':self.legacy_search_start,
+            'desc':"start the system by selecting instance with a text filter"
+            },
         str(uuid1()):{
             'cmds':['autoboot','abt'],
             'exec':self.autoboot,
@@ -501,7 +506,7 @@ rmc.quikRn(rootdir=ROOTDIR)'''
                         print(f"cmd({cmds[cmd]['cmds']}) is not callable()")
 
     def static_colorize(self,m,n,c):
-        msg=f'{Fore.cyan}{n}/{Fore.light_yellow}{n+1}{Fore.light_red} of {c} {Fore.dark_goldenrod}{m}{Style.reset}'
+        msg=f'{Fore.cyan}{n}/{Fore.light_yellow}{n+1}{Fore.light_red} of {c} {Fore.dark_goldenrod}{m} {Fore.magenta}[db.py|LNIDX:{n}]{Style.reset}'
         return msg
 
     def __init__(self):
@@ -528,7 +533,7 @@ rmc.quikRn(rootdir=ROOTDIR)'''
         htext=[]
         ct=len(bootable_dirs)
         for num,i in enumerate(bootable_dirs):
-            msg=f"{Fore.light_green}{num}/{Fore.light_yellow}{num+1} of {Fore.light_red}{ct} -> {Fore.dark_goldenrod}{i}{Style.reset}"
+            msg=f"{Fore.light_green}{num}/{Fore.light_yellow}{num+1} of {Fore.light_red}{ct} -> {Fore.dark_goldenrod}{i} {Fore.magenta}[db.py|LNIDX:{num}]{Style.reset}"
             htext.append(msg)
         htext='\n'.join(htext)
         print(htext)
@@ -556,7 +561,7 @@ rmc.quikRn(rootdir=ROOTDIR)'''
                 htext=[]
                 ct=len(bootable_dirs)
                 for num,i in enumerate(bootable_dirs):
-                    msg=f"{Fore.light_green}{num}/{Fore.light_yellow}{num+1} of {Fore.light_red}{ct} -> {Fore.dark_goldenrod}{i}{Style.reset}"
+                    msg=f"{Fore.light_green}{num}/{Fore.light_yellow}{num+1} of {Fore.light_red}{ct} -> {Fore.dark_goldenrod}{i} {Fore.magenta}[db.py|LNIDX:{num}]{Style.reset}"
                     htext.append(msg)
                 htext='\n'.join(htext)
                 if ct > 0:
@@ -565,6 +570,61 @@ rmc.quikRn(rootdir=ROOTDIR)'''
                     if which.lower() in ['d','']:
                         return True
                     elif which.lower() in ['b',]:
+                        break
+                    elif which.lower() in ['q','quit']:
+                        exit("User chose to quit!")
+                    try:
+                        which=int(which)
+                        os.chdir(bootable_dirs[which])
+                        return True
+                    except Exception as e:
+                        print(e)
+                else:
+                    print("No Bootable Directories found!")
+                    return True
+            except Exception as e:
+                print(e)
+
+    def legacy_search_start(self,auto=False):
+        if auto:
+            return True
+        boot_dirs=self.boot_dirs
+        if not boot_dirs.exists():
+            boot_dirs.mkdir()
+
+        while True:
+            try:
+                filtered=input(f"{Fore.light_green}Search Bootable Directories{Fore.light_steel_blue}:{Fore.medium_violet_red}[q=quit,b=back]{Fore.light_yellow}")
+                if filtered in ['',' ','  ','   ']:
+                    filtered=''
+                if filtered.lower() in ['b','back']:
+                    break
+                elif filtered.lower() in ['q','quit']:
+                    exit("User chose to quit!")
+
+                bootable_dirs=[]
+                bootable_dirs.append(str(Path(".").absolute()))
+                for root,dirs,files in boot_dirs.walk(top_down=True):
+                    for d in dirs:
+                        dsub=root/d
+                        if dsub not in bootable_dirs:
+                            bootcfg=dsub/Path("__bootable__.py")
+                            if bootcfg.exists():
+                                if filtered.lower() in str(dsub).lower():
+                                    bootable_dirs.append(dsub)
+
+                htext=[]
+                ct=len(bootable_dirs)
+                for num,i in enumerate(bootable_dirs):
+                    msg=f"{Fore.light_green}{num}/{Fore.light_yellow}{num+1} of {Fore.light_red}{ct} -> {Fore.dark_goldenrod}{i} {Fore.magenta}[db.py|LNIDX:{num}]{Style.reset}"
+                    htext.append(msg)
+                htext='\n'.join(htext)
+                if ct > 0:
+                    print(htext)
+                    which=input("Please type an integer index for selection: ")
+                    if which.lower() in ['d','']:
+                        return True
+                    elif which.lower() in ['b','back']:
                         break
                     elif which.lower() in ['q','quit']:
                         exit("User chose to quit!")

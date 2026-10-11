@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -76,9 +76,9 @@ def test_equinox_filter_jit() -> None:
     #         support. You may be able work around this issue by building jaxlib
     #         from source.
     if not (
-        is_package('equinox', is_warnings_ignore=True) and
-        is_package('jax', is_warnings_ignore=True) and
-        is_package('jaxtyping', is_warnings_ignore=True)
+        is_package('equinox', is_ignore_import_exception=True) and
+        is_package('jax', is_ignore_import_exception=True) and
+        is_package('jaxtyping', is_ignore_import_exception=True)
     ):
         return
     # Else, all requisite JAX packages is importable.
@@ -186,9 +186,9 @@ def test_equinox_module_subclass() -> None:
     #         support. You may be able work around this issue by building jaxlib
     #         from source.
     if not (
-        is_package('equinox', is_warnings_ignore=True) and
-        is_package('jax', is_warnings_ignore=True) and
-        is_package('jaxtyping', is_warnings_ignore=True)
+        is_package('equinox', is_ignore_import_exception=True) and
+        is_package('jax', is_ignore_import_exception=True) and
+        is_package('jaxtyping', is_ignore_import_exception=True)
     ):
         return
     # Else, all requisite JAX packages is importable.

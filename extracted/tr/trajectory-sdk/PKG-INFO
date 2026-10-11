@@ -1,7 +1,9 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.9.14
+Version: 0.9.16
 Summary: Generated Trajectory API client and high-level workflows
+Project-URL: Documentation, https://docs.trajectory.ai
+Project-URL: Cookbook, https://github.com/Trajectorylabs/trajectory-cookbook
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -21,6 +23,16 @@ trajectories, telemetry, and runtime-backed benchmarks.
 ```bash
 pip install trajectory-sdk
 ```
+
+## Start here
+
+Follow the public [SDK onboarding guide](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/t_factory/README.md)
+to run one T Factory task and see its response, recorded reward, and completion.
+Continue with the [GSM8K walkthrough](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/gsm8k/README.md):
+diagnose one task, evaluate and train with one task per split, then upload the larger benchmark
+and diagnose a subset before training. Evaluation and training use agent and benchmark names.
+The [cookbook's example guide](https://github.com/Trajectorylabs/trajectory-cookbook#examples-guide)
+explains which recipe to use next for your benchmark's harness and grader.
 
 ## Quick start
 
@@ -98,7 +110,7 @@ reward zero and `ENV_DONE`. Process exit alone does not complete a trajectory.
 
 Define a `BenchmarkSpec` named `benchmark` with your tasks, distinct `train`/`test` splits,
 and a runtime such as `DockerfileBuild("Dockerfile")`. With the Dockerfile and harness under
-the local `benchmark/` directory, [choose or create an agent](docs/agent.mdx), then register the
+the local `benchmark/` directory, [choose or create an agent](https://github.com/Trajectorylabs/trajectory-cookbook#choose-or-create-an-agent), then register the
 benchmark and build its runtime. Replace `YOUR_AGENT_NAME` with that agent's name:
 
 ```python registration.py
@@ -127,8 +139,10 @@ It is a regular Python function; it does not require `await`.
 
 `wait_for_benchmark_images()` first calls `client.benchmarks.images.build(bench_id)` and then
 polls for completion. `client.benchmarks.images.list(bench_id)` only reads status. Once the
-runtime is ready, use the benchmark ID to start evaluation or training; uploading does not
-execute the tasks. Run this registration code with your organization's API key.
+runtime is ready, follow the GSM8K walkthrough's validation and evaluation steps; uploading
+does not execute the tasks. Start evaluation or training with `agent_name` and `benchmark_name`
+to select the latest version, or `bench_id` to select a specific version.
+Run this registration code with your organization's API key.
 
 ## Development
 

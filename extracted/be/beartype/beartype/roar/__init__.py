@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -42,6 +42,12 @@ raids native beehives for organic honey.
 from beartype.roar._roarexc import (
     # Exceptions.
     BeartypeException as BeartypeException,
+    BeartypeCallException as BeartypeCallException,
+    BeartypeCallUnavailableTypeException as BeartypeCallUnavailableTypeException,
+    BeartypeCallHintException as BeartypeCallHintException,
+    BeartypeCallHintForwardRefException as BeartypeCallHintForwardRefException,
+    BeartypeCallHintPep484ForwardRefStrException as BeartypeCallHintPep484ForwardRefStrException,
+    BeartypeCallHintPep749ForwardRefObjectException as BeartypeCallHintPep749ForwardRefObjectException,
     BeartypeCaveException as BeartypeCaveException,
     BeartypeCaveNoneTypeOrException as BeartypeCaveNoneTypeOrException,
     BeartypeCaveNoneTypeOrKeyException as BeartypeCaveNoneTypeOrKeyException,
@@ -54,6 +60,7 @@ from beartype.roar._roarexc import (
     BeartypeClawImportException as BeartypeClawImportException,
     BeartypeClawImportAstException as BeartypeClawImportAstException,
     BeartypeClawImportConfException as BeartypeClawImportConfException,
+    BeartypeClawImportlibException as BeartypeClawImportlibException,
     BeartypeConfException as BeartypeConfException,
     BeartypeConfParamException as BeartypeConfParamException,
     BeartypeConfShellVarException as BeartypeConfShellVarException,
@@ -65,13 +72,18 @@ from beartype.roar._roarexc import (
     BeartypeDoorPepUnsupportedException as BeartypeDoorPepUnsupportedException,
     BeartypeDecorException as BeartypeDecorException,
     BeartypeDecorWrappeeException as BeartypeDecorWrappeeException,
+    BeartypeDecorWrappeePep702Exception as BeartypeDecorWrappeePep702Exception,
     BeartypeDecorWrapperException as BeartypeDecorWrapperException,
     BeartypeDecorHintException as BeartypeDecorHintException,
     BeartypeDecorHintForwardRefException as BeartypeDecorHintForwardRefException,
+    BeartypeDecorHintPep484ForwardRefStrException as BeartypeDecorHintPep484ForwardRefStrException,
+    BeartypeDecorHintPep749ForwardRefObjectException as BeartypeDecorHintPep749ForwardRefObjectException,
     BeartypeDecorHintNonpepException as BeartypeDecorHintNonpepException,
     BeartypeDecorHintNonpepNumpyException as BeartypeDecorHintNonpepNumpyException,
     BeartypeDecorHintNonpepPanderaException as BeartypeDecorHintNonpepPanderaException,
     BeartypeDecorHintPepException as BeartypeDecorHintPepException,
+    BeartypeDecorHintPepArgsLenException as BeartypeDecorHintPepArgsLenException,
+    BeartypeDecorHintPepNumberedException as BeartypeDecorHintPepNumberedException,
     BeartypeDecorHintPepSignException as BeartypeDecorHintPepSignException,
     BeartypeDecorHintPepUnsupportedException as BeartypeDecorHintPepUnsupportedException,
     BeartypeDecorHintPep3119Exception as BeartypeDecorHintPep3119Exception,
@@ -101,10 +113,6 @@ from beartype.roar._roarexc import (
     BeartypeDecorHintRecursionException as BeartypeDecorHintRecursionException,
     BeartypeDecorParamException as BeartypeDecorParamException,
     BeartypeDecorParamNameException as BeartypeDecorParamNameException,
-    BeartypeCallException as BeartypeCallException,
-    BeartypeCallUnavailableTypeException as BeartypeCallUnavailableTypeException,
-    BeartypeCallHintException as BeartypeCallHintException,
-    BeartypeCallHintForwardRefException as BeartypeCallHintForwardRefException,
     BeartypeKindException as BeartypeKindException,
     BeartypeKindFrozenDictException as BeartypeKindFrozenDictException,
     BeartypeLibraryException as BeartypeLibraryException,
@@ -134,6 +142,11 @@ from beartype.roar._roarwarn import (
     BeartypeWarning as BeartypeWarning,
     BeartypeClawWarning as BeartypeClawWarning,
     BeartypeClawDecorWarning as BeartypeClawDecorWarning,
+    BeartypeClawImportlibWarning as BeartypeClawImportlibWarning,
+    BeartypeClawImportlibFileFinderPathHookInactiveWarning as
+        BeartypeClawImportlibFileFinderPathHookInactiveWarning,
+    BeartypeClawImportlibStandardFileFinderPathHookNotFoundWarning as
+        BeartypeClawImportlibStandardFileFinderPathHookNotFoundWarning,
     BeartypeConfWarning as BeartypeConfWarning,
     BeartypeConfShellVarWarning as BeartypeConfShellVarWarning,
     BeartypeDecorHintWarning as BeartypeDecorHintWarning,

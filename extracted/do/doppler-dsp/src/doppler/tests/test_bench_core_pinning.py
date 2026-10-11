@@ -146,3 +146,164 @@ def test_each_wrong_state_refuses_the_run(
     )
     assert len(problems) == 1 and names in problems[0], problems
     assert ":" in problems[0]  # "<what is wrong>: <the fix>"
+
+
+# ── bench-publish publishes a WHOLE run, or nothing ─────────────────────────
+#
+# `make bench BENCH_ARGS="..."` filters the C side only, so a run with a
+# component filter leaves a full Python snapshot beside a partial C one, and
+# `bench-publish` used to copy the newest pair unchecked: a release's numbers
+# could ship with most of the C components silently gone (#1975's review).
+
+
+def _publish_tree(root, c_rows, *, with_c=True, sources=("fir", "rs")):
+    """A repo-shaped tmp tree: bench sources, and one local snapshot pair."""
+    bench = root / "native" / "benchmarks"
+    bench.mkdir(parents=True)
+    for x in sources:
+        (bench / f"bench_{x}_core.c").write_text("")
+    hist = root / "benchmarks" / "history"
+    hist.mkdir(parents=True)
+    (hist / "T1.json").write_text('{"benchmarks": []}')
+    if with_c:
+        rows = ", ".join(f'{{"name": "{r}"}}' for r in c_rows)
+        (hist / "T1-c.json").write_text(f'{{"benchmarks": [{rows}]}}')
+
+
+def _quiet_publish(report, monkeypatch):
+    """Stub the parts of cmd_publish that probe this machine and repo."""
+    monkeypatch.setattr(report, "_build_info", lambda: ("cc 1.0", "-O2"))
+    monkeypatch.setattr(report, "_git_short_sha", lambda: "abc1234")
+    monkeypatch.setattr(report, "collect_meta", lambda *a, **k: {})
+
+
+def test_publish_refuses_a_c_snapshot_short_of_the_tree(
+    tmp_path, monkeypatch, capsys
+):
+    """A C half holding `fir` but not `rs`, the shape a BENCH_ARGS run
+    leaves, is refused, the missing component is named, and nothing is
+    written."""
+    report = _load("bench_report")
+    _publish_tree(tmp_path, ["fir::step"])
+    monkeypatch.chdir(tmp_path)
+    _quiet_publish(report, monkeypatch)
+    assert report.cmd_publish("9.9.9", "portable") == 1
+    assert "rs" in capsys.readouterr().out
+    assert not (tmp_path / "benchmarks" / "published").exists()
+
+
+def test_publish_refuses_a_run_with_no_c_half(tmp_path, monkeypatch):
+    """A Python-only snapshot (--python-only, `make bench-save`) is half a
+    release."""
+    report = _load("bench_report")
+    _publish_tree(tmp_path, [], with_c=False)
+    monkeypatch.chdir(tmp_path)
+    _quiet_publish(report, monkeypatch)
+    assert report.cmd_publish("9.9.9", "portable") == 1
+    assert not (tmp_path / "benchmarks" / "published").exists()
+
+
+def test_publish_accepts_a_whole_run(tmp_path, monkeypatch):
+    """The precondition: every component present publishes both halves, so
+    the refusals above are the check and not a publish that never works."""
+    report = _load("bench_report")
+    _publish_tree(tmp_path, ["fir::step", "rs::decode", "rs::encode"])
+    monkeypatch.chdir(tmp_path)
+    _quiet_publish(report, monkeypatch)
+    assert report.cmd_publish("9.9.9", "portable") == 0
+    out = tmp_path / "benchmarks" / "published" / "v9.9.9"
+    assert (out / "portable.json").exists()
+    assert (out / "portable-c.json").exists()
+
+
+# ── bench-interleaved, the RELEASE path, is held to the same two rules ──────
+
+
+def test_the_doctests_in_bench_interleaved_run():
+    """bench_args_set's examples are its MAKEFLAGS / environment contract."""
+    result = doctest.testmod(_load("bench_interleaved"))
+    assert result.attempted >= 4
+    assert result.failed == 0
+
+
+def test_interleaved_refuses_a_leaked_bench_args_before_building(
+    monkeypatch, capsys
+):
+    """`make bench-interleaved VERSION=X BENCH_ARGS=...` puts the variable in
+    MAKEFLAGS, which every inner `make bench` reads: refused up front."""
+    inter = _load("bench_interleaved")
+    monkeypatch.setenv("MAKEFLAGS", " -- VERSION=9.9.9 BENCH_ARGS=--c-only")
+    monkeypatch.delenv("BENCH_ARGS", raising=False)
+
+    def no_build(build):
+        raise AssertionError("built a worktree after BENCH_ARGS was seen")
+
+    monkeypatch.setattr(inter, "setup_worktree", no_build)
+    monkeypatch.setattr(sys, "argv", ["bench_interleaved.py", "9.9.9"])
+    assert inter.main() == 2
+    assert "BENCH_ARGS" in capsys.readouterr().out
+
+
+def _fake_interleaved(inter, monkeypatch, tmp_path, c_names):
+    """Stub every slow or machine-bound step; the C passes record c_names."""
+    bench = tmp_path / "native" / "benchmarks"
+    bench.mkdir(parents=True)
+    for x in ("fir", "rs"):
+        (bench / f"bench_{x}_core.c").write_text("")
+    published = tmp_path / "published"
+    monkeypatch.setattr(inter, "BENCH_SRC", str(bench))
+    monkeypatch.setattr(inter, "PUBLISHED", str(published))
+    monkeypatch.delenv("MAKEFLAGS", raising=False)
+    monkeypatch.delenv("BENCH_ARGS", raising=False)
+    monkeypatch.setattr(inter, "machine_not_ready", lambda: [])
+    monkeypatch.setattr(
+        inter, "setup_worktree", lambda b, commit: str(tmp_path / b)
+    )
+    # The provenance line asks the real repository about the stamp (#1976);
+    # these tests are about the completeness refusal, so it is held fixed.
+    monkeypatch.setattr(
+        inter, "_provenance", lambda commit, base: f"measuring {commit}"
+    )
+    monkeypatch.setattr(inter, "_build_info", lambda wt: ("cc 1.0", "-O2"))
+    monkeypatch.setattr(inter, "fastest_cpus", lambda: None)
+    monkeypatch.setattr(inter, "collect_meta", lambda *a, **k: {})
+
+    class _Done:
+        stdout = "abc1234\n"
+        returncode = 0
+
+    monkeypatch.setattr(inter, "_run", lambda *a, **k: _Done())
+    rows = [{"name": f"{n}::x", "stats": {"mean": 1.0}} for n in c_names]
+    monkeypatch.setattr(
+        inter,
+        "bench_once",
+        lambda wt, cpus=None: ({"benchmarks": []}, {"benchmarks": rows}),
+    )
+    monkeypatch.setattr(
+        sys, "argv", ["bench_interleaved.py", "9.9.9", "-k", "1"]
+    )
+    return published
+
+
+def test_interleaved_refuses_a_c_set_short_of_the_tree(
+    tmp_path, monkeypatch, capsys
+):
+    """A bench that crashed in every pass wrote no JSON and jm skips it, so
+    the merged set lacks it: refused, nothing written."""
+    inter = _load("bench_interleaved")
+    published = _fake_interleaved(inter, monkeypatch, tmp_path, ["fir"])
+    assert inter.main() == 1
+    assert "rs" in capsys.readouterr().out
+    assert not published.exists() or not any(published.rglob("*.json"))
+
+
+def test_interleaved_publishes_a_whole_run(tmp_path, monkeypatch):
+    """The precondition: with every component recorded, both builds publish,
+    so the refusal above is the check and not a path that never works."""
+    inter = _load("bench_interleaved")
+    published = _fake_interleaved(inter, monkeypatch, tmp_path, ["fir", "rs"])
+    assert inter.main() == 0
+    out = published / "v9.9.9"
+    for build in ("portable", "native"):
+        assert (out / f"{build}.json").exists()
+        assert (out / f"{build}-c.json").exists()

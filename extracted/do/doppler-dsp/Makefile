@@ -78,6 +78,25 @@ DOCKER_IMAGE ?= doppler
 DOCKER_TAG          ?= dev
 DOCKER_VERSION      ?= $(shell grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
 JM_VERSION          ?= $(shell grep -m1 '^jm_version' just-makeit.toml | cut -d'"' -f2)
+# Where every STOCK image (a Docker Official Image: debian, ubuntu, python,
+# almalinux, fedora, nats) is pulled from -- the one home for it. Docker Hub
+# by bare name is anonymous in CI, and with several PRs in flight its 429 rate
+# limit failed the Docker, glibc and package legs of unrelated PRs (#1950).
+# AWS's ECR Public mirror of the official images needs no credentials and
+# serves the same digests (checked for every tag doppler pulls). Dockerfiles
+# take it as `ARG STOCK_REGISTRY` with no default; `make lint-stock-images`
+# refuses a stock image named any other way.
+STOCK_REGISTRY      ?= public.ecr.aws/docker/library
+# ECR Public rate-limits anonymous pulls per IP too, and runners share IPs, so
+# a stock image is PULLED only through scripts/stock-pull.sh, which retries a
+# rate limit with backoff (#1979): before a `docker run --pull=never`, and as
+# `$(STOCK_PULL) --dockerfile F` before a `docker build -f F`, because
+# BuildKit does not retry a FROM. `make lint-stock-images` holds every site.
+STOCK_PULL          = STOCK_REGISTRY=$(STOCK_REGISTRY) bash scripts/stock-pull.sh
+
+# The uv pin, read from pyproject.toml's [tool.uv] required-version by the
+# script that gates it -- one parser for one declaration (doppler#1940).
+UV_VERSION          ?= $(shell python3 scripts/check_uv_pin.py --print-version)
 EXAMPLES_DOCKERFILE := deploy/docker/Dockerfile.examples
 NPROC       ?= $(shell nproc 2>/dev/null || \
                        sysctl -n hw.logicalcpu 2>/dev/null || echo 4)
@@ -149,6 +168,17 @@ MDFORMAT   = $(DEV_RUN) mdformat
 PRE_COMMIT = $(DEV_RUN) pre-commit
 SYNC_CMD   = $(UV) sync
 
+# The ONE spelling of a lock write; `release-pr`'s bump and `jm-pin` both use
+# it. A plain `uv lock` keeps any lock that still resolves, whoever wrote it,
+# so a foreign uv's marker spelling survives until the next real change and
+# then lands in that commit (308 lines in v0.65.0's release, doppler#1940).
+# Naming this project in `--upgrade-package` moves no other package (measured:
+# 0 version changes) but makes uv re-serialize the whole file, so the
+# committed lock is always exactly what the pinned uv writes. lint-uv-lock
+# runs the same command `--locked` to prove it.
+PY_PROJECT = $(shell grep -m1 '^name = ' pyproject.toml | cut -d'"' -f2)
+LOCK_CMD   = $(UV) lock --upgrade-package $(PY_PROJECT)
+
 # ── lint-<tool> dispatch ─────────────────────────────────────────────────────
 # LINT_TOOLS stamps out one `lint-<tool>` target each; .pre-commit-config.yaml
 # calls `make -s lint-<tool>`, so a hook cannot run a tool differently from the
@@ -162,7 +192,8 @@ LINT_TOOLS   = conflict ruff ruff-format mdformat clang-format \
                bench-timer bare-libm gnu-flags workflow-tag-triggers \
                version-literals text-encoding cmake-script-policy \
                why-param doc-claims public-symbols curl-fail \
-               warnings-exempt
+               warnings-exempt stock-images uv-pin uv-lock tlm-name-join \
+               ring-internals spectrogram-mode
 FORMAT_TOOLS = ruff-format ruff mdformat clang-format
 
 # ruff reads its own excludes from pyproject's [tool.ruff] extend-exclude
@@ -286,6 +317,16 @@ LINT_version-literals = python3 scripts/version_sites.py --check-literals
 # converted when the gate landed.
 LINT_fmod-fold = $(UV) run python scripts/check_fmod_fold_sites.py
 
+# A ring's head, tail and mask are buffer.h's alone. acq, detector and
+# detector2d each rebuilt the ring's operations from the struct (free space,
+# a frame pointer, a reset by two stores) until #1895 moved them onto its
+# API; this holds them there. What is left is a ratchet that only shrinks:
+# scripts/.ring-internals-ratchet, against the merge base with
+# RING_INTERNALS_BASE (#1426).
+RING_INTERNALS_BASE ?= origin/main
+LINT_ring-internals = $(UV) run python scripts/check_ring_internals.py \
+    --base $(RING_INTERNALS_BASE)
+
 # A wire format's full scale has one home, dp_format_full_scale(). doppler
 # had FOUR private copies of the constant plus the arithmetic around it
 # (wfm_sink, wfm_writer, wfm_reader, pocketfft) and they had already drifted:
@@ -310,6 +351,15 @@ LINT_full-scale = $(UV) run python scripts/check_full_scale_sites.py
 # messages and sleeps intervals, which is a different clock for a different
 # job, and it is POSIX-only by its own CMake guard.
 LINT_bench-timer = $(UV) run python scripts/check_bench_timer.py
+
+# A telemetry probe name "<prefix>.<suffix>" has one home, dp_tlm_name_join()
+# in dp_tlm_core.c, which refuses a name that would not fit. Ten
+# set_telemetry implementations used a bare snprintf, which truncates
+# silently and aliases two probes onto one registry entry (#676). The gate
+# refuses a "%s. literal in any file that registers or attaches probes,
+# composites included (#1944). No allowlist -- every site was converted by
+# #1898.
+LINT_tlm-name-join = $(UV) run python scripts/check_tlm_name_join.py
 
 # libm has one spelling in a link line, ${DP_MATH_LIBRARY} -- resolved once in
 # the root CMakeLists by find_library, so it is a path on POSIX and empty on
@@ -382,6 +432,14 @@ LINT_cmake-script-policy = python3 scripts/check_cmake_script_policy.py
 LINT_header-example-arity = \
     $(UV) run python scripts/check_header_example_arity.py
 
+# dB rows are asked for by name (#1968): no dp_spectrogram_create call in a
+# tracked .c, .h or .md passes its mode as an integer literal. The constructor
+# takes a plain int, so the compiler cannot refuse `0` or `1`, and a number
+# hides which mode was meant -- #2097 swapped the values so that the zero
+# value is power, and a numbered call would have changed meaning without a
+# diff. Registration-free (git ls-files). Plain python3: stdlib only.
+LINT_spectrogram-mode = python3 scripts/check_spectrogram_mode.py
+
 # A refusal names its cause through `const char **why` -- a static sentence,
 # written only on refusal, NULL allowed, never freed. Every public refusal API
 # already did, and nothing said so, so the next one proposed a second shape
@@ -438,6 +496,48 @@ LINT_workflow-tag-triggers = $(UV) run python scripts/check_workflow_tag_trigger
 # body, and `curl | bash` runs one (doppler#1738). Every curl in
 # deploy/docker/ and .github/ must say --fail.
 LINT_curl-fail = $(UV) run python scripts/check_curl_fail.py
+
+# A stock image named by its bare Docker Hub name is an anonymous pull, and
+# with several PRs in flight Docker Hub's 429 rate limit failed the Docker,
+# glibc and package legs of PRs that changed nothing near them (#1950). Every
+# stock image comes through STOCK_REGISTRY; the repo's own images (named for
+# DOCKER_IMAGE) and other registries' are fine by rule. Vendored files are
+# canonical's to fix, so their findings are listed, not failed.
+# scripts/.stock-pull-exempt may only shrink from its state at the merge base
+# with STOCK_IMAGES_BASE; the pre-commit job checks out at fetch-depth 0, so
+# origin/main is there to read (#1979).
+STOCK_IMAGES_BASE ?= origin/main
+LINT_stock-images = $(UV) run python scripts/check_stock_images.py \
+    --own-prefix $(DOCKER_IMAGE) --vendored "$(VENDORED_FILES) standard.mk" \
+    --base $(STOCK_IMAGES_BASE)
+
+# uv.lock's bytes depend on the uv that writes it (doppler#1940), so uv is
+# pinned once, in pyproject.toml's [tool.uv] required-version, and uv refuses
+# every project command on any other version. This holds the INSTALLERS to
+# it: setup-uv only through the composite action with `version-file`, every
+# other installer through UV_VERSION.
+LINT_uv-pin = $(UV) run python scripts/check_uv_pin.py
+
+# The artifact half: the committed uv.lock is exactly what the pinned uv
+# writes. Checking the pin cannot establish that -- a textual merge or a hand
+# edit produces a lock no uv wrote -- and `uv lock --check` cannot either: it
+# passed on a lock in another uv's marker spelling, because uv keeps any lock
+# that still resolves. LOCK_CMD forces the re-serialization; `--locked`
+# makes it a read-only assertion that nothing would change. uv exits 1 for
+# exactly that and 2 for its own errors -- an off-pin uv among them, which
+# has already said why -- so only a 1 is explained as a stale lock.
+define LINT_uv-lock
+@if $(LOCK_CMD) --locked -q; then \
+    echo "lint-uv-lock: OK -- uv.lock is exactly what uv $(UV_VERSION) writes"; \
+else \
+    rc=$$?; \
+    if [ $$rc -eq 1 ]; then \
+        echo "lint-uv-lock: uv.lock is not what uv $(UV_VERSION) writes."; \
+        echo "  Re-lock with the pinned uv and commit the result: make lock"; \
+    fi; \
+    exit $$rc; \
+fi
+endef
 
 # ffi/rust/ is the one binding jm does not generate, so `jm status --check`
 # has nothing to say about it and an `extern "C"` block is a promise no
@@ -540,7 +640,10 @@ TEST_FAST_CMD = $(LEAK_CHECK) --ctest -- \
 # and a text-mode .pyi shares ONE doctest namespace across the whole file, so
 # any future finer-than-file split would break name bindings that earlier
 # examples in the same file establish.
-PYTEST_ARGS     ?=
+# Plain `=`, not `?=`: the command line still sets these, but an exported
+# PYTEST_ARGS or TEST_PATHS left in a shell can no longer silently narrow
+# the full suite, or the coverage step that passes PYTEST_ARGS itself.
+PYTEST_ARGS     =
 PYTEST_SELECT   = -m "not docs_snippets and not examples"
 # Every src/doppler/<mod>/benchmarks directory, derived not listed.
 PYTEST_BENCH_DIRS = $(wildcard src/doppler/*/benchmarks)
@@ -565,8 +668,23 @@ PYTEST_BENCH_DIRS = $(wildcard src/doppler/*/benchmarks)
 # 268s step, on all SIX Python versions, ~14 minutes a run spent timing code
 # on a shared runner and discarding the numbers. Timing on a shared runner is
 # also the thing doppler#543 already deleted perf-regression.yml over.
-TEST_PYTHON_CMD = $(MEM_GUARD_CMD) $(LEAK_CHECK) -- uv run pytest src/ -v $(PYTEST_SELECT) \
-                      --benchmark-disable -n auto $(PYTEST_ARGS)
+#
+# TEST_PATHS is WHAT pytest collects, and the only knob that narrows it:
+# `make test-python TEST_PATHS=src/doppler/spectral/tests/test_psd.py`
+# runs that file under the same mem-guard, leak check and flags as the full
+# suite. Space-separated files or directories. A path given in PYTEST_ARGS
+# instead is collected IN ADDITION to src/, so the whole suite runs (#1998),
+# which is why sessions reached for a raw `pytest <file>` that skipped the
+# guard and the leak check. `-k` still selects by name within TEST_PATHS.
+# Not offered on `coverage`: it runs a copied package, and its number is a
+# whole-tree number the coverage gates compare, which a narrowed run would
+# quietly redefine.
+TEST_PATHS      = src/
+TEST_PYTHON_CMD = $(MEM_GUARD_CMD) $(LEAK_CHECK) -- uv run pytest $(TEST_PATHS) -v \
+                      $(PYTEST_SELECT) --benchmark-disable -n auto $(PYTEST_ARGS)
+# The standard target's own description is generic; this line wins in
+# `make help` (it is read before standard.mk) and names the knob.
+test-python: ## Run the Python test suite (TEST_PATHS=<files/dirs> to narrow)
 TEST_RUST_CMD   = cargo test --manifest-path $(RUST_DIR)/Cargo.toml
 
 # Fail-closed: every src/doppler/examples/*.py (plus the standalone example) is
@@ -590,7 +708,7 @@ TEST_ALL_DEPS = test test-examples test-python test-examples-python
 # a fresh runner, wrong for a dev box running it twice.
 nats-up: ## Start the NATS JetStream broker the nats:// stream tests need
 	@docker rm -f nats >/dev/null 2>&1 || true
-	@bash scripts/start-nats.sh
+	@STOCK_REGISTRY=$(STOCK_REGISTRY) bash scripts/start-nats.sh
 	@$(NATS_STREAMS) --check
 
 # The remedy `nats-up` names. Deleting is prefix-guarded to DP_WORK_*, so a
@@ -734,7 +852,8 @@ GATES_DEPS    = lint changelog-check release-notes-size-check \
                 vendored-collision-check \
                 test-asan test-ubsan test-tsan warnings-check \
                 consumer-faces-check burst-pipeline-check uno-q-check uno-q-nats-check glibc-gate \
-                check-isotime-parity coverage coverage-gate \
+                check-isotime-parity nats-vendor-fresh-check \
+                coverage coverage-gate \
                 docker-examples package-linux-smoke \
                 issues-check
 
@@ -748,6 +867,26 @@ GATES_DEPS    = lint changelog-check release-notes-size-check \
 GATES_CI_EXTRA = issues-check
 
 # ── Build ────────────────────────────────────────────────────────────────────
+# The vendored nats.c is configured from an EMPTY directory (#1936), because
+# CMake drops the custom command's -D options when a stale cache names
+# another compiler. Every CI tree is fresh, so nothing else exercises it:
+# this seeds that stale cache (same compiler, another path), runs the real
+# `make build` for the vendor target, and checks the vendor's CACHE for every
+# option the custom command passes. The cache, not the exit code: with
+# protobuf-c and OpenSSL installed the old bug builds green. Its own build
+# dir, so it means the same on a dev box as in CI.
+#
+# The script DELETES that dir, so: plain `=` (an exported NATS_FRESH_DIR
+# from the environment cannot aim it), the main tree is passed as
+# --protect, and the script refuses anything outside the checkout, the
+# checkout itself, or an existing dir it did not make. And the recipe does
+# not name $(MAKE): GNU make runs any recipe that does even under `make -n`
+# (standard.mk documents the hazard), so the script runs make itself.
+NATS_FRESH_DIR = build-nats-fresh
+nats-vendor-fresh-check: ## Prove the vendored nats.c keeps its options after a compiler change
+	@python3 scripts/check_nats_vendor_fresh.py \
+	    --build-dir $(NATS_FRESH_DIR) --protect $(BUILD_DIR) --cmake "$(CMAKE)"
+
 # Compile through ccache when it is installed, and silently not when it is
 # not: bootstrap.toml lists it, but a checkout predating that, or a box
 # provisioned another way, must still build. DERIVED rather than declared for
@@ -863,6 +1002,7 @@ uv run python scripts/check_doc_face_parity.py
 uv run python scripts/check_init_param_optionality.py
 uv run python scripts/check_out_param_guard.py
 uv run python scripts/check_c_api_link_refs.py
+uv run python docs/design/spectrogram-measurements/u1u4.py --check
 endef
 
 # docs-check's invariants WITHOUT the site build, so pre-commit can run them.
@@ -975,23 +1115,25 @@ BENCH_THRESHOLD ?= 0.30
 #   documentation changes stops being read.
 BENCH_ALLOW ?= test_bench_execute_decim_64k
 
-# `jm bench` covers jm's COMPONENTS — the objects in objects/*.toml — and
-# structurally cannot see anything else. A `c_deps` entry (conv, rs, ccsds_tm)
-# or a function-only module (mpsk, ber, snr, util, detection) is not a
-# component, so its bench binary is built by CMake and run by NOTHING:
-# `just-makeit bench util` answers `unknown component(s): util`.
+# `jm bench` runs every benchmark CMake builds, not only jm's components: a
+# `c_deps` entry (conv, rs, spectrogram) or a function-only module (mpsk,
+# ber, snr, util, detection) has a bench target and no manifest object, and
+# since just-makeit#1023 jm discovers those by scanning the built targets.
+# Observed 2026-10-09 on the pinned 0.100.1: `make bench BENCH_ARGS=
+# "--c-only conv rs spectrogram mpsk ber snr util detection"` ran each and
+# wrote its JSON.
 #
-# So ten benchmarks in this tree do not run here, and that is a known,
-# tracked gap rather than an oversight — just-makeit#1023 asks jm to run
-# them, and doppler deliberately does not carry a local runner that the fix
-# would immediately retire. Until it ships they are run by hand:
-#
-#     cmake --build build --target bench_conv_core && ./build/.../bench_conv_core
-#
-# scripts/check_bench_coverage.py holds what CAN be held meanwhile — every
-# one of them has a CMake target, records a measurement, and writes its JSON
-# under the name a collector opens. See docs/dev/contributing/benchmarking.md.
-BENCH_CMD         = uv run just-makeit bench
+# scripts/check_bench_coverage.py holds the rest -- every one of them has a
+# CMake target, records a measurement, and writes its JSON under the name a
+# collector opens. See docs/dev/contributing/benchmarking.md.
+# BENCH_ARGS is passed to `jm bench`: component names filter the C side
+# ONLY -- the whole Python suite still runs and is saved beside the partial
+# C snapshot -- so add --c-only when naming components, e.g.
+# `make bench BENCH_ARGS="--c-only spectrogram conv"`. bench-publish refuses
+# a C snapshot short of the tree's benchmarks, so a filtered run cannot be
+# published by mistake.
+BENCH_ARGS        ?=
+BENCH_CMD         = uv run just-makeit bench $(BENCH_ARGS)
 BENCH_SAVE_CMD    = uv run just-makeit bench --python-only --tag base
 BENCH_COMPARE_CMD = uv run just-makeit bench --check \
                         --python-only --baseline base \
@@ -1039,10 +1181,11 @@ COV_PATCH_MIN ?= 90
 # kills here, the last a C test that read /dev/full without end. This target
 # runs everything the repo has, instrumented, eight-wide, so it is where a
 # runaway has the most company to take with it. `COV_GUARD=` disables;
-# `MEM_GUARD_MAX=4G` overrides the 3/4-of-RAM default. The probe's
-# interpreter is exported rather than prefixed, because the ctest phase
-# runs from inside $(COV_DIR) and reaches the script through $(CURDIR)/ --
-# a prefix there would be taken for the path.
+# `MEM_GUARD_MAX=4G` holds this run's own scope to 4G, under the shared
+# 3/4-of-RAM ceiling it still sits in: it can only LOWER the limit, and only
+# for itself. The probe's interpreter is exported rather than prefixed,
+# because the ctest phase runs from inside $(COV_DIR) and reaches the script
+# through $(CURDIR)/ -- a prefix there would be taken for the path.
 COV_GUARD     ?= $(MEM_GUARD_CMD)
 # The instrumented C suite excludes the `sweep` validators, exactly as the
 # three sanitizer suites do (SAN_EXCLUDE_SWEEP). Spelled as its own variable
@@ -1404,7 +1547,7 @@ VERSION_PROBES := $(foreach L,$(VERSION_SITE_LABELS),$(VERSION_PROBE_NEWLINE)$(L
 # silent direction of the old two-list arrangement cannot recur.
 define BUMP_VERSION_CMD
 $(VERSION_SITES_CMD) --write $(VERSION)
-uv lock
+$(LOCK_CMD)
 cd ffi/rust && cargo metadata --offline --format-version 1 >/dev/null
 @$(MAKE) --no-print-directory docs-relink
 endef
@@ -1457,7 +1600,7 @@ endef
 # ── Clean ────────────────────────────────────────────────────────────────────
 CLEAN_PATHS = $(BUILD_DIR) $(PY_BUILD_DIR) $(UBSAN_DIR) $(TSAN_DIR) \
               $(ASAN_DIR) \
-              $(GLIBC_BUILD_DIR) \
+              $(GLIBC_BUILD_DIR) $(COV_DIR) $(NATS_FRESH_DIR) \
               docs/doxygen/ site/ \
               *.png bench_*.json zensical.toml __pycache__
 
@@ -1482,7 +1625,9 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
                 complex-helpers-check sdist release-notes \
                 release-pr release-notes-body-check \
                 release-freshness-check \
-                print-jm-version nats-up nats-down nats-purge \
+                print-jm-version print-stock-registry print-uv-version \
+                print-python-matrix print-python-primary lock \
+                nats-up nats-down nats-purge \
                 docs-relink docs-drift-check drift-check changelog-check \
                 release-notes-size-check workflow-syntax-check \
                 ci-aggregator-check python-versions-check \
@@ -1517,14 +1662,15 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
                 ccsds-isolation-check instrumented-sweep-check mem-guard-check \
                 container-mount-check \
                 cargo-lock-check design-pages-check wfmgen-flag-matrix \
-                gallery-scripts-check \
+                gallery-scripts-check bench-commits-check \
+                nats-vendor-fresh-check \
                 ci-run ci-gates ccache-stats \
                 wheel-check wheel-smoke release-smoke release-smoke-pypi \
                 check-wheel-tags release-wheel-tags \
                 release-smoke-packages \
                 bench-python \
                 bench-interleaved bench-publish bench-docs bench-stream \
-                bench-report \
+                bench-report bench-restamp \
                 docker-runtime docker-sdk docker-downstream docker-stream \
                 docker-examples smoke-image
 
@@ -1620,7 +1766,8 @@ lint: tests-ssot characterization-check validation-report-check changelog-check 
       bench-coverage-check kwarg-parity-check doc-sections-check \
       ccsds-isolation-check container-mount-check cargo-lock-check \
       instrumented-sweep-check mem-guard-check \
-      design-pages-check gallery-scripts-check drift-check doxygen-check
+      design-pages-check gallery-scripts-check bench-commits-check \
+      drift-check doxygen-check
 
 # The base the assertion ratchet compares against, same shape as COV_BASE:
 # no test file may end up with FEWER assertions than the base ref has. A
@@ -1630,6 +1777,17 @@ lint: tests-ssot characterization-check validation-report-check changelog-check 
 ASSERT_BASE ?= origin/main
 tests-ssot: ## Verify no C test re-defines dp_test.h's macros or loses assertions
 	@uv run python scripts/check_tests_ssot.py --base $(ASSERT_BASE)
+
+# A published benchmark set stamps doppler_meta.commit as its provenance, and
+# a reader must be able to check that commit out. A set measured on a release
+# branch, then squash- or rebase-merged, names a commit main never receives;
+# v0.48.0 and v0.65.0 were restamped by hand, and four sets were not (#1322).
+# Needs full history: CI's lint job checks out with fetch-depth: 0, and a
+# shallow clone fails naming the depth. Sets that can never be fixed are in
+# scripts/.bench-commit-exempt, which only shrinks.
+BENCH_COMMIT_BASE ?= origin/main
+bench-commits-check: ## Fail when a published benchmark names a commit main cannot reach
+	@uv run python scripts/check_bench_commits.py --base $(BENCH_COMMIT_BASE)
 
 # On `lint` rather than `bench` deliberately: `bench` is the occasional
 # activity (see bench-python), so a gate hung off it reports a missing
@@ -1662,7 +1820,7 @@ workflow-syntax-check: ## Verify every workflow `run:` block is valid shell
 ci-aggregator-check: ## Verify every ci.yml job feeds the required `CI passed` check
 	@uv run python scripts/check_ci_aggregator.py
 
-python-versions-check: ## Verify the Python classifiers match requires-python
+python-versions-check: ## Verify the Python classifiers match requires-python and release.yml's build lists
 	@uv run python scripts/python_versions.py
 
 kwarg-parity-check: ## Verify each binding accepts the keywords its stub publishes
@@ -2583,7 +2741,10 @@ package-linux: ## Build the .deb and .rpm packages inside the manylinux_2_28 ima
 # the consumer's toolchain, which the image already carries. So the leg loses
 # nothing and stops reaching a mirror that 404s mid-sync. The other three
 # stay stock: we have no image for them, and there the archive is the point.
-PKG_SMOKE_DISTROS ?= debian:stable $(CI_IMAGE_2404) almalinux:8 fedora:latest
+# Stock, but pulled through STOCK_REGISTRY (#1950): the same images, not
+# Docker Hub's anonymous quota.
+PKG_SMOKE_DISTROS ?= $(STOCK_REGISTRY)/debian:stable $(CI_IMAGE_2404) \
+                     $(STOCK_REGISTRY)/almalinux:8 $(STOCK_REGISTRY)/fedora:latest
 
 # $(call PKG_SMOKE_RUN,<target>,<packages dir, relative to the checkout>) --
 # the distro loop both package smokes run, so the packages CI just built and
@@ -2599,7 +2760,8 @@ PKG_SMOKE_DISTROS ?= debian:stable $(CI_IMAGE_2404) almalinux:8 fedora:latest
 PKG_SMOKE_RUN = for d in $(PKG_SMOKE_DISTROS); do \
 	    echo ">> $$d"; \
 	    net=; [ "$$d" = "$(CI_IMAGE_2404)" ] && net=--network=none; \
-	    docker run --rm $$net -v "$(CURDIR)":/w:ro -w /w $$d \
+	    $(STOCK_PULL) $$d || { echo "$(1): could not pull $$d"; exit 1; }; \
+	    docker run --rm --pull=never $$net -v "$(CURDIR)":/w:ro -w /w $$d \
 	        bash tests/install/linux-package-smoke.sh /w/$(2) \
 	        || { echo "$(1): FAILED in $$d"; exit 1; }; \
 	 done; \
@@ -2818,6 +2980,28 @@ sdist: ## Build a source distribution into dist/
 # from whichever one the caller happened to use. This is the one that counts.
 print-jm-version: ## Print the just-makeit pin (release.yml reads it from here)
 	@echo "$(JM_VERSION)"
+
+# The stock-image registry, for the builds release.yml runs itself (#1950).
+print-stock-registry: ## Print the registry stock images are pulled through
+	@echo "$(STOCK_REGISTRY)"
+
+# The same arrangement for the uv pin, which the SDK image bakes in.
+print-uv-version: ## Print the uv pin (release.yml reads it from here)
+	@echo "$(UV_VERSION)"
+
+# The supported Pythons as a JSON list, from pyproject.toml's classifiers --
+# the list ci.yml's matrix is built from -- for release.yml's post-release
+# PyPI smoke, which installs one wheel per Python on each platform
+# (doppler#1817). `python3` rather than the venv: verify-version reads it
+# before anything installs uv, and the script runs on any Python >= 3.9.
+print-python-matrix: ## Print the supported Pythons as JSON (ci.yml and release.yml read it here)
+	@python3 scripts/python_versions.py --matrix
+
+print-python-primary: ## Print the primary Python leg, the floor (ci.yml reads it here)
+	@python3 scripts/python_versions.py --primary
+
+lock: ## Re-lock uv.lock with the pinned uv (LOCK_CMD, the one spelling)
+	$(LOCK_CMD)
 
 # The ONE definition of the GitHub Release body — release.yml's github-release
 # job pipes this into `body_path` rather than carrying its own copy of the
@@ -3106,7 +3290,7 @@ endif
 	    exit 1; }
 	@sed -i 's/^jm_version = ".*"/jm_version = "$(JM)"/' just-makeit.toml
 	@$(MAKE) --no-print-directory docs-relink
-	@uv lock
+	@$(LOCK_CMD)
 	@echo "jm-pin: pinned $(JM). Next: make jm-apply, then make drift-check."
 
 # `jm upgrade` is the migration step a jm release can ask for (0.75.0: the
@@ -3596,11 +3780,18 @@ endif
 # metadata endpoint, which says a version is LISTED, not that it installs.
 # Rehearsable against any released version, which is what makes it testable
 # before a tag exists: `make release-smoke-pypi VERSION=0.49.0`.
-release-smoke-pypi: ## Smoke-test the PUBLISHED wheel from PyPI (VERSION=x.y.z)
+#
+# SMOKE_PYTHON=3.N installs into a venv on that Python, so the wheel pip picks
+# is that Python's (doppler#1817: the cp313/cp314 win_amd64 wheels shipped
+# uninstallable while the smoke only ever ran cp312). Empty, the venv takes
+# whatever Python uv finds, as before.
+SMOKE_PYTHON ?=
+release-smoke-pypi: ## Smoke-test the PUBLISHED wheel from PyPI (VERSION=x.y.z [SMOKE_PYTHON=3.N])
 ifndef VERSION
-	@echo "usage: make release-smoke-pypi VERSION=<x.y.z>"; exit 1
+	@echo "usage: make release-smoke-pypi VERSION=<x.y.z> [SMOKE_PYTHON=3.N]"; exit 1
 endif
-	bash tests/install/wheel-smoke.sh --pypi "$(VERSION)"
+	bash tests/install/wheel-smoke.sh --pypi "$(VERSION)" \
+	    $(if $(SMOKE_PYTHON),--python "$(SMOKE_PYTHON)")
 
 # Every wheel's filename must be one pip would install (doppler#1817): parsed
 # by packaging's parse_wheel_filename, and at least one of its tags among
@@ -3881,7 +4072,10 @@ GLIBC_DOCKERFILE := deploy/docker/Dockerfile.glibc228
 # free to drift — the exact thing Dockerfile.glibc228's own header says moving
 # it out of ci.yml was meant to stop.
 glibc-image: ## Build the glibc $(GLIBC_MAX) toolchain image (shared: glibc-gate, docker-stream)
-	docker build -f $(GLIBC_DOCKERFILE) -t $(GLIBC_IMAGE) deploy/docker
+	$(STOCK_PULL) --dockerfile $(GLIBC_DOCKERFILE)
+	docker build -f $(GLIBC_DOCKERFILE) \
+	    --build-arg STOCK_REGISTRY=$(STOCK_REGISTRY) \
+	    -t $(GLIBC_IMAGE) deploy/docker
 
 glibc-gate: glibc-image ## Build in a glibc $(GLIBC_MAX) container, then run glibc-check on it
 # Run as the caller, not root: the build tree lands in the bind-mounted
@@ -4345,7 +4539,8 @@ bench-interleaved: ## Measure portable + native alternately, denoised (VERSION=)
 ifndef VERSION
 	@echo "usage: make bench-interleaved VERSION=X.Y.Z [K=5]"; exit 1
 endif
-	uv run python scripts/bench_interleaved.py $(VERSION) $(if $(K),-k $(K),)
+	uv run python scripts/bench_interleaved.py $(VERSION) $(if $(K),-k $(K),) \
+	    --base $(BENCH_COMMIT_BASE)
 
 bench-publish: ## Stamp one build's numbers for a release (VERSION= BUILD=)
 ifndef VERSION
@@ -4356,6 +4551,18 @@ endif
 
 bench-docs: ## Render docs/benchmarks.md from the published numbers
 	uv run python scripts/bench_report.py --page --out docs/benchmarks.md
+
+# A set measured on a branch that was then squash- or rebase-merged names a
+# commit main never receives, which bench-commits-check refuses (#1322).
+# This restamps doppler_meta.commit to the ONE commit on main with the
+# identical tree, leaves commit_info.id (the literal checkout) alone, and
+# re-renders the page; bench-docs is a no-op for a set it does not show.
+bench-restamp: ## Restamp a published set onto main's tree-identical commit (VERSION=)
+ifndef VERSION
+	@echo "usage: make bench-restamp VERSION=X.Y.Z"; exit 1
+endif
+	uv run python scripts/bench_restamp.py $(VERSION) --base $(BENCH_COMMIT_BASE)
+	@$(MAKE) --no-print-directory bench-docs
 
 # Transport (P0) bench: NATS firehose throughput + status-plane RTT via the
 # bench_stream C harness. Self-contained — starts a JetStream broker on an
@@ -4376,24 +4583,35 @@ bench-report: ## Portable-build trend across releases
 # gate and the published-image gate cannot drift (see the script header).
 
 docker-runtime: ## Build+smoke the runtime "try it" image (needs the wheel on PyPI)
+	$(STOCK_PULL) --dockerfile deploy/docker/Dockerfile.cli
 	docker build -f deploy/docker/Dockerfile.cli \
+	    --build-arg STOCK_REGISTRY=$(STOCK_REGISTRY) \
+	    --build-arg STOCK_REGISTRY=$(STOCK_REGISTRY) \
 	    --build-arg DOPPLER_VERSION=$(DOCKER_VERSION) \
 	    -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
 	bash scripts/smoke-image.sh runtime $(DOCKER_IMAGE):$(DOCKER_TAG)
 
 docker-sdk: ## Build+smoke the SDK / develop image (doppler-sdk)
+	$(STOCK_PULL) --dockerfile $(EXAMPLES_DOCKERFILE)
 	docker build -f $(EXAMPLES_DOCKERFILE) --target sdk \
+	    --build-arg STOCK_REGISTRY=$(STOCK_REGISTRY) \
+	    --build-arg STOCK_REGISTRY=$(STOCK_REGISTRY) \
 	    --build-arg BUILD_BASE=$(CI_IMAGE_2404) \
 	    --build-arg JM_VERSION=$(JM_VERSION) \
+	    --build-arg UV_VERSION=$(UV_VERSION) \
 	    -t $(DOCKER_IMAGE)-sdk:$(DOCKER_TAG) .
 	bash scripts/smoke-image.sh sdk $(DOCKER_IMAGE)-sdk:$(DOCKER_TAG)
 
 docker-downstream: ## Build+smoke the iqtools showcase image (doppler-downstream-jm)
 # The build itself runs `make test` inside the image, so a green build IS the
 # smoke; the run only confirms the shipped, pre-built package imports.
+	$(STOCK_PULL) --dockerfile $(EXAMPLES_DOCKERFILE)
 	docker build -f $(EXAMPLES_DOCKERFILE) --target downstream-jm \
+	    --build-arg STOCK_REGISTRY=$(STOCK_REGISTRY) \
+	    --build-arg STOCK_REGISTRY=$(STOCK_REGISTRY) \
 	    --build-arg BUILD_BASE=$(CI_IMAGE_2404) \
 	    --build-arg JM_VERSION=$(JM_VERSION) \
+	    --build-arg UV_VERSION=$(UV_VERSION) \
 	    -t $(DOCKER_IMAGE)-downstream-jm:$(DOCKER_TAG) .
 	bash scripts/smoke-image.sh downstream \
 	    $(DOCKER_IMAGE)-downstream-jm:$(DOCKER_TAG)
@@ -4405,7 +4623,10 @@ docker-downstream: ## Build+smoke the iqtools showcase image (doppler-downstream
 # this image: the FROM in stream-build names a local tag nothing pulls.
 # docker-compose.yml says so at the top.
 docker-stream: glibc-image ## Build+smoke the lean compose streaming-services image
+	$(STOCK_PULL) --dockerfile $(EXAMPLES_DOCKERFILE)
 	docker build -f $(EXAMPLES_DOCKERFILE) --target stream-services \
+	    --build-arg STOCK_REGISTRY=$(STOCK_REGISTRY) \
+	    --build-arg STOCK_REGISTRY=$(STOCK_REGISTRY) \
 	    --build-arg GLIBC_BASE=$(GLIBC_IMAGE) \
 	    -t $(DOCKER_IMAGE)-stream-services:$(DOCKER_TAG) .
 	bash scripts/smoke-image.sh stream \

@@ -1,20 +1,17 @@
 Metadata-Version: 2.4
 Name: rcssmin
-Version: 1.2.2
+Version: 1.3.0
 Summary: CSS Minifier
 Home-page: https://opensource.perlig.de/rcssmin/
 Author: André Malo
 Author-email: nd@perlig.de
-License: Apache License, Version 2.0
+License: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
@@ -25,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: Jython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -92,7 +90,7 @@ rcssmin.c is a reimplementation of rcssmin.py in C and improves runtime up to
 factor 100 or so (depending on the input). docs/BENCHMARKS in the source
 distribution contains the details.
 
-Supported python versions are 2.7 and 3.6+.
+Supported python versions are 3.6 and above.
 
 .. _YUI compressor: https://github.com/yui/yuicompressor/
 
@@ -102,7 +100,7 @@ Supported python versions are 2.7 and 3.6+.
 Copyright and License
 ~~~~~~~~~~~~~~~~~~~~~
 
-Copyright 2011 - 2025
+Copyright 2011 - 2026
 André Malo or his licensors, as applicable.
 
 The whole package (except for the files in the bench/ directory) is

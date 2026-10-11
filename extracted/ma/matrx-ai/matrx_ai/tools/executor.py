@@ -1658,6 +1658,9 @@ class ToolExecutor:
         # guardrails, the stream and any dispatch — so a candidate call cannot
         # act before it is judged. None ⇒ no marker in scope ⇒ nothing changes.
         from matrx_ai.tools.candidate_containment import (
+            DISPATCHED_DISPOSITIONS as _CANDIDATE_DISPATCHED,
+        )
+        from matrx_ai.tools.candidate_containment import (
             candidate_stop as _candidate_stop,
         )
         from matrx_ai.tools.candidate_containment import decide as _candidate_decide
@@ -1670,7 +1673,8 @@ class ToolExecutor:
                 client_tools and (tool_name in client_tools or tool_def.name in client_tools)
             ),
         )
-        if containment is not None and containment.disposition != "real":
+        # ``real`` and ``contained`` dispatch; ``borrowed`` / ``stopped`` never do.
+        if containment is not None and containment.disposition not in _CANDIDATE_DISPATCHED:
             return await self._contain_candidate_call(
                 ctx,
                 tool_def,

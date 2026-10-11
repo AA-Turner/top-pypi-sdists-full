@@ -1,14 +1,14 @@
+"""Schema models (matching real SDK with Pydantic v2)."""
+
 from html import unescape
 from typing import Any, Optional
-
 from pydantic import BaseModel
 
-from dealcloud_sdk.constants import field_types
+from ..constants import field_types
 
 
 class Object(BaseModel):
-    """Describes a DealCloud Object"""
-
+    """Describes a DealCloud Object."""
     apiName: Optional[str] = None
     singularName: Optional[str] = None
     pluralName: Optional[str] = None
@@ -20,22 +20,16 @@ class Object(BaseModel):
 
     @classmethod
     def from_api(cls, object_data: dict) -> "Object":
-        """
-        Values returned from the DealCloud API are HTML escaped, this constructor unescapes HTML
-        characters so that the vales do not cause issue.
-        """
+        """Unescape HTML characters from API response."""
         unescape_attributes = ["singularName", "pluralName"]
-
         for attr in unescape_attributes:
             if object_data.get(attr):
                 object_data[attr] = unescape(object_data[attr])
-
         return cls(**object_data)
 
 
 class ChoiceValue(BaseModel):
-    """Describes a DealCloud Choice field"""
-
+    """Describes a DealCloud Choice field value."""
     parentID: Optional[int] = None
     seqNumber: Optional[int] = None
     id: Optional[int] = None
@@ -44,8 +38,7 @@ class ChoiceValue(BaseModel):
 
 
 class Field(BaseModel):
-    """Describes a DealCloud Field"""
-
+    """Describes a DealCloud Field."""
     apiName: Optional[str] = None
     description: Optional[str] = None
     fieldType: Optional[int] = None
@@ -71,47 +64,68 @@ class Field(BaseModel):
 
     @classmethod
     def from_api(cls, field_data: dict) -> "Field":
-        """
-        Values returned from the DealCloud API are HTML escaped, this constructor unescapes HTML
-        characters so that the vales do not cause issue.
-        """
+        """Unescape HTML and build choice map from API response."""
         unescape_attributes = ["description", "name", "formula"]
-
         for attr in unescape_attributes:
             if field_data.get(attr):
                 field_data[attr] = unescape(field_data[attr])
-
+        
         field_type = field_data.get("fieldType")
         if field_type and field_data.get("choiceValues"):
             if field_type == field_types.CHOICE:
                 choices = field_data.get("choiceValues")
-                if not choices:
-                    raise KeyError('could not find "choiceValues" in schema data.')
-
-                field_data["choiceMap"] = dict(
-                    {unescape(val.get("name")): val.get("id") for val in choices}
-                )
-
+                if choices:
+                    field_data["choiceMap"] = {
+                        unescape(val.get("name")): val.get("id") 
+                        for val in choices
+                    }
+        
         return cls(**field_data)
 
 
 class ObjectWithFields(BaseModel):
-    """Describes a DealCloud object, with associated fields"""
-
+    """Describes a DealCloud object with associated fields."""
     object: Optional[Object] = None
     fields: Optional[dict[Any, Field]] = None
 
 
 class Schema(BaseModel):
-    """Describes a full DealCloud object/field schema"""
+    """Describes a full DealCloud object/field schema."""
+    objects: Optional[dict[Any, ObjectWithFields]] = None
 
-    objects: Optional[dict[Any, ObjectWithFields]]
+
+class MappingsType(BaseModel):
+    """Describes a DealCloud object mappings type."""
+    id: Optional[int] = None
+    name: Optional[str] = None
+    entryListId: Optional[int] = None
+
+
+class Mapping(BaseModel):
+    """Describes a DealCloud object mapping."""
+    id: Optional[int] = None
+    name: Optional[str] = None
+    entryListId: Optional[int] = None
+
+
+class FieldUnit(BaseModel):
+    """Describes a DealCloud field unit."""
+    id: Optional[int] = None
+    name: Optional[str] = None
+
+
+class Timezone(BaseModel):
+    """Describes a DealCloud timezone."""
+    id: Optional[str] = None
+    name: Optional[str] = None
+    displayName: Optional[str] = None
 
 
 class User(BaseModel):
-    """Describes a DealCloud User"""
-
+    """Describes a DealCloud User."""
     id: int
     name: str
     email: str
     entryListId: int
+
+

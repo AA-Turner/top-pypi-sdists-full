@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 """
@@ -99,7 +99,7 @@ def test_label_callable() -> None:
         async_generator_factory,
         sync_generator_factory,
     )
-    from beartype_test.a00_unit.data.util.mod.data_utilmodule_line import (
+    from beartype_test.a00_unit.data.util.module.data_utilmodule_line import (
         like_snakes_that_watch_their_prey,
         ozymandias,
         which_yet_survive,

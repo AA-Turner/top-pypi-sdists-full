@@ -837,6 +837,40 @@ class LockContentionExhaustedError(RuntimeError):
     """
 
 
+# #3668: result codes that are never a real failure of the statement that
+# raised them. SQLITE_ROW (100, "another row available"), SQLITE_DONE (101,
+# "no more rows available") and SQLITE_OK (0, "not an error") are *success*
+# codes of `sqlite3_step`; a raised exception carrying one means the
+# connection's single error slot (`sqlite3_errcode`/`sqlite3_errmsg`) was
+# overwritten by ANOTHER thread's statement between this thread's failing
+# call and Python's read of that slot. That happens on this module's
+# process-wide SQLite connection (`check_same_thread=False`, shared by the
+# daemon's `run_in_threadpool` workers): the real cause underneath is almost
+# always `SQLITE_BUSY` contention, but it surfaces as e.g.
+# `sqlite3.DatabaseError: another row available` — not an
+# `OperationalError`, so before #3668 it was never retried and the
+# `/review-claim` endpoint turned it straight into a 503 (vimcode#1877: the
+# daemon logged `record_audit: best-effort write failed: another row
+# available` at the same instant). Reproduced with several threads writing
+# through one shared connection while a second connection holds
+# `BEGIN IMMEDIATE`.
+_MISATTRIBUTED_SQLITE_CODES = frozenset({0, 100, 101})
+_MISATTRIBUTED_SQLITE_MESSAGES = (
+    "another row available",
+    "no more rows available",
+    "not an error",
+)
+
+
+def _is_misattributed_sqlite_error(exc: BaseException) -> bool:
+    """True when *exc* carries a SQLite *success* code/message, i.e. its real
+    cause was clobbered by a concurrent statement on the same shared
+    connection (#3668). See :data:`_MISATTRIBUTED_SQLITE_CODES`."""
+    if getattr(exc, "sqlite_errorcode", None) in _MISATTRIBUTED_SQLITE_CODES:
+        return True
+    return str(exc).strip().lower() in _MISATTRIBUTED_SQLITE_MESSAGES
+
+
 def is_lock_contention_error(exc: BaseException) -> bool:
     """True when *exc* is transient lock/busy contention rather than a real
     bug (#2597, widened to Postgres by #2784).
@@ -860,6 +894,11 @@ def is_lock_contention_error(exc: BaseException) -> bool:
     that instead of a message substring -- Postgres's error text is not a
     stable API the way its SQLSTATE codes are.
     """
+    if isinstance(exc, sqlite3.Error) and _is_misattributed_sqlite_error(exc):
+        # #3668: see `_MISATTRIBUTED_SQLITE_CODES` — the real cause was
+        # clobbered by a concurrent statement on the shared connection, and
+        # is almost always the SQLITE_BUSY this function exists to retry.
+        return True
     if isinstance(exc, sqlite3.OperationalError):
         message = str(exc).lower()
         if "database is locked" in message or "database table is locked" in message:
@@ -1107,7 +1146,16 @@ def retry_on_locked(
 # isn't permanently stranded — a successful post leaves the claim in place
 # forever, which is harmless since `review_posted_at` being set already
 # excludes the row from both callers' candidate queries.
-_DB_SCHEMA_VERSION = 23
+#
+# #3681: bumped 23 -> 24 for the new `assignments.mode` column appended to
+# `_MIGRATE_ADD_COLUMNS` below — `"single"` or `"workflow"`, set once at
+# dispatch time from whether the dispatched issue carried the
+# `coord.agent.WORKFLOW_LEG_LABEL` label (`coord.state._record_dispatched_
+# local`). Lets `coord gates`/cost reporting compare review-round and
+# request-changes rates between workflow and single legs over a sample of
+# issues BEFORE anyone considers relaxing Test/Review for workflow legs —
+# a separate, later decision this column only supplies the data for.
+_DB_SCHEMA_VERSION = 24
 
 
 def _read_schema_version(conn: sqlite3.Connection) -> int:
@@ -1282,7 +1330,11 @@ _SCHEMA_SQL = """
             -- (including every row predating this column, and every normal
             -- dispatch that was never rerouted). See
             -- coord.models.Assignment.model_reason.
-            model_reason TEXT
+            model_reason TEXT,
+            -- #3681: "single" or "workflow", set once at dispatch time from
+            -- whether the issue carried `coord.agent.WORKFLOW_LEG_LABEL`.
+            -- NULL for every row predating this column.
+            mode TEXT
         );
 
         CREATE TABLE IF NOT EXISTS notifications (
@@ -2634,6 +2686,9 @@ _MIGRATE_ADD_COLUMNS: list[str] = [
     # #1649 review: see the CREATE TABLE comment above — NULL for every row
     # predating this column and for every dispatch that wasn't rerouted.
     "ALTER TABLE assignments ADD COLUMN model_reason TEXT",
+    # #3681: "single" or "workflow" — see the CREATE TABLE comment above.
+    # NULL for every row predating this migration.
+    "ALTER TABLE assignments ADD COLUMN mode TEXT",
 ]
 
 

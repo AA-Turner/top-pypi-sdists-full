@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -83,7 +83,7 @@ from beartype._data.hint.sign.datahintsigns import (
     HintSignParamSpecArgs,
     HintSignParamSpecKwargs,
 )
-from beartype._util.cache.utilcachecall import callable_cached
+from beartype._util.cache.func.utilcachefunc import callable_cached
 from beartype._util.func.arg.utilfuncargiter import (
     ArgKind,
     ArgMandatory,
@@ -96,8 +96,8 @@ from beartype._util.hint.pep.proposal.pep612 import (
     get_hint_pep612_paramspec,
     make_hint_pep612_concatenate_list_or_none,
 )
-from beartype._util.hint.pep.proposal.pep649 import (
-    get_pep649_hintable_annotations)
+from beartype._util.hint.pep.proposal.pep749.pep649749annotate import (
+    get_hintable_pep649749_annotations)
 from beartype._util.py.utilpyversion import IS_PYTHON_AT_LEAST_3_11
 from collections.abc import (
     Callable as CallableABC,
@@ -277,7 +277,7 @@ def infer_hint_callable(func: CallableABC) -> Hint:
     #       # *NO* parameters should be annotated as such.
     #       >>> infer_hint(lambda: None)
     #       collections.abc.Callable[[], object]
-    pith_name_to_hint = get_pep649_hintable_annotations(func_wrapper)
+    pith_name_to_hint = get_hintable_pep649749_annotations(func_wrapper)
 
     # dict.get() method bound to this dictionary, localized for efficiency.
     pith_name_to_hint_get = pith_name_to_hint.get

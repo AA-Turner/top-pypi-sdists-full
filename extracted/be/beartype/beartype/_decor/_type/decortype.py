@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -14,10 +14,6 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype.typing import (
-    Dict,
-    Set,
-)
 from beartype._cave._cavemap import NoneTypeOr
 from beartype._conf.confmain import BeartypeConf
 from beartype._data.cls.datacls import TYPES_BEARTYPEABLE
@@ -25,9 +21,9 @@ from beartype._data.typing.datatyping import (
     BeartypeableT,
     TypeStack,
 )
-from beartype._decor._type._pep._decortypepep557 import (
+from beartype._decor._type._pep.decortypepep557 import (
     beartype_pep557_dataclass)
-from beartype._util.cache.utilcacheclear import clear_caches
+from beartype._cache.cacheclear import clear_caches
 from beartype._util.cls.pep.clspep557 import is_type_pep557_dataclass
 from beartype._util.cls.utilclsset import set_type_attr
 from beartype._util.cache.utilcacheobjattr import (
@@ -35,6 +31,7 @@ from beartype._util.cache.utilcacheobjattr import (
     set_type_attr_cached,
 )
 from beartype._util.module.utilmodget import get_object_module_name_or_none
+from beartype._util.py.utilpyversion import IS_PYTHON_AT_LEAST_3_14
 from collections import defaultdict
 
 # ....................{ DECORATORS ~ type                  }....................
@@ -88,6 +85,41 @@ def beartype_type(
     # # Else, this decorator has yet to decorate this class.
 
     # ....................{ LOCALS                         }....................
+    # Dictionary mapping from the unqualified name to value of each direct
+    # (i.e., *NOT* indirectly inherited) attribute of this class, defined as...
+    cls_attr_name_to_value = (
+        # If the active Python interpreter targets Python >= 3.14, the direct
+        # items view efficiently providing this dictionary;
+        cls.__dict__.items()
+        if IS_PYTHON_AT_LEAST_3_14 else
+        # If the active Python interpreter targets Python <= 3.13, an indirect
+        # copy of the items view inefficiently providing this dictionary.
+        #
+        # For unknown reasons that (probably, hopefully) are largely irrelevant
+        # (especially as Python <= 3.13 is obsolete and will thus be quietly
+        # going away in several years), failing to copy this items view under
+        # Python <= 3.13 induces spurious non-human-readable exceptions for the
+        # edge case of PEP 557-compliant @dataclass-decorated dataclasses
+        # defining one or more methods annotated by PEP 484-compliant
+        # self-references (i.e., stringified forward references referring to the
+        # dataclass currently being dataclass).
+        #
+        # For example, this @beartype-decorated dataclass defined as above:
+        #     @beartype
+        #     @dataclass
+        #     class MuhDataclass:
+        #         def muh_method(self) -> 'MuhDataclass':
+        #             return self
+        #
+        # ...raises this non-human-readable exception:
+        #     RuntimeError: dictionary changed size during iteration
+        #
+        # Why? No idea. Almost certainly something pertaining to forward
+        # reference resolution. Thankfully, though, it doesn't particularly
+        # matter. This is all going away in a few years anyway. *mega-shrug*
+        cls.__dict__.copy().items()
+    )
+
     # Replace the passed class stack with a new class stack appending this
     # decorated class to the top of this stack, reflecting the fact that this
     # decorated class is now the most deeply lexically nested class for the
@@ -116,11 +148,13 @@ def beartype_type(
 
     # For the unqualified name and value of each direct (i.e., *NOT* indirectly
     # inherited) attribute of this class...
-    for attr_name, attr_value in cls.__dict__.items():  # pyright: ignore[reportGeneralTypeIssues]
+    for attr_name, attr_value in cls_attr_name_to_value:  # pyright: ignore
+        # print(f'Introspecting "{cls.__name__}.{attr_name}": {repr(attr_value)}')
+
         # If this attribute is...
         if (
-            # True only if this attribute is directly beartypeable (e.g., is either
-            # a function, class, or builtin method descriptor).
+            # True only if this attribute is directly beartypeable (e.g., is
+            # either a function, class, or builtin method descriptor).
             isinstance(attr_value, TYPES_BEARTYPEABLE) and
             # It is *NOT* the case that...
             #
@@ -176,7 +210,15 @@ def beartype_type(
                 not attr_value.__qualname__.startswith(cls.__qualname__)
             )
         ):
-            # print(f'Decorating {repr(cls)} attribute "{attr_name}"...')
+            # if attr_name == 'muh_method':
+            #     continue
+            # if attr_name != 'muh_method':
+            #     continue
+            # if attr_name != '__new__':
+            #     continue
+            # if attr_name == '__new__':
+            #     continue
+            # print(f'Decorating {repr(cls)} attribute "{attr_name}" value {repr(attr_value)}...')
 
             # This attribute decorated with type-checking configured by this
             # configuration if *NOT* already decorated.
@@ -190,7 +232,7 @@ def beartype_type(
                 # Safely replace this undecorated attribute with this decorated
                 # attribute.
                 set_type_attr(cls, attr_name, attr_value_beartyped)
-                # print(f'Decorated {repr(cls)} attribute "{attr_name}".')
+                # print(f'Decorated {repr(cls)} attribute "{attr_name}"!')
             # Else, this decorated attribute is the same as the original
             # attribute, implying that @beartype refused to decorate this
             # attribute with type-checking (e.g., due to this attribute being
@@ -226,6 +268,15 @@ def beartype_type(
     return cls  # type: ignore[return-value]
 
 # ....................{ PRIVATE ~ globals                  }....................
+_BEARTYPED_MODULE_TO_TYPE_NAME: dict[str, set[str]] = defaultdict(set)
+'''
+**Decorated classname registry (i.e., dictionary mapping from the
+fully-qualified name of each module defining one or more classes decorated by
+the :func:`beartype.beartype` decorator to the set of the unqualified basenames
+of all classes in that module decorated by that decorator).
+'''
+
+
 _TYPE_ATTR_NAME_IS_BEARTYPED = 'is_beartyped'
 '''
 Unique name of the **memoized type beartyped attribute** (i.e., attribute cached
@@ -235,15 +286,6 @@ neither require nor desire re-decoration by that decorator).
 
 The value of this attribute is equally arbitrary but typically :data:`True`,
 merely as a readability and debuggability aid.
-'''
-
-
-_BEARTYPED_MODULE_TO_TYPE_NAME: Dict[str, Set[str]] = defaultdict(set)
-'''
-**Decorated classname registry (i.e., dictionary mapping from the
-fully-qualified name of each module defining one or more classes decorated by
-the :func:`beartype.beartype` decorator to the set of the unqualified basenames
-of all classes in that module decorated by that decorator).
 '''
 
 # ....................{ PRIVATE ~ globals                  }....................
@@ -311,7 +353,7 @@ def _uncache_beartype_if_type_redefined(cls: type) -> None:
 
             # Clear *ALL* type-checking caches. Notably:
             # * The forward reference referee cache (i.e., private
-            #   "beartype._check.forward.reference.fwdrefmeta._forwardref_to_referent"
+            #   "beartype._check.forward.reference._cls.fwdrefmeta._forwardref_to_referent"
             #   dictionary) is problematic, due to mapping from forward
             #   reference proxies (which are themselves classes) to arbitrary
             #   (and thus usually user-defined) classes -- one or more of which
@@ -334,6 +376,8 @@ def _uncache_beartype_if_type_redefined(cls: type) -> None:
             # wrapper functions to raise erroneous type-checking violations.
             clear_caches()
 
+            #FIXME: Should just be performed inside the clear_caches() function
+            #called above, obviously. *sigh*
             # Clear the previously accessed set of the unqualified basenames of
             # *ALL* classes in that module previously decorated by this
             # decorator. Technically, this is optional. Pragmatically, this

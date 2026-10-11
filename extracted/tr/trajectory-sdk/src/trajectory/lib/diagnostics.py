@@ -24,7 +24,7 @@ def start_task_diagnostic(
     raise ValueError("timeout_seconds must be non-negative")
   SubmissionUpload.validate_agent(agent_id, agent_name)
   package = _BenchmarkPackage(BenchmarkSpec(name="task-diagnostic", tasks=[task]), root)
-  files = package.files()
+  files = list(package.files())
   if agent_name is not None:
     named_agent_id = client.agents.retrieve_by_name(agent_name).agent_id
     if agent_id is not None and agent_id != named_agent_id:

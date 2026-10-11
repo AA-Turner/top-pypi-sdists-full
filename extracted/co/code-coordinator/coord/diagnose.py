@@ -978,6 +978,115 @@ def _leaked_review_claim_without_row(
     return True
 
 
+def _superseded_review_target(board, latest) -> "Assignment | None":
+    """The newest done work leg when *latest* (the review stage's newest
+    row) is a terminal review of an OLDER leg and that newest leg has no
+    review of its own (#3668) — else ``None``. See
+    :func:`coord.review.superseded_review_gap`."""
+    from coord.review import superseded_review_gap  # noqa: PLC0415
+
+    if latest is None or latest.type != "review":
+        return None
+    if latest.status in ("running", "pending"):
+        return None
+    gap = superseded_review_gap(board, latest.repo_name, latest.issue_number)
+    if gap is None:
+        return None
+    newest, _latest_review = gap
+    return newest
+
+
+def _flag_superseded_review(board, config, latest, res: DiagnoseResult) -> bool:
+    """#3668: report "latest review is for a superseded work leg". Returns
+    ``True`` when the finding applies (the caller stops — none of the
+    per-shape "healthy" outcomes below are true of the newest head)."""
+    newest = _superseded_review_target(board, latest)
+    if newest is None:
+        return False
+    test_state = newest.test_state or "none"
+    gate_test = (
+        getattr(config, "pipeline", None) is not None
+        and config.pipeline.test_precedes_review()
+    )
+    res.findings.append(
+        f"latest review {latest.assignment_id} is for a superseded work leg "
+        f"{latest.review_of_assignment_id} — the newest done work leg "
+        f"{newest.assignment_id} (test_state={test_state}, "
+        f"review_state={newest.review_state or 'none'}) has no review of its "
+        "own, and a review of an older leg does not satisfy the review gate "
+        "(#3668)"
+    )
+    if gate_test and newest.test_state not in ("passed", "skipped"):
+        res.findings.append(
+            f"review of {newest.assignment_id} is correctly held until its "
+            "Test verdict lands (Test precedes Review) — not wedged yet"
+        )
+        res.recovered = True
+        return True
+    # #3668 review round 1: name the guard actually holding the newest head
+    # back — the bulk pass's own eligibility predicate, not a re-derivation.
+    # vimcode#1877 sat at "[awaiting review]" with nothing saying which one.
+    from coord.review import newest_head_review_dispatch_blockers  # noqa: PLC0415
+
+    blockers = newest_head_review_dispatch_blockers(board, config, newest)
+    if blockers:
+        res.findings.append(
+            f"the automatic review pass is not dispatching {newest.assignment_id}: "
+            + "; ".join(blockers)
+        )
+    else:
+        res.findings.append(
+            f"{newest.assignment_id} passes every automatic review-dispatch "
+            "gate, yet no review exists — if this persists across passes, look "
+            "for 'bulk review dispatch (#3668)' / dispatch_review errors in the "
+            "coord-serve journal (the daemon's own drain claims in its local "
+            "DB, so it never shows up as POST /review-claim)"
+        )
+    res.findings.append(
+        f"nothing has dispatched a review for {newest.assignment_id} — re-run "
+        "with --reset to make it re-dispatchable (releases any review-dispatch "
+        "claim it holds and resets its review_state → pending; the older "
+        f"leg's review is kept), or dispatch one now: coord review "
+        f"{newest.assignment_id}"
+    )
+    res.recovered = False
+    res.needs_reset = True
+    return True
+
+
+def _reset_superseded_review(
+    board, newest, res: DiagnoseResult, *, dry_run: bool
+) -> None:
+    """#3668 ``--reset`` for the superseded-leg shape: make the NEWEST leg
+    re-dispatchable without touching the older leg's review (its verdict and
+    findings are the history the fix round answered). Releases any
+    review-dispatch claim the newest leg holds and resets its
+    ``review_state`` → ``"pending"`` in the DB (and on *board*)."""
+    from coord import state  # noqa: PLC0415
+
+    if dry_run:
+        res.findings.append(
+            f"(dry-run) would release {newest.assignment_id}'s review-dispatch "
+            "claim (if any) and reset its review_state → pending — the older "
+            "leg's review is kept"
+        )
+        res.needs_reset = True
+        return
+    state.release_review_dispatch_claim(newest.assignment_id)
+    updated = state.mark_work_leg_review_pending(newest.assignment_id)
+    newest.review_state = "pending"
+    newest.review_dispatch_reason = None
+    res.actions_taken.append(
+        f"released any review-dispatch claim for {newest.assignment_id} and "
+        f"reset its review_state → pending ({updated} row) — the next review "
+        "pass dispatches a review of the newest head"
+    )
+    res.reset_performed = True
+    res.recovered = True
+    res.branch_preserved = True
+    res.needs_reset = False
+
+
 def _recover_review(
     board, config, latest, state, res: DiagnoseResult, *, dry_run: bool
 ) -> None:
@@ -1030,6 +1139,14 @@ def _recover_review(
         )
         res.recovered = False
         res.needs_reset = True
+        return
+
+    # #3668: the latest review may be perfectly healthy and STILL say
+    # nothing about the code that would merge — it judged an older work leg
+    # that a fix round has since superseded. vimcode#1877 sat 2h12m at
+    # "[awaiting review]" while this function reported "review stage looks
+    # healthy" off a terminal request-changes review of the PREVIOUS leg.
+    if _flag_superseded_review(board, config, latest, res):
         return
 
     has_findings = False
@@ -1698,6 +1815,15 @@ def _do_reset(
         return
 
     if stage == "review":
+        # #3668: the latest review judged a superseded leg — the reset
+        # target is the NEWEST leg (make it re-dispatchable), not the older
+        # leg's review history.
+        superseded_newest = _superseded_review_target(board, latest)
+        if superseded_newest is not None:
+            _reset_superseded_review(
+                board, superseded_newest, res, dry_run=dry_run,
+            )
+            return
         # #1180: `_reset_review_stage`'s `assignment_id` means "the id of the
         # assignment BEING reviewed" — that's the FK the review rows carry and
         # the id the test-author/mock-author review_state reset keys on. But

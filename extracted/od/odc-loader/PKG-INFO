@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: odc-loader
-Version: 0.6.4
+Version: 0.6.5
 Summary: Tooling for constructing xarray objects from parsed metadata
 Requires-Python: >= 3.10
 Description-Content-Type: text/markdown

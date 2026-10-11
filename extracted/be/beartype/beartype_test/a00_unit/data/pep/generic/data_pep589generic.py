@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -16,7 +16,7 @@ from beartype.typing import (
     Generic,
     TypedDict,
 )
-from beartype_test.a00_unit.data.pep.data_pep484 import T
+from beartype_test.a00_unit.data.pep.pep484.data_pep484 import T
 
 # ....................{ PEP 484 ~ usable : T               }....................
 # Generics that are actually instantiable and usable as valid objects.

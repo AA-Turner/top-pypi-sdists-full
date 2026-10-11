@@ -4,11 +4,12 @@ import re
 from copy import copy
 from typing import Literal
 
-from openpyxl.styles import Alignment, Border, PatternFill, Side
+from openpyxl.styles import Alignment, Border, PatternFill, Protection, Side
 from openpyxl.worksheet.worksheet import Worksheet
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from excel_mcp.errors import InvalidArgumentError
+from excel_mcp.inputs import InputModel
 from excel_mcp.refs import parse_range
 
 HorizontalAlignment = Literal["general", "left", "center", "right", "fill", "justify"]
@@ -18,31 +19,32 @@ BorderStyle = Literal["none", "thin", "medium", "thick", "double", "dashed", "do
 _HEX_COLOR = re.compile(r"#?([0-9A-Fa-f]{6})")
 
 
-class CellFormat(BaseModel):
-    """Formatting to apply. Fields left as null keep the cell's current setting."""
-
-    bold: bool | None = Field(default=None, description="Bold text.")
-    italic: bool | None = Field(default=None, description="Italic text.")
-    underline: bool | None = Field(default=None, description="Single underline.")
-    strikethrough: bool | None = Field(default=None, description="Strike through text.")
-    font_name: str | None = Field(default=None, description="Font family, e.g. 'Calibri'.")
-    font_size: float | None = Field(default=None, gt=0, le=409, description="Size in points.")
-    font_color: str | None = Field(default=None, description="Hex color, e.g. '#1F4E78'.")
-    fill_color: str | None = Field(default=None, description="Background hex color.")
+class CellFormat(InputModel):
+    bold: bool | None = None
+    italic: bool | None = None
+    underline: bool | None = None
+    strikethrough: bool | None = None
+    font_name: str | None = Field(default=None, description="e.g. 'Calibri'.")
+    font_size: float | None = Field(default=None, gt=0, le=409, description="Points.")
+    font_color: str | None = Field(default=None, description="Hex, e.g. '#1F4E78'.")
+    fill_color: str | None = Field(default=None, description="Hex.")
     number_format: str | None = Field(
-        default=None, description="Excel number format, e.g. '#,##0.00', '0%', '@'."
+        default=None, description="Excel code: '#,##0.00', '0%', 'yyyy-mm-dd', '@' (text)."
     )
-    horizontal_alignment: HorizontalAlignment | None = Field(
-        default=None, description="Horizontal text alignment."
-    )
-    vertical_alignment: VerticalAlignment | None = Field(
-        default=None, description="Vertical text alignment."
-    )
-    wrap_text: bool | None = Field(default=None, description="Wrap long text onto new lines.")
+    horizontal_alignment: HorizontalAlignment | None = None
+    vertical_alignment: VerticalAlignment | None = None
+    wrap_text: bool | None = None
     border_style: BorderStyle | None = Field(
-        default=None, description="Border on all four sides of every cell; 'none' removes it."
+        default=None, description="All four sides of every cell."
     )
-    border_color: str | None = Field(default=None, description="Border hex color (default black).")
+    border_color: str | None = Field(default=None, description="Hex. Default: black.")
+    locked: bool | None = Field(
+        default=None,
+        description="Default on: locked cells cannot be edited on a protected sheet.",
+    )
+    formula_hidden: bool | None = Field(
+        default=None, description="Hide the formula on a protected sheet."
+    )
 
 
 def parse_color(value: str) -> str:
@@ -66,6 +68,7 @@ def format_range(sheet: Worksheet, ref: str, style: CellFormat, max_cells: int) 
         for cell in row:
             cell.font = _font(cell.font, style)
             cell.alignment = _alignment(cell.alignment, style)
+            cell.protection = _protection(cell.protection, style)
             if fill:
                 cell.fill = fill
             if border:
@@ -87,6 +90,7 @@ def _font(current, style: CellFormat):
         font.strike = style.strikethrough
     if style.font_name is not None:
         font.name = style.font_name
+        font.scheme = None  # a scheme makes Excel use the theme's font instead of the name
     if style.font_size is not None:
         font.size = style.font_size
     if style.font_color is not None:
@@ -103,6 +107,15 @@ def _alignment(current, style: CellFormat) -> Alignment:
     if style.wrap_text is not None:
         alignment.wrap_text = style.wrap_text
     return alignment
+
+
+def _protection(current, style: CellFormat) -> Protection:
+    protection = copy(current)
+    if style.locked is not None:
+        protection.locked = style.locked
+    if style.formula_hidden is not None:
+        protection.hidden = style.formula_hidden
+    return protection
 
 
 def _fill(style: CellFormat) -> PatternFill | None:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -22,7 +22,7 @@ submodule implementing a fine-grained object cache unique to those objects. For
 example:
 
 * This submodule unconditionally pools all instances of the
-  :class:`beartype._check.metadata.metadecor.BeartypeDecorMeta` class under that
+  :class:`beartype._check.cls.call.calldatadecorfunc.BeartypeCallDecorFuncData` class under that
   type.
 * The parallel :mod:`beartype._util.cache.pool.utilcachepoollistfixed`
   submodule conditionally pools every instance of the
@@ -31,16 +31,13 @@ example:
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype.typing import (
-    Any,
-    Type,
-)
-from beartype._data.cls.datacls import TYPES_BUILTIN_CONTAINER_MUTABLE
+from typing import Any
+from beartype._data.py.databuiltins import BUILTIN_TYPES_CONTAINER_MUTABLE
 from beartype._data.typing.datatyping import T
 from beartype._util.cache.pool.utilcachepool import KeyPool
 
 # ....................{ (ACQUIRERS|RELEASERS)              }....................
-def acquire_instance(cls: Type[T]) -> T:
+def acquire_instance(cls: type[T]) -> T:
     '''
     Acquire an arbitrary object of the passed type.
 
@@ -80,7 +77,7 @@ def acquire_instance(cls: Type[T]) -> T:
     # caller. Since all callers requesting a builtin mutable container prefer
     # this container to be empty *AND* since detecting builtin mutable container
     # types is trivially fast, we do so on behalf of the caller.
-    if cls in TYPES_BUILTIN_CONTAINER_MUTABLE:
+    if cls in BUILTIN_TYPES_CONTAINER_MUTABLE:
         instance.clear()  # type: ignore[attr-defined]
     # Else, this type is *NOT* that of a builtin mutable container. In this
     # case, preserve this instance as is.

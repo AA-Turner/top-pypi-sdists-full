@@ -440,7 +440,9 @@ async def record_run_progress(
 # model names the current statuses; abandoned/expired remain supported ledger
 # verdicts because historic rows and lifecycle repair can still write them.
 _FAILED_STATUSES = frozenset({"failed", "cancelled", "abandoned", "expired"})
-_REPORTABLE_TERMINAL_STATUSES = _FAILED_STATUSES | frozenset({"success", "skipped", "interrupted"})
+# ``stopped`` (an automation guardrail stopped or refused the run) is terminal and reported like
+# any other verdict — last_run_at is stamped — but it is not a failure (``_FAILED_STATUSES``).
+_REPORTABLE_TERMINAL_STATUSES = _FAILED_STATUSES | frozenset({"success", "skipped", "interrupted", "stopped"})
 
 
 async def finalize_run(

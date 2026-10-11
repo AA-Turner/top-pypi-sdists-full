@@ -33,7 +33,7 @@ All types share four common control fields:
 Tool sets injected per type when editable=True:
   input_notes  → note
   input_task   → task
-  input_table  → dataset
+  input_table  → table
   input_list   → picklist
 """
 

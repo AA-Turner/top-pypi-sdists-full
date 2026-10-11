@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -60,6 +60,20 @@ def beartype_object(
 
     All remaining keyword parameters are passed as is to whichever lower-level
     decorator this higher-level decorator calls on the passed beartypeable.
+    However, note that external callers are implicitly prohibited from passing
+    any remaining keyword parameters. Why? Because the higher-level
+    :func:`beartype._decor.decorcache.beartype` decorator identical to the
+    :func:`beartype.beartype` decorator (which calls this lower-level decorator)
+    neither accepts nor passes this lower-level decorator any variadic keyword
+    parameters. Therefore, this lower-level decorator accepts variadic keyword
+    parameters *only* as a convenience to other low-level private functionality
+    distributed throughout the :mod:`beartype` codebase, which can occasionally
+    pass such keyword-only parameters. Look. It's complicated. Like everything.
+
+    Examples of lower-level decorators that do this include:
+
+    * :func:`beartype._decor._nontype.decornontype._beartype_pseudofunc`.
+    * :func:`beartype._decor._type.decortype.beartype_type`.
 
     Returns
     -------
@@ -213,9 +227,9 @@ def _beartype_object_nonfatal(
     # into a non-fatal warning for nebulous safety.
     except Exception:
         # Category of warning to be emitted.
-        warning_category: TypeWarning = conf.warning_cls_on_decorator_exception  # type: ignore[assignment]
-        assert is_type_subclass(warning_category, Warning), (
-            f'{repr(warning_category)} not warning category.')
+        warning_cls: TypeWarning = conf.warning_cls_on_decorator_exception  # type: ignore[assignment]
+        assert is_type_subclass(warning_cls, Warning), (
+            f'{repr(warning_cls)} not warning category.')
 
         # Original lower-level error message to be embedded in the higher-level
         # warning message to be emitted below.
@@ -232,8 +246,8 @@ def _beartype_object_nonfatal(
         #     # and readability by coercing *ONLY* this message (rather than both
         #     # this message *AND* traceback) truncated to a reasonable maximum
         #     # length into a warning message.
-        #     # truncate_str(text=label_exception(exception), max_len=1024)
-        #     label_exception(exception)
+        #     # truncate_str(text=label_exception_message(exception), max_len=1024)
+        #     label_exception_message(exception)
         #     if isinstance(exception, BeartypeException) else
         #     # Else, this exception is *NOT* beartype-specific. In this case,
         #     # this exception's message is probably *NOT* human-readable as is.
@@ -263,7 +277,7 @@ def _beartype_object_nonfatal(
         warning_message = f'{warning_message_prefix}{error_message}'
 
         # Emit this message under this category.
-        issue_warning(cls=warning_category, message=warning_message)
+        issue_warning(warning_cls=warning_cls, message=warning_message)
 
     # Return this object unmodified, as @beartype failed to successfully wrap
     # this object with a type-checking class or callable. So it goes, fam.

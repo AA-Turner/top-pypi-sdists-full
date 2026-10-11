@@ -147,7 +147,14 @@ from ..models import (
     PolicyDecision,
     format_local_http_origin,
 )
+from ..native_guard_store import NativeGuardStoreUnavailable
 from ..native_mode import native_mode_requires_rust as _native_mode_requires_rust
+from ..native_policy_bundle import (
+    NATIVE_UNAVAILABLE_REJECTION,
+    PolicyBundleNativeError,
+    PolicyBundleNativeUnavailableError,
+    native_rejection_code,
+)
 from ..package_firewall_action_rate_limit import PackageFirewallActionRateLimiter
 from ..package_firewall_entitlement import (
     package_firewall_action_states,
@@ -252,6 +259,7 @@ from ..supply_chain_repair import (
 )
 from .aibom_inventory_persist import persist_aibom_inventory_context
 from .bounded_http import BoundedThreadingHTTPServer
+from .catalog_read_v2 import CATALOG_V2_PREFIX, serve_catalog_read_v2
 from .command_activity_api import (
     handle_command_activity_analytics,
     handle_command_activity_diagnostics,
@@ -300,7 +308,7 @@ from .manager import (
     clear_guard_daemon_state_if_current,
     current_guard_daemon_runtime_fingerprint,
     current_guard_daemon_source_root,
-    load_guard_daemon_auth_token,
+    ensure_guard_daemon_auth_token,
     release_guard_daemon_owner_lock,
     repair_approval_center_locator,
     write_guard_daemon_state,
@@ -1314,6 +1322,7 @@ class _GuardDaemonHTTPServer(BoundedThreadingHTTPServer):
             self.store.guard_home,
             self.daemon_port(),
             self.auth_token,
+            write_auth_token=False,
             host=self.daemon_host(),
             state_id=self.runtime_session_id,
             started_at=self.runtime_started_at,
@@ -2631,7 +2640,9 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             return
         headers = self._cors_headers_for_request(
             allow_methods="GET, POST, DELETE, OPTIONS",
-            allow_headers=("Authorization, Content-Type, Last-Event-ID, X-Guard-Dashboard-Session, X-Guard-Token"),
+            allow_headers=(
+                "Authorization, Content-Type, If-None-Match, Last-Event-ID, X-Guard-Dashboard-Session, X-Guard-Token"
+            ),
         )
         if headers is None:
             self._write_empty(status=403)
@@ -2718,6 +2729,29 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 self._write_json({"error": str(error)}, status=400)
                 return
             stream_command_activity_events(self, cursor)
+            return
+        if parsed.path.startswith("/v2/"):
+            # /v2/ is outside the /v1/ prefix check below; authenticate it
+            # explicitly before any metadata or ETag comparison.
+            if self._query_has_guard_token(parsed.query):
+                self._record_query_token_rejection()
+                self._write_unauthorized(extra_headers=self._cors_headers_for_request())
+                return
+            if not self._header_token_is_valid():
+                self._write_unauthorized(extra_headers=self._cors_headers_for_request())
+                return
+            if parsed.path.startswith(CATALOG_V2_PREFIX):
+                daemon = self._daemon_server()
+                serve_catalog_read_v2(
+                    self,
+                    path=parsed.path,
+                    query=parsed.query,
+                    if_none_match=self.headers.get("If-None-Match"),
+                    guard_home=self.server.store.guard_home,  # type: ignore[attr-defined]
+                    catalog_digest=daemon.extension_control_api.catalog_digest,
+                )
+                return
+            self._write_json({"error": "not_found"}, status=404)
             return
         if parsed.path.startswith("/v1/") and not self._header_token_is_valid():
             self._write_unauthorized(extra_headers=self._cors_headers_for_request())
@@ -2978,7 +3012,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     status=404,
                 )
                 return
-            self._write_json(approval)
+            self._write_json(self._approval_with_extension_recommendation(approval))
             return
         if parsed.path == "/v1/receipts":
             query = parse_qs(parsed.query)
@@ -3969,6 +4003,35 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         )
 
     def _handle_headless_policy_sync(self, payload: dict[str, object]) -> None:
+        try:
+            self._handle_headless_policy_sync_checked(payload)
+        except PolicyBundleNativeUnavailableError:
+            # The resident owns policy bundle authority. Without its verdict
+            # nothing is accepted, activated, or acknowledged, and the caller
+            # gets an explicit retryable outage rather than a policy verdict.
+            self._write_native_policy_bundle_unavailable()
+        except PolicyBundleNativeError as error:
+            # A native verdict or input rejection is final for this bundle;
+            # report its code instead of a retryable outage.
+            self._write_native_policy_bundle_rejection(native_rejection_code(error))
+
+    def _write_native_policy_bundle_rejection(self, code: str) -> None:
+        error_payload: dict[str, object] = {"error": code}
+        remediation = policy_bundle_rejection_message(code)
+        if remediation is not None:
+            error_payload["message"] = remediation
+        self._write_json(error_payload, status=400)
+
+    def _write_native_policy_bundle_unavailable(self) -> None:
+        self._write_json(
+            {
+                "error": NATIVE_UNAVAILABLE_REJECTION,
+                "message": policy_bundle_rejection_message(NATIVE_UNAVAILABLE_REJECTION),
+            },
+            status=503,
+        )
+
+    def _handle_headless_policy_sync_checked(self, payload: dict[str, object]) -> None:
         harness = self._optional_string(payload.get("harness"))
         if harness is None:
             self._write_json({"error": "missing_harness"}, status=400)
@@ -4015,6 +4078,12 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 self.server.store,  # type: ignore[attr-defined]
                 self.server.store.get_sync_payload("policy_bundle"),  # type: ignore[attr-defined]
             )
+            if (
+                rejection_reason == NATIVE_UNAVAILABLE_REJECTION
+                or _existing_bundle_error == NATIVE_UNAVAILABLE_REJECTION
+            ):
+                self._write_native_policy_bundle_unavailable()
+                return
             if validated_policy_bundle is None:
                 resolved_reason = rejection_reason or "invalid_policy_bundle"
                 error_payload: dict[str, object] = {"error": resolved_reason}
@@ -4099,6 +4168,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     approval_gate_grant=approval_gate_grant,
                     remote_write_authorized=True,
                 )
+            except PolicyBundleNativeError:
+                raise
             except (ExtensionControlAuthorityError, ValueError):
                 self._write_json({"error": "managed_runtime_publish_failed"}, status=503)
                 return
@@ -7825,7 +7896,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         return secrets.compare_digest(provided, expected)
 
     def _touch_runtime_heartbeat(self, path: str) -> None:
-        if path != "/healthz" and not path.startswith("/v1/"):
+        if path != "/healthz" and not path.startswith(("/v1/", "/v2/")):
             return
         self.server.last_activity_monotonic = time.monotonic()  # type: ignore[attr-defined]
         self._daemon_server().runtime_heartbeat.touch(_now())
@@ -7955,6 +8026,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             return True
         if len(path_parts) == 3 and path_parts[:2] == ["v1", "receipts"]:
             return True
+        if len(path_parts) >= 4 and path_parts[:3] == ["v2", "extension-controls", "catalog"]:
+            return True
         if len(path_parts) == 4 and path_parts[:3] == ["v1", "audit", "remediations"]:
             return True
         if len(path_parts) == 4 and path_parts[:2] == ["v1", "approvals"] and path_parts[3] == "decision":
@@ -7979,6 +8052,19 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         ):
             return True
         return len(path_parts) == 4 and path_parts[:2] == ["v1", "artifacts"] and path_parts[3] == "diff"
+
+    def _approval_with_extension_recommendation(self, approval: dict[str, object]) -> dict[str, object]:
+        from .approval_extension_recommendation import with_approval_extension_recommendation
+
+        include = not self._is_hosted_dashboard_origin()
+        api = getattr(self._daemon_server(), "extension_control_api", None)
+        if not include or api is None:
+            return with_approval_extension_recommendation(approval, registry=None, snapshot=None, include=False)
+        registry, snapshot = api.recommendation_inputs()
+        hint = self._daemon_server().store.get_approval_extension_allow_hint(str(approval.get("request_id", "")))
+        return with_approval_extension_recommendation(
+            {**approval, "extension_allow_hint": hint}, registry=registry, snapshot=snapshot, include=True
+        )
 
     def _is_hosted_dashboard_origin(self) -> bool:
         origin = self._normalize_origin(self.headers.get("Origin"))
@@ -8438,15 +8524,6 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         return trusted_guard_directory_roots(self._daemon_server().store.guard_home)
 
     @staticmethod
-    def _path_is_within_root(candidate: Path | str, root: Path | str) -> bool:
-        candidate_path = os.fspath(candidate)
-        root_path = os.fspath(root)
-        try:
-            return os.path.commonpath([candidate_path, root_path]) == root_path
-        except ValueError:
-            return False
-
-    @staticmethod
     def _scope_target_is_valid(
         scope: str,
         *,
@@ -8567,6 +8644,17 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         extra_headers: dict[str, str] | None = None,
     ) -> None:
         body = escape_json_for_html(json.dumps(payload).encode("utf-8"))
+        self._write_json_bytes(body, status=status, extra_headers=extra_headers)
+
+    def _write_json_bytes(
+        self,
+        body: bytes,
+        *,
+        status: int,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
+        """Write already HTML-safe JSON bytes with the standard response headers."""
+
         headers = {**dict(extra_headers or {}), "X-Content-Type-Options": "nosniff"}
         cors_headers = self._cors_headers_for_request(allow_methods="GET, POST, OPTIONS")
         if cors_headers is not None:
@@ -8581,6 +8669,16 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
         except _PEER_DISCONNECT_ERRORS:
             self.close_connection = True
+
+    def write_catalog_v2_body(self, body: bytes, *, status: int, headers: dict[str, str]) -> None:
+        self._write_json_bytes(body, status=status, extra_headers=headers)
+
+    def write_catalog_v2_empty(self, *, status: int, headers: dict[str, str]) -> None:
+        cors_headers = self._cors_headers_for_request(allow_methods="GET, POST, OPTIONS") or {}
+        self._write_empty(status=status, extra_headers={**cors_headers, **headers})
+
+    def write_catalog_v2_error(self, error_code: str, *, status: int) -> None:
+        self._write_json({"error": error_code}, status=status, extra_headers={"Cache-Control": "no-store"})
 
     def _write_empty(
         self,
@@ -8600,6 +8698,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
     def _validated_headers(extra_headers: dict[str, str] | None) -> dict[str, str]:
         allowed_headers = {
             "Access-Control-Allow-Origin",
+            "Access-Control-Expose-Headers",
+            "ETag",
             "Access-Control-Allow-Methods",
             "Access-Control-Allow-Headers",
             "Access-Control-Allow-Private-Network",
@@ -8766,7 +8866,7 @@ class GuardDaemonServer:
                 (host, port),
                 _GuardDaemonHandler,
                 store=store,
-                auth_token=load_guard_daemon_auth_token(store.guard_home) or uuid.uuid4().hex,
+                auth_token=ensure_guard_daemon_auth_token(store.guard_home),
                 runtime_host=host,
                 runtime_session_id=uuid.uuid4().hex,
                 runtime_started_at=_now(),
@@ -9482,11 +9582,17 @@ class GuardDaemonServer:
                 )
                 cloud_profile = self._server.store.get_cloud_sync_profile()
                 workspace_id = cloud_profile.get("workspace_id") if isinstance(cloud_profile, dict) else None
-                outbox_status = self._server.store.review_event_outbox_status(
-                    now=_now(),
-                    workspace_id=workspace_id,
-                )
-                outbox_depth = outbox_status["depth"]
+                try:
+                    outbox_status = self._server.store.review_event_outbox_status(
+                        now=_now(),
+                        workspace_id=workspace_id,
+                    )
+                    outbox_depth = outbox_status["depth"]
+                except NativeGuardStoreUnavailable:
+                    # The native resident cannot answer, so no delivery can run and
+                    # the depth is unknown rather than transient-locked. Queued events
+                    # stay durable in guard.db; do not let this pin the daemon alive.
+                    outbox_depth = None
             except sqlite3.OperationalError:
                 time.sleep(_GUARD_DAEMON_IDLE_POLL_INTERVAL_SECONDS)
                 continue
@@ -9781,19 +9887,6 @@ def _decode_dashboard_session_payload(payload: str) -> dict[str, object]:
 def _parse_iso_timestamp(value: str) -> float:
     normalized = value.replace("Z", "+00:00")
     return datetime.fromisoformat(normalized).timestamp()
-
-
-def _normalized_iso_timestamp_string(value: object) -> str | None:
-    if not isinstance(value, str) or not value.strip():
-        return None
-
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc).isoformat()
 
 
 def _now() -> str:

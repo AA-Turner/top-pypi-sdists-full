@@ -60,6 +60,7 @@ from confiture.core.ddl_walk import (
     read_index,
     render_default,
     rendered_query,
+    uncascaded_tables,
     written_type,
 )
 from confiture.core.ddl_walk import type_name as ddl_type_name
@@ -299,9 +300,15 @@ WHERE k.conrelid = ANY(%s) AND k.contype IN ('p', 'u', 'c', 'f', 'x')
 ORDER BY k.conrelid, k.conname
 """
 
+#: Whether an index is usable (#689). A failed ``CREATE INDEX CONCURRENTLY`` leaves
+#: it neither valid nor ready; a partitioned table's own index (``relkind 'I'``)
+#: built ``ON ONLY`` is invalid by design until every partition's is attached, and
+#: is read as valid.
+_VALID = "(i.indisvalid AND i.indisready) OR ic.relkind = 'I'"
+
 #: An index attached to a partitioned table's index (``pg_inherits``) is that
 #: index's, as a cloned constraint is: the tree declares it once, on the parent.
-_INDEXES = """
+_INDEXES = f"""
 SELECT
     i.indrelid,
     pg_get_indexdef(i.indexrelid),
@@ -309,7 +316,8 @@ SELECT
         SELECT 1 FROM pg_constraint k
         WHERE k.conindid = i.indexrelid AND k.conrelid = i.indrelid
           AND k.contype IN ('p', 'u', 'x')
-    )
+    ),
+    {_VALID}
 FROM pg_index i
 JOIN pg_class ic ON ic.oid = i.indexrelid
 WHERE i.indrelid = ANY(%s)
@@ -422,9 +430,9 @@ def _tables(
         read = _constraint(name, definition, ref_schema, ref_name)
         if read is not None:
             constraints[relid].append(read)
-    indexes: dict[int, list[tuple[Any, bool]]] = defaultdict(list)
-    for relid, definition, backs in conn.execute(_INDEXES, (oids,)).fetchall():
-        indexes[relid].append((pglast.parse_sql(definition)[0].stmt, bool(backs)))
+    indexes: dict[int, list[tuple[Any, bool, bool]]] = defaultdict(list)
+    for relid, definition, backs, valid in conn.execute(_INDEXES, (oids,)).fetchall():
+        indexes[relid].append((pglast.parse_sql(definition)[0].stmt, bool(backs), bool(valid)))
 
     tables: dict[ObjectRef, Table] = {}
     for oid, schema, name in relations:
@@ -433,8 +441,12 @@ def _tables(
             for row, node in zip(rows[oid], _type_nodes([r[2] for r in rows[oid]]), strict=True)
         ]
         index_models: list[Index] = [
-            replace(read_index(stmt, table=RelationName(schema, name)), backs_constraint=backs)
-            for stmt, backs in indexes[oid]
+            replace(
+                read_index(stmt, table=RelationName(schema, name)),
+                backs_constraint=backs,
+                valid=valid,
+            )
+            for stmt, backs, valid in indexes[oid]
         ]
         tables[ref_for("table", schema, name)] = Table(
             name=name,
@@ -739,8 +751,8 @@ def user_schemas(conn: psycopg.Connection) -> list[str]:
 #: Every index on a table, a partitioned table or a materialized view — the ones
 #: backing a constraint included, which :func:`read` flags. This is the set
 #: ``pg_indexes`` lists.
-_ALL_INDEXES = """
-SELECT n.nspname, t.relname, pg_get_indexdef(i.indexrelid)
+_ALL_INDEXES = f"""
+SELECT n.nspname, t.relname, pg_get_indexdef(i.indexrelid), {_VALID}
 FROM pg_index i
 JOIN pg_class ic ON ic.oid = i.indexrelid
 JOIN pg_class t ON t.oid = i.indrelid
@@ -760,12 +772,27 @@ def indexes(conn: psycopg.Connection, schemas: Sequence[str]) -> dict[ObjectRef,
     relation's schema and name.
     """
     found: dict[ObjectRef, list[Index]] = defaultdict(list)
-    for schema, table, definition in conn.execute(_ALL_INDEXES, (list(schemas),)).fetchall():
+    rows = conn.execute(_ALL_INDEXES, (list(schemas),)).fetchall()
+    for schema, table, definition, valid in rows:
         stmt = pglast.parse_sql(definition)[0].stmt
         found[ref_for("table", schema, table)].append(
-            read_index(stmt, table=RelationName(schema, table))
+            replace(read_index(stmt, table=RelationName(schema, table)), valid=bool(valid))
         )
     return {ref: tuple(found_on) for ref, found_on in found.items()}
+
+
+@reads_under_one_path
+def invalid_indexes(conn: psycopg.Connection, schemas: Sequence[str]) -> set[tuple[str, str]]:
+    """``(schema, name)`` of every index in *schemas* a failed concurrent build left INVALID (#689).
+
+    Names as the catalog holds them, case kept: what a statement naming one resolves to.
+    """
+    return {
+        (index.table.schema or "", index.name)
+        for found in indexes(conn, schemas).values()
+        for index in found
+        if not index.valid and index.name
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -873,9 +900,17 @@ MINIMUM_PG_TVIEWS = "0.1.0-beta.26"
 #: The registry columns pg_tviews appended under contract 1 that confiture reads:
 #: ``view``, the backing view in pg_tviews' own schema, and ``uncascaded_policy``,
 #: stored beside ``options`` (0.1.0-beta.25, fraiseql/pg_tviews#181);
-#: ``function_reads`` and ``time_refresh`` (0.1.0-beta.26, fraiseql/pg_tviews#193).
-#: A build without one is refused, not read as a TVIEW that declares nothing.
-REGISTRY_COLUMNS = ("view", "uncascaded_policy", "function_reads", "time_refresh")
+#: ``function_reads`` and ``time_refresh`` (0.1.0-beta.26, fraiseql/pg_tviews#193), and
+#: ``uncascaded_table_policies``, the ``uncascaded_tables`` option (0.1.0-beta.26,
+#: fraiseql/pg_tviews#195). A build without one is refused, not read as a TVIEW that
+#: declares nothing.
+REGISTRY_COLUMNS = (
+    "view",
+    "uncascaded_policy",
+    "function_reads",
+    "time_refresh",
+    "uncascaded_table_policies",
+)
 
 _REGISTRY_COLUMNS_HELD = """
 SELECT attname::text FROM pg_attribute
@@ -1008,9 +1043,11 @@ def _views(
     on: dict[int, list[Index]] = defaultdict(list)
     matviews = {oid: RelationName(schema, name) for oid, schema, name, mat, *_ in rows if mat}
     if indexes and matviews:
-        for relid, definition, _backs in conn.execute(_INDEXES, (list(matviews),)).fetchall():
+        for relid, definition, _backs, valid in conn.execute(
+            _INDEXES, (list(matviews),)
+        ).fetchall():
             stmt = pglast.parse_sql(definition)[0].stmt
-            on[relid].append(read_index(stmt, table=matviews[relid]))
+            on[relid].append(replace(read_index(stmt, table=matviews[relid]), valid=bool(valid)))
     return [
         View(
             name=name,
@@ -1119,7 +1156,8 @@ def _tviews(conn: psycopg.Connection, schemas: Sequence[str]) -> list[tuple[TVie
     # beside the table is the tree's — ``NULL`` once that view is gone.
     query = t"""
         SELECT r.schema, r.name, r.query, r.logged, (r.options ->> 'fillfactor')::int,
-               r.uncascaded_policy, r.time_refresh, r.function_reads, r.view::oid::bigint
+               r.uncascaded_policy, r.time_refresh, r.function_reads,
+               r.uncascaded_table_policies, r.view::oid::bigint
         FROM {TVIEWS_SCHEMA:i}.registry r
         WHERE r.schema = ANY({list(schemas)})
         ORDER BY r.schema, r.name
@@ -1135,6 +1173,7 @@ def _tviews(conn: psycopg.Connection, schemas: Sequence[str]) -> list[tuple[TVie
                 uncascaded_policy=policy,
                 time_refresh=time_refresh,
                 function_reads=function_reads(reads),
+                uncascaded_tables=uncascaded_tables(table_policies or {}),
             ),
             view_oid,
         )
@@ -1147,6 +1186,7 @@ def _tviews(conn: psycopg.Connection, schemas: Sequence[str]) -> list[tuple[TVie
             policy,
             time_refresh,
             reads,
+            table_policies,
             view_oid,
         ) in conn.execute(query).fetchall()
     ]

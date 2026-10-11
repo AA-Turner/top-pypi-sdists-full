@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -27,6 +27,7 @@ callers.
 #* "claw_skip_package_names".
 #* "hint_overrides".
 #* "is_pep557_fields".
+#* "is_random".
 #* "violation_door_type".
 #* "violation_param_type".
 #* "violation_return_type".
@@ -37,11 +38,6 @@ callers.
 # ....................{ IMPORTS                            }....................
 from beartype.roar._roarwarn import (
     _BeartypeConfReduceDecoratorExceptionToWarningDefault)
-from beartype.typing import (
-    TYPE_CHECKING,
-    Dict,
-    Optional,
-)
 from beartype._conf.confenum import (
     BeartypeStrategy,
     BeartypeViolationVerbosity,
@@ -54,6 +50,8 @@ from beartype._conf.conftest import (
 )
 from beartype._conf.decorplace.confplaceenum import BeartypeDecorPlace
 from beartype._conf._confget import get_is_color
+from beartype._data.func.datafuncarg import ARG_VALUE_UNPASSED
+from beartype._data.kind.datakindmap import FROZENDICT_EMPTY
 from beartype._data.typing.datatyping import (
     BoolTristate,
     BoolTristateUnpassable,
@@ -62,11 +60,13 @@ from beartype._data.typing.datatyping import (
     TypeException,
     TypeWarning,
 )
-from beartype._data.func.datafuncarg import ARG_VALUE_UNPASSED
-from beartype._data.kind.datakindmap import FROZENDICT_EMPTY
 from beartype._util.kind.maplike.utilmapfrozen import FrozenDict
-from beartype._util.utilobject import get_object_type_basename
+from beartype._util.utilobjget import get_object_type_basename
 from threading import Lock
+from typing import (
+    TYPE_CHECKING,
+    Optional,
+)
 
 # ....................{ DATACLASSES                        }....................
 class BeartypeConf(object):
@@ -103,7 +103,7 @@ class BeartypeConf(object):
     _conf_args : tuple
         Tuple of the values of *all* possible keyword parameters (in arbitrary
         order) configuring this configuration.
-    _conf_kwargs : Dict[str, object]
+    _conf_kwargs : dict[str, object]
         Dictionary mapping from the names to values of *all* possible keyword
         parameters configuring this configuration.
     _hash : int
@@ -144,6 +144,9 @@ class BeartypeConf(object):
         * **Dataclass object initialization** (i.e., at ``__init__()`` time).
         * **Dataclass field assignment** (i.e., when each field is subsequently
           assigned to by an assignment statement).
+    _is_random : bool
+        :data:`True` only if pseudo-random type-checking strategies type-check
+        items of pure-Python sequences pseudo-randomly.
     _is_violation_door_warn : bool
         :data:`True` only if :attr:`violation_door_type` is a warning subclass.
         Note that this is stored only as a negligible optimization to avoid
@@ -231,6 +234,7 @@ class BeartypeConf(object):
         '_is_debug',
         '_is_pep484_tower',
         '_is_pep557_fields',
+        '_is_random',
         '_is_violation_door_warn',
         '_is_violation_param_warn',
         '_is_violation_return_warn',
@@ -260,6 +264,7 @@ class BeartypeConf(object):
         _is_debug: bool
         _is_pep484_tower: bool
         _is_pep557_fields: bool
+        _is_random: bool
         _is_violation_door_warn: bool
         _is_violation_param_warn: bool
         _is_violation_return_warn: bool
@@ -302,6 +307,7 @@ class BeartypeConf(object):
         is_debug: bool = False,
         is_pep484_tower: bool = False,
         is_pep557_fields: bool = False,
+        is_random: bool = True,
         strategy: BeartypeStrategy = BeartypeStrategy.O1,
         violation_door_type: Optional[TypeException] = None,
         violation_param_type: Optional[TypeException] = None,
@@ -637,6 +643,7 @@ class BeartypeConf(object):
             :pep:`526`-compliant ``dataclasses.ClassVar[...]`` or
             :pep:`557`-compliant ``dataclasses.InitVar[...]`` type hints) on
             both:
+
             * **Dataclass object initialization** (i.e., at ``__init__()``
               time) *and*...
             * **Dataclass field assignment** (i.e., when each field is
@@ -645,8 +652,31 @@ class BeartypeConf(object):
             Currently defaults to :data:`False`, due to the non-triviality of
             safely type-checking dataclass fields across all possible dataclass
             configurations and use cases.
-        strategy : BeartypeStrategy, optional
-            **Type-checking strategy** (i.e., :class:`BeartypeStrategy`
+        is_random : bool, default: True
+            :data:`True` only if pseudo-random type-checking strategies
+            type-check items of **pure-Python sequences** (e.g., lists, tuples)
+            pseudo-randomly. Notably, if ``strategy`` is the default
+            :attr:`.BeartypeStrategy.O1` constant-time type-checking strategy
+            and this option is:
+
+            * :data:`True`, then :mod:`beartype` type-checks a single
+              pseudo-randomly selected item from each non-empty pure-Python
+              sequence. **This is good.** While non-deterministic, pseudo-random
+              selection guarantees complete type-checking over all items of all
+              sequences after sufficiently many repeated type-checks (as
+              formalized by the Coupon Collector's Problem) and is thus the
+              statistically optimal solution for fast runtime type-checking.
+            * :data:`False`, then :mod:`beartype` type-checks only the first
+              item from each non-empty pure-Python sequence. **This is not
+              good** -- all else being equal, anyway. While deterministic,
+              first-item selection prevents *any* other sequence items from
+              being type-checked and is thus appropriate only if determinism
+              outweighs type-checking coverage for some specific use case (e.g.,
+              deterministic testing).
+
+            Defaults to :data:`True`.
+        strategy : BeartypeStrategy, default: BeartypeStrategy.O1
+            **Type-checking strategy** (i.e., :class:`.BeartypeStrategy`
             enumeration member) with which to implement all type-checks in the
             wrapper function dynamically generated by the
             :func:`beartype.beartype` decorator for the decorated callable.
@@ -770,10 +800,12 @@ class BeartypeConf(object):
         DeprecationWarning
             If a deprecated parameter is passed, including any of the following:
 
+            * ``claw_decoration_position_funcs``.
+            * ``claw_decoration_position_types``.
             * ``is_check_pep557``.
         '''
 
-        # In a non-reentrant thread lock specific to beartype configurations...
+        # In a non-reentrant thread lock isolated to this constructor...
         #
         # Note that this lock is potentially overkill and thus unnecessary.
         # Nonetheless, since the number of beartype configurations instantiated
@@ -838,6 +870,7 @@ class BeartypeConf(object):
                 is_debug,
                 is_pep484_tower,
                 is_pep557_fields,
+                is_random,
                 strategy,
                 violation_door_type,
                 violation_param_type,
@@ -870,6 +903,7 @@ class BeartypeConf(object):
                 is_debug=is_debug,
                 is_pep484_tower=is_pep484_tower,
                 is_pep557_fields=is_pep557_fields,
+                is_random=is_random,
                 strategy=strategy,
                 violation_door_type=violation_door_type,
                 violation_param_type=violation_param_type,
@@ -949,6 +983,7 @@ class BeartypeConf(object):
             self._is_debug = conf_kwargs['is_debug']  # pyright: ignore
             self._is_pep484_tower = conf_kwargs['is_pep484_tower']  # pyright: ignore
             self._is_pep557_fields = conf_kwargs['is_pep557_fields']  # pyright: ignore
+            self._is_random = conf_kwargs['is_random']  # pyright: ignore
             self._strategy = conf_kwargs['strategy']  # pyright: ignore
             self._violation_door_type = conf_kwargs['violation_door_type']  # pyright: ignore
             self._violation_param_type = conf_kwargs['violation_param_type']  # pyright: ignore
@@ -998,6 +1033,7 @@ class BeartypeConf(object):
             self._warning_cls_on_decorator_exception = (
                 warning_cls_on_decorator_exception)
 
+        # ..................{ RETURN                         }..................
         # Return this configuration.
         return self
 
@@ -1151,6 +1187,21 @@ class BeartypeConf(object):
         '''
 
         return self._is_debug
+
+
+    @property
+    def is_random(self) -> bool:
+        '''
+        :data:`True` only if pseudo-random type-checking strategies type-check
+        items of pure-Python sequences pseudo-randomly.
+
+        See Also
+        --------
+        :meth:`__new__`
+            Further details.
+        '''
+
+        return self._is_random
 
     # ..................{ PROPERTIES ~ options : bool : pep  }..................
     @property
@@ -1467,7 +1518,7 @@ global for non-reentrant reuse elsewhere as a context manager).
 '''
 
 
-_beartype_conf_args_to_conf: Dict[tuple, BeartypeConf] = {}
+_beartype_conf_args_to_conf: dict[tuple, BeartypeConf] = {}
 '''
 Non-thread-safe **beartype configuration parameter cache** (i.e., dictionary
 mapping from the hash of each set of parameters accepted by a prior call of the

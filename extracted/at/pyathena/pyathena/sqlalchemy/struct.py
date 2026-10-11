@@ -1,3 +1,10 @@
+# Copyright 2025 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
 """Athena STRUCT/ROW types."""
 
 from __future__ import annotations
@@ -6,6 +13,8 @@ from typing import Any
 
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeEngine
+
+from pyathena.util import override
 
 
 class AthenaStruct(TypeEngine[dict[str, Any]]):
@@ -40,6 +49,17 @@ class AthenaStruct(TypeEngine[dict[str, Any]]):
     __visit_name__ = "struct"
 
     def __init__(self, *fields: str | tuple[str, Any]) -> None:
+        """Initialize the STRUCT type.
+
+        Args:
+            *fields: Field specifications. A string is a field name of type
+                ``String``. A ``(field_name, field_type)`` tuple names a field and
+                its SQLAlchemy type or type class; a type class is instantiated.
+
+        Raises:
+            ValueError: If a field specification is neither a string nor a
+                two-element tuple.
+        """
         self.fields: dict[str, TypeEngine[Any]] = {}
 
         for field in fields:
@@ -59,6 +79,7 @@ class AthenaStruct(TypeEngine[dict[str, Any]]):
         return self.fields[key]
 
     @property
+    @override
     def _static_cache_key(self):
         return (
             type(self),
@@ -66,6 +87,7 @@ class AthenaStruct(TypeEngine[dict[str, Any]]):
         )
 
     @property
+    @override
     def python_type(self) -> type:
         return dict
 

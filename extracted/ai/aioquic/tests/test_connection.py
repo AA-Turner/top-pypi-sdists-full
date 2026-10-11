@@ -11,6 +11,7 @@ from aioquic.quic import events
 from aioquic.quic.configuration import SMALLEST_MAX_DATAGRAM_SIZE, QuicConfiguration
 from aioquic.quic.connection import (
     MAX_LOCAL_CHALLENGES,
+    MAX_NETWORK_PATHS,
     MAX_PENDING_CRYPTO,
     MAX_REMOTE_CHALLENGES,
     STREAM_COUNT_MAX,
@@ -449,6 +450,28 @@ class QuicConnectionTest(TestCase):
         client.connect(SERVER_ADDR, now=now)
         items = client.datagrams_to_send(now=now)
         self.assertEqual(datagram_sizes(items), [1480])
+
+    def test_connect_with_large_packet_size(self):
+        """
+        Check that packets larger than 1500 bytes can be exchanged.
+        """
+        with client_and_server(
+            client_options={"max_datagram_size": 3000},
+            server_options={"max_datagram_size": 3000},
+        ) as (client, server):
+            self.check_handshake(client=client, server=server)
+
+            stream_id = client.get_next_available_stream_id()
+            client.send_stream_data(stream_id, bytes(2500), end_stream=True)
+            items = client.datagrams_to_send(now=time.time())
+            self.assertEqual(datagram_sizes(items), [2531])
+
+            for data, addr in items:
+                server.receive_datagram(data, CLIENT_ADDR, now=time.time())
+            event = server.next_event()
+            self.assertEqual(type(event), events.StreamDataReceived)
+            self.assertEqual(event.data, bytes(2500))
+            self.assertTrue(event.end_stream)
 
     def test_connect_without_loss(self):
         """
@@ -1299,6 +1322,35 @@ class QuicConnectionTest(TestCase):
             self.assertEqual(event.frame_type, QuicFrameType.CRYPTO)
             self.assertEqual(event.reason_phrase, "No supported protocol version")
 
+    def test_receive_datagram_duplicate(self):
+        with client_and_server() as (client, server):
+            while server.next_event() is not None:
+                pass
+
+            # client sends some data
+            client.send_stream_data(0, b"01234567")
+            datagrams = [
+                data for data, addr in client.datagrams_to_send(now=time.time())
+            ]
+            for data in datagrams:
+                server.receive_datagram(data, CLIENT_ADDR, now=time.time())
+            self.assertEqual(type(server.next_event()), events.StreamDataReceived)
+            self.assertIsNone(server.next_event())
+
+            # the same datagrams are replayed
+            for data in datagrams:
+                server.receive_datagram(data, CLIENT_ADDR, now=time.time())
+
+            # the duplicates are discarded
+            self.assertIsNone(server.next_event())
+            log = server.configuration.quic_logger.to_dict()
+            triggers = [
+                event["data"]["trigger"]
+                for event in log["traces"][0]["events"]
+                if event["name"] == "transport:packet_dropped"
+            ]
+            self.assertEqual(triggers.count("duplicate"), len(datagrams))
+
     def test_receive_datagram_garbage(self):
         client = create_standalone_client(self)
 
@@ -2011,6 +2063,51 @@ class QuicConnectionTest(TestCase):
                     server._local_challenges[int.to_bytes(i, 8, "big")].addr,
                     f"1.2.3.{i}",
                 )
+
+    def test_network_paths_are_bounded(self):
+        with client_and_server() as (client, server):
+            # client sends a fresh packet from many different ports
+            for port in range(2000, 2000 + MAX_NETWORK_PATHS + 10):
+                client.send_ping(port)
+                for data, addr in client.datagrams_to_send(now=time.time()):
+                    server.receive_datagram(data, ("1.2.3.4", port), now=time.time())
+
+            # check paths
+            self.assertEqual(len(server._network_paths), MAX_NETWORK_PATHS)
+            self.assertEqual(
+                server._network_paths[0].addr, ("1.2.3.4", 2000 + MAX_NETWORK_PATHS + 9)
+            )
+
+    def test_network_paths_eviction_prefers_unvalidated(self):
+        with client_and_server() as (client, server):
+            server._add_network_path(QuicNetworkPath(("1.2.3.4", 2000)))
+            server._add_network_path(
+                QuicNetworkPath(("1.2.3.4", 2001), is_validated=True)
+            )
+            for port in range(2002, 2002 + MAX_NETWORK_PATHS):
+                server._add_network_path(QuicNetworkPath(("1.2.3.4", port)))
+
+            # the active path and validated path are kept
+            self.assertEqual(len(server._network_paths), MAX_NETWORK_PATHS)
+            self.assertEqual(server._network_paths[0].addr, ("1.2.3.4", 1234))
+            self.assertEqual(server._network_paths[1].addr, ("1.2.3.4", 2001))
+            self.assertEqual(
+                server._network_paths[-1].addr, ("1.2.3.4", 2001 + MAX_NETWORK_PATHS)
+            )
+
+    def test_network_paths_eviction_all_validated(self):
+        with client_and_server() as (client, server):
+            for port in range(2000, 2000 + MAX_NETWORK_PATHS - 1):
+                server._add_network_path(
+                    QuicNetworkPath(("1.2.3.4", port), is_validated=True)
+                )
+
+            # the oldest non-active path is evicted, not the one being added
+            server._add_network_path(QuicNetworkPath(("1.2.3.4", 3000)))
+            self.assertEqual(len(server._network_paths), MAX_NETWORK_PATHS)
+            self.assertEqual(server._network_paths[0].addr, ("1.2.3.4", 1234))
+            self.assertEqual(server._network_paths[1].addr, ("1.2.3.4", 2001))
+            self.assertEqual(server._network_paths[-1].addr, ("1.2.3.4", 3000))
 
     def test_remote_path_challenges_are_bounded(self):
         with client_and_server() as (client, server):

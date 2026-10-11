@@ -1,3 +1,5 @@
+"""Cursor that returns Athena query results as Polars DataFrames."""
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +21,7 @@ from pyathena.polars.converter import (
 )
 from pyathena.polars.result_set import AthenaPolarsResultSet
 from pyathena.result_set import WithFetch
+from pyathena.util import override
 
 if TYPE_CHECKING:
     import polars as pl
@@ -64,6 +67,7 @@ class PolarsCursor(WithFetch):
 
     def __init__(
         self,
+        *,
         s3_staging_dir: str | None = None,
         schema_name: str | None = None,
         catalog_name: str | None = None,
@@ -77,7 +81,7 @@ class PolarsCursor(WithFetch):
         result_reuse_minutes: int = CursorIterator.DEFAULT_RESULT_REUSE_MINUTES,
         block_size: int | None = None,
         cache_type: str | None = None,
-        max_workers: int = (cpu_count() or 1) * 5,
+        s3_max_workers: int = (cpu_count() or 1) * 5,
         chunksize: int | None = None,
         **kwargs,
     ) -> None:
@@ -97,7 +101,7 @@ class PolarsCursor(WithFetch):
             result_reuse_minutes: Minutes to reuse cached results.
             block_size: S3 read block size.
             cache_type: S3 caching strategy.
-            max_workers: Maximum worker threads for parallel S3 operations.
+            s3_max_workers: Maximum worker threads for parallel S3 operations.
             chunksize: Number of rows per chunk for memory-efficient processing.
                       If specified, data is loaded lazily in chunks for all data
                       access methods including fetchone(), fetchmany(), and iter_chunks().
@@ -124,10 +128,11 @@ class PolarsCursor(WithFetch):
         self._unload = unload
         self._block_size = block_size
         self._cache_type = cache_type
-        self._max_workers = max_workers
+        self._s3_max_workers = s3_max_workers
         self._chunksize = chunksize
 
     @staticmethod
+    @override
     def get_default_converter(
         unload: bool = False,
     ) -> DefaultPolarsTypeConverter | DefaultPolarsUnloadTypeConverter | Any:
@@ -143,10 +148,12 @@ class PolarsCursor(WithFetch):
             return DefaultPolarsUnloadTypeConverter()
         return DefaultPolarsTypeConverter()
 
+    @override
     def execute(
         self,
         operation: str,
         parameters: dict[str, Any] | list[str] | None = None,
+        *,
         work_group: str | None = None,
         s3_staging_dir: str | None = None,
         cache_size: int | None = None,
@@ -156,7 +163,6 @@ class PolarsCursor(WithFetch):
         paramstyle: str | None = None,
         on_start_query_execution: Callable[[str], None] | None = None,
         result_set_type_hints: dict[str | int, str] | None = None,
-        *,
         options: ExecuteOptions | None = None,
         **kwargs,
     ) -> PolarsCursor:
@@ -175,14 +181,20 @@ class PolarsCursor(WithFetch):
             result_reuse_enable: Enable Athena result reuse for this query.
             result_reuse_minutes: Minutes to reuse cached results.
             paramstyle: Parameter style ('qmark' or 'pyformat').
-            on_start_query_execution: Callback called when query starts.
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion within
-                complex types.
+            on_start_query_execution: Callback invoked with the query ID before ``execute()``
+                waits for the query: after the ``StartQueryExecution`` call, or after a
+                reusable query ID is found through ``cache_size``.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
             options: Shared execution options as an
                 :class:`~pyathena.options.ExecuteOptions` instance. Individual
                 keyword arguments take precedence over ``options`` fields.
             **kwargs: Additional execution parameters passed to Polars read functions.
+                ``block_size``, ``cache_type``, ``s3_max_workers``, and ``chunksize``
+                override the cursor's values for this query.
+                Read function arguments replace the ones the result set chooses, such as
+                ``separator``, ``has_header``, ``schema_overrides``, and ``storage_options``
+                (see :class:`~pyathena.polars.result_set.AthenaPolarsResultSet`).
 
         Returns:
             Self reference for method chaining.
@@ -223,10 +235,10 @@ class PolarsCursor(WithFetch):
                 retry_config=self._retry_config,
                 unload=self._unload,
                 unload_location=unload_location,
-                block_size=self._block_size,
-                cache_type=self._cache_type,
-                max_workers=self._max_workers,
-                chunksize=self._chunksize,
+                block_size=kwargs.pop("block_size", self._block_size),
+                cache_type=kwargs.pop("cache_type", self._cache_type),
+                max_workers=kwargs.pop("s3_max_workers", self._s3_max_workers),
+                chunksize=kwargs.pop("chunksize", self._chunksize),
                 result_set_type_hints=options.result_set_type_hints,
                 **kwargs,
             )

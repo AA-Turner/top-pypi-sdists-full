@@ -72,17 +72,18 @@ export class CloakBrowserLicenseError extends Error {
 // emits only the number (no diagnostic strings, by design); the message text
 // lives here in the wrapper. Mirrors Python _LICENSE_EXIT_MESSAGES.
 const LICENSE_EXIT_MESSAGES: Record<number, string> = {
-  76: "CloakBrowser Pro: session limit reached for your plan. Close another running session or upgrade your plan.",
+  76: "CloakBrowser Pro: session limit reached for your plan. Close another running session or upgrade your plan. Always close with await browser.close() (e.g. in a finally block). A session that crashed or was killed frees its seat automatically within 4 min (free/trial/solo), 15 min (team) or 30 min (business/scale).",
   77: "CloakBrowser Pro: license key is invalid, expired, or missing. Check CLOAKBROWSER_LICENSE_KEY.",
   78: "CloakBrowser Pro: couldn't verify your license (license server unreachable or a connection problem).",
-  79: "CloakBrowser Pro: local configuration problem, ~/.cloakbrowser is not writable.",
+  79: "CloakBrowser Pro: local configuration problem. Either ~/.cloakbrowser is not writable, or the --license-route value is invalid (use auto, direct, or proxy with a proxy set).",
 };
 
 // Playwright embeds the child-process exit as "<process did exit: exitCode=N, ...>".
-// Puppeteer surfaces it as "Browser process exited with code N" / "with exit code N".
+// Puppeteer 25.x surfaces it as "Failed to launch the browser process:  Code: N".
 // Anchored so an unrelated "exitCode=" elsewhere in the error can't false-match.
 const EXIT_CODE_PATTERNS = [
   /process did exit:\s*exitCode=(\d+)/,
+  /Failed to launch the browser process:\s*Code:\s*(\d+)/,
   /exited with (?:exit )?code (\d+)/i,
 ];
 
@@ -105,12 +106,18 @@ export function licenseErrorMessage(errorText: string): string | null {
 
 /**
  * Return a CloakBrowserLicenseError if a launch failure was a license deny,
- * else null so the original error propagates unchanged.
+ * else null so the original error propagates unchanged. Falls back to the
+ * launch's denial file because not every driver puts the exit code in its
+ * error text (.NET Playwright reports only "Target ... has been closed").
  */
-export function licenseErrorFrom(err: unknown): CloakBrowserLicenseError | null {
+export function licenseErrorFrom(err: unknown, denialPath?: string): CloakBrowserLicenseError | null {
   const text = err instanceof Error ? err.message : String(err);
   const msg = licenseErrorMessage(text);
-  return msg !== null ? new CloakBrowserLicenseError(msg, { cause: err }) : null;
+  if (msg !== null) return new CloakBrowserLicenseError(msg, { cause: err });
+  if (!denialPath) return null;
+  const code = readDenialFile(denialPath);
+  const fromFile = code !== null ? LICENSE_EXIT_MESSAGES[code] : undefined;
+  return fromFile ? new CloakBrowserLicenseError(fromFile, { cause: err }) : null;
 }
 
 // Env var the wrapper uses to tell the Pro binary where to record a license

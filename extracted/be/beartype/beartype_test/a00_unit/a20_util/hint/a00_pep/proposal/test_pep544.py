@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -30,7 +30,7 @@ def test_is_hint_pep544_protocol() -> None:
     from beartype._util.hint.pep.proposal.pep544 import (
         is_hint_pep544_protocol)
     from beartype_test.a00_unit.data.data_type import (
-        TYPES_BUILTIN,
+        BUILTIN_TYPES,
         Class,
     )
 
@@ -96,7 +96,7 @@ def test_is_hint_pep544_protocol() -> None:
     # Assert this tester rejects all builtin types. For unknown reasons, some
     # but *NOT* all builtin types (e.g., "int") erroneously present themselves
     # to be PEP 544-compliant protocols. *sigh*
-    for class_builtin in TYPES_BUILTIN:
+    for class_builtin in BUILTIN_TYPES:
         assert is_hint_pep544_protocol(class_builtin) is False
 
     # Assert this tester rejects standard type hints in either case.

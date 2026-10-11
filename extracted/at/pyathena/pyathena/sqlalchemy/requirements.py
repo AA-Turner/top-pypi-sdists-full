@@ -1,93 +1,141 @@
+# Copyright 2023 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""SQLAlchemy test suite requirements for the Athena dialect."""
+
 from sqlalchemy.testing import exclusions
 from sqlalchemy.testing.requirements import SuiteRequirements
+
+from pyathena.util import override
 
 supported = exclusions.open
 unsupported = exclusions.closed
 
 
 class Requirements(SuiteRequirements):
+    """Features of the Athena dialect for the SQLAlchemy test suite."""
+
     @property
+    @override
+    def comment_reflection(self):
+        # The upstream requirement also needs COMMENT ON TABLE. Athena only
+        # reflects table comments from Hive tables, not Iceberg tables.
+        return unsupported()
+
+    @property
+    @override
+    def reflect_table_options(self):
+        return supported()
+
+    @property
+    @override
     def array_type(self):
         return supported()
 
     @property
+    @override
     def uuid_data_type(self):
         return unsupported()
 
     @property
+    @override
     def foreign_keys(self):
         return unsupported()
 
     @property
+    @override
     def on_update_cascade(self):
         return unsupported()
 
     @property
+    @override
     def self_referential_foreign_keys(self):
         return unsupported()
 
     @property
+    @override
     def foreign_key_ddl(self):
         return unsupported()
 
     @property
+    @override
     def autoincrement_insert(self):
         return unsupported()
 
     @property
+    @override
     def primary_key_constraint_reflection(self):
         return unsupported()
 
     @property
+    @override
     def foreign_key_constraint_reflection(self):
         return unsupported()
 
     @property
+    @override
     def temp_table_reflection(self):
         return unsupported()
 
     @property
+    @override
     def temporary_tables(self):
         return unsupported()
 
     @property
+    @override
     def index_reflection(self):
         return unsupported()
 
     @property
+    @override
     def indexes_with_ascdesc(self):
         return unsupported()
 
     @property
+    @override
     def reflect_indexes_with_ascdesc(self):
         return unsupported()
 
     @property
+    @override
     def unique_constraint_reflection(self):
         return unsupported()
 
     @property
+    @override
     def duplicate_key_raises_integrity_error(self):
         return unsupported()
 
     @property
+    @override
     def update_where_target_in_subquery(self):
         # Verified with Iceberg tables on Athena engine version 3.
         return supported()
 
     @property
+    @override
     def recursive_fk_cascade(self):
         return unsupported()
 
     @property
+    @override
     def datetime_literals(self):
-        return unsupported()
+        return supported()
 
     @property
+    @override
     def timestamp_microseconds(self):
-        return unsupported()
+        # Iceberg tables store microseconds; Hive tables store milliseconds.
+        # The compliance suite creates Iceberg tables.
+        return supported()
 
     @property
+    @override
     def precision_generic_float_type(self):
         return exclusions.skip_if(
             lambda _: True,
@@ -96,72 +144,88 @@ class Requirements(SuiteRequirements):
         )
 
     @property
+    @override
     def precision_numerics_many_significant_digits(self):
         return supported()
 
     @property
+    @override
     def precision_numerics_retains_significant_digits(self):
         return supported()
 
     @property
+    @override
     def window_functions(self):
         return supported()
 
     @property
+    @override
     def ctes(self):
         # Recursive CTEs require Athena engine version 3 and have a maximum depth of 10.
         return supported()
 
     @property
+    @override
     def ctes_with_values(self):
         return supported()
 
     @property
+    @override
     def ctes_with_update_delete(self):
         return exclusions.skip_if(
             lambda _: True, "Athena does not support WITH preceding UPDATE or DELETE."
         )
 
     @property
+    @override
     def ctes_on_dml(self):
         return exclusions.skip_if(
             lambda _: True, "Athena does not support INSERT, UPDATE, or DELETE inside a CTE."
         )
 
     @property
+    @override
     def update_from(self):
         return exclusions.skip_if(lambda _: True, "Athena does not support UPDATE ... FROM.")
 
     @property
+    @override
     def delete_from(self):
         return exclusions.skip_if(
             lambda _: True, "Athena does not support DELETE ... USING or multi-table DELETE."
         )
 
     @property
+    @override
     def views(self):
         return supported()
 
     @property
+    @override
     def schemas(self):
         return supported()
 
     @property
+    @override
     def implicit_default_schema(self):
         return supported()
 
     @property
+    @override
     def datetime_historic(self):
         return supported()
 
     @property
+    @override
     def date_historic(self):
         return supported()
 
     @property
+    @override
     def precision_numerics_enotation_small(self):
         return supported()
 
     @property
+    @override
     def order_by_label_with_expression(self):
         return supported()

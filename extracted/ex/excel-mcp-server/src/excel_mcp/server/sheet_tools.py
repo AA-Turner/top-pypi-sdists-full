@@ -4,83 +4,108 @@ from typing import Annotated
 
 from pydantic import Field
 
-from excel_mcp.operations import inspect, sheets
+from excel_mcp.operations import inspect, line_edits, sheet_copy, sheets
+from excel_mcp.operations.calculated import formula_values
 from excel_mcp.operations.inspect import SheetDetails
-from excel_mcp.operations.sheets import Axis
+from excel_mcp.package.lines import Axis
 from excel_mcp.server.params import LineCount, LineIndex, SheetName, WorkbookPath
 from excel_mcp.server.registry import ToolRegistry
+from excel_mcp.server.results import Changed
 from excel_mcp.workspace import Workspace, get_sheet
 
-NewSheetName = Annotated[
-    str, Field(description="New sheet name: 1-31 characters, none of [ ] : * ? / \\.")
-]
-AxisParam = Annotated[Axis, Field(description="Whether to act on rows or columns.")]
+AxisParam = Axis
+NewSheetName = Annotated[str, Field(description="1-31 characters, none of [ ] : * ? / \\.")]
 
 
 def register(tools: ToolRegistry, workspace: Workspace) -> None:
     @tools.reader("Describe sheet")
     def describe_sheet(path: WorkbookPath, sheet: SheetName) -> SheetDetails:
-        """Describe a sheet's structure: used range, frozen panes, merged ranges, tables,
-        charts, data validation, conditional formats and custom column widths."""
-        with workspace.read(path) as workbook:
+        """Describe a sheet: used range, panes, merges and everything on it (tables, charts,
+        PivotTables, slicers, images, notes, hyperlinks, validation, conditional formats,
+        sparklines...) with names and cells. Slow on very large files."""
+        with workspace.read(path, with_package=True) as workbook:
             return inspect.describe_sheet(get_sheet(workbook, sheet))
 
     @tools.writer("Create sheet")
     def create_sheet(
         path: WorkbookPath,
-        sheet: NewSheetName,
-        position: Annotated[
-            int | None, Field(ge=1, description="1-based position. Default: after the last.")
-        ] = None,
-    ) -> str:
+        new_name: NewSheetName,
+        position: Annotated[int | None, Field(ge=1, description="1-based. Default: last.")] = None,
+    ) -> Changed:
         """Add an empty worksheet."""
         with workspace.edit(path) as workbook:
-            sheets.create_sheet(workbook, sheet, position)
-        return f"Created sheet {sheet!r}."
+            sheets.create_sheet(workbook, new_name, position)
+        return Changed(sheet=new_name)
 
     @tools.writer("Rename sheet")
-    def rename_sheet(path: WorkbookPath, sheet: SheetName, new_name: NewSheetName) -> str:
-        """Rename a worksheet. Formulas that refer to the old name are not updated."""
+    def rename_sheet(path: WorkbookPath, sheet: SheetName, new_name: NewSheetName) -> Changed:
+        """Rename a worksheet; references to it are updated as in Excel."""
         with workspace.edit(path) as workbook:
             sheets.rename_sheet(workbook, sheet, new_name)
-        return f"Renamed sheet {sheet!r} to {new_name!r}."
+        return Changed(sheet=new_name)
 
     @tools.writer("Copy sheet")
-    def copy_sheet(path: WorkbookPath, sheet: SheetName, new_name: NewSheetName) -> str:
-        """Duplicate a worksheet (values, styles and dimensions) within the workbook."""
+    def copy_sheet(path: WorkbookPath, sheet: SheetName, new_name: NewSheetName) -> Changed:
+        """Copy a worksheet to a new last sheet, with everything on it, as Excel does.
+        Self-references point at the copy; tables get new names (Sales2); PivotTables share
+        the original's data."""
         with workspace.edit(path) as workbook:
-            sheets.copy_sheet(workbook, sheet, new_name)
-        return f"Copied sheet {sheet!r} to {new_name!r}."
+            skipped = sheet_copy.copy_sheet(
+                workbook, sheet, new_name, workspace.limits.max_copy_cells
+            )
+        note = f"Not copied: {', '.join(skipped)}." if skipped else None
+        return Changed(sheet=new_name, note=note)
 
     @tools.destroyer("Delete sheet")
-    def delete_sheet(path: WorkbookPath, sheet: SheetName) -> str:
-        """Delete a worksheet and everything on it."""
+    def delete_sheet(path: WorkbookPath, sheet: SheetName) -> Changed:
+        """Delete a sheet and everything on it. Fails while slicers elsewhere use its
+        PivotTables or tables."""
         with workspace.edit(path) as workbook:
             sheets.delete_sheet(workbook, sheet)
-        return f"Deleted sheet {sheet!r}."
+        return Changed(sheet=sheet)
 
     @tools.writer("Insert rows or columns")
     def insert_rows_or_columns(
-        path: WorkbookPath, sheet: SheetName, axis: AxisParam, at: LineIndex, count: LineCount = 1
-    ) -> str:
-        """Insert empty rows or columns before position `at`, shifting the rest down or right.
-
-        Formulas, merged ranges, charts and tables that refer to shifted cells are not
-        updated, so check them afterwards.
-        """
+        path: WorkbookPath,
+        sheet: SheetName,
+        axis: AxisParam,
+        start: LineIndex,
+        count: LineCount = 1,
+    ) -> Changed:
+        """Insert empty rows or columns before `start`. All references move as in Excel;
+        edits Excel refuses (through an array formula, PivotTable or table header) fail."""
         with workspace.edit(path) as workbook:
-            sheets.insert_lines(get_sheet(workbook, sheet), axis, at, count)
-        return f"Inserted {count} {axis} at {at} in {sheet!r}."
+            target = get_sheet(workbook, sheet)
+            line_edits.edit_lines(
+                workbook,
+                target,
+                axis,
+                start,
+                count,
+                delete=False,
+                formula_values=lambda area: formula_values(workspace, path, target, area),
+            )
+        return Changed(sheet=sheet, range=sheets.line_span(axis, start, count))
 
     @tools.destroyer("Delete rows or columns")
     def delete_rows_or_columns(
-        path: WorkbookPath, sheet: SheetName, axis: AxisParam, at: LineIndex, count: LineCount = 1
-    ) -> str:
-        """Delete rows or columns starting at position `at`, shifting the rest up or left.
-
-        Formulas, merged ranges, charts and tables that refer to shifted cells are not
-        updated, so check them afterwards.
-        """
+        path: WorkbookPath,
+        sheet: SheetName,
+        axis: AxisParam,
+        start: LineIndex,
+        count: LineCount = 1,
+    ) -> Changed:
+        """Delete rows or columns from `start`. References move as in insert_rows_or_columns;
+        one to a deleted cell becomes #REF!."""
         with workspace.edit(path) as workbook:
-            sheets.delete_lines(get_sheet(workbook, sheet), axis, at, count)
-        return f"Deleted {count} {axis} starting at {at} in {sheet!r}."
+            target = get_sheet(workbook, sheet)
+            line_edits.edit_lines(
+                workbook,
+                target,
+                axis,
+                start,
+                count,
+                delete=True,
+                formula_values=lambda area: formula_values(workspace, path, target, area),
+            )
+        return Changed(sheet=sheet, range=sheets.line_span(axis, start, count))

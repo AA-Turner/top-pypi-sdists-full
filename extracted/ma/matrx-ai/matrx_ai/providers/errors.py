@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import httpx
+from matrx_connect.request_latency import mark_provider_stream_open
 from matrx_utils import vcprint
 
 if TYPE_CHECKING:
@@ -422,6 +423,8 @@ async def stream_with_billed_usage(stream: Any, *, model: str | None, api: str) 
     usage_data = None
     try:
         async for chunk in stream:
+            # The provider answered: the request's LEG 2 ends at its first stream event.
+            mark_provider_stream_open()
             u = openai_stream_usage(chunk)
             if u:
                 usage_data = u

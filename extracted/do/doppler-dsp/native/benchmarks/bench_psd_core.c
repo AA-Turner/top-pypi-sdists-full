@@ -15,6 +15,38 @@
  *                      refresh, not once per sample. Reported per call
  *                      because quoting it per sample would flatter it by
  *                      the number of samples that went in.
+ *   fft / frame_power / frame_linear / frame_db / accumulate_frame
+ *                      per FRAME, the Spectrogram's row kernel and the
+ *                      transform inside it (#1894 A4, the design's U3), and
+ *                      one frame of PSD's own accumulate (#2094's first
+ *                      step). Differences between rows of one run:
+ *                        frame_power - fft     the window and the power/
+ *                                              shift pass together (not
+ *                                              split: #2094's fusion
+ *                                              rewrites both)
+ *                        frame_linear - frame_power
+ *                                              the normalisation, per-bin
+ *                                              in double
+ *                        frame_db - frame_linear
+ *                                              log10 and the floor: what a
+ *                                              power row skips and a fast
+ *                                              dB conversion changes
+ *                        accumulate_frame / fft
+ *                                              #2094's measure of a frame
+ *                      frame_linear runs at 256, 1024 and 65536 only (the
+ *                      32-row cap). accumulate_frame - frame_power is NOT
+ *                      bench_acc_trace_core.c's fold[mean]: in the pipeline
+ *                      the window, FFT and power passes run first and evict
+ *                      the trace, while that row folds into a trace just
+ *                      seeded, so hot. They are two cache regimes, and the
+ *                      fold row is the fold's own cost.
+ *                      `fft` mirrors PSD's own call -- dp_fft_create (nfft,
+ *                      -1, 1), then dp_fft_execute_cf32, as psd_core.c
+ *                      creates and psd_transform runs it -- so a change to
+ *                      that call (#2094's fusion) changes this row too.
+ *                      The timer's own cost is about 1-2% of a pass at nfft
+ *                      256 and less above. Measured in one interleaved
+ *                      loop, the kinds rotating per round.
  *
  * Swept over nfft, because the FFT is n log n and the windowing is n, so
  * the per-sample cost should rise with the transform size -- and how fast
@@ -23,7 +55,9 @@
  * Timing is MIN over rounds, not mean -- benchmark noise is one-sided.
  */
 #include "doppler/dp_complex.h"
+#include "doppler/fft/fft_core.h"
 #include "doppler/psd/psd_core.h"
+#include "dp_bench.h"
 #include "jm_bench.h"
 #include <math.h>
 #include <stdio.h>
@@ -32,6 +66,40 @@
 
 #define BLOCK 65536
 #define ITERATIONS 50
+#define KROUNDS 30 /* the per-frame kernel section's rounds */
+#define NKERN 5    /* its transform sizes */
+#define NKIND 5    /* fft, frame_power, frame_db, accumulate, frame_linear */
+
+/* One timed pass of the per-frame section: `reps` frames of one kind. */
+typedef struct
+{
+  size_t          nfft, reps;
+  dp_psd_state_t *p;
+  dp_fft_state_t *plan;
+  float _Complex *spec;
+  float          *out;
+  int             lin; /* frame_linear is timed at this size */
+  double          t[NKIND][KROUNDS];
+} kern_t;
+
+static void
+kern_run (kern_t *k, int kind, const float _Complex *x)
+{
+  for (size_t r = 0; r < k->reps; r++)
+    {
+      const float _Complex *f = x + (r * k->nfft) % (BLOCK * 8 - k->nfft);
+      if (kind == 0)
+        dp_fft_execute_cf32 (k->plan, f, k->nfft, k->spec, k->nfft);
+      else if (kind == 1)
+        dp_psd_frame_power (k->p, f, k->out);
+      else if (kind == 2)
+        dp_psd_frame_db (k->p, f, k->out);
+      else if (kind == 3)
+        dp_psd_accumulate (k->p, f, k->nfft); /* one frame: n = nfft */
+      else
+        dp_psd_frame_linear (k->p, f, k->out);
+    }
+}
 
 static double
 min_sec (const double *t, int n)
@@ -138,6 +206,93 @@ main (void)
           "  than halving it -- a real input does not buy half an FFT here.\n",
           (min_sec (t_acc[2], ITERATIONS) / min_sec (t_acc[0], ITERATIONS)));
 
+  int n_lin = 0; /* frame_linear rows, counted as configured */
+  /* ── the per-frame kernel, and the transform inside it (#1894 A4) ── */
+  {
+    static const size_t ksz[NKERN]   = { 256, 1024, 4096, 16384, 65536 };
+    static const char  *kname[NKIND] = { "fft", "frame_power", "frame_db",
+                                         "accumulate_frame", "frame_linear" };
+    kern_t              kern[NKERN]  = { 0 };
+    float _Complex     *xk           = malloc ((size_t)BLOCK * 8 * sizeof *xk);
+    if (!xk)
+      return 1;
+    for (size_t i = 0; i < (size_t)BLOCK * 8; i++)
+      {
+        double q = 0.01 * (double)i;
+        xk[i]    = (float)cos (q) + (float)sin (q * 1.7) * I;
+      }
+    for (int k = 0; k < NKERN; k++)
+      {
+        kern_t *c = &kern[k];
+        c->nfft   = ksz[k];
+        /* frame_linear at the ends of the range and the Spectrogram's 1024
+           only: the three rows the 32-row cap leaves */
+        c->lin = c->nfft == 256 || c->nfft == 1024 || c->nfft == 65536;
+        n_lin += c->lin;
+        /* as many frames as fill one BLOCK, at least 4, so a pass of the
+           largest transform is still several frames long */
+        c->reps = BLOCK / c->nfft < 4 ? 4 : BLOCK / c->nfft;
+        /* Hann, pad 1: the Spectrogram's own construction */
+        c->p    = dp_psd_create (c->nfft, 1.0, 0, 0.0f, 1, 1.0, 0, 0, 0.0);
+        c->plan = dp_fft_create (c->nfft, -1, 1); /* psd_core.c's call */
+        c->spec = malloc (c->nfft * sizeof *c->spec);
+        c->out  = malloc (c->nfft * sizeof *c->out);
+        if (!c->p || !c->plan || !c->spec || !c->out)
+          return 1;
+        /* seed the average untimed: every timed accumulate is then a fold,
+           never the first frame's copy (the frame calls do not touch it) */
+        dp_psd_accumulate (c->p, xk, c->nfft);
+      }
+    DP_BENCH_SETTLE (kern_run (&kern[1], 2, xk));
+    /* the kinds ROTATE per round: their shares are differences, and a
+       fixed order would always start the same kind warm */
+    for (int r = 0; r < KROUNDS; r++)
+      for (int k = 0; k < NKERN; k++)
+        for (int q = 0; q < NKIND; q++)
+          {
+            const int kind = (q + r) % NKIND;
+            if (kind == 4 && !kern[k].lin)
+              continue;
+            t0 = jm_bench_now_ns ();
+            kern_run (&kern[k], kind, xk);
+            t1                 = jm_bench_now_ns ();
+            kern[k].t[kind][r] = jm_bench_elapsed_sec (t0, t1);
+          }
+    printf ("\n");
+    for (int k = 0; k < NKERN; k++)
+      {
+        for (int kind = 0; kind < NKIND; kind++)
+          {
+            if (kind == 4 && !kern[k].lin)
+              continue;
+            char name[64];
+            (void)snprintf (name, sizeof name, "%s[nfft=%zu]", kname[kind],
+                            kern[k].nfft);
+            dp_bench_record (&_bench, name, kern[k].t[kind], KROUNDS,
+                             kern[k].reps, "frame");
+          }
+        sink += (double)kern[k].out[0];
+        free (kern[k].spec);
+        free (kern[k].out);
+        dp_fft_destroy (kern[k].plan);
+        dp_psd_destroy (kern[k].p);
+      }
+    free (xk);
+  }
+
+  /* Every row RECORDS, or nothing is written: jm_bench.h drops entries past
+     JM_BENCH_MAX_ENTRIES without a word (just-buildit/just-makeit#2188), so
+     the count is checked against the one the tables above DERIVE. A short
+     set then reaches the publish gate as a missing component (#2062). */
+  const int want
+      = (int)(sizeof nffts / sizeof *nffts) * 3 + NKERN * (NKIND - 1) + n_lin;
+  if (_bench.count != want)
+    {
+      (void)fprintf (stderr,
+                     "bench_psd: recorded %d rows of %d; writing none\n",
+                     _bench.count, want);
+      return 1;
+    }
   (void)sink;
   free (x);
   free (xr);

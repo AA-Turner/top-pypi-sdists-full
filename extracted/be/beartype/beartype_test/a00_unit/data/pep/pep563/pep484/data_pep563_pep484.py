@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -16,7 +16,7 @@ from __future__ import annotations
 from beartype import beartype
 from beartype.typing import NamedTuple
 
-# ....................{ CLASSES                            }....................
+# ....................{ SUBCLASSES                         }....................
 @beartype
 class LeadOnlyTo(NamedTuple):
     '''
@@ -35,12 +35,12 @@ class LeadOnlyTo(NamedTuple):
     This field exercises a well-known edge case in :pep:`563` integration. For
     unknown reasons, the :class:`.NamedTuple` superclass dynamically generates a
     problematic unique ``__new__()`` dunder method for each subclass of this
-    superclass. This method suffers various deficiencies, including:
+    superclass. That method suffers various deficiencies, including:
 
-    * This method erroneously claims it resides in a non-existent fake module
+    * That method erroneously claims it resides in a non-existent fake module
       with the fully-qualified name ``"named_{subclass_name}"`` (e.g.,
       ``"named_LeadOnlyTo"`` in this case).
-    * This method inexplicably encapsulates *all* stringified type hints
+    * That method inexplicably encapsulates *all* stringified type hints
       annotating subclass fields with :class:`typing.ForwardRef` instances.
       Since :pep:`563` unconditionally stringifies *all* type hints in
       applicable modules, this implies that this method unconditionally

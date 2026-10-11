@@ -312,13 +312,6 @@ class Agent:
         # tripwire, which keeps the raw envelope away from the model.
         final_values = _resolve_picklist_final_values(self.variable_defaults, final_values)
 
-        # One turn, one record of what could not be delivered (AGT-N-7). Started here
-        # because this is the single call that substitutes a whole agent's prompt, and
-        # the notice is written at the end of the same synchronous stack.
-        from matrx_ai.config.undeclared import begin_turn
-
-        begin_turn()
-
         # Controls as first-class variables: resolve variable-bound controls before the
         # provider call, under ``control_binding_policy`` (the org's, when a host set
         # it; else the platform default). Explicit overrides are re-applied after.
@@ -346,6 +339,18 @@ class Agent:
         """
         if self._variables_prepared or self._variables_applied:
             return self
+        if self.config.prompt_blocks and self.config.prompt_block_texts is None:
+            # Declared prompt blocks resolve here, after overrides (effective model).
+            from matrx_connect.context.app_context import try_get_app_context
+
+            from matrx_ai.prompt_blocks import resolve_declared_blocks
+
+            block_ctx = try_get_app_context()
+            await resolve_declared_blocks(
+                self.config,
+                runner_id=getattr(block_ctx, "user_id", None),
+                organization_id=getattr(block_ctx, "organization_id", None),
+            )
         if not (self.variable_values or self.variable_defaults):
             return self
         from matrx_ai._ext import get_programmatic_agent_pre_substitution_hook
@@ -586,7 +591,9 @@ class Agent:
         # Defaults are executable configuration too. In particular, a saved
         # document file_id must fill a template document block even when an
         # agent is invoked directly with no caller-provided variables.
-        if (self.variable_values or self.variable_defaults) and not self._variables_applied:
+        if (
+            self.variable_values or self.variable_defaults or self.config.prompt_blocks
+        ) and not self._variables_applied:
             # The pre-substitution step first (a ``sources`` value becomes text).
             await self.prepare_variables()
             self.apply_variables()
@@ -674,11 +681,25 @@ class Agent:
             )
             set_app_context(execution_ctx)
 
-        completed = await execute_ai_request(
-            self.config,
-            metadata=self.request_metadata,
-            **({"max_iterations": int(max_iterations)} if max_iterations else {}),
+        # THE HELD-RUN SEAM: what this run was handed, for the host to keep if a gate refuses it.
+        from matrx_ai.providers.held_run_seam import note_agent_run, reset_agent_run
+
+        held_facts = note_agent_run(
+            agent_id=self.source_id,
+            is_version=self.source_is_version,
+            variables=self.variable_values,
+            user_input=user_input,
+            name=self.name,
+            context=self.request_context,
         )
+        try:
+            completed = await execute_ai_request(
+                self.config,
+                metadata=self.request_metadata,
+                **({"max_iterations": int(max_iterations)} if max_iterations else {}),
+            )
+        finally:
+            reset_agent_run(held_facts)
         return self._clean_up_response(completed)
 
     def _clean_up_response(self, response: CompletedRequest) -> AgentExecuteResult:

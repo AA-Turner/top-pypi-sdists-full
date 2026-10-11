@@ -59,6 +59,8 @@ class _Stop(Exception):
 
 
 async def _create_kind(monkeypatch, org_id: str | None) -> tuple[dict[str, Any], Exception]:
+    from matrx_graph.content_ir.sdk import KIND_DISPOSITIONS
+
     from matrx_ai.tools.implementations import kind_authoring
 
     seen: dict[str, Any] = {}
@@ -87,6 +89,8 @@ async def _create_kind(monkeypatch, org_id: str | None) -> tuple[dict[str, Any],
             canonical_marked={"__kind": "demo_kind"},
             user_id=USER,
             org_id=org_id,
+            # 6d91f976f3: a kind that does not declare what its output is is refused before any write.
+            disposition=KIND_DISPOSITIONS[0],
         )
     return seen, exc.value
 

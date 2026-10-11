@@ -125,6 +125,7 @@ from cozy_runtime.author._services import CheckpointConflict, ProgressFrame
 from cozy_runtime.internal import (
     accel,
     attention,
+    attention_producer,
     attention_sol,
     attention_ulysses,
     budget_cell,
@@ -191,8 +192,9 @@ from cozy_runtime.internal.executor_commands import (
 from cozy_runtime.internal.exits import Exit
 from cozy_runtime.internal.lora_composition import bind as bind_adapters
 from cozy_runtime.internal.lora_contract import read as read_adapter_graph
-from cozy_runtime.internal.parallel import cp, mirror, wire
+from cozy_runtime.internal.parallel import copy_engine, cp, links, mirror, wire
 from cozy_runtime.internal.parallel.group import (
+    ROUTED,
     RankGroup,
     RankSpec,
     abort_process_group,
@@ -257,7 +259,11 @@ def _env_changes() -> tuple[str, ...]:
     imposition moved without leaking paths or future secret-bearing values into a terminal.
     """
     current = seal_snapshot()
-    return tuple(name for name in sorted(_SEALED) if current.get(name, "") != _SEALED[name])
+    return tuple(
+        name
+        for name in sorted(_SEALED)
+        if current.get(name, "") != _SEALED[name] and name not in ROUTED
+    )
 
 
 def _sealed_entries() -> tuple[str, ...]:
@@ -267,6 +273,18 @@ def _sealed_entries() -> tuple[str, ...]:
         for entry in _SEALED.get("CUDA_VISIBLE_DEVICES", "").split(",")
         if entry.strip()
     )
+
+
+def _links_directory() -> Path | None:
+    """Measured links live beside the kernels: one machine's, kept across its executors."""
+    own = _SEALED.get(kernel_cache.OWN_ENV, "").strip()
+    return Path(own) / "links" if own and Path(own).is_absolute() else None
+
+
+def _gpu_numbers(degree: int) -> list[int]:
+    """The group's GPUs as nvidia-smi numbers them, from the seal's entries."""
+    entries = _sealed_entries()[:degree]
+    return [execution_evidence.identify(entry)["gpu"] for entry in entries]
 
 
 def _gpu(rank: int) -> str:
@@ -582,6 +600,8 @@ class Executor:
         self.pg: Any = None
         #: HOST ONLY: the group's handle as every installed component reads it (`CpComms`)
         self.comms: cp.CpComms | None = None
+        #: rank 0 only: the measured links and route this group formed over
+        self.transport: links.Transport | None = None
         #: a follower's watcher aborted its collectives; cleared when the group forms again
         self._interrupted = threading.Event()
         #: a follower's stage methods of the group call that last ran out of memory
@@ -622,6 +642,9 @@ class Executor:
         self.discovered: Any = None
         self.ready = False
         self.poisoned = ""
+        #: the current attempt's handler outcome, the stage it last reported and its record:
+        #: the reason an attempt whose tail raised still answers with (`unsettled`)
+        self.handled: tuple[Outcome, str, AuthorAttempt] | None = None
         self.constructed_model_digest = ""
         #: What the runtime pinned on this generation's attention sites (cr-124). One BOOT
         #: line, not a per-attempt record: the choice is a function of device and image.
@@ -633,6 +656,7 @@ class Executor:
         self.device_facts: Any = None
         #: a follower's hold of rank 0's attention selection for the current attempt
         self._attention_hold = contextlib.ExitStack()
+        self._producer_hold: tuple[str, attention_producer.RequestState] | None = None
         self.facts: dict[str, Any] = {}
         self.schema_digests: dict[str, str] = {}
         #: request_id -> the record `prepare_request` resolved, run by `invoke`
@@ -676,9 +700,17 @@ class Executor:
             case PrepareRequest():
                 return self.serve_request(command)
             case Invoke():
-                return self._settled(self.serve_invoke(command))
+                try:
+                    return self._settled(self.serve_invoke(command))
+                except Exception as exc:
+                    key = command.construction or self.active
+                    return self.unsettled(self.constructions.get(key, self), exc)
             case RunJob():
-                return self._settled(self.run_job(command))
+                self.handled = None
+                try:
+                    return self._settled(self.run_job(command))
+                except Exception as exc:
+                    return self.unsettled(self, exc)
             case Probe():
                 if command.collect:
                     gc.collect()
@@ -857,6 +889,7 @@ class Executor:
                     impl,
                     attention.evidence(choices.totals() if choices else ()),
                     segments,
+                    choices.fallbacks if choices else (),
                 ),
             )
         ]
@@ -867,9 +900,11 @@ class Executor:
                 )
                 ranks.append({**row, "attention": {**row["attention"], "requested": pin}})
         facts = self.facts
+        transport = self.host.transport
         return {
             "degree": self.world,
             "ranks": ranks,
+            **({"transport": transport.document()} if transport is not None else {}),
             # per spread method: the calls each rank ran, and why a rank declined
             "spread": dict(self.group.spread_log) if self.group is not None else {},
             "executor": dict(self.host.boot),
@@ -924,6 +959,7 @@ class Executor:
             world=self.world,
             port=command.port,
             backend=command.backend or "nccl",
+            nccl=dict(command.nccl),
         )
         if spec.backend == "nccl":
             # This rank's card becomes current HERE, through the one init boundary: the
@@ -947,12 +983,24 @@ class Executor:
         if self.comms is not None:
             self.comms.pg = self.pg
         reply = {"ok": True, "rank": self.rank, "world": self.world, "backend": spec.backend}
+        if command.calibrate:
+            exchange, reply["calibration"] = copy_engine.calibrate(
+                torch, self.pg, self.rank, self.world
+            )
+            copy_engine.install(exchange, self.pg)
         if command.room >= 0:
             try:
                 reply["freed"] = self._group_room(command.room, self._rerun_methods)
             except ResidencyRefusal as exc:
                 return {"ok": False, "code": exc.code, "detail": str(exc)[:900]}
         return reply
+
+    def _calibrated(self, pg: Any) -> None:
+        """Rank 0's half of the formation's calibration: NCCL against the copy engines."""
+        assert self.transport is not None
+        exchange, self.transport.calibration = copy_engine.calibrate(self.torch, pg, 0, self.world)
+        copy_engine.install(exchange, pg)
+        self.transport.route = "copy-engine" if exchange is not None else "nccl"
 
     def _watch_abort(self, watcher: socket.socket) -> None:
         """A follower's collectives end when rank 0 says so (`RankGroup.interrupt`): its main
@@ -981,7 +1029,11 @@ class Executor:
         assert self.group is not None and self.torch is not None
         weights = self.host.weights
         gave = self._group_room(need, [m for _, m, _ in weights.open] if weights else ())
-        self.host.pg = self.group.form(self.torch, _SEALED, room=need)
+        transport = self.host.transport
+        recalibrate = transport is not None and transport.links.copy_engines
+        self.host.pg = self.group.form(
+            self.torch, _SEALED, room=need, formed=self.host._calibrated if recalibrate else None
+        )
         if self.host.comms is not None:
             self.host.comms.pg = self.host.pg
         return gave + self.group.gave
@@ -1086,7 +1138,14 @@ class Executor:
                         self.torch.autocast(device_type=kind, dtype=getattr(self.torch, dtype))
                     )
                 stack.enter_context(wire.attention_context(command))
-                sol_counts = stack.enter_context(attention_sol.observing())
+                producer_state = None
+                if self._producer_hold is not None:
+                    construction, held_state = self._producer_hold
+                    if name[0].startswith(construction + "#"):
+                        producer_state = held_state
+                sol_counts = stack.enter_context(
+                    attention_sol.observing(producer_state=producer_state)
+                )
                 served = stack.enter_context(attention_ulysses.observing())
                 args, kwargs = wire.run_call(
                     command,
@@ -1520,9 +1579,22 @@ class Executor:
                             code="group_unformed",
                         )
                 if not command.import_only:
+                    measured = links.measured(
+                        _links_directory(), _SEALED.get("CUDA_VISIBLE_DEVICES", ""), degree
+                    )
+                    stage("group_links")
+                    self.transport = links.Transport(
+                        degree, _gpu_numbers(degree), "nccl", measured.nccl(), measured
+                    )
                     cells = self._rank_cells() if command.rank_cells else []
                     try:
-                        self.pg = self.group.form(self.torch, _SEALED, cells)
+                        self.pg = self.group.form(
+                            self.torch,
+                            _SEALED,
+                            cells,
+                            nccl=self.transport.nccl,
+                            formed=self._calibrated if measured.copy_engines else None,
+                        )
                     finally:
                         for fd in cells:
                             os.close(fd)
@@ -1853,6 +1925,9 @@ class Executor:
         if self.poisoned:
             return {"ok": False, "code": "poisoned_generation", "detail": self.poisoned}
         key = command.construction
+        if self._producer_hold is not None and self._producer_hold[0] == key:
+            self._attention_hold.close()
+            self._producer_hold = None
         child = self.constructions.pop(key, None)
         if child is None:
             return {"ok": True, "construction": key, "freed_bytes": 0, "absent": True}
@@ -2959,6 +3034,7 @@ class Executor:
         target = self._target(command, attempt=True)
         if isinstance(target, dict):
             return target
+        target.handled = None
         # Every attempt carries its grant; none (-1: an older Worker, or no reading) derives
         # from the driver, so a cut to 0 never outlives the attempt that follows it.
         if self.weights is not None and (
@@ -3150,10 +3226,13 @@ class Executor:
         segments: list[dict[str, Any]] = []
         later: list[attention.Applied] = []
         steps: dict[str, int] = {}
+        stage = [""]  # the last stage this attempt itself reported
         handler = threading.get_ident()
 
         def boundary(frame: Any) -> None:
             progress(frame)
+            if isinstance(frame, ProgressFrame) and frame.call_request is None and frame.stage:
+                stage[0] = frame.stage
             if not isinstance(frame, ProgressFrame) or threading.get_ident() != handler:
                 return
             if frame.position is not None:
@@ -3164,7 +3243,7 @@ class Executor:
                 segments.append(_segment("", 0, served_attention, started_us))
             if not self._upgrade_attention():
                 return
-            later.append(attention.observed(self._attention_roots()))
+            later.append(self._attention_selection(attention.observed(self._attention_roots())))
             row = _segment(frame.stage, steps.get(frame.stage, 0), later[-1])
             if row["observed"] != segments[-1]["observed"] or row["dense"] != segments[-1]["dense"]:
                 segments.append(row)
@@ -3183,6 +3262,7 @@ class Executor:
                 attention_sol.observing(ranks=sol_rank_counts, kernels=sol_kernels) as sol_counts,
                 attention_ulysses.observing() as served_impls,
             ):
+                served_attention = self._attention_selection(served_attention)
                 capture = self._capture_session(command, surface)
                 with capture if capture is not None else contextlib.nullcontext():
                     envelope, outcome, record = run_prepared(
@@ -3216,6 +3296,7 @@ class Executor:
             if record is None:
                 record = AuthorAttempt(command.request_id, spool, 0, sink=progress)
         assert record is not None
+        self.handled = (outcome, stage[0], record)
         stage_memo.ENGINE.close(record.emit)
         if later:
             # The override put back the run's first selection; the construction keeps its last.
@@ -3312,7 +3393,9 @@ class Executor:
             and not record.failed_at_call
             and outcome.code not in CAPACITY_CODES
         ):
-            self.poisoned = f"{outcome.terminal}/{outcome.code}"
+            self.poisoned = f"{outcome.terminal}/{outcome.code}" + (
+                f" in {stage[0]}" if stage[0] else ""
+            )
         terminal = {
             "terminal": outcome.terminal,
             "origin": outcome.origin,
@@ -3443,6 +3526,26 @@ class Executor:
             for name, root in executor.backend.roots.items():
                 roots[prefix + name] = root
         return roots
+
+    def _attention_selection(self, observed: attention.Applied) -> attention.Applied:
+        """Attach preparation reasons only to the choices this request actually holds.
+
+        A scoped pin can replace one component while other components still fall back.
+        A later successful compile does not erase a reason from an earlier run segment.
+        """
+        scope, pin = attention._pin_parts(observed.pin)
+        fallbacks: list[execution_evidence.AttentionFallback] = []
+        for executor in self.model_executors or [self]:
+            if executor.attention is None:
+                continue
+            prefix = "+".join(sorted(executor.models)) + "/" if executor.models else ""
+            for row in executor.attention.fallbacks:
+                component = prefix + row["component"]
+                if pin and attention._matches(component, scope):
+                    continue
+                if row["selected"] in observed.hosts.get(component, {}):
+                    fallbacks.append({**row, "component": component})
+        return replace(observed, fallbacks=tuple(fallbacks))
 
     def _attention_reaches(self, pin: str) -> bool:
         try:
@@ -3584,6 +3687,7 @@ class Executor:
         if command.adopt is not UNSET:
             return self._adopt_attention(command, command.adopt)
         self._attention_hold.close()
+        self._producer_hold = None
         if command.pin is UNSET:
             return {"ok": True, "rank": self.rank}
         target = self.constructions.get(command.construction)
@@ -3599,6 +3703,12 @@ class Executor:
             )
         except attention.AttentionRefusal as exc:
             return {"ok": False, "code": exc.code, "detail": str(exc)[:900], "rank": self.rank}
+        # The actual selected recipe, not merely a nonempty CLI pin, owns this
+        # request's state. The existing restore/new-selection finally closes it.
+        if attention_producer.CP_NAMES.intersection(held.totals()):
+            state = attention_producer.RequestState()
+            self._producer_hold = (command.construction, state)
+            self._attention_hold.callback(state.clear)
         return {"ok": True, "rank": self.rank, "hosts": held.hosts}
 
     def _followers_attention(self, pin: str | UnsetType = UNSET) -> list[dict[str, Any]]:
@@ -3689,6 +3799,10 @@ class Executor:
                     pin=choices.pin,
                     dense_reference=_dense((kernel,)),
                 )
+
+        if name == "attention.selected":
+            for row in choices.fallbacks:
+                record.emit("confession", "attention.fallback", row["selected"], **row)
 
     def _execution_observation(self, choices: attention.Applied | None = None) -> dict[str, Any]:
         from cozy_runtime import __version__
@@ -3900,6 +4014,7 @@ class Executor:
                 activity=self._activity_sink(command.request_id),
             ),
         )
+        self.handled = (outcome, "", record)
         handler_ms = (time.perf_counter() - started) * 1000
         peak_vram = 0
         if self.torch is not None:
@@ -4836,6 +4951,35 @@ class Executor:
             "device_total_bytes": memory["driver_total_bytes"],
             "allocator_bytes": memory["allocated_bytes"],
             "reserved_bytes": memory["reserved_bytes"],
+        }
+
+    def unsettled(self, target: Executor, exc: Exception) -> dict[str, Any]:
+        """An attempt that raised outside its handler. A CUDA fault is sticky, so the tail's
+        first sync raises it again: the process cannot serve another attempt, and the reply
+        names the handler's own failure (else this one) and the stage it happened in."""
+        later = classify(exc)
+        first, stage, record = target.handled or (later, "", None)
+        first = first if first.terminal == "failed" else later
+        where = f" in {stage}" if stage else ""
+        message = first.message + where + ("" if first is later else f"; then {later.message}")
+        self.poisoned = target.poisoned = (
+            self.poisoned or target.poisoned or f"{first.code}{where}: {first.message}"[:300]
+        )
+        return {
+            "ok": True,
+            "outcome": {
+                "terminal": "failed",
+                "origin": first.origin,
+                "code": first.code,
+                "message": message[:2048],
+                "fields": list(first.fields),
+                "traceback": first.traceback or later.traceback,
+            },
+            "observations": record.ring.rows() if record is not None else [],
+            "quiescent": False,
+            "poisoned": self.poisoned,
+            "outputs": [],
+            "frames": [],
         }
 
     def _settled(self, reply: dict[str, Any]) -> dict[str, Any]:

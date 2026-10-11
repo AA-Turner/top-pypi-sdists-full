@@ -1,7 +1,9 @@
 #include "doppler/burst_despreader/burst_despreader_core.h"
 #include "doppler/dp_complex.h"
 #include <math.h>
+#include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -45,7 +47,11 @@ dp_burst_despreader_create (const uint8_t *code, size_t code_len, size_t sf,
                             double init_chip_phase, double bn_carrier,
                             double bn_code)
 {
-  if (!code || code_len == 0 || sf == 0 || code_len < sf || sps < 2)
+  /* The seeds are what reset() returns to and what set_state compares, so
+     a non-finite one is refused here: NaN would equal nothing, its own
+     blob included (#2041). */
+  if (!code || code_len == 0 || sf == 0 || code_len < sf || sps < 2
+      || !isfinite (init_norm_freq) || !isfinite (init_chip_phase))
     return NULL;
 
   dp_burst_despreader_state_t *s = calloc (1, sizeof (*s));
@@ -86,6 +92,19 @@ dp_burst_despreader_destroy (dp_burst_despreader_state_t *state)
   free (state);
 }
 
+/* set_acq's predicate, ONE home: a preamble is a code of acq_sf > 0 chips
+   tracked for acq_reps > 0 periods, or there is none and both are 0;
+   preamble_left counts the periods still to track, so it never exceeds
+   acq_reps (0 with no preamble). set_acq leaves only such states, and
+   set_state accepts only such states (#2041). */
+static int
+burst_despreader_acq_ok (size_t acq_sf, size_t acq_reps, size_t preamble_left)
+{
+  if ((acq_sf == 0) != (acq_reps == 0))
+    return 0;
+  return preamble_left <= acq_reps;
+}
+
 void
 dp_burst_despreader_set_acq (dp_burst_despreader_state_t *state,
                              const uint8_t *acq_code, size_t acq_code_len,
@@ -96,7 +115,8 @@ dp_burst_despreader_set_acq (dp_burst_despreader_state_t *state,
   state->acq_sf        = 0;
   state->acq_reps      = 0;
   state->preamble_left = 0;
-  if (!acq_code || acq_code_len == 0 || acq_reps == 0)
+  if (!acq_code || acq_code_len == 0
+      || !burst_despreader_acq_ok (acq_code_len, acq_reps, 0))
     return; /* disable: payload-only */
   state->acq_code = malloc (acq_code_len);
   if (!state->acq_code)
@@ -114,14 +134,17 @@ dp_burst_despreader_reset (dp_burst_despreader_state_t *state)
   burst_despreader_seed (state);
 }
 
-/* Serializable state — whole-struct snapshot (the two loop_filter children are
- * POD-embedded, so their bytes are their state); the owned code + acq_code
- * pointers are config (restored by create) and preserved across set_state. */
+/* Serializable state: [header][the struct, its two pointers zeroed][the acq
+   code, acq_sf bytes]. The data code is create-time config, rebuilt by
+   create; the acq code is NOT -- only set_acq() sets it -- so, being a
+   setter's value, it travels (#2022). Its length is the blob's size: a
+   blob from an object whose acq code is another length, or that has none,
+   is the wrong size and refused before anything is read (#2041). */
 size_t
 dp_burst_despreader_state_bytes (const dp_burst_despreader_state_t *s)
 {
-  (void)s;
-  return sizeof (dp_state_hdr_t) + sizeof (dp_burst_despreader_state_t);
+  return sizeof (dp_state_hdr_t) + sizeof (dp_burst_despreader_state_t)
+         + s->acq_sf;
 }
 
 void
@@ -130,10 +153,33 @@ dp_burst_despreader_get_state (const dp_burst_despreader_state_t *s,
 {
   DP_GET_OPEN (BURST_DESPREADER_STATE_MAGIC, BURST_DESPREADER_STATE_VERSION,
                dp_burst_despreader_state_bytes (s));
-  dp_burst_despreader_state_t tmp = *s;
-  tmp.code     = NULL; /* config pointers — not machine addresses */
+  /* memcpy, not assignment: the padding is copied too, so the blob is a
+     function of the object. */
+  dp_burst_despreader_state_t tmp;
+  memcpy (&tmp, s, sizeof tmp);
+  tmp.code     = NULL; /* machine addresses, not state */
   tmp.acq_code = NULL;
   dp_w_bytes (&_w, &tmp, sizeof tmp);
+  if (s->acq_sf)
+    dp_w_bytes (&_w, s->acq_code, s->acq_sf);
+}
+
+/* A loop filter from a blob. Its damping and update period are this
+   object's create-time config, which no setter reaches, so they are reject
+   keys. Its bn is set_bn_*'s value, so it travels (#2022), and its gains
+   must be the ones that bn derives -- dp_loop_filter_init's derivation, not
+   a copy of it. Every number in it must be finite, as a healthy run leaves
+   it. */
+static int
+burst_despreader_lf_ok (const dp_loop_filter_state_t *b,
+                        const dp_loop_filter_state_t *live)
+{
+  if (b->zeta != live->zeta || b->t != live->t)
+    return 0;
+  dp_loop_filter_state_t d = *b;
+  dp_loop_filter_init (&d, b->bn, b->zeta, b->t);
+  return d.kp == b->kp && d.ki == b->ki && isfinite (b->bn) && isfinite (b->kp)
+         && isfinite (b->ki) && isfinite (b->integ);
 }
 
 int
@@ -142,12 +188,65 @@ dp_burst_despreader_set_state (dp_burst_despreader_state_t *s,
 {
   DP_SET_OPEN (BURST_DESPREADER_STATE_MAGIC, BURST_DESPREADER_STATE_VERSION,
                dp_burst_despreader_state_bytes (s));
-  uint8_t *code = s->code; /* this instance's owned codes (config) */
-  uint8_t *acq  = s->acq_code;
-  dp_r_bytes (&_r, s, sizeof *s);
+  /* Decoded into a temporary and checked whole before anything is written:
+     a refused blob leaves this object exactly as it was. It used to be read
+     straight into the live object, sf and the acq fields included, so a
+     foreign blob indexed this object's codes past their ends -- or a NULL
+     acq code -- in the next steps() (#2041). */
+  dp_burst_despreader_state_t tmp;
+  dp_r_bytes (&_r, &tmp, sizeof tmp);
+  const void *acq = s->acq_sf ? dp_r_reserve (&_r, s->acq_sf) : NULL;
+  if (_r.err
+      /* Create-time config that sizes or indexes the code buffers: a blob
+         made for another code length or chip rate is refused. */
+      || tmp.sf != s->sf || tmp.sps != s->sps
+      || tmp.tsamps != s->tsamps
+      /* More create-time config, which reset() reseeds from. */
+      || tmp.seed_w != s->seed_w || tmp.seed_chip != s->seed_chip
+      || !burst_despreader_lf_ok (&tmp.lf_car, &s->lf_car)
+      || !burst_despreader_lf_ok (&tmp.lf_code, &s->lf_code)
+      /* set_acq's value: this object's acq-code length (the blob's size
+         already agrees; the field must too), in a state set_acq leaves. */
+      || tmp.acq_sf != s->acq_sf
+      || !burst_despreader_acq_ok (tmp.acq_sf, tmp.acq_reps, tmp.preamble_left)
+      /* Running state, finite as a healthy run leaves it. One NaN input
+         sample poisons the loops for good, and such a state is refused
+         rather than restored. No range bound: the kernel's chip index is
+         total (chip_index), and a set_acq'd object holds a chip_pos past
+         its acq-code length until the next boundary, so a bound would
+         refuse a blob the object itself made. */
+      || !isfinite (tmp.car_phase) || !isfinite (tmp.car_w)
+      || !isfinite (tmp.chip_pos)
+      || !isfinite (tmp.code_rate)
+      /* stat_n == SIZE_MAX would wrap to 0 at the next payload prompt and
+         divide the lock metric by zero. */
+      || tmp.stat_n == SIZE_MAX)
+    return DP_ERR_INVALID;
+
+  uint8_t *code     = s->code; /* this object's own buffers */
+  uint8_t *acq_code = s->acq_code;
+  memcpy (s, &tmp, sizeof *s);
   s->code     = code;
-  s->acq_code = acq;
+  s->acq_code = acq_code;
+  if (s->acq_sf)
+    memcpy (s->acq_code, acq, s->acq_sf);
   return DP_OK;
+}
+
+/* A code position as a chip index, total over every double. The cast alone
+   is undefined for NaN, for values <= -1 and past SIZE_MAX, and a create
+   argument, a blob or one NaN input sample can put any of those in chip_pos
+   (#2041). So the clamps the kernel always applied are taken in double,
+   BEFORE the cast: below 0 (and NaN) is chip 0, past the last chip is the
+   last chip, and in between it truncates exactly as before. */
+static inline size_t
+chip_index (double pos, size_t n)
+{
+  if (!(pos > 0.0))
+    return 0;
+  if (pos >= (double)(n - 1))
+    return n - 1;
+  return (size_t)pos;
 }
 
 /* Shared streaming kernel: carrier wipe-off, early/prompt/late despread, and
@@ -179,21 +278,15 @@ despread_run (dp_burst_despreader_state_t *s, const float _Complex *x,
       /* Early / prompt / late chip indices (early advanced by half a chip,
        * late delayed), wrapped over the periodic code. */
       double cp = s->chip_pos;
-      size_t pj = (size_t)cp;
-      if (pj >= cur_sf)
-        pj = cur_sf - 1;
       double ce = cp + 0.5;
       if (ce >= (double)cur_sf)
         ce -= (double)cur_sf;
       double cl = cp - 0.5;
       if (cl < 0.0)
         cl += (double)cur_sf;
-      size_t ej = (size_t)ce;
-      size_t lj = (size_t)cl;
-      if (ej >= cur_sf)
-        ej = cur_sf - 1;
-      if (lj >= cur_sf)
-        lj = cur_sf - 1;
+      size_t pj = chip_index (cp, cur_sf);
+      size_t ej = chip_index (ce, cur_sf);
+      size_t lj = chip_index (cl, cur_sf);
 
       s->acc_p += d * chip_sign (code[pj]);
       s->acc_e += d * chip_sign (code[ej]);

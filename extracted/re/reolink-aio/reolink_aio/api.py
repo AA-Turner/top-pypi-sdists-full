@@ -65,6 +65,7 @@ from .exceptions import (
     CredentialsInvalidError,
     InvalidContentTypeError,
     InvalidParameterError,
+    LoginAccountDeviceError,
     LoginError,
     LoginFirmwareError,
     LoginPrivacyModeError,
@@ -1437,7 +1438,7 @@ class Host:
         # check if HTTP(s) API is supported
         try:
             await self.baichuan.get_host_data()
-        except CredentialsInvalidError:
+        except (CredentialsInvalidError, LoginAccountDeviceError):
             raise
         except ReolinkError as exc:
             _LOGGER.debug("%s, can not check if HTTP api is supported", exc)
@@ -1449,7 +1450,7 @@ class Host:
         # see which ports are enabled using baichuan protocol on port 9000
         try:
             await self.baichuan.get_ports()
-        except CredentialsInvalidError:
+        except (CredentialsInvalidError, LoginAccountDeviceError):
             raise
         except ReolinkError as exc:
             _LOGGER.debug(exc)
@@ -1555,7 +1556,7 @@ class Host:
         # see which ports are enabled using baichuan protocol on port 9000
         try:
             await self.baichuan.get_ports()
-        except CredentialsInvalidError:
+        except (CredentialsInvalidError, LoginAccountDeviceError):
             raise
         except ReolinkError as exc:
             _LOGGER.debug(exc)
@@ -2558,6 +2559,8 @@ class Host:
             if self.api_version("supportBuzzer") > 0:
                 ch_body.append({"cmd": "GetBuzzerAlarmV20", "action": 0, "param": {"channel": channel}})
             if self.api_version("scheduleVersion") >= 1:
+                if self.baichuan.api_version("ftp", no_key_return=1) > 0:
+                    ch_body.append({"cmd": "GetFtpV20", "action": 0, "param": {"channel": channel}})
                 ch_body.extend(
                     [
                         {"cmd": "GetEmailV20", "action": 0, "param": {"channel": channel}},
@@ -2567,9 +2570,9 @@ class Host:
                         {"cmd": "GetMdAlarm", "action": 0, "param": {"channel": channel}},
                     ]
                 )
-                if self.baichuan.api_version("ftp", no_key_return=1) > 0:
-                    ch_body.append({"cmd": "GetFtpV20", "action": 0, "param": {"channel": channel}})
             else:
+                if self.baichuan.api_version("ftp", no_key_return=1) > 0:
+                    ch_body.append({"cmd": "GetFtp", "action": 0, "param": {"channel": channel}})
                 ch_body.extend(
                     [
                         {"cmd": "GetEmail", "action": 0, "param": {"channel": channel}},
@@ -2580,8 +2583,6 @@ class Host:
                         {"cmd": "GetMdAlarm", "action": 0, "param": {"channel": channel}},
                     ]
                 )
-                if self.baichuan.api_version("ftp", no_key_return=1) > 0:
-                    ch_body.append({"cmd": "GetFtp", "action": 0, "param": {"channel": channel}})
 
             body.extend(ch_body)
             channels.extend([channel] * len(ch_body))
@@ -5865,10 +5866,11 @@ class Host:
 
         try:
             json_data = await self.send(body, {"cmd": "Search"}, expected_response_type="json")
-        except InvalidContentTypeError as err:
-            raise InvalidContentTypeError(f"Request VOD files error: {str(err)}") from err
-        except NoDataError as err:
-            raise NoDataError(f"Request VOD files error: {str(err)}") from err
+        except ReolinkError:
+            if status_only:
+                statuses = await self.baichuan.search_vod_days(channel, start, end)
+                return statuses, []
+            raise
 
         statuses = []
         vod_files = []
@@ -6484,7 +6486,7 @@ class Host:
                     _LOGGER.debug("Host %s: skipping baichuan fallback for %s of channel %s because it is offline", self._host, cmd, channel)
                     continue
                 # check if baichuan has a fallback function
-                if cmd not in self.baichuan_cmds and cmd in self.baichuan.cmd_funcs and rsp_code in [-4, -9, -12, -13, -17]:
+                if cmd not in self.baichuan_cmds and cmd in self.baichuan.cmd_funcs and rsp_code in [-4, -9, -12, -13, -16, -17]:
                     func = self.baichuan.cmd_funcs[cmd]
                     coroutines.append((idx, cmd, func(**args)))
                 elif rsp_code in [-12, -13, -17]:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -15,7 +15,7 @@ test suite).
 # package-specific submodules at module scope.
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 from beartype.meta import PACKAGE_NAME
-from beartype._util.cache.utilcachecall import callable_cached
+from beartype._util.cache.func.utilcachefunc import callable_cached
 from beartype_test._util.path.pytpathlib import (
     DirRelative,
     FileRelative,
@@ -63,6 +63,77 @@ def get_test_func_data_dir() -> Path:
 
     # Questionable destination!
     return DirRelative(get_test_func_subpackage_dir(), 'data')
+
+# ....................{ GETTERS ~ dir : func : claw        }....................
+@callable_cached
+def get_test_func_data_claw_dir() -> Path:
+    '''
+    :class:`.Path` encapsulating the absolute dirname of the **mid-level import
+    hook integration test data directory** (i.e., directory providing sample
+    data used throughout this project's integration tests exercising import
+    hooks published by the :mod:`beartype.claw` subpackage) if found *or* raise
+    an exception otherwise.
+    '''
+
+    # Be happy, friend one-liner!
+    return DirRelative(get_test_func_data_dir(), 'claw')
+
+
+@callable_cached
+def get_test_func_data_claw_external_dir() -> Path:
+    '''
+    :class:`.Path` encapsulating the absolute dirname of the **mid-level import
+    hook third-party dependency integration test data directory** (i.e.,
+    directory providing sample data used throughout this project's integration
+    tests exercising import hooks requiring third-party dependencies) if found
+    *or* raise an exception otherwise.
+    '''
+
+    # Ejective bijection!
+    return DirRelative(get_test_func_data_claw_dir(), 'external')
+
+
+@callable_cached
+def get_test_func_data_claw_external_coverage_dir() -> Path:
+    '''
+    :class:`.Path` encapsulating the absolute dirname of the **low-level
+    Coverage.py integration test data directory** (i.e., directory providing
+    sample code used throughout this project's :mod:`coverage`-specific
+    integration tests) if found *or* raise an exception otherwise.
+    '''
+
+    # Dunderheaded redundancy, Thunder Red!
+    return DirRelative(get_test_func_data_claw_external_dir(), 'coverage')
+
+
+@callable_cached
+def get_test_func_data_claw_external_coverage_line_numbers_dir() -> Path:
+    '''
+    :class:`.Path` encapsulating the absolute dirname of the **low-level
+    Coverage.py line numbers integration test data directory** (i.e., directory
+    providing sample code used throughout this project's
+    :mod:`coverage`-specific integration tests) if found *or* raise an exception
+    otherwise.
+    '''
+
+    # Sailor of one-liner bogs unknown!
+    return DirRelative(
+        get_test_func_data_claw_external_coverage_dir(), 'line_numbers')
+
+
+@callable_cached
+def get_test_func_data_claw_external_coverage_option_source_dir() -> Path:
+    '''
+    :class:`.Path` encapsulating the absolute dirname of the **low-level
+    Coverage.py source option integration test data directory** (i.e., directory
+    providing sample code used throughout this project's
+    :mod:`coverage`-specific integration tests) if found *or* raise an exception
+    otherwise.
+    '''
+
+    # Sailor of one-liner bogs unknown!
+    return DirRelative(
+        get_test_func_data_claw_external_coverage_dir(), 'option_source')
 
 # ....................{ GETTERS ~ dir : func : lib         }....................
 @callable_cached
@@ -119,6 +190,19 @@ def get_test_func_data_external_pyinstaller_dir() -> Path:
 
 
 @callable_cached
+def get_test_func_data_external_pyright_dir() -> Path:
+    '''
+    :class:`.Path` encapsulating the absolute dirname of the **low-level pyright
+    integration test data directory** (i.e., directory providing sample code
+    used throughout this project's ``pyright``-specific integration tests) if
+    found *or* raise an exception otherwise.
+    '''
+
+    # Triumphant urgency!
+    return DirRelative(get_test_func_data_external_dir(), 'pyright')
+
+
+@callable_cached
 def get_test_func_data_external_sphinx_dir() -> Path:
     '''
     :class:`.Path` encapsulating the absolute dirname of the **low-level Sphinx
@@ -168,7 +252,7 @@ def get_test_unit_data_dir() -> Path:
     # Galactic antacid!
     return DirRelative(get_test_unit_subpackage_dir(), 'data')
 
-# ....................{ GETTERS ~ dir : func : claw        }....................
+# ....................{ GETTERS ~ dir : unit : claw        }....................
 @callable_cached
 def get_test_unit_data_claw_dir() -> Path:
     '''
@@ -197,7 +281,7 @@ def get_test_unit_data_claw_extraprocess_dir() -> Path:
     # Charnel caramel!
     return DirRelative(get_test_unit_data_claw_dir(), 'extraprocess')
 
-# ....................{ GETTERS ~ dir : func : door        }....................
+# ....................{ GETTERS ~ dir : unit : door        }....................
 @callable_cached
 def get_test_unit_data_door_dir() -> Path:
     '''

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 # ....................{ TODO                               }....................
@@ -169,13 +169,13 @@
 #  thus never be the default.
 #
 #To differentiate between these three strategies, consider:
-#* Declare an enumeration in "beartype._check.metadata.metadecor" resembling:
+#* Declare an enumeration in "beartype._check.cls.call.calldatadecorfunc" resembling:
 #    from enum import Enum
 #    BeartypeStrategyKind = Enum('BeartypeStrategyKind ('O1', 'Ologn', 'On',))
-#* Define a new "BeartypeDecorMeta.strategy_kind" instance variable.
+#* Define a new "BeartypeCallDecorFuncData.strategy_kind" instance variable.
 #* Set this variable to the corresponding "BeartypeStrategyKind" enumeration
 #  member based on which of the three decorators listed above was called.
-#* Explicitly pass the value of the "BeartypeDecorMeta.strategy_kind" instance
+#* Explicitly pass the value of the "BeartypeCallDecorFuncData.strategy_kind" instance
 #  variable to the beartype._check.code.codemain.make_func_pith_code()
 #  function as a new memoized "strategy_kind" parameter.
 #* Conditionally generate type-checking code throughout that function depending

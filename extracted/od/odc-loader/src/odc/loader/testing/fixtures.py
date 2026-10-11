@@ -10,8 +10,10 @@ import pathlib
 import shutil
 import tempfile
 from collections import abc
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
-from typing import Any, Generator, Iterator, Optional
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 import rasterio
@@ -48,7 +50,7 @@ def with_temp_tiff(data: xr.DataArray, **cog_opts) -> Generator[str, None, None]
         yield mem.name
 
 
-def write_files(file_dict):
+def write_files(file_dict) -> Path:
     """
     Convenience method for writing a bunch of files to a temporary directory.
 
@@ -71,7 +73,7 @@ def write_files(file_dict):
     return pathlib.Path(containing_dir)
 
 
-def _write_files_to_dir(directory_path, file_dict):
+def _write_files_to_dir(directory_path: str, file_dict) -> None:
     """
     Convenience method for writing a bunch of files to a given directory.
     """
@@ -141,7 +143,7 @@ class LoadState:
         self.meta = meta
         self.finalised = False
 
-    def with_env(self, env: dict[str, Any]) -> "LoadState":
+    def with_env(self, env: dict[str, Any]) -> LoadState:
         assert isinstance(env, dict)
         return LoadState(self.geobox, self.meta)
 
@@ -163,8 +165,8 @@ class FakeReader:
         cfg: RasterLoadParams,
         dst_geobox: GeoBox,
         *,
-        dst: Optional[np.ndarray] = None,
-        selection: Optional[ReaderSubsetSelection] = None,
+        dst: np.ndarray | None = None,
+        selection: ReaderSubsetSelection | None = None,
     ) -> tuple[tuple[slice, slice], np.ndarray]:
         meta = self._src.meta
         assert meta is not None

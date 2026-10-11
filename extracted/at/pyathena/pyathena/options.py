@@ -1,3 +1,12 @@
+# Copyright 2026 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""Options shared by the ``execute()`` methods of the SQL cursors."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -26,8 +35,9 @@ class ExecuteOptions:
         >>> cursor.execute("SELECT ...", options=options, work_group="adhoc")
 
     Passing None for an individual keyword argument is treated as "not
-    provided" and leaves the corresponding ``options`` field unchanged; to
-    reset a field, use :meth:`merge` or construct a new instance.
+    provided" and leaves the corresponding ``options`` field unchanged. :meth:`merge`
+    also ignores None, so to clear a field, use :func:`dataclasses.replace` or
+    construct a new instance.
 
     Attributes:
         work_group: Athena workgroup to use for this query. Overrides the
@@ -48,14 +58,15 @@ class ExecuteOptions:
             falls back to the connection-level setting.
         paramstyle: Parameter style for this query ('qmark' or 'pyformat').
             None (default) uses the module-level ``pyathena.paramstyle``.
-        on_start_query_execution: Callback invoked with the query ID
-            immediately after the StartQueryExecution API call. Invoked by
+        on_start_query_execution: Callback invoked with the query ID before
+            ``execute()`` waits for the query: after the StartQueryExecution API
+            call, or after a reusable query ID is found through ``cache_size``. Invoked by
             synchronous and aio cursors; ``AsyncCursor``-based cursors
             return the query ID directly through their execution model and
             do not invoke it.
-        result_set_type_hints: Mapping of column names (or indices) to Athena
-            DDL type signatures for precise type conversion within complex
-            types. For example:
+        result_set_type_hints: Athena type signatures for complex-type columns,
+            keyed by column name (case-insensitive) or zero-based column index.
+            For example:
             ``{"tags": "array(varchar)", "metadata": "map(varchar, integer)"}``
     """
 
@@ -83,7 +94,13 @@ class ExecuteOptions:
 
         Returns:
             The effective ``ExecuteOptions`` for the call.
+
+        Note:
+            Without base options, construct the base class directly from the
+            overrides. Subclass resolvers retain their ``merge()`` dispatch.
         """
+        if options is None and cls is ExecuteOptions:
+            return cls(**{k: v for k, v in overrides.items() if v is not None})
         return (options if options is not None else cls()).merge(**overrides)
 
     def merge(self, **overrides: Any) -> ExecuteOptions:

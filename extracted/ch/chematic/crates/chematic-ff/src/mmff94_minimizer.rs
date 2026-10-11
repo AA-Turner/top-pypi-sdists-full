@@ -277,24 +277,6 @@ impl Mmff94EnergyModel {
         })
     }
 
-    /// The prepared bonded parameters, for the RDKit-order force field
-    /// ([`crate::rdkit_mmff`]).
-    pub(crate) fn rdkit_parts(&self) -> crate::rdkit_mmff::PreparedParts {
-        crate::rdkit_mmff::PreparedParts {
-            bonds: self
-                .bonds
-                .iter()
-                .map(|b| (b.i, b.j, b.params.r0, b.params.kb))
-                .collect(),
-            oops: self.oops.iter().map(|o| (o.j, o.koop)).collect(),
-            torsions: self
-                .torsions
-                .iter()
-                .map(|t| (t.i, t.j, t.k, t.l, t.params.v1, t.params.v2, t.params.v3))
-                .collect(),
-        }
-    }
-
     /// Evaluate total MMFF94 energy for coordinates matching the prepared molecule.
     pub fn energy(&self, coords: &[[f64; 3]]) -> f64 {
         self.bond_energy(coords)
@@ -570,6 +552,31 @@ impl Mmff94EnergyModel {
     fn electrostatic_energy(&self, coords: &[[f64; 3]]) -> f64 {
         electrostatic_energy_pairs(coords, &self.electrostatic_pairs)
     }
+}
+
+/// Prepare only the topology state consumed by the RDKit-order force-field
+/// builder. The general [`Mmff94EnergyModel`] also constructs its own angle,
+/// stretch-bend and non-bonded tables; rebuilding those here was redundant
+/// because [`crate::rdkit_mmff`] must create them in RDKit contribution order.
+pub(crate) fn rdkit_prepared_parts(
+    mol: &Molecule,
+) -> Result<(crate::rdkit_mmff::PreparedParts, Vec<u8>, Molecule), MinimizerError> {
+    let (types, mmff_mol) = assign_mmff94_numeric_types_with_view(mol)?;
+    let bonds = build_bond_terms(&mmff_mol, &types);
+    let torsions = build_torsion_terms(&mmff_mol, &types);
+    let oops = build_oop_terms(&mmff_mol, &types);
+    let parts = crate::rdkit_mmff::PreparedParts {
+        bonds: bonds
+            .iter()
+            .map(|b| (b.i, b.j, b.params.r0, b.params.kb))
+            .collect(),
+        oops: oops.iter().map(|o| (o.j, o.koop)).collect(),
+        torsions: torsions
+            .iter()
+            .map(|t| (t.i, t.j, t.k, t.l, t.params.v1, t.params.v2, t.params.v3))
+            .collect(),
+    };
+    Ok((parts, types, mmff_mol))
 }
 
 /// Compute total MMFF94 energy for a given geometry (kcal/mol).
@@ -5396,6 +5403,55 @@ mod tests {
                     "cutoff combined gradient mismatch at atom {i}, axis {axis}: actual={value}, expected={expected}"
                 );
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod oop_boundary_contract_tests {
+    use super::*;
+
+    #[test]
+    fn direct_and_prepared_out_of_plane_terms_agree_on_distorted_geometries() {
+        for text in [
+            "C=C(C)C",
+            "CC(=O)N",
+            "C[N+](=O)[O-]",
+            "NC(=[NH2+])N",
+            "c1ccccc1",
+        ] {
+            let mol = chematic_chem::add_hydrogens(&chematic_smiles::parse(text).unwrap());
+            let (types, view) = assign_mmff94_numeric_types_with_view(&mol).unwrap();
+            let model = Mmff94EnergyModel::new(&mol).unwrap();
+            assert!(!model.oops.is_empty(), "{text}");
+            // A deterministic nonsymmetric geometry avoids accidentally planar centres.
+            let coords: Vec<_> = (0..mol.atom_count())
+                .map(|i| {
+                    let t = i as f64 + 0.25;
+                    [t.dcos(), t.dsin(), (t * 0.7).dsin()]
+                })
+                .collect();
+            let direct = oop_energy(&view, &coords, &types);
+            let prepared = model.oop_energy(&coords);
+            // Fitted MMFF OOP constants can be negative (e.g. amide N).
+            assert!(direct.is_finite() && direct.abs() > 0.0, "{text}: {direct}");
+            assert!(
+                (direct - prepared).abs() < 1e-10 * (1.0 + prepared.abs()),
+                "{text}: {direct} != {prepared}"
+            );
+            let moved: Vec<_> = coords
+                .iter()
+                .map(|p| [-p[1] + 3.0, p[0] - 2.0, p[2] + 1.0])
+                .collect();
+            let transformed = oop_energy(&view, &moved, &types);
+            assert!(
+                (direct - transformed).abs() < 1e-10 * (1.0 + direct.abs()),
+                "{text}"
+            );
+            assert_eq!(
+                oop_energy(&view, &vec![[0.0; 3]; mol.atom_count()], &types),
+                0.0
+            );
         }
     }
 }

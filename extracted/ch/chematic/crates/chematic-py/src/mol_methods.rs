@@ -553,9 +553,13 @@ impl Mol {
             mask,
         )?;
         let pos = coords.as_flattened();
+        // Match RDKit's public call order used by the comparison surface:
+        // CalcEnergy() followed by CalcGrad(). Keeping the energy walk first
+        // also leaves the term and coordinate data warm for the gradient.
+        let energy = ff.energy(pos);
         let mut grad = vec![0.0; pos.len()];
         ff.gradient(pos, &mut grad);
-        Ok((ff.energy(pos), grad))
+        Ok((energy, grad))
     }
 
     /// Per-atom MMFF94 force field type names.
@@ -2075,9 +2079,9 @@ impl Mol {
                 .map_err(|e| PyValueError::new_err(e.to_string()))?;
             return Ok(bitvecn_to_bytes(&fp));
         }
-        let result = chematic_fp::rdkit_morgan_fingerprint(&self.inner, &config)
+        let fingerprint = chematic_fp::rdkit_morgan_bitvec(&self.inner, &config)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(bitvecn_to_bytes(&result.fingerprint))
+        Ok(bitvecn_to_bytes(&fingerprint))
     }
 
     /// Same fingerprint as :meth:`rdkit_ecfp_config`, plus the raw (unfolded) data --
@@ -4938,6 +4942,15 @@ impl Mol {
         chematic_chem::mmff94_charges_bci(&self.inner)
     }
 
+    /// Checked legacy MMFF94 BCI charges.
+    ///
+    /// Unlike :meth:`mmff94_charges`, this raises ``ValueError`` when the
+    /// legacy element-pair table cannot represent an atom.
+    fn mmff94_charges_checked(&self) -> PyResult<Vec<f64>> {
+        chematic_chem::try_mmff94_charges_bci(&self.inner)
+            .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+
     /// Balaban J topological complexity index.
     ///
     /// High J → more complex/branched; related to molecular uniqueness.
@@ -4946,10 +4959,22 @@ impl Mol {
         chematic_chem::balaban_j(&self.inner)
     }
 
+    /// Checked Balaban J calculation.
+    fn balaban_j_checked(&self) -> PyResult<f64> {
+        chematic_chem::try_balaban_j(&self.inner)
+            .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+
     /// Information-theoretic connectivity index (IPC).
     #[getter]
     fn ipc(&self) -> f64 {
         chematic_chem::ipc(&self.inner)
+    }
+
+    /// Checked IPC calculation.
+    fn ipc_checked(&self) -> PyResult<f64> {
+        chematic_chem::try_ipc(&self.inner)
+            .map_err(|error| PyValueError::new_err(error.to_string()))
     }
 
     /// Zagreb M1 index — sum of squared vertex degrees.

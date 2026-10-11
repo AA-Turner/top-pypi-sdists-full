@@ -65,6 +65,9 @@ from local_operator.harness.rows import (
     is_ask_gate_divert_details,
     is_harness_chrome,
     is_harness_notice_row,
+    is_quiet_turn_call,
+    is_quiet_turn_name,
+    is_quiet_turn_result,
     is_settle_only_ask,
     output_limit_call_receipt,
     sessions_row_summary,
@@ -97,6 +100,7 @@ from local_operator.harness.types import (
     SubagentEndEvent,
     SubagentProgressEvent,
     SubagentStartEvent,
+    SupplementProgressEvent,
     ToolCallComposeEvent,
     ToolExecutionEndEvent,
     ToolExecutionStartEvent,
@@ -1583,6 +1587,17 @@ def fold_messages_to_entries(history: list[AgentMessage]) -> list[TranscriptEntr
                 user_run = bool(
                     message_bang and message.tool_calls[0] is call and call.name == "bash"
                 )
+                if is_quiet_turn_call(call):
+                    # THE QUIET PAIR (design docs/design/quiet-turns.md §5, S1):
+                    # the call's row never paints on the phone. No correlation
+                    # entry either — the result-pairing loop below reads
+                    # `tool_rows.get(...)` and tolerates a missing row (the
+                    # same tolerance the hidden `send` below documents), so
+                    # the pair's result settles into nothing on every page.
+                    # NOT a `HIDDEN_TOOL_NAMES` entry: the pair must stay in
+                    # the journal and the display pages; only the folds skip
+                    # it, and only at paint.
+                    continue
                 if hide_cross_session and call.name == SEND_TOOL_NAME:
                     # `display.hide_cross_session`: no row and no correlation
                     # entry. The result-pairing loop below reads
@@ -2178,6 +2193,15 @@ class ProjectionFold:
                 # (the settle-marker half of the mixed-build fallback).
                 self._drop_tool_row(event.tool_call_id)
                 return
+            if is_quiet_turn_result(event.result):
+                # THE QUIET RESULT SETTLES NOTHING (design §5, S1): the marker
+                # is the quiet end's own fact, read off the result at the same
+                # seam the divert check above reads it. `_tool_row`'s name gate
+                # refuses the mint; this drop is the marker-read half, so a row
+                # this fold already holds for the call is retired rather than
+                # settled — the pair's end can only ever paint nothing.
+                self._drop_tool_row(event.tool_call_id)
+                return
             row = self._tool_row(event.tool_call_id, event.tool_name, settle=True)
             if row is None:
                 # `display.hide_cross_session`: an end for a row that was never
@@ -2331,6 +2355,28 @@ class ProjectionFold:
             p.model_label = f"{event.provider}/{event.model_id}"
             if event.effort:
                 p.effort = event.effort
+        elif isinstance(event, SupplementProgressEvent):
+            # Turn supplements (memo §3.1 row 18; P5's sibling map). The beat is
+            # SELF-REPLACING by construction (§2.7), so this is a keep-newest fold
+            # per anchor: a lower version than the one held is a replay or an
+            # out-of-order delivery and never overwrites state the reader already
+            # saw. The value is the beat's own fields (the live shape); the durable
+            # row, which carries the same keys plus the generator's detail lines,
+            # is what ``durable.py`` fills from the journal on a cold open.
+            held = p.supplements.get(event.anchor)
+            if held is None or event.version >= int(held.get("version") or 0):
+                p.supplements[event.anchor] = {
+                    "anchor": event.anchor,
+                    "job": event.job,
+                    "version": event.version,
+                    "state": event.state,
+                    "stage": event.stage,
+                    "elapsed_s": event.elapsed_s,
+                    "files": list(event.files),
+                    "components": list(event.components),
+                    "error": event.error,
+                    "error_type": event.error_type,
+                }
         # Unknown events are dropped by design: the fold renders a SUBSET of
         # the harness taxonomy (the phone has no use for wake/loop internals),
         # and ``extra="allow"`` on AgentEvent means matching must stay
@@ -3440,6 +3486,14 @@ class ProjectionFold:
         entry_id = self._tool_rows.get(tool_call_id)
         row = self._find(entry_id) if entry_id else None
         if row is None:
+            if is_quiet_turn_name(tool_name):
+                # THE QUIET PAIR (design §5, S1): no row is ever minted for
+                # the quiet tool. One refusal here, before any
+                # `TranscriptEntry` exists, covers compose, start, update and
+                # end together — the same one-place rule the `send` refusal
+                # beside it documents, and the reason no arm below needs its
+                # own check.
+                return None
             if cross_session_hidden() and tool_name == SEND_TOOL_NAME:
                 return None
             if is_settle_only_ask(tool_name, queued_engine=self._queued_engine) and not settle:

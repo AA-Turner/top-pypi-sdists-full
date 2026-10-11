@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+# --------------------( LICENSE                            )--------------------
+# Copyright (c) 2014-2026 Beartype authors.
+# See "LICENSE" for further details.
+
+'''
+**Beartype callable decorator call metadata dataclass** unit tests.
+
+This submodule unit tests the
+:func:`beartype._check.cls.call.calldatadecorfunc` submodule.
+'''
+
+# ....................{ IMPORTS                            }....................
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# WARNING: To raise human-readable test errors, avoid importing from
+# package-specific submodules at module scope.
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+# ....................{ TESTS                              }....................
+def test_callmetadecor() -> None:
+    '''
+    Test the
+    :func:`beartype._check.cls.call.calldatadecorfunc.BeartypeCallDecorFuncData`
+    dataclass.
+    '''
+
+    # ....................{ IMPORTS                        }....................
+    # Defer test-specific imports.
+    from beartype import BeartypeConf
+    from beartype.roar import BeartypeDecorWrappeeException
+    from beartype._check.cls.call.calldatadecorfunc import (
+        BeartypeCallDecorFuncData)
+    from beartype_test.a00_unit.data.data_type import function_lambda
+    from pytest import raises
+
+    # ....................{ LOCALS                         }....................
+    # Arbitrary beartype decorator call metadata.
+    bear_data = BeartypeCallDecorFuncData()
+
+    # ....................{ FAIL                           }....................
+    # Assert this metadata to be unhashable.
+    with raises(TypeError):
+        hash(bear_data)
+
+    # Assert that reinitializing this metadata an uncallable object to be
+    # type-checked raises the expected exception.
+    with raises(BeartypeDecorWrappeeException):
+        bear_data.reinit(
+            conf=BeartypeConf(),
+            func_wrappee='The fields, the lakes, the forests, and the streams,',
+        )
+
+    # Assert that reinitializing this metadata an uncallable object to be
+    # unwrapped raises the expected exception.
+    with raises(BeartypeDecorWrappeeException):
+        bear_data.reinit(
+            conf=BeartypeConf(),
+            func_wrappee=function_lambda,
+            func_wrapper="Like serpents struggling in a vulture's grasp.",
+        )
+
+    # Assert that reinitializing this metadata with a C-based builtin function
+    # raises the expected exception.
+    with raises(BeartypeDecorWrappeeException):
+        bear_data.reinit(conf=BeartypeConf(), func_wrappee=iter)
+
+    # Assert that reinitializing this metadata with an invalid configuration
+    # raises the expected exception.
+    with raises(BeartypeDecorWrappeeException):
+        bear_data.reinit(
+            conf='Ocean, and all the living things that dwell',
+            func_wrappee=function_lambda,
+        )
+
+    # Assert that reinitializing this metadata with invalid class stacks raises
+    # the expected exception.
+    with raises(BeartypeDecorWrappeeException):
+        bear_data.reinit(
+            cls_stack="Shine in the rushing torrents' restless gleam,",
+            conf=BeartypeConf(),
+            func_wrappee=function_lambda,
+        )
+    with raises(BeartypeDecorWrappeeException):
+        bear_data.reinit(
+            cls_stack=('Which from those secret chasms in tumult welling',),
+            conf=BeartypeConf(),
+            func_wrappee=function_lambda,
+        )

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -15,9 +15,10 @@ This submodule unit tests the public API of the private
 # WARNING: To raise human-readable test errors, avoid importing from
 # package-specific submodules at module scope.
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# from beartype_test._util.mark.pytskip import skip
 
 # ....................{ TESTS ~ tester                     }....................
-def test_is_hint_pep585_builtin(hints_pep_meta) -> None:
+def test_is_hint_pep585_builtin(hints_piths_pep_meta) -> None:
     '''
     Test the
     :func:`beartype._util.hint.pep.proposal.pep585.is_hint_pep585_builtin_subbed`
@@ -25,7 +26,7 @@ def test_is_hint_pep585_builtin(hints_pep_meta) -> None:
 
     Parameters
     ----------
-    hints_pep_meta : List[beartype_test.a00_unit.data.hint.util.data_hintmetacls.HintPepMetadata]
+    hints_piths_pep_meta : List[beartype_test.a00_unit.data.hint.cls.pith.data_clshintpith.HintPepMetadata]
         List of type hint metadata describing sample type hints exercising edge
         cases in the :mod:`beartype` codebase.
     '''
@@ -35,12 +36,12 @@ def test_is_hint_pep585_builtin(hints_pep_meta) -> None:
         is_hint_pep585_builtin_subbed)
 
     # Assert this tester accepts only PEP 585-compliant type hints.
-    for hint_pep_meta in hints_pep_meta:
+    for hint_pep_meta in hints_piths_pep_meta:
         assert is_hint_pep585_builtin_subbed(hint_pep_meta.hint) is (
             hint_pep_meta.is_pep585_builtin_subbed)
 
 
-def test_is_hint_pep585_generic(hints_pep_meta) -> None:
+def test_is_hint_pep585_generic(hints_piths_pep_meta) -> None:
     '''
     Test the
     :func:`beartype._util.hint.pep.proposal.pep585.is_hint_pep585_generic`
@@ -48,7 +49,7 @@ def test_is_hint_pep585_generic(hints_pep_meta) -> None:
 
     Parameters
     ----------
-    hints_pep_meta : List[beartype_test.a00_unit.data.hint.util.data_hintmetacls.HintPepMetadata]
+    hints_piths_pep_meta : List[beartype_test.a00_unit.data.hint.cls.pith.data_clshintpith.HintPepMetadata]
         List of type hint metadata describing sample type hints exercising edge
         cases in the :mod:`beartype` codebase.
     '''
@@ -58,12 +59,13 @@ def test_is_hint_pep585_generic(hints_pep_meta) -> None:
         is_hint_pep585_generic)
 
     # Assert this tester accepts only PEP 585-compliant generics.
-    for hint_pep_meta in hints_pep_meta:
+    for hint_pep_meta in hints_piths_pep_meta:
         assert is_hint_pep585_generic(hint_pep_meta.hint) is (
             hint_pep_meta.is_pep585_generic)
 
 # ....................{ TESTS ~ getter                     }....................
-def test_get_hint_pep585_generic_typeargs_packed(hints_pep_meta) -> None:
+# @skip("Currently brokey. lol <- it's sad, actually")
+def test_get_hint_pep585_generic_typeargs_packed(hints_piths_pep_meta) -> None:
     '''
     Test the
     :func:`beartype._util.hint.pep.proposal.pep585.get_hint_pep585_generic_typeargs_packed`
@@ -71,7 +73,7 @@ def test_get_hint_pep585_generic_typeargs_packed(hints_pep_meta) -> None:
 
     Parameters
     ----------
-    hints_pep_meta : List[beartype_test.a00_unit.data.hint.util.data_hintmetacls.HintPepMetadata]
+    hints_piths_pep_meta : list[beartype_test.a00_unit.data.hint.cls.pith.data_clshintpith.HintPepMetadata]
         List of type hint metadata describing sample type hints exercising edge
         cases in the :mod:`beartype` codebase.
     '''
@@ -85,39 +87,51 @@ def test_get_hint_pep585_generic_typeargs_packed(hints_pep_meta) -> None:
     from beartype._util.hint.pep.utilpepsign import get_hint_pep_sign_or_none
     from pytest import raises
 
-    # ....................{ ASSERTS                        }....................
+    # ....................{ ITERATE                        }....................
     # For each PEP-compliant test hint...
-    for hint_pep_meta in hints_pep_meta:
+    for hint_pep_meta in hints_piths_pep_meta:
+        # This hint, localized purely to simplify debugging. *sigh*
+        hint = hint_pep_meta.hint
+
+        # ....................{ PASS                       }....................
         # If this hint is a PEP 585-compliant generic...
         if hint_pep_meta.is_pep585_generic:
             # Tuple of all type variables discovered by this getter.
-            hint_typevars = get_hint_pep585_generic_typeargs_packed(hint_pep_meta.hint)
-            assert isinstance(hint_typevars, tuple)
+            hint_typeargs_packed_unsubbed = (
+                get_hint_pep585_generic_typeargs_packed(
+                    hint,
+                    True,  # <-- optional "is_unsub" parameter
+                ))
+            assert isinstance(hint_typeargs_packed_unsubbed, tuple)
 
             # Assert that all items of this tuple are actually type variables.
-            for hint_typevar in hint_typevars:
-                assert get_hint_pep_sign_or_none(hint_typevar) is (
+            for hint_typearg in hint_typeargs_packed_unsubbed:
+                assert get_hint_pep_sign_or_none(hint_typearg) is (
                     HintSignTypeVar)
 
             # If this hint is parametrized by one or more type variables...
             if hint_pep_meta.is_typeargs:
                 # Assert that this getter returns one or more type variables.
-                assert hint_typevars
+                assert hint_typeargs_packed_unsubbed
 
                 # If the exact type variables parametrizing this hint are known
                 # at test time...
-                if hint_pep_meta.typeargs_packed:
+                if hint_pep_meta.typeargs_packed_unsubbed:
                     # Assert that this getter returns only these type variables.
-                    assert hint_pep_meta.typeargs_packed == hint_typevars
+                    assert (
+                        hint_pep_meta.typeargs_packed_unsubbed ==
+                        hint_typeargs_packed_unsubbed
+                    )
                 # Else, the exact type variables parametrizing this hint are
                 # unknown at test time. In this case, silently ignore the exact
                 # contents of this tuple.
             # Else, this hint is unparametrized by type variables. In this case,
             # assert that this getter returns the empty tuple.
             else:
-                assert hint_typevars == ()
+                assert hint_typeargs_packed_unsubbed == ()
+        # ....................{ FAIL                       }....................
         # If this hint is *NOT* a PEP 585-compliant generic, assert that this
         # getter raises an exception.
         else:
             with raises(BeartypeDecorHintPep585Exception):
-                get_hint_pep585_generic_typeargs_packed(hint_pep_meta.hint)
+                get_hint_pep585_generic_typeargs_packed(hint)

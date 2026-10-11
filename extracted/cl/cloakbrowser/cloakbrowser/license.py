@@ -102,7 +102,10 @@ class CloakBrowserLicenseError(RuntimeError):
 _LICENSE_EXIT_MESSAGES = {
     76: (
         "CloakBrowser Pro: session limit reached for your plan. Close another "
-        "running session or upgrade your plan."
+        "running session or upgrade your plan. Always close with "
+        "browser.close() (e.g. in a finally block). A session that crashed or "
+        "was killed frees its seat automatically within 4 min (free/trial/solo), "
+        "15 min (team) or 30 min (business/scale)."
     ),
     77: (
         "CloakBrowser Pro: license key is invalid, expired, or missing. Check "
@@ -113,8 +116,9 @@ _LICENSE_EXIT_MESSAGES = {
         "unreachable or a connection problem)."
     ),
     79: (
-        "CloakBrowser Pro: local configuration problem, ~/.cloakbrowser "
-        "is not writable."
+        "CloakBrowser Pro: local configuration problem. Either ~/.cloakbrowser "
+        "is not writable, or the --license-route value is invalid (use auto, "
+        "direct, or proxy with a proxy set)."
     ),
 }
 

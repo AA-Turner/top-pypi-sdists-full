@@ -411,6 +411,14 @@ async def note_failed_run(run_id: str, task_id: str | None = None) -> None:
             task_id, one_shot=await _fired_by_one_shot(run_id)
         )
         if streak is None or not streak.escalate:
+            # CEILING 4 — the automation guardrail failure rate (a knob per task, owned by
+            # the host): failures interleaved with successes never form a streak, yet a
+            # schedule failing half its runs is broken. Same suspension, same sink.
+            streak = await check_failure_rate(task_id)
+            if streak is None:
+                return
+            await escalate_streak(streak, run_id)
+            await _failure_rate_alarm(streak, run_id)
             return
         await escalate_streak(streak, run_id)
     except Exception:  # noqa: BLE001 — the alarm is never allowed to break the run
@@ -420,6 +428,73 @@ async def note_failed_run(run_id: str, task_id: str | None = None) -> None:
             task_id,
             run_id,
         )
+
+
+FAILURE_RATE_SIGNATURE = "failure-rate"
+
+
+async def check_failure_rate(task_id: str) -> FailureStreak | None:
+    """The failure share of the task's last ``failure_window_runs`` finished runs, judged against
+    the host's ``max_failure_pct`` (ext ``failure_rate_limits``). A productive run (units_done > 0)
+    counts as a success, exactly as in the streak ceilings; interrupted / stopped / skipped rows are
+    not verdicts. Never raises."""
+    limits_fn = get_optional_ext("failure_rate_limits")
+    if limits_fn is None:
+        return None
+    try:
+        limits = await limits_fn(task_id)
+        if not limits:
+            return None
+        pct_limit = float(limits["max_failure_pct"])
+        window = max(int(limits.get("failure_window_runs") or 20), 1)
+        min_runs = max(int(limits.get("failure_min_runs") or 6), 1)
+        SchRunModel = get_db_model("SchRun")
+        rows = await (
+            SchRunModel.filter(task_id=task_id, status__in=sorted(_TERMINAL_OK | {"failed"}))
+            .order_by("-created_at")
+            .limit(window)
+            .values("status", "error_message", "result_metadata")
+        )
+    except Exception:  # noqa: BLE001 — fail OPEN, loudly
+        log.exception("[scheduler-repeat-guard] failure-rate check unreadable for sch_task %s", task_id)
+        return None
+    finished = len(rows)
+    failed_rows = [
+        r for r in rows if str(r.get("status") or "").lower() == "failed" and units_done(r) == 0
+    ]
+    if finished < min_runs:
+        return None
+    pct = 100.0 * len(failed_rows) / finished
+    if pct < pct_limit:
+        return None
+    sample = str(failed_rows[0].get("error_message") or "") if failed_rows else ""
+    return FailureStreak(
+        task_id=task_id,
+        consecutive_failures=len(failed_rows),
+        signature=FAILURE_RATE_SIGNATURE,
+        sample_error=sample,
+        escalate=True,
+        reason=(
+            f"Paused by its failure-rate limit: {len(failed_rows)} of the last {finished} runs "
+            f"failed ({pct:.0f}%, limit {pct_limit:.0f}%). Fix the cause, then resume it. "
+            f"Last error: {sample[:500]}"
+        ),
+    )
+
+
+async def _failure_rate_alarm(streak: FailureStreak, run_id: str) -> None:
+    sink = get_optional_ext("guardrail_breach")
+    if sink is None:
+        return
+    try:
+        await sink(
+            "guardrail.failure_pct",
+            streak.task_id,
+            run_id,
+            {"message": streak.reason, "observed": streak.consecutive_failures, "paused": True},
+        )
+    except Exception:  # noqa: BLE001 — the alarm never breaks the run
+        log.exception("[scheduler-repeat-guard] guardrail_breach sink failed for %s", streak.task_id)
 
 
 async def _fired_by_one_shot(run_id: str) -> bool:

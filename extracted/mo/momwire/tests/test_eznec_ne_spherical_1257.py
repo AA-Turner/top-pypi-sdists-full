@@ -30,7 +30,6 @@ import io
 import math
 import re
 import threading
-import time
 from pathlib import Path
 
 import numpy as np
@@ -283,6 +282,7 @@ def test_the_values_sit_inside_the_envelope(name):
         assert len(kept) == len(rows)
 
 
+@pytest.mark.slow
 def test_the_grazing_rows_are_in_the_envelope():
     """The four rows #1257 had to leave out (R = 1000 m, off the broadside
     plane, within 15 degrees of the horizon) are kept now, and each sits
@@ -385,14 +385,7 @@ def razor_server(short_room, transport):  # noqa: F811 - the imported fixtures
     server = Server(path, idle_timeout=3600.0, log=log, connection=connection)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
-    deadline = time.monotonic() + 10
-    while time.monotonic() < deadline:
-        probe = mech.connect(path)
-        if probe is None:
-            time.sleep(0.01)
-            continue
-        probe.close()
-        break
+    assert server.listening.wait(10), "the server never started listening"
     yield path
     server.stop()
     thread.join(timeout=10)

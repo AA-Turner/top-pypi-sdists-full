@@ -1,3 +1,12 @@
+# Copyright 2019 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""Type converter for S3FS cursor results."""
+
 from __future__ import annotations
 
 import logging
@@ -9,6 +18,7 @@ from pyathena.converter import (
     Converter,
     _to_default,
 )
+from pyathena.util import override
 
 if TYPE_CHECKING:
     from pyathena.converter import DefaultTypeConverter
@@ -42,12 +52,14 @@ class DefaultS3FSTypeConverter(Converter):
     """
 
     def __init__(self) -> None:
+        """Initialize the converter with the standard Athena conversion functions."""
         super().__init__(
             mappings=deepcopy(_DEFAULT_CONVERTERS),
             default=_to_default,
         )
         self._default_type_converter: DefaultTypeConverter | None = None
 
+    @override
     def convert(self, type_: str, value: str | None, type_hint: str | None = None) -> Any | None:
         """Convert a string value to the appropriate Python type.
 

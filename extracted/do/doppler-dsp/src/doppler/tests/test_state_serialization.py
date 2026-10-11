@@ -192,6 +192,23 @@ def _track_feed(o: Any, seg: NDArray[np.complex64]) -> NDArray[Any]:
     return np.frombuffer(o.get_state(), dtype=np.uint8)
 
 
+def _make_aided_dll() -> Any:
+    """A partial-correlation Dll with the symbol aid on: its chunk and
+    look-back buffers and the aid's rings ride the blob field-wise, which the
+    segments=1 entry never reaches."""
+    d = Dll(
+        code=_CODE,
+        sps=2,
+        init_chip=0.0,
+        bn=0.02,
+        zeta=0.707,
+        spacing=0.5,
+        segments=4,
+    )
+    d.set_symbol_period(13.5)
+    return d
+
+
 def _make_symbols_engine() -> Any:
     """A type=symbols synth with a fixed complex constellation attached. The
     stream is config (restored by set_symbols, not the blob), so make()
@@ -339,6 +356,15 @@ CASES: dict[str, tuple[Callable[[], Any], _Feed]] = {
         lambda: AccTrace(n=8, mode="mean", alpha=0.1),
         _acctrace_feed,
     ),
+    # A mode that READS alpha, so the matrix's bit-exact resume covers the
+    # alpha field. Both instances are built with the same alpha and nothing
+    # here calls the setter, so this cannot show a blob resuming with the
+    # wrong smoothing: test_state_carries_a_runtime_alpha
+    # (accumulator/tests/test_acc_trace.py) does (#2000).
+    "AccTraceExp": (
+        lambda: AccTrace(n=8, mode="exp", alpha=0.25),
+        _acctrace_feed,
+    ),
     "HalfbandDecimatorQ15": (
         lambda: HalfbandDecimatorQ15(_HB_TAPS),
         lambda o, seg: np.array(
@@ -369,6 +395,10 @@ CASES: dict[str, tuple[Callable[[], Any], _Feed]] = {
             spacing=0.5,
             segments=1,
         ),
+        _track_feed,
+    ),
+    "Dll (4 segments, symbol aid)": (
+        lambda: _make_aided_dll(),
         _track_feed,
     ),
     "SymbolSync": (
@@ -578,3 +608,46 @@ def test_state_blob_is_self_validating(name: str) -> None:
         obj.set_state(bytes([blob[0] ^ 0xFF]) + blob[1:])
     with pytest.raises(TypeError):  # not bytes
         obj.set_state(42)
+
+
+def test_dll_refused_blob_changes_nothing() -> None:
+    """A refused blob changes nothing on the instance that refused it
+    (doppler#2092).
+
+    A 4-segment Dll with the symbol aid on and a 49-segment one without it
+    have blobs of the same size (48*45 = 32*64 + 8*14 bytes), so the
+    binding's length check passes and the C restore is what refuses. It used
+    to read the whole struct in first and check after, leaving the refusing
+    instance with the blob's NULLs for its code and buffers. Asserted on the
+    SAME instance: refused, the same blob after as before, and it tracks on
+    exactly as an untouched twin does.
+    """
+    code = (np.arange(127, dtype=np.uint8) * 5 % 7 < 3).astype(np.uint8)
+
+    def make(segments: int) -> Any:
+        return Dll(
+            code=code,
+            sps=2,
+            init_chip=0.0,
+            bn=0.002,
+            zeta=0.707,
+            spacing=0.5,
+            segments=segments,
+        )
+
+    aided = make(4)
+    aided.set_symbol_period(13.5)
+    b, twin = make(49), make(49)
+    x = _stream(4 * 127 * 2, seed=3)
+    for o in (aided, b, twin):
+        o.steps(x)
+
+    blob = aided.get_state()
+    assert len(blob) == b.state_bytes()  # the collision the size check misses
+    before = b.get_state()
+    with pytest.raises(ValueError):
+        b.set_state(blob)
+    assert b.get_state() == before
+
+    y = _stream(4 * 127 * 2, seed=4)
+    assert np.array_equal(_track_feed(b, y), _track_feed(twin, y))

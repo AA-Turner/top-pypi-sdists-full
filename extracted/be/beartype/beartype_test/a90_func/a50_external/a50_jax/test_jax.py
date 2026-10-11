@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -57,7 +57,7 @@ def test_is_func_jaxtyped() -> None:
 
     # If any requisite JAX package is unimportable, silently reduce to a noop.
     # See also commentary is the higher-level test_jax_jit() integration test.
-    if not is_package('jaxtyping', is_warnings_ignore=True):
+    if not is_package('jaxtyping', is_ignore_import_exception=True):
         return
     # Else, all requisite JAX packages are importable.
 
@@ -124,8 +124,8 @@ def test_jax_jit() -> None:
     #         support. You may be able work around this issue by building jaxlib
     #         from source.
     if not (
-        is_package('jax', is_warnings_ignore=True) and
-        is_package('jaxtyping', is_warnings_ignore=True)
+        is_package('jax', is_ignore_import_exception=True) and
+        is_package('jaxtyping', is_ignore_import_exception=True)
     ):
         return
     # Else, all requisite JAX packages are importable.
@@ -204,7 +204,7 @@ def test_jaxtyping_jaxtyped() -> None:
 
     # If any requisite JAX package is unimportable, silently reduce to a noop.
     # See also commentary is the higher-level test_jax_jit() integration test.
-    if not is_package('jaxtyping', is_warnings_ignore=True):
+    if not is_package('jaxtyping', is_ignore_import_exception=True):
         return
     # Else, all requisite JAX packages are importable.
 

@@ -38,7 +38,10 @@ def objwrap(
         for k, v in new_default_kwargs.items():
             kwargs.setdefault(k, v)
         return obj.__class__(
-            method(obj.expression, *default_args, *args, **kwargs), obj.model, obj.sense
+            method(obj.expression, *default_args, *args, **kwargs),
+            obj.model,
+            obj.sense,
+            obj.scaling,
         )
 
     _objwrap.__doc__ = (
@@ -50,12 +53,25 @@ def objwrap(
     return _objwrap
 
 
+def linear_part(df: pl.DataFrame) -> pl.DataFrame:
+    """
+    Linear terms of a quadratic ``to_polars`` frame, their variable in ``vars``.
+    """
+    linear = df.filter(pl.col("vars1").eq(-1) | pl.col("vars2").eq(-1))
+    return linear.with_columns(
+        pl.when(pl.col("vars1").eq(-1))
+        .then(pl.col("vars2"))
+        .otherwise(pl.col("vars1"))
+        .alias("vars")
+    )
+
+
 class Objective:
     """
     An objective expression containing all relevant information.
     """
 
-    __slots__ = ("_expression", "_model", "_sense", "_value")
+    __slots__ = ("_expression", "_model", "_sense", "_scaling", "_value")
     __array_ufunc__ = None
     __array_priority__ = 10000
     __pandas_priority__ = 10000
@@ -67,11 +83,13 @@ class Objective:
         expression: expressions.LinearExpression | expressions.QuadraticExpression,
         model: Model,
         sense: str = "min",
+        scaling: float = 1,
     ) -> None:
         self._model: Model = model
         self._value: float | None = None
 
         self.sense: str = sense
+        self.scaling = scaling
         self.expression: (
             expressions.LinearExpression | expressions.QuadraticExpression
         ) = expression
@@ -88,11 +106,18 @@ class Objective:
         return f"Objective:\n----------\n{expr_string}\n{sense_string}\n{value_string}"
 
     @property
+    def name(self) -> str:
+        """
+        Returns the name of the objective, owned by the objective itself.
+        """
+        return "objective"
+
+    @property
     def attrs(self) -> dict[str, Any]:
         """
         Returns the attributes of the objective.
         """
-        return self.expression.attrs
+        return {"name": self.name}
 
     @property
     def coords(self) -> DatasetCoordinates:
@@ -127,6 +152,26 @@ class Objective:
         Returns the objective as a polars DataFrame.
         """
         return self.expression.to_polars(**kwargs)
+
+    def linear_terms(self) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Returns the variable labels and coefficients of the linear objective
+        terms, see ``LinearExpression.linear_terms``.
+        """
+        return self.expression.linear_terms()
+
+    def to_netcdf_ds(self) -> Dataset:
+        """
+        Returns the objective in the dense layout for netcdf serialization.
+
+        The expression setter reduces the objective to a single cell, so a
+        CSR-backed expression is densified into that one cell here, without
+        mutating the stored CSR data.
+        """
+        expr = self.expression
+        csr = expr._csr if isinstance(expr, expressions.LinearExpression) else None
+        ds = expr.data if csr is None else csr.to_dense().data
+        return ds.assign_attrs(name=self.name)
 
     @property
     def coeffs(self) -> DataArray:
@@ -192,7 +237,8 @@ class Objective:
         if (expr.const != 0.0) and not np.isnan(expr.const):
             raise ValueError("Constant values in objective function not supported.")
 
-        expr.attrs["name"] = "objective"
+        if not expr.is_sparse:
+            expr.attrs["name"] = self.name
         self._expression = expr
 
     @property
@@ -217,6 +263,22 @@ class Objective:
         if sense not in ("min", "max"):
             raise ValueError("Invalid sense. Must be 'min' or 'max'.")
         self._sense = sense
+
+    @property
+    def scaling(self) -> float:
+        """
+        Returns the positive objective scaling factor.
+        """
+        return self._scaling
+
+    @scaling.setter
+    def scaling(self, scaling: float) -> None:
+        if not isinstance(scaling, int | float | np.floating | np.integer):
+            raise TypeError("Objective scaling must be a numeric scalar.")
+        scaling = float(scaling)
+        if not np.isfinite(scaling) or scaling <= 0:
+            raise ValueError("Objective scaling must be finite and positive.")
+        self._scaling = scaling
 
     @property
     def value(self) -> float64 | float | None:
@@ -249,32 +311,34 @@ class Objective:
 
     assign = objwrap(expressions.LinearExpression.assign)
 
-    sel = objwrap(expressions.LinearExpression.sel)
+    sel = objwrap(expressions.BaseExpression.sel)
 
     def __add__(
-        self, expr: int | QuadraticExpression | LinearExpression | Objective
+        self, expr: ConstantLike | QuadraticExpression | LinearExpression | Objective
     ) -> Objective:
         if isinstance(expr, Objective):
             expr = expr.expression
 
-        return Objective(self.expression + expr, self.model, self.sense)
+        return Objective(self.expression + expr, self.model, self.sense, self.scaling)
 
     def __sub__(self, expr: LinearExpression | Objective) -> Objective:
         if not isinstance(expr, Objective):
             expr = Objective(expr, self.model)
-        return Objective(self.expression - expr.expression, self.model, self.sense)
+        return Objective(
+            self.expression - expr.expression, self.model, self.sense, self.scaling
+        )
 
     def __mul__(self, expr: ConstantLike) -> Objective:
         # only allow scalar multiplication
         if not isinstance(expr, int | float | np.floating | np.integer):
             raise ValueError("Invalid type for multiplication.")
-        return Objective(self.expression * expr, self.model, self.sense)
+        return Objective(self.expression * expr, self.model, self.sense, self.scaling)
 
     def __neg__(self) -> Objective:
-        return Objective(-self.expression, self.model, self.sense)
+        return Objective(-self.expression, self.model, self.sense, self.scaling)
 
     def __truediv__(self, expr: ConstantLike) -> Objective:
         # only allow scalar division
         if not isinstance(expr, int | float | np.floating | np.integer):
             raise ValueError("Invalid type for division.")
-        return Objective(self.expression / expr, self.model, self.sense)
+        return Objective(self.expression / expr, self.model, self.sense, self.scaling)

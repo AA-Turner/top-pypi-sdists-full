@@ -1,3 +1,5 @@
+"""DB API 2.0 cursors that return rows as tuples or dictionaries."""
+
 from __future__ import annotations
 
 import logging
@@ -9,6 +11,7 @@ from pyathena.error import OperationalError, ProgrammingError
 from pyathena.model import AthenaQueryExecution
 from pyathena.options import ExecuteOptions
 from pyathena.result_set import AthenaDictResultSet, AthenaResultSet, WithFetch
+from pyathena.util import override
 
 _logger = logging.getLogger(__name__)
 
@@ -30,7 +33,7 @@ class Cursor(WithFetch):
 
     Example:
         >>> cursor = connection.cursor()
-        >>> cursor.execute("SELECT name, age FROM users WHERE age > %s", (18,))
+        >>> cursor.execute("SELECT name, age FROM users WHERE age > %(age)s", {"age": 18})
         >>> while True:
         ...     row = cursor.fetchone()
         ...     if not row:
@@ -43,6 +46,7 @@ class Cursor(WithFetch):
 
     def __init__(
         self,
+        *,
         s3_staging_dir: str | None = None,
         schema_name: str | None = None,
         catalog_name: str | None = None,
@@ -55,6 +59,24 @@ class Cursor(WithFetch):
         result_reuse_minutes: int = CursorIterator.DEFAULT_RESULT_REUSE_MINUTES,
         **kwargs,
     ) -> None:
+        """Initialize a Cursor.
+
+        Args:
+            s3_staging_dir: S3 location for query results.
+            schema_name: Default schema name.
+            catalog_name: Default catalog name.
+            work_group: Athena workgroup name.
+            poll_interval: Query status polling interval in seconds.
+            encryption_option: S3 encryption option (SSE_S3, SSE_KMS, CSE_KMS).
+            kms_key: KMS key for encryption.
+            kill_on_interrupt: Cancel the query when a ``KeyboardInterrupt`` interrupts
+                ``execute()`` while it starts or waits for the query.
+            result_reuse_enable: Enable Athena query result reuse.
+            result_reuse_minutes: Maximum age in minutes of a reused result.
+            **kwargs: Arguments forwarded to ``WithResultSet.__init__`` and
+                ``BaseCursor.__init__``, such as ``arraysize``, ``connection``,
+                ``converter``, ``formatter``, and ``retry_config``.
+        """
         super().__init__(
             s3_staging_dir=s3_staging_dir,
             schema_name=schema_name,
@@ -69,8 +91,10 @@ class Cursor(WithFetch):
             **kwargs,
         )
         self._result_set_class = AthenaResultSet
+        self._result_set_kwargs: dict[str, Any] = {}
 
-    @property
+    @property  # type: ignore[explicit-override]  # python/mypy#15900
+    @override
     def arraysize(self) -> int:
         return self._arraysize
 
@@ -82,10 +106,12 @@ class Cursor(WithFetch):
             )
         self._arraysize = value
 
+    @override
     def execute(
         self,
         operation: str,
         parameters: dict[str, Any] | list[str] | None = None,
+        *,
         work_group: str | None = None,
         s3_staging_dir: str | None = None,
         cache_size: int | None = None,
@@ -95,7 +121,6 @@ class Cursor(WithFetch):
         paramstyle: str | None = None,
         on_start_query_execution: Callable[[str], None] | None = None,
         result_set_type_hints: dict[str | int, str] | None = None,
-        *,
         options: ExecuteOptions | None = None,
         **kwargs,
     ) -> Cursor:
@@ -104,19 +129,27 @@ class Cursor(WithFetch):
         Args:
             operation: SQL query string to execute.
             parameters: Query parameters (optional).
-            on_start_query_execution: Callback function called immediately after
-                start_query_execution API is called.
+            work_group: Athena workgroup to use for this query.
+            s3_staging_dir: S3 location for query results.
+            cache_size: Number of queries to check for result caching.
+            cache_expiration_time: Cache expiration time in seconds.
+            result_reuse_enable: Enable Athena result reuse for this query.
+            result_reuse_minutes: Minutes to reuse cached results.
+            paramstyle: Parameter style ('qmark' or 'pyformat').
+            on_start_query_execution: Callback invoked with the query ID before ``execute()``
+                waits for the query: after the ``StartQueryExecution`` call, or after a
+                reusable query ID is found through ``cache_size``.
                 Function signature: (query_id: str) -> None
                 This allows early access to query_id for
                 monitoring/cancellation.
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion within
-                complex types. For example:
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
+                For example:
                 ``{"tags": "array(varchar)", "metadata": "map(varchar, integer)"}``
             options: Shared execution options as an
                 :class:`~pyathena.options.ExecuteOptions` instance. Individual
                 keyword arguments take precedence over ``options`` fields.
-            **kwargs: Additional execution parameters.
+            **kwargs: Unknown keyword arguments raise TypeError.
 
         Returns:
             Self reference for method chaining.
@@ -130,6 +163,7 @@ class Cursor(WithFetch):
             ...     }
             ... )
         """
+        self._validate_execute_kwargs(kwargs)
         self._reset_state()
         options = ExecuteOptions.resolve(
             options,
@@ -161,6 +195,7 @@ class Cursor(WithFetch):
                 self.arraysize,
                 self._retry_config,
                 result_set_type_hints=options.result_set_type_hints,
+                **self._result_set_kwargs,
             )
         else:
             raise OperationalError(query_execution.state_change_reason)
@@ -185,8 +220,15 @@ class DictCursor(Cursor):
         ...     print(f"Product {row['id']}: {row['name']} - ${row['price']}")
     """
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, *, dict_type: type[Any] | None = None, **kwargs) -> None:
+        """Initialize a DictCursor.
+
+        Args:
+            dict_type: The type used to build each row of this cursor's result
+                sets. If None, the result set class's ``dict_type`` is used.
+            **kwargs: Arguments forwarded to ``Cursor.__init__``.
+        """
         super().__init__(**kwargs)
         self._result_set_class = AthenaDictResultSet
-        if "dict_type" in kwargs:
-            AthenaDictResultSet.dict_type = kwargs["dict_type"]
+        if dict_type is not None:
+            self._result_set_kwargs = {"dict_type": dict_type}

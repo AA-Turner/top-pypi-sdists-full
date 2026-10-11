@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,14 +13,14 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar import BeartypeDecorHintPep544Exception
-from beartype._check.metadata.hint.hintsane import (
+from beartype._check.cls.hint.hintsane import (
     HINT_SANE_IGNORABLE,
     HintOrSane,
 )
+from beartype._data.cls.pep.pep544.io.dataclspep544io import (
+    HINT_PEP484_IO_GENERIC_TO_PEP544_PROTOCOL)
 from beartype._data.typing.datatypingport import Hint
 from beartype._util.hint.pep.proposal.pep544 import (
-    HINT_PEP484_IO_GENERIC_TO_PEP544_PROTOCOL,
-    init_HINT_PEP484_IO_GENERIC_TO_PEP544_PROTOCOL,
     is_hint_pep484_generic_io,
     is_hint_pep544_protocol_supertype,
 )
@@ -30,7 +30,7 @@ from beartype._util.hint.pep.utilpepget import (
 )
 
 # ....................{ REDUCERS                           }....................
-def reduce_hint_pep544(hint: Hint, exception_prefix: str) -> HintOrSane:
+def reduce_hint_pep544(hint: Hint) -> HintOrSane:
     '''
     Reduce the passed :pep:`544`-compliant **protocol** (i.e., user-defined
     subclass of the :class:`typing.Protocol` abstract base class (ABC)) to the
@@ -56,10 +56,6 @@ def reduce_hint_pep544(hint: Hint, exception_prefix: str) -> HintOrSane:
     ----------
     hint : Hint
         Type hint to be reduced.
-    exception_prefix : str
-        Human-readable substring prefixing raised exception messages.
-
-    All remaining passed keyword parameters are silently ignored.
 
     Returns
     -------
@@ -122,17 +118,15 @@ def reduce_hint_pep484_generic_io_to_pep544_protocol(
     hint: Hint, exception_prefix: str) -> Hint:
     '''
     :pep:`544`-compliant :mod:`beartype` **IO protocol** (i.e., either
-    :class:`._Pep544IO` itself *or* a subclass of that class defined by this
-    submodule intentionally designed to be usable at runtime) corresponding to
-    the passed :pep:`484`-compliant :mod:`typing` **IO generic base class**
-    (i.e., either :class:`typing.IO` itself *or* a subclass of
-    :class:`typing.IO` defined by the :mod:`typing` module effectively unusable
-    at runtime due to botched implementation details).
+    :class:`beartype._util.hint.pep.proposal.pep544.Pep544IO` itself *or* a
+    subclass of that class defined by this submodule intentionally designed to
+    be usable at runtime) corresponding to the passed :pep:`484`-compliant
+    :mod:`typing` **IO generic base class** (i.e., either :class:`typing.IO`
+    itself *or* a subclass of :class:`typing.IO` defined by the :mod:`typing`
+    module, both unusable at runtime due to botched implementation details).
 
-    This reducer is intentionally *not* memoized (e.g., by the
-    :func:`callable_cached` decorator), as the implementation trivially reduces
-    to an efficient one-liner thanks to caching internally performed by this
-    reducer.
+    This reducer is effectively memoized thanks to caching internally performed
+    by this reducer.
 
     Parameters
     ----------
@@ -164,24 +158,6 @@ def reduce_hint_pep484_generic_io_to_pep544_protocol(
             f'(i.e., "typing.IO", "typing.BinaryIO", or "typing.TextIO").'
         )
     # Else, this object is *NOT* a PEP 484-compliant "typing" IO generic.
-    #
-    # If this dictionary has yet to be initialized, this submodule has yet to be
-    # initialized. In this case, do so.
-    #
-    # Note that this initialization is intentionally deferred until required.
-    # Why? Because this initialization performs somewhat space- and
-    # time-intensive work -- including importation of the "beartype.vale"
-    # subpackage, which we strictly prohibit importing from global scope.
-
-    #FIXME: Awkward API. Technically, this is fine. It works. So, that's good.
-    #Still, the ideal API would be a "dict" subclass that auto-initializes
-    #itself on the first call to the dict.get() method called below -- probably
-    #by just trivially overriding the dict.get() method to instead perform the
-    #logic currently performed by this
-    #init_HINT_PEP484_IO_GENERIC_TO_PEP544_PROTOCOL() initialization method.
-    elif not HINT_PEP484_IO_GENERIC_TO_PEP544_PROTOCOL:
-        init_HINT_PEP484_IO_GENERIC_TO_PEP544_PROTOCOL()
-    # In any case, this dictionary is now initialized.
 
     # PEP 544-compliant IO protocol implementing this PEP 484-compliant IO
     # generic if any *OR* "None" otherwise.
@@ -209,9 +185,6 @@ def reduce_hint_pep484_generic_io_to_pep544_protocol(
         # ignoring the type variable parametrizing this hint.
         hint_unparametrized: type = get_hint_pep_origin_or_none(hint)  # type: ignore[assignment]
 
-        #FIXME: The caching-specific assignment
-        #"HINT_PEP484_IO_GENERIC_TO_PEP544_PROTOCOL[hint] = \" should no longer
-        #be required (or desired), as this reducer is itself memoized.
         # PEP 544-compliant IO protocol implementing this unparametrized PEP
         # 484-compliant IO generic. For efficiency, we additionally cache this
         # mapping under the original parametrized hint to minimize the cost of

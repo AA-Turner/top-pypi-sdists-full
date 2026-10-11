@@ -248,8 +248,15 @@ def test_persistent_finds_the_same_burst_with_a_smaller_blob(tmp_path):
     assert ram.preamble_start == dsk.preamble_start == 9000
 
     assert dsk.state_bytes() < ram.state_bytes()
+    # The in-RAM blob carries the ring's whole capacity -- everything a
+    # live capture can be holding for a burst it will still emit: twice
+    # retain_span rounded up to a power of two, complex64 at 8 bytes a
+    # sample. The file holds that ring, rounded up to a whole page, so on a
+    # large-page system it can be bigger than what the blob saves.
+    ring = 1 << (2 * ram.retain_span - 1).bit_length()
     saved = ram.state_bytes() - dsk.state_bytes()
-    assert saved == ram.retain_span * 8  # complex64 == 8 bytes
+    assert saved == ring * 8
+    assert (tmp_path / "ring.cf32").stat().st_size >= saved
 
 
 def test_history_outlives_the_object(tmp_path):

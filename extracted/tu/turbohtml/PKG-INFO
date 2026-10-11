@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: turbohtml
-Version: 1.14.1
+Version: 1.15.0
 Summary: A fast, fully typed HTML toolkit for Python, powered by a C-accelerated core.
 Keywords: css-selector,encoding-detection,escape,html,html5,markdown,minify,parser,sanitize,scraping,unescape,xml,xpath
 Maintainer-Email: Bernát Gábor <gaborjbernat@gmail.com>
@@ -13,7 +13,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -37,7 +36,7 @@ Project-URL: Homepage, https://github.com/tox-dev/turbohtml
 Project-URL: Issues, https://github.com/tox-dev/turbohtml/issues
 Project-URL: Releases, https://github.com/tox-dev/turbohtml/releases
 Project-URL: Source, https://github.com/tox-dev/turbohtml
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 
 # turbohtml
@@ -58,7 +57,7 @@ thin typed facade is the only Python you touch. It is not a drop-in for the libr
 $ pip install turbohtml
 ```
 
-Wheels ship per interpreter for CPython 3.10–3.15 (including free-threading), so there is nothing to compile.
+Wheels ship per interpreter for CPython 3.11–3.15 (including free-threading), so there is nothing to compile.
 
 ## Quickstart
 

@@ -20,6 +20,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* ------------------------------------------------------------------
@@ -332,17 +333,20 @@ test_mean_power (void)
  * carried and be believed.
  * ------------------------------------------------------------------ */
 static size_t
-build_frame (char *buf, size_t cap, size_t nsamples)
+build_frame_of (char *buf, size_t cap, dp_frame_kind_t kind,
+                dp_sample_type_t format, size_t nsamples)
 {
   dp_header_t h = { 0 };
   h.magic       = DP_STREAM_MAGIC;
   memcpy (h.data_rep, dp_host_rep (), 4);
-  h.format        = (uint16_t)CF64;
-  h.kind          = (uint16_t)DP_KIND_IQ;
-  h.version       = DP_WIRE_VERSION;
-  h.flags         = 0;
-  h.num_samples   = nsamples;
-  h.payload_bytes = (uint32_t)(nsamples * dp_sample_size (CF64));
+  h.format      = (uint16_t)(kind == DP_KIND_IQ ? format : 0);
+  h.kind        = (uint16_t)kind;
+  h.version     = DP_WIRE_VERSION;
+  h.flags       = 0;
+  h.num_samples = nsamples;
+  h.payload_bytes
+      = (uint32_t)(nsamples
+                   * dp_element_size (kind, (dp_sample_type_t)h.format));
 
   size_t total = sizeof h + h.payload_bytes;
   if (total > cap)
@@ -350,6 +354,13 @@ build_frame (char *buf, size_t cap, size_t nsamples)
   memset (buf, 0, total);
   memcpy (buf, &h, sizeof h);
   return total;
+}
+
+/* The CF64 I/Q frame most checks below start from. */
+static size_t
+build_frame (char *buf, size_t cap, size_t nsamples)
+{
+  return build_frame_of (buf, cap, DP_KIND_IQ, CF64, nsamples);
 }
 
 static void
@@ -459,6 +470,86 @@ test_frame_parse (void)
 }
 
 /* ------------------------------------------------------------------
+ * num_samples is the sender's claim, and a claim times the element size
+ * wraps (doppler#2016). Every element size is a power of two, so for each
+ * one there is a forged count, n + 2^64 / elem, whose product with elem is
+ * EXACTLY the honest payload modulo 2^64. A receiver that checked by
+ * multiplying believed it, and dp_msg_num_samples() then reported a count
+ * no buffer holds. At n = 512 the CF32 forgery is the issue's own,
+ * 0x2000000000000200 over a 4096-byte payload.
+ * ------------------------------------------------------------------ */
+static void
+test_frame_parse_wrapping_count (void)
+{
+  printf ("-- a forged sample count that wraps is refused\n");
+
+  static const struct
+  {
+    dp_frame_kind_t  kind;
+    dp_sample_type_t format;
+  } classes[] = { { DP_KIND_IQ, CI8 },  { DP_KIND_IQ, CI16 },
+                  { DP_KIND_IQ, CI32 }, { DP_KIND_IQ, CF32 },
+                  { DP_KIND_IQ, CF64 }, { DP_KIND_TLM, (dp_sample_type_t)0 } };
+  enum
+  {
+    N = 512
+  };
+  /* + 1: room for the partial-element frame below, at the widest elem. */
+  static char buf[sizeof (dp_header_t) + N * 16 + 1];
+
+  for (size_t i = 0; i < sizeof classes / sizeof classes[0]; i++)
+    {
+      dp_header_t h;
+      dp_chunk_t  ch;
+      int         chunked = 0;
+      const void *body    = NULL;
+      size_t      blen    = 0;
+      size_t      elem = dp_element_size (classes[i].kind, classes[i].format);
+      size_t      len  = build_frame_of (buf, sizeof buf, classes[i].kind,
+                                         classes[i].format, N);
+      char        what[128];
+
+      snprintf (what, sizeof what, "fixture builds, class %zu", i);
+      DP_CHECK_MSG (len > 0 && elem > 0, what);
+      if (len == 0 || elem == 0)
+        continue;
+      /* The honest frame parses, so the refusal below is the count's. */
+      snprintf (what, sizeof what, "honest frame parses, class %zu", i);
+      DP_CHECK_MSG (dp_frame_parse (buf, len, &h, &ch, &chunked, &body, &blen)
+                        == DP_OK,
+                    what);
+
+      /* A payload one byte past a whole number of elements: num_samples
+         equals avail / elem rounded DOWN, so the count alone cannot catch
+         it, and the trailing byte belongs to no sample. */
+      ((dp_header_t *)buf)->payload_bytes += 1;
+      buf[len] = 0;
+      snprintf (what, sizeof what, "partial element refused, class %zu", i);
+      DP_CHECK_MSG (
+          dp_frame_parse (buf, len + 1, &h, &ch, &chunked, &body, &blen)
+              == DP_ERR_INVALID,
+          what);
+      ((dp_header_t *)buf)->payload_bytes -= 1;
+
+      /* The premise: elem divides 2^64, and the forged product lands on
+         the honest payload exactly, so a multiplying check passes it. */
+      snprintf (what, sizeof what, "elem %zu is a power of two", elem);
+      DP_CHECK_MSG ((elem & (elem - 1)) == 0, what);
+      uint64_t forged = (uint64_t)N + (UINT64_MAX / elem + 1);
+      snprintf (what, sizeof what,
+                "forged count wraps onto the payload, class %zu", i);
+      DP_CHECK_MSG (forged * elem == (uint64_t)N * elem, what);
+
+      ((dp_header_t *)buf)->num_samples = forged;
+      snprintf (what, sizeof what, "forged count %#llx refused, class %zu",
+                (unsigned long long)forged, i);
+      DP_CHECK_MSG (dp_frame_parse (buf, len, &h, &ch, &chunked, &body, &blen)
+                        == DP_ERR_INVALID,
+                    what);
+    }
+}
+
+/* ------------------------------------------------------------------
  * The guards a caller hits without a broker anywhere in sight.
  * ------------------------------------------------------------------ */
 static void
@@ -536,6 +627,335 @@ test_interrupt_flag (void)
   DP_CHECK (DP_ERR_INTERRUPTED != DP_ERR_RECV);
 }
 
+/* ------------------------------------------------------------------
+ * dp_reasm_feed: chunked-frame reassembly, scripted (#2010, #2016).
+ *
+ * The transport used to destroy the chunk that did not match the frame in
+ * progress -- and that chunk was the NEXT frame's first, so one lost chunk
+ * lost every later chunked frame. Each case below scripts what a subscriber
+ * can actually be handed and requires every frame after the fault to come
+ * out byte for byte, and the fault to be counted.
+ * ------------------------------------------------------------------ */
+enum
+{
+  RA_COUNT  = 3,  /* chunks per frame               */
+  RA_STRIDE = 64, /* bytes in every chunk but the last */
+  RA_TOTAL  = 160 /* 64 + 64 + 32: CF32, 20 samples  */
+};
+
+typedef struct
+{
+  dp_header_t   hdr;
+  dp_chunk_t    ch;
+  unsigned char body[RA_STRIDE];
+  size_t        len;
+} ra_chunk_t;
+
+/* The payload of frame `seq` from publisher `pub`, byte i. */
+static unsigned char
+ra_byte (uint64_t seq, unsigned pub, size_t i)
+{
+  return (unsigned char)(seq * 31u + pub * 101u + i);
+}
+
+/* Chunk `idx` of frame `seq` from publisher `pub` (whose clock differs). */
+static ra_chunk_t
+ra_chunk (uint64_t seq, unsigned pub, uint32_t idx)
+{
+  ra_chunk_t c;
+  memset (&c, 0, sizeof c);
+  c.hdr.magic = DP_STREAM_MAGIC;
+  memcpy (c.hdr.data_rep, dp_host_rep (), 4);
+  c.hdr.format       = (uint16_t)CF32;
+  c.hdr.kind         = (uint16_t)DP_KIND_IQ;
+  c.hdr.version      = DP_WIRE_VERSION;
+  c.hdr.flags        = DP_FLAG_CHUNKED;
+  c.hdr.sequence     = seq;
+  c.hdr.timestamp_ns = 1700000000000000000ull + seq * 1000u + pub;
+  c.hdr.sample_rate  = 1e6;
+  uint64_t off       = (uint64_t)idx * RA_STRIDE;
+  c.len = (idx + 1 < RA_COUNT) ? RA_STRIDE : (size_t)(RA_TOTAL - off);
+  c.hdr.payload_bytes = (uint32_t)c.len;
+  c.hdr.num_samples   = c.len / 8;
+  c.ch.index          = idx;
+  c.ch.count          = RA_COUNT;
+  c.ch.total_bytes    = RA_TOTAL;
+  c.ch.offset         = off;
+  for (size_t i = 0; i < c.len; i++)
+    c.body[i] = ra_byte (seq, pub, (size_t)off + i);
+  return c;
+}
+
+/* Feed one chunk. Returns the sequence of a frame it completed, after
+   checking that frame byte for byte against publisher `pub`, or -1. */
+static long
+ra_feed (dp_reasm_t *r, const ra_chunk_t *c, unsigned pub)
+{
+  int         done  = 0;
+  char       *frame = NULL;
+  dp_header_t fh;
+  int rc = dp_reasm_feed (r, &c->hdr, &c->ch, c->body, c->len, &done, &frame,
+                          &fh);
+  DP_CHECK (rc == DP_OK);
+  if (!done)
+    return -1;
+  DP_CHECK (fh.payload_bytes == RA_TOTAL);
+  DP_CHECK (fh.num_samples == RA_TOTAL / 8);
+  DP_CHECK ((fh.flags & DP_FLAG_CHUNKED) == 0);
+  int exact = 1;
+  for (size_t i = 0; i < RA_TOTAL; i++)
+    exact &= (unsigned char)frame[i] == ra_byte (fh.sequence, pub, i);
+  DP_CHECK (exact); /* never a byte of another frame or publisher */
+  free (frame);
+  return (long)fh.sequence;
+}
+
+/* Frames first..last from publisher `pub`, every chunk, in order; returns
+   how many completed. */
+static int
+ra_frames (dp_reasm_t *r, uint64_t first, uint64_t last, unsigned pub)
+{
+  int done = 0;
+  for (uint64_t s = first; s <= last; s++)
+    for (uint32_t i = 0; i < RA_COUNT; i++)
+      {
+        ra_chunk_t c = ra_chunk (s, pub, i);
+        done += ra_feed (r, &c, pub) == (long)s;
+      }
+  return done;
+}
+
+static void
+test_reasm_lost_chunk (void)
+{
+  printf ("-- a lost chunk loses its frame, and only its frame\n");
+  dp_reasm_t r = { 0 };
+  DP_CHECK (ra_frames (&r, 0, 0, 0) == 1);
+  ra_chunk_t c0 = ra_chunk (1, 0, 0), c2 = ra_chunk (1, 0, 2); /* no 1 */
+  DP_CHECK (ra_feed (&r, &c0, 0) == -1);
+  DP_CHECK (ra_feed (&r, &c2, 0) == -1);
+  DP_CHECK (ra_frames (&r, 2, 9, 0) == 8); /* every later frame intact */
+  DP_CHECK (r.stats.abandoned == 1);
+  DP_CHECK (r.stats.rejected == 0);
+  dp_reasm_reset (&r);
+}
+
+static void
+test_reasm_late_join (void)
+{
+  printf ("-- a subscriber that joins mid-frame loses only that frame\n");
+  dp_reasm_t r  = { 0 };
+  ra_chunk_t c1 = ra_chunk (0, 0, 1), c2 = ra_chunk (0, 0, 2);
+  DP_CHECK (ra_feed (&r, &c1, 0) == -1);
+  DP_CHECK (ra_feed (&r, &c2, 0) == -1);
+  DP_CHECK (ra_frames (&r, 1, 9, 0) == 9);
+  DP_CHECK (r.stats.abandoned == 1);
+  dp_reasm_reset (&r);
+}
+
+static void
+test_reasm_mid_frame_gap (void)
+{
+  printf ("-- a gap mid-frame (a receive timing out) resumes the frame\n");
+  dp_reasm_t r  = { 0 };
+  ra_chunk_t c0 = ra_chunk (0, 0, 0), c1 = ra_chunk (0, 0, 1);
+  ra_chunk_t c2 = ra_chunk (0, 0, 2);
+  DP_CHECK (ra_feed (&r, &c0, 0) == -1);
+  DP_CHECK (ra_feed (&r, &c1, 0) == -1);
+  DP_CHECK (r.buf != NULL); /* kept across the gap, not freed */
+  DP_CHECK (ra_feed (&r, &c2, 0) == 0);
+  DP_CHECK (r.stats.abandoned == 0);
+  DP_CHECK (ra_frames (&r, 1, 3, 0) == 3);
+  dp_reasm_reset (&r);
+}
+
+static void
+test_reasm_same_sequence_never_merges (void)
+{
+  printf ("-- two publishers on one sequence, clocks differing, are not "
+          "merged\n");
+  dp_reasm_t r = { 0 };
+  for (uint32_t i = 0; i < RA_COUNT; i++) /* A0 B0 A1 B1 A2 B2 */
+    {
+      ra_chunk_t a = ra_chunk (0, 0, i), b = ra_chunk (0, 1, i);
+      DP_CHECK (ra_feed (&r, &a, 0) == -1); /* ra_feed checks the bytes */
+      DP_CHECK (ra_feed (&r, &b, 1) == -1);
+    }
+  DP_CHECK (r.stats.abandoned == 2 * RA_COUNT - 1);
+  dp_reasm_reset (&r);
+  DP_CHECK (ra_frames (&r, 1, 4, 0) == 4); /* later frames intact */
+  dp_reasm_reset (&r);
+}
+
+static void
+test_reasm_two_interleaved_publishers (void)
+{
+  printf ("-- two interleaved publishers: lost while they interleave\n");
+  dp_reasm_t r = { 0 };
+  for (uint64_t s = 0; s < 3; s++)
+    for (uint32_t i = 0; i < RA_COUNT; i++)
+      {
+        ra_chunk_t a = ra_chunk (s, 0, i), b = ra_chunk (s + 100, 1, i);
+        DP_CHECK (ra_feed (&r, &a, 0) == -1);
+        DP_CHECK (ra_feed (&r, &b, 1) == -1);
+      }
+  uint64_t lost = r.stats.abandoned;
+  DP_CHECK (lost == 3 * 2 * RA_COUNT - 1);  /* every one counted */
+  DP_CHECK (ra_frames (&r, 3, 6, 0) == 4);  /* one publisher again: intact */
+  DP_CHECK (r.stats.abandoned == lost + 1); /* the last B frame */
+  dp_reasm_reset (&r);
+}
+
+static void
+test_reasm_redelivery_and_forgery (void)
+{
+  printf ("-- a redelivered chunk is a no-op; a forged one is refused\n");
+  dp_reasm_t  r  = { 0 };
+  ra_chunk_t  c0 = ra_chunk (0, 0, 0), c1 = ra_chunk (0, 0, 1);
+  ra_chunk_t  c2 = ra_chunk (0, 0, 2);
+  int         done;
+  char       *frame;
+  dp_header_t fh;
+  DP_CHECK (ra_feed (&r, &c0, 0) == -1);
+  DP_CHECK (ra_feed (&r, &c0, 0) == -1); /* redelivered: no-op */
+  DP_CHECK (ra_feed (&r, &c1, 0) == -1);
+
+  /* #2016: an offset that wraps when the length is added -- 512 bytes
+     before the buffer under the old `offset + cbytes` check. */
+  ra_chunk_t wrap = c2;
+  wrap.ch.offset  = UINT64_MAX - 3;
+  DP_CHECK (dp_reasm_feed (&r, &wrap.hdr, &wrap.ch, wrap.body, wrap.len, &done,
+                           &frame, &fh)
+            == DP_ERR_INVALID);
+  /* #2016: off the grid (overlapping chunk 1), which would leave bytes of
+     the frame never written and hand them out uninitialised. */
+  ra_chunk_t lap = c2;
+  lap.ch.offset  = RA_STRIDE + 8;
+  lap.len        = (size_t)(RA_TOTAL - lap.ch.offset);
+  DP_CHECK (dp_reasm_feed (&r, &lap.hdr, &lap.ch, lap.body, lap.len, &done,
+                           &frame, &fh)
+            == DP_ERR_INVALID);
+  DP_CHECK (r.stats.rejected == 2);
+  DP_CHECK (ra_feed (&r, &c2, 0) == 0); /* the frame in progress survived */
+  DP_CHECK (r.stats.abandoned == 0);
+  dp_reasm_reset (&r);
+}
+
+static void
+test_reasm_forged_chunk_spares_the_frame (void)
+{
+  printf ("-- a forged chunk of ANOTHER frame costs the frame nothing\n");
+  dp_reasm_t  r  = { 0 };
+  ra_chunk_t  c0 = ra_chunk (0, 0, 0), c1 = ra_chunk (0, 0, 1);
+  ra_chunk_t  c2 = ra_chunk (0, 0, 2);
+  int         done;
+  char       *frame;
+  dp_header_t fh;
+  DP_CHECK (ra_feed (&r, &c0, 0) == -1);
+  DP_CHECK (ra_feed (&r, &c1, 0) == -1);
+
+  /* A different frame (another sequence), and off its own grid: chunk 1
+     must start at 1*S, and this one starts 8 bytes late. No frame could
+     hold it, so it is rejected BEFORE anything is given up for it --
+     abandoning first would destroy frame 0 for a chunk that is then
+     refused, and frame 0's last chunk would start a phantom frame. */
+  ra_chunk_t forged = ra_chunk (7, 0, 1);
+  forged.ch.offset += 8;
+  DP_CHECK (dp_reasm_feed (&r, &forged.hdr, &forged.ch, forged.body,
+                           forged.len, &done, &frame, &fh)
+            == DP_ERR_INVALID);
+  DP_CHECK (r.stats.rejected == 1);
+  DP_CHECK (r.stats.abandoned == 0);
+  DP_CHECK (ra_feed (&r, &c2, 0) == 0); /* frame 0 completes, exact */
+  DP_CHECK (r.stats.abandoned == 0);
+  dp_reasm_reset (&r);
+}
+
+static void
+test_reasm_total_above_uint32_is_refused (void)
+{
+  printf ("-- a total above UINT32_MAX is refused, not allocated\n");
+  dp_reasm_t  r = { 0 };
+  int         done;
+  char       *frame;
+  dp_header_t fh;
+  /* On the grid in every other respect: 64-byte chunks of a frame just
+     over 4 GiB. The sender refuses such a frame (DP_ERR_TOO_LARGE), and
+     payload_bytes could not describe it, so the only sender is a forger --
+     who must not get a 4 GiB malloc for one 64-byte message. */
+  ra_chunk_t big     = ra_chunk (0, 0, 0);
+  big.ch.total_bytes = (uint64_t)UINT32_MAX + 1 + 8; /* whole CF32 samples */
+  big.ch.count = (uint32_t)((big.ch.total_bytes + RA_STRIDE - 1) / RA_STRIDE);
+  DP_CHECK (dp_reasm_feed (&r, &big.hdr, &big.ch, big.body, big.len, &done,
+                           &frame, &fh)
+            == DP_ERR_INVALID);
+  DP_CHECK (r.stats.rejected == 1);
+  DP_CHECK (r.buf == NULL);
+  dp_reasm_reset (&r);
+}
+
+static void
+test_reasm_another_streams_frame_spares_it (void)
+{
+  printf ("-- another type's unchunked frame on the base spares the frame; "
+          "its own stream's does not\n");
+  dp_reasm_t r  = { 0 };
+  ra_chunk_t c0 = ra_chunk (0, 0, 0), c1 = ra_chunk (0, 0, 1);
+  ra_chunk_t c2 = ra_chunk (0, 0, 2);
+  DP_CHECK (ra_feed (&r, &c0, 0) == -1);
+  DP_CHECK (ra_feed (&r, &c1, 0) == -1);
+
+  /* A SUB hears every type on its base: a telemetry publisher, and a CF64
+     one, are other subjects there, and say nothing about this CF32 frame. */
+  dp_header_t tlm = c0.hdr;
+  tlm.kind        = (uint16_t)DP_KIND_TLM;
+  tlm.format      = 0;
+  tlm.flags       = 0;
+  dp_reasm_unchunked (&r, &tlm);
+  dp_header_t cf64 = c0.hdr;
+  cf64.format      = (uint16_t)CF64;
+  cf64.flags       = 0;
+  dp_reasm_unchunked (&r, &cf64);
+  DP_CHECK (r.stats.abandoned == 0);
+  DP_CHECK (ra_feed (&r, &c2, 0) == 0); /* the frame still completes */
+
+  /* Its own stream's unchunked frame, and an end-of-stream, do end it. */
+  ra_chunk_t  n0  = ra_chunk (1, 0, 0);
+  dp_header_t own = n0.hdr;
+  own.flags       = 0;
+  DP_CHECK (ra_feed (&r, &n0, 0) == -1);
+  dp_reasm_unchunked (&r, &own);
+  DP_CHECK (r.stats.abandoned == 1);
+  DP_CHECK (r.buf == NULL);
+  ra_chunk_t  m0  = ra_chunk (2, 0, 0);
+  dp_header_t eos = m0.hdr;
+  eos.kind        = (uint16_t)DP_KIND_EOS;
+  eos.format      = 0;
+  eos.flags       = 0;
+  DP_CHECK (ra_feed (&r, &m0, 0) == -1);
+  dp_reasm_unchunked (&r, &eos);
+  DP_CHECK (r.stats.abandoned == 2);
+  dp_reasm_reset (&r);
+}
+
+static void
+test_reasm_abandon_counts_only_a_frame_in_progress (void)
+{
+  printf ("-- an unchunked frame or EOS abandons a frame in progress\n");
+  dp_reasm_t r = { 0 };
+  dp_reasm_abandon (&r); /* nothing in progress: nothing to count */
+  DP_CHECK (r.stats.abandoned == 0);
+  ra_chunk_t c0 = ra_chunk (0, 0, 0);
+  DP_CHECK (ra_feed (&r, &c0, 0) == -1);
+  dp_reasm_abandon (&r); /* the transport saw an unchunked frame */
+  DP_CHECK (r.stats.abandoned == 1);
+  DP_CHECK (r.buf == NULL); /* the buffer is not held for ever */
+  dp_reasm_abandon (&r);
+  DP_CHECK (r.stats.abandoned == 1);
+  DP_CHECK (ra_frames (&r, 1, 2, 0) == 2);
+  dp_reasm_reset (&r);
+}
+
 int
 main (void)
 {
@@ -547,8 +967,19 @@ main (void)
   test_flag_mask ();
   test_mean_power ();
   test_frame_parse ();
+  test_frame_parse_wrapping_count ();
   test_argument_guards ();
   test_interrupt_flag ();
+  test_reasm_lost_chunk ();
+  test_reasm_late_join ();
+  test_reasm_mid_frame_gap ();
+  test_reasm_same_sequence_never_merges ();
+  test_reasm_two_interleaved_publishers ();
+  test_reasm_redelivery_and_forgery ();
+  test_reasm_forged_chunk_spares_the_frame ();
+  test_reasm_total_above_uint32_is_refused ();
+  test_reasm_abandon_counts_only_a_frame_in_progress ();
+  test_reasm_another_streams_frame_spares_it ();
 
   printf ("\n");
   DP_TEST_END ("test_stream_wire");

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
-Project-wide :pep:`612` **data submodule.**
+Test-wide :pep:`612` **data submodule.**
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype.typing import ParamSpec
+from typing import ParamSpec
 
 # ....................{ TYPEARGS                           }....................
 P = ParamSpec('P')

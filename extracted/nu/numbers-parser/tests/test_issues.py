@@ -11,10 +11,11 @@ from numbers_parser import (
     Document,
     EmptyCell,
     ErrorCell,
-    UnsupportedError,
+    Style,
     UnsupportedWarning,
     xl_rowcol_to_cell,
 )
+from numbers_parser.cell import CellStorageFlags
 from numbers_parser.constants import (
     DEFAULT_COLUMN_COUNT,
     DEFAULT_COLUMN_WIDTH,
@@ -572,20 +573,6 @@ def test_issue_90(configurable_save_file):
     assert doc.default_table.cell(0, 0).formatted_value == "£1,769,900"
 
 
-def test_issue_93(script_runner):
-    filename = "tests/data/test-issue-93.numbers"
-    with pytest.raises(UnsupportedError) as e:
-        _ = Document(filename)
-    assert str(e.value) == f"{filename}: encrypted documents are not supported"
-
-    ret = script_runner.run(
-        ["cat-numbers", filename],
-        print_result=False,
-    )
-    assert not ret.success
-    assert ret.stderr == f"{filename}: encrypted documents are not supported\n"
-
-
 def test_issue_96():
     doc = Document("tests/data/issue-96.numbers")
     table = doc.default_table
@@ -596,9 +583,10 @@ def test_issue_96():
 def test_issue_99():
     doc = Document("tests/data/issue-99.numbers")
     table = doc.default_table
-    cell = table.cell(0, 0)
-    with pytest.warns(UnsupportedWarning) as record:
-        style = cell.style
+    with pytest.warns(UnsupportedWarning) as record:  # noqa: PT031
+        style = table.cell(1, 0).style
+        # Second time doesn't warn
+        style = table.cell(0, 0).style
     assert len(record) == 1
     assert (
         str(
@@ -739,3 +727,65 @@ def test_issue_152(configurable_save_file):
     table = doc.sheets[0].tables[0]
     assert [table.row_height(x) for x in range(table.num_rows)] == [20, 30, 30, 30, 20]
     assert [table.col_width(x) for x in range(table.num_cols)] == [98, 88, 88, 88, 98]
+
+
+def test_issue_174(configurable_save_file):
+    doc = Document()
+    sheet = doc.sheets[0]
+    table = sheet.tables[0]
+
+    styles = [
+        Style(font_name="Helvetica Neue", bold=False, italic=False, font_size=16.0, name="style_a"),
+        Style(font_name="Helvetica Neue", bold=True, italic=False, font_size=16.0, name="style_b"),
+        Style(font_name="Helvetica Neue", bold=False, italic=True, font_size=16.0, name="style_c"),
+        Style(font_name="Helvetica Neue", bold=True, italic=True, font_size=16.0, name="style_d"),
+    ]
+
+    for i, style in enumerate(styles):
+        table.write(0, i, f"cell{i}")
+        table.set_cell_style(0, i, style)
+
+    with pytest.raises(ValueError) as e:  # noqa: PT011
+        table.set_cell_style(1, 0, Style(font_name="UnknownFont"))
+    assert "font 'UnknownFont' does not exist" in str(e)
+
+    table.write(1, 0, "Avenir")
+    table.set_cell_style(1, 0, Style(font_name=("Avenir", "Heavy Oblique")))
+    doc.save(configurable_save_file)
+
+    doc2 = Document(configurable_save_file)
+    table2 = doc2.sheets[0].tables[0]
+    for i in range(4):
+        cell = table2.cell(0, i)
+        assert cell.style.name == styles[i].name
+        assert cell.style.font_name == styles[i].font_name
+        assert cell.style.bold == styles[i].bold
+        assert cell.style.italic == styles[i].italic
+        assert cell.style.font_size == styles[i].font_size
+
+
+def test_issue_236(configurable_save_file):
+    doc = Document("tests/data/formula-syntax-error.numbers")
+    assert doc.default_table.cell("A1")._formula_error_id == 1
+
+    doc.save(configurable_save_file)
+    new_doc = Document(configurable_save_file)
+    assert new_doc.default_table.cell("A1")._formula_error_id == 1
+
+    for row in range(1, 8):
+        ref_cell = doc.default_table.cell(row, 0)
+        new_cell = new_doc.default_table.cell(row, 0)
+        assert str(new_cell) == str(ref_cell)
+        assert new_cell.border.top == ref_cell.border.top
+        assert new_cell.style == ref_cell.style
+        assert new_cell.formula == ref_cell.formula
+        assert new_cell.formatted_value == ref_cell.formatted_value
+
+    cells = list(doc.default_table.iter_cells())
+    for ii, new_cell in enumerate(new_doc.default_table.iter_cells()):
+        ref_cell = cells[ii]
+        assert type(new_cell) is type(ref_cell)
+        assert new_cell.value == ref_cell.value
+        assert new_cell._flags == ref_cell._flags
+        assert new_cell._extra_bits == ref_cell._extra_bits
+        assert CellStorageFlags.__repr__(ref_cell) == CellStorageFlags.__repr__(new_cell)

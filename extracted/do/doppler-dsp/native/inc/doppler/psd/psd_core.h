@@ -5,7 +5,8 @@
  *
  * A stateful, C-first periodogram averager (Welch's method).  It composes the existing pieces of
  * the library rather than re-implementing them: an ::dp_fft_state_t forward plan, a
- * spectral window (Hann or Kaiser) with its coherent gain and ENBW, an
+ * spectral window (Hann, Kaiser, Blackman-Harris or rectangular) with its
+ * coherent gain and ENBW, an
  * ::dp_acc_trace_state_t per-bin power averager (mean / EMA / max-hold / min-hold),
  * and the spectral free functions (::dp_magnitude_db_cf32, ::dp_find_peaks_f32,
  * ::dp_obw_from_power, ::dp_noise_floor_db) for the derived measurements.
@@ -20,7 +21,8 @@
  *   - dp_psd_noise_floor() / dp_psd_snr() / dp_psd_sfdr() : level statistics, dB
  *
  * All spectra are DC-centred (fftshift), matching find_peaks_f32's bin ->
- * frequency convention (bin i maps to (i - n/2)/n in normalised frequency, so
+ * frequency convention (bin i maps to (i - nfft/2)/nfft in normalised
+ * frequency, so
  * spectral peaks are obtained idiomatically with
  * ``find_peaks_f32(w.psd_db(), n_peaks, min_db)``).
  *
@@ -63,19 +65,31 @@ typedef struct {
  * @brief Create an averaging PSD estimator.
  *
  * @param n           Window / frame length in samples.  Must be >= 2.
- * @param fs          Sample rate in Hz (used for dB/Hz and band frequencies).
+ * @param fs          Sample rate in Hz (used for dB/Hz and band frequencies);
+ *                    finite and > 0.
  * @param window      Window index: 0 = Hann, 1 = Kaiser, 2 = Blackman-Harris,
  *                    3 = rectangular (no taper: best resolution, worst leakage).
- * @param beta        Kaiser beta (ignored for Hann/Blackman-Harris).
- * @param pad         Zero-pad factor (>= 1); nfft = next_pow_two(n * pad).
- * @param full_scale  Amplitude that reads 0 dBFS in the dB getters (> 0).
+ * @param beta        Kaiser beta (ignored by every other window). One that
+ *                    makes the window non-finite -- NaN, or large enough to
+ *                    overflow it -- is refused.
+ * @param pad         Zero-pad factor (>= 1; 0 is refused);
+ *                    nfft = next_pow_two(n * pad).
+ * @param full_scale  Amplitude that reads 0 dBFS in the dB getters; finite
+ *                    and > 0.
  *                    Ignored when @p bits > 0.
  * @param bits        ADC depth: when > 0, sets full_scale = 2^(bits-1) (the
  *                    single definition of the dBFS reference); 0 = use
- *                    @p full_scale directly.
+ *                    @p full_scale directly.  At most 64.
  * @param mode        Averaging mode index (0=mean, 1=exp, 2=maxhold, 3=minhold).
- * @param alpha       EMA smoothing factor (exp mode only).
- * @return Heap-allocated state, or NULL on invalid argument or OOM.
+ * @param alpha       EMA smoothing factor, exp mode only, where it must lie in
+ *                    (0, 1]: the rule is the AccTrace averager's, whose
+ *                    create refuses anything else, so this does too.
+ *                    Ignored, and so not checked, in the other modes.
+ * @return Heap-allocated state, or NULL on invalid argument or OOM. A window
+ *         whose coherent gain sum(w) is 0 -- Hann at n = 2, whose symmetric
+ *         form is all zeros -- is refused too: every reading divides by it.
+ *         So is an @p n or @p n * @p pad too large for its buffers to be
+ *         sized, rather than wrapped to a small one.
  * @note Caller must call dp_psd_destroy() when done.
  *
  * @code
@@ -140,9 +154,12 @@ void dp_psd_accumulate(dp_psd_state_t *state, const float _Complex *x,
  * folds: no division by the window coherent gain squared, so a tone does not
  * read at its true level (dp_psd_frame_db() applies that division). Do not
  * compare this raw output with dp_psd_power_twosided(), which divides by
- * cg^2 on the double path. A streaming spectrogram is this call once per
- * frame. Uses the estimator's scratch, so it is not thread-safe on one state
- * and it does not touch the running average.
+ * cg^2 on the double path. It stays the raw |X|^2 because that is what the
+ * averager folds; a consumer that wants a frame against the dBFS reference
+ * -- in linear units to average itself, or in dB -- takes
+ * dp_psd_frame_linear() or dp_psd_frame_db(). Uses the estimator's scratch,
+ * so it is not thread-safe on one state and it does not touch the running
+ * average.
  *
  * @param state  Must be non-NULL.
  * @param x      Exactly @c state->n complex samples (cf32).
@@ -151,6 +168,40 @@ void dp_psd_accumulate(dp_psd_state_t *state, const float _Complex *x,
  */
 void dp_psd_frame_power(dp_psd_state_t *state, const float _Complex *x,
                         float *pwr);
+
+/**
+ * @brief One frame in linear full-scale^2 units, against the estimator's own
+ * reference.
+ *
+ * dp_psd_frame_power() divided by the window coherent gain squared and the
+ * full-scale reference squared, cg^2 * full_scale^2: a full-scale tone on a
+ * bin reads 1.0 whatever the window. dp_psd_frame_db() is 10*log10 of the same
+ * quotient, with the -200 dB floor -- the two are read from one double, so
+ * they cannot disagree about the reference. This is the frame a consumer that
+ * averages for itself should take: the raw dp_psd_frame_power() sits
+ * 20*log10(sum(w)) above it, 54.18 dB for Hann at 1024 points
+ * (docs/design/spectrogram-measurements.md section 5.3). Does not touch the
+ * running average; not thread-safe on one state.
+ *
+ * @param state  Must be non-NULL.
+ * @param x      Exactly @c state->n complex samples (cf32).
+ * @param out    Output, @c state->nfft floats, DC-centred.
+ *
+ * @code
+ * dp_psd_state_t *p = dp_psd_create (8, 1.0, 0, 0.0f, 1, 1.0, 0, 0, 0.0);
+ * float _Complex x[8];
+ * float lin[8];
+ * for (int i = 0; i < 8; i++)
+ *   x[i] = cexpf (I * 2.0f * 3.14159265f * 2.0f * (float)i / 8.0f);
+ * dp_psd_frame_linear (p, x, lin);   // unit tone on bin 2, Hann
+ * const int bad = fabsf (lin[4 + 2] - 1.0f) > 1e-4f; // bin 2 at nfft/2 + 2
+ * dp_psd_destroy (p);                // freed on either path
+ * if (bad)
+ *   return 1;
+ * @endcode
+ */
+void dp_psd_frame_linear(dp_psd_state_t *state, const float _Complex *x,
+                         float *out);
 
 /**
  * @brief One frame in dBFS, against the estimator's own reference.
@@ -172,9 +223,10 @@ void dp_psd_frame_power(dp_psd_state_t *state, const float _Complex *x,
  * for (int i = 0; i < 8; i++)
  *   x[i] = cexpf (I * 2.0f * 3.14159265f * 2.0f * (float)i / 8.0f);
  * dp_psd_frame_db (p, x, db);        // unit tone on bin 2, rectangular
- * if (fabsf (db[4 + 2]) > 1e-4f)     // DC-centred: bin 2 is at nfft/2 + 2
+ * const int bad = fabsf (db[4 + 2]) > 1e-4f; // bin 2 is at nfft/2 + 2
+ * dp_psd_destroy (p);                // freed on either path
+ * if (bad)
  *   return 1;
- * dp_psd_destroy (p);
  * @endcode
  */
 void dp_psd_frame_db(dp_psd_state_t *state, const float _Complex *x,
@@ -244,16 +296,16 @@ size_t dp_psd_psd_db_max_out(dp_psd_state_t *state);
  * frame is accumulated.
  *
  * @param state  Must be non-NULL.
- * @param n      Caller buffer capacity (ignored; buffer is pre-sized to n).
- * @param out    Destination, at least n float32 elements.
+ * @param n      Caller buffer capacity (ignored; buffer is pre-sized to nfft).
+ * @param out    Destination, at least nfft float32 elements.
  * @param max_out Capacity of @p out in elements. Emission stops there, so the
  *               return value is the number actually written.
- * @return min(n, max_out), or 0 if empty.
+ * @return min(nfft, max_out), or 0 if empty.
  */
 size_t dp_psd_psd_db(dp_psd_state_t *state, size_t n, float *out,
                   size_t max_out);
 
-/** @brief Output capacity hint for psd_dbhz(); equals n. */
+/** @brief Output capacity hint for psd_dbhz(); equals nfft. */
 size_t dp_psd_psd_dbhz_max_out(dp_psd_state_t *state);
 
 /**
@@ -283,7 +335,8 @@ size_t dp_psd_band_power_max_out(dp_psd_state_t *state);
  * @p bands is a flat array of `[lo0, hi0, lo1, hi1, ...]` band edges in Hz; the
  * output holds one dB value per band (n_bands = bands_len / 2).  Edges are
  * clamped to the analysed span; a band fully outside the span integrates to the
- * dB floor.  Returns 0 before any frame is accumulated.
+ * dB floor.  Returns 0 (Python None) when there is nothing to report: before
+ * any frame is accumulated, or when @p bands holds no complete lo/hi pair.
  *
  * @param state      Must be non-NULL.
  * @param bands      Flat `[lo,hi,...]` band edges, Hz.
@@ -291,7 +344,8 @@ size_t dp_psd_band_power_max_out(dp_psd_state_t *state);
  * @param out        Destination, at least n_bands float32 elements.
  * @param max_out Capacity of @p out in elements. Emission stops there, so the
  *               return value is the number actually written.
- * @return min(n_bands, max_out), or 0 if empty.
+ * @return The number of bands written, min(n_bands, max_out); 0 (Python
+ *         None) when there is nothing to report.
  *
  * @code
  * >>> import numpy as np
@@ -318,9 +372,28 @@ double dp_psd_total_band_power(dp_psd_state_t *state, const double *bands,
 
 /**
  * @brief Occupied bandwidth in Hz holding @p fraction of the total power.
+ *
+ * Calls obw_from_power on the averaged spectrum, so the search and its
+ * domain are that function's and the two cannot disagree.
+ *
  * @param state     Must be non-NULL.
- * @param fraction  Power fraction in (0, 1], e.g. 0.99.
- * @return Occupied bandwidth in Hz (0 if empty or no power).
+ * @param fraction  Power fraction in the OPEN interval (0, 1), e.g. 0.99. 1 is
+ *                  excluded: all of the power in float is every bin that
+ *                  rounding residue reached, which has no stable answer.
+ * @return Occupied bandwidth in Hz (0 if empty or no power); NaN when
+ *         @p fraction is outside (0, 1), before any frame too, rather than a
+ *         silently clamped answer.
+ *
+ * @code
+ * >>> import numpy as np
+ * >>> from doppler.spectral import PSD
+ * >>> w = PSD(n=64, fs=64.0, window="rect")
+ * >>> w.accumulate(np.ones(64, dtype=np.complex64))  # all power at DC
+ * >>> w.occupied_bw(0.99)                            # one bin, fs / 64
+ * 1.0
+ * >>> w.occupied_bw(1.0)                             # outside (0, 1)
+ * nan
+ * @endcode
  */
 double dp_psd_occupied_bw(dp_psd_state_t *state, double fraction);
 

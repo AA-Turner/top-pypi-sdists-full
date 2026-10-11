@@ -9,13 +9,32 @@ from __future__ import annotations
 
 from typing import Any
 
+LEGACY_SEMANTICS = "legacy"
+V1_SEMANTICS = "v1"
+VALID_SEMANTICS = {LEGACY_SEMANTICS, V1_SEMANTICS}
+SPARSE_DEPRECATION = (
+    "is deprecated and will be removed with the legacy semantics; use "
+    "Model(sparse=True) instead"
+)
+
+
+class LinopySemanticsWarning(FutureWarning):
+    """
+    Emitted when code runs under the legacy arithmetic semantics.
+
+    Subclasses ``FutureWarning`` rather than ``DeprecationWarning`` so it is
+    shown to end users by default; the legacy-to-v1 transition changes
+    results, not just an API surface.
+    """
+
 
 class OptionSettings:
-    """Runtime configuration knobs (e.g. display widths). Use as a context manager or set values directly via ``options(key=value)``."""
+    """Runtime configuration knobs (e.g. display widths). Use as a context manager, which restores the values active on entry on exit, or set values directly via ``options(key=value)``."""
 
     def __init__(self, **kwargs: Any) -> None:
         self._defaults = kwargs
         self._current_values = kwargs.copy()
+        self._stack: list[dict[str, Any]] = []
 
     def __call__(self, **kwargs: Any) -> None:
         self.set_value(**kwargs)
@@ -30,6 +49,18 @@ class OptionSettings:
         for k, v in kwargs.items():
             if k not in self._defaults:
                 raise KeyError(f"{k} is not a valid setting.")
+            if k == "semantics" and v not in VALID_SEMANTICS:
+                raise ValueError(
+                    f"Invalid semantics: {v!r}. "
+                    f"Must be one of {sorted(VALID_SEMANTICS)}."
+                )
+            if k == "sparse_groupby" and v:
+                from linopy.semantics import warn_outside_linopy
+
+                warn_outside_linopy(
+                    f'linopy.options["sparse_groupby"] {SPARSE_DEPRECATION}.',
+                    FutureWarning,
+                )
             self._current_values[k] = v
 
     def get_value(self, name: str) -> Any:
@@ -42,6 +73,7 @@ class OptionSettings:
         self._current_values = self._defaults.copy()
 
     def __enter__(self) -> OptionSettings:
+        self._stack.append(self._current_values.copy())
         return self
 
     def __exit__(
@@ -50,7 +82,7 @@ class OptionSettings:
         exc_val: BaseException | None,
         exc_tb: Any | None,
     ) -> None:
-        self.reset()
+        self._current_values = self._stack.pop()
 
     def __repr__(self) -> str:
         settings = "\n ".join(
@@ -62,4 +94,7 @@ class OptionSettings:
 options = OptionSettings(
     display_max_rows=14,
     display_max_terms=6,
+    semantics=LEGACY_SEMANTICS,
+    sparse_groupby=False,
+    warn_on_densify=None,
 )

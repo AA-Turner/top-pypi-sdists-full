@@ -357,3 +357,8 @@ mod tests {
         assert_eq!(double_count, 3);
     }
 }
+
+#[cfg(test)]
+mod feature_boundary_contract_tests;
+#[cfg(test)]
+mod ranking_boundary_contract_tests;

@@ -1,9 +1,9 @@
 [project]
 name = "pykka"
-version = "4.4.2"
+version = "4.5.0"
 description = "Pykka is a Python implementation of the actor model"
 authors = [{ name = "Stein Magnus Jodal", email = "stein.magnus@jodal.no" }]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 readme = "README.md"
 license = "Apache-2.0"
 keywords = ["actor", "concurrency", "threading"]
@@ -27,20 +27,26 @@ build-backend = "hatchling.build"
 dev = [
     "tox>=4.21.2",
     "tox-uv>=1.23.2",
+    { include-group = "benchmark" },
     { include-group = "docs" },
     { include-group = "mypy" },
     { include-group = "pyright" },
     { include-group = "ruff" },
     { include-group = "tests" },
+    { include-group = "ty" },
+    { include-group = "zizmor" },
 ]
+benchmark = ["pyperf>=2.9.0"]
 docs = [
-    "mkdocs-material>=9.6.4",
-    "mkdocstrings[python]>=0.29.1",
+    "mkdocstrings-python>=2.0.1",
+    "zensical>=0.0.69",
 ]
-mypy = ["mypy>=1.18.2"]
-pyright = ["pyright>=1.1.405"]
-ruff = ["ruff>=0.13.1"]
+mypy = ["mypy>=2.4.0"]
+pyright = ["basedpyright>=1.39.6"]
+ruff = ["ruff>=0.16.3"]
 tests = ["pytest>=8.3.5", "pytest-cov>=5.0.0", "pytest-mock>=3.14.0"]
+ty = ["ty==0.0.84"]
+zizmor = ["zizmor==1.30.1"]
 
 
 [tool.coverage.paths]
@@ -63,33 +69,33 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_unused_configs = true
 
+[[tool.mypy.overrides]]
+module = ["pyperf"]
+ignore_missing_imports = true
+
 
 [tool.pyright]
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 typeCheckingMode = "strict"
-# Already coverd by tests and careful import ordering:
+# Already covered by tests and careful import ordering:
 reportImportCycles = false
 # Already covered by flake8-self:
 reportPrivateUsage = false
 
-
-[tool.ruff]
-target-version = "py310"
 
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
     "A003",    # builtin-attribute-shadowing
     "ANN401",  # any-type
+    "CPY",     # flake8-pyright
     "D203",    # one-blank-line-before-class
     "D213",    # multi-line-summary-second-line
     "G004",    # logging-f-string
     "PLR2004", # magic-value-comparison
-    "PYI019",  # custom-type-var-for-self -- Remove when requiring Python 3.11
     "RET504",  # unnecessary-assign
     "S101",    # assert
     "TRY003",  # raise-vanilla-args
-    "UP007",   # typing-union
     #
     # These rules interfere with `ruff format`
     "COM812", # missing-trailing-comma
@@ -97,6 +103,9 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"benchmarks/*" = [
+    "D", # pydocstyle
+]
 "docs/*" = [
     "D",      # pydocstyle
     "INP001", # implicit-namespace-package
@@ -116,22 +125,25 @@ ignore = [
     "TRY002", # raise-vanilla-class
 ]
 
-[tool.ruff.lint.pyupgrade]
-keep-runtime-typing = true
+
+[tool.rumdl]
+flavor = "mkdocs"
 
 
 [tool.tox]
 env_list = [
-    "3.10",
     "3.11",
     "3.12",
     "3.13",
     "3.14",
+    "3.15",
+    "docs",
     "mypy",
     "pyright",
     "ruff-format",
-    "ruff-lint",
-    "docs",
+    "ruff-check",
+    "ty",
+    "zizmor",
 ]
 
 [tool.tox.env_run_base]
@@ -147,12 +159,17 @@ commands = [
     ],
 ]
 
+[tool.tox.env.docs]
+dependency_groups = ["docs"]
+commands = [["zensical", "build", "--clean", "--strict"]]
+
 [tool.tox.env.mypy]
-dependency_groups = ["tests", "mypy"]
+dependency_groups = ["benchmark", "tests", "mypy"]
 commands = [
     [
         "mypy",
         { replace = "posargs", default = [
+            "benchmarks",
             "examples",
             "src",
             "tests",
@@ -161,11 +178,12 @@ commands = [
 ]
 
 [tool.tox.env.pyright]
-dependency_groups = ["tests", "pyright"]
+dependency_groups = ["benchmark", "tests", "pyright"]
 commands = [
     [
-        "pyright",
+        "basedpyright",
         { replace = "posargs", default = [
+            "benchmarks",
             "examples",
             "src",
             "tests",
@@ -178,11 +196,40 @@ skip_install = true
 dependency_groups = ["ruff"]
 commands = [["ruff", "format", "--check", "{posargs:.}"]]
 
-[tool.tox.env.ruff-lint]
+[tool.tox.env.ruff-check]
 skip_install = true
 dependency_groups = ["ruff"]
 commands = [["ruff", "check", "{posargs:.}"]]
 
-[tool.tox.env.docs]
-dependency_groups = ["docs"]
-commands = [["mkdocs", "build", "-d", "{envtmpdir}"]]
+[tool.tox.env.ty]
+dependency_groups = ["benchmark", "tests", "ty"]
+commands = [
+    [
+        "ty",
+        "check",
+        { replace = "posargs", default = [
+            "benchmarks",
+            "examples",
+            "src",
+            "tests",
+        ], extend = true },
+    ],
+]
+
+[tool.tox.env.zizmor]
+skip_install = true
+dependency_groups = ["zizmor"]
+commands = [["zizmor", "{posargs:.}"]]
+
+
+[[tool.ty.overrides]]
+include = ["examples/**"]
+
+[tool.ty.overrides.rules]
+undefined-reveal = "ignore"
+
+[[tool.ty.overrides]]
+include = ["tests/**"]
+
+[tool.ty.overrides.rules]
+unsupported-base = "ignore"

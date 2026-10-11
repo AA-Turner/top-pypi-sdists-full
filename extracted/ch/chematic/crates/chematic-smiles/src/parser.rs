@@ -95,6 +95,23 @@ fn parse_checked(
     }
     if check_valence {
         check_neutral_valence(&mol)?;
+        // Every RDKit-compatible descriptor/fingerprint asks the same
+        // question before deciding whether it must reconstruct RDKit's
+        // sanitized molecule.  A parsed SMILES is immutable on return and
+        // mutations clear derived data, so answer and memoize that shared
+        // gate once while the input is still hot in cache.  This is not
+        // eager aromaticity or descriptor perception: it is the same linear
+        // safety predicate those calls would otherwise repeat on first use.
+        let _ = chematic_perception::rdkit_model_may_disagree(&mol);
+        // Likewise, many hot compatibility APIs need to know whether an
+        // acyclic parsed graph already is RDKit's aromatic representation.
+        // The parser has already proved and seeded the no-ring case, so this
+        // remains a cheap verdict.  Cyclic inputs deliberately stay lazy:
+        // deciding them may perform ring perception and does not belong in
+        // parsing merely to improve a downstream benchmark.
+        if mol.smiles_ring_closure_bond_count() == 0 {
+            let _ = chematic_perception::rdkit_parity_view_is_identity(&mol);
+        }
     }
     Ok(mol)
 }
@@ -329,7 +346,19 @@ impl<'a> Parser<'a> {
             mol.set_stereo_neighbor_order(atom_idx, order);
         }
 
-        Ok(mol.build())
+        let molecule = mol.build();
+        // A SMILES graph with no ring-closure token is a forest by
+        // construction. Publish that already-known result so the first
+        // fingerprint or descriptor call does not need a full bridge DFS to
+        // rediscover it. This is parser provenance, not eager ring
+        // perception; edits invalidate the derived cache as usual.
+        if molecule.smiles_ring_closure_bond_count() == 0 {
+            molecule.seed_derived(
+                chematic_core::DerivedSlot::RingBondFlags,
+                std::sync::Arc::new(vec![false; molecule.bond_count()]),
+            );
+        }
+        Ok(molecule)
     }
 
     // Parse one atom-chain, attaching it to `attach_to` via `attach_bond`.
@@ -1706,5 +1735,71 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn acyclic_parse_seeds_empty_ring_flags() {
+        let molecule = parse("CCO.CN").unwrap();
+        assert!(
+            molecule
+                .derived_if_computed::<bool>(chematic_core::DerivedSlot::RdkitModelGate)
+                .is_some(),
+            "the shared RDKit-model gate is computed once during parsing"
+        );
+        let flags = molecule
+            .derived_if_computed::<Vec<bool>>(chematic_core::DerivedSlot::RingBondFlags)
+            .expect("acyclic SMILES proves that every bond is non-cyclic");
+        assert_eq!(&*flags, &vec![false; molecule.bond_count()]);
+
+        let cyclic = parse("C1CCCCC1").unwrap();
+        assert!(
+            cyclic
+                .derived_if_computed::<bool>(chematic_core::DerivedSlot::RdkitModelGate)
+                .is_some(),
+            "cyclic inputs also cache the cheap model-disagreement predicate"
+        );
+        assert!(
+            cyclic
+                .derived_if_computed::<Vec<bool>>(chematic_core::DerivedSlot::RingBondFlags)
+                .is_none(),
+            "cyclic inputs still require perception"
+        );
+    }
+}
+
+#[cfg(test)]
+mod parse_error_boundary_contract_tests {
+    use super::*;
+
+    #[test]
+    fn actual_parse_failures_keep_positions_and_relevant_labels() {
+        for (source, context) in [
+            ("C%", "unexpected end"),
+            ("[Xx]", "missing element symbol"),
+            ("C%(256)", "extended ring closure 256"),
+            (
+                "C/%(256)CC/%(256)",
+                "conflicting bond types for extended ring closure 256",
+            ),
+            ("C=1CC-1", "conflicting bond types for ring closure 1"),
+            ("[Pt@SP4](F)(Cl)(Br)I", "unsupported chirality class '@SP4'"),
+        ] {
+            let error = parse(source).err().unwrap();
+            let message = error.to_string();
+            assert!(message.contains(context), "{source}: {message}");
+            assert!(message.contains("position"), "{source}: {message}");
+        }
+        let empty = parse("").err().unwrap();
+        assert_eq!(empty, SmilesError::EmptyInput);
+        assert!(empty.to_string().contains("input is empty"));
+        let depth = MAX_BRANCH_DEPTH + 1;
+        let source = format!("C{}{}", "(C".repeat(depth), ")".repeat(depth));
+        let error = parse(&source).err().unwrap();
+        assert!(matches!(error, SmilesError::NestingTooDeep { .. }));
+        assert!(
+            error
+                .to_string()
+                .contains("branch nesting too deep at position")
+        );
     }
 }

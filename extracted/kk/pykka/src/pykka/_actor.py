@@ -5,7 +5,7 @@ import logging
 import sys
 import threading
 import uuid
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Protocol, Self
 
 from pykka import ActorDeadError, ActorRef, ActorRegistry, messages
 from pykka._introspection import get_attr_directly
@@ -20,9 +20,6 @@ __all__ = ["Actor"]
 
 
 logger = logging.getLogger("pykka")
-
-
-A = TypeVar("A", bound="Actor")
 
 
 class ActorInbox(Protocol):
@@ -81,10 +78,10 @@ class Actor(abc.ABC):
 
     @classmethod
     def start(
-        cls: type[A],
+        cls,
         *args: Any,
         **kwargs: Any,
-    ) -> ActorRef[A]:
+    ) -> ActorRef[Self]:
         """Start an actor.
 
         Starting an actor also registers it in the
@@ -174,7 +171,7 @@ class Actor(abc.ABC):
     _actor_ref: ActorRef[Any]
 
     @property
-    def actor_ref(self: A) -> ActorRef[A]:
+    def actor_ref(self) -> ActorRef[Self]:
         """The actor's [`ActorRef`][pykka.ActorRef] instance."""
         # This property only exists to improve the typing of the ActorRef.
         return self._actor_ref
@@ -194,7 +191,7 @@ class Actor(abc.ABC):
     ) -> None:
         """Create actor.
 
-        Your are free to override `__init__()`, but you must call your
+        You are free to override `__init__()`, but you must call your
         superclass' `__init__()` to ensure that the fields
         [`actor_urn`][pykka.Actor.actor_urn],
         [`actor_inbox`][pykka.Actor.actor_inbox], and
@@ -204,7 +201,7 @@ class Actor(abc.ABC):
 
             super().__init__()
 
-        Or call you superclass directly:
+        Or call your superclass directly:
 
             pykka.ThreadingActor.__init__(self)
 
@@ -260,7 +257,7 @@ class Actor(abc.ABC):
                 response = self._handle_receive(envelope.message)
                 if envelope.reply_to is not None:
                     envelope.reply_to.set(response)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 if envelope.reply_to is not None:
                     logger.info(
                         f"Exception returned from {self} to caller:",
@@ -340,7 +337,7 @@ class Actor(abc.ABC):
         """Log unexpected failures, unregisters and stops the actor."""
         logger.error(
             f"Unhandled exception in {self}:",
-            exc_info=(exception_type, exception_value, traceback),  # type: ignore[arg-type]
+            exc_info=(exception_type, exception_value, traceback),  # type: ignore[arg-type]   # ty: ignore[invalid-argument-type]
         )
         ActorRegistry.unregister(self.actor_ref)
         self.actor_stopped.set()
@@ -386,6 +383,10 @@ class Actor(abc.ABC):
 
     def on_receive(self, message: Any) -> Any:
         """May be implemented for the actor to handle regular non-proxy messages.
+
+        The default implementation logs the message at the `WARNING` level and
+        returns `None`. Call `super().on_receive(message)` for messages that
+        your actor does not handle, to get the same log message.
 
         Args:
             message: the message to handle

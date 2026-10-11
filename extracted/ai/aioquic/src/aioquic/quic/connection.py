@@ -67,6 +67,7 @@ EPOCH_SHORTCUTS = {
 MAX_EARLY_DATA = 0xFFFFFFFF
 MAX_REMOTE_CHALLENGES = 32
 MAX_LOCAL_CHALLENGES = 5
+MAX_NETWORK_PATHS = 8
 SECRETS_LABELS = [
     [
         None,
@@ -946,6 +947,19 @@ class QuicConnection:
                     )
                 continue
 
+            # RFC 9000 section 12.3 requires discarding duplicate packets.
+            if packet_number in space.received_packets:
+                if self._quic_logger is not None:
+                    self._quic_logger.log_event(
+                        category="transport",
+                        event="packet_dropped",
+                        data={
+                            "trigger": "duplicate",
+                            "raw": {"length": header.packet_length},
+                        },
+                    )
+                continue
+
             # check reserved bits
             if header.packet_type == QuicPacketType.ONE_RTT:
                 reserved_mask = 0x18
@@ -1063,7 +1077,7 @@ class QuicConnection:
                 )
                 network_path.is_validated = True
             if network_path not in self._network_paths:
-                self._network_paths.append(network_path)
+                self._add_network_path(network_path)
             idx = self._network_paths.index(network_path)
             if idx and not is_probing and packet_number > space.largest_received_packet:
                 self._logger.debug("Network path %s promoted", network_path.addr)
@@ -1076,6 +1090,7 @@ class QuicConnection:
                     space.largest_received_packet = packet_number
                     space.largest_received_time = now
                 space.ack_queue.add(packet_number)
+                space.received_packets.add(packet_number)
                 if is_ack_eliciting and space.ack_at is None:
                     space.ack_at = now + self._ack_delay
 
@@ -2987,6 +3002,19 @@ class QuicConnection:
             crypto.recv.setup(
                 cipher_suite=cipher_suite, secret=secret, version=self._version
             )
+
+    def _add_network_path(self, network_path: QuicNetworkPath) -> None:
+        if len(self._network_paths) >= MAX_NETWORK_PATHS:
+            # Never evict the active path, and prefer evicting the oldest
+            # unvalidated path so that validated paths remain available.
+            candidates = self._network_paths[1:]
+            evicted = next(
+                (path for path in candidates if not path.is_validated), candidates[0]
+            )
+            self._network_paths.remove(evicted)
+            self._logger.debug("Network path %s evicted", evicted.addr)
+
+        self._network_paths.append(network_path)
 
     def _add_local_challenge(self, challenge: bytes, network_path: QuicNetworkPath):
         self._local_challenges[challenge] = network_path

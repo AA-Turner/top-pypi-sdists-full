@@ -68,14 +68,23 @@ class RunApprovalRequiredError(Exception):
         self.approval_url = approval_url
         what = subject_kind.replace("_", " ")
         verdict = "was rejected" if status == "rejected" else "is waiting for approval"
+        # What the person reads: plain words, no ids, no admin links (members never see the
+        # approvals console). Ids and the approval link stay in technical_message (logs) and in
+        # the structured envelope, where an admin surface can offer "Approve".
         self.message = (
+            "This agent spent more than its approval limit last time, so it was not run. "
+            "An administrator can approve it."
+            if status != "rejected"
+            else "This agent spent more than its approval limit and an administrator declined it, so it was not run."
+        )
+        self.technical_message = (
             f"Not run: this {what} ({subject_id}) cost more than the approval threshold in one run "
             f"and {verdict}. Approve it here: {approval_url}"
         )
         self.code = RUN_APPROVAL_REQUIRED
         self.error_info = RetryableError(
             error_type=self.code,
-            message=self.message,
+            message=self.technical_message,
             status_code=self.http_status,
             is_retryable=False,
             user_message=self.message,
@@ -87,6 +96,7 @@ class RunApprovalRequiredError(Exception):
         return {
             "error": self.code,
             "message": self.message,
+            "technical_message": self.technical_message,
             "fix_action": FIX_ACTION_APPROVE_RUN,
             "approval_id": self.approval_id,
             "approval_url": self.approval_url,

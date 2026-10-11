@@ -217,6 +217,20 @@ async def _hydrate_task(sb: Any, task_id: str) -> schemas.TaskDetailResponse | N
 # ── Task CRUD ───────────────────────────────────────────────────────────
 
 
+#: Origins a person drives directly (the same rule as matrx-ai's run-approval gate).
+PERSON_ORIGINS = frozenset({"human", "delegated_member"})
+
+
+def created_via(ctx: Any) -> str:
+    """``person`` when a person created the schedule in their own session; ``agent`` for an MCP /
+    coding-agent route or any machine origin. The host reads it to decide whose work a run is."""
+    route = str(getattr(ctx, "route", "") or "")
+    origin = str(getattr(ctx, "origin_class", "") or "")
+    if route.startswith("mcp:") or origin not in PERSON_ORIGINS:
+        return "agent"
+    return "person"
+
+
 @router.post(
     "/tasks",
     response_model=schemas.TaskDetailResponse,
@@ -342,6 +356,7 @@ async def create_task(
             tags=body.tags,
             taxonomy_node_id=body.taxonomy_node_id,
             organization_id=organization_id,
+            metadata={"created_via": created_via(ctx)},
         )
     except Exception as exc:
         code, detail = _classify_supabase_error(exc)

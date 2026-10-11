@@ -29,6 +29,13 @@ EXCEPT:
 
 When every rung fails, :class:`ImageGenerationUnavailable` carries the full
 attempt list; the tool renders it as the error note.
+
+On an EDIT request (``source_url`` set) a capability filter runs first: only
+rungs whose specs declare edit support are walkable; every other available
+rung is pre-recorded as a ``skipped``/``unsupported`` attempt in its cascade
+position and never called, and a request with no capable rung left raises the
+capable-providers remedy instead of ever running text-to-image (media wave-2
+edit lane, ``RUNG_SPECS[*].sources``).
 """
 
 from __future__ import annotations
@@ -40,9 +47,15 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from local_operator.artifacts import ArtifactKind, JobCancelled, JobSpec, JobUnavailable
+from local_operator.artifacts import (
+    ArtifactKind,
+    JobAttempt,
+    JobCancelled,
+    JobSpec,
+    JobUnavailable,
+)
 from local_operator.artifacts import walk as artifacts_walk
-from local_operator.artifacts.rung import CancelSupport, RungSpec
+from local_operator.artifacts.rung import CancelSupport, RungSpec, SourceSupport
 from local_operator.clients._http import APIError
 from local_operator.env import resolve_radient_api_base_url
 from local_operator.imagegen import (
@@ -109,17 +122,35 @@ IMAGE_RUNG_ORDER: tuple[ImageRoute, ...] = (
 #:   FAL's ``signal`` is per best available evidence (its cancel URL answers
 #:   CANCELLATION_REQUESTED) with mid-run honour UNVERIFIED — declaration-only
 #:   in v1, so nothing depends on it yet.
-#: - ``cost`` labels where a future figure would come from: only ``reported``
-#:   rungs can ever put a number in ``cost_usd`` (design D8); ``rate_table``
-#:   entries are documentation with vendor provenance in the guide.
+#: - ``cost`` labels where a future figure would come from: ``reported`` and
+#:   computed-rate-table rungs can put a number in ``cost_usd``; a bare
+#:   ``rate_table`` entry is documentation with vendor provenance in the
+#:   guide.
+#: - ``sources``/``max_sources``/``mask`` are the TYPED edit capability the
+#:   cascade filter reads (media wave-2 edit lane). The binding rule: a rung
+#:   declares ``sources != NONE`` only in the same change that wires its edit
+#:   path, and a test walks every rung to fail either drift direction.
 RUNG_SPECS: dict[str, RungSpec] = {
     ImageRoute.RADIENT: RungSpec(
         route=ImageRoute.RADIENT,
         label="Radient",
         kinds=frozenset({"image"}),
+        # i2i re-joined with the hub media slice (live 2026-10-10): the route
+        # accepts canonical ``image_url``/``image_urls`` (+ ``mask_url`` on its
+        # gpt-2.5 pins), refuses source aliases, and this rung wires the
+        # single-source ``image_url`` (``rungs.run_radient``).
         capabilities=frozenset({"t2i", "i2i"}),
         cancel_support=CancelSupport.SIGNAL,
         cost="reported",
+        # MULTI, because the HUB is: per-pin ceilings are live-listing facts
+        # (gpt-2.5 edit 16 / grok edit 3 / seedream edit 10 — the listing's
+        # ``max_sources`` field), and 16 is the highest live ceiling — the
+        # bound a multi-source wire must read back per pin before sending
+        # more than one. The v1 wire sends a SINGLE source, so nothing here
+        # is enforced client-side; the hub refuses an over-cap count with 400
+        # before any vendor call (no charge).
+        sources=SourceSupport.MULTI,
+        max_sources=16,
     ),
     ImageRoute.FAL: RungSpec(
         route=ImageRoute.FAL,
@@ -128,14 +159,26 @@ RUNG_SPECS: dict[str, RungSpec] = {
         capabilities=frozenset({"t2i", "i2i"}),
         cancel_support=CancelSupport.SIGNAL,
         cost="rate_table",
+        # The flux-class i2i app takes one source (``image_url``); FAL's
+        # multi-reference editors exist but the single-source v1 wire sends
+        # one — ``max_sources`` documents the ceiling a multi wire will use.
+        sources=SourceSupport.SINGLE,
+        max_sources=1,
     ),
     ImageRoute.OPENAI: RungSpec(
         route=ImageRoute.OPENAI,
         label="OpenAI",
         kinds=frozenset({"image"}),
-        capabilities=frozenset({"t2i"}),
+        capabilities=frozenset({"t2i", "i2i"}),
         cancel_support=CancelSupport.NONE,
         cost="rate_table",
+        # ``/v1/images/edits``: "For GPT image models, you can provide up to
+        # 16 images" (API reference, fetched 2026-10-10); mask documented
+        # (alpha-channel PNG, prompt-guided) — the single-source wire sends
+        # one image and no mask.
+        sources=SourceSupport.MULTI,
+        max_sources=16,
+        mask=True,
     ),
     ImageRoute.OPENAI_SUB: RungSpec(
         route=ImageRoute.OPENAI_SUB,
@@ -143,25 +186,38 @@ RUNG_SPECS: dict[str, RungSpec] = {
         kinds=frozenset({"image"}),
         capabilities=frozenset({"t2i"}),
         cancel_support=CancelSupport.NONE,
-        # Quota-funded: no cash figure exists, and none is ever synthesized
-        # (design D8); the guide states the 3-5x quota burn.
+        # Quota-funded: no cash CHARGE exists. The rung carries one
+        # provenance-labelled API-equivalent amount instead (billing_basis
+        # "subscription-api-equivalent", never a charge - see
+        # ``OPENAI_SUB_API_EQUIVALENT_USD``); the guide states the 3-5x burn.
         cost="subscription",
+        # Edits: the Responses-API shape documents image inputs, but the
+        # Codex backend's acceptance is UNVERIFIED (the recorded live probe
+        # settles it) — the rung keeps its unsupported skip and this spec
+        # keeps ``NONE`` until a probe-backed PR wires and flips them
+        # together.
+        sources=SourceSupport.NONE,
     ),
     ImageRoute.GOOGLE: RungSpec(
         route=ImageRoute.GOOGLE,
         label="Google",
         kinds=frozenset({"image"}),
-        capabilities=frozenset({"t2i"}),
+        capabilities=frozenset({"t2i", "i2i"}),
         cancel_support=CancelSupport.NONE,
         # Synchronous single request, no per-call figure; vendor rate table
         # (documentation only — see the guide + image-providers matrix).
         cost="rate_table",
+        # Image content blocks in the same ``interactions`` call; up to 14
+        # (Flash Lite Image 14; the Nano Banana family documents fewer).
+        # No API mask — docs describe prompt-driven "semantic masking".
+        sources=SourceSupport.MULTI,
+        max_sources=14,
     ),
     ImageRoute.XAI: RungSpec(
         route=ImageRoute.XAI,
         label="xAI",
         kinds=frozenset({"image"}),
-        capabilities=frozenset({"t2i"}),
+        capabilities=frozenset({"t2i", "i2i"}),
         cancel_support=CancelSupport.NONE,
         # REPORTED, not a rate table: the official OpenAPI schema's ``usage``
         # object (``oneOf [null, MediaUsage]``) REQUIRES
@@ -170,17 +226,39 @@ RUNG_SPECS: dict[str, RungSpec] = {
         # wave's initial ``rate_table`` pencil, taken before the schema was
         # read at implement time (2026-10-09).
         cost="reported",
+        # ``/v1/images/edits``: one source in the wired single-image shape
+        # (``image`` object); the multi-image page says up to 5 references.
+        sources=SourceSupport.MULTI,
+        max_sources=5,
     ),
     ImageRoute.OPENROUTER: RungSpec(
         route=ImageRoute.OPENROUTER,
         label="OpenRouter",
         kinds=frozenset({"image"}),
-        capabilities=frozenset({"t2i"}),
+        capabilities=frozenset({"t2i", "i2i"}),
         cancel_support=CancelSupport.NONE,
         # The docs' settlement shape carries ``usage.cost`` per request.
         cost="reported",
+        # ``input_references``; the model's ``architecture.input_modalities``
+        # is checked before sending (a non-edit model would otherwise bill a
+        # silent text-to-image). The wire sends one reference in v1.
+        sources=SourceSupport.SINGLE,
+        max_sources=1,
     ),
 }
+
+#: The routes whose edit path accepts ``strength``: ``_run_route`` hands it to
+#: these only, and a successful edit on any OTHER route with ``strength`` set
+#: is recorded as ignored in the tool's ``details`` and caption (audit §ii.7)
+#: — the parameter is never dropped silently. Radient stays in: its edit wire
+#: is a verbatim hub passthrough (the hub refuses only source-ish keys and
+#: maps sources), so ``strength`` reaches the pin's vendor schema wherever
+#: that schema documents it (the flux-class i2i apps); for pins whose schema
+#: is silent the vendor answer decides (the sunburst edit input schema
+#: neither declares nor forbids it — fetched 2026-10-10), and since no drop
+#: signal exists there, no ``strength_ignored`` is synthesized — the flag
+#: remains the WIRED-drop record it is on FAL's schema-guided path.
+STRENGTH_ROUTES: frozenset[ImageRoute] = frozenset({ImageRoute.RADIENT, ImageRoute.FAL})
 
 
 class ImageGenerationCancelled(JobCancelled):
@@ -384,13 +462,6 @@ async def _call_time_key(
                 "No Google AI Studio key is available.", status_code=None, code="unauthorized"
             )
         return key
-    if route == ImageRoute.XAI:
-        key = await image_availability.xai_call_bearer(store)
-        if not key:
-            raise APIError(
-                "No xAI key or sign-in is available.", status_code=None, code="unauthorized"
-            )
-        return key
     if route == ImageRoute.OPENROUTER:
         key = await image_availability.openrouter_call_key(store)
         if not key:
@@ -447,6 +518,28 @@ async def _run_route(
             prompt=prompt,
             access_token=access.access_token,
             account_id=access.org_id or access.account_id,
+            num_images=num_images,
+            image_size=image_size,
+            source_url=source_url,
+            seed=seed,
+            model=model,
+            emit=emit,
+            pause=pause,
+            client=client,
+        )
+    if route == ImageRoute.XAI:
+        # Resolved here, not in ``_call_time_key``: the rung needs the
+        # credential CLASS (key vs Grok sign-in) to label the figure's billing
+        # basis, which a bare bearer string cannot carry.
+        credential = await image_availability.xai_call_credential(store)
+        if credential is None:
+            raise APIError(
+                "No xAI key or sign-in is available.", status_code=None, code="unauthorized"
+            )
+        return await image_rungs.run_xai(
+            prompt=prompt,
+            key=credential[0],
+            credential_kind=credential[1],
             num_images=num_images,
             image_size=image_size,
             source_url=source_url,
@@ -514,19 +607,6 @@ async def _run_route(
             pause=pause,
             client=client,
         )
-    if route == ImageRoute.XAI:
-        return await image_rungs.run_xai(
-            prompt=prompt,
-            key=key,
-            num_images=num_images,
-            image_size=image_size,
-            source_url=source_url,
-            seed=seed,
-            model=model,
-            emit=emit,
-            pause=pause,
-            client=client,
-        )
     return await image_rungs.run_openai(
         prompt=prompt,
         key=key,
@@ -544,8 +624,36 @@ async def _run_route(
 # ``_emit_rung_failure`` moved to :mod:`local_operator.artifacts.walk` in media
 # wave-2 (generic over kind and labels). This lane's byte-identical sentences
 # and label lookups ride the walk's parameters: ``RUNG_LABELS`` below is the
-# ``labels`` mapping it is given, and the all-failed header ("Image generation
-# failed on every available provider:") is derived from the artifact kind.
+# ``labels`` mapping it is given, and the all-failed header is derived from
+# the artifact kind ("Image generation failed on every available provider:";
+# "Image editing failed …" when the request carried a source — the walk's
+# ``action`` parameter).
+
+
+def _no_edit_capable_message() -> str:
+    """The zero-capable edit refusal — the sentence IS the remedy list.
+
+    Every edit-capable route by label, so a user with no capable
+    credential learns exactly what to sign in or add a key for; the caller
+    never falls back to a text-to-image run on an edit request (audit §C.ii).
+    """
+    capable = ", ".join(
+        RUNG_SPECS[route].label
+        for route in IMAGE_RUNG_ORDER
+        if RUNG_SPECS[route].sources is not SourceSupport.NONE
+    )
+    return f"No available provider can edit images (capable: {capable} — sign in or add a key)"
+
+
+def _edit_skip_message(route: str) -> str:
+    """The pre-recorded skip's sentence for an available rung that cannot edit.
+
+    One generic sentence: Radient's rung-specific text left with its skip path
+    when the hub media slice wired its edit route (``sources`` MULTI beside
+    ``rungs.run_radient``'s ``image_url`` wire), so the rungs this table can
+    still pre-record today use the generic wording.
+    """
+    return f"{RUNG_SPECS[route].label} cannot edit images."
 
 
 async def run_image_cascade(
@@ -572,10 +680,36 @@ async def run_image_cascade(
     image lane's binding of it: the kind, the available candidates, the
     labels, the budgets, and a dispatch closure wired to THIS module's
     ``_run_route`` so the pinned monkeypatch seam keeps intercepting.
+
+    An EDIT request (``source_url`` set) first applies the capability filter:
+    only rungs whose specs declare ``sources != NONE`` are walkable; every
+    other available rung is pre-recorded (skipped/unsupported) in its
+    cascade position and never called, and zero capable rungs raise the
+    capable-providers remedy — a text-to-image run is never a fallback.
     """
     resolution = await resolve_image_route(config_dir, base_url=base_url, store=store)
-    candidates = [rung.route for rung in resolution.rungs if rung.available]
-    if not candidates:
+    available = [rung.route for rung in resolution.rungs if rung.available]
+    editing = source_url is not None
+    pre_attempts: dict[str, JobAttempt] = {}
+    if editing:
+        capable = [
+            route for route in available if RUNG_SPECS[route].sources is not SourceSupport.NONE
+        ]
+        if not capable:
+            raise ImageGenerationUnavailable(_no_edit_capable_message(), resolution=resolution)
+        pre_attempts = {
+            route: JobAttempt(
+                route=route,
+                outcome="skipped",
+                reason_class="unsupported",
+                message=_edit_skip_message(route),
+            )
+            for route in available
+            if route not in capable
+        }
+    else:
+        capable = available
+    if not capable:
         raise ImageGenerationUnavailable(resolution.reason, resolution=resolution)
 
     radient_base = resolve_radient_api_base_url(base_url)
@@ -625,7 +759,7 @@ async def run_image_cascade(
                 seed=seed,
                 model=model,
             ),
-            candidates=candidates,
+            candidates=available,
             labels=RUNG_LABELS,
             call=_dispatch,
             handle=handle,
@@ -635,6 +769,8 @@ async def run_image_cascade(
             rung_timeout_s=IMAGE_RUNG_TIMEOUT_S,
             overall_timeout_s=IMAGE_GENERATION_TIMEOUT_S,
             on_exhausted=_on_exhausted,
+            pre_attempts=pre_attempts,
+            action="editing" if editing else "generation",
         )
     finally:
         if owned:

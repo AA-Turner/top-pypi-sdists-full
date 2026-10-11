@@ -435,6 +435,7 @@ class Coordinator:
         "_phase",
         "_report",
         "_lock",
+        "_barrier_lock",
         "_database",
         "_request_id",
         "_user_id",
@@ -476,6 +477,9 @@ class Coordinator:
         )
         self._report: FlushReport | None = None
         self._lock = asyncio.Lock()
+        # A snapshot remains in flight after _lock releases. Parallel barriers
+        # must join it before acknowledging or flushing its dependent UPDATEs.
+        self._barrier_lock = asyncio.Lock()
         self._database = database
         self._request_id = request_id
         self._user_id = user_id
@@ -1560,15 +1564,43 @@ class Coordinator:
         reason: str,
         timeout: float,
     ) -> tuple[FlushReport, list[str]]:
+        """Serialize commit barriers without holding the queue's snapshot lock.
+
+        A sibling barrier must wait for an earlier snapshot's INSERTs before
+        flushing dependent UPDATEs or returning a durability acknowledgement.
+        The dedicated lock leaves queue(), cancellation and diagnostics free;
+        both waiting for the predecessor and its own I/O remain bounded.
+        """
+        try:
+            await asyncio.wait_for(self._barrier_lock.acquire(), timeout=timeout)
+        except TimeoutError:
+            failure = f"prior_barrier:overdue>{timeout:.0f}s"
+            return FlushReport(reason=reason, error=failure), [failure]
+        try:
+            # A predecessor may have failed while this caller waited. Never
+            # turn its sticky failure into a successful empty acknowledgement.
+            if self._phase is CoordinatorPhase.ERRORED and self._report is not None:
+                return self._report, [self._report.error or "prior_barrier:failed"]
+            report, failures = await self._flush_snapshot_and_drain(reason=reason, wait_seconds=timeout)
+            await self._apply_verdict(report, errored=bool(failures))
+            return report, failures
+        finally:
+            self._barrier_lock.release()
+
+    async def _flush_snapshot_and_drain(
+        self,
+        *,
+        reason: str,
+        wait_seconds: float,
+    ) -> tuple[FlushReport, list[str]]:
         """Await all in-flight commits FIRST (so prior-turn INSERTs land), THEN
         flush the current Session (so any current-turn UPDATE sees the prior
         INSERT it depends on). Returns (report, failures); does not raise —
         Session.flush captures its own failures to system_write_failure;
         bg-commit failures are collected.
 
-        The lock is held ONLY for the synchronous snapshot + roll, never across
-        the awaits — so a long drain (a stuck commit, up to ``timeout``) can't
-        block a concurrent check_pending / drain / the cancel path."""
+        The queue lock is held only for the synchronous snapshot and roll.
+        The caller owns the separate barrier lock until this drain finishes."""
         # A slot reserved for a commit that never fired (an anomaly between the
         # barrier's acquire and its commit_async) must not leak into a permanent
         # false-backpressure wedge. Both blocking paths — finalize and the
@@ -1582,8 +1614,8 @@ class Coordinator:
         # Snapshot under the lock (no await → atomic): take the pending commits
         # and the current Session, and roll a fresh one so new writes go
         # elsewhere while we flush the captured one. A concurrent drain that runs
-        # second sees empty pending + a fresh empty Session → a clean no-op (no
-        # double-drain, no double-flush).
+        # second joins the barrier lock before taking its own snapshot (no
+        # early acknowledgement and no UPDATE racing an earlier INSERT).
         async with self._lock:
             pending, self._pending_commits = self._pending_commits, []
             if self._session.ops_count > 0:
@@ -1598,13 +1630,13 @@ class Coordinator:
         # UPDATE must never flush ahead of the prior-turn INSERT it targets.
         for pc in pending:
             try:
-                await asyncio.wait_for(asyncio.shield(pc.task), timeout=timeout)
+                await asyncio.wait_for(asyncio.shield(pc.task), timeout=wait_seconds)
             except TimeoutError:
-                # Overdue → report (bounded at timeout). Do NOT cancel: a
+                # Overdue → report (bounded at wait_seconds). Do NOT cancel: a
                 # CancelledError bypasses Session.flush's record_failures and
                 # loses the data. The orphan self-bounds via its hard deadline and
                 # captures to system_write_failure; _on_commit_done observes it.
-                failures.append(f"{pc.reason}:overdue>{timeout:.0f}s")
+                failures.append(f"{pc.reason}:overdue>{wait_seconds:.0f}s")
                 report.ops_lost += pc.ops
             except PersistenceBarrierError as e:
                 failures.append(f"{pc.reason}:{e.report.error}")
@@ -1641,7 +1673,7 @@ class Coordinator:
         # 3) Await every late one-shot this coordinator fired. They are detached
         # tasks, so a drain that returns without them is a drain that lies: the
         # teardown right behind it cancels whatever is still in flight.
-        failures.extend(await self.drain_late_writes(timeout=timeout))
+        failures.extend(await self.drain_late_writes(timeout=wait_seconds))
 
         if dropped:
             failures.append(f"dropped_ops:{dropped}")

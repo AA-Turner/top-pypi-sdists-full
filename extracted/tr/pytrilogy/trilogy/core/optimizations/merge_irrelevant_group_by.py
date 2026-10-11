@@ -8,7 +8,7 @@ from trilogy.core.models.build import (
 )
 from trilogy.core.models.execute import (
     CTE,
-    BaseJoin,
+    Join,
     RecursiveCTE,
     UnionCTE,
 )
@@ -19,6 +19,7 @@ from trilogy.core.optimizations.utils import (
     existence_linked,
     is_grouped_cte,
     is_sole_consumer,
+    prune_strands_pseudonym_twin,
     render_cte_used_map,
     repoint_consumers,
 )
@@ -75,9 +76,11 @@ def _identity_group_single_use_aggregate(cte: CTE, parent: CTE) -> bool:
     if not parent.source.datasources:
         return False
     right_ids = {
-        join.right_datasource.identifier
-        for join in parent.source.joins
-        if isinstance(join, BaseJoin)
+        source.identifier
+        for join in parent.joins
+        if isinstance(join, Join)
+        for source in (join.right.source, join.right.source.base_datasource)
+        if source is not None
     }
     roots = [
         source
@@ -93,8 +96,8 @@ def _identity_group_single_use_aggregate(cte: CTE, parent: CTE) -> bool:
     if not set(roots[0].grain.components) <= set(parent.grain.components):
         return False
     if any(
-        not isinstance(join, BaseJoin) or not join_preserves_left_rows(join)
-        for join in parent.source.joins
+        not isinstance(join, Join) or not join_preserves_left_rows(join)
+        for join in parent.joins
     ):
         return False
     parent_outputs = {concept.address for concept in parent.output_columns}
@@ -202,6 +205,13 @@ class MergeIrrelevantGroupBy(OptimizationRule):
                 return False, None
             if concept.derivation == Derivation.AGGREGATE:
                 parent_has_aggregate = True
+
+        if prune_strands_pseudonym_twin(parent, cte.output_columns):
+            self.debug(
+                f"Merging {cte.name} would prune a pseudonym twin {parent.name} "
+                "renders a kept column through, skipping"
+            )
+            return False, None
 
         if not parent_has_aggregate and _drops_dedup_measure(cte, parent):
             self.debug(

@@ -166,7 +166,7 @@ key_value = {
     # AUTHENTICATION
     # =========================================================
 
-    "Login": "Iniciar sessão",
+    "Login": "Login",
     "Logout": "Terminar sessão",
     "Login successful": "Login efectuado com sucesso",
     "You are successfully logged in.": "Iniciou sessão com sucesso.",
@@ -414,7 +414,7 @@ key_value = {
 
     "My profile": "O meu perfil",
     "My account": "A minha conta",
-    "Sign in": "Iniciar sessão",
+    "Sign in": "Login",
     "Sign out": "Terminar sessão",
     "Authentication required": "Autenticação necessária",
     "Invalid credentials": "Credenciais inválidas",
@@ -1044,7 +1044,6 @@ key_value = {
     "Scaffold IDE": "IDE de geração de código",
     "Scaffold new backend/frontend modules and manage which entity types use them.": "Gere novos módulos de backend/frontend e defina que tipos de entidade os usam.",
     "Schema": "Esquema",
-    "Sea": "Pesquisar",
     "Search Person": "Pesquisar pessoa",
     "Search an address": "Pesquisar um endereço",
     "Search branch": "Pesquisar sucursal",
@@ -1065,7 +1064,7 @@ key_value = {
     "Show all branches of this entity type on the map": "Mostrar no mapa todas as sucursais deste tipo de entidade",
     "Show all branches on the map": "Mostrar todas as sucursais no mapa",
     "Sidebar": "Barra lateral",
-    "Sign In": "Iniciar sessão",
+    "Sign In": "Login",
     "Size": "Tamanho",
     "Smart platform for modern business management": "Plataforma inteligente para a gestão moderna de negócios",
     "Storage": "Armazenamento",
@@ -1143,7 +1142,7 @@ key_value = {
     "group": "grupo",
     "height_field": "campo de altura",
     "invalid JSON": "JSON inválido",
-    "login": "iniciar sessão",
+    "login": "login",
     "max": "máx.",
     "max digits": "máx. de dígitos",
     "max length": "comprimento máx.",
@@ -1189,9 +1188,7 @@ key_value = {
     # group names (core)
     "Root": "Raiz",
     "Admin": "Administrador",
-    "Organization Administrator": "Administrador da organização",
-    "System Administrator": "Administrador do sistema",
-    "Branch Administrator": "Administrador da sucursal",
+    "Branch Admin": "Admin da sucursal",
 
     # frontend UI strings
     "New group": "Novo grupo",
@@ -1379,7 +1376,7 @@ key_value = {
     "Two-factor authentication is now enabled.": "A autenticação de dois fatores está agora ativa.",
     "I have saved my recovery codes": "Guardei os meus códigos de recuperação",
     "Authentication code or recovery code": "Código de autenticação ou código de recuperação",
-    "Ask for a code from your authenticator app every time you sign in.": "Peça um código da sua aplicação de autenticação sempre que iniciar sessão.",
+    "Ask for a code from your authenticator app every time you sign in.": "Peça um código da sua aplicação de autenticação sempre que fizer login.",
     "Could not load your two-factor settings.": "Não foi possível carregar as suas definições de dois fatores.",
     "Recovery codes left": "Códigos de recuperação restantes",
     "Your organisation requires two-factor authentication.": "A sua organização exige autenticação de dois fatores.",
@@ -1500,4 +1497,18 @@ key_value = {
     'Details': 'Detalhes',
     'Father Name': 'Nome do pai',
     'Mother Name': 'Nome da mãe',
+    "Open the website (double-click: new tab)": "Abrir o site (duplo clique: novo separador)",
+    "Lowercase letters, digits, dots or underscores, starting with a letter": "Letras minúsculas, dígitos, pontos ou sublinhados, a começar por uma letra",
+    "Use the suggestion": "Usar a sugestão",
+    "Suggestions": "Sugestões",
+    "Use 3 to 30 lowercase letters, digits, dots or underscores, starting with a letter": "Use 3 a 30 letras minúsculas, dígitos, pontos ou sublinhados, a começar por uma letra",
+    "Use {min} to {max} lowercase letters, digits, dots or underscores, starting with a letter": "Use {min} a {max} letras minúsculas, dígitos, pontos ou sublinhados, a começar por uma letra",
+    "Checking availability...": "A verificar a disponibilidade...",
+    "Could not check availability now - it will be checked when you register": "Não foi possível verificar agora - será verificado quando se registar",
+    "Suggestion - not checked yet": "Sugestão - ainda não verificada",
+    "Too many attempts. Request a new code in a few minutes.": "Demasiadas tentativas. Peça um novo código daqui a alguns minutos.",
+    "If this email or phone number can be used, a verification code was sent": "Se este email ou telefone puder ser usado, foi enviado um código de verificação",
+    "Give a username to check": "Indique um nome de utilizador para verificar",
+    "This email or phone number is already registered": "Este email ou telefone já está registado",
+    "Invalid or expired verification code": "Código de verificação inválido ou expirado",
 }

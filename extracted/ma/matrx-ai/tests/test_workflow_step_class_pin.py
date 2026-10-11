@@ -225,6 +225,15 @@ def _all_node_schemas() -> list[tuple[str, dict[str, Any]]]:
     return found
 
 
+# Provenance, not a choice: decision.threshold's INPUT is the decision_answers an upstream
+# step produced, and that kind's ``model`` records WHICH model answered (the step runs no
+# model - "Pure and instant", aidream/graph_actions/ai_decision.py). It only shows up in this
+# census once the aidream host has registered its actions (an earlier test in a full run does),
+# so the pin passed alone and failed in the suite. A field here is exempt only while it is NOT
+# a model picker: make it one and it needs its class field like every other.
+_PROVENANCE_MODEL_FIELDS = frozenset({"decision.threshold:input.model"})
+
+
 def test_every_model_field_declares_its_class_field() -> None:
     missing: list[str] = []
     checked = 0
@@ -233,6 +242,8 @@ def test_every_model_field_declares_its_class_field() -> None:
         for key, prop in props.items():
             named_model = key == "model" or key.endswith("_model")
             if prop.get("ui:widget") != "model_picker" and not named_model:
+                continue
+            if f"{name}.{key}" in _PROVENANCE_MODEL_FIELDS and prop.get("ui:widget") != "model_picker":
                 continue
             checked += 1
             sibling = prop.get("ui:class_field")

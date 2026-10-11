@@ -36,7 +36,9 @@ _CASES = (
         TranscriptSessionInputContent,
     ),
     ("input_workbook", "workbook_ids", "workbook", WorkbookInputContent),
-    ("input_document", "document_ids", "document", DocumentInputContent),
+    # 7422005919: input_document means the cloud document, so its fence names udt_document
+    # ("document" is the markdown document and is no longer aliased to it).
+    ("input_document", "document_ids", "udt_document", DocumentInputContent),
 )
 
 

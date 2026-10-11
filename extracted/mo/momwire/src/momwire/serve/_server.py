@@ -27,6 +27,7 @@ transport rule living where a client can never see it drift.
 from __future__ import annotations
 
 import errno
+import functools
 import os
 import signal
 import socket
@@ -130,13 +131,20 @@ class Server:
         # ONE global solve lock — the budget, stated once: solves from every
         # connection serialise into one thread-pool allocation, which is the
         # honest version of the concurrency a crew of processes pretended to
-        # have (portal/_shared.py's module docstring, #379/#385).
+        # have (portal/_shared.py's module docstring, #379/#385). The eznec
+        # daemon solves in a worker pool instead (momwire#1418, serve/_pool.py)
+        # and its connections never take this lock; the portal daemon and the
+        # in-process servers still do.
         self.solve_lock = threading.Lock()
         self.state = threading.Lock()
         self.active = 0
         self.idle_since = time.monotonic()
         self.served = 0
         self.stopping = False
+        # Set once the socket is listening and its address is published, so an
+        # embedded caller (the in-process tests) can wait for readiness instead
+        # of probing with a connection that would itself be counted (#1380).
+        self.listening = threading.Event()
 
     def note(self, text: str) -> None:
         try:
@@ -243,6 +251,7 @@ class Server:
             self.note(f"another server already owns {self.path}; exiting")
             return 0
         self.note(f"listening pid={os.getpid()} socket={self.path}")
+        self.listening.set()
         # Only the main thread may install handlers; embedded servers (the
         # in-process tests) rely on stop() instead, and a real daemon process
         # always runs this on its main thread.
@@ -322,6 +331,7 @@ def serve_forever(
     log_path: str | None,
     connection,
     configure=None,
+    pool_factory=None,
 ) -> int:
     """The ``--serve`` mode's shared spine: validate, log, run.
 
@@ -330,6 +340,13 @@ def serve_forever(
     returns an exit code to abort with, or None to proceed. A seam whose
     setup is carried entirely by ``connection`` (the eznec daemon: the basis
     rides in the seam closure) passes nothing.
+
+    ``pool_factory(log, idle_timeout)`` builds the server's worker pool
+    (:mod:`momwire.serve._pool`, momwire#1418), or returns None to keep the
+    one-lock, in-process server. A pool is started before the server binds
+    -- so its first worker imports while the first client is still finding
+    the address -- reaches every connection as ``connection(..., pool=pool)``,
+    and is stopped after the accept loop ends.
     """
     if not path:
         sys.stderr.write("--serve needs --socket PATH\n")
@@ -347,6 +364,15 @@ def serve_forever(
             if code is not None:
                 log.flush()
                 return code
-        return Server(path, idle_timeout, log, connection).run()
+        pool = pool_factory(log, idle_timeout) if pool_factory is not None else None
+        if pool is None:
+            return Server(path, idle_timeout, log, connection).run()
+        pool.start()
+        try:
+            return Server(
+                path, idle_timeout, log, functools.partial(connection, pool=pool)
+            ).run()
+        finally:
+            pool.close()
     finally:
         log.close()

@@ -1,5 +1,5 @@
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 #
 # --------------------( SYNOPSIS                           )--------------------
@@ -45,12 +45,17 @@ description = """\
     Unbearably fast near-real-time pure-Python runtime-static type-checker.\
     """
 
-# Relative filename of the top-level file describing project licensing.
+# SPDX-compliant license expression describing project licensing. Urgh. No one
+# has any idea what SPDX means (and neither do I). Bike-shedding: "Begone!"
+license = "MIT"
+
+# List of the relative filenames of all top-level files describing project
+# licensing.
 #
 # Note that PEP 621 prohibits this table (i.e., dictionary) from defining both
 # the "file" and "text" keys (e.g., 'text = "MIT"'). While defining both would
 # certainly be preferable, the "file" key takes precedence over the "text" key.
-license = { file = "LICENSE" }
+license-files = ["LICENSE"]
 
 # Relative filename of the top-level file describing this project. Read it and
 # then weep as your eyes bleed! \o/
@@ -190,38 +195,52 @@ dependencies = []
 # extras in comma-delimited fashion: e.g.,
 #     $ pip install beartype[doc-rtd,test-tox]
 #
-# Note that PEP 621 explicitly supports dependency composition through
-# self-referential "extras". See also this awesome StackOverflow answer:
-#     https://stackoverflow.com/a/72524073/2809027
+# Note that:
+# * PEP 508 standardized dependency conditionals via so-called "environment
+#   markers" or "dependency specifiers."
+# * PEP 621 standardized dependency composition through self-referential
+#   "extras". See also this awesome StackOverflow answer:
+#       https://stackoverflow.com/a/72524073/2809027
+# * PEP 780 extends PEP 508 with additional support for exposing low-level ABI
+#   features intrinsic to the active Python interpreter as environment markers.
+#   If accepted, this PEP would enable dependencies listed below to
+#   conditionally apply *ONLY* to non-free-threaded builds. Sadly, this PEP has
+#   yet to be accepted (and might never be). Until accepted, we effectively have
+#   *NO* means of safely installing dependencies that remain hostile to
+#   free-threaded builds and thus *NO* means of safely testing free-threaded
+#   builds at all. Free-threading: still a mess after all these years. See also:
+#       https://peps.python.org/pep-0780
 [project.optional-dependencies]
 
 #FIXME: Most of these "extras" should be transformed into PEP 735-compliant
 #"[dependency-groups]" instead. Since the current approach "just works," we
 #can't really be bothered to do the right thing at the moment. See also:
-#    https://peps.python.org/pep-0735
+#* "uv"-specific documentation on "[dependency-groups]", which is probably more
+#  readable (and useful) than that of the original PEP:
+#      https://docs.astral.sh/uv/concepts/projects/dependencies/#development-dependencies
+#* Official PEP 735 proposal:
+#      https://peps.python.org/pep-0735
 
 # GitHub Pages (GHP)-specific documentation-time package dependencies required
 # to automatically build documentation for this project from GitHub's homegrown
 # hosting service.
 doc-ghp = [
     # ....................{ THEME                          }....................
-    # Theme stack -- which transitively requires reasonably recent versions of
-    # both MkDocs itself as well as all requisite MkDocs plugins. Note that:
-    # * The "imaging" extra is required by popular optional "mkdocs-material"
-    #   plugins (e.g., "optimize", "social"). Doing so installs Python-centric
-    #   image-processing packages like CairoSVG and Pillow, which *COULD* prove
-    #   non-trivial to install under edge-case environments and platforms.
-    "mkdocs-material[imaging] >=9.6.0",
+    # It's now sensical
+    # To prep for Zensical
+    # Extend your tenticles,
+    # To welcome, welcome, welcome, welcome Zensical!
+    "zensical >=0.0.43",
 
     # ....................{ EXTENSIONS                     }....................
     # API reference generation stack -- which transitively requires a reasonably
     # recent version of the third-party "mkdocstrings" extension as well.
-    "mkdocstrings-python >=1.16.0",
+    "mkdocstrings-python >=2.0.3",
 
     # "mkdocstrings-python"-specific third-party extension expanding the default
     # "mkdocstrings-python" support for absolute cross-references with
     # additional support for relative cross-references.
-    "mkdocstrings-python-xref >=1.16.0",
+    "mkdocstrings-python-xref >=2.1.1",
 ]
 
 #FIXME: Remove *AFTER* successfully migrating from RTD to GHP.
@@ -374,14 +393,16 @@ test-tox = [
     # ....................{ DOCUMENTATION                  }....................
     # Documentation-centric optional test-time dependencies.
 
-    # Required by optional Docutils-specific integration tests. Dismantled, this
-    # is:
-    # * "docutils 0.22.0" deprecated the "writer_name" parameter accepted by the
-    #   docutils.core.publish_parts() function.
-    "docutils >=0.22.0",
-
-    # Required by optional Sphinx-specific integration tests.
-    "sphinx",
+    #FIXME: Replace with Zensical equivalents when time permits to convert all
+    #obsolete Docutils- and Sphinx-specific integration tests, please! *sigh*
+    # # Required by optional Docutils-specific integration tests. Dismantled, this
+    # # is:
+    # # * "docutils 0.22.0" deprecated the "writer_name" parameter accepted by the
+    # #   docutils.core.publish_parts() function.
+    # "docutils >=0.22.0",
+    #
+    # # Required by optional Sphinx-specific integration tests.
+    # "sphinx",
 
     # ....................{ DOOR                           }....................
     # DOOR-specific optional test-time dependencies required to exercise all
@@ -393,11 +414,11 @@ test-tox = [
     # ....................{ ETC                            }....................
     # Miscellaneous optional test-time dependencies.
 
-    #FIXME: Reenable Python >= 3.14 support *AFTER* nuitka and all reverse
+    #FIXME: Re-enable Python >= 3.15 support *AFTER* nuitka and all reverse
     #dependencies thereof officially ship Python 3.14 wheels.
     # Required by optional nuitka-specific integration tests if the current
     # platform is a Linux distribution.
-    "nuitka >=1.2.6; sys_platform == 'linux' and python_version < '3.14.0'",
+    "nuitka >=1.2.6; sys_platform == 'linux' and python_version < '3.15.0'",
 
     # ....................{ CLI                            }....................
     # Required by optional Typer-specific integration tests.
@@ -420,15 +441,19 @@ test-tox = [
     # Required by optional Redis-specific integration tests.
     "redis",
 
-    # Required by optional SQLAlchemy-specific integration tests.
-    "sqlalchemy",
+    # Required by optional SQLAlchemy-specific integration tests. These tests
+    # leverage the even *MORE* optional "sqlalchemy.ext.asyncio" subpackage,
+    # whose usage requires that SQLAlchemy be installed with the corresponding
+    # "asyncio" extra here. That extra then brings in extraneous third-party
+    # dependencies imported by that subpackage (e.g., "greenlet"). *sigh*
+    "sqlalchemy[asyncio]",
 
     # ....................{ SCIENCE ~ data                 }....................
     # Data science-centric optional test-time dependencies.
 
-    #FIXME: Reenable Python >= 3.14 support *AFTER* Numba supports Python 3.14.
+    #FIXME: Re-enable Python >= 3.15 support *AFTER* Numba supports Python 3.15.
     # Required by optional numba-specific integration tests.
-    "numba; python_version < '3.14.0'",
+    "numba; python_version < '3.15.0'",
 
     # ....................{ SCIENCE ~ data : ml            }....................
     # Machine learning-centric optional test-time dependencies. These
@@ -438,16 +463,16 @@ test-tox = [
     # improve the likelihood of success on both local and remote workflows,
     # these dependencies are intentionally confined to Linux.
 
-    #FIXME: Reenable Python >= 3.14 support *AFTER* PyTorch supports Python
+    #FIXME: Re-enable Python >= 3.15 support *AFTER* PyTorch supports Python
     #3.14.
     # Required by optional PyTorch-specific integration tests if the current
     # platform is a Linux distribution.
-    "torch; sys_platform == 'linux' and python_version < '3.14.0'",
+    "torch; sys_platform == 'linux' and python_version < '3.15.0'",
 
     # ....................{ SCIENCE ~ data : ml : jax      }....................
     # JAX-specific optional test-time dependencies.
 
-    #FIXME: Reenable Python >= 3.15 support *AFTER* JAX is readily installable
+    #FIXME: Re-enable Python >= 3.15 support *AFTER* JAX is readily installable
     #under Python 3.15. JAX requires so many mandatory dependencies that this
     #may take some time indeed. For example, JAX transitively requires SciPy,
     #which currently fails to ship Python 3.15 wheels and, moreover, is not even
@@ -469,7 +494,7 @@ test-tox = [
     # Required by optional JAX- and Equinox-specific integration tests.
     "jaxtyping; sys_platform == 'linux'",
 
-    #FIXME: Reenable Python >= 3.15 support *AFTER* JAX is readily installable
+    #FIXME: Re-enable Python >= 3.15 support *AFTER* JAX is readily installable
     #under Python 3.15. See above for further commentary.
     # Required by optional Equinox-specific integration tests. Note that Equinox
     # requires JAX.
@@ -478,45 +503,49 @@ test-tox = [
     # ....................{ SCIENCE ~ data : ml : numpy    }....................
     # NumPy-specific optional test-time dependencies.
 
-    #FIXME: Reenable Python >= 3.15 support *AFTER* NumPy supports Python 3.14.
+    #FIXME: Re-enable Python >= 3.15 support *AFTER* NumPy supports Python 3.15
+    #with officially published wheels. *sigh*
     #FIXME: Consider dropping the 'and platform_python_implementation != "PyPy"'
     #clause now that "tox.ini" installs NumPy wheels from a third-party vendor
     #explicitly supporting PyPy.
-    # Require NumPy. NumPy has become *EXTREMELY* non-trivial to install under
-    # macOS with "pip", due to the conjunction of multiple issues. These
-    # include:
-    # * NumPy > 1.18.0, whose initial importation now implicitly detects
-    #   whether the BLAS implementation NumPy was linked against is sane and
-    #   raises a "RuntimeError" exception if that implementation is insane:
-    #       RuntimeError: Polyfit sanity test emitted a warning, most
-    #       likely due to using a buggy Accelerate backend. If you
-    #       compiled yourself, more information is available at
-    #       https://numpy.org/doc/stable/user/building.html#accelerated-blas-lapack-libraries
-    #       Otherwise report this to the vendor that provided NumPy.
-    #       RankWarning: Polyfit may be poorly conditioned
-    # * Apple's blatantly broken multithreaded implementation of their
-    #   "Accelerate" BLAS replacement, which neither NumPy nor "pip" have *ANY*
-    #   semblance of control over.
-    # * "pip" under PyPy, which for unknown reasons fails to properly install
-    #   NumPy even when the "--force-reinstall" option is explicitly passed to
-    #   "pip". Oddly, passing that option to "pip" under CPython resolves this
-    #   issue -- which is why we only selectively disable NumPy installation
-    #   under macOS + PyPy.
+    # Required by optional NumPy-specific integration tests. Note that:
+    # * The minimal NumPy version required by these tests is best specified
+    #   elsewhere by the
+    #   "beartype._metaverse.LIB_RUNTIME_OPTIONAL_VERSION_MINIMUM_NUMPY" global.
+    # * NumPy has become *EXTREMELY* non-trivial to install under macOS with
+    #   "pip", due to the conjunction of multiple issues. These include:
+    #   * NumPy > 1.18.0, whose initial importation now implicitly detects
+    #     whether the BLAS implementation NumPy was linked against is sane and
+    #     raises a "RuntimeError" exception if that implementation is insane:
+    #         RuntimeError: Polyfit sanity test emitted a warning, most
+    #         likely due to using a buggy Accelerate backend. If you
+    #         compiled yourself, more information is available at
+    #         https://numpy.org/doc/stable/user/building.html#accelerated-blas-lapack-libraries
+    #         Otherwise report this to the vendor that provided NumPy.
+    #         RankWarning: Polyfit may be poorly conditioned
+    #   * Apple's blatantly broken multithreaded implementation of their
+    #     "Accelerate" BLAS replacement, which neither NumPy nor "pip" have
+    #     *ANY* semblance of control over.
+    #   * "pip" under PyPy, which for unknown reasons fails to properly install
+    #     NumPy even when the "--force-reinstall" option is explicitly passed to
+    #     "pip". Oddly, passing that option to "pip" under CPython resolves this
+    #     issue -- which is why we only selectively disable NumPy installation
+    #     under macOS + PyPy.
     #
-    # See also this upstream NumPy issue:
-    #     https://github.com/numpy/numpy/issues/15947
+    #   See also this upstream NumPy issue:
+    #       https://github.com/numpy/numpy/issues/15947
     """numpy; \
        python_version < '3.15.0' and \
        sys_platform != 'darwin' and \
        platform_python_implementation != 'PyPy'\
     """,
 
-    #FIXME: Reenable Python >= 3.14 support *AFTER* explicitly supported.
+    #FIXME: Re-enable Python >= 3.15 support *AFTER* explicitly supported.
     #See above for further commentary.
     # Required by optional LangChain-specific integration tests. Note that
     # LangChain requires both NumPy and Pydantic.
     """langchain; \
-       python_version < '3.14.0' and \
+       python_version < '3.15.0' and \
        sys_platform != 'darwin' and \
        platform_python_implementation != 'PyPy'\
     """,
@@ -524,20 +553,19 @@ test-tox = [
     # ....................{ SCIENCE ~ data : ml : dataframe}....................
     # DataFrame (e.g., Pandas, Polars)-specific optional test-time dependencies.
 
-    #FIXME: Reenable Python >= 3.14 support *AFTER* explicitly supported. See:
-    #    https://github.com/unionai-oss/pandera/pull/2158
+    #FIXME: Re-enable Python >= 3.15 support *AFTER* explicitly supported.
     # Required by optional Pandera-specific integration tests. Note that:
     # * Pandera requires Pydantic and Pandas.
     # * The @beartype test suite requires pandera >= 0.26.0. Prior pandera
     #   versions were Pandas-specific. Modern pandera versions are API-agnostic
     #   and now support a wide variety of DataFrame-like APIs, including Polars.
-    "pandera >= 0.26.0; python_version < '3.14.0'",
+    "pandera >= 0.26.0; python_version < '3.15.0'",
 
-    #FIXME: Reenable Python >= 3.14 support *AFTER* explicitly supported.
+    #FIXME: Re-enable Python >= 3.15 support *AFTER* explicitly supported.
     # Required by optional Pandera- and Polars-specific integration tests.
-    "polars; python_version < '3.14.0'",
+    "polars; python_version < '3.15.0'",
 
-    #FIXME: Reenable Python >= 3.15 support *AFTER* explicitly supported
+    #FIXME: Re-enable Python >= 3.15 support *AFTER* explicitly supported
     # Required by optional xarray-specific integration tests. Note that xarray
     # requires Pandas.
     "xarray; python_version < '3.15.0'",
@@ -545,10 +573,13 @@ test-tox = [
     # ....................{ SCIENCE ~ data : ml : pydantic }....................
     # Pydantic-specific optional test-time dependencies.
 
-    #FIXME: Reenable Python >= 3.14 support *AFTER* explicitly supported.
-    # Required by optional FastMCP-specific integration tests. Note that FastMCP
-    # requires Pydantic.
-    "fastmcp; python_version < '3.14.0'",
+    #FIXME: Re-enable Python >= 3.16 support *AFTER* explicitly supported.
+    # Required by optional FastMCP-specific integration tests. Note that:
+    # * FastMCP requires Pydantic.
+    # * The @beartype test suite requires FastMCP >= 4.0.0, which broke backward
+    #   compatibility with prior versions by fundamentally revising its
+    #   client-server protocol.
+    "fastmcp >= 4.0.0; python_version < '3.16.0'",
 
     #FIXME: Actually, let's *NOT* install "pyarrow". "pyarrow" is super-intense,
     #because Apache Arrow is super-intense. Since nothing in @beartype requires
@@ -561,6 +592,12 @@ test-tox = [
     # resembling:
     #       TypeError: pyarrow must be installed to use pyarrow dtypes.
     # "pyarrow",
+
+    # ....................{ QA                             }....................
+    # QA (quality assurance)-centric optional test-time dependencies.
+
+    # Required by optional CrossHair-specific integration tests.
+    "crosshair-tool",
 
     # ....................{ TYPING                         }....................
     # Typing-centric optional test-time dependencies.
@@ -659,7 +696,7 @@ build-backend = "hatchling.build"
 # Relative filename of the Python submodule defining either a PEP 8-compliant
 # "__version__" dunder global *OR* a PEP-noncompliant "VERSION" global, which
 # Hatch then statically parses to obtain the current version of this project.
-path = "beartype/meta.py"
+path = "beartype/_metaverse.py"
 
 # ....................{ NON-PEP ~ hatch : path             }....................
 # PEP-noncompliant section declaring Hatch-specific build settings. Note that:
@@ -719,7 +756,6 @@ include = [
     "/*.md",
     "/*.rst",
     "/conftest.py",
-    "/mkdocs",
     "/mypy",
     "/mypy.ini",
     "/pyproject.toml",
@@ -735,7 +771,7 @@ include = [
 
     # Relative dirnames of all requisite top-level installation-time
     # directories, including:
-    # * All up-to-date MkDocs-specific files documenting this project in the
+    # * All up-to-date Zensical-specific files documenting this project in the
     #   top-level "docs/" subdirectory.
     # * All obsolete Sphinx-specific files documenting this project in the
     #   top-level "doc/" subdirectory.
@@ -765,6 +801,67 @@ include = [
     # Relative filenames of all requisite package-level installation-time files.
     "/beartype/py.typed",
 ]
+
+# ....................{ NON-PEP ~ codespell                }....................
+# See also:
+# * Official Codespell documentation for "pyproject.toml" integration.
+#   https://github.com/codespell-project/codespell#using-a-config-file
+[tool.codespell]
+# Comma-delimited list of all POSIX-compliant globs matching the unqualified
+# basenames of *ALL* files to be ignored for spell-check purposes.
+skip = '.git,.git-meta,.gitignore,.gitattributes,*.svg,*.css,*.min.*,*-min.*,build,dist,.venv,.tox,.npm,.cache'
+
+#FIXME: No idea. *lol*
+check-hidden = true
+
+# Protect URLs from spelling "fixes" (e.g., links containing literal typos).
+ignore-regex = 'https?://\S+'
+
+# Comma-delimited list of all words otherwise incorrectly spell-checked as
+# misspelled to be explicitly marked as well-spelled. This includes:
+# * Informal author voice (e.g., "alot", "gud", "welp", "noice", "doin").
+# * Archaic/poetic words in Coleridge/Shelley/Keats/Yeats fixtures (e.g.,
+#   "alph", "covert", "fane", "gird", "panting", "raison", "sate", "tread",
+#   "wont", "unsecure"). Note that "wont" is particularly critical. Why? Because
+#   auto-correcting that to "won't" erroneously engenders syntactically invalid
+#   code by breaking the single-quoted string literal containing that term in
+#   the Keats "Hyperion" test fixture.
+# * "ore" in test poetry.
+# * Python's AsyncGenerator.asend() method.
+# * The beartype-specific "hint_childs" naming convention.
+# * The regex char class "[Ll]ist".
+# * Partial or parenthesised tokens like "(mis)used", "offs and ons",
+#   "...thi...", wrapp[ee|er].
+# Thought exercise: Is "commonly misspelled" an oxymoron?
+ignore-words-list = """
+    alot,\
+    alph,\
+    asend,\
+    atomical,\
+    childs,\
+    covert,\
+    doin,\
+    fane,\
+    gird,\
+    gud,\
+    ist,\
+    mis,\
+    noice,\
+    ons,\
+    ore,\
+    panting,\
+    raison,\
+    sate,\
+    teh,\
+    thar,\
+    thi,\
+    tread,\
+    unsecure,\
+    welp,\
+    wont,\
+    worl,\
+    wrapp,\
+"""
 
 # ....................{ NON-PEP ~ pyright                  }....................
 # PEP-noncompliant section declaring pyright-specific settings. See also:

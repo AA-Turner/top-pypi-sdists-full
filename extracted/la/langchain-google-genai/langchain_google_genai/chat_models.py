@@ -507,12 +507,16 @@ def _uses_fixed_sampling_and_disallows_prefill(model_name: str) -> bool:
     return normalized_model in _FIXED_SAMPLING_AND_NO_PREFILL_MODELS
 
 
+_GEMINI_MAJOR_VERSION = re.compile(r"gemini-(\d+)")
+
+
 def _is_gemini_3_or_later(model_name: str) -> bool:
     """Checks if the model is Gemini 3 or later."""
     if not model_name:
         return False
-    model_name = model_name.lower().replace("models/", "")
-    return "gemini-3" in model_name
+    return any(
+        int(major) >= 3 for major in _GEMINI_MAJOR_VERSION.findall(model_name.lower())
+    )
 
 
 def _is_gemini_25_model(model_name: str) -> bool:
@@ -1034,6 +1038,8 @@ def _convert_to_parts(
                 and (v1beta_part := _v1beta_dict_to_part(part)) is not None
             ):
                 parts.append(v1beta_part)
+            elif part.keys() == {"cachePoint"}:
+                pass
             else:
                 # Yolo. The input message content doesn't have a `type` key
                 logger.warning(

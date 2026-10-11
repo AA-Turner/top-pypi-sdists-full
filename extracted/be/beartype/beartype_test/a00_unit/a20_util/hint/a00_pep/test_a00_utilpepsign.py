@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -17,14 +17,14 @@ This submodule unit tests the public API of the private
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 # ....................{ TESTS                              }....................
-def test_get_hint_pep_sign(hints_pep_meta) -> None:
+def test_get_hint_pep_sign(hints_piths_pep_meta) -> None:
     '''
     Test the
     :func:`beartype._util.hint.pep.utilpepget.get_hint_pep_sign` getter.
 
     Parameters
     ----------
-    hints_pep_meta : List[beartype_test.a00_unit.data.hint.util.data_hintmetacls.HintPepMetadata]
+    hints_piths_pep_meta : List[beartype_test.a00_unit.data.hint.cls.pith.data_clshintpith.HintPepMetadata]
         List of PEP-compliant type hint metadata describing sample PEP-compliant
         type hints exercising edge cases in the :mod:`beartype` codebase.
     '''
@@ -40,7 +40,7 @@ def test_get_hint_pep_sign(hints_pep_meta) -> None:
 
     # Assert this getter returns the expected unsubscripted "typing" attribute
     # for all PEP-compliant type hints associated with such an attribute.
-    for hint_pep_meta in hints_pep_meta:
+    for hint_pep_meta in hints_piths_pep_meta:
         # Localize this hint to simplify debugging.
         hint = hint_pep_meta.hint
         assert get_hint_pep_sign(hint) is hint_pep_meta.pep_sign

@@ -94,6 +94,103 @@ describe.skipIf(!process.env.CLOAKBROWSER_BINARY_PATH)('humanize engine (real br
 
   // --- wiring -------------------------------------------------------------
 
+  it('humanized reads resolve in the isolated world: correct values, page state untouched', async () => {
+    const p: any = await open();
+    const dispatched = async () => p.evaluate(() => (window as any).__dispatched.length);
+    const before = await dispatched();
+
+    await p.fill('#name', 'laptop');
+    const reads = {
+      inputValue: await p.inputValue('#name'),
+      locatorInputValue: await p.locator('#name').inputValue(),
+      handleInputValue: await (await p.$('#name')).inputValue(),
+      textContent: await p.textContent('#btn'),
+      innerText: await p.innerText('#btn'),
+      innerHTML: await p.innerHTML('#btn'),
+      getAttribute: await p.getAttribute('#btn', 'id'),
+      locatorTextContent: await p.locator('#btn').textContent(),
+    };
+
+    expect(reads.inputValue).toBe('laptop');
+    expect(reads.locatorInputValue).toBe('laptop');
+    expect(reads.handleInputValue).toBe('laptop');
+    expect(reads.getAttribute).toBe('btn');
+    expect(reads.textContent).toBe(reads.locatorTextContent);
+    expect(reads.innerText).toBe(reads.textContent);
+    expect(reads.innerHTML).toBe(reads.textContent);
+    expect(await dispatched()).toBe(before);
+  });
+
+  it('dispatchEvent reaches a page listener with the same event shape', async () => {
+    const p: any = await open();
+    await p.evaluate(() => {
+      (window as any).__clicks = [];
+      document.addEventListener('click', (e) => {
+        (window as any).__clicks.push({ mouse: e instanceof MouseEvent, bubbles: e.bubbles, x: (e as MouseEvent).clientX });
+      });
+    });
+
+    await p.dispatchEvent('#btn', 'click', { clientX: 7, clientY: 9 });
+    await p.locator('#btn').dispatchEvent('click', { clientX: 3, clientY: 4 });
+
+    const clicks = await p.evaluate(() => (window as any).__clicks);
+    expect(clicks).toHaveLength(2);
+    expect(clicks[0]).toEqual({ mouse: true, bubbles: true, x: 7 });
+  });
+
+  it('handle reads of hidden or same-box elements use the raw path at once', async () => {
+    const p: any = await open();
+    await p.evaluate(() => {
+      document.head.insertAdjacentHTML('beforeend', '<meta name="csrf" content="tok123">');
+      document.body.insertAdjacentHTML('beforeend', '<input id="hid" type="hidden" value="secret">'
+        + '<div id="outer" style="width:90px;height:30px"><div id="inner" style="width:90px;height:30px"></div></div>');
+    });
+    const t = Date.now();
+    expect(await (await p.$('meta[name="csrf"]')).getAttribute('content')).toBe('tok123');
+    expect(await (await p.$('#hid')).inputValue()).toBe('secret');
+    expect(Date.now() - t).toBeLessThan(5000);
+    // A read must land on the handle's own element, not its same-box wrapper.
+    expect(await (await p.$('#inner')).getAttribute('id')).toBe('inner');
+    expect(await (await p.$('#outer')).getAttribute('id')).toBe('outer');
+  });
+
+  it('dispatchEvent with a JSHandle in eventInit uses the raw path', async () => {
+    const p: any = await open();
+    await p.evaluate(() => {
+      (window as any).__dt = [];
+      document.addEventListener('dragstart', (e) => (window as any).__dt.push(e.dataTransfer instanceof DataTransfer));
+    });
+    const dt = await p.evaluateHandle(() => new DataTransfer());
+    await p.dispatchEvent('#btn', 'dragstart', { dataTransfer: dt });
+    await p.locator('#btn').dispatchEvent('dragstart', { dataTransfer: dt });
+    expect(await p.evaluate(() => (window as any).__dt)).toEqual([true, true]);
+  });
+
+  it('a license guard installed on a humanized page does not disable humanize', async () => {
+    // The guard stores its wrapper on the page object (it carries this launch's
+    // denial path), so the order it is applied in decides which methods it holds.
+    // Installed on an already-humanized page it must forward to the human engine.
+    const p: any = await open();
+    const { installLicenseGuard } = await import('../src/license.js');
+    installLicenseGuard(p, '/tmp/denial-compose-test');
+    await p.evaluate(() => {
+      (window as any).__m = 0;
+      document.addEventListener('mousemove', () => { (window as any).__m += 1; }, true);
+    });
+
+    await p.click('#btn');
+
+    // A humanized click travels in a curve; Playwright's own click teleports (1-2).
+    expect(await p.evaluate(() => (window as any).__m)).toBeGreaterThan(3);
+  });
+
+  it('the probe works: the page records events dispatched in its own world', async () => {
+    const p: any = await open();
+    const before = await p.evaluate(() => (window as any).__dispatched.length);
+    await p.evaluate(() => document.getElementById('btn')!.dispatchEvent(new Event('probe')));
+    expect(await p.evaluate(() => (window as any).__dispatched.length)).toBe(before + 1);
+  });
+
   it('page is humanized and keeps the compat attributes', async () => {
     const p: any = await open();
     expect(p._humanCfg.mistype_chance).toBe(0);
@@ -333,6 +430,44 @@ describe.skipIf(!process.env.CLOAKBROWSER_BINARY_PATH)('humanize engine (real br
     await (await p.$('#chk'))!.setChecked(true);
     expect(await p.isChecked('#chk')).toBe(true);
     expect(await p.selectOption('#sel', { index: 1 })).toEqual(['b']);
+  });
+
+  it('selectOption on a long dropdown types ahead instead of walking every row (#581)', async () => {
+    const p = await open();
+    await p.evaluate(() => {
+      const s = document.createElement('select'); s.id = 'long';
+      for (let i = 0; i < 205; i++) s.add(new Option('Country ' + String(i).padStart(3, '0'), 'v' + i));
+      (window as any).__sel = [];
+      for (const t of ['input', 'change']) s.addEventListener(t, () => (window as any).__sel.push(t));
+      document.body.append(s);
+    });
+    await reset(p);
+    expect(await p.selectOption('#long', 'v150')).toEqual(['v150']);
+    const keys = (await events(p, 'keydown')).map((e) => e.key);
+    expect(keys).not.toContain('ArrowDown');
+    expect(keys.length).toBeLessThanOrEqual(13);
+    const sel: string[] = await p.evaluate(() => (window as any).__sel);
+    // A macOS dropdown moves on every typed letter (one input/change each); elsewhere only Enter commits.
+    expect(sel.slice(-2)).toEqual(['input', 'change']);
+    if (process.platform !== 'darwin') expect(sel).toHaveLength(2);
+    await p.evaluate(() => { (document.querySelector('#long') as HTMLSelectElement).selectedIndex = 0; });
+    const e = await p.selectOption('#long', 'v200', { timeout: 200 }).catch((x) => x);
+    expect(e).toBeInstanceOf(errors.TimeoutError);
+  });
+
+  it('selectOption on emoji labels uses arrows, and refuses on macOS', async () => {
+    // Blink's type-ahead drops a typed emoji; a macOS popup ignores arrows.
+    const p = await open();
+    await p.evaluate(() => {
+      const s = document.createElement('select'); s.id = 'emoji';
+      for (const [l, v] of [['Pick one', ''], ['🍎 Apple', 'a'], ['🍌 Banana', 'b'], ['🍒 Cherry', 'c']]) s.add(new Option(l, v));
+      document.body.append(s);
+    });
+    if (process.platform === 'darwin') {
+      await expect(p.selectOption('#emoji', 'c')).rejects.toThrow(/cannot be picked with human input/);
+    } else {
+      expect(await p.selectOption('#emoji', 'c')).toEqual(['c']);
+    }
   });
 
   // --- frames and handles ---------------------------------------------------

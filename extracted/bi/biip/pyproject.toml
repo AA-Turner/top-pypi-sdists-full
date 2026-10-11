@@ -1,9 +1,9 @@
 [project]
 name = "biip"
-version = "5.0.0"
+version = "5.1.0"
 description = "Biip interprets the data in barcodes."
 authors = [{ name = "Stein Magnus Jodal", email = "stein.magnus@jodal.no" }]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 readme = "README.md"
 license = "Apache-2.0"
 keywords = ["barcodes", "ean", "isbn", "gs1", "gtin", "upc"]
@@ -12,9 +12,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries",
 ]
-dependencies = [
-    "typing-extensions>=4.1; python_version<'3.11'"
-]
+dependencies = []
 
 [project.optional-dependencies]
 money = ["py-moneyed>=0.8"]
@@ -39,17 +37,19 @@ dev = [
     { include-group = "mypy" },
     { include-group = "pyright" },
     { include-group = "ruff" },
-    { include-group = "tests" },
     { include-group = "scripts" },
+    { include-group = "tests" },
+    { include-group = "ty" },
+    { include-group = "zizmor" },
 ]
 docs = [
-    "mkdocs-material>=9.4",
-    "mkdocstrings[python]>=0.24",
+    "mkdocstrings-python>=2.0.1",
+    "zensical>=0.0.69",
     { include-group = "ruff" },
 ]
-mypy = ["mypy==1.15.0"]
-pyright = ["basedpyright>=1.31.7"]
-ruff = ["ruff==0.11.2"]
+mypy = ["mypy==2.4.0"]
+pyright = ["basedpyright==1.40.1"]
+ruff = ["ruff==0.16.10"]
 scripts = [
     "beautifulsoup4>=4.13.3",
     "httpx>=0.28.1",
@@ -61,10 +61,12 @@ tests = [
     "pytest-cov>=6.0.0",
     "rich>=13.9.4",
 ]
+ty = ["ty==0.0.84"]
+zizmor = ["zizmor==1.30.1"]
 
 
 [tool.basedpyright]
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 typeCheckingMode = "strict"
 # Already covered by tests and careful import ordering:
 reportImportCycles = false
@@ -119,6 +121,7 @@ select = [
     "UP045",  # non-pep604-annotation-optional
 ]
 ignore = [
+    "CPY",     # flake8-copyright
     "PLR2004", # magic-value-comparison
     "S101",    # assert
     #
@@ -146,22 +149,29 @@ ignore-one-line-docstrings = true
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[tool.ruff.lint.pyupgrade]
-keep-runtime-typing = true
+
+[tool.rumdl]
+flavor = "mkdocs"
+
+[tool.rumdl.MD013]
+# Code blocks contain doctest output that cannot be wrapped:
+code-blocks = false
 
 
 [tool.tox]
 env_list = [
-    "3.10",
     "3.11",
     "3.12",
     "3.13",
     "3.14",
+    "3.15",
     "docs",
     "mypy",
     "pyright",
+    "ty",
     "ruff-format",
     "ruff-check",
+    "zizmor",
 ]
 
 [tool.tox.env_run_base]
@@ -183,7 +193,7 @@ commands = [
 [tool.tox.env.docs]
 dependency_groups = ["docs"]
 extras = ["money"]
-commands = [["mkdocs", "build", "--site-dir={envtmpdir}"]]
+commands = [["zensical", "build", "--clean", "--strict"]]
 
 [tool.tox.env.mypy]
 dependency_groups = ["scripts", "tests", "mypy"]
@@ -213,6 +223,20 @@ commands = [
     ],
 ]
 
+[tool.tox.env.ty]
+dependency_groups = ["scripts", "tests", "ty"]
+extras = ["money"]
+commands = [
+    [
+        "ty",
+        "check",
+        { replace = "posargs", default = [
+            "src",
+            "tests",
+        ], extend = true },
+    ],
+]
+
 [tool.tox.env.ruff-format]
 skip_install = true
 dependency_groups = ["ruff"]
@@ -222,3 +246,8 @@ commands = [["ruff", "format", "--check", "{posargs:.}"]]
 skip_install = true
 dependency_groups = ["ruff"]
 commands = [["ruff", "check", "{posargs:.}"]]
+
+[tool.tox.env.zizmor]
+skip_install = true
+dependency_groups = ["zizmor"]
+commands = [["zizmor", "{posargs:.}"]]

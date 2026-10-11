@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -15,12 +15,13 @@ This private submodule is *not* intended for importation by downstream callers.
 # ....................{ IMPORTS                            }....................
 from beartype.roar import BeartypeDecorHintPep695Exception
 from beartype.typing import Optional
-from beartype._cave._cavefast import HintPep695TypeAlias
+from beartype._cave._cavefast import HintPep695TypeAliasTypes
 from beartype._check.convert._reduce._redrecurse import (
     is_hint_recursive,
     make_hint_sane_recursable,
 )
-from beartype._check.metadata.hint.hintsane import (
+from beartype._check.cls.call.calldataabc import BeartypeCallDataABC
+from beartype._check.cls.hint.hintsane import (
     HINT_SANE_RECURSIVE,
     HintOrSane,
     HintSane,
@@ -32,6 +33,7 @@ from beartype._util.hint.pep.proposal.pep695 import (
 
 # ....................{ REDUCERS                           }....................
 def reduce_hint_pep695_subbed(
+    call_curr: BeartypeCallDataABC,
     hint: Hint,
     hint_parent_sane: Optional[HintSane],
     exception_prefix: str,
@@ -49,6 +51,10 @@ def reduce_hint_pep695_subbed(
 
     Parameters
     ----------
+    call_curr : BeartypeCallDataABC
+        **Beartype call metadata** (i.e., dataclass aggregating *all* common
+        metadata encapsulating the user-defined callable, type, or statement
+        currently being type-checked by the end user).
     hint : Hint
         Subscripted hint to be inspected.
     hint_parent_sane : Optional[HintSane]
@@ -86,7 +92,7 @@ def reduce_hint_pep695_subbed(
 
     # ....................{ IMPORTS                        }....................
     # Avoid circular import dependencies.
-    from beartype._check.convert._reduce._pep.redpep484612646 import (
+    from beartype._check.convert._reduce._pep.pep646.redpep484612646typearg import (
         reduce_hint_pep484612646_subbed_typeargs_to_hints)
 
     # ....................{ RECURSE                        }....................
@@ -124,6 +130,7 @@ def reduce_hint_pep695_subbed(
     #   this subscripted alias.
     # print(f'[reduce_hint_pep484585_generic_subbed] Reducing subscripted generic {repr(hint)}...')
     hint_or_sane = reduce_hint_pep484612646_subbed_typeargs_to_hints(
+        call_curr=call_curr,
         hint=hint,
         hint_parent_sane=hint_parent_sane,
         exception_prefix=exception_prefix,
@@ -194,7 +201,7 @@ def reduce_hint_pep695_unsubbed(
 
     Parameters
     ----------
-    hint : HintPep695TypeAlias
+    hint : HintPep695TypeAliasTypes
         Unsubscripted type alias to be reduced.
     hint_parent_sane : Optional[HintSane]
         Either:
@@ -226,7 +233,7 @@ def reduce_hint_pep695_unsubbed(
         beartype import hooks in favour of manually decorating callables and
         classes with the :func:`beartype.beartype` decorator.
     '''
-    assert isinstance(hint, HintPep695TypeAlias), (
+    assert isinstance(hint, HintPep695TypeAliasTypes), (
         f'{repr(hint)} not PEP 695-compliant unsubscripted type alias.')
 
     # ....................{ RECURSE                        }....................

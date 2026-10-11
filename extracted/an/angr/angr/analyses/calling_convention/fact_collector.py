@@ -190,10 +190,19 @@ class SimEngineFactCollectorVEX(
     The engine for FactCollector.
     """
 
-    def __init__(self, project, bp_as_gpr: bool, track_arg_uses: bool, seen_reg_uses: defaultdict[int, int]):
+    def __init__(
+        self,
+        project,
+        bp_as_gpr: bool,
+        track_arg_uses: bool,
+        seen_reg_uses: defaultdict[int, int],
+        seen_reg_pushes: defaultdict[int, int],
+    ):
         self.bp_as_gpr = bp_as_gpr
         self.track_arg_uses = track_arg_uses
         self.seen_reg_uses = seen_reg_uses
+        #: stores of a register's entry value to the stack (push reg): spills or stack-padding pushes
+        self.seen_reg_pushes = seen_reg_pushes
         super().__init__(project)
         cc_cls = default_cc_for_project(project)
         self._fp_arg_reg_offsets: frozenset[int] = frozenset(
@@ -349,6 +358,7 @@ class SimEngineFactCollectorVEX(
             if data is not None and data[0] == KIND_REG and data[2] == 0:
                 # push reg; we record the stored register as well as the stack slot offset
                 self.state.callee_stored_regs[data[1]] = u2s(addr[2], self.arch.bits)
+                self.seen_reg_pushes[data[1]] += 1
             self.state.simple_stack[addr[2]] = data
         else:
             self._pointer_arg_deref(addr, 2, size)
@@ -512,6 +522,7 @@ class FactCollector(Analysis):
         # Number of bytes popped by code that the function jumps to (e.g., tail calls and split-off continuations)
         self._tailcall_pops: set[int] = set()
         self._seen_reg_uses: defaultdict[int, int] = defaultdict(int)
+        self._seen_reg_pushes: defaultdict[int, int] = defaultdict(int)
 
         self._analyze()
 
@@ -542,7 +553,9 @@ class FactCollector(Analysis):
             return []
 
         bp_as_gpr = self.function.info.get("bp_as_gpr", False)
-        engine = SimEngineFactCollectorVEX(self.project, bp_as_gpr, self._track_arg_uses, self._seen_reg_uses)
+        engine = SimEngineFactCollectorVEX(
+            self.project, bp_as_gpr, self._track_arg_uses, self._seen_reg_uses, self._seen_reg_pushes
+        )
         init_state = FactCollectorState()
         if self.project.arch.call_pushes_ret:
             init_state.sp_value = self.project.arch.bytes
@@ -1027,6 +1040,13 @@ class FactCollector(Analysis):
                         # tail call). Reached through a predecessor, it is `call f; ret`, either `return f()` or
                         # `f(); return;`, and the callers settle which
                         incidental_flags.append(depth > 0)
+                    elif (
+                        func_proto is not None
+                        and (func_proto.returnty is None or isinstance(func_proto.returnty, SimTypeBottom))
+                        and not func.is_prototype_guessed_for(self._flavor)
+                    ):
+                        # a known void callee leaves a leftover in the return register
+                        incidental_flags.append(True)
                     continue
 
                 # if this block ends with a call to a function, we process the function first
@@ -1066,13 +1086,16 @@ class FactCollector(Analysis):
                             # `f(); return;`, and the callers settle which
                             incidental_flags.append(depth > 0)
                             continue
-                        if (
-                            succ_proto is not None
-                            and succ_proto.returnty is not None
-                            and isinstance(succ_proto.returnty, (SimTypeBottom, SimTypeFloat))
+                        if succ_proto is not None and (
+                            succ_proto.returnty is None
+                            or isinstance(succ_proto.returnty, (SimTypeBottom, SimTypeFloat))
                         ):
-                            # callee is void or returns in an FP register - don't scan VEX for return values since
-                            # the call just clobbers rax without returning anything meaningful
+                            # callee is void (a Go prototype spells it None) or returns in an FP register - don't scan
+                            # VEX for return values since the call just clobbers rax without returning anything
+                            # meaningful. A known void callee makes this path's return value a leftover.
+                            known_void = not isinstance(succ_proto.returnty, SimTypeFloat)
+                            if known_void and not func_succ.is_prototype_guessed_for(self._flavor):
+                                incidental_flags.append(True)
                             continue
 
                 block = self.project.factory.block(node.addr, size=node.size)
@@ -1621,7 +1644,8 @@ class FactCollector(Analysis):
                 if reg_offset in callee_restored_regs:
                     callee_saved_regs.add(reg_offset)
                     callee_saved_reg_stack_offsets.add(stack_offset)
-                elif self._seen_reg_uses[reg_offset] < 2:
+                elif self._seen_reg_uses[reg_offset] - self._seen_reg_pushes[reg_offset] < 1:
+                    # the register is only ever pushed (e.g., `push ecx; push ecx` reserving stack space)
                     unused_hint_offsets.add(reg_offset)
 
         arg_reg_cc = default_cc_for_project(self.project)

@@ -56,6 +56,35 @@ acq_chip_phase_of_col (size_t col, size_t code_len, size_t spc)
   const double cl = (double)code_len;
   return dp_fmod_pos (cl - (double)col / (double)spc, cl);
 }
+
+/* The chip phase a hit seeds a code loop with, in Dll's convention: the
+ * inverted lag (acq_chip_phase_of_col) advanced by the dwell's dilation.
+ * Both dp_acq_build_handoff() and the hit's own chip_phase (filled in
+ * acq_report_peaks) call this, so the two cannot drift apart.
+ *
+ * The dwell's dilation (doppler#1254): the non-coherent sum's peak is the
+ * phase at the middle of the dwell; the seed is wanted at its end. A
+ * positive Doppler runs the chip clock fast, so the code is AHEAD of the
+ * peak by the drift over half the dwell -- n_noncoh looks of coherent_bins
+ * epochs each, code_len chips per epoch. Uncoupled (no carrier set) there
+ * is no drift to advance by, so the phase is the inverted lag alone. */
+static double
+acq_handoff_chip_phase (const dp_acq_state_t *state, size_t doppler_bin,
+                        size_t code_phase, size_t code_len, size_t spc)
+{
+  double phase = acq_chip_phase_of_col (code_phase, code_len, spc);
+  if (state->carrier_freq_hz > 0.0)
+    {
+      const double doppler_hz  = acq_bin_doppler_hz (state, doppler_bin);
+      const double dwell_chips = (double)state->n_noncoh
+                                 * (double)state->coherent_bins
+                                 * (double)code_len;
+      phase                    = dp_fmod_pos (
+          phase + doppler_hz / state->carrier_freq_hz * 0.5 * dwell_chips,
+          (double)code_len);
+    }
+  return phase;
+}
 /* Doppler-band mask: with a doppler_uncertainty prior the engine scans only
  * searched_bins rows centred on DC, so the peak search must match (else the
  * lowered Sidak threshold over-counts and realized Pfa exceeds target).
@@ -718,6 +747,7 @@ acq_report_peaks (dp_acq_state_t *st, const float *surf,
         .test_stat        = stat,
         .cn0_dbhz_est     = acq_cn0_dbhz_from_amp_snr (amp_snr, st->fs),
         .samples_consumed = st->samples_consumed,
+        .chip_phase       = acq_handoff_chip_phase (st, r, c, st->sf, st->spc),
       };
     }
   /* This dwell's picks, listed and held, are what the next dwell's
@@ -1920,6 +1950,7 @@ acq_acq_create_impl (const float _Complex *replica, size_t sf,
   st->threads = 1;
   if (continuous && st->window_bins > 1)
     (void)dp_acq_set_threads (st, 0);
+  dp_acq_reset (st); /* binds the framer at the grid just chosen */
   return st;
 
 fail:
@@ -2104,8 +2135,16 @@ dp_acq_set_max_peaks (dp_acq_state_t *st, size_t n)
 void
 dp_acq_reset (dp_acq_state_t *st)
 {
-  DP_STORE_REL (&st->ring->head, 0);
-  DP_STORE_REL (&st->ring->tail, 0);
+  /* The ONE place the framer is bound: a regrid can change frame_n while
+     keeping a ring already big enough for it (acq_regrid), so the framer is
+     bound here, at the current frame_n, after the ring is emptied -- never
+     inside the regrid. It cannot refuse: the regrid sized the ring for
+     frame_n and the ring was just emptied, which is all init checks. */
+  dp_f32_reset (st->ring);
+  const int bound
+      = dp_f32_framer_init (&st->framer, st->ring, st->frame_n, st->frame_n);
+  (void)bound;
+  st->consumed = 0;
   dp_corr2d_reset (st->corr);
   if (st->nc_surface)
     memset (st->nc_surface, 0, st->n_surf * sizeof (float));
@@ -2223,6 +2262,21 @@ acq_tile_block (size_t r, void *ctx)
     }
 }
 
+/* Would the NEXT frame end a dwell -- report a list? The twin of
+   dp_acq_push's frame loop, below, and it must stay one: the correlator
+   dumps on every frame (its dwell is 1, acq_regrid) except mid-block in
+   wideband mode, where a block of D = coherent_bins epochs dumps on its
+   D-th; and a dump decides unless non-coherent looks are still
+   accumulating. test_acq_core's resume checks go red if either clause is
+   wrong. */
+static int
+acq_next_frame_decides (const dp_acq_state_t *st)
+{
+  const int dumps = st->window_bins <= 1 || st->coherent_bins <= 1
+                    || st->blk_epoch + 1 >= st->coherent_bins;
+  return dumps && (st->n_noncoh <= 1 || st->nc_count + 1 >= st->n_noncoh);
+}
+
 size_t
 dp_acq_push (dp_acq_state_t *st, const float _Complex *x, size_t n_in,
              acq_result_t *result, size_t max_results)
@@ -2235,148 +2289,173 @@ dp_acq_push (dp_acq_state_t *st, const float _Complex *x, size_t n_in,
   const size_t nx       = st->code_bins;
   const size_t wideband = st->window_bins > 1;
 
-  while (off < n_in && ndet < max_results)
+  /* The room a frame that ENDS A DWELL needs: its whole list (max_peaks
+     results). A caller's buffer smaller than a list can never offer that,
+     so then it is the whole buffer -- the dwell is cut to its strongest
+     picks, which the header states -- and never less than one slot, so a
+     push with no room decides nothing. */
+  const size_t need = st->max_peaks < max_results ? st->max_peaks
+                      : max_results               ? max_results
+                                                  : 1;
+
+  /* ONE frame at a time, never a batch: whether the next frame ends a dwell
+     depends on where the dwell stands, which only the frame before it
+     settles, and a dump can report several results -- the detectors'
+     batched feed (det_private.h) would overfill result here. While slots
+     are left, a frame that ends no dwell needs none and is taken; one that
+     does is taken only while `need` slots are left. A FULL result takes
+     nothing more -- the detectors' rule (#2018), and the contract every
+     room-limited caller relies on: a push at room 1 frames nothing past
+     its hit. At the first frame it does not take, the push takes the rest
+     of its input only if the rest completes no frame (it is then the
+     carry) and otherwise stops on the frame boundary: the rest is the
+     caller's, at x + dp_acq_consumed(). So consumed() is where the hit's
+     frame ended unless a carry was taken after it; a hand-off reads the
+     hit's own samples_consumed (dp_acq_position()). */
+  for (;;)
     {
-      size_t head     = DP_LOAD_RLX (&st->ring->head);
-      size_t tail     = DP_LOAD_ACQ (&st->ring->tail);
-      size_t space    = st->ring->capacity - (head - tail);
-      size_t to_write = n_in - off;
-      if (to_write > space)
-        to_write = space;
-
-      if (to_write > 0)
+      const size_t rest = n_in - off;
+      if (ndet == max_results
+          || (acq_next_frame_decides (st) && max_results - ndet < need))
         {
-          dp_f32_write (st->ring, (const float *)(x + off), to_write);
-          off += to_write;
+          off += dp_f32_framer_feed_carry_view (&st->framer, x + off, rest);
+          break;
         }
+      /* Only what completes THIS frame, never a part of the next: whether
+         that one fits is not known until this one is done. The rules are
+         the framer's (feed_frames, feed_carry), shared with the detectors'
+         drain. */
+      off += dp_f32_framer_feed_frames_view (&st->framer, x + off, rest, 1);
+      /* Zero-copy: a pointer into the ring, contiguous across its wrap,
+         valid until the next framer call. */
+      const float _Complex *frame = dp_f32_framer_next_view (&st->framer);
+      if (!frame)
+        break; /* the input is used up: the rest of a frame is the carry */
 
-      while (ndet < max_results)
+      size_t n_out;
+      if (wideband)
         {
-          size_t h = DP_LOAD_ACQ (&st->ring->head);
-          size_t t = DP_LOAD_RLX (&st->ring->tail);
-          if (h - t < frame_n)
-            break;
-
-          const float _Complex *frame
-              = (const float _Complex *)(st->ring->data
-                                         + (t & st->ring->mask) * 2);
-
-          size_t n_out;
-          if (wideband)
+          /* Wideband: one shared forward FFT of this epoch; roll its
+           * spectrum per hypothesis against the fixed replica spectrum,
+           * one inverse FFT per hypothesis, filling out_buf's
+           * window_bins rows -- see the file doc comment's "Wideband
+           * window-tiling mode" section and a frequency-bank
+           * benchmark (the benchmark this reuses, roll-FFT
+           * over a tuned-mixer bank).  Row r's REPORTED index uses the
+           * same native FFT-bin convention as the coherent_bins axis
+           * (0 = DC, ascending positive to window_bins/2, then
+           * wrapping negative) so doppler_bin/doppler_res_hz compose
+           * identically in either mode; the ACTUAL roll amount fed to
+           * the (j+roll)%nx indexing wraps modulo nx (the full
+           * code_bins-point transform), not modulo window_bins, so a
+           * "negative" row correctly represents a negative-frequency
+           * roll instead of silently aliasing back into the positive
+           * side (window_bins is always << nx: window_bins tiles the
+           * requested uncertainty, nx = sf*spc is the full code
+           * length). */
+          dp_fft_execute_cf32 (st->wide_fwd, frame, nx, st->wide_spec, nx);
+          const size_t D   = st->coherent_bins;
+          acq_fan_t    fan = { st };
+          if (st->blk_raw)
+            memcpy (st->blk_raw + st->blk_epoch * nx, frame,
+                    nx * sizeof *frame);
+          /* The roll per thread: every tile of this epoch across the
+             pool (serially when there is none) -- each into its own
+             row of the surface at D == 1, of the block otherwise. */
+          dp_pool_run (st->pool, st->window_bins, acq_tile_epoch, &fan);
+          if (D > 1)
             {
-              /* Wideband: one shared forward FFT of this epoch; roll its
-               * spectrum per hypothesis against the fixed replica spectrum,
-               * one inverse FFT per hypothesis, filling out_buf's
-               * window_bins rows -- see the file doc comment's "Wideband
-               * window-tiling mode" section and a frequency-bank
-               * benchmark (the benchmark this reuses, roll-FFT
-               * over a tuned-mixer bank).  Row r's REPORTED index uses the
-               * same native FFT-bin convention as the coherent_bins axis
-               * (0 = DC, ascending positive to window_bins/2, then
-               * wrapping negative) so doppler_bin/doppler_res_hz compose
-               * identically in either mode; the ACTUAL roll amount fed to
-               * the (j+roll)%nx indexing wraps modulo nx (the full
-               * code_bins-point transform), not modulo window_bins, so a
-               * "negative" row correctly represents a negative-frequency
-               * roll instead of silently aliasing back into the positive
-               * side (window_bins is always << nx: window_bins tiles the
-               * requested uncertainty, nx = sf*spc is the full code
-               * length). */
-              dp_fft_execute_cf32 (st->wide_fwd, frame, nx, st->wide_spec, nx);
-              const size_t D   = st->coherent_bins;
-              acq_fan_t    fan = { st };
-              if (st->blk_raw)
-                memcpy (st->blk_raw + st->blk_epoch * nx, frame,
-                        nx * sizeof *frame);
-              /* The roll per thread: every tile of this epoch across the
-                 pool (serially when there is none) -- each into its own
-                 row of the surface at D == 1, of the block otherwise. */
-              dp_pool_run (st->pool, st->window_bins, acq_tile_epoch, &fan);
-              if (D > 1)
-                {
-                  if (++st->blk_epoch < D)
-                    n_out = 0; /* mid-block: no surface yet */
-                  else
-                    {
-                      /* The block is whole: per tile, the slow-time
-                         transforms of its D epochs onto the one combined
-                         Doppler axis. The roll kept each epoch's phase
-                         continuous at the tile's centre, so the residual
-                         inside the tile is what the transform resolves. */
-                      st->blk_epoch = 0;
-                      dp_pool_run (st->pool, st->window_bins, acq_tile_block,
-                                   &fan);
-                      n_out = n;
-                    }
-                }
+              if (++st->blk_epoch < D)
+                n_out = 0; /* mid-block: no surface yet */
               else
-                n_out = n;
+                {
+                  /* The block is whole: per tile, the slow-time
+                     transforms of its D epochs onto the one combined
+                     Doppler axis. The roll kept each epoch's phase
+                     continuous at the tile's centre, so the residual
+                     inside the tile is what the transform resolves. */
+                  st->blk_epoch = 0;
+                  dp_pool_run (st->pool, st->window_bins, acq_tile_block,
+                               &fan);
+                  n_out = n;
+                }
             }
           else
+            n_out = n;
+        }
+      else
+        {
+          /* Slow-time Doppler FFT: FFT along the ny segment axis, per
+           * column. Unnormalised (matches numpy fft); corr2d supplies
+           * the only 1/n. */
+          const size_t ny_f = ny * st->interp;
+          for (size_t j = 0; j < nx; j++)
             {
-              /* Slow-time Doppler FFT: FFT along the ny segment axis, per
-               * column. Unnormalised (matches numpy fft); corr2d supplies
-               * the only 1/n. */
-              const size_t ny_f = ny * st->interp;
-              for (size_t j = 0; j < nx; j++)
-                {
-                  for (size_t i = 0; i < ny; i++)
-                    st->colbuf[i] = frame[i * nx + j];
-                  /* colbuf's tail stays zero from create: the pad is what
-                     interpolates the Doppler axis, and it must not carry the
-                     previous column's samples. */
-                  dp_fft_execute_cf32 (st->slow_fft, st->colbuf, ny_f,
-                                       st->colout, ny_f);
-                  for (size_t i = 0; i < ny_f; i++)
-                    st->yframe[i * nx + j] = st->colout[i];
-                }
-              n_out = dp_corr2d_execute (st->corr, st->yframe, st->n_surf,
-                                         st->out_buf, st->n_surf);
+              for (size_t i = 0; i < ny; i++)
+                st->colbuf[i] = frame[i * nx + j];
+              /* colbuf's tail stays zero from create: the pad is what
+                 interpolates the Doppler axis, and it must not carry the
+                 previous column's samples. */
+              dp_fft_execute_cf32 (st->slow_fft, st->colbuf, ny_f, st->colout,
+                                   ny_f);
+              for (size_t i = 0; i < ny_f; i++)
+                st->yframe[i * nx + j] = st->colout[i];
             }
-          dp_f32_consume (st->ring, frame_n);
-          st->samples_consumed += frame_n;
+          n_out = dp_corr2d_execute (st->corr, st->yframe, st->n_surf,
+                                     st->out_buf, st->n_surf);
+        }
+      st->samples_consumed += frame_n;
 
-          if (n_out == 0)
-            continue; /* mid-dwell — coherent accumulation, no dump yet */
+      if (n_out == 0)
+        continue; /* mid-dwell — coherent accumulation, no dump yet */
 
-          if (st->n_noncoh <= 1)
-            {
-              /* Coherent path: amplitude mean-CFAR per dump; the list of
-                 every peak above the gate, one result each. */
-              acq_compute_stat (st);
-              const int hit = st->test_stat > st->threshold;
-              if (hit)
-                ndet += acq_report_peaks (st, st->mag_buf, acq_stat_coherent,
-                                          acq_mag_identity, result + ndet,
-                                          max_results - ndet);
-              acq_dwell_decided (st, st->mag_buf, acq_stat_coherent, hit);
-              continue;
-            }
-
-          /* Non-coherent path: magnitude-square accumulate each coherent look
-           * (per chunk, on the pool); gate the order-N_nc statistic once
-           * n_noncoh looks are in. */
-          acq_scan_t acc = { st, NULL, 0, 0 };
-          dp_pool_run (st->pool, st->window_bins, acq_tile_nc_acc, &acc);
-          if (++st->nc_count < st->n_noncoh)
-            continue; /* still accumulating looks */
-
-          acq_compute_stat_nc (st);
-          const int hit = st->test_stat > st->eta_nc;
+      if (st->n_noncoh <= 1)
+        {
+          /* Coherent path: amplitude mean-CFAR per dump; the list of
+             every peak above the gate, one result each. */
+          acq_compute_stat (st);
+          const int hit = st->test_stat > st->threshold;
           if (hit)
-            ndet += acq_report_peaks (st, st->nc_surface, acq_stat_noncoherent,
-                                      acq_mag_sqrt, result + ndet,
+            ndet += acq_report_peaks (st, st->mag_buf, acq_stat_coherent,
+                                      acq_mag_identity, result + ndet,
                                       max_results - ndet);
-          acq_dwell_decided (st, st->nc_surface, acq_stat_noncoherent, hit);
-          memset (st->nc_surface, 0, st->n_surf * sizeof (float));
-          st->nc_count = 0;
+          acq_dwell_decided (st, st->mag_buf, acq_stat_coherent, hit);
+          continue;
         }
 
-      if (to_write == 0)
-        break;
+      /* Non-coherent path: magnitude-square accumulate each coherent look
+       * (per chunk, on the pool); gate the order-N_nc statistic once
+       * n_noncoh looks are in. */
+      acq_scan_t acc = { st, NULL, 0, 0 };
+      dp_pool_run (st->pool, st->window_bins, acq_tile_nc_acc, &acc);
+      if (++st->nc_count < st->n_noncoh)
+        continue; /* still accumulating looks */
+
+      acq_compute_stat_nc (st);
+      const int hit = st->test_stat > st->eta_nc;
+      if (hit)
+        ndet += acq_report_peaks (st, st->nc_surface, acq_stat_noncoherent,
+                                  acq_mag_sqrt, result + ndet,
+                                  max_results - ndet);
+      acq_dwell_decided (st, st->nc_surface, acq_stat_noncoherent, hit);
+      memset (st->nc_surface, 0, st->n_surf * sizeof (float));
+      st->nc_count = 0;
     }
 
+  st->consumed = off;
   return ndet;
+}
+
+size_t
+dp_acq_consumed (const dp_acq_state_t *state)
+{
+  return state->consumed;
+}
+
+uint64_t
+dp_acq_position (const dp_acq_state_t *state)
+{
+  return state->samples_consumed + dp_f32_framer_pending (&state->framer);
 }
 
 int
@@ -2400,27 +2479,12 @@ void
 dp_acq_build_handoff (const dp_acq_state_t *state, const acq_result_t *hit,
                       size_t code_len, size_t spc, acq_handoff_t *out)
 {
-  const double carrier_freq_hz = state->carrier_freq_hz;
-  double       phase = acq_chip_phase_of_col (hit->code_phase, code_len, spc);
-
   /* Shared with the wideband search's own row->roll mapping — see
      dp_fftfreq_index()'s doc comment for the sign inversion that a second,
      drifted copy of this formula used to cause here. */
   double doppler_hz = acq_bin_doppler_hz (state, hit->doppler_bin);
-
-  /* The dwell's dilation (doppler#1254): the non-coherent sum's peak is the
-     phase at the middle of the dwell; the seed is wanted at its end. A
-     positive Doppler runs the chip clock fast, so the code is AHEAD of the
-     peak by the drift over half the dwell -- n_noncoh looks of
-     coherent_bins epochs each, code_len chips per epoch. */
-  if (carrier_freq_hz > 0.0)
-    {
-      double dwell_chips = (double)state->n_noncoh
-                           * (double)state->coherent_bins * (double)code_len;
-      phase              = dp_fmod_pos (
-          phase + doppler_hz / carrier_freq_hz * 0.5 * dwell_chips,
-          (double)code_len);
-    }
+  double phase      = acq_handoff_chip_phase (state, hit->doppler_bin,
+                                              hit->code_phase, code_len, spc);
 
   *out = (acq_handoff_t){
     .samples_consumed = hit->samples_consumed,
@@ -2453,13 +2517,15 @@ dp_acq_set_telemetry (dp_acq_state_t *state, dp_tlm_t *tlm, const char *prefix,
           &state->tlm.id_peak,    &state->tlm.id_row,    &state->tlm.id_col,
           &state->tlm.id_n_peaks, &state->tlm.id_n_held, &state->tlm.id_conc,
           &state->tlm.id_hit };
-  char name[DP_TLM_NAME_MAX];
+  char name[10][DP_TLM_NAME_MAX];
+  for (size_t i = 0; i < 10; i++) /* all names before any registration */
+    if (dp_tlm_name_join (name[i], p, suffix[i]) != DP_OK)
+      return DP_ERR_INVALID; /* overlong prefix: nothing registered */
   for (size_t i = 0; i < 10; i++)
     {
-      (void)snprintf (name, sizeof (name), "%s.%s", p, suffix[i]);
-      int id = dp_tlm_probe (tlm, name, decim);
+      int id = dp_tlm_probe (tlm, name[i], decim);
       if (id < 0)
-        return DP_ERR_INVALID; /* table full / bad prefix: fails whole */
+        return DP_ERR_INVALID; /* table full: fails whole */
       *ids[i] = id;
     }
   state->tlm.ctx = tlm; /* set last: the emit site gates on ctx */
@@ -2551,36 +2617,35 @@ dp_acq_set_surface_sink (dp_acq_state_t *state, acq_surface_sink_fn fn,
 }
 /* ── Serializable state — the pure-transducer face ─────────────────────────
  *
- * Fixed flat layout (offsets depend only on the ring capacity), so the state
+ * Fixed flat layout (offsets depend only on configuration), so the state
  * blob is portable POD:
- *   [hdr][ float _Complex unconsumed[ring_cap] ][ float nc_surface[n_surf] ]
- * Only the first hdr.n_unconsumed of the unconsumed region holds data; that
- * may exceed n (undrained full frames from a max_results-saturated run,
- * preserved so the resume processes them).
+ *   [hdr][extra][ the framer's snapshot ][ float nc_surface[n_surf] ]...
+ * The framer's snapshot is its own self-validating child blob: the carry,
+ * fewer than frame_n samples, since a push always leaves the framer drained
+ * -- and so a fixed size for a given frame_n.
  */
 
-/* Offset to the ring-samples region: standard envelope + acq's extra header.
+/* Offset to the framer's snapshot: standard envelope + acq's extra header.
  */
 #define ACQ_BODY_OFF (sizeof (dp_state_hdr_t) + sizeof (acq_extra_t))
 
-static float _Complex *
-acq_state_samples (void *blob)
+static void *
+acq_state_carry (void *blob)
 {
-  return (float _Complex *)((char *)blob + ACQ_BODY_OFF);
+  return (char *)blob + ACQ_BODY_OFF;
 }
 
 static float *
-acq_state_nc (void *blob, size_t ring_cap)
+acq_state_nc (void *blob, const dp_acq_state_t *st)
 {
   return (float *)((char *)blob + ACQ_BODY_OFF
-                   + ring_cap * sizeof (float _Complex));
+                   + dp_f32_framer_state_bytes (&st->framer));
 }
 
 static uint32_t *
 acq_state_twins (void *blob, const dp_acq_state_t *st)
 {
-  return (uint32_t *)((char *)blob + ACQ_BODY_OFF
-                      + st->ring_cap * sizeof (float _Complex)
+  return (uint32_t *)((char *)acq_state_nc (blob, st)
                       + (st->n_noncoh > 1 ? st->n_surf * sizeof (float) : 0));
 }
 
@@ -2616,7 +2681,7 @@ acq_state_blk_raw (void *blob, const dp_acq_state_t *st)
 size_t
 dp_acq_state_bytes (const dp_acq_state_t *st)
 {
-  size_t b = ACQ_BODY_OFF + st->ring_cap * sizeof (float _Complex);
+  size_t b = ACQ_BODY_OFF + dp_f32_framer_state_bytes (&st->framer);
   if (st->n_noncoh > 1)
     b += st->n_surf * sizeof (float);
   b += 2 * st->max_peaks * sizeof (uint32_t);
@@ -2628,10 +2693,7 @@ dp_acq_state_bytes (const dp_acq_state_t *st)
 void
 dp_acq_get_state (const dp_acq_state_t *st, void *blob)
 {
-  const size_t n   = st->n;
-  size_t       h   = DP_LOAD_ACQ (&st->ring->head);
-  size_t       t   = DP_LOAD_RLX (&st->ring->tail);
-  size_t       nun = h - t;
+  const size_t n = st->n;
 
   dp_writer_t w = dp_writer_init (blob, dp_acq_state_bytes (st));
   dp_w_hdr (&w, ACQ_STATE_MAGIC, ACQ_STATE_VERSION, dp_acq_state_bytes (st));
@@ -2646,24 +2708,15 @@ dp_acq_get_state (const dp_acq_state_t *st, void *blob)
   ex.n                = (uint64_t)n;
   ex.samples_consumed = st->samples_consumed;
   ex.nc_count         = (uint32_t)st->nc_count;
-  ex.n_unconsumed     = (uint32_t)nun;
   ex.max_peaks        = (uint32_t)st->max_peaks;
   ex.n_twins          = (uint32_t)st->n_twins;
   ex.blk_epoch        = (uint32_t)st->blk_epoch;
   dp_w_bytes (&w, &ex, sizeof ex);
 
-  float _Complex *dst = acq_state_samples (blob);
-  for (size_t i = 0; i < nun; i++)
-    {
-      size_t idx = (t + i) & st->ring->mask;
-      dst[i]     = st->ring->data[idx * 2] + I * st->ring->data[idx * 2 + 1];
-    }
-  /* The region is sized for a full ring and only `nun` of it is state; the
-     rest is zeroed, or the blob carries whatever the caller's buffer held
-     (doppler#1471) -- and set_state reads only the first `nun` anyway. */
-  memset (dst + nun, 0, (st->ring_cap - nun) * sizeof (float _Complex));
+  /* The carry: the framer's own snapshot, zero-padded to a fixed size. */
+  dp_f32_framer_get_state (&st->framer, acq_state_carry (blob));
   if (ex.has_nc)
-    memcpy (acq_state_nc (blob, st->ring_cap), st->nc_surface,
+    memcpy (acq_state_nc (blob, st), st->nc_surface,
             st->n_surf * sizeof (float));
   uint32_t *tw = acq_state_twins (blob, st);
   memset (tw, 0, 2 * st->max_peaks * sizeof (uint32_t));
@@ -2672,12 +2725,35 @@ dp_acq_get_state (const dp_acq_state_t *st, void *blob)
       tw[2 * k]     = st->twin_row[k];
       tw[2 * k + 1] = st->twin_col[k];
     }
+  /* A tiled block is written one epoch at a time, so only its first
+     blk_epoch epochs are this block's -- or all D once a block has completed
+     and blk_epoch has wrapped to 0: that whole block is what
+     dp_acq_block_prompt and dp_acq_block_raw hand out. The rest are the
+     previous block's, or were never written (dp_xmalloc), and are zeros
+     here: a blob is a function of the stream, not of the heap (#2052, the
+     block's share of #1471). Nothing reads them before they are rewritten,
+     so a restored engine's zeros change no output. */
+  const size_t D = st->coherent_bins, nx = st->code_bins;
+  const size_t live = st->blk_epoch          ? st->blk_epoch
+                      : st->samples_consumed ? D
+                                             : 0;
   if (st->blk)
-    memcpy (acq_state_blk (blob, st), st->blk,
-            acq_blk_cells (st) * sizeof (float _Complex));
+    {
+      float _Complex *dst = acq_state_blk (blob, st);
+      for (size_t r = 0; r < st->window_bins; r++)
+        {
+          memcpy (dst + r * D * nx, st->blk + r * D * nx,
+                  live * nx * sizeof (float _Complex));
+          memset (dst + (r * D + live) * nx, 0,
+                  (D - live) * nx * sizeof (float _Complex));
+        }
+    }
   if (st->blk_raw)
-    memcpy (acq_state_blk_raw (blob, st), st->blk_raw,
-            acq_blk_raw_cells (st) * sizeof (float _Complex));
+    {
+      float _Complex *dst = acq_state_blk_raw (blob, st);
+      memcpy (dst, st->blk_raw, live * nx * sizeof (float _Complex));
+      memset (dst + live * nx, 0, (D - live) * nx * sizeof (float _Complex));
+    }
 }
 
 int
@@ -2690,26 +2766,50 @@ dp_acq_set_state (dp_acq_state_t *st, const void *blob)
   acq_extra_t ex;
   memcpy (&ex, (const char *)blob + sizeof (dp_state_hdr_t), sizeof ex);
   if (ex.n != (uint64_t)st->n || ex.n_noncoh != (uint32_t)st->n_noncoh
-      || ex.n_unconsumed > (uint32_t)st->ring_cap
       || ex.max_peaks != (uint32_t)st->max_peaks || ex.n_twins > ex.max_peaks
       || ex.blk_epoch >= (uint32_t)st->coherent_bins)
     return DP_ERR_INVALID;
 
-  /* Reset the live state, then replay the blob's buffered samples + nc. */
-  DP_STORE_REL (&st->ring->head, 0);
-  DP_STORE_REL (&st->ring->tail, 0);
+  /* The carry and the engine's position must name ONE stream point: the
+     engine counts frame_n per frame it framed, and the carry's snapshot
+     records the frames its framer handed out. A blob in which the two
+     disagree would shift every later hit's epoch by the difference, without
+     a word (#2015's class), so it is refused -- and, like every check here,
+     before anything is written. */
+  uint64_t frames;
+  if (dp_f32_framer_state_frames (&st->framer, acq_state_carry ((void *)blob),
+                                  &frames)
+          != DP_OK
+      || frames > UINT64_MAX / st->frame_n
+      || frames * st->frame_n != ex.samples_consumed)
+    return DP_ERR_INVALID;
+
+  /* The dwell's place follows from the same count, so it is held to it
+     too: a tiled engine dumps once per block of D frames and every other
+     once per frame, the block's epoch is the frames into the block, and
+     the non-coherent looks are the dumps into the dwell. */
+  const uint64_t D     = st->window_bins > 1 && st->coherent_bins > 1
+                             ? (uint64_t)st->coherent_bins
+                             : 1;
+  const uint64_t dumps = frames / D;
+  if (ex.blk_epoch != frames % D
+      || ex.nc_count != (st->n_noncoh > 1 ? dumps % st->n_noncoh : 0))
+    return DP_ERR_INVALID;
+
+  /* Every check has passed; from here the blob is applied. The framer
+     cannot refuse it now: state_frames ran set_state's own check. */
+  (void)dp_f32_framer_set_state (&st->framer, acq_state_carry ((void *)blob));
+
+  /* Then the rest of the live state. */
   dp_corr2d_reset (st->corr);
   st->samples_consumed = ex.samples_consumed;
   st->nc_count         = ex.nc_count;
-
-  const float _Complex *src = acq_state_samples ((void *)blob);
-  if (ex.n_unconsumed > 0)
-    dp_f32_write (st->ring, (const float *)src, ex.n_unconsumed);
+  st->consumed         = 0;
 
   if (st->nc_surface)
     {
       if (ex.has_nc)
-        memcpy (st->nc_surface, acq_state_nc ((void *)blob, st->ring_cap),
+        memcpy (st->nc_surface, acq_state_nc ((void *)blob, st),
                 st->n_surf * sizeof (float));
       else
         memset (st->nc_surface, 0, st->n_surf * sizeof (float));
@@ -2743,8 +2843,14 @@ dp_acq_run (dp_acq_state_t *st, const void *state_in, void *state_out,
 {
   if (state_in)
     {
+      /* Refused: nothing ran, so nothing was taken -- a resume loop adds
+         dp_acq_consumed() to its offset, and the previous call's count
+         would skip input. */
       if (dp_acq_set_state (st, state_in) != 0)
-        return 0;
+        {
+          st->consumed = 0;
+          return 0;
+        }
     }
   else
     dp_acq_reset (st);

@@ -104,16 +104,30 @@ def _rpc_call_index(connection: _RecordingConnection) -> int:
     return rpc_index
 
 
+def _opening_gucs(connection: _RecordingConnection, rpc_index: int) -> dict[str, str]:
+    """The GUCs set by the statement that immediately precedes the RPC, as name -> value.
+
+    b2db3a2ea8 (matrx-orm perf): a transaction's session GUCs ride ONE batched
+    ``SELECT set_config($1,$2,true), set_config($3,$4,true), ...`` instead of one statement
+    each, so the pairs are read out of that statement's flat argument list.
+    """
+    method, sql, args = connection.calls[rpc_index - 1]
+    assert method == "execute" and sql.startswith("SELECT set_config($1, $2, true)"), (
+        "catalog reconciliation RPC must be preceded by its set_config statement on the "
+        f"same connection, got {(method, sql)!r}"
+    )
+    assert sql.count("set_config(") * 2 == len(args)
+    return dict(zip(args[0::2], args[1::2], strict=True))
+
+
 def _assert_rpc_has_named_actor_gucs(connection: _RecordingConnection) -> int:
     rpc_index = _rpc_call_index(connection)
-    assert connection.calls[rpc_index - 3 : rpc_index] == [
-        ("execute", "SELECT set_config($1, $2, true)", ("app.actor_tier", "system")),
-        ("execute", "SELECT set_config($1, $2, true)", ("app.actor_system", "mcp_sync")),
-        ("execute", "SELECT set_config($1, $2, true)", ("app.actor_agent", "")),
-    ], (
-        "catalog reconciliation RPC must be preceded by named actor GUCs on the "
-        "same connection"
-    )
+    gucs = _opening_gucs(connection, rpc_index)
+    assert {k: v for k, v in gucs.items() if k.startswith("app.actor_")} == {
+        "app.actor_tier": "system",
+        "app.actor_system": "mcp_sync",
+        "app.actor_agent": "",
+    }, "catalog reconciliation RPC must be preceded by named actor GUCs on the same connection"
     return rpc_index
 
 
@@ -271,11 +285,8 @@ async def test_catalog_reconciliation_restores_outer_actor_declaration(
 
     assert current_actor() is None
     rpc_index = _assert_rpc_has_named_actor_gucs(recording_connection)
-    assert recording_connection.calls[rpc_index - 2] == (
-        "execute",
-        "SELECT set_config($1, $2, true)",
-        ("app.actor_system", "mcp_sync"),
-    )
+    # The reconciliation's own declaration (not the outer "outer") is what the RPC ran under.
+    assert _opening_gucs(recording_connection, rpc_index)["app.actor_system"] == "mcp_sync"
 
 
 async def test_remote_auth_rejection_preserves_upstream_status(monkeypatch):

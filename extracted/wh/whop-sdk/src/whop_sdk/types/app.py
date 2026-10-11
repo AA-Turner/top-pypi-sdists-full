@@ -59,6 +59,11 @@ class App(UniversalBaseModel):
     """
 
     businesses_created_logo_urls: typing.List[str]
+    businesses_with_recent_sales_count: int = pydantic.Field()
+    """
+    Website businesses created from this app as a template that processed a payment in the last 24 hours. Recounted hourly, so it can be up to an hour behind.
+    """
+
     creator: AppCreator = pydantic.Field()
     """
     The user who owns the publishing account.
@@ -94,7 +99,7 @@ class App(UniversalBaseModel):
     Subdomain identifier for the app's proxied URL, forming https://{domain_id}.apps.whop.com.
     """
 
-    domains: typing.Optional[typing.List[AppDomain]] = None
+    domains: typing.List[AppDomain]
     elements_used: typing.List[AppElementsUsedItem]
     experience_path: typing.Optional[str] = pydantic.Field(default=None)
     """
@@ -104,6 +109,7 @@ class App(UniversalBaseModel):
     hosted_url: typing.Optional[str] = pydantic.Field(default=None)
     """
     Full URL where the app's hosted web build is served, or `null` if no route is claimed.
+    DEPRECATED: Read `domains` instead.
     """
 
     icon: AppIcon = pydantic.Field()
@@ -151,7 +157,6 @@ class App(UniversalBaseModel):
     A short-lived signed pass scoping the caller to this app's gated preview hosts — every build preview and the live dev-server sandbox. Add it to a preview host as the `__whop_preview` query param (or `x-whop-preview-token` header). `null` unless the caller is a team member who can read the app's developer settings.
     """
 
-    previous_hosted_urls: typing.List[str]
     product_id: typing.Optional[str] = pydantic.Field(default=None)
     """
     ID of the app's product listing on the Whop app store, or `null` when the app has no associated product.
@@ -178,6 +183,7 @@ class App(UniversalBaseModel):
     route: typing.Optional[str] = pydantic.Field(default=None)
     """
     Claimed subdomain route where hosted web builds are served (`myapp` for myapp.whop.site), or `null` if no route is claimed.
+    DEPRECATED: Read `domains` instead.
     """
 
     secrets: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)

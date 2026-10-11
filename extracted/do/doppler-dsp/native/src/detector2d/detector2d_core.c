@@ -3,7 +3,8 @@
  * @brief 2-D signal detector implementation.
  *
  * Structurally identical to detector_core.c with corr replaced by corr2d
- * and peak decomposed into (row, col) via integer divide/modulo.
+ * and peak decomposed into (row, col) via integer divide/modulo: the same
+ * framer drain, at frame and hop ny*nx.
  */
 
 #include "doppler/detector2d/detector2d_core.h"
@@ -75,6 +76,9 @@ dp_detector2d_create (const float _Complex *ref, size_t ny, size_t nx,
   if (!state->ring)
     goto fail;
   state->ring_cap = state->ring->capacity;
+  /* Frames of ny*nx at hop ny*nx: the correlator's frames tile the stream. */
+  if (dp_f32_framer_init (&state->framer, state->ring, n, n) != DP_OK)
+    goto fail;
 
   state->corr = dp_corr2d_create (ref, ny, nx, dwell, nthreads, 0, 0, -1);
   if (!state->corr)
@@ -118,21 +122,23 @@ dp_detector2d_destroy (dp_detector2d_state_t *state)
 void
 dp_detector2d_reset (dp_detector2d_state_t *state)
 {
-  DP_STORE_REL (&state->ring->head, 0);
-  DP_STORE_REL (&state->ring->tail, 0);
+  dp_f32_framer_reset (&state->framer);
   dp_corr2d_reset (state->corr);
   state->_last_corr_valid = 0;
+  state->consumed         = 0;
 }
 
-/* Serializable state — the corr2d child (restored, not reset) + the input
- * ring's unconsumed samples (zero-padded to ring_cap so the blob is canonical)
- * + the last-dump result fields. Mirrors acq's ring serialization. */
+/* Serializable state — the corr2d child (restored, not reset) + the
+ * framer's carry as its own child blob (fixed-size for a given ny*nx, and
+ * self-validating) + the last-dump result fields. consumed is per-call
+ * output, not state, and so is the last surface (out_buf): last_corr is
+ * None until the next dump, as after reset. */
 size_t
 dp_detector2d_state_bytes (const dp_detector2d_state_t *s)
 {
   return sizeof (dp_state_hdr_t) + dp_corr2d_state_bytes (s->corr)
-         + sizeof (uint64_t) + s->ring_cap * sizeof (float _Complex)
-         + 2 * sizeof (uint64_t) + 3 * sizeof (float) + sizeof (uint32_t);
+         + dp_f32_framer_state_bytes (&s->framer) + 2 * sizeof (uint64_t)
+         + 3 * sizeof (float);
 }
 
 void
@@ -141,25 +147,12 @@ dp_detector2d_get_state (const dp_detector2d_state_t *s, void *blob)
   DP_GET_OPEN (DETECTOR2D_STATE_MAGIC, DETECTOR2D_STATE_VERSION,
                dp_detector2d_state_bytes (s));
   DP_W_CHILD (&_w, dp_corr2d, s->corr);
-  size_t h   = DP_LOAD_ACQ (&s->ring->head);
-  size_t t   = DP_LOAD_RLX (&s->ring->tail);
-  size_t nun = h - t;
-  dp_w_u64 (&_w, nun);
-  for (size_t i = 0; i < nun; i++)
-    {
-      size_t idx = (t + i) & s->ring->mask;
-      float _Complex v
-          = s->ring->data[idx * 2] + I * s->ring->data[idx * 2 + 1];
-      dp_w_cf32 (&_w, &v, 1);
-    }
-  for (size_t i = nun; i < s->ring_cap; i++)
-    dp_w_u64 (&_w, 0); /* zero-pad the unused ring region */
+  DP_W_CHILD (&_w, dp_f32_framer, &s->framer);
   dp_w_u64 (&_w, s->peak_row);
   dp_w_u64 (&_w, s->peak_col);
   dp_w_f32 (&_w, &s->peak_mag, 1);
   dp_w_f32 (&_w, &s->noise_est, 1);
   dp_w_f32 (&_w, &s->test_stat, 1);
-  dp_w_u32 (&_w, (uint32_t)s->_last_corr_valid);
 }
 
 int
@@ -168,21 +161,15 @@ dp_detector2d_set_state (dp_detector2d_state_t *s, const void *blob)
   DP_SET_OPEN (DETECTOR2D_STATE_MAGIC, DETECTOR2D_STATE_VERSION,
                dp_detector2d_state_bytes (s));
   DP_R_CHILD (&_r, dp_corr2d, s->corr);
-  size_t nun = (size_t)dp_r_u64 (&_r);
-  if (nun > s->ring_cap)
-    return DP_ERR_INVALID;
-  DP_STORE_REL (&s->ring->head, 0);
-  DP_STORE_REL (&s->ring->tail, 0);
-  const float _Complex *src = (const float _Complex *)(_r.buf + _r.off);
-  if (nun)
-    dp_f32_write (s->ring, (const float *)src, nun);
-  _r.off += s->ring_cap * sizeof (float _Complex); /* skip ring + pad */
+  DP_R_CHILD (&_r, dp_f32_framer, &s->framer);
   s->peak_row = (size_t)dp_r_u64 (&_r);
   s->peak_col = (size_t)dp_r_u64 (&_r);
   dp_r_f32 (&_r, &s->peak_mag, 1);
   dp_r_f32 (&_r, &s->noise_est, 1);
   dp_r_f32 (&_r, &s->test_stat, 1);
-  s->_last_corr_valid = (int)dp_r_u32 (&_r);
+  /* out_buf is not carried, so there is no last surface to view. */
+  s->_last_corr_valid = 0;
+  s->consumed         = 0;
   return DP_OK;
 }
 
@@ -201,60 +188,43 @@ dp_detector2d_set_threshold (dp_detector2d_state_t *state, float threshold)
 
 /* ── Stream push ────────────────────────────────────────────────────────── */
 
+/* One frame of dp_detector2d_push(), the step det_framed_push() drives:
+   correlate, and on a dump that passes the gate write ONE result. */
+static int
+detector2d_step (void *obj, const float _Complex *frame, void *result,
+                 size_t slot)
+{
+  dp_detector2d_state_t *state = (dp_detector2d_state_t *)obj;
+  size_t n_out = dp_corr2d_execute (state->corr, frame, state->n,
+                                    state->out_buf, state->n);
+  if (n_out == 0)
+    return 0;
+
+  state->_last_corr_valid = 1;
+  detector2d_compute_stat_2d (state);
+
+  if (state->threshold == 0.0f || state->test_stat > state->threshold)
+    {
+      ((det_result2d_t *)result)[slot]
+          = (det_result2d_t){ state->peak_row, state->peak_col,
+                              state->peak_mag, state->noise_est,
+                              state->test_stat };
+      return 1;
+    }
+  return 0;
+}
+
 size_t
 dp_detector2d_push (dp_detector2d_state_t *state, const float _Complex *in,
                     size_t n_in, det_result2d_t *result, size_t max_results)
 {
-  size_t ndet = 0;
-  size_t off  = 0;
+  /* The drain, its contract and why a batch is exact: det_private.h. */
+  return det_framed_push (&state->framer, in, n_in, result, max_results,
+                          detector2d_step, state, &state->consumed);
+}
 
-  while (off < n_in && ndet < max_results)
-    {
-      size_t head     = DP_LOAD_RLX (&state->ring->head);
-      size_t tail     = DP_LOAD_ACQ (&state->ring->tail);
-      size_t space    = state->ring->capacity - (head - tail);
-      size_t to_write = n_in - off;
-      if (to_write > space)
-        to_write = space;
-
-      if (to_write > 0)
-        {
-          dp_f32_write (state->ring, (const float *)(in + off), to_write);
-          off += to_write;
-        }
-
-      while (ndet < max_results)
-        {
-          size_t h = DP_LOAD_ACQ (&state->ring->head);
-          size_t t = DP_LOAD_RLX (&state->ring->tail);
-          if (h - t < state->n)
-            break;
-
-          float _Complex *frame
-              = (float _Complex *)(state->ring->data
-                                   + (t & state->ring->mask) * 2);
-          size_t n_out = dp_corr2d_execute (state->corr, frame, state->n,
-                                            state->out_buf, state->n);
-          dp_f32_consume (state->ring, state->n);
-
-          if (n_out == 0)
-            continue;
-
-          state->_last_corr_valid = 1;
-          detector2d_compute_stat_2d (state);
-
-          if (state->threshold == 0.0f || state->test_stat > state->threshold)
-            {
-              result[ndet++]
-                  = (det_result2d_t){ state->peak_row, state->peak_col,
-                                      state->peak_mag, state->noise_est,
-                                      state->test_stat };
-            }
-        }
-
-      if (to_write == 0)
-        break;
-    }
-
-  return ndet;
+size_t
+dp_detector2d_consumed (const dp_detector2d_state_t *state)
+{
+  return state->consumed;
 }

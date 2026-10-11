@@ -16,7 +16,16 @@ Breaks named (USAGE-GATE.md):
 * over with enforcement OFF refuses;
 * near proceeds silently (the client is never told);
 * a request that crossed the line mid-run is cut off at its next paid call;
-* machine work (system/scheduled) pays out of a person's allowance;
+* machine work (system/scheduled) — an observer, a decision fallback, a platform
+  job running as a person — is refused at the seam (it is never the start of a
+  person's own action; USAGE-GATE.md rule 5);
+* a person's OWN scheduled run starts while over + enforced
+  (``admit_person_own_run``), or is asked again once admitted;
+* the own-run gate refuses an unknown / non-person account, or when the host's
+  predicate raises;
+* machine work derived from an admitted request is cut off;
+* machine work recording an already-paid turn is refused at the request boundary;
+* a paid call with no AppContext is refused or asks anyone's allowance;
 * the refusal's code or numbers drift from the envelope the client parses;
 * an over person's new turn is stored before being refused.
 """
@@ -274,13 +283,153 @@ def test_an_internal_step_inherits_its_parents_admission(memory: _Memory) -> Non
     assert isinstance(refused, gate.UsageLimitReachedError)
 
 
-def test_machine_work_is_not_gated(memory: _Memory) -> None:
+def test_machine_work_is_not_gated_without_a_host_payer_predicate(memory: _Memory) -> None:
+    """Standalone matrx-ai (no host predicate): machine work is never gated."""
+    gate.set_machine_work_payer_predicate(None)
     memory.put(USER, "over", enforced=True)
     spent: list[str] = []
     for n, origin in ((8, "system"), (9, "scheduled")):
         asyncio.run(_paid_call(_ctx(_rid(n), origin_class=origin), spent))
     assert spent == [_rid(8), _rid(9)]
     assert memory.asked == []
+
+
+@pytest.fixture
+def payer() -> list[Any]:
+    """The host's memory-only predicate: USER is a known real person, GUEST stands in for a bot."""
+    asked: list[Any] = []
+
+    def _pays(ctx: Any) -> bool:
+        asked.append(ctx.user_id)
+        return ctx.user_id == USER
+
+    gate.set_machine_work_payer_predicate(_pays)
+    yield asked
+    gate.set_machine_work_payer_predicate(None)
+
+
+def test_machine_work_carrying_a_real_over_person_is_never_refused_at_the_seam(
+    memory: _Memory, payer: list[Any]
+) -> None:
+    """An observer pass, a decision fallback, a platform job running as a person: machine
+    work is never the start of the person's own action, so the seam never refuses it — even
+    when the host KNOWS the account is a real person and their cached state is over."""
+    memory.put(USER, "over", enforced=True)
+    spent: list[str] = []
+    for n, origin in ((40, "system"), (41, "scheduled")):
+        asyncio.run(_paid_call(_ctx(_rid(n), origin_class=origin), spent))
+    assert spent == [_rid(40), _rid(41)], "machine work was cut off by the seam"
+    assert memory.asked == [], "the seam asked a person's allowance for machine work"
+
+
+def _own_run(ctx: AppContext) -> BaseException | None:
+    async def _go() -> BaseException | None:
+        try:
+            await gate.admit_person_own_run(ctx)
+        except BaseException as exc:  # noqa: BLE001
+            return exc
+        return None
+
+    return asyncio.run(_go())
+
+
+def test_a_persons_own_scheduled_run_is_refused_at_its_start_when_over(
+    memory: _Memory, payer: list[Any]
+) -> None:
+    memory.put(USER, "over", enforced=True)
+    refused = _own_run(_ctx(_rid(47), origin_class="scheduled"))
+    assert isinstance(refused, gate.UsageLimitReachedError)
+    assert refused.envelope()["fix_action"] == "upgrade_plan"
+
+
+def test_a_persons_own_scheduled_run_starts_when_ok_or_uncached_and_is_never_asked_again(
+    memory: _Memory, payer: list[Any]
+) -> None:
+    assert _own_run(_ctx(_rid(48), origin_class="scheduled")) is None  # uncached: honored
+    memory.put(USER, "ok", enforced=True)
+    ctx = _ctx(_rid(49), origin_class="scheduled")
+    assert _own_run(ctx) is None
+    memory.put(USER, "over", enforced=True)  # crossed during the run
+    spent: list[str] = []
+    asyncio.run(_paid_call(ctx, spent))
+    assert _own_run(ctx) is None, "an admitted run was asked again"
+    assert spent == [_rid(49)]
+
+
+def test_the_own_run_gate_is_ungated_for_unknown_or_non_person_accounts(
+    memory: _Memory, payer: list[Any]
+) -> None:
+    memory.put(GUEST, "over", enforced=True)
+    assert _own_run(_ctx(_rid(50), user_id=GUEST, origin_class="scheduled")) is None
+    assert memory.asked == [], "a non-person / unknown account's allowance was asked"
+    gate.set_machine_work_payer_predicate(None)
+    memory.put(USER, "over", enforced=True)
+    assert _own_run(_ctx(_rid(51), origin_class="scheduled")) is None
+
+
+def test_the_own_run_gate_never_refuses_an_already_admitted_continuation(
+    memory: _Memory, payer: list[Any]
+) -> None:
+    memory.put(USER, "over", enforced=True)
+    assert _own_run(_ctx(_rid(52), origin_class="scheduled", usage_admitted=True)) is None
+
+
+def test_a_raising_person_predicate_honors_the_run(memory: _Memory) -> None:
+    def _broken(_ctx: Any) -> bool:
+        raise RuntimeError("lists torn")
+
+    gate.set_machine_work_payer_predicate(_broken)
+    try:
+        memory.put(USER, "over", enforced=True)
+        assert _own_run(_ctx(_rid(53), origin_class="scheduled")) is None
+    finally:
+        gate.set_machine_work_payer_predicate(None)
+
+
+def test_follow_up_machine_work_of_an_admitted_request_is_never_refused(
+    memory: _Memory, payer: list[Any]
+) -> None:
+    """A title / memory step derived from the person's request keeps its request id."""
+    memory.put(USER, "ok", enforced=True)
+    spent: list[str] = []
+    asyncio.run(_paid_call(_ctx(_rid(45)), spent))
+    memory.put(USER, "over", enforced=True)
+    asyncio.run(_paid_call(_ctx(_rid(45), origin_class="system"), spent))
+    assert spent == [_rid(45), _rid(45)]
+
+
+def test_the_request_boundary_never_refuses_machine_work(memory: _Memory, payer: list[Any]) -> None:
+    """Recording a turn whose money was already spent (batch, realtime) is never refused."""
+    memory.put(USER, "over", enforced=True)
+    token = set_app_context(_ctx(_rid(46), origin_class="system"))
+    try:
+        gate.precheck_usage()
+    finally:
+        clear_app_context(token)
+
+
+def test_a_paid_call_with_no_context_is_ungated_and_announced(
+    memory: _Memory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    said: list[str] = []
+    monkeypatch.setattr(gate, "vcprint", lambda msg, **_k: said.append(str(msg)))
+    memory.put(USER, "over", enforced=True)
+    ran: list[int] = []
+
+    async def _bare() -> None:
+        async def _provider() -> str:
+            ran.append(1)
+            return "ok"
+
+        for _ in range(2):
+            await UnifiedAIClient._dispatch_with_billing_net(_provider, profile=PROFILE)
+
+    asyncio.run(_bare())
+    assert ran == [1, 1]
+    assert memory.asked == []
+    announced = [m for m in said if "NO AppContext" in m]
+    assert len(announced) == 1, said
+    assert "test_usage_gate.py" in announced[0]
 
 
 def test_no_resolver_means_nothing_is_gated() -> None:

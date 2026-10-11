@@ -1,10 +1,21 @@
+# Copyright 2017 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""Asynchronous cursor that runs PySpark code in an Athena for Apache Spark session."""
+
 import logging
 from concurrent.futures import Future, ThreadPoolExecutor
 from multiprocessing import cpu_count
 from typing import TYPE_CHECKING, Any, cast
 
+from pyathena import NotSupportedError
 from pyathena.model import AthenaCalculationExecution
 from pyathena.spark.common import SparkBaseCursor
+from pyathena.util import override
 
 if TYPE_CHECKING:
     from pyathena.model import AthenaQueryExecution
@@ -29,9 +40,7 @@ class AsyncSparkCursor(SparkBaseCursor):
         - Thread pool executor for concurrent operations
 
     Attributes:
-        max_workers: Maximum number of worker threads for async operations.
         session_id: The Athena Spark session ID.
-        engine_configuration: Spark engine configuration settings.
 
     Example:
         >>> from pyathena.spark.async_cursor import AsyncSparkCursor
@@ -67,12 +76,14 @@ class AsyncSparkCursor(SparkBaseCursor):
 
     def __init__(
         self,
+        *,
         session_id: str | None = None,
         description: str | None = None,
         engine_configuration: dict[str, Any] | None = None,
         notebook_version: str | None = None,
         session_idle_timeout_minutes: int | None = None,
         max_workers: int = (cpu_count() or 1) * 5,
+        terminate_session_on_close: bool | None = None,
         **kwargs,
     ):
         """Initialize the cursor and start or attach to a Spark session.
@@ -85,6 +96,9 @@ class AsyncSparkCursor(SparkBaseCursor):
             notebook_version: Notebook version of a new session.
             session_idle_timeout_minutes: Idle timeout of a new session in minutes.
             max_workers: Maximum number of threads for asynchronous operations.
+            terminate_session_on_close: Whether ``close()`` terminates the session.
+                If None, only a session started by this cursor is terminated;
+                a session supplied with ``session_id`` is left running.
             **kwargs: Arguments passed to ``SparkBaseCursor``.
 
         Raises:
@@ -102,14 +116,16 @@ class AsyncSparkCursor(SparkBaseCursor):
             engine_configuration=engine_configuration,
             notebook_version=notebook_version,
             session_idle_timeout_minutes=session_idle_timeout_minutes,
+            terminate_session_on_close=terminate_session_on_close,
             **kwargs,
         )
 
+    @override
     def close(self, wait: bool = False) -> None:
-        """Terminate the Spark session, then shut down the executor.
+        """Close the cursor, then shut down the executor.
 
+        The session is terminated as described in ``SparkBaseCursor.close()``.
         The executor is shut down even if terminating the session fails.
-        If termination fails, calling this method again retries it.
 
         Args:
             wait: Whether to wait for submitted futures to finish before returning
@@ -124,11 +140,29 @@ class AsyncSparkCursor(SparkBaseCursor):
             self._executor.shutdown(wait=wait)
 
     def calculation_execution(self, query_id: str) -> "Future[AthenaCalculationExecution]":
+        """Get calculation execution details asynchronously.
+
+        Args:
+            query_id: The calculation execution ID.
+
+        Returns:
+            Future object containing the ``AthenaCalculationExecution``.
+        """
         return self._executor.submit(self._get_calculation_execution, query_id)
 
     def get_std_out(
         self, calculation_execution: AthenaCalculationExecution
     ) -> "Future[str] | None":
+        """Read the standard output of a calculation from S3 asynchronously.
+
+        Args:
+            calculation_execution: The calculation execution whose
+                ``std_out_s3_uri`` is read.
+
+        Returns:
+            Future object containing the output text with leading and trailing
+            whitespace removed, or None if the calculation has no ``std_out_s3_uri``.
+        """
         if not calculation_execution.std_out_s3_uri:
             return None
         return self._executor.submit(
@@ -138,6 +172,16 @@ class AsyncSparkCursor(SparkBaseCursor):
     def get_std_error(
         self, calculation_execution: AthenaCalculationExecution
     ) -> "Future[str] | None":
+        """Read the standard error output of a calculation from S3 asynchronously.
+
+        Args:
+            calculation_execution: The calculation execution whose
+                ``std_error_s3_uri`` is read.
+
+        Returns:
+            Future object containing the error output text with leading and trailing
+            whitespace removed, or None if the calculation has no ``std_error_s3_uri``.
+        """
         if not calculation_execution.std_error_s3_uri:
             return None
         return self._executor.submit(
@@ -145,20 +189,49 @@ class AsyncSparkCursor(SparkBaseCursor):
         )
 
     def poll(self, query_id: str) -> "Future[AthenaCalculationExecution]":
+        """Wait for a calculation to reach a terminal state asynchronously.
+
+        Args:
+            query_id: The calculation execution ID.
+
+        Returns:
+            Future object containing the calculation execution in a terminal state.
+        """
         return cast(
             "Future[AthenaCalculationExecution]", self._executor.submit(self._poll, query_id)
         )
 
+    @override
     def execute(
         self,
         operation: str,
         parameters: dict[str, Any] | list[str] | None = None,
+        *,
         session_id: str | None = None,
         description: str | None = None,
         client_request_token: str | None = None,
-        work_group: str | None = None,
         **kwargs,
     ) -> tuple[str, "Future[AthenaQueryExecution | AthenaCalculationExecution]"]:
+        """Start a PySpark calculation and return its ID and polling future.
+
+        Args:
+            operation: PySpark code to execute.
+            parameters: Must be None; Spark calculations do not support parameters.
+            session_id: Spark session ID override.
+            description: Calculation description.
+            client_request_token: Idempotency token.
+            **kwargs: Unknown keyword arguments raise TypeError.
+
+        Returns:
+            The calculation ID and a future containing its terminal execution.
+
+        Raises:
+            TypeError: If an unknown keyword argument is given.
+            NotSupportedError: If ``parameters`` is not None.
+        """
+        self._validate_execute_kwargs(kwargs)
+        if parameters is not None:
+            raise NotSupportedError("Spark cursors do not support parameters.")
         calculation_id = self._calculate(
             session_id=session_id if session_id else self._session_id,
             code_block=operation,
@@ -168,4 +241,13 @@ class AsyncSparkCursor(SparkBaseCursor):
         return calculation_id, self._executor.submit(self._poll, calculation_id)
 
     def cancel(self, query_id: str) -> "Future[None]":
+        """Stop a calculation execution asynchronously.
+
+        Args:
+            query_id: The calculation execution ID.
+
+        Returns:
+            Future object that completes when the ``StopCalculationExecution``
+            request has been sent.
+        """
         return self._executor.submit(self._cancel, query_id)

@@ -21,7 +21,8 @@ def test_collect_includes_structured_input_and_context_tools() -> None:
     si = by_source["packages/matrx-ai/matrx_ai/config/structured_input_config.py"]
     ctx = by_source["aidream/services/conversation_context/context_utils.py"]
     assert "dataset_get_all" not in si
-    assert "dataset" in si
+    # 3f4f0e34cd / 106afe1262: the dataset tool is now named table.
+    assert "table" in si
     assert "context" in ctx
     assert "context_patch" in ctx
 

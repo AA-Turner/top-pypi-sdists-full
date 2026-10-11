@@ -1,3 +1,5 @@
+"""Type converters for pandas cursor results."""
+
 from __future__ import annotations
 
 import logging
@@ -9,10 +11,13 @@ from pyathena.converter import (
     Converter,
     _to_binary,
     _to_boolean,
+    _to_datetime_with_tz,
     _to_decimal,
     _to_default,
     _to_json,
+    _to_time_with_tz,
 )
+from pyathena.util import override
 
 _logger = logging.getLogger(__name__)
 
@@ -22,6 +27,8 @@ _DEFAULT_PANDAS_CONVERTERS: dict[str, Callable[[str | None], Any | None]] = {
     "decimal": _to_decimal,
     "varbinary": _to_binary,
     "json": _to_json,
+    "time with time zone": _to_time_with_tz,
+    "timestamp with time zone": _to_datetime_with_tz,
 }
 
 
@@ -52,6 +59,7 @@ class DefaultPandasTypeConverter(Converter):
     """
 
     def __init__(self) -> None:
+        """Initialize the converter with the default pandas conversion functions and dtypes."""
         super().__init__(
             mappings=deepcopy(_DEFAULT_PANDAS_CONVERTERS),
             default=_to_default,
@@ -80,6 +88,7 @@ class DefaultPandasTypeConverter(Converter):
             }
         return self.__dtypes
 
+    @override
     def convert(self, type_: str, value: str | None, type_hint: str | None = None) -> Any | None:
         converter = self.get(type_)
         return converter(value)
@@ -99,11 +108,13 @@ class DefaultPandasUnloadTypeConverter(Converter):
     """
 
     def __init__(self) -> None:
+        """Initialize the converter with no type mappings."""
         super().__init__(
             mappings={},
             default=_to_default,
         )
 
+    @override
     def convert(self, type_: str, value: str | None, type_hint: str | None = None) -> Any | None:
         converter = self.get(type_)
         return converter(value)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -12,15 +12,15 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype._check.error.errcause import ViolationCause
+from beartype._check.cls.hint.tree.hinttreeerror import HintTreeError
 from beartype._data.hint.sign.datahintsigns import HintSignLiteral
 from beartype._util.hint.pep.proposal.pep586 import get_hint_pep586_literals
 from beartype._util.text.utiltextansi import color_type
-from beartype._util.text.utiltextjoin import join_delimited_disjunction
+from beartype._util.text.utiltextjoin import join_strings_commaed_or
 from beartype._util.text.utiltextrepr import represent_pith
 
-# ....................{ GETTERS                            }....................
-def find_cause_pep586_literal(cause: ViolationCause) -> ViolationCause:
+# ....................{ FINDERS                            }....................
+def find_cause_pep586_literal(cause: HintTreeError) -> HintTreeError:
     '''
     Output cause describing whether the pith of the passed input cause either
     satisfies or violates the :pep:`586`-compliant :mod:`beartype`-specific
@@ -28,23 +28,24 @@ def find_cause_pep586_literal(cause: ViolationCause) -> ViolationCause:
 
     Parameters
     ----------
-    cause : ViolationCause
+    cause : HintTreeError
         Input cause providing this data.
 
     Returns
     ----------
-    ViolationCause
+    HintTreeError
         Output cause type-checking this data.
     '''
-    assert isinstance(cause, ViolationCause), f'{repr(cause)} not cause.'
-    assert cause.hint_sign is HintSignLiteral, (
-        f'{repr(cause.hint_sign)} not "HintSignLiteral".')
+    assert isinstance(cause, HintTreeError), f'{repr(cause)} not cause.'
+    assert cause.hint_curr.hint_sign is HintSignLiteral, (
+        f'{repr(cause.hint_curr.hint_sign)} not "HintSignLiteral".')
 
+    # ....................{ SATISFY                        }....................
     # Tuple of zero or more literal objects subscripting this hint,
     # intentionally replacing the current such tuple due to the non-standard
     # implementation of the third-party "typing_extensions.Literal" factory.
     hint_literals = get_hint_pep586_literals(
-        hint=cause.hint, exception_prefix=cause.exception_prefix)
+        hint=cause.hint_curr_sanified, exception_prefix=cause.exception_prefix)
 
     # If this pith is equal to any literal object subscripting this hint, this
     # pith satisfies this hint. Specifically, if there exists at least one...
@@ -66,8 +67,9 @@ def find_cause_pep586_literal(cause: ViolationCause) -> ViolationCause:
     ):
         # Return this cause unmodified, as this pith deeply satisfies this hint.
         return cause
-    # Else, this pith fails to satisfy this hint.
+    # Else, this pith violates this hint.
 
+    # ....................{ VIOLATE ~ shallow              }....................
     # Tuple union of the types of all literals subscripting this hint.
     hint_literal_types = tuple(
         type(hint_literal) for hint_literal in hint_literals)
@@ -88,9 +90,10 @@ def find_cause_pep586_literal(cause: ViolationCause) -> ViolationCause:
     # hint. Since this pith fails to satisfy this hint, this pith must by
     # deduction be unequal to all literals subscripting this hint.
 
+    # ....................{ VIOLATE ~ deep                 }....................
     # Human-readable comma-delimited disjunction of the machine-readable
     # representations of all literal objects subscripting this hint.
-    cause_literals_unsatisfied = join_delimited_disjunction(
+    cause_literals_unsatisfied = join_strings_commaed_or(
         repr(hint_literal) for hint_literal in hint_literals)
 
     # Deep output cause to be returned, permuted from this input cause such that

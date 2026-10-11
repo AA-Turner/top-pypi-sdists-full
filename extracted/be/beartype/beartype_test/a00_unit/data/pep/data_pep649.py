@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
-Project-wide :pep:`649` **data submodule.**
+Test-wide :pep:`649` **data submodule.**
 
 This submodule exercises :pep:`649` support for unquoted forward references
 inside type hinting contexts implemented in the :func:`beartype.beartype`
@@ -19,10 +19,10 @@ Python 3.14.0.** If this is *not* the case, importing this submodule raises
 '''
 
 # ....................{ TESTS ~ getter                     }....................
-def unit_test_get_pep649_hintable_annotations() -> None:
+def unit_test_get_hintable_pep649749_annotations() -> None:
     '''
     Test the :pep:`649`-compliant implementation of the private
-    :mod:`beartype._util.hint.pep.proposal.pep649.get_pep649_hintable_annotations`
+    :mod:`beartype._util.hint.pep.proposal.pep749.pep649749annotate.get_hintable_pep649749_annotations`
     getter under Python >= 3.14.
     '''
 
@@ -35,8 +35,8 @@ def unit_test_get_pep649_hintable_annotations() -> None:
     #     TypeVarTuple,
     #     Unpack,
     # )
-    from beartype._util.hint.pep.proposal.pep649 import (
-        get_pep649_hintable_annotations)
+    from beartype._util.hint.pep.proposal.pep749.pep649749annotate import (
+        get_hintable_pep649749_annotations)
     from pytest import raises
 
     # # ....................{ CALLABLES                      }....................

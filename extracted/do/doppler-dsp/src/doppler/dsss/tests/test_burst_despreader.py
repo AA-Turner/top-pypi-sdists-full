@@ -237,3 +237,83 @@ def test_burst_lock_statistic_calibrated():
     # reset() re-arms the one-shot statistics.
     b.reset()
     assert b.stat_n == 0 and b.lock_stat == 0.0
+
+
+def test_set_state_carries_set_acq_and_refuses_what_it_cannot_index():
+    """#2041: a blob from a despreader with ``set_acq`` active, restored into
+    one without, used to return without error and crash the next
+    ``steps()``. The acq code is ``set_acq``'s value, so it travels in the
+    blob, and its length is the blob's size: a despreader with no acq code,
+    or one of another length, refuses the blob and is left as it was. One
+    whose acq code has the same length restores the source's preamble and
+    then runs exactly as the source does."""
+    rng = np.random.default_rng(41)
+    data = rng.integers(0, 2, 31).astype(np.uint8)
+    acq = rng.integers(0, 2, 127).astype(np.uint8)
+    other = (1 - acq).astype(np.uint8)
+    x = (rng.standard_normal(4096) + 1j * rng.standard_normal(4096)).astype(
+        np.complex64
+    )
+
+    a = BurstDespreader(data, sf=31, sps=4)
+    a.set_acq(acq, 4)
+    a.steps(x[:600])  # into the preamble
+    blob = a.get_state()
+
+    # no acq code: refused, and untouched
+    b = BurstDespreader(data, sf=31, sps=4)
+    before = b.get_state()
+    with pytest.raises(ValueError):
+        b.set_state(blob)
+    assert b.get_state() == before
+    b.steps(x[:64])  # and it still runs
+
+    # an acq code of another length: refused, untouched
+    c = BurstDespreader(data, sf=31, sps=4)
+    c.set_acq(acq[:63], 4)
+    before = c.get_state()
+    with pytest.raises(ValueError):
+        c.set_state(blob)
+    assert c.get_state() == before
+
+    # same length, other chips and periods: the source's preamble restores
+    d = BurstDespreader(data, sf=31, sps=4)
+    d.set_acq(other, 2)
+    d.set_state(blob)
+    out = a.steps(x[600:])
+    assert out.size > 0  # the comparison below is not of two empties
+    np.testing.assert_array_equal(out, d.steps(x[600:]))
+
+
+def test_set_state_checks_the_blob_in_c_not_only_its_size():
+    """#2041, round 2: a blob the same size as the target's but made under
+    another create-time seed passes the binding's size check and is refused
+    by the C set_state itself -- "rejected", not "size mismatch" -- leaving
+    the target as it was. A setter's value is state, so the loops' bn
+    travels; and a seed that is not finite is refused at construction,
+    because set_state compares the seeds and NaN equals nothing."""
+    rng = np.random.default_rng(2041)
+    data = rng.integers(0, 2, 31).astype(np.uint8)
+    x = (rng.standard_normal(2048) + 1j * rng.standard_normal(2048)).astype(
+        np.complex64
+    )
+
+    src = BurstDespreader(data, sf=31, sps=4, init_norm_freq=0.01)
+    t = BurstDespreader(data, sf=31, sps=4)
+    blob, before = src.get_state(), t.get_state()
+    assert len(blob) == len(before)  # past the binding's size check
+    with pytest.raises(ValueError, match="rejected"):
+        t.set_state(blob)
+    assert t.get_state() == before
+
+    s2 = BurstDespreader(data, sf=31, sps=4)
+    s2.bn_carrier = 0.02
+    s2.steps(x[:600])
+    t.set_state(s2.get_state())
+    assert t.bn_carrier == 0.02
+    out = s2.steps(x[600:])
+    assert out.size > 0
+    np.testing.assert_array_equal(out, t.steps(x[600:]))
+
+    with pytest.raises(ValueError, match="finite"):
+        BurstDespreader(data, sf=31, sps=4, init_chip_phase=float("nan"))

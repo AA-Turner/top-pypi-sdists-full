@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -8,22 +8,17 @@ Project-wide :pep:`589`-compliant **type hint test data.**
 '''
 
 # ....................{ FIXTURES                           }....................
-def hints_pep589_meta() -> 'List[HintPepMetadata]':
+def hints_pep589_meta() -> 'list[HintPepMetadata]':
     '''
     Session-scoped fixture returning a list of :pep:`589`-compliant **type hint
     metadata** (i.e.,
-    :class:`beartype_test.a00_unit.data.hint.util.data_hintmetacls.HintPepMetadata`
+    :class:`beartype_test.a00_unit.data.hint.cls.pith.data_clshintpith.HintPepMetadata`
     instances describing test-specific :pep:`589`-compliant sample type hints
     with metadata generically leveraged by various PEP-agnostic unit tests).
     '''
 
     # ..................{ IMPORTS                            }..................
     # Defer fixture-specific imports.
-    from beartype.typing import (
-        List,
-        Type,
-        Union,
-    )
     from beartype._data.hint.sign.datahintsigns import (
         HintSignList,
         HintSignPep484585GenericSubbed,
@@ -32,17 +27,18 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
     )
     from beartype._util.api.standard.utiltyping import get_typing_attrs
     from beartype._util.py.utilpyversion import IS_PYTHON_AT_LEAST_3_11
-    from beartype_test.a00_unit.data.hint.util.data_hintmetacls import (
-        HintPepMetadata,
-        HintPithSatisfiedMetadata,
-        HintPithUnsatisfiedMetadata,
+    from beartype_test.a00_unit.data.hint.cls.pith.data_clshint import (
+        HintPepMetadata)
+    from beartype_test.a00_unit.data.hint.cls.pith.data_clspith import (
+        PithSatisfiedMetadata,
+        PithUnsatisfiedMetadata,
     )
-
-    from beartype_test.a00_unit.data.pep.data_pep484 import T
+    from beartype_test.a00_unit.data.pep.pep484.data_pep484 import T
+    from typing import Union
 
     # ..................{ LOCALS                             }..................
     # List of all PEP-specific type hint metadata to be returned.
-    hints_pep_meta = []
+    hints_piths_pep_meta = []
 
     # ..................{ FACTORIES                          }..................
     # For each PEP-specific type hint factory importable from each currently
@@ -76,7 +72,7 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
             # Arbitrary key whose value is annotated to be a PEP-compliant union of
             # either a subclass of an issubclassable type or a PEP-noncompliant
             # instance of an isinstanceable type.
-            I_gaze_on_thee: Union[bytes, Type[Exception]]
+            I_gaze_on_thee: Union[bytes, type[Exception]]
 
 
         #FIXME: Note that even this fails to suffice, thanks to *CRAY-CRAY*
@@ -107,11 +103,11 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
             # Arbitrary key whose value is annotated to be a PEP-compliant union
             # of either a subclass of an issubclassable type or a
             # PEP-noncompliant instance of an isinstanceable type.
-            separate_fantasy: Union[Type[Exception], bytes]
+            separate_fantasy: Union[type[Exception], bytes]
 
         # ..................{ LISTS                          }..................
         # Add PEP-specific type hint metadata to this list.
-        hints_pep_meta.extend((
+        hints_piths_pep_meta.extend((
             # ................{ TYPEDDICT                      }................
             # Empty typed dictionary. Look, this is ridiculous. What can you do?
             HintPepMetadata(
@@ -120,12 +116,12 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                 is_type_typing=False,
                 piths_meta=(
                     # Empty dictionary instantiated with standard Python syntax.
-                    HintPithSatisfiedMetadata({}),
+                    PithSatisfiedMetadata({}),
                     # Empty dictionary instantiated from this typed dictionary.
-                    HintPithSatisfiedMetadata(
+                    PithSatisfiedMetadata(
                         ISeemAsInATranceSublimeAndStrange()),
                     # String constant.
-                    HintPithUnsatisfiedMetadata(
+                    PithUnsatisfiedMetadata(
                         pith='Hadithian bodies kindle Bodkin deathbeds',
                         # Match that the exception message raised for this
                         # object embeds the representation of the expected type.
@@ -133,7 +129,7 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                     ),
                     #FIXME: Uncomment *AFTER* deeply type-checking "TypedDict".
                     # # Non-empty dictionary.
-                    # HintPithSatisfiedMetadata({
+                    # PithSatisfiedMetadata({
                     #     'Corinthian bodachean kinslayers lay': (
                     #         'wedded weal‐kith with in‐'),
                     # }),
@@ -147,19 +143,19 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                 is_type_typing=False,
                 piths_meta=(
                     # Non-empty dictionary of the expected keys and values.
-                    HintPithSatisfiedMetadata({
+                    PithSatisfiedMetadata({
                         'and_when': 'Corrigible‐ragged gun corruptions within',
                         'I_gaze_on_thee': b"Hatross-ev-olved eleven imp's",
                     }),
                     # Non-empty dictionary of the expected keys and values
                     # instantiated from this typed dictionary.
-                    HintPithSatisfiedMetadata(DizzyRavine(
+                    PithSatisfiedMetadata(DizzyRavine(
                         and_when=(
                             'Machiavellian‐costumed, tumid stock fonts of a'),
                         I_gaze_on_thee=RuntimeError,
                     )),
                     # String constant.
-                    HintPithUnsatisfiedMetadata(
+                    PithUnsatisfiedMetadata(
                         pith='Matross‐elevated elven velvet atrocities of',
                         # Match that the exception message raised for this
                         # object embeds the representation of the expected type.
@@ -167,14 +163,14 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                     ),
                     # #FIXME: Uncomment *AFTER* deeply type-checking "TypedDict".
                     # # Empty dictionary.
-                    # HintPithUnsatisfiedMetadata(
+                    # PithUnsatisfiedMetadata(
                     #     pith={},
                     #     # Match that the exception message raised for this object
                     #     # embeds the expected number of key-value pairs.
                     #     exception_str_match_regexes=(r'\b2\b',),
                     # ),
                     # # Non-empty dictionary of the expected keys but *NOT* values.
-                    # HintPithUnsatisfiedMetadata(
+                    # PithUnsatisfiedMetadata(
                     #     pith={
                     #         'and_when': 'Matricidally',
                     #         'I_gaze_on_thee': (
@@ -201,23 +197,23 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                 is_type_typing=False,
                 piths_meta=(
                     # Empty dictionary.
-                    HintPithSatisfiedMetadata({}),
+                    PithSatisfiedMetadata({}),
                     # Non-empty dictionary defining only one of the expected
                     # keys.
-                    HintPithSatisfiedMetadata({
+                    PithSatisfiedMetadata({
                         'on_my_own': (
                             'Spurned Court‐upturned, upper gladness, '
                             'edifyingly humidifying'),
                     }),
                     # Non-empty dictionary defining *ALL* of the expected keys,
                     # instantiated from this typed dictionary.
-                    HintPithSatisfiedMetadata(ToMuse(
+                    PithSatisfiedMetadata(ToMuse(
                         on_my_own=(
                             'Sepulchral epic‐âpostatizing home tombs metem‐'),
                         separate_fantasy=b'Macroglia relics',
                     )),
                     # String constant.
-                    HintPithUnsatisfiedMetadata(
+                    PithUnsatisfiedMetadata(
                         pith=(
                             'Psychotically tempered Into temporal '
                             'afterwork‐met portals portending a'
@@ -228,7 +224,7 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                     ),
                     # #FIXME: Uncomment *AFTER* deeply type-checking "TypedDict".
                     # # Non-empty dictionary of the expected keys but *NOT* values.
-                    # HintPithUnsatisfiedMetadata(
+                    # PithUnsatisfiedMetadata(
                     #     pith={
                     #         'on_my_own': (
                     #             'Psyche’s Maidenly‐enladened, '
@@ -252,12 +248,12 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
             # ................{ LISTS ~ nested                 }................
             # List of non-empty totalizing typed dictionaries.
             HintPepMetadata(
-                hint=List[DizzyRavine],
+                hint=list[DizzyRavine],
                 pep_sign=HintSignList,
                 isinstanceable_type=list,
                 piths_meta=(
                     # List of dictionaries of the expected keys and values.
-                    HintPithSatisfiedMetadata([
+                    PithSatisfiedMetadata([
                         {
                             'and_when': (
                                 'Matriculating ‘over‐sized’ '
@@ -274,7 +270,7 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                         },
                     ]),
                     # List of string constants.
-                    HintPithUnsatisfiedMetadata(
+                    PithUnsatisfiedMetadata(
                         pith=[
                             'D-as K-apital, '
                             'notwithstanding Standard adiós‐',
@@ -285,7 +281,7 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                     ),
                     # #FIXME: Uncomment *AFTER* deeply type-checking "TypedDict".
                     # # List of empty dictionaries.
-                    # HintPithUnsatisfiedMetadata(
+                    # PithUnsatisfiedMetadata(
                     #     pith=[{}, {},],
                     #     # Match that the exception message raised for this object
                     #     # embeds the expected number of key-value pairs.
@@ -293,7 +289,7 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                     # ),
                     # # List of non-empty dictionaries, only one of which fails to
                     # # define both the expected keys and values.
-                    # HintPithUnsatisfiedMetadata(
+                    # PithUnsatisfiedMetadata(
                     #     pith=[
                     #         {
                     #             'and_when': (
@@ -331,7 +327,7 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                 Pep589484TypedDictT)
 
             # Add version-specific type hint metadata to this list.
-            hints_pep_meta.extend((
+            hints_piths_pep_meta.extend((
                 # ................{ GENERICS                   }................
                 # Non-empty totalizing unsubscripted typed dictionary generic
                 # parametrized by one type variable.
@@ -340,14 +336,14 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                     pep_sign=HintSignPep484585GenericUnsubbed,
                     generic_type=Pep589484TypedDictT,
                     is_type_typing=False,
-                    typeargs_packed=(T,),
+                    typeargs_packed_unsubbed=(T,),
                     piths_meta=(
                         # Non-empty generic instance containing the expected keys
                         # and values.
-                        HintPithSatisfiedMetadata(Pep589484TypedDictT(
+                        PithSatisfiedMetadata(Pep589484TypedDictT(
                             key='Arches, and domes, and fiery galleries;')),
                         # String constant.
-                        HintPithUnsatisfiedMetadata(
+                        PithUnsatisfiedMetadata(
                             pith='And all its curtains of Aurorian clouds',
                             # Match that the exception message raised for this
                             # object embeds the representation of the expected type.
@@ -356,10 +352,10 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                         ),
                         # #FIXME: Uncomment *AFTER* deeply type-checking "TypedDict".
                         # # Empty generic instance.
-                        # HintPithSatisfiedMetadata(Pep589484TypedDictT()),
+                        # PithSatisfiedMetadata(Pep589484TypedDictT()),
                         # # Non-empty generic instance *NOT* containing the expected
                         # # keys.
-                        # HintPithUnsatisfiedMetadata(
+                        # PithUnsatisfiedMetadata(
                         #     pith=Pep589484TypedDictT({
                         #         'and_when': 'Matricidally',
                         #         'I_gaze_on_thee': (
@@ -387,13 +383,15 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                     generic_type=Pep589484TypedDictT,
                     is_type_typing=True,
                     is_typing=False,
+                    typeargs_packed_subbed=(),
+                    typeargs_packed_unsubbed=(T,),
                     piths_meta=(
                         # Non-empty generic instance containing the expected keys
                         # and values.
-                        HintPithSatisfiedMetadata(Pep589484TypedDictT(
+                        PithSatisfiedMetadata(Pep589484TypedDictT(
                             key="Flush'd angerly: while sometimes eagle's wings,")),
                         # String constant.
-                        HintPithUnsatisfiedMetadata(
+                        PithUnsatisfiedMetadata(
                             pith='Unseen before by Gods or wondering men,',
                             # Match that the exception message raised for this
                             # object embeds the representation of the expected type.
@@ -402,10 +400,10 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
                         ),
                         # #FIXME: Uncomment *AFTER* deeply type-checking "TypedDict".
                         # # Empty generic instance.
-                        # HintPithSatisfiedMetadata(Pep589484TypedDictT()),
+                        # PithSatisfiedMetadata(Pep589484TypedDictT()),
                         # # Non-empty generic instance *NOT* containing the expected
                         # # keys.
-                        # HintPithUnsatisfiedMetadata(
+                        # PithUnsatisfiedMetadata(
                         #     pith=Pep589484TypedDictT({
                         #         'and_when': 'Matricidally',
                         #         'I_gaze_on_thee': (
@@ -431,4 +429,4 @@ def hints_pep589_meta() -> 'List[HintPepMetadata]':
 
     # ..................{ RETURN                             }..................
     # Return this list of all PEP-specific type hint metadata.
-    return hints_pep_meta
+    return hints_piths_pep_meta

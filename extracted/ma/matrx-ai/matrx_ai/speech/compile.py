@@ -140,11 +140,6 @@ def _resolve_voices(
     voices: dict[str, str] = {}
     for speaker in script.speakers():
         literal = script.voice_for(speaker)
-        if literal and "{{" in literal:
-            raise SpeechScriptRefusal(
-                f"Speaker {speaker!r} is bound to the variable {literal} but no value "
-                "was supplied for it. Fill the variable with a voice id from this model."
-            )
         try:
             voices[speaker] = resolve(profile, literal or setting_voice)
         except Exception as exc:

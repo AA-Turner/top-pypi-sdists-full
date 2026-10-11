@@ -104,11 +104,11 @@ jobs:
       env:
         CODE: ${{ needs.changes.outputs.code }}
       run: |
-        primary=$(python3 scripts/python_versions.py --primary)
+        primary=$(make -s print-python-primary)
         if [ "$CODE" = false ]; then
           pythons="[\"$primary\"]"
         else
-          pythons=$(python3 scripts/python_versions.py --matrix)
+          pythons=$(make -s print-python-matrix)
         fi
         { echo "pythons=$pythons"; echo "primary=$primary"; } >> "$GITHUB_OUTPUT"
         echo "pythons=$pythons primary=$primary"
@@ -171,6 +171,12 @@ jobs:
 
     - name: Build
       run: make build
+
+    # A fresh tree never has a stale vendored-nats.c cache, so the #1936 fix
+    # is a no-op in every other step. This makes that state on purpose and
+    # checks the vendor's cache, not the exit code.
+    - name: Vendored nats.c keeps its options after a compiler change
+      run: make nats-vendor-fresh-check
 
     - name: Test
       run: make test
@@ -437,7 +443,7 @@ jobs:
       run: scripts/msvc-env.sh x64
 
     - name: Install uv + Python 3.12
-      uses: astral-sh/setup-uv@v7
+      uses: ./.github/actions/setup-uv
       with:
         python-version: '3.12'
 

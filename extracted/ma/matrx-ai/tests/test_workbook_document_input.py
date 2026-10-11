@@ -79,7 +79,7 @@ def test_read_only_pointer_says_read_only_and_omits_edit() -> None:
 
 def test_document_pointer_mentions_tool() -> None:
     text = _resolve(DocumentInputContent(document_ids=[_DOC_ID], editable=True))
-    assert '"__kind":"directive_v1_reference_document"' in text and _DOC_ID in text
+    assert '"__kind":"directive_v1_reference_udt_document"' in text and _DOC_ID in text
 
 
 def test_object_ref_shape_is_supported() -> None:

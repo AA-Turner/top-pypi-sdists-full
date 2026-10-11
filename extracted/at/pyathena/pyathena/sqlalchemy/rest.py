@@ -1,6 +1,16 @@
+# Copyright 2023 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""SQLAlchemy dialect for Athena that uses the default ``Cursor``."""
+
 from typing import TYPE_CHECKING
 
 from pyathena.sqlalchemy.base import AthenaDialect
+from pyathena.util import override
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -36,5 +46,6 @@ class AthenaRestDialect(AthenaDialect):
     supports_statement_cache = True
 
     @classmethod
+    @override
     def import_dbapi(cls) -> "ModuleType":
         return super().import_dbapi()

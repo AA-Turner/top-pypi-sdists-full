@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from base64 import b64encode
-from hashlib import sha224
 from typing import Any, Pattern, TypedDict
 
 import yaml
@@ -22,6 +21,7 @@ from .yaml_support import (
     COMMENT_PLACEMENT_BEFORE,
     COMMENT_PLACEMENT_INLINE,
     CommentPreservingLoader,
+    consume_comments_before_node,
     consume_comments_for_node,
     make_mapping_comment_key,
     make_sequence_comment_annotation,
@@ -42,7 +42,7 @@ core_resolvers: dict[str, list[ResolverSpec]] = {
         {
             "tag": "tag:yaml.org,2002:bool",
             "regexp": re.compile(
-                r"""^(?:yes|Yes|YES|no|No|NO
+                r"""^(?:y|Y|yes|Yes|YES|n|N|no|No|NO
             |true|True|TRUE|false|False|FALSE
             |on|On|ON|off|Off|OFF)$""",
                 re.VERBOSE,
@@ -162,7 +162,9 @@ def construct_yaml_1_2_int(loader, node):
 
 
 def hash_key(key):
-    return b64encode(sha224(key.encode() if isinstance(key, str) else key).digest()).decode()
+    import hashlib
+
+    return b64encode(hashlib.sha224(key.encode() if isinstance(key, str) else key).digest()).decode()
 
 
 class YAMLExpansionError(ValueError):
@@ -260,11 +262,13 @@ class CommentPreservingCustomLoader(CommentPreservingLoader):
 
 def get_loader(use_annotations=False, expand_aliases=True, expand_merge_keys=True):
     def construct_sequence(loader, node):
-        annotations = []
+        if not use_annotations:
+            return [loader.construct_object(i) for i in node.value]
+        values, annotations = [], []
         for i, v_node in enumerate(node.value):
-            if not use_annotations:
-                break
-            comments = consume_comments_for_node(loader, v_node)
+            before_comments = consume_comments_before_node(loader, v_node)
+            values.append(loader.construct_object(v_node))
+            comments = consume_comments_for_node(loader, v_node, before_comments=before_comments)
             for comment in comments[COMMENT_PLACEMENT_BEFORE]:
                 annotations.append(make_sequence_comment_annotation(COMMENT_PLACEMENT_BEFORE, i, comment))
             for comment in comments[COMMENT_PLACEMENT_INLINE]:
@@ -275,18 +279,20 @@ def get_loader(use_annotations=False, expand_aliases=True, expand_merge_keys=Tru
                 annotations.append(f"__yq_style_{i}_{v_node.style}__")
             elif isinstance(v_node, (yaml.nodes.SequenceNode, yaml.nodes.MappingNode)) and v_node.flow_style is True:
                 annotations.append("__yq_style_{}_{}__".format(i, "flow"))
-        return [loader.construct_object(i) for i in node.value] + annotations
+        return values + annotations
 
     def construct_mapping(loader, node):
         loader.flatten_mapping(node)  # TODO: is this needed?
-        pairs = []
+        mapping = {}
         for k_node, v_node in node.value:
             key = loader.construct_object(k_node)
+            if use_annotations:
+                before_comments = consume_comments_before_node(loader, k_node)
             value = loader.construct_object(v_node)
-            pairs.append((key, value))
+            mapping[key] = value
             if not use_annotations:
                 continue
-            comments = consume_comments_for_node(loader, k_node, v_node)
+            comments = consume_comments_for_node(loader, k_node, v_node, before_comments=before_comments)
             if not isinstance(key, (str, bytes)):
                 continue
             tag = None
@@ -302,12 +308,12 @@ def get_loader(use_annotations=False, expand_aliases=True, expand_merge_keys=Tru
             hashed_key = hash_key(key)
             for placement, values in comments.items():
                 if values:
-                    pairs.append((make_mapping_comment_key(placement, hashed_key), values))
+                    mapping[make_mapping_comment_key(placement, hashed_key)] = values
             if tag:
-                pairs.append((f"__yq_tag_{hashed_key}__", tag))
+                mapping[f"__yq_tag_{hashed_key}__"] = tag
             if style:
-                pairs.append((f"__yq_style_{hashed_key}__", style))
-        return dict(pairs)
+                mapping[f"__yq_style_{hashed_key}__"] = style
+        return mapping
 
     def parse_unknown_tags(loader, tag_suffix, node):
         if isinstance(node, yaml.nodes.ScalarNode):

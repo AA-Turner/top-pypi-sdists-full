@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -14,14 +14,7 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype._data.func.datafuncarg import ARG_NAME_RETURN
-from beartype._data.typing.datatyping import (
-    BeartypeableT,
-    BoolTristate,
-)
-from beartype._util.text.utiltextlabel import (
-    label_callable,
-    label_type,
-)
+from beartype._data.typing.datatyping import BoolTristate
 from collections.abc import Callable
 
 # ....................{ PREFIXERS ~ object                 }....................
@@ -37,7 +30,7 @@ def prefix_object(obj: object, **kwargs) -> str:
         Object to be labelled.
 
     All remaining parameters are passed as is to the lower-level
-    :func:`.label_object` function.
+    :func:`beartype._util.text.utiltextlabel.label_object` labeller.
 
     Returns
     -------

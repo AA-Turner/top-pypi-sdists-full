@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -18,10 +18,8 @@ from beartype.roar import  (
     BeartypeDecorHintForwardRefException,
     BeartypeDecorHintPep695Exception,
 )
-from beartype.typing import (
-    Optional,
-)
 from pytest import raises
+from typing import Optional
 
 # ....................{ CALLABLES                          }....................
 @beartype

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skylos
-Version: 4.47.1
+Version: 4.47.2
 Summary: Open-source, local-first static analysis and PR gates for Python, TypeScript/JavaScript, Go, Java, Kotlin, PHP, Rust, Dart, C#, C++, and Shell. Finds dead code, security issues, secrets, quality regressions, and AI-code mistakes.
 Author-email: Aaron Oh <aaronoh2015@gmail.com>
 License-Expression: Apache-2.0
@@ -43,7 +43,6 @@ Requires-Dist: tree-sitter-java<0.24,>=0.23.0
 Requires-Dist: tree-sitter-php<0.25,>=0.24.1
 Requires-Dist: tree-sitter-rust<0.25,>=0.24.2
 Requires-Dist: tree-sitter-cpp<0.24,>=0.23.4
-Requires-Dist: tree-sitter-dart-orchard<0.6,>=0.3.2
 Requires-Dist: tomli>=2.0.1; python_version < "3.11"
 Requires-Dist: pyyaml
 Requires-Dist: networkx
@@ -60,6 +59,8 @@ Requires-Dist: pytest>=9.0.2; extra == "test"
 Requires-Dist: packaging>=24.2; extra == "test"
 Provides-Extra: verdict
 Requires-Dist: cryptography>=42; extra == "verdict"
+Provides-Extra: dart
+Requires-Dist: tree-sitter-dart-orchard<0.6,>=0.3.2; extra == "dart"
 Provides-Extra: all
 Requires-Dist: pytest>=9.0.2; extra == "all"
 Requires-Dist: packaging>=24.2; extra == "all"
@@ -67,6 +68,7 @@ Requires-Dist: litellm<1.89.0,>=1.84.0; extra == "all"
 Requires-Dist: aiohttp>=3.14.0; extra == "all"
 Requires-Dist: ruff>=0.15.0; extra == "all"
 Requires-Dist: cryptography>=42; extra == "all"
+Requires-Dist: tree-sitter-dart-orchard<0.6,>=0.3.2; extra == "all"
 Dynamic: license-file
 
 [![MCP Toplist](https://mcptoplist.com/badge/io.github.duriantaco%2Fskylos.svg)](https://mcptoplist.com/server/io.github.duriantaco%2Fskylos)
@@ -624,6 +626,9 @@ pip install "skylos[lint]"
 # Ed25519 verification for `skylos verify-verdict`
 pip install "skylos[verdict]"
 
+# Dart analysis (builds the Dart parser from source; needs a C compiler)
+pip install "skylos[dart]"
+
 # All published optional extras
 pip install "skylos[all]"
 ```
@@ -718,7 +723,7 @@ or `--include-folder` to override an excluded folder.
 | Go | Yes¹ | Partial¹ | Partial | Supported | native engine status remains separate from deterministic workspace API proof |
 | PHP | Yes | Yes | No | Unsupported | PHP parser coverage plus taint-style security sinks and sources |
 | Rust | Yes | Yes | No | Unsupported | Rust parser coverage plus security sink/source checks |
-| Dart | Yes | Yes | No | Unsupported | Dart parser coverage plus selected security sinks and sources |
+| Dart | Yes³ | Yes³ | No | Unsupported | Dart parser coverage plus selected security sinks and sources |
 | C# | Partial | Partial | Partial | Partial | C# symbols, direct-block unreachable code, selected security sinks, and direct NuGet inventory |
 | C++ | Partial | No | No | Unsupported | conservative unused file-local functions in `.cpp`, `.cc`, `.cxx`; C++ headers are parsed for references |
 | Kotlin | Yes | No² | No | Unsupported | Kotlin symbol extraction with conservative static-analysis coverage |
@@ -731,6 +736,12 @@ incomplete; see the Go engine note below.
 
 ² No built-in Kotlin security rules; secret scanning still covers `.kt` and
 `.kts` files.
+
+³ Dart checks need the optional `skylos[dart]` extra
+(`pip install "skylos[dart]"`). Its parser has no prebuilt wheels, so installing
+it needs a C compiler. Without it, a scan that includes `.dart` files reports
+`SKY-ANALYSIS-INCOMPLETE` and exits with code 2 instead of skipping them
+silently; `skylos doctor` shows whether Dart support is installed.
 
 "No" means Skylos has no built-in rules of that kind for the language.
 

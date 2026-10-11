@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -12,12 +12,11 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype.meta import URL_ISSUES
 from beartype.roar import BeartypeDecorHintNonpepException
-from beartype.typing import NoReturn
-from beartype._data.typing.datatypingport import Hint
 from beartype._data.typing.datatyping import TypeException
-from beartype._util.cache.utilcachecall import callable_cached
+from beartype._data.typing.datatypingport import Hint
+from beartype._metaverse import URL_ISSUES
+from beartype._util.cache.func.utilcachefunc import callable_cached
 from beartype._util.hint.nonpep.utilnonpeptest import (
     die_unless_hint_nonpep,
     is_hint_nonpep,
@@ -28,9 +27,11 @@ from beartype._util.hint.pep.utilpeptest import (
     is_hint_pep,
     is_hint_pep_supported,
 )
+from beartype._util.hint.pep.proposal.pep484.pep484604union import (
+    is_hint_pep604)
 from beartype._util.hint.pep.proposal.pep585 import (
     is_hint_pep585_builtin_subbed)
-from beartype._util.hint.pep.proposal.pep484604 import is_hint_pep604
+from typing import NoReturn
 
 # ....................{ RAISERS                            }....................
 def die_unless_hint(
@@ -38,6 +39,9 @@ def die_unless_hint(
     hint: Hint,
 
     # Optional parameters.
+    is_ref_str_valid: bool = False,
+    is_ref_proxy_valid: bool = False,
+    exception_cls: TypeException = BeartypeDecorHintNonpepException,
     exception_prefix: str = '',
 ) -> None:
     '''
@@ -69,7 +73,26 @@ def die_unless_hint(
     ----------
     hint : Hint
         Object to be validated.
-    exception_prefix : str, optional
+    is_ref_str_valid : bool, default: False
+        :data:`True` only if this function permits this object to contain
+        :pep:`484`-compliant stringified forward references. If this boolean is:
+
+        * :data:`True`, this object is supported *even if* this object is a
+          stringified forward reference.
+        * :data:`False`, this object is supported *unless* this object is a
+          stringified forward reference.
+
+        Defaults to :data:`False` for safety.
+    is_ref_proxy_valid : bool, default: False
+        :data:`True` only if this function permits this object to be a
+        **forward reference proxy** (i.e., :mod:`beartype`-specific private type
+        proxying an external type hint that may currently be undefined). See the
+        :func:`beartype._util.cls.pep.clspep3119.die_unless_object_isinstanceable`
+        raiser for further details.
+    exception_cls : type[Exception], default: BeartypeDecorHintNonpepException
+        Type of exception to be raised in the event of a fatal error. Defaults
+        to :exc:`.BeartypeDecorHintNonpepException`.
+    exception_prefix : str, default: ''
         Human-readable substring prefixing raised exception messages. Defaults
         to the empty string.
 
@@ -86,7 +109,10 @@ def die_unless_hint(
     '''
 
     # If this object is a supported type hint, reduce to a noop.
-    if is_hint(hint):
+    #
+    # Note that this tester is memoized and thus requires that parameters be
+    # only passed positionally. It is what it is.
+    if is_hint(hint, is_ref_str_valid, is_ref_proxy_valid):
         return
     # Else, this object is *NOT* a supported type hint. In this case,
     # subsequent logic raises an exception specific to the passed parameters.
@@ -95,16 +121,26 @@ def die_unless_hint(
     # BEGIN: Synchronize changes here with is_hint() below.
     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    # If this hint is PEP-compliant *AND* currently unsupported by @beartype,
-    # raise an exception.
+    # If this hint is PEP-compliant *AND* currently unsupported by @beartype...
     if is_hint_pep(hint):
+        # Raise an exception.
+        #
+        # Note that the optional "exception_cls" parameter is intentionally left
+        # unpassed to ensure this call raises the expected fine-grained
+        # "BeartypeDecorHintPepUnsupportedException" exception.
         die_if_hint_pep_unsupported(
             hint=hint, exception_prefix=exception_prefix)
     # Else, this hint is PEP-noncompliant. In this case...
 
     # If this PEP-noncompliant hint is currently unsupported by @beartype, raise
     # an exception.
-    die_unless_hint_nonpep(hint=hint, exception_prefix=exception_prefix)
+    die_unless_hint_nonpep(
+        hint=hint,
+        is_ref_str_valid=is_ref_str_valid,
+        is_ref_proxy_valid=is_ref_proxy_valid,
+        exception_cls=exception_cls,
+        exception_prefix=exception_prefix,
+    )
 
 
 def die_as_hint_unsupported(
@@ -129,10 +165,10 @@ def die_as_hint_unsupported(
     ----------
     hint : object
         Object to be validated.
-    exception_cls : type[Exception]
+    exception_cls : type[Exception], default: BeartypeDecorHintNonpepException
         Type of exception to be raised. Defaults to
         :exc:`.BeartypeDecorHintNonpepException`.
-    exception_prefix : str, optional
+    exception_prefix : str, default: ''
         Human-readable substring prefixing the raised exception message.
         Defaults to the empty string.
 
@@ -161,11 +197,18 @@ def die_as_hint_unsupported(
 
 # ....................{ TESTERS                            }....................
 @callable_cached
-def is_hint(hint: object) -> bool:
+def is_hint(
+    # Mandatory parameters.
+    hint: object,
+
+    # Optional parameters.
+    is_ref_str_valid: bool = False,
+    is_ref_proxy_valid: bool = False,
+) -> bool:
     '''
     :data:`True` only if the passed object is a **supported type hint** (i.e.,
     object supported by the :func:`beartype.beartype` decorator as a valid type
-    hint annotating callable parameters and return values).
+    hint annotating callable parameters and returns).
 
     This tester is memoized for efficiency.
 
@@ -173,6 +216,22 @@ def is_hint(hint: object) -> bool:
     ----------
     hint : object
         Object to be validated.
+    is_ref_str_valid : bool, default: False
+        :data:`True` only if this function permits this object to contain
+        :pep:`484`-compliant stringified forward references. If this boolean is:
+
+        * :data:`True`, this object is supported *even if* this object is a
+          stringified forward reference.
+        * :data:`False`, this object is supported *unless* this object is a
+          stringified forward reference.
+
+        Defaults to :data:`False` for safety.
+    is_ref_proxy_valid : bool, default: False
+        :data:`True` only if this function permits this object to be a
+        **forward reference proxy** (i.e., :mod:`beartype`-specific private type
+        proxying an external type hint that may currently be undefined). See the
+        :func:`beartype._util.cls.pep.clspep3119.die_unless_object_isinstanceable`
+        raiser for further details.
 
     Returns
     -------
@@ -196,14 +255,17 @@ def is_hint(hint: object) -> bool:
     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # BEGIN: Synchronize changes here with die_unless_hint() above.
     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
     # Return true only if...
     return (
         # This is a PEP-compliant type hint supported by @beartype *OR*...
         is_hint_pep_supported(hint) if is_hint_pep(hint) else
         # This is a PEP-noncompliant type hint, which by definition is
-        # necessarily supported by @beartype.
-        is_hint_nonpep(hint=hint, is_forwardref_valid=True)
+        # necessarily supported by @beartype. (PEP-noncompliance is what we do.)
+        is_hint_nonpep(
+            hint=hint,
+            is_ref_str_valid=is_ref_str_valid,
+            is_ref_proxy_valid=is_ref_proxy_valid,
+        )
     )
 
 
@@ -320,89 +382,3 @@ def is_hint_cacheworthy(hint: Hint) -> bool:
             is_hint_pep604(hint)
         )
     )
-
-# ....................{ TESTERS ~ needs                    }....................
-@callable_cached
-def is_hint_needs_cls_stack(hint: Hint) -> bool:
-    '''
-    :data:`True` only if the passed type hint is **type stack-dependent** (i.e.,
-    if :mod:`beartype` requires the tuple of all classes lexically declaring the
-    class variables or methods annotated by this hint to generate code
-    type-checking this hint).
-
-    This tester returns :data:`False` for most hints; only a small subset of
-    hints are type stack-dependent. This includes:
-
-    * :pep:`673`-compliant self type hint (i.e., :obj:`typing.Self`), which is
-      contextually valid *only* inside a lexical class declaration.
-
-    This tester is memoized for efficiency.
-
-    Motivation
-    ----------
-    **This tester should only be called to decide whether memoized callables
-    should be passed a type stack.** Passing memoized callables a type stack
-    substantially reduces the likelihood of a cache hit and thus the
-    average-case efficiency of calls to those callables. Notably:
-
-    * Most type hints do *not* require a type stack.
-    * Most type hints annotate class variables and methods of differing classes
-      and thus do *not* share the same type stack.
-
-    Ergo, passing memoized callables both a type hint *and* a type stack
-    effectively unmemoizes those callables. Thankfully, callers can elide this
-    inefficiency by calling this tester first; when this tester returns:
-
-    * :data:`False`, the caller can safely pass memoized callables a type hint
-      and :data:`None` for the type stack, thus preserving memoization. This is
-      the common case and thus absolutely worth optimizing for.
-    * :data:`True`, the caller has *no* choice but to pass memoized callables
-      both a type hint *and* a type stack. Grr!
-
-    Parameters
-    ----------
-    hint : Hint
-        Type hint to be inspected.
-
-    Returns
-    -------
-    bool
-        :data:`True` only if this type hint is type stack-dependent.
-    '''
-
-    # Avoid circular import dependencies.
-    from beartype._util.hint.utilhintget import get_hint_repr
-
-    # Machine-readable representation of this hint.
-    hint_repr = get_hint_repr(hint)
-
-    # Return true only if this representation embeds the representation of:
-    # * A PEP 673-compliant self type hint (i.e., "typing.Self").
-    #
-    # Note:
-    # * The fully-qualified names of exact typing modules (e.g., "typing",
-    #   "typing_extensions") is intentionally ignored. Although we could
-    #   certainly explicitly test for both, doing so would only needlessly
-    #   reduce efficiency. By omitting explicit tests for both, this tester
-    #   intentionally returns false positives for extremely edge case hints
-    #   whose representations contain syntactically related but semantically
-    #   unrelated substrings (e.g., "typing.Literal['.Self']", which is clearly
-    #   *NOT* a PEP 673-compliant self type hint but erroneously matched as one
-    #   by this heuristic). This is non-ideal but thankfully ignorable. See the
-    #   "Motivation" section of the docstring for further commentary.
-    # * This string is intentionally *NOT* preceded by a "." delimiter (e.g., as
-    #   ".Self" rather than "Self"). Previously, this string was intentionally
-    #   preceded by a "." delimiter; doing so satisfied most edge cases while
-    #   reducing the likelihood of a false positive. Sadly, doing so also failed
-    #   to match "Self" type hints stringified by PEP 563. Grrr!
-    # * That the "in" operator is known to be the fastest means of performing
-    #   substring matching in Python. Indeed:
-    #   * "in" is faster than the str.find() method, which is *SUBSTANTIALLY*
-    #     faster than the re.match() function, which is an entire of magnitude
-    #     slower than "in".
-    #   * re.match() only begins to catch up to "in" when concurrently testing
-    #     for more than 10 or so substrings (e.g., r'(0|1|2|3|4|5|6|7|8|9)').
-    #
-    # See also the extensive timings documented at this StackOverflow question:
-    #     https://stackoverflow.com/questions/4901523/whats-a-faster-operation-re-match-search-or-str-find
-    return 'Self' in hint_repr

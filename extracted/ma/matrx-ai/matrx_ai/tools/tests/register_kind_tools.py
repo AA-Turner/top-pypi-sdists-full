@@ -196,16 +196,7 @@ TOOLS = [
         "name": "kindcomp_get_context",
         "args": KindcompGetContextArgs,
         "description": (
-            "Primary context bundle for working on a kind's UI component: the kind definition "
-            "(schema + fingerprint + version + summary.title_key, the per-kind instance-title "
-            "field), the canonical example payload (the exact data "
-            "shape the component receives), summaries of every component, open render "
-            "incidents deduplicated by error signature, and props_contract — the authoritative "
-            "component mounting contract (the frontend renders DB components as <Component "
-            "data={value} kind={kind} config={config} />: read everything from props.data, "
-            "never flat props; props_transform output also lands under props.data). Use this "
-            "FIRST when creating or fixing any kind component. Pass kind (slug or "
-            "kind_definition_id) or component_id."
+            "First call when creating or fixing a kind's UI component. Pass kind or component_id. Returns the kind definition (schema, fingerprint, version, summary.title_key = per-instance title field), the canonical example payload (exact data the component receives), every component's summary, and open render incidents deduped by error signature (editors only; otherwise incidents_visible=false). The authoring rules are the shape-authoring skill in your instructions."
         ),
         "icon": "Wrench",
         "annotations": [{"type": "readOnlyHint", "value": True}],
@@ -214,16 +205,7 @@ TOOLS = [
         "name": "kindcomp_create_component",
         "args": KindcompCreateComponentArgs,
         "description": (
-            "Create a DB-authored render component for a kind (source='db'). PROPS CONTRACT: "
-            "the frontend mounts your component as <Component data={value} kind={kind} "
-            "config={config} /> — the kind instance arrives as props.data (destructure "
-            "{ data }); flat props are NEVER provided and reading them renders empty with no "
-            "error. props_transform reshapes the value but its output STILL arrives as "
-            "props.data. Sources that never reference `data` are refused. Required: kind, "
-            "component_key (short stable id), component_source (COMPLETE TSX source). Never "
-            "create input-role components — the seeded 'generic_structured' row is the only "
-            "routable input path. Components are unique per (kind, platform, role, "
-            "component_key); duplicates fail with a pointer to kindcomp_update_code."
+            "Create a kind's DB-authored render component (platform staff only; others are refused). Follow the shape-authoring skill in your instructions: it is the whole authoring contract. Write gates, nothing written on refusal: the source must read props.data; imports must be on the allowlist; no network/eval globals; esbuild TSX syntax. Each refusal names the exact error. Unique per (kind, platform, role, component_key); a duplicate errors, edit it with kindcomp_update_code / kindcomp_patch_code. Do not create role=input components."
         ),
         "icon": "PlusCircle",
         "annotations": [{"type": "destructiveHint", "value": False}],

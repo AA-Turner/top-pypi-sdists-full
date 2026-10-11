@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(doppler VERSION 0.65.0 LANGUAGES C)
+project(doppler VERSION 0.66.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -523,6 +523,7 @@ add_subdirectory(native/src/wfmcompose)
 add_subdirectory(native/src/ccsds_tm)
 add_subdirectory(native/src/conv)
 add_subdirectory(native/src/rs)
+add_subdirectory(native/src/spectrogram)
 add_subdirectory(native/src/frame_meter)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:frame_meter_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:frame_meter_core>)
@@ -926,6 +927,13 @@ target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:conv_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:rs_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:rs_core>)
 
+# spectrogram_core, a hand-owned c_dep until its Python face moves it to a jm
+# object (#1894 slice 3b): native/inc/doppler/spectrogram is an installed
+# header whose every function is out-of-line, and nothing depends on it with
+# link=true, so jm wires it nowhere and reports it UNWIRED without this line.
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:spectrogram_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:spectrogram_core>)
+
 # The capture's block bound is claimed from a code audit of every emit site.
 # This drives a REAL object -- carrier_nda, the only unconditional per-input
 # emitter -- and measures what it actually emits, so the audit is checked
@@ -951,6 +959,15 @@ target_link_libraries(test_detection_core PRIVATE detection_core ${DP_MATH_LIBRA
 target_include_directories(test_detection_core
                            PRIVATE ${CMAKE_SOURCE_DIR}/native/inc)
 add_test(NAME test_detection_core COMMAND test_detection_core)
+
+# The receiver example's dropped-frame rule (#2017): the example is a live
+# dashboard nothing can run to completion, so its one piece of arithmetic
+# lives in a header it shares with this test.
+add_executable(test_receiver_seq native/tests/test_receiver_seq.c)
+target_include_directories(test_receiver_seq
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/examples)
+add_test(NAME test_receiver_seq COMMAND test_receiver_seq)
 
 # util is function-only too: the EMA primitive and the saturate/square_clip
 # pair are module-level, so their test is registered here for the same
@@ -1001,11 +1018,12 @@ target_include_directories(test_ber_core
 add_test(NAME test_ber_core COMMAND test_ber_core)
 
 # mpsk, ber and snr: function-only modules, so jm generates no bench target
-# for them and `jm bench` cannot run one either (just-makeit#1023 -- run them
-# by hand meanwhile). Same reason the EMA primitive's benchmark below is
-# registered by hand. scripts/check_bench_coverage.py fails `make lint` if a
-# tested component loses its benchmark, if a benchmark records nothing, or if
-# it writes its JSON under a name no collector opens.
+# for them, and they are registered here by hand; `jm bench` then runs them,
+# since it discovers every built bench target (just-makeit#1023). Same reason
+# the EMA primitive's benchmark below is registered by hand.
+# scripts/check_bench_coverage.py fails `make lint` if a tested component
+# loses its benchmark, if a benchmark records nothing, or if it writes its
+# JSON under a name no collector opens.
 add_executable(bench_mpsk_core native/benchmarks/bench_mpsk_core.c)
 target_link_libraries(bench_mpsk_core PRIVATE mpsk_core ${DP_MATH_LIBRARY})
 target_include_directories(bench_mpsk_core
@@ -1372,24 +1390,53 @@ set(_NATS_BLD "${CMAKE_CURRENT_BINARY_DIR}/libnats-vendor")
 # CMake's own static-library spelling: libnats_static.a on POSIX,
 # nats_static.lib under clang-cl/MSVC (#1575).
 set(_NATS_LIB "${_NATS_BLD}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}nats_static${CMAKE_STATIC_LIBRARY_SUFFIX}")
+# The vendor's configure arguments, in ONE list: the custom command passes
+# them, and the stamp below records them.
+set(_NATS_CONFIGURE_ARGS
+    # The PARENT's generator and compiler: CMake's default generator on
+    # Windows is Visual Studio (multi-config, lib/Release/, MSVC), not the
+    # Ninja + clang-cl doppler builds with (#1575).
+    -G "${CMAKE_GENERATOR}"
+    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+    -DNATS_BUILD_WITH_TLS=OFF
+    -DNATS_BUILD_STREAMING=OFF
+    -DNATS_BUILD_LIB_SHARED=OFF
+    -DNATS_BUILD_LIB_STATIC=ON
+    -DNATS_BUILD_EXAMPLES=OFF
+    -DNATS_BUILD_USE_SODIUM=OFF
+    -DBUILD_TESTING=OFF)
+# A stamp whose content is those arguments, which the command DEPENDS on.
+# configure_file rewrites it only when the content changes, so a changed
+# argument (or compiler) re-runs the command, explicitly, under every
+# generator and CMake version. Without it the re-run rests on the generator:
+# add_custom_command's docs promise command-text tracking only for Ninja (a
+# command with no DEPENDS otherwise re-runs when its OUTPUT is missing).
+# Measured 2026-10-09: CMake 3.31.6 with Unix Makefiles re-ran it anyway;
+# CI's 3.22 and 3.28 were not measured, and a tree built before a fix must
+# not keep the library the old command made.
+string(REPLACE ";" "\n" _NATS_ARGS_TEXT "${_NATS_CONFIGURE_ARGS}")
+configure_file(cmake/nats-vendor-args.in
+               "${CMAKE_CURRENT_BINARY_DIR}/libnats-vendor.args" @ONLY)
+# Configured from an EMPTY directory every time (#1936). The -D options
+# override a cache, except when the cache names a different compiler: then
+# CMake deletes it and re-runs configure with none of them, so
+# NATS_BUILD_STREAMING falls back to ON, wants protobuf-c, and the first
+# build after a compiler change fails while the second passes. The command
+# runs when the library is missing or the arguments stamp changed, and
+# either way nats.c is being configured anew, so wiping the directory costs
+# a recompile it would mostly do anyway. remove_directory, not `-E rm`
+# (3.17) or `--fresh` (3.24): the floor is 3.16. A fresh CI tree never
+# exercises this, so `make nats-vendor-fresh-check` seeds the stale state on
+# purpose.
 add_custom_command(OUTPUT "${_NATS_LIB}"
+    COMMAND ${CMAKE_COMMAND} -E remove_directory "${_NATS_BLD}"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${_NATS_BLD}"
     COMMAND ${CMAKE_COMMAND} -B "${_NATS_BLD}" -S "${_NATS_SRC}"
-            # The PARENT's generator and compiler: CMake's default generator
-            # on Windows is Visual Studio (multi-config, lib/Release/, MSVC),
-            # not the Ninja + clang-cl doppler builds with (#1575).
-            -G "${CMAKE_GENERATOR}"
-            -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-            -DCMAKE_BUILD_TYPE=Release
-            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-            -DNATS_BUILD_WITH_TLS=OFF
-            -DNATS_BUILD_STREAMING=OFF
-            -DNATS_BUILD_LIB_SHARED=OFF
-            -DNATS_BUILD_LIB_STATIC=ON
-            -DNATS_BUILD_EXAMPLES=OFF
-            -DNATS_BUILD_USE_SODIUM=OFF
-            -DBUILD_TESTING=OFF
+            ${_NATS_CONFIGURE_ARGS}
     COMMAND ${CMAKE_COMMAND} --build "${_NATS_BLD}" --parallel
+    DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/libnats-vendor.args"
     COMMENT "Building vendored nats.c (static, PIC; TLS/STAN off)" VERBATIM)
 add_custom_target(libnats_vendor DEPENDS "${_NATS_LIB}")
 add_library(nats_vendor_static STATIC IMPORTED GLOBAL)

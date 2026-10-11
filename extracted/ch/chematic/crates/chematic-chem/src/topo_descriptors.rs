@@ -630,50 +630,68 @@ fn bond_scale(view: &Molecule, bond: chematic_core::BondIdx) -> f64 {
 /// term, which is excluded from the per-atom values (RDKit's `ats`) and only
 /// added into the whole-molecule total ([`labute_asa`]). This is a faithful,
 /// numerically-verified port of RDKit's behavior, not a simplification.
-fn labute_asa_parts(mol: &Molecule) -> (Vec<f64>, f64) {
+fn labute_asa_core(mol: &Molecule, collect_per_atom: bool) -> (Vec<f64>, f64, f64) {
     // RDKit's getLabuteAtomContribs (MolSurf.cpp) with includeHs, operation
     // for operation; bond aromaticity as RDKit perceives it.
     let n = mol.atom_count();
     if n == 0 {
-        return (Vec::new(), 0.0);
+        return (Vec::new(), 0.0, 0.0);
     }
     let view = crate::descriptors::descriptor_aromaticity(mol);
     let view: &Molecule = &view;
-    let radii: Vec<f64> = mol.atoms().map(|(_, a)| rb0(a)).collect();
-    let mut v: Vec<f64> = vec![0.0; n];
-    // Bonds in RDKit's numbering (ring closures last), as RDKit accumulates.
-    for bidx in mol.rdkit_bond_order() {
+    // Most drug-like molecules fit inline.  Keeping radius and overlap in one
+    // buffer avoids two heap allocations and improves locality without
+    // changing RDKit's accumulation order.
+    let mut atom_data: smallvec::SmallVec<[(f64, f64); 64]> =
+        mol.atoms().map(|(_, a)| (rb0(a), 0.0)).collect();
+    let mut accumulate_bond = |bidx| {
         let bond = view.bond(bidx);
         let i = bond.atom1.0 as usize;
         let j = bond.atom2.0 as usize;
-        let (ri, rj) = (radii[i], radii[j]);
+        let (ri, rj) = (atom_data[i].0, atom_data[j].0);
         let mut bij = ri + rj;
         bij -= bond_scale(view, bidx);
         let dij = (ri - rj).abs().max(bij).min(ri + rj);
-        v[i] += rj * rj - (ri - dij) * (ri - dij) / dij;
-        v[j] += ri * ri - (rj - dij) * (rj - dij) / dij;
-    }
+        atom_data[i].1 += rj * rj - (ri - dij) * (ri - dij) / dij;
+        atom_data[j].1 += ri * ri - (rj - dij) * (rj - dij) / dij;
+    };
+    // Bonds in RDKit's numbering (ring closures last), without materializing
+    // the complete order vector for every molecule.
+    mol.for_each_bond_in_rdkit_order(&mut accumulate_bond);
     // One hydrogen per atom, pooled into a single term (as RDKit does).
     let rh = crate::descriptors::RDKIT_RB0[0];
     let mut h_contrib = 0.0f64;
     for i in 0..n {
-        let ri = radii[i];
+        let ri = atom_data[i].0;
         let bij = ri + rh;
         let dij = (ri - rh).abs().max(bij).min(ri + rh);
-        v[i] += rh * rh - (ri - dij) * (ri - dij) / dij;
+        atom_data[i].1 += rh * rh - (ri - dij) * (ri - dij) / dij;
         h_contrib += ri * ri - (rh - dij) * (rh - dij) / dij;
     }
-    let per_atom: Vec<f64> = (0..n)
-        .map(|i| {
-            let ri = radii[i];
-            PI * ri * (4.0 * ri - v[i])
-        })
-        .collect();
+    let mut per_atom = if collect_per_atom {
+        Vec::with_capacity(n)
+    } else {
+        Vec::new()
+    };
+    let mut total = 0.0;
+    for i in 0..n {
+        let (ri, overlap) = atom_data[i];
+        let contribution = PI * ri * (4.0 * ri - overlap);
+        total += contribution;
+        if collect_per_atom {
+            per_atom.push(contribution);
+        }
+    }
     let h_pool_area = if h_contrib.abs() > 1e-4 {
         PI * rh * (4.0 * rh - h_contrib)
     } else {
         0.0
     };
+    (per_atom, h_pool_area, total + h_pool_area)
+}
+
+fn labute_asa_parts(mol: &Molecule) -> (Vec<f64>, f64) {
+    let (per_atom, h_pool_area, _) = labute_asa_core(mol, true);
     (per_atom, h_pool_area)
 }
 
@@ -1126,8 +1144,7 @@ pub fn labute_asa(mol: &Molecule) -> f64 {
     if let Some(h) = chematic_smiles::rdkit_hydrogen_suppressed(mol) {
         return labute_asa(&h);
     }
-    let (per_atom, h_pool_area) = labute_asa_parts(mol);
-    per_atom.iter().fold(0.0, |acc, x| acc + x) + h_pool_area
+    labute_asa_core(mol, false).2
 }
 
 // ─── VABC — van der Waals atomic bonded-contribution volume ──────────────────
@@ -1926,6 +1943,32 @@ mod tests {
             assert_eq!(bundle.wiener, wiener_index(&m), "{smi}: Wiener mismatch");
             assert_eq!(bundle.kappa, kappa_all(&m), "{smi}: Kappa mismatch");
             assert_eq!(bundle.chi, chi_all(&m), "{smi}: Chi mismatch");
+        }
+    }
+}
+
+#[cfg(test)]
+mod sphere_overlap_boundary_tests {
+    use super::*;
+
+    #[test]
+    fn sphere_overlap_agrees_with_analytic_lenses_containment_and_scaling() {
+        // Two unit spheres one radius apart have two caps of height 1/2:
+        // their combined lens volume is 5*pi/12.
+        for (r1, r2, distance, expected) in [
+            (1.0, 1.0, 1.0, 5.0 * PI / 12.0),
+            (1.0, 3.0, 1.0, 4.0 * PI / 3.0),
+            (1.0, 3.0, 4.0, 0.0),
+            (1.0, 3.0, 5.0, 0.0),
+        ] {
+            for scale in [0.25_f64, 1.0, 2.5] {
+                let expected = expected * scale.powi(3);
+                let direct = sphere_intersection(r1 * scale, r2 * scale, distance * scale);
+                let reverse = sphere_intersection(r2 * scale, r1 * scale, distance * scale);
+                assert!((direct - expected).abs() < 1e-12 * expected.abs().max(1.0));
+                assert!((direct - reverse).abs() < 1e-12);
+                assert!(direct.is_finite() && direct >= 0.0);
+            }
         }
     }
 }

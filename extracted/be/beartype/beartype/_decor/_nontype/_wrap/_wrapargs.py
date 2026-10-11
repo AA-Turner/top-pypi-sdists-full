@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -16,56 +16,93 @@ This private submodule is *not* intended for importation by downstream callers.
 # All "FIXME:" comments for this submodule reside in this package's "__init__"
 # submodule to improve maintainability and readability here.
 
+#FIXME: [SPEED] We currently generate non-optimal type-checking code for
+#*MANDATORY* parameters. *OPTIONAL* parameters seem fine. Sadly, mandatory are
+#more common. We appear to be unconditionally generating the following code for
+#*ALL* parameters, regardless of whether that parameter is mandatory or not:
+#    (line 0015)     # Localize this positional or keyword parameter if passed *OR* to the
+#    (line 0016)     # sentinel "__beartype_get_violation" guaranteed to never be passed.
+#    (line 0017)     __beartype_pith_0 = (
+#    (line 0018)         args[0] if __beartype_args_len > 0 else
+#    (line 0019)         kwargs.get('two_fair_argent_wings', __beartype_get_violation)
+#    (line 0020)     )
+#    (line 0021)
+#    (line 0022)     # If this parameter was passed...
+#    (line 0023)     if __beartype_pith_0 is not __beartype_get_violation:
+#    (line 0024)         # Type-check this parameter or return against this type hint.
+#    (line 0025)         if not ...
+#
+#If the current parameter is mandatory, the first "if" conditional is a
+#superfluous waste of time. Obviously, a mandatory parameter is *ALWAYS* passed.
+#That needn't be tested. Ergo, the above code should instead reduce to the
+#following for a mandatory parameter:
+#    (line 0015)     # Localize this positional or keyword parameter if passed *OR* to the
+#    (line 0016)     # sentinel "__beartype_get_violation" guaranteed to never be passed.
+#    (line 0017)     __beartype_pith_0 = (
+#    (line 0018)         args[0] if __beartype_args_len > 0 else
+#    (line 0019)         kwargs['two_fair_argent_wings']
+#    (line 0020)     )
+#    (line 0021)
+#    (line 0022)     # Type-check this parameter or return against this type hint.
+#    (line 0023)     if not ...
+#
+#Critically, note that the optimized code generated for mandatory parameters
+#features two distinct changes:
+#1. Efficient direct parameter lookup in the "kwargs" dictionary via "["- and
+#   "]"-delimited syntax rather than less efficient indirect parameter lookup
+#   via a kwargs.get() call. Efficiency isn't really the concern here (although
+#   it does matter, of course). Strictness is the concern. A mandatory parameter
+#   absolutely *MUST* be passed. If that isn't the case, a low-level CPython
+#   exception *MUST* be raised. Actually... *WAIT*. Issues arise here. Notably:
+#   * Because our type-checking wrapper functions only currently accept variadic
+#     "*args, **kwargs" parameters, the exception raised by directly accessing
+#     "kwargs['two_fair_argent_wings']" if the caller failed to pass that
+#     parameter will basically be useless, unreadable, and awful. Welp. That's
+#     it, folks! That's a critical deal-breaker. No wonder we embraced the
+#     current approach, huh? We can't go ahead with this optimization until we
+#     implement our long-overdue refactoring where we generate type-checking
+#     wrapper functions whose signatures *PERFECTLY* mirror those of the
+#     original underlying callables they wrap. Until then, this is a no-go, bro!
+
 # ....................{ IMPORTS                            }....................
 from beartype.roar import (
     BeartypeDecorHintPepException,
     BeartypeDecorParamNameException,
 )
-from beartype.typing import (
-    Optional,
-    Set,
-)
-from beartype._data.code.datacodename import ARG_NAME_ARGS_NAME_KEYWORDABLE
-from beartype._check.checkmake import make_code_raiser_func_pith_check
+from beartype._check.make.checkmakefunc import make_code_raiser_func_pith_check
 from beartype._check.convert.convmain import sanify_hint_root_func
-from beartype._check.metadata.hint.hintsane import (
+from beartype._check.cls.call.calldatadecorfunc import (
+    BeartypeCallDecorFuncData,
+    prefix_decor_func_callable_arg_name,
+)
+from beartype._check.cls.hint.hintsane import (
     HINT_SANE_IGNORABLE,
     HintSane,
 )
-from beartype._check.metadata.metadecor import BeartypeDecorMeta
-from beartype._data.error.dataerrmagic import EXCEPTION_PLACEHOLDER
-from beartype._data.func.datafuncarg import ARG_NAME_RETURN
-from beartype._data.typing.datatypingport import Hint
-from beartype._data.typing.datatyping import LexicalScope
-from beartype._data.code.datacodefunc import (
+from beartype._data.check.code.datacodename import ARG_NAME_ARGS_NAME_KEYWORDABLE
+from beartype._data.check.code.func.datacodefuncwrap import (
     CODE_INIT_ARGS_LEN,
-    # EXCEPTION_PREFIX_DEFAULT,
     ARG_KIND_TO_CODE_LOCALIZE,
 )
-from beartype._decor._nontype._wrap._wraputil import unmemoize_func_wrapper_code
+from beartype._data.check.error.dataerrmagic import EXCEPTION_PLACEHOLDER
+from beartype._data.func.datafuncarg import ARG_NAME_RETURN
+from beartype._data.typing.datatyping import LexicalScope
+from beartype._data.typing.datatypingport import Hint
 from beartype._util.error.utilerrraise import reraise_exception_placeholder
-from beartype._util.error.utilerrwarn import (
-    # issue_warning,
-    reissue_warnings_placeholder,
-)
+from beartype._util.error.utilerrwarn import reissue_warnings_placeholder
 from beartype._util.func.arg.utilfuncargiter import (
     ArgKind,
-    # ArgMandatory,
     iter_func_args,
 )
 from beartype._util.func.arg.utilfuncargtest import is_func_arg_variadic_keyword
-from beartype._util.hint.utilhinttest import is_hint_needs_cls_stack
 from beartype._util.kind.maplike.utilmapset import update_mapping
-# from beartype._util.text.utiltextmunge import lowercase_str_char_first
-from beartype._util.text.utiltextprefix import (
-    prefix_callable_arg_name,
-    # prefix_pith_value,
-)
 from beartype._data.kind.datakindiota import SENTINEL
+from collections.abc import MutableSet
+from typing import Optional
 from warnings import catch_warnings
 
 # ....................{ CODERS                             }....................
-def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
+def code_check_args(decor_func: BeartypeCallDecorFuncData) -> str:
     '''
     Generate a Python code snippet type-checking all annotated parameters of the
     decorated callable if any *or* the empty string otherwise (i.e., if these
@@ -73,7 +110,7 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
 
     Parameters
     ----------
-    decor_meta : BeartypeDecorMeta
+    decor_func : BeartypeCallDecorFuncData
         Decorated callable to be type-checked.
 
     Returns
@@ -92,8 +129,8 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
         * A PEP-noncompliant type hint.
         * A supported PEP-compliant type hint.
     '''
-    assert isinstance(decor_meta, BeartypeDecorMeta), (
-        f'{repr(decor_meta)} not beartype call.')
+    assert isinstance(decor_func, BeartypeCallDecorFuncData), (
+        f'{repr(decor_func)} not beartype decorator call metadata.')
 
     # ..................{ LOCALS ~ func                      }..................
     # If *NO* callable parameters are annotated, silently reduce to a noop.
@@ -102,11 +139,11 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
     # efficiency for the common case of callables accepting either no
     # parameters *OR* one or more parameters, all of which are unannotated.
     if (
-        # That callable is annotated by only one type hint *AND*...
-        len(decor_meta.func_annotations) == 1 and
+        # That callable is annotated by exactly one type hint *AND*...
+        len(decor_func.decoratee_annotations) == 1 and
         # That type hint annotates that callable's return rather than a
         # parameter accepted by that callable...
-        ARG_NAME_RETURN in decor_meta.func_annotations
+        ARG_NAME_RETURN in decor_func.decoratee_annotations
     ):
         return ''
     # Else, one or more callable parameters are annotated.
@@ -134,7 +171,7 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
     #@beartype to generate callable-specific wrapper signatures.
 
     # Either...
-    args_name_keywordable: Optional[Set[str]] = (
+    args_name_keywordable: Optional[MutableSet[str]] = (
         #FIXME: [SPEED] Minor optimization. If the decorated callable *ONLY*
         #accepts an annotated variadic keyword parameter and no other
         #parameters, then the empty set reused from a global "SET_EMPTY" import
@@ -162,7 +199,7 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
         if is_func_arg_variadic_keyword(
             # See the call to the iter_func_args() generator function below for
             # further commentary on these parameters.
-            func=decor_meta.func_wrappee_wrappee, is_unwrap=False) else
+            func=decor_func.func_wrappee_wrappee, is_unwrap=False) else
         # Else, "None".
         None
     )
@@ -199,10 +236,10 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
         # by the former -- including the names and kinds of parameters accepted
         # by the possibly unwrapped callable. This renders the latter mostly
         # useless for our purposes.
-        func=decor_meta.func_wrappee_wrappee,
-        func_codeobj=decor_meta.func_wrappee_wrappee_codeobj,
+        func=decor_func.func_wrappee_wrappee,
+        func_codeobj=decor_func.func_wrappee_wrappee_codeobj,
         # Avoid inefficiently attempting to re-unwrap this wrappee. The
-        # previously called BeartypeDecorMeta.reinit() method has already
+        # previously called BeartypeCallDecorFuncData.reinit() method has already
         # guaranteed this wrappee to be isomorphically unwrapped.
         is_unwrap=False,
     )):
@@ -210,7 +247,7 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
         #
         # Note that list unpacking is substantially more efficient than
         # manually indexing list items. The former requires only a single Python
-        # statement, whereas the latter requires "n" Python statements.
+        # statement, whereas the latter requires "n" Python statements. *shrug*
         (
             arg_kind,
             arg_name,
@@ -219,13 +256,13 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
 
         # If...
         if (
-            # The set of the names of all keywordable parameters must be decided
-            # to type-check the decorated callable *AND*...
+            # The set of the names of all keywordable parameters is needed to
+            # type-check the decorated callable *AND*...
             args_name_keywordable is not None and
             # This parameter is keywordable...
             arg_kind in _ARG_KINDS_KEYWORD
         ):
-            # Add the name of this parameter to that set.
+            # Add the name of this parameter to this set.
             args_name_keywordable.add(arg_name)
         # Else, this parameter *CANNOT* be passed by keyword.
 
@@ -235,8 +272,32 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
         # Note that "None" is a semantically meaningful PEP 484-compliant type
         # hint equivalent to "type(None)". Ergo, we *MUST* explicitly
         # distinguish between that type hint and unannotated parameters.
-        hint_insane = decor_meta.func_annotations_get(  # type: ignore[assignment]
+        hint_insane = decor_func.decoratee_annotations_get(  # type: ignore[assignment]
             arg_name, SENTINEL)
+
+        #FIXME: Probably inject code detecting and handling our Poor Man's
+        #Type-checking Solution to #636 here. Basically:
+        #* Perform the following lookup into that dictionary above *BEFORE*
+        #  this "for" loop:
+        #      #FIXME: [SPEED] Define a new
+        #      #"BLACKLIST_FUNC_NAME_TO_ARG_INDEX_get" global for speed.
+        #      arg_index_blacklisted = BLACKLIST_FUNC_NAME_TO_ARG_INDEX.get(
+        #          decor_func.func_wrapper_name)
+        #* Generalize this "if" conditional here to resemble:
+        #      # If either...
+        #      if (
+        #          # This parameter is unannotated *OR*....
+        #          hint_insane is SENTINEL or
+        #          #FIXME: Comment us up, please. *sigh*
+        #          arg_index == arg_index_blacklisted
+        #      ):
+        #      # Then continue to the next parameter.
+        #          continue
+        #      # Else, either this parameter is annotated *OR*....
+        #
+        #Pretty sure that's all that's needed. Maybe? Pretend this makes sense.
+        #FIXME: Actually, ignore the above. A bit overkill, frankly. It's far
+        #easier to just leverage the existing reducer API. Let's go, yo! \o/
 
         # If this parameter is unannotated, continue to the next parameter.
         if hint_insane is SENTINEL:
@@ -245,23 +306,26 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
 
         # Attempt to...
         try:
-            # With a context manager "catching" *ALL* non-fatal warnings emitted
+            # print(f'Generating code type-checking {decor_func.func_wrapper_name}() parameter "{arg_name}"...')
+            # print(f'...unreduced hint {repr(hint_insane)}!')
+
+            # If this parameter's name is reserved for use by the @beartype
+            # decorator, raise an exception.
+            if arg_name.startswith('__bear'):
+                raise BeartypeDecorParamNameException(
+                    f'{EXCEPTION_PLACEHOLDER}reserved by @beartype.')
+            # Else, this parameter's name is *NOT* reserved for use by the
+            # @beartype decorator.
+
+            # With a context manager "catching" *ALL* non-fatal warnings issued
             # during this logic for subsequent "playback" below...
             with catch_warnings(record=True) as warnings_issued:
-                # If this parameter's name is reserved for use by the @beartype
-                # decorator, raise an exception.
-                if arg_name.startswith('__bear'):
-                    raise BeartypeDecorParamNameException(
-                        f'{EXCEPTION_PLACEHOLDER}reserved by @beartype.')
-                # Else, this parameter's name is *NOT* reserved for use by the
-                # @beartype decorator.
-
                 # Sane hint sanified from this possibly insane parameter hint if
                 # sanifying this hint generated no supplementary metadata *OR*
                 # that metadata otherwise. Additionally, if this hint is
                 # unsupported by @beartype, raise an exception.
                 hint_sane = sanify_hint_root_func(
-                    decor_meta=decor_meta,
+                    decor_func=decor_func,
                     hint=hint_insane,
                     pith_name=arg_name,
                     arg_kind=arg_kind,
@@ -270,19 +334,13 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
 
                 # If this hint is ignorable, continue to the next parameter.
                 if hint_sane is HINT_SANE_IGNORABLE:
-                    # print(f'Ignoring {decor_meta.func_name} parameter {arg_name} hint {repr(hint)}...')
+                    # print(f'Ignoring {decor_func.func_name} parameter {arg_name} hint {repr(hint)}...')
                     continue
                 # Else, this hint is unignorable.
 
                 #FIXME: Fundamentally unsafe and thus temporarily disabled *FOR
-                #THE MOMENT.* The issue is that our current implementation of
-                #the is_bearable() tester internally called by this function
-                #refuses to resolve relative forward references -- which is
-                #obviously awful. Ideally, that tester *ABSOLUTELY* should
-                #resolve relative forward references. Until it does, however,
-                #this is verboten dark magic that is unsafe in the general case.
-                #FIXME: Note that there exist even *MORE* edge cases, however:
-                #@dataclass fields, which violate typing semantics: e.g.,
+                #THE MOMENT.* @dataclass fields, for example, violate typing
+                #semantics: e.g.,
                 #    from dataclasses import dataclass, field
                 #    from typing import Dict
                 #
@@ -292,13 +350,13 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
                 #    @dataclass
                 #    class A:
                 #        test_dict: Dict[str, str] = field(default_factory=dict)
-                #FIXME: Once this has been repaired, please reenable:
+                #FIXME: Once this has been repaired, please re-enable:
                 #* The "test_decor_arg_kind_flex_optional" unit test.
 
                 # # If this parameter is optional *AND* the default value of this
                 # # optional parameter violates this hint, raise an exception.
                 # _die_if_arg_default_unbearable(
-                #     decor_meta=decor_meta, arg_default=arg_default, hint=hint)
+                #     decor_func=decor_func, arg_default=arg_default, hint=hint)
                 # # Else, this parameter is either optional *OR* the default value
                 # # of this optional parameter satisfies this hint.
 
@@ -314,7 +372,7 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
                     is_args_positional = True
                 # Else, this parameter *CANNOT* be passed positionally.
 
-                #FIXME: [SPEED] Negligibly optimized the ".get" access away:
+                #FIXME: [SPEED] Negligibly optimize the ".get" access away:
                 #    ARG_LOCALIZE_TEMPLATE = ARG_KIND_TO_CODE_LOCALIZE_get(  # type: ignore
                 #        arg_kind, None)
                 # Python code template localizing this parameter if this kind of
@@ -333,72 +391,32 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
                     )
                 # Else, this kind of parameter is supported. Ergo, this code is
                 # non-"None".
-
-                #FIXME: DRY violation. The same logic appears in "_wrapreturn"
-                #as well. It looks like what we *PROBABLY* want to do here is:
-                #* Rename the existing make_code_raiser_func_pith_check()
-                #  factory to _make_code_raiser_func_pith_check_cached().
-                #* Define a new make_code_raiser_func_pith_check() factory that
-                #  is unmemoized and has a simpler public API. Notably, this new
-                #  factory should:
-                #  * Accept a new "decor_meta" parameter.
-                #  * Drop the existing "conf" and "cls_stack" parameters.
-                #  * Pass parameters by keyword rather than positionally. This
-                #    would be especially useful for the "is_param" parameter,
-                #    which would suddenly become readable below.
-                #  * Internally compute the "cls_stack" as given below.
-
-                # Type stack if required by this hint *OR* "None" otherwise. See
-                # the is_hint_needs_cls_stack() tester for further discussion.
-                #
-                # Note that the original unsanitized "hint_insane" (e.g.,
-                # "typing.Self") rather than the new sanitized "hint" (e.g., the
-                # class currently being decorated by @beartype) is passed to
-                # that tester. Why? Because the latter may already have been
-                # reduced above to a different (and seemingly innocuous) type
-                # hint that does *NOT* appear to require a type stack at late
-                # *EXCEPTION RAISING TIME* (i.e., the
-                # beartype._check.error.errmain.get_func_pith_violation()
-                # function) but actually does. Only the original unsanitized
-                # "hint_insane" is truth.
-                cls_stack = (
-                    decor_meta.cls_stack
-                    if is_hint_needs_cls_stack(hint_insane) else
-                    None
-                )
-                # print(f'arg "{arg_name}" hint {repr(hint)} cls_stack: {repr(cls_stack)}')
+                # print(f'Generating code type-checking {decor_func.func_wrapper_name}() parameter "{arg_name}"...')
+                # print(f'...reduced hint {repr(hint_sane.hint)}!')
 
                 # Code snippet type-checking any parameter with arbitrary name.
+                #
+                # Note that this memoized code factory requires parameters to be
+                # passed positionally for efficiency.
                 (
-                    code_arg_check_pith,
+                    code_arg_check,
                     func_scope,
-                    hint_refs_type_basename,
                 ) = make_code_raiser_func_pith_check(
-                    hint_sane,
-                    decor_meta.conf,
-                    cls_stack,
-                    True,  # <-- True only for parameters
+                    decor_func=decor_func,
+                    hint_sane=hint_sane,
+                    pith_name=arg_name,
                 )
-
-                # Merge the local scope required to check this parameter into
-                # the local scope currently required by the current wrapper
-                # function.
-                update_mapping(decor_meta.func_wrapper_scope, func_scope)
 
                 # Python code snippet localizing this parameter.
                 code_arg_localize = ARG_LOCALIZE_TEMPLATE.format(
                     arg_name=arg_name, arg_index=arg_index)
 
-                # Unmemoize this snippet against the current parameter.
-                code_arg_check = unmemoize_func_wrapper_code(
-                    decor_meta=decor_meta,
-                    func_wrapper_code=code_arg_check_pith,
-                    pith_repr=repr(arg_name),
-                    hint_refs_type_basename=hint_refs_type_basename,
-                )
-
                 # Append code type-checking this parameter against this hint.
                 func_wrapper_code += f'{code_arg_localize}{code_arg_check}'
+
+                # Merge the local scope required to check this parameter into
+                # the local scope required by the current wrapper function.
+                update_mapping(decor_func.func_wrapper_locals, func_scope)
 
             # If one or more warnings were issued, reissue these warnings with
             # each placeholder substring (i.e., "EXCEPTION_PLACEHOLDER"
@@ -408,13 +426,13 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
                 # print(f'warnings_issued: {warnings_issued}')
                 reissue_warnings_placeholder(
                     warnings=warnings_issued,
-                    target_str=prefix_callable_arg_name(
-                        func=decor_meta.func_wrappee,
-                        arg_name=arg_name,
-                        is_color=decor_meta.conf.is_color,
-                    ),
+                    target_str=prefix_decor_func_callable_arg_name(
+                        decor_func=decor_func, arg_name=arg_name),
                 )
             # Else, *NO* warnings were issued.
+
+            # print(f'Generated code type-checking {decor_func.func_wrapper_name}() parameter "{arg_name}"...')
+            # print(f'...unreduced hint {repr(hint_insane)}!')
         # If any exception was raised, reraise this exception with each
         # placeholder substring (i.e., "EXCEPTION_PLACEHOLDER" instance)
         # replaced by a human-readable description of this callable and
@@ -425,13 +443,10 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
                 #FIXME: Embed the kind of parameter both here and above as well
                 #(e.g., "positional-only", "keyword-only", "variadic
                 #positional"), ideally by improving the existing
-                #prefix_callable_arg_name() function to introspect this kind from
-                #the callable code object.
-                target_str=prefix_callable_arg_name(
-                    func=decor_meta.func_wrappee,
-                    arg_name=arg_name,
-                    is_color=decor_meta.conf.is_color,
-                ),
+                #prefix_callable_arg_name() function to introspect this kind
+                #from the callable code object.
+                target_str=prefix_decor_func_callable_arg_name(
+                    decor_func=decor_func, arg_name=arg_name),
             )
 
     # ..................{ RETURN                             }..................
@@ -439,7 +454,7 @@ def code_check_args(decor_meta: BeartypeDecorMeta) -> str:
     # the set of the names of all keywordable parameters to this wrapper
     # function needed to type-check that annotated variadic keyword parameter.
     if args_name_keywordable is not None:
-        decor_meta.func_wrapper_scope[ARG_NAME_ARGS_NAME_KEYWORDABLE] = (
+        decor_func.func_wrapper_locals[ARG_NAME_ARGS_NAME_KEYWORDABLE] = (
             args_name_keywordable)
     # Else, that callable accepts *NO* annotated variadic parameter.
 
@@ -480,7 +495,7 @@ passed positionally).
 #FIXME: Preserved for posterity. We'll almost certainly want to restore this at
 #some future date. Until then, we sigh. *sigh*
 # def _die_if_arg_default_unbearable(
-#     decor_meta: BeartypeDecorMeta, arg_default: object, hint: Hint) -> None:
+#     decor_func: BeartypeCallDecorFuncData, arg_default: object, hint: Hint) -> None:
 #     '''
 #     Raise a violation exception if the annotated optional parameter of the
 #     decorated callable with the passed default value violates the type hint
@@ -488,7 +503,7 @@ passed positionally).
 #
 #     Parameters
 #     ----------
-#     decor_meta : BeartypeDecorMeta
+#     decor_func : BeartypeCallDecorFuncData
 #         Decorated callable to be type-checked.
 #     arg_default : object
 #         Either:
@@ -512,8 +527,8 @@ passed positionally).
 #     BeartypeDecorHintParamDefaultViolation
 #         If this default value violates this type hint.
 #     '''
-#     assert isinstance(decor_meta, BeartypeDecorMeta), (
-#         f'{repr(decor_meta)} not beartype call.')
+#     assert isinstance(decor_func, BeartypeCallDecorFuncData), (
+#         f'{repr(decor_func)} not beartype call.')
 #
 #     # ..................{ PREAMBLE                           }..................
 #     # If this parameter is mandatory, silently reduce to a noop.
@@ -538,7 +553,7 @@ passed positionally).
 #         # die_if_unbearable() raiser below is required. Pragmatically, this
 #         # preliminary test avoids a needlessly expensive dictionary copy in the
 #         # common case that this value satisfies this hint.
-#         if is_bearable(obj=arg_default, hint=hint, conf=decor_meta.conf):
+#         if is_bearable(obj=arg_default, hint=hint, conf=decor_func.conf):
 #             return
 #         # Else, this default value violates this hint.
 #     #FIXME: Probably generalize this to *ANY* exception whatsoever, no?
@@ -560,7 +575,7 @@ passed positionally).
 #             cls=BeartypeDecorHintParamDefaultForwardRefWarning,
 #             message=(
 #                 f'{EXCEPTION_PREFIX_DEFAULT}value '
-#                 f'{prefix_pith_value(pith=arg_default, is_color=decor_meta.conf.is_color)}'
+#                 f'{prefix_pith_value(pith=arg_default, is_color=decor_func.conf.is_color)}'
 #                 f'uncheckable at @beartype decoration time, as '
 #                 f'{exception_message}'
 #             ),
@@ -571,7 +586,7 @@ passed positionally).
 #         return
 #
 #     # Modifiable keyword dictionary encapsulating this beartype configuration.
-#     conf_kwargs = decor_meta.conf.kwargs.copy()
+#     conf_kwargs = decor_func.conf.kwargs.copy()
 #
 #     #FIXME: This should probably be configurable as well. For now, this is fine.
 #     #We shrug noncommittally. We shrug, everyone! *shrug*

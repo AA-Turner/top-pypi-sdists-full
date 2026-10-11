@@ -126,6 +126,14 @@ from local_operator.session.transcript import (
     ATTACHMENT_KEY,
     durable_conversation_path,
 )
+from local_operator.supplements.contract import (
+    SUPPLEMENT_CONTROL_OPS,
+    SUPPLEMENTS_AUTH_FIELD,
+    SUPPLEMENTS_CAPABILITY,
+    SUPPLEMENTS_READ_OP,
+    negotiated,
+)
+from local_operator.supplements.prompt import MAX_INSTRUCTION_CHARS
 
 logger = logging.getLogger(__name__)
 
@@ -1649,6 +1657,12 @@ class _ClientConn:
     #: message (nulls included) and a pre-carriage viewer's ``Message`` forbids
     #: extras, so an unstripped frame is a failed attach, not a degrade.
     input_metadata: bool = False
+    #: This viewer negotiated ``supplements-v1`` (``contract.negotiated``): the owner
+    #: advertised it AND the viewer declared ``supplements`` on its auth frame. Only
+    #: then may the runtime send it ``supplement_progress`` events or project
+    #: ``supplement`` entries; rows are journaled either way. Nothing reads this until
+    #: the runner lane (C1) sends the first event.
+    supplements: bool = False
     frontend_ready: bool = False
     #: True only while ``_push_to`` is writing THIS connection's welcome. It is
     #: what tells ``_readable_frame`` whether an unreadable projection has a
@@ -1842,6 +1856,12 @@ class SessionHandle(Protocol):
     #   switch, reads back the model in force, and records a peer audit card.
     #   Raises ValueError("refused: …; still on …") on refusal. Optional and
     #   getattr-probed like receive_peer_message.
+    # rehome_if_current(expected, provider, model_id) -> str: a sign-in moving
+    #   this session off a model whose provider has no credential left, applied
+    #   only if the selection has not moved and the session is idle. Answers
+    #   "rehomed: <old> → <new>" or "kept: <why>". Optional and getattr-probed
+    #   like receive_peer_model — an older handle cannot be re-homed, which the
+    #   caller reports as zero moved sessions, never as an error.
     # cancel_gracefully() -> str: stop the turn at the POST-TOOL boundary
     #   instead of cutting the running tool (Session.request_graceful_cancel).
     #   Serves the ``cancel`` op's default mode. Deliberately distinct from
@@ -2167,6 +2187,15 @@ class RuntimeServer:
                 # validation outright. See
                 # ``DISPLAY_HISTORY_ENTRY_TIMES_CAPABILITY``.
                 + (["display-history-entry-times-v1"] if hasattr(handle, "history_page") else [])
+                # TURN SUPPLEMENTS ("Highlights"): advertised only by a handle that
+                # implements the lazy read op, for the reason every entry here is
+                # gated on what the handle can honour. The attach gate is TWO halves --
+                # this string ANDed with the viewer's own ``supplements`` auth boolean
+                # (``contract.negotiated``) -- so an older viewer never receives a
+                # ``supplement_progress`` event or a ``supplement`` entry it would
+                # paint as an unknown kind. No handle implements the op in the
+                # contract lane (C0), so no owner advertises it yet.
+                + ([SUPPLEMENTS_CAPABILITY] if hasattr(handle, SUPPLEMENTS_READ_OP) else [])
                 # INPUT-MODE CARRIAGE, gated on the handle that would HONOUR it
                 # rather than advertised unconditionally: the reader of this
                 # string (the mobile stream) must never send the fields to an
@@ -3771,6 +3800,14 @@ class RuntimeServer:
             # ``_ClientConn.input_metadata``).
             conn.input_metadata = bool(frame.get("input_mode")) and (
                 INPUT_MODE_CAPABILITY in self._record.capabilities
+            )
+            # The supplements twin: both halves of the gate, never the viewer's
+            # word alone. ``is True``, not truthiness, on purpose: a declaration is
+            # the JSON boolean, and a stray "false"/"0" string from a buggy client
+            # must fail CLOSED (it would otherwise opt that viewer into an event
+            # kind it may paint as unknown).
+            conn.supplements = negotiated(
+                self._record.capabilities, frame.get(SUPPLEMENTS_AUTH_FIELD) is True
             )
 
             # THE FRONTEND BIND IS A SESSION-LOOP CALL, for a stronger reason
@@ -7135,6 +7172,53 @@ class RuntimeServer:
                 raise ValueError("this session cannot cancel at a tool boundary")
             typed_cancel = cast(Callable[[], Awaitable[str]], cancel)
             return await typed_cancel()
+        if op in SUPPLEMENT_CONTROL_OPS:
+            # Turn supplements ("Highlights"), memo §2.7. Additive and getattr-probed exactly
+            # like ``cancel`` above: a reduced test handle or an older bridge answers the
+            # unknown-op error rather than a silent no-op, so no PROTOCOL_VERSION moves.
+            # NONE of these four is in ``_SYNC_PRIORITY_OPS``: ``steer`` and ``restart`` spend
+            # money, and none of them is a way to regain control of a RUNNING turn.
+            method = getattr(h, op, None)
+            if not callable(method):
+                raise ValueError("this session cannot run turn supplements; update the owner")
+            anchor = str(frame.get("anchor", ""))
+            if not anchor:
+                raise ValueError(f"{op} needs the answer's anchor")
+            if op == "supplement_dismiss":
+                dismiss = cast(Callable[[str], Awaitable[str]], method)
+                return await dismiss(anchor)
+            job = str(frame.get("job", ""))
+            if not job:
+                raise ValueError(f"{op} needs the job id")
+            if op == "supplement_steer":
+                text = frame.get("text")
+                if not isinstance(text, str) or not text.strip():
+                    raise ValueError("supplement_steer needs a non-empty instruction")
+                # The bound is the contract's (memo §2.7: <= 500 chars), enforced HERE so a
+                # caller cannot spend a turn on text the fork's grammar would truncate.
+                if len(text) > MAX_INSTRUCTION_CHARS:
+                    raise ValueError(
+                        f"supplement_steer text must be at most {MAX_INSTRUCTION_CHARS} "
+                        "characters"
+                    )
+                steer = cast(Callable[[str, str, str], Awaitable[str]], method)
+                return await steer(anchor, job, text)
+            job_method = cast(Callable[[str, str], Awaitable[str]], method)
+            return await job_method(anchor, job)
+        if op == SUPPLEMENTS_READ_OP:
+            # The lazy read (memo §2.11): `{anchor: newest row}` for the anchors a viewer
+            # just mounted. Gated exactly like the four above, and it is the op the owner's
+            # capability advertisement is keyed on -- a handle that cannot honour it must
+            # not advertise `supplements-v1`.
+            reader = getattr(h, SUPPLEMENTS_READ_OP, None)
+            if not callable(reader):
+                raise ValueError("this session cannot serve turn supplements; update the owner")
+            anchors = frame.get("anchors")
+            if not isinstance(anchors, list):
+                raise ValueError("anchors must be a list of answer ids")
+            read = cast(Callable[[list[str]], Awaitable[dict[str, Any]]], reader)
+            rows = await read([str(item) for item in anchors])
+            return AckDetail(detail="supplements", attention={}, fields={"supplements": rows})
         if op == "set_model":
             provider = str(frame.get("provider", ""))
             model_id = str(frame.get("model_id", ""))
@@ -7156,6 +7240,27 @@ class RuntimeServer:
             return await h.set_model(provider, model_id)
         if op == "set_effort":
             return await h.set_effort(str(frame.get("effort", "")))
+        if op == "rehome_if_current":
+            # A sign-in re-homing a session whose model provider has no credential
+            # left (design: the stranded default). Optional capability,
+            # getattr-probed like every other addition to this dispatch: an older
+            # or reduced handle answers the unknown-op sentence, which the caller
+            # reads as "this session cannot be re-homed" and counts as zero moved
+            # sessions — never as a failure of the sign-in that prompted it.
+            #
+            # Unlike the ``set_model`` arm above, there is no two-argument legacy
+            # shape to preserve: the op is new in this build, so every
+            # implementation takes all three fields, and the shape was validated
+            # at the wire (``validate_control_frame``).
+            rehome = getattr(h, "rehome_if_current", None)
+            if not callable(rehome):
+                raise ValueError("this session cannot be re-homed")
+            typed_rehome = cast(Callable[[str, str, str], Awaitable[str]], rehome)
+            return await typed_rehome(
+                str(frame.get("expected", "")),
+                str(frame.get("provider", "")),
+                str(frame.get("model_id", "")),
+            )
         if op == "complete_aside":
             complete_aside = getattr(h, "complete_aside", None)
             if not callable(complete_aside):
@@ -7445,6 +7550,23 @@ class RuntimeServer:
             # The host's own line when it gives one (a TUI owner names the
             # session and the reopen command), else the bare progress word.
             return str(result) if isinstance(result, str) and result else "stopping"
+        if op == "job_cancel":
+            # The post-turn job rail's ONE mechanism (video programme §2.2,
+            # contract §4.1): cancel ONE background job by id, landing on the
+            # same engine call ``jobs op='cancel'`` makes
+            # (``AsyncJobManager.cancel``). Optional capability, getattr-probed
+            # like ``job_trajectory``: a reduced handle or an older bridge
+            # answers the unknown-op error rather than a silent no-op, so the
+            # caller can say the session cannot cancel the job. No
+            # ``PROTOCOL_VERSION`` move — additive on the wire.
+            cancel_job = getattr(h, "job_cancel", None)
+            if not callable(cancel_job):
+                raise ValueError("this session cannot cancel background jobs; update the owner")
+            job_id = str(frame.get("job_id") or "")
+            if not job_id:
+                raise ValueError("job_id must be a non-empty string")
+            typed_cancel = cast(Callable[[str], Awaitable[str]], cancel_job)
+            return await typed_cancel(job_id)
         raise ValueError(f"unknown op: {op!r}")
 
     async def _dispatch_payload(
@@ -8104,6 +8226,12 @@ class RuntimeServer:
         # runs on the runtime's loop today, but the iteration is over a dict the
         # session's loop can mutate (see that method), and one line is cheaper
         # than the reasoning that would have to hold forever.
+        # Supplements reach ONLY a viewer that negotiated ``supplements-v1`` (memo §2.7): the
+        # owner advertised the capability AND the viewer declared it on its auth frame. The
+        # filter is here, on the fan-out, and not on the emitter, because the gate is a fact
+        # about the VIEWER; a runtime with no negotiated viewer still journals every row,
+        # which is the half that must never depend on who is watching.
+        supplement_event = event_type == "supplement_progress"
         recipients = [
             conn
             for conn in list(self._clients.values())
@@ -8111,6 +8239,7 @@ class RuntimeServer:
             and conn.wants_events
             and conn.events_ready
             and not (conn.events_muted and event_type in EVENT_MUTE_DROP_TYPES)
+            and not (supplement_event and not conn.supplements)
         ]
         if not recipients:
             return

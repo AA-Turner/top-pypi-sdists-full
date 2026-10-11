@@ -17,7 +17,8 @@
 #                   `verify` always reports a success no-op in caller mode,
 #                   regardless of shadow (OMN-20074).
 #   verifier-version: pinned omnimarket PyPI release for caller mode
-#                   (default: 0.4.280; must be numeric MAJOR.MINOR.PATCH).
+#                   (default: 0.4.305; must be numeric MAJOR.MINOR.PATCH and
+#                   at or above the install step's VERIFIER_FLOOR, OMN-20032).
 #   compare-with-occ: "true" during the pilot, when dod-verify is required
 #                   beside OCC's contexts; "false" otherwise (default: "false").
 #                   With "true", the dod-verify head step also names a
@@ -51,7 +52,9 @@
 #                   cross-repo autobind contract.
 #
 # Evidence-Source pinning (OMN-10419 / T6a):
-#   PRs opened after this workflow's merge SHA must include a line in the PR body:
+#   OMN-18338: a uniquely bound merged companion resolves from its OCC record.
+#   The body citation remains the fallback when no companion-side match exists.
+#   PRs opened after this workflow's merge SHA without a match must include:
 #     Evidence-Source: OCC#<PR-number>    # an open OCC PR
 #     Evidence-Source: <40-char-sha>      # a merged OCC commit
 #   The gate resolves the commit-ish to an exact head SHA and checks out
@@ -77,7 +80,7 @@ on:
         description: Pinned omnimarket PyPI release for caller evidence verification.
         type: string
         required: false
-        default: "0.4.280"
+        default: "0.4.305"
       compare-with-occ:
         description: "Compare with OCC during the pilot, when dod-verify is required beside OCC's contexts: true or false."
         type: string
@@ -326,8 +329,9 @@ jobs:
           fi
           echo "exempt=${exempt}" >> "$GITHUB_OUTPUT"
 
-      # OMN-10419: Resolve Evidence-Source commit-ish to an exact OCC SHA before
-      # checking out onex_change_control. Accepts two forms:
+      # OMN-18338: resolve companion-side binding first, then the legacy
+      # OMN-10419 citation to an exact OCC SHA before checking out OCC.
+      # The citation accepts two forms:
       #   OCC#<number> — open PR head SHA (resolved via GitHub API)
       #   <sha>        — merged commit SHA (validated as ancestor of OCC main)
       # Writes the resolved exact SHA to /tmp/occ_sha.txt.
@@ -413,6 +417,17 @@ jobs:
             echo "occ_source_kind=main" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
+          # OMN-18338: use the merged companion's binding before the body's
+          # convenience citation. The shared resolver fails closed on read
+          # errors or ambiguous matches; no new description parse lives here.
+          if [ -f "$GITHUB_WORKSPACE/scripts/ci/occ_preflight_wait.py" ]; then
+            binding_probe="$GITHUB_WORKSPACE/scripts/ci/occ_preflight_wait.py"
+          else
+            binding_probe="$GITHUB_WORKSPACE/.receipt-gate-deps/omnibase_core_wait/scripts/ci/occ_preflight_wait.py"
+          fi
+          evidence_source="$(python3 "$binding_probe" --resolve-evidence-source \
+            --repo "$GH_REPO" --pr-number "$resolved_pr_num")"
 
           # OMN-18882: the dependency-pin-only exemption, the third gate in the
           # OMN-18848 family to honour it. A post-release version bump (manifest
@@ -1349,16 +1364,28 @@ jobs:
         if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure'
         uses: astral-sh/setup-uv@v7
 
+      # OMN-20032: refuse a verifier older than the floor before installing it.
+      # VERIFIER_FLOOR is the one place the floor lives: 0.4.303 is the first
+      # omnimarket release carrying omnimarket#3511, which makes node_dod_verify
+      # refuse a contract that leaves an acceptance criterion unbound. A later
+      # release that tightens verification raises this one value.
       - name: Install the pinned verifier
         id: verifier
         continue-on-error: ${{ inputs.shadow == 'true' }}
         if: steps.bot_exempt.outputs.exempt != 'true' && steps.same_repo.outcome != 'failure' && steps.tickets.outcome != 'failure'
         env:
           VERIFIER_VERSION: ${{ inputs.verifier-version }}
+          VERIFIER_FLOOR: "0.4.303"
         run: |
           set -euo pipefail
           if [[ ! "$VERIFIER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::verifier-version must match numeric MAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          IFS=. read -r v_major v_minor v_patch <<< "$VERIFIER_VERSION"
+          IFS=. read -r f_major f_minor f_patch <<< "$VERIFIER_FLOOR"
+          if (( 10#$v_major < 10#$f_major || (10#$v_major == 10#$f_major && (10#$v_minor < 10#$f_minor || (10#$v_minor == 10#$f_minor && 10#$v_patch < 10#$f_patch))) )); then
+            echo "::error::verifier-version $VERIFIER_VERSION is below the floor $VERIFIER_FLOOR; releases before it admit a contract that leaves an acceptance criterion unbound. Re-pin the caller's verifier-version to $VERIFIER_FLOOR or newer."
             exit 1
           fi
           uv venv --clear --python 3.13 "$GITHUB_WORKSPACE/.dod-verify/venv"
@@ -1369,9 +1396,14 @@ jobs:
 
       # OMN-17427, OMN-20074: derive the writer app's verdict from the exact
       # head's git diff against its merge base, using the pinned verifier.
-      # Admit dependency-pin-only first, then release cuts with root changelog
-      # additions, one new heading matching project.version, and optional pins.
-      # Every failure is not-exempt; PR title/body never supply this verdict.
+      # Admit dependency-pin-only first, then a workflow-only diff that moves
+      # only the omnibase_core checkout pin (the OMN-9050 downstream bump the
+      # occ-autobind producer used to classify), then release cuts with root
+      # changelog additions, one new heading matching project.version, and
+      # optional pins. A diff of .claude-plugin manifests alone goes to the
+      # plugin version classifier (the OMN-20710 post-merge plugin version
+      # bump, OMN-20074). Every failure is not-exempt; PR title/body never
+      # supply this verdict.
       - name: Derive the OCC writer app's dependency-pin-only or release-cut verdict at the head (OMN-17427, OMN-20074)
         id: writer_pin_only
         continue-on-error: ${{ inputs.shadow == 'true' }}
@@ -1397,10 +1429,20 @@ jobs:
             manifest_count=0
             manifest=""
             changelog_changed=false
+            workflow_only=true
+            plugin_only=true
             while IFS= read -r -d '' path; do
               if [ "$path" = CHANGELOG.md ]; then
                 changelog_changed=true
               fi
+              case "$path" in
+                .github/workflows/*.yml | .github/workflows/*.yaml) ;;
+                *) workflow_only=false ;;
+              esac
+              case "$path" in
+                .claude-plugin/plugin.json | .claude-plugin/marketplace.json | */.claude-plugin/plugin.json | */.claude-plugin/marketplace.json) ;;
+                *) plugin_only=false ;;
+              esac
               if [ "${path##*/}" = pyproject.toml ]; then
                 manifest_count=$((manifest_count + 1))
                 manifest="$path"
@@ -1424,6 +1466,28 @@ jobs:
                 fi
               done
             fi
+            # A workflow-only or plugin-manifest-only diff hands every file's
+            # head and base blob to its classifier, in the order of the paths
+            # file.
+            mkdir -p "$probe_dir/blobs" || return 1
+            if [ "$workflow_only" = true ] || [ "$plugin_only" = true ]; then
+              index=0
+              while IFS= read -r -d '' path; do
+                for side in head base; do
+                  sha="$HEAD_SHA"
+                  if [ "$side" = base ]; then
+                    sha="$MB"
+                  fi
+                  reason="could not read the $side changed-file blob"
+                  git -C "$head_tree" ls-tree -z "$sha" -- "$path" > "$probe_dir/blobs/tree-$index-$side" || return 1
+                  # An absent side stays absent on disk and is passed as None.
+                  if [ -s "$probe_dir/blobs/tree-$index-$side" ]; then
+                    git -C "$head_tree" show "$sha:$path" > "$probe_dir/blobs/$index.$side" || return 1
+                  fi
+                done
+                index=$((index + 1))
+              done < "$probe_dir/paths" || return 1
+            fi
             if [ "$changelog_changed" = true ]; then
               for blob in changelog-head changelog-base release-project-head; do
                 sha="$HEAD_SHA"
@@ -1444,7 +1508,7 @@ jobs:
             reason="the pinned verifier Python is missing"
             [ -n "${DOD_VERIFY_PY:-}" ] && [ -x "$DOD_VERIFY_PY" ] || return 1
             reason="the pinned classifier failed"
-            (cd "$RUNNER_TEMP" && "$DOD_VERIFY_PY" -I - "$probe_dir/paths" "$probe_dir/pyproject-head" "$probe_dir/pyproject-base" "$probe_dir/changelog-head" "$probe_dir/changelog-base" "$probe_dir/release-project-head" <<'PY'
+            (cd "$RUNNER_TEMP" && "$DOD_VERIFY_PY" -I - "$probe_dir/paths" "$probe_dir/pyproject-head" "$probe_dir/pyproject-base" "$probe_dir/changelog-head" "$probe_dir/changelog-base" "$probe_dir/release-project-head" "$probe_dir/blobs" <<'PY'
           import difflib
           import json
           import re
@@ -1510,8 +1574,35 @@ jobs:
                   return False, "release cut version already has a heading at the merge base"
               return True, f"release cut adds changelog version {version} with optional dependency pins"
 
+          def read_blobs(paths, blobs_dir):
+              # Contents come from git objects, never the working tree.
+              return {
+                  path: (read_optional(blobs_dir / f"{index}.head"),
+                         read_optional(blobs_dir / f"{index}.base"))
+                  for index, path in enumerate(paths)
+              }
+
+          def classify_workflow_pin(paths, blobs_dir):
+              # Imported here so a verifier without it fails closed only on
+              # the workflow path.
+              from omnimarket.occ_content_probe import classify_workflow_core_pin_only
+
+              return classify_workflow_core_pin_only(paths, contents=read_blobs(paths, blobs_dir))
+
+          def is_plugin_manifest(path):
+              parts = path.split("/")
+              return parts[-1] in ("plugin.json", "marketplace.json") and parts[-2:-1] == [".claude-plugin"]
+
+          def classify_plugin_version(paths, blobs_dir):
+              # Imported here so a verifier without it fails closed only on
+              # the plugin manifest path (OMN-20074).
+              from omnimarket.occ_content_probe import classify_plugin_manifest_version_only
+
+              return classify_plugin_manifest_version_only(paths, contents=read_blobs(paths, blobs_dir))
+
           def classify():
-              paths_file, head_file, base_file, changelog_head, changelog_base, project_file = map(Path, sys.argv[1:])
+              (paths_file, head_file, base_file, changelog_head, changelog_base,
+               project_file, blobs_dir) = map(Path, sys.argv[1:])
               raw_paths = paths_file.read_bytes()
               paths = [path.decode("utf-8") for path in raw_paths.split(b"\0") if path]
               pyproject_head, pyproject_base = read_optional(head_file), read_optional(base_file)
@@ -1519,7 +1610,23 @@ jobs:
                   paths, pyproject_head=pyproject_head, pyproject_base=pyproject_base,
               )
               if pin_only:
-                  return {"exempt": True, "kind": "dependency_pin_only", "reason": pin_reason}
+                  return {"exempt": True, "kind": "dependency_pin_only", "reason": pin_reason,
+                          "classifier": "classify_dependency_pin_only"}
+              if paths and all(
+                  path.startswith(".github/workflows/") and path.endswith((".yml", ".yaml"))
+                  for path in paths
+              ):
+                  workflow_pin, workflow_reason = classify_workflow_pin(paths, blobs_dir)
+                  if workflow_pin:
+                      return {"exempt": True, "kind": "dependency_pin_only", "reason": workflow_reason,
+                              "classifier": "classify_workflow_core_pin_only"}
+                  pin_reason = f"{pin_reason}; workflow checkout pin: {workflow_reason}"
+              if paths and all(is_plugin_manifest(path) for path in paths):
+                  plugin_bump, plugin_reason = classify_plugin_version(paths, blobs_dir)
+                  if plugin_bump:
+                      return {"exempt": True, "kind": "plugin_version_bump", "reason": plugin_reason,
+                              "classifier": "classify_plugin_manifest_version_only"}
+                  pin_reason = f"{pin_reason}; plugin manifest version: {plugin_reason}"
               release_cut, reason = classify_release_cut(
                   paths, pyproject_head, pyproject_base, changelog_head, changelog_base, project_file,
               )
@@ -1534,9 +1641,10 @@ jobs:
           PY
             ) > "$probe_dir/verdict.json" || return 1
             reason="the pinned classifier output is not one valid JSON verdict"
-            jq -s -e 'length == 1 and (.[0] | type == "object" and (.exempt | type == "boolean") and (.kind == "dependency_pin_only" or .kind == "release_cut" or .kind == "none") and (.exempt == (.kind != "none")) and (.reason | type == "string"))' "$probe_dir/verdict.json" > /dev/null 2>&1 || return 1
+            jq -s -e 'length == 1 and (.[0] | type == "object" and (.exempt | type == "boolean") and (.kind == "dependency_pin_only" or .kind == "plugin_version_bump" or .kind == "release_cut" or .kind == "none") and (.exempt == (.kind != "none")) and (.reason | type == "string"))' "$probe_dir/verdict.json" > /dev/null 2>&1 || return 1
             reason="$(jq -r '.reason' "$probe_dir/verdict.json")" || return 1
             kind="$(jq -r '.kind' "$probe_dir/verdict.json")" || return 1
+            classifier="$(jq -r '.classifier // "classify_dependency_pin_only"' "$probe_dir/verdict.json")" || return 1
             derived_exempt="$(jq -r '.exempt' "$probe_dir/verdict.json")" || return 1
             [ "$derived_exempt" = true ] || return 1
           }
@@ -1545,7 +1653,9 @@ jobs:
           if derive_pin_only; then
             exempt=true
             if [ "$kind" = dependency_pin_only ]; then
-              echo "::notice::OCC writer app authored a dependency-pin-only change at ${HEAD_SHA} (derived in this job from the head's diff against merge base ${MB} by the pinned verifier's classify_dependency_pin_only: ${reason}; OMN-17427). The OCC autobind outcome this exemption used to read is no longer produced for caller-evidence repositories; the evidence gate is not applicable."
+              echo "::notice::OCC writer app authored a dependency-pin-only change at ${HEAD_SHA} (derived in this job from the head's diff against merge base ${MB} by the pinned verifier's ${classifier}: ${reason}; OMN-17427). The OCC autobind outcome this exemption used to read is no longer produced for caller-evidence repositories; the evidence gate is not applicable."
+            elif [ "$kind" = plugin_version_bump ]; then
+              echo "::notice::OCC writer app authored a plugin version bump at ${HEAD_SHA} (derived in this job from the head's diff against merge base ${MB} by the pinned verifier's ${classifier}: ${reason}; OMN-20074); the evidence gate is not applicable."
             else
               echo "::notice::OCC writer app authored a release cut at ${HEAD_SHA} (derived in this job from the head's diff against merge base ${MB}: ${reason}; OMN-20074); the evidence gate is not applicable."
             fi

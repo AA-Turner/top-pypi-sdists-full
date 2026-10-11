@@ -92,12 +92,9 @@ def get_challenge_answer(
 def create_challenge_enrollment(ctx, user_id, **kwargs):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
-    # The generated TOTPEnrollmentSpec marks user_id read-only (it comes from
-    # the schema's GUID_readonly), but the server requires it in the request
-    # body. _from_openapi_data bypasses the read_only_vars guard by writing
-    # straight into _data_store; once the SDK is regenerated from the fixed
-    # schema (GUID instead of GUID_readonly) the plain constructor is correct.
-    spec = agilicus.TOTPEnrollmentSpec._from_openapi_data(user_id=user_id, **kwargs)
+    # user_id is writable in the current spec (agilicus-api ae573ff4); the
+    # server requires it in the request body.
+    spec = agilicus.TOTPEnrollmentSpec(user_id=user_id, **kwargs)
     model = agilicus.TOTPEnrollment(spec=spec)
 
     resp = apiclient.challenges_api.create_totp_enrollment(model)
@@ -107,11 +104,7 @@ def create_challenge_enrollment(ctx, user_id, **kwargs):
 def update_challenge_enrollment(ctx, enrollment_id, user_id, answer, **kwargs):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
-    # See create_challenge_enrollment: user_id is read-only in the generated
-    # model until the SDK is regenerated from the fixed schema.
-    model = agilicus.TOTPEnrollmentAnswer._from_openapi_data(
-        user_id=user_id, answer=answer
-    )
+    model = agilicus.TOTPEnrollmentAnswer(user_id=user_id, answer=answer)
     resp = apiclient.challenges_api.update_totp_enrollment(enrollment_id, model)
     return resp
 

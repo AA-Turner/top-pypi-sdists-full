@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,7 +13,7 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype._data.code.datacodeindent import CODE_INDENT_1
+from beartype._data.check.code.datacodeindent import CODE_INDENT_1
 
 # ....................{ INDENTATION                        }....................
 VALE_CODE_INDENT_1 = f'{{indent}}{CODE_INDENT_1}'

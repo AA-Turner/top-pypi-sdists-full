@@ -299,7 +299,7 @@ async def test_child_agent_inherits_containment(harness, monkeypatch) -> None:
     )
     assert content.get("content") != "child answered"
     ledger = _ledger(harness["metadata"])
-    assert [d["disposition"] for d in ledger["tool_dispositions"]] == ["real", "stopped"]
+    assert [d["disposition"] for d in ledger["tool_dispositions"]] == ["contained", "stopped"]
     assert ledger["stopped_at"]["tool"] == "send_sms_test"
 
 

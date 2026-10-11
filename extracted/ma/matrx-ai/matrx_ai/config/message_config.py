@@ -806,7 +806,9 @@ class UnifiedMessage:
 
         return content_blocks
 
-    def replace_variables(self, variables: dict[str, Any]) -> None:
+    def replace_variables(
+        self, variables: dict[str, Any], blocks: dict[str, str] | None = None
+    ) -> None:
         """Substitute {{variable_name}} patterns in all content blocks.
 
         - TextContent: substitution is in-place (no return value).
@@ -836,7 +838,7 @@ class UnifiedMessage:
                 # text (e.g. negative_prompt) that resolved to empty
                 # gets dropped so we don't pass empty role-text to
                 # providers. Untagged TextContent always returns False.
-                drop = bool(content.replace_variables(variables))
+                drop = bool(content.replace_variables(variables, blocks=blocks))
                 if not drop:
                     kept.append(content)
             elif isinstance(
@@ -2085,15 +2087,12 @@ class MessageList:
             for msg in self._messages
         ]
 
-    def replace_variables(self, variables: dict[str, Any]) -> None:
-        """
-        Replace variables in all messages.
-
-        Args:
-            variables: dict mapping variable names to their values
-        """
+    def replace_variables(
+        self, variables: dict[str, Any], blocks: dict[str, str] | None = None
+    ) -> None:
+        """Replace variables (and declared prompt blocks) in all messages."""
         for message in self._messages:
-            message.replace_variables(variables)
+            message.replace_variables(variables, blocks=blocks)
 
 
 # ----------------------------------------------------------------------

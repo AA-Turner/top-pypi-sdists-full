@@ -206,6 +206,7 @@ CANONICAL_EXIT_CODES: dict[str, int] = {
     "CONFIG_012": 5,  # lint baseline file missing or malformed (#219)
     "CONFIG_013": 5,  # a caller's connection in the wrong mode for the call (#374)
     "CONFIG_014": 5,  # pg_tviews without the read contract confiture reads
+    "CONFIG_015": 5,  # the ledger is only in another schema (preflight --scope pending)
     # MIGR family → 3, with one success-with-signal carve-out at 0.
     "MIGR_001": 3,
     "MIGR_004": 3,
@@ -230,6 +231,10 @@ CANONICAL_EXIT_CODES: dict[str, int] = {
     "DIFFER_403": 5,
     "DIFFER_402": 0,  # carve-out: a diff warning in the envelope, never fatal (#313)
     "DIFFER_404": 0,  # carve-out: an object a database holds by existence alone (#562)
+    "DIFFER_405": 0,  # carve-out: an index on a table neither tree declares (#679)
+    "DIFFER_406": 5,
+    "DIFFER_407": 0,  # carve-out: an index on a TVIEW, which the model does not hold yet
+    "DIFFER_408": 0,  # carve-out: the current tree's index written before its relation
     "DIFF_001": 5,
     # VALID family → 5.
     "VALID_001": 5,

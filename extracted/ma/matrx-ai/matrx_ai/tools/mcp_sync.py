@@ -36,6 +36,7 @@ from typing import Any
 from matrx_utils import vcprint
 
 from matrx_ai.tools.external_mcp import ExternalMCPClient
+from matrx_ai.tools.side_effect_class import side_effect_class_from_mcp_annotations
 
 #: Transports ``ExternalMCPClient`` actually speaks. Legacy SSE still has no
 #: client implementation and is rejected loudly instead of failing opaquely.
@@ -238,12 +239,17 @@ async def _sync_server(
             local_only = client._strip_namespace(local_name)
             if allowlist and local_only not in allowlist:
                 continue
+            annotations = list(tool_def.annotations or [])
             specs.append(
                 {
                     "name": local_only,
                     "description": tool_def.description or local_only,
                     "parameters": tool_def.parameters or {},
                     "output_schema": tool_def.output_schema,
+                    "annotations": annotations,
+                    # Derived from what the SERVER declares; None (no hints)
+                    # stays unclassified and is contained as the maximum.
+                    "side_effect_class": side_effect_class_from_mcp_annotations(annotations),
                     "tier": tool_def.tier,
                     "category": tool_def.category,
                 }

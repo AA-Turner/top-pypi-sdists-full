@@ -335,17 +335,28 @@ def get_system_options(ctx, org_id=None):
 def replace_system_options(
     ctx,
     org_id,
-    allowed_domains,
-    license_constraints,
-    constraint_vars,
-    replace_constraints,
-    replace_vars,
+    allowed_domains=(),
+    add_allowed_domains=(),
+    license_constraints=None,
+    constraint_vars=None,
+    replace_constraints=False,
+    replace_vars=False,
 ):
     apiclient = context.get_apiclient(ctx)
     system_options = get_system_options(ctx, org_id)
 
-    if allowed_domains is not None:
-        system_options.allowed_domains = allowed_domains
+    # ``--allowed-domains`` is repeatable, so an empty value means the caller
+    # did not pass it (click cannot express zero values); leave the stored
+    # list untouched instead of wiping it. ``--add-allowed-domain`` appends,
+    # which keeps a domain-change preflight to a single command (IAF-2383).
+    if allowed_domains:
+        system_options.allowed_domains = list(allowed_domains)
+    if add_allowed_domains:
+        domains = list(system_options.allowed_domains or [])
+        for domain in add_allowed_domains:
+            if domain not in domains:
+                domains.append(domain)
+        system_options.allowed_domains = domains
 
     apply_constraint_and_vars(
         system_options,

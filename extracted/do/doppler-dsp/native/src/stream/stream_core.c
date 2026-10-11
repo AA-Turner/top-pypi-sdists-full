@@ -256,6 +256,164 @@ dp_msg_mean_power (dp_msg_t *msg)
                         dp_msg_num_samples (msg));
 }
 
+/* A chunk's frame identity: its header without the per-chunk fields. */
+static dp_header_t
+reasm_key (const dp_header_t *hdr)
+{
+  dp_header_t key   = *hdr;
+  key.payload_bytes = 0;
+  key.num_samples   = 0;
+  return key;
+}
+
+void
+dp_reasm_reset (dp_reasm_t *r)
+{
+  if (!r)
+    return;
+  free (r->buf);
+  free (r->seen);
+  r->buf      = NULL;
+  r->seen     = NULL;
+  r->received = 0;
+}
+
+void
+dp_reasm_abandon (dp_reasm_t *r)
+{
+  if (!r || !r->buf)
+    return;
+  dp_reasm_reset (r);
+  r->stats.abandoned++;
+}
+
+void
+dp_reasm_unchunked (dp_reasm_t *r, const dp_header_t *hdr)
+{
+  if (!r || !r->buf || !hdr)
+    return;
+  /* Only a frame of the frame in progress's OWN stream says anything about
+     it. Its subject is iq.<base>.<type>, and kind and format name the
+     type; a SUB hears every type on its base, so a TLM16 or other-format
+     publisher there is a different subject, and its frames leave this one
+     alone. An end-of-stream names no stream (format 0; #2039), and the
+     receiver already ends on any EOS on the base -- recv returns
+     DP_ERR_EOF -- so it ends the frame in progress too. */
+  if (hdr->kind == DP_KIND_EOS
+      || (hdr->kind == r->key.kind && hdr->format == r->key.format))
+    dp_reasm_abandon (r);
+}
+
+int
+dp_reasm_feed (dp_reasm_t *r, const dp_header_t *hdr, const dp_chunk_t *chunk,
+               const void *body, size_t body_len, int *complete, char **frame,
+               dp_header_t *frame_hdr)
+{
+  if (!r || !hdr || !chunk || !complete || !frame || !frame_hdr
+      || (body_len && !body))
+    return DP_ERR_INVALID;
+  *complete = 0;
+
+  /* A chunk that no frame could hold is dropped by itself: it says nothing
+     about the frame in progress, which stays as it was. Every bound by
+     subtraction or division, never a sum that can wrap (#2016). The total
+     is capped where the sender caps it: payload_bytes is 32-bit, and a
+     frame above UINT32_MAX is refused with DP_ERR_TOO_LARGE before it is
+     ever chunked. So a forged total can neither ask malloc for an
+     arbitrary size nor outgrow the header that describes it. */
+  size_t elem = dp_element_size ((dp_frame_kind_t)hdr->kind,
+                                 (dp_sample_type_t)hdr->format);
+  if (elem == 0 || chunk->count == 0 || chunk->index >= chunk->count
+      || chunk->total_bytes > UINT32_MAX || chunk->total_bytes % elem != 0
+      || chunk->offset > chunk->total_bytes
+      || body_len > chunk->total_bytes - chunk->offset)
+    {
+      r->stats.rejected++;
+      return DP_ERR_INVALID;
+    }
+
+  /* Whose chunk is it? The frame in progress, or a different one. A
+     different one is only taken -- and the frame in progress abandoned for
+     it -- once it has passed the grid check below as a frame of its own:
+     a chunk no frame could hold must not cost a good frame (#2010). */
+  dp_header_t key  = reasm_key (hdr);
+  int         same = r->buf && memcmp (&key, &r->key, sizeof key) == 0
+                     && chunk->count == r->shape.count
+                     && chunk->total_bytes == r->shape.total_bytes;
+
+  /* The grid. A frame's first chunk fixes the stride: every chunk but the
+     last is exactly S bytes, the last is what remains, and chunk i starts
+     at i*S. Checked by division, so a forged offset cannot wrap. */
+  uint64_t stride = 0;
+  if (same)
+    stride = r->stride;
+  else if (chunk->index + 1 < chunk->count)
+    stride = (uint64_t)body_len; /* a full chunk */
+  else if (chunk->index > 0 && chunk->offset % chunk->index == 0)
+    stride = chunk->offset / chunk->index; /* the last: offset = i*S */
+  else
+    stride = chunk->total_bytes; /* the only chunk */
+  int last = (chunk->index + 1 == chunk->count);
+  int fits
+      = stride > 0
+        && (chunk->total_bytes + stride - 1) / stride == chunk->count
+        && (chunk->index == 0 ? chunk->offset == 0
+                              : (chunk->offset % stride == 0
+                                 && chunk->offset / stride == chunk->index))
+        && (last ? (uint64_t)body_len == chunk->total_bytes - chunk->offset
+                 : (uint64_t)body_len == stride);
+  if (!fits)
+    {
+      r->stats.rejected++;
+      return DP_ERR_INVALID;
+    }
+
+  /* A different frame that could be whole: the one in progress can no
+     longer complete from this stream of chunks, so it is abandoned -- and
+     THIS chunk starts the next frame instead of going down with it. */
+  if (!same)
+    dp_reasm_abandon (r);
+
+  if (!r->buf)
+    {
+      size_t total = (size_t)chunk->total_bytes;
+      r->buf       = (char *)malloc (total ? total : 1);
+      r->seen      = (unsigned char *)calloc ((size_t)chunk->count, 1);
+      if (!r->buf || !r->seen)
+        {
+          dp_reasm_reset (r);
+          return DP_ERR_MEMORY;
+        }
+      r->key          = key;
+      r->shape        = *chunk;
+      r->shape.index  = 0;
+      r->shape.offset = 0;
+      r->stride       = stride;
+      r->received     = 0;
+    }
+
+  if (!r->seen[chunk->index]) /* a redelivered chunk is a no-op */
+    {
+      if (body_len)
+        memcpy (r->buf + chunk->offset, body, body_len);
+      r->seen[chunk->index] = 1;
+      r->received++;
+    }
+  if (r->received < r->shape.count)
+    return DP_OK;
+
+  /* Complete: hand the buffer over with a clean, unchunked header. */
+  *frame     = r->buf;
+  *frame_hdr = r->key;
+  frame_hdr->flags &= (uint16_t)~DP_FLAG_CHUNKED;
+  frame_hdr->num_samples   = r->shape.total_bytes / elem;
+  frame_hdr->payload_bytes = (uint32_t)r->shape.total_bytes;
+  r->buf                   = NULL; /* now the caller's */
+  dp_reasm_reset (r);
+  *complete = 1;
+  return DP_OK;
+}
+
 /* Every check a receiver makes on an arriving frame, over a plain buffer.
  *
  * In the core rather than beside the transport because none of it is about
@@ -316,9 +474,15 @@ dp_frame_parse (const void *buf, size_t len, dp_header_t *hdr,
     }
   else
     {
+      /* By division, never `num_samples * elem`: num_samples is the
+         sender's claim, and the product wraps in 64 bits. A CF32 frame
+         claiming 2^61 + 512 samples over a 4096-byte payload multiplies
+         back to exactly 4096, and dp_msg_num_samples() would then report
+         a count no buffer holds. avail is bounded by the transport, so
+         dividing it cannot overflow. */
       size_t elem = dp_element_size ((dp_frame_kind_t)hdr->kind,
                                      (dp_sample_type_t)hdr->format);
-      if (elem == 0 || hdr->num_samples * elem != avail)
+      if (elem == 0 || avail % elem != 0 || hdr->num_samples != avail / elem)
         return DP_ERR_INVALID;
     }
 
@@ -390,6 +554,15 @@ const char *
 dp_ctx_last_error (const dp_pub_t *ctx)
 {
   return (ctx && ctx->last_error[0]) ? ctx->last_error : "";
+}
+
+int
+dp_sub_reasm_stats (const dp_sub_t *ctx, dp_reasm_stats_t *out)
+{
+  if (!ctx || !out)
+    return DP_ERR_INVALID;
+  *out = ctx->nats.reasm.stats;
+  return DP_OK;
 }
 
 int
@@ -469,10 +642,13 @@ send_signal (struct dp_ctx *ctx, const void *samples, size_t num_samples,
   if (elem == 0)
     return DP_ERR_INVALID;
 
+  /* payload_bytes is 32-bit by design: a frame this large cannot cross any
+     broker anyway. The bound is checked BEFORE multiplying, because a
+     num_samples near SIZE_MAX wraps the product under it and would put a
+     header on the wire whose num_samples its payload does not carry. */
+  if (num_samples > UINT32_MAX / elem)
+    return DP_ERR_TOO_LARGE;
   size_t data_size = num_samples * elem;
-  if (data_size > UINT32_MAX)
-    return DP_ERR_TOO_LARGE; /* payload_bytes is 32-bit by design: a frame
-                                this large cannot cross any broker anyway */
 
   dp_header_t header = { 0 };
   header.magic       = DP_STREAM_MAGIC;

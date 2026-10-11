@@ -1,30 +1,9 @@
 Metadata-Version: 2.4
 Name: mcp-proxy
-Version: 0.12.0
+Version: 0.13.0
 Summary: A MCP server which proxies requests to a remote MCP server over streamable HTTP or SSE.
 Author-email: Sergey Parfenyuk <sergey.parfenyuk@gmail.com>
-License: MIT License
-        
-        Copyright (c) 2024 Sergey Parfenyuk
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
-        
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/sparfenyuk/mcp-proxy
 Project-URL: Source, https://github.com/sparfenyuk/mcp-proxy
 Project-URL: Documentation, https://github.com/sparfenyuk/mcp-proxy
@@ -34,7 +13,6 @@ Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Unix
@@ -52,9 +30,9 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: httpx-auth>=0.22.0
-Requires-Dist: mcp>=1.17.0
-Requires-Dist: uvicorn>=0.34.0
+Requires-Dist: httpx-auth>=0.23.1
+Requires-Dist: mcp<2,>=1.27.1
+Requires-Dist: uvicorn>=0.47.0
 Dynamic: license-file
 
 # mcp-proxy
@@ -122,6 +100,9 @@ Arguments
 | `--client-id`    | No       | OAuth2 client ID for authentication                                                                               | your_client_id                                |
 | `--client-secret`| No       | OAuth2 client secret for authentication                                                                           | your_client_secret                            |
 | `--token-url`    | No       | OAuth2 token endpoint URL for authentication                                                                      | https://auth.example.com/oauth/token          |
+| `--username`     | No       | Username for authentication                                                                                       | user                                          |
+| `--password`     | No       | Password for authentication                                                                                       | password                                      |
+| `--digest`       | No       | Use digest authentication                                                                                         |                                               |
 
 Environment Variables
 
@@ -307,10 +288,13 @@ uv tool install git+https://github.com/sparfenyuk/mcp-proxy
 
 ### Installing as container
 
-Starting from version 0.3.2, it's possible to pull and run the corresponding container image:
+Starting from version 0.3.2, it's possible to pull and run the corresponding container image.
+Release images are published to GHCR and Docker Hub as multi-platform manifests for `linux/amd64` and `linux/arm64`;
+Docker selects the matching image for the host architecture automatically.
 
 ```bash
-docker run --rm -t ghcr.io/sparfenyuk/mcp-proxy:v0.3.2-alpine --help
+docker run --rm -t ghcr.io/sparfenyuk/mcp-proxy:v0.12.0 --help
+docker run --rm -t sparfenyuk/mcp-proxy:v0.12.0 --help
 ```
 
 ### Troubleshooting
@@ -407,6 +391,9 @@ SSE/StreamableHTTP client options:
                         OAuth2 client secret for authentication
   --token-url TOKEN_URL
                         OAuth2 token URL for authentication
+  --username USERNAME   Username for authentication
+  --password PASSWORD   Password for authentication
+  --digest              Use digest authentication
 
 stdio client options:
   args                  Any extra arguments to the command to spawn the default server. Ignored if only named servers are defined.
@@ -437,6 +424,7 @@ Examples:
   mcp-proxy http://localhost:8080/sse
   mcp-proxy --no-verify-ssl https://server.local/sse
   mcp-proxy --transport streamablehttp http://localhost:8080/mcp
+  mcp-proxy --transport streamablehttp --username user --password pass https://server.local/mcp
   mcp-proxy --headers Authorization 'Bearer YOUR_TOKEN' http://localhost:8080/sse
   mcp-proxy --client-id CLIENT_ID --client-secret CLIENT_SECRET --token-url https://auth.example.com/token http://localhost:8080/sse
   mcp-proxy --port 8080 -- your-command --arg1 value1 --arg2 value2

@@ -13,6 +13,8 @@ instead of raising.
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 import agilicus
 
 from agilicus import connectors
@@ -42,12 +44,13 @@ class _FakeApiClient:
         self.connectors_api = _FakeConnectorsApi(connector)
 
 
-def _make_connector(tags=None, routing_present=True):
+def _make_connector(tags=None, routing_present=True, service_account_required=None):
     """Build an AgentConnector in the shape the API client hands back."""
     spec = agilicus.AgentConnectorSpec(
         name="conn-1",
         org_id=ORG_ID,
         connection_uri=OLD_URI,
+        service_account_required=service_account_required,
         _check_type=False,
     )
     if routing_present:
@@ -249,3 +252,73 @@ def test_cli_explicit_pop_tag_is_passed_through():
 
     assert result.exit_code == 0, result.output
     assert captured["point_of_presence_tag"] == ("smoke",)
+
+
+# ---------------------------------------------------------------------------
+# (v) service_account_required: omitted is "preserve", not "true"
+# ---------------------------------------------------------------------------
+def test_replace_agent_omitted_service_account_required_preserves_false():
+    connector = _make_connector(service_account_required=False)
+
+    replaced = _run_replace_agent(connector, connection_uri=NEW_URI)
+
+    assert replaced.spec.connection_uri == NEW_URI
+    assert replaced.spec.service_account_required is False
+
+
+def test_replace_agent_omitted_service_account_required_preserves_true():
+    connector = _make_connector(service_account_required=True)
+
+    replaced = _run_replace_agent(connector, connection_uri=NEW_URI)
+
+    assert replaced.spec.service_account_required is True
+
+
+def test_replace_agent_explicit_service_account_required():
+    connector = _make_connector(service_account_required=False)
+
+    replaced = _run_replace_agent(connector, service_account_required=True)
+
+    assert replaced.spec.service_account_required is True
+
+
+def test_replace_agent_explicit_service_account_not_required():
+    connector = _make_connector(service_account_required=True)
+
+    replaced = _run_replace_agent(connector, service_account_required=False)
+
+    assert replaced.spec.service_account_required is False
+
+
+# ---------------------------------------------------------------------------
+# (vi) CLI boundary: an omitted --service-account-required is never "true"
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "flags,expected",
+    [
+        ([], None),
+        (["--service-account-required"], True),
+        (["--service-account-not-required"], False),
+    ],
+)
+def test_cli_service_account_required_is_tristate(flags, expected):
+    captured = {}
+
+    def fake_replace_agent(ctx, connector_id, **kwargs):
+        captured.update(kwargs)
+        result = MagicMock()
+        result.to_dict.return_value = {}
+        return result
+
+    from click.testing import CliRunner
+
+    with patch.object(
+        main_module.connectors, "replace_agent", side_effect=fake_replace_agent
+    ), patch.object(main_module, "output_entry"):
+        result = CliRunner().invoke(
+            main_module.update_agent_connector,
+            [CONNECTOR_ID, "--connection-uri", NEW_URI, "--org-id", ORG_ID] + flags,
+        )
+
+    assert result.exit_code == 0, result.output
+    assert captured["service_account_required"] is expected

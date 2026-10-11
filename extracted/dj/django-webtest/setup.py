@@ -4,7 +4,7 @@ import sys
 from setuptools import setup
 
 
-version = '1.9.14'
+version = '1.9.15'
 
 
 def _read(name):
@@ -52,6 +52,8 @@ setup(
         'Framework :: Django :: 5.0',
         'Framework :: Django :: 5.1',
         'Framework :: Django :: 5.2',
+        'Framework :: Django :: 6.0',
+        'Framework :: Django :: 6.1',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',

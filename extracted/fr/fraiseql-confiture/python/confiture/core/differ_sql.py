@@ -374,34 +374,56 @@ def _index_statement(index: Index, table: str, *, concurrently: bool) -> str:
     )
 
 
+def _undeclared(change: IndexAdded | IndexDropped) -> str:
+    """The comment above an index on a table neither tree declares (#679): it assumes the table."""
+    if change.table_declared:
+        return ""
+    return _comment(
+        f"{change.table.qualified} is not declared in this schema: the index assumes it exists"
+    )
+
+
 def _create_index(change: IndexAdded | IndexDropped) -> str:
     """``CONCURRENTLY``: the table exists and is in use while the index builds."""
     if not change.index.name:
         return _unnamed(change, "index")
-    return _index_statement(change.index, relation(change.table), concurrently=True)
+    statement = _index_statement(change.index, relation(change.table), concurrently=True)
+    return _undeclared(change) + statement
 
 
 def _table_indexes(table: Table) -> str:
-    """A table's own indexes, created with it: not ``CONCURRENTLY``, since it is empty.
+    """A table's own indexes, created with it: see :func:`_relation_indexes`."""
+    return _relation_indexes(table.relation, table.indexes)
 
-    One PostgreSQL creates to back a constraint is not written: the constraint
-    creates it. One the schema left unnamed cannot be created ``IF NOT EXISTS``,
-    and a migration that re-applies would add it again, so it is named as missing.
+
+def _relation_indexes(relation_name: RelationName, indexes: tuple[Index, ...]) -> str:
+    """A relation's own indexes, created with it: not ``CONCURRENTLY``, since nobody reads it yet.
+
+    A table or a materialized view this migration creates — or drops and creates
+    again, under the ``DROP``'s lock. One PostgreSQL creates to back a constraint is
+    not written: the constraint creates it. One the schema left unnamed cannot be
+    created ``IF NOT EXISTS``, and a migration that re-applies would add it again,
+    so it is named as missing.
     """
     written = []
-    for index in table.indexes:
+    for index in indexes:
         if index.backs_constraint:
             continue
         if index.name:
-            written.append(_index_statement(index, relation(table.relation), concurrently=False))
+            written.append(_index_statement(index, relation(relation_name), concurrently=False))
         else:
             written.append(
                 _comment(
-                    f"WARNING: Cannot generate the index on {table.qualified}"
+                    f"WARNING: Cannot generate the index on {relation_name.qualified}"
                     f" ({_index_keys(index)}) without an index name"
                 )
             )
     return "".join(written)
+
+
+def _carried_indexes(indexes: tuple[Index, ...]) -> str:
+    """The indexes a materialized view's change carries, created right after it."""
+    return _relation_indexes(indexes[0].table, indexes) if indexes else ""
 
 
 def _drop_index(change: IndexAdded | IndexDropped) -> str:
@@ -409,14 +431,16 @@ def _drop_index(change: IndexAdded | IndexDropped) -> str:
         return _unnamed(change, "index")
     # An index is in its table's schema, and a bare name would drop nothing there.
     index = relation(RelationName(change.table.schema, change.index.name))
-    return f"DROP INDEX CONCURRENTLY IF EXISTS {index};\n"
+    return f"{_undeclared(change)}DROP INDEX CONCURRENTLY IF EXISTS {index};\n"
 
 
 def _add_foreign_key(change: ForeignKeyAdded | ForeignKeyDropped) -> str:
     """``NOT VALID`` then ``VALIDATE``, which needs a name — or one statement.
 
-    The two-step takes a brief ``SHARE ROW EXCLUSIVE`` lock and scans the table
-    outside it, and the second step names the constraint. An unnamed foreign key
+    The second step names the constraint. Run apart, the ``ADD`` takes a brief
+    ``SHARE ROW EXCLUSIVE`` lock and the scan blocks no writer; in one transaction
+    — a migration's default — the scan holds the ``ADD``'s lock, so writes on both
+    tables wait for it, which the tier says (``lock_risky``). An unnamed foreign key
     cannot be validated separately, so it is added in one statement and the
     statement says so rather than carrying a name confiture made up.
     """
@@ -692,14 +716,15 @@ def _definition_up(change: DefinitionChange) -> str | None:
     keyword = OBJECT_KEYWORD.get(kind, "")
     name = change.ref.qualified
     match change:
-        case ObjectAdded(_, obj) if kind in DERIVED_KINDS:
-            return _creating(obj, change)
+        case ObjectAdded(_, obj, indexes) if kind in DERIVED_KINDS:
+            return _creating(obj, change) + _carried_indexes(indexes)
         case ObjectDropped(_, obj) if kind in DERIVED_KINDS:
             return _dropping(obj)
         case ObjectReplaced(_, old, new) if kind in _REPLACED_BY_DEFINITION:
             return _replacing(old, new, change)
-        case ObjectReplaced(_, _, new) if kind in REPLACED_BY_DROP_AND_CREATE:
-            return _drop(keyword, name) + _statement(new.create_sql, change)
+        case ObjectReplaced(_, _, new, _, indexes) if kind in REPLACED_BY_DROP_AND_CREATE:
+            created = _statement(new.create_sql, change) + _carried_indexes(indexes)
+            return _drop(keyword, name) + created
         case ObjectAdded() | ObjectDropped() | ObjectReplaced():
             return None
         case _:
@@ -731,12 +756,13 @@ def _definition_down(change: DefinitionChange) -> str | None:
     match change:
         case ObjectAdded(_, obj) if kind in DERIVED_KINDS:
             return _dropping(obj)
-        case ObjectDropped(_, obj) if kind in DERIVED_KINDS:
-            return _creating(obj, change)
+        case ObjectDropped(_, obj, indexes) if kind in DERIVED_KINDS:
+            return _creating(obj, change) + _carried_indexes(indexes)
         case ObjectReplaced(_, old, new) if kind in _REPLACED_BY_DEFINITION:
             return _replacing(new, old, change)
-        case ObjectReplaced(_, old, _) if kind in REPLACED_BY_DROP_AND_CREATE:
-            return _drop(keyword, name) + _statement(old.create_sql, change)
+        case ObjectReplaced(_, old, _, indexes) if kind in REPLACED_BY_DROP_AND_CREATE:
+            created = _statement(old.create_sql, change) + _carried_indexes(indexes)
+            return _drop(keyword, name) + created
         case ObjectAdded() | ObjectDropped() | ObjectReplaced():
             return None
         case _:

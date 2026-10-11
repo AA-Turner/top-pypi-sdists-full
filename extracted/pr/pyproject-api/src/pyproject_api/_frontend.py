@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import sys
+import tomllib
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from pathlib import Path
@@ -19,10 +19,6 @@ from pyproject_api._util import ensure_empty_dir
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
 
-if sys.version_info >= (3, 11):  # pragma: no cover (py311+)
-    import tomllib
-else:  # pragma: no cover (py311+)
-    import tomli as tomllib
 
 _HERE = Path(__file__).parent
 ConfigSettings = dict[str, Any] | None
@@ -223,6 +219,7 @@ class Frontend(ABC):
 
             frontend = Frontend(*Frontend.create_args_from_folder(project_folder))
         """
+        folder = folder.absolute()
         py_project_toml = folder / "pyproject.toml"
         if py_project_toml.exists():
             with py_project_toml.open("rb") as file_handler:
@@ -346,7 +343,7 @@ class Frontend(ABC):
         return MetadataForBuildWheelResult(metadata_directory / basename, out, err)
 
     def _check_metadata_dir(self, metadata_directory: Path) -> None:
-        if metadata_directory == self._root:
+        if metadata_directory.resolve() == self._root.resolve():
             msg = f"the project root and the metadata directory can't be the same {self._root}"
             raise RuntimeError(msg)
         if metadata_directory.exists():  # start with fresh
@@ -540,3 +537,19 @@ def _str_list(build_system: dict[str, Any], key: str) -> list[str]:
         msg = f"build-system.{key} must be a list of strings, got {value!r}"
         raise ValueError(msg)
     return value
+
+
+__all__ = [
+    "BackendFailed",
+    "CmdStatus",
+    "EditableResult",
+    "Frontend",
+    "MetadataForBuildEditableResult",
+    "MetadataForBuildWheelResult",
+    "OptionalHooks",
+    "RequiresBuildEditableResult",
+    "RequiresBuildSdistResult",
+    "RequiresBuildWheelResult",
+    "SdistResult",
+    "WheelResult",
+]

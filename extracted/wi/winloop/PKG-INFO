@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: winloop
-Version: 0.7.2
+Version: 0.8.0
 Summary: Windows version of uvloop
 Author-email: Vizonex <VizonexBusiness@gmail.com>
 License: MIT License
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: System :: Networking
-Requires-Python: >=3.8.0
+Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 License-File: LICENSE-APACHE
 License-File: LICENSE-MIT

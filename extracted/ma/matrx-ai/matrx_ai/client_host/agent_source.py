@@ -72,6 +72,9 @@ class ExecutionAgentDefinition(BaseModel):
     output_schema: dict[str, Any] | None = None
     matrx_actions: dict[str, Any] | None = Field(default=None, title="Matrx Directives")
     skill_config: dict[str, Any] = Field(default_factory=dict)
+    # Declared prompt blocks (``[{"name": ...}]``) and the agent's creator (personal rung).
+    prompt_blocks: list[Any] = Field(default_factory=list)
+    created_by: str | None = None
 
     @model_validator(mode="after")
     def _execution_safety_gate(self) -> ExecutionAgentDefinition:
@@ -207,6 +210,10 @@ def definition_from_row(row: Any, *, is_version: bool) -> ExecutionAgentDefiniti
                 else None
             ),
             "skill_config": dict(getattr(row, "skill_config", None) or {}),
+            "prompt_blocks": list(getattr(row, "prompt_blocks", None) or []),
+            "created_by": (
+                str(row.created_by) if getattr(row, "created_by", None) else None
+            ),
         }
     )
     return definition.with_content_hash()
@@ -242,6 +249,10 @@ def definition_to_agent_config(definition: ExecutionAgentDefinition) -> AgentCon
         "mcp_servers": definition.mcp_servers,
     }
     config = UnifiedConfig.from_dict(config_dict)
+    from matrx_ai.prompt_blocks.resolve import declared_names
+
+    config.prompt_blocks = declared_names(definition.prompt_blocks)
+    config.prompt_block_creator = definition.created_by
     if definition.output_schema:
         config.response_format = {
             "type": "json_schema",

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,10 +13,11 @@ Project-wide :pep:`544`-compliant **type hint test data.**
 #superclasses) once @beartype supports these protocols as well.
 
 # ....................{ FIXTURES                           }....................
-def hints_pep544_meta() -> 'List[HintPepMetadata]':
+def hints_pep544_meta() -> (
+    'list[beartype_test.a00_unit.data.hint.cls.pith.data_clshintpith.HintPepMetadata]'):
     '''
     List of :pep:`544`-compliant **type hint metadata** (i.e.,
-    :class:`beartype_test.a00_unit.data.hint.util.data_hintmetacls.HintPepMetadata`
+    :class:`beartype_test.a00_unit.data.hint.cls.pith.data_clshintpith.HintPepMetadata`
     instances describing test-specific :pep:`544`-compliant sample type hints
     with metadata generically leveraged by various PEP-agnostic unit tests).
     '''
@@ -27,80 +28,360 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
         ABC,
         abstractmethod,
     )
-    from beartype.typing import (
-        Any,
-        AnyStr,
-        runtime_checkable,
-    )
-    from beartype._data.typing.datatyping import T
     from beartype._data.hint.sign.datahintsigns import (
         HintSignBinaryIO,
         HintSignPep484585GenericSubbed,
         HintSignPep484585GenericUnsubbed,
         HintSignTextIO,
+        HintSignType,
     )
     from beartype._util.api.standard.utiltyping import get_typing_attrs
-    from beartype_test.a00_unit.data.hint.util.data_hintmetacls import (
-        HintPepMetadata,
-        HintPithSatisfiedMetadata,
-        HintPithUnsatisfiedMetadata,
+    from beartype_test.a00_unit.data.hint.cls.pith.data_clshint import (
+        HintPepMetadata)
+    from beartype_test.a00_unit.data.hint.cls.pith.data_clspith import (
+        PithSatisfiedMetadata,
+        PithUnsatisfiedMetadata,
+    )
+    from beartype_test.a00_unit.data.pep.pep484.data_pep484 import T
+    from io import (
+        BytesIO,
+        FileIO,
+        StringIO,
     )
     from pathlib import Path
+    from typing import (
+        Any,
+        AnyStr,
+        BinaryIO,
+        TextIO,
+        runtime_checkable,
+    )
 
     # ..................{ LOCALS                             }..................
     # List of all PEP-specific type hint metadata to be returned.
-    hints_pep_meta = []
+    hints_piths_pep_meta = []
 
     # Absolute filename of this data submodule, to be subsequently opened for
     # cross-platform IO testing purposes.
     SUBMODULE_FILENAME = __file__
 
-    # ..................{ CALLABLES                          }..................
-    def open_file_text():
+    # ..................{ FACTORIES ~ binary                 }..................
+    def open_binary_bytesio() -> BytesIO:
         '''
-        Function returning an open read-only file handle in text mode.
+        Factory returning an open read-only quasi-file handle in binary mode via
+        the standard C-based :class:`io.BytesIO` type.
         '''
 
-        return open(SUBMODULE_FILENAME, 'r', encoding='utf8')
+        return BytesIO()
 
 
-    def open_file_binary():
+    def open_binary_file() -> BinaryIO:
         '''
-        Function returning an open read-only file handle in binary mode.
+        Factory returning an open read-only file handle in binary mode via the
+        :func:`open` builtin.
         '''
 
         return open(SUBMODULE_FILENAME, 'rb')
 
 
-    # List of one or more "HintPithUnsatisfiedMetadata" instances validating
-    # objects *NOT* satisfied by either "typing.BinaryIO" *OR*
-    # "typing.IO[bytes]". This list conditionally depends on the active Python
-    # interpreter and thus *CANNOT* be defined as a standard tuple.
-    binaryio_piths_meta = [
-        # Open read-only binary file handle to this submodule.
-        HintPithSatisfiedMetadata(pith=open_file_binary, is_pith_factory=True),
+    def open_binary_fileio() -> BinaryIO:
+        '''
+        Factory returning an open read-only file handle in binary mode via the
+        standard C-based :class:`io.FileIO` type.
+        '''
+
+        return FileIO(SUBMODULE_FILENAME, 'rb')
+
+    # ..................{ FACTORIES ~ text                   }..................
+    # Note that we intentionally avoid defining a comparable open_text_fileio()
+    # factory below. Why? Because the standard "io.FileIO" type underlying such
+    # a hypothetical factory appears to coerce text into binary modes,
+    # preventing meaningful use of such a hypothetical factory: e.g.,
+    #     >>> from io import FileIO
+    #     >>> FileIO(__file__, mode='r').mode
+    #     'rb'  # <-- *WTF PYTHON* no. seriously. wtf.
+
+    def open_text_file() -> TextIO:
+        '''
+        Factory returning an open read-only file handle in text mode via the
+        :func:`open` builtin.
+        '''
+
+        return open(SUBMODULE_FILENAME, 'r', encoding='utf8')
+
+
+    def open_text_stringio() -> StringIO:
+        '''
+        Factory returning an open read-only quasi-file handle in text mode via
+        the standard C-based :class:`io.StringIO` type.
+        '''
+
+        return StringIO()
+
+    # ..................{ GENERICS                           }..................
+    class BinaryIOFile(BinaryIO):
+        '''
+        Useful concrete subclass of the mostly useless standard pure-Python
+        :pep:`484`-compliant :class:`typing.BinaryIO` generic, implementing all
+        abstract methods and properties defined by the latter in terms of the
+        standard C-based :class:`io.FileIO` type.
+
+        Attributes
+        ----------
+        _file_io : FileIO
+            :class:`io.FileIO` object underlying this concrete implementation.
+        '''
+
+        def __init__(self, *args, **kwargs) -> None:
+            '''
+            Initialize this object by passing all parameters as is to the
+            :meth:`FileIO.__init__` constructor.
+            '''
+
+            # Note that this instance variable is currently intentionally left
+            # undefined (to avoid unnecessary complications with respect to
+            # open file handles left unclosed).
+
+            # # Object to which this concrete subclass proxies *ALL* logic. \o/
+            # self._file_io = FileIO(*args, **kwargs)
+
+        @property
+        def mode(self) -> str:
+            return self._file_io.mode
+
+        @property
+        def name(self) -> str:
+            return self._file_io.name
+
+        def close(self) -> None:
+            return self._file_io.close()
+
+        @property
+        def closed(self) -> bool:
+            return self._file_io.closed
+
+        def fileno(self) -> int:
+            return self._file_io.fileno()
+
+        def flush(self) -> None:
+            return self._file_io.flush()
+
+        def isatty(self) -> bool:
+            return self._file_io.isatty()
+
+        def read(self, n: int = -1) -> AnyStr:
+            return self._file_io.read(n)
+
+        def readable(self) -> bool:
+            return self._file_io.readable()
+
+        def readline(self, limit: int = -1) -> AnyStr:
+            return self._file_io.readline(limit)
+
+        def readlines(self, hint: int = -1) -> list[AnyStr]:
+            return self._file_io.readlines(hint)
+
+        def seek(self, offset: int, whence: int = 0) -> int:
+            return self._file_io.seek(offset, whence)
+
+        def seekable(self) -> bool:
+            return self._file_io.seekable()
+
+        def tell(self) -> int:
+            return self._file_io.tell()
+
+        def truncate(self, size: int | None = None) -> int:
+            return self._file_io.truncate(size)
+
+        def writable(self) -> bool:
+            return self._file_io.writable()
+
+        def write(self, s: bytes | bytearray) -> int:
+            return self._file_io.write(s)
+
+        def writelines(self, lines: list[AnyStr]) -> None:
+            return self._file_io.writelines(lines)
+
+        # Note that the following context manager-specific methods are currently
+        # intentionally left as noops (to avoid issues inside our test
+        # automation, which does actually invoke these methods).
+        def __enter__(self) -> BinaryIO:
+            # return self._file_io.__enter__()
+            return self  # <-- pretend this makes sense
+
+        def __exit__(self, cls, value, traceback) -> None:
+            # return self._file_io.__exit__(cls, value, traceback)
+            pass
+
+
+    class TextIOConcrete(TextIO):
+        '''
+        Concrete subclass of the mostly useless standard pure-Python
+        :pep:`484`-compliant :class:`typing.TextIO` abstract generic.
+
+        This subclass is useless in practice and thus *only* defined to
+        superficially test that :mod:`beartype` handles this abstract generic in
+        the expected manner. Since there exists *no* existing type in Python's
+        standard library that could be used to trivially implement this abstract
+        generic, this concrete subclass trivially defines all abstract methods
+        and properties defined by :class:`typing.TextIO` to be empty noops.
+        '''
+
+        @property
+        def mode(self) -> str:
+            pass
+
+        @property
+        def name(self) -> str:
+            pass
+
+        def close(self) -> None: ...
+
+        @property
+        def closed(self) -> bool:
+            pass
+
+        def fileno(self) -> int: ...
+        def flush(self) -> None: ...
+        def isatty(self) -> bool: ...
+        def read(self, n: int = -1) -> AnyStr: ...
+        def readable(self) -> bool: ...
+        def readline(self, limit: int = -1) -> AnyStr: ...
+        def readlines(self, hint: int = -1) -> list[AnyStr]: ...
+        def seek(self, offset: int, whence: int = 0) -> int: ...
+        def seekable(self) -> bool: ...
+        def tell(self) -> int: ...
+        def truncate(self, size: int | None = None) -> int: ...
+        def writable(self) -> bool: ...
+        def write(self, s: bytes | bytearray) -> int: ...
+        def writelines(self, lines: list[AnyStr]) -> None: ...
+
+        # Note that the following context manager-specific methods are currently
+        # intentionally left as noops (to avoid issues inside our test
+        # automation, which does actually invoke these methods).
+        def __enter__(self) -> TextIO:
+            return self  # <-- pretend this makes sense
+
+        def __exit__(self, cls, value, traceback) -> None: ...
+
+        @property
+        def buffer(self) -> BinaryIO:
+            pass
+
+        @property
+        def encoding(self) -> str:
+            pass
+
+        @property
+        def errors(self) -> str | None:
+            pass
+
+        @property
+        def line_buffering(self) -> bool:
+            pass
+
+        @property
+        def newlines(self) -> Any:
+            pass
+
+    # ..................{ INSTANCES                          }..................
+    # Instance of the concrete "BinaryIO" subclass defined above, referring to
+    # this submodule itself. Note that it probably does *not* matter. We never
+    # actually call methods on this instance and thus *never* open this
+    # submodule via this instance.
+    binary_io_file = BinaryIOFile(SUBMODULE_FILENAME)
+
+    # Instance of the concrete "TextIO" subclass defined above. Note that we
+    # never actually call methods on this instance and thus *never* open this
+    # submodule via this instance.
+    text_io_concrete = TextIOConcrete()
+
+    # ..................{ TUPLES                             }..................
+    # Tuple of one or more "PithUnsatisfiedMetadata" instances validating
+    # objects either satisfying or violating either "typing.BinaryIO" *OR* its
+    # subscripted alias "typing.IO[bytes]".
+    PITHS_META_BINARYIO = (
+        # Instance of the concrete "BinaryIOFile" subclass defined above.
+        PithSatisfiedMetadata(binary_io_file),
+        # Open read-only binary file handle instantiated by the open() builtin.
+        PithSatisfiedMetadata(pith=open_binary_file, is_pith_factory=True),
+        # Open read-only binary file handle instantiated by the standard C-based
+        # "io.FileIO" type.
+        PithSatisfiedMetadata(pith=open_binary_fileio, is_pith_factory=True),
+
         # Bytestring constant.
-        HintPithUnsatisfiedMetadata(b"Of a thieved imagination's reveries"),
-        # "HintPithUnsatisfiedMetadata" instance validating open
-        # read-only text file handles to violate both "typing.BinaryIO" *AND*
-        # "typing.IO[bytes]" type hints. This validation requires beartype
-        # validators, as the only means of differentiating objects satisfying
-        # the "typing.BinaryIO" protocol from those satisfying the "typing.IO"
-        # protocol is with an inverted instance check. Cue beartype validators.
-        HintPithUnsatisfiedMetadata(pith=open_file_text, is_pith_factory=True),
-    ]
+        PithUnsatisfiedMetadata(b"Of a thieved imagination's reveries"),
+        # Instance of the concrete "TextIOConcrete" subclass defined above.
+        PithUnsatisfiedMetadata(text_io_concrete),
+        # Open read-only text file handle instantiated by the open() builtin.
+        # This validation requires dynamism and thus either beartype-specific
+        # validators *OR* beartype-agnostic PEP 3119-compliant metaclasses
+        # defining the __instancecheck__() dunder method, as the only means of
+        # differentiating objects satisfying the "typing.BinaryIO" protocol from
+        # those satisfying the "typing.IO" protocol is with an inverted instance
+        # check. Guess which beartype now prefers? *sigh*
+        PithUnsatisfiedMetadata(pith=open_text_file, is_pith_factory=True),
+        # Unrelated C-based "io.BytesIO" object, which *ALMOST* satisfies the
+        # PEP 544-compliant protocol implied by the "BinaryIO" generic. Notably,
+        # "io.BytesIO" fails to define *ANY* of the properties required by that
+        # protocol (e.g., "closed", "mode", "name").
+        PithUnsatisfiedMetadata(pith=open_binary_bytesio, is_pith_factory=True),
+        # Unrelated C-based "io.StringIO" object, which *ALMOST* satisfies the
+        # PEP 544-compliant protocol implied by the "TextIO" generic while
+        # obviously violating that implied by the "BinaryIO" generic. Is
+        # everybody suitably confused yet? *lengthy sighing is heard*
+        PithUnsatisfiedMetadata(pith=open_text_stringio, is_pith_factory=True),
+    )
+
+    # Tuple of one or more "PithUnsatisfiedMetadata" instances validating
+    # objects either satisfying or violating either "typing.TextIO" *OR* its
+    # subscripted alias "typing.IO[str]".
+    PITHS_META_TEXTIO = (
+        # Instance of the concrete "TextIO" subclass defined above.
+        PithSatisfiedMetadata(text_io_concrete),
+        # Open read-only text file handle instantiated by the open() builtin.
+        PithSatisfiedMetadata(pith=open_text_file, is_pith_factory=True),
+
+        # String constant.
+        PithUnsatisfiedMetadata('Statistician’s anthemed meme athame'),
+        # Instance of the concrete "BinaryIO" subclass defined above.
+        PithUnsatisfiedMetadata(binary_io_file),
+        # Open read-only binary file handle instantiated by the open() builtin.
+        PithUnsatisfiedMetadata(pith=open_binary_file, is_pith_factory=True),
+        # Unrelated C-based "io.BytesIO" object, which *ALMOST* satisfies the
+        # PEP 544-compliant protocol implied by the "BinaryIO" generic. Notably,
+        # "io.BytesIO" fails to define *ANY* of the properties required by that
+        # protocol (e.g., "closed", "mode", "name").
+        PithUnsatisfiedMetadata(pith=open_binary_bytesio, is_pith_factory=True),
+        # Unrelated C-based "io.StringIO" object, which *ALMOST* satisfies the
+        # PEP 544-compliant protocol implied by the "TextIO" generic. Notably,
+        # "io.StringIO" fails to define *ANY* of the file-oriented properties
+        # required by that protocol (e.g., "closed", "mode", "name").
+        PithUnsatisfiedMetadata(pith=open_text_stringio, is_pith_factory=True),
+    )
 
     # ..................{ PROTOCOLS ~ structural             }..................
     class ProtocolCustomStructural(object):
         '''
-        User-defined class structurally (i.e., implicitly) satisfying *without*
-        explicitly subclassing this user-defined protocol.
+        Arbitrary user-defined class structurally (i.e., implicitly) satisfying
+        *without* explicitly subclassing both the :pep:`544`-compliant
+        :class:`.ProtocolCustomUntypevared` *and*
+        :class:`.ProtocolCustomTypevared` protocols defined below.
         '''
 
         def alpha(self) -> str:
+            '''
+            Arbitrary instance method required by these protocols.
+            '''
+
             return "Sufferance's humus excursion, humility’s endurance, an"
 
+
         def omega(self) -> str:
+            '''
+            Arbitrary instance method required by these protocols.
+            '''
+
             return 'Surfeit need'
 
 
@@ -123,7 +404,7 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
     # Instance of the custom protocol defined above.
     protocol_custom_structural = ProtocolCustomStructural()
 
-    # ..................{ FACTORIES ~ Protocol               }..................
+    # ..................{ FACTORIES ~ protocol               }..................
     # For each PEP-specific type hint factory importable from each currently
     # importable "typing" module...
     for Protocol in get_typing_attrs('Protocol'):
@@ -131,43 +412,65 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
         @runtime_checkable
         class ProtocolCustomUntypevared(Protocol):
             '''
-            User-defined protocol parametrized by *no* type variables declaring
-            arbitrary concrete and abstract methods.
+            Arbitrary user-defined protocol parametrized by *no* type variables
+            declaring arbitrary concrete and abstract methods.
             '''
 
             def alpha(self) -> str:
+                '''
+                Arbitrary concrete instance method.
+                '''
+
                 return 'Of a Spicily sated'
 
+
             @abstractmethod
-            def omega(self) -> str: pass
+            def omega(self) -> str:
+                '''
+                Arbitrary abstract instance method.
+                '''
+
+                pass
 
 
         @runtime_checkable
         class ProtocolCustomTypevared(Protocol[T]):
             '''
-            User-defined protocol parametrized by a type variable declaring
-            arbitrary concrete and abstract methods.
+            Arbitrary user-defined protocol parametrized by a type variable
+            declaring arbitrary concrete and abstract methods.
             '''
 
             def alpha(self) -> str:
+                '''
+                Arbitrary concrete instance method.
+                '''
+
                 return 'Gainfully ungiving criticisms, schismatizing Ŧheo‐'
 
             @abstractmethod
-            def omega(self) -> str: pass
+            def omega(self) -> str:
+                '''
+                Arbitrary abstract instance method.
+                '''
+
+                pass
 
         # ................{ PROTOCOLS ~ user : abc             }................
         @runtime_checkable
         class ProtocolCustomSuperclass(Protocol):
             '''
-            User-defined protocol superclass.
+            Arbitrary user-defined protocol superclass.
             '''
 
             instance_variable: int
+            '''
+            Arbitrary instance variable assigned *NO* default value.
+            '''
 
 
         class ProtocolCustomABC(ProtocolCustomSuperclass, ABC):
             '''
-            User-defined abstract protocol subclassing both this superclass
+            User-defined abstract protocol subclassing both that superclass
             *and* the standard abstract base class (ABC) superclass, exercising
             a prior issue with respect to non-trivial protocol hierarchies.
 
@@ -176,20 +479,33 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
             '''
 
             instance_variable = 42
+            '''
+            Arbitrary instance variable assigned a default value.
+            '''
+
 
             def concrete_method(self) -> str:
+                '''
+                Arbitrary concrete instance method.
+                '''
+
                 return (
                     'Lit, Faux-Phonetician Grecian predilection derelictions '
                     'predi‐sposed to'
                 )
 
+
             @abstractmethod
-            def abstract_method(self) -> str: pass
+            def abstract_method(self) -> str:
+                '''
+                Arbitrary abstract instance method.
+                '''
 
 
         class ProtocolCustomSubclass(ProtocolCustomABC):
             '''
-            User-defined protocol subclass concretely subclassing this ABC.
+            Arbitrary user-defined protocol subclass concretely subclassing that
+            protocol ABC.
             '''
 
             def abstract_method(self) -> str:
@@ -197,7 +513,7 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
 
         # ................{ LISTS                              }................
         # Add PEP-specific type hint metadata to this list.
-        hints_pep_meta.extend((
+        hints_piths_pep_meta.extend((
             # ..............{ PROTOCOLS ~ user                   }..............
             # Despite appearances, protocols implicitly subclass
             # "typing.Generic" and thus do *NOT* transparently reduce to
@@ -216,9 +532,9 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
                 is_type_typing=False,
                 piths_meta=(
                     # Unrelated object satisfying this protocol.
-                    HintPithSatisfiedMetadata(protocol_custom_structural),
+                    PithSatisfiedMetadata(protocol_custom_structural),
                     # String constant.
-                    HintPithUnsatisfiedMetadata('For durance needs.'),
+                    PithUnsatisfiedMetadata('For durance needs.'),
                 ),
             ),
 
@@ -228,12 +544,12 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
                 pep_sign=HintSignPep484585GenericUnsubbed,
                 generic_type=ProtocolCustomTypevared,
                 is_type_typing=False,
-                typeargs_packed=(T,),
+                typeargs_packed_unsubbed=(T,),
                 piths_meta=(
                     # Unrelated object satisfying this protocol.
-                    HintPithSatisfiedMetadata(protocol_custom_structural),
+                    PithSatisfiedMetadata(protocol_custom_structural),
                     # String constant.
-                    HintPithUnsatisfiedMetadata('Machist-'),
+                    PithUnsatisfiedMetadata('Machist-'),
                 ),
             ),
 
@@ -243,13 +559,13 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
                 hint=ProtocolCustomTypevared[T],
                 pep_sign=HintSignPep484585GenericSubbed,
                 generic_type=ProtocolCustomTypevared,
-                typeargs_packed=(T,),
                 is_typing=False,
+                typeargs_packed_unsubbed=(T,),
                 piths_meta=(
                     # Unrelated object satisfying this protocol.
-                    HintPithSatisfiedMetadata(protocol_custom_structural),
+                    PithSatisfiedMetadata(protocol_custom_structural),
                     # String constant.
-                    HintPithUnsatisfiedMetadata(
+                    PithUnsatisfiedMetadata(
                         'Black and white‐bit, bilinear linaements'),
                 ),
             ),
@@ -261,11 +577,13 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
                 pep_sign=HintSignPep484585GenericSubbed,
                 generic_type=ProtocolCustomTypevared,
                 is_typing=False,
+                typeargs_packed_subbed=(),
+                typeargs_packed_unsubbed=(T,),
                 piths_meta=(
                     # Unrelated object satisfying this protocol.
-                    HintPithSatisfiedMetadata(protocol_custom_structural),
+                    PithSatisfiedMetadata(protocol_custom_structural),
                     # String constant.
-                    HintPithUnsatisfiedMetadata(
+                    PithUnsatisfiedMetadata(
                         'We are as clouds that veil the midnight moon;'),
                 ),
             ),
@@ -278,9 +596,9 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
                 is_type_typing=False,
                 piths_meta=(
                     # Unrelated object satisfying this protocol.
-                    HintPithSatisfiedMetadata(ProtocolCustomSubclass()),
+                    PithSatisfiedMetadata(ProtocolCustomSubclass()),
                     # String constant.
-                    HintPithUnsatisfiedMetadata(
+                    PithUnsatisfiedMetadata(
                         'Conspiratorially oratory‐fawning faces'),
                 ),
             ),
@@ -290,125 +608,219 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
     # For each PEP-specific type hint factory importable from each currently
     # importable "typing" module, add PEP-specific type hint metadata.
     for BinaryIO in get_typing_attrs('BinaryIO'):
-        hints_pep_meta.append(
-            # ..............{ GENERICS ~ io : unsubscripted      }..............
-            # Unsubscripted "BinaryIO" abstract base class (ABC).
+        hints_piths_pep_meta.extend((
+            # ..............{ PEP 484                            }..............
+            # "BinaryIO" generic.
             HintPepMetadata(
                 hint=BinaryIO,
                 pep_sign=HintSignBinaryIO,
                 generic_type=BinaryIO,
-                piths_meta=binaryio_piths_meta,
-            )
-        )
+                piths_meta=PITHS_META_BINARYIO,
+            ),
+
+            # ................{ PEP 585 ~ subclass             }................
+            # Any subclass of the "BinaryIO" generic.
+            HintPepMetadata(
+                hint=type[BinaryIO],
+                pep_sign=HintSignType,
+                isinstanceable_type=type,
+                is_pep585_builtin_subbed=True,
+                piths_meta=(
+                    # "BinaryIO" generic.
+                    PithSatisfiedMetadata(BinaryIO),
+                    # Arbitrary concrete subclass of the "BinaryIO" generic.
+                    PithSatisfiedMetadata(BinaryIOFile),
+                    # Unrelated C-based "io.FileIO" type.
+                    PithSatisfiedMetadata(FileIO),
+
+                    # String constant.
+                    PithUnsatisfiedMetadata(
+                        'Distinct, and visible; symbols divine'),
+                    # Instance of that arbitrary concrete subclass.
+                    PithUnsatisfiedMetadata(binary_io_file),
+                    # Unrelated C-based "io.BytesIO" type, which *ALMOST*
+                    # satisfies the PEP 544-compliant protocol implied by the
+                    # "BinaryIO" generic. Notably, "io.BytesIO" fails to define
+                    # *ANY* of the properties required by that protocol (e.g.,
+                    # "closed", "mode", "name").
+                    PithUnsatisfiedMetadata(BytesIO),
+                    # Unrelated C-based "io.StringIO" type, which *ALMOST*
+                    # satisfies the PEP 544-compliant protocol implied by the
+                    # "TextIO" generic while obviously violating that implied by
+                    # the "BinaryIO" generic. Is everybody suitably confused?
+                    PithUnsatisfiedMetadata(StringIO),
+                ),
+            ),
+        ))
 
     # ..................{ FACTORIES ~ TextIO                 }..................
     # For each PEP-specific type hint factory importable from each currently
     # importable "typing" module, add PEP-specific type hint metadata.
     for TextIO in get_typing_attrs('TextIO'):
-        hints_pep_meta.append(
+        hints_piths_pep_meta.extend((
             # ..............{ GENERICS ~ io : unsubscripted      }..............
             # Unsubscripted "TextIO" abstract base class (ABC).
             HintPepMetadata(
                 hint=TextIO,
                 pep_sign=HintSignTextIO,
                 generic_type=TextIO,
+                piths_meta=PITHS_META_TEXTIO,
+            ),
+
+            # ................{ PEP 585 ~ subclass             }................
+            # Any subclass of the "TextIO" generic.
+            HintPepMetadata(
+                hint=type[TextIO],
+                pep_sign=HintSignType,
+                isinstanceable_type=type,
+                is_pep585_builtin_subbed=True,
                 piths_meta=(
-                    # Open read-only text file handle to this submodule.
-                    HintPithSatisfiedMetadata(
-                        pith=open_file_text, is_pith_factory=True),
+                    # "TextIO" generic.
+                    PithSatisfiedMetadata(TextIO),
+                    # Arbitrary concrete subclass of the "TextIO" generic.
+                    PithSatisfiedMetadata(TextIOConcrete),
+
                     # String constant.
-                    HintPithUnsatisfiedMetadata(
-                        'Statistician’s anthemed meme athame'),
-                    # Open read-only binary file handle to this submodule.
-                    HintPithUnsatisfiedMetadata(
-                        pith=open_file_binary, is_pith_factory=True),
+                    PithUnsatisfiedMetadata('Starkness'),
+                    # Instance of that arbitrary concrete subclass.
+                    PithUnsatisfiedMetadata(binary_io_file),
+                    # Unrelated C-based "io.FileIO" type.
+                    PithUnsatisfiedMetadata(FileIO),
+                    # Unrelated C-based "io.BytesIO" type.
+                    PithUnsatisfiedMetadata(BytesIO),
+                    # Unrelated C-based "io.StringIO" type, which *ALMOST*
+                    # satisfies the PEP 544-compliant protocol implied by the
+                    # "TextIO" generic. Notably, "io.StringIO" fails to define
+                    # *ANY* of the file-oriented properties required by that
+                    # protocol (e.g., "closed", "mode", "name").
+                    PithUnsatisfiedMetadata(StringIO),
                 ),
-            )
-        )
+            ),
+        ))
 
     # ..................{ FACTORIES ~ IO                     }..................
     # For each PEP-specific type hint factory importable from each currently
     # importable "typing" module, add PEP-specific type hint metadata.
     for IO in get_typing_attrs('IO'):
-        hints_pep_meta.extend((
+        hints_piths_pep_meta.extend((
             # ..............{ GENERICS ~ io : unsubscripted      }..............
             # Unsubscripted "IO" abstract base class (ABC).
             HintPepMetadata(
                 hint=IO,
                 pep_sign=HintSignPep484585GenericUnsubbed,
                 generic_type=IO,
-                typeargs_packed=(AnyStr,),
+                typeargs_packed_unsubbed=(AnyStr,),
                 piths_meta=(
                     # Open read-only text file handle to this submodule.
-                    HintPithSatisfiedMetadata(
-                        pith=open_file_text, is_pith_factory=True),
+                    PithSatisfiedMetadata(
+                        pith=open_text_file, is_pith_factory=True),
                     # Open read-only binary file handle to this submodule.
-                    HintPithSatisfiedMetadata(
-                        pith=open_file_binary, is_pith_factory=True),
+                    PithSatisfiedMetadata(
+                        pith=open_binary_file, is_pith_factory=True),
                     # String constant.
-                    HintPithUnsatisfiedMetadata(
+                    PithUnsatisfiedMetadata(
                         'To piously magistrate, dis‐empower, and'),
                 ),
             ),
 
             # ..............{ GENERICS ~ io : subscripted        }..............
             # All possible subscriptions of the "IO" abstract base class (ABC).
+
+            # "IO" subscripted by "Any", equivalent to merely that ABC.
             HintPepMetadata(
                 hint=IO[Any],
                 pep_sign=HintSignPep484585GenericSubbed,
                 generic_type=IO,
+                typeargs_packed_subbed=(),
+                typeargs_packed_unsubbed=(AnyStr,),
                 piths_meta=(
                     # Open read-only binary file handle to this submodule.
-                    HintPithSatisfiedMetadata(
-                        pith=open_file_binary, is_pith_factory=True),
+                    PithSatisfiedMetadata(
+                        pith=open_binary_file, is_pith_factory=True),
                     # Open read-only text file handle to this submodule.
-                    HintPithSatisfiedMetadata(
-                        pith=open_file_text, is_pith_factory=True),
+                    PithSatisfiedMetadata(
+                        pith=open_text_file, is_pith_factory=True),
                     # String constant.
-                    HintPithUnsatisfiedMetadata(
+                    PithUnsatisfiedMetadata(
                         'Stoicly Anti‐heroic, synthetic'),
                 ),
             ),
-            HintPepMetadata(
-                hint=IO[bytes],
-                pep_sign=HintSignPep484585GenericSubbed,
-                generic_type=IO,
-                piths_meta=binaryio_piths_meta,
-            ),
-            HintPepMetadata(
-                hint=IO[str],
-                pep_sign=HintSignPep484585GenericSubbed,
-                generic_type=IO,
-                piths_meta=(
-                    # Open read-only text file handle to this submodule.
-                    HintPithSatisfiedMetadata(
-                        pith=open_file_text, is_pith_factory=True),
-                    # String constant.
-                    HintPithUnsatisfiedMetadata(
-                        'Thism‐predestined City’s pestilentially '
-                        'celestial dark of'
-                    ),
-                    # Open read-only binary file handle to this submodule.
-                    HintPithUnsatisfiedMetadata(
-                        pith=open_file_binary, is_pith_factory=True),
-                ),
-            ),
 
-            # Parametrization of the "IO" abstract base class (ABC).
+            # "IO" parametrized by the same type variable already parametrizing
+            # that ABC, equivalent to merely that ABC.
             HintPepMetadata(
                 hint=IO[AnyStr],
                 pep_sign=HintSignPep484585GenericSubbed,
                 generic_type=IO,
-                typeargs_packed=(AnyStr,),
+                typeargs_packed_unsubbed=(AnyStr,),
                 piths_meta=(
                     # Open read-only binary file handle to this submodule.
-                    HintPithSatisfiedMetadata(
-                        pith=open_file_binary, is_pith_factory=True),
+                    PithSatisfiedMetadata(
+                        pith=open_binary_file, is_pith_factory=True),
                     # Open read-only text file handle to this submodule.
-                    HintPithSatisfiedMetadata(
-                        pith=open_file_text, is_pith_factory=True),
+                    PithSatisfiedMetadata(
+                        pith=open_text_file, is_pith_factory=True),
                     # String constant.
-                    HintPithUnsatisfiedMetadata('Starkness'),
+                    PithUnsatisfiedMetadata(
+                        'Thism‐predestined City’s pestilentially '
+                        'celestial dark of'
+                    ),
+                ),
+            ),
+
+            # "IO" subscripted by "bytes", equivalent to "BinaryIO".
+            HintPepMetadata(
+                hint=IO[bytes],
+                pep_sign=HintSignPep484585GenericSubbed,
+                generic_type=IO,
+                typeargs_packed_subbed=(),
+                typeargs_packed_unsubbed=(AnyStr,),
+                piths_meta=PITHS_META_BINARYIO,
+            ),
+
+            # "IO" subscripted by "str", equivalent to "TextIO".
+            HintPepMetadata(
+                hint=IO[str],
+                pep_sign=HintSignPep484585GenericSubbed,
+                generic_type=IO,
+                typeargs_packed_subbed=(),
+                typeargs_packed_unsubbed=(AnyStr,),
+                piths_meta=PITHS_META_TEXTIO,
+            ),
+
+            # ................{ PEP 585 ~ subclass             }................
+            # Any subclass of the "IO" generic.
+            HintPepMetadata(
+                hint=type[IO],
+                pep_sign=HintSignType,
+                isinstanceable_type=type,
+                is_pep585_builtin_subbed=True,
+                piths_meta=(
+                    # "IO" generic.
+                    PithSatisfiedMetadata(IO),
+                    # Arbitrary concrete subclasses of the "IO" generic.
+                    PithSatisfiedMetadata(BinaryIOFile),
+                    PithSatisfiedMetadata(TextIOConcrete),
+                    # Unrelated C-based "io.FileIO" type.
+                    PithSatisfiedMetadata(FileIO),
+
+                    # String constant.
+                    PithUnsatisfiedMetadata(
+                        'Distinct, and visible; symbols divine'),
+                    # Instances of these arbitrary concrete subclasses.
+                    PithUnsatisfiedMetadata(binary_io_file),
+                    PithUnsatisfiedMetadata(text_io_concrete),
+                    # Unrelated C-based "io.BytesIO" type, which *ALMOST*
+                    # satisfies the PEP 544-compliant protocol implied by the
+                    # "IO" generic. Notably, "io.BytesIO" fails to define *ANY*
+                    # of the properties required by that protocol (e.g.,
+                    # "closed", "mode", "name").
+                    PithUnsatisfiedMetadata(BytesIO),
+                    # Unrelated C-based "io.StringIO" type, which *ALMOST*
+                    # satisfies the PEP 544-compliant protocol implied by the
+                    # "IO" generic while obviously violating that implied by the
+                    # "BinaryIO" generic. Is everybody suitably confused?
+                    PithUnsatisfiedMetadata(StringIO),
                 ),
             ),
         ))
@@ -417,7 +829,7 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
     # For each PEP-specific type hint factory importable from each currently
     # importable "typing" module, add PEP-specific type hint metadata.
     for SupportsAbs in get_typing_attrs('SupportsAbs'):
-        hints_pep_meta.append(
+        hints_piths_pep_meta.append(
             # ..............{ PROTOCOLS ~ supports               }..............
             # Unsubscripted "SupportsAbs" abstract base class (ABC).
             HintPepMetadata(
@@ -433,9 +845,9 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
                 is_typeargs=True,
                 piths_meta=(
                     # Integer constant.
-                    HintPithSatisfiedMetadata(777),  # <-- what can this mean!?!?!?
+                    PithSatisfiedMetadata(777),  # <-- what can this mean!?!?!?
                     # String constant.
-                    HintPithUnsatisfiedMetadata('Scour Our flowering'),
+                    PithUnsatisfiedMetadata('Scour Our flowering'),
                 ),
             )
         )
@@ -444,7 +856,7 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
     # For each PEP-specific type hint factory importable from each currently
     # importable "typing" module, add PEP-specific type hint metadata.
     for SupportsBytes in get_typing_attrs('SupportsBytes'):
-        hints_pep_meta.append(
+        hints_piths_pep_meta.append(
             # ..............{ PROTOCOLS ~ supports               }..............
             # Unsubscripted "SupportsBytes" abstract base class (ABC).
             HintPepMetadata(
@@ -459,13 +871,13 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
                     # defined by the "pathlib" module, which is why we
                     # instantiate such an atypical class here. See also:
                     #     https://stackoverflow.com/questions/45522536/where-can-the-bytes-method-be-found
-                    HintPithSatisfiedMetadata(
+                    PithSatisfiedMetadata(
                         pith=lambda: Path('/'),
                         is_context_manager=True,
                         is_pith_factory=True,
                     ),
                     # String constant.
-                    HintPithUnsatisfiedMetadata(
+                    PithUnsatisfiedMetadata(
                         'Fond suburb’s gibbet‐ribbed castrati'),
                 ),
             )
@@ -482,7 +894,7 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
             #         # Integer constant.
             #         108,
             #         # String constant.
-            #         HintPithUnsatisfiedMetadata('Fondled ΘuroƂorus-'),
+            #         PithUnsatisfiedMetadata('Fondled ΘuroƂorus-'),
             #     ),
             # ),
         )
@@ -491,7 +903,7 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
     # For each PEP-specific type hint factory importable from each currently
     # importable "typing" module, add PEP-specific type hint metadata.
     for SupportsFloat in get_typing_attrs('SupportsFloat'):
-        hints_pep_meta.append(
+        hints_piths_pep_meta.append(
             # ..............{ PROTOCOLS ~ supports               }..............
             # Unsubscripted "SupportsFloat" abstract base class (ABC).
             HintPepMetadata(
@@ -500,9 +912,9 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
                 generic_type=SupportsFloat,
                 piths_meta=(
                     # Integer constant.
-                    HintPithSatisfiedMetadata(92),
+                    PithSatisfiedMetadata(92),
                     # String constant.
-                    HintPithUnsatisfiedMetadata('Be’yond a'),
+                    PithUnsatisfiedMetadata('Be’yond a'),
                 ),
             )
         )
@@ -511,7 +923,7 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
     # For each PEP-specific type hint factory importable from each currently
     # importable "typing" module, add PEP-specific type hint metadata.
     for SupportsIndex in get_typing_attrs('SupportsIndex'):
-        hints_pep_meta.append(
+        hints_piths_pep_meta.append(
             # ..............{ PROTOCOLS ~ supports               }..............
             # Unsubscripted "SupportsIndex" abstract base class (ABC) first
             # introduced by Python 3.8.0.
@@ -521,9 +933,9 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
                 generic_type=SupportsIndex,
                 piths_meta=(
                     # Integer constant.
-                    HintPithSatisfiedMetadata(29),
+                    PithSatisfiedMetadata(29),
                     # String constant.
-                    HintPithUnsatisfiedMetadata('Self-ishly'),
+                    PithUnsatisfiedMetadata('Self-ishly'),
                 ),
             )
         )
@@ -532,7 +944,7 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
     # For each PEP-specific type hint factory importable from each currently
     # importable "typing" module, add PEP-specific type hint metadata.
     for SupportsInt in get_typing_attrs('SupportsInt'):
-        hints_pep_meta.append(
+        hints_piths_pep_meta.append(
             # ..............{ PROTOCOLS ~ supports               }..............
             # Unsubscripted "SupportsInt" abstract base class (ABC).
             HintPepMetadata(
@@ -541,11 +953,11 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
                 generic_type=SupportsInt,
                 piths_meta=(
                     # Floating-point number constant.
-                    HintPithSatisfiedMetadata(25.78),
+                    PithSatisfiedMetadata(25.78),
                     # Structurally subtyped instance.
-                    HintPithSatisfiedMetadata(ProtocolSupportsInt()),
+                    PithSatisfiedMetadata(ProtocolSupportsInt()),
                     # String constant.
-                    HintPithUnsatisfiedMetadata(
+                    PithUnsatisfiedMetadata(
                         'Ungentlemanly self‐righteously, and'),
                 ),
             )
@@ -555,7 +967,7 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
     # For each PEP-specific type hint factory importable from each currently
     # importable "typing" module, add PEP-specific type hint metadata.
     for SupportsRound in get_typing_attrs('SupportsRound'):
-        hints_pep_meta.append(
+        hints_piths_pep_meta.append(
             # ..............{ PROTOCOLS ~ supports               }..............
             # Unsubscripted "SupportsRound" abstract base class (ABC).
             HintPepMetadata(
@@ -567,9 +979,9 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
                 is_typeargs=True,
                 piths_meta=(
                     # Floating-point number constant.
-                    HintPithSatisfiedMetadata(87.52),
+                    PithSatisfiedMetadata(87.52),
                     # String constant.
-                    HintPithUnsatisfiedMetadata(
+                    PithUnsatisfiedMetadata(
                         'Our Fathers vowed, indulgently,'),
                 ),
             )
@@ -577,7 +989,7 @@ def hints_pep544_meta() -> 'List[HintPepMetadata]':
 
     # ..................{ RETURN                             }..................
     # Return this list of all PEP-specific type hint metadata.
-    return hints_pep_meta
+    return hints_piths_pep_meta
 
 
 def hints_pep544_ignorable_shallow() -> list:
@@ -627,7 +1039,7 @@ def hints_pep544_ignorable_deep() -> list:
 
     # ..................{ IMPORTS                            }..................
     from beartype._util.api.standard.utiltyping import get_typing_attrs
-    from beartype_test.a00_unit.data.pep.data_pep484 import (
+    from beartype_test.a00_unit.data.pep.pep484.data_pep484 import (
         S,
         T,
     )

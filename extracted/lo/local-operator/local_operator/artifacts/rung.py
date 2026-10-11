@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Optional
 
-from local_operator.artifacts import CostSource, MediaAsset
+from local_operator.artifacts import BillingBasis, CostSource, MediaAsset
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from pydantic import SecretStr
@@ -37,6 +37,7 @@ __all__ = [
     "RungResult",
     "RungSkipped",
     "RungSpec",
+    "SourceSupport",
 ]
 
 
@@ -52,6 +53,24 @@ class CancelSupport(StrEnum):
     NONE = "none"
     QUEUED_ONLY = "queued_only"
     SIGNAL = "signal"
+
+
+class SourceSupport(StrEnum):
+    """How many source images a rung's edit/reference path can take.
+
+    The TYPED capability the cascade's edit filter and the tool's approval
+    describer switch on (the free-text ``capabilities`` set predates any
+    consumer and stays only as vocabulary). The rule binding declaration to
+    behaviour: **a rung declares ``sources != NONE`` only in the same change
+    that wires its edit path** — a test walks every rung and fails on either
+    drift direction (a capable rung that raises the unsupported skip, or a
+    NONE rung that does not). NONE rungs are pre-recorded as
+    ``skipped``/``unsupported`` attempts on an edit request and never called.
+    """
+
+    NONE = "none"
+    SINGLE = "single"
+    MULTI = "multi"
 
 
 @dataclass(frozen=True)
@@ -76,6 +95,32 @@ class RungSpec:
     #: "reported" | "rate_table" | "subscription" | None — see
     #: :data:`local_operator.artifacts.CostSource`.
     cost: CostSource | None = None
+    #: Edit/reference input this rung accepts — the typed capability the
+    #: cascade filter and the approval describer read (see SourceSupport).
+    #: ``NONE`` (the default) is the honest state for a rung whose edit path
+    #: is not wired: the filter records its skip without a call.
+    sources: SourceSupport = SourceSupport.NONE
+    #: The source-image cap when ``sources`` is not NONE (1, 5, 14, 16...) —
+    #: the provider's documented ceiling. Sized for the single-source v1
+    #: wire and the gate a future multi-source wire must respect; read by no
+    #: send path yet (v1 sends at most one source).
+    max_sources: int = 0
+    #: Whether the rung's edit path accepts a mask beside the source.
+    #: DECLARED for the capability surface the Radient media route now
+    #: exposes per pin (its gpt-2.5 edit pins carry ``mask`` on the live
+    #: listing) and pinned by tests; nothing sends a mask in v1, and the
+    #: Radient rung keeps False until a mask wire reads that per-pin row.
+    mask: bool = False
+    #: Which SOURCE MEDIA kinds this rung's source path accepts (``"image"``,
+    #: ``"video"``, or both). The video phase's additive field: ``sources``
+    #: says HOW MANY sources a rung takes, this says WHAT a source may be, so
+    #: an i2v request (one image) and a v2v request (one video) can both ride
+    #: ``sources=SINGLE`` and still be filtered precisely — a rung declaring
+    #: ``{"image"}`` is skipped, never called, for a v2v request. Empty (the
+    #: default) means the declaration is not made; like every capability
+    #: field here it is bound by the same rule — declared only in the change
+    #: that wires the corresponding path.
+    source_kinds: frozenset[str] = frozenset()
 
 
 @dataclass
@@ -106,6 +151,14 @@ class CancelHandle:
     #: A response-carried cancel URL (or the derived fallback), when the
     #: provider has one.
     cancel_url: str | None = None
+    #: A provider job's poll/read URLs, when its transport carries them
+    #: (FAL's queue API response is the one today). Added for the video
+    #: lane's durable ``video_job_v1`` record, which must be able to resume
+    #: observing a job whose process died: the record's ``provider_ref``
+    #: carries exactly these. The image lane-visible cancel path ignores
+    #: them; ``clear()`` clears them like every other field.
+    status_url: str | None = None
+    result_url: str | None = None
     credential: Optional["SecretStr"] = field(default=None)
 
     def clear(self) -> None:
@@ -114,6 +167,8 @@ class CancelHandle:
         self.model = None
         self.base_url = None
         self.cancel_url = None
+        self.status_url = None
+        self.result_url = None
         self.credential = None
 
 
@@ -143,3 +198,20 @@ class RungResult:
     #: none (most providers bill silently).
     cost_usd: float | None = None
     cost_source: CostSource | None = None
+    #: Money meaning of ``cost_usd`` and its provenance (additive beside
+    #: ``cost_source``, which keeps its meaning). ``None`` with no amount.
+    billing_basis: BillingBasis | None = None
+    cost_provenance: str | None = None
+    #: The hub-side usage-record id a SETTLED charge equals, when the
+    #: provider's terminal payload carries one (Radient's does once settled).
+    #: Absent-safe: most rungs never set it and a payload without it leaves
+    #: this ``None`` — it is an identifier a consumer can cite, never an
+    #: amount.
+    usage_record_id: str | None = None
+    #: Set when the caller supplied ``strength`` and THIS rung's edit path
+    #: dropped it (FAL's multi-reference editors document no strength
+    #: field). Which sub-schema an edit routes through is decided INSIDE the
+    #: rung, so the cascade cannot pre-record this the way it pre-records a
+    #: capability; the tool folds the flag into ``details["strength_ignored"]``
+    #: and the caption note so the drop is recorded, never silent.
+    strength_ignored: bool = False

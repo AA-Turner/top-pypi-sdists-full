@@ -2013,30 +2013,46 @@ class UnifiedAIClient:
         # rerouted or filed as a provider failure) — only at the request's FIRST
         # paid call, so a running request is never stopped. Guests are people
         # here too (the guest plan's windows). See providers/usage_gate.py.
-        from matrx_ai.providers.usage_gate import admit_paid_call
+        # THE HELD-RUN SEAM — any gate below that refuses hands the host what this run was about
+        # to send (config, profile, the agent's variables) so a person can watch it run once.
+        # Recording never changes the refusal. See providers/held_run_seam.py.
+        try:
+            from matrx_ai.providers.usage_gate import admit_paid_call
 
-        await admit_paid_call()
-        # THE RUN-APPROVAL GATE — same seam, same once-per-request memory read: an agent,
-        # mandate or automation that cost more than the approval threshold in one run waits
-        # for a person's approval before its next non-interactive run. See
-        # providers/run_approval_gate.py.
-        from matrx_ai.providers.run_approval_gate import admit_run_approval
+            await admit_paid_call()
+            # THE RUN-APPROVAL GATE — same seam, same once-per-request memory read: an agent,
+            # mandate or automation that cost more than the approval threshold in one run waits
+            # for a person's approval before its next non-interactive run. See
+            # providers/run_approval_gate.py.
+            from matrx_ai.providers.run_approval_gate import admit_run_approval
 
-        admit_run_approval()
-        # THE READINESS GATE — same seam, asked on EVERY paid call (a sub-agent or workflow
-        # step may run another mandate): a mandate whose declared core inputs are missing for
-        # the run's subject is refused before any spend, with the missing inputs named and
-        # linked. The host decides and memoizes. See providers/readiness_gate.py.
-        from matrx_ai.providers.readiness_gate import admit_readiness
+            admit_run_approval()
+            # THE READINESS GATE — same seam, asked on EVERY paid call (a sub-agent or workflow
+            # step may run another mandate): a mandate whose declared core inputs are missing for
+            # the run's subject is refused before any spend, with the missing inputs named and
+            # linked. The host decides and memoizes. See providers/readiness_gate.py.
+            from matrx_ai.providers.readiness_gate import admit_readiness
 
-        await admit_readiness()
-        # THE TOP-TIER MODEL GATE — same seam, asked on EVERY paid call (a sub-agent or
-        # workflow step may switch models mid-run): a model rated 6 runs only for a person
-        # whose top-tier access is on. Refused = a caller refusal, never a fallback model.
-        # See providers/model_tier_gate.py.
-        from matrx_ai.providers.model_tier_gate import admit_model_tier
+            await admit_readiness()
+            # THE TOP-TIER MODEL GATE — same seam, asked on EVERY paid call (a sub-agent or
+            # workflow step may switch models mid-run): a model rated 6 runs only for a person
+            # whose top-tier access is on. Refused = a caller refusal, never a fallback model.
+            # See providers/model_tier_gate.py.
+            from matrx_ai.providers.model_tier_gate import admit_model_tier
 
-        admit_model_tier(profile)
+            admit_model_tier(profile)
+            # THE AUTOMATION GUARDRAIL GATE — same seam, asked on EVERY paid call: an automatic run
+            # (schedule / workflow trigger) is stopped at its max turns, max cost per run and its
+            # daily / weekly / monthly caps, and refused when it carries no limits. Turns already
+            # taken keep their output. The host decides from memory. See providers/guardrail_gate.py.
+            from matrx_ai.providers.guardrail_gate import admit_guardrails, note_paid_result
+
+            admit_guardrails(profile, config)
+        except BaseException as gate_refusal:
+            from matrx_ai.providers.held_run_seam import record_refusal
+
+            record_refusal(gate_refusal, config=config, profile=profile)
+            raise
         provider = str(getattr(profile, "vendor", "unknown"))
         attempt = 0
         # THE SETTINGS SELF-HEAL (settings-translation R2) — one attempt kind of
@@ -2066,6 +2082,7 @@ class UnifiedAIClient:
                 if await heal.empty_answer_retry(result, streamed_before=streamed_before):
                     continue  # R-b: an empty 200 on a settings-bearing call, sent once more
                 await heal.succeeded(result)
+                await note_paid_result(result)
                 return result
             except Exception as exc:
                 if await heal.handle_failure(exc, streamed_before=streamed_before):

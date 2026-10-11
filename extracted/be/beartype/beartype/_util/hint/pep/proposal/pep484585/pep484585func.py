@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -14,7 +14,6 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar import BeartypeDecorHintPep484585Exception
-from beartype.typing import Tuple
 from beartype._data.func.datafuncarg import ARG_NAME_RETURN
 from beartype._data.typing.datatypingport import (
     DictStrToHint,
@@ -34,8 +33,8 @@ from beartype._util.func.utilfunctest import (
     is_func_async_generator,
     is_func_sync_generator,
 )
-from beartype._util.hint.pep.proposal.pep649 import (
-    get_pep649_hintable_annotations)
+from beartype._util.hint.pep.proposal.pep749.pep649749annotate import (
+    get_hintable_pep649749_annotations)
 from beartype._util.text.utiltextprefix import prefix_callable_return
 from collections.abc import (
     AsyncGenerator,
@@ -62,7 +61,7 @@ def reduce_hint_pep484585_func_return(
         Dictionary mapping from the name of each annotated parameter
         semantically (but possibly *not* physically in the edge case in which
         the passed callable to be type-checked differs from the callable
-        defining the type hints to type-check that callable wit ) accepted by
+        defining the type hints to type-check that callable with) accepted by
         that callable to the type hint annotating that parameter.
     exception_prefix : str
         Human-readable label prefixing the representation of this object in the
@@ -86,11 +85,13 @@ def reduce_hint_pep484585_func_return(
     assert isinstance(func_annotations, dict), (
         f'{repr(func_annotations)} not dictionary.')
 
+    # ....................{ IMPORTS                        }....................
     # Avoid circular import dependencies.
-    from beartype._util.hint.pep.proposal.pep484585.pep484585 import (
+    from beartype._util.hint.pep.proposal.pep484585.pep484585args import (
         get_hint_pep484585_args)
     from beartype._util.hint.pep.utilpepsign import get_hint_pep_sign_or_none
 
+    # ....................{ LOCALS                         }....................
     # Type hint annotating this callable's return, which the caller has already
     # explicitly guaranteed to exist.
     hint = func_annotations[ARG_NAME_RETURN]
@@ -99,13 +100,14 @@ def reduce_hint_pep484585_func_return(
     # if this hint is an isinstanceable class).
     hint_sign = get_hint_pep_sign_or_none(hint)
 
+    # ....................{ TYPE                           }....................
     # If the decorated callable is a coroutine...
     if is_func_coro(func):
         # If this hint is "Coroutine[...]"...
         if hint_sign is HintSignCoroutine:
             # 3-tuple of all child type hints subscripting this hint if
             # subscripted by three such hints *OR* raise an exception.
-            hint_args: Tuple[Hint, Hint, Hint] = get_hint_pep484585_args(  # type: ignore[assignment]
+            hint_args: tuple[Hint, Hint, Hint] = get_hint_pep484585_args(  # type: ignore[assignment]
                 hint=hint, args_len=3, exception_prefix=exception_prefix)
 
             # Reduce this hint to the last child type hint subscripting this
@@ -192,6 +194,7 @@ def reduce_hint_pep484585_func_return(
         # Else, this hint is valid as the return annotation of this callable.
     # Else, the decorated callable is none of the kinds detected above.
 
+    # ....................{ RETURN                         }....................
     # Return this possibly reduced hint.
     return hint
 
@@ -230,7 +233,7 @@ def _die_of_hint_return_invalid(
         f'{repr(exception_suffix)} not string.')
 
     # "__annotations__" dunder dictionary providing this callable's type hints.
-    func_annotations = get_pep649_hintable_annotations(func)
+    func_annotations = get_hintable_pep649749_annotations(func)
 
     # Type hint annotating this callable's return, which the caller has already
     # explicitly guaranteed to exist.

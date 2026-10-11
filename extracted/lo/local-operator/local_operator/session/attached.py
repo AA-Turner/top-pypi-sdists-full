@@ -59,6 +59,7 @@ from local_operator.harness.types import (
     SubagentEndEvent,
     SubagentProgressEvent,
     SubagentStartEvent,
+    SupplementProgressEvent,
     ToolCallComposeEvent,
     ToolExecutionEndEvent,
     ToolExecutionStartEvent,
@@ -124,6 +125,14 @@ from local_operator.session.protocol import (
     GateUndeliveredHandler,
     RuntimeLocality,
     unanswered_tail_call_ids,
+)
+from local_operator.session.replay_cache import (
+    ColdReplay,
+    ReplayKey,
+    cached_replay,
+    load_cold_replay,
+    publish_replay,
+    replay_key,
 )
 from local_operator.session.restored_rows import resolve_restored_rows, roster_records
 from local_operator.session.runtime.inbox import SPOOL_RECEIPT_PROMPT
@@ -611,6 +620,7 @@ _EVENT_TYPES: dict[str, type[AgentEvent[Any]]] = {
         RetryStartEvent,
         ModelChangeEvent,
         RetryEndEvent,
+        SupplementProgressEvent,
     )
 }
 
@@ -1998,6 +2008,14 @@ class AttachedSession:
                 "subagent_cost": durable.subagent_cost,
                 "subagent_cost_knowledge": durable.subagent_cost_knowledge,
                 "cost_knowledge": durable.cost_knowledge,
+                # The published channel object rides the same rule: a cold read
+                # with no owner must render the SAME money as the warm one, or
+                # the desktop UI shows today's legacy inference-only total for
+                # a session whose channels it will render a moment later when a
+                # runtime attaches (QA round 1, Q4 — cold 0.2175 vs warm
+                # 0.2775 for one session). The checkpoint is where the durable
+                # copy lives, exactly like the scalars above.
+                "spend_channels": durable.spend_channels,
                 "last_usage": durable.last_usage,
                 **self._consistent_context(state, durable),
                 # MCP servers are the last runtime's connection report and
@@ -4994,6 +5012,12 @@ class AttachedSession:
             on_event=once_adopted(self._on_wire_event),
             frontend_state=True,
             display_window=self._display_window_requested,
+            # The viewer's half of the ``supplements-v1`` attach gate (memo
+            # §2.7): this facade paints supplement rows (the TUI lane), and
+            # ``AttachClient.connect`` ANDs the intent with the owner record's
+            # advertised capability — an owner that does not advertise is
+            # never sent the declaration's consequences.
+            supplements=True,
             surface=self._surface,
             # THE full-TUI viewer is the client that renders action-carrying
             # receipts: ``_render_authoritative_slash`` submits their
@@ -6067,7 +6091,7 @@ class AttachedSession:
         through_id: str | None = None,
         strict_cut: bool = False,
     ) -> list[Any]:
-        """Replay the durable transcript off-loop, once per sync.
+        """Replay the durable transcript off-loop, once per sync, and once per FILE VERSION.
 
         The single threaded read shared by initial connect AND reconnect:
         review round 3 (MAJOR-2) found the reconnect path re-running this
@@ -6076,6 +6100,20 @@ class AttachedSession:
         for the connect path. Both callers now consume ONE threaded result
         (gap projection and ``_history`` reconciliation), so the file is
         parsed once per sync and never on the loop.
+
+        AND ONCE PER FILE VERSION, not once per sync. A session with no
+        checkpoint leaves the suffix reader with no boundary to stop at, so it
+        scans to BOF — 204 ms on a 35.5 MB journal — and the CACHE is what that
+        cost is owed once rather than three times: the desktop's cold facade is
+        built, used and detached, so the snapshot, ``/history`` and the SSE
+        frame each used to pay it again (212/261/207/201 ms measured, per
+        request, for as long as a client kept asking). The result for a given
+        ``(file version, cut, wanted types)`` is a pure function of the bytes,
+        so it is stored under exactly those terms
+        (:mod:`local_operator.session.replay_cache`) and a second caller for the
+        same terms is answered from memory. A hit still installs the per-facade
+        cold fields below, so nothing about the cold open's behaviour depends on
+        whether the parse was shared.
 
         ``want_checkpoint`` is the COLD path's opt-in to also extracting the
         durable frontend checkpoint from this same parse
@@ -6089,82 +6127,149 @@ class AttachedSession:
         long-lived holds a reference on any path.
         """
 
-        def _replay() -> list[Any]:
-            directory = self._config_dir / "sessions" / self._session_id
-            # Backward suffix read instead of ``Transcript(directory)``: the
-            # constructor JSON-decodes every row (220 ms at 47 MB, 1.5 s at
-            # 204 MB on the reference owners) when the replay only ever uses
-            # rows from the latest compaction's kept window. The suffix reader
-            # stops at that boundary and replays through the SAME module
-            # function the constructor path uses, so the result is identical
-            # by construction; a journal with no compaction reads to the
-            # start, which is today's cost, not a shortcut. The checkpoint is
-            # extracted from the same pass for the cold path so nothing
-            # re-reads the file on the loop.
-            suffix = read_replay_suffix(
-                directory,
-                through_id=through_id,
-                # TWO types out of ONE pass, and the distinction between the two
-                # parameters is load-bearing (review R1-2): the checkpoint is
-                # REQUIRED (the stop condition may wait for it), the spend record
-                # is OPPORTUNISTIC — a pre-ledger journal legitimately has none,
-                # and requiring it made this read the whole file on every cold
-                # open of exactly the sessions that have a checkpoint.
-                checkpoint_types=((FRONTEND_CHECKPOINT_CUSTOM_TYPE,) if want_checkpoint else ()),
-                opportunistic_types=((SESSION_SPEND_CUSTOM_TYPE,) if want_checkpoint else ()),
+        directory = self._config_dir / "sessions" / self._session_id
+        # The identity of the file this read is FOR, taken before any parse.
+        # ``None`` (an absent journal) leaves the read uncached, which is what
+        # the empty-history contract needs: nothing is served from a key that
+        # cannot name what was read.
+        key = replay_key(
+            directory,
+            through_id=through_id,
+            strict_cut=strict_cut,
+            checkpoint_types=(FRONTEND_CHECKPOINT_CUSTOM_TYPE,) if want_checkpoint else (),
+            opportunistic_types=(SESSION_SPEND_CUSTOM_TYPE,) if want_checkpoint else (),
+        )
+        replay = cached_replay(key) if key is not None else None
+        if replay is None:
+            replay = await load_cold_replay(
+                key,
+                lambda: asyncio.to_thread(
+                    self._cold_replay,
+                    key=key,
+                    want_checkpoint=want_checkpoint,
+                    through_id=through_id,
+                    strict_cut=strict_cut,
+                ),
             )
-            cut = through_id
-            if cut is not None and not suffix.through_present and not strict_cut:
-                # Older owners used best-effort cursors; preserve that fallback
-                # only for legacy full replay, never the negotiated window cut.
-                # ``through_present`` is false only after the reader reached
-                # the file START without meeting the cursor, so this is the
-                # same "id is not in the journal" the whole-file parse saw.
-                cut = None
-            if want_checkpoint:
-                self._cold_checkpoint = suffix.checkpoint
-                self._cold_spend = suffix.checkpoints.get(SESSION_SPEND_CUSTOM_TYPE)
-                self._cold_order = dict(suffix.checkpoint_order)
-                # The accounting fallback rides the SAME read, from the rows
-                # already in hand: the suffix reader stops only once the newest
-                # shrink and its kept window are buffered, so every post-shrink
-                # message row — and therefore every still-valid usage receipt —
-                # is in ``suffix.entries``. One parse, one pass, no extra I/O on
-                # a file that reaches 103 MB. See ``_seed_cold_usage`` for what
-                # the reading is used for and why the checkpoint still wins.
-                #
-                # NOT seeded when a cursor CUTS this read. The cut discards rows
-                # above the cursor from the replay below (the reader even forgets
-                # a compaction met above it), so a receipt from those rows
-                # describes a window this viewer is not showing — and a second
-                # implementation of the cut rule here is exactly the
-                # second-boundary defect the shared scan exists to prevent. Cold
-                # passes no cursor today, so this is the correctness of the
-                # shape: an uncut read seeds, a bounded one prefers "no reading"
-                # to a reading from outside the window.
-                self._cold_seed_usage = (
-                    seed_reported_usage(usages_since_newest_shrink(suffix.entries))
-                    if cut is None
-                    else None
-                )
-            # Resolve externalized media against the store that OWNED this
-            # journal (``<config>/attachments``), derived from the session
-            # directory rather than from this reader's environment — the
-            # sidebar's saved-preview reader and this cold replay both know
-            # the config dir that owns the transcript, and only the co-located
-            # root is the writer's root by construction. The obvious-looking
-            # alternative, a per-session store at ``<config>/sessions/<id>``,
-            # was the bug (#694): NOTHING ever writes there, so every digest
-            # resolved to None and a live, on-disk screenshot replayed as
-            # "image unavailable — no longer in the transcript".
-            # ``store_for_transcript_dir`` owns that rule for both readers.
-            return replay_entries(
-                suffix.entries,
-                store_for_transcript_dir(directory),
-                through_id=cut,
-            )
+        if want_checkpoint:
+            # The cold fields are installed from the replay's own facts, so a
+            # CACHE HIT populates them exactly as a fresh parse does. They are
+            # per-facade state even when the parse is shared.
+            self._cold_checkpoint = replay.checkpoint
+            self._cold_spend = replay.checkpoints.get(SESSION_SPEND_CUSTOM_TYPE)
+            self._cold_order = dict(replay.order)
+            self._cold_seed_usage = replay.seed_usage
+        # A LIST over the shared messages, never the tuple: the facade PREPENDS
+        # older pages to ``self._history`` in place, and a shared list would
+        # leak one viewer's scrollback into the next.
+        return list(replay.messages)
 
-        return await asyncio.to_thread(_replay)
+    def _cold_replay(
+        self,
+        *,
+        key: "ReplayKey | None",
+        want_checkpoint: bool,
+        through_id: str | None,
+        strict_cut: bool,
+    ) -> "ColdReplay":
+        """One cold parse of the journal, published under its file version.
+
+        WORKER-THREAD ONLY (the caller wraps it in ``asyncio.to_thread``), and
+        the single place a cold read is built, so the cached and uncached paths
+        cannot drift: the cache stores exactly what this returns.
+        """
+        directory = self._config_dir / "sessions" / self._session_id
+        checkpoint_types = (FRONTEND_CHECKPOINT_CUSTOM_TYPE,) if want_checkpoint else ()
+        opportunistic = (SESSION_SPEND_CUSTOM_TYPE,) if want_checkpoint else ()
+        # NO SECOND STAT (review round 1, F5): the key was taken by the caller
+        # before this read was scheduled, and taking it again here would only
+        # measure a different moment. What matters is the OTHER end of the read —
+        # see the re-check before publishing below.
+        suffix = read_replay_suffix(
+            directory,
+            through_id=through_id,
+            # TWO types out of ONE pass, and the distinction between the two
+            # parameters is load-bearing (review R1-2): the checkpoint is
+            # REQUIRED (the stop condition may wait for it), the spend record
+            # is OPPORTUNISTIC — a pre-ledger journal legitimately has none,
+            # and requiring it made this read the whole file on every cold
+            # open of exactly the sessions that have a checkpoint.
+            checkpoint_types=checkpoint_types,
+            opportunistic_types=opportunistic,
+        )
+        cut = through_id
+        if cut is not None and not suffix.through_present and not strict_cut:
+            # Older owners used best-effort cursors; preserve that fallback
+            # only for legacy full replay, never the negotiated window cut.
+            # ``through_present`` is false only after the reader reached
+            # the file START without meeting the cursor, so this is the
+            # same "id is not in the journal" the whole-file parse saw.
+            cut = None
+        # The accounting fallback rides the SAME read, from the rows already in
+        # hand: the suffix reader stops only once the newest shrink and its kept
+        # window are buffered, so every post-shrink message row — and therefore
+        # every still-valid usage receipt — is in ``suffix.entries``. One parse,
+        # one pass, no extra I/O on a file that reaches 103 MB. See
+        # ``_seed_cold_usage`` for what the reading is used for and why the
+        # checkpoint still wins.
+        #
+        # NOT seeded when a cursor CUTS this read. The cut discards rows above
+        # the cursor from the replay below (the reader even forgets a compaction
+        # met above it), so a receipt from those rows describes a window this
+        # viewer is not showing — and a second implementation of the cut rule
+        # here is exactly the second-boundary defect the shared scan exists to
+        # prevent. Cold passes no cursor today, so this is the correctness of
+        # the shape: an uncut read seeds, a bounded one prefers "no reading"
+        # to a reading from outside the window.
+        seed_usage = (
+            seed_reported_usage(usages_since_newest_shrink(suffix.entries))
+            if want_checkpoint and cut is None
+            else None
+        )
+        # Resolve externalized media against the store that OWNED this journal
+        # (``<config>/attachments``), derived from the session directory rather
+        # than from this reader's environment — the sidebar's saved-preview
+        # reader and this cold replay both know the config dir that owns the
+        # transcript, and only the co-located root is the writer's root by
+        # construction. The obvious-looking alternative, a per-session store at
+        # ``<config>/sessions/<id>``, was the bug (#694): NOTHING ever writes
+        # there, so every digest resolved to None and a live, on-disk
+        # screenshot replayed as "image unavailable — no longer in the
+        # transcript". ``store_for_transcript_dir`` owns that rule for both
+        # readers.
+        messages = replay_entries(
+            suffix.entries,
+            store_for_transcript_dir(directory),
+            through_id=cut,
+        )
+        values = {
+            "checkpoint": suffix.checkpoint,
+            "checkpoints": suffix.checkpoints,
+            "order": suffix.checkpoint_order,
+            "seed_usage": seed_usage,
+            "bytes_read": suffix.bytes_read,
+        }
+        if key is None:
+            return ColdReplay(messages=tuple(messages), retained=0, **values)
+        # RE-STAT AFTER THE READ, and publish only for the version still on disk.
+        # An append that lands mid-read leaves this answer describing the journal
+        # as it was when the read STARTED, which is the version ``key`` names — but
+        # ``_write_entries``' rollback (``os.truncate`` + a restored mtime for a
+        # bookkeeping batch) can bring that exact ``(ino, size, mtime_ns)`` back
+        # with different bytes, so an entry stored for it could be served over a
+        # journal it does not describe. One stat closes that: if the file moved on,
+        # the caller still gets this answer and nothing is cached under a key that
+        # no longer names it.
+        fresh = replay_key(
+            directory,
+            through_id=through_id,
+            strict_cut=strict_cut,
+            checkpoint_types=checkpoint_types,
+            opportunistic_types=opportunistic,
+        )
+        if fresh != key:
+            return ColdReplay(messages=tuple(messages), retained=0, **values)
+        return publish_replay(key, messages=messages, **values)
 
     def _bind_history(
         self,
@@ -7433,6 +7538,61 @@ class AttachedSession:
             self._streaming = False
             self._suspect_generation = None
 
+    def _drop_liveness_claim(self) -> None:
+        """Stop claiming a live turn the owner can no longer sustain.
+
+        ``_end_turn_locally``'s no-verdict sibling, for the one owner loss that
+        must not end the turn it may not have: a REFRESH retirement
+        (``RETIRING_REASON``). The contract says the runtime retires only when
+        idle, and the first cut of that path merely logged when the facade
+        still read ``_streaming`` — "the honest repair is the successor's
+        snapshot". The 2026-10-10 incident falsified that as the ONLY repair:
+        the snapshot exists only when a successor is ENGAGED, and a whole-daemon
+        update declines to engage one (``DesktopSessionBridge._on_runtime_retired``
+        asks ``assert_admitting``), so the claim outlived its owner for minutes —
+        session 62480a153ced served ``frontend.streaming: true`` while idle, two
+        operator presses were routed into the steer branch of a turn that had
+        ended, and the same flag painted the stuck "thinking" indicator.
+
+        NOT ``_end_turn_locally``, deliberately. Every shape it can deliver is
+        a verdict: ``aborted=True`` is a stop the user did not make, ``error=``
+        is a cut-off this seat cannot establish, and even ``aborted=False``
+        claims a completion a successor turn may still be owed. What is known
+        here is that NOTHING is known — the ``agent_end`` that would explain
+        the claim is exactly what the retirement raced — so this drops the
+        claim and nothing else: ``_streaming`` goes False (``is_streaming``
+        stops lying to every host, the desktop's steer-vs-prompt predicate
+        included), and the canonical mirror's ``streaming`` bit is cleared so
+        viewers stop painting "thinking"/steering and the next message routes
+        as a prompt — which engages a successor — instead of into a dead
+        turn's steer branch. A successor that IS coming re-marks the state from
+        its own snapshot (``_apply_frontend_facades``), so a genuinely live
+        turn loses nothing an owner still vouches for.
+
+        THE MIRROR INSTALL IS SILENT AND PRESERVES THE SEQUENCE, for the rule
+        ``_publish_working_directory`` states: a viewer-local ``mutate`` would
+        consume the owner's next sequence number and break synchronization, and
+        a same-sequence notify is a delta the desktop renderer discards as
+        stale (review R4). Hosts that serve a projection publish their own
+        replacement — the desktop bridge does exactly that in its refresh
+        callback — and every host that reads this facade directly has the
+        corrected store by its next read.
+        """
+        store = self._frontend_store
+        claimed = bool(self._streaming) or (
+            store is not None and bool(getattr(store.state, "streaming", False))
+        )
+        if not claimed:
+            return
+        self._streaming = False
+        if store is not None and bool(getattr(store.state, "streaming", False)):
+            store.replace(store.state.model_copy(update={"streaming": False}))
+        logger.warning(
+            "runtime retired for a refresh while a turn looked live; dropped the "
+            "liveness claim for %s without synthesising a turn end",
+            self._session_id,
+        )
+
     def _journal_witnessed_cut_off(self, *, cause: str) -> None:
         """Journal the cut-off this viewer just witnessed, off the loop.
 
@@ -7668,11 +7828,15 @@ class AttachedSession:
         # which would leave the prompt path waiting on an event nothing else
         # will set (review round 1, MINOR-1).
         if refresh:
-            if self._streaming:
-                # Should be unreachable (the runtime retires only when idle);
-                # logged rather than asserted because the honest repair is
-                # the successor's snapshot, not a false abort here.
-                logger.warning("runtime retired for a refresh while a turn looked live")
+            # THE CLAIM MUST NOT OUTLIVE ITS OWNER, and this is the one owner
+            # loss where nothing else repairs it: a refresh synthesises no
+            # turn end, and when the daemon itself is being replaced no
+            # successor either (``_on_runtime_retired`` declines), so a
+            # liveness bit the retirement raced had no repair at all —
+            # session 62480a153ced served ``frontend.streaming: true`` for 6+
+            # minutes off exactly this window (2026-10-10 incident; see
+            # ``_drop_liveness_claim``).
+            self._drop_liveness_claim()
             # A viewer that ATTACHED (``connect``) rather than started cold
             # keeps the legacy "recover by taking over" contract for owner
             # DEATH — but a refresh is not a death, and taking the lease into
@@ -7684,10 +7848,14 @@ class AttachedSession:
             # is exactly this case (design-runtime-autorefresh §1.1).
             self._can_go_cold = True
             # ``_suspect_generation`` is deliberately LEFT SET here. A refresh
-            # is not a death, so an in-flight turn (which should not exist —
-            # the warning above) must not be aborted: the successor's snapshot
-            # is the honest repair, and ``_settle_suspect_turn`` decides on
-            # rebind exactly as it does after a transient drop.
+            # is not a death, so no abort is synthesised: what a stale claim
+            # gets is the drop above, and a successor's snapshot, when one
+            # comes, re-seeds whatever is actually running
+            # (``_apply_frontend_facades`` writes both flags from it). NOTE
+            # that nothing on this path settles a suspect —
+            # ``_settle_suspect_turn`` belongs to the recovery loop and a
+            # refresh's rebind never passes through it — so the drop must
+            # stand on its own.
         else:
             # OWNER DEATH, and the end must say so. Synthesising the bare
             # abort (``aborted=True, error=None``) is the exact shape a user's
@@ -9716,6 +9884,53 @@ class AttachedSession:
         except BaseException:
             self._deliberate_stop = False
             raise
+
+    # -- turn supplements (memo §2.7) ---------------------------------------
+
+    async def supplements_for(self, anchors: Sequence[str]) -> dict[str, dict[str, Any]]:
+        """``{anchor: newest supplement row}`` for the anchors asked about.
+
+        The lazy read a surface makes when an answer row mounts (memo §2.11).
+        A detached or recovering facade answers ``{}`` — a read that cannot
+        run paints nothing, and raising here would turn "no rows yet" into an
+        error path on every resume. An owner that predates the op answers an
+        error frame, which is swallowed the same way: older owner, no rows.
+        """
+        client = self._client
+        if client is None or self._recovering or not client.connected:
+            return {}
+        try:
+            return await client.supplements_for(anchors)
+        except Exception:  # noqa: BLE001 — a read that fails paints nothing
+            logger.debug("supplements_for could not be read", exc_info=True)
+            return {}
+
+    async def supplement_cancel(self, anchor: str, job: str) -> str:
+        """Cancel a running supplement job; a settled one answers neutrally.
+
+        RAISES when there is no attached client (the caller shows a notice),
+        and an owner from before the feature raises the dispatch's own sentence
+        — both are states the ``/highlights`` command reports rather than
+        pretends away.
+        """
+        client = self._client
+        if client is None or not client.connected:
+            raise ConnectionError("not attached")
+        return await client.supplement_cancel(anchor, job)
+
+    async def supplement_steer(self, anchor: str, job: str, text: str) -> str:
+        """Cut the in-flight attempt and start version + 1 with ``text``."""
+        client = self._client
+        if client is None or not client.connected:
+            raise ConnectionError("not attached")
+        return await client.supplement_steer(anchor, job, text)
+
+    async def supplement_restart(self, anchor: str, job: str) -> str:
+        """Start version + 1 with the previous instruction (the Retry)."""
+        client = self._client
+        if client is None or not client.connected:
+            raise ConnectionError("not attached")
+        return await client.supplement_restart(anchor, job)
 
     async def credential_op(self, action: str, key: str = "", value: str = "") -> dict[str, Any]:
         """Run one ``/credential`` verb on the owner's store.

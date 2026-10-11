@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -249,4 +249,35 @@ generic type hints recursively subscripted by:
 * Another type alias itself aliasing a :pep:`604`-compliant recursive new union
   of this same alias, inducing recursion via an indirect chain of aliases.
 * This same alias.
+'''
+
+
+# ....................{ ALIASES ~ circular                 }....................
+type AliasCircularSelf = AliasCircularSelf
+'''
+Type alias circularly aliasing *only* itself.
+
+Unlike a **recursive type alias** (e.g., ``type Tree = int | list[Tree]``),
+which conveys meaningful semantics, this alias conveys *no* semantics
+whatsoever: unwrapping this alias yields only this alias, endlessly.
+'''
+
+
+type AliasCircularA = AliasCircularB
+'''
+Type alias circularly aliasing itself through :data:`.AliasCircularB`.
+
+See Also
+--------
+:data:`.AliasCircularSelf`
+'''
+
+
+type AliasCircularB = AliasCircularA
+'''
+Type alias circularly aliasing itself through :data:`.AliasCircularA`.
+
+See Also
+--------
+:data:`.AliasCircularSelf`
 '''

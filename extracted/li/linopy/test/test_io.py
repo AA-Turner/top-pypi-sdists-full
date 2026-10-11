@@ -10,6 +10,7 @@ import json
 import pickle
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -19,8 +20,9 @@ import xarray as xr
 
 from linopy import LESS_EQUAL, Model, available_solvers, read_netcdf
 from linopy.constants import FACTOR_DIM
+from linopy.constraints import Constraint
 from linopy.expressions import LinearExpression, QuadraticExpression
-from linopy.io import signed_number
+from linopy.io import CONTAINER_ORDER_ATTR, signed_number
 from linopy.testing import assert_exprequal, assert_model_equal
 
 HAS_NETCDF4 = importlib.util.find_spec("netCDF4") is not None
@@ -59,6 +61,10 @@ def model_with_dash_names() -> Model:
 
 @pytest.fixture
 def model_with_multiindex() -> Model:
+    from linopy.semantics import is_v1
+
+    if is_v1():
+        pytest.skip("v1 rejects MultiIndex; this model only builds under legacy")
     m = Model()
 
     index = pd.MultiIndex.from_tuples(
@@ -116,6 +122,64 @@ def test_model_to_netcdf(model: Model, tmp_path: Path) -> None:
     assert_model_equal(m, p)
 
 
+@pytest.fixture
+def unsorted_model() -> Model:
+    m = Model()
+    z = m.add_variables(lower=0, name="z")
+    a = m.add_variables(lower=0, name="a")
+    m.add_expressions(z - a, name="y")
+    m.add_expressions(z + a, name="b")
+    m.add_constraints(z + a >= 10, name="con2")
+    m.add_constraints(z - a <= 5, name="con1")
+    m.add_objective(z + 2 * a)
+    return m
+
+
+def test_model_to_netcdf_keeps_insertion_order(
+    unsorted_model: Model, tmp_path: Path
+) -> None:
+    fn = tmp_path / "test.nc"
+    unsorted_model.to_netcdf(fn)
+    p = read_netcdf(fn)
+
+    assert list(p.variables) == ["z", "a"]
+    assert list(p.expressions) == ["y", "b"]
+    assert list(p.constraints) == ["con2", "con1"]
+    assert_model_equal(unsorted_model, p)
+    A, A_read = unsorted_model.matrices.A, p.matrices.A
+    assert A is not None and A_read is not None
+    np.testing.assert_array_equal(A.toarray(), A_read.toarray())
+
+
+def test_read_netcdf_without_order_attrs_falls_back_to_sorted(
+    unsorted_model: Model, tmp_path: Path
+) -> None:
+    fn = tmp_path / "test.nc"
+    unsorted_model.to_netcdf(fn)
+    ds = xr.load_dataset(fn)
+    for kind in ("variables", "expressions", "constraints"):
+        del ds.attrs[CONTAINER_ORDER_ATTR.format(kind)]
+    ds.to_netcdf(fn)
+    p = read_netcdf(fn)
+
+    assert list(p.variables) == ["a", "z"]
+    assert list(p.expressions) == ["b", "y"]
+    assert list(p.constraints) == ["con1", "con2"]
+
+
+def test_read_netcdf_inconsistent_order_attr_raises(
+    unsorted_model: Model, tmp_path: Path
+) -> None:
+    fn = tmp_path / "test.nc"
+    unsorted_model.to_netcdf(fn)
+    ds = xr.load_dataset(fn)
+    ds.attrs[CONTAINER_ORDER_ATTR.format("variables")] = json.dumps(["z"])
+    ds.to_netcdf(fn)
+
+    with pytest.raises(ValueError, match="Stored variables order"):
+        read_netcdf(fn)
+
+
 def test_model_to_netcdf_frozen_constraint(tmp_path: Path) -> None:
     from linopy.constraints import CSRConstraint
 
@@ -130,6 +194,123 @@ def test_model_to_netcdf_frozen_constraint(tmp_path: Path) -> None:
     p = read_netcdf(fn)
 
     assert isinstance(p.constraints["c"], CSRConstraint)
+    assert_model_equal(m, p)
+
+
+@pytest.mark.skipif(not HAS_NETCDF4, reason="netCDF4 not installed")
+def test_model_to_netcdf_compression(tmp_path: Path) -> None:
+    m = Model()
+    x = m.add_variables(lower=0, coords=[pd.RangeIndex(2000, name="i")], name="x")
+    m.add_constraints(x + x.shift(i=1) >= 1, name="c", freeze=True)
+    m.add_constraints(x <= 10, name="d")
+    m.add_objective(x.sum())
+
+    plain, packed = tmp_path / "plain.nc", tmp_path / "packed.nc"
+    m.to_netcdf(plain, engine="netcdf4", compression=False)
+    m.to_netcdf(
+        packed,
+        engine="netcdf4",
+        compression={"zlib": True, "complevel": 4},
+        encoding={"variables-x-lower": {"zlib": False}},
+    )
+
+    assert packed.stat().st_size < plain.stat().st_size / 2
+    with xr.open_dataset(packed, engine="netcdf4") as ds:
+        assert ds["variables-x-labels"].encoding["zlib"]
+        assert not ds["variables-x-lower"].encoding["zlib"]
+    assert_model_equal(m, read_netcdf(packed))
+
+
+@pytest.mark.skipif(not HAS_NETCDF4, reason="netCDF4 not installed")
+def test_model_to_netcdf_compression_non_numeric_coords(tmp_path: Path) -> None:
+    m = Model()
+    t = pd.date_range("2030", periods=24, freq="h", name="t")
+    d = pd.timedelta_range("1h", periods=3, freq="h", name="d")
+    n = pd.Index(["north", "south"], name="n")
+    x = m.add_variables(lower=0, coords=[t, d, n], name="x")
+    m.add_constraints(x >= 1, name="c", freeze=True)
+    m.add_objective(x.sum())
+
+    fn = tmp_path / "packed.nc"
+    m.to_netcdf(fn, engine="netcdf4", compression={"zlib": True})
+
+    with xr.open_dataset(fn, engine="netcdf4") as ds:
+        for k in ["variables-x-t", "variables-x-d", "constraints-c-_index0"]:
+            assert ds[k].encoding["zlib"], k
+    assert_model_equal(m, read_netcdf(fn))
+
+
+@pytest.mark.skipif(not HAS_NETCDF4, reason="netCDF4 not installed")
+def test_model_to_netcdf_default_compression(model: Model, tmp_path: Path) -> None:
+    def zlib(fn: Path) -> bool:
+        with xr.open_dataset(fn, engine="netcdf4") as ds:
+            return ds["variables-x-labels"].encoding["zlib"]
+
+    model.to_netcdf(fn := tmp_path / "default.nc")
+    assert zlib(fn)
+    with xr.open_dataset(fn, engine="netcdf4") as ds:
+        assert ds["variables-x-labels"].encoding["complevel"] == 3
+    assert_model_equal(model, read_netcdf(fn))
+
+    model.to_netcdf(fn := tmp_path / "off.nc", compression=False)
+    assert not zlib(fn)
+
+
+@pytest.mark.skipif(not HAS_NETCDF4, reason="netCDF4 not installed")
+def test_model_to_netcdf_compression_keeps_array_encoding(
+    model: Model, tmp_path: Path
+) -> None:
+    user_encoding = {"dtype": "float32", "complevel": 9}
+    model.variables["x"].data["lower"].encoding = dict(user_encoding)
+
+    model.to_netcdf(fn := tmp_path / "packed.nc", engine="netcdf4")
+
+    with xr.open_dataset(fn, engine="netcdf4") as ds:
+        enc = ds["variables-x-lower"].encoding
+        assert (enc["dtype"], enc["zlib"], enc["complevel"]) == ("float32", True, 9)
+    assert model.variables["x"].data["lower"].encoding == user_encoding
+    assert model.variables["x"].data["labels"].encoding == {}
+
+
+@pytest.mark.parametrize("compression", [True, {"zlib": True, "complevel": 4}])
+def test_model_to_netcdf_compression_scipy(
+    model: Model, tmp_path: Path, compression: bool | dict
+) -> None:
+    fn = tmp_path / "scipy.nc"
+    model.to_netcdf(fn, engine="scipy", compression=compression)
+    assert_model_equal(model, read_netcdf(fn))
+
+
+def test_model_from_netcdf_frozen_constraint_legacy_positions(tmp_path: Path) -> None:
+    """Files written before #926 stored dense positions as CSR columns."""
+    from linopy.constraints import CSRConstraint
+
+    m = Model()
+    i = pd.RangeIndex(3, name="i")
+    mask = xr.DataArray([True, False, False], dims=["i"])
+    m.add_variables(coords=[i], name="a", mask=mask)
+    b = m.add_variables(coords=[i], name="b")
+    m.add_constraints(2 * b >= 1, name="c", freeze=True)
+
+    fn = tmp_path / "test_frozen_legacy.nc"
+    m.to_netcdf(fn)
+
+    ds = xr.load_dataset(fn)
+    label_to_pos = m.variables.label_index.label_to_pos
+    labels = ds["constraints-c-indices"].values
+    positions = label_to_pos[labels]
+    assert not np.array_equal(labels, positions)
+    ds["constraints-c-indices"] = xr.DataArray(positions, dims=["constraints-c-_nnz"])
+    del ds.attrs["constraints-c-_csr_columns"]
+    cindex = ds.attrs["constraints-c-cindex"]
+    ds = ds.rename({"constraints-c-_active_positions": "constraints-c-_con_labels"})
+    ds["constraints-c-_con_labels"] = ds["constraints-c-_con_labels"] + cindex
+    legacy_fn = tmp_path / "legacy.nc"
+    ds.to_netcdf(legacy_fn)
+
+    p = read_netcdf(legacy_fn)
+    assert isinstance(p.constraints["c"], CSRConstraint)
+    np.testing.assert_array_equal(p.matrices.A.toarray(), m.matrices.A.toarray())
     assert_model_equal(m, p)
 
 
@@ -271,6 +452,20 @@ def test_model_to_netcdf_quadratic_expression(
     assert isinstance(p.expressions["quad"], QuadraticExpression)
     assert p.expressions["quad"].data.sizes[FACTOR_DIM] == 2
     assert_exprequal(m.expressions["quad"], p.expressions["quad"])
+
+
+def test_model_to_netcdf_quadratic_objective(tmp_path: Path) -> None:
+    """A quadratic objective survives the round-trip as a QP, not an LP."""
+    m = Model()
+    x = m.add_variables(4, pd.Series([8, 10]), name="x")
+    m.add_objective((x * x + 2 * x).sum())
+
+    fn = tmp_path / "test.nc"
+    m.to_netcdf(fn)
+    p = read_netcdf(fn)
+
+    assert isinstance(p.objective.expression, QuadraticExpression)
+    assert_model_equal(m, p)
 
 
 def test_model_to_netcdf_expression_dash_name(
@@ -499,27 +694,13 @@ def test_to_gurobipy(model: Model) -> None:
     assert gm.NumVars > 0
 
 
-@pytest.mark.skipif("gurobi" not in available_solvers, reason="Gurobipy not installed")
-def test_to_gurobipy_no_names(model: Model) -> None:
-    m_with = model.to_gurobipy(set_names=True)
-    m_without = model.to_gurobipy(set_names=False)
-    names_with = [v.VarName for v in m_with.getVars()]
-    names_without = [v.VarName for v in m_without.getVars()]
-    assert names_with != names_without
-
-
 @pytest.mark.skipif("highs" not in available_solvers, reason="Highspy not installed")
-def test_to_highspy(model: Model) -> None:
-    h = model.to_highspy()
-    assert h.getLp().num_col_ > 0
-
-
-@pytest.mark.skipif("highs" not in available_solvers, reason="Highspy not installed")
-def test_to_highspy_no_names(model: Model) -> None:
-    h = model.to_highspy(set_names=False)
-    lp = h.getLp()
-    assert len(lp.col_names_) == 0
-    assert len(lp.row_names_) == 0
+@pytest.mark.parametrize("set_names", [True, False])
+def test_to_highspy(model: Model, set_names: bool) -> None:
+    lp = model.to_highspy(set_names=set_names).getLp()
+    assert lp.num_col_ > 0
+    assert len(lp.col_names_) == (lp.num_col_ if set_names else 0)
+    assert len(lp.row_names_) == (lp.num_row_ if set_names else 0)
 
 
 @pytest.mark.skipif("mosek" not in available_solvers, reason="Mosek not installed")
@@ -535,13 +716,60 @@ def test_to_xpress(model: Model) -> None:
     assert p.attributes.rows > 0
 
 
-@pytest.mark.skipif("xpress" not in available_solvers, reason="Xpress not installed")
-def test_to_xpress_no_names(model: Model) -> None:
-    p_with = model.to_xpress(set_names=True)
-    p_without = model.to_xpress(set_names=False)
-    names_with = [v.name for v in p_with.getVariable()]
-    names_without = [v.name for v in p_without.getVariable()]
-    assert names_with != names_without
+def _gurobi_names(gm: Any) -> tuple[list[str], list[str]]:
+    gm.update()
+    return [v.VarName for v in gm.getVars()], [c.ConstrName for c in gm.getConstrs()]
+
+
+SOLVER_IO: dict[
+    str, tuple[Callable[..., Any], Callable[[Any], tuple[list[str], list[str]]]]
+] = {
+    "highs": (
+        Model.to_highspy,
+        lambda h: (list(h.getLp().col_names_), list(h.getLp().row_names_)),
+    ),
+    "gurobi": (Model.to_gurobipy, _gurobi_names),
+    "xpress": (
+        Model.to_xpress,
+        lambda p: (
+            [v.name for v in p.getVariable()],
+            [c.name for c in p.getConstraint()],
+        ),
+    ),
+    "mosek": (
+        Model.to_mosek,
+        lambda task: (
+            [task.getvarname(i) for i in range(task.getnumvar())],
+            [task.getconname(i) for i in range(task.getnumcon())],
+        ),
+    ),
+}
+
+
+@pytest.mark.parametrize("solver", SOLVER_IO)
+@pytest.mark.parametrize(
+    "model_default,set_names,expected",
+    [
+        (False, None, False),
+        (True, None, True),
+        (False, True, True),
+        (True, False, False),
+    ],
+)
+def test_to_solver_set_names(
+    model: Model,
+    solver: str,
+    model_default: bool,
+    set_names: bool | None,
+    expected: bool,
+) -> None:
+    if solver not in available_solvers:
+        pytest.skip(f"{solver} not installed")
+    to_solver, names = SOLVER_IO[solver]
+    named = to_solver(model, set_names=True)
+    model.set_names_in_solver_io = model_default
+    built = to_solver(model, set_names=set_names)
+    assert (names(built) == names(named)) == expected
 
 
 @pytest.mark.skipif("cupdlpx" not in available_solvers, reason="cuPDLPx not installed")
@@ -550,8 +778,15 @@ def test_to_cupdlpx(model: Model) -> None:
     assert cu is not None
 
 
+@pytest.mark.skipif("cuopt" not in available_solvers, reason="cuOpt not installed")
+def test_to_cuopt(model: Model) -> None:
+    dm = model.to_cuopt()
+    assert len(dm.get_objective_coefficients()) > 0
+    assert len(dm.get_constraint_lower_bounds()) > 0
+
+
 def test_model_set_names_in_solver_io_default() -> None:
-    assert Model().set_names_in_solver_io is True
+    assert Model().set_names_in_solver_io is False
 
 
 @pytest.mark.skipif("highs" not in available_solvers, reason="Highspy not installed")
@@ -559,10 +794,23 @@ def test_model_set_names_in_solver_io(model: Model) -> None:
     model.solve(solver_name="highs", io_api="direct")
     expected_obj = model.objective.value
 
-    model.set_names_in_solver_io = False
+    assert len(model.solver_model.getLp().col_names_) == 0
+
+    model.set_names_in_solver_io = True
     status, _ = model.solve(solver_name="highs", io_api="direct")
     assert status == "ok"
+    assert len(model.solver_model.getLp().col_names_) > 0
     assert model.objective.value == pytest.approx(expected_obj)
+
+
+@pytest.mark.skipif("highs" not in available_solvers, reason="Highspy not installed")
+def test_highs_direct_qp_keeps_hessian_with_names() -> None:
+    m = Model()
+    x = m.add_variables(coords=[pd.RangeIndex(2, name="i")], name="x")
+    m.add_constraints(x.sum() >= 1)
+    m.add_objective((x * x).sum() + x.sum())
+    m.solve(solver_name="highs", io_api="direct", set_names=True)
+    assert m.objective.value == pytest.approx(1.5)
 
 
 def test_to_blocks(tmp_path: Path) -> None:
@@ -850,3 +1098,70 @@ def test_to_file_lp_frozen_mixed_sign(tmp_path: Path) -> None:
     m_mutable.to_file(fn_mutable)
 
     assert fn_frozen.read_text() == fn_mutable.read_text()
+
+
+def _lp_constraint_section(m: Model, path: Path, slice_size: int = 2_000_000) -> str:
+    m.to_file(path, progress=False, slice_size=slice_size)
+    return path.read_text().split("s.t.\n\n")[1].split("\n\nbounds")[0]
+
+
+@pytest.mark.parametrize("freeze", [True, False])
+@pytest.mark.parametrize(
+    "slice_size",
+    [
+        pytest.param(2_000_000, id="default-slices"),
+        pytest.param(1, id="slice-1"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("scaled", "expected"),
+    [
+        pytest.param(
+            True,
+            "c0:\n+2.0 x0\n-4.0 x2\n<= 3.0\n"
+            "c1:\n+1.0 x1\n-4.0 x3\n<= 3.0\n"
+            "c2:\n+2.0 x0\n+1.0 x1\n>= -0.0\n",
+            id="scaled",
+        ),
+        pytest.param(
+            False,
+            "c0:\n+1.0 x0\n-2.0 x2\n<= 1.5\n"
+            "c1:\n+1.0 x1\n-2.0 x3\n<= 1.5\n"
+            "c2:\n+1.0 x0\n+1.0 x1\n>= -0.0\n",
+            id="unscaled",
+        ),
+    ],
+)
+def test_to_file_lp_constraint_section(
+    tmp_path: Path,
+    freeze: bool,
+    slice_size: int,
+    scaled: bool,
+    expected: str,
+) -> None:
+    m = Model()
+    i = pd.RangeIndex(2, name="i")
+    row_scaling = 2.0 if scaled else 1.0
+    x = m.add_variables(coords=[i], name="x", scaling=[1.0, 2.0] if scaled else 1.0)
+    y = m.add_variables(coords=[i], name="y")
+    m.add_constraints(x - 2 * y <= 1.5, name="a", freeze=freeze, scaling=row_scaling)
+    m.add_constraints(x.sum() >= -0.0, name="b", freeze=freeze, scaling=row_scaling)
+    m.add_objective(x.sum())
+
+    fn = tmp_path / "constraints.lp"
+    assert _lp_constraint_section(m, fn, slice_size) == expected
+
+
+def test_to_file_lp_unsorted_constraint_labels(tmp_path: Path) -> None:
+    m = Model()
+    i = pd.RangeIndex(3, name="i")
+    x = m.add_variables(coords=[i], name="x")
+    y = m.add_variables(coords=[i], name="y")
+    m.add_constraints(x + 2 * y <= 1, name="a", freeze=False)
+    m.add_objective(x.sum())
+    expected = _lp_constraint_section(m, tmp_path / "sorted.lp")
+
+    con = m.constraints["a"]
+    m.constraints.data["a"] = Constraint(con.data.isel(i=slice(None, None, -1)), m, "a")
+    assert not m.constraints["a"].to_polars()["labels"].is_sorted()
+    assert _lp_constraint_section(m, tmp_path / "unsorted.lp") == expected

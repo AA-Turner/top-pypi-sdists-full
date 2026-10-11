@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -33,7 +33,7 @@ from typing import Optional
 # ....................{ HOOKS ~ ini                        }....................
 def pytest_configure(config: 'pytest.Config') -> None:
     '''
-    Hook programmatically configuring both the ``pytest`` comand-line interface
+    Hook programmatically configuring both the ``pytest`` command-line interface
     (CLI) *and* top-level ``"pytest.ini"`` file.
     '''
 
@@ -162,15 +162,15 @@ class _UnbufferedOutputStream(object):
         self.stream.write(data)
         self.stream.flush()
 
-    def writelines(self, datas) -> None:
-        self.stream.writelines(datas)
+    def writelines(self, data_lines) -> None:
+        self.stream.writelines(data_lines)
         self.stream.flush()
 
     def __getattr__(self, attr: str) -> object:
         return getattr(self.stream, attr)
 
 # ....................{ PRIVATE ~ functions                }....................
-def _test_func_in_subprocess(test_func: Callable) -> object:
+def _test_func_in_subprocess(test_func: Callable, *args, **kwargs) -> object:
     '''
     Run the passed :mod:`pytest` test function isolated to a Python subprocess
     of the current Python process.
@@ -178,13 +178,16 @@ def _test_func_in_subprocess(test_func: Callable) -> object:
     Parameters
     ----------
     test_func : Callable
-        Test function to be run.
+        Test function to be run in a subprocess.
+
+    All remaining parameters are passed as is to this test function.
 
     Returns
     -------
     object
         Arbitrary object returned by this test if any *or* :data:`None`.
     '''
+    assert callable(test_func), f'{repr(test_func)} uncallable.'
 
     # Defer subpracess-specific imports.
     import sys
@@ -196,4 +199,4 @@ def _test_func_in_subprocess(test_func: Callable) -> object:
     sys.stdout = _UnbufferedOutputStream(sys.stdout)
 
     # Run this test and return the result of doing so.
-    return test_func()
+    return test_func(*args, **kwargs)

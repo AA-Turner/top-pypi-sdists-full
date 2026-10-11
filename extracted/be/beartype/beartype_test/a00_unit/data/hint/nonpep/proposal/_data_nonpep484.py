@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -17,10 +17,10 @@ PEP-noncompliant type hints include:
 '''
 
 # ....................{ FIXTURES                           }....................
-def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
+def hints_nonpep484_meta() -> 'list[HintNonpepMetadata]':
     '''
     List of :pep:`484`-sorta-compliant **type hint metadata** (i.e.,
-    :class:`beartype_test.a00_unit.data.hint.util.data_hintmetacls.HintNonpepMetadata`
+    :class:`beartype_test.a00_unit.data.hint.cls.pith.data_clshintpith.HintNonpepMetadata`
     instances describing test-specific :pep:`484`-sorta-compliant sample type
     hints with metadata generically leveraged by various PEP-agnostic unit
     tests).
@@ -30,9 +30,6 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
     # Defer fixture-specific imports.
     import sys
     from beartype import BeartypeConf
-    from beartype.typing import (
-        NamedTuple,
-    )
     from beartype._cave._cavefast import (
         EllipsisType,
         FunctionType,
@@ -43,15 +40,17 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
         NotImplementedType,
     )
     from beartype_test.a00_unit.data.data_type import Class
-    from beartype_test.a00_unit.data.hint.util.data_hintmetacls import (
-        HintNonpepMetadata,
-        HintPithSatisfiedMetadata,
-        HintPithUnsatisfiedMetadata,
+    from beartype_test.a00_unit.data.hint.cls.pith.data_clshint import (
+        HintNonpepMetadata)
+    from beartype_test.a00_unit.data.hint.cls.pith.data_clspith import (
+        PithSatisfiedMetadata,
+        PithUnsatisfiedMetadata,
     )
+    from typing import NamedTuple
 
     # ..................{ LOCALS                             }..................
     # List of all PEP-noncompliant type hint metadata to be returned.
-    hints_nonpep_meta = []
+    hints_piths_nonpep_meta = []
 
     #FIXME: *WOOPS.* We should have read the standards a bit closer. Neither
     #"typing.NamedTuple" or "typing.TypedDict" are intended for direct use as
@@ -72,7 +71,7 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
     # ..................{ LISTS                              }..................
     # Add PEP 484-specific (albeit technically PEP-noncompliant from the
     # beartype perspective) test type hints to this list.
-    hints_nonpep_meta.extend((
+    hints_piths_nonpep_meta.extend((
         # ................{ NAMEDTUPLE                         }................
         # "NamedTuple" instances transparently reduce to standard tuples and
         # *MUST* thus be handled as non-"typing" type hints.
@@ -80,13 +79,13 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             hint=NamedTupleType,
             piths_meta=(
                 # Named tuple containing correctly typed items.
-                HintPithSatisfiedMetadata(
+                PithSatisfiedMetadata(
                     NamedTupleType(fumarole='Leviathan', enrolled=37)),
                 # String constant.
-                HintPithUnsatisfiedMetadata('Of ͼarthen concordance that'),
+                PithUnsatisfiedMetadata('Of ͼarthen concordance that'),
                 #FIXME: Uncomment after implementing "NamedTuple" support.
                 # # Named tuple containing incorrectly typed items.
-                # HintPithUnsatisfiedMetadata(
+                # PithUnsatisfiedMetadata(
                 #     pith=NamedTupleType(fumarole='Leviathan', enrolled=37),
                 #     # Match that the exception message raised for this object...
                 #     exception_str_match_regexes=(
@@ -109,9 +108,9 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             hint=int,
             piths_meta=(
                 # Integer constant.
-                HintPithSatisfiedMetadata(42),  # <-- we went there, folks
+                PithSatisfiedMetadata(42),  # <-- we went there, folks
                 # String constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     pith='Introspectively ‘allein,’ dealigning consangui-',
                     # Match that the exception message raised for this pith
                     # contains...
@@ -138,9 +137,9 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             hint=str,
             piths_meta=(
                 # String constant.
-                HintPithSatisfiedMetadata('Glassily lassitudinal bȴood-'),
+                PithSatisfiedMetadata('Glassily lassitudinal bȴood-'),
                 # Byte-string constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     pith=b'Stains, disdain-fully ("...up-stairs!"),',
                     # Match that the exception message raised for this pith
                     # contains...
@@ -162,7 +161,7 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
                     ),
                 ),
                 # Integer constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     pith=666,  # <-- number of the beast, yo
                     # Match that the exception message raised for this pith
                     # contains...
@@ -205,9 +204,9 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             conf=BeartypeConf(is_pep484_tower=False),
             piths_meta=(
                 # Floating-point number constant.
-                HintPithSatisfiedMetadata(0.110001),
+                PithSatisfiedMetadata(0.110001),
                 # Integer constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     pith=110001,
                     # Match that the exception message raised for this pith
                     # contains...
@@ -235,11 +234,11 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             conf=BeartypeConf(is_pep484_tower=True),
             piths_meta=(
                 # Floating-point number constant.
-                HintPithSatisfiedMetadata(0.577215664901532860606512090082),
+                PithSatisfiedMetadata(0.577215664901532860606512090082),
                 # Integer constant.
-                HintPithSatisfiedMetadata(5772),
+                PithSatisfiedMetadata(5772),
                 # Complex number constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     pith=(1566 + 4901j),
                     # Match that the exception message raised for this pith
                     # contains...
@@ -267,9 +266,9 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             conf=BeartypeConf(is_pep484_tower=False),
             piths_meta=(
                 # Complex number constant.
-                HintPithSatisfiedMetadata(1.787 + 2316.5j),
+                PithSatisfiedMetadata(1.787 + 2316.5j),
                 # Floating-point number constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     pith=0.300330000000000330033,
                     # Match that the exception message raised for this pith
                     # contains...
@@ -297,13 +296,13 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             conf=BeartypeConf(is_pep484_tower=True),
             piths_meta=(
                 # Complex number constant.
-                HintPithSatisfiedMetadata(2.622 + 575.5j),
+                PithSatisfiedMetadata(2.622 + 575.5j),
                 # Floating-point number constant.
-                HintPithSatisfiedMetadata(0.8346268),
+                PithSatisfiedMetadata(0.8346268),
                 # Integer constant.
-                HintPithSatisfiedMetadata(1311),
+                PithSatisfiedMetadata(1311),
                 # String constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     pith='Park-ed trails',
                     # Match that the exception message raised for this pith
                     # contains...
@@ -338,9 +337,9 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             hint=EllipsisType,
             piths_meta=(
                 # Ellipsis singleton.
-                HintPithSatisfiedMetadata(...),
+                PithSatisfiedMetadata(...),
                 # String constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     'Masterless decree, venomless, which'),
             ),
         ),
@@ -350,9 +349,9 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             hint=FunctionType,
             piths_meta=(
                 # Pure-Python function.
-                HintPithSatisfiedMetadata(hints_nonpep484_meta),
+                PithSatisfiedMetadata(hints_nonpep484_meta),
                 # String constant.
-                HintPithUnsatisfiedMetadata('Nomenclature weather‐vanes of'),
+                PithUnsatisfiedMetadata('Nomenclature weather‐vanes of'),
             ),
         ),
 
@@ -361,9 +360,9 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             hint=FunctionOrMethodCType,
             piths_meta=(
                 # C-based function.
-                HintPithSatisfiedMetadata(len),
+                PithSatisfiedMetadata(len),
                 # String constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     'Nominally unswain, autodidactic idiocracy, less a'),
             ),
         ),
@@ -373,9 +372,9 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             hint=MethodBoundInstanceOrClassType,
             piths_meta=(
                 # Bound method.
-                HintPithSatisfiedMetadata(Class().instance_method),
+                PithSatisfiedMetadata(Class().instance_method),
                 # String constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     'ç‐omically gnomical whitebellied burden’s empathy of'),
             ),
         ),
@@ -385,9 +384,9 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             hint=ModuleType,
             piths_meta=(
                 # Imported module.
-                HintPithSatisfiedMetadata(sys),
+                PithSatisfiedMetadata(sys),
                 # String constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     'Earpiece‐piecemealed, mealy straw headpiece-'),
             ),
         ),
@@ -397,9 +396,9 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             hint=NoneType,
             piths_meta=(
                 # "None" singleton.
-                HintPithSatisfiedMetadata(None),
+                PithSatisfiedMetadata(None),
                 # String constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     'Earned peace appeasement easements'),
             ),
         ),
@@ -409,13 +408,13 @@ def hints_nonpep484_meta() -> 'List[HintNonpepMetadata]':
             hint=NotImplementedType,
             piths_meta=(
                 # "NotImplemented" singleton.
-                HintPithSatisfiedMetadata(NotImplemented),
+                PithSatisfiedMetadata(NotImplemented),
                 # String constant.
-                HintPithUnsatisfiedMetadata('Than'),
+                PithUnsatisfiedMetadata('Than'),
             ),
         ),
     ))
 
     # ..................{ RETURN                             }..................
     # Return this list of all PEP-noncompliant type hint metadata.
-    return hints_nonpep_meta
+    return hints_piths_nonpep_meta

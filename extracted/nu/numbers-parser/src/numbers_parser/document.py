@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterator  # noqa: TC003
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
 from warnings import warn
 
 from numbers_parser.cell import (
@@ -33,11 +34,11 @@ from numbers_parser.model import _NumbersModel
 from numbers_parser.numbers_cache import Cacheable
 from numbers_parser.xrefs import xl_cell_to_rowcol, xl_range
 
-if TYPE_CHECKING:  # pragma: no cover
-    from collections.abc import Iterator
-    from datetime import datetime, timedelta
-
 __all__ = ["Document", "Sheet", "Table"]
+
+HORIZONTAL_BORDER_SIDES = ("top", "bottom")
+VERTICAL_BORDER_SIDES = ("left", "right")
+_CellValue = str | int | float | bool | datetime | timedelta | None
 
 
 class Document:
@@ -64,6 +65,8 @@ class Document:
         Number of rows in the first table of a new document.
     num_cols: int, optional, default: 8
         Number of columns in the first table of a new document.
+    password: str, optional, default: None
+        Password for encrypted documents
 
     Raises
     ------
@@ -85,10 +88,12 @@ class Document:
         num_header_cols: int | None = 1,
         num_rows: int | None = DEFAULT_ROW_COUNT,
         num_cols: int | None = DEFAULT_COLUMN_COUNT,
+        password: str | None = None,
     ) -> None:
-        self._model = _NumbersModel(None if filename is None else Path(filename))
+        self._model = _NumbersModel(None if filename is None else Path(filename), password)
         refs = self._model.sheet_ids()
         self._sheets = ItemsList(self._model, refs, Sheet)
+        self.filename = filename
 
         if filename is None:
             self.sheets[0].name = sheet_name
@@ -96,14 +101,16 @@ class Document:
             table.name = table_name
 
             # Table starts as 1x1 with no headers
-            table.add_row(num_rows - 1)
+            if num_rows > 1:
+                table.add_row(num_rows - 1)
             table.num_header_rows = num_header_rows
-            table.add_column(num_cols - 1)
+            if num_cols > 1:
+                table.add_column(num_cols - 1)
             table.num_header_cols = num_header_cols
 
     @property
-    def sheets(self) -> list[Sheet]:
-        """List[:class:`Sheet`]: A list of sheets in the document."""
+    def sheets(self) -> ItemsList[Sheet]:
+        """ItemsList[:class:`Sheet`]: Sheets indexed by position or name."""
         return self._sheets
 
     @property
@@ -124,7 +131,13 @@ class Document:
         """
         return self._model.custom_formats
 
-    def save(self, filename: str | Path, package: bool = False) -> None:
+    def save(
+        self,
+        filename: str | Path,
+        package: bool = False,
+        password: str | None = None,
+        hint: str = "No hint",
+    ) -> None:
         """
         Save the document in the specified filename.
 
@@ -136,6 +149,10 @@ class Document:
         package: bool, optional, default: False
             If ``True``, create a package format document (a folder) instead
             of a single file
+        password: str, optional, default: None
+            If not `None`, the document is encrypted using the password.
+        hint: str, optional, default: "No hint"
+            The hint stored with an encrypted document.
 
         Raises
         ------
@@ -144,6 +161,7 @@ class Document:
             existing Numbers document.
 
         """
+        self.filename = filename
         for sheet in self.sheets:
             for table in sheet.tables:
                 if self._model.is_a_pivot_table(table._table_id):
@@ -155,7 +173,7 @@ class Document:
                     )
                 else:
                     self._model.recalculate_table_data(table._table_id, table._data)
-        self._model.save(Path(filename), package)
+        self._model.save(Path(filename), package, password, hint)
 
     def add_sheet(
         self,
@@ -177,7 +195,7 @@ class Document:
         table_name: *str*, *optional*, *default*: ``Table 1``
             The name of the table created in the new sheet
         num_rows: int, optional, default: 12
-            The number of columns in the newly created table
+            The number of rows in the newly created table
         num_cols: int, optional, default: 8
             The number of columns in the newly created table
 
@@ -243,6 +261,8 @@ class Document:
 
         Raises
         ------
+        IndexError:
+            If the style name already exists.
         TypeError:
             If ``font_size`` is not a ``float``, ``font_name`` is not a ``str``,
             ``bg_image`` is not a :py:class:`~numbers_parser.BackgroundImage`,
@@ -275,7 +295,7 @@ class Document:
             long_date = doc.add_custom_format(
                 name="Long Date",
                 type="datetime",
-                date_time_format="EEEE, d MMMM yyyy"
+                format="EEEE, d MMMM yyyy"
             )
             table.set_cell_formatting("C1", "custom", format=long_date)
 
@@ -307,12 +327,17 @@ class Document:
 
         :``"datetime"``:
             * **format** (``str``, *optional*, default: ``"d MMM y"``) - A POSIX strftime-like
-              formatting string of `Numbers date/time directives <#datetime-formats>`_.
+              formatting string of :ref:`Numbers date/time directives <datetime_formats>`.
 
         :``"text"``:
             * **format** (``str``, *optional*, default: ``"%s"``) - Text format.
               The cell value is inserted in place of %s. Only one substitution is allowed by
               Numbers, and multiple %s formatting references raise a TypeError exception
+
+        Raises
+        ------
+            KeyError: If the named custom format already exists.
+
         """
         if (
             "name" in kwargs
@@ -320,7 +345,7 @@ class Document:
             and kwargs["name"] in self._model.custom_formats
         ):
             msg = f"format '{kwargs['name']}' already exists"
-            raise IndexError(msg)
+            raise KeyError(msg)
 
         if "type" in kwargs:
             format_type = kwargs["type"].upper()
@@ -350,14 +375,18 @@ class Sheet:
         self._tables = ItemsList(self._model, refs, Table)
 
     @property
-    def tables(self) -> list[Table]:
-        """List[:class:`Table`]: A list of tables in the sheet."""
+    def tables(self) -> ItemsList[Table]:
+        """ItemsList[:class:`Table`]: Tables indexed by position or name."""
         return self._tables
 
     @property
     def name(self) -> str:
         """str: The name of the sheet."""
         return self._model.sheet_name(self._sheet_id)
+
+    def __repr__(self) -> str:
+        class_name = f"{self.__class__.__module__}.{self.__class__.__name__}"
+        return f"{class_name}(name='{self.name}')"
 
     @name.setter
     def name(self, value: str) -> None:
@@ -388,8 +417,8 @@ class Sheet:
 
         .. code:: python
 
-            (x, y) = sheet.table[0].coordinates
-            y += sheet.table[0].height + 200.0
+            (x, y) = sheet.tables[0].coordinates
+            y += sheet.tables[0].height + 200.0
             new_table = sheet.add_table("Offset Table", x, y)
 
         Parameters
@@ -402,7 +431,7 @@ class Sheet:
             The y offset for the table in points.
         num_rows: int, optional, default: 12
             The number of rows for the new table.
-        num_cols: int, optional, default: 10
+        num_cols: int, optional, default: 8
             The number of columns for the new table.
         num_header_rows: int, optional, default: 1
             The number of header rows for the new table.
@@ -441,7 +470,7 @@ class Sheet:
         num_cols,
         num_header_rows,
         num_header_cols,
-    ) -> object:
+    ) -> Table:
         if table_name is not None:
             if table_name in self._tables:
                 msg = f"table '{table_name}' already exists"
@@ -502,6 +531,10 @@ class Table(Cacheable):
     def name(self, value: str) -> None:
         self._model.table_name(self._table_id, value)
 
+    def __repr__(self) -> str:
+        class_name = f"{self.__class__.__module__}.{self.__class__.__name__}"
+        return f"{class_name}(name='{self.name}')"
+
     @property
     def table_name_enabled(self) -> bool:
         """bool: ``True`` if the table name is visible, ``False`` otherwise."""
@@ -512,7 +545,7 @@ class Table(Cacheable):
         self._model.table_name_enabled(self._table_id, enabled)
 
     @property
-    def caption_enabled(self) -> int:
+    def caption_enabled(self) -> bool:
         """bool: ``True`` if the table caption is visible, ``False`` otherwise."""
         return self._model.caption_enabled(self._table_id)
 
@@ -551,7 +584,7 @@ class Table(Cacheable):
         return self._model.num_header_rows(self._table_id)
 
     @num_header_rows.setter
-    def num_header_rows(self, num_headers: int):
+    def num_header_rows(self, num_headers: int) -> None:
         if num_headers < 0:
             msg = "Number of headers cannot be negative"
             raise ValueError(msg)
@@ -561,7 +594,7 @@ class Table(Cacheable):
         if num_headers > MAX_HEADER_COUNT:
             msg = f"Number of headers cannot exceed {MAX_HEADER_COUNT} rows"
             raise ValueError(msg)
-        return self._model.num_header_rows(self._table_id, num_headers)
+        self._model.num_header_rows(self._table_id, num_headers)
 
     @property
     def num_header_cols(self) -> int:
@@ -578,14 +611,14 @@ class Table(Cacheable):
         Raises
         ------
         ValueError:
-            If the number of headers is negative, exceeds the number of rows in the
+            If the number of headers is negative, exceeds the number of columns in the
             table, or exceeds Numbers maximum number of headers (``MAX_HEADER_COUNT``).
 
         """
         return self._model.num_header_cols(self._table_id)
 
     @num_header_cols.setter
-    def num_header_cols(self, num_headers: int):
+    def num_header_cols(self, num_headers: int) -> None:
         if num_headers < 0:
             msg = "Number of headers cannot be negative"
             raise ValueError(msg)
@@ -595,7 +628,7 @@ class Table(Cacheable):
         if num_headers > MAX_HEADER_COUNT:
             msg = f"Number of headers cannot exceed {MAX_HEADER_COUNT} columns"
             raise ValueError(msg)
-        return self._model.num_header_cols(self._table_id, num_headers)
+        self._model.num_header_cols(self._table_id, num_headers)
 
     @property
     def height(self) -> int:
@@ -651,11 +684,11 @@ class Table(Cacheable):
         return self._model.col_width(self._table_id, col, width)
 
     @property
-    def coordinates(self) -> tuple[float]:
-        """Tuple[float]: The table's x, y offsets in points."""
+    def coordinates(self) -> tuple[float, float]:
+        """tuple[float, float]: The table's x and y offsets in points."""
         return self._model.table_coordinates(self._table_id)
 
-    def rows(self, values_only: bool = False) -> list[list[Cell]] | list[list[str]]:
+    def rows(self, values_only: bool = False) -> list[list[Cell]] | list[list[object]]:
         """
         Return all rows of cells for the Table.
 
@@ -666,8 +699,8 @@ class Table(Cacheable):
 
         Returns
         -------
-        List[List[Cell]] | List[List[str]]:
-            List of rows; each row is a list of :class:`Cell` objects, or string values.
+        List[List[Cell]] | List[List[object]]:
+            List of rows; each row is a list of :class:`Cell` objects, or cell values.
 
         """
         if values_only:
@@ -686,9 +719,9 @@ class Table(Cacheable):
             >>> table.merge_ranges
             ['A4:A10']
             >>> table.cell("A4")
-            <numbers_parser.cell.TextCell object at 0x1035f4a90>
+            numbers_parser.cell.TextCell(sheet_name='Sheet 1', table_name='Examples', value='Merged', row=3, col=0)
             >>> table.cell("A5")
-            <numbers_parser.cell.MergedCell object at 0x1035f5310>
+            numbers_parser.cell.MergedCell(sheet_name='Sheet 1', table_name='Examples', value='None', row=4, col=0)
 
         """
         merge_cells = set()
@@ -731,15 +764,11 @@ class Table(Cacheable):
             >>> doc = Document("mydoc.numbers")
             >>> sheets = doc.sheets
             >>> tables = sheets["Sheet 1"].tables
-            >>> table = tables["Table 1"]
-            >>> table.cell(1,0)
-            <numbers_parser.cell.TextCell object at 0x105a80a10>
+            >>> table = tables["Examples"]
             >>> table.cell(1,0).value
             'Debit'
-            >>> table.cell("B2")
-            <numbers_parser.cell.TextCell object at 0x105a80b90>
             >>> table.cell("B2").value
-            1234.50
+            1234.5
 
         """
         if isinstance(args[0], str):
@@ -769,7 +798,7 @@ class Table(Cacheable):
         min_col: int | None = None,
         max_col: int | None = None,
         values_only: bool | None = False,
-    ) -> Iterator[tuple[Cell] | tuple[str]]:
+    ) -> Iterator[tuple[Cell | _CellValue, ...]]:
         """
         Produces cells from a table, by row.
 
@@ -780,18 +809,18 @@ class Table(Cacheable):
         min_row: int, optional
             Starting row number (zero indexed), or ``0`` if ``None``.
         max_row: int, optional
-            End row number (zero indexed), or all rows if ``None``.
+            Inclusive end row number (zero indexed), or all rows if ``None``.
         min_col: int, optional
             Starting column number (zero indexed) or ``0`` if ``None``.
         max_col: int, optional
-            End column number (zero indexed), or all columns if ``None``.
+            Inclusive end column number (zero indexed), or all columns if ``None``.
         values_only: bool, optional
             If ``True``, yield cell values rather than :class:`Cell` objects
 
         Yields
         ------
-        Tuple[Cell] | Tuple[str]:
-            :class:`Cell` objects or string values for the row
+        tuple[Cell | _CellValue, ...]:
+            :class:`Cell` objects or cell values for each row
 
         Raises
         ------
@@ -803,8 +832,9 @@ class Table(Cacheable):
 
         .. code:: python
 
-            for row in table.iter_rows(min_row=2, max_row=7, values_only=True):
-                sum += row
+            total = 0
+            for row in table.iter_rows(min_row=9, max_row=13, values_only=True):
+                total += sum(value or 0 for value in row)
 
         """
         min_row = min_row if min_row is not None else 0
@@ -815,13 +845,13 @@ class Table(Cacheable):
         if min_row < 0:
             msg = f"row {min_row} out of range"
             raise IndexError(msg)
-        if max_row > self.num_rows:
+        if max_row >= self.num_rows:
             msg = f"row {max_row} out of range"
             raise IndexError(msg)
         if min_col < 0:
             msg = f"column {min_col} out of range"
             raise IndexError(msg)
-        if max_col > self.num_cols:
+        if max_col >= self.num_cols:
             msg = f"column {max_col} out of range"
             raise IndexError(msg)
 
@@ -846,7 +876,7 @@ class Table(Cacheable):
         min_row: int | None = None,
         max_row: int | None = None,
         values_only: bool | None = False,
-    ) -> Iterator[tuple[Cell] | tuple[str]]:
+    ) -> Iterator[tuple[Cell | _CellValue, ...]]:
         """
         Produces cells from a table, by column.
 
@@ -857,18 +887,18 @@ class Table(Cacheable):
         min_col: int, optional
             Starting column number (zero indexed) or ``0`` if ``None``.
         max_col: int, optional
-            End column number (zero indexed), or all columns if ``None``.
+            Inclusive end column number (zero indexed), or all columns if ``None``.
         min_row: int, optional
             Starting row number (zero indexed), or ``0`` if ``None``.
         max_row: int, optional
-            End row number (zero indexed), or all rows if ``None``.
+            Inclusive end row number (zero indexed), or all rows if ``None``.
         values_only: bool, optional
             If ``True``, yield cell values rather than :class:`Cell` objects.
 
         Yields
         ------
-        Tuple[Cell] | Tuple[str]:
-            :class:`Cell` objects or string values for the row
+        tuple[Cell | _CellValue, ...]:
+            :class:`Cell` objects or cell values for each column
 
         Raises
         ------
@@ -880,8 +910,10 @@ class Table(Cacheable):
 
         .. code:: python
 
-            for col in table.iter_cols(min_row=2, max_row=7):
-                sum += col.value
+            total = 0
+            for col in table.iter_cols(min_row=10, max_row=14, values_only=True):
+                total += sum(value or 0 for value in col)
+            assert total == 80
 
         """
         min_row = min_row if min_row is not None else 0
@@ -892,13 +924,13 @@ class Table(Cacheable):
         if min_row < 0:
             msg = f"row {min_row} out of range"
             raise IndexError(msg)
-        if max_row > self.num_rows:
+        if max_row >= self.num_rows:
             msg = f"row {max_row} out of range"
             raise IndexError(msg)
         if min_col < 0:
             msg = f"column {min_col} out of range"
             raise IndexError(msg)
-        if max_col > self.num_cols:
+        if max_col >= self.num_cols:
             msg = f"column {max_col} out of range"
             raise IndexError(msg)
 
@@ -916,6 +948,80 @@ class Table(Cacheable):
             else:
                 yield tuple(row[col] for row in rows)
 
+    def iter_cells(
+        self,
+        min_row: int | None = None,
+        max_row: int | None = None,
+        min_col: int | None = None,
+        max_col: int | None = None,
+        values_only: bool | None = False,
+    ) -> Iterator[Cell | _CellValue]:
+        """
+        Produces cells from a table, by row and by column.
+
+        Specify the iteration range using the indexes of the rows and columns.
+
+        Parameters
+        ----------
+        min_row: int, optional
+            Starting row number (zero indexed), or ``0`` if ``None``.
+        max_row: int, optional
+            Inclusive end row number (zero indexed), or all rows if ``None``.
+        min_col: int, optional
+            Starting column number (zero indexed) or ``0`` if ``None``.
+        max_col: int, optional
+            Inclusive end column number (zero indexed), or all columns if ``None``.
+        values_only: bool, optional
+            If ``True``, yield cell values rather than :class:`Cell` objects
+
+        Yields
+        ------
+        Cell | _CellValue:
+            :class:`Cell` objects or cell values for each row
+
+        Raises
+        ------
+        IndexError:
+            If row or column values are out of range for the table
+
+        Example
+        -------
+
+        .. code:: python
+
+            total = sum(val or 0.0 for val in table.iter_cells(min_row=9, max_row=13, values_only=True))
+
+        """
+        min_row = min_row if min_row is not None else 0
+        max_row = max_row if max_row is not None else self.num_rows - 1
+        min_col = min_col if min_col is not None else 0
+        max_col = max_col if max_col is not None else self.num_cols - 1
+
+        if min_row < 0:
+            msg = f"row {min_row} out of range"
+            raise IndexError(msg)
+        if max_row >= self.num_rows:
+            msg = f"row {max_row} out of range"
+            raise IndexError(msg)
+        if min_col < 0:
+            msg = f"column {min_col} out of range"
+            raise IndexError(msg)
+        if max_col >= self.num_cols:
+            msg = f"column {max_col} out of range"
+            raise IndexError(msg)
+
+        rows = self.rows()
+        self._model.calculate_table_categories(self._table_id)
+        row_mapper = self._model._table_categories_row_mapper[self._table_id]
+        if row_mapper is not None:
+            rows = [rows[row_mapper[row]] for row in range(min_row, max_row + 1)]
+        else:
+            rows = rows[min_row : max_row + 1]
+
+        for row in rows:
+            for cell in row[min_col : max_col + 1]:
+                yield cell.value if values_only else cell
+
     def _validate_cell_coords(self, *args):
         if isinstance(args[0], str):
             (row, col) = xl_cell_to_rowcol(args[0])
@@ -926,8 +1032,14 @@ class Table(Cacheable):
             (row, col) = args[0:2]
             values = args[2:]
 
+        if row < 0:
+            msg = f"row {row} out of range"
+            raise IndexError(msg)
         if row >= MAX_ROW_COUNT:
             msg = f"{row} exceeds maximum row {MAX_ROW_COUNT - 1}"
+            raise IndexError(msg)
+        if col < 0:
+            msg = f"column {col} out of range"
             raise IndexError(msg)
         if col >= MAX_COL_COUNT:
             msg = f"{col} exceeds maximum column {MAX_COL_COUNT - 1}"
@@ -950,13 +1062,13 @@ class Table(Cacheable):
 
         .. code:: python
 
-            doc = Document("write.numbers")
+            doc = Document("mydoc.numbers")
             sheets = doc.sheets
             tables = sheets[0].tables
             table = tables[0]
             table.write(1, 1, "This is new text")
             table.write("B7", datetime(2020, 12, 25))
-            doc.save("new-sheet.numbers")
+            doc.save("mydoc.numbers")
 
         Parameters
         ----------
@@ -983,7 +1095,7 @@ class Table(Cacheable):
         TypeError:
             If the style parameter is an invalid type.
         ValueError:
-            If the cell type cannot be determined from the type of `param3`.
+            If the cell type cannot be determined from the type of ``value``.
 
         """
         # TODO: write needs to retain/init the border
@@ -1005,8 +1117,26 @@ class Table(Cacheable):
             self.set_cell_style(row, col, style)
 
     def set_cell_style(self, *args) -> None:
+        """
+        Set a cell's style by coordinate and style object or name.
+
+        The coordinate may be a zero-based row and column pair or an A1 reference.
+        A :class:`Style` object is registered with the document; a string selects an
+        existing named style.
+
+        Raises
+        ------
+        IndexError:
+            If a named style does not exist.
+        TypeError:
+            If the style is neither a :class:`Style` nor a style name.
+
+        """
         (row, col, style) = self._validate_cell_coords(*args)
         if isinstance(style, Style):
+            if style.name is None:
+                style.name = self._model.custom_style_name()
+            self._model.styles[style.name] = style
             self._data[row][col]._style = style
         elif isinstance(style, str):
             if style not in self._model.styles:
@@ -1043,15 +1173,12 @@ class Table(Cacheable):
         -------
         .. code:: python
 
-            "Transport": [
-                {"Airplane", "Air": 5 },
-                {"Helicopter": "Air", 2 },
-                {"Bus": "Road", 10 },
-            ],
-            "Fruit": [
-                {"Apple", "Green": 7 },
-                {"Banana", "Yellow", 6 },
-            ],
+            >>> table = doc.sheets[0].tables['Categories']
+            >>> pprint.pp(table.categorized_data(values_only=True))
+            {'Fruit': [['Apple', 'Fruit', 40.0], ['Banana', 'Fruit', 40.0]],
+             'Transport': [['Airplane', 'Transport', 5.0],
+                           ['Bus', 'Transport', 5.0],
+                           ['Helicopter', 'Transport', 5.0]]}
 
         For tables with multiple categories, the top-level dictionary is nested.
 
@@ -1084,7 +1211,7 @@ class Table(Cacheable):
         Parameters
         ----------
         num_rows: int, optional, default: 1
-            The number of rows to add to the table.
+            The number of rows to add to the table. Must be positive.
         start_row: int, optional, default: None
             The start row number (zero indexed), or ``None`` to add a row to
             the end of the table.
@@ -1107,6 +1234,12 @@ class Table(Cacheable):
             If the default value is unsupported by :py:meth:`numbers_parser.Table.write`.
 
         """
+        if not isinstance(num_rows, int) or num_rows < 1:
+            msg = "Number of rows must be a positive integer"
+            raise ValueError(msg)
+        if num_rows > MAX_ROW_COUNT - self.num_rows:
+            msg = f"Number of rows cannot exceed {MAX_ROW_COUNT}"
+            raise ValueError(msg)
         if start_row is not None and (start_row < 0 or start_row >= self.num_rows):
             msg = "Row number not in range for table"
             raise IndexError(msg)
@@ -1148,7 +1281,7 @@ class Table(Cacheable):
         Parameters
         ----------
         num_cols: int, optional, default: 1
-            The number of columns to add to the table.
+            The number of columns to add to the table. Must be positive.
         start_col: int, optional, default: None
             The start column number (zero indexed), or ``None`` to add a column to
             the end of the table.
@@ -1171,6 +1304,12 @@ class Table(Cacheable):
             If the default value is unsupported by :py:meth:`numbers_parser.Table.write`.
 
         """
+        if not isinstance(num_cols, int) or num_cols < 1:
+            msg = "Number of columns must be a positive integer"
+            raise ValueError(msg)
+        if num_cols > MAX_COL_COUNT - self.num_cols:
+            msg = f"Number of columns cannot exceed {MAX_COL_COUNT}"
+            raise ValueError(msg)
         if start_col is not None and (start_col < 0 or start_col >= self.num_cols):
             msg = "Column number not in range for table"
             raise IndexError(msg)
@@ -1205,16 +1344,11 @@ class Table(Cacheable):
         Parameters
         ----------
         num_rows: int, optional, default: 1
-            The number of rows to add to the table.
+            The number of rows to delete from the table. Must be positive and no
+            greater than the current number of rows.
         start_row: int, optional, default: None
             The start row number (zero indexed), or ``None`` to delete rows
             from the end of the table.
-
-        Warns
-        -----
-        RuntimeWarning:
-            If the default value is a float that is rounded to the maximum number
-            of supported digits.
 
         Raises
         ------
@@ -1222,6 +1356,12 @@ class Table(Cacheable):
             If the start_row is out of range for the table.
 
         """
+        if not isinstance(num_rows, int) or num_rows < 1:
+            msg = "Number of rows must be a positive integer"
+            raise ValueError(msg)
+        if num_rows > self.num_rows:
+            msg = "Cannot delete more rows than the table contains"
+            raise ValueError(msg)
         if start_row is not None and (start_row < 0 or start_row >= self.num_rows):
             msg = "Row number not in range for table"
             raise IndexError(msg)
@@ -1251,17 +1391,26 @@ class Table(Cacheable):
         Parameters
         ----------
         num_cols: int, optional, default: 1
-            The number of columns to add to the table.
+            The number of columns to delete from the table. Must be positive and no
+            greater than the current number of columns.
         start_col: int, optional, default: None
-            The start column number (zero indexed), or ``None`` to add delete columns
+            The start column number (zero indexed), or ``None`` to delete columns
             from the end of the table.
 
         Raises
         ------
         IndexError:
             If the start_col is out of range for the table.
+        ValueError:
+            If ``num_cols`` is not positive or exceeds the number of columns.
 
         """
+        if not isinstance(num_cols, int) or num_cols < 1:
+            msg = "Number of columns must be a positive integer"
+            raise ValueError(msg)
+        if num_cols > self.num_cols:
+            msg = "Cannot delete more columns than the table contains"
+            raise ValueError(msg)
         if start_col is not None and (start_col < 0 or start_col >= self.num_cols):
             msg = "Column number not in range for table"
             raise IndexError(msg)
@@ -1291,7 +1440,7 @@ class Table(Cacheable):
         .. code:: python
 
             >>> table.cell("B2")
-            <numbers_parser.cell.TextCell object at 0x102c0d390>
+            numbers_parser.cell.NumberCell(sheet_name='Sheet 1', table_name='Examples', value='1234.5', row=1, col=1)
             >>> table.cell("B2").is_merged
             False
             >>> table.merge_cells("B2:C2")
@@ -1299,20 +1448,55 @@ class Table(Cacheable):
             True
 
         """
-        if isinstance(cell_range, list):
-            for x in cell_range:
-                self.merge_cells(x)
-        else:
-            (start_cell_ref, end_cell_ref) = cell_range.split(":")
-            (row_start, col_start) = xl_cell_to_rowcol(start_cell_ref)
-            (row_end, col_end) = xl_cell_to_rowcol(end_cell_ref)
+        ranges = cell_range if isinstance(cell_range, list) else [cell_range]
+        parsed_ranges = []
+        for range_ref in ranges:
+            if not isinstance(range_ref, str):
+                msg = "cell ranges must be strings"
+                raise TypeError(msg)
+            cell_refs = range_ref.split(":")
+            if len(cell_refs) != 2:
+                msg = f"invalid cell range {range_ref}"
+                raise ValueError(msg)
+            start_cell_ref, end_cell_ref = cell_refs
+            row_start, col_start = xl_cell_to_rowcol(start_cell_ref)
+            row_end, col_end = xl_cell_to_rowcol(end_cell_ref)
+            if row_end < row_start or col_end < col_start:
+                msg = f"invalid cell range {range_ref}: end must not precede start"
+                raise ValueError(msg)
+            if row_end >= self.num_rows:
+                msg = f"row {row_end} out of range"
+                raise IndexError(msg)
+            if col_end >= self.num_cols:
+                msg = f"column {col_end} out of range"
+                raise IndexError(msg)
+
+            for other_row_start, other_col_start, other_row_end, other_col_end in parsed_ranges:
+                if (
+                    row_start <= other_row_end
+                    and row_end >= other_row_start
+                    and col_start <= other_col_end
+                    and col_end >= other_col_start
+                ):
+                    msg = f"cell range {range_ref} overlaps another range"
+                    raise ValueError(msg)
+            for row in range(row_start, row_end + 1):
+                for col in range(col_start, col_end + 1):
+                    cell = self._data[row][col]
+                    if cell.is_merged or cell.merge_range is not None:
+                        msg = f"cell range {range_ref} overlaps an existing merged range"
+                        raise ValueError(msg)
+            parsed_ranges.append((row_start, col_start, row_end, col_end))
+
+        merge_cells = self._model.merge_cells(self._table_id)
+        for row_start, col_start, row_end, col_end in parsed_ranges:
             num_rows = row_end - row_start + 1
             num_cols = col_end - col_start + 1
-
-            merge_cells = self._model.merge_cells(self._table_id)
             merge_cells.add_anchor(row_start, col_start, (num_rows, num_cols))
-            for row in range(row_start + 1, row_end + 1):
-                for col in range(col_start + 1, col_end + 1):
+            for row in range(row_start, row_end + 1):
+                for col in range(col_start, col_end + 1):
+                    if row == row_start and col == col_start:
+                        continue
                     self._data[row][col] = Cell._merged_cell(self._table_id, row, col, self._model)
                     merge_cells.add_reference(row, col, (row_start, col_start, row_end, col_end))
 
@@ -1357,6 +1541,9 @@ class Table(Cacheable):
         TypeError:
             If an invalid number of arguments is passed or if the types of the arguments
             are invalid.
+        IndexError:
+            If the length of the stroke extends the border beyond the last row or column
+            of the table.
 
         Warns
         -----
@@ -1407,19 +1594,27 @@ class Table(Cacheable):
             )
             return
 
-        self._model.extract_strokes(self._table_id)
-
-        if side in ["top", "bottom"]:
-            for border_col_num in range(col, col + length):
-                self._model.set_cell_border(self._table_id, row, border_col_num, side, border_value)
-        elif side in ["left", "right"]:
-            for border_row_num in range(row, row + length):
-                self._model.set_cell_border(self._table_id, border_row_num, col, side, border_value)
-        else:
+        if side not in (*HORIZONTAL_BORDER_SIDES, *VERTICAL_BORDER_SIDES):
             msg = "side must be a valid border segment"
             raise TypeError(msg)
 
-    def set_cell_formatting(self, *args: str, **kwargs) -> None:
+        if side in HORIZONTAL_BORDER_SIDES and col + length > self.num_cols:
+            msg = f"column {col + length - 1} out of range (table has {self.num_cols} columns)"
+            raise IndexError(msg)
+        if side in VERTICAL_BORDER_SIDES and row + length > self.num_rows:
+            msg = f"row {row + length - 1} out of range (table has {self.num_rows} rows)"
+            raise IndexError(msg)
+
+        self._model.extract_strokes(self._table_id)
+
+        if side in HORIZONTAL_BORDER_SIDES:
+            for border_col_num in range(col, col + length):
+                self._model.set_cell_border(self._table_id, row, border_col_num, side, border_value)
+        else:
+            for border_row_num in range(row, row + length):
+                self._model.set_cell_border(self._table_id, border_row_num, col, side, border_value)
+
+    def set_cell_formatting(self, *args: int | str, **kwargs) -> None:
         r"""
         Set the data format for a cell.
 
@@ -1433,15 +1628,15 @@ class Table(Cacheable):
                 date_time_format="EEEE, d MMMM yyyy"
             )
             table.set_cell_formatting(
-                0,
-                4,
+                1,
+                1,
                 "number",
                 decimal_places=3,
                 negative_style=NegativeNumberStyle.RED
             )
             table.set_cell_formatting(
-                3,
-                0,
+                6,
+                1,
                 "popup",
                 popup_values=["Cat", "Dog", "Rabbit"],
                 allow_none=True
@@ -1497,7 +1692,7 @@ class Table(Cacheable):
               * ``"popup"``: A menu of options.
 
         :``"base"``:
-            * **base_use_minus_sign** (*int, optional, default: 10*) - The integer
+            * **base** (*int, optional, default: 10*) - The integer
               base to represent the number from 2-36.
             * **base_use_minus_sign** (*bool, optional, default: True*) - If ``True``
               use a standard minus sign, otherwise format as two's compliment (only
@@ -1516,7 +1711,7 @@ class Table(Cacheable):
             * **decimal_places** (*int, optional, default: 2*) - The number of
               decimal places, or ``None`` for automatic.
             * **negative_style** (*:py:class:`~numbers_parser.NegativeNumberStyle`, optional, default: NegativeNumberStyle.MINUS*) - How negative numbers are represented.
-              See `Negative number formats <#negative-formats>`_.
+              See :ref:`Negative number formats <negative_formats>`.
             * **show_thousands_separator** (*bool, optional, default: False*) - ``True``
               if the number should include a thousands separator, e.g. ``,``
             * **use_accounting_style** (*bool, optional, default: False*) -  ``True``
@@ -1525,8 +1720,8 @@ class Table(Cacheable):
 
         :``"datetime"``:
             * **date_time_format** (*str, optional, default: "dd MMM YYY HH:MM"*) - A POSIX
-               strftime-like formatting string of `Numbers date/time
-               directives <#datetime-formats>`_.
+               strftime-like formatting string of :ref:`Numbers date/time
+               directives <datetime_formats>`.
 
         :``"fraction"``:
             * **fraction_accuracy** (*:py:class:`~numbers_parser.FractionAccuracy`, optional, default: FractionAccuracy.THREE* - The
@@ -1536,7 +1731,7 @@ class Table(Cacheable):
             * **decimal_places** (*float, optional, default: None*) -  number of
               decimal places, or ``None`` for automatic.
             * **negative_style** (*:py:class:`~numbers_parser.NegativeNumberStyle`, optional, default: NegativeNumberStyle.MINUS*) - How negative numbers are represented.
-              See `Negative number formats <#negative-formats>`_.
+              See :ref:`Negative number formats <negative_formats>`.
             * **show_thousands_separator** (*bool, optional, default: False*) - ``True``
               if the number should include a thousands separator, e.g. ``,``
 
@@ -1554,12 +1749,12 @@ class Table(Cacheable):
             * **control_format** (*ControlFormattingType, optional, default: ControlFormattingType.NUMBER*) - the format
                 of the data in the slider. Valid options are ``"base"``, ``"currency"``,
                 ``"datetime"``, ``"fraction"``, ``"percentage"``, ``"number"``,
-                or ``"scientific". Each format allows additional parameters identical to those
+                or ``"scientific"``. Each format allows additional parameters identical to those
                 available for the formats themselves. For example, a slider using fractions
                 is configured with ``fraction_accuracy``.
-            * **increment** (*float, optional, default: 1*) - the slider's minimum value
+            * **increment** (*float, optional, default: 1*) - increment value for the slider
             * **maximum** (*float, optional, default: 100*) - the slider's maximum value
-            * **minimum** (*float, optional, default: 1*) - increment value for the slider
+            * **minimum** (*float, optional, default: 1*) - the slider's minimum value
 
         :`"stepper"``:
             * **control_format** (*ControlFormattingType, optional, default: ControlFormattingType.NUMBER*) - the format
@@ -1568,9 +1763,9 @@ class Table(Cacheable):
                 or ``"scientific"``. Each format allows additional parameters identical to those
                 available for the formats themselves. For example, a stepper using fractions
                 is configured with ``fraction_accuracy``.
-            * **increment** (*float, optional, default: 1*) - the stepper's minimum value
+            * **increment** (*float, optional, default: 1*) - increment value for the stepper
             * **maximum** (*float, optional, default: 100*) - the stepper's maximum value
-            * **minimum** (*float, optional, default: 1*) - increment value for the stepper
+            * **minimum** (*float, optional, default: 1*) - the stepper's minimum value
 
         :`"popup"``:
             * **popup_values** (*List[str|int|float], optional, default: None*) - values
@@ -1606,7 +1801,7 @@ class Table(Cacheable):
         elif isinstance(custom_format, str):
             if custom_format not in self._model.custom_formats:
                 msg = f"format '{custom_format}' does not exist"
-                raise IndexError(msg)
+                raise KeyError(msg)
             custom_format = self._model.custom_formats[custom_format]
         else:
             msg = "format must be a CustomFormatting object or format name"

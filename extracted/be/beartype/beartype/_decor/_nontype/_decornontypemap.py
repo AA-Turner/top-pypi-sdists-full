@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -12,11 +12,12 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype._decor._nontype._decordescriptor import (
+from beartype._decor._nontype._api.external.decorclick import (
+    beartype_click_command)
+from beartype._decor._nontype._builtin.decorbuiltindescriptor import (
     beartype_descriptor_decorator_builtin_class_or_static_method,
     beartype_descriptor_decorator_builtin_property,
 )
-from beartype._util.api.external.utilclick import beartype_click_command
 
 # ....................{ MAPPINGS                           }....................
 # Note that this dispatch table is effectively untypeable, thanks to the general

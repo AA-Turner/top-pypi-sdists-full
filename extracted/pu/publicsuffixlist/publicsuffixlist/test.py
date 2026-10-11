@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright 2014 ko-zu <causeless@gmail.com>
 #
@@ -13,12 +12,12 @@ import unittest
 
 from publicsuffixlist import PublicSuffixList, b, encode_idn, u
 
+
 def bytestuple(x):
-    return tuple(bytes(x).split(b'.'))
+    return tuple(bytes(x).split(b"."))
 
 
 class TestPSL(unittest.TestCase):
-
     def setUp(self):
 
         self.psl = PublicSuffixList()
@@ -32,17 +31,16 @@ class TestPSL(unittest.TestCase):
 
     def test_typesafe_bytestuple(self):
         self.assertEqual(
-                self.psl.privatesuffix((b"www",b"example",b"co",b"jp")).__class__,
-                (b"example", b"co", b"jp").__class__)
+            self.psl.privatesuffix((b"www", b"example", b"co", b"jp")).__class__, (b"example", b"co", b"jp").__class__
+        )
+        self.assertEqual(self.psl.publicsuffix((b"www", b"example", b"co", b"jp")).__class__, (b"co", b"jp").__class__)
         self.assertEqual(
-                self.psl.publicsuffix((b"www",b"example",b"co",b"jp")).__class__,
-                (b"co", b"jp").__class__)
+            self.psl.privatesuffix((b"www", b"example", b"co", b"jp"))[-1].__class__,
+            (b"example", b"co", b"jp")[-1].__class__,
+        )
         self.assertEqual(
-                self.psl.privatesuffix((b"www",b"example",b"co",b"jp"))[-1].__class__,
-                (b"example", b"co", b"jp")[-1].__class__)
-        self.assertEqual(
-                self.psl.publicsuffix((b"www",b"example",b"co",b"jp"))[-1].__class__,
-                (b"co", b"jp")[-1].__class__)
+            self.psl.publicsuffix((b"www", b"example", b"co", b"jp"))[-1].__class__, (b"co", b"jp")[-1].__class__
+        )
 
     def test_uppercase(self):
         self.assertEqual(self.psl.suffix("Jp"), None)
@@ -76,6 +74,8 @@ class TestPSL(unittest.TestCase):
         self.assertEqual(self.psl.suffix(""), None)
         self.assertEqual(self.psl.publicsuffix("www..invalid"), None)
         self.assertEqual(self.psl.publicsuffix(""), None)
+        self.assertEqual(self.psl.privateparts("www..invalid"), None)
+        self.assertEqual(self.psl.privateparts(""), None)
 
     def test_ignored_trailing_dot(self):
         self.assertEqual(self.psl.suffix("example.com."), "example.com")
@@ -182,15 +182,15 @@ invalid
 
             for line in f:
                 ln += 1
-                l = line.decode("utf-8")
-                m = regex.match(l)
+                text = line.decode("utf-8")
+                m = regex.match(text)
                 if not m:
                     continue
 
                 arg = m.group(1).strip("'")
                 res = None if m.group(2) == "null" else m.group(2).strip("'")
 
-                self.assertEqual(self.psl.suffix(arg), res, "in line {0}: {1}".format(ln, line.strip()))
+                self.assertEqual(self.psl.suffix(arg), res, f"in line {ln}: {line.strip()}")
 
     def test_typeerror(self):
 
@@ -203,7 +203,7 @@ invalid
     def test_bytestuple(self):
         psl = self.psl
         data = (b"www", b"example", b"com")
-        pubres  = (b"com",)
+        pubres = (b"com",)
         privres = (b"example", b"com")
         self.assertEqual(psl.publicsuffix(data), pubres)
         self.assertEqual(psl.privatesuffix(data), privres)
@@ -216,7 +216,7 @@ example
         psl = PublicSuffixList(source)
         # punycoded ASCII should match
         data = bytestuple("aaa.www.例.example".encode("idna"))
-        pubres  = data[-2:] # xn--fsq.example
+        pubres = data[-2:]  # xn--fsq.example
         privres = data[-3:]
         self.assertEqual(psl.publicsuffix(data), pubres)
         self.assertEqual(psl.privatesuffix(data), privres)
@@ -228,8 +228,8 @@ example
 """
         psl = PublicSuffixList(source)
         # UTF-8 encoded bytes should NOT match
-        data = bytestuple("aaa.www.例.example".encode("utf8"))
-        pubres  = data[-1:] # example
+        data = bytestuple("aaa.www.例.example".encode())
+        pubres = data[-1:]  # example
         privres = data[-2:]
         self.assertEqual(psl.publicsuffix(data), pubres)
         self.assertEqual(psl.privatesuffix(data), privres)
@@ -242,7 +242,7 @@ example
         psl = PublicSuffixList(source.splitlines())
         # Shift_JIS encoded bytes should NOT match
         data = bytestuple("aaa.www.例.example".encode("sjis"))
-        pubres  = data[-1:] # example
+        pubres = data[-1:]  # example
         privres = data[-2:]
         self.assertEqual(psl.publicsuffix(data), pubres)
         self.assertEqual(psl.privatesuffix(data), privres)
@@ -255,7 +255,7 @@ example
     def test_bytestuple_noneresult(self):
         psl = self.psl
         data = (b"com",)
-        pubres  = (b"com",)
+        pubres = (b"com",)
         privres = None
 
         self.assertEqual(psl.publicsuffix(data), pubres)
@@ -297,6 +297,7 @@ example
     def test_compatclass(self):
 
         from publicsuffixlist.compat import PublicSuffixList
+
         psl = PublicSuffixList()
 
         self.assertEqual(psl.get_public_suffix("test.example.com"), "example.com")
@@ -306,6 +307,7 @@ example
     def test_unsafecompatclass(self):
 
         from publicsuffixlist.compat import UnsafePublicSuffixList
+
         psl = UnsafePublicSuffixList()
 
         self.assertEqual(psl.get_public_suffix("test.example.com"), "example.com")
@@ -336,8 +338,7 @@ example
 
     def test_privateparts_keepcase(self):
         psl = self.psl
-        self.assertEqual(psl.privateparts("Aaa.Www.Example.Co.Jp", keep_case=True),
-                                   ("Aaa", "Www", "Example.Co.Jp"))
+        self.assertEqual(psl.privateparts("Aaa.Www.Example.Co.Jp", keep_case=True), ("Aaa", "Www", "Example.Co.Jp"))
 
     def test_noprivateparts(self):
         psl = self.psl
@@ -358,13 +359,21 @@ example
         self.assertEqual(psl.subdomain("Com", depth=0), None)
         self.assertEqual(psl.subdomain("Com", depth=1), None)
 
+        # invalid domain
+        self.assertEqual(psl.subdomain("www..invalid", depth=1), None)
+
+    def test_subdomain_accept_unknown(self):
+        psl = PublicSuffixList(accept_unknown=False)
+        # accept_unknown must be honored per call, not only the object default.
+        self.assertEqual(psl.subdomain("www.example.unknowntld", 0, accept_unknown=True), "example.unknowntld")
+
     def test_subdomain_keep_case(self):
         psl = self.psl
-        self.assertEqual(psl.subdomain("Aaa.Www.Example.Co.Jp", depth=1, keep_case=True),
-                                           "Www.Example.Co.Jp")
-        self.assertEqual(psl.subdomain(bytestuple(b"Aaa.Www.Example.Co.Jp"), depth=1, keep_case=True),
-                                           bytestuple(b"Www.Example.Co.Jp"))
-
+        self.assertEqual(psl.subdomain("Aaa.Www.Example.Co.Jp", depth=1, keep_case=True), "Www.Example.Co.Jp")
+        self.assertEqual(
+            psl.subdomain(bytestuple(b"Aaa.Www.Example.Co.Jp"), depth=1, keep_case=True),
+            bytestuple(b"Www.Example.Co.Jp"),
+        )
 
     def test_wildcardonlytld(self):
         source = """
@@ -380,7 +389,6 @@ example
 
         self.assertEqual(psl.publicsuffix("example.example.bd"), "example.bd")
         self.assertEqual(psl.privatesuffix("example.example.bd"), "example.example.bd")
-
 
     def test_longwildcard(self):
         source = """
@@ -423,13 +431,20 @@ com
         self.assertEqual(psl.is_public("Example.Co.Jp"), False)
         self.assertEqual(psl.is_public("Www.Example.Co.Jp"), False)
 
+    def test_is_utilities_accept_unknown(self):
+        psl = PublicSuffixList(accept_unknown=False)
+        # accept_unknown must be honored per call, not only the object default.
+        self.assertEqual(psl.is_public("unknowntld"), False)
+        self.assertEqual(psl.is_public("unknowntld", accept_unknown=True), True)
+        self.assertEqual(psl.is_private("a.b.unknowntld", accept_unknown=True), True)
+        self.assertEqual(psl.is_private("a.b.unknowntld", accept_unknown=False), False)
+
 
 class TestPSLSections(unittest.TestCase):
-
     def test_icann(self):
         psl = PublicSuffixList(only_icann=True)
-        self.assertEqual(psl.publicsuffix("www.example.com"), 'com')
-        self.assertEqual(psl.publicsuffix("example.priv.at"), 'at')
+        self.assertEqual(psl.publicsuffix("www.example.com"), "com")
+        self.assertEqual(psl.publicsuffix("example.priv.at"), "at")
 
 
 if __name__ == "__main__":

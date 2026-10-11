@@ -34,7 +34,7 @@ def systemls(path:Path=None,today:datetime=None,search=None,cmdline=False):
     
     start=datetime.now()
     def std_colorize(msg,count,total,post_msg="\n\t"):
-        return f"""{Fore.dark_olive_green_3b}{msg}{post_msg}{Fore.light_blue}{count}/{count+1} of {total}{Style.reset}"""
+        return f"""{Fore.dark_olive_green_3b}{msg}{post_msg}{Fore.light_blue}{count}/{count+1} of {total} {Fore.magenta}[IsToday.py|LNIDX:{count}]{Style.reset}"""
 
     if path is None:
         if cmdline == True:

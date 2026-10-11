@@ -1225,6 +1225,20 @@ int dp_dll_set_telemetry(dp_dll_state_t *state, dp_tlm_t * tlm, const char * pre
                                 lookback buffers; see dll_core.c) */
 size_t dp_dll_state_bytes (const dp_dll_state_t *state);
 void dp_dll_get_state (const dp_dll_state_t *state, void *blob);
+/**
+ * @brief Restore from @p blob. @return DP_OK or DP_ERR_INVALID.
+ *
+ * The blob is decoded and checked whole before any of @p state is written,
+ * so a refusal changes nothing (doppler#2092). Refused: a wrong-object,
+ * wrong-version, wrong-size or foreign-endian envelope; a blob whose code
+ * length, samples per chip, segment count or symbol-aid geometry (on or
+ * off, its ring and hypotheses) is not this instance's; and running fields
+ * no live instance carries -- a chunk index past the segments, a noise
+ * offset outside the code, a non-finite or negative noise guard, and on an
+ * aided instance a non-finite period, a window as long as its ring, a best
+ * hypothesis past its hypotheses or a last look past the partials counted.
+ * The code, the buffers and the telemetry attachment stay this instance's.
+ */
 int dp_dll_set_state (dp_dll_state_t *state, const void *blob);
 
 #ifdef __cplusplus

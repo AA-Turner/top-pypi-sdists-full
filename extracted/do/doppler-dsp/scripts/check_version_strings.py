@@ -9,10 +9,11 @@ belong in the places releases actually bump (`pyproject.toml`,
 and let the reader's installer resolve it.
 
 This gate greps every hand-owned markdown page (README.md + docs/,
-excluding the generated `c-api/`+`benchmarks.md` and the frozen
-`archive/`) for the literal version currently in `pyproject.toml`. It
-fires at introduction time: the PR that hand-types today's version fails
-CI today, instead of the page silently going stale at the next bump.
+excluding the generated `c-api/`, `benchmarks.md` and `dev/issues.md`,
+and the frozen `archive/`) for the literal version currently in
+`pyproject.toml`. It fires at introduction time: the PR that hand-types
+today's version fails CI today, instead of the page silently going stale
+at the next bump.
 *Old* version strings (an illustrative `--version 0.33.1` pin, a
 historical decision record) don't match the current version and pass --
 they are history, not claims about the present.
@@ -32,7 +33,11 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 
 EXCLUDED_PARTS = {"c-api", "archive"}
-EXCLUDED_RELPATHS = {"benchmarks.md"}
+# dev/issues.md is rendered from the live issue titles by `make issues`. A
+# title saying a regression shipped "in v0.65.0" is dated history, still true
+# after the next release, and the page's own drift gate
+# (gen_issue_tracker --check) already owns its text.
+EXCLUDED_RELPATHS = {"benchmarks.md", "dev/issues.md"}
 
 # just-makeit's own version numbers are quoted all over the docs, and doppler's
 # version climbs into the same range (0.58.0 is both a doppler release and a jm
@@ -59,20 +64,43 @@ def claims_version(line: str, version: str) -> bool:
     """Whether *line* hand-types doppler's *version*.
 
     \\b alone won't do: 0.33.4 must not match inside 10.33.40 or 0.33.40,
-    so both ends are guarded against adjacent digits and dots. A match
+    so both ends are guarded. Before it, no digit or dot may sit. After
+    it, no digit, and no dot that a digit FOLLOWS -- a longer number
+    (0.33.4.1) continues that way, while a sentence ends on a bare dot.
+    Refusing every following dot made "The current release is 0.33.4."
+    pass, the exact claim this gate exists to stop (doppler#1943). A match
     labelled as another tool's version (``jm 0.58.0``,
     ``just-makeit==0.58.0``) is skipped; see OTHER_TOOL_LABEL.
 
+    A SemVer pre-release suffix makes it a different version: ``0.58.0-a4``
+    or ``0.58.0-rc1`` names a run or a candidate, not the release, and a page
+    that records which label a measurement ran under stays true after the
+    tag. The suffix is a hyphen, at most a few letters, then a digit, so
+    prose such as ``0.58.0-based`` is still caught.
+
     >>> claims_version("doppler 0.58.0 adds a thing", "0.58.0")
     True
+    >>> claims_version("The current release is 0.58.0.", "0.58.0")
+    True
+    >>> claims_version("0.58.0.1 is a longer number", "0.58.0")
+    False
     >>> claims_version("a jm 0.58.0+ scaffold", "0.58.0")
     False
     >>> claims_version("pin just-makeit==0.58.0", "0.58.0")
     False
     >>> claims_version("see 10.58.01", "0.58.0")
     False
+    >>> claims_version("make bench VERSION=0.58.0-a4 K=5", "0.58.0")
+    False
+    >>> claims_version("cut 0.58.0-rc1 first", "0.58.0")
+    False
+    >>> claims_version("the 0.58.0-based layout", "0.58.0")
+    True
     """
-    needle = re.compile(rf"(?<![0-9.]){re.escape(version)}(?![0-9.])")
+    needle = re.compile(
+        rf"(?<![0-9.]){re.escape(version)}"
+        r"(?![0-9]|\.[0-9]|-[A-Za-z]{0,5}[0-9])"
+    )
     return any(
         not OTHER_TOOL_LABEL.search(line[: m.start()])
         for m in needle.finditer(line)
@@ -137,6 +165,10 @@ def main() -> int:
         )
         print("\n".join(hits), file=sys.stderr)
         return 1
+    print(
+        f"check_version_strings: OK -- {len(pages)} page(s), "
+        f"{version} hand-typed in none"
+    )
     return 0
 
 

@@ -10,7 +10,8 @@
 ci:
   # a bot committing to a branch is at odds with the rest of this setup,
   # where the workflow token cannot write and every action is pinned to
-  # a commit SHA: a failing hook has to be fixed by its author
+  # a commit SHA: a failing hook is fixed by hand, by its author or by
+  # an owner where CONTRIBUTING.md says so
   autofix_prs: false
   # no autoupdate_branch, as dependabot declares no target-branch: the
   # default is the default branch, which is the only branch a change
@@ -320,7 +321,7 @@ repos:
   # reports: the pragma survives autoupdate, which keeps a trailing
   # comment, where a baseline entry would match only the one sha
   - repo: https://github.com/btclib-org/.github
-    rev: 1c3cb979a34a31b5cfa3b7abfc924e4962a2b963 # pragma: allowlist secret
+    rev: 70f5915abed3b982009996ae52254fbc68c00dfc # pragma: allowlist secret
     hooks:
       - id: check-changelog
         args: [--grandfathered, "24"]
@@ -447,13 +448,14 @@ repos:
       # three blind spots come from. Same `\x20` as above, and the same
       # reason.
       # `CHANGELOG.md` and `RELEASE_NOTES.md` are out of reach because
-      # section 9 makes them append-only: a refused shape in an entry
-      # that has landed has no repair, and there would be no green state
-      # to reach. `exclude:` selects files and pygrep reads whole ones,
-      # so an exclusion keyed on the older entries alone cannot be
-      # written; and check-useless-excludes asks the pattern to match
-      # some file the hook selects rather than each name in it, which is
-      # what lets a tree with no release notes carry the same line
+      # nothing already written in them is rewritten (section 9): a
+      # refused shape in an entry that has landed has no repair, and
+      # there would be no green state to reach. `exclude:` selects
+      # files and pygrep reads whole ones, so an exclusion keyed on the
+      # older entries alone cannot be written; and
+      # check-useless-excludes asks the pattern to match some file the
+      # hook selects rather than each name in it, which is what lets a
+      # tree with no release notes carry the same line
       - id: unquoted-placeholder
         name: a placeholder standing as a whole argument is unquoted
         language: pygrep
@@ -534,7 +536,7 @@ repos:
   # The rule selection (and what each family stands in for) is documented
   # there
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.9
+    rev: v0.16.10
     hooks:
       - id: ruff-check
         name: ruff (lint, in place fixes)
@@ -551,7 +553,7 @@ repos:
   # its fixtures, and the build scripts are read from the source tree by
   # whoever changes them
   - repo: https://github.com/jsh9/pydoclint
-    rev: 0.10.1
+    rev: 0.11.0
     hooks:
       - id: pydoclint
         name: pydoclint (arguments and return values)
@@ -627,7 +629,7 @@ repos:
         files: ^src/btclib_secp256k1/.*\.py$
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.3.1
+    rev: v2.4.0
     hooks:
       - id: mypy
         # matching a sibling repository's own mypy hook, which checks its
@@ -661,7 +663,7 @@ repos:
         additional_dependencies:
           - cffi==2.1.1
           - types-cffi==2.1.0.20260827
-          - hatchling==1.32.0
+          - hatchling==1.32.4
           - pytest==9.1.1
           # hyphenated as uv.lock spells it, hook_pins_test.py keying
           # the two on one name
@@ -800,7 +802,7 @@ repos:
   # keeps a dependency added to pyproject.toml from reaching a branch
   # without the lock entry that pins it
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.12.19
+    rev: 0.12.23
     hooks:
       - id: uv-lock
       # build-constraints.txt is what the wheel builds pass as build

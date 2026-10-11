@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright 2014 ko-zu <causeless@gmail.com>
 #
@@ -8,26 +7,22 @@
 #
 import calendar
 import os
-import time
 from email.utils import parsedate
 
 from publicsuffixlist import PSLFILE, PSLURL, PublicSuffixList
 
-try:
-    import requests
-except ImportError:
-    requests = None
 
-
-def updatePSL(psl_file=PSLFILE):
-    """ Updates a local copy of PSL file
+def updatePSL(psl_file: str = PSLFILE) -> None:
+    """Updates a local copy of PSL file
 
     :param psl_file: path for the file to store the list. Default: PSLFILE
     """
     print("This is a script to download the latest PSL file.")
     print("Do not run this repeatedly more than once per day.")
 
-    if requests is None:
+    try:
+        import requests
+    except ImportError:
         raise Exception("Please install python-requests http(s) library. $ sudo pip install requests")
 
     r = requests.get(PSLURL)
@@ -39,7 +34,8 @@ def updatePSL(psl_file=PSLFILE):
         f.write(r.content)
 
     with open(psl_file + ".swp", "rb") as f:
-        psl = PublicSuffixList(f)
+        # Constructing the object validates that the downloaded file parses.
+        _psl = PublicSuffixList(f)
 
     try:
         os.replace(psl_file + ".swp", psl_file)
@@ -48,8 +44,11 @@ def updatePSL(psl_file=PSLFILE):
         os.rename(psl_file + ".swp", psl_file)
 
     if lastmod:
-        t = calendar.timegm(parsedate(lastmod))
-        os.utime(psl_file, (t, t))
+        # parsedate returns None for a malformed Last-Modified header.
+        parsed = parsedate(lastmod)
+        if parsed is not None:
+            t = calendar.timegm(parsed)
+            os.utime(psl_file, (t, t))
 
     print("PSL updated")
     if lastmod:

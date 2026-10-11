@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -101,10 +101,6 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar import BeartypeDecorHintPepSignException
-from beartype.typing import (
-    Dict,
-    Optional,
-)
 from beartype._cave._cavefast import CallableOrClassTypes
 from beartype._data.typing.datatypingport import Hint
 from beartype._data.typing.datatyping import TypeException
@@ -129,26 +125,27 @@ from beartype._data.hint.sign.datahintsigns import (
     HintSignUnpack,
 )
 from beartype._data.kind.datakindmap import FROZENDICT_EMPTY
-from beartype._util.cache.utilcachecall import callable_cached
+from beartype._util.cache.func.utilcachefunc import callable_cached
 from beartype._util.hint.pep.proposal.pep484585.generic.pep484585gentest import (
     is_hint_pep484585_generic_subbed,
     is_hint_pep484585_generic_unsubbed,
 )
-from beartype._util.hint.pep.proposal.pep484585646 import (
+from beartype._util.hint.pep.proposal.pep646.pep484585646tuple import (
     disambiguate_hint_pep484585646_tuple_sign)
-from beartype._util.hint.pep.proposal.pep484604 import (
+from beartype._util.hint.pep.proposal.pep484.pep484604union import (
     die_if_hint_pep604_inconsistent)
 from beartype._util.hint.pep.proposal.pep585 import (
     is_hint_pep585_builtin_subbed)
 from beartype._util.hint.pep.proposal.pep589 import is_hint_pep589
-from beartype._util.hint.pep.proposal.pep646692 import (
+from beartype._util.hint.pep.proposal.pep646.pep646692unpack import (
     disambiguate_hint_pep646692_unpacked_sign,
     is_hint_pep646_tuple_unpacked_prefix,
 )
 from beartype._util.hint.pep.proposal.pep695 import is_hint_pep695_subbed
-from collections.abc import Callable as CallableABC
+from collections.abc import Callable
+from typing import Optional
 
-# ....................{ GETTERS                            }....................
+# ....................{ GETTERS ~ unambiguous              }....................
 def get_hint_pep_sign(
     # Mandatory parameters.
     hint: Hint,
@@ -206,14 +203,15 @@ def get_hint_pep_sign(
 
     # If this hint is unrecognized...
     if hint_sign is None:
+        # Avoid circular import dependencies.
+        from beartype._util.hint.nonpep.utilnonpeptest import die_if_hint_nonpep
+        from beartype._util.hint.utilhinttest import die_as_hint_unsupported
+
+        # Validate sanity.
         assert isinstance(exception_cls, type), (
             f'{exception_cls} not exception type.')
         assert isinstance(exception_prefix, str), (
             f'{exception_prefix} not string.')
-
-        # Avoid circular import dependencies.
-        from beartype._util.hint.nonpep.utilnonpeptest import die_if_hint_nonpep
-        from beartype._util.hint.utilhinttest import die_as_hint_unsupported
 
         # If this hint is PEP-noncompliant, raise an exception.
         die_if_hint_nonpep(
@@ -223,9 +221,10 @@ def get_hint_pep_sign(
         )
         # Else, this hint is *NOT* PEP-noncompliant. Since this hint was
         # unrecognized, this hint *MUST* necessarily be a PEP-compliant type
-        # hint currently unsupported by the @beartype decorator.
+        # hint currently unsupported by the @beartype decorator. This is the
+        # worst possible outcome, because now we need to do something. Oh, Gods!
 
-        # Raise an exception indicating this.
+        # Raise an exception suggesting users yell at us a lot.
         die_as_hint_unsupported(
             hint=hint,
             exception_prefix=exception_prefix,
@@ -237,10 +236,9 @@ def get_hint_pep_sign(
     return hint_sign
 
 
-#FIXME: Revise us up the docstring, most of which is now obsolete.
 # Note that this getter is intentionally passed *NO* optional parameters. While
 # feasible, doing so would obstruct memoization for no particularly good reason.
-# This call should *NEVER* raise exceptions, anyway. *sigh*
+# This call should *NEVER* raise exceptions anyway. Of course, it will. *sigh*
 @callable_cached
 def get_hint_pep_sign_or_none(hint: Hint) -> Optional[HintSign]:
     '''
@@ -256,32 +254,6 @@ def get_hint_pep_sign_or_none(hint: Hint) -> Optional[HintSign]:
     violation (or even removal) between major Python versions. Nonetheless,
     these attributes are sufficiently unique to enable callers to distinguish
     between numerous broad categories of :mod:`typing` behaviour and logic.
-
-    Specifically, if this hint is:
-
-    * A :pep:`585`-compliant **builtin** (e.g., C-based type
-      hint instantiated by subscripting either a concrete builtin container
-      class like :class:`list` or :class:`tuple` *or* an abstract base class
-      (ABC) declared by the :mod:`collections.abc` submodule like
-      :class:`collections.abc.Iterable` or :class:`collections.abc.Sequence`),
-      this function returns ::class:`beartype.cave.HintGenericSubscriptedType`.
-    * A **generic** (i.e., subclass of the :class:`typing.Generic` abstract
-      base class (ABC)), this function returns
-      :class:`HintSignPep484585GenericUnsubbed`. Note this includes
-      :pep:`544`-compliant **protocols** (i.e., subclasses of the
-      :class:`typing.Protocol` ABC), which implicitly subclass the
-      :class:`typing.Generic` ABC as well.
-    * A **forward reference** (i.e., string or instance of the concrete
-      :class:`typing.ForwardRef` class), this function returns
-      :class:`HintSignTypeVar`.
-    * A **type variable** (i.e., instance of the concrete
-      :class:`typing.TypeVar` class), this function returns
-      :class:`HintSignTypeVar`.
-    * Any other class, this function returns that class as is.
-    * Anything else, this function returns the unsubscripted :mod:`typing`
-      attribute dynamically retrieved by inspecting this hint's **object
-      representation** (i.e., the non-human-readable string returned by the
-      :func:`repr` builtin).
 
     This getter is memoized for efficiency.
 
@@ -337,7 +309,7 @@ def get_hint_pep_sign_or_none(hint: Hint) -> Optional[HintSign]:
 
     # Sign possibly ambiguously identifying this hint if this hint is
     # PEP-compliant *OR* "None" (i.e., if this hint is PEP-noncompliant).
-    hint_sign = _get_hint_pep_sign_ambiguous_or_none(hint)
+    hint_sign = get_hint_pep_sign_ambiguous_or_none(hint)
 
     # Disambiguator disambiguating this ambiguous sign into two or more
     # unambiguous signs if this sign is ambiguous *OR* "None" otherwise (i.e.,
@@ -354,37 +326,39 @@ def get_hint_pep_sign_or_none(hint: Hint) -> Optional[HintSign]:
     # Return this sign.
     return hint_sign
 
-# ....................{ PRIVATE ~ globals                  }....................
-# Note this dictionary requires callables defined by the submodules of the
-# "beartype._util.hint.pep.proposal" subpackage and thus *CANNOT* be moved into
-# the "beartype._data.hint.sign.datahintsignmap" submodule.
-_HINT_SIGN_AMBIGUOUS_TO_DISAMBIGUATOR: Dict[Optional[HintSign], CallableABC] = {
-    # ....................{ PEP (484|585|646)              }....................
-    # Disambiguate PEP 484- and 585-compliant tuple hints from PEP 646-compliant
-    # tuple hints.
-    HintSignTuple: disambiguate_hint_pep484585646_tuple_sign,
+# ....................{ GETTERS ~ ambiguous                }....................
+# Note that this getter is intentionally passed *NO* optional parameters. While
+# feasible, doing so would obstruct memoization for no particularly good reason.
+# This call should *NEVER* raise exceptions anyway. Of course, it will. *sigh*
 
-    # ....................{ PEP (646|692)                  }....................
-    # Disambiguate PEP 646- from PEP 692-compliant "typing.Unpack[...]" hints.
-    HintSignUnpack: disambiguate_hint_pep646692_unpacked_sign,
-}
-'''
-Dictionary mapping from each **ambiguous sign** (i.e., ambiguously identifying
-two or more different kinds of hints - as opposed to unambiguously identifying
-only a single kind of hint like most signs do) to that sign's **disambiguator**
-(i.e., lower-level function accepting a hint identified by this ambiguous sign
-and returning a different sign unambiguously identifying this hint).
-'''
-
-# ....................{ PRIVATE ~ getters                  }....................
-def _get_hint_pep_sign_ambiguous_or_none(hint: Hint) -> Optional[HintSign]:
+#FIXME: Unit test us up, please. *sigh*
+@callable_cached
+def get_hint_pep_sign_ambiguous_or_none(hint: Hint) -> Optional[HintSign]:
     '''
     **Sign** (i.e., :class:`HintSign` instance) possibly ambiguously identifying
     the passed hint if this hint is PEP-compliant *or* :data:`None` otherwise
     (i.e., if this hint is PEP-noncompliant).
 
-    This getter is intentionally *not* memoized (e.g., by the
-    :func:`.callable_cached` decorator), as the caller is already memoized.
+    This getter is memoized for efficiency. Although the higher-level parent
+    :func:`.get_hint_pep_sign_or_none` getter is already memoized, this
+    lower-level child getter is now frequently called outside the context of
+    :func:`.get_hint_pep_sign_or_none`. Since this getter is computationally
+    intensive, independent memoization is now warranted.
+
+    Motivation
+    ----------
+    This getter returns ambiguous signs in common edge cases and could thus be
+    regarded as suboptimal. Still, this getter enables callers to circumvent
+    recursion issues and is thus essential. Notably, lower-level private
+    disambiguators internally called by the higher-level public
+    :func:`.get_hint_pep_sign_or_none` getter routinely need to decide the signs
+    of child hints subscripting passed ambiguous parent hints. Blindly calling
+    :func:`.get_hint_pep_sign_or_none` to do so could
+    provoke infinite recursion for edge-case hints (e.g., hints maliciously
+    subscripted by themselves, which is certainly feasible). Consequently,
+    disambiguators are encouraged to instead call this lower-level getter, which
+    has a somewhat more trivial implementation that is guaranteed *not* to
+    provoke infinite recursion.
 
     Parameters
     ----------
@@ -443,7 +417,7 @@ def _get_hint_pep_sign_ambiguous_or_none(hint: Hint) -> Optional[HintSign]:
     # Class of this hint.
     hint_type = hint.__class__
 
-    #FIXME: [SPEED] Global all dict.get() bound methods called below, please.
+    #FIXME: [SPEED] Globalize all dict.get() bound methods called below, please.
     #FIXME: [QA] Is this actually the case? Do non-physical classes dynamically
     #defined at runtime actually define *BOTH* of these dunder attributes:
     #* "hint_type.__module__"?
@@ -533,19 +507,19 @@ def _get_hint_pep_sign_ambiguous_or_none(hint: Hint) -> Optional[HintSign]:
     # * "hint_repr_prefix", the substring of this representation preceding the
     #   first "[" delimiter if this representation contains that delimiter *OR*
     #   this representation as is otherwise.
-    # * "hint_repr_subbed", the "[" delimiter if this representation
-    #   contains that delimiter *OR* the empty string otherwise.
+    # * "hint_repr_subbed", the "[" delimiter if this representation contains
+    #   that delimiter *OR* the empty string otherwise.
     #
-    # Note that the str.partition() method has been profiled to be the
-    # optimally efficient means of parsing trivial prefixes like these.
+    # Note that the str.partition() method has been profiled to be the optimally
+    # efficient means of parsing trivial prefixes like these.
     hint_repr_prefix, hint_repr_subbed, _ = hint_repr.partition('[')
 
     # Sign identifying this possibly unsubscripted hint if this hint is
     # identifiable by its possibly unsubscripted representation *OR* "None".
     hint_sign = HINT_REPR_PREFIX_ARGS_0_OR_MORE_TO_SIGN.get(hint_repr_prefix)
 
-    # If this hint is identifiable by its possibly unsubscripted
-    # representation, return this sign.
+    # If this hint is identifiable by its possibly unsubscripted representation,
+    # return this sign.
     if hint_sign:
         # print(f'hint: {hint}; sign: {hint_sign}')
         return hint_sign
@@ -554,18 +528,15 @@ def _get_hint_pep_sign_ambiguous_or_none(hint: Hint) -> Optional[HintSign]:
     #
     # If this representation (and thus this hint) is subscripted...
     elif hint_repr_subbed:
-        # Sign identifying this necessarily subscripted hint if this hint is
-        # identifiable by its necessarily subscripted representation *OR*
-        # "None" otherwise.
+        # Sign identifying this subscripted hint if this hint is identifiable by
+        # its necessarily subscripted representation *OR* "None" otherwise.
         hint_sign = HINT_REPR_PREFIX_ARGS_1_OR_MORE_TO_SIGN.get(
             hint_repr_prefix)
 
-        # If this hint is identifiable by its necessarily subscripted
-        # representation, return this sign.
+        # If this hint is identifiable by this representation, return this sign.
         if hint_sign:
             return hint_sign
-        # Else, this hint is *NOT* identifiable by its necessarily subscripted
-        # representation.
+        # Else, this hint is *NOT* identifiable by this representation.
     # Else, this representation (and thus this hint) is unsubscripted.
 
     # ..................{ PHASE ~ repr : trie                }..................
@@ -661,7 +632,7 @@ def _get_hint_pep_sign_ambiguous_or_none(hint: Hint) -> Optional[HintSign]:
     # Ergo, the "typing.Generic" ABC uniquely identifies many but *NOT* all
     # generics. While non-ideal, the failure of PEP 585-compliant generics to
     # subclass a common superclass leaves us with little alternative.
-    if is_hint_pep484585_generic_unsubbed(hint):
+    if is_hint_pep484585_generic_unsubbed(hint):  # pyright: ignore
         return HintSignPep484585GenericUnsubbed
     # Else, this hint is *NOT* a PEP 484- or 585-compliant unsubscripted
     # generic.
@@ -670,10 +641,21 @@ def _get_hint_pep_sign_ambiguous_or_none(hint: Hint) -> Optional[HintSign]:
     # object subscripted by one or more child type hints originating from a
     # user-defined class superficially subclassing at least one PEP 484- or
     # 585-compliant type hint), return that sign. See above for commentary.
-    elif is_hint_pep484585_generic_subbed(hint):
+    elif is_hint_pep484585_generic_subbed(hint):  # pyright: ignore
         return HintSignPep484585GenericSubbed
     # Else, this hint is *NOT* a PEP 484- or 585-compliant subscripted generic.
+
+    #FIXME: Ho, ho! This can and should be refactored into a new disambiguator
+    #leveraging our new "_HINT_SIGN_AMBIGUOUS_TO_DISAMBIGUATOR" map as well.
+    #How? By adding a new mapping to that map from:
+    #    None: disambiguate_hint_nonpep_pep589()
     #
+    #By default, PEP 589-compliant typed dictionaries just look like ordinary
+    #PEP-noncompliant isinstanceable types. Their signs would thus be "None"
+    #without this logic here. The solution is to define a new
+    #disambiguate_hint_nonpep_pep589() disambiguating ordinary PEP-noncompliant
+    #isinstanceable types from PEP 589-compliant typed dictionaries. Fun! \o/
+
     # If this hint is a PEP 589-compliant typed dictionary, return that sign.
     elif is_hint_pep589(hint):
         return HintSignTypedDict
@@ -696,21 +678,42 @@ def _get_hint_pep_sign_ambiguous_or_none(hint: Hint) -> Optional[HintSign]:
     #   produced by Python itself, the standard library, and well-known
     #   third-party type hint factories), which are all guaranteed to be
     #   consistent with respect to PEP 604.
-    die_if_hint_pep604_inconsistent(hint)
+    die_if_hint_pep604_inconsistent(hint)  # pyright: ignore
     # Else, this hint is consistent with respect to PEP 604-style new unions.
 
+    #FIXME: *HMM.* Convoluted disambiguation logic like this no longer seems as
+    #reasonable as it once did. If you consider it, what we're *REALLY* doing
+    #here is disambiguating the ambiguous type "HintGenericSubscriptedType" into
+    #various unambiguous signs. But... that's *EXACTLY* what our new
+    #"_HINT_SIGN_AMBIGUOUS_TO_DISAMBIGUATOR" map is for! In other words,
+    #consider refactoring this logic as follows:
+    #* Rename "HintGenericSubscriptedType" to "HintSignGenericAliasSubbed" for
+    #  disambiguity.
+    #* Define a new ambiguous sign "HintSignGenericAliasSubbed".
+    #* Add a new mapping to the existing
+    #  "HINT_MODULE_NAME_TO_TYPE_BASENAME_TO_SIGN" dictionary ambiguously
+    #  mapping the ambiguous type "HintSignGenericAliasSubbed" to the ambiguous
+    #  sign "HintSignGenericAliasSubbed".
+    #* Add a new mapping to the existing
+    #  "_HINT_SIGN_AMBIGUOUS_TO_DISAMBIGUATOR" dictionary unambiguously mapping
+    #  to the ambiguous sign "HintSignGenericAliasSubbed" to a new
+    #  disambiguate_hint_pep585646695_generic_subbed() function.
+    #* Define a new disambiguate_hint_pep585646695_generic_subbed() function
+    #  whose contents are literally the body of the "if" conditional below.
+    #* Remove the "if" conditional below.
     #FIXME: Unit test us up, please.
+
     # If this hint is an unrecognized subscripted builtin type hint (i.e.,
     # C-based type hint instantiated by subscripting a pure-Python origin class
     # unrecognized by @beartype and thus PEP-noncompliant)...
-    if is_hint_pep585_builtin_subbed(hint):
+    if is_hint_pep585_builtin_subbed(hint):  # pyright: ignore
         # If this hint is a PEP 646-compliant unpacked child tuple hint (i.e.,
         # object created by unpacking a tuple hint inside another tuple hint via
         # the unary unpack operator "*" and thus of the form
         # "tuple[{hint_child_1}, ..., *tuple[{hint_child_child_1}, ...,
         # {hint_child_child_M}], ..., {hint_child_N}]"), return the
         # corresponding sign.
-        if is_hint_pep646_tuple_unpacked_prefix(hint):
+        if is_hint_pep646_tuple_unpacked_prefix(hint):  # pyright: ignore
             return HintSignPep646TupleUnpacked
         # Else, this hint is *NOT* a PEP 646-compliant unpacked child tuple
         # hint.
@@ -719,7 +722,7 @@ def _get_hint_pep_sign_ambiguous_or_none(hint: Hint) -> Optional[HintSign]:
         # object created by subscripting an object created by a statement of the
         # form "type {alias_name}[{type_var}] = {alias_value}" by one or more
         # child type hints), return the corresponding sign.
-        elif is_hint_pep695_subbed(hint):
+        elif is_hint_pep695_subbed(hint):  # pyright: ignore
             return HintSignPep695TypeAliasSubscripted
         # Else, this hint is *NOT* a PEP 695-compliant subscripted type alias.
 
@@ -737,3 +740,25 @@ def _get_hint_pep_sign_ambiguous_or_none(hint: Hint) -> Optional[HintSign]:
 
     # Return "None", informing the caller that this is an isinstanceable type.
     return None
+
+# ....................{ PRIVATE ~ globals                  }....................
+# Note this dictionary requires callables defined by the submodules of the
+# "beartype._util.hint.pep.proposal" subpackage and thus *CANNOT* be moved into
+# the "beartype._data.hint.sign.datahintsignmap" submodule.
+_HINT_SIGN_AMBIGUOUS_TO_DISAMBIGUATOR: dict[Optional[HintSign], Callable] = {
+    # ....................{ PEP (484|585|646)              }....................
+    # Disambiguate PEP 484- and 585-compliant tuple hints from PEP 646-compliant
+    # tuple hints.
+    HintSignTuple: disambiguate_hint_pep484585646_tuple_sign,
+
+    # ....................{ PEP (646|692)                  }....................
+    # Disambiguate PEP 646- from PEP 692-compliant "typing.Unpack[...]" hints.
+    HintSignUnpack: disambiguate_hint_pep646692_unpacked_sign,
+}
+'''
+Dictionary mapping from each **ambiguous sign** (i.e., ambiguously identifying
+two or more different kinds of hints - as opposed to unambiguously identifying
+only a single kind of hint like most signs do) to that sign's **disambiguator**
+(i.e., lower-level function accepting a hint identified by this ambiguous sign
+and returning a different sign unambiguously identifying this hint).
+'''

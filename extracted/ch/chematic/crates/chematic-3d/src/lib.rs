@@ -26,6 +26,8 @@ pub mod etkdg;
 pub mod etkdg_knowledge;
 pub(crate) mod fmath;
 #[cfg(test)]
+mod geometry_boundary_contract_tests;
+#[cfg(test)]
 mod issue256_255_phase2_evaluation;
 pub mod md;
 pub mod minimize;
@@ -480,6 +482,14 @@ mod tests {
         let bad = "not_a_number\ncomment\n";
         let result = parse_xyz(bad);
         assert!(
+            result
+                .as_ref()
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("XYZ header")
+        );
+        assert!(
             matches!(result, Err(XyzError::InvalidAtomCount)),
             "expected InvalidAtomCount error, got {:?}",
             result.err()
@@ -684,7 +694,7 @@ mod tests {
         let xyz = "2\n\nXx   0.0 0.0 0.0\nC    1.0 1.0 1.0\n";
         let result = parse_xyz(xyz);
         match result {
-            Err(XyzError::UnknownElement(_)) => (),
+            Err(e @ XyzError::UnknownElement(_)) => assert!(e.to_string().contains("Xx")),
             _ => panic!("expected UnknownElement error"),
         }
     }
@@ -693,6 +703,14 @@ mod tests {
     fn test_xyz_invalid_line() {
         let xyz = "2\n\nC 0.0 0.0\nC 1.0 1.0 1.0\n"; // first atom line too short
         let result = parse_xyz(xyz);
+        assert!(
+            result
+                .as_ref()
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("coordinate line 3")
+        );
         assert!(matches!(result, Err(XyzError::InvalidLine(_))));
     }
 
@@ -706,7 +724,10 @@ mod tests {
                     max_input_bytes: 4,
                     ..Default::default()
                 }
-            ),
+            )
+            .inspect_err(|e| {
+                assert!(e.to_string().contains("4-byte limit"));
+            }),
             Err(XyzError::InputTooLarge { .. })
         ));
         assert!(matches!(
@@ -716,7 +737,10 @@ mod tests {
                     max_atoms: 10,
                     ..Default::default()
                 }
-            ),
+            )
+            .inspect_err(|e| {
+                assert!(e.to_string().contains("999") && e.to_string().contains("10-atom limit"));
+            }),
             Err(XyzError::TooManyAtoms {
                 count: 999,
                 limit: 10,
@@ -729,7 +753,10 @@ mod tests {
                     max_line_bytes: 3,
                     ..Default::default()
                 }
-            ),
+            )
+            .inspect_err(|e| {
+                assert!(e.to_string().contains("line 3") && e.to_string().contains("3-byte limit"));
+            }),
             Err(XyzError::LineTooLong { line: 3, limit: 3 })
         ));
     }
@@ -950,3 +977,16 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod dynamics_contract_tests;
+#[cfg(test)]
+mod torsion_contract_tests;
+
+#[cfg(test)]
+mod bounds_boundary_contract_tests;
+#[cfg(test)]
+mod legacy_geometry_tests;
+
+#[cfg(test)]
+mod torsion_boundary_contract_tests;

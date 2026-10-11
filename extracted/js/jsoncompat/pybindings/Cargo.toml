@@ -1,6 +1,6 @@
 [package]
 name = "jsoncompat_py"
-version = "0.4.3"
+version = "0.5.0"
 readme = "README.md"
 edition = "2024"
 publish = false # This crate is not published to crates.io; only PyPI.
@@ -14,10 +14,12 @@ doc = false
 pyo3 = { version = "0.28.3", features = ["extension-module", "generate-import-lib"] }
 serde_json = "1.0.149"
 jiter = { version = "0.15.0", features = ["python"] }
+num-bigint = "0.4"
 anyhow = "1.0.102"
 rand = "0.10.0"
 
 # Internal crates
+jsoncompat_codegen = { path = "../codegen" }
 jsoncompat = { path = ".." }
 json_schema_ast = { path = "../schema" }
 json_schema_fuzz = { path = "../fuzz" }

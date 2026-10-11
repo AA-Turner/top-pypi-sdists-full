@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: lightphe
-Version: 0.0.25
+Version: 0.0.26
 Summary: A Lightweight Partially Homomorphic Encryption Library for Python
 Home-page: https://github.com/serengil/LightPHE
 Author: Sefik Ilkin Serengil
@@ -20,23 +20,14 @@ License-File: LICENSE
 
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/lightphe?period=total&units=international_system&left_color=grey&right_color=blue&left_text=downloads)](https://pepy.tech/project/lightphe)
 [![Stars](https://img.shields.io/github/stars/serengil/LightPHE?color=yellow&style=flat&label=%E2%AD%90%20stars)](https://github.com/serengil/LightPHE/stargazers)
-[![Tests](https://github.com/serengil/LightPHE/actions/workflows/tests.yml/badge.svg)](https://github.com/serengil/LightPHE/actions/workflows/tests.yml)
 [![License](http://img.shields.io/:license-MIT-green.svg?style=flat)](https://github.com/serengil/LightPHE/blob/master/LICENSE)
-[![arXiv](https://img.shields.io/badge/arXiv-2408.05219-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2408.05219)
-
-[![Blog](https://img.shields.io/:blog-sefiks.com-blue.svg?style=flat&logo=wordpress)](https://sefiks.com)
-[![YouTube](https://img.shields.io/:youtube-@sefiks-red.svg?style=flat&logo=youtube)](https://www.youtube.com/@sefiks?sub_confirmation=1)
-[![Twitter](https://img.shields.io/:follow-@serengil-blue.svg?style=flat&logo=x)](https://twitter.com/intent/user?screen_name=serengil)
-
-[![Patreon](https://img.shields.io/:become-patron-f96854.svg?style=flat&logo=patreon)](https://www.patreon.com/serengil?repo=lightphe)
-[![GitHub Sponsors](https://img.shields.io/github/sponsors/serengil?logo=GitHub&color=lightgray)](https://github.com/sponsors/serengil)
-[![Buy Me a Coffee](https://img.shields.io/badge/-buy_me_a%C2%A0coffee-gray?logo=buy-me-a-coffee)](https://buymeacoffee.com/serengil)
+[![DOI](http://img.shields.io/:DOI-10.3390/sym18050832-blue.svg?style=flat)](https://www.mdpi.com/2073-8994/18/5/832)
 
 </div>
 
 <p align="center"><img src="https://raw.githubusercontent.com/serengil/LightPHE/master/icons/phi.png" width="200" height="240"></p>
 
-LightPHE is a lightweight homomorphic encryption library for python supporting various partially and somewhat homomorphic encryptions schemes such as [`RSA`](https://sefiks.com/2023/03/06/a-step-by-step-partially-homomorphic-encryption-example-with-rsa-in-python/), [`ElGamal`](https://sefiks.com/2023/03/27/a-step-by-step-partially-homomorphic-encryption-example-with-elgamal-in-python/), [`Exponential ElGamal`](https://sefiks.com/2023/03/27/a-step-by-step-partially-homomorphic-encryption-example-with-elgamal-in-python/), [`Elliptic Curve ElGamal`](https://sefiks.com/2018/08/21/elliptic-curve-elgamal-encryption/) ([`Weierstrass`](https://sefiks.com/2016/03/13/the-math-behind-elliptic-curve-cryptography/), [`Koblitz`](sefiks.com/2016/03/13/the-math-behind-elliptic-curves-over-binary-field/) and [`Edwards`](https://sefiks.com/2018/12/19/a-gentle-introduction-to-edwards-curves/) forms), [`Paillier`](https://sefiks.com/2023/04/03/a-step-by-step-partially-homomorphic-encryption-example-with-paillier-in-python/), [`Damgard-Jurik`](https://sefiks.com/2023/10/20/a-step-by-step-partially-homomorphic-encryption-example-with-damgard-jurik-in-python/), [`Okamoto–Uchiyama`](https://sefiks.com/2023/10/20/a-step-by-step-partially-homomorphic-encryption-example-with-okamoto-uchiyama-in-python/), [`Benaloh`](https://sefiks.com/2023/10/06/a-step-by-step-partially-homomorphic-encryption-example-with-benaloh-in-python-from-scratch/), [`Naccache–Stern`](https://sefiks.com/2023/10/26/a-step-by-step-partially-homomorphic-encryption-example-with-naccache-stern-in-python/), [`Goldwasser–Micali`](https://sefiks.com/2023/10/27/a-step-by-step-partially-homomorphic-encryption-example-with-goldwasser-micali-in-python/), [`Sander-Young-Yung`](https://sefiks.com/2026/04/02/a-step-by-step-partially-homomorphic-sander-young-yung-example-in-python/), [`Boneh-Goh-Nissim`](https://sefiks.com/2026/04/02/a-step-by-step-somewhat-homomorphic-encryption-example-with-boneh-goh-nissim-in-python/).
+LightPHE is a lightweight homomorphic encryption library for python supporting various partially and somewhat homomorphic encryptions schemes such as [`RSA`](https://sefiks.com/2023/03/06/a-step-by-step-partially-homomorphic-encryption-example-with-rsa-in-python/), [`ElGamal`](https://sefiks.com/2023/03/27/a-step-by-step-partially-homomorphic-encryption-example-with-elgamal-in-python/), [`Exponential ElGamal`](https://sefiks.com/2023/03/27/a-step-by-step-partially-homomorphic-encryption-example-with-elgamal-in-python/), [`Elliptic Curve ElGamal`](https://sefiks.com/2018/08/21/elliptic-curve-elgamal-encryption/) ([`Weierstrass`](https://sefiks.com/2016/03/13/the-math-behind-elliptic-curve-cryptography/), [`Koblitz`](sefiks.com/2016/03/13/the-math-behind-elliptic-curves-over-binary-field/) and [`Edwards`](https://sefiks.com/2018/12/19/a-gentle-introduction-to-edwards-curves/) forms), [`Paillier`](https://sefiks.com/2023/04/03/a-step-by-step-partially-homomorphic-encryption-example-with-paillier-in-python/), [`Damgard-Jurik`](https://sefiks.com/2023/10/20/a-step-by-step-partially-homomorphic-encryption-example-with-damgard-jurik-in-python/), [`Okamoto–Uchiyama`](https://sefiks.com/2023/10/20/a-step-by-step-partially-homomorphic-encryption-example-with-okamoto-uchiyama-in-python/), [`Benaloh`](https://sefiks.com/2023/10/06/a-step-by-step-partially-homomorphic-encryption-example-with-benaloh-in-python-from-scratch/), [`Naccache–Stern`](https://sefiks.com/2023/10/26/a-step-by-step-partially-homomorphic-encryption-example-with-naccache-stern-in-python/), [`Goldwasser–Micali`](https://sefiks.com/2023/10/27/a-step-by-step-partially-homomorphic-encryption-example-with-goldwasser-micali-in-python/), [`Sander-Young-Yung`](https://sefiks.com/2026/04/02/a-step-by-step-partially-homomorphic-sander-young-yung-example-in-python/), [`Boneh-Goh-Nissim`](https://sefiks.com/2026/04/02/a-step-by-step-somewhat-homomorphic-encryption-example-with-boneh-goh-nissim-in-python/), `Joye-Libert`, `Castagnos-Laguillaumie`, `Ishai-Paskin`.
 
 # Partially vs Fully Homomorphic Encryption
 
@@ -67,20 +58,23 @@ from lightphe import LightPHE
 
 In summary, LightPHE is covering following algorithms and these are partially homomorphic and somewhat homomorphic with respect to the operations mentioned in the following table.
 
-| Algorithm | Multiplicatively<br>Homomorphic | Additively<br>Homomorphic | Scalar Multiplication | Bitwise-XOR Homomorphic | Bitwise-AND Homomorphic | Regeneration<br>of Ciphertext |
-| --- | --- | --- | --- | --- | --- | --- |
-| RSA | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| ElGamal | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Exponential ElGamal | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Elliptic Curve ElGamal | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Paillier | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Damgard-Jurik | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Benaloh | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Naccache-Stern | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Okamoto-Uchiyama | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Goldwasser-Micali | ❌ | ❌ | ❌ | ✅ | ❌ | ✅  |
-| Sander-Young-Yung | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Boneh-Goh-Nissim | 1️⃣ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Algorithm | Multiplicatively<br>Homomorphic | Additively<br>Homomorphic | Scalar Multiplication | Bitwise-XOR Homomorphic | Bitwise-AND Homomorphic | Regeneration<br>of Ciphertext | Decision Tree<br>Evaluation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| RSA | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| ElGamal | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| Exponential ElGamal | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Elliptic Curve ElGamal | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Paillier | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Damgard-Jurik | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Benaloh | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Naccache-Stern | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Okamoto-Uchiyama | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Joye-Libert | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Castagnos-Laguillaumie | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Ishai-Paskin | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
+| Goldwasser-Micali | ❌ | ❌ | ❌ | ✅ | ❌ | ✅  | ❌ |
+| Sander-Young-Yung | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ |
+| Boneh-Goh-Nissim | 1️⃣ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
 
 # Building cryptosystem
 
@@ -100,6 +94,9 @@ algorithms = [
   "EllipticCurve-ElGamal",
   "Sander-Young-Yung",
   "Boneh-Goh-Nissim",
+  "Joye-Libert",
+  "Castagnos-Laguillaumie",
+  "Ishai-Paskin",
 ]
 
 cs = LightPHE(algorithm_name = algorithms[0])
@@ -186,6 +183,58 @@ Each curve in LightPHE has a specific order, which is carefully chosen to balanc
 
 See [`curves`](https://github.com/serengil/LightECC#supported-curves) page for a list of all supported forms, curves and their details.
 
+### Decision Trees
+
+Ishai-Paskin solves a different problem than the algorithms above. Suppose a bank has a secret decision tree that decides a customer's credit limit, and a customer has private yes / no answers. The bank does not want to reveal its tree, and the customer does not want to reveal their answers. With Ishai-Paskin, the customer sends encrypted answers, the bank runs its tree on them without seeing them, and only the customer can decrypt the result. The customer learns the credit limit but not the rest of the tree.
+
+Let the bank's tree be the following, where questions are numbered 0, 1 and 2 and leaves are credit limits in thousand dollars.
+
+```
+                  Q0: has stable income?
+                 /no                    \yes
+     Q2: owns a house?              Q1: has existing debt?
+       /no        \yes               /no           \yes
+      0            5               20         Q2: owns a house?
+                                                /no       \yes
+                                               5          10
+```
+
+Each question is written as a tuple of `(question number, what to do if no, what to do if yes)`, and leaves are plain integers. So, the tree above becomes:
+
+```python
+credit_limit_tree = (0, (2, 0, 5), (1, 20, (2, 5, 10)))
+```
+
+Then, the customer and the bank run the following steps.
+
+```python
+# customer builds the cryptosystem and keeps the private key
+customer_cs = LightPHE(algorithm_name = "Ishai-Paskin")
+
+# customer shares only the public key with the bank
+customer_cs.export_keys(target_file = "public.txt", public = True)
+
+# customer's answers: stable income = yes, existing debt = yes, owns a house = no
+answers = [1, 1, 0]
+
+# customer encrypts the answers and sends them to the bank. depth is the maximum
+# number of questions on a path of the tree, the bank should share this value
+encrypted_answers = customer_cs.encrypt_decision_tree_input(bits = answers, depth = 3)
+
+# bank builds its own cryptosystem with the customer's public key
+bank_cs = LightPHE(algorithm_name = "Ishai-Paskin", key_file = "public.txt")
+
+# bank runs its tree on encrypted answers and sends the result back to the customer
+encrypted_limit = bank_cs.evaluate_decision_tree(
+  tree = credit_limit_tree, encrypted_input = encrypted_answers
+)
+
+# customer decrypts the result - only the customer has the private key
+assert customer_cs.decrypt(encrypted_limit) == 5
+```
+
+The size of the result grows with the depth of the tree, not with the number of its nodes. Still, each extra level makes the computation noticeably slower, so this is practical for shallow trees.
+
 ### Vector Embeddings
 
 LightPHE supports homomorphic encryption on vector embeddings. This is useful in privacy-preserving machine learning, secure aggregation, and confidential data processing.
@@ -227,6 +276,17 @@ All PRs are more than welcome! If you are planning to contribute a large patch, 
 
 You should be able run `make test` and `make lint` commands successfully before committing. Once a PR is created, GitHub test workflow will be run automatically and unit test results will be available in [GitHub actions](https://github.com/serengil/LightPHE/actions/workflows/tests.yml) before approval.
 
+## LightPHE Ecosystem
+
+`LightPHE` is available across multiple programming languages with consistent APIs and native performance for each ecosystem. Choose the port that fits your stack:
+
+| Language | Repository | Ecosystem Focus |
+| :--- | :--- | :--- |
+| **Python** | [`lightphe`](https://github.com/serengil/lightphe) | AI, Research & Prototyping |
+| **Go** | [`lightphe-go`](https://github.com/serengil/lightphe-go) | Cloud-Native & High-Throughput Microservices |
+| **Java** | [`lightphe4j`](https://github.com/serengil/lightphe4j) | Enterprise, Banking & Legacy Systems |
+| **TypeScript** | [`lightphe-ts`](https://github.com/serengil/lightphe-ts) | Client-Side Privacy & Node.js Backend |
+
 # Support
 
 There are many ways to support a project - starring⭐️ the GitHub repo is just one 🙏
@@ -248,7 +308,7 @@ Also, your company's logo will be shown on README on GitHub if you become sponso
 Please cite LightPHE in your publications if it helps your research. Here is its BibTex entry:
 
 ```BibTeX
-@article{sym18050832,
+@article{lightphe,
   title          = {Sustainable Cryptography: Carbon Asymmetry in Partially Homomorphic Encryption in the Cloud},
   author         = {Ozpinar, Alper and Serengil, Sefik Ilkin},
   journal        = {Symmetry},

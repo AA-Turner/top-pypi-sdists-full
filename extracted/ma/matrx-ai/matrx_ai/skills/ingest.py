@@ -32,6 +32,8 @@ YAML frontmatter (between `---` fences) supplies metadata:
     trigger_patterns: []        # optional
     disable_auto_invocation: false
     version: '1.0.0'
+    attach_with_tools: []       # optional; tool NAMES that carry this skill (full body
+                                # attached to any run holding one) → config.attach_with_tools
     ---
 
     # Markdown body
@@ -52,6 +54,8 @@ from uuid import UUID
 from matrx_utils import vcprint
 from matrx_utils.row_access import is_published, publish_columns, reconcile_row_access
 from matrx_utils.text_case import humanize_identifier
+
+from matrx_ai.skills.providers import ATTACH_WITH_TOOLS_KEY
 
 _YAML_FENCE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
@@ -363,6 +367,11 @@ def _parse_content(content: str, *, skill_id: str, source_path: str) -> ParsedSk
 
     disable_auto = bool(_first_present(fm, "disable_auto_invocation", "no_auto_invoke") or False)
 
+    # The tools that CARRY this skill: a run holding any of them gets the skill's
+    # full body (providers.ATTACH_WITH_TOOLS_KEY). Lands in config, never a column.
+    carriers = _coerce_list(fm.get(ATTACH_WITH_TOOLS_KEY))
+    extra_config = {ATTACH_WITH_TOOLS_KEY: carriers} if carriers else None
+
     return ParsedSkill(
         skill_id=skill_id,
         label=str(label)[:300],
@@ -377,6 +386,7 @@ def _parse_content(content: str, *, skill_id: str, source_path: str) -> ParsedSk
         version=version,
         source_hash=_hash(body),
         source_path=source_path,
+        extra_config=extra_config,
     )
 
 
@@ -1304,6 +1314,9 @@ async def upsert_parsed_skills(
             # A non-repo source (an outside pack) stamps its own provenance —
             # source repo URL, commit, license, authors — over the defaults.
             merged_config.update(p.extra_config)
+            # A skill that stopped declaring carrier tools stops being carried.
+            if ATTACH_WITH_TOOLS_KEY not in p.extra_config:
+                merged_config.pop(ATTACH_WITH_TOOLS_KEY, None)
             merged_config.pop("pruned_at", None)
             merged_config.pop("pruned_reason", None)
 
@@ -1363,6 +1376,10 @@ async def upsert_parsed_skills(
                     and existing_cfg.get("ingested_at")
                     and existing_cfg.get("source_repo")
                     and all(existing_cfg.get(k) == v for k, v in p.extra_config.items())
+                    and (
+                        ATTACH_WITH_TOOLS_KEY in p.extra_config
+                        or ATTACH_WITH_TOOLS_KEY not in existing_cfg
+                    )
                     and is_published(row) == bool(p.published_to_web)
                     and (
                         parent_id is None

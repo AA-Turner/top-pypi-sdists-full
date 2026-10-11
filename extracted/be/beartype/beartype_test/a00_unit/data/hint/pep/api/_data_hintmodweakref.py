@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -19,25 +19,26 @@ dramatically simplify code generation for these hints. Ergo, so we do.
 '''
 
 # ....................{ FIXTURES                           }....................
-def hints_pep_meta_weakref() -> 'List[HintPepMetadata]':
+def hints_pep_meta_weakref() -> 'list[HintPepMetadata]':
     '''
     List of :mod:`weakref`-specific **type hint metadata** (i.e.,
-    :class:`beartype_test.a00_unit.data.hint.util.data_hintmetacls.HintPepMetadata`
+    :class:`beartype_test.a00_unit.data.hint.cls.pith.data_clshintpith.HintPepMetadata`
     instances describing test-specific sample :mod:`weakref`-specific type hints
     with metadata generically leveraged by various PEP-agnostic unit tests).
     '''
 
     # ..................{ IMPORTS                            }..................
     # Defer version-specific imports.
-    from beartype.typing import Any
     from beartype._data.hint.sign.datahintsigns import (
         HintSignPep585BuiltinSubscriptedUnknown)
-    from beartype_test.a00_unit.data.hint.util.data_hintmetacls import (
-        HintPepMetadata,
-        HintPithSatisfiedMetadata,
-        HintPithUnsatisfiedMetadata,
+    from beartype_test.a00_unit.data.hint.cls.pith.data_clshint import (
+        HintPepMetadata)
+    from beartype_test.a00_unit.data.hint.cls.pith.data_clspith import (
+        PithSatisfiedMetadata,
+        PithUnsatisfiedMetadata,
     )
     from gc import collect
+    from typing import Any
     from weakref import ref
 
     # ..................{ CLASSES                            }..................
@@ -75,7 +76,7 @@ def hints_pep_meta_weakref() -> 'List[HintPepMetadata]':
 
     # ..................{ LISTS                              }..................
     # List of all module-specific type hint metadata to be returned.
-    hints_pep_meta = [
+    hints_piths_pep_meta = [
         # ................{ REF                                }................
         # Weak reference to *ANY* arbitrary object.
         HintPepMetadata(
@@ -85,11 +86,11 @@ def hints_pep_meta_weakref() -> 'List[HintPepMetadata]':
             is_pep585_builtin_subbed=True,
             piths_meta=(
                 # Weak reference to a living object.
-                HintPithSatisfiedMetadata(heard_in_ref),
+                PithSatisfiedMetadata(heard_in_ref),
                 # Weak reference to a dead object.
-                HintPithSatisfiedMetadata(its_music_long_ref),
+                PithSatisfiedMetadata(its_music_long_ref),
                 # String constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     'Heard in the calm of thought; its music long,'),
             ),
         ),
@@ -102,16 +103,16 @@ def hints_pep_meta_weakref() -> 'List[HintPepMetadata]':
             is_pep585_builtin_subbed=True,
             piths_meta=(
                 # Weak reference to a living object.
-                HintPithSatisfiedMetadata(heard_in_ref),
+                PithSatisfiedMetadata(heard_in_ref),
                 # Weak reference to a dead object.
-                HintPithSatisfiedMetadata(its_music_long_ref),
+                PithSatisfiedMetadata(its_music_long_ref),
 
                 #FIXME: Uncomment *AFTER* deeply type-checking "ref[...]".
                 # # Weak reference to an instance of a different type.
-                # HintPithUnsatisfiedMetadata(streams_and_breezes_ref),
+                # PithUnsatisfiedMetadata(streams_and_breezes_ref),
 
                 # String constant.
-                HintPithUnsatisfiedMetadata(
+                PithUnsatisfiedMetadata(
                     'Like woven sounds of streams and breezes, held'),
             ),
         ),
@@ -119,4 +120,4 @@ def hints_pep_meta_weakref() -> 'List[HintPepMetadata]':
 
     # ..................{ RETURN                             }..................
     # Return this list of all PEP-specific type hint metadata.
-    return hints_pep_meta
+    return hints_piths_pep_meta

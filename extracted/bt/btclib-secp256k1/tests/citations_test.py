@@ -43,9 +43,8 @@ account of itself, so a test renamed afterwards does not make it wrong,
 and a check over it would ask for the record to be edited whenever the
 tree moves -- rewriting history rather than fixing a reference.
 
-The open section is out of scope for a reason of its own rather than by
-extension: the entry renaming every module under `tests/` states that
-`CHANGELOG.md` is where the names as they were survive, and gives
+The entry renaming every module under `tests/` relies on that: it states
+that `CHANGELOG.md` is where the names as they were survive, and gives
 `git grep` answering it alone as what the rename buys.
 """
 
@@ -95,6 +94,9 @@ _DEFINITION = re.compile(r"^def (test_[a-z0-9_]+)\(", re.MULTILINE)
 # still being cited, so this cannot become a list of names nobody removed
 _FOREIGN = {
     "test_low_r": "rust-bitcoin/rust-secp256k1, src/lib.rs",
+    "test_ecdsa_adaptor_spec_vectors": (
+        "BlockstreamResearch/secp256k1-zkp, src/modules/ecdsa_adaptor/tests_impl.h"
+    ),
     "test_ecdsa_anti_exfil_signer_commit": (
         "BlockstreamResearch/secp256k1-zkp, src/modules/ecdsa_s2c/tests_impl.h"
     ),

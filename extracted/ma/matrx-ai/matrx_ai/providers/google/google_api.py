@@ -14,6 +14,7 @@ from google.genai.types import (
     Part,
 )
 from matrx_connect.context.events import InfoPayload
+from matrx_connect.request_latency import mark_provider_stream_open
 from matrx_utils import vcprint
 
 from matrx_ai.config import (
@@ -402,6 +403,7 @@ class GoogleChat:
                     async for chunk in await _stream(
                         **route_undeclared_params(_stream, config_data, provider="google")
                     ):
+                        mark_provider_stream_open()
                         accumulated_chunks.append(chunk)
                         if chunk.candidates:
                             cand: Candidate

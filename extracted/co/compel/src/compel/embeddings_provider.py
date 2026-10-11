@@ -4,13 +4,14 @@ from enum import Enum, Flag, auto
 from typing import Callable, Union, Optional, Any
 
 import torch
-from transformers import CLIPTokenizer, CLIPTextModel, CLIPTextModelWithProjection, T5TokenizerFast, T5EncoderModel
+from transformers import CLIPTokenizer, CLIPTextModel, CLIPTextModelWithProjection, T5TokenizerFast, T5EncoderModel, \
+    Gemma2PreTrainedModel, GemmaTokenizer, GemmaTokenizerFast
 from typing import List, Tuple
 
 __all__ = ["EmbeddingsProvider", "DownweightMode", "ReturnedEmbeddingsType", "SplitLongTextMode"]
 
-CompatibleTokenizer = Union[CLIPTokenizer, T5TokenizerFast]
-CompatibleTextEncoder = Union[CLIPTextModel, CLIPTextModelWithProjection, T5EncoderModel]
+CompatibleTokenizer = Union[CLIPTokenizer, T5TokenizerFast, GemmaTokenizer, GemmaTokenizerFast]
+CompatibleTextEncoder = Union[CLIPTextModel, CLIPTextModelWithProjection, T5EncoderModel, Gemma2PreTrainedModel]
 
 
 class DownweightMode(Enum):
@@ -50,6 +51,8 @@ class EmbeddingsProvider:
                  returned_embeddings_type: ReturnedEmbeddingsType = ReturnedEmbeddingsType.LAST_HIDDEN_STATES_NORMALIZED,
                  device: Optional[str] = None,
                  split_long_text_mode: SplitLongTextMode = SplitLongTextMode.SENTENCES | SplitLongTextMode.COPY_FIRST_CLS_TOKEN,
+                 model_max_length: Optional[int] = None,
+                 suppress_eos: bool = False
                  ):
         """
         `tokenizer`: converts strings to lists of int token ids
@@ -65,6 +68,9 @@ class EmbeddingsProvider:
             encoder over the parsed prompt's text. For SD<=2.1, use LAST_HIDDEN_STATES_NORMALIZED, or
             PENULTIMATE_HIDDEN_STATES_NORMALIZED if you want to do "clip skip". For SDXL use PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED.
         `split_long_text_mode`: Controls how to split longer texts when `truncate` is False.
+        `model_max_length`: Overrides the maximum token count used for truncation/chunking/padding. Defaults to
+            `tokenizer.model_max_length`. Useful for pipelines (e.g. Gemma2-backed) that mandate a fixed
+            `max_sequence_length`.
         """
         self.tokenizer = tokenizer
         self.text_encoder = text_encoder
@@ -75,6 +81,8 @@ class EmbeddingsProvider:
         self.returned_embeddings_type = returned_embeddings_type
         self.device = device if device else self.text_encoder.device
         self.split_long_text_mode = split_long_text_mode
+        self.model_max_length_override = model_max_length
+        self.suppress_eos = suppress_eos
 
         # by default always use float32
         self.get_dtype_for_device = dtype_for_device_getter
@@ -99,7 +107,7 @@ class EmbeddingsProvider:
 
     @property
     def max_token_count(self) -> int:
-        return self.tokenizer.model_max_length
+        return self.model_max_length_override if self.model_max_length_override is not None else self.tokenizer.model_max_length
 
     @property
     def bos_sequence(self) -> List[int]:
@@ -107,7 +115,9 @@ class EmbeddingsProvider:
 
     @property
     def eos_sequence(self) -> List[int]:
-        return [self.tokenizer.eos_token_id] if self.tokenizer.eos_token_id is not None else []
+        if self.tokenizer.eos_token_id is None or self.suppress_eos:
+            return []
+        return [self.tokenizer.eos_token_id]
 
     @classmethod
     def apply_embedding_weights(cls, embeddings: torch.Tensor, per_embedding_weights: List[float],
@@ -190,8 +200,8 @@ class EmbeddingsProvider:
                         mask_without_fragment[fragment_start_token_id:fragment_end_token_id+1] = 0
                         if not self.truncate_to_model_max_length:
                             # but don't mask chunk-delimiting eos/bos markers
-                            mask_without_fragment[0::self.tokenizer.model_max_length] = 1
-                            mask_without_fragment[self.tokenizer.model_max_length-1::self.tokenizer.model_max_length] = 1
+                            mask_without_fragment[0::self.max_token_count] = 1
+                            mask_without_fragment[self.max_token_count-1::self.max_token_count] = 1
                         embedding_without_this = self.build_weighted_embedding_tensor(tokens,
                                                                                       per_token_weights,
                                                                                       mask_without_fragment,
@@ -226,13 +236,13 @@ class EmbeddingsProvider:
             lerped_embeddings = self.apply_embedding_weights(embeddings, per_embedding_weights, normalize=True).squeeze(0)
 
             # copy CLS token from chunk 0 to all other chunks if requested
-            long_prompt_chunk_count = tokens.shape[0] // self.tokenizer.model_max_length
+            long_prompt_chunk_count = tokens.shape[0] // self.max_token_count
             if long_prompt_chunk_count > 1 and SplitLongTextMode.COPY_FIRST_CLS_TOKEN in self.split_long_text_mode or SplitLongTextMode.MERGE_CLS_TOKENS in self.split_long_text_mode:
                 cls_token_indices = []
                 for chunk_index in range(long_prompt_chunk_count):
-                    offset = chunk_index * self.tokenizer.model_max_length
+                    offset = chunk_index * self.max_token_count
                     # first EOS token == CLS embedding (other EOS tokens, if any, are padding)
-                    cls_token_idx = offset + torch.where(tokens[offset:offset+self.tokenizer.model_max_length] == self.tokenizer.eos_token_id)[0][0]
+                    cls_token_idx = offset + torch.where(tokens[offset:offset+self.max_token_count] == self.tokenizer.eos_token_id)[0][0]
                     cls_token_indices.append(cls_token_idx)
                 if SplitLongTextMode.COPY_FIRST_CLS_TOKEN in self.split_long_text_mode:
                     #print(f"split_long_text_mode is SplitLongTextMode.COPY_FIRST_CLS_TOKEN -> copying CLS embedding from prompt chunk 0 to subsequent {long_prompt_chunk_count-1} chunks")
@@ -298,7 +308,7 @@ class EmbeddingsProvider:
             # trim eos/bos
             if token_ids[0] == self.tokenizer.bos_token_id:
                 token_ids = token_ids[1:]
-            if token_ids[-1] == self.tokenizer.eos_token_id:
+            if len(token_ids) > 0 and token_ids[-1] == self.tokenizer.eos_token_id:
                 token_ids = token_ids[:-1]
             # pad for textual inversions with vector length >1
             if self.textual_inversion_manager is not None:
@@ -447,6 +457,9 @@ class EmbeddingsProvider:
             chunk_token_weights = [1.0]*len(self.bos_sequence) + chunk_token_weights + [1.0]*len(self.eos_sequence)
             chunk_mask = [1] * len(chunk_token_ids)
 
+            #print("chunk_token_ids: len", len(chunk_token_ids), "contents", chunk_token_ids)
+            #print("chunk_mask: len", len(chunk_mask), "contents", chunk_mask)
+
             pad_length = self.max_token_count - len(chunk_token_ids)
             chunk_token_ids += [self.tokenizer.pad_token_id] * pad_length
             chunk_token_weights += [1.0] * pad_length
@@ -571,7 +584,7 @@ class EmbeddingsProvider:
             if len(fragment_token_ids) == 0:
                 corresponding_indices.append((None, None))
                 continue
-            if self.truncate_to_model_max_length and fragment_start >= self.tokenizer.model_max_length - 1:
+            if self.truncate_to_model_max_length and fragment_start >= self.max_token_count - 1:
                 break
             # find the start
             while True:
@@ -632,6 +645,8 @@ class EmbeddingsProviderMulti:
                  requires_pooled_mask: List[bool] = None,
                  split_long_text_mode: SplitLongTextMode = SplitLongTextMode.SENTENCES | SplitLongTextMode.COPY_FIRST_CLS_TOKEN,
                  concat_along_embedding_dim: bool = True,
+                 model_max_length: Optional[int] = None,
+                 suppress_eos: bool = False
                  ):
 
         if requires_pooled_mask is None:
@@ -639,7 +654,7 @@ class EmbeddingsProviderMulti:
         returned_embeddings_type = len(text_encoders) * [returned_embeddings_type] if not isinstance(returned_embeddings_type, (list,tuple)) else returned_embeddings_type
 
         self.embedding_providers = [
-            EmbeddingsProvider(tokenizer, text_encoder, textual_inversion_manager, dtype_for_device_getter, truncate, padding_attention_mask_value, downweight_mode, returned_embeddings_type, split_long_text_mode=split_long_text_mode)
+            EmbeddingsProvider(tokenizer, text_encoder, textual_inversion_manager, dtype_for_device_getter, truncate, padding_attention_mask_value, downweight_mode, returned_embeddings_type, split_long_text_mode=split_long_text_mode, model_max_length=model_max_length, suppress_eos=suppress_eos)
             for tokenizer, text_encoder, returned_embeddings_type in zip(tokenizers, text_encoders, returned_embeddings_type)
         ]
         self.requires_pooled_mask = requires_pooled_mask

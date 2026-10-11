@@ -1,17 +1,20 @@
-import enum
-from hashlib import sha256
-from typing import Dict, Iterable, List, Sequence, Tuple, Union
+from __future__ import annotations
 
+import enum
 import json
+from collections.abc import Iterable, Sequence
+from hashlib import sha256
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 from ocp_tessellate.cad_objects import (
     CoordAxis,
     CoordSystem,
     OcpGroup,
+    OcpInstancesGroup,
     OcpObject,
     OcpWrapper,
-    OcpInstancesGroup,
 )
 from ocp_tessellate.defaults import get_default, preset
 from ocp_tessellate.ocp_utils import *
@@ -36,6 +39,15 @@ from ocp_tessellate.types import (
 )
 from ocp_tessellate.utils import *
 
+if TYPE_CHECKING:
+    from .types import (
+        TopLoc_Location,
+        TopoDS_Compound,
+        TopoDS_Shape,
+        gp_Ax1,
+        gp_Pln,
+    )
+
 LINE_WIDTH = 2
 POINT_SIZE = 6
 
@@ -54,8 +66,6 @@ def _default_or(value, fallback):
 # ocp_tessellate does not import build123d or CadQuery, so their objects
 # are described structurally.
 
-# build123d and CadQuery compounds
-Compound = Wrapped[TopoDS_Compound]
 # CadQuery Workplane
 Workplane = CadqueryWorkplane
 # CadQuery assemblies
@@ -66,15 +76,19 @@ ShapeList = Build123dShapeList
 LocationList = Build123dLocationList
 # build123d Builder Objects
 BuilderObject = Build123dBuilder
-# build123d or CadQuery Locations or Planes, raw or wrapped
-LocationLike = Union[
-    TopLoc_Location, gp_Pln, Wrapped[TopLoc_Location], Wrapped[gp_Pln], None
-]
-# build123d Axis
-Axis = Wrapped[gp_Ax1]
-# can be build123d or CadQuery shapes
-ShapeLike = Union[TopoDS_Shape, Wrapped[TopoDS_Shape]]
-CompoundLike = Union[TopoDS_Compound, Wrapped[TopoDS_Compound]]
+
+if TYPE_CHECKING:
+    # build123d and CadQuery compounds
+    Compound = Wrapped[TopoDS_Compound]
+    # build123d or CadQuery Locations or Planes, raw or wrapped
+    LocationLike = (
+        TopLoc_Location | gp_Pln | Wrapped[TopLoc_Location] | Wrapped[gp_Pln] | None
+    )
+    # build123d Axis
+    Axis = Wrapped[gp_Ax1]
+    # can be build123d or CadQuery shapes
+    ShapeLike = TopoDS_Shape | Wrapped[TopoDS_Shape]
+    CompoundLike = TopoDS_Compound | Wrapped[TopoDS_Compound]
 
 
 class Progress:
@@ -82,7 +96,7 @@ class Progress:
         print(mark, end="", flush=True)
 
 
-def get_name(obj: object, name: Union[str, None], default: str) -> str:
+def get_name(obj: object, name: str | None, default: str) -> str:
     """
     Get the name of the object. If the name is None, use the default name.
     If the object has a non-empty string name or label attribute, use that.
@@ -153,8 +167,8 @@ def get_kind(typ: str) -> str:
 
 
 def unwrap(
-    obj: Union[ShapeLike, List[ShapeLike]],
-) -> Union[TopoDS_Shape, List[TopoDS_Shape]]:
+    obj: ShapeLike | list[ShapeLike],
+) -> TopoDS_Shape | list[TopoDS_Shape]:
     """
     Unwrap the object or objects in a list  if it is wrapped.
 
@@ -162,14 +176,14 @@ def unwrap(
 
     @return: The unwrapped object or list of objects
     """
-    if isinstance(obj, TopoDS_Shape):
+    if is_topods_shape(obj):
         return obj
     if not isinstance(obj, (list, tuple)):
         return obj.wrapped
 
-    result: List[TopoDS_Shape] = []
+    result: list[TopoDS_Shape] = []
     for x in list(obj):
-        if isinstance(x, TopoDS_Shape):
+        if is_topods_shape(x):
             result.append(x)
         elif is_vector(x):
             result.append(vertex((x.X, x.Y, x.Z)))
@@ -184,15 +198,15 @@ def unwrap(
 
 
 def _to_topods(o: object) -> TopoDS_Shape:
-    if isinstance(o, TopoDS_Shape):
+    if is_topods_shape(o):
         return o
     assert is_wrapped(o), f"expected a shape, got {o}"
     w = o.wrapped
-    assert isinstance(w, TopoDS_Shape), f"expected a wrapped shape, got {w}"
+    assert is_topods_shape(w), f"expected a wrapped shape, got {w}"
     return w
 
 
-def create_cache_id(obj: Union[ShapeLike, Sequence[ShapeLike]]) -> str:
+def create_cache_id(obj: ShapeLike | Sequence[ShapeLike]) -> str:
     """
     The TopoDS_Shape objects are serialized and hashed to create a unique id.
     The current approach is to use the sha256 hash of the serialized object.
@@ -216,18 +230,21 @@ class OcpConverter:
 
     def __init__(
         self,
-        progress: Union[Progress, None] = None,
+        progress: Progress | None = None,
         helper_scale: float = 1.0,
         render_joints=False,
         render_mates=False,
         show_parent=False,
         show_locals=True,
+        python_enumeration: bool = False,
         debug: bool = False,
     ):
         """The initializer of the OcpConverter.
         @param progress: The progress class to provide updates during the conversion
+        @param python_enumeration: Number repeated names from 0 for every occurrence,
+            a(0), a(1), ..., instead of a, a(2), ...
         """
-        self.instances: List[Instance] = []
+        self.instances: list[Instance] = []
         self.ocp = None
         self.progress = progress
         self.helper_scale = helper_scale
@@ -235,6 +252,7 @@ class OcpConverter:
         self.render_mates = render_mates
         self.show_parent = show_parent
         self.show_locals = show_locals
+        self.python_enumeration = python_enumeration
         self.debug = debug
         self.default_color = get_default("default_color")
         # Precedence for the three colors below: an explicit argument to
@@ -262,7 +280,7 @@ class OcpConverter:
 
     def get_instance(
         self, obj: TopoDS_Shape, cache_id: str, name: str
-    ) -> Tuple[int, TopLoc_Location]:
+    ) -> tuple[int, TopLoc_Location]:
         """
         Identify if the object is already available in the instances list based on
         comparing their TShapes.
@@ -278,7 +296,8 @@ class OcpConverter:
 
         # Create the relocated object as a copy
         loc = obj.Location()  # Get location
-        obj2 = downcast(obj.Moved(loc.Inverted()))
+        # the shape's own location: one binding at runtime; the OCP | nanocct unions cannot say so (known limit)
+        obj2 = downcast(obj.Moved(loc.Inverted()))  # ty: ignore[invalid-argument-type]
 
         # check if the same instance is already available
         for i, instance in enumerate(self.instances):
@@ -299,7 +318,7 @@ class OcpConverter:
 
     def trim_infinite_objs(
         self, obj: TopoDS_Shape, name: str
-    ) -> Union[TopoDS_Shape, None]:
+    ) -> TopoDS_Shape | None:
         # Degenerate OCCT artifacts (edges without geometry, faces without a
         # surface) are dropped by returning None; they would make the
         # length/area calls below raise. Zero-area faces with a valid surface
@@ -352,10 +371,10 @@ class OcpConverter:
         objs: Sequence[TopoDS_Shape],
         kind: str,
         name: str,
-        color: Union[ColorLike, Tuple[ColorLike, ColorLike, ColorLike], None],
-        alpha: Union[float, None],
-        material: Union[str, None] = None,
-        mode: Union[Tuple[int, int], None] = None,
+        color: ColorLike | tuple[ColorLike, ColorLike, ColorLike] | None,
+        alpha: float | None,
+        material: str | None = None,
+        mode: tuple[int, int] | None = None,
     ) -> OcpObject:
         """
         Unify the objects in a list to a single TopoDS_Shape or a TopoDS_Compound for
@@ -371,7 +390,7 @@ class OcpConverter:
         @return: The unified OcpObject
         """
 
-        def trim_all(objs: Iterable[TopoDS_Shape]) -> List[TopoDS_Shape]:
+        def trim_all(objs: Iterable[TopoDS_Shape]) -> list[TopoDS_Shape]:
             # trim_infinite_objs returns None for degenerate artifacts - drop them
             trimmed = [self.trim_infinite_objs(o, name) for o in objs]
             return [o for o in trimmed if o is not None]
@@ -403,7 +422,7 @@ class OcpConverter:
             # an empty input produces so names/colors stay aligned
             return self.handle_empty_iterables(name, 0)
 
-        if isinstance(ocp_obj, TopoDS_Shape):
+        if is_topods_shape(ocp_obj):
             first = ocp_obj
         else:
             first = ocp_obj[0]
@@ -413,7 +432,7 @@ class OcpConverter:
 
         if kind in ("solid", "face", "shell"):
             # solid/face/shell kinds always unify into a single shape
-            assert isinstance(ocp_obj, TopoDS_Shape), f"not unified: {ocp_obj}"
+            assert is_topods_shape(ocp_obj), f"not unified: {ocp_obj}"
             cache_id = create_cache_id(ocp_obj)
             ref, loc = self.get_instance(ocp_obj, cache_id, name)
             ocp_object = OcpObject(
@@ -444,10 +463,10 @@ class OcpConverter:
     def get_color_for_object(
         self,
         obj: ShapeLike,
-        color: Union[ColorLike, Tuple[ColorLike, ColorLike, ColorLike], None] = None,
-        alpha: Union[float, None] = None,
-        kind: Union[str, None] = None,
-    ) -> Union[Color, Tuple[Color, Color, Color]]:
+        color: ColorLike | tuple[ColorLike, ColorLike, ColorLike] | None = None,
+        alpha: float | None = None,
+        kind: str | None = None,
+    ) -> Color | tuple[Color, Color, Color]:
         """
         Get the color of the object based on the object type and the default colors.
 
@@ -509,14 +528,14 @@ class OcpConverter:
     def _unroll_iterable(
         self,
         # the values go straight back into the to_ocp dispatcher
-        objs: Iterable[Tuple[Union[str, None], object]],
-        obj_name: Union[str, None],
-        color: Union[ColorLike, None],
+        objs: Iterable[tuple[str | None, object]],
+        obj_name: str | None,
+        color: ColorLike | None,
         alpha: float,
         level: int,
-        material: Union[str, None] = None,
-        mode: Union[Tuple[int, int], None] = None,
-        loc: Union[TopLoc_Location, None] = None,
+        material: str | None = None,
+        mode: tuple[int, int] | None = None,
+        loc: TopLoc_Location | None = None,
     ) -> OcpGroup:
         """
         Unroll the objects in an iterable and convert them to OcpObject and OcpGroup hierarchies.
@@ -550,19 +569,19 @@ class OcpConverter:
                     ocp_obj.add(c_result.helpers)
                     c_result.helpers = None
 
-        return ocp_obj.make_unique_names()
+        return ocp_obj.make_unique_names(self.python_enumeration)
 
     def handle_list_tuple(
         self,
         # elements are dispatched individually via to_ocp
-        cad_obj: Union[Sequence[object], Build123dShapeList, Build123dGroupBy],
-        obj_name: Union[str, None],
-        color: Union[ColorLike, None],
+        cad_obj: Sequence[object] | Build123dShapeList | Build123dGroupBy,
+        obj_name: str | None,
+        color: ColorLike | None,
         alpha: float,
         level: int,
-        material: Union[str, None] = None,
+        material: str | None = None,
         default_name: str = "List",
-        mode: Union[Tuple[int, int], None] = None,
+        mode: tuple[int, int] | None = None,
     ) -> OcpGroup:
         """
         Handle lists and tuples of objects.
@@ -593,12 +612,12 @@ class OcpConverter:
         # values are dispatched individually via to_ocp; the dispatcher can
         # only prove dict-ness, so keys/values stay gradually typed
         cad_obj: dict,
-        obj_name: Union[str, None],
-        color: Union[ColorLike, None],
+        obj_name: str | None,
+        color: ColorLike | None,
         alpha: float,
         level: int,
-        material: Union[str, None] = None,
-        mode: Union[Tuple[int, int], None] = None,
+        material: str | None = None,
+        mode: tuple[int, int] | None = None,
     ) -> OcpGroup:
         """
         Handle dictionaries of objects.
@@ -628,12 +647,12 @@ class OcpConverter:
     def handle_compound(
         self,
         cad_obj: CompoundLike,
-        obj_name: Union[str, None],
-        color: Union[ColorLike, None],
+        obj_name: str | None,
+        color: ColorLike | None,
         alpha: float,
         level: int,
-        material: Union[str, None] = None,
-        mode: Union[Tuple[int, int], None] = None,
+        material: str | None = None,
+        mode: tuple[int, int] | None = None,
     ) -> OcpGroup:
         """
         Handle compounds and topods_compounds.
@@ -679,12 +698,12 @@ class OcpConverter:
     def handle_build123d_assembly(
         self,
         cad_obj: Build123dShape,
-        obj_name: Union[str, None],
-        color: Union[ColorLike, None],
+        obj_name: str | None,
+        color: ColorLike | None,
         alpha: float,
         level: int,
-        material: Union[str, None] = None,
-        mode: Union[Tuple[int, int], None] = None,
+        material: str | None = None,
+        mode: tuple[int, int] | None = None,
     ) -> OcpGroup:
         """
         Handle build123d assemblies.
@@ -743,7 +762,7 @@ class OcpConverter:
         if isinstance(cad_joints, dict) and len(cad_joints) > 0:
             joints = self.to_ocp(
                 *[j.symbol for j in cad_joints.values()],
-                names=[str(k) for k in cad_joints.keys()],
+                names=[str(k) for k in cad_joints],
                 level=level + 1,
             )
             joints.name = f"{name}.joints"
@@ -754,20 +773,21 @@ class OcpConverter:
                 if joint.loc is None:
                     joint.loc = location.Inverted()
                 else:
-                    joint.loc = location.Inverted() * joint.loc
+                    # the joints of this object: one binding at runtime; the OCP | nanocct unions cannot say so (known limit)
+                    joint.loc = location.Inverted() * joint.loc  # ty: ignore[unsupported-operator]
             ocp_obj.helpers = joints
 
-        return ocp_obj.make_unique_names()
+        return ocp_obj.make_unique_names(self.python_enumeration)
 
     def handle_cadquery_assembly(
         self,
         cad_obj: Assembly,
-        obj_name: Union[str, None],
-        color: Union[ColorLike, None],
+        obj_name: str | None,
+        color: ColorLike | None,
         alpha: float,
         level: int,
-        material: Union[str, None] = None,
-        mode: Union[Tuple[int, int], None] = None,
+        material: str | None = None,
+        mode: tuple[int, int] | None = None,
     ) -> OcpGroup:
         """
         Handle cadquery assemblies.
@@ -822,7 +842,7 @@ class OcpConverter:
                         if mate_def.assembly == cad_obj
                     ],
                     name=f"{cad_obj.name}_mates",
-                    loc=identity_location(),  # mates inherit the parent location, so actually add a no-op
+                    loc=None,  # mates inherit the parent location
                 )
                 if len(mates.objects) > 0:
                     ocp_obj.add(mates)
@@ -843,7 +863,7 @@ class OcpConverter:
         self,
         cad_obj: object,
         level: int,
-    ) -> List[OcpGroup]:
+    ) -> list[OcpGroup]:
         """
         Handle the parent of an objects.
 
@@ -852,17 +872,16 @@ class OcpConverter:
 
         @return: The OcpGroup hierarchy
         """
-        parent: object = None
-        if getattr(cad_obj, "parent", None) is not None:
-            parent = getattr(cad_obj, "parent")
-        elif getattr(cad_obj, "topo_parent", None) is not None:
-            parent = getattr(cad_obj, "topo_parent")
-        elif (
-            isinstance(cad_obj, list)
+        parent: object = getattr(cad_obj, "parent", None)
+        if parent is None:
+            parent = getattr(cad_obj, "topo_parent", None)
+        if (
+            parent is None
+            and isinstance(cad_obj, list)
             and len(cad_obj) > 0
             and hasattr(cad_obj[0], "topo_parent")
         ):
-            parent = [getattr(c, "topo_parent") for c in cad_obj]
+            parent = [c.topo_parent for c in cad_obj]
 
         p = self.to_ocp(
             list(set(parent)) if isinstance(parent, list) else parent,
@@ -882,7 +901,7 @@ class OcpConverter:
     def handle_location_list(
         self,
         cad_obj: LocationList,
-        obj_name: Union[str, None],
+        obj_name: str | None,
         level: int,
     ) -> OcpGroup:
         """
@@ -898,7 +917,7 @@ class OcpConverter:
         group = OcpGroup(name=get_name(cad_obj, obj_name, "LocationList"))
         for loc in cad_obj:
             group.add(self.handle_locations_planes(loc, "Location", level=level + 1))
-        group.make_unique_names()
+        group.make_unique_names(self.python_enumeration)
         return group
 
     def _handle_list(
@@ -924,7 +943,7 @@ class OcpConverter:
         # unwrap everything else
         else:
             unwrapped = unwrap(cad_obj)
-            assert not isinstance(unwrapped, TopoDS_Shape), (
+            assert not is_topods_shape(unwrapped), (
                 "a list input unwraps to a list"
             )
             objs = unwrapped
@@ -948,13 +967,13 @@ class OcpConverter:
     def handle_workplane(
         self,
         cad_obj: Workplane,
-        obj_name: Union[str, None],
-        color: Union[ColorLike, None],
+        obj_name: str | None,
+        color: ColorLike | None,
         alpha: float,
         level: int,
-        material: Union[str, None] = None,
-        mode: Union[Tuple[int, int], None] = None,
-    ) -> Union[OcpGroup, OcpObject]:
+        material: str | None = None,
+        mode: tuple[int, int] | None = None,
+    ) -> OcpGroup | OcpObject:
         """
         Handle cadquery Workplane.
 
@@ -974,10 +993,10 @@ class OcpConverter:
         name = "Workplane"
 
         # Resolve cadquery Workplane
-        vals: List[object] = list(cad_obj.vals())
+        vals: list[object] = list(cad_obj.vals())
         if len(vals) > 0:
             if is_compound(vals[0]):
-                flat: List[object] = []
+                flat: list[object] = []
                 for obj in vals:
                     assert isinstance(obj, Iterable), f"expected a compound: {obj}"
                     flat.extend(obj)
@@ -998,13 +1017,13 @@ class OcpConverter:
     def handle_shape_list(
         self,
         cad_obj: ShapeList,
-        obj_name: Union[str, None],
-        color: Union[ColorLike, None],
+        obj_name: str | None,
+        color: ColorLike | None,
         alpha: float,
         level: int,
-        material: Union[str, None] = None,
-        mode: Union[Tuple[int, int], None] = None,
-    ) -> Union[OcpGroup, OcpObject]:
+        material: str | None = None,
+        mode: tuple[int, int] | None = None,
+    ) -> OcpGroup | OcpObject:
         """
         Handle build123d shape lists.
 
@@ -1035,14 +1054,14 @@ class OcpConverter:
 
     def handle_shapes(
         self,
-        cad_obj: Union[ShapeLike, Compound],
-        obj_name: Union[str, None],
-        color: Union[ColorLike, None],
+        cad_obj: ShapeLike | Compound,
+        obj_name: str | None,
+        color: ColorLike | None,
         alpha: float,
         level: int,
-        material: Union[str, None] = None,
-        mode: Union[Tuple[int, int], None] = None,
-    ) -> Union[OcpGroup, OcpObject]:
+        material: str | None = None,
+        mode: tuple[int, int] | None = None,
+    ) -> OcpGroup | OcpObject:
         """
         Handle build123d or Cadquery shapes.
 
@@ -1096,7 +1115,7 @@ class OcpConverter:
         if isinstance(cad_joints, dict) and len(cad_joints) > 0:
             joints = self.to_ocp(
                 *[j.symbol for j in cad_joints.values()],
-                names=[str(k) for k in cad_joints.keys()],
+                names=[str(k) for k in cad_joints],
                 level=level + 1,
             )
 
@@ -1110,7 +1129,8 @@ class OcpConverter:
                 if joint.loc is None:
                     joint.loc = loc.Inverted()
                 else:
-                    joint.loc = loc.Inverted() * joint.loc
+                    # the joints of this object: one binding at runtime; the OCP | nanocct unions cannot say so (known limit)
+                    joint.loc = loc.Inverted() * joint.loc  # ty: ignore[unsupported-operator]
             ocp_obj.helpers = joints
 
         if self.show_parent and (
@@ -1127,12 +1147,12 @@ class OcpConverter:
     def handle_build123d_builder(
         self,
         cad_obj: BuilderObject,
-        obj_name: Union[str, None],
-        color: Union[ColorLike, None],
+        obj_name: str | None,
+        color: ColorLike | None,
         alpha: float,
         level: int,
-        material: Union[str, None] = None,
-        mode: Union[Tuple[int, int], None] = None,
+        material: str | None = None,
+        mode: tuple[int, int] | None = None,
     ) -> OcpGroup | OcpObject:
         """
         Handle build123d Builder objects.
@@ -1152,8 +1172,8 @@ class OcpConverter:
             local_objects: Iterable[Wrapped[TopoDS_Shape]],
             prefix: str,
             kind: str,
-            color: Union[Color, None],
-            ocp_obj: Union[OcpObject, OcpGroup],
+            color: Color | None,
+            ocp_obj: OcpObject | OcpGroup,
         ) -> OcpGroup:
             obj_local = self.unify(
                 [f.wrapped for f in local_objects],
@@ -1188,7 +1208,7 @@ class OcpConverter:
 
         self._debug(level, f"handle_build123d_builder {cad_obj._obj_name}", obj_name)
 
-        def get_color(color: object) -> Union[Color, None]:
+        def get_color(color: object) -> Color | None:
             if color is None:
                 return None
             return Color(color)
@@ -1340,12 +1360,12 @@ class OcpConverter:
     def handle_cadquery_sketch(
         self,
         cad_obj: CadquerySketch,
-        obj_name: Union[str, None],
-        color: Union[ColorLike, None],
+        obj_name: str | None,
+        color: ColorLike | None,
         alpha: float,
         level: int,
-        material: Union[str, None] = None,
-        mode: Union[Tuple[int, int], None] = None,
+        material: str | None = None,
+        mode: tuple[int, int] | None = None,
     ) -> OcpGroup:
         """
         Handle cadquery sketches.
@@ -1364,7 +1384,7 @@ class OcpConverter:
 
         # do not mutate the user's sketch - normalize _faces into a local list
         faces_src = cad_obj._faces
-        faces: List[object]
+        faces: list[object]
         if isinstance(faces_src, (list, tuple)):
             faces = list(faces_src)
         else:
@@ -1374,8 +1394,8 @@ class OcpConverter:
             )
             faces = [faces_src] if len(list(faces_src)) > 0 else []
 
-        cad_objs: List[Union[TopoDS_Shape, List[TopLoc_Location]]] = []
-        names: List[str | None] = []
+        cad_objs: list[TopoDS_Shape | list[TopLoc_Location]] = []
+        names: list[str | None] = []
         bb = BoundingBox()
 
         selection = cad_obj._selection
@@ -1389,21 +1409,22 @@ class OcpConverter:
             ),
         ]:
             if len(objs) > 0:
-                compound: Union[TopoDS_Shape, List[TopLoc_Location]]
+                compound: TopoDS_Shape | list[TopLoc_Location]
                 if is_location(objs[0]):
                     assert selection is not None
-                    locations: List[TopLoc_Location] = []
+                    locations: list[TopLoc_Location] = []
+                    # the locations and selection of one builder: one binding at runtime; the OCP | nanocct unions cannot say so (known limit)
                     for obj in selection:
                         assert is_location(obj), f"expected a location: {obj}"
                         for loc in cad_obj.locs:
-                            locations.append(loc.wrapped * obj.wrapped)
+                            locations.append(loc.wrapped * obj.wrapped)  # ty: ignore[unsupported-operator]
                     compound = locations
                 else:
-                    shapes: List[TopoDS_Shape] = []
+                    shapes: list[TopoDS_Shape] = []
                     for obj in objs:
                         assert is_shape(obj), f"expected a shape: {obj}"
                         for loc in cad_obj.locs:
-                            shapes.append(downcast(obj.wrapped.Moved(loc.wrapped)))
+                            shapes.append(downcast(obj.wrapped.Moved(loc.wrapped)))  # ty: ignore[invalid-argument-type]
                     compound = make_compound(shapes)
                 cad_objs.append(compound)
                 names.append(typ)
@@ -1451,8 +1472,8 @@ class OcpConverter:
 
     def handle_locations_planes(
         self,
-        cad_obj: Union[LocationLike, CadqueryWorkplane],
-        obj_name: Union[str, None],
+        cad_obj: LocationLike | CadqueryWorkplane,
+        obj_name: str | None,
         level: int,
     ) -> OcpObject:
         """
@@ -1481,7 +1502,7 @@ class OcpConverter:
 
         loc: TopLoc_Location
         if is_build123d_plane(cad_obj) and hasattr(cad_obj, "location"):
-            location = getattr(cad_obj, "location")
+            location = cad_obj.location
             assert is_location(location), f"not a location: {location}"
             loc = location.wrapped
             def_name = "Plane"
@@ -1516,9 +1537,9 @@ class OcpConverter:
 
     def handle_axis(
         self,
-        cad_obj: Union[Axis, gp_Ax1],
-        obj_name: Union[str, None],
-        color: Union[ColorLike, None],
+        cad_obj: Axis | gp_Ax1,
+        obj_name: str | None,
+        color: ColorLike | None,
         level: int,
     ) -> OcpObject:
         """
@@ -1534,7 +1555,7 @@ class OcpConverter:
         """
         self._debug(level, "build123d Axis", obj_name)
 
-        if isinstance(cad_obj, gp_Ax1):
+        if is_gp_axis(cad_obj):
             axis = cad_obj
         else:
             axis = cad_obj.wrapped
@@ -1550,7 +1571,7 @@ class OcpConverter:
         return ocp_obj
 
     def handle_ocp_wrapper(
-        self, cad_obj: OcpWrapper, obj_name: Union[str, None]
+        self, cad_obj: OcpWrapper, obj_name: str | None
     ) -> OcpObject:
         """
         Handle OcpWrapper objects.
@@ -1567,7 +1588,7 @@ class OcpConverter:
             ref, loc = self.get_instance(
                 cad_obj.objs[0], create_cache_id(cad_obj.objs[0]), name
             )
-            ocp_obj.loc = cad_obj.loc * loc
+            ocp_obj.loc = mul_locations(cad_obj.loc, loc)
             ocp_obj.ref = ref
             ocp_obj.obj = None
         return ocp_obj
@@ -1575,7 +1596,7 @@ class OcpConverter:
     # ================================ Empty objects ================================ #
 
     def handle_empty_iterables(
-        self, obj_name: Union[str, None], level: int
+        self, obj_name: str | None, level: int
     ) -> OcpObject:
         """
         Handle empty objects.
@@ -1602,16 +1623,16 @@ class OcpConverter:
         # to_ocp is the dispatcher: it accepts anything, identifies known kinds
         # via the is_* predicates and skips the rest (debug message only)
         *cad_objs: object,
-        names: Union[List[Union[str, None]], None] = None,
-        colors: Union[List[Union[ColorLike, None]], None] = None,
-        alphas: Union[List[Union[float, None]], None] = None,
-        materials: Union[List[Union[str, None]], None] = None,
-        modes: Union[List[Union[Tuple[int, int], None]], None] = None,
-        loc: Union[TopLoc_Location, None] = None,
-        default_color: Union[ColorLike, None] = None,
-        default_facecolor: Union[ColorLike, None] = None,
-        default_thickedgecolor: Union[ColorLike, None] = None,
-        default_vertexcolor: Union[ColorLike, None] = None,
+        names: list[str | None] | None = None,
+        colors: list[ColorLike | None] | None = None,
+        alphas: list[float | None] | None = None,
+        materials: list[str | None] | None = None,
+        modes: list[tuple[int, int] | None] | None = None,
+        loc: TopLoc_Location | None = None,
+        default_color: ColorLike | None = None,
+        default_facecolor: ColorLike | None = None,
+        default_thickedgecolor: ColorLike | None = None,
+        default_vertexcolor: ColorLike | None = None,
         unroll_compounds: bool = False,
         level: int = 0,
         resolve_helpers=True,
@@ -1635,9 +1656,9 @@ class OcpConverter:
 
         @return: The OcpObject or OcpGroup hierarchy
         """
-        if loc is None:
-            loc = identity_location()
-        # ensures group.can_be_cleaned_up works
+        # no location of our own when none is given: None is the identity
+        # (can_be_cleaned_up, collect), and a location created here would be of
+        # one binding while the objects can be of the other
         group = OcpGroup(name=None, loc=loc)
 
         # ============================= Validate parameters ============================= #
@@ -1647,7 +1668,7 @@ class OcpConverter:
         elif isinstance(names, (tuple, list)):
             if len(names) != len(cad_objs):
                 raise ValueError("Length of names does not match the number of objects")
-            names = make_unique(names)
+            names = make_unique(names, self.python_enumeration)
         else:
             raise ValueError(f"Invalid type {type(names)} for names")
 
@@ -1718,7 +1739,7 @@ class OcpConverter:
                     x, y, z = cad_obj
                     cad_obj = vertex((x, y, z))
                 elif hasattr(cad_obj, "toTuple"):
-                    x, y, z = getattr(cad_obj, "toTuple")()
+                    x, y, z = cad_obj.toTuple()
                     cad_obj = vertex((x, y, z))
                 else:
                     assert is_gp_vec(cad_obj), f"not a vector: {cad_obj}"
@@ -1731,13 +1752,14 @@ class OcpConverter:
                 and not is_vertex(cad_obj)
                 and (
                     (is_wrapped(cad_obj) and cad_obj.wrapped is None)
+                    or (hasattr(cad_obj, "is_empty") and cad_obj.is_empty)
                     or (
                         isinstance(cad_obj, Iterable)
                         and (len(list(cad_obj)) == 0 or is_empty_compound(cad_obj))
                     )
                 )
             ):
-                ocp_obj: Union[OcpGroup, OcpObject] = self.handle_empty_iterables(
+                ocp_obj: OcpGroup | OcpObject = self.handle_empty_iterables(
                     obj_name, level
                 )
 
@@ -1749,7 +1771,7 @@ class OcpConverter:
                     is_build123d_shapelist(cad_obj)
                     and all(type(cad_obj[0]) is type(o) for o in cad_obj)
                 )
-                and not any([class_name(o) == "Compound" for o in cad_obj])
+                and not any(class_name(o) == "Compound" for o in cad_obj)
             ):
                 ocp_obj = self.handle_list_tuple(
                     cad_obj, obj_name, color, alpha, level, material, mode=mode
@@ -1913,7 +1935,7 @@ class OcpConverter:
                     group.add(ocp_obj.helpers)
                     ocp_obj.helpers = None
 
-        group.make_unique_names()
+        group.make_unique_names(self.python_enumeration)
 
         if group.length == 1 and isinstance(group.objects[0], OcpGroup):
             cleaned = group.cleanup()
@@ -1930,24 +1952,25 @@ class OcpConverter:
 
 def to_ocpgroup(
     *cad_objs: object,
-    names: Union[List[Union[str, None]], None] = None,
-    colors: Union[List[Union[ColorLike, None]], None] = None,
-    alphas: Union[List[Union[float, None]], None] = None,
-    materials: Union[List[Union[str, None]], None] = None,
-    modes: Union[List[Union[Tuple[int, int], None]], None] = None,
+    names: list[str | None] | None = None,
+    colors: list[ColorLike | None] | None = None,
+    alphas: list[float | None] | None = None,
+    materials: list[str | None] | None = None,
+    modes: list[tuple[int, int] | None] | None = None,
     render_mates: bool = False,
     render_joints: bool = False,
     helper_scale: float = 1.0,
-    default_color: Union[ColorLike, None] = None,
-    default_facecolor: Union[ColorLike, None] = None,
-    default_thickedgecolor: Union[ColorLike, None] = None,
-    default_vertexcolor: Union[ColorLike, None] = None,
+    default_color: ColorLike | None = None,
+    default_facecolor: ColorLike | None = None,
+    default_thickedgecolor: ColorLike | None = None,
+    default_vertexcolor: ColorLike | None = None,
     show_parent: bool = False,
     show_locals: bool = True,
-    loc: Union[TopLoc_Location, None] = None,
-    progress: Union[Progress, None] = None,
+    python_enumeration: bool = False,
+    loc: TopLoc_Location | None = None,
+    progress: Progress | None = None,
     debug: bool = False,
-) -> Tuple[OcpGroup, List[Instance]]:
+) -> tuple[OcpGroup, list[Instance]]:
     """
     Central converter routine to convert a list of objects to an OcpGroup hierarchy.
 
@@ -1966,6 +1989,8 @@ def to_ocpgroup(
     @param default_vertexcolor: Color of a vertex shown on its own
     @param show_parent: The flag to show the parent
     @param show_locals: The flag to render the part/sheet/sketch/line based on XY plane
+    @param python_enumeration: Number repeated names from 0 for every occurrence,
+        a(0), a(1), ..., instead of a, a(2), ...
     @param loc: The location of the objects
     @param progress: The progress bar
 
@@ -1978,6 +2003,7 @@ def to_ocpgroup(
         render_mates=render_mates,
         show_parent=show_parent,
         show_locals=show_locals,
+        python_enumeration=python_enumeration,
         debug=debug,
     )
     ocp_group = converter.to_ocp(
@@ -2002,11 +2028,11 @@ def to_ocpgroup(
 
 def tessellate_group(
     group: OcpGroup,
-    instances: List[Instance],
-    kwargs: Union[Dict, None] = None,
-    progress: Union[Progress, None] = None,
+    instances: list[Instance],
+    kwargs: dict | None = None,
+    progress: Progress | None = None,
     timeit: bool = False,
-) -> Tuple[List, Dict, Dict]:
+) -> tuple[list, dict, dict]:
     """
     Tessellate a OcpGroup and instances as converted by to_ocp_group.
 
@@ -2024,9 +2050,9 @@ def tessellate_group(
     def get_bb_max(
         shapes,
         meshed_instances,
-        loc: Union[TopLoc_Location, None] = None,
-        bbox: Union[Dict[str, float], None] = None,
-    ) -> Union[Dict[str, float], None]:
+        loc: TopLoc_Location | None = None,
+        bbox: dict[str, float] | None = None,
+    ) -> dict[str, float] | None:
         for shape in shapes["parts"]:
             # mul_locations treats a missing location as identity
             new_loc = (
@@ -2035,7 +2061,7 @@ def tessellate_group(
                 else mul_locations(loc, tq_to_loc(*shape["loc"]))
             )
             if shape.get("parts") is None:
-                bb: Dict[str, float]
+                bb: dict[str, float]
                 if shape["type"] == "shapes":
                     # Solids, shells and faces are instances and need to calculate
                     # the bounding box at the accumulated location
@@ -2142,8 +2168,7 @@ def tessellate_group(
             quality = compute_quality(bb, deviation=deviation)
             t.info = str(bb)
 
-            if quality > max_accuracy:
-                max_accuracy = quality
+            max_accuracy = max(max_accuracy, quality)
 
         with Timer(
             timeit, f"instance({i}):{instance['name']}", "tessellate:     ", 2
@@ -2212,22 +2237,22 @@ def tessellate_group(
 
 def to_assembly(
     *cad_objs: object,
-    names: Union[List[Union[str, None]], None] = None,
-    colors: Union[List[Union[ColorLike, None]], None] = None,
-    alphas: Union[List[Union[float, None]], None] = None,
-    modes: Union[List[Union[Tuple[int, int], None]], None] = None,
+    names: list[str | None] | None = None,
+    colors: list[ColorLike | None] | None = None,
+    alphas: list[float | None] | None = None,
+    modes: list[tuple[int, int] | None] | None = None,
     render_mates: bool = False,
     render_joints: bool = False,
     helper_scale: float = 1.0,
-    default_color: Union[ColorLike, None] = None,
-    default_facecolor: Union[ColorLike, None] = None,
-    default_thickedgecolor: Union[ColorLike, None] = None,
-    default_vertexcolor: Union[ColorLike, None] = None,
+    default_color: ColorLike | None = None,
+    default_facecolor: ColorLike | None = None,
+    default_thickedgecolor: ColorLike | None = None,
+    default_vertexcolor: ColorLike | None = None,
     show_parent: bool = False,
     show_locals: bool = True,
-    loc: Union[TopLoc_Location, None] = None,
-    progress: Union[Progress, None] = None,
-) -> Tuple[OcpGroup, List[Instance]]:
+    loc: TopLoc_Location | None = None,
+    progress: Progress | None = None,
+) -> tuple[OcpGroup, list[Instance]]:
     """
     Compatibility wrapper for the converter routine to convert a list of
     objects to an OcpGroup hierarchy.
@@ -2302,7 +2327,7 @@ def numpy_to_js(var, obj, indent=None):
             if isinstance(o, np.ndarray):
                 return o.tolist()
 
-            return super(NumpyArrayEncoder, self).default(o)
+            return super().default(o)
 
     # Version 3 of the three-cad-viewer protocol requires Float32Array and Int8Array
     result = json.dumps(obj, cls=NumpyArrayEncoder, indent=indent)
@@ -2339,7 +2364,7 @@ def export_three_cad_viewer_js(
     def decode(instances, shapes):
         def walk(obj):
             typ = None
-            for attr in obj.keys():
+            for attr in obj:
                 if attr == "parts":
                     for part in obj["parts"]:
                         walk(part)
@@ -2347,18 +2372,20 @@ def export_three_cad_viewer_js(
                 elif attr == "type":
                     typ = obj["type"]
 
-                elif attr == "shape":
-                    if typ == "shapes":
-                        if obj["shape"].get("ref") is not None:
-                            ind = obj["shape"]["ref"]
-                            obj["shape"] = instances[ind]
+                elif (
+                    attr == "shape"
+                    and typ == "shapes"
+                    and obj["shape"].get("ref") is not None
+                ):
+                    ind = obj["shape"]["ref"]
+                    obj["shape"] = instances[ind]
 
         walk(shapes)
 
     part_group, instances = to_ocpgroup(
         *objs, names=names, colors=colors, alphas=alphas, modes=modes
     )
-    instances, shapes, map = tessellate_group(part_group, instances)
+    instances, shapes, _mapping = tessellate_group(part_group, instances)
     if keep_instances:
         j = json.dumps(numpy_to_buffer_json({"instances": instances, "shapes": shapes}))
     else:

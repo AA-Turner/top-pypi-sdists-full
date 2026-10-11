@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
 Beartype **import hook unit test fixtures** (i.e., :mod:`pytest`-specific
-context managers passed as parameters to unit tests exercising the
+context managers passed as parameters to unit tests validating the
 :mod:`beartype.claw` subpackage).
 '''
 
@@ -18,7 +18,7 @@ from pytest import fixture
 
 # ....................{ FIXTURES ~ equality                }....................
 @fixture(autouse=True, scope='function')
-def clean_claws_unit() -> None:  # <-- heh. get it... clean *CLAWS*? it is punny.
+def clean_claws_unit() -> None:  # <-- heh. get it... clean *CLAWS*? it is punny
     '''
     Permanently, silently, and recursively remove all **bytecode files** (i.e.,
     pure-Python bytecode compiled to platform-dependent temporary files residing
@@ -44,9 +44,9 @@ def clean_claws_unit() -> None:  # <-- heh. get it... clean *CLAWS*? it is punny
     # Note that we intentionally avoid importing any subsubpackages (e.g.,
     # "beartype_test.a00_unit.data.claw.intraprocess.hookable_package.beartype_this_package")
     # above. Why? Because doing so would implicitly install the exact beartype
-    # import hook which calling unit tests are attempting to subsequently
-    # exercise and which *MUST* be confined to a context manager for test
-    # idempotency.
+    # import hook which:
+    # * Downstream unit tests are attempting to subsequently validate.
+    # * *MUST* be confined to a context manager for test idempotency.
     from beartype_test.a00_unit.data import claw
     from beartype_test._util.data.pytdataclean import (
         data_claw_subpackage_cleaned)

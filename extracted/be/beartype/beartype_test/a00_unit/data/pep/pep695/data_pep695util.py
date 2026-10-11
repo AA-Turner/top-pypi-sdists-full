@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -159,8 +159,8 @@ def unit_test_iter_hint_pep695_forwardrefs() -> None:
     # ....................{ IMPORTS                        }....................
     # Defer test-specific imports.
     from beartype.roar import BeartypeDecorHintPep695Exception
-    from beartype._check.forward.reference.fwdrefmeta import (
-        BeartypeForwardRefMeta)
+    from beartype._check.forward.reference._cls.fwdrefmeta import (
+        BeartypeForwardRefMetaclass)
     from beartype._util.hint.pep.proposal.pep695 import (
         iter_hint_pep695_unsubbed_forwardrefs)
     from pytest import raises
@@ -188,7 +188,7 @@ def unit_test_iter_hint_pep695_forwardrefs() -> None:
     # passed type alias containing only that reference.
     and_saw_by = iter_hint_pep695_unsubbed_forwardrefs(sudden_she_rose)
     the_warm_light_of = next(and_saw_by)
-    assert isinstance(the_warm_light_of, BeartypeForwardRefMeta)
+    assert isinstance(the_warm_light_of, BeartypeForwardRefMetaclass)
     assert the_warm_light_of.__name__ == 'ItsBurstingBurthen'
 
     # Assert this iterator raises the expected exception when attempting to
@@ -216,7 +216,7 @@ def unit_test_iter_hint_pep695_forwardrefs() -> None:
     her_glowing_limbs = iter_hint_pep695_unsubbed_forwardrefs(
         as_if_her_heart)
     beneath_the_sinuous_veil = next(her_glowing_limbs)
-    assert isinstance(beneath_the_sinuous_veil, BeartypeForwardRefMeta)
+    assert isinstance(beneath_the_sinuous_veil, BeartypeForwardRefMetaclass)
     assert beneath_the_sinuous_veil.__name__ == 'ImpatientlyEndured'
 
     class ImpatientlyEndured(object):
@@ -230,7 +230,7 @@ def unit_test_iter_hint_pep695_forwardrefs() -> None:
     # Assert that this iterator lastly yields a forward reference proxy
     # referring to the last unquoted forward reference in this type alias.
     of_woven_wind = next(her_glowing_limbs)
-    assert isinstance(of_woven_wind, BeartypeForwardRefMeta)
+    assert isinstance(of_woven_wind, BeartypeForwardRefMetaclass)
     assert of_woven_wind.__name__ == 'AtTheSoundHeTurned'
 
     class AtTheSoundHeTurned(object):
@@ -300,9 +300,11 @@ def unit_test_reduce_hint_pep484612646_subbed_typeargs_to_hints_for_pep695() -> 
     # ....................{ IMPORTS                        }....................
     # Defer test-specific imports.
     from beartype.roar import BeartypeDecorHintPep484612646Exception
-    from beartype._check.convert._reduce._pep.redpep484612646 import (
+    from beartype._check.convert._reduce._pep.pep646.redpep484612646typearg import (
         reduce_hint_pep484612646_subbed_typeargs_to_hints)
-    from beartype._check.metadata.hint.hintsane import HintSane
+    from beartype._check.cls.call.calldataexternal import (
+        BEARTYPE_CALL_EXTERNAL_META)
+    from beartype._check.cls.hint.hintsane import HintSane
     from beartype._util.hint.pep.utilpepget import get_hint_pep_typeargs_packed
     from beartype._util.kind.maplike.utilmapfrozen import FrozenDict
     from pytest import raises
@@ -331,14 +333,18 @@ def unit_test_reduce_hint_pep484612646_subbed_typeargs_to_hints_for_pep695() -> 
     # these aliases and thus accessible *ONLY* by directly accessing the
     # "__parameters__" dunder attribute on these aliases. It is what it is.
     hint_sane = reduce_hint_pep484612646_subbed_typeargs_to_hints(
-        irresistible_career[int])
+        call_curr=BEARTYPE_CALL_EXTERNAL_META,
+        hint=irresistible_career[int],
+    )
     assert hint_sane == HintSane(
         hint=irresistible_career,
         typearg_to_hint=FrozenDict({irresistible_career_typevars[0]: int,}),
     )
 
     hint_sane = reduce_hint_pep484612646_subbed_typeargs_to_hints(
-        in_thy[bool, complex])
+        call_curr=BEARTYPE_CALL_EXTERNAL_META,
+        hint=in_thy[bool, complex],
+    )
     assert hint_sane == HintSane(
         hint=in_thy,
         typearg_to_hint=FrozenDict({
@@ -352,14 +358,22 @@ def unit_test_reduce_hint_pep484612646_subbed_typeargs_to_hints_for_pep695() -> 
     # that is *NOT* a PEP 695-compliant subscripted type alias.
     with raises(BeartypeDecorHintPep484612646Exception):
         reduce_hint_pep484612646_subbed_typeargs_to_hints(
-            'In thy devastating omnipotence,')
+            call_curr=BEARTYPE_CALL_EXTERNAL_META,
+            hint='In thy devastating omnipotence,'
+        )
 
     # Assert this getter raises the expected exception when passed a PEP
     # 695-compliant unsubscripted type alias.
     with raises(BeartypeDecorHintPep484612646Exception):
-        reduce_hint_pep484612646_subbed_typeargs_to_hints(guiding_its)
+        reduce_hint_pep484612646_subbed_typeargs_to_hints(
+            call_curr=BEARTYPE_CALL_EXTERNAL_META,
+            hint=guiding_its,
+        )
     with raises(BeartypeDecorHintPep484612646Exception):
-        reduce_hint_pep484612646_subbed_typeargs_to_hints(irresistible_career)
+        reduce_hint_pep484612646_subbed_typeargs_to_hints(
+            call_curr=BEARTYPE_CALL_EXTERNAL_META,
+            hint=irresistible_career,
+        )
 
 # ....................{ TESTS ~ decorator                  }....................
 #FIXME: Actually call this unit test!

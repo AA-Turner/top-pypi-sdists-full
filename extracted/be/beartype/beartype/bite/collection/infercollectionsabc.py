@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -56,19 +56,17 @@ protocols).
 #That's it. That's the entire solution. Ridiculous, huh? Genius is genius.
 
 # ....................{ IMPORTS                            }....................
-from beartype.typing import (
-    TYPE_CHECKING,
-    Annotated,
-    Dict,
-    Optional,
-    Set,
-)
 from beartype._data.kind.datakindmap import FROZENDICT_EMPTY
 from beartype._data.typing.datatyping import FrozenSetStrs
-from beartype._util.cache.utilcachecall import callable_cached
-from beartype._util.utilobjattr import get_object_methods_name_to_value_explicit
+from beartype._util.cache.func.utilcachefunc import callable_cached
+from beartype._util.utilobjattr import get_object_method_name_to_value
 from collections.abc import (
     Collection as CollectionABC,
+)
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Optional,
 )
 
 # ....................{ INFERERS                           }....................
@@ -275,19 +273,35 @@ def _infer_hint_factory_collections_abc(cls: type) -> Optional[object]:
     '''
     assert isinstance(cls, type), f'{repr(cls)} not type.'
 
-    # ....................{ PREAMBLE                       }....................
-    # List of the names of all attributes bound to this class.
-    cls_attr_names = dir(cls)
-
+    # ....................{ LOCALS                         }....................
     # "collections.abc" finite state machine (FSM).
     _START_NODE = get_finite_state_machine()
 
+    # Dictionary mapping from the names of all methods of the passed class to
+    # those methods.
+    cls_method_name_to_method = get_object_method_name_to_value(
+        obj=cls,
+        # Minimal frozen set of the names of any requisite methods (i.e.,
+        # minimum subset of methods that this class *MUST* define, required to
+        # transition from the start node to a transitional node).
+        #
+        # If the intersection of this set with the set of the names of all
+        # attributes bound to this class is empty, this class fails to define
+        # *ANY* methods required by a "collections.abc" ABC, in which case this
+        # getter reduces to a noop by efficiently returning the empty frozen
+        # dictionary singleton.
+        predicate_attr_names_any=_START_NODE.nodes_next_method_names,
+    )
+
     # If the intersection of the set of the names of all attributes bound to
-    # this class with the set of the names of all requisite methods (i.e.,
-    # methods required to transition from the start node to a transitional node)
-    # is the empty set, then this class fails to define *ANY* methods required
-    # by a "collections.abc" ABC. In this case, silently reduce to a noop.
-    if not (set(cls_attr_names) & _START_NODE.nodes_next_method_names):
+    # this class with the minimal frozen set of the names of any requisite
+    # methods passed above is empty, this class fails to define *ANY* methods
+    # required by a "collections.abc" ABC. In this case, reduce to a noop.
+    #
+    # Note that this is technically merely an optimization. The iteration below
+    # detects this edge case and return "None" as expected. Nonetheless, this
+    # optimization avoids an unnecessary O(n) search and is thus useful. Yo! \o/
+    if not cls_method_name_to_method:
         return None
     # Else, this intersection is non-empty. In this case, this class defines at
     # least one attribute whose name is that of a method required by a
@@ -304,14 +318,8 @@ def _infer_hint_factory_collections_abc(cls: type) -> Optional[object]:
     #
     # Further detection is warranted to disambiguate this edge case.
 
-    # ....................{ LOCALS                         }....................
-    # Dictionary mapping from the names of all methods of the passed class to
-    # those methods.
-    cls_methods_name_to_method = get_object_methods_name_to_value_explicit(
-        obj=cls, obj_dir=cls_attr_names)
-
     # Set of the names of all methods bound to this class.
-    cls_method_names = cls_methods_name_to_method.keys()
+    cls_method_names = cls_method_name_to_method.keys()
 
     # Finite state machine (FSM) node currently visited by the search below.
     node_curr = _START_NODE
@@ -407,7 +415,7 @@ def _infer_hint_factory_collections_abc(cls: type) -> Optional[object]:
     return node_curr.hint_factory
 
 # ....................{ PRIVATE ~ hints                    }....................
-_FiniteStateMachine = Dict[FrozenSetStrs, '_FiniteStateMachineNode']
+_FiniteStateMachine = dict[FrozenSetStrs, '_FiniteStateMachineNode']
 '''
 PEP-compliant type hint matching a :mod:`collections.abc` **fine state machine
 (FSM)** as a dictionary whose:
@@ -527,7 +535,7 @@ class _FiniteStateMachineNode(object):
 
         # Frozen set of the names of all transition methods, initialized to the
         # empty set.
-        nodes_next_method_names: Set[str] = set()
+        nodes_next_method_names: set[str] = set()
 
         # For the frozen set of all method names *AND* FSM nodes to which those
         # methods transition...
@@ -720,7 +728,7 @@ def get_finite_state_machine() -> _FiniteStateMachineNode:
                             '__xor__',
                             'isdisjoint',
                         )): _FiniteStateMachineNode(
-                            hint_factory=Set,
+                            hint_factory=set,
                             nodes_next={
                                 # "collections.abc.MutableSet" FSM.
                                 frozenset((

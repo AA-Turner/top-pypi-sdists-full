@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cchardet
-Version: 2.3.0
+Version: 2.4.0
 Summary: cChardet is high speed universal character encoding detector.
 Author-email: PyYoshi <myoshi321go@gmail.com>
 License-Expression: MPL-1.1 OR GPL-2.0-or-later OR LGPL-2.1-or-later
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: COPYING
@@ -31,8 +32,9 @@ cChardet is a high-speed universal character encoding detector built on the
 
 ## Python support
 
-cChardet supports CPython 3.11 through 3.14, including the free-threaded
-CPython 3.14 build. Each version is tested on Linux, macOS, and Windows.
+cChardet supports CPython 3.11 through 3.15, including the free-threaded
+CPython 3.14 and 3.15 builds. Each version is tested on Linux and Windows on
+both x86-64 and arm64, and on macOS on Apple silicon.
 
 ## Development
 
@@ -258,6 +260,6 @@ See **COPYING** file.
 
 ## Support Platforms
 
-- Windows x86, x86_64
+- Windows x86, x86_64, ARM64
 - Linux x86_64, aarch64
 - macOS x86_64, arm64

@@ -1,8 +1,9 @@
+"""Result sets for ``GetQueryResults`` and the cursor mixins that expose them."""
+
 from __future__ import annotations
 
 import collections
 import logging
-from abc import abstractmethod
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
@@ -14,9 +15,11 @@ from pyathena.common import BaseCursor, CursorIterator
 from pyathena.converter import Converter, DefaultTypeConverter
 from pyathena.error import DataError, OperationalError, ProgrammingError
 from pyathena.model import AthenaQueryExecution
-from pyathena.util import RetryConfig, parse_output_location, retry_api_call
+from pyathena.util import RetryConfig, override, parse_output_location, retry_api_call
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from pyathena.connection import Connection
 
 _logger = logging.getLogger(__name__)
@@ -68,6 +71,24 @@ class AthenaResultSet(CursorIterator):
         _pre_fetch: bool = True,
         result_set_type_hints: dict[str | int, str] | None = None,
     ) -> None:
+        """Initialize the result set and fetch the first page if the query succeeded.
+
+        Args:
+            connection: The connection that ran the query.
+            converter: The converter for result values.
+            query_execution: The query execution whose results to read.
+            arraysize: The number of rows per ``GetQueryResults`` page and the default
+                ``fetchmany()`` size.
+            retry_config: The retry configuration for API calls.
+            _pre_fetch: Whether to fetch the first page here when the query succeeded.
+                The async result set passes False and fetches it itself.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
+
+        Raises:
+            ProgrammingError: If ``query_execution`` is not given.
+            OperationalError: If fetching the first page fails.
+        """
         super().__init__(arraysize=arraysize)
         self._connection: Connection[Any] | None = connection
         self._converter = converter
@@ -83,12 +104,6 @@ class AthenaResultSet(CursorIterator):
                     self._hints_by_index[k] = v
                 else:
                     self._hints_by_name[k.lower()] = v
-        self._client = connection.session.client(
-            "s3",
-            region_name=connection.region_name,
-            config=connection.config,
-            **connection._client_kwargs,
-        )
 
         self._metadata: tuple[dict[str, Any], ...] | None = None
         self._column_types: tuple[str, ...] | None = None
@@ -106,150 +121,175 @@ class AthenaResultSet(CursorIterator):
 
     @property
     def database(self) -> str | None:
+        """The database in the ``QueryExecutionContext`` of the query."""
         if not self._query_execution:
             return None
         return self._query_execution.database
 
     @property
     def catalog(self) -> str | None:
+        """The data catalog in the ``QueryExecutionContext`` of the query."""
         if not self._query_execution:
             return None
         return self._query_execution.catalog
 
     @property
     def query_id(self) -> str | None:
+        """The ID of the query execution."""
         if not self._query_execution:
             return None
         return self._query_execution.query_id
 
     @property
     def query(self) -> str | None:
+        """The SQL statement that the query execution ran."""
         if not self._query_execution:
             return None
         return self._query_execution.query
 
     @property
     def statement_type(self) -> str | None:
+        """The ``StatementType`` of the query, such as ``DDL``, ``DML``, or ``UTILITY``."""
         if not self._query_execution:
             return None
         return self._query_execution.statement_type
 
     @property
     def substatement_type(self) -> str | None:
+        """The ``SubstatementType`` of the query, such as ``INSERT`` or ``MERGE``."""
         if not self._query_execution:
             return None
         return self._query_execution.substatement_type
 
     @property
     def work_group(self) -> str | None:
+        """The work group in which the query ran."""
         if not self._query_execution:
             return None
         return self._query_execution.work_group
 
     @property
     def execution_parameters(self) -> list[str]:
+        """The ``ExecutionParameters`` values of the query."""
         if not self._query_execution:
             return []
         return self._query_execution.execution_parameters
 
     @property
     def state(self) -> str | None:
+        """The state of the query execution, such as ``RUNNING`` or ``SUCCEEDED``."""
         if not self._query_execution:
             return None
         return self._query_execution.state
 
     @property
     def state_change_reason(self) -> str | None:
+        """The ``StateChangeReason`` that gives further detail about the state."""
         if not self._query_execution:
             return None
         return self._query_execution.state_change_reason
 
     @property
     def submission_date_time(self) -> datetime | None:
+        """The date and time when the query was submitted."""
         if not self._query_execution:
             return None
         return self._query_execution.submission_date_time
 
     @property
     def completion_date_time(self) -> datetime | None:
+        """The date and time when the query completed."""
         if not self._query_execution:
             return None
         return self._query_execution.completion_date_time
 
     @property
     def error_category(self) -> int | None:
+        """The ``ErrorCategory`` of the failure: 1 for system, 2 for user, 3 for other."""
         if not self._query_execution:
             return None
         return self._query_execution.error_category
 
     @property
     def error_type(self) -> int | None:
+        """The ``ErrorType`` code of the query failure."""
         if not self._query_execution:
             return None
         return self._query_execution.error_type
 
     @property
     def retryable(self) -> bool | None:
+        """Whether Athena reports the query failure as retryable."""
         if not self._query_execution:
             return None
         return self._query_execution.retryable
 
     @property
     def error_message(self) -> str | None:
+        """The ``ErrorMessage`` that describes the query failure."""
         if not self._query_execution:
             return None
         return self._query_execution.error_message
 
     @property
     def data_scanned_in_bytes(self) -> int | None:
+        """The number of bytes that the query scanned."""
         if not self._query_execution:
             return None
         return self._query_execution.data_scanned_in_bytes
 
     @property
     def engine_execution_time_in_millis(self) -> int | None:
+        """The time in milliseconds that the query engine took to run the query."""
         if not self._query_execution:
             return None
         return self._query_execution.engine_execution_time_in_millis
 
     @property
     def query_queue_time_in_millis(self) -> int | None:
+        """The time in milliseconds that the query waited in the queue."""
         if not self._query_execution:
             return None
         return self._query_execution.query_queue_time_in_millis
 
     @property
     def total_execution_time_in_millis(self) -> int | None:
+        """The total time in milliseconds that Athena took to run the query."""
         if not self._query_execution:
             return None
         return self._query_execution.total_execution_time_in_millis
 
     @property
     def query_planning_time_in_millis(self) -> int | None:
+        """The time in milliseconds that Athena took to plan the query."""
         if not self._query_execution:
             return None
         return self._query_execution.query_planning_time_in_millis
 
     @property
     def service_processing_time_in_millis(self) -> int | None:
+        """The time in milliseconds that Athena took to publish the query results."""
         if not self._query_execution:
             return None
         return self._query_execution.service_processing_time_in_millis
 
     @property
     def output_location(self) -> str | None:
+        """The S3 location of the query results."""
         if not self._query_execution:
             return None
         return self._query_execution.output_location
 
     @property
     def data_manifest_location(self) -> str | None:
+        """The S3 location of the data manifest that lists the files the query wrote."""
         if not self._query_execution:
             return None
         return self._query_execution.data_manifest_location
 
     @property
     def reused_previous_result(self) -> bool | None:
+        """Whether Athena reused a previous query result instead of running the query."""
         if not self._query_execution:
             return None
         return self._query_execution.reused_previous_result
@@ -269,48 +309,56 @@ class AthenaResultSet(CursorIterator):
 
     @property
     def encryption_option(self) -> str | None:
+        """The ``EncryptionOption`` of the query results, such as ``SSE_S3`` or ``SSE_KMS``."""
         if not self._query_execution:
             return None
         return self._query_execution.encryption_option
 
     @property
     def kms_key(self) -> str | None:
+        """The KMS key used to encrypt the query results."""
         if not self._query_execution:
             return None
         return self._query_execution.kms_key
 
     @property
     def expected_bucket_owner(self) -> str | None:
+        """The AWS account ID expected to own the S3 bucket of the query results."""
         if not self._query_execution:
             return None
         return self._query_execution.expected_bucket_owner
 
     @property
     def s3_acl_option(self) -> str | None:
+        """The ``S3AclOption`` of the query results, such as ``BUCKET_OWNER_FULL_CONTROL``."""
         if not self._query_execution:
             return None
         return self._query_execution.s3_acl_option
 
     @property
     def selected_engine_version(self) -> str | None:
+        """The Athena engine version selected to run the query."""
         if not self._query_execution:
             return None
         return self._query_execution.selected_engine_version
 
     @property
     def effective_engine_version(self) -> str | None:
+        """The Athena engine version that ran the query."""
         if not self._query_execution:
             return None
         return self._query_execution.effective_engine_version
 
     @property
     def result_reuse_enabled(self) -> bool | None:
+        """Whether reuse of previous query results by age is enabled for the query."""
         if not self._query_execution:
             return None
         return self._query_execution.result_reuse_enabled
 
     @property
     def result_reuse_minutes(self) -> int | None:
+        """The maximum age in minutes of a previous query result that Athena can reuse."""
         if not self._query_execution:
             return None
         return self._query_execution.result_reuse_minutes
@@ -319,6 +367,10 @@ class AthenaResultSet(CursorIterator):
     def description(
         self,
     ) -> list[tuple[str, str, None, None, int, int, str]] | None:
+        """The DB API 2.0 column descriptions.
+
+        None without result metadata, or for ``INSERT``, ``UPDATE``, ``DELETE``, and ``MERGE``.
+        """
         if self._metadata is None or (
             self.substatement_type
             and self.substatement_type.upper() in self._DML_SUBSTATEMENT_TYPES
@@ -339,25 +391,57 @@ class AthenaResultSet(CursorIterator):
 
     @property
     def connection(self) -> Connection[Any]:
+        """The connection of the result set; raises ``ProgrammingError`` if closed."""
         if self.is_closed:
             raise ProgrammingError("AthenaResultSet is closed.")
         return cast("Connection[Any]", self._connection)
 
-    def __get_query_results(
+    def _build_get_query_results_request(
         self, max_results: int, next_token: str | None = None
     ) -> dict[str, Any]:
+        """Build a ``GetQueryResults`` request for the result set's query.
+
+        Args:
+            max_results: The maximum number of rows in the page.
+            next_token: The token of the page to get; the first page if None.
+
+        Returns:
+            The request parameters.
+
+        Raises:
+            ProgrammingError: If the query ID is missing or the query has not
+                succeeded.
+        """
         if not self.query_id:
             raise ProgrammingError("QueryExecutionId is none or empty.")
         if self.state != AthenaQueryExecution.STATE_SUCCEEDED:
             raise ProgrammingError("QueryExecutionState is not SUCCEEDED.")
-        if self.is_closed:
-            raise ProgrammingError("AthenaResultSet is closed.")
         request: dict[str, Any] = {
             "QueryExecutionId": self.query_id,
             "MaxResults": max_results,
         }
         if next_token:
             request["NextToken"] = next_token
+        return request
+
+    def _get_query_results(self, max_results: int, next_token: str | None = None) -> dict[str, Any]:
+        """Get a page of query results with ``GetQueryResults``.
+
+        Args:
+            max_results: The maximum number of rows in the page.
+            next_token: The token of the page to get; the first page if None.
+
+        Returns:
+            The ``GetQueryResults`` response.
+
+        Raises:
+            ProgrammingError: If the query ID is missing, the query has not
+                succeeded, or the result set is closed.
+            OperationalError: If the request fails.
+        """
+        request = self._build_get_query_results_request(max_results, next_token)
+        if self.is_closed:
+            raise ProgrammingError("AthenaResultSet is closed.")
         try:
             response = retry_api_call(
                 self.connection.client.get_query_results,
@@ -371,24 +455,35 @@ class AthenaResultSet(CursorIterator):
         else:
             return cast(dict[str, Any], response)
 
-    def __fetch(self, next_token: str | None = None) -> dict[str, Any]:
-        return self.__get_query_results(self._arraysize, next_token)
-
     def _fetch(self) -> None:
+        """Fetch the next page of rows into the result set.
+
+        Raises:
+            ProgrammingError: If there is no next page.
+            OperationalError: If the request fails.
+        """
         if not self._next_token:
             raise ProgrammingError("NextToken is none or empty.")
-        response = self.__fetch(self._next_token)
+        response = self._get_query_results(self._arraysize, self._next_token)
         rows, self._next_token = self._parse_result_rows(response)
         self._process_rows(rows)
 
     def _pre_fetch(self) -> None:
-        response = self.__fetch()
+        """Fetch the first page of rows along with the result metadata.
+
+        Raises:
+            ProgrammingError: If the query ID is missing, the query has not
+                succeeded, or the result set is closed.
+            OperationalError: If the request fails.
+        """
+        response = self._get_query_results(self._arraysize)
         self._process_metadata(response)
         self._process_update_count(response)
         rows, self._next_token = self._parse_result_rows(response)
         offset = 1 if rows and self._is_first_row_column_labels(rows) else 0
         self._process_rows(rows, offset)
 
+    @override
     def fetchone(
         self,
     ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
@@ -401,9 +496,19 @@ class AthenaResultSet(CursorIterator):
         self._rownumber += 1
         return self._rows.popleft()
 
+    @override
     def fetchmany(
         self, size: int | None = None
     ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
+        """Fetch the next set of rows of the query result.
+
+        Args:
+            size: Maximum number of rows to fetch. If None or not positive,
+                ``arraysize`` is used.
+
+        Returns:
+            The rows, fewer than ``size`` when the result is exhausted.
+        """
         if not size or size <= 0:
             size = self._arraysize
         rows = []
@@ -415,9 +520,15 @@ class AthenaResultSet(CursorIterator):
                 break
         return rows
 
+    @override
     def fetchall(
         self,
     ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
+        """Fetch all remaining rows of the query result.
+
+        Returns:
+            The remaining rows.
+        """
         rows = []
         while True:
             row = self.fetchone()
@@ -564,20 +675,40 @@ class AthenaResultSet(CursorIterator):
                 return False
         return True
 
+    def _iter_all_row_pages(self) -> Iterator[tuple[list[dict[str, Any]], int]]:
+        """Fetch all rows via GetQueryResults API from the beginning.
+
+        Paginates through all results using MaxResults=1000. This is for subclass result
+        sets that need to fall back to the API when S3 output is not available (e.g.,
+        managed query result storage).
+
+        Yields:
+            The rows of each page and the offset of their first data row, which is 1 when
+            the first page starts with the column labels.
+        """
+        _logger.warning(
+            "output_location is not available (e.g. managed query result storage). "
+            "Falling back to GetQueryResults API. "
+            "This may be slow for large result sets."
+        )
+
+        next_token: str | None = None
+        first_page = True
+        while True:
+            response = self._get_query_results(self.DEFAULT_FETCH_SIZE, next_token)
+            rows, next_token = self._parse_result_rows(response)
+            # Only the first page starts with the column labels.
+            offset = 1 if first_page and rows and self._is_first_row_column_labels(rows) else 0
+            first_page = False
+            yield rows, offset
+            if not next_token:
+                break
+
     def _fetch_all_rows(
         self,
         converter: Converter | None = None,
     ) -> list[tuple[Any | None, ...]]:
         """Fetch all rows via GetQueryResults API with type conversion.
-
-        Paginates through all results from the beginning using MaxResults=1000.
-        Defaults to ``DefaultTypeConverter`` for string-to-Python type conversion,
-        because subclass converters (e.g. Pandas/Arrow) are designed for S3 file
-        reading and may not handle API result strings.
-
-        This method is intended for use by subclass result sets that need to
-        fall back to the API when S3 output is not available (e.g., managed
-        query result storage).
 
         Args:
             converter: Type converter for result values. Defaults to
@@ -585,56 +716,57 @@ class AthenaResultSet(CursorIterator):
 
         Returns:
             List of converted row tuples.
+
+        Raises:
+            ProgrammingError: If the metadata is not available.
         """
-        if self._metadata is None:
+        metadata = self._metadata
+        if metadata is None:
             raise ProgrammingError("Metadata is not available.")
-
-        _logger.warning(
-            "output_location is not available (e.g. managed query result storage). "
-            "Falling back to GetQueryResults API. "
-            "This may be slow for large result sets."
-        )
-
         converter = converter or DefaultTypeConverter()
         all_rows: list[tuple[Any | None, ...]] = []
-        next_token: str | None = None
-
-        while True:
-            response = self.__get_query_results(self.DEFAULT_FETCH_SIZE, next_token)
-            rows, next_token = self._parse_result_rows(response)
-
-            offset = 1 if rows and self._is_first_row_column_labels(rows) else 0
+        for rows, offset in self._iter_all_row_pages():
             all_rows.extend(
                 cast(
                     list[tuple[Any | None, ...]],
-                    self._get_rows(offset, self._metadata, rows, converter),
+                    self._get_rows(offset, metadata, rows, converter),
                 )
             )
-
-            if not next_token:
-                break
-
         return all_rows
 
-    @staticmethod
-    def _rows_to_columnar(
-        rows: list[tuple[Any | None, ...]],
-        columns: list[str],
-    ) -> dict[str, list[Any]]:
-        """Convert row-oriented data to columnar format.
+    def _fetch_all_rows_as_csv(self) -> bytes:
+        """Fetch all rows via GetQueryResults API as the text of a CSV result file.
 
-        Args:
-            rows: List of row tuples from ``_fetch_all_rows()``.
-            columns: Column names in order.
+        GetQueryResults returns the same text for each value as the CSV result file
+        has, and this writes it in the same format: a header of the column labels,
+        each value quoted with its quotes doubled, NULL as an empty field, and a line
+        feed after each row. The cursors that read CSV result files can then read it
+        as one.
 
         Returns:
-            Dictionary mapping column names to lists of values.
+            The CSV text encoded in UTF-8, or empty bytes when the result has no columns.
+
+        Raises:
+            ProgrammingError: If the metadata is not available.
         """
-        columnar: dict[str, list[Any]] = {col: [] for col in columns}
-        for row in rows:
-            for col, val in zip(columns, row, strict=False):
-                columnar[col].append(val)
-        return columnar
+        if self._metadata is None:
+            raise ProgrammingError("Metadata is not available.")
+        description = self.description if self.description else []
+        if not description:
+            return b""
+        lines = [",".join('"' + d[0].replace('"', '""') + '"' for d in description)]
+        for rows, offset in self._iter_all_row_pages():
+            lines.extend(
+                ",".join(
+                    ""
+                    if (value := data.get("VarCharValue")) is None
+                    else '"' + value.replace('"', '""') + '"'
+                    for data in row.get("Data", [])
+                )
+                for row in rows[offset:]
+            )
+        lines.append("")
+        return "\n".join(lines).encode("utf-8")
 
     def _get_content_length(self) -> int:
         if not self.output_location:
@@ -642,7 +774,7 @@ class AthenaResultSet(CursorIterator):
         bucket, key = parse_output_location(self.output_location)
         try:
             response = retry_api_call(
-                self._client.head_object,
+                self.connection.s3_client.head_object,
                 config=self._retry_config,
                 logger=_logger,
                 Bucket=bucket,
@@ -660,7 +792,7 @@ class AthenaResultSet(CursorIterator):
         bucket, key = parse_output_location(self.data_manifest_location)
         try:
             response = retry_api_call(
-                self._client.get_object,
+                self.connection.s3_client.get_object,
                 config=self._retry_config,
                 logger=_logger,
                 Bucket=bucket,
@@ -675,9 +807,11 @@ class AthenaResultSet(CursorIterator):
 
     @property
     def is_closed(self) -> bool:
+        """Whether the result set is closed."""
         return self._connection is None
 
     def close(self) -> None:
+        """Close the result set and discard its query execution, metadata, and rows."""
         self._connection = None
         self._query_execution = None
         self._metadata = None
@@ -696,9 +830,25 @@ class AthenaResultSet(CursorIterator):
 
 
 class AthenaDictResultSet(AthenaResultSet):
+    """A result set that returns each row as a dictionary keyed by column name."""
+
     # You can override this to use OrderedDict or other dict-like types.
     dict_type: type[Any] = dict
 
+    def __init__(self, *args: Any, dict_type: type[Any] | None = None, **kwargs: Any) -> None:
+        """Initialize the result set with an optional row type for this instance.
+
+        Args:
+            *args: Positional arguments passed to the next ``__init__`` in the MRO.
+            dict_type: The type used to build each row of this result set. If
+                None, the class attribute ``dict_type`` is used.
+            **kwargs: Keyword arguments passed to the next ``__init__`` in the MRO.
+        """
+        if dict_type is not None:
+            self.dict_type = dict_type
+        super().__init__(*args, **kwargs)
+
+    @override
     def _get_rows(
         self,
         offset: int,
@@ -755,235 +905,312 @@ class AthenaDictResultSet(AthenaResultSet):
 
 
 class WithResultSet:
-    def __init__(self):
-        super().__init__()
+    """Mixin that keeps a cursor's query ID and result set.
+
+    Provides the query ID, the result set and its properties, ``arraysize``,
+    ``rownumber``, ``rowcount``, and ``close``. ``WithFetch`` and
+    ``WithAsyncFetch`` list it before ``BaseCursor`` / ``AioBaseCursor`` and
+    ``CursorIterator``, so that these members take precedence over theirs.
+    """
+
+    def __init__(self, *, arraysize: int | None = None, **kwargs) -> None:
+        """Initialize the cursor with no query ID and no result set.
+
+        Args:
+            arraysize: Default number of rows per ``fetchmany()`` call,
+                validated by the ``arraysize`` setter. If None,
+                ``DEFAULT_FETCH_SIZE`` is used.
+            **kwargs: Arguments passed to the next ``__init__`` in the MRO.
+
+        Raises:
+            ProgrammingError: If ``arraysize`` is outside the range the
+                cursor's ``arraysize`` setter accepts.
+        """
+        super().__init__(**kwargs)
+        if arraysize is not None:
+            self.arraysize = arraysize
+        self._query_id: str | None = None
+        self._result_set: AthenaResultSet | None = None
 
     def _reset_state(self) -> None:
+        self._rowcount = -1
         self.query_id = None
         if self.result_set and not self.result_set.is_closed:
             self.result_set.close()
         self.result_set = None
 
     @property
-    @abstractmethod
     def result_set(self) -> AthenaResultSet | None:
-        raise NotImplementedError  # pragma: no cover
+        """The result set of the last executed query.
+
+        Returns:
+            The result set, or None before a query succeeds or after a reset.
+        """
+        return self._result_set
 
     @result_set.setter
-    @abstractmethod
     def result_set(self, val: AthenaResultSet | None) -> None:
-        raise NotImplementedError  # pragma: no cover
+        self._result_set = val
 
     @property
     def has_result_set(self) -> bool:
+        """Whether the cursor has a result set."""
         return self.result_set is not None
 
     @property
     def description(
         self,
     ) -> list[tuple[str, str, None, None, int, int, str]] | None:
+        """The DB API 2.0 column descriptions of the result set, or None without one."""
         if not self.result_set:
             return None
         return self.result_set.description
 
     @property
     def database(self) -> str | None:
+        """The database in the ``QueryExecutionContext`` of the query."""
         if not self.result_set:
             return None
         return self.result_set.database
 
     @property
     def catalog(self) -> str | None:
+        """The data catalog in the ``QueryExecutionContext`` of the query."""
         if not self.result_set:
             return None
         return self.result_set.catalog
 
     @property
-    @abstractmethod
     def query_id(self) -> str | None:
-        raise NotImplementedError  # pragma: no cover
+        """The query execution ID of the last execution.
+
+        With ``cache_size`` or ``cache_expiration_time``, this can be the ID of
+        a previous execution whose result is reused.
+
+        Returns:
+            The query execution ID, or None if there is none since the last
+            reset.
+        """
+        return self._query_id
 
     @query_id.setter
-    @abstractmethod
     def query_id(self, val: str | None) -> None:
-        raise NotImplementedError  # pragma: no cover
+        self._query_id = val
+
+    def _set_interrupted_execution_id(self, execution_id: str) -> None:
+        """Keep the ID of a query started by an interrupted start request.
+
+        Args:
+            execution_id: The query execution ID.
+        """
+        self.query_id = execution_id
 
     @property
     def query(self) -> str | None:
+        """The SQL statement that the query execution ran."""
         if not self.result_set:
             return None
         return self.result_set.query
 
     @property
     def statement_type(self) -> str | None:
+        """The ``StatementType`` of the query, such as ``DDL``, ``DML``, or ``UTILITY``."""
         if not self.result_set:
             return None
         return self.result_set.statement_type
 
     @property
     def substatement_type(self) -> str | None:
+        """The ``SubstatementType`` of the query, such as ``INSERT`` or ``MERGE``."""
         if not self.result_set:
             return None
         return self.result_set.substatement_type
 
     @property
     def work_group(self) -> str | None:
+        """The work group in which the query ran."""
         if not self.result_set:
             return None
         return self.result_set.work_group
 
     @property
     def execution_parameters(self) -> list[str]:
+        """The ``ExecutionParameters`` values of the query."""
         if not self.result_set:
             return []
         return self.result_set.execution_parameters
 
     @property
     def state(self) -> str | None:
+        """The state of the query execution, such as ``RUNNING`` or ``SUCCEEDED``."""
         if not self.result_set:
             return None
         return self.result_set.state
 
     @property
     def state_change_reason(self) -> str | None:
+        """The ``StateChangeReason`` that gives further detail about the state."""
         if not self.result_set:
             return None
         return self.result_set.state_change_reason
 
     @property
     def submission_date_time(self) -> datetime | None:
+        """The date and time when the query was submitted."""
         if not self.result_set:
             return None
         return self.result_set.submission_date_time
 
     @property
     def completion_date_time(self) -> datetime | None:
+        """The date and time when the query completed."""
         if not self.result_set:
             return None
         return self.result_set.completion_date_time
 
     @property
     def error_category(self) -> int | None:
+        """The ``ErrorCategory`` of the failure: 1 for system, 2 for user, 3 for other."""
         if not self.result_set:
             return None
         return self.result_set.error_category
 
     @property
     def error_type(self) -> int | None:
+        """The ``ErrorType`` code of the query failure."""
         if not self.result_set:
             return None
         return self.result_set.error_type
 
     @property
     def retryable(self) -> bool | None:
+        """Whether Athena reports the query failure as retryable."""
         if not self.result_set:
             return None
         return self.result_set.retryable
 
     @property
     def error_message(self) -> str | None:
+        """The ``ErrorMessage`` that describes the query failure."""
         if not self.result_set:
             return None
         return self.result_set.error_message
 
     @property
     def data_scanned_in_bytes(self) -> int | None:
+        """The number of bytes that the query scanned."""
         if not self.result_set:
             return None
         return self.result_set.data_scanned_in_bytes
 
     @property
     def engine_execution_time_in_millis(self) -> int | None:
+        """The time in milliseconds that the query engine took to run the query."""
         if not self.result_set:
             return None
         return self.result_set.engine_execution_time_in_millis
 
     @property
     def query_queue_time_in_millis(self) -> int | None:
+        """The time in milliseconds that the query waited in the queue."""
         if not self.result_set:
             return None
         return self.result_set.query_queue_time_in_millis
 
     @property
     def total_execution_time_in_millis(self) -> int | None:
+        """The total time in milliseconds that Athena took to run the query."""
         if not self.result_set:
             return None
         return self.result_set.total_execution_time_in_millis
 
     @property
     def query_planning_time_in_millis(self) -> int | None:
+        """The time in milliseconds that Athena took to plan the query."""
         if not self.result_set:
             return None
         return self.result_set.query_planning_time_in_millis
 
     @property
     def service_processing_time_in_millis(self) -> int | None:
+        """The time in milliseconds that Athena took to publish the query results."""
         if not self.result_set:
             return None
         return self.result_set.service_processing_time_in_millis
 
     @property
     def output_location(self) -> str | None:
+        """The S3 location of the query results."""
         if not self.result_set:
             return None
         return self.result_set.output_location
 
     @property
     def data_manifest_location(self) -> str | None:
+        """The S3 location of the data manifest that lists the files the query wrote."""
         if not self.result_set:
             return None
         return self.result_set.data_manifest_location
 
     @property
     def reused_previous_result(self) -> bool | None:
+        """Whether Athena reused a previous query result instead of running the query."""
         if not self.result_set:
             return None
         return self.result_set.reused_previous_result
 
     @property
     def encryption_option(self) -> str | None:
+        """The ``EncryptionOption`` of the query results, such as ``SSE_S3`` or ``SSE_KMS``."""
         if not self.result_set:
             return None
         return self.result_set.encryption_option
 
     @property
     def kms_key(self) -> str | None:
+        """The KMS key used to encrypt the query results."""
         if not self.result_set:
             return None
         return self.result_set.kms_key
 
     @property
     def expected_bucket_owner(self) -> str | None:
+        """The AWS account ID expected to own the S3 bucket of the query results."""
         if not self.result_set:
             return None
         return self.result_set.expected_bucket_owner
 
     @property
     def s3_acl_option(self) -> str | None:
+        """The ``S3AclOption`` of the query results, such as ``BUCKET_OWNER_FULL_CONTROL``."""
         if not self.result_set:
             return None
         return self.result_set.s3_acl_option
 
     @property
     def selected_engine_version(self) -> str | None:
+        """The Athena engine version selected to run the query."""
         if not self.result_set:
             return None
         return self.result_set.selected_engine_version
 
     @property
     def effective_engine_version(self) -> str | None:
+        """The Athena engine version that ran the query."""
         if not self.result_set:
             return None
         return self.result_set.effective_engine_version
 
     @property
     def result_reuse_enabled(self) -> bool | None:
+        """Whether reuse of previous query results by age is enabled for the query."""
         if not self.result_set:
             return None
         return self.result_set.result_reuse_enabled
 
     @property
     def result_reuse_minutes(self) -> int | None:
+        """The maximum age in minutes of a previous query result that Athena can reuse."""
         if not self.result_set:
             return None
         return self.result_set.result_reuse_minutes
@@ -994,33 +1221,25 @@ class WithResultSet:
 
         For SELECT statements, this returns -1 as per DB API 2.0 specification.
         For DML operations (INSERT, UPDATE, DELETE) and CTAS, this returns
-        the number of affected rows.
+        the number of affected rows. After a successful ``executemany()``,
+        this is the sum across executions, or -1 if any count is unknown.
 
         Returns:
             The number of rows, or -1 if not applicable or unknown.
         """
-        return self.result_set.rowcount if self.result_set else -1
-
-
-class WithFetch(BaseCursor, CursorIterator, WithResultSet):
-    """Mixin providing shared properties, fetch, lifecycle, and sync iteration for SQL cursors.
-
-    Provides properties (``arraysize``, ``result_set``, ``query_id``,
-    ``rownumber``, ``rowcount``), lifecycle methods (``close``, ``executemany``,
-    ``cancel``), default sync fetch (for cursors whose result sets load all
-    data eagerly in ``__init__``), and the sync iteration protocol.
-
-    Subclasses override ``execute()`` and optionally ``__init__`` and
-    format-specific helpers.
-    """
-
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self._query_id: str | None = None
-        self._result_set: AthenaResultSet | None = None
+        return self.result_set.rowcount if self.result_set else self._rowcount
 
     @property
     def arraysize(self) -> int:
+        """The default number of rows per ``fetchmany()`` call.
+
+        ``execute()`` passes it to the new result set, so a change applies to
+        the result sets of later executions. Setting it to zero or a negative
+        value raises ``ProgrammingError``.
+
+        Returns:
+            The default number of rows per ``fetchmany()`` call.
+        """
         return self._arraysize
 
     @arraysize.setter
@@ -1030,34 +1249,89 @@ class WithFetch(BaseCursor, CursorIterator, WithResultSet):
         self._arraysize = value
 
     @property
-    def result_set(self) -> AthenaResultSet | None:
-        return self._result_set
-
-    @result_set.setter
-    def result_set(self, val) -> None:
-        self._result_set = val
-
-    @property
-    def query_id(self) -> str | None:
-        return self._query_id
-
-    @query_id.setter
-    def query_id(self, val) -> None:
-        self._query_id = val
-
-    @property
     def rownumber(self) -> int | None:
-        return self.result_set.rownumber if self.result_set else None
+        """The zero-based index of the next row in the result set.
 
-    @property
-    def rowcount(self) -> int:
-        return self.result_set.rowcount if self.result_set else -1
+        Returns:
+            The row index, or None if there is no result set or the index is
+            unknown.
+        """
+        return self.result_set.rownumber if self.result_set else None
 
     def close(self) -> None:
         """Close the cursor and release associated resources."""
+        self._rowcount = -1
         if self.result_set and not self.result_set.is_closed:
             self.result_set.close()
 
+
+class WithFetch(WithResultSet, BaseCursor, CursorIterator):
+    """Base class of the sync SQL cursors.
+
+    Combines ``WithResultSet`` with ``BaseCursor`` and ``CursorIterator``, and
+    provides sync fetch, ``executemany``, ``cancel``, and sync iteration.
+
+    Subclasses override ``execute()`` and optionally ``__init__`` and
+    format-specific helpers.
+    """
+
+    @override
+    def fetchone(
+        self,
+    ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
+        """Fetch the next row of the result set.
+
+        Returns:
+            The next row (a tuple, or a dict for dict cursors), or None if no
+            more rows.
+
+        Raises:
+            ProgrammingError: If no result set is available.
+        """
+        if not self.has_result_set:
+            raise ProgrammingError("No result set.")
+        result_set = cast(AthenaResultSet, self.result_set)
+        return result_set.fetchone()
+
+    @override
+    def fetchmany(
+        self, size: int | None = None
+    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
+        """Fetch multiple rows from the result set.
+
+        Args:
+            size: Maximum number of rows to fetch. If None or not positive,
+                ``arraysize`` is used.
+
+        Returns:
+            The fetched rows.
+
+        Raises:
+            ProgrammingError: If no result set is available.
+        """
+        if not self.has_result_set:
+            raise ProgrammingError("No result set.")
+        result_set = cast(AthenaResultSet, self.result_set)
+        return result_set.fetchmany(size)
+
+    @override
+    def fetchall(
+        self,
+    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
+        """Fetch all remaining rows from the result set.
+
+        Returns:
+            The remaining rows.
+
+        Raises:
+            ProgrammingError: If no result set is available.
+        """
+        if not self.has_result_set:
+            raise ProgrammingError("No result set.")
+        result_set = cast(AthenaResultSet, self.result_set)
+        return result_set.fetchall()
+
+    @override
     def executemany(
         self,
         operation: str,
@@ -1066,15 +1340,36 @@ class WithFetch(BaseCursor, CursorIterator, WithResultSet):
     ) -> None:
         """Execute a SQL query multiple times with different parameters.
 
+        On success, ``rowcount`` is the sum of the affected row counts, or
+        -1 if any execution has an unknown count. An empty parameter list
+        sets it to 0. On failure, it is -1; earlier executions are not rolled
+        back. Result sets are discarded.
+
+        On failure, ``query_id`` retains the current query ID when available.
+        If parameter iteration fails, this can identify the last successful
+        execution.
+
         Args:
             operation: SQL query string to execute.
             seq_of_parameters: Sequence of parameter sets, one per execution.
             **kwargs: Additional keyword arguments passed to each ``execute()``.
+                An empty parameter list makes no ``execute()`` call, so it does
+                not report unsupported keyword names.
         """
-        for parameters in seq_of_parameters:
-            self.execute(operation, parameters, **kwargs)
-        # Operations that have result sets are not allowed with executemany.
         self._reset_state()
+        rowcount = 0
+        try:
+            for parameters in seq_of_parameters:
+                self.execute(operation, parameters, **kwargs)
+                count = self.rowcount
+                rowcount = rowcount + count if rowcount >= 0 and count >= 0 else -1
+        except BaseException:
+            # Keep the query ID available for diagnostics and explicit cancellation.
+            self.close()
+            self.result_set = None
+            raise
+        self._reset_state()
+        self._rowcount = rowcount
 
     def cancel(self) -> None:
         """Cancel the currently executing query.
@@ -1085,54 +1380,3 @@ class WithFetch(BaseCursor, CursorIterator, WithResultSet):
         if not self.query_id:
             raise ProgrammingError("QueryExecutionId is none or empty.")
         self._cancel(self.query_id)
-
-    def fetchone(
-        self,
-    ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
-        """Fetch the next row of the result set.
-
-        Returns:
-            A tuple representing the next row, or None if no more rows.
-
-        Raises:
-            ProgrammingError: If no result set is available.
-        """
-        if not self.has_result_set:
-            raise ProgrammingError("No result set.")
-        result_set = cast(AthenaResultSet, self.result_set)
-        return result_set.fetchone()
-
-    def fetchmany(
-        self, size: int | None = None
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        """Fetch multiple rows from the result set.
-
-        Args:
-            size: Maximum number of rows to fetch. Defaults to arraysize.
-
-        Returns:
-            List of tuples representing the fetched rows.
-
-        Raises:
-            ProgrammingError: If no result set is available.
-        """
-        if not self.has_result_set:
-            raise ProgrammingError("No result set.")
-        result_set = cast(AthenaResultSet, self.result_set)
-        return result_set.fetchmany(size)
-
-    def fetchall(
-        self,
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        """Fetch all remaining rows from the result set.
-
-        Returns:
-            List of tuples representing all remaining rows.
-
-        Raises:
-            ProgrammingError: If no result set is available.
-        """
-        if not self.has_result_set:
-            raise ProgrammingError("No result set.")
-        result_set = cast(AthenaResultSet, self.result_set)
-        return result_set.fetchall()

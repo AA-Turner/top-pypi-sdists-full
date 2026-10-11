@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,7 +13,6 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar._roarexc import _BeartypeUtilCallableException
-from beartype.typing import Tuple
 from beartype._cave._cavefast import (
     FunctionType,
     MethodBoundInstanceOrClassType,
@@ -22,7 +21,7 @@ from beartype._data.typing.datatyping import (
     Codeobjable,
     TypeException,
 )
-from beartype._util.func.utilfunccodeobj import get_func_codeobj
+from beartype._util.func.utilfunccodeobj import get_func_codeobject
 from inspect import (
     CO_VARARGS,
     CO_VARKEYWORDS,
@@ -30,7 +29,7 @@ from inspect import (
 from itertools import count
 
 # ....................{ HINTS                              }....................
-CallableArgsLens = Tuple[int, int, bool, bool]
+CallableArgsLens = tuple[int, int, bool, bool]
 '''
 PEP-compliant type hint matching **callable parameter length metadata** returned
 by the :func:`.get_func_args_lens` getter, defined as the 4-tuple
@@ -115,7 +114,7 @@ def get_func_args_len(*args, **kwargs) -> int:
     Parameters
     ----------
     All parameters are passed as is to the lower-level
-    :func:`.get_func_codeobj` getter.
+    :func:`.get_func_codeobject` getter.
 
     Returns
     -------
@@ -176,11 +175,11 @@ def get_func_args_lens(
     ----------
     func : Codeobjable
         Pure-Python callable, frame, or code object to be inspected.
-    is_unwrap: bool, optional
+    is_unwrap: bool, default: True
         :data:`True` only if this getter implicitly calls the
-        :func:`beartype._util.func.utilfuncwrap.unwrap_func_all` function.
-        Defaults to :data:`True` for safety. See :func:`.get_func_codeobj` for
-        further commentary.
+        :func:`beartype._util.func.utilfuncwrap.unwrap_func_all_isomorphic`
+        function. Defaults to :data:`True` for safety. See
+        :func:`.get_func_codeobject` for further commentary.
     exception_cls : type, optional
         Type of exception to be raised in the event of a fatal error. Defaults
         to :class:`._BeartypeUtilCallableException`.
@@ -222,7 +221,7 @@ def get_func_args_lens(
     # Else, this metadata has *NOT* been previously computed.
 
     # Code object underlying the passed pure-Python callable unwrapped.
-    func_codeobj = get_func_codeobj(
+    func_codeobj = get_func_codeobject(
         func=func,
         is_unwrap=False,  # <-- "func" was already unwrapped above. I sigh.
         exception_cls=exception_cls,
@@ -317,7 +316,7 @@ def get_func_args_flexible_len(
     is_unwrap: bool, optional
         :data:`True` only if this getter implicitly calls the
         :func:`beartype._util.func.utilfuncwrap.unwrap_func_all` function.
-        Defaults to :data:`True` for safety. See :func:`.get_func_codeobj` for
+        Defaults to :data:`True` for safety. See :func:`.get_func_codeobject` for
         further commentary.
     exception_cls : type, optional
         Type of exception to be raised in the event of a fatal error. Defaults
@@ -421,7 +420,7 @@ def get_func_args_nonvariadic_len(*args, **kwargs) -> int:
     Parameters
     ----------
     All parameters are passed as is to the lower-level
-    :func:`.get_func_codeobj` getter.
+    :func:`.get_func_codeobject` getter.
 
     Returns
     -------
@@ -474,7 +473,7 @@ def _get_func_boundmethod_args_flexible_len(
     is_unwrap: bool, optional
         :data:`True` only if this getter implicitly calls the
         :func:`beartype._util.func.utilfuncwrap.unwrap_func_all` function.
-        Defaults to :data:`True` for safety. See :func:`.get_func_codeobj` for
+        Defaults to :data:`True` for safety. See :func:`.get_func_codeobject` for
         further commentary.
     exception_cls : type, optional
         Type of exception to be raised in the event of a fatal error. Defaults

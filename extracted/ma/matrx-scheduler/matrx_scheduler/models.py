@@ -43,6 +43,11 @@ RunStatus = Literal[
     # is closed and a continuation is queued. Neither success nor failure — see
     # ``continuation.py``. Keep in lockstep with sch_run_status_chk and the FE union.
     "interrupted",
+    # An automation guardrail stopped the run mid-way (max turns / max cost per run / a spend
+    # cap) or refused it at fire time (missing limits, cap, failure rate);
+    # ``result_metadata.guardrail`` names the limit. Neither success nor failure.
+    # Keep in lockstep with sch_run_status_chk and the FE union.
+    "stopped",
 ]
 
 AuthMode = Literal["ask", "auto"]
@@ -67,6 +72,19 @@ class SchTask(BaseModel):
     last_run_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    created_by: str | None = None
+    #: ``created_via`` (``person`` | ``agent``) is stamped at creation by the API route.
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("metadata", mode="before")
+    @classmethod
+    def _coerce_task_metadata(cls, value: Any) -> Any:
+        return _coerce_json_object(value, empty={})
+
+    @field_validator("created_by", mode="before")
+    @classmethod
+    def _uuid_text(cls, value: Any) -> Any:
+        return str(value) if value is not None and not isinstance(value, str) else value
 
 
 class SchAgentTask(BaseModel):
@@ -170,6 +188,11 @@ class AgentRunInput(BaseModel):
     variables: dict[str, Any]
     persistent_conversation_id: str | None
     max_runtime_seconds: int
+    #: The run's own metadata (a person's "Run now" carries ``run_approval_person_fired`` + ``fired_by``)
+    #: and the task's provenance — the host decides from these whose work the run is.
+    run_metadata: dict[str, Any] = Field(default_factory=dict)
+    task_metadata: dict[str, Any] = Field(default_factory=dict)
+    task_created_by: str | None = None
 
     @model_validator(mode="after")
     def _require_holder_selection(self) -> AgentRunInput:

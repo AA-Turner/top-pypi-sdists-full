@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -81,12 +81,12 @@ def test_is_type_builtin() -> None:
     # Defer test-specific imports.
     from beartype._util.cls.utilclstest import is_type_builtin
     from beartype_test.a00_unit.data.data_type import (
-        TYPES_BUILTIN,
+        BUILTIN_TYPES,
         TYPES_NONBUILTIN,
     )
 
     # Assert this tester accepts all builtin types.
-    for type_builtin in TYPES_BUILTIN:
+    for type_builtin in BUILTIN_TYPES:
         assert is_type_builtin(type_builtin) is True
 
     # Assert this tester rejects non-builtin types.
@@ -103,13 +103,13 @@ def test_is_type_builtin_or_fake() -> None:
     # Defer test-specific imports.
     from beartype._util.cls.utilclstest import is_type_builtin_or_fake
     from beartype_test.a00_unit.data.data_type import (
-        TYPES_BUILTIN,
+        BUILTIN_TYPES,
         TYPES_BUILTIN_FAKE,
         Class,
     )
 
     # Assert this tester accepts all non-fake builtin types.
-    for type_builtin in TYPES_BUILTIN:
+    for type_builtin in BUILTIN_TYPES:
         assert is_type_builtin_or_fake(type_builtin) is True
 
     # Assert this tester accepts all fake builtin types, too.

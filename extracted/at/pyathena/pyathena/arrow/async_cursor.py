@@ -1,3 +1,5 @@
+"""Asynchronous cursor that returns Athena query results as Apache Arrow tables."""
+
 from __future__ import annotations
 
 import logging
@@ -15,6 +17,7 @@ from pyathena.async_cursor import AsyncCursor
 from pyathena.common import CursorIterator
 from pyathena.model import AthenaQueryExecution
 from pyathena.options import ExecuteOptions
+from pyathena.util import override
 
 _logger = logging.getLogger(__name__)
 
@@ -61,6 +64,7 @@ class AsyncArrowCursor(AsyncCursor):
 
     def __init__(
         self,
+        *,
         s3_staging_dir: str | None = None,
         schema_name: str | None = None,
         catalog_name: str | None = None,
@@ -89,7 +93,7 @@ class AsyncArrowCursor(AsyncCursor):
             encryption_option: S3 encryption option (SSE_S3, SSE_KMS, CSE_KMS).
             kms_key: KMS key ARN for encryption.
             kill_on_interrupt: Cancel running query on keyboard interrupt.
-            max_workers: Maximum number of workers for concurrent execution.
+            max_workers: Size of the cursor thread pool for waiting and collecting results.
             arraysize: Number of rows to fetch per batch.
             unload: Enable UNLOAD for high-performance Parquet output.
             result_reuse_enable: Enable Athena query result reuse.
@@ -130,6 +134,7 @@ class AsyncArrowCursor(AsyncCursor):
         self._request_timeout = request_timeout
 
     @staticmethod
+    @override
     def get_default_converter(
         unload: bool = False,
     ) -> DefaultArrowTypeConverter | DefaultArrowUnloadTypeConverter | Any:
@@ -137,7 +142,8 @@ class AsyncArrowCursor(AsyncCursor):
             return DefaultArrowUnloadTypeConverter()
         return DefaultArrowTypeConverter()
 
-    @property
+    @property  # type: ignore[explicit-override]  # python/mypy#15900
+    @override
     def arraysize(self) -> int:
         return self._arraysize
 
@@ -147,6 +153,7 @@ class AsyncArrowCursor(AsyncCursor):
             raise ProgrammingError("arraysize must be a positive integer value.")
         self._arraysize = value
 
+    @override
     def _collect_result_set(
         self,
         query_id: str,
@@ -165,16 +172,18 @@ class AsyncArrowCursor(AsyncCursor):
             retry_config=self._retry_config,
             unload=self._unload,
             unload_location=unload_location,
-            connect_timeout=self._connect_timeout,
-            request_timeout=self._request_timeout,
+            connect_timeout=kwargs.pop("connect_timeout", self._connect_timeout),
+            request_timeout=kwargs.pop("request_timeout", self._request_timeout),
             result_set_type_hints=result_set_type_hints,
             **kwargs,
         )
 
+    @override
     def execute(
         self,
         operation: str,
         parameters: dict[str, Any] | list[str] | None = None,
+        *,
         work_group: str | None = None,
         s3_staging_dir: str | None = None,
         cache_size: int | None = None,
@@ -183,7 +192,6 @@ class AsyncArrowCursor(AsyncCursor):
         result_reuse_minutes: int | None = None,
         paramstyle: str | None = None,
         result_set_type_hints: dict[str | int, str] | None = None,
-        *,
         options: ExecuteOptions | None = None,
         **kwargs,
     ) -> tuple[str, Future[AthenaArrowResultSet | Any]]:
@@ -199,17 +207,20 @@ class AsyncArrowCursor(AsyncCursor):
             result_reuse_enable: Enable Athena result reuse for this query.
             result_reuse_minutes: Minutes to reuse cached results.
             paramstyle: Parameter style ('qmark' or 'pyformat').
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion within
-                complex types.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
             options: Shared execution options as an
                 :class:`~pyathena.options.ExecuteOptions` instance. Individual
                 keyword arguments take precedence over ``options`` fields.
-            **kwargs: Additional execution parameters.
+            **kwargs: Result-set overrides: ``block_size``, ``connect_timeout``,
+                and ``request_timeout``. Unknown names raise TypeError.
+                ``block_size`` sets the read block size for this query, and
+                ``connect_timeout`` and ``request_timeout`` override the cursor's values.
 
         Returns:
             Tuple of (query_id, future) where future resolves to AthenaArrowResultSet.
         """
+        self._validate_execute_kwargs(kwargs, ("block_size", "connect_timeout", "request_timeout"))
         options = ExecuteOptions.resolve(
             options,
             work_group=work_group,

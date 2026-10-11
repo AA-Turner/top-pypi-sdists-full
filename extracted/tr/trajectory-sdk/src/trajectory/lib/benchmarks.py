@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
-import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from concurrent.futures import CancelledError
 from pathlib import Path, PurePosixPath
 
 from pathspec import GitIgnoreSpec
-from tqdm import tqdm
 
 from trajectory import Client
 from trajectory.lib._exceptions import (
@@ -17,6 +17,11 @@ from trajectory.lib._exceptions import (
   BenchmarkImageBuildTimeoutError,
 )
 from trajectory.lib.benchmark_operations import BenchmarkOperation
+from trajectory.lib.benchmark_progress import (
+  BenchmarkProgress,
+  _BenchmarkProgressDisplay,
+  _SubmissionProgress,
+)
 from trajectory.lib.benchmark_submission import SubmissionUpload
 from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UploadFile
 from trajectory.types.batch_item_failure import BatchItemFailure
@@ -54,24 +59,6 @@ def RuntimeRef(runtime_id: str) -> RuntimeSpec:
   return RuntimeSpec(runtime_id=runtime_id)
 
 
-class _ProgressStream:
-  def write(self, text: str) -> int:
-    if sys.stderr is None:
-      return 0
-    try:
-      return sys.stderr.write(text)
-    except (OSError, ValueError):
-      return 0  # Progress output must not hide a successful submission.
-
-  def flush(self) -> None:
-    if sys.stderr is None:
-      return
-    try:
-      sys.stderr.flush()
-    except (OSError, ValueError):
-      pass
-
-
 def push(
   client: Client,
   manifest: BenchmarkSpec,
@@ -79,7 +66,7 @@ def push(
   root: Path = Path("."),
   build_images: bool = False,
   idempotency_key: str | None = None,
-  progress: Callable[[dict[str, int]], None] | None = None,
+  progress: Callable[[BenchmarkProgress], None] | None = None,
   agent_name: str | None = None,
   upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
 ) -> IngestBenchmarkResponse:
@@ -111,7 +98,7 @@ def start_push(
   root: Path = Path("."),
   build_images: bool = False,
   idempotency_key: str | None = None,
-  progress: Callable[[dict[str, int]], None] | None = None,
+  progress: Callable[[BenchmarkProgress], None] | None = None,
   agent_name: str | None = None,
   upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
 ) -> BenchmarkOperation:
@@ -120,25 +107,17 @@ def start_push(
     raise TypeError("manifest must be a BenchmarkSpec")
   SubmissionUpload.validate_benchmark_name(manifest.name)
   SubmissionUpload.validate_agent(agent_id, agent_name)
-  package = _BenchmarkPackage(manifest, root)
-  upload = SubmissionUpload()
-  try:
-    for task in package.manifest.tasks:
-      upload.add_task(task.model_dump(mode="json", exclude_none=True))
-    for file in package.files():
-      upload.add_file(file)
-    with tqdm(
-      desc="Uploading benchmark",
-      unit="B",
-      unit_scale=True,
-      file=_ProgressStream(),
-      disable=progress is not None,
-    ) as bar:
-
-      def update_upload(event: dict[str, int]) -> None:
-        bar.total = event["total_bytes"]
-        bar.update(event["uploaded_bytes"] - bar.n)
-
+  with _BenchmarkProgressDisplay(disabled=progress is not None) as display:
+    reporter = _SubmissionProgress(progress if progress is not None else display.update)
+    upload: SubmissionUpload | None = None
+    try:
+      reporter.emit(force=True)
+      package = _BenchmarkPackage(manifest, root)
+      upload = SubmissionUpload(reporter)
+      for task in package.manifest.tasks:
+        upload.add_task(task.model_dump(mode="json", exclude_none=True))
+      reporter.set_stage("hashing")
+      upload.add_files(package.files())
       operation = upload.submit(
         client,
         manifest.model_dump(mode="json", exclude={"tasks", "name"}),
@@ -147,13 +126,23 @@ def start_push(
         agent_name=agent_name,
         build_images=build_images,
         idempotency_key=idempotency_key,
-        progress=progress if progress is not None else update_upload,
         upload_timeout=upload_timeout,
       )
-      bar.set_description("Submitted benchmark")
       return operation
-  finally:
-    upload.close()
+    except BaseException as error:
+      stage = (
+        "cancelled"
+        if isinstance(error, (KeyboardInterrupt, asyncio.CancelledError, CancelledError))
+        else "error"
+      )
+      try:
+        reporter.set_stage(stage, error=str(error) or type(error).__name__)
+      except BaseException:
+        pass  # A failing callback must not replace the original error.
+      raise
+    finally:
+      if upload is not None:
+        upload.close()
 
 
 def get_operation(client: Client, operation_id: str) -> BenchmarkOperation:
@@ -182,9 +171,10 @@ class _BenchmarkPackage:
         sum(path.stat().st_size for path in paths),
       )
 
-  def files(self) -> list[UploadFile]:
+  def files(self) -> Iterator[UploadFile]:
     paths = sorted({path for paths in self._tree_cache.values() for path in paths})
-    return [self._upload_file(path) for path in paths]
+    for path in paths:
+      yield self._upload_file(path)
 
   def _validate_and_collect(self) -> None:
     default_runtime = self.manifest.runtime

@@ -10,11 +10,14 @@ head, so Ulysses' head split leaves each head's scale exactly what one GPU compu
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from torch import Tensor
 
 from cozy_runtime.internal.accel import readable
 
-# Tensors and triton's kernels are `Any`: neither torch nor triton is installed in the check venv.
+# Triton launch objects remain dynamic; tensor signatures name their optional dependency.
 
 #: The largest finite e4m3fn magnitude, and the value a head's amax is mapped onto instead.
 E4M3_MAX = 448.0
@@ -47,8 +50,9 @@ def _triton_kernels() -> Any:
 
         @triton.jit  # type: ignore[untyped-decorator]
         def _amax(x_ptr, amax_ptr, seq, heads, CHUNK: tl.constexpr, DIM: tl.constexpr):  # type: ignore[no-untyped-def]
-            head = tl.program_id(0)
-            rows = tl.program_id(1) * CHUNK + tl.arange(0, CHUNK)
+            # int64 element offsets: a (seq, heads, dim) tensor may pass 2**31 elements.
+            head = tl.program_id(0).to(tl.int64)
+            rows = tl.program_id(1).to(tl.int64) * CHUNK + tl.arange(0, CHUNK)
             cols = tl.arange(0, DIM)
             batch = head // heads
             offsets = ((batch * seq + rows)[:, None] * heads + head % heads) * DIM + cols[None, :]
@@ -57,8 +61,8 @@ def _triton_kernels() -> Any:
 
         @triton.jit  # type: ignore[untyped-decorator]
         def _cast(x_ptr, out_ptr, amax_ptr, seq, heads, CHUNK: tl.constexpr, DIM: tl.constexpr):  # type: ignore[no-untyped-def]
-            head = tl.program_id(0)
-            rows = tl.program_id(1) * CHUNK + tl.arange(0, CHUNK)
+            head = tl.program_id(0).to(tl.int64)
+            rows = tl.program_id(1).to(tl.int64) * CHUNK + tl.arange(0, CHUNK)
             cols = tl.arange(0, DIM)
             batch = head // heads
             offsets = ((batch * seq + rows)[:, None] * heads + head % heads) * DIM + cols[None, :]
@@ -79,7 +83,7 @@ def _triton_kernels() -> Any:
     return kernels
 
 
-def quantise(tensor: Any) -> tuple[Any, Any]:
+def quantise(tensor: Tensor) -> tuple[Tensor, Tensor]:
     """(batch, seq, heads, dim) bf16/fp16 -> e4m3 of the same shape and a (batch, heads) fp32
     descale, the form FA3's forward takes (`CHECK_SHAPE(q_descale, batch_size, num_heads_k)`).
 
@@ -102,7 +106,7 @@ def quantise(tensor: Any) -> tuple[Any, Any]:
     return out, (amax / E4M3_TARGET).clamp_(min=SCALE_FLOOR)
 
 
-def quantise_eager(tensor: Any) -> tuple[Any, Any]:
+def quantise_eager(tensor: Tensor) -> tuple[Tensor, Tensor]:
     """The same arithmetic in torch passes: the executable floor, and what a CPU probe runs."""
     import torch
 

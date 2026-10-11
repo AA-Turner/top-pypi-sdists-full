@@ -1,15 +1,25 @@
+# Copyright 2017 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""Base classes shared by the Athena for Apache Spark cursors."""
+
 from __future__ import annotations
 
 import contextlib
 import logging
 import time
+import uuid
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
 from typing import Any, cast
 
 import botocore
 
-from pyathena import NotSupportedError, OperationalError
+from pyathena import DatabaseError, NotSupportedError, OperationalError
 from pyathena.common import BaseCursor
 from pyathena.model import (
     AthenaCalculationExecution,
@@ -17,7 +27,7 @@ from pyathena.model import (
     AthenaQueryExecution,
     AthenaSessionStatus,
 )
-from pyathena.util import parse_output_location, retry_api_call
+from pyathena.util import override, parse_output_location, retry_api_call
 
 _logger = logging.getLogger(__name__)
 
@@ -41,7 +51,6 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
     Attributes:
         session_id: The Athena Spark session identifier.
         calculation_id: ID of the current calculation being executed.
-        engine_configuration: DPU and resource configuration for Spark.
 
     Note:
         This is an abstract base class used by concrete Spark cursor implementations
@@ -50,14 +59,19 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
 
     def __init__(
         self,
+        *,
         session_id: str | None = None,
         description: str | None = None,
         engine_configuration: dict[str, Any] | None = None,
         notebook_version: str | None = None,
         session_idle_timeout_minutes: int | None = None,
+        terminate_session_on_close: bool | None = None,
         **kwargs,
     ) -> None:
         """Initialize the cursor and start or attach to a Spark session.
+
+        If waiting for a newly started session fails, that session is terminated
+        regardless of ``terminate_session_on_close``; a supplied session is not.
 
         Args:
             session_id: ID of an existing session to use. If omitted, a new
@@ -67,6 +81,9 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
                 Defaults to ``get_default_engine_configuration()``.
             notebook_version: Notebook version of a new session.
             session_idle_timeout_minutes: Idle timeout of a new session in minutes.
+            terminate_session_on_close: Whether ``close()`` terminates the session.
+                If None, only a session started by this cursor is terminated;
+                a session supplied with ``session_id`` is left running.
             **kwargs: Arguments passed to ``BaseCursor``.
 
         Raises:
@@ -82,17 +99,16 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
         self._notebook_version = notebook_version
         self._session_description = description
         self._session_idle_timeout_minutes = session_idle_timeout_minutes
+        if terminate_session_on_close is None:
+            # Only a session started by this cursor.
+            terminate_session_on_close = not session_id
+        self._terminate_session_on_close = terminate_session_on_close
         self._calculation_id: str | None = None
         self._calculation_execution: AthenaCalculationExecution | None = None
 
-        # Created before the session so that a local failure cannot leave
-        # a newly started session behind.
-        self._client = self.connection.session.client(
-            "s3",
-            region_name=self.connection.region_name,
-            config=self.connection.config,
-            **self.connection._client_kwargs,
-        )
+        # Taken before the session so that a failure to build the client
+        # cannot leave a newly started session behind.
+        self._client = self.connection.s3_client
 
         if session_id:
             if self._exists_session(session_id):
@@ -104,14 +120,22 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
 
     @property
     def session_id(self) -> str:
+        """The ID of the Spark session that this cursor runs calculations in."""
         return self._session_id
 
     @property
     def calculation_id(self) -> str | None:
+        """The ID of the calculation tracked by this cursor, or None if there is none."""
         return self._calculation_id
 
     @staticmethod
     def get_default_engine_configuration() -> dict[str, Any]:
+        """Return the engine configuration used when none is given.
+
+        Returns:
+            The ``EngineConfiguration`` of a new session: a coordinator DPU size of 1,
+            at most 2 concurrent DPUs, and a default executor DPU size of 1.
+        """
         return {
             "CoordinatorDpuSize": 1,
             "MaxConcurrentDpus": 2,
@@ -170,7 +194,22 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
             time.sleep(self._poll_interval)
 
     def _exists_session(self, session_id: str) -> bool:
-        request = {"SessionId": session_id}
+        """Whether a Spark session exists, from ``GetSession``.
+
+        Waits for an existing session to become idle before returning.
+
+        Args:
+            session_id: The session ID.
+
+        Returns:
+            True if the session exists; False if Athena rejects it with
+            ``InvalidRequestException``.
+
+        Raises:
+            OperationalError: If the request fails for another reason, or if the
+                session is terminated, degraded, or failed.
+        """
+        request: dict[str, Any] = {"SessionId": session_id}
         try:
             retry_api_call(
                 self._connection.client.get_session,
@@ -231,18 +270,24 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
             # The caller receives no cursor to close, so the session is released here.
             with contextlib.suppress(OperationalError):
                 # Already logged with the session ID; the original error takes precedence.
-                self.__terminate_session(session_id)
+                self._terminate_session_by_id(session_id)
             raise
         return session_id
 
     def _terminate_session(self) -> None:
-        self.__terminate_session(self._session_id)
+        """Terminate the cursor's Spark session with ``TerminateSession``.
 
-    def __terminate_session(self, session_id: str) -> None:
+        Raises:
+            OperationalError: If the request fails.
+        """
+        self._terminate_session_by_id(self._session_id)
+
+    def _terminate_session_by_id(self, session_id: str) -> None:
         """Terminate a Spark session with ``TerminateSession``.
 
         Session startup calls this synchronously in every cursor variant,
-        including those that override ``_terminate_session`` with a coroutine.
+        including those that override ``_terminate_session`` with a coroutine,
+        so subclasses must not override this method with a coroutine.
 
         Args:
             session_id: The session ID.
@@ -250,7 +295,7 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
         Raises:
             OperationalError: If the request fails.
         """
-        request = {"SessionId": session_id}
+        request: dict[str, Any] = {"SessionId": session_id}
         try:
             retry_api_call(
                 self._connection.client.terminate_session,
@@ -262,33 +307,136 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
             _logger.exception(f"Failed to terminate session: {session_id}.")
             raise OperationalError(*e.args) from e
 
-    def __poll(self, query_id: str) -> AthenaQueryExecution | AthenaCalculationExecution:
+    @override
+    def _poll_until_terminal(
+        self, query_id: str
+    ) -> AthenaQueryExecution | AthenaCalculationExecution:
+        """Poll a calculation execution until it reaches a terminal state.
+
+        Calls ``on_poll`` with every status and sleeps ``poll_interval`` seconds
+        between requests.
+
+        Args:
+            query_id: The calculation execution ID.
+
+        Returns:
+            The calculation execution in a terminal state.
+
+        Raises:
+            OperationalError: If a status request fails.
+        """
         while True:
             calculation_status = self._get_calculation_execution_status(query_id)
             if self._on_poll:
                 self._on_poll(calculation_status)
-            if calculation_status.state in [
-                AthenaCalculationExecutionStatus.STATE_COMPLETED,
-                AthenaCalculationExecutionStatus.STATE_FAILED,
-                AthenaCalculationExecutionStatus.STATE_CANCELED,
-            ]:
+            if calculation_status.state in AthenaCalculationExecutionStatus.TERMINAL_STATES:
                 return self._get_calculation_execution(query_id)
             time.sleep(self._poll_interval)
 
-    def _poll(self, query_id: str) -> AthenaQueryExecution | AthenaCalculationExecution:
-        try:
-            query_execution = self.__poll(query_id)
-        except KeyboardInterrupt as e:
-            if self._kill_on_interrupt:
-                _logger.warning("Query canceled by user.")
-                self._cancel(query_id)
-                query_execution = self.__poll(query_id)
-            else:
-                raise e
-        return query_execution
+    @override
+    def _cancel_and_wait(self, calculation_id: str) -> None:
+        """Request cancellation and store the calculation's terminal state.
 
+        Args:
+            calculation_id: The calculation execution ID.
+
+        Raises:
+            OperationalError: If the cancellation or a status request fails.
+        """
+        self._cancel(calculation_id)
+        self._calculation_execution = cast(
+            AthenaCalculationExecution, self._poll_until_terminal(calculation_id)
+        )
+
+    def _calculate(
+        self,
+        session_id: str,
+        code_block: str,
+        description: str | None = None,
+        client_request_token: str | None = None,
+    ) -> str:
+        """Start a calculation execution with ``StartCalculationExecution``.
+
+        Without ``client_request_token``, a generated token is sent, so that a
+        retried request returns the calculation an earlier attempt started instead
+        of starting another one.
+
+        With ``kill_on_interrupt`` enabled, the request runs on a helper thread.
+        On ``KeyboardInterrupt``, the cursor first tries to abandon the request.
+        This succeeds only if the helper has not begun the request by then; the
+        helper then never sends it, and the interrupt propagates. Otherwise the
+        cursor waits for the request to finish, requests cancellation of the
+        calculation it started, waits for a terminal state, stores the calculation
+        ID and execution on the cursor, and re-raises the interrupt. Another
+        ``KeyboardInterrupt`` during that wait propagates at once.
+
+        Args:
+            session_id: The session ID.
+            code_block: The code to run.
+            description: The calculation description.
+            client_request_token: The idempotency token of the request.
+
+        Returns:
+            The calculation execution ID.
+
+        Raises:
+            KeyboardInterrupt: If interrupted while starting the calculation. A
+                failure to start, cancel, or wait for the calculation becomes its
+                ``__cause__``.
+            DatabaseError: If the request fails.
+        """
+        request = self._build_start_calculation_execution_request(
+            session_id=session_id,
+            code_block=code_block,
+            description=description,
+            client_request_token=client_request_token or str(uuid.uuid4()),
+        )
+        return self._start_execution(lambda: self._start_calculation_execution(request))
+
+    @override
+    def _set_interrupted_execution_id(self, execution_id: str) -> None:
+        """Keep the ID of a calculation started by an interrupted start request.
+
+        Args:
+            execution_id: The calculation execution ID.
+        """
+        self._calculation_id = execution_id
+
+    def _start_calculation_execution(self, request: dict[str, Any]) -> str:
+        """Send a ``StartCalculationExecution`` request.
+
+        Args:
+            request: The request parameters.
+
+        Returns:
+            The calculation execution ID.
+
+        Raises:
+            DatabaseError: If the request fails.
+        """
+        try:
+            response = retry_api_call(
+                self._connection.client.start_calculation_execution,
+                config=self._retry_config,
+                logger=_logger,
+                **request,
+            )
+        except Exception as e:
+            _logger.exception("Failed to execute calculation.")
+            raise DatabaseError(*e.args) from e
+        return cast(str, response.get("CalculationExecutionId"))
+
+    @override
     def _cancel(self, query_id: str) -> None:
-        request = {"CalculationExecutionId": query_id}
+        """Stop a calculation execution with ``StopCalculationExecution``.
+
+        Args:
+            query_id: The calculation execution ID.
+
+        Raises:
+            OperationalError: If the request fails.
+        """
+        request: dict[str, Any] = {"CalculationExecutionId": query_id}
         try:
             retry_api_call(
                 self._connection.client.stop_calculation_execution,
@@ -300,9 +448,23 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
             _logger.exception("Failed to cancel calculation.")
             raise OperationalError(*e.args) from e
 
+    @override
     def close(self) -> None:
-        self._terminate_session()
+        """Close the cursor, terminating its Spark session if configured to.
 
+        See ``terminate_session_on_close``. After a successful termination,
+        further calls do not terminate the session again; after a failed one,
+        calling this method again retries it.
+
+        Raises:
+            OperationalError: If terminating the session fails.
+        """
+        if self._terminate_session_on_close:
+            self._terminate_session()
+            # Terminated; later calls do nothing.
+            self._terminate_session_on_close = False
+
+    @override
     def executemany(
         self,
         operation: str,
@@ -339,91 +501,107 @@ class WithCalculationExecution:
     """
 
     def __init__(self):
+        """Initialize the mixin, which keeps no state of its own."""
         super().__init__()
 
     @property
     @abstractmethod
     def calculation_execution(self) -> AthenaCalculationExecution | None:
+        """The calculation execution that the other properties read, or None."""
         raise NotImplementedError  # pragma: no cover
 
     @property
     @abstractmethod
     def session_id(self) -> str:
+        """The ID of the Spark session that runs the calculations."""
         raise NotImplementedError  # pragma: no cover
 
     @property
     @abstractmethod
     def calculation_id(self) -> str | None:
+        """The ID of the current calculation, or None."""
         raise NotImplementedError  # pragma: no cover
 
     @property
     def description(self) -> str | None:
+        """The ``Description`` of the calculation, or None if there is none."""
         if not self.calculation_execution:
             return None
         return self.calculation_execution.description
 
     @property
     def working_directory(self) -> str | None:
+        """The ``WorkingDirectory`` of the calculation, or None if there is none."""
         if not self.calculation_execution:
             return None
         return self.calculation_execution.working_directory
 
     @property
     def state(self) -> str | None:
+        """The ``State`` of the calculation, or None if there is none."""
         if not self.calculation_execution:
             return None
         return self.calculation_execution.state
 
     @property
     def state_change_reason(self) -> str | None:
+        """The ``StateChangeReason`` of the calculation, or None if there is none."""
         if not self.calculation_execution:
             return None
         return self.calculation_execution.state_change_reason
 
     @property
     def submission_date_time(self) -> datetime | None:
+        """The ``SubmissionDateTime`` of the calculation, or None if there is none."""
         if not self.calculation_execution:
             return None
         return self.calculation_execution.submission_date_time
 
     @property
     def completion_date_time(self) -> datetime | None:
+        """The ``CompletionDateTime`` of the calculation, or None if there is none."""
         if not self.calculation_execution:
             return None
         return self.calculation_execution.completion_date_time
 
     @property
     def dpu_execution_in_millis(self) -> int | None:
+        """The ``DpuExecutionInMillis`` statistic of the calculation, or None if there is none."""
         if not self.calculation_execution:
             return None
         return self.calculation_execution.dpu_execution_in_millis
 
     @property
     def progress(self) -> str | None:
+        """The ``Progress`` statistic of the calculation, or None if there is none."""
         if not self.calculation_execution:
             return None
         return self.calculation_execution.progress
 
     @property
     def std_out_s3_uri(self) -> str | None:
+        """The ``StdOutS3Uri`` of the calculation, or None if there is none."""
         if not self.calculation_execution:
             return None
         return self.calculation_execution.std_out_s3_uri
 
     @property
     def std_error_s3_uri(self) -> str | None:
+        """The ``StdErrorS3Uri`` of the calculation, or None if there is none."""
         if not self.calculation_execution:
             return None
         return self.calculation_execution.std_error_s3_uri
 
     @property
     def result_s3_uri(self) -> str | None:
+        """The ``ResultS3Uri`` of the calculation, or None if there is none."""
         if not self.calculation_execution:
             return None
         return self.calculation_execution.result_s3_uri
 
     @property
     def result_type(self) -> str | None:
+        """The ``ResultType`` of the calculation, or None if there is none."""
         if not self.calculation_execution:
             return None
         return self.calculation_execution.result_type

@@ -147,6 +147,16 @@ repos:
         pass_filenames: false
         types_or: [c]
 
+      # A probe name "<prefix>.<suffix>" is joined by dp_tlm_name_join(),
+      # which refuses an overlong one; a bare snprintf truncates it and
+      # aliases two probes onto one registry entry (#676, #1944).
+      - id: tlm-name-join
+        name: probe names join in one place
+        entry: make -s lint-tlm-name-join
+        language: system
+        pass_filenames: false
+        types_or: [c]
+
       # read_text() names utf-8: without it Windows decodes with cp1252 and
       # fails on the first non-ASCII byte (doppler#1457).
       - id: text-encoding
@@ -193,6 +203,33 @@ repos:
         pass_filenames: false
         files: ^(deploy/docker/|\.github/)
 
+      # A stock image pulled from Docker Hub by bare name hit its anonymous
+      # 429 limit and failed unrelated PRs (doppler#1950); it comes through
+      # the Makefile's STOCK_REGISTRY instead.
+      - id: stock-images
+        name: stock images come through STOCK_REGISTRY
+        entry: make -s lint-stock-images
+        language: system
+        pass_filenames: false
+        files: (^|/)(Dockerfile[^/]*|[^/]*\.[Dd]ockerfile|Makefile|[^/]*\.mk|[^/]*\.sh)$|^\.github/|^scripts/(\.stock-pull-exempt|check_stock_images\.py)$
+
+      # uv.lock's bytes depend on the uv that writes it, so uv is pinned once
+      # in pyproject.toml and every installer reads that pin (doppler#1940).
+      # No `files:` filter: an installer can appear in any tracked file.
+      - id: uv-pin
+        name: every uv installer reads the one pin
+        entry: make -s lint-uv-pin
+        language: system
+        pass_filenames: false
+
+      # ...and the committed uv.lock is exactly what the pinned uv writes.
+      - id: uv-lock
+        name: uv.lock is the pinned uv's own output
+        entry: make -s lint-uv-lock
+        language: system
+        pass_filenames: false
+        files: ^(pyproject\.toml|uv\.lock)$
+
       # A wire format's full scale is dp_format_full_scale() and the
       # arithmetic around it is the cvt converters'; four private copies had
       # already drifted into truncating at the wrong constant (#1117).
@@ -220,6 +257,16 @@ repos:
         pass_filenames: false
         types_or: [c]
 
+      # dB rows are asked for by name (#1968): a Spectrogram mode is never an
+      # integer literal. Fires on C and Markdown, because a doc page's C fence
+      # and a header's @code block call the constructor too.
+      - id: spectrogram-mode
+        name: spectrogram mode by name
+        entry: make -s lint-spectrogram-mode
+        language: system
+        pass_filenames: false
+        types_or: [c, markdown]
+
       # A refusal reason has one shape, `const char **why`, and jm binds
       # exactly that one. Fires on any C change: a new refusal API can land
       # in any header.
@@ -239,6 +286,15 @@ repos:
         language: system
         pass_filenames: false
         files: ^(native/inc/|cmake/public-symbols\.txt$)
+
+      # A ring's head, tail and mask belong to buffer.h; the consumers left
+      # touching them are a ratchet that only shrinks (#1426).
+      - id: ring-internals
+        name: ring internals stay in buffer.h
+        entry: make -s lint-ring-internals
+        language: system
+        pass_filenames: false
+        files: ^(native/.*\.[ch]|scripts/(\.ring-internals-ratchet|check_ring_internals\.py))$
 
       # A docs fence or an example that computes a claim and drops it (a bare
       # `np.array_equal(...)` statement) runs green and checks nothing; so

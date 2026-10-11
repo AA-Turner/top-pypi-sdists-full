@@ -114,10 +114,10 @@ class SpellChecker:
     @distance.setter
     def distance(self, val: int) -> None:
         """set the distance parameter"""
-        tmp = 2
+        tmp = self._distance
         try:
             if 0 < int(val) <= 2:
-                tmp = val
+                tmp = int(val)
         except (ValueError, TypeError):
             pass
         self._distance = tmp
@@ -155,8 +155,7 @@ class SpellChecker:
             float: The probability that the word is the correct word"""
         if not total_words:
             total_words = self._word_frequency.total_words
-        word = ensure_unicode(word)
-        return self._word_frequency.dictionary[word] / total_words
+        return self._word_frequency[word] / total_words
 
     def correction(self, word: KeyT) -> str | None:
         """The most probable correct spelling for the word
@@ -282,7 +281,8 @@ class SpellChecker:
             return False
         if len(word) > self._word_frequency.longest_word_length + 3:  # allow removal of up to 2 letters
             return False
-        if word.lower() == "nan":  # nan passes the float(word) so this will bypass that issue (#125)
+        # these words pass the float(word) check so this will bypass that issue (#125)
+        if word.lower() in ("nan", "inf", "infinity"):
             return True
         try:  # check if it is a number (int, float, etc)
             float(word)
@@ -449,6 +449,13 @@ class WordFrequency:
 
         Args:
             data (dict): The dictionary to be loaded"""
+        if not self._case_sensitive:
+            lowered = {key.lower(): val for key, val in data.items()}
+            if len(lowered) != len(data):  # sum the counts of words that differ only in case
+                lowered = Counter()
+                for key, val in data.items():
+                    lowered[key.lower()] += val
+            data = lowered
         self._dictionary.update(data)
         self._update_dictionary()
 

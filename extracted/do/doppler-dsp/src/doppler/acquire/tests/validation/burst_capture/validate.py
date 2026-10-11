@@ -101,6 +101,8 @@ class Data:
     q_cap_large: int = 0
     min_gap: int = 0
     start_err: list[int] = field(default_factory=list)
+    tiled_w: int = 0
+    tiled_err: list[int] = field(default_factory=list)
     block_sizes: dict = field(default_factory=dict)
     gaps: list = field(default_factory=list)
     found: list = field(default_factory=list)
@@ -120,6 +122,8 @@ class Data:
     detections_absolute: bool = False
     blob_ram: int = 0
     blob_disk: int = 0
+    ring_file: int = 0
+    ring_bytes: int = 0
     resume_ok: bool = False
     cross_reject: bool = False
     pd_meta: list = field(default_factory=list)
@@ -229,6 +233,40 @@ def characterise() -> Data:
         "Zero at every offset, including ones that are not multiples of the "
         "code period — which is what distinguishes a resolved epoch from a "
         "phase seed that happened to land."
+    )
+    R.md()
+    # Tiled Doppler search: past the native span the engine tiles W
+    # frequency hypotheses over ONE code period, so a hit's frame is a period
+    # long while the engine's `n` is W periods. The anchor backed off `n`
+    # until doppler#2090 -- (W - 1) periods early -- and refine (k_hi = reps
+    # periods ahead) could not reach the start whenever reps + m < W - 1.
+    # The uncertainty is chosen so W - 1 > reps + 1: a regression to the old
+    # anchor misses every row, the one inside the first (W - 1)*P included.
+    P = ACQ_SF * SPC
+    tiled_at = [200, 9000, 23_117, 41_000]
+    for seed, at in enumerate(tiled_at, start=1):
+        x = scene([at], at + 6 * BURST_LEN, seed=seed)
+        cc = cap(doppler_uncertainty=4.0 * CHIP_RATE * SPC / P)
+        d.tiled_w = int(cc.doppler_bins)
+        cc.push(x)
+        ev = cc.events()
+        ok = len(ev) == 1
+        got = int(ev["preamble_start"][0]) if ok else -1
+        d.tiled_err.append(got - at if got >= 0 else 10**9)
+    R.md(
+        f"Tiled Doppler search too: an uncertainty four tiles wide makes the "
+        f"engine search W = {d.tiled_w} frequency hypotheses over one code "
+        f"period, with reps = {REPS}. The first burst sits inside the "
+        f"stream's first (W − 1)·P = {(d.tiled_w - 1) * P} samples, where an "
+        "anchor (W − 1) periods early used to wrap (doppler#2090)."
+    )
+    R.md()
+    R.table(
+        ["burst placed at (tiled)", "reported `preamble_start`", "error"],
+        [
+            [str(a), str(a + e) if abs(e) < 10**8 else "not found", str(e)]
+            for a, e in zip(tiled_at, d.tiled_err)
+        ],
     )
     R.md()
 
@@ -368,7 +406,11 @@ def characterise() -> Data:
     R.md()
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "ring.cf32"
-        ram = cap()
+        # The same design on both sides, so the backing is the ONE
+        # difference: a different C/N0 picks a different acquisition grid,
+        # and so a different acq blob, which the framer's snapshot (sized by
+        # the frame, not the ring's power of two) no longer hides (#1895).
+        ram = cap(cn0_dbhz=55.0)
         dsk = PersistentBurstCapture(
             path,
             code_preamble(acq_code(), SPC),
@@ -379,6 +421,11 @@ def characterise() -> Data:
         )
         d.blob_ram = int(ram.state_bytes())
         d.blob_disk = int(dsk.state_bytes())
+        d.ring_file = int(path.stat().st_size)
+        # The ring the in-RAM blob carries: twice retain_span rounded up to
+        # a power of two, 8 B a sample. The file holds it rounded up to a
+        # whole page, so on a large-page system the file is the bigger one.
+        d.ring_bytes = (1 << (2 * int(ram.retain_span) - 1).bit_length()) * 8
 
         # Resume across a mid-preamble split, into a fresh instance.
         at0 = 60_000
@@ -413,8 +460,11 @@ def characterise() -> Data:
     R.md()
     R.md(
         f"The difference is {d.blob_ram - d.blob_disk:,} B, which is exactly "
-        f"`retain_span * 8` ({d.retain_span} complex64 samples) — the whole "
-        "of the retained history and nothing else."
+        f"the ring's capacity in bytes ({d.ring_bytes:,} B: twice "
+        "`retain_span` rounded up to a power of two, 8 B a sample) -- the "
+        "whole history ring, which is what a live capture can be holding for "
+        "a burst it will still emit, and nothing else. The file holds that "
+        f"ring rounded up to a whole page ({d.ring_file:,} B here)."
     )
     R.md()
 
@@ -817,13 +867,19 @@ def limits(d: Data) -> None:
         "that are not a multiple of the code period (§2.2)",
     )
     R.limit(
+        d.tiled_w - 1 > REPS + 1 and all(e == 0 for e in d.tiled_err),
+        f"tiled Doppler search (W = {d.tiled_w}, so reps + 1 < W - 1): each "
+        "burst comes back once with `preamble_start` EXACT, one inside the "
+        "stream's first (W - 1)*P samples included (§2.2)",
+    )
+    R.limit(
         all(v[1] for v in d.block_sizes.values()),
         "the windows are bit-identical across block sizes from 333 samples "
         "to a push 1.6x the ring's capacity (§2.3)",
     )
     R.limit(
         all(v[2] == 0 for v in d.block_sizes.values()),
-        "no sample is dropped by the history ring at any block size (§2.3)",
+        "no look-back is abandoned at any block size (§2.3)",
     )
     R.limit(
         d.min_gap == d.refine_span + REPS * ACQ_SF * SPC - BURST_LEN,
@@ -849,9 +905,10 @@ def limits(d: Data) -> None:
         "the burst it was holding — the retained look-back travels (§2.6)",
     )
     R.limit(
-        d.blob_ram - d.blob_disk == d.retain_span * 8,
-        f"the persistent flavour's blob is smaller by exactly the retained "
-        f"span ({d.blob_ram - d.blob_disk:,} B) (§2.6)",
+        d.blob_ram - d.blob_disk == d.ring_bytes <= d.ring_file,
+        f"the persistent flavour's blob is smaller by exactly its ring's "
+        f"capacity in bytes ({d.blob_ram - d.blob_disk:,} B), which its file "
+        f"holds (§2.6)",
     )
     R.limit(
         d.cross_reject,
@@ -964,7 +1021,8 @@ def build(write: bool = True) -> Report:
             "exist.** Acquisition's `code_phase` is a lag modulo one code "
             "period and an epoch error is a cliff rather than a gradient; "
             "the reported start is correct to the sample at every offset "
-            "tested, including ones off the code-period grid (§2.2).",
+            "tested, including ones off the code-period grid, in native and "
+            "in tiled Doppler search (§2.2).",
             "**Leave more dead air than the header's formula says.** It "
             "gives `max(0, refine_span - burst_len)`; measured, a pair needs "
             f"{next((g for g, f in zip(d.gaps, d.found) if f >= 1.0), 0)} "
@@ -982,7 +1040,7 @@ def build(write: bool = True) -> Report:
             "samples to a push larger than the ring, the windows are "
             "bit-identical and nothing is dropped (§2.3).",
             "**The persistent flavour costs nothing and saves the "
-            f"checkpoint.** Its blob is smaller by exactly the retained span "
+            f"checkpoint.** Its blob is smaller by exactly the history ring "
             f"({d.blob_ram - d.blob_disk:,} B here), the ring's pages ARE "
             "the file's, and the measured throughput is within noise of the "
             "anonymous ring (§2.6).",

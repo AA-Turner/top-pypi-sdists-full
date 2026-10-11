@@ -95,7 +95,9 @@ def test_a_held_subject_is_refused_before_the_provider_with_its_link(memory: _Me
     exc = asyncio.run(_paid_call(_ctx(_rid(1)), spent))
     assert isinstance(exc, gate.RunApprovalRequiredError)
     assert spent == []
-    assert URL in str(exc)
+    # The person reads plain words; the id and admin link live only in the technical text + envelope.
+    assert URL not in str(exc) and "approval limit" in str(exc)
+    assert URL in exc.technical_message
     assert exc.envelope()["approval_url"] == URL
     assert exc.is_caller_refusal is True
     assert exc.error_info.is_retryable is False
@@ -171,4 +173,4 @@ def test_the_refusal_is_found_through_wrapping_layers() -> None:
             raise RuntimeError("mandate failed") from e
     except RuntimeError as outer:
         assert gate.run_approval_refusal_in(outer) is inner
-    assert "was rejected" in str(inner)
+    assert "declined" in str(inner) and "was rejected" in inner.technical_message

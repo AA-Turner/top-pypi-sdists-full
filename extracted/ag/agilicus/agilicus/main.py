@@ -1248,7 +1248,20 @@ def remove_feature(ctx, feature, **kwargs):
 
 @cli.command(name="update-system-options")
 @click.argument("org-id")
-@click.option("--allowed-domains", multiple=True)
+@click.option(
+    "--allowed-domains",
+    multiple=True,
+    help="Replace the organisation's allowed domains with these values.",
+)
+@click.option(
+    "--add-allowed-domain",
+    "add_allowed_domains",
+    multiple=True,
+    help=(
+        "Append these domains to the organisation's allowed domains; the "
+        "domain-change preflight requires the new domain to be present."
+    ),
+)
 @click.option(
     "--license-constraints",
     type=click_extension.JSONFile("r"),
@@ -5920,7 +5933,7 @@ def show_agent_connector_info(ctx, connector_id, **kwargs):
 @click.option("--name-slug", type=str, default=None)
 @click.option("--point-of-presence-tag", multiple=True, default=())
 @click.option("--clear-point-of-presence-tags", is_flag=True, default=False)
-@click.option("--service-account-required/--service-account-not-required", default=True)
+@click.option("--service-account-required/--service-account-not-required", default=None)
 @click.option(
     "--local-authentication-enabled/--local-authentication-disabled", default=None
 )

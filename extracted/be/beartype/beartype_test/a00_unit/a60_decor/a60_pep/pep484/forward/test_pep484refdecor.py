@@ -1,0 +1,758 @@
+#!/usr/bin/env python3
+# --------------------( LICENSE                            )--------------------
+# Copyright (c) 2014-2026 Beartype authors.
+# See "LICENSE" for further details.
+
+'''
+**Beartype decorator stringified forward reference** unit tests.
+
+This submodule unit tests the :func:`beartype.beartype` decorator with respect
+to :pep:`484`-compliant **stringified forward reference type hints** (i.e.,
+strings whose values are the names of classes and tuples of classes that
+typically have yet to be defined).
+'''
+
+# ....................{ IMPORTS                            }....................
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# WARNING: To raise human-readable test errors, avoid importing from
+# package-specific submodules at module scope.
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+from beartype_test._util.mark.pytskip import skip_if_python_version_less_than
+
+# ....................{ TESTS                              }....................
+def test_pep484_ref_decor_data() -> None:
+    '''
+    Test successful usage of the :func:`beartype.beartype` decorator with
+    respect to :pep:`484`-compliant stringified forward reference type hints by
+    importing an external data module declaring these references *before* the
+    user-defined classes referred to by these references.
+    '''
+
+    # ..................{ IMPORTS                            }..................
+    # Defer test-specific imports.
+    from beartype.roar import (
+        BeartypeCallHintParamViolation,
+        BeartypeCallHintReturnViolation,
+    )
+    from beartype_test.a00_unit.data.pep.pep484.forward.data_pep484ref_decor import (
+        AllHisBulkAnAgony,
+        BeforeTheHurricane,
+        TheDarkestEveningOfTheYear,
+        WithSluggishSurge,
+        a_little_shallop,
+        between_the_woods_and_frozen_lake,
+        but_i_have_promises,
+        its_fields_of_snow,
+        of_easy_wind,
+        stopping_by_woods_on,
+        the_dry_leaf,
+        the_woods_are_lovely,
+        winding_among_the_springs,
+    )
+    from beartype_test._util.error.pyterrraise import raises_uncached
+
+    # ..................{ LOCALS                             }..................
+    # Objects passed below to exercise forward references.
+    miles_to_go = TheDarkestEveningOfTheYear('And miles to go before I sleep')
+    woods_are_lovely = TheDarkestEveningOfTheYear(
+        'The woods are lovely, dark and deep,')
+    and_frozen_lake = TheDarkestEveningOfTheYear(
+        'Between the woods and frozen lake')
+    i_think_i_know = TheDarkestEveningOfTheYear(
+        'Whose woods these are I think I know.')
+    with_burning_smoke = [
+        TheDarkestEveningOfTheYear(
+            'With burning smoke, or where bitumen lakes'),
+        TheDarkestEveningOfTheYear('On black bare pointed islets ever beat'),
+    ]
+    rugged_and_dark = WithSluggishSurge()
+
+    # 3-tuple of closures and classes nested in this callable.
+    (to_stop_without, to_watch_his_woods, WhoseWoodsTheseAreIThinkIKnow) = (
+        between_the_woods_and_frozen_lake())
+
+    # Objects passed below to exercise closure-relative forward references.
+    my_little_horse = WhoseWoodsTheseAreIThinkIKnow(
+        'My little horse must think it queer')
+    a_farmhouse_near = WhoseWoodsTheseAreIThinkIKnow(
+        'To stop without a farmhouse near')
+
+    # ..................{ PASS                               }..................
+    # Assert these forward-referencing callables return the expected values.
+    assert a_little_shallop(with_burning_smoke) is with_burning_smoke
+    assert but_i_have_promises(miles_to_go) is miles_to_go
+    assert of_easy_wind(woods_are_lovely) is woods_are_lovely
+    assert stopping_by_woods_on(and_frozen_lake) is and_frozen_lake
+    assert the_woods_are_lovely(i_think_i_know) is i_think_i_know
+    assert its_fields_of_snow(with_burning_smoke) is with_burning_smoke[0]
+    assert the_dry_leaf(TheDarkestEveningOfTheYear) is (
+        TheDarkestEveningOfTheYear)
+    assert rugged_and_dark.or_where_the_secret_caves() is rugged_and_dark
+    assert winding_among_the_springs(rugged_and_dark) is rugged_and_dark
+
+    # ..................{ PASS ~ container                   }..................
+    # Assert that instantiating a sequence containing valid items satisfying its
+    # annotations raises *NO* type-checking violation.
+    crept_gradual = AllHisBulkAnAgony((rugged_and_dark,))
+
+    # Assert that calling various methods of this sequence behave as expected.
+    assert crept_gradual[0] is rugged_and_dark
+    assert next(iter(crept_gradual)) is rugged_and_dark
+    assert tuple(reversed(crept_gradual)) == (rugged_and_dark,)
+
+    # ..................{ PASS ~ closure                     }..................
+    # Assert these forward-referencing closures return the expected values.
+    assert to_stop_without(my_little_horse) == my_little_horse
+    assert to_watch_his_woods(a_farmhouse_near) == a_farmhouse_near
+    assert to_watch_his_woods(True) is True
+    assert to_watch_his_woods(
+        len('Up to the zenith,—hieroglyphics old')) == (
+        len('Up to the zenith,—hieroglyphics old'))
+
+    # ..................{ FAIL                               }..................
+    # Assert that calling a method violating its return annotated as a 2-tuple
+    # of type variables whose bounds are expressed as PEP-compliant relative
+    # forward references to the same class raises the expected violation.
+    with raises_uncached(BeartypeCallHintReturnViolation):
+        BeforeTheHurricane().in_a_silver_vision_floats()
+
+    # Assert that instantiating a custom sequence containing invalid items
+    # violating its annotations raises the expected exception.
+    with raises_uncached(BeartypeCallHintParamViolation):
+        AllHisBulkAnAgony(('Crept gradual, from the feet unto the crown,',))
+
+    # ..................{ FAIL ~ closure                     }..................
+    # Assert that calling a closure whose parameter is annotated as a
+    # closure-relative forward reference to the "WhoseWoodsTheseAreIThinkIKnow"
+    # type subsequently defined local to that closure when passed a parameter
+    # *NOT* an instance of that type raises the expected violation.
+    #
+    # Note that these calls successfully resolve this
+    # "WhoseWoodsTheseAreIThinkIKnow" type via non-trivial introspection up the
+    # current call stack for the stack frame encapsulating the call to this
+    # unit test, which locally defines this type as a local variable above.
+    # Ergo, these calls raise violation messages resembling:
+    #     Function __main__.between_the_woods_and_frozen_lake.to_stop_without()
+    #     parameter a_farmhouse_near="Which sages and keen-ey'd astrologers"
+    #     violates type hint <forwardref
+    #     WhoseWoodsTheseAreIThinkIKnow(name='WhoseWoodsTheseAreIThinkIKnow',
+    #     scope_name='__main__', func_local_parent_codeobj_weakref=<weakref at
+    #     0x7fa0cdb689a0; to 'code' at 0x7fa0ce1c2e30>)>, as value "Which sages
+    #     and keen-ey'd astrologers" violates type hint <class
+    #     '__main__.between_the_woods_and_frozen_lake.<locals>.WhoseWoodsTheseAreIThinkIKnow'>,
+    #     as str "Which sages and keen-ey'd astrologers" not instance of <class
+    #     "__main__.WhoseWoodsTheseAreIThinkIKnow">.
+    with raises_uncached(BeartypeCallHintParamViolation) as violation_info:
+        to_stop_without("Which sages and keen-ey'd astrologers")
+
+    # Violation message raised by that call.
+    violation_message = str(violation_info.value)
+
+    #FIXME: Actually, this violation message *DOES* contain the substring
+    #"forwardreffake". Well, that's mostly fine, as that's the critical edge
+    #case that most requires testing. It'd be ideal if we could find a way to
+    #test both, but... this is fine for now, I guess. This almost certainly has
+    #something to do with the body of this unit test being a local rather than
+    #global lexical scope. When we perform the same exact operations in a new
+    #global lexical scope, this violation message does *NOT* contain the
+    #substring "forwardreffake" (as expected). Presumably, we could resolve this
+    #discrepancy by performing these assertions from the global scope of some
+    #test-specific data submodule (probably the same "data_pep484ref_decor"
+    #test-specific data submodule imported from above). For now, though, this
+    #has already gone on long enough. It's fine as is. *WHATEVAHS*. *shrug*
+    #Assert this message does *NOT* contains the substring "forwardreffake".
+    #(See below for detailed discussion.)
+    assert 'forwardreffake' in violation_message
+
+    # See above.
+    with raises_uncached(BeartypeCallHintParamViolation) as violation_info:
+        to_watch_his_woods('Then living on the earth, with labouring thought')
+    violation_message = str(violation_info.value)
+    assert 'forwardreffake' not in violation_message
+
+    # Delete this "WhoseWoodsTheseAreIThinkIKnow" type.
+    del WhoseWoodsTheseAreIThinkIKnow
+
+    # Redefine this 3-tuple of closures *WITHOUT* also redefining this type
+    # nested in this callable. Doing so ensures that:
+    # * These closures and thus the type hints annotating these closures have
+    #   been redefined to *NOT* have implicit access to this type, which these
+    #   closures would otherwise have.
+    (to_stop_without, to_watch_his_woods, _) = (
+        between_the_woods_and_frozen_lake())
+
+    # Assert that calling a closure whose parameter is annotated as a
+    # closure-relative forward reference to the "WhoseWoodsTheseAreIThinkIKnow"
+    # type subsequently defined local to that closure when passed a parameter
+    # *NOT* an instance of that type raises the expected violation.
+    #
+    # Note that these calls *CANNOT* successfully resolve this
+    # "WhoseWoodsTheseAreIThinkIKnow" type, which is no longer locally defined
+    # as a local variable above. Instead, these calls have *NO* recourse but to
+    # internally supplant this type with a beartype-specific forward reference
+    # fake proxy. Although the end result superficially appears to the exact
+    # same to end users, the intermediary steps required to produce that end
+    # result have little to do with one another. Ergo, these calls raise
+    # different violation messages resembling:
+    #     Function __main__.between_the_woods_and_frozen_lake.to_stop_without()
+    #     parameter a_farmhouse_near="Which sages and keen-ey'd astrologers"
+    #     violates type hint <forwardref
+    #     WhoseWoodsTheseAreIThinkIKnow(name='WhoseWoodsTheseAreIThinkIKnow',
+    #     scope_name='__main__', func_local_parent_codeobj_weakref=<weakref at
+    #     0x7fa0cdb689a0; to 'code' at 0x7fa0ce1c2e30>)>, as value "Which sages
+    #     and keen-ey'd astrologers" violates type hint <forwardreffake
+    #     __main__.WhoseWoodsTheseAreIThinkIKnow>, as str "Which sages and
+    #     keen-ey'd astrologers" not instance of <class
+    #     "__main__.WhoseWoodsTheseAreIThinkIKnow">.
+    #
+    # Crucially, the substring "type hint <forwardreffake
+    # __main__.WhoseWoodsTheseAreIThinkIKnow>" emitted for this edge case
+    # differs from the substring "type hint <class
+    # '__main__.between_the_woods_and_frozen_lake.<locals>.WhoseWoodsTheseAreIThinkIKnow'>"
+    # emitted for the above edge case.
+    with raises_uncached(BeartypeCallHintParamViolation) as violation_info:
+        to_stop_without("Open'd upon the dusk demesnes of night;")
+
+    # Violation message raised by that call.
+    violation_message = str(violation_info.value)
+
+    # Assert this message contains the critical substring "forwardreffake".
+    assert 'forwardreffake' in violation_message
+
+    #FIXME: *NO IDEA*. Probably a similar issue as above.
+    # See above.
+    with raises_uncached(BeartypeCallHintParamViolation) as violation_info:
+        to_watch_his_woods('And the bright Titan, phrenzied with new woes,')
+    violation_message = str(violation_info.value)
+    assert 'forwardreffake' not in violation_message
+
+# ....................{ TESTS ~ absolute : non-nested      }....................
+def test_pep484_ref_decor_absolute_type_nonnested() -> None:
+    '''
+    Test :func:`beartype.beartype`-decorated callables accepting one or more
+    parameters annotated by :pep:`484`-compliant stringified absolute forward
+    reference type hints referring to non-nested isinstanceable types.
+    '''
+
+    # ..................{ IMPORTS                            }..................
+    # Defer test-specific imports.
+    from beartype import beartype
+    from beartype.roar import (
+        BeartypeCallHintForwardRefException,
+        BeartypeCallHintParamViolation,
+    )
+    from beartype_test._util.error.pyterrraise import raises_uncached
+
+    # ..................{ LOCALS                             }..................
+    # Dates between which the Sisters of Battle must have been established.
+    ESTABLISHMENT_DATE_MIN = 36000
+    ESTABLISHMENT_DATE_MAX = 37000
+
+    # ..................{ CALLABLES ~ good                   }..................
+    @beartype
+    def sisters_of_battle(
+        leader: str, establishment: 'random.Random') -> int:
+        '''
+        :func:`beartype.beartype`-decorated callable annotated by a
+        :pep:`484`-compliant stringified absolute forward reference referring to
+        an existing attribute of an external module.
+        '''
+
+        return establishment.randint(
+            ESTABLISHMENT_DATE_MIN, ESTABLISHMENT_DATE_MAX)
+
+
+    @beartype
+    def black_legion(primarch: str, establishment: 'random.Random') -> int:
+        '''
+        :func:`beartype.beartype`-decorated callable annotated by a
+        :pep:`484`-compliant stringified absolute forward reference type hint
+        referring to an existing class of an importable module.
+        '''
+
+        return establishment.randint(
+            ESTABLISHMENT_DATE_MIN, ESTABLISHMENT_DATE_MAX)
+
+    # ..................{ CALLABLES ~ bad                    }..................
+    @beartype
+    def eye_of_terror(
+        ocularis_terribus: str,
+
+        # While highly unlikely that a top-level module with this name will
+        # ever exist, the possibility cannot be discounted. Since there appears
+        # to be no syntactically valid module name prohibited from existing,
+        # this is probably the best we can do.
+        segmentum_obscurus: '__rand0m__.Warp',
+    ) -> str:
+        '''
+        :func:`beartype.beartype`-decorated callable annotated by a
+        :pep:`484`-compliant stringified absolute forward reference type hint
+        referring to a non-existent attribute of a non-existent module.
+        '''
+
+        return ocularis_terribus + segmentum_obscurus
+
+
+    @beartype
+    def navigator(
+        astronomicon: str,
+
+        # While highly unlikely that a top-level module attribute with this
+        # name will ever exist, the possibility cannot be discounted. Since
+        # there appears to be no syntactically valid module attribute name
+        # prohibited from existing, this is probably the best we can do.
+        navis_nobilite: 'random.Psych1c__L1ght__',
+    ) -> str:
+        '''
+        :func:`beartype.beartype`-decorated callable annotated by a
+        :pep:`484`-compliant stringified absolute forward reference referring to
+        a non-existent attribute of an importable module.
+        '''
+
+        return astronomicon + navis_nobilite
+
+    # ..................{ PASS                               }..................
+    # Import this type *AFTER* forward references referring to this type above.
+    from random import Random
+
+    # Assert that this correctly annotated callable passed an instance of this
+    # type referred to above.
+    assert sisters_of_battle('Abbess Sanctorum', Random()) in range(
+        ESTABLISHMENT_DATE_MIN, ESTABLISHMENT_DATE_MAX + 1)
+
+    # ..................{ FAIL                               }..................
+    # Assert that these callables all raise the expected exceptions.
+    with raises_uncached(BeartypeCallHintParamViolation):
+        black_legion('Horus', 'Abaddon the Despoiler')
+    with raises_uncached(BeartypeCallHintForwardRefException):
+        eye_of_terror('Perturabo', 'Crone Worlds')
+    with raises_uncached(BeartypeCallHintForwardRefException):
+        navigator('Homo navigo', 'Kartr Hollis')
+
+# ....................{ TESTS ~ relative : nested          }....................
+def test_pep484_ref_decor_relative_type_nested() -> None:
+    '''
+    Test :func:`beartype.beartype`-decorated callables accepting one or more
+    parameters annotated by :pep:`484`-compliant stringified relative forward
+    reference type hints referring to nested isinstanceable types.
+    '''
+
+    # ..................{ IMPORTS                            }..................
+    # Defer test-specific imports.
+    from beartype import beartype
+    from beartype.roar import BeartypeCallHintParamViolation
+    from beartype_test._util.error.pyterrraise import raises_uncached
+
+    # ..................{ CLASSES                            }..................
+    @beartype
+    class LikeALitheSerpent(object):
+        '''
+        :func:`beartype.beartype`-decorated type containing a nested type.
+        '''
+
+        # ..................{ METHODS ~ static               }..................
+        @staticmethod
+        def make_vast_and_muscular() -> 'LikeALitheSerpent.VastAndMuscular':
+            '''
+            Static method creating and returning a new instance of a nested
+            type that has yet to be defined, annotated by a
+            :pep:`484`-compliant stringified relative forward reference
+            referring to that nested type.
+            '''
+
+            return LikeALitheSerpent.VastAndMuscular()
+
+
+        @staticmethod
+        def make_list_vast_and_muscular() -> (
+            list['LikeALitheSerpent.VastAndMuscular']):
+            '''
+            Static method creating and returning a list containing a new
+            instance of a nested type that has yet to be defined, annotated by a
+            :pep:`484`-compliant stringified relative forward reference
+            referring to that nested type.
+            '''
+
+            return [LikeALitheSerpent.VastAndMuscular(),]
+
+        # ..................{ CLASSES ~ nested               }..................
+        class VastAndMuscular(object):
+            '''
+            :func:`beartype.beartype`-decorated nested class.
+            '''
+
+            pass
+
+    # ..................{ CALLABLES                          }..................
+    @beartype
+    def accept_vast_and_muscular(
+        with_head_and: 'LikeALitheSerpent.VastAndMuscular') -> (
+        'LikeALitheSerpent.VastAndMuscular'):
+        '''
+        :func:`beartype.beartype`-decorated callable accepting and returning an
+        instance of the nested type defined above, annotated by a
+        :pep:`484`-compliant stringified relative forward reference referring to
+        that nested type.
+        '''
+
+        return with_head_and
+
+
+    @beartype
+    def accept_list_vast_and_muscular(
+        neck_convulsed: list['LikeALitheSerpent.VastAndMuscular']) -> (
+        list['LikeALitheSerpent.VastAndMuscular']):
+        '''
+        :func:`beartype.beartype`-decorated callable accepting and returning a
+        list of instances of the nested type defined above, annotated by a
+        :pep:`484`-compliant stringified relative forward reference referring to
+        that nested type.
+        '''
+
+        return neck_convulsed
+
+    # ..................{ LOCALS                             }..................
+    # Instance of that nested type, instantiated by calling the non-nested
+    # static method declared above.
+    vast_and_muscular = LikeALitheSerpent.make_vast_and_muscular()
+
+    # List of instances of that nested type, instantiated by calling the
+    # non-nested static method declared above.
+    list_vast_and_muscular = LikeALitheSerpent.make_list_vast_and_muscular()
+
+    # ..................{ PASS                               }..................
+    # Assert that this callable passed an instance of that nested type returns
+    # that same instance.
+    assert accept_vast_and_muscular(vast_and_muscular) is vast_and_muscular
+
+    # Assert that this callable passed a list of instances of that nested type
+    # returns that same list.
+    assert accept_list_vast_and_muscular(list_vast_and_muscular) is (
+        list_vast_and_muscular)
+
+    # ..................{ FAIL                               }..................
+    # Assert that this callable passed an arbitrary object that is *NOT* an
+    # instance of that nested type raises the expected exception.
+    with raises_uncached(BeartypeCallHintParamViolation):
+        accept_vast_and_muscular(LikeALitheSerpent())
+
+    # Assert that this callable passed an arbitrary object that is *NOT* a list
+    # of instances of that nested type raises the expected exception.
+    with raises_uncached(BeartypeCallHintParamViolation):
+        accept_list_vast_and_muscular([LikeALitheSerpent(),])
+
+# ....................{ TESTS ~ module                     }....................
+def test_pep484_ref_decor_module_unnamed() -> None:
+    '''
+    Test :func:`beartype.beartype`-decorated callables defined in **unnamed
+    namespaces** (i.e., module-like objects whose ``__name__`` dunder attributes
+    are either undefined or defined to be :data:`None`) that are annotated by
+    :pep:`484`-compliant stringified relative forward reference type hints
+    referring to various hints of general interest, including:
+
+    * The :pep:`484`-compliant :data:`None` singleton.
+    * Builtin types (e.g., :class:`str`).
+    '''
+
+    # ....................{ IMPORTS                        }....................
+    # Defer test-specific imports.
+    from beartype import beartype
+    from beartype.roar import (
+        BeartypeCallHintParamViolation,
+        BeartypeCallHintReturnViolation,
+    )
+    from beartype._util.func.utilfuncmake import make_func
+    from beartype._util.module.utilmodget import get_object_module_name_or_none
+    from beartype_test._util.error.pyterrraise import raises_uncached
+    from textwrap import dedent
+    from typing import Union
+
+    # ....................{ CALLABLES                      }....................
+    # Arbitrary callable annotated by PEP 484-compliant stringified relative
+    # forward references referring to the "None" singleton, intentionally
+    # defined inside a module-like namespace defining *NO* "__name__" dunder
+    # attribute. Although alternate means of doing so exist (e.g., explicitly
+    # defining a test submodule and then deleting that test submodule's
+    # "__name__" dunder attribute) the simplest means of doing so is as is done
+    # here: dynamically evaluate this callable against empty global and local
+    # scopes via the make_func() callable factory function.
+    unto_our_souls = make_func(
+        func_name='unto_our_souls',
+        func_code=dedent('''
+            def unto_our_souls(
+                # Parameter exercising that @beartype correctly resolves nested
+                # stringified relative forward references to "None" from unnamed
+                # namespaces.
+                and_bound_to_us: Union[str, "None"],
+
+                # Parameter exercising that @beartype correctly resolves
+                # non-nested stringified relative forward references to globally
+                # scoped attributes, whose values are builtin types. In short,
+                # super non-trivial. Ugh!
+                so_fast: "whether_there_be_shine",
+            ) -> "None":
+                return and_bound_to_us
+            '''
+        ),
+        # Global scope defining all globally scoped attributes required by the
+        # unto_our_souls() callable defined above.
+        func_globals={
+            'Union': Union,
+            'whether_there_be_shine': str,
+        },
+    )
+
+    # ....................{ LOCALS                         }....................
+    # Valid and invalid values for the "so_fast" parameter accepted by the
+    # unto_our_souls() callable defined above.
+    SO_FAST_VALID = "That, whether there be shine, or gloom o'ercast;"
+    SO_FAST_INVALID = b'They always must be with us, or we die.'
+
+    # ....................{ PASS                           }....................
+    # Assert that that callable resides in *NO* module.
+    assert get_object_module_name_or_none(unto_our_souls) is None
+
+    # That callable type-checked by @beartype. Technically, decorating that
+    # callable in the code snippet above would also be trivial. Pragmatically,
+    # doing so substantially reduces the readability of exception tracebacks.
+    # For debugging purposes, this deferred approach is strongly preferable.
+    unto_our_souls_checked = beartype(unto_our_souls)
+
+    # Assert that that callable when passed the "None" singleton returns that
+    # singleton *WITHOUT* raising erroneous type-checking violations.
+    assert unto_our_souls_checked(
+        and_bound_to_us=None, so_fast=SO_FAST_VALID) is None
+
+    # ....................{ FAIL                           }....................
+    # Assert that that callable when passed objects other than the "None"
+    # singleton raises the expected type-checking violations.
+    with raises_uncached(BeartypeCallHintParamViolation):
+        unto_our_souls_checked(
+            and_bound_to_us=0xFEEDFACE, so_fast=SO_FAST_VALID)
+    with raises_uncached(BeartypeCallHintParamViolation):
+        unto_our_souls_checked(
+            and_bound_to_us=None, so_fast=SO_FAST_INVALID)
+    with raises_uncached(BeartypeCallHintReturnViolation):
+        unto_our_souls_checked(
+            'Unto our souls, and bound to us so fast,', so_fast=SO_FAST_VALID)
+
+# ....................{ TESTS ~ pep : 695                  }....................
+@skip_if_python_version_less_than('3.12.0')
+def test_pep484_ref_decor_pep695() -> None:
+    '''
+    Test :func:`beartype.beartype`-decorated callables accepting one or more
+    parameters annotated by :pep:`484`-compliant stringified forward reference
+    type hints referring to :pep:`695`-compliant type parameter scopes if the
+    active Python interpreter targets Python >= 3.12 and thus supports
+    :pep:`695` *or* reduce to a noop otherwise.
+    '''
+
+    # ..................{ IMPORTS                            }..................
+    # Defer test-specific imports.
+    from beartype_test.a00_unit.data.pep.pep484.forward.data_pep484ref_decor_pep695 import (
+        suddenly_on,
+        the_glancing_spheres,
+    )
+
+    # ..................{ PASS                               }..................
+    # Assert that calling this PEP 695-parametrized closure factory with valid
+    # parameters returns the expected closure.
+    WHEREON_HE_RODE = "Suddenly on the ocean's chilly streams."
+    planet_orb_of_fire = suddenly_on(WHEREON_HE_RODE)
+    assert callable(planet_orb_of_fire)
+    assert planet_orb_of_fire() is WHEREON_HE_RODE
+
+    # Assert that calling a callable decorated by a PEP 695-parametrized
+    # decorator with valid parameters returns the expected string.
+    CIRCLES_AND_ARCS = 'Circles, and arcs, and broad-belting colure,'
+    assert the_glancing_spheres(CIRCLES_AND_ARCS, 25) == (
+        f'{CIRCLES_AND_ARCS} {25}')
+
+# ....................{ TESTS ~ pep : 749                  }....................
+@skip_if_python_version_less_than('3.14.0')
+def test_pep484_ref_decor_pep749() -> None:
+    '''
+    Test :func:`beartype.beartype`-decorated callables accepting one or more
+    parameters annotated by invalid forward reference type hints in both
+    :pep:`484`-compliant stringified *and* :pep:`749`-compliant object-oriented
+    form if the active Python interpreter targets Python >= 3.14 and thus
+    supports :pep:`749` *or* reduce to a noop otherwise.
+    '''
+
+    # ..................{ IMPORTS                            }..................
+    # Defer test-specific imports.
+    #
+    # Note that importing this data submodule suffices to perform this test.
+    from beartype_test.a00_unit.data.pep.pep484.forward import (
+        data_pep484ref_decor_pep749)
+
+# ....................{ TESTS ~ fail                       }....................
+def test_pep484_ref_decor_fail() -> None:
+    '''
+    Test unsuccessful decorator-time usage of the :func:`beartype.beartype`
+    decorator with respect to both PEP-compliant and -noncompliant forward
+    references.
+    '''
+
+    # ..................{ IMPORTS                            }..................
+    # Defer test-specific imports.
+    from beartype import beartype
+    from beartype.roar import BeartypeDecorHintForwardRefException
+    from beartype_test._util.error.pyterrraise import raises_uncached
+
+    # ..................{ CALLABLES                          }..................
+    def of_oceans(mountainous_waste: 'ToMutualWar'):
+        '''
+        Arbitrary callable annotated by an **unresolvable relative forward
+        reference** (i.e., unqualified name of a user-defined type that is
+        *never* defined in either local or global scope).
+        '''
+
+        return mountainous_waste
+
+    # Maliciously delete the "__module__" dunder attribute of that callable to
+    # exercise an edge case below.
+    del of_oceans.__module__
+
+    # ..................{ FAIL                               }..................
+    #FIXME: Uncomment if and when a future Python release unconditionally
+    #enables some variant of PEP 563... yet again.
+    # from beartype.roar import (
+    #     BeartypeDecorHintForwardRefException,
+    #     BeartypePep563Exception,
+    # )
+    # from beartype._util.py.utilpyversion import IS_PYTHON_AT_LEAST_3_10
+    #
+    # # Type of exception raised by @beartype when decorating callables annotated
+    # # by syntactically invalid forward reference type hints. Due to ambiguities
+    # # in PEP 563 unconditionally enabled under Python >= 3.10, @beartype is
+    # # unable to reliably differentiate forward references from non-forward
+    # # references and thus treats the former as the latter here.
+    # exception_cls = (
+    #     BeartypePep563Exception
+    #     if IS_PYTHON_AT_LEAST_3_10 else
+    #     BeartypeDecorHintForwardRefException
+    # )
+
+    # Type of exception raised by @beartype when decorating callables annotated
+    # by syntactically invalid forward reference type hints.
+    exception_cls = BeartypeDecorHintForwardRefException
+
+    # Assert @beartype raises the expected exception when decorating a callable
+    # annotated by a syntactically invalid forward reference type hint.
+    with raises_uncached(exception_cls):
+        @beartype
+        def linnets_wings(evening_full: (
+            "There midnight’s all a glimmer, and noon a purple glow,")):
+            return evening_full
+
+    # Assert @beartype raises the expected exception when decorating a callable
+    # annotated by a mildly syntactically invalid forward reference type hint.
+    with raises_uncached(exception_cls):
+        @beartype
+        def deep_hearts_core(i_hear_it: (
+            'While.I.stand.on.the.roadway.or.on.the.pavements.0grey')):
+            return i_hear_it
+
+    # Assert @beartype raises the expected exception when decorating a callable
+    # annotated by a syntactically valid forward reference type hint when the
+    # caller maliciously deletes the "__module__" dunder attribute of that
+    # callable *AFTER* defining that callable but before decorating that
+    # callable by @beartype.
+    with raises_uncached(exception_cls):
+        beartype(of_oceans)
+
+
+def test_pep484_ref_call_fail() -> None:
+    '''
+    Test unsuccessful call-time usage of the :func:`beartype.beartype`
+    decorator with respect to both PEP-compliant and -noncompliant forward
+    references.
+    '''
+
+    # ..................{ IMPORTS                            }..................
+    # Defer test-specific imports.
+    from beartype import beartype
+    from beartype.roar import BeartypeCallHintPep484ForwardRefStrException
+    from beartype_test._util.error.pyterrraise import raises_uncached
+    from typing import Union
+
+    # ..................{ LOCALS                             }..................
+    # PEP 484-compliant stringified absolute forward reference referring to a
+    # non-existent type.
+    TwoForwardRefsDivergedInAYellowWood = (
+        'beartype_test.TwoRoadsDivergedInAYellowWood')
+
+    # PEP 484-compliant union subscripted by both this reference and two other
+    # arbitrary type hints.
+    IShallBeTellingThisForwardRefWithASigh = Union[
+        complex, 'IShallBeTellingThisWithASigh', bytes]
+
+    # PEP-noncompliant tuple union containing both this reference and two other
+    # arbitrary type hints.
+    AndBothForwardRefsThatMorningEquallyLay = (
+        complex, TwoForwardRefsDivergedInAYellowWood, bool)
+
+    # ..................{ CALLABLES                          }..................
+    @beartype
+    def the_road(not_taken: TwoForwardRefsDivergedInAYellowWood) -> (
+        TwoForwardRefsDivergedInAYellowWood):
+        '''
+        :func:`beartype.beartype`-decorated callable annotated by a
+        :pep:`484`-compliant stringified absolute forward reference referring to
+        a non-existent type.
+        '''
+
+        return not_taken
+
+
+    @beartype
+    def in_leaves_no_step(
+        had_trodden_black: AndBothForwardRefsThatMorningEquallyLay) -> (
+        AndBothForwardRefsThatMorningEquallyLay):
+        '''
+        :func:`beartype.beartype`-decorated callable annotated by a
+        PEP-noncompliant tuple containing both isinstanceable types *and* a
+        :pep:`484`-compliant stringified absolute forward reference referring to
+        a non-existent type.
+        '''
+
+        return had_trodden_black
+
+
+    @beartype
+    def yet_knowing_how_way(
+        leads_on_to_way: 'OhIKeptTheFirstForAnotherDay') -> (
+        'OhIKeptTheFirstForAnotherDay'):
+        '''
+        :func:`beartype.beartype`-decorated callable annotated by a
+        :pep:`484`-compliant stringified relative forward reference referring to
+        a non-existent type.
+        '''
+
+        return leads_on_to_way
+
+
+    @beartype
+    def somewhere_ages(
+        and_ages_hence: IShallBeTellingThisForwardRefWithASigh) -> (
+        IShallBeTellingThisForwardRefWithASigh):
+        '''
+        :func:`beartype.beartype`-decorated callable annotated by a
+        :pep:`484`-compliant union subscripted by both isinstanceable types
+        *and* a stringified relative forward reference referring to a
+        non-existent type.
+        '''
+
+        return and_ages_hence
+
+    # ..................{ FAIL                               }..................
+    # Assert that calling these callables raise the expected exceptions.
+    with raises_uncached(BeartypeCallHintPep484ForwardRefStrException):
+        the_road('Two roads diverged in a wood, and I—')
+    with raises_uncached(BeartypeCallHintPep484ForwardRefStrException):
+        in_leaves_no_step('I took the one less traveled by,')
+    with raises_uncached(BeartypeCallHintPep484ForwardRefStrException):
+        yet_knowing_how_way('And that has made all the difference.')
+    with raises_uncached(BeartypeCallHintPep484ForwardRefStrException):
+        somewhere_ages('I doubted if I should ever come back.')

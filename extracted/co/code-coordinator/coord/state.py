@@ -14,6 +14,7 @@ import inspect
 import json
 import logging
 import os
+import random
 import sqlite3
 import sys
 import threading
@@ -1063,10 +1064,22 @@ def _record_dispatched_local(
     # is never branch=NULL.  Mirrors agent.py:1021 exactly:
     #   branch_name = existing_branch or f"issue-{issue_number}-{_slugify(issue_title)}"
     # where proposal.target_branch maps to existing_branch.
-    from coord.agent import _slugify  # noqa: PLC0415
+    from coord.agent import WORKFLOW_LEG_LABEL, _slugify  # noqa: PLC0415
 
     branch = proposal.target_branch or (
         f"issue-{proposal.issue_number}-{_slugify(proposal.issue_title)}"
+    )
+
+    # #3681: "workflow" only for a `type="work"` dispatch whose issue carries
+    # the opt-in `coord:workflow` label (mirrors coord.dispatch's own
+    # `proposal.type == "work"` gating for the wire-payload `workflow` flag)
+    # — every other proposal type (test, review, fix, ...) and every
+    # unlabeled work issue records "single". See
+    # `coord.agent.AssignmentSpec.workflow`.
+    mode = (
+        "workflow"
+        if proposal.type == "work" and WORKFLOW_LEG_LABEL in (proposal.issue_labels or [])
+        else "single"
     )
 
     conn = get_connection()
@@ -1076,8 +1089,8 @@ def _record_dispatched_local(
             issue_number, issue_title, status, type, briefing,
             files_allowed, model, dispatched_at, required_gates,
             provider_name, branch, driven_by, dispatched_by_assignment_id,
-            model_reason
-        ) VALUES (?, ?, ?, ?, ?, ?, 'running', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            model_reason, mode
+        ) VALUES (?, ?, ?, ?, ?, ?, 'running', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(assignment_id) DO NOTHING""",
         (
             assignment_id,
@@ -1097,6 +1110,7 @@ def _record_dispatched_local(
             proposal.driven_by,
             proposal.dispatched_by_assignment_id,
             model_reason,
+            mode,
         ),
     )
     conn.commit()
@@ -2841,17 +2855,105 @@ def claim_review_dispatch(of_assignment_id: str) -> bool:
     terminal-status write), so a legitimate later re-review of the same work
     assignment (the ``coord review <id>`` escape hatch) is never permanently
     stranded by a claim nothing will ever release.
+
+    #3668: **a failed claim call never leaves the claim held.** The caller
+    mints the claim's ``claimed_at`` stamp itself and sends it with the
+    request, so the row a claim attempt writes is identifiable as THIS
+    attempt's own. When the attempt then fails in any way — a 5xx from
+    ``/review-claim``, a transport timeout (the daemon may well have
+    committed the row before the response was lost), or a local write that
+    raised — :func:`_release_own_review_claim` deletes the row carrying that
+    exact stamp, and only that row, before the exception propagates.
+    Before this, the vimcode#1877 incident: the first ``coord review`` got a
+    503, the daemon's row nonetheless landed, and every retry then denied
+    with "lost the atomic dispatch-claim race" until ``coord diagnose
+    --stage review --reset`` released it by hand. Scoping the release to the
+    stamp is what makes it safe: a claim another dispatcher legitimately
+    holds carries a different stamp and is never touched.
     """
     if not of_assignment_id:
         return True
+    claimed_at = _new_review_claim_stamp()
     svc = _board_service()
-    resp = _route_write(svc, "/review-claim", {"of_assignment_id": of_assignment_id})
-    if resp is not None:
-        return bool(resp.get("claimed", False))
-    return _claim_review_dispatch_local(of_assignment_id)
+    try:
+        resp = _route_write(
+            svc,
+            "/review-claim",
+            {"of_assignment_id": of_assignment_id, "claimed_at": claimed_at},
+        )
+        if resp is not None:
+            return bool(resp.get("claimed", False))
+        return _claim_review_dispatch_local(of_assignment_id, claimed_at=claimed_at)
+    except Exception:
+        _release_own_review_claim(svc, of_assignment_id, claimed_at)
+        raise
 
 
-def _claim_review_dispatch_local(of_assignment_id: str) -> bool:
+def _new_review_claim_stamp() -> float:
+    """A ``claimed_at`` value unique to one claim attempt (#3668).
+
+    Wall-clock seconds (``review_claim_age_secs`` and ``coord diagnose``'s
+    leak grace period both read it as a timestamp) plus sub-millisecond
+    jitter, so two attempts minted in the same clock tick — two threads, or
+    two processes on different hosts — never share a stamp and so can never
+    release each other's row.
+    """
+    return time.time() + random.random() * 1e-4
+
+
+def _release_own_review_claim(svc, of_assignment_id: str, claimed_at: float) -> None:
+    """Best-effort: delete the ``review_claims`` row THIS attempt wrote, if
+    any (#3668) — keyed on ``(of_assignment_id, claimed_at)`` so a claim held
+    by anyone else is left alone. Never raises: it runs while another
+    exception is already propagating, which is the one worth seeing.
+
+    Routes to ``POST /review-claim-release-own`` when a ``board_service`` is
+    configured. Deliberately a NEW endpoint rather than an extra field on
+    ``/review-claim-release``: a daemon that predates #3668 would ignore an
+    unknown field and release the claim unconditionally — possibly a
+    different dispatcher's live one — whereas an unknown endpoint answers
+    404 and this degrades to a no-op.
+    """
+    try:
+        resp = _route_write(
+            svc,
+            "/review-claim-release-own",
+            {"of_assignment_id": of_assignment_id, "claimed_at": claimed_at},
+        )
+        if resp is not None:
+            return
+        _release_own_review_claim_local(of_assignment_id, claimed_at)
+    except Exception as exc:  # noqa: BLE001 — never mask the original failure
+        _log.warning(
+            "review-dispatch claim for %s may still be held after a failed "
+            "claim call (own-row release also failed: %s) — `coord diagnose "
+            "--stage review --reset` releases it",
+            of_assignment_id, exc,
+        )
+
+
+def _release_own_review_claim_local(of_assignment_id: str, claimed_at: float) -> int:
+    """Local-DB write for :func:`_release_own_review_claim` (and the daemon's
+    ``/review-claim-release-own`` endpoint). Returns rows deleted (0 or 1).
+    """
+
+    def _write() -> int:
+        conn = get_connection()
+        cur = sql.execute(
+            conn,
+            "DELETE FROM review_claims WHERE of_assignment_id=? AND claimed_at=?",
+            (of_assignment_id, claimed_at),
+        )
+        deleted = cur.rowcount or 0
+        conn.commit()
+        return deleted
+
+    return retry_on_locked(_write)
+
+
+def _claim_review_dispatch_local(
+    of_assignment_id: str, *, claimed_at: float | None = None
+) -> bool:
     """Local-DB write for :func:`claim_review_dispatch`.
 
     Called directly by the daemon endpoint so it never re-routes back over
@@ -2881,33 +2983,53 @@ def _claim_review_dispatch_local(of_assignment_id: str) -> bool:
     wedging vimcode#1086's review for ~13.5h.
     """
 
+    stamp = claimed_at if claimed_at is not None else _new_review_claim_stamp()
+
     def _write() -> int:
         conn = get_connection()
-        claimed_at = time.time()
-        inserted = 0
         try:
             cur = sql.insert_ignore(
                 conn, "review_claims", ["of_assignment_id", "claimed_at"],
-                (of_assignment_id, claimed_at),
+                (of_assignment_id, stamp),
             )
             inserted = cur.rowcount or 0
+            if sql.detect_dialect(conn) == sql.DIALECT_SQLITE:
+                # #3668: on the shared SQLite connection `cursor.rowcount`
+                # is `sqlite3_changes()` — a PER-CONNECTION value another
+                # thread's INSERT/UPDATE/DELETE can overwrite between this
+                # statement and the read, in either direction (a lost race
+                # misread as a win, or a win misread as a loss that strands
+                # the row this call just wrote). Ownership is decided by
+                # reading the row back instead: the claim is ours iff it
+                # carries THIS attempt's stamp. That also makes a retry
+                # after a failed commit correct — re-running the insert
+                # against our own still-pending row reads back as ours,
+                # not as "someone else holds it". Postgres hands each
+                # thread its own connection, so its rowcount is trustworthy
+                # (and its REAL column could not round-trip the stamp).
+                row = sql.execute(
+                    conn,
+                    "SELECT claimed_at FROM review_claims WHERE of_assignment_id=?",
+                    (of_assignment_id,),
+                ).fetchone()
+                inserted = int(row is not None and row[0] == stamp)
             conn.commit()
         except sql.driver_errors() as exc:  # #2784: was sqlite3.OperationalError only
-            if inserted:
-                # Only this call's own row: `claimed_at` is the stamp THIS
-                # attempt generated, so a claim another process legitimately
-                # holds (different stamp) is never touched. `inserted == 0`
-                # means the insert either lost the race or never applied at
-                # all — nothing of ours to compensate for.
-                undo_pending_write(
-                    conn, exc,
-                    undo=lambda: sql.execute(
-                        conn,
-                        "DELETE FROM review_claims "
-                        "WHERE of_assignment_id=? AND claimed_at=?",
-                        (of_assignment_id, claimed_at),
-                    ),
-                )
+            # Only this call's own row: `stamp` is unique to THIS attempt,
+            # so a claim another process legitimately holds (different
+            # stamp) is never touched. Run unconditionally (#3668) rather
+            # than gated on `rowcount`, which is exactly the value a
+            # concurrent thread can misreport — deleting a row that is not
+            # there is a harmless no-op.
+            undo_pending_write(
+                conn, exc,
+                undo=lambda: sql.execute(
+                    conn,
+                    "DELETE FROM review_claims "
+                    "WHERE of_assignment_id=? AND claimed_at=?",
+                    (of_assignment_id, stamp),
+                ),
+            )
             raise
         return inserted
 
@@ -4033,6 +4155,38 @@ def count_review_rows_for_reset(
     return int(row["c"] if hasattr(row, "keys") else row[0])
 
 
+def mark_work_leg_review_pending(assignment_id: str) -> int:
+    """Set ONE work leg's ``review_state`` → ``'pending'`` so the next
+    review pass dispatches it (#3668). Returns rows updated (0 or 1).
+
+    The single-row sibling of :func:`reset_work_review_state`, for ``coord
+    diagnose --stage review --reset`` on the "latest review is for a
+    superseded work leg" shape: only the NEWEST leg needs to become
+    re-dispatchable, while the older legs keep the review verdicts the fix
+    round answered. Guarded on ``review_verdict IS NULL`` so a leg that
+    already has a terminal verdict is never made reviewable a second time
+    (#3670 — one review per leg). Local-DB write, the same as
+    :func:`reset_work_review_state`: ``coord diagnose`` reroutes the whole
+    command to the daemon when ``board_service`` is configured.
+    """
+    if not assignment_id:
+        return 0
+
+    def _write() -> int:
+        conn = get_connection()
+        cur = sql.execute(
+            conn,
+            "UPDATE assignments SET review_state='pending' "
+            "WHERE assignment_id=? AND review_verdict IS NULL",
+            (assignment_id,),
+        )
+        updated = cur.rowcount or 0
+        conn.commit()
+        return updated
+
+    return retry_on_locked(_write)
+
+
 def reset_work_review_state(
     repo_name: str, issue_number: int, *, assignment_id: str | None = None
 ) -> int:
@@ -4471,6 +4625,44 @@ def load_assignment_test_state(assignment_id: str) -> str | None:
     if row is None:
         return None
     return row["test_state"] if hasattr(row, "keys") else row[0]
+
+
+def load_assignment_mode(assignment_id: str) -> str | None:
+    """#3681: the ``mode`` (``"single"`` or ``"workflow"``) a Work leg's row
+    was dispatched with.
+
+    Set once, at dispatch time, by `_record_dispatched_local` — never
+    updated afterwards. ``None`` for a row predating this column, or an
+    assignment id this board has never heard of; callers should treat that
+    the same as ``"single"`` (every pre-#3681 leg ran single-agent).
+
+    Same daemon-first, local-fallback routing as
+    :func:`load_assignment_test_state`.
+    """
+    if not assignment_id:
+        return None
+    svc = _board_service()
+    if svc is not None:
+        try:
+            from coord.client import fetch_assignment  # noqa: PLC0415
+
+            row = fetch_assignment(svc, assignment_id)
+            if row is not None:
+                return row.get("mode")
+            return None
+        except Exception:  # noqa: BLE001 — degraded fallback, never blocking
+            return None
+    try:
+        conn = get_connection()
+        row = sql.execute(conn,
+            "SELECT mode FROM assignments WHERE assignment_id=?",
+            (assignment_id,),
+        ).fetchone()
+    except Exception:  # noqa: BLE001
+        return None
+    if row is None:
+        return None
+    return row["mode"] if hasattr(row, "keys") else row[0]
 
 
 def load_assignment_test_confirmation(assignment_id: str) -> str | None:
@@ -8625,6 +8817,13 @@ def _list_issue_numbers_with_assignments_local(repo_name: str) -> set[int]:
 ISSUE_CONTEXT_MAX_ENTRIES = 12
 ISSUE_CONTEXT_MAX_CHARS = 2500
 
+# #3676: the `issue_context.source` of a blocking review finding carried over
+# from a SIBLING issue (same epic/milestone) by
+# `coord.briefing_lessons.record_sibling_lessons`. Kept out of the per-issue
+# digest (`render_issue_context`) and rendered as its own "Lessons from
+# siblings" briefing section instead.
+SIBLING_LESSON_SOURCE = "sibling-lesson"
+
 # #3113: `source="review"` entries are exempt from the char cap below (a
 # reviewer's full `## Blocking findings` section must never be truncated
 # mid-word — that's the whole point of the exemption). Left fully open-ended,
@@ -10138,9 +10337,18 @@ def render_issue_context(
 ) -> str:
     """Render an issue's curated context digest (routes the list read to the
     daemon when set).  Returns "" when empty.  This is what the briefing
-    read-path prepends and what ``coord fix-briefing`` includes."""
+    read-path prepends and what ``coord fix-briefing`` includes.
+
+    #3676: ``SIBLING_LESSON_SOURCE`` entries are left out — they are lessons
+    carried over from OTHER issues in the same epic/milestone, rendered as
+    their own "Lessons from siblings" section by
+    :func:`coord.briefing_lessons.sibling_lessons_block`, and must not eat
+    this digest's per-issue entry budget."""
     return render_issue_context_entries(
-        list_issue_context(repo_name, issue_number),
+        [
+            e for e in list_issue_context(repo_name, issue_number)
+            if e.get("source") != SIBLING_LESSON_SOURCE
+        ],
         max_entries=max_entries,
         max_chars=max_chars,
     )

@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: django-hijack
-Version: 3.7.9
+Version: 3.8.0
 Summary: Enable users to hijack (=login as) and work on behalf of another user.
 Keywords: Django,authentication,security,admin,impersonation
 Author-email: arteria GmbH <admin@arteria.ch>, Johannes Maron <johannes@maron.family>
-Requires-Python: >=3.10
+Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
@@ -13,19 +13,16 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 License-File: LICENSE
-Requires-Dist: django>=4.2
+Requires-Dist: django>=5.2
 Requires-Dist: mkdocs==1.6.1 ; extra == "docs"
-Requires-Dist: ruff==0.16.9 ; extra == "lint"
+Requires-Dist: ruff==0.16.10 ; extra == "lint"
 Requires-Dist: msgcheck==4.2.0 ; extra == "lint"
 Requires-Dist: pytest ; extra == "test"
 Requires-Dist: pytest-cov ; extra == "test"

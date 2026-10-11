@@ -51,6 +51,7 @@ Feed: v_m = Φ_m(s_f), Z_drive = 1 / (v^T c).
 """
 
 import math
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -62,6 +63,7 @@ from ._bspline_kernels import (
     _EK,
     _HAVE_BSPLINE_OFFEDGE_SWEPT_ACCEL,
     _ek_axis_groups,
+    _ek_axis_groups_coaxial,
     _ek_cut,
     _normalize_ladder,
     _refuse_complex_k,
@@ -79,6 +81,7 @@ from ._quadrature import leggauss
 from . import _below_interface
 from . import _bspline_kernels
 from . import _crossing_fill
+from . import _exact_kernel
 from . import _feed_snap
 from . import _ground_mirror
 from . import _ground_refl
@@ -238,6 +241,11 @@ _HAVE_FIELD_GALERKIN_MIRROR = _HAVE_FIELD_GALERKIN_STRIDED and getattr(
 )
 _FIELD_GALERKIN_MIRROR = True
 _FIELD_GALERKIN_LANES = True
+# The field-form block's observer chunk: this many projected-table entries,
+# `(chunk·q) x (n_src·q)`, a chunk (`_field_galerkin_block`'s step rule). A
+# module constant only so a test can force several chunks on a small deck
+# through the production rule (momwire#1337); nothing else should change it.
+_FIELD_GALERKIN_CHUNK_ELEMS = 1 << 19
 
 
 def _fg_lanes_kw():
@@ -294,6 +302,15 @@ _SAME_EDGE_DROP_R = True
 # a window is the square answer's sub-block bit for bit, so there is nothing to
 # choose between.
 _SAME_EDGE_WINDOW_BLOCKS = True
+
+# momwire#1411: the exact-kernel correction walks each coaxial group in
+# observer-row windows (`swept_mem_mb` each) rather than building the group's
+# whole (d+1)²·n² block. Off restores the whole-group route, the reference the
+# windows are gated against; like the switches above it is for gates, not
+# callers. `_EXACT_KERNEL_ROWS_OVERRIDE` pins the window height (rows) so a
+# gate can cut a small deck into many windows.
+_EXACT_KERNEL_ROW_WINDOWS = True
+_EXACT_KERNEL_ROWS_OVERRIDE = None
 
 _BSPLINE_ASSEMBLE_ACCEL_MAX_D = 2
 
@@ -1182,6 +1199,65 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         deck's own EK shift, so it is the one place the mixture is visible.
         The full table, the O(a²) confirmation and the tolerances are in
         tests/test_extended_kernel_bspline.py Gate 18.
+    exact_kernel : the exact ring kernel on coaxial pairs (momwire#1408),
+        opt-in. False (the default) leaves every fill exactly as it was, bit
+        for bit: no line of the correction runs. True replaces, after the
+        free-space fill, the moment integrals of every pair of segments
+        that lie on ONE line at ONE radius (`_ek_axis_groups_coaxial`: the
+        same wire's straight run, and collinear wires such as the two
+        halves of an end-port feed) with the exact ring kernel
+        K(z) = (1/2π)∮e^{-jkR}/(4πR)dφ, R² = z² + 4a²sin²(φ/2) — at every
+        separation along that line, not only near the source, so no kernel
+        switch sits inside a wire. Every other pair (bends, offset parallel
+        wires, the ground image, the Sommerfeld remainder) keeps the kernel
+        `extended_kernel` selects. The kernel is log-singular at z = 0; the
+        self and adjacent cells integrate its log term by product
+        integration against the basis polynomials (`_exact_kernel`). The
+        exact moments are computed in C++ where the accelerator is built
+        (`_accel_exact_kernel.cpp`, momwire#1410; the numpy route otherwise),
+        by observer-row windows of `swept_mem_mb` (momwire#1411), with O(n)
+        kernel work on a uniformly meshed run, and assembled into Z as
+        Z_exact - Z_base over the group's bases.
+
+        **The feed.** Under the exact kernel a zero-width gap has no
+        limiting reactance: each halving of the gap adds 4ln2·ωε₀a of
+        susceptance (Fikioris & Valagiannopoulos 2005). A point-gap feed is
+        served (with a warning) so that drift can be studied; a segment
+        gap's width is the mesh's; a fixed geometric gap is two facing wire
+        ends driven through `junction_ports`.
+
+        Not served: buried wires, a complex wavenumber or permittivity,
+        `use_singular_enrichment`, `rotational_symmetry` and the
+        H-matrix/array subclasses (refused by name). A junction of three or
+        more wires is not excluded: its collinear through-pair takes the
+        exact kernel, though the ring-uniform current it assumes is no
+        better there than for the thin-wire kernels.
+
+        **"auto"** (momwire#1408 follow-up) resolves once, at construction,
+        to True iff (i) this route serves the kernel -- not a subclass that
+        refuses it, not `use_singular_enrichment`, not `rotational_symmetry`,
+        no buried wire, no complex wavenumber or permittivity -- and (ii)
+        some segment is fat for its length, h/a < `EXACT_KERNEL_AUTO_H_OVER_A`
+        (3). Every segment is in a coaxial group (its own, at least), so
+        (ii) is "the correction would act on a segment that short". The
+        threshold is the kernel-error table's: the extended kernel's error
+        is 2.1e-3 at |z|/a = 3 and 3.1e-2 at 1. Where (i) fails, "auto"
+        resolves False silently -- it never raises where True would refuse
+        -- and a restricted-row fill reached under "auto" skips the
+        correction rather than refusing it. `exact_kernel_requested` holds
+        what was asked for and `exact_kernel` what runs (a bool, after
+        resolution), which is what a reader should report. Under "auto" a
+        point-gap feed does not warn; True still does. The mesh advisories
+        read the resolved value (momwire#1412): where the exact kernel runs,
+        `ShortSegments` is silent and `GapMeshFloor` states the point-gap
+        drift and names the end-port feed instead of the thin-wire collapse.
+
+        **Bends.** The correction covers coaxial pairs only, so where a
+        straight run turns, the pair leaves the exact kernel for the
+        extended (or reduced) one. At a = 50 mm that step is ~0.024 ohm,
+        ~1e-4 relative, and flat under refinement; it is accepted and
+        documented rather than smoothed (the continuous form is
+        momwire#1413), so "auto" engages on bent fat wires too.
     wavelength, halfdriver_factor, wire_radius, nsegs : shared solver
         conventions (see SinusoidalSolver for the same surface).
     wire_conductivity : distributed conductor loss (#131). None (default)
@@ -1328,6 +1404,17 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         },
     )
 
+    # momwire#1408: subclasses that replace the dense fill (H-matrix, array
+    # blocks) never reach the exact-kernel correction, so they refuse it.
+    _serves_exact_kernel = True
+    # What `exact_kernel=` accepts. Public so a consumer can gate on the
+    # capability ("auto" in BSplineSolver.EXACT_KERNEL_CHOICES) instead of
+    # parsing a version or a signature.
+    EXACT_KERNEL_CHOICES = (False, True, "auto")
+    # "auto" engages when some segment's length is below this many radii
+    # (the kernel-error table: EK 2.1e-3 at |z|/a = 3, 3.1e-2 at 1).
+    EXACT_KERNEL_AUTO_H_OVER_A = 3.0
+
     def __init__(
         self,
         *,
@@ -1348,6 +1435,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         image_pair_order_ladder=None,
         n_qp_source=16,
         extended_kernel=False,
+        exact_kernel=False,
         wavelength=22,
         halfdriver_factor=0.962,
         wire_radius=0.0005,
@@ -1503,6 +1591,39 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             # negligibility arithmetic and
             # tests/test_extended_kernel_bspline.py's G16-G19 for the
             # measurements behind it.
+        # momwire#1408: the exact ring kernel on coaxial pairs, opt-in. Off,
+        # nothing below reads it but the guard in `_compute_Z_operator`.
+        if isinstance(exact_kernel, str):
+            if exact_kernel != "auto":
+                raise ValueError(
+                    f"exact_kernel must be True, False or 'auto', got {exact_kernel!r}"
+                )
+            self.exact_kernel_requested = "auto"
+            # Resolved at the end of __init__ (`_resolve_exact_kernel_auto`),
+            # once the geometry and the ground are known; off until then.
+            self.exact_kernel = False
+        else:
+            self.exact_kernel_requested = bool(exact_kernel)
+            self.exact_kernel = bool(exact_kernel)
+        if self.exact_kernel:
+            if not self._serves_exact_kernel:
+                raise NotImplementedError(
+                    f"exact_kernel=True is not served by {type(self).__name__}: "
+                    "its fills never reach the exact-kernel correction "
+                    "(momwire#1408)"
+                )
+            if use_singular_enrichment:
+                raise NotImplementedError(
+                    "exact_kernel=True + use_singular_enrichment=True is "
+                    "refused: the enrichment blocks have no exact-kernel "
+                    "correction (momwire#1408)"
+                )
+            if rotational_symmetry:
+                raise NotImplementedError(
+                    "exact_kernel=True + rotational_symmetry=True is refused: "
+                    "the sector route fills restricted rows, which the "
+                    "exact-kernel correction does not serve (momwire#1408)"
+                )
         self.swept_mem_mb = int(swept_mem_mb)
         if self.swept_mem_mb < 1:
             raise ValueError(f"swept_mem_mb must be >= 1, got {swept_mem_mb}")
@@ -1834,25 +1955,83 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         self.rotational_symmetry = bool(rotational_symmetry)
         if self.rotational_symmetry:
             self._rotational_map = self._rotational_check()
+        if self.exact_kernel_requested == "auto":
+            self.exact_kernel = self._resolve_exact_kernel_auto()
+        # The advisories below read the RESOLVED kernel (momwire#1412), so they
+        # follow "auto" -- which is why they come after it. The fill can still
+        # drop the correction under "auto" for a restricted-row route, but the
+        # only one is the rotational sector route, which "auto" already
+        # resolves False for here.
+        # True with a route the fill will refuse (buried, lossy) counts as
+        # not running: the fill raises before any number comes out.
+        try:
+            servable = self._exact_kernel_servable()
+        except ValueError:
+            # A wire-media reading the fill refuses by name (a crossing, a
+            # wire below a ground with no lower medium): it says so there,
+            # not from an advisory.
+            servable = False
+        exact_runs = bool(self.exact_kernel) and servable
         # momwire#1378: any segment under two radii, anywhere (not only at a gap).
-        # Advisory, once per solver, on the final mesh.
+        # Advisory, once per solver, on the final mesh; silent where the exact
+        # ring kernel runs.
         _wire_spec.advise_short_segments(
             type(self).__name__,
             self.wires_polylines,
             self.n_per_edge_per_wire,
             self._radius_per_wire,
+            exact_kernel=exact_runs,
         )
-        # momwire#959 (a stopgap until #1330): segments below the radius AT A
-        # GAP leave the delta-gap model unreliable. Advisory, once per solver.
+        # momwire#959: segments below the radius AT A GAP. Advisory, once per
+        # solver; its text follows the kernel (thin-wire collapse, or the
+        # exact kernel's point-gap drift), and under the exact kernel the
+        # end-port junction ports are not gaps.
         _wire_spec.advise_gap_mesh_floor(
             type(self).__name__,
             self.wires_polylines,
             self.n_per_edge_per_wire,
             self._radius_per_wire,
             self.extended_kernel,
-            _wire_spec.solver_gaps(self),
+            _wire_spec.solver_gaps(self, end_ports_are_gaps=not exact_runs),
             gap_model="point",
+            exact_kernel=True if exact_runs else (False if servable else None),
         )
+        if (
+            self.exact_kernel_requested is True
+            and self.feed_model == "point"
+            and self.feeds
+        ):
+            warnings.warn(
+                "exact_kernel=True with a point-gap feed: under the exact ring "
+                "kernel a zero-width gap has no limiting reactance (each halving "
+                "of the gap adds 4 ln2 w eps0 a of susceptance), so the feed "
+                "reactance drifts with the mesh. A fixed geometric gap is two "
+                "facing wire ends driven through junction_ports (momwire#1408).",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
+    def _resolve_exact_kernel_auto(self):
+        """`exact_kernel="auto"`'s value (see the class docstring): True iff
+        this route serves the exact kernel and some segment is shorter than
+        `EXACT_KERNEL_AUTO_H_OVER_A` radii. Never raises a refusal."""
+        if not self._exact_kernel_servable():
+            return False
+        geom = self._build_geometry()
+        h = np.linalg.norm(geom["seg_r"] - geom["seg_l"], axis=1)
+        a = self._seg_radius(geom)
+        return bool(np.any(h < self.EXACT_KERNEL_AUTO_H_OVER_A * a))
+
+    def _exact_kernel_servable(self):
+        """Whether this solver's construction-time route serves the exact
+        ring kernel: condition (i) of "auto" (see the class docstring)."""
+        if not self._serves_exact_kernel:
+            return False
+        if self.use_singular_enrichment or self.rotational_symmetry:
+            return False
+        if self.ground_z is not None and self._has_buried_wires():
+            return False
+        return not (np.iscomplexobj(self.k) or np.iscomplexobj(self.eps))
 
     def _rotational_ground_kind(self):
         """The ground's name for the rotational-symmetry rule (momwire#1029
@@ -6190,7 +6369,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         pos_s = np.full(n_seg_total, -1, dtype=np.int64)
         pos_s[src_idx] = np.arange(n_src)
 
-        chunk = max(1, (1 << 19) // max(n_src * q * q, 1))
+        chunk = max(1, _FIELD_GALERKIN_CHUNK_ELEMS // max(n_src * q * q, 1))
         if symmetric:
             # The caller's claim, checked rather than trusted: a mirror
             # assembled over two DIFFERENT axes is a wrong block, not a slow one.
@@ -6226,9 +6405,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 scale,
             )
             return Q
-        for i0 in range(0, n_obs, chunk):
-            self._checkpoint()
-            i1 = min(i0 + chunk, n_obs)
+        for i0, i1 in _schedule.chunks([(0, n_obs)], chunk, self._checkpoint):
             proj = proj_fn(
                 obs[i0 * q : i1 * q],
                 t_obs[i0 * q : i1 * q],
@@ -6338,9 +6515,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         different chunk order. The gate is the reference route at 1e-12.
         """
         QT = Q.T
-        for i0 in range(0, n_axis, chunk):
-            self._checkpoint()
-            i1 = min(i0 + chunk, n_axis)
+        for i0, i1 in _schedule.chunks([(0, n_axis)], chunk, self._checkpoint):
             proj = proj_fn(
                 nodes[i0 * q : i1 * q],
                 tangents[i0 * q : i1 * q],
@@ -6890,6 +7065,15 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         peak on exactly the entry point the SimNEC portal and the array
         benchmarks drive (issue #235).
         """
+        use_exact = self.exact_kernel
+        if use_exact:
+            if self.exact_kernel_requested == "auto":
+                # "auto" never refuses: an unserved route skips the
+                # correction, and the solver says so.
+                if self._exact_kernel_route_refusal(rows, compact) is not None:
+                    use_exact = self.exact_kernel = False
+            else:
+                self._refuse_exact_kernel_route(rows, compact)
         if self.ground_z is not None and self._has_buried_wires():
             # Per-segment media (momwire#553 U5). Structurally a different
             # fill, not a flag inside this one: three pair classes, two
@@ -6932,6 +7116,10 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             J = self._build_J_blocks(geom, self.k, same_edge_prep=same_edge_prep)
             Z = self._assemble_Z(J, supp_seg, polys, geom)
             del J
+
+        if use_exact:
+            self._checkpoint()
+            self._add_exact_kernel_correction(Z, geom, supp_seg, polys, self.k)
 
         ground = _potential_ground.potential_ground_for(self, geom, self.k, self.omega)
         if ground is not None:
@@ -6979,6 +7167,292 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         # Distributed series wire loading (independent of ground: it's a
         # wire property, added once to the final Z).
         return self._apply_loading(Z)
+
+    def _exact_kernel_route_refusal(self, rows, compact):
+        """Why this fill route does not serve `exact_kernel`, or None."""
+        if rows is not None or compact:
+            return (
+                "exact_kernel=True serves the dense fill only; a restricted-row "
+                "fill (sector route) has no exact-kernel correction (momwire#1408)"
+            )
+        if self.ground_z is not None and self._has_buried_wires():
+            return (
+                "exact_kernel=True is refused for buried wires: the exact ring "
+                "kernel here is written for a real wavenumber (momwire#1408)"
+            )
+        if np.iscomplexobj(self.k) or np.iscomplexobj(self.eps):
+            return (
+                "exact_kernel=True is refused in a lossy medium (complex k or "
+                "permittivity) (momwire#1408)"
+            )
+        return None
+
+    def _refuse_exact_kernel_route(self, rows, compact):
+        """The routes `exact_kernel` does not serve, refused by name."""
+        why = self._exact_kernel_route_refusal(rows, compact)
+        if why is not None:
+            raise NotImplementedError(why)
+
+    def _exact_kernel_groups(self, geom):
+        """[(segment indices, [(slice, arc, radius) per edge])] per coaxial
+        equal-radius group: the segments the exact ring kernel covers."""
+        seg_l, seg_r = geom["seg_l"], geom["seg_r"]
+        labels = _ek_axis_groups_coaxial(
+            seg_l, seg_r, geom["tangents"], self._seg_radius(geom)
+        )
+        edges = {}
+        for _w, sl, arc, a_w in self._edge_ingredients(geom):
+            edges.setdefault(int(labels[sl.start]), []).append((sl, arc, a_w))
+        return [(np.flatnonzero(labels == g), edges[g]) for g in sorted(edges)]
+
+    def _exact_kernel_base_J(self, geom, S, g_edges, k, rows=None, fill=None):
+        """The (d+1, d+1, n, n) moments the free-space fill put on the
+        group's pairs, recomputed through the same kernels with the same
+        arguments (`_build_J_blocks` restricted to the group), so the
+        correction removes them to roundoff whichever fill route ran.
+
+        `rows` (a slice of the group's LOCAL segment order, momwire#1411)
+        returns only those observer rows, (d+1, d+1, r1 - r0, n): every
+        kernel below takes an observer window natively, as the chunked fill
+        uses them. `fill` is `_exact_kernel_fill_spec`'s (ek, ladder), hoisted
+        by a caller that walks many windows."""
+        d = self.degree
+        seg_l, seg_r = geom["seg_l"], geom["seg_r"]
+        n = S.size
+        r0, r1 = (0, n) if rows is None else rows.indices(n)[:2]
+        Sr = S[r0:r1]
+        if len(g_edges) == 1:
+            J = np.zeros((d + 1, d + 1, r1 - r0, n), dtype=complex)
+        else:
+            ek, ladder = fill or self._exact_kernel_fill_spec(geom, k)
+            ek_g = None
+            if ek is not None:
+                ek_g = ek._replace(
+                    group_i=ek.group_i[Sr],
+                    group_j=ek.group_j[S],
+                    b_i=None if ek.b_i is None else ek.b_i[Sr],
+                    b_j=None if ek.b_j is None else ek.b_j[S],
+                )
+            J = _seg_seg_full_moments_offedge(
+                seg_l[Sr],
+                seg_r[Sr],
+                seg_l[S],
+                seg_r[S],
+                self._seg_radius(geom)[Sr],
+                k,
+                d,
+                self.n_qp_pair,
+                ek=ek_g,
+                ladder=ladder,
+            )
+        ek_se = _EK_SAME_EDGE if self.extended_kernel else None
+        loc = np.full(int(geom["n_segs_total"]), -1, dtype=np.int64)
+        loc[S] = np.arange(n)
+        for sl, arc, a_w in g_edges:
+            l0 = int(loc[sl.start])
+            l1 = l0 + (sl.stop - sl.start)
+            lo, hi = max(l0, r0), min(l1, r1)
+            if lo >= hi:
+                continue
+            win = None if (lo, hi) == (l0, l1) else slice(lo - l0, hi - l0)
+            J[:, :, lo - r0 : hi - r0, l0:l1] = _seg_seg_static_moments(
+                arc, a_w, max_d=d, ek=ek_se, rows=win
+            ) + _seg_seg_reg_moments_from_geometry(
+                _seg_seg_reg_geometry(
+                    arc,
+                    a_w,
+                    max_d=d,
+                    n_qp=self.n_qp_pair_same_edge,
+                    ek=ek_se,
+                    rows=win,
+                ),
+                k,
+            )
+        return J
+
+    def _exact_kernel_fill_spec(self, geom, k):
+        """(ek, ladder): the whole-mesh EK spec and pair-order ladder the
+        fill used, which the base moments must reproduce."""
+        ek = self._ek_spec(geom) if self.extended_kernel else None
+        return ek, self._fill_ladder(k, geom["seg_l"], geom["seg_r"], ek)
+
+    def _exact_kernel_row_bytes(self, n):
+        """Transient bytes per observer row of one group window (momwire#1411):
+        the exact rows, the base rows and their difference (complex), the
+        static rows (real), the same-edge distance table R (n_qp² per pair),
+        and the dedup keys with `np.unique`'s sort copies (~200 B per pair),
+        plus the numpy off-edge fallback's own overhead when that runs. The
+        C++ route's dedup (momwire#1410) holds an 8-byte slot per pair and,
+        per key new to the window, its moments and its table entry: a few
+        bytes a pair on a uniform run, up to ~300 on a graded mesh where
+        every pair is new, inside this total either way (memgate:
+        tests/test_exact_kernel_accel_1410.py)."""
+        nd2 = (self.degree + 1) ** 2
+        per_pair = 3 * nd2 * 16 + nd2 * 8 + 2 * 8 * self.n_qp_pair_same_edge**2 + 200
+        return n * per_pair + self._offedge_fallback_row_bytes(n)
+
+    def _add_exact_kernel_correction(self, Z, geom, supp_seg, polys, k):
+        """Z += Z_exact - Z_base over every coaxial group (momwire#1408).
+
+        In place, by observer-row windows of each group (momwire#1411): a
+        window's exact moments (`_exact_kernel.CoaxialRows`) minus the base
+        moments the fill used, accumulated straight into Z through the
+        windowed assembler. Peak memory is one window -- `swept_mem_mb`, the
+        fill's own transient budget -- plus the dedup cache, bounded by the
+        same budget and O(n) on a uniform run. The whole-group block it
+        replaces traced 5.6 GB inside this call on one 3,000-segment fat wire
+        at d = 2 (process peak 4.6 GB against the fill's own 1.1 GB); the
+        windows trace 176 MB there and leave the process peak at the fill's.
+        The pre-#1411 whole-group route stays behind
+        `_EXACT_KERNEL_ROW_WINDOWS` as the reference this one is gated
+        against."""
+        if not _EXACT_KERNEL_ROW_WINDOWS:
+            return self._add_exact_kernel_correction_whole(Z, geom, supp_seg, polys, k)
+        d = self.degree
+        nd = d + 1
+        seg_l, seg_r = geom["seg_l"], geom["seg_r"]
+        tang = geom["tangents"]
+        seg_a = self._seg_radius(geom)
+        n_total = int(geom["n_segs_total"])
+        polys_c = np.ascontiguousarray(polys, dtype=np.float64)
+        accel = (
+            _HAVE_BSPLINE_WINDOWED_ASSEMBLE_ACCEL
+            and d <= _BSPLINE_ASSEMBLE_ACCEL_MAX_D
+            and not np.iscomplexobj(self.eps)
+        )
+        fill = self._exact_kernel_fill_spec(geom, k)
+        for S, g_edges in self._exact_kernel_groups(geom):
+            n = S.size
+            axis = tang[S[0]]
+            x0 = (seg_l[S] - seg_l[S[0]]) @ axis
+            sgn = np.where(tang[S] @ axis >= 0.0, 1.0, -1.0)
+            h = np.linalg.norm(seg_r[S] - seg_l[S], axis=1)
+            budget = self.swept_mem_mb * 1024 * 1024
+            exact = _exact_kernel.coaxial_rows(
+                x0,
+                sgn,
+                h,
+                float(seg_a[S[0]]),
+                k,
+                nd,
+                max_cached=max(1, budget // (nd * nd * 16 + 256)),
+            )
+            # Bases are relabelled onto the group's local segment order;
+            # a wing elsewhere points at the sentinel n, which no window
+            # holds, so both assemblers skip it.
+            loc = np.full(n_total, n, dtype=np.int64)
+            loc[S] = np.arange(n)
+            supp_loc = np.where(supp_seg >= 0, loc[supp_seg], n).astype(np.int64)
+            supp_loc = np.ascontiguousarray(supp_loc)
+            B = np.flatnonzero(np.any(supp_loc < n, axis=1)).astype(np.int64)
+            tan_loc = np.zeros((n + 1, 3))
+            tan_loc[:n] = tang[S]
+            chunk = _schedule.mb_rows(
+                self.swept_mem_mb, self._exact_kernel_row_bytes(n)
+            )
+            if _EXACT_KERNEL_ROWS_OVERRIDE is not None:
+                chunk = int(_EXACT_KERNEL_ROWS_OVERRIDE)
+            for r0 in range(0, n, chunk):
+                r1 = min(n, r0 + chunk)
+                self._checkpoint()
+                dJ = exact.rows(r0, r1)
+                dJ -= self._exact_kernel_base_J(
+                    geom, S, g_edges, k, rows=slice(r0, r1), fill=fill
+                )
+                sB = supp_loc[B]
+                M = B[np.any((sB >= r0) & (sB < r1), axis=1)]
+                if accel:
+                    _acc.assemble_Z_bspline_windowed(
+                        np.ascontiguousarray(dJ),
+                        supp_loc,
+                        polys_c,
+                        tan_loc,
+                        M,
+                        B,
+                        int(r0),
+                        int(r1),
+                        0,
+                        int(n),
+                        float(self.omega),
+                        float(self.eps),
+                        float(self.mu),
+                        Z,
+                        self._cancel_flag,
+                    )
+                else:
+                    self._assemble_Z_window_numpy(
+                        Z, dJ, supp_loc, polys_c, tan_loc, M, B, r0, r1, n
+                    )
+                del dJ
+
+    def _assemble_Z_window_numpy(self, Z, J, supp, polys, tan, M, N, r0, r1, n):
+        """Z[M, N] += the assembly of one observer-row window J (d+1, d+1,
+        r1 - r0, n) whose source window is [0, n): the numpy twin of
+        `assemble_Z_bspline_windowed`, wings outside either window skipped
+        (`_assemble_Z`'s own loop, restricted). For the degrees and media
+        the C++ assembler does not take."""
+        d = self.degree
+        n_wings = d + 1
+        p_vec = np.arange(1, d + 1, dtype=np.float64)
+        Z_A = np.zeros((M.size, N.size), dtype=np.complex128)
+        Z_Phi = np.zeros((M.size, N.size), dtype=np.complex128)
+        for a in range(n_wings):
+            sm = supp[M, a]
+            on_m = (sm >= r0) & (sm < r1)
+            im = np.where(on_m, sm - r0, 0)
+            for b in range(n_wings):
+                sn = supp[N, b]
+                on_n = (sn >= 0) & (sn < n)
+                jn = np.where(on_n, sn, 0)
+                mask = on_m[:, None] & on_n[None, :]
+                J_blk = J[:, :, im[:, None], jn[None, :]] * mask
+                td_blk = tan[np.where(on_m, sm, n)] @ tan[np.where(on_n, sn, n)].T
+                Z_A += td_blk * np.einsum(
+                    "mp,pPmn,nP->mn", polys[M, a, :], J_blk, polys[N, b, :]
+                )
+                if d >= 1:
+                    deriv_m = polys[M, a, 1:] * p_vec[None, :]
+                    deriv_n = polys[N, b, 1:] * p_vec[None, :]
+                    Z_Phi += np.einsum(
+                        "mp,pPmn,nP->mn", deriv_m, J_blk[:d, :d], deriv_n
+                    )
+                del J_blk
+        Z[np.ix_(M, N)] += 1j * self.omega * self.mu * Z_A + Z_Phi / (
+            1j * self.omega * self.eps
+        )
+
+    def _add_exact_kernel_correction_whole(self, Z, geom, supp_seg, polys, k):
+        """The pre-#1411 route: each group's whole (d+1)²·n² correction block
+        at once, assembled by `_assemble_Z`. The reference the row-window
+        route is gated against (`_EXACT_KERNEL_ROW_WINDOWS = False`)."""
+        d = self.degree
+        nd = d + 1
+        seg_l, seg_r = geom["seg_l"], geom["seg_r"]
+        tang = geom["tangents"]
+        seg_a = self._seg_radius(geom)
+        n_total = int(geom["n_segs_total"])
+        for S, g_edges in self._exact_kernel_groups(geom):
+            n = S.size
+            axis = tang[S[0]]
+            x0 = (seg_l[S] - seg_l[S[0]]) @ axis
+            sgn = np.where(tang[S] @ axis >= 0.0, 1.0, -1.0)
+            h = np.linalg.norm(seg_r[S] - seg_l[S], axis=1)
+            dJ = _exact_kernel.coaxial_block(x0, sgn, h, float(seg_a[S[0]]), k, nd)
+            dJ -= self._exact_kernel_base_J(geom, S, g_edges, k)
+            # assemble over the bases touching the group; wings elsewhere
+            # point at one extra all-zero segment
+            loc = np.full(n_total, n, dtype=np.int64)
+            loc[S] = np.arange(n)
+            B = np.flatnonzero(np.any(loc[supp_seg] < n, axis=1))
+            dJx = np.zeros((nd, nd, n + 1, n + 1), dtype=complex)
+            dJx[:, :, :n, :n] = dJ
+            del dJ
+            td = np.zeros((n + 1, n + 1))
+            td[:n, :n] = tang[S] @ tang[S].T
+            dZ = self._assemble_Z(
+                dJx, np.ascontiguousarray(loc[supp_seg[B]]), polys[B], geom, td_all=td
+            )
+            Z[np.ix_(B, B)] += dZ
 
     def _compute_Z_operator_rows(
         self, geom, supp_seg, polys, rows, *, compact=False, same_edge_prep=None
@@ -7667,6 +8141,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         """
         return (
             not self.use_singular_enrichment
+            and not self.exact_kernel  # per-k loop: the correction is per k
             and self.ground_eps is None
             and _HAVE_BSPLINE_SWEPT_ASSEMBLE_ACCEL
             and _HAVE_BSPLINE_OFFEDGE_SWEPT_ACCEL

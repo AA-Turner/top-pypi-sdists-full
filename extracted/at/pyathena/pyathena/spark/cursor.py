@@ -1,11 +1,21 @@
+# Copyright 2024 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""Cursor that runs PySpark code in an Athena for Apache Spark session."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any, cast
 
-from pyathena import OperationalError, ProgrammingError
+from pyathena import NotSupportedError, OperationalError, ProgrammingError
 from pyathena.model import AthenaCalculationExecution, AthenaCalculationExecutionStatus
 from pyathena.spark.common import SparkBaseCursor, WithCalculationExecution
+from pyathena.util import override
 
 _logger = logging.getLogger(__name__)
 
@@ -24,8 +34,7 @@ class SparkCursor(SparkBaseCursor, WithCalculationExecution):
 
     Attributes:
         session_id: The Athena Spark session ID.
-        description: Optional description for the Spark session.
-        engine_configuration: Spark engine configuration settings.
+        description: The description of the current calculation.
         calculation_id: ID of the current calculation being executed.
 
     Example:
@@ -39,7 +48,7 @@ class SparkCursor(SparkBaseCursor, WithCalculationExecution):
         ... result.show()
         ... '''
         >>> cursor.execute(spark_code)
-        >>> result = cursor.fetchall()
+        >>> output = cursor.get_std_out()
 
         # Configure Spark session
         >>> cursor = connection.cursor(
@@ -56,25 +65,8 @@ class SparkCursor(SparkBaseCursor, WithCalculationExecution):
         Spark sessions have associated costs and idle timeout settings.
     """
 
-    def __init__(
-        self,
-        session_id: str | None = None,
-        description: str | None = None,
-        engine_configuration: dict[str, Any] | None = None,
-        notebook_version: str | None = None,
-        session_idle_timeout_minutes: int | None = None,
-        **kwargs,
-    ) -> None:
-        super().__init__(
-            session_id=session_id,
-            description=description,
-            engine_configuration=engine_configuration,
-            notebook_version=notebook_version,
-            session_idle_timeout_minutes=session_idle_timeout_minutes,
-            **kwargs,
-        )
-
     @property
+    @override
     def calculation_execution(self) -> AthenaCalculationExecution | None:
         return self._calculation_execution
 
@@ -107,16 +99,41 @@ class SparkCursor(SparkBaseCursor, WithCalculationExecution):
             return None
         return self._read_s3_file_as_text(self._calculation_execution.std_error_s3_uri)
 
+    @override
     def execute(
         self,
         operation: str,
         parameters: dict[str, Any] | list[str] | None = None,
+        *,
         session_id: str | None = None,
         description: str | None = None,
         client_request_token: str | None = None,
-        work_group: str | None = None,
         **kwargs,
     ) -> SparkCursor:
+        """Execute PySpark code and wait for the calculation to complete.
+
+        Args:
+            operation: PySpark code to execute.
+            parameters: Must be None; Spark calculations do not support parameters.
+            session_id: Spark session ID override.
+            description: Calculation description.
+            client_request_token: Idempotency token.
+            **kwargs: Unknown keyword arguments raise TypeError.
+
+        Returns:
+            Self reference for method chaining.
+
+        Raises:
+            TypeError: If an unknown keyword argument is given.
+            NotSupportedError: If ``parameters`` is not None.
+            OperationalError: If the calculation does not complete successfully.
+        """
+        self._validate_execute_kwargs(kwargs)
+        if parameters is not None:
+            raise NotSupportedError("Spark cursors do not support parameters.")
+        # A failure below must not leave the previous calculation on the cursor.
+        self._calculation_id = None
+        self._calculation_execution = None
         self._calculation_id = self._calculate(
             session_id=session_id if session_id else self._session_id,
             code_block=operation,
@@ -132,6 +149,12 @@ class SparkCursor(SparkBaseCursor, WithCalculationExecution):
         return self
 
     def cancel(self) -> None:
+        """Stop the calculation that ``execute()`` last started.
+
+        Raises:
+            ProgrammingError: If no calculation ID is set.
+            OperationalError: If the ``StopCalculationExecution`` request fails.
+        """
         if not self.calculation_id:
             raise ProgrammingError("CalculationExecutionId is none or empty.")
         self._cancel(self.calculation_id)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -11,18 +11,15 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from abc import (
-    ABCMeta,
-    abstractmethod,
-)
+from abc import abstractmethod
 from beartype.roar import BeartypeValeSubscriptionException
 from beartype.vale._core._valecore import BeartypeValidator
 from beartype.vale._util._valeutiltext import format_diagnosis_line
-from beartype._data.code.datacodeindent import CODE_INDENT_1
+from beartype._data.check.code.datacodeindent import CODE_INDENT_1
 from beartype._util.text.utiltextrepr import represent_object
 
 # ....................{ SUPERCLASSES                       }....................
-class BeartypeValidatorUnaryABC(BeartypeValidator, metaclass=ABCMeta):
+class BeartypeValidatorUnaryABC(BeartypeValidator):
     '''
     Abstract base class of all **beartype binary validator** (i.e., validator
     modifying the boolean truthiness returned by the validation performed by a

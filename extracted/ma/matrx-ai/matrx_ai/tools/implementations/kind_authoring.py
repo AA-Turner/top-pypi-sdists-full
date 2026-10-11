@@ -58,12 +58,9 @@ from matrx_utils.text_case import humanize_identifier
 
 from matrx_ai.db._registry import get_model as get_db_model
 from matrx_ai.tools.implementations.kind_shared import (
-    COMPONENT_ALLOWED_IMPORTS,
-    COMPONENT_DESIGN_DOCTRINE,
     GENERIC_INPUT_COMPONENT_KEY,
-    PLATFORM_COMPONENT_CONTRACTS,
-    PROPS_CONTRACT,
     RESERVED_KIND_SLUGS,
+    SHAPE_AUTHORING_POINTER,
     WriteRefused,
     collect_child_kind_fields,
     component_summary,
@@ -172,15 +169,10 @@ async def _duplicate_shape_refusal(
 
 
 def _component_authoring_bundle() -> dict[str, Any]:
-    """Everything the component author needs, returned by kind_create itself so
-    a fresh build never needs a kindcomp_get_context round-trip (that call
-    remains for FIXING existing components, where live rows/incidents matter).
-    """
+    """Where the component author's rules are. The rules live ONLY in the
+    ``shape-authoring`` skill, attached to every run holding this tool."""
     return {
-        "props_contract": PROPS_CONTRACT,
-        "platform_components": PLATFORM_COMPONENT_CONTRACTS,
-        "allowed_imports": sorted(COMPONENT_ALLOWED_IMPORTS),
-        "design_doctrine": COMPONENT_DESIGN_DOCTRINE,
+        "rules": SHAPE_AUTHORING_POINTER,
         "compile_gate": (
             "kindcomp_create_component / update / patch run an esbuild TSX "
             "syntax gate and the import allowlist at write time — a refusal "
@@ -925,10 +917,9 @@ async def kind_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                         else ""
                     )
                     + ". The stored canonical example IS the render block (markers "
-                    "included). Next: kindcomp_create_component — the "
-                    "component_authoring bundle above has the props contract, import "
-                    "allowlist, and design bar. Then kind_activate (it creates the "
-                    "skill and content block automatically)."
+                    "included). Next: kindcomp_create_component, following the "
+                    "shape-authoring skill in your instructions. Then kind_activate "
+                    "(it creates the skill and content block automatically)."
                 ),
             ),
             output_self_capped=True,

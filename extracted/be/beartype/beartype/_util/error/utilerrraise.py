@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -12,7 +12,7 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.typing import NoReturn
-from beartype._data.error.dataerrmagic import EXCEPTION_PLACEHOLDER
+from beartype._data.check.error.dataerrmagic import EXCEPTION_PLACEHOLDER
 from beartype._util.error.utilerrtest import is_exception_message_str
 from beartype._util.text.utiltextmunge import uppercase_str_char_first
 
@@ -61,7 +61,7 @@ def reraise_exception_placeholder(
     .. code-block:: pycon
 
        >>> from beartype.roar import BeartypeDecorHintPepException
-       >>> from beartype._util.cache.utilcachecall import callable_cached
+       >>> from beartype._util.cache.func.utilcachefunc import callable_cached
        >>> from beartype._util.error.utilerrraise import (
        ...     reraise_exception_placeholder, EXCEPTION_PLACEHOLDER)
        >>> from random import getrandbits
@@ -95,9 +95,9 @@ def reraise_exception_placeholder(
            raise exception.with_traceback(exception.__traceback__)
          File "<input>", line 20, in portend_high_level_winter
            print(portend_low_level_winter(is_winter_coming=True))
-         File "/home/leycec/py/beartype/beartype/_util/cache/utilcachecall.py", line 296, in _callable_cached
+         File "/home/leycec/py/beartype/beartype._util.cache.func.utilcachefunc.py", line 296, in _callable_cached
            raise exception
-         File "/home/leycec/py/beartype/beartype/_util/cache/utilcachecall.py", line 289, in _callable_cached
+         File "/home/leycec/py/beartype/beartype._util.cache.func.utilcachefunc.py", line 289, in _callable_cached
            *args, **kwargs)
          File "<input>", line 13, in portend_low_level_winter
            EXCEPTION_PLACEHOLDER))

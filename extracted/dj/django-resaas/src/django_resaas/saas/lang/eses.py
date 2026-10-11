@@ -1045,7 +1045,6 @@ key_value = {
     "Scaffold IDE": "IDE de generación de código",
     "Scaffold new backend/frontend modules and manage which entity types use them.": "Genere nuevos módulos de backend/frontend y gestione qué tipos de entidad los usan.",
     "Schema": "Esquema",
-    "Sea": "Buscar",
     "Search Person": "Buscar persona",
     "Search an address": "Buscar una dirección",
     "Search branch": "Buscar sucursal",
@@ -1190,9 +1189,7 @@ key_value = {
     # group names (core)
     "Root": "Raíz",
     "Admin": "Administrador",
-    "Organization Administrator": "Administrador de la organización",
-    "System Administrator": "Administrador del sistema",
-    "Branch Administrator": "Administrador de la sucursal",
+    "Branch Admin": "Admin de la sucursal",
 
     # frontend UI strings
     "New group": "Nuevo grupo",
@@ -1501,4 +1498,18 @@ key_value = {
     'Details': 'Detalles',
     'Father Name': 'Nombre del padre',
     'Mother Name': 'Nombre de la madre',
+    "Open the website (double-click: new tab)": "Abrir el sitio web (doble clic: nueva pestaña)",
+    "Lowercase letters, digits, dots or underscores, starting with a letter": "Letras minúsculas, dígitos, puntos o guiones bajos, empezando por una letra",
+    "Use the suggestion": "Usar la sugerencia",
+    "Suggestions": "Sugerencias",
+    "Use 3 to 30 lowercase letters, digits, dots or underscores, starting with a letter": "Use de 3 a 30 letras minúsculas, dígitos, puntos o guiones bajos, empezando por una letra",
+    "Use {min} to {max} lowercase letters, digits, dots or underscores, starting with a letter": "Use de {min} a {max} letras minúsculas, dígitos, puntos o guiones bajos, empezando por una letra",
+    "Checking availability...": "Comprobando la disponibilidad...",
+    "Could not check availability now - it will be checked when you register": "No se pudo comprobar ahora - se comprobará al registrarse",
+    "Suggestion - not checked yet": "Sugerencia - aún no comprobada",
+    "Too many attempts. Request a new code in a few minutes.": "Demasiados intentos. Solicite un nuevo código dentro de unos minutos.",
+    "If this email or phone number can be used, a verification code was sent": "Si este correo o teléfono puede usarse, se envió un código de verificación",
+    "Give a username to check": "Indique un nombre de usuario para comprobar",
+    "This email or phone number is already registered": "Este correo o teléfono ya está registrado",
+    "Invalid or expired verification code": "Código de verificación inválido o caducado",
 }

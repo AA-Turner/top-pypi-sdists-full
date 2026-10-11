@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -12,63 +12,6 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ TODO                               }....................
-#FIXME: [ACCESS] Generalizing the "random_int" concept (i.e., the optional
-#"random_int" parameter accepted by the get_func_pith_violation() function) that
-#enables O(1) exception handling to containers that do *NOT* provide efficient
-#random access like mappings and sets will be highly non-trivial. While there
-#exist a number of alternative means of implementing that generalization, the
-#most reasonable *BY FAR* is probably to:
-#
-#* Embed additional assignment expressions in the type-checking tests generated
-#  by the make_func_pith_code() function that uniquely store the value of
-#  each item, key, or value returned by each access of a non-indexable container
-#  iterator into a new unique local variable. Note this unavoidably requires:
-#  * Adding a new index to the "hint_curr_meta" tuples internally created by
-#    that function -- named, say, "_HINT_META_INDEX_ITERATOR_NAME". The value
-#    of the tuple item at this index should either be:
-#    * If the currently iterated type hint is a non-indexable container, the
-#      name of the new unique local variable assigned to by this assignment
-#      expression whose value is obtained from the iterator cached for that
-#      container.
-#    * Else, "None".
-#    Actually... hmm. Perhaps we only need a new local variable
-#    "iterator_nonsequence_names" whose value is a cached "FixedList" of
-#    sufficiently large size (so, "FIXED_LIST_SIZE_MEDIUM"?). We could then simply
-#    iteratively insert the names of the wrapper-specific new unique local
-#    variables into this list.
-#    Actually... *WAIT.* Is all we need a single counter initialized to, say:
-#        iterators_nonsequence_len = 0
-#    We then both use that counter to:
-#    * Uniquify the names of these wrapper-specific new unique local variables
-#      during iteration over type hints.
-#    * Trivially generate a code snippet passing a list of these names to the
-#      "iterators_nonsequence" parameter of get_func_pith_violation() function
-#      after iteration over type hints.
-#    Right. That looks like The Way, doesn't it? This would seem to be quite a
-#    bit easier than we'd initially thought, which is always nice. Oi!
-#  * Python >= 3.8, but that's largely fine. Python 3.6 and 3.7 are
-#    increasingly obsolete in 2021.
-#* Add a new optional "iterators_nonsequence" parameter to the
-#  get_func_pith_violation() function, accepting either:
-#  * If the current parameter or return of the parent wrapper function was
-#    annotated with one or more non-indexable container type hints, a *LIST* of
-#    the *VALUES* of all unique local variables assigned to by assignment
-#    expressions in that parent wrapper function. These values were obtained
-#    from the iterators cached for those containers. To enable these exception
-#    handlers to efficiently treat this list like a FIFO stack (e.g., with the
-#    list.pop() method), this list should be sorted in the reverse order that
-#    these assignment expressions are defined in.
-#* Refactor exception handlers to then preferentially retrieve non-indexable
-#  container items in O(1) time from this stack rather than simply iterating
-#  over all container items in O(n) brute-force time. Obviously, extreme care
-#  must be taken here to ensure that this exception handling algorithm visits
-#  containers in the exact same order as visited by our testing algorithm.
-#FIXME: *UHH.* I honestly have *NO* idea what any of the above is on about. It's
-#likely we overthought the above commentary to extreme overkill. Notably,
-#@beartype does (in fact) now deeply type-check both maps and sets. Works great,
-#actually. No need for any of the above insanity, either. Let's re-read this
-#and, if bollocks, excise all of the above. Overkill, thy name is that "FIXME:".
-
 #FIXME: [COLOR] The call to the strip_text_ansi() function below is inefficient
 #and thus non-ideal. Since efficiency isn't a pressing concern in an exception
 #raiser, this is more a matter of design purity than anything. Still, it would
@@ -109,26 +52,43 @@ This private submodule is *not* intended for importation by downstream callers.
 #            if is_stdout_terminal() else
 #            _THEME_MONOCHROME
 #        )
+#FIXME: [COLOR] *WAY* more important than the above is our current inconsistent
+#application of colouring in error messages. Refactor as follows:
+#* Define a medley of new "HintTreeError" methods to drastically simplify
+#  object colouring. For example:
+#      from beartype._util.text.utiltextansi import color_hint
+#      class HintTreeError(object):
+#          def color_hint(self) -> str:
+#              return color_hint(text=repr(self.hint), is_color=self.conf.is_color)
+#* Replace all existing:
+#  * Calls to the lower-level color_hint() function with calls to that
+#    higher-level color_hint() method instead.
+#  * Super-low-level raw embeddings of "{repr(hint)}" with calls to that
+#    higher-level color_hint() method instead.
+#* Generalize the same approach to *ALL* other public functions defined by the
+#  "utiltextansi" submodule as well, please.
 
 # ....................{ IMPORTS                            }....................
-from beartype.meta import URL_ISSUES
+from beartype.roar import BeartypeWarning
 from beartype.roar._roarexc import (
     _BeartypeCallHintPepRaiseDesynchronizationException,
     _BeartypeCallHintPepRaiseException,
 )
-from beartype.typing import Optional
+from beartype._check.cls.call.calldataabc import BeartypeCallDataABC
+from beartype._check.cls.call.calldatadecorfuncmin import (
+    BeartypeCallDecorFuncMinimalData)
+from beartype._check.cls.hint.data.hintdataerror import HintDataError
+from beartype._check.cls.hint.tree.hinttreeerror import HintTreeError
 from beartype._check.convert.convmain import sanify_hint_any
-from beartype._check.error.errcause import ViolationCause
-from beartype._check.metadata.metacheck import BeartypeCheckMeta
-from beartype._conf.confmain import BeartypeConf
 from beartype._conf.confcommon import BEARTYPE_CONF_DEFAULT
 from beartype._conf.confenum import BeartypeViolationVerbosity
+from beartype._conf.confmain import BeartypeConf
 from beartype._data.func.datafuncarg import ARG_NAME_RETURN
+from beartype._data.kind.datakindiota import SENTINEL
+from beartype._data.typing.datatyping import TypeException
 from beartype._data.typing.datatypingport import Hint
-from beartype._data.typing.datatyping import (
-    TypeException,
-    TypeStack,
-)
+from beartype._metaverse import URL_ISSUES
+from beartype._util.error.utilerrwarn import warnings_ignored
 from beartype._util.text.utiltextansi import (
     color_hint,
     strip_str_ansi,
@@ -143,13 +103,12 @@ from beartype._util.text.utiltextprefix import (
     prefix_pith_value,
 )
 from beartype._util.text.utiltextrepr import represent_object
-from beartype._data.kind.datakindiota import SENTINEL
-from collections.abc import Callable as CallableABC
+from typing import Optional
 
-# ....................{ GETTERS                            }....................
+# ....................{ GETTERS ~ exception                }....................
 def get_func_pith_violation(
     # Mandatory parameters.
-    check_meta: BeartypeCheckMeta,
+    decor_func: BeartypeCallDecorFuncMinimalData,
     pith_name: str,
     pith_value: object,
 
@@ -164,10 +123,10 @@ def get_func_pith_violation(
 
     Parameters
     ----------
-    check_meta : BeartypeCheckMeta
-        **Beartype type-check call metadata** (i.e., object encapsulating *all*
-        metadata required by the current call to the wrapper function
-        type-checking a :func:`beartype.beartype`-decorated callable).
+    decor_func : BeartypeCallDecorFuncMinimalData
+        **Beartype callable decorator call minimal metadata** (i.e., object
+        encapsulating the minimal metadata required to type-check the currently
+        called :func:`beartype.beartype`-decorated callable).
     pith_name : str
         Either:
 
@@ -204,14 +163,14 @@ def get_func_pith_violation(
     :func:`.get_hint_object_violation`
         Further details.
     '''
-    assert isinstance(check_meta, BeartypeCheckMeta), (
-        f'{repr(check_meta)} not type-checking call metadata.')
+    assert isinstance(decor_func, BeartypeCallDecorFuncMinimalData), (
+        f'{repr(decor_func)} not beartype decorator call minimal metadata.')
     assert isinstance(pith_name, str), f'{repr(pith_name)} not string.'
 
     # Hint annotating this parameter or return if this parameter or return is
     # annotated *OR* the placeholder sentinel otherwise (i.e., if this parameter
     # or return is unannotated).
-    hint = check_meta.func_annotations.get(pith_name, SENTINEL)
+    hint = decor_func.decoratee_annotations.get(pith_name, SENTINEL)
 
     # If this parameter or return is unannotated, raise an exception.
     #
@@ -221,18 +180,17 @@ def get_func_pith_violation(
     # knowledge or permission, precautions are warranted.
     if hint is SENTINEL:
         raise _BeartypeCallHintPepRaiseException(
-            f'{repr(check_meta.func)} parameter "{pith_name}" unannotated '
+            f'{repr(decor_func.decoratee)} parameter "{pith_name}" unannotated '
             f'(or originally annotated but since deleted) in '
             f'"__annotations__" dunder dictionary:\n'
-            f'{repr(check_meta.func_annotations)}'
+            f'{repr(decor_func.decoratee_annotations)}'
         )
     # Else, this parameter or return is annotated.
 
     # Defer to this lower-level violation factory.
     return get_hint_object_violation(
-        cls_stack=check_meta.cls_stack,
-        conf=check_meta.conf,
-        func=check_meta.func,
+        call_curr=decor_func,
+        conf=decor_func.conf,
         hint=hint,  # type: ignore[arg-type]
         obj=pith_value,
         pith_name=pith_name,
@@ -242,16 +200,15 @@ def get_func_pith_violation(
 
 def get_hint_object_violation(
     # Mandatory parameters.
-    obj: object,
-    hint: Hint,
+    call_curr: BeartypeCallDataABC,
     conf: BeartypeConf,
+    hint: Hint,
+    obj: object,
 
     # Optional parameters.
-    func: Optional[CallableABC] = None,
-    cls_stack: TypeStack = None,
-    exception_prefix: Optional[str] = None,
     pith_name: Optional[str] = None,
     random_int: Optional[int] = None,
+    exception_prefix: Optional[str] = None,
 ) -> Exception:
     '''
     Human-readable exception detailing the failure of the passed object to
@@ -279,56 +236,34 @@ def get_hint_object_violation(
       satisfies a PEP-compliant annotation on that callable; that code does
       *not* raise human-readable exceptions in the event that value fails to
       satisfy that annotation. Instead, that code defers to...
-    * This function, performing unoptimized PEP-compliant runtime type-checking
-      generically applicable to all wrapper functions. The aforementioned
-      code calls this function only in the event that value fails to satisfy
-      that annotation, in which case this function then returns a human-readable
+    * This getter, performing unoptimized PEP-compliant runtime type-checking
+      generically applicable to all wrapper functions. The aforementioned code
+      calls this getter only in the event that value fails to satisfy that
+      annotation, in which case this getter then returns a human-readable
       exception after discovering the underlying cause of this type failure by
       recursively traversing that value and annotation. While efficiency is the
-      foremost focus of this package, efficiency is irrelevant during exception
-      handling -- which typically only occurs under infrequent edge cases.
-      Likewise, while raising this exception *would* technically be feasible
-      from the aforementioned code, doing so proved sufficiently non-trivial,
-      fragile, and ultimately unmaintainable to warrant offloading to this
-      function universally callable from all wrapper functions.
+      foremost focus of the :mod:`beartype` package, efficiency is irrelevant
+      during exception handling -- which typically only occurs under infrequent
+      edge cases. Likewise, while raising this exception *would* technically be
+      feasible from the aforementioned code, doing so proved sufficiently
+      non-trivial, fragile, and ultimately unmaintainable to warrant offloading
+      to this getter universally callable from all wrapper functions.
 
     Parameters
     ----------
-    obj : object
-        Arbitrary object to be type-checked against this type hint.
-    hint : Hint
-        Type hint against which to type-check this object.
+    call_curr : BeartypeCallDataABC
+        **Beartype call metadata** (i.e., dataclass aggregating *all* common
+        metadata encapsulating the user-defined callable, type, or statement
+        currently being type-checked by the end user).
     conf : BeartypeConf
         **Beartype configuration** (i.e., self-caching dataclass encapsulating
         all flags, options, settings, and other metadata configuring the
         validation of this object against this type hint).
-    func : Optional[CallableABC]
-        Either:
-
-        * If this violation originates from a decorated callable, that
-          callable.
-        * Else, :data:`None`.
-
-        Defaults to :data:`None`.
-    cls_stack : TypeStack, optional
-        **Type stack** (i.e., either a tuple of the one or more
-        :func:`beartype.beartype`-decorated classes lexically containing the
-        class variable or method annotated by this hint *or* :data:`None`).
-        Defaults to :data:`None`.
-    exception_prefix : Optional[str]
-        Either:
-
-        * If the caller prefers specifying an explicit human-readable label
-          prefixing the representation of this object in the exception message,
-          that labal.
-        * Else, :data:`None`. In this case, this getter automatically
-          synthesizes this label from the other passed parameters that are
-          required to be non-:data:`None`. If any such parameter is
-          :data:`None`, an exception is raised. These parameters include:
-
-          * The passed ``func`` parameter, required to be non-:data:`None`.
-          * The passed ``pith_name`` parameter, required to be non-:data:`None`.
-    pith_name : Optional[str]
+    hint : Hint
+        Type hint against which to type-check this object.
+    obj : object
+        Arbitrary object to be type-checked against this type hint.
+    pith_name : Optional[str], default: None
         Either:
 
         * If this hint annotates a parameter of some callable, the name of that
@@ -337,7 +272,7 @@ def get_hint_object_violation(
         * Else, :data:`None`.
 
         Defaults to :data:`None`.
-    random_int: Optional[int], optional
+    random_int: Optional[int], default: None
         **Pseudo-random integer** (i.e., unsigned 32-bit integer
         pseudo-randomly generated by the parent :func:`beartype.beartype`
         wrapper function in type-checking randomly indexed container items by
@@ -358,6 +293,19 @@ def get_hint_object_violation(
 
         Defaults to :data:`None`, implying this exception handler runs in linear
         time by default.
+    exception_prefix : Optional[str], default: None
+        Either:
+
+        * If the caller prefers specifying an explicit human-readable label
+          prefixing the representation of this object in the exception message,
+          that labal.
+        * Else, :data:`None`. In this case, this getter automatically
+          synthesizes this label from the other passed parameters that are
+          required to be non-:data:`None`. If any such parameter is
+          :data:`None`, an exception is raised. These parameters include:
+
+          * The passed ``func`` parameter, required to be non-:data:`None`.
+          * The passed ``pith_name`` parameter, required to be non-:data:`None`.
 
     Returns
     -------
@@ -386,6 +334,192 @@ def get_hint_object_violation(
           false positive by erroneously misdetecting this pith as satisfying
           this type check when in fact this pith fails to do so.
     '''
+
+    # ....................{ CAUSE                          }....................
+    # While temporarily ignoring *ALL* beartype-specific warnings...
+    #
+    # Note that beartype-specific warnings are intentionally ignored here to
+    # prevent these warnings from being inappropriate issued twice.
+    # Specifically:
+    # * If this getter is called from within the body of a @beartype-decorated
+    #   type-checking wrapper function, the @beartype decorator has already
+    #   issued *ALL* of these same warnings at early decoration time. Repeatedly
+    #   re-issuing these warnings again at later call time when any call fails a
+    #   type-check would be of no be benefit and of demonstrable harm.
+    # * If this getter is called from within the body of an internally memoized
+    #   type-checking function dynamically generated and cached by the
+    #   die_if_unbearable() statement-level type-checker, the first call to that
+    #   type-checker passed some type hint has already issued *ALL* of these
+    #   same warnings for that unique hint. Repeatedly re-issuing these warnings
+    #   again on each subsequent call to that type-checker passed the same hint
+    #   when failing a type-check would be of no be benefit and, again, of harm.
+    with warnings_ignored(warning_cls=BeartypeWarning):
+        # Type-checking violation cause (i.e., object providing various metadata
+        # describing the failure of the passed object to satisfy the passed type
+        # hint under the passed beartype configuration).
+        violation_cause = _find_hint_object_violation_cause(
+            call_curr=call_curr,
+            conf=conf,
+            hint=hint,
+            obj=obj,
+            pith_name=pith_name,
+            random_int=random_int,
+            exception_prefix=exception_prefix,
+        )
+
+    # Human-readable string describing the failure of this object to satisfy
+    # this hint under this configuration.
+    #
+    # Note that the lower-level _find_hint_object_violation_cause() finder
+    # called above has already internally validated this instance variable to be
+    # a non-empty string.
+    violation_message: str = violation_cause.cause_str_or_none  # type: ignore[assignment]
+
+    # Uppercase the first character of this violation message for readability.
+    #
+    # Note that:
+    # * Technically, the BeartypeException.__init__() constructor already
+    #   guarantees the first character of *ALL* beartype-specific exceptions
+    #   (including this one) to be uppercased. However, this type of exception
+    #   is user-configurable and thus *NOT* guaranteed to be a subclass of the
+    #   "BeartypeException" superclass. Failing to uppercase this message here
+    #   would thus raise less readable exceptions for users explicitly
+    #   configuring this type of exception.
+    # * This same logic is confined to this higher-level getter rather than
+    #   centralized in the lower-level _find_hint_object_violation_cause()
+    #   finder called above. Why? Because the sibling
+    #   get_hint_object_violation_message() getter *ALSO* defers to that
+    #   lower-level finder. Unlike this getter, that sibling getter preserves
+    #   the exact violation message (rather than munging this message as here).
+    #   Why? Because that sibling getter is called to embed this message in
+    #   larger violation messages. Preserving case is thus paramount.
+    violation_message = uppercase_str_char_first(violation_message)
+
+    # ....................{ CULPRITS                       }....................
+    # List of the one or more culprits responsible for this violation,
+    # initialized to the passed parameter or returned value violating this hint.
+    violation_culprits = [obj,]
+
+    # If the actual object directly responsible for this violation is *NOT* the
+    # passed parameter or returned value indirectly violating this hint, then
+    # the latter is almost certainly a container transitively containing the
+    # former as an item. In this case, add this item to this list as well.
+    if obj is not violation_cause.pith:
+        violation_culprits.append(violation_cause.pith)
+    # Else, the actual object directly responsible for this violation is the
+    # passed parameter or returned value indirectly violating this hint. In this
+    # case, avoid adding duplicate items to this list.
+
+    # ....................{ EXCEPTION                      }....................
+    # Exception of the desired class embedding this cause. By default, attempt
+    # to pass @beartype-specific parameters to this exception subclass.
+    try:
+        exception = violation_cause.exception_cls(  # type: ignore[call-arg]
+            message=violation_message,  # pyright: ignore
+            culprits=tuple(violation_culprits),  # pyright: ignore
+        )
+    # If this exception subclass fails to support @beartype-specific parameters,
+    # fallback to the standard exception idiom of a positionally passed message.
+    except TypeError:
+        exception = violation_cause.exception_cls(violation_message)
+
+    # ....................{ RETURN                         }....................
+    # Return this exception to the @beartype-generated type-checking wrapper
+    # (which directly calls this function), which will then squelch the
+    # ignorable stack frame encapsulating that call to this function by raising
+    # this exception directly from that wrapper.
+    return exception
+
+# ....................{ GETTERS ~ exception : message      }....................
+#FIXME: Unit test us up, please. *sigh*
+def get_hint_object_violation_message(
+    call_curr: BeartypeCallDataABC,
+    conf: BeartypeConf,
+    hint: Hint,
+    obj: object,
+) -> str:
+    '''
+    **Type-checking violation message** (i.e., human-readable string describing
+    the failure of the passed object to satisfy the passed type hint under the
+    passed beartype configuration).
+
+    Returns
+    -------
+    str
+        This type-checking violation message.
+
+    See Also
+    --------
+    :func:`.get_hint_object_violation`
+        Further details.
+    '''
+
+    # Type-checking violation cause (i.e., object providing various metadata
+    # describing the failure of the passed object to satisfy the passed type
+    # hint under the passed beartype configuration).
+    violation_cause = _find_hint_object_violation_cause(
+        call_curr=call_curr,
+        conf=conf,
+        hint=hint,
+        obj=obj,
+        # Nonsense required by the _find_hint_object_violation_cause() API. Our
+        # younger self thought he was doing a good thing. YOUNGER SELF!!!!!!
+        exception_prefix='',
+    )
+
+    # Human-readable string describing the failure of this object to satisfy
+    # this hint under this configuration.
+    #
+    # Note that the lower-level _find_hint_object_violation_cause() finder
+    # called above has already internally validated this instance variable to be
+    # a non-empty string.
+    violation_message: str = violation_cause.cause_str_or_none  # type: ignore[assignment]
+
+    # Return this string.
+    return violation_message
+
+# ....................{ PRIVATE ~ constants                }....................
+# Assuming a line length of 80 characters, this magic number truncates
+# arbitrary object representations to 100 lines (i.e., 8000/80), which seems
+# more than reasonable and (possibly) not overly excessive.
+_CAUSE_TRIM_OBJECT_REPR_MAX_LEN = 8000
+'''
+Maximum length of arbitrary object representations suffixing human-readable
+strings returned by the :func:`_find_cause` getter function, intended to
+be sufficiently long to assist in identifying type-check failures but not so
+excessively long as to prevent human-readability.
+'''
+
+# ....................{ PRIVATE ~ finders                  }....................
+def _find_hint_object_violation_cause(
+    # Mandatory parameters.
+    call_curr: BeartypeCallDataABC,
+    conf: BeartypeConf,
+    hint: Hint,
+    obj: object,
+
+    # Optional parameters.
+    pith_name: Optional[str] = None,
+    random_int: Optional[int] = None,
+    exception_prefix: Optional[str] = None,
+) -> HintTreeError:
+    '''
+    **Type-checking violation cause** (i.e., object providing various metadata
+    describing the failure of the passed object to satisfy the passed type hint
+    under the passed beartype configuration).
+
+    Returns
+    -------
+    HintTreeError
+        This type-checking violation cause.
+
+    See Also
+    --------
+    :func:`.get_hint_object_violation`
+        Further details.
+    '''
+    assert isinstance(call_curr, BeartypeCallDataABC), (
+        f'{repr(call_curr)} not beartype call metadata.')
     # print('''get_hint_object_violation(
     #     func={!r},
     #     hint={!r},
@@ -435,7 +569,7 @@ def get_hint_object_violation(
             # Default these exception locals appropriately
             exception_cls = conf.violation_return_type
             exception_prefix = prefix_callable_return_value(
-                func=func,  # type: ignore[arg-type]
+                func=call_curr.decoratee,  # type: ignore[arg-type]
                 return_value=obj,
                 is_color=conf.is_color,
             )
@@ -444,47 +578,52 @@ def get_hint_object_violation(
             # Default these exception locals appropriately
             exception_cls = conf.violation_param_type
             exception_prefix = prefix_callable_arg_value(
-                func=func,  # type: ignore[arg-type]
+                func=call_curr.decoratee,  # type: ignore[arg-type]
                 arg_name=pith_name,
                 arg_value=obj,
                 is_color=conf.is_color,
             )
 
-    # Uppercase the first character of this violation prefix for readability.
-    exception_prefix = uppercase_str_char_first(exception_prefix)
+    #FIXME: Unclear if this is actually needed. The
+    #BeartypeException.__init__() constructor already guarantees the first
+    #character of *ALL* beartype-specific exceptions (including this one) to be
+    #uppercased. This is almost certainly redundant. *shrug*
+    # # Uppercase the first character of this violation prefix for readability.
+    # exception_prefix = uppercase_str_char_first(exception_prefix)
 
+    # ....................{ CAUSE                          }....................
     # Metadata encapsulating the sanification of this child hint.
     hint_sane = sanify_hint_any(
-        hint=hint,
-        cls_stack=cls_stack,
+        call_curr=call_curr,
         conf=conf,
+        hint=hint,
         pith_name=pith_name,
         exception_prefix=exception_prefix,
     )
 
-    # ....................{ CAUSE                          }....................
     # Cause describing the failure of this pith to satisfy this hint.
-    violation_cause = ViolationCause(
+    violation_cause = HintTreeError(
+        call_curr=call_curr,
         cause_indent='',
-        cls_stack=cls_stack,
         conf=conf,
-        exception_prefix=exception_prefix,
-        func=func,
-        hint_sane=hint_sane,
+        hint_curr=HintDataError(hint_sane),
         pith=obj,
         pith_name=pith_name,
         random_int=random_int,
+        exception_cls=exception_cls,
+        exception_prefix=exception_prefix,
     ).find_cause()
 
-    # If this pith satisfies this hint, *SOMETHING HAS GONE TERRIBLY AWRY.*
-    #
+    # If this pith satisfies this hint, *SOMETHING HAS GONE VERY TERRIBLY AWRY.*
     # In theory, this should never happen, as the parent wrapper function
     # performing type checking should *ONLY* call this child helper function
-    # when this pith does *NOT* satisfy this hint. In this case, raise an
-    # exception encouraging the end user to submit an upstream issue with us.
+    # when this pith does *NOT* satisfy this hint. In this case...
     if not violation_cause.cause_str_or_none:
+        # Machine-readable representation of this pith.
         pith_value_repr = represent_object(
             obj=obj, max_len=_CAUSE_TRIM_OBJECT_REPR_MAX_LEN)
+
+        # Raise an exception encouraging the end user to submit an issue.
         raise _BeartypeCallHintPepRaiseDesynchronizationException(
             f'{exception_prefix}violates type hint {repr(hint)}, '
             f'but violation factory get_hint_object_violation() '
@@ -499,41 +638,30 @@ def get_hint_object_violation(
         )
     # Else, this pith violates this hint as expected and as required for sanity.
 
-    # This failure suffixed by a period if *NOT* yet suffixed by a period.
-    violation_cause_suffixed = suffix_str_unless_suffixed(
-        text=violation_cause.cause_str_or_none, suffix='.')
-
-    # List of the one or more culprits responsible for this violation,
-    # initialized to the passed parameter or returned value violating this hint.
-    violation_culprits = [obj,]
-
-    # If the actual object directly responsible for this violation is *NOT* the
-    # passed parameter or returned value indirectly violating this hint, then
-    # the latter is almost certainly a container transitively containing the
-    # former as an item. In this case, add this item to this list as well.
-    if obj is not violation_cause.pith:
-        violation_culprits.append(violation_cause.pith)
-    # Else, the actual object directly responsible for this violation is the
-    # passed parameter or returned value indirectly violating this hint. In this
-    # case, avoid adding duplicate items to this list.
-
-    # ....................{ VERBOSITY                      }....................
+    # ....................{ MESSAGE                        }....................
     # Violation verbosity, localized for negligible efficiency. *vomits*
     violation_verbosity = conf.violation_verbosity
 
     # Machine-readable representation of this hint embellished with colour.
     hint_repr = f'{color_hint(text=repr(hint), is_color=conf.is_color)}'
 
-    # Dictionary mapping from each possibly violation verbosity to a
-    # corresponding substring prepending this exception message.
-    VIOLATION_VERBOSITY_TO_PREFIX = {
-        BeartypeViolationVerbosity.MINIMAL: (
-            f'{exception_prefix}expected to be of type {hint_repr}'),
-        BeartypeViolationVerbosity.DEFAULT: (
-            f'{exception_prefix}violates type hint {hint_repr}'),
-    }
-    VIOLATION_VERBOSITY_TO_PREFIX[BeartypeViolationVerbosity.MAXIMAL] = (  # <-- alias!
-        VIOLATION_VERBOSITY_TO_PREFIX[BeartypeViolationVerbosity.DEFAULT])
+    #FIXME: *LOL*. This is seriously trash. Although the
+    #"BeartypeViolationVerbosity" enumeration still has value *IN THEORY*, this
+    #current implementation is laughably bad. Since this isn't doing anything of
+    #any value whatsoever at the moment, let's just silently elide this for now.
+    # # Dictionary mapping from each possibly violation verbosity to a
+    # # corresponding substring prepending this exception message.
+    # VIOLATION_VERBOSITY_TO_PREFIX = {
+    #     BeartypeViolationVerbosity.MINIMAL: (
+    #         f'{exception_prefix}expected to be of type {hint_repr}'),
+    #     BeartypeViolationVerbosity.DEFAULT: (
+    #         f'{exception_prefix}violates type hint {hint_repr}'),
+    # }
+    # VIOLATION_VERBOSITY_TO_PREFIX[BeartypeViolationVerbosity.MAXIMAL] = (  # <-- alias!
+    #     VIOLATION_VERBOSITY_TO_PREFIX[BeartypeViolationVerbosity.DEFAULT])
+
+    # Human-readable substring prepending this exception message.
+    violation_prefix = f'{exception_prefix}violates type hint {hint_repr}'
 
     # Dictionary mapping from each possibly violation verbosity to a
     # corresponding substring embedded in the middle of this exception message.
@@ -553,6 +681,10 @@ def get_hint_object_violation(
         ),
     }
 
+    # This failure suffixed by a period if *NOT* yet suffixed by a period.
+    violation_cause_suffixed = suffix_str_unless_suffixed(
+        text=violation_cause.cause_str_or_none, suffix='.')
+
     # Dictionary mapping from each possibly violation verbosity to a
     # corresponding substring appending this exception message.
     VIOLATION_VERBOSITY_TO_SUFFIX = {
@@ -562,10 +694,11 @@ def get_hint_object_violation(
     VIOLATION_VERBOSITY_TO_SUFFIX[BeartypeViolationVerbosity.MAXIMAL] = (  # <-- alias!
         VIOLATION_VERBOSITY_TO_SUFFIX[BeartypeViolationVerbosity.DEFAULT])
 
-    # ....................{ EXCEPTION                      }....................
-    # Human-readable violation message to be raised.
-    exception_message = (
-        f'{VIOLATION_VERBOSITY_TO_PREFIX[violation_verbosity]}'
+    # Human-readable violation message to be raised, replacing the original
+    # substring associated with this cause as a trivial means of transparently
+    # returning this message to the caller.
+    violation_cause.cause_str_or_none = (
+        f'{violation_prefix}'
         f'{VIOLATION_VERBOSITY_TO_INFIX[violation_verbosity]}'
         f'{VIOLATION_VERBOSITY_TO_SUFFIX[violation_verbosity]}'
     )
@@ -581,35 +714,9 @@ def get_hint_object_violation(
     #  configured such that "BeartypeConf(is_color=False)".
     # Strip all ANSI escape sequences from this message if requested by this
     # external user-defined configuration.
-    exception_message = strip_str_ansi(
-        text=exception_message, is_color=conf.is_color)
+    violation_cause.cause_str_or_none = strip_str_ansi(
+        text=violation_cause.cause_str_or_none, is_color=conf.is_color)
 
-    # Exception of the desired class embedding this cause. By default, attempt
-    # to pass @beartype-specific parameters to this exception subclass.
-    try:
-        exception = exception_cls(  # type: ignore[call-arg]
-            message=exception_message,  # pyright: ignore
-            culprits=tuple(violation_culprits),  # pyright: ignore
-        )
-    # If this exception subclass fails to support @beartype-specific parameters,
-    # fallback to the standard exception idiom of a positionally passed message.
-    except TypeError:
-        exception = exception_cls(exception_message)
-
-    # Return this exception to the @beartype-generated type-checking wrapper
-    # (which directly calls this function), which will then squelch the
-    # ignorable stack frame encapsulating that call to this function by raising
-    # this exception directly from that wrapper.
-    return exception
-
-# ....................{ PRIVATE ~ constants                }....................
-# Assuming a line length of 80 characters, this magic number truncates
-# arbitrary object representations to 100 lines (i.e., 8000/80), which seems
-# more than reasonable and (possibly) not overly excessive.
-_CAUSE_TRIM_OBJECT_REPR_MAX_LEN = 8000
-'''
-Maximum length of arbitrary object representations suffixing human-readable
-strings returned by the :func:`_find_cause` getter function, intended to
-be sufficiently long to assist in identifying type-check failures but not so
-excessively long as to prevent human-readability.
-'''
+    # ....................{ RETURN                         }....................
+    # Return this cause.
+    return violation_cause

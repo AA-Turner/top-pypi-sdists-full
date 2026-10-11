@@ -347,6 +347,44 @@ public class HumanEngineBrowserTests : IClassFixture<EngineFixture>, IAsyncLifet
         Assert.Equal(new[] { "b" }, await p.SelectOptionAsync("#sel", new SelectOptionValue { Index = 1 }));
     }
 
+    [BrowserFact]
+    public async Task SelectOption_on_a_long_dropdown_types_ahead()
+    {
+        // #581: no walk over every row, and the timeout bounds it.
+        var p = await Open();
+        await p.EvaluateAsync(@"() => { const s = document.createElement('select'); s.id = 'long';
+            for (let i = 0; i < 205; i++) s.add(new Option('Country ' + String(i).padStart(3, '0'), 'v' + i));
+            window.__sel = []; for (const t of ['input', 'change']) s.addEventListener(t, () => __sel.push(t));
+            document.body.append(s); }");
+        await Reset(p);
+        Assert.Equal(new[] { "v150" }, await p.SelectOptionAsync("#long", "v150"));
+        var keys = (await Events(p, "keydown")).Select(e => e.GetProperty("key").GetString()).ToList();
+        Assert.DoesNotContain("ArrowDown", keys);
+        Assert.True(keys.Count <= 13, string.Join(",", keys));
+        var sel = await p.EvaluateAsync<string[]>("__sel");
+        // A macOS dropdown moves on every typed letter (one input/change each); elsewhere only Enter commits.
+        Assert.Equal(new[] { "input", "change" }, sel.TakeLast(2));
+        if (!OperatingSystem.IsMacOS()) Assert.Equal(2, sel.Length);
+        await p.EvaluateAsync("document.querySelector('#long').selectedIndex = 0");
+        await Assert.ThrowsAsync<TimeoutException>(() => p.SelectOptionAsync("#long", "v200", new() { Timeout = 200 }));
+    }
+
+    [BrowserFact]
+    public async Task SelectOption_types_ahead_on_emoji_labels()
+    {
+        // Blink's type-ahead drops a typed emoji, so these options are reached with
+        // arrows; a macOS popup ignores arrows, so there it refuses.
+        var p = await Open();
+        await p.EvaluateAsync(@"() => { const s = document.createElement('select'); s.id = 'emoji';
+            for (const [l, v] of [['Pick one', ''], ['🍎 Apple', 'a'], ['🍌 Banana', 'b'], ['🍒 Cherry', 'c']]) s.add(new Option(l, v));
+            document.body.append(s); }");
+        if (OperatingSystem.IsMacOS())
+            Assert.Contains("cannot be picked with human input",
+                (await Assert.ThrowsAnyAsync<PlaywrightException>(() => p.SelectOptionAsync("#emoji", "c"))).Message);
+        else
+            Assert.Equal(new[] { "c" }, await p.SelectOptionAsync("#emoji", "c"));
+    }
+
     // --- frames / handles --------------------------------------------------
 
     [BrowserFact]

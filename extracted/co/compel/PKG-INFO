@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: compel
-Version: 2.4.0
+Version: 2.5.1
 Summary: A prompting enhancement library for transformers-type text embedding systems.
 Author-email: Damian Stewart <null@damianstewart.com>
 Project-URL: Homepage, https://github.com/damian0815/compel
@@ -17,7 +17,6 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: diffusers>=0.11
-Requires-Dist: notebook>=6.5.7
 Requires-Dist: pyparsing~=3.0
 Requires-Dist: torch
 Requires-Dist: transformers<6,>=5
@@ -157,6 +156,58 @@ images = pipe(prompt_embeds=conditioning.embeds, pooled_prompt_embeds=conditioni
              num_inference_steps=4, width=512, height=512, generator=generator)
 ```
 
+### Lumina2 (Gemma2 text encoder)
+
+`CompelForLumina2` handles the system prompt and returns both the prompt embeddings and the
+required attention masks:
+
+```python
+from diffusers import Lumina2Pipeline
+from compel import CompelForLumina2
+import torch
+
+device = "cuda"
+pipe = Lumina2Pipeline.from_pretrained("Alpha-VLLM/Lumina-Next-SFT-diffusers", torch_dtype=torch.bfloat16).to(device)
+compel = CompelForLumina2(pipe)
+
+prompt = "a cat playing with a ball++ in the forest"
+negative_prompt = "low quality, blurry"
+conditioning = compel(prompt, negative_prompt=negative_prompt)
+
+image = pipe(prompt_embeds=conditioning.embeds,
+             prompt_attention_mask=conditioning.attention_mask,
+             negative_prompt_embeds=conditioning.negative_embeds,
+             negative_prompt_attention_mask=conditioning.negative_attention_mask,
+             num_inference_steps=50, width=1024, height=1024,
+             generator=torch.Generator().manual_seed(42)).images[0]
+image.save("lumina2_image.jpg")
+```
+
+### SANA (Gemma2 text encoder)
+
+`CompelForSana` behaves the same way for Sana pipelines, minus the system prompt. Like the
+pipeline itself, it lowercases prompts before encoding.
+
+```python
+from diffusers import SanaPipeline
+from compel import CompelForSana
+import torch
+
+device = "cuda"
+pipe = SanaPipeline.from_pretrained("Efficient-Large-Model/Sana_600M_1024px_diffusers", torch_dtype=torch.float16).to(device)
+compel = CompelForSana(pipe)
+
+prompt = "a cat playing with a ball++ in the forest"
+conditioning = compel(prompt)
+
+image = pipe(prompt_embeds=conditioning.embeds,
+             prompt_attention_mask=conditioning.attention_mask,
+             num_inference_steps=20, guidance_scale=4.5,
+             height=1024, width=1024,
+             generator=torch.Generator().manual_seed(42)).images[0]
+image.save("sana_image.jpg")
+```
+
 ### Style prompt
 
 Works with SDXL or Flux:
@@ -222,6 +273,16 @@ COMPEL_RUN_LOCAL_CHECKPOINT_TESTS=1 python -m unittest test.test_diffusers_smoke
 This opt-in path only uses local files and does not pull remote model weights.
 
 ## Changelog
+
+#### 2.5.1 - fix SANA eos suppression, blend, emptystring with gemma
+
+### 2.5.0 - Gemma2 support (Lumina2 / SANA)
+
+* Added support for Gemma2 text encoder.
+* New `CompelForLumina2` and `CompelForSana` wrapper classes for `Lumina2Pipeline` and `SanaPipeline`.
+* New optional `model_max_length` argument on `Compel` / `EmbeddingsProvider` to override the effective maximum token count for truncation/chunking/padding (defaults to `tokenizer.model_max_length`).
+* Generic Gemma2 usage via `Compel(tokenizer=..., text_encoder=...)` works out of the box with no truncation.
+* See `compel-demo-lumina2.py` and `compel-demo-sana.py` for usage examples.
 
 ### 2.4.0 - Upgrade to Transformers 5, drop support for Python < 3.10 (thanks @Cstannahill for the PR, and thanks to everybody else for the patience)
 

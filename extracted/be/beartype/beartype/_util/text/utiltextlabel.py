@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,11 +13,13 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype._data.typing.datatyping import BoolTristate
-from beartype._util.utilobject import (
+from beartype._util.utilobjget import (
     get_object_name,
     get_object_type_name,
 )
 from collections.abc import Callable
+from textwrap import indent
+from traceback import format_exception
 
 # ....................{ LABELLERS ~ object                 }....................
 #FIXME: Unit test us up, please.
@@ -118,6 +120,7 @@ def label_object_kind(obj: object) -> str:
     )
     from beartype._util.func.arg.utilfuncargget import (
         get_func_arg_name_first_or_none)
+    from beartype._util.func.utilfuncwrap import unwrap_func_all_isomorphic
 
     # ....................{ LOCALS                         }....................
     # String to be returned, defaulting to a sensible placeholder.
@@ -168,10 +171,17 @@ def label_object_kind(obj: object) -> str:
         # Else, this object is a standard synchronous callable. In this case,
         # avoid prefixing this callable by a leading substring.
 
+        #FIXME: *SUSPICIOUS.* We should just be able to accept the
+        #get_func_arg_name_first_or_none() default of "is_unwrap=True" below
+        #rather than doing this manually. Sadly, that approach currently raises
+        #inscrutable exceptions from deep within @beartype. Oh, @beartype...
+        # Possibly lower-level callable wrapped by this higher-level callable.
+        func = unwrap_func_all_isomorphic(obj)  # type: ignore[arg-type]
+
         # Name of the first parameter accepted by that callable if any *OR*
         # "None" otherwise (i.e., if that callable is argumentless).
         arg_first_name = get_func_arg_name_first_or_none(
-            func=obj,
+            func=func,
             # If that callable is a C-based bound method descriptor
             # encapsulating a pure-Python instance or class method, instruct
             # this getter to return the name of the first mandatory flexible
@@ -184,6 +194,7 @@ def label_object_kind(obj: object) -> str:
             # * "self" if that descriptor encapsulates an instance method.
             # * "cls" if that descriptor encapsulates a class method.
             is_omit_boundmethod_arg_first=False,
+            is_unwrap=False,  # <-- "func" was already unwrapped above. I sigh.
         )
 
         # If this is the canonical first "self" parameter typically accepted by
@@ -258,7 +269,7 @@ def label_object_context(obj: object) -> str:
     '''
 
     # Defer test-specific imports.
-    from beartype._util.utilobject import get_object_filename_or_none
+    from beartype._util.utilobjget import get_object_filename_or_none
     from beartype._util.module.utilmodget import (
         get_object_module_line_number_begin)
 
@@ -332,7 +343,7 @@ def label_callable(
     # Avoid circular import dependencies.
     from beartype._util.func.arg.utilfuncarglen import (
         get_func_args_flexible_len)
-    from beartype._util.func.utilfunccodeobj import get_func_codeobj
+    from beartype._util.func.utilfunccodeobj import get_func_codeobject
     from beartype._util.func.utilfunctest import is_func_lambda
     from beartype._util.text.utiltextansi import color_attr_name
 
@@ -356,7 +367,7 @@ def label_callable(
     # uniquely identifying this lambda from various code object metadata.
     if is_func_lambda(func):
         # Code object underlying this lambda.
-        func_codeobj = get_func_codeobj(func)
+        func_codeobj = get_func_codeobject(func)
 
         # Substring preceding the string to be returned.
         func_label_prefix = (
@@ -385,15 +396,17 @@ def label_callable(
     return f'{func_label_prefix}{func_label}{func_label_suffix}'
 
 # ....................{ LABELLERS ~ exception              }....................
-def label_exception(exception: Exception) -> str:
+def label_exception_message(exception: Exception) -> str:
     '''
-    Human-readable label describing the passed exception.
+    Human-readable label describing the passed exception's type and message (but
+    *not* preceding traceback) in a similar manner as CPython formats uncaught
+    tracebacks by default.
 
     Caveats
     -------
-    **The label returned by this function does not describe the traceback
-    originating this exception.** To do so, consider calling the standard
-    :func:`traceback.format_exc` function instead.
+    **Callers typically want to call the higher-level**
+    :func:`.label_exception_traceback` **labeller instead.** This lower-level
+    labeller omits the traceback originating this exception.
 
     Parameters
     ----------
@@ -403,7 +416,7 @@ def label_exception(exception: Exception) -> str:
     Returns
     -------
     str
-        Human-readable label describing this exception.
+        Human-readable label describing this exception's type and message.
     '''
     assert isinstance(exception, Exception), (
         f'{repr(exception)} not exception.')
@@ -411,6 +424,56 @@ def label_exception(exception: Exception) -> str:
     # Return the fully-qualified name of the class of this exception followed by
     # this exception's message.
     return f'{get_object_type_name(exception)}: {str(exception)}'
+
+
+#FIXME: Unit test us up, please. *sigh*
+def label_exception_traceback(
+    # Mandatory parameters.
+    exception: Exception,
+
+    # Optional parameters.
+    is_indented: bool = True,
+) -> str:
+    '''
+    Human-readable label describing the passed exception's traceback appended by
+    this exception's type and message in a similar manner as CPython formats
+    uncaught tracebacks by default.
+
+    Parameters
+    ----------
+    exception : Exception
+        Exception to be labelled.
+    is_indented : bool, default: True
+        :data:`True` only if indenting the returned string by prefixing each
+        **non-whitespace line** (i.e., each line that does *not* already
+        entirely consist of whitespace) of that string with whitespace. Doing so
+        substantially improves readability for the common case in which this
+        traceback is embedded as explanation for a parent exception message.
+        Defaults to :data:`True`.
+
+    Returns
+    -------
+    str
+        Human-readable label describing this exception's traceback.
+    '''
+    assert isinstance(exception, Exception), (
+        f'{repr(exception)} not exception.')
+    assert isinstance(is_indented, bool), (
+        f'{repr(is_indented)} not boolean.')
+
+    # List of newline-suffixed lines comprising this exception's traceback.
+    exception_traceback_lines = format_exception(exception)
+
+    # This exception's traceback. Nice API, standard "traceback" module. *sigh*
+    exception_traceback = ''.join(exception_traceback_lines)
+
+    # If indenting this traceback, do so.
+    if is_indented:
+        exception_traceback = indent(text=exception_traceback, prefix='    ')
+    # Else, avoid doing so.
+
+    # Return this label.
+    return exception_traceback
 
 # ....................{ LABELLERS ~ pith                   }....................
 def label_pith_value(

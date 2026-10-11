@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -25,17 +25,15 @@ from beartype.claw._package._clawpkgmake import (
     make_package_names_from_args,
 )
 from beartype.claw._importlib.clawimpmain import (
-    add_beartype_pathhook,
-    # remove_beartype_pathhook,
+    add_beartype_path_hook,
+    # remove_beartype_path_hook,
 )
 from beartype.roar import BeartypeClawHookException
-from beartype.typing import Optional
 from beartype._conf.confmain import BeartypeConf
 from beartype._data.typing.datatyping import IterableStrs
 from beartype._util.py.utilpyinterpreter import is_python_optimized
-from collections.abc import (
-    Iterable as IterableABC,
-)
+from collections.abc import Iterable
+from typing import Optional
 
 # ....................{ HOOKERS                            }....................
 #FIXME: Unit test us up, please.
@@ -173,8 +171,8 @@ def hook_packages(
         # * Defer doing so until *AFTER* the above iteration has successfully
         #   registered the desired packages with our global trie. Why? This path
         #   hook subsequently calls the companion get_package_conf_or_none()
-        #   function, which accesses this trie.
-        add_beartype_pathhook()
+        #   function, which accesses that trie.
+        add_beartype_path_hook()
 
 # ....................{ PRIVATE ~ blacklisters             }....................
 #FIXME: Docstring us up, please.
@@ -197,7 +195,7 @@ def _blacklist_packages(package_names: IterableStrs) -> None:
     package_names : IterableStrs
         Iterable of the absolute names of all packages to be blacklisted.
     '''
-    assert isinstance(package_names, IterableABC), (
+    assert isinstance(package_names, Iterable), (
         f'{repr(package_names)} not iterable.')
 
     # Avoid circular import dependencies.
@@ -374,7 +372,7 @@ def _whitelist_packages_some(
         :mod:`beartype.beartype` decorator for *all* decoratable objects
         recursively decorated by the path hook added by this function).
     '''
-    assert isinstance(package_names, IterableABC), (
+    assert isinstance(package_names, Iterable), (
         f'{repr(package_names)} not iterable.')
     assert isinstance(conf, BeartypeConf), f'{repr(conf)} not configuration.'
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -81,15 +81,14 @@ IS_PYTHON_AT_LEAST_3_15 = IS_PYTHON_AT_LEAST_3_16 or version_info >= (3, 15)
 '''
 
 
-#FIXME: Preserved if we ever require this. *shrug*
-# #FIXME: After dropping Python 3.14 support:
-# #* Remove all code conditionally testing this global.
-# #* Remove this global.
-# IS_PYTHON_AT_MOST_3_14 = not IS_PYTHON_AT_LEAST_3_15
-# '''
-# :data:`True` only if the active Python interpreter targets at most Python
-# 3.14.x.
-# '''
+#FIXME: After dropping Python 3.14 support:
+#* Remove all code conditionally testing this global.
+#* Remove this global.
+IS_PYTHON_AT_MOST_3_14 = not IS_PYTHON_AT_LEAST_3_15
+'''
+:data:`True` only if the active Python interpreter targets at most Python
+3.14.x.
+'''
 
 
 #FIXME: After dropping Python 3.13 support:
@@ -126,6 +125,16 @@ IS_PYTHON_AT_LEAST_3_13 = IS_PYTHON_AT_LEAST_3_14 or version_info >= (3, 13)
 '''
 
 
+#FIXME: After dropping Python 3.12 support:
+#* Remove all code conditionally testing this global.
+#* Remove this global.
+IS_PYTHON_AT_MOST_3_12 = not IS_PYTHON_AT_LEAST_3_13
+'''
+:data:`True` only if the active Python interpreter targets at most Python
+3.12.x.
+'''
+
+
 #FIXME: After dropping Python 3.11 support:
 #* Refactor all code conditionally testing this global to be unconditional.
 #* Remove this global.
@@ -134,7 +143,7 @@ IS_PYTHON_AT_LEAST_3_13 = IS_PYTHON_AT_LEAST_3_14 or version_info >= (3, 13)
 IS_PYTHON_AT_LEAST_3_12 = IS_PYTHON_AT_LEAST_3_13 or version_info >= (3, 12)
 '''
 :data:`True` only if the active Python interpreter targets at least Python
-3.13.0.
+3.12.0.
 '''
 
 

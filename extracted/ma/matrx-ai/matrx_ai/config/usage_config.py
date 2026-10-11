@@ -1707,6 +1707,38 @@ def cost_meters_from_totals(totals: Any, *, label: str = "") -> dict[str, Any]:
     return meters
 
 
+def cost_meters_from_aggregate(aggregate: Any, *, label: str = "") -> dict[str, Any]:
+    """Ledger meters for a whole run from its ``AggregatedUsage`` — the totals of
+    :func:`cost_meters_from_totals` plus what a run that writes no ``chat.request``
+    (internal agent runs, ``store=False`` work) otherwise loses: ``cached_tokens`` and the
+    ``model`` / ``provider`` that cost the most. ``model`` and ``provider`` are strings, so
+    they ride the meter payload and never become summed quantities."""
+    if aggregate is None:
+        return {}
+    meters = cost_meters_from_totals(getattr(aggregate, "total", None), label=label)
+    if not meters:
+        return meters
+    cached = int(getattr(getattr(aggregate, "total", None), "cached_input_tokens", 0) or 0)
+    if cached:
+        meters["cached_tokens"] = cached
+    by_model = getattr(aggregate, "by_model", None) or {}
+    if by_model:
+        name, summary = max(
+            by_model.items(),
+            key=lambda kv: (
+                float(getattr(kv[1], "cost", 0) or 0),
+                int(getattr(kv[1], "output_tokens", 0) or 0),
+                kv[0],
+            ),
+        )
+        if name and name != "unknown":
+            meters["model"] = name
+        provider = str(getattr(summary, "api", "") or "")
+        if provider:
+            meters["provider"] = provider
+    return meters
+
+
 def cost_meters_from_usage(usage: Any, *, label: str = "", **extra: Any) -> dict[str, Any]:
     """Ledger meters for ONE metered call, from its ``TokenUsage``.
 
@@ -1726,6 +1758,15 @@ def cost_meters_from_usage(usage: Any, *, label: str = "", **extra: Any) -> dict
             log_level="warning",
         )
         return {"usd": 0.0, UNPRICED_CALLS_METER: 1, **extra}
+    # Name who spent it (strings: payload, never a summed quantity) — the usage rules read
+    # these for a run that wrote no chat.request. A caller's own ``extra`` wins.
+    attribution: dict[str, Any] = {}
+    model_name = str(getattr(usage, "matrx_model_name", "") or "")
+    api = str(getattr(usage, "api", "") or "")
+    if model_name:
+        attribution["model"] = model_name
+    if api:
+        attribution["provider"] = api
     cost = usage.calculate_cost()
     if cost is None:
         vcprint(
@@ -1738,5 +1779,5 @@ def cost_meters_from_usage(usage: Any, *, label: str = "", **extra: Any) -> dict
             color="red",
             log_level="warning",
         )
-        return {"usd": 0.0, UNPRICED_CALLS_METER: 1, **extra}
-    return {"usd": float(cost), **extra}
+        return {"usd": 0.0, UNPRICED_CALLS_METER: 1, **attribution, **extra}
+    return {"usd": float(cost), **attribution, **extra}

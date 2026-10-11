@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,9 +13,10 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype._util.kind.maplike.utilmapfrozen import FrozenDict
+from typing import Any
 
 # ....................{ DICTS                              }....................
-FROZENDICT_EMPTY = FrozenDict()
+FROZENDICT_EMPTY: FrozenDict[Any, Any] = FrozenDict()
 '''
 **Empty frozen dictionary** (i.e., :class:`.FrozenDict` object containing *no*
 key-value pairs).

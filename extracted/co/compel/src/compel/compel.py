@@ -28,6 +28,8 @@ class Compel:
                  requires_pooled: Union[bool, List[bool]] = False,
                  split_long_text_mode: SplitLongTextMode = SplitLongTextMode.SENTENCES,
                  device: Optional[str] = None,
+                 model_max_length: Optional[int] = None,
+                 suppress_eos: bool = False
                  ):
         """
         Initialize Compel.
@@ -52,6 +54,10 @@ class Compel:
         `requires_pooled`: for SDXL, append the pooled embeddings when returning conditioning tensors
         `device`: The torch device on which the tensors should be created. If a device is not specified, the device will
             be the same as that of the `text_encoder` at the moment when `build_conditioning_tensor()` is called.
+        `model_max_length`: Overrides the maximum token count used for truncation/chunking/padding. Defaults to
+            `tokenizer.model_max_length`. Useful for pipelines (e.g. Gemma2-backed) that mandate a fixed
+            `max_sequence_length`.
+        `suppress_eos`: If True, do not append the EOS token to the end of the prompt (eg SANA)
         """
         def count_matching_flags(flags_to_test):
             return sum(1 for f in flags_to_test if f in split_long_text_mode)
@@ -75,7 +81,9 @@ class Compel:
                                                             downweight_mode=downweight_mode,
                                                             returned_embeddings_type=returned_embeddings_type,
                                                             requires_pooled_mask=requires_pooled,
-                                                            split_long_text_mode=split_long_text_mode
+                                                            split_long_text_mode=split_long_text_mode,
+                                                            model_max_length=model_max_length,
+                                                            suppress_eos=suppress_eos
             )
         else:
             self.conditioning_provider = EmbeddingsProvider(tokenizer=tokenizer,
@@ -87,7 +95,9 @@ class Compel:
                                                             downweight_mode=downweight_mode,
                                                             returned_embeddings_type=returned_embeddings_type,
                                                             device=device,
-                                                            split_long_text_mode=split_long_text_mode
+                                                            split_long_text_mode=split_long_text_mode,
+                                                            model_max_length=model_max_length,
+                                                            suppress_eos = suppress_eos
                                                             )
         self._device = device
         self.requires_pooled = requires_pooled
@@ -226,7 +236,12 @@ class Compel:
         for i, p in enumerate(conjunction.prompts):
             (this_conditioning, this_tokens), this_options = self.build_conditioning_tensor_for_prompt_object(p)
             if type(this_tokens) is list:
-                tokenizations.extend(this_tokens)
+                if isinstance(p, Blend):
+                    # for a Blend, it only makes sense to take one set of tokenizations
+                    # so we take the first and ignore the rest
+                    tokenizations.append(this_tokens[0])
+                else:
+                    tokenizations.extend(this_tokens)
             else:
                 tokenizations.append(this_tokens)
             options.update(this_options)  # this is not a smart way to do this but 🤷‍
@@ -350,7 +365,7 @@ class Compel:
         conditionings_to_blend = []
         tokenizations = []
         for i, flattened_prompt in enumerate(blend.prompts):
-            this_conditioning, tokenization = self._get_conditioning_for_flattened_prompt(flattened_prompt, should_return_tokens=True)
+            this_conditioning, tokenization = self._get_conditioning_for_flattened_prompt(flattened_prompt)
             conditionings_to_blend.append(this_conditioning)
             tokenizations.append(tokenization)
         conditionings_to_blend = self.pad_conditioning_tensors_to_same_length(conditionings_to_blend)
@@ -407,18 +422,14 @@ class Compel:
         edit_options.append(None)
         original_token_count += 1
         edited_token_count += 1
-        original_embeddings, original_tokens = self._get_conditioning_for_flattened_prompt(
-            original_prompt, should_return_tokens=True
-        )
+        original_embeddings, original_tokens = self._get_conditioning_for_flattened_prompt(original_prompt)
         # naïvely building a single edited_embeddings like this disregards the effects of changing the absolute location of
         # subsequent tokens when there is >1 edit and earlier edits change the total token count.
         # eg "a cat.swap(smiling dog, s_start=0.5) eating a hotdog.swap(pizza)" - when the 'pizza' edit is active but the
         # 'cat' edit is not, the 'pizza' feature vector will nevertheless be affected by the introduction of the extra
         # token 'smiling' in the inactive 'cat' edit.
         # todo: build multiple edited_embeddings, one for each edit, and pass just the edited fragments through to the CrossAttentionControl functions
-        edited_embeddings, edited_tokens = self._get_conditioning_for_flattened_prompt(
-            edited_prompt, should_return_tokens=True
-        )
+        edited_embeddings, edited_tokens = self._get_conditioning_for_flattened_prompt(edited_prompt)
         [original_conditioning, edited_conditioning] = self.pad_conditioning_tensors_to_same_length(
             [original_embeddings, edited_embeddings])
         cac_args = cross_attention_control.Arguments(

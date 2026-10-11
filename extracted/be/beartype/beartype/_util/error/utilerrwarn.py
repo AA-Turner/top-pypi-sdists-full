@@ -1,23 +1,19 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
 Project-wide **warning handlers** (i.e., low-level callables manipulating
 non-fatal warnings -- which, technically, are also exceptions -- in a
-human-readable, general-purpose manner).
+human-readable general-purpose manner).
 
 This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype.typing import (
-    Any,
-    Iterable,
-    Iterator,
-)
-from beartype._data.error.dataerrmagic import EXCEPTION_PLACEHOLDER
+from beartype._cave._cavemap import NoneTypeOr
+from beartype._data.check.error.dataerrmagic import EXCEPTION_PLACEHOLDER
 from beartype._data.typing.datatyping import TypeWarning
 from beartype._util.error.utilerrtest import is_exception_message_str
 from beartype._util.py.utilpyversion import (
@@ -25,8 +21,15 @@ from beartype._util.py.utilpyversion import (
     IS_PYTHON_AT_LEAST_3_12,
 )
 from beartype._util.text.utiltextmunge import uppercase_str_char_first
-from collections.abc import Iterable as IterableABC
+from collections.abc import (
+    Iterable,
+    Iterator,
+)
 from contextlib import contextmanager
+from typing import (
+    Any,
+    Optional,
+)
 from warnings import (
     WarningMessage,
     catch_warnings,
@@ -38,10 +41,26 @@ from warnings import (
 # ....................{ CONTEXTS                           }....................
 #FIXME: Unit test us up, please.
 @contextmanager
-def warnings_ignored() -> Iterator[None]:
+def warnings_ignored(
+    # Optional parameters.
+    warning_cls: Optional[TypeWarning] = None,
+) -> Iterator[None]:
     '''
-    Context manager temporarily ignoring *all* warnings transitively emitted
-    within the body of this context.
+    Context manager temporarily ignoring *all* warnings (of either the passed
+    type if passed *or* any type otherwise) transitively issued within the body
+    of this context.
+
+    Parameters
+    ----------
+    warning_cls: Optional[type[Warning]], default: None
+        Type of warnings to be ignored if ignoring some type of warnings *or*
+        :data:`None` otherwise. Specifically:
+
+        * If :data:`None`, *all* warnings regardless of type will be ignored.
+        * Else, *only* warnings of this specific type (or a subclass of this
+          type) will be ignored.
+
+        Defaults to :data:`None`.
 
     Yields
     ------
@@ -53,23 +72,44 @@ def warnings_ignored() -> Iterator[None]:
     https://stackoverflow.com/a/14463362/2809027
         StackOverflow answer strongly inspiring this implementation.
     '''
+    assert isinstance(warning_cls, NoneTypeOr[type]), (
+        f'{repr(warning_cls)} neither warning type nor "None".')
 
     # If the active Python interpreter targets Python > 3.11, prefer an
     # efficient one-liner yielding the desired outcome. Get it? Yielding? ...heh
     if IS_PYTHON_AT_LEAST_3_11:
-        with catch_warnings(action='ignore'):  # type: ignore[call-overload]
-            yield
+        # If ignoring *ALL* warnings (regardless of type), do so.
+        if warning_cls is None:
+            with catch_warnings(action='ignore'):  # type: ignore[call-overload]
+                yield
+        # Else, ignore *ONLY* warnings of this specific type.
+        else:
+            assert issubclass(warning_cls, Warning), (
+                f'{repr(warning_cls)} not warning type.')
+            with catch_warnings(  # type: ignore[call-overload]
+                action='ignore', category=warning_cls):
+                yield
     # Else, the active Python interpreter targets Python <= 3.10. In this case,
     # fallback to an inefficient generator yielding the same outcome.
     else:
-        with catch_warnings():
-            simplefilter('ignore')
-            yield
+        # If ignoring *ALL* warnings (regardless of type), do so.
+        if warning_cls is None:
+            with catch_warnings():
+                simplefilter('ignore')
+                yield
+        # Else, ignore *ONLY* warnings of this specific type.
+        else:
+            assert issubclass(warning_cls, Warning), (
+                f'{repr(warning_cls)} not warning type.')
+            with catch_warnings():
+                simplefilter('ignore', category=warning_cls)
+                yield
 
 # ....................{ WARNERS                            }....................
+#FIXME: Unit test us up, please. *sigh*
 # If the active Python interpreter targets Python >= 3.12, the standard
 # warnings.warn() function supports the optional "skip_file_prefixes" parameter
-# critical for emitting more useful warnings. In this case, define the
+# critical for emitting more useful warnings. In this case, define our
 # issue_warning() warner to pass that parameter.
 if IS_PYTHON_AT_LEAST_3_12:
     # ....................{ IMPORTS                        }....................
@@ -78,10 +118,14 @@ if IS_PYTHON_AT_LEAST_3_12:
     from os.path import dirname
 
     # ....................{ WARNERS                        }....................
-    def issue_warning(cls: TypeWarning, message: str) -> None:
+    def issue_warning(warning_cls: TypeWarning, message: str) -> None:
+
         # The warning you gave us is surely our last!
-        warn(message, cls, skip_file_prefixes=_ISSUE_WARNING_IGNORE_DIRNAMES)  # type: ignore[call-overload]
-        # warn(message, cls)  # type: ignore[call-overload]
+        warn(  # type: ignore[call-overload]
+            message,
+            warning_cls,
+            skip_file_prefixes=_ISSUE_WARNING_IGNORE_DIRNAMES,
+        )
 
     # ....................{ PRIVATE ~ globals              }....................
     _ISSUE_WARNING_IGNORE_DIRNAMES = (dirname(beartype.__file__),)
@@ -98,11 +142,12 @@ if IS_PYTHON_AT_LEAST_3_12:
     substantially more useful and readable warnings for external callers.
     '''
 # Else, the active Python interpreter targets Python < 3.12. In this case,
-# define the issue_warning() warner to avoid passing that parameter.
+# define our issue_warning() warner to avoid passing that parameter.
 else:
-    def issue_warning(cls: TypeWarning, message: str) -> None:
+    def issue_warning(warning_cls: TypeWarning, message: str) -> None:
+
         # Time to cry your tears! Now cry!
-        warn(message, cls)
+        warn(message, warning_cls)
 
 
 issue_warning.__doc__ = (
@@ -120,12 +165,63 @@ issue_warning.__doc__ = (
 
     Parameters
     ----------
-    cls: Type[Warning]
+    warning_cls: type[Warning]
         Type of warning to be issued.
     message: str
         Human-readable warning message to be issued.
+
+    Warns
+    -----
+    warning_cls
+        Unconditionally.
     '''
 )
+
+# ....................{ WARNERS ~ deprecation              }....................
+#FIXME: Unit test us up, please. *sigh*
+def issue_deprecation(
+    # Mandatory parameters.
+    attr_name_deprecated: str,
+    attr_name_nondeprecated: str,
+
+    # Optional parameters.
+    warning_cls: TypeWarning = DeprecationWarning,
+) -> None:
+    '''
+    Issue (i.e., emit) a non-fatal deprecation warning of the passed type
+    describing the :mod:`beartype`-specific deprecation of the passed deprecated
+    attribute by the passed equivalent non-deprecated attribute.
+
+    Parameters
+    ----------
+    attr_name_deprecated : str
+        Fully-qualified name of the deprecated attribute.
+    attr_name_nondeprecated : str
+        Fully-qualified name of the equivalent non-deprecated attribute.
+    warning_cls: type[Warning], default: DeprecationWarning
+        Type of warning to be issued. Defaults to the builtin
+        :exc:`.DeprecationWarning` type.
+
+    Warns
+    -----
+    warning_cls
+        Unconditionally.
+    '''
+    assert isinstance(attr_name_deprecated, str), (
+        f'{repr(attr_name_deprecated)} not string.')
+    assert isinstance(attr_name_nondeprecated, str), (
+        f'{repr(attr_name_nondeprecated)} not string.')
+
+    # Warning message to be issued below.
+    warning_message = (
+        f'Deprecated attribute "{attr_name_deprecated}" '
+        f'scheduled for removal under a future beartype release. '
+        f'Please globally replace all references to this attribute with its '
+        f'non-deprecated equivalent "{attr_name_nondeprecated}".'
+    )
+
+    # Issue this warning.
+    issue_warning(warning_cls=warning_cls, message=warning_message)
 
 # ....................{ REWARNERS                          }....................
 def reissue_warnings_placeholder(
@@ -146,9 +242,10 @@ def reissue_warnings_placeholder(
     Parameters
     ----------
     warnings : Iterable[WarningMessage]
-        Iterable of zero or more warnings to be reissued, typically produced by
-        an external call to the standard
-        ``warnings.catch_warnings(record=True)`` context manager.
+        Iterable of zero or more **warning objects** (i.e.,
+        :class:`warnings.WarningMessage` instances), typically produced by an
+        external call to the standard ``warnings.catch_warnings(record=True)``
+        context manager.
     target_str : str
         Target human-readable format substring to replace the passed source
         substring previously hard-coded into this warning's message.
@@ -170,8 +267,7 @@ def reissue_warnings_placeholder(
     https://stackoverflow.com/a/77516994/2809027
         StackOverflow answer strongly inspiring this implementation.
     '''
-    assert isinstance(warnings, IterableABC), (
-        f'{repr(warnings)} not iterable.')
+    assert isinstance(warnings, Iterable), f'{repr(warnings)} not iterable.'
     assert isinstance(source_str, str), f'{repr(source_str)} not string.'
     assert isinstance(target_str, str), f'{repr(target_str)} not string.'
 
@@ -197,11 +293,14 @@ def reissue_warnings_placeholder(
             # makes no sense. Pragmatically, that makes no sense. But mypy says
             # it's true. We are too tired to argue with static type-checkers at
             # 4:11AM in the morning.
+            #
+            # *OR*...
             isinstance(warning, str) or
-            # This warning is conventional...
+            # This warning encapsulates a string message...
             is_exception_message_str(warning)
-        # Then this warning is or has a standard message. In this case...
         ):
+        # Then this warning either already is *OR* has a standard message. In
+        # either case...
             # Original warning message, coerced from the original warning.
             #
             # Note that the poorly named "message" attribute is the original

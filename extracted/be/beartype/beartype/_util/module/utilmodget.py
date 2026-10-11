@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -11,12 +11,16 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype._cave._cavefast import ModuleType
 from beartype.roar._roarexc import _BeartypeUtilModuleException
-from beartype.typing import Optional
+from beartype._cave._cavefast import (
+    ModuleType,
+    ModuleableTypes,
+)
+from beartype._data.typing.datatyping import TypeException
 from inspect import findsource
 from pathlib import Path
 from sys import modules as sys_modules
+from typing import Optional
 
 # ....................{ GETTERS                            }....................
 #FIXME: Unit test us up, please.
@@ -44,35 +48,6 @@ def get_module_imported_or_none(module_name: str) -> Optional[ModuleType]:
     return sys_modules.get(module_name)
 
 # ....................{ GETTERS ~ object                   }....................
-def get_object_module_or_none(obj: object) -> Optional[ModuleType]:
-    '''
-    Module declaring the passed object if this object defines the ``__module__``
-    dunder instance variable *or* :data:`None` otherwise.
-
-    Parameters
-    ----------
-    obj : object
-        Object to be inspected.
-
-    Returns
-    -------
-    Optional[ModuleType]
-        Either:
-
-        * Module declaring this object if this object declares a ``__module__``
-          dunder attribute.
-        * :data:`None` otherwise.
-    '''
-
-    # Fully-qualified name of the module defining this object if any or "None".
-    module_name = get_object_module_name_or_none(obj)
-
-    # Return either:
-    # * If a module defines this object, that module.
-    # * Else, "None".
-    return get_module_imported_or_none(module_name) if module_name else None
-
-
 def get_object_module(obj: object) -> ModuleType:
     '''
     Module declaring the passed object if this object defines the ``__module__``
@@ -112,6 +87,35 @@ def get_object_module(obj: object) -> ModuleType:
 
     # Return this module.
     return module
+
+
+def get_object_module_or_none(obj: object) -> Optional[ModuleType]:
+    '''
+    Module declaring the passed object if this object defines the ``__module__``
+    dunder instance variable *or* :data:`None` otherwise.
+
+    Parameters
+    ----------
+    obj : object
+        Object to be inspected.
+
+    Returns
+    -------
+    Optional[ModuleType]
+        Either:
+
+        * Module declaring this object if this object declares a ``__module__``
+          dunder attribute.
+        * :data:`None` otherwise.
+    '''
+
+    # Fully-qualified name of the module defining this object if any or "None".
+    module_name = get_object_module_name_or_none(obj)
+
+    # Return either:
+    # * If a module defines this object, that module.
+    # * Else, "None".
+    return get_module_imported_or_none(module_name) if module_name else None
 
 # ....................{ GETTERS ~ object : line            }....................
 def get_object_module_line_number_begin(obj: object) -> int:
@@ -156,14 +160,14 @@ def get_object_module_line_number_begin(obj: object) -> int:
     # Else, this object is *NOT* a class.
 
     # Avoid circular import dependencies.
-    from beartype._util.func.utilfunccodeobj import get_func_codeobj_or_none
+    from beartype._util.func.utilfunccodeobj import get_func_codeobject_or_none
 
     # Code object underlying this object if this object is a pure-Python
     # callable *OR* "None" otherwise.
     #
     # Note this is the canonical means of deciding whether an arbitrary object
     # is a pure-Python callable, as our is_func_codeobjable() function demonstrates.
-    func_codeobj = get_func_codeobj_or_none(obj)
+    func_codeobj = get_func_codeobject_or_none(obj)
 
     # If this object is a pure-Python callable, return the line number of the
     # first line declaring this object in its underlying source code file.
@@ -177,7 +181,14 @@ def get_object_module_line_number_begin(obj: object) -> int:
 
 # ....................{ GETTERS ~ object : name            }....................
 #FIXME: Unit test us up, please.
-def get_object_module_name(obj: object) -> str:
+def get_object_module_name(
+    # Mandatory parameters.
+    obj: object,
+
+    # Optional parameters.
+    exception_cls: TypeException = _BeartypeUtilModuleException,
+    exception_prefix: str = '',
+) -> str:
     '''
     **Fully-qualified name** (i.e., ``.``-delimited name prefixed by the
     declaring package) of the module declaring the passed object if this
@@ -188,6 +199,12 @@ def get_object_module_name(obj: object) -> str:
     ----------
     obj : object
         Object to be inspected.
+    exception_cls : type[Exception], default: _BeartypeUtilModuleException
+        Type of exception to be raised in the event of a fatal error. Defaults
+        to :exc:`._BeartypeUtilModuleException`.
+    exception_prefix : str, default: ''
+        Human-readable substring prefixing raised exception messages. Defaults
+        to the empty string.
 
     Returns
     -------
@@ -196,7 +213,7 @@ def get_object_module_name(obj: object) -> str:
 
     Raises
     ------
-    _BeartypeUtilModuleException
+    exception_cls
         If this object does *not* define the ``__module__`` dunder attribute.
     '''
 
@@ -204,13 +221,33 @@ def get_object_module_name(obj: object) -> str:
     # defines the "__module__" dunder instance variable *OR* "None" otherwise.
     module_name = get_object_module_name_or_none(obj)
 
-    # If this object defines *NO* "__module__" dunder instance variable, raise
-    # an exception.
+    # If this object defines *NO* "__module__" dunder instance variable...
     if module_name is None:
-        raise _BeartypeUtilModuleException(
+        assert isinstance(exception_prefix, str), (
+            f'{repr(exception_prefix)} not string.')
+        assert isinstance(exception_cls, type), (
+            f'{repr(exception_cls)} not exception type.')
+
+        # Exception message to be raised.
+        exception_message = (
+            f'{exception_prefix}'
             f'{repr(obj)} "__module__" dunder attribute undefined '
-            f'(e.g., due to being neither class nor callable).'
         )
+
+        # If this object is *NOT* moduleable (i.e., an instance of a type
+        # well-known to define the "__module__" dunder attribute), suggest that
+        # to be the cause of this failure.
+        if not isinstance(obj, ModuleableTypes):
+            exception_message += (
+                '(e.g., due to being neither class nor callable).')
+        # Else, this object is moduleable. In this case, suggest an alternate
+        # cause more likely to be the cause of this failure.
+        else:
+            exception_message += (
+                f'(e.g., as {repr(obj)} defined dynamically in-memory).')
+
+        # Raise this exception.
+        raise exception_cls(exception_message)
     # Else, this fully-qualified module name exists.
 
     # Return this name.
@@ -218,17 +255,93 @@ def get_object_module_name(obj: object) -> str:
 
 
 #FIXME: Unit test us up, please.
-def get_object_module_name_or_none(obj: object) -> Optional[str]:
+#FIXME: Note that there's a significant caveat here: if the passed object is a
+#high-level wrapper callable created with the standard @functools.wraps
+#decorator, then the value of the "__module__" attribute will be that of the
+#lower-level wrappee callable wrapped by that callable rather than that of the
+#high-level wrapper callable. Sometimes, that is what is wanted. Sometimes,
+#however, that is *NOT* what is wanted. In the latter case, the "correct" module
+#name can still be safely retrieved with 100% accuracy by:
+#* Generalizing the existing get_func_globals() getter to accept a new
+#  "is_unwrap: bool = True" boolean, thus preserving backward compatibility.
+#* Generalizing this getter here to accept a similar "is_unwrap: bool = True"
+#  boolean, thus also preserving backward compatibility.
+#* Improve the body of this getter to resemble:
+#      if not is_unwrap and callable(obj):
+#          func_globals = get_func_globals(func=obj, is_unwrap=is_unwrap)
+#          obj_module_name = func_globals['__name__']
+#      else:
+#          obj_module_name = getattr(obj, '__module__', None)
+#
+#Looks good to me! Thumbs up, QA brethren. *arthritic thumb up*
+def get_object_module_name_or_none(
+    # Mandatory parameters.
+    obj: object,
+
+    # Optional parameters.
+    is_module_importable_or_none: bool = False,
+) -> Optional[str]:
     '''
     **Fully-qualified name** (i.e., ``.``-delimited name prefixed by the
     declaring package) of the module declaring the passed object if this object
-    defines the ``__module__`` dunder instance variable *or* :data:`None`
-    otherwise.
+    defines the ``__module__`` dunder attribute *or* :data:`None` otherwise.
+
+    Caveats
+    -------
+    **The name returned by this getter should be assumed to be untrustworthy**
+    unless the optional ``is_module_importable_or_none=True`` parameter is
+    passed. Outlier objects may define ``__module__`` dunder attributes to refer
+    to non-existent or otherwise unimportable modules. Objects exhibiting this
+    behaviour include:
+
+    * Well-intended objects defined only dynamically in-memory and thus
+      physically residing in *no* module.
+    * Malicious objects intentionally defining erroneous ``__module__`` dunder
+      attributes, which Python technically permits.
+
+    **The optional** ``is_module_importable_or_none=True`` **parameter is also
+    unsafe to pass in the general case.** Doing so instructs this high-level
+    getter to internally call the lower-level
+    :func:`beartype._util.module.utilmodtest.is_module` tester, which
+    necessarily imports that module as an unavoidable side effect. Importing
+    arbitrary external modules can (and often will) induce a circular import and
+    thus fatal error from # Python itself on that importation resembling:
+
+        ImportError: cannot import name '{attribute_name}' from partially
+        initialized module '{module_name}' (most likely due to a circular
+        import)
+
+    **Callers should only pass the optional**
+    ``is_module_importable_or_none=True`` **parameter when doing so is
+    guaranteed to be safe** or at least no less safe than *not* passing this
+    parameter. Since :mod:`beartype` has no control over external module
+    imports, the *only* context in which it is safe to pass this parameter is
+    when this object resides in the currently imported module (typically due to
+    this object being the currently decorated object). In this case, this module
+    name also ideally refers to the module currently being imported -- which,
+    due to currently being imported, obviously imposes no risk of inducing a
+    circular import when trivially re-imported.
 
     Parameters
     ----------
     obj : object
         Object to be inspected.
+    is_module_importable_or_none : bool, default: False
+        Either:
+
+        * If :data:`True`, that module is required to be importable. Note that
+          it is unsafe to enable this parameter in the general case. See the
+          caveats above for further discussion. Specifically, if this object
+          defines a ``__module__`` dunder attribute referring to:
+
+          * An non-existent or otherwise unimportable module, this getter
+            returns :data:`None`.
+          * An importable module, this getter returns the name of that module.
+
+        * If :data:`False`, that module is permitted to be unimportable. In this
+          case, *no* validation is performed on this name.
+
+        Defaults to :data:`False` for safety.
 
     Returns
     -------
@@ -239,9 +352,32 @@ def get_object_module_name_or_none(obj: object) -> Optional[str]:
           object declares a ``__module__`` dunder attribute.
         * :data:`None` otherwise.
     '''
+    assert isinstance(is_module_importable_or_none, bool), (
+        f'{repr(is_module_importable_or_none)} not boolean.')
 
-    # Let it be, speaking one-liners of wisdom.
-    return getattr(obj, '__module__', None)
+    # Fully-qualified name of the module declaring this object if this object
+    # defines a "__module__" dunder attribute *OR* "None" otherwise.
+    obj_module_name = getattr(obj, '__module__', None)
+
+    # If...
+    if (
+        # If this object defines a "__module__" dunder attribute *AND*...
+        obj_module_name and
+        # The caller requests we validate the importability of this module...
+        is_module_importable_or_none
+    ):
+        # Avoid circular import dependencies. Ironic, isn't it?
+        from beartype._util.module.utilmodtest import is_module
+
+        # If this module is unimportable, nullify this name for safety.
+        if not is_module(obj_module_name):
+            obj_module_name = None
+        # Else, this module is importable. In this case, preserve this name.
+    # Else, the caller requests we *NOT* validate the importability of this
+    # module. In this case, preserve this name as is.
+
+    # Return this object's module name.
+    return obj_module_name
 
 # ....................{ GETTERS ~ object : type : name     }....................
 #FIXME: Unit test us up, please.
@@ -269,7 +405,7 @@ def get_object_type_module_name_or_none(obj: object) -> Optional[str]:
     '''
 
     # Avoid circular import dependencies.
-    from beartype._util.utilobject import get_object_type_unless_type
+    from beartype._util.utilobjget import get_object_type_unless_type
 
     # Make it so, ensign.
     return get_object_module_name_or_none(get_object_type_unless_type(obj))

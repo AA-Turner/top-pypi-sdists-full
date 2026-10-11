@@ -1,0 +1,455 @@
+#!/usr/bin/env python3
+# --------------------( LICENSE                            )--------------------
+# Copyright (c) 2014-2026 Beartype authors.
+# See "LICENSE" for further details.
+
+'''
+Testing-specific **PEP-agnostic type hint metadata class hierarchy** (i.e.,
+hierarchy of classes encapsulating sample type hints regardless of whether those
+hints comply with PEP standards or not, instances of which are typically
+contained in containers yielded by session-scoped fixtures defined by the
+:mod:`beartype_test.a00_unit.data.hint.data_hintfixture` submodule).
+'''
+
+# ....................{ IMPORTS                            }....................
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# WARNING: To raise human-readable test errors, avoid importing from
+# package-specific submodules at module scope.
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+from beartype._conf.confmain import BeartypeConf
+from beartype._conf.confcommon import BEARTYPE_CONF_DEFAULT
+from beartype_test.a00_unit.data.hint.cls.pith.data_clspith import (
+    PithSatisfiedMetadata)
+from collections.abc import Iterable
+from typing import Optional
+
+# ....................{ CLASSES ~ hint : superclass        }....................
+class HintNonpepMetadata(object):
+    '''
+    **PEP-noncompliant type hint metadata** (i.e., dataclass whose instance
+    variables describe a type hint that is either PEP-noncompliant or *mostly*
+    indistinguishable from a PEP-noncompliant type hint with metadata
+    applicable to various testing scenarios).
+
+    Examples of PEP-compliant type hints *mostly* indistinguishable from
+    PEP-noncompliant type hints include:
+
+    * :func:`typing.NamedTuple`, a high-level factory function deferring to the
+      lower-level :func:`collections.namedtuple` factory function creating and
+      returning :class:`tuple` instances annotated by PEP-compliant type hints.
+    * :func:`typing.TypedDict`, a high-level factory function creating and
+      returning :class:`dict` instances annotated by PEP-compliant type hints.
+
+    Attributes
+    ----------
+    hint : object
+        Type hint to be tested.
+    conf : BeartypeConf
+        **Beartype configuration** (i.e., self-caching dataclass encapsulating
+        all settings configuring type-checking for this type hint).
+    is_ignorable : bool, default: False
+        :data:`True` only if this hint is safely ignorable by the
+        :func:`beartype.beartype` decorator. Defaults to :data:`False`.
+    is_needs_cls_stack : bool, default: False
+        :data:`True` only if this hint is **type stack-dependent** (i.e., if
+        :mod:`beartype` requires the tuple of all classes lexically declaring
+        the class variables or methods annotated by this hint to generate code
+        type-checking this hint). Defaults to :data:`False`.
+    is_supported : bool, default: True
+        :data:`True` only if this hint is currently supported by
+        the :func:`beartype.beartype` decorator. Defaults to :data:`True`.
+    piths_meta : Iterable[PithSatisfiedMetadata], default: ()
+        Iterable of zero or more **(un)satisfied metadata objects** (i.e.,
+        :class:`.PithSatisfiedMetadata` and :class:`.PithUnsatisfiedMetadata`
+        instances), each describing an arbitrary object either satisfying or
+        violating this hint when either passed as a parameter or returned as a
+        value annotated by this hint. Defaults to the empty tuple.
+    warning_type : Optional[type[Warning]], default: None
+        Either:
+
+        * If the :func:`beartype.beartype` decorator unconditionally issues a
+          non-fatal warning when this type hint annotates *any* parameter or
+          return of *any* callable, the type of that warning.
+        * Else, :data:`None`.
+
+        Defaults to :data:`None`.
+    warnings_len: int, default: None
+        Total number of non-fatal warnings unconditionally issued by the
+        :func:`beartype.beartype` decorator unconditionally when this type hint
+        annotates *any* parameter or return of *any* callable. Defaults to
+        either:
+
+        * If :attr:`.warning_type` is :data:`None`, 0.
+        * Else, 1.
+    '''
+
+    # ..................{ INITIALIZERS                       }..................
+    def __init__(
+        self,
+        *,
+
+        # Mandatory keyword-only parameters.
+        hint: object,
+
+        # Optional keyword-only parameters.
+        conf: BeartypeConf = BEARTYPE_CONF_DEFAULT,
+        is_ignorable: bool = False,
+        is_needs_cls_stack: bool = False,
+        is_supported: bool = True,
+        piths_meta: Iterable[PithSatisfiedMetadata] = (),
+        warning_type: Optional[type[Warning]] = None,
+        warnings_len: Optional[int] = None,
+    ) -> None:
+
+        # Validate all passed parameters *EXCEPT* those with non-trivial
+        # defaults handled below.
+        assert isinstance(conf, BeartypeConf), (
+            f'{repr(conf)} not configuration.')
+        assert isinstance(is_ignorable, bool), (
+            f'{repr(is_ignorable)} not bool.')
+        assert isinstance(is_needs_cls_stack, bool), (
+            f'{repr(is_needs_cls_stack)} not bool.')
+        assert isinstance(is_supported, bool), (
+            f'{repr(is_supported)} not bool.')
+        assert isinstance(piths_meta, Iterable), (
+            f'{repr(piths_meta)} not iterable.')
+        assert all(
+            isinstance(piths_meta, PithSatisfiedMetadata)
+            for piths_meta in piths_meta
+        ), (
+            f'{repr(piths_meta)} not iterable of '
+            f'"PithSatisfiedMetadata" and '
+            f'"PithUnsatisfiedMetadata" instances.')
+        assert isinstance(warning_type, _NoneTypeOrType), (
+            f'{repr(warning_type)} neither class nor "None".')
+
+        # Conditionally default all unpassed parameters.
+        #
+        # Default this parameter to either:
+        # * If *NO* warning type is passed, 0.
+        # * Else, 1.
+        if warnings_len is None:
+            warnings_len = 0 if warning_type is None else 1
+
+        # Defer validating parameters with non-trivial defaults handled above.
+        assert isinstance(warnings_len, int), (
+            f'{repr(warnings_len)} not integer.')
+
+        # Classify all passed parameters.
+        self.hint = hint
+        self.conf = conf
+        self.is_ignorable = is_ignorable
+        self.is_needs_cls_stack = is_needs_cls_stack
+        self.is_supported = is_supported
+        self.piths_meta = piths_meta
+        self.warning_type = warning_type
+        self.warnings_len = warnings_len
+
+    # ..................{ DUNDERS                            }..................
+    def __repr__(self) -> str:
+        return '\n'.join((
+            f'{self.__class__.__name__}(',
+            f'    hint={repr(self.hint)},',
+            f'    conf={repr(self.conf)},',
+            f'    is_ignorable={repr(self.is_ignorable)},',
+            f'    is_needs_cls_stack={repr(self.is_needs_cls_stack)},',
+            f'    is_supported={repr(self.is_supported)},',
+            f'    piths_meta={repr(self.piths_meta)},',
+            f'    warning_type={repr(self.warning_type)},',
+            f')',
+        ))
+
+# ....................{ CLASSES ~ hint : subclass          }....................
+class HintPepMetadata(HintNonpepMetadata):
+    '''
+    **PEP-compliant type hint metadata** (i.e., dataclass whose instance
+    variables describe a PEP-compliant type hint with metadata applicable to
+    various testing scenarios).
+
+    Attributes
+    ----------
+    pep_sign : HintSign
+        **Sign** (i.e., arbitrary object uniquely identifying this
+        PEP-compliant type hint) if this hint is uniquely identified by such a
+        sign *or* ``None`` otherwise. Examples of PEP-compliant type hints
+        *not* uniquely identified by such attributes include those reducing to
+        standard builtins on instantiation such as:
+
+        * :class:`typing.NamedTuple` reducing to :class:`tuple`.
+        * :class:`typing.TypedDict` reducing to :class:`dict`.
+    is_args : bool, optional
+        :data:`True` only if this hint is subscripted by one or more
+        **arguments** (i.e., PEP-compliant type hints that are *not* type
+        variables) and/or **type variables** (i.e., :class:`typing.TypeVar`
+        instances). Defaults to :data:`True` only if the machine-readable
+        representation of this hint contains one or more "[" delimiters.
+    is_pep585_builtin_subbed : bool, optional
+        :data:`True` only if this hint is a :pep:`585`-compliant builtin. If
+        :data:`True`, then :attr:`is_type_typing` *must* be :data:`False`.
+        Defaults to the negation of :attr:`is_pep585_generic` if
+        non-:data:`None` *or* :data:`False` otherwise (i.e., if
+        :attr:`is_pep585_generic` is :data:`None`).
+    is_pep585_generic : bool, optional
+        :data:`True` only if this hint is a :pep:`585`-compliant generic. If
+        :data:`True`, then :attr:`is_type_typing` *must* be :data:`False`.
+        Defaults to :data:`False`.
+    is_typeargs : bool, optional
+        :data:`True` only if this hint is parametrized by one or more **type
+        variables** (i.e., :class:`typing.TypeVar` instances). Defaults to
+        ``bool(typeargs_packed_unsubbed)``.
+    is_type_typing : bool, optional
+        :data:`True` only if this hint's class is defined by the :mod:`typing`
+        module. If ``True``, then :attr:`is_pep585_builtin_subbed` and
+        :attr:`is_pep585_generic` *must* both be ``False``. Defaults to
+        either:
+
+        * If either :attr:`is_pep585_builtin_subbed` *or*
+          :attr:`is_pep585_generic` are :data:`True`, :data:`False`.
+        * Else, :data:`True`.
+    is_typing : bool, optional
+        :data:`True` only if this hint itself is defined by the :mod:`typing`
+        module. Defaults to :attr:`is_type_typing`.
+    isinstanceable_type : Optional[type]
+        **Origin type** (i.e., non-:mod:`typing` class such that *all* objects
+        satisfying this hint are instances of this class) originating this hint
+        if this hint originates from a non-:mod:`typing` class *or* :data:`None`
+        otherwise (i.e., if this hint does *not* originate from such a class).
+        Defaults to :data:`None`.
+    generic_type : Optional[type]
+        Subscripted origin type associated with this hint if any *or*
+        :data:`None` otherwise (i.e., if this hint is associated with *no* such
+        type). Defaults to either:
+
+        * If this hint is subscripted, :attr:`isinstanceable_type`.
+        * Else, :data:`None`.
+    typeargs_packed_subbed : tuple[TypeVar, ...], default: None
+        Tuple of the one or more **unique transitive packed type parameters**
+        (i.e., :pep:`484`-compliant type variables, :pep:`612`-compliant
+        parameter specifications, or :pep:`646`-compliant type variable tuples
+        uniquely parametrizing both the original subscripted or unsubscripted
+        form of this :pep:`484`- or :pep:`585`-compliant generic *and* the
+        original unerased forms of all pseudo-superclasses of this generic
+        originally specified at the time these generics were declared, ignoring
+        duplicates) if this hint is a generic and thus necessarily parametrized
+        by one or more such type parameters *or* the empty tuple otherwise
+        (i.e., if this hint is *not* a generic and is thus unparametrized).
+        Defaults to :data:`None`, in which case this tuple actually defaults to
+        the value of the ``typeargs_packed_unsubbed`` tuple, implying this hint
+        to be either a non-generic (and thus parametrized by no type parameters)
+        *or* unsubscripted generic (and thus have no subscripted form whose
+        parametrization by type parameters differs from its unsubscripted form).
+    typeargs_packed_unsubbed : tuple[TypeVar, ...], default: ()
+        Tuple of the one or more **unique transitive packed type parameters**
+        (i.e., :pep:`484`-compliant type variables, :pep:`612`-compliant
+        parameter specifications, or :pep:`646`-compliant type variable tuples
+        uniquely parametrizing both the unsubscripted form of this :pep:`484`-
+        or :pep:`585`-compliant generic *and* the original unerased forms of all
+        pseudo-superclasses of this generic originally specified at the time
+        these generics were declared, ignoring duplicates) if this hint is a
+        generic and thus necessarily parametrized by one or more such type
+        parameters *or* the empty tuple otherwise (i.e., if this hint is *not* a
+        generic and is thus unparametrized). Defaults to the empty tuple,
+        implying this hint to be parametrized by *no* type parameters (and thus
+        *not* be such a generic).
+    typehint_cls : Optional[type[beartype.door.TypeHint]]
+        Concrete :class:`beartype.door.TypeHint` subclass responsible for
+        handling this hint if any *or* :data:`None` otherwise (e.g., if the
+        :mod:`beartype.door` submodule has yet to support this hint).
+
+    All remaining keyword arguments are passed as is to the superclass
+    :meth:`HintNonpepMetadata.__init__` method.
+    '''
+
+    # ..................{ INITIALIZERS                       }..................
+    def __init__(
+        self,
+        *,
+
+        # Mandatory keyword-only parameters.
+        pep_sign: 'beartype._data.hint.sign.datahintsigncls.HintSign',
+
+        # Optional keyword-only parameters.
+        is_args: Optional[bool] = None,
+        is_pep585_builtin_subbed: Optional[bool] = None,
+        is_pep585_generic: Optional[bool] = None,
+        is_typeargs: bool = None,  # type: ignore[assignment]
+        is_type_typing: Optional[bool] = None,
+        is_typing: Optional[bool] = None,
+        isinstanceable_type: Optional[type] = None,
+        generic_type: Optional[type] = None,
+        typeargs_packed_subbed: Optional[
+            'beartype._data.typing.datatyping.TuplePep484612646TypeArgsPacked'] = None,
+        typeargs_packed_unsubbed: (
+            'beartype._data.typing.datatyping.TuplePep484612646TypeArgsPacked') = (),
+        typehint_cls: Optional[type['beartype.door.TypeHint']] = None,
+        **kwargs
+    ) -> None:
+
+        # Defer test-specific imports.
+        from beartype.door import TypeHint
+        from beartype._data.hint.sign.datahintsigncls import HintSign
+        from beartype._util.hint.utilhintget import get_hint_repr
+        from beartype._util.hint.pep.proposal.typearg.peptypeargmain import (
+            is_hint_typearg_packed)
+
+        # Validate all passed parameters *EXCEPT* those with non-trivial
+        # defaults handled below.
+        assert isinstance(pep_sign, HintSign), f'{repr(pep_sign)} not sign.'
+        assert isinstance(isinstanceable_type, _NoneTypeOrType), (
+            f'{repr(isinstanceable_type)} neither class nor "None".')
+        assert isinstance(typeargs_packed_unsubbed, tuple), (
+            f'{repr(typeargs_packed_unsubbed)} not tuple.')
+        assert all(
+            is_hint_typearg_packed(typevar)
+            for typevar in typeargs_packed_unsubbed
+        ), (
+            f'{repr(typeargs_packed_unsubbed)} not '
+            f'tuple of packed type parameters.'
+        )
+
+        # Initialize our superclass with all remaining variadic parameters.
+        super().__init__(**kwargs)
+
+        # Machine-readable representation of this hint.
+        hint_repr = get_hint_repr(self.hint)
+
+        # Conditionally default all unpassed parameters.
+        #
+        # Default this parameter to true only if the machine-readable
+        # representation of this hint contains "[" (e.g., list[str]).
+        if is_args is None:
+            is_args = '[' in hint_repr
+        # Default this parameter to true only if...
+        if is_pep585_builtin_subbed is None:
+            is_pep585_builtin_subbed = (
+                # This hint originates from an origin type *AND*...
+                isinstanceable_type is not None and
+                # The machine-readable representation of this hint is prefixed
+                # by the unqualified name of this origin type (e.g., "list[str]
+                # " is prefixed by "list"), suggesting this hint to be a PEP
+                # 585-compliant builtin.
+                hint_repr.startswith(isinstanceable_type.__name__)
+            )
+            # print(f'is_pep585_builtin_subbed: {is_pep585_builtin_subbed}')
+            # print(f'hint_repr: {hint_repr}')
+            # print(f'isinstanceable_type.__name__: {isinstanceable_type.__name__}')
+        # Default this parameter to false, because we can't think of anything
+        # better.
+        if is_pep585_generic is None:
+            is_pep585_generic = False
+        # Default this parameter to the negation of all PEP 585-compliant
+        # boolean parameters. By definition, PEP 585-compliant type hints are
+        # *NOT* defined by the "typing" module and vice versa.
+        if is_type_typing is None:
+            is_type_typing = not (
+                is_pep585_builtin_subbed or is_pep585_generic)
+        # Default this parameter to true only if this hint is expected to be
+        # parametrized by one or more type variables.
+        if is_typeargs is None:
+            is_typeargs = bool(typeargs_packed_unsubbed)
+        # Default this parameter to true only if this hint's class is
+        # defined by the "typing" module.
+        if is_typing is None:
+            is_typing = is_type_typing
+        # Default this parameter to this hint's type origin only if this
+        # hint is subscripted.
+        if generic_type is None:
+            generic_type = isinstanceable_type if is_args else None
+        # Default this parameter to this hint's tuple of packed type parameters
+        # in unsubscripted form.
+        if typeargs_packed_subbed is None:
+            typeargs_packed_subbed = typeargs_packed_unsubbed
+
+        # Defer validating parameters with non-trivial defaults handled above.
+        assert isinstance(is_args, bool), f'{repr(is_args)} not bool.'
+        assert isinstance(is_pep585_builtin_subbed, bool), (
+            f'{repr(is_pep585_builtin_subbed)} not bool.')
+        assert isinstance(is_pep585_generic, bool), (
+            f'{repr(is_pep585_generic)} not bool.')
+        assert isinstance(is_type_typing, bool), (
+            f'{repr(is_type_typing)} not bool.')
+        assert isinstance(is_typeargs, bool), (
+            f'{repr(is_typeargs)} not bool.')
+        assert isinstance(is_typing, bool), (
+            f'{repr(is_typing)} not bool.')
+        assert isinstance(generic_type, _NoneTypeOrType), (
+            f'{repr(generic_type)} neither class nor "None".')
+        assert isinstance(generic_type, _NoneTypeOrType), (
+            f'{repr(generic_type)} neither class nor "None".')
+        assert isinstance(typeargs_packed_subbed, tuple), (
+            f'{repr(typeargs_packed_subbed)} not tuple.')
+        assert all(
+            is_hint_typearg_packed(typevar)
+            for typevar in typeargs_packed_subbed
+        ), (
+            f'{repr(typeargs_packed_subbed)} not '
+            f'tuple of packed type parameters.'
+        )
+        assert (
+            typehint_cls is None or (
+                isinstance(typehint_cls, type) and
+                issubclass(typehint_cls, TypeHint),
+            )
+        ), (
+            f'{repr(typehint_cls)} neither '
+            f'"beartype.door.TypeHint" subclass nor "None".'
+        )
+
+        # Validate that the "is_pep585_builtin_subbed" and "is_type_typing"
+        # parameters are *NOT* both true. Note, however, that both can be false
+        # (e.g., for PEP 484-compliant user-defined generics).
+        assert not (
+            (is_pep585_builtin_subbed or is_pep585_generic) and
+            is_type_typing
+        ), (
+            f'Mutually incompatible boolean parameters '
+            f'is_type_typing={repr(is_type_typing)} and either '
+            f'is_pep585_builtin_subbed={repr(is_pep585_builtin_subbed)} or '
+            f'is_pep585_generic={repr(is_pep585_generic)} enabled.'
+        )
+
+        # Classify all passed parameters.
+        self.generic_type = generic_type
+        self.is_args = is_args
+        self.is_pep585_builtin_subbed = is_pep585_builtin_subbed
+        self.is_pep585_generic = is_pep585_generic
+        self.is_typeargs = is_typeargs
+        self.is_type_typing = is_type_typing
+        self.is_typing = is_typing
+        self.isinstanceable_type = isinstanceable_type
+        self.pep_sign = pep_sign
+        self.typehint_cls = typehint_cls
+        self.typeargs_packed_subbed = typeargs_packed_subbed
+        self.typeargs_packed_unsubbed = typeargs_packed_unsubbed
+
+    # ..................{ DUNDERS                            }..................
+    def __repr__(self) -> str:
+        return '\n'.join((
+            f'{self.__class__.__name__}(',
+            f'    hint={repr(self.hint)},',
+            f'    conf={repr(self.conf)},',
+            f'    pep_sign={repr(self.pep_sign)},',
+            f'    typehint_cls={repr(self.typehint_cls)},',
+            f'    generic_type={repr(self.generic_type)},',
+            f'    isinstanceable_type={repr(self.isinstanceable_type)},',
+            f'    is_args={repr(self.is_args)},',
+            f'    is_ignorable={repr(self.is_ignorable)},',
+            f'    is_needs_cls_stack={repr(self.is_needs_cls_stack)},',
+            f'    is_pep585_builtin_subbed={repr(self.is_pep585_builtin_subbed)},',
+            f'    is_pep585_generic={repr(self.is_pep585_generic)},',
+            f'    is_supported={repr(self.is_supported)},',
+            f'    is_typeargs={repr(self.is_typeargs)},',
+            f'    is_type_typing={repr(self.is_type_typing)},',
+            f'    is_typing={repr(self.is_typing)},',
+            f'    piths_meta={repr(self.piths_meta)},',
+            f'    typeargs_packed_subbed={repr(self.typeargs_packed_subbed)},',
+            f'    typeargs_packed_unsubbed={repr(self.typeargs_packed_unsubbed)},',
+            f'    warning_type={repr(self.warning_type)},',
+            f')',
+        ))
+
+# ....................{ PRIVATE ~ constants                }....................
+_NoneTypeOrType = (type, type(None))
+'''
+2-tuple matching both classes and the :data:`None` singleton.
+'''

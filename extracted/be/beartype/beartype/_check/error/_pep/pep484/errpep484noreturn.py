@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -12,14 +12,15 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype.typing import Callable
+from beartype._check.cls.hint.tree.hinttreeerror import HintTreeError
 from beartype._data.hint.sign.datahintsigns import HintSignNoReturn
-from beartype._check.error.errcause import ViolationCause
+from beartype._util.text.utiltextansi import color_hint
 from beartype._util.text.utiltextlabel import label_callable
 from beartype._util.text.utiltextrepr import represent_pith
+from collections.abc import Callable
 
 # ....................{ GETTERS                            }....................
-def find_cause_pep484_noreturn(cause: ViolationCause) -> ViolationCause:
+def find_cause_pep484_noreturn(cause: HintTreeError) -> HintTreeError:
     '''
     Output cause describing describing the failure of the decorated callable to
     *not* return a value in violation of the passed :pep:`484`-compliant
@@ -27,26 +28,27 @@ def find_cause_pep484_noreturn(cause: ViolationCause) -> ViolationCause:
 
     Parameters
     ----------
-    cause : ViolationCause
+    cause : HintTreeError
         Input cause providing this data.
 
     Returns
     -------
-    ViolationCause
+    HintTreeError
         Output cause type-checking this data.
     '''
-    assert isinstance(cause, ViolationCause), f'{repr(cause)} not cause.'
-    assert cause.hint_sign is HintSignNoReturn, (
-        f'{repr(cause.hint)} not "HintSignNoReturn".')
+    assert isinstance(cause, HintTreeError), f'{repr(cause)} not cause.'
+    assert cause.hint_curr.hint_sign is HintSignNoReturn, (
+        f'{repr(cause.hint_curr_sanified)} not "HintSignNoReturn".')
 
     # Decorated callable originating this violation.
-    func: Callable = cause.func  # type: ignore[assignment]
+    func: Callable = cause.call_curr.decoratee  # type: ignore[assignment]
 
     # Output cause to be returned, permuted from this input cause such that the
     # justification is a human-readable string describing this failure.
     cause_return = cause.permute_cause(cause_str_or_none=(
         f'{label_callable(func)} annotated by PEP 484 return type hint '
-        f'"typing.NoReturn" returned {represent_pith(cause.pith)}'
+        f'{color_hint(text=repr(cause.hint_curr_sanified), is_color=cause.conf.is_color)} '
+        f'returned {represent_pith(cause.pith)}'
     ))
 
     # Return this cause.

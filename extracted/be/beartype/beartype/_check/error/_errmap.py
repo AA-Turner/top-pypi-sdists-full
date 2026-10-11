@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -17,12 +17,12 @@ from beartype.typing import (
     Optional,
 )
 from beartype._data.hint.sign.datahintsigncls import HintSign
-from beartype._check.error.errcause import ViolationCause
+from beartype._check.cls.hint.tree.hinttreeerror import HintTreeError
 
 # ....................{ GLOBALS                            }....................
 # Initialized with automated inspection below in the _init() function.
 HINT_SIGN_TO_GET_CAUSE_FUNC: Dict[
-    Optional[HintSign], Callable[[ViolationCause], ViolationCause]] = {}
+    Optional[HintSign], Callable[[HintTreeError], HintTreeError]] = {}
 '''
 Dictionary mapping each **sign** (i.e., arbitrary object uniquely identifying a
 category of type hints) to a private getter function defined by this submodule
@@ -41,7 +41,6 @@ def _init() -> None:
     # Defer heavyweight imports.
     from beartype._data.hint.sign.datahintsigns import (
         HintSignAnnotated,
-        HintSignForwardRef,
         HintSignLiteral,
         HintSignNoReturn,
         HintSignPep484585GenericUnsubbed,
@@ -55,7 +54,6 @@ def _init() -> None:
         HINT_SIGNS_UNION,
     )
     from beartype._check.error._nonpep.errnonpeptype import (
-        find_cause_instance_type_forwardref,
         find_cause_nonpep,
         find_cause_type_instance_origin,
     )
@@ -107,7 +105,6 @@ def _init() -> None:
         None: find_cause_nonpep,
 
         # ....................{ PEP 484                    }....................
-        HintSignForwardRef: find_cause_instance_type_forwardref,
         HintSignNoReturn: find_cause_pep484_noreturn,
 
         # ....................{ PEP (484|585)              }....................

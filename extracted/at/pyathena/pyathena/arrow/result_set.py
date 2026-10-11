@@ -1,3 +1,5 @@
+"""Result set that reads Athena query results into Apache Arrow Tables."""
+
 from __future__ import annotations
 
 import logging
@@ -9,12 +11,12 @@ from typing import (
 )
 
 from pyathena import OperationalError
+from pyathena.arrow.converter import _to_timestamp
 from pyathena.arrow.util import to_column_info
-from pyathena.converter import Converter
-from pyathena.error import ProgrammingError
+from pyathena.converter import Converter, _to_default
 from pyathena.model import AthenaQueryExecution
 from pyathena.result_set import AthenaResultSet
-from pyathena.util import RetryConfig, parse_output_location
+from pyathena.util import RetryConfig, override, parse_output_location
 
 if TYPE_CHECKING:
     import polars as pl
@@ -48,7 +50,7 @@ class AthenaArrowResultSet(AthenaResultSet):
         >>> cursor.execute("SELECT * FROM large_table")
         >>>
         >>> # Get Arrow Table
-        >>> table = cursor.fetchall()
+        >>> table = cursor.as_arrow()
         >>>
         >>> # Convert to pandas if needed
         >>> df = table.to_pandas()
@@ -94,6 +96,31 @@ class AthenaArrowResultSet(AthenaResultSet):
         result_set_type_hints: dict[str | int, str] | None = None,
         **kwargs,
     ) -> None:
+        """Initialize the result set and load the query results into an Arrow Table.
+
+        Args:
+            connection: The connection that ran the query.
+            converter: The converter for result values.
+            query_execution: The query execution whose results to read.
+            arraysize: The default ``fetchmany()`` size and the maximum number of rows per
+                record batch that the fetch methods read from the table.
+            retry_config: The retry configuration for API calls.
+            block_size: The block size in bytes for reading CSV results. If not set,
+                ``DEFAULT_BLOCK_SIZE`` is used.
+            unload: Whether the query is an ``UNLOAD`` whose Parquet output is read
+                instead of the CSV results.
+            unload_location: The S3 location of the ``UNLOAD`` output. If None, it is
+                derived from the first file in the data manifest.
+            connect_timeout: The connect timeout in seconds for the pyarrow S3 filesystem.
+            request_timeout: The request timeout in seconds for the pyarrow S3 filesystem.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
+            **kwargs: Additional keyword arguments, stored but not used.
+
+        Raises:
+            ProgrammingError: If ``query_execution`` is not given.
+            OperationalError: If reading the query results fails.
+        """
         super().__init__(
             connection=connection,
             converter=converter,
@@ -110,95 +137,50 @@ class AthenaArrowResultSet(AthenaResultSet):
         self._connect_timeout = connect_timeout
         self._request_timeout = request_timeout
         self._kwargs = kwargs
-        self._fs = self.__s3_file_system()
+        self._fs = self._create_s3_file_system()
         if self.state == AthenaQueryExecution.STATE_SUCCEEDED and self.output_location:
             self._table = self._as_arrow()
         elif self.state == AthenaQueryExecution.STATE_SUCCEEDED:
-            self._table = self._as_arrow_from_api()
+            # Without a result file, as with managed query result storage, the rows from
+            # GetQueryResults are read as a CSV result file.
+            self._table = self._read_csv()
         else:
             import pyarrow as pa
 
             self._table = pa.Table.from_pydict({})
-        # The fetch methods convert only the values read from a result file.
-        # GetQueryResults values are already converted.
-        self._convert_rows = bool(self.output_location)
         self._batches = iter(self._table.to_batches(arraysize))
 
-    def __s3_file_system(self):
+    def _create_s3_file_system(self):
+        """Create a pyarrow ``S3FileSystem`` with the credentials of the connection's session.
+
+        Returns:
+            The pyarrow S3 filesystem for reading the query results.
+        """
         from pyarrow import fs
 
-        connection = self.connection
-
-        # Build timeout parameters dict
-        timeout_kwargs = {}
+        kwargs: dict[str, Any] = {"region": self.connection.region_name}
         if self._connect_timeout is not None:
-            timeout_kwargs["connect_timeout"] = self._connect_timeout
+            kwargs["connect_timeout"] = self._connect_timeout
         if self._request_timeout is not None:
-            timeout_kwargs["request_timeout"] = self._request_timeout
-
-        if connection._kwargs.get("role_arn"):
-            external_id = connection._kwargs.get("external_id")
-            fs = fs.S3FileSystem(
-                role_arn=connection._kwargs["role_arn"],
-                session_name=connection._kwargs["role_session_name"],
-                external_id="" if external_id is None else external_id,
-                load_frequency=connection._kwargs["duration_seconds"],
-                region=connection.region_name,
-                **timeout_kwargs,
-            )
-        elif connection.profile_name:
-            profile = connection.session._session.full_config["profiles"][connection.profile_name]
-            fs = fs.S3FileSystem(
-                access_key=profile.get("aws_access_key_id", None),
-                secret_key=profile.get("aws_secret_access_key", None),
-                session_token=profile.get("aws_session_token", None),
-                region=connection.region_name,
-                **timeout_kwargs,
-            )
-        else:
-            # Try explicit credentials first
-            explicit_access_key = connection._kwargs.get("aws_access_key_id")
-            explicit_secret_key = connection._kwargs.get("aws_secret_access_key")
-
-            if explicit_access_key and explicit_secret_key:
-                # Use explicitly provided credentials
-                fs = fs.S3FileSystem(
-                    access_key=explicit_access_key,
-                    secret_key=explicit_secret_key,
-                    session_token=connection._kwargs.get("aws_session_token"),
-                    region=connection.region_name,
-                    **timeout_kwargs,
-                )
-            else:
-                # Fall back to dynamic credentials from boto3 session
-                # This handles EC2 instance profiles, temporary credentials, etc.
-                try:
-                    credentials = connection.session._session.get_credentials()
-                    if credentials:
-                        fs = fs.S3FileSystem(
-                            access_key=credentials.access_key,
-                            secret_key=credentials.secret_key,
-                            session_token=credentials.token,
-                            region=connection.region_name,
-                            **timeout_kwargs,
-                        )
-                    else:
-                        # Fall back to default (no explicit credentials)
-                        fs = fs.S3FileSystem(region=connection.region_name, **timeout_kwargs)
-                except Exception:
-                    # Fall back to default if credential retrieval fails
-                    fs = fs.S3FileSystem(region=connection.region_name, **timeout_kwargs)
-
-        return fs
+            kwargs["request_timeout"] = self._request_timeout
+        credentials = self.connection.session.get_credentials()
+        if credentials:
+            frozen_credentials = credentials.get_frozen_credentials()
+            kwargs["access_key"] = frozen_credentials.access_key
+            kwargs["secret_key"] = frozen_credentials.secret_key
+            kwargs["session_token"] = frozen_credentials.token
+        return fs.S3FileSystem(**kwargs)
 
     @property
     def timestamp_parsers(self) -> list[str]:
+        """The timestamp formats for reading CSV results, starting with pyarrow's ``ISO8601``."""
         from pyarrow.csv import ISO8601
 
         return [ISO8601, *self._timestamp_parsers]
 
     @property
     def column_types(self) -> dict[str, type[Any]]:
+        """The converter's types for the result columns it maps, keyed by column name."""
         description = self.description if self.description else []
         return {
             d[0]: dtype
@@ -208,27 +190,32 @@ class AthenaArrowResultSet(AthenaResultSet):
 
     @property
     def converters(self) -> dict[str, Callable[[str | None], Any | None]]:
+        """The conversion functions for the result columns, keyed by column name."""
         description = self.description if self.description else []
         return {d[0]: self._converter.get(d[1]) for d in description}
 
+    @override
     def _fetch(self) -> None:
         try:
             rows = next(self._batches)
         except StopIteration:
             return
         else:
-            dict_rows = rows.to_pydict()
-            if self._convert_rows:
-                converters = self.converters
-                column_names = dict_rows.keys()
+            # Read the columns and their converters by position; to_pydict() and the
+            # converters property keep one column per name.
+            columns = [column.to_pylist() for column in rows.columns]
+            description = self.description if self.description else []
+            converters = [self._converter.get(d[1]) for d in description]
+            if any(convert is not _to_default for convert in converters):
                 processed_rows = [
-                    tuple(converters[k](v) for k, v in zip(column_names, row, strict=False))
-                    for row in zip(*dict_rows.values(), strict=False)
+                    tuple(convert(v) for convert, v in zip(converters, row, strict=False))
+                    for row in zip(*columns, strict=False)
                 ]
             else:
-                processed_rows = list(zip(*dict_rows.values(), strict=False))
+                processed_rows = list(zip(*columns, strict=False))
             self._rows.extend(processed_rows)
 
+    @override
     def fetchone(
         self,
     ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
@@ -241,39 +228,19 @@ class AthenaArrowResultSet(AthenaResultSet):
         self._rownumber += 1
         return self._rows.popleft()
 
-    def fetchmany(
-        self, size: int | None = None
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        if not size or size <= 0:
-            size = self._arraysize
-        rows = []
-        for _ in range(size):
-            row = self.fetchone()
-            if row:
-                rows.append(row)
-            else:
-                break
-        return rows
-
-    def fetchall(
-        self,
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        rows = []
-        while True:
-            row = self.fetchone()
-            if row:
-                rows.append(row)
-            else:
-                break
-        return rows
-
     def _read_csv(self) -> Table:
+        """Read the CSV result file, or the GetQueryResults rows as one without it.
+
+        Returns:
+            The Arrow Table of the results.
+
+        Raises:
+            OperationalError: If reading the results fails.
+        """
         import pyarrow as pa
         from pyarrow import csv
 
-        if not self.output_location:
-            raise ProgrammingError("OutputLocation is none or empty.")
-        if not self.output_location.endswith((".csv", ".txt")):
+        if self.output_location and not self.output_location.endswith((".csv", ".txt")):
             return pa.Table.from_pydict({})
         if self.substatement_type and self.substatement_type.upper() in (
             "UPDATE",
@@ -282,11 +249,40 @@ class AthenaArrowResultSet(AthenaResultSet):
             "VACUUM_TABLE",
         ):
             return pa.Table.from_pydict({})
-        length = self._get_content_length()
-        binary_columns = {d[0] for d in self.description or [] if d[1] == "varbinary"}
-        if length and self.output_location.endswith(".txt"):
-            description = self.description if self.description else []
-            column_names = [d[0] for d in description]
+        if self.output_location:
+            data = None
+            length = self._get_content_length()
+            location = "/".join(parse_output_location(self.output_location))
+        else:
+            data = self._fetch_all_rows_as_csv()
+            length = len(data)
+            location = "the GetQueryResults rows"
+        description = self.description if self.description else []
+        names = [d[0] for d in description]
+        # pyarrow types every column with a name by its column_types entry, so columns
+        # with the same name are read under their positions and get their names back
+        # after reading.
+        has_duplicate_names = len(set(names)) != len(names)
+        if has_duplicate_names:
+            column_names = [str(i) for i in range(len(names))]
+            column_types = {
+                str(i): dtype
+                for i, d in enumerate(description)
+                if (dtype := self._converter.get_dtype(d[1], d[4], d[5])) is not None
+            }
+        else:
+            column_names = names
+            column_types = self.column_types
+        # Timestamp columns are read as text: pyarrow does not parse fractions finer
+        # than the unit, and on some platforms its strptime fallbacks accept such a
+        # value without its fraction.
+        timestamp_types = {
+            i: dtype
+            for i, (name, d) in enumerate(zip(column_names, description, strict=True))
+            if d[1] == "timestamp" and isinstance(dtype := column_types.get(name), pa.TimestampType)
+        }
+        binary_columns = {i for i, d in enumerate(description) if d[1] == "varbinary"}
+        if length and self.output_location and self.output_location.endswith(".txt"):
             read_opts = csv.ReadOptions(
                 skip_rows=0,
                 column_names=column_names,
@@ -299,8 +295,13 @@ class AthenaArrowResultSet(AthenaResultSet):
                 double_quote=False,
                 escape_char=False,
             )
-        elif length and self.output_location.endswith(".csv"):
+        elif length:
             read_opts = csv.ReadOptions(skip_rows=0, block_size=self._block_size, use_threads=True)
+            if has_duplicate_names:
+                read_opts.column_names = column_names
+                # Skips the header as a parsed row; skip_rows would split a quoted name
+                # that contains a newline.
+                read_opts.skip_rows_after_names = 1
             parse_opts = csv.ParseOptions(
                 delimiter=",",
                 quote_char='"',
@@ -315,29 +316,39 @@ class AthenaArrowResultSet(AthenaResultSet):
         else:
             return pa.Table.from_pydict({})
 
-        bucket, key = parse_output_location(self.output_location)
         try:
             table = csv.read_csv(
-                self._fs.open_input_stream(f"{bucket}/{key}"),
+                self._fs.open_input_stream(location) if data is None else pa.BufferReader(data),
                 read_options=read_opts,
                 parse_options=parse_opts,
                 convert_options=csv.ConvertOptions(
                     strings_can_be_null=bool(binary_columns),
                     quoted_strings_can_be_null=False,
                     timestamp_parsers=self.timestamp_parsers,
-                    column_types=self.column_types,
+                    column_types={
+                        **column_types,
+                        **{column_names[i]: pa.string() for i in timestamp_types},
+                    },
                 ),
             )
+            for index, type_ in timestamp_types.items():
+                table = table.set_column(
+                    index,
+                    pa.field(table.schema.field(index).name, type_),
+                    _to_timestamp(table.column(index), type_),
+                )
+            if has_duplicate_names:
+                table = table.rename_columns(names)
             if binary_columns:
                 for index, field in enumerate(table.schema):
-                    if field.name not in binary_columns and (
+                    if index not in binary_columns and (
                         pa.types.is_string(field.type) or pa.types.is_binary(field.type)
                     ):
                         # Preserve the existing CSV behavior for non-binary Athena columns.
                         table = table.set_column(index, field, table.column(index).fill_null(""))
             return table
         except Exception as e:
-            _logger.exception(f"Failed to read {bucket}/{key}.")
+            _logger.exception(f"Failed to read {location}.")
             raise OperationalError(*e.args) from e
 
     def _read_parquet(self) -> Table:
@@ -366,26 +377,12 @@ class AthenaArrowResultSet(AthenaResultSet):
             table = self._read_csv()
         return table
 
-    def _as_arrow_from_api(self, converter: Converter | None = None) -> Table:
-        """Build an Arrow Table from GetQueryResults API.
-
-        Used as a fallback when ``output_location`` is not available
-        (e.g. managed query result storage).
-
-        Args:
-            converter: Type converter for result values. Defaults to
-                ``DefaultTypeConverter`` if not specified.
-        """
-        import pyarrow as pa
-
-        rows = self._fetch_all_rows(converter)
-        if not rows:
-            return pa.Table.from_pydict({})
-        description = self.description if self.description else []
-        columns = [d[0] for d in description]
-        return pa.table(self._rows_to_columnar(rows, columns))
-
     def as_arrow(self) -> Table:
+        """Return the query results as an Apache Arrow Table.
+
+        Returns:
+            The Arrow Table that holds the query results.
+        """
         return self._table
 
     def as_polars(self) -> pl.DataFrame:
@@ -415,9 +412,10 @@ class AthenaArrowResultSet(AthenaResultSet):
                 "polars is required for as_polars(). Install it with: pip install polars"
             ) from e
 
+    @override
     def close(self) -> None:
         import pyarrow as pa
 
         super().close()
         self._table = pa.Table.from_pydict({})
-        self._batches = []
+        self._batches = iter([])

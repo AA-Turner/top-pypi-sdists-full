@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from importlib.metadata import EntryPoint
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = '9122dc0b4448fe498a84cff869b722ff74d5166e'
+_SKYPILOT_COMMIT_SHA = 'f616a2fe11056e5779920feab3b87e86f8c78975'
 
 
 def _get_git_commit():
@@ -45,7 +45,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20261009'
+__version__ = '1.0.0.dev20261010'
 __root_dir__ = directory_utils.get_sky_dir()
 
 

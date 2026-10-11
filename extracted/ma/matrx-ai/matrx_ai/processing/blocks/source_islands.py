@@ -1482,6 +1482,11 @@ class _Tokenizer:
             # block at the blank line (twin of content-ir tokenize; verify-RC-B4 r9).
             if is_html_block_tag_name(root):
                 return None
+            # A placeholder opening a line of prose (`<Status> (<count>) is how…`)
+            # that never closes is text: an UNCLOSED section opens only from a tag
+            # alone on its line (twin of content-ir tokenize, 2026-10-10).
+            if _NON_WS_RE.search(seg[indent + opening.length:]):
+                return None
             return _Raw("xml_container", p, self.n, False)
         if _is_unclosed_generic_xml_opening(seg):
             name = re.match(r"^\s*<([A-Za-z_][\w.:-]*)", seg)

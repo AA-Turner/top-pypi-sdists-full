@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -25,7 +25,7 @@ from beartype._data.os.dataosshell import (
 )
 from beartype._util.error.utilerrwarn import issue_warning
 from beartype._util.os.utilosshell import get_shell_var_value_or_none
-from beartype._util.text.utiltextjoin import join_delimited_disjunction
+from beartype._util.text.utiltextjoin import join_strings_commaed_or
 
 # ....................{ GETTERS                            }....................
 def get_is_color(is_color: BoolTristateUnpassable) -> BoolTristate:  # pyright: ignore
@@ -83,8 +83,8 @@ def get_is_color(is_color: BoolTristateUnpassable) -> BoolTristate:  # pyright: 
             # Human-readable string listing the names of all valid string values
             # of this environment variable, double-quoting each such name for
             # additional readability.
-            IS_COLOR_SHELL_VAR_VALUES = join_delimited_disjunction(
-                strs=SHELL_VAR_CONF_IS_COLOR_VALUE_TO_OBJ.keys(),
+            IS_COLOR_SHELL_VAR_VALUES = join_strings_commaed_or(
+                strings=SHELL_VAR_CONF_IS_COLOR_VALUE_TO_OBJ.keys(),
                 is_double_quoted=True,
             )
 
@@ -116,7 +116,7 @@ def get_is_color(is_color: BoolTristateUnpassable) -> BoolTristate:  # pyright: 
             # Warn the caller that @beartype non-fatally resolved this conflict
             # by ignoring this parameter in favour of this environment variable.
             issue_warning(
-                cls=BeartypeConfShellVarWarning,
+                warning_cls=BeartypeConfShellVarWarning,
                 message=(
                     f'Beartype configuration parameter "is_color" '
                     f'value {repr(is_color)} ignored in favour of '

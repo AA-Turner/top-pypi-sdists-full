@@ -89,7 +89,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -118,7 +118,7 @@ class UsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> User:
         """
-        Retrieves the authenticated user — the self view of the user object. Same shape as `GET /users/{id}`, with the self-only fields populated: `email` (email-read scope), `staff` (Whop staff only, staff-read scope), `balance` and `earnings_usd` (balance-read scope), the opt-in `balance_history`, and every linked social account.
+        Retrieves the authenticated user — the self view of the user object. Same shape as `GET /users/{id}`, with the self-only fields populated: `email` (email-read scope), `staff` (Whop staff only, staff-read scope), `balance`, `cards` and `earnings_usd` (balance-read scope), the opt-in `balance_history`, and every linked social account.
 
         Parameters
         ----------
@@ -159,7 +159,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -220,7 +220,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -296,7 +296,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -364,7 +364,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -411,7 +411,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -447,7 +447,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -547,7 +547,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -583,7 +583,7 @@ class AsyncUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> User:
         """
-        Retrieves the authenticated user — the self view of the user object. Same shape as `GET /users/{id}`, with the self-only fields populated: `email` (email-read scope), `staff` (Whop staff only, staff-read scope), `balance` and `earnings_usd` (balance-read scope), the opt-in `balance_history`, and every linked social account.
+        Retrieves the authenticated user — the self view of the user object. Same shape as `GET /users/{id}`, with the self-only fields populated: `email` (email-read scope), `staff` (Whop staff only, staff-read scope), `balance`, `cards` and `earnings_usd` (balance-read scope), the opt-in `balance_history`, and every linked social account.
 
         Parameters
         ----------
@@ -626,7 +626,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -695,7 +695,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -779,7 +779,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -855,7 +855,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -910,7 +910,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -954,7 +954,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-08",
+            "2026-10-09-2",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

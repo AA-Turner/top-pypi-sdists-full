@@ -131,7 +131,20 @@ _SCHEMA_LESS_CONFIGS_START: Final = re.compile(r"^[ \t]*configs\s*=")
 _FIRST_TOML_TABLE: Final = re.compile(r"(?m)^\s*\[")
 _TOML_TABLE_HEADER: Final = re.compile(r"(?m)^\s*\[\[?(?P<name>[A-Za-z0-9_.-]+)\]\]?\s*(?:#.*)?$")
 _OWNED_MANIFEST_TABLES: Final = frozenset(
-    {"artifacts", "baseline", "capabilities", "ci", "dest", "devops", "doctor", "exclude", "hooks", "text", "verify"}
+    {
+        "artifacts",
+        "baseline",
+        "capabilities",
+        "ci",
+        "dest",
+        "devops",
+        "doctor",
+        "exclude",
+        "hooks",
+        "knip",
+        "text",
+        "verify",
+    }
 )
 _OWNED_MANIFEST_ROOT_KEYS: Final = frozenset({"schema", "bundle", "profile", "rule_profile", *_OWNED_MANIFEST_TABLES})
 _GRADLE_PROJECT_FILES: Final = ("build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts")
@@ -875,16 +888,18 @@ def _with_reviewed_repository_rules(contents: bytes, requested: Sequence[str]) -
     header = source if section is None else source[: section.start()]
     entry = re.search(r"""(?m)^[ \t]*(?:enabled_rules|"enabled_rules"|'enabled_rules')[ \t]*=[ \t]*\[""", header)
     values = ", ".join(json.dumps(rule_id) for rule_id in missing)
-    if entry is None:
-        if configured.enabled_rules:
-            msg = "cannot safely locate the existing top-level enabled_rules assignment"
-            raise ValueError(msg)
-        updated = _match_newline_style(source, f"enabled_rules = [{values}]\n") + source
-    else:
+    if entry is not None:
         # Inserting at the start preserves existing array comments and all other
         # policy tables, including exact capped Makefile exceptions.
         separator = ", " if configured.enabled_rules else ""
+        if source[entry.end() :].startswith(("\n", "\r")):
+            separator = separator.rstrip()
         updated = f"{source[: entry.end()]}{values}{separator}{source[entry.end() :]}"
+    elif configured.enabled_rules:
+        msg = "cannot safely locate the existing top-level enabled_rules assignment"
+        raise ValueError(msg)
+    else:
+        updated = _match_newline_style(source, f"enabled_rules = [{values}]\n") + source
     result = updated.encode("utf-8")
     parse_manifest_bytes(result)
     return result
@@ -1150,6 +1165,9 @@ def _desired_manifest(root: Path, plan: Plan, current: manifest.Manifest | None)
         kotlin_dest=dest_of(root, plan.ecosystems.kotlin_root),
         profile=plan.profile,
         hook_manager=plan.hook_manager,
+        disabled_capabilities=tuple(
+            name for name in manifest.QUALITY_ANALYZERS if current is None or name not in current.enabled_capabilities
+        ),
         verify_paths=(".",) if current is None else current.verify_paths,
         excluded_paths=tuple(dict.fromkeys((*existing_exclusions, *detected_generated))),
         excluded_rules=() if current is None else current.excluded_rules,
@@ -1162,6 +1180,7 @@ def _desired_manifest(root: Path, plan: Plan, current: manifest.Manifest | None)
         prepared_targets=() if current is None else current.prepared_targets,
         compose_version=_new_compose_version(root) if current is None else current.compose_version,
         ci_runner=None if current is None else current.ci_runner,
+        knip_application=False if current is None else current.knip_application,
     )
 
 

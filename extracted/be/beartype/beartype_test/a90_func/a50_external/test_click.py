@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
-Project-wide Click integration tests.
+Third-party **Click** integration tests.
 
 This submodule functionally tests the :mod:`beartype` package against the
 third-party :mod:`click` package.

@@ -14,6 +14,10 @@
 //!   ([`fps`])
 
 #![forbid(unsafe_code)]
+#[cfg(test)]
+mod ecfp_config_boundary_contract_tests;
+#[cfg(test)]
+mod sparse_boundary_contract_tests;
 
 pub mod atom_pair;
 pub mod avalon;
@@ -102,7 +106,7 @@ pub use pharmacophore_fp::{
 };
 pub use rdkit_morgan_config::{
     RdkitMorganConfig, RdkitMorganFingerprint, RdkitMorganFpSize, RdkitMorganRadius,
-    rdkit_morgan_count_simulation, rdkit_morgan_fingerprint,
+    rdkit_morgan_bitvec, rdkit_morgan_count_simulation, rdkit_morgan_fingerprint,
 };
 pub use rdkit_morgan_ecfp4::{
     PreparedRdkitMorganEcfp4, RdkitMorganEcfp4, RdkitMorganError, prepare_rdkit_morgan_ecfp4,
@@ -154,3 +158,5 @@ pub(crate) fn rdkit_atomic_num(mol: &chematic_core::Molecule, idx: chematic_core
         u32::from(atom.element.atomic_number())
     }
 }
+#[cfg(test)]
+mod avalon_boundary_contract_tests;

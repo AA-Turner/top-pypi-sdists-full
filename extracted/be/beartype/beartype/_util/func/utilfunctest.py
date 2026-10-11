@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
-Project-wide **callable testers** (i.e., utility functions dynamically
+Project-wide **callable testers** (i.e., low-level callables dynamically
 validating and inspecting various properties of passed callables).
 
 This private submodule is *not* intended for importation by downstream callers.
@@ -12,103 +12,67 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar._roarexc import _BeartypeUtilCallableException
-from beartype.typing import (
-    Any,
-    Optional,
-)
 from beartype._cave._cavefast import (
     CallableCodeObjectType,
+    FunctionType,
     MethodBoundInstanceOrClassType,
     MethodDecoratorClassOrStaticTypes,
     MethodDecoratorClassType,
     MethodDecoratorPropertyType,
     MethodDecoratorStaticType,
 )
-from beartype._data.typing.datatypingport import TypeIs
+from beartype._data.func.datafunc import FUNC_NAME_LAMBDA
 from beartype._data.typing.datatyping import (
     Codeobjable,
     TypeException,
 )
-# from beartype._util.cache.utilcachecall import callable_cached
-from beartype._util.func.arg.utilfuncarglen import (
-    get_func_args_nonvariadic_len)
-from beartype._util.func.arg.utilfuncargtest import (
-    is_func_arg_variadic_positional,
-    is_func_arg_variadic_keyword,
-)
-from beartype._util.func.utilfunccodeobj import get_func_codeobj_or_none
+from beartype._data.typing.datatypingport import TypeIs
+from beartype._util.cache.func.utilcachefunc import callable_cached
+from beartype._util.func.utilfunccodeobj import get_func_codeobject_or_none
 from collections.abc import Callable
 from inspect import (
     CO_ASYNC_GENERATOR,
     CO_COROUTINE,
     CO_GENERATOR,
 )
-
-# ....................{ CONSTANTS                          }....................
-#FIXME: Shift into the "beartype._data.func.datafunc" submodule, please.
-FUNC_NAME_LAMBDA = '<lambda>'
-'''
-Default name of all **pure-Python lambda functions** (i.e., function declared
-as a ``lambda`` expression embedded in a larger statement rather than as a
-full-blown ``def`` statement).
-
-Python initializes the names of *all* lambda functions to this lambda-specific
-placeholder string on lambda definition.
-
-Caveats
--------
-**Usage of this placeholder to differentiate lambda from non-lambda callables
-invites false positives in unlikely edge cases.** Technically, malicious third
-parties may externally change the name of any lambda function *after* defining
-that function. Pragmatically, no one sane should ever do such a horrible thing.
-While predictably absurd, this is also the only efficient (and thus sane) means
-of differentiating lambda from non-lambda callables. Alternatives require
-AST-based parsing, which comes with its own substantial caveats, concerns,
-edge cases, and false positives. If you must pick your poison, pick this one.
-'''
+from typing import (
+    Any,
+    NoReturn,
+)
 
 # ....................{ RAISERS                            }....................
+#FIXME: Unit test us up, please.
 def die_unless_func_python(
     # Mandatory parameters.
-    func: Codeobjable,
+    func: FunctionType,
 
     # Optional parameters.
     exception_cls: TypeException = _BeartypeUtilCallableException,
     exception_prefix: str = '',
 ) -> None:
     '''
-    Raise an exception if the passed callable is **C-based** (i.e., implemented
-    in C as either a builtin bundled with the active Python interpreter *or*
-    third-party C extension function).
-
-    Equivalently, this validator raises an exception unless the passed function
-    is **pure-Python** (i.e., implemented in Python as either a function or
-    method).
+    Raise an exception unless the passed object is a **pure-Python callable**
+    directly defined in Python as either a function or method.
 
     Parameters
     ----------
-    func : Codeobjable
-        Callable to be inspected.
-    exception_cls : TypeException, optional
-        Type of exception to be raised. Defaults to
-        :class:`._BeartypeUtilCallableException`.
-    exception_prefix : str, optional
-        Human-readable label prefixing the representation of this object in the
-        exception message. Defaults to the empty string.
+    func : FunctionType
+        Pure-Python callable to be validated.
+    exception_cls : TypeException, default: _BeartypeUtilCallableException
+        Type of exception to be raised in the event of a fatal error. Defaults
+        to :class:`._BeartypeUtilCallableException`.
+    exception_prefix : str, default: ''
+        Human-readable substring prefixing raised exception messages. Defaults
+        to the empty string.
 
     Raises
     ------
     exception_cls
-         If the passed callable is C-based.
-
-    See Also
-    --------
-    :func:`.is_func_codeobjable`
-        Further details.
+         Unless the passed callable is pure-Python.
     '''
 
     # If that callable is *NOT* pure-Python, raise an exception.
-    if not is_func_codeobjable(func):
+    if not is_func_python(func):
         assert isinstance(exception_cls, type), (
             f'{repr(exception_cls)} not class.')
         assert issubclass(exception_cls, Exception), (
@@ -123,8 +87,104 @@ def die_unless_func_python(
 
         # Raise a human-readable exception.
         raise exception_cls(
-            f'{exception_prefix}{repr(func)} not pure-Python function.')
+            f'{exception_prefix}{repr(func)} not '
+            f'pure-Python function or method.'
+        )
     # Else, that callable is pure-Python.
+
+# ....................{ RAISERS ~ codeobjable              }....................
+#FIXME: Currently unused, but preserved for posterity. *shrug*
+# def die_unless_func_codeobjable(
+#     # Mandatory parameters.
+#     func: Codeobjable,
+#
+#     # Optional parameters.
+#     exception_cls: TypeException = _BeartypeUtilCallableException,
+#     exception_prefix: str = '',
+# ) -> None:
+#     '''
+#     Raise an exception unless the passed object is **code-objectable** (i.e.,
+#     either a pure-Python callable, low-level code object underlying a
+#     pure-Python callable, or related object encapsulating such a code object).
+#
+#     Parameters
+#     ----------
+#     func : Codeobjable
+#         Code-objectable to be validated.
+#     exception_cls : TypeException, default: _BeartypeUtilCallableException
+#         Type of exception to be raised in the event of a fatal error. Defaults
+#         to :class:`._BeartypeUtilCallableException`.
+#     exception_prefix : str, default: ''
+#         Human-readable substring prefixing raised exception messages. Defaults
+#         to the empty string.
+#
+#     Raises
+#     ------
+#     exception_cls
+#          Unless the passed callable is code-objectable.
+#
+#     See Also
+#     --------
+#     :func:`.is_func_codeobjable`
+#         Further details.
+#     '''
+#
+#     # If that callable is *NOT* code-objectable, raise an exception.
+#     if not is_func_codeobjable(func):
+#         die_as_func_not_codeobjable(
+#             func=func,
+#             exception_cls=exception_cls,
+#             exception_prefix=exception_prefix,
+#         )
+#     # Else, that callable is code-objectable.
+
+
+def die_as_func_not_codeobjable(
+    # Mandatory parameters.
+    func: Codeobjable,
+
+    # Optional parameters.
+    exception_cls: TypeException = _BeartypeUtilCallableException,
+    exception_prefix: str = '',
+) -> NoReturn:
+    '''
+    Unconditionally raise an exception describing why the passed object is *not*
+    **code-objectable** (i.e., either a pure-Python callable, low-level code
+    object underlying a pure-Python callable, or related object encapsulating
+    such a code object).
+
+    Parameters
+    ----------
+    func : Codeobjable
+        Code-objectable to be validated.
+    exception_cls : TypeException, default: _BeartypeUtilCallableException
+        Type of exception to be raised in the event of a fatal error. Defaults
+        to :class:`._BeartypeUtilCallableException`.
+    exception_prefix : str, default: ''
+        Human-readable substring prefixing raised exception messages. Defaults
+        to the empty string.
+
+    Raises
+    ------
+    exception_cls
+         Unless the passed callable is code-objectable.
+    '''
+    assert isinstance(exception_cls, type), (
+        f'{repr(exception_cls)} not class.')
+    assert issubclass(exception_cls, Exception), (
+        f'{repr(exception_cls)} not exception subclass.')
+    assert isinstance(exception_prefix, str), (
+        f'{repr(exception_prefix)} not string.')
+
+    # Raise a human-readable exception.
+    raise exception_cls(
+        f'{exception_prefix}{repr(func)} code object not found, '
+        f'as neither:\n'
+        f'* Pure-Python callable.\n'
+        f'* C-based code object underlying a pure-Python callable.\n'
+        f'* Related C-based object encapsulating such a code object '
+        f'(e.g., call stack frame, generator object).'
+    )
 
 # ....................{ RAISERS ~ descriptors              }....................
 #FIXME: Unit test us up, please.
@@ -371,10 +431,10 @@ def die_unless_func_staticmethod(
     ----------
     func : Any
         Object to be inspected.
-    exception_cls : TypeException, optional
+    exception_cls : TypeException, default: _BeartypeUtilCallableException
         Type of exception to be raised. Defaults to
-        :static:`_BeartypeUtilCallableException`.
-    exception_prefix : str, optional
+        :exc:`_BeartypeUtilCallableException`.
+    exception_prefix : str, default: ''
         Human-readable label prefixing the representation of this object in the
         exception message. Defaults to the empty string.
 
@@ -405,6 +465,56 @@ def die_unless_func_staticmethod(
         )
     # Else, this object is a static method descriptor.
 
+# ....................{ RAISERS ~ nested                   }....................
+#FIXME: Unit test us up, please. *sigh*
+def die_unless_func_closure(
+    # Mandatory parameters.
+    func: Callable,
+
+    # Optional parameters.
+    exception_cls: TypeException = _BeartypeUtilCallableException,
+    exception_prefix: str = '',
+) -> None:
+    '''
+    Raise an exception unless the passed object is a **closure** (i.e.,
+    pure-Python nested callable accessing one or more local variables defined by
+    the parent pure-Python callable also declaring that callable).
+
+    Parameters
+    ----------
+    func : Callable
+        Object to be inspected.
+    exception_cls : TypeException, default: _BeartypeUtilCallableException
+        Type of exception to be raised. Defaults to
+        :exc:`_BeartypeUtilCallableException`.
+    exception_prefix : str, default: ''
+        Human-readable label prefixing the representation of this object in the
+        exception message. Defaults to the empty string.
+
+    Raises
+    ------
+    exception_cls
+         If the passed object is *not* a closure.
+
+    See Also
+    --------
+    :func:`.is_func_closure`
+        Further details.
+    '''
+
+    # If this object is *NOT* a closure, raise an exception.
+    if not is_func_closure(func):
+        assert isinstance(exception_cls, type), (
+            f'{repr(exception_cls)} not class.')
+        assert issubclass(exception_cls, Exception), (
+            f'{repr(exception_cls)} not exception subclass.')
+        assert isinstance(exception_prefix, str), (
+            f'{repr(exception_prefix)} not string.')
+
+        # Raise a human-readable exception.
+        raise exception_cls(f'{exception_prefix}{repr(func)} not closure.')
+    # Else, this object is a closure.
+
 # ....................{ TESTERS                            }....................
 def is_func_codeobjable(func: object) -> TypeIs[Callable]:
     '''
@@ -430,10 +540,10 @@ def is_func_codeobjable(func: object) -> TypeIs[Callable]:
 
     # Return true only if a pure-Python code object underlies this object.
     # C-based callables are associated with *NO* code objects.
-    return get_func_codeobj_or_none(func) is not None
+    return get_func_codeobject_or_none(func) is not None
 
 
-def is_func_lambda(func: Any) -> TypeIs[Callable]:
+def is_func_lambda(func: object) -> TypeIs[Callable]:
     '''
     :data:`True` only if the passed object is a **pure-Python lambda function**
     (i.e., function declared as a ``lambda`` expression embedded in a larger
@@ -467,9 +577,30 @@ def is_func_lambda(func: Any) -> TypeIs[Callable]:
         func.__name__ == FUNC_NAME_LAMBDA
     )
 
-# ....................{ TESTERS ~ descriptor               }....................
+
 #FIXME: Unit test us up, please.
-def is_func_boundmethod(func: Any) -> TypeIs[MethodBoundInstanceOrClassType]:
+def is_func_python(func: object) -> TypeIs[FunctionType]:
+    '''
+    :data:`True` only if the passed object is a **pure-Python callable**
+    directly defined in Python as either a function or method.
+
+    Parameters
+    ----------
+    func : object
+        Object to be inspected.
+
+    Returns
+    -------
+    bool
+        :data:`True` only if this object is a pure-Python callable.
+    '''
+
+    # Singular decomposition across this Singularity: "Engage!"
+    return isinstance(func, FunctionType)
+
+# ....................{ TESTERS ~ descriptor : builtin     }....................
+#FIXME: Unit test us up, please.
+def is_func_boundmethod(func: object) -> TypeIs[MethodBoundInstanceOrClassType]:
     '''
     :data:`True` only if the passed object is a **C-based bound instance method
     descriptor** (i.e., callable implicitly instantiated and assigned on the
@@ -503,7 +634,7 @@ def is_func_boundmethod(func: Any) -> TypeIs[MethodBoundInstanceOrClassType]:
     # Only the penitent one-liner shall pass.
     return isinstance(func, MethodBoundInstanceOrClassType)
 
-# ....................{ TESTERS ~ descriptor : uncallable  }....................
+
 #FIXME: Unit test us up, please.
 #FIXME: Currently unused but preserved for posterity. We'll want this someday!
 # def is_func_class_property_or_static_method(func: Any)  -> TypeIs[
@@ -665,7 +796,7 @@ def is_func_async(func: object) -> TypeIs[Callable]:
     # Note this tester intentionally:
     # * Inlines the tests performed by the is_func_coro() and
     #   is_func_async_generator() testers for efficiency.
-    # * Calls the get_func_codeobj_or_none() with "is_unwrap" disabled
+    # * Calls the get_func_codeobject_or_none() with "is_unwrap" disabled
     #   rather than enabled. Why? Because the asynchronicity of this possibly
     #   higher-level wrapper has *NO* relation to that of the possibly
     #   lower-level wrappee wrapped by this wrapper. Notably, it is both
@@ -677,7 +808,7 @@ def is_func_async(func: object) -> TypeIs[Callable]:
     #     top-level "conftest.py" pytest plugin does exactly this -- enabling
     #     asynchronous tests to be safely called by pytest's currently
     #     synchronous framework.
-    func_codeobj = get_func_codeobj_or_none(func)
+    func_codeobj = get_func_codeobject_or_none(func)
 
     # If this object is *NOT* a pure-Python callable, immediately return false.
     if func_codeobj is None:
@@ -722,7 +853,7 @@ def is_func_coro(func: object) -> TypeIs[Callable]:
     '''
 
     # Code object underlying this pure-Python callable if any *OR* "None".
-    func_codeobj = get_func_codeobj_or_none(func)
+    func_codeobj = get_func_codeobject_or_none(func)
 
     # Return true only if...
     return (
@@ -760,7 +891,7 @@ def is_func_async_generator(func: object) -> TypeIs[Callable]:
     '''
 
     # Code object underlying this pure-Python callable if any *OR* "None".
-    func_codeobj = get_func_codeobj_or_none(func)
+    func_codeobj = get_func_codeobject_or_none(func)
 
     # Return true only if...
     return (
@@ -821,7 +952,7 @@ def is_func_sync_generator(func: object) -> TypeIs[Callable]:
     # this object is *NOT* a synchronous generator object.
 
     # Code object underlying this pure-Python callable if any *OR* "None".
-    func_codeobj = get_func_codeobj_or_none(func)
+    func_codeobj = get_func_codeobject_or_none(func)
 
     # Return true only if...
     return (
@@ -833,6 +964,100 @@ def is_func_sync_generator(func: object) -> TypeIs[Callable]:
     )
 
 # ....................{ TESTERS : nested                   }....................
+def is_func_closure(func: Any) -> TypeIs[Callable]:
+    '''
+    :data:`True` only if the passed callable is a **closure** (i.e., pure-Python
+    nested callable accessing one or more local variables defined by the parent
+    pure-Python callable also declaring that callable).
+
+    Note that all closures are necessarily nested callables but that the
+    converse is *not* necessarily the case. In particular, a nested callable
+    accessing *no* variables declared by the parent callable also declaring that
+    callable is *not* a closure; it's simply a nested callable.
+
+    Parameters
+    ----------
+    func : Callable
+        Callable to be inspected.
+
+    Returns
+    -------
+    bool
+        :data:`True` only if this callable is a closure.
+    '''
+
+    # Return true only if that callable defines the closure-specific
+    # "__closure__" dunder variable whose value is either:
+    # * If that callable is a closure, a tuple of zero or more cell variables.
+    # * If that callable is a pure-Python non-closure, "None".
+    # * If that callable is C-based, undefined.
+    return getattr(func, '__closure__', None) is not None
+
+
+@callable_cached
+def is_func_local(func: Callable) -> bool:
+    '''
+    :data:`True` only if the passed callable is **local** (i.e., a pure-Python
+    callable locally defined in the body of another pure-Python callable and
+    thus accessible *only* as a local attribute of the latter).
+
+    Equivalently, this tester returns :data:`True` only if that callable is
+    either:
+
+    * A closure, which by definition is nested inside another callable.
+    * A **nested non-closure function** (i.e., a closure-like function that does
+      *not* reference local attributes of the parent callable enclosing that
+      function and is thus technically *not* a closure): e.g.,
+
+      .. code-block:: python
+
+         def muh_parent_func():           # <-- parent function
+             def muh_nested_func(): pass  # <-- nested non-closure function
+             return muh_nested_func
+
+    * A **callable-isolated method** (i.e., a method of a type nested inside
+      another callable): e.g.,
+
+      .. code-block:: python
+
+         def muh_parent_func():                     # <-- parent function
+             class MuhType(object):                 # <-- nested type
+                 def muh_nested_method(self): pass  # <-- nested method
+             return MuhType.muh_nested_method
+
+    This tester is memoized for efficiency.
+
+    Parameters
+    ----------
+    func : Callable
+        Callable to be inspected.
+
+    Returns
+    -------
+    bool
+        :data:`True` only if this callable is locally defined.
+    '''
+
+    # Return true only if either...
+    return (
+        # That callable is a closure (in which case that closure is necessarily
+        # nested inside another callable) *OR*...
+        #
+        # Note that this tester intentionally tests for whether that callable is
+        # a closure first, as doing so efficiently reduces to a constant-time
+        # attribute test -- whereas the following test for non-closure nested
+        # callables inefficiently requires a linear-time string search.
+        is_func_closure(func) or
+        # The fully-qualified name of that callable contains one or more
+        # ".<locals>." substrings, each signifying a local callable scope. Since
+        # *ALL* callables (i.e., both pure-Python and C-based) define a
+        # non-empty "__qualname__" dunder variable containing at least their
+        # unqualified names, this simplistic test is guaranteed to be safe.
+        '.<locals>.' in func.__qualname__
+    )
+
+
+@callable_cached
 def is_func_nested(func: Callable) -> bool:
     '''
     :data:`True` only if the passed callable is **nested** (i.e., a pure-Python
@@ -849,9 +1074,11 @@ def is_func_nested(func: Callable) -> bool:
 
       .. code-block:: python
 
-         def muh_parent_callable():           # <-- parent callable
-             def muh_nested_callable(): pass  # <-- nested non-closure function
-             return muh_nested_callable
+         def muh_parent_func():           # <-- parent function
+             def muh_nested_func(): pass  # <-- nested non-closure function
+             return muh_nested_func
+
+    This tester is memoized for efficiency.
 
     Parameters
     ----------
@@ -863,6 +1090,7 @@ def is_func_nested(func: Callable) -> bool:
     bool
         :data:`True` only if this callable is nested.
     '''
+    assert callable(func), f'{repr(func)} uncallable.'
 
     # Return true only if either...
     return (
@@ -912,211 +1140,4 @@ def is_func_nested(func: Callable) -> bool:
         #       >>> MuhClass.muh_method.__qualname__
         #       'MuhClass.muh_method'
         '.' in func.__qualname__
-    )
-
-# ....................{ TESTERS ~ nested : closure         }....................
-def is_func_closure(func: Any) -> TypeIs[Callable]:
-    '''
-    :data:`True` only if the passed callable is a **closure** (i.e., nested
-    callable accessing one or more variables declared by the parent callable
-    also declaring that callable).
-
-    Note that all closures are necessarily nested callables but that the
-    converse is *not* necessarily the case. In particular, a nested callable
-    accessing *no* variables declared by the parent callable also declaring that
-    callable is *not* a closure; it's simply a nested callable.
-
-    Parameters
-    ----------
-    func : Callable
-        Callable to be inspected.
-
-    Returns
-    -------
-    bool
-        :data:`True` only if this callable is a closure.
-    '''
-
-    # Return true only if that callable defines the closure-specific
-    # "__closure__" dunder variable whose value is either:
-    # * If that callable is a closure, a tuple of zero or more cell variables.
-    # * If that callable is a pure-Python non-closure, "None".
-    # * If that callable is C-based, undefined.
-    return getattr(func, '__closure__', None) is not None
-
-# ....................{ TESTERS ~ wrapper                  }....................
-def is_func_wrapper(func: Any) -> TypeIs[Callable]:
-    '''
-    :data:`True` only if the passed object is a **callable wrapper** (i.e.,
-    callable decorated by the standard :func:`functools.wraps` decorator for
-    wrapping a pure-Python callable with additional functionality defined by a
-    higher-level decorator).
-
-    Note that this tester returns :data:`True` for both pure-Python and C-based
-    callable wrappers. As an example of the latter, the standard
-    :func:`functools.lru_cache` decorator creates and returns low-level C-based
-    callable wrappers of the private type :class:`functools._lru_cache_wrapper`
-    wrapping pure-Python callables.
-
-    Parameters
-    ----------
-    func : object
-        Object to be inspected.
-
-    Returns
-    -------
-    bool
-        :data:`True` only if this object is a callable wrapper.
-    '''
-
-    # Return true only if this object defines a dunder attribute uniquely
-    # specific to the @functools.wraps decorator.
-    #
-    # Technically, *ANY* callable (including non-wrappers *NOT* created by the
-    # @functools.wraps decorator) could trivially define this attribute; ergo,
-    # this invites the possibility of false positives. Pragmatically, doing so
-    # would violate ad-hoc standards and real-world practice across the
-    # open-source ecosystem; ergo, this effectively excludes false positives.
-    return hasattr(func, '__wrapped__')
-
-
-def is_func_wrapper_isomorphic(
-    # Mandatory parameters.
-    func: Any,
-
-    # Optional parameters.
-    wrapper: Optional[Callable] = None,
-) -> TypeIs[Callable]:
-    '''
-    :data:`True` only if the passed object is an **isomorphic wrapper** (i.e.,
-    callable decorated by the standard :func:`functools.wraps` decorator for
-    wrapping a pure-Python callable with additional functionality defined by a
-    higher-level decorator such that that wrapper isomorphically preserves both
-    the number and types of all passed parameters and returns by accepting only
-    a variadic positional argument and a variadic keyword argument).
-
-    This tester enables callers to detect when a user-defined callable has been
-    decorated by an isomorphic decorator, which constitutes *most* real-world
-    decorators of interest.
-
-    This tester is currently *not* memoized for efficiency, despite performing a
-    relatively non-trivial (albeit technically :math:`O(1)`) operation. Why?
-    Because this tester should typically be called at most once by the parent
-    :func:`beartype._util.func.utilfuncwrap.unwrap_func_all_isomorphic`
-    function, which is currently:
-
-    * The *only* other function calling this tester.
-    * Itself currently unmemoized.
-
-    Caveats
-    -------
-    **This tester is merely a heuristic** -- albeit a reasonably robust
-    heuristic likely to succeed in almost all real-world use cases. Nonetheless,
-    this tester *could* return false positives and negatives in edge cases.
-
-    Parameters
-    ----------
-    func : object
-        Object to be inspected.
-    wrapper : Optional[Callable]
-        Wrapper callable to be unwrapped in the event that the callable to be
-        inspected for isomorphism differs from the callable to be unwrapped.
-        Typically, these two callables are the same. Edge cases in which these
-        two callables differ include:
-
-        * When ``wrapper`` is a **pseudo-callable** (i.e., otherwise uncallable
-          object whose type renders that object callable by defining the
-          ``__call__()`` dunder method) *and* ``func`` is that ``__call__()``
-          dunder method. If that pseudo-callable wraps a lower-level callable,
-          then that pseudo-callable (rather than ``__call__()`` dunder method)
-          defines the ``__wrapped__`` instance variable providing that callable.
-
-        Defaults to :data:`None`, in which case this parameter *actually*
-        defaults to ``func``.
-
-    Returns
-    -------
-    bool
-        :data:`True` only if this object is an isomorphic decorator wrapper.
-    '''
-
-    # If the caller failed to explicitly pass a callable to be unwrapped,
-    # default the callable to be unwrapped to the passed callable.
-    if wrapper is None:
-        wrapper = func
-    # Else, the caller explicitly passed a callable to be unwrapped. In this
-    # case, preserve that callable as is.
-
-    # If that callable is *NOT* a wrapper, immediately return false.
-    if not is_func_wrapper(wrapper):
-        return False
-    # Else, that callable is a wrapper.
-
-    # Number of non-variadic arguments permitted for this wrapper if isomorphic,
-    # defaulting to 0.
-    func_args_nonvariadic_len = 0
-
-    # If this object is a C-based bound method descriptor...
-    if is_func_boundmethod(func):
-        # Avoid circular import dependencies.
-        from beartype._util.func.utilfuncwrap import (
-            unwrap_func_boundmethod_once)
-        # print(f'Detecting bound method f{repr(func)} isomorphism...')
-
-        # Unwrap this descriptor to the pure-Python callable encapsulated by
-        # this descriptor.
-        func = unwrap_func_boundmethod_once(func)
-
-        # Permit this pure-Python callable to accept exactly one non-variadic
-        # argument, typically named "self" whose value is the object to which
-        # this bound method descriptor was bound at object instantiation time.
-        func_args_nonvariadic_len = 1
-    # Else, this object is *NOT* a C-based bound method descriptor.
-
-    # Code object underlying that callable as is (rather than possibly unwrapped
-    # to another code object entirely) if that callable is pure-Python *OR*
-    # "None" otherwise (i.e., if that callable is C-based).
-    func_codeobj = get_func_codeobj_or_none(func)
-
-    # If that callable is C-based...
-    if not func_codeobj:  # pragma: no cover
-        print(f'Detecting C-based callable {repr(func)} isomorphism...')
-        # Return true only if that C-based callable is the __call__() dunder
-        # method of a pseudo-callable parent object. Although this tester
-        # *CANNOT* positively decide whether that object is isomorphic or not,
-        # *ALMOST* all __call__() dunder methods are C-based. Technically, this
-        # *COULD* constitute a false positive in various edge cases.
-        # Pragmatically, the alternatives are all worse. Blindly rejecting *ALL*
-        # C-based __call__() dunder methods as non-isomorphic would effectively
-        # prevent @beartype from decorating numerous pseudo-callable objects of
-        # interest, including:
-        # * Pseudo-callables dynamically generated by the third-party
-        #   "@jax.jit" decorator: e.g.,
-        #       from beartype import beartype
-        #       from jax import jit
-        #
-        #       # The @jax.jit decorator creates and returns a C-based
-        #       # pseudo-callable object defining an isomorphic __call__()
-        #       # dunder method. If this tester erroneously rejected that method
-        #       # as non-isomorphic, @beartype would be unable to decorate these
-        #       # pseudo-callable objects! Clearly, that would be bad.
-        #       @beartype
-        #       @jit
-        #       def muh_func(muh_arg: int) -> int:
-        #           return muh_arg
-        return func.__name__ == '__call__'
-    # Else, that callable is pure-Python.
-
-    # Return true only if...
-    return (
-        # That callable accepts no non-variadic arguments *AND*...
-        (
-            get_func_args_nonvariadic_len(func_codeobj) ==
-            func_args_nonvariadic_len
-        ) and
-        # That callable accepts variadic positional and/or keyword arguments.
-        (
-            is_func_arg_variadic_positional(func_codeobj) or
-            is_func_arg_variadic_keyword(func_codeobj)
-        )
     )

@@ -93,6 +93,23 @@ async def preload_skill_catalog() -> None:
         vcprint(f"[skills] catalog preload skipped (non-fatal): {exc!r}", color="yellow")
 
 
+#: ``skill.definition.config`` key: the tool names that CARRY a skill. A run whose
+#: tool set includes any of them gets the skill in its ``included`` tier (full
+#: body) unless the agent forbids it. Declared in SKILL.md frontmatter
+#: (``attach_with_tools: [...]``) and carried here by the catalog ingest.
+ATTACH_WITH_TOOLS_KEY = "attach_with_tools"
+
+
+def attach_with_tools_of(config: Any) -> set[str]:
+    """The tool names a skill row's ``config`` declares as its carriers (empty when none)."""
+    if not isinstance(config, dict):
+        return set()
+    raw = config.get(ATTACH_WITH_TOOLS_KEY)
+    if not isinstance(raw, list):
+        return set()
+    return {str(t).strip() for t in raw if isinstance(t, str) and t.strip()}
+
+
 class SkillProvider(Protocol):
     """Read API every skill consumer goes through."""
 
@@ -606,3 +623,24 @@ class DbSkillProvider:
                 description = str(meta.get("description") or "")
             out.append((key, description, count))
         return out
+
+    async def tool_carried_skills(self, tool_names: set[str] | list[str]) -> list[SkillBody]:
+        """Active skills whose ``config.attach_with_tools`` names any of ``tool_names``.
+
+        The platform attaches these, not the person: whoever runs a carrier tool
+        gets its rules, so readability is not asked here (an internal skill still
+        reaches a member's run). Served from the process-cached active catalog —
+        no per-turn query. Sorted by ``skill_id`` so the preamble is byte-stable.
+        """
+        names = {str(n) for n in tool_names if isinstance(n, str) and n}
+        if not names:
+            return []
+        rows = await self._get_all_active_rows()
+        carried = [r for r in rows if attach_with_tools_of(getattr(r, "config", None)) & names]
+        if not carried:
+            return []
+        await self._ensure_categories()
+        carried.sort(key=lambda r: str(r.skill_id))
+        return [
+            _row_to_body(r, self._category_path(getattr(r, "category_id", None))) for r in carried
+        ]

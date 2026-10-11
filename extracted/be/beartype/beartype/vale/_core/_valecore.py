@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -23,12 +23,13 @@ from beartype.vale._util._valeutiltyping import (
     BeartypeValidatorTester,
     BeartypeValidatorRepresenter,
 )
+from beartype._data.cls.dataclsslot import BeartypeSlottedABCMeta
 from beartype._data.typing.datatyping import LexicalScope
 from beartype._util.func.arg.utilfuncargtest import is_func_argless
 from beartype._util.text.utiltextrepr import represent_object
 
 # ....................{ CLASSES                            }....................
-class BeartypeValidator(object):
+class BeartypeValidator(metaclass=BeartypeSlottedABCMeta):
     '''
     **Beartype validator** (i.e., object encapsulating a caller-defined
     validation callable returning ``True`` when an arbitrary object passed to
@@ -236,8 +237,8 @@ class BeartypeValidator(object):
     def is_valid(self) -> BeartypeValidatorTester:
         '''
         **Validator callable** (i.e., caller-defined callable accepting a
-        single arbitrary object and returning either ``True`` if that object
-        satisfies an arbitrary constraint *or* ``False`` otherwise).
+        single arbitrary object and returning either :data:`True` if that object
+        satisfies an arbitrary constraint *or* :data:`False` otherwise).
         '''
 
         return self._is_valid

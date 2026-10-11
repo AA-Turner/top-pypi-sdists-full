@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: executing
-Version: 2.2.1
+Version: 2.3.0
 Summary: Get the currently executing AST node of a frame, and other information
-Home-page: https://github.com/alexmojaki/executing
-Author: Alex Hall
-Author-email: alex.mojaki@gmail.com
+Author-email: Alex Hall <alex.mojaki@gmail.com>
 License: MIT
+Project-URL: Homepage, https://github.com/alexmojaki/executing
+Project-URL: Repository, https://github.com/alexmojaki/executing
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -16,17 +16,20 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Provides-Extra: tests
+Requires-Dist: pysource-minimize>=0.10.1; extra == "tests"
 Requires-Dist: asttokens>=2.1.0; extra == "tests"
 Requires-Dist: ipython; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
-Requires-Dist: coverage; extra == "tests"
+Requires-Dist: coverage[toml]; extra == "tests"
 Requires-Dist: coverage-enable-subprocess; extra == "tests"
 Requires-Dist: littleutils; extra == "tests"
 Requires-Dist: rich; python_version >= "3.11" and extra == "tests"
+Dynamic: license-file
 
 # executing
 

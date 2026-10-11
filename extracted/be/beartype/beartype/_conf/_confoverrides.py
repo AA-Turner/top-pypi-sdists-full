@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -11,14 +11,14 @@ parameter accepted by the :class:`beartype.BeartypeConf.__init__` method).
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar import BeartypeConfParamException
-from beartype.typing import Optional
 from beartype._data.typing.datatyping import (
     DictStrToAny,
     Pep484TowerComplex,
     Pep484TowerFloat,
 )
-from beartype._util.cache.utilcachecall import callable_cached
+from beartype._util.cache.func.utilcachefunc import callable_cached
 from beartype._util.kind.maplike.utilmapfrozen import FrozenDict
+from typing import Optional
 
 # ....................{ GETTERS                            }....................
 def sanify_conf_kwargs_is_pep484_tower(conf_kwargs: DictStrToAny) -> None:
@@ -36,7 +36,7 @@ def sanify_conf_kwargs_is_pep484_tower(conf_kwargs: DictStrToAny) -> None:
 
     # ....................{ LOCALS                         }....................
     # PEP 484-compliant implicit tower type hint overrides (i.e., "FrozenDict"
-    # instance lossily convering integers to floating-point numbers *AND* both
+    # instance lossily converting integers to floating-point numbers *AND* both
     # integers and floating-point numbers to complex numbers).
     HINT_OVERRIDES_PEP484_TOWER = _hint_overrides_pep484_tower()
 

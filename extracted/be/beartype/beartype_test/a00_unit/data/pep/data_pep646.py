@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
-Project-wide :pep:`646` **data submodule.**
+Test-wide :pep:`646` **data submodule.**
 
 This submodule exercises :pep:`646` support for statement-level tuple and type
 variable unpacking (e.g., ``*TypeVarTuple('Ts')``, ``*Tuple[int, str]``)
@@ -21,30 +21,63 @@ Python 3.11.0.** If this is *not* the case, importing this submodule raises an
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype.typing import TypeVarTuple
-from beartype._util.hint.pep.proposal.pep646692 import (
+from beartype._util.hint.pep.proposal.pep646.pep646692unpack import (
     make_hint_pep646_tuple_unpacked_prefix,
+    make_hint_pep646_tuple_unpacked_subbed,
     make_hint_pep646_typevartuple_unpacked_prefix,
     make_hint_pep646_typevartuple_unpacked_subbed,
 )
+from typing import TypeVarTuple
 
-# ....................{ HINTS                              }....................
-TUPLE_UNPACKED_EMPTY = make_hint_pep646_tuple_unpacked_prefix(())
+# ....................{ HINTS ~ tuple : fixed              }....................
+tuple_fixed_empty_unpacked_prefix = make_hint_pep646_tuple_unpacked_prefix(())
 '''
-:pep:`646`-compliant unpacked child tuple hint subscripted by the empty tuple
-(signifying zero child hints).
+:pep:`646`-compliant prefix-flavoured unpacked fixed-length tuple hint
+subscripted by the empty tuple (signifying zero child hints).
 '''
 
-# ....................{ TYPEARGS                           }....................
+
+tuple_fixed_str_bytes_unpacked_prefix = make_hint_pep646_tuple_unpacked_prefix(
+    (str, bytes))
+'''
+:pep:`646`-compliant prefix-flavoured unpacked fixed-length tuple hint
+subscripted by the builtin :class:`str` and :class:`bytes` types in that order.
+'''
+
+
+tuple_fixed_str_bytes_unpacked_subbed = make_hint_pep646_tuple_unpacked_subbed(
+    (str, bytes))
+'''
+:pep:`646`-compliant subscription-flavoured unpacked fixed-length tuple hint
+subscripted by the builtin :class:`str` and :class:`bytes` types in that order.
+'''
+
+# ....................{ HINTS ~ tuple : fixed              }....................
+tuple_variadic_strs_unpacked_prefix = make_hint_pep646_tuple_unpacked_prefix(
+    (str, ...))
+'''
+:pep:`646`-compliant prefix-flavoured unpacked variable-length tuple hint
+subscripted by the builtin :class:`str` type followed by an ellipsis.
+'''
+
+
+tuple_variadic_strs_unpacked_subbed = make_hint_pep646_tuple_unpacked_subbed(
+    (str, ...))
+'''
+:pep:`646`-compliant subscription-flavoured unpacked variable-length tuple hint
+subscripted by the builtin :class:`str` type followed by an ellipsis.
+'''
+
+# ....................{ TYPEARGS ~ packed                  }....................
 Ts = TypeVarTuple('Ts')
 '''
-Arbitrary :pep:`646`-compliant type variable tuple.
+Arbitrary :pep:`646`-compliant packed type variable tuple.
 '''
 
 
 Us = TypeVarTuple('Us')
 '''
-Arbitrary :pep:`646`-compliant type variable tuple.
+Arbitrary :pep:`646`-compliant packed type variable tuple.
 '''
 
 # ....................{ TYPEARGS ~ unpacked                }....................

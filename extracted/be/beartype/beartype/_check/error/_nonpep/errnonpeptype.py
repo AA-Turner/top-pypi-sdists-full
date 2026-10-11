@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,49 +13,43 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype.roar import (
-    BeartypeCallHintForwardRefException,
-    BeartypePlugInstancecheckStrException,
-)
+from beartype.roar import BeartypePlugInstancecheckStrException
 from beartype.roar._roarexc import _BeartypeCallHintPepRaiseException
 from beartype.typing import Optional
-from beartype._check.error.errcause import ViolationCause
+from beartype._check.cls.hint.tree.hinttreeerror import HintTreeError
 from beartype._data.typing.datatyping import TupleTypes
-from beartype._data.hint.sign.datahintsigns import HintSignForwardRef
 from beartype._util.cls.pep.clspep3119 import die_unless_type_isinstanceable
 from beartype._util.func.arg.utilfuncargtest import (
     die_unless_func_args_len_flexible_equal)
 from beartype._util.hint.nonpep.utilnonpeptest import (
     die_unless_hint_nonpep_tuple)
-from beartype._util.hint.pep.proposal.pep484585.pep484585ref import (
-    import_pep484585_ref_type)
 from beartype._util.hint.pep.utilpepget import (
     get_hint_pep_origin_type_isinstanceable_or_none)
-from beartype._util.text.utiltextjoin import join_delimited_disjunction_types
+from beartype._util.text.utiltextjoin import join_types_commaed_or
 from beartype._util.text.utiltextlabel import label_type
 from beartype._util.text.utiltextrepr import represent_pith
 
 # ....................{ GETTERS ~ instance : type          }....................
-def find_cause_nonpep(cause: ViolationCause) -> ViolationCause:
+def find_cause_nonpep(cause: HintTreeError) -> HintTreeError:
     '''
     Output cause describing whether the pith of the passed input cause either
     does or does not satisfy the PEP-noncompliant type hint of that cause.
 
     Parameters
     ----------
-    cause : ViolationCause
+    cause : HintTreeError
         Input cause providing this data.
 
     Returns
     -------
-    ViolationCause
+    HintTreeError
         Output cause type-checking this data.
     '''
-    assert isinstance(cause, ViolationCause), f'{repr(cause)} not cause.'
+    assert isinstance(cause, HintTreeError), f'{repr(cause)} not cause.'
 
     # If this PEP-noncompliant hint is a tuple union, defer to the finder
     # specific to tuple unions.
-    if isinstance(cause.hint, tuple):
+    if isinstance(cause.hint_curr_sanified, tuple):
         cause_finder = find_cause_instance_types_tuple
     # Else, this PEP-noncompliant hint is *NOT* a tuple union. In this case,
     # assume this hint to be an isinstanceable class by deferring to the finder
@@ -69,19 +63,19 @@ def find_cause_nonpep(cause: ViolationCause) -> ViolationCause:
     return cause_finder(cause)
 
 # ....................{ GETTERS ~ instance : type          }....................
-def find_cause_instance_type(cause: ViolationCause) -> ViolationCause:
+def find_cause_instance_type(cause: HintTreeError) -> HintTreeError:
     '''
     Output cause describing whether the pith of the passed input cause either is
     or is not an instance of the isinstanceable class of that cause.
 
     Parameters
     ----------
-    cause : ViolationCause
+    cause : HintTreeError
         Input cause providing this data.
 
     Returns
     -------
-    ViolationCause
+    HintTreeError
         Output cause type-checking this data.
 
     Raises
@@ -104,13 +98,13 @@ def find_cause_instance_type(cause: ViolationCause) -> ViolationCause:
 
           * An object that is *not* a string.
           * The empty string.
-    ViolationCause
+    HintTreeError
         Output cause type-checking this data.
     '''
-    assert isinstance(cause, ViolationCause), f'{repr(cause)} not cause.'
+    assert isinstance(cause, HintTreeError), f'{repr(cause)} not cause.'
 
     # Isinstanceable class against which this pith was type-checked.
-    hint: type = cause.hint  # type: ignore[assignment]
+    hint: type = cause.hint_curr_sanified  # type: ignore[assignment]
 
     # Pith type-checked against this isinstanceable class.
     pith = cause.pith
@@ -147,7 +141,7 @@ def find_cause_instance_type(cause: ViolationCause) -> ViolationCause:
         # If the metaclass of this class defines this dunder method...
         if get_hint_violation_str:
             # Human-readable substring prefixing *ALL* exceptions raised below.
-            EXCEPTION_PREFIX = (
+            exception_prefix = (
                 f'{cause.exception_prefix}{repr(hint)} '
                 f'beartype-specific dunder method __instancecheck_str__() '
             )
@@ -161,7 +155,7 @@ def find_cause_instance_type(cause: ViolationCause) -> ViolationCause:
                 func=get_hint_violation_str,
                 func_args_len_flexible=2,
                 exception_cls=BeartypePlugInstancecheckStrException,
-                exception_prefix=EXCEPTION_PREFIX,
+                exception_prefix=exception_prefix,
             )
             # Else, this method satisfies the expected API.
 
@@ -172,13 +166,13 @@ def find_cause_instance_type(cause: ViolationCause) -> ViolationCause:
             # If this string is *NOT* actually a string, raise an exception.
             if not isinstance(cause_str_or_none, str):
                 raise BeartypePlugInstancecheckStrException(
-                    f'{EXCEPTION_PREFIX}return {cause_str_or_none} not string.')
+                    f'{exception_prefix}return {cause_str_or_none} not string.')
             # Else, this string is actually a string.
             #
             # If this string is empty, raise an exception.
             elif not cause_str_or_none:
                 raise BeartypePlugInstancecheckStrException(
-                    f'{EXCEPTION_PREFIX}return string empty.')
+                    f'{exception_prefix}return string empty.')
             # Else, this string is non-empty.
         # Else, the metaclass of this class does *NOT* define this method. In
         # this case, fallback to a standard substring describing this violation.
@@ -197,45 +191,7 @@ def find_cause_instance_type(cause: ViolationCause) -> ViolationCause:
     return cause_return
 
 
-def find_cause_instance_type_forwardref(
-    cause: ViolationCause) -> ViolationCause:
-    '''
-    Output cause describing whether the pith of the passed input cause either is
-    or is not an instance of the class referred to by the **forward reference
-    type hint** (i.e., string whose value is the either absolute *or* relative
-    name of a user-defined type which has yet to be defined) of that cause.
-
-    Parameters
-    ----------
-    cause : ViolationCause
-        Input cause providing this data.
-
-    Returns
-    -------
-    ViolationCause
-        Output cause type-checking this data.
-    '''
-    assert isinstance(cause, ViolationCause), f'{repr(cause)} not cause.'
-    assert cause.hint_sign is HintSignForwardRef, (
-        f'{cause.hint_sign} not forward reference.')
-
-    # Class referred to by this absolute or relative forward reference.
-    hint_ref_type = import_pep484585_ref_type(
-        hint=cause.hint,  # type: ignore[arg-type]
-        cls_stack=cause.cls_stack,
-        func=cause.func,
-        exception_cls=BeartypeCallHintForwardRefException,
-        exception_prefix=cause.exception_prefix,
-    )
-
-    # Output cause to be returned.
-    cause_return = cause.permute_cause_hint_child_insane(hint_ref_type)
-
-    # Defer to the function handling isinstanceable classes. Neato!
-    return find_cause_instance_type(cause_return)
-
-
-def find_cause_type_instance_origin(cause: ViolationCause) -> ViolationCause:
+def find_cause_type_instance_origin(cause: HintTreeError) -> HintTreeError:
     '''
     Output cause describing whether the pith of the passed input cause either is
     or is not an instance of the isinstanceable type underlying the
@@ -246,24 +202,24 @@ def find_cause_type_instance_origin(cause: ViolationCause) -> ViolationCause:
 
     Parameters
     ----------
-    cause : ViolationCause
+    cause : HintTreeError
         Input cause providing this data.
 
     Returns
     -------
-    ViolationCause
+    HintTreeError
         Output cause type-checking this data.
     '''
-    assert isinstance(cause, ViolationCause), f'{repr(cause)} not cause.'
+    assert isinstance(cause, HintTreeError), f'{repr(cause)} not cause.'
 
     # Isinstanceable origin type originating this hint if any *OR* "None".
-    hint_type = get_hint_pep_origin_type_isinstanceable_or_none(cause.hint)
+    hint_type = get_hint_pep_origin_type_isinstanceable_or_none(cause.hint_curr_sanified)
 
     # If this hint does *NOT* originate from such a type, raise an exception.
     if hint_type is None:
         raise _BeartypeCallHintPepRaiseException(
             f'{cause.exception_prefix}type hint '
-            f'{repr(cause.hint)} not originated from '
+            f'{repr(cause.hint_curr_sanified)} not originated from '
             f'isinstanceable origin type.'
         )
     # Else, this hint originates from such a type.
@@ -275,7 +231,7 @@ def find_cause_type_instance_origin(cause: ViolationCause) -> ViolationCause:
     return find_cause_instance_type(cause_return)
 
 # ....................{ GETTERS ~ instance : types         }....................
-def find_cause_instance_types_tuple(cause: ViolationCause) -> ViolationCause:
+def find_cause_instance_types_tuple(cause: HintTreeError) -> HintTreeError:
     '''
     Output cause describing whether the pith of the passed input cause either is
     or is not an instance of one or more isinstanceable types in the tuple of
@@ -283,18 +239,18 @@ def find_cause_instance_types_tuple(cause: ViolationCause) -> ViolationCause:
 
     Parameters
     ----------
-    cause : ViolationCause
+    cause : HintTreeError
         Input cause providing this data.
 
     Returns
     -------
-    ViolationCause
+    HintTreeError
         Output cause type-checking this data.
     '''
-    assert isinstance(cause, ViolationCause), f'{repr(cause)} not cause.'
+    assert isinstance(cause, HintTreeError), f'{repr(cause)} not cause.'
 
     # This tuple union.
-    hint: TupleTypes = cause.hint  # type: ignore[assignment]
+    hint: TupleTypes = cause.hint_curr_sanified  # type: ignore[assignment]
 
     # If this hint is *NOT* a tuple union, raise an exception.
     die_unless_hint_nonpep_tuple(
@@ -312,7 +268,7 @@ def find_cause_instance_types_tuple(cause: ViolationCause) -> ViolationCause:
     # this case, this pith violates this tuple union.
     else:
         # Machine-readable representation of this tuple union.
-        hint_repr = join_delimited_disjunction_types(
+        hint_repr = join_types_commaed_or(
             types=hint, is_color=cause.conf.is_color)
 
         # Output cause to be returned, permuted from this input cause such that

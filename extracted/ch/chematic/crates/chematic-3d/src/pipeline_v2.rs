@@ -1890,7 +1890,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Experimental 3D long-run gate; run with cargo test -p chematic-3d --lib -- --ignored"]
+    // Runs in CI: the bounded stereo regression completes within seconds.
     fn expand_implicit_h_through_pipeline_fixes_testosterone_with_correct_geometry() {
         // Issue #291's original residual. Seed picked from the Phase 0.5 measurement
         // harness's own run (`issue291_expanded_geometry_feasibility.rs`) as one of
@@ -1933,7 +1933,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Experimental 3D long-run gate; run with cargo test -p chematic-3d --lib -- --ignored"]
+    // Runs in CI: the bounded stereo regression completes within seconds.
     fn stereo_safe_matches_the_hand_built_configuration_above() {
         // issue #383: `stereo_safe` must be exactly the same as manually setting the
         // 3 flags -- same testosterone happy-path, same seed, same expectations as
@@ -1982,7 +1982,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Experimental 3D long-run gate; run with cargo test -p chematic-3d --lib -- --ignored"]
+    // Runs in CI: the bounded stereo regression completes within seconds.
     fn expand_implicit_h_through_pipeline_with_verify_only_never_reports_success_with_violated_final_stereo()
      {
         // `VerifyOnly` never repairs, so this test doesn't assert success at any
@@ -2148,6 +2148,11 @@ mod tests {
             .ring_torsion_evidence
             .expect("evidence must be attached");
         assert!(evidence.potentials.iter().any(|p| !p.applied_to_geometry));
+        assert!(evidence.n_scored_only() > 0);
+        assert_eq!(
+            evidence.n_applied() + evidence.n_scored_only(),
+            evidence.potentials.len()
+        );
     }
 
     #[test]
@@ -2158,6 +2163,11 @@ mod tests {
         config.ring_torsion_policy = RingTorsionApplicationPolicy::DiagnosticOnly;
         let result = embed_pipeline_v2(&mol, &config).expect("DiagnosticOnly must succeed");
         assert!(result.ring_torsion_evidence.diagnostic_only);
+        assert!(result.ring_torsion_evidence.n_scored_only() > 0);
+        assert_eq!(
+            result.ring_torsion_evidence.n_applied() + result.ring_torsion_evidence.n_scored_only(),
+            result.ring_torsion_evidence.potentials.len()
+        );
         assert!(
             result
                 .ring_torsion_evidence
@@ -2185,6 +2195,11 @@ mod tests {
         config.embed.use_exp_torsions = true;
         config.ring_torsion_policy = RingTorsionApplicationPolicy::FailClosed;
         let result = embed_pipeline_v2(&mol, &config).expect("acyclic torsions must not gate");
+        assert_eq!(result.ring_torsion_evidence.n_scored_only(), 0);
+        assert_eq!(
+            result.ring_torsion_evidence.n_applied(),
+            result.ring_torsion_evidence.potentials.len()
+        );
         for p in &result.ring_torsion_evidence.potentials {
             assert!(p.applied_to_geometry, "acyclic potential must be applied");
         }
@@ -2785,7 +2800,7 @@ mod tests {
     /// and NOT gated -- documented here explicitly, not silently accepted; (2) under
     /// `RepairAndVerify`, the new post-minimization step genuinely recovers it.
     #[test]
-    #[ignore = "Experimental 3D long-run gate; run with cargo test -p chematic-3d --lib -- --ignored"]
+    // Runs in CI: the bounded stereo regression completes within seconds.
     fn chembl_tier_b_0082_ez_bond_survives_bci_fix_under_repair_and_verify_not_under_ignore() {
         let mol = parse("COc1cc2nc(N3CCN(C(=O)/C=C/c4ccc(N=C=S)cc4)CC3)nc(N)c2cc1OC").unwrap();
 

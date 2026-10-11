@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -13,12 +13,9 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar._roarexc import _BeartypeUtilCallableException
-from beartype.typing import (
-    Optional,
-    Tuple,
-)
 from beartype._data.typing.datatyping import (
     Codeobjable,
+    TupleStrs,
     TypeException,
 )
 from beartype._util.func.arg.utilfuncargiter import (
@@ -28,7 +25,8 @@ from beartype._util.func.arg.utilfuncargiter import (
     iter_func_args,
 )
 from beartype._util.func.arg.utilfuncarglen import get_func_args_len
-from beartype._util.func.utilfunccodeobj import get_func_codeobj
+from beartype._util.func.utilfunccodeobj import get_func_codeobject
+from typing import Optional
 
 # ....................{ GETTERS ~ meta                     }....................
 #FIXME: [SPEED] Consider refactoring this O(n) iteration into an O(1) lookup.
@@ -65,7 +63,7 @@ def get_func_arg_meta_variadic_positional_or_none(
     Parameters
     ----------
     All remaining parameters are passed as is to the lower-level
-    :func:`beartype._util.func.utilfunccodeobj.get_func_codeobj` getter.
+    :func:`beartype._util.func.utilfunccodeobj.get_func_codeobject` getter.
 
     Returns
     -------
@@ -132,7 +130,7 @@ def get_func_arg_meta_variadic_keyword_or_none(
     Parameters
     ----------
     All remaining parameters are passed as is to the lower-level
-    :func:`beartype._util.func.utilfunccodeobj.get_func_codeobj` getter.
+    :func:`beartype._util.func.utilfunccodeobj.get_func_codeobject` getter.
 
     Returns
     -------
@@ -228,7 +226,7 @@ def get_func_arg_names(
     is_unwrap: bool = True,
     exception_cls: TypeException = _BeartypeUtilCallableException,
     exception_prefix: str = '',
-) -> Tuple[str, ...]:
+) -> TupleStrs:
     '''
     Tuple of the names of all parameters accepted by the passed pure-Python
     callable.
@@ -300,18 +298,18 @@ def get_func_arg_names(
     is_unwrap: bool, optional
         :data:`True` only if this getter implicitly calls the
         :func:`beartype._util.func.utilfuncwrap.unwrap_func_all` function.
-        Defaults to :data:`True` for safety. See :func:`.get_func_codeobj` for
+        Defaults to :data:`True` for safety. See :func:`.get_func_codeobject` for
         further commentary.
-    exception_cls : type, optional
+    exception_cls : type, default: _BeartypeUtilCallableException
         Type of exception to be raised in the event of a fatal error. Defaults
         to :class:`._BeartypeUtilCallableException`.
-    exception_prefix : str, optional
+    exception_prefix : str, default: ''
         Human-readable label prefixing the message of any exception raised in
         the event of a fatal error. Defaults to the empty string.
 
     Returns
     -------
-    Tuple[str, ...]
+    tuple[str, ...]
         Tuple of the names of all parameters accepted by that callable.
 
     Raises
@@ -327,12 +325,13 @@ def get_func_arg_names(
 
     # Code object underlying the passed callable if any *OR* "None" otherwise
     # (i.e., that callable has *NO* code object).
-    func_codeobj = get_func_codeobj(
+    func_codeobj = get_func_codeobject(
         func=func,
         is_unwrap=is_unwrap,
         exception_cls=exception_cls,
         exception_prefix=exception_prefix,
     )
+    assert func_codeobj is not None
 
     # Total number of parameters accepted by that callable.
     func_args_len = get_func_args_len(

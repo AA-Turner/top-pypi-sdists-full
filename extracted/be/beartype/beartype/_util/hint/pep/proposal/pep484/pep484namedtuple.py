@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -20,6 +20,7 @@ from beartype._util.cls.utilclstest import is_type_subclass_proper
 #FIXME: Unit test us up, please.
 #FIXME: Actually call this tester in the get_hint_pep_sign_or_none() getter to
 #map "typing.NamedTuple" subclasses to the "HintSignNamedTuple" sign, please.
+#But *ONLY* after we actually implement it properly below.
 #FIXME: Actually type-check type hints identified by the "HintSignNamedTuple"
 #sign. Specifically, for each "typing.NamedTuple" subclass identified by that
 #sign, type-check that subclass as follows:

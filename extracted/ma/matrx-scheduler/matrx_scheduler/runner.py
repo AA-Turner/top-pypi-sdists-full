@@ -35,7 +35,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from . import queries
-from ._ext import get_ext, report_operational_failure
+from ._ext import get_ext, get_optional_ext, report_operational_failure
 from .backlog import BacklogRearmOutcome, BacklogRearmRequest, finalize_and_rearm_backlog
 from .continuation import VERDICT_LOST, interrupt_run, run_ceiling_seconds
 from .lease import RunLease, bind_run_lease, heartbeat_until_stopped, unbind_run_lease
@@ -128,15 +128,29 @@ async def run_claimed_task(hydrated: HydratedTask, run: SchRun) -> None:
         log.error("run %s missing claim_token; refusing to drive", run.id)
         return
 
+    # AUTOMATION GUARDRAILS — fire time. Missing limits, a reached daily / weekly / monthly
+    # cap (or a breach the host decides) refuse the run with a VISIBLE row (status
+    # ``stopped``, ``result_metadata.guardrail``) — never a silent skip; the host has
+    # already paused the automation and raised its alarm.
+    guard = await _guardrail_preflight(task, run)
+    refusal = guard.get("refusal") if guard else None
+    if refusal:
+        await _finalize_guardrail_refusal(run, task, trigger, claim_token, refusal)
+        return
+    ceiling = run_ceiling_seconds(
+        run.metadata,
+        agent_task.max_runtime_seconds if agent_task is not None else 600,
+    )
+    guard_runtime = (guard or {}).get("max_runtime_seconds")
+    if guard_runtime:
+        ceiling = min(ceiling, int(guard_runtime))
+
     lease = RunLease(
         run_id=run.id,
         task_id=task.id,
         claim_token=claim_token,
         lease_seconds=int(get_ext("lease_seconds")),
-        max_runtime_seconds=run_ceiling_seconds(
-            run.metadata,
-            agent_task.max_runtime_seconds if agent_task is not None else 600,
-        ),
+        max_runtime_seconds=ceiling,
         claimed_at=run.claimed_at,
         renew=queries.renew_run_lease,
         record_progress=queries.record_run_progress,
@@ -164,6 +178,70 @@ async def run_claimed_task(hydrated: HydratedTask, run: SchRun) -> None:
         raise
     finally:
         unbind_run_lease(token)
+
+
+async def _guardrail_preflight(task: Any, run: SchRun) -> dict[str, Any] | None:
+    """The host's fire-time guardrail verdict. Never raises: a broken check admits, loudly."""
+    preflight = get_optional_ext("guardrail_preflight")
+    if preflight is None:
+        return None
+    try:
+        return await preflight(task, run)
+    except Exception:  # noqa: BLE001
+        log.exception("run %s: guardrail preflight raised; run admitted", run.id)
+        return None
+
+
+def _guardrail_stop(run_id: str) -> dict[str, Any] | None:
+    """The guardrail stop the host recorded for this run mid-flight, if any."""
+    lookup = get_optional_ext("guardrail_run_stop")
+    if lookup is None:
+        return None
+    try:
+        return lookup(run_id)
+    except Exception:  # noqa: BLE001
+        log.exception("run %s: guardrail stop lookup raised", run_id)
+        return None
+
+
+async def _guardrail_breach(kind: str, task_id: str, run_id: str | None, detail: dict[str, Any]) -> None:
+    sink = get_optional_ext("guardrail_breach")
+    if sink is None:
+        log.error("[scheduler-guardrail] %s on task %s run %s — no guardrail_breach sink", kind, task_id, run_id)
+        return
+    try:
+        await sink(kind, task_id, run_id, detail)
+    except Exception:  # noqa: BLE001 — the alarm never breaks the run
+        log.exception("[scheduler-guardrail] breach sink failed for task %s", task_id)
+
+
+async def _finalize_guardrail_refusal(
+    run: SchRun, task: Any, trigger: Any, claim_token: str, refusal: dict[str, Any]
+) -> None:
+    await queries.finalize_run(
+        run.id,
+        claim_token,
+        status="stopped",
+        error_message=str(refusal.get("message") or refusal.get("kind") or "guardrail")[:2000],
+        result_metadata={"guardrail": refusal, RUN_UNITS_DONE_KEY: 0},
+    )
+    if trigger is not None and trigger.type == "one-shot":
+        await _settle_one_shot(task, trigger, run)
+
+
+async def _finalize_handler_error(run: SchRun, claim_token: str, exc: BaseException) -> None:
+    """A handler raised. A guardrail stop lands ``stopped`` with the limit; anything else ``failed``."""
+    stop = _guardrail_stop(run.id)
+    if stop:
+        await queries.finalize_run(
+            run.id,
+            claim_token,
+            status="stopped",
+            error_message=str(stop.get("message") or exc)[:2000],
+            result_metadata={"guardrail": stop},
+        )
+        return
+    await queries.finalize_run(run.id, claim_token, status="failed", error_message=str(exc)[:2000])
 
 
 async def _finalize_stopped_run(
@@ -292,14 +370,23 @@ async def _run_claimed_task_inner(
                 value,
             )
         result_metadata[key] = value
+    status = result.model_copy(update={"units_done": units_done}).terminal_status()
+    error_message = result.error_message
+    stop = _guardrail_stop(run.id)
+    if stop:
+        # A GUARDRAIL STOPPED THIS RUN mid-way (max turns / max cost / a cap). The handler
+        # returned with whatever it produced — kept — and the row says which limit.
+        status = "stopped"
+        result_metadata["guardrail"] = stop
+        error_message = str(stop.get("message") or error_message or "")[:2000]
     persisted = await queries.finalize_run(
         run.id,
         claim_token,
         # A lease-reported unit is work: a run that says "skipped" but landed
         # units mid-flight is a success (terminal_status reads units_done).
-        status=result.model_copy(update={"units_done": units_done}).terminal_status(),
+        status=status,
         result_summary=result.result_summary,
-        error_message=result.error_message,
+        error_message=error_message,
         output_ref=output_ref,
         result_metadata=result_metadata,
     )
@@ -477,6 +564,17 @@ async def _dispatch_under_lease(
             lease.max_runtime_seconds,
             lease.units_done,
         )
+        await _guardrail_breach(
+            "guardrail.max_runtime",
+            str(task.id),
+            str(run.id),
+            {
+                "limit": lease.max_runtime_seconds,
+                "observed": lease.max_runtime_seconds,
+                "message": f"Stopped: limit — the run reached its {lease.max_runtime_seconds}s time limit.",
+                "paused": False,
+            },
+        )
     else:
         reason = f"lease lost mid-run: {lease.lost_reason or 'another worker owns this run'}"
         log.error(
@@ -617,15 +715,16 @@ async def _run_agent_kind(
         variables=variables_for_run(agent_task.variables, run.metadata),
         persistent_conversation_id=agent_task.persistent_conversation_id,
         max_runtime_seconds=agent_task.max_runtime_seconds,
+        run_metadata=dict(run.metadata or {}),
+        task_metadata=dict(getattr(task, "metadata", None) or {}),
+        task_created_by=getattr(task, "created_by", None),
     )
 
     try:
         return await agent_runner(agent_input)
     except Exception as exc:
         log.exception("agent_runner raised for run %s", run.id)
-        await queries.finalize_run(
-            run.id, claim_token, status="failed", error_message=str(exc)[:2000]
-        )
+        await _finalize_handler_error(run, claim_token, exc)
         return None
 
 
@@ -694,7 +793,5 @@ async def _run_tool_kind(
         return await tool_runner(tool_input)
     except Exception as exc:
         log.exception("tool_runner raised for run %s", run.id)
-        await queries.finalize_run(
-            run.id, claim_token, status="failed", error_message=str(exc)[:2000]
-        )
+        await _finalize_handler_error(run, claim_token, exc)
         return None

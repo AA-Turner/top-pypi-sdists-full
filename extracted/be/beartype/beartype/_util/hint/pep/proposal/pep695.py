@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -73,12 +73,12 @@ This private submodule is *not* intended for importation by downstream callers.
 #        # generalize to other scopes, for obscure reasons delineated here:
 #        #     https://stackoverflow.com/a/8028772/2809027
 #        if globals() is locals():
-#            globals()[__hint_pep695_forwardref_beartype__.__name_beartype__] =
+#            globals()[__hint_pep695_forwardref_beartype__.__hint_name_beartype__] =
 #                __hint_pep695_forwardref_beartype__)
 #        # Else, the current scope is *NOT* module scope. In this case,
 #        # fallback to an inefficient exec()-based solution.
 #        else:
-#            exec(f'{__hint_pep695_forwardref_beartype__.__name_beartype__} = __hint_pep695_forwardref_beartype__')
+#            exec(f'{__hint_pep695_forwardref_beartype__.__hint_name_beartype__} = __hint_pep695_forwardref_beartype__')
 #
 #    #FIXME: Technically, this *ONLY* needs to be done if the
 #    #iter_hint_pep695_unsubbed_forwardrefs() iterator returned something. *shrug*
@@ -100,34 +100,125 @@ This private submodule is *not* intended for importation by downstream callers.
 #
 #We're currently unclear whether anyone actually cares about this. Ergo, we
 #adopted the quick-and-dirty approach of raising exceptions instead. Yikes!
+#FIXME: Actually, most of the above no longer seems to apply. Yes, it's true
+#that PEP 695 advises weird broken stuff like:
+#    type AnimalOrVegetable = Animal | "Vegetable"
+#
+#But... who cares, really? Right? Nobody. Instead, let's:
+#* Carefully refactor the above commentary into working unit tests validating
+#  that @beartype now behaves as expected. For example, both
+#  beartype.door.is_bearable() and die_if_unbearable() transparently support PEP
+#  695-compliant type aliases inside nested callables. I honestly can't even
+#  recall exactly when beartype began doing that – but all that matters is that
+#  beartype does do that, contrary to these comments:
+#      # Should be refactored into some sort of unit test, if we haven't already.
+#      # Who even knows anymore? *sigh*
+#      from beartype.door import die_if_unbearable
+#      def muh_func() -> None:
+#          type local_alias = str | None
+#          die_if_unbearable('lolwut', local_alias)  # <-- this works. *GOOD*
+#          die_if_unbearable(b'lolwut', local_alias) # <-- this works, too. *GOOD*
+#
+#      # This now raises the expected traceback:
+#      #   Traceback (most recent call last):
+#      #     File "/home/leycec/tmp/mopy.py", line 8, in <module>
+#      #       muh_func()
+#      #       ~~~~~~~~^^
+#      #     File "/home/leycec/tmp/mopy.py", line 7, in muh_func
+#      #       die_if_unbearable(b'lolwut', local_alias)
+#      #       ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+#      #     File "/home/leycec/py/beartype/beartype/door/_func/doorfunc.py", line 127, in die_if_unbearable
+#      #       func_raiser(obj)  # pyright: ignore
+#      #       ~~~~~~~~~~~^^^^^
+#      #     File "<@beartype(__beartype_checker_0) at 0x560c74a60cb0>", line 25, in __beartype_checker_0
+#      #   beartype.roar.BeartypeDoorHintViolation: Die_if_unbearable() value
+#      #   b'lolwut' violates type hint muh_func.<locals>.local_alias, as bytes
+#      #   b'lolwut' not <class "builtins.NoneType"> or str.
+#      muh_func()
+#* Remove the above comment entirely after doing so. *sigh*
 
 # ....................{ IMPORTS                            }....................
-from beartype.meta import URL_ISSUES
 from beartype.roar import BeartypeDecorHintPep695Exception
-from beartype.typing import (
-    Iterable,
-    Optional,
-)
 from beartype._cave._cavefast import (
     # HintGenericSubscriptedType,
-    HintPep695TypeAlias,
+    HintPep695TypeAliasTypes,
     Pep695ParameterizableTypes,
 )
-from beartype._check.forward.reference.fwdrefmake import (
-    make_forwardref_indexable_subtype)
-from beartype._check.forward.reference.fwdrefmeta import BeartypeForwardRefMeta
-from beartype._data.typing.datatypingport import Hint
+from beartype._cave._cavemap import NoneTypeOr
+from beartype._check.forward.reference._cls.fwdrefmeta import (
+    BeartypeForwardRefMetaclass)
+from beartype._check.forward.reference.fwdrefproxy import (
+    proxy_hint_pep484_ref_str_subbable)
 from beartype._data.typing.datatyping import (
     LexicalScope,
     Pep695Parameterizable,
     TuplePep484612646TypeArgsPacked,
+    TypeException,
+    TypeStack,
+)
+from beartype._data.typing.datatypingport import (
+    Hint,
+    TypeIs,
+)
+from beartype._metaverse import URL_ISSUES
+from beartype._util.cache.pool.utilcachepoolinstance import (
+    acquire_instance,
+    release_instance,
 )
 from beartype._util.error.utilerrget import get_name_error_attr_name
+from beartype._util.func.utilfunctest import is_func_python
 from beartype._util.module.utilmodget import get_module_imported_or_none
-from beartype._util.py.utilpyversion import IS_PYTHON_AT_LEAST_3_12
+from beartype._util.py.utilpyversion import (
+    IS_PYTHON_AT_LEAST_3_12,
+    IS_PYTHON_AT_MOST_3_11,
+)
 from beartype._data.kind.datakindiota import SENTINEL
+from collections.abc import (
+    Callable,
+    Iterable,
+)
+from typing import Optional
 
 # ....................{ TESTERS                            }....................
+#FIXME: Unit test us up, please. *sigh*
+def is_object_pep695_parameterizable(
+    obj: object) -> TypeIs[Pep695Parameterizable]:
+    '''
+    :data:`True` only if the passed object is :pep:`695`-compliant
+    **parameterizable** (i.e., object that may be parametrized by
+    :pep:`695`-compliant lists of one or more implicitly instantiated
+    :pep:`484`-compliant type variables, pep:`612`-compliant parameter
+    specifications, or :pep:`646`-compliant type variable tuples).
+
+    This tester returns :data:`True` if and only if the active Python
+    interpreter targets Python >= 3.12 (and thus supports :pep:` 695`) *and*
+    this object is either:
+
+    * A pure-Python class.
+    * A pure-Python function.
+    * A :pep:`695`-compliant type alias.
+
+    Parameters
+    ----------
+    obj : object
+        Object to be tested.
+
+    Returns
+    -------
+    bool
+        :data:`True` only if this object is :pep:`695`-parameterizable.
+    '''
+
+    # Return true only if...
+    return (
+        # The active Python interpreter targets Python >= 3.12 and thus supports
+        # PEP 695 *AND*...
+        IS_PYTHON_AT_LEAST_3_12 and
+        # This object is a PEP 695-compliant parametrizable.
+        isinstance(obj, Pep695ParameterizableTypes)
+    )
+
+
 def is_hint_pep695_subbed(hint: Hint) -> bool:
     '''
     :data:`True` only if the passed type hint is a :pep:`695`-compliant
@@ -198,13 +289,13 @@ def is_hint_pep695_subbed(hint: Hint) -> bool:
 
     # Return true only if this origin is a PEP 695-compliant unsubscripted type
     # alias. Yes. It really is this non-trivial, folks. *sigh*
-    return isinstance(hint_origin, HintPep695TypeAlias)
+    return isinstance(hint_origin, HintPep695TypeAliasTypes)
 
 # ....................{ GETTERS                            }....................
 #FIXME: Unit test us up, please.
 def get_hint_pep695_unsubbed_alias(
     # Mandatory parameters.
-    hint: HintPep695TypeAlias,
+    hint: HintPep695TypeAliasTypes,
 
     # Optional parameters.
     exception_prefix: str = '',
@@ -225,7 +316,7 @@ def get_hint_pep695_unsubbed_alias(
 
     Parameters
     ----------
-    hint : HintPep695TypeAlias
+    hint : HintPep695TypeAliasTypes
         Unsubscripted type alias to be inspected.
     exception_prefix : str, default: ''
         Human-readable substring prefixing raised exception messages. Defaults
@@ -245,15 +336,43 @@ def get_hint_pep695_unsubbed_alias(
         references** to undefined types.
     '''
 
+    # ....................{ VALIDATE                       }....................
     # If this hint is *NOT* a PEP 695-compliant unsubscripted type alias, raise
     # an exception.
-    if not isinstance(hint, HintPep695TypeAlias):
+    if not isinstance(hint, HintPep695TypeAliasTypes):
         raise BeartypeDecorHintPep695Exception(
             f'{exception_prefix}type hint {repr(hint)} '
             f'not PEP 695 unsubscripted type alias.'
         )
     # Else, this hint is a PEP 695-compliant unsubscripted type alias.
 
+    # ....................{ LOCALS                         }....................
+    # Set of the object identifiers of all nested type aliases already unwrapped
+    # below, guarding circular chains of type aliases (e.g., "type A = B" paired
+    # with "type B = A") against infinite iteration.
+    #
+    # Note that:
+    # * Circular type aliases are distinct from recursive type aliases (e.g.,
+    #   "type Tree = int | list[Tree]"). Whereas recursive type aliases convey
+    #   meaningful semantics and are thus valid, circular type aliases convey
+    #   *NO* meaningful semantics and are thus invalid.
+    # * Despite the suggestive nomenclature "object identifiers", object
+    #   identifiers are *NOT* unique in the worst case and thus do *NOT* offer a
+    #   safe means of identifying objects. In CPython, there exists a one-to-one
+    #   mapping between object identifiers and C-based memory addresses. Since
+    #   memory addresses are frequently recycled in long-running processes,
+    #   object identifiers are also frequently recycled in long-running CPython
+    #   processes. Object identifiers thus invite subtle issues with caching,
+    #   globals, mutable state, and thread concurrency. Interestingly, however,
+    #   this is probably one of the few cases where object identifiers are safe.
+    #   This object ID lookup is confined to this single callable introspecting
+    #   a single strong reference to an immutable object (namely, the passed
+    #   type hint), which only holds additional strong references to other
+    #   immutable objects (namely, the child hints transitively subscripting
+    #   that hint). Ergo, garbage collection is *NOT* a concern here.
+    hint_ids_seen = {id(hint),}
+
+    # ....................{ UNWRAP                         }....................
     # While the Universe continues infinitely expanding...
     while True:
         # Reduce this type alias to the type hint aliased by this alias, which
@@ -264,11 +383,32 @@ def get_hint_pep695_unsubbed_alias(
         hint = hint.__value__  # type: ignore[attr-defined]
 
         # If this type hint is *NOT* a nested type alias, break this iteration.
-        if not isinstance(hint, HintPep695TypeAlias):
+        if not isinstance(hint, HintPep695TypeAliasTypes):
             break
-        # Else, this type hint is a nested type alias. In this case, continue
-        # iteratively unwrapping this nested type alias.
+        # Else, this type hint is a nested type alias.
+        #
+        # If this nested type alias has already been unwrapped by this call,
+        # this chain of type aliases is circular. Since such a chain never
+        # reduces to a hint conveying any semantics, raise an exception rather
+        # than silently iterating until the heat death of the Universe.
+        elif id(hint) in hint_ids_seen:
+            raise BeartypeDecorHintPep695Exception(
+                f'{exception_prefix}PEP 695 type alias {repr(hint)} '
+                f'circularly aliases itself, thus conveying no semantics. '
+                f'Consider breaking this circularity: e.g.,\n'
+                f'    # Instead of a circular chain of type aliases...\n'
+                f'    type A = B\n'
+                f'    type B = A\n'
+                f'\n'
+                f'    # Prefer a recursive type alias with a base case.\n'
+                f'    type A = int | list[A]'
+            )
+        # Else, this nested type alias has yet to be unwrapped by this call.
 
+        # Note that this nested type alias has now been unwrapped.
+        hint_ids_seen.add(id(hint))
+
+    # ....................{ RETURN                         }....................
     # Return this unaliased type alias.
     return hint
 
@@ -280,6 +420,7 @@ def add_func_scope_hint_pep695_parameterizable_typeparams(
     parameterizable: Pep695Parameterizable,
 
     # Optional parameters.
+    exception_cls: TypeException = BeartypeDecorHintPep695Exception,
     exception_prefix: str = '',
 ) -> None:
     '''
@@ -303,13 +444,16 @@ def add_func_scope_hint_pep695_parameterizable_typeparams(
         Local or global scope to map these type parameters to.
     parameterizable : Pep695Parameterizable
         :pep:`695`-compliant parameterizable to be inspected.
-    exception_prefix : str, optional
+    exception_cls : Type[Exception], default: BeartypeDecorHintPep695Exception
+        Type of exception to be raised in the event of a fatal error. Defaults
+        to :exc:`.BeartypeDecorHintPep695Exception`.
+    exception_prefix : str, default: ''
         Human-readable substring prefixing raised exception messages. Defaults
         to the empty string.
 
     Raises
     ------
-    BeartypeDecorHintPep695Exception
+    exception_cls
         If either:
 
         * This object is *not* a :pep:`695`-compliant parameterizable.
@@ -326,24 +470,36 @@ def add_func_scope_hint_pep695_parameterizable_typeparams(
     assert isinstance(func_scope, dict), f'{repr(func_scope)} not dictionary.'
     # print(f'Updating PEP 695 parameterizable {repr(parameterizable)} scope {repr(func_scope)}...')
 
+    # ....................{ PREAMBLE                       }....................
+    # If the active Python interpreter targets Python <= 3.11, this interpreter
+    # fails to support PEP 695. In this case, silently reduce to a noop.
+    if IS_PYTHON_AT_MOST_3_11:
+        return
+    # Else, this interpreter targets Python >= 3.12. In this case, this
+    # interpreter supports PEP 695.
+
     # ....................{ IMPORTS                        }....................
     # Avoid circular import dependencies.
-    from beartype._util.hint.pep.proposal.pep484612646 import (
-        get_hint_pep484612646_typearg_packed_name,
-        is_hint_pep484612646_typearg_packed,
+    from beartype._util.hint.pep.proposal.typearg.peptypeargmain import (
+        get_hint_typearg_packed_name,
+        is_hint_typearg_packed,
     )
 
     # ....................{ LOCALS                         }....................
     # Tuple of all type parameters parametrizing this parameterizable.
     typeparams = _get_hint_pep695_parameterizable_typeparams(
-        parameterizable=parameterizable, exception_prefix=exception_prefix)
+        parameterizable=parameterizable,
+        exception_cls=exception_cls,
+        exception_prefix=exception_prefix,
+    )
     # print(f'Adding PEP 695 parameterizable {repr(parameterizable)} type parameters {repr(typeparams)}...')
+    # print(f'...to scope: {repr(func_scope)}')
 
     # ....................{ LOOP                           }....................
     # For each type parameter parametrizing this parameterizable...
     for typeparam in typeparams:
         # Unqualified basename of this type parameter.
-        typeparam_name = get_hint_pep484612646_typearg_packed_name(
+        typeparam_name = get_hint_typearg_packed_name(
             hint=typeparam, exception_prefix=exception_prefix)
 
         # Existing attribute sharing the same name already added to this forward
@@ -356,7 +512,7 @@ def add_func_scope_hint_pep695_parameterizable_typeparams(
             # This scope already contains an attribute with this name *AND*...
             func_scope_attr is not SENTINEL and
             # This attribute is also a type parameter...
-            is_hint_pep484612646_typearg_packed(func_scope_attr)
+            is_hint_typearg_packed(func_scope_attr)
         ):
             assert isinstance(exception_prefix, str), (
                 f'{repr(exception_prefix)} not string.')
@@ -395,6 +551,7 @@ def _get_hint_pep695_parameterizable_typeparams(
     parameterizable: Pep695Parameterizable,
 
     # Optional parameters.
+    exception_cls: TypeException = BeartypeDecorHintPep695Exception,
     exception_prefix: str = '',
 ) -> TuplePep484612646TypeArgsPacked:
     '''
@@ -409,7 +566,10 @@ def _get_hint_pep695_parameterizable_typeparams(
     ----------
     parameterizable : Pep695Parameterizable
         :pep:`695`-compliant parameterizable to be inspected.
-    exception_prefix : str, optional
+    exception_cls : Type[Exception], default: BeartypeDecorHintPep695Exception
+        Type of exception to be raised in the event of a fatal error. Defaults
+        to :exc:`.BeartypeDecorHintPep695Exception`.
+    exception_prefix : str, default: ''
         Human-readable substring prefixing raised exception messages. Defaults
         to the empty string.
 
@@ -420,13 +580,13 @@ def _get_hint_pep695_parameterizable_typeparams(
 
     Raises
     ------
-    BeartypeDecorHintPep695Exception
+    exception_cls
         If this object is *not* a :pep:`695`-compliant parameterizable.
     '''
 
     # If this object is *NOT* parameterizable under PEP 695, raise an exception.
-    if not isinstance(parameterizable, Pep695ParameterizableTypes):
-        raise BeartypeDecorHintPep695Exception(
+    if not is_object_pep695_parameterizable(parameterizable):
+        raise exception_cls(
             f'{exception_prefix}'
             f'{repr(parameterizable)} not PEP 695-parameterizable '
             f'(i.e., neither pure-Python type, pure-Python function, nor '
@@ -446,43 +606,169 @@ def _get_hint_pep695_parameterizable_typeparams(
         ()
     )
 
+# ....................{ RESOLVERS                          }....................
+#FIXME: Unit test us up, please.
+def resolve_func_scope_pep695(
+    func_scope: LexicalScope,
+    func: Callable,
+    cls_stack: TypeStack,
+
+    # Optional parameters.
+    exception_cls: TypeException = BeartypeDecorHintPep695Exception,
+    exception_prefix: str = '',
+) -> None:
+    '''
+    Composite all **type parameter scopes** (i.e., lexical scopes induced by
+    parametrizing the decorated callable *and* all lexical parent classes of
+    that callable with :pep:`695`-compliant **implicitly instantiated type
+    parameters** (i.e., :pep:`484`-compliant type variables, pep:`612`-compliant
+    parameter specifications, and :pep:`646`-compliant type variable tuples)) of
+    the passed callable into the passed **forward scope** (i.e., dictionary
+    mapping from the names to values of all attributes accessible to the lexical
+    scope of the passed callable where this scope comprises both the global
+    scope and all local lexical scopes enclosing that callable).
+
+    This resolver implicitly overwrites each global and local attribute
+    previously composited into this forward scope with each type parameter of
+    the same name, vaguely replicating scoping rules dictated by :pep:`695`.
+
+    Parameters
+    ----------
+    func_scope : LexicalScope
+        **Lexical scope** (i.e., dictionary mapping from the name to value of
+        each locally and globally accessible attribute in the local and global
+        scope) of that callable.
+    func : Callable
+        Callable currently being decorated by the :func:`beartype.beartype`
+        decorator.
+    cls_stack : TypeStack
+        **Type stack** (i.e., either a tuple of the one or more
+        :func:`beartype.beartype`-decorated classes lexically containing that
+        callable if any *or* :data:`None` otherwise).
+    exception_cls : Type[Exception], default: BeartypeDecorHintPep695Exception
+        Type of exception to be raised in the event of a fatal error. Defaults
+        to :exc:`.BeartypeDecorHintPep695Exception`.
+    exception_prefix : str, default: ''
+        Human-readable substring prefixing raised exception messages. Defaults
+        to the empty string.
+    '''
+    assert isinstance(func_scope, dict), (
+        f'{repr(func_scope)} not lexical scope.')
+    assert callable(func), f'{repr(func)} uncallable.'
+    assert isinstance(cls_stack, NoneTypeOr[tuple]), (
+        f'{repr(cls_stack)} not type stack.')
+
+    # ....................{ NOOP                           }....................
+    # If the active Python interpreter targets Python <= 3.11, this interpreter
+    # fails to support PEP 695. In this case, silently reduce to a noop.
+    if IS_PYTHON_AT_MOST_3_11:
+        return
+    # Else, this interpreter targets Python >= 3.12. In this case, this
+    # interpreter supports PEP 695.
+
+    # ....................{ LOCALS                         }....................
+    # PEP 695-specific lexical scope. Ideally, we'd simply reuse the existing
+    # "decor_currfunc_wrappee_wrappee_scope_forward" scope rather than instantiate a
+    # PEP 695-specific lexical scope. Although both trivial and efficient, such
+    # reuse would violate PEP 695. PEP 695 mandates that type-checkers:
+    # * Raise errors when PEP 695-compliant type parameters parametrizing parent
+    #   classes share the same names as those parametrizing either nested
+    #   classes or the decorated callable.
+    # * Silently allow PEP 695-compliant type parameters parametrizing either
+    #   nested classes or the decorated callable to shadow (i.e., override)
+    #   *ALL* other attributes in parent lexical scopes.
+    #
+    # Ergo, this resolver *MUST* differentiate between type parameters and
+    # non-type parameters. The only means of doing so sanely is to isolate type
+    # parameters resolved by this function to this unique dictionary. See also:
+    #     https://peps.python.org/pep-0695/#type-parameter-scopes
+    scope_pep695: LexicalScope = acquire_instance(dict)
+
+    # ....................{ SCOPES ~ type                  }....................
+    # If one or more parent classes lexically enclose the decorated callable...
+    if cls_stack:
+        # For each parent class lexically enclosing the decorated callable (in
+        # descending order from outermost to innermost class)...
+        for type_nested in cls_stack:
+            # Composite all PEP 695-compliant type parameters parametrizing this
+            # class into this forward scope. Since this class lexically encloses
+            # that callable, this class is guaranteed to be pure-Python and thus
+            # support PEP 695-compliant type parametrization.
+            add_func_scope_hint_pep695_parameterizable_typeparams(
+                func_scope=scope_pep695,
+                parameterizable=type_nested,
+                exception_cls=exception_cls,
+                exception_prefix=exception_prefix,
+            )
+    # Else, *NO* parent classes lexically enclose the decorated callable.
+
+    # ....................{ SCOPES ~ callable              }....................
+    # If the decorated callable is a pure-Python function, this function
+    # unconditionally supports PEP 695-compliant type parametrization under
+    # Python >= 3.12. In this case...
+    #
+    # Note that the decorated callable is *ALMOST* always a pure-Python
+    # function. Ergo, there's no particular benefit to micro-optimizing this
+    # when the decorated callable is *NOT* a pure-Python function above.
+    if is_func_python(func):
+        # Composite all PEP 695-compliant type parameters parametrizing the
+        # decorated callable into this forward scope.
+        add_func_scope_hint_pep695_parameterizable_typeparams(
+            func_scope=scope_pep695,
+            parameterizable=func,
+            exception_cls=exception_cls,
+            exception_prefix=exception_prefix,
+        )
+    # Else, the decorated callable is *NOT* a pure-Python function. In this
+    # case, that callable does *NOT* support PEP 695-compliant type
+    # parametrization. Silently ignore that callable, whatever it is.
+
+    # ....................{ COMPOSITE                      }....................
+    # Composite all type parameters parametrizing the decorated callable and all
+    # lexical parent classes of that callable into this forward scope.
+    func_scope.update(scope_pep695)  # type: ignore[union-attr]
+
+    # Release this PEP 695-specific lexical scope.
+    release_instance(scope_pep695)
+
 # ....................{ ITERATORS                          }....................
 def iter_hint_pep695_unsubbed_forwardrefs(
     # Mandatory parameters.
-    hint: HintPep695TypeAlias,
+    hint: HintPep695TypeAliasTypes,
 
     # Optional parameters.
     exception_prefix: str = '',
-) -> Iterable[BeartypeForwardRefMeta]:
+) -> Iterable[BeartypeForwardRefMetaclass]:
     '''
     Iteratively create and yield one **forward reference proxy** (i.e.,
-    :class:`beartype._check.forward.reference.fwdrefabc.BeartypeForwardRefABC`
-    subclass) for each unquoted relative forward reference in the passed
-    :pep:`695`-compliant **unsubscripted type alias** (i.e., object created by a
-    statement of the form ``type {alias_name} = {alias_value}``) to the
-    underlying type hint lazily referred to by this type alias.
+    :class:`beartype._check.forward.reference._cls.fwdrefabc.BeartypeForwardRefABC`
+    subclass) for each :pep:`484`-compliant stringified relative forward
+    reference in the passed :pep:`695`-compliant **unsubscripted type alias**
+    (i.e., object created by a statement of the form ``type {alias_name} =
+    {alias_value}``) to the underlying type hint lazily referred to by this type
+    alias.
 
     This iterator is intentionally *not* memoized (e.g., by the
     :func:`callable_cached` decorator), as this iterator is intended to be
     called only once per unsubscripted type alias in userspace code dynamically
     instrumented by beartype import hook abstract syntax tree (AST) node
     transformers. Since those transformers are expected to replace *all*
-    unquoted relative forward references in this unsubscripted type alias with
-    corresponding forward reference proxies, calling this iterator again on any
-    unsubscripted type alias instrumented in this way *should* silently reduce
-    to a noop. "Should" is doing a lot of heavy lifting here.
+    stringified relative forward references in this unsubscripted type alias
+    with corresponding forward reference proxies, calling this iterator again on
+    any unsubscripted type alias instrumented in this way *should* silently
+    reduce to a noop. "Should" is doing a lot of heavy lifting here.
 
     Parameters
     ----------
-    hint : HintPep695TypeAlias
+    hint : HintPep695TypeAliasTypes
         Unsubscripted type alias to be iterated over.
-    exception_prefix : str, optional
-        Human-readable substring prefixing exception messages raised by this
-        reducer. Defaults to the empty string.
+    exception_prefix : str, default: ''
+        Human-readable substring prefixing raised exception messages. Defaults
+        to the empty string.
 
     Yields
     ------
-    BeartypeForwardRefMeta
+    BeartypeForwardRefMetaclass
         Forward reference proxy encapsulating the next unquoted relative forward
         reference in this unsubscripted type alias.
 
@@ -505,10 +791,8 @@ def iter_hint_pep695_unsubbed_forwardrefs(
             # Reduce this alias to the type hint it lazily refers to. If this
             # alias contains *NO* forward references to undeclared attributes,
             # this reduction *SHOULD* succeed. Let's pretend we mean that.
-            #
-            # Note that _get_hint_pep695_unsubbed_alias() is memoized and
-            # thus intentionally called with positional arguments.
-            get_hint_pep695_unsubbed_alias(hint, exception_prefix)
+            get_hint_pep695_unsubbed_alias(
+                hint=hint, exception_prefix=exception_prefix)
 
             # This reduction raised *NO* exception and thus succeeded. In this
             # case, immediately halt iteration.
@@ -623,17 +907,17 @@ def iter_hint_pep695_unsubbed_forwardrefs(
 
             # Forward reference proxy to this undeclared attribute.
             #
-            # Note that:
-            # * This call is intentionally passed only positional parameters to
-            #   satisfy the @callable_cached decorator memoizing this function.
-            # * A full-blown forward reference proxy rather than a trivial
-            #   stringified forward reference (i.e., the relative name of the
-            #   undefined attribute being referred to, equivalent to
-            #   "hint_ref_name") is required here. Why? Subscription. A
-            #   stringified forward reference *CANNOT* be subscripted by
-            #   arbitrary child type hints; a forward reference proxy can be.
-            hint_ref = make_forwardref_indexable_subtype(
-                hint_module_name, hint_ref_name)
+            # Note that a full-blown forward reference proxy rather than a
+            # trivial stringified forward reference (i.e., the relative name of
+            # the undefined attribute being referred to, equivalent to
+            # "hint_ref_name") is required here. Why? Subscription. A
+            # stringified forward reference *CANNOT* be subscripted by arbitrary
+            # child type hints; a forward reference proxy can be.
+            hint_ref = proxy_hint_pep484_ref_str_subbable(
+                scope_name=hint_module_name,
+                hint_name=hint_ref_name,
+                exception_prefix=exception_prefix,
+            )
 
             # Yield this forward reference proxy to the caller.
             yield hint_ref

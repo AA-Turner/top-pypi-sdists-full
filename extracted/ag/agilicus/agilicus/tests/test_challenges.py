@@ -1,10 +1,10 @@
 """Unit tests for the hand-written MFA helpers in agilicus/challenges.py.
 
-The generated TOTPEnrollmentSpec/TOTPEnrollmentAnswer mark ``user_id`` as
-read-only, but the challenges service requires it in the request body. These
-tests pin the ``_from_openapi_data`` workaround (which becomes unnecessary
-once the SDK is regenerated from the fixed schema) and the raw
-``api_client.call_api`` path used for the newer org reconcile endpoint.
+``user_id`` is writable in the generated TOTPEnrollmentSpec and
+TOTPEnrollmentAnswer models (agilicus-api ae573ff4), so the hand-written
+helpers use the plain generated constructors. These tests pin their
+serialization and the raw ``api_client.call_api`` path used for the newer
+org reconcile endpoint.
 """
 
 from unittest.mock import MagicMock, patch

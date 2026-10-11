@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import json
 from collections.abc import AsyncIterator
+from typing import Any
 
 import pytest
 
@@ -15,13 +16,33 @@ from tapio.remote.transport import FrameLink, connect, framed
 from tapio.testkit import assert_no_leaked_tasks
 from tapio.version import __version__
 from tests.failures import eventually
-from tests.remote.peers import GHOST, Tick, counting, dial, dial_raw, remoting
+from tests.remote.peers import (
+    GHOST,
+    Tick,
+    counting,
+    dial,
+    dial_raw,
+    relay,
+    remoting,
+)
+
+EVIL = Address(system="evil", host="10.6.6.6", port=6666)
 
 
 @pytest.fixture
 async def guarded() -> AsyncIterator[ActorSystem]:
     """A system that requires a secret."""
     running = ActorSystem("beta", remoting(secret="shh"))
+    try:
+        yield running
+    finally:
+        await running.terminate()
+
+
+@pytest.fixture
+async def honest() -> AsyncIterator[ActorSystem]:
+    """A system holding the same secret as `guarded`, made to dial a relay."""
+    running = ActorSystem("alpha", remoting(secret="shh"))
     try:
         yield running
     finally:
@@ -45,6 +66,26 @@ async def test_a_peer_that_says_who_it_is_gets_a_welcome(beta: ActorSystem):
         # the peer advertised, not the socket it dialled from: only the
         # advertised one can be dialled back.
         await eventually(lambda: beta.remote.associations != ())  # type: ignore[union-attr]
+    finally:
+        await link.close()
+
+
+async def test_a_refused_peer_is_told_why_before_any_welcome(beta: ActorSystem):
+    # A refusal decided after the welcome reaches the dialler as a link that
+    # closed, after it may already have written to it. Decided before, it is
+    # a frame saying so, and it names nothing about the system that sent it.
+    assert beta.remote is not None
+    beta.remote.quarantine(GHOST, "the test gave up on it")
+    link = await dial(beta, welcome=False)
+    try:
+        answer = await link.read_link(2.0)
+        assert answer == {
+            "link": "declined",
+            "reason": "the test gave up on it",
+            "superseded": False,
+        }
+        assert await closed(link)
+        assert beta.remote.associations == ()
     finally:
         await link.close()
 
@@ -133,6 +174,62 @@ async def test_a_peer_with_no_answer_at_all_is_refused(guarded: ActorSystem):
         assert await closed(link)
     finally:
         await link.close()
+
+
+async def test_a_proof_that_is_not_ascii_is_refused_and_closed(guarded: ActorSystem):
+    # compare_digest on str raises TypeError for a non-ASCII character, which
+    # used to end the handshake task with the socket still open.
+    link = await dial(guarded, proof="\u00e9", welcome=False)
+    try:
+        async with asyncio.timeout(2.0):
+            assert await closed(link)
+    finally:
+        await link.close()
+
+
+@pytest.mark.parametrize(
+    "rewrite",
+    [{"system": EVIL.system, "address": str(EVIL)}, {"uid": 6666}],
+    ids=["address", "uid"],
+)
+async def test_a_relay_cannot_pass_a_dialler_proof_off_under_another_identity(
+    guarded: ActorSystem, honest: ActorSystem, rewrite: dict[str, object]
+):
+    # The relay holds no secret. It hands the guarded system's challenge to an
+    # honest dialler, and passes the answer on with the identity rewritten.
+    # The proof covers the identity it was written beside, so it fails.
+    def rewritten(hello: dict[str, Any]) -> dict[str, Any]:
+        return hello | rewrite
+
+    async with relay(guarded, client_hello=rewritten) as (address, seen):
+        remote = await honest.resolve(f"{address}/user/ticker#1", expect=Tick)
+        remote.tell(Tick(n=1))
+
+        await eventually(lambda: bool(seen))
+        assert seen[0] == "target closed"
+        assert guarded.remote is not None
+        assert guarded.remote.associations == ()
+
+
+async def test_a_relay_cannot_pass_a_welcome_off_as_its_own(
+    guarded: ActorSystem, honest: ActorSystem
+):
+    # The other direction. The relay passes the dialler's answer through
+    # untouched, and rewrites the welcome to name the relay's own address,
+    # which is the one the dialler dialled. The welcome's proof covers the
+    # identity it was written beside, so the dialler refuses it.
+    where: list[str] = []
+
+    def as_the_relay(welcome: dict[str, Any]) -> dict[str, Any]:
+        return welcome | {"address": where[0]}
+
+    async with relay(guarded, welcome=as_the_relay) as (address, seen):
+        where.append(str(address))
+        remote = await honest.resolve(f"{address}/user/ticker#1", expect=Tick)
+        remote.tell(Tick(n=1))
+
+        await eventually(lambda: len(seen) >= 2)
+        assert seen[:2] == ["target sent welcome", "dialler closed"]
 
 
 async def test_a_refused_peer_gets_nothing_delivered(guarded: ActorSystem):

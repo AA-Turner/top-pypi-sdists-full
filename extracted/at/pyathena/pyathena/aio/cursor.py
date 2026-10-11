@@ -1,3 +1,12 @@
+# Copyright 2017 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""Native asyncio cursors that return rows as tuples or dictionaries."""
+
 from __future__ import annotations
 
 import logging
@@ -10,6 +19,7 @@ from pyathena.common import CursorIterator
 from pyathena.error import OperationalError, ProgrammingError
 from pyathena.model import AthenaQueryExecution
 from pyathena.options import ExecuteOptions
+from pyathena.util import override
 
 _logger = logging.getLogger(__name__)
 
@@ -22,7 +32,7 @@ class AioCursor(WithAsyncFetch):
     calls, keeping the event loop free.
 
     Example:
-        >>> async with AioConnection.create(...) as conn:
+        >>> async with await AioConnection.create(...) as conn:
         ...     async with conn.cursor() as cursor:
         ...         await cursor.execute("SELECT * FROM my_table")
         ...         rows = await cursor.fetchall()
@@ -30,6 +40,7 @@ class AioCursor(WithAsyncFetch):
 
     def __init__(
         self,
+        *,
         s3_staging_dir: str | None = None,
         schema_name: str | None = None,
         catalog_name: str | None = None,
@@ -42,6 +53,24 @@ class AioCursor(WithAsyncFetch):
         result_reuse_minutes: int = CursorIterator.DEFAULT_RESULT_REUSE_MINUTES,
         **kwargs,
     ) -> None:
+        """Initialize an AioCursor.
+
+        Args:
+            s3_staging_dir: S3 location for query results.
+            schema_name: Default schema name.
+            catalog_name: Default catalog name.
+            work_group: Athena workgroup name.
+            poll_interval: Query status polling interval in seconds.
+            encryption_option: S3 encryption option (SSE_S3, SSE_KMS, CSE_KMS).
+            kms_key: KMS key for encryption.
+            kill_on_interrupt: Cancel the query when the task is cancelled while
+                ``execute()`` starts or waits for the query.
+            result_reuse_enable: Enable Athena query result reuse.
+            result_reuse_minutes: Maximum age in minutes of a reused result.
+            **kwargs: Arguments forwarded to ``WithResultSet.__init__`` and
+                ``AioBaseCursor.__init__``, such as ``arraysize``, ``connection``,
+                ``converter``, ``formatter``, and ``retry_config``.
+        """
         super().__init__(
             s3_staging_dir=s3_staging_dir,
             schema_name=schema_name,
@@ -57,8 +86,10 @@ class AioCursor(WithAsyncFetch):
         )
         self._result_set: AthenaAioResultSet | None = None
         self._result_set_class = AthenaAioResultSet
+        self._result_set_kwargs: dict[str, Any] = {}
 
-    @property
+    @property  # type: ignore[explicit-override]  # python/mypy#15900
+    @override
     def arraysize(self) -> int:
         return self._arraysize
 
@@ -70,10 +101,12 @@ class AioCursor(WithAsyncFetch):
             )
         self._arraysize = value
 
-    async def execute(  # type: ignore[override]
+    @override
+    async def execute(
         self,
         operation: str,
         parameters: dict[str, Any] | list[str] | None = None,
+        *,
         work_group: str | None = None,
         s3_staging_dir: str | None = None,
         cache_size: int | None = None,
@@ -83,7 +116,6 @@ class AioCursor(WithAsyncFetch):
         paramstyle: str | None = None,
         on_start_query_execution: Callable[[str], None] | None = None,
         result_set_type_hints: dict[str | int, str] | None = None,
-        *,
         options: ExecuteOptions | None = None,
         **kwargs,
     ) -> AioCursor:
@@ -94,23 +126,25 @@ class AioCursor(WithAsyncFetch):
             parameters: Query parameters (optional).
             work_group: Athena workgroup to use (optional).
             s3_staging_dir: S3 location for query results (optional).
-            cache_size: Query result cache size (optional).
+            cache_size: Number of queries to check for result caching (optional).
             cache_expiration_time: Cache expiration time in seconds (optional).
             result_reuse_enable: Enable result reuse (optional).
             result_reuse_minutes: Result reuse duration in minutes (optional).
             paramstyle: Parameter style to use (optional).
-            on_start_query_execution: Callback called when query starts.
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion within
-                complex types.
+            on_start_query_execution: Callback invoked with the query ID before ``execute()``
+                waits for the query: after the ``StartQueryExecution`` call, or after a
+                reusable query ID is found through ``cache_size``.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
             options: Shared execution options as an
                 :class:`~pyathena.options.ExecuteOptions` instance. Individual
                 keyword arguments take precedence over ``options`` fields.
-            **kwargs: Additional execution parameters.
+            **kwargs: Unknown keyword arguments raise TypeError.
 
         Returns:
             Self reference for method chaining.
         """
+        self._validate_execute_kwargs(kwargs)
         self._reset_state()
         options = ExecuteOptions.resolve(
             options,
@@ -142,18 +176,21 @@ class AioCursor(WithAsyncFetch):
                 self.arraysize,
                 self._retry_config,
                 result_set_type_hints=options.result_set_type_hints,
+                **self._result_set_kwargs,
             )
         else:
             raise OperationalError(query_execution.state_change_reason)
         return self
 
-    async def fetchone(  # type: ignore[override]
+    @override
+    async def fetchone(
         self,
     ) -> Any | dict[Any, Any | None] | None:
         """Fetch the next row of a query result set.
 
         Returns:
-            A tuple representing the next row, or None if no more rows.
+            The next row (a tuple, or a dict for ``AioDictCursor``), or None if
+            no more rows.
 
         Raises:
             ProgrammingError: If called before executing a query that
@@ -164,16 +201,16 @@ class AioCursor(WithAsyncFetch):
         result_set = cast(AthenaAioResultSet, self.result_set)
         return await result_set.fetchone()
 
-    async def fetchmany(  # type: ignore[override]
-        self, size: int | None = None
-    ) -> list[Any | dict[Any, Any | None]]:
+    @override
+    async def fetchmany(self, size: int | None = None) -> list[Any | dict[Any, Any | None]]:
         """Fetch multiple rows from a query result set.
 
         Args:
-            size: Maximum number of rows to fetch. If None, uses arraysize.
+            size: Maximum number of rows to fetch. If None or not positive,
+                ``arraysize`` is used.
 
         Returns:
-            List of tuples representing the fetched rows.
+            The fetched rows.
 
         Raises:
             ProgrammingError: If called before executing a query that
@@ -184,13 +221,14 @@ class AioCursor(WithAsyncFetch):
         result_set = cast(AthenaAioResultSet, self.result_set)
         return await result_set.fetchmany(size)
 
-    async def fetchall(  # type: ignore[override]
+    @override
+    async def fetchall(
         self,
     ) -> list[Any | dict[Any, Any | None]]:
         """Fetch all remaining rows from a query result set.
 
         Returns:
-            List of tuples representing all remaining rows in the result set.
+            The remaining rows.
 
         Raises:
             ProgrammingError: If called before executing a query that
@@ -201,26 +239,27 @@ class AioCursor(WithAsyncFetch):
         result_set = cast(AthenaAioResultSet, self.result_set)
         return await result_set.fetchall()
 
-    async def __anext__(self):
-        row = await self.fetchone()
-        if row is None:
-            raise StopAsyncIteration
-        return row
-
 
 class AioDictCursor(AioCursor):
     """Native asyncio cursor that returns rows as dictionaries.
 
     Example:
-        >>> async with AioConnection.create(...) as conn:
+        >>> async with await AioConnection.create(...) as conn:
         ...     cursor = conn.cursor(AioDictCursor)
         ...     await cursor.execute("SELECT id, name FROM users")
         ...     row = await cursor.fetchone()
         ...     print(row["name"])
     """
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, *, dict_type: type[Any] | None = None, **kwargs) -> None:
+        """Initialize an AioDictCursor.
+
+        Args:
+            dict_type: The type used to build each row of this cursor's result
+                sets. If None, the result set class's ``dict_type`` is used.
+            **kwargs: Arguments forwarded to ``AioCursor.__init__``.
+        """
         super().__init__(**kwargs)
         self._result_set_class = AthenaAioDictResultSet
-        if "dict_type" in kwargs:
-            AthenaAioDictResultSet.dict_type = kwargs["dict_type"]
+        if dict_type is not None:
+            self._result_set_kwargs = {"dict_type": dict_type}

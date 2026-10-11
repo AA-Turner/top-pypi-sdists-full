@@ -57,3 +57,12 @@ pub use valence::{
 };
 #[doc(hidden)]
 pub use valence::{implicit_hcount_with, valence_inferred_hcount_with};
+
+#[cfg(test)]
+mod mutation_contract_tests;
+
+#[cfg(test)]
+mod token_boundary_contract_tests;
+
+#[cfg(test)]
+mod diagnostic_boundary_contract_tests;

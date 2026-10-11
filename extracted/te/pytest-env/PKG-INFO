@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pytest-env
-Version: 1.7.1
+Version: 1.8.0
 Summary: pytest plugin that allows you to add environment variables.
 Project-URL: Homepage, https://github.com/pytest-dev/pytest-env
 Project-URL: Source, https://github.com/pytest-dev/pytest-env
@@ -35,7 +35,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -43,10 +42,9 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
-Requires-Dist: pytest>=9.0.2
-Requires-Dist: python-dotenv>=1.2.2
-Requires-Dist: tomli>=2.4; python_version < '3.11'
+Requires-Python: >=3.11
+Requires-Dist: pytest>=9.1.1
+Requires-Dist: python-dotenv>=1.2.4
 Description-Content-Type: text/markdown
 
 # pytest-env
@@ -241,6 +239,19 @@ env = [
   "RUN_ENV=test",
 ]
 ```
+
+```toml
+# pytest.toml / .pytest.toml
+[pytest]
+env = [
+  "HOME=~/tmp",
+  "RUN_ENV=test",
+]
+```
+
+In `pytest.toml` / `.pytest.toml`, this pytest-native `[pytest]` table is an alternative to the plugin-specific
+`[pytest_env]` TOML table described above. Both forms work there, so `pytest.toml` does not have to use
+`[pytest_env]`.
 
 Prefix flags modify behavior. Flags are case-insensitive and can be combined in any order (e.g., `R:D:KEY=VALUE`):
 

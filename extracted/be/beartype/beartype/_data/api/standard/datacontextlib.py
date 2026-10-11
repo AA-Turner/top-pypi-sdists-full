@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -15,13 +15,16 @@ from beartype.typing import (
     AsyncIterator,
     Iterator,
 )
-from beartype._util.func.utilfunccodeobj import get_func_codeobj_basename
+from beartype._util.func.utilfunccodeobj import (
+    get_func_codeobject,
+    get_codeobject_basename,
+)
 from contextlib import (
     asynccontextmanager,
     contextmanager,
 )
 
-# ....................{ STRINGS                            }....................
+# ....................{ CONTEXT MANAGERS                   }....................
 @asynccontextmanager
 async def _noop_context_manager_async() -> AsyncIterator[None]:
     '''
@@ -43,8 +46,8 @@ def _noop_context_manager_sync() -> Iterator[None]:
     yield
 
 
-CONTEXTLIB_ASYNCCONTEXTMANAGER_CODEOBJ_NAME = get_func_codeobj_basename(
-    _noop_context_manager_async)
+CONTEXTLIB_ASYNCCONTEXTMANAGER_CODEOBJ_NAME = (
+    get_codeobject_basename(get_func_codeobject(_noop_context_manager_async)))
 '''
 Fully-qualified name of the code object underlying the isomorphic decorator
 closure created and returned by the :func:`contextlib.asynccontextmanager`
@@ -57,8 +60,8 @@ See Also
 '''
 
 
-CONTEXTLIB_CONTEXTMANAGER_CODEOBJ_NAME = get_func_codeobj_basename(
-    _noop_context_manager_sync)
+CONTEXTLIB_CONTEXTMANAGER_CODEOBJ_NAME = (
+    get_codeobject_basename(get_func_codeobject(_noop_context_manager_sync)))
 '''
 Fully-qualified name of the code object underlying the isomorphic decorator
 closure created and returned by the :func:`contextlib.contextmanager` decorator.

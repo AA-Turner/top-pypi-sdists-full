@@ -640,7 +640,8 @@ def fence_torch_free_import() -> list[str]:
 
 
 STATIC_READERS = tuple(
-    SRC / "internal" / name for name in ("static_interface.py", "static_invocable.py")
+    SRC / "internal" / name
+    for name in ("static_interface.py", "static_invocable.py", "memo_identity.py")
 )
 #: Modules and builtins through which source becomes execution. The static reader may name none.
 EXECUTION_MODULES = frozenset({"importlib", "sys", "runpy", "subprocess", "builtins"})
@@ -657,6 +658,7 @@ STATIC_READER_IMPORTS = frozenset(
         "cozy_runtime.internal.canonical",
         "cozy_runtime.internal.static_interface",
         "cozy_runtime.internal.static_invocable",
+        "cozy_runtime.internal.memo_identity",
         "cozy_runtime.internal.invocable_interface",
         # reads uv.lock and fetches the exact wheels it pins through egress; builds, installs
         # and imports nothing
@@ -779,9 +781,7 @@ def fence_one_attempt_kernel() -> list[str]:
 
 #: The OBSERVATION plane (cr-011). `tel.stage()` records a NUMBER; it must be structurally
 #: incapable of changing what is resident, where it sits, or what a method may touch.
-OBSERVATION_MODULES = (
-    "author/_observations.py",
-)
+OBSERVATION_MODULES = ("author/_observations.py",)
 #: Modules that DECIDE residency, placement or the component-use contract.
 DECIDING_MODULES = (
     "cozy_runtime.internal.fill",
@@ -896,7 +896,7 @@ def fence_one_address_predicate() -> list[str]:
 #: `dict[str, Any]` record's missing key, 2026-09-28). Records are decoded once, at their
 #: boundary, into typed structs; this count under `internal/` may only fall. Lower it in
 #: the change that removes some.
-ANY_CEILING = 830
+ANY_CEILING = 805
 
 
 def any_references(tree: ast.AST) -> int:

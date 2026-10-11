@@ -2,6 +2,7 @@
 #include "dp_state_test.h"
 #include "dp_test.h"
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -13,7 +14,11 @@ main (void)
 
   /* ── lifecycle + invalid args ───────────────────────────────────────── */
   {
-    DP_CHECK (dp_acc_trace_create (0, 0, 0.1) == NULL);  /* n == 0 */
+    DP_CHECK (dp_acc_trace_create (0, 0, 0.1) == NULL); /* n == 0 */
+    /* n doubles past what a size_t can count in bytes: refused before
+       calloc, whose overflow ASan and TSan report as an error. */
+    DP_CHECK (dp_acc_trace_create (SIZE_MAX / sizeof (double) + 1, 0, 0.1)
+              == NULL);
     DP_CHECK (dp_acc_trace_create (8, -1, 0.1) == NULL); /* bad mode */
     DP_CHECK (dp_acc_trace_create (8, 4, 0.1) == NULL);  /* bad mode */
     dp_acc_trace_destroy (NULL);                         /* must not crash */
@@ -80,6 +85,68 @@ main (void)
     DP_CHECK (fabsf (out[0] - 6.0f) < TOL);  /* 0.5*2 + 0.5*10 */
     DP_CHECK (fabsf (out[1] - 12.0f) < TOL); /* 0.5*4 + 0.5*20 */
     dp_acc_trace_destroy (obj);
+  }
+
+  /* ── EXP alpha lies in (0, 1], at create and through the setter ────────
+   * Outside it the EMA is not an average: 0 never leaves the first frame,
+   * -0.5 extrapolates away from the data (a power trace goes negative), 1.5
+   * saturates to pass-through in dp_ema_step, NaN poisons every bin
+   * (#1911 (c)).  Each refusal sits beside its precondition: the nearest
+   * valid values are accepted, and the three modes that never read alpha
+   * accept every value, at create and through the setter. */
+  {
+    const double bad[]  = { 0.0, -0.5, 1.5, NAN };
+    const double good[] = { 1.0, 0.25, 1e-9 };
+    const int    no_read[]
+        = { ACC_TRACE_MEAN, ACC_TRACE_MAXHOLD, ACC_TRACE_MINHOLD };
+    const size_t n_bad     = sizeof bad / sizeof bad[0];
+    const size_t n_good    = sizeof good / sizeof good[0];
+    const size_t n_no_read = sizeof no_read / sizeof no_read[0];
+
+    for (size_t i = 0; i < n_bad; i++)
+      {
+        DP_CHECK (dp_acc_trace_create (4, ACC_TRACE_EXP, bad[i]) == NULL);
+        for (size_t k = 0; k < n_no_read; k++)
+          {
+            dp_acc_trace_state_t *m
+                = dp_acc_trace_create (4, no_read[k], bad[i]);
+            DP_CHECK (m != NULL);
+            if (m)
+              DP_CHECK (dp_acc_trace_set_alpha (m, bad[i]) == DP_OK);
+            dp_acc_trace_destroy (m);
+          }
+      }
+    for (size_t i = 0; i < n_good; i++)
+      {
+        dp_acc_trace_state_t *e
+            = dp_acc_trace_create (4, ACC_TRACE_EXP, good[i]);
+        DP_CHECK (e != NULL);
+        dp_acc_trace_destroy (e);
+      }
+
+    /* The setter applies the same rule: a refused alpha leaves the one the
+     * trace had, and the trace still averages with it. */
+    dp_acc_trace_state_t *e = dp_acc_trace_create (2, ACC_TRACE_EXP, 0.5);
+    DP_REQUIRE (e != NULL);
+    for (size_t i = 0; i < n_bad; i++)
+      {
+        DP_CHECK (dp_acc_trace_set_alpha (e, bad[i]) == DP_ERR_INVALID);
+        DP_CHECK (e->alpha == 0.5);
+      }
+    float s[2] = { 10, 20 };
+    float u[2] = { 2, 4 };
+    float out[2];
+    dp_acc_trace_accumulate (e, s, 2);
+    dp_acc_trace_accumulate (e, u, 2);
+    dp_acc_trace_value (e, 2, out, 2);
+    DP_CHECK (fabsf (out[0] - 6.0f) < TOL); /* 0.5*2 + 0.5*10, not -0.5's */
+    DP_CHECK (fabsf (out[1] - 12.0f) < TOL);
+    for (size_t i = 0; i < n_good; i++)
+      {
+        DP_CHECK (dp_acc_trace_set_alpha (e, good[i]) == DP_OK);
+        DP_CHECK (e->alpha == good[i]);
+      }
+    dp_acc_trace_destroy (e);
   }
 
   /* ── MAXHOLD / MINHOLD per bin ──────────────────────────────────────── */
@@ -152,6 +219,136 @@ main (void)
     DP_CHECK (memcmp (b->acc, a->acc, a->n * sizeof (double)) == 0);
     dp_acc_trace_destroy (a);
     dp_acc_trace_destroy (b);
+  }
+
+  /* ── a runtime alpha travels in the blob (#2000) ─────────────────────────
+   * alpha can change after create (dp_acc_trace_set_alpha), so a resume that
+   * took it from create() went on averaging with the old one: one frame
+   * later the uninterrupted trace read 2.0 and the resumed one 1.2.  The
+   * blob carries it now, behind the header, the u32 mode and the u64 count,
+   * and set_state applies the setter's own rule to it: an alpha the setter
+   * would refuse is refused, and the state is left as it was. */
+  {
+    const float           f1[4] = { 1.0f, 2.0f, 3.0f, 4.0f };
+    const float           f2[4] = { 9.0f, 7.0f, 5.0f, 3.0f };
+    dp_acc_trace_state_t *a     = dp_acc_trace_create (4, ACC_TRACE_EXP, 0.1);
+    dp_acc_trace_state_t *b     = dp_acc_trace_create (4, ACC_TRACE_EXP, 0.1);
+    DP_REQUIRE (a && b);
+    dp_acc_trace_accumulate (a, f1, 4);
+    DP_CHECK (dp_acc_trace_set_alpha (a, 0.5) == DP_OK);
+    const size_t   nb   = dp_acc_trace_state_bytes (a);
+    unsigned char *blob = malloc (nb);
+    DP_REQUIRE (blob != NULL);
+    dp_acc_trace_get_state (a, blob);
+    DP_CHECK (dp_acc_trace_set_state (b, blob) == DP_OK);
+    DP_CHECK (b->alpha == 0.5);
+    dp_acc_trace_accumulate (a, f2, 4);
+    dp_acc_trace_accumulate (b, f2, 4);
+    DP_CHECK (memcmp (b->acc, a->acc, a->n * sizeof (double)) == 0);
+
+    /* The setter's rule, at the blob: each value it refuses is refused here,
+     * and a refused blob leaves the state untouched.  b folds one more frame
+     * first, so its count differs from the blob's and a count written before
+     * the check would show. */
+    dp_acc_trace_accumulate (b, f1, 4);
+    const size_t at
+        = sizeof (dp_state_hdr_t) + sizeof (uint32_t) + sizeof (uint64_t);
+    unsigned char *before = malloc (nb), *after = malloc (nb);
+    DP_REQUIRE (before && after);
+    const double bad[] = { 0.0, -0.5, 1.5, NAN };
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++)
+      {
+        dp_acc_trace_get_state (a, blob);
+        memcpy (blob + at, &bad[i], sizeof bad[i]);
+        dp_acc_trace_get_state (b, before);
+        DP_CHECK (dp_acc_trace_set_state (b, blob) == DP_ERR_INVALID);
+        dp_acc_trace_get_state (b, after);
+        DP_CHECK (memcmp (before, after, nb) == 0);
+      }
+
+    /* Precondition: mean never reads alpha, so as at the setter, any value
+     * restores there. */
+    dp_acc_trace_state_t *m = dp_acc_trace_create (4, ACC_TRACE_MEAN, 0.1);
+    DP_REQUIRE (m != NULL);
+    dp_acc_trace_get_state (m, blob);
+    memcpy (blob + at, &bad[1], sizeof bad[1]);
+    DP_CHECK (dp_acc_trace_set_state (m, blob) == DP_OK);
+    DP_CHECK (m->alpha == -0.5);
+
+    free (blob);
+    free (before);
+    free (after);
+    dp_acc_trace_destroy (a);
+    dp_acc_trace_destroy (b);
+    dp_acc_trace_destroy (m);
+  }
+
+  /* ── mode is a reject key ─────────────────────────────────────────────────
+   * A blob from a trace in another mode is another configuration.  A mean
+   * trace's blob restored into an exp instance came back OK, with an alpha
+   * mean mode never checked, and the mean trace went on as an EMA.  Every
+   * pair of modes that differ is refused, with the target left as it was;
+   * every pair that agrees restores. */
+  {
+    const float f1[4]    = { 1.0f, 2.0f, 3.0f, 4.0f };
+    const float f2[4]    = { 9.0f, 7.0f, 5.0f, 3.0f };
+    const int   modes[4] = { ACC_TRACE_MEAN, ACC_TRACE_EXP, ACC_TRACE_MAXHOLD,
+                             ACC_TRACE_MINHOLD };
+    for (size_t i = 0; i < 4; i++)
+      for (size_t j = 0; j < 4; j++)
+        {
+          dp_acc_trace_state_t *src = dp_acc_trace_create (4, modes[i], 0.25);
+          dp_acc_trace_state_t *dst = dp_acc_trace_create (4, modes[j], 0.5);
+          DP_REQUIRE (src && dst);
+          dp_acc_trace_accumulate (src, f1, 4);
+          dp_acc_trace_accumulate (dst, f2, 4);
+          const size_t   nb     = dp_acc_trace_state_bytes (src);
+          unsigned char *blob   = malloc (nb);
+          unsigned char *before = malloc (nb), *after = malloc (nb);
+          DP_REQUIRE (blob && before && after);
+          dp_acc_trace_get_state (src, blob);
+          dp_acc_trace_get_state (dst, before);
+          const int rc = dp_acc_trace_set_state (dst, blob);
+          if (i == j)
+            DP_CHECK (rc == DP_OK);
+          else
+            {
+              DP_CHECK (rc == DP_ERR_INVALID);
+              dp_acc_trace_get_state (dst, after);
+              DP_CHECK (memcmp (before, after, nb) == 0);
+            }
+          free (blob);
+          free (before);
+          free (after);
+          dp_acc_trace_destroy (src);
+          dp_acc_trace_destroy (dst);
+        }
+  }
+
+  /* ── a blob of another layout version is refused ─────────────────────────
+   * Rewriting only the header's version leaves every other byte valid, so
+   * this fails if and only if the version is consulted.  Version 1 is the
+   * layout v0.65.0 shipped, without mode or alpha -- named, not derived
+   * from ACC_TRACE_STATE_VERSION, so putting the constant back to 1 turns
+   * this red.  The next version is refused too, so the check is not >=. */
+  {
+    dp_acc_trace_state_t *t = dp_acc_trace_create (4, ACC_TRACE_EXP, 0.25);
+    DP_REQUIRE (t != NULL);
+    const size_t   nb   = dp_acc_trace_state_bytes (t);
+    unsigned char *blob = malloc (nb);
+    DP_REQUIRE (blob != NULL);
+    dp_acc_trace_get_state (t, blob);
+    DP_CHECK (dp_acc_trace_set_state (t, blob) == DP_OK);
+    dp_state_hdr_t hdr;
+    memcpy (&hdr, blob, sizeof hdr);
+    hdr.version = 1u;
+    memcpy (blob, &hdr, sizeof hdr);
+    DP_CHECK (dp_acc_trace_set_state (t, blob) == DP_ERR_INVALID);
+    hdr.version = (uint16_t)(ACC_TRACE_STATE_VERSION + 1u);
+    memcpy (blob, &hdr, sizeof hdr);
+    DP_CHECK (dp_acc_trace_set_state (t, blob) == DP_ERR_INVALID);
+    free (blob);
+    dp_acc_trace_destroy (t);
   }
 
   DP_TEST_END ("test_acc_trace_core");

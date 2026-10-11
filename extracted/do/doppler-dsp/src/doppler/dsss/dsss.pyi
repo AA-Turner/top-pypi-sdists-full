@@ -700,16 +700,23 @@ class BurstDespreader:
     sps : int, default 2
         Samples per chip (default: 2).
     init_norm_freq : float, default 0.0
-        Seed carrier frequency, cycles/sample — the acquisition estimate
-        (default: 0.0).
+        Seed carrier frequency, cycles/sample — the acquisition estimate;
+        finite (default: 0.0).
     init_chip_phase : float, default 0.0
-        Seed code phase, chips (default: 0.0).
+        Seed code phase, chips; finite (default: 0.0).
     bn_carrier : float, default 0.05
         Carrier (Costas) loop noise bandwidth, normalized to the symbol rate
         (default: 0.05).
     bn_code : float, default 0.01
         Code (DLL) loop noise bandwidth, normalized to the symbol rate
         (default: 0.01).
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``BurstDespreader:
+        invalid parameter (need a code of at least sf chips, sf >= 1, sps >= 2,
+        and a finite init_norm_freq and init_chip_phase)``.
 
     Examples
     --------
@@ -1785,8 +1792,8 @@ class DsssReceiver:
         While searching, samples feed the embedded Acquisition and nothing is
         emitted (0 return is normal, not an error). The moment a hit fires,
         `Dll`/`RateConverter`/`MpskReceiver` are built and seeded from it, and
-        the unconsumed tail of THIS call — computed exactly from
-        `acq->samples_consumed`, no samples dropped or double-fed — is handed
+        the rest of THIS call from where the hit's frame ended — the hit's own
+        `samples_consumed`, so no samples are dropped or double-fed — is handed
         straight to them in the same call. While tracking, samples feed `Dll ->
         RateConverter -> MpskReceiver` in sequence. Accepts any block size;
         state carries across calls (`Acquisition`/`Dll`/
@@ -2161,7 +2168,7 @@ class AsyncDsssReceiver:
     chip_rate : float, default 1000000.0
         Chip rate, Hz. Required.
     symbol_rate : float, default 1000.0
-        Data-symbol rate, Hz. Required.
+        Data-symbol rate, Hz: finite, > 0.
     spc : int, default 2
         Samples/chip; default 2.
     m : int, default 2
@@ -2962,7 +2969,7 @@ class CellAsyncDsssReceiver:
     chip_rate : float, default 1000000.0
         Chips per second.
     symbol_rate : float, default 1000.0
-        Data symbols per second.
+        Data symbols per second: finite, > 0.
     spc : int, default 2
         Samples per chip.
     m : int, default 2
@@ -4600,15 +4607,17 @@ class DsssBurstReceiver:
 
         Read it at the END of a stream. A caller closing a file or a socket while
         this is non-zero is discarding a burst that would have decoded, and nothing
-        else distinguishes that from an empty capture: `dropped` counts samples the
-        ring refused, `n_bursts` counts what was demodulated, and a truncated burst
-        is neither.
+        else distinguishes that from an empty capture: `dropped` counts look-back
+        abandoned with a burst, `n_bursts` counts what was demodulated, and a
+        truncated burst is neither.
         """
 
     @property
     def dropped(self) -> int:
-        """Samples the capture ring refused. Each is a LOST BURST, not a
-        statistic -- a lifetime count that survives reset().
+        """Samples of look-back the capture discarded while a queued burst
+        still needed them -- never refused input, which push() does not do. A
+        LOST BURST, not a statistic -- a lifetime count that survives
+        reset().
         """
 
     @property

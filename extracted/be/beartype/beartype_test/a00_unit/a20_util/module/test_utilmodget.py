@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -80,7 +80,7 @@ def test_get_object_module_line_number_begin() -> None:
     from beartype.roar._roarexc import _BeartypeUtilModuleException
     from beartype._util.module.utilmodget import (
         get_object_module_line_number_begin)
-    from beartype_test.a00_unit.data.util.mod.data_utilmodule_line import (
+    from beartype_test.a00_unit.data.util.module.data_utilmodule_line import (
         SlowRollingOn,
         like_snakes_that_watch_their_prey,
     )

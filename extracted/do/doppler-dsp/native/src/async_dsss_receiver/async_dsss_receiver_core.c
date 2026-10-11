@@ -773,8 +773,13 @@ adr_new (const uint8_t *code, size_t code_len, double chip_rate,
          double lost_confirm_s, bool cell, size_t correct_periods, double gain,
          size_t pullin_intervals)
 {
-  if (!code || code_len < 1 || chip_rate <= 0.0 || symbol_rate <= 0.0
-      || spc < 1 || (m != 2 && m != 4 && m != 8) || segments < 1 || sps < 1
+  /* symbol_rate becomes the carrier estimator's sample rate, which PSD
+     refuses unless finite: refused here, at create, because that estimator
+     is built under dp_xnn mid-stream (adr_new_carrier_acq), where a NULL
+     aborts.  The negated form also refuses a NaN. */
+  if (!code || code_len < 1 || chip_rate <= 0.0
+      || !(symbol_rate > 0.0 && isfinite (symbol_rate)) || spc < 1
+      || (m != 2 && m != 4 && m != 8) || segments < 1 || sps < 1
       || refine_samples_per_symbol < 1 || refine_n_fft < 1
       || refine_zero_pad < 1 || carrier_freq_hz < 0.0
       || !(lost_confirm_s >= 0.0))
@@ -870,7 +875,6 @@ adr_new (const uint8_t *code, size_t code_len, double chip_rate,
   obj->seed_doppler_hz_est = 0.0;
   obj->doppler_hz_est      = 0.0;
   obj->cn0_dbhz_est        = 0.0;
-  obj->samples_fed         = 0;
 
   /* Symbol-lock detector config (running state reset per track-chain build,
    * adr_reset_lock()). */
@@ -977,7 +981,6 @@ dp_async_dsss_receiver_reset (dp_async_dsss_receiver_state_t *state)
   state->seed_doppler_hz_est = 0.0;
   state->doppler_hz_est      = 0.0;
   state->cn0_dbhz_est        = 0.0;
-  state->samples_fed         = 0;
 }
 
 size_t
@@ -1070,21 +1073,19 @@ dp_async_dsss_receiver_steps (dp_async_dsss_receiver_state_t *state,
 
   if (state->state == ASYNC_DSSS_RX_SEARCHING)
     {
-      uint64_t     before = state->samples_fed;
-      acq_result_t hit;
-      state->samples_fed += x_len;
-      size_t n_hits = dp_acq_push (state->acq, x, x_len, &hit, 1);
+      /* The engine's own position and the hit's, one timebase, and the
+       * same fail-closed bound -- the rule and why are at
+       * dsss_receiver_core.c's steps(), which hands off the same way. */
+      const uint64_t before = dp_acq_position (state->acq);
+      acq_result_t   hit;
+      size_t         n_hits = dp_acq_push (state->acq, x, x_len, &hit, 1);
       if (n_hits == 0)
         return 0;
-
-      /* Same "exact unconsumed tail of THIS call" technique
-       * dsss_receiver_core.c's own steps() uses. */
-      uint64_t total_after = before + (uint64_t)x_len;
-      uint64_t consumed    = state->acq->samples_consumed;
-      uint64_t tail64
-          = (total_after > consumed) ? (total_after - consumed) : 0;
-      size_t tail_len = (tail64 > (uint64_t)x_len) ? x_len : (size_t)tail64;
-      const float _Complex *tail = x + (x_len - tail_len);
+      const uint64_t at = hit.samples_consumed - before;
+      if (at == 0 || at > (uint64_t)x_len)
+        return 0;
+      const float _Complex *tail     = x + at;
+      const size_t          tail_len = x_len - (size_t)at;
 
       /* A hit is a seed the object made for itself -- the same path an
        * outside detection takes. dp_acq_build_handoff() folds the phase into

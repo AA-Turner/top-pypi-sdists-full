@@ -151,12 +151,6 @@ _OVERRIDE_NORMALIZERS: dict[str, Callable[[object], object]] = {
 _NEVER_UNSET_BY_NULL = frozenset({"model", "offering_id", "stream"})
 
 
-#: The one-line stamp that makes the omission notice idempotent: `replace_variables`
-#: runs more than once on a config that is reused across turns, and the notice must be
-#: appended once, not once per pass.
-_OMISSION_MARK = "[matrx:not-delivered]"
-
-
 def _camera_control(value: Any) -> dict | None:
     from matrx_ai.media.video_reference_roles import validate_camera_control
 
@@ -268,6 +262,17 @@ class UnifiedConfig:
     # ``None`` = never stamped (legacy row or an agent-less run).
     agent_auto_tools_disabled: bool | None = None
     agent_excluded_tools: list[str] | None = None
+    # PROMPT BLOCKS (matrx_ai/prompt_blocks). ``prompt_blocks`` = the names the agent
+    # DECLARES; ``prompt_block_creator`` = the agent's creator (personal rung). Resolved
+    # once on the first turn into ``prompt_block_texts`` (in memory, consumed by
+    # replace_variables); the report and the skill-linked tool ids persist with the
+    # conversation so every later turn keeps the tools and the Model view can show
+    # which rung/variant each block came from.
+    prompt_blocks: list[str] = field(default_factory=list)
+    prompt_block_creator: str | None = None
+    prompt_block_texts: dict[str, str] | None = None
+    prompt_block_report: list[dict[str, Any]] = field(default_factory=list)
+    prompt_block_tool_ids: list[str] = field(default_factory=list)
     # Durable transition marker for authored-vs-effective restoration. It is
     # true only while host hard exclusions are applied to ``tools``; persisting
     # it lets a later reload with no bound target restore ``authored_tools``.
@@ -305,6 +310,15 @@ class UnifiedConfig:
     # tools. A single layer that fails closed to the wrong answer is not a
     # layer. See `matrx_ai/agents/live_structure.py`.
     responder_mandate_key: str | None = None
+    # 🚨 "THIS MESSAGE ONLY" — a one-turn model choice. In-memory only, never
+    # stored. When set, it holds the conversation's OWN model (and its class
+    # pins) from before this turn's override, so the turn runs on the picked
+    # model while the conversation row keeps its model (``to_storage_dict``)
+    # and the next turn — from the process cache or the DB — starts from it
+    # again (``end_model_this_turn_only`` in the resolver). Without this a
+    # per-turn ``config_overrides.model`` moved ``last_model_id`` and the
+    # cached config, so every later turn silently stayed on the one-off model.
+    model_turn_only_restore: dict[str, Any] | None = None
     # Literal["none", "auto", "required"]
     tool_choice: Literal["none", "auto", "required"] | None = None
     parallel_tool_calls: bool = True
@@ -793,6 +807,10 @@ class UnifiedConfig:
             ),
             agent_auto_tools_disabled=data.get("agent_auto_tools_disabled"),
             agent_excluded_tools=data.get("agent_excluded_tools"),
+            prompt_blocks=list(data.get("prompt_blocks") or []),
+            prompt_block_creator=data.get("prompt_block_creator"),
+            prompt_block_report=list(data.get("prompt_block_report") or []),
+            prompt_block_tool_ids=list(data.get("prompt_block_tool_ids") or []),
             tool_authority_filtered=bool(data.get("tool_authority_filtered", False)),
             tool_authority_exclusions=data.get("tool_authority_exclusions", []),
             tool_capability_filtered=bool(data.get("tool_capability_filtered", False)),
@@ -964,16 +982,23 @@ class UnifiedConfig:
             if isinstance(self.system_instruction, SystemInstruction)
             else self.resolved_system_instruction
         )
+        # A one-turn model override is not the conversation's model: the row
+        # keeps the model (and class pin) it had before this turn.
+        turn_only = self.model_turn_only_restore or {}
+        stored_model = turn_only.get("model", self.model) if turn_only else self.model
+        stored_offering_id = (
+            turn_only.get("offering_id") if turn_only else self.offering_id
+        )
         result: dict[str, Any] = {
-            "model": self.model,
+            "model": stored_model,
             "system_instruction": system_instruction_storage,
             "messages": message_storage_dicts,
         }
 
         # Config JSONB -- only include non-default/non-None values
         config: dict[str, Any] = {}
-        if self.offering_id is not None:
-            config["offering_id"] = self.offering_id
+        if stored_offering_id is not None:
+            config["offering_id"] = stored_offering_id
         if self.temperature is not None:
             config["temperature"] = self.temperature
         if self.max_output_tokens is not None:
@@ -1011,6 +1036,14 @@ class UnifiedConfig:
             config["agent_auto_tools_disabled"] = self.agent_auto_tools_disabled
         if self.agent_excluded_tools is not None:
             config["agent_excluded_tools"] = list(self.agent_excluded_tools)
+        if self.prompt_blocks:
+            config["prompt_blocks"] = list(self.prompt_blocks)
+        if self.prompt_block_creator:
+            config["prompt_block_creator"] = self.prompt_block_creator
+        if self.prompt_block_report:
+            config["prompt_block_report"] = list(self.prompt_block_report)
+        if self.prompt_block_tool_ids:
+            config["prompt_block_tool_ids"] = list(self.prompt_block_tool_ids)
         if self.tool_authority_filtered:
             config["tool_authority_filtered"] = True
         if self.tool_authority_exclusions:
@@ -1253,11 +1286,21 @@ class UnifiedConfig:
         # Same tripwire for a ``sources`` variable whose door skipped the
         # pre-substitution step: a named notice, never the envelope's JSON.
         variables = guard_unresolved_source_sets(variables)
-        # Values are DATA: only placeholders the author wrote are slots, across
-        # every pass (config/template_substitution.py).
+        # THE ONE RULE (config/template_substitution.py): declared slots only, one pass.
         from matrx_ai.config.template_substitution import substitute_authored
 
-        system_template = ""
+        # Prompt blocks: every DECLARED block must have been resolved (the async
+        # matrx_ai.prompt_blocks.resolve_declared_blocks step) before the first-turn
+        # fill. Skipping that step is a code-path bug: refuse loudly, never send a
+        # prompt with silently dropped sections.
+        blocks: dict[str, str] | None = None
+        if self.prompt_blocks:
+            if self.prompt_block_texts is None:
+                from matrx_ai.prompt_blocks.errors import PromptBlocksNotResolved
+
+                raise PromptBlocksNotResolved(list(self.prompt_blocks))
+            blocks = dict(self.prompt_block_texts)
+
         if self.system_instruction is not None:
             system_template = getattr(self.system_instruction, "_authored_template", None)
             if system_template is None:
@@ -1268,31 +1311,12 @@ class UnifiedConfig:
                 system_template,
                 variables,
                 str,
+                unescape=True,
+                blocks=blocks,
             )
 
         # Replace in all messages
-        self.messages.replace_variables(variables)
-
-        # AGT-N-7 — WHAT COULD NOT BE DELIVERED IS NAMED, HERE, WHERE BOTH HALVES ARE
-        # VISIBLE. `TextContent.replace_variables` records the message half; the system
-        # instruction above is substituted by its own loop and had no recorder at all,
-        # so an undeclared `{{foo}}` in a system prompt reached the model verbatim with
-        # nothing said anywhere in the chain (DYNAMIC-VALUES §D, measured 2026-09-16).
-        # The braces are NOT erased — substitution is multi-pass — the model is simply
-        # told, in one sentence, that they were not delivered and must not be invented.
-        from matrx_ai.config.undeclared import note_unresolved, omission_sentence
-
-        if self.system_instruction is not None:
-            note_unresolved(
-                self.system_instruction.base_instruction or "", template=system_template
-            )
-        sentence = omission_sentence()
-        if sentence and self.system_instruction is not None:
-            existing = self.system_instruction.base_instruction or ""
-            if _OMISSION_MARK not in existing:
-                self.system_instruction.base_instruction = (
-                    f"{existing}\n\n{_OMISSION_MARK} {sentence}".strip()
-                )
+        self.messages.replace_variables(variables, blocks=blocks)
 
     def apply_overrides(self, overrides: LLMParams) -> None:
         """Apply typed config overrides from the API layer.
@@ -1337,6 +1361,33 @@ class UnifiedConfig:
             if normalizer is not None:
                 value = normalizer(value)
             setattr(self, key, value)
+
+    _TURN_ONLY_MODEL_KEYS = ("model", "offering_id", "runtime_offering_id")
+
+    def begin_model_this_turn_only(self) -> None:
+        """Remember the conversation's model before a one-turn model override.
+
+        Call BEFORE ``apply_overrides``. Idempotent within a turn: the first
+        snapshot (the conversation's real model) is the one kept.
+        """
+        if self.model_turn_only_restore is None:
+            self.model_turn_only_restore = {
+                key: getattr(self, key, None) for key in self._TURN_ONLY_MODEL_KEYS
+            }
+
+    def end_model_this_turn_only(self) -> bool:
+        """Put the conversation's own model back after a one-turn override.
+
+        Returns True when something was restored. Safe to call on every turn.
+        """
+        restore = self.model_turn_only_restore
+        if restore is None:
+            return False
+        for key, value in restore.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+        self.model_turn_only_restore = None
+        return True
 
     def _unset_setting(self, key: str) -> None:
         """Return one stored setting to "not set" — its declared field default.

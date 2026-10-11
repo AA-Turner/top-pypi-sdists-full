@@ -1,3 +1,10 @@
+# Copyright 2025 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
 """Athena MAP types."""
 
 from __future__ import annotations
@@ -6,6 +13,8 @@ from typing import Any
 
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeEngine
+
+from pyathena.util import override
 
 
 class AthenaMap(TypeEngine[dict[str, Any]]):
@@ -34,6 +43,14 @@ class AthenaMap(TypeEngine[dict[str, Any]]):
     __visit_name__ = "map"
 
     def __init__(self, key_type: Any = None, value_type: Any = None) -> None:
+        """Initialize the MAP type.
+
+        Args:
+            key_type: SQLAlchemy type or type class for map keys. A type class is
+                instantiated. Defaults to ``String``.
+            value_type: SQLAlchemy type or type class for map values. A type class
+                is instantiated. Defaults to ``String``.
+        """
         if key_type is None:
             self.key_type: TypeEngine[Any] = sqltypes.String()
         elif isinstance(key_type, TypeEngine):
@@ -51,6 +68,7 @@ class AthenaMap(TypeEngine[dict[str, Any]]):
             self.value_type = value_type()
 
     @property
+    @override
     def python_type(self) -> type:
         return dict
 

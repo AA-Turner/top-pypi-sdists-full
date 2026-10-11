@@ -7,6 +7,7 @@ import anthropic as anthropic_sdk
 from anthropic import AsyncAnthropic
 from matrx_connect.chat_timing import chat_timing_mark
 from matrx_connect.context.events import CitationPayload, InfoPayload, WarningPayload
+from matrx_connect.request_latency import mark_provider_stream_open
 from matrx_utils import vcprint
 
 from matrx_ai.config import (
@@ -576,6 +577,7 @@ class AnthropicChat:
             async with stream_manager as stream:
                 try:
                     async for event in stream:
+                        mark_provider_stream_open()
                         await self._handle_event(event, emitter)
                     final_message = await stream.get_final_message()
                 except BaseException as exc:

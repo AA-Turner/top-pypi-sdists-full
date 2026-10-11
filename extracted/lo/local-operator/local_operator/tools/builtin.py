@@ -109,6 +109,7 @@ from local_operator.harness.types import (
     FAULT_ABORTED,
     FAULT_INVALID_ARGUMENTS,
     FAULT_KEY,
+    QUIET_TURN_KEY,
     AbortSignal,
     AgentTool,
     AgentToolUpdate,
@@ -4805,6 +4806,21 @@ async def execute_bash(
         # whose completion auto-delivers when the session is idle. A REAL
         # abort (Ctrl+C, jobs cancel) still kills: that is a stop, not a
         # redirect.
+        if context is not None and context.monitor_check:
+            # EXCEPT a monitor check: it is UNATTENDED, so no steer may
+            # interrupt it and a cancel here is teardown or the scheduler's
+            # deadline. The detach branch below cannot tell those from a
+            # steer and would return a "job … steering interrupted" NOTICE
+            # as the call's result — the scheduler records it as the check's
+            # OUTPUT and adopts it as the diff baseline (measured live: m28's
+            # post-restart delta ran against exactly that notice text), and
+            # the detached command outlives the check with no consumer. Kill
+            # and let the cancel propagate: the check path turns a deadline
+            # into a failed check and a teardown into a cancelled task,
+            # never into output.
+            _kill()
+            _reap_synchronously()
+            raise
         if signal is not None and signal.aborted:
             _kill()
             raise
@@ -10867,11 +10883,11 @@ def _contained(path: Path, confinement: ToolConfinement | None) -> bool:
 
     WHY RESOLUTION AND NOT ``lstat``: a symlink is a name INSIDE the root whose
     target is somewhere else, and every sibling reader (``read``, ``write``,
-    ``edit``, ``grep``, the shell) judges the [redacted] target -- so this must
+    ``edit``, ``grep``, the shell) judges the RESOLVED target -- so this must
     too, or ``glob`` becomes the one reader with a different rule (review
     round 1, R-1: ``linkapp/**/*`` through a root symlink listed 500 of 1335
     entries of the gated apparatus tree; ``linkapp/*`` listed its three top
-    directories). Fail-closed: a path that cannot be [redacted] cannot be shown
+    directories). Fail-closed: a path that cannot be resolved cannot be shown
     to be inside. ``confinement is None`` is the free-session default and keeps
     the old behaviour byte for byte.
     """
@@ -26625,6 +26641,11 @@ async def execute_jobs(
             # actually stop something:
             #   * a bash/eval row has no comms record, so a stamp would invent an
             #     actor for a job that never had one;
+            #   * a video row likewise has no comms record (its durable state is
+            #     the ``video_job_v1`` transcript record, never the subagent
+            #     roster), and the manager's cancel still reaches it through the
+            #     runner's bounded provider cancel — so the type gate below is
+            #     deliberately left covering ``task`` only;
             #   * a row that is ALREADY settled is the tool's own normal
             #     "was not cancelled" outcome, not an error — stamping it put
             #     `stopped by jobs-tool` on a COMPLETED child (design/QA round 1, Q1,
@@ -26786,7 +26807,7 @@ def build_jobs_tool(context: ToolContext) -> AgentTool | None:
         name="jobs",
         label="List jobs",
         description=(
-            "Inspect background jobs (task/bash). op='list' shows every "
+            "Inspect background jobs (task/bash/video). op='list' shows every "
             "running and recently-settled job with its id, status and age — "
             "'up' is how long a running job has been going, 'wait' is how long "
             "a parked one has been waiting for a slot, 'ago' is how long since "
@@ -28395,4 +28416,173 @@ async def execute_ask_withdraw(
         "ask_withdraw",
         str(outcome.get("text") or ""),
         details=dict(outcome.get("details") or {}),
+    )
+
+
+# ---------------------------------------------------------------------------
+# no_reply (design docs/design/quiet-turns.md §4)
+# ---------------------------------------------------------------------------
+#
+# Why this tool exists: the prompt has always told the model "a wake or monitor
+# turn that finds nothing needing action ... end it with no reply, and don't
+# notify", but no mechanism existed to perform that act, so models wrote filler
+# text instead — `(no action needed)` was measured 143 times in one week in a
+# single session, 88 of them directly after a tool result. The affirmative act
+# is a TOOL CALL rather than a text sentinel or an empty reply: text streams to
+# every surface before it can be recognised (Hermes needed a stream filter for
+# exactly that), and an empty reply is indistinguishable from the provider
+# glitches this fleet measured (68 ``error``+empty stops in the same scan), so
+# a sentinel would either flash `NO_REPLY` on screen or silence real failures.
+#
+# The result is "Quiet." with ``useless=True`` (the prune pass blanks its
+# content) plus ``QUIET_TURN_KEY`` in ``details`` — the marker the loop's
+# batch-end check and the session's quiet predicate read. ``details`` is never
+# sent to providers, the same carrier as ``OUTPUT_LIMIT_KEY``.
+#
+# Availability (AGENTS.md footprint ladder, rung 3): the builder returns None
+# wherever the session has no quiet-end door (``ToolContext.quiet_end`` — None
+# for subagent children, one-shot hosts, output-contract sessions and under
+# the kill switch; see ``Session._quiet_end_callable``), and the schema is
+# DEFERRED (``tools/deferral.py``) so even the sessions that hold the tool pay
+# no per-request schema cost until it is activated — it has no arguments, so
+# no schema is needed to form its call. Appended at the END of
+# TOOL_BUILDERS/DEFAULT_TOOL_NAMES for the prompt-cache reason the
+# sessions/monitor/ask_withdraw rows state.
+
+#: The kill switch: ``LOP_NO_REPLY=0`` (or false/no/off, case- and
+#: whitespace-insensitively) removes the tool — env only, no config key
+#: (docs/design/quiet-turns.md §10). Same direction and typo discipline as
+#: ``asks/policy.py``'s ``LOP_ASK_GATE`` read, deliberately: only an explicit
+#: off value turns it off, because a typo must not silently unbuild a working
+#: mechanism while looking like a deliberate switch. Read from the environment
+#: ONCE, at import; a test that needs the other mode monkeypatches this
+#: attribute (``builtin.NO_REPLY_ENABLED``) or sets the env var before import.
+NO_REPLY_ENABLED: bool = os.environ.get("LOP_NO_REPLY", "").strip().lower() not in {
+    "0",
+    "false",
+    "no",
+    "off",
+}
+
+
+def no_reply_enabled() -> bool:
+    """Whether this process may end turns quietly (``LOP_NO_REPLY``, default on).
+
+    The same function-not-attribute convention as ``asks/policy.py``'s
+    ``gate_enabled``, for the same reason: monkeypatching ``NO_REPLY_ENABLED``
+    must take effect on every path at once (the session binding is the only
+    reader).
+    """
+    return NO_REPLY_ENABLED
+
+
+class NoReplyParams(BaseModel):
+    """No fields by design: the call's whole content is its existence.
+
+    A ``reason`` field was considered and rejected (docs §4): a reason can only
+    live in the call's persisted arguments, which are re-billed on every later
+    request, and the trigger row beside the call already says why. The ``i``
+    intent property this schema ends up with is injected by ``create_tools``
+    (``apply_intent_schema``) — not declared here — and the loop lifts it off
+    before validation (``INTENT_FIELD`` pop), so a model-supplied call arrives
+    as ``{}``. ``extra="forbid"`` is what keeps "only the injected ``i`` is
+    accepted" true at the tool boundary: any other key is a validation error
+    rather than a silently ignored field.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+
+#: The description is where the acknowledgement ban lives rather than in
+#: ``system.md`` (review R6): the schema is deferred, so this text is unbilled
+#: until the tool is activated, while the system prompt is paid on EVERY
+#: request of every session — including the children that can never call it.
+_NO_REPLY_DESCRIPTION = (
+    "End this turn silently when a peer message, wake, monitor or job result "
+    "needs no reply and no action. Nothing is shown or notified — never answer "
+    "an acknowledgement with an acknowledgement, and never write filler such "
+    "as '(no action needed)'. Refused if the user asked something or the "
+    "wake/monitor asked to notify."
+)
+
+
+def build_no_reply_tool(context: ToolContext) -> AgentTool | None:
+    """CreateIf builder: present only where the session can END QUIET.
+
+    Gated on the ``quiet_end`` callable ALONE, the one-fact rule
+    ``build_ask_withdraw_tool`` follows with the queue door: its presence IS
+    "this session may end a turn quietly", and the session binds it to ``None``
+    exactly where a quiet end could not be honoured (subagent children whose
+    final text a parent's ``wait`` reads, one-shot/headless hosts whose product
+    IS the final text, output-contract sessions whose gate would read silence
+    as a missing response, and the ``LOP_NO_REPLY=0`` kill switch). Absent, not
+    merely inert, in those sessions — footprint rung 3.
+
+    ``approval_tier="read"`` for the same reason ``todo`` and
+    ``ask_withdraw`` take it: the call touches nothing outside the session's
+    own turn — no writes, no world state — so an approval prompt would put a
+    question in front of the operator about the absence of one. ``exclusive``
+    and ``interruptible=False`` like ``patience``: the call settles the batch's
+    shape (whether the turn ends), so letting it run beside a sibling whose
+    result must still be fed back is exactly the interleaving the loop's
+    LAST-result rule (review R8) rules out.
+    """
+    if getattr(context, "quiet_end", None) is None:
+        return None
+    return AgentTool(
+        name="no_reply",
+        label="No reply",
+        description=_NO_REPLY_DESCRIPTION,
+        parameters=NoReplyParams.model_json_schema(),
+        approval_tier="read",
+        concurrency="exclusive",
+        interruptible=False,
+        execute=execute_no_reply,
+    )
+
+
+@_guard("no_reply")
+async def execute_no_reply(
+    tool_call_id: str,
+    args: dict[str, Any],
+    signal: AbortSignal | None = None,
+    on_update: Callable[[AgentToolUpdate], None] | None = None,
+    context: ToolContext | None = None,
+) -> ToolResult:
+    """End the turn quietly, or refuse with the sentence the model must act on.
+
+    The refusal decision is the session's own (``quiet_end`` returns the
+    sentence when a person asked this turn, when a user message sits queued but
+    unconsumed, or when the wake/monitor delivery asked to notify —
+    docs/design/quiet-turns.md §4's denylist). A refusal comes back as an
+    ``is_error`` result and NO marker, so the loop does not end the turn and the
+    model writes the text; this method never coerces silence either way.
+    """
+    try:
+        NoReplyParams(**args)
+    except ValidationError as exc:
+        return _validation_error(tool_call_id, "no_reply", exc)
+    quiet_end = getattr(context, "quiet_end", None) if context is not None else None
+    if quiet_end is None:
+        # Unreachable through the advertised tool (the builder above refuses to
+        # create it without the door), so this is a host wiring fault and is
+        # reported as one — never as a quiet end, which would tell the model its
+        # turn ended when the loop is still going to ask it for text.
+        return _error(
+            tool_call_id,
+            "no_reply",
+            "this host has no quiet-end door wired into this session — the turn "
+            "is not over; answer in text instead.",
+        )
+    refusal = await quiet_end()
+    if refusal:
+        return _error(tool_call_id, "no_reply", refusal)
+    return _text(
+        tool_call_id,
+        "no_reply",
+        "Quiet.",
+        # ``useless`` so the prune pass blanks the content later; the marker
+        # rides ``details``, which never reaches a provider.
+        useless=True,
+        details={QUIET_TURN_KEY: True},
     )

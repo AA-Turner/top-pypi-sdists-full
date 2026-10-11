@@ -1154,9 +1154,11 @@ fn read_mol_internal(
     }
 
     // Read property lines until `M  END` (or EOF if absent). Even the graph-only
-    // supplier must consume `M  CHG`: RDKit uses it for valid formal charges
-    // that are not encoded in V2000's fixed-width atom charge field.
+    // supplier must consume `M  CHG` and `M  ISO`: RDKit uses them for values
+    // that do not fit, or are intentionally omitted from, the atom block's
+    // fixed-width charge and mass-difference fields.
     let mut property_charges = Vec::new();
+    let mut property_isotopes = Vec::new();
     let mut property_rgroups = Vec::new();
     for (line_number, line) in lines.by_ref() {
         let fields: Vec<&str> = line.split_whitespace().collect();
@@ -1202,6 +1204,47 @@ fn read_mol_internal(
                             detail: format!("M CHG charge '{}' is not an i8", pair[1]),
                         })?;
                 property_charges.push((AtomIdx((atom_id - 1) as u32), charge));
+            }
+        } else if fields.len() >= 2 && fields[0] == "M" && fields[1] == "ISO" {
+            let count = fields
+                .get(2)
+                .and_then(|value| value.parse::<usize>().ok())
+                .ok_or_else(|| MolParseError::InvalidPropertyLine {
+                    line: line_number,
+                    detail: "M ISO lacks a valid entry count".to_string(),
+                })?;
+            if fields.len() != 3 + count.saturating_mul(2) {
+                return Err(MolParseError::InvalidPropertyLine {
+                    line: line_number,
+                    detail: format!(
+                        "M ISO declares {count} entries but has {} values",
+                        fields.len().saturating_sub(3)
+                    ),
+                });
+            }
+            for pair in fields[3..].chunks(2) {
+                let atom_id = pair[0]
+                    .parse::<usize>()
+                    .ok()
+                    .filter(|id| *id > 0 && *id <= natoms)
+                    .ok_or_else(|| MolParseError::InvalidPropertyLine {
+                        line: line_number,
+                        detail: format!("M ISO atom id '{}' is outside 1..={natoms}", pair[0]),
+                    })?;
+                let isotope =
+                    pair[1]
+                        .parse::<u16>()
+                        .map_err(|_| MolParseError::InvalidPropertyLine {
+                            line: line_number,
+                            detail: format!("M ISO mass '{}' is not a u16", pair[1]),
+                        })?;
+                if isotope == 0 {
+                    return Err(MolParseError::InvalidPropertyLine {
+                        line: line_number,
+                        detail: "M ISO mass must be greater than zero".to_string(),
+                    });
+                }
+                property_isotopes.push((AtomIdx((atom_id - 1) as u32), isotope));
             }
         } else if fields.len() >= 2 && fields[0] == "M" && fields[1] == "RGP" {
             let count = fields
@@ -1249,6 +1292,9 @@ fn read_mol_internal(
     flag_aromatic_bond_atoms(&mut mol);
     for (atom, charge) in property_charges {
         mol.set_charge(atom, charge);
+    }
+    for (atom, isotope) in property_isotopes {
+        mol.set_isotope(atom, Some(isotope));
     }
     // A valence field fixes the atom's hydrogens (as RDKit reads it); skipped
     // on aromatic-bond atoms, whose integer valence the bonds do not give.
@@ -2633,7 +2679,9 @@ M  END
             let v2000 = parse_mol(&write_mol(&mol, &MolMetadata::default()))
                 .unwrap()
                 .0;
-            let coords = vec![(0.0, 0.0); mol.atom_count()];
+            let coords: Vec<_> = (0..mol.atom_count())
+                .map(|i| (1.5 * i as f64, 0.0))
+                .collect();
             let v3000 = crate::parse_mol_v3000(&crate::write_mol_v3000(
                 &mol,
                 &MolMetadata::default(),
@@ -2944,6 +2992,70 @@ M  END
             assert_eq!(mol.atom(AtomIdx(0)).charge, 1);
             assert_eq!(mol.atom(AtomIdx(1)).charge, -1);
         }
+    }
+
+    #[test]
+    fn m_iso_property_overrides_fixed_width_mass_in_all_reader_paths() {
+        let mol_str = "\
+isotope_property
+  RDKit          2D
+
+  2  1  0  0  0  0  0  0  0  0999 V2000
+    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    1.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+  1  2  1  0
+M  ISO  1   1  13
+M  END
+";
+        let (ordinary, _) = parse_mol(mol_str).expect("ordinary parse");
+        let (fast, _) = parse_mol_fast(mol_str).expect("fast parse");
+        for mol in [&ordinary, &fast] {
+            assert_eq!(mol.atom(AtomIdx(0)).isotope, Some(13));
+            assert_eq!(mol.atom(AtomIdx(1)).isotope, None);
+        }
+    }
+
+    #[test]
+    fn malformed_m_iso_is_a_typed_property_error() {
+        let mol_str = "\
+bad_isotope_property
+  RDKit          2D
+
+  1  0  0  0  0  0  0  0  0  0999 V2000
+    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+M  ISO  1   2  13
+M  END
+";
+        assert!(matches!(
+            parse_mol(mol_str),
+            Err(MolParseError::InvalidPropertyLine { .. })
+        ));
+    }
+
+    #[test]
+    fn rdkit_2d_mol_roundtrip_preserves_alkene_stereo_and_isotope() {
+        for smiles in ["O=C(O)/C=C/C(=O)O", "O=C(O)/C=C\\C(=O)O"] {
+            let original = chematic_smiles::parse(smiles).expect("SMILES parse");
+            let block = chematic_smiles::rdkit_mol_block_2d(&original).expect("MOL write");
+            let report = read_mol_with_diagnostics(&block).expect("MOL read");
+            assert!(
+                report.ez_diagnostics.is_empty(),
+                "{smiles}: {:?}",
+                report.ez_diagnostics
+            );
+            let expected = chematic_smiles::rdkit_canonical_smiles(&original);
+            let actual = chematic_smiles::rdkit_canonical_smiles(&report.mol);
+            assert_eq!(actual, expected, "{smiles}\n{block}");
+        }
+
+        let original = chematic_smiles::parse("[13CH3][C@H](O)Cl").expect("SMILES parse");
+        let block = chematic_smiles::rdkit_mol_block_2d(&original).expect("MOL write");
+        let report = read_mol_with_diagnostics(&block).expect("MOL read");
+        assert_eq!(report.mol.atom(AtomIdx(0)).isotope, Some(13));
+        assert_eq!(
+            chematic_smiles::rdkit_canonical_smiles(&report.mol),
+            chematic_smiles::rdkit_canonical_smiles(&original)
+        );
     }
 
     #[test]
@@ -3372,10 +3484,9 @@ mod square_planar_tests {
             Point3::new(-1.0, 1.0, -1.0),
             Point3::new(-1.0, -1.0, 1.0),
         ];
-        assert_eq!(
-            classify_square_planar_geometry(center, neighbors),
-            Err(SquarePlanarRejectionReason::NotCoplanar)
-        );
+        let result = classify_square_planar_geometry(center, neighbors);
+        assert_eq!(result, Err(SquarePlanarRejectionReason::NotCoplanar));
+        assert!(result.unwrap_err().to_string().contains("not coplanar"));
     }
 
     #[test]
@@ -3383,9 +3494,16 @@ mod square_planar_tests {
         let center = Point3::zero();
         let mut neighbors = ideal_square_planar_neighbors(SquarePlanarPermutation::SP1);
         neighbors[0] = center; // coincides with the center itself
+        let result = classify_square_planar_geometry(center, neighbors);
         assert_eq!(
-            classify_square_planar_geometry(center, neighbors),
+            result,
             Err(SquarePlanarRejectionReason::DegenerateBondVector)
+        );
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("degenerate bond vector")
         );
     }
 
@@ -3399,10 +3517,12 @@ mod square_planar_tests {
             Point3::new(1.5 * r.cos(), 1.5 * r.sin(), 1.5)
         };
         let neighbors = [at(0.0), at(20.0), at(40.0), at(60.0)];
+        let result = classify_square_planar_geometry(center, neighbors);
         assert_eq!(
-            classify_square_planar_geometry(center, neighbors),
+            result,
             Err(SquarePlanarRejectionReason::AmbiguousTransPairing)
         );
+        assert!(result.unwrap_err().to_string().contains("trans-pairing"));
     }
 
     /// Build a 5-atom (center + 4 ligand) molecule plus a matching `Coords3D`
@@ -3527,6 +3647,11 @@ mod square_planar_tests {
         assert_eq!(err.reason, UnsupportedStereoReason::NoConformerSupplied);
         assert_eq!(err.format, MolFormat::V2000);
         assert_eq!(err.geometry, StereoGeometry::SquarePlanar);
+        assert!(
+            err.to_string()
+                .contains("atom 0 (SquarePlanar stereo) to MOL V2000")
+        );
+        assert!(err.to_string().contains("no 3D conformer supplied"));
     }
 
     #[test]
@@ -3550,6 +3675,8 @@ mod square_planar_tests {
             err.reason,
             UnsupportedStereoReason::WholeMoleculeConformerFlat
         );
+        assert!(err.to_string().contains("MOL V3000"));
+        assert!(err.to_string().contains("flat/indeterminate"));
     }
 
     #[test]
@@ -3569,6 +3696,8 @@ mod square_planar_tests {
                 computed: SquarePlanarPermutation::SP2
             }
         );
+        assert!(err.to_string().contains("geometry encodes SP2"));
+        assert!(err.to_string().contains("does not match the declared tag"));
     }
 
     #[test]
@@ -3585,6 +3714,7 @@ mod square_planar_tests {
             err.reason,
             UnsupportedStereoReason::ImplicitHydrogenNeighbor
         );
+        assert!(err.to_string().contains("implicit-hydrogen slot"));
     }
 
     #[test]
@@ -3625,5 +3755,38 @@ mod square_planar_tests {
             diagnostics.is_empty(),
             "square-planar chirality must never reach the tetrahedral-only conflict check: {diagnostics:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod stereo_loss_message_boundary_tests {
+    use super::*;
+
+    #[test]
+    fn actual_degenerate_layout_loss_reports_the_unexpressed_stereo_identity() {
+        for (source, atom, bond) in [
+            ("C[C@H](F)Cl", Some(AtomIdx(1)), None),
+            ("F/C=C/F", None, Some(chematic_core::BondIdx(1))),
+        ] {
+            let mol = chematic_smiles::parse(source).unwrap();
+            let coords: Vec<_> = (0..mol.atom_count())
+                .map(|i| (1.5 * i as f64, 0.0))
+                .collect();
+            let (_, loss) = write_mol_with_stereo_report(&mol, &MolMetadata::default(), &coords);
+            assert!(!loss.is_empty(), "{source}");
+            let message = loss.to_string();
+            if let Some(atom) = atom {
+                assert!(loss.centres.contains(&atom));
+                assert!(message.contains("tetrahedral centres without a wedge (atoms 1)"));
+            }
+            if let Some(bond) = bond {
+                assert!(loss.double_bonds.contains(&bond));
+                assert!(message.contains("E/Z written as either (bonds 1)"));
+            }
+        }
+        let mol = chematic_smiles::parse("CCO").unwrap();
+        let (_, loss) = write_mol_with_stereo_report(&mol, &MolMetadata::default(), &[]);
+        assert!(loss.is_empty());
+        assert_eq!(loss.to_string(), "no stereo lost");
     }
 }

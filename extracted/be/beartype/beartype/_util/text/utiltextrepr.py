@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 """
@@ -12,11 +12,10 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar._roarwarn import _BeartypeUtilCallableWarning
-# from beartype.typing import Dict
 from beartype._cave._cavefast import NumberType
 from beartype._data.typing.datatyping import TypeWarning
 from beartype._data.kind.datakindtext import CHARS_PUNCTUATION
-from beartype._util.utilobject import get_object_basename_scoped_or_none
+from beartype._util.utilobjget import get_object_basename_scoped_or_none
 from collections.abc import Callable
 from pprint import saferepr
 

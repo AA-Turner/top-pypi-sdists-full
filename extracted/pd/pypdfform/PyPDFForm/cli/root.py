@@ -108,14 +108,6 @@ def main(
             help="Generate form field appearance streams.",
         ),
     ] = False,
-    preserve_metadata: Annotated[
-        bool,
-        typer.Option(
-            "--preserve-metadata",
-            help="Preserve input PDF metadata.",
-            hidden=True,
-        ),
-    ] = False,
     use_full_widget_name: Annotated[
         bool,
         typer.Option(
@@ -138,15 +130,12 @@ def main(
             field appearances.
         generate_appearance_streams (bool): Whether to generate form field
             appearance streams while handling PDFs.
-        preserve_metadata (bool): Deprecated compatibility option. Input PDF
-            metadata is preserved automatically.
         use_full_widget_name (bool): Whether widget lookups should use full
             form field names.
     """
     ctx.obj = {
         "need_appearances": need_appearances,
         "generate_appearance_streams": generate_appearance_streams,
-        "preserve_metadata": preserve_metadata,
         "use_full_widget_name": use_full_widget_name,
     }
 
@@ -163,10 +152,6 @@ def fill(
         Path | None, data_file_option("YAML or JSON file with form field values.")
     ] = None,
     output: OPTIONAL_OUTPUT_PDF = None,
-    flatten: Annotated[
-        bool,
-        typer.Option("--flatten", help="Deprecated alias for --readonly.", hidden=True),
-    ] = None,
     readonly: Annotated[
         bool,
         typer.Option("--readonly", help="Make form fields read-only when filling."),
@@ -191,9 +176,8 @@ def fill(
             options in ``ctx.args``. Defaults to None.
         output (Path, optional): Output PDF path. If omitted, the input PDF is
             overwritten. Defaults to None.
-        flatten (bool, optional): Deprecated alias for `readonly`. Defaults to None.
         readonly (bool): Whether to make form fields read-only when filling.
-            Defaults to False. Either `readonly` or `flatten` enables read-only fields.
+            Defaults to False.
     """
     obj = PdfWrapper(str(pdf), **ctx.obj)
 
@@ -231,4 +215,4 @@ def fill(
             )
             input_data[k] = input_data[k]["path"]
 
-    obj.fill(input_data, readonly=readonly, flatten=flatten).write(output or pdf)
+    obj.fill(input_data, readonly=readonly).write(output or pdf)

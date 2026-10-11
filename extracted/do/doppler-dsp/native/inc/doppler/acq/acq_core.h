@@ -146,11 +146,11 @@
 #ifndef DP_ACQ_CORE_H
 #define DP_ACQ_CORE_H
 
-#include "doppler/buffer/buffer.h"
 #include "doppler/clib_common.h"
 #include "doppler/corr2d/corr2d_core.h"
 #include "doppler/detection/detection_core.h"
 #include "doppler/dp_state.h"
+#include "doppler/f32_buffer/f32_buffer_core.h"
 #include "doppler/fft/fft_core.h"
 #include "doppler/jm_perf.h"
 /* detector2d_core.h supplies det_noise_mode_t (guarded typedef). */
@@ -208,6 +208,21 @@ extern "C"
                                      wall-clock-agnostic; this is the raw
                                      material a caller with a real clock
                                      converts.                            */
+    double chip_phase; /**< The code's own instantaneous phase at the
+                            hand-off instant, in chips, Dll's convention --
+                            the seed a code loop wants for this hit. The
+                            same value dp_acq_build_handoff() reports as
+                            acq_handoff_t::chip_phase: the inverted lag
+                            advanced by the dwell's dilation when a carrier
+                            is set (dp_acq_set_carrier_freq_hz()). For an
+                            engine built by dp_acq_create_burst(), one chip
+                            is one template sample, so chip_phase is in
+                            template samples over code_bins: a caller at s
+                            samples per chip divides by s. The
+                            dp_burst_acq_create() wrapper forwards no
+                            carrier setter, so its hits carry no dwell
+                            advance. Appended last so positional
+                            initialisers do not shift. */
   } acq_result_t;
 
   /**
@@ -319,7 +334,10 @@ extern "C"
   {
     dp_corr2d_state_t *corr; /**< Single-row-ref correlator (dwell=1).          */
     dp_fft_state_t *slow_fft; /**< Length-coherent_bins forward FFT (slow time). */
-    dp_f32_t    *ring;  /**< Raw cf32 input ring (the only ring).          */
+    dp_f32_t    *ring;  /**< The carry's storage: bound to @c framer,
+                             freed by destroy.                          */
+    dp_f32_framer_t framer; /**< Any chunk in, frame_n-sample frames out.  */
+    size_t consumed;        /**< Input samples the last push took.         */
     float _Complex *ref; /**< Single-row reference (n), owned.              */
     float _Complex *yframe;  /**< Slow-time-FFT'd frame (n) fed to corr.  */
     float _Complex *colbuf;  /**< Gathered column scratch (coherent_bins). */
@@ -553,8 +571,8 @@ extern "C"
    * bytes interface (see dp_state.h); layout, contiguous and flat:
    *
    *   `[ dp_state_hdr_t ] [ acq_extra_t ]`
-   *   `[ float _Complex unconsumed[n_unconsumed] ]`   (partial frame, < n
-   * samples)
+   *   `[ the framer's snapshot ]`   (the carry, fewer than frame_n samples;
+   *                                  its own self-validating child blob)
    *   `[ float          nc_surface[n] ]`             (only when n_noncoh > 1)
    *   `[ uint32_t       twins[2 * max_peaks] ]`      (held row, col pairs)
    *
@@ -570,17 +588,18 @@ extern "C"
     uint64_t n;                /**< Frame size; must equal engine's n.    */
     uint64_t samples_consumed; /**< Stream offset framed so far.          */
     uint32_t nc_count;     /**< Looks accumulated in the current dump.    */
-    uint32_t n_unconsumed; /**< Partial-frame samples that follow (< n).  */
     uint32_t max_peaks;    /**< List capacity; must equal the engine's.   */
     uint32_t n_twins;      /**< Last dwell's picks that follow.           */
     uint32_t blk_epoch; /**< v3: epochs gathered in the block being built */
   } acq_extra_t;
 
 #define ACQ_STATE_MAGIC DP_FOURCC ('A', 'C', 'Q', 'R')
-#define ACQ_STATE_VERSION 4u /* v4: the block's raw epochs ride beside it */
+/* v5: the carry is the framer's snapshot (fewer than frame_n samples)
+   instead of the ring's raw contents, zero-padded to ring_cap. */
+#define ACQ_STATE_VERSION 5u
 
-/** The largest `max_peaks` dp_acq_set_max_peaks() accepts: one push's
- *  result array is sized to this many in the binding, so one dwell can
+/** The largest `max_peaks` dp_acq_set_max_peaks() accepts: the bindings'
+ *  push result arrays (1024) are at least this many, so one dwell can
  *  always be reported whole. */
 #define ACQ_MAX_PEAKS 64u
 
@@ -1390,11 +1409,46 @@ extern "C"
    * event carries the peak's Doppler bin and code phase (the two search axes),
    * its CFAR statistic, and an estimated C/N0 — see @ref acq_result_t.
    *
+   * Python's push() has room for 1024 events a call, so a push that ends at
+   * most 1024 / max_peaks dwells, counting the carry, loses nothing.  Once
+   * fewer than max_peaks slots are left, the call stops before the next frame
+   * that would end a dwell -- and once all 1024 are used, before the next
+   * frame of any kind -- and the rest of its input is lost, unless the rest
+   * completes no frame, counting the carry already held: that is kept as the
+   * carry.  The next push stays on the frame grid only when what was lost is a
+   * whole number of frames.  Before v0.66 the room was 64, and a push past it
+   * kept up to ring_cap/frame_n - 1 frames for the next call, dropped the
+   * rest, and could cut a dwell's list short.  #1992 and
+   * just-buildit/just-makeit#2184 track sizing the list to the call.
+   *
    * @param state        Allocated engine (non-NULL).
    * @param x            Raw input, interleaved CF32, @p n_in complex samples.
    * @param n_in         Number of complex input samples.
    * @param result       Output array for detection events.
-   * @param max_results  Capacity of @p result.
+   * @param max_results  Capacity of @p result.  A full @p result never
+   *                     loses input.  A frame that ends a dwell may report
+   *                     up to max_peaks events, so it is taken only while
+   *                     at least min(max_peaks, max_results) slots are left
+   *                     (at least one); a frame that ends none needs no
+   *                     room while any slot is left.  A FULL @p result
+   *                     takes nothing more, so at room 1 a push frames
+   *                     nothing past its hit.  At the first frame it does
+   *                     not take, the
+   *                     push takes the rest of its input only if the rest
+   *                     completes no frame, counting the carry (it is then
+   *                     the carry), and otherwise stops on that frame's
+   *                     boundary.
+   *                     dp_acq_consumed() says how many samples it took,
+   *                     and the caller offers the rest again.  A
+   *                     @p max_results under max_peaks cannot hold a whole
+   *                     dwell: a push with @p result empty still takes the
+   *                     dwell and keeps its strongest max_results picks.
+   *                     That loses RESULTS -- the dwell's weaker picks --
+   *                     never input; size @p max_results >= max_peaks to
+   *                     lose none.  At 0 @p result is full from the
+   *                     start: a push takes only a rest that completes no
+   *                     frame, so a resume loop needs room for at least
+   *                     one.
    * @return Number of events written (0 … max_results).
    * @code
    * >>> import numpy as np
@@ -1418,6 +1472,55 @@ extern "C"
    */
   size_t dp_acq_push (dp_acq_state_t *state, const float _Complex *x, size_t n_in,
                    acq_result_t *result, size_t max_results);
+
+  /**
+   * @brief Input samples the last dp_acq_push() took.
+   *
+   * Per call: equal to its @p n_in unless the push stopped -- @p result full,
+   * or too few slots left for the next frame that ends a dwell -- and then the
+   * caller resumes at x + consumed.  Not acq_result_t::samples_consumed, which
+   * is CUMULATIVE and counts only framed samples -- the stream position a
+   * hit's epoch ended at -- so resuming from it would re-feed the carry and
+   * double-feed the stream.  0 after create, reset, a regrid and set_state.
+   *
+   * @param state  Must be non-NULL.
+   */
+  size_t dp_acq_consumed (const dp_acq_state_t *state);
+
+  /**
+   * @brief The engine's stream position: every sample its pushes have
+   *        taken, framed ones and the carry, since create, reset, a regrid
+   *        or set_state's restore.
+   *
+   * The timebase acq_result_t::samples_consumed is counted in. Read at the
+   * start of a push, it is where that push's input begins, so a hit from
+   * that push ended at x + (hit.samples_consumed - position): the hand-off
+   * a tracker resumes from. A caller's own count of what it has fed is a
+   * different timebase -- configure_search_raw() and set_state() reset or
+   * restore the engine and not the caller's count -- and subtracting the
+   * two reads outside x.
+   *
+   * @code
+   * float _Complex pre[124];               // a 31-chip code at 4x
+   * for (size_t i = 0; i < 124; i++)
+   *   pre[i] = (i / 4) % 3 ? 1.0f : -1.0f;
+   * dp_acq_state_t *a = dp_acq_create_burst (pre, 124, 16, 4.0e6, 45.0,
+   *                                          0.0, 1e-3, 0.9, 0, 0.0);
+   * float _Complex x[300] = { 0 };
+   * uint64_t       before = dp_acq_position (a);           // 0
+   * acq_result_t   hit;
+   * if (dp_acq_push (a, x, 300, &hit, 1) == 1)
+   *   printf ("hit ended at x + %llu\n",
+   *           (unsigned long long)(hit.samples_consumed - before));
+   * uint64_t after = dp_acq_position (a); // 300: framed and carried
+   * dp_acq_destroy (a);
+   * if (before != 0 || after != 300)
+   *   return 1;
+   * @endcode
+   *
+   * @param state  Must be non-NULL.
+   */
+  uint64_t dp_acq_position (const dp_acq_state_t *state);
 
   /**
    * @brief Wire-ready hand-off record built from one acq_result_t hit.
@@ -1578,7 +1681,10 @@ extern "C"
    * uninterrupted run.
    */
 
-  /** @brief Byte size of @p state's blob (header + unconsumed + nc). */
+  /** @brief Byte size of @p state's blob: the envelope and the engine's
+   *         position, the framer's snapshot of the carry, the non-coherent
+   *         sum (n_noncoh > 1), the last dwell's twins, and a tiled
+   *         block's epochs. */
   size_t dp_acq_state_bytes (const dp_acq_state_t *state);
 
   /**
@@ -1590,9 +1696,11 @@ extern "C"
 
   /**
    * @brief Restore cross-call state from @p blob into @p state (replacing it).
-   * @return 0 on success, -1 if the blob's magic/version/n/n_noncoh disagree
-   *         with @p state (rebuild the engine from the matching descriptor
-   * first).
+   * @return DP_OK, or DP_ERR_INVALID if the blob's envelope or its
+   *         n/n_noncoh/max_peaks disagree with @p state (rebuild the engine
+   *         from the matching descriptor first), or its carry is not
+   *         one a run could have left, or the carry's frames and the
+   *         stream position disagree. A refused blob changes nothing.
    */
   int dp_acq_set_state (dp_acq_state_t *state, const void *blob);
 
@@ -1602,6 +1710,14 @@ extern "C"
    *        engine treated as immutable config + scratch.  @p state_in / @p
    *        state_out may alias.  Either may be NULL (NULL in = fresh;
    *        NULL out = discard).
+   *
+   * The run is one dp_acq_push(), so it stops where a push stops: once
+   * @p result is full, or before a frame that ends a dwell when fewer than
+   * min(max_peaks, @p max_results) slots are left.  It may then leave part
+   * of @p in untaken.  dp_acq_consumed(@p state) says how much it took;
+   * the caller calls again with @p state_out as the next @p state_in and
+   * the rest, in + consumed, and the two runs together equal one over the
+   * whole input.
    * @return Number of events written (0 … max_results).
    */
   size_t dp_acq_run (dp_acq_state_t *state, const void *state_in, void *state_out,

@@ -1,14 +1,20 @@
 from collections.abc import Iterator
 from concurrent.futures import Future
-from io import StringIO
+import gc
+from io import BytesIO, StringIO
 import signal
+import struct
+import sys
 from threading import Event, get_ident
 from time import monotonic
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
+import weakref
 
-from pymysql.connections import Connection
+from pymysql import OperationalError
+from pymysql.connections import Connection, MySQLResult
+from pymysql.constants import ER
 from pymysql.cursors import Cursor, SSCursor
 import pytest
 
@@ -275,7 +281,7 @@ def test_attach_selects_background_cursor(runner: BackgroundRunner, cursorclass:
 
 
 @pytest.mark.parametrize('cursorclass', [Cursor, SSCursor, BackgroundSSCursor])
-@pytest.mark.parametrize('state', [QueryState.RENDERING, QueryState.TRANSFORMING])
+@pytest.mark.parametrize('state', [QueryState.RENDERING, QueryState.TRANSFORMING, QueryState.REDIRECTING])
 @pytest.mark.parametrize('periodic', [False, True])
 def test_local_state_label_matches_cursor_mode(
     runner: BackgroundRunner,
@@ -350,6 +356,270 @@ def test_cursor_execution_uses_worker(runner: BackgroundRunner) -> None:
     cursor._query = query
     cursor.execute('select 1')
     assert thread_ids == [runner.worker_id]
+
+
+@pytest.fixture
+def streaming_cursor() -> Iterator[BackgroundSSCursor]:
+    connection = Connection(defer_connect=True, cursorclass=SSCursor)
+    connection.server_thread_id = (42,)
+    connection._current_timeout = connection._read_timeout
+    result = MySQLResult(connection)
+    result.unbuffered_active = True
+    connection._result = result
+    cursor = BackgroundSSCursor(connection)
+    cursor._result = result
+    yield cursor
+    result.unbuffered_active = False
+    result.connection = None
+    cursor.connection = None
+    connection._force_close()
+
+
+@pytest.mark.parametrize('attached', [False, True])
+def test_closed_streaming_cursor_close_does_not_read(
+    streaming_cursor: BackgroundSSCursor,
+    runner: BackgroundRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    attached: bool,
+) -> None:
+    connection = streaming_cursor.connection
+    result = streaming_cursor._result
+    assert connection is not None
+    assert result is not None
+    runner.attach(connection, Mock())
+    if not attached:
+        runner.detach()
+    read = Mock(side_effect=AssertionError('Closed connection must not be read'))
+    monkeypatch.setattr(connection, '_read_packet', read)
+
+    streaming_cursor.close()
+    streaming_cursor.close()
+
+    read.assert_not_called()
+    assert not result.unbuffered_active
+    assert result.connection is None
+    assert streaming_cursor.connection is None
+    assert streaming_cursor._result is None
+
+
+@pytest.mark.parametrize('attached', [False, True])
+def test_closed_streaming_cursor_destruction_is_quiet(
+    runner: BackgroundRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    attached: bool,
+) -> None:
+    connection = Connection(defer_connect=True, cursorclass=SSCursor)
+    connection.server_thread_id = (42,)
+    connection._current_timeout = connection._read_timeout
+    result = MySQLResult(connection)
+    result.unbuffered_active = True
+    connection._result = result
+    cursor = BackgroundSSCursor(connection)
+    cursor._result = result
+    runner.attach(connection, Mock())
+    if not attached:
+        runner.detach()
+    reference = weakref.ref(cursor)
+    unraisable = Mock()
+    monkeypatch.setattr(sys, 'unraisablehook', unraisable)
+    try:
+        del cursor
+        gc.collect()
+
+        assert reference() is None
+        unraisable.assert_not_called()
+        assert not result.unbuffered_active
+        assert result.connection is None
+    finally:
+        result.unbuffered_active = False
+        result.connection = None
+
+
+def test_closed_streaming_cursor_without_result_can_close() -> None:
+    cursor = BackgroundSSCursor(Connection(defer_connect=True))
+    cursor.close()
+    assert cursor.connection is None
+
+
+def test_live_streaming_cursor_close_drains_in_worker(
+    streaming_cursor: BackgroundSSCursor,
+    runner: BackgroundRunner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = streaming_cursor.connection
+    result = streaming_cursor._result
+    assert connection is not None
+    assert result is not None
+    connection._sock = Mock()
+    runner.attach(connection, Mock())
+    thread_ids: list[int] = []
+
+    def drain() -> None:
+        thread_ids.append(get_ident())
+        result.unbuffered_active = False
+
+    monkeypatch.setattr(result, '_finish_unbuffered_query', drain)
+    streaming_cursor.close()
+
+    assert thread_ids == [runner.worker_id]
+    assert streaming_cursor.connection is None
+    assert connection.open
+
+
+@pytest.mark.parametrize('disconnect', [False, True])
+def test_streaming_cursor_close_propagates_drain_error(
+    streaming_cursor: BackgroundSSCursor,
+    monkeypatch: pytest.MonkeyPatch,
+    disconnect: bool,
+) -> None:
+    connection = streaming_cursor.connection
+    assert connection is not None
+    connection._sock = Mock()
+    result = streaming_cursor._result
+    assert result is not None
+    error = OperationalError(2013, 'Lost connection during query')
+
+    def drain() -> None:
+        if disconnect:
+            connection._force_close()
+        raise error
+
+    monkeypatch.setattr(result, '_finish_unbuffered_query', drain)
+    with pytest.raises(OperationalError) as raised:
+        streaming_cursor.close()
+
+    assert raised.value is error
+    if disconnect:
+        assert not result.unbuffered_active
+        assert result.connection is None
+        assert streaming_cursor.connection is None
+
+
+def _cursor_with_pending_error(code: int = ER.QUERY_INTERRUPTED) -> BackgroundSSCursor:
+    connection = Connection(defer_connect=True, cursorclass=SSCursor)
+    connection.server_thread_id = (42,)
+    connection._sock = Mock()
+    connection._current_timeout = connection._read_timeout
+    connection._next_seq_id = 0
+    payload = b'\xff' + struct.pack('<H', code) + b'#70100Query execution was interrupted'
+    connection._rfile = BytesIO(struct.pack('<I', len(payload)) + payload)
+    result = MySQLResult(connection)
+    result.unbuffered_active = True
+    connection._result = result
+    cursor = BackgroundSSCursor(connection)
+    cursor._result = result
+    return cursor
+
+
+def test_cancelled_execute_defers_interruption_to_cleanup(
+    runner: BackgroundRunner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cursor = _cursor_with_pending_error()
+    connection = cursor.connection
+    result = cursor._result
+    assert connection is not None and result is not None
+    runner.attach(connection, Mock())
+    original_call = runner._call
+    interrupts = iter([True])
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(cursor, '_query', lambda sql: 1)
+            patch.setattr(runner, '_call', lambda operation, interrupted: original_call(operation, lambda: next(interrupts, False)))
+            with pytest.raises(QueryCancelled):
+                cursor.execute('SELECT 1')
+
+        assert cursor._cancelled_result is result
+        assert result is not None
+        cursor.close()
+        cursor.close()
+
+        assert not result.unbuffered_active
+        assert result.connection is None
+        assert not result.has_next
+        assert cursor.connection is None
+        assert cursor._cancelled_result is None
+        assert connection.open
+    finally:
+        result.unbuffered_active = False
+        cursor.connection = None
+        connection._force_close()
+
+
+def test_cancelled_streaming_cursor_destruction_consumes_interruption(
+    runner: BackgroundRunner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cursor = _cursor_with_pending_error()
+    connection = cursor.connection
+    result = cursor._result
+    assert connection is not None and result is not None
+    cursor._cancelled_result = result
+    runner.attach(connection, Mock())
+    reference = weakref.ref(cursor)
+    unraisable = Mock()
+    monkeypatch.setattr(sys, 'unraisablehook', unraisable)
+    try:
+        del cursor
+        gc.collect()
+
+        assert reference() is None
+        unraisable.assert_not_called()
+        assert not result.unbuffered_active
+        assert connection.open
+    finally:
+        result.unbuffered_active = False
+        connection._force_close()
+
+
+@pytest.mark.parametrize('marked, code', [(False, ER.QUERY_INTERRUPTED), (True, 2013)])
+def test_streaming_cleanup_does_not_hide_unexpected_error(marked: bool, code: int) -> None:
+    cursor = _cursor_with_pending_error(code)
+    connection = cursor.connection
+    result = cursor._result
+    assert connection is not None and result is not None
+    if marked:
+        cursor._cancelled_result = result
+    try:
+        with pytest.raises(OperationalError) as raised:
+            cursor.close()
+        assert raised.value.args[0] == code
+    finally:
+        result.unbuffered_active = False
+        cursor.connection = None
+        connection._force_close()
+
+
+def test_cancelled_result_does_not_mark_successor(runner: BackgroundRunner) -> None:
+    cursor = _cursor_with_pending_error()
+    connection = cursor.connection
+    assert connection is not None
+    cursor._cancelled_result = cursor._result
+    runner.attach(connection, Mock())
+    try:
+        cursor.close()
+        # An OK packet proves a subsequent command can use the same connection.
+        payload = b'\x00\x00\x00\x02\x00\x00\x00'
+        connection._rfile = BytesIO(struct.pack('<I', len(payload))[:3] + b'\x01' + payload)
+        next_cursor = connection.cursor()
+        assert next_cursor.execute('SET @value = 1') == 0
+        assert next_cursor._cancelled_result is None
+        next_cursor.close()
+    finally:
+        connection._force_close()
+
+
+def test_marker_for_old_result_does_not_suppress_interruption() -> None:
+    cursor = _cursor_with_pending_error()
+    connection = cursor.connection
+    assert connection is not None
+    cursor._cancelled_result = MySQLResult(connection)
+    try:
+        with pytest.raises(OperationalError, match='Query execution was interrupted'):
+            cursor.close()
+    finally:
+        cursor.connection = None
+        connection._force_close()
 
 
 def test_monitor_queries_separate_connection(runner: BackgroundRunner) -> None:
@@ -533,7 +803,7 @@ def test_non_tty_suppresses_monitor(monkeypatch: pytest.MonkeyPatch) -> None:
         instance.close()
 
 
-@pytest.mark.parametrize('state', [QueryState.RENDERING, QueryState.TRANSFORMING])
+@pytest.mark.parametrize('state', [QueryState.RENDERING, QueryState.TRANSFORMING, QueryState.REDIRECTING])
 def test_rendering_keeps_elapsed_time_advancing(
     runner: BackgroundRunner,
     monkeypatch: pytest.MonkeyPatch,
@@ -558,6 +828,31 @@ def test_rendering_keeps_elapsed_time_advancing(
     assert updates[1][0] > updates[0][0] >= 2
     assert all(displayed == state for _, displayed in updates)
     monitor.assert_not_called()
+
+
+@pytest.mark.parametrize('show_state', [False, True])
+def test_redirecting_starts_clock_without_database_work(
+    runner: BackgroundRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    show_state: bool,
+) -> None:
+    runner.show_state = show_state
+    runner.interval = 60
+    monkeypatch.setattr(background_runner, 'monotonic', lambda: 10.0)
+
+    with runner.rendering(QueryState.REDIRECTING):
+        assert runner.started == 10.0
+        assert runner._next_update == 70.0
+
+
+def test_redirecting_preserves_existing_clock_and_deadline(runner: BackgroundRunner, monkeypatch: pytest.MonkeyPatch) -> None:
+    runner.started = 10.0
+    runner._next_update = 11.0
+    monkeypatch.setattr(background_runner, 'monotonic', lambda: 20.0)
+
+    with runner.rendering(QueryState.REDIRECTING):
+        assert runner.started == 10.0
+        assert runner._next_update == 11.0
 
 
 def test_fetch_does_not_reset_statement_start(runner: BackgroundRunner, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -641,10 +936,11 @@ def test_new_statement_resets_update_deadline(runner: BackgroundRunner, monkeypa
 
 
 @pytest.mark.parametrize('error', [ValueError('formatting'), KeyboardInterrupt()])
-@pytest.mark.parametrize('state', [QueryState.RENDERING, QueryState.TRANSFORMING])
+@pytest.mark.parametrize('state', [QueryState.RENDERING, QueryState.TRANSFORMING, QueryState.REDIRECTING])
 def test_rendering_error_stops_ticker(runner: BackgroundRunner, error: BaseException, state: QueryState) -> None:
     runner.show_state = True
-    with pytest.raises(type(error)):
+    expected = QueryCancelled if isinstance(error, KeyboardInterrupt) else type(error)
+    with pytest.raises(expected):
         with runner.rendering(state):
             thread = runner._render_thread
             assert thread is not None
@@ -713,10 +1009,39 @@ def test_successful_visible_query_hands_off_to_rendering(runner: BackgroundRunne
     assert runner.visible
 
 
-@pytest.mark.parametrize('state', [QueryState.RENDERING, QueryState.TRANSFORMING])
+@pytest.mark.parametrize('state', [QueryState.RENDERING, QueryState.TRANSFORMING, QueryState.REDIRECTING])
 def test_disabled_rendering_starts_no_thread(runner: BackgroundRunner, state: QueryState) -> None:
     with runner.rendering(state):
         assert runner._render_thread is None
+
+
+@pytest.mark.parametrize('state', [QueryState.RENDERING, QueryState.TRANSFORMING, QueryState.REDIRECTING])
+def test_nested_rendering_interrupt_is_local(runner: BackgroundRunner, state: QueryState) -> None:
+    outer_state = QueryState.TRANSFORMING if state == QueryState.RENDERING else QueryState.RENDERING
+    with runner.rendering(outer_state):
+        with pytest.raises(QueryCancelled) as raised:
+            with runner.rendering(state):
+                raise KeyboardInterrupt
+        assert not raised.value.disconnected
+        assert runner._render_state == outer_state
+        assert runner._render_depth == 1
+    assert runner._render_depth == 0
+
+
+@pytest.mark.parametrize('phase', ['streaming', 'transforming_database', 'redirecting_database', 'database'])
+def test_non_rendering_interrupt_keeps_existing_handling(runner: BackgroundRunner, phase: str) -> None:
+    state = QueryState.TRANSFORMING if phase == 'transforming_database' else QueryState.RENDERING
+    if phase == 'redirecting_database':
+        state = QueryState.REDIRECTING
+    if phase == 'streaming':
+        runner.attach(Connection(defer_connect=True, cursorclass=SSCursor), Mock())
+    runner._busy = phase != 'streaming'
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            with runner.rendering(state):
+                raise KeyboardInterrupt
+    finally:
+        runner._busy = False
 
 
 def test_nested_rendering_uses_one_ticker(runner: BackgroundRunner) -> None:
@@ -729,7 +1054,7 @@ def test_nested_rendering_uses_one_ticker(runner: BackgroundRunner) -> None:
     assert not thread.is_alive()
 
 
-@pytest.mark.parametrize('state', [QueryState.RENDERING, QueryState.TRANSFORMING])
+@pytest.mark.parametrize('state', [QueryState.RENDERING, QueryState.TRANSFORMING, QueryState.REDIRECTING])
 def test_pager_suppresses_rendering(runner: BackgroundRunner, state: QueryState) -> None:
     runner.show_state = True
     with runner.suspend_display():
@@ -744,7 +1069,7 @@ def test_nested_processing_restores_outer_state_after_error(runner: BackgroundRu
         thread = runner._render_thread
         assert vars(runner)['_render_state'] == QueryState.TRANSFORMING
         with pytest.raises(ValueError, match='format failed'):
-            with runner.rendering():
+            with runner.rendering(QueryState.RENDERING):
                 assert runner._render_thread is thread
                 assert vars(runner)['_render_state'] == QueryState.RENDERING
                 raise ValueError('format failed')
@@ -752,6 +1077,24 @@ def test_nested_processing_restores_outer_state_after_error(runner: BackgroundRu
         assert thread is not None and thread.is_alive()
     assert vars(runner)['_render_state'] == QueryState.RENDERING
     assert not thread.is_alive()
+
+
+def test_nested_rendering_inherits_redirecting(runner: BackgroundRunner) -> None:
+    runner.attach(Connection(defer_connect=True, cursorclass=SSCursor), Mock())
+    with runner.rendering(QueryState.REDIRECTING):
+        with runner.rendering():
+            assert runner._local_state() == QueryState.REDIRECTING
+    assert runner._local_state() == QueryState.STREAMING
+
+
+def test_explicit_redirecting_resumes_stopped_progress(runner: BackgroundRunner) -> None:
+    runner.show_state = True
+    with runner.rendering(QueryState.REDIRECTING):
+        runner.stop_rendering()
+        with runner.rendering(QueryState.REDIRECTING):
+            assert runner._render_thread is not None
+            assert not runner._output_started
+    assert runner._render_thread is None
 
 
 def test_database_handoff_uses_active_transform_state(runner: BackgroundRunner, monkeypatch: pytest.MonkeyPatch) -> None:

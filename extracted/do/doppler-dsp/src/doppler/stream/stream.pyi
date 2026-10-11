@@ -113,6 +113,25 @@ Examples
 
 """
 
+WORK_QUEUE_MAX_ACK_PENDING: int
+"""Unacked frames a :class:`Pull` may hold before the server stops.
+
+Past this many frames delivered and not yet acked (:meth:`Pull.ack`), the
+server hands out no NEW frames to the consumer, only redeliveries of the
+pending ones, each an AckWait after the last. A consumer that never acks
+therefore stalls at exactly this count.
+
+``DP_WORK_QUEUE_MAX_ACK_PENDING`` in ``stream.h`` is the one declaration;
+this is the same value.
+
+Examples
+--------
+>>> from doppler.stream import WORK_QUEUE_MAX_ACK_PENDING
+>>> WORK_QUEUE_MAX_ACK_PENDING
+1000
+
+"""
+
 
 def mean_power(samples: NDArray[Any]) -> float:
     """Mean power of a complex sample block, normalised to full scale.
@@ -647,6 +666,47 @@ class Subscriber:
         """
         ...
 
+    def reasm_stats(self) -> dict[str, int]:
+        """What reassembling chunked frames has given up on this subscriber.
+
+        A frame above the server's max_payload (1 MiB by default) arrives as
+        chunks, and recv() rebuilds one frame at a time. A frame it can no
+        longer complete is given up and counted here rather than hidden: the
+        next frame still arrives intact. A frame recv() DOES return is
+        complete and exact. The counts run from the subscriber's creation and
+        are never reset. Read them from the thread that calls recv(): a recv()
+        on another thread releases the GIL and updates them without a lock.
+
+        Returns
+        -------
+        dict
+            ``abandoned``: partial assemblies given up -- a count of
+            assemblies, not of frames lost (a late joiner abandons a frame it
+            never had). Given up when a chunk of a different frame arrives, or
+            an unchunked frame of the same stream, or an end-of-stream, which
+            under one publisher per subject prove the frame in progress lost a
+            chunk. ``rejected``:
+            chunks no frame could hold, dropped (off the chunk grid, out of
+            range, or overlapping). ``mid_frame_timeouts``: receives that timed
+            out with a frame part-assembled; the frame is kept, and the next
+            recv() resumes it.
+
+        Raises
+        ------
+        RuntimeError
+            If the subscriber is closed.
+
+        Examples
+        --------
+        >>> from doppler.stream import Subscriber
+        >>> sub = Subscriber("nats://127.0.0.1:4222/t19124")
+        >>> sub.reasm_stats()
+        {'abandoned': 0, 'rejected': 0, 'mid_frame_timeouts': 0}
+        >>> sub.close()
+
+        """
+        ...
+
     def close(self) -> None:
         """Destroy the underlying NATS handle and release all resources.
 
@@ -988,7 +1048,12 @@ class Pull:
         Delivery is at-least-once: a frame stays pending until acked
         and is redelivered to another worker if this one dies first.
         Pass the array returned by :meth:`recv` once it has been fully
-        processed, then drop the array.
+        processed, then drop the array. Ack before :meth:`close`: once
+        the Pull that received the frame is closed, nothing can be sent.
+
+        A frame that did not come from a Pull -- a :class:`Subscriber`'s,
+        say -- has nothing to acknowledge: its ack is a no-op that never
+        raises, whether or not its receiver is closed.
 
         Parameters
         ----------
@@ -999,9 +1064,11 @@ class Pull:
         Raises
         ------
         ValueError
-            If ``samples`` is not an un-freed :meth:`recv` result.
+            If ``samples`` is not an un-freed :meth:`recv` result, or if
+            the Pull that received it is closed. Nothing is sent then,
+            and the broker redelivers the frame.
         RuntimeError
-            If the acknowledgement fails.
+            If the broker could not be told.
 
         Examples
         --------

@@ -29,6 +29,10 @@ from local_operator.tools.project_tool import (
 )
 from local_operator.tools.secret_tool import build_secret_tool
 from local_operator.tools.team_tool import build_team_delete_tool, build_team_tool
+from local_operator.tools.video_tool import (
+    build_generate_video_tool,
+    build_video_status_tool,
+)
 from local_operator.web_fetch.tool import build_web_fetch_tool
 from local_operator.web_search.read_tool import build_web_read_tool
 from local_operator.web_search.tool import build_web_search_tool
@@ -124,6 +128,24 @@ TOOL_BUILDERS: dict[str, Callable[[ToolContext], AgentTool | None]] = {
     # purpose: appending never shifts a provider-visible array prefix, which
     # is what the prompt cache keys on.
     "code_requests": lambda context: build_code_requests_tool(context),
+    # createIf: rung 3 — present only where the session may END A TURN QUIETLY
+    # (`context.quiet_end`; absent for subagent children, one-shot hosts,
+    # output-contract sessions and under LOP_NO_REPLY=0 — see
+    # `Session._quiet_end_callable` and docs/design/quiet-turns.md §4).
+    # Deferred (its schema is never needed to form its argumentless call, and
+    # the rule is named in the system prompt). Appended at the END of both
+    # tables on purpose: appending never shifts a provider-visible array
+    # prefix, which is what the prompt cache keys on.
+    "no_reply": lambda context: builtin.build_no_reply_tool(context),
+    # createIf: rung 3 — present only where a video job can run (a persisted
+    # Radient login or a FAL key, plus the session's job manager), sync and
+    # socket-free like the image gate. The pair rides together: the start
+    # tool and the one callable that answers a pending job after a restart.
+    # TRULY at the end of both tables (round-1 review V7): the pair landed
+    # before `code_requests`/`no_reply` first, which made this comment false
+    # and shifted those two entries.
+    "generate_video": lambda context: build_generate_video_tool(context),
+    "video_status": lambda context: build_video_status_tool(context),
 }
 
 #: Tool set used when the session does not restrict the names. Kept explicit
@@ -167,6 +189,9 @@ DEFAULT_TOOL_NAMES: list[str] = [
     "ask_withdraw",
     "generate_image",
     "code_requests",
+    "no_reply",
+    "generate_video",
+    "video_status",
 ]
 
 

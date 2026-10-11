@@ -1292,8 +1292,15 @@ static PyGetSetDef BurstCapture_getset[] = {
     "identical to \"nothing was ever there\".\n",
     NULL },
   { "dropped", (getter)BurstCapture_getprop_dropped, NULL,
-    "Samples the history ring refused, lifetime. A LOST BURST each, not a "
-    "statistic -- it survives reset().\n",
+    "Samples of look-back discarded while a queued detection still needed "
+    "them, lifetime: the part of a dead detection's span -- one whose history "
+    "is gone, so it can never be emitted -- behind the ring's tail. A "
+    "shadowed detection is not counted. On a live stream this stays 0: push() "
+    "never refuses input, a moved anchor is a later one, and a re-armed "
+    "refine reads no further back than the history kept for an unarrived "
+    "detection at or ahead of it. A resume carries all the look-back, so what "
+    "makes it non-zero is a blob that names history it does not hold. A LOST "
+    "BURST each, not a statistic -- it survives reset().\n",
     NULL },
   { "n_bursts", (getter)BurstCapture_getprop_n_bursts, NULL,
     "Windows emitted, lifetime.\n", NULL },
@@ -1357,6 +1364,15 @@ static PyMethodDef BurstCaptureObj_methods[] = {
     "starting at `i*burst_len`, and events() returns the matching record for\n"
     "each. Every sample of x is consumed. An empty return is normal -- it\n"
     "means no burst completed in this call.\n"
+    "\n"
+    "It aborts the process in two places, both a defect in this object and\n"
+    "neither reachable from any input or from any blob set_state() accepts:\n"
+    "a history ring with no room after trim (the bound in the\n"
+    "implementation's trim proves room), and an acquisition call that took\n"
+    "nothing while input was left (each call starts with its result empty,\n"
+    "and a push with its result empty takes at least the next frame, or the\n"
+    "rest as carry). Each stops rather than spinning forever -- and in a\n"
+    "Python host it ends the interpreter.\n"
     "\n"
     "Parameters\n"
     "----------\n"

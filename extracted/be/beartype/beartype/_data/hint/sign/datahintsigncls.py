@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -10,12 +10,6 @@ regardless of the Python version targeted by the active Python interpreter).
 
 This private submodule is *not* intended for importation by downstream callers.
 '''
-
-# ....................{ IMPORTS                            }....................
-from beartype.typing import (
-    FrozenSet,
-    Union,
-)
 
 # ....................{ CLASSES                            }....................
 class HintSign(object):

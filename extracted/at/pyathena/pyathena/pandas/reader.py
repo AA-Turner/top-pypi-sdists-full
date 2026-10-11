@@ -1,3 +1,12 @@
+# Copyright 2026 The PyAthena authors
+#
+# Licensed under the MIT License.
+# See LICENSE or https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: MIT
+
+"""Raw CSV stream that marks binary NULL fields for the pandas CSV reader."""
+
 from __future__ import annotations
 
 import re
@@ -5,6 +14,7 @@ from io import RawIOBase
 from typing import Any
 
 from pyathena.s3fs.reader import AthenaCSVReader
+from pyathena.util import override
 
 _BINARY_NULL = "__PYATHENA_BINARY_NULL__"
 _CSV_FIELD = re.compile(r'(?:^|,)(?P<value>"[^"]*(?:""[^"]*)*"|[^,]*)')
@@ -19,15 +29,24 @@ class BinaryCSVReader(RawIOBase):
     """
 
     def __init__(self, stream: Any, binary_columns: set[int]) -> None:
+        """Initialize the reader.
+
+        Args:
+            stream: Text stream of Athena CSV output, read with ``AthenaCSVReader``.
+            binary_columns: Zero-based indexes of the binary columns whose unquoted
+                empty fields are replaced with the binary NULL marker.
+        """
         super().__init__()
         self._reader = AthenaCSVReader(stream)
         self._binary_columns = binary_columns
         self._header = True
         self._buffer = b""
 
+    @override
     def readable(self) -> bool:
         return True
 
+    @override
     def readinto(self, buffer: Any) -> int:
         if self.closed:
             raise ValueError("I/O operation on closed file.")
@@ -57,6 +76,7 @@ class BinaryCSVReader(RawIOBase):
         self._buffer = self._buffer[size:]
         return size
 
+    @override
     def close(self) -> None:
         try:
             self._reader.close()

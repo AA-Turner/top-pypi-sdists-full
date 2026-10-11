@@ -1,25 +1,28 @@
+"""Conversion of Athena result values to Python objects."""
+
 from __future__ import annotations
 
 import binascii
+import functools
 import json
 import logging
 import re
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 from copy import deepcopy
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
 from typing import Any, ClassVar
-
-from dateutil.tz import gettz
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pyathena.parser import (
     TypedValueConverter,
     TypeNode,
     TypeSignatureParser,
     _split_array_items,
+    _split_native_array_items,
 )
-from pyathena.util import strtobool
+from pyathena.util import override, strtobool
 
 _logger = logging.getLogger(__name__)
 
@@ -34,10 +37,40 @@ def _to_date(value: str | datetime | date | None) -> date | None:
     return datetime.strptime(value, "%Y-%m-%d").date()
 
 
+def _parse_datetime(value: str) -> datetime:
+    """Parse an Athena TIMESTAMP value of any precision.
+
+    Args:
+        value: The value as ``YYYY-MM-DD HH:MM:SS`` followed by an optional
+            fraction of up to 12 digits.
+
+    Returns:
+        The datetime. Digits beyond microseconds are truncated.
+    """
+    seconds, _, fraction = value.partition(".")
+    parsed = datetime.strptime(seconds, "%Y-%m-%d %H:%M:%S")
+    if fraction:
+        parsed = parsed.replace(microsecond=int(fraction[:6].ljust(6, "0")))
+    return parsed
+
+
 def _to_datetime(varchar_value: str | None) -> datetime | None:
+    """Convert an Athena TIMESTAMP value to a datetime.
+
+    Args:
+        varchar_value: The value as text, or None.
+
+    Returns:
+        The datetime, or None.
+    """
     if varchar_value is None:
         return None
-    return datetime.strptime(varchar_value, "%Y-%m-%d %H:%M:%S.%f")
+    return _parse_datetime(varchar_value)
+
+
+# The length of Athena timestamp text, such as "2020-01-02 03:04:05.123456", that holds
+# the fraction a time unit can represent. Athena writes up to 12 fractional digits.
+_TIMESTAMP_TEXT_LENGTHS: dict[str, int] = {"s": 19, "ms": 23, "us": 26, "ns": 29}
 
 
 _UTC_OFFSET_PATTERN: re.Pattern[str] = re.compile(r"([+-])(\d{2}):(\d{2})")
@@ -60,19 +93,96 @@ def _parse_utc_offset(value: str) -> timezone | None:
     return timezone(-offset if sign == "-" else offset)
 
 
+@functools.cache
+def _parse_time_zone(value: str) -> tzinfo | None:
+    """Parse the time zone of an Athena TIMESTAMP WITH TIME ZONE value.
+
+    Results are cached per text, so an unknown zone name logs a warning only on its
+    first lookup.
+
+    Args:
+        value: A ``+HH:MM`` or ``-HH:MM`` UTC offset or an IANA time zone name.
+
+    Returns:
+        The fixed-offset time zone or ``ZoneInfo``, or None if the IANA time zone
+        database available to Python cannot provide a zone with the name.
+    """
+    offset = _parse_utc_offset(value)
+    if offset is not None:
+        return offset
+    try:
+        return ZoneInfo(value)
+    except (ZoneInfoNotFoundError, ValueError, OSError):
+        _logger.warning(f"Unknown time zone {value!r}; returning naive datetimes for it.")
+        return None
+
+
 def _to_datetime_with_tz(varchar_value: str | None) -> datetime | None:
-    if varchar_value is None:
+    """Convert an Athena TIMESTAMP WITH TIME ZONE value to an aware datetime.
+
+    Args:
+        varchar_value: The value as text with a trailing zone name or ``+HH:MM`` /
+            ``-HH:MM`` UTC offset, or None. An empty string, which pandas and the
+            Arrow CSV reader return for NULL, is None.
+
+    Returns:
+        The aware datetime, a naive datetime if the zone name is unknown, or None.
+    """
+    if not varchar_value:
         return None
     datetime_, _, tz = varchar_value.rpartition(" ")
-    return datetime.strptime(datetime_, "%Y-%m-%d %H:%M:%S.%f").replace(
-        tzinfo=_parse_utc_offset(tz) or gettz(tz)
-    )
+    return _parse_datetime(datetime_).replace(tzinfo=_parse_time_zone(tz))
+
+
+def _parse_time(value: str) -> time:
+    """Parse an Athena TIME value of any precision.
+
+    Args:
+        value: The value as ``HH:MM:SS`` followed by an optional fraction of up to
+            12 digits.
+
+    Returns:
+        The time. Digits beyond microseconds are truncated.
+    """
+    seconds, _, fraction = value.partition(".")
+    parsed = datetime.strptime(seconds, "%H:%M:%S").time()
+    if fraction:
+        parsed = parsed.replace(microsecond=int(fraction[:6].ljust(6, "0")))
+    return parsed
 
 
 def _to_time(varchar_value: str | None) -> time | None:
-    if varchar_value is None:
+    """Convert an Athena TIME value to a time.
+
+    Args:
+        varchar_value: The value as text, or None. An empty string, which the Arrow
+            CSV reader returns for NULL, is None.
+
+    Returns:
+        The time, or None.
+    """
+    if not varchar_value:
         return None
-    return datetime.strptime(varchar_value, "%H:%M:%S.%f").time()
+    return _parse_time(varchar_value)
+
+
+def _to_time_with_tz(varchar_value: str | None) -> time | None:
+    """Convert an Athena TIME WITH TIME ZONE value to an aware time.
+
+    Args:
+        varchar_value: The value as text with a trailing ``+HH:MM`` or ``-HH:MM``
+            offset, or None. An empty string, which pandas and the Arrow CSV reader
+            return for NULL, is None.
+
+    Returns:
+        The time with a fixed-offset ``tzinfo``, or None.
+    """
+    if not varchar_value:
+        return None
+    index = max(varchar_value.rfind("+"), varchar_value.rfind("-"))
+    return _parse_time(varchar_value[:index]).replace(
+        tzinfo=_parse_utc_offset(varchar_value[index:])
+    )
 
 
 def _to_float(varchar_value: str | None) -> float | None:
@@ -96,7 +206,7 @@ def _to_decimal(varchar_value: str | None) -> Decimal | None:
 def _to_boolean(varchar_value: str | None) -> bool | None:
     if not varchar_value:
         return None
-    return bool(strtobool(varchar_value))
+    return strtobool(varchar_value)
 
 
 def _to_binary(varchar_value: str | None) -> bytes | None:
@@ -106,7 +216,17 @@ def _to_binary(varchar_value: str | None) -> bytes | None:
 
 
 def _to_json(varchar_value: str | None) -> Any | None:
-    if varchar_value is None:
+    """Convert an Athena JSON value to a Python value.
+
+    Args:
+        varchar_value: The JSON text, or None. An empty string, which pandas and the
+            Arrow CSV reader return for NULL, is None; Athena never returns empty JSON
+            text.
+
+    Returns:
+        The decoded value, or None for SQL NULL.
+    """
+    if not varchar_value:
         return None
     return json.loads(varchar_value)
 
@@ -144,7 +264,7 @@ def _to_array(varchar_value: str | None) -> list[Any] | str | None:
         # If JSON parsing fails, fall back to basic parsing for simple cases
         pass
 
-    inner = varchar_value[1:-1].strip()
+    inner = varchar_value[1:-1]
     if not inner:
         return []
 
@@ -288,13 +408,10 @@ def _parse_array_native(inner: str) -> list[Any] | None:
     """
     result = []
 
-    # Smart split by comma - respect brace groupings
-    items = _split_array_items(inner)
+    # Split as Athena joins the items, respecting brace groupings
+    items = _split_native_array_items(inner)
 
     for item in items:
-        if not item:
-            continue
-
         # Handle struct (ROW) values in format {a, b, c} or {key=value, ...}
         if item.strip().startswith("{") and item.strip().endswith("}"):
             # This is a struct value - parse it as a struct
@@ -466,6 +583,7 @@ _DEFAULT_CONVERTERS: dict[str, Callable[[str | None], Any | None]] = {
     "timestamp with time zone": _to_datetime_with_tz,
     "date": _to_date,
     "time": _to_time,
+    "time with time zone": _to_time_with_tz,
     "varbinary": _to_binary,
     "array": _to_array,
     "map": _to_map,
@@ -488,7 +606,6 @@ class Converter(metaclass=ABCMeta):
 
     Attributes:
         mappings: Dictionary mapping Athena type names to conversion functions.
-        default: Default conversion function for unmapped types.
         types: Optional dictionary mapping type names to Python type objects.
     """
 
@@ -498,6 +615,15 @@ class Converter(metaclass=ABCMeta):
         default: Callable[[str | None], Any | None] = _to_default,
         types: dict[str, type[Any]] | None = None,
     ) -> None:
+        """Initialize the converter.
+
+        Args:
+            mappings: Conversion functions keyed by Athena type name. An empty
+                value is replaced with an empty dict.
+            default: Conversion function for types not in ``mappings``.
+            types: Python types keyed by Athena type name, returned by
+                ``get_dtype()``. None is replaced with an empty dict.
+        """
         if mappings:
             self._mappings = mappings
         else:
@@ -580,6 +706,16 @@ class Converter(metaclass=ABCMeta):
 
     @abstractmethod
     def convert(self, type_: str, value: str | None, type_hint: str | None = None) -> Any | None:
+        """Convert a value returned by Athena to a Python object.
+
+        Args:
+            type_: The Athena data type name.
+            value: The string value to convert, or None.
+            type_hint: Optional Athena DDL type signature of the value.
+
+        Returns:
+            The converted value.
+        """
         raise NotImplementedError  # pragma: no cover
 
 
@@ -618,6 +754,7 @@ class DefaultTypeConverter(Converter):
     _HIVE_REPLACEMENTS: ClassVar[dict[str, str]] = {"<": "(", ">": ")", ":": " "}
 
     def __init__(self) -> None:
+        """Initialize the converter with the default conversion functions."""
         super().__init__(mappings=deepcopy(_DEFAULT_CONVERTERS), default=_to_default)
         self._parser = TypeSignatureParser()
         self._typed_converter = TypedValueConverter(
@@ -646,6 +783,7 @@ class DefaultTypeConverter(Converter):
             lambda m: DefaultTypeConverter._HIVE_REPLACEMENTS[m.group()], type_str
         )
 
+    @override
     def convert(self, type_: str, value: str | None, type_hint: str | None = None) -> Any | None:
         """Convert a string value to the appropriate Python type.
 

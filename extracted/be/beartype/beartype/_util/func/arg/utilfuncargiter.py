@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -129,7 +129,7 @@ this arises include:
 
 The caller is thus responsible for mapping parameters to type hints. Thankfully,
 the existing
-:attr:`beartype._check.meta.checkdecor.BeartypeDecorMeta.func_annotations`
+:attr:`beartype._check.meta.checkdecor.BeartypeCallDecorFuncData.func_annotations`
 dictionary makes this trivial for most use cases.
 '''
 
@@ -236,7 +236,7 @@ def iter_func_args(
     func_codeobj: CodeType, optional
         Code object underlying that callable unwrapped. Defaults to
         :data:`None`, in which case this iterator internally defers to the
-        comparatively slower :func:`.get_func_codeobj` function.
+        comparatively slower :func:`.get_func_codeobject` function.
     is_omit_boundmethod_arg_first : bool, optional
         :data:`True` only if this generator implicitly omits the first mandatory
         flexible parameter accepted by that callable if that callable is a
@@ -320,7 +320,7 @@ def iter_func_args(
 
     # ..................{ IMPORTS                            }..................
     # Avoid circular import dependencies.
-    from beartype._util.func.utilfunccodeobj import get_func_codeobj
+    from beartype._util.func.utilfunccodeobj import get_func_codeobject
     from beartype._util.func.utilfunctest import is_func_boundmethod
     from beartype._util.func.utilfuncwrap import unwrap_func_all_isomorphic
 
@@ -372,7 +372,7 @@ def iter_func_args(
 
     # If passed *NO* code object, query that callable for its code object.
     if func_codeobj is None:
-        func_codeobj = get_func_codeobj(
+        func_codeobj = get_func_codeobject(
             func=func,
             is_unwrap=False,  # <-- "func" was already unwrapped above. I sigh.
             exception_cls=exception_cls,

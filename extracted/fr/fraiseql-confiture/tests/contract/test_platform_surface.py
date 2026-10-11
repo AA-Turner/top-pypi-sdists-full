@@ -46,6 +46,7 @@ MODEL = (
     "Trigger",
     "TView",
     "FunctionRead",
+    "UncascadedTable",
 )
 CHANGES = (
     "SchemaChange",
@@ -239,6 +240,7 @@ FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
         ("key_options", "tuple[str, ...]"),
         ("expressions", "tuple[bool, ...] | None"),
         ("nulls_not_distinct", "bool"),
+        ("valid", "bool"),
     ),
     "Table": (
         ("name", "str"),
@@ -286,8 +288,10 @@ FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
         ("uncascaded_policy", "str | None"),
         ("time_refresh", "str | None"),
         ("function_reads", "tuple[FunctionRead, ...] | None"),
+        ("uncascaded_tables", "tuple[UncascadedTable, ...] | None"),
     ),
     "FunctionRead": (("function", "str"), ("tables", "tuple[str, ...]")),
+    "UncascadedTable": (("table", "str"), ("policy", "str")),
     "SchemaModel": (
         ("tables", "Mapping[ObjectRef, Table]"),
         ("enum_types", "Mapping[ObjectRef, EnumType]"),
@@ -397,8 +401,18 @@ FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
         ("old", "tuple[str, ...]"),
         ("new", "tuple[str, ...]"),
     ),
-    "IndexAdded": (("table", "RelationName"), ("index", "Index")),
-    "IndexDropped": (("table", "RelationName"), ("index", "Index")),
+    "IndexAdded": (
+        ("table", "RelationName"),
+        ("index", "Index"),
+        ("table_declared", "bool"),
+        ("relation_kind", "RelationKind"),
+    ),
+    "IndexDropped": (
+        ("table", "RelationName"),
+        ("index", "Index"),
+        ("table_declared", "bool"),
+        ("relation_kind", "RelationKind"),
+    ),
     "ForeignKeyAdded": (("table", "RelationName"), ("constraint", "Constraint")),
     "ForeignKeyDropped": (("table", "RelationName"), ("constraint", "Constraint")),
     "CheckConstraintAdded": (("table", "RelationName"), ("constraint", "Constraint")),
@@ -418,9 +432,23 @@ FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
     ),
     "SequenceAdded": (("sequence", "Sequence"),),
     "SequenceDropped": (("sequence", "Sequence"),),
-    "ObjectAdded": (("ref", "ObjectRef"), ("obj", "DDLObject")),
-    "ObjectDropped": (("ref", "ObjectRef"), ("obj", "DDLObject")),
-    "ObjectReplaced": (("ref", "ObjectRef"), ("old", "DDLObject"), ("new", "DDLObject")),
+    "ObjectAdded": (
+        ("ref", "ObjectRef"),
+        ("obj", "DDLObject"),
+        ("indexes", "tuple[Index, ...]"),
+    ),
+    "ObjectDropped": (
+        ("ref", "ObjectRef"),
+        ("obj", "DDLObject"),
+        ("indexes", "tuple[Index, ...]"),
+    ),
+    "ObjectReplaced": (
+        ("ref", "ObjectRef"),
+        ("old", "DDLObject"),
+        ("new", "DDLObject"),
+        ("old_indexes", "tuple[Index, ...]"),
+        ("new_indexes", "tuple[Index, ...]"),
+    ),
 }
 
 #: The fields of the seam's one configuration model (pydantic, not a dataclass):
@@ -617,6 +645,7 @@ def test_diff_compares_two_sources_whole() -> None:
         "Trigger",
         "TView",
         "FunctionRead",
+        "UncascadedTable",
     ],
 )
 def test_the_published_schema_declares_every_field(name: str) -> None:

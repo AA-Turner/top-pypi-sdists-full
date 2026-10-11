@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -38,16 +38,18 @@ requiring those imports. Until resolved, that subpackage is considered tainted.
 # than merely "from argparse import ArgumentParser").
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+import enum as _enum
 import functools as _functools
 import numbers as _numbers
 import re as _re
+import threading as _threading
 import types as _types
 import typing as _typing
 from beartype.roar import BeartypeCallUnavailableTypeException
-from beartype._cave._caveabc import BoolType
 from beartype._util.py.utilpyversion import (
     IS_PYTHON_AT_LEAST_3_14,
-    IS_PYTHON_AT_LEAST_3_12,
+    IS_PYTHON_AT_MOST_3_13,
+    IS_PYTHON_AT_LEAST_3_13,
     IS_PYTHON_AT_LEAST_3_11,
 )
 from collections import deque as _deque
@@ -69,11 +71,15 @@ from enum import (
     Enum as _Enum,
     EnumMeta as _EnumMeta,
 )
+from importlib import import_module as importlib_import_module
 from io import IOBase as _IOBase
 from typing import (
     TYPE_CHECKING,
     Any,
-    Tuple as _TupleTyping,
+)
+from weakref import (
+    ProxyTypes as _WeakrefProxyTypes,
+    ref as _WeakrefCallableType,
 )
 
 # Note that:
@@ -105,21 +111,6 @@ from types import (
     TracebackType as _TracebackType,
 )
 
-# ....................{ IMPORTS ~ conditional              }....................
-#FIXME: Preserve for when we inevitably require similar logic in the future.
-
-# # Attempt to import types unavailable under Python 3.5, all of which should
-# # be passed through the intermediary _get_type_or_unavailable() helper
-# # function first before being assigned to module globals below. The
-# # docstrings for such globals should contain a sentence resembling:
-# #     **This type is unavailable under Python 3.5,** where it defaults to
-# #     :class:`UnavailableType` for safety.
-# try:
-#     _Collection = type(list[str])
-# # If this is Python 3.5, define placeholder globals of the same name.
-# except ImportError:
-#     _Collection = None
-
 # ....................{ CLASSES                            }....................
 class UnavailableType(object):
     '''
@@ -137,7 +128,7 @@ class UnavailableType(object):
             f'{self} not passable as the second parameter to issubclass().')
 
 
-# This is private, as it's unclear whether anyone requires access to this yet.
+# Currently private, as it's unclear whether anyone requires access to this yet.
 class _UnavailableTypesTuple(tuple):
     '''
     Type of any **tuple of unavailable types** (i.e., types *not* available
@@ -146,6 +137,123 @@ class _UnavailableTypesTuple(tuple):
     '''
 
     pass
+
+
+UnavailableTypes = _UnavailableTypesTuple()
+'''
+**Tuple of unavailable types** (i.e., types *not* available under the active
+Python interpreter, typically due to insufficient Python version or
+non-installed third-party dependencies).
+
+This tuple is implicitly supported as the second parameter accepted by the
+:func:`isinstance` builtin: e.g.,
+
+.. code-block:: pycon
+
+   >>> isinstance(int, ())
+   False
+
+Caveats
+-------
+**This tuple should always be used in lieu of the empty tuple.** Although
+technically equivalent to the empty tuple, functionality throughout this
+codebase *could* (but doesn't actually at the moment) explicitly distinguish
+between this tuple and the empty tuple.
+'''
+
+# ....................{ PRIVATE ~ globals                  }....................
+_TYPING_MODULES: list[_ModuleType] = [_typing,]
+'''
+List of all **typing modules** (i.e., at least the standard :mod:`typing` module
+and possibly also the third-party :mod:`typing_extensions` module if importable
+under the active Python interpreter.)
+'''
+
+
+# Attempt to...
+try:
+    # Third-party "typing_extensions" module dynamically imported if that module
+    # has been installed under the active Python interpreter *OR* raise the
+    # standard "ModuleNotFoundError" exception otherwise.
+    _typing_extensions = importlib_import_module('typing_extensions')
+
+    # Append this module to the above list.
+    _TYPING_MODULES.append(_typing_extensions)  # type: ignore[arg-type]
+# If that module does *NOT* exist, ignore that module.
+except ModuleNotFoundError:
+    pass
+
+#FIXME: Preserve for when we inevitably require similar logic in the future.
+
+# # Attempt to import types unavailable under Python 3.5, all of which should
+# # be passed through the intermediary _get_type_or_unavailable() helper
+# # function first before being assigned to module globals below. The
+# # docstrings for such globals should contain a sentence resembling:
+# #     **This type is unavailable under Python 3.5,** where it defaults to
+# #     :class:`UnavailableType` for safety.
+# try:
+#     _Collection = type(list[str])
+# # If this is Python 3.5, define placeholder globals of the same name.
+# except ImportError:
+#     _Collection = None
+
+# ....................{ PRIVATE ~ factories                }....................
+def _get_typing_attrs(attr_basename: str) -> tuple:
+    '''
+    Tuple of all **typing attributes** (i.e., objects declared at module scope
+    by either the :mod:`typing` or :mod:`typing_extensions` modules) with the
+    passed unqualified basenames dynamically imported from either one or both of
+    these modules.
+
+    Parameters
+    ----------
+    attr_basename : str
+        Unqualified basename of the attribute to be imported from a typing
+        module.
+
+    Returns
+    -------
+    tuple
+        Tuple of either:
+
+        * If one or more typing modules define this attribute, all such
+          attributes dynamically imported from those modules.
+        * Else, :data:`.UnavailableTypes` (i.e., the placeholder empty tuple of
+          types).
+    '''
+    assert isinstance(attr_basename, str), f'{repr(attr_basename)} not string.'
+
+    # Note that this getter is intentionally defined in a low-level manner
+    # *WITHOUT* attempting to import related higher-level functionality from the
+    # "beartype._util.api.standard.utiltyping" submodule (e.g.,
+    # import_typing_attr_or_fallback()). Doing so circumvents circular import
+    # dependencies that would otherwise arise.
+
+    # List of all typing attributes to be returned.
+    typing_attrs = []
+
+    # For each typing module importable under the active Python interpreter...
+    for typing_module in _TYPING_MODULES:
+        # This attribute if defined by this typing module *OR* "None" otherwise
+        # (i.e., if this typing module fails to define this attribute).
+        typing_module_attr = getattr(typing_module, attr_basename, None)
+
+        # If this typing module defines this attribute, append this attribute to
+        # this list.
+        if typing_module_attr is not None:
+            typing_attrs.append(typing_module_attr)
+        # Else, this typing module fails to define this attribute.
+
+    # Return either...
+    return (
+        # If one or more typing modules define this attribute, this list coerced
+        # into a tuple (e.g., for use as the second parameter to the
+        # builtin isinstance() and issubclass() parameters).
+        tuple(typing_attrs)
+        if typing_attrs else
+        # Else, the placeholder empty tuple of types.
+        UnavailableTypes
+    )
 
 # ....................{ TYPES ~ core                       }....................
 AnyType = object
@@ -217,6 +325,108 @@ else:
     '''
     Type of the :data:`NotImplemented` singleton.
     '''
+
+# ....................{ TYPES ~ api : functools            }....................
+CallableFunctoolsPartialType = _functools.partial
+'''
+Pure-Python type of all **partial callables** (i.e., possibly C-based callable
+wrapped by the pure-Python callable :class:`functools.partial` type).
+
+Caveats
+-------
+This type does *not* distinguish between whether the original callable wrapped
+by :class:`functools.partial` is C-based or pure Python -- only that some
+callable of indeterminate origin is in fact wrapped.
+'''
+
+
+@_functools.lru_cache
+def _lru_cache_func(n: int) -> int:
+    '''
+    Arbitrary :func:`functools.lru_cache`-memoized function defined solely to
+    inspect various dunder attributes common to all such functions.
+    '''
+
+    return n + 1
+
+
+# If this submodule is currently being statically type-checked by a pure static
+# type-checker, ignore false positives complaining that this type is not a type.
+if TYPE_CHECKING:
+    class CallableFunctoolsLruCacheType(object): pass
+# Else, this submodule is *NOT* currently being statically type-checked by a
+# pure static type-checker. In this case, define this type properly. *sigh*
+else:
+    CallableFunctoolsLruCacheType = type(_lru_cache_func)
+    '''
+    C-based type of all low-level private objects created and returned by the
+    :func:`functools.lru_cache` decorator (e.g.,
+    :class:`functools._lru_cache_wrapper`).
+
+    This type enables functionality elsewhere to reliably detect when a callable
+    has been decorated by that decorator.
+    '''
+# print(f'LRU_CACHE_TYPE: {LRU_CACHE_TYPE}')
+
+
+# Delete temporary private callables defined above as a negligible safety (and
+# possible space complexity) measure.
+del _lru_cache_func
+
+# ....................{ TYPES ~ api : threading            }....................
+# C-based type of all non-reentrant thread locks, defined as either...
+ThreadLockNonreentrantType = (
+    # If the active Python interpreter targets Python >= 3.13, this type as is;
+    _threading.Lock
+    if IS_PYTHON_AT_LEAST_3_13 else
+    # Else, the active Python interpreter targets Python <= 3.12. In this case,
+    # this type is publicly inaccessible and thus is only indirectly accessible
+    # by introspecting the type of such a lock.
+    type(_threading.Lock())
+)
+'''
+C-based type of all **non-reentrant thread locks** (i.e.,
+:class:`threading.Lock` object implementing Python's lowest-level
+synchronization primitive such that subsequent attempts by the same thread to
+re-acquire such a previously acquired lock indefinitely block).
+'''
+
+
+# C-based type of all reentrant thread locks.
+#
+# Note that, unlike the C-based type of all *NON-REENTRANT* thread locks, this
+# type is currently *NOT* publicly inaccessible under *ANY* Python interpreter.
+# Unfortunately, "threading.RLock" is *ALWAYS* a pure-Python factory function.
+ThreadLockReentrantType = type(_threading.RLock())
+'''
+C-based type of all **reentrant thread locks** (i.e., :class:`threading.Lock`
+object implementing Python's lowest-level synchronization primitive such that
+subsequent attempts by the same thread to re-acquire such a previously acquired
+lock silently succeed).
+'''
+
+# ....................{ TYPES ~ api : weakref              }....................
+WeakrefCallableType = _WeakrefCallableType
+'''
+Type of all **weak reference proxies** (i.e., C-based :class:`weakref.ref`
+objects weakly referring to predominantly pure-Python objects supporting the
+weak reference protocol).
+
+This type matches both the C-based :class:`weakref.ref` class *and* the
+pure-Python :class:`weakref.WeakMethod` class, which subclasses the former.
+Instances of this type are callable objects yielding strong references to their
+referred objects when called.
+'''
+
+
+WeakrefProxyTypes = _WeakrefProxyTypes
+'''
+Tuple of all **weak reference proxy types** (i.e., C-based types whose instances
+are weak references to other instances masquerading as the latter).
+
+This tuple contains types matching both callable and uncallable weak reference
+proxies.
+'''
 
 # ....................{ TYPES ~ call                       }....................
 CallableCodeObjectType = _types.CodeType
@@ -398,8 +608,8 @@ Type of all **C extension-specific unbound non-trivial property method
 descriptors** (i.e., uncallable objects implemented in low-level C extensions,
 associated with **non-trivial property methods** (i.e., wrapping underlying
 attributes that are *not* trivially convertible to C types) of C extensions when
-accessed with the low-level :attr:`object.__dict__` dictionary rather than as
-class or instance attributes).
+accessed with either the low-level :attr:`object.__dict__` dictionary or as
+class attributes rather than as instance attributes).
 '''
 
 
@@ -549,53 +759,6 @@ This special-purpose type is a subtype of the more general-purpose
 implementing the :class:`collections.abc.Iterator` protocol, the former only
 applies to generators implicitly created by Python itself.
 '''
-
-# ....................{ TYPES ~ call : module : functools  }....................
-CallableFunctoolsPartialType = _functools.partial
-'''
-Pure-Python type of all **partial callables** (i.e., possibly C-based callable
-wrapped by the pure-Python callable :class:`functools.partial` type).
-
-Caveats
--------
-This type does *not* distinguish between whether the original callable wrapped
-by :class:`functools.partial` is C-based or pure Python -- only that some
-callable of indeterminate origin is in fact wrapped.
-'''
-
-
-@_functools.lru_cache
-def _lru_cache_func(n: int) -> int:
-    '''
-    Arbitrary :func:`functools.lru_cache`-memoized function defined solely to
-    inspect various dunder attributes common to all such functions.
-    '''
-
-    return n + 1
-
-
-# If this submodule is currently being statically type-checked by a pure static
-# type-checker, ignore false positives complaining that this type is not a type.
-if TYPE_CHECKING:
-    class CallableFunctoolsLruCacheType(object): pass
-# Else, this submodule is *NOT* currently being statically type-checked by a
-# pure static type-checker. In this case, define this type properly. *sigh*
-else:
-    CallableFunctoolsLruCacheType = type(_lru_cache_func)
-    '''
-    C-based type of all low-level private objects created and returned by the
-    :func:`functools.lru_cache` decorator (e.g.,
-    :class:`functools._lru_cache_wrapper`).
-
-    This type enables functionality elsewhere to reliably detect when a callable
-    has been decorated by that decorator.
-    '''
-# print(f'LRU_CACHE_TYPE: {LRU_CACHE_TYPE}')
-
-
-# Delete temporary private callables defined above as a negligible safety (and
-# possible space complexity) measure.
-del _lru_cache_func
 
 # ....................{ TYPES ~ class                      }....................
 # If this submodule is currently being statically type-checked by a pure static
@@ -824,7 +987,7 @@ See Also
     Type of all mutable and immutable mappings.
 '''
 
-# ....................{ TYPES ~ data : sequence            }....................
+# ....................{ TYPES ~ container : abc : sequence }....................
 SequenceType = _Sequence
 '''
 Type of all **mutable** and **immutable sequences** (i.e., both concrete and
@@ -1008,8 +1171,9 @@ that enumeration's type and should be directly referenced as such: e.g.,
 # type-checker, ignore false positives complaining that this type is not a type.
 # Notably, mypy inexplicably refuses to accept this by emitting "errors"
 # resembling the following wherever this type is accessed:
-#     beartype._util.hint.pep.proposal.pep695.py:120: error: Variable "beartype._cave._cavefast.HintPep695TypeAlias" is not valid as a type [valid-type]
-#     beartype._util.hint.pep.proposal.pep695.py:120: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
+#     beartype._util.hint.pep.proposal.pep695.py:120: error: Variable
+#     "beartype._cave._cavefast.HintGenericSubscriptedType" is not valid as a
+#     type [valid-type]
 if TYPE_CHECKING:
     class HintGenericSubscriptedType(object): pass
 # Else, this submodule is *NOT* currently being statically type-checked by a
@@ -1054,26 +1218,46 @@ else:
 #FIXME: Excise the obsolete "HintPep604Type" type *AFTER* dropping Python 3.13
 #support, please. Under Python >= 3.14, this type is a trivial alias of the
 #standard "typing.Union" type.
+#FIXME: Actually, just rename this to "HintPep484604UnionType" at that point.
+#This unambiguous name is still quite useful for clarity, as this is frankly a
+#super-confusing topic. *sigh*
 HintPep604Type = _types.UnionType
 '''
-C-based type of all :pep:`604`-compliant **new unions** (i.e., objects
-created by expressions of the form ``{type1} | {type2} | ... | {typeN}``).
+C-based type of all :pep:`604`-compliant **new unions** (i.e., objects created
+by expressions of the form ``{type1} | {type2} | ... | {typeN}``).
 
 This type is a version-agnostic generalization of the standard
 :class:`types.UnionType` type available only under Python >= 3.10.
 '''
 
 
-HintPep604ItemTypes: _TupleTyping[type, ...] = (
-    type, HintGenericSubscriptedType)
+HintPep604ItemTypes: tuple[type, ...] = (type, HintGenericSubscriptedType)
 '''
 Tuple of all :pep:`604`-compliant **new union item types** (i.e., types of all
 objects permissible as the items of new unions), including:
 
 * The C-based type of all types (e.g., the type of the first item in the new
-  union ``list | None``).
+  union ``list | None``). Note that the :pep:`484`-compliant :class:`typing.Any`
+  hint is also defined as a pure-Python type and thus implicitly matched by this
+  :class:`type` root superclass, which is good; :class:`typing.Any` constitutes
+  a valid member of any :pep:`604`-compliant new union (e.g., ``Any | int``).
 * The C-based type of all subscripted generics (e.g., the type of the first item
   in the new union ``list[dict[str, int]] | None``).
+'''
+
+# ....................{ TYPES ~ hint : pep : 3119          }....................
+Pep3119CheckableTypes = (type, tuple, HintPep604Type)
+'''
+Tuple of all :pep:`3119`-compliant **possible runtime-checkable types** (i.e.,
+types of objects passable as the second parameter to the :func:`isinstance` and
+:func:`issubclass` builtins, assuming those calls raise *no* exceptions from
+:pep:`3119`-compliant ``__instancecheck__()`` or ``__subclasscheck__()`` dunder
+methods defined on relevant metaclasses), including the types of:
+
+* A single type.
+* A tuple of zero or more types.
+* A :pep:`604`-compliant **new union** (i.e., two or more types delimited by the
+  ``|`` operator under Python >= 3.10).
 '''
 
 # ....................{ TYPES ~ hint : pep : 612           }....................
@@ -1113,7 +1297,7 @@ This type is a version-agnostic generalization of the standard
 '''
 
 
-HintPep612ParamSpecVarTypes: _TupleTyping[type, ...] = (
+HintPep612ParamSpecVarTypes: tuple[type, ...] = (
     HintPep612ParamSpecArgType, HintPep612ParamSpecKwargType,)
 '''
 Tuple of all :pep:`612`-compliant **parameter specification variadic parameter
@@ -1132,7 +1316,7 @@ objects annotating variadic parameters with syntax resembling
 # type-checker, ignore false positives complaining that these types are not
 # types.
 if TYPE_CHECKING:
-    class HintPep646TypeVarTupleType(object): pass
+    class HintPep646TypeVarTuplePackedType(object): pass
     class HintPep646692UnpackedType(object): pass
 # Else, this submodule is *NOT* currently being statically type-checked by a
 # pure static type-checker.
@@ -1140,11 +1324,12 @@ if TYPE_CHECKING:
 # If the active Python interpreter targets at least Python >= 3.11 and thus
 # supports PEP 646, define these types properly. *sigh*
 elif IS_PYTHON_AT_LEAST_3_11:
-    HintPep646TypeVarTupleType = _typing.TypeVarTuple
+    HintPep646TypeVarTuplePackedType = _typing.TypeVarTuple
     '''
-    C-based type of all :pep:`646`-compliant **type variable tuples** (i.e.,
-    low-level C-based :obj:`typing.TypeVarTuple` objects) if the active Python
-    interpreter targets Python >= 3.11 *or* :class:`.UnavailableType` otherwise.
+    C-based type of all :pep:`646`-compliant **packed type variable tuples**
+    (i.e., low-level C-based :obj:`typing.TypeVarTuple` objects) if the active
+    Python interpreter targets Python >= 3.11 *or* :class:`.UnavailableType`
+    otherwise.
 
     This type is a version-agnostic generalization of the standard
     :class:`typing.TypeVarTuple` type available only under Python >= 3.11.
@@ -1152,7 +1337,7 @@ elif IS_PYTHON_AT_LEAST_3_11:
 
 
     HintPep646692UnpackedType = type(
-        _typing.Unpack[HintPep646TypeVarTupleType('Ts')])
+        _typing.Unpack[HintPep646TypeVarTuplePackedType('Ts')])
     '''
     Pure-Python type of all :pep:`646`- and :pep:`692`-compliant **unpacked
     type hints** (i.e., parent hints expanding the single child hints
@@ -1178,28 +1363,32 @@ elif IS_PYTHON_AT_LEAST_3_11:
 # Else, the active Python interpreter targets Python < 3.11 and thus fails to
 # support PEP 646. In this case, define these types as placeholders. *sigh*
 else:
-    HintPep646TypeVarTupleType = UnavailableType
+    HintPep646TypeVarTuplePackedType = UnavailableType
     HintPep646692UnpackedType = UnavailableType
 
 
-HintPep484612646TypeArgPackedTypes = (
-    _typing.TypeVar, HintPep612ParamSpecType, HintPep646TypeVarTupleType)
+HintPep484612TypeArgUnpackedTypes = (_typing.TypeVar, HintPep612ParamSpecType)
+'''
+Tuple of all **unambiguously unpacked type parameters types** (i.e., types of
+:pep:`484`-compliant type variables and pep:`612`-compliant parameter
+specifications, both of which are necessarily unpacked and thus unambiguously
+unpacked).
+
+This tuple intentionally excludes the :class:`.HintPep646692UnpackedType` type,
+which is the ambiguous type of both pep:`646`-compliant unpacked type variable
+tuples *and* :pep:`692`-compliant unpacked typed dictionaries.
+'''
+
+
+HintPep484612646TypeArgPackedTypes = HintPep484612TypeArgUnpackedTypes + (
+    HintPep646TypeVarTuplePackedType,)
 '''
 Tuple of all **packed type parameters types** (i.e., types of
 :pep:`484`-compliant type variables, pep:`612`-compliant parameter
-specifications, and :pep:`646`-compliant type variable tuples).
+specifications, and :pep:`646`-compliant packed type variable tuples).
 '''
 
-# ....................{ TYPES ~ hint : pep : 649           }....................
-#FIXME: After dropping Python 3.13 support, globally replace:
-#    # All imports like this...
-#    from beartype._cave._cavefast import Format
-#
-#    # ...with imports like this! \o/
-#    from annotationlib import Format
-#
-#Then remove *ALL* of the PEP 649-specific logic below.
-
+# ....................{ TYPES ~ hint : pep : 749           }....................
 # If either...
 if (
     # This submodule is currently being statically type-checked by a pure static
@@ -1210,55 +1399,113 @@ if (
 ):
     # Import the standard PEP 649-compliant "annotationlib.Format" enum defined
     # *ONLY* under Python >= 3.14.
-    from annotationlib import Format as Format  # type: ignore[import-not-found]
+    from annotationlib import Format as HintPep749RefFormat  # type: ignore[import-not-found]
+    # from annotationlib import Format as _Format  # type: ignore[import-not-found]
+
+    # HintPep749RefFormat = _Format
+    # '''
+    # Enumeration of all :pep:`749`-compliant **forward reference resolution
+    # formats** (i.e., valid values of the ``format`` parameter accepted by
+    # most callables declared in the standard :class:`annotationlib` module).
+    # '''
 # Else, this submodule is currently being imported at runtime under an active
 # Python interpreter targets that targets at most Python <= 3.13 and thus
 # fails to define the standard PEP 649-compliant "annotationlib.Format" enum. In
-# this case, define a placeholder enum declaring the same members.
+# this case, define a placeholder enum declaring the same members. Doing so
+# simplifies global-scoped logic throughout this codebase. *shrug*
 else:
-    import enum
-
     # For simplicity, copy-paste the *EXACT SAME* definition of this enum as
     # appears at the head of the standard "annotationlib" module.
-    class Format(enum.IntEnum):
+    class HintPep749RefFormat(_enum.IntEnum):
         VALUE = 1
         VALUE_WITH_FAKE_GLOBALS = 2
         FORWARDREF = 3
         STRING = 4
+
+# ....................{ TYPES ~ hint : pep : (484|749)     }....................
+# If either this submodule is currently being statically type-checked by a pure
+# static type-checker *OR* this interpreter targets at most Python <= 3.13 and
+# thus fails to support either PEPs 649 or 749...
+if TYPE_CHECKING or IS_PYTHON_AT_MOST_3_13:
+    # Import equivalent deprecated attributes from the standard "typing" module.
+    from typing import ForwardRef as _ForwardRef
+# Else, the active Python interpreter importing this submodule at runtime
+# targets Python >= 3.14 and thus supports both PEPs 649 and 749. In this case,
+# trivially import PEP 649- and 749-compliant attributes directly from the
+# standard "annotationlib" module first introduced by Python 3.14.
+else:
+    from annotationlib import ForwardRef as _ForwardRef
+
+
+#FIXME: Globally replace *ALL* usage of the deprecated "typing.ForwardRef" type
+#with this substantially safer type, please. *sigh*
+HintPep484749RefObjectType = _ForwardRef
+'''
+Type of all :pep:`484`- and :pep:`749`-compliant **object-oriented forward
+reference type hints** (i.e., pure-Python objects encapsulating all metadata
+required to dynamically resolve at runtime references to referent target type
+hints that typically have yet to be defined in some lexical scope).
+
+If the active Python interpreter targets:
+
+* Python >= 3.14, this is the non-deprecated :class:`annotationlib.ForwardRef`
+  type.
+* Python <= 3.13, this is the deprecated :class:`typing.ForwardRef` type.
+'''
+
+
+HintPep484749RefTypes: tuple[type, ...] = (str, HintPep484749RefObjectType)
+'''
+Tuple union of the types of all :pep:`484`- and :pep:`749`-compliant **forward
+reference type hints** (i.e., objects encapsulating references to other objects
+that typically have yet to be defined).
+
+Specifically, this union contains:
+
+* :class:`str`, the type of all :pep:`484`-compliant C-based forward reference
+  objects implicitly preserved by all :pep:`585`-compliant type hint factories
+  when subscripted by a string.
+* :class:`.HintPep484749RefObjectType`, the type of all :pep:`484`- and
+  :pep:`749`-compliant pure-Python forward reference objects implicitly created
+  by all :mod:`typing` type hint factories when subscripted by a string.
+
+While :pep:`585`-compliant type hint factories preserve string-based forward
+references as is, :mod:`typing` type hint factories coerce string-based forward
+references into higher-level objects encapsulating those strings. The latter
+approach is the demonstrably wrong approach, because encapsulating strings only
+harms space and time complexity at runtime with *no* concomitant benefits. As is
+often the case, :pep:`585` has the right of it.
+'''
 
 # ....................{ TYPES ~ hint : pep : 695           }....................
 # If this submodule is currently being statically type-checked by a pure static
 # type-checker, ignore false positives complaining that this type is not a type.
 # Notably, mypy inexplicably refuses to accept this by emitting "errors"
 # resembling the following wherever this type is accessed:
-#     beartype._util.hint.pep.proposal.pep695.py:120: error: Variable "beartype._cave._cavefast.HintPep695TypeAlias" is not valid as a type [valid-type]
-#     beartype._util.hint.pep.proposal.pep695.py:120: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
+#     beartype._util.hint.pep.proposal.pep695.py:120: error: Variable
+#     "beartype._cave._cavefast.HintPep695TypeAliasTypes" is not valid as a type
+#     [valid-type]
 if TYPE_CHECKING:
-    class HintPep695TypeAlias(object): pass
+    #FIXME: Uncomment once we drop support for Python <= 3.14, maybe? Probably
+    #an earlier Python release, but who even knows anymore. *sigh*
+    # HintPep695TypeAliasTypes = _typing.TypeAliasType
+    class HintPep695TypeAliasTypes(object): ...
 # Else, this submodule is *NOT* currently being statically type-checked by a
 # pure static type-checker. In this case, define this type properly. *sigh*
 else:
-    # Define this type as either...
-    HintPep695TypeAlias = (
-        # If the active Python interpreter targets at least Python >= 3.12 and
-        # thus supports PEP 695, this type;
-        _typing.TypeAliasType
-        if IS_PYTHON_AT_LEAST_3_12 else
-        # Else, a placeholder type.
-        UnavailableType
-    )
+    HintPep695TypeAliasTypes = _get_typing_attrs('TypeAliasType')
     '''
-    C-based type of all :pep:`695`-compliant **type aliases** (i.e., objects
-    created by statements of the form ``type {alias_name} = {alias_value}``) if
-    the active Python interpreter targets Python >= 3.12 *or*
-    :class:`.UnavailableType` otherwise.
+    Tuple of the types of all :pep:`695`-compliant **type aliases** (i.e.,
+    objects created by statements of the form ``type {alias_name} =
+    {alias_value}``) if any *or* :data:`.UnavailableTypes` otherwise.
 
     This type is a version-agnostic generalization of the standard
     :class:`typing.TypeAliasType` type available only under Python >= 3.12.
     '''
 
 
-Pep695ParameterizableTypes = (type, FunctionType, HintPep695TypeAlias)
+Pep695ParameterizableTypes: tuple[type, ...] = (  # type: ignore[operator]
+    type, FunctionType,) + HintPep695TypeAliasTypes
 '''
 Tuple of all :pep:`695`-compliant **parameterizable types** (i.e., types of
 objects that may be parametrized by :pep:`695`-compliant lists of one or more
@@ -1370,53 +1617,6 @@ This type does *not* match:
   with all of the above "atomic" types.
 '''
 
-
-NumberRealType = IntOrFloatType = _numbers.Real
-'''
-Type of all **real numbers** (i.e., concrete instances of the abstract
-:class:`numbers.Real` base class; numbers expressible as linear values on the
-real number line).
-
-This type matches all numbers matched by :class:`NumberType` *except* complex
-numbers with non-zero imaginary components, which (as the name implies) are
-non-real.
-
-Equivalently, this type matches all integers (e.g., :class:`int`,
-:class:`numpy.int_`), floating-point numbers (e.g., :class:`float`,
-:class:`numpy.single`), rational numbers (e.g., :class:`fractions.Fraction`,
-:class:`sympy.core.numbers.Rational`), and irrational numbers. However,
-rational and irrational numbers are rarely used in comparison to integers and
-floating-point numbers. This type thus reduces to matching all integer and
-floating-point types in practice and is thus also accessible under the alias
-:class:`IntOrFloatType` -- a less accurate but more readable name than
-:class:`NumberRealType`.
-
-See Also
-----------
-:class:`NumberType`
-    Further details.
-'''
-
-
-IntType = _numbers.Integral
-'''
-Type of all **integers** (i.e., concrete instances of the abstract
-:class:`numbers.Integral` base class; real numbers expressible without
-fractional components).
-
-This type matches all numbers matched by the :class:`NumberType` *except*
-complex numbers with non-zero imaginary components, rational numbers with
-denominators not equal to one, and irrational numbers.
-
-Equivalently, this type matches all integers (e.g., :class:`int`,
-:class:`numpy.int_`).
-
-See Also
-----------
-:class:`NumberType`
-    Further details.
-'''
-
 # ....................{ TYPES ~ stdlib : re                }....................
 # Regular expression types are also sufficiently obscure to warrant
 # formalization here.
@@ -1426,7 +1626,7 @@ See Also
 # nature of Python's regular expression support, this type is *NOT* publicly
 # exposed. While the private "re._pattern_type" attribute does technically
 # provide this type, it does so in a private and hence non-portable manner.
-RegexCompiledType: type = _re.Pattern
+RegexCompiledType = _re.Pattern
 '''
 Type of all **compiled regular expressions** (i.e., objects created and
 returned by the stdlib :func:`re.compile` function).
@@ -1438,38 +1638,24 @@ returned by the stdlib :func:`re.compile` function).
 # type is *NOT* directly importable. Although this type's classname is
 # published to be "_sre.SRE_Match", the "_sre" C extension provides no such
 # type for pure-Python importation. So it goes.
-RegexMatchType: type = _re.Match
+RegexMatchType = _re.Match
 '''
 Type of all **regular expression match objects** (i.e., objects returned by the
 :func:`re.match` function).
 '''
 
-# ....................{ TUPLES ~ unavailable               }....................
-# Unavailable types are defined *BEFORE* any subsequent types, as the latter
-# commonly leverage the former.
-
-UnavailableTypes = _UnavailableTypesTuple()
-'''
-**Tuple of unavailable types** (i.e., types *not* available under the active
-Python interpreter, typically due to insufficient Python version or
-non-installed third-party dependencies).
-
-Caveats
-----------
-**This tuple should always be used in lieu of the empty tuple.** Although
-technically equivalent to the empty tuple, the :func:`beartype.beartype`
-decorator explicitly distinguishes between this tuple and the empty tuple.
-Specifically, for any callable parameter or return type annotated with:
-
-* This tuple, :func:`beartype.beartype` emits a non-fatal warning ignorable
-  with a simple :mod:`warnings` filter.
-* The empty tuple, :func:`beartype.beartype` raises a fatal exception.
-'''
-
-# ....................{ TUPLES ~ py                        }....................
+# ....................{ TUPLES ~ core                      }....................
 ModuleOrStrTypes = (ModuleType, StrType)
 '''
 Tuple of both the module *and* string type.
+'''
+
+
+ModuleableTypes = (ClassType, FunctionType)
+'''
+Tuple of all **moduleable types** (i.e., types whose instances define the
+``__module__`` dunder attribute whose values are the fully-qualified names of
+the modules defining those instances).
 '''
 
 
@@ -1639,10 +1825,19 @@ pure-Python callables into C-based callables.
 '''
 
 
-CallableOrClassTypes = CallableTypes + (ClassType,)
-'''
-Tuple of all callable types as well as the type of all types.
-'''
+# If this submodule is currently being statically type-checked by a pure static
+# type-checker, ignore false positives erroneously reducing these types to the
+# union "object | Any". Why? No idea. Welcome to Mypy Hell. We hope you hate
+# your stay. We did. Misery loves company, everybody! Come! Be miserable...
+if TYPE_CHECKING:
+    CallableOrClassTypes = (FunctionType, ClassType,)
+# Else, this submodule is *NOT* currently being statically type-checked by a
+# pure static type-checker. In this case, define these types properly. *sigh*
+else:
+    CallableOrClassTypes = CallableTypes + (ClassType,)
+    '''
+    Tuple of all callable types as well as the type of all types.
+    '''
 
 
 CallableOrStrTypes = CallableTypes + (StrType,)
@@ -1694,64 +1889,4 @@ ModuleOrSequenceTypes = (ModuleType, SequenceType)
 Tuple of the module type *and* all container base classes conforming to (but
 *not* necessarily subclassing) the canonical :class:`collections.abc.Sequence`
 API.
-'''
-
-
-NumberOrIterableTypes = (NumberType, IterableType,)
-'''
-Tuple of all numeric types *and* all container base classes conforming to (but
-*not* necessarily subclassing) the canonical :class:`collections.abc.Iterable`
-API.
-'''
-
-
-NumberOrSequenceTypes = (NumberType, SequenceType,)
-'''
-Tuple of all numeric types *and* all container base classes conforming to (but
-*not* necessarily subclassing) the canonical :class:`collections.abc.Sequence`
-API.
-'''
-
-# ....................{ TUPLES ~ scalar                    }....................
-BoolOrNumberTypes = (BoolType, NumberType,)
-'''
-Tuple of all **boolean** and **number types** (i.e., classes whose instances
-are either numbers or types trivially convertible into numbers).
-
-This tuple matches booleans, integers, rational numbers, irrational numbers,
-real numbers, and complex numbers.
-
-Booleans are trivially convertible into integers. While details differ by
-implementation, common implementations in lower-level languages (e.g., C, C++,
-Perl) typically implicitly convert:
-
-* ``False`` to ``0`` and vice versa.
-* ``True`` to ``1`` and vice versa.
-'''
-
-
-ScalarTypes = BoolOrNumberTypes + (StrType,)
-'''
-Tuple of all **scalar types** (i.e., classes whose instances are atomic scalar
-primitives).
-
-This tuple matches all:
-
-* **Boolean types** (i.e., types satisfying the :class:`BoolType` protocol).
-* **Numeric types** (i.e., types satisfying the :class:`NumberType` protocol).
-* **Textual types** (i.e., types contained in the :class:`StrTypes` tuple).
-'''
-
-
-RegexTypes = (RegexCompiledType, StrType)
-'''
-Tuple of all **regular expression-like types** (i.e., types either defining
-regular expressions or losslessly convertible to such types).
-
-This tuple matches:
-
-* The **compiled regular expression type** (i.e., type of all objects created
-  and returned by the stdlib :func:`re.compile` function).
-* All **textual types** (i.e., types contained in the :class:`StrTypes`
-  tuple).
 '''

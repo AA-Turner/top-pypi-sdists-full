@@ -43,9 +43,28 @@ on purpose — a coroutine could await a database read, a plain function cannot,
 so "no database read on the request path" is enforced by the type, not by a
 comment. A host that registers none is announced once and nothing is gated.
 
-WHO IS GATED. A person's request: any context carrying a ``user_id`` whose
-``origin_class`` is not machine work (``system`` / ``scheduled``). Guests are
-ordinary people here — their state comes from the ``guest`` plan's windows.
+WHO IS GATED (Arman, 2026-10-08: "If a user is doing it, that's their
+business, including their scheduled tasks ... worst case they hit their usage
+limits"; narrowed 2026-10-10 by USAGE-GATE.md rule 5 — a running operation is
+never cut off, and the gate asks only at the START of a person's own action).
+
+* A person's request — any context carrying a ``user_id`` whose
+  ``origin_class`` is not machine work — is gated at its first paid call.
+  Guests are ordinary people here (their state comes from the ``guest`` plan).
+* Machine work (``origin_class`` ``system`` / ``scheduled``) is NEVER gated at
+  the paid-call seam. It is platform jobs, sweeps, observers, decision
+  fallbacks and detached follow-ups of operations already under way — none of
+  them is the start of a person's own action, and refusing one cuts a running
+  interview / workflow / job off mid-flight. A system context minted under an
+  admitted request keeps that request's id and ``usage_admitted``.
+* The ONE opt-in: :func:`admit_person_own_run`, called by the host at the
+  start of a person's OWN scheduled action (a schedule they created
+  themselves, or their own "Run now"). It asks that person's allowance once,
+  from memory, before the run spends anything — only when the host's
+  memory-only predicate (:func:`set_machine_work_payer_predicate`) KNOWS the
+  account is a real person; an unknown or non-person account runs ungated.
+* Calls made with no AppContext at all bill no person's points and stay
+  ungated (announced once per call site).
 """
 
 from __future__ import annotations
@@ -73,7 +92,7 @@ USAGE_LIMIT_MESSAGE = "You've reached your AI usage limit for now. Upgrade your 
 GUEST_LIMIT_MESSAGE = "You've used your free AI tries. Create a free account to keep going."
 USAGE_NEAR_MESSAGE = "You're close to your AI usage limit."
 
-#: Machine work never pays out of a person's allowance at this seam.
+#: Machine work is never asked at the paid-call seam (only via :func:`admit_person_own_run`).
 UNGATED_ORIGIN_CLASSES: frozenset[str] = frozenset({"system", "scheduled"})
 
 #: Request ids already decided (admitted). Bounded; an evicted id is asked
@@ -156,6 +175,8 @@ class UsageLimitReachedError(Exception):
 
 
 _resolver: VerdictResolver | None = None
+#: Host predicate: is this machine-work context's account KNOWN to be a real person?
+_machine_payer: Callable[[Any], bool] | None = None
 _unwired_announced = False
 _admitted: OrderedDict[str, None] = OrderedDict()
 
@@ -166,9 +187,19 @@ def set_usage_verdict_resolver(resolver: VerdictResolver | None) -> None:
     _resolver = resolver
 
 
+def set_machine_work_payer_predicate(predicate: Callable[[Any], bool] | None) -> None:
+    """Host wiring: a SYNCHRONOUS, memory-only ``ctx -> bool`` — True only when the host
+    KNOWS the context's account is a real person (not a test, persona or system-bot
+    account). Read only by :func:`admit_person_own_run`; unknown must answer False (the run
+    is then ungated, never refused). None (the default) leaves every machine run ungated."""
+    global _machine_payer
+    _machine_payer = predicate
+
+
 def reset_usage_gate_state() -> None:
     """Tests: forget which requests were already admitted."""
     _admitted.clear()
+    _unattributed_sites.clear()
 
 
 def _remember(request_id: str) -> None:
@@ -201,12 +232,19 @@ def admission_of(ctx: Any = None) -> bool:
 
 
 def _gated_person(ctx: Any) -> str | None:
+    """The person whose allowance this context's paid calls ask, or None when ungated.
+
+    Machine work (``system`` / ``scheduled``) is never asked here: the only gate on
+    machine work is :func:`admit_person_own_run`, at the start of a person's own run.
+    """
     if ctx is None:
+        return None
+    user_id = str(getattr(ctx, "user_id", "") or "").strip()
+    if not user_id:
         return None
     if str(getattr(ctx, "origin_class", "") or "") in UNGATED_ORIGIN_CLASSES:
         return None
-    user_id = str(getattr(ctx, "user_id", "") or "").strip()
-    return user_id or None
+    return user_id
 
 
 def _verdict_for(user_id: str) -> UsageVerdict | None:
@@ -256,6 +294,36 @@ async def _tell_near(ctx: Any, verdict: UsageVerdict) -> None:
         vcprint(f"[UsageGate] near notice not emitted: {exc!r}", color="yellow")
 
 
+#: Call sites already announced as paid calls made with no AppContext (bounded).
+_unattributed_sites: set[str] = set()
+_UNATTRIBUTED_SITES_MAX = 256
+
+
+def _announce_unattributed_call() -> None:
+    """A paid call with NO AppContext: billed to no person (the spend recorder cannot
+    attribute it), so it is ungated by the law — and announced once per call site, so
+    the census of such calls is live instead of silent."""
+    import traceback
+
+    site = "unknown"
+    for frame in reversed(traceback.extract_stack()[:-2]):
+        path = frame.filename.replace("\\", "/")
+        if "/matrx_ai/providers/" in path or "/asyncio/" in path:
+            continue
+        site = f"{'/'.join(path.split('/')[-3:])}:{frame.lineno}"
+        break
+    if site in _unattributed_sites or len(_unattributed_sites) >= _UNATTRIBUTED_SITES_MAX:
+        return
+    _unattributed_sites.add(site)
+    vcprint(
+        f"[UsageGate] paid call with NO AppContext from {site} — no person is billed and "
+        "no allowance is asked (platform cost). Give the work its person's context if a "
+        "person is served.",
+        color="yellow",
+        log_level="WARNING",
+    )
+
+
 async def admit_paid_call() -> None:
     """Admit or refuse the paid call about to be made — from memory only.
 
@@ -265,6 +333,9 @@ async def admit_paid_call() -> None:
     from matrx_ai.context.app_context import try_get_app_context
 
     ctx = try_get_app_context()
+    if ctx is None:
+        _announce_unattributed_call()
+        return
     user_id = _gated_person(ctx)
     if user_id is None:
         return
@@ -277,6 +348,58 @@ async def admit_paid_call() -> None:
             f"[UsageGate] refused user={user_id[:8]}… request={request_id[:8]}… — cached "
             f"state over (plan={verdict.usage.get('plan_key')}, "
             f"period={verdict.usage.get('binding_period')})",
+            color="yellow",
+            log_level="WARNING",
+        )
+        raise UsageLimitReachedError(verdict.usage)
+    if request_id:
+        _remember(request_id)
+    if verdict is not None and verdict.state in ("near", "over"):
+        await _tell_near(ctx, verdict)
+
+
+async def admit_person_own_run(ctx: Any) -> None:
+    """THE ONE GATE ON MACHINE WORK: the start of a person's OWN scheduled action.
+
+    The host calls this exactly where a run a person set up for themselves starts
+    (aidream: the scheduled-agent runner, for a schedule the person created or their own
+    "Run now") — before the run spends anything. From memory only:
+
+    * the account is not KNOWN to be a real person (predicate unwired, says False, or
+      raises) → ungated, never refused;
+    * already admitted (``usage_admitted`` / the request id memo) → never refused;
+    * cached ``over`` with enforcement on → :class:`UsageLimitReachedError`;
+    * otherwise admitted (the request id is remembered) and a ``near`` person is told.
+
+    Everything the run does afterwards — sub-agents, workflow steps, detached
+    follow-ups — is machine work and is never asked again.
+    """
+    if ctx is None:
+        return
+    user_id = str(getattr(ctx, "user_id", "") or "").strip()
+    if not user_id or _machine_payer is None:
+        return
+    if _already_admitted(ctx):
+        return
+    try:
+        known_person = bool(_machine_payer(ctx))
+    except Exception as exc:  # noqa: BLE001 — an unreadable predicate never blocks work
+        vcprint(
+            f"[UsageGate] person predicate raised ({type(exc).__name__}: {exc}) — this "
+            "scheduled run is honored ungated.",
+            color="red",
+            log_level="ERROR",
+        )
+        return
+    if not known_person:
+        return
+    request_id = str(getattr(ctx, "request_id", "") or "")
+    verdict = _verdict_for(user_id)
+    if verdict is not None and verdict.refuse:
+        vcprint(
+            f"[UsageGate] refused the start of user={user_id[:8]}…'s own scheduled run "
+            f"request={request_id[:8]}… — cached state over "
+            f"(plan={verdict.usage.get('plan_key')}, period={verdict.usage.get('binding_period')})",
             color="yellow",
             log_level="WARNING",
         )
@@ -391,8 +514,10 @@ __all__ = [
     "UsageVerdict",
     "admission_of",
     "admit_paid_call",
+    "admit_person_own_run",
     "precheck_usage",
     "reset_usage_gate_state",
+    "set_machine_work_payer_predicate",
     "set_usage_verdict_resolver",
     "usage_refusal_from_text",
     "usage_refusal_in",

@@ -17,10 +17,10 @@
 #![allow(clippy::neg_multiply, clippy::type_complexity)]
 
 use chematic_core::{AtomIdx, BondOrder, Molecule};
-use std::collections::HashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::mmff94_minimizer::{MinimizerError, Mmff94EnergyModel};
-use crate::mmff94_numeric::{assign_mmff94_numeric_types_with_view, mmff94_charges_rdkit_order};
+use crate::mmff94_minimizer::{MinimizerError, rdkit_prepared_parts};
+use crate::mmff94_numeric::mmff94_charges_rdkit_order;
 
 const MDYNE_A_TO_KCAL_MOL: f64 = 143.9325;
 const DEG2RAD: f64 = std::f64::consts::PI / 180.0;
@@ -191,9 +191,7 @@ impl RdkitMmffField {
     ) -> Result<Self, MinimizerError> {
         let mmffs = variant == MmffVariant::Mmff94s;
         let n = mol.atom_count();
-        let model = Mmff94EnergyModel::new(mol)?;
-        let parts = model.rdkit_parts();
-        let (types, view) = assign_mmff94_numeric_types_with_view(mol)?;
+        let (parts, types, view) = rdkit_prepared_parts(mol)?;
 
         // Neighbour lists in RDKit's adjacency order (bond creation order).
         let order = rdkit_bond_order_with_added_hs(mol);
@@ -223,7 +221,7 @@ impl RdkitMmffField {
         };
 
         // Bond stretch: bonds in RDKit order.
-        let bond_params: HashMap<(usize, usize), (f64, f64)> = parts
+        let bond_params: FxHashMap<(usize, usize), (f64, f64)> = parts
             .bonds
             .iter()
             .map(|&(i, j, r0, kb)| ((i.min(j), i.max(j)), (r0, kb)))
@@ -243,7 +241,7 @@ impl RdkitMmffField {
         field.stretch_bends = stretch_bends;
 
         // Out-of-plane: trivalent centres, three terms each.
-        let oop_params: HashMap<usize, f64> = parts.oops.iter().copied().collect();
+        let oop_params: FxHashMap<usize, f64> = parts.oops.iter().copied().collect();
         for j in 0..n {
             if adj[j].len() != 3 {
                 continue;
@@ -274,7 +272,7 @@ impl RdkitMmffField {
 
         // Torsions: matches of `[!$(*#*)&!D1]~[!$(*#*)&!D1]` in RDKit's
         // match order, central atoms SP2/SP3.
-        let tor_params: HashMap<(usize, usize, usize, usize), (f64, f64, f64)> = parts
+        let tor_params: FxHashMap<(usize, usize, usize, usize), (f64, f64, f64)> = parts
             .torsions
             .iter()
             .flat_map(|&(i, j, k, l, v1, v2, v3)| {
@@ -293,7 +291,7 @@ impl RdkitMmffField {
                 Some(2) | Some(3)
             )
         };
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = FxHashSet::default();
         for j in 0..n {
             if !torsion_end(j) {
                 continue;
@@ -1163,5 +1161,83 @@ pub(crate) mod tests {
             -11.453744586799015,
             3.66682072353845,
         );
+    }
+}
+
+#[cfg(test)]
+mod nonbonded_collision_boundary_tests {
+    use super::*;
+
+    #[test]
+    fn public_default_field_matches_native_ionic_pairs_and_collision_guards() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../validation/rdkit-2026.03.1-mmff-nonbonded-boundary.json"
+        ))
+        .unwrap();
+        assert_eq!(fixture["rdkit_version"], "2026.03.1");
+        for row in fixture["rows"].as_array().unwrap() {
+            let source = row["smiles"].as_str().unwrap();
+            let mol = chematic_smiles::parse(source).unwrap();
+            let types = crate::mmff94_numeric::assign_mmff94_numeric_types(&mol).unwrap();
+            let charges = crate::mmff94_numeric::mmff94_charges_numeric(&mol).unwrap();
+            for i in 0..2 {
+                assert_eq!(
+                    u64::from(types[i]),
+                    row["atom_types"][i].as_u64().unwrap(),
+                    "{source}"
+                );
+                assert!(
+                    (charges[i] - row["charges"][i].as_f64().unwrap()).abs() < 1e-12,
+                    "{source}"
+                );
+            }
+            let distance = row["distance"].as_f64().unwrap();
+            let ignore = row["ignore_interfrag"].as_bool().unwrap();
+            let coords = [[0., 0., 0.], [distance, 0., 0.]];
+            let field = RdkitMmffField::new(&mol, &coords, 100., ignore).unwrap();
+            assert_eq!(field.num_atoms(), 2);
+            let pos = [0., 0., 0., distance, 0., 0.];
+            let energy = field.energy(&pos);
+            let expected = row["energy"].as_f64().unwrap();
+            assert!(
+                energy.is_finite() && (energy - expected).abs() < 1e-8 + expected.abs() * 1e-10,
+                "{source},d={distance},ignore={ignore}: {energy} != {expected}"
+            );
+            let mut gradient = [0.; 6];
+            field.gradient(&pos, &mut gradient);
+            for (axis, value) in row["gradient"].as_array().unwrap().iter().enumerate() {
+                let expected = value.as_f64().unwrap();
+                assert!(
+                    gradient[axis].is_finite()
+                        && (gradient[axis] - expected).abs() < 1e-9 + expected.abs() * 1e-10,
+                    "{source},d={distance},ignore={ignore},axis={axis}: {} != {expected}",
+                    gradient[axis]
+                );
+            }
+            for axis in 0..3 {
+                assert!((gradient[axis] + gradient[axis + 3]).abs() < 1e-12);
+            }
+            if ignore {
+                assert_eq!(energy, 0.);
+                assert_eq!(gradient, [0.; 6]);
+            }
+            // At exactly coincident centres RDKit returns a deterministic
+            // guard vector, not the derivative of a differentiable geometry.
+            if distance >= 1. && !ignore {
+                for axis in 0..6 {
+                    let mut plus = pos;
+                    let mut minus = pos;
+                    plus[axis] += 1e-5;
+                    minus[axis] -= 1e-5;
+                    let finite_difference = (field.energy(&plus) - field.energy(&minus)) / (2e-5);
+                    assert!(
+                        (gradient[axis] - finite_difference).abs()
+                            < 1e-4 + gradient[axis].abs() * 2e-6,
+                        "{source},d={distance},axis={axis}"
+                    );
+                }
+            }
+        }
+        assert_eq!(fixture["rows"].as_array().unwrap().len(), 104);
     }
 }

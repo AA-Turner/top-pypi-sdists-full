@@ -108,6 +108,10 @@ def configure(
     heartbeat: Callable[..., Any] | None = None,
     transaction: Callable[..., Any] | None = None,
     backlog_task_validator: Callable[..., Any] | None = None,
+    guardrail_preflight: Callable[..., Any] | None = None,
+    guardrail_run_stop: Callable[..., Any] | None = None,
+    guardrail_breach: Callable[..., Any] | None = None,
+    failure_rate_limits: Callable[..., Any] | None = None,
 ) -> None:
     """
     Wire host-supplied dependencies. Call once at app startup.
@@ -207,6 +211,15 @@ def configure(
     # installable without matrx-orm or aidream's tool registry.
     _registry["transaction"] = transaction
     _registry["backlog_task_validator"] = backlog_task_validator
+    # AUTOMATION GUARDRAILS (host-owned limits; all optional, all no-ops when unset):
+    # guardrail_preflight(task, run) -> {"refusal": {...}} | {"max_runtime_seconds": n} | None
+    # guardrail_run_stop(run_id) -> {kind, limit, observed, message, paused} | None
+    # guardrail_breach(kind, task_id, run_id, detail) -> awaitable (alarm)
+    # failure_rate_limits(task_id) -> {max_failure_pct, failure_window_runs, failure_min_runs} | None
+    _registry["guardrail_preflight"] = guardrail_preflight
+    _registry["guardrail_run_stop"] = guardrail_run_stop
+    _registry["guardrail_breach"] = guardrail_breach
+    _registry["failure_rate_limits"] = failure_rate_limits
     # async () -> int: continuations one scheduled fire may get after its worker
     # goes away (``continuation.py``). aidream reads the knob
     # scheduler.continuation.max_continuations_per_fire; without a resolver the

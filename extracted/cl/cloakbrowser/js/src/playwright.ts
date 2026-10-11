@@ -201,7 +201,7 @@ export async function launch(options: LaunchOptions = {}): Promise<Browser> {
     launchOptions = await buildLaunchOptions(options, denialPath);
     browser = await chromium.launch(launchOptions);
   } catch (err) {
-    const lic = licenseErrorFrom(err);
+    const lic = licenseErrorFrom(err, denialPath);
     if (lic) throw lic;
     throw err;
   }
@@ -399,12 +399,26 @@ export async function launchPersistentContext(
       ...envResult,
     });
   } catch (err) {
-    const lic = licenseErrorFrom(err);
+    const lic = licenseErrorFrom(err, denialPath);
     if (lic) throw lic;
     throw err;
   }
 
   if (proxyArgs.length) warnOnRequestClientUse(context);
+
+  // Human-like behavioral patching. Applied BEFORE the license guard: the guard
+  // stores its wrapper on the page/context object (it carries this launch's denial
+  // path), and an own property shadows the prototype method humanize patches. Guarding
+  // first would capture Playwright's own methods and silently disable humanize.
+  if (options.humanize) {
+    const { patchContext } = await import('./human/index.js');
+    const { resolveConfig } = await import('./human/config.js');
+    const cfg = resolveConfig(
+      options.humanPreset ?? 'default',
+      options.humanConfig,
+    );
+    patchContext(context, cfg);
+  }
 
   // The persistent path hands back a context, so guard its newPage (see launch()).
   if (denialPath) {
@@ -416,17 +430,6 @@ export async function launchPersistentContext(
     for (const pg of context.pages()) {
       installLicenseGuard(pg, denialPath);
     }
-  }
-
-  // Human-like behavioral patching
-  if (options.humanize) {
-    const { patchContext } = await import('./human/index.js');
-    const { resolveConfig } = await import('./human/config.js');
-    const cfg = resolveConfig(
-      options.humanPreset ?? 'default',
-      options.humanConfig,
-    );
-    patchContext(context, cfg);
   }
 
   return context;

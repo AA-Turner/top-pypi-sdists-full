@@ -743,7 +743,7 @@ public class LicenseTests : IDisposable
     {
         var marker = Path.Combine(_tmp, $"latest_pro_version_{Config.GetPlatformTag()}");
         File.WriteAllText(marker, "148.0.7778.215.2");
-        // Ticket 431 Fix 4: marker present but no Pro binary on disk -> null, NOT the
+        // Marker present but no Pro binary on disk -> null, NOT the
         // free base. A valid Pro license must never fall back to the free binary.
         Assert.Null(Config.GetEffectiveVersion(pro: true));
     }
@@ -926,7 +926,7 @@ public class LicenseTests : IDisposable
     [Fact]
     public void CheckForProUpdate_already_latest_returns_null()
     {
-        // Ticket 431 Fix 1: `update` on a Pro install already at latest is a no-op.
+        // `update` on a Pro install already at latest is a no-op.
         File.WriteAllText(
             Path.Combine(_tmp, $"latest_pro_version_{Config.GetPlatformTag()}"),
             "148.0.7778.215.5");
@@ -1056,7 +1056,7 @@ public class LicenseTests : IDisposable
     [InlineData(76, "session limit")]
     [InlineData(77, "invalid, expired, or missing")]
     [InlineData(78, "couldn't verify")]
-    [InlineData(79, "not writable")]
+    [InlineData(79, "--license-route")]
     public void LicenseErrorMessage_MapsKnownCodes(int code, string fragment)
     {
         var msg = License.LicenseErrorMessage(LaunchText(code));
@@ -1099,13 +1099,47 @@ public class LicenseTests : IDisposable
         Assert.Null(License.LicenseErrorFrom(new Exception("some unrelated crash")));
     }
 
+    [Fact]
+    public void LicenseErrorFrom_FallsBackToDenialFile()
+    {
+        // .NET Playwright's real launch failure on an over-cap seat carries no exit
+        // code (#584); the binary's denial file is the only source.
+        var dir = Directory.CreateTempSubdirectory("cb-denial-").FullName;
+        try
+        {
+            var f = Path.Combine(dir, "launch.json");
+            File.WriteAllText(f, "76");
+            var original = new Exception("Target page, context or browser has been closed");
+            var lic = License.LicenseErrorFrom(original, f);
+            Assert.NotNull(lic);
+            Assert.Contains("session limit", lic!.Message);
+            Assert.Same(original, lic.InnerException);
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void LicenseErrorFrom_NoFileOrNonLicenseCode_ReturnsNull()
+    {
+        var dir = Directory.CreateTempSubdirectory("cb-denial-").FullName;
+        try
+        {
+            var closed = new Exception("Target page, context or browser has been closed");
+            Assert.Null(License.LicenseErrorFrom(closed, Path.Combine(dir, "absent.json")));
+            var f = Path.Combine(dir, "crash.json");
+            File.WriteAllText(f, "139");
+            Assert.Null(License.LicenseErrorFrom(closed, f));
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
     // ── post-handshake denial: helpers + guard ────────────
 
     [Theory]
     [InlineData(76, "session limit")]
     [InlineData(77, "invalid, expired, or missing")]
     [InlineData(78, "couldn't verify")]
-    [InlineData(79, "not writable")]
+    [InlineData(79, "--license-route")]
     public void LicenseErrorForCode_MapsKnownCodes(int code, string fragment)
     {
         var err = License.LicenseErrorForCode(code);

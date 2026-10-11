@@ -1,3 +1,5 @@
+"""Native asyncio cursor that returns Athena query results as pandas DataFrames."""
+
 from __future__ import annotations
 
 import asyncio
@@ -20,6 +22,7 @@ from pyathena.pandas.converter import (
     DefaultPandasUnloadTypeConverter,
 )
 from pyathena.pandas.result_set import AthenaPandasResultSet, PandasDataFrameIterator
+from pyathena.util import override
 
 if TYPE_CHECKING:
     from pandas import DataFrame
@@ -43,6 +46,7 @@ class AioPandasCursor(WithAsyncFetch):
 
     def __init__(
         self,
+        *,
         s3_staging_dir: str | None = None,
         schema_name: str | None = None,
         catalog_name: str | None = None,
@@ -56,12 +60,38 @@ class AioPandasCursor(WithAsyncFetch):
         chunksize: int | None = None,
         block_size: int | None = None,
         cache_type: str | None = None,
-        max_workers: int = (cpu_count() or 1) * 5,
+        s3_max_workers: int = (cpu_count() or 1) * 5,
         result_reuse_enable: bool = False,
         result_reuse_minutes: int = CursorIterator.DEFAULT_RESULT_REUSE_MINUTES,
         auto_optimize_chunksize: bool = False,
         **kwargs,
     ) -> None:
+        """Initialize an AioPandasCursor.
+
+        Args:
+            s3_staging_dir: S3 location for query results.
+            schema_name: Default schema name.
+            catalog_name: Default catalog name.
+            work_group: Athena workgroup name.
+            poll_interval: Query status polling interval in seconds.
+            encryption_option: S3 encryption option for query results.
+            kms_key: KMS key for encrypting query results.
+            kill_on_interrupt: Cancel the query when the task is cancelled while
+                ``execute()`` starts or waits for the query.
+            unload: Whether to wrap queries in ``UNLOAD`` and read the Parquet output.
+            engine: Parsing engine (``auto``, ``c``, ``python``, or ``pyarrow``).
+            chunksize: Number of rows per DataFrame chunk when reading CSV results. If set,
+                it takes precedence over ``auto_optimize_chunksize``.
+            block_size: Default block size of the S3 filesystem that reads the results.
+            cache_type: Default cache type of the S3 filesystem that reads the results.
+            s3_max_workers: Maximum number of workers of the S3 filesystem.
+            result_reuse_enable: Whether to enable Athena query result reuse.
+            result_reuse_minutes: Maximum age of a reused query result in minutes.
+            auto_optimize_chunksize: Whether to choose a chunk size from the size of the
+                CSV result file when ``chunksize`` is None.
+            **kwargs: Other cursor arguments, such as ``connection`` and ``arraysize``,
+                passed to the parent ``__init__``.
+        """
         super().__init__(
             s3_staging_dir=s3_staging_dir,
             schema_name=schema_name,
@@ -80,11 +110,12 @@ class AioPandasCursor(WithAsyncFetch):
         self._chunksize = chunksize
         self._block_size = block_size
         self._cache_type = cache_type
-        self._max_workers = max_workers
+        self._s3_max_workers = s3_max_workers
         self._auto_optimize_chunksize = auto_optimize_chunksize
         self._result_set: AthenaPandasResultSet | None = None
 
     @staticmethod
+    @override
     def get_default_converter(
         unload: bool = False,
     ) -> DefaultPandasTypeConverter | Any:
@@ -92,10 +123,12 @@ class AioPandasCursor(WithAsyncFetch):
             return DefaultPandasUnloadTypeConverter()
         return DefaultPandasTypeConverter()
 
-    async def execute(  # type: ignore[override]
+    @override
+    async def execute(
         self,
         operation: str,
         parameters: dict[str, Any] | list[str] | None = None,
+        *,
         work_group: str | None = None,
         s3_staging_dir: str | None = None,
         cache_size: int | None = None,
@@ -108,7 +141,6 @@ class AioPandasCursor(WithAsyncFetch):
         quoting: int = 1,
         on_start_query_execution: Callable[[str], None] | None = None,
         result_set_type_hints: dict[str | int, str] | None = None,
-        *,
         options: ExecuteOptions | None = None,
         **kwargs,
     ) -> AioPandasCursor:
@@ -127,14 +159,20 @@ class AioPandasCursor(WithAsyncFetch):
             keep_default_na: Whether to keep default pandas NA values.
             na_values: Additional values to treat as NA.
             quoting: CSV quoting behavior (pandas csv.QUOTE_* constants).
-            on_start_query_execution: Callback called when query starts.
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion within
-                complex types.
+            on_start_query_execution: Callback invoked with the query ID before ``execute()``
+                waits for the query: after the ``StartQueryExecution`` call, or after a
+                reusable query ID is found through ``cache_size``.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
             options: Shared execution options as an
                 :class:`~pyathena.options.ExecuteOptions` instance. Individual
                 keyword arguments take precedence over ``options`` fields.
             **kwargs: Additional pandas read_csv/read_parquet parameters.
+                ``engine``, ``chunksize``, ``block_size``, ``cache_type``, ``s3_max_workers``,
+                and ``auto_optimize_chunksize`` override the cursor's values for this query.
+                ``storage_options`` and, for UNLOAD results, ``filesystem`` replace
+                PyAthena's S3 filesystem (see
+                :class:`~pyathena.pandas.result_set.AthenaPandasResultSet`).
 
         Returns:
             Self reference for method chaining.
@@ -180,80 +218,16 @@ class AioPandasCursor(WithAsyncFetch):
                 chunksize=kwargs.pop("chunksize", self._chunksize),
                 block_size=kwargs.pop("block_size", self._block_size),
                 cache_type=kwargs.pop("cache_type", self._cache_type),
-                max_workers=kwargs.pop("max_workers", self._max_workers),
-                auto_optimize_chunksize=self._auto_optimize_chunksize,
+                max_workers=kwargs.pop("s3_max_workers", self._s3_max_workers),
+                auto_optimize_chunksize=kwargs.pop(
+                    "auto_optimize_chunksize", self._auto_optimize_chunksize
+                ),
                 result_set_type_hints=options.result_set_type_hints,
                 **kwargs,
             )
         else:
             raise OperationalError(query_execution.state_change_reason)
         return self
-
-    async def fetchone(  # type: ignore[override]
-        self,
-    ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
-        """Fetch the next row of the result set.
-
-        Wraps the synchronous fetch in ``asyncio.to_thread`` to avoid
-        blocking the event loop when ``chunksize`` triggers lazy S3 reads.
-
-        Returns:
-            A tuple representing the next row, or None if no more rows.
-
-        Raises:
-            ProgrammingError: If no result set is available.
-        """
-        if not self.has_result_set:
-            raise ProgrammingError("No result set.")
-        result_set = cast(AthenaPandasResultSet, self.result_set)
-        return await asyncio.to_thread(result_set.fetchone)
-
-    async def fetchmany(  # type: ignore[override]
-        self, size: int | None = None
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        """Fetch multiple rows from the result set.
-
-        Wraps the synchronous fetch in ``asyncio.to_thread`` to avoid
-        blocking the event loop when ``chunksize`` triggers lazy S3 reads.
-
-        Args:
-            size: Maximum number of rows to fetch. Defaults to arraysize.
-
-        Returns:
-            List of tuples representing the fetched rows.
-
-        Raises:
-            ProgrammingError: If no result set is available.
-        """
-        if not self.has_result_set:
-            raise ProgrammingError("No result set.")
-        result_set = cast(AthenaPandasResultSet, self.result_set)
-        return await asyncio.to_thread(result_set.fetchmany, size)
-
-    async def fetchall(  # type: ignore[override]
-        self,
-    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
-        """Fetch all remaining rows from the result set.
-
-        Wraps the synchronous fetch in ``asyncio.to_thread`` to avoid
-        blocking the event loop when ``chunksize`` triggers lazy S3 reads.
-
-        Returns:
-            List of tuples representing all remaining rows.
-
-        Raises:
-            ProgrammingError: If no result set is available.
-        """
-        if not self.has_result_set:
-            raise ProgrammingError("No result set.")
-        result_set = cast(AthenaPandasResultSet, self.result_set)
-        return await asyncio.to_thread(result_set.fetchall)
-
-    async def __anext__(self):
-        row = await self.fetchone()
-        if row is None:
-            raise StopAsyncIteration
-        return row
 
     def as_pandas(self) -> DataFrame | PandasDataFrameIterator:
         """Return DataFrame or PandasDataFrameIterator based on chunksize setting.

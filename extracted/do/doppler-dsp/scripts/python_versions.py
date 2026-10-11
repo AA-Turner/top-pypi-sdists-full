@@ -27,6 +27,19 @@ Modes
     tests a version pip will refuse to install on, and a classifier below the
     floor advertises one it will not.
 
+    It also holds ``release.yml``'s wheel BUILD lists to the classifiers,
+    both ways. The post-release smoke reads the classifiers (doppler#1817),
+    but the three build jobs still carry literal ``python`` matrix lists, so
+    a classifier with no build entry would be smoked against a wheel that was
+    never built, and a build entry with no classifier would ship a wheel
+    nothing smokes. The workflow is parsed as YAML, so every job's matrix
+    ``python`` list is checked however it is spelled (flow or block); each
+    must name exactly the classifier set, as ``cp39`` tags or ``"3.9"``
+    strings. A ``python`` that is neither a list nor a ``${{ }}`` expression
+    fails, and finding no list is a failure, not a pass. This runs on every
+    ``make lint``, not first at release, under ``uv run`` -- the gate alone
+    imports PyYAML; ``--matrix`` and ``--primary`` stay stdlib-only.
+
 The primary leg
 ---------------
 The rule is: **the primary is the floor**, the lowest classifier. That is the
@@ -70,6 +83,11 @@ _CLASSIFIER = re.compile(r"^Programming Language :: Python :: (\d+\.\d+)$")
 
 #: One ``requires-python`` clause: an operator and a dotted version.
 _CLAUSE = re.compile(r"^\s*(>=|<=|==|!=|>|<)\s*(\d+(?:\.\d+)*)\s*$")
+
+#: One build-list entry, either spelling: ``cp39`` or ``"3.9"``.
+_BUILD_ITEM = re.compile(r"^(?:cp(\d)(\d+)|(\d+)\.(\d+))$")
+
+RELEASE_YML = ROOT / ".github" / "workflows" / "release.yml"
 
 
 def _version(text: str) -> tuple[int, ...]:
@@ -164,12 +182,126 @@ def check(project: dict) -> list[str]:
     return errors
 
 
+def _cp(version: str) -> str:
+    """A dotted version in cp-tag form.
+
+    >>> _cp("3.10")
+    'cp310'
+    """
+    return "cp" + version.replace(".", "")
+
+
+def _matrix_pythons(text: str) -> dict[str, object]:
+    """``jobs.<id>.strategy.matrix.python`` of every job that has one."""
+    # Only the gate reads YAML: --matrix and --primary run on a runner's bare
+    # python3, which need not have PyYAML.
+    import yaml
+
+    doc = yaml.safe_load(text) or {}
+    found = {}
+    for job_id, job in (doc.get("jobs") or {}).items():
+        strategy = job.get("strategy") if isinstance(job, dict) else None
+        matrix = strategy.get("matrix") if isinstance(strategy, dict) else None
+        if isinstance(matrix, dict) and "python" in matrix:
+            found[str(job_id)] = matrix["python"]
+    return found
+
+
+def release_build_lists(text: str) -> list[tuple[str, list[str]]]:
+    """Every job's matrix ``python`` LIST in a workflow, as dotted versions.
+
+    Read from the parsed YAML, so a block list (``- cp39`` lines) is found
+    as surely as a flow one (``[cp39, "3.10"]``): a text scan for one
+    spelling passed a build job rewritten in the other. A ``${{ … }}``
+    expression is not a list -- that is the derived smoke matrix -- and is
+    skipped. An entry in neither spelling, including an unquoted ``3.10``
+    that YAML reads as the float 3.1, is kept marked so the comparison
+    reports it.
+
+    Examples
+    --------
+    >>> wf = (
+    ...     "jobs:\\n  b:\\n    strategy:\\n      matrix:\\n"
+    ...     "        python:\\n          - cp39\\n          - '3.10'\\n"
+    ... )
+    >>> release_build_lists(wf)
+    [('b', ['3.9', '3.10'])]
+    """
+    found = []
+    for job_id, py in _matrix_pythons(text).items():
+        if not isinstance(py, list):
+            continue
+        versions = []
+        for item in py:
+            m = _BUILD_ITEM.match(item) if isinstance(item, str) else None
+            if not m:
+                versions.append(f"<{item!r}, neither cp3N nor quoted 3.N>")
+            elif m.group(1):
+                versions.append(f"{m.group(1)}.{m.group(2)}")
+            else:
+                versions.append(f"{m.group(3)}.{m.group(4)}")
+        found.append((job_id, versions))
+    return found
+
+
+def check_release(versions: list[str], text: str, name: str) -> list[str]:
+    """Every way ``name``'s build lists disagree with ``versions``.
+
+    Examples
+    --------
+    >>> wf = "jobs:\\n  b:\\n    strategy:\\n      matrix:\\n        python: "
+    >>> check_release(["3.9", "3.10"], wf + "[cp39, cp310]\\n", "r.yml")
+    []
+    >>> check_release(["3.9"], wf + "[cp39, cp310]\\n", "r.yml")[0]
+    'r.yml job b: builds cp310, which no classifier declares'
+    """
+    errors = []
+    for job, py in _matrix_pythons(text).items():
+        if not isinstance(py, list) and not (
+            isinstance(py, str) and py.strip().startswith("${{")
+        ):
+            errors.append(
+                f"{name} job {job}: matrix python is {py!r}, neither a list "
+                "nor a ${{ }} expression, so nothing can be checked"
+            )
+    lists = release_build_lists(text)
+    if not lists:
+        return [
+            *errors,
+            f"{name}: found no job whose matrix python is a list -- the "
+            "check did not run, so it has not passed",
+        ]
+    want = set(versions)
+    for job, built in lists:
+        missing = [v for v in versions if v not in built]
+        extra = [v for v in built if v not in want]
+        dups = sorted({v for v in built if built.count(v) > 1})
+        if missing:
+            errors.append(
+                f"{name} job {job}: builds no "
+                f"{', '.join(map(_cp, missing))} wheel, but a classifier "
+                "declares it (and the smoke will install it)"
+            )
+        for v in extra:
+            shown = _cp(v) if re.fullmatch(r"\d+\.\d+", v) else v
+            errors.append(
+                f"{name} job {job}: builds {shown}, which no classifier "
+                "declares"
+            )
+        if dups:
+            errors.append(
+                f"{name} job {job}: lists {', '.join(map(_cp, dups))} twice"
+            )
+    return errors
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--matrix", action="store_true")
     mode.add_argument("--primary", action="store_true")
     ap.add_argument("--pyproject", type=Path, default=ROOT / "pyproject.toml")
+    ap.add_argument("--release", type=Path, default=RELEASE_YML)
     args = ap.parse_args(argv)
     project = tomllib.loads(args.pyproject.read_text(encoding="utf-8"))[
         "project"
@@ -185,6 +317,13 @@ def main(argv: list[str] | None = None) -> int:
         print(lead)
         return 0
     errors = check(project)
+    release = args.release.read_text(encoding="utf-8")
+    try:
+        name = args.release.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        name = str(args.release)
+    if not errors:
+        errors = check_release(classifier_versions(project), release, name)
     for e in errors:
         print(f"python-versions-check: {e}", file=sys.stderr)
     if errors:
@@ -193,7 +332,8 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"python-versions-check: OK -- {len(versions)} classifier(s), "
         f"{versions[0]}..{versions[-1]}, floor matches requires-python, "
-        f"primary leg {primary(project)}"
+        f"primary leg {primary(project)}, release build lists match in "
+        + ", ".join(job for job, _ in release_build_lists(release))
     )
     return 0
 

@@ -14,6 +14,7 @@
 #include <string.h>
 
 /* det_noise_mode_t must be visible before this header is included. */
+#include "doppler/f32_buffer/f32_buffer_core.h"
 #include "doppler/util/util_core.h"
 
 #ifndef DET_NOISE_MODE_T_DEFINED
@@ -278,6 +279,81 @@ det_peak_list (const float *surf, size_t ny, size_t nx, float gate,
       det_peak_zone (mask, ny, nx, r, c, excl_rows, excl_cols);
     }
   return count;
+}
+
+/* ── The framed drain, once ────────────────────────────────────────────── */
+
+/**
+ * @brief One frame's work for det_framed_push(): correlate @p frame and, on
+ *        a dump that passes the gate, write ONE result at index @p slot of
+ *        @p result. Returns 1 if it wrote one, 0 if not -- never more.
+ */
+typedef int (*det_frame_step_fn) (void *obj, const float _Complex *frame,
+                                  void *result, size_t slot);
+
+/**
+ * @brief The detectors' push: any chunk in through the ring's framer, frames
+ *        of @p n at hop @p n out through @p step, never a lost input.
+ *
+ * dp_detector_push() and dp_detector2d_push() are this, with their own step.
+ * Each frame yields at most one result, so the framer is fed only what
+ * completes as many WHOLE frames as @p result has room for, and no partial
+ * frame past them -- dp_f32_framer_feed_frames(), the rule acq shares -- and
+ * every frame fed is drained before the next feed. That makes a batch exact
+ * rather than an estimate: a batch can never write past the room (each frame
+ * takes at most one slot) or strand a whole frame in the framer (all are
+ * drained). Break either and the push overfills @p result or strands frames;
+ * acq breaks the first (a dump reports several peaks),
+ * which is why it has its own drain.
+ *
+ * Once @p result is full -- and with no room it is full from the start --
+ * the push takes the rest of its input only if the rest completes no
+ * frame (dp_f32_framer_feed_carry()): that rest is then the carry, taken
+ * without loss. Otherwise it
+ * takes nothing more, so a push that stops short of its input stops on a
+ * frame boundary, never part-way into a frame it cannot report. A caller
+ * that cannot resume (Python: one call per push) loses only what a push
+ * leaves, and stays frame-aligned when that is a whole number of frames.
+ * A resume loop needs room for at least one: with none, a push takes
+ * nothing that completes a frame. Input that runs out mid-frame is the
+ * carry, held for the next call.
+ *
+ * @param fr           The object's framer.
+ * @param in           Input samples.
+ * @param n_in         Samples in @p in.
+ * @param result       The caller's results, handed to @p step.
+ * @param max_results  Room in @p result.
+ * @param step         The object's per-frame work.
+ * @param obj          Handed to @p step.
+ * @param consumed     Set to the samples of @p in this push took.
+ * @return Results written.
+ */
+static inline size_t
+det_framed_push (dp_f32_framer_t *fr, const float _Complex *in, size_t n_in,
+                 void *result, size_t max_results, det_frame_step_fn step,
+                 void *obj, size_t *consumed)
+{
+  size_t ndet = 0, off = 0;
+  while (ndet < max_results)
+    {
+      off += dp_f32_framer_feed_frames_view (fr, in + off, n_in - off,
+                                             max_results - ndet);
+      size_t                drained = 0;
+      const float _Complex *frame; /* into the ring, contiguous across wrap */
+      while ((frame = dp_f32_framer_next_view (fr)) != NULL)
+        {
+          drained++;
+          ndet += (size_t)step (obj, frame, result, ndet);
+        }
+      if (!drained)
+        break; /* the input is used up: the rest of a frame is the carry */
+    }
+  /* Full: the rest is the carry if it completes no frame, else the push
+     stops on the boundary. */
+  if (ndet == max_results)
+    off += dp_f32_framer_feed_carry_view (fr, in + off, n_in - off);
+  *consumed = off;
+  return ndet;
 }
 
 #endif /* DET_PRIVATE_H */

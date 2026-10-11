@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -21,7 +21,7 @@ def test_die_if_mappings_two_items_collide() -> None:
     '''
     Test the
     :func:`beartype._util.kind.maplike.utilmaptest.die_if_mappings_two_items_collide`
-    validator.
+    raiser.
     '''
 
     # Defer test-specific imports.

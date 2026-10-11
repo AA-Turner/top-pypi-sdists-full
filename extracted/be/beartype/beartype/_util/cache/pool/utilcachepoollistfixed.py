@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -90,7 +90,7 @@ class FixedList(list):
         ----------
         size : IntType
             Length to constrain this fixed list to.
-        obj_init : object, optional
+        obj_init : object, default: None
             **Initialization object** (i.e., object to be unilaterally assigned
             to *all* indices of this fixed list). Defaults to :data:`None`.
 

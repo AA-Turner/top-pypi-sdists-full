@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
-Project-wide :pep:`673`-compliant **literal string type hint reducers** (i.e.,
+Project-wide :pep:`673`-compliant **self string type hint reducers** (i.e.,
 low-level callables converting higher-level type hints created by subscripting
 the :obj:`typing.Self` type hint factory to lower-level type hints more readily
 consumable by :mod:`beartype`).
@@ -14,18 +14,23 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar import BeartypeDecorHintPep673Exception
-from beartype._cave._cavemap import NoneTypeOr
+from beartype._check.cls.call.calldataabc import BeartypeCallDataABC
+from beartype._check.cls.hint.hintsane import (
+    HintSane,
+    make_hint_sane,
+)
 from beartype._data.typing.datatypingport import Hint
-from beartype._data.typing.datatyping import TypeStack
+from typing import Optional
 
 # ....................{ REDUCERS                           }....................
 #FIXME: Unit test us up, please.
 def reduce_hint_pep673(
+    call_curr: BeartypeCallDataABC,
     hint: Hint,
-    cls_stack: TypeStack,
+    hint_parent_sane: Optional[HintSane],
     exception_prefix: str,
     **kwargs
-) -> type:
+) -> HintSane:
     '''
     Reduce the passed :pep:`673`-compliant **self type hint** (i.e.,
     the :obj:`typing.Self` type hint singleton) to the **currently decorated
@@ -39,21 +44,33 @@ def reduce_hint_pep673(
 
     Parameters
     ----------
+    call_curr : BeartypeCallDataABC
+        **Beartype call metadata** (i.e., dataclass aggregating *all* common
+        metadata encapsulating the user-defined callable, type, or statement
+        currently being type-checked by the end user).
     hint : object
         Self type hint to be reduced.
-    cls_stack : TypeStack
-        **Type stack** (i.e., either tuple of zero or more arbitrary types *or*
-        :data:`None`). Defaults to :data:`None`. See also the
-        :func:`beartype._decor.decormain.beartype_object` decorator.
+    hint_parent_sane : Optional[HintSane]
+        Either:
+
+        * If the passed hint is a **root** (i.e., top-most parent hint of a tree
+          of child hints), :data:`None`.
+        * Else, the passed hint is a **child** of some parent hint. In this
+          case, the **sanified parent type hint metadata** (i.e., immutable and
+          thus hashable object encapsulating *all* metadata previously returned
+          by :mod:`beartype._check.convert.convmain` sanifiers after sanitizing
+          the possibly PEP-noncompliant parent hint of this child hint into a
+          fully PEP-compliant parent hint).
     exception_prefix : str
         Human-readable substring prefixing raised exception messages.
 
-    All remaining passed arguments are silently ignored.
+    All remaining passed keyword-only parameters are silently ignored.
 
     Returns
     -------
-    type
-        Most deeply nested class on this type stack.
+    HintSane
+        Sanified hint metadata encapsulating most deeply nested class on this
+        type stack.
 
     Raises
     ------
@@ -63,8 +80,9 @@ def reduce_hint_pep673(
         * ``cls_stack`` is :data:`None`.
         * ``cls_stack`` is non-:data:`None` but empty.
     '''
-    assert isinstance(cls_stack, NoneTypeOr[tuple]), (
-        f'{repr(cls_stack)} neither tuple nor "None".')
+
+    # Currently decorated type stack, localized for negligible efficiency.
+    cls_stack = call_curr.cls_stack
 
     # If either no type stack *OR* an empty type stack was passed, *NO* class is
     # currently being decorated by @beartype. It follows that either:
@@ -105,7 +123,17 @@ def reduce_hint_pep673(
         )
     # Else, a non-empty type stack was passed.
 
-    # Reduce this hint to the currently decorated class (i.e., the most deeply
-    # nested class on this type stack, signifying the class currently being
-    # decorated by @beartype.beartype).
-    return cls_stack[-1]
+    # Sanified hint metadata encapsulating the currently decorated class (i.e.,
+    # the most deeply nested class on this type stack, signifying the class
+    # currently being decorated by @beartype.beartype).
+    hint_sane = make_hint_sane(  # type: ignore[assignment]
+        hint=cls_stack[-1],
+        hint_parent_sane=hint_parent_sane,
+        # Type-checking code dynamically generated for each "typing.Self" type
+        # hint is contextually relative to the currently decorated class and
+        # thus *CANNOT* be cached across all "typing.Self" type hints.
+        is_check_expr_cacheable=False,
+    )
+
+    # Reduce this hint to this metadata.
+    return hint_sane

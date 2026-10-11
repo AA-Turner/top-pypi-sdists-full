@@ -51,6 +51,8 @@ from numbers_parser.constants import (
     DEFAULT_TILE_SIZE,
     DOCUMENT_ID,
     EPOCH,
+    FONT_FAMILY_DEFAULT,
+    FONT_MAP,
     FORMAT_TYPE_MAP,
     MAX_TILE_SIZE,
     PACKAGE_ID,
@@ -72,7 +74,6 @@ from numbers_parser.generated import TSPMessages_pb2 as TSPMessages
 from numbers_parser.generated import TSSArchives_pb2 as TSSArchives
 from numbers_parser.generated import TSTArchives_pb2 as TSTArchives
 from numbers_parser.generated import TSWPArchives_pb2 as TSWPArchives
-from numbers_parser.generated.fontmap import FONT_NAME_TO_FAMILY
 from numbers_parser.generated.TSDArchives_pb2 import (
     StrokePatternArchive as StrokePattern,
 )
@@ -86,17 +87,6 @@ from numbers_parser.xrefs import CellRange, ScopedNameRefCache
 
 logger = logging.getLogger(__name__)
 debug = logger.debug
-
-
-def create_font_name_map(font_map: dict) -> dict:
-    new_font_map = {}
-    for k, v in font_map.items():
-        if v not in new_font_map:
-            new_font_map[v] = k
-    return new_font_map
-
-
-FONT_FAMILY_TO_NAME = create_font_name_map(FONT_NAME_TO_FAMILY)
 
 
 class MergeCells:
@@ -224,10 +214,10 @@ class _NumbersModel(Cacheable):
     Not to be used in application code.
     """
 
-    def __init__(self, filepath: Path) -> None:
+    def __init__(self, filepath: Path, password: str | None) -> None:
         if filepath is None:
             filepath = Path(DEFAULT_DOCUMENT)
-        self.objects = ObjectStore(filepath)
+        self.objects = ObjectStore(filepath, password)
         self._merge_cells = defaultdict(MergeCells)
         self._row_heights = {}
         self._col_widths = {}
@@ -249,8 +239,8 @@ class _NumbersModel(Cacheable):
         self.missing_fonts = {}
         self.calculate_table_uuid_map()
 
-    def save(self, filepath: Path, package: bool) -> None:
-        self.objects.save(filepath, package)
+    def save(self, filepath: Path, package: bool, password: str, hint: str) -> None:
+        self.objects.save(filepath, package, password, hint)
 
     def find_refs(self, ref: str) -> list:
         return self.objects.find_refs(ref)
@@ -295,22 +285,6 @@ class _NumbersModel(Cacheable):
             if self.objects[x].tableModel.identifier == table_id
         ]
         return ids[0]
-
-    @cache()
-    def row_storage_map(self, table_id):
-        # The base data store contains a reference to rowHeaders.buckets
-        # which is an ordered list that matches the storage buffers, but
-        # identifies which row a storage buffer belongs to (empty rows have
-        # no storage buffers).
-        row_bucket_map = dict.fromkeys(range(self.objects[table_id].number_of_rows))
-        bds = self.objects[table_id].base_data_store
-        bucket_ids = [x.identifier for x in bds.rowHeaders.buckets]
-        idx = 0
-        for bucket_id in bucket_ids:
-            for header in self.objects[bucket_id].headers:
-                row_bucket_map[header.index] = idx
-                idx += 1
-        return row_bucket_map
 
     def number_of_rows(self, table_id, num_rows=None):
         if num_rows is not None:
@@ -509,11 +483,6 @@ class _NumbersModel(Cacheable):
         if len(self.objects[caption_storage_id].text) == 0:
             return "Caption"
         return self.objects[caption_storage_id].text[0]
-
-    @cache()
-    def table_tiles(self, table_id):
-        bds = self.objects[table_id].base_data_store
-        return [self.objects[t.tile.identifier] for t in bds.tiles.tiles]
 
     @cache(num_args=0)
     def custom_format_map(self):
@@ -771,8 +740,7 @@ class _NumbersModel(Cacheable):
         return owner_id_map
 
     def calculate_table_uuid_map(self) -> None:
-        # Each Table Model has a UUID which is used in references to the table. See
-        # Numbers.md#uuid-mapping for more details.
+        # Each Table Model has a UUID which is used in references to the table.
 
         # For haunted owner archive types, map formula_owner_uids to their base_owner_uids
         haunted_owner_ids = [
@@ -876,7 +844,6 @@ class _NumbersModel(Cacheable):
     @cache()
     def calculate_merges_using_dependency_archives(self, table_id) -> int:
         """Extract all the merge cell ranges for the Table."""
-        # See details in Numbers.md#merge-ranges.
         owner_id_map = self.owner_id_map()
         table_base_id = self.table_base_id(table_id)
 
@@ -1068,9 +1035,14 @@ class _NumbersModel(Cacheable):
         return formulas
 
     @cache()
-    def storage_buffers(self, table_id: int) -> list:
-        buffers = []
-        for tile in self.table_tiles(table_id):
+    def storage_buffers(self, table_id: int) -> dict:
+        # Keyed by absolute row index: rows without data have no rowInfo
+        # so the position in rowInfos is not the row number.
+        buffers = {}
+        bds = self.objects[table_id].base_data_store
+        tile_size = bds.tiles.tile_size or DEFAULT_TILE_SIZE
+        for tile_ref in bds.tiles.tiles:
+            tile = self.objects[tile_ref.tile.identifier]
             if not tile.last_saved_in_BNC:
                 msg = "Pre-BNC storage is unsupported"
                 raise UnsupportedError(msg)
@@ -1081,20 +1053,15 @@ class _NumbersModel(Cacheable):
                     self.number_of_columns(table_id),
                     r.has_wide_offsets,
                 )
-                buffers.append(buffer)
+                buffers[tile_ref.tileid * tile_size + r.tile_row_index] = buffer
         return buffers
 
     @cache(num_args=3)
     def storage_buffer(self, table_id: int, row: int, col: int) -> bytes:
-        row_offset = self.row_storage_map(table_id)[row]
-        if row_offset is None:
+        row_buffers = self.storage_buffers(table_id).get(row)
+        if row_buffers is None or col >= len(row_buffers):
             return None
-        storage_buffers = self.storage_buffers(table_id)
-        if row_offset >= len(storage_buffers):
-            return None
-        if col >= len(storage_buffers[row_offset]):
-            return None
-        return storage_buffers[row_offset][col]
+        return row_buffers[col]
 
     def recalculate_row_headers(self, table_id: int, data: list) -> None:
         current_row_heights = {}
@@ -1125,7 +1092,7 @@ class _NumbersModel(Cacheable):
         buckets = self.objects[base_data_store.columnHeaders.identifier]
         clear_field_container(buckets.headers)
         # Transpose data to get columns
-        col_data = [list(x) for x in zip(*data)]
+        col_data = [list(x) for x in zip(*data, strict=False)]
 
         for col, cells in enumerate(col_data):
             num_rows = len(cells) - sum([isinstance(x, MergedCell) for x in cells])
@@ -1404,7 +1371,7 @@ class _NumbersModel(Cacheable):
 
         return self.table_height(table_id) + y_offset
 
-    def create_drawable(
+    def create_drawable(  # noqa: PLR0917
         self,
         sheet_id: int,
         x: float,
@@ -1426,7 +1393,7 @@ class _NumbersModel(Cacheable):
             ),
         )
 
-    def add_table(
+    def add_table(  # noqa: PLR0917
         self,
         sheet_id: int,
         table_name: str,
@@ -1660,8 +1627,6 @@ class _NumbersModel(Cacheable):
             ),
         )
 
-        # See Numbers.md#uuid-mapping for more details on mapping table model
-        # UUID to the formula owner.
         formula_owner_uuid = NumbersUUID()
         base_owner_uuid = NumbersUUID()
         next_owner_id += 1
@@ -1750,13 +1715,14 @@ class _NumbersModel(Cacheable):
                 ),
                 font_color=self.cell_font_color(v["obj"]),
                 font_size=self.cell_font_size(v["obj"]),
-                font_name=self.cell_font_name(v["obj"]),
+                font_name=self.cell_font_family(v["obj"]),
                 bold=self.cell_is_bold(v["obj"]),
                 italic=self.cell_is_italic(v["obj"]),
                 underline=self.cell_is_underline(v["obj"]),
                 strikethrough=self.cell_is_strikethrough(v["obj"]),
                 name=self.cell_style_name(v["obj"]),
                 _text_style_obj_id=v["id"],
+                _font_details=self.cell_font_details(v["obj"]),
             )
             for k, v in presets_map.items()
         }
@@ -1794,12 +1760,12 @@ class _NumbersModel(Cacheable):
                         "a": 1.0,
                         "rgbspace": "srgb",
                     },
-                    "bold": style.bold,
-                    "italic": style.italic,
+                    "bold": style.bold | style._font_details["bold"],
+                    "italic": style.italic | style._font_details["italic"],
                     "underline": underline,
                     "strikethru": strikethru,
                     "font_size": style.font_size,
-                    "font_name": FONT_FAMILY_TO_NAME[style.font_name],
+                    "font_name": style._font_details["name"],
                     "tsd_fill": {
                         "color": {
                             "model": "rgb",
@@ -1854,7 +1820,7 @@ class _NumbersModel(Cacheable):
         style_obj.char_properties.underline = underline
         style_obj.char_properties.strikethru = strikethru
         style_obj.char_properties.font_size = style.font_size
-        style_obj.char_properties.font_name = FONT_FAMILY_TO_NAME[style.font_name]
+        style_obj.char_properties.font_name = style._font_details["name"]
         style_obj.char_properties.tsd_fill.color.r = style.font_color.r / 255
         style_obj.char_properties.tsd_fill.color.g = style.font_color.g / 255
         style_obj.char_properties.tsd_fill.color.b = style.font_color.b / 255
@@ -2058,7 +2024,7 @@ class _NumbersModel(Cacheable):
     def table_formulas(self, table_id: int):
         return TableFormulas(self, table_id)
 
-    @cache(num_args=2)
+    @cache(num_args=2)  # noqa: RET503
     def table_rich_text(self, table_id: int, string_key: int) -> dict:
         """Extract bullets and hyperlinks from a rich text data cell."""
         # The table model base data store contains a richTextTable field
@@ -2253,10 +2219,10 @@ class _NumbersModel(Cacheable):
         style = self.cell_text_style(obj) if isinstance(obj, Cell) else obj
         return self.char_property(style, "font_size")
 
-    def cell_font_name(self, obj: Cell | object) -> str:
+    def cell_font_family(self, obj: Cell | object) -> str:
         style = self.cell_text_style(obj) if isinstance(obj, Cell) else obj
         font_name = self.char_property(style, "font_name")
-        if font_name not in FONT_NAME_TO_FAMILY:
+        if font_name not in FONT_MAP:
             if font_name not in self.missing_fonts:
                 warn(
                     f"Custom font '{font_name}' unsupported; falling back to {DEFAULT_FONT}",
@@ -2266,7 +2232,14 @@ class _NumbersModel(Cacheable):
                 self.missing_fonts[font_name] = True
             return DEFAULT_FONT
 
-        return FONT_NAME_TO_FAMILY[font_name]
+        return FONT_MAP[font_name]["family"]
+
+    def cell_font_details(self, obj: Cell | object) -> dict[str, str]:
+        style = self.cell_text_style(obj) if isinstance(obj, Cell) else obj
+        font_name = self.char_property(style, "font_name")
+        if font_name not in FONT_MAP:
+            return FONT_FAMILY_DEFAULT[DEFAULT_FONT]
+        return FONT_MAP[font_name]
 
     def cell_first_indent(self, obj: Cell | object) -> float:
         style = self.cell_text_style(obj) if isinstance(obj, Cell) else obj
@@ -2416,7 +2389,7 @@ class _NumbersModel(Cacheable):
     def extract_strokes(self, table_id: int) -> None:
         table_obj = self.objects[table_id]
         stroke_sidecar_id = table_obj.stroke_sidecar.identifier
-        if stroke_sidecar_id == 0:
+        if stroke_sidecar_id == 0:  # pragma: no cover
             return
         sidecar_obj = self.objects[stroke_sidecar_id]
         strokes = []
@@ -2440,7 +2413,7 @@ class _NumbersModel(Cacheable):
                 "bottom",
             ),
         )
-        for _, table_id, row, col, side, border_value in sorted(
+        for _, table_id, row, col, side, border_value in sorted(  # noqa: PLR1704
             strokes,
             key=lambda value: value[0],
         ):
@@ -2513,12 +2486,11 @@ class _NumbersModel(Cacheable):
 
         # Clear existing stroke layers to prepare for rebuilt, optimized strokes
         table_obj = self.objects[table_id]
-        if table_obj.stroke_sidecar.identifier != 0:
-            sidecar_obj = self.objects[table_obj.stroke_sidecar.identifier]
-            clear_field_container(sidecar_obj.top_row_stroke_layers)
-            clear_field_container(sidecar_obj.bottom_row_stroke_layers)
-            clear_field_container(sidecar_obj.left_column_stroke_layers)
-            clear_field_container(sidecar_obj.right_column_stroke_layers)
+        sidecar_obj = self.objects[table_obj.stroke_sidecar.identifier]
+        clear_field_container(sidecar_obj.top_row_stroke_layers)
+        clear_field_container(sidecar_obj.bottom_row_stroke_layers)
+        clear_field_container(sidecar_obj.left_column_stroke_layers)
+        clear_field_container(sidecar_obj.right_column_stroke_layers)
 
         # Horizontal strokes (all but bottom of table)
         for row in range(num_rows):
@@ -2578,7 +2550,7 @@ class _NumbersModel(Cacheable):
             else:
                 row += 1
 
-    def add_stroke(
+    def add_stroke(  # noqa: PLR0917
         self,
         table_id: int,
         row: int,
@@ -2721,8 +2693,6 @@ class _NumbersModel(Cacheable):
                 if parent is None:
                     root_children[nodes[uuid]["key"]] = nodes[uuid]
                 else:
-                    if parent not in nodes:
-                        nodes[parent] = {"key": group_uuids[parent], "children": {}, "rows": []}
                     parent_node = nodes[parent]
                     parent_node["children"][nodes[uuid]["key"]] = nodes[uuid]
 

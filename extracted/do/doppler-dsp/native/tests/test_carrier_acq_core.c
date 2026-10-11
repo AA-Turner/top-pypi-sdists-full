@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -212,10 +213,90 @@ main (void)
       }
   }
 
+  /* ── the blob is a function of the object (#2076): only carry_len of the
+     carry buffer's psd->n samples are state, so get_state writes zeros
+     after them, whatever an earlier block left in the buffer. A carry of
+     n - 1 samples, then two more (one closes the block, one starts a new
+     carry), leaves n - 1 real samples (carry_buf[1..n-1]) in the tail to
+     leak: proven by sabotage, writing the whole buffer again turns this red.
+     The blob is poisoned first, so dropping only the zeroing goes red too,
+     not just on a heap that happens to hand back zeros. ── */
+  {
+    dp_carrier_acq_state_t *ca = dp_carrier_acq_create (
+        SAMPLE_RATE_HZ, SYMBOL_RATE_HZ, 0.0, 4, 0, 0.0f, NULL, 0, 1e-3, 0.9,
+        2.0, true, MAX_N_BLOCKS);
+    DP_CHECK (ca != NULL);
+    if (ca)
+      {
+        const size_t    n     = ca->psd->n;
+        float _Complex *noise = _make_noise (n + 1, 2076u);
+        dp_carrier_acq_steps (ca, noise, n - 1);
+        dp_carrier_acq_steps (ca, noise + (n - 1), 2);
+        DP_CHECK (ca->carry_len == 1);
+        const size_t   bytes = dp_carrier_acq_state_bytes (ca);
+        unsigned char *blob  = malloc (bytes);
+        memset (blob, 0xA5, bytes);
+        dp_carrier_acq_get_state (ca, blob);
+        /* The carry region is the blob's last n samples. */
+        const unsigned char *carry
+            = blob + bytes - n * sizeof (float _Complex);
+        DP_CHECK (memcmp (carry, ca->carry_buf, sizeof (float _Complex)) == 0);
+        size_t nonzero = 0;
+        for (size_t i = sizeof (float _Complex);
+             i < n * sizeof (float _Complex); i++)
+          nonzero += carry[i] != 0;
+        DP_CHECK (nonzero == 0);
+        free (blob);
+        free (noise);
+        dp_carrier_acq_destroy (ca);
+      }
+  }
+
   /* ── invalid args rejected ── */
   DP_CHECK (dp_carrier_acq_create (0.0, 0.0, 0.0, 4, 0, 0.0f, NULL, 0, 1e-3,
                                    0.9, 2.0, true, MAX_N_BLOCKS)
             == NULL);
+
+  /* ── a coarse resolution still builds: the block is floored at 3 ──
+   * fs/resolution of 2.22, 1 and 0.25 asked for blocks of 2, 1 and 0.  The
+   * floor was 2, whose symmetric Hann (the default) is all zeros: PSD
+   * refuses that window, so create returned NULL, and AsyncDsssReceiver,
+   * which wraps this create in dp_xnn with refine_n_fft as the block,
+   * aborted (#1959).  At 3 every window has gain, and the averaged
+   * spectrum is a real estimate -- finite, above the -200 dB floor. */
+  {
+    const double res_hz[]
+        = { 0.45 * SAMPLE_RATE_HZ, SAMPLE_RATE_HZ, 4.0 * SAMPLE_RATE_HZ };
+    size_t          n;
+    float _Complex *x
+        = _make_signal (64, SPS, SAMPLE_RATE_HZ, TONE_HZ, 777u, &n);
+    for (size_t r = 0; r < sizeof res_hz / sizeof res_hz[0]; r++)
+      for (int win = 0; win <= 2; win++)
+        {
+          dp_carrier_acq_state_t *ca = dp_carrier_acq_create (
+              SAMPLE_RATE_HZ, SYMBOL_RATE_HZ, res_hz[r], 4, win, 6.0f, NULL, 0,
+              1e-3, 0.9, 2.0, false, 16);
+          DP_CHECK (ca != NULL);
+          if (!ca)
+            continue;
+          DP_CHECK (ca->psd->n == 3);
+          dp_carrier_acq_steps (ca, x, n);
+          float        db[16];
+          const size_t got
+              = dp_psd_psd_db (ca->psd, ca->psd->nfft, db, ca->psd->nfft);
+          DP_CHECK (got == ca->psd->nfft);
+          float peak = -1e30f;
+          for (size_t i = 0; i < got; i++)
+            {
+              DP_CHECK (isfinite (db[i]));
+              if (db[i] > peak)
+                peak = db[i];
+            }
+          DP_CHECK (peak > -150.0f);
+          dp_carrier_acq_destroy (ca);
+        }
+    free (x);
+  }
 
   /* ── state roundtrip + envelope reject; resumed instance continues
      bit-for-bit identically to the un-interrupted one ── */

@@ -495,18 +495,18 @@ dp_dll_set_telemetry (dp_dll_state_t *state, dp_tlm_t *tlm, const char *prefix,
       state->tlm.ctx = NULL;
       return DP_OK;
     }
-  const char *p = prefix ? prefix : "code";
-  char        name[DP_TLM_NAME_MAX];
-  (void)snprintf (name, sizeof (name), "%s.e", p);
-  int id_e = dp_tlm_probe (tlm, name, decim);
-  (void)snprintf (name, sizeof (name), "%s.rate", p);
-  int id_rate = dp_tlm_probe (tlm, name, decim);
-  (void)snprintf (name, sizeof (name), "%s.lock", p);
-  int id_lock = dp_tlm_probe (tlm, name, decim);
-  (void)snprintf (name, sizeof (name), "%s.locked", p);
-  int id_locked = dp_tlm_probe (tlm, name, decim);
+  const char              *p      = prefix ? prefix : "code";
+  static const char *const sfx[4] = { "e", "rate", "lock", "locked" };
+  char                     name[4][DP_TLM_NAME_MAX];
+  for (size_t i = 0; i < 4; i++) /* all names before any registration */
+    if (dp_tlm_name_join (name[i], p, sfx[i]) != DP_OK)
+      return DP_ERR_INVALID; /* overlong prefix: nothing registered */
+  int id_e      = dp_tlm_probe (tlm, name[0], decim);
+  int id_rate   = dp_tlm_probe (tlm, name[1], decim);
+  int id_lock   = dp_tlm_probe (tlm, name[2], decim);
+  int id_locked = dp_tlm_probe (tlm, name[3], decim);
   if (id_e < 0 || id_rate < 0 || id_lock < 0 || id_locked < 0)
-    return DP_ERR_INVALID; /* table full / bad prefix: attach fails whole */
+    return DP_ERR_INVALID; /* table full: attach fails whole */
   state->tlm.id_e      = id_e;
   state->tlm.id_rate   = id_rate;
   state->tlm.id_lock   = id_lock;
@@ -594,70 +594,106 @@ int
 dp_dll_set_state (dp_dll_state_t *s, const void *blob)
 {
   DP_SET_OPEN (DLL_STATE_MAGIC, DLL_STATE_VERSION, dp_dll_state_bytes (s));
-  const uint8_t *code
-      = s->code; /* this instance's code + ownership (config) */
-  int       owns = s->owns_code;
-  dll_tlm_t tlm  = s->tlm; /* live attachment survives a state hand-off */
-  /* This instance's own buffers (sized by ITS segments, fixed at create) —
-   * never trust a size from the blob for allocation. `sums` is preserved
-   * the same way though never packed/restored from the blob body (pure
-   * epoch-local scratch, rebuilt from chunk_p at the next epoch boundary
-   * regardless of whatever was in it before this call). */
-  float _Complex *chunk_p = s->chunk_p, *chunk_e = s->chunk_e,
-                 *chunk_l = s->chunk_l, *sums = s->sums;
-  float _Complex *last_backward_p = s->last_backward_p, *last_e = s->last_e,
-                 *last_l = s->last_l;
-  /* The aid rings are this instance's too, sized by ITS period: a blob from
-     a differently-configured instance is rejected, not resized from. */
-  float _Complex *aid_ring_p = s->aid_ring_p, *aid_ring_o = s->aid_ring_o;
-  float _Complex *aid_ring_e = s->aid_ring_e, *aid_ring_l = s->aid_ring_l;
-  double         *aid_power = s->aid_power;
-  const double    my_period = s->sym_period;
-  const size_t    my_ring = s->aid_ring, my_nhyp = s->aid_nhyp;
-  dp_r_bytes (&_r, s, sizeof *s);
-  if ((s->sym_period > 0.0) != (my_period > 0.0)
-      || (s->sym_period > 0.0
-          && (s->aid_ring != my_ring || s->aid_nhyp != my_nhyp)))
+  /* DECODE into a temporary, CHECK it whole, then COMMIT: nothing of `s`,
+     pointer or value, is written before the last check that can refuse
+     (doppler#2092). It used to read the struct straight into `s` and check
+     after, so a refused blob left the instance holding the blob's NULLs in
+     place of its code and buffers -- the next push dereferenced them and
+     its own buffers leaked. */
+  dp_dll_state_t t;
+  dp_r_bytes (&_r, &t, sizeof t);
+
+  /* Config that sizes or indexes THIS instance's buffers is a reject key:
+     the code length (it indexes `code`), samples per chip, the segment count
+     (it sizes the chunk and look-back buffers), and the symbol aid's
+     geometry -- its rings and hypotheses are sized by this instance's
+     period. The size check DP_SET_OPEN made is no guard for any of these:
+     it compares the header with THIS instance's size and never reads the
+     blob's fields, so a blob with one field forged passes it. */
+  if (t.sf != s->sf || t.sps != s->sps || t.segments != s->segments)
+    return DP_ERR_INVALID;
+  if ((t.sym_period > 0.0) != (s->sym_period > 0.0)
+      || (t.sym_period > 0.0
+          && (t.aid_ring != s->aid_ring || t.aid_nhyp != s->aid_nhyp)))
+    return DP_ERR_INVALID;
+
+  /* Running fields that index or are cast to an index, held to what a live
+     instance can carry -- get_state never writes anything outside these:
+     the chunk being filled is one of the segments; the noise look's offset
+     is a code phase, finite and inside the code (`dll_replica` casts it to
+     size_t); the noise guard is a finite, non-negative distance in chips;
+     and an aided instance's period is finite and positive, its window
+     shorter than its ring, its best hypothesis one of its hypotheses (it
+     indexes aid_power), and its last look's end no later than the partials
+     it has counted. */
+  if (t.seg_idx >= t.segments)
+    return DP_ERR_INVALID;
+  if (!(t.off_chips >= 0.0 && t.off_chips < (double)t.sf))
+    return DP_ERR_INVALID;
+  if (!(isfinite (t.noise_guard) && t.noise_guard >= 0.0))
+    return DP_ERR_INVALID;
+  if (s->sym_period > 0.0
+      && (!isfinite (t.sym_period) || t.aid_len >= t.aid_ring
+          || t.aid_best >= t.aid_nhyp || t.aid_last_end > t.aid_count))
+    return DP_ERR_INVALID;
+
+  /* The packed buffers, located before anything is written: with the keys
+     above they are exactly what this instance holds, and a reader that ran
+     past the blob refuses here rather than after a partial commit. */
+  const size_t n_seg = s->segments > 1 ? s->segments : 0;
+  const size_t n_aid = s->sym_period > 0.0 ? s->aid_ring : 0;
+  const size_t n_hyp = s->sym_period > 0.0 ? s->aid_nhyp : 0;
+  const void  *seg_p = dp_r_reserve (&_r, n_seg * sizeof (*s->chunk_p));
+  const void  *seg_e = dp_r_reserve (&_r, n_seg * sizeof (*s->chunk_e));
+  const void  *seg_l = dp_r_reserve (&_r, n_seg * sizeof (*s->chunk_l));
+  const void *lst_p = dp_r_reserve (&_r, n_seg * sizeof (*s->last_backward_p));
+  const void *lst_e = dp_r_reserve (&_r, n_seg * sizeof (*s->last_e));
+  const void *lst_l = dp_r_reserve (&_r, n_seg * sizeof (*s->last_l));
+  const void *aid_p = dp_r_reserve (&_r, n_aid * sizeof (*s->aid_ring_p));
+  const void *aid_o = dp_r_reserve (&_r, n_aid * sizeof (*s->aid_ring_o));
+  const void *aid_e = dp_r_reserve (&_r, n_aid * sizeof (*s->aid_ring_e));
+  const void *aid_l = dp_r_reserve (&_r, n_aid * sizeof (*s->aid_ring_l));
+  const void *aid_w = dp_r_reserve (&_r, n_hyp * sizeof (*s->aid_power));
+  if (_r.err)
+    return DP_ERR_INVALID;
+
+  /* COMMIT. The blob carries NULLs where this instance's code, buffers and
+     telemetry attachment are; those stay this instance's (sized by ITS
+     create(), never by a blob). `sums` is preserved the same way, though
+     never packed: it is epoch-local scratch, rebuilt from chunk_p at the
+     next epoch boundary. */
+  t.code            = s->code;
+  t.owns_code       = s->owns_code;
+  t.tlm             = s->tlm;
+  t.chunk_p         = s->chunk_p;
+  t.chunk_e         = s->chunk_e;
+  t.chunk_l         = s->chunk_l;
+  t.sums            = s->sums;
+  t.last_backward_p = s->last_backward_p;
+  t.last_e          = s->last_e;
+  t.last_l          = s->last_l;
+  t.aid_ring_p      = s->aid_ring_p;
+  t.aid_ring_o      = s->aid_ring_o;
+  t.aid_ring_e      = s->aid_ring_e;
+  t.aid_ring_l      = s->aid_ring_l;
+  t.aid_power       = s->aid_power;
+  *s                = t;
+  if (n_seg)
     {
-      s->aid_ring_p = aid_ring_p;
-      s->aid_ring_o = aid_ring_o;
-      s->aid_ring_e = aid_ring_e;
-      s->aid_ring_l = aid_ring_l;
-      s->aid_power  = aid_power;
-      return DP_ERR_INVALID;
+      memcpy (s->chunk_p, seg_p, n_seg * sizeof (*s->chunk_p));
+      memcpy (s->chunk_e, seg_e, n_seg * sizeof (*s->chunk_e));
+      memcpy (s->chunk_l, seg_l, n_seg * sizeof (*s->chunk_l));
+      memcpy (s->last_backward_p, lst_p, n_seg * sizeof (*s->last_backward_p));
+      memcpy (s->last_e, lst_e, n_seg * sizeof (*s->last_e));
+      memcpy (s->last_l, lst_l, n_seg * sizeof (*s->last_l));
     }
-  s->aid_ring_p      = aid_ring_p;
-  s->aid_ring_o      = aid_ring_o;
-  s->aid_ring_e      = aid_ring_e;
-  s->aid_ring_l      = aid_ring_l;
-  s->aid_power       = aid_power;
-  s->code            = code;
-  s->owns_code       = owns;
-  s->tlm             = tlm;
-  s->chunk_p         = chunk_p;
-  s->chunk_e         = chunk_e;
-  s->chunk_l         = chunk_l;
-  s->sums            = sums;
-  s->last_backward_p = last_backward_p;
-  s->last_e          = last_e;
-  s->last_l          = last_l;
-  if (s->segments > 1)
+  if (n_aid)
     {
-      size_t n = s->segments;
-      dp_r_bytes (&_r, s->chunk_p, n * sizeof (*s->chunk_p));
-      dp_r_bytes (&_r, s->chunk_e, n * sizeof (*s->chunk_e));
-      dp_r_bytes (&_r, s->chunk_l, n * sizeof (*s->chunk_l));
-      dp_r_bytes (&_r, s->last_backward_p, n * sizeof (*s->last_backward_p));
-      dp_r_bytes (&_r, s->last_e, n * sizeof (*s->last_e));
-      dp_r_bytes (&_r, s->last_l, n * sizeof (*s->last_l));
-    }
-  if (s->sym_period > 0.0)
-    {
-      dp_r_bytes (&_r, s->aid_ring_p, s->aid_ring * sizeof (*s->aid_ring_p));
-      dp_r_bytes (&_r, s->aid_ring_o, s->aid_ring * sizeof (*s->aid_ring_o));
-      dp_r_bytes (&_r, s->aid_ring_e, s->aid_ring * sizeof (*s->aid_ring_e));
-      dp_r_bytes (&_r, s->aid_ring_l, s->aid_ring * sizeof (*s->aid_ring_l));
-      dp_r_bytes (&_r, s->aid_power, s->aid_nhyp * sizeof (*s->aid_power));
+      memcpy (s->aid_ring_p, aid_p, n_aid * sizeof (*s->aid_ring_p));
+      memcpy (s->aid_ring_o, aid_o, n_aid * sizeof (*s->aid_ring_o));
+      memcpy (s->aid_ring_e, aid_e, n_aid * sizeof (*s->aid_ring_e));
+      memcpy (s->aid_ring_l, aid_l, n_aid * sizeof (*s->aid_ring_l));
+      memcpy (s->aid_power, aid_w, n_hyp * sizeof (*s->aid_power));
     }
   return DP_OK;
 }

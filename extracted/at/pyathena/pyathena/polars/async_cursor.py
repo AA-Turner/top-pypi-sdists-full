@@ -1,3 +1,5 @@
+"""Asynchronous cursor that returns Athena query results as Polars DataFrames."""
+
 from __future__ import annotations
 
 import logging
@@ -15,6 +17,7 @@ from pyathena.polars.converter import (
     DefaultPolarsUnloadTypeConverter,
 )
 from pyathena.polars.result_set import AthenaPolarsResultSet
+from pyathena.util import override
 
 _logger = logging.getLogger(__name__)
 
@@ -58,6 +61,7 @@ class AsyncPolarsCursor(AsyncCursor):
 
     def __init__(
         self,
+        *,
         s3_staging_dir: str | None = None,
         schema_name: str | None = None,
         catalog_name: str | None = None,
@@ -74,6 +78,7 @@ class AsyncPolarsCursor(AsyncCursor):
         block_size: int | None = None,
         cache_type: str | None = None,
         chunksize: int | None = None,
+        s3_max_workers: int = (cpu_count() or 1) * 5,
         **kwargs,
     ) -> None:
         """Initialize an AsyncPolarsCursor.
@@ -87,7 +92,7 @@ class AsyncPolarsCursor(AsyncCursor):
             encryption_option: S3 encryption option (SSE_S3, SSE_KMS, CSE_KMS).
             kms_key: KMS key ARN for encryption.
             kill_on_interrupt: Cancel running query on keyboard interrupt.
-            max_workers: Maximum number of workers for concurrent execution.
+            max_workers: Size of the cursor thread pool for waiting and collecting results.
             arraysize: Number of rows to fetch per batch.
             unload: Enable UNLOAD for high-performance Parquet output.
             result_reuse_enable: Enable Athena query result reuse.
@@ -97,6 +102,7 @@ class AsyncPolarsCursor(AsyncCursor):
             chunksize: Number of rows per chunk for memory-efficient processing.
                       If specified, data is loaded lazily in chunks for all data
                       access methods including fetchone(), fetchmany(), and iter_chunks().
+            s3_max_workers: Maximum worker threads per S3 file reader.
             **kwargs: Additional connection parameters.
 
         Example:
@@ -119,12 +125,14 @@ class AsyncPolarsCursor(AsyncCursor):
             result_reuse_minutes=result_reuse_minutes,
             **kwargs,
         )
+        self._s3_max_workers = s3_max_workers
         self._unload = unload
         self._block_size = block_size
         self._cache_type = cache_type
         self._chunksize = chunksize
 
     @staticmethod
+    @override
     def get_default_converter(
         unload: bool = False,
     ) -> DefaultPolarsTypeConverter | DefaultPolarsUnloadTypeConverter | Any:
@@ -140,7 +148,8 @@ class AsyncPolarsCursor(AsyncCursor):
             return DefaultPolarsUnloadTypeConverter()
         return DefaultPolarsTypeConverter()
 
-    @property
+    @property  # type: ignore[explicit-override]  # python/mypy#15900
+    @override
     def arraysize(self) -> int:
         """Get the number of rows to fetch per batch."""
         return self._arraysize
@@ -159,6 +168,7 @@ class AsyncPolarsCursor(AsyncCursor):
             raise ProgrammingError("arraysize must be a positive integer value.")
         self._arraysize = value
 
+    @override
     def _collect_result_set(
         self,
         query_id: str,
@@ -177,18 +187,20 @@ class AsyncPolarsCursor(AsyncCursor):
             retry_config=self._retry_config,
             unload=self._unload,
             unload_location=unload_location,
-            block_size=self._block_size,
-            cache_type=self._cache_type,
-            max_workers=self._max_workers,
-            chunksize=self._chunksize,
+            block_size=kwargs.pop("block_size", self._block_size),
+            cache_type=kwargs.pop("cache_type", self._cache_type),
+            max_workers=kwargs.pop("s3_max_workers", self._s3_max_workers),
+            chunksize=kwargs.pop("chunksize", self._chunksize),
             result_set_type_hints=result_set_type_hints,
             **kwargs,
         )
 
+    @override
     def execute(
         self,
         operation: str,
         parameters: dict[str, Any] | list[str] | None = None,
+        *,
         work_group: str | None = None,
         s3_staging_dir: str | None = None,
         cache_size: int | None = None,
@@ -197,14 +209,14 @@ class AsyncPolarsCursor(AsyncCursor):
         result_reuse_minutes: int | None = None,
         paramstyle: str | None = None,
         result_set_type_hints: dict[str | int, str] | None = None,
-        *,
         options: ExecuteOptions | None = None,
         **kwargs,
     ) -> tuple[str, Future[AthenaPolarsResultSet | Any]]:
         """Execute a SQL query asynchronously and return results as Polars DataFrames.
 
-        Executes the SQL query on Amazon Athena asynchronously and returns a
-        future that resolves to a result set for Polars DataFrame output.
+        Executes the SQL query on Amazon Athena asynchronously and returns the
+        query ID with a future that resolves to a result set for Polars
+        DataFrame output.
 
         Args:
             operation: SQL query string to execute.
@@ -216,13 +228,17 @@ class AsyncPolarsCursor(AsyncCursor):
             result_reuse_enable: Enable Athena result reuse for this query.
             result_reuse_minutes: Minutes to reuse cached results.
             paramstyle: Parameter style ('qmark' or 'pyformat').
-            result_set_type_hints: Optional dictionary mapping column names to
-                Athena DDL type signatures for precise type conversion within
-                complex types.
+            result_set_type_hints: Athena type signatures for complex-type columns,
+                keyed by column name (case-insensitive) or zero-based column index.
             options: Shared execution options as an
                 :class:`~pyathena.options.ExecuteOptions` instance. Individual
                 keyword arguments take precedence over ``options`` fields.
             **kwargs: Additional execution parameters passed to Polars read functions.
+                ``block_size``, ``cache_type``, ``s3_max_workers``, and ``chunksize``
+                override the cursor's values for this query.
+                Read function arguments replace the ones the result set chooses, such as
+                ``separator``, ``has_header``, ``schema_overrides``, and ``storage_options``
+                (see :class:`~pyathena.polars.result_set.AthenaPolarsResultSet`).
 
         Returns:
             Tuple of (query_id, future) where future resolves to AthenaPolarsResultSet.

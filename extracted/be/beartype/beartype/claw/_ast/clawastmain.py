@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # --------------------( LICENSE                            )--------------------
-# Copyright (c) 2014-2025 Beartype authors.
+# Copyright (c) 2014-2026 Beartype authors.
 # See "LICENSE" for further details.
 
 '''
@@ -39,7 +39,7 @@ from beartype._data.typing.datatyping import (
     NodeT,
 )
 from beartype._util.ast.utilasttest import is_node_callable_typed
-from beartype._util.cache.utilcachecall import property_cached
+from beartype._util.cache.func.utilcacheproperty import property_cached
 
 # ....................{ SUBCLASSES                         }....................
 #FIXME: Unit test us up, please.

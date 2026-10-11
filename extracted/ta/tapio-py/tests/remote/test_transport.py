@@ -3,17 +3,20 @@
 import asyncio
 import contextlib
 import socket
+import ssl
 from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
+from tapio.actor import ActorSystem
 from tapio.actor.path import ActorPath
 from tapio.errors import FrameTooLargeError, InsecureRemoteConfig, MessageDecodingError
 from tapio.remote import transport
 from tapio.remote.codec import LENGTH_PREFIX, encode
 from tapio.remote.transport import (
+    HANDSHAKE_FRAME_BYTES,
     FrameLink,
     Heartbeat,
     bind,
@@ -32,9 +35,11 @@ from tapio.settings import RemoteSettings
 from tapio.testkit import (
     IsolatedRemoteSettings,
     IsolatedTLSSettings,
+    assert_no_leaked_tasks,
 )
+from tests.conftest import TlsCerts
 from tests.failures import eventually
-from tests.remote.peers import Tick
+from tests.remote.peers import Tick, counting, remoting, uri
 
 
 def remote(**overrides: Any) -> RemoteSettings:
@@ -196,9 +201,55 @@ def test_a_link_frame_that_is_not_an_object_is_refused():
         link_body(framed(b"[1, 2]"))
 
 
+def test_a_deeply_nested_link_frame_is_refused():
+    # Before the handshake, a RecursionError here escaped `accept` from a peer
+    # that had proved nothing.
+    depth = 200_000
+    frame = framed(b'{"link":' + b"[" * depth + b"]" * depth + b"}")
+    with pytest.raises(MessageDecodingError, match="not JSON"):
+        link_body(frame)
+
+
 def test_a_link_frame_that_is_not_json_is_refused():
     with pytest.raises(MessageDecodingError, match="not JSON"):
         link_body(framed(b"{oops"))
+
+
+async def test_a_bracketed_ipv6_host_is_dialled_bare():
+    # Port 9 is unbound, so the dial fails. What matters is how: a resolver
+    # given `[::1]` looks for a host by that name and finds none.
+    try:
+        link = await connect("[::1]", 9, max_frame_bytes=1024, ssl_context=None)
+    except socket.gaierror as error:
+        pytest.fail(f"the brackets reached the resolver: {error}")
+    except OSError:
+        return
+    await link.close()
+
+
+async def test_a_handshake_frame_is_capped_below_the_link_limit():
+    # The peer has proved nothing during a handshake, so the link's own limit,
+    # 4 MiB by default, is far more than it should make this end hold.
+    accepted: list[FrameLink] = []
+
+    def announce(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        writer.write((HANDSHAKE_FRAME_BYTES + 1).to_bytes(LENGTH_PREFIX, "big"))
+        accepted.append(FrameLink(reader, writer, max_frame_bytes=1024))
+
+    listener = bind(remote(bind_port=0))
+    server = await listen(announce, listener, ssl_context=None)
+    port = listener.getsockname()[1]
+    link = await connect(
+        "127.0.0.1", port, max_frame_bytes=4 * 1024 * 1024, ssl_context=None
+    )
+    try:
+        with pytest.raises(FrameTooLargeError):
+            await link.read_link(2.0)
+    finally:
+        await link.close()
+        for side in accepted:
+            await side.close()
+        server.close()
 
 
 def test_binding_port_zero_gives_a_port_that_can_be_read_back():
@@ -283,3 +334,107 @@ async def test_a_link_names_the_socket_on_the_other_end():
         await client.close()
         await server_side.close()
         server.close()
+
+
+def _node_tls(
+    certs: TlsCerts, *, elsewhere: bool = False, **overrides: Any
+) -> IsolatedTLSSettings:
+    """TLS settings for one node: its certificate, its key, and the shared CA."""
+    return IsolatedTLSSettings(
+        certfile=certs.elsewhere_cert if elsewhere else certs.node_cert,
+        keyfile=certs.elsewhere_key if elsewhere else certs.node_key,
+        cafile=certs.ca,
+        **overrides,
+    )
+
+
+async def _read_the_hello(port: int, context: ssl.SSLContext) -> dict[str, Any]:
+    """Dial a TLS listener and read its server-hello.
+
+    The hello is read rather than the connection only opened, because under
+    TLS 1.3 a server's refusal of the client arrives on the first read.
+    """
+    link = await connect("127.0.0.1", port, max_frame_bytes=1024, ssl_context=context)
+    try:
+        return await link.read_link(2.0)
+    finally:
+        await link.close()
+
+
+def _tls_system(name: str, tls: IsolatedTLSSettings) -> ActorSystem:
+    """A system listening on a loopback port, over TLS."""
+    return ActorSystem(name, remoting(tls=tls))
+
+
+async def test_two_systems_talk_over_mutual_tls(mutual_tls_certs: TlsCerts):
+    with assert_no_leaked_tasks():
+        alpha = _tls_system("alpha", _node_tls(mutual_tls_certs))
+        beta = _tls_system("beta", _node_tls(mutual_tls_certs))
+        try:
+            seen: list[int] = []
+            worker = beta.spawn(counting(seen), "worker")
+            remote = await alpha.resolve(uri(beta, worker), expect=Tick)
+
+            remote.tell(Tick(n=1))
+
+            await eventually(lambda: seen == [1])
+        finally:
+            await alpha.terminate()
+            await beta.terminate()
+
+
+async def test_a_listener_with_a_ca_refuses_a_client_with_no_certificate(
+    mutual_tls_certs: TlsCerts,
+):
+    with assert_no_leaked_tasks():
+        beta = _tls_system("beta", _node_tls(mutual_tls_certs))
+        port = beta.address.port
+        assert port is not None
+        # Trusts the server, presents nothing of its own.
+        anonymous = ssl.create_default_context(cafile=mutual_tls_certs.ca)
+        try:
+            with pytest.raises(
+                (ssl.SSLError, ConnectionError, asyncio.IncompleteReadError)
+            ):
+                await _read_the_hello(port, anonymous)
+        finally:
+            await beta.terminate()
+
+
+@pytest.mark.parametrize("check_hostname", [True, False])
+async def test_a_dialler_checking_the_hostname_refuses_a_certificate_for_another(
+    mutual_tls_certs: TlsCerts, check_hostname: bool
+):
+    with assert_no_leaked_tasks():
+        beta = _tls_system("beta", _node_tls(mutual_tls_certs, elsewhere=True))
+        port = beta.address.port
+        assert port is not None
+        context = client_ssl_context(
+            _node_tls(mutual_tls_certs, check_hostname=check_hostname)
+        )
+        try:
+            if check_hostname:
+                with pytest.raises(ssl.SSLCertVerificationError, match="IP address"):
+                    await connect(
+                        "127.0.0.1", port, max_frame_bytes=1024, ssl_context=context
+                    )
+                return
+            # The same certificate is accepted when the name is not checked,
+            # because the CA still vouches for it. That is the setting's whole
+            # effect, and why it is on by default.
+            assert (await _read_the_hello(port, context))["link"] == "server-hello"
+        finally:
+            await beta.terminate()
+
+
+def test_both_contexts_require_tls_1_2_and_verify_the_peer(mutual_tls_certs: TlsCerts):
+    tls = _node_tls(mutual_tls_certs, check_hostname=False)
+
+    server, client = server_ssl_context(tls), client_ssl_context(tls)
+
+    assert server.minimum_version >= ssl.TLSVersion.TLSv1_2
+    assert client.minimum_version >= ssl.TLSVersion.TLSv1_2
+    # A CA on the server means a client certificate is required.
+    assert server.verify_mode is ssl.CERT_REQUIRED
+    # Turning the hostname check off does not turn off verifying the chain.
+    assert client.verify_mode is ssl.CERT_REQUIRED

@@ -6,6 +6,7 @@ from trajectory.lib._exceptions import (
   FileUploadError,
   WorkflowError,
 )
+from trajectory.lib.benchmark_progress import BenchmarkProgress
 from trajectory.lib.benchmarks import (
   DockerfileBuild,
   ImageRef,
@@ -21,6 +22,7 @@ from trajectory.lib.files import UploadFile, put_files
 __all__ = [
   "BenchmarkImageBuildError",
   "BenchmarkImageBuildTimeoutError",
+  "BenchmarkProgress",
   "FileUploadError",
   "WorkflowError",
   "DockerfileBuild",

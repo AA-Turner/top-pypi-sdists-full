@@ -45,6 +45,7 @@ from ..exceptions import (
     CredentialsInvalidError,
     InvalidContentTypeError,
     InvalidParameterError,
+    LoginAccountDeviceError,
     LoginError,
     NotSupportedError,
     ReolinkConnectionError,
@@ -55,7 +56,7 @@ from ..exceptions import (
     UnexpectedDataError,
 )
 from ..software_version import SoftwareVersion
-from ..typings import VOD_file, VOD_trigger, cmd_list_type
+from ..typings import VOD_file, VOD_search_status, VOD_trigger, cmd_list_type
 from ..utils import (
     datetime_to_reolink_time,
     reolink_time_to_datetime,
@@ -682,6 +683,13 @@ class Baichuan:
         if self._nonce is None:
             # send only a header to receive the nonce (alternatively use legacy login)
             mess = await self.send(cmd_id=1, enc_type=EncType.BC, message_class="1465")
+            sig_ver = get_value_from_xml(mess, "sigVer")
+            if sig_ver == "v3":
+                raise LoginAccountDeviceError(
+                    f"Baichuan host {self._host}: is setup as 'account device' which blocks local login, "
+                    "please switch the device back to a 'local device' by resetting it, for more instructions see "
+                    "https://support.reolink.com/articles/61043321354265-Introduction-to-Reolink-Local-Device-and-Account-Device/"
+                )
             self._nonce = get_value_from_xml(mess, "nonce")
             if self._nonce is None:
                 raise UnexpectedDataError(f"Baichuan host {self._host}: could not find nonce in response:\n{mess}")
@@ -1723,6 +1731,8 @@ class Baichuan:
                 # get nonce and try tcp/udp connection
                 try:
                     nonce = await self._get_nonce()
+                except LoginAccountDeviceError:
+                    raise
                 except ReolinkError as err:
                     if not try_connections:
                         raise
@@ -1907,7 +1917,7 @@ class Baichuan:
         # Get Baichuan capabilities
         try:
             mess = await self.send(cmd_id=199)
-        except CredentialsInvalidError:
+        except (CredentialsInvalidError, LoginAccountDeviceError):
             raise
         except ReolinkError as err:
             _LOGGER.debug("Baichuan host %s: Could not obtain abilities (cmd_id 199): %s", self._host, str(err).replace(f"Baichuan host {self._host}: ", ""))
@@ -2094,7 +2104,7 @@ class Baichuan:
             if self.http_api.is_nvr and self.http_api.wifi_connection(channel) and (self.http_api.api_version("supportWiFi", channel) > 0 or self.http_api._is_hub):
                 coroutines.append(("wifi", channel, self.get_wifi_signal(channel)))
 
-            if self.http_api.api_version("talk", channel) > 0:
+            if self.http_api.api_version("talk", channel) > 0 or (not self.http_api.is_nvr and self.api_version("audioTalk") > 0):
                 coroutines.append((10, channel, self.send(cmd_id=10, channel=channel)))
 
             if (self.http_api.is_nvr or self.privacy_mode() is not None) and self.api_version("remoteAbility", channel) > 0:
@@ -2847,6 +2857,10 @@ class Baichuan:
     async def snapshot_past(self, channel: int, time: datetime, snapType: str = "sub", ffmpeg: str = "ffmpeg") -> bytes:
         """Get a JPEG image from a past recording (thumbnail)"""
         end = time + timedelta(seconds=10)
+        if "main" in snapType:
+            snapType = "main"
+        if snapType not in {"sub", "main", "ext"}:
+            snapType = "sub"
         xml = xmls.CoverPreview.format(
             channel=channel,
             stream=snapType,
@@ -2954,7 +2968,14 @@ class Baichuan:
     async def GetUser(self) -> None:
         """Get the user list"""
         xml = xmls.UserList.format(username=self._username)
-        mess = await self.send(cmd_id=58, extension=xml)
+        try:
+            mess = await self.send(cmd_id=58, extension=xml)
+        except ApiError as err:
+            if err.rspCode != 400:
+                raise
+            _LOGGER.debug("Baichuan host %s: user list not supported, assuming admin user", self._host)
+            self.http_api._users = [{"userName": self._username, "userLevel": "1", "level": "admin"}]
+            return
         root = XML.fromstring(mess)
         self.http_api._users = []
         for user in root.findall(".//User"):
@@ -4282,6 +4303,64 @@ class Baichuan:
         if year is None or month is None or day is None or hour is None or minute is None or second is None:
             return None
         return datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
+
+    async def search_vod_days(self, channel: int, start: datetime, end: datetime) -> list[VOD_search_status]:
+        """Search on which days recordings are available, returns the same format as the HTTP Search with onlyStatus"""
+        uid = self.http_api.camera_uid(channel)
+        uid = uid.split("_")[0]
+        if uid == UNKNOWN:
+            raise InvalidParameterError(f"Baichuan host {self._host}: search_vod_days: cannot get UID for channel {channel}")
+
+        # Split the requests per month, requests spanning more then 1 month will timeout
+        coroutines: list[tuple[int, int, Coroutine]] = []
+        end_month = end.month + (end.year - start.year) * 12
+        for month_year in range(start.month, end_month + 1):
+            month = int((month_year - 0.5) % 12 + 0.5)
+            year = start.year + int((month_year - 0.5) / 12)
+            start_day = 1
+            end_day = 31
+            if month_year == start.month:
+                start_day = start.day
+            if month_year == end_month:
+                end_day = end.day
+
+            xml = xmls.DayRecords.format(
+                channel=channel,
+                uid=uid,
+                start_year=year,
+                start_month=month,
+                start_day=start_day,
+                start_hour=0,
+                start_minute=0,
+                start_second=0,
+                end_year=year,
+                end_month=month,
+                end_day=end_day,
+                end_hour=23,
+                end_minute=59,
+                end_second=59,
+            )
+            coroutines.append((year, month, self.send(cmd_id=142, channel=channel, body=xml)))
+
+        result: list[VOD_search_status] = []
+        responses = await asyncio.gather(*[cor[2] for cor in coroutines], return_exceptions=True)
+        for i, mess in enumerate(responses):
+            year, month, _ = coroutines[i]
+            if isinstance(mess, ReolinkError):
+                _LOGGER.warning(str(mess))
+                continue
+            if isinstance(mess, BaseException):
+                raise mess
+
+            root = XML.fromstring(mess)
+            table = ["0"] * 31
+            for day_type in root.findall(".//dayType"):
+                index = get_value_from_xml(day_type, "index", int)
+                if index is None:
+                    continue
+                table[index] = "1"
+            result.append(VOD_search_status({"year": year, "mon": month, "table": table}))
+        return result
 
     async def search_vod_type(
         self, channel: int, start: datetime, end: datetime, stream: str | None = None, split_time: timedelta | None = None

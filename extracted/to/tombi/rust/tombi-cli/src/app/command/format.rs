@@ -203,10 +203,13 @@ where
         tombi_schema_store::SchemaStore::new_with_options(tombi_schema_store::Options {
             offline: args.common.offline.then_some(true),
             strict: schema_options.and_then(|schema_options| schema_options.strict()),
+            format: schema_options.and_then(|schema_options| schema_options.format.clone()),
+            lint: schema_options.and_then(|schema_options| schema_options.lint.clone()),
             cache: Some(tombi_cache::Options {
                 no_cache: args.common.no_cache.then_some(true),
                 ..Default::default()
             }),
+            trusted_hosts: None,
         });
 
     let runtime = super::runtime(FileInputType::from(args.files.as_ref()) == FileInputType::Stdin)

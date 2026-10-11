@@ -890,7 +890,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Check accounts health
 
-        Returns health status of all connected accounts including token validity, permissions, and issues needing attention.
+        Returns health status of all connected accounts including token validity, permissions, and issues needing attention. A failing or stalled analytics sync (see `analyticsSync`) raises a healthy account to at least warning.
 
         Args:
             profile_id: Filter by profile ID
@@ -917,6 +917,8 @@ def register_generated_tools(mcp, _get_client):
         """Check account health
 
         Returns detailed health info for a specific account including token status, permissions, and recommendations.
+
+        A failing or stalled analytics sync (see `analyticsSync`) raises a healthy account to at least `warning`.
 
         For WhatsApp accounts the response also includes `platformConnection`, a live probe of the
         Meta link behind the channel (the same read as `GET /v1/whatsapp/number-info`). The OAuth
@@ -8904,11 +8906,11 @@ def register_generated_tools(mcp, _get_client):
                 regions: Region-level (state/province) geo targeting (Meta, Google and TikTok). Each region is targeted by the platform's opaque `key` (the region ID) which can be looked up via `GET /v1/ads/targeting/search?dimension=geo&q=<name>&countryCode=<ISO>`. An entry may also be the key alone as a plain string.
                 age_min
                 age_max
-                interests: Interest objects from /v1/ads/interests. Each must include id and name. Each item is an object with keys: id (string, required); name (string, required)
+                interests: Interest objects from /v1/ads/targeting/search?dimension=interest (or dimension=interestKeyword on TikTok). Each must include id and name. On TikTok, bare numeric ids are interest categories (`interest_category_ids`) and ids like `keyword:123456` from `dimension=interestKeyword` are additional interests (`interest_keyword_ids`); any other id returns 422 naming `targeting.interests`. TikTok matches people who fit ANY selected interest, additional interest or behavior (one OR'd group), and that group is ANDed with location, age, gender and the other dimensions. Each item is an object with keys: id (string, required); name (string, required)
                 zips: Postal/ZIP geo targeting. `key` is the platform's postal location ID from /v1/ads/targeting/search?dimension=geo&geoType=zip. Supported on Meta, Google, TikTok, Pinterest, X.
                 metros: DMA / metro-area geo targeting (Meta and TikTok). `key` is the platform's metro ID from /v1/ads/targeting/search?dimension=geo&geoType=metro (TikTok metros appear as type `metro`, e.g. the New York DMA).
                 custom_locations: Point-radius (lat/lng) geo targeting. Meta only (custom_locations). Rejected on platforms without radius support. Each item is an object with keys: latitude (number, required); longitude (number, required); radius (number, required); distanceUnit (one of: mile, kilometer; required); name (string); address (string)
-                behaviors: Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos (watched to the end, liked, commented or shared, last 15 days) or creators (followed or viewed the profile) in the picked categories, and the ad group uses the TikTok placement only. Each must include id. Each item is an object with keys: id (string, required); name (string)
+                behaviors: Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos (watched to the end, liked, commented or shared, last 15 days) or creators (followed or viewed the profile) in the picked categories, or who viewed videos with a picked hashtag (`hashtag:<id>` ids from `dimension=hashtag`, sent as a `HASHTAG_RELATED` action with `VIEW_HASHTAG`), and the ad group uses the TikTok placement only. On TikTok, behaviors are OR'd with interests and additional interests. Each must include id. Each item is an object with keys: id (string, required); name (string)
                 work_positions: Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Each must include id. Rejected on other platforms (use LinkedIn's `jobTitles` there). Each item is an object with keys: id (string, required); name (string)
                 work_employers: Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer. Each must include id. Each item is an object with keys: id (string, required); name (string)
                 work_industries: Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Each must include id. Rejected on other platforms (use LinkedIn's `industries` there). Each item is an object with keys: id (string, required); name (string)
@@ -10814,7 +10816,9 @@ def register_generated_tools(mcp, _get_client):
         dimension: Literal[
             "geo",
             "interest",
+            "interestKeyword",
             "behavior",
+            "hashtag",
             "income",
             "language",
             "workPosition",
@@ -10857,16 +10861,16 @@ def register_generated_tools(mcp, _get_client):
           Meta: its fixed behaviors catalog (e.g. `Small business owners`, `Frequent Travelers`).
           TikTok: video and creator interaction categories (e.g. `Software & Apps`), with ids like
           `video:1913101` or `creator:24001` and `path` starting with `Video interactions` or
-          `Creator interactions`. LinkedIn: member behaviors (e.g. `Frequent Travelers`,
+          `Creator interactions` (hashtags are their own `hashtag` dimension). LinkedIn: member behaviors (e.g. `Frequent Travelers`,
           `Job Seekers`, `Recently Promoted`), ids like `urn:li:memberBehavior:9`. Google has no
-          separate behavior catalog: its in-market and affinity ...
+          separate ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest
 
         Args:
             account_id: Account ID (a connected account on the target ad platform). (required)
             q: Search query. For geo, the locality name only (no region/country suffix). (required)
-            dimension: What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities (`behavior` is Meta only), `income` resolves the normalized income tiers, `language` resolves Google's targetable language_constant table (Google only), `workPosition`/`workEmployer`/`workIndustry` resolve Meta work demographics, `industry`/`jobFunction`/`seniority`/`companySize` resolve LinkedIn B2B facets (LinkedIn only). Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias.
+            dimension: What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities (`behavior` on Meta, TikTok and LinkedIn), `interestKeyword`/`hashtag` resolve TikTok additional interests and hashtags (TikTok only), `income` resolves the normalized income tiers, `language` resolves Google's targetable language_constant table (Google only), `workPosition`/`workEmployer`/`workIndustry` resolve Meta work demographics, `industry`/`jobFunction`/`seniority`/`companySize` resolve LinkedIn B2B facets (LinkedIn only). Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias.
             geo_type: Only used when `dimension=geo`. The kind of location to resolve. `all` searches every type in one relevance-ranked call. Defaults to `city`.
             country_code: ISO 3166-1 alpha-2 country code (e.g. NL) to scope a geo search.
             ad_account_id: TikTok only: the advertiser to search as, when the connection holds several. Each TikTok advertiser has its own targetable regions and catalogs. Defaults to the connection's first advertiser; an advertiser the connection does not hold returns 400.
@@ -26514,7 +26518,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             conversation_id: The conversation ID (required)
             account_id: Social account ID (required)
-            action: `request` is Facebook and Instagram only. (required)
+            action: `request` is Facebook and Instagram only. `take` and `request` are refused with `platform_not_supported` on Instagram accounts connected with Instagram Login. (required)
             target: WhatsApp only. With action pass: send control to Meta Business Agent instead of the escalation partner.
             target_app_id: Facebook and Instagram only, required with action pass: the Meta app id receiving the thread.
             metadata: Free-form note forwarded verbatim to the app receiving control (its messaging_handovers webhook)."""

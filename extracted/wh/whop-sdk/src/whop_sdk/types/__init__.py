@@ -208,6 +208,9 @@ if typing.TYPE_CHECKING:
     from .ad_lead_form_question_option import AdLeadFormQuestionOption
     from .ad_messaging_config import AdMessagingConfig
     from .ad_music import AdMusic
+    from .ad_pixel import AdPixel
+    from .ad_pixel_platform import AdPixelPlatform
+    from .ad_pixel_status import AdPixelStatus
     from .ad_platform import AdPlatform
     from .ad_platform_issue import AdPlatformIssue
     from .ad_platform_issue_category import AdPlatformIssueCategory
@@ -1162,6 +1165,7 @@ if typing.TYPE_CHECKING:
     from .payment_next_action_redirect import PaymentNextActionRedirect
     from .payment_next_action_redirect_data import PaymentNextActionRedirectData
     from .payment_next_action_redirect_render_item import PaymentNextActionRedirectRenderItem
+    from .payment_pdf import PaymentPdf
     from .payment_processing_details import PaymentProcessingDetails
     from .payment_providers import PaymentProviders
     from .payment_qr import PaymentQr
@@ -1697,6 +1701,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdLeadFormQuestionOption": ".ad_lead_form_question_option",
     "AdMessagingConfig": ".ad_messaging_config",
     "AdMusic": ".ad_music",
+    "AdPixel": ".ad_pixel",
+    "AdPixelPlatform": ".ad_pixel_platform",
+    "AdPixelStatus": ".ad_pixel_status",
     "AdPlatform": ".ad_platform",
     "AdPlatformIssue": ".ad_platform_issue",
     "AdPlatformIssueCategory": ".ad_platform_issue_category",
@@ -2517,6 +2524,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentNextAction_CollectCardPresent": ".payment_next_action",
     "PaymentNextAction_DisplayInstructions": ".payment_next_action",
     "PaymentNextAction_Redirect": ".payment_next_action",
+    "PaymentPdf": ".payment_pdf",
     "PaymentProcessingDetails": ".payment_processing_details",
     "PaymentProviders": ".payment_providers",
     "PaymentQr": ".payment_qr",
@@ -3074,6 +3082,9 @@ __all__ = [
     "AdLeadFormQuestionOption",
     "AdMessagingConfig",
     "AdMusic",
+    "AdPixel",
+    "AdPixelPlatform",
+    "AdPixelStatus",
     "AdPlatform",
     "AdPlatformIssue",
     "AdPlatformIssueCategory",
@@ -3894,6 +3905,7 @@ __all__ = [
     "PaymentNextAction_CollectCardPresent",
     "PaymentNextAction_DisplayInstructions",
     "PaymentNextAction_Redirect",
+    "PaymentPdf",
     "PaymentProcessingDetails",
     "PaymentProviders",
     "PaymentQr",

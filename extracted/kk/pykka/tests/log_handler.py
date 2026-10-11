@@ -2,11 +2,11 @@ import collections
 import logging
 import threading
 import time
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class LogLevel(str, Enum):
+class LogLevel(StrEnum):
     DEBUG = "debug"
     INFO = "info"
     WARNING = "warning"
@@ -15,7 +15,7 @@ class LogLevel(str, Enum):
 
 
 class PykkaTestLogHandler(logging.Handler):
-    lock: threading.RLock  # type: ignore[assignment]
+    lock: threading.RLock
     events: dict[str, threading.Event]
     messages: dict[LogLevel, list[logging.LogRecord]]
 

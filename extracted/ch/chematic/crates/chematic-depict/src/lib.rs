@@ -529,3 +529,8 @@ mod tests {
         assert!(svg.contains("FFFF00"), "highlight circle should be yellow");
     }
 }
+#[cfg(test)]
+mod export_boundary_contract_tests;
+
+#[cfg(test)]
+mod public_boundary_contract_tests;

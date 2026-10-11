@@ -28,9 +28,14 @@ Vocabulary notes that the types cannot carry:
   know any provider's name. Rung routes travel as the wire spellings their
   kind pins (``"radient"``, ``"fal"``, ...); a kind's resolver may type them
   with its own ``StrEnum`` because its members ARE ``str``.
-- ``cost_usd`` carries ONLY a figure a provider REPORTED; ``cost_source``
-  labels where a figure came from so an estimate or a quota-funded call can
-  never masquerade as a charge (design D8).
+- ``cost_usd`` carries a figure a provider REPORTED, or - for a
+  subscription-funded call only - the published API-equivalent price of what
+  the plan funded. ``cost_source`` labels where a figure came from and
+  ``billing_basis`` what it means in money terms (``billed`` /
+  ``subscription-api-equivalent`` / ``estimated``), with ``cost_provenance``
+  naming the doc or provider field, so an estimate or a quota-funded call can
+  never masquerade as a charge (design D8; the API-equivalent clause is the
+  wave-2 cost rule).
 """
 
 from __future__ import annotations
@@ -42,6 +47,7 @@ from typing import Literal
 __all__ = [
     "ArtifactKind",
     "AttemptOutcome",
+    "BillingBasis",
     "CostSource",
     "JobAttempt",
     "JobCancelled",
@@ -73,10 +79,24 @@ class ArtifactKind(StrEnum):
 AttemptOutcome = Literal["ok", "failed", "skipped"]
 
 #: Where a ``cost_usd`` figure (or its documented absence) comes from:
-#: ``reported`` = the provider returned it per call; ``rate_table`` = a
-#: documented vendor price exists but the call returns no figure, so ``cost_usd``
-#: stays ``None``; ``subscription`` = quota-funded, no cash figure exists.
+#: ``reported`` = the provider returned it per call; ``rate_table`` = the
+#: number (or the absence of one) rests on a published vendor price — most
+#: rate-table rungs return no usage to multiply and keep ``cost_usd`` empty,
+#: while a rung whose response carries the usage fields a rate table needs
+#: may carry a computed ESTIMATE (always labelled ``estimated``);
+#: ``subscription`` = quota-funded, no cash figure exists.
 CostSource = Literal["reported", "rate_table", "subscription"]
+
+#: What a ``cost_usd`` AMOUNT means in money terms (additive beside
+#: :data:`CostSource`, whose semantics are unchanged; ``None`` whenever there is
+#: no amount). ``billed`` = cash/credits the provider actually charged for this
+#: call; ``subscription-api-equivalent`` = the published API price of what a
+#: subscription (plan quota) funded, labelled so it is NEVER read as a charge —
+#: the same convention inference cost uses ("list price x usage", not an
+#: invoice); ``estimated`` = a modelled figure, neither reported nor billed.
+#: The operator's rule: a subscription-funded generation must still carry an
+#: API-equivalent cost so spend across funding classes is comparable.
+BillingBasis = Literal["billed", "subscription-api-equivalent", "estimated"]
 
 
 class JobCancelled(Exception):
@@ -180,7 +200,10 @@ class JobOutcome:
     predate the field; every walk-produced outcome sets it explicitly from the
     job spec, so the default only ever serves direct construction.
 
-    ``cost_usd`` only ever carries a figure a provider REPORTED (design D8);
+    ``cost_usd`` carries a figure a provider REPORTED (design D8), or —
+    since the edit lane — a computed ESTIMATE whose every multiplier is a
+    usage field the provider returned and whose rates are published (always
+    ``billing_basis="estimated"``; see :data:`CostSource`);
     ``cost_source`` labels it. ``lineage`` is a named future additive field
     (restart provenance) deliberately not built in v1.
     """
@@ -200,3 +223,17 @@ class JobOutcome:
     generation_id: str | None = None
     cost_usd: float | None = None
     cost_source: CostSource | None = None
+    #: Money meaning of ``cost_usd`` (see :data:`BillingBasis`) and where the
+    #: figure comes from (doc source + date, or the provider field that
+    #: reported it). Both ``None`` when no amount exists.
+    billing_basis: BillingBasis | None = None
+    cost_provenance: str | None = None
+    #: The hub-side usage-record id a settled charge equals, when a rung's
+    #: terminal payload carried one (see ``RungResult.usage_record_id``);
+    #: ``None`` everywhere else. The tool surfaces it as
+    #: ``details["usage_record_id"]`` — absent-safe, and never an amount.
+    usage_record_id: str | None = None
+    #: Set when the winning rung dropped a caller-supplied ``strength``
+    #: (see ``RungResult.strength_ignored``); the tool folds it into
+    #: ``details["strength_ignored"]`` + the caption note.
+    strength_ignored: bool = False

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright 2014 ko-zu <causeless@gmail.com>
 #
@@ -14,18 +13,18 @@ __all__ = ["PublicSuffixList"]
 
 
 class PublicSuffixList(PSL):
-    """ Drop in compatibility class to emulate publicsuffix module. """
+    """Drop in compatibility class to emulate publicsuffix module."""
 
-    def get_public_suffix(self, domain):
-        """ Return shortest private suffix or "". """
+    def get_public_suffix(self, domain: str) -> str:
+        """Return shortest private suffix or ""."""
 
         return self.privatesuffix(domain) or ""
 
 
 class UnsafePublicSuffixList(PSL):
-    """ More accurate compatibility class to emulate publicsuffix module. """
+    """More accurate compatibility class to emulate publicsuffix module."""
 
-    def get_public_suffix(self, domain):
-        """ Return shortest private suffix or longest public suffix. """
+    def get_public_suffix(self, domain: str) -> str:
+        """Return shortest private suffix or longest public suffix."""
 
         return self.privatesuffix(domain) or self.publicsuffix(domain) or ""

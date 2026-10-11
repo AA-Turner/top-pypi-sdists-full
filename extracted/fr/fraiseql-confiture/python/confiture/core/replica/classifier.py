@@ -35,8 +35,8 @@ from confiture.core.ddl_walk import (
 from confiture.core.ddl_walk import (
     type_name as _type_name,
 )
+from confiture.core.migration_scope import walk
 from confiture.core.schema_model import Constraint
-from confiture.core.sql_lexer import parse_file
 from confiture.core.type_lattice import canonical_type
 
 # Resolved BY NAME, never by literal ordinal (#192): PG18 renumbered
@@ -51,6 +51,7 @@ _AT_CHANGE_OWNER = _pg_member("AlterTableType", "AT_ChangeOwner")
 _AT_COLUMN_DEFAULT = _pg_member("AlterTableType", "AT_ColumnDefault")
 _AT_SET_NOT_NULL = _pg_member("AlterTableType", "AT_SetNotNull")
 _AT_DROP_NOT_NULL = _pg_member("AlterTableType", "AT_DropNotNull")
+_AT_VALIDATE_CONSTRAINT = _pg_member("AlterTableType", "AT_ValidateConstraint")
 
 # ALTER TABLE subcommands that change nothing an N-1 reader can observe.
 _AT_BENIGN = {
@@ -58,6 +59,9 @@ _AT_BENIGN = {
     _AT_CHANGE_OWNER: "change_owner",
     _AT_COLUMN_DEFAULT: "column_default",
     _AT_DROP_NOT_NULL: "drop_not_null",
+    # Scans under SHARE UPDATE EXCLUSIVE: reads and writes continue, and the
+    # constraint already held for every row written since its NOT VALID add.
+    _AT_VALIDATE_CONSTRAINT: "validate_constraint",
 }
 
 # DropStmt.removeType → the object noun, for objects whose removal breaks a
@@ -312,8 +316,8 @@ class OperationClassifier:
     def _classify_ast(self, sql: str) -> list[DdlOperation]:
 
         ops: list[DdlOperation] = []
-        for raw in parse_file(sql).statements:
-            node = raw.stmt
+        for step in walk(sql):
+            node = step.statement.stmt
             name = type(node).__name__
             if name == "AlterTableStmt":
                 ops.extend(self._ast_alter_table(node))

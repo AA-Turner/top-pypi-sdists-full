@@ -368,11 +368,21 @@ extern "C"
    * message has been fully processed, then dp_msg_free().
    *
    * A no-op (returns DP_OK) for transports without acks — NATS core
-   * PUB/SUB and reassembled chunked frames — so callers can ack
-   * unconditionally.
+   * PUB/SUB, REQ/REP and reassembled chunked frames — so callers can ack
+   * unconditionally, before or after the receiving context is destroyed.
+   *
+   * **Ack a Pull message before you close.** Once the Pull context that
+   * received @p msg is destroyed, its ack is refused with DP_ERR_CLOSED and
+   * nothing is sent, so the broker redelivers the message to the next
+   * consumer. The message itself stays valid: dp_msg_free() is still the
+   * caller's, whenever. An ack racing the destroy on another thread is safe
+   * either way: it completes before the context is torn down, or it is
+   * refused.
    *
    * @param msg Message handle returned by a recv function.
-   * @return DP_OK on success, negative error code on failure.
+   * @return DP_OK on success, and always for a message with nothing to
+   *         acknowledge; DP_ERR_CLOSED for a Pull message after its context
+   *         is destroyed; DP_ERR_SEND if the broker could not be told.
    */
   int dp_msg_ack (dp_msg_t *msg);
 
@@ -415,7 +425,11 @@ extern "C"
    * @param num_samples Number of complex samples.
    * @param sample_rate Sample rate in Hz.
    * @param center_freq Centre frequency in Hz.
-   * @return DP_OK (0) on success, negative error code on failure.
+   * @return DP_OK (0) on success, negative error code on failure;
+   *         DP_ERR_TOO_LARGE when the payload, num_samples times the
+   *         element size, would not fit the header's 32-bit
+   *         payload_bytes. The limit is checked before multiplying, so
+   *         a count whose byte size wraps is refused, not sent.
    */
   int dp_pub_send_ci32 (dp_pub_t *ctx, const int32_t *samples,
                         size_t num_samples, double sample_rate,
@@ -633,6 +647,14 @@ extern "C"
 
   /**
    * @brief Set receive timeout for a Subscriber socket.
+   *
+   * One dp_sub_recv() has ONE deadline, however many messages it reads: a
+   * chunked frame takes several, and the timeout bounds them all. Once the
+   * deadline has passed, a message already queued is not taken -- it waits
+   * for the next call. The clock is the NATS client's own (nats_Now(): the
+   * wall clock, in milliseconds), the one its waits are timed with. A
+   * timeout of 0 still looks once, for 1 ms.
+   *
    * @param ctx        Subscriber context.
    * @param timeout_ms Timeout in milliseconds (-1 = infinite, 0 =
    * non-blocking).
@@ -1162,6 +1184,21 @@ extern "C"
 #define DP_WORK_QUEUE_MAX_AGE_NS (3600LL * 1000000000LL)
 
   /**
+   * @brief Unacked frames a Pull consumer may hold before the server stops.
+   *
+   * A Pull is an explicit-ack consumer: past this many frames delivered and
+   * not yet acked (dp_msg_ack()), the server hands out no NEW frames, only
+   * redeliveries of the pending ones, each an AckWait after the last. That
+   * is the backpressure a work queue applies to a slow consumer, and the
+   * reason a consumer that never acks stalls at exactly this count.
+   *
+   * Python reads it as `doppler.stream.WORK_QUEUE_MAX_ACK_PENDING`, so a
+   * consumer that reasons about redeliveries names this value rather than
+   * restating it.
+   */
+#define DP_WORK_QUEUE_MAX_ACK_PENDING 1000
+
+  /**
    * @brief The backend's own account of the last failure on @p ctx.
    *
    * `dp_strerror()` names the CLASS of error doppler returned; this names
@@ -1192,6 +1229,72 @@ extern "C"
    * @return DP_OK, or DP_ERR_INVALID (see dp_ctx_last_error()).
    */
   int dp_ctx_delete_stream (dp_pub_t *ctx);
+
+  /**
+   * @brief What reassembling chunked frames has lost on a receiving context.
+   *
+   * A PUB frame above the server's max_payload arrives as chunks (@ref
+   * dp_chunk_t). The receiver rebuilds one frame at a time and gives up a
+   * frame it can no longer complete instead of hiding the loss: these are
+   * the counts, from the context's creation, never reset.
+   */
+  typedef struct
+  {
+    uint64_t abandoned; /**< Partial assemblies given up -- a count of
+                             assemblies, not of frames lost: a subscriber
+                             that joins mid-frame abandons a frame it never
+                             had, and two publishers interleaving abandon
+                             each other's. Given up when a chunk of a
+                             DIFFERENT frame arrives (that chunk starts the
+                             next frame; it is never discarded with the old
+                             one), or an unchunked frame of the SAME
+                             stream (kind and format: its subject), or an
+                             end-of-stream, which under one publisher per
+                             subject prove the frame in progress lost a
+                             chunk. Another type's frame on the base leaves
+                             it alone. */
+    uint64_t rejected;  /**< Chunks no frame could hold, dropped: off the
+                             chunk grid, out of range, or overlapping. */
+    uint64_t mid_frame_timeouts; /**< Receives that timed out with a frame
+                                      part-assembled. The frame is kept,
+                                      and the next receive resumes it. */
+  } dp_reasm_stats_t;
+
+  /**
+   * @brief Read @p ctx's chunk-reassembly losses into @p out.
+   *
+   * Only a SUB reassembles (PUB is the only role that chunks), so only a
+   * SUB's counts move; any other receiving context reads all zeros, as does
+   * a SUB that never received a chunked frame. A frame that IS returned is
+   * complete and exact. Chunks of two frames are not merged, because a
+   * frame is identified by its whole header (sequence, timestamp, rate,
+   * centre frequency, format) and its chunk geometry, not by its sequence
+   * alone -- unless two publishers' headers are bit-identical, which the
+   * same explicit timestamp_ns can make them (#2017).
+   *
+   * Read it from the receiving thread: a receive in progress on another
+   * thread updates the counts without a lock.
+   *
+   * @param ctx  Any receiving context; only a SUB's counts move.
+   * @param out  Filled on success.
+   * @return DP_OK, or DP_ERR_INVALID for a NULL argument.
+   *
+   * @code
+   * // header-code: no-run=needs a NATS broker on 127.0.0.1:4222
+   * dp_sub_t *sub = dp_sub_create ("nats://127.0.0.1:4222/iq");
+   * dp_sub_set_timeout (sub, 1000);
+   * dp_msg_t   *msg = NULL;
+   * dp_header_t hdr;
+   * if (sub && dp_sub_recv (sub, &msg, &hdr) == DP_OK)
+   *   dp_msg_free (msg);
+   * dp_reasm_stats_t st;
+   * if (dp_sub_reasm_stats (sub, &st) == DP_OK && st.abandoned > 0)
+   *   printf ("%llu partial frames given up\n",
+   *           (unsigned long long)st.abandoned);
+   * dp_sub_destroy (sub);
+   * @endcode
+   */
+  int dp_sub_reasm_stats (const dp_sub_t *ctx, dp_reasm_stats_t *out);
 
   /** @} */ /* end group utils */
 

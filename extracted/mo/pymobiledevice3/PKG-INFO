@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 11.26.0
+Version: 11.26.1
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
@@ -110,6 +110,9 @@ developer tooling (iOS 17+ over a tunnel).
 ```shell
 python3 -m pip install -U pymobiledevice3
 ```
+
+PyPI is the only official distribution channel. Third-party packages (for example the AUR's
+`python-pymobiledevice3`) are not maintained by this project and may be outdated.
 
 Then verify connectivity:
 
