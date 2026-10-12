@@ -5,16 +5,19 @@ This module provides the main SQLQueryBuilder class that coordinates
 query construction with support for filtering, sorting, pagination, and joins.
 """
 
+from collections.abc import Collection
 from typing import Any, TYPE_CHECKING
 from sqlalchemy import Select, select, func
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, TextClause
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .cartesian import describe_from_clause, refuse_a_cartesian_product
 from .sorting import SortProcessor
 from .joins import JoinBuilder
 from ...types import ModelType
 from ..introspection import get_primary_key_columns
 from ..field_management import extract_matching_columns_from_schema
+from ..filtering.processor import where_conditions
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...types import SelectSchemaType
@@ -55,7 +58,9 @@ class SQLQueryBuilder:
         else:
             return select(self.model)
 
-    def apply_filters(self, stmt: Select, filters: list[ColumnElement]) -> Select:
+    def apply_filters(
+        self, stmt: Select, filters: list[ColumnElement | TextClause]
+    ) -> Select:
         """
         Apply WHERE conditions to statement.
 
@@ -163,6 +168,7 @@ def build_joined_query(
     config: dict[str, Any],
     schema_to_select: type["SelectSchemaType"] | None = None,
     nest_joins: bool = False,
+    hidden_columns: Collection[str] = (),
     **kwargs: Any,
 ) -> Select:
     """
@@ -175,14 +181,20 @@ def build_joined_query(
         config: Configuration dictionary with join_definitions and counts_config
         schema_to_select: Pydantic schema for column selection
         nest_joins: Whether to use temporary prefixes for nesting
+        hidden_columns: Attribute names of the primary model's columns to leave
+            out of the selection, as a policy's ``hidden_columns``
         **kwargs: Additional filter parameters
 
     Returns:
         SQLAlchemy SELECT statement with joins and filters
     """
-    primary_select = extract_matching_columns_from_schema(
-        model=model, schema=schema_to_select
-    )
+    primary_select = [
+        column
+        for column in extract_matching_columns_from_schema(
+            model=model, schema=schema_to_select
+        )
+        if getattr(column, "key", None) not in hidden_columns
+    ]
     stmt = query_builder.build_base_select(primary_select)
 
     join_definitions = config["join_definitions"]
@@ -199,7 +211,12 @@ def build_joined_query(
                     f"The model '{count_model.__name__}' does not have a primary key defined, which is required for counting."
                 )
 
+            counted_row_conditions = where_conditions(count.where)
             count_subquery = select(func.count()).where(count.join_on)
+            _refuse_count_conditions_on_other_tables(
+                count_subquery, counted_row_conditions, count_model
+            )
+            count_subquery = count_subquery.where(*counted_row_conditions)
             if count.filters:
                 count_filters = filter_processor.parse_filters(
                     model=count_model, **count.filters
@@ -238,6 +255,36 @@ def build_joined_query(
     return stmt
 
 
+def _refuse_count_conditions_on_other_tables(
+    count_query: Select, conditions: list[Any], count_model: Any
+) -> None:
+    """
+    Refuse ``CountConfig.where`` conditions naming a table the count doesn't read.
+
+    The count may read its model and the tables its ``join_on`` names, such as
+    the parent and an association table. Any other table would be added to the
+    count's FROM, multiplying every counted row by its rows. SQLAlchemy only warns
+    about that, and ``refuse_a_cartesian_product`` never sees inside the scalar
+    subquery.
+
+    Raises:
+        ValueError: Naming the tables the conditions add
+    """
+    tables_read = set(count_query.get_final_froms())
+    other_tables = [
+        from_clause
+        for from_clause in count_query.where(*conditions).get_final_froms()
+        if from_clause not in tables_read
+    ]
+    if other_tables:
+        names = ", ".join(describe_from_clause(table) for table in other_tables)
+        raise ValueError(
+            f"CountConfig.where can only name {count_model.__name__} and the tables "
+            f"its join_on reads, not {names}: name them in join_on to count through "
+            "them, or test them in a subquery."
+        )
+
+
 async def execute_joined_query(
     db: AsyncSession,
     stmt: Select,
@@ -265,6 +312,7 @@ async def execute_joined_query(
     if sort_columns:
         stmt = query_builder.apply_sorting(stmt, sort_columns, sort_orders)
     stmt = query_builder.apply_pagination(stmt, offset, limit)
+    refuse_a_cartesian_product(stmt)
 
     result = await db.execute(stmt)
     return [dict(row) for row in result.mappings().all()]

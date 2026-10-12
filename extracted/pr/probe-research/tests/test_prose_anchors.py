@@ -91,6 +91,30 @@ def test_consent_replaced_the_exclusion_list_on_every_surface() -> None:
             assert escape not in text, f"{name} resurrected an exclusion: {escape!r}"
 
 
+def _not_ml_work() -> list[str]:
+    """The bullets of track-work's "Not ML work - record nothing:" list."""
+    lines = (AGENT_ROOT / "skills/track-work/SKILL.md").read_text(encoding="utf-8").splitlines()
+    items = []
+    for line in lines[lines.index("Not ML work - record nothing:") + 1:]:
+        if not line.startswith("- "):
+            break
+        items.append(line[2:])
+    return items
+
+
+def test_every_reader_names_what_is_not_ml_work_in_track_works_words() -> None:
+    """What is not ML work is ONE list, the skill's (Richard 2026-10-12). The
+    two surfaces that say when NOT to read Probe -- the daemon reader's job and
+    the inline pointer block -- carry it word for word, so a reader and the
+    writer never disagree about what a session is."""
+    items = _not_ml_work()
+    assert items, "track-work lost its not-ML list"
+    line = "- work that is not ML work - " + "; ".join(items)
+    reader = (AGENT_ROOT / "src/probe/daemon/read_session.md").read_text(encoding="utf-8")
+    assert line in reader.splitlines(), "read_session.md drifted from track-work"
+    assert " ".join(line.split()) in _pointer(), "POINTER_BODY drifted from track-work"
+
+
 # -- who decides that a session is tracked -----------------------------------
 
 _SKILLS = AGENT_ROOT / "skills"

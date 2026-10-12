@@ -27,6 +27,7 @@ from sigma.processing.tracking import FieldMappingTracking
 from sigma.processing.transformations import transformations
 from sigma.processing.transformations.external import ExternalSourceBaseTransformation
 from sigma.rule import SigmaDetectionItem, SigmaRule
+from sigma.rule.base import check_alias_expansion
 from sigma.correlations import SigmaCorrelationRule
 from sigma.processing.transformations.base import PreprocessingTransformation, Transformation
 from sigma.processing.postprocessing import (
@@ -353,7 +354,7 @@ class ProcessingItemBase:
         }
         import sigma as _sigma
 
-        effective_policy = policy or _sigma.default_policy
+        effective_policy = policy or _sigma.policy.default_policy
         if issubclass(transformation_class, TemplateBase):
             params["policy"] = policy
             params["restrict_template_path"] = not effective_policy.allow_external_sources
@@ -810,9 +811,9 @@ class ProcessingPipeline:
         Prefer the policy attached to this pipeline and fall back to the
         global default policy only if no pipeline policy is set.
         """
-        import sigma
+        from sigma.policy import default_policy
 
-        return self.policy or sigma.default_policy
+        return self.policy or default_policy
 
     def resolve_regex_engine(self) -> "RegexEngine":
         """Return the effective regex engine for this pipeline."""
@@ -825,6 +826,10 @@ class ProcessingPipeline:
         policy: "SigmaPolicy | None" = None,
     ) -> "ProcessingPipeline":
         """Instantiate processing pipeline from a parsed processing item description."""
+
+        # Validate aliases once at the pipeline root so nested from_dict calls don't
+        # repeatedly traverse already checked substructures.
+        check_alias_expansion(d, SigmaConfigurationError)
 
         custom_keys = [
             k
@@ -845,7 +850,7 @@ class ProcessingPipeline:
 
         import sigma as _sigma
 
-        effective_policy = policy or _sigma.default_policy
+        effective_policy = policy or _sigma.policy.default_policy
 
         vars = d.get("vars", dict())  # default: no variables
 
@@ -938,7 +943,7 @@ class ProcessingPipeline:
         import dataclasses
         import sigma as _sigma
 
-        effective_policy = policy or _sigma.default_policy
+        effective_policy = policy or _sigma.policy.default_policy
         if effective_policy.vars_allowed_paths is None and source_path is not None:
             policy = dataclasses.replace(
                 effective_policy,

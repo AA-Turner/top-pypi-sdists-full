@@ -17,7 +17,8 @@ def _body(name: str) -> str:
 
 def test_the_daemon_blurb_is_the_approved_text():
     assert agent_rules.DAEMON_POINTER_BODY == _body("agent-facing/managed-block.PROPOSED.md")
-    # 1,131 approved 09-27; the `probe session inline` line (10-05) out again 10-06.
+    # 1,131 approved 09-27; the `probe session inline` line (10-05) out again 10-06;
+    # 1,365 with the PLAN FIRST section (10-11).
     assert len(agent_rules.DAEMON_POINTER_BODY) < 1400
 
 
@@ -93,10 +94,65 @@ def test_the_main_agent_keeps_its_own_commands(tmp_path, command):
 
 @pytest.mark.parametrize("command,matched", [("probe get run r1", "probe get"),
                                              ("probe notes list", "probe notes list"),
-                                             ("probe project create x", "probe project create"),
                                              ("cd x && probe metrics run r1", "probe metrics")])
 def test_everything_else_is_the_daemons(tmp_path, command, matched):
     assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY.format(matched=matched)
+
+
+@pytest.mark.parametrize("command,matched", [("probe project create x", "probe project create"),
+                                             ("probe notes push n.md", "probe notes push"),
+                                             ("probe companion feedback 'wrong project'", "probe companion feedback")])
+def test_a_write_is_told_that_directed_runs_it(tmp_path, command, matched):
+    assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY_WRITE.format(matched=matched)
+
+
+@pytest.mark.parametrize("command", ["probe project move willow-dictation-training --workspace willow --directed",
+                                     "probe --directed project create x",
+                                     "probe ask x && probe notes push n.md --directed",
+                                     "probe companion feedback 'wrong project' --directed",
+                                     "probe project contributors p1 --add a@b.c --directed"])
+def test_a_write_the_researcher_asked_for_runs(tmp_path, command):
+    """`probe session status` and the session-start context tell the agent to add
+    `--directed` to a write the researcher asks for; the guard refused it anyway
+    (plugin 0.129.0, a `probe project move ... --directed` from ~/willow)."""
+    assert _guard(tmp_path, command) is None
+
+
+@pytest.mark.parametrize("command,matched", [("probe workspace list --directed", "probe workspace"),
+                                             ("probe run list --directed", "probe run list"),
+                                             ("probe get run r1 --directed", "probe get"),
+                                             ("probe project contributors p1 --directed", "probe project contributors")])
+def test_directed_admits_no_read(tmp_path, command, matched):
+    """Reads go through `probe ask` here, so the flag changes nothing."""
+    assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY.format(matched=matched)
+
+
+@pytest.mark.parametrize("command,matched", [("probe session state on --directed", "probe session state"),
+                                             ("probe --directed session default off", "probe session default")])
+def test_directed_never_moves_the_researchers_switch(tmp_path, command, matched):
+    assert _guard(tmp_path, command) == session_marker.RESEARCHER_SWITCH_DENY.format(matched=matched)
+    args = command.split()[1:]
+    assert session_marker.daemon_profile_allows(args)[0] is False
+
+
+def test_directed_past_a_double_dash_is_not_the_researchers(tmp_path):
+    """The CLI strips `--directed` only before `--` (`write_gate.split_directed`)."""
+    assert _guard(tmp_path, "probe notes push n.md -- --directed") == (
+        session_marker.DAEMON_PROFILE_DENY_WRITE.format(matched="probe notes push"))
+    assert session_marker.carries_directed(["exec", "--", "python", "--directed"]) is False
+
+
+def test_read_only_still_refuses_a_directed_write(tmp_path):
+    """`read only (daemon)`: the flag gets a write past the profile, not past the switch."""
+    command = "probe project move p1 --workspace w --directed"
+    assert _guard(tmp_path, command, state="read-only") == session_marker.DENY_REASON.format(
+        matched="probe project move")
+
+
+def test_the_write_refusal_is_the_approved_text_and_the_daemon_states_retry():
+    approved = _body("agent-facing/guard-refusal.NEW.md").rstrip("\n")
+    assert session_marker.DAEMON_PROFILE_DENY_WRITE == approved + "\n\n" + session_marker.DIRECTED_RETRY
+    assert session_marker.DENY_REASON_DAEMON.endswith("\n\n" + session_marker.DIRECTED_RETRY)
 
 
 def test_a_probe_mcp_call_is_refused_and_the_agent_profile_is_untouched(tmp_path):
@@ -125,7 +181,7 @@ def test_probe_version_is_the_experiment_versions_group_not_the_version_check(tm
     """`probe version create` mints an experiment version; the guard allowed it as
     if it printed the CLI's version (live T13 on the released plugin 0.111.2)."""
     assert _guard(tmp_path, "probe version create 00000000-0000-0000-0000-000000001002 --label x") == (
-        session_marker.DAEMON_PROFILE_DENY.format(matched="probe version create"))
+        session_marker.DAEMON_PROFILE_DENY_WRITE.format(matched="probe version create"))
     assert session_marker.classify_probe_args(["version", "create", "e1", "--label", "x"]) == (
         "write", "probe version create")
     assert session_marker.classify_probe_args(["version", "list", "e1"]) == ("read", "probe version list")

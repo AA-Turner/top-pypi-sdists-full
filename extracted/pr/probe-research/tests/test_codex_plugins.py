@@ -28,7 +28,7 @@ def test_tracking_plugin_uses_native_oauth_mcp() -> None:
         "auth": "oauth",
         "required": False,
     }
-    assert manifest["skills"] == "./skills/"
+    assert manifest["skills"] == "./agent-skills/"
     hooks = _json(ROOT / "plugins/probe-research/hooks/routes.json")["hooks"]
     command = hooks["SessionStart"][0]["hooks"][0]["command"]
     assert "PROBE_AGENT=codex" in command
@@ -76,7 +76,7 @@ def test_both_plugins_are_single_source_dual_target_packages() -> None:
 def test_tracking_skills_are_one_shared_tree() -> None:
     """Both agents read the SAME skills/ directory in this plugin."""
     root = ROOT / "plugins/probe-research"
-    assert {path.parent.name for path in (root / "skills").glob("*/SKILL.md")} == {
+    assert {path.parent.name for path in (root / "agent-skills").glob("*/SKILL.md")} == {
         "probe",
         "track-work",
         "visualize-progress",
@@ -84,6 +84,7 @@ def test_tracking_skills_are_one_shared_tree() -> None:
         "audit-team-note",
         "edit-notes",
         "notes-audit",
+        "plan-research-review",
     }
     assert not (ROOT / "plugins/prbe-codex-tap-plugin").exists()
 

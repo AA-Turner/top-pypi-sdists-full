@@ -11,13 +11,14 @@ This module should be conformant.
 
 import re
 
+from contextlib import suppress
 from email.iterators import body_line_iterator
 from email.message import Message
 from enum import Enum
 
 from public import public
 
-from flufl.bounce.interfaces import NoTemporaryFailures, Recipients
+from flufl.bounce._interfaces import NoTemporaryFailures, Recipients
 
 
 # Other (non-standard?) intros have been observed in the wild.
@@ -61,10 +62,12 @@ class Qmail:
                 if line.startswith('-'):
                     # We're looking at the break paragraph, so we're done.
                     break
-                # At this point we know we must be looking at a recipient
-                # paragraph.
+                # At this point we know we must be looking at a recipient paragraph.
                 if mo := acre.match(line):
-                    addresses.add(mo.group('addr').encode('us-ascii'))
+                    # By now the email package has replaced any non-ASCII bytes in the address with
+                    # U+FFFD, so it can't be reported faithfully; skip it.  See GL#3.
+                    with suppress(UnicodeEncodeError):
+                        addresses.add(mo.group('addr').encode('us-ascii'))
                 # Otherwise, it must be a continuation line, so just ignore it.
             else:
                 # We're not looking at anything in particular.

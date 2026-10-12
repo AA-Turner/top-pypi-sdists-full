@@ -272,6 +272,16 @@ def test_cli_time_scene_boundary():
         assert EXPECTED in output, test_case
 
 
+@pytest.mark.parametrize("backend", ["opencv", "pyav", "moviepy"])
+def test_cli_time_start_past_end_of_video(backend: str):
+    """Start time past EOF must fail the same way on every backend (issue #380)."""
+    exit_code, output = invoke_cli(["-i", DEFAULT_VIDEO_PATH, "-b", backend, "time", "-s", "10000"])
+    assert exit_code != 0, output
+    assert "beyond the end of the video" in output
+    assert "multiple audio tracks" not in output
+    assert "Detected 1 scenes" not in output
+
+
 def test_cli_time_end_of_video():
     """Validate frame number/timecode alignment at the end of the video. The end timecode includes
     presentation time and therefore should represent the full length of the video."""
@@ -335,36 +345,37 @@ def test_cli_detector_with_stats(tmp_path, detector_command: str):
     # and ensuring that we got some frames.
 
 
-def test_cli_framerate_legacy_alias():
-    """`--framerate` is the soft-deprecated hidden alias for `-f/--frame-rate` (issue #548).
-    Both forms must be accepted; passing both should not error."""
-    # Canonical form.
+@pytest.mark.parametrize(
+    "option",
+    ["--frame-rate", "--framerate", "-f"],
+)
+def test_cli_frame_rate_aliases(option: str):
+    """All frame-rate aliases are accepted by the CLI."""
     exit_code, _ = invoke_cli(
-        ["-i", DEFAULT_VIDEO_PATH, "--frame-rate", "30.0", "time", "-s", "2s", "-d", "4s"]
+        ["-i", DEFAULT_VIDEO_PATH, option, "30.0", "time", "-s", "2s", "-d", "4s"]
     )
     assert exit_code == 0
-    # Legacy form.
-    exit_code, _ = invoke_cli(
-        ["-i", DEFAULT_VIDEO_PATH, "--framerate", "30.0", "time", "-s", "2s", "-d", "4s"]
-    )
+
+
+@pytest.mark.parametrize(
+    ("options", "succeeds"),
+    [
+        (["--frame-rate", "30.0", "--framerate", "0"], False),
+        (["--framerate", "0", "--frame-rate", "30.0"], True),
+    ],
+)
+def test_cli_frame_rate_aliases_last_value_wins(options: list[str], succeeds: bool):
+    """When a frame-rate option is repeated, only the last value is validated and used."""
+    exit_code, _ = invoke_cli(["-i", DEFAULT_VIDEO_PATH, *options, "time", "-s", "2s", "-d", "4s"])
+    assert (exit_code == 0) is succeeds
+
+
+def test_cli_framerate_alias_is_visible():
+    """Help shows all frame-rate aliases as one option."""
+    exit_code, output = invoke_cli(["--help"])
+
     assert exit_code == 0
-    # Both forms together: `--frame-rate` wins, a warning is logged but no error.
-    exit_code, _ = invoke_cli(
-        [
-            "-i",
-            DEFAULT_VIDEO_PATH,
-            "--frame-rate",
-            "30.0",
-            "--framerate",
-            "24.0",
-            "time",
-            "-s",
-            "2s",
-            "-d",
-            "4s",
-        ]
-    )
-    assert exit_code == 0
+    assert "-f, --frame-rate, --framerate FPS" in output
 
 
 def test_cli_min_scene_len_accepts_all_timecode_forms(tmp_path: Path):
@@ -782,6 +793,59 @@ def test_cli_save_qp_no_shift(tmp_path: Path):
     output_path = tmp_path.joinpath(f"{DEFAULT_VIDEO_NAME}.qp")
     assert os.path.exists(output_path)
     assert output_path.read_text() == EXPECTED_QP_CONTENTS[1:]
+
+
+def test_cli_save_keyframes(tmp_path: Path):
+    """Test `save-keyframes` command."""
+    EXPECTED_KEYFRAMES_CONTENTS = """# keyframe format v1
+fps 0
+0
+90
+"""
+    assert (
+        invoke_scenedetect(
+            "-i {VIDEO} time -e 95 {DETECTOR} save-keyframes",
+            output_dir=tmp_path,
+        )
+        == 0
+    )
+    output_path = tmp_path / f"{DEFAULT_VIDEO_NAME}-keyframes.txt"
+    assert output_path.exists()
+    assert output_path.read_text() == EXPECTED_KEYFRAMES_CONTENTS
+
+
+def test_cli_save_keyframes_start_offset(tmp_path: Path):
+    """Test `save-keyframes` command"""
+    EXPECTED_KEYFRAMES_CONTENTS = """# keyframe format v1
+fps 0
+0
+90
+"""
+    assert (
+        invoke_scenedetect(
+            "-i {VIDEO} time -s 51 -e 95 {DETECTOR} save-keyframes",
+            output_dir=tmp_path,
+        )
+        == 0
+    )
+    output_path = tmp_path.joinpath(f"{DEFAULT_VIDEO_NAME}-keyframes.txt")
+    assert os.path.exists(output_path)
+    assert output_path.read_text() == EXPECTED_KEYFRAMES_CONTENTS
+
+
+def test_cli_save_keyframes_custom_filename(tmp_path: Path):
+    """Test `save-keyframes` with a custom filename."""
+    custom_filename = "custom-keyframes.txt"
+    assert (
+        invoke_scenedetect(
+            f"-i {{VIDEO}} time -s 51 -e 95 {{DETECTOR}} "
+            f"save-keyframes --filename {custom_filename}",
+            output_dir=tmp_path,
+        )
+        == 0
+    )
+    output_path = tmp_path / custom_filename
+    assert output_path.exists()
 
 
 @pytest.mark.parametrize("backend_type", ALL_BACKENDS)

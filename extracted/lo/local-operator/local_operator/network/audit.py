@@ -262,6 +262,21 @@ EVENT_KINDS: frozenset[str] = frozenset(
         "update_started",
         "update_completed",
         "update_failed",
+        # S3a of the rolling updates: the ORIGIN's side of a rollout. Three
+        # kinds, one per semantic change — the record opening (S3b's hook
+        # writes it through the record API), a member's state changing, and
+        # the pass closing (complete, lapsed or cancelled). A per-poll row is
+        # exactly what these must NOT become; a member handled by the cadence
+        # produces no rows between its changes (note §6).
+        "update_rollout_started",
+        "update_member_state",
+        "update_rollout_done",
+        # S3b's suppression row: an update moved but the switch (``off`` or
+        # ``--no-roll``) stopped the roll before any record opened. Registered
+        # here with the other three because ``_sanitize_detail`` whitelists by
+        # ``DETAIL_KEYS`` — an unregistered name renders with NO detail,
+        # silently.
+        "update_rollout_suppressed",
     }
 )
 
@@ -295,6 +310,10 @@ CAUSES: frozenset[str] = frozenset(
         "policy",
         "timeout",
         "internal",
+        # A member answered ``busy`` and the pass parked it (S3a): a deferral is
+        # its own cause because its remedy is time, not repair — the same reason
+        # ``declined`` below is not ``not_authorised``.
+        "busy",
         # A human said no at the inviter's confirmation prompt, distinct from
         # `sas_mismatch` (the codes disagreed) and from `timeout` (nobody answered).
         "declined",
@@ -498,6 +517,21 @@ DETAIL_KEYS: dict[str, frozenset[str]] = {
     "update_started": frozenset({"rollout", "target", "method"}),
     "update_completed": frozenset({"rollout", "target", "method", "from", "version"}),
     "update_failed": frozenset({"rollout", "target", "method"}),
+    # The origin's side (S3a): the opening row carries WHO decided (a closed
+    # token, never a sentence), under which policy and front end; the member
+    # row carries the state it changed to plus the member's own words when
+    # they exist; the closing row carries the counts in one compact string
+    # (the log's values are bounded short strings, and the pass's leftovers
+    # are what a reader needs).
+    "update_rollout_started": frozenset(
+        {"rollout", "authority", "policy", "via", "target", "from", "members"}
+    ),
+    "update_member_state": frozenset({"rollout", "state", "code", "reason", "method", "version"}),
+    "update_rollout_done": frozenset({"rollout", "counts"}),
+    # The suppression row (S3b): which front end moved (``via``), what the key
+    # said (``policy``) and the per-run override when it was the flag that
+    # stopped the roll (``flag``, empty when the policy did).
+    "update_rollout_suppressed": frozenset({"via", "policy", "flag"}),
 }
 
 #: Detail keys that are dropped on sight, whatever the whitelist says. The second
@@ -587,6 +621,14 @@ DURABLE_EVENTS: frozenset[str] = frozenset(
         # in their last second narrates nothing an incident needs.
         "update_requested",
         "update_refused",
+        # The record's OPENING row is an authority decision too (S3a/S3b): it
+        # names that the primary decided to roll under the standing instruction
+        # (or an operator command), and losing it would leave a fleet of moved
+        # members explaining an update nobody can attribute — the exact
+        # argument `update_requested` is here for. The member-state and closing
+        # rows stay batched: their history is reconstructable from the record
+        # and the members' own durable rows.
+        "update_rollout_started",
     }
 )
 

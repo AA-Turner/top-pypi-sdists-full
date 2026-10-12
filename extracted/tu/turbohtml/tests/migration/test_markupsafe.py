@@ -96,6 +96,22 @@ def test_escape_trusts_html_protocol(renderable: Renderable) -> None:
     assert str(escape(renderable)) == "<raw & unescaped>"
 
 
+def test_escape_trusts_html_protocol_of_rendered_value() -> None:
+    class Inner:
+        def __html__(self) -> str:
+            return "<safe>"
+
+        def __str__(self) -> str:
+            return "<wrong>"
+
+    class Outer:
+        def __html__(self) -> Inner:
+            return Inner()
+
+    assert str(Inner()) == "<wrong>"
+    assert str(escape(Outer())) == "<safe>"
+
+
 def test_escape_stringifies_other_objects() -> None:
     assert str(escape(42)) == "42"
     assert str(escape(["<a>", "&"])) == "[&#39;&lt;a&gt;&#39;, &#39;&amp;&#39;]"
@@ -262,6 +278,12 @@ def test_more_wrap_only_methods_keep_markup(op: Callable[[Markup], Markup], expe
     result = op(Markup("abcd"))
     assert isinstance(result, Markup)
     assert str(result) == expected
+
+
+def test_removesuffix_accepts_named_suffix() -> None:
+    result = Markup("abcd").removesuffix(suffix="cd")
+    assert type(result) is Markup
+    assert result == "ab"
 
 
 def test_split_keeps_markup() -> None:

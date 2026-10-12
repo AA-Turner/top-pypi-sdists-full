@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
-from typing import Callable
 
 from pytestarch.eval_structure.evaluable_architecture import (
     EvaluableArchitecture,
@@ -54,8 +53,8 @@ class Rule(
     RuleSubject,
     RuleApplier,
 ):
-    """Represents an architectural rule of the form
-    Module1 [verb, such as 'should'] [import type, such as 'import'] Module2
+    r"""Represents an architectural rule of the form
+    Module1 \[verb, such as 'should'\] \[import type, such as 'import'\] Module2
     """
 
     def __init__(
@@ -85,6 +84,18 @@ class Rule(
         return self
 
     def are_named(self, names: str | Sequence[str]) -> BehaviorSpecification:  # type: ignore
+        # Check for wildcard usage and suggest alternative
+        if isinstance(names, str):
+            if "*" in names:
+                raise ImproperlyConfigured(
+                    f'Wildcard "*" detected in module name "{names}". Use "have_name_matching" with a regex pattern instead.'
+                )
+        else:
+            for name in names:
+                if "*" in name:
+                    raise ImproperlyConfigured(
+                        f'Wildcard "*" detected in module name "{name}". Use "have_name_matching" with a regex pattern instead.'
+                    )
         self._set_modules(names, lambda name: ModuleNameFilter(name=name))
         return self
 
@@ -133,11 +144,7 @@ class Rule(
         for module, name_is_regex in modules:
             module_names.append(module)
             module_creation_fn.append(
-                lambda name: (
-                    ModuleNameFilter(name=name)
-                    if not name_is_regex
-                    else ModuleNameRegexFilter(name=name)
-                )
+                ModuleNameRegexFilter if name_is_regex else ModuleNameFilter
             )
 
         self._append_modules(module_names, module_creation_fn)
@@ -229,7 +236,7 @@ class Rule(
     def __str__(self) -> str:
         self._assert_required_configuration_present()
 
-        method_name = f'{"should" if self._configuration.should else "should only" if self._configuration.should_only else "should not"}'
+        method_name = f"{'should' if self._configuration.should else 'should only' if self._configuration.should_only else 'should not'}"
 
         subject_prefix = (
             "Sub modules of "
@@ -239,7 +246,7 @@ class Rule(
         if self._configuration.rule_object_anything:
             object_message = "anything "
         else:
-            object_message = f'modules that are {"sub modules of" if self._configuration.modules_to_check_against[0].identifier_is_parent_module else "named"} '  # type: ignore
+            object_message = f"modules that are {'sub modules of' if self._configuration.modules_to_check_against[0].identifier_is_parent_module else 'named'} "  # type: ignore
 
         combined_rule_subjects = self._combine_names(
             self._configuration.modules_to_check  # type: ignore
@@ -250,8 +257,8 @@ class Rule(
         return (
             f'{subject_prefix}"{combined_rule_subjects}" '
             f"{method_name} "
-            f'{"import" if self._configuration.import_ else "be imported by"} '
-            f'{"modules except " if self._configuration.except_present else ""}'
+            f"{'import' if self._configuration.import_ else 'be imported by'} "
+            f"{'modules except ' if self._configuration.except_present else ''}"
             f"{object_message}"
             f'"{combined_rule_objects}".'
         )
@@ -288,9 +295,7 @@ class Rule(
                 object_message,
             ]
 
-            error_message = (
-                f"Specify {', '.join(filter(lambda m: len(m) > 0, messages))}."
-            )
+            error_message = f"Specify {', '.join(filter(None, messages))}."
 
             raise ImproperlyConfigured(error_message)
 

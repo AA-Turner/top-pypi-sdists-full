@@ -1,6 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 
 #include <assert.h>
+#include <string.h>
 
 #include <Python.h>
 #include "lsqpack.h"
@@ -9,10 +10,14 @@
 #define MODULE_NAME "pylsqpack._binding"
 
 #define DEC_BUF_SZ 4096
-#define ENC_BUF_SZ 4096
-#define HDR_BUF_SZ 4096
-#define XHDR_BUF_SZ 4096
 #define PREFIX_MAX_SIZE 16
+
+// The most bytes a field line or an encoder instruction adds on top of the
+// name and value: a name length and a value length, each an integer of at
+// most 4 bytes for strings up to LSXPACK_MAX_STRLEN. Huffman coding is only
+// used when it is shorter than the raw string.
+#define FIELD_OVERHEAD_MAX 8
+#define MIN_BUF_SZ 64
 
 static PyObject *DecompressionFailed;
 static PyObject *DecoderStreamError;
@@ -37,9 +42,9 @@ struct header_block {
 
 static struct header_block *header_block_new(size_t stream_id, const unsigned char *data, size_t data_len)
 {
-    struct header_block *hblock = malloc(sizeof(struct header_block));
+    struct header_block *hblock = PyMem_Malloc(sizeof(struct header_block));
     memset(hblock, 0, sizeof(*hblock));
-    hblock->data = malloc(data_len);
+    hblock->data = PyMem_Malloc(data_len);
     hblock->data_len = data_len;
     hblock->data_ptr = hblock->data;
     memcpy(hblock->data, data, data_len);
@@ -50,12 +55,12 @@ static struct header_block *header_block_new(size_t stream_id, const unsigned ch
 
 static void header_block_free(struct header_block *hblock)
 {
-    free(hblock->data);
+    PyMem_Free(hblock->data);
     hblock->data = 0;
     hblock->data_ptr = 0;
-    free(hblock->header_buffer);
+    PyMem_Free(hblock->header_buffer);
     Py_DECREF(hblock->headers);
-    free(hblock);
+    PyMem_Free(hblock);
 }
 
 static void header_block_unblocked(void *opaque) {
@@ -70,15 +75,10 @@ static struct lsxpack_header *header_block_prepare_decode(void *opaque, struct l
     struct header_block *hblock = opaque;
     char *buf;
 
-    // The behaviour of realloc(ptr, 0) is implementation specific,
-    // so if asked for a zero size we explicitly free the memory.
-    if (space) {
-        buf = realloc(hblock->header_buffer, space);
-        if (!buf) return NULL;
-    } else {
-        free(hblock->header_buffer);
-        buf = 0;
-    }
+    // Unlike realloc(), PyMem_Realloc() has a defined behaviour for a zero
+    // size: it returns a valid pointer.
+    buf = PyMem_Realloc(hblock->header_buffer, space);
+    if (!buf) return NULL;
     hblock->header_buffer = buf;
 
     if (xhdr) {
@@ -156,10 +156,53 @@ Decoder_dealloc(DecoderObject *self)
         header_block_free(hblock);
     }
 
-    PyTypeObject *tp = Py_TYPE(self);
+    PyTypeObject *tp = Py_TYPE((PyObject *)self);
     freefunc free = PyType_GetSlot(tp, Py_tp_free);
     free(self);
     Py_DECREF(tp);
+}
+
+PyDoc_STRVAR(Decoder_cancel_stream__doc__,
+    "cancel_stream(stream_id: int) -> bytes\n\n"
+    "Cancel decoding for a stream and return control data.\n\n"
+    "This method should be called when a stream is reset or abandoned. "
+    "Any pending header block for the stream is discarded.\n\n"
+    ":param stream_id: the ID of the stream\n");
+
+static PyObject*
+Decoder_cancel_stream(DecoderObject *self, PyObject *args, PyObject *kwargs)
+{
+    char *kwlist[] = {"stream_id", NULL};
+    uint64_t stream_id;
+    ssize_t dec_len;
+    struct header_block *hblock;
+    int found = 0;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "K", kwlist, &stream_id))
+        return NULL;
+
+    // find the header block for the stream
+    STAILQ_FOREACH(hblock, &self->pending_blocks, entries) {
+        if (hblock->stream_id == stream_id) {
+            found = 1;
+            break;
+        }
+    }
+
+    if (found) {
+        dec_len = lsqpack_dec_cancel_stream(&self->dec, hblock, self->dec_buf, DEC_BUF_SZ);
+        STAILQ_REMOVE(&self->pending_blocks, hblock, header_block, entries);
+        header_block_free(hblock);
+    } else {
+        dec_len = lsqpack_dec_cancel_stream_id(&self->dec, stream_id, self->dec_buf, DEC_BUF_SZ);
+    }
+
+    if (dec_len < 0) {
+        PyErr_Format(PyExc_RuntimeError, "lsqpack_dec_cancel_stream for stream %llu failed", (unsigned long long)stream_id);
+        return NULL;
+    }
+
+    return PyBytes_FromStringAndSize((const char*)self->dec_buf, dec_len);
 }
 
 PyDoc_STRVAR(Decoder_feed_encoder__doc__,
@@ -329,6 +372,7 @@ Decoder_resume_header(DecoderObject *self, PyObject *args, PyObject *kwargs)
 }
 
 static PyMethodDef Decoder_methods[] = {
+    {"cancel_stream", (PyCFunction)Decoder_cancel_stream, METH_VARARGS | METH_KEYWORDS, Decoder_cancel_stream__doc__},
     {"feed_encoder", (PyCFunction)Decoder_feed_encoder, METH_VARARGS | METH_KEYWORDS, Decoder_feed_encoder__doc__},
     {"feed_header", (PyCFunction)Decoder_feed_header, METH_VARARGS | METH_KEYWORDS, Decoder_feed_header__doc__},
     {"resume_header", (PyCFunction)Decoder_resume_header, METH_VARARGS | METH_KEYWORDS, Decoder_resume_header__doc__},
@@ -362,11 +406,39 @@ static PyType_Spec DecoderType_spec = {
 typedef struct {
     PyObject_HEAD
     struct lsqpack_enc enc;
-    unsigned char hdr_buf[HDR_BUF_SZ];
-    unsigned char enc_buf[ENC_BUF_SZ];
+    unsigned char *hdr_buf;
+    size_t hdr_cap;
+    unsigned char *enc_buf;
+    size_t enc_cap;
     unsigned char pfx_buf[PREFIX_MAX_SIZE];
-    char xhdr_buf[XHDR_BUF_SZ];
+    unsigned char *xhdr_buf;
+    size_t xhdr_cap;
 } EncoderObject;
+
+// Grow `*buf` so that it holds at least `size` bytes.
+static int
+ensure_capacity(unsigned char **buf, size_t *cap, size_t size)
+{
+    unsigned char *new_buf;
+
+    if (size <= *cap)
+        return 0;
+    new_buf = PyMem_Realloc(*buf, size);
+    if (new_buf == NULL) {
+        PyErr_NoMemory();
+        return -1;
+    }
+    *buf = new_buf;
+    *cap = size;
+    return 0;
+}
+
+// Double the size of `*buf`.
+static int
+grow_buffer(unsigned char **buf, size_t *cap)
+{
+    return ensure_capacity(buf, cap, *cap < MIN_BUF_SZ ? MIN_BUF_SZ : 2 * *cap);
+}
 
 static int
 Encoder_init(EncoderObject *self, PyObject *args, PyObject *kwargs)
@@ -379,8 +451,11 @@ static void
 Encoder_dealloc(EncoderObject *self)
 {
     lsqpack_enc_cleanup(&self->enc);
+    PyMem_Free(self->hdr_buf);
+    PyMem_Free(self->enc_buf);
+    PyMem_Free(self->xhdr_buf);
 
-    PyTypeObject *tp = Py_TYPE(self);
+    PyTypeObject *tp = Py_TYPE((PyObject *)self);
     freefunc free = PyType_GetSlot(tp, Py_tp_free);
     free(self);
     Py_DECREF(tp);
@@ -431,6 +506,8 @@ Encoder_encode(EncoderObject *self, PyObject *args, PyObject *kwargs)
     size_t enc_off = 0, hdr_off = PREFIX_MAX_SIZE, pfx_off = 0;
     struct lsxpack_header xhdr;
     size_t name_len, value_len;
+    size_t total_len = 0, xhdr_len = 0;
+    enum lsqpack_enc_status status;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "KO", kwlist, &stream_id, &list))
         return NULL;
@@ -459,11 +536,24 @@ Encoder_encode(EncoderObject *self, PyObject *args, PyObject *kwargs)
             PyErr_SetString(PyExc_ValueError, "the header's name must not be empty");
             return NULL;
         }
-        if (name_len + value_len > XHDR_BUF_SZ) {
-            PyErr_SetString(PyExc_ValueError, "the header's name and value are too long");
+        if (name_len > LSXPACK_MAX_STRLEN) {
+            PyErr_SetString(PyExc_ValueError, "the header's name is too long");
             return NULL;
         }
+        if (value_len > LSXPACK_MAX_STRLEN) {
+            PyErr_SetString(PyExc_ValueError, "the header's value is too long");
+            return NULL;
+        }
+        if (name_len + value_len > xhdr_len)
+            xhdr_len = name_len + value_len;
+        total_len += name_len + value_len + FIELD_OVERHEAD_MAX;
     }
+
+    // Size the buffers so that encoding does not usually need to grow them.
+    if (ensure_capacity(&self->xhdr_buf, &self->xhdr_cap, xhdr_len) < 0 ||
+        ensure_capacity(&self->hdr_buf, &self->hdr_cap, PREFIX_MAX_SIZE + total_len) < 0 ||
+        ensure_capacity(&self->enc_buf, &self->enc_cap, total_len) < 0)
+        return NULL;
 
     // Start the encoding transaction.
     if (lsqpack_enc_start_header(&self->enc, stream_id, seqno) != 0) {
@@ -481,16 +571,33 @@ Encoder_encode(EncoderObject *self, PyObject *args, PyObject *kwargs)
         // Copy the header name and value into the xhdr buffer.
         memcpy(self->xhdr_buf, PyBytes_AsString(name), name_len);
         memcpy(self->xhdr_buf + name_len, PyBytes_AsString(value), value_len);
-        lsxpack_header_set_offset2(&xhdr, self->xhdr_buf, 0, name_len, name_len, value_len);
+        lsxpack_header_set_offset2(&xhdr, (char*)self->xhdr_buf, 0, name_len, name_len, value_len);
 
-        enc_len = ENC_BUF_SZ - enc_off;
-        hdr_len = HDR_BUF_SZ - hdr_off;
-        if (lsqpack_enc_encode(&self->enc,
-                               self->enc_buf + enc_off, &enc_len,
-                               self->hdr_buf + hdr_off, &hdr_len,
-                               &xhdr,
-                               0) != LQES_OK) {
-            PyErr_SetString(PyExc_RuntimeError, "lsqpack_enc_encode failed");
+        // When a buffer is too small, the encoder state is left untouched,
+        // so we can grow the buffer and try again. This can happen when the
+        // encoder emits Duplicate instructions, whose number is not bounded
+        // by the size of the input.
+        for (;;) {
+            enc_len = self->enc_cap - enc_off;
+            hdr_len = self->hdr_cap - hdr_off;
+            status = lsqpack_enc_encode(&self->enc,
+                                        self->enc_buf + enc_off, &enc_len,
+                                        self->hdr_buf + hdr_off, &hdr_len,
+                                        &xhdr,
+                                        0);
+            if (status == LQES_NOBUF_ENC) {
+                if (grow_buffer(&self->enc_buf, &self->enc_cap) < 0)
+                    break;
+            } else if (status == LQES_NOBUF_HEAD) {
+                if (grow_buffer(&self->hdr_buf, &self->hdr_cap) < 0)
+                    break;
+            } else {
+                if (status != LQES_OK)
+                    PyErr_SetString(PyExc_RuntimeError, "lsqpack_enc_encode failed");
+                break;
+            }
+        }
+        if (status != LQES_OK) {
             lsqpack_enc_end_header(&self->enc, self->pfx_buf, PREFIX_MAX_SIZE, NULL);
             return NULL;
         }

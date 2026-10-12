@@ -1,26 +1,36 @@
 from __future__ import annotations
 
+import copy
 import logging
-from collections.abc import Sequence
+from collections.abc import Sequence, Sized
 from typing import Any, TypeVar
 
 import numpy as np
 import torch
+from datasets import Column, DatasetDict, IterableColumn, IterableDataset, IterableDatasetDict
+from datasets import Dataset as HFDataset
 from tokenizers import Encoding, Tokenizer
 from torch import nn
-from torch.nn.utils.rnn import pad_sequence
 from tqdm import trange
 
 from model2vec.inference import StaticModelPipeline
-from model2vec.model import PathLike, StaticModel
-from model2vec.train.dataset import TextDataset
+from model2vec.model import DEFAULT_MAX_LENGTH, PathLike, StaticModel, _disable_padding, _get_unk_token_id
+from model2vec.train.dataset import (
+    ColumnRows,
+    PairDataset,
+    TextDataset,
+    TokenBatch,
+    has_only_strings,
+    has_transform,
+)
 from model2vec.train.trainer import MetricsFn, default_metrics, resolve_device, run_training_loop
 from model2vec.train.utils import (
-    get_probable_pad_token_id,
-    logit,
+    DEFAULT_RANDOM_SEED,
+    MAX_VALIDATION_SIZE,
+    split_indices,
     to_pipeline,
-    train_test_split,
 )
+from model2vec.types import _UNSET, _UnsetType
 
 logger = logging.getLogger(__name__)
 
@@ -37,35 +47,41 @@ class BaseFinetuneable(nn.Module):
         hidden_dim: int = 256,
         n_layers: int = 0,
         out_dim: int = 2,
-        pad_id: int = 0,
         token_mapping: list[int] | None = None,
         weights: torch.Tensor | None = None,
         freeze: bool = False,
         normalize: bool = True,
-        freeze_weights: bool = False,
+        freeze_weights: bool | None = None,
+        max_length: int | None = DEFAULT_MAX_LENGTH,
     ) -> None:
         """Initialize a trainable StaticModel from a StaticModel.
 
         :param vectors: The embeddings of the staticmodel.
         :param tokenizer: The tokenizer.
         :param hidden_dim: The hidden dimension of the head.
-        :param n_layers: The number of layers in the head.
+        :param n_layers: The number of layers in the head. If this is 0 and `out_dim` equals the embedding
+            dimension, the model has no head and the embeddings are used as is.
         :param out_dim: The output dimension of the head.
-        :param pad_id: The padding id. This is set to 0 in almost all model2vec models
         :param token_mapping: The token mapping. If None, the token mapping is set to the range of the number of vectors.
-        :param weights: The weights of the model. If None, the weights are initialized to zeros.
+        :param weights: The token weights of the model. If None and `freeze_weights` is not False, the model has
+            no token weights and takes the unweighted mean of the token embeddings. If None and `freeze_weights`
+            is False, the token weights are initialized to 1.
         :param freeze: Whether to freeze the embeddings. This should be set to False in most cases.
         :param normalize: Whether to normalize the embeddings.
-        :param freeze_weights: Whether to freeze the learned token weights.
+        :param freeze_weights: Whether to freeze the token weights. If None, the model's own weights are trained,
+            and a model without weights gets none. If False, a model without weights learns weights that start at 1.
+        :param max_length: The default maximum sequence length (in tokens) used to tokenize inputs.
+            Matches `StaticModel.max_length`, defaulting to 512.
         """
         super().__init__()
-        self.pad_id = pad_id
         self.out_dim = out_dim
         self.embed_dim = vectors.shape[1]
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
         self.normalize = normalize
         self.freeze_weights = freeze_weights
+        self.max_length = max_length
+        self.token_dropout = 0.0
 
         self.vectors = vectors
         if self.vectors.dtype != torch.float32:
@@ -81,23 +97,59 @@ class BaseFinetuneable(nn.Module):
             self.token_mapping = torch.arange(len(vectors), dtype=torch.int64)
         self.token_mapping = nn.Parameter(self.token_mapping, requires_grad=False)
         self.freeze = freeze
-        self.embeddings = nn.Embedding.from_pretrained(vectors.clone(), freeze=self.freeze, padding_idx=pad_id)
-        self.head = self.construct_head()
         self._weights = weights
+        self.embeddings = self.construct_embeddings()
+        self.head = self.construct_head()
         self.w = self.construct_weights()
-        self.tokenizer = tokenizer
+        # Truncation happens here through `max_length`; a StaticModel's tokenizer carries its own setting.
+        self.tokenizer = copy.deepcopy(tokenizer)
+        self.tokenizer.no_truncation()
+        _disable_padding(self.tokenizer)
+        self.unk_token_id = _get_unk_token_id(self.tokenizer)
 
-    def construct_weights(self) -> nn.Parameter:
-        """Construct the weights for the model."""
-        if self._weights is not None:
-            w = logit(self._weights)
+    def _tokenize_ids(self, texts: Sequence[str]) -> list[list[int]]:
+        """Tokenize texts into lists of token ids, dropping unknown tokens and truncating to `max_length` tokens.
+
+        :param texts: The texts to tokenize.
+        :return: The token ids of each text.
+        """
+        if self.max_length is not None:
+            truncate_length = self.max_length * 10
+            texts = [text[:truncate_length] for text in texts]
+        encoded: list[Encoding] = self.tokenizer.encode_batch_fast(texts, add_special_tokens=False)
+        ids = [encoding.ids for encoding in encoded]
+        if self.unk_token_id is not None:
+            ids = [[token_id for token_id in token_ids if token_id != self.unk_token_id] for token_ids in ids]
+        return [token_ids[: self.max_length] for token_ids in ids]
+
+    def _to_targets(self, labels: Any) -> torch.Tensor:
+        """Turn a batch of labels, such as vectors, into a float tensor of targets."""
+        return torch.as_tensor(labels, dtype=torch.float32)
+
+    @property
+    def _has_weights(self) -> bool:
+        """Whether the model has token weights: either given ones, or ones that are learned."""
+        return self._weights is not None or self.freeze_weights is False
+
+    def construct_embeddings(self) -> nn.EmbeddingBag:
+        """Construct the embeddings, which sum the weighted tokens if the model has weights, and average them otherwise."""
+        mode = "sum" if self._has_weights else "mean"
+        return nn.EmbeddingBag.from_pretrained(self.vectors.clone(), freeze=self.freeze, mode=mode)
+
+    def construct_weights(self) -> nn.Parameter | None:
+        """Construct the token weights for the model, or None if the model has no weights."""
+        if not self._has_weights:
+            return None
+        if self._weights is None:
+            w = torch.ones(len(self.token_mapping))
         else:
-            w = torch.zeros(len(self.token_mapping)).float()
-            w[self.pad_id] = -10_000
+            w = self._weights.clone().float()
         return nn.Parameter(w, requires_grad=not self.freeze_weights)
 
     def construct_head(self) -> nn.Sequential:
-        """Constructs a simple classifier head."""
+        """Constructs a simple head, which is empty if it has no layers and doesn't change the dimension."""
+        if self.n_layers == 0 and self.embed_dim == self.out_dim:
+            return nn.Sequential()
         modules: list[nn.Module] = []
         if self.n_layers == 0:
             modules.append(nn.Linear(self.embed_dim, self.out_dim))
@@ -127,78 +179,129 @@ class BaseFinetuneable(nn.Module):
     def _initialize(self) -> None:
         """Initialize the classifier for training."""
         self.head = self.construct_head()
-        self.embeddings = nn.Embedding.from_pretrained(
-            self.vectors.clone(), freeze=self.freeze, padding_idx=self.pad_id
-        )
+        self.embeddings = self.construct_embeddings()
         self.w = self.construct_weights()
         self.train()
 
     @classmethod
     def from_pretrained(
-        cls: type[ModelType],
+        cls: type[T],
         path: PathLike = "minishlab/potion-base-32m",
         *,
         token: str | None = None,
+        model_name: PathLike | None = None,
+        max_length: int | None | _UnsetType = _UNSET,
+        n_layers: int = 0,
+        hidden_dim: int = 256,
+        out_dim: int = 2,
+        freeze: bool = False,
+        normalize: bool = True,
+        freeze_weights: bool | None = None,
         **kwargs: Any,
-    ) -> ModelType:
-        """Load the model from a pretrained model2vec model."""
-        if model_name := kwargs.pop("model_name", None):
-            logger.warning("The 'model_name' argument is deprecated. Use 'path' instead.")
-            path = model_name
-        model = StaticModel.from_pretrained(path, token=token)
-        return cls.from_static_model(model=model, **kwargs)
+    ) -> T:
+        """Load the model from a pretrained model2vec model.
 
-    @classmethod
-    def from_static_model(
-        cls: type[ModelType],
-        *,
-        model: StaticModel,
-        pad_token: str | None = None,
-        **kwargs: Any,
-    ) -> ModelType:
-        """Load the model from a static model."""
-        model.embedding = np.nan_to_num(model.embedding)
-        weights = torch.from_numpy(model.weights) if model.weights is not None else None
-        embeddings_converted = torch.from_numpy(model.embedding)
-        if model.token_mapping is not None:
-            token_mapping = model.token_mapping.tolist()
-        else:
-            token_mapping = None
-        if pad_token is not None:
-            pad_id = model.tokenizer.get_vocab()[pad_token]
-        else:
-            pad_id = get_probable_pad_token_id(model.tokenizer)
-        return cls(
-            vectors=embeddings_converted,
-            pad_id=pad_id,
-            tokenizer=model.tokenizer,
-            token_mapping=token_mapping,
-            weights=weights,
+        :param path: The path to the folder containing the model, or a repository on the Hugging Face Hub.
+        :param token: The token to use to download the model from the hub.
+        :param model_name: Deprecated alias for `path`.
+        :param max_length: The default maximum sequence length to use for tokenization. If not passed, the
+            static model's `max_length` is used. Pass None to disable truncation.
+        :param n_layers: The number of layers in the head.
+        :param hidden_dim: The hidden dimension of the head.
+        :param out_dim: The output dimension of the head.
+        :param freeze: Whether to freeze the embeddings.
+        :param normalize: Whether to normalize the embeddings.
+        :param freeze_weights: Whether to freeze the token weights. If None, the model's own weights are trained,
+            and a model without weights gets none. If False, a model without weights learns weights that start at 1.
+        :param **kwargs: Additional keyword arguments passed to the constructor.
+        :return: The initialized model.
+        """
+        model = _load_static_model(path, token=token, model_name=model_name)
+        return cls.from_static_model(
+            model=model,
+            max_length=max_length,
+            n_layers=n_layers,
+            hidden_dim=hidden_dim,
+            out_dim=out_dim,
+            freeze=freeze,
+            normalize=normalize,
+            freeze_weights=freeze_weights,
             **kwargs,
         )
 
-    def _encode(self, input_ids: torch.Tensor) -> torch.Tensor:
+    @classmethod
+    def from_static_model(
+        cls: type[T],
+        *,
+        model: StaticModel,
+        max_length: int | None | _UnsetType = _UNSET,
+        n_layers: int = 0,
+        hidden_dim: int = 256,
+        out_dim: int = 2,
+        freeze: bool = False,
+        normalize: bool = True,
+        freeze_weights: bool | None = None,
+        **kwargs: Any,
+    ) -> T:
+        """Load the model from a static model.
+
+        :param model: The static model to load from.
+        :param max_length: The default maximum sequence length to use for tokenization. If not passed, the
+            static model's `max_length` is used. Pass None to disable truncation.
+        :param n_layers: The number of layers in the head.
+        :param hidden_dim: The hidden dimension of the head.
+        :param out_dim: The output dimension of the head.
+        :param freeze: Whether to freeze the embeddings.
+        :param normalize: Whether to normalize the embeddings.
+        :param freeze_weights: Whether to freeze the token weights. If None, the model's own weights are trained,
+            and a model without weights gets none. If False, a model without weights learns weights that start at 1.
+        :param **kwargs: Additional keyword arguments passed to the constructor.
+        :return: The initialized model.
+        """
+        return cls(
+            **_static_model_arguments(model, max_length=max_length),
+            n_layers=n_layers,
+            hidden_dim=hidden_dim,
+            out_dim=out_dim,
+            freeze=freeze,
+            normalize=normalize,
+            freeze_weights=freeze_weights,
+            **kwargs,
+        )
+
+    def _apply_token_dropout(self, batch: TokenBatch) -> TokenBatch:
+        """Randomly drop a fraction of the tokens, leaving at least one token per non-empty sequence.
+
+        :param batch: The batch of token ids.
+        :return: The batch with a random subset of its tokens removed.
+        """
+        if not self.training or self.token_dropout <= 0:
+            return batch
+        lengths = batch.lengths
+        sequence_of_token = torch.repeat_interleave(lengths)
+        keep = torch.rand(len(batch.ids), device=batch.ids.device) >= self.token_dropout
+        kept_lengths = torch.bincount(sequence_of_token[keep], minlength=len(batch))
+        needs_rescue = (kept_lengths == 0) & (lengths > 0)
+        keep[batch.offsets[needs_rescue]] = True
+        kept_lengths = kept_lengths + needs_rescue
+        return TokenBatch.from_lengths(batch.ids[keep], kept_lengths)
+
+    def _encode(self, batch: TokenBatch) -> torch.Tensor:
         """A forward pass and mean pooling.
 
         This function is analogous to `StaticModel.encode`, but reimplemented to allow gradients
         to pass through.
 
-        :param input_ids: A 2D tensor of input ids. All input ids are have to be within bounds.
-        :return: The mean over the input ids, weighted by token weights.
+        :param batch: The batch of token ids. All token ids have to be within bounds.
+        :return: The mean over the token ids, weighted by token weights if the model has them.
         """
-        zeros = (input_ids != self.pad_id).float()
-        # Add a small epsilon to avoid division by zero
-        length = zeros.sum(1) + 1e-16
-        input_ids_embeddings = self.token_mapping[input_ids]
-        embedded = self.embeddings(input_ids_embeddings)
-
-        w = self.w[input_ids]
-        w = torch.sigmoid(w)
-        w = w * zeros
-        # Weigh each token
-        embedded = torch.bmm(w[:, None, :], embedded).squeeze(1)
-        # Mean pooling by dividing by the length
-        embedded = embedded / length[:, None]
+        batch = self._apply_token_dropout(batch)
+        embedding_ids = self.token_mapping[batch.ids]
+        if self.w is None:
+            embedded = self.embeddings(embedding_ids, batch.offsets)
+        else:
+            embedded = self.embeddings(embedding_ids, batch.offsets, per_sample_weights=self.w[batch.ids])
+            embedded = embedded / batch.lengths.clamp(min=1)[:, None]
 
         if self.normalize:
             return nn.functional.normalize(embedded)
@@ -218,22 +321,19 @@ class BaseFinetuneable(nn.Module):
 
         return np.concatenate(pred, axis=0)
 
-    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+    def forward(self, batch: TokenBatch) -> torch.Tensor:
         """Forward pass through the mean, and a classifier layer after."""
-        return self.head(self._encode(input_ids))
+        return self.head(self._encode(batch))
 
-    def tokenize(self, texts: list[str], max_length: int | None = 512) -> torch.Tensor:
-        """Tokenize a bunch of strings into a single padded 2D tensor.
+    def tokenize(self, texts: list[str]) -> TokenBatch:
+        """Tokenize a bunch of strings into a single batch of token ids.
 
         Note that this is not used during training.
 
         :param texts: The texts to tokenize.
-        :param max_length: If this is None, the sequence lengths are truncated to 512.
-        :return: A 2D padded tensor
+        :return: The batch of token ids.
         """
-        encoded: list[Encoding] = self.tokenizer.encode_batch_fast(texts, add_special_tokens=False)
-        encoded_ids: list[torch.Tensor] = [torch.Tensor(encoding.ids[:max_length]).long() for encoding in encoded]
-        return pad_sequence(encoded_ids, batch_first=True, padding_value=self.pad_id)
+        return TokenBatch.from_token_ids(self._tokenize_ids(texts))
 
     @property
     def device(self) -> torch.device:
@@ -243,19 +343,19 @@ class BaseFinetuneable(nn.Module):
     def to_static_model(self) -> StaticModel:
         """Convert the model to a static model."""
         with torch.no_grad():
-            emb = self.embeddings.weight
-            emb = emb.cpu().numpy()
-            w = torch.sigmoid(self.w).cpu().numpy()
+            emb = self.embeddings.weight.cpu().numpy()
+            w = None if self.w is None else self.w.cpu().numpy()
 
-        # If the weights and emb are the same length, the model was not quantized before training.
-        if len(w) == len(emb):
-            emb = emb * w[:, None]
+        # If the token mapping and emb are the same length, the model was not quantized before training.
+        if len(self.token_mapping) == len(emb):
+            emb = emb if w is None else emb * w[:, None]
             return StaticModel(
                 vectors=emb,
                 weights=None,
                 tokenizer=self.tokenizer,
                 normalize=self.normalize,
                 token_mapping=None,
+                max_length=self.max_length,
             )
         return StaticModel(
             vectors=emb,
@@ -263,6 +363,7 @@ class BaseFinetuneable(nn.Module):
             tokenizer=self.tokenizer,
             normalize=self.normalize,
             token_mapping=self.token_mapping.numpy(),
+            max_length=self.max_length,
         )
 
     def to_pipeline(self) -> StaticModelPipeline:
@@ -278,37 +379,12 @@ class BaseFinetuneable(nn.Module):
 
         return batch_size
 
-    def _check_val_split(
-        self,
-        X: list[str],
-        y: list,
-        X_val: list[str] | None,
-        y_val: list | None,
-        test_size: float,
-    ) -> tuple[list[str], list[str], Sequence, Sequence]:
-        if (X_val is not None) != (y_val is not None):
-            raise ValueError("Both X_val and y_val must be provided together, or neither.")
-
-        if X_val is not None and y_val is not None:
-            # Additional check to ensure y_val is of the same type as y
-            if type(y_val[0]) != type(y[0]):
-                raise ValueError("X_val and y_val must be of the same type as X and y.")
-
-            train_texts = X
-            train_labels = y
-            validation_texts = X_val
-            validation_labels = y_val
-        else:
-            train_texts, validation_texts, train_labels, validation_labels = train_test_split(X, y, test_size=test_size)
-
-        return train_texts, validation_texts, train_labels, validation_labels
-
     def _train(
         self,
         loss_function: nn.Module,
         learning_rate: float,
-        train_dataset: TextDataset,
-        val_dataset: TextDataset,
+        train_dataset: TextDataset | PairDataset,
+        val_dataset: TextDataset | PairDataset,
         batch_size: int,
         early_stopping_patience: int | None,
         min_epochs: int | None,
@@ -316,7 +392,12 @@ class BaseFinetuneable(nn.Module):
         device: str,
         validation_steps: int | None,
         compute_metrics: MetricsFn = default_metrics,
+        token_dropout: float = 0.0,
     ) -> None:
+        if not 0.0 <= token_dropout < 1.0:
+            raise ValueError("token_dropout must be in the range [0, 1).")
+        self.token_dropout = token_dropout
+
         val_check_interval, check_val_every_epoch = self._determine_val_check_interval(
             validation_steps, len(train_dataset), batch_size
         )
@@ -366,50 +447,152 @@ class BaseFinetuneable(nn.Module):
 
         return val_check_interval, check_val_every_epoch
 
-    def _prepare_dataset(self, X: list[str], y: torch.Tensor, max_length: int = 512) -> TextDataset:
-        """Prepare a dataset.
+    @staticmethod
+    def _check_inputs(**arguments: object) -> None:
+        """Check that every argument of `fit` is a sequence, an array, a tensor, or a column of a Hugging Face dataset.
 
-        :param X: The texts.
-        :param y: The labels.
-        :param max_length: The maximum length of the input.
-        :return: A TextDataset.
+        :param **arguments: The arguments, by name. None is skipped.
+        :raises ValueError: If an argument is a Hugging Face `Dataset` or `DatasetDict`, an iterable dataset or one of
+            its columns, a column of a dataset with a transform, a single string, or any other object that is not a
+            sequence, an array, or a tensor.
         """
-        # This is a speed optimization.
-        # assumes a mean token length of 10, which is really high, so safe.
-        truncate_length = max_length * 10
-        batch_size = 1024
-        tokenized: list[list[int]] = []
-        for batch_idx in trange(0, len(X), 1024, desc="Tokenizing data"):
-            batch = [x[:truncate_length] for x in X[batch_idx : batch_idx + batch_size]]
-            encoded = self.tokenizer.encode_batch_fast(batch, add_special_tokens=False)
-            tokenized.extend([encoding.ids[:max_length] for encoding in encoded])
+        for name, value in arguments.items():
+            if isinstance(value, (IterableDataset, IterableDatasetDict, IterableColumn)):
+                raise ValueError(
+                    f"{name} comes from an iterable Hugging Face dataset, which has no length. Pass a column of a "
+                    "regular dataset instead, such as one loaded without `streaming=True`."
+                )
+            if isinstance(value, (HFDataset, DatasetDict)):
+                raise ValueError(
+                    f"{name} is a Hugging Face dataset. Pass one of its columns instead, such as `dataset['text']`."
+                )
+            if isinstance(value, Column) and has_transform(value):
+                raise ValueError(
+                    f"{name} is a column of a Hugging Face dataset with a transform. Apply the transform first with "
+                    "`dataset.map(transform, batched=True)`, or pass a list."
+                )
+            if isinstance(value, str) or (
+                value is not None and not isinstance(value, (Sequence, np.ndarray, torch.Tensor))
+            ):
+                raise ValueError(
+                    f"{name} must be a list, a tuple, an array, a tensor, or a column of a Hugging Face dataset, got "
+                    f"{type(value).__name__}."
+                )
 
-        return TextDataset(tokenized, y)
+    @staticmethod
+    def _check_aligned(**columns: Sized) -> None:
+        """Check that the columns of the training or validation data have the same length.
 
-    def _labels_to_tensor(self, labels: Any) -> torch.Tensor:
-        """Turn the labels into a tensor."""
-        return labels
+        :param **columns: The columns, by name.
+        :raises ValueError: If the columns don't all have the same length.
+        """
+        lengths = {name: len(column) for name, column in columns.items()}
+        if len(set(lengths.values())) > 1:
+            raise ValueError(f"{' and '.join(lengths)} must have the same length, got {lengths}.")
+
+    @staticmethod
+    def _check_texts(**texts: Sequence[str] | None) -> None:
+        """Check that all texts are strings.
+
+        :param **texts: The texts, by name. None is skipped.
+        :raises ValueError: If a text is missing or is not a string.
+        """
+        for name, values in texts.items():
+            if values is None:
+                continue
+            is_valid = (
+                has_only_strings(values)
+                if isinstance(values, Column)
+                else all(isinstance(text, str) for text in values)
+            )
+            if not is_valid:
+                raise ValueError(f"All texts in {name} must be strings.")
+
+    def _text_dataset(self, rows: ColumnRows, indices: np.ndarray | None = None) -> TextDataset:
+        """Create a dataset of labeled texts that are tokenized per batch.
+
+        :param rows: The labeled texts, in a `text` and a `label` column.
+        :param indices: The indices of the rows that belong to the dataset. If None, all rows belong to it.
+        :return: The dataset.
+        """
+        return TextDataset(rows, self._tokenize_ids, self._to_targets, indices)
 
     def _create_datasets(
         self,
-        X: list[str],
+        X: Sequence[str],
         y: Any,
-        X_val: list[str] | None,
+        X_val: Sequence[str] | None,
         y_val: Any | None,
-        test_size: float,
+        test_size: float | int,
+        stratify_by: Sequence[Any] | None = None,
+        random_seed: int = DEFAULT_RANDOM_SEED,
     ) -> tuple[TextDataset, TextDataset]:
-        train_texts, validation_texts, train_labels, validation_labels = self._check_val_split(
-            X, y, X_val, y_val, test_size
+        """Create the training and validation datasets.
+
+        :param X: The training texts.
+        :param y: The training labels.
+        :param X_val: The validation texts. If None, the validation data is split off from `X` and `y`.
+        :param y_val: The validation labels.
+        :param test_size: The size of the validation split if `X_val` is None: a fraction of the data, capped at
+            `MAX_VALIDATION_SIZE` rows, or a number of rows if it is an int.
+        :param stratify_by: Validated single labels to stratify the validation split by. If None, the split is not
+            stratified.
+        :param random_seed: The random seed of the validation split.
+        :return: The train and validation datasets.
+        :raises ValueError: If only one of `X_val` and `y_val` is given, or if the texts and labels have different
+            lengths.
+        """
+        if (X_val is None) != (y_val is None):
+            raise ValueError("Both X_val and y_val must be provided together, or neither.")
+        self._check_aligned(X=X, y=y)
+        self._check_texts(X=X, X_val=X_val)
+        rows = ColumnRows(text=X, label=y)
+        if X_val is not None and y_val is not None:
+            self._check_aligned(X_val=X_val, y_val=y_val)
+            return self._text_dataset(rows), self._text_dataset(ColumnRows(text=X_val, label=y_val))
+
+        train_indices, val_indices = split_indices(
+            len(rows),
+            test_size,
+            max_test_size=MAX_VALIDATION_SIZE,
+            stratify_by=stratify_by,
+            random_seed=random_seed,
         )
-        y_tensor = self._labels_to_tensor(train_labels)
-        y_val_tensor = self._labels_to_tensor(validation_labels)
-
-        logger.info("Preparing train dataset.")
-        train_dataset = self._prepare_dataset(train_texts, y_tensor)
-        logger.info("Preparing validation dataset.")
-        val_dataset = self._prepare_dataset(validation_texts, y_val_tensor)
-
-        return train_dataset, val_dataset
+        return self._text_dataset(rows, train_indices), self._text_dataset(rows, val_indices)
 
 
-ModelType = TypeVar("ModelType", bound=BaseFinetuneable)
+T = TypeVar("T", bound=BaseFinetuneable)
+
+
+def _load_static_model(path: PathLike, *, token: str | None, model_name: PathLike | None) -> StaticModel:
+    """Load a static model, resolving the deprecated `model_name` argument.
+
+    :param path: The path to the folder containing the model, or a repository on the Hugging Face Hub.
+    :param token: The token to use to download the model from the hub.
+    :param model_name: Deprecated alias for `path`. If given, it overrides `path`.
+    :return: The loaded static model.
+    """
+    if model_name:
+        logger.warning("The 'model_name' argument is deprecated. Use 'path' instead.")
+        path = model_name
+    return StaticModel.from_pretrained(path, token=token)
+
+
+def _static_model_arguments(model: StaticModel, *, max_length: int | None | _UnsetType) -> dict[str, Any]:
+    """Derive the constructor arguments of a finetuneable model from a static model.
+
+    :param model: The static model to derive the arguments from.
+    :param max_length: The default maximum sequence length to use for tokenization. If unset, the
+        static model's `max_length` is used. If None, no truncation is done.
+    :return: The constructor arguments.
+    """
+    model.embedding = np.nan_to_num(model.embedding)
+    weights = torch.from_numpy(model.weights) if model.weights is not None else None
+    token_mapping = model.token_mapping.tolist() if model.token_mapping is not None else None
+    return {
+        "vectors": torch.from_numpy(model.embedding),
+        "tokenizer": model.tokenizer,
+        "token_mapping": token_mapping,
+        "weights": weights,
+        "max_length": model.max_length if isinstance(max_length, _UnsetType) else max_length,
+    }

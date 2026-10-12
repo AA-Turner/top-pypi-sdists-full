@@ -107,7 +107,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     #: runtime contract, and a reduced host simply has none of them. Declared
     #: AFTER the imports, not in the typing block above, because flake8 resolves
     #: a name used here against the module's import order.
-    AccrueSpendFn = Callable[[int | None, dict[str, str] | None], int]
+    AccrueSpendFn = Callable[..., int]
     SeedSpendFn = Callable[..., SessionSpend]
     ScheduleSpendFn = Callable[[int, Any, dict[str, str]], None]
     IdentityFn = Callable[[Any], dict[str, str]]
@@ -1249,6 +1249,91 @@ class FrontendSpendChildren(BaseModel):
         return payload
 
 
+class FrontendSpendBreakdownEntry(BaseModel):
+    """One category of a ``breakdown`` partition (design §4.2, wire v1).
+
+    ``amount_micro`` is the entry's STATED micro-USD sum; ``None`` (never 0)
+    when nothing in it was sized, with ``unstated_records`` counting the
+    records that could not be sized. ``bases`` lists the distinct basis
+    spellings inside the entry; the display words for them ride the object's
+    ``vocabulary`` section, so a surface prints core's words rather than
+    carrying its own copy.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    label: str = ""
+    amount_micro: int | None = None
+    knowledge: CostKnowledge = CostKnowledge.UNKNOWN
+    unstated_records: int = 0
+    bases: list[str] = Field(default_factory=list)
+
+
+class FrontendSpendBreakdown(BaseModel):
+    """The two reconcilable partitions of the published total (design §4.1).
+
+    ``by_agent`` is parent vs subagents; ``by_source`` is per channel,
+    tree-wide. Each partition's stated amounts sum to ``total_micro`` on its
+    own — and a reader must never ADD the two together: they are two views of
+    one total, which is exactly what makes each independently reconcilable.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    by_agent: list[FrontendSpendBreakdownEntry] = Field(default_factory=list)
+    by_source: list[FrontendSpendBreakdownEntry] = Field(default_factory=list)
+
+
+class FrontendSpendChannelWord(BaseModel):
+    """The published display word for one channel id (design §5.2)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    label: str = ""
+
+
+class FrontendSpendBasisMeta(BaseModel):
+    """The published words and funding class for one billing basis spelling.
+
+    ``source_class`` is ``paygo`` | ``subscription`` | ``unknown`` — a property
+    of the basis VALUE, not of a provider; a subscription-class basis is the
+    only one that carries a ``note``. ``note`` is omitted entirely when there
+    is nothing to explain (the ``children.reason`` precedent above), so a
+    pay-as-you-go session's frames carry no subscription prose.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    label: str = ""
+    source_class: str = "unknown"
+    marker: str = ""
+    note: str | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize_note(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        payload = handler(self)
+        if self.note is None:
+            payload.pop("note", None)
+        return payload
+
+
+class FrontendSpendVocabulary(BaseModel):
+    """The display vocabulary for the ids and bases this object carries.
+
+    Derived per object (only values present), so the section stays small and
+    its absence on an old producer is clean: a surface reads a word here first
+    and falls back to its legacy maps only when the whole section is absent.
+    A new channel or basis therefore renders from this section with zero UI
+    edits.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    channels: dict[str, FrontendSpendChannelWord] = Field(default_factory=dict)
+    bases: dict[str, FrontendSpendBasisMeta] = Field(default_factory=dict)
+
+
 class FrontendSpendChannels(BaseModel):
     """The session's published per-channel spend (``spend_channels``).
 
@@ -1285,6 +1370,34 @@ class FrontendSpendChannels(BaseModel):
     by_basis: dict[str, int] = Field(default_factory=dict)
     rows: list[FrontendSpendChannelRow] = Field(default_factory=list)
     children: FrontendSpendChildren = Field(default_factory=FrontendSpendChildren)
+    #: ADDITIVE sections (design §4/§5): the two reconcilable partitions of
+    #: ``total_micro`` and the display words for the ids and bases above. Both
+    #: are omitted from the wire when unset — absence is exactly what an old
+    #: producer looks like — so an unset section costs no bytes and needs no
+    #: sentinel (the ``children.reason`` precedent).
+    breakdown: FrontendSpendBreakdown | None = None
+    vocabulary: FrontendSpendVocabulary | None = None
+    #: ADDITIVE on the v1 wire, and present ONLY when the session knows of
+    #: voice records that exist (in analytics) but are not in the fold — the
+    #: §4.2 return-path fallback: ``{"voice": "pending_owner_append",
+    #: "calls": N, "reason": "..."}``. Their money is NOT in ``total_micro``
+    #: (the same total shows everywhere); this key is how a surface says why.
+    #: Absent for every other session, so the golden fixture and every legacy
+    #: reader keep the exact key set they always had.
+    pending: dict[str, Any] | None = None
+
+    #: ONE wrap serializer for the three optional keys: pydantic allows one
+    #: ``model_serializer`` per model, and the merge-time rule these keys
+    #: share is the same — an unset key is POPPED, never emitted as null.
+    @model_serializer(mode="wrap")
+    def _serialize_optional_sections(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, Any]:
+        payload = handler(self)
+        for key in ("breakdown", "vocabulary", "pending"):
+            if payload.get(key) is None:
+                payload.pop(key, None)
+        return payload
 
 
 class SlashCapability(BaseModel):
@@ -4291,7 +4404,10 @@ def _cap_spend_channel_rows_in_place(channels: Any) -> None:
     Shared by both routes on purpose: the object rides the attach snapshot AND
     every refresh delta, and a bound placed only at the snapshot boundary holds
     for the first frame and leaks on every one after it (the rule this file
-    records for the job fields).
+    records for the job fields). The phone's own read
+    (``FrontendStateStore.spend_channels_copy``) reuses this bound as well, so
+    the mobile projection and the desktop frame cap the same list the same way
+    instead of agreeing by inspection.
     """
     if not isinstance(channels, dict):
         return
@@ -5964,6 +6080,33 @@ class FrontendStateStore:
             }
         return dict(state.child_costs), pair
 
+    def spend_channels_copy(self) -> dict[str, Any] | None:
+        """A fresh SERIALISED copy of the published ``spend_channels`` object.
+
+        The second sibling of :meth:`spend_context_copy`, for the same reason
+        it exists: the phone's per-event refresh (``serving``/``tui_handle``
+        ``_refresh_state``) cannot read this field through ``read_field`` — the
+        allow-list admits only deeply immutable scalars, and this is a model —
+        and cannot afford :meth:`state`'s whole-state deep copy per folded
+        event. The dump is taken with ``mode="json"``, the same serialisation
+        the desktop sync frame uses (``sync_wire_payload``), and runs through
+        the SAME row cap (``_cap_spend_channel_rows_in_place``) so the phone
+        and the desktop see one bounded shape rather than two spellings of it;
+        the cap GROUPS the remainder into an ``other`` row and leaves
+        ``by_basis``/``total_micro`` exact, so nothing is lost by it.
+
+        ``None`` (not an empty dict) when the store publishes no object: the
+        projection's field then stays absent on the wire, which its consumers
+        read as "this runtime publishes no channel ledger" — the same absence
+        the desktop frame's dropped key means.
+        """
+        channels = self._state.spend_channels
+        if channels is None:
+            return None
+        dumped = channels.model_dump(mode="json")
+        _cap_spend_channel_rows_in_place(dumped)
+        return dumped
+
     def read_label(self, name: str) -> str:
         """One DERIVED label of the state, WITHOUT cloning the whole state.
 
@@ -7165,15 +7308,20 @@ class FrontendStateStore:
         # and letting the seed price it would bill the call twice.
         self._seed_legacy_spend(session, None)
         micro = int(round(paint_cost * 1_000_000)) if paint_cost is not None else None
+        # The call's billing basis (PR-3): the SAME decision the analytics
+        # record takes, from the SAME raw usage stamps AND the same unstamped
+        # fallback (the effective model), so the wire's basis array and the
+        # ledger's basis column cannot disagree about one call.
+        basis = _usage_billing_basis(usage, getattr(session, "effective_model", None))
         # ``cast`` rather than a bare call: these are duck-typed members on a
         # session facade (a reduced host may not have them at all), so pyright
         # sees ``object`` where the runtime contract is the call signature
         # below. The ``callable`` guard IS the runtime contract.
         accrue = getattr(session, "accrue_spend", None)
         if callable(accrue):
-            index = int(cast("AccrueSpendFn", accrue)(micro, identity))
+            index = int(cast("AccrueSpendFn", accrue)(micro, identity, basis=basis))
         else:
-            index = spend.accrue(micro, identity)
+            index = spend.accrue(micro, identity, basis=basis)
         schedule = getattr(session, "schedule_spend_price", None)
         if callable(schedule) and not usage_prices_known(usage):
             # A provider receipt is already the exact bill; nothing to converge.
@@ -8528,6 +8676,56 @@ def _usd_to_micro(value: Any) -> int:
         return 0
 
 
+def _usage_billing_basis(usage: Any, effective_model: Any = None) -> str | None:
+    """The billing basis label for ONE usage, or ``None`` when unscorable.
+
+    The same :func:`~local_operator.session.spend.inference_billing_labels`
+    the analytics record uses, read from the SAME raw stamps — the usage's
+    pre-collapse serving provider (falling back to the effective model for an
+    UNSTAMPED usage, the :func:`serving_identity` rule both sides share) and
+    its receipt — so the wire's basis array and the ledger's basis column
+    cannot disagree about one call. The fallback is load-bearing: the
+    analytics label reads ``usage.provider or request.model.provider``, and
+    without the same elbow here a truly-unstamped call served by a
+    subscription flavour would read ``billed`` on the wire and
+    ``subscription_api_equivalent`` in ``calls`` (review round 1, MINOR 4).
+    Never raises: a label is not worth a broken frame, and a missing one reads
+    as ``not_tracked`` — the state the wire has always shown for money with no
+    recorded basis.
+    """
+    try:
+        from local_operator.session.spend import inference_billing_labels
+
+        provider = str(getattr(usage, "provider", "") or "")
+        if not provider:
+            provider = str(getattr(effective_model, "provider", "") or "")
+        return inference_billing_labels(provider, getattr(usage, "usd_cost", None))[0]
+    except Exception:  # noqa: BLE001 — an unlabelable call is not a broken frame
+        return None
+
+
+def _pending_channels(session: Any) -> list[dict[str, Any]]:
+    """The §4.2 fallback markers this session's fold does not hold, or ``[]``.
+
+    A host without the reader (a reduced facade, a test double) has no pending
+    state to publish, and a reader that faults degrades to the same answer: a
+    marker is never worth a broken refresh. A reader returning a non-sequence
+    is the same class of answer — the ``isinstance`` is the runtime contract,
+    not a typing formality (the callable narrowing above it is what pyright
+    sees; a reduced facade's answer is not guaranteed to be a list).
+    """
+    reader = getattr(session, "pending_channel_records", None)
+    if not callable(reader):
+        return []
+    try:
+        entries = reader()
+    except Exception:  # noqa: BLE001 — a marker read is not worth a broken refresh
+        return []
+    if not isinstance(entries, Iterable):
+        return []
+    return [dict(entry) for entry in entries if isinstance(entry, Mapping)]
+
+
 def _spend_channels_payload(
     session: Any,
     ledger: Mapping[str, Any],
@@ -8575,6 +8773,7 @@ def _spend_channels_payload(
                 getattr(session, "channels_tracked", getattr(session, "channels_started", False))
             ),
             lost=bool(getattr(session, "channels_lost", False)),
+            pending=_pending_channels(session),
         )
     except Exception:  # noqa: BLE001 — a publish must never break a refresh
         logger.debug("spend_channels payload failed", exc_info=True)

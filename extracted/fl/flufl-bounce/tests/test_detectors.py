@@ -9,7 +9,7 @@ from flufl.bounce._detectors.caiwireless import Caiwireless
 from flufl.bounce._detectors.microsoft import Microsoft
 from flufl.bounce._detectors.smtp32 import SMTP32
 from flufl.bounce._scan import _DETECTORS, all_failures, scan_message
-from flufl.bounce.interfaces import BounceDetector
+from flufl.bounce._interfaces import BounceDetector
 
 from .utils import _parse
 

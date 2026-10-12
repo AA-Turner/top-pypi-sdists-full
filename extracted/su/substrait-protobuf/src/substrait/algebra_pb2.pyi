@@ -3315,9 +3315,8 @@ class Expression(google.protobuf.message.Message):
                the expression in that must yield a value of a type that a function
                overload is defined for.
              - Type arguments must be bound using FunctionArgument.type.
-             - Enum arguments must be bound using FunctionArgument.enum
-               followed by Enum.specified, with a string that case-insensitively
-               matches one of the allowed options.
+             - Enum arguments must be bound using FunctionArgument.enum, with a
+               string that case-insensitively matches one of the allowed options.
             """
 
         @property
@@ -3604,9 +3603,8 @@ class Expression(google.protobuf.message.Message):
                overload is defined for.
              - Type arguments must be bound using FunctionArgument.type, and a
                function overload must be defined for that type.
-             - Enum arguments must be bound using FunctionArgument.enum
-               followed by Enum.specified, with a string that case-insensitively
-               matches one of the allowed options.
+             - Enum arguments must be bound using FunctionArgument.enum, with a
+               string that case-insensitively matches one of the allowed options.
             """
 
         @property
@@ -4777,12 +4775,8 @@ class AggregateFunction(google.protobuf.message.Message):
            overload is defined for.
          - Type arguments must be bound using FunctionArgument.type, and a
            function overload must be defined for that type.
-         - Enum arguments must be bound using FunctionArgument.enum
-           followed by Enum.specified, with a string that case-insensitively
-           matches one of the allowed options.
-         - Optional enum arguments must be bound using FunctionArgument.enum
-           followed by either Enum.specified or Enum.unspecified. If specified,
-           the string must case-insensitively match one of the allowed options.
+         - Enum arguments must be bound using FunctionArgument.enum, with a
+           string that case-insensitively matches one of the allowed options.
         """
 
     @property

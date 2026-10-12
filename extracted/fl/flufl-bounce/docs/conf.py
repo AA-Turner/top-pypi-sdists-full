@@ -28,7 +28,6 @@ copybutton_exclude = '.linenos, .gp, .go'
 autodoc_default_options = {
     'exclude-members': '__weakref__',
     'private-members': False,
-    'special-members': '__init__',
     'undoc-members': False,
     'typehints': 'both',
 }

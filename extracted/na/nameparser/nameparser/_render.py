@@ -1,10 +1,10 @@
 """Rendering for the 2.0 API: ParsedName -> display strings.
 
 Layering: imports nameparser._types, and nameparser._lexicon for
-Lexicon.default() (capitalized() with lexicon=None) and _normalize
-(enforced by tests/v2/test_layering.py). Parsing code never imports
-this module; ParsedName's rendering methods delegate here via
-call-time imports.
+Lexicon.default() (capitalized() with lexicon=None), _normalize and
+FULL_STOPS (enforced by tests/v2/test_layering.py). Parsing code
+never imports this module; ParsedName's rendering methods delegate
+here via call-time imports.
 
 Malformed str.format specs beyond unknown keys (positional fields,
 bad conversions) surface the raw str.format error; only unknown KEYS
@@ -13,16 +13,22 @@ get the enriched KeyError.
 from __future__ import annotations
 
 import re
+import unicodedata
+from collections.abc import Callable
 
-from nameparser._lexicon import Lexicon, _normalize
-from nameparser._types import (FOLDED_TAG, UNCLASSIFIED_TAG, UNJOINED_TAG,
-                               Ambiguity, ParsedName, Role, Token)
+from nameparser._lexicon import (FULL_STOPS, Lexicon, _normalize,
+                                 _spells_an_initial)
+from nameparser._types import (FOLDED_TAG, SHAPE_ACRONYM_TAG,
+                               UNCLASSIFIED_TAG, UNJOINED_CONJUNCTION_TAG,
+                               UNJOINED_TAG, Ambiguity, ParsedName, Role,
+                               Token)
 
 _SPACES = re.compile(r"\s+")
 _SPACE_BEFORE_COMMA = re.compile(r"\s+,")
 _COMMA_CHAR = re.compile(r"[,،，]")  # ASCII, Arabic, fullwidth
 _MAC = re.compile(r"^(ma?c)(\w{2,})", re.IGNORECASE)
 _WORD = re.compile(r"(\w|\.)+")
+_NAME_RUN = re.compile(r"\w+")
 
 #: str.format keys render() accepts: the seven role fields in canonical
 #: order (derived from Role -- never restated) plus the derived views.
@@ -41,40 +47,93 @@ _INITIALS_KEYS = (Role.GIVEN.value, Role.MIDDLE.value, Role.FAMILY.value)
 #: as a particle, so it is a name word of the part like the rest.
 #: Not STABLE_TAGS -- that also contains "initial", which must contribute.
 _SKIP_TAGS = frozenset({"particle", "conjunction"})
+#: The given group's own skip set (rules.md#R3, #461): a connective
+#: contributes no initial in ANY group where it is joining words, so
+#: the given group no longer exempts it -- "one rule for every group".
+#: The particle exemption stays: a given-group particle is a name word
+#: there, which is what the whole-group exemption was for.
+_SKIP_TAGS_GIVEN = frozenset({"conjunction"})
+#: Either unjoined mark readmits the word it sits on.
+_UNJOINED_MARKS = frozenset({UNJOINED_TAG, UNJOINED_CONJUNCTION_TAG})
 
 # Ported verbatim from v1 (nameparser/config/regexes.py "initial", minus
 # the empty alternative) -- layering forbids importing the pipeline here;
 # keep in sync with _pipeline/_vocab.py by hand.
 # Its one reader is _reads_as_conjunction below, and that reader only
-# ever sees text the parse never classified: for anything the
-# parser DID see, the tag is the answer and this pattern is not asked.
+# ever sees a bare string with no token attached to it -- a spliced
+# field (replace()), restored state (__setstate__: a pickle load,
+# copy.copy, or copy.deepcopy), a direct string call, or -- since
+# 84d9000 -- a widen-only _process_initial override that drops the
+# token it was handed on its way to the string path. The first two
+# never had a token to begin with: for anything the parser classified
+# AND the caller passed the token along, the tag is the answer and
+# this pattern is not asked. The last two might have been classified
+# and the reader cannot tell -- it only knows no token was passed.
 # So the two copies no longer decide the same question about the same
 # token -- _vocab's says what the parse decided, this one says what it
-# WOULD have decided about text spliced in afterwards -- which is why
-# they must keep answering alike, and why test_regex_sync pins the
+# WOULD have decided about text handed over with no token -- which is
+# why they must keep answering alike, and why test_regex_sync pins the
 # patterns against each other and against config.
 # Deliberately NOT composed with _vocab's repertoire test (#320):
 # layering forbids the import. The divergence is reachable only for a
 # caller-added CJK conjunction spliced into a field, since no shipped
 # vocabulary carries one, and it costs nothing there: CJK is caseless,
 # so the carve-out's lower() and the fall-through's capitalize() return
-# the same string, and case repair is now this pattern's only reader.
+# the same string. Since #528 this pattern is read by more than case
+# repair: through _reads_as_conjunction below, whose callers are case
+# repair's spliced field and the v1 facade's initials view, the latter
+# in three shapes -- a token carrying UNCLASSIFIED_TAG
+# (_facade._token_is_conjunction), a direct _process_initial call with
+# no tokens at all, and, since 84d9000, a widen-only _process_initial
+# override that drops a token the parse DID classify. For initials the
+# CJK divergence would decide whether such a spliced, dropped or
+# never-parsed connective contributes a letter rather than which case
+# it renders in -- still unreachable from any shipped vocabulary, and
+# still not worth the import layering forbids.
 _INITIAL = re.compile(r"^(\w\.|[A-Z])$")
+
+#: The hyphen clause's initial test (_cap_text, #478): _INITIAL's
+#: period alternative alone. The bare-capital half would exempt a
+#: capital connective on its CASE -- 'Y' in 'JOSE ORTEGA-Y-GASSET'
+#: must lower -- the reading #458 removed. Pinned as that alternative
+#: by tests/v2/test_regex_sync.py.
+_DOTTED_INITIAL = re.compile(r"^\w\.$")
+
+# v1 regexes.py "roman_numeral", the pipeline's _vocab._ROMAN copied
+# by hand (layering, as for _INITIAL above) and pinned by
+# tests/v2/test_regex_sync.py. Read only by _cap_word's numeral
+# clause, which asks how a word the parse already put in the suffix
+# role is WRITTEN, never whether it is a suffix
+# (mechanisms.md#RENDER-HONORS-THE-PARSE).
+_ROMAN = re.compile(r'^(X|IX|IV|V?I{0,3})$', re.I)
 
 
 def _reads_as_conjunction(word: str, lex: Lexicon) -> bool:
-    """v1's is_conjunction, asked only of text the parse never saw.
+    """v1's is_conjunction, asked only where the CALLER supplies no
+    token.
 
-    A token the parse classified carries its reading in its tags and
-    this is not consulted. A token carrying UNCLASSIFIED_TAG was
-    spliced into a field as raw text -- by replace(), or by the
-    facade's v1 pickle load -- and carries no reading, so case repair
-    falls back to the vocabulary, which gives the answer the parser
-    would have given, the initial carve-out included ('E.' assigned to
-    middle is an initial, not the Italian conjunction).
+    A token the parse classified carries its reading in its tags, and
+    the library's own token path -- _facade._token_is_conjunction --
+    consults that tag first and never reaches here for a token it
+    holds. This function is reached only where there is no token to
+    consult: a field spliced in as raw text (replace()) or restored
+    state (__setstate__: a pickle load, copy.copy, or copy.deepcopy),
+    both carrying UNCLASSIFIED_TAG; a direct call with no parse behind
+    it; or, since 84d9000, a widen-only _process_initial override that
+    drops the token it was handed on its way to the string path --
+    text the parse DID classify, whose reading the override chose not
+    to forward. This function cannot tell any of those apart from one
+    another; it can only give the answer the parser would have given
+    from the word alone, the initial carve-out included ('E.' assigned
+    to middle is an initial, not the Italian conjunction). What it
+    cannot give is an answer the parse reached by looking at the whole
+    NAME -- rules.md#P3's one-case fork is the live example -- which
+    is why it is the fallback and the tags are the rule.
     """
+    # the shape on the composed spelling, as _normalize composes the
+    # lookup: a decomposed 'й.' is the initial its composed twin is (#542)
     return bool(_normalize(word) in lex.conjunctions
-                and not _INITIAL.fullmatch(word))
+                and not _INITIAL.fullmatch(unicodedata.normalize("NFC", word)))
 
 
 def _collapse(rendered: str) -> str:
@@ -119,16 +178,51 @@ def render(name: ParsedName, spec: str) -> str:
 # rules.md#R3: "initials take the first letter of each given, middle,
 # and base family word; titles, suffixes, particles and nicknames
 # contribute nothing"
+def _first_letter(text: str) -> str:
+    """The initial of `text`: its first character as its composed (NFC)
+    spelling reads it, written in the form `text` was written (#585).
+    That is the shortest start of `text` that composes to the composed
+    text's first character -- 'e' + U+0301 for a decomposed 'é', and
+    the two or three jamo of a decomposed hangul syllable, which are
+    letters rather than marks -- or, where a mark composing with
+    nothing stands inside that start, the character decomposed (even
+    where the writer composed part of it). A text whose first code
+    point holds a whole character gives text[0], as it always did --
+    a composed text, and one opening with a character Unicode excludes
+    from composition -- so a mark that composes with nothing (a
+    Bengali vowel sign) stays out of the initial in either form. Raises IndexError on an empty `text`, as
+    text[0] does."""
+    if text.isascii():
+        return text[0]
+    first = unicodedata.normalize("NFC", text)[0]
+    end = 1
+    while not unicodedata.normalize("NFC", text[:end]).startswith(first):
+        end += 1
+    # end == 1: one code point already holds the first letter, kept
+    # as written even where NFC would split it (U+0958, excluded from
+    # composition, is 'क' + a nukta composed; it keeps its nukta here)
+    if end == 1 or unicodedata.normalize("NFC", text[:end]) == first:
+        return text[:end]
+    # A mark that composes with nothing stands, in canonical order,
+    # between the letter and a mark that does ('o' + U+0331 + U+0301,
+    # where the composed spelling is 'ó' + U+0331), so no start of the
+    # text composes to `first` alone: write `first` decomposed, the
+    # form the writer used for it.
+    return unicodedata.normalize("NFD", first)
+
+
 def initials(name: ParsedName, spec: str, delimiter: str, separator: str) -> str:
     """First letter of each contributing token per group, v1 semantics:
     delimiter follows each initial, separator sits between initials
     within a group. Each group is ordered the way its FIELD is
     ordered -- written order, except folded words, which initial
-    before the rest of the group (#408). Tokens tagged
-    particle/conjunction contribute no
-    initial in middle/family (given-name tokens always contribute),
-    and the unjoined mark readmits the words of an all-particle part
-    whichever of those tags they carry; tags come from the pipeline --
+    before the rest of the group (#408).
+    A token tagged conjunction contributes no initial in ANY group,
+    and one tagged particle contributes none in middle/family
+    (given-group particles always contribute); either unjoined mark
+    readmits the word it sits on, so the words of an all-particle part
+    and a connective with nothing in its part to join both count;
+    tags come from the pipeline --
     hand-built untagged tokens all contribute, and so do the words of
     a field spliced in by replace(), which the parse never read.
     This view takes NO lexicon, so it has none to fall back to for
@@ -146,10 +240,10 @@ def initials(name: ParsedName, spec: str, delimiter: str, separator: str) -> str
     for key in _INITIALS_KEYS:
         role = Role(key)
         tokens = name.tokens_for(role)
-        if role is not Role.GIVEN:
-            tokens = tuple(t for t in tokens
-                           if not (_SKIP_TAGS & t.tags)
-                           or UNJOINED_TAG in t.tags)
+        skip = _SKIP_TAGS_GIVEN if role is Role.GIVEN else _SKIP_TAGS
+        tokens = tuple(t for t in tokens
+                       if not (skip & t.tags)
+                       or _UNJOINED_MARKS & t.tags)
         # mechanisms.md#FOLDED_TAG: "a rule that needs different
         # rendering order tags the token, and the rendering views
         # consult the tag" -- this is a rendering view, so it reads
@@ -167,23 +261,130 @@ def initials(name: ParsedName, spec: str, delimiter: str, separator: str) -> str
         tokens = (tuple(t for t in tokens if FOLDED_TAG in t.tags)
                   + tuple(t for t in tokens if FOLDED_TAG not in t.tags))
         values[key] = separator.join(
-            t.text[0] + delimiter for t in tokens)
+            _first_letter(t.text) + delimiter for t in tokens)
     return _format_spec(spec, values, "initials", _INITIALS_KEYS)
+
+
+def _beside(text: str, at: int, step: int) -> str | None:
+    """The character beside text[at], one `step` (-1 or 1) away past
+    any combining marks, or None at the edge of `text`. A mark belongs
+    to the letter before it, so a decomposed letter's neighbours are
+    its composed twin's (#542)."""
+    at += step
+    while 0 <= at < len(text) and unicodedata.category(text[at])[0] == "M":
+        at += step
+    return text[at] if 0 <= at < len(text) else None
+
+
+def _letter_run_ge2(text: str) -> list[bool]:
+    """One flag per alphanumeric character of `text`, in order: True
+    where it is a LETTER with a letter immediately before or after it
+    (_beside). Any other character -- a full stop, a space, a digit --
+    ends a run, and a digit's own flag is always False."""
+    def letter(c: str | None) -> bool:
+        return c is not None and c.isalpha()
+
+    return [c.isalpha() and (letter(_beside(text, i, -1))
+                             or letter(_beside(text, i, 1)))
+            for i, c in enumerate(text) if c.isalnum()]
+
+
+# rules.md#R4: "the writer split a chunk the mask keeps together, so
+# the split-off letter is an initial" -- the one override below.
+def _apply_mask(word: str, mask: str) -> str | None:
+    """rules.md#R4's mask: `word` with each letter or digit recased to
+    the case of the mask's alphanumeric in the same position, every
+    other character kept where the writer put it ('ph.d.' under 'PhD'
+    is 'Ph.D.'). None where the two alphanumeric counts differ --
+    rare, since the key is the word folded, but a word in decomposed
+    hangul spells one syllable in two letters and still finds its
+    one-letter key -- and the caller falls through rather than guess.
+
+    The override cited above: a letter standing alone beside a full
+    stop (any of FULL_STOPS, though through capitalized() only the
+    ASCII period reaches here, _WORD splitting a token at any other;
+    beside as _beside reads it, past combining marks) is written upper
+    wherever the mask writes it inside a run of two or more letters
+    (_letter_run_ge2).
+
+    Casing goes through the whole word (word.lower()/word.upper())
+    when both keep its length, since per-character casing is
+    context-free (a Greek final sigma needs its neighbours). A mask
+    letter that is not lowercase reads as upper, so a titlecase
+    letter (Lt) is written upper -- a known limit."""
+    mask_chars = [c for c in mask if c.isalnum()]
+    if len(mask_chars) != sum(1 for c in word if c.isalnum()):
+        return None
+    mask_run = _letter_run_ge2(mask)
+    word_run = _letter_run_ge2(word)
+    lowered, uppered = word.lower(), word.upper()
+    same_length = len(lowered) == len(uppered) == len(word)
+    out: list[str] = []
+    at = 0
+    for i, c in enumerate(word):
+        if not c.isalnum():
+            out.append(c)
+            continue
+        upper = not mask_chars[at].islower() or (
+            mask_run[at] and c.isalpha() and not word_run[at]
+            and any(c is not None and c in FULL_STOPS
+                    for c in (_beside(word, i, -1), _beside(word, i, 1))))
+        at += 1
+        if same_length:
+            out.append(uppered[i] if upper else lowered[i])
+        else:
+            out.append(c.upper() if upper else c.lower())
+    return "".join(out)
 
 
 def _cap_word(word: str, role: Role, tags: frozenset[str],
               lex: Lexicon) -> str:
-    # v1 cap_word order: particle/conjunction rule first, then the
-    # exceptions map, then Mac/Mc, then str.capitalize
+    # Clause order: the particle/connective arm, then the exceptions
+    # map as a mask, then the acronym clause (listed or by shape),
+    # then the numeral clause, then Mac/Mc, then str.capitalize. v1's
+    # cap_word had the first, second, fifth and sixth in this order;
+    # the mask ahead of the acronym clause is what gives bsc 'BSc'
+    # though bsc is a listed acronym too.
     normalized = _normalize(word)
     # rules.md#R4: "a part whose every word is particle vocabulary is
     # repaired as ordinary name words, since none of them is doing a
     # particle's work there" -- UNJOINED_TAG is that mark (#407).
     # Only the PARTICLE conjunct is gated on it, and that is the rule
-    # rather than an omission -- rules.md#R4: "A CONJUNCTION keeps its
-    # lowercase even inside such a part, being no name word in any
-    # part" -- so a conjunction keeps conjunction treatment even
-    # inside a part the mark has turned into ordinary name words.
+    # rather than an omission -- rules.md#R4: "A CONNECTIVE the parse
+    # placed among the name words keeps its lowercase wherever it
+    # stands there, including inside a part whose other words the
+    # unjoined mark has turned into ordinary name words" -- so a
+    # conjunction keeps conjunction treatment even inside a part the
+    # mark has turned into ordinary name words.
+    # The `generation` guard below is the other half of that sentence:
+    # a word this vocabulary holds can ALSO be the generation it
+    # spells ('i' is the Catalan link and the roman numeral), and
+    # where the parse read the generation the token still carries the
+    # `conjunction` tag classify gave it -- so without the guard,
+    # `parse("John Quincy Smith i").capitalized(force=True)` gave
+    # 'John Quincy Smith i' where every release through 2.3 gave
+    # 'John Quincy Smith I' (#397 review). Such a token is repaired
+    # as the suffix it was read as, which is the rest of R4's
+    # sentence: "one the parse read as the generation it also spells
+    # is not a connective of this name at all".
+    # BOTH HALVES, and the role alone is not enough -- the role says
+    # where the word landed and the vocabulary says whether landing
+    # there made it a generation. A plain connective can land in the
+    # suffix field without being generational vocabulary at all (a
+    # third comma part: `Smith, John, and`), and on the role test
+    # alone every one of them was repaired as a name word --
+    # 'John Smith And' where 1.4.0, 2.0 through 2.3 and the parent
+    # commit all gave 'John Smith and', and 'John Smith De, Y' for a
+    # field spliced to suffix='de y' where R4's own Accepted
+    # paragraph says the vocabulary answers and the 'y' keeps its
+    # lowercase (#397 second review). `vocab:suffix` is classify's
+    # record of the vocabulary half, so the pair reads two decisions
+    # the parse already made and re-derives neither
+    # (mechanisms.md#RENDER-HONORS-THE-PARSE).
+    # It guards the whole test rather than the two conjunction arms
+    # alone, which reads as the wider claim and is not one: the
+    # particle arm asks for role MIDDLE or FAMILY, so a SUFFIX-roled
+    # token can never reach it either way.
     # No SHIPPED name witnesses the difference: `particles` and
     # `conjunctions` are disjoint in the default vocabulary and in
     # every locale pack, so no shipped conjunction can sit in an
@@ -197,15 +398,18 @@ def _cap_word(word: str, role: Role, tags: frozenset[str],
     # 'Anh Y Van'. That is pinned by test_repair_keeps_a_conjunction_
     # lowercase_in_a_particle_part -- until which gating it passed the
     # whole suite.
-    # initials() does NOT match this carve-out, and the mismatch is
-    # recorded rather than fixed: #461 made it match and was backed
-    # out, the mark being a statement about a whole PART that #461
-    # honored for some of the part's words and not for one of them,
-    # so what is in question is R3's "even then" clause rather than
-    # the code (decisions.md, under R2). Under that same lexicon
-    # `Anh y Van` repairs to 'Anh y Van' and initials 'A. y. V.',
-    # pinned by
-    # test_initials_readmits_a_conjunction_in_a_particle_part.
+    # initials() does NOT match this carve-out, and since #461 that
+    # is a DECIDED disagreement rather than a recorded one: a
+    # connective that initials because it joins nothing is still not
+    # written the way a name is written, which is the sentence quoted
+    # above and this rule's own reason rather than a borrowing from
+    # R3. Under that same lexicon `Anh y Van` repairs to 'Anh y Van'
+    # and initials 'A. y. V.' -- the two views agreeing on this row
+    # because R2's mark readmits the word for both -- while
+    # `parse("Juan de y")` repairs to 'Juan de y' and initials
+    # 'J. y.', where they part. Pinned by
+    # test_initials_readmits_a_conjunction_in_a_particle_part and
+    # test_repair_keeps_a_lone_connective_lowercase_where_it_initials.
     # That conjunct reads the TAG, not the word (#458). classify takes
     # the conjunction-versus-initial decision once, over the whole
     # token -- v1's is_conjunction excludes initials, so 'E.' in
@@ -235,23 +439,108 @@ def _cap_word(word: str, role: Role, tags: frozenset[str],
     # whose tags it keeps on purpose, and keying this on `span is None`
     # overrode them -- `revise(middle='e-f')` repaired to 'e-F' where
     # the same words parsed gave 'E-F' (#463 review).
-    if ((normalized in lex.particles and role in (Role.MIDDLE, Role.FAMILY)
-            and UNJOINED_TAG not in tags)
+    generation = role is Role.SUFFIX and "vocab:suffix" in tags
+    if not generation and (
+            (normalized in lex.particles
+             and not _spells_an_initial(normalized, word)
+             and role in (Role.MIDDLE, Role.FAMILY)
+             and UNJOINED_TAG not in tags
+             # rules.md#R4: "a particle the vocabulary records a
+             # casing for takes that casing" -- the mask below
+             # outranks the particle's lowercase (#604)
+             and normalized not in lex.capitalization_exceptions_map)
             or "conjunction" in tags
             or (UNCLASSIFIED_TAG in tags
                 and _reads_as_conjunction(word, lex))):
         return word.lower()
     # v1 cap_word tries the edge-stripped form, then the period-free
-    # form ('Ph.D.' -> 'ph.d' -> 'phd' hits the exceptions map)
-    for key in (normalized, normalized.replace(".", "")):
-        exception = lex.capitalization_exceptions_map.get(key)
-        if exception is not None:
-            return exception
-    if _MAC.match(word):
-        return _MAC.sub(
-            lambda m: m.group(1).capitalize() + m.group(2).capitalize(),
-            word)
+    # form ('Ph.D.' -> 'ph.d' -> 'phd' hits the exceptions map). The
+    # value found is a MASK, not a replacement (#459): it recases the
+    # word as the writer punctuated it, so 'Ph.D.' under 'PhD' stays
+    # 'Ph.D.' and 'phd' becomes 'PhD'. v1 substituted the value, which
+    # is how 'md' became 'M.D.' and 'iii.' lost its period;
+    # rules.md#R4: "Repair changes case and nothing else". Role-free,
+    # as the map always was: an entry is the caller saying how a word
+    # is written wherever it stands.
+    undotted = normalized.replace(".", "")
+    for key in (normalized, undotted):
+        mask = lex.capitalization_exceptions_map.get(key)
+        if mask is not None:
+            masked = _apply_mask(word, mask)
+            if masked is not None:
+                return masked
+    # A credential acronym the exceptions map doesn't carry (mba, jd,
+    # qc, and md since #459 took it out of the map) is an initialism,
+    # not a word to title-case: a one-case name repairs to the
+    # acronym's caps instead of 'Mba' (#459). So is a word classify
+    # admitted to the credential class by its dotted SHAPE alone
+    # (SHAPE_ACRONYM_TAG; rules.md#S3's unlisted 'x.y.z.'), which has
+    # no vocabulary entry to be listed in. The mask above is asked
+    # first, which is what keeps a conventionally mixed-case acronym as
+    # it is written (bsc -> BSc) though it is listed here too. Gated
+    # on the SUFFIX role so a word that is a family name only happens
+    # to be in the vocabulary (anh van do) still repairs as an ordinary
+    # name word -- #459's given-role half, decided: repair follows the
+    # role the parse chose ('qc mp' -> 'Qc MP').
+    if role is Role.SUFFIX and (
+            undotted in lex.suffix_acronyms
+            or SHAPE_ACRONYM_TAG in tags):
+        return word.upper()
+    # rules.md#R4: "A roman numeral the parse put in the suffix role is
+    # written in capitals" whether or not the vocabulary lists it: 'vi'
+    # through 'x' carry no vocabulary tag and title-cased to 'Vi'/'Ix'
+    # until #459, while 'ii'/'iii'/'iv' rode the exceptions map, which is
+    # why they left it. Suffix-gated for the acronym clause's reason
+    # -- 'Vi' is a given name -- and it is also what writes a
+    # generational 'i' the connective arm's `generation` guard let
+    # through ('Carod i' forced -> 'Carod I').
+    if role is Role.SUFFIX and _ROMAN.match(normalized):
+        return word.upper()
+    # Decided on the composed spelling, so a word typed decomposed
+    # (NFD) is read as its composed twin is: 'mac' + 'e' + U+0301 +
+    # 'e' fails the regex's \w{2,} at the mark (#542). The name run
+    # after the prefix is then capitalized on the word as written,
+    # running on through its marks the way _sub_words does.
+    mac = _MAC.match(unicodedata.normalize("NFC", word))
+    if mac:
+        cut = end = len(mac.group(1))
+        while run := _NAME_RUN.match(word, end):
+            end = _past_marks(word, run.end())
+        return (word[:cut].capitalize() + word[cut:end].capitalize()
+                + word[end:])
     return word.capitalize()
+
+
+def _past_marks(text: str, end: int) -> int:
+    """`end` moved past the combining marks (category M) at it."""
+    while end < len(text) and unicodedata.category(text[end])[0] == "M":
+        end += 1
+    return end
+
+
+def _sub_words(cap: Callable[[str], str], text: str) -> str:
+    """`text` with each word replaced by cap(word): what
+    _WORD.sub(cap, text) does, except that a word runs on through the
+    combining marks after it (#542). A combining mark is category M,
+    which \\w does not match, so a name typed decomposed (NFD) --
+    'garci' + U+0301 + 'a' -- would otherwise be two words, and the
+    'a' capitalized alone is 'A'. A mark heads no word of its own: one
+    with no word before it stays outside every word, since a word
+    starting with it would keep its letters lowercase under
+    str.capitalize()."""
+    spans: list[list[int]] = []
+    for match in _WORD.finditer(text):
+        start, end = match.start(), _past_marks(text, match.end())
+        if spans and spans[-1][1] == start:
+            spans[-1][1] = end
+        else:
+            spans.append([start, end])
+    out: list[str] = []
+    at = 0
+    for start, end in spans:
+        out += (text[at:start], cap(text[start:end]))
+        at = end
+    return "".join(out) + text[at:]
 
 
 def _cap_text(text: str, role: Role, tags: frozenset[str],
@@ -262,7 +551,48 @@ def _cap_text(text: str, role: Role, tags: frozenset[str],
     # vocabulary asked per word: the parse would have made one token
     # per word of that text, so this is the granularity its answer
     # would have had.
-    return _WORD.sub(lambda m: _cap_word(m.group(0), role, tags, lex), text)
+    def cap(word: str) -> str:
+        return _cap_word(word, role, tags, lex)
+
+    if "-" not in text:
+        return _sub_words(cap, text)
+    parts = text.split("-")
+    # A "named" part needs an alphanumeric, not just a _WORD match:
+    # _WORD also matches a run of bare periods (or underscores), so a
+    # part holding only punctuation -- the family TOKEN of 'jose
+    # .-y-garcia' is '.-y-garcia', which splits to ['.', 'y', 'garcia']
+    # -- is not a worded neighbour and must not count as one.
+    named = [at for at, part in enumerate(parts)
+             if any(c.isalnum() for c in part)]
+    if len(named) < 3:
+        return _sub_words(cap, text)
+    # rules.md#R4: "Inside a hyphenated word, a part that is
+    # connective vocabulary with a worded part on each side of it
+    # keeps its lowercase" (#478). Decided here, not in _cap_word,
+    # whose word has lost its neighbours. Only a part holding an
+    # alphanumeric is a neighbour: an empty one is skipped
+    # ('garcia--y-lopez' still lowers its 'y') and supplies none
+    # ('md-phd-'). An EDGE part stays ordinary name text ('juan e-f
+    # smith' keeps 'E-F'), so no word is re-read as connective or
+    # initial by its case (#458). A single letter with a period is an
+    # initial, as classify reads it, never the connective
+    # ('j.-e.-p. dupont' keeps 'E.'); the multi-letter 'und.' in
+    # 'hans smith-und.-jones' still lowers.
+    first, last = named[0], named[-1]
+    return "-".join(
+        part.lower()
+        if (first < at < last
+                and not _DOTTED_INITIAL.fullmatch(
+                    unicodedata.normalize("NFC", part))
+                and _normalize(part) in lex.conjunctions)
+        else _sub_words(cap, part)
+        for at, part in enumerate(parts))
+
+
+def _in_one_case(text: str) -> bool:
+    """R5's test: `text` is written all upper or all lower (a caseless
+    text is both, and so passes)."""
+    return text in (text.upper(), text.lower())
 
 
 # rules.md#R4: "case repair returns a repaired copy and never mutates
@@ -270,10 +600,18 @@ def _cap_text(text: str, role: Role, tags: frozenset[str],
 def capitalized(name: ParsedName, lexicon: Lexicon | None, *,
                 force: bool) -> ParsedName:
     """Case-fixing transform -> new ParsedName, same spans, new token
-    texts. Gate (v1 parity): only single-case input is
-    touched unless force=True; the gate reads the joined token texts
-    (not render() output -- the case gate stays decoupled from spec
-    formatting and the #254 collapse).
+    texts. Gate: only a name whose words outside the suffix are
+    written in one case is touched unless force=True; the gate reads
+    the joined texts of every token not roled SUFFIX (#492) -- not
+    render() output, so it stays decoupled from spec formatting and
+    the #254 collapse. The same one-case test is then asked of each
+    SUFFIX token on its own, and unless force=True one written in more
+    than one case is kept as written -- 'EdD', 'B.Tech.', and the
+    garbled 'Iii' alike -- while one written in a single case is
+    repaired like any other token.
+    Repair changes case and nothing else (see the rules.md#R4 citation
+    in _cap_word): an exceptions-map value is a mask recasing the word
+    as written (#459), never a replacement.
     The repair reads token TAGS as well as texts: a part whose every
     word is particle vocabulary is repaired as ordinary name words,
     and the mark saying so comes from the pipeline, as does the
@@ -288,21 +626,61 @@ def capitalized(name: ParsedName, lexicon: Lexicon | None, *,
     'de y' keeps the 'y' lowercase, as the parse does and as 1.4.0
     did. Parser.revise() is the edit that classifies the value, and
     gives 'De La' (rules.md#R4's Accepted boundary).
-    Idempotent: without force, a capitalized result is mixed-case and
-    the gate returns it unchanged; with force, every _cap_word rule is
-    a fixpoint on its own output."""
+    Idempotent: every _cap_word rule, and the hyphen rule in
+    _cap_text, is a fixpoint on its own output, so a repaired name
+    comes back unchanged whether or not the gate admits it again
+    (a name whose non-suffix words are caseless, 'Kim Minjun' in
+    hangul with a 'phd', is admitted every time) -- except where a
+    LETTER'S OWN CASE MAPPING changes its length
+    (decisions.md#R4's Unicode boundary; 'ß' recasing to 'SS' through
+    a mask is one example, not the only one). Lengthening: a mask's
+    own per-character casing fallback can turn one letter into a
+    different LETTER SEQUENCE ('ß' upper is 'SS', not one recased
+    letter), so the repaired word's own folded spelling ('a.ss') no
+    longer matches the exceptions map's key ('a.ß'), and a second
+    forced pass over that output cannot find the entry the first
+    pass did. The same lengthening reaches plain title-casing with no
+    mask involved: 'ŉ' (a single letter) upper-cases to the two
+    CASED characters 'ʼN', so str.capitalize() on 'ŉa' gives 'ʼNa'
+    but on THAT output gives 'ʼna' -- the 'N' is no longer the
+    word's first character, so the second pass lower-cases it.
+    A letter that upper-cases to a base letter plus a COMBINING MARK
+    ('ǰ' to 'J' + a combining caron) is not such a case since #542:
+    a word runs on through its marks (_sub_words), so 'J̌o' is one
+    word on the second pass and comes back unchanged.
+    A name typed decomposed (NFD) repairs as its composed twin does
+    and keeps the form it was typed in: the splitter and the mask read
+    a mark as part of the letter before it, and the shape tests (Mac/Mc,
+    the initial tests) ask about the composed spelling."""
     if lexicon is not None and not isinstance(lexicon, Lexicon):
         # eager, before the gate: a garbage argument must not become a
         # silent no-op on mixed-case input or a deep AttributeError
         raise TypeError(f"lexicon must be a Lexicon or None, got {lexicon!r}")
     lex = Lexicon.default() if lexicon is None else lexicon
-    joined = " ".join(t.text for t in name.tokens)
     # rules.md#R5: "case repair acts only on a name written entirely
-    # in one case"
-    if not force and joined not in (joined.upper(), joined.lower()):
+    # in one case" -- and "the suffixes are left out of that test": a
+    # credential or a generation written the way one is written
+    # ('III', 'PhD', 'Jr.') says nothing about how the writer cased
+    # the NAME (#492). Titles stay in because title repair is not yet
+    # trusted to act on a cased title (decisions.md#R5 names the three
+    # titles that showed why).
+    gate = " ".join(t.text for t in name.tokens
+                     if t.role is not Role.SUFFIX)
+    if not force and not _in_one_case(gate):
         return name
+    # rules.md#R5: "a suffix written in more than one case is the
+    # writer's spelling and is kept as written where repair was not
+    # forced" -- the gate's own test, asked of each suffix token. The
+    # gate leaves the suffixes out because a cased one says nothing
+    # about the NAME; read to its end, that also means repair has no
+    # business re-spelling it ('EdD' stays 'EdD', where the acronym
+    # clause would write 'EDD'). The cost is the garbled spelling kept
+    # with the deliberate one ('Iii' stays 'Iii'); force repairs both.
     new_tokens = tuple(
-        Token(_cap_text(t.text, t.role, t.tags, lex), t.span, t.role, t.tags)
+        t if (not force and t.role is Role.SUFFIX
+              and not _in_one_case(t.text))
+        else Token(_cap_text(t.text, t.role, t.tags, lex),
+                   t.span, t.role, t.tags)
         for t in name.tokens)
     # equal tokens (possible only for synthetic span=None duplicates)
     # collapse to one mapping entry -- benign: the rebuilt ambiguity

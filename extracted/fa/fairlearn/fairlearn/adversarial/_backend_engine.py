@@ -1,7 +1,7 @@
 # Copyright (c) Fairlearn contributors.
 # Licensed under the MIT License.
 
-from numpy import ndarray
+from numpy import ndarray, ndim
 from sklearn.utils import shuffle
 
 from ._constants import (
@@ -10,7 +10,19 @@ from ._constants import (
     _LIST_MODEL_UNSUPPORTED,
     _NO_LOSS,
     _NOT_IMPLEMENTED,
+    _X_NOT_2D,
 )
+
+
+def _check_2d(X):
+    """Raise a clear error if ``X`` is not two-dimensional.
+
+    This check is independent of scikit-learn's ``ensure_2d`` and ``allow_nd``
+    flags so that all validation paths enforce the same requirement.
+    """
+    X_ndim = ndim(X)
+    if X_ndim != 2:
+        raise ValueError(_X_NOT_2D.format(X_ndim))
 
 
 class BackendEngine:
@@ -33,7 +45,8 @@ class BackendEngine:
         """
         self.base = base
 
-        n_X_features = X.shape[1]  # FIXME: what if X.ndim > 2?
+        _check_2d(X)
+        n_X_features = X.shape[1]
         n_Y_features = base._y_transform.n_features_out_
         n_A_features = base._sf_transform.n_features_out_
 

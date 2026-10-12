@@ -1,19 +1,10 @@
-//! Load a TOML document the way Python's `tomllib.loads` does.
+//! Load a TOML 1.0 document natively.
 
-use crate::constants::BYTE_ORDER_MARK;
-use crate::errors::{ConfigError, ConfigErrorKind};
+use crate::errors::ConfigError;
 use crate::models::ConfigValue;
+use crate::toml::_helpers::reading::load_document;
 
-/// The table `tomllib.loads(text)` returns, rejecting TOML 1.1 syntax as `tomllib` does.
+/// The document's root table, rejecting TOML 1.1 syntax and nesting past the supported depth.
 pub fn load_toml(text: &str) -> Result<ConfigValue, ConfigError> {
-    if text.starts_with(BYTE_ORDER_MARK) {
-        return Err(ConfigError::new(
-            ConfigErrorKind::Syntax,
-            "invalid statement: tomllib does not skip a byte order mark",
-        ));
-    }
-    let text = text.replace("\r\n", "\n");
-    crate::toml::_helpers::version::reject_toml_1_1_syntax(&text)?;
-    crate::toml::_helpers::namespaces::reject_namespace_conflicts(&text)?;
-    crate::toml::_helpers::conversion::parse_document(&text)
+    load_document(text)
 }

@@ -139,7 +139,6 @@ def _unified_request_of(config: Any) -> dict[str, Any]:
     """The canonical request as JSON data — what ``AIMatrixRequest.from_dict``
     reads back when the finished unit is kept as a conversation."""
     data = json.loads(json.dumps(config.to_dict(), default=str))
-    data.pop("_matrx_message_expansions", None)
     return {"config": data}
 
 

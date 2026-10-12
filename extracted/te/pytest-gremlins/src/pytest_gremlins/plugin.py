@@ -45,8 +45,12 @@ import coverage
 from coverage.exceptions import CoverageException
 import pytest
 
+from pytest_gremlins import node_id_args
 from pytest_gremlins.cache.hasher import ContentHasher
-from pytest_gremlins.cache.incremental import IncrementalCache
+from pytest_gremlins.cache.incremental import (
+    IncrementalCache,
+    subprocess_optimize_level,
+)
 from pytest_gremlins.cache.types import CachedGremlinResult
 from pytest_gremlins.config import (
     MAX_TIMEOUT_SECONDS,
@@ -83,11 +87,17 @@ from pytest_gremlins.instrumentation.origin_finder import (
     file_identity,
     normalize_origin,
 )
+from pytest_gremlins.instrumentation.spawn_hook import (
+    SOURCES_FILE_ENV_VAR,
+    export_spawn_hook,
+    write_spawn_hook,
+)
 from pytest_gremlins.instrumentation.switcher import ACTIVE_GREMLIN_ENV_VAR
 from pytest_gremlins.instrumentation.transformer import (
     get_default_registry,
     transform_source,
 )
+from pytest_gremlins.node_id_file import command_with_node_ids_file
 from pytest_gremlins.parallel.aggregator import ResultAggregator
 from pytest_gremlins.parallel.batch_executor import BatchExecutor
 from pytest_gremlins.parallel.exit_codes import (
@@ -134,7 +144,7 @@ class _XdistWorkerNode(Protocol):
 
 logger = logging.getLogger(__name__)
 
-GREMLIN_SOURCES_ENV_VAR = 'PYTEST_GREMLINS_SOURCES_FILE'
+GREMLIN_SOURCES_ENV_VAR = SOURCES_FILE_ENV_VAR
 
 
 def _get_rootdir(config: pytest.Config) -> Path:
@@ -209,6 +219,14 @@ class CoveragePrescanTimeoutError(Exception):
         self.seconds = seconds
 
 
+class CoveragePrescanLaunchError(Exception):
+    """Raised when the operating system cannot start the coverage pre-scan subprocess (issue #485)."""
+
+    def __init__(self, cause: OSError) -> None:
+        super().__init__(f'coverage pre-scan could not start ({cause})')
+        self.cause = cause
+
+
 @dataclass
 class GremlinSession:
     """Session state for mutation testing.
@@ -263,6 +281,11 @@ class GremlinSession:
             abandoned and coverage-guided test selection is disabled (issue #503).
         mutant_timeout: Seconds one gremlin's test run may take before the gremlin
             is reported as a timeout.
+        terminal_notices: Lines for the terminal summary, written directly rather than through
+            ``logging`` (which pytest captures) or ``warnings.warn`` (which ``filterwarnings = error``
+            turns into a crash).  Add one with :func:`_queue_terminal_notice`.
+        skipped_files: Target files dropped because instrumentation raised, mapped to the
+            ``ExceptionType: message`` that dropped them (issue #638).
         preserved_addopts: The project's pytest ``addopts`` with pytest-cov flags
             stripped (see :func:`_addopts_without_cov`), threaded into the subprocess
             runs as ``-o addopts=<...>`` so collection-affecting options such as
@@ -313,6 +336,8 @@ class GremlinSession:
     no_coverage_filter: bool = False
     test_name_to_node_ids: dict[str, list[str]] = field(default_factory=dict)
     unmapped_selections: dict[str, list[str]] = field(default_factory=dict)
+    terminal_notices: list[str] = field(default_factory=list)
+    skipped_files: dict[str, str] = field(default_factory=dict)
     unrunnable_gremlin_ids: set[str] = field(default_factory=set)
     explain_gremlin_id: str | None = None
     preserved_addopts: str = ''
@@ -1264,8 +1289,14 @@ def _generate_gremlins(
         source = source_files[file_path]
         try:
             gremlins, instrumented_tree = transform_source(source, file_path, gremlin_session.operators)
-        except Exception:
+        except Exception as exc:
             logger.exception('Failed to transform %s; skipping file', file_path)
+            reason = _describe_exception(exc)
+            gremlin_session.skipped_files[file_path] = reason
+            displayed_path = _neutralize_control_characters(file_path)
+            _queue_terminal_notice(
+                gremlin_session, f'pytest-gremlins: skipped {displayed_path}: could not instrument ({reason})'
+            )
             continue
         all_gremlins.extend(gremlins)
         instrumented_asts[file_path] = instrumented_tree
@@ -1275,6 +1306,27 @@ def _generate_gremlins(
     if all_gremlins:
         instrumented_dir = _write_instrumented_sources(instrumented_asts, rootdir, duplicates)
         gremlin_session.instrumented_dir = instrumented_dir
+
+
+def _neutralize_control_characters(text: str) -> str:
+    """Replace control characters (such as ESC) so untrusted text cannot drive the terminal."""
+    return ''.join(char if char.isprintable() else '?' for char in text)
+
+
+def _describe_exception(exc: BaseException) -> str:
+    """Render an exception as ``Type: message`` on one line, or just ``Type`` when it has no message."""
+    try:
+        raw_message = str(exc)
+    except Exception:
+        raw_message = ''
+    message = _neutralize_control_characters(' '.join(raw_message.split()))
+    return f'{type(exc).__name__}: {message}' if message else type(exc).__name__
+
+
+def _queue_terminal_notice(gremlin_session: GremlinSession, message: str) -> None:
+    """Queue a line for the terminal summary, once per distinct message."""
+    if message not in gremlin_session.terminal_notices:
+        gremlin_session.terminal_notices.append(message)
 
 
 def _spelling_rank(file_path: str, rootdir: Path) -> tuple[bool, str]:
@@ -1502,6 +1554,8 @@ def _write_instrumented_sources(
        without touching the disk). No module name is recorded: the finder in the
        subprocess serves a file under whatever name the import system resolves to it.
     2. A bootstrap script that registers import hooks and runs pytest
+    3. A ``spawn_hook`` directory holding a ``sitecustomize.py`` that installs the same finder in fresh
+       interpreters, such as ``multiprocessing`` spawn children (#604)
 
     This approach ensures that import hooks are registered BEFORE any modules
     are imported, which is necessary because pytest adds the test directory
@@ -1542,6 +1596,7 @@ def _write_instrumented_sources(
 
     bootstrap_script = temp_dir / 'gremlin_bootstrap.py'
     bootstrap_script.write_text(_get_bootstrap_script())
+    write_spawn_hook(temp_dir)
 
     # The lightweight runner is deliberately not written: it cannot reproduce pytest's conftest,
     # configure hooks or sys.path, so every gremlin runs through the bootstrap (#538).
@@ -1648,6 +1703,8 @@ import sys
 
 __ORIGIN_FINDER_SOURCE__
 
+__NODE_ID_ARGS_SOURCE__
+
 
 def main():
     sources_file = os.environ.get('PYTEST_GREMLINS_SOURCES_FILE')
@@ -1711,8 +1768,17 @@ def main():
     marker = os.path.join(os.path.dirname(sources_file), '__UNATTRIBUTABLE_MARKER__')
     can_attribute_load_failures = not os.path.exists(marker)
 
+    # The parent keeps node ids off the command line (Windows caps it at 32,767 characters) and names a
+    # file holding them; pytest receives the same arguments it would with the ids appended to argv. A file
+    # that cannot be read exits with pytest's usage error code, never 1, which would score as a kill.
+    try:
+        pytest_args = args_with_node_ids_from_file(sys.argv[1:])
+    except (OSError, ValueError, RecursionError, MemoryError) as error:
+        print(f'pytest-gremlins: cannot read the node ids file for this run ({error})', file=sys.stderr)
+        sys.exit(int(pytest.ExitCode.USAGE_ERROR))
+
     recorder = SuiteLoadRecorder()
-    exit_code = pytest.main(sys.argv[1:], plugins=[FinderFronter(), recorder])
+    exit_code = pytest.main(pytest_args, plugins=[FinderFronter(), recorder])
     load_failure_exit = exit_code in (pytest.ExitCode.USAGE_ERROR, pytest.ExitCode.INTERRUPTED)
     if can_attribute_load_failures and recorder.suite_failed_to_load and load_failure_exit:
         exit_code = __COLLECTION_FAILED_EXIT_CODE__
@@ -1726,6 +1792,7 @@ if __name__ == '__main__':
         script.replace('__COLLECTION_FAILED_EXIT_CODE__', str(GREMLIN_COLLECTION_FAILED_EXIT_CODE))
         .replace('__UNATTRIBUTABLE_MARKER__', UNATTRIBUTABLE_MARKER)
         .replace('__ORIGIN_FINDER_SOURCE__', inspect.getsource(origin_finder))
+        .replace('__NODE_ID_ARGS_SOURCE__', inspect.getsource(node_id_args))
     )
 
 
@@ -1982,10 +2049,13 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
     if not gremlin_session.gremlins:
         if gremlin_session.explain_gremlin_id is not None:
-            print(
-                '--gremlin-explain: no gremlins were generated in this session (nothing to '
-                'explain). Check your `paths`/`--gremlin-targets` configuration.'
+            _print_terminal_notices(gremlin_session)
+            cause = (
+                'Files were skipped (see above).'
+                if gremlin_session.terminal_notices
+                else 'Check your `paths`/`--gremlin-targets` configuration.'
             )
+            print(f'--gremlin-explain: no gremlins were generated in this session (nothing to explain). {cause}')
             gremlin_session.enabled = False
         return
 
@@ -2063,6 +2133,7 @@ def _unmutated_command_and_env(gremlin_session: GremlinSession, rootdir: Path) -
     env['GREMLIN_ROOTDIR'] = str(rootdir)
     if instrumented_dir is not None:
         env[GREMLIN_SOURCES_ENV_VAR] = str(instrumented_dir / 'sources.json')
+    export_spawn_hook(env)
     return command, env
 
 
@@ -2073,7 +2144,7 @@ def _collect_unmutated(
 ) -> ControlRunOutcome:
     """Collect ``node_ids`` with the bootstrap, using a gremlin run's command and env minus the gremlin."""
     command, env = _unmutated_command_and_env(gremlin_session, rootdir)
-    return run_control(command, node_ids, rootdir, env)
+    return run_control(command, node_ids, rootdir, env, node_ids_dir=gremlin_session.instrumented_dir)
 
 
 def _confirm_collection_kill(
@@ -2158,7 +2229,12 @@ def _confirm_timeout_kill(
     if selection not in gremlin_session.unmutated_timeout_checks:
         command, env = _unmutated_command_and_env(gremlin_session, rootdir)
         gremlin_session.unmutated_timeout_checks[selection] = run_unmutated(
-            command, node_ids, rootdir, env, timeout=gremlin_session.mutant_timeout
+            command,
+            node_ids,
+            rootdir,
+            env,
+            timeout=gremlin_session.mutant_timeout,
+            node_ids_dir=gremlin_session.instrumented_dir,
         )
         outcome = gremlin_session.unmutated_timeout_checks[selection]
         logger.debug(
@@ -2354,6 +2430,12 @@ def _skip_mutation_unless_baseline_is_green(gremlin_session: GremlinSession, exi
     return True
 
 
+def _print_terminal_notices(gremlin_session: GremlinSession) -> None:
+    """Print the queued terminal notices for paths that disable the session before the summary hook."""
+    for notice in gremlin_session.terminal_notices:
+        print(notice)
+
+
 def _maybe_short_circuit_for_explain(gremlin_session: GremlinSession) -> bool:
     """Run ``--gremlin-explain`` if requested and report whether to bail out.
 
@@ -2435,6 +2517,15 @@ def _warn_prescan_timeout(seconds: int) -> None:
     )
 
 
+def _warn_prescan_launch_failure(launch_error: CoveragePrescanLaunchError) -> None:
+    """Warn that the pre-scan could not be run, naming the cause (issue #485)."""
+    warnings.warn(
+        f'pytest-gremlins: coverage pre-scan could not start ({launch_error.cause}); '
+        'coverage-guided test selection disabled, so every gremlin runs the full test suite',
+        stacklevel=1,
+    )
+
+
 def _warn_no_coverage_data() -> None:
     """Warn that the pre-scan finished but recorded nothing (issue #113)."""
     warnings.warn(
@@ -2465,6 +2556,9 @@ def _run_prescan_reporting_problems(
         )
     except CoveragePrescanTimeoutError as timeout_error:
         _warn_prescan_timeout(timeout_error.seconds)
+        return {}
+    except CoveragePrescanLaunchError as launch_error:
+        _warn_prescan_launch_failure(launch_error)
         return {}
     if not coverage_data:
         _warn_no_coverage_data()
@@ -2670,6 +2764,32 @@ def _prescan_env() -> dict[str, str]:
     return env
 
 
+def _launch_prescan(command: list[str], node_ids: list[str], rootdir: Path, timeout: int) -> None:
+    """Run the pre-scan ``command`` on ``node_ids``, handed over in a file so the command line stays short (#485).
+
+    Windows refuses a command line over 32,767 characters, which a large suite's node ids alone can exceed.
+    The file lives in a temporary directory that is removed when the pre-scan ends, however it ends.
+
+    Raises:
+        CoveragePrescanTimeoutError: If the pre-scan exceeds ``timeout`` seconds.
+        CoveragePrescanLaunchError: If the operating system cannot start the pre-scan.
+    """
+    try:
+        with tempfile.TemporaryDirectory(prefix='pytest_gremlins_prescan_', ignore_cleanup_errors=True) as node_ids_dir:
+            subprocess.run(  # Intentional: runs pytest test commands
+                command_with_node_ids_file(command, node_ids, Path(node_ids_dir)),
+                cwd=str(rootdir),
+                capture_output=True,
+                timeout=timeout,
+                check=False,
+                env=_prescan_env(),
+            )
+    except subprocess.TimeoutExpired as expired:
+        raise CoveragePrescanTimeoutError(timeout) from expired
+    except OSError as launch_error:
+        raise CoveragePrescanLaunchError(launch_error) from launch_error
+
+
 def _run_tests_with_coverage(
     test_node_ids: list[str],
     rootdir: Path,
@@ -2718,6 +2838,7 @@ def _run_tests_with_coverage(
 
     Raises:
         CoveragePrescanTimeoutError: If the pre-scan exceeds ``timeout`` seconds.
+        CoveragePrescanLaunchError: If the operating system cannot start the pre-scan.
     """
     coverage_db_path = rootdir / '.coverage'
     coverage_db_path.unlink(missing_ok=True)
@@ -2743,30 +2864,22 @@ def _run_tests_with_coverage(
         'run',
         f'--rcfile={coveragerc_path}',
         '-m',
-        'pytest',
+        'pytest_gremlins.coverage.prescan_main',
         '-p',
         'pytest_gremlins.coverage.subprocess_bootstrap',
         '-p',
         'no:gremlins',
         '-o',
         f'addopts={addopts_without_gremlins(addopts_without_xdist(preserved_addopts))}',
-        *test_node_ids,
         '--tb=no',
         '-q',
     ]
 
     try:
-        subprocess.run(  # Intentional: runs pytest test commands
-            cmd,
-            cwd=str(rootdir),
-            capture_output=True,
-            timeout=timeout,
-            check=False,
-            env=_prescan_env(),
-        )
-    except subprocess.TimeoutExpired as expired:
+        _launch_prescan(cmd, test_node_ids, rootdir, timeout)
+    except (CoveragePrescanTimeoutError, CoveragePrescanLaunchError):
         coveragerc_path.unlink(missing_ok=True)
-        raise CoveragePrescanTimeoutError(timeout) from expired
+        raise
 
     coverage_by_test: dict[str, dict[str, list[int]]] = {}
 
@@ -3093,16 +3206,18 @@ def _emit_selection_explainer(gremlin_session: GremlinSession) -> None:
     if target_id is None:
         return
 
+    _print_terminal_notices(gremlin_session)
     target_gremlin = next(
         (g for g in gremlin_session.gremlins if g.gremlin_id == target_id),
         None,
     )
 
     if target_gremlin is None:
+        skipped_hint = ' Files were skipped (see above).' if gremlin_session.terminal_notices else ''
         print(
             f'--gremlin-explain: no gremlin with id {target_id!r} in this session. '
             f'Run with --gremlins (without --gremlin-explain) to see the full list of '
-            f'gremlin ids in the progress log.'
+            f'gremlin ids in the progress log.{skipped_hint}'
         )
         gremlin_session.enabled = False
         return
@@ -3427,6 +3542,7 @@ def _check_cache_for_gremlin(
         source_hash=source_hash,
         test_hashes=test_hashes,
         mutant_timeout=gremlin_session.mutant_timeout,
+        optimize_level=subprocess_optimize_level(os.environ),
     )
 
     if cached is None:
@@ -3491,6 +3607,7 @@ def _cache_gremlin_result(
             error_output=result.error_output,
         ),
         mutant_timeout=gremlin_session.mutant_timeout,
+        optimize_level=subprocess_optimize_level(os.environ),
     )
 
 
@@ -3685,13 +3802,15 @@ def _build_filtered_test_command(
         gremlin_session: The current gremlin session.
 
     Returns:
-        Command list with test node IDs appended in the same order.
+        Command list that runs the selected node IDs in the same order. They travel in a file named on the
+        command line, so a full-suite selection cannot exceed Windows' 32,767 character limit (#485); without an
+        instrumented directory to hold the file they are appended to the command.
     """
-    command = list(base_command)
-
-    command.extend(_node_ids_for_tests(selected_tests, gremlin_session))
-
-    return command
+    return command_with_node_ids_file(
+        base_command,
+        _node_ids_for_tests(selected_tests, gremlin_session),
+        gremlin_session.instrumented_dir,
+    )
 
 
 def _pytest_cov_available() -> bool:
@@ -3827,6 +3946,7 @@ def _test_gremlin(
     if instrumented_dir is not None:
         sources_file = instrumented_dir / 'sources.json'
         env[GREMLIN_SOURCES_ENV_VAR] = str(sources_file)
+    export_spawn_hook(env)
 
     # Single routing point for the lightweight runner. It always returns None while the runner is
     # disabled (#538), so every gremlin runs through the pytest bootstrap.
@@ -3890,7 +4010,9 @@ def _test_gremlin(
         )
 
 
-def _write_html_report(score: MutationScore, rootdir: Path, html_dir: Path | None = None) -> Path:
+def _write_html_report(
+    score: MutationScore, rootdir: Path, html_dir: Path | None = None, *, skipped_files: dict[str, str] | None = None
+) -> Path:
     """Write HTML report to file.
 
     Args:
@@ -3898,22 +4020,24 @@ def _write_html_report(score: MutationScore, rootdir: Path, html_dir: Path | Non
         rootdir: Root directory of the project.
         html_dir: Custom output directory, or ``None`` for the default
             ``<rootdir>/coverage/gremlins/`` location.
+        skipped_files: Paths and reasons for files that could not be instrumented.
 
     Returns:
         Path to the written HTML report.
     """
     reporter = HtmlReporter()
     output_path = resolve_html_output_path(rootdir=rootdir, html_dir=html_dir)
-    reporter.write_report(score, output_path)
+    reporter.write_report(score, output_path, skipped_files=skipped_files)
     return output_path
 
 
-def _write_json_report(score: MutationScore, rootdir: Path) -> Path:
+def _write_json_report(score: MutationScore, rootdir: Path, *, skipped_files: dict[str, str] | None = None) -> Path:
     """Write JSON report to file.
 
     Args:
         score: The MutationScore to write.
         rootdir: Root directory of the project.
+        skipped_files: Paths and reasons for files that could not be instrumented.
 
     Returns:
         Path to the written JSON report.
@@ -3922,8 +4046,39 @@ def _write_json_report(score: MutationScore, rootdir: Path) -> Path:
     # TODO(#308): add --gremlins-json-path flag for parity with --gremlins-html-dir
     output_path = rootdir / 'coverage' / 'gremlins' / 'gremlins.json'
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    reporter.write_report(score, output_path)
+    reporter.write_report(score, output_path, skipped_files=skipped_files)
     return output_path
+
+
+def _write_empty_run_report(terminalreporter: pytest.TerminalReporter, gremlin_session: GremlinSession) -> None:
+    """Explain a run that produced no gremlins: files skipped, nothing found, or no paths discovered."""
+    terminalreporter.write_sep('=', 'pytest-gremlins mutation report')
+    terminalreporter.write_line('')
+    if gremlin_session.skipped_files:
+        terminalreporter.write_line(f'{len(gremlin_session.skipped_files)} file(s) skipped and not mutation tested:')
+        for skipped_path, reason in gremlin_session.skipped_files.items():
+            terminalreporter.write_line(f'  - {_neutralize_control_characters(skipped_path)} ({reason})')
+    elif gremlin_session.target_paths:
+        terminalreporter.write_line('No gremlins found in source code. Searched paths:')
+        for searched_path in gremlin_session.target_paths:
+            terminalreporter.write_line(f'  - {searched_path}')
+    else:
+        terminalreporter.write_line('No gremlins found: no source paths were discovered.')
+        terminalreporter.write_line('')
+        terminalreporter.write_line('pytest-gremlins looks for source code in this order:')
+        terminalreporter.write_line('  1. --gremlin-targets CLI option')
+        terminalreporter.write_line('  2. [tool.pytest-gremlins] paths in pyproject.toml')
+        terminalreporter.write_line('  3. [tool.setuptools] package config in pyproject.toml')
+        terminalreporter.write_line('  4. [project].name heuristic in pyproject.toml')
+        terminalreporter.write_line('  5. setup.cfg [options] / [options.packages.find]')
+        terminalreporter.write_line('  6. Installed package metadata (importlib.metadata)')
+        terminalreporter.write_line('  7. src/ directory')
+        terminalreporter.write_line('')
+        terminalreporter.write_line(
+            'If your source code is elsewhere, use: pytest --gremlins --gremlin-targets=your_package'
+        )
+    terminalreporter.write_line('')
+    terminalreporter.write_sep('=', '')
 
 
 def pytest_terminal_summary(  # noqa: C901, PLR0912, PLR0915
@@ -3936,30 +4091,11 @@ def pytest_terminal_summary(  # noqa: C901, PLR0912, PLR0915
     if gremlin_session is None or not gremlin_session.enabled:
         return
 
+    for notice in gremlin_session.terminal_notices:
+        terminalreporter.write_line(notice)
+
     if not gremlin_session.gremlins:
-        terminalreporter.write_sep('=', 'pytest-gremlins mutation report')
-        terminalreporter.write_line('')
-        if gremlin_session.target_paths:
-            terminalreporter.write_line('No gremlins found in source code. Searched paths:')
-            for searched_path in gremlin_session.target_paths:
-                terminalreporter.write_line(f'  - {searched_path}')
-        else:
-            terminalreporter.write_line('No gremlins found: no source paths were discovered.')
-            terminalreporter.write_line('')
-            terminalreporter.write_line('pytest-gremlins looks for source code in this order:')
-            terminalreporter.write_line('  1. --gremlin-targets CLI option')
-            terminalreporter.write_line('  2. [tool.pytest-gremlins] paths in pyproject.toml')
-            terminalreporter.write_line('  3. [tool.setuptools] package config in pyproject.toml')
-            terminalreporter.write_line('  4. [project].name heuristic in pyproject.toml')
-            terminalreporter.write_line('  5. setup.cfg [options] / [options.packages.find]')
-            terminalreporter.write_line('  6. Installed package metadata (importlib.metadata)')
-            terminalreporter.write_line('  7. src/ directory')
-            terminalreporter.write_line('')
-            terminalreporter.write_line(
-                'If your source code is elsewhere, use: pytest --gremlins --gremlin-targets=your_package'
-            )
-        terminalreporter.write_line('')
-        terminalreporter.write_sep('=', '')
+        _write_empty_run_report(terminalreporter, gremlin_session)
         return
 
     score = MutationScore.from_results(gremlin_session.results, mutant_timeout=gremlin_session.mutant_timeout)
@@ -3971,7 +4107,9 @@ def pytest_terminal_summary(  # noqa: C901, PLR0912, PLR0915
         raw_html_dir = config.getoption('gremlins_html_dir', default=None)
         html_dir = Path(raw_html_dir) if raw_html_dir is not None else None
         try:
-            report_path = _write_html_report(score, rootdir=rootdir, html_dir=html_dir)
+            report_path = _write_html_report(
+                score, rootdir=rootdir, html_dir=html_dir, skipped_files=gremlin_session.skipped_files
+            )
             terminalreporter.write_line(f'HTML report written to: {report_path}')
         except OSError as exc:
             logger.warning('Failed to write HTML report: %s', exc)
@@ -3979,7 +4117,7 @@ def pytest_terminal_summary(  # noqa: C901, PLR0912, PLR0915
 
     if 'json' in gremlin_session.report_formats:
         try:
-            json_path = _write_json_report(score, rootdir=rootdir)
+            json_path = _write_json_report(score, rootdir=rootdir, skipped_files=gremlin_session.skipped_files)
             terminalreporter.write_line(f'JSON report written to: {json_path}')
         except OSError as exc:
             logger.warning('Failed to write JSON report: %s', exc)

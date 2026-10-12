@@ -5,27 +5,74 @@ its predicates were reached only end to end through the case table.
 These pin the two contracts that shape cannot reach: a defensive branch
 no parse can produce, and the stability its readers rest on.
 """
+import dataclasses
+import itertools
+from collections.abc import Callable, Sequence, Set
+
 import pytest
 
-from nameparser._lexicon import Lexicon
-from nameparser._pipeline._assign import assign
+from nameparser import Parser, parse
+from nameparser._lexicon import Lexicon, _normalize
+from nameparser._pipeline import STAGES
 from nameparser._pipeline._classify import classify
+from nameparser._pipeline import _group
+from nameparser._pipeline import _pieces
 from nameparser._pipeline._group import group
+from nameparser._pipeline import _comma
 from nameparser._pipeline._pieces import (
-    _numeral_behind_the_initial_veto, is_leading_title, leading_titles,
-    peel_trailing, peel_walk, segment_suffix_reading, trailing_titles,
+    _anchors, _numeral_behind_the_initial_veto, anchor_in_reach,
+    credential_anchors,
+    JOINED, OPENS, TailRead, _chain_units,
+    credential_at_the_given_slot, is_leading_title,
+    join_connectives, leading_titles, merge_particle_runs,
+    read_trailing_run,
+    own_words, peel_trailing, peel_walk, segment_suffix_reading,
+    tail_reading, trailing_candidates, trailing_titles,
 )
 from nameparser._pipeline._segment import segment
-from nameparser._pipeline._state import ParseState
+from nameparser._pipeline._state import (
+    AMBIGUOUS_ACRONYM_TAG, ParseState, PendingAmbiguity, WorkToken,
+)
 from nameparser._pipeline._tokenize import tokenize
+from nameparser._pipeline._vocab import is_one_case, is_title_shaped, tag_marker_runs
 from nameparser._policy import Policy
 
+from ..cases import CASES
 
-def _through_group(text: str) -> ParseState:
+
+def _through_group(text: str, policy: Policy = Policy()) -> ParseState:
     state = ParseState(original=text, lexicon=Lexicon.default(),
-                       policy=Policy())
+                       policy=policy)
     for stage in (tokenize, segment, classify, group):
         state = stage(state)
+    return state
+
+
+def _comma_part(text: str) -> tuple[list[list[int]], list[set[str]],
+                                     list, bool | None]:
+    """The part after the first comma as `_comma.decide` reads it: the
+    tokens classify tagged, one piece each but the Ph./D. pair and a
+    title chain (#613, made by the connective joins group shares since
+    #617) -- the reading's own input, before group binds the part."""
+    state = ParseState(original=text, lexicon=Lexicon.default(),
+                       policy=Policy())
+    for stage in (tokenize, segment, classify):
+        state = stage(state)
+    tokens = list(state.tokens)
+    pieces, ptags = _comma._reading_pieces(state.segments[1], tokens)
+    return pieces, ptags, tokens, state.one_case
+
+
+def _state_through(stage_name: str, text: str) -> ParseState:
+    """Run the pipeline up to and including the named stage (STAGES'
+    own names), for a test that needs a state a later stage has not
+    yet touched (#289/#516)."""
+    state = ParseState(original=text, lexicon=Lexicon.default(),
+                       policy=Policy())
+    for stage in STAGES:
+        state = stage(state)
+        if stage.__name__ == stage_name:
+            break
     return state
 
 
@@ -65,33 +112,14 @@ def test_the_numeral_veto_refuses_a_multi_token_piece() -> None:
 def test_the_reading_is_positional_and_total() -> None:
     """One verdict per piece, in order -- the invariant its readers
     index by, and the only thing that makes reading[k] mean pieces[k].
-    Three read it until #436 took the render join out of group;
-    assign's gate and its router are what remain."""
-    state = _through_group("Smith, MD PSM I")
-    reading = segment_suffix_reading(
-        state.pieces[1], state.piece_tags[1], list(state.tokens), True)
+    Three read it until #436 took the render join out of group, then
+    assign's gate and its router; since #613 `_comma.decide` is the
+    one reader."""
+    pieces, ptags, tokens, one_case = _comma_part("Smith, MD PSM I")
+    reading = segment_suffix_reading(pieces, ptags, tokens, True, one_case)
     assert reading is not None
-    assert len(reading) == len(state.pieces[1])
+    assert len(reading) == len(pieces)
     assert all(isinstance(v, bool) for v in reading)
-
-
-def test_the_reading_does_not_move_when_roles_are_assigned() -> None:
-    """The stability the shared-predicate design rests on.
-
-    group reads the reading before assign runs and assign reads it
-    again afterwards; that is only safe because the predicates read
-    token TAGS and text, which assign never rewrites -- it writes
-    roles. If a stage ever tagged during assignment the two readers
-    would silently disagree, which is the drift #429 and #430 are.
-    """
-    state = _through_group("Smith, PSM I")
-    before = segment_suffix_reading(
-        state.pieces[1], state.piece_tags[1], list(state.tokens), True)
-    after_state = assign(state)
-    after = segment_suffix_reading(
-        after_state.pieces[1], after_state.piece_tags[1],
-        list(after_state.tokens), True)
-    assert before == after == (True, True)
 
 
 def test_strict_ends_the_run_at_the_initial_shaped_numeral() -> None:
@@ -99,12 +127,70 @@ def test_strict_ends_the_run_at_the_initial_shaped_numeral() -> None:
 
     Lenient continues the credential run through a one-character
     suffix word; strict vetoes initial-shaped words, so the run is no
-    run at all and the segment falls to the walk.
+    run at all and the segment falls to the walk. Asked behind a
+    title/suffix dual, which opens no part (#603). Behind a credential that does
+    open it ('PSM'), strict refuses the numeral the suffix reading but
+    the opened part takes it in all the same, and hands it to the
+    caller to report.
     """
-    state = _through_group("Smith, PSM I")
-    args = (state.pieces[1], state.piece_tags[1], list(state.tokens))
-    assert segment_suffix_reading(*args, True) == (True, True)
-    assert segment_suffix_reading(*args, False) is None
+    pieces, ptags, tokens, one_case = _comma_part("Smith, MD I")
+    args = (pieces, ptags, tokens)
+    assert segment_suffix_reading(*args, True, one_case) == (True, True)
+    assert segment_suffix_reading(*args, False, one_case) is None
+    pieces, ptags, tokens, one_case = _comma_part("Smith, PSM I")
+    args = (pieces, ptags, tokens)
+    for lenient, taken in ((True, []), (False, [1])):
+        absorbed: list[int] = []
+        assert segment_suffix_reading(*args, lenient, one_case,
+                                      None, absorbed) == (True, True)
+        assert absorbed == taken
+
+
+def _comma_part_reading(text: str) -> tuple[tuple[bool, ...] | None,
+                                            list[int]]:
+    pieces, ptags, tokens, one_case = _comma_part(text)
+    picks: list[int] = []
+    reading = segment_suffix_reading(pieces, ptags, tokens, True, one_case,
+                                     picks)
+    return reading, picks
+
+
+def test_the_reading_names_the_picks_its_anchor_made() -> None:
+    """#544: the members the anchor read as credentials after their
+    own writing declined -- the picks assign reports. A member whose
+    capitals lean credential decided itself and is not among them,
+    and nothing stands in front of piece 0 to anchor it."""
+    assert _comma_part_reading("Smith, PhD Ma") == ((True, True), [1])
+    assert _comma_part_reading("Smith, PhD MA") == ((True, True), [])
+    assert _comma_part_reading("Smith, Dr. PhD Ed Ma") == (
+        (False, True, True, True), [2, 3])
+    assert _comma_part_reading("Smith, MA PhD ba") == (
+        (True, True, True), [2])
+
+
+def test_a_dual_in_the_leading_title_run_turns_the_anchor_off() -> None:
+    """#544: a title/suffix dual standing in the given part's leading
+    title run is a title there, and this reading then anchors nothing
+    in the part -- neither by that dual, nor by a second one in the
+    same run, nor by a credential behind them -- so the walk reads it
+    as the parent did, its given slot's company starting past the
+    given name. A plain title does not do this, and a dual behind a
+    credential anchors like any suffix word."""
+    for text in ("Smith, Ms Ma", "Smith, Ms MD Ma", "Smith, MD PhD Ma",
+                 "Smith, MD MS Ma", "SMITH, MD MS BA",
+                 "Smith, Prof. MD Ma", "smith, prof. md ma",
+                 "Smith, Dr. MD PhD Ma"):
+        assert _comma_part_reading(text)[0] is None, text
+    assert _comma_part_reading("Smith, Dr. PhD LAc") == (
+        (False, True, True), [2])
+    assert _comma_part_reading("Smith, PhD Ms Ma") == (
+        (True, True, True), [2])
+    # with no member to anchor, the dual reads as the suffix it is
+    assert _comma_part_reading("Smith, MD PhD") == ((True, True), [])
+    # and the walk's given slot, past the given name, reads its own
+    # company as behind any given name
+    assert parse("Smith, MD PhD Jr Ma").suffix == "Jr Ma"
+    assert parse("Smith, MD PhD Jr Ma").given == "PhD"
 
 
 def _leading(text: str) -> int:
@@ -168,7 +254,7 @@ def _trailing(text: str) -> int:
     pieces, ptags = state.pieces[0], state.piece_tags[0]
     tokens = list(state.tokens)
     rest = peel_walk(leading_titles(pieces, ptags, tokens), ptags)
-    peeled = peel_trailing(rest, pieces, ptags, tokens)
+    peeled = peel_trailing(rest, pieces, ptags, tokens, state.one_case)
     return trailing_titles(rest[:peeled.names], pieces, ptags, tokens)
 
 
@@ -235,6 +321,317 @@ def test_the_trailing_run_refuses_a_joined_piece() -> None:
     assert _trailing("John Smith Prof. and Dr.") == 3
 
 
+def _peel_inputs(text: str, policy: Policy = Policy()
+                 ) -> tuple[list[int], Sequence[Sequence[int]],
+                           Sequence[Set[str]],
+                           Sequence[WorkToken]]:
+    """The trailing peel's own inputs for segment 0, run through
+    `group` (#289/#516's `one_case` reaches the peel only after group
+    has assigned tags, so the shorter `_through_group` fixture -- not
+    a bare tokenize+segment -- is what these tests need).
+
+    The walk starts AFTER the leading title run, exactly as
+    `_assign_main` and `_trailing` above start it: `peel_walk(0, ...)`
+    would leave a leading title piece sitting in `rest` as an ordinary
+    name piece the walk never filters out (peel_walk only drops
+    group-flagged suffix pieces), and 'Mr MA' needs the title excluded
+    to reach the one-piece floor its own test pins.
+    """
+    state = _through_group(text, policy)
+    pieces, ptags = state.pieces[0], state.piece_tags[0]
+    tokens = state.tokens
+    start = leading_titles(pieces, ptags, tokens)
+    return peel_walk(start, ptags), pieces, ptags, tokens
+
+
+def test_peel_trailing_takes_the_three_lean_outcomes() -> None:
+    # #289 at the trailing slot, the three outcomes against the peel's
+    # three: a CREDENTIAL lean consumes with no words to spare, a NAME
+    # lean declines WITH words to spare, and no lean at all leaves
+    # rules.md#S2's count deciding exactly as it did.
+    # Every case still REPORTS: the pick is appended either way, which
+    # is what the fork's report is built from.
+    for text, one_case, names, picked in (
+            ("Jack MA", False, 1, True),      # credential lean, k == 2
+            ("Jack Ma", False, 2, True),      # name lean, k == 2
+            ("Jack MA", True, 2, True),       # one case: today's count
+            ("John Smith Ma", False, 3, True),   # name lean, k == 3
+            ("John Smith MA", False, 2, True),   # credential lean
+            ("JOHN SMITH MA", True, 2, True),    # one case: the count
+    ):
+        rest, pieces, ptags, tokens = _peel_inputs(text)
+        peeled = peel_trailing(rest, pieces, ptags, tokens,
+                               one_case=one_case)
+        assert peeled.names == names, (text, one_case)
+        assert bool(peeled.picks) is picked, (text, one_case)
+
+
+def test_peel_trailing_keeps_its_two_piece_floor_under_a_lean() -> None:
+    # The floor is not what the lean moves. One piece behind a title
+    # never reaches the peel at all -- measured 2026-09-15, 'Mr MA'
+    # reads title 'Mr', family 'MA' and reports nothing -- and a lean
+    # that reached below `k >= 2` would read it as a title with a
+    # credential and no name at all.
+    rest, pieces, ptags, tokens = _peel_inputs("Mr MA")
+    peeled = peel_trailing(rest, pieces, ptags, tokens, one_case=False)
+    assert peeled.names == len(rest)
+    assert peeled.picks == ()
+
+
+def test_peel_trailing_takes_a_declined_pick_an_anchor_stands_before(
+) -> None:
+    # #544 reverses the cost decisions.md#S2 had accepted: the surname
+    # lean declines 'Ma', but the unambiguous 'Jr' IN FRONT of it
+    # anchors it, so the walk takes it and reaches 'Jr' too -- and the
+    # member is still a pick, reported as a counted one is.
+    rest, pieces, ptags, tokens = _peel_inputs("abdul Smith Jr Ma")
+    peeled = peel_trailing(rest, pieces, ptags, tokens, one_case=False)
+    assert peeled.names == len(rest) - 2
+    assert len(peeled.picks) == 1
+    # a credential BEHIND the member anchors nothing: the walk peels
+    # 'PhD' and stops at the declined 'Ma', a name word
+    rest, pieces, ptags, tokens = _peel_inputs("Wang Ma PhD")
+    peeled = peel_trailing(rest, pieces, ptags, tokens, one_case=False)
+    assert peeled.names == len(rest) - 1
+
+
+def test_the_walks_own_leading_piece_never_anchors_what_follows_it(
+) -> None:
+    # #544: a
+    # bare unambiguous suffix word standing in the walk's OWN leading
+    # position -- 'PhD'/'Om'/'Jr' are each unambiguous suffix
+    # vocabulary and also plausible given names/surnames -- must never
+    # anchor a member behind it, because that leading position is
+    # always the name H4's carve-out keeps. Anchoring it let the run
+    # collapse entirely: 'PhD Ma' read given 'PhD', suffix 'Ma',
+    # losing the family outright, rather than 'PhD Ma' keeping the
+    # reading the count alone gives it (given 'PhD', family 'Ma').
+    for text, family in (("Om Ma", "Ma"), ("PhD Ma", "Ma"),
+                         ("Jr Ma", "Ma")):
+        rest, pieces, ptags, tokens = _peel_inputs(text)
+        peeled = peel_trailing(rest, pieces, ptags, tokens, one_case=None)
+        assert peeled.names == len(rest), text
+    n = parse("Om Ma")
+    assert (n.given, n.family, n.suffix) == ("Om", "Ma", "")
+    n = parse("Om Ma Jr")
+    assert (n.given, n.family, n.suffix) == ("Om", "Ma", "Jr")
+    n = parse("PhD Ma")
+    assert (n.given, n.family, n.suffix) == ("PhD", "Ma", "")
+    # a genuine given name ahead of it frees the SAME word to anchor:
+    # 'Om' is no longer the walk's own leading piece once 'John' is,
+    # so it anchors 'Ma' exactly as any other unambiguous credential
+    # standing in front does
+    n = parse("John Om Ma")
+    assert (n.family, n.suffix) == ("", "Om Ma")
+
+
+def test_a_reserve_kept_leading_piece_beside_a_genuine_family_loss(
+) -> None:
+    # rules.md#S2's Accepted clause ("an unambiguous suffix is
+    # consumed even when that leaves no family name at all", 'Smith
+    # Jr.' -> family='') applies just the same when the LEADING piece
+    # is itself listed suffix vocabulary rather than an ordinary name:
+    # 'Om' is the walk's own leading piece and stays given (the
+    # reserve), but 'Jr' -- NOT the leading piece -- is still consumed
+    # unconditionally, leaving no family at all.
+    n = parse("Om Jr")
+    assert (n.given, n.family, n.suffix) == ("Om", "", "Jr")
+    # and 'Jr', standing in front of 'Ma' but not itself the leading
+    # piece, anchors it exactly as any other unambiguous credential
+    # does -- the boundary costs the family, not the anchor
+    n = parse("Om Jr Ma")
+    assert (n.given, n.family, n.suffix) == ("Om", "", "Jr Ma")
+
+
+def _anchored_words(text: str) -> list[str]:
+    rest, pieces, ptags, tokens = _peel_inputs(text)
+    return [" ".join(tokens[t].text for t in pieces[i])
+            for i, anchored in zip(
+                rest, credential_anchors(rest, pieces, ptags, tokens))
+            if anchored]
+
+
+def test_credential_anchors_reads_in_front_and_through_members() -> None:
+    # #544: a position is anchored when the run in FRONT of it holds a
+    # suffix piece that may anchor, and a lone member passes the
+    # anchor on to the member behind it
+    assert _anchored_words("John Smith PhD Ma") == ["Ma"]
+    assert _anchored_words("John Smith PhD Ed Ma") == ["Ed", "Ma"]
+    # the credential behind anchors nothing
+    assert _anchored_words("John Smith Ma PhD") == []
+    assert _anchored_words("Wang Ma PhD") == []
+
+
+def test_credential_anchors_stops_at_a_numeral_or_a_name_word() -> None:
+    # the piece straight behind the credential is marked whatever it
+    # is; what matters is the member past it, which a single-letter
+    # roman numeral (one letter, in any case, the shape a bare middle
+    # initial is written in) or a name word leaves unanchored. A
+    # multi-letter numeral is not this shape and anchors like any
+    # other suffix piece (pinned below).
+    assert _anchored_words("John Smith PhD v Ma") == ["v"]
+    assert _anchored_words("John Smith PhD Jones Ma") == ["Jones"]
+    assert _anchored_words("John Smith PhD III Ma") == ["III", "Ma"]
+
+
+def test_a_connective_or_a_numeral_suffix_word_anchors_nothing() -> None:
+    # the generational 'i' is also Catalan's conjunction, and between
+    # two name words it is a link (rules.md#P3); a single-letter roman
+    # numeral, in any case, is ONE LETTER, the shape a middle initial
+    # is written in -- not excluded for being "no credential", since a
+    # multi-letter numeral ('III') anchors like any other suffix word
+    # (pinned in `test_credential_anchors_stops_at_a_numeral...` and
+    # `test_a_multi_letter_numeral_anchors_like_any_suffix_word`
+    # below). Neither a connective nor a single-letter numeral may
+    # anchor.
+    state = _through_group("John Smith Jr Ma")
+    tokens = list(state.tokens)
+    jr = next(i for i, t in enumerate(tokens) if t.text == "Jr")
+    assert _anchors((jr,), tokens)
+    tokens[jr] = dataclasses.replace(
+        tokens[jr], tags=tokens[jr].tags | {"conjunction"})
+    assert not _anchors((jr,), tokens)
+    state = _through_group("John Smith v Ma")
+    v = next(i for i, t in enumerate(state.tokens) if t.text == "v")
+    assert not _anchors((v,), state.tokens)
+    # a particle that is also suffix vocabulary is the head of the
+    # family name behind it, not a credential: the same 'Jr' tagged a
+    # particle anchors nothing either
+    tokens[jr] = dataclasses.replace(
+        tokens[jr], tags=(tokens[jr].tags - {"conjunction"}) | {"particle"})
+    assert not _anchors((jr,), tokens)
+
+
+@pytest.mark.parametrize("text, fields", [
+    ("Jan vd Ma", {"given": "Jan", "family": "vd Ma"}),
+    ("Smith vd Ma, John", {"given": "John", "family": "Smith vd Ma"}),
+    ("Smith Mc Ma, John", {"given": "John", "family": "Smith Mc Ma"}),
+    ("D. Mc Ba Ed, Smith", {"given": "Smith", "family": "D. Mc Ba Ed"}),
+])
+def test_a_particle_in_suffix_vocabulary_anchors_nothing(
+        text: str, fields: dict[str, str]) -> None:
+    # #544: 'vd' and 'mc' are particle AND unambiguous suffix
+    # vocabulary; standing in front of a member they head the family
+    # name, and anchoring there split it around a suffix ('Smith vd
+    # Ma, John' read family 'Smith Ma', suffix 'vd'). A particle
+    # MEMBER is still anchored by a credential in front of it.
+    n = parse(text)
+    assert {k: v for k, v in n.as_dict().items() if v} == fields
+    assert parse("doe, jane v phd do").suffix == "v phd do"
+
+
+def test_anchor_in_reach_is_false_only_where_the_pass_is() -> None:
+    # the reach test is a necessary condition for the pass: False
+    # where the first piece in front past the lone members is no
+    # suffix piece, True (ask the pass) otherwise -- including where
+    # the pass then answers False, a non-anchoring suffix piece
+    # ('v') or the kept leading piece being in reach
+    for text, expect in (("John Smith Ma", False),
+                         ("John Smith Ed Ma", False),
+                         ("John Smith PhD Ma", True),
+                         ("John Smith PhD Ed Ma", True),
+                         ("John Smith PhD v Ma", True)):
+        rest, pieces, ptags, tokens = _peel_inputs(text)
+        back = rest[len(rest) - 2::-1]
+        assert anchor_in_reach(back, pieces, ptags, tokens) is expect, text
+        if not expect:
+            assert not credential_anchors(rest, pieces, ptags, tokens)[-1]
+    # `skip` splices pieces out of the walk
+    rest, pieces, ptags, tokens = _peel_inputs("John Smith PhD Ma")
+    assert not anchor_in_reach(rest[2::-1], pieces, ptags, tokens,
+                               skip={rest[2]})
+    # a merged split credential is ONE suffix piece of two tokens, and
+    # it anchors as the unsplit spelling does wherever it is in the
+    # walk -- after a comma ('John Smith Ph. D. MEng' is the no-comma
+    # peel's Accepted limit, the merged piece standing outside its walk)
+    assert parse("Doe, Jane Ph. D. MEng").suffix == "Ph. D. MEng"
+    assert parse("Smith, Ph. D. MEng").suffix == "Ph. D. MEng"
+    # and the member it speaks for reports as the pick it is
+    assert [(a.kind.value, [t.text for t in a.tokens])
+            for a in parse("Smith, Ph. D. MEng").ambiguities] == [
+        ("suffix-or-name", ["MEng"])]
+
+
+def test_a_multi_letter_numeral_anchors_like_any_suffix_word() -> None:
+    # #544: the exclusion is about SHAPE (a single letter
+    # reads as a middle initial, 'John Smith PhD V Ma' keeping 'V' a
+    # name word), not about numerals being no credential -- 'III' is
+    # unambiguous suffix vocabulary of more than one letter and
+    # anchors exactly as 'Jr' does.
+    n = parse("John Smith PhD III Ma")
+    assert (n.family, n.suffix) == ("Smith", "PhD III Ma")
+    # without the degree in front: the single letter is a middle
+    # initial and anchors nothing. With it, since #602, the degree
+    # starts a run to the end of the part and 'V Ma' are inside it
+    # ('John Smith PhD V Ma' reads suffix 'PhD V Ma').
+    n = parse("John Smith V Ma")
+    assert (n.middle, n.family, n.suffix) == ("Smith V", "Ma", "")
+
+
+def test_the_anchor_pass_starts_past_the_leading_title_run() -> None:
+    # a title/suffix dual opening the given part is a title there and
+    # anchors nothing, at the given slot and in the part read whole
+    assert parse("Smith, MD MA Ma").middle == "Ma"
+    assert parse("Smith, Ms Ma").given == "Ma"
+    # past that position the same dual anchors
+    assert parse("John Smith MD MEng").suffix == "MD MEng"
+
+
+def test_the_given_slot_asks_the_anchor_only_when_the_writing_declines(
+) -> None:
+    # #544: `credential_at_the_given_slot` takes the anchor as a THUNK
+    # and asks it last, so a member the writing already settles never
+    # pays for the anchor pass
+    calls: list[str] = []
+
+    def anchored() -> bool:
+        calls.append("asked")
+        return True
+
+    tokens = _through_group("Doe, John MA Ma do").tokens
+    caps, title, particle = (
+        next(t for t in tokens if t.text == text)
+        for text in ("MA", "Ma", "do"))
+    # the capitals lean credential, and one case leans nothing (the
+    # count's reading): neither asks
+    assert credential_at_the_given_slot(caps, False, anchored)
+    assert credential_at_the_given_slot(title, True, anchored)
+    assert calls == []
+    # a Title-case member and a particle member with no lean decline,
+    # so the anchor answers -- once each
+    assert credential_at_the_given_slot(title, False, anchored)
+    assert credential_at_the_given_slot(particle, True, anchored)
+    assert calls == ["asked", "asked"]
+    # with no anchor to ask, the declined reading stands
+    assert not credential_at_the_given_slot(title, False)
+    assert not credential_at_the_given_slot(particle, True)
+
+
+def test_a_shape_only_token_reports_without_being_taken() -> None:
+    # `Policy(unlisted_dotted_suffixes=False)`: name material
+    # everywhere, as 2.3 read it -- and
+    # the fork is still reported, because the parser chose the name
+    # reading over a credential one and that is the call a caller
+    # wants told (#516).
+    rest, pieces, ptags, tokens = _peel_inputs(
+        "John Smith X.Y.Z.", Policy(unlisted_dotted_suffixes=False))
+    peeled = peel_trailing(rest, pieces, ptags, tokens, one_case=False)
+    assert peeled.names == len(rest)
+    assert peeled.picks != ()
+
+
+def test_a_by_shape_token_takes_the_count_and_never_a_lean() -> None:
+    # A token admitted by SHAPE carries no writing convention to read,
+    # so the count decides it in either case spelling (#516).
+    for text, names in (("John Smith X.Y.Z.", 2),
+                        ("john smith x.y.z.", 2),
+                        ("Jack X.Y.Z.", 2)):
+        rest, pieces, ptags, tokens = _peel_inputs(text)
+        peeled = peel_trailing(rest, pieces, ptags, tokens, one_case=False)
+        assert peeled.names == names, text
+        assert peeled.picks != (), text
+
+
 @pytest.mark.parametrize("text, expected", [
     ("Xyz.", True),        # H2 (rules.md): an unlisted Latin abbreviation
     ("김민준.", False),     # #323: hangul has no period abbreviations
@@ -250,3 +647,652 @@ def test_leading_title_shape_refuses_an_initialless_script(
     state = _through_group(text + " Smith")
     assert is_leading_title(state.pieces[0][0], state.piece_tags[0][0],
                             state.tokens) is expected
+
+
+@pytest.mark.parametrize("text", [
+    "Xyz.", "Dr.", "Xyz", "X.", "田中.", "김민준.", "たなか.", "Kim김.", "J.",
+])
+def test_is_title_shaped_and_is_leading_title_agree(text: str) -> None:
+    # The two spellings of H2's shape test -- `is_title_shaped`'s own
+    # docstring and `is_leading_title`'s inline copy each point here --
+    # kept in step by a check over the UNION of both predicates' own
+    # example tables (this one and test_vocab.py's
+    # test_is_title_shaped_is_h2_s_shape_alone), rather than by a
+    # sentence alone (#289/#516 quality-review follow-up).
+    # 'Dr.' answers True through `is_leading_title`'s EARLIER
+    # `is_title_piece` (LISTED vocabulary) branch, not through the
+    # inline shape copy this test means to pin -- it stays in the
+    # union for parity with `is_title_shaped`'s own table (which
+    # answers True the same way, for the same reason: listed or not
+    # is a question neither predicate asks), not because it exercises
+    # the shape branch on either side.
+    state = _through_group(text + " Smith")
+    assert is_title_shaped(text) == is_leading_title(
+        state.pieces[0][0], state.piece_tags[0][0], state.tokens)
+
+
+def test_own_words_is_the_name_s_own_span_and_its_clause_cut() -> None:
+    # rules.md#P3 says the case question is asked of the name's OWN
+    # words. This helper is that span, taken off the token stream so
+    # both the site that runs before classify and classify itself ask
+    # one function (#289/#516).
+    state = _state_through("segment", "Jane née Jones Smith")
+    texts, cut = own_words(state.tokens, state.comma_offsets,
+                           state.lexicon.maiden_markers)
+    assert texts == ["Jane"]
+    assert cut == 1
+    # a delimited clause's tokens arrive with a role already set, so
+    # they are not the name's own words either
+    state = _state_through("segment", "Andrew (Andy) Perkins")
+    texts, cut = own_words(state.tokens, state.comma_offsets,
+                           state.lexicon.maiden_markers)
+    assert texts == ["Andrew", "Perkins"]
+    assert cut == 3
+    # `comma_offsets` is load-bearing only for a marker PHRASE whose
+    # words would otherwise straddle a comma: 'z domu' is one entry,
+    # and 'z' and 'domu' sit on opposite sides of the comma in 'Anna
+    # z, domu Nowak'. With the real offsets the two words are in
+    # different buckets, the phrase cannot complete, and clause_at
+    # falls through to the whole name; passing () collapses every
+    # token into one bucket, the phrase wrongly completes, and the
+    # cut lands at 'z' instead. Measured 2026-09-17.
+    state = _state_through("segment", "Anna z, domu Nowak")
+    texts, cut = own_words(state.tokens, state.comma_offsets,
+                           state.lexicon.maiden_markers)
+    assert texts == ["Anna", "z", "domu", "Nowak"]
+    assert cut == 4
+    texts, cut = own_words(state.tokens, (), state.lexicon.maiden_markers)
+    assert texts == ["Anna"]
+    assert cut == 1
+
+
+def test_own_words_takes_a_marker_map_when_the_caller_has_one() -> None:
+    # classify has already decided which tokens are marker RUN heads,
+    # so it hands that map over rather than paying a second walk.
+    state = _state_through("segment", "Jane née Jones Smith")
+    heads = {1: "vocab:maiden-marker", 2: "vocab:maiden-marker-cont"}
+    assert own_words(state.tokens, state.comma_offsets,
+                     state.lexicon.maiden_markers,
+                     heads) == (["Jane"], 1)
+    # an incomplete phrase entry: no head tag, so the map's answer is
+    # "no clause" -- and the self-built path agrees, since both now
+    # run the SAME completion test (#289/#516)
+    state = _state_through("segment", "Anna z Nowak")
+    assert own_words(state.tokens, state.comma_offsets,
+                     state.lexicon.maiden_markers,
+                     {}) == (["Anna", "z", "Nowak"], 3)
+    assert own_words(state.tokens, state.comma_offsets,
+                     state.lexicon.maiden_markers)[1] == 3
+
+
+def test_own_words_two_spellings_agree_on_the_one_case_verdict() -> None:
+    # #289/#516's fix: own_words' self-built path (no marker_tags map)
+    # now calls _vocab.tag_marker_runs -- the SAME run-completion test
+    # classify uses -- instead of approximating it with a text-only
+    # head walk (the retired first_marker_head). The two spellings
+    # below -- an explicit map built ahead of time, and none at all --
+    # are now the SAME computation, so they agree on the CUT, not just
+    # the verdict, by construction rather than by corpus luck.
+    #
+    # 'ANNA z Nowak, MD' is why the old approximation was not merely
+    # imprecise but wrong: 'z' opens the phrase entry 'z domu', which
+    # completes neither way, but the text-only walk took the open
+    # alone as the cut (1: just 'ANNA', one-case True), while the real
+    # run-completion test finds no run and falls through to the full
+    # own-words span (mixed case, False) -- a flipped verdict, not a
+    # different span with the same answer. Measured 2026-09-17.
+    for text in ("Anna z Nowak", "Anna z (domu) Nowak", "ANNA z Nowak, MD"):
+        state = _state_through("segment", text)
+        folded = [_normalize(t.text) for t in state.tokens]
+        built_map = tag_marker_runs(state.tokens, state.comma_offsets,
+                                    state.lexicon.maiden_markers, folded)
+        tagged = own_words(state.tokens, state.comma_offsets,
+                           state.lexicon.maiden_markers, built_map)
+        walked = own_words(state.tokens, state.comma_offsets,
+                           state.lexicon.maiden_markers)
+        assert tagged == walked, text
+        assert is_one_case(tagged[0]) == is_one_case(walked[0]), text
+
+
+def test_tag_marker_runs_answers_in_ascending_index_order() -> None:
+    """`own_words` depends on it, and nothing else said so.
+
+    Its own docstring states the requirement -- "`marker_tags`' keys
+    must arrive in index order for the walk below to find the SMALLEST
+    head in one pass" -- and then satisfies it by BREAKING at the first
+    head. So a map whose keys arrived out of order would cut the span
+    at whichever head happened to come first, silently, and every
+    caller's one-case verdict with it. The guarantee lives in
+    `tag_marker_runs`' left-to-right walk; this is the assertion that
+    holds it there (2026-09-18 review round).
+    """
+    for text in ("Anna z Nowak nee Jones", "Jane née Jones geb Schmidt",
+                 "Anna z domu Nowak nee Jones", "John Smith"):
+        state = _state_through("segment", text)
+        folded = [_normalize(t.text) for t in state.tokens]
+        keys = list(tag_marker_runs(state.tokens, state.comma_offsets,
+                                    state.lexicon.maiden_markers,
+                                    folded))
+        assert keys == sorted(keys), text
+
+
+#: The run words of the reach sweep below: unambiguous credentials,
+#: members (one a particle too), the two particles of the suffix
+#: vocabulary, a one-letter numeral, titles and a name word.
+_REACH_WORDS = ("PhD", "Jr", "MA", "Ma", "Ed", "Do", "vd", "Mc", "V",
+                "Prof.", "Dr.", "Jones")
+
+
+def _reach_failures(texts: Sequence[str]) -> list[str]:
+    """Every (text, segment, position, first_kept, start) at which
+    `anchor_in_reach` answers False while `credential_anchors` anchors
+    the lone member standing there -- the direction the reach test
+    must never get wrong, since a False skips the pass. Asked of every
+    segment of every text, over `order` both from the segment's first
+    piece and from past its leading title run, and with the leading
+    position both kept and read, the reach walking everything in
+    front each time (the superset every caller passes)."""
+    out = []
+    for text in texts:
+        state = _through_group(text)
+        tokens = state.tokens
+        for seg, (pieces, ptags) in enumerate(
+                zip(state.pieces, state.piece_tags)):
+            for start in {0, leading_titles(pieces, ptags, tokens)}:
+                order = range(start, len(pieces))
+                for first_kept in (True, False):
+                    anchors = credential_anchors(order, pieces, ptags,
+                                                 tokens, first_kept)
+                    for pos, m in enumerate(order):
+                        piece = pieces[m]
+                        if not (len(piece) == 1 and AMBIGUOUS_ACRONYM_TAG
+                                in tokens[piece[0]].tags):
+                            continue
+                        if anchors[pos] and not anchor_in_reach(
+                                range(m - 1, -1, -1), pieces, ptags,
+                                tokens):
+                            out.append(f"{text!r} seg {seg} at {m} "
+                                       f"first_kept={first_kept} "
+                                       f"start={start}")
+    return out
+
+
+def test_anchor_in_reach_never_hides_an_anchor() -> None:
+    """`anchor_in_reach` False implies `credential_anchors` False, at
+    every lone member of every segment, over the case table's texts
+    and every run of one to three `_REACH_WORDS` behind 'John Smith '
+    and 'Doe, Jane ' (4,497 distinct texts, 742 of them the table's;
+    0.23s on py3.11, measured 2026-09-28). RECORDED NEGATIVE CONTROL:
+    with the reach test reading a "vocab:suffix" token as no suffix
+    piece (returning False there), 878 positions fail (measured
+    2026-09-28)."""
+    texts = {case.text for case in CASES if case.policy is None
+             and case.locale is None}
+    for n in (1, 2, 3):
+        for run in itertools.product(_REACH_WORDS, repeat=n):
+            for head in ("John Smith ", "Doe, Jane "):
+                texts.add(head + " ".join(run))
+    failures = _reach_failures(sorted(texts))
+    assert not failures, (f"{len(failures)} anchored member(s) the "
+                          f"reach test hides:\n" + "\n".join(failures[:15]))
+
+
+def test_a_title_the_fixed_point_splices_out_keeps_no_peel_pick() -> None:
+    # tail_reading's resumed pass (#558) carries the picks of the walk
+    # before it, and that walk STOPPED at the title the chain then took:
+    # where the title is also an ambiguous acronym the stop was a pick,
+    # and a fresh walk over the spliced pieces never meets the word.
+    # No default title is an ambiguous acronym, so a caller's lexicon is
+    # the only way here. Recorded negative control (2026-10-01): with
+    # the drop removed, this reads the same fields and reports
+    # 'suffix-or-name' on 'Ma.', a word the parse took as a title.
+    parser = Parser(lexicon=Lexicon.default().add(titles={"ma"}))
+    name = parser.parse("John Smith Ma. PhD Jr.")
+    assert (name.title, name.given, name.family, name.suffix) == (
+        "Ma.", "John", "Smith", "PhD Jr.")
+    assert name.ambiguities == ()
+
+
+# rules.md#S2 (#602): a credential after the name core starts a run to
+# the end of its part. The exclusion tests pass before the change too:
+# they are the negative controls that make the first two meaningful.
+def test_a_credential_after_two_name_words_starts_the_run() -> None:
+    name = parse("John Smith PhD Jones")
+    assert (name.given, name.family, name.suffix, name.middle) == (
+        "John", "Smith", "PhD Jones", "")
+
+
+def test_a_title_word_inside_the_run_reads_as_a_title() -> None:
+    name = parse("Eric H. Holder Jr. Attorney General")
+    assert (name.title, name.suffix, name.family) == (
+        "Attorney General", "Jr.", "Holder")
+
+
+def test_a_title_word_never_starts_the_run() -> None:
+    # 746 title words are in no suffix set, many of them surnames
+    assert parse("Mary Jane King Smith").family == "Smith"
+
+
+def test_the_ambiguous_class_and_initials_do_not_start_the_run() -> None:
+    assert parse("John Smith MA Jones").family == "Jones"
+    assert parse("John Smith V Jones").family == "Jones"
+
+
+def test_a_joined_connective_does_not_start_the_run() -> None:
+    assert parse("Josep Carod i Rovira").suffix == ""
+
+
+def test_one_name_word_before_the_credential_is_no_core() -> None:
+    assert parse("John PhD Smith").family == "Smith"
+
+
+def test_the_given_part_after_a_family_comma_reads_the_run_too() -> None:
+    name = parse("Smith, John PhD Jones")
+    assert (name.given, name.family, name.suffix, name.middle) == (
+        "John", "Smith", "PhD Jones", "")
+
+
+def test_a_title_inside_the_given_parts_run_is_a_title() -> None:
+    name = parse("Holder, Eric Jr. Attorney General")
+    assert (name.title, name.suffix) == ("Attorney General", "Jr.")
+
+
+# #610: `trailing_candidates` is the maiden take's choice of which
+# clause words to read the clause-free view over, and its contract is
+# a SUPERSET of what `tail_reading` takes from that view. Checked AT
+# THE TAKE, on the pieces the take is handed -- before any join, which
+# is where it runs -- by wrapping `_group._maiden_take` and the
+# candidates call inside it: the clause-free name is the head plus every
+# clause word after the first (which the take always keeps), and every
+# piece the tail reading takes from it must fall at or after the cut.
+_CANDIDATE_HEADS = ("Jane Doe", "J.", "Jane van der Berg", "Mai Le",
+                    "abdul Berg", "John")
+_CANDIDATE_WORDS = ("Smith", "VI", "V", "III", "MA", "Ma", "PhD", "Jr.",
+                    "Prof.", "Dr.", "King.", "do", "DO", "de", "X.Y.Z.",
+                    "Ph. D.", "i", "Jones")
+
+
+def _candidate_misses(monkeypatch: pytest.MonkeyPatch,
+                      candidates: Callable[..., int] = trailing_candidates,
+                      ) -> list[str]:
+    misses: list[str] = []
+    seen: list[tuple[int, int]] = []
+    real_take = _group._maiden_take
+
+    def cut(lo: int, pieces: Sequence[Sequence[int]],
+            ptags: Sequence[Set[str]],
+            tokens: Sequence[WorkToken]) -> int:
+        c = candidates(lo, pieces, ptags, tokens)
+        seen.append((lo, c))
+        return c
+
+    def take(pieces: Sequence[Sequence[int]], ptags: Sequence[Set[str]],
+             tokens: Sequence[WorkToken], one_case: bool | None,
+             site: _group.ClauseSite,
+             ambiguities: list[PendingAmbiguity],
+             ) -> _group.MaidenIndices | None:
+        seen.clear()
+        answer = real_take(pieces, ptags, tokens, one_case, site,
+                           ambiguities)
+        for lo, c in seen:
+            m = next(v for v in range(1, len(pieces))
+                     if _group._is_maiden_marker_piece(pieces[v], tokens))
+            left = list(range(m)) + list(range(lo + 1, len(pieces)))
+            view = [pieces[q] for q in left]
+            vtags = [ptags[q] for q in left]
+            rest = peel_walk(leading_titles(view, vtags, tokens), vtags)
+            kept, chained, peel = tail_reading(rest, view, vtags, tokens,
+                                               one_case)
+            taken = {left[q] for q in (*kept[peel.names:], *chained)
+                     if q >= m}
+            if any(j < c for j in taken):
+                misses.append(" ".join(tokens[i].text for p in pieces
+                                       for i in p))
+        return answer
+
+    monkeypatch.setattr(_group, "trailing_candidates", cut)
+    monkeypatch.setattr(_group, "_maiden_take", take)
+    for head in _CANDIDATE_HEADS:
+        for n in (1, 2, 3):
+            for tail in itertools.product(_CANDIDATE_WORDS, repeat=n):
+                _through_group(f"{head} nee Smith {' '.join(tail)}")
+    return misses
+
+
+def test_the_trailing_candidates_cover_what_the_tail_reading_takes(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """M2's take ends the clause at the trailing run the clause-free
+    name reads, which it can only find if every word that run might
+    hold is in its view. 6 heads x 18 words to a tail of three after
+    'nee Smith', 37,044 parses through `group`, about 2.6s on py3.11
+    (measured 2026-10-04).
+
+    RECORDED NEGATIVE CONTROL, measured 2026-10-04 on this grid: the
+    candidate loop as #601 shipped it (master 8a8459a8), which admitted
+    a roman numeral by its shape only as the clause's LAST word, misses
+    432 texts -- every one a numeral in no wordlist ('VI') with
+    a period-marked title or the merged 'Ph. D.' behind it. The chain
+    takes the title first, and the walk never holds the flagged
+    'Ph. D.', so either way the numeral is the walk's last piece and
+    the fork reads it: 'Jane Doe nee Smith VI Prof.' kept maiden 'Smith
+    VI' where 'John Smith VI Prof.' reads suffix 'VI'. A first draft of
+    the fix covered the title half and missed the 'Ph. D.' half.
+
+    A first version of this test read plain names through all of
+    `group`, so its pieces had the joins applied that the take runs
+    before ('de VI Prof.' arrived as one piece); review moved the
+    oracle to the take itself.
+    """
+    assert _candidate_misses(monkeypatch) == []
+
+
+def _joined(text: str, *, letter_stays: bool, titles_only: bool,
+            frozen_words: Set[str] = frozenset(),
+            ) -> tuple[list[str], list[set[str]]]:
+    """`join_connectives` over a whole name's words as classify tagged
+    them, one fresh piece each -- what it takes from either caller --
+    with the words in `frozen_words` frozen by token. Returns each
+    piece's text and its tags."""
+    state = _state_through("classify", text)
+    tokens = list(state.tokens)
+    pieces = [[i] for i in state.segments[0]]
+    ptags: list[set[str]] = [set() for _ in pieces]
+    frozen = {i for i, t in enumerate(tokens) if t.text in frozen_words}
+    join_connectives(pieces, ptags, tokens, letter_stays=letter_stays,
+                     titles_only=titles_only, frozen=frozen)
+    return [" ".join(tokens[i].text for i in p) for p in pieces], ptags
+
+
+def test_a_connective_run_merges_before_it_joins_in_both_modes() -> None:
+    """rules.md#P3's "connective runs included", for both callers: the
+    run joins as one link, so a title before it takes the word after it
+    too. The comma decision's copy of the loop merged no run and joined
+    'Minister of the' alone (#617)."""
+    for titles_only in (True, False):
+        words, ptags = _joined("Minister of the Interior Smith",
+                               letter_stays=True, titles_only=titles_only)
+        assert words == ["Minister of the Interior", "Smith"], titles_only
+        assert "title" in ptags[0], titles_only
+
+
+def test_titles_only_leaves_a_join_with_no_title_unmade() -> None:
+    """The comma part's mode: a connective whose neighbour is no title
+    stays a word for the reading to place; group's mode joins it
+    anyway, taking no title kind."""
+    words, _ = _joined("Jones and Smith", letter_stays=True,
+                       titles_only=True)
+    assert words == ["Jones", "and", "Smith"]
+    words, ptags = _joined("Jones and Smith", letter_stays=True,
+                           titles_only=False)
+    assert words == ["Jones and Smith"]
+    assert "title" not in ptags[0]
+
+
+def test_the_single_letter_carve_out_is_the_callers_answer() -> None:
+    """`letter_stays` is P3's carve-out as the caller reads it: group
+    from the rootname count, the comma part always."""
+    assert _joined("Mr. y Mrs.", letter_stays=True,
+                   titles_only=True)[0] == ["Mr.", "y", "Mrs."]
+    assert _joined("Mr. y Mrs.", letter_stays=False,
+                   titles_only=True)[0] == ["Mr. y Mrs."]
+
+
+def test_a_frozen_connective_neither_joins_nor_merges_into_a_run() -> None:
+    """`frozen` names connectives by TOKEN index; one there is the
+    subject of no join and no run merge (a neighbour's join may still
+    take it in, group's documented reach)."""
+    assert _joined("Mr. and of Mrs.", letter_stays=True, titles_only=True,
+                   frozen_words={"of"})[0] == ["Mr. and of", "Mrs."]
+    assert _joined("Mr. and of Mrs.", letter_stays=True,
+                   titles_only=True)[0] == ["Mr. and of Mrs."]
+    # the join half: a frozen connective is no join's subject, whatever
+    # its neighbours are (the run above never reaches it as one, the
+    # 'and' join taking it in first -- #617's test review)
+    assert _joined("Mr. and Mrs.", letter_stays=True, titles_only=True,
+                   frozen_words={"and"})[0] == ["Mr.", "and", "Mrs."]
+
+
+def test_only_groups_joins_derive_a_prefix() -> None:
+    """Group's mode takes the neighbour's prefix kind, which is what
+    lets a joined 'von und zu' chain on as a particle (v1 PR #191);
+    the comma part's titles-only mode takes none, nothing there being
+    a particle chain. `und` is a connective in the default vocabulary
+    and no particle, so the derivation and not the particle chain is
+    what is read."""
+    words, ptags = _joined("Otto von und zu Habsburg", letter_stays=False,
+                           titles_only=False)
+    assert words == ["Otto", "von und zu", "Habsburg"]
+    assert "prefix" in ptags[1] and "title" not in ptags[1]
+    # 'freiherr' is a title AND a particle: titles-only takes the title
+    words, ptags = _joined("Freiherr and Dr.", letter_stays=True,
+                           titles_only=True)
+    assert words == ["Freiherr and Dr."]
+    assert "title" in ptags[0] and "prefix" not in ptags[0]
+
+
+def _read(text: str) -> tuple[ParseState, tuple[TailRead, int] | None]:
+    """S2's trailing read (#614) over a whole name's words as classify
+    tagged them, one piece each, the particle runs merged as group
+    merges them ahead of the read (#625)."""
+    state = _state_through("classify", text)
+    tokens = list(state.tokens)
+    pieces = [[i] for i in state.segments[0]]
+    ptags: list[set[str]] = [set() for _ in pieces]
+    n = leading_titles(pieces, ptags, tokens)
+    _merged, lead = merge_particle_runs(pieces, ptags, tokens, n)
+    return state, read_trailing_run(pieces, ptags, tokens, state.one_case,
+                                    n, lead)
+
+
+def _merged_pieces(state: ParseState) -> tuple[list[list[int]],
+                                               list[set[str]]]:
+    pieces = [[i] for i in state.segments[0]]
+    ptags: list[set[str]] = [set() for _ in pieces]
+    tokens = list(state.tokens)
+    merge_particle_runs(pieces, ptags, tokens,
+                        leading_titles(pieces, ptags, tokens))
+    return pieces, ptags
+
+
+def _texts(state: ParseState, indices: Set[int]) -> list[str]:
+    return sorted(state.tokens[i].text for i in indices)
+
+
+def test_the_trailing_read_hands_over_the_run_whole() -> None:
+    """Every answer assign takes off the read: where the run starts,
+    its tokens, the H5 chain's titles, the title words inside #602's run
+    and the name word that run absorbed."""
+    state, found = _read("John Smith PhD Prof Jones Dr.")
+    assert found is not None
+    read, start = found
+    assert start == 2
+    assert _texts(state, read.tail) == ["Dr.", "Jones", "PhD", "Prof"]
+    assert _texts(state, read.titles) == ["Dr."]
+    assert _texts(state, read.run_titles) == ["Prof"]
+    assert [[state.tokens[i].text for i in p] for p in read.peel.absorbed] \
+        == [["Jones"]]
+
+
+def test_the_trailing_read_counts_a_particle_chain_as_one_word() -> None:
+    """The chain's run and the word it takes are one name word, so a
+    dotted acronym behind them has no word to spare and the read takes
+    nothing: a run of no pieces, at the end."""
+    state, found = _read("Freiherr von Berg X.Y.Z.")
+    assert found is not None
+    read, start = found
+    assert read.tail == frozenset() and start == len(state.segments[0])
+
+
+def test_the_trailing_read_declines_where_there_is_nothing_to_split() -> None:
+    """None where no name piece stands past the leading titles, and
+    where the run holds a name piece (a title in front of a name word
+    the peel declined), which is read as before #614."""
+    assert _read("Dr.")[1] is None
+    assert _read("John Dr. G.J.")[1] is None
+
+
+def _units(text: str) -> list[tuple[str, int]]:
+    """`_chain_units` over a whole name's pieces as group holds them at
+    the read, as (piece text, mark) pairs."""
+    state = _state_through("classify", text)
+    pieces, ptags = _merged_pieces(state)
+    tokens = list(state.tokens)
+    units = _chain_units(pieces, ptags, tokens,
+                         leading_titles(pieces, ptags, tokens))
+    assert units is not None
+    return [(" ".join(tokens[i].text for i in p), u)
+            for p, u in zip(pieces, units)]
+
+
+def test_the_read_marks_the_units_the_chain_will_make() -> None:
+    """#620: a particle opens a unit, and a name word the chain joins to
+    it is JOINED; a suffix piece ends the run and stays a unit of its
+    own. The particles behind it are in its piece already, a dual among
+    them no word of its own ('van mc', #625)."""
+    marks = _units("John van mc Berg PhD")
+    assert marks == [("John", OPENS), ("van mc", OPENS),
+                     ("Berg", JOINED), ("PhD", OPENS)]
+
+
+def test_the_chain_opens_no_unit_inside_the_titles() -> None:
+    """#624: of two titles that are also particles the second leads the
+    chain (`chain_lead`), so no unit opens inside the titles: 'van'
+    opens the first, past them. A word the reading weighs ('MA') is a
+    word of its own though the chain may join it."""
+    marks = _units("Freiherr St van Berg MA")
+    assert [u for _, u in marks] == [OPENS, OPENS, OPENS, JOINED, OPENS]
+    marks = _units("Freiherr St MA")
+    assert [u for _, u in marks] == [OPENS, OPENS, OPENS]
+
+
+def test_a_merged_particle_run_is_a_particle_and_no_title() -> None:
+    """#625: the particles straight behind each other past the chain's
+    lead merge into one piece that keeps `prefix` and drops `title`.
+    P3's join carries the title tag in from a word in both vocabularies
+    ('St und Berg'), and kept on the merged run it read the run as a
+    leading title: 'Freiherr Do St und Berg MA' read title 'Freiherr Do
+    St und Berg' with the tag kept, family 'Do St und Berg' without it.
+    The particle leading the name stays out of the merge (P4), so 'de
+    la van Vega' merges 'la van' alone; two runs in one name merge
+    each, and a lone particle is no run ('John van Smith de la
+    Berg')."""
+    state = _state_through("classify", "Freiherr Do St und Berg MA")
+    tokens = list(state.tokens)
+    pieces = [[i] for i in state.segments[0]]
+    ptags: list[set[str]] = [set() for _ in pieces]
+    join_connectives(pieces, ptags, tokens, letter_stays=False,
+                     titles_only=False)
+    assert "title" in ptags[2]
+    merged, lead = merge_particle_runs(pieces, ptags, tokens,
+                                       leading_titles(pieces, ptags, tokens))
+    assert lead == 0
+    assert [" ".join(tokens[i].text for i in p) for p in pieces] \
+        == ["Freiherr", "Do St und Berg", "MA"]
+    assert "prefix" in ptags[1] and "title" not in ptags[1]
+    assert merged == {pieces[1][0]}
+    state = _state_through("classify", "de la van Vega")
+    tokens = list(state.tokens)
+    pieces = [[i] for i in state.segments[0]]
+    ptags = [set() for _ in pieces]
+    merged, lead = merge_particle_runs(pieces, ptags, tokens, 0)
+    assert lead == 0
+    assert [" ".join(tokens[i].text for i in p) for p in pieces] \
+        == ["de", "la van", "Vega"]
+    for text, want in (
+            ("John van der Smith de la Berg",
+             ["John", "van der", "Smith", "de la", "Berg"]),
+            ("John van Smith de la Berg",
+             ["John", "van", "Smith", "de la", "Berg"])):
+        state = _state_through("classify", text)
+        tokens = list(state.tokens)
+        pieces = [[i] for i in state.segments[0]]
+        ptags = [set() for _ in pieces]
+        merged, _lead = merge_particle_runs(pieces, ptags, tokens, 0)
+        assert [" ".join(tokens[i].text for i in p) for p in pieces] \
+            == want
+        assert merged == {p[0] for p in pieces if len(p) > 1}
+
+
+def test_the_read_takes_the_title_run_as_written_before_the_merge(
+) -> None:
+    """#625: group hands the read the title run read before the merge.
+    Merging 'mc mc' makes it no suffix piece, which would undo H3's
+    give-back of 'Dr.' and move the name's start; the read keeps the
+    run as written, so the credential run behind the first 'mc' stays
+    the read's. Recorded negative controls (2026-10-10): with the read
+    asking `leading_titles` again after the merge, the read takes
+    nothing here and the parse reads family 'mc Jr mc mc'; with group
+    handing the read the run asked after the merge, the read helper
+    below cannot see it and the parse assertion fails the same way."""
+    state, found = _read("Dr. mc Jr mc mc")
+    assert found is not None
+    read, start = found
+    assert start == 2
+    assert _texts(state, read.tail) == ["Jr", "mc", "mc"]
+    name = parse("Dr. mc Jr mc mc")
+    assert (name.title, name.family, name.suffix) == ("Dr.", "mc",
+                                                       "Jr mc mc")
+
+
+_WEIGHED_GRID_HEADS = ("John van", "Freiherr von", "anh van", "Jan de la",
+                       "John van Berg", "Freiherr von Berg")
+_WEIGHED_GRID_WORDS = ("MA", "Ma", "ma", "DO", "do", "vd", "mc", "V", "VI",
+                       "III", "X.Y.Z.", "G.J.", "XYZ", "PhD", "Jr", "Jr.",
+                       "J.", "Prof.", "Dr.", "Prof", "Jones", "and")
+
+
+def _weighed_grid_violations() -> list[str]:
+    """The names over the grid whose trailing read puts a piece
+    `_chain_units` marks JOINED into the run."""
+    bad = []
+    for head in _WEIGHED_GRID_HEADS:
+        for n in (1, 2):
+            for tail in itertools.product(_WEIGHED_GRID_WORDS, repeat=n):
+                text = " ".join((head,) + tail)
+                state, found = _read(text)
+                if found is None:
+                    continue
+                pieces, ptags = _merged_pieces(state)
+                tokens = list(state.tokens)
+                units = _chain_units(pieces, ptags, tokens,
+                                     leading_titles(pieces, ptags, tokens))
+                if units is None:
+                    continue
+                read, _start = found
+                if any(units[k] == JOINED and p[0] in read.tail
+                       for k, p in enumerate(pieces)):
+                    bad.append(text)
+    return bad
+
+
+def test_a_word_the_read_takes_is_never_one_the_count_joined() -> None:
+    """`_weighed` is a hand statement of what the trailing reading
+    weighs, and this is what pins it to the reading: over the grid, no
+    piece the count folded into a particle run as a plain word ends up
+    in the run the read takes (#620's /simplify, after
+    `trailing_candidates`' pin against `tail_reading`). An `initial` is
+    weighed for the numeral fork's count rather than for being taken,
+    so this cannot see it; its case row holds it. Recorded negative
+    control (2026-10-08): with `_weighed` answering False, 320 of the
+    grid's names fail ('John van Prof.', 'John van MA Prof.')."""
+    assert _weighed_grid_violations() == []
+
+
+def test_the_second_unit_is_found_once_per_read(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """The second name unit is looked up once for the read and handed
+    to every pass, not rescanned from the front by each pass, which
+    cost the square of a credential run behind a long joined surname
+    -- C-level work no frame guard sees (#620's /simplify, measured
+    5.77x for 4x the input against master's 4.08x). Recorded negative
+    control: one lookup per pass, 32 at the size below."""
+    calls = [0]
+    real = _pieces.second_unit
+
+    def counting(rest: Sequence[int], units: Sequence[int]) -> int:
+        calls[0] += 1
+        return real(rest, units)
+
+    monkeypatch.setattr(_pieces, "second_unit", counting)
+    parse("Freiherr von " + "Berg " * 32 + "MA Dr. " * 32)
+    assert calls[0] == 1

@@ -8,15 +8,19 @@ from typing import Any
 import sqlbuild._native as _native
 from sqlbuild.compiler.compile.classes.semantic_completion_inputs import SemanticCompletionInputs
 from sqlbuild.compiler.compile.constants import UNNEEDED_SQL_ANALYSIS_OPT_OUT_CODE
-from sqlbuild.compiler.compile.models import CompiledModel, CompiledProject, CompilerDiagnostic
+from sqlbuild.compiler.compile.models import CompilerDiagnostic
 from sqlbuild.compiler.compile.types import (
+    CompiledModelView,
+    CompiledProjectView,
     CompiledResourceType,
     DiagnosticPhase,
     DiagnosticSeverity,
 )
-from sqlbuild.compiler.semantic_checks._helpers.deferrals import record_semantic_deferral
+from sqlbuild.compiler.compiled_project.main._with_binding_diagnostics import (
+    with_binding_diagnostics,
+)
+from sqlbuild.compiler.compiled_project.main.project_with import project_with
 from sqlbuild.compiler.semantic_checks._helpers.payloads import diagnostic_ids, lineage_payload
-from sqlbuild.compiler.semantic_checks.constants import COMPLETION_DEFERRAL_SITE
 from sqlbuild.spec.contracts.models import SourceLocation
 
 _RECOVERED_CODE: str = "B002"
@@ -29,12 +33,12 @@ type _Completed = tuple[
 
 def complete_native_diagnostics(
     *,
-    project: CompiledProject,
+    project: CompiledProjectView,
     catalog: object,
     session: Any | None,
     session_models: frozenset[str],
-) -> CompiledProject | None:
-    """Return the recovered, explained and opt-out-checked project, or None to use Python."""
+) -> CompiledProjectView:
+    """The recovered, explained and opt-out-checked project; a native internal failure raises."""
 
     ids: dict[CompilerDiagnostic, int] = diagnostic_ids(project)
     recovers: bool = any(item.code == _RECOVERED_CODE for item in project.diagnostics)
@@ -50,20 +54,15 @@ def complete_native_diagnostics(
         ],
         [(name, list(columns.items())) for name, columns in shapes.items()],
     )
-    deferral, completed, model_bindings, order = _native.complete_semantic_checks(
-        catalog, request, session
-    )
-    if deferral is not None:
-        record_semantic_deferral(kind=deferral, site=COMPLETION_DEFERRAL_SITE)
-        return None
+    completed, model_bindings, order = _native.complete_semantic_checks(catalog, request, session)
     diagnostics: list[CompilerDiagnostic] = [
         _completed(original=project.diagnostics[row[0]], row=row) for row in completed
     ]
-    models: tuple[CompiledModel, ...] = project.models
+    models: tuple[CompiledModelView, ...] = project.models
     if model_bindings is not None:
         models = tuple(
-            replace(
-                model, binding_diagnostics=_positions(diagnostics=diagnostics, positions=positions)
+            with_binding_diagnostics(
+                model=model, diagnostics=_positions(diagnostics=diagnostics, positions=positions)
             )
             for model, positions in zip(project.models, model_bindings, strict=True)
         )
@@ -78,7 +77,7 @@ def complete_native_diagnostics(
                     model=project.models[index], message=message, note=note, help_text=help_text
                 )
             )
-    return replace(project, models=models, diagnostics=tuple(final))
+    return project_with(project=project, models=models, diagnostics=tuple(final))
 
 
 def _positions(
@@ -107,7 +106,9 @@ def _diagnostic_payload(
     )
 
 
-def _model_payload(*, model: CompiledModel, lineage: bool, from_session: bool) -> tuple[Any, ...]:
+def _model_payload(
+    *, model: CompiledModelView, lineage: bool, from_session: bool
+) -> tuple[Any, ...]:
     opt_out: SourceLocation | None = model.rejected_sql_analysis_opt_out
     return (
         model.name,
@@ -147,7 +148,7 @@ def _completed(*, original: CompilerDiagnostic, row: _Completed) -> CompilerDiag
 
 
 def _opt_out(
-    *, model: CompiledModel, message: str, note: str, help_text: str
+    *, model: CompiledModelView, message: str, note: str, help_text: str
 ) -> CompilerDiagnostic:
     return CompilerDiagnostic(
         phase=DiagnosticPhase.COMPILE,
@@ -163,7 +164,7 @@ def _opt_out(
 
 
 def _lineage(
-    *, model: CompiledModel, lineage: bool, from_session: bool
+    *, model: CompiledModelView, lineage: bool, from_session: bool
 ) -> list[tuple[str, list[tuple[str, str]]]] | None:
     """The model's lineage rows; None asks for the session's, and only recovery reads them."""
 

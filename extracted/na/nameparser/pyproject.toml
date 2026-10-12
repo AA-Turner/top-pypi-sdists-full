@@ -17,6 +17,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Development Status :: 5 - Production/Stable",
   "Natural Language :: English",
   "Topic :: Software Development :: Libraries :: Python Modules",
@@ -82,6 +83,18 @@ disallow_any_generics = true
 warn_return_any = true
 strict_equality = true
 
+# strict_equality for the WHOLE package rather than the core modules
+# above. A comparison between non-overlapping types is always False and
+# is always a bug, and the facade layer -- which the block above does
+# not name -- is exactly where a v1/v2 translation makes one likeliest.
+# Measured 2026-09-18: clean over nameparser/ as it stands, so this
+# costs nothing today and catches the next one. tests/ keep the default,
+# where the check has real hits (a test comparing an off-contract value
+# to a real one is doing its job).
+[[tool.mypy.overrides]]
+module = ["nameparser", "nameparser.*"]
+strict_equality = true
+
 [[tool.mypy.overrides]]
 module = ["tests.v2.*"]
 check_untyped_defs = true
@@ -107,6 +120,7 @@ filterwarnings = [
 extend-select = [
   "ANN",   # flake8-annotations
   "UP",    # pyupgrade
+  "B033",  # duplicate set items: a frozenset drops them silently, so a bulk vocabulary import can carry them unseen
 ]
 ignore = [
   "E74",     # ambiguous-{variable,class,function}-name (I have trouble believing that these are real rules)

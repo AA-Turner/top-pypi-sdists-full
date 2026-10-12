@@ -1,85 +1,17 @@
-use crate::fingerprinting::ffmpeg_wrapper::{decode_with_ffmpeg, decode_with_ffmpeg_from_bytes};
+use crate::fingerprinting::decode::MonoDecoder;
 use crate::fingerprinting::hanning::HANNING_WINDOW_2048_MULTIPLIERS;
+use crate::fingerprinting::resample::Resampling;
 use crate::fingerprinting::signature_format::{DecodedSignature, FrequencyBand, FrequencyPeak};
 use chfft::RFft1D;
-use rodio::source::{SeekError, UniformSourceIterator};
-use rodio::{ChannelCount, Sample, SampleRate, Source};
 use std::collections::HashMap;
 use std::error::Error;
-use std::io::{BufReader, Cursor};
 use std::path::Path;
-use std::time::Duration;
 
-// The fingerprint is defined over mono 16 kHz PCM; every input is resampled to
-// it before anything else happens.
-const TARGET_CHANNELS: ChannelCount = ChannelCount::new(1).unwrap();
-const TARGET_SAMPLE_RATE: SampleRate = SampleRate::new(16000).unwrap();
+// The rate every entry point resamples to before fingerprinting, and the rate the
+//  signature declares.
+pub(crate) const SAMPLE_RATE_HZ: u32 = 16000;
 
-// `rodio` handed out `i16` samples until 0.20 and hands out `f32` in
-// [-1.0, 1.0] from 0.21 on, so the scale has to be put back. This is the
-// `f32` -> `i16` conversion of `symphonia`, the decoder behind every format
-// read here, so the samples reaching the fingerprint are the ones it was
-// defined over.
-// https://github.com/pdeljanov/Symphonia/blob/v0.5.5/symphonia-core/src/conv.rs#L606
-fn to_i16(sample: Sample) -> i16 {
-    (sample.clamp(-1.0, 1.0) * 32_768.0) as i16
-}
-
-// `UniformSourceIterator` takes the length of the span it wraps from
-// `current_span_len()`, so `Some(0)` wraps a `Take` of zero samples: it yields
-// nothing, re-bootstraps once, reads zero again because the source never
-// advanced, and ends. `None` is the only answer that makes the wrap unbounded.
-// https://github.com/RustAudio/rodio/blob/v0.22.2/src/source/uniform.rs#L49-L67
-//
-// `symphonia`'s Vorbis decoder answers `Some(0)` for the first packet, so every
-// `.ogg` file resampled to an empty signature. Non-zero spans pass through
-// untouched, which leaves every other decoder exactly as it was -- measured
-// against `rodio` 0.22.2 alone, decoding then resampling to mono 16 kHz:
-//
-//   probe16k.ogg   span=Some(0)     raw=320128   uniform=0
-//   probe16k.flac  span=Some(1152)  raw=320000   uniform=320000
-//   probe.mp3      span=Some(94)    raw=1764000  uniform=320034
-struct NonEmptySpans<S: Source>(S);
-
-impl<S: Source> Iterator for NonEmptySpans<S> {
-    type Item = Sample;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
-    }
-}
-
-impl<S: Source> Source for NonEmptySpans<S> {
-    fn current_span_len(&self) -> Option<usize> {
-        match self.0.current_span_len() {
-            Some(0) => None,
-            span => span,
-        }
-    }
-
-    fn channels(&self) -> ChannelCount {
-        self.0.channels()
-    }
-
-    fn sample_rate(&self) -> SampleRate {
-        self.0.sample_rate()
-    }
-
-    fn total_duration(&self) -> Option<Duration> {
-        self.0.total_duration()
-    }
-
-    fn try_seek(&mut self, pos: Duration) -> Result<(), SeekError> {
-        self.0.try_seek(pos)
-    }
-}
-
-// Resample to the mono 16 kHz PCM the fingerprint is defined over.
-fn to_mono_16khz(source: impl Source) -> Vec<i16> {
-    let uniform =
-        UniformSourceIterator::new(NonEmptySpans(source), TARGET_CHANNELS, TARGET_SAMPLE_RATE);
-    uniform.map(to_i16).collect()
-}
+pub(crate) const DEFAULT_SEGMENT_SECONDS: u32 = 10;
 
 pub struct SignatureGenerator {
     ring_buffer_of_samples: Vec<i16>,
@@ -95,80 +27,73 @@ pub struct SignatureGenerator {
 }
 
 impl SignatureGenerator {
+    // Decoded, mixed down and resampled a packet at a time, so nothing longer than one
+    //  packet of the source is ever held beside the 16 kHz result.
+    fn pcm_samples(mut decoder: MonoDecoder) -> Result<Vec<i16>, Box<dyn Error>> {
+        let mut resampling = Resampling::new(decoder.spec().rate())?;
+        let mut mono_frames = Vec::new();
+
+        while decoder.next_chunk(&mut mono_frames)? {
+            resampling.push(&mono_frames)?;
+        }
+
+        resampling.finish()
+    }
+
+    // A file no longer than the requested segment is fingerprinted whole; a longer one
+    //  is cut from its middle, where recognition odds are best.
+    fn middle_segment(samples: &[i16], segment_duration_seconds: Option<u32>) -> &[i16] {
+        let duration_seconds = segment_duration_seconds.unwrap_or(DEFAULT_SEGMENT_SECONDS);
+
+        // The product leaves `u32` at 268436 seconds, and `usize` is 32 bits wide on
+        //  the `i686` wheel, so both are too narrow for a duration callers may pass:
+        //  268436 selected 544 ms of an 8 s file instead of the whole of it.
+        let segment_samples =
+            (duration_seconds as u64 * SAMPLE_RATE_HZ as u64).min(usize::MAX as u64) as usize;
+
+        if samples.len() <= segment_samples {
+            return samples;
+        }
+
+        let middle = samples.len() / 2;
+        let half_segment = segment_samples / 2;
+
+        &samples[middle - half_segment..middle + half_segment]
+    }
+
     pub fn make_signature_from_bytes(
         bytes: Vec<u8>,
         segment_duration_seconds: Option<u32>,
     ) -> Result<DecodedSignature, Box<dyn Error>> {
-        // Create a cursor around the byte array for decoding
-        let cursor = Cursor::new(bytes.clone());
-
-        let decoder = rodio::Decoder::new(cursor).or_else(|_decoding_error| {
-            // Use the original bytes vector here
-            decode_with_ffmpeg_from_bytes(&bytes)
-        })?;
-
-        let raw_pcm_samples: Vec<i16> = to_mono_16khz(decoder);
-
-        // Process the PCM samples as in make_signature_from_buffer
-        let duration_seconds = segment_duration_seconds.unwrap_or(10);
-        let sample_rate = 16000;
-        let segment_samples = (duration_seconds * sample_rate) as usize;
-
-        let raw_pcm_samples_slice: &[i16] = if raw_pcm_samples.len() > segment_samples {
-            let middle = raw_pcm_samples.len() / 2;
-            let half_segment = segment_samples / 2;
-            if middle >= half_segment && middle + half_segment <= raw_pcm_samples.len() {
-                &raw_pcm_samples[middle - half_segment..middle + half_segment]
-            } else {
-                &raw_pcm_samples[..segment_samples]
-            }
-        } else {
-            &raw_pcm_samples[..]
-        };
-
-        // Generate signature from buffer
-        let signature =
-            SignatureGenerator::make_signature_from_buffer(raw_pcm_samples_slice.to_vec());
-
-        // Return the generated signature
-        Ok(signature)
+        SignatureGenerator::make_signature(
+            MonoDecoder::from_bytes(bytes)?,
+            segment_duration_seconds,
+        )
     }
+
     pub fn make_signature_from_file(
         file_path: &Path,
         segment_duration_seconds: Option<u32>,
     ) -> Result<DecodedSignature, Box<dyn Error>> {
-        // Decode the .WAV, .MP3, .OGG or .FLAC file
+        // Read through as it decodes rather than with `fs::read`, which held the whole
+        //  file: 30 minutes of stereo FLAC is 230 MB of bytes before a sample is decoded.
+        SignatureGenerator::make_signature(
+            MonoDecoder::from_file(file_path)?,
+            segment_duration_seconds,
+        )
+    }
 
-        let mut decoder = rodio::Decoder::new(BufReader::new(std::fs::File::open(file_path)?));
+    fn make_signature(
+        decoder: MonoDecoder,
+        segment_duration_seconds: Option<u32>,
+    ) -> Result<DecodedSignature, Box<dyn Error>> {
+        let raw_pcm_samples = SignatureGenerator::pcm_samples(decoder)?;
+        let segment =
+            SignatureGenerator::middle_segment(&raw_pcm_samples, segment_duration_seconds);
 
-        if let Err(ref _decoding_error) = decoder {
-            // Try to decode with FFMpeg, if available, in case of failure with
-            // Rodio (most likely due to the use of a format unsupported by
-            // Rodio, such as .WMA or .MP4/.AAC)
-
-            if let Some(new_decoder) = decode_with_ffmpeg(file_path) {
-                decoder = Ok(new_decoder);
-            }
-        }
-
-        // Downsample the raw PCM samples to 16 KHz, and skip to the middle of the file
-        // in order to increase recognition odds. Take N (10 default) seconds of sample.
-        let duration_seconds = segment_duration_seconds.unwrap_or(10);
-        let sample_rate = 16000;
-        let segment_samples = (duration_seconds * sample_rate) as usize;
-
-        let raw_pcm_samples: Vec<i16> = to_mono_16khz(decoder?);
-        let slice_len = raw_pcm_samples.len().min(segment_samples);
-        let mut raw_pcm_samples_slice: &[i16] = &raw_pcm_samples[..slice_len];
-
-        if raw_pcm_samples.len() > segment_samples {
-            let middle = raw_pcm_samples.len() / 2;
-            raw_pcm_samples_slice =
-                &raw_pcm_samples[middle - segment_samples / 2..middle + segment_samples / 2];
-        }
-
-        let res = SignatureGenerator::make_signature_from_buffer(raw_pcm_samples_slice.to_vec());
-        Ok(res)
+        Ok(SignatureGenerator::make_signature_from_buffer(
+            segment.to_vec(),
+        ))
     }
 
     pub fn make_signature_from_buffer(s16_mono_16khz_buffer: Vec<i16>) -> DecodedSignature {
@@ -189,7 +114,7 @@ impl SignatureGenerator {
             num_spread_ffts_done: 0,
 
             signature: DecodedSignature {
-                sample_rate_hz: 16000,
+                sample_rate_hz: SAMPLE_RATE_HZ,
                 number_samples: s16_mono_16khz_buffer.len() as u32,
                 frequency_band_to_sound_peaks: HashMap::new(),
             },
@@ -282,8 +207,8 @@ impl SignatureGenerator {
     }
 
     fn do_peak_recognition(&mut self) {
-        // Note: when substracting an array index, casting to signed is needed
-        // to avoid underflow panics at runtime.
+        // Subtracting an array index needs a cast to signed, or it underflows and
+        //  panics at runtime.
 
         let fft_minus_46 = &self.fft_outputs[((self.fft_outputs_index as i32 - 46) & 255) as usize];
         let fft_minus_49 =
@@ -345,16 +270,15 @@ impl SignatureGenerator {
 
                         assert!(peak_variation_1 >= 0.0);
 
-                        // Convert back a FFT bin to a frequency, given a 16 KHz sample
-                        // rate, 1024 useful bins and the multiplication by 64 made before
-                        // storing the information
+                        // Convert a FFT bin back to a frequency, given a 16 KHz sample
+                        //  rate, 1024 useful bins and the multiplication by 64 made
+                        //  before storing the information.
 
                         let frequency_hz: f32 =
                             corrected_peak_frequency_bin as f32 * (16000.0 / 2.0 / 1024.0 / 64.0);
 
-                        // Ignore peaks outside the 250 Hz-5.5 KHz range, store them into
-                        // a lookup table that will be used to generate the binary fingerprint
-                        // otherwise
+                        // Ignore peaks outside the 250 Hz to 5.5 KHz range, and store the
+                        //  rest in the lookup table the binary fingerprint is built from.
 
                         let frequency_band = match frequency_hz as i32 {
                             250..=519 => FrequencyBand::_250_520,
@@ -391,97 +315,281 @@ impl SignatureGenerator {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+    use symphonia::core::errors::Error as SymphoniaError;
 
-    // The probe and its pinned URI are the ones `tests/` uses; `tests/data/generate.sh`
-    //  regenerates the audio. Reading them here rather than restating the expected
-    //  bytes keeps one copy of the golden.
+    // The probes and their pinned URIs are the ones `tests/` uses;
+    //  `tests/data/generate.sh` regenerates the audio. Reading them here rather than
+    //  restating the expected bytes keeps one copy of each golden.
+    //
+    //  A golden URI holds on Linux only, so every test comparing one is ignored
+    //  elsewhere. The module docstring of `tests/test_recognizer.py` has the reason
+    //  and the CI runs that showed it.
     const DATA_DIRECTORY: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data");
 
-    fn probe_path() -> PathBuf {
-        Path::new(DATA_DIRECTORY).join("probe.flac")
+    fn probe_path(name: &str) -> PathBuf {
+        Path::new(DATA_DIRECTORY).join(name)
     }
 
-    fn golden_uri() -> String {
-        std::fs::read_to_string(format!("{DATA_DIRECTORY}/probe.flac.uri"))
-            .unwrap()
-            .trim()
-            .to_string()
+    // `UPDATE_EXPECT=1` rewrites the file instead of failing; `just regenerate` sets it.
+    fn assert_golden_uri(signature: &DecodedSignature, name: &str) {
+        expect_test::expect_file![format!("{DATA_DIRECTORY}/{name}.uri")]
+            .assert_eq(&format!("{}\n", signature.encode_to_uri().unwrap()));
     }
 
-    // Yields nothing: every test here asks about `current_span_len`, which the
-    //  resampler reads before it takes a single sample.
-    struct FixedSpan {
-        span_length: Option<usize>,
+    struct ProbeShape {
+        frames: usize,
+        channels: usize,
+        rate: u32,
     }
 
-    impl Iterator for FixedSpan {
-        type Item = Sample;
+    // The same decode the entry points drive, so a test here cannot prove something they
+    //  do not do. Mixing down keeps one value per frame, so the count is the frame count.
+    fn decode(mut decoder: MonoDecoder) -> Result<ProbeShape, SymphoniaError> {
+        let mut mono_frames = Vec::new();
+        let mut frames = 0;
 
-        fn next(&mut self) -> Option<Self::Item> {
-            None
+        while decoder.next_chunk(&mut mono_frames)? {
+            frames += mono_frames.len();
         }
+
+        Ok(ProbeShape {
+            frames,
+            channels: decoder.spec().channels().count(),
+            rate: decoder.spec().rate(),
+        })
     }
 
-    impl Source for FixedSpan {
-        fn current_span_len(&self) -> Option<usize> {
-            self.span_length
-        }
+    // The same read-and-decode the path entry point does.
+    fn decode_probe(name: &str) -> Result<ProbeShape, SymphoniaError> {
+        decode(MonoDecoder::from_file(&probe_path(name))?)
+    }
 
-        fn channels(&self) -> ChannelCount {
-            TARGET_CHANNELS
-        }
+    // What the bytes entry point does instead, for a stream no file holds.
+    fn decode_bytes(bytes: Vec<u8>) -> Result<ProbeShape, SymphoniaError> {
+        decode(MonoDecoder::from_bytes(bytes)?)
+    }
 
-        fn sample_rate(&self) -> SampleRate {
-            TARGET_SAMPLE_RATE
-        }
+    #[test]
+    fn a_probe_decodes_to_the_length_of_its_source() {
+        const SOURCE_FRAMES: usize = 8 * 44100;
 
-        fn total_duration(&self) -> Option<Duration> {
-            None
+        for name in ["probe.flac", "probe.mp3", "probe.ogg"] {
+            let probe = decode_probe(name).unwrap();
+
+            assert_eq!(probe.frames, SOURCE_FRAMES, "{name}");
         }
     }
 
     #[test]
-    fn a_zero_length_span_is_reported_as_unbounded() {
-        let mut source = NonEmptySpans(FixedSpan {
-            span_length: Some(0),
-        });
+    fn an_opus_stream_decodes_to_the_length_of_its_source() {
+        // Opus always decodes at 48 kHz whatever the encoder was fed, so the frame
+        //  count is against that rate rather than against the source's 44.1 kHz.
+        const OPUS_RATE: usize = 48_000;
 
-        assert_eq!(source.current_span_len(), None);
-        assert_eq!(source.next(), None);
+        let probe = decode_probe("probe.opus").unwrap();
+
+        assert_eq!(probe.rate as usize, OPUS_RATE);
+        assert_eq!(probe.frames, 8 * OPUS_RATE);
     }
 
     #[test]
-    fn every_other_span_passes_through_untouched() {
-        for span_length in [Some(1), Some(94), Some(1152), None] {
-            let source = NonEmptySpans(FixedSpan { span_length });
+    fn a_chained_ogg_stream_decodes_every_link() {
+        // Two Ogg streams in one file, which is what a concatenation produces. The
+        //  reader stops between them and asks for a new decoder; read as the end of
+        //  the file, the second link went missing and nothing reported it.
+        let mut chained = std::fs::read(probe_path("probe.opus")).unwrap();
+        chained.extend_from_slice(&chained.clone());
 
-            assert_eq!(source.current_span_len(), span_length);
+        let probe = decode_bytes(chained).unwrap();
+
+        assert_eq!(probe.frames, 2 * 8 * 48_000);
+    }
+
+    #[test]
+    fn an_opus_stream_in_matroska_decodes() {
+        // Matroska describes an Opus track with no channel count, and the decoder used
+        //  to refuse it with "declares no channel layout". Its 648 frames of end
+        //  padding survive because the demuxer reads `DiscardPadding` and drops it.
+        //  https://github.com/pdeljanov/Symphonia/blob/ee35874b571a35a9a6e15d3bc9a3aaf8f11fbeee/symphonia-format-mkv/src/segment.rs#L1187
+        let probe = decode_probe("matroska.webm").unwrap();
+
+        assert_eq!(probe.channels, 2);
+        assert_eq!(probe.frames, 8 * 48_000 + 648);
+    }
+
+    #[test]
+    fn a_track_this_build_cannot_decode_is_passed_over() {
+        // AC-3 comes first, and taking the first track whose codec has a name refused
+        //  the file with `core (codec): unsupported audio codec` instead of reading
+        //  the FLAC track behind it.
+        let probe = decode_probe("ac3_then_flac.mka").unwrap();
+
+        assert_eq!(probe.frames, 48_000);
+    }
+
+    #[test]
+    fn a_surround_opus_stream_decodes() {
+        // Above two channels `OpusHead` carries a mapping table and `libopus` decodes
+        //  the stream only through its multistream API. The single-stream decoder used
+        //  to refuse this file with "only mono and stereo streams are supported".
+        let probe = decode_probe("surround.opus").unwrap();
+
+        assert_eq!(probe.channels, 6);
+        assert_eq!(probe.frames, 8 * 48_000);
+    }
+
+    #[test]
+    fn a_chained_stream_that_changes_format_is_refused() {
+        // The links of a chained file need not agree on rate or channel count, and
+        //  samples of two shapes cannot share one buffer. Appended regardless, these
+        //  two came out as 10666 ms of 16 s of audio and reported success.
+        let mut chained = std::fs::read(probe_path("probe.opus")).unwrap();
+        chained.extend_from_slice(&std::fs::read(probe_path("surround.opus")).unwrap());
+
+        let Err(error) = decode_bytes(chained) else {
+            panic!("a stream that changes format decoded");
+        };
+
+        assert!(matches!(error, SymphoniaError::Unsupported(_)), "{error}");
+    }
+
+    #[test]
+    fn a_link_that_decodes_into_a_wider_buffer_decodes() {
+        // The sample buffer used to be sized once, so a link needing a wider one panicked
+        //  in `copy_interleaved_ref`: 2304 samples into a buffer of 2048. How the fixture
+        //  chains its links: `tests/data/generate.sh`.
+        let probe = decode_probe("chained_capacity.ogg").unwrap();
+
+        assert_eq!(probe.channels, 2);
+        assert_eq!(probe.frames, 32_000);
+    }
+
+    #[test]
+    fn an_mp4_container_decodes() {
+        // 1504 frames longer than the source: AAC pads the front, and the edit list
+        //  saying by how much is parsed into the track and never read again. Same gap
+        //  before the decoder was swapped, so it is not a regression to fix here.
+        //  https://github.com/pdeljanov/Symphonia/blob/ee35874b571a35a9a6e15d3bc9a3aaf8f11fbeee/symphonia-format-isomp4/src/atoms/trak.rs#L37
+        let probe = decode_probe("probe.m4a").unwrap();
+
+        assert_eq!(probe.frames, 8 * 44100 + 1504);
+    }
+
+    #[test]
+    fn every_other_enabled_codec_decodes() {
+        // Every source is half a second of mono at 44.1 kHz, 22050 frames, so each
+        //  count below past that is the codec's own rounding, and `ffmpeg` decodes
+        //  every one of these files to the same count. How they are encoded:
+        //  `tests/data/generate.sh`.
+        const SOURCE_FRAMES: usize = 22_050;
+
+        for (name, frames) in [
+            ("pcm_f32.wav", SOURCE_FRAMES),
+            ("pcm_s16.aiff", SOURCE_FRAMES),
+            ("pcm_s24.caf", SOURCE_FRAMES),
+            ("alac.m4a", SOURCE_FRAMES),
+            // ADPCM fills its last block: 11 of 2041 frames for IMA, 11 of 2036 for
+            //  Microsoft. The `fact` chunk saying 22050 is ignored.
+            //  https://github.com/FFmpeg/FFmpeg/blob/894da5ca7d742e4429ffb2af534fcda0103ef593/libavcodec/adpcmenc.c#L132-L147
+            ("adpcm_ima.wav", 11 * 2041),
+            ("adpcm_ms.wav", 11 * 2036),
+            // Whole frames of 1152.
+            ("mp2.mp2", 20 * 1152),
+            // Whole frames of 1024 after 1024 frames of encoder delay, which ADTS has
+            //  no field to carry.
+            //  https://github.com/FFmpeg/FFmpeg/blob/894da5ca7d742e4429ffb2af534fcda0103ef593/libavcodec/aacenc.c#L1192
+            ("aac.aac", 23 * 1024),
+        ] {
+            let probe = decode_probe(name).unwrap();
+
+            assert_eq!(
+                (probe.frames, probe.channels, probe.rate),
+                (frames, 1, 44_100),
+                "{name}"
+            );
+        }
+    }
+
+    fn first_half_of(name: &str) -> Vec<u8> {
+        let mut bytes = std::fs::read(probe_path(name)).unwrap();
+        bytes.truncate(bytes.len() / 2);
+
+        bytes
+    }
+
+    #[test]
+    fn a_recording_cut_short_is_refused() {
+        // Most readers stop on `unexpected end of file` part-way through. MP4 and
+        //  Matroska fail the probe itself, so they report that nothing reads the stream.
+        for name in [
+            "aac.aac",
+            "adpcm_ima.wav",
+            "adpcm_ms.wav",
+            "alac.m4a",
+            "chord.flac",
+            "matroska.webm",
+            "pcm_f32.wav",
+            "pcm_s16.aiff",
+            "pcm_s24.caf",
+            "probe.flac",
+            "probe.m4a",
+            "probe.ogg",
+            "probe.opus",
+            "surround.opus",
+        ] {
+            assert!(decode_bytes(first_half_of(name)).is_err(), "{name}");
         }
     }
 
     #[test]
-    fn the_wrapper_reports_the_channels_and_rate_of_what_it_wraps() {
-        let source = NonEmptySpans(FixedSpan {
-            span_length: Some(1),
-        });
-
-        assert_eq!(source.channels(), TARGET_CHANNELS);
-        assert_eq!(source.sample_rate(), TARGET_SAMPLE_RATE);
-        assert_eq!(source.total_duration(), None);
+    fn an_mpeg_audio_stream_cut_short_decodes_what_is_left() {
+        // A run of MPEG frames ends wherever the last whole frame does, so a cut file
+        //  reads as a shorter one. The MP3 header counts its frames, but without one the
+        //  reader estimates the count from the bitrate, so it cannot be held to it.
+        //  https://github.com/pdeljanov/Symphonia/blob/ee35874b571a35a9a6e15d3bc9a3aaf8f11fbeee/symphonia-bundle-mp3/src/demuxer.rs#L464-L469
+        for (name, frames) in [("probe.mp3", 175_151), ("mp2.mp2", 10 * 1152)] {
+            assert_eq!(
+                decode_bytes(first_half_of(name)).unwrap().frames,
+                frames,
+                "{name}"
+            );
+        }
     }
 
     #[test]
+    fn a_chain_cut_inside_its_second_link_loses_that_link() {
+        // The reader hits the end while opening the second link and judges it by the
+        //  first, which has read its last page, so it reports a clean end. A fix upstream
+        //  fails this test, and the file then belongs with the refused ones above.
+        //  https://github.com/pdeljanov/Symphonia/blob/ee35874b571a35a9a6e15d3bc9a3aaf8f11fbeee/symphonia-format-ogg/src/demuxer.rs#L94
+        //  https://github.com/pdeljanov/Symphonia/blob/ee35874b571a35a9a6e15d3bc9a3aaf8f11fbeee/symphonia-format-ogg/src/demuxer.rs#L148-L152
+        const FIRST_LINK_FRAMES: usize = 16_000;
+
+        let probe = decode_bytes(first_half_of("chained_capacity.ogg")).unwrap();
+
+        assert_eq!(probe.frames, FIRST_LINK_FRAMES);
+    }
+
+    #[test]
+    #[cfg_attr(not(target_os = "linux"), ignore = "the golden URI is pinned on Linux")]
     fn the_whole_pipeline_reproduces_the_golden_uri() {
-        let signature = SignatureGenerator::make_signature_from_file(&probe_path(), None).unwrap();
+        let signature =
+            SignatureGenerator::make_signature_from_file(&probe_path("probe.flac"), None).unwrap();
 
-        // The probe is 8 s, so the default 10 s segment takes all of it and the peaks
-        //  below are every peak the file has.
-        assert_eq!(signature.number_samples, 128013);
-        assert_eq!(signature.encode_to_uri().unwrap(), golden_uri());
+        assert_golden_uri(&signature, "probe.flac");
+    }
 
-        // Peaks landed in every band, so `do_peak_recognition` ran its whole match.
+    #[test]
+    fn the_whole_pipeline_peaks_in_every_band() {
+        // The golden above pins the bytes and runs on Linux alone. This holds
+        //  everywhere: peaks landed in every band, so `do_peak_recognition` ran its
+        //  whole match rather than half of it.
+        let signature =
+            SignatureGenerator::make_signature_from_file(&probe_path("probe.flac"), None).unwrap();
+
         let mut bands: Vec<_> = signature.frequency_band_to_sound_peaks.keys().collect();
         bands.sort();
+
         assert_eq!(
             bands,
             vec![
@@ -494,11 +602,38 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_os = "linux"), ignore = "the golden URI is pinned on Linux")]
+    fn the_chord_probe_reproduces_its_golden_uri() {
+        let signature =
+            SignatureGenerator::make_signature_from_file(&probe_path("chord.flac"), None).unwrap();
+
+        assert_golden_uri(&signature, "chord.flac");
+    }
+
+    #[test]
+    fn the_chord_probe_fills_the_top_band() {
+        // `probe.flac` barely reaches the 3500 to 5500 Hz band, so it puts 2 peaks
+        //  there against 32 here. `tests/data/generate.sh` says why, and why that
+        //  makes this the probe a decoding or resampling change is judged on.
+        let signature =
+            SignatureGenerator::make_signature_from_file(&probe_path("chord.flac"), None).unwrap();
+
+        let top_band = &signature.frequency_band_to_sound_peaks[&FrequencyBand::_3500_5500];
+
+        assert!(
+            top_band.len() > 20,
+            "top band holds {} peaks",
+            top_band.len()
+        );
+    }
+
+    #[test]
     fn a_segment_shorter_than_the_file_is_cut_from_the_middle() {
         let from_file =
-            SignatureGenerator::make_signature_from_file(&probe_path(), Some(4)).unwrap();
+            SignatureGenerator::make_signature_from_file(&probe_path("probe.flac"), Some(4))
+                .unwrap();
         let from_bytes = SignatureGenerator::make_signature_from_bytes(
-            std::fs::read(probe_path()).unwrap(),
+            std::fs::read(probe_path("probe.flac")).unwrap(),
             Some(4),
         )
         .unwrap();
@@ -512,18 +647,108 @@ mod tests {
         );
     }
 
-    #[test]
-    fn the_bytes_of_a_file_fingerprint_the_same_as_its_path() {
-        let probe = std::fs::read(probe_path()).unwrap();
+    // `probe.flac` is lossless, so its audio is the `aevalsrc` expression in
+    //  `generate.sh`, restated here and mixed down to mono.
+    fn probe_source_sample(time_seconds: f64) -> f64 {
+        use std::f64::consts::PI;
 
-        let from_bytes = SignatureGenerator::make_signature_from_bytes(probe, None).unwrap();
+        let left = 0.30 * (2.0 * PI * (300.0 + 180.0 * time_seconds) * time_seconds).sin()
+            + 0.22 * (2.0 * PI * 1237.0 * time_seconds).sin()
+            + 0.16 * (2.0 * PI * 3001.0 * time_seconds).sin();
+        let right = 0.28 * (2.0 * PI * (450.0 + 240.0 * time_seconds) * time_seconds).sin()
+            + 0.20 * (2.0 * PI * 1601.0 * time_seconds).sin()
+            + 0.14 * (2.0 * PI * 2699.0 * time_seconds).sin();
 
-        assert_eq!(from_bytes.encode_to_uri().unwrap(), golden_uri());
+        (left + right) / 2.0
     }
 
-    // Both entry points fall back to `ffmpeg` when `rodio` cannot read the input, and
-    //  `ffmpeg` cannot read this either -- present or not, the answer is an error and
-    //  never a panic or an empty signature.
+    // The RMS difference between the segment and the source it should hold from
+    //  `first_sample` on, with the source read `shift` samples later.
+    fn rms_error_against_source(segment: &[i16], first_sample: usize, shift: f64) -> f64 {
+        let squared_error: f64 = segment
+            .iter()
+            .enumerate()
+            .map(|(index, &sample)| {
+                let time_seconds =
+                    (first_sample as f64 + index as f64 + shift) / f64::from(SAMPLE_RATE_HZ);
+                let resampled = f64::from(sample) / f64::from(i16::MAX);
+
+                (resampled - probe_source_sample(time_seconds)).powi(2)
+            })
+            .sum();
+
+        (squared_error / segment.len() as f64).sqrt()
+    }
+
+    #[test]
+    fn the_middle_window_holds_the_middle_of_the_source() {
+        // 4 s out of the 8 s probe spans 2 s to 6 s.
+        const SEGMENT_SECONDS: u32 = 4;
+        const FIRST_SAMPLE: usize = 2 * SAMPLE_RATE_HZ as usize;
+
+        let decoder = MonoDecoder::from_file(&probe_path("probe.flac")).unwrap();
+        let samples = SignatureGenerator::pcm_samples(decoder).unwrap();
+        let segment = SignatureGenerator::middle_segment(&samples, Some(SEGMENT_SECONDS));
+
+        // The resampled audio leads the source by about 0.6 of a sample, so the best
+        //  alignment is searched for in tenths. A window off by one whole sample moves
+        //  it out of 0 to 1, and a wrong decode or downmix leaves no alignment close.
+        let (best_shift, best_error) = (-20..=20)
+            .map(|tenths| {
+                let shift = f64::from(tenths) / 10.0;
+
+                (
+                    shift,
+                    rms_error_against_source(segment, FIRST_SAMPLE, shift),
+                )
+            })
+            .min_by(|left, right| left.1.total_cmp(&right.1))
+            .unwrap();
+
+        assert!(best_error < 0.01, "{best_error} at a shift of {best_shift}");
+        assert!((0.0..1.0).contains(&best_shift), "{best_shift}");
+    }
+
+    #[test]
+    fn a_duration_at_or_above_the_file_length_selects_the_whole_file() {
+        // 8 s at 16 kHz, which is `probe.flac` resampled and not cut.
+        const WHOLE_FILE_SAMPLES: u32 = 8 * 16000;
+
+        // 268436 is where the product left `u32`: it selected 544 ms of this file and
+        //  reported success, and 268435456 selected nothing at all.
+        for duration in [10, 268_436, 268_435_456, u32::MAX] {
+            let from_file = SignatureGenerator::make_signature_from_file(
+                &probe_path("probe.flac"),
+                Some(duration),
+            )
+            .unwrap();
+            let from_bytes = SignatureGenerator::make_signature_from_bytes(
+                std::fs::read(probe_path("probe.flac")).unwrap(),
+                Some(duration),
+            )
+            .unwrap();
+
+            assert_eq!(from_file.number_samples, WHOLE_FILE_SAMPLES, "{duration}");
+            assert_eq!(from_bytes.number_samples, WHOLE_FILE_SAMPLES, "{duration}");
+        }
+    }
+
+    #[test]
+    fn the_bytes_of_a_file_fingerprint_the_same_as_its_path() {
+        let probe = std::fs::read(probe_path("probe.flac")).unwrap();
+
+        let from_bytes = SignatureGenerator::make_signature_from_bytes(probe, None).unwrap();
+        let from_file =
+            SignatureGenerator::make_signature_from_file(&probe_path("probe.flac"), None).unwrap();
+
+        // The path form is what the golden above pins, so comparing the two carries
+        //  the same guarantee on Linux and still runs everywhere else.
+        assert_eq!(
+            from_bytes.encode_to_uri().unwrap(),
+            from_file.encode_to_uri().unwrap(),
+        );
+    }
+
     #[test]
     fn input_no_decoder_understands_is_an_error() {
         let not_audio = SignatureGenerator::make_signature_from_bytes(b"not audio".to_vec(), None);
@@ -532,30 +757,5 @@ mod tests {
 
         assert!(not_audio.is_err());
         assert!(not_a_sound_file.is_err());
-    }
-
-    #[test]
-    fn a_seek_is_handed_to_the_wrapped_source() {
-        let mut source = NonEmptySpans(FixedSpan {
-            span_length: Some(1),
-        });
-
-        // `FixedSpan` does not override `try_seek`, so this is `Source`'s own refusal
-        //  arriving through the wrapper rather than being answered by it.
-        assert!(source.try_seek(Duration::ZERO).is_err());
-    }
-
-    #[test]
-    fn samples_are_scaled_to_i16_and_saturate_instead_of_wrapping() {
-        assert_eq!(to_i16(0.0), 0);
-        assert_eq!(to_i16(-1.0), -32768);
-
-        // `1.0 * 32_768.0` is one past `i16::MAX`; a float-to-int cast saturates, so
-        //  full scale comes out as the largest sample rather than the smallest.
-        assert_eq!(to_i16(1.0), 32767);
-
-        // Anything beyond full scale is clamped first, so it lands on the same value.
-        assert_eq!(to_i16(4.0), 32767);
-        assert_eq!(to_i16(-4.0), -32768);
     }
 }

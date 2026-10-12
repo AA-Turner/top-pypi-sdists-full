@@ -1,3 +1,4 @@
+mod construction;
 mod error_reporting;
 mod frame_locals;
 mod frame_path;
@@ -11,10 +12,14 @@ mod trace_name;
 mod trace_persistence;
 mod value_serializer;
 
+pub use construction::{
+    frame_local, native_objects_under_construction, native_walk_state, read_switches,
+    validated_objects_under_construction,
+};
 pub(crate) use error_reporting::{
     check_stack, check_stack_with, forget_entry, log_warning, reaches_program, report_panic,
     room_to_flush, stopped_after_panic_error, values_omitted, OmittingValues, StackDecision,
-    StackEvent,
+    StackEvent, StackSkips,
 };
 #[cfg(all(test, Py_3_12))]
 pub(crate) use error_reporting::{
@@ -28,7 +33,8 @@ pub use frame_store::{FrameSequence, SerializedFrame, STRING_KEY};
 pub use frame_types::filename_with_lineno;
 pub(crate) use frame_types::FrameId;
 pub use frame_types::{
-    frame_id, get_qualname, timestamp, trace_id, Arg, CallFrames, Event, FrameIds, LineFrame,
+    frame_id, get_qualname, timestamp, trace_id, Arg, CallFrames, Event, FrameIds, LineCode,
+    LineFrame,
 };
 pub use frame_writer::{
     get_thread_id, user_code_call_site, write_frame_with_cached_code_metadata,

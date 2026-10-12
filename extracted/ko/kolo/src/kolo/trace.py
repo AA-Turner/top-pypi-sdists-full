@@ -9,10 +9,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Dict, Generator, Iterator, List, Optional
 
 from .build_frame_tree import ExecutionTreeInfo, build_execution_tree
-from .node import ProcessedNode, make_processed_node
+from .node import ProcessedNode, make_processed_node, unattached_assignment_label
 from .utils import pretty_byte_size, relative_time
 
 
@@ -66,10 +66,24 @@ class ProcessedTree:
         self.total_execution_tree_node_count = (
             self.basic_execution_tree.total_execution_tree_node_count
         )
+        # ``line_events`` assignments: see ``ExecutionTreeInfo``.
+        self.unattached_assignments = self.basic_execution_tree.unattached_assignments
+        self.has_assignments = self.basic_execution_tree.has_assignments
+        self.earliest_timestamp = self._earliest_timestamp()
 
         # Build frame_id -> node index for O(1) lookups
         self._frame_id_index: Dict[str, ProcessedNode] = {}
         self._build_frame_id_index()
+
+    def _earliest_timestamp(self) -> float:
+        """When this tree's first event happened, to order threads by."""
+        timestamps = [n.start for n in self.root_nodes if n.start is not None]
+        # Unattached assignments are in recorded order: the first is earliest.
+        for frame in self.unattached_assignments[:1]:
+            timestamp = frame.get("timestamp")
+            if isinstance(timestamp, (int, float)):
+                timestamps.append(timestamp)
+        return min(timestamps) if timestamps else float("inf")
 
     def _build_frame_id_index(self) -> None:
         """Build the frame_id to node index."""
@@ -231,13 +245,7 @@ class Trace:
                 )
             )
 
-        def earliest_timestamp(section: ThreadSection) -> float:
-            timestamps = [
-                n.start for n in section.tree.root_nodes if n.start is not None
-            ]
-            return min(timestamps) if timestamps else float("inf")
-
-        other_sections.sort(key=earliest_timestamp)
+        other_sections.sort(key=lambda section: section.tree.earliest_timestamp)
         sections.extend(other_sections)
         return sections
 
@@ -377,9 +385,10 @@ class Trace:
             # todo: on the config, keep just the stuff that is not default.
 
             if include_return_value:
-                header += """  ↪ input value
-  ↩ return value
-"""
+                header += "  ↪ input value\n"
+                if any(section.tree.has_assignments for section in self.threads):
+                    header += "  ≔ assignment (line: name = value)\n"
+                header += "  ↩ return value\n"
             parts.append(header)
 
         if include_guidance:
@@ -421,7 +430,12 @@ class Trace:
         than one thread, each thread's frames are preceded by a header
         line identifying the thread.
         """
-        sections = [s for s in self.threads if s.tree.root_nodes]
+        sections = [
+            s
+            for s in self.threads
+            if s.tree.root_nodes
+            or (include_return_value and s.tree.unattached_assignments)
+        ]
         # Fast path only when the main thread is the only thing to show.
         # If the main tree is empty but a background thread has frames,
         # we must still render the header and ``--thread_id`` hint —
@@ -435,6 +449,8 @@ class Trace:
             tree = sections[0].tree if sections else self.main_tree
             for node in tree.dfs():
                 yield node.full_compact_tree_line(include_return_value)
+            if include_return_value:
+                yield from self._unattached_assignment_lines(tree)
             return
 
         for i, section in enumerate(sections):
@@ -456,6 +472,20 @@ class Trace:
                 )
             for node in section.tree.dfs():
                 yield node.full_compact_tree_line(include_return_value)
+            if include_return_value:
+                yield from self._unattached_assignment_lines(section.tree)
+
+    @staticmethod
+    def _unattached_assignment_lines(tree: ProcessedTree) -> Iterator[str]:
+        """``line_events`` assignments made outside any call in ``tree``
+        (see ``ExecutionTreeInfo.unattached_assignments``)."""
+        if not tree.unattached_assignments:
+            return
+        yield "(assignments outside recorded calls)"
+        for frame in tree.unattached_assignments:
+            variable, value = frame["assign"]
+            label = unattached_assignment_label(frame)
+            yield f" ≔ {label}: {variable} = {value!r}"
 
     def compact_metadata(self) -> str:
         """Return just the metadata section (source, config, python version, format)."""

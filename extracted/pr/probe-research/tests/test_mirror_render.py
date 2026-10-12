@@ -18,7 +18,8 @@ from pathlib import Path
 
 import pytest
 
-_TOOL = Path(__file__).resolve().parent.parent / "tools" / "mirror_render.py"
+_AGENT = Path(__file__).resolve().parent.parent
+_TOOL = _AGENT / "tools" / "mirror_render.py"
 
 spec = importlib.util.spec_from_file_location("mirror_render", _TOOL)
 mirror_render = importlib.util.module_from_spec(spec)
@@ -127,6 +128,12 @@ def make_source(root: Path, *, cli="0.72.0", plugin="0.17.0", tap="0.2.1") -> Pa
     (agent / "CHANGELOG.md").write_text("# Changelog\n")
     (agent / "docs").mkdir(parents=True, exist_ok=True)
     (agent / "docs" / "mirror-README.md").write_text("# Distribution mirror\n")
+    for source, _dest in mirror_render.CLOUD_ITEMS:
+        if source.endswith(".md"):
+            (agent / source).write_text("# Probe in a cloud agent\n")
+        else:
+            (agent / source).mkdir(parents=True, exist_ok=True)
+            (agent / source / "SKILL.md").write_text(f"---\nname: {Path(source).name}\n---\n")
     (agent / "LICENSE").write_text("Apache License 2.0\n")
     return agent
 
@@ -520,6 +527,30 @@ def test_render_produces_exactly_the_item_list_and_stomps_strays(tmp_path):
         "pre-existing mirror content must be stomped — the mirror is a build artifact"
     )
     assert not any(p.startswith((".github", "src", "tests")) for p in tree)
+    # The Capy bundle: plain Agent Skills plus its setup guide, nothing else.
+    assert "capy/README.md" in tree
+    assert sorted(p.split("/")[2] for p in tree if p.startswith("capy/skills/")) == sorted(
+        mirror_render.CLOUD_BUNDLES["capy"]
+    )
+
+
+def test_the_capy_bundle_is_the_capy_profile_and_names_no_plugin_skill_twice():
+    """`npx skills add <repo> --skill probe` would be ambiguous if the Capy
+    bundle carried a second, different `probe`: its own entry skill has its own
+    name, and the rest are the main agent's copies of the skills the plugins ship."""
+    capy = mirror_render.CLOUD_BUNDLES["capy"]
+    assert "probe" not in capy
+    assert "probe-capy" in capy
+
+
+def test_a_cloud_agent_gets_the_main_agents_rendered_skills():
+    """Capy's agent IS the main agent: a skill with per-agent versions ships the
+    main agent's render (never the raw versions/ tree); a Capy-only skill ships
+    as written."""
+    sources = dict((dest, src) for src, dest in mirror_render.CLOUD_ITEMS)
+    assert sources["capy/skills/track-work"] == "plugins/probe-research/agent-skills/track-work"
+    assert sources["capy/skills/probe-capy"] == "skills/probe-capy"
+    assert sources["capy/README.md"] == "docs/capy.md"
 
 
 def test_render_is_deterministic(tmp_path):

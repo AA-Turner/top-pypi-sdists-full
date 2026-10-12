@@ -1343,7 +1343,17 @@ def merge_request_tools(
         dropped_unrunnable: list[str] = []
         dropped_gated: list[str] = []
         unknown_named: list[str] = []
+        from matrx_ai.tools.agent_projection import PROJECTED_AGENT_TOOLS_KEY
+
+        # A request-scoped projection (an agent-as-tool, or a host's dry mount of a page
+        # tool on a proof run) is runnable by construction: dispatch reads the projection
+        # BEFORE the registry, so the viability gate must too — never a same-named
+        # process-global registry entry (e.g. a synthesized inline client tool).
+        _projected = (getattr(ctx, "metadata", None) or {}).get(PROJECTED_AGENT_TOOLS_KEY) or {}
         for _name in config.tools:
+            if isinstance(_name, str) and _name in _projected:
+                kept_tools.append(_name)
+                continue
             _td = registry.get(_name)
             if _td is None and isinstance(_name, str) and _name in requested_registered_names:
                 # Named by THIS request but not a known tool: it can never be

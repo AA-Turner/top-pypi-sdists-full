@@ -21,14 +21,23 @@ use crate::mol2000::{
 pub struct SdfReader<'a> {
     remaining: &'a str,
     current_mol_num: usize,
+    input_bytes: usize,
+    limits: SdfParseLimits,
 }
 
 impl<'a> SdfReader<'a> {
     /// Create a new `SdfReader` over the given SDF string.
     pub fn new(input: &'a str) -> Self {
+        Self::with_limits(input, SdfParseLimits::default())
+    }
+
+    /// Create an in-memory SDF reader with explicit resource limits.
+    pub fn with_limits(input: &'a str, limits: SdfParseLimits) -> Self {
         Self {
             remaining: input,
             current_mol_num: 0,
+            input_bytes: input.len(),
+            limits,
         }
     }
 }
@@ -37,50 +46,90 @@ impl<'a> Iterator for SdfReader<'a> {
     type Item = Result<(Molecule, MolMetadata), MolParseError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // A blank first line is a legal MOL name line (issue #171) -- do not
-        // skip it. A genuinely empty gap between/after `$$$$` delimiters is
-        // already handled below via `mol_block.trim().is_empty()`.
-        if self.remaining.is_empty() {
-            return None;
-        }
-
-        self.current_mol_num += 1;
-
-        // Scan line by line so that a `$$$$` substring inside a data value
-        // does not trigger a false match.  When the delimiter is found, the
-        // mol block runs up to (but excluding) it, and the rest continues
-        // after the delimiter line.  When EOF is reached without a delimiter,
-        // the entire remainder is treated as a single mol block.
-        let mut byte_offset = 0usize;
-        let (end_byte, after_delim) = loop {
-            let rest = &self.remaining[byte_offset..];
-            match rest.find('\n') {
-                Some(nl) => {
-                    let line = rest[..nl].trim_end_matches('\r');
-                    if line == "$$$$" {
-                        break (byte_offset, &self.remaining[byte_offset + nl + 1..]);
-                    }
-                    byte_offset += nl + 1;
-                }
-                None => {
-                    // Last line, no trailing newline.
-                    if rest.trim_end_matches('\r') == "$$$$" {
-                        break (byte_offset, "");
-                    }
-                    break (self.remaining.len(), "");
-                }
+        loop {
+            if self.remaining.is_empty() {
+                return None;
             }
-        };
+            if self.input_bytes > self.limits.max_input_bytes {
+                self.remaining = "";
+                return Some(Err(MolParseError::ResourceLimit {
+                    resource: "input bytes",
+                    actual: self.input_bytes,
+                    limit: self.limits.max_input_bytes,
+                }));
+            }
 
-        let mol_block = &self.remaining[..end_byte];
-        self.remaining = after_delim;
+            // A blank first line is a legal MOL name line (issue #171) -- do not
+            // skip it. A genuinely empty gap between/after `$$$$` delimiters is
+            // handled below without recursion so adversarial empty-record runs
+            // cannot exhaust the stack.
+            // Scan line by line so that a `$$$$` substring inside a data value
+            // does not trigger a false match.  When the delimiter is found, the
+            // mol block runs up to (but excluding) it, and the rest continues
+            // after the delimiter line.  When EOF is reached without a delimiter,
+            // the entire remainder is treated as a single mol block.
+            let mut byte_offset = 0usize;
+            let (end_byte, after_delim) = loop {
+                let rest = &self.remaining[byte_offset..];
+                match rest.find('\n') {
+                    Some(nl) => {
+                        let line = rest[..nl].trim_end_matches('\r');
+                        if line.len() > self.limits.max_line_bytes {
+                            self.remaining = "";
+                            return Some(Err(MolParseError::ResourceLimit {
+                                resource: "line bytes",
+                                actual: line.len(),
+                                limit: self.limits.max_line_bytes,
+                            }));
+                        }
+                        if line == "$$$$" {
+                            break (byte_offset, &self.remaining[byte_offset + nl + 1..]);
+                        }
+                        byte_offset += nl + 1;
+                    }
+                    None => {
+                        let line = rest.trim_end_matches('\r');
+                        if line.len() > self.limits.max_line_bytes {
+                            self.remaining = "";
+                            return Some(Err(MolParseError::ResourceLimit {
+                                resource: "line bytes",
+                                actual: line.len(),
+                                limit: self.limits.max_line_bytes,
+                            }));
+                        }
+                        if line == "$$$$" {
+                            break (byte_offset, "");
+                        }
+                        break (self.remaining.len(), "");
+                    }
+                }
+            };
 
-        if mol_block.trim().is_empty() {
-            // Empty block between two `$$$$` lines — skip and try next.
-            return self.next();
+            let mol_block = &self.remaining[..end_byte];
+            self.remaining = after_delim;
+
+            if mol_block.trim().is_empty() {
+                continue;
+            }
+            if mol_block.len() > self.limits.max_record_bytes {
+                self.remaining = "";
+                return Some(Err(MolParseError::ResourceLimit {
+                    resource: "record bytes",
+                    actual: mol_block.len(),
+                    limit: self.limits.max_record_bytes,
+                }));
+            }
+            if self.current_mol_num >= self.limits.max_records {
+                self.remaining = "";
+                return Some(Err(MolParseError::ResourceLimit {
+                    resource: "records",
+                    actual: self.current_mol_num.saturating_add(1),
+                    limit: self.limits.max_records,
+                }));
+            }
+            self.current_mol_num += 1;
+            return Some(parse_mol(mol_block));
         }
-
-        Some(parse_mol(mol_block))
     }
 }
 
@@ -456,7 +505,7 @@ pub struct SdfFileReader<R: std::io::BufRead> {
     diagnostics: bool,
 }
 
-/// Resource limits for streaming SDF input.
+/// Resource limits for in-memory and streaming SDF input.
 #[derive(Debug, Clone, Copy)]
 pub struct SdfParseLimits {
     /// Maximum bytes read from the source.
@@ -512,107 +561,74 @@ impl<R: std::io::BufRead> SdfFileReader<R> {
             diagnostics,
         }
     }
-}
 
-impl<R: std::io::BufRead> Iterator for SdfFileReader<R> {
-    type Item = Result<SdfRecord, MolParseError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.done {
-            return None;
-        }
-
+    fn fill_next_block(&mut self) -> Result<bool, MolParseError> {
         self.block.clear();
-
         loop {
-            // Append directly into the reusable record buffer. The previous
-            // path copied each line from a second buffer into this one.
             let line_start = self.block.len();
-            match self.reader.read_until(b'\n', &mut self.block) {
-                Err(e) => {
-                    self.done = true;
-                    return Some(Err(MolParseError::Io(e.to_string())));
-                }
-                Ok(0) => {
-                    // EOF
-                    self.done = true;
-                    if self.block.iter().all(u8::is_ascii_whitespace) {
-                        return None;
-                    }
-                    // Trailing block without $$$$ delimiter — parse it.
-                    break;
-                }
-                Ok(_) => {
-                    let line = &self.block[line_start..];
-                    if line.len() > self.limits.max_line_bytes {
-                        self.done = true;
-                        return Some(Err(MolParseError::ResourceLimit {
-                            resource: "line bytes",
-                            actual: line.len(),
-                            limit: self.limits.max_line_bytes,
-                        }));
-                    }
-                    self.bytes_read = self.bytes_read.saturating_add(line.len());
-                    if self.bytes_read > self.limits.max_input_bytes {
-                        self.done = true;
-                        return Some(Err(MolParseError::ResourceLimit {
-                            resource: "input bytes",
-                            actual: self.bytes_read,
-                            limit: self.limits.max_input_bytes,
-                        }));
-                    }
-                    let trimmed = line.strip_suffix(b"\n").unwrap_or(line);
-                    let trimmed = trimmed.strip_suffix(b"\r").unwrap_or(trimmed);
-                    if trimmed == b"$$$$" {
-                        self.block.truncate(line_start);
-                        break;
-                    }
-                }
+            let bytes = self
+                .reader
+                .read_until(b'\n', &mut self.block)
+                .map_err(|error| MolParseError::Io(error.to_string()))?;
+            if bytes == 0 {
+                self.done = true;
+                return Ok(!self.block.iter().all(u8::is_ascii_whitespace));
+            }
+            let line = &self.block[line_start..];
+            if line.len() > self.limits.max_line_bytes {
+                return Err(MolParseError::ResourceLimit {
+                    resource: "line bytes",
+                    actual: line.len(),
+                    limit: self.limits.max_line_bytes,
+                });
+            }
+            self.bytes_read = self.bytes_read.saturating_add(line.len());
+            if self.bytes_read > self.limits.max_input_bytes {
+                return Err(MolParseError::ResourceLimit {
+                    resource: "input bytes",
+                    actual: self.bytes_read,
+                    limit: self.limits.max_input_bytes,
+                });
+            }
+            let trimmed = line.strip_suffix(b"\n").unwrap_or(line);
+            let trimmed = trimmed.strip_suffix(b"\r").unwrap_or(trimmed);
+            if trimmed == b"$$$$" {
+                self.block.truncate(line_start);
+                return Ok(true);
             }
         }
+    }
 
-        if self.block.iter().all(u8::is_ascii_whitespace) {
-            // Empty block (e.g. two consecutive $$$$) — advance to next.
-            return self.next();
-        }
-
+    fn validate_record_limits(&mut self) -> Result<(), MolParseError> {
         if self.block.len() > self.limits.max_record_bytes {
-            self.done = true;
-            return Some(Err(MolParseError::ResourceLimit {
+            return Err(MolParseError::ResourceLimit {
                 resource: "record bytes",
                 actual: self.block.len(),
                 limit: self.limits.max_record_bytes,
-            }));
+            });
         }
         if self.records_read >= self.limits.max_records {
-            self.done = true;
-            return Some(Err(MolParseError::ResourceLimit {
+            return Err(MolParseError::ResourceLimit {
                 resource: "records",
                 actual: self.records_read.saturating_add(1),
                 limit: self.limits.max_records,
-            }));
+            });
         }
         self.records_read += 1;
+        Ok(())
+    }
 
-        let block = match std::str::from_utf8(&self.block) {
-            Ok(block) => block,
-            Err(error) => {
-                self.done = true;
-                return Some(Err(MolParseError::Io(error.to_string())));
-            }
-        };
+    fn parse_current_block(&self) -> Result<SdfRecord, MolParseError> {
+        let block = std::str::from_utf8(&self.block)
+            .map_err(|error| MolParseError::Io(error.to_string()))?;
         let data_part = block
             .find("M  END")
-            .map(|pos| &block[pos + 6..])
+            .map(|position| &block[position + 6..])
             .unwrap_or("");
         let properties = parse_sd_fields(data_part);
-
         if !self.diagnostics {
-            let (mol, meta) = match parse_mol_fast(block) {
-                Ok(parsed) => parsed,
-                Err(e) => return Some(Err(e)),
-            };
-            return Some(Ok(SdfRecord {
+            let (mol, meta) = parse_mol_fast(block)?;
+            return Ok(SdfRecord {
                 mol,
                 meta,
                 coords: Vec::new(),
@@ -623,16 +639,10 @@ impl<R: std::io::BufRead> Iterator for SdfFileReader<R> {
                 coordinate_dimension: CoordinateDimension::Unknown,
                 geometry_rank: GeometryRank::Indeterminate,
                 stereo3d_diagnostics: Vec::new(),
-            }));
+            });
         }
-
-        // Reuse the diagnostic-complete parse path for the default reader.
-        let report = match read_mol_with_diagnostics(block) {
-            Ok(report) => report,
-            Err(e) => return Some(Err(e)),
-        };
-
-        Some(Ok(SdfRecord {
+        let report = read_mol_with_diagnostics(block)?;
+        Ok(SdfRecord {
             mol: report.mol,
             meta: report.metadata,
             coords: report.coords,
@@ -643,7 +653,36 @@ impl<R: std::io::BufRead> Iterator for SdfFileReader<R> {
             coordinate_dimension: report.coordinate_dimension,
             geometry_rank: report.geometry_rank,
             stereo3d_diagnostics: report.stereo3d_diagnostics,
-        }))
+        })
+    }
+}
+
+impl<R: std::io::BufRead> Iterator for SdfFileReader<R> {
+    type Item = Result<SdfRecord, MolParseError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+        loop {
+            match self.fill_next_block() {
+                Ok(false) => return None,
+                Ok(true) if self.block.iter().all(u8::is_ascii_whitespace) => continue,
+                Ok(true) => break,
+                Err(error) => {
+                    self.done = true;
+                    return Some(Err(error));
+                }
+            }
+        }
+        if let Err(error) = self.validate_record_limits() {
+            self.done = true;
+            return Some(Err(error));
+        }
+        match self.parse_current_block() {
+            Ok(record) => Some(Ok(record)),
+            Err(error) => Some(Err(error)),
+        }
     }
 }
 
@@ -814,6 +853,9 @@ impl<R: std::io::BufRead> Iterator for SdfBatchReader<R> {
 mod tests {
     use super::*;
 
+    #[path = "reader_limit_tests.rs"]
+    mod reader_limit_tests;
+
     const MOL_A: &str = "\
 mol_a
   chematic
@@ -865,26 +907,11 @@ M  END
     }
 
     #[test]
-    fn test_sdf_reader_single_molecule_no_delimiter() {
-        // An SDF with a single molecule that has no trailing $$$$ is still valid.
-        let results: Vec<_> = SdfReader::new(MOL_A).collect();
-        assert_eq!(results.len(), 1);
-        let (mol, _) = results[0].as_ref().expect("parse");
-        assert_eq!(mol.atom_count(), 2);
-    }
-
-    #[test]
     fn test_sdf_reader_stops_on_error() {
         // Second molecule has a bad counts line; parse_sdf should return Err.
         let bad_sdf = format!("{MOL_A}$$$$\nbad\n  prog\n\n  X  Y\nM  END\n$$$$\n");
         let result = parse_sdf(&bad_sdf);
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_sdf_reader_empty_input() {
-        let results: Vec<_> = SdfReader::new("").collect();
-        assert_eq!(results.len(), 0);
     }
 
     #[test]

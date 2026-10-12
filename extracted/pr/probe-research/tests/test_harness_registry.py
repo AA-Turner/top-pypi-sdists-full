@@ -62,7 +62,7 @@ def _row(**overrides) -> dict:
 def test_the_registry_loads_and_names_its_default():
     reg = registry_mod.load()
     # Detection order: the first row whose marker is set wins (same as the SDK's AGENTS).
-    assert reg.ids() == ("claude_code", "codex", "pi", "kimi_code")
+    assert reg.ids() == ("claude_code", "codex", "pi", "kimi_code", "capy")
     assert reg.default == "claude_code"
     assert reg.get(reg.default).captured
 

@@ -17,12 +17,14 @@ The pydantic-ai-harness capabilities it runs with (T3):
 
     compaction          conversation mode only: past CONTEXT_TOKENS, old tool
                         results cleared first, then older turns summarized,
-                        down to COMPACT_TO of it
+                        down to COMPACT_TO of it; past COMPACT_MESSAGES
+                        messages, older turns summarized
     warn_on_cache_busts a collapsed prompt cache is logged
     repair_tool_arguments  malformed JSON arguments repaired before validation
 
-and three of its own: `LoopDetector` (the same refusal or failure 3 times, or the
-same successful call 5 times, in one run: the run stops), `UsageMeter` (every
+and three of its own: `LoopDetector` (the same failing call 3 times, a refusal
+that reads alike in 3 model rounds, or the same successful call 5 times, in one
+run: the run stops), `UsageMeter` (every
 model response recorded as it arrives, T10) and `TraceRecorder` (the session's
 trace file, `trace.py`).
 """
@@ -36,7 +38,7 @@ import logging
 import os
 import re
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from probe._compat import StrEnum
 from typing import Any, Callable
 
@@ -98,13 +100,26 @@ MIN_CLEAR_TOKENS = 20_000
 #: nearly every bite (2026-10-05, "22 messages -> 22" once a minute).
 COMPACT_TO = 0.5
 #: The summarizing tier keeps the newest messages, whole, up to this share of the
-#: size: a token budget, never a message count, since one message can be a whole
-#: bite of the session. The newest message stays even when it alone is bigger.
+#: size: a token budget, since one message can be a whole bite of the session.
+#: The newest message stays even when it alone is bigger.
 KEEP_SHARE = 0.25
+#: Compaction also runs once the history is more than this many chat messages
+#: on the wire (`wire_messages`), whatever its size: the server's model route
+#: refuses a request of more than 2,000 (`MAX_CHAT_MESSAGES`,
+#: `app/companion/chat_router.py`). A session of small bites reached 2,003 at
+#: 245K tokens, under the writer's 250K size, and its next call was refused with
+#: a 400 (strand-ai, 2026-10-11). The gap to 2,000 covers what the count leaves
+#: out: the instructions' own messages and EARLIER_TURNS.
+COMPACT_MESSAGES = 1_800
+#: ...and the summarizing tier then keeps at most this many wire messages of the
+#: newest (still within KEEP_SHARE), so the next count compaction is ~1,300
+#: messages away, not one round.
+KEEP_MESSAGES = 500
 #: The user turn put between the summary and a kept tail that opens with the
 #: model's own message (`user_turn_first`).
 EARLIER_TURNS = "[earlier turns are summarized above]"
-#: The loop detector: the same refusal or failure this many times in one run...
+#: The loop detector: the same refusal or failure in this many model rounds of
+#: one run...
 LOOP_FAILURES = 3
 #: ...or the same successful call (tool and arguments) this many times.
 LOOP_REPEATS = 5
@@ -213,17 +228,29 @@ def outcome(result: Any) -> Verdict:
 
 @dataclass
 class LoopDetector(AbstractCapability[Any]):
-    """Stops a run going round in circles (A1): the same refusal or failure
-    LOOP_FAILURES times (the same call, or the same refusal whatever the call),
-    or the same successful call -- tool and arguments -- LOOP_REPEATS times.
-    Tripped, every later tool call of the run is skipped with a stop message and
-    `tripped` says why; the worker ends the run at the next model round."""
+    """Stops a run going round in circles (A1): the same refusal or failure in
+    LOOP_FAILURES model rounds (the same call, or the same refusal whatever the
+    call), or the same successful call -- tool and arguments -- LOOP_REPEATS
+    times. Tripped, every later tool call of the run is skipped with a stop
+    message and `tripped` says why; the worker ends the run at the next model
+    round.
+
+    A refusal that reads alike whatever the call counts once per round: calls the
+    model made together had not seen each other's answer, so three different
+    reads refused alike in one round are one attempt, not a loop. (The reader
+    asked for three run folders' files at once, all outside its folders; with
+    ids masked the three refusals read alike and stopped its turn, strand-ai
+    2026-10-11.) The same call -- tool and arguments -- counts every time, in a
+    round or not: a failing command the model repeats in one response still
+    stops the run before it runs a fourth time."""
 
     failures_to_trip: int = LOOP_FAILURES
     repeats_to_trip: int = LOOP_REPEATS
     tripped: str | None = None
     _failures: Counter = field(default_factory=Counter)
     _calls: Counter = field(default_factory=Counter)
+    #: The round each alike-refusal key last counted in.
+    _counted_in: dict = field(default_factory=dict)
 
     async def before_tool_execute(self, ctx: Any, *, call: Any, tool_def: Any, args: Any) -> Any:
         if self.tripped is not None:
@@ -247,7 +274,13 @@ class LoopDetector(AbstractCapability[Any]):
         keys = [("call", *key)]
         if verdict == Verdict.REFUSED:
             keys.append(("said", call.tool_name, _IDS.sub("#", first)))
+        # No round known (no run context): every call is its own round.
+        round_ = getattr(ctx, "run_step", None)
         for k in keys:
+            if k[0] == "said" and round_ is not None:
+                if self._counted_in.get(k) == round_:
+                    continue
+                self._counted_in[k] = round_
             self._failures[k] += 1
             if self._failures[k] >= self.failures_to_trip:
                 self.tripped = (f"the same {'refusal' if verdict == Verdict.REFUSED else 'failure'} "
@@ -311,16 +344,64 @@ def user_turn_first(messages: list) -> list:
     keeps the summary (system parts) and a tail that can open with the model's
     own tool call; after the system messages, Gemini refuses a tool call that
     follows neither a user turn nor a tool result. Such a tail gets
-    EARLIER_TURNS in front of it; any other history is returned as it is."""
-    from pydantic_ai.messages import ModelRequest, ModelResponse, SystemPromptPart, UserPromptPart
+    EARLIER_TURNS in front of it; any other history is returned as it is.
 
+    A tail can also open with tool results whose calls were summarized away:
+    the harness's cut pairs a call with its ToolReturnPart but not with a
+    RetryPromptPart, so it can land right after a round whose calls all failed
+    validation. Nothing can answer to those, so a request of only such results
+    is dropped there (Pydantic AI would drop it on the way out and send the
+    model's tool call straight after the system messages)."""
+    from pydantic_ai.messages import (
+        ModelRequest,
+        ModelResponse,
+        RetryPromptPart,
+        SystemPromptPart,
+        ToolReturnPart,
+        UserPromptPart,
+    )
+
+    def orphaned(message: Any) -> bool:
+        return bool(message.parts) and all(
+            isinstance(p, ToolReturnPart) or (isinstance(p, RetryPromptPart) and p.tool_name is not None)
+            for p in message.parts)
+
+    out: list = []
     for i, message in enumerate(messages):
         if isinstance(message, ModelRequest) and all(isinstance(p, SystemPromptPart) for p in message.parts):
+            out.append(message)
+            continue
+        if isinstance(message, ModelRequest) and orphaned(message):
             continue
         if isinstance(message, ModelResponse):
-            return [*messages[:i], ModelRequest(parts=[UserPromptPart(EARLIER_TURNS)]), *messages[i:]]
+            return [*out, ModelRequest(parts=[UserPromptPart(EARLIER_TURNS)]), *messages[i:]]
+        return messages if len(out) == i else [*out, *messages[i:]]
+    if len(out) == len(messages):
         return messages
-    return messages
+    # Nothing left but the system messages: the user turn the request needs.
+    return [*out, ModelRequest(parts=[UserPromptPart(EARLIER_TURNS)])]
+
+
+def wire_messages(messages: list) -> int:
+    """How many chat messages `messages` are on the model route, which counts
+    those, not Pydantic AI's: one per model response, one per part of a request
+    (each tool result, prompt and system part is its own message,
+    `OpenAIChatModel._map_user_message`). One round of three parallel reads is 2
+    messages here and 4 on the wire."""
+    from pydantic_ai.messages import ModelRequest
+
+    return sum(len(m.parts) if isinstance(m, ModelRequest) else 1 for m in messages)
+
+
+def newest_within(messages: list, wire: int) -> int:
+    """How many of the newest `messages` fit in `wire` chat messages (at least
+    one)."""
+    total = 0
+    for n, message in enumerate(reversed(messages)):
+        total += wire_messages([message])
+        if total > wire:
+            return max(n, 1)
+    return len(messages)
 
 
 def counted_compaction(state: RunState):
@@ -330,12 +411,16 @@ def counted_compaction(state: RunState):
 
     It runs once the context passes the size and compacts down to COMPACT_TO of
     it (the harness's own target is that lower mark; the size is our gate), the
-    summary keeping the newest KEEP_SHARE of the size whole."""
+    summary keeping the newest KEEP_SHARE of the size whole, and at most
+    KEEP_MESSAGES wire messages. A history of more than COMPACT_MESSAGES wire
+    messages is summarized whatever its size, since the model route refuses one
+    past 2,000."""
     from pydantic_ai_harness.compaction import (
         ClearToolResults,
         SummarizingCompaction,
         TieredCompaction,
         estimate_context_tokens,
+        estimate_token_count,
     )
 
     size = state.context_tokens or writer_context_tokens()
@@ -345,30 +430,52 @@ def counted_compaction(state: RunState):
         # `target_tokens=0` refusal did before the floors below were added.
         raise ValueError(f"a context of {size} tokens cannot be compacted to")
 
+    class KeptByCount(SummarizingCompaction):
+        """Keeps the newest `keep_tokens`, but never more than KEEP_MESSAGES wire
+        messages: when the newest KEEP_MESSAGES alone fit the token budget, the
+        token cut would keep more of them, so the cut is by count."""
+
+        async def compact(self, messages: list, ctx: Any) -> list:
+            n = newest_within(messages, KEEP_MESSAGES)
+            if (self.keep_tokens is not None and n < len(messages)
+                    and estimate_token_count(messages[-n:], self.tokenizer) <= self.keep_tokens):
+                return await replace(self, keep_tokens=None, keep_messages=n).compact(messages, ctx)
+            return await super().compact(messages, ctx)
+
+    summarizer = KeptByCount(max_messages=1, keep_tokens=max(1, int(size * KEEP_SHARE)),
+                             preserve_first_user_message=False,
+                             summary_prompt=state.summary_prompt or SUMMARY_PROMPT,
+                             tool_return_max_chars=1_500,
+                             summarization_capabilities=[UsageMeter(on_round=state.on_round)])
+
     @dataclass
     class CountedCompaction(TieredCompaction):
         async def before_model_request(self, ctx: Any, request_context: Any) -> Any:
             before = request_context.messages
-            if estimate_context_tokens(list(before), self.tokenizer,
-                                       model_request_parameters=request_context.model_request_parameters) <= size:
+            over_size = estimate_context_tokens(list(before), self.tokenizer,
+                                                model_request_parameters=request_context.model_request_parameters) > size
+            if not over_size and wire_messages(before) <= COMPACT_MESSAGES:
                 request_context.messages = user_turn_first(before)
                 return request_context
-            n = len(before)
-            out = await super().before_model_request(ctx, request_context)
+            n, wire = len(before), wire_messages(before)
+            out = await super().before_model_request(ctx, request_context) if over_size else request_context
+            if wire_messages(out.messages) > COMPACT_MESSAGES:
+                # Too many messages for the model route, whatever their size (or the
+                # cheap tier was enough for the size): the summarizing tier, by count.
+                # It calls the model this request goes to, as the tiers above do.
+                tier_ctx = ctx if request_context.model is ctx.model else replace(ctx, model=request_context.model)
+                out.messages = await summarizer.compact(list(out.messages), tier_ctx)
             after = out.messages
             if after is not before and (len(after) != n or any(a is not b for a, b in zip(after, before))):
-                log.info("compacted the conversation: %s messages -> %s", n, len(after))
+                log.info("compacted the conversation (%s): %s messages (%s on the wire) -> %s (%s)",
+                         "size" if over_size else "count", n, wire, len(after), wire_messages(after))
                 state.compacted()
             out.messages = user_turn_first(out.messages)
             return out
 
     return CountedCompaction(
         tiers=[ClearToolResults(max_tokens=1, keep_pairs=KEEP_TOOL_PAIRS, min_clear_tokens=MIN_CLEAR_TOKENS),
-               SummarizingCompaction(max_messages=1, keep_tokens=max(1, int(size * KEEP_SHARE)),
-                                     preserve_first_user_message=False,
-                                     summary_prompt=state.summary_prompt or SUMMARY_PROMPT,
-                                     tool_return_max_chars=1_500,
-                                     summarization_capabilities=[UsageMeter(on_round=state.on_round)])],
+               summarizer],
         target_tokens=max(1, int(size * COMPACT_TO)))
 
 
@@ -703,3 +810,213 @@ def MESSAGE_MAX_CHARS() -> int:  # noqa: N802 -- read at call time: tests patch 
     from probe.daemon import mailbox
 
     return mailbox.MESSAGE_MAX_CHARS
+
+
+# ---------------------------------------------------------------------------
+# The team-note audit (daemon-team-note-audit, 2026-10-11): a third agent in the
+# same worker, run once when the note is due. `shell`, `read` and the Probe MCP,
+# asking nothing (`tools.Deps.audit`), editing its own copy of the note and ending
+# with `final_result(report)`. Its judgment is the researcher's `audit-team-note`
+# and `edit-notes` skills; its own text (`audit_note.md`) says how it runs.
+# ---------------------------------------------------------------------------
+
+#: An audit run: at most this many model rounds, and this many seconds. Runaway
+#: guards only, never a working budget.
+AUDIT_ROUNDS = 80
+AUDIT_WALL_S = 30 * 60.0
+#: Past AUDIT_WALL_S a run gets this long to end with final_result before it is cut.
+AUDIT_GRACE_S = 120.0
+#: A write to its copy before the run has opened any evidence (D9: Haiku 5.5 ended
+#: 3 of 7 writer bites without a look). Mechanics only: what does not run, and why.
+NO_EVIDENCE_YET = ("not run: the team note changes only after this audit has opened some of what it claims "
+                   "(a file, a command's output, Probe) - nothing has been opened yet.")
+#: The report reaches the main agent as one `[Probe]` message, opened by this label;
+#: together they stay inside the mailbox's unasked cap. A longer report is cut.
+AUDIT_REPORT_PREFIX = "Team-note audit: "
+AUDIT_REPORT_CHARS = 1150
+#: The hosted MCP's open-web tools (`probe.mcp.server._WEB_TOOLS`): text anyone can
+#: author, which an audit publishing unasked into every teammate's instructions
+#: must not take in.
+AUDIT_REFUSED_TOOLS = frozenset({"find_papers"})
+AUDIT_WEB_REFUSED = "not run: the team-note audit reads the team's records and the session's folders, not the open web."
+#: The team note's folder and file (`team_note_file.paths`: `<state>/probe/team-note/
+#: probe-team-note.md`) and the audit's own copy (`audit.draft_dir`, `<state>/probe/
+#: audit/`): a command that names them is about the note, not evidence for it. The
+#: path, not a bare "team-note" -- a repo folder may carry those words.
+TEAM_NOTE_MARKERS = ("probe/team-note", "probe-team-note.md", "probe/audit/")
+#: Commands that read nothing about the world: running one is not a look.
+_NOT_A_LOOK = frozenset({"date", "echo", "printf", "pwd", "true", "false", "whoami", "sleep", "env", "cd"})
+#: Filters that are a look only when they open a file of their own (`head -50 x.py`),
+#: not as the end of a pipe (`... | head`).
+_FILTERS = frozenset({"head", "tail", "wc", "sort", "uniq", "tee", "test", "["})
+_SEGMENTS = re.compile(r"&&|\|\||[;|\n]")
+_NUMBER = re.compile(r"^[+-]?\d+[kKmMbB]?$")
+#: `probe notes sync` / `probe notes team`: the note itself, not evidence for it.
+_NOTE_ITSELF = re.compile(r"^\s*probe\s+notes\s+(sync|team)\b")
+
+
+class AuditResult(BaseModel):
+    """Ends the audit."""
+
+    report: str = Field(description="the report the audit-team-note skill asks for. At most 1,150 characters.")
+
+
+@dataclass
+class AuditState(RunState):
+    """An audit run's shared state: its copy of the note (`draft`), how many looks
+    it has taken (`EvidenceGate`) and the plain-code limits that tell the model to
+    end it."""
+
+    draft: str = ""
+    evidence: int = 0
+    started: float = 0.0
+    rounds: int = 0
+    limit_why: str | None = None
+
+
+def _names_team_note(text: str, draft: str = "") -> bool:
+    return any(marker in text for marker in TEAM_NOTE_MARKERS) or bool(draft and draft in text)
+
+
+def writes_draft(command: str, draft: str) -> bool:
+    """Does this shell command write the audit's copy? The shell allows a note
+    write only as `cat > FILE <<'TAG'` (`shell._note_write`): the copy as the
+    target of a `>` (not a `2>` or `&>`)."""
+    if not draft:
+        return False
+    home = os.path.expanduser("~")
+    spellings = {draft}
+    if draft.startswith(home + os.sep):
+        rest = draft[len(home):]
+        spellings |= {"~" + rest, "$HOME" + rest, "${HOME}" + rest}
+    targets = "|".join(re.escape(s) for s in sorted(spellings, key=len, reverse=True))
+    return re.search(r"(?<![0-9&])>>?\s*['\"]?(?:" + targets + ")", command) is not None
+
+
+def _opens_a_file(words: list[str]) -> bool:
+    return any(not w.startswith("-") and not _NUMBER.match(w) for w in words[1:])
+
+
+def is_a_look(tool_name: str, args: Any, draft: str = "") -> bool:
+    """Did this (successful) tool call open some of what the note claims? A read or
+    command about the team note itself, and a command that reads nothing, is not."""
+    if tool_name == "read":
+        return not _names_team_note(str((args or {}).get("path", "")), draft)
+    if tool_name != "shell":
+        return True  # the Probe MCP: the team's record
+    command = str((args or {}).get("command", ""))
+    if _names_team_note(command, draft):
+        return False
+    for part in _SEGMENTS.split(command):
+        words = part.strip().split()
+        if not words or words[0] in _NOT_A_LOOK or _NOTE_ITSELF.match(part):
+            continue
+        if words[0] in _FILTERS and not _opens_a_file(words):
+            continue
+        return True
+    return False
+
+
+@dataclass
+class EvidenceGate(AbstractCapability[tools.Deps]):
+    """D9 (Haiku 5.5's known failure is ending without a look): a write to the
+    audit's copy is skipped until the run has opened some evidence, and every
+    successful look is counted (`AuditState.evidence`), so the lane can tell a run
+    that never looked from one that did. The open web is refused outright."""
+
+    state: AuditState
+
+    async def before_tool_execute(self, ctx: Any, *, call: Any, tool_def: Any, args: Any) -> Any:
+        name = str(getattr(call, "tool_name", "")).rsplit("__", 1)[-1]
+        if name in AUDIT_REFUSED_TOOLS:
+            raise SkipToolExecution(AUDIT_WEB_REFUSED)
+        if (call.tool_name == "shell" and self.state.evidence == 0
+                and writes_draft(str((args or {}).get("command", "")), self.state.draft)):
+            raise SkipToolExecution(NO_EVIDENCE_YET)
+        return args
+
+    async def after_tool_execute(self, ctx: Any, *, call: Any, tool_def: Any, args: Any, result: Any) -> Any:
+        if _ran(result) and is_a_look(call.tool_name, args, self.state.draft):
+            self.state.evidence += 1
+        return result
+
+
+_STEP_RAN = re.compile(r"^\[exit 0\b", re.M)
+
+
+def _ran(result: Any) -> bool:
+    """Did the call run? A compound command's output (`$ part` lines, each with its
+    own `[exit N]`) ran when one of its parts exited 0: its first line alone says
+    nothing (`outcome` reads only that)."""
+    if isinstance(result, str) and result.lstrip().startswith("$ "):
+        return bool(_STEP_RAN.search(result))
+    return outcome(result) == Verdict.OK
+
+
+@dataclass
+class AuditLimits(AbstractCapability[tools.Deps]):
+    """Counts the run's model rounds; once it is out of rounds or time, every
+    further tool call answers TURN_LIMIT so the model ends it with final_result."""
+
+    state: AuditState
+
+    async def wrap_model_request(self, ctx: Any, *, request_context: Any, handler: Any) -> Any:
+        self.state.rounds += 1
+        return await handler(request_context)
+
+    async def before_tool_execute(self, ctx: Any, *, call: Any, tool_def: Any, args: Any) -> Any:
+        import time
+
+        if self.state.rounds >= AUDIT_ROUNDS - 1:
+            self.state.limit_why = f"{AUDIT_ROUNDS} model rounds"
+        elif time.monotonic() - self.state.started >= AUDIT_WALL_S:
+            self.state.limit_why = f"{AUDIT_WALL_S:.0f} seconds"
+        if self.state.limit_why is not None:
+            raise SkipToolExecution(TURN_LIMIT.format(why=self.state.limit_why))
+        return args
+
+
+def build_audit_agent(instructions: str, *, model, state: AuditState):
+    """The team-note audit: `shell`, `read`, the Probe MCP (the writer's
+    connection, its open-web tools refused) and `final_result(report)`. Its tools
+    ask nothing (`tools.Deps.audit`)."""
+    capabilities: list = [LeaseGate(), AuditLimits(state=state), EvidenceGate(state=state), state.detector]
+    try:
+        from pydantic_ai.capabilities.mcp import MCP
+
+        from probe.daemon.worker import probe_env
+
+        env = probe_env("")
+        key = env.get("PROBE_TOKEN", "")
+        url = mcp_url(env.get("PROBE_BASE_URL", ""))
+        if key and url and os.environ.get("PROBE_DAEMON_MCP", "1") != "0":
+            capabilities.append(MCP(url=url, authorization_token=f"Bearer {key}", id="probe", defer_loading=False))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Probe MCP unavailable to the audit: %s", exc)
+    capabilities += _harness(state)
+
+    agent = Agent(model, instructions=instructions, deps_type=tools.Deps, output_type=AuditResult,
+                  capabilities=capabilities, retries=2)
+
+    @agent.tool(sequential=True, description=SHELL_DESCRIPTION)
+    async def shell(ctx: RunContext[tools.Deps], command: str, why: str = "") -> str:
+        try:
+            return await tools.shell(ctx.deps, command, why)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("audit shell tool failed: %s", exc)
+            return f"tool error ({type(exc).__name__}): {exc}"
+        finally:
+            _renew_after(ctx.deps)
+
+    @agent.tool(description=READ_DESCRIPTION)
+    async def read(ctx: RunContext[tools.Deps], path: str, offset: int | None = None,
+                   limit: int | None = None) -> str:
+        try:
+            return await tools.read_file(ctx.deps, path, offset, limit)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("audit read tool failed: %s", exc)
+            return f"tool error ({type(exc).__name__}): {exc}"
+        finally:
+            _renew_after(ctx.deps)
+
+    return agent

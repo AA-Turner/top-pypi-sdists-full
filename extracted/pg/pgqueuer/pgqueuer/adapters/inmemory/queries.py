@@ -9,7 +9,7 @@ import asyncio
 import dataclasses
 import heapq
 from datetime import datetime, timedelta
-from typing import Literal, TypedDict, overload
+from typing import Literal, NamedTuple, TypedDict, overload
 
 from pydantic_core import to_json
 from typing_extensions import assert_never
@@ -71,6 +71,13 @@ class StatisticsRow(TypedDict):
     entrypoint: QueueEntrypoint
     priority: int
     status: JOB_STATUS
+
+
+class StatisticsBucket(NamedTuple):
+    entrypoint: QueueEntrypoint
+    priority: int
+    status: JOB_STATUS
+    created: datetime
 
 
 class ScheduleRow(TypedDict):
@@ -182,7 +189,7 @@ class InMemoryQueries:
         dedupe_key: str | None = None,
         headers: dict[str, str] | None = None,
         *,
-        on_conflict: Literal["raise"] = "raise",
+        on_conflict: Literal["raise", "update_priority"] = "raise",
     ) -> list[JobId]: ...
 
     @overload
@@ -208,7 +215,7 @@ class InMemoryQueries:
         dedupe_key: list[str | None] | None = None,
         headers: list[dict[str, str] | None] | None = None,
         *,
-        on_conflict: Literal["raise"] = "raise",
+        on_conflict: Literal["raise", "update_priority"] = "raise",
     ) -> list[JobId]: ...
 
     @overload
@@ -258,6 +265,8 @@ class InMemoryQueries:
                 seen.add(dk)
         elif on_conflict == "skip":
             pass  # Duplicates resolve per row in the insert loop below.
+        elif on_conflict == "update_priority":
+            query_helpers.reject_repeated_dedupe_keys(normed.dedupe_key)
         else:
             assert_never(on_conflict)
 
@@ -266,6 +275,15 @@ class InMemoryQueries:
 
         for i in range(len(normed.entrypoint)):
             dk = normed.dedupe_key[i]
+            if dk is not None and dk in self._dedupe_index and on_conflict == "update_priority":
+                job = self._jobs[self._dedupe_index[dk]]
+                if normed.priority[i] > job["priority"]:
+                    job["priority"] = normed.priority[i]
+                    if job["status"] == "queued":
+                        # The old heap entry goes stale; dequeue skips it.
+                        self._push_queued_job(job, now)
+                ids.append(JobId(job["id"]))
+                continue
             if dk is not None and dk in self._dedupe_index:
                 ids.append(None)
                 continue
@@ -532,6 +550,9 @@ class InMemoryQueries:
             )
             self._next_log_id += 1
 
+        # Postgres runs the DELETE on every call, and its statement trigger always notifies.
+        await self.emit_table_changed("delete")
+
     async def retry_job(
         self,
         job: models.Job,
@@ -708,12 +729,12 @@ class InMemoryQueries:
 
     def aggregate_log_to_statistics(self) -> None:
         """Roll un-aggregated log rows into per-second statistics buckets."""
-        to_agg: dict[tuple[QueueEntrypoint, int, JOB_STATUS, datetime], int] = {}
+        to_agg: dict[StatisticsBucket, int] = {}
         for entry in self._log:
             if entry["aggregated"]:
                 continue
             created_sec = entry["created"].replace(microsecond=0)
-            key = (
+            key = StatisticsBucket(
                 entry["entrypoint"],
                 entry["priority"],
                 entry["status"],
@@ -722,15 +743,23 @@ class InMemoryQueries:
             to_agg[key] = to_agg.get(key, 0) + 1
             entry["aggregated"] = True
 
-        for (ep, pri, st, created_sec), count in to_agg.items():
+        statistics_by_bucket = {
+            StatisticsBucket(row["entrypoint"], row["priority"], row["status"], row["created"]): row
+            for row in self._statistics
+        }
+        for bucket, count in to_agg.items():
+            existing = statistics_by_bucket.get(bucket)
+            if existing is not None:
+                existing["count"] += count
+                continue
             self._statistics.append(
                 {
                     "id": self._next_stats_id,
-                    "created": created_sec,
+                    "created": bucket.created,
                     "count": count,
-                    "entrypoint": ep,
-                    "priority": pri,
-                    "status": st,
+                    "entrypoint": bucket.entrypoint,
+                    "priority": bucket.priority,
+                    "status": bucket.status,
                 }
             )
             self._next_stats_id += 1
@@ -750,7 +779,7 @@ class InMemoryQueries:
 
         if last is not None:
             cutoff = utc_now() - last
-            result = [r for r in result if r["created"] >= cutoff]
+            result = [r for r in result if r["created"] > cutoff]
 
         result.sort(key=lambda r: r["id"], reverse=True)
 
@@ -1095,11 +1124,14 @@ class InMemoryQueries:
             self._dedupe_index.pop(dk, None)
 
     async def emit_table_changed(self, operation: types.OPERATIONS) -> None:
-        event = models.TableChangedEvent(
-            channel=self.qbq.settings.channel,
-            sent_at=utc_now(),
-            type="table_changed_event",
-            operation=operation,
-            table=self.qbe.settings.queue_table,
-        )
-        await self.driver.notify(self.qbq.settings.channel, event.model_dump_json())
+        # Same keys as the Postgres trigger; the listener stamps received_at on parse.
+        payload = to_json(
+            {
+                "channel": self.qbq.settings.channel,
+                "operation": operation,
+                "sent_at": utc_now(),
+                "table": self.qbe.settings.queue_table,
+                "type": "table_changed_event",
+            }
+        ).decode()
+        await self.driver.notify(self.qbq.settings.channel, payload)

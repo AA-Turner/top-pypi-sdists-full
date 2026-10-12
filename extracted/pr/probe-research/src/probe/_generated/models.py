@@ -6,7 +6,7 @@ from probe._compat import StrEnum
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, RootModel
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, RootModel, constr
 
 
 class Role(StrEnum):
@@ -419,6 +419,21 @@ class BrowseCursors(BaseModel):
 class CanvasEndType(StrEnum):
     project = 'project'
     experiment = 'experiment'
+    paper = 'paper'
+
+
+class CanvasGroup(BaseModel):
+    id: str = Field(..., title='Id')
+    label: str = Field(..., title='Label')
+    members: list[str] = Field(..., title='Members')
+
+
+class CanvasInclude(StrEnum):
+    """
+    What a board serves only when asked (`?include=`).
+    """
+
+    papers = 'papers'
 
 
 class CanvasLiveRun(BaseModel):
@@ -426,21 +441,15 @@ class CanvasLiveRun(BaseModel):
     name: str | None = Field(None, title='Name')
 
 
-class CanvasProject(BaseModel):
-    created_at: AwareDatetime = Field(..., title='Created At')
-    direct_run_count: int | None = Field(0, title='Direct Run Count')
-    id: UUID = Field(..., title='Id')
-    kind: str = Field(..., title='Kind')
-    live_run_count: int | None = Field(0, title='Live Run Count')
-    name: str = Field(..., title='Name')
-    parent_project_id: UUID | None = Field(None, title='Parent Project Id')
-    ref: str | None = Field(None, title='Ref')
-    repo: str | None = Field(None, title='Repo')
-    slug: str = Field(..., title='Slug')
-    tags: list[str] | None = Field([], title='Tags')
-    updated_at: AwareDatetime = Field(..., title='Updated At')
-    workspace_id: UUID = Field(..., title='Workspace Id')
-    workspace_name: str = Field(..., title='Workspace Name')
+class CanvasPaperEdgeType(StrEnum):
+    """
+    `cites` as the citation graph computes it; the others as stored. Listed
+    in the order a capped board keeps them: the declared links first.
+    """
+
+    informed_by = 'informed_by'
+    discovered_via = 'discovered_via'
+    cites = 'cites'
 
 
 class CanvasRef(BaseModel):
@@ -819,6 +828,13 @@ class ClientUpdateStatus(StrEnum):
     required = 'required'
 
 
+class ClusterOut(BaseModel):
+    id: int = Field(..., title='Id')
+    size: int = Field(..., title='Size')
+    x: float = Field(..., title='X')
+    y: float = Field(..., title='Y')
+
+
 class Fn1(StrEnum):
     gt = 'gt'
     gte = 'gte'
@@ -1039,6 +1055,10 @@ class ConfirmBatchResponse(BaseModel):
 class ConstNode(BaseModel):
     op: Literal['const'] = Field(..., title='Op')
     value: float = Field(..., title='Value')
+
+
+class Positions(RootModel[tuple[float, float]]):
+    root: tuple[float, float] = Field(..., max_length=2, min_length=2)
 
 
 class CoordinateOut(BaseModel):
@@ -1528,6 +1548,11 @@ class Key(StrEnum):
 class FilterChip(BaseModel):
     key: Key = Field(..., title='Key')
     label: str = Field(..., title='Label')
+
+
+class Frame(StrEnum):
+    normalized = 'normalized'
+    local = 'local'
 
 
 class FunctionCall(BaseModel):
@@ -2433,6 +2458,11 @@ class NamedFunction(BaseModel):
 class NamedToolChoice(BaseModel):
     function: NamedFunction
     type: Literal['function'] = Field(..., title='Type')
+
+
+class NextToOut(BaseModel):
+    next_to: str = Field(..., title='Next To')
+    score: float = Field(..., title='Score')
 
 
 class NodeKind(StrEnum):
@@ -4114,6 +4144,12 @@ class ReadPageRequest(BaseModel):
     url: str = Field(..., max_length=2000, min_length=1, title='Url')
 
 
+class Readiness(StrEnum):
+    ready = 'ready'
+    pending = 'pending'
+    unplaced = 'unplaced'
+
+
 class ReadmeState(StrEnum):
     snapshot = 'snapshot'
     live = 'live'
@@ -4182,6 +4218,10 @@ class Relation(StrEnum):
 
     cites = 'cites'
     discovered_via = 'discovered_via'
+
+
+class Relayout(StrEnum):
+    all = 'all'
 
 
 class ReleaseRow(BaseModel):
@@ -4808,6 +4848,18 @@ class SectionOut(BaseModel):
     visuals_stale: bool | None = Field(False, title='Visuals Stale')
 
 
+class SemanticBoard(BaseModel):
+    """
+    Exactly one of `workspace_id`, `all`, `project_id`: the board the
+    browser is showing. `include_papers` adds each project's papers container.
+    """
+
+    all: bool | None = Field(False, title='All')
+    include_papers: bool | None = Field(False, title='Include Papers')
+    project_id: UUID | None = Field(None, title='Project Id')
+    workspace_id: UUID | None = Field(None, title='Workspace Id')
+
+
 class SemanticChunk(BaseModel):
     """
     One MATCHED chunk of a document, full content.
@@ -4823,6 +4875,36 @@ class SemanticChunk(BaseModel):
     graph_evidence: list[dict[str, Any]] | None = Field(None, title='Graph Evidence')
     score: float = Field(..., title='Score')
     why_relevant: str | None = Field(None, title='Why Relevant')
+
+
+class PlaceItem(RootModel[str]):
+    root: str = Field(..., max_length=64)
+
+
+class Positions1Item(RootModel[float]):
+    root: float = Field(..., ge=-10000000.0, le=10000000.0)
+
+
+class Positions1(RootModel[tuple[Positions1Item, Positions1Item]]):
+    root: tuple[Positions1Item, Positions1Item] = Field(..., max_length=2, min_length=2)
+
+
+class Relayout1Item(RootModel[str]):
+    root: str = Field(..., max_length=64)
+
+
+class Relayout1(RootModel[list[Relayout1Item]]):
+    root: list[Relayout1Item] = Field(..., max_length=4001, title='Relayout')
+
+
+class SemanticPlaceIn(BaseModel):
+    align: bool | None = Field(False, title='Align')
+    board: SemanticBoard
+    place: list[PlaceItem] | None = Field(None, max_length=200, title='Place')
+    positions: (
+        dict[constr(max_length=64), dict[constr(max_length=64), Positions1]] | None
+    ) = Field(None, max_length=4001, title='Positions')
+    relayout: Relayout1 | Relayout | None = Field(None, title='Relayout')
 
 
 class SemanticRefKind(StrEnum):
@@ -6548,6 +6630,7 @@ class CanvasExperiment(BaseModel):
     question: str = Field(..., title='Question')
     recent_statuses: list[str] | None = Field([], title='Recent Statuses')
     run_count: int | None = Field(0, title='Run Count')
+    semantic: Readiness | None = 'pending'
     session_ids: list[str] | None = Field([], title='Session Ids')
     slug: str = Field(..., title='Slug')
     status_counts: dict[str, int] | None = Field({}, title='Status Counts')
@@ -6557,8 +6640,56 @@ class CanvasExperiment(BaseModel):
 
 class CanvasExperimentRunsOut(BaseModel):
     experiment_id: UUID = Field(..., title='Experiment Id')
+    next_cursor: str | None = Field(None, title='Next Cursor')
     runs: list[CanvasRun] = Field(..., title='Runs')
     runs_truncated: bool = Field(..., title='Runs Truncated')
+
+
+class CanvasPaper(BaseModel):
+    """
+    A paper of a served project (`?include=papers`).
+    """
+
+    canonical_key: str | None = Field(None, title='Canonical Key')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    id: UUID = Field(..., title='Id')
+    project_id: UUID = Field(..., title='Project Id')
+    semantic: Readiness | None = 'pending'
+    tags: list[str] | None = Field([], title='Tags')
+    title: str = Field(..., title='Title')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+
+
+class CanvasPaperEdge(BaseModel):
+    """
+    A paper link whose two ends are both served: paper -> paper for `cites`
+    and `discovered_via`, project or experiment -> paper for `informed_by`.
+    """
+
+    edge_id: UUID | None = Field(None, title='Edge Id')
+    provenance: str | None = Field(None, title='Provenance')
+    source: CanvasRef
+    target: CanvasRef
+    type: CanvasPaperEdgeType
+    via: str | None = Field(None, title='Via')
+
+
+class CanvasProject(BaseModel):
+    created_at: AwareDatetime = Field(..., title='Created At')
+    direct_run_count: int | None = Field(0, title='Direct Run Count')
+    id: UUID = Field(..., title='Id')
+    kind: str = Field(..., title='Kind')
+    live_run_count: int | None = Field(0, title='Live Run Count')
+    name: str = Field(..., title='Name')
+    parent_project_id: UUID | None = Field(None, title='Parent Project Id')
+    ref: str | None = Field(None, title='Ref')
+    repo: str | None = Field(None, title='Repo')
+    semantic: Readiness | None = 'pending'
+    slug: str = Field(..., title='Slug')
+    tags: list[str] | None = Field([], title='Tags')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+    workspace_id: UUID = Field(..., title='Workspace Id')
+    workspace_name: str = Field(..., title='Workspace Name')
 
 
 class CapabilityRegistrationOut(BaseModel):
@@ -6744,6 +6875,12 @@ class CompanionCompleteOut(BaseModel):
     finish_reason: str | None = Field(None, title='Finish Reason')
     model: str = Field(..., title='Model')
     usage: CompanionUsage
+
+
+class ContainerLayoutOut(BaseModel):
+    clusters: list[ClusterOut] = Field(..., title='Clusters')
+    frame: Frame
+    positions: dict[str, Positions] = Field(..., title='Positions')
 
 
 class Inputs(RootModel[list[SeriesSelector]]):
@@ -8263,6 +8400,14 @@ class SearchRequest(BaseModel):
     workspace_id: UUID | None = Field(None, title='Workspace Id')
 
 
+class SemanticPlaceOut(BaseModel):
+    pending: list[str] | None = Field(None, title='Pending')
+    place: dict[str, NextToOut] | None = Field(None, title='Place')
+    relayout: dict[str, ContainerLayoutOut] | None = Field(None, title='Relayout')
+    semantic_map: bool | None = Field(False, title='Semantic Map')
+    unplaced: list[str] | None = Field(None, title='Unplaced')
+
+
 class SemanticRef(BaseModel):
     id: UUID = Field(..., title='Id')
     kind: SemanticRefKind
@@ -8376,6 +8521,13 @@ class WorkspaceCanvasOut(BaseModel):
     experiments: list[CanvasExperiment] = Field(..., title='Experiments')
     experiments_truncated: bool = Field(..., title='Experiments Truncated')
     generated_at: AwareDatetime = Field(..., title='Generated At')
+    groups: list[CanvasGroup] | None = Field([], title='Groups', validate_default=True)
+    paper_edges: list[CanvasPaperEdge] | None = Field(
+        [], title='Paper Edges', validate_default=True
+    )
+    paper_edges_truncated: bool | None = Field(False, title='Paper Edges Truncated')
+    papers: list[CanvasPaper] | None = Field([], title='Papers', validate_default=True)
+    papers_truncated: bool | None = Field(False, title='Papers Truncated')
     projects: list[CanvasProject] = Field(..., title='Projects')
     projects_truncated: bool = Field(..., title='Projects Truncated')
     references: list[CanvasReference] = Field(..., title='References')
@@ -8383,6 +8535,7 @@ class WorkspaceCanvasOut(BaseModel):
         [], title='Run Links', validate_default=True
     )
     run_links_truncated: bool | None = Field(False, title='Run Links Truncated')
+    semantic_map: bool | None = Field(False, title='Semantic Map')
     session_order: list[CanvasSessionStep] = Field(..., title='Session Order')
     totals: CanvasTotals
     workspace: CanvasWorkspace

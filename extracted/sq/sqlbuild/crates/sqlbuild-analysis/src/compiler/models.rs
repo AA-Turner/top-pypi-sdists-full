@@ -265,14 +265,15 @@ pub struct SqlTestAssemblyModelPayload {
     pub assertion_target_model_names: Vec<String>,
     pub reference_target_model_names: Vec<String>,
     pub mock_model_names: Vec<String>,
-    pub has_macro_mocks: bool,
 }
 
-/// One test's assembled facts, or why Python assembles it.
+/// One test's assembled facts, or why its assembly raises.
 #[derive(Debug, PartialEq)]
 pub enum SqlTestAssemblyOutcome {
     Assembled(AssembledSqlTestFacts),
-    Deferred(SqlTestAssemblyDeferral),
+    /// Python's decimal context overflows normalizing a case parameter.
+    FingerprintOverflow(AssembledSqlTestFacts),
+    Failed(SqlTestAssemblyFailure),
 }
 
 /// The facts Python's `_assemble_compiled_sql_test` computes for one test.
@@ -299,36 +300,96 @@ pub struct SqlTestHelperDiagnostic {
     pub help: String,
 }
 
-/// Why one test is assembled by Python instead.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SqlTestAssemblyDeferral {
-    /// Macro mocks re-expand every model, which only Python's macro expansion does.
-    MacroMocks,
-    /// A model's macro call scan raises in Python or meets text Python classifies by Unicode.
-    MacroCallScan,
-    /// The reference scan fails or cannot classify the text as Python does.
-    ReferenceScan,
-    /// Non-ASCII text where Python's case folding or Unicode classes would apply.
-    NonAsciiText,
-    /// A decimal parameter Python's decimal context would round or clamp.
-    DecimalContext,
-    /// A parameter value the JSON encoder cannot encode as Python's does.
-    UnencodableValue,
-    /// A parsed CTE tree too deep, or otherwise unfit, to read as Python's `to_dict` walk does.
-    UnreadableTree,
+/// Why one test's assembly raises, as Python's assembly would.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SqlTestAssemblyFailure {
+    /// The message of the `CompileInputError` Python raises before the test's macro-mock queries.
+    Input(String),
+    /// An internal native failure.
+    Internal(String),
 }
 
-impl SqlTestAssemblyDeferral {
-    /// The kind recorded for the deferral.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::MacroMocks => "macro_mocks",
-            Self::MacroCallScan => "macro_call_scan",
-            Self::ReferenceScan => "reference_scan",
-            Self::NonAsciiText => "non_ascii_text",
-            Self::DecimalContext => "decimal_context",
-            Self::UnencodableValue => "unencodable_value",
-            Self::UnreadableTree => "unreadable_tree",
-        }
-    }
+/// One SQL test block to extract: its SQL, file label, mode and extraction stage.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SqlTestRequest {
+    pub sql: String,
+    pub file_label: String,
+    pub mode: String,
+    /// The test before macro and variable expansion, where macro calls are still authored.
+    #[serde(default)]
+    pub raw: bool,
+    /// Read only the CTE names and body offsets of the authored block, before any expansion.
+    #[serde(default)]
+    pub authored: bool,
+    /// The authored text is a scenario rather than a SQL test block.
+    #[serde(default)]
+    pub scenario: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SqlTestCteText(pub String, pub String);
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SqlTestClassification {
+    /// Each CTE's name, its code-point offset in the authored block and its stripped body.
+    Authored { ctes: Vec<(String, usize, String)> },
+    Model {
+        mode: String,
+        authored: Vec<SqlTestCteText>,
+        #[serde(rename = "macroMocks")]
+        macro_mocks: Vec<(String, String)>,
+        #[serde(rename = "mockModels")]
+        mock_models: Vec<String>,
+        #[serde(rename = "mockSources")]
+        mock_sources: Vec<String>,
+        #[serde(rename = "mockSeeds")]
+        mock_seeds: Vec<String>,
+        #[serde(rename = "mockDbtRefs")]
+        mock_dbt_refs: Vec<String>,
+        #[serde(rename = "mockTableFunctions")]
+        mock_table_functions: Vec<String>,
+        expected: Vec<SqlTestCteText>,
+        #[serde(rename = "expectedModels")]
+        expected_models: Vec<String>,
+        assertions: Vec<SqlTestCteText>,
+        #[serde(rename = "assertionNames")]
+        assertion_names: Vec<String>,
+    },
+    Direct {
+        mode: String,
+        helpers: Vec<SqlTestCteText>,
+        actual: SqlTestCteText,
+        expected: SqlTestCteText,
+        /// Whether a helper or the expected CTE has a malformed reference call (P012).
+        #[serde(rename = "invalidCalls")]
+        invalid_calls: bool,
+    },
+}
+
+/// Why extracting one test of a batch failed, and the authored text the author can act on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SqlTestExtractionFailure {
+    /// The failing test's position in the batch.
+    pub index: usize,
+    pub message: String,
+    pub help: Option<String>,
+    /// The offending text and its code-point offset in the test SQL.
+    pub token: Option<(String, usize)>,
+}
+
+/// One scenario's top-level CTEs, classified by role.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SqlScenarioCtes {
+    pub authored: Vec<(String, String)>,
+    pub expected: Vec<(String, String)>,
+    pub assertions: Vec<(String, String)>,
+    pub source_fixtures: Vec<String>,
+    pub ref_fixtures: Vec<String>,
+    pub seed_fixtures: Vec<String>,
+    pub dbt_ref_fixtures: Vec<String>,
+    pub expected_models: Vec<String>,
+    pub assertion_names: Vec<String>,
 }

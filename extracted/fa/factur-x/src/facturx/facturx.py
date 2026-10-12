@@ -27,8 +27,9 @@
 # - add automated tests (currently, we only have tests at odoo module level)
 # - keep original metadata by copy of pdf_tailer[/Info] ?
 
+import fnmatch
 import importlib.resources as importlib_resources
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO, IOBase
 from tempfile import NamedTemporaryFile
 
@@ -61,9 +62,8 @@ logger = logging.getLogger("factur-x")
 
 VERSION = importlib.metadata.version("factur-x")
 FACTURX_FILENAME = "factur-x.xml"
-ZUGFERD_FILENAMES = ["zugferd-invoice.xml", "ZUGFeRD-invoice.xml"]
+ZUGFERD_FILENAME = "ZUGFeRD-invoice.xml"
 ORDERX_FILENAME = "order-x.xml"
-ALL_FILENAMES = [FACTURX_FILENAME] + ZUGFERD_FILENAMES + [ORDERX_FILENAME]
 # XSD files
 FACTURX_LEVEL2xsd = {
     "minimum": "facturx-minimum/Factur-X_MINIMUM.xsd",
@@ -624,7 +624,7 @@ def get_facturx_xml_from_pdf(
     saxon_server_codedb_dir=None,
     saxon_server_raise_if_http_error=False,
 ):
-    filenames = [FACTURX_FILENAME] + ZUGFERD_FILENAMES
+    filenames = [FACTURX_FILENAME, ZUGFERD_FILENAME]
     return get_xml_from_pdf(
         pdf_file,
         check_xsd=check_xsd,
@@ -671,7 +671,7 @@ def get_xml_from_pdf(
 ):
     logger.debug("get_xml_from_pdf with factur-x lib %s", VERSION)
     if filenames is None:
-        filenames = []
+        filenames = ["*.xml"]
     if not pdf_file:
         raise ValueError("Missing pdf_invoice argument")
     if not isinstance(check_xsd, bool):
@@ -689,15 +689,21 @@ def get_xml_from_pdf(
             f"The first argument of the method get_xml_from_pdf must be either a byte "
             f"or a file (it is a {type(pdf_file)})."
         )
-    if not filenames:
-        filenames = ALL_FILENAMES
     logger.debug("Searching for filenames %s", filenames)
     xml_bytes = xml_filename = False
     pdf_reader = PdfReader(pdf_file_in)
     for attach_obj in pdf_reader.attachment_list:
         filename = attach_obj.name
         logger.debug("Found filename=%s", filename)
-        if filename.lower().endswith(".xml") and attach_obj.content:
+        if (
+            any(
+                [
+                    fnmatch.fnmatch(filename.lower(), match_filename.lower())
+                    for match_filename in filenames
+                ]
+            )
+            and attach_obj.content
+        ):
             try:
                 xml_root = etree.fromstring(attach_obj.content)
                 logger.info("A valid XML file %s has been found in the PDF", filename)
@@ -775,15 +781,18 @@ def get_xml_from_pdf(
 
 
 def _get_pdf_timestamp(date=None):
+    """Return a UTC PDF timestamp, treating naive datetimes as UTC."""
     if date is None:
-        date = datetime.now()
+        date = datetime.now(timezone.utc)
+    elif date.utcoffset() is not None:
+        date = date.astimezone(timezone.utc)
     # example date format: "D:20141006161354+02'00'"
     pdf_date = date.strftime("D:%Y%m%d%H%M%S+00'00'")
     return pdf_date
 
 
 def _get_metadata_timestamp():
-    now_dt = datetime.now()
+    now_dt = datetime.now(timezone.utc)
     # example format : 2014-07-25T14:01:22+02:00
     meta_date = now_dt.strftime("%Y-%m-%dT%H:%M:%S+00:00")
     return meta_date
@@ -1487,6 +1496,8 @@ def generate_from_binary(
     'afrelationship' (AFRelationship of the attachment.
                       Possible values: supplement, unspecified.
                       Default value: unspecified).
+    Datetimes with a timezone are converted to UTC; naive datetimes are assumed
+    to be UTC.
     :type attachments: dict
     :param afrelationship: Set the AFRelationship PDF property of the
     Factur-X/Order-X XML file.
@@ -1615,6 +1626,8 @@ def generate_from_file(
     'afrelationship' (AFRelationship of the attachment.
                       Possible values: supplement, unspecified.
                       Default value: unspecified).
+    Datetimes with a timezone are converted to UTC; naive datetimes are assumed
+    to be UTC.
     :type attachments: dict
     :param afrelationship: Set the AFRelationship PDF property of the
     Factur-X/Order-X XML file.
@@ -1736,7 +1749,11 @@ def generate_from_file(
         # I used list() to avoid the following error in Python3:
         # Error: dictionary changed size during iteration
         for filename in list(attachments.keys()):
-            if filename in ALL_FILENAMES:
+            if filename.lower() in [
+                FACTURX_FILENAME,
+                ZUGFERD_FILENAME.lower(),
+                ORDERX_FILENAME,
+            ]:
                 logger.warning(
                     "You cannot provide as attachment a file named %s. "
                     "This file will NOT be attached.",
@@ -1757,7 +1774,7 @@ def generate_from_file(
                 if not fadict.get("modification_datetime"):
                     mod_timestamp = os.path.getmtime(fadict["filepath"])
                     fadict["modification_datetime"] = datetime.fromtimestamp(
-                        mod_timestamp
+                        mod_timestamp, timezone.utc
                     )
                 if fadict.get("afrelationship"):
                     fadict["afrelationship"] = fadict["afrelationship"].lower()

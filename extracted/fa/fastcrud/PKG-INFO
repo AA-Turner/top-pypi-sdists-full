@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: fastcrud
-Version: 0.22.3
+Version: 0.23.0
 Summary: FastCRUD is a Python package for FastAPI, offering robust async CRUD operations and flexible endpoint creation utilities.
 Project-URL: Repository, https://github.com/benavlabs/fastcrud
 Author-email: Igor Benav <igor@benav.io>

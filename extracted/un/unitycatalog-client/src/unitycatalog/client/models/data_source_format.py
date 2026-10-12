@@ -27,6 +27,7 @@ class DataSourceFormat(str, Enum):
     allowed enum values
     """
     DELTA = 'DELTA'
+    ICEBERG = 'ICEBERG'
     CSV = 'CSV'
     JSON = 'JSON'
     AVRO = 'AVRO'

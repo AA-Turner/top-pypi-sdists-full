@@ -37,10 +37,12 @@ from .filters.pytest import pytest_generated_filter
 from .git import COMMIT_SHA
 from .plugins import PluginProcessor, load_plugin_data
 from .serialize import (
+    IMPLICIT_ITERABLE_IS_RAW,
     FramePathCache,
     dump_frame_msgpack,
     dump_msgpack,
     dump_msgpack_lightweight_repr,
+    hide_implicit_iterable,
     load_msgpack_raw,
     user_code_call_site,
 )
@@ -98,6 +100,9 @@ Unexpected exception in KoloProfiler.process_frame
     event: %s
     frame locals: %s
 """
+
+
+_exited_python_profiler = threading.local()
 
 
 class KoloProfiler:
@@ -169,6 +174,10 @@ class KoloProfiler:
         self.thread_locals = KoloLocals()
         self.timestamp = time.time()
         self.rust_profiler = None
+        # Set when the code holding this session open finished on a thread
+        # that cannot clear this one's profile hook.
+        self.orphaned = False
+        self.thread = threading.current_thread()
         self.omit_return_locals = self.config.get("omit_return_locals", False)
         self.flush_subtree_bytes = _resolve_flush_subtree_bytes(self.config)
         self.max_value_bytes = resolve_max_value_bytes(self.config)
@@ -644,9 +653,40 @@ class KoloProfiler:
             sys.setprofile(self)
             threading.setprofile(self)
 
+    def owns_hook(self, hook: object) -> bool:
+        """Whether a sys or threading profile hook belongs to this session."""
+        if hook is self:
+            return True
+        rust_profiler = self.rust_profiler
+        if rust_profiler is None:
+            return False
+        # threading holds the Rust profiler's bound registration method.
+        return hook is rust_profiler or getattr(hook, "__self__", None) is rust_profiler
+
     def __exit__(self, *exc) -> None:
-        sys.setprofile(None)
-        threading.setprofile(None)
+        if (
+            sys.version_info < (3, 11)
+            and self.rust_profiler is None
+            and exc
+            and exc[0] is not None
+        ):
+            # An exception is ending the session, which is how a generator
+            # holding it open is closed, possibly by its finalizer. Before
+            # Python 3.11 that can run while the interpreter is about to call
+            # this profiler through a borrowed reference, so it has to
+            # outlive this call.
+            _exited_python_profiler.profiler = self
+        # Only this session's own hooks are removed: another profiler may
+        # have replaced them, and a session can be ended from another thread
+        # once its own is gone.
+        if self.owns_hook(sys.getprofile()):
+            sys.setprofile(None)
+        try:
+            thread_hook = threading.getprofile()  # type: ignore[attr-defined]
+        except AttributeError:
+            thread_hook = threading._profile_hook
+        if self.owns_hook(thread_hook):
+            threading.setprofile(None)
         release = getattr(self.rust_profiler, "release_repr_reuse", None)
         if release is not None:
             release()
@@ -754,6 +794,8 @@ class KoloProfiler:
             frame_locals = {
                 k: v for k, v in frame.f_locals.items() if k != "__builtins__"
             }
+            if IMPLICIT_ITERABLE_IS_RAW:
+                hide_implicit_iterable(frame, frame_locals)
 
         frame_data = {
             "path": self._frame_paths.format(frame),

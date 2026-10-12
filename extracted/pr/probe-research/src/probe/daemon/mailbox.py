@@ -349,6 +349,12 @@ class Message:
     made_at: float = field(default_factory=time.time)
     expires_at: float = 0.0
     origin_turn: "int | None" = None
+    #: An unasked message that is neither replaced by a newer one nor replaces one,
+    #: lives as long as an answer and is never dropped as stale: the team-note
+    #: audit's report, the only record a person sees of a change nobody was asked
+    #: about (daemon-team-note-audit). The hooks deliver one unasked message a turn,
+    #: so it waits its turn beside the reader's.
+    keep: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> "Message | None":
@@ -356,7 +362,8 @@ class Message:
             return cls(id=str(data["id"]), session=str(data["session"]), kind=str(data["kind"]),
                        text=str(data.get("text") or ""), ask=data.get("ask"), question=data.get("question"),
                        reason=data.get("reason"), made_at=float(data.get("made_at") or 0.0),
-                       expires_at=float(data.get("expires_at") or 0.0), origin_turn=data.get("origin_turn"))
+                       expires_at=float(data.get("expires_at") or 0.0), origin_turn=data.get("origin_turn"),
+                       keep=bool(data.get("keep")))
         except (KeyError, TypeError, ValueError):
             return None
 
@@ -385,18 +392,19 @@ def _file_name(msg: Message) -> str:
 def publish(msg: Message) -> Path:
     """Put `msg` in the session's mailbox. Idempotent by id: a message already
     published (waiting or claimed) is not written twice. A new UNASKED message
-    replaces any unasked one still waiting: only the newest goes out."""
+    replaces any unasked one still waiting: only the newest goes out (a `keep`
+    message neither replaces nor is replaced)."""
     if not msg.expires_at:
-        msg.expires_at = msg.made_at + (UNASKED_TTL_S if msg.kind == Kind.MESSAGE else ANSWER_TTL_S)
+        msg.expires_at = msg.made_at + (UNASKED_TTL_S if msg.kind == Kind.MESSAGE and not msg.keep else ANSWER_TTL_S)
     folder = messages_dir(msg.session)
     name = _file_name(msg)
     for done in (folder / name, claimed_dir(msg.session) / name):
         if done.exists():
             return done
-    if msg.kind == Kind.MESSAGE and folder.is_dir():
+    if msg.kind == Kind.MESSAGE and not msg.keep and folder.is_dir():
         for other in folder.glob("*.json"):
             data = _read_json(other)
-            if data and data.get("kind") == Kind.MESSAGE and data.get("id") != msg.id:
+            if data and data.get("kind") == Kind.MESSAGE and data.get("id") != msg.id and not data.get("keep"):
                 other.unlink(missing_ok=True)
     _write_json(folder / name, asdict(msg))
     return folder / name
@@ -426,7 +434,7 @@ def withdraw_unasked(session_id: str, *, made_before: float) -> int:
     newer unasked message replacing one not yet delivered. Returns how many."""
     removed = 0
     for path, msg in waiting(session_id):
-        if msg.kind == Kind.MESSAGE and msg.made_at < made_before:
+        if msg.kind == Kind.MESSAGE and not msg.keep and msg.made_at < made_before:
             try:
                 path.unlink()
             except FileNotFoundError:

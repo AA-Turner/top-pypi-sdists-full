@@ -12,7 +12,9 @@ from dataclasses import dataclass, field
 from enum import Enum, StrEnum, auto
 from typing import Any
 
-from nameparser._types import Role, _guarded_getstate, _guarded_setstate
+from nameparser._types import (
+    Role, _coerce_enum, _guarded_getstate, _guarded_setstate,
+)
 
 
 class PatronymicRule(StrEnum):
@@ -28,6 +30,25 @@ class PatronymicRule(StrEnum):
     #: (etc.) binds to the preceding name as a patronymic. Enabled by
     #: locales.TR_AZ.
     TURKIC = "turkic"
+
+
+class CapsSuffixes(StrEnum):
+    """Where ``Policy.unlisted_caps_suffixes`` reads an unlisted
+    all-caps word as a credential (#516, #564)."""
+
+    #: Nowhere: such a word is name material in every position, as
+    #: 2.3 read it.
+    OFF = "off"
+    #: Only after a comma, behind two or more name words ("John Smith,
+    #: XYZ" gives suffix ``XYZ``). The default: the all-caps SURNAME
+    #: convention ("Jean DUPONT", "DUPONT, Jean") never writes the
+    #: capitals there.
+    AFTER_COMMA = "after-comma"
+    #: After a comma and ending a name with no comma ("John Smith XYZ"
+    #: gives suffix ``XYZ``), where the all-caps surname convention
+    #: does write them -- "Jean Pierre DUPONT" then gives family
+    #: ``Pierre``, suffix ``DUPONT``.
+    EVERYWHERE = "everywhere"
 
 
 class Script(StrEnum):
@@ -52,10 +73,14 @@ class Script(StrEnum):
     #: kanji+kana token (高橋みなみ) is Japanese and resolves HERE --
     #: this member is the carrier key in script_orders/segment_scripts.
     HIRAGANA = "hiragana"
-    #: Japanese katakana. A PURE-katakana token is predominantly a
-    #: transcribed foreign name in its original order (マイケル), so
-    #: no default behavior keys on this member; it exists so the
-    #: classifier can name what it deliberately declines.
+    #: Japanese katakana, full-width and halfwidth (ﾀﾛｳ) alike. A
+    #: PURE-katakana token may be a transcribed foreign name in its
+    #: original order (マイケル) or a Japanese name's reading written
+    #: family-first (ヤマダ タロウ, and legacy halfwidth data), and the
+    #: script cannot say which, so no default behavior keys on this
+    #: member; it exists so the classifier can name what it
+    #: deliberately declines. A caller who knows their katakana is
+    #: Japanese maps it to FAMILY_FIRST in script_orders.
     KATAKANA = "katakana"
 
 
@@ -104,11 +129,26 @@ class Script(StrEnum):
 # supplementary Han, which real surnames genuinely need. The Katakana
 # Phonetic Extensions block (U+31F0-U+31FF, 16 small katakana for Ainu
 # transcription) is excluded for the same reason -- no modern Japanese
-# personal name uses them. Halfwidth kana (U+FF65-U+FF9F, including
-# the voiced/semi-voiced sound marks U+FF9E/U+FF9F) is likewise
-# deliberately excluded -- legacy bank/CSV data uses it, but it is a
-# separate normalization problem; #272 Task 2b's separator handling
-# only touches the halfwidth DOT (U+FF65), not the rest of that block.
+# personal name uses them. Halfwidth kana (U+FF65-U+FF9F, #594) IS
+# katakana here: legacy bank, payroll and CSV data written for JIS X
+# 0201 systems spells names in it, and 山田 ﾀﾛｳ must read as 山田 タロウ
+# does. Classifying it is a range, not a fold. rules.md's T Background
+# says "nothing rewrites the text before parsing", which rules out a
+# fold at tokenize, and an NFKC fold at classification would reach far
+# past the kana (fullwidth Latin, ㈱), and when #594 decided it a
+# voicing mark with no precomposed form to join (ｱﾞ) folded to the
+# combining U+3099, which is in the HIRAGANA block -- so the folded
+# token took the kana license and a wholly-katakana name turned
+# family-first (decisions.md#W4; #596 has since given every voicing
+# mark after a kana its base's script, see below). The span takes
+# in the halfwidth nakaguro U+FF65, which tokenize turns into a separator,
+# on the same direct-call grounds as U+30FB below, and the voicing
+# marks U+FF9E/U+FF9F: they are spacing characters (category Lm) that
+# NFC never composes into their base, there being no precomposed
+# halfwidth voiced kana, so a span ending at U+FF9D would leave ﾀﾞ
+# unclassified. It stops short
+# of U+FF61-U+FF64, the halfwidth CJK punctuation, whose U+FF61 is a
+# full stop (_lexicon.FULL_STOPS).
 # This table classifies by Unicode BLOCK, not the UAX #24 Script
 # property: U+30A0, U+30FB (the middle dot), and U+30FC (the
 # prolonged sound mark) all carry Script=Common under UAX #24, and the
@@ -116,7 +156,12 @@ class Script(StrEnum):
 # and U+309A are the COMBINING forms (Script=Inherited), U+309B and
 # U+309C the spacing ones (Script=Common) -- yet every one of them is
 # needed here, and block membership, not the Script property, is what
-# puts them in range. The katakana block's upper end (U+30FF) takes in
+# puts them in range. Those four are in range only for a mark that
+# follows no kana: a mark voices the kana it follows, in either
+# syllabary, so classification deletes every mark that follows a
+# kana and the token takes its base's script (#596,
+# _vocab._normalized_for_script) -- ア゙イ is katakana, not katakana
+# plus hiragana. The katakana block's upper end (U+30FF) takes in
 # the middle dot U+30FB, kept rather than carved out for a smaller
 # reason than it looks: tokenize (#272 Task 2b) turns U+30FB into a
 # token separator, so no real parse shows the classifier a string
@@ -133,7 +178,7 @@ _SCRIPT_RANGES: dict[Script, tuple[tuple[int, int], ...]] = {
                  (0xF900, 0xFAFF), (0x20000, 0x323AF)),
     Script.HANGUL: ((0xAC00, 0xD7A3),),
     Script.HIRAGANA: ((0x3040, 0x309F),),
-    Script.KATAKANA: ((0x30A0, 0x30FF),),
+    Script.KATAKANA: ((0x30A0, 0x30FF), (0xFF65, 0xFF9F)),
 }
 
 #: The Japanese repertoire: the three scripts Japanese names draw on.
@@ -281,8 +326,10 @@ _PATRONYMIC_MIGRATION_HINT = (
 #: (transcriptions are katakana-only), so it is Japanese, written
 #: family-first -- another default change in a minor, release-log-
 #: classified fix, #294's mechanism. KATAKANA is deliberately absent:
-#: a PURE-katakana token is predominantly a transcribed foreign name
-#: kept in its source (usually given-first) order, so nothing should
+#: a PURE-katakana token may be a transcribed foreign name kept in its
+#: source (usually given-first) order, or a Japanese reading written
+#: family-first -- legacy halfwidth data (#594) spells Japanese names in
+#: katakana too -- and the script cannot tell them apart, so nothing should
 #: default on it. Canonical form: sorted (Script, order) pairs,
 #: matching the field's storage.
 DEFAULT_SCRIPT_ORDERS: tuple[
@@ -298,9 +345,10 @@ DEFAULT_SCRIPT_ORDERS: tuple[
 #: rebuilt literal the user had to go discover. The v1 trio (straight
 #: quotes + parentheses) plus the typographic conventions (#273):
 #: smart quotes, low-high and right-right quotes, guillemets both
-#: directions, CJK corner brackets, fullwidth parentheses. Curly
-#: SINGLE quotes are deliberately absent: U+2019 is the typographic
-#: apostrophe ("O’Connor").
+#: directions, CJK corner brackets (full-width and the halfwidth
+#: ｢｣ legacy JIS X 0201 data carries, #597), fullwidth parentheses.
+#: Curly SINGLE quotes are deliberately absent: U+2019 is the
+#: typographic apostrophe ("O’Connor").
 DEFAULT_NICKNAME_DELIMITERS = frozenset({
     ("'", "'"), ('"', '"'), ("(", ")"),      # v1 trio
     ("“", "”"),                              # smart quotes (en, zh)
@@ -309,6 +357,7 @@ DEFAULT_NICKNAME_DELIMITERS = frozenset({
     ("«", "»"),                              # guillemets (fr, ru, it, el)
     ("»", "«"),                              # reversed guillemets (de alt)
     ("「", "」"), ("『", "』"),                # CJK corner brackets (ja)
+    ("｢", "｣"),                              # halfwidth corner brackets
     ("（", "）"),                             # fullwidth parentheses (CJK)
 })
 
@@ -662,6 +711,64 @@ class Policy:
     #: they appear in no token, field, or rendered view; the original
     #: string keeps them.
     strip_bidi: bool = True  # =False replaces v1's opt-out CONSTANTS.regexes.bidi = False
+    # -- fields added after 2.3 ------------------------------------------
+    # Policy is not kw_only, so a field's POSITION is API: a caller
+    # writing Policy(GIVEN_FIRST, ..., True, False) binds by position.
+    # The two 2.4 switches below first landed beside
+    # lenient_comma_suffixes, which re-bound every positional argument
+    # from `strip_emoji` on; they are appended here instead so 2.3's
+    # eleven positions keep their meaning
+    # (tests/v2/test_policy.py::test_the_2_3_positional_fields_did_not_move).
+    # A field added in a later cycle goes at the END for the same
+    # reason, whatever it is about.
+    #: Reads an UNLISTED token of two or more period-separated chunks
+    #: as a credential where the position allows it: "John Smith
+    #: X.Y.Z." gives suffix ``X.Y.Z.`` and "Jack X.Y.Z." keeps family
+    #: ``X.Y.Z.``, the same words-to-spare rule a listed ambiguous
+    #: acronym takes, and either reading is reported. Case is
+    #: irrelevant here -- the periods are the signal, so
+    #: "john smith x.y.z." reads as the mixed-case spelling does.
+    #: Whole-token vocabulary still wins ("M.A.", "Ph.D.", "A.B.C."),
+    #: and a single trailing period is not this shape ("John Smith
+    #: Xyz." keeps family ``Xyz.``). ``False`` reads such a token as
+    #: name material everywhere, as 2.3 did for a token no chunk
+    #: claimed; the roman-chunk retirement (rules.md#S3) is not
+    #: behind this switch, and still reports the fork.
+    unlisted_dotted_suffixes: bool = True
+    #: Where an UNLISTED all-caps word of two or more letters, with no
+    #: period in it, reads as a credential (:class:`CapsSuffixes`). The
+    #: name must contrast it: a word of the name holding a capital whose
+    #: last letter is lowercase ("Smith", "DiCaprio") that the
+    #: vocabulary does not claim as a title, particle
+    #: or credential -- a record written wholly in capitals or wholly in
+    #: lowercase keeps every word a name word. A listed member keeps its
+    #: own case lean in every setting ("Jack MA" gives suffix ``MA``),
+    #: and the roman-numeral fork claims a bare numeral first ("Jack
+    #: VI" is unaffected).
+    #:
+    #: ``AFTER_COMMA``, the default, reads it only in the part after a
+    #: comma with two or more name words before it: "John Smith, XYZ"
+    #: gives suffix ``XYZ``, while "Smith, XYZ" keeps given ``XYZ`` (one
+    #: name word) and "García Márquez, MJ" keeps given ``MJ`` -- a lone
+    #: two-letter word is how a person's initials are written, and two
+    #: words before the comma may be one surname, the case #563 decides
+    #: for "M.J." too. The all-caps SURNAME convention ("Jean DUPONT",
+    #: "DUPONT, Jean") writes the capitals at the end of a name or
+    #: before a comma, never after one behind a full name, which is why
+    #: this position is on by default and the others are not.
+    #:
+    #: ``EVERYWHERE`` adds the end of a name with no comma, the
+    #: convention's own position: "John Smith XYZ" gives suffix ``XYZ``,
+    #: and "Jean Pierre DUPONT" gives family ``Pierre``, suffix
+    #: ``DUPONT`` -- the cost, a swallowed family name being the worse
+    #: failure. The two-word "Jean DUPONT" and "Minjun KIM" keep their
+    #: family even then (one word before the credential is never
+    #: enough), but gain the fork's report. ``OFF`` reads no such word
+    #: as a credential anywhere and reports nothing, as 2.3 did. A digit
+    #: disqualifies the token and a single capital stays an initial.
+    #: ``isupper()`` is script-agnostic, so the same holds in any script
+    #: with a case contrast ("Иван ИВАНОВ", "Jean ÉCOLE").
+    unlisted_caps_suffixes: CapsSuffixes = CapsSuffixes.AFTER_COMMA
 
     # in the class body so @dataclass(slots=True) keeps them
     __getstate__ = _guarded_getstate
@@ -752,13 +859,34 @@ class Policy:
         # Truthy strings ("no", "false") would silently invert the
         # caller's intent downstream; bools are the one field kind the
         # coercing checks above can't cover.
-        for flag in ("middle_as_family", "lenient_comma_suffixes",
-                     "strip_emoji", "strip_bidi"):
+        #
+        # The roster is DERIVED from the dataclass rather than written
+        # out: a hand-written list is a second place to remember, and
+        # the twin loop in tests/v2/test_policy.py proved it -- it still
+        # named 2.3's four flags after 2.4 added two, so the new
+        # switches shipped with no "must be a bool" coverage while the
+        # library validated them. `bool` is the whole test: every
+        # bool-annotated Policy field is a flag, and the annotation is
+        # a plain string here because of `from __future__ import
+        # annotations` (AGENTS.md's guard-the-whole-family rule).
+        for flag in _BOOL_FIELDS:
             value = getattr(self, flag)
             if not isinstance(value, bool):
                 raise TypeError(
                     f"{flag} must be a bool, got {value!r}"
                 )
+        # A bool is the likeliest wrong value -- the sibling
+        # unlisted_dotted_suffixes is one, and `True` is an `int` the
+        # enum would read as no member -- so name every member.
+        caps = self.unlisted_caps_suffixes
+        if isinstance(caps, bool):
+            raise TypeError(
+                f"unlisted_caps_suffixes must be a CapsSuffixes, got "
+                f"{caps!r}; use CapsSuffixes.OFF, CapsSuffixes.AFTER_COMMA "
+                f"(the default) or CapsSuffixes.EVERYWHERE")
+        object.__setattr__(self, "unlisted_caps_suffixes", _coerce_enum(
+            caps, CapsSuffixes, "unlisted_caps_suffixes value",
+            "values"))
 
     def __repr__(self) -> str:
         # Bounded: only fields that deviate from the default are shown
@@ -788,6 +916,18 @@ class Policy:
         if not isinstance(patch, PolicyPatch):
             raise TypeError(f"patched() takes a PolicyPatch, got {patch!r}")
         return apply_patch(self, patch)
+
+
+#: Every bool-valued Policy field, read off the dataclass rather than
+#: listed: `__post_init__`'s bool check sweeps this, so a flag added to
+#: the class above is validated the day it lands and cannot ship
+#: unchecked the way `unlisted_dotted_suffixes` and the then-bool
+#: `unlisted_caps_suffixes` did. `from __future__ import annotations`
+#: makes every annotation a string, so the comparison is against the
+#: SPELLING "bool" -- which is also what a reader of the class body
+#: sees, and a field annotated any other way is not a plain flag.
+_BOOL_FIELDS: tuple[str, ...] = tuple(
+    f.name for f in dataclasses.fields(Policy) if f.type == "bool")
 
 
 class _Unset(Enum):
@@ -833,6 +973,12 @@ class PolicyPatch:
     lenient_comma_suffixes: bool | _Unset = UNSET
     strip_emoji: bool | _Unset = UNSET
     strip_bidi: bool | _Unset = UNSET
+    # Appended, in Policy's order and for Policy's reason -- this class
+    # is positional too, and the parity test holds the two field
+    # sequences equal, so a field inserted on one side would have to be
+    # inserted on the other and both would re-bind together.
+    unlisted_dotted_suffixes: bool | _Unset = UNSET
+    unlisted_caps_suffixes: CapsSuffixes | _Unset = UNSET
 
     # in the class body so @dataclass(slots=True) keeps them
     __getstate__ = _guarded_getstate
@@ -882,9 +1028,11 @@ class PolicyPatch:
                     f"{f.name} must be an iterable, got {value!r}{hint}"
                 ) from None
             object.__setattr__(self, f.name, frozenset(value))
-        # middle_as_family, lenient_comma_suffixes, strip_emoji, and
-        # strip_bidi are scalar (compose="override") fields and
-        # DELIBERATELY get no type check here, unlike name_order and
+        # middle_as_family, lenient_comma_suffixes,
+        # unlisted_dotted_suffixes, unlisted_caps_suffixes, strip_emoji,
+        # and strip_bidi are scalar (compose="override") fields and
+        # DELIBERATELY get no
+        # type check here, unlike name_order and
         # the union fields above: a PolicyPatch(strip_emoji="off") is
         # constructible, and only raises once apply_patch runs
         # Policy.__post_init__'s bool check. This is the one place the

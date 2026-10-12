@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aioquic
-Version: 1.4.0
+Version: 1.5.0
 Summary: An implementation of QUIC and HTTP/3
 Author-email: Jeremy Lainé <jeremy.laine@m4x.org>
 License-Expression: BSD-3-Clause
@@ -24,7 +24,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: certifi
 Requires-Dist: cryptography>=43.0.0
-Requires-Dist: pylsqpack<0.4.0,>=0.3.3
+Requires-Dist: pylsqpack<2.0.0,>=1.0.0
 Requires-Dist: pyopenssl>=24
 Requires-Dist: service-identity>=24.1.0
 Provides-Extra: dev

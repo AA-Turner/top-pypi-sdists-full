@@ -6,6 +6,8 @@
 
 #include <manifold/polygon.h>
 
+#include <algorithm>
+
 namespace oscadeval {
 
 // simplify()'s default tolerance, as a fraction of the body's bounding-box
@@ -663,13 +665,29 @@ std::vector<ColoredBody> generateMeshRepair(Evaluator& ev, const CSGParams& para
 // The trade is memory: ~67 bytes per cell, so 200^3 is about 550 MB and that
 // is the practical ceiling. A callback samples lazily and has no ceiling.
 //
-// Accuracy is bounded by the GRID, not by Manifold. Manifold samples on a
-// body-centred cubic lattice (two interleaved cubic grids, sdf.cpp:440-446)
-// and a plain cubic grid does not line up with those points, so the lambda
-// interpolates. Same accuracy as a grid-based marching-cubes implementation
-// in script; worse than LevelSet given a true SDF. Do not imply otherwise.
+// Accuracy is bounded by the GRID, not by Manifold. At the grid's own
+// spacing (the default) the grid is marched directly, as BOSL2's
+// isosurface() does -- see marchingCubes(). An edge= asking for a different
+// spacing resamples it through LevelSet instead, which samples a
+// body-centred cubic lattice (sdf.cpp:440-446) that a plain cubic grid does
+// not line up with, so the lambda interpolates trilinearly between samples.
 
 namespace {
+
+// A sample as the field arrays and field functions hand it over. +-INF is a
+// legal sample -- a metaball field is 1/0 wherever a grid point lands on a
+// centre (#744 on BelfrySCAD) -- but it cannot be used as is: the trilinear
+// sampler weights corners, and 0 * INF is NaN. So it becomes a huge FINITE
+// value, which is the limit BOSL2's isosurface() takes (an edge to an INF
+// corner crosses at the other end). A quarter of DBL_MAX so that sums of
+// weighted corners and bandDistance's subtraction cannot overflow. NaN, or
+// anything not a number, has no meaning and is nullopt.
+std::optional<double> fieldSample(const Value& item) {
+    const double* d = std::get_if<double>(&item);
+    if (!d || std::isnan(*d)) return std::nullopt;
+    constexpr double kHuge = std::numeric_limits<double>::max() / 4;
+    return std::clamp(*d, -kHuge, kHuge);
+}
 
 struct ScalarField {
     std::vector<double> v;      // flat, x fastest
@@ -698,8 +716,8 @@ std::optional<ScalarField> readField(const Value& val) {
                 return std::nullopt;
             }
             for (size_t k = 0; k < f.nz; ++k) {
-                const double* d = std::get_if<double>(&(*zs)->items[k]);
-                if (!d || !std::isfinite(*d)) return std::nullopt;
+                const std::optional<double> d = fieldSample((*zs)->items[k]);
+                if (!d) return std::nullopt;
                 f.v[(k * f.ny + j) * f.nx + i] = *d;
             }
         }
@@ -722,8 +740,8 @@ std::optional<std::vector<std::vector<double>>> readPlane(const Value& val) {
         std::vector<double> row;
         row.reserve(ny);
         for (const Value& item : (*ys)->items) {
-            const double* d = std::get_if<double>(&item);
-            if (!d || !std::isfinite(*d)) return std::nullopt;
+            const std::optional<double> d = fieldSample(item);
+            if (!d) return std::nullopt;
             row.push_back(*d);
         }
         out.push_back(std::move(row));
@@ -889,6 +907,162 @@ manifold::Polygons marchingSquares(const Contours2d& g) {
     return out;
 }
 
+
+// -- 3D: marching cubes on the grid itself -----------------------------------
+//
+// For a grid sampled at the spacing it was given, Manifold's LevelSet is the
+// wrong tool: it samples its own body-centred lattice, which does not line up
+// with the grid, so it meshes a trilinear blend of the data rather than the
+// data. Measured on #745 on BelfrySCAD, that left a metaball field visibly
+// more faceted than BOSL2's isosurface(), which marches the grid itself. So
+// this does too.
+//
+// No 256-case table. The table's hard part is the ambiguous face (two
+// inside corners on a diagonal), and a table that resolves it per CELL can
+// disagree with the neighbouring cell and leave a crack -- fatal here, since
+// Manifold needs a closed mesh. So the triangles are built per FACE instead:
+// each face's crossings are paired into segments by a rule that reads only
+// that face's four values (the face-centre average decides a saddle, as the
+// 2D path does), so the two cells sharing a face always agree. A cell's
+// segments then link into closed loops, one polygon each. Vertices are keyed
+// on GRID EDGE identity, so neighbours share them by construction, exactly as
+// marchingSquares keys on edges rather than coordinates.
+//
+// Orientation: walking a face's corners anticlockwise as seen from outside
+// the cell, a segment runs from an outside->inside crossing to an
+// inside->outside one. A loop of such segments, read in order, is a polygon
+// whose normal points from inside to outside -- Manifold's convention, with
+// inside the positive side.
+//
+// The field arrives as band distance (positive inside) with a ring of
+// "outside" round it, like the 2D path, so every surface closes; the caller
+// clips the overhang back to the bounds.
+manifold::MeshGL64 marchingCubes(const std::vector<double>& d, const size_t n[3],
+                                  const std::array<double, 3>& org, const std::array<double, 3>& h) {
+    const auto P = [&](size_t i, size_t j, size_t k) { return (k * n[1] + j) * n[0] + i; };
+    // corner c of a cell is offset (c&1, c>>1&1, c>>2&1). Each face's
+    // corners, anticlockwise as seen from outside.
+    static constexpr int kFaces[6][4] = {
+        {0, 2, 3, 1}, {4, 5, 7, 6},   // -z, +z
+        {0, 4, 6, 2}, {1, 3, 7, 5},   // -x, +x
+        {0, 1, 5, 4}, {2, 6, 7, 3},   // -y, +y
+    };
+    manifold::MeshGL64 mesh;
+    mesh.numProp = 3;
+    // ponytail: one int per grid edge, ~12 bytes a sample next to the
+    // field's own ~67; key the vertices per slab if this ever binds.
+    std::vector<int64_t> edgeVert(3 * n[0] * n[1] * n[2], -1);
+    const auto addVert = [&](double x, double y, double z) {
+        mesh.vertProperties.insert(mesh.vertProperties.end(), {x, y, z});
+        return static_cast<int64_t>(mesh.vertProperties.size() / 3 - 1);
+    };
+    for (size_t k = 0; k + 1 < n[2]; ++k) {
+        for (size_t j = 0; j + 1 < n[1]; ++j) {
+            for (size_t i = 0; i + 1 < n[0]; ++i) {
+                double v[8];
+                size_t p[8];
+                int inside = 0;
+                for (int c = 0; c < 8; ++c) {
+                    p[c] = P(i + (c & 1), j + (c >> 1 & 1), k + (c >> 2 & 1));
+                    v[c] = d[p[c]];
+                    inside += v[c] > 0.0;
+                }
+                if (inside == 0 || inside == 8) continue;
+                // The vertex on the edge between corners a and b.
+                const auto vert = [&](int a, int b) -> int64_t {
+                    if (a > b) std::swap(a, b);           // a is the lower end
+                    const int axis = (b - a) == 1 ? 0 : (b - a) == 2 ? 1 : 2;
+                    int64_t& id = edgeVert[3 * p[a] + static_cast<size_t>(axis)];
+                    if (id < 0) {
+                        const double t = v[a] / (v[a] - v[b]);
+                        const double x = org[0] + h[0] * (static_cast<double>(i + (a & 1)) + (axis == 0 ? t : 0.0));
+                        const double y = org[1] + h[1] * (static_cast<double>(j + (a >> 1 & 1)) + (axis == 1 ? t : 0.0));
+                        const double z = org[2] + h[2] * (static_cast<double>(k + (a >> 2 & 1)) + (axis == 2 ? t : 0.0));
+                        id = addVert(x, y, z);
+                    }
+                    return id;
+                };
+                // Segments start->end, at most two per face.
+                int64_t segFrom[12], segTo[12];
+                int nSeg = 0;
+                for (const auto& f : kFaces) {
+                    int64_t cross[4];
+                    bool outIn[4];
+                    int nc = 0;
+                    for (int m = 0; m < 4; ++m) {
+                        const int a = f[m], b = f[(m + 1) % 4];
+                        if ((v[a] > 0.0) != (v[b] > 0.0)) {
+                            cross[nc] = vert(a, b);
+                            outIn[nc++] = v[b] > 0.0;
+                        }
+                    }
+                    if (nc == 0) continue;
+                    // A saddle joins its inside corners when the face centre
+                    // is inside: each out->in crossing then pairs with the
+                    // PREVIOUS crossing instead of the next.
+                    const bool joined =
+                        nc == 4 && v[f[0]] + v[f[1]] + v[f[2]] + v[f[3]] > 0.0;
+                    for (int m = 0; m < nc; ++m) {
+                        if (!outIn[m]) continue;
+                        segFrom[nSeg] = cross[m];
+                        segTo[nSeg++] = cross[(m + (joined ? nc - 1 : 1)) % nc];
+                    }
+                }
+                // Link into loops; each vertex starts exactly one segment.
+                bool used[12] = {};
+                for (int s0 = 0; s0 < nSeg; ++s0) {
+                    if (used[s0]) continue;
+                    int64_t loop[12];
+                    int len = 0;
+                    for (int s = s0; s >= 0 && !used[s];) {
+                        used[s] = true;
+                        loop[len++] = segFrom[s];
+                        const int64_t want = segTo[s];
+                        s = -1;
+                        for (int q = 0; q < nSeg; ++q)
+                            if (!used[q] && segFrom[q] == want) { s = q; break; }
+                    }
+                    const auto tri = [&](int64_t a, int64_t b, int64_t c) {
+                        mesh.triVerts.insert(mesh.triVerts.end(), {static_cast<uint64_t>(a), static_cast<uint64_t>(b),
+                                                                   static_cast<uint64_t>(c)});
+                    };
+                    const auto at = [&](int64_t id, int axis) {
+                        return mesh.vertProperties[static_cast<size_t>(id) * 3 + static_cast<size_t>(axis)];
+                    };
+                    const auto dist2 = [&](int64_t a, int64_t b) {
+                        double s2 = 0;
+                        for (int ax = 0; ax < 3; ++ax) s2 += (at(a, ax) - at(b, ax)) * (at(a, ax) - at(b, ax));
+                        return s2;
+                    };
+                    if (len == 3) {
+                        tri(loop[0], loop[1], loop[2]);
+                    } else if (len == 4) {
+                        // Split along the shorter diagonal.
+                        if (dist2(loop[0], loop[2]) <= dist2(loop[1], loop[3])) {
+                            tri(loop[0], loop[1], loop[2]);
+                            tri(loop[0], loop[2], loop[3]);
+                        } else {
+                            tri(loop[1], loop[2], loop[3]);
+                            tri(loop[1], loop[3], loop[0]);
+                        }
+                    } else if (len > 4) {
+                        // A fan from one corner of a 5-7 sided, non-planar
+                        // loop can fold; a fan from its centroid cannot.
+                        double cx = 0, cy = 0, cz = 0;
+                        for (int m = 0; m < len; ++m) {
+                            cx += at(loop[m], 0);
+                            cy += at(loop[m], 1);
+                            cz += at(loop[m], 2);
+                        }
+                        const int64_t c = addVert(cx / len, cy / len, cz / len);
+                        for (int m = 0; m < len; ++m) tri(loop[m], loop[(m + 1) % len], c);
+                    }
+                }
+            }
+        }
+    }
+    return mesh;
+}
 
 CSGParams resolveLevelSet(Evaluator& ev, const oscad::ModularCall& node, EvalContext& ctx) {
     auto [args, effCtx] = resolveCallArgs(ev, node.arguments, ctx);
@@ -1104,8 +1278,7 @@ std::vector<ColoredBody> generateLevelSet(Evaluator& ev, const CSGParams& params
                 bound.set(fnParams2[1], Value{(*bLo)[1] + static_cast<double>(j) * sy});
                 const Value outv =
                     ev.evalFunctionLiteralFromBound(**fieldFn, std::move(bound), *fnCtx, &node.position());
-                const double* d = std::get_if<double>(&outv);
-                const double val = (d && std::isfinite(*d)) ? *d : std::numeric_limits<double>::max();
+                const double val = fieldSample(outv).value_or(std::numeric_limits<double>::max());
                 g.v[(j + 1) * g.nx + (i + 1)] = bandDistance(val, isoLo, isoHi, invert);
             }
         }
@@ -1121,6 +1294,7 @@ std::vector<ColoredBody> generateLevelSet(Evaluator& ev, const CSGParams& params
     }
 
 
+    bool marchGrid = false;
     if (!fieldFn) {
         field = readField(fieldArg);
         if (!field) {
@@ -1135,6 +1309,15 @@ std::vector<ColoredBody> generateLevelSet(Evaluator& ev, const CSGParams& params
         spacing = {((*bHi)[0] - (*bLo)[0]) / static_cast<double>(field->nx - 1),
                     ((*bHi)[1] - (*bLo)[1]) / static_cast<double>(field->ny - 1),
                     ((*bHi)[2] - (*bLo)[2]) / static_cast<double>(field->nz - 1)};
+        // Marched on the grid itself unless edge= asks for a different
+        // spacing. A 1e-9 relative slack so an edge typed as the spacing,
+        // or computed from the same bounds, still counts as it.
+        const auto same = [](double a, double b) { return std::abs(a - b) <= 1e-9 * std::max(a, b); };
+        marchGrid = edge <= 0.0;
+        if (!marchGrid) {
+            marchGrid = true;
+            for (int a = 0; a < 3; ++a) marchGrid = marchGrid && same(edgeVec ? edgeV[a] : edge, spacing[a]);
+        }
         // Also when edge= was given but unusable (warned above): edge 0
         // would ask Manifold for an infinitely fine lattice.
         if (edge <= 0.0) edge = std::min({spacing[0], spacing[1], spacing[2]});
@@ -1151,10 +1334,9 @@ std::vector<ColoredBody> generateLevelSet(Evaluator& ev, const CSGParams& params
         const double xyz[3] = {p.x, p.y, p.z};
         for (int a = 0; a < 3; ++a) bound.set(fnParams2[static_cast<size_t>(a)], Value{xyz[a]});
         const Value out = ev.evalFunctionLiteralFromBound(**fieldFn, std::move(bound), *fnCtx, &node.position());
-        const double* d = std::get_if<double>(&out);
         // A field that returns junk at one point must not abort the whole
-        // build; treat it as far outside instead.
-        const double v = (d && std::isfinite(*d)) ? *d : std::numeric_limits<double>::max();
+        // build; it becomes a huge value instead. +-INF keeps its sign.
+        const double v = fieldSample(out).value_or(std::numeric_limits<double>::max());
         return bandDistance(v, isoLo, isoHi, invert);
     };
 
@@ -1178,18 +1360,13 @@ std::vector<ColoredBody> generateLevelSet(Evaluator& ev, const CSGParams& params
             if (i0[a] > n[a] - 2) i0[a] = n[a] - 2;
             t[a] = g[a] - static_cast<double>(i0[a]);
         }
-        // Outside the sampled block the answer is "outside", falling away
-        // with distance. Clamping instead (which is what the interpolation
-        // above does on its own) would smear the boundary values outward and
-        // extend the surface rather than close it.
-        double outside = 0.0;
-        for (int a = 0; a < 3; ++a) {
-            const double maxg = static_cast<double>(n[a] - 1);
-            const double raw = (pos[a] - origin[a]) / spacing[a];
-            if (raw < 0.0) outside = std::max(outside, -raw);
-            else if (raw > maxg) outside = std::max(outside, raw - maxg);
-        }
-        if (outside > 0.0) return invert ? (1.0 + outside) : -(1.0 + outside);
+        // Outside the sampled block the clamping above extends the boundary
+        // values outward, so a surface meeting the box runs straight on into
+        // the padding and the clip to `bounds` below leaves a clean plane.
+        // Answering "outside" there instead (as this once did) made Manifold
+        // close the surface right AT the box face, along its own lattice: a
+        // waffle-textured staircase INSIDE the bounds, which the clip could
+        // not remove (#745 on BelfrySCAD).
 
         double acc = 0.0;
         for (int c = 0; c < 8; ++c) {
@@ -1214,11 +1391,15 @@ std::vector<ColoredBody> generateLevelSet(Evaluator& ev, const CSGParams& params
     const manifold::vec3 pad = 2.0 * E;
     manifold::Box bounds(manifold::vec3(origin[0], origin[1], origin[2]) - pad,
                           manifold::vec3((*hi)[0], (*hi)[1], (*hi)[2]) + pad);
-    // tolerance -1: a positive value makes Manifold do EXTRA evaluations per
-    // output vertex to snap nearer the true surface. Against a fixed grid
-    // those only re-interpolate data already used -- cost, no information.
-    // canParallel true: the lambda is pure C++ and never re-enters the
-    // evaluator, which is the whole point of taking a grid.
+    // tolerance: Manifold root-finds along each crossing lattice edge until
+    // the bracket is within it (a distance along the edge, so independent of
+    // the field's units), instead of interpolating linearly between the two
+    // lattice samples. 1% of the edge. Measured on #745 on BelfrySCAD: the
+    // function form's vertices go from up to 0.2 off the true surface to on
+    // it, and the mean face-normal error on a per-axis edge halves to
+    // BOSL2's own; a grid gains too, since the trilinear field between
+    // samples is not linear along a lattice edge. Costs 11-20% more work.
+    //
     // canParallel is the crux: safe for a grid because the lambda is pure
     // C++, and NOT safe for a function, which re-enters the evaluator.
     // Manifold: parallel policies "will crash language runtimes with runtime
@@ -1226,19 +1407,32 @@ std::vector<ColoredBody> generateLevelSet(Evaluator& ev, const CSGParams& params
     //
     // LevelSet takes a single edge length, so a per-axis edge meshes a field
     // squashed to unit spacing on every axis and stretches the result back.
-    // Exact, not an approximation: with tolerance -1 a vertex is a linear
-    // interpolation along a lattice edge, and a linear interpolation commutes
-    // with an axis scale.
+    // The tolerance there is 1% of the unit edge, so 1% of each axis's own.
+    const double tol = 0.01 * (edgeVec ? 1.0 : edge);
     manifold::Manifold solid;
-    if (!edgeVec) {
-        solid = fieldFn ? manifold::Manifold::LevelSet(sampleFn, bounds, edge, 0.0, -1.0, /*canParallel=*/false)
-                        : manifold::Manifold::LevelSet(sampleGrid, bounds, edge, 0.0, -1.0, /*canParallel=*/true);
-    } else {
+    if (marchGrid) {
+        const size_t n[3] = {field->nx + 2, field->ny + 2, field->nz + 2};
+        std::vector<double> d(n[0] * n[1] * n[2], -1.0);   // the "outside" ring
+        for (size_t k = 0; k < field->nz; ++k)
+            for (size_t j = 0; j < field->ny; ++j)
+                for (size_t i = 0; i < field->nx; ++i)
+                    d[((k + 1) * n[1] + (j + 1)) * n[0] + (i + 1)] =
+                        bandDistance(field->at(i, j, k), isoLo, isoHi, invert);
+        const std::array<double, 3> org{origin[0] - spacing[0], origin[1] - spacing[1], origin[2] - spacing[2]};
+        solid = manifold::Manifold(marchingCubes(d, n, org, spacing));
+        // Never expected; but a mesh Manifold refuses must not cost the
+        // user their shape, so fall back to resampling it.
+        if (solid.Status() != manifold::Manifold::Error::NoError) marchGrid = false;
+    }
+    if (!marchGrid && !edgeVec) {
+        solid = fieldFn ? manifold::Manifold::LevelSet(sampleFn, bounds, edge, 0.0, tol, /*canParallel=*/false)
+                        : manifold::Manifold::LevelSet(sampleGrid, bounds, edge, 0.0, tol, /*canParallel=*/true);
+    } else if (!marchGrid) {
         const manifold::Box unit(bounds.min / E, bounds.max / E);
         solid = fieldFn ? manifold::Manifold::LevelSet([&](manifold::vec3 q) { return sampleFn(q * E); },
-                                                       unit, 1.0, 0.0, -1.0, /*canParallel=*/false)
+                                                       unit, 1.0, 0.0, tol, /*canParallel=*/false)
                         : manifold::Manifold::LevelSet([&](manifold::vec3 q) { return sampleGrid(q * E); },
-                                                       unit, 1.0, 0.0, -1.0, /*canParallel=*/true);
+                                                       unit, 1.0, 0.0, tol, /*canParallel=*/true);
         solid = solid.Scale(E);
     }
 

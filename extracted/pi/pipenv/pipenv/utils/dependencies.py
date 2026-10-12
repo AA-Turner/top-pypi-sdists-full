@@ -171,7 +171,6 @@ def translate_markers(pipfile_entry):
     pipfile_markers = set(provided_keys) & set(allowed_marker_keys)
     new_pipfile = dict(pipfile_entry).copy()
     marker_set = set()
-    os_name_marker = None
     if "markers" in new_pipfile:
         marker_str = new_pipfile.pop("markers")
         if marker_str:
@@ -188,8 +187,6 @@ def translate_markers(pipfile_entry):
         markers_str = " and ".join(
             f"{s}" if " and " in s else s for s in sorted(dict.fromkeys(marker_set))
         )
-        if os_name_marker:
-            markers_str = f"({markers_str}) and {os_name_marker}"
         new_pipfile["markers"] = str(Marker(markers_str)).replace('"', "'")
     return new_pipfile
 
@@ -334,14 +331,14 @@ def clean_resolved_dep(  # noqa: PLR0912
                 try:
                     lockfile["markers"] = translated
                 except TypeError:
-                    pass
+                    pass  # Invalid optional markers are omitted from the lock entry.
         else:
             try:
                 pipfile_entry = translate_markers(dep)
                 if pipfile_entry.get("markers"):
                     lockfile["markers"] = pipfile_entry.get("markers")
             except TypeError:
-                pass
+                pass  # Invalid optional markers are omitted from the lock entry.
 
     version = dep.get("version", None)
     if version and not version.startswith("=="):
@@ -414,6 +411,12 @@ def clean_resolved_dep(  # noqa: PLR0912
     # Preserve the no_binary flag so pipenv can re-apply --no-binary on future installs
     if dep.get("no_binary"):
         lockfile["no_binary"] = True
+
+    # Preserve per-package pip arguments (for example, ``--config-settings``
+    # needed by editable build backends) so installs from the lockfile remain
+    # reproducible.
+    if dep.get("pip_args"):
+        lockfile["pip_args"] = list(dep["pip_args"])
 
     # In case we lock a uri or a file when the user supplied a path
     # remove the uri or file keys from the entry and keep the path
@@ -777,6 +780,7 @@ def find_package_name_from_tarball(tarball_filepath):
                     possible_name = find_package_name_from_filename(filename, file)
                     if possible_name:
                         return possible_name
+    return None
 
 
 def find_package_name_from_zipfile(zip_filepath):
@@ -789,6 +793,7 @@ def find_package_name_from_zipfile(zip_filepath):
                     possible_name = find_package_name_from_filename(file.name, file)
                     if possible_name:
                         return possible_name
+    return None
 
 
 def find_package_name_from_directory(directory):
@@ -908,12 +913,14 @@ def determine_path_specifier(package: InstallRequirement):
             return package.link.url_without_fragment
         if package.link.scheme == "file":
             return ensure_path_is_relative(package.link.file_path)
+    return None
 
 
 def determine_vcs_specifier(package: InstallRequirement):
     if package.link and package.link.scheme in VCS_SCHEMES:
         vcs_specifier = package.link.url_without_fragment
         return vcs_specifier
+    return None
 
 
 def get_vcs_backend(vcs_type):
@@ -997,7 +1004,7 @@ def determine_package_name(package: InstallRequirement):
                 else:
                     req_name = find_package_name_from_directory(local_file.path)
         except PermissionError:
-            pass
+            pass  # Name discovery is best-effort for unreadable local paths.
     elif package.link and package.link.scheme in [
         "bzr+file",
         "git+file",
@@ -1378,7 +1385,7 @@ def _validate_pipfile_entry(name: str, pipfile_dict: Dict[str, Any]) -> None:
             f"Unrecognized option(s) in Pipfile for package '{name}': "
             f"{', '.join(sorted(unknown))}. "
             "Valid options include: version, extras, editable, markers, "
-            "ref, git, svn, hg, bzr, path, file, index, subdirectory, "
+            "ref, git, svn, hg, bzr, path, file, index, subdirectory, pip_args, "
             "hashes, no_binary, skip_resolver, and PEP 508 marker keys."
         )
 

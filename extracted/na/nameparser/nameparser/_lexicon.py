@@ -24,8 +24,8 @@ from typing import cast
 _VOCAB_FIELDS = (
     "titles", "given_name_titles", "suffix_acronyms", "suffix_words",
     "suffix_acronyms_ambiguous", "particles", "particles_ambiguous",
-    "conjunctions", "bound_given_names", "maiden_markers", "surnames",
-    "honorific_tails",
+    "conjunctions", "conjunctions_ambiguous", "bound_given_names",
+    "maiden_markers", "surnames", "honorific_tails",
 )
 
 #: (marker, base, why) triples. Each marker QUALIFIES how entries of
@@ -63,9 +63,13 @@ _VOCAB_FIELDS = (
 #:   SHIPPED vocabulary to the invariant, as it is the only thing that
 #:   ever held a caller's own.
 #:
-#: given_name_titles is deliberately NOT here and has no check of its
-#: own -- see the note in __post_init__ for why every attempt at one
-#: rejected working configurations.
+#: Two fields are deliberately NOT here and have no check of their own.
+#: given_name_titles -- see the note in __post_init__ for why every
+#: attempt at one rejected working configurations. conjunctions_ambiguous
+#: -- an orphan is never consulted because both the classify fork and
+#: its ambiguity emitter require the base entry as well, so an orphan
+#: decides nothing, and AGENTS.md's invariants rule guards harm, not
+#: no-ops.
 _SUBSET_FIELDS = (
     ("particles_ambiguous", "particles",
      "an orphan emits a spurious particle-or-given ambiguity"),
@@ -169,6 +173,31 @@ def _normalize(word: str) -> str:
         if stripped == word:
             return word
         word = stripped
+
+
+# rules.md#P7: "A one-letter word written with its period is an
+# initial and not a particle"
+def _spells_an_initial(n: str, text: str) -> bool:
+    """Whether `text` is ONE letter written with its period ('Ó.',
+    'j.'), which makes it an initial whatever particle the letter also
+    spells (#604). `n` is `_normalize(text)`, folded once by the caller.
+
+    Every particle test asks this AFTER its membership hit, so a word
+    no particle set holds never pays the frame. It lives here rather
+    than in _pipeline._vocab because the two views that re-read the
+    particle vocabulary over a parsed name -- _render's case repair and
+    the facade's initials and last-name split -- must ask it too, and
+    neither may import the pipeline.
+
+    The ASCII period only, as `_vocab.is_initial` takes it: a CJK full
+    stop marks no initial ('Ó。' is the particle). The other half of
+    is_initial, the scripts that write no initials (#320), is NOT asked
+    -- its script table is _policy's, which this module may not import
+    -- so a caller's one-character particle in such a script, written
+    with a period, is vetoed where is_initial would call it no initial
+    (decisions.md#P7). No shipped particle is one character of those
+    scripts."""
+    return len(n) == 1 and text[-1] == "."
 
 
 def _fold_words(words: Iterable[str]) -> list[str]:
@@ -372,14 +401,68 @@ def _normset(
     return frozenset(normalized)
 
 
+def _alnum(text: str) -> str:
+    return "".join(c for c in text if c.isalnum())
+
+
+def _offered_mask(normalized_key: str) -> str:
+    """The working value a mismatched-mask error offers (carried to the
+    v1 shim's re-raise on _MaskValueError, so both name one fix): the
+    key upper-cased, or the key unchanged -- an identity mask, always
+    legal -- where .upper() changes the letter count ('straße' ->
+    'STRASSE') and would fail the check if pasted back in."""
+    upper = normalized_key.upper()
+    return upper if _alnum(_normalize(upper)) == _alnum(
+        normalized_key) else normalized_key
+
+
+class _MaskValueError(ValueError):
+    """_normpairs' error for a value that does not spell its key.
+    Built in the UnicodeDecodeError idiom -- structure in, message
+    out: `key`, `normalized_key` and `value` are the offending inputs;
+    `offered` (the v1 shim's re-spelled fix, and the v2 one quoted in
+    the message below) is computed from them, not carried separately.
+
+    __reduce__ is explicit because the inherited one re-calls
+    __init__ with self.args, which holds the message alone, not the
+    three fields __init__ needs -- and a ProcessPoolExecutor pickles a
+    worker's exception to deliver it, surfacing a construction failure
+    as BrokenProcessPool. Passing self.__dict__ as reduce's third
+    element (restored via a plain __dict__.update, there being no
+    __setstate__ here) carries along anything added after construction
+    -- e.g. add_note() -- that reconstructing from the three fields
+    alone would not. (An exception, so _types.py's frozen-dataclass
+    pickle guards do not apply.)"""
+
+    def __init__(self, key: str, normalized_key: str, value: str) -> None:
+        self.key = key
+        self.normalized_key = normalized_key
+        self.value = value
+        self.offered = _offered_mask(normalized_key)
+        super().__init__(
+            f"capitalization_exceptions value {value!r} for key {key!r} "
+            f"does not spell the key's letters and digits: a value "
+            f"is a case mask, the key's own letters and digits "
+            f"recased -- e.g. "
+            f"capitalization_exceptions=(({normalized_key!r}, "
+            f"{self.offered!r}),)")
+
+    def __reduce__(
+        self,
+    ) -> tuple[type[_MaskValueError], tuple[str, str, str], dict[str, object]]:
+        return (type(self), (self.key, self.normalized_key, self.value),
+                self.__dict__)
+
+
 def _normpairs(
     raw: Mapping[str, str] | Iterable[tuple[str, str]],
 ) -> tuple[tuple[str, str], ...]:
     """Canonicalize capitalization_exceptions input: _normset's sibling
     for the one pair-valued field. Dedupes on the NORMALIZED key so the
-    tuple and the derived map always agree ("Ph.D." and "phd" collide
-    after normalization); last occurrence wins, matching dict semantics
-    and the right-bias rule used elsewhere."""
+    tuple and the derived map always agree ("PHD" and "phd" collide
+    after normalization; "Ph.D." does not, the fold keeping interior
+    periods, so it is a key of its own, "ph.d"); last occurrence wins,
+    matching dict semantics and the right-bias rule used elsewhere."""
     if isinstance(raw, str):
         raise TypeError(
             "capitalization_exceptions must be a mapping or an "
@@ -423,14 +506,55 @@ def _normpairs(
                 f"empty (lowercase + strip full stops/whitespace leaves "
                 f"nothing)"
             )
+        # Stored NFC-composed, case kept (unicodedata, not _normalize):
+        # one stored spelling per value, whichever form the caller
+        # wrote. _apply_mask reads both forms alike since #542
+        # (_render._beside looks past combining marks); before it, a
+        # decomposed letter read as a base letter split off beside a
+        # non-alpha combining mark. The mask check below
+        # passes either spelling, _normalize composing both of its
+        # sides. `written` keeps the caller's own spelling -- composed
+        # or not -- for the mismatch error below: a decomposed value
+        # (e.g. 'e' + a combining acute) and its NFC form print
+        # identically to a reader's eye but are different str objects,
+        # so echoing the composed spelling back would show the caller
+        # a value they did not write.
+        written = v
+        v = unicodedata.normalize("NFC", v)
         # capitalized() looks words up one at a time (the _WORD regex
-        # never yields spaces), so a multi-word key is unreachable.
+        # never yields spaces), so a multi-word key is unreachable --
+        # checked FIRST, ahead of the mask check below, because an
+        # invariant guards harm and a value that can never be read
+        # does no harm no matter what it says (AGENTS.md: "a check
+        # guards harm, not no-ops"). Raising the mask error for such a
+        # key -- as a naive mask-first order does -- would refuse a
+        # config that was always going to be a no-op.
         # interior whitespace test; split() covers all Unicode whitespace
         if normalized_key != "".join(normalized_key.split()):
             _warn_dead_entry(
                 f"capitalization_exceptions keys are matched one word "
                 f"at a time; multi-word key {k!r} can never match. "
                 f"Split it into per-word entries")
+            deduped[normalized_key] = v
+            continue
+        # A value is a case MASK (#459): the key's own letters and
+        # digits recased, compared through the key's own fold. Its
+        # punctuation marks which letters are joined into one run
+        # (_render._apply_mask reads that) and is never written into
+        # the word. A raise, not a warning: a mismatched value used to
+        # be SUBSTITUTED for the word, and rules.md#R4: "Repair
+        # changes case and nothing else", so there is no reading of
+        # one that repair can honor.
+        if _alnum(_normalize(v)) != _alnum(normalized_key):
+            # key is the RAW key, not normalized_key: the v1 shim's
+            # hint must overwrite the offending dict entry, which is
+            # stored under the raw spelling -- writing the normalized
+            # spelling would add a second entry and still raise
+            # (measured with {"PHD": "Junior"}: the shim's suggested
+            # constants.capitalization_exceptions['PHD'] = ... has to
+            # match the key already there, not 'phd'). `written`, not
+            # `v`: the caller's own spelling, not the NFC-composed one.
+            raise _MaskValueError(k, normalized_key, written)
         deduped[normalized_key] = v
     return tuple(sorted(deduped.items()))
 
@@ -470,9 +594,13 @@ class Lexicon:
     #: default list:
     #: :data:`~nameparser.config.suffixes.SUFFIX_WORDS`.
     suffix_words: frozenset[str] = frozenset()
-    #: Subset of suffix_acronyms counted as suffixes only when written
-    #: WITH periods -- their bare forms are common surnames ("ma",
-    #: "do": "Jack Ma" keeps his family name). Full default list:
+    #: Subset of suffix_acronyms whose bare forms are also common
+    #: surnames ("ma", "do"). Written with periods one is a suffix
+    #: outright; written bare, capitals decide in a mixed-case name
+    #: ("Jack MA" is the credential, "Jack Ma" keeps his family name)
+    #: and otherwise the word counts as a suffix only where a name
+    #: word is left beside it ("John Smith ma"), rules.md#S2. Full
+    #: default list:
     #: :data:`~nameparser.config.suffixes.SUFFIX_ACRONYMS_AMBIGUOUS`.
     suffix_acronyms_ambiguous: frozenset[str] = frozenset()
     #: Family-name particles that chain onto the following piece
@@ -509,6 +637,20 @@ class Lexicon:
     #: ("and", "&", "y", "и", ...). Full default list:
     #: :data:`~nameparser.config.conjunctions.CONJUNCTIONS`.
     conjunctions: frozenset[str] = frozenset()
+    #: Subset of conjunctions that read as an INITIAL rather than a
+    #: connective in a name written wholly in one case ("e": "jose e
+    #: maria santos" reads middle "e maria", where "juan garcia y
+    #: lopez" joins because "y" is not a member). Mixed-case input is
+    #: decided by the writing instead and never consults this set, and
+    #: neither does a caseless letter (Arabic و), which has no case to
+    #: read. A member additionally reports
+    #: :attr:`~nameparser.AmbiguityKind.CONJUNCTION_OR_INITIAL`; a
+    #: non-member reports nothing, its reading not being in doubt.
+    #: Full default list:
+    #: :data:`~nameparser.config.conjunctions.CONJUNCTIONS_AMBIGUOUS`.
+    #: Entries need not also be in ``conjunctions``; one that is not is
+    #: simply never consulted, so it is inert rather than an error.
+    conjunctions_ambiguous: frozenset[str] = frozenset()
     #: Given-name prefixes that bind to the following word to form one
     #: given name ("abdul" -> "Abdul Salam"); never standalone names.
     #: Full default list:
@@ -548,8 +690,14 @@ class Lexicon:
     #: vocabulary is. Full default list:
     #: :data:`~nameparser.config.suffixes.GLUED_HONORIFICS`.
     honorific_tails: frozenset[str] = frozenset()
-    #: Lowercase word -> exact-cased replacement used by capitalized()
-    #: ("phd" -> "Ph.D."). Pair-valued: change it with
+    #: Lowercase word -> case mask used by capitalized(): the word's
+    #: own letters and digits, each in the case it takes ("phd" ->
+    #: "PhD"), laid over the word as written, so the one entry
+    #: repairs "ph.d." to "Ph.D.". The mask's own punctuation marks
+    #: where its letters are joined into one run versus split apart,
+    #: and is never written into the word -- repair keeps the writer's
+    #: own punctuation. A value that does not spell the key's letters
+    #: and digits raises ValueError. Pair-valued: change it with
     #: dataclasses.replace(), not add()/remove(); read it as a mapping
     #: via capitalization_exceptions_map. Full default mapping:
     #: :data:`~nameparser.config.capitalization.CAPITALIZATION_EXCEPTIONS`.
@@ -744,7 +892,9 @@ class Lexicon:
                 raise TypeError(
                     "capitalization_exceptions holds key->value pairs; "
                     "use dataclasses.replace(lexicon, "
-                    "capitalization_exceptions={...}) instead of "
+                    "capitalization_exceptions=(*lexicon."
+                    "capitalization_exceptions, ('key', 'KEY'))) "
+                    "instead of "
                     f"{op}()"
                 )
             if name not in _VOCAB_FIELDS:
@@ -786,7 +936,8 @@ def _default_lexicon() -> Lexicon:
     # v1 data modules are the single source of vocabulary through 2.x.
     from nameparser.config.bound_given_names import BOUND_GIVEN_NAMES
     from nameparser.config.capitalization import CAPITALIZATION_EXCEPTIONS
-    from nameparser.config.conjunctions import CONJUNCTIONS
+    from nameparser.config.conjunctions import (
+        CONJUNCTIONS, CONJUNCTIONS_AMBIGUOUS)
     from nameparser.config.maiden_markers import MAIDEN_MARKERS
     from nameparser.config.particles import NON_GIVEN_NAME_PARTICLES, PARTICLES
     from nameparser.config.suffixes import (
@@ -817,6 +968,7 @@ def _default_lexicon() -> Lexicon:
         # may-be-given subset (migration: complement translation).
         particles_ambiguous=PARTICLES - NON_GIVEN_NAME_PARTICLES,
         conjunctions=CONJUNCTIONS,
+        conjunctions_ambiguous=CONJUNCTIONS_AMBIGUOUS,
         bound_given_names=BOUND_GIVEN_NAMES,
         maiden_markers=MAIDEN_MARKERS,
         surnames=KOREAN_SURNAMES,

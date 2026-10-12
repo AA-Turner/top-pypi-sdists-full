@@ -3,14 +3,14 @@ from nameparser._pipeline._extract import extract_delimited
 from nameparser._pipeline._segment import segment
 from nameparser._pipeline._state import ParseState, Structure
 from nameparser._pipeline._tokenize import tokenize
-import dataclasses
 
 from nameparser._policy import Policy
 from nameparser._types import AmbiguityKind
 
 # synthetic vocabulary: behavior given a lexicon, never default() contents
 _LEX = Lexicon(
-    suffix_acronyms=frozenset({"phd"}),
+    suffix_acronyms=frozenset({"phd", "md", "do", "dds", "ma", "ed"}),
+    suffix_acronyms_ambiguous=frozenset({"ma", "ed", "do"}),
     suffix_words=frozenset({"jr", "v"}),
 )
 
@@ -36,43 +36,10 @@ def test_family_comma() -> None:
     assert [_texts(out, s) for s in out.segments] == [["Smith"], ["John"]]
 
 
-def test_suffix_comma_when_all_rest_groups_are_suffixes() -> None:
-    out = _segmented("John Smith, PhD")
-    assert out.structure is Structure.SUFFIX_COMMA
-    assert [_texts(out, s) for s in out.segments] == [["John", "Smith"], ["PhD"]]
-
-
-def test_suffix_comma_lenient_accepts_initial_shaped_suffix_word() -> None:
-    # "V" is initial-shaped; the strict test vetoes it, the post-comma
-    # lenient test accepts suffix_words unconditionally (v1 parity)
-    out = _segmented("John Ingram, V")
-    assert out.structure is Structure.SUFFIX_COMMA
-
-
-def test_the_credential_pair_merges_anywhere_in_the_run() -> None:
-    # v1's fix_phd healed a split 'Ph. D.' wherever it fell, and the
-    # suffix-comma test inherits that: the pair counts as ONE unit at
-    # any position, not just at the head of the run. Nothing else
-    # reaches past position 0 -- 'John Smith, Ph. D.' above puts the
-    # pair first -- and the flip is silent, because 'D.' alone is
-    # suffix vocabulary in no lexicon, so the run stops being wholly
-    # suffix and this reads as a FAMILY comma instead.
-    out = _segmented("John Smith, Jr. Ph. D.")
-    assert out.structure is Structure.SUFFIX_COMMA
-    assert [_texts(out, s) for s in out.segments] == [
-        ["John", "Smith"], ["Jr.", "Ph.", "D."]]
-
-
 def test_family_comma_with_trailing_suffix_segment() -> None:
     out = _segmented("Smith, John, Jr.")
     assert out.structure is Structure.FAMILY_COMMA
     assert [_texts(out, s) for s in out.segments] == [["Smith"], ["John"], ["Jr."]]
-
-
-def test_single_pre_comma_word_never_suffix_comma() -> None:
-    # v1: suffix-comma requires >1 word before the comma
-    out = _segmented("Johnson, Jr.")
-    assert out.structure is Structure.FAMILY_COMMA
 
 
 def test_excess_non_suffix_segment_flags_comma_structure() -> None:
@@ -80,6 +47,18 @@ def test_excess_non_suffix_segment_flags_comma_structure() -> None:
     assert out.structure is Structure.FAMILY_COMMA
     kinds = [a.kind for a in out.ambiguities]
     assert AmbiguityKind.COMMA_STRUCTURE in kinds
+
+
+def test_the_comma_structure_report_names_no_field() -> None:
+    # #629: a title word past the second comma reads as a title
+    # (rules.md#C2, #603), so the part can land in two fields; the
+    # report says the part was not recognized and leaves where each
+    # word went to the fields. 2.3.0 said 'consumed as suffix'.
+    out = _segmented("John Smith, Jr., Dr. Bart")
+    assert [a.detail for a in out.ambiguities
+            if a.kind is AmbiguityKind.COMMA_STRUCTURE] == [
+        "segment 'Dr. Bart' beyond the recognized comma structures; "
+        "read best-effort"]
 
 
 def test_empty_input_yields_no_segments() -> None:
@@ -111,12 +90,24 @@ def test_leading_comma_yields_empty_first_segment() -> None:
     assert [_texts(out, s) for s in out.segments] == [[], ["John", "Smith"]]
 
 
-def test_strict_comma_suffixes_veto_lenient_only_members() -> None:
-    # lenient_comma_suffixes=False: the post-comma test drops back to
-    # the strict predicate, so initial-shaped suffix words no longer
-    # qualify and the structure reads FAMILY_COMMA
-    state = ParseState(
-        original="John Ingram, V", lexicon=_LEX,
-        policy=dataclasses.replace(Policy(), lenient_comma_suffixes=False))
-    out = segment(tokenize(extract_delimited(state)))
-    assert out.structure is Structure.FAMILY_COMMA
+def test_a_tail_segment_of_leaning_credentials_is_not_flagged() -> None:
+    # The third reading site, and the one place this design QUIETS a
+    # report: 'DO' leans credential in a mixed-case name, so the third
+    # segment is a credential run and rules.md#C2's flag stops firing.
+    state = _segmented("Steven Hardman, MD, DO, DDS")
+    assert not [a for a in state.ambiguities
+                if a.kind is AmbiguityKind.COMMA_STRUCTURE]
+    # the one-case spelling keeps today's reading, flag and all
+    state = _segmented("STEVEN HARDMAN, MD, DO, DDS")
+    assert [a for a in state.ambiguities
+            if a.kind is AmbiguityKind.COMMA_STRUCTURE]
+
+
+def test_segment_records_the_case_fact_only_where_c2_asks() -> None:
+    # (a-lazy): segment asks the fact only for C2's flag on a part past
+    # the second comma that neither suffix reading recognizes case-free;
+    # the comma decision reads classify's record of it (#613)
+    assert _segmented("John Smith MA").one_case is None
+    assert _segmented("John Smith, MA").one_case is None
+    assert _segmented("Smith, John").one_case is None
+    assert _segmented("John Smith, MD, Ma").one_case is False

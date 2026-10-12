@@ -5,18 +5,17 @@ from email.message import Message
 from public import public
 
 from flufl.bounce._detectors.simplematch import SimpleMatch, _c
-from flufl.bounce.interfaces import NoPermanentFailures, Recipients
+from flufl.bounce._interfaces import NoPermanentFailures, Recipients
 
 
 # This is a list of tuples of the form
 #
 #     (start cre, end cre, address cre)
 #
-# where 'cre' means compiled regular expression, start is the line just before
-# the bouncing address block, end is the line just after the bouncing address
-# block, and address cre is the regexp that will recognize the addresses.  It
-# must have a group called 'addr' which will contain exactly and only the
-# address that bounced.
+# where 'cre' means compiled regular expression, start is the line just before the bouncing address
+# block, end is the line just after the bouncing address block, and address cre is the regexp that
+# will recognize the addresses.  It must have a group called 'addr' which will contain exactly and
+# only the address that bounced.
 PATTERNS = [
     # pop3.pta.lia.net
     (
@@ -62,7 +61,7 @@ class SimpleWarning(SimpleMatch):
 
     def process(self, msg: Message) -> tuple[Recipients, Recipients]:
         """See `SimpleMatch`."""
-        # Since these are warnings, they're classified as temporary failures.
-        # There are no permanent failures.
+        # Since these are warnings, they're classified as temporary failures.  There are no
+        # permanent failures.
         _temporary, permanent_really_temporary = super().process(msg)
         return permanent_really_temporary, NoPermanentFailures

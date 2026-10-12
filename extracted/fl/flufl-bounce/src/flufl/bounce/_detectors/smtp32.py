@@ -1,5 +1,6 @@
-"""Something which claims
-X-Mailer: <SMTP32 vXXXXXX>
+"""Something which claims to be SMTP32.
+
+It identifies itself with X-Mailer: <SMTP32 vXXXXXX>
 
 What the heck is this thing?  Here's a recent host:
 
@@ -12,12 +13,13 @@ Escape character is '^]'.
 
 import re
 
+from contextlib import suppress
 from email.iterators import body_line_iterator
 from email.message import Message
 
 from public import public
 
-from flufl.bounce.interfaces import NoFailures, NoTemporaryFailures, Recipients
+from flufl.bounce._interfaces import NoFailures, NoTemporaryFailures, Recipients
 
 
 ecre = re.compile('original message follows', re.IGNORECASE)
@@ -31,7 +33,7 @@ acre = re.compile(
     |delivery\ userid[^:]*:
     )
     \s*                                           # space separator
-    (?P<addr>[^\s]*)                              # and finally, the address
+    (?P<addr>[^\s]+)                              # and finally, the address
     """,
     re.IGNORECASE | re.VERBOSE,
 )
@@ -39,9 +41,9 @@ acre = re.compile(
 
 @public
 class SMTP32:
-    """Something which claims
+    """Something which claims to be SMTP32.
 
-    X-Mailer: <SMTP32 vXXXXXX>
+    It identifies itself with X-Mailer: <SMTP32 vXXXXXX>
     """
 
     def process(self, msg: Message) -> tuple[Recipients, Recipients]:
@@ -53,5 +55,8 @@ class SMTP32:
             if ecre.search(line):
                 break
             if mo := acre.search(line):
-                addresses.add(mo.group('addr').encode('us-ascii'))
+                # By now the email package has replaced any non-ASCII bytes in the address with
+                # U+FFFD, so it can't be reported faithfully; skip it.  See GL#3.
+                with suppress(UnicodeEncodeError):
+                    addresses.add(mo.group('addr').encode('us-ascii'))
         return NoTemporaryFailures, frozenset(addresses)

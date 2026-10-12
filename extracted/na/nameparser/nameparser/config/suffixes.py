@@ -122,11 +122,24 @@ Post-nominal suffixes matched as WORDS: the lookup uses the normalized token,
 so only EDGE periods come off and interior ones survive -- "Junior." matches
 here, "J.u.n.o.r." does not and stays name text ("John J.u.n.o.r." parses a
 family name, on both APIs). The example is deliberately not "J.u.n.i.o.r.",
-which fails this lookup too and is a suffix anyway: an interior-period token
-that no whole-token set claims goes to ``period_joined_vocab``, which splits
-it on its periods and, no chunk being a title, calls the whole thing a
-suffix if ANY chunk is suffix vocabulary -- and the chunk "i" is the Roman
-numeral listed above.
+which fails this lookup too: an interior-period token that no whole-token
+set claims goes to ``period_joined_vocab``, which splits it on its periods
+and, no chunk being a title, calls the whole thing a suffix if ANY chunk is
+suffix vocabulary -- except where every chunk it matches is a SINGLE ASCII
+CHARACTER, which since 2.4 retires rather than claims (decisions.md#S2): the
+one-character suffix vocabulary is the Roman numerals and the digit "2" --
+ASCII is load-bearing there, since the seven single-character CJK
+honorifics in THIS set (様, 殿, 氏, 군, 님, 씨, 양 -- three of them also
+glued-honorific heads below) must KEEP their chunk claim ("J.씨" still
+derives from 씨) -- and a word
+built of single ASCII letters is not about generations. So "J.u.n.i.o.r."
+no longer reaches this set's "i" entry as a generational claim; it is
+read by POSITION instead, as an unlisted multi-chunk word
+(``Policy.unlisted_dotted_suffixes``, default on), and with words to
+spare it is still a suffix (rules.md#S3). A multi-character chunk match
+is untouched -- "Msc.Ed." still derives from ``ed`` and reads as a
+suffix outright, and "Lt.Gov." still derives a TITLE from its own
+multi-character chunk match.
 So membership here is not the last word on a dotted token; the sentence is
 about this set's lookup alone. :data:`SUFFIX_ACRONYMS` is the set matched
 with every period removed, so it alone covers a multi-dot spelling: both
@@ -135,8 +148,9 @@ the same string once the periods come off. The two sets are asserted
 DISJOINT (see the guard block at the bottom): a post-nominal belongs to
 one of them or the other, and which one holds it is what decides whether
 its multi-dot spelling reaches a whole-token lookup at all --
-``period_joined_vocab`` may still claim the token chunk by chunk, as the
-"J.u.n.i.o.r." example above shows.
+``period_joined_vocab`` may still claim the token chunk by chunk, as
+"Msc.Ed." and "Lt.Gov." above show -- or read it by position instead,
+as "J.u.n.i.o.r." now does.
 
 """
 GLUED_HONORIFICS = frozenset({
@@ -197,23 +211,24 @@ as address terms, and only their -님 forms ship.
 """
 SUFFIX_ACRONYMS_AMBIGUOUS = frozenset({
     # Suffix acronyms that also commonly work as given-name nicknames on
-    # their own (e.g. "Ed", "JD"). Two readers in 2.x, not the single v1
-    # one this comment used to name: _extract._suffix_shaped, deciding
-    # whether parenthesized/quoted content is a nickname or a suffix
-    # (content matching one of these stays a nickname, the more common
-    # reading in ambiguous, delimiter-only context), and _vocab's
-    # suffix_as_written, which excludes the ambiguous subset from plain
-    # acronym membership so the period gate below is not dead code.
-    # _classify also tags membership as "vocab:suffix-ambiguous".
+    # their own (e.g. "Ed", "JD"). Read wherever the pipeline decides an
+    # acronym's bare reading (rules.md#S2) and by the delimited-content
+    # escape (content matching one of these stays a nickname, the more
+    # common reading in ambiguous, delimiter-only context). _classify
+    # also tags membership as "vocab:suffix-ambiguous".
     #
     # When adding a new entry to SUFFIX_ACRONYMS, also add it here only if
     # the exact letter sequence could plausibly be someone's name on its
     # own -- a given name or nickname (e.g. 'jd', 'ed') or a common
     # surname (e.g. 'ma', 'do'). Unambiguous certifications/degrees
     # (e.g. 'mba', 'cpa', 'phd') don't need an entry. In 2.0 this set
-    # also gates bare recognition: an ambiguous acronym counts as a
-    # suffix only when written with periods ('M.A.' yes, 'Ma' no), so
-    # 'Jack Ma' keeps its family name.
+    # also gates bare recognition: a bare ambiguous acronym reads as
+    # the credential only with words to spare in front of it, or
+    # written in capitals inside a mixed-case name; inside a
+    # mixed-case name any other cased form that is not wholly lower
+    # ('Ma', 'MEng') reads as the name even with words to spare --
+    # rules.md#S2. The parse reports the fork where it decides one,
+    # so 'Jack Ma' keeps its family name.
     #
     # The other half of the criterion, added 2026-09-07 with #342.
     # Being borne at all is only the entry ticket; what decides among
@@ -234,7 +249,13 @@ SUFFIX_ACRONYMS_AMBIGUOUS = frozenset({
     # Where the CREDENTIAL dominates, the entry stays unambiguous.
     # LENGTH is a correlate and not the test -- a short acronym is
     # more often a common credential AND more often a name -- so do
-    # not read the letter counts here as a rule.
+    # not read the letter counts here as a rule. #540 (2026-09-25)
+    # marked 'lac' and 'meng', the first entries here longer than
+    # two letters: MEng and LAc are credentials people write after
+    # their names, and Meng and Lac are borne in the trailing slot
+    # by real people, and neither reading is rare enough to give the
+    # word to the other -- so the marking, whatever the letter
+    # count.
     #
     # Removal takes the DOTTED spelling with it too, except by
     # accident: "John Smith R.A.I." still reads suffix 'R.A.I.' only
@@ -269,14 +290,20 @@ SUFFIX_ACRONYMS_AMBIGUOUS = frozenset({
     'do',
     'ed',
     'jd',
+    # #540: LAc, Licensed Acupuncturist; Lac is a Vietnamese given name
+    # (the trailing word in native order, Nguyen Van Lac) and a French
+    # surname
+    'lac',
     'ma',
+    # #540: MEng, Master of Engineering; Meng, a Chinese surname and given name
+    'meng',
 })
 """
 
 Acronym suffixes from SUFFIX_ACRONYMS that also plausibly collide with a
-common given-name nickname. Not a partition of SUFFIX_ACRONYMS -- a small,
-standalone exception list, read by the delimited-content escape in
-``_pipeline/_extract.py`` and by ``_pipeline/_vocab.py``'s period gate.
+word borne as a name -- a given name, nickname or surname. Not a
+partition of SUFFIX_ACRONYMS -- a small, standalone exception list, read
+wherever the pipeline decides an acronym's bare reading (rules.md#S2).
 
 """
 SUFFIX_ACRONYMS = frozenset({
@@ -299,12 +326,9 @@ SUFFIX_ACRONYMS = frozenset({
     'acha',
     'acp',
     'ae',
-    'ae',
     'aem',
     'afasma',
     'afc',
-    'afc',
-    'afm',
     'afm',
     'agsf',
     'aia',
@@ -426,7 +450,6 @@ SUFFIX_ACRONYMS = frozenset({
     'cgfm',
     'cgfo',
     'cgm',
-    'cgm',
     'cgma',
     'cgp',
     'cgr',
@@ -436,7 +459,6 @@ SUFFIX_ACRONYMS = frozenset({
     'chdm',
     'che',
     'ches',
-    'chfc',
     'chfc',
     'chi',
     'chmc',
@@ -652,13 +674,10 @@ SUFFIX_ACRONYMS = frozenset({
     'gbe',
     'gc',
     'gcb',
-    'gcb',
     'gchs',
     'gcie',
     'gcmg',
-    'gcmg',
     'gcsi',
-    'gcvo',
     'gcvo',
     'gisp',
     'git',
@@ -690,13 +709,12 @@ SUFFIX_ACRONYMS = frozenset({
     'kcb',
     'kchs/dchs',
     'kcie',
-    'kcie',
     'kcmg',
-    'kcsi',
     'kcsi',
     'kcvo',
     'kg',
     'khs/dhs',
+    'knt',  # #606: Knight, the older spelling of 'kt'
     'kp',
     'kt',
     'lac',
@@ -814,7 +832,6 @@ SUFFIX_ACRONYMS = frozenset({
     'pfmp',
     'pg',
     'pgmp',
-    'ph',
     'pharmd',
     'phc',
     'phd',
@@ -901,7 +918,6 @@ SUFFIX_ACRONYMS = frozenset({
     'usnr',
     'uxc',
     'uxmc',
-    'vc',
     'vc',
     'vcp',
     'vd',

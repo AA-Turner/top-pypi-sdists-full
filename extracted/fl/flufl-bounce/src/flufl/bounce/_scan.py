@@ -2,7 +2,6 @@ import logging
 
 from public import public
 
-from flufl.bounce.interfaces import BounceDetector, Recipients
 from flufl.bounce._detectors import (
     aol,
     caiwireless,
@@ -22,6 +21,7 @@ from flufl.bounce._detectors import (
     yahoo,
     yale,
 )
+from flufl.bounce._interfaces import BounceDetector, Recipients
 
 
 log = logging.getLogger('flufl.bounce')
@@ -63,11 +63,11 @@ def scan_message(msg) -> Recipients:
     """
     permanent_failures: set[bytes] = set()
     for detector_class in _DETECTORS:
-        log.info(f'Running detector: {detector_class}')
+        log.info('Running detector: %s', detector_class)
         try:
             temporary, permanent = detector_class().process(msg)
         except Exception:
-            log.exception(f'Exception in detector: {detector_class}')
+            log.exception('Exception in detector: %s', detector_class)
             raise
         permanent_failures.update(permanent)
         if temporary or permanent:
@@ -86,8 +86,12 @@ def all_failures(msg) -> tuple[Recipients, Recipients]:
     temporary_failures: set[bytes] = set()
     permanent_failures: set[bytes] = set()
     for detector_class in _DETECTORS:
-        log.info(f'Running detector: {detector_class}')
-        temporary, permanent = detector_class().process(msg)
+        log.info('Running detector: %s', detector_class)
+        try:
+            temporary, permanent = detector_class().process(msg)
+        except Exception:
+            log.exception('Exception in detector: %s', detector_class)
+            raise
         temporary_failures.update(temporary)
         permanent_failures.update(permanent)
         if temporary or permanent:

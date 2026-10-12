@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.1072"
+version = "0.4.1078"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -98,6 +98,7 @@ dependencies = [
     "ngboost>=0.5",           # probabilistic gradient boosting
     "PyGRF>=0.0.12",          # Geographical Random Forest (pure-Python sdist;
                               # deps pandas/sklearn/scipy/libpysal/esda all already core)
+    "pybass-emu>=0.9",        # pyBASS (Bayesian MARS) for model='bass'; pure-Python wheel, imports as pyBASS
     "tabpfn-extensions>=0.4",  # TabPFN extras (0.4+ â€” stable line; 0.0.x was placeholder releases)
     # NOTE: ydf + treeple were removed â€” compiled backends with no aarch64 wheels
     # (ydf needs Bazel, unbuildable on ARM). Their model branches in

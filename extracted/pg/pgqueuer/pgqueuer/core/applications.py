@@ -9,6 +9,7 @@ from pgqueuer.adapters.drivers.asyncpg import AsyncpgDriver, AsyncpgPoolDriver
 from pgqueuer.adapters.drivers.psycopg import PsycopgDriver
 from pgqueuer.adapters.inmemory import InMemoryDriver, InMemoryQueries
 from pgqueuer.adapters.persistence.queries import Queries
+from pgqueuer.core import logconfig
 from pgqueuer.core.executors import (
     AbstractEntrypointExecutor,
     AbstractScheduleExecutor,
@@ -19,7 +20,7 @@ from pgqueuer.core.executors import (
 )
 from pgqueuer.core.qm import QueueManager
 from pgqueuer.core.sm import SchedulerManager
-from pgqueuer.domain.settings import DBSettings
+from pgqueuer.domain.settings import db_settings
 from pgqueuer.domain.types import Channel, OnFailure, QueueExecutionMode
 from pgqueuer.ports import RepositoryPort
 from pgqueuer.ports.driver import Driver
@@ -45,7 +46,7 @@ class PgQueuer:
 
     connection: Driver
     channel: Channel = dataclasses.field(
-        default=Channel(DBSettings().channel),
+        default_factory=lambda: Channel(db_settings().channel),
     )
     # Shared resources mapping passed to QueueManager and propagated into each job Context.
     resources: MutableMapping[str, object] = dataclasses.field(
@@ -127,7 +128,7 @@ class PgQueuer:
         channel: Channel | None = None,
         resources: MutableMapping[str, object] | None = None,
     ) -> "PgQueuer":
-        channel = channel or Channel(DBSettings().channel)
+        channel = channel or Channel(db_settings().channel)
         resources = resources or {}
         return cls(connection=driver, channel=channel, resources=resources)
 
@@ -143,7 +144,7 @@ class PgQueuer:
         and short-lived batch-processing containers.
         """
         driver = InMemoryDriver()
-        channel = channel or Channel(DBSettings().channel)
+        channel = channel or Channel(db_settings().channel)
         inmem = InMemoryQueries(driver=driver)
         return cls(
             connection=driver,
@@ -177,13 +178,19 @@ class PgQueuer:
             ),
             asyncio.create_task(self.sm.run()),
         ]
+        raised: BaseException | None = None
         try:
             await asyncio.gather(*tasks)
+        except BaseException as exc:
+            raised = exc
+            raise
         finally:
             self.shutdown.set()
             for t in tasks:
                 t.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+            for outcome in await asyncio.gather(*tasks, return_exceptions=True):
+                if isinstance(outcome, Exception) and outcome is not raised:
+                    logconfig.logger.error("Manager failed during shutdown", exc_info=outcome)
 
     def entrypoint(
         self,

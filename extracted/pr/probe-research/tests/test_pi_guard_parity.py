@@ -44,6 +44,8 @@ def _guard():
 def test_the_refusals_read_word_for_word():
     assert ts_string(GUARD, "DENY_REASON_APPROVALS") == session_marker.DENY_REASON_APPROVALS
     assert ts_string(GUARD, "DAEMON_PROFILE_DENY") == session_marker.DAEMON_PROFILE_DENY
+    assert ts_string(GUARD, "DIRECTED_RETRY") == session_marker.DIRECTED_RETRY
+    assert ts_string(GUARD, "DAEMON_PROFILE_DENY_WRITE") == session_marker.DAEMON_PROFILE_DENY_WRITE
 
 
 def test_the_question_folder_is_found_the_same_way():
@@ -88,7 +90,14 @@ def test_the_classifier_knows_the_same_words():
     ):
         assert ts_set(COMMANDS, name) == getattr(session_marker, name), name
     assert ts_set(COMMANDS, "READ_UNLESS_FLAGS_COMMANDS") == set(session_marker.READ_UNLESS_FLAGS)
+    # pi keeps one flag set for every READ_UNLESS_FLAGS command: a command with
+    # flags of its own fails here until the port grows a table.
+    flags = ts_set(COMMANDS, "READ_UNLESS_FLAGS_WRITE_FLAGS")
+    assert session_marker.READ_UNLESS_FLAGS == {command: flags for command in session_marker.READ_UNLESS_FLAGS}
+    assert set(ts_string(COMMANDS, "SHELL_EXPANSION_CHARS")) == session_marker._SHELL_EXPANSION_CHARS
+    assert set(ts_string(COMMANDS, "GLOB_CHARS")) == session_marker._GLOB_CHARS
     assert ts_string(COMMANDS, "HELP_FLAG") == session_marker.HELP_FLAG
+    assert ts_string(COMMANDS, "DIRECTED_FLAG") == session_marker.DIRECTED_FLAG
 
 
 def test_the_shell_parse_uses_the_same_tables():
@@ -121,15 +130,16 @@ def test_the_shared_fixture_is_what_the_python_guard_answers():
     for case in cases:
         command = case["command"]
         invocations = [list(args) for args in guard._probe_invocations(command)]
-        refused = None
+        refused = write = None
         for args in invocations:
             if guard._asks_help(args):
                 continue
             allowed, matched = session_marker.daemon_profile_allows(args)
             if not allowed:
                 refused = matched
+                write = session_marker.classify_probe_args(args)[0] == "write"
                 break
-        assert (invocations, refused) == (case["invocations"], case["refused"]), command
+        assert (invocations, refused, write) == (case["invocations"], case["refused"], case["write"]), command
 
 
 def test_the_inline_notice_reads_word_for_word():

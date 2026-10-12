@@ -22,7 +22,12 @@ from .html import EMPTY_SAFE_HTML
 from .size import DEFAULT_SIZE, SIZE_MD, get_size_class, parse_size
 from .text import text_value
 from .utils import render_template_file
-from .widgets import RadioSelectButtonGroup, ReadOnlyPasswordHashWidget, is_widget_with_placeholder
+from .widgets import (
+    RadioSelectButtonGroup,
+    ReadOnlyPasswordHashWidget,
+    is_widget_with_placeholder,
+    set_widget_template,
+)
 
 
 class BaseRenderer:
@@ -78,10 +83,6 @@ class BaseRenderer:
     def is_inline(self):
         """Return whether to render widgets with inline layout."""
         return self.layout == "inline"
-
-    def get_size_class(self, prefix):
-        """Return size class for given prefix."""
-        return get_size_class(self.size, prefix=prefix) if self.size in ["sm", "lg"] else ""
 
     def get_kwargs(self):
         """Return kwargs to pass on to child renderers."""
@@ -220,9 +221,9 @@ class FieldRenderer(BaseRenderer):
 
         self.addon_before = kwargs.get("addon_before", self.widget.attrs.pop("addon_before", ""))
         self.addon_after = kwargs.get("addon_after", self.widget.attrs.pop("addon_after", ""))
-        if self.layout == "floating" and (self.addon_before or self.addon_after):
+        if (self.addon_before or self.addon_after) and not self.can_widget_have_addons():
             warnings.warn(
-                'layout="floating" has no effect when addon_before or addon_after is set.',
+                "addon_before and addon_after have no effect on this widget.",
                 stacklevel=2,
             )
         self.addon_before_class = kwargs.get(
@@ -260,12 +261,12 @@ class FieldRenderer(BaseRenderer):
 
     @property
     def is_floating(self):
-        return (
-            super().is_floating
-            and self.can_widget_float(self.widget)
-            and not self.addon_before
-            and not self.addon_after
-        )
+        return super().is_floating and self.can_widget_float(self.widget)
+
+    @property
+    def has_addons(self):
+        """Return whether the widget is rendered inside an input group with addons."""
+        return bool(self.addon_before or self.addon_after) and self.can_widget_have_addons()
 
     @property
     def default_placeholder(self):
@@ -293,6 +294,9 @@ class FieldRenderer(BaseRenderer):
                 "password",
                 "month",
                 "datetime-local",
+                "week",
+                "search",
+                "color",
             ]
 
         return isinstance(widget, Textarea)
@@ -303,6 +307,9 @@ class FieldRenderer(BaseRenderer):
 
     def can_widget_float(self, widget):
         """Return whether given widget can be set to `form-floating` behavior."""
+        if self.get_widget_input_type(widget) == "color":
+            # Bootstrap sizes the color swatch itself, leaving no room for a floating label.
+            return False
         if self.is_form_control_widget(widget):
             return True
         if isinstance(widget, Select):
@@ -376,9 +383,9 @@ class FieldRenderer(BaseRenderer):
             if isinstance(widget, (RadioSelect, CheckboxSelectMultiple)) and not isinstance(
                 widget, RadioSelectButtonGroup
             ):
-                widget.template_name = "django_bootstrap5/widgets/radio_select.html"
+                set_widget_template(widget, "django_bootstrap5/widgets/radio_select.html")
             elif isinstance(widget, ClearableFileInput):
-                widget.template_name = "django_bootstrap5/widgets/clearable_file_input.html"
+                set_widget_template(widget, "django_bootstrap5/widgets/clearable_file_input.html")
 
     def get_label_class(self, horizontal=False):
         """Return CSS class for label."""
@@ -480,7 +487,8 @@ class FieldRenderer(BaseRenderer):
                 wrapper_classes.append("row")
             wrapper_classes.append(self.wrapper_class)
 
-        if self.is_floating:
+        # With addons, `form-floating` goes on a div inside the input group, not on the wrapper.
+        if self.is_floating and not self.has_addons:
             wrapper_classes.append("form-floating")
 
         # The indicator classes are added to the wrapper class. Bootstrap 5 server-side validation classes
@@ -536,6 +544,9 @@ class FieldRenderer(BaseRenderer):
                     else ""
                 )
             if addon_before or addon_after:
+                if self.is_floating:
+                    # Bootstrap nests `form-floating` (widget plus label) inside the input group.
+                    field = format_html('<div class="form-floating">{}</div>', field)
                 classes = "input-group"
                 if self.server_side_validation and self.get_server_side_validation_classes():
                     classes = merge_css_classes(classes, "has-validation")

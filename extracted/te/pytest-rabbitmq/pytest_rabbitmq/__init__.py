@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2016 by Clearcode <http://clearcode.cc>
 # and associates (see AUTHORS).
 
@@ -18,4 +17,4 @@
 # along with pytest-rabbitmq. If not, see <http://www.gnu.org/licenses/>.
 """Main pytest-rabbitmq module."""
 
-__version__ = "4.0.0"
+__version__ = "5.0.0"

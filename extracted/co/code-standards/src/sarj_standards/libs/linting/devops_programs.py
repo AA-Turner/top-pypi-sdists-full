@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from itertools import chain
+from itertools import accumulate, chain
 from operator import itemgetter
+from pathlib import Path
 import re
 import string
 import sys
@@ -15,6 +16,7 @@ import yaml
 from yaml.events import AliasEvent, MappingStartEvent, ScalarEvent, SequenceStartEvent
 from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 
+from sarj_standards.libs.diagnostics import SourceDocument
 from sarj_standards.libs.json_boundary import parse_json
 from sarj_standards.libs.linting.kubernetes_context import CONTAINER_KINDS, POD_SPEC_PATHS
 from sarj_standards.libs.linting.toml_literals import TomlStringLocationError, parse_toml_string_lines
@@ -32,6 +34,9 @@ type ShellParser = Callable[[str], Mapping[str, object]]
 _MAX_DEPTH = 32
 _MAX_NODES = 100_000
 _WORKFLOW_PATH_COMPONENTS = 3
+# Actions strings use single quotes and escape apostrophes as ''. Possessive
+# repetitions keep malformed or long expressions from causing backtracking.
+WORKFLOW_EXPRESSION_RE = re.compile(r"\$\{\{(?:[^'}]++|'(?:[^']++|'')*+'|}(?!}))*+\}\}")
 
 
 class ProgramProjectionError(ValueError):
@@ -542,11 +547,11 @@ def _mise_shell(value: object) -> str:
 def execution_blocks(relative: str, source: str, *, platform: str | None = None) -> list[ExecutionBlock]:
     name = relative.rsplit("/", 1)[-1].casefold()
     if name in {"makefile", "gnumakefile"}:
-        return _make_blocks(source)
+        return _make_blocks(relative, source)
     if not name.endswith(".dockerignore") and (
         name == "dockerfile" or name.startswith("dockerfile.") or name.endswith(".dockerfile")
     ):
-        return _docker_blocks(source)
+        return _docker_blocks(relative, source)
     if (
         name in {"mise.toml", ".mise.toml"}
         or (name.startswith("mise.") and name.endswith(".toml"))
@@ -687,12 +692,13 @@ class _DockerStage:
         ]
 
 
-def _docker_blocks(source: str) -> list[ExecutionBlock]:
+def _docker_blocks(relative: str, source: str) -> list[ExecutionBlock]:
     blocks: list[ExecutionBlock] = []
     state = _DockerStage()
     stages: dict[str, _DockerStage] = {}
     stage = ""
-    lines = source.splitlines()
+    # Docker's scanner splits on LF and trims trailing CR, preserving other data.
+    lines = [line.rstrip("\r") for line in source.split("\n")] if "\r" in source else source.split("\n")
     cursor = _DockerCursor(lines, _docker_escape(lines))
     while cursor.index < len(cursor.lines):
         instruction = cursor.read_instruction()
@@ -714,7 +720,8 @@ def _docker_blocks(source: str) -> list[ExecutionBlock]:
             continue
         blocks.extend(state.consume(instruction))
     blocks.extend(state.blocks())
-    return sorted(dict.fromkeys(blocks), key=lambda block: (block.line, block.end_line or block.line))
+    ordered = sorted(dict.fromkeys(blocks), key=lambda block: (block.line, block.end_line or block.line))
+    return _physical_block_locations(relative, source, ordered)
 
 
 def _docker_escape(lines: Sequence[str]) -> str:
@@ -770,14 +777,45 @@ def _docker_json_argv(command: str) -> tuple[str, ...] | None:
     return tuple(argument for argument in argv if isinstance(argument, str))
 
 
-def _make_blocks(source: str) -> list[ExecutionBlock]:
-    lines = source.splitlines()
+def _make_blocks(relative: str, source: str) -> list[ExecutionBlock]:
+    raw_lines = source.split("\n")
+    lines = [line.removesuffix("\r") for line in raw_lines] if "\r" in source else raw_lines
     oneshell = any(re.match(r"^\s*\.ONESHELL\s*:", line) for line in lines)
     recipes = _MakeRecipes(oneshell, _make_variables(lines), _make_recipe_contexts(lines))
     for number, line in enumerate(lines, 1):
         recipes.consume(line, number)
     recipes.flush()
-    return recipes.blocks
+    return _physical_block_locations(relative, source, recipes.blocks)
+
+
+def _physical_block_locations(relative: str, source: str, blocks: list[ExecutionBlock]) -> list[ExecutionBlock]:
+    # Native LF coordinates need translation only when CR is literal editor data.
+    if "\r" not in source or source.count("\r") == source.count("\r\n"):
+        return blocks
+    document = SourceDocument(Path(relative), source)
+    raw_lines = source.split("\n")
+    offsets = list(
+        accumulate((len(line.encode("utf-8", errors="surrogateescape")) + 1 for line in raw_lines), initial=0)
+    )
+    result: list[ExecutionBlock] = []
+    for block in blocks:
+        start = offsets[block.line - 1]
+        end = start
+        end_column = block.end_column
+        if block.end_line is not None and end_column is not None:
+            prefix = raw_lines[block.end_line - 1][: end_column - 1]
+            end = offsets[block.end_line - 1] + len(prefix.encode("utf-8", errors="surrogateescape"))
+            end_column = len(prefix.rsplit("\r", 1)[-1]) + 1
+        region = document.region(start_byte=start, end_byte=end)
+        result.append(
+            replace(
+                block,
+                line=region.start.line + 1,
+                end_line=region.end.line + 1 if block.end_line is not None else None,
+                end_column=end_column,
+            )
+        )
+    return result
 
 
 _MAKE_ASSIGNMENT = re.compile(r"(?:export\s+)?([A-Za-z_.][A-Za-z0-9_.]*)\s*(:::=|::=|:=|[?+]?=)\s*(.*)")
@@ -1363,7 +1401,7 @@ def _shell_embeds_program(
         raise ProgramProjectionError(msg)
     # Workflow expressions are evaluated by Actions before shell parsing. Treat
     # each expression as an opaque word, never interpret its contents as shell.
-    source = re.sub(r"\$\{\{.*?\}\}", "workflow_expression", source, flags=re.DOTALL)
+    source = WORKFLOW_EXPRESSION_RE.sub("workflow_expression", source)
     tree = parse_shell(source)
     if tree.get("Type") != "File":
         msg = "shfmt did not return a File AST"

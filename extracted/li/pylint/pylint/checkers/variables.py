@@ -314,9 +314,22 @@ def _assigned_locally(name_node: nodes.Name) -> bool:
     """Checks if name_node has corresponding assign statement in same scope."""
     name_node_scope = name_node.scope()
     assign_stmts = name_node_scope.nodes_of_class(nodes.AssignName)
-    return any(a.name == name_node.name for a in assign_stmts) or _find_frame_imports(
+    if any(a.name == name_node.name for a in assign_stmts) or _find_frame_imports(
         name_node.name, name_node_scope
-    )
+    ):
+        return True
+    # Parameters of this lambda, or of enclosing lambdas (possibly through
+    # comprehensions), are bindings. Defaults and annotations are not. See #9126.
+    scope = name_node_scope
+    while isinstance(scope, (nodes.Lambda, nodes.ComprehensionScope)):
+        if (
+            isinstance(scope, nodes.Lambda)
+            and name_node.name in scope.argnames()
+            and not scope.args.parent_of(name_node)
+        ):
+            return True
+        scope = scope.parent.scope()
+    return False
 
 
 def _is_before(node: nodes.NodeNG, reference_node: nodes.NodeNG) -> bool:
@@ -329,6 +342,48 @@ def _is_before(node: nodes.NodeNG, reference_node: nodes.NodeNG) -> bool:
     ):
         return True
     return False
+
+
+def _is_shadowed_in_nested_scope(name: nodes.Name, defnode: nodes.NamedExpr) -> bool:
+    """Checks if name is bound by a scope nested inside the walrus value,
+    e.g. the lambda argument in ``(arg := f(key=lambda arg: arg))``.
+    """
+    defscope = defnode.scope()
+    scope = name.scope()
+    while scope is not defscope:
+        if name.name in scope.locals:
+            return True
+        scope = scope.parent.scope()
+    return False
+
+
+def _is_assigned_in_comprehension_condition(
+    node: nodes.Name, defnode: nodes.NamedExpr
+) -> bool:
+    """Checks if node is used in the element of a comprehension whose condition
+    assigns it, e.g. ``[y for x in data if (y := f(x))]``.
+
+    The conditions of a comprehension are evaluated before its element.
+    Self-referencing assignments like ``(y := y)`` are excluded.
+    """
+    comprehension = utils.get_node_first_ancestor_of_type(defnode, nodes.Comprehension)
+    if comprehension is None or not any(
+        condition is defnode or condition.parent_of(defnode)
+        for condition in comprehension.ifs
+    ):
+        return False
+    if any(
+        name.name == node.name and not _is_shadowed_in_nested_scope(name, defnode)
+        for name in defnode.value.nodes_of_class(nodes.Name)
+    ):
+        return False
+    comprehension_scope = comprehension.parent
+    elements: tuple[nodes.NodeNG, ...]
+    if isinstance(comprehension_scope, nodes.DictComp):
+        elements = (comprehension_scope.key, comprehension_scope.value)
+    else:
+        elements = (comprehension_scope.elt,)
+    return any(element is node or element.parent_of(node) for element in elements)
 
 
 def _is_nonlocal_name(node: nodes.Name, frame: nodes.LocalsDictNodeNG) -> bool:
@@ -1567,6 +1622,19 @@ class VariablesChecker(BaseChecker):
                 and not self._allowed_redefined_builtin(name)
                 and not self._should_ignore_redefined_builtin(stmt)
             ):
+                if (
+                    isinstance(stmt, nodes.AssignName)
+                    and isinstance(stmt.parent, nodes.Arguments)
+                    and isinstance(node.parent, nodes.ClassDef)
+                ):
+                    overridden = overridden_method(node.parent, node.name)
+                    if (
+                        overridden is not None
+                        and name in overridden.argnames()
+                        and name
+                        not in {arg.name for arg in overridden.args.posonlyargs}
+                    ):
+                        continue
                 # do not print Redefining builtin for additional builtins
                 self.add_message("redefined-builtin", args=name, node=stmt)
 
@@ -2424,6 +2492,17 @@ class VariablesChecker(BaseChecker):
                         a is defnode.value for a in node.node_ancestors()
                     )
                 elif (
+                    isinstance(defnode, nodes.NamedExpr)
+                    and frame is defframe
+                    and defframe.parent_of(stmt)
+                    and stmt is defstmt
+                    and _is_assigned_in_comprehension_condition(node, defnode)
+                ):
+                    # Assigned in the condition of a comprehension and used in
+                    # its element, which is evaluated afterwards:
+                    # [y for x in data if (y := f(x))]
+                    maybe_before_assign = False
+                elif (
                     isinstance(defframe, nodes.ClassDef)
                     and defnode in defframe.type_params
                 ):
@@ -2948,7 +3027,7 @@ class VariablesChecker(BaseChecker):
             return
 
         # Don't check function stubs created only for type information
-        if utils.is_overload_stub(node):
+        if utils.is_overload_stub(node) or utils.is_in_stub_file(node):
             return
 
         # Don't check protocol classes

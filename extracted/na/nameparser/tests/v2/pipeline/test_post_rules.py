@@ -3,6 +3,7 @@ import sys
 
 import pytest
 
+from nameparser import Parser, parse
 from nameparser._lexicon import Lexicon
 from nameparser._pipeline import run
 from nameparser._pipeline._post_rules import suffix_entries
@@ -10,8 +11,9 @@ from nameparser._pipeline._state import ParseState
 from nameparser._policy import (FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST,
                                 GIVEN_FIRST, PatronymicRule, Policy,
                                 Script)
-from nameparser._types import (FOLDED_TAG, STABLE_TAGS, AmbiguityKind,
-                               Role)
+from nameparser._types import (FOLDED_TAG, STABLE_TAGS,
+                               UNJOINED_CONJUNCTION_TAG, UNJOINED_TAG,
+                               AmbiguityKind, Role)
 
 # A reduced lexicon, the convention in every pipeline stage module: a
 # stage test should not move when shipped vocabulary does. What it must
@@ -26,11 +28,16 @@ _LEX = Lexicon(
     given_name_titles=frozenset({"sir"}),
     particles=frozenset({"de", "der", "ibn", "la", "van", "vd"}),
     particles_ambiguous=frozenset({"la", "van"}),
-    suffix_words=frozenset({"jr"}),
+    # `씨` is a suffix word that starts no credential run (rules.md#S2,
+    # #602: an honorific word never does), the filler a test needs
+    # where a credential would now take the rest of the part
+    suffix_words=frozenset({"jr", "씨"}),
     # `vd` mirrors its shipped dual membership -- particle AND
     # UNAMBIGUOUS suffix acronym -- which is what puts a name on P6's
-    # suffix arm below.
-    suffix_acronyms=frozenset({"md", "vd"}),
+    # suffix arm below. `ma` mirrors the ambiguous class, which starts
+    # no run either.
+    suffix_acronyms=frozenset({"md", "vd", "ma"}),
+    suffix_acronyms_ambiguous=frozenset({"ma"}),
     conjunctions=frozenset({"y"}),
     bound_given_names=frozenset({"abdul"}),
 )
@@ -497,11 +504,15 @@ def test_no_leftover_is_re_laid_out() -> None:
     # out. The whole role map is asserted because that draft failed in
     # two directions: it lost a given name outright on "van Berg Jan de"
     # and promoted a post-nominal into the given slot here. A test on
-    # `GIVEN != "Jr."` alone passes on an EMPTY given, which is the
+    # `GIVEN != "Ma"` alone passes on an EMPTY given, which is the
     # first of those.
-    out = _parsed("Berg Jan Jr. de", Policy(name_order=FAMILY_FIRST))
+    #
+    # The post-nominal is the ambiguous `Ma`, which stays a middle
+    # name. It was `Jr.` until #602, which made a credential after the
+    # name core start a run to the end of the part, taking `de` in.
+    out = _parsed("Berg Jan Ma de", Policy(name_order=FAMILY_FIRST))
     assert _by_role(out, Role.GIVEN) == "Jan"
-    assert _by_role(out, Role.MIDDLE) == "Jr."
+    assert _by_role(out, Role.MIDDLE) == "Ma"
     assert _by_role(out, Role.FAMILY) == "Berg de"
     assert _folded(out) == "de"
 
@@ -808,8 +819,8 @@ def test_middle_as_family_folds_a_middle_the_old_reach_never_left() -> None:
 
 
 @pytest.mark.parametrize("policy,given,middle", [
-    (Policy(name_order=FAMILY_FIRST), "van Berg", "MD Juan"),
-    (Policy(name_order=FAMILY_FIRST_GIVEN_LAST), "Juan", "van Berg MD"),
+    (Policy(name_order=FAMILY_FIRST), "van Berg", "씨 Juan"),
+    (Policy(name_order=FAMILY_FIRST_GIVEN_LAST), "Juan", "van Berg 씨"),
 ])
 def test_a_suffix_word_mid_run_ends_the_chain(
         policy: Policy, given: str, middle: str) -> None:
@@ -817,8 +828,10 @@ def test_a_suffix_word_mid_run_ends_the_chain(
     # stop _group's own chain uses (`not prefix(j) and not suffix(j)`).
     # Without it the whole leftover is ONE unit and lands in one field.
     # Three leftover units here, so this is also the only place the two
-    # orders are pinned apart at a count other than two.
-    out = _parsed("de Mesnil van Berg MD Juan", policy)
+    # orders are pinned apart at a count other than two. The suffix word
+    # is an honorific because a credential here would start #602's run
+    # and take `Juan` with it (rules.md#S2); it was `MD` until then.
+    out = _parsed("de Mesnil van Berg 씨 Juan", policy)
     assert _by_role(out, Role.FAMILY) == "de Mesnil"
     assert _by_role(out, Role.GIVEN) == given
     assert _by_role(out, Role.MIDDLE) == middle
@@ -1004,24 +1017,35 @@ def test_a_bare_marker_maiden_clause_does_not_part_the_run() -> None:
     this renders 'MD, PhD'. The bracketed twin above drops its marker
     too, so that mutant fails both; what separates the two tests is
     the role test, which sees 'Jones' in both and 'nee' in neither
-    (measured 2026-09-06)."""
-    assert _entry_tags("Smith, MD nee Jones PhD") == [
-        ("MD", False), ("PhD", True)]
+    (measured 2026-09-06).
+
+    Since #601 a bare marker counts only behind a name word, so the
+    clause stands between two post-nominals only inside #602's
+    credential run: 'Jr.' starts it and takes 'Smith' in, the marker
+    standing after that name word. The fixture was 'Smith, MD nee Jones
+    PhD' until then, a marker in the given part after a family comma,
+    which is an ordinary word now."""
+    assert _entry_tags("Jane Doe Jr. Smith nee Jones PhD") == [
+        ("Jr.", False), ("Smith", True), ("PhD", True)]
 
 
 def test_a_marker_the_policy_names_as_a_delimiter_parts_the_run() -> None:
     """Where the two sites' gates differ, and the one case that
-    reaches it. group drops a core only on a `tail` segment, through
-    `seg_cores`; this pass reads `delimiter_cores` whole and asks by
-    TEXT, so a dropped token the policy names as a delimiter parts the
+    reaches it. group drops a core only on a `tail` segment, cutting
+    the segment there (#549); this pass reads `delimiter_cores` whole
+    and asks by TEXT, so a dropped token the policy names as a delimiter parts the
     run whatever dropped it. A maiden marker the policy ALSO lists is
     the reachable case, and it parts by the policy's own declaration
     (measured 2026-09-06)."""
     nee = Policy(extra_suffix_delimiters=frozenset({" nee "}))
-    assert _entry_tags("John Doe, MD nee Jones PhD", nee) == [
-        ("MD", False), ("PhD", False)]
-    assert _entry_tags("John Doe, MD nee Jones PhD") == [
-        ("MD", False), ("PhD", True)]
+    # the fixture puts the clause inside #602's credential run, the one
+    # place a bare clause stands between two post-nominals since #601
+    # (the bare test above says why); it was 'John Doe, MD nee Jones
+    # PhD' until then
+    assert _entry_tags("Jane Doe Jr. Smith nee Jones PhD", nee) == [
+        ("Jr.", False), ("Smith", True), ("PhD", False)]
+    assert _entry_tags("Jane Doe Jr. Smith nee Jones PhD") == [
+        ("Jr.", False), ("Smith", True), ("PhD", True)]
 
 
 def test_a_dropped_core_parts_two_entries() -> None:
@@ -1038,15 +1062,19 @@ def test_a_dropped_core_parts_two_entries() -> None:
 
 def test_a_surviving_name_word_parts_two_entries() -> None:
     """The `parted` conjunct, kept-core half -- the one a dropped-core
-    test alone cannot reach. After a FAMILY comma segment 1 is no
-    tail, so nothing drops the dashes and they stand as name words
-    between the post-nominals. Drop the conjunct and this renders
-    'PhD FACS' under EVERY policy, the bare one included, where the
-    dash is no delimiter at all."""
+    test alone cannot reach: a name word standing between two
+    post-nominals parts their entries. `abd` is suffix vocabulary that
+    starts no credential run (it is bound given-name vocabulary too,
+    rules.md#S2), so `Jones` behind it survives as a name word before
+    the credential. Drop the conjunct and this renders 'abd PhD'.
+
+    The fixture was 'Smith, MD - PhD - FACS' until #602, whose dashes
+    stood as name words between the post-nominals; a credential now
+    starts a run to the end of the part, taking them in."""
     for policy in (Policy(),
                    Policy(extra_suffix_delimiters=frozenset({" - "}))):
-        assert _entry_tags("Smith, MD - PhD - FACS", policy) == [
-            ("PhD", False), ("FACS", False)]
+        assert _entry_tags("Smith, Jane abd Jones PhD", policy) == [
+            ("abd", False), ("PhD", False)]
 
 
 def test_the_pass_runs_after_roles_are_settled() -> None:
@@ -1121,3 +1149,98 @@ def test_suffix_entries_keys_on_the_suffix_role() -> None:
     neither a continuation."""
     assert _forced_entry_tags("A B", Role.MIDDLE) == [
         ("A", False), ("B", False)]
+
+
+def test_p6_declines_a_credential_lean_class_member() -> None:
+    """P6 keys on VOCABULARY, not role, so assign's suffix role would
+    otherwise be silently overridden -- verified by running the
+    change's assign half alone, which left 'Doe, John DO' family
+    'DO Doe'."""
+    name = parse("Doe, John DO")
+    assert name.suffix == "DO"
+    assert name.family == "Doe"
+    assert [a.kind.value for a in name.ambiguities] == ["suffix-or-name"]
+
+
+def test_p6_still_claims_an_unambiguous_suffix_particle() -> None:
+    """The condition is narrowed to AMBIGUOUS_ACRONYM_TAG, which is
+    what keeps 'vd' and 'mc' -- unambiguous suffix vocabulary, also
+    particles, also suffix-roled -- inside the run."""
+    for text, family in (("Berg, Jan vd", "vd Berg"),
+                         ("Berg, Jan mc", "mc Berg")):
+        name = parse(text)
+        assert name.family == family, text
+        assert name.suffix == "", text
+
+
+def test_p6_keeps_every_non_capital_spelling_of_the_particle_member(
+) -> None:
+    """Capitals decide; the particle rule keeps the rest, and each
+    reports P6's own kind ONCE (decisions.md#S2, 2026-09-18)."""
+    for text, family in (("Doe, John do", "do Doe"),
+                         ("Doe, John Do", "Do Doe"),
+                         ("DOE, JOHN DO", "DO DOE"),
+                         ("doe, john do", "do doe")):
+        name = parse(text)
+        assert name.family == family, text
+        assert [a.kind.value for a in name.ambiguities] == \
+            ["particle-or-given"], text
+
+
+def test_a_lone_connective_is_marked_as_joining_nothing() -> None:
+    # rules.md#R3's mark (#461), decided where the parts are settled.
+    r = parse("Juan de y")
+    y = [t for t in r.tokens if t.text == "y"][0]
+    assert UNJOINED_CONJUNCTION_TAG in y.tags
+    assert UNJOINED_TAG not in y.tags
+
+
+def test_a_joining_connective_carries_no_mark() -> None:
+    # the recorded negative control: name words beside it, so it is
+    # doing a connective's work and the mark is not written.
+    r = parse("John and Jane Smith")
+    conj = [t for t in r.tokens if t.text == "and"][0]
+    assert UNJOINED_CONJUNCTION_TAG not in conj.tags
+    # and the two-word part, where the criterion is the PART and not
+    # a count
+    r2 = parse("Jon Dough and")
+    conj2 = [t for t in r2.tokens if t.text == "and"][0]
+    assert UNJOINED_CONJUNCTION_TAG not in conj2.tags
+
+
+def test_an_all_particle_part_keeps_r2s_mark_and_gains_no_other(
+) -> None:
+    # the `elif`'s precedence, and the reason it is an `elif`: where
+    # the part is all particles R2's mark already readmits every word,
+    # a word that is BOTH particle and connective included. Swapping
+    # the branches moves the caller's own rows.
+    p = Parser(lexicon=Lexicon.default().add(particles={"y"}))
+    r = p.parse("Juan de y")
+    y = [t for t in r.tokens if t.text == "y"][0]
+    assert UNJOINED_TAG in y.tags
+    assert UNJOINED_CONJUNCTION_TAG not in y.tags
+    assert r.initials() == "J. d. y."
+
+
+def test_a_word_that_is_both_particle_and_connective_is_marked_too(
+) -> None:
+    # The walk sorts the part's words into three buckets and a word of
+    # BOTH vocabularies belongs in the connective one, which is what
+    # the second arm of the sort does. The shape that needs it: a part
+    # that is not all-particle -- so R2's mark does not fire -- holding
+    # a plain connective, a working particle, and a word that is both.
+    # Without the arm the both-vocabulary word takes neither mark,
+    # drops as an ordinary family particle, and the part's own base
+    # disagrees with the view over it.
+    p = Parser(lexicon=Lexicon.default().add(particles={"y"}))
+    r = p.parse("Juan de y and")
+    assert r.family == "de y and"
+    assert r.initials() == "J. y. a."
+    tags = {t.text: t.tags for t in r.tokens if t.role is Role.FAMILY}
+    assert UNJOINED_CONJUNCTION_TAG in tags["y"]
+    assert UNJOINED_CONJUNCTION_TAG in tags["and"]
+    # the working particle beside them takes no mark and does not
+    # initial, which is what makes the criterion "nothing to join"
+    # rather than "nothing else here"
+    assert UNJOINED_CONJUNCTION_TAG not in tags["de"]
+    assert UNJOINED_TAG not in tags["de"]

@@ -88,7 +88,7 @@ def _configure_stubs() -> None:
         "AiModelAlias",
         "AiOffering",
         "AiSetting",
-        "RenderDefinition",
+        "PromptBlock",
         "AgentMemory",
         "Conversation",
         "Media",
@@ -137,7 +137,7 @@ def _configure_stubs() -> None:
         "guest_executions_manager",
         "guest_execution_log_manager",
     ]
-    extra_names = ["RenderDefinitionDTO"]
+    extra_names: list[str] = []
 
     # External utilities used at module-import time in matrx_ai submodules.
     ext_stubs: dict[str, object] = {

@@ -59,6 +59,96 @@ for package_root, _dirs, files in os.walk(os.path.join(ROOT, "laya")):
 check("setuptools/packages match every importable laya package",
       sorted(declared_packages), sorted(source_packages))
 
+# laya/mcp/__init__.py carries the same kind of inventory, two levels down: its docstring splits the
+# submodules into "importable without the `mcp` extra" and "requires the extra", and __all__ is what a
+# reader (and `from laya.mcp import *`) is told the package contains. Neither list is derived from
+# anything, so remote.py -- the module LAYA_BASE_URL mode added -- appeared in neither, while every
+# test that imports `laya.mcp.remote` by its full path kept passing. Derive the modules from the tree
+# and read each module's own bindings, the way the package list above does, so a new submodule has to
+# be declared and a stale dependency claim is caught against the source that contradicts it.
+mcp_dir = os.path.join("laya", "mcp")
+mcp_modules = sorted(name[:-3] for name in os.listdir(os.path.join(ROOT, mcp_dir))
+                     if name.endswith(".py") and name != "__init__.py")
+# Guards, not formalities: an unreadable listing would let every comparison below pass against [].
+check_true("mcp/submodules found under laya/mcp", len(mcp_modules) >= 4, mcp_modules)
+
+
+def _literal_all(tree):
+    """The __all__ elements of a parsed module, or None when it is not a list of strings."""
+    for node in tree.body:
+        targets = getattr(node, "targets", [])
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "__all__" for t in targets):
+            value = node.value
+            if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+                return [e.value for e in value.elts if isinstance(e, ast.Constant)]
+            return None          # computed __all__: reported rather than passed as an empty list
+    return None
+
+
+mcp_init = ast.parse(read(os.path.join(mcp_dir, "__init__.py")))
+mcp_all = _literal_all(mcp_init)
+check_true("mcp/__all__ read as a literal from laya/mcp/__init__.py",
+           mcp_all is not None, ast.dump(mcp_init.body[-1]) if mcp_init.body else "empty module")
+check("mcp/__all__ names every submodule", sorted(mcp_all or []), mcp_modules)
+
+
+def _import_time_nodes(tree):
+    """The statements a module runs while it is being imported: no function or class bodies."""
+    result = []
+
+    def walk(body):
+        for stmt in body:
+            # An import inside a def/class body is deferred to the call, so it cannot make the module
+            # itself unimportable without the extra.
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            result.append(stmt)
+            for field in ("body", "orelse", "finalbody"):
+                walk([child for child in getattr(stmt, field, []) if isinstance(child, ast.stmt)])
+            for handler in getattr(stmt, "handlers", []):
+                walk([child for child in handler.body if isinstance(child, ast.stmt)])
+
+    walk(tree.body)
+    return result
+
+
+def binds_mcp_at_import_time(name):
+    """Whether laya/mcp/<name>.py imports the `mcp` distribution at module scope."""
+    for stmt in _import_time_nodes(ast.parse(read(os.path.join(mcp_dir, name + ".py")))):
+        if isinstance(stmt, ast.Import):
+            if any(alias.name.split(".")[0] == "mcp" for alias in stmt.names):
+                return True
+        elif isinstance(stmt, ast.ImportFrom):
+            if not stmt.level and (stmt.module or "").split(".")[0] == "mcp":
+                return True
+    return False
+
+
+mcp_needing = {name for name in mcp_modules if binds_mcp_at_import_time(name)}
+mcp_free = set(mcp_modules) - mcp_needing
+check_true("mcp/both dependency buckets are populated", bool(mcp_needing) and bool(mcp_free),
+           "needing=%s free=%s" % (sorted(mcp_needing), sorted(mcp_free)))
+
+# The sentence is read as two clauses split on the semicolon, so the gate knows which bucket each
+# inlined module name belongs to. `mcp` is inlined in the same sentence ("without the ``mcp``
+# dependency"), so names are compared against the real submodules, not against every literal.
+_buckets = (ast.get_docstring(mcp_init) or "").split(";")
+check_true("mcp/docstring keeps the two-clause dependency sentence this gate reads",
+           len(_buckets) == 2, repr(ast.get_docstring(mcp_init)))
+_raw_free = set(re.findall(r"``(\w+)``", _buckets[0]))
+_raw_needing = set(re.findall(r"``(\w+)``", _buckets[1])) if len(_buckets) > 1 else set()
+_declared_free = _raw_free & set(mcp_modules)
+_declared_needing = _raw_needing & set(mcp_modules)
+check("mcp/docstring's extra-free list is exactly the submodules that bind no mcp import",
+      sorted(_declared_free), sorted(mcp_free))
+check("mcp/docstring's extra list is exactly the submodules that bind mcp at import",
+      sorted(_declared_needing), sorted(mcp_needing))
+# A name the sentence claims that is not on disk is as wrong as one it omits: it sends a reader to
+# `python -m laya.mcp.<name>` for a file that does not exist. `mcp` is the dependency the same
+# sentence names in the same breath ("without the ``mcp`` dependency"), so it is excused.
+check("mcp/docstring names no submodule that is not on disk",
+      sorted((_raw_free | _raw_needing) - set(mcp_modules) - {"mcp"}), [])
+
 requires_python = re.search(r'requires-python\s*=\s*"[>=~^]*\s*([\d.]+)"', pyproject)
 check_true("pyproject/declares requires-python", requires_python is not None)
 floor = version_tuple(requires_python.group(1)) if requires_python else (0, 0)
@@ -243,6 +333,98 @@ check("ci/wires every non-exempt test suite", untested_suites, [])
 # the script is the entire mechanism, so assert neither workflow dropped back to an inline list.
 check_true("ci and the release gate share one suite list",
            "scripts/test_suites.py" in workflow and "scripts/test_suites.py" in release_workflow, "")
+
+
+# -------------------------------------------------- CONTRIBUTING.md's "Running the tests" section
+# That section is what a new contributor runs, and it had drifted in three ways at once: it sent
+# readers to `.github/workflows/ci.yml` for "the full set" (ci.yml names 21 suite paths while the
+# shared list holds 86, and the two checks just above assert the workflows invoke the module instead
+# of naming suites), transcribed three of ten `PYTEST_SUITES` members as if that were the set, and
+# named three of the seven suites `EXEMPT_TEST_SUITES` exempts. So bind the page to the same lists
+# the gate uses. This also keeps #374's trap off the page: `python tests/<name>.py` on a pytest suite
+# defines the test functions, asserts nothing and exits 0, so an example run in the wrong style is a
+# contributor who believes they tested something.
+_contrib = read("CONTRIBUTING.md")
+
+
+def _shared_list(name):
+    """One of `scripts/test_suites.py`'s two lists, as bare file names."""
+    found = re.search(name + r" = \[(.*?)\n\]", shared_suites, re.S)
+    if not found:
+        return set()
+    return {p.split("/")[-1] for p in re.findall(r'"(tests/[^"]+\.py)"', found.group(1))}
+
+
+_script_suites = _shared_list("SCRIPT_SUITES")
+_pytest_suites = _shared_list("PYTEST_SUITES")
+# A suite is pytest-based if the shared list says so or a lane runs it under pytest. Workflow
+# *comments* mention pytest too (evals.yml explains its ONNX export there), so only run lines count.
+_pytest_lanes = set()
+for _wf_name in sorted(os.listdir(os.path.join(ROOT, ".github", "workflows"))):
+    if not _wf_name.endswith((".yml", ".yaml")):
+        continue
+    for _line in read(os.path.join(".github", "workflows", _wf_name)).splitlines():
+        if "pytest" in _line and not _line.strip().startswith("#"):
+            _pytest_lanes.update(re.findall(r"\btests/(test_[a-zA-Z0-9_]+\.py)\b", _line))
+
+check_true("contrib/the two shared lists parse",
+           len(_script_suites) >= 50 and len(_pytest_suites) >= 5,
+           "%d script, %d pytest" % (len(_script_suites), len(_pytest_suites)))
+
+
+def _contrib_examples():
+    """(names the page runs as scripts, names it runs under pytest), from its bash blocks."""
+    scripts, under_pytest = set(), set()
+    for block in re.findall(r"```bash\n(.*?)```", _contrib, re.S):
+        for line in block.splitlines():
+            if re.match(r"^\s*python\s+-m\s+pytest\b", line):
+                under_pytest.update(re.findall(r"tests/(test_[a-zA-Z0-9_]+\.py)", line))
+            elif re.match(r"^\s*python\s+tests/", line):
+                scripts.update(re.findall(r"tests/(test_[a-zA-Z0-9_]+\.py)", line))
+    return scripts, under_pytest
+
+
+def _contrib_exempt_bullets():
+    """The exempt suites the page lists, or None when it no longer has that list at all."""
+    lines = _contrib.splitlines()
+    try:
+        start = next(i for i, line in enumerate(lines) if "not part of the PR `test` job" in line)
+    except StopIteration:
+        return None
+    names = []
+    for line in lines[start + 1:]:
+        if not line.strip():
+            if names:
+                break
+            continue
+        if not line.startswith("- `tests/"):
+            break
+        names.append(line.split("`")[1].split("/")[-1])
+    return names
+
+
+_contrib_paths = set(re.findall(r"\btests/(test_[a-zA-Z0-9_]+\.py)\b", _contrib))
+_missing_paths = sorted(_contrib_paths - set(all_test_files))
+_example_scripts, _example_pytest = _contrib_examples()
+_stale_pointer = [line.strip() for line in _contrib.splitlines()
+                  if "full set" in line and ".github/workflows/" in line]
+_exempt_list = _contrib_exempt_bullets()
+
+check_true("contrib/the page points at the one shared suite list",
+           "scripts/test_suites.py" in _contrib, "CONTRIBUTING.md never names it")
+check("contrib/no sentence sends readers to a workflow for the full set", _stale_pointer, [])
+check("contrib/every suite the page names exists", _missing_paths, [])
+check("contrib/every script example is a script suite",
+      sorted(_example_scripts - _script_suites), [])
+check("contrib/every pytest example is a pytest-based suite",
+      sorted(_example_pytest - (_pytest_suites | _pytest_lanes)), [])
+# A set difference, so a suite that gains an exemption without a line on the page is as red as one
+# that loses an exemption and keeps its line.
+if _exempt_list is None:
+    _exempt_diff = ["the page no longer carries the exempt-suite list"]
+else:
+    _exempt_diff = sorted(set(_exempt_list) ^ set(EXEMPT_TEST_SUITES))
+check("contrib/the page lists every exempt suite, and only those", _exempt_diff, [])
 
 
 # --------------------------------------------------------------- markdown links
@@ -594,7 +776,8 @@ def option_type(opt):
 # Every new knob is opt-in: unset means the unit exports nothing and the runtime's own default
 # applies, so a host that ignores them gets today's behaviour byte for byte.
 for opt in ("rootPath", "logLevel", "maxConcurrent", "cudaAmp", "cpuAmp", "mpsAmpMinRows",
-            "maxLoaded", "maxTokenBudget", "revision", "defaultModel", "idleUnloadSeconds"):
+            "maxLoaded", "maxTokenBudget", "revision", "defaultModel", "idleUnloadSeconds",
+            "tournamentGroup"):
     _t = option_text(opt)
     check_true("nix/module declares %s" % opt, _t != "", "option not found")
     check_true("nix/%s is opt-in (nullOr, default null)" % opt,

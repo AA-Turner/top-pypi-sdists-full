@@ -281,6 +281,26 @@ clean_res = [{"answers": {"q": {"answer_confidence": 0.95}}}]
 flag_low_confidence(clean_res, 0.5)
 check_true("stale/unflagged answer stays clean", "low_confidence" not in clean_res[0]["answers"]["q"])
 
+# `0.0` belongs to this case as much as `0.5` does -- it is the most permissive threshold there is --
+# but the function used to short-circuit on it before the clearing pass, so a stricter threshold's
+# marker survived a re-evaluation at `0.0`.
+zero_res = [{"answers": {"intent": {"choice": "refund", "answer_confidence": 0.8}}}]
+zero_ans = zero_res[0]["answers"]["intent"]
+flag_low_confidence(zero_res, 0.9)
+check_true("stale/flag 0.9 sets flag before the 0.0 pass", zero_ans.get("low_confidence") is True)
+flag_low_confidence(zero_res, 0.0)
+check_true("stale/flag 0.0 clears flag", "low_confidence" not in zero_ans)
+
+# One rule, one implementation: the boolean the flag writes and the state the gate reports cannot
+# disagree about the same threshold change, which is the claim `apply_confidence_gate`'s docstring
+# makes about delegating rather than re-implementing.
+gate_both = [{"answers": {"intent": {"choice": "refund", "answer_confidence": 0.8}}}]
+apply_confidence_gate(gate_both, 0.9)
+apply_confidence_gate(gate_both, 0.0)
+check_true("stale/flag and gate agree after 0.9 -> 0.0",
+           ("low_confidence" in zero_ans) == ("low_confidence" in gate_both[0]["answers"]["intent"]),
+           repr((zero_ans, gate_both[0]["answers"]["intent"])))
+
 # 2. apply_confidence_gate clears stale flag and updates abstention state on re-evaluation
 gate_reuse = [{
     "answers": {
@@ -401,7 +421,7 @@ check("export/laya re-exports the same tuple", laya.GATE_STATES, _confidence.GAT
 # --------------------------------- the two doc pages must attribute confidence per question type
 # `docs/structured.md` and `docs/questions-and-answers.md` each opened their confidence section with
 # "`confidence` is normalized entropy". Neither agent writes that for every type:
-# `Agent._decode_answers` (`laya/agent.py:1367-1404`) and `OnnxAgent._decode_answers`
+# `Agent._decode_answers` (`laya/agent.py:1367-1404`) and `ONNXAgent._decode_answers`
 # (`laya/onnx_agent.py:682-727`) put `confidence_from_probs(p, k)` = `1 - H(p) / log(k)` in the
 # `choice` and `score` answers and `max(p_true, 1 - p_true)` in the `noul` one. Each page printed a
 # `noul` in the very block its sentence introduces, so the sentence was falsifiable from the page
@@ -2041,9 +2061,149 @@ def test_bucket_rows_stays_a_power_of_two_below_16():
             "expect 16 here" % (n, bucket_rows(n)))
 
 
+# ------------------------------- and the caller it names has to be on the kernels' own route
+# The attribution was the second half of the same defect. The docstring called
+# `laya.backends.base.pad_batch` "the caller" of these kernels, but `pad_batch` serves the
+# `backend="compile"` route: it has exactly one production call site, `laya/backends/compile.py:111`,
+# and `laya/fast.py:10` is the only module in the package that imports `tl_kernels`. Those two sets
+# being disjoint is what makes the sentence false, and nothing in the tree checked either one. The
+# padding on the TileLang route happens in `FastLaya._forward_unlocked`, which takes its row bucket
+# from `bucket_rows` (through `_bucket_n`) but *inlines* the token bucketing against its own
+# `FastLaya.DYNAMIC_MAX_L`/`LONG_BUCKET` class attributes rather than calling `bucket_tokens`. So a
+# maintainer who retuned `pad_batch` or `bucket_tokens` for TileLang padding changed nothing on the
+# TileLang route, and no test said so. All three checks below read the call graph out of the AST --
+# no `tilelang` import, so they run on a CPU-only box where the fast path cannot execute.
+
+FAST_REL = "laya/fast.py"
+COMPILE_REL = "laya/backends/compile.py"
+_BAN_PAD_BATCH_CALLER = re.compile(r"caller(?:,| in) [`\w.]*pad_batch", re.I)
+
+
+def _laya_trees():
+    """`[(slash-relative path, parsed AST)]` for every module under `laya/`."""
+    out = []
+    for base, _dirs, files in os.walk(os.path.join(ROOT, "laya")):
+        for name in sorted(files):
+            if not name.endswith(".py") or "__pycache__" in base:
+                continue
+            path = os.path.join(base, name)
+            with open(path, encoding="utf-8") as fh:
+                out.append((path[len(ROOT) + 1:].replace(os.sep, "/"), ast.parse(fh.read(), filename=path)))
+    return out
+
+
+def _modules_calling(trees, fname):
+    """Paths of the `laya/` modules containing a call node for `fname`."""
+    hits = set()
+    for rel, tree in trees:
+        for node in ast.walk(tree):
+            func = node.func if isinstance(node, ast.Call) else None
+            if func is not None and ((isinstance(func, ast.Name) and func.id == fname)
+                                     or (isinstance(func, ast.Attribute) and func.attr == fname)):
+                hits.add(rel)
+    return hits
+
+
+def _modules_importing(trees, mod):
+    """Paths of the `laya/` modules that import `mod`, `from . import mod` included."""
+    hits = set()
+    for rel, tree in trees:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and any(a.name == mod for a in node.names):
+                hits.add(rel)
+            elif isinstance(node, ast.Import):
+                if any(a.name.split(".")[-1] == mod for a in node.names):
+                    hits.add(rel)
+    return hits
+
+
+def _unparsed_function(rel, funcname):
+    """One function's body, `ast.unparse`d, so the check reads the code rather than its comments."""
+    with open(os.path.join(ROOT, rel), encoding="utf-8") as fh:
+        tree = ast.parse(fh.read(), filename=rel)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == funcname:
+            return ast.unparse(node)
+    raise AssertionError("%s has no function %s() -- the docstring cites a moved symbol" % (rel, funcname))
+
+
+def _class_constant(rel, classname, const):
+    """A class-level `CONST = <literal>`, read without importing the module (this one needs tilelang)."""
+    with open(os.path.join(ROOT, rel), encoding="utf-8") as fh:
+        tree = ast.parse(fh.read(), filename=rel)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == classname:
+            for stmt in node.body:
+                if isinstance(stmt, ast.Assign):
+                    for target in stmt.targets:
+                        if isinstance(target, ast.Name) and target.id == const:
+                            if isinstance(stmt.value, ast.Constant):
+                                return stmt.value.value
+    raise AssertionError("no `%s.%s = <literal>` in %s -- the docstring cites a moved constant"
+                         % (classname, const, rel))
+
+
+def test_tl_kernels_names_a_caller_that_is_on_the_kernels_route():
+    """`pad_batch` never reaches these kernels, so it cannot be the caller the docstring names."""
+    trees = _laya_trees()
+    kernel_importers = _modules_importing(trees, "tl_kernels")
+    pad_batch_callers = _modules_calling(trees, "pad_batch")
+    assert kernel_importers == {FAST_REL}, (
+        "the `laya/` modules importing `tl_kernels` are now %s; the docstring describes one caller, "
+        "so a second route needs its own sentence" % sorted(kernel_importers))
+    assert pad_batch_callers == {COMPILE_REL}, (
+        "`pad_batch` is now called from %s, not only from `%s`; if a route from there reaches "
+        "`tl_kernels`, the docstring's caller may genuinely be `pad_batch` again -- re-read both "
+        "before editing" % (sorted(pad_batch_callers), COMPILE_REL))
+    assert not (kernel_importers & pad_batch_callers), (
+        "`pad_batch` is on the `tl_kernels` route after all, so this ban is stale -- re-read the "
+        "call graph rather than deleting the sentence it caught")
+    doc = _tl_docstring()
+    assert not _BAN_PAD_BATCH_CALLER.search(doc), (
+        "`laya/tl_kernels.py` again calls `laya.backends.base.pad_batch` the caller of these "
+        "kernels. Its one production call site is `laya/backends/compile.py:111`, and "
+        "`laya/fast.py:10` is the only module that imports `tl_kernels`; the padding these kernels "
+        "see happens in `FastLaya._forward_unlocked`.")
+    assert "laya.fast" in doc and "_forward_unlocked" in doc, (
+        "the docstring must name the caller the call graph actually gives these kernels")
+
+
+def test_the_fast_path_still_inlines_the_token_bucket_the_docstring_says_it_repeats():
+    """`_forward_unlocked` mirrors `bucket_tokens`'s arithmetic against its own constants."""
+    body = _unparsed_function(FAST_REL, "_forward_unlocked")
+    assert "self.DYNAMIC_MAX_L" in body and "self.LONG_BUCKET" in body, (
+        "`_forward_unlocked` no longer buckets tokens against the `FastLaya` class constants, so "
+        "the docstring's 'repeats against its own `FastLaya.DYNAMIC_MAX_L`/`LONG_BUCKET`' is stale")
+    assert "bucket_tokens(" not in body, (
+        "`_forward_unlocked` calls `bucket_tokens` directly now; then there is one policy rather "
+        "than two copies, and both the docstring and this check need re-reading")
+    assert "_bucket_n(" in body or "bucket_rows(" in body, (
+        "the row pad no longer comes from `laya.backends.base.bucket_rows`, through `_bucket_n` or "
+        "directly, so the docstring's attribution needs re-reading")
+
+
+def test_the_two_bucket_policies_the_docstring_describes_are_still_the_same_numbers():
+    """One sentence covers both routes only while the duplicated constants agree."""
+    from laya.backends.base import DYNAMIC_MAX_L, LONG_BUCKET
+    fast_max_l = _class_constant(FAST_REL, "FastLaya", "DYNAMIC_MAX_L")
+    fast_long = _class_constant(FAST_REL, "FastLaya", "LONG_BUCKET")
+    assert (fast_max_l, fast_long) == (DYNAMIC_MAX_L, LONG_BUCKET), (
+        "`FastLaya` buckets at (%s, %s) while `laya.backends.base` buckets at (%s, %s). "
+        "`laya/tl_kernels.py`'s docstring describes one policy for these kernels; once the two "
+        "copies differ it has to name both, and its `16`/`%d` numbers need re-reading."
+        % (fast_max_l, fast_long, DYNAMIC_MAX_L, LONG_BUCKET, LONG_BUCKET))
+    doc = _tl_docstring()
+    assert "16-token bucket" in doc, "the docstring no longer states the small token bucket"
+    assert "%d-token bucket" % LONG_BUCKET in doc, (
+        "the docstring no longer states the large token bucket the code uses (`%d`)" % LONG_BUCKET)
+
+
 for _fn in (test_tl_kernels_drops_the_wrong_row_claim,
             test_tl_kernels_names_the_real_padding_policy,
-            test_bucket_rows_stays_a_power_of_two_below_16):
+            test_bucket_rows_stays_a_power_of_two_below_16,
+            test_tl_kernels_names_a_caller_that_is_on_the_kernels_route,
+            test_the_fast_path_still_inlines_the_token_bucket_the_docstring_says_it_repeats,
+            test_the_two_bucket_policies_the_docstring_describes_are_still_the_same_numbers):
     try:
         _fn()
     except AssertionError as e:
@@ -2295,6 +2455,32 @@ for _name, _answer in (
     ("non-integer-score-level", {"type": "score", "probabilities": {"low": 0.5, "high": 0.5}}),
 ):
     check("jev_confidence/none-for-%s" % _name, jev_confidence(_answer), None)
+
+# --- the public name and the served field must be one computation (#302) --------------------
+# `/v1/systemone` publishes `x_jev_confidence`, but a caller running the checkpoint in-process
+# gets an answer dict and no HTTP layer, and the other two confidence quantities
+# (`answer_confidence`, `confidence_from_probs`) are already public. So the name ships from
+# `laya`, and these checks pin that the served number is this function's number.
+import laya  # noqa: E402
+
+check_true("jev_public/exported", "jev_confidence" in laya.__all__)
+check_true("jev_public/lazy attr resolves to the core function",
+           getattr(laya, "jev_confidence", None) is jev_confidence)
+
+from laya.serve import _add_jev_confidence  # noqa: E402
+
+_answers = {
+    "q": _choice(0.88, 0.12),
+    "r": _choice(2, 1),          # 1/3, so the served rounding is visible
+    "s": _score(0.0, 0.95, 0.05),
+    "n": {"type": "noul", "noul": 0.9},
+}
+_served = _add_jev_confidence({"answers": copy.deepcopy(_answers)})["answers"]
+for _qid in ("q", "r", "s"):
+    check("jev_public/served %s is the public function rounded" % _qid,
+          _served[_qid]["x_jev_confidence"], round(jev_confidence(_answers[_qid]), 4))
+check_true("jev_public/served noul carries no field",
+           "x_jev_confidence" not in _served["n"], _served["n"].keys())
 
 print("\n%d passed, %d failed" % (len(PASS), len(FAIL)))
 for f in FAIL:

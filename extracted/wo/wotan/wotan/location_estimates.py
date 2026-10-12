@@ -15,11 +15,16 @@ def location_iter(data, cval, method_code):
     # 3 : welsch
     # (the others are not relevant for location_iter)
 
-    # Initial estimate for the central location
-    delta_center = inf
     median_data = median(data)
     mad = median(numpy.abs(data - median_data))
-    center = center_old = median_data
+    return location_iter_core(data, median_data, mad, cval, method_code)
+
+
+@jit(fastmath=True, nopython=True, cache=True)
+def location_iter_core(data, median_data, mad, cval, method_code):
+    """Iteration of ``location_iter`` for a given median and MAD of ``data``"""
+    # Initial estimate for the central location
+    center = median_data
 
     # Neglecting this case was a bug in scikit-learn
     if mad == 0:
@@ -28,39 +33,68 @@ def location_iter(data, cval, method_code):
     # one expensive division here, instead of two per loop later
     cmad = 1 / (cval * mad)
 
-    # Newton-Raphson iteration, where each result is taken as the initial value of the
-    # next iteration. Stops when the difference of a round is below ``FTOL`` threshold
-    while numpy.abs(delta_center) > constants.FTOL:
-        distance = data - center
-        dmad = distance * cmad
+    # Convergence tolerance relative to the scale of the data (the MAD), so that the
+    # estimate does not depend on the flux unit or offset
+    tol = constants.FTOL * mad
+    n_iter = 0
 
-        # Inlier weights
+    # Fixed-point iteration center <- g(center) (iteratively reweighted mean), which
+    # stops when a step moves the center by less than ``tol``. For the biweight, every
+    # second step is followed by an Aitken extrapolation (Steffensen's method), which converges to
+    # the same fixed point in fewer steps. The result is always a plain step g(c)
+    # with |g(c) - c| <= tol, as without the extrapolation.
+    while n_iter < 1000:
+        c1 = _irls_step(data, center, cmad, method_code)
+        n_iter += 1
+        if numpy.abs(c1 - center) <= tol or n_iter >= 1000:
+            return c1
+        c2 = _irls_step(data, c1, cmad, method_code)
+        n_iter += 1
+        if numpy.abs(c2 - c1) <= tol:
+            return c2
+        # Extrapolate only for a steady, monotone approach (0 < rate < 0.9), where
+        # the Aitken limit lies just ahead on the same path; otherwise plain steps
+        # Biweight only: its weights fall smoothly to zero at the cut-off. Welsch's
+        # weights jump at the cut-off, so it can have several nearby fixed points,
+        # and an extrapolated step may land on a different one.
+        step1 = c1 - center
+        step2 = c2 - c1
+        center = c2
+        if method_code == 1 and step1 != 0:
+            rate = step2 / step1
+            if 0 < rate < 0.9:
+                center = c2 + step2 * rate / (1 - rate)
+    return center
+
+
+@jit(fastmath=True, nopython=True, cache=True)
+def _irls_step(data, center, cmad, method_code):
+    """One reweighting step: center + sum(d*w) / sum(w), fused into one loop"""
+    sum_dw = 0.0
+    sum_w = 0.0
+    for j in range(len(data)):
+        distance = data[j] - center
+        dmad = distance * cmad
         # biweight
         if method_code == 1:
+            if numpy.abs(dmad) >= 1:
+                continue
             weight = (1 - dmad ** 2) ** 2
         # andrewsinewave
-        if method_code == 2:
-            # avoid division by zero
-            dmad[dmad == 0] = 1e-10
+        elif method_code == 2:
+            if dmad == 0:
+                dmad = 1e-10  # avoid division by zero
+            if numpy.abs(dmad) >= pi:
+                continue
             weight = sin(dmad) / dmad
         # welsch
-        if method_code == 3:
-            weight = exp(-(dmad**2) / 2)
-
-        # Outliers with weight zero
-        # biweight or welsch
-        if method_code == 1 or method_code == 3:
-            weight[(numpy.abs(dmad) >= 1)] = 0
-        # andrewsinewave
         else:
-            weight[(numpy.abs(dmad) >= pi)] = 0
-
-        center += numpy.sum(distance * weight) / numpy.sum(weight)
-
-        # Calculate how much center moved to check convergence threshold
-        delta_center = center_old - center
-        center_old = center
-    return center
+            if numpy.abs(dmad) >= 1:
+                continue
+            weight = exp(-(dmad ** 2) / 2)
+        sum_dw += distance * weight
+        sum_w += weight
+    return center + sum_dw / sum_w
 
 
 @jit(fastmath=True, nopython=True, cache=True)
@@ -72,16 +106,21 @@ def tau(x, cval):
 
     med = median(x)
     mad = median(numpy.abs(x - med))
-    zscore = 0.675  # Z-score of the 75th percentile of the normal distribution
-    s = zscore * mad
+    if mad == 0:
+        return med
+    zscore = 0.6745  # Z-score of the 75th percentile of the normal distribution
+    s = mad / zscore  # normal-consistent scale
     wnom = 0
     wden = 0
     for i in range(len(x)):
         y = (x[i] - med) / s
-        temp = (1 - (y / cval)**2)**2
-        if abs(temp) <= cval:
+        # Biweight-type weight, zero for outliers beyond ``cval`` scale units
+        if abs(y) < cval:
+            temp = (1 - (y / cval)**2)**2
             wnom += temp * x[i]
             wden += temp
+    if wden == 0:
+        return med
     return wnom / wden
 
 
@@ -90,11 +129,15 @@ def huber_psi(x, cval):
     """One-step M-estimator of location using Huber's psi"""
     med = median(x)
     mad = median(numpy.abs(x - med))
+    if mad == 0:
+        return med
     y = (x - med) / mad
+    b = (numpy.abs(y) <= cval).sum()  # number of unclipped values (before clipping!)
+    if b == 0:
+        return med
     y[y > cval] = cval
     y[y < -cval] = -cval
     a = numpy.sum(y)
-    b = (numpy.abs(y) <= cval).sum()  # how many values in y < cval?
     return med + mad * a / b
 
 
@@ -126,11 +169,11 @@ def trim_mean(data, proportiontocut):
 def winsorize_mean(data, proportiontocut):
     """Mean of array after winsorizing `proportiontocut` from both tails."""
     sorted_data = sort(data)
-    idx = int(proportiontocut * len(data)) + 1
-    if idx < 0:
-        idx = 0
-    sorted_data[:idx] = sorted_data[idx]
-    sorted_data[-idx:] = sorted_data[-idx]
+    n = len(sorted_data)
+    k = int(proportiontocut * n)  # number of values replaced in each tail
+    if k > 0:
+        sorted_data[:k] = sorted_data[k]
+        sorted_data[n - k:] = sorted_data[n - k - 1]
     return mean(sorted_data)
 
 

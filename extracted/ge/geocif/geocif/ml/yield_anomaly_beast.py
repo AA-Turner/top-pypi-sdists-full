@@ -39,6 +39,8 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+from geocif.ml.beast_compat import import_rbeast, quiet_rbeast
+
 
 @dataclass
 class AnomalyThresholds:
@@ -157,11 +159,8 @@ def detect_spikes_one_series(
     for yr, val in zip(years[finite].astype(int), yields[finite]):
         contiguous_yields[yr - y0] = float(val)
 
-    try:
-        import Rbeast as rb
-    except ImportError:
-        if logger is not None:
-            logger.error("  Rbeast not installed; skipping anomaly detection.")
+    rb = import_rbeast(logger)  # warns once per process when missing
+    if rb is None:
         return _empty_result("beast_unavailable")
 
     # Optional right-edge padding with synthetic climatology so BEAST's
@@ -190,13 +189,14 @@ def detect_spikes_one_series(
             beast_input = np.concatenate([contiguous_yields, pad_block])
 
     try:
-        o = rb.beast(
-            beast_input,
-            start=beast_start, deltat=1, season="none",
-            mcmc_seed=thresholds.mcmc_seed,
-            quiet=True, print_param=False,
-            print_progress=False, print_warning=False,
-        )
+        with quiet_rbeast():
+            o = rb.beast(
+                beast_input,
+                start=beast_start, deltat=1, season="none",
+                mcmc_seed=thresholds.mcmc_seed,
+                quiet=True, print_param=False,
+                print_progress=False, print_warning=False,
+            )
     except Exception as exc:  # noqa: BLE001
         if logger is not None:
             logger.warning(f"  BEAST failed: {exc}; skipping series.")

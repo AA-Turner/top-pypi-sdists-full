@@ -26,6 +26,7 @@ plt.style.use("default")
 import numpy as np
 import palettable as pal
 import pandas as pd
+import scienceplots  # noqa: F401  registers the "science" / "no-latex" styles used below
 import seaborn as sns
 from tqdm.rich import tqdm
 
@@ -706,6 +707,7 @@ class Geoanalysis:
             reference_df=reference_df,
             reference_value_col="ref",
             reference_label="Median (2018-2022)",
+            yield_units=self.yield_units,
         )
 
     def _plot_yield_with_ci_historical(self, df):

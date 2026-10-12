@@ -3,7 +3,7 @@ Helper functions for health check calls.
 """
 
 import base64
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import TYPE_CHECKING, Final, Literal
 
 from litellm.llms.base_llm.ocr.transformation import DocumentType
@@ -28,6 +28,21 @@ IMAGE_EDIT_HEALTH_CHECK_PROMPT: Final = (
 def get_image_file_for_health_check() -> bytes:
     """Return the image used for health checks."""
     return base64.b64decode(TEST_IMAGE_BASE64)
+
+
+def _decisions_health_check_questions(model: str, custom_llm_provider: str) -> Mapping[str, Mapping[str, object]]:
+    import litellm
+    from litellm.llms.base_llm.decisions.transformation import BaseDecisionsConfig
+    from litellm.utils import ProviderConfigManager
+
+    provider: Final = next((member for member in litellm.LlmProviders if member.value == custom_llm_provider), None)
+    config: Final = (
+        None
+        if provider is None
+        else ProviderConfigManager.get_provider_decisions_config(model=model, provider=provider)
+    )
+    questions: Final = BaseDecisionsConfig.health_check_questions if config is None else config.health_check_questions
+    return {name: dict(question) for name, question in questions.items()}
 
 
 def _ocr_health_check_document(model: str, custom_llm_provider: str) -> DocumentType:
@@ -114,10 +129,9 @@ class HealthCheckHelpers:
         """
         Health check for batch mode.
 
-        Calls list_batches for providers that support it (openai, hosted_vllm, azure,
-        vertex_ai). For all other providers (e.g. bedrock) the batch API surface doesn't
-        include list_batches, so we fall back to acompletion to verify connectivity and
-        credential validity instead.
+        Calls list_batches for providers that support it. For all other providers (e.g. bedrock)
+        the batch API surface doesn't include list_batches, so we fall back to acompletion to
+        verify connectivity and credential validity instead.
         """
         import litellm
 
@@ -132,10 +146,9 @@ class HealthCheckHelpers:
                 litellm_params={"api_base": api_base} if api_base else None,
             )
 
-        if custom_llm_provider in LIST_BATCHES_SUPPORTED_PROVIDERS:
-            return await litellm.alist_batches(**filtered_model_params)
-        else:
+        if custom_llm_provider not in LIST_BATCHES_SUPPORTED_PROVIDERS:
             return await litellm.acompletion(**model_params)
+        return await litellm.alist_batches(**{**filtered_model_params, "custom_llm_provider": custom_llm_provider})
 
     @staticmethod
     async def _image_edit_health_check(edit_request: Callable[[], Awaitable["ImageResponse"]]) -> "ImageResponse":
@@ -260,11 +273,13 @@ class HealthCheckHelpers:
                 **_filter_model_params(model_params=model_params),
                 document=_ocr_health_check_document(model=model, custom_llm_provider=custom_llm_provider),
             ),
-            "evaluation": lambda: litellm.adecisions(
+            "evaluation": lambda: litellm.asystemone(
                 **DECISIONS_CALL_PARAMS.validate_python(
                     {
                         "state": prompt or "health check",
-                        "questions": {"reachable": {"type": "noul", "instructions": "Is the service reachable?"}},
+                        "questions": _decisions_health_check_questions(
+                            model=model, custom_llm_provider=custom_llm_provider
+                        ),
                         **_filter_model_params(model_params=model_params),
                     }
                 )

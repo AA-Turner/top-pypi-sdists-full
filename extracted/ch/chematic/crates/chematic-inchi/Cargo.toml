@@ -19,10 +19,10 @@ readme = "README.md"
 native-inchi = ["dep:cc"]
 
 [dependencies]
-chematic-core = { version = "1.1.0", path = "../chematic-core" }
-chematic-smiles = { version = "1.1.0", path = "../chematic-smiles" }
-chematic-chem = { version = "1.1.0", path = "../chematic-chem" }
-chematic-rxn = { version = "1.1.0", path = "../chematic-rxn" }
+chematic-core = { version = "1.1.1", path = "../chematic-core" }
+chematic-smiles = { version = "1.1.1", path = "../chematic-smiles" }
+chematic-chem = { version = "1.1.1", path = "../chematic-chem" }
+chematic-rxn = { version = "1.1.1", path = "../chematic-rxn" }
 
 [build-dependencies]
 cc = { version = "1", optional = true }
@@ -32,6 +32,10 @@ serde_json = "1"
 
 [lib]
 crate-type = ["rlib", "cdylib"]
+
+[[test]]
+name = "public_api_stress"
+required-features = ["native-inchi"]
 
 [[example]]
 name = "ez_stash_inchi_snapshot"

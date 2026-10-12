@@ -48,6 +48,7 @@ from moto.utilities.utils import (
     ARN_PARTITION_REGEX,
     get_partition,
     load_resource_as_bytes,
+    load_resource_as_str,
 )
 
 from .exceptions import (
@@ -660,6 +661,7 @@ class LambdaFunction(CloudFormationModel, DockerModel):
         self.description = spec.get("Description", "")
         self.memory_size = spec.get("MemorySize", 128)
         self.package_type = spec.get("PackageType", "Zip")
+        self.kms_key_arn = spec.get("KMSKeyArn")
         self.publish = spec.get("Publish", False)  # this is ignored currently
         self.timeout = spec.get("Timeout", 3)
         self.layers: list[LayerDataType] = self._get_layers_data(spec.get("Layers", []))
@@ -792,6 +794,7 @@ class LambdaFunction(CloudFormationModel, DockerModel):
             "Runtime": self.run_time,
             "State": self.state,
             "PackageType": self.package_type,
+            "KMSKeyArn": self.kms_key_arn,
             "Timeout": self.timeout,
             "Version": str(self.version),
             "VpcConfig": self.vpc_config,
@@ -1245,10 +1248,10 @@ class LambdaFunction(CloudFormationModel, DockerModel):
         zip_file = zipfile.ZipFile(zip_output, "w", zipfile.ZIP_DEFLATED)
         zip_file.writestr("index.py", code)
         # This should really be part of the 'lambci' docker image
-        from moto.packages.cfnresponse import cfnresponse
-
-        with open(cfnresponse.__file__) as cfn:
-            zip_file.writestr("cfnresponse.py", cfn.read())
+        zip_file.writestr(
+            "cfnresponse.py",
+            load_resource_as_str("awslambda/resources/cfnresponse.py.txt"),
+        )
         zip_file.close()
         zip_output.seek(0)
         return zip_output.read()

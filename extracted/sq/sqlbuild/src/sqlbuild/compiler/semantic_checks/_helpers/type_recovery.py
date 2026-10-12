@@ -6,15 +6,18 @@ from dataclasses import replace
 from typing import Any
 
 import sqlbuild._native as _native
+from sqlbuild.compiler.analysis_session.types import DiagnosticRow
 from sqlbuild.compiler.compile.classes.semantic_completion_inputs import SemanticCompletionInputs
 from sqlbuild.compiler.compile.models import (
-    CompiledModel,
-    CompiledProject,
     CompilerDiagnostic,
-    InferredColumn,
 )
-from sqlbuild.compiler.compile.types import CompiledResourceType
-from sqlbuild.compiler.semantic_checks._helpers.deferrals import record_semantic_deferral
+from sqlbuild.compiler.compile.types import (
+    CompiledModelView,
+    CompiledProjectView,
+    CompiledResourceType,
+)
+from sqlbuild.compiler.compiled_project.main._with_type_recovery import with_type_recovery
+from sqlbuild.compiler.compiled_project.main.project_with import project_with
 from sqlbuild.compiler.semantic_checks._helpers.payloads import (
     diagnostic_ids,
     has_blocking_binding,
@@ -22,32 +25,29 @@ from sqlbuild.compiler.semantic_checks._helpers.payloads import (
     raw_binding_ids,
 )
 from sqlbuild.compiler.semantic_checks.constants import (
-    NATIVE_SEMANTIC_FAILURE,
-    NATIVE_TYPE_RECOVERY_DEFERRED,
     NATIVE_TYPE_RECOVERY_UNCHANGED,
-    TYPE_RECOVERY_DEFERRAL_SITE,
     UNKNOWN_RECOVERED_TYPE,
 )
 from sqlbuild.compiler.sql_analysis.main._schema_validation import get_schema_validations
-from sqlbuild.compiler.sql_analysis.models import SqlBindingDiagnostic, SqlBindingResult
+from sqlbuild.compiler.sql_analysis.models import SqlBindingResult
 
 type _Revised = list[tuple[str, int | None, int | None]]
 
 
 def recover_native_output_types(
     *,
-    project: CompiledProject,
-    binding_results: dict[str, tuple[SqlBindingDiagnostic, ...]],
+    project: CompiledProjectView,
+    binding_results: dict[str, list[DiagnosticRow]],
     catalog: object,
     session: Any | None,
     session_models: frozenset[str],
-) -> CompiledProject | None:
-    """Return `recover_output_types`'s project, or None where Python must recover the types."""
+) -> CompiledProjectView:
+    """The project with recovered output types; a native internal failure raises."""
 
     if not has_blocking_binding(project):
         return project
     ids: dict[CompilerDiagnostic, int] = diagnostic_ids(project)
-    raw_ids: dict[SqlBindingDiagnostic, int] = raw_binding_ids(binding_results)
+    raw_ids: dict[DiagnosticRow, int] = raw_binding_ids(binding_results)
     request: Any = (
         project.sql_analysis_dialect,
         [
@@ -75,34 +75,28 @@ def recover_native_output_types(
     )
     if recovery.status == NATIVE_TYPE_RECOVERY_UNCHANGED:
         return project
-    if recovery.status == NATIVE_TYPE_RECOVERY_DEFERRED:
-        record_semantic_deferral(kind=str(recovery.deferral), site=TYPE_RECOVERY_DEFERRAL_SITE)
-        return None
     poisoned: list[tuple[str, str]] = recovery.poisoned
-    outcome: tuple[list[tuple[int, str | None]], list[list[int]]] | None = recovery.finish(
+    outcome: tuple[list[tuple[int, str | None]], list[list[int]]] = recovery.finish(
         _revalidated(project=project, revalidated=recovery.revalidated, poisoned=poisoned)
     )
-    if outcome is None:
-        record_semantic_deferral(kind=NATIVE_SEMANTIC_FAILURE, site=TYPE_RECOVERY_DEFERRAL_SITE)
-        return None
     kept, model_bindings = outcome
     diagnostics: tuple[CompilerDiagnostic, ...] = tuple(
         _with_note(diagnostic=project.diagnostics[index], note=note) for index, note in kept
     )
     poisoned_outputs: frozenset[tuple[str, str]] = frozenset(poisoned)
-    models: tuple[CompiledModel, ...] = tuple(
-        _recovered_model(
+    models: tuple[CompiledModelView, ...] = tuple(
+        with_type_recovery(
             model=model,
-            bindings=_positions(diagnostics=diagnostics, positions=positions),
+            diagnostics=_positions(diagnostics=diagnostics, positions=positions),
             poisoned=poisoned_outputs,
         )
         for model, positions in zip(project.models, model_bindings, strict=True)
     )
-    return replace(project, models=models, diagnostics=diagnostics)
+    return project_with(project=project, models=models, diagnostics=diagnostics)
 
 
 def _revalidated(
-    *, project: CompiledProject, revalidated: list[int], poisoned: list[tuple[str, str]]
+    *, project: CompiledProjectView, revalidated: list[int], poisoned: list[tuple[str, str]]
 ) -> list[_Revised]:
     """Python's revalidation of each planned model with unknown types for poisoned outputs."""
 
@@ -126,14 +120,14 @@ def _revalidated(
 
 def _model_payload(
     *,
-    model: CompiledModel,
-    binding_results: dict[str, tuple[SqlBindingDiagnostic, ...]],
+    model: CompiledModelView,
+    binding_results: dict[str, list[DiagnosticRow]],
     ids: dict[CompilerDiagnostic, int],
-    raw_ids: dict[SqlBindingDiagnostic, int],
+    raw_ids: dict[DiagnosticRow, int],
     from_session: bool,
 ) -> tuple[Any, ...]:
-    raws: tuple[SqlBindingDiagnostic, ...] = (
-        binding_results.get(model.name, ()) if model.binding_diagnostics else ()
+    raws: list[DiagnosticRow] = (
+        binding_results.get(model.name, []) if model.binding_diagnostics else []
     )
     return (
         model.name,
@@ -144,7 +138,7 @@ def _model_payload(
         [reference.ref_name for reference in model.references],
         None if from_session else lineage_payload(model),
         [(ids[item], item.code, item.message, item.is_error) for item in model.binding_diagnostics],
-        [(raw_ids[raw], raw.code, raw.message, raw.start, raw.end) for raw in raws],
+        [(raw_ids[raw], raw[0], raw[1], raw[4], raw[5]) for raw in raws],
     )
 
 
@@ -156,27 +150,6 @@ def _positions(
     *, diagnostics: tuple[CompilerDiagnostic, ...], positions: list[int]
 ) -> tuple[CompilerDiagnostic, ...]:
     return tuple(diagnostics[position] for position in positions)
-
-
-def _recovered_model(
-    *,
-    model: CompiledModel,
-    bindings: tuple[CompilerDiagnostic, ...],
-    poisoned: frozenset[tuple[str, str]],
-) -> CompiledModel:
-    columns: tuple[InferredColumn, ...] | None = None
-    if model.inferred_columns is not None:
-        columns = tuple(
-            replace(column, type=None) if (model.name, column.name) in poisoned else column
-            for column in model.inferred_columns
-        )
-    unchecked: frozenset[str] = frozenset(column for name, column in poisoned if name == model.name)
-    return replace(
-        model,
-        binding_diagnostics=bindings,
-        inferred_columns=columns,
-        unchecked_output_columns=unchecked,
-    )
 
 
 def _unknown_shapes(

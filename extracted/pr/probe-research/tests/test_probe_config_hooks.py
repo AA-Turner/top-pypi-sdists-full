@@ -140,10 +140,11 @@ def test_session_start_line(env, monkeypatch):
     check = _load("_version_check_probe_config", HOOKS / "version_check.py")
     check._seed_tracking_signal()
     line = check._excluded_context()
-    assert line.startswith("`.probe.config` keeps Probe from recording: ")
+    assert line.startswith("`.probe.config` blocks Probe from recording: ")
     assert "this folder (" in line  # the parent's `/*` covers the launch folder
-    assert "data/ under " in line
-    assert line.endswith("Reads are unaffected.")
+    # ...and closes it, as git closes an ignored folder: its own file is never read.
+    assert "data/ under " not in line
+    assert "Reads are unaffected" not in line and line.endswith(".")
     marker = _marker()
     assert marker.probe_config().launch_dir(marker.sessions_dir(), SID) == str(env)
 
@@ -168,3 +169,55 @@ def test_vendored_matcher_loads_by_explicit_path(env, tmp_path, monkeypatch):
     monkeypatch.syspath_prepend(str(rogue))
     marker = _marker()
     assert marker.probe_config().__file__.endswith("hooks/_probe_config.py")
+
+
+def _final_context(check, monkeypatch, capsys) -> dict:
+    with pytest.raises(SystemExit):
+        check._final({"continue": True})
+    out = capsys.readouterr().out.strip()
+    return json.loads(out) if out else {}
+
+
+@pytest.mark.parametrize("profile", ["", "daemon"])
+def test_every_profile_gets_the_start_line(env, monkeypatch, capsys, profile):
+    (env.parent / ".probe.config").write_text("/repo-a/data/\n/repo-a/notes/ @probe read\n")
+    (env / "data").mkdir()
+    if profile:
+        monkeypatch.setenv("PROBE_PLUGIN_PROFILE", profile)
+    monkeypatch.setenv("PROBE_SESSION_ID", SID)
+    monkeypatch.setenv("PROBE_SESSION_CWD", str(env))
+    check = _load("_version_check_final_" + (profile or "full"), HOOKS / "version_check.py")
+    check._seed_tracking_signal()
+    marker = _marker()
+    marker.set_session_state(SID, marker.STATE_DAEMON if profile else marker.STATE_FULL)
+    out = _final_context(check, monkeypatch, capsys)
+    context = out.get("hookSpecificOutput", {}).get("additionalContext", "")
+    assert "`.probe.config` blocks Probe from recording: " in context
+    assert "repo-a/data/" in context and "repo-a/notes/" in context
+
+
+def test_the_daemon_profile_says_nothing_while_nothing_records(env, monkeypatch, capsys):
+    (env.parent / ".probe.config").write_text("/repo-a/data/\n")
+    monkeypatch.setenv("PROBE_PLUGIN_PROFILE", "daemon")
+    monkeypatch.setenv("PROBE_SESSION_ID", SID)
+    monkeypatch.setenv("PROBE_SESSION_CWD", str(env))
+    check = _load("_version_check_final_read", HOOKS / "version_check.py")
+    check._seed_tracking_signal()
+    marker = _marker()
+    marker.set_session_state(SID, marker.STATE_READ_ONLY)
+    out = _final_context(check, monkeypatch, capsys)
+    assert "blocks Probe from recording" not in json.dumps(out)
+
+
+def test_a_read_session_asks_only_while_the_daemon_reads(env, monkeypatch, capsys):
+    marker = _marker()
+    marker.set_session_state(SID, marker.STATE_READ_ONLY)
+    marker.record_launch_dir(SID, str(env))
+    payload = {"session_id": SID, "hook_event_name": "UserPromptSubmit", "prompt": "hi", "cwd": str(env)}
+    # Full plugin, `read`: nothing records and no daemon reads, so nothing to ask.
+    assert "Ask the researcher once" not in json.dumps(_run(_guard(), monkeypatch, capsys, payload))
+    monkeypatch.setenv("PROBE_PLUGIN_PROFILE", "daemon")
+    marker.mark_session_profile(SID, marker.RECORDER_DAEMON)
+    out = _run(_guard(), monkeypatch, capsys, payload)
+    assert "Ask the researcher once" in out["hookSpecificOutput"]["additionalContext"]
+    assert "blocks Probe from recording some paths here" in out["hookSpecificOutput"]["additionalContext"]

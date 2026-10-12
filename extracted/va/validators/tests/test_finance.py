@@ -1,5 +1,8 @@
 """Test Finance."""
 
+# standard
+from typing import Callable
+
 # external
 import pytest
 
@@ -24,13 +27,25 @@ def test_returns_failed_validation_on_invalid_cusip(value: str):
 # ==> ISIN <== #
 
 
-@pytest.mark.parametrize("value", ["US0004026250", "JP000K0VF054", "US0378331005"])
+@pytest.mark.parametrize("value", ["US0004026250", "US0378331005", "GB0002634946", "DE000BAY0017"])
 def test_returns_true_on_valid_isin(value: str):
     """Test returns true on valid isin."""
     assert isin(value)
 
 
-@pytest.mark.parametrize("value", ["010378331005", "XCVF", "00^^^1234", "A000009"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "010378331005",
+        "XCVF",
+        "00^^^1234",
+        "A000009",
+        # valid length and characters but wrong check digit
+        "US0378331006",
+        "US0004026251",
+        "GB0002634947",
+    ],
+)
 def test_returns_failed_validation_on_invalid_isin(value: str):
     """Test returns failed validation on invalid isin."""
     assert isinstance(isin(value), ValidationError)
@@ -49,3 +64,27 @@ def test_returns_true_on_valid_sedol(value: str):
 def test_returns_failed_validation_on_invalid_sedol(value: str):
     """Test returns failed validation on invalid sedol."""
     assert isinstance(sedol(value), ValidationError)
+
+
+@pytest.mark.parametrize(
+    "validate, value",
+    [
+        (cusip, "03783310J"),
+        (cusip, "03783310j"),
+        (cusip, "03783310@"),
+        (sedol, "293692L"),
+        (sedol, "B12345G"),
+        (sedol, "B12345Q"),
+    ],
+)
+def test_rejects_non_numeric_check_digit(validate: Callable[[str], object], value: str):
+    """Reject letters and symbols that accidentally satisfy the checksum."""
+    assert isinstance(validate(value), ValidationError)
+
+
+@pytest.mark.parametrize(
+    "validate, value", [(cusip, "037833100"), (sedol, "2936921"), (sedol, "B123456")]
+)
+def test_accepts_numeric_check_digit(validate: Callable[[str], object], value: str):
+    """Keep valid numeric check digits, including alphanumeric identifiers."""
+    assert validate(value) is True

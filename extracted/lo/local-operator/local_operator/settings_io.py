@@ -723,6 +723,24 @@ SECTIONS: tuple[Section, ...] = (
         Scope.NEW_LAUNCH,
         _t(_ws.network_description()),
     ),
+    # Split out of ``network`` (the trigger note's Q5, settled by reading
+    # ``SECTIONS``): this policy is read LIVE — every update front end reads it
+    # fresh at its own start, and the relay's rollout driver re-reads it before
+    # every ask, so a roll already running halts at its next member boundary —
+    # while every key under ``network`` is read once at relay start and that
+    # section's description says so ("All take effect when the relay
+    # restarts"). Scope is uniform within a section by construction (AGENTS.md,
+    # "Adding a configuration key"), so saying something true here means a
+    # section of its own — the same split ``session_cleanup`` and
+    # ``memory_guard`` took. The KEY and its config-file path stay under
+    # ``network`` (RU §3: "defaulted in the config file's existing ``network:``
+    # section"); only the registry's grouping moved.
+    Section(
+        "mesh_updates",
+        _t(_ws.mesh_updates_title()),
+        Scope.LIVE,
+        _t(_ws.mesh_updates_description()),
+    ),
     # The Aida keys. Scope LIVE, with the caveats stated in the description
     # rather than hidden behind a dishonest label: the pause flag is delivered
     # to every live process by the config watcher on its 2 s tick (that IS the
@@ -4515,6 +4533,35 @@ SETTINGS: tuple[Setting, ...] = (
         maximum=3650.0,
         help=(_t(_ws.network_audit_max_age_days_help())),
     ),
+    # THE SWITCH (S3b; mesh-update-propagation.md §5): auto-roll is reachable
+    # only when this reads ``auto``. A per-run ``lop update --no-roll``
+    # overrides it; the manual verbs (``lop network update``) work under
+    # either. Stored under the ``network`` block — the config-file location is
+    # the design's ("beside ``keepalive_s``, ``link_idle_s``", RU §3) — while
+    # the SECTION above is ``mesh_updates`` for the scope reason stated on it.
+    # The default mirrors ``rollouts.DEFAULT_ROLLOUT_ON_UPDATE``, which
+    # ``_consumer_defaults()`` in tests/unit/test_settings_io.py pins.
+    Setting(
+        key="network.rollout_on_update",
+        path=("network", "rollout_on_update"),
+        section="mesh_updates",
+        label=_t(_ws.network_rollout_on_update_label()),
+        kind=Kind.ENUM,
+        default="auto",
+        help=_t(_ws.network_rollout_on_update_help()),
+        choices=(
+            Choice(
+                "auto",
+                _t(_ws.network_rollout_on_update_choice_auto_label()),
+                _t(_ws.network_rollout_on_update_choice_auto_description()),
+            ),
+            Choice(
+                "off",
+                _t(_ws.network_rollout_on_update_choice_off_label()),
+                _t(_ws.network_rollout_on_update_choice_off_description()),
+            ),
+        ),
+    ),
     # THE RELAY'S OWN LIMIT, and the one an operator needs exactly when a peer
     # cannot connect: §2.1's cap on UNAUTHENTICATED connections in flight. The slot
     # is held only until a handshake resolves, so this bounds neither `max_links`
@@ -5434,7 +5481,9 @@ def _number(value: float) -> str:
 # ---------------------------------------------------------------------------
 
 
-def write_setting(manager: "ConfigManager", setting: Setting, value: Any) -> None:
+def write_setting(
+    manager: "ConfigManager", setting: Setting, value: Any, *, notify: bool = True
+) -> None:
     """Store ``value``, merging into any existing sub-mapping.
 
     THE merge rule (see the module docstring): the sub-mapping is copied,
@@ -5451,6 +5500,17 @@ def write_setting(manager: "ConfigManager", setting: Setting, value: Any) -> Non
 
     Raises ``ValueError`` when :func:`validate` rejects the value, so no caller
     can write past the schema.
+
+    ``notify=False`` suppresses ONLY the in-process watcher fan-out — the call
+    that gives a write its ``source="local"`` attribution, which
+    ``harness.approval.loosening_is_authorised`` reads to decide whether a
+    LOOSENING write may lower a live gate. The agent-facing seam
+    (``local_operator.settings_control``) passes it, because the party a gate
+    constrains must not be able to mint the operator's attribution; every other
+    side effect of the write (cache invalidation, the trigger snapshot, the
+    aida hold marker) is file- or state-level and stays unconditional. Operator
+    surfaces — the TUI page, ``PATCH /v1/settings``, ``lop config edit`` — keep
+    the default.
     """
     if setting.kind is Kind.HOTKEY and isinstance(value, str):
         # Normalized HERE as well as in `coerce`, because the writers do not
@@ -5474,16 +5534,17 @@ def write_setting(manager: "ConfigManager", setting: Setting, value: Any) -> Non
     if problem is not None:
         raise ValueError(problem)
     if value is None and setting.default is None:
-        reset_setting(manager, setting)
+        reset_setting(manager, setting, notify=notify)
         return
     _store(manager, setting.path, value)
     _invalidate_caches()
-    _notify_watcher(manager)
+    if notify:
+        _notify_watcher(manager)
     _publish_trigger_settings(manager, setting)
     _sync_aida_hold_marker(manager, setting)
 
 
-def reset_setting(manager: "ConfigManager", setting: Setting) -> None:
+def reset_setting(manager: "ConfigManager", setting: Setting, *, notify: bool = True) -> None:
     """Delete the stored value so ``setting`` reads as its default again.
 
     Deletion rather than "write the default", because for the flat-dotted
@@ -5492,12 +5553,17 @@ def reset_setting(manager: "ConfigManager", setting: Setting) -> None:
     stays readable by hand. Top-level keys that ship in ``DEFAULT_CONFIG`` are
     back-filled on the next load, which lands on the same value from the other
     direction.
+
+    ``notify`` carries :func:`write_setting`'s exact meaning (see there): the
+    agent-facing seam resets UNATTRIBUTED for the same reason it writes that
+    way.
     """
     if setting.kind is Kind.READONLY:
         raise ValueError("this setting is retired and cannot be changed")
     _delete(manager, setting.path)
     _invalidate_caches()
-    _notify_watcher(manager)
+    if notify:
+        _notify_watcher(manager)
     _publish_trigger_settings(manager, setting)
     _sync_aida_hold_marker(manager, setting)
 

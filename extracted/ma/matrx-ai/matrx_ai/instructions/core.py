@@ -4,8 +4,6 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from .content_blocks_manager import get_content_blocks_manager
-from .pattern_parser import expand_matrx_patterns
 
 # ---------------------------------------------------------------------------
 # The "Current date" decoration — pinned once, uniquely marked, never doubled
@@ -77,48 +75,6 @@ def strip_date_decorations(text: str) -> str:
 strip_leading_date_decorations = strip_date_decorations
 
 
-# ── FROZEN-PROMPT SPANS (2026-10-02) ───────────────────────────────────────
-# From turn two a conversation's system prompt is the frozen text persisted on its first turn
-# (``to_storage_text``): the agent's content blocks and every ``<<MATRX>>`` expansion are inside
-# that text, no longer separate pieces a later turn can name. So when the prompt is frozen its
-# spans are recorded — where each piece sits in it, how long it is and its SHA-256 — and every
-# later turn (the host's receipt, its context viewer) slices them back out, accepted only on a
-# length + hash match. Offsets and lengths are code points in the FRAME: the frozen text with its
-# date decoration removed (``strip_date_decorations``), which is exactly the ``base_instruction``
-# a frozen prompt reloads as (``from_value``), so a later turn slices its own prompt directly.
-#: Span id of the agent's content blocks (rendered consecutively, patterns resolved).
-FROZEN_SPAN_CONTENT_BLOCKS = "content_blocks"
-#: Span id prefix of the n-th ``<<MATRX>>`` expansion of the prompt: ``matrx_pattern_<n>``.
-FROZEN_SPAN_MATRX_PATTERN = "matrx_pattern"
-
-
-def frozen_prompt_frame(text: str) -> str:
-    """The text a frozen prompt's spans index: the persisted text without its date decoration."""
-    return strip_date_decorations(text or "")
-
-
-def frozen_span_text(frame: str, spans: object, span_id: str) -> str | None:
-    """The text of span ``span_id`` cut from ``frame`` — only on a length + SHA-256 match."""
-    import hashlib
-
-    if not isinstance(spans, list):
-        return None
-    for span in spans:
-        if not isinstance(span, dict) or span.get("id") != span_id:
-            continue
-        try:
-            start, chars = int(span["offset"]), int(span["chars"])
-        except (KeyError, TypeError, ValueError):
-            return None
-        text = frame[start : start + chars]
-        if len(text) == chars and hashlib.sha256(text.encode("utf-8")).hexdigest() == span.get(
-            "sha256"
-        ):
-            return text
-        return None
-    return None
-
-
 # ── THE OPENING TURN (2026-09-22) ──────────────────────────────────────────
 # An agent definition may end with its own seeded user message — the Masterwork
 # Scout's is "Let's get started. Follow the mode you were given above, then ask
@@ -156,7 +112,6 @@ class SystemInstruction:
     outro: str = field(default_factory=str)
     append_sections: list[str] = field(default_factory=list)
     prepend_sections: list[str] = field(default_factory=list)
-    content_blocks: list[str] = field(default_factory=list)
     tools_list: list[str] = field(default_factory=list)
     # Matrx Directives the agent can emit (output_directive types, e.g. "create_task").
     # The author sets `include_actions_guidance`; the resolver populates
@@ -191,13 +146,6 @@ class SystemInstruction:
     # Controlled context injection — set via inject_context_block(), never directly
     include_context_block: bool = True
     injected_context_block: str | None = field(default=None, init=False, repr=False)
-
-    # Internal cache for fetched content blocks
-    _content_blocks_cache: list[str] = field(default_factory=list, init=False, repr=False)
-    # <<MATRX>> pattern → the text that replaced it, fetched ONCE per object: every render of
-    # this instruction (the host's receipt capture, the wire) holds the same bytes, and the
-    # host's context viewer serves each expansion (``matrx_expansions``).
-    _matrx_cache: dict[str, str] = field(default_factory=dict, init=False, repr=False)
 
     def effective_date(self) -> str:
         """The pinned ``YYYY-MM-DD`` date for this instruction.
@@ -247,20 +195,6 @@ class SystemInstruction:
         self.include_context_block = False
         self.injected_context_block = None
 
-    async def load_content_blocks(self) -> SystemInstruction:
-        """
-        Fetch and cache content blocks from database.
-        Call this before converting to string if you need content blocks.
-        Returns self for chaining.
-        """
-        if self.content_blocks and not self._content_blocks_cache:
-            manager = get_content_blocks_manager()
-            for block_id in self.content_blocks:
-                block_text = await manager.get_template_text(block_id)
-                if block_text:
-                    self._content_blocks_cache.append(block_text)
-        return self
-
     def __str__(self) -> str:
         """Convert to final system instruction string"""
         parts = []
@@ -302,10 +236,6 @@ class SystemInstruction:
         if self.include_safety_guidelines:
             parts.append(self._safety_guidelines())
 
-        # Add cached content blocks (if loaded)
-        if self._content_blocks_cache:
-            parts.extend(_clean(s) for s in self._content_blocks_cache)
-
         # Appended sections last
         if self.append_sections:
             parts.extend(_clean(s) for s in self.append_sections)
@@ -320,33 +250,7 @@ class SystemInstruction:
         if self.opening_turn and self.opening_turn.strip():
             parts.append(render_opening_turn(self.opening_turn.strip()))
 
-        result = "\n\n".join(filter(None, parts))
-
-        # Resolve any <<MATRX>> data-fetch patterns in the final string
-        return self.resolve_patterns(result)
-
-    def resolve_patterns(self, text: str) -> str:
-        """``text`` with its <<MATRX>> patterns replaced through this object's fetch cache."""
-        return expand_matrx_patterns(text, self._matrx_cache)[0]
-
-    def matrx_expansions(self) -> list[tuple[str, str]]:
-        """Every <<MATRX>> pattern this instruction renders and the exact text that replaced
-        it, in prompt order — what the model reads in place of each pattern."""
-        rendered_from = "\n\n".join(
-            filter(
-                None,
-                [
-                    self.intro,
-                    *self.prepend_sections,
-                    self.base_instruction,
-                    *self._content_blocks_cache,
-                    *self.append_sections,
-                    self.injected_context_block or "",
-                    self.outro,
-                ],
-            )
-        )
-        return expand_matrx_patterns(rendered_from, self._matrx_cache)[1]
+        return "\n\n".join(filter(None, parts))
 
     @staticmethod
     def _tools_available(tools_list: list[str]) -> str:
@@ -402,44 +306,6 @@ class SystemInstruction:
         """
         return str(self)
 
-    def frozen_spans(self, storage_text: str) -> list[dict[str, object]]:
-        """Where this turn's server-shaped pieces sit in ``storage_text`` (this object's
-        ``to_storage_text``) as it is frozen: the content blocks and each ``<<MATRX>>``
-        expansion, ``{id, offset, chars, sha256}`` in the frame (``frozen_prompt_frame``). Ids
-        number the expansions exactly as the host's receipt does (``matrx_pattern_<n>``, prompt
-        order, from 1). A piece the frame does not hold verbatim is left out — never guessed."""
-        import hashlib
-
-        frame = frozen_prompt_frame(storage_text)
-        spans: list[dict[str, object]] = []
-
-        def _span(span_id: str, text: str, start: int) -> int:
-            at = frame.find(text, start)
-            if not text or at < 0:
-                return start
-            spans.append(
-                {
-                    "id": span_id,
-                    "offset": at,
-                    "chars": len(text),
-                    "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
-                }
-            )
-            return at + len(text)
-
-        if self._content_blocks_cache:
-            _span(
-                FROZEN_SPAN_CONTENT_BLOCKS,
-                self.resolve_patterns(
-                    "\n\n".join(strip_date_decorations(s) for s in self._content_blocks_cache if s)
-                ),
-                0,
-            )
-        cursor = 0
-        for n, (_raw, fetched) in enumerate(self.matrx_expansions(), 1):
-            cursor = _span(f"{FROZEN_SPAN_MATRX_PATTERN}_{n}", fetched, cursor)
-        return spans
-
     @classmethod
     def from_value(cls, value: str | dict | SystemInstruction) -> SystemInstruction:
         """
@@ -450,8 +316,7 @@ class SystemInstruction:
           "base_instruction". All unrecognized keys are ignored.
         - SystemInstruction: Returned as-is.
 
-        This is the sync path used by UnifiedConfig.__post_init__. For async
-        content_blocks loading, use from_dict() instead.
+        This is the path used by UnifiedConfig.__post_init__.
         """
         if isinstance(value, cls):
             return value
@@ -477,7 +342,6 @@ class SystemInstruction:
                 outro=value.get("outro", ""),
                 append_sections=value.get("append_sections", []),
                 prepend_sections=value.get("prepend_sections", []),
-                content_blocks=value.get("content_blocks", []),
                 tools_list=value.get("tools_list", []),
                 action_types=value.get("action_types", []),
                 date_anchor=value.get("date_anchor"),
@@ -496,10 +360,7 @@ class SystemInstruction:
     @classmethod
     async def from_dict(cls, data: dict) -> SystemInstruction:
         """
-        Create a SystemInstruction from a dict and load content blocks (async).
-
-        Delegates dict parsing to from_value(), then awaits content_blocks loading.
-        Use this when the dict may contain content_blocks that require DB fetches.
+        Create a SystemInstruction from a dict (also the legacy ``{"role", "content"}`` shape).
         """
         # Handle legacy traditional format: {"role": "system", "content": "..."}
         if "role" in data and "content" in data and "base_instruction" not in data:
@@ -509,9 +370,7 @@ class SystemInstruction:
                 data = {**data, "base_instruction": "", "intro": data["content"]}
             data.pop("role", None)
 
-        instance = cls.from_value(data)
-        await instance.load_content_blocks()
-        return instance
+        return cls.from_value(data)
 
     @classmethod
     def for_code_review(cls, language: str = "TypeScript") -> SystemInstruction:

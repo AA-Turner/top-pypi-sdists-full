@@ -104,7 +104,12 @@ def test_no_hardcoded_topics_runs_the_in_repo_handler_with_the_unchanged_exclude
 
 def test_no_hook_in_the_onex_change_control_block_is_one_this_repo_owns() -> None:
     """Catch repository-owned hooks returning to the OCC repository block."""
-    owned_ids = {"no-untracked-todos", "no-untyped-metadata", "no-hardcoded-topics"}
+    owned_ids = {
+        "no-untracked-todos",
+        "no-untyped-metadata",
+        "no-hardcoded-topics",
+        "no-bare-feature-flags",
+    }
     for repo in _repos():
         repo_name = repo["repo"]
         assert isinstance(repo_name, str)
@@ -147,3 +152,60 @@ def test_the_in_repo_topic_hook_is_exported_under_the_same_id() -> None:
     )
     assert hook.get("language") == "python"
     assert hook.get("types_or") == ["python", "yaml", "ts", "javascript"]
+
+
+def test_the_in_repo_cosmetic_hook_is_exported_under_the_same_id_and_keys() -> None:
+    """Catch drift of the hook consumers switch to by repo: and rev: only."""
+    hooks = _mappings(yaml.safe_load(EXPORTED_HOOKS.read_text(encoding="utf-8")))
+    exported = [hook for hook in hooks if hook.get("id") == "cosmetic-lint"]
+    assert len(exported) == 1
+    hook = exported[0]
+    # The keys of the onex_change_control export at rev 8d7e85bc00e7, with the entry
+    # swapped for this repository's handler.
+    assert set(hook) == {
+        "id",
+        "name",
+        "description",
+        "language",
+        "entry",
+        "types",
+        "pass_filenames",
+        "always_run",
+        "stages",
+    }
+    assert hook["name"] == "Cosmetic lint (OmniNode standards)"
+    assert (
+        hook["entry"] == "python -m omnibase_core.handlers.handler_cosmetic_lint check"
+    )
+    assert hook["language"] == "python"
+    assert hook["types"] == ["file"]
+    assert hook["pass_filenames"] is False
+    assert hook["always_run"] is True
+    assert hook["stages"] == ["pre-commit"]
+
+
+def test_the_cosmetic_hook_is_not_in_the_onex_change_control_block() -> None:
+    """Catch the repository-owned cosmetic hook returning to the OCC repository block."""
+    for repo in _repos():
+        repo_name = repo["repo"]
+        assert isinstance(repo_name, str)
+        if "onex_change_control" not in repo_name:
+            continue
+        for hook in _mappings(repo.get("hooks", [])):
+            assert hook.get("id") != "cosmetic-lint"
+
+
+def test_the_in_repo_bare_feature_flag_hook_is_exported_under_the_same_id() -> None:
+    """Catch removal or drift of the hook consumers switch to by repo: and rev: only."""
+    hooks = _mappings(yaml.safe_load(EXPORTED_HOOKS.read_text(encoding="utf-8")))
+    exported = [hook for hook in hooks if hook.get("id") == "no-bare-feature-flags"]
+    assert len(exported) == 1
+    hook = exported[0]
+    assert (
+        hook.get("entry")
+        == "python -m omnibase_core.handlers.handler_no_bare_feature_flags"
+    )
+    assert hook.get("language") == "python"
+    assert hook.get("types_or") == ["python", "ts", "javascript"]
+    assert hook.get("require_serial") is True
+    assert hook.get("stages") == ["pre-commit"]

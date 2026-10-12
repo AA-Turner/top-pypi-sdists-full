@@ -9,11 +9,13 @@ from model2vec import StaticModel
 
 def test_initialization(mock_vectors: np.ndarray, mock_tokenizer: Tokenizer, mock_config: dict[str, str]) -> None:
     """Test successful initialization of StaticModel."""
+    original_config = dict(mock_config)
     model = StaticModel(vectors=mock_vectors, tokenizer=mock_tokenizer, config=mock_config)
     assert model.embedding.shape == (5, 2)
     assert len(model.tokens) == 5
-    assert model.tokenizer == mock_tokenizer
-    assert model.config == mock_config
+    assert model.tokenizer.get_vocab() == mock_tokenizer.get_vocab()
+    assert model.config == {**original_config, "normalize": False, "max_length": 512}
+    assert mock_config == original_config
 
 
 def test_initialization_token_vector_mismatch(mock_tokenizer: Tokenizer, mock_config: dict[str, str]) -> None:
@@ -26,22 +28,9 @@ def test_initialization_token_vector_mismatch(mock_tokenizer: Tokenizer, mock_co
 def test_tokenize(mock_vectors: np.ndarray, mock_tokenizer: Tokenizer, mock_config: dict[str, str]) -> None:
     """Test tokenization of a sentence."""
     model = StaticModel(vectors=mock_vectors, tokenizer=mock_tokenizer, config=mock_config)
-    model._can_encode_fast = True
-    tokens_fast = model.tokenize(["word1 word2"])
-    model._can_encode_fast = False
-    tokens_slow = model.tokenize(["word1 word2"])
+    tokens = model.tokenize(["word1 word2"])
 
-    assert tokens_fast == tokens_slow
-
-
-def test_encode_batch_fast(
-    mock_vectors: np.ndarray, mock_berttokenizer: Tokenizer, mock_config: dict[str, str]
-) -> None:
-    """Test tokenization of a sentence."""
-    if hasattr(mock_berttokenizer, "encode_batch_fast"):
-        del mock_berttokenizer.encode_batch_fast
-        model = StaticModel(vectors=mock_vectors, tokenizer=mock_berttokenizer, config=mock_config)
-        assert not model._can_encode_fast
+    assert tokens
 
 
 def test_encode_single_sentence(
@@ -64,6 +53,18 @@ def test_encode_single_sentence_empty(
     assert np.all(encoded == 0)
 
 
+def test_encode_single_sentence_empty_float16(
+    mock_vectors: np.ndarray, mock_tokenizer: Tokenizer, mock_config: dict[str, str]
+) -> None:
+    """Test encoding of a single empty sentence with float16 embeddings."""
+    model = StaticModel(vectors=mock_vectors.astype(np.float16), tokenizer=mock_tokenizer, config=mock_config)
+    model.normalize = True
+    encoded = model.encode("")
+    assert not np.isnan(encoded).any()
+    assert np.all(encoded == 0)
+    assert encoded.dtype == model.embedding.dtype
+
+
 def test_encode_multiple_sentences(
     mock_vectors: np.ndarray, mock_tokenizer: Tokenizer, mock_config: dict[str, str]
 ) -> None:
@@ -71,6 +72,20 @@ def test_encode_multiple_sentences(
     model = StaticModel(vectors=mock_vectors, tokenizer=mock_tokenizer, config=mock_config)
     encoded = model.encode(["word1 word2", "word1 word3"])
     assert encoded.shape == (2, 2)
+
+
+def test_encode_int8_quantized(
+    mock_vectors: np.ndarray, mock_tokenizer: Tokenizer, mock_config: dict[str, str]
+) -> None:
+    """Test that encoding an int8-quantized model returns float32 output."""
+    from model2vec.model import quantize_model
+
+    model = StaticModel(vectors=mock_vectors, tokenizer=mock_tokenizer, config=mock_config)
+    quantized = quantize_model(model, quantize_to="int8")
+    assert quantized.embedding.dtype == np.int8
+
+    encoded = quantized.encode(["word1 word2", "word1 word3"])
+    assert encoded.dtype == np.float32
 
 
 def test_encode_as_sequence(mock_vectors: np.ndarray, mock_tokenizer: Tokenizer, mock_config: dict[str, str]) -> None:
@@ -95,6 +110,18 @@ def test_encode_multiprocessing(
     sentences = ["word1 word2"] * 15_000
     encoded = model.encode(sentences, use_multiprocessing=True)
     assert encoded.shape == (15000, 2)
+
+
+def test_encode_as_sequence_max_length(
+    mock_vectors: np.ndarray, mock_tokenizer: Tokenizer, mock_config: dict[str, str]
+) -> None:
+    """Test encoding of sentences as tokens with max_length truncation."""
+    sentences = ["word1 word2 word3"]
+    model = StaticModel(vectors=mock_vectors, tokenizer=mock_tokenizer, config=mock_config)
+    full = model.encode_as_sequence(sentences)
+    truncated = model.encode_as_sequence(sentences, max_length=1)
+
+    assert len(truncated[0]) < len(full[0])
 
 
 def test_encode_as_sequence_multiprocessing(
@@ -283,9 +310,6 @@ def test_load_pretrained_vocabulary_quantized(
 
 def test_initialize_normalize(mock_vectors: np.ndarray, mock_tokenizer: Tokenizer) -> None:
     """Tests whether the normalization initialization is correct."""
-    model = StaticModel(mock_vectors, mock_tokenizer, {}, normalize=None)
-    assert not model.normalize
-
     model = StaticModel(mock_vectors, mock_tokenizer, {}, normalize=False)
     assert not model.normalize
 
@@ -303,9 +327,33 @@ def test_set_normalize(mock_vectors: np.ndarray, mock_tokenizer: Tokenizer) -> N
     """Tests whether the normalize is set correctly."""
     model = StaticModel(mock_vectors, mock_tokenizer, {}, normalize=True)
     model.normalize = False
-    assert model.config == {"normalize": False}
+    assert model.config == {"normalize": False, "max_length": 512}
     model.normalize = True
-    assert model.config == {"normalize": True}
+    assert model.config == {"normalize": True, "max_length": 512}
+
+
+def test_set_max_length(mock_vectors: np.ndarray, mock_tokenizer: Tokenizer) -> None:
+    """Tests whether the max_length is set correctly."""
+    model = StaticModel(mock_vectors, mock_tokenizer, {}, max_length=128)
+    assert model.config == {"normalize": False, "max_length": 128}
+    assert model.tokenizer.truncation["max_length"] == 128
+    model.max_length = 256
+    assert model.config == {"normalize": False, "max_length": 256}
+    assert model.tokenizer.truncation["max_length"] == 256
+    model.max_length = None
+    assert model.config == {"normalize": False, "max_length": None}
+    assert model.tokenizer.truncation is None
+
+
+def test_models_do_not_share_tokenizer(mock_vectors: np.ndarray, mock_tokenizer: Tokenizer) -> None:
+    """Tests that two models built from the same tokenizer object have independent truncation state."""
+    model_a = StaticModel(mock_vectors, mock_tokenizer, {}, max_length=128)
+    model_b = StaticModel(mock_vectors, mock_tokenizer, {}, max_length=256)
+
+    model_b.max_length = 8
+
+    assert model_a.tokenizer.truncation["max_length"] == 128
+    assert model_b.tokenizer.truncation["max_length"] == 8
 
 
 def test_dim(mock_vectors: np.ndarray, mock_tokenizer: Tokenizer, mock_config: dict[str, str]) -> None:

@@ -53,7 +53,7 @@ def node_exporter():
             "-d",
             "-p",
             f"{_PORT}:9100",
-            "prom/node-exporter:latest",
+            "mirror.gcr.io/prom/node-exporter:latest",
         ],
         capture_output=True,
         text=True,

@@ -79,6 +79,27 @@ def test_filter_select_matches_builder():
     assert fluent.SerializeToString() == raw.SerializeToString()
 
 
+@pytest.mark.parametrize("kind", ["list", "map"])
+def test_filter_collection_access_is_null(kind):
+    from substrait.builders.type import list as list_type
+    from substrait.builders.type import map as map_type
+    from substrait.type_inference import infer_plan_schema
+
+    value_type = string()
+    collection = (
+        list_type(value_type) if kind == "list" else map_type(string(), value_type)
+    )
+    ns = named_struct(
+        names=["values"], struct=struct(types=[collection], nullable=False)
+    )
+    df = sub.read_named_table("t", ns)
+    access = (
+        sub.col("values")[0] if kind == "list" else sub.col("values").map_key("key")
+    )
+    plan = df.filter(access.is_null()).select(access.alias("value")).to_plan()
+    assert infer_plan_schema(plan).struct.types[0] == value_type
+
+
 def test_with_columns_named_appends_projection():
     fluent = people_df().with_columns(bonus=sub.col("age") + 1).to_plan()
     # ProjectRel appends: output has original columns + the new one.
@@ -828,6 +849,14 @@ def test_unpivot_schema_inference_allows_chaining():
     assert plan.relations[-1].root.input.HasField("filter")
 
 
+@pytest.mark.parametrize("columns", [["a", "b"], ["b", "a"]])
+def test_unpivot_rejects_mixed_type_classes(columns):
+    frame = sub.read_named_table("mixed", {"a": sub.i32, "b": sub.string})
+
+    with pytest.raises(ValueError, match="duplicates must share one type class"):
+        frame.unpivot(columns).to_plan()
+
+
 def test_unpivot_requires_on():
     with pytest.raises(ValueError, match="at least one column"):
         _wide_df().unpivot([], index="region")
@@ -995,6 +1024,142 @@ def test_list_transform_schema_inference():
     t = infer_plan_schema(plan).struct.types[0]
     assert t.WhichOneof("kind") == "list"
     assert t.list.type.WhichOneof("kind") == "i64"
+
+
+def test_list_transform_captures_input_row():
+    from substrait.type_inference import infer_plan_schema
+
+    plan = (
+        sub.read_named_table(
+            "t", {"arr": sub.list_(sub.i64.non_null), "label": sub.string}
+        )
+        .select(sub.col("arr").list_transform(lambda _: sub.col("label")))
+        .to_plan()
+    )
+    assert infer_plan_schema(plan).struct.types[0].list.type == string()
+
+
+def test_nested_list_transform_resolves_enclosing_parameter():
+    import substrait.extended_expression_pb2 as stee
+
+    from substrait.type_inference import infer_plan_schema
+
+    # An explicit steps_out=1 capture is inferred while the builders bind the
+    # inner callback. Outer and inner elements have different types.
+    capture = stalg.Expression(
+        selection=stalg.Expression.FieldReference(
+            lambda_parameter_reference=stalg.Expression.FieldReference.LambdaParameterReference(
+                steps_out=1
+            ),
+            direct_reference=stalg.Expression.ReferenceSegment(
+                struct_field=stalg.Expression.ReferenceSegment.StructField(field=0)
+            ),
+        )
+    )
+    outer_parameter = sub.Expr(
+        lambda schema, _: stee.ExtendedExpression(
+            base_schema=schema,
+            referred_expr=[
+                stee.ExpressionReference(expression=capture, output_names=["outer"])
+            ],
+        )
+    )
+    plan = (
+        sub.read_named_table(
+            "t",
+            {"arr": sub.list_(sub.i64.non_null), "inner": sub.list_(fp64())},
+        )
+        .select(
+            sub.col("arr").list_transform(
+                lambda _: sub.col("inner").list_transform(lambda _: outer_parameter + 1)
+            )
+        )
+        .to_plan()
+    )
+    assert infer_plan_schema(plan).struct.types[0].list.type.list.type == i64()
+
+
+@pytest.mark.parametrize("capture_outer", [False, True])
+def test_nested_list_transform_captures_callback_element(capture_outer):
+    from substrait.type_inference import infer_plan_schema
+
+    plan = (
+        sub.read_named_table(
+            "t",
+            {"arr": sub.list_(i64(nullable=False)), "inner": sub.list_(fp64())},
+        )
+        .select(
+            sub.col("arr").list_transform(
+                lambda x: sub.col("inner").list_transform(
+                    lambda y: x if capture_outer else y
+                )
+            )
+        )
+        .to_plan()
+    )
+    outer = getattr(
+        plan.relations[-1]
+        .root.input.project.expressions[0]
+        .scalar_function.arguments[1]
+        .value,
+        "lambda",
+    )
+    inner = getattr(outer.body.scalar_function.arguments[1].value, "lambda")
+    assert inner.body.selection.lambda_parameter_reference.steps_out == int(
+        capture_outer
+    )
+    expected = i64(nullable=False) if capture_outer else fp64()
+    assert infer_plan_schema(plan).struct.types[0].list.type.list.type == expected
+
+
+def test_list_transform_captures_parameter_two_scopes_out():
+    from substrait.type_inference import infer_plan_schema
+
+    plan = (
+        sub.read_named_table(
+            "t",
+            {"arr": sub.list_(i64(nullable=False)), "inner": sub.list_(fp64())},
+        )
+        .select(
+            sub.col("arr").list_transform(
+                lambda x: sub.col("inner").list_transform(
+                    lambda _: sub.col("inner").list_transform(lambda _: x)
+                )
+            )
+        )
+        .to_plan()
+    )
+    assert infer_plan_schema(plan).struct.types[0].list.type.list.type.list.type == i64(
+        nullable=False
+    )
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_higher_order_lambda_scope_does_not_leak(fail):
+    from substrait.type_inference import infer_expression_type
+
+    def callback(element):
+        if fail:
+            raise ValueError("callback failed")
+        return element + 1
+
+    df = _list_df().select(sub.col("arr").list_transform(callback))
+    if fail:
+        with pytest.raises(ValueError, match="callback failed"):
+            df.to_plan()
+    else:
+        df.to_plan()
+
+    reference = stalg.Expression(
+        selection=stalg.Expression.FieldReference(
+            lambda_parameter_reference=stalg.Expression.FieldReference.LambdaParameterReference(),
+            direct_reference=stalg.Expression.ReferenceSegment(
+                struct_field=stalg.Expression.ReferenceSegment.StructField(field=0)
+            ),
+        )
+    )
+    with pytest.raises(Exception, match="outside an enclosing lambda scope"):
+        infer_expression_type(reference, struct([i64()]).struct)
 
 
 # -- Niche close-out: equi-joins, params, UDT, options, extension ---------

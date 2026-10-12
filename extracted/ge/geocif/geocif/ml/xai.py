@@ -17,6 +17,22 @@ logger = logging.getLogger(__name__)
 # is small.
 _MODEL_AGNOSTIC_XAI = {"tabpfn", "tabicl", "bnn", "mitra", "mitra_ft"}
 
+# Models fitted on mixed-type frames (string Region next to numeric CIDs) whose
+# predict needs every fitted column back: cubist (its Cubist wrapper rejects a
+# narrower frame) and kumo (in-context, reindexes queries to the support set).
+# The plain permutation branch above drops string columns, so these get their
+# own branch: string/category columns are integer-coded for shap to permute and
+# decoded to their fitted dtype before geocif's own test-time preprocessing.
+_MIXED_TYPE_XAI = {"cubist", "kumo"}
+# Each kumo predict is a full in-context forward pass, and permutation SHAP
+# sends max_evals x background rows per explained row to the model in ONE call
+# (shap's delta masking does not batch): 500 x 50 = 25,000 query rows at the
+# defaults, ~10 min per row for kumo-large on one CPU thread. For these models
+# explain only the held-out (test) rows -- the ones stored in shap_values --
+# on a smaller background and budget, and draw the beeswarm from them
+# (train_rows = 0). Additivity stays exact; only the permutation sample shrinks.
+_SLOW_XAI = {"kumo": {"train_rows": 0, "background": 10, "max_evals": 200}}
+
 # TabPFN-family models get the shapiq path (faster + supports k-SII
 # interactions + PDP via the new xai_shapiq module). Falls back to
 # the SHAP PermutationExplainer if shapiq isn't installed.
@@ -74,6 +90,57 @@ def _is_tabpfn_family(model_name: str) -> bool:
     return False
 
 
+def _mixed_type_codec(X_train_feat, X_test_feat):
+    """Integer-code the non-numeric columns so shap can permute them.
+
+    Returns (X_train_coded, X_test_coded, decode). ``decode`` turns a coded
+    matrix (numpy or DataFrame, as shap passes it) back into a frame with the
+    fitted columns and dtypes: codes map to their original levels (category
+    columns keep their categories, so numeric-valued categoricals such as
+    Region_ID round-trip exactly) and integer columns are cast back. Permutation
+    SHAP only swaps in values seen in real rows, so every code is a real level.
+    """
+    both = pd.concat([X_train_feat, X_test_feat])
+    columns = list(X_train_feat.columns)
+    dtypes = X_train_feat.dtypes
+    levels = {}
+    for c in columns:
+        # Judge by the fitted (training) dtype too: explain() casts the test
+        # rows' Region_ID to int, so the concatenation alone can look numeric.
+        if any(
+            isinstance(s.dtype, pd.CategoricalDtype) or not pd.api.types.is_numeric_dtype(s)
+            for s in (both[c], X_train_feat[c])
+        ):
+            lv = pd.unique(both[c].dropna().astype(object))
+            levels[c] = np.array(list(lv) + [np.nan], dtype=object)  # code -1 -> NaN
+
+    def encode(X):
+        out = X.copy()
+        for c, lv in levels.items():
+            out[c] = pd.Categorical(X[c].astype(object), categories=lv[:-1]).codes.astype(float)
+        return out.astype(float)
+
+    def decode(A):
+        df = pd.DataFrame(np.asarray(A, dtype=float), columns=columns)
+        for c in columns:
+            if c in levels:
+                vals = levels[c][np.rint(df[c].to_numpy()).astype(int)]
+                if isinstance(dtypes[c], pd.CategoricalDtype):
+                    df[c] = pd.Categorical(vals, dtype=dtypes[c])
+                else:
+                    try:
+                        df[c] = pd.Series(vals).astype(dtypes[c])
+                    except (TypeError, ValueError):
+                        df[c] = pd.Series(vals, dtype=object)
+            elif pd.api.types.is_integer_dtype(dtypes[c]):
+                df[c] = np.rint(df[c]).astype(dtypes[c])
+            elif pd.api.types.is_bool_dtype(dtypes[c]):
+                df[c] = df[c].astype(bool)
+        return df
+
+    return encode(X_train_feat), encode(X_test_feat), decode
+
+
 def _model_feature_names(model, fallback_df):
     """Resolve a model's training feature names compatibly.
 
@@ -114,7 +181,16 @@ def explain(df_train, df_test, **kwargs):
     ############################
     # Model specific feature importance
     ############################
+    from .trainers import strip_variant_prefix
+
+    base_name = strip_variant_prefix(model_name)
     features = _model_feature_names(model, df_train)
+    if base_name in _MIXED_TYPE_XAI and not any(
+        getattr(model, a, None) is not None for a in ("feature_names_", "feature_names_in_")
+    ):
+        # kumo records no feature names; df_train is the whole region frame
+        # (target and metadata included), so use the fitted column list.
+        features = list(kwargs.get("feature_names") or features)
     X_train_feat = df_train[features]
     X_test_feat = df_test[features]
 
@@ -190,9 +266,40 @@ def explain(df_train, df_test, **kwargs):
         # Strip curated_/top<N>_/auto_/last<N>m_ so variants of the
         # model-agnostic models (e.g. curated_bnn, curated_tabpfn) don't
         # fall through to TreeExplainer, which rejects non-tree models.
-        from .trainers import strip_variant_prefix
-
-        if strip_variant_prefix(model_name) in _MODEL_AGNOSTIC_XAI:
+        if base_name in _MIXED_TYPE_XAI:
+            # predict_fn (from geocif) applies the same test-time
+            # preprocessing as predict() -- cubist's fit-column alignment and
+            # NaN fills, kumo's train-median fills -- before model.predict.
+            predict_fn = kwargs.get("predict_fn") or model.predict
+            X_tr_c, X_te_c, decode = _mixed_type_codec(X_train_feat, X_test_feat)
+            slow = _SLOW_XAI.get(base_name, {})
+            bg_pos = np.flatnonzero(X_train_feat.index.isin(X_train_bg.index))
+            bg_c = X_tr_c.iloc[bg_pos] if len(bg_pos) else X_tr_c
+            background = shap.sample(bg_c, min(slow.get("background", 50), len(bg_c)), random_state=0)
+            explainer = shap.PermutationExplainer(
+                lambda A: np.asarray(predict_fn(decode(A)), dtype=float), background
+            )
+            max_evals = max(slow.get("max_evals", 500), 2 * X_tr_c.shape[1] + 1)
+            shap_values_test = explainer(X_te_c, max_evals=max_evals)
+            cap = slow.get("train_rows")
+            pos = np.arange(len(X_tr_c))
+            if cap is not None and len(pos) > cap:
+                pos = np.sort(np.random.RandomState(0).choice(len(pos), cap, replace=False))
+            # Plots label feature values from display_data: show the region
+            # name, not its integer code.
+            try:
+                shap_values_test.display_data = X_test_feat.to_numpy()
+            except Exception:  # noqa: BLE001
+                pass
+            if len(pos):
+                shap_values = explainer(X_tr_c.iloc[pos], max_evals=max_evals)
+                try:
+                    shap_values.display_data = X_train_feat.iloc[pos].to_numpy()
+                except Exception:  # noqa: BLE001
+                    pass
+            else:  # beeswarm from the held-out rows
+                shap_values = shap_values_test
+        elif base_name in _MODEL_AGNOSTIC_XAI:
             # PermutationExplainer perturbs the feature matrix by subtraction,
             # which crashes on object/string columns (e.g. the categorical
             # "Region" — cat_features = ["Harvest Year", "Region_ID", "Region"]).
@@ -289,6 +396,11 @@ def _store_shap_to_db(
                  for i, feat in enumerate(features)}
 
     df_shap = pd.DataFrame(shap_cols)
+    # The feature values next to their SHAP values, for dependence plots
+    # (how far the forecast moves per unit of an input).
+    for feat in features:
+        if feat in df_test.columns:
+            df_shap[f"VALUE_{feat}"] = df_test[feat].to_numpy()
     df_shap["Country"] = country
     df_shap["Crop"] = crop
     df_shap["Model"] = model_name
@@ -300,7 +412,15 @@ def _store_shap_to_db(
     if "Harvest Year" in df_test.columns:
         df_shap["Harvest Year"] = df_test["Harvest Year"].values
 
-    df_shap.index.set_names(["Index"], inplace=True)
+    # to_db upserts on the index. A positional 0..n-1 index made every fold
+    # and model overwrite the previous one's rows, so the table kept only the
+    # last write; key each row by what it explains instead.
+    keys = [c for c in ("Country", "Crop", "Model", "Forecast Season", "Region", "Harvest Year")
+            if c in df_shap.columns]
+    if "Region" not in keys:
+        df_shap["Row"] = np.arange(len(df_shap))
+        keys.append("Row")
+    df_shap = df_shap.set_index(keys)
 
     try:
         utils.to_db(db_path, "shap_values", df_shap)
@@ -318,8 +438,7 @@ def _store_shap_to_db(
         "Crop": crop,
         "Model": model_name,
         "Forecast Season": str(forecast_season),
-    })
-    df_imp.index.set_names(["Index"], inplace=True)
+    }).set_index(["Country", "Crop", "Model", "Forecast Season", "Feature"])  # one row per fold and feature
 
     try:
         utils.to_db(db_path, "feature_importance", df_imp)

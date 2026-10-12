@@ -17,7 +17,7 @@ from typing import cast
 
 from public import public
 
-from flufl.bounce.interfaces import NoFailures, NoTemporaryFailures, Recipients
+from flufl.bounce._interfaces import NoFailures, NoTemporaryFailures, Recipients
 
 
 # Are these heuristics correct or guaranteed?
@@ -35,8 +35,8 @@ class ParseState(Enum):
 
 def findaddr(msg: Message) -> set[bytes]:
     addresses: set[bytes] = set()
-    # findaddr is only called with a text/plain leaf subpart, so the decoded
-    # payload is bytes at runtime; pyrefly sees the wider union.
+    # findaddr is only called with a text/plain leaf subpart, so the decoded payload is bytes at
+    # runtime; pyrefly sees the wider union.
     body = BytesIO(cast(bytes, msg.get_payload(decode=True)))
     state = ParseState.start
     for line in body:
@@ -46,10 +46,9 @@ def findaddr(msg: Message) -> set[bytes]:
         if state is ParseState.start and (pcre.match(line) or rcre.match(line)):
             # Then...
             state = ParseState.salutation_found
-        elif state is ParseState.salutation_found and line:
-            if mo := acre.search(line):
-                addresses.add(mo.group('addr'))
-            # Probably a continuation line.
+        # A non-empty line that doesn't match is probably a continuation line.
+        elif state is ParseState.salutation_found and line and (mo := acre.search(line)):
+            addresses.add(mo.group('addr'))
     return addresses
 
 
@@ -61,8 +60,7 @@ class Postfix:
         """See `BounceDetector`."""
         if msg.get_content_type() not in REPORT_TYPES:
             return NoFailures
-        # We're looking for the plain/text subpart with a Content-Description:
-        # of 'notification'.
+        # We're looking for the plain/text subpart with a Content-Description: of 'notification'.
         leaves = [p for p in msg.walk() if not p.is_multipart()]
         for subpart in leaves:
             content_type = subpart.get_content_type()

@@ -54,6 +54,26 @@ NON_VIDEO_FILE_INPUT_IDENTIFIERS = (
 )
 
 
+def _get_capture_api(path: str) -> int:
+    """API preference to use when opening `path` with `cv2.VideoCapture`. This exists as a
+    workaround for https://scenedetect.com/issue/575, where certain versions of the opencv-python
+    package cause intermittent segfaults on exit. The issue only happens on Windows when opening
+    PNG image sequences.
+
+    By default OpenCV resolves any capture backend by probing for compatibility, and tries FFmpeg
+    first. Usually this fails, and it falls back gracefully to CAP_IMAGES. However, this also seems
+    to cause issues on interpreter exit, as the stack trace implicates something in the ffmpeg DLL.
+
+    TODO: Remove this workaround once upstream fix ships.
+
+    https://github.com/opencv/opencv/issues/30017
+    """
+    is_local = not any(identifier in path for identifier in ("://", " ! "))
+    if os.name == "nt" and is_local and path.lower().endswith(".png"):
+        return cv2.CAP_IMAGES
+    return cv2.CAP_ANY
+
+
 def _get_aspect_ratio(cap: cv2.VideoCapture, epsilon: float = 0.0001) -> float:
     """Display/pixel aspect ratio of the VideoCapture as a float (1.0 represents square pixels)."""
     # Versions of OpenCV < 3.4.1 do not support this, so we fall back to 1.0.
@@ -101,8 +121,13 @@ class VideoStreamCv2(VideoStream):
             ValueError: specified frame rate is invalid
         """
         super().__init__()
-        # TODO(https://scenedetect.com/issue/548): emit DeprecationWarning when `framerate=` is
-        # used, once internal callers and downstream users have had a release to migrate.
+        if framerate is not None:
+            warnings.warn(
+                "`framerate` is deprecated and scheduled for removal in v0.9; "
+                "use `frame_rate` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if frame_rate is None:
             frame_rate = framerate
         if path_or_device is not None:
@@ -266,7 +291,12 @@ class VideoStreamCv2(VideoStream):
                     corrections += 1
             # If we seeked past the end, back up one frame.
             if not self._has_grabbed:
-                seek_pos = round(self._cap.get(cv2.CAP_PROP_POS_FRAMES) - 1.0)
+                pos = self._cap.get(cv2.CAP_PROP_POS_FRAMES)
+                # OpenCV 5 can report NaN here after a seek past EOF, which would crash
+                # round()/trunc and hang the CLI decode thread (#380).
+                if not math.isfinite(pos):
+                    raise SeekError("Target frame is beyond end of video!")
+                seek_pos = round(pos - 1.0)
                 self._cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, seek_pos))
                 self._has_grabbed = self._cap.grab()
         else:
@@ -316,8 +346,10 @@ class VideoStreamCv2(VideoStream):
             if self._path_or_device < 0:
                 raise ValueError("Invalid/negative device ID specified.")
             input_is_video_file = False
+            capture_api = cv2.CAP_ANY
         else:
             assert isinstance(self._path_or_device, str)
+            capture_api = _get_capture_api(self._path_or_device)
             input_is_video_file = not any(
                 identifier in self._path_or_device
                 for identifier in NON_VIDEO_FILE_INPUT_IDENTIFIERS
@@ -327,7 +359,7 @@ class VideoStreamCv2(VideoStream):
             if input_is_video_file and not os.path.exists(self._path_or_device):
                 raise OSError("Video file not found.")
 
-        cap = cv2.VideoCapture(self._path_or_device)
+        cap = cv2.VideoCapture(self._path_or_device, capture_api)
         if not cap.isOpened():
             raise VideoOpenFailure(
                 "Ensure file is valid video and system dependencies are up to date.\n"
@@ -395,8 +427,13 @@ class VideoCaptureAdapter(VideoStream):
         """
         super().__init__()
 
-        # TODO(https://scenedetect.com/issue/548): emit DeprecationWarning when `framerate=` is
-        # used, once internal callers and downstream users have had a release to migrate.
+        if framerate is not None:
+            warnings.warn(
+                "`framerate` is deprecated and scheduled for removal in v0.9; "
+                "use `frame_rate` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if frame_rate is None:
             frame_rate = framerate
         if frame_rate is not None and frame_rate < MAX_FPS_DELTA:

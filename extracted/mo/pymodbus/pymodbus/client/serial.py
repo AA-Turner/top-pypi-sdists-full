@@ -231,6 +231,7 @@ class ModbusSerialClient(ModbusBaseSyncClient):
             self.socket = serial.serial_for_url(
                 self.comm_params.host,
                 timeout=self.comm_params.timeout_connect,
+                write_timeout=self.comm_params.timeout_connect,
                 bytesize=self.comm_params.bytesize,
                 stopbits=self.comm_params.stopbits,
                 baudrate=self.comm_params.baudrate,
@@ -265,12 +266,20 @@ class ModbusSerialClient(ModbusBaseSyncClient):
         if not self.socket:
             raise ConnectionException(str(self))
         if request:
-            if waitingbytes := self._in_waiting():
-                result = self.socket.read(waitingbytes)
-                Log.warning("Cleanup recv buffer before send: {}", result, ":hex")
-            if (size := self.socket.write(request)) is None:  # pragma: no cover
-                size = 0
-            return size
+            try:
+                if waitingbytes := self._in_waiting():
+                    result = self.socket.read(waitingbytes)
+                    Log.warning("Cleanup recv buffer before send: {}", result, ":hex")
+                if (size := self.socket.write(request)) is None:  # pragma: no cover
+                    size = 0
+                return size
+            except (BlockingIOError, InterruptedError):
+                raise
+            except serial.SerialTimeoutException:
+                raise ConnectionException(str(self)) from None
+            except OSError:
+                self.close()
+                raise ConnectionException(str(self)) from None
         return 0
 
     def _wait_for_data(self) -> int:
@@ -296,12 +305,17 @@ class ModbusSerialClient(ModbusBaseSyncClient):
         """Read data from the underlying descriptor."""
         if not self.socket:
             raise ConnectionException(str(self))
-        if size is None:
-            size = self._wait_for_data()
-        if size > self._in_waiting():
-            self._wait_for_data()
-        result = self.socket.read(size)
-        return result
+        try:
+            if size is None:
+                size = self._wait_for_data()
+            if size > self._in_waiting():
+                self._wait_for_data()
+            return self.socket.read(size)
+        except (BlockingIOError, InterruptedError):
+            raise
+        except OSError:
+            self.close()
+            raise ConnectionException(str(self)) from None
 
     def is_socket_open(self) -> bool:
         """Check if socket is open."""

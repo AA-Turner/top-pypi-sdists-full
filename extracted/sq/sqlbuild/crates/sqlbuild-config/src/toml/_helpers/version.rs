@@ -1,12 +1,12 @@
-//! Find TOML 1.1 syntax, which the parser accepts and Python's TOML 1.0 `tomllib` rejects.
+//! Reject TOML 1.1 syntax, which the parser accepts but the Python commands' TOML 1.0 reader rejects.
 
-use crate::errors::{ConfigError, ConfigErrorKind};
+use crate::errors::ConfigError;
+use crate::toml::_helpers::conversion::syntax_error;
+use crate::toml::constants::MAX_CONTAINER_DEPTH;
 use toml_parser::decoder::Encoding;
 use toml_parser::parser::{EventReceiver, RecursionGuard, parse_document};
 use toml_parser::{ErrorSink, ParseError, Source, Span};
 
-/// The container depth `toml_edit` accepts; deeper documents are left to Python.
-const MAX_CONTAINER_DEPTH: u32 = 80;
 /// The most dotted key segments read natively, which bounds the table nesting of a document.
 const MAX_KEY_SEGMENTS: usize = 128;
 
@@ -50,6 +50,14 @@ impl VersionReceiver<'_> {
         }
     }
 
+    fn open_container(&mut self, container: Container) {
+        self.containers.push(container);
+    }
+
+    fn close_container(&mut self) {
+        self.containers.pop();
+    }
+
     /// Escapes added by TOML 1.1: `\e` and `\xHH`.
     fn check_escapes(&mut self, span: Span, encoding: Option<Encoding>) {
         if !matches!(
@@ -84,7 +92,7 @@ impl EventReceiver for VersionReceiver<'_> {
 
     fn inline_table_open(&mut self, _span: Span, _error: &mut dyn ErrorSink) -> bool {
         self.end_key();
-        self.containers.push(Container::InlineTable);
+        self.open_container(Container::InlineTable);
         true
     }
 
@@ -93,18 +101,18 @@ impl EventReceiver for VersionReceiver<'_> {
             self.record(span, "a trailing comma in an inline table");
         }
         self.token();
-        self.containers.pop();
+        self.close_container();
     }
 
     fn array_open(&mut self, _span: Span, _error: &mut dyn ErrorSink) -> bool {
         self.token();
-        self.containers.push(Container::Array);
+        self.open_container(Container::Array);
         true
     }
 
     fn array_close(&mut self, _span: Span, _error: &mut dyn ErrorSink) {
         self.token();
-        self.containers.pop();
+        self.close_container();
     }
 
     fn simple_key(&mut self, span: Span, encoding: Option<Encoding>, _error: &mut dyn ErrorSink) {
@@ -144,7 +152,7 @@ impl EventReceiver for VersionReceiver<'_> {
     }
 }
 
-/// Reject TOML 1.1-only syntax, syntax errors, and nesting beyond the native limits.
+/// Reject TOML 1.1 syntax, syntax errors and nesting past the supported depth.
 pub(crate) fn reject_toml_1_1_syntax(text: &str) -> Result<(), ConfigError> {
     let source = Source::new(text);
     let tokens = source.lex().into_vec();
@@ -163,20 +171,14 @@ pub(crate) fn reject_toml_1_1_syntax(text: &str) -> Result<(), ConfigError> {
     );
     if let Some(error) = errors.first() {
         let offset = error.unexpected().map_or(0, |span| span.start());
-        return Err(ConfigError {
-            kind: ConfigErrorKind::Syntax,
-            message: error.description().to_owned(),
-            line: Some(text.get(..offset).unwrap_or(text).matches('\n').count() + 1),
-            column: None,
-        });
+        return Err(syntax_error(text, offset, error.description().to_owned()));
     }
     match receiver.found {
         None => Ok(()),
-        Some((offset, construct)) => Err(ConfigError {
-            kind: ConfigErrorKind::Syntax,
-            message: format!("{construct} is TOML 1.1 syntax, which tomllib rejects"),
-            line: Some(text.get(..offset).unwrap_or(text).matches('\n').count() + 1),
-            column: None,
-        }),
+        Some((offset, construct)) => Err(syntax_error(
+            text,
+            offset,
+            format!("{construct} is TOML 1.1 syntax; sqlbuild config files use TOML 1.0"),
+        )),
     }
 }

@@ -1,7 +1,7 @@
 from nameparser._lexicon import Lexicon
 from nameparser._pipeline import run
 from nameparser._pipeline._assemble import assemble
-from nameparser._pipeline._state import ParseState, WorkToken
+from nameparser._pipeline._state import ParseState, PendingAmbiguity, WorkToken
 from nameparser._policy import Policy
 from nameparser._types import AmbiguityKind, ParsedName, Role, Span
 
@@ -131,3 +131,122 @@ def test_ambiguity_with_all_indices_dropped_is_omitted() -> None:
     kinds = [a.kind for a in pn.ambiguities]
     assert AK.ORDER not in kinds          # fully dangled: omitted
     assert AK.UNBALANCED_DELIMITER in kinds  # born empty: kept
+
+
+def test_a_connective_or_initial_report_is_withdrawn_where_the_role_is_a_suffix(
+) -> None:
+    """rules.md#A1, the withdrawal (#397 second review).
+
+    classify's connective-or-initial fork offers a connective and an
+    initial and its detail says which it took. A generation is
+    neither, so where the parse goes on to role the letter SUFFIX the
+    report describes a branch nobody took -- and 'JOHN QUINCY SMITH
+    I' carried it beside a `suffix-or-name` saying the same token
+    reads as a generational suffix. 'i' is the first word that is
+    both a marked connective and suffix vocabulary, so no parse
+    before this cycle could reach the shape.
+
+    The shipped vocabulary is what these names need, so `parse` is
+    used rather than the trimmed `_LEX` above.
+    """
+    from nameparser import parse
+    withdrawn = {
+        "JOHN QUINCY SMITH I": ["suffix-or-name"],
+        "john smith i": ["suffix-or-name"],
+        "SMITH, JOHN I": [],
+        "HENRY I": ["suffix-or-name", "given-or-family"],
+    }
+    for text, kinds in withdrawn.items():
+        name = parse(text)
+        assert name.suffix.lower() == "i", text
+        assert sorted(a.kind.value for a in name.ambiguities) \
+            == sorted(kinds), text
+    # the contrast that keeps the withdrawal honest: where the parse
+    # roles the same letter a NAME word the fork DID resolve to one
+    # of its branches, and the report stands
+    for text in ("JOSEP CAROD I ROVIRA", "josep carod i rovira",
+                 "JOHN I SMITH", "JOSEP CAROD I ROVIRA III"):
+        name = parse(text)
+        assert "conjunction-or-initial" in [
+            a.kind.value for a in name.ambiguities], text
+    # ... and an unmarked-position letter of the same class reports
+    # nothing at all, which is the third state
+    assert [a.kind.value for a in parse("Josep Carod i Rovira").ambiguities] \
+        == []
+
+
+def test_the_withdrawal_reads_the_role_and_not_the_word() -> None:
+    """The same withdrawal asked of a TITLE, the other role a fork
+    between a connective and an initial cannot have resolved to.
+
+    Nothing shipped builds this state -- a marked letter roled TITLE
+    -- which is exactly why it is built here: an implementation
+    keyed on the suffix role alone would pass every row above and
+    fail this one (AGENTS.md: "Pin the decision, not the vocabulary").
+    """
+    import dataclasses
+    from nameparser._pipeline._state import PendingAmbiguity
+    from nameparser._types import AmbiguityKind as AK
+    state = run(ParseState(original="Dr. Jane", lexicon=_LEX,
+                           policy=Policy()))
+    dr = next(i for i, t in enumerate(state.tokens) if t.text == "Dr.")
+    assert state.tokens[dr].role is Role.TITLE
+    poisoned = dataclasses.replace(
+        state, ambiguities=state.ambiguities + (
+            PendingAmbiguity(AK.CONJUNCTION_OR_INITIAL,
+                             "read as an initial", (dr,)),))
+    assert AK.CONJUNCTION_OR_INITIAL not in [
+        a.kind for a in assemble(poisoned).ambiguities]
+
+
+def _with_reports(original: str, tokens: tuple[WorkToken, ...],
+                  *reports: PendingAmbiguity) -> ParsedName:
+    return assemble(ParseState(
+        original=original, lexicon=Lexicon.default(), policy=Policy(),
+        tokens=tokens, ambiguities=reports))
+
+
+def test_a_field_tail_report_is_worded_from_the_final_role() -> None:
+    # #626: the emitter writes the sentence up to the field and the
+    # rest as field_tail; assemble names the field of the FIRST
+    # referent's final role, whatever the emitter saw. An empty tail is
+    # a real tail (the field ends the sentence), not an absent one.
+    tokens = (WorkToken("Kim", Span(0, 3), role=Role.FAMILY),
+              WorkToken("Do", Span(4, 6), role=Role.FAMILY))
+    pn = _with_reports(
+        "Kim Do", tokens,
+        PendingAmbiguity(AmbiguityKind.SUFFIX_OR_NAME, "'Do' read as ",
+                         (1,), field_tail=" rather than a post-nominal"),
+        PendingAmbiguity(AmbiguityKind.PARTICLE_OR_GIVEN,
+                         "leading 'Kim' read as ", (0,), field_tail=""),
+        PendingAmbiguity(AmbiguityKind.ORDER, "a whole sentence", (0,)))
+    assert [a.detail for a in pn.ambiguities] == [
+        "'Do' read as a family name rather than a post-nominal",
+        "leading 'Kim' read as a family name",
+        "a whole sentence"]
+
+
+def test_a_field_tail_report_in_an_emptied_name_is_withdrawn() -> None:
+    # A name emptied for want of content keeps its reports, but one
+    # naming a field has no field left to name: it goes rather than
+    # ship the sentence's first half. No emitter reaches this today.
+    pn = _with_reports(
+        "-", (WorkToken("-", Span(0, 1), role=Role.GIVEN),),
+        PendingAmbiguity(AmbiguityKind.GIVEN_OR_FAMILY, "'-' read as ",
+                         (0,), field_tail=" by convention"),
+        PendingAmbiguity(AmbiguityKind.UNBALANCED_DELIMITER, "kept", (0,)))
+    assert not pn
+    assert [a.detail for a in pn.ambiguities] == ["kept"]
+
+
+def test_a_field_tail_report_names_its_first_referent_s_field() -> None:
+    # The field comes from the FIRST referent: every emitter's referents
+    # share one role today, so this pins the documented choice rather
+    # than a case the pipeline produces.
+    tokens = (WorkToken("General", Span(0, 7), role=Role.FAMILY),
+              WorkToken("Smith", Span(8, 13), role=Role.GIVEN))
+    pn = _with_reports(
+        "General Smith", tokens,
+        PendingAmbiguity(AmbiguityKind.TITLE_OR_NAME, "read as ", (0, 1),
+                         field_tail=""))
+    assert [a.detail for a in pn.ambiguities] == ["read as a family name"]

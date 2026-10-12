@@ -5,7 +5,9 @@ use rmpv::Value as RmpvValue;
 
 use super::frame_store::SerializedFrame;
 use super::frame_writer::UserCodeCallSite;
-use super::value_serializer::{NativeMsgpackEncoder, Serializer};
+use super::value_serializer::{
+    finish_reserved_extension, NativeMsgpackEncoder, Serializer, MAX_EXT_HEADER_LEN,
+};
 
 /// Write a key, value pair of a msgpack map where the value is a string or None.
 pub(super) fn write_str_pair(buf: &mut Vec<u8>, key: &str, value: Option<&str>) {
@@ -221,23 +223,23 @@ pub(super) fn write_assign_tuple(
     const PY_TUPLE_EXTENSION_TYPE: i8 = 6;
     let (variable, assigned) = assign;
 
-    let mut inner: Vec<u8> = vec![];
-    rmp::encode::write_array_len(&mut inner, 2).expect("Writing to memory, not I/O");
-    rmp::encode::write_str(&mut inner, variable).expect("Writing to memory, not I/O");
+    // The tuple's payload is encoded in place, behind an extension header
+    // reserved at its largest size and shrunk to fit afterwards, so a line
+    // event needs no buffer of its own.
+    let key_start = buf.len();
+    rmp::encode::write_str(buf, "assign").expect("Writing to memory, not I/O");
+    let header_start = buf.len();
+    buf.resize(header_start + MAX_EXT_HEADER_LEN, 0);
+    rmp::encode::write_array_len(buf, 2).expect("Writing to memory, not I/O");
+    rmp::encode::write_str(buf, variable).expect("Writing to memory, not I/O");
     let mut encoder = NativeMsgpackEncoder::new(serializer, lightweight_repr);
     encoder.set_value_budget(max_value_bytes);
     encoder.enter_extension_payload();
-    encoder
-        .encode(&assigned, &mut inner)
-        .map_err(|error| error.into_pyerr())?;
-
-    rmp::encode::write_str(buf, "assign").expect("Writing to memory, not I/O");
-    rmp::encode::write_ext_meta(
-        buf,
-        inner.len().try_into().expect("Length should fit in a u32"),
-        PY_TUPLE_EXTENSION_TYPE,
-    )
-    .expect("Writing to memory, not I/O");
-    buf.append(&mut inner);
+    if let Err(error) = encoder.encode(&assigned, buf) {
+        buf.truncate(key_start);
+        return Err(error.into_pyerr());
+    }
+    finish_reserved_extension(buf, header_start, PY_TUPLE_EXTENSION_TYPE)
+        .expect("Length should fit in a u32");
     Ok(())
 }

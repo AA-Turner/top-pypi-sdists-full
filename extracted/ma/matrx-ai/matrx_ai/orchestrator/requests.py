@@ -221,9 +221,6 @@ class AIMatrixRequest:
         )
         new_config = copy(original_request.config)
         new_config.messages = updated_messages
-        # Kept from the replace() era: <<MATRX>> patterns in newly added text
-        # are resolved exactly as before (idempotent on already-resolved text).
-        new_config._resolve_message_patterns()
         return replace(original_request, config=new_config)
 
     def to_dict(self) -> dict[str, Any]:

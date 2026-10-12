@@ -117,6 +117,7 @@ STRIP_HINTS_OFF_COMMENT = "# strip-hints: off" # Comment to toggle off stripping
 
 from .token_list import (TokenList, print_list_of_token_lists, ignored_types_set,
                          version, StripHintsException)
+from .class_annotations import ClassMatcher, parse_keep_names, significant_tokens
 if version == 2:
     from . import import_hooks
 else:
@@ -130,6 +131,9 @@ default_no_colon_move = False # Whether to move colon to fix linebreaks in retur
 default_no_equal_move = False # Whether to move = to fix deleted linebreaks in annotatated assigns.
 default_only_assigns_and_defs = False # Whether to keep fundef annotations, strip rest.
 default_only_test_for_changes = False # Print True and exit 0 if changes, otherwise False and 1.
+default_keep_class_annotations = None # Names of classes whose annotations are kept.
+default_keep_std_class_annotations = False # Keep annotations for the standard classes.
+default_legacy_output = False # Use untokenize for the output, as in 0.1.13 and earlier.
 
 DEBUG = False # Print debugging information if true.
 
@@ -143,7 +147,8 @@ if version == 3:
 class HintStripper(object):
     """Class holding the main stripping functions and the options as instance state."""
     def __init__(self, to_empty, strip_nl, no_ast,  no_colon_move, no_equal_move,
-                 only_assigns_and_defs):
+                 only_assigns_and_defs, keep_class_annotations=None,
+                 legacy_output=False):
         """Initialize, passing in options for how to process hints (see the default
         values above for details)."""
         self.to_empty = to_empty
@@ -152,6 +157,8 @@ class HintStripper(object):
         self.no_colon_move = no_colon_move
         self.no_equal_move = no_equal_move
         self.only_assigns_and_defs = only_assigns_and_defs
+        self.keep_class_names = parse_keep_names(keep_class_annotations)
+        self.legacy_output = legacy_output
 
     def check_whited_out_line_breaks(self, token_list, rpar_and_colon=None):
         """Check that a `TokenList` instance to be whited-out does not include a
@@ -202,7 +209,9 @@ class HintStripper(object):
         # First do exactly one split on the first colon or equal sign.
         #
 
-        split_on_colon_or_equal, splits = parameter.split(token_values=":=",
+        split_on_colon_or_equal, splits = parameter.split(token_types=[tokenize.OP],
+                                                          token_values=[":", "="],
+                                                          disjunction=False,
                                                           only_nestlevel=nesting_level,
                                                           sep_on_left=False, max_split=1,
                                                           return_splits=True)
@@ -222,7 +231,8 @@ class HintStripper(object):
         # the right part, on equal, to test for an assignment or default value.
         #
 
-        split_on_equal = right_part.split(token_values="=",
+        split_on_equal = right_part.split(token_types=[tokenize.OP], token_values=["="],
+                                          disjunction=False,
                                           only_nestlevel=nesting_level,
                                           max_split=1, sep_on_left=False)
         if len(split_on_equal) == 1: # Got a type def, no assignment or default value.
@@ -279,11 +289,11 @@ class HintStripper(object):
         prev_comma_plus_one = 0
         inside_lambda = False
         for count, t in enumerate(parameters):
-            if t.string == "lambda":
+            if t.type == tokenize.NAME and t.string == "lambda":
                 inside_lambda = True
-            elif t.string == ":" and inside_lambda:
+            elif t.is_op(":") and inside_lambda:
                 inside_lambda = False
-            elif (t.string == "," and t.nesting_level == nesting_level
+            elif (t.is_op(",") and t.nesting_level == nesting_level
                                   and not inside_lambda):
                 self.process_single_parameter(parameters[prev_comma_plus_one:count],
                                               nesting_level=nesting_level)
@@ -300,7 +310,7 @@ class HintStripper(object):
         if not return_part:
             return # Error condition, but ignore.
         for i in reversed(range(len(return_part))):
-            if return_part[i].string == ":":
+            if return_part[i].is_op(":"):
                 colon_token = return_part[i]
                 break
         if colon_token is None:
@@ -315,7 +325,8 @@ class HintStripper(object):
         """Process the top line of a `funcdef` function definition."""
         if DEBUG: print("function def being processed is", funcdef_logical_line)
         nesting_level = funcdef_logical_line[0].nesting_level + 1
-        split_on_parens, splits = funcdef_logical_line.split(token_values="()",
+        split_on_parens, splits = funcdef_logical_line.split(token_types=[tokenize.OP],
+                                  token_values=["(", ")"], disjunction=False,
                                   only_nestlevel=nesting_level, return_splits=True,
                                   max_split=2, ignore_separators=True)
         if DEBUG: print_list_of_token_lists(split_on_parens, "Split on parens is:")
@@ -360,8 +371,24 @@ class HintStripper(object):
         # Sequentially process the tokens.
         #
 
+        matcher = (ClassMatcher(logical_lines, self.keep_class_names)
+                   if self.keep_class_names is not None else None)
+        indent_depth = 0
+        kept_body_depths = [] # Indent depths of the bodies of matched classes.
+
         HINT_STRIPPING = True
         for t_list in logical_lines:
+            # Track the indent depth to find the bodies of classes whose annotations
+            # are kept.
+            if t_list[0].type == tokenize.INDENT:
+                indent_depth += 1
+            elif t_list[0].type == tokenize.DEDENT:
+                indent_depth -= 1
+                while kept_body_depths and kept_body_depths[-1] > indent_depth:
+                    kept_body_depths.pop()
+            elif matcher and matcher.starts_kept_body(significant_tokens(t_list)):
+                kept_body_depths.append(indent_depth + 1)
+
             # Skip stripping if a STRIP_HINTS_OFF_COMMENT is active.
             for t in t_list:
                 if t.type_name == "COMMENT":
@@ -378,11 +405,16 @@ class HintStripper(object):
 
             # Check for a function definition; process it separately if one is found.
             if not self.only_assigns_and_defs:
-                split_on_def = t_list.split(token_values=["def"],
+                split_on_def = t_list.split(token_types=[tokenize.NAME],
+                                            token_values=["def"], disjunction=False,
                                             sep_on_left=False, max_split=1)
                 if len(split_on_def) == 2:
                     self.process_funcdef_without_suite(split_on_def[1])
                     continue
+
+            # Keep the annotations directly in the body of a matched class.
+            if kept_body_depths and kept_body_depths[-1] == indent_depth:
+                continue
 
             # Check for an annassign.  Only recognizes a top-level NAME that is not
             # a keyword, that starts the line.
@@ -400,7 +432,7 @@ class HintStripper(object):
 
                 # Skip past all dotted attributes after the initial name, e.g.
                 #    var.x.y: int
-                if non_ignored_toks[i].string == ".":
+                if non_ignored_toks[i].is_op("."):
                     i += 1
                     if i >= len(non_ignored_toks):
                         break
@@ -410,12 +442,12 @@ class HintStripper(object):
 
                 # Skip past all stuff inside brackets after the initial name, e.g.
                 #   d["key"]: int
-                elif non_ignored_toks[i].string == "[":
+                elif non_ignored_toks[i].is_op("["):
                     while True:
                         i += 1
                         if i >= len(non_ignored_toks):
                             break
-                        if (non_ignored_toks[i].string == "]"
+                        if (non_ignored_toks[i].is_op("]")
                                 and non_ignored_toks[i].nesting_level == 1):
                             break
                     i += 1
@@ -424,25 +456,48 @@ class HintStripper(object):
 
                 # If we are at a colon but we are not at the end then process
                 # as annotated assignment (end check is redundant but doesn't hurt).
-                if non_ignored_toks[i].string == ":" and i != len(non_ignored_toks) - 1:
+                if non_ignored_toks[i].is_op(":") and i != len(non_ignored_toks) - 1:
                     self.process_annassign(t_list)
                 break
 
         # Get the result and return it.
         if DEBUG: print("\nProcessed tokens:\n", tokens, sep="")
-        result = tokens.untokenize()
+        if self.legacy_output:
+            result = tokens.untokenize()
+        else:
+            result = tokens.to_source(drop_space_before_emptied=self.to_empty)
         return result
 
 #
 # The main functional interfaces.
 #
 
+def check_parses(processed_code, original_code, filename="<unknown>"):
+    """Parse the processed code with `ast` as an error check.  If it cannot be
+    parsed, the message of the `SyntaxError` says whether the original code can
+    be parsed by the running Python, to tell newer syntax from a bug."""
+    try:
+        ast.parse(processed_code, filename=filename)
+    except SyntaxError as e:
+        try:
+            ast.parse(original_code, filename=filename)
+        except SyntaxError:
+            e.msg += ("\n(The input code also cannot be parsed by Python {0}.{1}.  Run"
+                      " strip-hints with a Python version that can parse the input"
+                      " code.)".format(*sys.version_info))
+        else:
+            e.msg += ("\n(The input code can be parsed, so this is probably a bug in"
+                      " strip-hints.  Please report it.)")
+        raise
+
 def strip_file_to_string(filename, to_empty=False, strip_nl=False, no_ast=False,
                          no_colon_move=False, no_equal_move=False,
-                         only_assigns_and_defs=False, only_test_for_changes=False):
+                         only_assigns_and_defs=False, only_test_for_changes=False,
+                         keep_class_annotations=None, legacy_output=False):
     """Functional interface to strip hints from file `filename`.
     The remaining arguments are the same as the command-line arguments, except
-    with underscores.
+    with underscores.  The `keep_class_annotations` argument can be true, or a
+    comma-separated string or a sequence of names.
 
     Returns a string containing the stripped code unless
     `only_test_for_changes` is true, in which case a boolean is returned."""
@@ -451,38 +506,38 @@ def strip_file_to_string(filename, to_empty=False, strip_nl=False, no_ast=False,
     # As it is the strip-on-import function cannot do an AST check (but one
     # will be done anyway in parsing the code).
     #
-    # Todo: could take an encoding argument; default utf-8 is used.
+    # The encoding is taken from a coding comment or BOM, with UTF-8 as the default.
 
     # Create the HintStripper and call its stripping method.
     stripper = HintStripper(to_empty, strip_nl, no_ast, no_colon_move, no_equal_move,
-                            only_assigns_and_defs)
+                            only_assigns_and_defs, keep_class_annotations, legacy_output)
     processed_code = stripper.strip_type_hints_from_file(filename)
 
     # Parse the code into an AST as an error check.
     if not stripper.no_ast:
-        if version == 2:
-            #ast.parse(processed_code.encode("latin-1")) # Make ASCII, not unicode.
-            ast.parse(processed_code.encode("utf-8"))
-        else:
-            ast.parse(processed_code, filename=filename)
+        with open(filename, "rb") as f:
+            check_parses(processed_code, f.read(), filename=filename)
 
     # Return the result.
     if not only_test_for_changes:
         return processed_code
     else:
-        # Need to tokenize and untokenize because tokenizer's round-trip guarantee does
-        # not guarantee spaces within lines (but usually works).
+        # The legacy output can change spacing even where nothing was stripped, so
+        # compare with the unchanged code from the same output method.
         original_tokens = TokenList()
         original_tokens.read_from_file(filename)
-        original_tokens_untokenized = original_tokens.untokenize()
-        return not original_tokens_untokenized == processed_code
+        original = (original_tokens.untokenize() if legacy_output
+                    else original_tokens.to_source())
+        return not original == processed_code
 
 def strip_string_to_string(code_string, to_empty=False, strip_nl=False, no_ast=False,
                            no_colon_move=False, no_equal_move=False,
-                           only_assigns_and_defs=False, only_test_for_changes=False):
+                           only_assigns_and_defs=False, only_test_for_changes=False,
+                           keep_class_annotations=None, legacy_output=False):
     """Functional interface to strip hints from the string `code_string`.
     The remaining arguments are the same as the command-line arguments, except
-    with underscores.
+    with underscores.  The `keep_class_annotations` argument can be true, or a
+    comma-separated string or a sequence of names.
 
     Returns a string containing the stripped code unless
     `only_test_for_changes` is true, in which case a boolean is returned."""
@@ -490,30 +545,28 @@ def strip_string_to_string(code_string, to_empty=False, strip_nl=False, no_ast=F
 
     # Create the HintStripper and call its stripping method.
     stripper = HintStripper(to_empty, strip_nl, no_ast,  no_colon_move, no_equal_move,
-                            only_assigns_and_defs)
+                            only_assigns_and_defs, keep_class_annotations, legacy_output)
     processed_code = stripper.strip_type_hints_from_string(code_string)
 
     # Parse the code into an AST as an error check.
     if not stripper.no_ast:
-        if version == 2:
-            ast.parse(processed_code.encode("utf-8"))
-        else:
-            ast.parse(processed_code)
+        check_parses(processed_code, code_string)
 
     # Return the result.
     if not only_test_for_changes:
         return processed_code
     else:
-        # Need to tokenize and untokenize because tokenizer's round-trip guarantee does
-        # not guarantee spaces within lines (but usually works).
+        # The legacy output can change spacing even where nothing was stripped, so
+        # compare with the unchanged code from the same output method.
         original_tokens = TokenList()
         original_tokens.read_from_string(code_string)
-        original_tokens_untokenized = original_tokens.untokenize()
-        return not original_tokens_untokenized == processed_code
+        original = (original_tokens.untokenize() if legacy_output
+                    else original_tokens.to_source())
+        return not original == processed_code
 
 def strip_on_import(calling_module_filename, to_empty=False, strip_nl=False, no_ast=False,
                     no_colon_move=False, no_equal_move=False, only_assigns_and_defs=False,
-                    py3_also=False):
+                    py3_also=False, keep_class_annotations=None, legacy_output=False):
     """The function can usually just be called with `__file__` for the
     `module_filename` argument.  It runs `strip_hints` with the specified
     options on all files that are imported.
@@ -522,7 +575,7 @@ def strip_on_import(calling_module_filename, to_empty=False, strip_nl=False, no_
     # Could also have an option to load a '.py.stripped' file instead of the
     # actual file, to reduce overhead for actual version not in development.
     stripper = HintStripper(to_empty, strip_nl, no_ast,  no_colon_move, no_equal_move,
-                            only_assigns_and_defs)
+                            only_assigns_and_defs, keep_class_annotations, legacy_output)
     import_hooks.register_stripper_fun(calling_module_filename,
                                        stripper.strip_type_hints_from_file,
                                        py3_also=py3_also)
@@ -583,6 +636,41 @@ def parse_command_line():
                         stripping would be done then it prints `True` and
                         exits with code 0.  Otherwise it prints `False` and
                         exits with code 1.""")
+    parser.add_argument("--keep-class-annotations", type=str, metavar="NAMES",
+                        default=default_keep_class_annotations,
+                        help="""Keep the annotations in the bodies of classes where
+                        they define fields, for the standard classes of
+                        `--keep-std-class-annotations` and also for the classes
+                        named in NAMES.  This is a comma-separated list of
+                        qualified names, such as `pydantic,attr,attrs`.
+                        Classes are matched by their decorators and base
+                        classes, resolved through the imports in the file.  A
+                        name also matches any name inside it.""")
+    parser.add_argument("--keep-std-class-annotations", "-k", action="store_true",
+                        default=default_keep_std_class_annotations,
+                        help="""Keep the annotations in the bodies of classes where
+                        they define fields, for the standard classes only.
+                        These are the classes decorated with
+                        `dataclasses.dataclass` and the subclasses of
+                        `typing.NamedTuple` and `typing.TypedDict` (or their
+                        `typing_extensions` versions).""")
+    parser.add_argument("--legacy-output", action="store_true",
+                        default=default_legacy_output,
+                        help="""Use the output method of strip-hints 0.1.13 and
+                        earlier.  That method rebuilds the whole file from its
+                        tokens with Python's `tokenize.untokenize` function, so
+                        lines that contain no hints can come out slightly
+                        different from the input file: tabs between tokens
+                        become spaces, the spacing before backslash line
+                        continuations and between adjacent string literals can
+                        change, and on some Python 3.12 patch releases
+                        f-strings with escaped braces cause a `SyntaxError`.
+                        These differences depend on the Python version.  With
+                        `--to-empty`, extra spaces are also left where hints
+                        were removed.  The default method copies everything
+                        except the stripped hints exactly as in the input
+                        file.  This option may be removed in a future
+                        version.""")
 
     cmdline_args = parser.parse_args()
     return cmdline_args
@@ -596,19 +684,29 @@ def process_command_line():
 
     args = parse_command_line()
     code_file = args.code_file[0]
+    keep_class_annotations = args.keep_class_annotations # Includes the standard classes.
+    if keep_class_annotations is None:
+        keep_class_annotations = args.keep_std_class_annotations
     processed_code = strip_file_to_string(code_file, args.to_empty, args.strip_nl,
                           args.no_ast, args.no_colon_move, args.no_equal_move,
-                          args.only_assigns_and_defs, args.only_test_for_changes)
+                          args.only_assigns_and_defs, args.only_test_for_changes,
+                          keep_class_annotations, args.legacy_output)
 
     if args.inplace:
         args.outfile = [code_file]
 
     if not args.only_test_for_changes:
+        # Write bytes in the encoding of the code file, so that the encoding and the
+        # line endings are kept unchanged on all platforms.
+        with open(code_file, "rb") as f:
+            encoding = tokenize.detect_encoding(f.readline)[0]
+        output = processed_code.encode(encoding)
         if not args.outfile:
-            print(processed_code, end="")
+            sys.stdout.flush()
+            sys.stdout.buffer.write(output)
         else:
-            with open(args.outfile[0], "w") as f:
-                f.write(str(processed_code))
+            with open(args.outfile[0], "wb") as f:
+                f.write(output)
     else:
         if processed_code: # The variable processed_code will be boolean in this case.
             print("True")

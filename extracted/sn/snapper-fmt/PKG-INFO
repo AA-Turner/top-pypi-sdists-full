@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snapper-fmt
-Version: 0.11.9
+Version: 0.11.10
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
@@ -84,7 +84,7 @@ It is not [admk/sembr](https://github.com/admk/sembr) (learned clause breaks) an
 Math environments, tables, front matter, drawers, and non-source comments pass through unchanged.
 Fenced and delimited source blocks are `Region::Code`: fence/open/close lines stay structure, non-comment code stays verbatim, and comment lines reflow at sentence boundaries when the language has a `[code.<lang>]` entry in `.snapperrc.toml` (`snapper init` seeds common languages).
 Pass `--format-code` to also pipe each block body through an optional per-language `formatter` argv (missing binary, non-zero exit, and timeouts degrade to the reflowed body).
-Sentence detection relies on Unicode UAX #29 segmentation with abbreviation-aware post-processing that avoids false breaks at titles (Dr., Prof.), references (Fig., Eq.), and Latin terms (e.g., i.e., et al.).
+Sentence detection relies on Unicode UAX #29 segmentation with abbreviation-aware post-processing that avoids false breaks at titles (Dr., Prof.), references (Fig., Eq.), journal titles (J. Chem. Phys., SIAM J. Sci. Comput.), and Latin terms (e.g., i.e., et al.).
 Org emphasis (`*bold*`, `/italic/`, `_underline_`, `+strike+`) is kept atomic so splits cannot open a pseudo-headline mid-span.
 Markdown `*em*` / `**strong**` (CommonMark flanking) and GFM `~~strike~~` are kept atomic the same way.
 
@@ -96,6 +96,10 @@ Markdown `*em*` / `**strong**` (CommonMark flanking) and GFM `~~strike~~` are ke
 Pre-built binary (fastest):
 
     cargo binstall snapper-fmt
+
+`cargo binstall` fetches the archive for your platform from the [GitHub release](https://github.com/TurtleTech-ehf/snapper/releases/latest) and never compiles.
+Each release ships archives for Linux on x86_64 and aarch64 (glibc, and static musl for Alpine and minimal containers), macOS on x86_64 and Apple silicon, and Windows on x86_64 (a zip).
+The static musl builds cannot load the optional in-process pandoc library, so `--use-pandoc` there runs the `pandoc` on `PATH`.
 
 Shell one-liner (Linux/macOS):
 
@@ -144,10 +148,11 @@ Pipe through stdin (for editor integration):
 
     cat draft.org | snapper --native --format org
 
-The CLI uses pandoc (auto FFI, then CLI) when an FFI writer or `pandoc` on `PATH` is available.
-Otherwise it keeps the native line parsers (no error).
-Pass `--native` to force today's parsers.
-Pass `--use-pandoc` to require pandoc (error if missing).
+The CLI uses the native line parsers unless `--use-pandoc` is set or `.snapperrc.toml` sets `use_pandoc = true`.
+`--native` is accepted and selects those same parsers.
+`--use-pandoc` requires pandoc (error if missing).
+Markdown on that path is read and written as `gfm`.
+A render mismatch leaves the input unchanged and warns on stderr.
 Editors, wasm, and LSP stay native.
 Check formatting without modifying (for CI):
 
@@ -164,6 +169,10 @@ With the default unlimited width this inserts a newline after every such mark th
 
 With `--max-width` set, overflowing sentences prefer those marks.
 A one-clause sentence stays one line.
+Split before a lowercase word after a terminator (`pass. pytest` becomes two lines).
+Abbreviations such as `e.g.` and `vs.` still join:
+
+    snapper --lowercase-starts paper.md
 Preview changes as a unified diff before committing:
 
     snapper --diff paper.org
@@ -260,7 +269,7 @@ Configuration guide (org source in-tree): `docs/orgmode/howto/mcp-integration.or
 ## Pre-commit hook
 
     - repo: https://github.com/TurtleTech-ehf/snapper
-      rev: v0.11.9
+      rev: v0.11.10
       hooks:
         - id: snapper
 

@@ -233,7 +233,7 @@ def test_every_sidecar_is_native_and_locked_down(phase):
     pod = _pod(_render(phase))
     for sidecar in pod["initContainers"]:
         assert sidecar["restartPolicy"] == "Always", sidecar["name"]
-        assert sidecar["image"].startswith("ghostunnel/ghostunnel:") and "@sha256:" in sidecar["image"]
+        assert sidecar["image"].startswith("mirror.gcr.io/ghostunnel/ghostunnel:") and "@sha256:" in sidecar["image"]
         assert "--timed-reload=1h" in sidecar["args"]
         ctx = sidecar["securityContext"]
         assert ctx["runAsNonRoot"] is True and ctx["readOnlyRootFilesystem"] is True

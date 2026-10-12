@@ -75,6 +75,7 @@ md_opts th_markdown_default_opts(void) {
     opt.google_doc = 0;
     opt.google_list_indent = 36;
     opt.hide_strikethrough = 0;
+    opt.raw_list_html = 1;
     opt.tag_filter = TH_MD_FILTER_NONE;
     opt.converters = NULL;
     opt.wrap_node = NULL;
@@ -194,6 +195,7 @@ typedef struct {
     Py_ssize_t saved_marker_base;
     int saved_started;
     int saved_line;
+    Py_ssize_t saved_line_number_start;
     int saved_space;
     int saved_drop;
 } md_table;
@@ -210,6 +212,7 @@ typedef struct {
     Py_ssize_t line_checked;
     int started;
     int line_has_content;
+    Py_ssize_t line_number_start;
     int space_pending;
     int drop_space;
     int pending_loose;
@@ -293,6 +296,7 @@ typedef struct {
     Py_ssize_t ref_cap;
     int started;          /* has any block content been emitted yet */
     int line_has_content; /* real content past the prefix/marker on the current line */
+    Py_ssize_t line_number_start;
     Py_ssize_t line_start;
     Py_ssize_t line_checked;
     int space_pending;          /* a collapsed-away whitespace run is owed one space */
@@ -490,21 +494,26 @@ static void md_settle_pending(md_ctx *ctx) {
 /* What a character is to the CommonMark flanking rules: whitespace, ASCII punctuation,
    or (0) anything else. */
 enum { MD_EDGE_SPACE = 1, MD_EDGE_PUNCT = 2 };
-static const uint8_t MD_EDGE[128] = {
-    ['\t'] = MD_EDGE_SPACE, ['\n'] = MD_EDGE_SPACE, ['\f'] = MD_EDGE_SPACE, ['\r'] = MD_EDGE_SPACE,
-    [' '] = MD_EDGE_SPACE,  ['!'] = MD_EDGE_PUNCT,  ['"'] = MD_EDGE_PUNCT,  ['#'] = MD_EDGE_PUNCT,
-    ['$'] = MD_EDGE_PUNCT,  ['%'] = MD_EDGE_PUNCT,  ['&'] = MD_EDGE_PUNCT,  ['\''] = MD_EDGE_PUNCT,
-    ['('] = MD_EDGE_PUNCT,  [')'] = MD_EDGE_PUNCT,  ['*'] = MD_EDGE_PUNCT,  ['+'] = MD_EDGE_PUNCT,
-    [','] = MD_EDGE_PUNCT,  ['-'] = MD_EDGE_PUNCT,  ['.'] = MD_EDGE_PUNCT,  ['/'] = MD_EDGE_PUNCT,
-    [':'] = MD_EDGE_PUNCT,  [';'] = MD_EDGE_PUNCT,  ['<'] = MD_EDGE_PUNCT,  ['='] = MD_EDGE_PUNCT,
-    ['>'] = MD_EDGE_PUNCT,  ['?'] = MD_EDGE_PUNCT,  ['@'] = MD_EDGE_PUNCT,  ['['] = MD_EDGE_PUNCT,
-    ['\\'] = MD_EDGE_PUNCT, [']'] = MD_EDGE_PUNCT,  ['^'] = MD_EDGE_PUNCT,  ['_'] = MD_EDGE_PUNCT,
-    ['`'] = MD_EDGE_PUNCT,  ['{'] = MD_EDGE_PUNCT,  ['|'] = MD_EDGE_PUNCT,  ['}'] = MD_EDGE_PUNCT,
-    ['~'] = MD_EDGE_PUNCT,
+/* U+3000 is the highest Zs space; direct indexing keeps the ASCII lookup unchanged. */
+static const uint8_t MD_EDGE[0x3001] = {
+    ['\t'] = MD_EDGE_SPACE,   ['\n'] = MD_EDGE_SPACE,   ['\f'] = MD_EDGE_SPACE,   ['\r'] = MD_EDGE_SPACE,
+    [' '] = MD_EDGE_SPACE,    ['!'] = MD_EDGE_PUNCT,    ['"'] = MD_EDGE_PUNCT,    ['#'] = MD_EDGE_PUNCT,
+    ['$'] = MD_EDGE_PUNCT,    ['%'] = MD_EDGE_PUNCT,    ['&'] = MD_EDGE_PUNCT,    ['\''] = MD_EDGE_PUNCT,
+    ['('] = MD_EDGE_PUNCT,    [')'] = MD_EDGE_PUNCT,    ['*'] = MD_EDGE_PUNCT,    ['+'] = MD_EDGE_PUNCT,
+    [','] = MD_EDGE_PUNCT,    ['-'] = MD_EDGE_PUNCT,    ['.'] = MD_EDGE_PUNCT,    ['/'] = MD_EDGE_PUNCT,
+    [':'] = MD_EDGE_PUNCT,    [';'] = MD_EDGE_PUNCT,    ['<'] = MD_EDGE_PUNCT,    ['='] = MD_EDGE_PUNCT,
+    ['>'] = MD_EDGE_PUNCT,    ['?'] = MD_EDGE_PUNCT,    ['@'] = MD_EDGE_PUNCT,    ['['] = MD_EDGE_PUNCT,
+    ['\\'] = MD_EDGE_PUNCT,   [']'] = MD_EDGE_PUNCT,    ['^'] = MD_EDGE_PUNCT,    ['_'] = MD_EDGE_PUNCT,
+    ['`'] = MD_EDGE_PUNCT,    ['{'] = MD_EDGE_PUNCT,    ['|'] = MD_EDGE_PUNCT,    ['}'] = MD_EDGE_PUNCT,
+    ['~'] = MD_EDGE_PUNCT,    [0xA0] = MD_EDGE_SPACE,   [0x1680] = MD_EDGE_SPACE, [0x2000] = MD_EDGE_SPACE,
+    [0x2001] = MD_EDGE_SPACE, [0x2002] = MD_EDGE_SPACE, [0x2003] = MD_EDGE_SPACE, [0x2004] = MD_EDGE_SPACE,
+    [0x2005] = MD_EDGE_SPACE, [0x2006] = MD_EDGE_SPACE, [0x2007] = MD_EDGE_SPACE, [0x2008] = MD_EDGE_SPACE,
+    [0x2009] = MD_EDGE_SPACE, [0x200A] = MD_EDGE_SPACE, [0x202F] = MD_EDGE_SPACE, [0x205F] = MD_EDGE_SPACE,
+    [0x3000] = MD_EDGE_SPACE,
 };
 
 static inline uint8_t md_edge(Py_UCS4 ch) {
-    return ch < 128 ? MD_EDGE[ch] : 0;
+    return ch < sizeof(MD_EDGE) ? MD_EDGE[ch] : 0;
 }
 
 static int md_is_ascii_punct(Py_UCS4 ch) {
@@ -563,8 +572,24 @@ static TH_NOINLINE void md_emit_pending(md_ctx *ctx) {
             marker->open = MD_HTML_TAGS[marker->html - 1][0];
             marker->close = MD_HTML_TAGS[marker->html - 1][1];
         }
+        if (marker->open[0] == '[' && marker->open[1] == '\0' && ctx->out.len > 0 &&
+            ctx->out.data[ctx->out.len - 1] == '!') {
+            Py_ssize_t slash = ctx->out.len - 1;
+            while (slash > 0 && ctx->out.data[slash - 1] == '\\') {
+                slash--;
+            }
+            if (((ctx->out.len - 1 - slash) & 1) == 0) {
+                /* CommonMark reads an unescaped ! before a link as an image. */
+                ctx->out.data[ctx->out.len - 1] = '\\';
+                sbuf_putc(&ctx->out, '!');
+            }
+        }
         marker->open_at = ctx->out.len;
-        md_puts8(&ctx->out, marker->open);
+        if (marker->open[0] != '\0' && marker->open[1] == '\0') {
+            sbuf_putc(&ctx->out, (unsigned char)marker->open[0]);
+        } else {
+            md_puts8(&ctx->out, marker->open);
+        }
         marker->emitted = 1;
         ctx->line_has_content = 1;
     }
@@ -826,7 +851,34 @@ static void md_escape_split_reference(md_ctx *ctx, const Py_UCS4 *text, Py_ssize
    Prose is mostly plain runs, so after the first character of a word is placed
    (which resolves the deferred space, markers and escapes) the rest of the run --
    no whitespace, nothing to escape -- is bulk-copied in one memcpy. */
-static void md_emit_text(md_ctx *ctx, const Py_UCS4 *text, Py_ssize_t len) {
+static int md_br_trailing(md_ctx *ctx, th_node *node);
+
+static inline int md_non_ascii_space(Py_UCS4 ch) {
+    return Py_UNICODE_ISSPACE(ch); /* GCOVR_EXCL_BR_LINE: ch >= 128 makes the macro's ASCII arm unreachable */
+}
+
+static void md_emit_text(md_ctx *ctx, th_node *node, const Py_UCS4 *text, Py_ssize_t len) {
+    if (ctx->line_number_start > 0 && !ctx->space_pending && ctx->pending == NULL) {
+        Py_ssize_t start = ctx->line_number_start - 1;
+        Py_ssize_t end = ctx->out.len;
+        while (end > start && ctx->out.data[end - 1] >= '0' && ctx->out.data[end - 1] <= '9') {
+            end--;
+        }
+        if (end == start) {
+            Py_ssize_t scan = 0;
+            while (scan < len && text[scan] >= '0' && text[scan] <= '9') {
+                scan++;
+            }
+            if (scan < len && (text[scan] == '.' || text[scan] == ')')) {
+                md_emit_text(ctx, node, text, scan);
+                sbuf_putc(&ctx->out, '\\');
+                md_emit_text(ctx, node, &text[scan], len - scan);
+                return;
+            }
+        } else {
+            ctx->line_number_start = 0;
+        }
+    }
     /* a reference continues only when nothing comes between the last node's `&` and name
        and this node's first character; what is already written md_escape_split_reference
        reads back, and an opening run still pending would come between */
@@ -838,6 +890,8 @@ static void md_emit_text(md_ctx *ctx, const Py_UCS4 *text, Py_ssize_t len) {
     }
     int translit = ctx->opt->transliterate;
     Py_ssize_t index = 0;
+    Py_ssize_t trailing_space_start = -1;
+    int at_line_end = -1;
     while (index < len) {
         Py_UCS4 ch = text[index];
         uint8_t kind = ch < 0x80 ? MD_ASCII[ch] : 0;
@@ -860,16 +914,41 @@ static void md_emit_text(md_ctx *ctx, const Py_UCS4 *text, Py_ssize_t len) {
                 index += consumed;
                 continue;
             }
+            ctx->line_number_start = ctx->out.len + 1;
         }
         int by_context = ((kind & MD_CH_CONTEXT) || (translit && ch == 0x2190)) && ctx->escape_prose &&
                          md_escape_in_text(ctx, text, index, len);
-        md_put_char(ctx, ch, (kind & ctx->escape_mask) || by_context);
+        /* markdown-it decodes &#133; as U+FFFD. */
+        if (ch >= 0x80 && ch != 0x85 && !translit && ctx->escape_prose && ctx->marker_count == 0 &&
+            md_non_ascii_space(ch)) {
+            if (trailing_space_start < 0) {
+                trailing_space_start = len;
+                while (trailing_space_start > index && Py_UNICODE_ISSPACE(text[trailing_space_start - 1])) {
+                    trailing_space_start--;
+                }
+            }
+            if (index >= trailing_space_start && at_line_end < 0) {
+                at_line_end = node == NULL || md_br_trailing(ctx, node);
+            }
+            if (!ctx->line_has_content || (index >= trailing_space_start && at_line_end)) {
+                sbuf_puts(&ctx->out, "&#");
+                md_put_decimal(&ctx->out, (Py_ssize_t)ch);
+                sbuf_putc(&ctx->out, ';');
+                ctx->line_has_content = 1;
+            } else {
+                md_put_char(ctx, ch, 0);
+            }
+        } else {
+            md_put_char(ctx, ch, (kind & ctx->escape_mask) || by_context);
+        }
         index++;
         /* past the word's first character nothing is at a line start, so an escaped
            character only needs its backslash and the plain runs between them copy whole */
         while (1) {
             Py_ssize_t start = index;
-            while (index < len && (text[index] < 0x80 ? !(MD_ASCII[text[index]] & ctx->run_stop) : !translit)) {
+            while (index < len && (text[index] < 0x80 ? !(MD_ASCII[text[index]] & ctx->run_stop)
+                                                      : !translit && (!ctx->escape_prose || ctx->marker_count > 0 ||
+                                                                      !md_non_ascii_space(text[index])))) {
                 index++;
             }
             if (index > start) {
@@ -1275,6 +1354,31 @@ static void md_settle_run(md_ctx *ctx, Py_ssize_t index, th_node *node) {
             (open_run + close_run) % 3 == 0 && open_run % 3 != 0) {
             settled = 0;
         }
+    }
+    Py_ssize_t suffix_start = close_at;
+    while (suffix_start > marker->open_at + open_len && md_live_delimiter(data, suffix_start - 1, delimiter)) {
+        suffix_start--;
+    }
+    /* A nested close of the same width would merge with this close into one run. */
+    if (close_at - suffix_start == open_len) {
+        settled = 0;
+    }
+    /* GFM can bind adjacent strike and emphasis runs across a punctuation edge. */
+    if (settled && delimiter == '~' && marker->open_at > 0) {
+        Py_UCS4 previous = data[marker->open_at - 1];
+        if (previous == '*' || previous == '_') {
+            Py_ssize_t boundary = marker->open_at;
+            while (boundary > 0 && md_live_delimiter(data, boundary - 1, previous)) {
+                boundary--;
+            }
+            if (boundary > 0 && md_edge(data[boundary - 1]) == MD_EDGE_PUNCT) {
+                settled = 0;
+            }
+        }
+    }
+    if (settled && delimiter != '~' && marker->open_at >= 2 && data[marker->open_at - 1] == '~' &&
+        data[marker->open_at - 2] == '~' && md_edge(data[marker->open_at + open_len]) == MD_EDGE_PUNCT) {
+        settled = 0;
     }
     if (!settled) {
         md_rewrite_open(ctx, marker, open_len);
@@ -1879,6 +1983,27 @@ static void md_emit_raw_html(md_ctx *ctx, th_node *node) {
     PyMem_Free(html);
 }
 
+static void md_emit_raw_list(md_ctx *ctx, th_node *node) {
+    Py_ssize_t len;
+    Py_UCS4 *html = th_node_html(ctx->tree, node, &len);
+    if (html == NULL) {      /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        ctx->out.failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
+        return;              /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    Py_ssize_t run = 0;
+    for (Py_ssize_t index = 0; index < len; index++) {
+        if (html[index] == '\n' || html[index] == '\r') {
+            /* A blank line ends a GFM raw-HTML block before its closing </ol>. */
+            sbuf_put_run(&ctx->out, html + run, index - run);
+            sbuf_puts(&ctx->out, html[index] == '\n' ? "&#10;" : "&#13;");
+            run = index + 1;
+        }
+    }
+    sbuf_put_run(&ctx->out, html + run, len - run);
+    ctx->line_has_content = 1;
+    PyMem_Free(html);
+}
+
 /* The length of a bare `<tbody>`/`</tbody>` tag at the head of text, or 0 for
    anything else. One with attributes is not bare and keeps its markup. */
 static Py_ssize_t md_tbody_tag(const Py_UCS4 *text, Py_ssize_t len) {
@@ -2249,6 +2374,19 @@ static void md_render_inline_tag(md_ctx *ctx, th_node *node) {
                it would leave a line of spaces that reads as a blank line */
             return;
         }
+        for (Py_ssize_t index = ctx->marker_base; index < ctx->marker_count; index++) {
+            md_marker *marker = &ctx->markers[index];
+            if (!marker->emitted || marker->node == NULL) {
+                continue;
+            }
+            const char *open = marker->open;
+            Py_ssize_t open_len = (Py_ssize_t)strlen(open);
+            if (md_edge(ctx->out.data[marker->open_at + open_len]) == MD_EDGE_SPACE) {
+                sbuf_puts(&ctx->out, "<br>");
+                ctx->line_has_content = 1;
+                return;
+            }
+        }
         md_write_break(ctx);
         return;
     case TH_TAG_WBR:
@@ -2368,7 +2506,7 @@ static void md_leave_google(md_ctx *ctx, md_frame *frame) {
    flow (rare, e.g. a <div> inside a <span>) is laid out as its own block. */
 static void md_render_inline(md_ctx *ctx, th_node *node) {
     if (node->type == TH_NODE_TEXT) {
-        md_emit_text(ctx, need_text(ctx->tree, node), node->text_len);
+        md_emit_text(ctx, node, need_text(ctx->tree, node), node->text_len);
         return;
     }
     if (node->type != TH_NODE_ELEMENT) {
@@ -2413,13 +2551,25 @@ enum md_lead {
     MD_LEAD_IN_BLOCK = 2, /* a paragraph's content or an ATX heading, which opens its own line */
 };
 
+static TH_NOINLINE int md_task_checkbox(md_ctx *ctx, th_node *node) {
+    if (ctx->opt->converters != NULL || ctx->opt->tag_filter != TH_MD_FILTER_NONE) {
+        return 0;
+    }
+    Py_ssize_t length;
+    const Py_UCS4 *type = md_attr(ctx->tree, node, "type", &length);
+    if (type == NULL || !md_ucs4_ieq(type, length, "checkbox")) {
+        return 0;
+    }
+    return th_node_attr_find(ctx->tree, node, "checked", 7) >= 0 ? 2 : 1;
+}
+
 /* A loose item needs its first block on the marker line even when a transparent
    container wraps it; otherwise CommonMark reads that block as code. The scan descends
    into such containers, into inline elements and into paragraphs, and climbs back out of
    one that leads with nothing: an inline element that writes nothing (an empty <em>, a
    link placeholder) does not count as content. A code span writes all its text, spaces
    and blocks included, on one line, so it leads inline once it holds any. */
-static int md_leads_with_inline(md_ctx *ctx, th_node *root) {
+static int md_leads_with_inline(md_ctx *ctx, th_node *root, int *task, int for_list_interrupt) {
     th_node *parent = root;
     th_node *child = root->first_child;
     th_node *paragraph = NULL; /* the outermost paragraph block the scan is inside */
@@ -2448,6 +2598,12 @@ static int md_leads_with_inline(md_ctx *ctx, th_node *root) {
             continue;
         }
         uint16_t atom = child->ns == TH_NS_HTML ? child->atom : TH_TAG_UNKNOWN;
+        if (atom == TH_TAG_INPUT && task != NULL && *task == 0 && (parent == root || parent == paragraph)) {
+            int state = md_task_checkbox(ctx, child);
+            *task = state == 0 ? -1 : state;
+            child = child->next_sibling;
+            continue;
+        }
         if (md_is_code_span(atom)) {
             if (md_code_writes_text(ctx, child)) {
                 return paragraph != NULL ? MD_LEAD_IN_BLOCK : MD_LEAD_INLINE;
@@ -2455,8 +2611,9 @@ static int md_leads_with_inline(md_ctx *ctx, th_node *root) {
             child = child->next_sibling;
             continue;
         }
-        if (atom == TH_TAG_IMG || atom == TH_TAG_BR || atom == TH_TAG_Q ||
-            (atom == TH_TAG_A && th_node_attr_find(ctx->tree, child, "href", 4) >= 0)) {
+        /* A trailing break writes nothing, so its empty item cannot interrupt a paragraph. */
+        if (atom == TH_TAG_IMG || (atom == TH_TAG_BR && (!for_list_interrupt || !md_br_trailing(ctx, child))) ||
+            atom == TH_TAG_Q || (atom == TH_TAG_A && th_node_attr_find(ctx->tree, child, "href", 4) >= 0)) {
             return paragraph != NULL ? MD_LEAD_IN_BLOCK : MD_LEAD_INLINE; /* it writes markup even with no text */
         }
         if (atom >= TH_TAG_H1 && atom <= TH_TAG_H6) {
@@ -2494,7 +2651,7 @@ static int md_element_lead(md_ctx *ctx, th_node *node, uint16_t atom) {
     if (node->first_child == NULL) {
         return atom == TH_TAG_BR || atom == TH_TAG_IMG || atom == TH_TAG_Q ? MD_LEAD_INLINE : MD_LEAD_NOTHING;
     }
-    return md_leads_with_inline(ctx, node);
+    return md_leads_with_inline(ctx, node, NULL, 0);
 }
 
 /* What an inline child at a run start leads with, to decide whether it opens a run line:
@@ -2520,6 +2677,10 @@ static TH_NOINLINE int md_run_lead(md_ctx *ctx, th_node *child, uint16_t atom) {
    heading, rule or code block ends on its own line and does not force looseness, so a
    tight item can still carry one, and the scan never enters a self-framing block. */
 static int md_item_is_loose(md_ctx *ctx, th_node *node) {
+    if (node->first_child == NULL ||
+        (node->first_child == node->last_child && node->first_child->type == TH_NODE_TEXT)) {
+        return 0;
+    }
     int units = 0;
     int in_run = 0;
     int absorbs = 0; /* the last block reads a following line as its own */
@@ -2695,6 +2856,7 @@ static int md_enter_converter(md_ctx *ctx, th_node *node) {
         .line_checked = ctx->line_checked,
         .started = ctx->started,
         .line_has_content = ctx->line_has_content,
+        .line_number_start = ctx->line_number_start,
         .space_pending = ctx->space_pending,
         .drop_space = ctx->drop_space,
         .pending_loose = ctx->pending_loose,
@@ -2712,6 +2874,7 @@ static int md_enter_converter(md_ctx *ctx, th_node *node) {
     ctx->pending = NULL;
     ctx->started = 0;
     ctx->line_has_content = 0;
+    ctx->line_number_start = 0;
     ctx->line_start = 0;
     ctx->line_checked = 0;
     ctx->space_pending = 0;
@@ -2825,6 +2988,7 @@ static void md_leave_converter(md_ctx *ctx, md_frame *frame) {
     md_settle_pending(ctx);
     ctx->started = saved->started;
     ctx->line_has_content = saved->line_has_content;
+    ctx->line_number_start = saved->line_number_start;
     ctx->line_start = saved->line_start;
     ctx->line_checked = saved->line_checked;
     ctx->space_pending = saved->space_pending;
@@ -2902,6 +3066,22 @@ static Py_ssize_t md_list_number_attr(md_ctx *ctx, th_node *node, const char *na
     return number;
 }
 
+static int md_list_number_needs_html(md_ctx *ctx, th_node *node, const char *name) {
+    Py_ssize_t length;
+    const Py_UCS4 *value = md_attr(ctx->tree, node, name, &length);
+    if (value == NULL) {
+        return 0;
+    }
+    Py_ssize_t index = 0;
+    while (index < length && is_space(value[index])) {
+        index++;
+    }
+    if (index < length && value[index] == '-') {
+        return index + 1 < length && value[index + 1] >= '0' && value[index + 1] <= '9';
+    }
+    return md_list_number_attr(ctx, node, name, 1) > 999999999;
+}
+
 /* Whether a list child is a wrapper around list items (`<ul><div><li>`), which the
    list looks through so its items keep their markers and numbering. */
 static int md_is_item_wrapper(th_node *node) {
@@ -2916,28 +3096,105 @@ static int md_is_item_wrapper(th_node *node) {
     return 0;
 }
 
-/* CommonMark: a list is loose (blank lines around every item and between an
-   item's blocks) when any item holds more than one paragraph. The scan looks
-   through item wrappers the way the layout does. */
-static int md_list_is_loose(md_ctx *ctx, th_node *list) {
+/* Scan through item wrappers once for both loose layout and ordinals that GFM
+   cannot carry. Subsequent list-marker numbers are ignored by GFM readers. */
+static int md_list_layout(md_ctx *ctx, th_node *list, int ordered, int *raw_html) {
     th_node *parent = list;
     th_node *scan = list->first_child;
+    int loose = 0;
+    int first = 1;
     for (;;) {
         while (scan == NULL) {
             if (parent == list) {
-                return 0;
+                return loose;
             }
             scan = parent->next_sibling;
             parent = parent->parent;
         }
         if (scan->type == TH_NODE_ELEMENT && scan->ns == TH_NS_HTML && scan->atom == TH_TAG_LI) {
-            if (md_item_is_loose(ctx, scan)) {
-                return 1;
+            if (!loose && md_item_is_loose(ctx, scan)) {
+                loose = 1;
+            }
+            if (ordered && scan->attr_count > 0) {
+                Py_ssize_t length;
+                if (md_attr(ctx->tree, scan, "value", &length) != NULL) {
+                    *raw_html |= !first || md_list_number_needs_html(ctx, scan, "value");
+                }
+            }
+            if (ordered) {
+                first = 0;
             }
         } else if (md_is_item_wrapper(scan)) {
             parent = scan;
             scan = scan->first_child;
             continue;
+        }
+        if (loose && (!ordered || *raw_html)) {
+            return loose;
+        }
+        if (loose && parent == list) {
+            scan = scan->next_sibling;
+            while (scan != NULL && scan->atom == TH_TAG_LI && scan->attr_count == 0) {
+                scan = scan->next_sibling;
+            }
+            continue;
+        }
+        scan = scan->next_sibling;
+    }
+}
+
+static int md_list_raw_safe(th_tree *tree, th_node *list) {
+    th_node *scan = list;
+    for (;;) {
+        if (scan->type == TH_NODE_ELEMENT && scan->ns == TH_NS_HTML) {
+            switch (scan->atom) {
+            case TH_TAG_OL:
+                if (scan->attr_count > 0 &&
+                    scan->attr_count > (th_node_attr_find(tree, scan, "start", 5) >= 0) +
+                                           (th_node_attr_find(tree, scan, "reversed", 8) >= 0)) {
+                    return 0;
+                }
+                break;
+            case TH_TAG_LI:
+                if (scan->attr_count > 0 && (scan->attr_count > 1 || th_node_attr_find(tree, scan, "value", 5) < 0)) {
+                    return 0;
+                }
+                break;
+            case TH_TAG_UL:
+            case TH_TAG_MENU:
+            case TH_TAG_P:
+            case TH_TAG_DIV:
+            case TH_TAG_SPAN:
+            case TH_TAG_B:
+            case TH_TAG_STRONG:
+            case TH_TAG_I:
+            case TH_TAG_EM:
+            case TH_TAG_S:
+            case TH_TAG_DEL:
+            case TH_TAG_STRIKE:
+            case TH_TAG_CODE:
+            case TH_TAG_PRE:
+            case TH_TAG_BR:
+            case TH_TAG_BLOCKQUOTE:
+                if (scan->attr_count > 0) {
+                    return 0;
+                }
+                break;
+            default:
+                return 0;
+            }
+        } else if (scan->type != TH_NODE_TEXT) {
+            return 0;
+        }
+        if (scan->first_child != NULL) {
+            scan = scan->first_child;
+            continue;
+        }
+        while (scan != list && scan->next_sibling == NULL) {
+            scan = scan->parent;
+        }
+        if (scan == list) {
+            return 1;
         }
         scan = scan->next_sibling;
     }
@@ -2990,7 +3247,18 @@ static void md_render_item(md_ctx *ctx, th_node *child, md_list_state *state) {
     Py_ssize_t base = md_indent(ctx, width);
     int saved_tight = ctx->tight;
     ctx->tight = !state->loose;
-    ctx->suppress_break = md_leads_with_inline(ctx, child) > 0;
+    th_node *only = child->first_child;
+    int task = 0;
+    ctx->suppress_break = (only != NULL && only == child->last_child && only->type == TH_NODE_TEXT &&
+                           only->text_len > 0 && !is_space(need_text(ctx->tree, only)[0])) ||
+                          md_leads_with_inline(ctx, child, &task, 0) > 0;
+    if (task > 0) {
+        sbuf_puts(&ctx->out, task == 2 ? "[x]" : "[ ]");
+        if (ctx->suppress_break) {
+            sbuf_putc(&ctx->out, ' ');
+        }
+        ctx->line_has_content = 1;
+    }
     if (!ctx->opt->wrap_list_items) {
         ctx->no_wrap++;
     }
@@ -3117,12 +3385,26 @@ static TH_NOINLINE int md_list_cannot_interrupt(md_ctx *ctx, th_node *list, int 
     if (item == NULL || item->ns != TH_NS_HTML || item->atom != TH_TAG_LI) {
         return 0;
     }
-    return md_leads_with_inline(ctx, item) <= 0 || (ordered && md_list_number_attr(ctx, item, "value", number) != 1);
+    return md_leads_with_inline(ctx, item, NULL, 1) <= 0 ||
+           (ordered && md_list_number_attr(ctx, item, "value", number) != 1);
 }
 
 static void md_enter_list(md_ctx *ctx, th_node *node) {
     int ordered = md_list_ordered(ctx, node);
     Py_ssize_t number = ordered ? md_list_number_attr(ctx, node, "start", 1) : 1;
+    int preserve_ordinals = node->atom == TH_TAG_OL && ctx->opt->raw_list_html;
+    int raw_html = preserve_ordinals && (th_node_attr_find(ctx->tree, node, "reversed", 8) >= 0 ||
+                                         md_list_number_needs_html(ctx, node, "start"));
+    int loose = raw_html ? 0 : md_list_layout(ctx, node, preserve_ordinals, &raw_html);
+    if (raw_html && !md_list_raw_safe(ctx->tree, node)) {
+        raw_html = 0;
+        loose = md_list_layout(ctx, node, 0, &raw_html);
+    }
+    if (raw_html) {
+        md_block_line(ctx, 1);
+        md_emit_raw_list(ctx, node);
+        return;
+    }
     if (ctx->line_has_content && md_list_cannot_interrupt(ctx, node, ordered, number)) {
         ctx->interrupt_blank = 1;
     }
@@ -3133,7 +3415,7 @@ static void md_enter_list(md_ctx *ctx, th_node *node) {
         .bullet = ctx->opt->bullets[ctx->list_depth % bullets_len],
         .delimiter = '.',
         .ordered = ordered,
-        .loose = md_list_is_loose(ctx, node),
+        .loose = loose,
     };
     /* CommonMark keeps items with the same bullet or ordered delimiter in one list,
        blank line or not, so a list that follows one of its own kind with nothing in
@@ -3233,6 +3515,7 @@ static void md_enter_cell(md_ctx *ctx, md_table *table) {
     table->saved_marker_base = ctx->marker_base;
     table->saved_started = ctx->started;
     table->saved_line = ctx->line_has_content;
+    table->saved_line_number_start = ctx->line_number_start;
     table->saved_space = ctx->space_pending;
     table->saved_drop = ctx->drop_space;
     ctx->out = (sbuf){NULL, 0, 0, 0};
@@ -3252,6 +3535,7 @@ static void md_enter_cell(md_ctx *ctx, md_table *table) {
         }
     }
     ctx->line_has_content = 1;
+    ctx->line_number_start = 0;
     ctx->space_pending = 0;
     ctx->drop_space = 1;
     ctx->in_cell = 1;
@@ -3272,6 +3556,7 @@ static void md_leave_cell(md_ctx *ctx, md_table *table) {
     md_settle_pending(ctx);
     ctx->started = table->saved_started;
     ctx->line_has_content = table->saved_line;
+    ctx->line_number_start = table->saved_line_number_start;
     ctx->space_pending = table->saved_space;
     ctx->drop_space = table->saved_drop;
     ctx->in_cell = 0;
@@ -3323,11 +3608,21 @@ static int md_row_is_header(th_node *row) {
     return 0;
 }
 
+static TH_NOINLINE int md_cell_has_span(th_node *cell) {
+    for (Py_ssize_t index = 0; index < cell->attr_count; index++) {
+        uint32_t atom = cell->attrs[index].name_atom;
+        if (atom == TH_ATTR_COLSPAN || atom == TH_ATTR_ROWSPAN) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* Collect the table's rows in document order across nested thead/tbody/tfoot wrappers
    and return the widest row's column count. With rows NULL it only counts, so the
    array is sized by the same walk that fills it. A row with no cell draws nothing,
    while every pipe row holds at least one cell (GFM 4.10), so it is left out. */
-static Py_ssize_t md_collect_rows(th_node *table, th_node **rows, Py_ssize_t *count) {
+static Py_ssize_t md_collect_rows(th_node *table, th_node **rows, Py_ssize_t *count, int *has_spans) {
     Py_ssize_t columns = 0;
     th_node *node = table->first_child;
     while (node != NULL) {
@@ -3336,7 +3631,15 @@ static Py_ssize_t md_collect_rows(th_node *table, th_node **rows, Py_ssize_t *co
                 if (rows == NULL) {
                     (*count)++;
                 } else {
-                    Py_ssize_t cells = md_row_cells(node);
+                    Py_ssize_t cells = 0;
+                    for (th_node *cell = node->first_child; cell != NULL; cell = cell->next_sibling) {
+                        if (cell->type == TH_NODE_ELEMENT && (cell->atom == TH_TAG_TD || cell->atom == TH_TAG_TH)) {
+                            cells++;
+                            if (cell->attr_count != 0 && md_cell_has_span(cell)) {
+                                *has_spans = 1;
+                            }
+                        }
+                    }
                     if (cells > 0) {
                         rows[(*count)++] = node;
                     }
@@ -3413,19 +3716,19 @@ static void md_emit_separator_row(md_ctx *ctx, Py_ssize_t columns) {
     ctx->line_has_content = 1;
 }
 
-/* Start a table: an HTML-mode table is written whole; any other walks its captions
-   and then its cells through md_table_step. */
+/* GFM pipe tables cannot encode merged cells, so spans require raw HTML. */
 static void md_enter_table(md_ctx *ctx, th_node *node) {
     Py_ssize_t cap = 0;
-    md_collect_rows(node, NULL, &cap);
+    md_collect_rows(node, NULL, &cap, NULL);
     th_node **rows = PyMem_Malloc((size_t)(cap > 0 ? cap : 1) * sizeof(th_node *));
     if (rows == NULL) {      /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         ctx->out.failed = 1; /* GCOVR_EXCL_LINE: allocation-failure path */
         return;              /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     Py_ssize_t count = 0;
-    Py_ssize_t columns = md_collect_rows(node, rows, &count);
-    if (ctx->opt->table_mode == TH_MD_TABLE_HTML) {
+    int has_spans = 0;
+    Py_ssize_t columns = md_collect_rows(node, rows, &count, &has_spans);
+    if (ctx->opt->table_mode == TH_MD_TABLE_HTML || (ctx->opt->table_mode == TH_MD_TABLE_MARKDOWN && has_spans)) {
         if (count > 0) { /* a collected row holds a cell, so there are columns too */
             md_block_line(ctx, 1);
             md_emit_raw_html(ctx, node);
@@ -3592,7 +3895,7 @@ static int md_table_step(md_ctx *ctx, md_frame *frame) {
         }
         /* a cell of text alone renders in place, with no frame of its own */
         for (th_node *child = cell->first_child; child != NULL; child = child->next_sibling) {
-            md_emit_text(ctx, need_text(ctx->tree, child), child->text_len);
+            md_emit_text(ctx, child, need_text(ctx->tree, child), child->text_len);
         }
         if (table->phase != MD_TABLE_STRIP) {
             md_leave_cell(ctx, table);
@@ -3982,6 +4285,11 @@ static void md_leave_heading(md_ctx *ctx, md_frame *frame) {
     int level = frame->heading.level;
     if (frame->leave == MD_LEAVE_SETEXT) {
         Py_ssize_t width = ctx->out.len - mark;
+        if (width == 0) {
+            sbuf_puts(&ctx->out, level == 1 ? "#" : "##");
+            ctx->line_has_content = 1;
+            return;
+        }
         md_newline(ctx);
         Py_UCS4 rule = level == 1 ? '=' : '-';
         for (Py_ssize_t index = 0; index < width; index++) {
@@ -4106,7 +4414,7 @@ static void md_run(md_ctx *ctx) {
             /* text lays out without running Python or pushing a frame, so a run of it renders in place */
             if (frame->walk == MD_WALK_INLINE) {
                 for (; child != NULL && child->type == TH_NODE_TEXT; child = child->next_sibling) {
-                    md_emit_text(ctx, need_text(ctx->tree, child), child->text_len);
+                    md_emit_text(ctx, child, need_text(ctx->tree, child), child->text_len);
                 }
             } else if (frame->walk == MD_WALK_BLOCK) {
                 for (; child != NULL && child->type == TH_NODE_TEXT; child = child->next_sibling) {
@@ -4199,7 +4507,7 @@ Py_UCS4 *th_node_markdown(th_tree *tree, th_node *node, const md_opts *opt, Py_s
     if (node->type == TH_NODE_TEXT) {
         ctx.started = 1;
         ctx.line_has_content = 1;
-        md_emit_text(&ctx, need_text(tree, node), node->text_len);
+        md_emit_text(&ctx, NULL, need_text(tree, node), node->text_len);
     } else if (md_apply_converter(&ctx, node) ||
                (node->type == TH_NODE_ELEMENT &&
                 md_render_whitespace(&ctx, node, md_inherited_whitespace(&ctx, node)))) {
@@ -4227,5 +4535,15 @@ Py_UCS4 *th_node_markdown(th_tree *tree, th_node *node, const md_opts *opt, Py_s
         return NULL;
     }
     md_trim(&ctx.out, opt->document_strip);
+    if (ctx.out.len > 0 && ctx.out.data[0] == 0xFEFF) {
+        /* Some Markdown readers consume a leading BOM as an input signature. */
+        sbuf_reserve(&ctx.out, 7);
+        if (!ctx.out.failed) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            const Py_UCS4 reference[] = {'&', '#', '6', '5', '2', '7', '9', ';'};
+            memmove(&ctx.out.data[8], &ctx.out.data[1], (size_t)(ctx.out.len - 1) * sizeof(Py_UCS4));
+            memcpy(ctx.out.data, reference, sizeof(reference));
+            ctx.out.len += 7;
+        }
+    }
     return sbuf_finish(&ctx.out, out_len);
 }

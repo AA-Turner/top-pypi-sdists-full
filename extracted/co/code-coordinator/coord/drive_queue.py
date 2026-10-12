@@ -424,6 +424,40 @@ def is_permanent_block_reason(text: str | None) -> bool:
     return any(marker in text for marker in _PERMANENT_BLOCK_MARKERS)
 
 
+def is_test_stage_routing_dead_end_reason(reason: str | None) -> bool:
+    """#3695: does *reason* name the ONE `(#2019)` dead-end shape this
+    module's blocked-sweep is allowed to re-check — a Test-stage dispatch
+    that found no routable machine (``coord.smoke.dispatch_smoke``'s
+    ``(#1672)`` "blocked" verdict, `coord.dead_end`'s ``test_stage_blocked``
+    shape) — as opposed to every other `(#2019)` dead-end shape, all of
+    which stay genuinely permanent.
+
+    `coord.dead_end.detect_dead_end`'s ``test_stage_blocked`` branch writes
+    ONE of two mutually exclusive cause sentences into the final `last_reason`
+    it hands back: the #1672 "found no capability-matched machine" sentence
+    (which always carries BOTH the `(#1672)` and `(#2019)` markers together),
+    or the #2272 "N legs in a row never printed a SMOKE: verdict" mute-legs
+    sentence (which carries only `(#2272)`, neither of the other two). Only
+    the first is a *fleet-state* cause — a machine that was busy, briefly
+    failed a health probe, or was paused/cordoned, all of which can self-
+    clear within minutes — so this predicate requires both `(#1672)` and
+    `(#2019)` AND excludes `(#2272)`, rather than keying on `(#1672)` alone:
+    a bare substring match on `(#1672)` would also fire on #3695's OWN
+    auto-clear reason text below (which quotes the original #1672 cause
+    for the operator's benefit) on a later tick, which is exactly the kind
+    of self-referential false-positive a marker predicate must not have.
+
+    `test_stage_human_attended` (`coord.dead_end`'s other #1672-adjacent
+    shape) and every non-Test-stage `(#2019)` dead end (`(#1844)` guard
+    refusals, `(#2972)` fix-round ceilings, `after=` prerequisite blocks)
+    carry neither `(#1672)` nor this combination, so they fall through
+    untouched — unaffected by this predicate, exactly as the issue requires.
+    """
+    if not reason:
+        return False
+    return "(#1672)" in reason and "(#2019)" in reason and "(#2272)" not in reason
+
+
 # How many times #2230's sweep may resume the SAME blocked entry back to
 # `waiting` before it stops trying and leaves the entry blocked for an
 # operator. Without a ceiling, an entry whose gate reading itself flaps (CI
@@ -1272,6 +1306,24 @@ def resolve_concurrency_report(
 # `coord drive`'s per-issue flock stays the last line of defence; the queue no
 # longer relies on it.
 DRIVE_STARTUP_GRACE_SECONDS = 300.0
+
+# ── #3695: Test-stage routing-dead-end recheck grace ─────────────────────────
+#
+# A `blocked` row whose ONLY cause is `is_test_stage_routing_dead_end_reason`
+# (a fleet-state dead end: no routable machine at dispatch time) is eligible
+# for the shell's live re-check every tick, but writing a brand-new "still
+# blocked, rechecked, still nothing" `last_reason` on EVERY tick — even when
+# nothing has changed — would bounce a row's `reason_at` stamp constantly and
+# bury the one SMOKE:/operator-visible marker that actually matters (the
+# original #1672 cause) under a wall of identical re-confirmations. This
+# mirrors `DRIVE_STARTUP_GRACE_SECONDS`'s own reasoning: hold the quiet
+# "nothing new" case silent for a window a few ticks wide
+# (`PRODUCTION_TICK_INTERVAL_HINT_SECONDS` is 180s in production, so this is
+# >3x that) before writing anything at all, UNLESS the fleet reading has
+# actually flipped to routable — that branch writes immediately, every time,
+# because a cleared row waiting even one extra tick is exactly the human-in-
+# the-loop delay #3695 exists to remove.
+TEST_STAGE_ROUTING_RECHECK_GRACE_SECONDS = 600.0
 
 # ── #2587: roll-pending bounds ────────────────────────────────────────────────
 #
@@ -5825,6 +5877,76 @@ def _blocked_gate_reading(
 # growing it forever.
 _BLOCKED_GATE_PROBE_NOTE_SEP = " — this tick's merge-gate probe: "
 
+# #3695: the Test-stage routing sibling of `_BLOCKED_GATE_PROBE_NOTE_SEP`,
+# used by `_reconcile_blocked_test_routing`'s oscillating branch for the
+# identical reason `_with_blocked_gate_probe_note` exists: a review of this
+# issue's first cut found that branch's `reason` text replaced
+# `entry.last_reason` wholesale, stripping the `(#1672)`/`(#2019)` markers
+# `is_test_stage_routing_dead_end_reason`/`is_permanent_block_reason` need to
+# keep recognising the row — so the VERY NEXT tick, this module no longer
+# saw it as a Test-routing dead end OR as permanent at all, and handed it to
+# `_reconcile_blocked`'s unrelated merge-gate path instead. A dedicated
+# separator (rather than reusing `_BLOCKED_GATE_PROBE_NOTE_SEP`) keeps the
+# two probe notes from ever colliding if a row somehow carried both.
+_TEST_ROUTING_PROBE_NOTE_SEP = " — this tick's Test-stage routing recheck: "
+
+
+def _strip_test_routing_probe_note(text: str | None) -> str:
+    """*text* with any :data:`_TEST_ROUTING_PROBE_NOTE_SEP`-delimited note a
+    previous tick appended (via :func:`_with_test_routing_probe_note`)
+    removed, leaving only the entry's original `(#1672)`/`(#2019)` dead-end
+    cause intact."""
+    base, _sep, _note = (text or "").partition(_TEST_ROUTING_PROBE_NOTE_SEP)
+    return base.rstrip()
+
+
+def _with_test_routing_probe_note(original: str | None, note: str) -> str:
+    """*original* (an entry's ``last_reason``) with *note* — this tick's
+    Test-stage routing recheck finding — appended, after first stripping any
+    note an earlier tick appended the same way. The original `(#1672)`/
+    `(#2019)` markers are NEVER discarded, mirroring
+    :func:`_with_blocked_gate_probe_note` — see :data:`_TEST_ROUTING_PROBE_NOTE_SEP`
+    for the incident this avoids.
+    """
+    base = _strip_test_routing_probe_note(original)
+    return f"{base}{_TEST_ROUTING_PROBE_NOTE_SEP}{note}" if base else note
+
+
+def test_routing_recovery_unconfirmed_reason(
+    previous_reason: str | None, detail: str
+) -> str:
+    """The ``last_reason`` to put back on a row whose Test-stage routing
+    recheck read clear but whose follow-up ``test_state`` reset could NOT be
+    confirmed — *detail* says what was observed instead (the reset raised,
+    matched no assignment row, or the re-read still found a `test_state`
+    set).
+
+    A `test_routing_recovered` reconcile is only half the self-clear: the
+    queue row goes back to `waiting`, but the parent work assignment's own
+    `test_state`/`test_reason` have to be cleared too (that write lives in
+    the shell, outside the plan, because `update_drive_queue_entry` can
+    reach no table but the queue's own). When that second half is not
+    observed to have landed, the row must go back to `blocked` carrying
+    THIS text rather than keep the recovered wording — reporting a recovery
+    nobody observed is the #2096 defect, and a row left `waiting` on a
+    still-poisoned Test gate just dead-ends again with its audit trail
+    claiming it healed.
+
+    *previous_reason* is the row's PRE-tick cause, so the `(#1672)`/
+    `(#2019)` markers `is_test_stage_routing_dead_end_reason` and
+    `is_permanent_block_reason` classify on survive: the finding is layered
+    via :func:`_with_test_routing_probe_note`, never written in place of the
+    cause.
+    """
+    note = (
+        "read CLEAR, but clearing this issue's own Test-stage state was "
+        f"NOT confirmed ({detail}) — staying "
+        "blocked rather than reporting a self-clear that did not happen "
+        "(#2096). Run `coord diagnose <repo> <issue> --stage test --reset` "
+        "to clear it by hand, or look at why that write is failing"
+    )
+    return _with_test_routing_probe_note(previous_reason, note)
+
 
 def _strip_blocked_gate_probe_note(text: str | None) -> str:
     """*text* with any :data:`_BLOCKED_GATE_PROBE_NOTE_SEP`-delimited note a
@@ -5921,6 +6043,131 @@ def _reconcile_blocked_unreadable(
         reason,
         occupies=False,
         updates={"last_reason": reason},
+    )
+
+
+def _reconcile_blocked_test_routing(
+    entry: QueueEntry,
+    now: float | None,
+    live_test_routing_clear: Mapping[str, bool] | None,
+    live_test_routing_reason: Mapping[str, str] | None,
+) -> Reconcile | None:
+    """#3695: re-check a Test-stage routing dead end — fleet state, not a
+    permanent cause — on every tick, and self-clear it the moment a
+    capability-matched machine is both routable and healthy again.
+
+    `is_permanent_block_reason` classifies EVERY `(#2019)` dead end as
+    permanent, including `test_stage_blocked` (`coord.dead_end`'s shape 2):
+    correct for the common case (no machine ever *declares* the needed
+    capability — a config problem no amount of re-checking fixes), wrong for
+    the fleet-state case this issue is about — a machine that was merely
+    busy, briefly failed a `/health` probe, or was paused/cordoned at
+    dispatch time, all of which can self-clear within minutes. Before this,
+    BOTH shapes stayed `blocked` forever, requiring an operator to run
+    `coord diagnose <repo> <issue> --stage test --reset` by hand — 27 such
+    resets since August, per the issue.
+
+    Called BEFORE `_reconcile_blocked` in `plan_tick`'s `STATE_BLOCKED`
+    chain, deliberately: `_reconcile_blocked` bails out immediately on
+    `is_permanent_block_reason`, which a `(#1672)+(#2019)` routing dead end
+    always satisfies, so it would never see this row at all otherwise.
+
+    Returns ``None`` — nothing to report, nothing to write — for every entry
+    except a genuine routing dead end that the shell's live re-check
+    (`coord.commands.drive_queue`'s `_fetch_live_test_routing_clear`,
+    composing `coord.smoke.required_caps_from_test_reason` +
+    `coord.smoke.test_stage_routable_now` — the SAME capability/pause/
+    cordon/cap-check logic dispatch-time `rank_smoke_machines` already uses,
+    per #2096/#2085's "one question, one answer") has CONFIRMED is now
+    routable again:
+
+    * `is_test_stage_routing_dead_end_reason(entry.last_reason)` is
+      ``False`` — not this cause at all (a guard refusal, a fix-round
+      ceiling, an `after=` block, `test_stage_human_attended`, or the
+      #2272 mute-smoke-legs sibling) — permanently out of scope, exactly as
+      the issue requires;
+    * the shell has no opinion for this key at all (`live_test_routing_clear`
+      carries no entry) — the thin-client board-daemon case, or a sweep that
+      failed closed before reaching this row (same fail-open-per-entry/
+      fail-closed-overall contract as `_fetch_live_blocked_gate`);
+    * the shell's live re-check says still NOT routable — still no
+      capability-matched machine under cap, or one exists but its probed
+      health disagrees with its declared capabilities;
+    * the recheck IS confirmed clear, but this row's own `reason_at` is
+      younger than :data:`TEST_STAGE_ROUTING_RECHECK_GRACE_SECONDS` — #2133's
+      capture stamp, reused here (no new column) exactly as
+      `_park_reading_age` reuses it — so a single flapping machine cannot
+      bounce the SAME row open and shut inside one grace window; the next
+      tick after the window re-confirms the clear and then writes.
+
+    Only the fourth, fully-confirmed-and-settled case does anything else: it
+    clears the block (same effect as the operator's `--reset`) and returns
+    the row to `waiting` with a fresh attempt budget, mirroring
+    `_reconcile_blocked`'s own `resumed` outcome shape. The caller
+    (`plan_tick`) folds this outcome into the same #3536 anti-storm stagger
+    `_reconcile_blocked`'s `resumed`/`merge_only` outcomes already get — a
+    fleet-wide health recovery can clear many routing-blocked rows on the
+    same tick, which is exactly the synchronized-poll shape #3536 exists to
+    throttle.
+    """
+    if not is_test_stage_routing_dead_end_reason(entry.last_reason):
+        return None
+    clear = (live_test_routing_clear or {}).get(entry.key)
+    if not clear:
+        return None
+    age = _park_reading_age(entry, now)
+    if age is not None and age < TEST_STAGE_ROUTING_RECHECK_GRACE_SECONDS:
+        return None
+    live_reason = (live_test_routing_reason or {}).get(entry.key) or (
+        "a capability-matched machine is now free and healthy"
+    )
+    if entry.resumes >= MAX_BLOCKED_RESUMES:
+        # #3695 review: this write must NEVER replace `entry.last_reason`
+        # wholesale — doing so strips the `(#1672)`/`(#2019)` markers
+        # `is_test_stage_routing_dead_end_reason`/`is_permanent_block_reason`
+        # both need to keep classifying this row correctly on every LATER
+        # tick. `_with_test_routing_probe_note` layers this tick's finding on
+        # top of the original cause instead (same convention as
+        # `_with_blocked_gate_probe_note`) — see
+        # :data:`_TEST_ROUTING_PROBE_NOTE_SEP` for the incident this avoids.
+        probe_note = (
+            f"{entry.key}'s Test-stage routing reads clear again "
+            f"({live_reason}), but this entry has already been auto-resumed "
+            f"{entry.resumes} time(s) and dead-ended on the routing block "
+            "every time — staying blocked rather than oscillating (#2230, "
+            "#3695); look at what keeps re-blocking it, not just this tick's "
+            "fleet reading"
+        )
+        reason = _with_test_routing_probe_note(entry.last_reason, probe_note)
+        if reason == entry.last_reason:
+            # Nothing new to report — same finding as an earlier tick
+            # already recorded; skip the write rather than re-stamping an
+            # identical string forever.
+            return None
+        return Reconcile(
+            entry.key,
+            "oscillating",
+            reason,
+            occupies=False,
+            updates={"last_reason": reason},
+        )
+    reason = (
+        f"{entry.key}'s Test-stage routing dead end has self-cleared: "
+        f"{live_reason} — resuming from blocked without an operator "
+        f"`coord diagnose --stage test --reset`, attempt budget reset "
+        f"(resume {entry.resumes + 1}/{MAX_BLOCKED_RESUMES}) (#3695)"
+    )
+    return Reconcile(
+        entry.key,
+        "test_routing_recovered",
+        reason,
+        occupies=False,
+        updates={
+            "state": STATE_WAITING,
+            "attempts": 0,
+            "resumes": entry.resumes + 1,
+            "last_reason": reason,
+        },
     )
 
 
@@ -6559,6 +6806,8 @@ def plan_tick(
     max_resumes_per_tick_per_repo: int | None = DEFAULT_MAX_RESUMES_PER_TICK_PER_REPO,
     live_running_merge_gate: Mapping[str, bool] | None = None,
     live_running_merge_gate_reason: Mapping[str, str] | None = None,
+    live_test_routing_clear: Mapping[str, bool] | None = None,
+    live_test_routing_reason: Mapping[str, str] | None = None,
 ) -> TickPlan:
     """Decide one tick.  Pure; the caller executes the returned plan.
 
@@ -6933,6 +7182,27 @@ def plan_tick(
     other than `blocked` is unaffected. ``None`` or ``0`` disables the cap
     entirely (unstaggered — the only behaviour this repo's test suite
     exercised before #3536).
+
+    *live_test_routing_clear* (#3695) maps a `blocked` entry's key to
+    whether a FRESH re-check taken live THIS tick by
+    :func:`coord.commands.drive_queue._fetch_live_test_routing_clear`
+    (composing :func:`coord.smoke.required_caps_from_test_reason` and
+    :func:`coord.smoke.test_stage_routable_now` — the SAME capability/
+    pause/cordon/cap-check logic dispatch-time ``rank_smoke_machines``
+    already uses) found at least one capability-matched, unpaused,
+    uncordoned machine under its cap whose cached health agrees with its
+    declared capabilities. Threaded straight through to
+    :func:`_reconcile_blocked_test_routing`, called BEFORE
+    :func:`_reconcile_blocked` in the `STATE_BLOCKED` branch below — the
+    ONLY re-check this issue authorises for a `test_stage_blocked` routing
+    dead end, which :func:`is_permanent_block_reason` otherwise treats as
+    permanent, same as every other `(#2019)` shape. A key ABSENT here (no
+    live opinion this tick) leaves the row `blocked`, unchanged.
+
+    *live_test_routing_reason* (#3695) is *live_test_routing_clear*'s own
+    human-readable sibling, folded into the self-clear's `last_reason` so
+    `coord drive-queue list`/`status` shows WHAT became routable, not just
+    that something did.
     """
     ordered = sorted(entries, key=lambda e: (e.position, e.key))
     states: dict[str, str] = {e.key: e.state for e in ordered}
@@ -7186,6 +7456,22 @@ def plan_tick(
                 effective_last_reason,
             )
             if blocked_reconcile is None:
+                # #3695: re-check a Test-stage routing dead end (no
+                # capability-matched machine was routable/healthy at
+                # dispatch time — fleet state, not a permanent cause)
+                # BEFORE `_reconcile_blocked` below, which bails out
+                # immediately via `is_permanent_block_reason` for every
+                # `(#2019)` dead end, including this one — it would never
+                # see this row otherwise. See
+                # :func:`_reconcile_blocked_test_routing` for the full
+                # decision.
+                blocked_reconcile = _reconcile_blocked_test_routing(
+                    entry,
+                    now,
+                    live_test_routing_clear,
+                    live_test_routing_reason,
+                )
+            if blocked_reconcile is None:
                 # #2230: re-examine a `blocked` entry against the CURRENT gate
                 # reading before falling through to the `parked`-only
                 # machinery below, which must never run for `blocked` —
@@ -7227,7 +7513,8 @@ def plan_tick(
             # explaining why, instead of all firing at once.
             if (
                 blocked_reconcile is not None
-                and blocked_reconcile.outcome in ("resumed", "merge_only")
+                and blocked_reconcile.outcome
+                in ("resumed", "merge_only", "test_routing_recovered")
                 and max_resumes_per_tick_per_repo is not None
                 and max_resumes_per_tick_per_repo > 0
             ):

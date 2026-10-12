@@ -621,6 +621,7 @@ typedef struct {
    element child plus any comment/PI siblings; any other node is the subtree apex.
    PyMem-allocated; *out_len receives the length. NULL on failure. */
 Py_UCS4 *th_node_canonicalize(th_tree *tree, th_node *node, const th_c14n_opts *opts, Py_ssize_t *out_len);
+Py_UCS4 *th_node_canonicalize_xml(th_tree *tree, th_node *node, const th_c14n_opts *opts, Py_ssize_t *out_len);
 
 /* The Markdown export configuration, a union of the markdownify and html2text
    knobs with one name per concept. The Python binding fills it from keyword
@@ -688,6 +689,7 @@ typedef struct {
     int google_doc;                           /* read inline-CSS styling the way a Google Docs export encodes it */
     int google_list_indent;                   /* px of margin-left per list-nesting level (>= 1); divides margin-left */
     int hide_strikethrough;                   /* in google_doc mode, drop text a CSS line-through struck */
+    int raw_list_html;                        /* default options permit ordinal-preserving HTML fallback */
     int tag_filter;                           /* enum th_md_filter selecting how filter_tags reads */
     uint64_t filter_tags[TH_MD_FILTER_WORDS]; /* atoms named by strip (denylist) or convert (allowlist) */
     /* Per-tag converter hook: a registered tag's built-in rendering is replaced by a

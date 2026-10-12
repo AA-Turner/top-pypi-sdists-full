@@ -17,7 +17,7 @@ from typing import cast
 
 from public import public
 
-from flufl.bounce.interfaces import NoFailures, NoTemporaryFailures, Recipients
+from flufl.bounce._interfaces import NoFailures, NoTemporaryFailures, Recipients
 
 
 pcre = re.compile(b'This Message was undeliverable due to the following reason:', re.IGNORECASE)
@@ -31,33 +31,34 @@ class Netscape:
 
     def process(self, msg: Message) -> tuple[Recipients, Recipients]:
         """See `BounceDetector`."""
-
         # Sigh.  Some NMS 3.6's show
         #     multipart/report; report-type=delivery-status
         # and some show
         #     multipart/mixed;
         if not msg.is_multipart():
             return NoFailures
-        # We're looking for a text/plain subpart occuring before a
-        # message/delivery-status subpart.
+        # We're looking for a text/plain subpart occurring before a message/delivery-status subpart,
+        # so the last leaf can never be it.
         plainmsg = None
         leaves = [p for p in msg.walk() if not p.is_multipart()]
-        for _i, subpart in zip(range(len(leaves) - 1), leaves, strict=False):
+        for subpart in leaves[:-1]:
             if subpart.get_content_type() == 'text/plain':
                 plainmsg = subpart
                 break
-        if not plainmsg:
+        # A text/plain leaf with no headers is falsy (len() counts headers), so test for None rather
+        # than truth.
+        if plainmsg is None:
             return NoFailures
         # Total guesswork, based on captured examples...
-        # plainmsg is the selected text/plain leaf, so the decoded payload is
-        # bytes at runtime; pyrefly sees the wider Message | bytes | Any union.
+        #
+        # plainmsg is the selected text/plain leaf, so the decoded payload is bytes at runtime;
+        # pyrefly sees the wider Message | bytes | Any union.
         body = BytesIO(cast(bytes, plainmsg.get_payload(decode=True)))
         addresses: set[bytes] = set()
         for line in body:
             if mo := pcre.search(line):
-                # We found a bounce section, but I have no idea what the
-                # official format inside here is.  :( We'll just search for
-                # <addr> strings.
+                # We found a bounce section, but I have no idea what the official format inside here
+                # is.  :( We'll just search for <addr> strings.
                 for line in body:
                     if (mo := acre.search(line)) and not mo.group('reply'):
                         addresses.add(mo.group('addr'))

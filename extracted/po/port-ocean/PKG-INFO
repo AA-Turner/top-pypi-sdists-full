@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: port-ocean
-Version: 0.53.5
+Version: 0.53.7
 Summary: Port Ocean is a CLI tool for managing your Port projects.
 License-File: LICENSE.md
 Keywords: ocean,port-ocean,port
@@ -79,7 +79,7 @@ empowering engineers to effortlessly prioritize key features and streamline the 
 
 ## Prerequisites
 
-- Python 3.11
+- Python 3.12
 
 ## Installation
 

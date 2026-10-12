@@ -4,7 +4,7 @@ used types to reduce the verbosity of the imports statements.
 """
 
 __author__ = "Roberto Prevato <roberto.prevato@gmail.com>"
-__version__ = "2.6.3"
+__version__ = "2.6.4"
 
 from .contents import Content as Content
 from .contents import FileBuffer as FileBuffer
@@ -34,6 +34,7 @@ from .server.bindings import ClientInfo as ClientInfo
 from .server.bindings import FromBody as FromBody
 from .server.bindings import FromBytes as FromBytes
 from .server.bindings import FromCookie as FromCookie
+from .server.bindings import FromFile as FromFile
 from .server.bindings import FromFiles as FromFiles
 from .server.bindings import FromForm as FromForm
 from .server.bindings import FromHeader as FromHeader

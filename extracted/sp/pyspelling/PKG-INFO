@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pyspelling
-Version: 2.12.1
+Version: 2.13
 Summary: Spell checker.
 Project-URL: Homepage, https://github.com/facelessuser/pyspelling
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>
@@ -13,21 +13,20 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Requires-Dist: beautifulsoup4
 Requires-Dist: html5lib
 Requires-Dist: lxml
 Requires-Dist: markdown
 Requires-Dist: pyyaml
-Requires-Dist: soupsieve>=1.8
+Requires-Dist: soupsieve>=3.0.1
 Requires-Dist: wcmatch>=8.5
 Description-Content-Type: text/markdown
 

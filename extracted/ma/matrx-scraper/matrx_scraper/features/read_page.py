@@ -14,6 +14,8 @@ from matrx_scraper.features.extensions import get_condenser_1
 from matrx_scraper.utils.proxy import redact_url_secrets
 
 LOCAL_DEBUG = False
+#: Records a routed page read asks for (review datasets return one record per review).
+ROUTE_MAX_RECORDS = 10
 
 
 class ReadPageFetchError(RuntimeError):
@@ -63,10 +65,81 @@ async def _emit_progress(
         await stream_handler.send_tool_event(event)
 
 
+async def _route_site_data(url: str) -> tuple[dict[str, Any] | None, str | None]:
+    """Route-first lane: a URL a VERIFIED site-data dataset covers is answered with
+    structured records BEFORE the HTTP fetch. Fires only when the host injected a
+    Bright Data client (only a metering host does). Returns ``(result, None)`` on
+    success, ``(None, notice)`` when it tried and failed (the caller falls through
+    and says so), ``(None, None)`` when it did not apply."""
+    from matrx_scraper._ext import get_ext, has_ext
+    from matrx_scraper.features import site_data
+
+    if not url or not site_data.is_configured():
+        return None, None
+    entry = site_data.match(url)
+    if entry is None:
+        return None, None
+    if has_ext(site_data.EXT_ROUTE_ENABLED):
+        try:
+            if not await get_ext(site_data.EXT_ROUTE_ENABLED)():
+                return None, None
+        except Exception as exc:  # noqa: BLE001 - knob read failed: lean open, announce
+            vcprint(f"[read_page] site-data route knob unreadable ({exc!r}); routing", color="yellow")
+    try:
+        res = await site_data.fetch(url=url, max_records=ROUTE_MAX_RECORDS, timeout_s=120.0)
+    except Exception as exc:  # noqa: BLE001 - a refusal (spend gate) or a defect: read directly, say so
+        if not getattr(exc, "is_caller_refusal", False):
+            await capture_error(exc, kind="scraper_site_data_route_failed", context={"url": url})
+        return None, (
+            f"Site data via Bright Data ({entry.label}) was not used ({type(exc).__name__}: "
+            f"{getattr(exc, 'message', None) or exc}). This is the page read directly instead."
+        )
+    if not res.ok:
+        return None, (
+            f"Site data via Bright Data ({entry.label}) did not answer: {res.message} "
+            "This is the page read directly instead."
+        )
+    prov = res.provenance
+    return {
+        "status": "success",
+        "result": res.rendering,
+        "text": res.rendering,
+        "url": url,
+        "engine": "site_data:brightdata",
+        "provenance": prov,
+        "records": res.records,
+        "page": {
+            "success": True,
+            "url": url,
+            "response_url": url,
+            "content_type": "application/json",
+            "text_data": res.rendering,
+            "ai_research_with_images": res.rendering,
+            "engine": "site_data:brightdata",
+            "provenance": prov,
+            "raw_html": None,
+        },
+    }, None
+
+
 async def read_page_mcp_quick(url: str = None, stream_handler=None, call_id=None):
     if stream_handler:
         await _emit_progress(stream_handler, f"Browsing {url}", call_id=call_id)
 
+    routed, site_data_notice = await _route_site_data(url)
+    if routed is not None:
+        return routed
+    result = await _read_page_http(url)
+    if site_data_notice:
+        result["site_data_notice"] = site_data_notice
+        if result.get("status") == "success":
+            result["text"] = f"[{site_data_notice}]\n\n{result.get('text', '')}"
+        else:
+            result["result"] = f"{result.get('result', '')} ({site_data_notice})"
+    return result
+
+
+async def _read_page_http(url: str) -> dict[str, Any]:
     response = await fetch_normally_with_proxy(url)
 
     has_content = response.content or response.content_bytes

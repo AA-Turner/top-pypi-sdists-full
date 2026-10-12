@@ -57,6 +57,27 @@ class PythonFileContext:
     def nodes[NodeT: ast.AST](self, *types: type[NodeT]) -> list[NodeT]:
         return [node for node in self.node_index.query(types) if isinstance(node, types)]
 
+    @cached_property
+    def has_wildcard_import(self) -> bool:
+        return any(alias.name == "*" for node in self.nodes(ast.ImportFrom) for alias in node.names)
+
+    @cached_property
+    def consumed_docstring_names(self) -> frozenset[str]:
+        from sarj_python_lint.rules._docstrings import consumed_docstring_names  # ruff: ignore[import-outside-top-level] -- share runtime docstring analysis only when requested.
+
+        return consumed_docstring_names(self._valid_tree(), node_index=self.node_index)
+
+    @cached_property
+    def docstring_node_ids(self) -> frozenset[int]:
+        result: set[int] = set()
+        for owner in self.nodes(ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef):
+            if not owner.body or not isinstance(owner.body[0], ast.Expr):
+                continue
+            value = owner.body[0].value
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                result.add(id(value))
+        return frozenset(result)
+
     @property
     def parents(self) -> Mapping[ast.AST, ast.AST]:
         return self.node_index.parents

@@ -7,7 +7,8 @@ train/eval path already persists:
 
 - a checkpoint directory's ``rl_agent_config.json`` (``training.laya_train`` and
   ``training.laya_train_calibration`` as written by merged #931/#933);
-- an existing ``laya-evals`` report JSON (identity semantics from `laya.evals`).
+- an existing ``laya-evals`` report JSON (its identity vocabulary is a copy of `laya.evals`' own,
+  pinned against it by `tests/test_evidence.py`).
 
 Every state it assigns is either derived directly from an upstream artifact or
 marked UNKNOWN. It never manufactures a healthy-looking state from absent input.
@@ -24,11 +25,7 @@ INSUFFICIENT = "INSUFFICIENT"
 UNKNOWN = "UNKNOWN"
 INCOMPARABLE = "INCOMPARABLE"
 
-# Documented upstream floors/thresholds. `laya.calibrate.MIN_TYPE_N` and
-# `laya.train.CALIB_WARN_N` live in modules that import torch at module scope, so a
-# read-only command cannot import them without pulling torch in. We prefer the live
-# constants when torch is importable and fall back to the documented values with an
-# explicit provenance note when it is not; we never silently duplicate.
+
 def _entry(state: str, reason: str, detail: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     out = {"state": state, "reason": reason}
     if detail:
@@ -55,7 +52,10 @@ def inspect_calibration(config: Dict[str, Any]) -> Dict[str, Any]:
             continue
         # Persisted issues are the authoritative limitation text (#933 writes
         # not-fitted/below-floor/clamped/unchanged-fit there); we do not keep a
-        # second numeric source of truth.
+        # second numeric source of truth. `laya/calibrate.py::MIN_TYPE_N` and
+        # `laya/train.py::CALIB_WARN_N` could not be imported here even if a recomputed
+        # floor were wanted: both modules import torch at module scope, and this read-only
+        # path has to run without it.
         issues = entry.get("issues")
         if not isinstance(issues, list):
             types[name] = _entry(UNKNOWN, "calibration entry has no issues list; cannot tell limitations")
@@ -74,23 +74,37 @@ def inspect_calibration(config: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+#: The report-identity vocabulary, copied from `laya.evals._IDENTITY_KEYS`. The copy is deliberate:
+#: `laya.evals` imports numpy at module scope, and this module reads a checkpoint directory and a
+#: report JSON with nothing but `json` and `os` on its import path. That is also why
+#: `tests/test_evidence.py` holds the copy against the original in both directions -- a key renamed
+#: upstream would make every report read as identity-incomplete here, and a key added upstream would
+#: read as complete, and neither would fail anything else.
+_IDENTITY_KEYS = ("schema", "dataset_sha256", "questions_sha256")
+
+#: Read as provenance, never required for the identity verdict, because `laya.evals` records
+#: `laya_version` in `config` and deliberately does not compare it
+#: (`laya/evals.py::EvalReport.comparable_to`): a patch release must not invalidate a baseline.
+_PROVENANCE_KEYS = ("laya_version",)
+
+#: The part of that vocabulary two artifacts can actually disagree on. `schema` tags the report, not
+#: the checkpoint, so it is identity for a report and never a checkpoint <-> report conflict.
+_IDENTITY_CONFLICT_KEYS = ("dataset_sha256", "questions_sha256")
+
+
 def inspect_report(report: Dict[str, Any]) -> Dict[str, Any]:
-    """Evidence state of an eval report's identity fields (reuses EvalReport semantics)."""
+    """Evidence state of an eval report's identity fields, on the vocabulary declared above."""
     config = report.get("config")
     if not isinstance(config, dict):
         return _entry(UNKNOWN, "report has no config block; identity unknown")
     fields = {}
-    for key in ("schema", "dataset_sha256", "questions_sha256", "laya_version"):
+    for key in _IDENTITY_KEYS + _PROVENANCE_KEYS:
         value = config.get(key)
         if value is None and report.get(key) is not None:
             value = report.get(key)
         fields[key] = _entry(PRESENT, "recorded", {"value": value}) if value is not None else _entry(UNKNOWN, "not recorded in this report")
-    identity_keys = [fields["schema"], fields["dataset_sha256"], fields["questions_sha256"]]
-    overall = PRESENT if all(f["state"] == PRESENT for f in identity_keys) else UNKNOWN
+    overall = PRESENT if all(fields[key]["state"] == PRESENT for key in _IDENTITY_KEYS) else UNKNOWN
     return {"state": overall, "fields": fields}
-
-
-_IDENTITY_CONFLICT_KEYS = ("dataset_sha256", "questions_sha256")
 
 
 def _field(config_like: Any, key: str) -> Any:

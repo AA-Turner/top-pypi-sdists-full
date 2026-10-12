@@ -43,6 +43,7 @@ class InstallState:
         self.packages = []
         self.editables = []
         self.extra_pip_args = []
+        self.config_settings = []
         self.categories = []
         self.skip_lock = False
         self.all_categories = False
@@ -180,6 +181,17 @@ def _add_extra_pip_args(p):
         dest="extra_pip_args",
         default=None,
         help="Additional arguments passed directly to pip.",
+    )
+
+
+def _add_config_settings_option(p):
+    p.add_argument(
+        "--config-settings",
+        dest="config_settings",
+        action="append",
+        default=None,
+        metavar="KEY=VALUE",
+        help="Pass a build-backend configuration setting to pip for this package.",
     )
 
 
@@ -329,6 +341,35 @@ def _add_resolver_option(p):
     )
 
 
+def _add_backend_option(p):
+    """T_PLUMBING (Initiative G phase 3): constrained backend selector.
+
+    User-facing surface for the pluggable resolver-backend dispatcher.
+    ``--backend NAME`` is the documented spelling on ``pipenv lock``;
+    accepted values are ``pip`` (default) and ``pure-python``.  Unlike
+    ``--resolver NAME`` (kept for back-compat with T_F.5 scaffolding),
+    this flag validates the value at parse time via ``choices=`` so
+    typos fail with an actionable error instead of falling through to
+    the dispatcher's KeyError → InternalError translation.
+
+    When both flags are supplied, ``--backend`` wins (it's the
+    constrained form; ``--resolver`` is a free-form passthrough kept
+    for the older T_F.5 surface).  When neither is set, the dispatcher
+    falls through to PIPENV_RESOLVER / ``[pipenv] resolver_backend`` /
+    ``[pipenv] resolver`` / ``"pip"``.
+    """
+    p.add_argument(
+        "--backend",
+        dest="backend",
+        choices=("pip", "pure-python"),
+        default=None,
+        help=(
+            "Resolver backend to use.  Defaults to "
+            "[pipenv] resolver_backend in Pipfile, then 'pip'."
+        ),
+    )
+
+
 # ── Option group composers ────────────────────────────────────────────────────
 
 
@@ -362,6 +403,7 @@ def _add_sync_options(p):
 
 def _add_install_options(p):
     _add_sync_options(p)
+    _add_config_settings_option(p)
     _add_index_option(p)
     _add_requirementstxt_option(p)
     _add_ignore_pipfile_option(p)
@@ -375,6 +417,11 @@ def _add_lock_options(p):
     _add_dev_option(p, help_text="Generate both develop and default requirements.")
     _add_dev_only_flag(p)
     _add_categories_option(p)
+    # T_PLUMBING (Initiative G phase 3): constrained backend selector.
+    # ``--backend pure-python`` routes through PurePythonBackend; the
+    # default ``--backend pip`` (or no flag at all) preserves
+    # byte-identical pre-T_PLUMBING behaviour.
+    _add_backend_option(p)
 
 
 def _add_uninstall_options(p):
@@ -441,7 +488,7 @@ def apply_env_vars(namespace):
             try:
                 setattr(namespace, dest, env_to_bool(raw))
             except ValueError:
-                pass
+                pass  # Ignore malformed boolean overrides and keep the default.
         else:
             setattr(namespace, dest, raw)
 
@@ -455,7 +502,6 @@ class _PipenvArgumentParser(argparse.ArgumentParser):
 
     def error(self, message: str) -> None:
         import difflib
-        import re
 
         m = re.search(r"invalid choice: '([^']+)'", message)
         if m:
@@ -809,6 +855,14 @@ def build_parser():
     p.add_argument("-h", "--help", dest="help", action="store_true", default=False)
     _add_system_option(p)
     p.add_argument("--bare", action="store_true", default=False)
+    p.add_argument(
+        "--clean",
+        dest="clean",
+        action="store_true",
+        default=False,
+        help="Also uninstall packages not specified in Pipfile.lock "
+        "(same as running `pipenv clean` afterwards).",
+    )
     _add_sync_options(p)
     _add_site_packages_option(p)
 
@@ -858,6 +912,7 @@ def build_parser():
         "--from-pipfile", dest="from_pipfile", action="store_true", default=False
     )
     p.add_argument("--no-lock", dest="no_lock", action="store_true", default=False)
+    _add_pypi_mirror_option(p)
 
     # ── pylock ────────────────────────────────────────────────────────────────
     p = subs.add_parser(
@@ -899,11 +954,17 @@ def build_state(args):
     state.system = bool(getattr(args, "system", None))
     state.verbose = bool(getattr(args, "verbose", None))
     state.quiet = bool(getattr(args, "quiet", None))
-    # T_F.5: resolver-backend selection.  ``None`` means "not specified
-    # on the CLI"; the dispatcher then falls through to PIPENV_RESOLVER
-    # / [pipenv] resolver / default.
+    # T_F.5 / T_PLUMBING: resolver-backend selection.  ``None`` means
+    # "not specified on the CLI"; the dispatcher then falls through to
+    # PIPENV_RESOLVER / [pipenv] resolver_backend / [pipenv] resolver
+    # / default.  The constrained ``--backend NAME`` flag (T_PLUMBING,
+    # Initiative G phase 3) takes precedence over the free-form
+    # ``--resolver NAME`` flag (T_F.5 scaffolding) when both are
+    # supplied — ``--backend`` is the documented user-facing surface.
+    raw_backend = getattr(args, "backend", None)
     raw_resolver = getattr(args, "resolver", None)
-    state.resolver = raw_resolver.strip() if isinstance(raw_resolver, str) and raw_resolver.strip() else None
+    chosen = raw_backend if raw_backend else raw_resolver
+    state.resolver = chosen.strip() if isinstance(chosen, str) and chosen.strip() else None
 
     # ── Validation ───────────────────────────────────────────────────────────
     if state.python:
@@ -947,6 +1008,10 @@ def build_state(args):
     raw_extra_pip_args = getattr(args, "extra_pip_args", None)
     if raw_extra_pip_args:
         state.installstate.extra_pip_args = raw_extra_pip_args.split()
+
+    state.installstate.config_settings = list(
+        getattr(args, "config_settings", None) or []
+    )
 
     state.installstate.packages = list(getattr(args, "packages", []))
     state.installstate.editables = list(getattr(args, "editables", None) or [])

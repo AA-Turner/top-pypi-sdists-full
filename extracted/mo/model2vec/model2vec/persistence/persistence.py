@@ -13,8 +13,10 @@ from tokenizers import Tokenizer
 
 from model2vec.modelcards import create_model_card as make_model_card
 from model2vec.modelcards import get_metadata_from_readme
-from model2vec.persistence.datamodels import FOLDER_LAYOUTS, Layout
+from model2vec.persistence.datamodels import FOLDER_LAYOUTS, Layout, get_all_model2vec_paths
 from model2vec.persistence.hf import maybe_get_cached_model_path
+from model2vec.persistence.utils import SilentTqdm
+from model2vec.types import StaticModelConfig
 from model2vec.utils import SafeOpenProtocol
 
 logger = logging.getLogger(__name__)
@@ -24,7 +26,7 @@ def save_pretrained(
     folder_path: Path,
     embeddings: np.ndarray,
     tokenizer: Tokenizer,
-    config: dict[str, Any],
+    config: StaticModelConfig,
     create_model_card: bool = True,
     subfolder: str | None = None,
     weights: np.ndarray | None = None,
@@ -62,14 +64,16 @@ def save_pretrained(
         cfg["vocabulary_quantization"] = int(embeddings.shape[0])
     else:
         cfg.pop("vocabulary_quantization", None)
-    json.dump(cfg, open(folder_path / "config.json", "w"), indent=4)
+    with open(folder_path / "config.json", "w") as config_file:
+        json.dump(cfg, config_file, indent=4)
 
     # Create modules.json
     modules = [{"idx": 0, "name": "0", "path": ".", "type": "sentence_transformers.models.StaticEmbedding"}]
     if cfg.get("normalize"):
         # If normalize=True, add sentence_transformers.models.Normalize
         modules.append({"idx": 1, "name": "1", "path": "1_Normalize", "type": "sentence_transformers.models.Normalize"})
-    json.dump(modules, open(folder_path / "modules.json", "w"), indent=4)
+    with open(folder_path / "modules.json", "w") as modules_file:
+        json.dump(modules, modules_file, indent=4)
 
     logger.info(f"Saved model to {folder_path}")
 
@@ -83,7 +87,7 @@ def load_pretrained(
     subfolder: str | None,
     token: str | None,
     force_download: bool,
-) -> tuple[np.ndarray, Tokenizer, dict[str, Any], dict[str, Any], np.ndarray | None, np.ndarray | None]:
+) -> tuple[np.ndarray, Tokenizer, StaticModelConfig, dict[str, Any], np.ndarray | None, np.ndarray | None]:
     """Loads a pretrained model from a folder.
 
     :param folder_or_repo_path: The folder or repo path to load from.
@@ -99,7 +103,9 @@ def load_pretrained(
     folder_or_repo_path = Path(folder_or_repo_path)
 
     # We resolve a folder or repo path to an actual local folder.
-    folder = _resolve_folder(folder_or_repo_path=folder_or_repo_path, token=token, force_download=force_download)
+    folder = _resolve_folder(
+        folder_or_repo_path=folder_or_repo_path, subfolder=subfolder, token=token, force_download=force_download
+    )
 
     if subfolder:
         folder = folder / subfolder
@@ -127,26 +133,45 @@ def load_pretrained(
         metadata = {}
 
     tokenizer: Tokenizer = Tokenizer.from_file(str(selected_layout.tokenizer))
-    config = json.load(open(selected_layout.config))
+    with open(selected_layout.config) as config_file:
+        config = json.load(config_file)
 
     return embeddings, tokenizer, config, metadata, weights, mapping
 
 
-def _resolve_folder(folder_or_repo_path: Path, token: str | None, force_download: bool) -> Path:
+def _resolve_folder(folder_or_repo_path: Path, subfolder: str | None, token: str | None, force_download: bool) -> Path:
     """Resolve a folder locally or from hugging face hub."""
     if folder_or_repo_path.exists():
         return folder_or_repo_path
     # We now know we're dealing with either an invalid path, or
     # a HF model ID.
     if not force_download:
-        if folder := maybe_get_cached_model_path(str(folder_or_repo_path)):
+        folder = maybe_get_cached_model_path(str(folder_or_repo_path))
+        if folder is not None and _has_valid_layout(folder / subfolder if subfolder else folder):
             return folder
 
+    allow_patterns = [*get_all_model2vec_paths(), "README.md"]
+    if subfolder:
+        allow_patterns = [f"{subfolder.strip('/')}/{pattern}" for pattern in allow_patterns]
+
+    # We use `tqdm_class=SilentTqdm` to disable download progress bars.
+    # No partial because that doesn't always work, this is safer.
     folder = Path(
-        huggingface_hub.snapshot_download(str(folder_or_repo_path.as_posix()), repo_type="model", token=token)
+        huggingface_hub.snapshot_download(
+            str(folder_or_repo_path.as_posix()),
+            repo_type="model",
+            token=token,
+            tqdm_class=SilentTqdm,
+            allow_patterns=allow_patterns,
+        )
     )
 
     return folder
+
+
+def _has_valid_layout(folder: Path) -> bool:
+    """Check if any known layout is present in a folder."""
+    return any(layout.with_parent(folder).is_valid() for layout in FOLDER_LAYOUTS)
 
 
 def _get_paths(folder: Path) -> Layout:

@@ -2182,55 +2182,74 @@ function orphanKindFor(ch, next2) {
   if (ch.charCodeAt(0) !== ESC) return TOKEN_KIND.ORPHAN_C1;
   return next2 === "[" ? TOKEN_KIND.ORPHAN_CSI : TOKEN_KIND.ORPHAN;
 }
-function scanControlString(text5, start) {
-  const code4 = text5.charCodeAt(start);
-  const second = code4 === ESC ? text5[start + 1] : void 0;
+function scanControlString(text6, start) {
+  const code4 = text6.charCodeAt(start);
+  const second = code4 === ESC ? text6[start + 1] : void 0;
   const sevenBit = second !== void 0 && STRING_INTRO_7BIT.includes(second);
   if (!sevenBit && !STRING_INTRO_C1.has(code4)) return null;
   const kind2 = second === OSC_7BIT || code4 === OSC_C1 ? TOKEN_KIND.OSC : TOKEN_KIND.CONTROL_STRING;
   let i = sevenBit ? start + 2 : start + 1;
-  for (; i < text5.length; i++) {
-    const byte = text5.charCodeAt(i);
+  for (; i < text6.length; i++) {
+    const byte = text6.charCodeAt(i);
     if (byte === BEL || byte === ST_C1 || byte === CAN || byte === SUB)
       return { end: i + 1, kind: kind2 };
-    if (byte === ESC) return { end: text5[i + 1] === "\\" ? i + 2 : i, kind: kind2 };
+    if (byte === ESC) return { end: text6[i + 1] === "\\" ? i + 2 : i, kind: kind2 };
     if (STRING_INTRO_C1.has(byte) || byte === LF || byte === CR)
       return { end: i, kind: kind2 };
   }
-  return { end: text5.length, kind: kind2 };
+  return { end: text6.length, kind: kind2 };
 }
-function scanCsi(text5, start) {
-  const code4 = text5.charCodeAt(start);
-  if (code4 !== ESC && code4 !== CSI_C1) return -1;
+function sequenceEnd(text6, i, finalRe) {
+  if (i >= text6.length) return -1;
+  if (finalRe.test(text6[i]) || SEQUENCE_CANCEL.includes(text6.charCodeAt(i)))
+    return i + 1;
+  return INTRODUCER_RE.test(text6[i]) ? i : -1;
+}
+function scanCsi(text6, start) {
+  const code4 = text6.charCodeAt(start);
+  let i;
+  if (code4 === CSI_C1) i = start + 1;
+  else if (code4 === ESC && text6[start + 1] === "[") i = start + 2;
+  else return -1;
+  while (i < text6.length && CSI_BODY_RE.test(text6[i])) i++;
+  return sequenceEnd(text6, i, CSI_FINAL_RE);
+}
+function scanEscape(text6, start) {
+  if (text6.charCodeAt(start) !== ESC) return -1;
   let i = start + 1;
-  while (i < text5.length && CSI_INTRO_RE.test(text5[i])) i++;
-  while (i < text5.length && CSI_PARAM_RE.test(text5[i])) i++;
-  if (i < text5.length && CSI_FINAL_RE.test(text5[i])) return i + 1;
-  return -1;
+  while (i < text6.length && ESC_INTERMEDIATE_RE.test(text6[i])) i++;
+  if (i > start + 1) return sequenceEnd(text6, i, ESC_FINAL_RE);
+  if (i >= text6.length) return -1;
+  const directEnd = ESC_DIRECT_FINAL_RE.test(text6[i]) || SEQUENCE_CANCEL.includes(text6.charCodeAt(i));
+  return directEnd ? i + 1 : -1;
 }
-function scanAnsi(text5) {
+function isCancelledOrphan(text6, token) {
+  return isOrphanKind(token.kind) && token.end < text6.length && INTRODUCER_RE.test(text6[token.end]);
+}
+function scanAnsi(text6) {
   const tokens = [];
   INTRODUCER_SCAN_RE.lastIndex = 0;
   let match;
-  while ((match = INTRODUCER_SCAN_RE.exec(text5)) !== null) {
+  while ((match = INTRODUCER_SCAN_RE.exec(text6)) !== null) {
     const start = match.index;
-    const string3 = scanControlString(text5, start);
-    const csiEnd = string3 ? -1 : scanCsi(text5, start);
+    const string3 = scanControlString(text6, start);
+    let csiEnd = string3 ? -1 : scanCsi(text6, start);
+    if (!string3 && csiEnd < 0) csiEnd = scanEscape(text6, start);
     let end = start + 1;
-    let kind2 = orphanKindFor(text5[start], text5[start + 1]);
+    let kind2 = orphanKindFor(text6[start], text6[start + 1]);
     if (string3) {
       end = string3.end;
       kind2 = string3.kind;
     } else if (csiEnd >= 0) {
       end = csiEnd;
-      kind2 = SGR_ANCHORED_RE.test(text5.slice(start, csiEnd)) ? TOKEN_KIND.SGR : TOKEN_KIND.CSI;
+      kind2 = SGR_ANCHORED_RE.test(text6.slice(start, csiEnd)) ? TOKEN_KIND.SGR : TOKEN_KIND.CSI;
     }
     tokens.push({ start, end, kind: kind2 });
     INTRODUCER_SCAN_RE.lastIndex = end;
   }
   return tokens;
 }
-var CONTROL_INTRODUCER_CODEPOINTS, CONTROL_INTRODUCER_SOURCE, SGR_SOURCE, SGR_RE, SGR_ANCHORED_RE, CSI_INTRO_CLASS, CSI_INTRO_RE, CSI_PARAM_CLASS, CSI_PARAM_RE, CSI_FINAL_CLASS, CSI_FINAL_RE, ESC, CSI_C1, ST_C1, BEL, CAN, SUB, LF, CR, STRING_INTRO_7BIT, OSC_7BIT, OSC_C1, STRING_INTRO_C1, ESCAPE_SEQUENCE_SOURCE, TOKEN_KIND, INTRODUCER_SCAN_RE;
+var CONTROL_INTRODUCER_CODEPOINTS, CONTROL_INTRODUCER_SOURCE, SGR_SOURCE, SGR_RE, SGR_ANCHORED_RE, CSI_BODY_CLASS, CSI_BODY_RE, CSI_FINAL_CLASS, CSI_FINAL_RE, ESC, CSI_C1, ST_C1, BEL, CAN, SUB, LF, CR, SEQUENCE_CANCEL, INTRODUCER_RE, STRING_INTRO_7BIT, OSC_7BIT, OSC_C1, STRING_INTRO_C1, ESC_INTERMEDIATE_CLASS, ESC_INTERMEDIATE_RE, ESC_FINAL_CLASS, ESC_FINAL_RE, ESC_DIRECT_FINAL_CLASS, ESC_DIRECT_FINAL_RE, ESCAPE_SEQUENCE_SOURCE, TOKEN_KIND, INTRODUCER_SCAN_RE;
 var init_ansi = __esm({
   "src/ansi.mjs"() {
     "use strict";
@@ -2244,11 +2263,9 @@ var init_ansi = __esm({
     SGR_SOURCE = "(?:\\u001b\\[|\\u009b)[0-9;:]*m";
     SGR_RE = new RegExp(SGR_SOURCE, "g");
     SGR_ANCHORED_RE = new RegExp(`^${SGR_SOURCE}$`);
-    CSI_INTRO_CLASS = "[\\[()#;?]";
-    CSI_INTRO_RE = new RegExp(CSI_INTRO_CLASS);
-    CSI_PARAM_CLASS = "[0-9;:]";
-    CSI_PARAM_RE = new RegExp(CSI_PARAM_CLASS);
-    CSI_FINAL_CLASS = "[A-PR-TZcf-nqrty~]";
+    CSI_BODY_CLASS = "[ -?]";
+    CSI_BODY_RE = new RegExp(CSI_BODY_CLASS);
+    CSI_FINAL_CLASS = "[@-~]";
     CSI_FINAL_RE = new RegExp(CSI_FINAL_CLASS);
     ESC = 27;
     CSI_C1 = 155;
@@ -2258,10 +2275,22 @@ var init_ansi = __esm({
     SUB = 26;
     LF = 10;
     CR = 13;
+    SEQUENCE_CANCEL = [CAN, SUB];
+    INTRODUCER_RE = new RegExp(CONTROL_INTRODUCER_SOURCE);
     STRING_INTRO_7BIT = "]PX^_";
     OSC_7BIT = "]";
     OSC_C1 = 157;
     STRING_INTRO_C1 = /* @__PURE__ */ new Set([144, 152, OSC_C1, 158, 159]);
+    ESC_INTERMEDIATE_CLASS = "[ -/]";
+    ESC_INTERMEDIATE_RE = new RegExp(ESC_INTERMEDIATE_CLASS);
+    ESC_FINAL_CLASS = "[0-~]";
+    ESC_FINAL_RE = new RegExp(ESC_FINAL_CLASS);
+    ESC_DIRECT_FINAL_CLASS = charClass(
+      Array.from({ length: 126 - 48 + 1 }, (_, i) => 48 + i).filter(
+        (cp) => !`[${STRING_INTRO_7BIT}`.includes(String.fromCharCode(cp))
+      )
+    );
+    ESC_DIRECT_FINAL_RE = new RegExp(ESC_DIRECT_FINAL_CLASS);
     ESCAPE_SEQUENCE_SOURCE = (() => {
       const introducer7Bit = `${unicodeEscape(ESC)}${charClass(
         [...STRING_INTRO_7BIT].map((ch) => ch.charCodeAt(0))
@@ -2273,8 +2302,11 @@ var init_ansi = __esm({
       const escapeSt = `${unicodeEscape(ESC)}${unicodeEscape(92)}`;
       const terminator = `(?:${charClass(consumed)}|${escapeSt}|(?=${charClass(abortBefore)})|(?![\\s\\S]))`;
       const stringArm = `(?:${introducer7Bit}|${charClass(c1Introducers)})${body}${terminator}`;
-      const csiArm = `${charClass([ESC, CSI_C1])}${CSI_INTRO_CLASS}*(?!${CSI_INTRO_CLASS})${CSI_PARAM_CLASS}*${CSI_FINAL_CLASS}`;
-      return `(?:${stringArm}|${csiArm})`;
+      const ending = (finalClass) => `(?:${finalClass}|${charClass(SEQUENCE_CANCEL)}|(?=${CONTROL_INTRODUCER_SOURCE}))`;
+      const csiArm = `(?:${unicodeEscape(ESC)}\\[|${unicodeEscape(CSI_C1)})${CSI_BODY_CLASS}*${ending(CSI_FINAL_CLASS)}`;
+      const escapeArm = `${unicodeEscape(ESC)}(?:${ESC_INTERMEDIATE_CLASS}+${ending(ESC_FINAL_CLASS)}|${ESC_DIRECT_FINAL_CLASS}|${charClass(SEQUENCE_CANCEL)})`;
+      const cancelledArm = `${CONTROL_INTRODUCER_SOURCE}(?=${CONTROL_INTRODUCER_SOURCE})`;
+      return `(?:${stringArm}|${csiArm}|${escapeArm}|${cancelledArm})`;
     })();
     TOKEN_KIND = Object.freeze({
       /** A display-only `ESC[…m` / `U+009B…m` colour sequence. */
@@ -2298,9 +2330,9 @@ var init_ansi = __esm({
       /**
        * A 7-bit `ESC` that OPENS a CSI (`ESC [`) it never completes. Split from
        * {@link TOKEN_KIND.ORPHAN} because a terminal's CSI parser is STATEFUL: it
-       * keeps consuming what follows as parameters and intermediates until a final
-       * byte (0x40-0x7E) arrives, so `hello ESC[12 world` renders as `hello orld`
-       * — the ` w` is eaten as the sequence's intermediate and final. That is the
+       * executes a line break and keeps waiting for a final byte (0x40-0x7E), so
+       * `hello ESC[12` + LF + `world` renders `orld` on the second line — the `w`
+       * is eaten as the sequence's final. That is the
        * model-sees/human-sees divergence the gate exists for, so consumers that
        * downgrade an inert strip to a note must keep warning on this one; only a
        * lone `ESC` that opens nothing is inert.
@@ -2336,26 +2368,26 @@ function cfClassSource(codepoints) {
   }
   return src + "]";
 }
-function* findLongRuns(text5) {
+function* findLongRuns(text6) {
   let pos = 0;
   for (; ; ) {
     LONG_RUN_CHUNK_RE.lastIndex = pos;
-    const match = LONG_RUN_CHUNK_RE.exec(text5);
+    const match = LONG_RUN_CHUNK_RE.exec(text6);
     if (match === null) return;
     let end = LONG_RUN_CHUNK_RE.lastIndex;
     for (; ; ) {
       RUN_TAIL_RE.lastIndex = end;
-      if (RUN_TAIL_RE.exec(text5) === null) break;
+      if (RUN_TAIL_RE.exec(text6) === null) break;
       end = RUN_TAIL_RE.lastIndex;
     }
-    const run = text5.slice(match.index, end);
+    const run = text6.slice(match.index, end);
     yield { index: match.index, text: run, charCount: codePointLength(run) };
     pos = end;
   }
 }
-function hasLongRun(text5) {
+function hasLongRun(text6) {
   LONG_RUN_CHUNK_RE.lastIndex = 0;
-  return LONG_RUN_CHUNK_RE.test(text5);
+  return LONG_RUN_CHUNK_RE.test(text6);
 }
 function describeStripped(invisFound, deAnsi) {
   let msg = `Stripped: ${invisFound.map((code4) => CATEGORY_LABELS[code4]).join(", ")}`;
@@ -2388,14 +2420,14 @@ function memoizedCpPredicate(re) {
     return answer;
   };
 }
-function codePointArray(text5) {
-  const cps = new Int32Array(text5.length);
+function codePointArray(text6) {
+  const cps = new Int32Array(text6.length);
   let n = 0;
-  for (let i = 0; i < text5.length; i++) {
-    const unit = text5.charCodeAt(i);
+  for (let i = 0; i < text6.length; i++) {
+    const unit = text6.charCodeAt(i);
     let cp = unit;
-    if (unit >= 55296 && unit <= 56319 && i + 1 < text5.length) {
-      const low = text5.charCodeAt(i + 1);
+    if (unit >= 55296 && unit <= 56319 && i + 1 < text6.length) {
+      const low = text6.charCodeAt(i + 1);
       if (low >= 56320 && low <= 57343) {
         cp = (unit - 55296) * 1024 + (low - 56320) + 65536;
         i++;
@@ -2405,11 +2437,11 @@ function codePointArray(text5) {
   }
   return n === cps.length ? cps : cps.subarray(0, n);
 }
-function hasInvisibleCodePoint(text5) {
-  for (let i = 0; i < text5.length; i++) {
-    let cp = text5.charCodeAt(i);
-    if (cp >= 55296 && cp <= 56319 && i + 1 < text5.length) {
-      const low = text5.charCodeAt(i + 1);
+function hasInvisibleCodePoint(text6) {
+  for (let i = 0; i < text6.length; i++) {
+    let cp = text6.charCodeAt(i);
+    if (cp >= 55296 && cp <= 56319 && i + 1 < text6.length) {
+      const low = text6.charCodeAt(i + 1);
       if (low >= 56320 && low <= 57343) {
         cp = (cp - 55296) * 1024 + (low - 56320) + 65536;
         i++;
@@ -2419,9 +2451,9 @@ function hasInvisibleCodePoint(text5) {
   }
   return false;
 }
-function codePointLength(text5) {
+function codePointLength(text6) {
   let n = 0;
-  const iterator = text5[Symbol.iterator]();
+  const iterator = text6[Symbol.iterator]();
   while (!iterator.next().done) n++;
   return n;
 }
@@ -2518,9 +2550,9 @@ function analyzeCarve(cps) {
   for (const i of invisible) if (kind2[i] === KIND_NONE) payloadInvis++;
   return { codes, kind: kind2, payloadInvis, visibleLen };
 }
-function countPayloadInvisible(text5) {
-  if (!hasInvisibleCodePoint(text5)) return 0;
-  return analyzeCarve(codePointArray(text5)).payloadInvis;
+function countPayloadInvisible(text6) {
+  if (!hasInvisibleCodePoint(text6)) return 0;
+  return analyzeCarve(codePointArray(text6)).payloadInvis;
 }
 function bulkStrip(body) {
   const found = CHECKS.filter(([, re]) => body.search(re) !== -1).map(
@@ -2753,8 +2785,8 @@ function carveStrip(body, cps = codePointArray(body), analysis = analyzeCarve(cp
 function needsCarveOut(body) {
   return body.includes(String.fromCodePoint(ZWNJ)) || body.includes(String.fromCodePoint(ZWJ)) || VARIATION_SELECTOR.test(body) || TAG_CHAR_RE.test(body) || GATED_BLANK_RE.test(body);
 }
-function payloadInvisibleView(text5) {
-  const cps = codePointArray(text5);
+function payloadInvisibleView(text6) {
+  const cps = codePointArray(text6);
   const { codes, kind: kind2 } = analyzeCarve(cps);
   const offsets = u16Offsets(cps);
   const isPayload = (i2) => codes[i2] !== CODE_VISIBLE && kind2[i2] === KIND_NONE;
@@ -2766,33 +2798,33 @@ function payloadInvisibleView(text5) {
     if (i > maskFrom) parts.push(" ".repeat(i - maskFrom));
     const keepFrom = i;
     while (i < cps.length && isPayload(i)) i++;
-    if (i > keepFrom) parts.push(text5.slice(offsets[keepFrom], offsets[i]));
+    if (i > keepFrom) parts.push(text6.slice(offsets[keepFrom], offsets[i]));
   }
   return parts.join("");
 }
-function payloadLongRunSample(text5) {
-  if (!hasLongRun(text5)) return null;
-  return findLongRuns(payloadInvisibleView(text5)).next().value?.text ?? null;
+function payloadLongRunSample(text6) {
+  if (!hasLongRun(text6)) return null;
+  return findLongRuns(payloadInvisibleView(text6)).next().value?.text ?? null;
 }
-function countEffectiveInvisible(text5) {
-  if (!hasInvisibleCodePoint(text5)) return 0;
-  if (text5.charCodeAt(0) === 65279)
-    return surplusOver(countPayloadInvisible(text5), text5, stripInvisible(text5));
-  const cps = codePointArray(text5);
+function countEffectiveInvisible(text6) {
+  if (!hasInvisibleCodePoint(text6)) return 0;
+  if (text6.charCodeAt(0) === 65279)
+    return surplusOver(countPayloadInvisible(text6), text6, stripInvisible(text6));
+  const cps = codePointArray(text6);
   const analysis = analyzeCarve(cps);
-  const { cleaned } = stripBody(text5, cps, analysis);
-  return surplusOver(analysis.payloadInvis, text5, cleaned, cps.length);
+  const { cleaned } = stripBody(text6, cps, analysis);
+  return surplusOver(analysis.payloadInvis, text6, cleaned, cps.length);
 }
-function surplusOver(payload, text5, stripped, cpLen) {
-  const removed = stripped === text5 ? 0 : (cpLen ?? codePointLength(text5)) - codePointLength(stripped);
+function surplusOver(payload, text6, stripped, cpLen) {
+  const removed = stripped === text6 ? 0 : (cpLen ?? codePointLength(text6)) - codePointLength(stripped);
   return payload + Math.max(0, removed - payload);
 }
-function isIncidentalInvisible(text5) {
-  return payloadLongRunSample(text5) === null && countEffectiveInvisible(text5) < LONG_RUN_THRESHOLD;
+function isIncidentalInvisible(text6) {
+  return payloadLongRunSample(text6) === null && countEffectiveInvisible(text6) < LONG_RUN_THRESHOLD;
 }
-function stripInvisibleWithReport(text5, originalText = text5) {
-  const hasLeadingBom = originalText.charCodeAt(0) === 65279 && text5.charCodeAt(0) === 65279;
-  const body = hasLeadingBom ? text5.slice(1) : text5;
+function stripInvisibleWithReport(text6, originalText = text6) {
+  const hasLeadingBom = originalText.charCodeAt(0) === 65279 && text6.charCodeAt(0) === 65279;
+  const body = hasLeadingBom ? text6.slice(1) : text6;
   const { cleaned, found } = stripBody(body);
   return { cleaned: hasLeadingBom ? BOM + cleaned : cleaned, found };
 }
@@ -2800,8 +2832,8 @@ function stripBody(body, cps, analysis) {
   if (!needsCarveOut(body)) return bulkStrip(body);
   return carveStrip(body, cps, analysis);
 }
-function stripInvisible(text5) {
-  return stripInvisibleWithReport(text5).cleaned;
+function stripInvisible(text6) {
+  return stripInvisibleWithReport(text6).cleaned;
 }
 var VS, ZERO_WIDTH_MN, BLANK_NON_CF, REGEX_FLAGS, CF_CLASS_SOURCE, CATEGORY, CATEGORY_LABELS, CHECKS, STRIP, LONG_RUN_THRESHOLD, SCATTERED_THRESHOLD, LONG_RUN_RE, RUN_CHUNK, LONG_RUN_CHUNK_RE, RUN_TAIL_RE, BOM, ZWNJ, ZWJ, CONSECUTIVE_JOINER_CAP, CONSECUTIVE_SELECTOR_CAP, TOTAL_PRESERVED_JOINER_BUDGET, PRESERVED_JOINER_PER_VISIBLE, PRESERVE_HARD_CAP, TOTAL_PRESERVED_BLANK_BUDGET, PRESERVED_BLANK_PER_ANCHOR, EMOJI_LEFT, KEYCAP_BASE, COMBINING_KEYCAP, EMOJI_BASE, VARIATION_SELECTOR, isEmojiLeft, isEmojiBase, isKeycapBase, isVariationSelectorCp, PRESENTATION_SELECTORS, TAG_BASE, TAG_CANCEL, TAG_SPEC_MIN, TAG_SPEC_MAX, REGISTERED_TAG_PAYLOADS, MAX_TAG_SPEC_CHARS, IVS_MIN, IVS_MAX, CJK_IDEOGRAPH_RE, isCjkIdeograph, BRAILLE_BLANK, HANGUL_FILLERS, GATED_BLANK_RE, BRAILLE_RE, isBrailleScript, HANGUL_RE, isHangulScript, CODE_VISIBLE, CODE_CF, CODE_VS, CODE_BLANK, KIND_NONE, KIND_JOINER, KIND_EMOJIVS, KIND_TAG, KIND_STDVS, KIND_IVS, KIND_BLANK, CODE_CATEGORY, TRACKED_INVISIBLE, MIN_TRACKED_CP, CP_PREDICATE_MEMO_CAP, isCursiveLetter, jtOf, segmenterCache, CONTAINING_CANDIDATE_SHARE, TAG_CHAR_RE;
 var init_invisible = __esm({
@@ -2950,14 +2982,14 @@ var init_invisible = __esm({
 });
 
 // src/gates.mjs
-function needsMarkdownPipeline(text5) {
-  return HTML_TAG_PRESENT.test(text5) || MD_LINK_HINT.test(text5);
+function needsMarkdownPipeline(text6) {
+  return HTML_TAG_PRESENT.test(text6) || MD_LINK_HINT.test(text6);
 }
-function needsUrlScan(text5) {
-  return URL_PRESENT.test(text5) || needsMarkdownPipeline(text5);
+function needsUrlScan(text6) {
+  return URL_PRESENT.test(text6) || needsMarkdownPipeline(text6);
 }
-function matchesSecretHint(text5) {
-  return SECRET_HINT.test(text5) || SECRET_HINT_EXT.test(text5);
+function matchesSecretHint(text6) {
+  return SECRET_HINT.test(text6) || SECRET_HINT_EXT.test(text6);
 }
 var HTML_TAG_PRESENT, MD_LINK_HINT, URL_PRESENT, SECRET_HINT, SECRET_HINT_EXT;
 var init_gates = __esm({
@@ -2972,51 +3004,42 @@ var init_gates = __esm({
 });
 
 // src/layer1.mjs
-function sweepIntroducers(text5, kinds) {
-  return text5.replace(CONTROL_INTRODUCER_RE, (ch, offset) => {
-    kinds.add(orphanKindFor(ch, text5[offset + 1]));
+function sweepIntroducers(text6, kinds) {
+  return text6.replace(CONTROL_INTRODUCER_RE, (ch, offset) => {
+    kinds.add(orphanKindFor(ch, text6[offset + 1]));
     return "";
   });
 }
-function stripAnsiOnce(text5, kinds) {
+function stripAnsiFully(input, kinds) {
   let out = "";
   let last = 0;
-  for (const token of scanAnsi(text5)) {
-    if (isOrphanKind(token.kind)) continue;
+  for (const token of scanAnsi(input)) {
+    if (isOrphanKind(token.kind) && !isCancelledOrphan(input, token)) continue;
     kinds?.add(token.kind);
-    out += text5.slice(last, token.start);
+    out += input.slice(last, token.start);
     last = token.end;
   }
-  if (last === 0) return text5;
-  return out + text5.slice(last);
-}
-function stripAnsiFully(input, kinds) {
-  let prev = input;
-  let out = stripAnsiOnce(prev, kinds);
-  for (let pass = 1; pass < MAX_ANSI_PASSES && out !== prev; pass++) {
-    prev = out;
-    out = stripAnsiOnce(prev, kinds);
-  }
-  return out;
+  if (last === 0) return input;
+  return out + input.slice(last);
 }
 function isBenignAnsiKinds(kinds) {
   return [...kinds].every(
     (kind2) => kind2 === TOKEN_KIND.SGR || kind2 === TOKEN_KIND.ORPHAN
   );
 }
-function isBenignAnsi(text5) {
-  return isBenignAnsiKinds(applyLayer1(text5).ansiKinds);
+function isBenignAnsi(text6) {
+  return isBenignAnsiKinds(applyLayer1(text6).ansiKinds);
 }
-function applyLayer1(text5) {
+function applyLayer1(text6) {
   const ansiKinds = /* @__PURE__ */ new Set();
-  const deAnsi = stripAnsiFully(text5, ansiKinds);
+  const deAnsi = stripAnsiFully(text6, ansiKinds);
   const found = /* @__PURE__ */ new Set();
-  let cleaned = text5;
+  let cleaned = text6;
   for (let pass = 0; pass < MAX_LAYER1_PASSES; pass++) {
     const afterAnsi = pass === 0 ? deAnsi : stripAnsiFully(cleaned, ansiKinds);
     const { cleaned: afterInvis, found: passFound } = stripInvisibleWithReport(
       afterAnsi,
-      text5
+      text6
     );
     for (const category of passFound) found.add(category);
     if (afterInvis !== cleaned) {
@@ -3031,10 +3054,10 @@ function applyLayer1(text5) {
   if (ansiKinds.size > 0) found.add(CATEGORY.ANSI);
   return { cleaned, deAnsi, found: [...found], ansiKinds: [...ansiKinds] };
 }
-function normalizeLoneSurrogates(text5) {
-  return text5.replace(LONE_SURROGATE_RE, "\uFFFD");
+function normalizeLoneSurrogates(text6) {
+  return text6.replace(LONE_SURROGATE_RE, "\uFFFD");
 }
-var CONTROL_INTRODUCER_RE, LONE_SURROGATE_RE, MAX_ANSI_PASSES, INERT_ANSI_NOTE, MAX_LAYER1_PASSES;
+var CONTROL_INTRODUCER_RE, LONE_SURROGATE_RE, INERT_ANSI_NOTE, MAX_LAYER1_PASSES;
 var init_layer1 = __esm({
   "src/layer1.mjs"() {
     "use strict";
@@ -3042,7 +3065,6 @@ var init_layer1 = __esm({
     init_ansi();
     CONTROL_INTRODUCER_RE = new RegExp(CONTROL_INTRODUCER_SOURCE, "g");
     LONE_SURROGATE_RE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
-    MAX_ANSI_PASSES = 3;
     INERT_ANSI_NOTE = "Inert ANSI stripped (display-only colour and/or a stray escape byte that formed no control sequence); pipe through cat -v to inspect raw escapes.";
     MAX_LAYER1_PASSES = 4;
   }
@@ -3127,26 +3149,26 @@ function occurrences(haystack, needle) {
   }
   return out;
 }
-function orderedMatches(text5, needles) {
+function orderedMatches(text6, needles) {
   const out = [];
   for (const needle of needles)
-    for (const index2 of occurrences(text5, needle))
+    for (const index2 of occurrences(text6, needle))
       out.push({ text: needle, index: index2 });
   return out.sort((left, right) => left.index - right.index);
 }
-function spliceOrdered(text5, matches, replacementFor) {
+function spliceOrdered(text6, matches, replacementFor) {
   let out = "";
   let last = 0;
   const spans = [];
   matches.forEach((match, i) => {
     if (match.index < last) return;
-    out += text5.slice(last, match.index);
+    out += text6.slice(last, match.index);
     const start = out.length;
     out += replacementFor(match, i);
     spans.push({ start, end: out.length });
     last = match.index + match.text.length;
   });
-  return { text: out + text5.slice(last), spans };
+  return { text: out + text6.slice(last), spans };
 }
 var init_view_map = __esm({
   "src/view-map.mjs"() {
@@ -14715,7 +14737,7 @@ function resolveAllAttention(events, context) {
   let index2 = -1;
   let open;
   let group;
-  let text5;
+  let text6;
   let openingSequence;
   let closingSequence;
   let use;
@@ -14753,7 +14775,7 @@ function resolveAllAttention(events, context) {
             },
             end
           };
-          text5 = {
+          text6 = {
             type: use > 1 ? "strongText" : "emphasisText",
             start: {
               ...events[open][1].end
@@ -14781,9 +14803,9 @@ function resolveAllAttention(events, context) {
           if (events[open][1].end.offset - events[open][1].start.offset) {
             nextEvents = push(nextEvents, [["enter", events[open][1], context], ["exit", events[open][1], context]]);
           }
-          nextEvents = push(nextEvents, [["enter", group, context], ["enter", openingSequence, context], ["exit", openingSequence, context], ["enter", text5, context]]);
+          nextEvents = push(nextEvents, [["enter", group, context], ["enter", openingSequence, context], ["exit", openingSequence, context], ["enter", text6, context]]);
           nextEvents = push(nextEvents, resolveAll(context.parser.constructs.insideSpan.null, events.slice(open + 1, index2), context));
-          nextEvents = push(nextEvents, [["exit", text5, context], ["enter", closingSequence, context], ["exit", closingSequence, context], ["exit", group, context]]);
+          nextEvents = push(nextEvents, [["exit", text6, context], ["enter", closingSequence, context], ["exit", closingSequence, context], ["exit", group, context]]);
           if (events[index2][1].end.offset - events[index2][1].start.offset) {
             offset = 2;
             nextEvents = push(nextEvents, [["enter", events[index2][1], context], ["exit", events[index2][1], context]]);
@@ -16351,7 +16373,7 @@ function resolveHeadingAtx(events, context) {
   let contentEnd = events.length - 2;
   let contentStart = 3;
   let content3;
-  let text5;
+  let text6;
   if (events[contentStart][1].type === "whitespace") {
     contentStart += 2;
   }
@@ -16367,13 +16389,13 @@ function resolveHeadingAtx(events, context) {
       start: events[contentStart][1].start,
       end: events[contentEnd][1].end
     };
-    text5 = {
+    text6 = {
       type: "chunkText",
       start: events[contentStart][1].start,
       end: events[contentEnd][1].end,
       contentType: "text"
     };
-    splice(events, contentStart, contentEnd - contentStart + 1, [["enter", content3, context], ["enter", text5, context], ["exit", text5, context], ["exit", content3, context]]);
+    splice(events, contentStart, contentEnd - contentStart + 1, [["enter", content3, context], ["enter", text6, context], ["exit", text6, context], ["exit", content3, context]]);
   }
   return events;
 }
@@ -17281,7 +17303,7 @@ function resolveToLabelEnd(events, context) {
       ...events[close][1].end
     }
   };
-  const text5 = {
+  const text6 = {
     type: "labelText",
     start: {
       ...events[open + offset + 2][1].end
@@ -17292,9 +17314,9 @@ function resolveToLabelEnd(events, context) {
   };
   media = [["enter", group, context], ["enter", label, context]];
   media = push(media, events.slice(open + 1, open + offset + 3));
-  media = push(media, [["enter", text5, context]]);
+  media = push(media, [["enter", text6, context]]);
   media = push(media, resolveAll(context.parser.constructs.insideSpan.null, events.slice(open + offset + 4, close - 3), context));
-  media = push(media, [["exit", text5, context], events[close - 2], events[close - 1], ["exit", label, context]]);
+  media = push(media, [["exit", text6, context], events[close - 2], events[close - 1], ["exit", label, context]]);
   media = push(media, events.slice(close + 1));
   media = push(media, [["exit", group, context]]);
   splice(events, open, events.length, media);
@@ -17731,7 +17753,7 @@ var init_list = __esm({
 function resolveToSetextUnderline(events, context) {
   let index2 = events.length;
   let content3;
-  let text5;
+  let text6;
   let definition3;
   while (index2--) {
     if (events[index2][0] === "enter") {
@@ -17740,7 +17762,7 @@ function resolveToSetextUnderline(events, context) {
         break;
       }
       if (events[index2][1].type === "paragraph") {
-        text5 = index2;
+        text6 = index2;
       }
     } else {
       if (events[index2][1].type === "content") {
@@ -17760,9 +17782,9 @@ function resolveToSetextUnderline(events, context) {
       ...events[events.length - 1][1].end
     }
   };
-  events[text5][1].type = "setextHeadingText";
+  events[text6][1].type = "setextHeadingText";
   if (definition3) {
-    events.splice(text5, 0, ["enter", heading2, context]);
+    events.splice(text6, 0, ["enter", heading2, context]);
     events.splice(definition3 + 1, 0, ["exit", events[content3][1], context]);
     events[content3][1].end = {
       ...events[definition3][1].end
@@ -17908,10 +17930,10 @@ function initializeFactory(field) {
   function initializeText(effects) {
     const self = this;
     const constructs2 = this.parser.constructs[field];
-    const text5 = effects.attempt(constructs2, start, notText);
+    const text6 = effects.attempt(constructs2, start, notText);
     return start;
     function start(code4) {
-      return atBreak(code4) ? text5(code4) : notText(code4);
+      return atBreak(code4) ? text6(code4) : notText(code4);
     }
     function notText(code4) {
       if (code4 === null) {
@@ -17925,7 +17947,7 @@ function initializeFactory(field) {
     function data(code4) {
       if (atBreak(code4)) {
         effects.exit("data");
-        return text5(code4);
+        return text6(code4);
       }
       effects.consume(code4);
       return data;
@@ -18032,14 +18054,14 @@ function resolveAllLineSuffixes(events, context) {
   }
   return events;
 }
-var resolver, string, text;
+var resolver, string, text2;
 var init_text = __esm({
   "node_modules/.pnpm/micromark@4.0.2/node_modules/micromark/lib/initialize/text.js"() {
     resolver = {
       resolveAll: createResolver()
     };
     string = initializeFactory("string");
-    text = initializeFactory("text");
+    text2 = initializeFactory("text");
   }
 });
 
@@ -18054,9 +18076,9 @@ __export(constructs_exports, {
   flowInitial: () => flowInitial,
   insideSpan: () => insideSpan,
   string: () => string2,
-  text: () => text2
+  text: () => text3
 });
-var document2, contentInitial, flowInitial, flow2, string2, text2, insideSpan, attentionMarkers, disable;
+var document2, contentInitial, flowInitial, flow2, string2, text3, insideSpan, attentionMarkers, disable;
 var init_constructs = __esm({
   "node_modules/.pnpm/micromark@4.0.2/node_modules/micromark/lib/constructs.js"() {
     init_micromark_core_commonmark();
@@ -18099,7 +18121,7 @@ var init_constructs = __esm({
       [38]: characterReference,
       [92]: characterEscape
     };
-    text2 = {
+    text3 = {
       [-5]: lineEnding,
       [-4]: lineEnding,
       [-3]: lineEnding,
@@ -18470,7 +18492,7 @@ function parse50(options) {
     flow: create2(flow),
     lazy: {},
     string: create2(string),
-    text: create2(text)
+    text: create2(text2)
   };
   return parser;
   function create2(initial) {
@@ -19007,7 +19029,7 @@ function compiler(options) {
     const siblings = node2.children;
     let tail = siblings[siblings.length - 1];
     if (!tail || tail.type !== "text") {
-      tail = text5();
+      tail = text6();
       tail.position = {
         start: point2(token.start),
         // @ts-expect-error: we’ll add `end` later.
@@ -19252,7 +19274,7 @@ function compiler(options) {
       children: []
     };
   }
-  function text5() {
+  function text6() {
     return {
       type: "text",
       value: ""
@@ -20979,12 +21001,12 @@ function linkReference(node2, _, state, info) {
   let subexit = state.enter("label");
   const tracker = state.createTracker(info);
   let value = tracker.move("[");
-  const text5 = state.containerPhrasing(node2, {
+  const text6 = state.containerPhrasing(node2, {
     before: value,
     after: "]",
     ...tracker.current()
   });
-  value += tracker.move(text5 + "][");
+  value += tracker.move(text6 + "][");
   subexit();
   const stack = state.stack;
   state.stack = [];
@@ -20997,7 +21019,7 @@ function linkReference(node2, _, state, info) {
   subexit();
   state.stack = stack;
   exit3();
-  if (type === "full" || !text5 || text5 !== reference) {
+  if (type === "full" || !text6 || text6 !== reference) {
     value += tracker.move(reference + "]");
   } else if (type === "shortcut") {
     value = value.slice(0, -1);
@@ -21313,7 +21335,7 @@ var init_strong = __esm({
 });
 
 // node_modules/.pnpm/mdast-util-to-markdown@2.1.2/node_modules/mdast-util-to-markdown/lib/handle/text.js
-function text3(node2, _, state, info) {
+function text4(node2, _, state, info) {
   return state.safe(node2.value, info);
 }
 var init_text2 = __esm({
@@ -21390,7 +21412,7 @@ var init_handle = __esm({
       paragraph,
       root,
       strong,
-      text: text3,
+      text: text4,
       thematicBreak: thematicBreak2
     };
   }
@@ -22023,17 +22045,17 @@ function gfmStrikethrough(options) {
               start: Object.assign({}, events[open][1].start),
               end: Object.assign({}, events[index2][1].end)
             };
-            const text5 = {
+            const text6 = {
               type: "strikethroughText",
               start: Object.assign({}, events[open][1].end),
               end: Object.assign({}, events[index2][1].start)
             };
-            const nextEvents = [["enter", strikethrough, context], ["enter", events[open][1], context], ["exit", events[open][1], context], ["enter", text5, context]];
+            const nextEvents = [["enter", strikethrough, context], ["enter", events[open][1], context], ["exit", events[open][1], context], ["enter", text6, context]];
             const insideSpan2 = context.parser.constructs.insideSpan.null;
             if (insideSpan2) {
               splice(nextEvents, nextEvents.length, 0, resolveAll(insideSpan2, events.slice(open + 1, index2), context));
             }
-            splice(nextEvents, nextEvents.length, 0, [["exit", text5, context], ["enter", events[index2][1], context], ["exit", events[index2][1], context], ["exit", strikethrough, context]]);
+            splice(nextEvents, nextEvents.length, 0, [["exit", text6, context], ["enter", events[index2][1], context], ["exit", events[index2][1], context], ["exit", strikethrough, context]]);
             splice(events, open - 1, index2 - open + 3, nextEvents);
             index2 = open + nextEvents.length - 2;
             break;
@@ -22700,7 +22722,7 @@ var init_micromark_extension_gfm_task_list_item = __esm({
 // src/vendor/gfm-autolink-literal.mjs
 function gfmAutolinkLiteral() {
   return {
-    text: text4
+    text: text5
   };
 }
 function tokenizeEmailAutolink(effects, ok3, nok) {
@@ -23010,7 +23032,7 @@ function previousUnbalanced(events) {
   }
   return result;
 }
-var wwwPrefix, domain, path, trail, emailDomainDotTrail, wwwAutolink, protocolAutolink, emailAutolink, text4, code3;
+var wwwPrefix, domain, path, trail, emailDomainDotTrail, wwwAutolink, protocolAutolink, emailAutolink, text5, code3;
 var init_gfm_autolink_literal = __esm({
   "src/vendor/gfm-autolink-literal.mjs"() {
     "use strict";
@@ -23050,22 +23072,22 @@ var init_gfm_autolink_literal = __esm({
       tokenize: tokenizeEmailAutolink,
       previous: previousEmail
     };
-    text4 = {};
+    text5 = {};
     code3 = 48;
     while (code3 < 123) {
-      text4[code3] = emailAutolink;
+      text5[code3] = emailAutolink;
       code3++;
       if (code3 === 58) code3 = 65;
       else if (code3 === 91) code3 = 97;
     }
-    text4[43] = emailAutolink;
-    text4[45] = emailAutolink;
-    text4[46] = emailAutolink;
-    text4[95] = emailAutolink;
-    text4[72] = [emailAutolink, protocolAutolink];
-    text4[104] = [emailAutolink, protocolAutolink];
-    text4[87] = [emailAutolink, wwwAutolink];
-    text4[119] = [emailAutolink, wwwAutolink];
+    text5[43] = emailAutolink;
+    text5[45] = emailAutolink;
+    text5[46] = emailAutolink;
+    text5[95] = emailAutolink;
+    text5[72] = [emailAutolink, protocolAutolink];
+    text5[104] = [emailAutolink, protocolAutolink];
+    text5[87] = [emailAutolink, wwwAutolink];
+    text5[119] = [emailAutolink, wwwAutolink];
   }
 });
 
@@ -27541,22 +27563,22 @@ var init_default3 = __esm({
           node2.parentNode = null;
         }
       },
-      insertText(parentNode, text5) {
+      insertText(parentNode, text6) {
         if (parentNode.childNodes.length > 0) {
           const prevNode = parentNode.childNodes[parentNode.childNodes.length - 1];
           if (defaultTreeAdapter.isTextNode(prevNode)) {
-            prevNode.value += text5;
+            prevNode.value += text6;
             return;
           }
         }
-        defaultTreeAdapter.appendChild(parentNode, defaultTreeAdapter.createTextNode(text5));
+        defaultTreeAdapter.appendChild(parentNode, defaultTreeAdapter.createTextNode(text6));
       },
-      insertTextBefore(parentNode, text5, referenceNode) {
+      insertTextBefore(parentNode, text6, referenceNode) {
         const prevNode = parentNode.childNodes[parentNode.childNodes.indexOf(referenceNode) - 1];
         if (prevNode && defaultTreeAdapter.isTextNode(prevNode)) {
-          prevNode.value += text5;
+          prevNode.value += text6;
         } else {
-          defaultTreeAdapter.insertBefore(parentNode, defaultTreeAdapter.createTextNode(text5), referenceNode);
+          defaultTreeAdapter.insertBefore(parentNode, defaultTreeAdapter.createTextNode(text6), referenceNode);
         }
       },
       adoptAttributes(recipient, attrs) {
@@ -33048,14 +33070,14 @@ function createTreeAdapter() {
       defaultTreeAdapter.insertBefore(parent, child, reference);
     },
     /** @param {any} parent @param {string} text */
-    insertText(parent, text5) {
+    insertText(parent, text6) {
       flush(parent);
-      defaultTreeAdapter.insertText(parent, text5);
+      defaultTreeAdapter.insertText(parent, text6);
     },
     /** @param {any} parent @param {string} text @param {any} reference */
-    insertTextBefore(parent, text5, reference) {
+    insertTextBefore(parent, text6, reference) {
       flush(parent);
-      defaultTreeAdapter.insertTextBefore(parent, text5, reference);
+      defaultTreeAdapter.insertTextBefore(parent, text6, reference);
     }
   };
   return { adapter, settle };
@@ -33198,8 +33220,8 @@ function riskLevelFromFindings(findings, mixedWords, targetedWords, treatAllAsMi
   }
   return "medium";
 }
-function scan(text5, options) {
-  if (text5.length === 0 || isAllAscii(text5) || !hasAnyConfusableChar(text5)) {
+function scan(text6, options) {
+  if (text6.length === 0 || isAllAscii(text6) || !hasAnyConfusableChar(text6)) {
     return {
       hasConfusables: false,
       count: 0,
@@ -33220,7 +33242,7 @@ function scan(text5, options) {
   const mixedWords = /* @__PURE__ */ new Set();
   const targetedWords = /* @__PURE__ */ new Set();
   const treatAllAsMixed = normalized.strategy === "all";
-  forEachToken(text5, (token) => {
+  forEachToken(text6, (token) => {
     if (token.length === 0) return;
     const word = token.map((item) => item.ch).join("");
     const lowerWord = word.toLowerCase();
@@ -41775,10 +41797,10 @@ function walk(tree, test, visitor) {
 function lastParseCached(parse53) {
   let cachedText = null;
   let cachedTree = null;
-  return (text5) => {
-    if (cachedText === text5) return cachedTree;
-    const tree = parse53(text5);
-    cachedText = text5;
+  return (text6) => {
+    if (cachedText === text6) return cachedTree;
+    const tree = parse53(text6);
+    cachedText = text6;
     cachedTree = tree;
     return tree;
   };
@@ -41824,20 +41846,20 @@ function mergeRanges(ranges) {
   }
   return merged;
 }
-function spliceRanges(text5, ranges) {
+function spliceRanges(text6, ranges) {
   const merged = mergeRanges(ranges);
   let out = "";
   let cursor = 0;
   const pairs = [];
   for (const range of merged) {
-    out += text5.slice(cursor, range.start);
-    const original = text5.slice(range.start, range.end);
+    out += text6.slice(cursor, range.start);
+    const original = text6.slice(range.start, range.end);
     const placeholder = layer2Placeholder(range.kind, original);
     pairs.push({ placeholder, original, start: out.length });
     out += placeholder;
     cursor = range.end;
   }
-  return { text: out + text5.slice(cursor), pairs };
+  return { text: out + text6.slice(cursor), pairs };
 }
 function newWarned() {
   return { tags: {}, dataSrc: 0 };
@@ -41945,7 +41967,7 @@ function hasHtmlLeaf(node2) {
   for (const _ of inlineHtmlLeaves(node2)) return true;
   return false;
 }
-function scanInlineChildren(node2, text5, ranges, warned) {
+function scanInlineChildren(node2, text6, ranges, warned) {
   const state = (
     /** @type {{ tag: string | null, depth: number, regionStart: number }} */
     {
@@ -41964,7 +41986,7 @@ function scanInlineChildren(node2, text5, ranges, warned) {
     const value = child.value;
     const base = child.position.start.offset;
     const end = child.position.end.offset;
-    absorbing = foldAbsorb(absorbing, text5.slice(prevEnd, base));
+    absorbing = foldAbsorb(absorbing, text6.slice(prevEnd, base));
     if (rawText) {
       if (new RegExp(`</${rawText}(?![a-z0-9-])`, "i").test(value))
         rawText = null;
@@ -42001,14 +42023,14 @@ function scanInlineChildren(node2, text5, ranges, warned) {
     });
   }
 }
-function scanMarkdown(text5) {
-  const tree = parseMarkdown(text5);
+function scanMarkdown(text6) {
+  const tree = parseMarkdown(text6);
   const ranges = [];
   const warned = newWarned();
   walk(tree, "html", (node2, _index, parent) => {
     if (!FLOW_HTML_PARENTS.has(parent?.type)) return;
     const base = node2.position.start.offset;
-    const sub = scanHtmlFragment(text5.slice(base, node2.position.end.offset));
+    const sub = scanHtmlFragment(text6.slice(base, node2.position.end.offset));
     for (const range of sub.ranges) {
       ranges.push({
         start: base + range.start,
@@ -42021,22 +42043,22 @@ function scanMarkdown(text5) {
   walk(tree, null, (node2) => {
     if (!PHRASING_ROOTS.has(node2.type)) return;
     if (!hasHtmlLeaf(node2)) return;
-    scanInlineChildren(node2, text5, ranges, warned);
+    scanInlineChildren(node2, text6, ranges, warned);
   });
   return { ranges, warned };
 }
-function hasMarkdownCode(text5) {
-  if (!MARKDOWN_CODE_HINT.test(text5)) return false;
+function hasMarkdownCode(text6) {
+  if (!MARKDOWN_CODE_HINT.test(text6)) return false;
   let found = false;
-  walk(parseMarkdown(text5), "code", () => {
+  walk(parseMarkdown(text6), "code", () => {
     found = true;
     return EXIT;
   });
   return found;
 }
-function htmlSourceTree(text5) {
-  if (hasMarkdownCode(text5)) return null;
-  const tree = parseFragment2(text5);
+function htmlSourceTree(text6) {
+  if (hasMarkdownCode(text6)) return null;
+  const tree = parseFragment2(text6);
   let sawElement = false;
   for (const node2 of tree.children) {
     if (node2.type === "element") sawElement = true;
@@ -42044,8 +42066,8 @@ function htmlSourceTree(text5) {
   }
   return sawElement ? tree : null;
 }
-function looksLikeHtmlSource(text5) {
-  return htmlSourceTree(text5) !== null;
+function looksLikeHtmlSource(text6) {
+  return htmlSourceTree(text6) !== null;
 }
 function toSourceRanges(ranges, merged, pairs) {
   const ends = pairs.map((pair) => pair.start + pair.placeholder.length);
@@ -42066,10 +42088,10 @@ function toSourceRanges(ranges, merged, pairs) {
     kind: range.kind
   }));
 }
-function sanitizeHtml(text5) {
-  if (!HTML_TAG_PRESENT.test(text5)) return null;
+function sanitizeHtml(text6) {
+  if (!HTML_TAG_PRESENT.test(text6)) return null;
   let ranges = [];
-  let spliced = { text: text5, pairs: (
+  let spliced = { text: text6, pairs: (
     /** @type {SplicePair[]} */
     []
   ) };
@@ -42103,7 +42125,7 @@ function sanitizeHtml(text5) {
       ...ranges,
       ...toSourceRanges(scan2.ranges, ranges, spliced.pairs)
     ]);
-    const next2 = spliceRanges(text5, grown);
+    const next2 = spliceRanges(text6, grown);
     if (next2.text === spliced.text) break;
     for (const range of scan2.ranges)
       removed[range.kind === "comment" ? "comments" : "hidden"]++;
@@ -42319,8 +42341,8 @@ function multiUrlAttr(value) {
   if (typeof value === "string") return parseSrcset(value);
   return [];
 }
-function extractHtmlUrls(text5) {
-  const tree = parseFragment2(text5);
+function extractHtmlUrls(text6) {
+  const tree = parseFragment2(text6);
   const urls = [];
   walk(tree, "element", (node2) => {
     const props = node2.properties;
@@ -42359,9 +42381,9 @@ function extractHtmlUrls(text5) {
   });
   return urls;
 }
-function collectUrls(text5) {
+function collectUrls(text6) {
   const urls = [];
-  walk(parseMarkdown(text5), null, (node2) => {
+  walk(parseMarkdown(text6), null, (node2) => {
     if (node2.type !== "link" && node2.type !== "image" && node2.type !== "definition")
       return;
     urls.push({
@@ -42373,14 +42395,14 @@ function collectUrls(text5) {
       context: "resource"
     });
   });
-  urls.push(...extractHtmlUrls(text5));
+  urls.push(...extractHtmlUrls(text6));
   return urls;
 }
-function detectExfil(text5, options = {}) {
-  if (!needsUrlScan(text5)) return null;
+function detectExfil(text6, options = {}) {
+  if (!needsUrlScan(text6)) return null;
   const threats = [];
   try {
-    for (const { url, isImage, autoFetched, context } of collectUrls(text5)) {
+    for (const { url, isImage, autoFetched, context } of collectUrls(text6)) {
       const reason = checkExfilUrl(url, options) || (context !== "resource" && isOffOrigin(url) ? OFF_ORIGIN_REASON[context] : null);
       if (!reason) continue;
       threats.push({ isImage, autoFetched, reason, target: urlHost(url) });
@@ -42399,12 +42421,12 @@ function detectExfil(text5, options = {}) {
   }
   return threats.length > 0 ? threats : null;
 }
-function detectConfusableHosts(text5) {
-  if (!needsUrlScan(text5)) return null;
+function detectConfusableHosts(text6) {
+  if (!needsUrlScan(text6)) return null;
   const threats = [];
   const seen = /* @__PURE__ */ new Set();
   try {
-    for (const { url } of collectUrls(text5)) {
+    for (const { url } of collectUrls(text6)) {
       const found = confusableHost(url);
       if (!found || seen.has(found.ascii)) continue;
       seen.add(found.ascii);
@@ -42711,7 +42733,7 @@ var init_html4 = __esm({
     COMMENT_PLACEHOLDER = "[HTML comment removed";
     UNPARSEABLE_PLACEHOLDER = "[HTML unparseable \u2014 withheld]";
     mdParser = unified().use(remarkParse).use(remarkGfmFixed);
-    parseMarkdown = lastParseCached((text5) => mdParser.parse(text5));
+    parseMarkdown = lastParseCached((text6) => mdParser.parse(text6));
     MARKDOWN_CODE_HINT = /```|~~~|^(?: {4}| *\t)/m;
     BOGUS_COMMENT_OPEN_RE = /<[!?]/g;
     MARKUP_OPENER_RE = /<(?:[!?]|\/?[a-zA-Z])/;
@@ -42814,11 +42836,11 @@ async function runRedact(state, redact) {
 function withheldWarning(label) {
   return `Withheld the ${label}: it could not be vetted for secrets`;
 }
-function deleteVerbatimSpans(text5, spans) {
+function deleteVerbatimSpans(text6, spans) {
   const usable = spans.filter(
     (span) => typeof span === "string" && span !== ""
   );
-  const spliced = spliceOrdered(text5, orderedMatches(text5, usable), () => "");
+  const spliced = spliceOrdered(text6, orderedMatches(text6, usable), () => "");
   return { text: spliced.text, removed: spliced.spans.length };
 }
 function layer1Finding(invisFound, ansiKinds, deAnsi, sgrCarveOut) {
@@ -42827,7 +42849,7 @@ function layer1Finding(invisFound, ansiKinds, deAnsi, sgrCarveOut) {
   if (incidental && ansiOnly) return note(INERT_ANSI_NOTE);
   return finding(!incidental, describeStripped(invisFound, deAnsi));
 }
-function processLayer1(text5, sgrCarveOut) {
+function processLayer1(text6, sgrCarveOut) {
   const findings = [];
   const found = [];
   let modified = false;
@@ -42836,7 +42858,7 @@ function processLayer1(text5, sgrCarveOut) {
     deAnsi,
     found: invisFound,
     ansiKinds
-  } = applyLayer1(text5);
+  } = applyLayer1(text6);
   let cleaned = layer1;
   if (invisFound.length > 0) {
     found.push(...invisFound);
@@ -42922,20 +42944,20 @@ async function applyMarkdownPipeline(state, { html: html4, exfilScan, flagDigest
   }
   return { reveal, splices };
 }
-async function vetStageValue(text5, redact, findings, label) {
-  if (!redact) return text5;
+async function vetStageValue(text6, redact, findings, label) {
+  if (!redact) return text6;
   try {
-    const secrets = await redact(text5);
-    return secrets ? normalizeLoneSurrogates(secrets.text) : text5;
+    const secrets = await redact(text6);
+    return secrets ? normalizeLoneSurrogates(secrets.text) : text6;
   } catch {
     findings.push(warning(withheldWarning(label)));
     return void 0;
   }
 }
-async function sanitizeText(text5, options = {}) {
+async function sanitizeText(text6, options = {}) {
   const { redact, filterInjection, sgrCarveOut = false } = options;
   const { findings, found, cleaned, modified } = processLayer1(
-    text5,
+    text6,
     sgrCarveOut
   );
   const state = {
@@ -43693,7 +43715,7 @@ function keepContained(absPath, realRoot, literalRoot, pattern) {
 }
 function walkContextGlobs(globs, cwd, exclude) {
   const root2 = resolve3(cwd);
-  const absolute = (dirent) => join2(dirent.parentPath, dirent.name);
+  const absolute = (dirent) => resolve3(root2, dirent.parentPath, dirent.name);
   return globSync(globs, {
     cwd,
     withFileTypes: true,
@@ -43830,13 +43852,159 @@ import { realpathSync as realpathSync3 } from "node:fs";
 import process2 from "node:process";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
+// claude-hooks/lib/knobs.mjs
+var FAIL_CLOSED_VALUES = Object.freeze(["0", "false"]);
+var INVALID = /* @__PURE__ */ Symbol("invalid knob value");
+var knob = (spec2) => spec2;
+var on = (surface, spec2) => Object.freeze({ ...spec2, surface });
+var unset = (raw) => raw === void 0 || raw === "";
+var flag = (consequence) => knob({
+  parse: (raw) => {
+    if (raw === "1") return true;
+    return unset(raw) || raw === "0" ? false : INVALID;
+  },
+  fallback: false,
+  expect: "1 to set it, 0 or unset to leave it off",
+  consequence
+});
+function positiveMsOr(raw, fallback) {
+  const ms = Number(raw);
+  return Number.isFinite(ms) && ms > 0 ? ms : fallback;
+}
+var milliseconds = (fallback) => knob({
+  parse: (raw) => {
+    if (unset(raw)) return fallback;
+    const ms = positiveMsOr(raw, Number.NaN);
+    return Number.isNaN(ms) ? INVALID : ms;
+  },
+  fallback,
+  expect: "a positive number of milliseconds",
+  consequence: `the ${fallback} ms default applies`
+});
+var text = () => knob({
+  parse: (raw) => unset(raw) ? void 0 : raw,
+  fallback: void 0,
+  expect: "any text",
+  consequence: "it is ignored"
+});
+var TRACE_LEVELS = Object.freeze({
+  0: ["", "0", "off", "false"],
+  1: ["1", "info", "true", "on"],
+  2: ["2", "debug"]
+});
+var DEFAULT_MAX_INPUT_BYTES = 10 * 1024 * 1024;
+var KNOBS = Object.freeze({
+  // Fail-open unless one of FAIL_CLOSED_VALUES; the documented open spellings
+  // are recognized too, so only a genuinely foreign value is reported.
+  AGENT_SANITIZER_FAIL_OPEN: on(
+    "hooks",
+    knob({
+      parse: (raw) => {
+        if (raw !== void 0 && FAIL_CLOSED_VALUES.includes(raw)) return false;
+        return unset(raw) || raw === "1" || raw === "true" ? true : INVALID;
+      },
+      fallback: true,
+      expect: `${FAIL_CLOSED_VALUES.join(" or ")} to fail closed, 1/true/unset for the default`,
+      consequence: "the hooks stay fail-OPEN"
+    })
+  ),
+  AGENT_SANITIZER_DISABLED_HOOKS: on("hooks", text()),
+  AGENT_SANITIZER_SECRETS_ENABLED: on(
+    "hooks",
+    flag("the secret layer stays OFF")
+  ),
+  AGENT_SANITIZER_FLAG_DIGEST_VALUES: on(
+    "hooks",
+    flag("digest-shaped values stay exempt")
+  ),
+  AGENT_SANITIZER_INVISIBLE_DISABLED: on(
+    "hooks",
+    flag("invisible-character stripping stays ON")
+  ),
+  AGENT_SANITIZER_TERMINAL_DISABLED: on(
+    "hooks",
+    flag("terminal-control stripping stays ON")
+  ),
+  AGENT_SANITIZER_OUTPUT_DISABLED: on(
+    "hooks",
+    flag("authored-content sanitizing stays ON")
+  ),
+  AGENT_SANITIZER_MAX_INPUT_BYTES: on(
+    "cli",
+    knob({
+      parse: (raw) => {
+        if (unset(raw)) return DEFAULT_MAX_INPUT_BYTES;
+        const bytes = Number(raw);
+        return Number.isInteger(bytes) && bytes >= 1 ? bytes : INVALID;
+      },
+      fallback: DEFAULT_MAX_INPUT_BYTES,
+      expect: "a positive whole number of bytes",
+      consequence: `the ${DEFAULT_MAX_INPUT_BYTES}-byte default applies`
+    })
+  ),
+  _AGENT_SANITIZER_EXTRA_SECRET_VARS: on("internal", text()),
+  _AGENT_SANITIZER_TRACE: on(
+    "internal",
+    knob({
+      parse: (raw) => {
+        const value = (raw ?? "").toLowerCase();
+        const level = Object.entries(TRACE_LEVELS).find(
+          ([, spellings]) => spellings.includes(value)
+        );
+        return level === void 0 ? INVALID : Number(level[0]);
+      },
+      fallback: 0,
+      expect: "off/0, info/1/on/true, or debug/2",
+      consequence: "tracing stays off"
+    })
+  ),
+  _AGENT_SANITIZER_TRACE_FILE: on("internal", text()),
+  _AGENT_SANITIZER_REDACTOR_SOCKET: on("internal", text()),
+  _AGENT_SANITIZER_REDACTOR_DAEMON: on("internal", text()),
+  _AGENT_SANITIZER_REDACTOR_WAIT_MS: on("internal", milliseconds(8e3)),
+  _AGENT_SANITIZER_REDACTOR_REQUEST_MS: on("internal", milliseconds(2e4)),
+  _AGENT_SANITIZER_SANITIZE_BUDGET_MS: on("internal", milliseconds(12e4)),
+  _AGENT_SANITIZER_REVEAL_DIR: on("internal", text())
+});
+var LAUNCHER_KNOBS = Object.freeze([
+  "AGENT_SANITIZER_NODE",
+  "AGENT_SANITIZER_HOOK_BINARY",
+  "AGENT_SANITIZER_COMPILE_CACHE",
+  "AGENT_SANITIZER_REPEAT_DEGRADED_CONTEXT"
+]);
+var reported = /* @__PURE__ */ new Set();
+function reportOnce(message) {
+  if (reported.has(message)) return;
+  reported.add(message);
+  process.stderr.write(`${message}
+`);
+}
+function readKnob(name50, env = process.env, report = reportOnce) {
+  if (!Object.hasOwn(KNOBS, name50))
+    throw new Error(
+      `unknown knob ${JSON.stringify(name50)}: declare it in KNOBS (claude-hooks/lib/knobs.mjs) before reading it`
+    );
+  const spec2 = KNOBS[name50];
+  const raw = env[name50];
+  const value = spec2.parse(raw);
+  if (value !== INVALID) return value;
+  const shown = JSON.stringify(
+    /** @type {string} */
+    raw.slice(0, 80)
+  );
+  report(
+    `agent-sanitizer: ${name50}=${shown} is not a recognized value (${spec2.expect}); ${spec2.consequence}.`
+  );
+  return spec2.fallback;
+}
+
 // src/index.mjs
 init_output();
 init_layer1();
 init_invisible();
 init_gates();
-async function sanitize(text5, options) {
-  if (typeof text5 !== "string")
+async function sanitize(text6, options) {
+  if (typeof text6 !== "string")
     throw new TypeError("sanitize(text, options): text must be a string");
   const {
     html: html4 = false,
@@ -43844,7 +44012,7 @@ async function sanitize(text5, options) {
     flagDigestValues = false
   } = options ?? {};
   const { cleaned, found, warnings, notes, splices } = await sanitizeText(
-    text5,
+    text6,
     {
       html: html4,
       // `html` implies the scan unconditionally, and `exfilScan` can only ADD it:
@@ -43864,22 +44032,15 @@ async function sanitize(text5, options) {
 }
 
 // bin/sanitize-cli.mjs
-var DEFAULT_MAX_INPUT_BYTES = 10 * 1024 * 1024;
-function maxInputBytes() {
-  const raw = process2.env.AGENT_SANITIZER_MAX_INPUT_BYTES;
-  const parsed = Number(raw);
-  if (raw === void 0 || raw === "" || !Number.isFinite(parsed) || parsed <= 0)
-    return DEFAULT_MAX_INPUT_BYTES;
-  return Math.floor(parsed);
-}
+var maxInputBytes = () => readKnob("AGENT_SANITIZER_MAX_INPUT_BYTES");
 var errorMessage = (err) => (
   /** @type {{ message?: string }} */
   err?.message ?? String(err)
 );
 var oversizeMessage = (limit, size) => `request too large: ${size === void 0 ? "input" : `${size} bytes`} exceeds the ${limit}-byte limit (raise AGENT_SANITIZER_MAX_INPUT_BYTES to accept it)`;
-function enforceSizeLimit(text5) {
+function enforceSizeLimit(text6) {
   const limit = maxInputBytes();
-  const size = Buffer2.byteLength(text5, "utf8");
+  const size = Buffer2.byteLength(text6, "utf8");
   if (size > limit) throw new Error(oversizeMessage(limit, size));
 }
 function requireString(req, key) {
@@ -43891,15 +44052,15 @@ function requireString(req, key) {
 var OPS = {
   /** @param {Record<string, unknown>} req */
   async sanitize(req) {
-    const text5 = requireString(req, "text");
-    return await sanitize(text5, { html: Boolean(req.html) });
+    const text6 = requireString(req, "text");
+    return await sanitize(text6, { html: Boolean(req.html) });
   },
   /** @param {Record<string, unknown>} req */
   async sanitizeText(req) {
-    const text5 = requireString(req, "text");
+    const text6 = requireString(req, "text");
     const { sanitizeText: sanitizeText2 } = await Promise.resolve().then(() => (init_output(), output_exports));
     const { cleaned, warnings, notes, modified, sgrNote } = await sanitizeText2(
-      text5,
+      text6,
       {
         html: Boolean(req.html),
         exfilScan: Boolean(req.exfilScan),
@@ -43910,9 +44071,9 @@ var OPS = {
   },
   /** @param {Record<string, unknown>} req */
   async classifyPrompt(req) {
-    const text5 = requireString(req, "text");
+    const text6 = requireString(req, "text");
     const { classifyPrompt: classifyPrompt2 } = await Promise.resolve().then(() => (init_prompt(), prompt_exports));
-    return classifyPrompt2(text5);
+    return classifyPrompt2(text6);
   },
   // SECURITY (R8): `scanInstructionFiles` and `cleanFile` take filesystem
   // paths/globs straight from the request and read (and, for cleanFile, WRITE)
@@ -43963,14 +44124,14 @@ async function handle2(payload) {
 async function readAll(stream) {
   stream.setEncoding("utf8");
   const limit = maxInputBytes();
-  let text5 = "";
+  let text6 = "";
   let bytes = 0;
   for await (const chunk of stream) {
     bytes += Buffer2.byteLength(chunk, "utf8");
     if (bytes > limit) throw new Error(oversizeMessage(limit));
-    text5 += chunk;
+    text6 += chunk;
   }
-  return text5;
+  return text6;
 }
 function createLineSplitter(limit) {
   let pending = [];
@@ -44091,7 +44252,7 @@ A failure response is { "error": string }.
 function parseArgs(argv) {
   const flags = argv.slice(2).filter((arg) => arg.startsWith("-"));
   if (flags.includes("-h") || flags.includes("--help")) return { mode: "help" };
-  const unknown = flags.filter((flag) => flag !== "--worker");
+  const unknown = flags.filter((flag2) => flag2 !== "--worker");
   if (unknown.length > 0) return { mode: "error", unknown };
   return { mode: flags.includes("--worker") ? "worker" : "oneshot" };
 }

@@ -14,9 +14,9 @@ class BassRegressor:
     interaction selection, MCMC-fit).
 
     One-hot-encodes categorical/object columns, fills NaN with the train
-    median, and returns the posterior-MEAN prediction. pyBASS is a git-only
-    optional dependency (``pip install git+https://github.com/lanl/pyBASS.git``)
-    imported lazily so geocif installs without it. Tuned poppy defaults
+    median, and returns the posterior-MEAN prediction. pyBASS is published on
+    PyPI as ``pybass-emu`` (a core dependency) and imported lazily, so other
+    models never pay its import cost. Tuned poppy defaults
     (maxInt=1 additive, npart=15) beat cubist on MIN_ESI4WK LOOCV (0.489 vs
     0.443); interactions overfit the small sample.
     """
@@ -51,9 +51,9 @@ class BassRegressor:
             import pyBASS as pb
         except ImportError as exc:
             raise ImportError(
-                "model = 'bass' requires pyBASS (Bayesian MARS), a git-only "
-                "optional dependency:\n"
-                "    pip install git+https://github.com/lanl/pyBASS.git"
+                "model = 'bass' requires pyBASS (Bayesian MARS), published on "
+                "PyPI as pybass-emu:\n"
+                "    pip install pybass-emu"
             ) from exc
         Xn = self._numeric(X)
         self._median = Xn.median(numeric_only=True)

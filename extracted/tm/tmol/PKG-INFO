@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tmol
-Version: 0.1.62
+Version: 0.1.64
 Summary: GPU-accelerated PyTorch reimplementation of the Rosetta energy function
 Author-Email: Institute for Protein Design <contact@ipd.uw.edu>
 License: Apache-2.0
@@ -21,7 +21,7 @@ Project-URL: Issues, https://github.com/uw-ipd/tmol/issues
 Project-URL: Repository, https://github.com/uw-ipd/tmol
 Project-URL: Releases, https://github.com/uw-ipd/tmol/releases
 Requires-Python: >=3.11
-Requires-Dist: torch>=2.8
+Requires-Dist: torch>=2.11
 Requires-Dist: numpy>=1.25
 Requires-Dist: scipy>=1.13.1
 Requires-Dist: attrs>=21.0
@@ -37,22 +37,26 @@ Requires-Dist: decorator>=4.0
 Requires-Dist: typing_extensions<5,>=4.0
 Requires-Dist: typing_inspect>=0.9
 Requires-Dist: pint<1,>=0.23
-Requires-Dist: psutil>=5.9
 Requires-Dist: requests<3,>=2.33
 Requires-Dist: sparse>=0.13
 Requires-Dist: numba>=0.56
 Requires-Dist: llvmlite>=0.39
-Requires-Dist: hypothesis>=5.35
 Requires-Dist: astor>=0.8
 Requires-Dist: biotite==1.6.0
 Requires-Dist: atomworks<4,>=3.0.0
 Requires-Dist: rdkit>=2024.3.5
 Requires-Dist: openbabel-wheel<4,>=3.1.1.23
+Provides-Extra: cu12
+Requires-Dist: tmol-ops-cu12==0.1.64; extra == "cu12"
+Provides-Extra: cu13
+Requires-Dist: tmol-ops-cu13==0.1.64; extra == "cu13"
 Provides-Extra: dev
 Requires-Dist: black==26.10.0; extra == "dev"
 Requires-Dist: flake8==7.4.1; extra == "dev"
 Requires-Dist: pre-commit>=4.0; extra == "dev"
 Requires-Dist: clang-format==23.1.2; extra == "dev"
+Requires-Dist: hypothesis>=5.35; extra == "dev"
+Requires-Dist: psutil>=5.9; extra == "dev"
 Requires-Dist: build>=1.2; extra == "dev"
 Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.1; extra == "dev"
@@ -111,29 +115,22 @@ on CPU or CUDA, with gradients through coordinate scoring.
 
 ## Install
 
-For GPU scoring on Linux with PyTorch 2.14 and CUDA 13.2:
+The upcoming 0.1.64 release supports PyTorch 2.11+ without a separate wheel
+for each PyTorch minor. Install the CPU package or add matching CUDA operators:
 
 ```bash
-python -m pip install "torch==2.14.*" --only-binary=:all: --index-url https://download.pytorch.org/whl/cu132
-python -m pip install "tmol==0.1.62+cu132torch2.14" --only-binary=:all: \
-  --find-links https://uw-ipd.github.io/tmol/wheels/v0.1.62/cu132torch2.14/
+python -m pip install "tmol==0.1.64"             # CPU, including Apple Silicon
+python -m pip install "tmol[cu13]==0.1.64"       # CUDA 13-enabled PyTorch
+python -m pip install "tmol[cu12]==0.1.64"       # CUDA 12-enabled PyTorch
 ```
 
-For CPU scoring:
+GPU use needs CUDA-enabled PyTorch and a compatible driver. Pip does not detect
+the GPU. The [installation guide](https://uw-ipd.github.io/tmol/latest/installation.html)
+covers PyTorch installation, binary compatibility, and source builds.
 
-```bash
-python -m pip install "tmol==0.1.62" --only-binary=:all:
-```
-
-PyPI provides CPU wheels; GitHub hosts CUDA variants. Both include AtomWorks 3
-and ligand preparation with RDKit and OpenBabel. See the
-[installation guide](https://uw-ipd.github.io/tmol/latest/installation.html)
-for other CUDA/PyTorch combinations, platform support, and source builds.
-
-Verify the installation:
-
-```bash
-python -c "import tmol; print(tmol.__version__)"
+```python
+import torch, tmol
+print(tmol.__version__, tmol.has_cuda(), torch.cuda.is_available())
 ```
 
 ## Quick start
@@ -153,9 +150,10 @@ print(score(pose.coords))
 ```
 
 See the [quickstart](https://uw-ipd.github.io/tmol/latest/quickstart.html) for
-minimization and ligand preparation. The
-[guides](https://uw-ipd.github.io/tmol/latest/workflows/index.html) cover batching,
-packing, score analysis, and model inputs; the
+scoring, minimization, repacking, FastRelax, batching, and ligand preparation.
+The [visual glossary](https://uw-ipd.github.io/tmol/latest/terminology.html) explains
+the concepts, and the [score playground](https://uw-ipd.github.io/tmol/latest/playground.html)
+lets you rotate a side chain and inspect TMol scores in the browser. The
 [task index](https://uw-ipd.github.io/tmol/latest/tutorial/recipe_index.html)
 links individual operations to examples and APIs.
 
@@ -164,7 +162,7 @@ links individual operations to examples and APIs.
 ```bash
 git clone https://github.com/uw-ipd/tmol.git
 cd tmol
-python -m pip install "scikit-build-core>=0.10" "cmake>=3.24,<4" "pybind11>=2.12" ninja packaging
+python -m pip install "torch>=2.14" "scikit-build-core>=0.10" "cmake>=3.24,<4" "pybind11>=2.12" ninja packaging
 python -m pip install --no-build-isolation -e ".[dev]"
 ```
 

@@ -3,7 +3,7 @@
 BASS is a selectable pipeline model (model='bass') via a sklearn-style
 BassRegressor wrapper around pyBASS, routed through DefaultFitter. HPs are
 config-driven via [ML] bass_* (tuned poppy defaults max_int=1, npart=15).
-pyBASS is a git-only optional dep, so these tests avoid importing it.
+pyBASS (PyPI: pybass-emu) is imported lazily, so these tests avoid importing it.
 """
 import ast
 import inspect

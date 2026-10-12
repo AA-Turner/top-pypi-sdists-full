@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pytest-gremlins
-Version: 1.11.3
+Version: 1.11.4
 Summary: Fast-first mutation testing for pytest. Let the gremlins loose, see which ones survive.
 Project-URL: Homepage, https://github.com/mikelane/pytest-gremlins
 Project-URL: Documentation, https://pytest-gremlins.readthedocs.io

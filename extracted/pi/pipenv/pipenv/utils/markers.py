@@ -14,7 +14,6 @@ from pipenv.patched.pip._vendor.packaging.specifiers import (
 )
 
 MAX_VERSIONS = {1: 7, 2: 7, 3: 11, 4: 0}
-DEPRECATED_VERSIONS = ["3.0", "3.1", "3.2", "3.3"]
 
 
 class RequirementError(Exception):
@@ -63,9 +62,10 @@ class PipenvMarkers:
         try:
             combined_marker = cls.make_marker(" and ".join(sorted(markers)))
         except RequirementError:
-            pass
+            pass  # Keep the original marker set when combination is invalid.
         else:
             return combined_marker
+        return None
 
 
 def is_instance(item, cls):
@@ -141,7 +141,7 @@ def _format_pyspec(specifier):
 
 def _get_specs(specset):
     if specset is None:
-        return
+        return []
     if is_instance(specset, Specifier):
         new_specset = SpecifierSet()
         specs = set()
@@ -211,7 +211,10 @@ def normalize_specifier_set(specs):
 # And rename it to something meaningful
 def get_sorted_version_string(version_set):
     # type: (Set[AnyStr]) -> AnyStr
-    version_list = sorted(f"{_format_version(version)}" for version in version_set)
+    version_list = [
+        _format_version(version)
+        for version in sorted(version_set, key=_version_sort_key)
+    ]
     version = ", ".join(version_list)
     return version
 
@@ -244,8 +247,12 @@ def cleanup_pyspecs(specs, joiner="or"):
             "and": get_sorted_version_string,
         },
     }
+    # Multiple ``==`` versions become an ``in`` group, which
+    # :func:`format_pyversion` renders as a parenthesized ``or`` of ``==``
+    # clauses.  Multiple ``!=`` versions are emitted as separate clauses rather
+    # than ``not in``: marker ``in``/``not in`` use string containment, so
+    # ``'3.1' in '3.10, 3.11'`` would be true (see #6727).
     op_translations = {
-        "!=": lambda x: "not in" if len(x) > 1 else "!=",
         "==": lambda x: "in" if len(x) > 1 else "==",
     }
     translation_keys = list(translation_map.keys())
@@ -257,10 +264,27 @@ def cleanup_pyspecs(specs, joiner="or"):
         version_value = versions
         if op_key is not None:
             version_value = translation_map[op_key][joiner](versions)
+        if op == "!=":
+            for version in versions:
+                results[(op, _format_version(version))] = _format_version(version)
+            continue
         if op in op_translations:
             op = op_translations[op](versions)
         results[(op, op_and_version_type[1])] = version_value
-    return sorted([(k[0], v) for k, v in results.items()], key=operator.itemgetter(1))
+    return sorted(
+        [(k[0], v) for k, v in results.items()],
+        key=lambda item: _version_sort_key(item[1]),
+    )
+
+
+def _version_sort_key(value):
+    # type: (Union[AnyStr, Tuple]) -> Tuple
+    value = _format_version(value)
+    first = value.split(",")[0].strip()
+    try:
+        return (0, tuple(int(part) for part in first.split(".")), value)
+    except ValueError:
+        return (1, (), value)
 
 
 # TODO: Rename this to something meaningful
@@ -490,8 +514,6 @@ def _split_specifierset_str(specset_str, prefix="=="):
         values = [v.strip() for v in specset_str.split()]
     else:
         values = [v.strip() for v in specset_str.split(",")]
-    if prefix == "!=" and any(v in values for v in DEPRECATED_VERSIONS):
-        values += DEPRECATED_VERSIONS[:]
     for value in sorted(values):
         specifiers.add(Specifier(f"{prefix}{value}"))
     return specifiers
@@ -525,11 +547,8 @@ def _get_specifiers_from_markers(marker_item):
 def get_specset(marker_list):
     # type: (List) -> Optional[SpecifierSet]
     specset = set()
-    _last_str = "and"
     for marker_parts in marker_list:
-        if isinstance(marker_parts, str):
-            _last_str = marker_parts  # noqa
-        else:
+        if not isinstance(marker_parts, str):
             specset.update(_get_specifiers_from_markers(marker_parts))
     specifiers = SpecifierSet()
     specifiers._specs = frozenset(specset)
@@ -545,10 +564,7 @@ def parse_marker_dict(marker_dict):
     side_spec_list = []
     side_markers_list = []
     finalized_marker = ""
-    # And if we hit the end of the parse tree we use this format string to make a marker
-    format_string = "{lhs} {op} {rhs}"
     specset = SpecifierSet()
-    specs = set()
     # Essentially we will iterate over each side of the parsed marker if either one is
     # A mapping instance (i.e. a dictionary) and recursively parse and reduce the specset
     # Union the "and" specs, intersect the "or"s to find the most appropriate range
@@ -595,8 +611,7 @@ def parse_marker_dict(marker_dict):
         # to be smashed together
         specs = set()
         if lhs == "python_version":
-            format_string = "{lhs}{op}{rhs}"
-            marker = Marker(format_string.format(**marker_dict))
+            marker = Marker("{lhs} {op} {rhs}".format(**marker_dict))
             marker_parts = getattr(marker, "_markers", [])
             _set = get_specset(marker_parts)
             if _set:
@@ -655,6 +670,9 @@ def marker_from_specifier(spec) -> Marker:
 
 def format_pyversion(parts):
     op, val = parts
+    if op == "in":
+        clauses = [format_pyversion(("==", v.strip())) for v in val.split(",")]
+        return "({})".format(" or ".join(clauses))
     version_marker = (
         "python_full_version" if _contains_micro_version(val) else "python_version"
     )

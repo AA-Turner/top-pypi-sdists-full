@@ -256,31 +256,31 @@ class QuicConnection:
         session_ticket_handler: Optional[tls.SessionTicketHandler] = None,
         token_handler: Optional[QuicTokenHandler] = None,
     ) -> None:
-        assert configuration.max_datagram_size >= SMALLEST_MAX_DATAGRAM_SIZE, (
-            "The smallest allowed maximum datagram size is "
-            f"{SMALLEST_MAX_DATAGRAM_SIZE} bytes"
-        )
+        if configuration.max_datagram_size < SMALLEST_MAX_DATAGRAM_SIZE:
+            raise ValueError(
+                "The smallest allowed maximum datagram size is "
+                f"{SMALLEST_MAX_DATAGRAM_SIZE} bytes"
+            )
         if configuration.is_client:
-            assert original_destination_connection_id is None, (
-                "Cannot set original_destination_connection_id for a client"
-            )
-            assert retry_source_connection_id is None, (
-                "Cannot set retry_source_connection_id for a client"
-            )
+            if original_destination_connection_id is not None:
+                raise ValueError(
+                    "Cannot set original_destination_connection_id for a client"
+                )
+            if retry_source_connection_id is not None:
+                raise ValueError("Cannot set retry_source_connection_id for a client")
         else:
-            assert token_handler is None, "Cannot set `token_handler` for a server"
-            assert configuration.token == b"", (
-                "Cannot set `configuration.token` for a server"
-            )
-            assert configuration.certificate is not None, (
-                "SSL certificate is required for a server"
-            )
-            assert configuration.private_key is not None, (
-                "SSL private key is required for a server"
-            )
-            assert original_destination_connection_id is not None, (
-                "original_destination_connection_id is required for a server"
-            )
+            if token_handler is not None:
+                raise ValueError("Cannot set `token_handler` for a server")
+            if configuration.token != b"":
+                raise ValueError("Cannot set `configuration.token` for a server")
+            if configuration.certificate is None:
+                raise ValueError("SSL certificate is required for a server")
+            if configuration.private_key is None:
+                raise ValueError("SSL private key is required for a server")
+            if original_destination_connection_id is None:
+                raise ValueError(
+                    "original_destination_connection_id is required for a server"
+                )
 
         # configuration
         self._configuration = configuration
@@ -509,9 +509,10 @@ class QuicConnection:
         :param addr: The network address of the remote peer.
         :param now: The current time.
         """
-        assert self._is_client and not self._connect_called, (
-            "connect() can only be called for clients and a single time"
-        )
+        if not self._is_client or self._connect_called:
+            raise RuntimeError(
+                "connect() can only be called for clients and a single time"
+            )
         self._connect_called = True
 
         self._network_paths = [QuicNetworkPath(addr, is_validated=True)]
@@ -884,9 +885,19 @@ class QuicConnection:
 
             # Server initialization.
             if not self._is_client and self._state == QuicConnectionState.FIRSTFLIGHT:
-                assert header.packet_type == QuicPacketType.INITIAL, (
-                    "first packet must be INITIAL"
-                )
+                # Nothing can be decrypted until we have received an INITIAL packet.
+                if header.packet_type != QuicPacketType.INITIAL:
+                    if self._quic_logger is not None:
+                        self._quic_logger.log_event(
+                            category="transport",
+                            event="packet_dropped",
+                            data={
+                                "trigger": "key_unavailable",
+                                "raw": {"length": header.packet_length},
+                            },
+                        )
+                    return
+
                 crypto_frame_required = True
                 self._network_paths = [network_path]
                 self._version = header.version
@@ -1100,7 +1111,8 @@ class QuicConnection:
 
         .. aioquic_transmit::
         """
-        assert self._handshake_complete, "cannot change key before handshake completes"
+        if not self._handshake_complete:
+            raise RuntimeError("Cannot change key before handshake completes")
         self._cryptos[tls.Epoch.ONE_RTT].update_key()
 
     def reset_stream(self, stream_id: int, error_code: int) -> None:
@@ -1956,6 +1968,11 @@ class QuicConnection:
             for cid in self._peer_cid_available
             if cid.sequence_number >= self._peer_retire_prior_to
         ]
+        self._peer_cid_sequence_numbers = set(
+            seq
+            for seq in self._peer_cid_sequence_numbers
+            if seq >= self._peer_retire_prior_to
+        )
         if (
             sequence_number >= self._peer_retire_prior_to
             and sequence_number not in self._peer_cid_sequence_numbers

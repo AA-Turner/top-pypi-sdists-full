@@ -4,12 +4,13 @@ Exim adds an X-Failed-Recipients: header to bounce messages containing
 an `addresslist' of failed addresses.
 """
 
-from email.utils import getaddresses
+from contextlib import suppress
 from email.message import Message
+from email.utils import getaddresses
 
 from public import public
 
-from flufl.bounce.interfaces import NoTemporaryFailures, Recipients
+from flufl.bounce._interfaces import NoTemporaryFailures, Recipients
 
 
 @public
@@ -19,10 +20,11 @@ class Exim:
     def process(self, msg: Message) -> tuple[Recipients, Recipients]:
         """See `BounceDetector`."""
         all_failed = msg.get_all('x-failed-recipients', [])
-        # all_failed will contain string/unicode values, but the flufl.bounce
-        # API requires these to be bytes.  We don't know the encoding, but
-        # assume it must be ascii, per the relevant RFCs.
-        return (
-            NoTemporaryFailures,
-            frozenset(address.encode('us-ascii') for name, address in getaddresses(all_failed)),
-        )
+        # The flufl.bounce API reports each address as bytes.
+        addresses: set[bytes] = set()
+        for _name, address in getaddresses(all_failed):
+            # By now the email package has replaced any non-ASCII bytes in the address with U+FFFD,
+            # so it can't be reported faithfully; skip it.  See GL#3.
+            with suppress(UnicodeEncodeError):
+                addresses.add(address.encode('us-ascii'))
+        return NoTemporaryFailures, frozenset(addresses)

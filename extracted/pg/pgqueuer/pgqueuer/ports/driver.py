@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Callable, Protocol, runtime_checkable
+from typing import Callable, Protocol, TypeAlias, runtime_checkable
 
 from typing_extensions import Self
+
+NotifyCallback: TypeAlias = Callable[[str | bytes | bytearray], None]
+"""Callback that receives the payload of a NOTIFY."""
 
 
 @runtime_checkable
@@ -34,6 +37,22 @@ class DiagnosticError(Protocol):
 
     @property
     def diag(self) -> object: ...
+
+
+@runtime_checkable
+class ListenerRemover(Protocol):
+    """Driver that can unregister a callback added with ``add_listener``.
+
+    Separate from ``Driver`` so existing custom drivers still satisfy ``Driver``.
+    """
+
+    async def remove_listener(
+        self,
+        channel: str,
+        callback: NotifyCallback,
+    ) -> None:
+        """Stop delivering NOTIFY payloads on *channel* to *callback*."""
+        ...
 
 
 class TaskManagerPort(Protocol):
@@ -70,7 +89,7 @@ class Driver(Protocol):
     async def add_listener(
         self,
         channel: str,
-        callback: Callable[[str | bytes | bytearray], None],
+        callback: NotifyCallback,
     ) -> None:
         """Register *callback* to receive payloads from NOTIFY on *channel*."""
         raise NotImplementedError

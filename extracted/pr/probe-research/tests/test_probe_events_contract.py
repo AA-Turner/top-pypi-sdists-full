@@ -25,6 +25,10 @@ Where each raw.jsonl comes from (no real customer or machine content):
                model) trimmed to the record families the sanitizer reads plus
                one of each it drops, its sibling session's compaction, then
                synthetic shell / plugin / skill / undo / clear records
+  capy         a synthetic mirror (cli/capy_discovery.py's own format) built
+               from Capy's documented message shapes: tool summaries with
+               planted output on their second line, an edited prompt, image
+               and file attachments, an unknown source and an unknown type
 """
 
 from __future__ import annotations
@@ -37,7 +41,7 @@ from typing import Any
 import pytest
 from jsonschema import Draft202012Validator
 
-from probe.tap_core import codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
+from probe.tap_core import capy_sanitize, codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
 from tests.test_capture_privacy import _HARNESS_FIXTURES
 
 _AGENT = Path(__file__).resolve().parent.parent
@@ -48,6 +52,7 @@ SANITIZERS = {
     "codex": codex_sanitize,
     "pi": pi_sanitize,
     "kimi_code": kimi_sanitize,
+    "capy": capy_sanitize,
 }
 VALIDATOR = Draft202012Validator(json.loads(SCHEMA_PATH.read_text()))
 
@@ -94,7 +99,7 @@ def test_golden_raw_sanitizes_to_exactly_the_expected_events(harness: str) -> No
 def test_every_golden_shows_what_its_harness_drops_and_keeps(harness: str) -> None:
     """A golden that never drops a line, or never ships one, pins nothing."""
     expected = _lines(GOLDENS / harness / "expected.jsonl")
-    if harness != "pi":  # pi drops nothing: an unknown entry ships as a system event
+    if harness not in ("pi", "capy"):  # pi and capy drop nothing: an unknown entry ships as a system event
         assert any(e is None for e in expected), "the golden has no dropped line"
     assert sum(len(_events(e)) for e in expected) >= 10
 

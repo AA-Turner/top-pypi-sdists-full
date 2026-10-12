@@ -1,31 +1,58 @@
-from dataclasses import dataclass
-from typing import Union, Optional
+"""Type stub for the `shazamio_core` extension, written by hand.
+
+`maturin --generate-stubs` cannot produce it: the introspection behind it only
+covers a declarative `#[pymodule] mod`, and on a function-form module like ours it
+emits a `__getattr__` returning `Incomplete`, which types every name as `Any`.
+https://github.com/PyO3/pyo3/blob/v0.29.2/guide/src/type-stub.md
+
+`mypy.stubtest` checks this file against the compiled module in CI.
+"""
+
+from collections.abc import Awaitable
 from os import PathLike
+from typing import NoReturn, final
+
+__all__ = [
+    "Recognizer",
+    "SearchParams",
+    "Signature",
+    "SignatureError",
+    "SignatureSong",
+]
 
 
-@dataclass
-class Geolocation:
-    altitude: int
-    latitude: int
-    longitude: int
-
-
-@dataclass
+# Every field of the two classes below is a getter and nothing more:
+#  `src/response.rs` declares them `#[pyo3(get)]`, so the runtime refuses an
+#  assignment that a plain attribute here would let a caller write.
+#  `tests/test_typing.py` holds the declarations to that.
+#
+# Neither declares a constructor in Rust, so the runtime raises `TypeError: cannot
+#  create 'shazamio_core.Signature' instances`. Without a `__new__` here a type
+#  checker falls back to `object()` and accepts the call; a required `NoReturn`
+#  argument no value can satisfy makes it reject one with any arguments.
+@final
 class SignatureSong:
-    samples: int
-    timestamp: int
-    uri: str
+    @property
+    def samples(self) -> int: ...
+    @property
+    def uri(self) -> str: ...
+
+    def __new__(cls, unconstructible: NoReturn, /) -> SignatureSong: ...
 
 
-@dataclass
+@final
 class Signature:
-    geolocation: Geolocation
-    signature: SignatureSong
-    timestamp: int
-    timezone: str
+    @property
+    def signature(self) -> SignatureSong: ...
+    @property
+    def timestamp(self) -> int: ...
+    @property
+    def timezone(self) -> str: ...
+
+    def __new__(cls, unconstructible: NoReturn, /) -> Signature: ...
 
 
-@dataclass(frozen=True)
+@final
 class SearchParams:
     """
     Search parameters for the recognize method.
@@ -38,48 +65,54 @@ class SearchParams:
           - Example: If the audio is **8 seconds** and `segment_duration_seconds = 10`, the entire **8-second file** will be processed.
         - **Audio is always converted to mono and down sampled to 16 kHz** before analysis.
         - This parameter determines the number of samples used for frequency analysis and fingerprint generation.
+        - **Must be at least 1.** Zero raises `ValueError`, at the constructor and on assignment.
     """
-    segment_duration_seconds: int = 10
+
+    segment_duration_seconds: int
+
+    def __new__(cls, segment_duration_seconds: int | None = None) -> SearchParams: ...
 
 
-class SignatureError(Exception):
-    def __init__(self, message: str):
-        self.message = message
-
-    def __str__(self) -> str:
-        return self.message
-
-    def __repr__(self) -> str:
-        return f"SignatureError({self.message})"
+class SignatureError(Exception): ...
 
 
+@final
 class Recognizer:
     """
     Recognizer uses a Rust implementation under the hood.
 
     This class provides an interface for recognizing audio files, but the actual
     processing logic is implemented in Rust and accessed via FFI.
+
+    Both recognize methods return an `asyncio.Future`, not a coroutine: they need a
+    running event loop at the call, and the work starts there rather than at the
+    `await`. The `README` says what that allows and what it rules out.
     """
 
-    def __init__(self, segment_duration_seconds: int = 10) -> None:
+    segment_duration_seconds: int
+
+    def __new__(cls, segment_duration_seconds: int | None = None) -> Recognizer:
         """
         :param segment_duration_seconds: The duration (in seconds) of the audio segment to analyze.
-            - **Default:** 12 seconds.
+            - **Default:** 10 seconds.
             - **If the audio file is longer than this duration**, a centered segment of the specified duration is selected.
               - Example: If the audio is **60 seconds** and `segment_duration_seconds = 10`, the extracted segment will be **from 25s to 35s**.
             - **If the audio file is shorter than this duration**, the entire file is used.
               - Example: If the audio is **8 seconds** and `segment_duration_seconds = 10`, the entire **8-second file** will be processed.
             - **Audio is always converted to mono and down sampled to 16 kHz** before analysis.
             - This parameter determines the number of samples used for frequency analysis and fingerprint generation.
+            - **Must be at least 1.** Zero raises `ValueError`, at the constructor and on assignment.
         """
-        self.segment_duration_seconds = segment_duration_seconds
-        raise NotImplemented
 
-    async def recognize_path(
-            self,
-            value: Union[str, PathLike],
-            options: Optional[SearchParams] = None,
-    ) -> Signature:
+    # The runtime hands back `loop.create_future()` and spawns the work straight
+    #  after, so what these return is an awaitable and never a coroutine.
+    #  `tests/test_typing.py` holds the declaration below to what a caller may do.
+    #  https://github.com/PyO3/pyo3-async-runtimes/blob/58d42b7a3eb239719175c5587b2b7debd9ee134b/src/generic.rs#L620-L631
+    def recognize_path(
+        self,
+        value: str | PathLike[str],
+        options: SearchParams | None = None,
+    ) -> Awaitable[Signature]:
         """
         Recognize audio from a file path.
 
@@ -87,16 +120,15 @@ class Recognizer:
 
         :param value: Path to an audio file.
         :param options: Search parameters.
-        :return: Signature object.
+        :return: `Awaitable` resolving to a `Signature`.
         :raises SignatureError: if an error occurs.
         """
-        raise NotImplemented
 
-    async def recognize_bytes(
-            self,
-            value: bytes,
-            options: Optional[SearchParams] = None,
-    ) -> Signature:
+    def recognize_bytes(
+        self,
+        value: bytes,
+        options: SearchParams | None = None,
+    ) -> Awaitable[Signature]:
         """
         Recognize audio from raw bytes.
 
@@ -104,7 +136,6 @@ class Recognizer:
 
         :param value: Raw audio file as bytes.
         :param options: Search parameters.
-        :return: Signature object.
+        :return: `Awaitable` resolving to a `Signature`.
         :raises SignatureError: if an error occurs.
         """
-        raise NotImplemented

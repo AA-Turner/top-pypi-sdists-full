@@ -9,8 +9,8 @@ from itertools import chain
 
 from pgqueuer.core import tm
 from pgqueuer.domain import models, types
-from pgqueuer.domain.settings import DBSettings
-from pgqueuer.ports.driver import Driver
+from pgqueuer.domain.settings import db_settings
+from pgqueuer.ports.driver import Driver, ListenerRemover
 from pgqueuer.ports.repository import QueueRepositoryPort
 
 
@@ -34,7 +34,7 @@ class CompletionWatcher:
 
     driver: Driver
     queries: QueueRepositoryPort = field(kw_only=True)
-    refresh_interval: timedelta = field(
+    refresh_interval: timedelta | None = field(
         default_factory=lambda: timedelta(seconds=5),
     )
 
@@ -67,18 +67,35 @@ class CompletionWatcher:
         init=False,
         repr=False,
     )
+    refresh_requested: bool = field(
+        default=False,
+        init=False,
+        repr=False,
+    )
 
     async def __aenter__(self) -> "CompletionWatcher":
-        self.task_manager.add(asyncio.create_task(self._poll_for_change()))
-        await self.driver.add_listener(DBSettings().channel, self._is_relevant_event)
+        if self.refresh_interval is not None:
+            self.task_manager.add(asyncio.create_task(self._poll_for_change(self.refresh_interval)))
+        await self.driver.add_listener(db_settings().channel, self._is_relevant_event)
         self._schedule_refresh_waiters()
         return self
 
-    async def __aexit__(self, *_: object) -> bool:
-        self.shutdown.set()
+    async def __aexit__(self, exc_type: type[BaseException] | None, *_: object) -> bool:
+        if exc_type is not None:
+            for waiter in chain.from_iterable(self.waiters.values()):
+                waiter.cancel()
         self._schedule_refresh_waiters()
-        await asyncio.gather(*chain.from_iterable(self.waiters.values()))
-        await self.task_manager.gather_tasks()
+        try:
+            await asyncio.gather(
+                *chain.from_iterable(self.waiters.values()),
+                return_exceptions=True,
+            )
+        finally:
+            # Set only now: the poll must keep running while a waiter's NOTIFY may be lost.
+            self.shutdown.set()
+            await self.task_manager.gather_tasks()
+            if isinstance(self.driver, ListenerRemover):
+                await self.driver.remove_listener(db_settings().channel, self._is_relevant_event)
         return False
 
     def wait_for(self, jid: types.JobId) -> asyncio.Future[types.JOB_STATUS]:
@@ -90,22 +107,28 @@ class CompletionWatcher:
 
     def _schedule_refresh_waiters(self) -> None:
         """(Re)arm debounce timer; coalesces multiple triggers into one query."""
+        self.refresh_requested = True
         if self.debounce_task and not self.debounce_task.done():
-            return  # timer already running
+            return  # the running task picks the request up
         self.debounce_task = asyncio.create_task(self._debounced())
         self.task_manager.add(self.debounce_task)
 
     async def _debounced(self) -> None:
-        """Sleep for the debounce interval, then run the consolidated check."""
+        """Sleep for the debounce interval, then run the consolidated check.
+
+        Repeats while triggers arrive, so at most one status query is in flight.
+        """
         try:
-            with suppress(TimeoutError, asyncio.TimeoutError):
-                await asyncio.wait_for(
-                    self.shutdown.wait(),
-                    timeout=self.debounce.total_seconds(),
-                )
+            while self.refresh_requested:
+                with suppress(TimeoutError, asyncio.TimeoutError):
+                    await asyncio.wait_for(
+                        self.shutdown.wait(),
+                        timeout=self.debounce.total_seconds(),
+                    )
+                self.refresh_requested = False
+                await self._refresh_waiters()
         finally:
             self.debounce_task = None
-        await self._refresh_waiters()
 
     def _is_relevant_event(self, payload: str | bytes | bytearray) -> None:
         """LISTEN/NOTIFY callback -- schedules a debounced change check."""
@@ -116,13 +139,13 @@ class CompletionWatcher:
         if evt.root.type == "table_changed_event":
             self._schedule_refresh_waiters()
 
-    async def _poll_for_change(self) -> None:
+    async def _poll_for_change(self, refresh_interval: timedelta) -> None:
         """Safety-net poller for missed NOTIFY events."""
         while not self.shutdown.is_set():
             try:
                 await asyncio.wait_for(
                     self.shutdown.wait(),
-                    timeout=self.refresh_interval.total_seconds(),
+                    timeout=refresh_interval.total_seconds(),
                 )
             except (TimeoutError, asyncio.TimeoutError):
                 self._schedule_refresh_waiters()

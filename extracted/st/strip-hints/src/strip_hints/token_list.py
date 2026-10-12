@@ -8,6 +8,7 @@ strings.
 """
 
 from __future__ import print_function, division, absolute_import
+import re
 import sys
 import tokenize
 import io
@@ -75,7 +76,8 @@ class Token(object):
     The tokens are mutable via changing the named attributes such as `type` and
     `string`.  Accessing the `token_tuple` property or converting to type `tuple`
     returns a tuple of the current values (the format Python's `untokenize`
-    function expects)."""
+    function expects).  The `original_string` attribute keeps the string the
+    token was created with."""
 
     def __init__(self, token_iterable, nesting_level=None, filename=None,
                  compat_mode=False):
@@ -96,6 +98,7 @@ class Token(object):
             token_elements = [t for t in token_iterable]
         self.type = token_elements[0]
         self.string = token_elements[1]
+        self.original_string = self.string
         self.start = token_elements[2]
         self.end = token_elements[3]
         self.line = token_elements[4]
@@ -141,6 +144,12 @@ class Token(object):
             self.string = ""
         else:
             self.string = " " * len(self.token_tuple[1])
+
+    def is_op(self, *strings):
+        """Return true if the token is an operator token with one of the strings
+        `strings`.  Tokens of other types can have the same strings, such as the
+        text parts of f-strings in Python 3.12 and later."""
+        return self.type == tokenize.OP and self.string in strings
 
     def __tuple__(self):
         return self.token_tuple
@@ -191,9 +200,9 @@ class TokenList(object):
         the default full mode (five-element token tuples).
 
         Nesting levels are currently only set when reading from a string or
-        file.  Nesting levels start at zero and increase on any character in
+        file.  Nesting levels start at zero and increase on any operator token in
         `nest_open` (class attribute above) and decrease just after any
-        character in `nest_close`."""
+        operator token in `nest_close`."""
         if "encoding" in kwargs:
             self.encoding = kwargs["encoding"]
         else:
@@ -203,6 +212,8 @@ class TokenList(object):
             self.compat_mode = True
         else:
             self.compat_mode = False
+        self.added_final_newline = False
+        self.source_lines = None
 
         if "filename" in kwargs:
             self.read_from_file(kwargs["filename"])
@@ -216,6 +227,7 @@ class TokenList(object):
         either token tuples or `Token` instances.
 
         Keyword options are `encoding` and `compat_mode`."""
+        self.source_lines = None # There is no source code to keep.
         if "encoding" in kwargs:
             self.encoding = kwargs["encoding"]
         else:
@@ -242,12 +254,16 @@ class TokenList(object):
         if compat_mode:
             self.compat_mode = compat_mode
         with contextlib.closing(get_textfile_stream(filename, encoding)) as stream:
-            return self.read_from_readline_interface(stream.readline, filename, compat_mode=compat_mode)
+            self.read_from_readline_interface(stream.readline, filename, compat_mode=compat_mode)
+        # Use the encoding the tokenizer found from a coding comment or BOM, if any.
+        if self.token_list and self.token_list[0].type_name == "ENCODING":
+            self.encoding = self.token_list[0].string
 
     def read_from_string(self, code_string, encoding="utf-8", compat_mode=False):
         """Read from the string `code_string` and return a list of tuples containing
         a token and its nesting level."""
         # Nesting level is only ever set here and `read_from_file`, nowhere else as of now.
+        self.encoding = encoding
         if compat_mode:
             self.compat_mode = compat_mode
         with contextlib.closing(get_string_stream(code_string, encoding)) as stream:
@@ -259,7 +275,20 @@ class TokenList(object):
         # Todo: Compat mode arg handling could be cleaned up in this method and class.
         if compat_mode:
             self.compat_mode = compat_mode
-        tok_generator = call_tokenize(readline)
+        self.added_final_newline = False
+        lines = []
+
+        def readline_with_final_newline():
+            """Read a line, adding a newline if the last line lacks one."""
+            # Untokenize in Python 3.8 and earlier can fail without a final newline.
+            line = readline()
+            if line and line[-1:] not in (b"\n", "\n"):
+                self.added_final_newline = True
+                line += b"\n" if isinstance(line, bytes) else "\n"
+            lines.append(line)
+            return line
+
+        tok_generator = call_tokenize(readline_with_final_newline)
 
         self.token_list = []
         nesting_level = 0
@@ -268,13 +297,25 @@ class TokenList(object):
             if lower_nest_level:
                 nesting_level -= 1
                 lower_nest_level = False
-            if tok[1] in self.nest_open:
+            # Only count operators, since f-string parts like `{{` can also match.
+            if tok[0] == tokenize.OP and tok[1] in self.nest_open:
                 nesting_level += 1
-            elif tok[1] in self.nest_close:
+            elif tok[0] == tokenize.OP and tok[1] in self.nest_close:
                 lower_nest_level = True # Lower for next token.
 
             self.token_list.append(Token(tok, nesting_level=nesting_level,
                            filename=filename, compat_mode=self.compat_mode))
+
+        # Keep the source lines as text for `to_source`, decoded the same way as by
+        # the tokenizer so that the token positions index into them.
+        self.source_encoding = self.encoding
+        if self.token_list and self.token_list[0].type_name == "ENCODING":
+            self.source_encoding = self.token_list[0].string
+        if lines and lines[0][:3] == codecs.BOM_UTF8:
+            lines[0] = lines[0][3:] # The tokenizer also removes any BOM.
+            self.source_encoding = "utf-8" # So that `to_source` does not restore it.
+        self.source_lines = [line.decode(self.source_encoding)
+                             if isinstance(line, bytes) else line for line in lines]
 
     def untokenize(self, encoding=None):
         """Convert the current list of tokens into a code string and return it.
@@ -290,7 +331,59 @@ class TokenList(object):
         if version == 2: # Decoding below causes a unicode error in Python 2.
             return result
         decoded_result = result if isinstance(result, str) else result.decode(encoding)
+        if self.added_final_newline and decoded_result.endswith("\n"):
+            decoded_result = decoded_result[:-1] # Remove the newline added when reading.
         return decoded_result
+
+    def to_source(self, drop_space_before_emptied=False):
+        """Return the original source code with the current strings of any modified
+        tokens substituted in.  The text of unmodified tokens and the whitespace
+        between tokens are copied unchanged from the source.  If
+        `drop_space_before_emptied` is true, the whitespace before a token whose
+        string was changed to empty is also removed, except for line breaks.
+
+        This requires a `TokenList` read from a file or string in full mode,
+        since the source code and the token positions are needed."""
+        if self.source_lines is None or self.compat_mode:
+            raise StripHintsException("The `TokenList` has no source code, since it"
+                    " was not read from a file or string in full mode.  The"
+                    " `untokenize` method can be used instead.")
+        line_offsets = [0]
+        for line in self.source_lines:
+            line_offsets.append(line_offsets[-1] + len(line))
+        source = "".join(self.source_lines)
+
+        def offset(position):
+            """Return the offset in `source` of a (row, column) token position."""
+            return line_offsets[position[0] - 1] + position[1]
+
+        result = []
+        copied_up_to = previous_end = 0
+        for t in self.token_list:
+            if t.type_name == "ENCODING":
+                continue # Its position is not in the source.
+            start, end = offset(t.start), offset(t.end)
+            if t.string != t.original_string:
+                copy_end, continuations = start, ""
+                if drop_space_before_emptied and not t.string:
+                    # Drop the whitespace after the previous token, but keep any
+                    # backslash line continuations in it so lines are not joined.
+                    copy_end = previous_end
+                    continuations = "".join(re.findall(r"\\\r?\n",
+                                                       source[previous_end:start]))
+                result += [source[copied_up_to:copy_end], continuations, t.string]
+                copied_up_to = end
+            previous_end = end
+        result.append(source[copied_up_to:])
+
+        result = "".join(result)
+        # A string with a coding comment for another encoding was decoded with that
+        # encoding by the tokenizer, so undo it the same way `untokenize` does.
+        if self.source_encoding != self.encoding:
+            result = result.encode(self.source_encoding).decode(self.encoding)
+        if self.added_final_newline and result.endswith("\n"):
+            result = result[:-1] # Remove the newline added when reading.
+        return result
 
     def iter_with_skips(self, skip_types=None, skip_type_names=None, skip_values=None):
         """Return an iterator which skips tokens matching the given criteria."""
@@ -313,9 +406,10 @@ class TokenList(object):
         Lists of properties (type names, types, or values) of the tokens to
         split on are passed to the method.  The resulting splits will be on
         tokens which satisfy any of the criteria.  If `disjunction` is false
-        then the conjunction of the separate lists is used instead (but
+        then the conjunction of the lists that are passed is used instead (but
         disjunction is still used within any list since those properties are
-        mutually exclusive).
+        mutually exclusive).  For example, operator tokens with certain values
+        can be selected with `token_types` and `token_values`.
 
         Separators are part of the `TokenList` to the right unless
         `sep_on_left` is true.  If `isolated_separators` is true separators are
@@ -343,10 +437,11 @@ class TokenList(object):
                 do_split = ((token_type_names and tok.type_name in token_type_names)
                            or (token_types and tok.type in token_types)
                            or (token_values and tok.value in token_values))
-            else: # Conjunction.
-                do_split = ((token_type_names and tok.type_name in token_type_names)
-                           and (token_types and tok.type in token_types)
-                           and (token_values and tok.value in token_values))
+            else: # Conjunction of the criteria that were passed.
+                do_split = ((token_type_names or token_types or token_values)
+                           and (not token_type_names or tok.type_name in token_type_names)
+                           and (not token_types or tok.type in token_types)
+                           and (not token_values or tok.value in token_values))
             if do_split:
                 num_splits += 1
                 splits.append(self.token_list[i])

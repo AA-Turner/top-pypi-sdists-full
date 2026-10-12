@@ -61,7 +61,6 @@ CAPABILITIES_ENV = "JUPYTER_MCP_CAPABILITIES"
 #: told its kernel died, not handed a different one wearing its name.
 KERNEL_AUTO_RESTART = "kernel.auto-restart"
 
-
 @dataclass(frozen=True)
 class Capability:
     """One thing this server can do, and whether it is doing it."""

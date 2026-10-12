@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 
 USER_ID = "11111111-1111-4111-8111-111111111111"
+ORG_ID = "33333333-3333-4333-8333-333333333333"
 AGENT_ID = "22222222-2222-4222-8222-222222222222"
 CALLER_CONV = "33333333-3333-4333-8333-333333333333"
 SOURCE_CONV = "44444444-4444-4444-8444-444444444444"
@@ -136,6 +137,7 @@ async def _call(
         AppContext(
             emitter=None,
             user_id=USER_ID,
+            organization_id=ORG_ID,
             conversation_id=conversation_id,
             request_id=request_id,
         )
@@ -257,6 +259,8 @@ async def test_fork_runs_child_inside_fork(harness, monkeypatch) -> None:
         {
             "source_conversation_id": SOURCE_CONV,
             "user_id": USER_ID,
+            # the fork is saved in the caller's organization, carried — never the source's
+            "organization_id": ORG_ID,
             "up_to_position": 5,
             "parent_conversation_id": CALLER_CONV,
             "conversation_type": "subagent",

@@ -2,6 +2,7 @@
 
 Run: python tests/test_evidence.py
 """
+import inspect
 import json
 import os
 import sys
@@ -41,11 +42,11 @@ check("zero items -> MISSING", zero["types"]["choice"]["state"], evidence.MISSIN
 
 low = calib({"training": {"laya_train_calibration": {"choice": {"items": 5, "temperature": 1.0,
         "issues": ["not fitted: 5 calibration items, fewer than 10, so the temperature stays 1.0"]}}}})
-check("below MIN_TYPE_N -> INSUFFICIENT", low["types"]["choice"]["state"], evidence.INSUFFICIENT)
+check("upstream below-MIN_TYPE_N limitation -> INSUFFICIENT", low["types"]["choice"]["state"], evidence.INSUFFICIENT)
 
 warned = calib({"training": {"laya_train_calibration": {"choice": {"items": 30, "temperature": 1.2,
         "issues": ["fitted on only 30 calibration items"]}}}})
-check("fitted below CALIB_WARN_N -> INSUFFICIENT", warned["types"]["choice"]["state"], evidence.INSUFFICIENT)
+check("upstream below-CALIB_WARN_N limitation -> INSUFFICIENT", warned["types"]["choice"]["state"], evidence.INSUFFICIENT)
 
 clamped = calib({"training": {"laya_train_calibration": {"choice": {"items": 200, "temperature": 0.5,
         "issues": ["the fitted temperature 0.5 is on the [0.5, 3] clamp"]}}}})
@@ -63,6 +64,35 @@ check("mixed types overall -> INSUFFICIENT", mixed["state"], evidence.INSUFFICIE
 malformed = calib({"training": {"laya_train_calibration": {"choice": {"temperature": 1.0}}}})
 check("malformed entry -> UNKNOWN", malformed["types"]["choice"]["state"], evidence.UNKNOWN)
 
+# ------------------------------------------------------ one numeric source of truth
+# `items` is reported here, never judged: #964 deleted the local `_thresholds()` that compared it
+# against copies of `MIN_TYPE_N`/`CALIB_WARN_N`, and the comment describing that mechanism stayed
+# behind. These are the checks the deleted mechanism never had -- a re-introduced floor has to
+# survive all of them, on both sides of both upstream floors.
+for _n in (1, 5, 9, 10, 49, 50, 300, 5000):
+    _t = calib({"training": {"laya_train_calibration": {
+        "choice": {"items": _n, "temperature": 1.1, "issues": []}}}})
+    check("items=%d with no recorded issue -> PRESENT" % _n, _t["types"]["choice"]["state"], evidence.PRESENT)
+
+# The same counts with a limitation recorded, and the state flips -- so the loop above shows that
+# `issues` decides, not that a large `items` does.
+_states = {calib({"training": {"laya_train_calibration": {
+    "choice": {"items": _n, "temperature": 1.1,
+               "issues": ["fitted on only %d calibration items" % _n]}}}})["types"]["choice"]["state"]
+    for _n in (5, 9, 10, 49, 50, 300)}
+check("the limitation text alone decides, at every count", _states, {evidence.INSUFFICIENT})
+
+# The deleted mechanism also exported where its numbers came from. Nothing in this module's result
+# may claim a threshold provenance, because there is no threshold to have a provenance about.
+check("no threshold provenance in the result",
+      "threshold_source" in calib({"training": {"laya_train_calibration": {
+          "choice": {"items": 400, "temperature": 1.1, "issues": []}}}}), False)
+
+_src = inspect.getsource(evidence)
+check_true("the module comments name the artifact as the authority", "second numeric source of truth" in _src)
+check_true("no comment still promises the deleted fallback",
+           "_FALLBACK" not in _src and "fall back to the documented values" not in _src)
+
 # ------------------------------------------------------ report identity
 full_report = {"config": {"schema": "laya-evals-report/1", "dataset_sha256": "a",
                           "questions_sha256": "b", "laya_version": "0.3.28"}, "overall": {}}
@@ -76,6 +106,53 @@ check("missing identity fields -> UNKNOWN", rep2["state"], evidence.UNKNOWN)
 toplevel = {"schema": "laya-evals-report/1", "dataset_sha256": "a", "questions_sha256": "b",
             "config": {}}
 check("identity at top level still read", evidence.inspect_report(toplevel)["state"], evidence.PRESENT)
+
+# ------------------------------------------------------ identity vocabulary pinned to laya.evals
+# `laya/evidence.py` copies the report-identity vocabulary instead of importing `laya.evals` (numpy at
+# module scope), and a copy is only safe while it is held against the original -- the same way
+# `tests/test_conformal_abstention.py` holds `confidence.BUCKET_QTYPES` against `common.temp_bucket`.
+# Unpinned, a key renamed upstream would make every report read as identity-incomplete here, and a key
+# added upstream would read as identity-complete; both silently, in the verdict this module exists to
+# give. These four checks fail in both directions, on either side of the copy.
+from laya import evals  # noqa: E402
+
+check("the copied identity vocabulary is evals' own, in order",
+      list(evidence._IDENTITY_KEYS), list(evals._IDENTITY_KEYS))
+check("the provenance key is recorded upstream but not compared there",
+      [k for k in evidence._PROVENANCE_KEYS if k not in evals._IDENTITY_KEYS],
+      list(evidence._PROVENANCE_KEYS))
+check("checkpoint <-> report conflicts are the identity vocabulary minus the report tag",
+      sorted(set(evals._IDENTITY_KEYS) - set(evidence._IDENTITY_CONFLICT_KEYS)), ["schema"])
+check("inspect_report reads exactly its declared vocabulary",
+      sorted(evidence.inspect_report({"config": {}})["fields"]),
+      sorted(evidence._IDENTITY_KEYS + evidence._PROVENANCE_KEYS))
+
+# ... and `schema` stays out of the conflict set on purpose: two artifacts that agree on the
+# deterministic digests but carry different report tags are still the same measurement.
+check("a differing schema is not a checkpoint <-> report conflict",
+      evidence.relate({"dataset_sha256": "a"},
+                      {"config": {"dataset_sha256": "a", "schema": "laya-evals-report/2"}})["state"],
+      evidence.UNKNOWN)
+
+# `docs/evals.md` carries the same vocabulary a third time -- it teaches that the identity fields
+# "are reported with the same semantics as `run`", and names the pair a conflict is claimed on -- so
+# the page is pinned to the code as well, the way `test_docs_and_the_cli_name_the_same_flags` pins
+# the flag list. A missing sentence reads as an empty list, which fails the check rather than
+# crashing the suite.
+import re  # noqa: E402
+
+_DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "evals.md")
+with open(_DOCS, encoding="utf-8") as _handle:
+    _page = " ".join(_handle.read().split())
+_named = _page.split("identity fields (", 1)[1].split(")", 1)[0] if "identity fields (" in _page else ""
+check("the documented identity fields are the ones the code reads",
+      sorted(re.findall(r"`([^`]+)`", _named)),
+      sorted(evidence._IDENTITY_KEYS + evidence._PROVENANCE_KEYS))
+_claimed = (_page.split("both artifacts expose the same ", 1)[1].split("with different values", 1)[0]
+            if "both artifacts expose the same " in _page else "")
+check("the documented conflict pair is the one the code compares",
+      sorted(re.findall(r"`([^`]+)`", " ".join(_claimed.split("/")))),
+      sorted(evidence._IDENTITY_CONFLICT_KEYS))
 
 # ------------------------------------------------------ relationship
 config = {"training": {"laya_train": {"laya_version": "0.3.28"}}}

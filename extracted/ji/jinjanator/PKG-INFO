@@ -1,11 +1,13 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: jinjanator
-Version: 25.3.1
+Version: 26.1.0
 Summary: Command-line interface to Jinja2 for templating in shell scripts.
 Project-URL: Bug Tracker, https://github.com/kpfleming/jinjanator/issues
 Project-URL: Homepage, https://github.com/kpfleming/jinjanator
 Author-email: "Kevin P. Fleming" <jinjanator@kevin.km6g.us>, Mark Vartanyan <kolypto@gmail.com>
 License: Apache-2.0
+License-File: LICENSE.apache-2.0
+License-File: LICENSE.bsd-2-clause
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -13,16 +15,15 @@ Classifier: Intended Audience :: System Administrators
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: attrs
 Requires-Dist: jinja2>=2.7.2
-Requires-Dist: jinjanator-plugins==25.1.*
+Requires-Dist: jinjanator-plugins==26.1.*
 Requires-Dist: python-dotenv>=1
 Requires-Dist: pyyaml
 Requires-Dist: typing-extensions
@@ -411,8 +412,9 @@ Examples:
 ```python
 # Simple filters file
 
+
 def parentheses(message):
-    """ Put message in parenthesis """
+    """Put message in parenthesis"""
     return f"({message})"
 ```
 
@@ -421,8 +423,9 @@ def parentheses(message):
 ```python
 #  Example of simple tests file
 
+
 def an_odd_number(number):
-    """ test if number is odd """
+    """test if number is odd"""
     return True if (number % 2) else False
 ```
 
@@ -494,63 +497,65 @@ The example `customization.py file` for your reference:
 # Example customization.py file for jinjanator
 # Contains hooks that modify the way Jinja2 is initialized and used
 
+
 def j2_environment_params():
-    """ Extra parameters for the Jinja2 Environment """
+    """Extra parameters for the Jinja2 Environment"""
     # Jinja2 Environment configuration
     # https://jinja.pocoo.org/docs/2.10/api/#jinja2.Environment
     return dict(
         # Just some examples
-
         # Change block start/end strings
-        block_start_string='<%',
-        block_end_string='%>',
+        block_start_string="<%",
+        block_end_string="%>",
         # Change variable strings
-        variable_start_string='<<',
-        variable_end_string='>>',
+        variable_start_string="<<",
+        variable_end_string=">>",
         # Remove whitespace around blocks
         trim_blocks=True,
         lstrip_blocks=True,
         # Enable line statements:
         # http://jinja.pocoo.org/docs/2.10/templates/#line-statements
-        line_statement_prefix='#',
+        line_statement_prefix="#",
         # Keep \n at the end of a file
         keep_trailing_newline=True,
         # Enable custom extensions
         # http://jinja.pocoo.org/docs/2.10/extensions/#jinja-extensions
-        extensions=('jinja2.ext.i18n',),
+        extensions=("jinja2.ext.i18n",),
     )
 
+
 def j2_environment(env):
-    """ Modify Jinja2 environment
+    """Modify Jinja2 environment
 
     :param env: jinja2.environment.Environment
     :rtype: jinja2.environment.Environment
     """
-    env.globals.update(
-        my_function=lambda v: 'my function says "{}"'.format(v)
-    )
+    env.globals.update(my_function=lambda v: 'my function says "{}"'.format(v))
     return env
 
+
 def alter_context(context):
-    """ Modify the context and return it """
+    """Modify the context and return it"""
     # An extra variable
-    context['ADD'] = '127'
+    context["ADD"] = "127"
     return context
 
-def extra_filters():
-    """ Declare some custom filters.
 
-        Returns: dict(name = function)
+def extra_filters():
+    """Declare some custom filters.
+
+    Returns: dict(name = function)
     """
     return dict(
         # Example: {{ var | parentheses }}
-        parentheses=lambda t: '(' + t + ')',
+        parentheses=lambda t: "(" + t + ")",
     )
 
-def extra_tests():
-    """ Declare some custom tests
 
-        Returns: dict(name = function)
+def extra_tests():
+    """Declare some custom tests
+
+    Returns: dict(name = function)
     """
     return dict(
         # Example: {% if a|int is custom_odd %}odd{% endif %}
@@ -559,10 +564,15 @@ def extra_tests():
 ```
 
 ## Release Information
-### Fixes
+### Backwards-incompatible Changes
 
-- Improved documentation of format options, and corrected an error in example for JSON data format.
-  [[#61](https://github.com/kpfleming/jinjanator/issues/61)](https://github.com/kpfleming/jinjanator/issues/61)
+- Support for Python 3.10 has been removed. Since the minimum supported
+  version is now 3.11, the code has been updated to use features
+  introduced in that version.
+  
+- Upgrade to version 26.1.0 of jinjanator-plugins.
+  
 
 ---
+
 [→ Full Changelog](https://github.com/kpfleming/jinjanator/blob/main/CHANGELOG.md)

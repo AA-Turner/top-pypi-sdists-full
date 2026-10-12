@@ -271,6 +271,21 @@ void init_page(py::module_ &m)
                 },
                 py::arg("from_page"), // LCOV_EXCL_LINE
                 py::arg("matrix") = py::none())
+            .def("get_resources",
+                [](QPDFPageObjectHelper &poh) -> py::object {
+                    QpdfLockGuard lock(poh.getObjectHandle().getOwningQPDF());
+                    auto resources = poh.getAttribute("/Resources", false);
+                    if (!resources.isDictionary())
+                        return py::none();
+                    return py::cast(resources);
+                })
+            .def(
+                "_get_inherited",
+                [](QPDFPageObjectHelper &poh, std::string const &key) {
+                    QpdfLockGuard lock(poh.getObjectHandle().getOwningQPDF());
+                    return poh.getAttribute(key, false);
+                },
+                py::arg("key"))
             .def_prop_ro("_images_recursive",
                 [](QPDFPageObjectHelper &poh) {
                     QpdfLockGuard lock(poh.getObjectHandle().getOwningQPDF());

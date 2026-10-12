@@ -13,6 +13,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field
 
+from local_operator.i18n.keys import wire_errors_desktop as _wd
 from local_operator.server.desktop import require_desktop
 from local_operator.server.models.schemas import CRUDResponse
 from local_operator.server.routes.auth import get_desktop_auth
@@ -272,9 +273,9 @@ async def usage(
     controller = auth.controller()
     try:
         if provider and controller.provider(provider) is None:
-            raise HTTPException(422, "Unknown provider")
+            raise HTTPException(422, _wd.unknown_provider().envelope())
         if refresh and not live:
-            raise HTTPException(422, "Refresh requires live usage")
+            raise HTTPException(422, _wd.refresh_requires_live().envelope())
         reports = (
             await controller.fetch_usage([provider] if provider else None, force_refresh=refresh)
             if live
@@ -309,11 +310,12 @@ async def analytics(
     until_ms: int | None = Query(default=None, ge=0),
     session_id: str | None = Query(default=None, pattern=r"^[a-f0-9]{12}$"),
     days: int = Query(default=30, ge=1, le=366),
+    months: int = Query(default=12, ge=1, le=120),
 ):
     from local_operator.analytics.store import AnalyticsStore
 
     if since_ms is not None and until_ms is not None and since_ms > until_ms:
-        raise HTTPException(422, "The start must precede the end")
+        raise HTTPException(422, _wd.start_after_end().envelope())
 
     def read_report():
         store = AnalyticsStore(request.app.state.config_manager.config_dir / "analytics.db")
@@ -342,6 +344,41 @@ async def analytics(
                 "aggregate": dataclasses.asdict(aggregate),
                 "daily": [dataclasses.asdict(row) for row in store.daily_series(days)],
                 "daily_scope": "all_sessions",
+                # PR-2's channels section, ADDITIVE on this payload: a client
+                # that does not know the key ignores it, and an old server
+                # simply never sends it. The shape follows the envelope's own
+                # conventions rather than inventing new ones:
+                #
+                #  * ``rows`` are the windowed breakdown from the RAW channel
+                #    ledger (``channel_breakdown``), so they honour the caller's
+                #    ``since_ms``/``until_ms``/``session_id`` exactly and read
+                #    ``amount_micro``+``known_calls`` as the known/unknown pair
+                #    (a zeroed row with ``known_calls=0`` is "could not be
+                #    sized", never "free").
+                #  * ``daily``/``monthly`` are the ROLLUP series
+                #    (``channel_daily``/``channel_monthly``), which survive the
+                #    raw ledger's 90-day prune but are calendar-bucketed and
+                #    carry no session dimension — hence ``series_scope:
+                #    "all_sessions"`` beside the row scope, the same
+                #    "say which source" convention ``daily_scope`` and
+                #    ``analytics/models``'s ``scope`` use. The two sources are
+                #    named because they can legitimately disagree about a
+                #    pruned window; the payload says which is which instead of
+                #    hiding the seam.
+                "channels": {
+                    "scope": "ledger",
+                    "series_scope": "all_sessions",
+                    "rows": [
+                        dataclasses.asdict(row)
+                        for row in store.channel_breakdown(
+                            since_ms=since_ms, until_ms=until_ms, session_id=session_id
+                        )
+                    ],
+                    "daily": [dataclasses.asdict(row) for row in store.channel_daily_series(days)],
+                    "monthly": [
+                        dataclasses.asdict(row) for row in store.channel_monthly_series(months)
+                    ],
+                },
                 "session_names": {
                     sid: name
                     for sid, name in (getattr(aggregate, "session_names", None) or {}).items()
@@ -388,7 +425,7 @@ async def analytics_models(
     from local_operator.analytics.store import AnalyticsStore
 
     if since_ms is not None and until_ms is not None and since_ms > until_ms:
-        raise HTTPException(422, "The start must precede the end")
+        raise HTTPException(422, _wd.start_after_end().envelope())
     if since_ms is None and until_ms is None and days is not None:
         since_ms = int(time.time() * 1000) - days * 86_400_000
 
@@ -552,7 +589,15 @@ async def session_report(
     def read_report() -> dict[str, Any]:
         store = AnalyticsStore(request.app.state.config_manager.config_dir / "analytics.db")
         try:
-            report = store.session_report(session_id, recent_limit=recent_limit)
+            # ``channels=True``: the channel rows ride the report's OWN WAL
+            # snapshot (see ``AnalyticsStore.session_report``), so the PR-2
+            # ``channels`` section and the inference figures above it cannot
+            # describe two different committed states. The route does not
+            # rebuild the rows: ``dataclasses.asdict`` already recurses into the
+            # tuple, and the key set is additive for the same reason the other
+            # additive fields on this payload are — an old client ignores a key
+            # it never read.
+            report = store.session_report(session_id, recent_limit=recent_limit, channels=True)
         finally:
             store.close()
         # ALL THREE group-bys are blanked BEFORE the dump rather than
@@ -615,7 +660,7 @@ async def _read_skills(roots: list[pathlib.Path], name: str | None) -> dict[str,
     if name is not None:
         by_name = {item.name: item for item in discovered}
         if name not in by_name:
-            raise HTTPException(404, "Skill not found")
+            raise HTTPException(404, _wd.skill_not_found().envelope())
         detail = await asyncio.to_thread(resolve_skill_url, "skill://" + name, by_name)
     return {
         "skills": [{"name": item.name, "description": item.description} for item in discovered],
@@ -712,7 +757,7 @@ async def entities(
 ):
     spec = slash_command_for("/" + command.removeprefix("/"))
     if spec is None:
-        raise HTTPException(422, "Unknown command")
+        raise HTTPException(422, _wd.unknown_command().envelope())
     # READ: the rows are the local registries and catalogs, the current value is a
     # canonical facade field, and the profile registries are resolved from config
     # (with their own 503 when even those are unavailable — a durable verdict, not
@@ -748,7 +793,7 @@ async def entities(
         elif spec.name in {"team", "agent"}:
             registry = remote.team_registry if spec.name == "team" else remote.agent_registry
             if registry is None:
-                raise HTTPException(503, "The profile registry is unavailable")
+                raise HTTPException(503, _wd.profile_registry_unavailable().envelope())
             if spec.name == "team":
                 from local_operator.org_chart import resolve_org
 

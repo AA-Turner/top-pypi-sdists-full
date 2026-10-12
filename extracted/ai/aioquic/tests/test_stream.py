@@ -241,11 +241,12 @@ class QuicStreamTest(TestCase):
             StreamDataReceived(data=b"89012345", end_stream=True, stream_id=0),
         )
 
+        # the duplicate FIN is ignored
         self.assertEqual(
             stream.receiver.handle_frame(
                 QuicStreamFrame(offset=8, data=b"89012345", fin=True)
             ),
-            StreamDataReceived(data=b"", end_stream=True, stream_id=0),
+            None,
         )
 
     def test_receiver_fin_without_data(self):
@@ -261,15 +262,43 @@ class QuicStreamTest(TestCase):
             stream.receiver.handle_reset(final_size=4),
             StreamReset(error_code=QuicErrorCode.NO_ERROR, stream_id=0),
         )
+        self.assertEqual(stream.receiver.highest_offset, 4)
         self.assertTrue(stream.receiver.is_finished)
 
     def test_receiver_reset_after_fin(self):
         stream = QuicStream(stream_id=0)
         stream.receiver.handle_frame(QuicStreamFrame(offset=0, data=b"0123", fin=True))
+
+        # all data was received, the reset is ignored
+        self.assertEqual(stream.receiver.handle_reset(final_size=4), None)
+
+    def test_receiver_reset_after_fin_out_of_order(self):
+        stream = QuicStream(stream_id=0)
+        stream.receiver.handle_frame(QuicStreamFrame(offset=2, data=b"23", fin=True))
+
+        # some data is missing, the reset is reported
         self.assertEqual(
             stream.receiver.handle_reset(final_size=4),
             StreamReset(error_code=QuicErrorCode.NO_ERROR, stream_id=0),
         )
+
+    def test_receiver_reset_then_data(self):
+        stream = QuicStream(stream_id=0)
+        self.assertEqual(
+            stream.receiver.handle_reset(final_size=4),
+            StreamReset(error_code=QuicErrorCode.NO_ERROR, stream_id=0),
+        )
+
+        # data received after the reset is ignored
+        self.assertEqual(
+            stream.receiver.handle_frame(QuicStreamFrame(offset=0, data=b"0123")),
+            None,
+        )
+
+        # data beyond final size
+        with self.assertRaises(FinalSizeError) as cm:
+            stream.receiver.handle_frame(QuicStreamFrame(offset=0, data=b"01234567"))
+        self.assertEqual(str(cm.exception), "Data received beyond final size")
 
     def test_receiver_reset_twice(self):
         stream = QuicStream(stream_id=0)
@@ -277,10 +306,9 @@ class QuicStreamTest(TestCase):
             stream.receiver.handle_reset(final_size=4),
             StreamReset(error_code=QuicErrorCode.NO_ERROR, stream_id=0),
         )
-        self.assertEqual(
-            stream.receiver.handle_reset(final_size=4),
-            StreamReset(error_code=QuicErrorCode.NO_ERROR, stream_id=0),
-        )
+
+        # the duplicate reset is ignored
+        self.assertEqual(stream.receiver.handle_reset(final_size=4), None)
 
     def test_receiver_reset_twice_final_size_error(self):
         stream = QuicStream(stream_id=0)
@@ -784,3 +812,21 @@ class QuicStreamTest(TestCase):
         self.assertFalse(stream.sender.reset_pending)
         self.assertTrue(stream.sender.buffer_is_empty)
         self.assertTrue(stream.sender.is_finished)
+
+    def test_sender_write_after_fin(self):
+        stream = QuicStream()
+        stream.sender.write(b"data", end_stream=True)
+
+        with self.assertRaises(RuntimeError) as cm:
+            stream.sender.write(b"more")
+        self.assertEqual(str(cm.exception), "Cannot send data after FIN")
+
+    def test_sender_write_after_reset(self):
+        stream = QuicStream()
+        stream.sender.reset(QuicErrorCode.NO_ERROR)
+
+        with self.assertRaises(RuntimeError) as cm:
+            stream.sender.write(b"data")
+        self.assertEqual(
+            str(cm.exception), "Cannot send data after the stream was reset"
+        )

@@ -219,6 +219,19 @@ async def web_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
 
+def _stamp_read_engine(result: Any, page: dict[str, Any]) -> dict[str, Any]:
+    """Carry the reader's announcement onto the tool page: which engine answered
+    (``site_data:brightdata`` when a site-data dataset served the URL) and, when the
+    site-data lane failed and the page was read directly, the notice saying so."""
+    if isinstance(result, dict):
+        if result.get("provenance"):
+            page["engine"] = result.get("engine")
+            page["provenance"] = result["provenance"]
+        if result.get("site_data_notice"):
+            page["site_data_notice"] = result["site_data_notice"]
+    return page
+
+
 async def land_agent_read(result: Any, ctx: ToolContext, page: dict[str, Any]) -> dict[str, Any]:
     """Land one page an agent read as a Source and stamp the tool's page dict (SOURCE-CONVERGENCE §4.5).
 
@@ -307,15 +320,18 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 )
                 continue
             pages.append(
-                await land_agent_read(
+                _stamp_read_engine(
                     result,
-                    ctx,
-                    window_page_content(
-                        text,
-                        url=url,
-                        offset=offset,
-                        chars=chars,
-                        per_url_budget=url_budget,
+                    await land_agent_read(
+                        result,
+                        ctx,
+                        window_page_content(
+                            text,
+                            url=url,
+                            offset=offset,
+                            chars=chars,
+                            per_url_budget=url_budget,
+                        ),
                     ),
                 )
             )
@@ -835,15 +851,18 @@ async def _web_batch_read(args: dict[str, Any], ctx: ToolContext, started_at: fl
                         success=False,
                         error=text or "Sorry could not access this page.",
                     )
-                return await land_agent_read(
+                return _stamp_read_engine(
                     result,
-                    ctx,
-                    window_page_content(
-                        text,
-                        url=url,
-                        offset=offset,
-                        chars=chars,
-                        per_url_budget=url_budget,
+                    await land_agent_read(
+                        result,
+                        ctx,
+                        window_page_content(
+                            text,
+                            url=url,
+                            offset=offset,
+                            chars=chars,
+                            per_url_budget=url_budget,
+                        ),
                     ),
                 )
             except Exception as e:

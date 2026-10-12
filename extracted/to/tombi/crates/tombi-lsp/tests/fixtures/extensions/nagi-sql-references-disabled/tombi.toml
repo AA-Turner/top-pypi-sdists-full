@@ -1,3 +1,0 @@
-# tombi: lint.rules.key-not-allowed.disabled = true
-[extensions."tombi-toml/nagi-sql".lsp.references]
-enabled = false

@@ -286,6 +286,8 @@ def prompt_after_activate(
         pytest.param("x$(touch PWNED)y", "env", id="prompt-command-substitution"),
         pytest.param("x`touch PWNED`y", "env", id="prompt-backticks"),
         pytest.param("x${$(touch PWNED)}y", "env", id="prompt-parameter-expansion"),
+        pytest.param("x\\$(touch PWNED)y", "env", id="prompt-backslash-command-substitution"),
+        pytest.param("x\\`touch PWNED`y", "env", id="prompt-backslash-backticks"),
         pytest.param(None, "x$(touch PWNED)y", id="dirname-command-substitution"),
         pytest.param(None, "A__VIRTUAL_NAME__B/x'$(touch PWNED)'y", id="placeholder-in-parent-dir"),
     ],
@@ -304,6 +306,10 @@ def test_prompt_does_not_run_commands(
     [
         pytest.param("myenv", id="plain"),
         pytest.param("a%n$HOME\\b`c`", id="special-characters"),
+        pytest.param("a\\$HOME", id="backslash-before-dollar"),
+        pytest.param("a\\`c`", id="backslash-before-backtick"),
+        pytest.param("x\\\\y", id="doubled-backslash"),
+        pytest.param("e\\", id="trailing-backslash"),
     ],
 )
 def test_prompt_renders_name_literally(
@@ -362,10 +368,11 @@ def test_bash(raise_on_non_source_class, hashing_enabled, activation_tester) -> 
 
         def print_prompt(self):
             # render PS1 the way bash draws it, since the activator escapes the prompt for that expansion; bash before
-            # 4.4 lacks ${PS1@P}, so undo the escapes the way its prompt expansion would
+            # 4.4 lacks ${PS1@P}, so undo the escapes once for the prompt-escape decode and once for the expansion
+            unescape = "s/\\\\\\([$`\\\\]\\)/\\1/g"
             return (
                 'if ((BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] >= 404)); then printf "%s\\n" "${PS1@P}"; '
-                "else printf '%s\\n' \"$PS1\" | sed 's/\\\\\\([$`\\\\]\\)/\\1/g'; fi"
+                f"else printf '%s\\n' \"$PS1\" | sed -e '{unescape}' -e '{unescape}'; fi"
             )
 
     activation_tester(Bash)

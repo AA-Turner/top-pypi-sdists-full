@@ -2,17 +2,20 @@
 import pytest
 
 from nameparser._lexicon import Lexicon
+from nameparser._pipeline import run
+from nameparser._pipeline._assemble import assemble
 from nameparser._pipeline._assign import assign
 from nameparser._pipeline._classify import classify
 from nameparser._pipeline._extract import extract_delimited
 from nameparser._pipeline._group import group
+from nameparser._pipeline._pieces import credential_at_the_given_slot
 from nameparser._pipeline._segment import segment
 from nameparser._pipeline._state import ParseState
 from nameparser._pipeline._tokenize import tokenize
 from nameparser._policy import (
     FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, Policy, Script,
 )
-from nameparser._types import AmbiguityKind, Role
+from nameparser._types import Ambiguity, AmbiguityKind, Role
 
 #: The three read orders and the role a lone name word takes under
 #: each, shared by every parametrized case below that asks the same
@@ -44,8 +47,144 @@ def _assigned(text: str, policy: Policy | None = None,
         extract_delimited(state))))))
 
 
+def _reported(text: str, policy: Policy | None = None,
+              lexicon: Lexicon | None = None) -> tuple[Ambiguity, ...]:
+    """The reports as the caller reads them. A report naming a field
+    is worded by assemble from the word's FINAL role (#626), so its
+    detail is complete only there, past the rules that still move a
+    word after assign."""
+    return assemble(run(ParseState(
+        original=text, lexicon=lexicon or _LEX,
+        policy=policy or Policy()))).ambiguities
+
+
 def _by_role(state: ParseState, role: Role) -> str:
     return " ".join(t.text for t in state.tokens if t.role is role)
+
+
+_ROLE_NAMES = (("title", Role.TITLE), ("given", Role.GIVEN),
+              ("middle", Role.MIDDLE), ("family", Role.FAMILY),
+              ("suffix", Role.SUFFIX), ("nickname", Role.NICKNAME),
+              ("maiden", Role.MAIDEN))
+
+
+def _fields(text: str, policy: Policy | None = None) -> dict[str, str]:
+    """The non-empty role fields, by name -- #289's real ambiguous
+    vocabulary (`ba do ed jd ma`) is Lexicon.default()'s, not the
+    synthetic `_LEX` most of this module's tests share, so this reads
+    the default lexicon rather than take one as a parameter every
+    caller would otherwise have to pass."""
+    out = _assigned(text, policy, Lexicon.default())
+    return {name: v for name, role in _ROLE_NAMES
+            if (v := _by_role(out, role))}
+
+
+def test_the_lean_reaches_the_post_comma_given_slot() -> None:
+    # #289, Derek's own comment on the issue: positive evidence
+    # outranks position here, so the credential lean fires with ONE
+    # word before the comma where the count would not.
+    assert _fields("Smith, MA") == {"family": "Smith", "suffix": "MA"}
+    assert _fields("Smith, BA") == {"family": "Smith", "suffix": "BA"}
+    assert _fields("Smith, MA PhD") == {"family": "Smith",
+                                        "suffix": "MA PhD"}
+    # the other two spellings keep today's reading: a surname lean, and
+    # no lean at all
+    assert _fields("Smith, Ma") == {"given": "Ma", "family": "Smith"}
+    assert _fields("Smith, ma") == {"given": "ma", "family": "Smith"}
+    # a caseless script wrote no contrast, so nothing leans
+    assert _fields("毛泽东, MA") == {"given": "MA", "family": "毛泽东"}
+
+
+def test_the_comma_path_reports_its_ambiguous_reading_once() -> None:
+    # The first report of the comma's OWN decision in the library
+    # (#289) -- C2's structural flag already reports on the comma
+    # path, but it reports what the parse could not recognize, not a
+    # fork it called. P6's attachment fork has separately reported on
+    # a family-comma path since 2.3 ("Berg, Jan vd"). One per
+    # DECISION, in either direction, and never twice for one name --
+    # the structure decision reports where it is taken and this one
+    # reports where the family comma stands.
+    #
+    # The report tracks the FORK BEING CONSULTED, not the lean --
+    # exactly as the trailing slot always has ('Jack MA' reported
+    # before #289 too, even where the peel declined the pick for want
+    # of words to spare). So a caseless script ('毛泽东, MA') and an
+    # all-lower spelling ('Smith, ma') still called this fork and
+    # report it, read positionally; and a two-piece post-comma part
+    # whose FIRST piece is the class member ('Smith, MA PhD') reports
+    # once through that same first-piece read (F4/F5 review finding,
+    # 2026-09-17 -- reverses an earlier round's `ambiguous_lean(...)
+    # is not None` gate, which wrongly excluded both).
+    # 'Smith, A.B.' is in the loop since `Policy.unlisted_dotted_
+    # suffixes` shipped: its token carries the by-shape tag, so the
+    # fork IS consulted at this comma and reports exactly once --
+    # which is also true with the switch OFF, the shape tag going on
+    # either way (its own case rows pin both).
+    for text in ("Smith, MA", "Smith, Ma", "Smith, ma", "John Smith, MA",
+                 "John Smith, Ed", "毛泽东, MA", "Smith, MA PhD",
+                 "Smith, A.B."):
+        kinds = [a.kind.value for a in _assigned(
+            text, lexicon=Lexicon.default()).ambiguities]
+        assert kinds.count("suffix-or-name") == 1, (text, kinds)
+    # a name outside the class reports nothing at its comma, as every
+    # release before this one
+    for text in ("Smith, John", "John Smith, PhD", "Smith, Dr."):
+        kinds = [a.kind.value for a in _assigned(
+            text, lexicon=Lexicon.default()).ambiguities]
+        assert "suffix-or-name" not in kinds, text
+
+
+def test_the_family_comma_report_detail_is_verbatim() -> None:
+    # The credential half of the FIRST comma-path report, which
+    # `_comma.decide` emits where it binds the part at group's head
+    # (#613; assign's family-comma emitter keeps the given-name half,
+    # and the structure flip's report is pinned in test_comma.py).
+    # Pinned verbatim for the same reason.
+    out = _assigned("Smith, MA", lexicon=Lexicon.default())
+    (amb,) = [a for a in out.ambiguities
+             if a.kind is AmbiguityKind.SUFFIX_OR_NAME]
+    assert amb.detail == (
+        "'MA' after the comma is also an ordinary name word; read as "
+        "a credential")
+
+
+def test_a_by_shape_pick_is_not_described_as_a_listed_member() -> None:
+    # #563: the trailing slot's listed-member wording ("written without
+    # periods is both a post-nominal") is false of a word the class
+    # admits by SHAPE -- 'X.Y.Z.' is written WITH its periods and is in
+    # no wordlist. Both readings of the fork, so neither branch of the
+    # template can keep the old wording; 'MA' in the test below is the
+    # listed control that keeps it.
+    for text, taken, declined in (
+            ("John Smith X.Y.Z.", "a suffix", "a name part"),
+            ("Jack X.Y.Z.", "a family name", "a post-nominal")):
+        (amb,) = [a for a in _reported(text, lexicon=Lexicon.default())
+                  if a.kind is AmbiguityKind.SUFFIX_OR_NAME]
+        assert amb.detail == (
+            f"'X.Y.Z.' is shaped like a post-nominal but listed in no "
+            f"vocabulary, so it may be an ordinary name; read as "
+            f"{taken} rather than {declined}"), text
+
+
+def test_jack_ma_s_two_detail_strings_are_verbatim() -> None:
+    # The trailing slot's OWN report existed before #289 (a bare
+    # ambiguous acronym was always a coin-flip); what #289 changes is
+    # which way 'Jack MA' flips, not that it reports. Pinning both
+    # strings verbatim: the credential lean also turns 'Jack' into the
+    # only name word left, which is a SECOND fork (GIVEN_OR_FAMILY)
+    # this one row now calls.
+    details = {a.kind.value: a.detail
+               for a in _reported("Jack MA", lexicon=Lexicon.default())}
+    assert details == {
+        "given-or-family": (
+            "'Jack' is the only name word and nothing else decides "
+            "it; read as a given name by convention, which follows "
+            "the read order"),
+        "suffix-or-name": (
+            "'MA' written without periods is both a post-nominal and "
+            "an ordinary name; read as a suffix rather than a name "
+            "part"),
+    }
 
 
 def test_given_first_positional() -> None:
@@ -94,16 +233,16 @@ def test_leading_ambiguous_particle_reads_as_given_with_ambiguity() -> None:
 
 
 @pytest.mark.parametrize("policy,role", _ORDERS)
-def test_leading_particle_detail_names_the_role_it_took(
+def test_leading_particle_detail_names_the_field_the_word_lands_in(
         policy: Policy | None, role: str) -> None:
     # The fork is the same under every order -- particle or name --
     # but which role the head piece actually took is the assignment's
-    # answer, so the user-facing detail has to read it off the token
-    # rather than hardcode "given", exactly as SUFFIX_OR_NAME does.
+    # answer, so the user-facing detail names the field the word lands
+    # in rather than hardcoding "given", exactly as SUFFIX_OR_NAME does.
     # kind is public API and stays PARTICLE_OR_GIVEN throughout: the
     # fork really is "particle or given" even where the piece landed
     # in FAMILY.
-    (amb,) = _assigned("Van Johnson", policy).ambiguities
+    (amb,) = _reported("Van Johnson", policy)
     assert amb.kind is AmbiguityKind.PARTICLE_OR_GIVEN
     assert amb.detail == (
         f"leading 'Van' may be a family-name particle; "
@@ -123,12 +262,12 @@ def test_leading_particle_detail_names_the_role_it_took(
      "'John of Prince' is the only name unit and joins title "
      "vocabulary to a name word; read as a {role} name by convention"),
 ])
-def test_convention_details_name_the_role_the_assignment_took(
+def test_convention_details_name_the_field_the_word_lands_in(
         text: str, kind: AmbiguityKind, detail: str,
         policy: Policy | None, role: str) -> None:
     # The three conventions this site reports all place a lone name
-    # word, and all three details have to READ the field back off the
-    # token rather than hardcode "given": the field follows the read
+    # word, and all three details name the field the word lands in
+    # rather than hardcoding "given": the field follows the read
     # order, which is why none of the three kinds names it. The
     # PARTICLE_OR_GIVEN test above is the precedent, and these are the
     # only other details at this site that name a field -- H4's PEEL
@@ -136,7 +275,7 @@ def test_convention_details_name_the_role_the_assignment_took(
     # retags that word after assign under the default order.
     lex = _LEX.add(suffix_words={"rinpoche"}, conjunctions={"of"},
                    titles={"prince"})
-    (amb,) = _assigned(text, policy, lexicon=lex).ambiguities
+    (amb,) = _reported(text, policy, lexicon=lex)
     assert amb.kind is kind
     assert amb.detail == detail.format(role=role)
 
@@ -154,7 +293,7 @@ def test_leading_particle_detail_follows_the_effective_order() -> None:
     assert out.policy.script_orders[0][0] is Script.HAN
     assert _by_role(out, Role.FAMILY) == "毛"
     assert _by_role(out, Role.GIVEN) == "泽东"
-    (amb,) = out.ambiguities
+    (amb,) = _reported("毛 泽东", lexicon=han)
     assert amb.kind is AmbiguityKind.PARTICLE_OR_GIVEN
     assert amb.detail == (
         "leading '毛' may be a family-name particle; "
@@ -193,8 +332,9 @@ def test_suffix_comma_and_extra_segments() -> None:
 
 
 def test_suffix_comma_structure() -> None:
-    # Structure.SUFFIX_COMMA (segment.py): >1 word before the first
-    # comma AND every post-first segment is entirely lenient-suffix.
+    # Structure.SUFFIX_COMMA (`_comma.decide`, at group's head since
+    # #613): a whole name before the first comma AND the part after it
+    # read as the postnominal part.
     # ('Smith, John, Jr.' above only has ONE word before its first
     # comma, so it is FAMILY_COMMA with a trailing suffix segment, not
     # this branch.) Previously this assign() branch (tail=1) was only
@@ -256,11 +396,16 @@ def test_the_trailing_title_is_transparent_to_the_suffix_peel() -> None:
     """
     lex = _LEX.add(suffix_acronyms={"ma"},
                    suffix_acronyms_ambiguous={"ma"})
+    # MOVED by #289, not deleted: spliced, 'John MA' is the bare
+    # 'Jack MA' shape -- an ALL-CAPS ambiguous acronym in a mixed-case
+    # name leans credential and is taken with no words to spare, so
+    # the reserve that used to keep it the family now takes it as the
+    # suffix instead (decisions.md#S2).
     out = _assigned("John Mr. MA", lexicon=lex)
     assert _by_role(out, Role.TITLE) == "Mr."
     assert _by_role(out, Role.GIVEN) == "John"
-    assert _by_role(out, Role.FAMILY) == "MA"
-    assert not _by_role(out, Role.SUFFIX)
+    assert not _by_role(out, Role.FAMILY)
+    assert _by_role(out, Role.SUFFIX) == "MA"
     out = _assigned("John Smith Mr. MA", lexicon=lex)
     assert _by_role(out, Role.FAMILY) == "Smith"
     assert _by_role(out, Role.SUFFIX) == "MA"
@@ -306,8 +451,8 @@ def test_the_family_comma_walk_reads_past_its_own_suffix_tail() -> None:
 def test_trailing_title_run_after_a_family_comma() -> None:
     """The same rule on segment 1's own walk.
 
-    A name word after the comma keeps the no-name gate from reading
-    the segment as a credential run, so this shape had no route to
+    A name word after the comma keeps `_comma.decide` from binding
+    the segment as the postnominal part, so this shape had no route to
     TITLE at all and read the word as a middle name.
     """
     out = _assigned("Smith, John Mr.")
@@ -426,7 +571,8 @@ def test_pure_katakana_piece_falls_back_to_name_order() -> None:
 
 def test_interpunct_divided_name_reads_positionally() -> None:
     # 威廉·莎士比亚 is William Shakespeare: a 间隔号-divided name is a
-    # transcription and keeps source order (rule W4's Accepted) -- the
+    # transcription and keeps the declared order (rule W4's
+    # Accepted), which under the default is its written order -- the
     # B7 is the marker, playing the role pure katakana plays in the
     # kana license
     out = _assigned("威廉·莎士比亚")
@@ -492,7 +638,8 @@ def test_a_title_and_a_suffix_after_the_comma_fix_no_family_either() -> None:
 def test_the_positional_segment_zero_records_its_order() -> None:
     # post_rules' family-first fold and its leading-piece scan key on
     # "assign records no order after a family comma"; the positional
-    # read is the path that gives one (the test review found the fold
+    # read -- the suffix comma `_comma.decide` makes behind a whole
+    # name since #613 -- is the path that gives one (the test review found the fold
     # missing 'de Mesnil Jean, Dr.' under a family-first order)
     out = _assigned("John Smith, Dr.")
     assert out.order is not None
@@ -518,12 +665,26 @@ def test_non_title_post_comma_segment_is_untouched() -> None:
 def test_positional_segment_zero_reports_the_particle_fork() -> None:
     # The comma no longer fixed the family, so the leading ambiguous
     # particle IS a live fork again -- emitted at the site that decides
-    # it, per the ambiguity doctrine.
-    out = _assigned("Van Johnson, Dr.")
+    # it, per the ambiguity doctrine. Three words, since the read needs
+    # two name words counted as units (#575): the particle and the word
+    # it attaches to are one.
+    out = _assigned("Van Johnson Smith, Dr.")
     assert _by_role(out, Role.GIVEN) == "Van"
-    assert _by_role(out, Role.FAMILY) == "Johnson"
+    assert _by_role(out, Role.FAMILY) == "Smith"
     assert [a.kind for a in out.ambiguities] == \
         [AmbiguityKind.PARTICLE_OR_GIVEN]
+
+
+def test_a_lone_particle_surname_before_a_title_only_comma_is_the_family() -> None:
+    # #575: 'Van Johnson' is ONE name word before the comma -- a
+    # particle and the word it attaches to -- so there are not two to
+    # read positionally, and the listing form's surname reading
+    # settles P1's fork. This test pinned given 'Van', family
+    # 'Johnson' and a particle-or-given report until then.
+    out = _assigned("Van Johnson, Dr.")
+    assert _by_role(out, Role.FAMILY) == "Van Johnson"
+    assert _by_role(out, Role.GIVEN) == ""
+    assert out.ambiguities == ()
 
 
 def test_a_credential_run_after_a_family_comma_reads_as_suffixes() -> None:
@@ -583,3 +744,175 @@ def test_a_mixed_post_comma_run_keeps_the_walk_order() -> None:
     out = _assigned("Smith, John Jr.")
     assert _by_role(out, Role.GIVEN) == "John"
     assert _by_role(out, Role.SUFFIX) == "Jr."
+
+
+def test_the_comma_report_says_which_way_it_read_the_word() -> None:
+    """The report's OTHER branch, verbatim (2026-09-18 review round).
+
+    `test_the_family_comma_report_detail_is_verbatim` above pins the
+    credential wording; only the string distinguishes the two
+    branches, the kind being the same either way and the roles
+    telling a caller which reading won only if it already knows which
+    field to look in. So the NAME branch needs its own row, and the
+    by-shape half with its switch OFF -- which takes that branch for a
+    fork the parser considered and declined -- is the second one.
+    """
+    detail = {
+        text: [a.detail for a in _reported(
+            text, policy, lexicon=Lexicon.default())
+            if a.kind.value == "suffix-or-name"]
+        for text, policy in (("Smith, Ma", None), (", Ma Dr.", None),
+                             ("Smith, A.B.",
+                              Policy(unlisted_dotted_suffixes=False)))
+    }
+    assert detail["Smith, Ma"] == [
+        "'Ma' after the comma is also an ordinary name word; read as "
+        "a given name"]
+    assert detail["Smith, A.B."] == [
+        "'A.B.' after the comma is also an ordinary name word; read as "
+        "a given name"]
+    # #626's review: with nothing before the comma, H1 moves the word
+    # to the family behind the title after this report is made, so the
+    # field is worded from where it lands
+    assert detail[", Ma Dr."] == [
+        "'Ma' after the comma is also an ordinary name word; read as "
+        "a family name"]
+
+
+def test_the_trailing_given_slot_takes_a_bare_class_member() -> None:
+    out = _assigned("Doe, John MA", lexicon=Lexicon.default())
+    assert _by_role(out, Role.SUFFIX) == "MA"
+    assert _by_role(out, Role.MIDDLE) == ""
+
+
+def test_the_trailing_given_slot_walks_past_a_title() -> None:
+    """previous_kept() is what makes 'past a trailing title' the same
+    walk H5 already uses, so the two spellings agree rather than
+    needing two notions of 'trailing'."""
+    for text in ("Doe, John MA Prof.", "Doe, John Prof. MA"):
+        out = _assigned(text, lexicon=Lexicon.default())
+        assert _by_role(out, Role.SUFFIX) == "MA", text
+        assert _by_role(out, Role.TITLE) == "Prof.", text
+
+
+def test_the_trailing_given_slot_steps_over_a_title_inside_the_run() -> None:
+    """A title BETWEEN the member and a suffix: the floor's descent
+    starts on 'Jr', steps over the titled 'Prof.' and lands on the
+    member. Both spellings above put the title at an end of the run,
+    where the descent starts past it and never takes that step."""
+    out = _assigned("Doe, John MA Prof. Jr", lexicon=Lexicon.default())
+    assert _by_role(out, Role.SUFFIX) == "MA Jr"
+    assert _by_role(out, Role.TITLE) == "Prof."
+    assert _by_role(out, Role.MIDDLE) == ""
+    # the declined spelling takes the same step and stops on the member
+    out = _assigned("Doe, John Ma Prof. Jr", lexicon=Lexicon.default())
+    assert _by_role(out, Role.SUFFIX) == "Jr"
+    assert _by_role(out, Role.MIDDLE) == "Ma"
+
+
+def test_the_trailing_given_slot_reads_the_lean_three_ways() -> None:
+    """credential / name / no-lean, the three answers listed_lean
+    gives -- read for this slot through
+    `credential_at_the_given_slot`, which assign calls -- each
+    landing where the rule says."""
+    assert _by_role(_assigned("Doe, John MA", lexicon=Lexicon.default()),
+                    Role.SUFFIX) == "MA"          # lean credential
+    assert _by_role(_assigned("Doe, John Ma", lexicon=Lexicon.default()),
+                    Role.MIDDLE) == "Ma"          # lean name
+    assert _by_role(_assigned("doe, john ma", lexicon=Lexicon.default()),
+                    Role.SUFFIX) == "ma"          # one case, no lean
+
+
+def test_the_trailing_given_slot_falls_through_for_a_by_shape_member(
+) -> None:
+    """listed_lean returns None wherever the shape tag rides, so a
+    by-shape member never leans and takes the positional reading --
+    which at this slot is the credential. Reached through
+    `credential_at_the_given_slot`, whose no-lean arm this is."""
+    out = _assigned("Doe, John X.Y.Z.", lexicon=Lexicon.default())
+    assert _by_role(out, Role.SUFFIX) == "X.Y.Z."
+
+
+def test_the_trailing_given_slot_ignores_the_two_segment_floor() -> None:
+    """#144's len(segments) == 2 restriction belongs to the lenient
+    trailing predicate and is NOT inherited here: 'MA' is not
+    initial-shaped, and a credential list behind it makes the
+    credential reading likelier rather than less."""
+    out = _assigned("Doe, John MA, PhD", lexicon=Lexicon.default())
+    # _by_role space-joins by role; the written comma is preserved by
+    # post_rules' entry pass (#436/#437, rules.md#R1), a later stage
+    # this assign-only helper does not run -- the full-pipeline case
+    # row `the_trailing_slot_survives_a_third_comma_part` pins the
+    # comma-rendered "MA, PhD". What this unit test checks is the role
+    # assignment alone: both members land in SUFFIX regardless of
+    # #144's two-segment floor.
+    assert _by_role(out, Role.SUFFIX) == "MA PhD"
+    # and the restriction still governs its own predicate
+    out = _assigned("Doe, John V, PhD", lexicon=Lexicon.default())
+    assert _by_role(out, Role.MIDDLE) == "V"
+
+
+def test_the_shared_given_slot_predicate_reads_the_lean_three_ways(
+) -> None:
+    """credential_at_the_given_slot is the ONE place #531's reading
+    lives since #533, and its two callers sit in different stages --
+    assign's walk over the given part, and the maiden walk's second
+    check. A test of its own is what keeps the three answers pinned
+    where a caller's test would only pin the reading it needs."""
+    lex = Lexicon.default()
+    state = _assigned("Doe, John MA", lexicon=lex)
+    member = next(t for t in state.tokens if t.text == "MA")
+    assert credential_at_the_given_slot(member, False) is True
+    state = _assigned("Doe, John Ma", lexicon=lex)
+    member = next(t for t in state.tokens if t.text == "Ma")
+    assert credential_at_the_given_slot(member, False) is False
+    state = _assigned("doe, john ma", lexicon=lex)
+    member = next(t for t in state.tokens if t.text == "ma")
+    assert credential_at_the_given_slot(member, True) is True
+    # the particle carve-out: no positive lean, so P6 keeps the word
+    state = _assigned("Doe, John do", lexicon=lex)
+    member = next(t for t in state.tokens if t.text == "do")
+    assert credential_at_the_given_slot(member, False) is False
+
+
+def test_a_name_word_behind_the_member_ends_the_run() -> None:
+    out = _assigned("Doe, John MA Smith", lexicon=Lexicon.default())
+    assert _by_role(out, Role.MIDDLE) == "MA Smith"
+    assert not [a for a in out.ambiguities
+                if a.kind is AmbiguityKind.SUFFIX_OR_NAME]
+
+
+def test_two_members_in_the_trailing_run_report_once_each() -> None:
+    out = _assigned("Doe, John MA JD", lexicon=Lexicon.default())
+    assert len([a for a in out.ambiguities
+                if a.kind is AmbiguityKind.SUFFIX_OR_NAME]) == 2
+
+
+def test_the_no_name_gate_path_still_reports_exactly_once() -> None:
+    """The sibling of the existing count assertion. Where the first
+    post-comma piece IS the trailing run, segment 1 holds no name
+    word, so `_comma.decide` binds it at group's head and reports the
+    member there (#613), and assign's placement loop is handed no
+    piece of it -- so the new emitter is unreachable on exactly the
+    path the first-piece report owns."""
+    for text in ("Doe, MA", "Doe, MA PhD", "Doe, MA JD"):
+        out = _assigned(text, lexicon=Lexicon.default())
+        assert len([a for a in out.ambiguities
+                    if a.kind is AmbiguityKind.SUFFIX_OR_NAME]) == 1, text
+
+
+def test_the_trailing_given_slot_detail_is_verbatim() -> None:
+    """Both branches, verbatim -- only the string distinguishes them,
+    the kind being the same either way."""
+    detail = {
+        text: [a.detail for a in
+               _assigned(text, lexicon=Lexicon.default()).ambiguities
+               if a.kind is AmbiguityKind.SUFFIX_OR_NAME]
+        for text in ("Doe, John MA", "Doe, John Ma")
+    }
+    assert detail["Doe, John MA"] == [
+        "'MA' ending the given part is also an ordinary name word; "
+        "read as a credential"]
+    assert detail["Doe, John Ma"] == [
+        "'Ma' ending the given part is also an ordinary name word; "
+        "read as a name"]

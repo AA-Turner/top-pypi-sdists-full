@@ -72,6 +72,11 @@ class QuicStreamReceiver:
         if frame_end > self.highest_offset:
             self.highest_offset = frame_end
 
+        # if we were already done receiving, data is either a duplicate or arrived
+        # after a reset, so there is nothing more to deliver
+        if self.is_finished:
+            return None
+
         # fast path: new in-order chunk
         if pos == 0 and count and not self._buffer:
             self._buffer_start += count
@@ -120,6 +125,12 @@ class QuicStreamReceiver:
         """
         if self._final_size is not None and final_size != self._final_size:
             raise FinalSizeError("Cannot change final size")
+        if final_size > self.highest_offset:
+            self.highest_offset = final_size
+
+        # if we were already done receiving, there is nothing to report
+        if self.is_finished:
+            return None
 
         # we are done receiving
         self._final_size = final_size
@@ -330,8 +341,10 @@ class QuicStreamSender:
         """
         Write some data bytes to the QUIC stream.
         """
-        assert self._buffer_fin is None, "cannot call write() after FIN"
-        assert self._reset_error_code is None, "cannot call write() after reset()"
+        if self._buffer_fin is not None:
+            raise RuntimeError("Cannot send data after FIN")
+        if self._reset_error_code is not None:
+            raise RuntimeError("Cannot send data after the stream was reset")
         size = len(data)
 
         if size:

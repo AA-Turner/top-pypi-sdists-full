@@ -114,6 +114,12 @@ def jobs() -> dict:
     return yaml.safe_load(WORKFLOW.read_text())["jobs"]
 
 
+def runs_tests(step: dict) -> bool:
+    """pytest, called directly or through the bounded deployment logic gate."""
+    run = str(step.get("run", ""))
+    return "pytest" in run or "deployment_logic.py" in run
+
+
 def checkout_ref(job: dict) -> str | None:
     step = next(s for s in job["steps"] if str(s.get("uses", "")).startswith("actions/checkout"))
     return (step.get("with") or {}).get("ref")
@@ -127,7 +133,7 @@ def test_release_source_is_pinned_before_the_test_and_build_gate():
     assert "if" not in steps[pin]
     # The gate moved out of this job entirely; the test below is what now keeps
     # the tested tree and the built tree the same tree.
-    assert not [s for s in steps if "pytest" in str(s.get("run", ""))]
+    assert not [s for s in steps if runs_tests(s)]
 
 
 def test_every_job_that_tests_or_packages_uses_the_one_staged_commit():
@@ -142,7 +148,7 @@ def test_every_job_that_tests_or_packages_uses_the_one_staged_commit():
     spec = jobs()
     testing = {
         name for name, job in spec.items()
-        if any("pytest" in str(s.get("run", "")) for s in job.get("steps", []))
+        if any(runs_tests(s) for s in job.get("steps", []))
     }
     assert testing == {"gate"}, testing
     for name in sorted(testing | {"build"}):

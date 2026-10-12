@@ -25,6 +25,15 @@ static void css_collect_open_blocks(token_vec *vec, Py_ssize_t start, Py_ssize_t
     }
 }
 
+CSS_NOINLINE static void css_close_function_args(token_vec *vec, Py_ssize_t start, Py_ssize_t end, css_buf *args) {
+    css_buf blocks = {NULL, 0, 0, args->oom};
+    css_collect_open_blocks(vec, start, end, 1, &blocks);
+    for (Py_ssize_t depth = blocks.len - 1; depth >= 0; depth--) {
+        cbuf_putc(args, blocks.data[depth] == '(' ? ')' : ']');
+    }
+    cbuf_free(&blocks);
+}
+
 /* Collect into blocks the blocks tokens [start, end) of a value or at-rule prelude leave open, innermost last, reading
    functions as plain delimiters. Tokens holding a `{` are read as css_read_until reads them, each closer ending the
    innermost block of any kind: a `}` at depth 0 ends the run, so a `}` written for a `{` that a `)` already closed
@@ -92,7 +101,8 @@ CSS_NOINLINE static void css_close_raw_blocks(token_vec *vec, Py_ssize_t start, 
    closers from css_close_bare_blocks. A value that stops earlier has none open: css_read_until ends a declaration
    before the end of the input only at a `;` or `}` outside every block its depth count tracks. */
 static CSS_FORCEINLINE void css_render_components(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end,
-                                                  int is_color, int drop_zero_unit, comp_vec *comps) {
+                                                  int color_mode, int drop_zero_unit, const css_calc_context *context,
+                                                  comp_vec *comps) {
     Py_ssize_t index = start;
     while (index < end) {
         css_token *token = &vec->items[index];
@@ -114,23 +124,23 @@ static CSS_FORCEINLINE void css_render_components(css_buf *pool, token_vec *vec,
         if (token->kind == CSS_IDENT && index + 1 < end && vec->items[index + 1].kind == CSS_DELIM &&
             vec->items[index + 1].delim == '(') {
             Py_ssize_t close_index = css_match_paren(vec, index + 1, end);
-            css_emit_function(pool, vec, index, close_index, &comp.off, &comp.len, &comp.kind);
+            css_emit_function(pool, vec, index, close_index, context, &comp.off, &comp.len, &comp.kind);
             comp.isfunc = comp.kind == CK_FUNC;
             comp_vec_push(comps, comp);
             index = close_index + 1;
             continue;
         }
         if (token->kind == CSS_NUM) {
-            css_format_dimension(pool, token, drop_zero_unit, &comp.off, &comp.len);
+            css_format_dimension(pool, token, drop_zero_unit, context->prop, context->prop_len, &comp.off, &comp.len);
             comp.kind = token->unit_len ? CK_DIM : CK_NUM;
         } else if (token->kind == CSS_HASH) {
-            if (!css_color_keyword_or_hash(pool, token, 1, &comp.off, &comp.len)) {
+            if (!css_color_keyword_or_hash(pool, token, color_mode != 0, &comp.off, &comp.len)) {
                 comp.off = pool_run(pool, token->text, token->text_len); /* GCOVR_EXCL_LINE: hash always renders */
                 comp.len = token->text_len;                              /* GCOVR_EXCL_LINE */
             }
             comp.kind = CK_HASH;
         } else if (token->kind == CSS_IDENT) {
-            if (!css_color_keyword_or_hash(pool, token, is_color, &comp.off, &comp.len)) {
+            if (!css_color_keyword_or_hash(pool, token, color_mode == 1, &comp.off, &comp.len)) {
                 comp.off = pool_run(pool, token->text, token->text_len);
                 comp.len = token->text_len;
             }
@@ -170,8 +180,8 @@ static void css_assemble(css_buf *pool, comp_vec *comps, css_buf *out) {
             int opens_end_tag = pool->data[prev->off + prev->len - 1] == '<' && text[0] == '/';
             int glued = !opens_end_tag && (comp->isfunc == 2 || prev->isfunc == 1 || prev->isfunc == 2 ||
                                            starts_paren || comp->kind == CK_DELIM || prev->kind == CK_DELIM);
-            int negative_after_number =
-                prev->kind == CK_NUM && comp->len > 1 && text[0] == '-' && (css_is_digit(text[1]) || text[1] == '.');
+            int negative_after_number = (prev->kind == CK_NUM || (prev->kind == CK_DIM && prev->len == 1)) &&
+                                        comp->len > 1 && text[0] == '-' && (css_is_digit(text[1]) || text[1] == '.');
             if (!negative_after_number &&
                 (!glued || css_would_merge(pool->data[prev->off + prev->len - 1], prev->kind == CK_IDENT,
                                            pool->data + comp->off, comp->len))) {
@@ -183,32 +193,64 @@ static void css_assemble(css_buf *pool, comp_vec *comps, css_buf *out) {
 }
 
 /* Property classification for the value pipeline. */
-static int css_prop_is_color(const css_char *prop, Py_ssize_t len) {
-    static const char *const color_props[] = {"color",
-                                              "background-color",
-                                              "border-color",
-                                              "border-top-color",
-                                              "border-right-color",
-                                              "border-bottom-color",
-                                              "border-left-color",
-                                              "outline-color",
-                                              "text-decoration-color",
-                                              "caret-color",
-                                              "column-rule-color",
-                                              "fill",
-                                              "stroke",
-                                              "stop-color",
-                                              "flood-color",
-                                              "lighting-color",
-                                              "text-emphasis-color"};
-    css_char first = css_lower(prop[0]);
-    for (size_t index = 0; index < sizeof(color_props) / sizeof(color_props[0]); index++) {
-        if (css_run_ieq_first(prop, len, first, color_props[index])) {
+#define CSS_COLOR_EQ(literal) (len == (Py_ssize_t)(sizeof(literal) - 1) && css_run_ieq(prop, len, literal))
+static int css_prop_color_mode(const css_char *prop, Py_ssize_t len) {
+    switch (css_lower(prop[0])) {
+    case 'a':
+        return CSS_COLOR_EQ("accent-color") ? 2 : 0;
+    case 'b':
+        if (CSS_COLOR_EQ("background") || CSS_COLOR_EQ("border")) {
+            return 2;
+        }
+        if (CSS_COLOR_EQ("background-color") || CSS_COLOR_EQ("border-color") || CSS_COLOR_EQ("border-top-color") ||
+            CSS_COLOR_EQ("border-right-color") || CSS_COLOR_EQ("border-bottom-color") ||
+            CSS_COLOR_EQ("border-left-color")) {
             return 1;
         }
+        return (CSS_COLOR_EQ("border-top") || CSS_COLOR_EQ("border-right") || CSS_COLOR_EQ("border-bottom") ||
+                CSS_COLOR_EQ("border-left") || CSS_COLOR_EQ("border-block") || CSS_COLOR_EQ("border-inline") ||
+                CSS_COLOR_EQ("border-block-start") || CSS_COLOR_EQ("border-block-end") ||
+                CSS_COLOR_EQ("border-inline-start") || CSS_COLOR_EQ("border-inline-end") || CSS_COLOR_EQ("box-shadow"))
+                   ? 2
+                   : 0;
+    case 'c':
+        if (CSS_COLOR_EQ("color") || CSS_COLOR_EQ("caret-color") || CSS_COLOR_EQ("column-rule-color")) {
+            return 1;
+        }
+        return CSS_COLOR_EQ("column-rule") ? 2 : 0;
+    case 'f':
+        return CSS_COLOR_EQ("fill") || CSS_COLOR_EQ("flood-color") ? 1 : 0;
+    case 'l':
+        return CSS_COLOR_EQ("lighting-color") ? 1 : 0;
+    case 'o':
+        if (CSS_COLOR_EQ("outline-color")) {
+            return 1;
+        }
+        return CSS_COLOR_EQ("outline") ? 2 : 0;
+    case 's':
+        if (CSS_COLOR_EQ("stroke")) {
+            return 1;
+        }
+        if (CSS_COLOR_EQ("stop-color")) {
+            return 1;
+        }
+        return CSS_COLOR_EQ("scrollbar-color") ? 2 : 0;
+    case 't':
+        if (CSS_COLOR_EQ("text-decoration-color")) {
+            return 1;
+        }
+        if (CSS_COLOR_EQ("text-emphasis-color")) {
+            return 1;
+        }
+        if (CSS_COLOR_EQ("text-decoration") || CSS_COLOR_EQ("text-emphasis") || CSS_COLOR_EQ("text-shadow")) {
+            return 2;
+        }
+        return 0;
+    default:
+        return 0;
     }
-    return 0;
 }
+#undef CSS_COLOR_EQ
 
 /* Render a custom property or otherwise-raw value: collapse whitespace and comments, keep everything else verbatim. */
 CSS_NOINLINE static void css_render_raw_value(token_vec *vec, Py_ssize_t start, Py_ssize_t end, css_buf *out) {
@@ -281,9 +323,16 @@ static void css_set_comp(css_buf *pool, css_comp *comp, const char *text, css_co
     comp->kind = kind;
 }
 
-static int css_comp_is_zero(const css_buf *pool, const css_comp *comp) {
-    if (comp->kind != CK_NUM && comp->kind != CK_DIM && comp->kind != CK_PCT) {
+CSS_NOINLINE static int css_comp_is_zero(const css_buf *pool, const css_comp *comp) {
+    if (comp->kind == CK_NUM) {
+        return comp->len == 1 && pool->data[comp->off] == '0';
+    }
+    if (comp->kind != CK_DIM) {
         return 0;
+    }
+    if (comp->len == 3 && pool->data[comp->off] == '0' && pool->data[comp->off + 1] == 'p' &&
+        pool->data[comp->off + 2] == 'x') {
+        return 1;
     }
     char buffer[64];
     Py_ssize_t written = 0;
@@ -295,7 +344,12 @@ static int css_comp_is_zero(const css_buf *pool, const css_comp *comp) {
         buffer[written++] = (char)character; /* numeric/percentage value text is ASCII only */
     }
     buffer[written] = '\0';
-    return strtod(buffer, NULL) == 0.0;
+    char *unit;
+    if (strtod(buffer, &unit) != 0.0) {
+        return 0;
+    }
+    Py_ssize_t number_len = (Py_ssize_t)(unit - buffer);
+    return css_unit_zero_droppable(pool->data + comp->off + number_len, comp->len - number_len);
 }
 
 /* Replace an ident component naming a color with its shortest hash. */
@@ -316,6 +370,7 @@ static void css_minify_color_comp(css_buf *pool, css_comp *comp) {
 static const char *const CSS_BOX_PROPS[] = {"margin", "padding",       "border-width",  "border-style",
                                             "inset",  "border-radius", "scroll-margin", "scroll-padding",
                                             "gap",    "grid-gap",      "overflow",      "overscroll-behavior"};
+static const char *const CSS_TWO_VALUE_BOX_PROPS[] = {"gap", "grid-gap", "overflow", "overscroll-behavior"};
 
 static const char *const CSS_CURRENTCOLOR_INIT[] = {"border-left-color",     "border-right-color",
                                                     "border-top-color",      "border-bottom-color",
@@ -323,6 +378,12 @@ static const char *const CSS_CURRENTCOLOR_INIT[] = {"border-left-color",     "bo
 
 static const char *const CSS_SINGLE_COLOR[] = {"color", "caret-color", "outline-color",
                                                "fill",  "stroke",      "background-color"};
+
+CSS_NOINLINE static int css_box_is_wide_keyword(const css_buf *pool, const css_comp *comp) {
+    return css_comp_kw(pool, comp, "inherit") || css_comp_kw(pool, comp, "initial") ||
+           css_comp_kw(pool, comp, "unset") || css_comp_kw(pool, comp, "revert") ||
+           css_comp_kw(pool, comp, "revert-layer");
+}
 
 /* Collapse a 2-4 value box shorthand (margin/padding/...) when the mirrored edges are equal. */
 static void css_handle_box(const css_buf *pool, comp_vec *comps) {
@@ -343,6 +404,10 @@ static void css_handle_box(const css_buf *pool, comp_vec *comps) {
         count = 2;
     }
     if (count == 2 && css_comp_text_eq(pool, &comps->items[1], &comps->items[0])) {
+        css_comp *first = &comps->items[0];
+        if (first->len >= 5 && css_box_is_wide_keyword(pool, first)) {
+            return;
+        }
         count = 1;
     }
     comps->len = count;
@@ -364,7 +429,7 @@ static void css_handle_flex_basis(css_buf *pool, comp_vec *comps) {
         css_comp *comp = &comps->items[index];
         if (css_comp_kw(pool, comp, "initial")) {
             css_set_comp(pool, comp, "auto", CK_IDENT);
-        } else if (css_comp_is_zero(pool, comp) && pool->data[comp->off + comp->len - 1] != '%') {
+        } else if (pool->data[comp->off + comp->len - 1] != '%' && css_comp_is_zero(pool, comp)) {
             /* a 0% basis resolves against an indefinite container to content, a zero length does not */
             css_set_comp(pool, comp, "0", CK_NUM);
         }
@@ -403,9 +468,190 @@ static void css_handle_color_single(css_buf *pool, comp_vec *comps, const css_ch
     }
 }
 
+static Py_ssize_t css_func_name_len(const css_buf *pool, const css_comp *comp) {
+    Py_ssize_t length = 0;
+    while (pool->data[comp->off + length] != '(') {
+        length++;
+    }
+    return length;
+}
+
+CSS_NOINLINE static int css_text_decoration_drop_safe(css_buf *pool, const comp_vec *comps) {
+    if (comps->len == 2 && comps->items[0].kind == CK_IDENT && comps->items[1].kind == CK_IDENT &&
+        ((css_comp_kw(pool, &comps->items[0], "none") && css_comp_kw(pool, &comps->items[1], "solid")) ||
+         (css_comp_kw(pool, &comps->items[0], "solid") && css_comp_kw(pool, &comps->items[1], "none")))) {
+        return 1;
+    }
+    int none = 0;
+    int solid = 0;
+    int currentcolor = 0;
+    int other_lines = 0;
+    int other_styles = 0;
+    int other_colors = 0;
+    Py_ssize_t last_line = -1;
+    for (Py_ssize_t index = 0; index < comps->len; index++) {
+        const css_comp *comp = &comps->items[index];
+        if (comp->kind == CK_SEP) {
+            return 0;
+        }
+        if (comp->kind == CK_FUNC) {
+            static const char *const color_funcs[] = {"rgb",       "rgba",       "hsl",        "hsla",  "hwb",
+                                                      "lab",       "lch",        "oklab",      "oklch", "color",
+                                                      "color-mix", "light-dark", "device-cmyk"};
+            static const char *const length_funcs[] = {"calc", "min", "max", "clamp"};
+            const css_char *name = pool->data + comp->off;
+            Py_ssize_t name_len = css_func_name_len(pool, comp);
+            if (css_prop_in(name, name_len, color_funcs, sizeof(color_funcs) / sizeof(char *))) {
+                other_colors++;
+            } else if (!css_prop_in(name, name_len, length_funcs, sizeof(length_funcs) / sizeof(char *))) {
+                return 0;
+            }
+            continue;
+        }
+        if (comp->kind == CK_IDENT) {
+            if (css_comp_kw(pool, comp, "none")) {
+                none++;
+            } else if (css_comp_kw(pool, comp, "solid")) {
+                solid++;
+            } else if (css_comp_kw(pool, comp, "currentcolor")) {
+                currentcolor++;
+            } else if (css_comp_kw(pool, comp, "underline") || css_comp_kw(pool, comp, "overline") ||
+                       css_comp_kw(pool, comp, "line-through") || css_comp_kw(pool, comp, "blink") ||
+                       css_comp_kw(pool, comp, "spelling-error") || css_comp_kw(pool, comp, "grammar-error")) {
+                if (last_line >= 0 && index != last_line + 1) {
+                    return 0;
+                }
+                last_line = index;
+                other_lines++;
+            } else if (css_comp_kw(pool, comp, "double") || css_comp_kw(pool, comp, "dotted") ||
+                       css_comp_kw(pool, comp, "dashed") || css_comp_kw(pool, comp, "wavy")) {
+                other_styles++;
+            } else if (css_comp_kw(pool, comp, "inherit") || css_comp_kw(pool, comp, "initial") ||
+                       css_comp_kw(pool, comp, "unset") || css_comp_kw(pool, comp, "revert") ||
+                       css_comp_kw(pool, comp, "revert-layer")) {
+                return 0;
+            } else if (!css_comp_kw(pool, comp, "auto") && !css_comp_kw(pool, comp, "from-font")) {
+                other_colors++;
+            }
+        } else if (comp->kind == CK_HASH) {
+            other_colors++;
+        } else if (comp->kind != CK_DIM && comp->kind != CK_NUM) {
+            return 0;
+        }
+    }
+    return none <= 1 && solid <= 1 && currentcolor <= 1 && (!none || !other_lines) && (!solid || !other_styles) &&
+           (!currentcolor || !other_colors);
+}
+
+static int css_text_emphasis_ident_role(css_buf *pool, const css_comp *comp) {
+    switch (comp->len) {
+    case 3:
+        return css_comp_kw(pool, comp, "dot");
+    case 4:
+        return css_comp_kw(pool, comp, "open");
+    case 5:
+        return css_comp_kw(pool, comp, "unset") ? 2 : 0;
+    case 6:
+        switch (css_lower(pool->data[comp->off])) {
+        case 'c':
+            return css_comp_kw(pool, comp, "circle");
+        case 'f':
+            return css_comp_kw(pool, comp, "filled");
+        case 's':
+            return css_comp_kw(pool, comp, "sesame");
+        case 'r':
+            return css_comp_kw(pool, comp, "revert") ? 2 : 0;
+        default:
+            return 0;
+        }
+    case 7:
+        return css_comp_kw(pool, comp, "inherit") || css_comp_kw(pool, comp, "initial") ? 2 : 0;
+    case 8:
+        return css_comp_kw(pool, comp, "triangle");
+    case 12:
+        return css_comp_kw(pool, comp, "revert-layer") ? 2 : 0;
+    case 13:
+        return css_comp_kw(pool, comp, "double-circle");
+    default:
+        return 0;
+    }
+}
+
+CSS_NOINLINE static int css_text_emphasis_drop_safe(css_buf *pool, const comp_vec *comps) {
+    static const char *const color_funcs[] = {"rgb",   "rgba",  "hsl",   "hsla",      "hwb",        "lab",        "lch",
+                                              "oklab", "oklch", "color", "color-mix", "light-dark", "device-cmyk"};
+    int none = 0;
+    int currentcolor = 0;
+    int other_style = 0;
+    int other_color = 0;
+    int color_after_style = 0;
+    for (Py_ssize_t index = 0; index < comps->len; index++) {
+        const css_comp *comp = &comps->items[index];
+        if (comp->kind == CK_SEP) {
+            return 0;
+        }
+        if (comp->kind == CK_IDENT) {
+            if (css_comp_kw(pool, comp, "none")) {
+                none++;
+            } else if (css_comp_kw(pool, comp, "currentcolor")) {
+                currentcolor++;
+                color_after_style = other_style > 0;
+            } else {
+                int role = css_text_emphasis_ident_role(pool, comp);
+                if (role == 1) {
+                    if (color_after_style) {
+                        return 0;
+                    }
+                    other_style++;
+                } else if (role == 2) {
+                    return 0;
+                } else {
+                    other_color++;
+                }
+            }
+        } else if (comp->kind == CK_HASH) {
+            other_color++;
+        } else if (comp->kind == CK_STR) {
+            other_style++;
+        } else if (comp->kind == CK_FUNC) {
+            Py_ssize_t name_len = css_func_name_len(pool, comp);
+            if (!css_prop_in(pool->data + comp->off, name_len, color_funcs, sizeof(color_funcs) / sizeof(char *))) {
+                return 0;
+            }
+            other_color++;
+        } else {
+            return 0;
+        }
+    }
+    return none <= 1 && currentcolor <= 1 && (!none || !other_style) && (!currentcolor || !other_color);
+}
+
+CSS_NOINLINE static int css_border_has_other_style(const css_buf *pool, const comp_vec *comps, Py_ssize_t dropped,
+                                                   int outline) {
+    static const char *const styles[] = {"none",   "hidden", "dotted", "dashed", "solid",
+                                         "double", "groove", "ridge",  "inset",  "outset"};
+    static const char *const dynamic_funcs[] = {"var", "env", "attr"};
+    for (Py_ssize_t index = 0; index < comps->len; index++) {
+        if (index == dropped) {
+            continue;
+        }
+        const css_comp *comp = &comps->items[index];
+        if (comp->kind == CK_IDENT && comp->len >= 4 && comp->len <= 6 &&
+            (css_prop_in(pool->data + comp->off, comp->len, styles, sizeof(styles) / sizeof(char *)) ||
+             (outline && css_comp_kw(pool, comp, "auto")))) {
+            return 1;
+        }
+        if (comp->kind == CK_FUNC && css_prop_in(pool->data + comp->off, css_func_name_len(pool, comp), dynamic_funcs,
+                                                 sizeof(dynamic_funcs) / sizeof(char *))) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void css_handle_color_drop(css_buf *pool, comp_vec *comps, const css_char *prop, Py_ssize_t prop_len) {
     static const char *const border_drop[] = {"none", "currentcolor", "medium"};
-    static const char *const outline_drop[] = {"invert", "none", "medium"};
+    static const char *const outline_drop[] = {"none", "medium"};
     static const char *const column_drop[] = {"currentcolor", "none", "medium"};
     static const char *const decoration_drop[] = {"currentcolor", "none", "solid"};
     static const char *const emphasis_drop[] = {"currentcolor", "none"};
@@ -413,11 +659,65 @@ static void css_handle_color_drop(css_buf *pool, comp_vec *comps, const css_char
     size_t drop_count = 3;
     if (css_run_ieq(prop, prop_len, "outline")) {
         drop = outline_drop;
+        drop_count = 2;
     } else if (css_run_ieq(prop, prop_len, "column-rule")) {
         drop = column_drop;
     } else if (css_run_ieq(prop, prop_len, "text-decoration")) {
+        if (comps->len > 1 && !css_text_decoration_drop_safe(pool, comps)) {
+            return;
+        }
         drop = decoration_drop;
     } else if (css_run_ieq(prop, prop_len, "text-emphasis")) {
+        if (comps->len == 2) {
+            const css_comp *first = &comps->items[0];
+            const css_comp *second = &comps->items[1];
+            Py_ssize_t keep = -1;
+            int minify_color = 1;
+            if (first->kind == CK_IDENT) {
+                if (first->len == 4 && css_comp_kw(pool, first, "none")) {
+                    if (second->kind == CK_HASH ||
+                        (second->kind == CK_IDENT && !css_comp_kw(pool, second, "none") &&
+                         !css_comp_kw(pool, second, "currentcolor") && !css_text_emphasis_ident_role(pool, second))) {
+                        keep = 1;
+                        minify_color = second->kind == CK_IDENT;
+                    }
+                } else if (first->len == 12 && css_comp_kw(pool, first, "currentcolor")) {
+                    if (second->kind == CK_STR ||
+                        (second->kind == CK_IDENT && css_text_emphasis_ident_role(pool, second) == 1)) {
+                        keep = 1;
+                        minify_color = 0;
+                    }
+                }
+            }
+            if (keep < 0 && second->kind == CK_IDENT) {
+                if (second->len == 4 && css_comp_kw(pool, second, "none")) {
+                    if (first->kind == CK_HASH ||
+                        (first->kind == CK_IDENT && !css_comp_kw(pool, first, "none") &&
+                         !css_comp_kw(pool, first, "currentcolor") && !css_text_emphasis_ident_role(pool, first))) {
+                        keep = 0;
+                        minify_color = first->kind == CK_IDENT;
+                    }
+                } else if (second->len == 12 && css_comp_kw(pool, second, "currentcolor")) {
+                    if (first->kind == CK_STR ||
+                        (first->kind == CK_IDENT && css_text_emphasis_ident_role(pool, first) == 1)) {
+                        keep = 0;
+                        minify_color = 0;
+                    }
+                }
+            }
+            if (keep >= 0) {
+                css_comp value = comps->items[keep];
+                if (minify_color) {
+                    css_minify_color_comp(pool, &value);
+                }
+                comps->items[0] = value;
+                comps->len = 1;
+                return;
+            }
+        }
+        if (comps->len > 1 && !css_text_emphasis_drop_safe(pool, comps)) {
+            return;
+        }
         drop = emphasis_drop;
         drop_count = 2;
     }
@@ -430,6 +730,17 @@ static void css_handle_color_drop(css_buf *pool, comp_vec *comps, const css_char
             continue;
         }
         if (comp.kind == CK_IDENT) {
+            if (comp.len == 4 && comps->len > 1 && drop != decoration_drop && drop != emphasis_drop &&
+                comp_ieq(pool, &comp, "none")) {
+                const css_comp *other = comps->len == 2 ? &comps->items[1 - index] : NULL;
+                if ((!other || other->kind == CK_FUNC ||
+                     (other->kind == CK_IDENT && other->len >= 4 && other->len <= 6)) &&
+                    css_border_has_other_style(pool, comps, index, drop == outline_drop)) {
+                    comps->items[write++] = comp;
+                    any_value = 1;
+                }
+                continue;
+            }
             int dropped = 0;
             for (size_t which = 0; which < drop_count; which++) {
                 if (comp_ieq(pool, &comp, drop[which])) {
@@ -457,7 +768,11 @@ static void css_handle_color_drop(css_buf *pool, comp_vec *comps, const css_char
 static void css_handle_border_color(css_buf *pool, comp_vec *comps) {
     Py_ssize_t value_count = 0;
     for (Py_ssize_t index = 0; index < comps->len; index++) {
-        if (comps->items[index].kind != CK_SEP) {
+        if (comps->items[index].kind == CK_SEP) {
+            if (comps->len > 1) {
+                return;
+            }
+        } else {
             value_count++;
         }
     }
@@ -477,7 +792,7 @@ static void css_handle_border_color(css_buf *pool, comp_vec *comps) {
         comps->items[write++] = comp;
     }
     comps->len = write;
-    if (write > 0) {
+    if (write > 0 && write <= 4) {
         int all_equal = 1;
         for (Py_ssize_t index = 1; index < write; index++) {
             if (!css_comp_text_eq(pool, &comps->items[index], &comps->items[0])) {
@@ -486,10 +801,26 @@ static void css_handle_border_color(css_buf *pool, comp_vec *comps) {
             }
         }
         if (all_equal) {
+            css_comp *first = &comps->items[0];
+            if (write > 1 && first->kind == CK_FUNC) {
+                static const char *const dynamic_funcs[] = {"var", "env", "attr"};
+                if (css_prop_in(pool->data + first->off, css_func_name_len(pool, first), dynamic_funcs,
+                                sizeof(dynamic_funcs) / sizeof(char *))) {
+                    return;
+                }
+            }
+            if (write > 1 && first->len >= 5 &&
+                (css_lower(pool->data[first->off]) == 'i' || css_lower(pool->data[first->off]) == 'u' ||
+                 css_lower(pool->data[first->off]) == 'r') &&
+                (css_comp_kw(pool, first, "inherit") || css_comp_kw(pool, first, "initial") ||
+                 css_comp_kw(pool, first, "unset") || css_comp_kw(pool, first, "revert") ||
+                 css_comp_kw(pool, first, "revert-layer"))) {
+                return;
+            }
             comps->len = 1;
             /* the list collapsed to a single value, so a lone currentcolor is now safe to shorten to initial */
-            if (css_comp_kw(pool, &comps->items[0], "currentcolor")) {
-                css_set_comp(pool, &comps->items[0], "initial", CK_IDENT);
+            if (css_comp_kw(pool, first, "currentcolor")) {
+                css_set_comp(pool, first, "initial", CK_IDENT);
             }
         }
     }
@@ -574,6 +905,9 @@ static Py_ssize_t css_collapse_box_shadow_run(css_buf *pool, css_comp *items, Py
     }
     /* drop a zero blur/spread (the 4th then 3rd length); delete the element in place, since a color may follow it */
     if (number_count == 4 && css_comp_is_zero(pool, &items[numbers[3]])) {
+        if (numbers[3] != numbers[0] + 3) {
+            return count;
+        }
         for (Py_ssize_t index = numbers[3]; index + 1 < count; index++) {
             items[index] = items[index + 1];
         }
@@ -581,6 +915,9 @@ static Py_ssize_t css_collapse_box_shadow_run(css_buf *pool, css_comp *items, Py
         number_count = 3;
     }
     if (number_count == 3 && css_comp_is_zero(pool, &items[numbers[2]])) {
+        if (numbers[2] != numbers[0] + 2) {
+            return count;
+        }
         for (Py_ssize_t index = numbers[2]; index + 1 < count; index++) {
             items[index] = items[index + 1];
         }
@@ -593,10 +930,28 @@ static Py_ssize_t css_collapse_box_shadow_run(css_buf *pool, css_comp *items, Py
 static void css_handle_filter(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end, const css_char *prop,
                               Py_ssize_t prop_len, css_buf *out) {
     css_buf joined = {NULL, 0, 0, pool->oom};
+    int is_ms = css_run_ieq(prop, prop_len, "-ms-filter");
+    Py_ssize_t shadow_end = -1;
+    int pending_ws = 0;
     for (Py_ssize_t index = start; index < end; index++) {
         css_token *token = &vec->items[index];
         if (token->kind == CSS_WS || token->kind == CSS_COMMENT) {
+            pending_ws = index < shadow_end;
             continue;
+        }
+        if (pending_ws && joined.len > 0 && /* GCOVR_EXCL_BR_LINE: only allocation failure empties an active shadow */
+            joined.data[joined.len - 1] != '(' && joined.data[joined.len - 1] != ',' &&
+            (token->kind != CSS_DELIM || (token->delim != ')' && token->delim != ','))) {
+            cbuf_putc(&joined, ' ');
+        }
+        pending_ws = 0;
+        if (token->kind == CSS_IDENT && token->text_len == 11 && !is_ms &&
+            css_run_ieq(token->text, token->text_len, "drop-shadow") && index + 1 < end &&
+            vec->items[index + 1].kind == CSS_DELIM && vec->items[index + 1].delim == '(') {
+            Py_ssize_t close_index = css_match_paren(vec, index + 1, end);
+            if (close_index < end) {
+                shadow_end = close_index;
+            }
         }
         if (token->kind == CSS_NUM) {
             cbuf_put_run(&joined, token->text, token->text_len);
@@ -625,9 +980,11 @@ static void css_handle_filter(css_buf *pool, token_vec *vec, Py_ssize_t start, P
         cbuf_free(&joined); /* GCOVR_EXCL_LINE: allocation-failure path */
         return;             /* GCOVR_EXCL_LINE: allocation-failure path */
     }
+    if (end == vec->len) {
+        css_close_raw_blocks(vec, start, end, &joined);
+    }
     const char *legacy = "progid:dximagetransform.microsoft.alpha(opacity=";
     Py_ssize_t legacy_len = (Py_ssize_t)strlen(legacy);
-    int is_ms = css_run_ieq(prop, prop_len, "-ms-filter");
     /* Empty declarations are rejected before this handler, so a successful join contains a token. */
     int quote = joined.data[0] == '"' || joined.data[0] == '\'';
     Py_ssize_t scan = is_ms && quote ? 1 : 0;
@@ -637,8 +994,7 @@ static void css_handle_filter(css_buf *pool, token_vec *vec, Py_ssize_t start, P
             matches_legacy = 0;
         }
     }
-    /* matches_legacy implies joined.len >= legacy_len (48), so it is always positive here */
-    if (!is_ms && matches_legacy && joined.data[joined.len - 1] == ')') {
+    if (!is_ms && matches_legacy) {
         cbuf_puts(out, "alpha(opacity=");
         cbuf_put_run(out, joined.data + legacy_len, joined.len - legacy_len);
     } else if (is_ms && quote && matches_legacy) {
@@ -689,8 +1045,8 @@ static int css_parse_unicode_range(const css_char *data, Py_ssize_t len, long lo
             }
             pos++;
         }
-        if (end <= start) {
-            end = start;
+        if (end < start) {
+            return 0;
         }
     }
     *low = start;
@@ -713,15 +1069,17 @@ static int css_handle_unicode_range(token_vec *vec, Py_ssize_t start, Py_ssize_t
         return 1;         /* GCOVR_EXCL_LINE */
     }
     Py_ssize_t count = 0;
+    Py_ssize_t commas = 0;
     for (Py_ssize_t index = start; index < end; index++) {
         css_token *token = &vec->items[index];
         if (token->kind == CSS_WS || token->kind == CSS_COMMENT) {
             continue;
         }
         if (token->kind == CSS_DELIM && token->delim == ',') {
+            commas++;
             continue;
         }
-        if (token->kind != CSS_URANGE) {
+        if (token->kind != CSS_URANGE || commas != count) {
             css_free(ranges);
             return 0;
         }
@@ -742,8 +1100,15 @@ static int css_handle_unicode_range(token_vec *vec, Py_ssize_t start, Py_ssize_t
             ranges = grown;
             capacity = (Py_ssize_t)cap;
         }
-        css_parse_unicode_range(token->text, token->text_len, &ranges[count][0], &ranges[count][1]);
+        if (!css_parse_unicode_range(token->text, token->text_len, &ranges[count][0], &ranges[count][1])) {
+            css_free(ranges);
+            return 0;
+        }
         count++;
+    }
+    if (count != commas + 1) {
+        css_free(ranges);
+        return 0;
     }
     if (count > 64) {
         Py_ssize_t index = 1;

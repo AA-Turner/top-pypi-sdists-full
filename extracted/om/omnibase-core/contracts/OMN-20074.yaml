@@ -141,6 +141,147 @@ requirements:
           naming the item id and the DOD_EVIDENCE_BINDS_AC_CHECK_TYPE rule, and still admits command_exit_0
           on an item without binds_ac -- falsifier: uv run pytest tests/unit/models/ticket/test_model_ticket_contract_binds_ac_rules.py
           -q -k TestBindsAcCheckTypeRule fails at the merge base'
+  - id: req-omn20074-cosmetic-hook-handler
+    statement: The cosmetic-lint decisions of the pinned onex_change_control hook must be reproduced by
+      an omnibase_core handler over the spec carried byte for byte, so the hook leaves the onex_change_control
+      repository without a change in what any fleet repository is reported for.
+    acceptance:
+      - id: AC15
+        statement: 'AC15: HandlerCosmeticLint reproduces the `cosmetic-lint check` output lines and exit
+          status of onex_change_control rev 8d7e85bc00e7 for each of its five check classes (spdx, pyproject,
+          precommit, readme, github) on trees built from verbatim omnibase_spi files and from constructed
+          files, with a pass case, a fail case and an all-classes positive control, and the packaged spec
+          has the sha256 of the pinned spec.yaml -- falsifier: uv run pytest tests/unit/handlers/test_handler_cosmetic_lint.py
+          -q -p no:randomly fails at the merge base'
+  - id: req-omn20074-cosmetic-hook-export
+    statement: omnibase_core must export the handler as pre-commit hook id cosmetic-lint with the keys
+      of the onex_change_control export, so a consumer changes only repo and rev.
+    acceptance:
+      - id: AC16
+        statement: 'AC16: .pre-commit-hooks.yaml exports id cosmetic-lint running the handler module with
+          types file, pass_filenames false, always_run true and stage pre-commit, and no hook of that
+          id sits in this repository''s onex_change_control block -- falsifier: uv run pytest tests/ci/test_precommit_hooks_local_omn20068.py
+          -q -p no:randomly -k cosmetic fails at the merge base'
+  - id: req-omn20074-codeql-reusable-home
+    statement: omnibase_core must own the CodeQL reusable workflow so fleet security-scan callers can
+      repoint to it and keep the required context CodeQL / CodeQL Analysis (python) without onex_change_control.
+    acceptance:
+      - id: AC17
+        statement: 'AC17: .github/workflows/codeql-reusable.yml in omnibase_core is a workflow_call-only
+          move of the previous reusable with the same language and query_suite inputs, the same analyze
+          job name "CodeQL Analysis (${{ inputs.language }})" and the same permissions, so the caller
+          context resolves to "CodeQL / CodeQL Analysis (python)", pins every action by full sha and references
+          onex_change_control nowhere -- falsifier: uv run pytest tests/ci/test_codeql_reusable_omn20074.py
+          -q fails at the merge base'
+  - id: req-omn20074-arch-handler-compliance
+    statement: The decisions of the onex_change_control arch_handler_contract_compliance validator must
+      be reproduced by an omnibase_core handler that a consumer runs as a module with the same flags and
+      exit codes, so a repository can enforce handler contract compliance without onex_change_control.
+    acceptance:
+      - id: AC18
+        statement: 'AC18: HandlerArchHandlerContractCompliance reproduces the stdout and exit code of
+          the onex_change_control validator (rev 9a8956cef4b3) on verbatim omniintelligence nodes and
+          constructed nodes, with a pass and a fail for each of the hardcoded-topic, undeclared-transport,
+          missing-handler-routing and logic-in-node rule classes, the missing-contract, no-nodes, EFFECT
+          Kafka inference and unparseable-handler cases, the allowlist, --json and --generate-allowlist
+          outputs, and a planted positive control the handler flags -- falsifier: uv run pytest tests/unit/handlers/test_handler_arch_handler_contract_compliance.py
+          -q -p no:randomly -k "replays_occ_output or covers_pass_and_fail or positive_control_is_flagged"
+          fails at the merge base'
+      - id: AC19
+        statement: 'AC19: python -m omnibase_core.handlers.handler_arch_handler_contract_compliance takes
+          --repo-root and --allowlist-path as the consumer workflow passes them, exits 1 when a handler
+          has a violation that is not allowlisted and 0 otherwise, and exits 2 without --repo-root; the
+          handler is pure over explicit node sources and reads nothing from the filesystem -- falsifier:
+          uv run pytest tests/unit/handlers/test_handler_arch_handler_contract_compliance.py -q -p no:randomly
+          -k "invoked_as_module or missing_repo_root or reads_nothing or models" fails at the merge base'
+  - id: req-omn20074-flag-hook-handler
+    statement: The no-bare-feature-flags decisions of the pinned onex_change_control hook must be reproduced
+      by an omnibase_core handler, so the hook leaves the onex_change_control repository without a change
+      in what any fleet file is flagged for.
+    acceptance:
+      - id: AC20
+        statement: 'AC20: HandlerNoBareFeatureFlags reproduces the check-bare-feature-flags decisions
+          of onex_change_control rev 8d7e85bc00e7 on verbatim omnibase_infra and omniclaude files, flagging
+          os.getenv, os.environ.get, os.environ[] and process.env reads of ENABLE_* and *_ENABLED names
+          and skipping comment lines, reasoned ONEX_FLAG_EXEMPT lines, the four approved basenames, the
+          four approved path segments and unreadable paths, with the hook''s output lines and exit code
+          byte for byte and a positive control it must flag -- falsifier: uv run pytest tests/unit/handlers/test_handler_no_bare_feature_flags.py
+          -q -p no:randomly fails at the merge base'
+  - id: req-omn20074-flag-hook-export
+    statement: omnibase_core must export the handler as pre-commit hook id no-bare-feature-flags, so a
+      consumer changes only repo and rev.
+    acceptance:
+      - id: AC21
+        statement: 'AC21: .pre-commit-hooks.yaml exports id no-bare-feature-flags running the handler
+          module with types python, ts and javascript, the types the onex_change_control hook declared
+          -- falsifier: uv run pytest tests/ci/test_precommit_hooks_local_omn20068.py -q -p no:randomly
+          -k bare_feature_flag fails at the merge base'
+  - id: req-omn20074-contract-validation-in-tree
+    statement: The omnibase_core contract-validation workflow must validate the branch ticket's contract
+      with this repository's in-tree ModelTicketContract and name no onex_change_control repository, keeping
+      the required context contract-validation and its skip semantics.
+    acceptance:
+      - id: AC41
+        statement: 'AC41: .github/workflows/contract-validation.yml names no onex_change_control repository
+          or validate-yaml, checks out only the calling repository, validates with the in-tree ModelTicketContract
+          run through uv and not a published omnibase-core pin, and keeps the workflow name, the job name
+          contract-validation and the skip semantics -- falsifier: uv run pytest tests/ci/test_contract_validation_in_tree_omn20074.py
+          -q -p no:randomly -k "change_control or checks_out_only or in_tree_model or required_context
+          or skips_without" fails at the merge base'
+      - id: AC42
+        statement: 'AC42: the validator the workflow runs exits 0 on contracts/OMN-20074.yaml and exits
+          1 with an error annotation on a planted contract carrying an unknown top-level field and on
+          a malformed YAML file -- falsifier: uv run pytest tests/ci/test_contract_validation_in_tree_omn20074.py
+          -q -p no:randomly -k "extracted_validator" fails at the merge base'
+  - id: req-omn20074-s6-part1
+    statement: For S6 part 1 of the OCC retirement, the skip-token caller must pin the omniclaude reusable
+      that runs the scan with no nested change-control preflight, the required-checks manifest and the
+      CI Summary audit must stop naming the nested preflight context, and CI Summary must expect repo-evidence
+      / dod-verify on every pull_request run while the caller keeps comparing with OCC.
+    acceptance:
+      - id: AC22
+        statement: 'AC22: call-reject-skip.yml pins reject-deploy-gate-skip.yml at omniclaude#2540''s
+          squash commit, neither the required-checks manifest nor the CI Summary audit names call-reject-skip-token
+          / occ-preflight / eligibility, repo-evidence / dod-verify is an L4 context for pull_request
+          runs only whose absence holds and whose failure fails CI Summary, and compare-with-occ stays
+          "true". -- falsifier: uv run pytest tests/ci/test_s6_part1_cutover_omn20074.py -q -p no:randomly'
+  - id: req-omn20074-boundary-parity-handler
+    statement: The Kafka boundary parity decisions of the onex_change_control check-boundary-parity script
+      must be reproduced by an omnibase_core handler over the boundary manifest carried byte for byte,
+      so the boundary-validation callers can leave onex_change_control without a change in verdict.
+    acceptance:
+      - id: AC24
+        statement: 'AC24: HandlerBoundaryParity reproduces check-boundary-parity of onex_change_control
+          rev a89a6f30fa on fixture repositories: a producer file that no longer references its topic
+          exits 1 naming the topic and the producer file, a clean pair exits 0, a pending entry inside
+          its 14-day grace is skipped and one past it fails, and the packaged kafka_boundaries.yaml parses
+          to the data of the source manifest -- falsifier: uv run pytest tests/unit/handlers/test_handler_boundary_parity.py
+          -q -p no:randomly fails at the merge base'
+  - id: req-omn20074-migration-conflicts-handler
+    statement: The migration conflict and column reference decisions of the onex_change_control check-migration-conflicts
+      script must be reproduced by an omnibase_core handler over the migration inventory carried byte
+      for byte.
+    acceptance:
+      - id: AC25
+        statement: 'AC25: HandlerMigrationConflicts reproduces check-migration-conflicts of onex_change_control
+          rev a89a6f30fa on fixture repositories: one table created with different columns in one uninventoried
+          boundary is a NAME_CONFLICT naming the table and both files and exits 1 (0 under --warn-only),
+          equal columns are an EXACT_DUPLICATE, two inventoried databases never conflict, excluded paths
+          are not scanned, an undeclared column in a Python SQL literal is a MISSING_COLUMN, and the packaged
+          migration_inventory.yaml parses to the data of the source inventory -- falsifier: uv run pytest
+          tests/unit/handlers/test_handler_migration_conflicts.py -q -p no:randomly fails at the merge
+          base'
+  - id: req-omn20074-validate-boundaries-action-home
+    statement: omnibase_core must own the validate-boundaries composite action so the four boundary-validation
+      callers can repoint their uses line and keep their job and context names without onex_change_control.
+    acceptance:
+      - id: AC26
+        statement: 'AC26: .github/actions/validate-boundaries/action.yml in omnibase_core is a composite
+          action with the inputs checks, warn-only and repos at the moved defaults, runs the two core
+          handlers from its own checkout with the moved flags (migration-conflicts with --check-columns
+          --warn-only), pins every action by full sha, has one checkout (the caller) and references onex_change_control
+          nowhere -- falsifier: uv run pytest tests/ci/test_validate_boundaries_action_omn20074.py -q
+          -p no:randomly fails at the merge base'
 evidence_requirements:
   - kind: tests
     description: The workflow test asserts that verify has no job-level condition and that enforcing caller
@@ -203,6 +344,68 @@ evidence_requirements:
       binds_ac are unaffected.
     command: uv run pytest tests/unit/models/ticket/test_model_ticket_contract_binds_ac_rules.py -q -k
       TestBindsAcCheckTypeRule
+  - kind: tests
+    description: Replay trees of verbatim omnibase_spi files and constructed files against the recorded
+      output of the pinned onex_change_control cosmetic-lint, one pass, one fail and one positive control
+      per check class, and the spec hash.
+    command: uv run pytest tests/unit/handlers/test_handler_cosmetic_lint.py -q -p no:randomly
+  - kind: tests
+    description: The exported hook declaration runs the cosmetic handler under the same hook id with the
+      keys of the onex_change_control export.
+    command: uv run pytest tests/ci/test_precommit_hooks_local_omn20068.py -q -p no:randomly -k cosmetic
+  - kind: tests
+    description: The workflow tests prove the CodeQL reusable's inputs, job name, permissions, composed
+      context, sha-pinned actions and the absence of any onex_change_control reference.
+    command: uv run pytest tests/ci/test_codeql_reusable_omn20074.py -q -p no:randomly
+  - kind: tests
+    description: Replay the stdout and exit code of the pinned onex_change_control validator on verbatim
+      omniintelligence nodes and constructed nodes, with a pass and a fail per rule class and a planted
+      positive control.
+    command: uv run pytest tests/unit/handlers/test_handler_arch_handler_contract_compliance.py -q -p
+      no:randomly -k "replays_occ_output or covers_pass_and_fail or positive_control_is_flagged"
+  - kind: tests
+    description: The handler runs as a module with the consumer's flags and exit codes and decides over
+      explicit sources without reading the filesystem.
+    command: uv run pytest tests/unit/handlers/test_handler_arch_handler_contract_compliance.py -q -p
+      no:randomly -k "invoked_as_module or missing_repo_root or reads_nothing or models"
+  - kind: tests
+    description: Replay verbatim omnibase_infra and omniclaude files against the decisions of the pinned
+      onex_change_control bare-feature-flag hook, with a positive control, every skip class and the byte-exact
+      output and exit code.
+    command: uv run pytest tests/unit/handlers/test_handler_no_bare_feature_flags.py -q -p no:randomly
+  - kind: tests
+    description: The exported hook declaration runs the handler under the same hook id with the types
+      the onex_change_control hook declared.
+    command: uv run pytest tests/ci/test_precommit_hooks_local_omn20068.py -q -p no:randomly -k bare_feature_flag
+  - kind: tests
+    description: The workflow tests prove contract-validation names no onex_change_control repository,
+      checks out only the calling repository, validates with the in-tree ModelTicketContract and keeps
+      its context name and skip semantics, with a detector positive control.
+    command: uv run pytest tests/ci/test_contract_validation_in_tree_omn20074.py -q -p no:randomly -k
+      "change_control or checks_out_only or in_tree_model or required_context or skips_without"
+  - kind: tests
+    description: The extracted validator passes the repository's own OMN-20074 contract and fails a planted
+      invalid contract and a malformed YAML file.
+    command: uv run pytest tests/ci/test_contract_validation_in_tree_omn20074.py -q -p no:randomly -k
+      extracted_validator
+  - kind: tests
+    description: The S6 part 1 tests prove the preflight-free skip-token pin, the removed nested preflight
+      context, and CI Summary's pull_request-only expectation of repo-evidence / dod-verify.
+    command: uv run pytest tests/ci/test_s6_part1_cutover_omn20074.py -q -p no:randomly
+  - kind: tests
+    description: Fixture repositories against the decisions of the pinned check-boundary-parity script,
+      with a parity break naming topic and file, a clean pass, pending grace and expiry, and the parsed
+      manifest hash.
+    command: uv run pytest tests/unit/handlers/test_handler_boundary_parity.py -q -p no:randomly
+  - kind: tests
+    description: Fixture repositories against the decisions of the pinned check-migration-conflicts script,
+      with a name conflict, an exact duplicate, a clean pass, inventory separation, excluded paths, a
+      missing column and the inventory hash.
+    command: uv run pytest tests/unit/handlers/test_handler_migration_conflicts.py -q -p no:randomly
+  - kind: tests
+    description: The action tests prove the composite action's inputs and defaults, the core handler invocations,
+      the sha pins and the absence of any onex_change_control reference, with a positive control.
+    command: uv run pytest tests/ci/test_validate_boundaries_action_omn20074.py -q -p no:randomly
 emergency_bypass:
   enabled: false
   justification: ''
@@ -353,3 +556,138 @@ dod_evidence:
         cwd: ${OMNI_HOME}/omnibase_core
     binds_ac:
       - AC14
+  - id: dod-omn-20074-ac15
+    description: The handler tests replay the pinned cosmetic-lint decisions on verbatim spi files and
+      constructed trees, with a positive control per check class and the spec hash.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/handlers/test_handler_cosmetic_lint.py -q -p no:randomly
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC15
+  - id: dod-omn-20074-ac16
+    description: The hook declaration tests prove the cosmetic-lint export under the same id and keys.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_precommit_hooks_local_omn20068.py -q -p no:randomly -k
+          cosmetic
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC16
+  - id: dod-omn-20074-ac17
+    description: The workflow tests prove the CodeQL reusable's inputs, job name, permissions, composed
+      required context, sha-pinned actions and the absence of any onex_change_control reference.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_codeql_reusable_omn20074.py -q -p no:randomly
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC17
+  - id: dod-omn-20074-ac18
+    description: The handler tests replay the onex_change_control validator's stdout and exit code on
+      verbatim omniintelligence nodes and constructed nodes, with a positive control.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/handlers/test_handler_arch_handler_contract_compliance.py
+          -q -p no:randomly -k "replays_occ_output or covers_pass_and_fail or positive_control_is_flagged"
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC18
+  - id: dod-omn-20074-ac19
+    description: The handler tests prove the module invocation with the consumer's flags, its exit codes
+      and the purity of the decision.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/handlers/test_handler_arch_handler_contract_compliance.py
+          -q -p no:randomly -k "invoked_as_module or missing_repo_root or reads_nothing or models"
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC19
+  - id: dod-omn-20074-ac20
+    description: The handler tests prove the pinned hook's no-bare-feature-flags decisions on verbatim
+      fleet files, a positive control and every skip class.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/handlers/test_handler_no_bare_feature_flags.py -q -p no:randomly
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC20
+  - id: dod-omn-20074-ac21
+    description: The hook declaration test proves the export under the same id with the unchanged types.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_precommit_hooks_local_omn20068.py -q -p no:randomly -k
+          bare_feature_flag
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC21
+  - id: dod-omn-20074-ac41
+    description: The workflow tests prove contract-validation names no onex_change_control repository,
+      checks out only the calling repository, validates with the in-tree ModelTicketContract and keeps
+      its context name and skip semantics.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_contract_validation_in_tree_omn20074.py -q -p no:randomly
+          -k "change_control or checks_out_only or in_tree_model or required_context or skips_without"
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC41
+  - id: dod-omn-20074-ac42
+    description: The workflow tests run the extracted validator on the repository's own OMN-20074 contract
+      and on a planted invalid contract and a malformed YAML file.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_contract_validation_in_tree_omn20074.py -q -p no:randomly
+          -k extracted_validator
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC42
+  - id: dod-omn-20074-ac22
+    description: The S6 part 1 tests prove the preflight-free skip-token pin, the removed nested preflight
+      context, and CI Summary's pull_request-only expectation of repo-evidence / dod-verify.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_s6_part1_cutover_omn20074.py -q -p no:randomly
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC22
+  - id: dod-omn-20074-ac24
+    description: The handler tests reproduce the pinned check-boundary-parity verdicts on fixture repositories
+      and the parsed manifest hash.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/handlers/test_handler_boundary_parity.py -q -p no:randomly
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC24
+  - id: dod-omn-20074-ac25
+    description: The handler tests reproduce the pinned check-migration-conflicts verdicts on fixture
+      repositories and the inventory hash.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/handlers/test_handler_migration_conflicts.py -q -p no:randomly
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC25
+  - id: dod-omn-20074-ac26
+    description: The action tests prove the validate-boundaries composite action's inputs, handler invocations,
+      sha pins and the absence of any onex_change_control reference.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_validate_boundaries_action_omn20074.py -q -p no:randomly
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC26

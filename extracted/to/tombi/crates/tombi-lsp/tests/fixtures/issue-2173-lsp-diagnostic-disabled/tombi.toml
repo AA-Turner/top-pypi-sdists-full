@@ -1,6 +1,0 @@
-[lsp]
-diagnostic.enabled = false
-
-[[schemas]]
-path = "schema.json"
-include = ["target.toml"]

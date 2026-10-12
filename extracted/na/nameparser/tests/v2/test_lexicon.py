@@ -1,5 +1,7 @@
+import copy
 import dataclasses
 import pickle
+import re
 import unicodedata
 import warnings
 from collections.abc import Callable
@@ -8,10 +10,11 @@ import pytest
 
 from nameparser import Parser
 from nameparser._lexicon import (
-    Lexicon, _PHRASE_FIELDS, _VOCAB_FIELDS, _default_lexicon, _normalize,
-    _title_key,
+    Lexicon, _MaskValueError, _PHRASE_FIELDS, _VOCAB_FIELDS, _default_lexicon,
+    _normalize, _title_key,
 )
 from nameparser._policy import Script, _SCRIPT_RANGES
+from nameparser.config import Constants
 from nameparser.config.suffixes import SUFFIX_ACRONYMS, SUFFIX_WORDS
 
 
@@ -28,10 +31,13 @@ def test_default_sources_v1_vocabulary() -> None:
     # flipped model: 'dos' is never-given in v1, so NOT ambiguous here
     assert "dos" in lex.particles and "dos" not in lex.particles_ambiguous
     assert "van" in lex.particles_ambiguous
-    # v1's CAPITALIZATION_EXCEPTIONS maps 'phd' -> 'Ph.D.' (verbatim, not
-    # normalized -- only keys are lowercased/period-stripped at
-    # construction, values pass through unchanged).
-    assert lex.capitalization_exceptions_map["phd"] == "Ph.D."
+    # the policy is 'e' and not 'y' (decisions.md#P3): a bare E initial is
+    # common, where 'y' between two surnames is the commonest Hispanic compound
+    assert "e" in lex.conjunctions_ambiguous and "y" not in lex.conjunctions_ambiguous
+    # CAPITALIZATION_EXCEPTIONS maps 'phd' -> 'PhD', a case mask since
+    # #459 (verbatim, not normalized -- only keys are lowercased and
+    # period-stripped at construction; values pass through unchanged).
+    assert lex.capitalization_exceptions_map["phd"] == "PhD"
     # maiden markers source from the same data-module pattern (#274);
     # non-colliding Cyrillic entries live in the default per the locales
     # design's sorting rule, and both ё/е spellings are listed because
@@ -108,8 +114,9 @@ def test_entries_normalizing_to_empty_raise() -> None:
 
 def test_colliding_exception_keys_dedupe_last_wins() -> None:
     # 'Phd.' and 'phd' collide under edge-period normalization
-    lex = Lexicon(capitalization_exceptions=(("Phd.", "A"), ("phd", "B")))
-    assert lex.capitalization_exceptions == (("phd", "B"),)
+    lex = Lexicon(capitalization_exceptions=(("Phd.", "PHD"),
+                                             ("phd", "PhD")))
+    assert lex.capitalization_exceptions == (("phd", "PhD"),)
     rebuilt = Lexicon(capitalization_exceptions=lex.capitalization_exceptions_map)  # type: ignore[arg-type]
     assert rebuilt == lex and hash(rebuilt) == hash(lex)
 
@@ -117,6 +124,165 @@ def test_colliding_exception_keys_dedupe_last_wins() -> None:
 def test_lexicon_rejects_non_str_exception_values() -> None:
     with pytest.raises(TypeError, match="str -> str"):
         Lexicon(capitalization_exceptions={"phd": 42})  # type: ignore[dict-item, arg-type]
+
+
+def _unpickled_with(value: object) -> Lexicon:
+    state = Lexicon.default().__getstate__()
+    state["capitalization_exceptions"] = value
+    restored = Lexicon.__new__(Lexicon)
+    restored.__setstate__(state)
+    return restored
+
+
+# Every entry point that builds the pair field, because a check on one
+# member of a family belongs on all of it (AGENTS.md): construction,
+# replace(), the right-biased union, unpickling, and the v1 shim.
+_MASK_ENTRY_POINTS: list[Callable[[object], object]] = [
+    lambda v: Lexicon(capitalization_exceptions=v),  # type: ignore[arg-type]
+    lambda v: dataclasses.replace(Lexicon.default(),
+                                  capitalization_exceptions=v),  # type: ignore[arg-type]
+    lambda v: Lexicon.default() | Lexicon(capitalization_exceptions=v),  # type: ignore[arg-type]
+    _unpickled_with,
+    lambda v: Constants(capitalization_exceptions=v)._snapshot(),
+]
+
+
+@pytest.mark.parametrize("build", _MASK_ENTRY_POINTS)
+@pytest.mark.parametrize("key, value", [
+    ("jr", "Junior"), ("phd", "PhDs"), ("phd", ""), ("md", "MB"),
+    ("phd", "D.Ph."), ("2nd", "3ND"),
+])
+def test_an_exception_value_that_does_not_spell_its_key_raises(
+        build: Callable[[object], object], key: str, value: str) -> None:
+    """#459: a capitalization_exceptions value is a case MASK, the
+    key's own letters recased. Case repair lays it over the word as
+    written, so a value spelling anything else -- a replacement
+    ('Junior'), a letter too many or too few, the right letters in
+    the wrong order, a DIGIT changed ('2nd' -> '3ND') -- has no
+    reading, and raises where it is built."""
+    with pytest.raises(ValueError,
+                       match="does not spell the key's letters") as caught:
+        build(((key, value),))
+    assert repr(key) in str(caught.value)
+    assert repr(value) in str(caught.value)
+
+
+def test_a_mask_may_recase_a_digit_key_unchanged() -> None:
+    """#459 review: the mask compares ALPHANUMERICS (_lexicon._alnum),
+    not letters alone, so a digit is part of what a value must spell
+    -- '2nd' accepts '2ND' ('2' unchanged, letters recased) and
+    rejects '3ND' above."""
+    lex = Lexicon(capitalization_exceptions=(("2nd", "2ND"),))
+    assert lex.capitalization_exceptions_map["2nd"] == "2ND"
+
+
+def test_a_decomposed_value_is_compared_and_stored_nfc_composed() -> None:
+    """A decomposed value is accepted against a composed key, the
+    check folding both sides through _normalize, and is STORED
+    composed, so both spellings of one value construct alike
+    (test_render's decomposed-mask test shows why that matters)."""
+    composed = unicodedata.normalize("NFC", "CAFÉ")
+    decomposed = unicodedata.normalize("NFD", "CAFÉ")
+    assert decomposed != composed  # the draw actually decomposed something
+    lex = Lexicon(capitalization_exceptions=(("café", decomposed),))
+    assert lex.capitalization_exceptions_map["café"] == composed
+
+
+@pytest.mark.parametrize("key, value", [
+    ("phd", "Ph.D."), ("md", "M.D."), ("hc", "h.c"), ("ph.d", "PhD"),
+    ("phd", "P.H.D."), ("md", "M. D."), ("dphil", "DPhil"),
+])
+def test_a_value_may_carry_punctuation_that_marks_its_joins(
+        key: str, value: str) -> None:
+    """#459 review: a value's punctuation is not ignored -- it marks
+    which of the key's letters are JOINED (one run) versus split, and
+    _apply_mask's initial rule reads that structure -- but it is never
+    WRITTEN into the word. Every one of these is warning-free at
+    construction, where a construction diagnostic could be raised."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        lex = Lexicon(capitalization_exceptions=((key, value),))
+    assert tuple(lex.capitalization_exceptions_map.values()) == (value,)
+
+
+def test_the_mask_error_offers_a_spelling_that_works_and_type_checks(
+) -> None:
+    """The message hands the reader code to paste, so the code has to
+    run and to type-check. The field is annotated with what it STORES,
+    a tuple of pairs, so a dict literal there is an arg-type error --
+    AGENTS.md's rule for actionable messages. The offered spelling is
+    the offending KEY recased upper, not a fixed example, so the two
+    constructions below use the spelling the 'jr' key's own error
+    offers, verbatim; mypy checks this file."""
+    offered = "capitalization_exceptions=(('jr', 'JR'),)"
+    with pytest.raises(ValueError) as caught:
+        Lexicon(capitalization_exceptions=(("jr", "Junior"),))
+    assert offered in str(caught.value)
+    assert Lexicon(capitalization_exceptions=(('jr', 'JR'),)) \
+        .capitalization_exceptions_map == {"jr": "JR"}
+    lexicon, _policy, _render = Constants(
+        capitalization_exceptions=(('jr', 'JR'),))._snapshot()
+    assert lexicon.capitalization_exceptions_map == {"jr": "JR"}
+
+
+def test_the_mask_error_falls_back_when_upper_would_not_itself_validate(
+) -> None:
+    """#459 review: .upper() can change a letter's COUNT --
+    'straße'.upper() is 'STRASSE', ß growing to two letters -- so
+    offering it verbatim would raise if pasted. The offer falls back
+    to the key unchanged (an identity mask, always legal) whenever
+    upper() would not itself spell the key's own letters."""
+    with pytest.raises(ValueError) as caught:
+        Lexicon(capitalization_exceptions=(("straße", "STRASSE"),))
+    offered = "capitalization_exceptions=(('straße', 'straße'),)"
+    assert offered in str(caught.value)
+    # pasted, the offered spelling constructs
+    assert Lexicon(capitalization_exceptions=(('straße', 'straße'),)) \
+        .capitalization_exceptions_map == {"straße": "straße"}
+
+
+def test_the_mask_error_echoes_the_callers_own_spelling_not_the_composed_one(
+) -> None:
+    """#459 review: the value used to be captured AFTER NFC
+    normalization, so the message (and _MaskValueError.value) showed
+    the composed spelling even when the caller wrote a decomposed one.
+    A decomposed 'e' + a combining acute and its NFC-composed 'é' look
+    identical printed, but are different str objects -- repr() shows
+    it (different escaping), and here it also changes len()."""
+    decomposed = "PhéD"  # 'PhéD', 'e' + U+0301 COMBINING ACUTE
+    composed = unicodedata.normalize("NFC", decomposed)
+    assert repr(decomposed) != repr(composed)
+    with pytest.raises(_MaskValueError) as caught:
+        Lexicon(capitalization_exceptions=(("phed", decomposed),))
+    assert caught.value.value == decomposed
+    assert repr(decomposed) in str(caught.value)
+    assert repr(composed) not in str(caught.value)
+
+
+def test_mask_value_error_survives_pickle_and_copy() -> None:
+    """The inherited __reduce__ would re-call __init__ with self.args,
+    the message alone, and __init__ needs `key`, `normalized_key` and
+    `value` too -- so without the override a ProcessPoolExecutor
+    worker raising it would surface as BrokenProcessPool rather than
+    this ValueError."""
+    try:
+        Lexicon(capitalization_exceptions=(("jr", "Junior"),))
+    except _MaskValueError as caught:
+        original = caught
+    else:
+        raise AssertionError("expected _MaskValueError")
+    original.add_note("seen in worker 3")
+    for restored in (pickle.loads(pickle.dumps(original)),
+                     copy.copy(original)):
+        assert isinstance(restored, ValueError)
+        assert isinstance(restored, _MaskValueError)
+        assert restored.key == original.key == "jr"
+        assert restored.offered == original.offered
+        assert str(restored) == str(original)
+        # __reduce__'s third element (self.__dict__) is what carries a
+        # note added after construction -- reconstructing from the
+        # three __init__ fields alone would drop it.
+        assert restored.__notes__ == ["seen in worker 3"]
 
 
 def test_add_and_remove_return_new_lexicons() -> None:
@@ -137,8 +303,21 @@ def test_add_unknown_field_raises_with_valid_names() -> None:
 
 
 def test_add_capitalization_exceptions_raises_pointing_at_replace() -> None:
-    with pytest.raises(TypeError, match="dataclasses.replace"):
+    # The offered spelling is a tuple, not a dict: the field is
+    # annotated as one, so a pasted dict fails mypy (AGENTS.md). And
+    # it must RUN as pasted: the value is a case mask of its key, so
+    # ('key', 'Value') type-checks and then raises (2.4 release sweep).
+    offered = re.escape(
+        "dataclasses.replace(lexicon, capitalization_exceptions="
+        "(*lexicon.capitalization_exceptions, ('key', 'KEY')))")
+    with pytest.raises(TypeError, match=offered) as raised:
         Lexicon.default().add(capitalization_exceptions={"x": "X"})
+    code = re.search(r"dataclasses\.replace\(.*?\)\)\)",
+                     str(raised.value))
+    assert code is not None
+    pasted = eval(code[0], {"dataclasses": dataclasses,
+                            "lexicon": Lexicon.default()})
+    assert pasted.capitalization_exceptions_map["key"] == "KEY"
 
 
 def test_union_is_fieldwise_and_right_biased_for_exceptions() -> None:
@@ -421,6 +600,16 @@ def test_removing_a_title_leaves_its_given_name_marker_alone() -> None:
     assert lean.given_name_titles == frozenset({"sheikh"})
 
 
+def test_removing_a_conjunction_leaves_its_ambiguous_marker_alone() -> None:
+    # conjunctions_ambiguous is the same shape as given_name_titles: not
+    # in _SUBSET_FIELDS, so an orphan is inert rather than rejected --
+    # the marker is never consulted once its base entry is gone
+    # (decisions.md#P3).
+    lean = Lexicon.default().remove(conjunctions={"e"})
+    assert "e" not in lean.conjunctions
+    assert "e" in lean.conjunctions_ambiguous
+
+
 @pytest.mark.parametrize("word", [
     "dr.", " Dr. ", ". a .", ".  .", "..x..", "  .b.  ",
     # the three non-ASCII full stops (#322), alone and mixed with
@@ -501,7 +690,7 @@ def test_every_shipped_entry_is_already_nfc() -> None:
     # authored. A data module written in NFD would fail here.
     #
     # The roster is _VOCAB_FIELDS, which is the roster __post_init__
-    # and __setstate__ normalize -- so a thirteenth vocabulary field
+    # and __setstate__ normalize -- so a fourteenth vocabulary field
     # has to join it for add/remove to work at all, and joining it
     # gets the field checked here for free (#322/#323 review).
     lex = Lexicon.default()
@@ -655,6 +844,21 @@ def test_multiword_capitalization_key_warns() -> None:
         dataclasses.replace(
             Lexicon.empty(),
             capitalization_exceptions=(("zqx zqy", "ZqXZqY"),))
+
+
+def test_a_multiword_key_skips_the_mask_check_entirely() -> None:
+    """#459 review: the mask check ran before the multi-word-key
+    warning, so a key that can never match -- 'ph d' has no word in
+    capitalized()'s per-word lookup -- still raised over a value that
+    does not spell it (AGENTS.md: an invariant guards harm, and an
+    unreachable entry does none). Reordered so a multi-word key only
+    warns, storing its value verbatim regardless of the mask
+    question."""
+    with pytest.warns(UserWarning, match="matched one word at a time"):
+        lex = dataclasses.replace(
+            Lexicon.empty(),
+            capitalization_exceptions=(("ph d", "Doctor"),))
+    assert lex.capitalization_exceptions_map == {"ph d": "Doctor"}
 
 
 def test_default_lexicon_builds_warning_free() -> None:

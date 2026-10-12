@@ -1,6 +1,6 @@
 [package]
 name = "snapper-fmt"
-version = "0.11.9"
+version = "0.11.10"
 edition = "2024"
 autotests = false
 rust-version = "1.85"
@@ -156,6 +156,13 @@ wasm-opt = false
 pkg-url = "{ repo }/releases/download/v{ version }/snapper-fmt-{ target }.tar.xz"
 bin-dir = "snapper-fmt-{ target }/{ bin }{ binary-ext }"
 pkg-fmt = "txz"
+
+# The Windows release zip is flat (snapper.exe at the archive root).
+# Unix tarballs keep the snapper-fmt-<target>/ directory above.
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-url = "{ repo }/releases/download/v{ version }/snapper-fmt-{ target }.zip"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "zip"
 
 
 [[bench]]

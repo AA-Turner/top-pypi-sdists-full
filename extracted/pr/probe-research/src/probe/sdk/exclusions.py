@@ -62,6 +62,13 @@ def excluded(
     )
 
 
+def checker(*, hot: bool = True, cwd: str | None = None) -> pc.Checker:
+    """`excluded` for one batch of paths (a snapshot, a walk, a manifest): the
+    same answers, with each folder worked out once while its paths come in a row."""
+    skip, legacy = _session_view(fresh=not hot)
+    return pc.Checker(cwd=cwd, skip=skip, legacy=legacy, ttl=HOT_TTL_S if hot else 0.0)
+
+
 def cwd_excluded(folder: str | os.PathLike | None = None) -> pc.Verdict:
     """Is work run in `folder` (default: the working directory) excluded?"""
     skip, legacy = _session_view(fresh=True)

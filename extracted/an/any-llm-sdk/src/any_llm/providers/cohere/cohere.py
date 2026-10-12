@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING, Any
 from typing_extensions import override
 
 from any_llm.any_llm import AnyLLM
-from any_llm.exceptions import UnsupportedParameterError
+from any_llm.exceptions import ProviderError, UnsupportedParameterError
+from any_llm.utils.embedding import apply_encoding_format, pop_encoding_format
 from any_llm.utils.structured_output import get_json_schema, is_structured_output_type
 
 MISSING_PACKAGES_ERROR = None
@@ -76,7 +77,7 @@ class CohereProvider(AnyLLM):
         """Convert CompletionParams to kwargs for Cohere API."""
         converted_params = params.model_dump(
             exclude_none=True,
-            exclude={"model_id", "messages", "response_format", "stream", "stream_options", "reasoning_effort"},
+            exclude={"model_id", "messages", "response_format", "stream", "stream_options", "reasoning_effort", "n"},
         )
         if params.reasoning_effort != "auto":
             if params.reasoning_effort is None or params.reasoning_effort == "none":
@@ -142,10 +143,11 @@ class CohereProvider(AnyLLM):
         inputs: str | list[str],
         **kwargs: Any,
     ) -> CreateEmbeddingResponse:
+        encoding_format = pop_encoding_format(kwargs, self.PROVIDER_NAME)
         embedding_kwargs = self._convert_embedding_params(inputs, **kwargs)
         result = await self.client.embed(model=model, **embedding_kwargs)
         response_data = {"model": model, "result": result}
-        return self._convert_embedding_response(response_data)
+        return apply_encoding_format(self._convert_embedding_response(response_data), encoding_format)
 
     @staticmethod
     @override
@@ -213,6 +215,10 @@ class CohereProvider(AnyLLM):
         if params.parallel_tool_calls is not None:
             msg = "parallel_tool_calls"
             raise UnsupportedParameterError(msg, self.PROVIDER_NAME)
+        # OpenAI clients send n=1 by default; Cohere has no `n` and always returns one completion.
+        if params.n not in (None, 1):
+            msg = "n"
+            raise UnsupportedParameterError(msg, self.PROVIDER_NAME, "Cohere returns one completion per request.")
 
         completion_kwargs = self._convert_completion_params(params, **kwargs)
         patched_messages = _patch_messages(params.messages)
@@ -234,8 +240,19 @@ class CohereProvider(AnyLLM):
 
     @override
     async def _alist_models(self, **kwargs: Any) -> Sequence[Model]:
-        model_list = await self.client.models.list(**kwargs)
-        return self._convert_list_models_response(model_list)
+        # Cohere pages the catalog (20 models per page by default), so follow next_page_token to the end.
+        models: list[Model] = []
+        requested_tokens = {kwargs.get("page_token")}
+        while True:
+            page = await self.client.models.list(**kwargs)
+            models.extend(self._convert_list_models_response(page))
+            if not page.next_page_token:
+                return models
+            if page.next_page_token in requested_tokens:
+                msg = f"Cohere returned the already requested page token {page.next_page_token!r} as the next page."
+                raise ProviderError(msg, provider_name=self.PROVIDER_NAME)
+            requested_tokens.add(page.next_page_token)
+            kwargs["page_token"] = page.next_page_token
 
     @override
     async def _arerank(

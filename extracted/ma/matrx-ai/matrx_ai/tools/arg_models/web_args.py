@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -83,3 +83,14 @@ class WebArgs(
     ]
 ):
     pass
+
+
+class SiteDataArgs(ToolArgs):
+    """``site_data``: structured records for a covered site (Bright Data datasets)."""
+
+    url: str | None = None
+    site: str | None = None
+    query: str | None = None
+    location: str | None = None
+    inputs: list[dict[str, Any]] | None = None
+    max_records: int = Field(default=20, ge=1, le=100)

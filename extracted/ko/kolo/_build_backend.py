@@ -133,11 +133,13 @@ def build_sdist(
             shutil.copy2(backend_source, extracted_dir / "_build_backend.py")
 
         # Copy scripts/wheel_utils.py to the extracted directory (needed for building from sdist)
-        utils_source = Path("scripts/wheel_utils.py")
-        if utils_source.exists():
-            scripts_dir = extracted_dir / "scripts"
-            scripts_dir.mkdir(exist_ok=True)
-            shutil.copy2(utils_source, scripts_dir / "wheel_utils.py")
+        # and scripts/pgo_train.py (the `pgo-command`, needed for `--pgo` builds from sdist)
+        for script_name in ("wheel_utils.py", "pgo_train.py"):
+            script_source = Path("scripts") / script_name
+            if script_source.exists():
+                scripts_dir = extracted_dir / "scripts"
+                scripts_dir.mkdir(exist_ok=True)
+                shutil.copy2(script_source, scripts_dir / script_name)
 
         # Rebuild the sdist
         # Use temporary file to avoid data loss if rebuild fails

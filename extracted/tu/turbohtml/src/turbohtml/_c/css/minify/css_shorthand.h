@@ -5,6 +5,7 @@
    (off, len); ident records the edge keyword so the normalizer can rewrite right/bottom to left/top offsets. */
 typedef enum { PVK_COMMA, PVK_IDENT, PVK_PCT, PVK_NUM, PVK_LEN } pv_kind;
 typedef enum { PVI_NONE, PVI_LEFT, PVI_RIGHT, PVI_TOP, PVI_BOTTOM, PVI_CENTER } pv_ident;
+typedef enum { PVR_INVALID, PVR_HORIZONTAL, PVR_VERTICAL, PVR_CENTER, PVR_LENGTH } pv_role;
 typedef struct {
     pv_kind kind;
     Py_ssize_t off;
@@ -39,21 +40,23 @@ static void css_pv_set(css_buf *pool, pos_val *value, pv_kind kind, const char *
     value->ident = ident;
 }
 
-static int css_pv_is_zero(css_buf *pool, const pos_val *value) {
+CSS_NOINLINE static int css_pv_is_zero(css_buf *pool, const pos_val *value) {
     if (value->kind == PVK_IDENT) {
         return 0;
     }
-    char buffer[64];
-    Py_ssize_t written = 0;
-    for (Py_ssize_t index = 0; index < value->len && written < 63; index++) {
+    if (value->kind == PVK_LEN) {
+        return value->len == 1;
+    }
+    for (Py_ssize_t index = 0; index < value->len; index++) {
         css_char character = pool->data[value->off + index];
-        if (character == '%') {
+        if (character == '%' || character == 'e' || character == 'E') {
             break;
         }
-        buffer[written++] = (char)character; /* numeric/percentage value text is ASCII only */
+        if (character > '0') {
+            return 0;
+        }
     }
-    buffer[written] = '\0';
-    return strtod(buffer, NULL) == 0.0;
+    return 1;
 }
 
 static void css_pv_del(pos_val *vals, Py_ssize_t *count, Py_ssize_t index) {
@@ -61,6 +64,45 @@ static void css_pv_del(pos_val *vals, Py_ssize_t *count, Py_ssize_t index) {
         vals[pos] = vals[pos + 1];
     }
     (*count)--;
+}
+
+static pv_role css_position_role(const pos_val *value) {
+    if (value->kind != PVK_IDENT) {
+        return PVR_LENGTH;
+    }
+    if (value->ident == PVI_LEFT || value->ident == PVI_RIGHT) {
+        return PVR_HORIZONTAL;
+    }
+    if (value->ident == PVI_TOP || value->ident == PVI_BOTTOM) {
+        return PVR_VERTICAL;
+    }
+    return value->ident == PVI_CENTER ? PVR_CENTER : PVR_INVALID;
+}
+
+static int css_position_order_valid(const pos_val *vals, Py_ssize_t count) {
+    pv_role first = css_position_role(&vals[0]);
+    pv_role second = css_position_role(&vals[1]);
+    if (count == 2) {
+        static const unsigned int second_roles[] = {0, (1u << PVR_VERTICAL) | (1u << PVR_CENTER) | (1u << PVR_LENGTH),
+                                                    (1u << PVR_HORIZONTAL) | (1u << PVR_CENTER),
+                                                    (1u << PVR_HORIZONTAL) | (1u << PVR_VERTICAL) | (1u << PVR_CENTER) |
+                                                        (1u << PVR_LENGTH),
+                                                    (1u << PVR_VERTICAL) | (1u << PVR_CENTER) | (1u << PVR_LENGTH)};
+        return (second_roles[first] & (1u << second)) != 0;
+    }
+    pv_role third = css_position_role(&vals[2]);
+    if (count == 3) {
+        return ((second == PVR_LENGTH) &
+                (((first == PVR_HORIZONTAL) & ((third == PVR_VERTICAL) | (third == PVR_CENTER))) |
+                 ((first == PVR_VERTICAL) & ((third == PVR_HORIZONTAL) | (third == PVR_CENTER))))) |
+               ((third == PVR_LENGTH) &
+                (((second == PVR_HORIZONTAL) & ((first == PVR_VERTICAL) | (first == PVR_CENTER))) |
+                 ((second == PVR_VERTICAL) & ((first == PVR_HORIZONTAL) | (first == PVR_CENTER)))));
+    }
+    pv_role fourth = css_position_role(&vals[3]);
+    return (second == PVR_LENGTH) & (fourth == PVR_LENGTH) &
+           (((first == PVR_HORIZONTAL) & (third == PVR_VERTICAL)) |
+            ((first == PVR_VERTICAL) & (third == PVR_HORIZONTAL)));
 }
 
 /* Resolve a 1-4 value background-position run to the shortest equivalent offsets (CSS Backgrounds 3 §3.6). */
@@ -86,23 +128,33 @@ static void css_normalize_position_run(css_buf *pool, pos_val *vals, Py_ssize_t 
             Py_ssize_t pos = loop[which];
             if (pos + 1 < count && pos + 1 != axis) {
                 if (vals[pos + 1].kind == PVK_PCT && (vals[pos].ident == PVI_RIGHT || vals[pos].ident == PVI_BOTTOM)) {
-                    char digits[64];
-                    Py_ssize_t written = 0;
-                    for (Py_ssize_t index = 0; index < vals[pos + 1].len - 1 && written < 63; index++) {
-                        css_char character = pool->data[vals[pos + 1].off + index];
-                        digits[written++] = (char)character; /* percentage value text is ASCII only */
-                    }
-                    digits[written] = '\0';
-                    char flipped[24];
-                    /* long long, not long: long is 32-bit on Windows, so a percentage that overflows it would flip to
-                       a different value there than on a 64-bit platform */
-                    snprintf(flipped, sizeof(flipped), "%lld%%", 100 - strtoll(digits, NULL, 10));
-                    vals[pos + 1].off = pool_cstr(pool, flipped);
-                    vals[pos + 1].len = (Py_ssize_t)strlen(flipped);
-                    if (vals[pos].ident == PVI_RIGHT) {
-                        css_pv_set(pool, &vals[pos], PVK_IDENT, "left", PVI_LEFT);
-                    } else {
-                        css_pv_set(pool, &vals[pos], PVK_IDENT, "top", PVI_TOP);
+                    Py_ssize_t digits_len = vals[pos + 1].len - 1;
+                    if (digits_len <= 18) {
+                        const css_char *digits = pool->data + vals[pos + 1].off;
+                        int negative = digits[0] == '-';
+                        Py_ssize_t index = negative;
+                        long long percentage = 0;
+                        for (; index < digits_len; index++) {
+                            if (digits[index] < '0' || digits[index] > '9') {
+                                break;
+                            }
+                            percentage = percentage * 10 + (long long)(digits[index] - '0');
+                        }
+                        if (index != digits_len) {
+                            continue;
+                        }
+                        if (negative) {
+                            percentage = -percentage;
+                        }
+                        char flipped[24];
+                        snprintf(flipped, sizeof(flipped), "%lld%%", 100 - percentage);
+                        vals[pos + 1].off = pool_cstr(pool, flipped);
+                        vals[pos + 1].len = (Py_ssize_t)strlen(flipped);
+                        if (vals[pos].ident == PVI_RIGHT) {
+                            css_pv_set(pool, &vals[pos], PVK_IDENT, "left", PVI_LEFT);
+                        } else {
+                            css_pv_set(pool, &vals[pos], PVK_IDENT, "top", PVI_TOP);
+                        }
                     }
                 }
                 if (vals[pos].ident == PVI_LEFT) {
@@ -207,7 +259,9 @@ static Py_ssize_t css_position_run(css_buf *pool, const css_comp *items, Py_ssiz
         }
         out_run[run_count++] = value;
     }
-    css_normalize_position_run(pool, out_run, &run_count);
+    if (run_count < 2 || run_count > 4 || css_position_order_valid(out_run, run_count)) {
+        css_normalize_position_run(pool, out_run, &run_count);
+    }
     return run_count;
 }
 
@@ -280,12 +334,7 @@ static int css_func_name_is(css_buf *pool, const css_comp *comp, const char *nam
     if (comp->kind != CK_FUNC) {
         return 0;
     }
-    /* a CK_FUNC component always contains its '(' within comp->len, so the scan always finds it before the end */
-    Py_ssize_t paren = 0;
-    while (pool->data[comp->off + paren] != '(') {
-        paren++;
-    }
-    return css_run_ieq(pool->data + comp->off, paren, name);
+    return css_run_ieq(pool->data + comp->off, css_func_name_len(pool, comp), name);
 }
 
 static int css_comp_is_lp(css_buf *pool, const css_comp *comp) {
@@ -314,8 +363,29 @@ static void css_position_single(css_buf *pool, const css_comp *items, Py_ssize_t
     css_emit_position_run(out, run, resolved);
 }
 
+CSS_NOINLINE static int css_background_unshortenable(css_buf *pool, const comp_vec *run) {
+    int attachments = 0;
+    for (Py_ssize_t pos = 0; pos < run->len; pos++) {
+        const css_comp *comp = &run->items[pos];
+        if (comp->kind == CK_DELIM) {
+            return 1;
+        }
+        if (comp->kind == CK_IDENT && comp->len >= 5 &&
+            (css_comp_kw(pool, comp, "scroll") || css_comp_kw(pool, comp, "fixed") ||
+             css_comp_kw(pool, comp, "local"))) {
+            if (++attachments > 1) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
 /* Resolve one background layer in place over a single comma-separated run (CSS Backgrounds 3 §3.10). */
 static void css_background_run(css_buf *pool, comp_vec *run) {
+    if (run->len > 1 && css_background_unshortenable(pool, run)) {
+        return;
+    }
     int had_tokens = run->len > 0;
     Py_ssize_t index = 0;
     while (index < run->len) {
@@ -324,6 +394,10 @@ static void css_background_run(css_buf *pool, comp_vec *run) {
         if (comp->kind == CK_SEP) {
             int first_size = index + 1 < run->len && (css_comp_is_lp(pool, &run->items[index + 1]) ||
                                                       css_comp_kw(pool, &run->items[index + 1], "auto"));
+            if (!first_size && index + 1 < run->len && run->items[index + 1].kind == CK_IDENT &&
+                css_comp_is_position_keyword(pool, &run->items[index + 1])) {
+                return;
+            }
             if (first_size) {
                 int second_size = index + 2 < run->len && (css_comp_is_lp(pool, &run->items[index + 2]) ||
                                                            css_comp_kw(pool, &run->items[index + 2], "auto"));
@@ -555,7 +629,7 @@ static int css_is_reserved_family(const css_char *text, Py_ssize_t len) {
 }
 
 static css_comp css_font_family_comp(css_buf *pool, css_comp comp) {
-    if (comp.kind != CK_STR || comp.len <= 2) {
+    if (comp.len <= 2) {
         return comp;
     }
     css_char quote = pool->data[comp.off];
@@ -596,8 +670,22 @@ static css_comp css_font_family_comp(css_buf *pool, css_comp comp) {
     return result;
 }
 
+static inline int css_font_family_quote_isolated(css_buf *pool, const css_comp *items, Py_ssize_t index,
+                                                 Py_ssize_t start, Py_ssize_t len) {
+    if (index > start && (items[index - 1].kind != CK_SEP || pool->data[items[index - 1].off] != ',')) {
+        return 0;
+    }
+    return index + 1 == len || (items[index + 1].kind == CK_SEP && pool->data[items[index + 1].off] == ',');
+}
+
 static void css_handle_font_family(css_buf *pool, comp_vec *comps) {
     for (Py_ssize_t index = 0; index < comps->len; index++) {
+        if (comps->items[index].kind != CK_STR) {
+            continue;
+        }
+        if (!css_font_family_quote_isolated(pool, comps->items, index, 0, comps->len)) {
+            return;
+        }
         comps->items[index] = css_font_family_comp(pool, comps->items[index]);
     }
 }
@@ -628,6 +716,51 @@ static int css_comp_is_comma(css_buf *pool, const css_comp *comp) {
         return 0;
     }
     return pool->data[comp->off] == ','; /* a SEP comp is always len 1 */
+}
+
+static CSS_NOINLINE void css_quote_leading_hyphen_family(css_buf *pool, css_comp *comp) {
+    if (comp->kind != CK_IDENT) {
+        return;
+    }
+    css_buf quoted = {NULL, 0, 0, pool->oom};
+    cbuf_putc(&quoted, '\'');
+    cbuf_put_run(&quoted, pool->data + comp->off, comp->len);
+    cbuf_putc(&quoted, '\'');
+    comp->off = pool_run(pool, quoted.data, quoted.len);
+    comp->len = quoted.len;
+    comp->kind = CK_STR;
+    cbuf_free(&quoted);
+}
+
+CSS_NOINLINE static int css_font_has_duplicate_weight(css_buf *pool, const css_comp *items, Py_ssize_t count) {
+    int seen = 0;
+    for (Py_ssize_t index = 0; index < count; index++) {
+        const css_comp *value = &items[index];
+        int is_weight = value->kind == CK_NUM;
+        if (value->kind == CK_IDENT) {
+            css_char first = css_lower(pool->data[value->off]);
+            is_weight = (first == 'b' && (comp_ieq(pool, value, "bold") || comp_ieq(pool, value, "bolder"))) ||
+                        (first == 'l' && comp_ieq(pool, value, "lighter"));
+        }
+        if (is_weight) {
+            if (seen) {
+                return 1;
+            }
+            seen = 1;
+        }
+    }
+    return 0;
+}
+
+CSS_NOINLINE static int css_font_options_overlong(css_buf *pool, const css_comp *items, Py_ssize_t count) {
+    if (count == 5) {
+        for (Py_ssize_t index = 0; index + 1 < count; index++) {
+            if (css_comp_kw(pool, &items[index], "oblique") && items[index + 1].kind == CK_DIM) {
+                return 0;
+            }
+        }
+    }
+    return 1;
 }
 
 /* Minify the font shorthand (CSS Fonts 4 §2.7): lower-case the family, normalize font-weight (normal->drop, bold->700,
@@ -665,25 +798,43 @@ static void css_handle_font(css_buf *pool, comp_vec *comps) {
         if (values.items[family].kind != CK_IDENT && values.items[family].kind != CK_STR) {
             break;
         }
-        if (css_is_font_size_kw(pool, &values.items[family]) || css_comp_kw(pool, &values.items[family], "inherit") ||
-            css_comp_kw(pool, &values.items[family], "initial") || css_comp_kw(pool, &values.items[family], "unset")) {
+        if (css_is_font_size_kw(pool, &values.items[family])) {
             break;
+        }
+        if (css_comp_kw(pool, &values.items[family], "inherit") ||
+            css_comp_kw(pool, &values.items[family], "initial") || css_comp_kw(pool, &values.items[family], "unset")) {
+            css_free(values.items);
+            return;
         }
         family--;
     }
+    if (family > 1) {
+        Py_ssize_t size = family;
+        if (css_comp_is_slash(pool, &values.items[family - 1])) {
+            size -= 2;
+        }
+        if (size > 1 && css_font_has_duplicate_weight(pool, values.items, size)) {
+            css_free(values.items);
+            return;
+        }
+        if (size > 4 && css_font_options_overlong(pool, values.items, size)) {
+            css_free(values.items);
+            return;
+        }
+    }
     for (Py_ssize_t index = family + 1; index < values.len; index++) {
+        if (values.items[index].kind != CK_STR) {
+            continue;
+        }
+        if (!css_font_family_quote_isolated(pool, values.items, index, family + 1, values.len)) {
+            css_free(values.items);
+            return;
+        }
         values.items[index] = css_font_family_comp(pool, values.items[index]);
     }
     /* family was set to at most values.len-1 then decremented at least once above, so family+1 < values.len holds */
     if (pool->data[values.items[family + 1].off] == '-') {
-        css_buf quoted = {NULL, 0, 0, pool->oom};
-        cbuf_putc(&quoted, '\'');
-        cbuf_put_run(&quoted, pool->data + values.items[family + 1].off, values.items[family + 1].len);
-        cbuf_putc(&quoted, '\'');
-        values.items[family + 1].off = pool_run(pool, quoted.data, quoted.len);
-        values.items[family + 1].len = quoted.len;
-        values.items[family + 1].kind = CK_STR;
-        cbuf_free(&quoted);
+        css_quote_leading_hyphen_family(pool, &values.items[family + 1]);
     }
     if (family > 0) {
         Py_ssize_t index = family;
@@ -695,8 +846,13 @@ static void css_handle_font(css_buf *pool, comp_vec *comps) {
         }
         index--;
         while (index > -1) {
-            if (css_comp_kw(pool, &values.items[index], "normal") ||
-                (values.items[index].kind == CK_NUM && comp_ieq(pool, &values.items[index], "400"))) {
+            if (css_comp_kw(pool, &values.items[index], "normal")) {
+                if (index > 0 && css_comp_is_slash(pool, &values.items[index - 1])) {
+                    css_free(values.items);
+                    return;
+                }
+                comp_vec_splice(&values, index, 1, NULL, 0);
+            } else if (values.items[index].kind == CK_NUM && comp_ieq(pool, &values.items[index], "400")) {
                 comp_vec_splice(&values, index, 1, NULL, 0);
             } else if (css_comp_kw(pool, &values.items[index], "bold")) {
                 css_set_comp(pool, &values.items[index], "700", CK_NUM);
@@ -706,6 +862,20 @@ static void css_handle_font(css_buf *pool, comp_vec *comps) {
     }
     css_free(comps->items);
     *comps = values;
+}
+
+static inline int css_has_mixed_wide(const css_buf *pool, const comp_vec *comps) {
+    for (Py_ssize_t index = 0; index < comps->len; index++) {
+        const css_comp *comp = &comps->items[index];
+        if (comp->kind != CK_IDENT) {
+            continue;
+        }
+        css_char first = css_lower(pool->data[comp->off]);
+        if ((first == 'i' || first == 'u' || first == 'r') && css_box_is_wide_keyword(pool, comp)) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 /* Dispatch the per-property shorthand handler over the rendered components. */
@@ -718,7 +888,10 @@ static void css_apply_handler(css_buf *pool, const css_char *prop, Py_ssize_t pr
     }
     css_char first = css_lower(prop[0]);
     if (!has_sep && css_prop_in(prop, prop_len, CSS_BOX_PROPS, sizeof(CSS_BOX_PROPS) / sizeof(char *))) {
-        css_handle_box(pool, comps);
+        if (comps->len <= 2 ||
+            !css_prop_in(prop, prop_len, CSS_TWO_VALUE_BOX_PROPS, sizeof(CSS_TWO_VALUE_BOX_PROPS) / sizeof(char *))) {
+            css_handle_box(pool, comps);
+        }
     } else if (css_run_ieq_first(prop, prop_len, first, "background")) {
         css_handle_background(pool, comps);
     } else if (css_run_ieq_first(prop, prop_len, first, "background-position")) {
@@ -736,6 +909,9 @@ static void css_apply_handler(css_buf *pool, const css_char *prop, Py_ssize_t pr
                css_run_ieq_first(prop, prop_len, first, "column-rule") ||
                css_run_ieq_first(prop, prop_len, first, "text-decoration") ||
                css_run_ieq_first(prop, prop_len, first, "text-emphasis")) {
+        if (first != 't' && comps->len > 1 && css_has_mixed_wide(pool, comps)) {
+            return;
+        }
         css_handle_color_drop(pool, comps, prop, prop_len);
     } else if (css_run_ieq_first(prop, prop_len, first, "border-color")) {
         css_handle_border_color(pool, comps);
@@ -764,7 +940,7 @@ static void css_apply_handler(css_buf *pool, const css_char *prop, Py_ssize_t pr
     }
 }
 
-static int css_z_index_needs_raw(token_vec *vec, Py_ssize_t start, Py_ssize_t end, int *whole_calc) {
+static int css_integer_role_needs_raw(token_vec *vec, Py_ssize_t start, Py_ssize_t end, int *whole_calc) {
     while (vec->items[start].kind == CSS_WS || vec->items[start].kind == CSS_COMMENT) {
         start++;
     }
@@ -793,7 +969,7 @@ static int css_z_index_needs_raw(token_vec *vec, Py_ssize_t start, Py_ssize_t en
     return 0;
 }
 
-static int css_z_index_fold_is_integer(const css_buf *pool, const css_comp *comp) {
+static int css_integer_role_fold_is_integer(const css_buf *pool, const css_comp *comp) {
     if (comp->kind != CK_NUM) {
         return 0;
     }
@@ -825,25 +1001,38 @@ static void css_minify_value(css_buf *pool, token_vec *vec, Py_ssize_t start, Py
         css_handle_filter(pool, vec, start, end, name, name_len, out);
         return;
     }
-    if (css_run_ieq(name, name_len, "unicode-range") && css_handle_unicode_range(vec, start, end, out)) {
+    if (css_run_ieq(name, name_len, "unicode-range")) {
+        if (css_handle_unicode_range(vec, start, end, out)) {
+            return;
+        }
+        /* Rebuilding invalid ranges can join separated U+ and a tokens into a valid range. */
+        const css_token *last = &vec->items[end - 1];
+        cbuf_put_run(out, vec->items[start].text,
+                     last->text + last->text_len + last->unit_len - vec->items[start].text);
         return;
     }
-    int is_z_index = name_len == 7 && css_run_ieq(name, name_len, "z-index");
+    int is_integer_role = name_len == 7 && css_run_ieq(name, name_len, "z-index");
+    if (name_len == 5) {
+        is_integer_role = css_run_ieq(name, name_len, "order");
+    }
     int whole_calc = 0;
-    if (is_z_index && css_z_index_needs_raw(vec, start, end, &whole_calc)) {
+    if (is_integer_role && css_integer_role_needs_raw(vec, start, end, &whole_calc)) {
         css_render_raw_value(vec, start, end, out);
         return;
     }
     scratch->len = 0;
+    int color_mode = css_prop_color_mode(name, name_len);
+    css_calc_context context = {name, name_len, whole_calc};
     /* Flexbox 1 §7.1: a unitless zero not preceded by two flex factors is a flex factor, so flex keeps zero units */
-    css_render_components(pool, vec, start, end, css_prop_is_color(name, name_len),
-                          !is_z_index && (name_len != 4 || !css_run_ieq(name, name_len, "flex")), scratch);
+    css_render_components(pool, vec, start, end, color_mode,
+                          !is_integer_role && (name_len != 4 || !css_run_ieq(name, name_len, "flex")), &context,
+                          scratch);
     /* the handlers and the assembler read the components' pool text, which a failed growth left unwritten */
     if (*pool->oom) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return;       /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     if (whole_calc) {
-        if (!css_z_index_fold_is_integer(pool, &scratch->items[0])) {
+        if (!css_integer_role_fold_is_integer(pool, &scratch->items[0])) {
             css_render_raw_value(vec, start, end, out);
             return;
         }

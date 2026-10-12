@@ -20,12 +20,17 @@ ENV_MODEL = "PROBE_COMPANION_MODEL"
 #: The reader's model, per session (daemon reads); unset, the server's `reader`
 #: alias picks it (`companion.readerModel`).
 ENV_READ_MODEL = "PROBE_COMPANION_READ_MODEL"
+#: The team-note audit's model (daemon-team-note-audit); unset, the server's
+#: `auditor` alias picks it (`companion.auditorModel`).
+ENV_AUDIT_MODEL = "PROBE_COMPANION_AUDIT_MODEL"
+AUDITOR_MODEL_ALIAS = "auditor"
 #: The header that tells the model route which lane a call is for: each lane has
 #: its own in-flight slots on the server, and a call that sends it may run 30
 #: minutes (without it the server keeps an old client's 150 s).
 LANE_HEADER = "X-Probe-Daemon-Lane"
 LANE_WRITE = "write"
 LANE_READ = "read"
+LANE_AUDIT = "audit"
 ENV_KEY = "PROBE_DAEMON_KEY"
 #: One model request's timeout, and how often the client itself retries a failed
 #: one. A call may take 30 minutes (Richard, 2026-09-28: a 1M context, a cold
@@ -160,12 +165,14 @@ def endpoint() -> Endpoint:
     return Endpoint(base_url=str(base), key=str(key))
 
 
-def build(ep: Endpoint, lane: str = LANE_WRITE):
-    """A Pydantic AI model for one of the daemon's two lanes. Imported lazily: the
+def build(ep: Endpoint, lane: str = LANE_WRITE, *, name: str | None = None):
+    """A Pydantic AI model for one of the daemon's lanes. Imported lazily: the
     `daemon` extra. Each request times out after DEFAULT_TIMEOUT_S and is retried
     at most MAX_RETRIES times by the client. The writer asks for
     PROBE_COMPANION_MODEL or the server's default; the reader for
-    PROBE_COMPANION_READ_MODEL or the server's `reader` alias."""
+    PROBE_COMPANION_READ_MODEL or the server's `reader` alias; the team-note audit
+    for PROBE_COMPANION_AUDIT_MODEL or the server's `auditor` alias. `name`
+    overrides all three (the audit's one re-run on the writer's model)."""
     from pydantic_ai.models.openai import OpenAIChatModel
     from pydantic_ai.providers.openai import OpenAIProvider
     from pydantic_ai.settings import ModelSettings
@@ -177,5 +184,15 @@ def build(ep: Endpoint, lane: str = LANE_WRITE):
     client = AsyncOpenAI(base_url=ep.model_base_url, api_key=ep.key, timeout=DEFAULT_TIMEOUT_S,
                          max_retries=MAX_RETRIES, default_headers={LANE_HEADER: lane}, http_client=_http_client())
     provider = OpenAIProvider(openai_client=client)
-    name = (os.environ.get(ENV_READ_MODEL) or "reader") if lane == LANE_READ else (os.environ.get(ENV_MODEL) or "default")
+    if name is None:
+        name = _lane_model(lane)
     return OpenAIChatModel(name, provider=provider, settings=ModelSettings(timeout=DEFAULT_TIMEOUT_S))
+
+
+def _lane_model(lane: str) -> str:
+    """The model name a lane asks for when the caller names none."""
+    if lane == LANE_READ:
+        return os.environ.get(ENV_READ_MODEL) or "reader"
+    if lane == LANE_AUDIT:
+        return os.environ.get(ENV_AUDIT_MODEL) or AUDITOR_MODEL_ALIAS
+    return os.environ.get(ENV_MODEL) or "default"

@@ -36,7 +36,7 @@ from .utils import add_css_class, render_template_file
 try:
     # If Django is set up without a database, importing this widget gives RuntimeError
     from django.contrib.auth.forms import ReadOnlyPasswordHashWidget
-except RuntimeError:
+except RuntimeError:  # pragma: no cover - only reachable when Django has no database configured
     ReadOnlyPasswordHashWidget = None
 
 
@@ -324,28 +324,41 @@ class FieldRenderer(BaseRenderer):
         classes = add_css_class(klass, self.get_size_class())
         soup = BeautifulSoup(html, features="html.parser")
         enclosing_div = soup.find("div")
-        enclosing_div.attrs["class"] = classes
+        # Add to the widget's own classes rather than replacing them. Django's RadioSelect and
+        # CheckboxSelectMultiple templates put no class here, so this is a no-op for them, but a
+        # custom widget template may depend on its classes, as RadioSelectButtonGroup does on
+        # btn-group to be a button group at all.
+        widget_classes = " ".join(enclosing_div.attrs.get("class", []))
+        enclosing_div.attrs["class"] = add_css_class(widget_classes, classes)
         for inner_div in enclosing_div.find_all("div"):
             inner_div.attrs["class"] = inner_div.attrs.get("class", []) + [self.form_check_class]
         # Apply bootstrap4 classes to labels and inputs.
         # A simple 'replace' isn't enough as we don't want to have several 'class' attr definition, which would happen
         # if we tried to 'html.replace("input", "input class=...")'
-        enclosing_div = soup.find("div", {"class": classes})
-        if enclosing_div:
-            for label in enclosing_div.find_all("label"):
-                label.attrs["class"] = label.attrs.get("class", []) + ["form-check-label"]
-                try:
-                    label.input.attrs["class"] = label.input.attrs.get("class", []) + ["form-check-input"]
-                except AttributeError:
-                    pass
+        for label in enclosing_div.find_all("label"):
+            label.attrs["class"] = label.attrs.get("class", []) + ["form-check-label"]
+            try:
+                label.input.attrs["class"] = label.input.attrs.get("class", []) + ["form-check-input"]
+            except AttributeError:
+                pass
         return str(soup)
 
+    def get_checkbox_label_class(self):
+        """Return the class for the label that sits next to a checkbox inside the form-check div."""
+        # form-check-label is structural Bootstrap markup, so label_class extends it instead of replacing it.
+        label_class = add_css_class(self.label_class, "form-check-label", prepend=True)
+        if not self.show_label or self.show_label == "sr-only":
+            label_class = add_css_class(label_class, "sr-only")
+        return label_class
+
     def add_checkbox_label(self, html):
+        if self.show_label == "skip":
+            return html
         return html + render_label(
             content=self.field.label,
             label_for=self.field.id_for_label,
             label_title=escape(strip_tags(self.field_help)),
-            label_class="form-check-label",
+            label_class=self.get_checkbox_label_class(),
         )
 
     def fix_date_select_input(self, html):
@@ -377,7 +390,7 @@ class FieldRenderer(BaseRenderer):
         if isinstance(self.widget, CheckboxInput):
             # Wrap checkboxes
             # Note checkboxes do not get size classes, see #318
-            html = f'<div class="form-check">{html}</div>'
+            html = f'<div class="{self.form_check_class}">{html}</div>'
         return html
 
     def make_input_group_addon(self, inner_class, outer_class, content):
@@ -397,7 +410,8 @@ class FieldRenderer(BaseRenderer):
             before = self.make_input_group_addon(self.addon_before_class, "input-group-prepend", self.addon_before)
             after = self.make_input_group_addon(self.addon_after_class, "input-group-append", self.addon_after)
             html = self.append_errors(f"{before}{html}{after}")
-            html = f'<div class="input-group">{html}</div>'
+            input_group_class = add_css_class("input-group", self.get_size_class("input-group"))
+            html = f'<div class="{input_group_class}">{html}</div>'
         return html
 
     def append_help(self, html):

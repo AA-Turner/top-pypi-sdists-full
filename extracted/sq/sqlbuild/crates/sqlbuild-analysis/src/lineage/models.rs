@@ -8,6 +8,20 @@ pub enum LineageResourceType {
     Seed,
 }
 
+/// A semantic column use projected onto a project resource and authored SQL.
+#[derive(Debug)]
+pub struct DirectSemanticUse {
+    pub model: String,
+    pub context: String,
+    pub expression: String,
+    pub resource_type: LineageResourceType,
+    pub resource_name: String,
+    pub column: String,
+    pub confidence: String,
+    pub line: Option<u64>,
+    pub offset: Option<u64>,
+}
+
 impl LineageResourceType {
     /// Python's `CompiledResourceType` value.
     pub fn as_str(self) -> &'static str {
@@ -118,24 +132,6 @@ pub struct LineageColumn {
     pub upstream_columns: Vec<LineageSource>,
 }
 
-/// Why a model is handed back to Python, which builds its lineage exactly as before.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LineageDeferral {
-    /// The dialect is not compiled into the native parser.
-    UnsupportedDialect,
-    /// The parsed SQL could not be read as Python reads it.
-    NativeFailure,
-}
-
-impl LineageDeferral {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::UnsupportedDialect => "unsupported_dialect",
-            Self::NativeFailure => "native_failure",
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FastLineageOutcome {
     /// Star columns to append to the model's compact facts.
@@ -149,23 +145,114 @@ pub enum FastLineageOutcome {
     Omitted,
     /// The SQL did not parse; Python logs this message and records no lineage.
     Unparsed(String),
-    Deferred(LineageDeferral),
+    /// Polyglot does not know the dialect name, so Python's parse raises `ValueError`.
+    UnknownDialect(String),
 }
 
 impl FastLineageOutcome {
-    /// `(status, columns, has_star, detail)`: detail is the parse error or the deferral kind.
+    /// `(status, columns, has_star, detail)`: detail is the parse error or the unknown dialect.
     pub fn into_parts(self) -> (&'static str, Vec<LineageColumn>, bool, Option<String>) {
         match self {
             Self::StarColumns(columns) => ("star", columns, true, None),
             Self::Built { columns, has_star } => ("built", columns, has_star, None),
             Self::Omitted => ("omitted", Vec::new(), false, None),
             Self::Unparsed(message) => ("unparsed", Vec::new(), false, Some(message)),
-            Self::Deferred(kind) => (
-                "deferred",
-                Vec::new(),
-                false,
-                Some(kind.as_str().to_owned()),
-            ),
+            Self::UnknownDialect(name) => ("unknown_dialect", Vec::new(), false, Some(name)),
+        }
+    }
+}
+
+/// Python's `InferredNullability` values that rich lineage produces.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineageNullability {
+    NonNull,
+    Nullable,
+    Unknown,
+}
+
+impl LineageNullability {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::NonNull => "non_null",
+            Self::Nullable => "nullable",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+/// One resource's typed columns, as Python's schema mapping builds them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RichSchemaResource {
+    pub resource_type: LineageResourceType,
+    pub name: String,
+    /// `columns[name] = type or "UNKNOWN"`: a repeat keeps its position and takes the later type.
+    pub assigned: Vec<(String, Option<String>)>,
+    /// `columns.setdefault(name, type or "UNKNOWN")`, applied after `assigned`.
+    pub defaulted: Vec<(String, Option<String>)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RichLineageRequest {
+    /// The `PolyglotAnalysisDialect` value Python resolved from the adapter's dialect.
+    pub dialect: String,
+    pub schema: Vec<RichSchemaResource>,
+    /// Each requested model's compiled query SQL, in project order.
+    pub models: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RichLineageColumn {
+    pub column: LineageColumn,
+    pub nullability: LineageNullability,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RichLineageOutcome {
+    Built {
+        columns: Vec<RichLineageColumn>,
+        has_star: bool,
+    },
+    /// Polyglot rejected the query; Python logs this message and records no lineage.
+    Skipped(String),
+}
+
+impl RichLineageOutcome {
+    /// `(status, columns, has_star, detail)`: detail is the polyglot error.
+    pub fn into_parts(self) -> (&'static str, Vec<RichLineageColumn>, bool, Option<String>) {
+        match self {
+            Self::Built { columns, has_star } => ("built", columns, has_star, None),
+            Self::Skipped(message) => ("skipped", Vec::new(), false, Some(message)),
+        }
+    }
+}
+
+/// What a directory whose `readdir` fails mid-listing does to the fingerprint, by Python version.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InterruptedListingPolicy {
+    /// Python 3.12: `Path.walk` lets the `OSError` escape `rglob`, so the result is `None`.
+    Uncacheable,
+    /// Python 3.13 and 3.14: `glob` skips the directory's entries.
+    Skip,
+}
+
+/// The relation lineage cache key Python's `relation_lineage_fingerprint` computes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RelationFingerprint {
+    /// The hex SHA-256 digest of the authored inputs.
+    Digest(String),
+    /// Python returns `None`: dynamic context, malformed environment markers or unreadable input.
+    Uncacheable,
+    /// Discovery's walk failed internally: a native compiler failure, not a Python `None`.
+    Failed(String),
+}
+
+impl RelationFingerprint {
+    /// The digest, `None` where Python returns `None`, or the internal failure.
+    pub fn into_digest(self) -> Result<Option<String>, String> {
+        match self {
+            Self::Digest(digest) => Ok(Some(digest)),
+            Self::Uncacheable => Ok(None),
+            Self::Failed(message) => Err(message),
         }
     }
 }

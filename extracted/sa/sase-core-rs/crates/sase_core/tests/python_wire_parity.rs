@@ -388,6 +388,7 @@ fn rust_proc_snapshot() -> ProcStoreSnapshotWire {
             settled_by: None,
             settled_at: None,
             finished_by: None,
+            settlement_outcome: None,
             result: None,
             prompt_proc: None,
             service: None,
@@ -535,6 +536,24 @@ fn agent_meta_created_epics_field_order_matches_python_wire() {
     ));
     let legacy: AgentMetaWire = serde_json::from_str("{}").unwrap();
     assert!(legacy.created_epics.is_empty());
+}
+
+#[test]
+fn agent_meta_auto_restart_is_omitted_when_absent() {
+    let absent = serde_json::to_string(&AgentMetaWire::default()).unwrap();
+    assert!(!absent.contains("auto_restart"));
+    let present: AgentMetaWire = serde_json::from_str(
+        r#"{"name":"restarted","auto_restart":{"episode_id":"sase@9fd8a08"}}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        present.auto_restart.as_ref().unwrap()["episode_id"],
+        "sase@9fd8a08"
+    );
+    let encoded = serde_json::to_string(&present).unwrap();
+    let name = encoded.find("\"name\"").unwrap();
+    let auto_restart = encoded.find("\"auto_restart\"").unwrap();
+    assert!(name < auto_restart);
 }
 
 #[test]

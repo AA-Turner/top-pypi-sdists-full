@@ -372,6 +372,8 @@ pub struct KoloProfiler {
     subtree_stack: Mutex<HashMap<String, Vec<OpenSubtree>>>,
     flush_in_progress: Mutex<HashSet<String>>,
     root_trace_id: Mutex<String>,
+    /// Events this session skipped near the end of the C stack.
+    stack_skips: utils::StackSkips,
 
     config: config::Config,
 }
@@ -563,6 +565,7 @@ impl KoloProfiler {
             subtree_stack: Mutex::new(HashMap::new()),
             flush_in_progress: Mutex::new(HashSet::new()),
             root_trace_id: Mutex::new(trace_id),
+            stack_skips: utils::StackSkips::default(),
             config,
         })
     }
@@ -782,6 +785,11 @@ impl KoloProfiler {
     fn build_trace_inner(&self, py: Python) -> Result<Py<PyBytes>, PyErr> {
         let (frames_by_thread, threads, trace_id, root_trace_id, _capture, value_table) =
             self.take_trace_inputs(py)?;
+        self.stack_skips.warn_if_nothing_recorded(
+            py,
+            &trace_id,
+            frames_by_thread.values().all(|frames| frames.is_empty()),
+        );
 
         // Extract trace name if one wasn't explicitly set
         let trace_name = self.trace_name_for_frames(py, &frames_by_thread);
@@ -819,6 +827,11 @@ impl KoloProfiler {
         let _publish_order = publish_order.lock_py_attached(py).expect("mutex");
         let (mut frames_by_thread, threads, trace_id, root_trace_id, capture, value_table) =
             self.take_trace_inputs(py)?;
+        self.stack_skips.warn_if_nothing_recorded(
+            py,
+            &trace_id,
+            frames_by_thread.values().all(|frames| frames.is_empty()),
+        );
         let trace_name = self.trace_name_for_frames(py, &frames_by_thread);
         let thread_tokens = self.snapshot_thread_tokens(&frames_by_thread, &threads)?;
         let prepared = utils::prepare_v3_trace_from_parts(
@@ -1713,7 +1726,11 @@ impl KoloProfiler {
         if !processor.matches_frame(py, pyframe, event, arg, filename)? {
             return Ok(None);
         }
-        let call_frames = self.call_frames.get_or_default().borrow().get_bound(py);
+        let call_frames = self
+            .call_frames
+            .get_or_default()
+            .borrow()
+            .snapshot_call_site_frames(py);
         processor.process(py, pyframe, event, arg, call_frames, self.lightweight_repr)
     }
 
@@ -2045,6 +2062,7 @@ pub extern "C" fn profile_callback(
         };
         let (stack, omitting) = utils::check_stack(stack_event);
         if stack == utils::StackDecision::Skip {
+            profiler.stack_skips.note();
             return 0;
         }
         let omit_values = stack == utils::StackDecision::RecordWithoutValues;

@@ -1192,6 +1192,60 @@ TEST(LevelSet, MalformedFieldsWarn) {
     }
 }
 
+TEST(LevelSet, InfinityIsASampleNotAMalformedField) {
+    // INF is BOSL2's name for 1/0, not a builtin, so each script defines it.
+    // #744 on BelfrySCAD: a metaball field is 1/0 where a grid point lands on
+    // a centre. The field is rectangular; INF made it read as malformed and
+    // nothing was drawn. A metaball r/d around the origin, centre sample INF:
+    // [1, INF] is the ball of radius r.
+    const std::string field =
+        "INF = 1/0; N = 21; H = 10;\nfunction co(t) = -H + 2*H*t/(N-1);\n"
+        "f = [for (i=[0:N-1]) [for (j=[0:N-1]) [for (k=[0:N-1])\n"
+        "      let(d = norm([co(i), co(j), co(k)])) d == 0 ? INF : 6 / d ]]];\n";
+    const std::vector<std::string> w =
+        levelsetWarnings(field + "levelset(f, bounds=[[-H,-H,-H],[H,H,H]], isovalue=[1, INF]);");
+    EXPECT_TRUE(w.empty()) << w.front();
+    Evaluated e = evalSrc(field + "levelset(f, bounds=[[-H,-H,-H],[H,H,H]], isovalue=[1, INF]);");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    const double analytic = 4.0 / 3.0 * 3.14159265358979 * 6 * 6 * 6;
+    EXPECT_NEAR(soleBody(e).Volume(), analytic, 0.05 * analytic);
+    EXPECT_EQ(soleBody(e).Genus(), 0);
+
+    // -INF keeps its sign: the same ball, as a field that is -INF at the centre.
+    Evaluated neg = evalSrc(
+        "INF = 1/0; N = 21; H = 10;\nfunction co(t) = -H + 2*H*t/(N-1);\n"
+        "f = [for (i=[0:N-1]) [for (j=[0:N-1]) [for (k=[0:N-1])\n"
+        "      let(d = norm([co(i), co(j), co(k)])) d == 0 ? -INF : -6 / d ]]];\n"
+        "levelset(f, bounds=[[-H,-H,-H],[H,H,H]], isovalue=-1);");
+    ASSERT_EQ(neg.bodies.size(), 1u);
+    EXPECT_NEAR(soleBody(neg).Volume(), analytic, 0.05 * analytic);
+
+    // And the 2D reader the same way.
+    EXPECT_TRUE(levelsetWarnings(
+                    "INF = 1/0; f = [for (i=[-5:5]) [for (j=[-5:5]) let(d = norm([i,j])) d == 0 ? INF : 3 / d]];\n"
+                    "levelset(f, bounds=[[-5,-5],[5,5]], isovalue=[1, INF]);")
+                    .empty());
+}
+
+TEST(LevelSet, NanIsStillAMalformedField) {
+    EXPECT_FALSE(levelsetWarnings(
+                     "levelset([[[1,2],[3,0/0]],[[5,6],[7,8]]], bounds=[[0,0,0],[1,1,1]]);").empty());
+}
+
+TEST(LevelSet, AFunctionReturningMinusInfinityIsFarBelowNotFarAbove) {
+    // Every non-finite value used to become +DBL_MAX, so -INF counted as
+    // ABOVE every isovalue -- outside a scalar one. -INF over a ball of
+    // radius 6 and 0 elsewhere: at or below -1 is that ball, not nothing.
+    const std::string src =
+        "INF = 1/0; levelset(function(x,y,z) norm([x,y,z]) < 6 ? -INF : 0,\n"
+        "         bounds=[[-10,-10,-10],[10,10,10]], isovalue=-1, edge=0.5);";
+    EXPECT_TRUE(levelsetWarnings(src).empty());
+    Evaluated e = evalSrc(src);
+    ASSERT_EQ(e.bodies.size(), 1u);
+    const double analytic = 4.0 / 3.0 * 3.14159265358979 * 6 * 6 * 6;
+    EXPECT_NEAR(soleBody(e).Volume(), analytic, 0.1 * analytic);
+}
+
 // -- levelset, function form ----------------------------------------------
 //
 // Same builtin, field given as function(x,y,z) instead of a grid. Slower --
@@ -1283,8 +1337,10 @@ TEST(LevelSetFn, AVectorEdgeIsExactlyAStretchedLattice) {
 }
 
 TEST(LevelSetFn, AVectorEdgeAlsoAppliesToAGrid) {
+    // Compared with an isotropic resample, not the default: the default
+    // marches the grid itself, which is a different mesher.
     Evaluated fine = evalSrc(sphereFieldSrc(50, 30) +
-                              "levelset(f, bounds=[[-30,-30,-30],[30,30,30]], isovalue=20);");
+                              "levelset(f, bounds=[[-30,-30,-30],[30,30,30]], isovalue=20, edge=1.2);");
     Evaluated coarseZ = evalSrc(sphereFieldSrc(50, 30) +
                                  "levelset(f, bounds=[[-30,-30,-30],[30,30,30]], isovalue=20, edge=[1.2,1.2,4]);");
     ASSERT_EQ(coarseZ.bodies.size(), 1u);
@@ -1511,15 +1567,159 @@ TEST(LevelSet, PaddingDoesNotDisturbAShapeInsideTheBox) {
 }
 
 TEST(LevelSet, AGridFieldIsAlsoCutCleanlyAtTheBox) {
-    // The grid intake cannot sample beyond its data, so the sampler reads
-    // "outside" past the block rather than clamping and smearing the edge
-    // values outward. Same clean cut as the function form.
-    Evaluated e = evalSrc(
-        "N = 41;\nfunction co(t) = -20 + 40*t/(N-1);\n"
-        "f = [for (i=[0:N-1]) [for (j=[0:N-1]) [for (k=[0:N-1]) co(i) ]]];\n"
-        "levelset(f, bounds=[[-20,-20,-20],[20,20,20]], isovalue=[-1e18,0]);");
+    // The grid intake cannot sample beyond its data, so past the block the
+    // sampler clamps -- the edge values run on into the padding -- and the
+    // clip to the bounds makes the cut. It used to read "outside" there
+    // instead, which closed the surface AT the box face along Manifold's
+    // lattice: a waffle-textured staircase inside the bounds that the clip
+    // could not reach (#745 on BelfrySCAD). This test then needed one
+    // sample layer of slack; a clean cut needs none.
+    for (const char* edge : {"", ", edge=2", ", edge=[1,2,0.5]"}) {
+        Evaluated e = evalSrc(
+            std::string("N = 41;\nfunction co(t) = -20 + 40*t/(N-1);\n"
+                        "f = [for (i=[0:N-1]) [for (j=[0:N-1]) [for (k=[0:N-1]) co(i) ]]];\n"
+                        "levelset(f, bounds=[[-20,-20,-20],[20,20,20]], isovalue=[-1e18,0]") + edge + ");");
+        ASSERT_EQ(e.bodies.size(), 1u) << edge;
+        EXPECT_NEAR(soleBody(e).Volume(), 32000.0, 1e-6) << edge;
+    }
+    // And a curved surface the box cuts through: a sphere of radius 25 in a
+    // box of half-width 20. The faces lying flat on x=20 together make the
+    // full disc the plane cuts, not a staircase short of it.
+    Evaluated s = evalSrc(sphereFieldSrc(41, 20) +
+                           "levelset(f, bounds=[[-20,-20,-20],[20,20,20]], isovalue=25);");
+    ASSERT_EQ(s.bodies.size(), 1u);
+    const manifold::MeshGL m = soleBody(s).GetMeshGL();
+    double capArea = 0;
+    for (size_t t = 0; t + 2 < m.triVerts.size(); t += 3) {
+        manifold::vec3 p[3];
+        for (int k = 0; k < 3; ++k) {
+            const size_t v = static_cast<size_t>(m.triVerts[t + static_cast<size_t>(k)]) * m.numProp;
+            p[k] = manifold::vec3(m.vertProperties[v], m.vertProperties[v + 1], m.vertProperties[v + 2]);
+        }
+        if (std::abs(p[0].x - 20) < 1e-6 && std::abs(p[1].x - 20) < 1e-6 && std::abs(p[2].x - 20) < 1e-6)
+            capArea += 0.5 * manifold::la::length(manifold::la::cross(p[1] - p[0], p[2] - p[0]));
+    }
+    // The plane x=20 cuts the sphere in a disc of radius sqrt(25^2 - 20^2)
+    // = 15, which fits inside the 40x40 face.
+    const double r = 15.0;
+    EXPECT_NEAR(capArea, 3.14159265358979 * r * r, 0.03 * 3.14159265358979 * r * r);
+}
+
+TEST(LevelSetFn, VerticesLieOnTheTrueSurface) {
+    // A positive tolerance makes Manifold root-find along each lattice edge
+    // instead of interpolating linearly between its two samples, so a
+    // function field's vertices land on the surface itself. Measured on
+    // #745 on BelfrySCAD: 0.2 off at edge=2 before, on the surface after;
+    // the coarse, curved 1/r field there is where linear interpolation is
+    // worst.
+    for (const char* edge : {"2", "[1,2,0.4]"}) {
+        Evaluated e = evalSrc(std::string("levelset(function(x,y,z) 5 / norm([x,y,z]), "
+                                           "bounds=[[-8,-8,-8],[8,8,8]], isovalue=[1, 1/0], edge=") +
+                               edge + ");");
+        ASSERT_EQ(e.bodies.size(), 1u) << edge;
+        const manifold::MeshGL m = soleBody(e).GetMeshGL();
+        double worst = 0;
+        for (size_t v = 0; v + 2 < m.vertProperties.size(); v += m.numProp)
+            worst = std::max(worst, std::abs(manifold::la::length(manifold::vec3(m.vertProperties[v], m.vertProperties[v + 1],
+                                                                       m.vertProperties[v + 2])) - 5.0));
+        EXPECT_LT(worst, 0.03) << edge;
+    }
+}
+
+// -- levelset, grid marched directly ---------------------------------------
+//
+// At its own spacing a grid is marched as it stands (marchingCubes), not
+// resampled through Manifold's body-centred lattice -- which meshed a
+// trilinear blend of the data and left #745 on BelfrySCAD's metaballs more
+// faceted than BOSL2's isosurface(). The signature of marching the grid: a
+// vertex sits on a grid EDGE, so at least two of its coordinates are grid
+// lines. Manifold's lattice puts most of them on diagonals. The mesher also
+// falls back to resampling if Manifold ever refused its mesh, and this is
+// what would catch that happening silently.
+
+namespace {
+
+// Fraction of the body's vertices with two or more coordinates on the grid
+// lines lo + i*h. Polygons of 5+ sides get a centroid vertex, which does not
+// qualify, so marching the grid scores 0.66-0.81 on the fields below.
+// Resampling at an edge 1e-6 away from the grid's scores 0.001-0.024.
+double onGridLines(const manifold::Manifold& m, manifold::vec3 lo, manifold::vec3 h) {
+    const manifold::MeshGL g = m.GetMeshGL();
+    size_t on = 0, all = 0;
+    for (size_t v = 0; v + 2 < g.vertProperties.size(); v += g.numProp, ++all) {
+        int lines = 0;
+        for (int a = 0; a < 3; ++a) {
+            const double t = (g.vertProperties[v + static_cast<size_t>(a)] - lo[a]) / h[a];
+            lines += std::abs(t - std::round(t)) < 1e-4;
+        }
+        on += lines >= 2;
+    }
+    return all ? static_cast<double>(on) / static_cast<double>(all) : 0.0;
+}
+
+} // namespace
+
+TEST(LevelSetGrid, TheDefaultMarchesTheGridItself) {
+    Evaluated e = evalSrc(sphereFieldSrc(41, 20) +
+                           "levelset(f, bounds=[[-20,-20,-20],[20,20,20]], isovalue=15);");
     ASSERT_EQ(e.bodies.size(), 1u);
-    EXPECT_NEAR(soleBody(e).Volume(), 32000.0, 40.0);   // one sample layer of slack
+    EXPECT_GT(onGridLines(soleBody(e), manifold::vec3(-20.0), manifold::vec3(1.0)), 0.5);
+    EXPECT_EQ(soleBody(e).Genus(), 0);
+    const double analytic = 4.0 / 3.0 * 3.14159265358979 * 15 * 15 * 15;
+    EXPECT_NEAR(soleBody(e).Volume(), analytic, 0.01 * analytic);
+    // And edge= naming the grid's own spacing is the same request.
+    Evaluated same = evalSrc(sphereFieldSrc(41, 20) +
+                              "levelset(f, bounds=[[-20,-20,-20],[20,20,20]], isovalue=15, edge=[1,1,1]);");
+    ASSERT_EQ(same.bodies.size(), 1u);
+    EXPECT_EQ(soleBody(same).NumTri(), soleBody(e).NumTri());
+}
+
+TEST(LevelSetGrid, ADifferentEdgeStillResamples) {
+    Evaluated e = evalSrc(sphereFieldSrc(41, 20) +
+                           "levelset(f, bounds=[[-20,-20,-20],[20,20,20]], isovalue=15, edge=0.7);");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    EXPECT_LT(onGridLines(soleBody(e), manifold::vec3(-20.0), manifold::vec3(1.0)), 0.1);
+}
+
+TEST(LevelSetGrid, SaddlesEverywhereStillCloseTheMesh) {
+    // Random samples: ambiguous faces in every direction, which is where a
+    // per-cell table cracks. A crack would fail Manifold's check and fall
+    // back to resampling, so the vertices would leave the grid lines.
+    for (const char* iso : {"0", "[-0.3, 0.4], invert=true"}) {
+        Evaluated e = evalSrc(std::string("r = rands(-1, 1, 20*20*20, 42);\n"
+                                          "f = [for (i=[0:19]) [for (j=[0:19]) [for (k=[0:19]) r[(i*20+j)*20+k] ]]];\n"
+                                          "levelset(f, bounds=[[0,0,0],[19,19,19]], isovalue=") + iso + ");");
+        ASSERT_EQ(e.bodies.size(), 1u) << iso;
+        EXPECT_GT(onGridLines(soleBody(e), manifold::vec3(0.0), manifold::vec3(1.0)), 0.5) << iso;
+        EXPECT_GT(soleBody(e).Volume(), 0.0) << iso;
+    }
+}
+
+TEST(LevelSetGrid, SamplesExactlyOnTheIsovalueStayManifold) {
+    // Integer data at an integer isovalue: crossings land ON grid corners,
+    // so several edges share a vertex position. The old resample of this
+    // exported 4 non-manifold edges and 2 duplicate faces.
+    Evaluated e = evalSrc(
+        "f = [for (i=[0:9]) [for (j=[0:9]) [for (k=[0:9]) (i+j+k) % 3 ]]];\n"
+        "levelset(f, bounds=[[0,0,0],[9,9,9]], isovalue=1);");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    EXPECT_EQ(soleBody(e).Status(), manifold::Manifold::Error::NoError);
+    EXPECT_GT(onGridLines(soleBody(e), manifold::vec3(0.0), manifold::vec3(1.0)), 0.5);
+}
+
+TEST(LevelSetGrid, UnequalSpacingPerAxisIsMarchedAsIs) {
+    // 31 samples over 20 x 40 x 10: three different spacings, no common edge
+    // to resample at. A unit-ball field becomes an ellipsoid of semi-axes
+    // 8, 16 and 4 at isovalue 0.8.
+    Evaluated e = evalSrc(
+        "N = 31;\nf = [for (i=[0:N-1]) [for (j=[0:N-1]) [for (k=[0:N-1])\n"
+        "      norm([(i-15)/15, (j-15)/15, (k-15)/15]) ]]];\n"
+        "levelset(f, bounds=[[-10,-20,-5],[10,20,5]], isovalue=0.8);");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    EXPECT_GT(onGridLines(soleBody(e), manifold::vec3(-10, -20, -5), manifold::vec3(20.0 / 30, 40.0 / 30, 10.0 / 30)),
+              0.5);
+    const double analytic = 4.0 / 3.0 * 3.14159265358979 * 8 * 16 * 4;
+    EXPECT_NEAR(soleBody(e).Volume(), analytic, 0.02 * analytic);
 }
 
 // -- 2D union keeps every colour (bug report: "multiple colors inside a

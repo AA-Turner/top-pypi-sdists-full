@@ -19,6 +19,7 @@ from collections.abc import (
     Callable,
     ItemsView,
     Iterable,
+    Iterator,
     KeysView,
     MutableMapping,
     ValuesView,
@@ -36,6 +37,12 @@ if TYPE_CHECKING:
     from pikepdf._page_copy import PageCopyResult
 
 from pikepdf._augments import augments
+from pikepdf._content_scopes import (
+    ContentScope,
+    kinds_mask,
+    page_scopes,
+    pdf_scopes,
+)
 from pikepdf._core import (
     AccessMode,
     AttachedFile,
@@ -50,6 +57,7 @@ from pikepdf._core import (
     Rectangle,
     StreamDecodeLevel,
     StreamParser,
+    _ContentScopeWalk,
     _ObjectMapping,
 )
 from pikepdf._exceptions import PageCopyWarning
@@ -191,6 +199,14 @@ class Extend_Object:
 
 @augments(Pdf)
 class Extend_Pdf:
+    def content_scopes(
+        self,
+        *,
+        pages: Iterable[Page] | None = None,
+        kinds: Iterable[str] | str | None = None,
+    ) -> Iterator[ContentScope]:
+        return pdf_scopes(self.pages if pages is None else pages, kinds_mask(kinds))
+
     @contextmanager
     def lock(self):
         self._acquire_lock()
@@ -652,6 +668,11 @@ class Extend_Page:
             stacklevel=2,
         )
         return self._images
+
+    def content_scopes(
+        self, *, kinds: Iterable[str] | str | None = None
+    ) -> Iterator[ContentScope]:
+        return iter(page_scopes(self, kinds_mask(kinds), _ContentScopeWalk()))
 
     def get_images(self, recursive: bool = True) -> _ObjectMapping:
         """Return the images used by this page.

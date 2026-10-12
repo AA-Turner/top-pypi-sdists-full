@@ -55,7 +55,7 @@ def test_the_makefile_skill_syncs_expand_to_the_profiles():
 def test_the_lean_daemon_plugin_ships_the_daemon_profile():
     shipped = sorted(
         p.name
-        for p in (AGENT / "plugins" / "probe-research-daemon" / "skills").iterdir()
+        for p in (AGENT / "plugins" / "probe-research-daemon" / "agent-skills").iterdir()
         if p.is_dir()
     )
     assert shipped == sorted(PROFILES["daemon"])

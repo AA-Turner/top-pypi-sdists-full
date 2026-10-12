@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
+import numbers
 from functools import reduce
-from typing import List
 
 import numpy as np
 import pandas as pd
@@ -51,7 +51,7 @@ def generate_bootstrap_samples(
     annotated_functions: dict[str, AnnotatedMetricFunction],
     sensitive_feature_names: list[str],
     control_feature_names: list[str] | None = None,
-) -> List[DisaggregatedResult]:
+) -> list[DisaggregatedResult]:
     """Create a list of bootstrapped DisaggregatedResults.
 
     The list will contain n_samples, and a random_state must be supplied.
@@ -70,8 +70,8 @@ def generate_bootstrap_samples(
         rs = random_state.randint(
             low=0, high=np.iinfo(np.uint32).max, size=n_samples, dtype=np.uint32
         )
-    elif isinstance(random_state, int):
-        generator = np.random.default_rng(seed=random_state)
+    elif isinstance(random_state, numbers.Integral):
+        generator = np.random.default_rng(seed=int(random_state))
         rs = generator.integers(
             low=0, high=np.iinfo(np.uint32).max, size=n_samples, dtype=np.uint32
         )
@@ -137,9 +137,7 @@ def _calc_dataframe_quantiles(
 
 
 def _align_sample_indices(samples: list[pd.DataFrame]) -> list[pd.DataFrame]:
-    """
-    Align the indices of the bootstrapped DataFrames, so that all the combinations of sensitive
-    and control feature values are present in all the samples.
+    """Align the indices of the bootstrapped DataFrames, so that all the combinations of sensitive and control feature values are present in all the samples.
 
     This is achieved by reindexing them to a common outer union of all indices, filling the missing
     combinations with NaNs.
@@ -171,5 +169,5 @@ def calculate_pandas_quantiles(
     elif isinstance(bootstrap_samples[0], pd.DataFrame):
         result = _calc_dataframe_quantiles(quantiles=quantiles, samples=bootstrap_samples)
     else:
-        assert False, "Should not be possible to get here"
+        raise AssertionError("Should not be possible to get here")
     return result

@@ -40,6 +40,14 @@ class WSAction(enum.StrEnum):
 
 @dataclass(slots=True)
 class WSSubscriptionMessage:
+    """
+    A subscription update.
+
+    ``changed_data`` keys depend on the source: private frames use model field
+    names (``doorbell_settings``), public frames keep the server keys
+    (``doorbellSettings``), and frames built by the library can mix both.
+    """
+
     action: WSAction
     new_update_id: str
     changed_data: dict[str, Any]

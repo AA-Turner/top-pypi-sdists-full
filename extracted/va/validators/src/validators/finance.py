@@ -32,21 +32,32 @@ def _cusip_checksum(cusip: str):
 
 
 def _isin_checksum(value: str):
-    check, val = 0, None
+    # The check digit (last character) is always numeric.
+    if not value[-1].isdecimal():
+        return False
 
+    # Expand the code into a string of digits, mapping each letter to its
+    # two-digit value (A=10, ..., Z=35) and leaving digits unchanged.
+    digits = ""
     for idx in range(12):
         c = value[idx]
         if c >= "0" and c <= "9" and idx > 1:
-            val = ord(c) - ord("0")
+            digits += c
         elif c >= "A" and c <= "Z":
-            val = 10 + ord(c) - ord("A")
+            digits += str(10 + ord(c) - ord("A"))
         elif c >= "a" and c <= "z":
-            val = 10 + ord(c) - ord("a")
+            digits += str(10 + ord(c) - ord("a"))
         else:
             return False
 
+    # Luhn checksum over the expanded digit string: starting from the
+    # rightmost digit, double every second digit and sum the resulting digits.
+    check = 0
+    for idx, c in enumerate(reversed(digits)):
+        val = ord(c) - ord("0")
         if idx & 1:
             val += val
+        check += (val // 10) + (val % 10)
 
     return (check % 10) == 0
 
@@ -71,7 +82,7 @@ def cusip(value: str):
         (Literal[True]): If `value` is a valid CUSIP string.
         (ValidationError): If `value` is an invalid CUSIP string.
     """
-    return len(value) == 9 and _cusip_checksum(value)
+    return len(value) == 9 and value[-1] in "0123456789" and _cusip_checksum(value)
 
 
 @validator
@@ -117,7 +128,7 @@ def sedol(value: str):
         (Literal[True]): If `value` is a valid SEDOL string.
         (ValidationError): If `value` is an invalid SEDOL string.
     """
-    if len(value) != 7:
+    if len(value) != 7 or value[-1] not in "0123456789":
         return False
 
     weights = [1, 3, 1, 7, 3, 9, 1]

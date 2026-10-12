@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Literal
+import numbers
+from collections.abc import Callable
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -86,7 +88,7 @@ class MetricFrame:
 
     .. versionchanged:: 0.7.0
         The ``metric`` argument was renamed to ``metrics`` and constructor
-        arguments became keyword-only; the previous form is deprecated.
+        arguments became keyword-only.
 
     Parameters
     ----------
@@ -182,9 +184,9 @@ class MetricFrame:
 
     Access the largest difference, smallest ratio, and worst case performance
 
-    >>> print(f"difference: {mf1.difference()[0]:.3}   "
-    ...      f"ratio: {mf1.ratio()[0]:.3}   "
-    ...      f"max across groups: {mf1.group_max()[0]:.3}")
+    >>> print(f"difference: {mf1.difference().iloc[0]:.3}   "
+    ...      f"ratio: {mf1.ratio().iloc[0]:.3}   "
+    ...      f"max across groups: {mf1.group_max().iloc[0]:.3}")
     difference: 0.4   ratio: 0.5   max across groups: 0.8
 
     You can also evaluate multiple metrics by providing a dictionary
@@ -241,7 +243,30 @@ class MetricFrame:
         ci_quantiles: list[float] | None = None,
         random_state: int | np.random.RandomState | None = None,
     ):
-        """Read a placeholder comment."""
+        """Initialize the MetricFrame.
+
+        Parameters
+        ----------
+        metrics : callable or dict[str, callable]
+            The metric(s) to compute. Can be a single callable or a dictionary
+            mapping metric names to callables.
+        y_true : array-like
+            The ground-truth labels.
+        y_pred : array-like
+            The predicted labels.
+        sensitive_features : array-like
+            The sensitive features used to define groups.
+        control_features : array-like, optional
+            Control features used to stratify the analysis.
+        sample_params : dict or dict[str, dict], optional
+            Sample parameters to pass to the metric functions.
+        n_boot : int, optional
+            Number of bootstrap samples for confidence intervals.
+        ci_quantiles : list[float], optional
+            Quantiles for confidence intervals.
+        random_state : int or np.random.RandomState, optional
+            Random state for reproducibility.
+        """
         check_consistent_length(y_true, y_pred)
 
         y_t = _convert_to_ndarray_and_squeeze(y_true)
@@ -280,7 +305,7 @@ class MetricFrame:
                 raise ValueError(_DUPLICATE_FEATURE_NAME.format(name))
             nameset.add(name)
 
-        self._result_cache = dict()
+        self._result_cache = {}
 
         # Create the basic results
         result = DisaggregatedResult.create(
@@ -297,7 +322,7 @@ class MetricFrame:
         self._n_boot = n_boot
 
         if n_boot is not None and ci_quantiles is not None and len(ci_quantiles) > 0:
-            if not isinstance(n_boot, int) or n_boot < 1:
+            if not isinstance(n_boot, numbers.Integral) or n_boot < 1:
                 raise ValueError(_BOOTSTRAP_N_BOOT_INT_GT_ZERO)
             for _ci in ci_quantiles:
                 if not isinstance(_ci, float) or _ci <= 0 or _ci >= 1:
@@ -362,7 +387,7 @@ class MetricFrame:
         # Next up, group_min and group_max
         group_functions = {"group_min": "min", "group_max": "max"}
         for k, v in group_functions.items():
-            self._result_cache[k] = dict()
+            self._result_cache[k] = {}
             for err_string in _VALID_ERROR_STRING:
                 try:
                     self._result_cache[k][err_string] = self._group(raw_result, v, err_string)
@@ -372,9 +397,9 @@ class MetricFrame:
 
         # Differences and ratios
         for c_t in ["difference", "ratio"]:
-            self._result_cache[c_t] = dict()
+            self._result_cache[c_t] = {}
             for c_m in _COMPARE_METHODS:
-                self._result_cache[c_t][c_m] = dict()
+                self._result_cache[c_t][c_m] = {}
                 for err_string in _VALID_ERROR_STRING:
                     try:
                         if c_t == "difference":
@@ -426,7 +451,7 @@ class MetricFrame:
 
         # Differences and ratios
         for c_t in ["difference_ci", "ratio_ci"]:
-            self._result_cache[c_t] = dict()
+            self._result_cache[c_t] = {}
             for c_m in _COMPARE_METHODS:
                 if c_t == "difference_ci":
                     raw_samples = [
@@ -466,7 +491,7 @@ class MetricFrame:
         Returns
         -------
         typing.Any or pandas.Series or pandas.DataFrame
-            The exact type varies based on whether control featuers were
+            The exact type varies based on whether control features were
             provided and how the metric functions were specified.
 
             ======== ================  =================================
@@ -604,9 +629,9 @@ class MetricFrame:
 
         Parameters
         ----------
-        disagg_result: The DisaggregatedResult containing all the metrics
-        grouping_function: string {'min', 'max'}
-        errors: {'raise', 'coerce'}, default :code:`raise`
+        disagg_result : The DisaggregatedResult containing all the metrics
+        grouping_function : string {'min', 'max'}
+        errors : {'raise', 'coerce'}, default :code:`raise`
             if 'raise', then invalid parsing will raise an exception
             if 'coerce', then invalid parsing will be set as NaN
 
@@ -656,7 +681,7 @@ class MetricFrame:
 
         Parameters
         ----------
-        errors: {'raise', 'coerce'}, default :code:`raise`
+        errors : {'raise', 'coerce'}, default :code:`raise`
             if 'raise', then invalid parsing will raise an exception
             if 'coerce', then invalid parsing will be set as NaN
 
@@ -707,7 +732,7 @@ class MetricFrame:
 
         Parameters
         ----------
-        errors: {'raise', 'coerce'}, default :code:`raise`
+        errors : {'raise', 'coerce'}, default :code:`raise`
             if 'raise', then invalid parsing will raise an exception
             if 'coerce', then invalid parsing will be set as NaN
 
@@ -772,7 +797,7 @@ class MetricFrame:
         ----------
         method : string {'between_groups', 'to_overall'}, default :code:`between_groups`
             How to compute the aggregate.
-        errors: {'raise', 'coerce'}, default :code:`coerce`
+        errors : {'raise', 'coerce'}, default :code:`coerce`
             if 'raise', then invalid parsing will raise an exception
             if 'coerce', then invalid parsing will be set as NaN
 
@@ -852,7 +877,7 @@ class MetricFrame:
         ----------
         method : string {'between_groups', 'to_overall'}, default :code:`between_groups`
             How to compute the aggregate.
-        errors: {'raise', 'coerce'}, default :code:`coerce`
+        errors : {'raise', 'coerce'}, default :code:`coerce`
             if 'raise', then invalid parsing will raise an exception
             if 'coerce', then invalid parsing will be set as NaN
 
@@ -989,8 +1014,10 @@ class MetricFrame:
                 check_consistent_length(column, sample_array)
                 result.append(GroupFeature(base_name, column, i))
         elif isinstance(features, list):
-            if np.isscalar(features[0]):
-                f_arr = np.atleast_1d(np.squeeze(np.asarray(features)))
+            if all(pd.api.types.is_scalar(feature) for feature in features):
+                # dtype=object keeps a missing value from being cast to the
+                # string 'nan' and becoming a category of its own
+                f_arr = np.atleast_1d(np.squeeze(np.asarray(features, dtype=object)))
                 assert len(f_arr.shape) == 1  # Sanity check
                 check_consistent_length(f_arr, sample_array)
                 result.append(GroupFeature(base_name, f_arr, 0))

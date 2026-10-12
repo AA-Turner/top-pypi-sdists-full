@@ -7,14 +7,34 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 import skops.io
+from datasets import Dataset
 from huggingface_hub.errors import EntryNotFoundError
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
+from model2vec.inference.evaluation import evaluate_single_or_multi_label
 from model2vec.inference.mlp import Activation, Layer, MLPHead
 from model2vec.inference.model import StaticModelPipeline, convert_legacy_pipeline
 from model2vec.model import StaticModel
+
+
+@pytest.mark.parametrize(
+    ("labels", "predictions"),
+    [
+        ([["a"], ["a", "b"]], np.array([np.array(["a"]), np.array(["b"])], dtype=object)),
+        (["a", "b"], np.array(["a", "a"])),
+        ([[0], [0, 1]], np.array([np.array([0]), np.array([1])], dtype=object)),
+        ([0, 1], np.array([0, 0])),
+    ],
+)
+def test_evaluate_on_dataset_column(labels: list, predictions: np.ndarray) -> None:
+    """Labels in a column of a Hugging Face dataset are evaluated like a list, also with a numpy or torch format."""
+    dataset = Dataset.from_dict({"labels": labels})
+    expected = evaluate_single_or_multi_label(predictions, labels)
+    assert evaluate_single_or_multi_label(predictions, dataset["labels"]) == expected
+    assert evaluate_single_or_multi_label(predictions, dataset.with_format("numpy")["labels"]) == expected
+    assert evaluate_single_or_multi_label(predictions, dataset.with_format("torch")["labels"]) == expected
 
 
 def test_init_predict(mock_inference_pipeline: StaticModelPipeline) -> None:
@@ -23,9 +43,9 @@ def test_init_predict(mock_inference_pipeline: StaticModelPipeline) -> None:
     if mock_inference_pipeline.head.activation == Activation.SIGMOID:
         assert mock_inference_pipeline.classes_ is not None
         if isinstance(mock_inference_pipeline.classes_[0], str):
-            target = [["a", "b"]]
+            target = [["b"]]
         else:
-            target = [[0, 1]]  # type: ignore
+            target = [[1]]  # type: ignore
     else:
         assert mock_inference_pipeline.classes_ is not None
         if isinstance(mock_inference_pipeline.classes_[0], str):
@@ -40,9 +60,9 @@ def test_init_predict_projector(mock_inference_pipeline_projector: StaticModelPi
     """Test successful init and predict with StaticModelPipeline."""
     assert mock_inference_pipeline_projector.head.activation == Activation.IDENTITY
     assert mock_inference_pipeline_projector.classes_ is None
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="predict_proba"):
         mock_inference_pipeline_projector.predict_proba(["dog"])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="evaluate"):
         mock_inference_pipeline_projector.evaluate(["dog"], ["a"])
 
     prediction = mock_inference_pipeline_projector.predict(["dog"])
@@ -82,9 +102,9 @@ def test_roundtrip_save(mock_inference_pipeline: StaticModelPipeline) -> None:
         if mock_inference_pipeline.head.activation == Activation.SIGMOID:
             assert mock_inference_pipeline.classes_ is not None
             if isinstance(mock_inference_pipeline.classes_[0], str):
-                target = [["a", "b"]]
+                target = [["b"]]
             else:
-                target = [[0, 1]]  # type: ignore
+                target = [[1]]  # type: ignore
         else:
             assert mock_inference_pipeline.classes_ is not None
             if isinstance(mock_inference_pipeline.classes_[0], str):
@@ -133,6 +153,24 @@ def test_load_pipeline_from_hub(mock_inference_pipeline: StaticModelPipeline) ->
 
         mock_download.assert_called_once_with("fake/repo-id", "head.safetensors", token=None)
         assert loaded.predict(["dog"]).tolist() == mock_inference_pipeline.predict(["dog"]).tolist()
+
+
+def test_load_pipeline_from_hub_with_token(mock_inference_pipeline: StaticModelPipeline) -> None:
+    """Test that the token also reaches the encoder download, not just the head download."""
+    with TemporaryDirectory() as temp_dir:
+        mock_inference_pipeline.save_pretrained(temp_dir)
+        downloaded_model = StaticModel.from_pretrained(temp_dir)
+        head_path = os.path.join(temp_dir, "head.safetensors")
+
+        with (
+            patch("model2vec.inference.model.huggingface_hub.hf_hub_download", return_value=head_path),
+            patch(
+                "model2vec.inference.model.StaticModel.from_pretrained", return_value=downloaded_model
+            ) as mock_from_pretrained,
+        ):
+            StaticModelPipeline.from_pretrained("fake/repo-id", token="secret")
+
+        assert mock_from_pretrained.call_args.kwargs.get("token") == "secret"
 
 
 def test_push_to_hub(mock_inference_pipeline: StaticModelPipeline) -> None:
@@ -276,6 +314,31 @@ def test_from_pretrained_legacy_fallback_hub(mock_static_model: StaticModel) -> 
     assert loaded.head.activation == Activation.IDENTITY
     encoded = mock_static_model.encode(["dog", "cat"])
     assert np.allclose(loaded.predict(["dog", "cat"]), legacy_pipeline.predict(encoded))
+
+
+def test_convert_legacy_pipeline_with_token(mock_static_model: StaticModel) -> None:
+    """Test that the token also reaches the encoder download on the legacy path."""
+    rng = np.random.RandomState(0)
+    X = rng.randn(30, mock_static_model.dim)
+    y = rng.randn(30, 4)
+    legacy_pipeline = make_pipeline(MLPRegressor(hidden_layer_sizes=(8,), max_iter=1, random_state=0).fit(X, y))
+
+    with TemporaryDirectory() as temp_dir:
+        _dump_legacy_pipeline(temp_dir, mock_static_model, legacy_pipeline)
+        downloaded_model = StaticModel.from_pretrained(temp_dir)
+
+        with (
+            patch(
+                "model2vec.inference.model.huggingface_hub.hf_hub_download",
+                return_value=os.path.join(temp_dir, "pipeline.skops"),
+            ),
+            patch(
+                "model2vec.inference.model.StaticModel.from_pretrained", return_value=downloaded_model
+            ) as mock_from_pretrained,
+        ):
+            convert_legacy_pipeline("fake/repo-id", token="secret")
+
+    assert mock_from_pretrained.call_args.kwargs.get("token") == "secret"
 
 
 def test_convert_legacy_pipeline_untrusted_type(mock_static_model: StaticModel) -> None:

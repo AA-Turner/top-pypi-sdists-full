@@ -91,6 +91,20 @@ check_param("Router.__init__", Router.__init__, "sha256_digests", None)
 check_true("Router/resolve", callable(getattr(Router, "resolve", None)))
 check_param("Router.unregister", Router.unregister, "name", inspect.Parameter.empty)
 
+# The MCP batch tool's controls are public too, so they are pinned here rather than only in the
+# forwarding test: `min_confidence` is unset as None (not the old -1) so a value out of range
+# reaches the tools layer's validator instead of being folded into "unset" (#707), and
+# `hooks_timeout` keeps 0 as the unset marker an eager MCP client sends for the default.
+try:
+    from laya.mcp.server import laya_predict_batch_tool as _mcp_batch_tool
+except ImportError:                     # the mcp extra is optional; the core install skips this
+    _mcp_batch_tool = None
+if _mcp_batch_tool is not None:
+    check_param("laya_predict_batch_tool", _mcp_batch_tool, "batch_size", 0)
+    check_param("laya_predict_batch_tool", _mcp_batch_tool, "hooks_timeout", 0)
+    check_param("laya_predict_batch_tool", _mcp_batch_tool, "min_confidence", None)
+    check_param("laya_predict_batch_tool", _mcp_batch_tool, "sort_by_length", False)
+
 # What the constructor does NOT raise over is part of its contract too: a shared
 # `agent_kwargs["expected_sha256"]` overlapping a per-checkpoint `sha256_digests` entry on one file
 # name is the ordinary shape, not a contradiction -- `model.safetensors` is the one name every
@@ -158,6 +172,8 @@ check_param("Agent.predict_batch", Agent.predict_batch, "batch_size", None)
 check_param("Agent.predict_batch", Agent.predict_batch, "sort_by_length", False)
 check_param("Router.predict_batch", Router.predict_batch, "batch_size", None)
 check_param("Router.predict_batch", Router.predict_batch, "sort_by_length", False)
+# the #1111 report: an out-dict the batch fills with the per-group sort outcome
+check_param("Router.predict_batch", Router.predict_batch, "diagnostics", None)
 
 # per-call token-budget overrides
 for label, fn in (("Agent.predict_batch", Agent.predict_batch),
@@ -178,8 +194,15 @@ for param in ("max_len", "head_max_len"):
 check_param("shortlist_choice", laya.shortlist_choice, "return_scores", False,
             inspect.Parameter.KEYWORD_ONLY)
 
-# predict_tournament splits a choice into groups of 16 labels unless the caller picks a size
-check_param("predict_tournament", laya.predict_tournament, "group_size", 16)
+# The TypeScript helper follows this positional contract; both default to groups of 16.
+check_param("predict_tournament", laya.predict_tournament, "group_size", 16,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD)
+check("predict_tournament/positional prefix",
+      [p.name for p in sig(laya.predict_tournament).values()
+       if p.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD],
+      ["agent", "state", "questions", "group_size"])
+check_param("predict_tournament", laya.predict_tournament, "predict_kwargs", inspect.Parameter.empty,
+            inspect.Parameter.VAR_KEYWORD)
 
 # route() and route_batch() take per-call hooks so a hook can pin a checkpoint for one call
 for label, fn in (("Router.route", Router.route),
@@ -243,6 +266,13 @@ check_true("laya.hooks/run_coroutine_sync exists",
 # integrity guide; `laya.revisions` is not the documented path.
 check_true("__all__/PINNED_REVISIONS", "PINNED_REVISIONS" in laya.__all__)
 check_true("laya.PINNED_REVISIONS exists", hasattr(laya, "PINNED_REVISIONS"))
+
+# The three confidence quantities are one family, and `x_jev_confidence` is only half of it: the
+# server publishes the third (#302), so a caller running Laya in-process has to be able to compute
+# it from the library. Pin all three as attributes, not just as `__all__` entries.
+for _confidence_name in ("answer_confidence", "confidence_from_probs", "jev_confidence"):
+    check_true("__all__/%s" % _confidence_name, _confidence_name in laya.__all__)
+    check_true("laya.%s exists" % _confidence_name, hasattr(laya, _confidence_name))
 
 # BaseHook is the concrete no-op base class; all six events exist and are callable.
 for event in HOOK_EVENTS:
@@ -1521,6 +1551,14 @@ check("evaluate_agreement signature", list(inspect.signature(evaluate_agreement)
 check("agreement provenance is required",
       inspect.signature(evaluate_agreement).parameters["student_provenance"].default,
       inspect.Parameter.empty)
+
+# The TypeScript HTTP confidence extension follows this core contract, not entropy confidence.
+from laya.confidence import jev_confidence  # noqa: E402
+
+check("jev_confidence signature", list(inspect.signature(jev_confidence).parameters), ["answer"])
+check("Jev choice confidence", round(jev_confidence({"type": "choice", "probabilities": {"a": 0.8, "b": 0.2}}), 4), 0.6)
+check("Jev score confidence", round(jev_confidence({"type": "score", "probabilities": {"0": 0.1, "1": 0.8, "2": 0.1}}), 4), 0.7)
+check("Jev noul confidence absent", jev_confidence({"type": "noul", "noul": 0.9}), None)
 
 print("\n%d passed, %d failed" % (len(PASS), len(FAIL)))
 for f in FAIL:

@@ -342,6 +342,26 @@ class QuicConnectionTest(TestCase):
             server_log = server.configuration.quic_logger.to_dict()
             self.assertGreater(len(server_log["traces"][0]["events"]), 20)
 
+    def test_connect_as_server(self):
+        server = create_standalone_server(self)
+
+        with self.assertRaises(RuntimeError) as cm:
+            server.connect(CLIENT_ADDR, now=time.time())
+        self.assertEqual(
+            str(cm.exception),
+            "connect() can only be called for clients and a single time",
+        )
+
+    def test_connect_twice(self):
+        client = create_standalone_client(self)
+
+        with self.assertRaises(RuntimeError) as cm:
+            client.connect(SERVER_ADDR, now=time.time())
+        self.assertEqual(
+            str(cm.exception),
+            "connect() can only be called for clients and a single time",
+        )
+
     def test_connect_with_alpn(self):
         with client_and_server(
             client_options={"alpn_protocols": ["h3", "hq-interop"]},
@@ -912,6 +932,64 @@ class QuicConnectionTest(TestCase):
             self.assertSentPackets(server, [0, 0, 0])
             self.assertEvents(server, [])
 
+    def test_init_with_invalid_arguments(self):
+        def server_configuration(**kwargs):
+            configuration = QuicConfiguration(is_client=False, **kwargs)
+            configuration.load_cert_chain(SERVER_CERTFILE, SERVER_KEYFILE)
+            return configuration
+
+        for configuration, kwargs, message in [
+            (
+                QuicConfiguration(is_client=True, max_datagram_size=1000),
+                {},
+                "The smallest allowed maximum datagram size is 1200 bytes",
+            ),
+            (
+                QuicConfiguration(is_client=True),
+                {"original_destination_connection_id": bytes(8)},
+                "Cannot set original_destination_connection_id for a client",
+            ),
+            (
+                QuicConfiguration(is_client=True),
+                {"retry_source_connection_id": bytes(8)},
+                "Cannot set retry_source_connection_id for a client",
+            ),
+            (
+                server_configuration(),
+                {
+                    "original_destination_connection_id": bytes(8),
+                    "token_handler": lambda token: None,
+                },
+                "Cannot set `token_handler` for a server",
+            ),
+            (
+                server_configuration(token=b"token"),
+                {"original_destination_connection_id": bytes(8)},
+                "Cannot set `configuration.token` for a server",
+            ),
+            (
+                QuicConfiguration(is_client=False),
+                {"original_destination_connection_id": bytes(8)},
+                "SSL certificate is required for a server",
+            ),
+            (
+                QuicConfiguration(
+                    is_client=False, certificate=server_configuration().certificate
+                ),
+                {"original_destination_connection_id": bytes(8)},
+                "SSL private key is required for a server",
+            ),
+            (
+                server_configuration(),
+                {},
+                "original_destination_connection_id is required for a server",
+            ),
+        ]:
+            with self.subTest(message=message):
+                with self.assertRaises(ValueError) as cm:
+                    QuicConnection(configuration=configuration, **kwargs)
+                self.assertEqual(str(cm.exception), message)
+
     def test_initial_that_is_too_small(self):
         """
         Check that a too-small initial datagram from the client is dropped by the
@@ -1351,6 +1429,22 @@ class QuicConnectionTest(TestCase):
             ]
             self.assertEqual(triggers.count("duplicate"), len(datagrams))
 
+    def test_receive_datagram_first_not_initial(self):
+        server = create_standalone_server(self)
+
+        # Server receives a 1-RTT packet before any INITIAL packet.
+        datagram = bytes([0x40]) + bytes(8) + bytes(40)
+        server.receive_datagram(datagram, CLIENT_ADDR, now=time.time())
+
+        # The packet is dropped.
+        log = server.configuration.quic_logger.to_dict()
+        triggers = [
+            event["data"]["trigger"]
+            for event in log["traces"][0]["events"]
+            if event["name"] == "transport:packet_dropped"
+        ]
+        self.assertEqual(triggers, ["key_unavailable"])
+
     def test_receive_datagram_garbage(self):
         client = create_standalone_client(self)
 
@@ -1473,6 +1567,15 @@ class QuicConnectionTest(TestCase):
             now=time.time(),
         )
         self.assertEqual(drop(client), 0)
+
+    def test_request_key_update_before_handshake(self):
+        client = create_standalone_client(self)
+
+        with self.assertRaises(RuntimeError) as cm:
+            client.request_key_update()
+        self.assertEqual(
+            str(cm.exception), "Cannot change key before handshake completes"
+        )
 
     def test_handle_ack_frame_ecn(self):
         client = create_standalone_client(self)
@@ -1880,6 +1983,27 @@ class QuicConnectionTest(TestCase):
             self.assertEqual(client._peer_cid.sequence_number, 80)
             self.assertEqual(sequence_numbers(client._peer_cid_available), [])
 
+    def test_handle_new_connection_id_with_retire_prior_to_rotation(self):
+        with client_and_server() as (client, server):
+            for sequence_number in range(8, 108):
+                buf = new_connection_id(
+                    sequence_number=sequence_number, retire_prior_to=sequence_number
+                )
+
+                # client receives NEW_CONNECTION_ID
+                client._handle_new_connection_id_frame(
+                    client_receive_context(client),
+                    QuicFrameType.NEW_CONNECTION_ID,
+                    buf,
+                )
+
+                # Simulate the RETIRE_CONNECTION_ID frames being acknowledged.
+                client._retire_connection_ids.clear()
+
+            # Sequence numbers of retired CIDs are forgotten.
+            self.assertEqual(client._peer_cid.sequence_number, 107)
+            self.assertEqual(client._peer_cid_sequence_numbers, {107})
+
     def test_handle_excessive_new_connection_id_retires(self):
         with client_and_server() as (client, server):
             for i in range(25):
@@ -2219,6 +2343,48 @@ class QuicConnectionTest(TestCase):
             self.assertEqual(cm.exception.error_code, QuicErrorCode.FINAL_SIZE_ERROR)
             self.assertEqual(cm.exception.frame_type, QuicFrameType.RESET_STREAM)
             self.assertEqual(cm.exception.reason_phrase, "Cannot change final size")
+
+    def test_handle_reset_stream_frame_flow_control(self):
+        stream_id = 0
+        reset_stream_data = (
+            encode_uint_var(stream_id)
+            + encode_uint_var(QuicErrorCode.NO_ERROR)
+            + encode_uint_var(8)
+        )
+        with client_and_server() as (client, server):
+            # client creates bidirectional stream
+            client.send_stream_data(stream_id=stream_id, data=b"hello")
+            consume_events(client)
+            used = client._local_max_data.used
+
+            # client receives RESET_STREAM at offset 8
+            client._handle_reset_stream_frame(
+                client_receive_context(client),
+                QuicFrameType.RESET_STREAM,
+                Buffer(data=reset_stream_data),
+            )
+            self.assertEqual(client._local_max_data.used, used + 8)
+
+            # client receives the same RESET_STREAM again
+            client._handle_reset_stream_frame(
+                client_receive_context(client),
+                QuicFrameType.RESET_STREAM,
+                Buffer(data=reset_stream_data),
+            )
+            self.assertEqual(client._local_max_data.used, used + 8)
+
+            # client receives data which was sent before the reset
+            client._handle_stream_frame(
+                client_receive_context(client),
+                QuicFrameType.STREAM_BASE | 6,
+                Buffer(
+                    data=encode_uint_var(stream_id)
+                    + encode_uint_var(0)
+                    + encode_uint_var(8)
+                    + b"01234567"
+                ),
+            )
+            self.assertEqual(client._local_max_data.used, used + 8)
 
     def test_handle_reset_stream_frame_over_max_data(self):
         stream_id = 0

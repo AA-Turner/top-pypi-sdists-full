@@ -13,6 +13,8 @@ limit, a timeout, no answer at all (an offline laptop, a sleeping one waking up)
 missing AI libraries. The Probe MCP's own failures count the same way: they reach
 the daemon as `httpx.HTTPStatusError` (the status on `.response`) or as
 `RuntimeError("Client failed to connect: ...")` raised from the connect error.
+One of those carries no network error at all: a handshake that does not finish
+in time (MCP_INIT_TIMEOUT).
 
 ONCE per machine per (kind, error type, status) every REPORT_INTERVAL_S: a
 failing bite retries with backoff and a crashed worker is started again, each a
@@ -47,6 +49,13 @@ REPORT_INTERVAL_S = 6 * 3600.0
 #: own: the key (401, 403), the budget (402), a timeout (408, and the gateway's
 #: 504 when the model did not answer in time), the rate (429).
 USER_SIDE_STATUSES = frozenset({401, 402, 403, 408, 429, 504})
+#: What fastmcp's `Client.initialize` raises (a RuntimeError) when the Probe MCP
+#: does not finish its handshake within pydantic_ai's `init_timeout` (5 s): a
+#: timeout. It is raised from the TimeoutError, but fastmcp re-raises it out of
+#: the transport's task group through `exceptiongroup.catch`, which leaves it no
+#: `__cause__`, so only the text is left to know it by. A hung connection (a
+#: laptop on bad wifi) pinged "Daemon bug" (probe-bench-temp, 2026-10-11).
+MCP_INIT_TIMEOUT = "Failed to initialize server session"
 _CODE = re.compile(r"^[a-z0-9_]{1,64}$")
 #: How far down `__cause__` and inside exception groups an error is looked into.
 _DEPTH = 6
@@ -115,6 +124,8 @@ def network_only(exc: BaseException, depth: int = 0) -> bool:
         if isinstance(link, ModelHTTPError) or status_of(link) is not None:
             return False
         if isinstance(link, (ModelAPIError, ConnectionError, TimeoutError, httpx.TransportError)):
+            return True
+        if type(link) is RuntimeError and str(link) == MCP_INIT_TIMEOUT:
             return True
     return False
 

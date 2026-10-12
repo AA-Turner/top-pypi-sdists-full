@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import AbstractContextManager
 from enum import Enum
 from pathlib import Path
@@ -25,6 +25,7 @@ from pikepdf._core._qpdf_pagelist import PageList
 from pikepdf._core._typing import Numeric, TObj
 
 if TYPE_CHECKING:
+    from pikepdf._content_scopes import ContentScope, ContentScopeKind
     from pikepdf._page_copy import PageCopyResult
     from pikepdf.models.encryption import Encryption, EncryptionInfo, Permissions
     from pikepdf.models.metadata import PdfMetadata
@@ -282,6 +283,62 @@ class Pdf:
             In pikepdf 2.x, this function actually worked by resetting to a very short
             empty PDF. Code that relied on this quirk may not function correctly.
         """
+    def content_scopes(
+        self,
+        *,
+        pages: Iterable[Page] | None = ...,
+        kinds: Iterable[ContentScopeKind] | ContentScopeKind | None = ...,
+    ) -> Iterator[ContentScope]:
+        """Iterate over every content stream the pages of this PDF can draw.
+
+        Each :class:`pikepdf.ContentScope` is a content stream together with
+        the resource dictionary that the names in it refer to: the pages, and
+        the form XObjects, annotation appearance streams, tiling patterns,
+        Type 3 glyph procedures and soft masks that they use, however deeply
+        these are nested. See :meth:`pikepdf.Page.content_scopes` for what is
+        found and in what order.
+
+        This is the way to find everything of some kind that a document's
+        pages use. For example, to list its fonts:
+
+        .. code-block:: python
+
+            fonts = []
+            seen_fonts = pikepdf.ObjectSet()
+            for scope in pdf.content_scopes():
+                if scope.resources is None:
+                    continue
+                for font in (scope.resources.get_dict(Name.Font) or {}).values():
+                    if isinstance(font, pikepdf.Dictionary) and seen_fonts.add(font):
+                        fonts.append(font)
+
+        Each scope is reported once, with :attr:`~pikepdf.ContentScope.page`
+        set to the first page that uses it. Scopes are often shared: a logo
+        drawn on every page is one form XObject. Resource dictionaries are
+        shared too, so the same font may still be found in more than one
+        scope, as the example allows for.
+
+        Pages are searched one at a time as the iterator advances, so a large
+        document is not searched all at once, and a change made to a page
+        before the iterator reaches it is seen.
+
+        Resources that belong to no page are not included, such as the default
+        resources of an interactive form, ``/AcroForm /DR``.
+
+        Args:
+            pages: The pages to examine, in the order given. The default is
+                every page of the document.
+            kinds: The kinds of scope to report, as one or more of ``'page'``,
+                ``'form'``, ``'appearance'``, ``'pattern'``, ``'glyph'`` and
+                ``'softmask'``; see :attr:`pikepdf.ContentScope.kind`. The
+                default is all of them. Everything is searched whichever kinds
+                are reported.
+
+        Raises:
+            ValueError: If *kinds* contains anything else.
+
+        .. versionadded:: 10.17
+        """
     def copy_foreign(self, h: Object) -> Object:
         """Copy an ``Object`` from a foreign ``Pdf`` and return a copy.
 
@@ -485,6 +542,9 @@ class Pdf:
                 mapping or fail (this is expected to only be useful for testing).
                 Applications should be prepared to handle the SIGBUS signal on POSIX in
                 the event that the file is successfully mapped but later goes away.
+                With stream access, a file that pikepdf opened itself from a
+                filename is read directly through its file descriptor, while a
+                stream object you supply is only ever read by calling its methods.
             allow_overwriting_input: If True, allows calling ``.save()``
                 to overwrite the input file. This is performed by loading the entire
                 input file into memory at open time; this will use more memory and may

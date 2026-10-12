@@ -43,8 +43,8 @@ worker of a resumed session waits for the previous one to finish.
                    new lines read into the queue, answers settled, and the run
                    stopped for the switch leaving `daemon`, a lost lease, the
                    session-end deadline, or the loop detector
-                   (the same refusal or failure 3x, the same successful call
-                   5x). A conversation run is paused after ROUNDS_BEFORE_YIELD
+                   (the same failing call 3x, a refusal that reads alike in 3
+                   model rounds, the same successful call 5x). A conversation run is paused after ROUNDS_BEFORE_YIELD
                    rounds: its history is saved (its last tool results
                    included), its events covered, and the next bite carries
                    on in the same conversation with what arrived meanwhile --
@@ -312,6 +312,9 @@ class Worker:
         self.probe_refused_key = False
         #: The reader (daemon reads), started in `loop` when reads are on.
         self.reader = None
+        #: The team-note audit (daemon-team-note-audit), made in `loop`; it starts
+        #: itself at most once per session, on the researcher's first prompt.
+        self.audit = None
         #: `/probe inline`: the intervals the last marking pass saw, and the
         #: highest event seq it examined (only newer events are checked until the
         #: intervals change).
@@ -1489,6 +1492,8 @@ class Worker:
             self.begin_stopping()
         self._take_input()
         self._announce_inline()
+        if self.audit is not None and not self.stopping:
+            self.audit.maybe_start()
         if self.paused():
             # No bite runs the folder check while paused: run it here, so a
             # notebook the agent writes is seen (an ML signal) and queued.
@@ -1690,6 +1695,10 @@ class Worker:
 
             self.reader = ReaderLane(self)
             self.reader.start()
+        if self.replay is None:
+            from probe.daemon.audit import AuditLane
+
+            self.audit = AuditLane(self)
         # The session's traces go up beside the loop, never in its way (`shipper.py`).
         uploads = shipper_mod.start(self.session.session_id) if self.replay is None else None
         try:
@@ -1697,6 +1706,9 @@ class Worker:
                 if self.stopping and self.reader is not None:
                     await self.reader.stop()  # nobody is left to deliver to
                     self.reader = None
+                if self.stopping and self.audit is not None:
+                    await self.audit.stop()  # cut short before its write: the note stays due
+                    self.audit = None
                 code = await self.tick()
                 if code is not None:
                     return code
@@ -1705,6 +1717,9 @@ class Worker:
             if self.reader is not None:
                 await self.reader.stop()
                 self.reader = None
+            if self.audit is not None:
+                await self.audit.stop()
+                self.audit = None
             if uploads is not None:
                 await uploads.stop()
 

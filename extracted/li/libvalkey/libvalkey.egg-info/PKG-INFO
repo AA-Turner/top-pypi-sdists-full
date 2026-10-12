@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: libvalkey
-Version: 4.1.0
+Version: 4.2.0
 Summary: Python wrapper for libvalkey
 Home-page: https://github.com/valkey-io/libvalkey-py
 Author: libvalkey-py authors
@@ -17,15 +17,14 @@ Classifier: Operating System :: POSIX
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: author
@@ -71,7 +70,7 @@ python -m pytest
 
 ### Requirements
 
-libvalkey-py requires **Python 3.9+**.
+libvalkey-py requires **Python 3.11+**.
 
 Make sure Python development headers are available when installing libvalkey-py.
 On Ubuntu/Debian systems, install them with `apt-get install python3-dev`.

@@ -14,7 +14,9 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 #[cfg(all(unix, not(target_arch = "wasm32"), target_has_atomic = "64"))]
 use std::sync::Once;
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
-use std::thread::{self, JoinHandle};
+use std::thread;
+#[cfg(test)]
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use hashbrown::HashMap;
@@ -40,6 +42,9 @@ const RESIDENT_LIMIT: usize = 16 * 1024 * 1024;
 // when a stalled writer has thousands of tiny value records waiting behind it.
 const COMMAND_RESIDENT_OVERHEAD: usize = 256;
 const WRITER_STALL_TIMEOUT: Duration = Duration::from_secs(30);
+// How long a writer thread that has finished its capture waits for the next
+// one before it exits.
+const WRITER_PARK_TIMEOUT: Duration = Duration::from_secs(2);
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 static PROCESS_WRITER_CIRCUIT_OPEN: AtomicBool = AtomicBool::new(false);
 
@@ -781,10 +786,185 @@ impl Drop for WriterExitGuard {
     }
 }
 
+type WriterJob = Box<dyn FnOnce() -> io::Result<()> + Send + 'static>;
+type WriterTask = (WriterJob, Arc<WriterOutcome>);
+
+/// What a writer job returned, or the payload it panicked with.
+#[derive(Default)]
+struct WriterOutcome {
+    result: Mutex<Option<thread::Result<io::Result<()>>>>,
+    completed: Condvar,
+}
+
+impl WriterOutcome {
+    fn complete(&self, result: thread::Result<io::Result<()>>) {
+        *self
+            .result
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(result);
+        self.completed.notify_all();
+    }
+
+    fn wait(&self) -> thread::Result<io::Result<()>> {
+        let mut result = self
+            .result
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        loop {
+            if let Some(result) = result.take() {
+                return result;
+            }
+            result = self
+                .completed
+                .wait(result)
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+        }
+    }
+}
+
+/// The handle `TraceWriter` keeps on the thread running its `writer_main`.
+/// Like the `JoinHandle` it stands in for: `join` returns what the job
+/// returned or panicked with, and dropping it leaves the job running.
+enum WriterJoin {
+    Job(Arc<WriterOutcome>),
+    #[cfg(test)]
+    Thread(JoinHandle<io::Result<()>>),
+}
+
+impl WriterJoin {
+    fn join(self) -> thread::Result<io::Result<()>> {
+        match self {
+            WriterJoin::Job(outcome) => outcome.wait(),
+            #[cfg(test)]
+            WriterJoin::Thread(handle) => handle.join(),
+        }
+    }
+}
+
+#[cfg(test)]
+impl From<JoinHandle<io::Result<()>>> for WriterJoin {
+    fn from(handle: JoinHandle<io::Result<()>>) -> Self {
+        WriterJoin::Thread(handle)
+    }
+}
+
+/// A writer thread waiting for its next capture.
+struct ParkedWriter {
+    id: u64,
+    tasks: std::sync::mpsc::Sender<WriterTask>,
+    process: ProcessForkGeneration,
+}
+
+// A process that traces many short sessions starts a capture, and with it a
+// writer, per session, and starting a thread costs more than writing a small
+// trace. So a writer thread that has finished its capture parks here for a
+// while, and the next capture hands its job to it instead of spawning.
+// Everything a capture does with its writer is unchanged: the job is the
+// same closure, on a thread with the same name, and a second capture that
+// starts while the first is still writing gets a thread of its own.
+//
+// Capture threads only ever `try_lock` this: a forked child can inherit it
+// locked by a thread it does not have (they may be detached from the
+// interpreter here), and then simply spawns a thread per capture, as before.
+static PARKED_WRITER: Mutex<Option<ParkedWriter>> = Mutex::new(None);
+static NEXT_WRITER_THREAD_ID: AtomicU64 = AtomicU64::new(0);
+
+/// Run `job` on a writer thread: the parked one if there is one, else a new
+/// one.
+fn run_on_writer_thread(job: WriterJob) -> io::Result<WriterJoin> {
+    let outcome = Arc::new(WriterOutcome::default());
+    let mut task: WriterTask = (job, Arc::clone(&outcome));
+    let parked = match PARKED_WRITER.try_lock() {
+        Ok(mut parked) => parked.take(),
+        Err(_) => None,
+    };
+    if let Some(parked) = parked {
+        if parked.process.has_changed() {
+            // Inherited over a fork: that thread belongs to the parent. Its
+            // channel is leaked like a live writer's (`detach_after_fork`).
+            std::mem::forget(parked);
+        } else {
+            // The thread only stops waiting for a task once it has taken its
+            // offer back, so this fails only if it is gone altogether.
+            match parked.tasks.send(task) {
+                Ok(()) => return Ok(WriterJoin::Job(outcome)),
+                Err(std::sync::mpsc::SendError(returned)) => task = returned,
+            }
+        }
+    }
+    let (tasks, receiver) = std::sync::mpsc::channel();
+    let id = NEXT_WRITER_THREAD_ID.fetch_add(1, Ordering::Relaxed);
+    thread::Builder::new()
+        .name("kolo-v3-writer".into())
+        .spawn(move || writer_thread_main(id, task, tasks, receiver))?;
+    Ok(WriterJoin::Job(outcome))
+}
+
+fn writer_thread_main(
+    id: u64,
+    first: WriterTask,
+    tasks: std::sync::mpsc::Sender<WriterTask>,
+    receiver: std::sync::mpsc::Receiver<WriterTask>,
+) {
+    let process = ProcessForkGeneration::capture();
+    let mut task = first;
+    loop {
+        let (job, outcome) = task;
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(job));
+        let panicked = result.is_err();
+        outcome.complete(result);
+        drop(outcome);
+        if panicked {
+            // As when every capture had its own thread: a panic ends it.
+            return;
+        }
+        // KOLO_REUSE_SAVE_WORKERS=0: a thread per capture, as before.
+        static REUSE: OnceLock<bool> = OnceLock::new();
+        if !*REUSE.get_or_init(|| std::env::var("KOLO_REUSE_SAVE_WORKERS").as_deref() != Ok("0")) {
+            return;
+        }
+        // Offer this thread to the next capture, unless one is parked already.
+        match PARKED_WRITER.try_lock() {
+            Ok(mut parked) if parked.is_none() => {
+                *parked = Some(ParkedWriter {
+                    id,
+                    tasks: tasks.clone(),
+                    process,
+                });
+            }
+            _ => return,
+        }
+        task = match receiver.recv_timeout(WRITER_PARK_TIMEOUT) {
+            Ok(task) => task,
+            Err(_) => {
+                // Take the offer back. If a capture has taken it up already,
+                // its task is on the way.
+                let withdrawn = {
+                    let mut parked = PARKED_WRITER
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    if matches!(parked.as_ref(), Some(offer) if offer.id == id) {
+                        parked.take()
+                    } else {
+                        None
+                    }
+                };
+                if withdrawn.is_some() {
+                    return;
+                }
+                match receiver.recv() {
+                    Ok(task) => task,
+                    Err(_) => return,
+                }
+            }
+        };
+    }
+}
+
 /// The sole owner of the named temporary final artifact lives on this thread.
 pub(crate) struct TraceWriter {
     sender: Option<std::sync::mpsc::Sender<Command>>,
-    join: Option<JoinHandle<io::Result<()>>>,
+    join: Option<WriterJoin>,
     destination: PathBuf,
     temporary: Arc<PathBuf>,
     snapshot: Arc<SnapshotFile>,
@@ -846,22 +1026,20 @@ impl TraceWriter {
         let thread_runtime = Arc::clone(&runtime);
         let preserve_temporary = Arc::new(AtomicBool::new(false));
         let thread_preserve_temporary = Arc::clone(&preserve_temporary);
-        let join = thread::Builder::new()
-            .name("kolo-v3-writer".into())
-            .spawn(move || {
-                let _exit_guard = WriterExitGuard {
-                    runtime: thread_runtime,
-                    progress: Arc::clone(&thread_progress),
-                };
-                writer_main(
-                    file,
-                    receiver,
-                    header_payload,
-                    &thread_temporary,
-                    &thread_progress,
-                    &thread_preserve_temporary,
-                )
-            })?;
+        let join = run_on_writer_thread(Box::new(move || {
+            let _exit_guard = WriterExitGuard {
+                runtime: thread_runtime,
+                progress: Arc::clone(&thread_progress),
+            };
+            writer_main(
+                file,
+                receiver,
+                header_payload,
+                &thread_temporary,
+                &thread_progress,
+                &thread_preserve_temporary,
+            )
+        }))?;
         Ok(Self {
             sender: Some(sender),
             join: Some(join),
@@ -2988,12 +3166,15 @@ mod tests {
         progress.mark_finished();
         let writer = TraceWriter {
             sender: Some(sender),
-            join: Some(thread::spawn(|| {
-                Err(io::Error::new(
-                    io::ErrorKind::BrokenPipe,
-                    "injected writer failure",
-                ))
-            })),
+            join: Some(
+                thread::spawn(|| {
+                    Err(io::Error::new(
+                        io::ErrorKind::BrokenPipe,
+                        "injected writer failure",
+                    ))
+                })
+                .into(),
+            ),
             destination,
             temporary,
             snapshot,
@@ -3562,9 +3743,12 @@ mod tests {
         progress.mark_finished();
         let writer = TraceWriter {
             sender: Some(sender),
-            join: Some(thread::spawn(|| -> io::Result<()> {
-                panic!("injected writer panic");
-            })),
+            join: Some(
+                thread::spawn(|| -> io::Result<()> {
+                    panic!("injected writer panic");
+                })
+                .into(),
+            ),
             destination,
             temporary: Arc::clone(&temporary),
             snapshot,

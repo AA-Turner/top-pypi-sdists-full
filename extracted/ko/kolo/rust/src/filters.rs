@@ -48,10 +48,11 @@ mod windows {
     finder!(pub UPPER_LIB_FINDER = "\\Lib\\");
     finder!(pub KOLO_DIR_FINDER = "\\kolo\\");
     /// Every module and subpackage of the kolo package, relative to its directory.
-    pub const KOLO_MODULES: [&str; 42] = [
+    pub const KOLO_MODULES: [&str; 43] = [
         "__init__.py",
         "__main__.py",
         "_attach.py",
+        "_construction.py",
         "_emit_auto.py",
         "_kolotxt.py",
         "_paths.py",
@@ -103,10 +104,11 @@ mod not_windows {
     finder!(pub LIBRARY_FINDERS = "lib/python", "lib64/python", "/site-packages/");
     finder!(pub KOLO_DIR_FINDER = "/kolo/");
     /// Every module and subpackage of the kolo package, relative to its directory.
-    pub const KOLO_MODULES: [&str; 42] = [
+    pub const KOLO_MODULES: [&str; 43] = [
         "__init__.py",
         "__main__.py",
         "_attach.py",
+        "_construction.py",
         "_emit_auto.py",
         "_kolotxt.py",
         "_paths.py",

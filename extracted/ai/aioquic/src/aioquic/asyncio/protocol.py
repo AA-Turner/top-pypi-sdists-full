@@ -140,7 +140,8 @@ class QuicConnectionProtocol(asyncio.DatagramProtocol):
         """
         Wait for the TLS handshake to complete.
         """
-        assert self._connected_waiter is None, "already awaiting connected"
+        if self._connected_waiter is not None:
+            raise RuntimeError("Already awaiting connected")
         if not self._connected:
             self._connected_waiter = self._loop.create_future()
             await asyncio.shield(self._connected_waiter)
@@ -245,7 +246,7 @@ class QuicStreamAdapter(asyncio.Transport):
         self._closing = False
 
     def can_write_eof(self) -> bool:
-        return True
+        return self.protocol._quic._stream_can_send(self.stream_id)
 
     def get_extra_info(self, name: str, default: Any = None) -> Any:
         """
@@ -266,7 +267,10 @@ class QuicStreamAdapter(asyncio.Transport):
         self.protocol._transmit_soon()
 
     def close(self):
-        self.write_eof()
+        if self.can_write_eof():
+            self.write_eof()
+        else:
+            self._closing = True
 
     def is_closing(self) -> bool:
         return self._closing

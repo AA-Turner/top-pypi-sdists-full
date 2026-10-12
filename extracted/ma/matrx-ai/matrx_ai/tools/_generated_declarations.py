@@ -22,10 +22,10 @@ from matrx_ai.tools.arg_models import (
     CloudFileArgs,
     ContextArgs,
     ContextPatchArgs,
-    TableArgs,
     DesktopAppsArgs,
     DesktopAudioArgs,
     DesktopClipboardArgs,
+    DesktopGitArgs,
     DesktopInputArgs,
     DesktopPowerArgs,
     DesktopProcessArgs,
@@ -33,6 +33,7 @@ from matrx_ai.tools.arg_models import (
     DesktopScreenArgs,
     DesktopSystemArgs,
     DesktopTranscribeArgs,
+    DesktopWebArgs,
     DesktopWindowArgs,
     DictionaryArgs,
     FsEditArgs,
@@ -40,8 +41,6 @@ from matrx_ai.tools.arg_models import (
     FsMkdirArgs,
     FsReadArgs,
     FsSearchArgs,
-    DesktopGitArgs,
-    DesktopWebArgs,
     FsWatchArgs,
     FsWriteArgs,
     MemoryArgs,
@@ -52,8 +51,10 @@ from matrx_ai.tools.arg_models import (
     ShellExecuteArgs,
     ShellJobArgs,
     ShellPythonArgs,
+    SiteDataArgs,
     SkillArgs,
     SqlArgs,
+    TableArgs,
     TaskArgs,
     TextAnalyzeArgs,
     WebArgs,
@@ -820,6 +821,9 @@ _MODULE_LOADERS = {
     ),
     "matrx_ai.tools.implementations.web": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.web"
+    ),
+    "matrx_ai.tools.implementations.site_data": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.site_data"
     ),
     "matrx_ai.tools.implementations.widgets": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.widgets"
@@ -1623,6 +1627,14 @@ _reg(
     "random_wheel",
 )
 _reg("web", "native", None, WebArgs, "matrx_ai.tools.implementations.web", "web")
+_reg(
+    "site_data",
+    "native",
+    None,
+    SiteDataArgs,
+    "matrx_ai.tools.implementations.site_data",
+    "site_data",
+)
 _reg(
     "widget_attach_media",
     "native",

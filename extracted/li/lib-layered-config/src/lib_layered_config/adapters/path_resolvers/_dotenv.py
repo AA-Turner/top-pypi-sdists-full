@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .._path_probe import PathKind, checked_kind, probe_path
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
@@ -25,11 +27,12 @@ class DotenvPathFinder:
     directories. This class provides unified discovery respecting precedence rules.
     """
 
-    def __init__(self, cwd: Path, strategy: PlatformStrategy | None) -> None:
+    def __init__(self, cwd: Path | None, strategy: PlatformStrategy | None) -> None:
         """Store context for dotenv discovery.
 
         Args:
-            cwd: Starting directory for upward traversal.
+            cwd: Starting directory for upward traversal; ``None`` (the OS cannot name the
+                working directory) searches nothing.
             strategy: Platform strategy providing the fallback ``.env`` location.
         """
         self.cwd = cwd
@@ -46,7 +49,7 @@ class DotenvPathFinder:
         """
         yield from self._project_paths()
         extra = self._platform_path()
-        if extra and extra.is_file():
+        if extra and checked_kind(extra) is PathKind.FILE:
             yield str(extra)
 
     def _project_paths(self) -> Iterable[str]:
@@ -55,13 +58,17 @@ class DotenvPathFinder:
         Returns:
             ``.env`` paths discovered while traversing parent directories.
         """
+        if self.cwd is None:
+            return
         seen: set[Path] = set()
         for directory in [self.cwd, *self.cwd.parents]:
             candidate = directory / ".env"
             if candidate in seen:
                 continue
             seen.add(candidate)
-            if candidate.is_file():
+            # The search cannot read a .env in a directory it cannot enter, so it holds none for it -
+            # the same answer on every Python.
+            if probe_path(candidate).kind is PathKind.FILE:
                 yield str(candidate)
 
     def _platform_path(self) -> Path | None:

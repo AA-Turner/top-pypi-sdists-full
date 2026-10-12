@@ -11,6 +11,7 @@ KOLO_MODULES = (
     "__init__.py",
     "__main__.py",
     "_attach.py",
+    "_construction.py",
     "_emit_auto.py",
     "_kolotxt.py",
     "_paths.py",

@@ -3946,6 +3946,17 @@ def _run_wizard_action(
             )
         else:
             work.append(("skip the CLI + MCP plugin", _skip_plugin("the CLI + MCP plugin"), None))
+    elif not selection.tracking and not caps.tracking_plugin_installed:
+        # The plugin is already gone -- removed with `/plugin uninstall` rather
+        # than here -- but its skills are copies in the agent's OWN folder, and
+        # with no plugin left no session-start hook runs to prune them. Without
+        # this they sit there unrefreshed forever: the `POINTER_VERSION` failure,
+        # reachable by one command. Silent when there is nothing to remove.
+        work.append((
+            "remove Probe's skills",
+            lambda: wizard.remove_root_skills(caps.agent_source),
+            None,
+        ))
     elif not selection.tracking and caps.tracking_plugin_installed:
         work.append((
             "remove the CLI + MCP plugin",
@@ -4439,8 +4450,10 @@ def _run_settings_action(
     base_now: str | None = None,
     telemetry=None,
 ) -> list[str] | None:
-    """The settings screen: automatic updates. Who records and what the daemon
-    sees are on the main menu's Defaults (`_run_recorder_action`).
+    """The settings screen: automatic updates and research plan review. Who
+    records and what the daemon sees are on the main menu's Defaults
+    (`_run_recorder_action`). Research plan review is a plain setting:
+    `wizard.apply_settings` -> `apply_plan_review`, no CONFIGURE machinery.
 
     Tracking, capture and the instruction rules had rows here and do not any
     more: Probe is installed whole and removed whole (see setup.py's module
@@ -4493,6 +4506,7 @@ def _run_settings_action(
             "",
             "`probe session default on|read|off` sets the default for new sessions.",
             "`probe wizard --auto-update/--no-auto-update` sets automatic updates.",
+            "Research plan review is set on the interactive Settings screen (`probe wizard`).",
             *(
                 ["`showThinkingSummaries` (Claude Code's settings.json) and `model_reasoning_summary`",
                  "(Codex's config.toml) are whether the daemon sees the agent's reasoning."]
@@ -5084,6 +5098,12 @@ app.add_typer(companion_app, name="companion")
 from .daemon_cli import approvals_cmd, ask_cmd, daemon_app, deny_cmd  # noqa: E402 -- registration, not use
 
 app.add_typer(daemon_app, name="daemon")
+
+# -- Capy (capy.ai), a cloud agent: its sessions are pulled, not watched -------
+from .capy_cli import SOURCE as CAPY_SOURCE  # noqa: E402 -- registration, not use
+from .capy_cli import capy_app  # noqa: E402 -- registration, not use
+
+app.add_typer(capy_app, name=CAPY_SOURCE)
 app.command("approvals")(approvals_cmd)
 app.command("deny")(deny_cmd)
 app.command("ask")(ask_cmd)
@@ -9752,7 +9772,7 @@ def session_parent(
 
 
 ignore_app = typer.Typer(
-    no_args_is_help=True, help=".probe.config: paths Probe never records (gitignore syntax)"
+    no_args_is_help=True, help=".probe.config: what Probe may read and record, per path (gitignore syntax)"
 )
 app.add_typer(ignore_app, name="ignore")
 
@@ -9761,19 +9781,22 @@ app.add_typer(ignore_app, name="ignore")
 def ignore_check(
     paths: list[str] = typer.Argument(..., help="paths to test"),
 ) -> None:
-    """Which `.probe.config` line excludes each path, if any (as this session
-    sees it: files above its launch folder count unless set aside)."""
+    """Each path's `.probe.config` level (`on`, `read`, `off`) and the line that
+    set it, as this session sees it (files above its launch folder count unless
+    set aside). `excluded`: Probe records nothing about it (`read` or `off`)."""
     pc = session_marker.probe_config()
     sid = agent_session.session_id_from_env()
     rows = []
     for raw in paths:
         verdict = session_marker.excluded(raw, sid)
+        set_by = verdict.rule is not None
         rows.append(
             {
                 "path": pc.shown(os.path.abspath(os.path.expanduser(raw))),
+                "level": getattr(verdict, "level", "off" if verdict.excluded else "on"),
                 "excluded": verdict.excluded,
-                "source": session_marker.verdict_source(verdict) if verdict.excluded else None,
-                "at": pc.shown(verdict.at) if verdict.excluded and verdict.at else None,
+                "source": session_marker.verdict_source(verdict) if set_by else None,
+                "at": pc.shown(verdict.at) if set_by and verdict.at else None,
             }
         )
     _print_json(rows[0] if len(rows) == 1 else rows)
@@ -10863,6 +10886,7 @@ def _plan_manifest_row(
     *,
     default_anchor: tuple[Anchor, str | None] | None,
     reference_over: int,
+    config: Any = None,
 ) -> dict:
     """Turn one row into the arguments :func:`_artifact_enqueue` takes.
 
@@ -10901,11 +10925,11 @@ def _plan_manifest_row(
     local = path if path else session_marker.probe_config().local_path_of(uri)
     if local:
         # A researcher's `.probe.config` excludes this row's file: refused like
-        # any bad row (named by line), so nothing about it is recorded. The
-        # session view and each folder's stat are reused across rows.
+        # any bad row (named by line), so nothing about it is recorded. One
+        # checker (`config`) serves all the rows: rows in a folder share it.
         from probe.sdk import exclusions as _exclusions
 
-        verdict = _exclusions.excluded(local, hot=True)
+        verdict = config.check(local) if config is not None else _exclusions.excluded(local, hot=True)
         if verdict.excluded:
             raise typer.BadParameter(
                 f"{session_marker.probe_config().shown(local)} is excluded by "
@@ -11036,6 +11060,9 @@ def _artifact_add_manifest(
         failures[lineno] = {"line": lineno, "error": message}
 
     # -- pass 1: parse, validate, resolve each distinct anchor exactly once ---
+    from probe.sdk import exclusions as _exclusions
+
+    config = _exclusions.checker(hot=True)
     client: Client | None = None
     try:
         for lineno, row, error in _manifest_rows(manifest):
@@ -11045,7 +11072,7 @@ def _artifact_add_manifest(
                 continue
             try:
                 plan = _plan_manifest_row(
-                    row, default_anchor=default_anchor, reference_over=reference_over
+                    row, default_anchor=default_anchor, reference_over=reference_over, config=config
                 )
             except ClickException as exc:
                 fail(lineno, exc.format_message())
@@ -11086,7 +11113,7 @@ def _artifact_add_manifest(
                 # every remaining row and never printing the summary.
                 try:
                     plan = _plan_manifest_row(
-                        row, default_anchor=default_anchor, reference_over=reference_over
+                        row, default_anchor=default_anchor, reference_over=reference_over, config=config
                     )
                 except (typer.BadParameter, OSError) as exc:
                     fail(lineno, str(exc))
@@ -13130,7 +13157,9 @@ app.add_typer(rules_app, name="agent-rules")
 
 @rules_app.command("refresh")
 def agent_rules_refresh() -> None:
-    """Rewrite the managed block when it is older than this CLI.
+    """Rewrite the managed block when it is older than this CLI, or when its
+    research-plan-review paragraph disagrees with the setting (then
+    `from_version` equals `to_version`).
 
     THE MIGRATION CHANNEL for a file no release can reach. The block lives in the
     researcher's own CLAUDE.md or AGENTS.md, so a release that changes what the
@@ -14586,10 +14615,25 @@ def notes_audit_advisory(
         return
     advisory = team_note_file.advisory_for_source(source, settings=resolve(base_url=_conn.base_url))
     holder = os.environ.get(team_note_file.AUDIT_SESSION_ENV) or None
+    if advisory and holder and _daemon_records(holder):
+        # The daemon audits a session it records (`probe.daemon.audit`): a line here
+        # would start a second auditor, from any plugin version.
+        return
     if advisory and not peek and not team_note_file.claim_audit_dispatch(holder=holder):
         return
     if advisory:
         sys.stdout.write(advisory if advisory.endswith("\n") else advisory + "\n")
+
+
+def _daemon_records(session_id: str) -> bool:
+    """Does the daemon record this session (its switch reads `daemon`)? Unreadable: no."""
+    try:
+        from probe.sdk import session_marker
+
+        return (session_marker.valid_session_id(session_id)
+                and session_marker.session_state(session_id) == session_marker.STATE_DAEMON)
+    except Exception:  # noqa: BLE001 - the advisory is fail-open
+        return False
 
 
 @notes_app.command("sync")
@@ -15073,7 +15117,7 @@ def edge_add(
             "another is a `cites` link (`probe paper citations`), not an edge."
         ),
     ),
-    reason: str = typer.Option(None, "--reason", help="one sentence on why this edge exists"),
+    reason: str = typer.Option(None, "--reason", help="1-2 short sentences, in your own words, on why this edge exists"),
     evidence: list[str] = typer.Option(
         None,
         "--evidence",

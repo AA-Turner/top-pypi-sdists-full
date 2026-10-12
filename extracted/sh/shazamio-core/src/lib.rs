@@ -5,13 +5,13 @@ mod response;
 mod utils;
 
 use crate::errors::SignatureError;
-use crate::params::SearchParams;
-use crate::response::{Geolocation, Signature, SignatureSong};
-use crate::utils::convert_signature_to_py;
+use crate::params::{validated_segment_seconds, SearchParams};
+use crate::response::{Signature, SignatureSong};
 use crate::utils::get_python_future;
 use crate::utils::unwrap_decoded_signature;
-use fingerprinting::algorithm::SignatureGenerator;
-use log::{debug, error, info};
+use fingerprinting::algorithm::{SignatureGenerator, DEFAULT_SEGMENT_SECONDS};
+use log::{debug, info, LevelFilter};
+use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::{pyclass, pymethods, pymodule, Bound, Py, PyAny, PyErr, PyResult, Python};
@@ -19,24 +19,33 @@ use std::path::PathBuf;
 
 #[pymodule]
 fn shazamio_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    pyo3_log::init();
+    // The probe logs `probe reached EOF at <n> bytes` at error level for every stream it
+    //  cannot read, beside the `SignatureError` the caller already gets for it.
+    //  https://github.com/pdeljanov/Symphonia/blob/ee35874b571a35a9a6e15d3bc9a3aaf8f11fbeee/symphonia-core/src/formats/probe.rs#L590
+    pyo3_log::Logger::default()
+        .filter_target(
+            "symphonia_core::formats::probe".to_owned(),
+            LevelFilter::Off,
+        )
+        .install()
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+
     info!("Initializing shazamio_core module");
 
     m.add_class::<Recognizer>()?;
+    m.add_class::<SearchParams>()?;
     m.add("SignatureError", m.py().get_type::<SignatureError>())?;
-    m.add_class::<Geolocation>()?;
+
     m.add_class::<SignatureSong>()?;
     m.add_class::<Signature>()?;
-    m.add_class::<SearchParams>()?;
 
     info!("shazamio_core module initialized successfully");
     Ok(())
 }
 
 #[derive(Clone)]
-#[pyclass(from_py_object)]
+#[pyclass(from_py_object, module = "shazamio_core")]
 struct Recognizer {
-    #[pyo3(get, set)]
     segment_duration_seconds: u32,
 }
 
@@ -44,15 +53,28 @@ struct Recognizer {
 impl Recognizer {
     #[new]
     #[pyo3(signature = (segment_duration_seconds=None))]
-    pub fn new(segment_duration_seconds: Option<u32>) -> Self {
-        let duration = segment_duration_seconds.unwrap_or(10);
+    pub fn new(segment_duration_seconds: Option<u32>) -> PyResult<Self> {
+        let duration =
+            validated_segment_seconds(segment_duration_seconds.unwrap_or(DEFAULT_SEGMENT_SECONDS))?;
         info!(
             "Recognizer created with segment_duration_seconds = {}",
             duration
         );
-        Recognizer {
+        Ok(Recognizer {
             segment_duration_seconds: duration,
-        }
+        })
+    }
+
+    #[getter]
+    fn get_segment_duration_seconds(&self) -> u32 {
+        self.segment_duration_seconds
+    }
+
+    #[setter]
+    fn set_segment_duration_seconds(&mut self, value: u32) -> PyResult<()> {
+        self.segment_duration_seconds = validated_segment_seconds(value)?;
+
+        Ok(())
     }
 
     #[pyo3(signature = (value, options=None))]
@@ -68,13 +90,16 @@ impl Recognizer {
             options,
         );
 
-        let search_options = options.unwrap_or_else(|| {
-            debug!(
-                "Options not provided, using default segment duration {}",
-                self.segment_duration_seconds,
-            );
-            SearchParams::new(Option::from(self.segment_duration_seconds))
-        });
+        let search_options = match options {
+            Some(options) => options,
+            None => {
+                debug!(
+                    "Options not provided, using default segment duration {}",
+                    self.segment_duration_seconds,
+                );
+                SearchParams::new(Some(self.segment_duration_seconds))?
+            }
+        };
 
         let future = async move {
             debug!("Starting async recognition from bytes");
@@ -82,15 +107,15 @@ impl Recognizer {
                 value,
                 Some(search_options.segment_duration_seconds),
             )
-            .map_err(|e| {
-                error!("Error in make_signature_from_bytes: {}", e);
-                let error_message = format!("{}", e);
-                PyErr::new::<SignatureError, _>(error_message)
+            // The failure is reported by being raised, so it is not logged as well, and
+            //  the message names which of the two entry points it came from: `symphonia`
+            //  describes the stream it was given and never where that stream came from.
+            .map_err(|error| {
+                PyErr::new::<SignatureError, _>(format!("the byte payload: {error}"))
             })?;
 
             debug!("Successfully generated signature from bytes");
-            let signature = unwrap_decoded_signature(data);
-            convert_signature_to_py(signature?)
+            unwrap_decoded_signature(data)
         };
 
         let python_future = get_python_future(py, future);
@@ -111,13 +136,16 @@ impl Recognizer {
             options,
         );
 
-        let search_options = options.unwrap_or_else(|| {
-            debug!(
-                "Options not provided, using default segment duration {}",
-                self.segment_duration_seconds,
-            );
-            SearchParams::new(Option::from(self.segment_duration_seconds))
-        });
+        let search_options = match options {
+            Some(options) => options,
+            None => {
+                debug!(
+                    "Options not provided, using default segment duration {}",
+                    self.segment_duration_seconds,
+                );
+                SearchParams::new(Some(self.segment_duration_seconds))?
+            }
+        };
 
         let future = async move {
             debug!("Starting async recognition from file: {}", value.display());
@@ -125,15 +153,15 @@ impl Recognizer {
                 &value,
                 Some(search_options.segment_duration_seconds),
             )
-            .map_err(|e| {
-                debug!("Error in make_signature_from_file: {}", e);
-                let error_message = format!("{}", e);
-                PyErr::new::<SignatureError, _>(error_message)
+            // Named for the same reason as above, and here the path matters most:
+            //  `File::open` fails with `No such file or directory (os error 2)`, which
+            //  says nothing about which file.
+            .map_err(|error| {
+                PyErr::new::<SignatureError, _>(format!("{}: {error}", value.display()))
             })?;
 
             debug!("Successfully generated signature from file");
-            let signature = unwrap_decoded_signature(data);
-            convert_signature_to_py(signature?)
+            unwrap_decoded_signature(data)
         };
 
         let python_future = get_python_future(py, future);
@@ -149,12 +177,15 @@ mod tests {
     // The same default `SearchParams` carries, and `shazamio_core.pyi` documents.
     #[test]
     fn a_recognizer_defaults_to_a_ten_second_segment() {
-        assert_eq!(Recognizer::new(None).segment_duration_seconds, 10);
-        assert_eq!(Recognizer::new(Some(4)).segment_duration_seconds, 4);
+        assert_eq!(Recognizer::new(None).unwrap().segment_duration_seconds, 10);
+        assert_eq!(
+            Recognizer::new(Some(4)).unwrap().segment_duration_seconds,
+            4
+        );
     }
 
-    // The module and `shazamio_core.pyi` declare the same six names by hand, so
-    //  nothing but this catches an export that was added to one and not the other.
+    // `stubtest` and `tests/test_init.py` compare the same list against the `.pyi`
+    //  and the package root; this one needs neither a wheel nor a Python environment.
     #[test]
     fn the_module_exports_every_name_the_stub_declares() {
         Python::initialize();
@@ -164,7 +195,6 @@ mod tests {
             shazamio_core(&module).unwrap();
 
             for name in [
-                "Geolocation",
                 "Recognizer",
                 "SearchParams",
                 "Signature",

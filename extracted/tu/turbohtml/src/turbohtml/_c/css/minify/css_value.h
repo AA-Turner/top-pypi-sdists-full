@@ -239,17 +239,198 @@ static int css_unit_known(const css_char *unit, Py_ssize_t len) {
     return 0;
 }
 
-/* CSS Values 4 §5.2: a zero length may drop its unit (bare 0 is a valid <length>). No other dimension type may --
+/* CSS Values 4 §6: a zero length may drop its unit (bare 0 is a valid <length>). No other dimension type may --
    bare 0 is not a valid <angle>/<time>/<frequency>/<resolution>/<flex>, so angle/time/etc. units stay. */
 static int css_unit_zero_droppable(const css_char *unit, Py_ssize_t len) {
-    static const char *const zero_units[] = {"ch", "cm", "em",  "ex", "in",   "mm",   "pc", "pt",
-                                             "px", "q",  "rem", "vh", "vmax", "vmin", "vw"};
+    static const char *const zero_units[] = {"px", "ch", "cm",  "em", "ex",   "in",   "mm", "pc",
+                                             "pt", "q",  "rem", "vh", "vmax", "vmin", "vw"};
     for (size_t index = 0; index < sizeof(zero_units) / sizeof(zero_units[0]); index++) {
         if (css_run_ieq(unit, len, zero_units[index])) {
             return 1;
         }
     }
     return 0;
+}
+
+/* A unitless zero has length type only where the property grammar gives it no competing numeric meaning. */
+CSS_NOINLINE static int css_zero_length_safe_property(const css_char *property, Py_ssize_t len) {
+    if ((len == 6 && css_run_ieq(property, len, "margin")) || (len == 7 && css_run_ieq(property, len, "padding")) ||
+        (len == 12 && css_run_ieq(property, len, "border-width"))) {
+        return 1;
+    }
+    static const char *const names[] = {
+        "background",
+        "background-position",
+        "background-position-x",
+        "background-position-y",
+        "background-size",
+        "block-size",
+        "border",
+        "border-block",
+        "border-block-end",
+        "border-block-end-width",
+        "border-block-start",
+        "border-block-start-width",
+        "border-block-width",
+        "border-bottom",
+        "border-bottom-left-radius",
+        "border-bottom-right-radius",
+        "border-bottom-width",
+        "border-end-end-radius",
+        "border-end-start-radius",
+        "border-inline",
+        "border-inline-end",
+        "border-inline-end-width",
+        "border-inline-start",
+        "border-inline-start-width",
+        "border-inline-width",
+        "border-left",
+        "border-left-width",
+        "border-radius",
+        "border-right",
+        "border-right-width",
+        "border-spacing",
+        "border-start-end-radius",
+        "border-start-start-radius",
+        "border-top",
+        "border-top-left-radius",
+        "border-top-right-radius",
+        "border-top-width",
+        "border-width",
+        "bottom",
+        "column-gap",
+        "column-height",
+        "column-rule",
+        "column-rule-width",
+        "column-width",
+        "flex-basis",
+        "font-size",
+        "gap",
+        "grid-auto-columns",
+        "grid-auto-rows",
+        "grid-column-gap",
+        "grid-gap",
+        "grid-row-gap",
+        "grid-template-columns",
+        "grid-template-rows",
+        "height",
+        "inline-size",
+        "inset",
+        "inset-block",
+        "inset-block-end",
+        "inset-block-start",
+        "inset-inline",
+        "inset-inline-end",
+        "inset-inline-start",
+        "left",
+        "letter-spacing",
+        "margin",
+        "margin-block",
+        "margin-block-end",
+        "margin-block-start",
+        "margin-bottom",
+        "margin-inline",
+        "margin-inline-end",
+        "margin-inline-start",
+        "margin-left",
+        "margin-right",
+        "margin-top",
+        "mask-position",
+        "mask-size",
+        "max-block-size",
+        "max-height",
+        "max-inline-size",
+        "max-width",
+        "min-block-size",
+        "min-height",
+        "min-inline-size",
+        "min-width",
+        "object-position",
+        "offset-anchor",
+        "offset-distance",
+        "offset-position",
+        "outline",
+        "outline-offset",
+        "outline-width",
+        "overflow-clip-margin",
+        "padding",
+        "padding-block",
+        "padding-block-end",
+        "padding-block-start",
+        "padding-bottom",
+        "padding-inline",
+        "padding-inline-end",
+        "padding-inline-start",
+        "padding-left",
+        "padding-right",
+        "padding-top",
+        "perspective",
+        "perspective-origin",
+        "right",
+        "row-gap",
+        "scroll-margin",
+        "scroll-margin-block",
+        "scroll-margin-block-end",
+        "scroll-margin-block-start",
+        "scroll-margin-bottom",
+        "scroll-margin-inline",
+        "scroll-margin-inline-end",
+        "scroll-margin-inline-start",
+        "scroll-margin-left",
+        "scroll-margin-right",
+        "scroll-margin-top",
+        "scroll-padding",
+        "scroll-padding-block",
+        "scroll-padding-block-end",
+        "scroll-padding-block-start",
+        "scroll-padding-bottom",
+        "scroll-padding-inline",
+        "scroll-padding-inline-end",
+        "scroll-padding-inline-start",
+        "scroll-padding-left",
+        "scroll-padding-right",
+        "scroll-padding-top",
+        "shape-margin",
+        "text-decoration-thickness",
+        "text-indent",
+        "text-underline-offset",
+        "top",
+        "transform-origin",
+        "translate",
+        "vertical-align",
+        "view-timeline-inset",
+        "width",
+        "word-spacing",
+    };
+    static const uint8_t slots[256] = {
+        0,   0,  0,   16,  0,   0,   0,   67,  0,   0,   11,  86,  0,  30,  135, 0,   105, 43,  0,   92,  128, 106,
+        59,  73, 115, 104, 44,  118, 126, 129, 133, 132, 61,  141, 0,  60,  0,   0,   57,  58,  0,   0,   23,  39,
+        0,   0,  69,  0,   0,   65,  0,   0,   0,   0,   0,   7,   51, 0,   0,   68,  83,  114, 136, 12,  80,  0,
+        15,  55, 89,  76,  120, 127, 140, 0,   0,   0,   0,   0,   0,  77,  0,   0,   0,   139, 0,   0,   0,   0,
+        0,   34, 111, 0,   0,   0,   131, 9,   24,  5,   0,   0,   0,  0,   3,   0,   37,  0,   38,  50,  107, 102,
+        0,   36, 64,  70,  113, 19,  0,   81,  0,   0,   0,   52,  56, 66,  93,  63,  0,   21,  53,  48,  125, 0,
+        17,  29, 0,   0,   42,  0,   0,   0,   103, 124, 99,  0,   0,  0,   0,   31,  6,   14,  88,  110, 117, 0,
+        87,  0,  0,   1,   27,  46,  33,  94,  0,   0,   62,  78,  84, 134, 82,  0,   0,   0,   0,   0,   13,  0,
+        0,   0,  0,   2,   72,  45,  95,  96,  98,  0,   0,   26,  28, 91,  0,   0,   0,   0,   10,  0,   137, 0,
+        35,  32, 121, 0,   0,   8,   130, 0,   25,  47,  100, 142, 0,  0,   18,  101, 138, 0,   0,   0,   40,  85,
+        54,  0,  109, 71,  75,  0,   22,  0,   0,   108, 97,  0,   0,  0,   90,  20,  0,   116, 0,   49,  74,  112,
+        122, 0,  123, 41,  0,   0,   0,   4,   79,  119, 0,   0,   0,  0,
+    };
+    uint32_t hash = 2166136261u;
+    for (Py_ssize_t index = 0; index < len; index++) {
+        hash = (hash ^ (uint32_t)css_lower(property[index])) * 16777619u;
+    }
+    unsigned slot = hash & 255u;
+    for (;;) {
+        unsigned candidate = slots[slot];
+        if (candidate == 0) {
+            return 0;
+        }
+        if (css_run_ieq(property, len, names[candidate - 1])) {
+            return 1;
+        }
+        slot = (slot + 1) & 255u;
+    }
 }
 
 /* Whether a unit re-reads as the exponent of a preceding number: e/E, an optional '-' (an ident unit cannot carry a
@@ -264,9 +445,9 @@ static int css_unit_reads_as_exponent(const css_char *unit, Py_ssize_t len) {
 }
 
 /* Render a dimension (number + unit) into the pool: shorten the number, lower-case a known unit, and drop the unit
-   when the value is 0 and the unit is a length (CSS Values 4 §5.2). */
-static void css_format_dimension(css_buf *pool, const css_token *token, int drop_zero_unit, Py_ssize_t *out_off,
-                                 Py_ssize_t *out_len) {
+   when the value is 0 and the unit is a length (CSS Values 4 §6). */
+static void css_format_dimension(css_buf *pool, const css_token *token, int drop_zero_unit, const css_char *property,
+                                 Py_ssize_t property_len, Py_ssize_t *out_off, Py_ssize_t *out_len) {
     Py_ssize_t off;
     Py_ssize_t len;
     css_format_number(pool, token->text, token->text_len, token->unit_len != 0, &off, &len);
@@ -290,7 +471,8 @@ static void css_format_dimension(css_buf *pool, const css_token *token, int drop
         }
     }
     int is_zero = len == 1 && pool->data[off] == '0';
-    if (drop_zero_unit && is_zero && css_unit_zero_droppable(unit, token->unit_len)) {
+    if (is_zero && drop_zero_unit && css_unit_zero_droppable(unit, token->unit_len) &&
+        (property_len == 0 || css_zero_length_safe_property(property, property_len))) {
         *out_off = off;
         *out_len = len;
         return;
@@ -359,10 +541,10 @@ static const th_css_color_entry *css_hex_to_name(const css_char *hash, Py_ssize_
 /* Try to shorten an ident (color keyword) or hash; returns 1 and sets (off,len) when it changes, else 0. */
 static int css_color_keyword_or_hash(css_buf *pool, const css_token *token, int is_color_context, Py_ssize_t *out_off,
                                      Py_ssize_t *out_len) {
+    if (!is_color_context) {
+        return 0;
+    }
     if (token->kind == CSS_IDENT) {
-        if (!is_color_context) {
-            return 0;
-        }
         return css_name_to_hex(pool, token->text, token->text_len, out_off, out_len);
     }
     /* a hash: lower-case it, fold #rrggbbaa with aa==ff/00, then map to a keyword or a 3/4-digit short form */
@@ -647,7 +829,9 @@ CSS_NOINLINE static int css_try_color_func(css_buf *pool, token_vec *vec, Py_ssi
             continue;
         }
         if (token->kind == CSS_DELIM && token->delim == ',') {
-            comma_count++;
+            if (++comma_count != count) {
+                return 0;
+            }
             continue;
         }
         if (token->kind != CSS_NUM || count >= 4) {
@@ -655,10 +839,15 @@ CSS_NOINLINE static int css_try_color_func(css_buf *pool, token_vec *vec, Py_ssi
                fold; keep the function verbatim rather than drop or reorder its arguments */
             return token->kind == CSS_IDENT && css_run_ieq(token->text, token->text_len, "calc") ? -1 : 0;
         }
+        if (token->text_len >= 64) {
+            return 0;
+        }
         double magnitude = css_run_to_double(token->text, token->text_len);
         int is_pct = token->unit_len == 1 && (token->text + token->text_len)[0] == '%';
         if (is_pct) {
             magnitude /= 100.0;
+        } else if (token->unit_len) {
+            return 0;
         }
         values[count] = magnitude;
         types[count] = is_pct;
@@ -676,6 +865,9 @@ CSS_NOINLINE static int css_try_color_func(css_buf *pool, token_vec *vec, Py_ssi
     int has_slash = slash_count > 0;
     if (has_comma) {
         if (has_slash || comma_count != count - 1) {
+            return 0;
+        }
+        if (is_rgb && (types[0] != types[1] || types[1] != types[2])) {
             return 0;
         }
     } else if (has_slash) {
@@ -870,6 +1062,7 @@ static void css_rtrim(css_buf *buffer) {
 static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end, const css_char *name,
                                  Py_ssize_t name_len, css_buf *out);
 static int css_is_ident_string(const css_char *text, Py_ssize_t len);
+CSS_NOINLINE static void css_close_function_args(token_vec *vec, Py_ssize_t start, Py_ssize_t end, css_buf *args);
 
 static int css_arg_is_zero(const css_char *text, Py_ssize_t len) {
     return (len == 1 && text[0] == '0') || (len == 2 && text[0] == '0' && text[1] == '%');
@@ -919,6 +1112,9 @@ static void css_render_function(css_buf *pool, token_vec *vec, Py_ssize_t name_i
     css_buf args = {NULL, 0, 0, pool->oom};
     css_minify_func_args(pool, vec, name_index + 2, close_index, name_token->text, name_token->text_len, &args);
     css_collapse_transform_args(name_token->text, name_token->text_len, &args);
+    if (close_index == vec->len) {
+        css_close_function_args(vec, name_index + 2, close_index, &args);
+    }
     *out_off = pool->len;
     cbuf_put_run(pool, name_token->text, name_token->text_len);
     cbuf_putc(pool, '(');

@@ -8,6 +8,7 @@ outcome than never having written anything.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -502,12 +503,14 @@ def test_the_block_names_only_the_doctrine_skills_and_nothing_that_can_rot() -> 
     skill" improvising CLI calls instead. The bargain: those three names are
     the whole allow-list, a rename of any of them is a POINTER_VERSION bump,
     and the block still names no namespaced id and no command that can rot.
+    v40 adds a fourth, `plan-research-review`: its routing line is what makes
+    the agent run it unasked (gstack's "Skill routing", Richard 2026-10-11).
     """
     body = agent_rules.POINTER_BODY
     assert re.findall(r"probe-research:[a-z-]+", body) == [], "namespaced ids rot"
     named = {m for m in re.findall(r"`([a-z][a-z-]*)`", body) if "-" in m or m == "probe"}
     # `probe-research` is the PyPI package the SDK line names, not a skill.
-    assert named <= {"track-work", "instrument-code", "probe", "probe-research"}, named
+    assert named <= {"track-work", "instrument-code", "probe", "probe-research", "plan-research-review"}, named
     for rotted in ("probe note add", "--kind ", "--supersedes", "probe notes write", "notes append", "--hypothesis"):
         assert rotted not in body, f"block names a command that can rot: {rotted}"
     for removed in (
@@ -602,9 +605,33 @@ def test_files_are_routed_with_safety_lineage_and_a_catch_all() -> None:
     assert "`--reference`" in skill
     assert "lowest entity" in skill
     assert "records lineage back to it" in skill
-    assert "a file with no better home goes to the project's artifacts, prose to its notes" in skill
+    assert "a file with no better home goes to the project's artifacts" in skill
+    assert "Notes are the exception: only what would help the next agent" in skill
     assert "Drop nothing" in skill
     assert "Automatically tracked" in skill and "transcripts" in skill
+
+
+def test_notes_hold_only_what_helps_the_next_agent() -> None:
+    """Richard, 2026-10-12: notes carry what would help the next agent on the
+    entity or project, not everything that happened. The daemon's writer saved
+    whole sessions into notes (one project note: 1,986 words, 11 pushes in under
+    two hours) while track-work said "prose to its notes" and its writer header
+    said "record what it states".
+    """
+    tree = _AGENT_TREE / "skills"
+    notes = " ".join((tree / "edit-notes" / "SKILL.md").read_text().split())
+    assert "Write only what would help the next agent on this entity or project" in notes
+    # Richard, same day: "it should be constantly adjusting and looking at the
+    # notes as a whole" -- appending is fine when useful, in the context of the
+    # whole note. Willow's daemon, already on the line above, still stacked a
+    # section per turn (24,042 -> 34,225 chars in 11 min).
+    assert "Read the whole note before each edit and fit the change into it" in notes
+    assert "running commentary" not in notes
+    header = " ".join((tree / "track-work" / "versions" / "header.writer.md").read_text().split())
+    assert "record the ones the next agent on this project needs" in header
+    assert "record what it states" not in header
+    work = " ".join((tree / "track-work" / "SKILL.md").read_text().split())
+    assert "prose to its notes" not in work
 
 
 def test_pointer_body_edits_force_a_version_bump() -> None:
@@ -632,7 +659,12 @@ def test_pointer_body_edits_force_a_version_bump() -> None:
     # by the same stamp) gained the `probe session inline` line.
     # 39 / ade24764057a: POINTER_BODY unchanged; DAEMON_POINTER_BODY lost that
     # line again (the researcher types `/probe inline`; Richard 2026-10-06).
-    assert (agent_rules.POINTER_VERSION, digest) == (39, "ade24764057a"), (
+    # 40 / e6776f789cda: both bodies gained the `plan-research-review` routing
+    # paragraph, which the wizard's "Research plan review" row swaps for an
+    # ask-only line.
+    # 41 / 9c6a7ae110d3: the "Do not call Probe for" line names what is not ML
+    # work in track-work's own words (Richard 2026-10-12).
+    assert (agent_rules.POINTER_VERSION, digest) == (41, "9c6a7ae110d3"), (
         "POINTER_BODY changed: bump POINTER_VERSION and re-pin this digest"
     )
 
@@ -968,3 +1000,118 @@ def test_the_document_path_fixture_is_what_the_cli_produces(monkeypatch, tmp_pat
         expected = case["path"].replace("~", str(home), 1)
         assert str(team_note_file.paths().document) == expected, case["why"]
         assert os.path.isabs(expected), case["why"]
+
+
+# --- the research plan review's routing paragraph (v40) ----------------------
+
+
+@pytest.mark.parametrize("profile", list(agent_rules.Profile))
+def test_each_body_carries_its_plan_review_paragraph_exactly_once(profile) -> None:
+    """The setting swaps the paragraph by its exact bytes: a reworded body
+    whose paragraph no longer matches would leave the line in place with the
+    setting off -- the one thing the row promises it removes."""
+    body = agent_rules.DAEMON_POINTER_BODY if profile == agent_rules.Profile.DAEMON else agent_rules.POINTER_BODY
+    paragraph = agent_rules.PLAN_REVIEW_PARAGRAPHS[profile]
+    assert body.count(paragraph) == 1
+    assert "plan-research-review" in paragraph
+    off = agent_rules.body_for(profile, plan_review=False)
+    assert "Before writing code for ML research" not in off
+    # gstack's `proactive: false`: the off block says to run it only when asked
+    assert agent_rules.PLAN_REVIEW_OFF_PARAGRAPHS[profile] in off
+    assert "only when the researcher asks for it" in off
+
+
+@pytest.mark.parametrize("profile", list(agent_rules.Profile))
+def test_the_block_follows_the_machines_plan_review_setting(profile) -> None:
+    from probe.sdk import session_marker
+
+    on = agent_rules.PLAN_REVIEW_PARAGRAPHS[profile]
+    off = agent_rules.PLAN_REVIEW_OFF_PARAGRAPHS[profile]
+    assert session_marker.plan_review_on(), "absent is on: the shipped default"
+    default = agent_rules.render_block(profile=profile)
+    assert on in default and off not in default
+    session_marker.write_plan_review(False)
+    assert not session_marker.plan_review_on()
+    rendered = agent_rules.render_block(profile=profile)
+    assert off in rendered and on not in rendered
+    # an explicit argument wins over the machine's setting
+    forced = agent_rules.render_block(profile=profile, plan_review=True)
+    assert on in forced and off not in forced
+    session_marker.write_plan_review(True)
+    assert session_marker.plan_review_on()
+
+
+def test_turning_it_back_on_leaves_no_trace_in_the_config() -> None:
+    from probe.sdk import session_marker
+
+    session_marker.write_plan_review(False)
+    session_marker.write_plan_review(True)
+    data = json.loads(session_marker.config_path().read_text())
+    assert session_marker.PLAN_REVIEW_KEY not in data.get(session_marker.DEFAULTS_KEY, {})
+
+
+@pytest.mark.parametrize("value", [None, "off", 0, "false", {}])
+def test_only_an_explicit_false_turns_it_off(value) -> None:
+    from probe.sdk import session_marker
+
+    assert session_marker.plan_review_on({"defaults": {"plan_review": value}})
+    assert not session_marker.plan_review_on({"defaults": {"plan_review": False}})
+
+
+def test_a_refresh_keeps_the_setting_off(memory: Path) -> None:
+    """`notes sync` refreshes a stale block on every Stop; with the setting off
+    the refreshed block must not bring the routing line back."""
+    from probe.sdk import session_marker
+
+    session_marker.write_plan_review(False)
+    memory.parent.mkdir(parents=True, exist_ok=True)
+    memory.write_text(agent_rules.render_block(version=agent_rules.POINTER_VERSION - 1, plan_review=True))
+    assert agent_rules.refresh_pointer(memory) == agent_rules.POINTER_REFRESHED
+    assert "Before writing code for ML research" not in memory.read_text()
+    assert "only when the researcher asks for it" in memory.read_text()
+
+
+def test_a_plan_review_round_trip_leaves_the_rest_of_the_config_untouched() -> None:
+    """The writer rewrites the whole machine config (credentials, who records,
+    the tracking default): only its own key may move."""
+    from probe.sdk import session_marker
+
+    session_marker.write_recorder("codex", session_marker.RECORDER_DAEMON)
+    session_marker.write_default_state(session_marker.STATE_READ_ONLY)
+    before = json.loads(session_marker.config_path().read_text())
+    session_marker.write_plan_review(False)
+    middle = json.loads(session_marker.config_path().read_text())
+    assert middle[session_marker.DEFAULTS_KEY][session_marker.PLAN_REVIEW_KEY] is False
+    session_marker.write_plan_review(True)
+    assert json.loads(session_marker.config_path().read_text()) == before
+
+
+@pytest.mark.parametrize("profile", list(agent_rules.Profile))
+def test_a_refresh_repairs_a_current_block_that_disagrees_with_the_setting(memory: Path, profile) -> None:
+    """A Settings write that failed half-way (or a config edited by hand) leaves
+    a CURRENT block saying the other thing; the version stamp alone would keep
+    it until the next bump. `notes sync` runs this refresh on every Stop."""
+    from probe.sdk import session_marker
+
+    memory.parent.mkdir(parents=True, exist_ok=True)
+    memory.write_text("# mine\n\n" + agent_rules.render_block(profile=profile, plan_review=True))
+    session_marker.write_plan_review(False)
+    assert agent_rules.refresh_pointer(memory) == agent_rules.POINTER_REFRESHED
+    text = memory.read_text()
+    assert agent_rules.PLAN_REVIEW_OFF_PARAGRAPHS[profile] in text
+    assert agent_rules.PLAN_REVIEW_PARAGRAPHS[profile] not in text
+    assert agent_rules.installed_profile(memory) == profile and text.startswith("# mine\n")
+    # in agreement now: the next refresh leaves the file alone
+    assert agent_rules.refresh_pointer(memory) == agent_rules.POINTER_CURRENT
+    assert memory.read_text() == text
+
+
+def test_a_refresh_leaves_a_newer_block_alone_whatever_the_setting(memory: Path) -> None:
+    from probe.sdk import session_marker
+
+    memory.parent.mkdir(parents=True, exist_ok=True)
+    memory.write_text(agent_rules.render_block(version=agent_rules.POINTER_VERSION + 1, plan_review=True))
+    before = memory.read_text()
+    session_marker.write_plan_review(False)
+    assert agent_rules.refresh_pointer(memory) == agent_rules.POINTER_CURRENT
+    assert memory.read_text() == before

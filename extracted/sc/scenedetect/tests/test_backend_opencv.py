@@ -17,7 +17,10 @@ VideoStreamCv2 ('opencv') backend. These tests validate behaviour specific to th
 For VideoStream tests that validate conformance, see test_video_stream.py.
 """
 
+import os
+
 import cv2
+import pytest
 
 from scenedetect import ContentDetector, SceneManager
 from scenedetect.backends.opencv import VideoCaptureAdapter, VideoStreamCv2
@@ -28,7 +31,7 @@ GROUND_TRUTH_CAPTURE_ADAPTER_CALLBACK_TEST = [180, 394]
 
 def test_open_image_sequence(test_image_sequence: str):
     """Test opening an image sequence. Currently, only VideoStreamCv2 supports this."""
-    sequence = VideoStreamCv2(test_image_sequence, framerate=25.0)
+    sequence = VideoStreamCv2(test_image_sequence, frame_rate=25.0)
     assert sequence.is_seekable
     assert sequence.frame_size[0] > 0 and sequence.frame_size[1] > 0
     assert sequence.duration is not None
@@ -36,6 +39,27 @@ def test_open_image_sequence(test_image_sequence: str):
     assert sequence.read() is not False
     sequence.seek(100)
     assert sequence.position == 29
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Workaround only applies on Windows.")
+def test_open_png_sequence_skips_ffmpeg_probe(test_image_sequence: str, monkeypatch):
+    """PNG inputs must be opened with `cv2.CAP_IMAGES` on Windows because certain versions of the
+    opencv-python 5.x package cause intermittent segfaults on exit.
+
+    See https://scenedetect.com/issue/575 for details."""
+    calls = []
+    real_capture = cv2.VideoCapture
+
+    def spy(*args):
+        calls.append(args)
+        return real_capture(*args)
+
+    monkeypatch.setattr(cv2, "VideoCapture", spy)
+    sequence = VideoStreamCv2(test_image_sequence, frame_rate=25.0)
+    sequence.reset()
+    assert calls == [(test_image_sequence, cv2.CAP_IMAGES)] * 2
+    assert sequence.capture.getBackendName() == "CV_IMAGES"
+    assert sequence.read() is not False
 
 
 def test_capture_adapter(test_movie_clip: str):
@@ -51,6 +75,25 @@ def test_capture_adapter(test_movie_clip: str):
     scenes = scene_manager.get_scene_list()
     assert len(scenes) == len(GROUND_TRUTH_CAPTURE_ADAPTER_TEST)
     assert [start.frame_num for (start, _) in scenes] == GROUND_TRUTH_CAPTURE_ADAPTER_TEST
+
+
+def test_capture_adapter_framerate_legacy_alias(test_movie_clip: str):
+    """`framerate=` is the deprecated alias for `frame_rate=` on VideoCaptureAdapter."""
+    cap = cv2.VideoCapture(test_movie_clip)
+    assert cap.isOpened()
+    with pytest.warns(DeprecationWarning, match="frame_rate"):
+        legacy = VideoCaptureAdapter(cap, framerate=30.0)
+
+    cap = cv2.VideoCapture(test_movie_clip)
+    assert cap.isOpened()
+    canonical = VideoCaptureAdapter(cap, frame_rate=30.0)
+    assert canonical.frame_rate == legacy.frame_rate
+
+    cap = cv2.VideoCapture(test_movie_clip)
+    assert cap.isOpened()
+    with pytest.warns(DeprecationWarning, match="frame_rate"):
+        both = VideoCaptureAdapter(cap, frame_rate=30.0, framerate=24.0)
+    assert both.frame_rate == canonical.frame_rate
 
 
 def test_decode_failures_exposed(corrupt_video_file: str):

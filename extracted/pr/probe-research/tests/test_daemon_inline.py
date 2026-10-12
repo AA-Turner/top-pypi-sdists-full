@@ -568,7 +568,7 @@ def test_the_notice_fits_a_hook_and_names_files_that_ship():
         notice = session_marker.inline_notice(f"{long_root}/inline/track-work/SKILL.md",
                                               f"{long_root}/inline/edit-notes/SKILL.md", bridge=bridge)
         assert len(notice) < 1000 and "{" not in notice
-    full = AGENT_ROOT / "plugins" / "probe-research" / "skills"
+    full = AGENT_ROOT / "plugins" / "probe-research" / "agent-skills"
     for name in session_marker.INLINE_SKILL_FILES:
         assert (DAEMON_PLUGIN / "inline" / name).read_bytes() == (full / name).read_bytes(), (
             f"{name}: run `make sync-plugin`")

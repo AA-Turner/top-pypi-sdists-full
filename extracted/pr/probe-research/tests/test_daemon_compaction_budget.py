@@ -156,6 +156,120 @@ def test_a_newest_message_bigger_than_the_kept_share_is_kept_alone():
     assert state.compactions == 1, "summary + the giant bite + a small one fit the size"
 
 
+def _small_exchanges(n: int) -> list:
+    """`n` exchanges of a few tokens each: 2n messages, far under SIZE."""
+    out: list = []
+    for i in range(n):
+        out.append(ModelRequest(parts=[UserPromptPart(f"b{i} ok")]))
+        out.append(ModelResponse(parts=[TextPart(f"r{i}")], usage=RequestUsage(input_tokens=(i + 1) * 4, output_tokens=1)))
+    return out
+
+
+def _wire(messages: list) -> int:
+    """The chat messages `messages` really become on the OpenAI-compatible model
+    route (Pydantic AI's own mapping), which is what the server's cap counts."""
+    from pydantic_ai.models import ModelRequestParameters
+    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    model = OpenAIChatModel("x", provider=OpenAIProvider(api_key="x"))
+    return len(asyncio.run(model._map_messages(messages, ModelRequestParameters())))
+
+
+def test_a_history_of_many_small_messages_compacts_by_count():
+    """strand-ai 2026-10-11: 2,003 small messages at 245K tokens, under the 250K
+    size, and the model route refused the call (at most 2,000). Past
+    COMPACT_MESSAGES the history is summarized whatever its size, the tail
+    keeps at most KEEP_MESSAGES, and the next bites do not compact again."""
+    history = _small_exchanges(agent_mod.COMPACT_MESSAGES // 2 + 50)
+    assert estimate_token_count(history) < SIZE * agent_mod.COMPACT_TO, "under the token target: only the count trips"
+    state, seen = _state(), Seen()
+    after = _run(seen, state, "next", history)
+    assert state.compactions == 1 and seen.summaries == 1
+    sent = seen.main[-1]
+    assert _wire(sent) <= agent_mod.KEEP_MESSAGES + 3, _wire(sent)
+    assert SUMMARY in str(sent) and "b0 ok" not in str(sent)
+    assert f"b{len(history) // 2 - 1} ok" in str(sent), "the newest exchange is kept whole"
+    for n in range(5):
+        after = _run(seen, state, f"more{n}", after)
+    assert state.compactions == 1, f"{state.compactions} compactions: the kept tail tripped the count again"
+
+
+def test_more_messages_than_the_model_route_takes_never_go_out():
+    """Whatever the history, no request leaves with more chat messages than the
+    server's 2,000; the count compaction runs before that, with room."""
+    history = _small_exchanges(1_200)
+    state, seen = _state(), Seen()
+    _run(seen, state, "next", history)
+    assert max(_wire(m) for m in seen.main) <= agent_mod.COMPACT_MESSAGES
+
+
+def test_parallel_tool_rounds_are_counted_as_the_route_counts_them():
+    """Each tool result is its own chat message on the route: 500 rounds of three
+    parallel reads are 1,001 Pydantic AI messages but 2,001 on the wire. The
+    count is the wire's, so this compacts; counting Pydantic AI's messages would
+    send all 2,001 and get the 400."""
+    history: list = [ModelRequest(parts=[UserPromptPart("bite")])]
+    for r in range(500):
+        history.append(ModelResponse(parts=[ToolCallPart("read", {"path": f"{r}-{i}"}, tool_call_id=f"c{r}-{i}")
+                                            for i in range(3)], usage=RequestUsage(input_tokens=(r + 1) * 8)))
+        history.append(ModelRequest(parts=[ToolReturnPart("read", "ok", tool_call_id=f"c{r}-{i}") for i in range(3)]))
+    assert len(history) < agent_mod.COMPACT_MESSAGES < _wire(history)
+    assert agent_mod.wire_messages(history) == _wire(history)
+    state, seen = _state(), Seen()
+    _run(seen, state, "next", history)
+    assert state.compactions == 1
+    sent = seen.main[-1]
+    assert agent_mod.wire_messages(sent) == _wire(sent) <= agent_mod.KEEP_MESSAGES + 3, _wire(sent)
+
+
+def test_past_the_size_and_the_count_a_cleared_history_is_still_summarized():
+    """Tool output puts 2,000 messages over the size, and clearing old tool
+    results alone reaches the token target; the count must still be summarized
+    away (the writer's shape: it runs `shell`)."""
+    size, history = 120_000, []
+    for i in range(500):
+        history.append(ModelRequest(parts=[UserPromptPart(f"a{i}")]))
+        history.append(ModelResponse(parts=[ToolCallPart("shell", {"command": f"ls {i}"}, tool_call_id=f"c{i}")],
+                                     usage=RequestUsage(input_tokens=(i + 1) * 260, output_tokens=1)))
+        history.append(ModelRequest(parts=[ToolReturnPart("shell", _words(260, f"o{i}"), tool_call_id=f"c{i}")]))
+        history.append(ModelResponse(parts=[TextPart(f"s{i}")],
+                                     usage=RequestUsage(input_tokens=(i + 1) * 262, output_tokens=1)))
+    state, seen = _state(size), Seen()
+    _run(seen, state, "next", history)
+    assert max(_wire(m) for m in seen.main) <= agent_mod.COMPACT_MESSAGES
+    assert seen.summaries == 1 and state.compactions == 1
+
+
+def test_the_count_stays_under_the_servers_message_cap():
+    """COMPACT_MESSAGES is the client's half of the server's MAX_CHAT_MESSAGES
+    (the model route's 400). Read from the server's source when this is the
+    monorepo (the public agent mirror has no server)."""
+    import re
+    from pathlib import Path
+
+    router = Path(__file__).resolve().parents[2] / "app" / "companion" / "chat_router.py"
+    if not router.is_file():
+        pytest.skip("no server source beside the agent")
+    cap = int(re.search(r"^MAX_CHAT_MESSAGES = ([\d_]+)", router.read_text(), re.M).group(1).replace("_", ""))
+    assert agent_mod.COMPACT_MESSAGES + 100 <= cap
+    assert agent_mod.KEEP_MESSAGES * 2 <= agent_mod.COMPACT_MESSAGES, "room between compactions"
+
+
+def test_many_messages_with_a_tail_heavier_than_the_kept_share_cut_by_tokens():
+    """More messages than KEEP_MESSAGES whose newest KEEP_MESSAGES outweigh the
+    kept share: the token cut wins and keeps fewer."""
+    history = [m for i in range(300) for m in _exchange(i, 50)]
+    assert len(history) > agent_mod.KEEP_MESSAGES
+    assert estimate_token_count(history[-agent_mod.KEEP_MESSAGES:]) > SIZE * agent_mod.KEEP_SHARE
+    state, seen = _state(), Seen()
+    _run(seen, state, "next", history)
+    sent = seen.main[-1]
+    assert state.compactions == 1
+    assert len(sent) < agent_mod.KEEP_MESSAGES
+    assert estimate_token_count(sent) <= SIZE * agent_mod.COMPACT_TO
+
+
 def test_under_the_size_nothing_is_rewritten():
     history = [m for i in range(4) for m in _exchange(i, 1_000)]
     state, seen = _state(), Seen()
@@ -248,3 +362,53 @@ def test_the_writer_compacts_at_250k_and_the_reader_at_120k_by_default():
                           "print(a.CONTEXT_TOKENS, a.READ_CONTEXT_TOKENS)"],
                          env=env, capture_output=True, text=True, check=True).stdout.split()
     assert out == ["250000", "120000"]
+
+
+# ---------------------------------------------------------------------------
+# The tail compaction leaves: tool results whose calls were summarized away.
+# ---------------------------------------------------------------------------
+
+
+def test_a_tail_opening_with_retries_for_summarized_calls_still_has_a_user_turn_first():
+    """The harness's cut pairs a call with its ToolReturnPart but not with a
+    RetryPromptPart, so it can land right after a round whose calls all failed
+    validation. Those retries answer nothing that is left: they are dropped and
+    EARLIER_TURNS goes before the model's next message, so what goes out is
+    system, user, assistant -- never the model's tool call straight after the
+    system messages (Gemini refuses that)."""
+    from pydantic_ai.messages import RetryPromptPart, SystemPromptPart
+
+    summary = ModelRequest(parts=[SystemPromptPart("SUMMARY")])
+    retries = ModelRequest(parts=[RetryPromptPart("bad args", tool_name="read", tool_call_id=f"gone{i}")
+                                  for i in range(2)])
+    call = ModelResponse(parts=[ToolCallPart("read", {"path": "x"}, tool_call_id="c1")])
+    result = ModelRequest(parts=[ToolReturnPart("read", "ok", tool_call_id="c1")])
+    fixed = agent_mod.user_turn_first([summary, retries, call, result])
+    assert fixed[0] is summary and fixed[2:] == [call, result]
+    assert fixed[1].parts[0].content == agent_mod.EARLIER_TURNS
+
+    from pydantic_ai.models import ModelRequestParameters
+    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    sent = asyncio.run(OpenAIChatModel("x", provider=OpenAIProvider(api_key="x"))
+                       ._map_messages(fixed, ModelRequestParameters()))
+    assert [m["role"] for m in sent] == ["system", "user", "assistant", "tool"]
+
+
+def test_a_tail_of_nothing_but_orphaned_results_still_ends_in_a_user_turn():
+    from pydantic_ai.messages import RetryPromptPart, SystemPromptPart
+
+    summary = ModelRequest(parts=[SystemPromptPart("SUMMARY")])
+    retries = ModelRequest(parts=[RetryPromptPart("truncated JSON", tool_name="shell", tool_call_id="gone")])
+    fixed = agent_mod.user_turn_first([summary, retries])
+    assert fixed[0] is summary and len(fixed) == 2
+    assert fixed[1].parts[0].content == agent_mod.EARLIER_TURNS
+
+
+def test_a_history_that_needs_no_fixing_is_returned_as_it_is():
+    from pydantic_ai.messages import SystemPromptPart
+
+    history = [ModelRequest(parts=[SystemPromptPart("S")]), ModelRequest(parts=[UserPromptPart("hi")]),
+               ModelResponse(parts=[TextPart("ok")])]
+    assert agent_mod.user_turn_first(history) is history

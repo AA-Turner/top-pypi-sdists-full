@@ -8,7 +8,7 @@ from typing import cast
 
 from public import public
 
-from flufl.bounce.interfaces import NoFailures, NoTemporaryFailures, Recipients
+from flufl.bounce._interfaces import NoFailures, NoTemporaryFailures, Recipients
 
 
 scre = re.compile(b'mail to the following recipients could not be delivered')
@@ -25,9 +25,9 @@ class AOL:
             return NoFailures
         addresses: set[bytes] = set()
         found = False
-        # The content-type was validated as text/plain above, so the decoded
-        # payload is bytes at runtime; pyrefly can't follow the precondition
-        # through Message.get_payload()'s wider union return type.
+        # The content-type was validated as text/plain above, so the decoded payload is bytes at
+        # runtime; pyrefly can't follow the precondition through Message.get_payload()'s wider union
+        # return type.
         for line in cast(bytes, msg.get_payload(decode=True)).splitlines():
             if scre.search(line):
                 found = True

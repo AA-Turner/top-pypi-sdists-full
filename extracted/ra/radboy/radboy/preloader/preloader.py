@@ -18,6 +18,16 @@ preloader={
 						'exec':depreciation,
 					},
 	f'{uuid1()}':{
+			'cmds':['paydays',],
+			'desc':f'calculate pays for Employer with pay period in days from datetime',
+			'exec':paydays,
+				},
+	f'{uuid1()}':{
+			'cmds':['holidays',],
+			'desc':f'store holidays and dates observed by an individual/group/organization/area',
+			'exec':holidaysLogger,
+				},
+	f'{uuid1()}':{
             'cmds':['glossary','g'],
             'exec':lambda:GlossaryUI(engine=ENGINE),
             'desc':'terms and definitions related to inventory management'

@@ -63,6 +63,36 @@ class ExecutionTreeInfo:
     outbound_http_requests: List[ExecutionTreeNode]
     background_jobs: List[ExecutionTreeNode]
     log_messages: List[ExecutionTreeNode]
+    # Assignment frames (see ``is_assignment_frame``) whose function has no
+    # open call in this tree: the function running ``with kolo.enable():``,
+    # or the caller of a flushed segment.
+    unattached_assignments: List[Dict[str, Any]] = field(default_factory=list)
+    # Whether the tree recorded any assignment at all (``line_events``).
+    has_assignments: bool = False
+
+
+def is_assignment_frame(frame: Dict[str, Any]) -> bool:
+    """Whether ``frame`` is a ``line_events`` assignment: a ``line`` event
+    carrying ``assign: (variable, value)``."""
+    if frame.get("event") != "line":
+        return False
+    assign = frame.get("assign")
+    return isinstance(assign, (tuple, list)) and len(assign) == 2
+
+
+def assignment_owner(
+    open_frame_spans: List[ExecutionTreeNode], frame: Dict[str, Any]
+) -> Optional[ExecutionTreeNode]:
+    """The open call ``frame`` was assigned in, if this tree has it.
+
+    An assignment carries the ``frame_id`` of the call (or resume) it ran
+    in, which is the innermost open function call.
+    """
+    frame_id = frame.get("frame_id")
+    if frame_id is None or not open_frame_spans:
+        return None
+    innermost = open_frame_spans[-1]
+    return innermost if innermost.frame_id == frame_id else None
 
 
 def calculate_all_children_count(node: ExecutionTreeNode) -> int:
@@ -203,6 +233,9 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
 
     root_execution_tree_nodes: List[ExecutionTreeNode] = []
     current_ancestors: List[ExecutionTreeNode] = []
+    # The function calls among ``current_ancestors``, so an assignment finds
+    # its call without walking past open non-function spans.
+    open_frame_spans: List[ExecutionTreeNode] = []
     execution_tree_node_index = 0
 
     # Collections for quick access to specific node types
@@ -216,6 +249,8 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
     log_message_index = 0
     five_hundred_exception: Optional[Dict[str, Any]] = None
     frame_id_mismatch_count = 0
+    unattached_assignments: List[Dict[str, Any]] = []
+    has_assignments = False
 
     # Preprocess frames to remove legacy/problematic frames
     frames_of_interest = preprocess_frames_of_interest(frames_of_interest)
@@ -240,6 +275,8 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
                 current_parent.children.append(current_tree_node)
                 current_ancestors.append(current_tree_node)
 
+            if current_tree_node.type == "frame_span":
+                open_frame_spans.append(current_tree_node)
             execution_tree_node_index += 1
 
         elif is_return:
@@ -354,6 +391,8 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
 
             # Pop completed subtree
             completed_node = current_ancestors.pop()
+            if completed_node.type == "frame_span":
+                open_frame_spans.pop()
             if not current_ancestors:
                 # Completed root-level subtree
                 root_execution_tree_nodes.append(completed_node)
@@ -379,6 +418,14 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
         elif frame_type == "exception":
             # 500 exception - stored for later attachment to django_response
             five_hundred_exception = frame
+
+        elif is_assignment_frame(frame):
+            has_assignments = True
+            owner = assignment_owner(open_frame_spans, frame)
+            if owner is None:
+                unattached_assignments.append(frame)
+            else:
+                owner.data.setdefault("assignments", []).append(frame)
 
     first_open_request_index = next(
         (
@@ -442,6 +489,8 @@ def build_execution_tree(frames_of_interest: List[Dict[str, Any]]) -> ExecutionT
         outbound_http_requests=filtered_metadata["outbound_http_requests"],
         background_jobs=filtered_metadata["background_jobs"],
         log_messages=filtered_metadata["log_messages"],
+        unattached_assignments=unattached_assignments,
+        has_assignments=has_assignments,
     )
 
 
@@ -796,6 +845,8 @@ def merge_duplicate_roots(nodes: List[ExecutionTreeNode]) -> List[ExecutionTreeN
             for key, value in node.data.items():
                 if key not in existing.data:
                     existing.data[key] = value
+                elif key == "assignments":
+                    existing.data[key].extend(value)
         else:
             merged.append(node)
 

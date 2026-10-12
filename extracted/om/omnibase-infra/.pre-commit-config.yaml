@@ -21,6 +21,71 @@
 #   pre-commit install --hook-type pre-push  # Install pre-push hooks
 #   pre-commit run --all-files            # Run all pre-commit hooks
 repos:
+  - repo: local
+    hooks:
+      - id: lab-reconcile-model-evidence
+        name: Reviewed lab reconcile model evidence (OMN-19421)
+        entry: uv run --frozen pytest tests/ci/test_lab_reconcile_model.py -q --no-cov
+        language: system
+        files: ^(formal/lab_reconcile/|tests/ci/test_lab_reconcile_model\.py$|tests/ci/fixtures/lab_reconcile_ticket_omn19421\.json$|\.pre-commit-config\.yaml$|\.github/workflows/ci\.yml$)
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: lane-sync-receipt
+        name: Lane sync refuses every census finding (OMN-19417)
+        entry: uv run --frozen pytest tests/ci/test_lab_pass_receipt_integration_probes_omn18866.py -q
+        language: system
+        pass_filenames: false
+        files: ^(scripts/(ci/lab_pass_receipt\.py|lane-census-check\.sh|lane_census_(inventory|plan)\.py|runtime_build/verify_stability_refresh\.py)|tests/ci/test_lab_pass_receipt_integration_probes_omn18866\.py|\.github/workflows/(ci|runtime-rebuild-trigger-reusable)\.yml|\.pre-commit-config\.yaml)$
+        stages: [pre-commit]
+      - id: lane-sync-stability
+        name: Stability refresh retains lane sync failure (OMN-19417)
+        entry: uv run --frozen pytest scripts/runtime_build/tests/test_verify_stability_refresh.py -q
+        language: system
+        pass_filenames: false
+        files: ^(scripts/(ci/lab_pass_receipt\.py|lane-census-check\.sh|runtime_build/(verify_stability_refresh\.py|tests/test_verify_stability_refresh\.py))|\.github/workflows/ci\.yml|\.pre-commit-config\.yaml)$
+        stages: [pre-commit]
+      - id: lane-sync-drift
+        name: Census drift count refuses nonzero (OMN-19417)
+        entry: uv run --frozen pytest tests/unit/scripts/test_check_lane_census_drift_omn18949.py -q
+        language: system
+        pass_filenames: false
+        files: ^(scripts/check_lane_census_drift\.py|tests/unit/scripts/test_check_lane_census_drift_omn18949\.py|\.github/workflows/ci\.yml|\.pre-commit-config\.yaml)$
+        stages: [pre-commit]
+      - id: lab-census-alarm-episodes
+        name: Census alarm episodes and recoveries (OMN-19418)
+        entry: uv run --frozen pytest tests/ci/test_lab_alarm_omn18867.py -k lane_drift -q
+        language: system
+        files: ^(scripts/(lab_alarm|lane_census_event|lane_census_plan)\.py|config/lab_alarm\.json|tests/ci/(test_lab_alarm_omn18867\.py|fixtures/lab_census_snapshot_omn19418\.json)|\.pre-commit-config\.yaml|\.github/workflows/ci\.yml)$
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: census-container-health
+        name: Census unhealthy and restart bounds (OMN-19416)
+        entry: uv run --frozen pytest tests/unit/scripts/test_lane_census_plan.py -k "unhealthy or restart_loop" -q
+        language: system
+        files: ^(scripts/lane_census_plan\.py|deploy/lane-census/lane-manifest\.yaml|tests/unit/scripts/test_lane_census_plan\.py|\.pre-commit-config\.yaml|\.github/workflows/ci\.yml)$
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: census-health-collector
+        name: Census health inspect transport (OMN-19416)
+        entry: uv run --frozen pytest tests/unit/scripts/test_lane_census_inventory.py -q
+        language: system
+        files: ^(scripts/lane_census_inventory\.py|tests/unit/scripts/(test_lane_census_inventory|fake_docker_engine_omn19959)\.py|\.pre-commit-config\.yaml|\.github/workflows/ci\.yml)$
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: alarm-manifest-restart-bounds
+        name: Alarm reads census restart bounds (OMN-19416)
+        entry: uv run --frozen pytest tests/ci/test_lab_alarm_omn18867.py -k "restart or shipped_config or manifest" -q
+        language: system
+        files: ^(scripts/(lab_alarm|lane_census_plan)\.py|config/lab_alarm\.json|deploy/lane-census/lane-manifest\.yaml|tests/ci/test_lab_alarm_omn18867\.py|\.pre-commit-config\.yaml|\.github/workflows/ci\.yml)$
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: linear-transport-consolidation
+        name: Linear GraphQL has one transport owner (OMN-17678)
+        entry: uv run --frozen pytest tests/ci/test_linear_transport_consolidation.py -q
+        language: system
+        files: ^(src/.*\.py|tests/ci/test_linear_transport_consolidation\.py|tests/ci/fixtures/linear_graphql_issue_omn17678\.json|\.pre-commit-config\.yaml|\.github/workflows/ci\.yml)$
+        pass_filenames: false
+        stages: [pre-commit]
   # OMN-20304: canonical-file-shape ratchet (operator ruling 2026-10-01). No
   # new code file outside the canonical contract/node/handler/models/
   # protocols/tests/docs locations, no new imperative lines in a SKILL.md, no
@@ -124,6 +189,31 @@ repos:
         files: ^src/omnibase_infra/.*\.py$
   - repo: local
     hooks:
+      # OMN-18713: CI's required Lint job runs the same discovery reconciliation gate.
+      - id: contract-discovery-reconciliation
+        name: Contract discovery reports every path outcome (OMN-18713)
+        entry: uv run --frozen pytest tests/unit/runtime/auto_wiring/test_discovery.py -q --timeout=60
+        language: system
+        pass_filenames: false
+        require_serial: true
+        files: ^(src/omnibase_infra/(runtime/auto_wiring/|models/model_discovery_skip\.py)|tests/unit/runtime/auto_wiring/test_discovery\.py|\.pre-commit-config\.yaml)$
+        stages: [pre-commit]
+      - id: discovery-manifest-live-replay
+        name: Discovery manifest accepts recorded runtime responses (OMN-18713)
+        entry: uv run --frozen pytest tests/ci/test_discovery_manifest_live_replay.py -q --timeout=60
+        language: system
+        pass_filenames: false
+        require_serial: true
+        files: ^(src/omnibase_infra/(runtime/auto_wiring/|models/model_discovery_skip\.py)|tests/ci/(test_discovery_manifest_live_replay\.py|fixtures/discovery_manifest_live\.json)|\.pre-commit-config\.yaml)$
+        stages: [pre-commit]
+      - id: rolling-runner-registration-preflight
+        name: Rolling runner registration preflight (OMN-18877)
+        entry: uv run --frozen pytest tests/ci/test_deploy_runners_registration_preflight.py -q
+        language: system
+        pass_filenames: false
+        require_serial: true
+        files: ^(scripts/deploy-runners\.sh|tests/ci/test_deploy_runners_registration_preflight\.py|tests/ci/fixtures/rolling_runner_registration_preflight\.json|\.github/workflows/ci\.yml|\.pre-commit-config\.yaml)$
+        stages: [pre-commit]
       # OMN-18786: same blocking scan as the CI Summary context.
       - id: seed-provenance-check
         name: Seed Provenance Check
@@ -150,6 +240,17 @@ repos:
         pass_filenames: false
         require_serial: true
         files: ^(src/omnibase_infra/topology/|docker/catalog/database-topology/|scripts/ci/(detect_test_paths\.py|test_selection_(adjacency\.yaml|loader\.py|models\.py))$|tests/unit/scripts/ci/test_detect_test_paths\.py$|\.github/workflows/ci\.yml$|\.pre-commit-config\.yaml$)
+        stages: [pre-commit]
+  # OMN-18892: same focused principal-confinement proof as the CI gate.
+  - repo: local
+    hooks:
+      - id: slot-migration-principal-confinement
+        name: Slot migrations use confined principals (OMN-18892)
+        entry: uv run --frozen pytest tests/unit/infra/test_db_slot_provisioner_omn18892.py -q --timeout=60
+        language: system
+        pass_filenames: false
+        require_serial: true
+        files: ^(scripts/(run-forward-migrations|run-intelligence-migrations|provision_db_slot)\.sh|docker/docker-compose\.prepr\.yml|tests/unit/infra/test_db_slot_provisioner_omn18892\.py|\.github/workflows/ci\.yml|\.pre-commit-config\.yaml)$
         stages: [pre-commit]
   # Shape-gate independence (OMN-20298): a shape-gate detector job never waits
   # on the change-control preflight and never reads its result. BLOCKING, zero
@@ -188,7 +289,8 @@ repos:
         files: ^\.github/workflows/.*\.ya?ml$
         pass_filenames: false
         require_serial: true
-  # Hardcoded topic guard — sourced from onex_change_control (OMN-5256/OMN-5259)
+  # Hardcoded topic guard — sourced from omnibase_core (OMN-20074, OCC retirement
+  # S8; originally onex_change_control OMN-5256/OMN-5259)
   # Pre-existing violations excluded pending migration to canonical constants (OMN-5259)
   # OMN-13195 (phase A4): dropped the redundant `event_bus/topic_constants.py`
   # exclude — the hook already approves that basename via its internal
@@ -198,8 +300,8 @@ repos:
   # local topic-literal gate (check_topic_literals.py) after OMN-13202 deleted its
   # last TOPIC_* literals. The file holds DLQ builders only and the gate now fails
   # closed on any reintroduced literal — A5-full is complete.
-  - repo: https://github.com/OmniNode-ai/onex_change_control
-    rev: 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a # pragma: allowlist secret
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 6f70e56604a9f9d98b34bb9c3768a4468aeca71e
     hooks:
       # OMN-18691 adds ONE path to this exclude: docker/docker-compose.ci-bus.yml.
       # Read the reason before adding a second — an allowlist entry is never a way
@@ -233,6 +335,11 @@ repos:
       - id: no-hardcoded-topics
         require_serial: true
         exclude: ^(src/omnibase_infra/(enums/generated|cli|tui|models/registration/model_event_bus_topic_entry\.py|nodes/.*/handlers|nodes/.*/services|nodes/.*/contracts|runtime/contract_registration_event_router\.py|services/observability|services/service_timeout_emitter\.py|topics/service_topic_registry\.py|validation|contracts/)|scripts/|tests/|contracts/|src/dep_health_allowlist\.yaml|docker/docker-compose\.ci-bus\.yml)
+  # no-bare-feature-flags comes from omnibase_core (omnibase_core#1936, OMN-20919,
+  # OCC retirement S8). A separate block keeps no-hardcoded-topics on the rev above.
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 9218fe703b08d329f76eecd37fabbbc7b0c2baad # pragma: allowlist secret
+    hooks:
       - id: no-bare-feature-flags
         require_serial: true
         # YAML formatting (standard across ecosystem)
@@ -474,6 +581,14 @@ repos:
         files: ^(\.github/workflows/.*\.ya?ml|docker/.*/compose\.ya?ml|docker/docker-compose\..*\.ya?ml|tests/ci/test_compose_proof_teardown_policy\.py)$
         pass_filenames: false
         stages: [pre-commit]
+      # The same focused slot lifecycle proof runs in the required CI job.
+      - id: prepr-tenant-lifecycle
+        name: Pre-PR slot tenant lifecycle (OMN-18894)
+        entry: uv run --frozen pytest tests/unit/scripts/test_prepr_tenant_lifecycle_omn18894.py -q --timeout=60
+        language: system
+        files: ^(scripts/runtime_build/prepr_(verify_lane\.sh|teardown_slot\.(py|sh))|scripts/smoke/smoke_delegation\.sh|docker/docker-compose\.prepr\.yml|tests/unit/scripts/test_prepr_tenant_lifecycle_omn18894\.py)$
+        pass_filenames: false
+        stages: [pre-commit]
       # OMN-18247 (epic OMN-18232 phase 3): every artifact declared in
       # config/ci_evidence_policy.yaml must be asserted present and non-empty
       # at its uploader, on parsed workflow structure rather than file text.
@@ -653,6 +768,13 @@ repos:
         entry: uv run --frozen pytest tests/scripts/ci/test_lab_pass_criterion_bindings_omn18488.py -q
         language: system
         files: ^(scripts/ci/lab_pass_receipt\.py|src/omnibase_infra/nodes/node_evidence_autoclose_sweep_effect/.*|tests/scripts/ci/test_lab_pass_criterion_bindings_omn18488\.py|\.github/workflows/(runtime-rebuild-trigger|deliver-dev-candidate-to-staging)\.yml)$
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: persistent-lab-receipt
+        name: Persistent lab apply receipt and candidate smoke isolation (OMN-18276)
+        entry: uv run --frozen pytest tests/scripts/ci/test_persistent_lab_receipt_omn18276.py -q --no-cov
+        language: system
+        files: ^(scripts/ci/(lab_pass_receipt|fetch_lab_overlay_record)\.py|tests/scripts/ci/test_persistent_lab_receipt_omn18276\.py|\.github/workflows/(runtime-rebuild-trigger|deliver-dev-candidate-to-staging|ci)\.yml|\.pre-commit-config\.yaml)$
         pass_filenames: false
         stages: [pre-commit]
       - id: d11-workflow-verdict-regression
@@ -1821,6 +1943,14 @@ repos:
         language: system
         files: docker/(docker-compose\.dev-lane\.yml|dev-lane-required-env\.manifest\.txt)
         pass_filenames: false
+      # OMN-15645: cover the explicit tiers pin, including catalog workers.
+      - id: delegation-routing-tiers-binding
+        name: Check delegation routing tiers deployment bindings
+        entry: uv run --frozen pytest tests/unit/docker/test_delegation_routing_tiers_path_binding_omn15645.py -q --no-cov
+        language: system
+        files: ^(docker/(Dockerfile\.runtime|docker-compose\..*\.yml|catalog/.*\.ya?ml)|src/omnibase_infra/docker/catalog/.*\.py|tests/(unit/docker/test_delegation_routing_tiers_path_binding_omn15645\.py|fixtures/omn15645_worker_tiers_live_contact\.json)|\.pre-commit-config\.yaml|\.github/workflows/ci\.yml)$
+        pass_filenames: false
+        stages: [pre-commit]
       # OMN-4857: Block Consul references in source (decommissioned service)
       # Prevents reintroduction of CONSUL_HOST or consul.connect.io references in src/.
       - id: no-consul-references
@@ -2023,6 +2153,18 @@ repos:
         entry: uv run python scripts/ci/check_integration_skips.py --selftest --config scripts/ci/runtime_boot_suites_skip_guard.yaml
         files: >-
           ^(scripts/ci/check_integration_skips\.py|scripts/ci/runtime_boot_suites_skip_guard\.yaml|tests/ci/test_check_integration_skips\.py|\.github/workflows/reusable-runtime-boot\.yml|tests/integration/test_runtime_consumes_build_loop_terminal_event\.py|tests/integration/registration/e2e/test_runtime_e2e\.py)$
+        pass_filenames: false
+        stages: [pre-commit]
+      # OMN-17427: the laptop boot job's dev-lane class phase derives the
+      # kernels' strict-wiring and secrets-store bindings from the dev lane's
+      # compose files and fails on a restart. SYNC with
+      # tests/ci/test_runtime_boot_dev_lane_class_omn17427.py in CI.
+      - id: runtime-boot-dev-lane-class
+        name: Runtime boot dev-lane class phase (OMN-17427)
+        language: system
+        entry: uv run pytest tests/ci/test_runtime_boot_dev_lane_class_omn17427.py -q -p no:randomly
+        files: >-
+          ^(\.github/workflows/(reusable-runtime-boot|ci)\.yml|docker/docker-compose\.(infra|dev-lane)\.yml|tests/ci/test_runtime_boot_dev_lane_class_omn17427\.py)$
         pass_filenames: false
         stages: [pre-commit]
   # OMN-13291 (W0): validator-requirements fleet gate. Reports ALL missing
@@ -2329,6 +2471,16 @@ repos:
         name: Skip count baseline can only shrink (OMN-19677)
         args: [--baseline, config/skip_count_baseline.yaml, --parser, 'yaml-counted-list-map:suites', --base-ref, origin/dev]
         files: ^config/skip_count_baseline\.yaml$
+  # OMN-20782: the public-repo hygiene gate over the lines a commit adds, at the
+  # same omniclaude revision as .github/workflows/public-repo-hygiene.yml, so the
+  # local verdict and the CI verdict cannot diverge. The hook reads the private
+  # denylist from the file named by OMNI_HYGIENE_VOCAB_PATH, with the lab
+  # vocabulary beside it, and fails closed without them.
+  - repo: https://github.com/OmniNode-ai/omniclaude
+    rev: 6e47aa311ac5d177d116d9597b07966a233d2463
+    hooks:
+      - id: public-repo-hygiene
+        require_serial: true
   # OMN-19666: VCS-backed additional_dependencies can inherit GIT_INDEX_FILE
   # during a cold-cache commit and overwrite the committing worktree index.
   - repo: local

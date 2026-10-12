@@ -596,7 +596,7 @@ KIND_TABLES_WRITTEN_AS_THE_PERSON = (
     "content_ir.kind_definition",
     "content_ir.kind_instance",
     "skill.definition",
-    "skill.render_definition",
+    "agent.prompt_block",
 )
 #: 🚧 STILL WRITTEN ON THE PRIVILEGED CONNECTION (after the RLS-decided
 #: ensure_can_edit_kind gate): these component tables are not yet certified —

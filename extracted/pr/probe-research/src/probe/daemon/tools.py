@@ -39,6 +39,12 @@ scripts it runs, re-hashed).
 
 A delete Probe cannot undo (`precheck.PERMANENT_DELETES`: no trash behind it) is
 a question too (`delete.permanent`), unless the session runs in bypass mode.
+
+THE TEAM-NOTE AUDIT (`Deps.audit`, daemon-team-note-audit; Richard 2026-10-11:
+"dont ask for approval or anything") asks nothing, in any mode. It edits its own
+copy of the note (its only write folder, `audit.draft_dir`), which the daemon
+publishes when it ends; a `probe` command runs only when it reads; any other
+command that is not on the safe list is refused (`AUDIT_REFUSED`), never held.
 """
 
 from __future__ import annotations
@@ -169,6 +175,10 @@ class Deps:
     #: agent's memory and instruction files even in bypass mode, and its lookups
     #: stay out of the writer's logbook.
     reader: bool = False
+    #: The team-note AUDIT (daemon-team-note-audit): nothing it does is ever a
+    #: question -- anything that would wait for a yes is refused (`AUDIT_REFUSED`).
+    #: Its `write_dirs` is its draft folder alone (`audit.AuditLane._deps`).
+    audit: bool = False
 
 
 def _classify(deps: Deps, command: str, cwd: Path, *, piped_input: bool = False) -> Any:
@@ -176,7 +186,69 @@ def _classify(deps: Deps, command: str, cwd: Path, *, piped_input: bool = False)
     from probe.daemon import shell as sh
 
     return sh.classify(command, workdirs=deps.workdirs, home=deps.home, cwd=cwd, protected=deps.protected,
-                       write_dirs=deps.write_dirs, piped_input=piped_input)
+                       write_dirs=deps.write_dirs, piped_input=piped_input, hidden=_off_check(deps, cwd),
+                       off_inside=_off_inside_check(deps))
+
+
+def _config_checker(deps: Deps, cwd: Path) -> Any:
+    """A `probe_config.Checker` as this session sees the `.probe.config` files
+    (the ones above its launch folder the researcher set aside do not count)."""
+    from probe.sdk import probe_config as pc
+    from probe.sdk import session_marker
+
+    _start, skip = pc.session_view(session_marker.sessions_dir(), deps.session_id)
+    return pc.Checker(cwd=str(cwd), skip=skip, legacy=True)
+
+
+def _off_check(deps: Deps, cwd: Path) -> Any:
+    """For the shell's checks: is a path `off` (Probe never reads it)? When the
+    check cannot be built, every path counts as `off` (fail closed)."""
+    try:
+        checker = _config_checker(deps, cwd)
+    except Exception:  # noqa: BLE001
+        return lambda path: True
+    return lambda path: checker.check(path).hidden
+
+
+#: `probe_config.off_inside` answers, per (session, folder): (when, answer).
+_OFF_INSIDE: dict[tuple[str, str], tuple[float, bool]] = {}
+_OFF_INSIDE_TTL_S = 5.0
+
+
+def _off_inside_check(deps: Deps) -> Any:
+    """For the shell's checks: does a folder hold an `off` path somewhere below?
+    (A command reading the whole tree is then refused.) Reused for 30 s."""
+    from probe.sdk import probe_config as pc
+    from probe.sdk import session_marker
+
+    def check(folder: str) -> bool:
+        key = (deps.session_id, folder)
+        now = time.monotonic()
+        hit = _OFF_INSIDE.get(key)
+        if hit is not None and now - hit[0] < _OFF_INSIDE_TTL_S:
+            return hit[1]
+        try:
+            _start, skip = pc.session_view(session_marker.sessions_dir(), deps.session_id)
+            answer = pc.off_inside(folder, skip=skip, legacy=True)
+        except Exception:  # noqa: BLE001
+            answer = True
+        if len(_OFF_INSIDE) > 4096:
+            _OFF_INSIDE.clear()
+        _OFF_INSIDE[key] = (now, answer)
+        return answer
+
+    return check
+
+
+def _off_scrubbed(deps: Deps, text: str, cwd: Path) -> str:
+    """A shell output minus the lines that show an `off` file (a backstop: a
+    command reading a tree that holds one is refused before it runs)."""
+    try:
+        from probe.daemon import exclusions as ex
+
+        return ex.scrub_listing(text, _config_checker(deps, cwd))[0]
+    except Exception:  # noqa: BLE001 - fail closed
+        return "[output removed: it could not be checked against .probe.config]"
 
 
 def _op_id(deps: Deps, argv: list[str], content: str = "", *, family: str | None = None) -> str:
@@ -390,6 +462,24 @@ def _may_retry(result: ProbeResult, argv: list[str]) -> bool:
 
 
 NO_LEASE = "not run: this daemon no longer records this session"
+#: What the team-note audit is told for a command that would need the researcher's
+#: yes: the audit asks nothing (Richard 2026-10-11), so it does not run.
+AUDIT_REFUSED = "not run: the team-note audit asks the researcher nothing, so a command that needs their yes does not run"
+#: The team-note audit runs only `probe` reads: the daemon pulls the note before the
+#: run and publishes the audit's copy after it (`audit.AuditLane`), under the
+#: researcher's own credential -- a `notes sync` under the daemon's key would park
+#: the researcher's note as another credential's (`team_note_file.paths`).
+AUDIT_SYNC_IS_THE_DAEMONS = ("`probe notes sync` is the daemon's: it pulled the note into your copy and "
+                             "publishes your copy when you end with final_result")
+
+
+def audit_probe_refusal(parsed: "precheck.Parsed") -> str | None:
+    """None when the team-note audit may run this `probe` command; else why not."""
+    if parsed.owner == precheck.READ:
+        return None
+    if parsed.path == "notes sync":
+        return f"not run: {AUDIT_SYNC_IS_THE_DAEMONS}."
+    return f"{AUDIT_REFUSED} (`probe {parsed.path}` writes; the audit reads Probe only)."
 #: Opens the logbook reason of an `edge remove` run without a question because
 #: Probe says this researcher's daemon made the link (`_own_link`, lineage L9).
 OWN_LINK_REASON = "own link (L9): "
@@ -579,13 +669,16 @@ async def _shell_command(deps: Deps, command: str, verdict: Any, why: str, cwd: 
                              argv=["sh", "-c", scrub(command)], head="shell", status="not_run",
                              reason=verdict.reason)
         return f"not run: {verdict.reason} This is refused in every mode.", None
+    if deps.audit and not verdict.safe:
+        return f"{AUDIT_REFUSED} ({scrub(verdict.reason).rstrip('.')}).", None
     auto = deps.bypass and deps.mode_known  # bypass mode: nothing is asked, so nothing is hidden
     if verdict.fixable and not auto:  # one flag from safe (`shell._Fix`): the daemon adds it, nobody is asked
         return f"not run: {verdict.reason}", None
     if verdict.safe:
         result = await sh.run(command, cwd=cwd, watch=lease_watch(deps), stdin=stdin)
-        deps.store.log_lookup(bite=deps.bite_id, tool="shell", query=command, result=result.output[:2000])
-        text = scrub(result.output)
+        output = _off_scrubbed(deps, result.output, cwd)
+        deps.store.log_lookup(bite=deps.bite_id, tool="shell", query=command, result=output[:2000])
+        text = scrub(output)
         return f"[{_shell_status(result)}{' · output cut' if result.truncated else ''}]\n{text}", result.exit_code
     if scrub(command) != command and not auto:
         # C1: the question would have to hide part of the command, and a yes runs
@@ -627,7 +720,8 @@ async def _shell_command(deps: Deps, command: str, verdict: Any, why: str, cwd: 
     if req.state == appr.APPROVED:
         result = await _run_shell_write(deps, command, held["op_id"], head="shell", request=req.id, cwd=cwd,
                                         stdin=stdin)
-        return f"[{appr.AUTO} · {_shell_status(result)}]\n{scrub(result.output)}", result.exit_code
+        return (f"[{appr.AUTO} · {_shell_status(result)}]\n{scrub(_off_scrubbed(deps, result.output, cwd))}",
+                result.exit_code)
     deps.store.log_write(bite=deps.bite_id, op_id=held["op_id"], argv=["sh", "-c", command], head="shell",
                          status="held", reason=verdict.reason, request=req.id)
     return (f"held for the researcher (request {req.id}) - {verdict.reason.rstrip('.')}. It runs if they say yes - "
@@ -901,6 +995,23 @@ def _document_block(deps: Deps, parsed: precheck.Parsed) -> precheck.Block | Non
     return precheck.check_document(path, parsed) if path is not None else None
 
 
+def _config_block(deps: Deps, parsed: precheck.Parsed, here: Path) -> precheck.Block | None:
+    """A command naming a path a `.probe.config` keeps out of the record, as this
+    session sees the files (`precheck.check_config`). A check that fails refuses
+    the command (fail closed)."""
+    try:
+        from probe.sdk import probe_config as pc
+        from probe.sdk import session_marker
+
+        _start, skip = pc.session_view(session_marker.sessions_dir(), deps.session_id)
+        checker = pc.Checker(cwd=str(here), skip=skip, legacy=True)
+        return precheck.check_config(parsed, cwd=here, checker=checker, document=_document_path(deps, parsed))
+    except Exception as exc:  # noqa: BLE001
+        return precheck.Block(precheck.new_block_id(),
+                              f"the .probe.config check failed ({type(exc).__name__}), so it was not run",
+                              "probe_config", argv=parsed.argv, overridable=False)
+
+
 async def _server_has_trash(deps: Deps) -> bool | None:
     """Does the server declare the trash? None: Probe could not be asked."""
     if deps.replay is not None:
@@ -933,6 +1044,8 @@ async def _probe_command(deps: Deps, argv: list[str], *, why: str = "", cwd: Pat
     if stop is not None:
         return stop, None
     if argv[:2] == ["daemon", "override"]:
+        if deps.audit:
+            return f"{AUDIT_REFUSED} (an override is a question).", None
         return await _request_override(deps, argv[2:], why=why)
     from probe.daemon import probe_api
 
@@ -940,11 +1053,16 @@ async def _probe_command(deps: Deps, argv: list[str], *, why: str = "", cwd: Pat
         parsed = precheck.parse(argv)
     except precheck.ParseError as exc:
         return f"not run: {exc}", None
+    if deps.audit:
+        refusal = audit_probe_refusal(parsed)
+        if refusal is not None:
+            return refusal, None
     try:
         trash = await _server_has_trash(deps) if parsed.path in precheck.DELETES else False
     except probe_api.KeyRefused:
         return write_refusal(deps) or NO_LEASE, None
-    block = precheck.check(parsed, cwd=here, trash=trash) or _document_block(deps, parsed)
+    block = (precheck.check(parsed, cwd=here, trash=trash) or _document_block(deps, parsed)
+             or _config_block(deps, parsed, here))
     # A write's key only once it is going to run: a blocked command reads none of
     # the files it names (a key file among them), and a read keeps no count.
     if block is not None or parsed.owner == precheck.READ:
@@ -1252,7 +1370,8 @@ async def read_file(deps: Deps, path: str, offset: int | None = None, limit: int
     path = _in_skills(path, deps.cwd, skills)
     refused = sh.read_refusal(path, workdirs=deps.workdirs, home=deps.home, cwd=deps.cwd,
                               protected=deps.protected, write_dirs=deps.write_dirs,
-                              read_dirs=[skills] if skills is not None else [])
+                              read_dirs=[skills] if skills is not None else [],
+                              hidden=_off_check(deps, deps.cwd))
     if refused is not None:
         reason, never = refused
         if never:
@@ -1388,7 +1507,9 @@ def session_search(deps: Deps, query: str, kind: str | None = None, turn_from: i
         at = text.lower().find(query.split()[0].lower()) if query.split() else 0
         start = max(0, at - 200)
         snippet = text[start:start + 500].replace("\n", " ⏎ ")
-        out.append(f"- {ev.event_id} · turn {ev.turn} · {ev.kind.value}{' · ' + ev.tool if ev.tool else ''}: {snippet}")
+        tag = f" ({ev.note})" if ev.note else ""
+        out.append(f"- {ev.event_id} · turn {ev.turn} · {ev.kind.value}{' · ' + ev.tool if ev.tool else ''}: "
+                   f"{snippet}{tag}")
     return "\n".join(out)
 
 
@@ -1416,7 +1537,11 @@ def session_open(deps: Deps, event_id: str | None = None, turn: int | None = Non
         return f"no event {event_id}"
     text = ev.text
     if ev.side_file:
-        text = _read_side(deps, ev.side_file) or text
+        side = _read_side(deps, ev.side_file)
+        if side is not None:  # the full text: scrubbed as the preview was at intake
+            text = _off_scrubbed(deps, side, Path(ev.cwd or deps.cwd))
+    if ev.note:
+        text = f"({ev.note})\n{text}"
     if ev.kind == Kind.TOOL_OUTPUT:
         call = deps.store.call_for(ev.call_id, recorded=recorded)
         head = f"output of: {call.command or ' '.join(filter(None, (call.tool, call.text)))}\n" if call else ""

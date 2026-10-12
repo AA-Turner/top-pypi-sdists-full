@@ -3,14 +3,14 @@ resolver = "2"
 members = ["crates/sase_core", "crates/sase_core_py", "crates/sase_gateway", "crates/sase_workspace_hack"]
 
 [workspace.package]
-version = "0.37.2"
+version = "0.38.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/sase-org/sase-core"
 rust-version = "1.89"
 
 [workspace.dependencies]
-sase_core = { path = "crates/sase_core", version = "0.37.2" }
+sase_core = { path = "crates/sase_core", version = "0.38.0" }
 sase_gateway = { path = "crates/sase_gateway" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
@@ -18,6 +18,7 @@ serde_yaml = "0.9"
 thiserror = "1"
 regex = "1"
 chrono = { version = "0.4", default-features = false, features = ["std"] }
+chrono-tz = { version = "0.9", default-features = false, features = ["std"] }
 fs2 = "0.4"
 rusqlite = { version = "0.32", features = ["bundled"] }
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }

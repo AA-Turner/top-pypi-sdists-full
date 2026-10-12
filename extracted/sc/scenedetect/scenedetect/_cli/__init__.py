@@ -230,21 +230,13 @@ Global options (e.g. -i/--input, -c/--config) must be specified before any comma
 )
 @click.option(
     "--frame-rate",
+    "--framerate",
     "-f",
     "frame_rate",
     metavar="FPS",
     type=click.FLOAT,
     default=None,
     help="Override frame rate with value as frames/sec.",
-)
-@click.option(
-    "--framerate",
-    "framerate_legacy",
-    metavar="FPS",
-    type=click.FLOAT,
-    default=None,
-    hidden=True,
-    help="[DEPRECATED] Use -f/--frame-rate instead.",
 )
 @click.option(
     "--min-scene-len",
@@ -346,7 +338,6 @@ def scenedetect(
     stats: str | None,
     config: str | None,
     frame_rate: float | None,
-    framerate_legacy: float | None,
     min_scene_len: str | None,
     drop_short_scenes: bool | None,
     merge_last_scene: bool | None,
@@ -360,13 +351,6 @@ def scenedetect(
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
-
-    # TODO(https://scenedetect.com/issue/548): emit DeprecationWarning when `--framerate`
-    # is used, once downstream users have had a release to migrate to `--frame-rate`.
-    if frame_rate is None:
-        frame_rate = framerate_legacy
-    elif framerate_legacy is not None:
-        logger.warning("Both --frame-rate and --framerate were specified; using --frame-rate.")
 
     ctx.handle_options(
         input_path=input,
@@ -515,6 +499,19 @@ def time_command(
     ctx.duration = ctx.parse_timecode(duration)
     if ctx.start_time and ctx.end_time and (ctx.start_time + 1) > ctx.end_time:
         raise click.BadParameter("-e/--end time must be greater than -s/--start")
+    # Reject start times past EOF before any backend seeks. OpenCV/PyAV previously
+    # continued and produced inconsistent errors; MoviePy raised SeekError (#380).
+    video_duration = ctx.video_stream.duration if ctx.video_stream is not None else None
+    if (
+        ctx.start_time is not None
+        and video_duration is not None
+        and video_duration > 0
+        and ctx.start_time >= video_duration
+    ):
+        raise click.BadParameter(
+            "start time is beyond the end of the video",
+            param_hint="-s/--start",
+        )
 
 
 DETECT_CONTENT_HELP = """Find fast cuts using differences in HSL (filtered).
@@ -780,6 +777,15 @@ Examples:
     ),
 )
 @click.option(
+    "--min-out-length",
+    metavar="TIMECODE",
+    type=click.STRING,
+    default=None,
+    help="Minimum time spent faded out before a cut is allowed. Ignores shorter fades even when the minimum scene length is met. Also applies to a final fade-out, including the last processed frame. Zero allows fades of any duration. TIMECODE can be specified in frames (4), seconds with an `s` suffix (0.4s), or timecode (00:00:00.400).{}".format(
+        USER_CONFIG.get_help_string("detect-threshold", "min-out-length")
+    ),
+)
+@click.option(
     "--min-scene-len",
     "-m",
     metavar="TIMECODE",
@@ -799,6 +805,7 @@ def detect_threshold_command(
     fade_bias: float | None,
     add_last_scene: bool,
     min_scene_len: str | None,
+    min_out_length: str | None,
 ):
     ctx = ctx.obj
     assert isinstance(ctx, CliContext)
@@ -807,6 +814,7 @@ def detect_threshold_command(
         fade_bias=fade_bias,
         add_last_scene=add_last_scene,
         min_scene_len=min_scene_len,
+        min_out_length=min_out_length,
     )
     ctx.add_detector(ThresholdDetector, detector_args)
 
@@ -1713,6 +1721,48 @@ def save_qp_command(
     ctx.add_command(cli_commands.save_qp, save_qp_args)
 
 
+SAVE_KEYFRAMES_HELP = """Save detected cuts using keyframe format v1.
+
+Frame numbers are currently approximate for variable framerate (VFR) video.
+"""
+
+
+@click.command("save-keyframes", cls=Command, help=SAVE_KEYFRAMES_HELP)
+@click.option(
+    "--filename",
+    "-f",
+    metavar="NAME",
+    default=None,
+    type=click.STRING,
+    help="Filename format to use.{}".format(
+        USER_CONFIG.get_help_string("save-keyframes", "filename")
+    ),
+)
+@click.option(
+    "--output",
+    "-o",
+    metavar="DIR",
+    type=click.Path(exists=False, dir_okay=True, writable=True, resolve_path=False),
+    help="Output directory to save keyframes to. Overrides global option -o/--output.{}".format(
+        USER_CONFIG.get_help_string("save-keyframes", "output", show_default=False)
+    ),
+)
+@click.pass_context
+def save_keyframes_command(
+    ctx: click.Context,
+    filename: str | None,
+    output: str | None,
+):
+    ctx = ctx.obj
+    assert isinstance(ctx, CliContext)
+
+    save_keyframes_args = {
+        "filename": ctx.config.get_value("save-keyframes", "filename", filename),
+        "output": ctx.config.get_value("save-keyframes", "output", output),
+    }
+    ctx.add_command(cli_commands.save_keyframes, save_keyframes_args)
+
+
 SAVE_FCP_HELP = """Save cuts in Final Cut Pro XML format (FCP7 xmeml or FCPX)."""
 
 
@@ -1857,6 +1907,7 @@ scenedetect.add_command(save_edl_command)
 scenedetect.add_command(save_html_command)
 scenedetect.add_command(save_images_command)
 scenedetect.add_command(save_qp_command)
+scenedetect.add_command(save_keyframes_command)
 scenedetect.add_command(save_fcp_command)
 scenedetect.add_command(save_otio_command)
 scenedetect.add_command(split_video_command)

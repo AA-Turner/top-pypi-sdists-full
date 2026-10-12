@@ -31,9 +31,26 @@ from turbohtml._html import _url_scrub, _url_split, _url_variant_key
     [
         pytest.param('<base href="/sub/page">', "http://site.com/dir/", "http://site.com/sub/page", id="relative-base"),
         pytest.param('<base href="http://abs.com/x">', "http://site.com/", "http://abs.com/x", id="absolute-base"),
+        pytest.param('<base href="data:text/plain,x">', "http://site.com/", "http://site.com/", id="data-base"),
+        pytest.param('<base href="JaVaScRiPt:alert(1)">', "http://site.com/", "http://site.com/", id="javascript-base"),
+        pytest.param(
+            '<base href="data:text/plain,x"><base href="https://other.com/">',
+            "http://site.com/",
+            "http://site.com/",
+            id="first-base-disallowed",
+        ),
+        pytest.param('<base href="ftp://other.com/x">', "http://site.com/", "ftp://other.com/x", id="other-scheme"),
+        pytest.param('<base href="dog:x">', "http://site.com/", "dog:x", id="data-prefix-is-not-data"),
+        pytest.param('<base href="just:foo">', "http://site.com/", "just:foo", id="short-javascript-prefix"),
         pytest.param("<p>no base</p>", "http://site.com/", "http://site.com/", id="no-base"),
         pytest.param("<base>", "http://site.com/", "http://site.com/", id="valueless-href"),
+        pytest.param('<base href="">', "http://site.com/", "http://site.com/", id="empty-href"),
         pytest.param('<base href="  ">', "http://site.com/", "http://site.com/", id="blank-href"),
+        pytest.param('<base href=" b:_">', "https://example.org/dir/page", "b:_", id="opaque-leading-space"),
+        pytest.param('<base href="b\n:_">', "https://example.org/dir/page", "b:_", id="opaque-internal-line-feed"),
+        pytest.param('<base href="b&#13;:_">', "https://example.org/dir/page", "b:_", id="opaque-internal-return"),
+        pytest.param('<base href="a:!\tx">', "https://example.org/dir/page", "a:!x", id="opaque-internal-tab"),
+        pytest.param('<base href="&#31;b:_">', "https://example.org/dir/page", "b:_", id="opaque-leading-c0"),
     ],
 )
 def test_base_url(html: str, fallback: str, expected: str) -> None:
@@ -59,10 +76,41 @@ def test_base_url_default_fallback() -> None:
         pytest.param("http://h?a=b c", "http://x", "http://h?a=b%20c", id="authority-then-query"),
         pytest.param("http://h#f g", "http://x", "http://h#f%20g", id="authority-then-fragment"),
         pytest.param("http://h/p#f g", "http://x", "http://h/p#f%20g", id="fragment-without-query"),
+        pytest.param("^", "https://example.org/dir/file", "https://example.org/dir/%5E", id="relative-path-caret"),
+        pytest.param(
+            "x?c=^#^", "https://example.org/dir/file", "https://example.org/dir/x?c=^#^", id="query-fragment-caret"
+        ),
         pytest.param("http://h", "http://x", "http://h", id="authority-only"),
         pytest.param("ab/cd", "", "ab/cd", id="relative-without-scheme"),
+        pytest.param("a+bc", "", "a+bc", id="scheme-tail-without-colon"),
+        pytest.param("a'bc", "", "a'bc", id="quote-in-relative-path"),
+        pytest.param("+", "", "+", id="one-character-relative-path"),
         pytest.param("/x", "", "/x", id="protocol-relative-root"),
         pytest.param("http://x/a%20b?c=%7e", "http://x", "http://x/a%20b?c=%7e", id="existing-escapes-untouched"),
+        pytest.param("a: x", "https://example.org/dir/page", "a: x", id="opaque-path-space"),
+        pytest.param("a:x ?y", "https://example.org/dir/page", "a:x%20?y", id="opaque-path-space-before-query"),
+        pytest.param("a:x  ?y", "https://example.org/dir/page", "a:x %20?y", id="opaque-path-two-spaces-before-query"),
+        pytest.param("a:x?<", "https://example.org/dir/page", "a:x?%3C", id="opaque-path-nonspace-before-query"),
+        pytest.param("a:?<", "https://example.org/dir/page", "a:?%3C", id="empty-opaque-path-before-query"),
+        pytest.param("a:x #f", "https://example.org/dir/page", "a:x%20#f", id="opaque-path-space-before-fragment"),
+        pytest.param("a: [x]", "https://example.org/dir/page", "a: [x]", id="opaque-path-brackets"),
+        pytest.param("a:/ x", "https://example.org/dir/page", "a:/%20x", id="hierarchical-path-space"),
+        pytest.param("http: x", "https://example.org/dir/page", "http:%20x", id="special-scheme-still-path-encoded"),
+        pytest.param(
+            "\u2028", "https://example.org/dir/page", "https://example.org/dir/%E2%80%A8", id="line-separator"
+        ),
+        pytest.param(
+            "a/\u2028",
+            "https://example.org/dir/page",
+            "https://example.org/dir/a/%E2%80%A8",
+            id="trailing-line-separator",
+        ),
+        pytest.param(
+            "\u00a0", "https://example.org/dir/page", "https://example.org/dir/%C2%A0", id="nonbreaking-space"
+        ),
+        pytest.param(
+            " \u2003a ", "https://example.org/dir/page", "https://example.org/dir/%E2%80%83a", id="edge-em-space"
+        ),
         pytest.param(
             "rel", "http://x/\U0001f389\udce9/", "http://x/%F0%9F%8E%89%EF%BF%BD/rel", id="high-char-and-surrogate"
         ),
@@ -70,6 +118,93 @@ def test_base_url_default_fallback() -> None:
 )
 def test_base_url_percent_encodes(href: str, fallback: str, expected: str) -> None:
     # the resolved base URL applies the WHATWG path/query/fragment percent-encode sets, so it is a valid URL string
+    assert parse(f'<base href="{href}">').base_url(fallback) == expected
+
+
+@pytest.mark.parametrize(
+    ("href", "fallback", "expected"),
+    [
+        pytest.param("%2e%2e/x", "https://example.org/dir/file", "https://example.org/x", id="parent"),
+        pytest.param("%2E./x", "https://example.org/dir/file", "https://example.org/x", id="mixed-parent"),
+        pytest.param("%2e/x", "https://example.org/dir/file", "https://example.org/dir/x", id="current"),
+        pytest.param("%2e?x", "https://example.org/dir/file", "https://example.org/dir/?x", id="query"),
+        pytest.param("%2e%2e/x", "https://example.org/dir/%2e%2e/file", "https://example.org/x", id="base"),
+        pytest.param("x", "https://example.org/dir/%2e%2e", "https://example.org/x", id="base-terminal"),
+        pytest.param("x", "https://example.org/é/%2e%2e", "https://example.org/x", id="unicode-base"),
+        pytest.param("a%2eb", "https://example.org/dir/file", "https://example.org/dir/a%2eb", id="non-dot"),
+        pytest.param("/a/%2e%2e/..", "https://example.org/.", "https://example.org/", id="mixed-order"),
+        pytest.param(
+            "https://example.org/aaaaaaaaaaaaaaa/%2e%2e/x",
+            "https://example.org/dir/file",
+            "https://example.org/x",
+            id="long-absolute",
+        ),
+        pytest.param(
+            "https://example.org/é/%3e/%2f/%2e%2e/x",
+            "https://example.org/dir/file",
+            "https://example.org/%C3%A9/%3e/x",
+            id="unicode-and-other-escapes",
+        ),
+        pytest.param("/a/%2e%2e/x#f", "https://example.org/dir/file", "https://example.org/x#f", id="fragment"),
+        pytest.param(
+            "https://other.org/a/%2e/x?x= y",
+            "https://example.org/dir/file",
+            "https://other.org/a/x?x=%20y",
+            id="dot-segments-and-query-spaces",
+        ),
+        pytest.param("mailto:a/%2e%2e/x", "https://example.org/dir/file", "mailto:a/%2e%2e/x", id="opaque-path"),
+        pytest.param("mailto:?q=%2e", "https://example.org/dir/file", "mailto:?q=%2e", id="opaque-query"),
+        pytest.param("foo:/a/%2e%2e/x", "https://example.org/dir/file", "foo:/x", id="non-special-root-path"),
+        pytest.param("b", "https://example.org/a?x=%2e", "https://example.org/b", id="base-query-only"),
+        pytest.param("x", "mailto:%2e", "x", id="opaque-base"),
+        pytest.param(
+            "https://other.org/a/%2e%2e/x", "https://example.org/dir/file", "https://other.org/x", id="absolute"
+        ),
+    ],
+)
+def test_base_url_resolves_encoded_dot_segments(href: str, fallback: str, expected: str) -> None:
+    assert parse(f'<base href="{href}">').base_url(fallback) == expected
+
+
+@pytest.mark.parametrize(
+    "href",
+    [
+        pytest.param("https://example.org/abcdefghijklmnop", id="no-escape"),
+        pytest.param("https://example.org/aaaaaaaaaaaaaaa/%20/x", id="space-escape"),
+        pytest.param("https://example.org/aaaaaaaaaaaaaaa/%3e/x", id="non-dot-escape"),
+        pytest.param("https://example.org/aaaaaaaaaaaaaaa/%", id="trailing-percent"),
+    ],
+)
+def test_base_url_preserves_long_non_dot_paths(href: str) -> None:
+    assert parse(f'<base href="{href}">').base_url("https://example.org/dir/file") == href
+
+
+def test_base_url_rejects_unclosed_bracket_with_encoded_dot() -> None:
+    with pytest.raises(ValueError, match="Invalid IPv6 URL"):
+        parse('<base href="https://[bad/%2e">').base_url("https://example.org/")
+
+
+def test_meta_refresh_resolves_encoded_dot_segments() -> None:
+    assert parse('<meta http-equiv=refresh content="0;url=/a/%2e%2e/..">').meta_refresh("https://example.org/.") == (
+        0.0,
+        "https://example.org/",
+    )
+
+
+@pytest.mark.parametrize(
+    ("href", "fallback", "expected"),
+    [
+        pytest.param("a\x01", "https://example.org/d/f", "https://example.org/d/a", id="relative-path"),
+        pytest.param("\x01", "https://example.org/d/f", "https://example.org/d/f", id="control-only"),
+        pytest.param("é\x01", "https://example.org/d/f", "https://example.org/d/%C3%A9", id="unicode-path"),
+        pytest.param("?q\x02", "https://example.org/d/f", "https://example.org/d/f?q", id="query"),
+        pytest.param("#f\x01", "https://example.org/d/f", "https://example.org/d/f#f", id="fragment"),
+        pytest.param("https://other.org/a\x01", "https://example.org/d/f", "https://other.org/a", id="absolute"),
+        pytest.param("#f", "https://example.org/d/f\x01", "https://example.org/d/f#f", id="fallback"),
+        pytest.param("a\x01b", "https://example.org/d/f", "https://example.org/d/a%01b", id="interior-retained"),
+    ],
+)
+def test_base_url_trims_trailing_c0(href: str, fallback: str, expected: str) -> None:
     assert parse(f'<base href="{href}">').base_url(fallback) == expected
 
 
@@ -100,6 +235,7 @@ _SITE = "http://s.com/"
         pytest.param("2;ab", (2.0, _SITE + "ab"), id="short-url-after-separator"),
         pytest.param("0;url='unbalanced", (0.0, _SITE + "'unbalanced"), id="unbalanced-quote-kept"),
         pytest.param("0;url=a:b", (0.0, "a:b"), id="opaque-scheme-no-authority"),
+        pytest.param("5;url=\x01", (5.0, _SITE), id="control-only-url"),
     ],
 )
 def test_meta_refresh_content(content: str, expected: tuple[float, str]) -> None:
@@ -712,7 +848,7 @@ _PATH, _QUERY, _FRAGMENT = 0, 1, 2
 # The safe run each set keeps raw, mirroring URL_PATH_KEEP / URL_QUERY_KEEP / URL_FRAGMENT_KEEP in _c/url/url.c; the
 # unreserved characters quote() always keeps are implicit, so only the set-specific additions are listed.
 _SAFE: dict[int, str] = {
-    _PATH: "!$%&'()*+,-./:;=@[\\]^_|~",
+    _PATH: "!$%&'()*+,-./:;=@[\\]_|~",
     _QUERY: "!$%&()*+,-./:;=?@[\\]^`{|}~",
     _FRAGMENT: "!#$%&'()*+,-./:;=?@[\\]^_{|}~",
 }
@@ -862,6 +998,13 @@ def _oracle_scrub(url: str) -> str:
     if remainder.startswith("<![CDATA["):
         remainder = remainder.removeprefix("<![CDATA[").removesuffix("]]>")
     remainder = _MARKUP_DELIMITER.split(remainder, maxsplit=1)[0].replace("&amp;", "&")
+    trimmed: Final = remainder.rstrip(_C0_AND_SPACE)
+    if trimmed != remainder:
+        remainder = trimmed
+        if remainder.endswith("/&?#"):
+            remainder = remainder[:-2]
+        elif remainder.endswith(("/&?", "/&#")):
+            remainder = remainder[:-1]
     return remainder.removesuffix("&") if remainder.endswith("/&") else remainder
 
 
@@ -911,6 +1054,10 @@ _EDGE_CASES = (
     "https://x.example/path/&amp;",
     "https://x.example/path/&",
     "https://x.example/&amp;",
+    "https://x.example/&\x01>",
+    "https://x.example/&?\x01>",
+    "https://x.example/&#\x01>",
+    "https://x.example/&?#\x01>",
     "trailing&",
 )
 
@@ -1010,9 +1157,9 @@ def _split_corpus() -> list[str]:
     return sorted(set(urls))
 
 
-def test_url_split_matches_urllib_over_corpus() -> None:
+def test_url_split_matches_urllib_after_input_trim() -> None:
     for url in _split_corpus():
-        reference = urlsplit(url)
+        reference = urlsplit(url.rstrip(_C0_OR_SPACE))
         scheme, netloc, path, query, fragment, _userinfo, host, *_rest = _url_split(url)
         assert (scheme, netloc, path, query, fragment) == (
             reference.scheme,

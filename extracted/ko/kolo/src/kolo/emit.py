@@ -18,6 +18,8 @@ from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set
 
+from .node import assignment_line, unattached_assignment_label
+
 logger = logging.getLogger(__name__)
 
 # Header for emitted .py files - tells tools to ignore these auto-generated files
@@ -543,6 +545,64 @@ def format_locals_diff(
     return "\n".join(lines)
 
 
+def format_assignment(label: str, frame: Dict[str, Any]) -> List[str]:
+    """Format one ``line_events`` assignment as ``label: name = value``."""
+    variable, value = frame["assign"]
+    formatted = format_value(value)
+    if "\n" not in formatted:
+        return [f"{label}: {variable} = {formatted}"]
+    return [
+        f"{label}: {variable} =",
+        *(f"    {line}" for line in formatted.split("\n")),
+    ]
+
+
+def format_assignments_section(node: ProcessedNode) -> List[str]:
+    """The ``--- Assignments ---`` section of a frame: every assignment it
+    made, in execution order. Empty unless the trace recorded some
+    (``line_events``), so other traces are emitted exactly as before."""
+    assignments = node.data.get("assignments")
+    if not assignments:
+        return []
+    lines = ["", "--- Assignments ---"]
+    for frame in assignments:
+        lines.extend(format_assignment(f"line {assignment_line(frame)}", frame))
+    return lines
+
+
+UNATTACHED_ASSIGNMENTS_FILE = "_unattached_assignments.txt"
+
+
+def generate_unattached_assignments_content(
+    assignments: List[Dict[str, Any]],
+) -> str:
+    """Content for assignments whose function call is not part of the emitted
+    tree they were recorded in."""
+    lines = [
+        "=== Assignments outside recorded calls ===",
+        "",
+        "Assignments in functions whose call is not in this part of the trace,",
+        "for example the function running `with kolo.enable():`.",
+        "",
+        "--- Assignments ---",
+    ]
+    for frame in assignments:
+        lines.extend(format_assignment(unattached_assignment_label(frame), frame))
+    return "\n".join(lines)
+
+
+def write_unattached_assignments(
+    target_dir: Path, assignments: List[Dict[str, Any]]
+) -> None:
+    if not assignments:
+        return
+    (target_dir / UNATTACHED_ASSIGNMENTS_FILE).write_text(
+        generate_unattached_assignments_content(assignments),
+        encoding="utf-8",
+        errors="backslashreplace",
+    )
+
+
 def generate_frame_call_content(
     node: ProcessedNode, navigator: TraceNavigator | None = None
 ) -> str:
@@ -609,6 +669,8 @@ def generate_frame_call_content(
             lines.append(
                 f"  {child.index:3d} {child_name} ({child.formatted_duration()})"
             )
+
+    lines.extend(format_assignments_section(node))
 
     return "\n".join(lines)
 
@@ -1272,6 +1334,7 @@ def generate_leaf_frame_content(
             "",
             "--- Locals at Call ---",
             format_call_locals(call_frame),
+            *format_assignments_section(node),
             "",
             *format_return_sections(call_frame, return_frame),
         ]
@@ -1718,6 +1781,8 @@ def emit_node(
         _write_flushed_segment_info(
             node, node_dir, inlined=True, child_root_count=len(child_roots)
         )
+        # Assignments the flushed segment's caller made between its calls.
+        write_unattached_assignments(node_dir, child_tree.unattached_assignments)
         assert isinstance(flushed_trace_id, str)
         next_visited: set[str] = visited_trace_ids | {flushed_trace_id}
         for child_root in child_roots:
@@ -1938,16 +2003,17 @@ def emit_trace(
     # non-empty trees by their first event below.
     for section in trace.threads:
         nodes = list(section.tree.root_nodes)
-        if nodes:
+        # A thread already running when tracing started can have recorded
+        # assignments without any call.
+        if nodes or section.tree.unattached_assignments:
             sections_and_nodes.append((section, nodes))
 
     # Sort threads by earliest timestamp (oldest first) for consistent execution order
     def get_earliest_timestamp(
         section_nodes: tuple[ThreadSection, List[ProcessedNode]],
     ) -> float:
-        _, nodes = section_nodes
-        timestamps = [n.start for n in nodes if n.start is not None]
-        return min(timestamps) if timestamps else float("inf")
+        section, _ = section_nodes
+        return section.tree.earliest_timestamp
 
     sections_and_nodes.sort(key=get_earliest_timestamp)
 
@@ -2010,6 +2076,7 @@ def emit_trace(
         final_parent_dir = trace_dir / dir_name if dir_name else trace_dir
         initial_path_len = len(os.fsencode(final_parent_dir))
         navigator = TraceNavigator(tree)
+        write_unattached_assignments(parent_dir, tree.unattached_assignments)
         for root_node in root_nodes:
             emit_node(
                 root_node,

@@ -2,18 +2,21 @@
 
 import re
 
+from contextlib import suppress
 from email.iterators import body_line_iterator
 from email.message import Message
 
 from public import public
 
-from flufl.bounce.interfaces import NoFailures, NoTemporaryFailures, Recipients
+from flufl.bounce._interfaces import NoFailures, NoTemporaryFailures, Recipients
 
 
 scre = re.compile('did not reach the following recipient')
 ecre = re.compile('MSEXCH:')
 a1cre = re.compile('SMTP=(?P<addr>[^;]+); on ')
-a2cre = re.compile('(?P<addr>[^ ]+) on ')
+# The fallback form is an address followed by " on " and a date.  Requiring an @ keeps an ordinary
+# word followed by " on " from being mistaken for an address.
+a2cre = re.compile(r'(?P<addr>[^\s@]+@[^\s@]+) on ')
 
 
 @public
@@ -35,6 +38,8 @@ class Exchange:
             if ecre.search(line):
                 break
             if mo := a1cre.search(line) or a2cre.search(line):
-                # For Python 3 compatibility, the API requires bytes
-                addresses.add(mo.group('addr').encode('us-ascii'))
+                # By now the email package has replaced any non-ASCII bytes in the address with
+                # U+FFFD, so it can't be reported faithfully; skip it.  See GL#3.
+                with suppress(UnicodeEncodeError):
+                    addresses.add(mo.group('addr').encode('us-ascii'))
         return NoTemporaryFailures, frozenset(addresses)

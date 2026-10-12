@@ -2,19 +2,21 @@ use hashbrown::{HashMap, HashSet};
 use pyo3::exceptions::{PyAttributeError, PyKeyError};
 use pyo3::intern;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyFrame, PyType};
+use pyo3::types::{PyAny, PyDict, PyFrame, PyString, PyType};
 #[cfg(test)]
 use std::env::current_dir;
 use std::ops::Deref;
 #[cfg(test)]
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 use ulid::Ulid;
 
-use super::frame_path::CodeLines;
+use super::frame_path::{format_path_with_line, frame_line_number, CodeLines, FramePathCache};
 use super::frame_writer::{build_user_code_call_site, UserCodeCallSite};
-use super::msgpack_encoding::{write_assign_tuple, write_f64_pair, write_str_pair};
+use super::msgpack_encoding::{
+    write_assign_tuple, write_f64_pair, write_frame_path_pair, write_str_pair,
+};
 use super::value_serializer::Serializer;
 
 pub(super) fn module_name_from_globals<'py>(
@@ -114,8 +116,13 @@ pub struct CallFrames {
 }
 
 impl CallFrames {
-    pub fn get_bound<'py>(&self, py: Python<'py>) -> Vec<(Bound<'py, PyAny>, String)> {
-        self.frames
+    pub fn snapshot_call_site_frames<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Vec<(Bound<'py, PyAny>, String)> {
+        // Plugin attribution only examines the last two frames. Keep them owned so
+        // plugin processing can release the GIL or re-enter without borrowing this stack.
+        self.frames[self.frames.len().saturating_sub(2)..]
             .iter()
             .map(|(frame, frame_id, _)| (frame.bind(py).clone(), frame_id.as_str().to_owned()))
             .collect()
@@ -237,30 +244,143 @@ impl FrameIds {
     }
 }
 
+/// What every line frame of one code object shares, read once per code
+/// object instead of once per assignment.
+pub struct LineCode {
+    /// The code's filename relative to where tracing started, without a line.
+    pub relative_path: String,
+    pub co_name: String,
+    /// `co_qualname` as `get_qualname` formats it. `None` when the code has
+    /// no exact str `co_qualname`, which `get_qualname` then works out.
+    pub co_qualname: Option<String>,
+    /// The last module name this code ran under and the qualname joined
+    /// from it. The module is compared as text and no reference to it is
+    /// kept, so a frame holds nothing the traced program could count.
+    qualname: Mutex<Option<(String, Arc<str>)>>,
+}
+
+impl LineCode {
+    pub(crate) fn new(code: &Bound<'_, PyAny>, relative_path: String) -> Result<Self, PyErr> {
+        let py = code.py();
+        let co_name = code.getattr(intern!(py, "co_name"))?.extract::<String>()?;
+        // Formatted once, as `get_qualname` formats it for every frame.
+        let co_qualname = code
+            .getattr(intern!(py, "co_qualname"))
+            .ok()
+            .filter(|co_qualname| co_qualname.is_exact_instance_of::<PyString>())
+            .map(|co_qualname| co_qualname.to_string());
+        Ok(Self {
+            relative_path,
+            co_name,
+            co_qualname,
+            qualname: Mutex::new(None),
+        })
+    }
+
+    /// `get_qualname(frame)`, joined once per module name instead of once
+    /// per assignment when `__name__` is an ordinary str.
+    fn qualname(&self, frame: &Bound<'_, PyFrame>) -> Result<Arc<str>, PyErr> {
+        let py = frame.py();
+        let Some(co_qualname) = &self.co_qualname else {
+            return Ok(get_qualname(frame, py)?
+                .expect("qualname always exists on Python 3.12+")
+                .into());
+        };
+        // Read once and kept alive while the name is formatted, as
+        // `get_qualname` does.
+        let globals = frame.getattr(intern!(py, "f_globals"))?;
+        let module = module_name_from_globals(&globals, py);
+        let text = module
+            .cast_exact::<PyString>()
+            .ok()
+            .and_then(|module| module.to_str().ok());
+        let Some(text) = text else {
+            // Formatted every time: another object's `__str__` may run user
+            // code, and a lone surrogate is replaced.
+            return Ok(format!("{module}.{co_qualname}").into());
+        };
+        let mut cached = self.qualname.lock().expect("qualname cache poisoned");
+        Ok(match &*cached {
+            Some((cached_module, qualname)) if cached_module == text => qualname.clone(),
+            _ => {
+                let qualname: Arc<str> = format!("{text}.{co_qualname}").into();
+                *cached = Some((text.to_string(), qualname.clone()));
+                qualname
+            }
+        })
+    }
+}
+
+/// A line frame minus its assignment, captured at the store instruction and
+/// written at the next event, once the stored value can be read.
 pub struct LineFrame {
-    path: String,
-    co_name: String,
-    qualname: String,
-    frame_id: Option<String>,
+    code: Arc<LineCode>,
+    /// The whole path of a frame that does not run `code` (see `capture`).
+    foreign_path: Option<String>,
+    lineno: Option<usize>,
+    qualname: Arc<str>,
+    frame_id: Option<FrameId>,
     timestamp: f64,
 }
 
 impl LineFrame {
-    pub fn new(
-        path: String,
-        co_name: String,
-        qualname: String,
-        frame_id: Option<String>,
-        timestamp: f64,
-    ) -> Self {
-        Self {
-            path,
-            co_name,
+    /// Read what a line frame records about `frame` now: its line, its
+    /// qualname and the time. `code` holds the fields of `instruction_code`,
+    /// which `frame` runs unless `sys._getframe` was replaced before the
+    /// monitor looked it up; such a frame's path and qualname are read from
+    /// the frame itself, as every frame's used to be.
+    pub(crate) fn capture(
+        code: &Arc<LineCode>,
+        instruction_code: &Bound<'_, PyAny>,
+        frame: &Bound<'_, PyFrame>,
+        frame_paths: &FramePathCache,
+        frame_id: Option<FrameId>,
+    ) -> Result<Self, PyErr> {
+        let py = frame.py();
+        // Safety: `frame` is a live frame; this returns a new reference.
+        #[cfg(Py_3_12)]
+        let frame_code = unsafe {
+            Bound::from_owned_ptr(py, pyo3::ffi::PyFrame_GetCode(frame.as_ptr().cast()).cast())
+        };
+        // Line events need sys.monitoring; older versions only compile this.
+        #[cfg(not(Py_3_12))]
+        let frame_code = frame.getattr(intern!(py, "f_code"))?;
+        let (foreign_path, lineno, qualname) = if frame_code.is(instruction_code) {
+            (None, frame_line_number(frame)?, code.qualname(frame)?)
+        } else {
+            let path = frame_paths.format_frame_path(frame)?;
+            let qualname = get_qualname(frame, py)?
+                .expect("qualname always exists on Python 3.12+")
+                .into();
+            (Some(path), None, qualname)
+        };
+        Ok(Self {
+            code: code.clone(),
+            foreign_path,
+            lineno,
             qualname,
             frame_id,
-            timestamp,
+            timestamp: timestamp(),
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(path: &str, name: &str) -> Self {
+        Self {
+            code: Arc::new(LineCode {
+                relative_path: path.to_string(),
+                co_name: name.to_string(),
+                co_qualname: None,
+                qualname: Mutex::new(None),
+            }),
+            foreign_path: None,
+            lineno: None,
+            qualname: name.into(),
+            frame_id: None,
+            timestamp: 0.0,
         }
     }
+
     pub fn write_msgpack_into(
         &self,
         buf: &mut Vec<u8>,
@@ -270,11 +390,24 @@ impl LineFrame {
         max_value_bytes: Option<usize>,
     ) -> Result<(), PyErr> {
         rmp::encode::write_map_len(buf, 8).expect("Writing to memory, not I/O");
-        write_str_pair(buf, "path", Some(&self.path));
-        write_str_pair(buf, "co_name", Some(&self.co_name));
+        if let Some(path) = &self.foreign_path {
+            write_str_pair(buf, "path", Some(path));
+        } else if u32::try_from(self.code.relative_path.len() + 21).is_ok() {
+            write_frame_path_pair(buf, &self.code.relative_path, self.lineno);
+        } else {
+            // Past the lengths `write_frame_path_pair` checks, written as
+            // before.
+            let path = format_path_with_line(&self.code.relative_path, self.lineno);
+            write_str_pair(buf, "path", Some(&path));
+        }
+        write_str_pair(buf, "co_name", Some(&self.code.co_name));
         write_str_pair(buf, "qualname", Some(&self.qualname));
         write_str_pair(buf, "event", Some("line"));
-        write_str_pair(buf, "frame_id", self.frame_id.as_deref());
+        write_str_pair(
+            buf,
+            "frame_id",
+            self.frame_id.as_ref().map(FrameId::as_str),
+        );
         write_f64_pair(buf, "timestamp", self.timestamp);
         write_str_pair(buf, "type", Some("frame"));
         write_assign_tuple(buf, serializer, assign, lightweight_repr, max_value_bytes)?;

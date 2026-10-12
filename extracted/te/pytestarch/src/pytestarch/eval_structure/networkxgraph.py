@@ -10,6 +10,7 @@ import networkx as nx
 from networkx import draw_networkx, has_path, spring_layout
 
 from pytestarch.eval_structure.evaluable_structures import AbstractGraph, AbstractNode
+from pytestarch.eval_structure.exceptions import ModuleUnknown
 from pytestarch.eval_structure.types import Import, get_parent_modules
 
 EXPECTED_EDGE_AND_NODE_TYPES = "Only str and tuple of two str supported."
@@ -140,7 +141,7 @@ class NetworkxGraph(AbstractGraph):
             self._graph.add_edge(node_start, node_end, inherits=inherits)
 
     def __contains__(self, item) -> bool:
-        if not isinstance(item, (str, tuple)):
+        if not isinstance(item, str | tuple):
             raise TypeError(EXPECTED_EDGE_AND_NODE_TYPES)
 
         if isinstance(item, str):
@@ -179,7 +180,11 @@ class NetworkxGraph(AbstractGraph):
 
         Returns:
             all predecessor nodes
+
+        Raises:
+            ModuleUnknown: if node is not present in the dependency graph
         """
+        self._assert_node_exists(node)
         return sorted(self._graph.predecessors(node))
 
     def direct_successor_nodes(self, node: Node) -> list[Node]:
@@ -190,7 +195,11 @@ class NetworkxGraph(AbstractGraph):
 
         Returns:
             all successor nodes
+
+        Raises:
+            ModuleUnknown: if node is not present in the dependency graph
         """
+        self._assert_node_exists(node)
         return sorted(self._graph.successors(node))
 
     def parent_child_relationship(
@@ -224,8 +233,8 @@ class NetworkxGraph(AbstractGraph):
                 priority, e.g. with the same modules as above and
                 aliases == {'a': 'A', 'a.c': 'C'} the plot labels will be A, A.b, C,
                 C.d.
-            Remaining keyword args are passed to draw_networkx. Notably, "ax" can be
-            used to draw the graph onto an existing matploblib Axis object.
+            **kwargs: Remaining keyword args are passed to draw_networkx. Notably, "ax"
+                can be used to draw the graph onto an existing matploblib Axis object.
         """
         try:
             import matplotlib  # noqa: F401
@@ -294,6 +303,24 @@ class NetworkxGraph(AbstractGraph):
 
         except StopIteration:  # no alias for module or parent module
             return module_name
+
+    def _assert_node_exists(self, node: Node) -> None:
+        """Raises ModuleUnknown with a diagnostic message if node is absent from the graph.
+
+        Args:
+            node: the node to check for existence
+        """
+        if not self._graph.has_node(node):
+            raise ModuleUnknown(
+                f"'{node}' was not found in the dependency graph.\n"
+                "If it is an external library, ensure "
+                "'exclude_external_libraries=False' is passed to "
+                "'get_evaluable_architecture()'.\n"
+                "If this flag is already set, the module may not be "
+                "imported by any code in the scanned source path.\n"
+                "Verify the module name is correct as it would appear "
+                "in a Python import statement."
+            )
 
     def _flatten_graph_node(self, node: Node) -> Node:
         """Limits the depth of the graph by aggregating sub modules above a certain limit.

@@ -109,12 +109,14 @@ class RawTranscript:
     model: str | None
     model_options: dict[str, Any] | None
     score: JsonValue
+    score_explanation: str | None
     success: bool | None
     message_count: int | None
     total_time: float | None
     total_tokens: int | None
     error: str | None
     limit: str | None
+    trust_content: bool | None
     metadata: dict[str, Any]
     messages: list[dict[str, Any]]
     events: list[dict[str, Any]]
@@ -209,12 +211,14 @@ async def _load_with_json5_fallback(
                 model=t.model,
                 model_options=t.model_options,
                 score=t.score,
+                score_explanation=t.score_explanation,
                 success=t.success,
                 message_count=t.message_count,
                 total_time=t.total_time,
                 total_tokens=t.total_tokens,
                 error=t.error,
                 limit=t.limit,
+                trust_content=t.trust_content,
                 metadata=_merge_unthinned_from_dict(t.metadata, data)
                 if metadata
                 else t.metadata,
@@ -493,12 +497,14 @@ async def _parse_and_filter(
             model=t.model,
             model_options=t.model_options,
             score=t.score,
+            score_explanation=t.score_explanation,
             success=t.success,
             message_count=t.message_count,
             total_time=t.total_time,
             total_tokens=t.total_tokens,
             error=t.error,
             limit=t.limit,
+            trust_content=t.trust_content,
             metadata=_merge_unthinned(t.metadata, state),
             messages=state.messages,
             events=state.events,
@@ -565,12 +571,14 @@ def _resolve_attachments(
         "model": transcript.model,
         "model_options": transcript.model_options,
         "score": transcript.score,
+        "score_explanation": transcript.score_explanation,
         "success": transcript.success,
         "message_count": transcript.message_count,
         "total_time": transcript.total_time,
         "total_tokens": transcript.total_tokens,
         "error": transcript.error,
         "limit": transcript.limit,
+        "trust_content": transcript.trust_content,
         "metadata": {},  # Placeholder to avoid validation
         "messages": resolved_messages,
         "events": resolved_events,

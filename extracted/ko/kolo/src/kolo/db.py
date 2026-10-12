@@ -1,11 +1,22 @@
+"""Kolo's store: trace files and the SQLite database that indexes them.
+
+A process that saves traces in quick succession keeps the metadata
+connection open between them (see ``_KeptConnection``). Setting
+``KOLO_KEEP_DB_CONNECTION=0`` before Kolo is imported turns that off: every
+save and ``setup_db`` then opens and closes a connection of its own.
+"""
+
 from __future__ import annotations
 
+import atexit
 import json
 import logging
 import os
 import sqlite3
 import stat
+import sys
 import threading
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +28,7 @@ from io import BytesIO
 import msgpack
 
 from .serialize import dump_msgpack
+from .threads import kolo_worker_thread
 
 logger = logging.getLogger("kolo")
 
@@ -52,6 +64,18 @@ _wal_database_identities_lock = threading.Lock()
 
 def _database_identity(stat: os.stat_result) -> tuple[int, int]:
     return stat.st_dev, stat.st_ino
+
+
+def _reset_wal_identities_lock_after_fork() -> None:
+    # Another thread of the parent may have held the lock during the fork:
+    # the child's copy would then stay locked for good.
+    global _wal_database_identities_lock
+
+    _wal_database_identities_lock = threading.Lock()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_wal_identities_lock_after_fork)
 
 
 def _close_wal_identity(identity: _WalDatabaseIdentity | None) -> None:
@@ -168,21 +192,656 @@ class TraceNotFoundError(Exception):
     pass
 
 
+def _checkpoint(connection, busy_timeout_ms: int | None = None) -> bool:
+    """Move committed rows from the write-ahead log into the database file
+    and empty the log, as far as other connections allow right now.
+
+    Closing a database's last connection does both. That is how a write
+    reaches the file itself and moves its modification time (the web UI and
+    the VS Code extension watch it for new traces), and why no log is left
+    behind to be replayed into a database file that later replaces this one.
+    A kept connection (see ``_KeptConnection``) does not close after its
+    write, so it checkpoints explicitly instead.
+
+    Never waits: with a reader or writer in the way, as much as possible is
+    copied and the log stays, just as that other connection would have kept
+    a close from removing it. Returns whether the log was emptied; if not,
+    the caller must close its connection, so that the close of whichever
+    connection is last finishes the job. ``busy_timeout_ms`` is restored
+    afterwards on a connection that stays open.
+    """
+    try:
+        connection.execute("pragma busy_timeout = 0")
+        try:
+            row = connection.execute("pragma wal_checkpoint(truncate)").fetchone()
+        finally:
+            if busy_timeout_ms is not None:
+                connection.execute(f"pragma busy_timeout = {busy_timeout_ms}")
+    except sqlite3.Error:
+        # The write is committed either way; a later checkpoint or the last
+        # close picks the rows up.
+        logger.debug("Could not checkpoint the Kolo database", exc_info=True)
+        return False
+    # (blocked, frames in the log, frames checkpointed); the latter two are
+    # -1 for a database that is not in WAL mode and has no log.
+    return row is not None and row[0] == 0
+
+
 @contextmanager
-def db_connection(db_path, timeout=60):
+def db_connection(db_path, timeout=60, keep=False):
     """
     Wrap sqlite's connection for use as a context manager
 
     Commits all changes if no exception is raised.
-    Always closes the connection after the context manager exits.
+    Always closes the connection after the context manager exits, unless
+    ``keep`` is set: then the connection may be one this process keeps for
+    the database (see ``_KeptConnection``), and stays open if the block
+    succeeds. Only for a block of writes that each commit on their own.
     """
+    kept = _acquire_kept_connection(db_path, timeout) if keep else None
+    if kept is not None:
+        succeeded = False
+        try:
+            yield kept.connection
+            succeeded = True
+        finally:
+            kept.release(keep=succeeded)
+        return
     connection = sqlite3.connect(str(db_path), isolation_level=None, timeout=timeout)
+    # Only while a connection is kept for this database does anything depend
+    # on whether this one changes the schema (which changes no rows).
+    schema_version = None
     try:
         _ensure_wal_mode(connection, db_path)
+        if _has_kept_connection(db_path):
+            schema_version = _schema_version(connection)
         with connection:
             yield connection
     finally:
+        if connection.total_changes or (
+            # A connection kept since this block began cannot be compared:
+            # treat the schema as changed.
+            _has_kept_connection(db_path)
+            if schema_version is None
+            else _schema_version(connection) != schema_version
+        ):
+            # So that this close is the database's last one in this process
+            # and checkpoints what was written, as it always did.
+            _forget_kept_connection(db_path)
         connection.close()
+
+
+# A trace save ends with one row inserted into the metadata database. On a
+# connection opened for it, that row costs opening the file, reading the
+# schema, creating the write-ahead log and its shared-memory file, and, on
+# close, checkpointing and deleting them again: several hundred microseconds
+# per trace for a few of work. A process therefore keeps the connection it
+# last wrote a store's metadata through for the sessions that follow closely,
+# and reuses it while the database file is exactly as that connection left
+# it.
+#
+# What a kept connection must not change, and how:
+#
+# - It is closed once it has not been used for a moment
+#   (``_KEPT_CONNECTION_IDLE_SECONDS``). A process that is not in a run of
+#   sessions holds no connection, and its store is as it always was: no log
+#   files, nothing for another process's close to wait behind.
+# - The file a path names can be deleted, replaced or rewritten at any time.
+#   A kept connection is only reused while the path still names the same
+#   file (device and inode), and that file either has the size, mtime and
+#   ctime recorded after the connection's own last write, or was changed by
+#   another SQLite connection committing to it (``pragma data_version``
+#   moves), which SQLite's own locking makes safe. Anything else closes it
+#   and opens the path afresh, as every save used to.
+# - A database's last connection checkpoints and removes the write-ahead log
+#   when it closes, so the file itself holds every row and its mtime moves.
+#   Every write through a kept connection is followed by a checkpoint that
+#   also empties the log; if another connection keeps it from finishing, the
+#   kept connection is closed, so the close of whichever is last finishes
+#   it. Kept connections are also closed when threading shuts down and at
+#   interpreter exit.
+# - A connection must never be used in a forked child. Kept connections are
+#   closed before a fork; one that a save on another thread is using at that
+#   moment is inherited, and the child forgets it without ever using it.
+# - Windows cannot delete or replace a file that is open, so nothing is kept
+#   there.
+#
+# The databaseIsUnmoved check that stops a connection to a deleted file from
+# removing the log of the file that replaced it needs SQLite 3.8.3.
+#
+# Closing them when threading shuts down, which is what a multiprocessing
+# child gets instead of exit handlers, needs ``threading._register_atexit``
+# (Python 3.9).
+#
+# KOLO_KEEP_DB_CONNECTION=0 turns all of it off.
+_KEEP_CONNECTIONS = (
+    os.environ.get("KOLO_KEEP_DB_CONNECTION") != "0"
+    and os.name != "nt"
+    # No threads: nothing could close an idle connection.
+    and sys.platform != "emscripten"
+    and hasattr(os, "register_at_fork")
+    and hasattr(threading, "_register_atexit")
+    and sqlite3.sqlite_version_info >= (3, 8, 3)
+)
+_KEPT_CONNECTIONS_MAX = 4
+_KEPT_CONNECTION_IDLE_SECONDS = 0.05
+_DatabaseFingerprint = Tuple[int, int, int, int, int]
+
+
+def _database_fingerprint(path: str) -> _DatabaseFingerprint | None:
+    try:
+        result = os.stat(path)
+    except OSError:
+        return None
+    return (
+        result.st_dev,
+        result.st_ino,
+        result.st_size,
+        result.st_mtime_ns,
+        result.st_ctime_ns,
+    )
+
+
+def _busy_timeout_ms(timeout) -> int | None:
+    """``timeout`` as the milliseconds sqlite3.connect turns it into, or None
+    for values a kept connection does not handle."""
+    if type(timeout) not in (int, float):
+        return None
+    try:
+        timeout_ms = int(timeout * 1000)
+    except (OverflowError, ValueError):  # pragma: no cover - inf or nan
+        return None
+    return timeout_ms if 0 <= timeout_ms < 2**31 else None
+
+
+def _schema_version(connection) -> object:
+    """Changes with every change to the schema. An object of its own if it
+    cannot be read, so that it never compares equal."""
+    try:
+        return connection.execute("pragma schema_version").fetchone()
+    except sqlite3.Error:  # pragma: no cover - a database that cannot be read
+        return object()
+
+
+def _has_kept_connection(db_path) -> bool:
+    if not _KEEP_CONNECTIONS:
+        return False
+    return os.path.abspath(os.fspath(db_path)) in _kept_connections
+
+
+def _data_version(connection) -> object:
+    """Changes whenever another connection commits to the database."""
+    return connection.execute("pragma data_version").fetchone()
+
+
+class _KeptConnection:
+    """One store's metadata connection, used by one thread at a time."""
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+        # The process this entry and its connection belong to.
+        self.pid = os.getpid()
+        # Reentrant, like the registry lock: a signal handler or a finalizer
+        # that saves a trace can run on a thread that is already saving one.
+        self.lock = threading.RLock()
+        self.connection: sqlite3.Connection | None = None
+        self.timeout_ms: int | None = None
+        # Device and inode of the file the connection has open.
+        self.identity: Tuple[int, int] | None = None
+        self.fingerprint: _DatabaseFingerprint | None = None
+        self.data_version: object = None
+        # The data version this connection last brought the schema up to
+        # date at. None: not since it was opened.
+        self.schema_data_version: object = None
+        # Set once the registry has dropped this entry: its user closes it.
+        self.dropped = False
+        self.users = 0
+        self.last_used = time.monotonic()
+
+    def open(self, db_path, timeout, timeout_ms: int) -> sqlite3.Connection:
+        """The connection for this path, reopened unless the database file is
+        exactly as this connection left it. Call with the lock held."""
+        if self.pid != os.getpid():
+            self._forget_after_fork()
+        if self.connection is not None and self.users > 1:
+            # Reentered on the thread that is already using it.
+            return self.connection
+        if self.connection is not None and not self._file_as_left():
+            self.close()
+        if self.connection is None:
+            before = _database_fingerprint(self.path)
+            connection = sqlite3.connect(
+                self.path,
+                isolation_level=None,
+                timeout=timeout,
+                check_same_thread=False,
+            )
+            try:
+                _ensure_wal_mode(connection, db_path)
+                after = _database_fingerprint(self.path)
+            except BaseException:
+                connection.close()
+                raise
+            self.connection = connection
+            self.pid = os.getpid()
+            self.timeout_ms = timeout_ms
+            self.fingerprint = None
+            # The path named one file before and after the connection opened
+            # it, so that is the file it has open (an open file's inode is
+            # not reused). Otherwise (the file was created or replaced
+            # meanwhile) nothing ties the connection to a file, and it is
+            # closed after this use.
+            self.identity = (
+                (before[0], before[1])
+                if before is not None and after is not None and before[:2] == after[:2]
+                else None
+            )
+        elif self.timeout_ms != timeout_ms:
+            # What sqlite3.connect does with its timeout.
+            self.connection.execute(f"pragma busy_timeout = {timeout_ms}")
+            self.timeout_ms = timeout_ms
+        return self.connection
+
+    def _file_as_left(self) -> bool:
+        """Whether nothing but SQLite connections touched the database file
+        since this connection's last write."""
+        assert self.connection is not None
+        fingerprint = _database_fingerprint(self.path)
+        if (
+            fingerprint is None
+            or self.fingerprint is None
+            or fingerprint[:2] != self.identity
+        ):
+            return False
+        if fingerprint == self.fingerprint:
+            return True
+        try:
+            data_version = _data_version(self.connection)
+        except sqlite3.Error:  # pragma: no cover - the file is no database now
+            return False
+        if data_version == self.data_version:
+            # No other connection committed, so something else rewrote the
+            # file.
+            return False
+        self.fingerprint = fingerprint
+        self.data_version = data_version
+        return True
+
+    def ensure_schema(self) -> bool:
+        """Run ``setup_db``'s schema statements unless this connection ran
+        them and no other connection has committed since (its own commits
+        only insert rows). Returns whether it ran them. Call with the lock
+        held."""
+        assert self.connection is not None
+        # Read first: a commit that lands after this read moves the version
+        # again, so the next call runs the statements.
+        data_version = _data_version(self.connection)
+        if self.schema_data_version == data_version:
+            return False
+        create_traces_table(self.connection)
+        migrate_db(self.connection)
+        self.schema_data_version = data_version
+        return True
+
+    def wrote(self) -> None:
+        """Record the file as this connection's write leaves it. Call with
+        the lock held."""
+        # Read once: a finalizer or signal handler that forks, or writes to
+        # the store with a connection of its own, can run on this thread and
+        # close this one meanwhile. The next statement then fails as a
+        # closed connection's does, with a sqlite3.Error.
+        connection = self.connection
+        if connection is None:  # pragma: no cover - closed before this
+            return
+        emptied = _checkpoint(connection, self.timeout_ms)
+        self.data_version = _data_version(connection)
+        self.fingerprint = _database_fingerprint(self.path)
+        if (
+            not emptied
+            or self.fingerprint is None
+            or self.fingerprint[:2] != self.identity
+        ):
+            # Rows are still in the log, or the path no longer names the
+            # file this connection has open.
+            self.close()
+
+    def _forget_after_fork(self) -> None:
+        """This entry reached a forked child by a way the fork hooks do not
+        see (a fork on a thread that had it out of the registry). Its
+        connection is the parent's: never used here, and kept alive rather
+        than closed."""
+        _inherited_connections.append(self.connection)
+        self.connection = None
+        self.fingerprint = None
+        self.identity = None
+        self.schema_data_version = None
+        self.pid = os.getpid()
+
+    def close(self) -> None:
+        """Call with the lock held."""
+        if self.pid != os.getpid():
+            self._forget_after_fork()
+        connection, self.connection = self.connection, None
+        self.fingerprint = None
+        self.identity = None
+        self.schema_data_version = None
+        if connection is not None:
+            try:
+                connection.close()
+            except sqlite3.Error:
+                logger.debug("Could not close a Kolo database", exc_info=True)
+
+    def release(self, keep: bool, wrote: bool = True) -> None:
+        """Give the connection back after ``_acquire_kept_connection``.
+
+        ``keep``: every statement succeeded. ``wrote``: they may have
+        changed the database.
+        """
+        try:
+            if self.pid != os.getpid():
+                # Before anything below can touch a connection that is
+                # another process's: no checkpoint, no close.
+                self._forget_after_fork()
+            self.users -= 1
+            self.last_used = time.monotonic()
+            if keep and not self.dropped:
+                try:
+                    if wrote or self.fingerprint is None:
+                        self.wrote()
+                except sqlite3.Error:  # pragma: no cover - failing storage
+                    # The caller's statements are committed; only this
+                    # connection is not kept.
+                    self.close()
+                except BaseException:  # pragma: no cover - an interrupt
+                    self.close()
+                    raise
+                # Dropped while it was checkpointing: nobody else closes it.
+                if self.dropped and not self.users:
+                    self.close()
+            elif not self.users:
+                if keep and wrote and self.connection is not None:
+                    # Dropped from the registry while in use (a fork, or a
+                    # plain write to the store): another connection may be
+                    # kept for the store by now, and then this close is not
+                    # the last one. Checkpoint what was written first.
+                    _checkpoint(self.connection)
+                self.close()
+        finally:
+            self.lock.release()
+        # Whoever drops an entry it finds in use leaves closing it to this
+        # release, and may have done so after the checks above. It marks the
+        # entry before it tries the lock, so the mark is visible by now.
+        if self.dropped and self.connection is not None:  # pragma: no cover - race
+            if self.lock.acquire(blocking=False):
+                try:
+                    if not self.users:
+                        self.close()
+                finally:
+                    self.lock.release()
+
+
+_kept_connections: dict[str, _KeptConnection] = {}
+_kept_connections_lock = threading.RLock()
+_kept_connections_pid = os.getpid()
+# The thread that closes connections left idle, while any are kept.
+_kept_connections_closer: threading.Thread | None = None
+_kept_connections_closer_token: object = None
+# Held by that thread while it closes connections it has already taken out of
+# the registry, so that shutdown can wait for those closes too.
+_kept_connections_closing = threading.Lock()
+_kept_connections_atexit_registered = False
+# Set once interpreter exit has closed the kept connections.
+_kept_connections_closed = False
+# Connections inherited over a fork. They belong to the parent: the child
+# does not use them, and keeps them alive rather than close them.
+_inherited_connections: list[object] = []
+
+
+def _acquire_kept_connection(db_path, timeout) -> _KeptConnection | None:
+    """This process's kept connection for ``db_path``, locked and open.
+
+    Returns None when the caller should use ``db_connection`` instead. Raises
+    whatever opening the database raises. The caller must ``release`` it.
+    """
+    global _kept_connections_atexit_registered, _kept_connections_closer
+    global _kept_connections_closer_token
+
+    if not _KEEP_CONNECTIONS:
+        return None
+    timeout_ms = _busy_timeout_ms(timeout)
+    if timeout_ms is None:
+        return None
+    path = os.path.abspath(os.fspath(db_path))
+    if _kept_connections_pid != os.getpid():
+        # Forked without Python's fork hooks running.
+        _forget_kept_connections_after_fork()  # pragma: no cover
+    dropped = []
+    with _kept_connections_lock:
+        if _kept_connections_closed:
+            return None
+        if not _kept_connections_atexit_registered:
+            # A multiprocessing child shuts threading down and may then leave
+            # without running exit handlers.
+            try:
+                threading._register_atexit(  # type: ignore[attr-defined]
+                    _close_kept_connections_at_exit
+                )
+            except RuntimeError:  # pragma: no cover - already shutting down
+                return None
+            atexit.register(_close_kept_connections_at_exit)
+            _kept_connections_atexit_registered = True
+        if _kept_connections_closer is None or not _kept_connections_closer.is_alive():
+            token = object()
+            closer = kolo_worker_thread(
+                _close_idle_kept_connections,
+                name="kolo-close_idle_db",
+                daemon=True,
+                args=(token,),
+            )
+            try:
+                closer.start()
+            except RuntimeError:  # pragma: no cover - interpreter shutting down
+                # Nothing would close an idle connection.
+                return None
+            _kept_connections_closer = closer
+            _kept_connections_closer_token = token
+        entry = _kept_connections.pop(path, None)
+        if entry is None:
+            entry = _KeptConnection(path)
+        entry.last_used = time.monotonic()
+        # Most recently used last.
+        _kept_connections[path] = entry
+        # Checked once it is back in the registry, where the fork hooks see
+        # it: a fork on this thread (from a signal handler or a finalizer)
+        # while it was out leaves a child holding the parent's entry, whose
+        # lock a thread that does not exist here may hold.
+        if entry.pid != os.getpid():
+            _inherited_connections.append(entry)
+            entry = _kept_connections[path] = _KeptConnection(path)
+        while len(_kept_connections) > _KEPT_CONNECTIONS_MAX:
+            # The least recently used one that no save is using: dropping one
+            # in use would let a second connection be kept beside it.
+            oldest = next(
+                (
+                    candidate
+                    # A copy, and ``pop`` rather than ``del`` below: a
+                    # finalizer or signal handler that saves a trace or forks
+                    # can run on this thread during the scan or after it, and
+                    # drop or replace entries.
+                    for candidate in list(_kept_connections.values())
+                    if candidate is not entry and not candidate.users
+                ),
+                None,
+            )
+            if oldest is None:
+                break
+            replaced = _kept_connections.pop(oldest.path, None)
+            oldest.dropped = True
+            dropped.append(oldest)
+            if replaced is not None and replaced is not oldest:  # pragma: no cover
+                replaced.dropped = True
+                dropped.append(replaced)
+    for oldest in dropped:
+        # Never wait for another database here: its user closes it on release.
+        if oldest.lock.acquire(blocking=False):
+            try:
+                if not oldest.users:
+                    oldest.close()
+            finally:
+                oldest.lock.release()
+    # A save that finds the connection busy opens its own, as every save
+    # used to: it must not wait out another save's busy timeout.
+    if not entry.lock.acquire(blocking=False):
+        return None
+    if entry.dropped:
+        entry.lock.release()
+        return None
+    entry.users += 1
+    try:
+        entry.open(db_path, timeout, timeout_ms)
+    except BaseException:
+        entry.release(keep=False)
+        raise
+    return entry
+
+
+def _close_idle_kept_connections(token: object) -> None:
+    """Runs on a thread of its own while this process keeps connections.
+
+    Knows itself by ``token`` rather than by asking
+    threading.current_thread(), which applications may wrap.
+    """
+    global _kept_connections_closer
+
+    while True:
+        time.sleep(min(_KEPT_CONNECTION_IDLE_SECONDS, 0.05))
+        idle = []
+        with _kept_connections_closing:
+            with _kept_connections_lock:
+                if _kept_connections_closer_token is not token:
+                    return
+                cutoff = time.monotonic() - _KEPT_CONNECTION_IDLE_SECONDS
+                for path, entry in list(_kept_connections.items()):
+                    # One in use (waiting out a busy timeout) stays, so that
+                    # no second connection is kept beside it.
+                    if entry.last_used <= cutoff and not entry.users:
+                        # ``pop`` rather than ``del``: a finalizer that saves
+                        # a trace or forks can run on this thread, and drop
+                        # or replace the entry first.
+                        replaced = _kept_connections.pop(path, None)
+                        entry.dropped = True
+                        idle.append(entry)
+                        if (
+                            replaced is not None and replaced is not entry
+                        ):  # pragma: no cover
+                            replaced.dropped = True
+                            idle.append(replaced)
+                finished = not _kept_connections
+                if finished:
+                    _kept_connections_closer = None
+            for entry in idle:
+                # One in use (waiting out a busy timeout) is closed by its
+                # user.
+                if entry.lock.acquire(blocking=False):
+                    try:
+                        if not entry.users:
+                            entry.close()
+                    finally:
+                        entry.lock.release()
+        if finished:
+            return
+
+
+def _forget_kept_connection(db_path) -> None:
+    if not _KEEP_CONNECTIONS:
+        return
+    path = os.path.abspath(os.fspath(db_path))
+    if _kept_connections_pid != os.getpid():
+        # Forked without Python's fork hooks running: the registry and its
+        # lock are the parent's.
+        _forget_kept_connections_after_fork()  # pragma: no cover
+    with _kept_connections_lock:
+        entry = _kept_connections.pop(path, None)
+        if entry is None:
+            return
+        entry.dropped = True
+    # In use (by a save on another thread, when the failed one had opened
+    # its own connection): its user closes it.
+    if entry.lock.acquire(blocking=False):
+        try:
+            if not entry.users:
+                entry.close()
+        finally:
+            entry.lock.release()
+
+
+def _close_kept_connections(wait: bool = True) -> None:
+    """Close every kept connection. One in use is closed by its user; with
+    ``wait`` unset, without waiting for it."""
+    if _kept_connections_pid != os.getpid():
+        # Forked without Python's fork hooks running: not ours to close.
+        _forget_kept_connections_after_fork()  # pragma: no cover
+    with _kept_connections_lock:
+        entries = list(_kept_connections.values())
+        _kept_connections.clear()
+        for entry in entries:
+            entry.dropped = True
+    for entry in entries:
+        if entry.lock.acquire(blocking=wait):
+            try:
+                if not entry.users:
+                    entry.close()
+            finally:
+                entry.lock.release()
+
+
+def _close_kept_connections_before_fork() -> None:
+    # So that a child inherits none. A save in progress on another thread
+    # keeps its connection; the child never touches that one.
+    _close_kept_connections(wait=False)
+
+
+def _close_kept_connections_at_exit() -> None:
+    # Closing a database's last connection removes its log files, as every
+    # save's own connection used to. Saves after this point (workers still
+    # saving, other exit handlers) open their own connection again.
+    global _kept_connections_closed
+
+    if _kept_connections_pid != os.getpid():
+        # Forked without Python's fork hooks running: the registry and its
+        # lock are the parent's.
+        _forget_kept_connections_after_fork()  # pragma: no cover
+    with _kept_connections_lock:
+        _kept_connections_closed = True
+    _close_kept_connections()
+    # The idle closer may be closing a connection it had already taken.
+    with _kept_connections_closing:
+        pass
+
+
+def _forget_kept_connections_after_fork() -> None:
+    global _kept_connections, _kept_connections_lock, _kept_connections_pid
+    global _kept_connections_atexit_registered, _kept_connections_closer
+    global _kept_connections_closing, _kept_connections_closer_token
+
+    _kept_connections_closing = threading.Lock()
+    # A child can start with the parent's exit handlers cleared, and has
+    # none of its threads.
+    _kept_connections_atexit_registered = False
+    _kept_connections_closer = None
+    _kept_connections_closer_token = None
+    _inherited_connections.append(_kept_connections)
+    _kept_connections = {}
+    # Another thread of the parent may have held either lock during the fork.
+    _kept_connections_lock = threading.RLock()
+    _kept_connections_pid = os.getpid()
+
+
+if _KEEP_CONNECTIONS:
+    os.register_at_fork(
+        before=_close_kept_connections_before_fork,
+        after_in_child=_forget_kept_connections_after_fork,
+    )
 
 
 def get_db_path() -> Path:
@@ -537,10 +1196,18 @@ def migrate_db(connection) -> None:
 def setup_db() -> Path:
     db_path = get_db_path()
 
-    with db_connection(db_path) as connection:
-        create_traces_table(connection)
-        migrate_db(connection)
-
+    kept = _acquire_kept_connection(db_path, 60)
+    if kept is None:
+        with db_connection(db_path) as connection:
+            create_traces_table(connection)
+            migrate_db(connection)
+        return db_path
+    current = wrote = False
+    try:
+        wrote = kept.ensure_schema()
+        current = True
+    finally:
+        kept.release(keep=current, wrote=wrote)
     return db_path
 
 
@@ -641,15 +1308,22 @@ def _save_trace_metadata(
         insert_sql = f"INSERT{ignore} INTO traces(id) VALUES(?)"
         params = (trace_id,)
 
-    with db_connection(db_path, timeout) as connection:
+    failed = False
+    with db_connection(db_path, timeout, keep=True) as connection:
         try:
             connection.execute(insert_sql, params)
         except Exception as e:
+            failed = True
             logger.warning(f"Failed to save trace metadata to database: {e}")
             if not ignore_errors:
                 # Clean up the file we just created to avoid orphans
                 delete_trace_file(trace_id, db_path)  # pragma: no cover
                 raise  # pragma: no cover
+    if failed:
+        # A connection a statement failed on is not kept: like every save's
+        # own connection used to, the next one starts from the file as it
+        # then is.
+        _forget_kept_connection(db_path)
 
 
 def save_trace_in_sqlite(
@@ -944,6 +1618,8 @@ def delete_traces_before(db_path: Path, before: datetime):
 
 
 def vacuum_db(db_path):
+    # VACUUM changes no rows, so say that the file is about to be rewritten.
+    _forget_kept_connection(db_path)
     with db_connection(db_path) as connection:
         connection.execute("VACUUM")
 

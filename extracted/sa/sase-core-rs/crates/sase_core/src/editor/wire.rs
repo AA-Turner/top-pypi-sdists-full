@@ -692,8 +692,7 @@ impl From<&DirectiveMetadata> for DirectiveContractEntry {
                 })
                 .collect(),
             dynamic_keyword_role: metadata.dynamic_keyword_role,
-            feature_flag: directive_feature_flag(metadata.name)
-                .map(str::to_string),
+            feature_flag: None,
             body_kind: directive_body_kind(metadata.name),
             synopsis: directive_synopsis(metadata).to_string(),
             examples: directive_examples(metadata.name)
@@ -702,14 +701,6 @@ impl From<&DirectiveMetadata> for DirectiveContractEntry {
                 .collect(),
             recipes: directive_snippet_recipes_with_flags(metadata.name, &[]),
         }
-    }
-}
-
-/// Feature flag that gates a directive, if any.
-pub fn directive_feature_flag(name: &str) -> Option<&'static str> {
-    match name {
-        "proc" => Some("typed_launch_units"),
-        _ => None,
     }
 }
 
@@ -725,7 +716,7 @@ pub fn directive_body_kind(name: &str) -> DirectiveBodyKind {
 /// One-line synopsis used by hover and completion documentation.
 pub fn directive_synopsis(metadata: &DirectiveMetadata) -> &'static str {
     match metadata.name {
-        "if" => "%if(should_run=true|false) omits disabled segments; %if:: gates admission when typed launch units are enabled",
+        "if" => "%if(should_run=true|false) omits disabled segments; %if:: gates admission with a script guard",
         "proc" => "%proc(\"cmd\"), %proc(bash=|python=), or %proc:: plus one fence",
         _ => metadata.argument_hint,
     }
@@ -777,7 +768,7 @@ pub fn directive_snippet_recipes(
 
 pub fn directive_snippet_recipes_with_flags(
     name: &str,
-    enabled_feature_flags: &[String],
+    _enabled_feature_flags: &[String],
 ) -> Vec<DirectiveSnippetRecipeContract> {
     match name {
         "alt" => vec![recipe(
@@ -800,19 +791,10 @@ pub fn directive_snippet_recipes_with_flags(
             ),
         ],
         "queue" => {
-            let budget = crate::queue_directive::queue_capacity_budget_enabled(
-                enabled_feature_flags,
-            );
-            let colon_help = if budget {
-                "Set this launch's capacity budget with the short alias."
-            } else {
-                "Set a weighted-load capacity threshold with the short alias."
-            };
-            let paren_help = if budget {
-                "Set this launch's capacity budget and priority."
-            } else {
-                "Set both weighted-load capacity and priority."
-            };
+            let colon_help =
+                "Set this launch's capacity budget with the short alias.";
+            let paren_help =
+                "Set this launch's capacity budget and priority.";
             vec![
                 colon_recipe("queue", "5"),
                 recipe(
@@ -958,38 +940,32 @@ pub fn directive_snippet_recipes_with_flags(
                 "Select finalizer instances.",
             ),
         ],
-        "if" => {
-            let mut recipes = vec![recipe(
+        "if" => vec![
+            recipe(
                 "%if(should_run=...)",
                 "directive snippet",
                 "%if(should_run=${1|true,false|})$0",
                 "%if(should_run=$1)$0",
                 "%if(should_run=true)",
                 "Keep or omit this prompt segment before launch planning.",
-            )];
-            if enabled_feature_flags
-                .iter()
-                .any(|value| value == "typed_launch_units")
-            {
-                recipes.push(recipe(
+            ),
+            recipe(
                 "%if:: bash",
                 "typed launch unit snippet",
                 "%if::\n\n```bash\n${1:test -f pyproject.toml}\n```$0",
                 "%if::\n\n```bash\n$1\n```$0",
                 "%if::\n\n```bash\n\n```",
                 "Attach a bash guard to the next launch unit.",
-            ));
-                recipes.push(recipe(
+            ),
+            recipe(
                 "%if:: python",
                 "typed launch unit snippet",
                 "%if::\n\n```python\n${1:raise SystemExit(0)}\n```$0",
                 "%if::\n\n```python\n$1\n```$0",
                 "%if::\n\n```python\n\n```",
                 "Attach a Python guard to the next launch unit.",
-            ));
-            }
-            recipes
-        }
+            ),
+        ],
         "proc" => vec![
             recipe(
                 "%proc(\"...\")",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyod
-Version: 3.6.6
+Version: 3.6.7
 Summary: A Python library for anomaly detection across tabular, time series, graph, text, image, and audio data. 61 detectors, benchmark-backed ADEngine orchestration, and an agentic workflow for AI agents.
 Author-email: Yue Zhao <yzhao062@gmail.com>
 License-Expression: BSD-2-Clause
@@ -285,8 +285,8 @@ For a broader perspective on anomaly detection, see our NeurIPS papers on `ADBen
 * `Implemented Algorithms <#implemented-algorithms>`__ (Tabular, Time Series, Graph, Embedding)
 * `Additional Topics <#additional-topics>`__ (Model Save/Load, SUOD, Thresholding)
 * `Quick Start for Outlier Detection <#quick-start-for-outlier-detection>`__
-* `How to Contribute <#how-to-contribute>`__
-* `Inclusion Criteria <#inclusion-criteria>`__
+* `How to Contribute <https://github.com/yzhao062/pyod/blob/master/CONTRIBUTING.md>`__
+* `Inclusion Criteria <https://pyod.readthedocs.io/en/latest/faq.html#inclusion-criteria>`__
 
 ----
 

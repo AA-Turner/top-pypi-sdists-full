@@ -4,6 +4,8 @@ from scipy.ndimage import gaussian_filter1d
 from statsmodels.regression.linear_model import OLS
 from statsmodels.tools.tools import add_constant
 
+from geocif.ml.beast_compat import import_rbeast, quiet_rbeast
+
 
 class DetrendedData:
     """
@@ -174,15 +176,16 @@ def segment_aware_trend(train_years, train_yields, *,
     Returns ``(intercept, slope, cp_used_year_or_None, n_used)``.
 
     - Builds a contiguous annual series with NaN gaps (BEAST needs that).
-    - Runs ``Rbeast.beast`` with the supplied params.
+    - Runs ``Rbeast.beast`` with the supplied params. When Rbeast is not
+      importable (no wheel for the interpreter, or uninstalled) the
+      changepoint step is skipped and the OLS below runs on the full
+      series, with ``cp_used=None``; ``import_rbeast`` warns once.
     - Picks the LATEST (max-year) CP whose posterior probability
       ``>= cp_threshold``.
     - Fits OLS on years ``>= that CP``.  If post-CP segment has
       ``< min_segment`` observations, or no strong CP exists, fits OLS on
       the full series.
     """
-    import Rbeast as rb
-
     years = np.asarray(train_years, dtype=float)
     yields = np.asarray(train_yields, dtype=float)
     valid = ~np.isnan(yields) & ~np.isnan(years)
@@ -192,34 +195,40 @@ def segment_aware_trend(train_years, train_yields, *,
             0.0, None, int(valid.sum()),
         )
 
-    y0 = int(years[valid].min())
-    y1 = int(years[valid].max())
-    full = np.full(y1 - y0 + 1, np.nan, dtype=float)
-    for yr, val in zip(years[valid].astype(int), yields[valid]):
-        full[yr - y0] = val
-
-    o = rb.beast(
-        full, start=y0, deltat=1, season="none",
-        tcp_minmax=list(tcp_minmax), tseg_minlength=tseg_minlength,
-        mcmc_seed=mcmc_seed,
-        quiet=True, print_param=False,
-        print_progress=False, print_warning=False,
-    )
-    cp_arr = np.atleast_1d(o.trend.cp)
-    cp_pr = np.atleast_1d(o.trend.cpPr)
-    ok = np.isfinite(cp_arr)
-    cp_years_all = cp_arr[ok]
-    cp_probs_all = cp_pr[ok]
-    strong = cp_probs_all >= cp_threshold
-
     seg_mask = valid.copy()
     cp_used = None
-    if strong.any():
-        cp_year = int(cp_years_all[strong].max())
-        candidate = valid & (years >= cp_year)
-        if candidate.sum() >= min_segment:
-            seg_mask = candidate
-            cp_used = cp_year
+    # Without Rbeast the plain least-squares line on the full series is
+    # still the best estimate the data supports (strictly better than
+    # failing the run or leaving the feature NaN); cp_used=None marks it.
+    rb = import_rbeast()
+    if rb is not None:
+        y0 = int(years[valid].min())
+        y1 = int(years[valid].max())
+        full = np.full(y1 - y0 + 1, np.nan, dtype=float)
+        for yr, val in zip(years[valid].astype(int), yields[valid]):
+            full[yr - y0] = val
+
+        with quiet_rbeast():
+            o = rb.beast(
+                full, start=y0, deltat=1, season="none",
+                tcp_minmax=list(tcp_minmax), tseg_minlength=tseg_minlength,
+                mcmc_seed=mcmc_seed,
+                quiet=True, print_param=False,
+                print_progress=False, print_warning=False,
+            )
+        cp_arr = np.atleast_1d(o.trend.cp)
+        cp_pr = np.atleast_1d(o.trend.cpPr)
+        ok = np.isfinite(cp_arr)
+        cp_years_all = cp_arr[ok]
+        cp_probs_all = cp_pr[ok]
+        strong = cp_probs_all >= cp_threshold
+
+        if strong.any():
+            cp_year = int(cp_years_all[strong].max())
+            candidate = valid & (years >= cp_year)
+            if candidate.sum() >= min_segment:
+                seg_mask = candidate
+                cp_used = cp_year
 
     x = years[seg_mask]
     y = yields[seg_mask]

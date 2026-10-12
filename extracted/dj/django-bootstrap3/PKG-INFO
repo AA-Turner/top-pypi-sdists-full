@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-bootstrap3
-Version: 26.2
+Version: 26.3
 Summary: Bootstrap 3 for Django
 Keywords: django,bootstrap,bootstrap3
 Author: Dylan Verheul
@@ -17,7 +17,6 @@ Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -25,7 +24,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Requires-Dist: django>=5.2
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: Changelog, https://github.com/zostera/django-bootstrap3/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://django-bootstrap3.readthedocs.io/
 Project-URL: Homepage, https://github.com/zostera/django-bootstrap3
@@ -52,6 +51,8 @@ Bootstrap 3 has been superseded by Bootstrap 4, which has since been superseded 
 For Bootstrap 4, please refer to our dedicated package: [django-bootstrap4](https://github.com/zostera/django-bootstrap4).
 
 For Bootstrap 5, please refer to our dedicated package: [django-bootstrap5](https://github.com/zostera/django-bootstrap5).
+
+To migrate, see [From django-bootstrap3](https://github.com/zostera/django-bootstrap5/blob/main/MIGRATE.md#from-django-bootstrap3) in the django-bootstrap5 migration guide. It covers the settings that disappear or change meaning, renamed tag arguments such as `size="large"`, and the removed `{% buttons %}` tag.
 
 For icons, we recommend our dedicated package: [django-icons](https://github.com/zostera/django-icons).
 
@@ -103,28 +104,25 @@ The full documentation is at https://django-bootstrap3.readthedocs.io/
 </form>
 ```
 
-Example app
------------
+## Example app
 
-An example app is provided in `example`. You can run it with `make example`.
+An example app is provided in the folder `example`. You can run the example app with this command:
 
+```console
+just example
+```
 
-Bugs and suggestions
---------------------
+## Bugs and suggestions
 
 If you have found a bug or if you have a request for additional functionality, please use the issue tracker on GitHub.
 
 https://github.com/zostera/django-bootstrap3/issues
 
-
-License
--------
+## License
 
 You can use this under BSD-3-Clause. See [LICENSE](LICENSE) file for details.
 
-
-Author
-------
+## Author
 
 Developed and maintained by [Zostera](https://zostera.nl).
 

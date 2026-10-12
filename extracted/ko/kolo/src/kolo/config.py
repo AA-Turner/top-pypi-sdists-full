@@ -153,11 +153,17 @@ def _copy_config(value):
 
 
 def _load_validated_toml(
-    path: Path, validator: Validator, error_message: str
+    path: Path,
+    validator: Validator,
+    error_message: str,
+    table: Tuple[str, ...] = (),
 ) -> MutableMapping[str, Any]:
     """Parse and validate a TOML file, logging validation errors every time.
 
-    Raises FileNotFoundError like ``open`` when the file does not exist.
+    Returns a copy of the file's ``table`` (the whole document by default):
+    a pyproject.toml is mostly other tools' settings, and only Kolo's are
+    wanted from it. Raises FileNotFoundError like ``open`` when the file does
+    not exist, and KeyError when it has no such table.
     """
     with open(path, "rb") as conf:
         content = conf.read()
@@ -174,6 +180,8 @@ def _load_validated_toml(
         _config_files[key] = (content, _copy_config(config), errors)
     if errors is not None:
         logger.warning(error_message, errors)
+    for name in table:
+        config = config[name]
     return _copy_config(config)
 
 
@@ -189,14 +197,15 @@ def load_config_from_toml(path: Path) -> MutableMapping[str, Any]:
 
 def load_config_from_pyproject_toml(path: Path) -> MutableMapping[str, Any]:
     try:
-        config = _load_validated_toml(
-            path, pyproject_validator, "pyproject.toml config file has errors: %s"
+        return _load_validated_toml(
+            path,
+            pyproject_validator,
+            "pyproject.toml config file has errors: %s",
+            table=("tool", "kolo"),
         )
     except FileNotFoundError:
         logger.info("%s config file not found. Trying next configuration option.", path)
         raise InvalidConfig()
-    try:
-        return config["tool"]["kolo"]
     except KeyError:
         raise InvalidConfig()
 

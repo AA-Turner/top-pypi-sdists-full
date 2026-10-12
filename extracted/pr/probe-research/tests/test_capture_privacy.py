@@ -39,7 +39,7 @@ from typing import Any
 
 import pytest
 
-from probe.tap_core import codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
+from probe.tap_core import capy_sanitize, codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
 from probe.tap_core.sanitize import COMMAND_MAX_LEN, USAGE_KEYS
 
 _AGENT = Path(__file__).resolve().parent.parent
@@ -51,7 +51,7 @@ _TAP_FIXTURES = _AGENT / "plugins" / "probe-research-tap" / "tests" / "fixtures"
 #: result appears in the raw file.
 CC_SYNTHETIC = _FIXTURES / "probe_events" / "claude_code" / "raw.jsonl"
 #: The other harnesses' probe-events goldens (test_probe_events_contract.py).
-_GOLDEN = {h: _FIXTURES / "probe_events" / h / "raw.jsonl" for h in ("codex", "pi", "kimi_code")}
+_GOLDEN = {h: _FIXTURES / "probe_events" / h / "raw.jsonl" for h in ("codex", "pi", "kimi_code", "capy")}
 PLANTED = ("FILE-CONTENT-7f3a", "TOOL-OUTPUT-9b2c", "TOOL-INPUT-4d1e", "SEARCH-RESULT-2e8d", "iVBORw0KGgo",
            "COMMAND-OUTPUT-5a6b", "SKILL-BODY-6d2a")
 
@@ -84,7 +84,21 @@ _HARNESS_FIXTURES: dict[str, tuple[Any, list[Path]]] = {
             *sorted((_FIXTURES / "daemon_adapters" / "kimi_code").glob("*.jsonl")),
         ],
     ),
+    "capy": (capy_sanitize, [_GOLDEN["capy"]]),
 }
+
+
+def test_nothing_after_a_capy_tool_summary_s_first_line_ships() -> None:
+    """Capy's tool entries are already one-line summaries; the golden plants
+    output on a second line, and only the first line may leave."""
+    raw = _GOLDEN["capy"].read_text()
+    for marker in ("TOOL-OUTPUT-9b2c", "FILE-CONTENT-7f3a", "COMMAND-OUTPUT-5a6b"):
+        assert marker in raw, f"fixture no longer plants {marker}"
+    shipped = json.dumps(_sanitized(capy_sanitize, _GOLDEN["capy"]))
+    for marker in ("TOOL-OUTPUT-9b2c", "FILE-CONTENT-7f3a", "COMMAND-OUTPUT-5a6b"):
+        assert marker not in shipped, marker
+    for kept in ("Reading train.py", "Running python train.py --lr 3e-4", "eval loss went from 2.31"):
+        assert kept in shipped, kept
 
 _CASES = [
     pytest.param(module, path, id=f"{harness}:{path.relative_to(_AGENT)}")

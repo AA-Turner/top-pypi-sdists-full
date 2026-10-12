@@ -22,8 +22,8 @@ DEFAULT_EXCLUSIONS = ("*__pycache__*",)
 
 
 def get_evaluable_architecture(
-    root_path: str,
-    module_path: str,
+    root_path: str | Path,
+    module_path: str | Path,
     exclusions: tuple[str, ...] = DEFAULT_EXCLUSIONS,
     exclude_external_libraries: bool = True,
     level_limit: int | None = None,
@@ -44,7 +44,7 @@ def get_evaluable_architecture(
             modules one level below the module path to be added as nodes. Note that this only applies to the final graph;
             all modules will be parsed, the graph will simply be flattened: if a submodule of X imports Y, this import is
             then assigned to X instead, if Y is above the level limit.
-        regex_exclusions: Proper regex version of 'exclusions'. Can only be specified if regex_exclusions is not specified.
+        regex_exclusions: Proper regex version of 'exclusions'. Can only be specified if exclusions is not specified.
         regex_external_exclusions: Proper regex version of 'external_exclusions' to exclude certain external dependencies from being integrated into the evaluable. Can only be specified if exclude_external_libraries is False and external_exclusions is not specified. If a parent module (e.g. 'logging') is excluded, so will be child modules (e.g. 'logging.handlers').
     """
     if regex_exclusions and exclusions:

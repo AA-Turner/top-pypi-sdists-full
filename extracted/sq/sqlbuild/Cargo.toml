@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/sqlbuild-core", "crates/sqlbuild-cache", "crates/sqlbuild-sqltext", "crates/sqlbuild-config", "crates/sqlbuild-discovery", "crates/sqlbuild-scopes", "crates/sqlbuild-model-config", "crates/sqlbuild-render", "crates/sqlbuild-attachments", "crates/sqlbuild-analysis", "crates/sqlbuild-rules", "crates/sqlbuild-python"]
+members = ["crates/sqlbuild-core", "crates/sqlbuild-cache", "crates/sqlbuild-sqltext", "crates/sqlbuild-config", "crates/sqlbuild-discovery", "crates/sqlbuild-scopes", "crates/sqlbuild-model-config", "crates/sqlbuild-render", "crates/sqlbuild-attachments", "crates/sqlbuild-analysis", "crates/sqlbuild-rules", "crates/sqlbuild-refactor", "crates/sqlbuild-python"]
 resolver = "2"
 
 # Native crates from the bottom up: each crate may depend only on crates listed before it.
@@ -12,19 +12,21 @@ order = [
     "sqlbuild-sqltext",
     "sqlbuild-config",
     "sqlbuild-discovery",
+    "sqlbuild-render",
     "sqlbuild-scopes",
     "sqlbuild-model-config",
-    "sqlbuild-render",
     "sqlbuild-attachments",
     "sqlbuild-analysis",
     "sqlbuild-rules",
+    "sqlbuild-refactor",
+    "sqlbuild-cli",
     "sqlbuild-python",
 ]
 python-boundary = "sqlbuild-python"
 polyglot-floor = "sqlbuild-analysis"
 
 [workspace.package]
-version = "0.155.0"
+version = "0.156.0"
 edition = "2024"
 license = "Apache-2.0"
 publish = false
@@ -32,6 +34,8 @@ rust-version = "1.88"
 
 [workspace.dependencies]
 fensu-policy = "=0.22.0"
+# `sqb` names compute log captures with random ids, as `uuid.uuid4().hex`.
+getrandom = "0.4"
 globset = "0.4"
 # Windows only: tells NTFS junctions, which Python walks as directories, from symbolic links.
 junction = { version = "2.1.0", default-features = false }
@@ -42,12 +46,7 @@ pyo3 = { version = "0.26", features = ["abi3-py312"] }
 polyglot-sql = { git = "https://github.com/chio-labs/polyglot.git", rev = "ca9e7b6e405fb6f5484472bb08780268789c5e04", default-features = false, features = [
     "ast-tools",
     "builder",
-    "dialect-bigquery",
-    "dialect-databricks",
-    "dialect-duckdb",
-    "dialect-postgresql",
-    "dialect-snowflake",
-    "dialect-tsql",
+    "all-dialects",
     "semantic",
     "stacker",
 ] }
@@ -55,8 +54,12 @@ polyglot-sql-function-catalogs = { git = "https://github.com/chio-labs/polyglot.
     "dialect-duckdb",
 ] }
 blake3 = { version = "1", features = ["rayon"] }
+# Windows only: `sqb` ignores Ctrl+C while the Python CLI it started handles it.
+ctrlc = "3"
 quote = "1"
 rayon = "1"
+# Unix only: `sqb` shares the compute log prune lock with Python's `filelock` through `flock`.
+rustix = { version = "1.1.4", default-features = false, features = ["fs", "std"] }
 saphyr-parser = "0.1"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
@@ -70,6 +73,7 @@ sqlbuild-config = { path = "crates/sqlbuild-config" }
 sqlbuild-core = { path = "crates/sqlbuild-core" }
 sqlbuild-discovery = { path = "crates/sqlbuild-discovery" }
 sqlbuild-render = { path = "crates/sqlbuild-render" }
+sqlbuild-refactor = { path = "crates/sqlbuild-refactor" }
 sqlbuild-rules = { path = "crates/sqlbuild-rules" }
 sqlbuild-model-config = { path = "crates/sqlbuild-model-config" }
 sqlbuild-scopes = { path = "crates/sqlbuild-scopes" }
@@ -90,6 +94,13 @@ unused_must_use = "deny"
 
 [workspace.lints.clippy]
 await_holding_lock = "deny"
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 1
+debug = false
 
 [profile.release]
 strip = "symbols"

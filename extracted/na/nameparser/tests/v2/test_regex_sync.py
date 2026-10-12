@@ -25,7 +25,7 @@ import pytest
 
 from nameparser.config import regexes as _config
 from nameparser._pipeline import (
-    _assemble, _assign, _classify, _extract, _group, _pieces,
+    _assemble, _assign, _classify, _comma, _extract, _group, _pieces,
     _post_rules, _script_segment, _segment, _state, _tokenize, _vocab,
 )
 import nameparser._pipeline
@@ -99,6 +99,18 @@ def test_initial_copies_agree_with_each_other_and_config() -> None:
     assert source.flags == _vocab._INITIAL.flags
 
 
+def test_dotted_initial_is_the_period_alternative_of_initial() -> None:
+    # _render._DOTTED_INITIAL (#478's hyphen clause) is _INITIAL's
+    # period alternative alone -- the bare-capital half is deliberately
+    # not used there (#458). _INITIAL is "^(\\w\\.|[A-Z])$"; splitting
+    # its alternation and re-wrapping the first half must reproduce
+    # _DOTTED_INITIAL exactly, so the two cannot drift apart unnoticed.
+    inner = _render._INITIAL.pattern[2:-2]  # strip "^(" and ")$"
+    period_alt = inner.split("|")[0]
+    assert _render._DOTTED_INITIAL.pattern == f"^{period_alt}$"
+    assert _render._DOTTED_INITIAL.flags == _render._INITIAL.flags
+
+
 # The roster above grew one test at a time, and four hand-copies were
 # never added to it -- _render's _SPACES, _SPACE_BEFORE_COMMA, _MAC and
 # _WORD. They had not diverged, but nothing would have said so, which
@@ -111,10 +123,25 @@ def test_initial_copies_agree_with_each_other_and_config() -> None:
 # source now fails here instead of being silently unpinned.
 _SOURCES: dict[tuple[str, str], str | None] = {
     ("_pieces", "_PERIOD_ABBREV"): "period_abbreviation",
+    # SAME object as the entry above, not a second copy: _pieces
+    # imports it from _vocab (#289/#516, quality-review finding --
+    # is_title_shaped moved there so name_word_count could share
+    # is_leading_title's H2 shape test), so it is visible under both
+    # module names and the completeness scan below sees it twice.
+    ("_vocab", "_PERIOD_ABBREV"): "period_abbreviation",
     ("_group", "_D"): None,
     ("_vocab", "_DOTTED"): None,
+    # #544: the chunked sibling of _DOTTED ('M.Eng.'), S2's period gate
+    # for a member with a lower-case tail; no config key to mirror
+    ("_vocab", "_CHUNKED"): None,
+    # #563: paired initials ('M.J.'), C1's exception to the name-word
+    # count after a comma; no config key to mirror
+    ("_vocab", "_PAIRED_INITIALS"): None,
     ("_group", "_PH"): None,
     ("_vocab", "_ROMAN"): "roman_numeral",
+    # SAME object, imported for the trailing read's weighed-word test
+    # (#620), as _PERIOD_ABBREV is above
+    ("_pieces", "_ROMAN"): "roman_numeral",
     ("_post_rules", "_EAST_SLAVIC"): "east_slavic_patronymic",
     ("_post_rules", "_EAST_SLAVIC_CYR"): "east_slavic_patronymic_cyrillic",
     ("_post_rules", "_TURKIC"): "turkic_patronymic_marker",
@@ -123,11 +150,19 @@ _SOURCES: dict[tuple[str, str], str | None] = {
     ("_render", "_SPACE_BEFORE_COMMA"): "space_before_comma",
     ("_render", "_MAC"): "mac",
     ("_render", "_WORD"): "word",
+    # the numeral clause's copy of _vocab._ROMAN (#459); layering
+    # forbids _render the import, so it is pinned here instead
+    ("_render", "_ROMAN"): "roman_numeral",
     ("_vocab", "_PERIOD_NOT_AT_END"): "period_not_at_end",
     # Deliberately NOT a straight copy -- pinned by the dedicated tests
     # above, which assert the documented RELATIONSHIP instead:
     ("_render", "_INITIAL"): None,      # config's pattern minus one "?"
     ("_vocab", "_INITIAL"): None,       # same
+    ("_render", "_DOTTED_INITIAL"): None,  # _INITIAL's period alternative
+    # #542: the name run after a Mac/Mc prefix, read on the word as
+    # written once _MAC has matched its composed spelling; no config
+    # key to mirror
+    ("_render", "_NAME_RUN"): None,
     ("_tokenize", "_BIDI"): None,       # re_bidi, not a REGEXES key
     # Mirrors _pipeline._state.COMMA_CHARS, not nameparser.config
     ("_render", "_COMMA_CHAR"): None,
@@ -165,7 +200,7 @@ def test_every_pipeline_module_is_scanned_for_hand_copies() -> None:
 
 
 _MODULES = {"_assemble": _assemble, "_assign": _assign,
-            "_classify": _classify, "_extract": _extract,
+            "_classify": _classify, "_comma": _comma, "_extract": _extract,
             "_group": _group, "_pieces": _pieces,
             "_post_rules": _post_rules, "_render": _render,
             "_script_segment": _script_segment, "_segment": _segment,

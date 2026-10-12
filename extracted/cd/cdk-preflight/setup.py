@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-preflight",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "description": "Catch deploy-time CloudFormation failures at synth time: a Rego rule pack for constraints that resource schemas miss, injected into the AWS CDK built-in validator",
     "license": "Apache-2.0",
     "url": "https://github.com/badmintoncryer/cdk-preflight.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_preflight._jsii": [
-            "cdk-preflight@1.0.1.jsii.tgz"
+            "cdk-preflight@1.1.0.jsii.tgz"
         ],
         "cdk_preflight": [
             "py.typed"
@@ -36,7 +36,7 @@ kwargs = json.loads(
     "install_requires": [
         "aws-cdk-lib>=2.267.0, <3.0.0",
         "constructs>=10.5.1, <11.0.0",
-        "jsii>=1.140.0, <2.0.0",
+        "jsii>=1.141.0, <2.0.0",
         "publication>=0.0.3"
     ],
     "classifiers": [

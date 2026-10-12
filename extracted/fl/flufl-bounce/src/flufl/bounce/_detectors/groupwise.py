@@ -1,4 +1,4 @@
-"""This appears to be the format for Novell GroupWise and NTMail
+"""This appears to be the format for Novell GroupWise and NTMail.
 
 X-Mailer: Novell GroupWise Internet Agent 5.5.3.1
 X-Mailer: NTMail v4.30.0012
@@ -14,7 +14,7 @@ from typing import cast
 from public import public
 
 from flufl.bounce._detectors.simplematch import VALID
-from flufl.bounce.interfaces import NoFailures, NoTemporaryFailures, Recipients
+from flufl.bounce._interfaces import NoFailures, NoTemporaryFailures, Recipients
 
 
 acre = re.compile(b'<(?P<addr>[^>]*)>')
@@ -27,7 +27,9 @@ def find_textplain(msg: Message) -> Message | None:
         for part in msg.get_payload():
             if not isinstance(part, Message):
                 continue
-            if ret := find_textplain(part):
+            # A text/plain part with no headers is falsy (len() counts headers), so test for None
+            # rather than truth.
+            if (ret := find_textplain(part)) is not None:
                 return ret
     return None
 
@@ -47,22 +49,21 @@ class GroupWise:
         text_plain = find_textplain(msg)
         if text_plain is None:
             return NoFailures
-        # text_plain is a text/plain leaf Message at runtime, so the decoded
-        # payload is bytes; pyrefly sees the wider Message | bytes | Any union.
+        # text_plain is a text/plain leaf Message at runtime, so the decoded payload is bytes;
+        # pyrefly sees the wider Message | bytes | Any union.
         body = BytesIO(cast(bytes, text_plain.get_payload(decode=True)))
         for line in body:
+            # BytesIO preserves line terminators.  Strip only trailing whitespace, since a leading
+            # space is significant below.
+            line = line.rstrip()
             if mo := acre.search(line):
                 addresses.add(mo.group('addr'))
             elif b'@' in line:
                 i = line.find(b' ')
                 if i == 0:
                     continue
-                if i < 0:
-                    # TODO: `line` here still has its trailing newline (BytesIO
-                    # preserves line terminators), so this fallback would add
-                    # addresses with `\n`/`\r\n` attached.  No test exercises
-                    # this path; revisit when a real-world sample surfaces.
-                    addresses.add(line)
-                elif VALID.match(line[:i]):
-                    addresses.add(line[:i])
+                # The address is the whole line, or else its first word.
+                candidate = line if i < 0 else line[:i]
+                if VALID.match(candidate):
+                    addresses.add(candidate)
         return NoTemporaryFailures, frozenset(addresses)

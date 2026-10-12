@@ -58,9 +58,33 @@ def _install_mirror_entry(isolate, *, version="0.3.0", extra: dict | None = None
     return clone
 
 
-def test_the_package_skills_are_the_daemon_profile_less_the_extensions_own_probe():
+def test_the_package_skills_are_the_daemon_profile_less_the_extensions_own():
     profiles = json.loads((AGENT / "skills" / "profiles.json").read_text())
-    assert list(pi_config.DAEMON_PACKAGE_SKILLS) == [s for s in profiles["daemon"] if s != "probe"]
+    assert set(pi_config.DAEMON_EXTENSION_SKILLS) <= set(profiles["daemon"])
+    assert list(pi_config.DAEMON_PACKAGE_SKILLS) == [
+        s for s in profiles["daemon"] if s not in pi_config.DAEMON_EXTENSION_SKILLS]
+
+
+def test_the_extension_adds_the_same_skills_the_filter_leaves_out():
+    """The extension's `DAEMON_ADDED_SKILLS` (TypeScript) is this side's
+    `DAEMON_EXTENSION_SKILLS` less the daemon's own `probe`, which it adds from
+    daemon-skills/. A skill on one list and not the other loads nowhere."""
+    import re
+
+    source = (AGENT / "plugins" / "probe-research-pi" / "src" / "profile.ts").read_text()
+    match = re.search(r"DAEMON_ADDED_SKILLS: readonly string\[\] = \[([^\]]*)\]", source)
+    assert match, "profile.ts no longer declares DAEMON_ADDED_SKILLS"
+    added = re.findall(r'"([^"]+)"', match.group(1))
+    assert added == [s for s in pi_config.DAEMON_EXTENSION_SKILLS if s != "probe"]
+    for name in added:
+        assert (AGENT / "plugins" / "probe-research-pi" / "skills" / name / "SKILL.md").is_file(), name
+
+
+def test_a_filter_written_before_a_skill_joined_the_profile_is_still_the_daemon(isolate):
+    """Machines already on the daemon profile carry the one-skill filter; it
+    must keep reading as the daemon profile."""
+    _install_mirror_entry(isolate, extra={"skills": ["plugins/probe-research-pi/skills/instrument-code"]})
+    assert pi_config.entry_profile() == "daemon"
 
 
 def test_set_profile_narrows_and_restores_the_mirror_entry(isolate):

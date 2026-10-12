@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: aiohttp-sse
-Version: 2.2.0
+Version: 3.0
 Summary: Server-sent events  support for aiohttp.
 Home-page: https://github.com/aio-libs/aiohttp_sse/
 Author: Nikolay Novik
@@ -10,17 +10,27 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: AsyncIO
 Classifier: Framework :: aiohttp
-Requires-Python: >=3.8
+Requires-Python: >=3.11
 License-File: LICENSE
 Requires-Dist: aiohttp>=3.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 aiohttp-sse
 ===========
@@ -57,6 +67,7 @@ Example
 .. code:: python
 
     import asyncio
+    import json
     from datetime import datetime
 
     from aiohttp import web

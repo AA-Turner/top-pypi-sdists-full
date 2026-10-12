@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString, PyTuple};
 use std::cell::{Cell, RefCell};
 use std::io::Write;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 /// C stack Kolo keeps in reserve before handling a tracing event.
 ///
@@ -127,6 +127,237 @@ fn stack_pointer() -> usize {
     std::hint::black_box(&marker) as *const u8 as usize
 }
 
+/// The lowest usable address of the calling thread's stack, `usize::MAX`
+/// when the OS doesn't say.
+#[cfg(not(any(target_arch = "wasm32", all(target_os = "linux", target_env = "musl"))))]
+fn os_stack_limit(sp: usize) -> usize {
+    match stacker::remaining_stack() {
+        Some(remaining) => sp.saturating_sub(remaining).max(1),
+        None => usize::MAX,
+    }
+}
+
+/// The lowest usable address of the calling thread's stack on musl, where
+/// `stacker` can't be used.
+///
+/// `stacker` asks `pthread_getattr_np`. For a thread musl created, that is
+/// its stack. For the stack the process started on, musl reports only the
+/// pages mapped so far (about 130 KiB in a fresh process), not what the
+/// kernel lets the stack grow to. Taken as the whole stack, that puts every
+/// Python frame of the main thread within Kolo's reserve of the end: Kolo
+/// 3.5.0 recorded nothing there.
+///
+/// Never `usize::MAX`: a stack musl won't describe counts as used up for
+/// good, so Kolo records nothing on it (and says so, see `StackSkips`)
+/// rather than run on a stack it knows nothing about.
+#[cfg(all(target_os = "linux", target_env = "musl"))]
+fn os_stack_limit(sp: usize) -> usize {
+    /// Above any stack pointer, and not the `usize::MAX` that means unknown.
+    const USED_UP: usize = usize::MAX - 1;
+    let Some((mut lowest, mut top)) = musl_reported_stack() else {
+        return USED_UP;
+    };
+    // Twice: the initial stack can grow between musl's report of it and
+    // the reading of the mappings, which then disagree.
+    for _ in 0..2 {
+        if let Some(grows_to) = musl_initial_stack_lowest(sp, lowest, top) {
+            return grows_to.min(lowest).max(1);
+        }
+        match musl_reported_stack() {
+            Some(reported) => (lowest, top) = reported,
+            None => return USED_UP,
+        }
+    }
+    lowest.max(1)
+}
+
+/// What musl's `pthread_getattr_np` says of the calling thread's stack: its
+/// lowest address and the address just past its highest.
+#[cfg(all(target_os = "linux", target_env = "musl"))]
+fn musl_reported_stack() -> Option<(usize, usize)> {
+    let mut attr = std::mem::MaybeUninit::<libc::pthread_attr_t>::uninit();
+    // SAFETY: `pthread_getattr_np` initializes `attr` when it succeeds, and
+    // only then is it read and destroyed.
+    let (lowest, size) = unsafe {
+        if libc::pthread_getattr_np(libc::pthread_self(), attr.as_mut_ptr()) != 0 {
+            return None;
+        }
+        let mut address = std::ptr::null_mut();
+        let mut size = 0;
+        let found = libc::pthread_attr_getstack(attr.as_ptr(), &mut address, &mut size) == 0;
+        libc::pthread_attr_destroy(attr.as_mut_ptr());
+        found.then_some((address as usize, size))?
+    };
+    Some((lowest, lowest.checked_add(size)?))
+}
+
+/// How far down the stack `sp` is on can grow, if it is the stack the
+/// process started on. `None` for any other stack, and whenever that can't
+/// be established: then only what musl reported counts.
+///
+/// As glibc's `pthread_getattr_np` works it out, from `RLIMIT_STACK` and
+/// the process's mappings (see `initial_stack_growth_limit`). Like every platform's limit here it is measured
+/// once per thread: a limit lowered, or a mapping placed under the stack,
+/// after that is not seen.
+#[cfg(all(target_os = "linux", target_env = "musl"))]
+fn musl_initial_stack_lowest(sp: usize, lowest: usize, top: usize) -> Option<usize> {
+    // The kernel puts AT_RANDOM's bytes on the initial stack, just above
+    // the auxiliary vector whose page musl takes that stack's top from. Far
+    // from them this is a thread's stack, and the mappings needn't be read.
+    // (`gettid() == getpid()` alone won't do: after a fork from another
+    // thread that thread is the main one, on the stack musl created for it.)
+    // SAFETY: `getauxval` only reads the process's auxiliary vector.
+    let random = unsafe { libc::getauxval(libc::AT_RANDOM) } as usize;
+    if random == 0 || random.abs_diff(top) > INITIAL_STACK_MARGIN_BYTES || sp < lowest {
+        return None;
+    }
+    // Only the main thread runs on the initial stack as such. Another
+    // thread can be given a buffer inside it for a stack
+    // (`pthread_attr_setstack`), which ends where musl said.
+    // SAFETY: both calls take no arguments and cannot fail.
+    let (thread, process) = unsafe { (libc::syscall(libc::SYS_gettid), libc::getpid()) };
+    if thread != libc::c_long::from(process) {
+        return None;
+    }
+    let mut limit = libc::rlimit {
+        rlim_cur: 0,
+        rlim_max: 0,
+    };
+    // SAFETY: `limit` is a valid `rlimit` to write to.
+    if unsafe { libc::getrlimit(libc::RLIMIT_STACK, &mut limit) } != 0 {
+        return None;
+    }
+    let limit = if limit.rlim_cur == libc::RLIM_INFINITY {
+        usize::MAX
+    } else {
+        usize::try_from(limit.rlim_cur).unwrap_or(usize::MAX)
+    };
+    // SAFETY: `sysconf` has no preconditions.
+    let page = usize::try_from(unsafe { libc::sysconf(libc::_SC_PAGESIZE) }).ok()?;
+    let command_line = std::fs::read_to_string("/proc/cmdline").ok()?;
+    let guard_gap = stack_guard_gap_pages(&command_line)?.checked_mul(page)?;
+    let mappings = std::fs::read_to_string("/proc/self/smaps").ok()?;
+    initial_stack_growth_limit(
+        &mappings,
+        sp,
+        random,
+        limit,
+        guard_gap,
+        INITIAL_STACK_MAX_BYTES,
+        lowest,
+    )
+}
+
+/// Left unused at the low end of the initial stack on musl: its bounds are
+/// worked out, not reported.
+#[cfg(any(test, all(target_os = "linux", target_env = "musl")))]
+const INITIAL_STACK_MARGIN_BYTES: usize = 128 * 1024;
+
+/// How far below where the process started the initial stack is taken to
+/// end on musl, whatever more `RLIMIT_STACK` allows.
+///
+/// CPython 3.14 bounds recursion by the C stack, and Kolo's reserve is laid
+/// out for that: where both read the real limit, CPython's own soft limit
+/// is 32 KiB above it, well inside the reserve, so Kolo stops recording
+/// before Python calls start to fail. On musl CPython doesn't read the
+/// limit either. It takes every thread, the main one included, to have as
+/// much stack as it links its threads with there, 1 MiB
+/// (`_Py_LINKER_THREAD_STACK_SIZE`), below where the interpreter first ran
+/// on it. Kolo's limit for the initial stack has to be no lower than that,
+/// though the stack goes on (to 8 MiB as a rule), or its callbacks run
+/// exactly where every Python call raises `RecursionError`. (3.14.0 took
+/// 4 MB, which this is only cautious for.)
+#[cfg(all(Py_3_14, target_os = "linux", target_env = "musl"))]
+const INITIAL_STACK_MAX_BYTES: usize = 1 << 20;
+
+/// Before 3.14 the C stack doesn't bound recursion: the usual limit.
+#[cfg(all(not(Py_3_14), target_os = "linux", target_env = "musl"))]
+const INITIAL_STACK_MAX_BYTES: usize = 8 << 20;
+
+/// Pages the kernel keeps free between a growing stack and the mapping
+/// below it: 256, unless the kernel was booted with another
+/// `stack_guard_gap`. `None` if its command line (`/proc/cmdline`) so much
+/// as mentions one: the kernel's own reading of it (quoting, `-` for `_`,
+/// what follows `--`) is not second-guessed here.
+#[cfg(any(test, all(target_os = "linux", target_env = "musl")))]
+fn stack_guard_gap_pages(kernel_command_line: &str) -> Option<usize> {
+    let mentioned = kernel_command_line
+        .replace('-', "_")
+        .contains("stack_guard_gap");
+    (!mentioned).then_some(256)
+}
+
+/// The lowest address the initial stack may grow down to, given
+/// `/proc/self/smaps`, or `None` unless `sp` is on that stack: in the
+/// mapping the kernel calls `[stack]`, which grows down (`gd` among its
+/// `VmFlags`) and holds the `random` bytes the kernel put on the initial
+/// stack, and which begins at `reported_lowest`, where musl has the
+/// calling thread's stack begin. A stack that merely sits next to it (one
+/// an application made and handed to `pthread_attr_setstack`) is a mapping
+/// of its own, one put in its place does not grow, and a buffer inside it
+/// used as a thread's stack begins further up.
+///
+/// The stack can grow until it is `rlimit` bytes long, measured from the
+/// end of its mapping, or comes within `guard_gap` bytes of the mapping
+/// below it. The limit is short of both by a margin, no more than
+/// `max_below_random` bytes below `random` (about where the process
+/// started), and never above the start of what is mapped.
+#[cfg(any(test, all(target_os = "linux", target_env = "musl")))]
+fn initial_stack_growth_limit(
+    smaps: &str,
+    sp: usize,
+    random: usize,
+    rlimit: usize,
+    guard_gap: usize,
+    max_below_random: usize,
+    reported_lowest: usize,
+) -> Option<usize> {
+    let mut mapping_below_ends = 0;
+    // The mapping `sp` is in, once its first line has been read.
+    let mut stack = None;
+    for line in smaps.lines() {
+        let mapping = line.split_whitespace().next().and_then(|range| {
+            let (start, end) = range.split_once('-')?;
+            Some((
+                usize::from_str_radix(start, 16).ok()?,
+                usize::from_str_radix(end, 16).ok()?,
+            ))
+        });
+        match (mapping, stack) {
+            (Some(_), Some(_)) => return None, // No `VmFlags` line for it.
+            (Some((start, end)), None) if (start..end).contains(&sp) => {
+                if start != reported_lowest
+                    || !(start..end).contains(&random)
+                    || !line.trim_end().ends_with("[stack]")
+                {
+                    return None;
+                }
+                stack = Some((start, end));
+            }
+            (Some((_, end)), None) => mapping_below_ends = end,
+            (None, Some((start, end))) => {
+                let Some(flags) = line.strip_prefix("VmFlags:") else {
+                    continue;
+                };
+                if !flags.split_whitespace().any(|flag| flag == "gd") {
+                    return None;
+                }
+                let by_limit = end.saturating_sub(rlimit);
+                let by_neighbour = mapping_below_ends.saturating_add(guard_gap);
+                return Some(
+                    by_limit
+                        .max(by_neighbour)
+                        .saturating_add(INITIAL_STACK_MARGIN_BYTES)
+                        .max(random.saturating_sub(max_below_random))
+                        .min(start),
+                );
+            }
+            (None, None) => {}
+        }
+    }
+    None
+}
+
 impl StackGuard {
     /// Stack left below the caller's frame, `usize::MAX` if unknown.
     ///
@@ -139,10 +370,7 @@ impl StackGuard {
         let sp = stack_pointer();
         let mut limit = self.limit.get();
         if limit == 0 {
-            limit = match stacker::remaining_stack() {
-                Some(remaining) => sp.saturating_sub(remaining).max(1),
-                None => usize::MAX,
-            };
+            limit = os_stack_limit(sp);
             self.limit.set(limit);
         }
         if limit == usize::MAX {
@@ -202,7 +430,6 @@ pub(crate) enum StackDecision {
     RecordWithoutValues,
     Skip,
 }
-
 
 /// Whether to handle this event, given how close Kolo is to the end of the
 /// C stack.
@@ -379,6 +606,63 @@ pub(crate) fn room_to_flush() -> bool {
     STACK_GUARD.with(StackGuard::remaining) >= EXIT_STACK_RESERVE_BYTES
 }
 
+/// The events one tracing session skipped for want of stack.
+///
+/// Skipping is silent by design: a program recursing to its limit loses the
+/// deepest frames and nothing else. A session that skipped events and
+/// recorded nothing is something else: a thread whose whole stack is smaller
+/// than the reserve, or a stack Kolo misjudged (3.5.0 on musl). It says so
+/// when it is saved, instead of leaving an empty trace to be found later.
+#[derive(Default)]
+pub(crate) struct StackSkips {
+    events: AtomicUsize,
+    /// Stack left at the latest skip.
+    remaining: AtomicUsize,
+}
+
+impl StackSkips {
+    /// Count an event the stack check skipped on this thread.
+    #[cold]
+    #[inline(never)]
+    pub(crate) fn note(&self) {
+        let remaining = STACK_GUARD.with(StackGuard::remaining);
+        self.remaining.store(remaining, Ordering::Relaxed);
+        self.events.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Start counting afresh, for a new session.
+    pub(crate) fn reset(&self) {
+        self.events.store(0, Ordering::Relaxed);
+    }
+
+    /// Called when a session's trace is saved: warn if it has no frames and
+    /// the stack check is why.
+    pub(crate) fn warn_if_nothing_recorded(&self, py: Python, trace_id: &str, no_frames: bool) {
+        let events = self.events.swap(0, Ordering::Relaxed);
+        if events == 0 || !no_frames {
+            return;
+        }
+        let message = format!(
+            "Kolo recorded no frames in trace {trace_id}: it skipped {events} events as too \
+             close to the end of the C stack ({} KiB left where it keeps {} KiB in reserve). \
+             A thread needs a stack of more than twice that to be traced. If this one has \
+             that, this is a bug in Kolo: please report it with your platform and Python \
+             version.",
+            self.remaining.load(Ordering::Relaxed) / 1024,
+            STACK_RESERVE_BYTES / 1024,
+        );
+        // Logging runs Python code, and plenty of it. Short of stack (a
+        // session saved from where its events were skipped), write to fd 2
+        // without touching the interpreter.
+        if STACK_GUARD.with(StackGuard::remaining) >= STACK_RESERVE_BYTES {
+            if let Ok(args) = PyTuple::new(py, [message.as_str()]) {
+                log_warning(py, args, None);
+                return;
+            }
+        }
+        let _ = std::io::stderr().write_all(format!("{message}\n").as_bytes());
+    }
+}
 
 /// Forget the innermost entry, just recorded, of a frame Kolo then
 /// filtered out of the trace (its later exits skip the stack check).
@@ -482,10 +766,11 @@ pub(crate) fn stopped_after_panic_error() -> PyErr {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::{
-        check_stack, check_stack_with, decide, forget_entry, values_omitted, with_stack_below,
-        NearEndFrames, OmittingValues, StackDecision, StackEvent,
-        ENTRY_DEPTH_SLACK_BYTES, EXIT_STACK_RESERVE_BYTES, MINIMAL_EXIT_STACK_RESERVE_BYTES,
-        NEAR_STACK_END_BYTES, STACK_RESERVE_BYTES,
+        check_stack, check_stack_with, decide, forget_entry, initial_stack_growth_limit,
+        remaining_stack, stack_guard_gap_pages, values_omitted, with_stack_below, NearEndFrames,
+        OmittingValues, StackDecision, StackEvent, ENTRY_DEPTH_SLACK_BYTES,
+        EXIT_STACK_RESERVE_BYTES, INITIAL_STACK_MARGIN_BYTES, MINIMAL_EXIT_STACK_RESERVE_BYTES,
+        NEAR_STACK_END_BYTES, STACK_GUARD, STACK_RESERVE_BYTES,
     };
     use StackDecision::{Record, RecordWithoutValues, Skip};
 
@@ -504,6 +789,384 @@ mod tests {
             .expect("spawn test thread")
             .join()
             .expect("test thread");
+    }
+
+    /// `/proc/self/smaps` of a process whose initial stack, 132 KiB mapped,
+    /// is the last mapping but one, with `below` under it. Addresses that
+    /// fit a 32-bit target too.
+    fn smaps_with(below: &str, stack_flags: &str) -> String {
+        format!(
+            "08048000-08049000 r--p 00000000 fd:01 123 /usr/local/bin/python3.13\n\
+             Size:                  4 kB\n\
+             VmFlags: rd mr mw me sd\n\
+             {below}\
+             7f6e9000-7f70a000 rw-p 00000000 00:00 0                          [stack]\n\
+             Size:                132 kB\n\
+             Rss:                  60 kB\n\
+             VmFlags: {stack_flags}\n\
+             7f7f0000-7f7f2000 r-xp 00000000 00:00 0                          [vdso]\n\
+             Size:                  8 kB\n\
+             VmFlags: rd ex mr mw me de sd\n"
+        )
+    }
+    const STACK_FLAGS: &str = "rd wr mr mw me gd ac";
+    const STACK_START: usize = 0x7f6e_9000;
+    const STACK_END: usize = 0x7f70_a000;
+    const SP: usize = STACK_END - 0x3000;
+    const RANDOM: usize = STACK_END - 0x800;
+    const GAP: usize = 256 * 4096;
+    const FAR_BELOW: &str = "40000000-40100000 rw-p 00000000 00:00 0\nVmFlags: rd wr mr mw me ac\n";
+
+    #[test]
+    fn the_initial_stack_grows_to_its_rlimit() {
+        let smaps = smaps_with(FAR_BELOW, STACK_FLAGS);
+        let grows_to = |rlimit| {
+            initial_stack_growth_limit(&smaps, SP, RANDOM, rlimit, GAP, 4 << 20, STACK_START)
+        };
+        assert_eq!(
+            grows_to(2 << 20),
+            Some(STACK_END - (2 << 20) + INITIAL_STACK_MARGIN_BYTES)
+        );
+        // No further than CPython takes it to go, whatever is allowed.
+        let capped = Some(RANDOM - (4 << 20));
+        assert_eq!(grows_to(64 << 20), capped);
+        assert_eq!(grows_to(usize::MAX), capped);
+        // A limit smaller than what is mapped doesn't take mapped stack away.
+        assert_eq!(grows_to(64 * 1024), Some(STACK_START));
+        assert_eq!(grows_to(0), Some(STACK_START));
+    }
+
+    #[test]
+    fn a_mapping_under_the_initial_stack_stops_its_growth() {
+        // 2 MiB under the stack's start.
+        let below = "7f4e8000-7f4e9000 rw-p 00000000 00:00 0\nVmFlags: rd wr mr mw me ac\n";
+        let smaps = smaps_with(below, STACK_FLAGS);
+        let neighbour_end = 0x7f4e_9000;
+        let grows_to = |guard_gap| {
+            initial_stack_growth_limit(&smaps, SP, RANDOM, 3 << 20, guard_gap, 4 << 20, STACK_START)
+        };
+        assert_eq!(
+            grows_to(GAP),
+            Some(neighbour_end + GAP + INITIAL_STACK_MARGIN_BYTES)
+        );
+        // A larger gap (64 KiB pages, or `stack_guard_gap=` on the kernel's
+        // command line): nothing to grow into.
+        assert_eq!(grows_to(256 * 65536), Some(STACK_START));
+        assert_eq!(grows_to(1024 * 4096), Some(STACK_START));
+        assert_eq!(grows_to(usize::MAX), Some(STACK_START));
+        // Right under the stack.
+        let below = "7f6e0000-7f6e9000 rw-p 00000000 00:00 0\nVmFlags: rd wr mr mw me ac\n";
+        let smaps = smaps_with(below, STACK_FLAGS);
+        assert_eq!(
+            initial_stack_growth_limit(&smaps, SP, RANDOM, 3 << 20, GAP, 4 << 20, STACK_START),
+            Some(STACK_START)
+        );
+    }
+
+    #[test]
+    fn only_the_initial_stack_is_taken_to_grow() {
+        let grows_to = |smaps: &str, sp, random| {
+            initial_stack_growth_limit(smaps, sp, random, 8 << 20, GAP, 4 << 20, STACK_START)
+        };
+        // A stack an application mapped right above the initial one and
+        // gave to a thread: near the kernel's random bytes, but a mapping
+        // of its own.
+        let smaps = "7f6e9000-7f70a000 rw-p 00000000 00:00 0 [stack]\n\
+                     VmFlags: rd wr mr mw me gd ac\n\
+                     7f70a000-7f71a000 rw-p 00000000 00:00 0\n\
+                     VmFlags: rd wr mr mw me ac\n";
+        assert_eq!(grows_to(smaps, STACK_END + 0x8000, RANDOM), None);
+        // The random bytes are elsewhere: not the stack the kernel set up.
+        let smaps = smaps_with(FAR_BELOW, STACK_FLAGS);
+        assert_eq!(grows_to(&smaps, SP, STACK_END + 0x10_0000), None);
+        // Not called `[stack]`.
+        let unnamed = smaps.replace("[stack]", "");
+        assert_eq!(grows_to(&unnamed, SP, RANDOM), None);
+        // A fixed mapping put where the initial stack was: it keeps the
+        // name, but doesn't grow down.
+        let fixed = smaps_with(FAR_BELOW, "rd wr mr mw me ac");
+        assert_eq!(grows_to(&fixed, SP, RANDOM), None);
+        // A buffer inside the initial stack, used as a thread's stack (and
+        // then forked from, which makes that thread the main one): musl has
+        // it begin above the mapping's start.
+        assert_eq!(
+            initial_stack_growth_limit(
+                &smaps,
+                SP,
+                RANDOM,
+                8 << 20,
+                GAP,
+                4 << 20,
+                STACK_START + 0x4000
+            ),
+            None
+        );
+        // No flags to tell (`gd` in another mapping's doesn't count).
+        let flagless = smaps.replace("VmFlags: rd wr mr mw me gd ac\n", "");
+        assert_eq!(grows_to(&flagless, SP, RANDOM), None);
+        let truncated = smaps.split("Rss:").next().expect("the stack's first lines");
+        assert_eq!(grows_to(truncated, SP, RANDOM), None);
+        // A stack pointer in no mapping, and nothing readable.
+        assert_eq!(grows_to(&smaps, 0x1000, RANDOM), None);
+        assert_eq!(grows_to("", SP, RANDOM), None);
+        assert_eq!(grows_to("not a mapping\n", SP, RANDOM), None);
+        // With all of that in order, it grows.
+        assert!(grows_to(&smaps, SP, RANDOM).is_some());
+    }
+
+    #[test]
+    fn a_stack_guard_gap_set_at_boot_is_not_guessed_at() {
+        assert_eq!(stack_guard_gap_pages(""), Some(256));
+        assert_eq!(
+            stack_guard_gap_pages("BOOT_IMAGE=/vmlinuz ro quiet\n"),
+            Some(256)
+        );
+        // Set at boot, in any of the ways the kernel reads: not guessed at.
+        for command_line in [
+            "ro stack_guard_gap=1024 quiet\n",
+            "stack_guard_gap=\"1024\"",
+            "stack-guard-gap=1024",
+            "stack_guard_gap=1024 -- stack_guard_gap=0",
+            "stack_guard_gap=lots",
+        ] {
+            assert_eq!(stack_guard_gap_pages(command_line), None, "{command_line}");
+        }
+    }
+
+    /// Run `on_stack` on a thread whose stack is a mapping of exactly `bytes`
+    /// made here, and return that stack's lowest address: bounds known
+    /// without asking the C library, which also can't hand the thread some
+    /// other stack (glibc reuses the stacks of threads that exited). Linux
+    /// only: macOS can still be running a joined thread's last instructions
+    /// on its stack when the mapping goes.
+    #[cfg(target_os = "linux")]
+    fn on_stack_of_known_bounds(bytes: usize, on_stack: &mut (dyn FnMut() + Send)) -> usize {
+        extern "C" fn run(on_stack: *mut libc::c_void) -> *mut libc::c_void {
+            // SAFETY: `on_stack` points to the `&mut dyn FnMut()` below,
+            // which outlives this thread: its creator joins it.
+            let on_stack = unsafe { &mut *on_stack.cast::<&mut (dyn FnMut() + Send)>() };
+            // A panic here would abort the tests: assert after the join.
+            on_stack();
+            std::ptr::null_mut()
+        }
+        let mut on_stack = on_stack;
+        // SAFETY: plain FFI on a mapping and a thread attribute made and
+        // released here; the thread is joined before either goes away.
+        unsafe {
+            let lowest = libc::mmap(
+                std::ptr::null_mut(),
+                bytes,
+                libc::PROT_READ | libc::PROT_WRITE,
+                libc::MAP_PRIVATE | libc::MAP_ANON,
+                -1,
+                0,
+            );
+            assert_ne!(lowest, libc::MAP_FAILED);
+            let mut attr = std::mem::MaybeUninit::<libc::pthread_attr_t>::uninit();
+            assert_eq!(libc::pthread_attr_init(attr.as_mut_ptr()), 0);
+            assert_eq!(
+                libc::pthread_attr_setstack(attr.as_mut_ptr(), lowest, bytes),
+                0
+            );
+            let mut thread = std::mem::MaybeUninit::<libc::pthread_t>::uninit();
+            let created = libc::pthread_create(
+                thread.as_mut_ptr(),
+                attr.as_ptr(),
+                run,
+                std::ptr::addr_of_mut!(on_stack).cast(),
+            );
+            assert_eq!(created, 0);
+            assert_eq!(
+                libc::pthread_join(thread.assume_init(), std::ptr::null_mut()),
+                0
+            );
+            libc::pthread_attr_destroy(attr.as_mut_ptr());
+            assert_eq!(libc::munmap(lowest, bytes), 0);
+            lowest as usize
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_thread_is_never_credited_with_more_stack_than_it_has() {
+        for bytes in [192 << 10, 512 << 10, 1 << 20, 4 << 20, 16 << 20] {
+            // Twice: a stale answer from the thread before would show.
+            for _ in 0..2 {
+                let mut measured = (0, 0);
+                let lowest = on_stack_of_known_bounds(bytes, &mut || {
+                    measured = (super::stack_pointer(), remaining_stack());
+                });
+                let (sp, remaining) = measured;
+                assert!((lowest..lowest + bytes).contains(&sp), "{sp:#x}");
+                // No more than lies below the stack pointer (sampled in the
+                // same frame as the measurement, or the one above it).
+                assert!(
+                    remaining <= sp - lowest + 1024,
+                    "{remaining} left with {} below the stack pointer of a {bytes} byte stack",
+                    sp - lowest
+                );
+                // And it is this stack that was measured, from near its top.
+                assert!(remaining >= bytes / 2, "{remaining} of {bytes}");
+            }
+        }
+    }
+
+    /// Stack mapped below `address` in the mapping that holds it, from
+    /// `/proc/self/maps`: what the kernel says, whatever the C library does.
+    #[cfg(target_os = "linux")]
+    fn mapped_below(address: usize) -> usize {
+        let maps = std::fs::read_to_string("/proc/self/maps").expect("/proc/self/maps");
+        maps.lines()
+            .find_map(|line| {
+                let (start, end) = line.split_whitespace().next()?.split_once('-')?;
+                let start = usize::from_str_radix(start, 16).ok()?;
+                let end = usize::from_str_radix(end, 16).ok()?;
+                (start..end).contains(&address).then(|| address - start)
+            })
+            .expect("the stack is mapped")
+    }
+
+    /// What a thread the standard library starts measures, and what is
+    /// really there: the stack the stack check takes it to have left, and
+    /// (on Linux) the stack mapped below it.
+    fn measured_on_thread_with_stack(bytes: usize) -> (usize, Option<usize>) {
+        std::thread::Builder::new()
+            .stack_size(bytes)
+            .spawn(|| {
+                let remaining = remaining_stack();
+                #[cfg(target_os = "linux")]
+                let mapped = Some(mapped_below(super::stack_pointer()));
+                #[cfg(not(target_os = "linux"))]
+                let mapped = None;
+                (remaining, mapped)
+            })
+            .expect("spawn test thread")
+            .join()
+            .expect("test thread")
+    }
+
+    /// Slack for the checks on stacks whose exact bounds aren't known here:
+    /// sizes are rounded up to pages, and an older glibc reports a stack's
+    /// guard page as part of it.
+    const ROUNDING_BYTES: usize = 64 * 1024;
+
+    fn assert_measured_within_the_stack(asked_for: usize, measured: (usize, Option<usize>)) {
+        let (remaining, mapped) = measured;
+        // The OS said where the stack ends, and the thread is near its top.
+        assert!(remaining >= asked_for / 4 * 3, "{remaining} of {asked_for}");
+        match mapped {
+            // Linux: no more than is mapped there. Not "no more than was
+            // asked for": glibc gives a new thread the cached stack of one
+            // that exited, when that is up to four times the size
+            // requested. The thread then has that much stack, and the stack
+            // check is right to say so. (The exact check is
+            // `a_thread_is_never_credited_with_more_stack_than_it_has`.)
+            Some(mapped) => assert!(
+                remaining <= mapped + ROUNDING_BYTES,
+                "{remaining} left of {mapped} mapped, having asked for {asked_for}"
+            ),
+            // Elsewhere a thread gets the stack it asked for.
+            None => assert!(
+                remaining <= asked_for + ROUNDING_BYTES,
+                "{remaining} of {asked_for}"
+            ),
+        }
+    }
+
+    #[test]
+    fn a_thread_knows_how_much_stack_it_has() {
+        assert_measured_within_the_stack(4 << 20, measured_on_thread_with_stack(4 << 20));
+    }
+
+    #[test]
+    fn threads_coming_and_going_are_never_credited_with_more_stack_than_they_have() {
+        // KOLO_STACK_STRESS_ROUNDS: more rounds, for a stress run.
+        let rounds = std::env::var("KOLO_STACK_STRESS_ROUNDS")
+            .ok()
+            .and_then(|rounds| rounds.parse().ok())
+            .unwrap_or(200);
+        const SIZES: [usize; 7] = [
+            16 << 20,
+            4 << 20,
+            1 << 20,
+            8 << 20,
+            512 << 10,
+            4 << 20,
+            2 << 20,
+        ];
+        let mut on_larger_stacks = 0;
+        for round in 0..rounds {
+            // Up to three threads parked on stacks of their own meanwhile.
+            let parked: Vec<_> = (0..round % 4)
+                .map(|index| {
+                    let (wake, parked) = std::sync::mpsc::channel::<()>();
+                    let thread = std::thread::Builder::new()
+                        .stack_size(SIZES[(round + index) % SIZES.len()])
+                        .spawn(move || {
+                            let _ = parked.recv();
+                        })
+                        .expect("spawn parked thread");
+                    (wake, thread)
+                })
+                .collect();
+            let asked_for = SIZES[round % SIZES.len()];
+            let measured = measured_on_thread_with_stack(asked_for);
+            assert_measured_within_the_stack(asked_for, measured);
+            if measured.0 > asked_for + ROUNDING_BYTES {
+                on_larger_stacks += 1;
+            }
+            for (wake, thread) in parked {
+                drop(wake);
+                thread.join().expect("parked thread");
+            }
+        }
+        // About half of them on glibc, which reuses stacks; none elsewhere.
+        eprintln!("{on_larger_stacks} of {rounds} threads ran on a larger stack than requested");
+    }
+
+    #[test]
+    fn a_stack_smaller_than_the_reserve_is_never_recorded() {
+        // The reserve is not scaled down to fit: Kolo's callbacks need it
+        // (serializing a nested value takes stack in proportion).
+        let mut decided = None;
+        let mut on_small_stack = || {
+            decided = Some((
+                remaining_stack(),
+                decision(StackEvent::Enter(1)),
+                decision(StackEvent::Exit(1)),
+            ));
+        };
+        // On Linux a stack made here: glibc may give a thread that asks for
+        // 192 KiB the larger stack of one that exited.
+        #[cfg(target_os = "linux")]
+        on_stack_of_known_bounds(192 * 1024, &mut on_small_stack);
+        #[cfg(not(target_os = "linux"))]
+        std::thread::scope(|scope| {
+            std::thread::Builder::new()
+                .stack_size(192 * 1024)
+                .spawn_scoped(scope, &mut on_small_stack)
+                .expect("spawn test thread");
+        });
+        let (remaining, enter, exit) = decided.expect("the thread ran");
+        assert!(remaining < STACK_RESERVE_BYTES, "{remaining}");
+        assert_eq!((enter, exit), (Skip, Skip));
+    }
+
+    #[test]
+    fn a_stack_pointer_below_the_measured_stack_is_out_of_stack() {
+        on_small_thread(|| {
+            assert_eq!(decision(StackEvent::Enter(1)), Record);
+            assert_eq!(decision(StackEvent::Exit(1)), Record);
+            STACK_GUARD.with(|guard| {
+                // As when running on another stack than the thread's own,
+                // lower in memory: not known to have room.
+                let limit = guard.limit.replace(usize::MAX - 1);
+                assert_eq!(guard.remaining(), 0);
+                assert_eq!(check_stack(StackEvent::Enter(1)).0, Skip);
+                assert_eq!(check_stack(StackEvent::Exit(1)).0, Skip);
+                guard.limit.set(limit);
+            });
+        });
     }
 
     #[test]

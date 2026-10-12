@@ -35,34 +35,29 @@ pod_gone() {
   printf '%s' "${body%$'\n'*}" | python3 -c 'import json, sys; sys.exit(0 if json.load(sys.stdin).get("desiredStatus") in ("EXITED", "TERMINATED") else 1)' 2>/dev/null
 }
 self_terminate() {
-  # Ends this pod and the pull credential minted for it (stored under the
-  # pod's name). Each delete is confirmed before moving on; a failure is
-  # retried, never ignored: the credential five times with backoff (then it
-  # is named in the log as left behind and the pod still goes, a billing
-  # machine being the worse leak), the pod every minute until Runpod says it
-  # is gone. Never returns while the pod still bills.
+  # Ends this pod. The delete is retried every minute until Runpod says the
+  # pod is gone; never returns while the pod still bills. The pull credential
+  # minted for the pod (stored under the pod's name) is not touched here:
+  # Runpod refuses to delete a credential while a pod names it, and this
+  # pod is gone the moment its delete lands. The client's terminate drops
+  # it afterwards; a pod that ends itself leaves it for the sweep
+  # (``plato gpu pod down`` on a pod Runpod no longer knows is a no-op).
   if [ -z "${RUNPOD_API_KEY:-}" ] || [ -z "${RUNPOD_POD_ID:-}" ]; then
     step "cannot end this pod myself: RUNPOD_API_KEY/RUNPOD_POD_ID not set"
     return 1
   fi
-  read -r auth_id pod_name < <(runpod "$RUNPOD/pods/$RUNPOD_POD_ID" 2>/dev/null \
-    | python3 -c 'import json, sys; p = json.load(sys.stdin); print(p.get("containerRegistryAuthId") or "-", p["name"])' 2>/dev/null || echo "- -")
-  if [ "$auth_id" != "-" ]; then
-    auth_name=$(runpod "$RUNPOD/containerregistryauth/$auth_id" 2>/dev/null \
-      | python3 -c 'import json, sys; print(json.load(sys.stdin).get("name", ""))' 2>/dev/null || true)
-    if [ "$auth_name" = "$pod_name" ]; then
-      dropped=0
-      for attempt in 1 2 3 4 5; do
-        code=$(runpod -o /dev/null -w '%{http_code}' -X DELETE "$RUNPOD/containerregistryauth/$auth_id" 2>/dev/null || echo 000)
-        case "$code" in 200|204|404) dropped=1; step "pull credential $auth_id deleted"; break;; esac
-        step "pull credential $auth_id delete failed (HTTP $code, attempt $attempt)"; sleep $((attempt * 10))
-      done
-      [ "$dropped" = 1 ] || step "pull credential $auth_id LEFT at Runpod under name $pod_name: delete it by hand"
-    fi
-  fi
   until pod_gone; do
     code=$(runpod -o /dev/null -w '%{http_code}' -X DELETE "$RUNPOD/pods/$RUNPOD_POD_ID" 2>/dev/null || echo 000)
     step "pod delete answered HTTP $code; confirming"
+    pod_gone && break
+    # The REST delete above is what the account's key uses; the pod-scoped
+    # key Runpod sets on a pod was seen looping here for over an hour
+    # (the pod kept billing). The GraphQL mutation is what runpodctl uses
+    # from inside a pod, so it is tried as well on every round.
+    reply=$(curl -sS --max-time 30 -H "Content-Type: application/json" \
+      --data '{"query":"mutation { podTerminate(input: {podId: \"'"$RUNPOD_POD_ID"'\"}) }"}' \
+      "https://api.runpod.io/graphql?api_key=$RUNPOD_API_KEY" 2>/dev/null || echo "unreachable")
+    step "podTerminate answered: ${reply:0:200}"
     sleep 60
   done
   step "pod $RUNPOD_POD_ID ended"

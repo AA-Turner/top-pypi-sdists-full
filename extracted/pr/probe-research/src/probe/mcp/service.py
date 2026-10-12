@@ -1952,10 +1952,13 @@ class ResearchReadService:
             # Asked and not echoed: the server ignored the filter, and the
             # session's own projects and runs are in this tree.
             missing.append(MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED)
-        if scope is None and cursor is None:
+        if scope is None and cursor is None and workspace_id is None:
             # Runs opened with no project (daemon v2) sit under no node of the
             # tree, so the lab's first page names them. Absent = none; a backend
-            # that cannot say is a marker, never an empty list.
+            # that cannot say is a marker, never an empty list. Not under a
+            # workspace lens: a floating run belongs to no workspace, and naming
+            # it there reads as "this workspace holds these runs" (prod
+            # 2026-10-12: an empty workspace answered as holding four).
             unfiled = self._unfiled_nodes(hide_session)
             if unfiled is None:
                 missing.append(MissingMarker.UNFILED_RUNS)

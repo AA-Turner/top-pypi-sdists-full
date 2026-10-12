@@ -3,7 +3,9 @@ import warnings
 from tqdm.rich import tqdm
 import matplotlib.pyplot as plt
 import pandas as pd
-from pysal.lib import weights
+# libpysal/esda directly, not via the pysal meta-package: pysal 26.1's lazy
+# loader breaks `from pysal.lib import weights` (looks for pysal.lib.libpysal).
+from libpysal import weights
 
 warnings.filterwarnings("ignore")
 
@@ -112,7 +114,7 @@ def compute_morans_i(merged_df):
     Returns:
 
     """
-    from pysal.explore import esda
+    import esda
 
     # Drop any regions with missing data
     merged_df = merged_df.dropna(subset=["Yield (tn per ha)"])

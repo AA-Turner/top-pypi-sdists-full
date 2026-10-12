@@ -115,7 +115,7 @@ ACTION_COPY: dict[Action, tuple[str, str]] = {
     ),
     Action.SETTINGS: (
         "Settings",
-        "Automatic updates on or off.",
+        "Automatic updates and research plan review.",
     ),
     Action.DIAGNOSE: (
         "Diagnose a problem",

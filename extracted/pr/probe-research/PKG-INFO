@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.230.0
+Version: 0.237.0
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -85,7 +85,7 @@ Implemented experiment calls map onto real endpoints.
 
 ## Two client surfaces
 
-Probe Research tracks the team's ML work — experiments and training runs, but also surveys, design decisions, data processing and provisioning — through two separate surfaces over the same backend, for two different workflows:
+Probe Research tracks the team's ML work — experiments and training runs, but also surveys, design decisions and data processing, with a short note when setup such as provisioning trips you up — through two separate surfaces over the same backend, for two different workflows:
 
 - **`probe` — SDK + CLI (non-agent).** A Python library (`import probe`) and the `probe` command-line tool for integrating with existing setups and manual experimentation. Drop it into a training script or pipeline to record runs, metrics, spans, and artifacts. No agent required.
 - **`probe-research` — plugin: skills + MCP (agent-centric).** Installed into a coding agent (Claude Code or Codex). Its skills teach the agent the experiment workflow, its read-only MCP server lets the agent query experiment state, and writes flow through the `probe` CLI. This is the surface for agent-driven research loops such as Anthrogen.
@@ -729,7 +729,7 @@ the flat modes each read one route and refuse arguments they do not read:
 
 | `mode` | Lists | Takes |
 |---|---|---|
-| `runs` | every run filed under a project, newest first (unfiled runs are on the tree's root) | `ref` (`project:<uuid>` / `experiment:<uuid>`), `status`, `tags`, `active` |
+| `runs` | every run filed under a project, newest first (unfiled runs are on the tree's root, with no `ref` or `workspace_id`) | `ref` (`project:<uuid>` / `experiment:<uuid>`), `status`, `tags`, `active` |
 | `workspaces` | the team's filing locations, by name | — |
 | `notes` | the notes catalog, sub-notes included; each row is an address `entity` opens | `query` (literal) |
 | `files` | the Shared folder, or one workspace's files | `workspace_id`, `prefix` (a folder) |

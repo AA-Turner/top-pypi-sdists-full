@@ -1902,6 +1902,7 @@ class PublicSirenStatus(ProtectBaseObject):
 class Siren(PublicDeviceModel):
     """Public API siren device."""
 
+    _MODEL_NAME: ClassVar[str] = "Siren"
     model: ModelType | None = ModelType.SIREN
     name: str
     volume: int
@@ -1985,9 +1986,11 @@ class Relay(PublicDeviceModel):
     Public API relay device.
 
     Use :meth:`__getitem__` (``relay[output_id]``) for "fail loud" lookup or
-    :meth:`get_output` for the ``None``-returning variant.
+    :meth:`get_output` for the ``None``-returning variant. Use :meth:`get_input`
+    to look up an input by id.
     """
 
+    _MODEL_NAME: ClassVar[str] = "Relay"
     model: ModelType | None = ModelType.RELAY
     name: str
     led_settings: PublicLedSettings
@@ -2009,6 +2012,13 @@ class Relay(PublicDeviceModel):
         for out in self.outputs:
             if out.id == output_id:
                 return out
+        return None
+
+    def get_input(self, input_id: int) -> PublicRelayInput | None:
+        """Return the input with the given id, or ``None`` if not found."""
+        for inp in self.inputs:
+            if inp.id == input_id:
+                return inp
         return None
 
     def __getitem__(self, output_id: int) -> PublicRelayOutput:
@@ -2252,6 +2262,13 @@ class LinkStation(PublicDeviceModel):
     def unifi_dict_conversions(cls) -> dict[str, object | Callable[[Any], Any]]:
         """Parse the ``lastEvent`` epoch-ms wire value into ``datetime``."""
         return {"lastEvent": convert_to_datetime} | super().unifi_dict_conversions()
+
+    @property
+    def model_name(self) -> str:
+        """Human model name, else "Alarm Hub" or "Link Station" by role."""
+        if self.device_type:
+            return self.device_type
+        return "Alarm Hub" if self.is_alarm_hub else "Link Station"
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(

@@ -79,7 +79,8 @@ CREATE TABLE IF NOT EXISTS events (
     parent TEXT,
     cwd TEXT,
     chars INTEGER NOT NULL DEFAULT 0,
-    bite INTEGER
+    bite INTEGER,
+    note TEXT
 );
 CREATE INDEX IF NOT EXISTS events_turn ON events (turn, seq);
 CREATE INDEX IF NOT EXISTS events_pending ON events (bite, seq);
@@ -391,13 +392,19 @@ class StoredEvent:
     chars: int
     bite: int | None
     offset: int
+    #: A daemon tag shown with the event (`.probe.config` `read`), or None.
+    note: str | None = None
+    #: The folder the event ran in, when the harness said.
+    cwd: str | None = None
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "StoredEvent":
         return cls(seq=row["seq"], event_id=row["event_id"], stream=row["stream"], kind=Kind(row["kind"]),
                    turn=row["turn"], ts=row["ts"], noticed=row["noticed"], text=row["text"], tool=row["tool"],
                    call_id=row["call_id"], command=row["command"], is_error=bool(row["is_error"]),
-                   side_file=row["side_file"], chars=row["chars"], bite=row["bite"], offset=row["offset"])
+                   side_file=row["side_file"], chars=row["chars"], bite=row["bite"], offset=row["offset"],
+                   note=row["note"] if "note" in row.keys() else None,
+                   cwd=row["cwd"] if "cwd" in row.keys() else None)
 
 
 class Store:
@@ -415,6 +422,7 @@ class Store:
         self.db.execute("PRAGMA busy_timeout=30000")
         self.db.executescript(_SCHEMA)
         self._add_column("conversations", "fingerprint", "TEXT")
+        self._add_column("events", "note", "TEXT")
         for column, kind in (("inode", "INTEGER"), ("tail_hash", "TEXT"), ("tail_at", "INTEGER")):
             self._add_column("cursors", column, kind)
         version = self.meta("format_version")
@@ -524,12 +532,12 @@ class Store:
                     chars += len(text)
             cur = self.db.execute(
                 "INSERT OR IGNORE INTO events (event_id, stream, offset, idx, kind, turn, ts, noticed, text, tool, "
-                "call_id, command, tool_input, is_error, side_file, parent, cwd, chars) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "call_id, command, tool_input, is_error, side_file, parent, cwd, chars, note) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (ev.event_id, ev.stream, ev.offset, ev.index, ev.kind.value,
                  max(ev_turn, 1) if ev.kind != Kind.PROMPT else ev_turn,
                  ev.ts, now, text, ev.tool, ev.call_id, command, tool_input, int(ev.is_error), ev.side_file,
-                 ev.parent, ev.cwd, chars),
+                 ev.parent, ev.cwd, chars, getattr(ev, "note", None)),
             )
             added += cur.rowcount
             if opens and cur.rowcount:

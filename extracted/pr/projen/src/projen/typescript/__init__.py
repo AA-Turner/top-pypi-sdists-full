@@ -954,6 +954,7 @@ class TsJestTsconfig(
         downlevel_iteration: typing.Optional[builtins.bool] = None,
         emit_declaration_only: typing.Optional[builtins.bool] = None,
         emit_decorator_metadata: typing.Optional[builtins.bool] = None,
+        erasable_syntax_only: typing.Optional[builtins.bool] = None,
         es_module_interop: typing.Optional[builtins.bool] = None,
         exact_optional_property_types: typing.Optional[builtins.bool] = None,
         experimental_decorators: typing.Optional[builtins.bool] = None,
@@ -1019,6 +1020,7 @@ class TsJestTsconfig(
         :param downlevel_iteration: (experimental) Downleveling is TypeScript’s term for transpiling to an older version of JavaScript. This flag is to enable support for a more accurate implementation of how modern JavaScript iterates through new concepts in older JavaScript runtimes. ECMAScript 6 added several new iteration primitives: the for / of loop (for (el of arr)), Array spread ([a, ...b]), argument spread (fn(...args)), and Symbol.iterator. downlevelIteration allows for these iteration primitives to be used more accurately in ES5 environments if a Symbol.iterator implementation is present.
         :param emit_declaration_only: (experimental) Only emit .d.ts files; do not emit .js files. Default: false
         :param emit_decorator_metadata: (experimental) Enables experimental support for decorators, which is in stage 2 of the TC39 standardization process. Decorators are a language feature which hasn’t yet been fully ratified into the JavaScript specification. This means that the implementation version in TypeScript may differ from the implementation in JavaScript when it it decided by TC39. You can find out more about decorator support in TypeScript in the handbook. Default: undefined
+        :param erasable_syntax_only: (experimental) Report errors for most TypeScript-specific syntax that has runtime behavior. Requires TypeScript 5.8 or later. Default: undefined
         :param es_module_interop: (experimental) Emit __importStar and __importDefault helpers for runtime babel ecosystem compatibility and enable --allowSyntheticDefaultImports for typesystem compatibility. Default: false
         :param exact_optional_property_types: (experimental) Specifies that optional property types should be interpreted exactly as written, meaning that ``| undefined`` is not added to the type Available with TypeScript 4.4 and newer. Default: false
         :param experimental_decorators: (experimental) Enables experimental support for decorators, which is in stage 2 of the TC39 standardization process. Default: true
@@ -1086,6 +1088,7 @@ class TsJestTsconfig(
             downlevel_iteration=downlevel_iteration,
             emit_declaration_only=emit_declaration_only,
             emit_decorator_metadata=emit_decorator_metadata,
+            erasable_syntax_only=erasable_syntax_only,
             es_module_interop=es_module_interop,
             exact_optional_property_types=exact_optional_property_types,
             experimental_decorators=experimental_decorators,

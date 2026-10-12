@@ -738,12 +738,15 @@ class ToolRegistry:
         out: list[dict[str, Any]] = []
         missing: list[str] = []
         for name, r in zip(tool_names, resolved):
-            if r is not None:
-                out.append(self._tools[r].get_provider_format(provider))
-                continue
+            # The request's projection wins over a same-named registry entry — the SAME
+            # precedence as dispatch (executor), so the model is offered the contract
+            # the call will be dispatched under.
             projected = lookup_projected_tool(name)
             if projected is not None:
                 out.append(projected.get_provider_format(provider))
+                continue
+            if r is not None:
+                out.append(self._tools[r].get_provider_format(provider))
                 continue
             missing.append(name)
         if missing:

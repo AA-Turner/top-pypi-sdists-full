@@ -1,20 +1,12 @@
 Metadata-Version: 2.4
 Name: simplification
-Version: 1.0.0
-Summary: Fast linestring simplification using RDP or Visvalingam-Whyatt and a Rust binary
-Keywords: Geo,Polyline,Linestring,Ramer-Douglas-Peucker,Douglas-Peucker,Visvalingam-Whyatt
-Author: Stephan Hügel
-Author-Email: Unknown <urschrei@gmail.com>
-Maintainer: Stephan Hügel
-Maintainer-Email: Unknown <urschrei@gmail.com>
-License-Expression: BlueOak-1.0.0
-License-File: LICENSE.md
+Version: 2.0.0
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -22,14 +14,22 @@ Classifier: Intended Audience :: Education
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: GIS
-Project-URL: Homepage, https://github.com/urschrei/simplification
-Project-URL: Repository, https://github.com/urschrei/simplification
-Project-URL: Documentation, https://github.com/urschrei/simplification#readme
-Project-URL: Issues, https://github.com/urschrei/simplification/issues
-Project-URL: Download, https://github.com/urschrei/simplification/releases
-Requires-Python: >=3.10
 Requires-Dist: numpy>=2.0.0
-Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Summary: Fast linestring simplification using RDP or Visvalingam-Whyatt
+Keywords: Geo,Polyline,Linestring,Ramer-Douglas-Peucker,Douglas-Peucker,Visvalingam-Whyatt
+Author: Stephan Hügel
+Author-email: urschrei@gmail.com
+Maintainer: Stephan Hügel
+Maintainer-email: urschrei@gmail.com
+License-Expression: BlueOak-1.0.0
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Documentation, https://github.com/urschrei/simplification#readme
+Project-URL: Download, https://github.com/urschrei/simplification/releases
+Project-URL: Homepage, https://github.com/urschrei/simplification
+Project-URL: Issues, https://github.com/urschrei/simplification/issues
+Project-URL: Repository, https://github.com/urschrei/simplification
 
 [![Build Status](https://github.com/urschrei/simplification/actions/workflows/wheels.yml/badge.svg)](https://github.com/urschrei/simplification/actions/workflows/wheels.yml) [![Coverage Status](https://coveralls.io/repos/github/urschrei/simplification/badge.svg?branch=master)](https://coveralls.io/github/urschrei/simplification?branch=master) [![Downloads](https://pepy.tech/badge/simplification)](https://pepy.tech/project/simplification) [![DOI](https://zenodo.org/badge/65199659.svg)](https://zenodo.org/badge/latestdoi/65199659) [![Anaconda-Server Badge](https://anaconda.org/conda-forge/simplification/badges/version.svg)](https://anaconda.org/conda-forge/simplification)
 
@@ -44,20 +44,20 @@ Simplify a LineString using the [Ramer–Douglas–Peucker](https://en.wikipedia
 `conda install conda-forge::simplification`
 
 ### Installing for local development
-1. Ensure you have a copy of `librdp` and `header.h` from https://github.com/urschrei/rdp/releases, and it's in the `src/simplification` subdir
-2. run `uv sync --dev`
-3. run `pytest .`
+1. Ensure you have a [Rust toolchain](https://rustup.rs) installed
+2. run `uv sync --dev` (this builds the extension using [maturin](https://www.maturin.rs))
+3. run `uv run pytest`
 
-Changes in `pyx` and `pxd` files, and the Rust library and header will bust the cache, triggering a rebuild when `uv` commands are run.
+Changes to `Cargo.toml`, `Cargo.lock`, or any `.rs` file will bust the cache, triggering a rebuild when `uv` commands are run.
 
 ## Building SDist and Wheels
-1. Ensure that `librdp` and header are present, as above
+1. Ensure you have a Rust toolchain installed, as above
 2. Run `uv build --sdist --wheel`
 
 ### Supported Python Versions
 Simplification supports all [_currently_ supported Python versions](https://devguide.python.org/versions/).
 
-Binary wheels target the CPython [Stable ABI](https://docs.python.org/3/c-api/stable.html) (`abi3`): a single `abi3` wheel per platform covers CPython 3.11 and later, while CPython 3.10 receives a standard version-specific wheel.
+Binary wheels target the CPython [Stable ABI](https://docs.python.org/3/c-api/stable.html) (`abi3`): a single `abi3` wheel per platform covers CPython 3.11 and later.
 
 ### Supported Platforms
 - Linux (`manylinux`-compatible) x86_64 and aarch64
@@ -105,6 +105,8 @@ simplified_vw = simplify_coords_vw(coords_vw, 30.0)
 
 Passing empty and/or 1-element lists will return them unaltered.
 
+Coordinates must be a sequence of (`x, y`) pairs, or an `(N, 2)` array. Anything else (including `(N, 3)` arrays) raises a `ValueError`.
+
 ## But I only want the simplified **Indices**
 `simplification` now has:
 
@@ -138,7 +140,7 @@ simplified = [simplify_coords(line, 1.0) for line in decoded]
 ```
 
 ## How it Works
-FFI and a [Rust binary](https://github.com/urschrei/rdp)
+[PyO3](https://pyo3.rs) bindings to the simplification algorithms in the Rust [geo](https://crates.io/crates/geo) crate. The GIL is released while simplifying.
 
 ## Is It Fast
 I should think so.
@@ -170,3 +172,4 @@ In Bibtex format:
     version = {X.Y.Z},
     year = {2021}
     }
+

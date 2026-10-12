@@ -1306,7 +1306,7 @@ def test_kind_create_args_declare_platform_kind_default_false() -> None:
 # (feedback 194575e6: enums serialize by VALUE)
 # ---------------------------------------------------------------------------
 # KindDefinition.shown_to hydrates as a (str, Enum) member of content_ir's
-# ShownTo class; RenderDefinition validates against skill's own class.
+# ShownTo class; PromptBlock validates against its own class.
 # Serializing with str(member) yields the repr 'ShownTo.MY_TEAM', which every
 # wave-4 content-block write died on (then on the retiring level column). The
 # row must carry the plain value, and ``published_to_web`` explicitly.
@@ -1319,7 +1319,7 @@ def _install_fake_content_block_db(
 
     from matrx_ai.tools.implementations import kind_authoring
 
-    created: dict[str, list[dict[str, Any]]] = {"render_definition": []}
+    created: dict[str, list[dict[str, Any]]] = {"prompt_block": []}
 
     class SkillShownTo(str, Enum):
         ONLY_ME = "only_me"
@@ -1334,7 +1334,7 @@ def _install_fake_content_block_db(
                 [SimpleNamespace(deleted_at=None, is_canonical=True, data={"score": 1})]
             )
 
-    class RenderDefinition:
+    class PromptBlock:
         @classmethod
         def filter(cls, **_kw: Any) -> _FakeQuery:
             return _FakeQuery([])
@@ -1347,7 +1347,8 @@ def _install_fake_content_block_db(
             assert isinstance(payload["published_to_web"], bool)
             if "shown_to" in payload:
                 SkillShownTo(payload["shown_to"])
-            created["render_definition"].append(payload)
+            assert payload["block_type"] == "render_kind" and payload["content"]
+            created["prompt_block"].append(payload)
             return SimpleNamespace(id=uuid4(), **payload)
 
     class SklDefinition:
@@ -1357,7 +1358,7 @@ def _install_fake_content_block_db(
 
     models = {
         "KindExample": KindExample,
-        "RenderDefinition": RenderDefinition,
+        "PromptBlock": PromptBlock,
         "SklDefinition": SklDefinition,
     }
     monkeypatch.setattr(kind_authoring, "get_db_model", lambda key: models[key])
@@ -1408,7 +1409,7 @@ async def test_content_block_follows_its_kind_and_serializes_enums_by_value(
         {"kind": "research_coverage_audit"}, make_ctx()
     )
     assert result.success, result.error and result.error.message
-    [row] = created["render_definition"]
+    [row] = created["prompt_block"]
     assert row["published_to_web"] is published
     assert row.get("shown_to") == shown  # plain value, never 'ShownTo.MY_TEAM'
 
@@ -1426,7 +1427,7 @@ async def test_content_block_is_unpublished_when_its_kind_says_nothing(
         {"kind": "research_coverage_audit"}, make_ctx()
     )
     assert result.success, result.error and result.error.message
-    [row] = created["render_definition"]
+    [row] = created["prompt_block"]
     assert row["published_to_web"] is False
     assert "shown_to" not in row
 

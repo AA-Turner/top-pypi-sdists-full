@@ -13,6 +13,7 @@
    Extraction walks the anchors, resolves each against the document base, cleans it, and deduplicates the http/https
    and trailing-slash twins, first in document order winning. */
 
+#include "core/ascii.h"
 #include "core/common.h"
 #include "dom/nodes.h"
 #include "tokenizer/binding.h" /* Py_BEGIN_CRITICAL_SECTION shim for the GIL/pre-3.13 build */
@@ -135,7 +136,7 @@ static TH_FORCEINLINE int is_web_host(PyObject *host, PyObject *netloc) {
 }
 
 /* The ":port" suffix, or "" for an absent, empty, or scheme-default port (port state, URL standard 4.4). A port of
-   digits is read as the integer it spells, so leading zeros fall away and "0080" is the http default. */
+   ASCII digits is read as the integer it spells, so leading zeros fall away and "0080" is the http default. */
 static PyObject *port_suffix(const th_url_parts *parts) {
     PyObject *port = parts->part[TH_URL_PORT];
     Py_ssize_t len = PyUnicode_GET_LENGTH(port);
@@ -145,12 +146,36 @@ static PyObject *port_suffix(const th_url_parts *parts) {
     int kind = PyUnicode_KIND(port);
     const void *data = PyUnicode_DATA(port);
     for (Py_ssize_t index = 0; index < len; index++) {
-        if (!Py_UNICODE_ISDIGIT(PyUnicode_READ(kind, data, index))) {
+        Py_UCS4 ch = PyUnicode_READ(kind, data, index);
+        if (ch < '0' || ch > '9') {
             return th_str_format(":%U", port);
         }
     }
-    PyObject *number = PyLong_FromUnicodeObject(port, 10);
-    if (number == NULL) { /* GCOVR_EXCL_BR_LINE: a digit-only string always parses */
+    PyObject *number;
+    /* Python's decimal conversion limit can reject a port with enough leading zeros. */
+    if (len > 19) {
+        Py_ssize_t start = 0;
+        while (start < len && PyUnicode_READ(kind, data, start) == '0') {
+            start++;
+        }
+        if (start == len) {
+            return PyUnicode_FromString(":0");
+        }
+        PyObject *significant = start > 0 ? PyUnicode_Substring(port, start, len) : Py_NewRef(port);
+        if (significant == NULL) { /* GCOVR_EXCL_BR_LINE: substring only fails on allocation failure */
+            return NULL;           /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        if (len - start > 19) {
+            PyObject *suffix = th_str_format(":%U", significant);
+            Py_DECREF(significant);
+            return suffix;
+        }
+        number = PyLong_FromUnicodeObject(significant, 10);
+        Py_DECREF(significant);
+    } else {
+        number = PyLong_FromUnicodeObject(port, 10);
+    }
+    if (number == NULL) { /* GCOVR_EXCL_BR_LINE: an ASCII-digit-only string always parses */
         return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     static const struct {
@@ -171,11 +196,50 @@ static PyObject *port_suffix(const th_url_parts *parts) {
     return suffix;
 }
 
-/* The authority rebuilt from its WHATWG-canonical host and port, keeping userinfo verbatim. */
+static PyObject *normalize_userinfo(PyObject *userinfo) {
+    Py_ssize_t length = PyUnicode_GET_LENGTH(userinfo);
+    Py_ssize_t colon = PyUnicode_FindChar(userinfo, ':', 0, length, 1);
+    PyObject *username = colon < 0 ? Py_NewRef(userinfo) : PyUnicode_Substring(userinfo, 0, colon);
+    if (username == NULL) { /* GCOVR_EXCL_BR_LINE: substring of an existing str only fails on allocation */
+        return NULL;        /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    PyObject *encoded_username = th_url_encode_component(username, TH_URL_SET_USERINFO);
+    Py_DECREF(username);
+    if (encoded_username == NULL) {
+        return NULL;
+    }
+    if (colon < 0 || colon + 1 == length) {
+        return encoded_username;
+    }
+    PyObject *password = PyUnicode_Substring(userinfo, colon + 1, length);
+    if (password == NULL) {          /* GCOVR_EXCL_BR_LINE: substring of an existing str only fails on allocation */
+        Py_DECREF(encoded_username); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;                 /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    PyObject *encoded_password = th_url_encode_component(password, TH_URL_SET_USERINFO);
+    Py_DECREF(password);
+    if (encoded_password == NULL) {
+        Py_DECREF(encoded_username);
+        return NULL;
+    }
+    PyObject *result = th_str_format("%U:%U", encoded_username, encoded_password);
+    Py_DECREF(encoded_username);
+    Py_DECREF(encoded_password);
+    return result;
+}
+
+/* The authority rebuilt from its WHATWG-canonical host and port. */
 static PyObject *normalize_netloc(const th_url_parts *parts, int web_only) {
-    PyObject *canonical = th_url_host_canonical(parts->part[TH_URL_HOST], parts->kind);
+    PyObject *canonical = web_only && parts->kind == TH_HOST_IPV6
+                              ? th_url_ipv6_canonical_checked(parts->part[TH_URL_HOST])
+                          : parts->opaque_host && parts->kind != TH_HOST_IPV6
+                              ? th_url_opaque_host_canonical(parts->part[TH_URL_HOST])
+                              : th_url_host_canonical(parts->part[TH_URL_HOST], parts->kind);
     if (canonical == NULL) {
         return NULL;
+    }
+    if (canonical == Py_None) {
+        return canonical;
     }
     PyObject *host = parts->kind == TH_HOST_IPV6 ? th_str_format("[%U]", canonical) : Py_NewRef(canonical);
     Py_DECREF(canonical);
@@ -188,8 +252,20 @@ static PyObject *normalize_netloc(const th_url_parts *parts, int web_only) {
         return NULL;      /* GCOVR_EXCL_LINE */
     }
     PyObject *userinfo = parts->part[TH_URL_USERINFO];
-    PyObject *netloc = PyUnicode_GET_LENGTH(userinfo) > 0 ? th_str_format("%U@%U%U", userinfo, host, suffix)
-                                                          : th_str_format("%U%U", host, suffix);
+    PyObject *netloc;
+    if (PyUnicode_GET_LENGTH(userinfo) == 0) {
+        netloc = th_str_format("%U%U", host, suffix);
+    } else {
+        PyObject *encoded_userinfo = normalize_userinfo(userinfo);
+        if (encoded_userinfo == NULL) {
+            Py_DECREF(suffix);
+            Py_DECREF(host);
+            return NULL;
+        }
+        netloc = PyUnicode_GET_LENGTH(encoded_userinfo) > 0 ? th_str_format("%U@%U%U", encoded_userinfo, host, suffix)
+                                                            : th_str_format("%U%U", host, suffix);
+        Py_DECREF(encoded_userinfo);
+    }
     Py_DECREF(suffix);
     if (netloc == NULL) { /* GCOVR_EXCL_BR_LINE: rebuilding the authority only fails on allocation failure */
         Py_DECREF(host);  /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -204,9 +280,9 @@ static PyObject *normalize_netloc(const th_url_parts *parts, int web_only) {
 }
 
 /* The query with denied, tracker, or non-allowlisted parameters dropped and the rest sorted. */
-static PyObject *normalize_query(PyObject *query, const clean_options *options) {
+static PyObject *normalize_query(PyObject *query, const clean_options *options, int set_id) {
     return th_url_normalize_query(query, options->allow, options->deny, options->strict, options->content,
-                                  options->language_params);
+                                  options->language_params, set_id);
 }
 
 /* The fragment percent-encoded, after scrubbing one shaped like a query string the way the query is: a `&`-joined
@@ -216,7 +292,7 @@ static PyObject *normalize_fragment(PyObject *fragment, const clean_options *opt
         return th_url_encode_component(fragment, TH_URL_SET_FRAGMENT);
     }
     if (str_holds(fragment, '&')) {
-        return normalize_query(fragment, options);
+        return normalize_query(fragment, options, TH_URL_SET_FRAGMENT);
     }
     Py_ssize_t equals = PyUnicode_FindChar(fragment, '=', 0, PyUnicode_GET_LENGTH(fragment), 1);
     PyObject *key = PyUnicode_Substring(fragment, 0, equals);
@@ -241,33 +317,32 @@ static PyObject *normalize_fragment(PyObject *fragment, const clean_options *opt
     return tracker ? PyUnicode_FromString("") : th_url_encode_component(fragment, TH_URL_SET_FRAGMENT);
 }
 
-/* The schemes urllib.parse.uses_netloc lists, the ones whose serialization always carries the "//" authority marker
-   before an absolute path even when the authority is empty. */
-static const char *const NETLOC_SCHEMES[] = {"ftp",   "http",    "gopher", "nntp",  "telnet",       "imap",     "wais",
-                                             "file",  "mms",     "https",  "shttp", "snews",        "prospero", "rtsp",
-                                             "rtsps", "rtspu",   "rsync",  "svn",   "svn+ssh",      "sftp",     "nfs",
-                                             "git",   "git+ssh", "ws",     "wss",   "itms-services"};
-
-static int scheme_uses_netloc(PyObject *scheme) {
-    for (size_t index = 0; index < sizeof(NETLOC_SCHEMES) / sizeof(*NETLOC_SCHEMES); index++) {
-        if (str_equals(scheme, NETLOC_SCHEMES[index])) {
-            return 1;
-        }
+static int scheme_is_special(PyObject *scheme) {
+    const char *text = (const char *)PyUnicode_1BYTE_DATA(scheme);
+    switch (PyUnicode_GET_LENGTH(scheme)) {
+    case 2:
+        return memcmp(text, "ws", 2) == 0;
+    case 3:
+        return memcmp(text, "ftp", 3) == 0 || memcmp(text, "wss", 3) == 0;
+    case 4:
+        return memcmp(text, "file", 4) == 0 || memcmp(text, "http", 4) == 0;
+    case 5:
+        return memcmp(text, "https", 5) == 0;
+    default:
+        return 0;
     }
-    return 0;
 }
 
-/* Reassemble the components the way urllib.parse.urlunsplit does: an authority (or, for a netloc scheme, an empty
-   one before an absolute path) is introduced by "//"; an empty query or fragment is dropped with its delimiter. The
-   split never leaves a relative path behind an authority, so the path needs no leading slash added. */
-static PyObject *unsplit(PyObject *scheme, PyObject *netloc, PyObject *path, PyObject *query, PyObject *fragment) {
+/* Preserve explicit empty authorities and the default marker for special schemes. An empty query or fragment loses its
+   delimiter; a path behind an authority already has its leading slash. */
+static PyObject *unsplit(PyObject *scheme, PyObject *netloc, PyObject *path, PyObject *query, PyObject *fragment,
+                         int has_netloc) {
     int has_scheme = PyUnicode_GET_LENGTH(scheme) > 0;
-    int has_netloc = PyUnicode_GET_LENGTH(netloc) > 0;
-    if (!has_netloc && has_scheme && scheme_uses_netloc(scheme) &&
+    if (!has_netloc && has_scheme && scheme_is_special(scheme) &&
         (PyUnicode_GET_LENGTH(path) == 0 || str_has_prefix(path, "/"))) {
         has_netloc = 1;
     }
-    const char *marker = has_netloc || str_has_prefix(path, "//") ? "//" : "";
+    const char *marker = has_netloc ? "//" : str_has_prefix(path, "//") ? "/." : "";
     return th_str_format("%U%s%s%U%U%s%U%s%U", scheme, has_scheme ? ":" : "", marker, netloc, path,
                          PyUnicode_GET_LENGTH(query) > 0 ? "?" : "", query,
                          PyUnicode_GET_LENGTH(fragment) > 0 ? "#" : "", fragment);
@@ -277,7 +352,7 @@ static PyObject *unsplit(PyObject *scheme, PyObject *netloc, PyObject *path, PyO
    "/dir/" and "/dir" into one form that trailing_slash=False asks for. */
 static PyObject *trim_trailing_slash(PyObject *path) {
     Py_ssize_t end = PyUnicode_GET_LENGTH(path);
-    while (end > 0 && PyUnicode_READ_CHAR(path, end - 1) == '/') {
+    while (end > 1 && PyUnicode_READ_CHAR(path, end - 1) == '/') {
         end--;
     }
     return PyUnicode_Substring(path, 0, end);
@@ -288,10 +363,37 @@ static PyObject *normalize_file_path(PyObject *path) {
     if (length == 0) {
         return PyUnicode_FromString("/");
     }
-    if (!str_holds(path, '\\')) {
-        return Py_NewRef(path);
+    if (length < 3 ||
+        (PyUnicode_IS_ASCII(path) ? PyUnicode_1BYTE_DATA(path)[2] : PyUnicode_READ_CHAR(path, 2)) != '|') {
+        if (!str_holds(path, '\\')) {
+            return Py_NewRef(path);
+        }
+        return PyObject_CallMethod(path, "replace", "ss", "\\", "/");
     }
-    return PyObject_CallMethod(path, "replace", "ss", "\\", "/");
+    PyObject *normalized =
+        str_holds(path, '\\') ? PyObject_CallMethod(path, "replace", "ss", "\\", "/") : Py_NewRef(path);
+    if (normalized == NULL) { /* GCOVR_EXCL_BR_LINE: replacement only fails on allocation failure */
+        return NULL;          /* GCOVR_EXCL_LINE: allocation-failure path */
+    }
+    if (PyUnicode_READ_CHAR(path, 0) == '/' && is_ascii_alpha(PyUnicode_READ_CHAR(path, 1)) &&
+        (length == 3 || PyUnicode_READ_CHAR(path, 3) == '/' || PyUnicode_READ_CHAR(path, 3) == '\\')) {
+        PyObject *drive_path = PyObject_CallMethod(normalized, "replace", "ssi", "|", ":", 1);
+        Py_DECREF(normalized);
+        return drive_path;
+    }
+    return normalized;
+}
+
+static int opaque_path_needs_encoding(PyObject *path) {
+    int kind = PyUnicode_KIND(path);
+    const void *data = PyUnicode_DATA(path);
+    for (Py_ssize_t index = 0; index < PyUnicode_GET_LENGTH(path); index++) {
+        Py_UCS4 ch = PyUnicode_READ(kind, data, index);
+        if (ch < 0x20 || ch > 0x7E || ch == '%') {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 /* Rebuild the URL from spec-normalized components plus the beyond-spec query/fragment canonicalization. Returns NULL
@@ -310,7 +412,19 @@ static PyObject *normalize_parts(const th_url_parts *parts, const clean_options 
     if (netloc == Py_None) {
         return netloc;
     }
-    if (PyUnicode_GET_LENGTH(scheme) == 4 && PyUnicode_READ_CHAR(scheme, 0) == 'f' && str_equals(scheme, "file")) {
+    int is_file =
+        PyUnicode_GET_LENGTH(scheme) == 4 && PyUnicode_READ_CHAR(scheme, 0) == 'f' && str_equals(scheme, "file");
+    if (is_file) {
+        if (str_holds(parts->part[TH_URL_NETLOC], '@')) {
+            PyErr_SetString(PyExc_ValueError, "file URL cannot contain userinfo");
+            goto done;
+        }
+        if (PyUnicode_GET_LENGTH(netloc) == 9 && str_equals(netloc, "localhost")) {
+            Py_SETREF(netloc, PyUnicode_FromString(""));
+            if (netloc == NULL) { /* GCOVR_EXCL_BR_LINE: the empty host only fails on allocation failure */
+                goto done;        /* GCOVR_EXCL_LINE: allocation-failure path */
+            }
+        }
         /* A literal backslash can become an authority delimiter on the next parse. */
         PyObject *file_path = normalize_file_path(parts->part[TH_URL_PATH]);
         if (file_path == NULL) { /* GCOVR_EXCL_BR_LINE: file-path rewriting only fails on allocation failure */
@@ -319,23 +433,49 @@ static PyObject *normalize_parts(const th_url_parts *parts, const clean_options 
         path = th_url_encode_component(file_path, TH_URL_SET_PATH);
         Py_DECREF(file_path);
     } else {
-        path = th_url_encode_component(parts->part[TH_URL_PATH], TH_URL_SET_PATH);
+        int opaque = !has_netloc && PyUnicode_GET_LENGTH(scheme) > 0 &&
+                     !str_has_prefix(parts->part[TH_URL_PATH], "/") && !parts->special;
+        if (opaque) {
+            path = opaque_path_needs_encoding(parts->part[TH_URL_PATH])
+                       ? th_url_encode_component(parts->part[TH_URL_PATH], TH_URL_SET_OPAQUE_PATH)
+                       : Py_NewRef(parts->part[TH_URL_PATH]);
+        } else {
+            path = parts->special ? th_url_encode_special_path(parts->part[TH_URL_PATH])
+                                  : th_url_encode_component(parts->part[TH_URL_PATH], TH_URL_SET_PATH);
+        }
+        if (opaque && path != NULL && PyUnicode_GET_LENGTH(path) > 0 &&
+            PyUnicode_READ_CHAR(path, PyUnicode_GET_LENGTH(path) - 1) == ' ') {
+            PyObject *prefix = PyUnicode_Substring(path, 0, PyUnicode_GET_LENGTH(path) - 1);
+            if (prefix == NULL) { /* GCOVR_EXCL_BR_LINE: substring of an existing string only fails on allocation */
+                goto done;        /* GCOVR_EXCL_LINE: allocation-failure path */
+            }
+            Py_SETREF(path, th_str_format("%U%%20", prefix));
+            Py_DECREF(prefix);
+        }
     }
     if (path == NULL) {
         goto done;
     }
-    if (has_netloc) {
-        Py_SETREF(path, turbohtml_url_remove_dot_segments(NULL, path));
+    if (has_netloc || (PyUnicode_GET_LENGTH(scheme) > 0 && str_has_prefix(path, "/"))) {
+        Py_SETREF(path,
+                  is_file ? th_url_remove_file_dot_segments(path) : turbohtml_url_remove_dot_segments(NULL, path));
         if (path == NULL) { /* GCOVR_EXCL_BR_LINE: dot-segment removal only fails on allocation failure */
             goto done;      /* GCOVR_EXCL_LINE: allocation-failure path */
         }
     }
-    query = normalize_query(parts->part[TH_URL_QUERY], options);
+    int query_set = TH_URL_SET_QUERY;
+    PyObject *raw_query = parts->part[TH_URL_QUERY];
+    if (PyUnicode_GET_LENGTH(raw_query) > 0 && !scheme_is_special(scheme) &&
+        PyUnicode_FindChar(raw_query, '\'', 0, PyUnicode_GET_LENGTH(raw_query), 1) >= 0) {
+        query_set = TH_URL_SET_QUERY_NON_SPECIAL;
+    }
+    query = normalize_query(raw_query, options, query_set);
     if (query == NULL) {
         goto done;
     }
-    int web = str_equals(scheme, "http") || str_equals(scheme, "https");
-    if (has_netloc && web && PyUnicode_GET_LENGTH(path) == 0) {
+    if (has_netloc && PyUnicode_GET_LENGTH(path) == 0 &&
+        (str_equals(scheme, "http") || str_equals(scheme, "https") || str_equals(scheme, "ftp") ||
+         str_equals(scheme, "ws") || str_equals(scheme, "wss"))) {
         Py_SETREF(path, PyUnicode_FromString("/")); /* a special URL with a host never serializes an empty path */
     }
     if (!options->trailing_slash && PyUnicode_GET_LENGTH(query) == 0 && PyUnicode_GET_LENGTH(path) > 1 &&
@@ -350,7 +490,18 @@ static PyObject *normalize_parts(const th_url_parts *parts, const clean_options 
     if (fragment == NULL) {
         goto done;
     }
-    result = unsplit(scheme, netloc, path, query, fragment);
+    if (web_only && PyUnicode_GET_LENGTH(query) == 0 && PyUnicode_GET_LENGTH(fragment) == 0) {
+        Py_ssize_t length = PyUnicode_GET_LENGTH(path);
+        if (length >= 2 && PyUnicode_READ_CHAR(path, length - 1) == '&' &&
+            PyUnicode_READ_CHAR(path, length - 2) == '/') {
+            /* Query/fragment cleanup can expose the scrub's dangling /& suffix. */
+            Py_SETREF(path, PyUnicode_Substring(path, 0, length - 1));
+            if (path == NULL) { /* GCOVR_EXCL_BR_LINE: substring only fails on allocation failure */
+                goto done;      /* GCOVR_EXCL_LINE: allocation-failure path */
+            }
+        }
+    }
+    result = unsplit(scheme, netloc, path, query, fragment, has_netloc || parts->has_authority);
 done:
     Py_XDECREF(netloc);
     Py_XDECREF(path);
@@ -379,7 +530,7 @@ PyObject *turbohtml_url_normalize(PyObject *Py_UNUSED(module), PyObject *args) {
         return NULL;
     }
     th_url_parts parts;
-    if (require_str(url) < 0 || th_url_split(url, &parts) < 0) {
+    if (require_str(url) < 0 || th_url_split(url, &parts, 1) < 0) {
         return NULL;
     }
     PyObject *result = NULL;
@@ -409,7 +560,7 @@ static PyObject *clean(PyObject *url, const clean_options *options) {
         return NULL;        /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     th_url_parts parts;
-    int split = th_url_split(scrubbed, &parts);
+    int split = th_url_split(scrubbed, &parts, 1);
     Py_DECREF(scrubbed);
     if (split < 0) {
         if (!PyErr_ExceptionMatches(PyExc_ValueError)) { /* GCOVR_EXCL_BR_LINE: the split raises nothing else */
@@ -480,7 +631,7 @@ PyObject *turbohtml_url_clean(PyObject *Py_UNUSED(module), PyObject *args) {
    split. */
 static PyObject *site_of(PyObject *url) {
     th_url_parts parts;
-    if (th_url_split(url, &parts) < 0) {
+    if (th_url_split(url, &parts, 0) < 0) {
         return NULL;
     }
     PyObject *host = th_url_host_canonical(parts.part[TH_URL_HOST], parts.kind);

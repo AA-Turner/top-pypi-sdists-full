@@ -22,7 +22,7 @@ from pgqueuer.core import (
     tm,
 )
 from pgqueuer.domain import errors, models, types
-from pgqueuer.domain.settings import DBSettings
+from pgqueuer.domain.settings import db_settings
 from pgqueuer.ports import RepositoryPort, tracing
 from pgqueuer.ports.repository import EntrypointExecutionParameter
 
@@ -38,7 +38,7 @@ class QueueManager:
 
     queries: RepositoryPort
     channel: types.Channel = dataclasses.field(
-        default=types.Channel(DBSettings().channel),
+        default_factory=lambda: types.Channel(db_settings().channel),
     )
 
     shutdown: asyncio.Event = dataclasses.field(
@@ -101,11 +101,14 @@ class QueueManager:
         self.pending_health_check[health_check_event_id] = fut
         try:
             await self.queries.notify_health_check(health_check_event_id)
-            return await asyncio.wait_for(fut, timeout.total_seconds())
-        except (TimeoutError, asyncio.TimeoutError):
-            raise errors.FailingListenerError from None
+            done, _ = await asyncio.wait({fut}, timeout=timeout.total_seconds())
+            if not done:
+                raise errors.FailingListenerError
+            return fut.result()
         finally:
             self.pending_health_check.pop(health_check_event_id, None)
+            if not fut.done():
+                fut.cancel()
 
     async def _run_periodic_health_check(
         self,
@@ -146,9 +149,18 @@ class QueueManager:
     def get_context(self, job_id: types.JobId) -> models.Context:
         return self.job_context[job_id]
 
-    def forget_job(self, job_id: types.JobId, task: asyncio.Task[None]) -> None:
-        """Drop *job_id*'s context once its dispatch task is done, however it ended."""
-        self.job_context.pop(job_id, None)
+    def forget_job(
+        self,
+        job_id: types.JobId,
+        context: models.Context,
+        task: asyncio.Task[None],
+    ) -> None:
+        """Drop *job_id*'s context once its dispatch task is done, however it ended.
+
+        A retried job may already be running again under a new context; that one is kept.
+        """
+        if self.job_context.get(job_id) is context:
+            del self.job_context[job_id]
 
     def register_executor(
         self,
@@ -421,8 +433,9 @@ class QueueManager:
                 timeout=heartbeat_timeout / 8,
                 repository=self.queries,
             ) as hbuff,
-            tm.TaskManager() as task_manager,
             self.queries.driver,
+            # Inside the driver so draining jobs can still receive cancel NOTIFYs.
+            tm.TaskManager() as task_manager,
             # Listed after the driver so they are cancelled before it closes;
             # a failing loop body must not leak tasks probing a closing driver.
             tm.cancel_on_exit(
@@ -457,12 +470,13 @@ class QueueManager:
                     # A late heartbeat lets our own dequeue re-pick a job still running here.
                     if job.id in self.job_context:
                         continue
-                    self.job_context[job.id] = models.Context(
+                    context = models.Context(
                         cancellation=anyio.CancelScope(),
                         resources=self.resources,
                     )
+                    self.job_context[job.id] = context
                     task = asyncio.create_task(self._dispatch(job, jbuff, hbuff, heartbeat_timeout))
-                    task.add_done_callback(functools.partial(self.forget_job, job.id))
+                    task.add_done_callback(functools.partial(self.forget_job, job.id, context))
                     task_manager.add(task)
 
                     with contextlib.suppress(asyncio.QueueEmpty):
@@ -483,6 +497,33 @@ class QueueManager:
                         (shutdown_task, event_task),
                         return_when=asyncio.FIRST_COMPLETED,
                     )
+
+    async def log_failure(
+        self,
+        job: models.Job,
+        executor: executors.AbstractEntrypointExecutor,
+        exc: Exception,
+        jbuff: buffers.JobStatusLogBuffer,
+    ) -> None:
+        """Log *exc* and record *job* as failed, honouring the entrypoint's on_failure."""
+        logconfig.logger.exception(
+            "Exception while processing entrypoint/job-id: %s/%s",
+            job.entrypoint,
+            job.id,
+            exc_info=exc,
+        )
+        tbr = models.TracebackRecord.from_exception(
+            exc=exc,
+            job_id=job.id,
+            additional_context={
+                "entrypoint": job.entrypoint,
+                "queue_manager_id": self.queue_manager_id,
+            },
+        )
+        status: types.JOB_STATUS = (
+            "failed" if executor.parameters.on_failure == "hold" else "exception"
+        )
+        await jbuff.add((job, status, tbr))
 
     async def _dispatch(
         self,
@@ -514,7 +555,13 @@ class QueueManager:
             try:
                 ctx = self.get_context(job.id)
                 if not ctx.cancellation.cancel_called:
-                    await executor.execute(job, ctx)
+                    try:
+                        await executor.execute(job, ctx)
+                    except Exception as e:
+                        # A TaskGroup wraps a child's RetryRequested in an ExceptionGroup.
+                        if (retry := errors.retry_request(e)) is not None and retry is not e:
+                            raise retry from e
+                        raise
             except errors.RetryRequested as retry_exc:
                 logconfig.logger.info(
                     "Retry requested for entrypoint/job-id: %s/%s (attempt=%d, delay=%s)",
@@ -534,7 +581,12 @@ class QueueManager:
                         "reason": retry_exc.reason,
                     },
                 )
-                await self.queries.retry_job(job, retry_exc.delay, tbr)
+                # Release before re-queueing, or our own dequeue skips the re-picked row.
+                self.job_context.pop(job.id, None)
+                try:
+                    await self.queries.retry_job(job, retry_exc.delay, tbr)
+                except Exception as e:
+                    await self.log_failure(job, executor, e, jbuff)
             except asyncio.CancelledError:
                 logconfig.logger.debug(
                     "Job canceled mid-flight for entrypoint/id: %s/%s",
@@ -545,23 +597,7 @@ class QueueManager:
                 await asyncio.shield(jbuff.add((job, "canceled", None)))
                 raise
             except Exception as e:
-                logconfig.logger.exception(
-                    "Exception while processing entrypoint/job-id: %s/%s",
-                    job.entrypoint,
-                    job.id,
-                )
-                tbr = models.TracebackRecord.from_exception(
-                    exc=e,
-                    job_id=job.id,
-                    additional_context={
-                        "entrypoint": job.entrypoint,
-                        "queue_manager_id": self.queue_manager_id,
-                    },
-                )
-                status: types.JOB_STATUS = (
-                    "failed" if executor.parameters.on_failure == "hold" else "exception"
-                )
-                await jbuff.add((job, status, tbr))
+                await self.log_failure(job, executor, e, jbuff)
             else:
                 logconfig.logger.debug(
                     "Dispatching entrypoint/id: %s/%s - successful",

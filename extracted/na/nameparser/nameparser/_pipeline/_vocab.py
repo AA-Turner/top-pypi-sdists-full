@@ -1,8 +1,9 @@
 """Shared vocabulary predicates for pipeline stages.
 
 Text-level tests used by more than one stage; piece-level ones live
-in _pieces, the sibling layer over tokens-plus-tags. All take normalized-or-raw text
-explicitly -- no state.
+in _pieces, the sibling layer over tokens-plus-tags. All take
+normalized-or-raw text explicitly and no state, with the departures
+named below.
 
 is_wholly_suffix departs from that shape twice, deliberately. It is
 RUN-level rather than text-level, because the question it answers is
@@ -21,18 +22,36 @@ reaches is a question about a run of words that no per-word membership
 test can answer, and the vocabulary reaches it as a plain frozenset
 field like every other predicate here.
 
-Layering: imports _lexicon, _types, and _policy only.
+tag_marker_runs is the third departure, and the reason this module also
+imports _state (WorkToken, comma_bucket): deciding which tokens open a
+maiden-marker RUN needs each token's role and span, not its text alone,
+because a run must not cross a role change or a comma. It moved here
+from classify (#289/#516) so _pieces.own_words -- which may import
+only _state and _vocab (tests/v2/test_layering.py) -- can call the
+SAME function classify does rather than approximating it with a
+text-only walk. Two callers building a map from the same tokens with
+the same function cannot disagree, which a from-scratch approximation
+could (measured: 'ANNA z Nowak, MD' flips the one-case verdict when
+the approximation and the real run-completion test disagree on
+whether 'z' opens a run that completes).
+
+Layering: imports _lexicon, _policy, and _pipeline._state (WorkToken,
+comma_bucket -- read-only, never a whole ParseState).
 """
 from __future__ import annotations
 
 import functools
 import re
 import unicodedata
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence, Set
+from typing import Literal
 
-from nameparser._lexicon import FULL_STOPS, Lexicon, _normalize
-from nameparser._policy import (Policy, Script, _JA_SCRIPTS, _NO_INITIALS,
+from nameparser._lexicon import (
+    FULL_STOPS, Lexicon, _VOCAB_FIELDS, _normalize, _spells_an_initial,
+)
+from nameparser._policy import (CapsSuffixes, Policy, Script, _JA_SCRIPTS, _NO_INITIALS,
                                 _SCRIPT_RANGES, _script_matcher)
+from nameparser._pipeline._state import WorkToken, comma_bucket
 
 # Ported verbatim from v1 (nameparser/config/regexes.py "initial") minus
 # its empty-string alternative -- WorkToken text is never empty. Kept in
@@ -80,18 +99,107 @@ _SCRIPT_MATCHERS: dict[Script, Callable[[str], bool]] = {
 # effective_script's kana license.
 _wholly_ja = _script_matcher(*_JA_SCRIPTS, whole=True)
 
+# The four kana voicing marks U+3099-U+309C (#596). None belongs to
+# either syllabary -- each voices the kana it follows -- but the script
+# table classifies by block and all four sit in the HIRAGANA one, so a
+# mark NFC cannot compose (ア + U+3099) made a katakana token read as
+# katakana plus hiragana and took the kana license.
+# _normalized_for_script drops every mark standing after a KANA, so the
+# mark takes its base's script. After anything else -- hangul, Han,
+# Latin, or nothing at all -- the mark is not voicing a kana and keeps
+# the table's answer: deleting it there would hand 김゙민준 a script the
+# surname site then divides on the RAW text, cutting the mark off its
+# base and leaving it to open the given name.
+_VOICING_MARKS = frozenset("\u3099\u309a\u309b\u309c")
+
+# Whole-text kana test for one character: the base a voicing mark may
+# be dropped after.
+_is_kana = _script_matcher(Script.HIRAGANA, Script.KATAKANA, whole=True)
+
+
+def _drop_kana_voicing_marks(text: str) -> str:
+    """`text` without the voicing marks that follow a kana (a run of
+    them included); every other mark kept. Called only on text holding
+    a mark, so names without one never pay for the walk."""
+    kept: list[str] = []
+    after_kana = False
+    for ch in text:
+        if ch in _VOICING_MARKS:
+            if after_kana:
+                continue
+        else:
+            after_kana = _is_kana(ch)
+        kept.append(ch)
+    return "".join(kept)
+
 # The repertoire half of is_initial (_policy._NO_INITIALS), kept apart
 # from _INITIAL's SHAPE half so the pattern itself stays v1-verbatim
 # and its three copies stay pinned by tests/v2/test_regex_sync.py.
 # contains-any, not whole=True: the shape half has already admitted the
 # trailing period, so the text reaching here is '씨.' rather than '씨'
 # and a wholly-of match would be False for every case this exists for.
-# The second caller, _pieces.is_leading_title, admits two or more
+# The second caller, is_title_shaped below, admits two or more
 # characters, so contains-any there means one CJK character anywhere
 # vetoes the whole word -- 'Kim김.' is refused as a title along with
 # '田中.' -- and that is deliberate: a word carrying a script with no
 # abbreviations is not wearing an abbreviation's period.
 in_initialless_script = _script_matcher(*_NO_INITIALS, whole=False)
+
+
+# H2's own shape, text-level: an unlisted period-marked abbreviation,
+# two or more letters, one trailing period. Moved here from _pieces
+# (#289/#516, quality-review finding) so _vocab.name_word_count can
+# ask the SAME question _pieces.is_leading_title asks -- measured
+# divergence before the move: 'Dr. Smith, Ed' (LISTED title 'Dr.') and
+# 'Xyz. Smith, Ed' (UNLISTED, H2-shaped) both read family 'Dr.
+# Smith'/'Xyz. Smith', given 'Ed' at the peel, because is_leading_title
+# reads H2's shape and a bare `folded in lexicon.titles` lookup does
+# not -- but name_word_count's OWN count disagreed: 'Xyz.' counted as
+# a name word where 'Dr.' did not, so 'Xyz. Smith, Ed' alone flipped
+# the comma structure to a credential run
+# (mechanisms.md#ONE-PREDICATE-PER-QUESTION).
+#
+# Ported verbatim from v1 (nameparser/config/regexes.py
+# "period_abbreviation") -- layering forbids the config import; keep
+# in sync by hand (tests/v2/test_regex_sync.py, which reaches this
+# object through `_pieces._PERIOD_ABBREV`, an IMPORT of this one, not
+# a second definition -- the sync test's target name did not move).
+_PERIOD_ABBREV = re.compile(r'^[^\W\d_]{2,}\.$')
+
+
+# rules.md#H2: "an abbreviation opening the part of the name that
+# carries the given name — the whole name, or the part after a
+# family comma — reads as a title even when unlisted"
+# (history: decisions.md#H2)
+def is_title_shaped(text: str) -> bool:
+    """Whether TEXT wears H2's shape alone -- vocabulary-free, the
+    LISTED half being a separate lookup at each caller's own site
+    (is_title_piece/lexicon.titles). `name_word_count` below is the
+    only CALLER; `_pieces.is_leading_title` asks the same question
+    but keeps this body inline, its path being hot (every leading
+    piece of every parse) where this one is cold (comma names only)
+    -- the measured figure lives at that inline copy and is not
+    restated here, two homes for one measurement being how they come
+    to disagree. Touch one, touch both:
+    `test_pieces.test_is_title_shaped_and_is_leading_title_agree`
+    runs both over the union of the two example tables, so the
+    agreement is checked rather than asserted in prose
+    (mechanisms.md#ONE-PREDICATE-PER-QUESTION).
+
+    The shape reads a Latin convention: a period marks an
+    abbreviation. Scripts with no initials have no period
+    abbreviations either (_policy._NO_INITIALS, the #320 veto
+    is_initial carries), so a CJK word wearing a period is a name
+    word, not a title -- a lone '田中.' is the family name (#323).
+    `_PERIOD_ABBREV` stays ASCII-period only: a word wearing '。' never
+    matches it, and the veto is what makes the ASCII spelling agree.
+    ASCII text can carry no _NO_INITIALS character (every range sits
+    above U+3000), so the C-level test declines before the regex
+    search runs -- four frames per unlisted-abbreviation opener per
+    parse, this running four times per piece.
+    """
+    return (bool(_PERIOD_ABBREV.match(text))
+            and (text.isascii() or not in_initialless_script(text)))
 
 
 def is_initial_shaped(text: str) -> bool:
@@ -132,6 +240,21 @@ def is_trailing_numeral_suffix(text: str, preceding: str) -> bool:
             and not is_initial_shaped(preceding))
 
 
+# #544: a single-letter roman numeral ('V', 'v', 'I.'), in any case,
+# is excluded for its SHAPE -- one letter is how a middle initial is
+# written, and rules.md#S3 retires single-character matches for the
+# same reason -- not for being a generation: a multi-letter suffix
+# word ('III', 'Jr') anchors and runs like any other. So it neither
+# anchors an ambiguous member behind it nor counts toward C1's
+# multi-word credential run. It still peels exactly as before; this
+# answers only those two questions.
+def is_single_letter_numeral(text: str) -> bool:
+    """One letter, optionally followed by periods, that is a roman
+    numeral ('V', 'v', 'I.', 'X')."""
+    letters = text.rstrip(".")
+    return len(letters) == 1 and _ROMAN.match(letters) is not None
+
+
 def is_initial(text: str) -> bool:
     """'A.' / 'j.' / bare capital -- v1's is_an_initial, narrowed to
     scripts that HAVE initials (#320). v1's \\w is Unicode-aware and
@@ -144,17 +267,139 @@ def is_initial(text: str) -> bool:
     return is_initial_shaped(text) and not in_initialless_script(text)
 
 
+def is_one_case(texts: Sequence[str]) -> bool:
+    """Whether a name is written wholly in ONE case -- all upper or all
+    lower alike -- and so carries no case EVIDENCE about any letter in
+    it (rules.md#P3, #383/#479). The caller passes the name's OWN
+    words: a maiden marker's clause and any delimited (nickname)
+    content are not among them, and appending one must not flip the
+    reading of words that did not change.
+
+    Mirrors the SHAPE of the comparison the R5 gate in
+    `_render.capitalized` makes, not its SPAN: R5 joins every token but
+    the suffixes, nickname and maiden content included, while
+    classify's caller hands in only the name's own words (rules.md#P3's
+    own-words doctrine, see above) -- so a clause-bearing name can be
+    one-case to this function and mixed to R5 (measured:
+    `'JUAN GARCIA Y LOPEZ née Jones'` is one case here, mixed there),
+    and a name with a cased suffix mixed here and one-case there
+    (`'john e jones III'`). Not shared by import today -- render is a
+    layer this module does not reach into -- and #492 left the two
+    spans apart by decision (decisions.md#R5, "THE R5 / PARSER SPLIT").
+
+    `Sequence`, not `Iterable`: the caller passes a list it already
+    built rather than a fresh generator, so `is_one_case` costs one
+    profiler frame per parse rather than one per token (#475).
+
+    A CASELESS script answers True, harmlessly: `'محمد و علي'.upper()`
+    is the string itself, so the comparison holds. Its callers are
+    classify, segment (only where C2's flag on a tail part asks) and
+    script_segment's `_one_case`; the first two record the answer as
+    `ParseState.one_case`, and script_segment does not; the decisions
+    that read it each also require the token they judge to be CASED:
+    classify's connective-or-initial fork asks for a token whose own
+    `upper()` and `lower()` differ, `ambiguous_lean` -- which the
+    suffix readers in `_pieces`, `_group` and `_assign` reach through
+    `listed_lean` -- returns no lean for a caseless token, and
+    `caps_shape_candidate` requires
+    `isupper()`. A caseless letter is none of those, so a caseless
+    name never reaches a decision this gates, and "one case" is the
+    honest verdict for text that has only one.
+    """
+    joined = " ".join(texts)
+    return joined in (joined.upper(), joined.lower())
+
+
+#: Which way the WRITING leans for a member of the ambiguous
+#: credential class; None is no lean at all. Named so the two
+#: predicates that answer it -- `ambiguous_lean` here and
+#: `_pieces.listed_lean`, which wraps it -- carry the same three-value
+#: type rather than a bare `str`. Under mypy's `strict_equality` that
+#: makes a misspelled comparison (`== "credentail"`) an error at the
+#: two call sites that branch on the answer, where a `str` return
+#: leaves it silently False forever -- which is what the value is FOR:
+#: `_pieces.peel_trailing` peels or declines on it.
+#: `period_joined_vocab`'s own verdict is spelled inline for the same
+#: reason; it has one caller shape and no wrapper to keep in step.
+Lean = Literal["credential", "name"]
+
+
+# #289's credential lean: rules.md#S2 records the words-to-spare count
+# today; this predicate is the WRITING evidence that decides ahead of
+# it, in a mixed-case name only (history: decisions.md#S2).
+def ambiguous_lean(text: str, one_case: bool) -> Lean | None:
+    """Which way the WRITING leans for a member of the ambiguous
+    credential set: "credential", "name", or None for no lean at all.
+
+    None is the fall-through to rules.md#S2's count, and it is the
+    answer for three inputs. A name written wholly in one case says
+    nothing about any word in it. A member written wholly in lower
+    case says nothing either -- lower is how most of a mixed-case
+    name is written, so it is not a contrast. And a CASELESS token
+    ('씨', '毛') can be written against nothing, so neither test
+    fires and the count decides, which is what keeps this rule out of
+    a caseless script by construction.
+
+    `one_case` is the recorded fact (ParseState.one_case), taken over
+    the name's OWN words -- handed in rather than recomputed, because
+    three sites read this and a fact two of them derived apart is the
+    bug the field exists to prevent
+    (mechanisms.md#ONE-PREDICATE-PER-QUESTION).
+
+    The caller decides MEMBERSHIP: this answers only about the
+    writing. Periods do not disturb either test, '.' having no case,
+    so 'MA.' leans as 'MA' does -- the lean reads CASE, not periods,
+    and the dotted spelling is the vocabulary's own question
+    (suffix_as_written).
+    """
+    if one_case:
+        return None
+    if text.upper() == text.lower():     # caseless: no contrast to read
+        return None
+    if text.isupper():
+        return "credential"
+    if text.islower():
+        return None
+    return "name"
+
+
 _DOTTED = re.compile(r"(?:[^\W\d_]\.)+")
+# #544: the CHUNKED spelling -- two or more runs of letters, each
+# closed by a period ('M.Eng.', 'L.Ac.'). Both callers compare the
+# period-free letters against the listed member, so the chunks must
+# spell it; one chunk ('Ma.', 'Ed.') is the single trailing period and
+# stays outside the gate.
+_CHUNKED = re.compile(r"(?:[^\W\d_]+\.){2,}")
 
 
 def _dotted(text: str) -> bool:
     """Written with its periods: one after each letter ('M.A.',
-    'J.D.'), the acronym's own spelling. A single trailing period
-    ('Ma.', 'Ed.', 'Ms.') is the abbreviation shape any word can wear
-    -- the honorific's, a name's -- and is not the gate's "written
-    with periods" (rules.md#S2). Until #296's review the gate was
-    "any period", and 'Smith, Ms.' passed it as the degree."""
-    return _DOTTED.fullmatch(text) is not None
+    'J.D.'), the acronym's own spelling, or -- since #544 -- two or
+    more letter chunks each closed by a period ('M.Eng.', 'L.Ac.'), the
+    spelling a member with a lower-case tail is written in. A single
+    trailing period ('Ma.', 'Ed.', 'Ms.') is the abbreviation shape any
+    word can wear -- the honorific's, a name's -- and is not the gate's
+    "written with periods" (rules.md#S2). Until #296's review the gate
+    was "any period", and 'Smith, Ms.' passed it as the degree."""
+    return (_DOTTED.fullmatch(text) is not None
+            or _CHUNKED.fullmatch(text) is not None)
+
+
+# #563: exactly two single letters, each closed by a period -- the way
+# a given and a middle initial are written run together ('M.J.',
+# 'G.J.'). The trailing period is optional, as `period_joined_vocab`'s
+# shape verdict lets it be.
+_PAIRED_INITIALS = re.compile(r"[^\W\d_]\.[^\W\d_]\.?")
+
+
+def is_paired_initials(text: str) -> bool:
+    """Two single letters run together with periods ('M.J.'): the one
+    unlisted dotted shape a person's own initials take, so after a
+    comma it is a name until something in front of it, or another
+    dotted word beside it, says it is a credential (rules.md#C1).
+    Three or more letters ('X.Y.Z.') and any longer chunk ('B.Tech.')
+    are outside it."""
+    return _PAIRED_INITIALS.fullmatch(text) is not None
 
 
 def suffix_as_written(n: str, text: str, lexicon: Lexicon) -> bool:
@@ -229,31 +474,523 @@ def splits_into_suffixes(text: str, cores: frozenset[str],
 
 
 # rules.md#S3: "a word with interior periods reads as a suffix when
-# any of its period-separated chunks is suffix vocabulary"
-def period_joined_vocab(text: str, lexicon: Lexicon) -> str | None:
+# any of its period-separated chunks is suffix vocabulary — except
+# where every chunk the vocabulary matches is a single ASCII
+# character, the roman numerals and the lone digit the vocabulary
+# lists, which are about generations rather than credentials"
+def period_joined_vocab(
+        text: str, lexicon: Lexicon,
+) -> Literal["title", "suffix", "shape"] | None:
     """v1's parse_pieces derivation for interior-period tokens
     ('Lt.Gov.', 'Msc.Ed.', and by the ANY rule 'Mr.Smith'): ANY title
     chunk makes the token a title (checked first, v1's continue); else
     ANY suffix chunk makes it a suffix. Chunk-level suffix membership
     is v1's is_suffix: bare ambiguous acronyms COUNT ('Msc.Ed.'
     derives via 'ed') -- the ambiguous period-gate applies to whole
-    tokens only. Returns "title", "suffix", or None."""
+    tokens only. Returns "title", "suffix", "shape", or None.
+
+    "shape" is the third verdict and it is the absence of a claim
+    worth acting on (#516): two or more chunks, EVERY one of them
+    alphabetic, and nothing the vocabulary matches except -- possibly
+    -- chunks that are a SINGLE ASCII CHARACTER. That exception is the
+    roman-numeral accident retired narrowly: measured 2026-09-15 the
+    one-character suffix vocabulary is {'2', 'i', 'v'} plus the glued
+    CJK honorific tails, so 'John Smith R.A.I.' was reading as a
+    generational suffix off the chunk 'i'. CHARACTER rather than
+    LETTER because '2' is a digit and is in the set; ASCII because
+    '씨' is the single character that must KEEP its claim ('J.씨'). A
+    multi-character match still reads as it always did, so 'Msc.Ed.',
+    'JD.CPA' and 'Lt.Gov.' are untouched -- the WIDE retirement, where
+    any chunk match yields to the shape, was measured and rejected: it
+    costs 'Doe, John Msc.Ed.' a real credential and re-routes the
+    honorific peel of '김민준씨, J.씨' for nothing this design wants
+    (decisions.md#S2).
+
+    The ALPHABETIC requirement is a SEPARATE, narrower gate on the
+    shape verdict alone (#516 review round, decided by the
+    orchestrator): a bare digit chunk is not an acronym letter by any
+    reading, so 'Smith, 1.4' and 'John Smith 1.4' do not join the
+    class by shape -- the only PROTECTED digit control this design
+    had was the delimited 'Bridge (1.4)', and 'Smith, 1.4' and its
+    no-comma twin were the gap that control did not cover, since
+    delimited content is excluded by a different mechanism (extract's
+    escape) and digits reach THIS detector, never that one.
+    '.isalpha()' is asked of EVERY chunk, not just the matched ones,
+    so a mixed token like 'X.Y.2.' is not shape-admitted either -- one
+    non-letter chunk is enough to say the writing is not spelling an
+    acronym. Chunks the vocabulary itself matches are already
+    alphabetic in the shipped lexicon, so this narrows only the
+    previously-unclaimed "shape" answer, never the "suffix" one.
+
+    The INITIALLESS-SCRIPT guard is a second, independent narrowing of
+    the same verdict, on the same reasoning `is_title_shaped` already
+    gives its own period-abbreviation inference (#323): a script with
+    no period abbreviations at all has nothing for interior periods to
+    ABBREVIATE, so a CJK word glued into period-separated single
+    characters is not spelling an acronym either -- 'John Smith
+    田.中.' and '김 민준 이.박.' stayed family at every release before
+    this gate existed, and would otherwise have joined the ambiguous
+    class by shape for the first time (measured regression, #516
+    review round).
+
+    What a "shape" verdict MEANS is the caller's question, not this
+    one's: classify writes the tag, and Policy.unlisted_dotted_suffixes
+    decides whether it is class membership.
+    """
     if not _PERIOD_NOT_AT_END.match(text):
         return None
     chunks = [_normalize(c) for c in text.split(".") if c]
     if any(c in lexicon.titles for c in chunks):
         return "title"
-    if any(c in lexicon.suffix_acronyms or c in lexicon.suffix_words
-           for c in chunks):
+    matched = [c for c in chunks
+               if c in lexicon.suffix_acronyms or c in lexicon.suffix_words]
+    if matched and not all(len(c) == 1 and c.isascii() for c in matched):
         return "suffix"
+    if (len(chunks) >= 2 and all(c.isalpha() for c in chunks)
+            and (text.isascii() or not in_initialless_script(text))):
+        return "shape"
     return None
 
 
+def ambiguous_class_member(text: str, lexicon: Lexicon) -> bool:
+    """Whether TEXT is a member of the LISTED ambiguous credential
+    class, ignoring case and policy entirely (#289/#516).
+
+    The case-INDEPENDENT half of the comma form's own candidate test
+    (`ambiguous_class_candidate`, below, which ALSO admits a by-shape
+    member where Policy allows it) and of `is_wholly_suffix`'s
+    credential-lean disjunct: membership by vocabulary never needs the
+    case fact, only the lean does. That split is what lets the comma
+    form's lazy gate ask membership FIRST and pay for `one_case` only
+    where this says yes (measured regression, #289/#516: forcing the
+    fact first ran `own_words` -> `tag_marker_runs` for every
+    single-token-after-the-comma name, none of them able to reach the
+    class at all).
+
+    Membership is the listed set, bare: a whole-token vocabulary match
+    is not in this class at all, being settled ('M.A.', 'Ph.D.',
+    'A.B.C.').
+
+    Cheaper than `suffix_as_written(n, text, lexicon) or ...` would be
+    here, and provably the same answer for UNDOTTED text: the Lexicon
+    invariant that an ambiguous acronym is never also a suffix WORD
+    (`__post_init__`'s gate_bypassed check) and is never counted
+    without periods once it IS one (`suffix_as_written`'s own
+    exclusion) together kill that predicate's two disjuncts once text
+    is known to hold no period. One frame (`_normalize`) on the common
+    path that never reaches the class, where the general predicate
+    cost at least two (mechanisms.md#ONE-PREDICATE-PER-QUESTION's cost
+    clause).
+
+    The '.' gate here is DELIBERATELY STRICTER than S2's own
+    dotted-form test (`_dotted`, a period after EACH letter or after
+    each of two or more letter chunks): '.'
+    anywhere excludes membership, so a single TRAILING period ('MA.',
+    'Ed.') is excluded here even though the LEAN still reads it as
+    the bare acronym's case ('Smith, MA.' -> suffix 'MA.', measured).
+    Not a contradiction: the two questions this answers -- the
+    comma-form CANDIDATE test below and the credential-lean disjunct
+    -- are never asked of those shapes, the TAG path
+    (`vocab:suffix-ambiguous`, read directly by the trailing peel and
+    the post-comma slot) and H2's leading-title shape test already
+    carrying them where they need to go.
+    """
+    if "." in text:
+        return False
+    return _normalize(text) in lexicon.suffix_acronyms_ambiguous
+
+
+# #516's all-caps half, ONE PREDICATE for the shape test and its
+# WHOLE-VOCABULARY exclusion, shared by the three sites that each
+# needed the identical question answered (classify's tag emission,
+# the comma decision's caps test -- `_segment.py`'s run test until #613
+# moved the decision to `_comma.decide` -- and this module's own unit
+# tests), where it had been spelled three times over (quality-review
+# finding). The usual objection to sharing -- a call costing every
+# default-policy parse a frame it cannot use -- does not apply: the
+# trailing position is behind `CapsSuffixes.EVERYWHERE` (classify's
+# first conjunct), and the comma decision, which IS on by default,
+# asks C-level `isalpha()`/`isupper()` and the suffix tag first, so a
+# comma name with no unlisted all-caps word never reaches it.
+def caps_shape_candidate(text: str, lexicon: Lexicon, policy: Policy,
+                         one_case: bool | None) -> bool:
+    """Whether TEXT is an UNLISTED all-caps credential candidate: two
+    or more alphabetic characters, no period (a period fails
+    `isalpha()` outright, which is what excludes the dotted spelling
+    here for free -- no separate '.' test needed), written in a name
+    `one_case` says is mixed (`one_case is False`; `None`, "not
+    established", declines exactly as if the name were one case).
+
+    UNLISTED means in NO wordlist at all, not merely "no whole-token
+    suffix vocabulary", and the roster is `_lexicon._VOCAB_FIELDS`
+    itself rather than a list written out here -- checked directly
+    against the lexicon rather than through a caller's tags (classify
+    is deciding the very tag a caller would read, and `_comma.decide`
+    asks of words classify left untagged). A hand-written roster is a second place to remember,
+    and it had already gone wrong: it named eleven of the thirteen
+    fields, leaving `surnames` and `honorific_tails` out, so
+    `Lexicon.default().add(surnames={"dupont"})` still read
+    `Jean Pierre DUPONT` as suffix `DUPONT` -- a caller listing a word
+    as a SURNAME and getting it read as a credential is this switch's
+    own worst failure, arriving through the one wordlist that says
+    "this is a family name" (review round, #289/#516;
+    `honorific_tails` was already excluded transitively, being a
+    subset of `suffix_words` by Lexicon invariant, and joins the
+    roster for completeness rather than for a behavior change).
+    Measured, #516 review rounds: particles, ambiguous particles,
+    conjunctions, bound-given heads, a maiden marker ('NEE'/'GEB') and
+    a title all join the shape by capitalization alone if their field
+    is left unchecked.
+
+    `suffix_acronyms_ambiguous` is in the roster, which also makes
+    this predicate stand in for `ambiguous_class_member` wherever a
+    caller needs "and not already a LISTED member" (undotted text's
+    only path into that function is the identical membership test);
+    its callers still test the listed set first, in C (classify's
+    `n not in suffix_acronyms_ambiguous`, `_comma.decide`'s
+    AMBIGUOUS_ACRONYM_TAG test), so a listed member never pays for
+    the call.
+    """
+    if not (policy.unlisted_caps_suffixes is not CapsSuffixes.OFF
+            and one_case is False
+            and len(text) >= 2 and text.isalpha() and text.isupper()):
+        return False
+    return not in_any_wordlist(_normalize(text), lexicon)
+
+
+def in_any_wordlist(n: str, lexicon: Lexicon) -> bool:
+    """Whether the folded word `n` is in ANY of the lexicon's wordlists
+    (`_lexicon._VOCAB_FIELDS`, the whole roster): the caps shape's
+    "unlisted" (`caps_shape_candidate`), where a word a caller listed
+    even as a SURNAME must never become a credential."""
+    for field in _VOCAB_FIELDS:
+        if n in getattr(lexicon, field):
+            return True
+    return False
+
+
+#: The wordlists that claim a word as something OTHER than name text.
+#: `surnames` and `bound_given_names` are left out: they say a word IS
+#: a name word ('Kim', 'Abdul'), the opposite claim.
+_NON_NAME_FIELDS = tuple(f for f in _VOCAB_FIELDS
+                         if f not in ("surnames", "bound_given_names"))
+
+
+def written_as_a_name(text: str) -> bool:
+    """Whether TEXT is written the way a name is written in mixed case:
+    it holds a capital (or titlecase letter) and its last LETTER is
+    lowercase -- #564's test for the name's case contrast (Derek).
+    'Smith', 'DiCaprio', 'IJzerman', 'al-Rashid', "d'Estaing",
+    'McDonald', 'ǅokić' pass. A surname written in capitals fails
+    whatever is glued in front of it ("d'ESTAING", 'al-ASSAD',
+    'McDONALD', 'FitzGERALD', 'DeVITO', 'St-PIERRE'), and so do a lone
+    capital and a lowercase-only word.
+
+    The letter read is the last one that carries case evidence, not the
+    last character. The word is composed first (NFC), so a name typed
+    with decomposed accents reads as its composed spelling ('André'
+    ends in 'é', not in the combining accent). Passed over, as no
+    evidence of case: every non-letter ("Jones'", 'Smith2', 'Smith)'),
+    every caseless letter ("Jonesʼ" with U+02BC, 'Wafāʾ', 'Smith李'),
+    and a lowercase letter whose capital is not a single character
+    ('ß' -> 'SS', 'ĸ' with none): 'WEIß' and 'KAĸ' are written in
+    capitals, 'Weiß' is not. One call and no generator, so a word costs
+    one frame."""
+    word = unicodedata.normalize("NFC", text)
+    i = len(word)
+    while i:
+        i -= 1
+        ch = word[i]
+        if not (ch.isupper() or ch.islower() or ch.istitle()):
+            continue  # a non-letter or a caseless letter
+        upper = ch.upper()
+        if ch.islower() and (upper == ch or len(upper) != 1):
+            continue
+        # the capital is asked here, of the word that has a letter to
+        # read; one with none falls through below ('李', '2', 'ß')
+        return ch.islower() and text != text.lower()
+    return False
+
+
+def claimed_as_non_name(n: str, lexicon: Lexicon) -> bool:
+    """Whether a wordlist claims the folded word `n` as a title,
+    particle, connective, credential, generation, maiden marker or
+    honorific -- not name text. #564's `_comma._name_contrast`
+    asks it: such a word does not supply the name's case contrast. A
+    different question from `in_any_wordlist`'s, which a surname list
+    must also answer yes to."""
+    for field in _NON_NAME_FIELDS:
+        if n in getattr(lexicon, field):
+            return True
+    return False
+
+
+# The candidate test for a comma part read before classify
+# (rules.md#C1, decisions.md#S2): segment's C2 flag on a tail part.
+def ambiguous_class_candidate(text: str, lexicon: Lexicon,
+                              policy: Policy) -> bool:
+    """Whether TEXT is a CANDIDATE for the ambiguous credential class
+    as segment's C2 flag asks it of a part past the second comma,
+    before classify has tagged anything (`_segment.py`'s `class_run`;
+    the comma's own decision, `_comma.decide`, reads classify's tags
+    instead, #613): the LISTED half (`ambiguous_class_member`, case-free) OR, where Policy
+    admits it, the SHAPE an unlisted dotted token wears
+    (`period_joined_vocab`'s third verdict, #516).
+
+    Case-free throughout, and the CAPS half of the class is
+    deliberately not here: its real site is `_comma.decide`, which
+    calls `caps_shape_candidate` directly because the caps shape needs
+    the name's contrast. A second route through here existed briefly,
+    behind an optional `one_case` parameter no production caller ever
+    passed -- segment had nothing to hand in at the single-token
+    test it then made -- so the branch
+    answered False for every name the library parsed and only the
+    unit tests reached it (review-round finding, #289/#516). A dead
+    second route is a place for the two to disagree, not a
+    convenience.
+
+    A period anywhere is the gate for even ASKING the shape question,
+    checked before the shape's own two calls: `period_joined_vocab`
+    already declines a period-free text, but a Python-level call is
+    not free and a comma name's post-comma part usually has no period
+    ("Smith, John") -- measured regression, #516 review round, fixed
+    by hoisting the same cheap substring test `ambiguous_class_member`
+    already makes for its own reason. Where a period IS present,
+    `suffix_as_written` runs only after `period_joined_vocab` says
+    "shape": a dotted whole-token match with no single-chunk
+    vocabulary hit of its own ('A.B.C.', via 'abc') would otherwise
+    read "shape" from this function's chunk-level view alone,
+    oblivious to the WHOLE-token match `suffix_as_written` already
+    settled -- the same precedence classify's own tag order gives it
+    (`vocab:suffix` is set before `period_joined_vocab` is even
+    consulted).
+
+    A LISTED member spelled with its periods is excluded from the
+    shape branch by the same test classify's own shape branch makes:
+    a caller who puts a dotted entry in `suffix_acronyms_ambiguous`
+    has said the word is a listed member of this class, and reading
+    it by shape instead loses the case lean the listing asks for
+    (review-round finding, #289/#516 -- `Jack A.B.` with 'a.b' listed).
+    It cannot change the answer for the shipped vocabulary, whose
+    ambiguous entries carry no period at all.
+
+    This function and classify's tag emission (`_tags_for`'s
+    `derived == "shape"` branch) still ask the SAME question twice, of
+    necessity: segment's C2 flag runs before `classify` and has no
+    tags to read yet, so the two stages cannot share the call. Kept from
+    drifting by
+    `test_classify.test_ambiguous_class_candidate_agrees_with_the_tag`,
+    which asks both of the same texts, rather than by a sentence
+    alone.
+    """
+    if ambiguous_class_member(text, lexicon):
+        return True
+    if "." in text:
+        # `_normalize` stays behind the shape verdict, where it always
+        # was: it is a call, and a dotted post-comma token that is not
+        # acronym-shaped at all ('Jr.') must not pay for it.
+        if not (policy.unlisted_dotted_suffixes
+                and period_joined_vocab(text, lexicon) == "shape"):
+            return False
+        n = _normalize(text)
+        return (n not in lexicon.suffix_acronyms_ambiguous
+                and not suffix_as_written(n, text, lexicon))
+    return False
+
+
+# mechanisms.md#UNIT-PARTITION: "A rule that counts name words counts
+# those units, and takes each whole or not at all" -- C1's count before
+# a comma being the stated exception (`SURNAME_UNIT_TAGS`). The walk is shared
+# by readers that hold the facts in different forms: post_rules and
+# `_comma._whole_name` read classify's TAGS, while `name_word_count`
+# builds the same tag names from the vocabulary
+# (`surname_unit_tags`). One walk over tag sets, so the two cannot
+# disagree about where a unit ends (mechanisms.md#ONE-PREDICATE-PER-
+# QUESTION) -- only, at worst, about a token's facts, which
+# test_classify's agreement test pins.
+def unit_ends(tags: Sequence[Set[str]], chain: bool = True) -> list[int]:
+    """The END (one past the last index) of each unit of `tags`, in
+    order, partitioning `range(len(tags))`: one name word each, except
+    where another rule has already made several words one name -- a
+    particle and the words it chains (P2), a conjunction-joined run
+    (P3), and a bound given-name word with the word it completes (P5).
+    Each element is the tag set of one token, read for "particle",
+    "conjunction", "vocab:bound-given" and "vocab:suffix".
+
+    `chain` picks how far a particle reaches. True is P2's chain: the
+    particle run and every word after it up to the next stop ("van der
+    Berg Smith" is one unit). False is P1's fold reach: the particle
+    run and the ONE unit it attaches to, so "de Mesnil Jean" is two --
+    the count rules.md#C1 needs before a comma, where under a
+    family-first order that part is family 'de Mesnil', given 'Jean'
+    (#575).
+
+    RECURSIVE, and that is the whole point: what a conjunction or a
+    bound given-name word joins is the next UNIT, not the next word.
+    Absorbing a single index instead strands a particle at the end of
+    the unit, severed from the words it chains -- "de la Vega y la
+    Vega" cut between `la` and `Vega`, reporting family
+    "de la Vega y la", which is the same defect as a bare particle
+    opening the given name, mirrored."""
+    n = len(tags)
+
+    def end_of(i: int) -> int:
+        if "particle" in tags[i] and not chain:
+            j = i + 1
+            while j < n and "particle" in tags[j]:
+                j += 1
+            end = (end_of(j) if j < n and "conjunction" not in tags[j]
+                   and "vocab:suffix" not in tags[j] else j)
+        elif "particle" in tags[i]:
+            j = i
+            while j + 1 < n and "particle" in tags[j + 1]:
+                j += 1
+            # ... then the words it joins, stopping where the next
+            # particle starts a group of its own, at a suffix word (the
+            # stop _group's chain uses), or at a conjunction, which the
+            # shared loop below joins to the whole unit after it rather
+            # than to the one word after it.
+            while (j + 1 < n
+                   and "particle" not in tags[j + 1]
+                   and "conjunction" not in tags[j + 1]
+                   and "vocab:suffix" not in tags[j + 1]):
+                j += 1
+            end = j + 1
+        else:
+            end = i + 1
+            if "vocab:bound-given" in tags[i] and end < n:
+                end = end_of(end)
+        while end + 1 < n and "conjunction" in tags[end]:
+            end = end_of(end + 1)
+        return end
+
+    ends: list[int] = []
+    i = 0
+    while i < n:
+        i = end_of(i)
+        ends.append(i)
+    return ends
+
+
+#: The facts rules.md#C1's count before a comma reads (#575): a
+#: particle starts a surname unit, and a suffix word stops it. A word
+#: that is ALSO title vocabulary ('Freiherr', 'St') LEADING the part is
+#: not a particle here: in front of a name it reads as the title it
+#: also is (rules.md#H1), so 'Freiherr von Berg, PhD' keeps its title,
+#: while inside a surname it chains as P1 and P2 chain it ('de St
+#: Pierre' is one surname). A bound given-name head that is also a
+#: particle ('Abu') stays a particle: 'Abu Bakar, Ed' is a surname
+#: before the comma, as 2.0 through 2.3 read it. Neither of the other
+#: two joins `unit_ends` knows is read. A bound
+#: given-name pair builds a GIVEN name, and P5 gives up a family word
+#: where the name has no other ('abdul Salam' alone is given 'abdul',
+#: family 'Salam'), so before a comma it is not one surname. Whether
+#: P3 joins a single-letter connective depends on the words of the
+#: whole name -- 'Carod i Rovira, Josep' joins as four words where
+#: 'Ortega y Gasset' alone, three words, does not -- and the count is
+#: part of deciding what the whole name is, so a count taken before
+#: group could reach P3's answer only by copying P3. script_segment
+#: and `name_word_count` build these facts from the vocabulary
+#: (`surname_unit_tags`); `_comma._whole_name` derives them from
+#: classify's tags (`surname_unit_facts`), so the counts read one set
+#: of facts.
+SURNAME_UNIT_TAGS = frozenset({"particle", "vocab:suffix"})
+_PARTICLE_ONLY = frozenset({"particle"})
+_SUFFIX_ONLY = frozenset({"vocab:suffix"})
+_NO_TAGS: frozenset[str] = frozenset()
+def surname_unit_facts(tags: Set[str], leading: bool) -> frozenset[str]:
+    """`SURNAME_UNIT_TAGS` for one token, from classify's tags: the
+    reading `_comma._whole_name`'s count before a comma takes.
+    `leading` is whether
+    the token opens the part."""
+    particle = ("particle" in tags
+                and not (leading and "vocab:title" in tags))
+    if "vocab:suffix" in tags:
+        return SURNAME_UNIT_TAGS if particle else _SUFFIX_ONLY
+    return _PARTICLE_ONLY if particle else _NO_TAGS
+
+
+def surname_unit_tags(text: str, lexicon: Lexicon,
+                      leading: bool) -> frozenset[str]:
+    """`surname_unit_facts` for one token from the vocabulary alone --
+    the vocabulary's view of classify's tags, for a count taken before
+    classify runs (script_segment's) or without its tags
+    (`name_word_count`), with
+    classify's own tests: particle and title membership,
+    `suffix_as_written`, and the period-joined derivation.
+    Kept from drifting by
+    test_classify.test_surname_unit_tags_agree_with_classify."""
+    n = _normalize(text)
+    # classify's whole-token test, then its period-joined derivation
+    # for a token no whole-token title or suffix claimed ('JD.CPA'),
+    # asked only of a token with a period, which it needs
+    suffix = suffix_as_written(n, text, lexicon) or (
+        "." in text and n not in lexicon.titles
+        and period_joined_vocab(text, lexicon) == "suffix")
+    particle = n in lexicon.particles and not (
+        (leading and n in lexicon.titles) or _spells_an_initial(n, text))
+    if suffix:
+        return SURNAME_UNIT_TAGS if particle else _SUFFIX_ONLY
+    return _PARTICLE_ONLY if particle else _NO_TAGS
+
+
+def name_word_count(texts: Sequence[str], lexicon: Lexicon,
+                    policy: Policy) -> int:
+    """How many of these texts are NAME words -- not suffix
+    vocabulary, not title vocabulary.
+
+    rules.md#C1's count for the ambiguous class, and it is of names
+    rather than of words because 'Smith Jr., MA' is two tokens and one
+    name: counting tokens there flips the structure and hands the
+    family to `given`, which no reading of that string wants
+    (decisions.md#S2). The suffix half asks the POLICY-selected
+    predicate, the same one is_wholly_suffix asks, so the two agree
+    about what a suffix word is; the title half asks BOTH the listed
+    lookup and H2's shape test (`is_title_shaped`) -- a bare
+    `lexicon.titles` lookup here read 'Xyz.' as a name word where the
+    leading peel reads it as a title, and that divergence is recorded
+    once, at `is_title_shaped` itself
+    (mechanisms.md#ONE-PREDICATE-PER-QUESTION).
+
+    It counts UNITS holding a name word, not tokens (#575,
+    mechanisms.md#UNIT-PARTITION): a particle chain (P2) builds one
+    family name, so 'De La Cruz' is one name word and 'De La Cruz, Ed'
+    reads as 'Royce, Ed' does. Why the other two joins are not read
+    here: `SURNAME_UNIT_TAGS`.
+    """
+    predicate = (is_suffix_lenient if policy.lenient_comma_suffixes
+                 else is_suffix_strict)
+
+    # One pass: each token's name-word verdict, and whether any token
+    # is a particle. With none, every token is a unit of its own and
+    # the count is a sum, so the commonest comma names never build the
+    # units -- and pay no frame the token loop did not already pay.
+    names: list[bool] = []
+    has_particle = False
+    for text in texts:
+        n = _normalize(text)
+        if n in lexicon.particles:
+            has_particle = True
+        names.append(not (predicate(text, lexicon) or n in lexicon.titles
+                          or is_title_shaped(text)))
+    if not has_particle:
+        return sum(names)
+    count = 0
+    start = 0
+    for end in unit_ends([surname_unit_tags(t, lexicon, i == 0)
+                          for i, t in enumerate(texts)],
+                         chain=False):
+        if any(names[start:end]):
+            count += 1
+        start = end
+    return count
+
+
 def is_wholly_suffix(texts: Sequence[str], lexicon: Lexicon,
-                     policy: Policy) -> bool:
-    """Every token in a RUN counts as a suffix -- segment's
-    suffix-comma test, lifted out of it so the peel can ask the same
-    question (#319).
+                     policy: Policy, one_case: bool | None = None) -> bool:
+    """Every token in a RUN counts as a suffix -- C1's suffix test of
+    a run, shared by `_comma.decide`, segment's C2 flag on a tail part
+    and the peel (#319).
 
     NOT the plural of _script_segment._is_post_nominal, which asks
     is_suffix_strict per token. This asks the POLICY-selected predicate
@@ -271,7 +1008,32 @@ def is_wholly_suffix(texts: Sequence[str], lexicon: Lexicon,
 
     An adjacent Ph./D. pair counts as ONE unit (v1's fix_phd extracted
     the credential pre-parse, so 'Smith, Ph. D.' read as suffix-comma);
-    keep in sync with group's _PH/_D merge.
+    keep in sync with group's _PH/_D merge and `_comma._pieces`.
+
+    `one_case` is ParseState.one_case, and it admits the LEAN: a bare
+    ambiguous acronym written in capitals inside a mixed-case name is
+    a credential here, so 'Steven Hardman, MD, DO, DDS' reads its
+    third segment as the credential run it is (#289). None -- the
+    default, and what every caller with no state to ask has -- reads
+    as no lean and is this predicate's behavior in every release
+    before 2.4.
+
+    Neither Policy.unlisted_dotted_suffixes NOR
+    Policy.unlisted_caps_suffixes reaches this predicate: admitting a
+    by-shape member here unconditionally (an earlier version of this
+    docstring described exactly that, for the dotted half alone)
+    bypassed both the lean AND the NAME-word count, and combined with
+    C1's then TOKEN-count disjunct in segment (deleted in #613, when
+    the decision moved to `_comma.decide`) it flipped
+    'Smith Jr., A.B.' to given 'Smith', suffix 'Jr., A.B.' with a
+    self-contradicting report ("holds 1 name words, so it is read as
+    a credential run") -- proved by mutation testing to be otherwise
+    unreached: nothing but this predicate's own two unit tests
+    depended on it, and 'John Smith, X.Y.Z.' flipped correctly through
+    the NAME-word count alone (#516 review round). Neither by-shape
+    class, dotted or caps, reaches the comma form through this
+    predicate at all -- only through classify's shape tags and
+    `_comma.decide`'s caps test (#613).
     """
     if not texts:
         return False
@@ -285,10 +1047,13 @@ def is_wholly_suffix(texts: Sequence[str], lexicon: Lexicon,
     def counts_as_suffix(text: str) -> bool:
         if text in cores:
             return True
+        if (one_case is not None
+                and ambiguous_class_member(text, lexicon)
+                and ambiguous_lean(text, one_case) == "credential"):
+            return True
         return (predicate(text, lexicon)
                 or period_joined_vocab(text, lexicon) == "suffix"
-                or (bool(cores)
-                    and splits_into_suffixes(text, cores, lexicon)))
+                or (bool(cores) and splits_into_suffixes(text, cores, lexicon)))
 
     merged = list(texts)
     k = 0
@@ -402,6 +1167,117 @@ def maiden_marker_run(words: Sequence[str], markers: frozenset[str]) -> int:
     return 0
 
 
+def tag_marker_runs(tokens: Sequence[WorkToken], comma_offsets: Sequence[int],
+                    markers: frozenset[str],
+                    folded: Sequence[str] | None = None) -> dict[int, str]:
+    """Which tokens are maiden marker runs: index -> "vocab:maiden-marker"
+    for a run's head, "vocab:maiden-marker-cont" for the rest.
+
+    Returns the decision rather than rewriting the tokens: a caller
+    that writes tags into the one pass that builds them (classify)
+    consults this map rather than deciding a run twice, so a marker
+    token is never replaced twice; a caller that never writes tags at
+    all (own_words) reads the same map for its span instead.
+
+    Moved here from classify (#289/#516) so a caller outside classify
+    -- _pieces.own_words, when it has no marker map yet -- can build
+    the SAME map classify would, rather than approximating it with a
+    text-only head test. `_pieces.py` may import only _state and
+    _vocab (tests/v2/test_layering.py), so the one shared function
+    both sites call has to live here, in the layer both can reach.
+
+    `folded` is _normalize per token; classify has already built it
+    for the vocabulary-tag pass and hands it over so this pass costs
+    no second fold, and a caller with only tokens (own_words' self-
+    built path) omits it and pays the fold here instead -- paid only
+    on that path, never on classify's, so the reference name's frame
+    count is unchanged (#289/#516).
+
+    The one sequence pass in this stage, and it has to be one: a marker
+    entry may be a PHRASE whose words are not markers individually
+    ('z', 'domu'), so no per-token membership test can find it.
+    Left to right, longest first at each position, then skip past what
+    the run claimed -- a second marker cannot start inside the first.
+
+    This is where the tag is DECIDED for the stages that read it
+    afterwards. group runs later and asks its questions of these tags
+    rather than re-deriving the run (the recorded-answer half of
+    mechanisms.md#ONE-PREDICATE-PER-QUESTION); extract runs EARLIER,
+    before tokens exist, so it calls the predicate itself over the
+    clause's whitespace words.
+
+    A tagged run is structurally contiguous, and the test is
+    one-directional: a role change IS a clause edge, so no run spans
+    one, but not every clause edge is a role change -- two ADJACENT
+    clauses of the same role are indistinguishable here, and
+    'Jane (z) (domu) Jones' does tag a run across them. Both consumers
+    refuse that run for reasons of their own (the piece walk never sees
+    role-bearing tokens at all; the clause drop is scoped to one
+    clause's span), so no reading depends on it today, and the claim
+    this pass can honestly make is the weaker one. What it does
+    guarantee is what _group._marker_run_pieces needs: a run inside the
+    MAIN stream stays inside one segment. Without it this pass walked
+    the whole span-sorted stream while group walked one segment --
+    _segment keeps only role-less tokens and buckets them by the commas
+    before them -- so a run half inside a bracketed clause was tagged
+    whole and consumed as a proper PREFIX of itself, and
+    'Anna z (domu) Nowak' read family 'Anna', maiden 'Nowak': the bare
+    preposition eating the name, which is the exact damage the phrase
+    entry exists to prevent. Refusing to tag such a run is the fix;
+    truncating it instead would hand M2 the same wrong prefix one word
+    shorter.
+    """
+    # the lookahead the vocabulary actually needs; 0 for an empty set,
+    # which skips the pass entirely
+    cap = _longest_marker(markers)
+    if not cap:
+        return {}
+    if folded is None:
+        folded = [_normalize(t.text) for t in tokens]
+    n_tokens = len(tokens)
+    # Deferred, not computed up front: only the contiguity walk reads
+    # it, only a phrase vocabulary runs that walk, and only at a token
+    # that opens an entry -- so a single-word vocabulary, and a
+    # phrase vocabulary over a name holding no marker, never pay the
+    # sweep at all.
+    buckets: list[int] | None = None
+    tags: dict[int, str] = {}
+    i = 0
+    while i < n_tokens:
+        # The predicate's own head test first, over the fold the caller
+        # already has: almost no token opens any entry, and for those
+        # there is nothing to assemble. Same function maiden_marker_run
+        # consults, so a token skipped here is one it would refuse.
+        if not maiden_marker_head(folded[i], markers):
+            i += 1
+            continue
+        # Bound the lookahead at the first structural boundary, so the
+        # predicate is asked over the words that could form one run and
+        # answers longest-first WITHIN them -- a two-word entry refused
+        # at a clause edge still leaves a one-word entry starting there
+        # free to match.
+        limit = 1
+        if cap > 1:
+            if buckets is None:
+                buckets = [comma_bucket(t.span.start, comma_offsets)
+                           for t in tokens]
+            role, bucket = tokens[i].role, buckets[i]
+            while (limit < cap and i + limit < n_tokens
+                   and tokens[i + limit].role is role
+                   and buckets[i + limit] == bucket):
+                limit += 1
+        run = maiden_marker_run(
+            [tokens[k].text for k in range(i, i + limit)], markers)
+        if not run:
+            i += 1
+            continue
+        tags[i] = "vocab:maiden-marker"
+        for k in range(i + 1, i + run):
+            tags[k] = "vocab:maiden-marker-cont"
+        i += run
+    return tags
+
+
 def _normalized_for_script(text: str) -> str | None:
     """The guard AND the two normalizations single_script and
     effective_script's license path both need, single-sourced so they
@@ -448,8 +1324,19 @@ def _normalized_for_script(text: str) -> str | None:
     also decomposes Hangul syllables onto bare jamo (U+1100-U+11FF),
     entirely outside the HANGUL range, so raw NFD Korean input misses
     the shipped family-first order rule rather than merely misfiring.
-    Normalizing first fixes both. Classification-only and read-only:
-    the returned copy is never what gets tokenized, so token text and
+    Normalizing first fixes both.
+
+    Voicing marks, last: NFC composes a mark only where a precomposed
+    kana exists (カ + U+3099 is ガ), so ア + U+3099, ン + U+3099 and
+    every spacing mark (U+309B/U+309C) survive it, and all four marks
+    sit in the HIRAGANA block. A mark voices the kana it follows and
+    belongs to neither syllabary, so each one standing after a kana is
+    deleted from the copy (_drop_kana_voicing_marks) and the token
+    takes its base's script: ア゙イ is katakana, not kana-licensed
+    Japanese (#596). A mark after anything else stays, and stays in
+    the hiragana block, as it always has. Classification-only and
+    read-only, like the rest: the
+    returned copy is never what gets tokenized, so token text and
     spans stay exactly what the caller wrote.
 
     Vocabulary MATCHING composes NFC too, since #322
@@ -463,7 +1350,10 @@ def _normalized_for_script(text: str) -> str | None:
     text = text.rstrip(FULL_STOPS)
     if not text or text.isascii():
         return None
-    return unicodedata.normalize("NFC", text)
+    composed = unicodedata.normalize("NFC", text)
+    if _VOICING_MARKS.isdisjoint(composed):
+        return composed
+    return _drop_kana_voicing_marks(composed)
 
 
 def _classify(normalized: str) -> Script | None:
@@ -497,8 +1387,10 @@ def effective_script(text: str) -> Script | None:
     katakana-only: マイケル has no kanji, but さくらエミ -- hiragana
     plus katakana -- is kana-only AND licensed) -- and resolves to the
     HIRAGANA carrier entry. Pure-katakana stays KATAKANA
-    (single_script's answer): a lone katakana token is predominantly a
-    transcribed foreign name, so nothing defaults on it."""
+    (single_script's answer): a lone katakana token may be a
+    transcribed foreign name or a Japanese reading, and the script
+    cannot say which, so nothing defaults on it. Halfwidth kana is
+    katakana by the table (#594), so 山田ﾀﾛｳ is licensed too."""
     # None for both shapes _wholly_ja could never match anyway (empty
     # text, or all-ASCII text): real work, not a leftover "if text"
     # guard, since the ASCII case is one a bare emptiness check would

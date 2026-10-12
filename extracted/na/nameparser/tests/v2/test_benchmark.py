@@ -18,14 +18,20 @@ shape the scaling test ALREADY had ("(a) "), and still went unseen,
 because the stage is gated on an opt-in Policy field that bare parse()
 leaves empty. A shape guards nothing if the default policy cannot
 reach the code under it.
+
+_PREFIXED_SHAPES exists for a shape that needs a prefix before its
+repeated run, which _SHAPES cannot express (#553).
 """
+import gc
+import os
 import sys
 import time
 from collections.abc import Callable
+from types import FrameType
 
 import pytest
 
-from nameparser import Parser, parse
+from nameparser import ParsedName, Parser, parse
 from nameparser._policy import Policy
 
 
@@ -59,12 +65,36 @@ from nameparser._policy import Policy
 #: are the two interpreters on the author's machine; 3.12, 3.13 and
 #: 3.15 are CI's, seeded from a review measurement and confirmed by
 #: the first green run -- a wrong seed fails with the real number.
+#:
+#: Lowered 2026-09-26 when the stages stopped copying state through
+#: dataclasses.replace (decisions.md#parse-cost). All five rows were
+#: re-measured with that harness, each on its own interpreter.
+#:
+#: Lowered 2026-10-06 (#617) when P3's connective joins left group's
+#: closures for `_pieces.join_connectives`, which calls the piece
+#: predicates directly: each interpreter measured 10 below 83f4e914's
+#: own count (374/411 on 3.11, 353/390 on 3.12-3.15, which had sat
+#: +4/+5 inside the old 370/407 and 348/385). Then 39 more on every
+#: row, in #617's /simplify, when group stopped running the rootname
+#: count and the shared loop over segments with no connective left
+#: free to join (decisions.md#parse-cost).
+#:
+#: Lowered 2026-10-07 by 8 on every row when `_group_segment`'s last
+#: three predicate closures (`prefix`, `suffix`, `marker`) were
+#: inlined: the reference name asked `prefix` 7 times and `suffix`
+#: once, each a frame of its own (decisions.md#parse-cost). And 9 on
+#: 3.11, 6 on 3.12-3.15, in #614, when S2's trailing run came to be
+#: read once, between P3's joins and the particle chain, rather than
+#: re-asked by the chain and the reserve and read again by assign
+#: (decisions.md#parse-cost). The 3.12-3.15 rows read 289/326 from
+#: #614's /simplify on and were corrected in #620, which moved no row
+#: (decisions.md#parse-cost).
 _CALL_BASELINE = {
-    (3, 11): {"parse": 410, "facade": 447},
-    (3, 12): {"parse": 388, "facade": 425},
-    (3, 13): {"parse": 406, "facade": 443},
-    (3, 14): {"parse": 406, "facade": 443},
-    (3, 15): {"parse": 406, "facade": 443},
+    (3, 11): {"parse": 307, "facade": 344},
+    (3, 12): {"parse": 288, "facade": 325},
+    (3, 13): {"parse": 288, "facade": 325},
+    (3, 14): {"parse": 288, "facade": 325},
+    (3, 15): {"parse": 288, "facade": 325},
 }
 _BAND = 0.02
 
@@ -193,7 +223,7 @@ def test_a_thousand_names_still_parse_in_reasonable_time(
 #   SEGMENT count             commas ONLY -- deleting it leaves every
 #                             segment-keyed regression unguarded
 #   intra-piece accumulation  particles (one 799-token piece),
-#                             conjunctions (800) -- the merge() quadratic
+#                             conjunctions (800) -- the merge_pieces quadratic
 #   masked-span count         delimiter_pairs, quote_pairs (0 pieces:
 #                             everything is consumed as a delimited run)
 #   NON-ASCII input           honorifics ONLY -- every other unit here is
@@ -208,6 +238,38 @@ def test_a_thousand_names_still_parse_in_reasonable_time(
 #                             first piece is a bound given-name word,
 #                             so the reserve's per-piece question is
 #                             asked over the whole run (#401)
+#   M2 clause VIEW            maiden_clause ONLY -- the one unit
+#                             holding a maiden marker, so the take's
+#                             clause-free view over a run of class
+#                             members (#601). Until #601 it reached
+#                             the #533 acronym fork, which only this
+#                             order did; since then 'MA nee ' reaches
+#                             the take too (measured 2026-10-04)
+#   connective RUN LENGTH     link_run ONLY -- P3's both-sides
+#                             condition walks the run of connectives
+#                             beside a link, and no other unit here
+#                             puts two connectives in a row where one
+#                             of them is GENERATIONAL vocabulary.
+#                             'and ' is a run too, but no member of it
+#                             is in the class, so the frozen loop's
+#                             body never runs and the walk is never
+#                             entered; the unit needs MIXED CASE as
+#                             well, since a one-case name reads the
+#                             marked letter as an initial and the
+#                             frozen loop declines it on the tag
+#                             ('i und ' reaches nothing, 'i Und '
+#                             reaches everything)
+#   S2 ANCHOR pass            credential_run ONLY -- a Title-case
+#                             member in a mixed-case name declines on
+#                             its writing, so the peel asks
+#                             `credential_anchors` (#544), and every
+#                             'Ma' stands behind a 'PhD' that anchors
+#                             it: 38 of the 40 words of 'PhD Ma ' x20
+#                             read as the suffix, the reserve keeping
+#                             the first 'PhD' and 'Ma' as given and
+#                             family. 'PhD MA ' reads the
+#                             same and never asks the pass at all, the
+#                             capitals deciding each member first
 _SHAPES = {
     "delimiter_pairs": "(a) ",      # extract: matched pairs -> masked spans
     "quote_pairs": '"a" ',          # extract: the open==close path
@@ -217,9 +279,12 @@ _SHAPES = {
     "commas": "a, ",                # segment: many comma segments
     "titles": "Dr. ",               # group: one long title chain
     "particles": "van ",            # group: the prefix-chain inner loop
-    "conjunctions": "and ",         # group: merge() accumulating one piece
+    "conjunctions": "and ",         # group: merge_pieces accumulating one piece
     "honorifics": "씨 ",             # script_segment: the peel's site scan
     "bound_given": "abdul ",        # group: the P5 reserve over every piece
+    "maiden_clause": "nee MA ",     # group: M2's view over the segment
+    "link_run": "i Und ",           # group: P3's both-sides walk (#397)
+    "credential_run": "PhD Ma ",    # pieces: S2's anchor pass (#544)
 }
 
 _BASE = 800
@@ -256,6 +321,34 @@ _FACTOR = 4
 # review rather than here, no earlier unit leading with a bound word.
 # Computed once, the shape reads 4.2, inside the clean column; neither
 # number moved.
+# The twelfth (maiden_clause, #533 review) arrived the same way, with
+# its own quadratic in hand. M2's walk builds ONE view per take over
+# the segment's own indices, and a rewrite that rebuilt those indices
+# per piece -- behavior-identical, and it passed the whole suite --
+# measures 8.3 at base 200, 10.4 at 400 and 12.2-12.6 at 800 against
+# a clean 4.0-4.1 at every one of the three, repeated runs. So the
+# signal is the strongest of the three quadratics on record and does
+# not decide the bound; the shape reads 4.05-4.12 at base 800 across
+# repeated runs, inside the clean column, and neither number moved.
+# The thirteenth (link_run, #397 second review) arrived with its own
+# quadratic in hand as well, and it is the one this shape was added
+# FOR rather than one found by adding it: `_between_name_words` walked
+# the run of connectives beside a link once per MEMBER of that run,
+# so at commit b9ed1429 the shape measures 8.48 at base 100, 10.29 at
+# 200 and 12.11 at 400 -- outside the bound at every one of them, and
+# the second-strongest signal on record. Answered once per run
+# (`_group._run_neighbours`) it reads 4.04 at base 200, 4.02 at 400
+# and 4.02-4.19 at 800 across repeated runs, inside the clean column;
+# neither number moved. The absolute cost is the shape's own price
+# and is paid at the top of the clean range: 11.6ms at base 800
+# against 48.7ms at 3200.
+# The fourteenth (credential_run, #544) was measured against the
+# per-member look-behind the one-pass anchor replaces -- each position
+# walking back over the whole run in front of it, behavior-identical
+# -- which reads 14.8 at base 200, 15.1 at 400 and 15.8 at 800, the
+# strongest signal on record. The shape reads 4.13-4.21 at every one
+# of the three bases on this tree (py3.11, 2026-09-27), inside the
+# clean column; neither number moved.
 _MAX_RATIO = 6.0
 
 
@@ -263,30 +356,185 @@ def _best(text: str, parse_: Callable[[str], object],
           repeats: int = 7) -> float:
     """Minimum of several runs: on a shared runner the mean carries the
     noise of whatever else is running, while the minimum approaches the
-    true cost."""
+    true cost.
+
+    Timed with the cyclic collector OFF, after one collection. A full
+    collection walks every live object, so its cost is the HEAP's, set
+    by whatever ran before this test, not the parse's; landing inside
+    an allocation-heavy parse it read as superlinear growth. Measured
+    2026-10-02 (#573's CI): after the property grids and the case
+    table, 'PhD Ma ' x800 -> x3200 read 6.33x with the collector on
+    (one 34ms pass inside group's snapshot comprehension) and
+    4.00-4.06x with it off, on identical frame counts (96,100 ->
+    384,100). The parse's own work, Python or C level, is still
+    timed whole, so a planted quadratic is as visible as before."""
     parse_(text)                    # warm the parser cache
     best = float("inf")
-    for _ in range(repeats):
-        start = time.perf_counter()
-        parse_(text)
-        best = min(best, time.perf_counter() - start)
+    gc.collect()
+    enabled = gc.isenabled()
+    gc.disable()
+    try:
+        for _ in range(repeats):
+            start = time.perf_counter()
+            parse_(text)
+            best = min(best, time.perf_counter() - start)
+    finally:
+        if enabled:
+            gc.enable()
     return best
 
 
 def _assert_grows_linearly(unit: str,
-                           parse_: Callable[[str], object]) -> None:
-    small = _best(unit * _BASE, parse_)
-    large = _best(unit * (_BASE * _FACTOR), parse_)
+                           parse_: Callable[[str], object],
+                           prefix: str = "", base: int = _BASE) -> None:
+    small = _best(prefix + unit * base, parse_)
+    large = _best(prefix + unit * (base * _FACTOR), parse_)
     ratio = large / small
     assert ratio < _MAX_RATIO, (
-        f"{unit!r} x{_BASE} took {small * 1e3:.2f}ms, "
-        f"x{_BASE * _FACTOR} took {large * 1e3:.2f}ms -- {ratio:.1f}x for "
+        f"{prefix!r} + {unit!r} x{base} took {small * 1e3:.2f}ms, "
+        f"x{base * _FACTOR} took {large * 1e3:.2f}ms -- {ratio:.1f}x for "
         f"{_FACTOR}x the input, which is superlinear (linear is ~{_FACTOR})")
 
 
 @pytest.mark.parametrize("unit", _SHAPES.values(), ids=list(_SHAPES))
 def test_parse_cost_grows_no_worse_than_linearly(unit: str) -> None:
     _assert_grows_linearly(unit, parse)
+
+
+# Shapes that need a PREFIX, which `_SHAPES` cannot express: it repeats
+# a unit and nothing else, and the walk these guard runs only on the
+# given part AFTER a family comma. `"a, "` puts the comma in every unit
+# and measures segment count instead; `"Smith "` alone never takes the
+# comma path. So each row is (prefix, unit, reachability probe), timed
+# on the clock like `_SHAPES` -- the defect is C-level work (a list
+# scanned by `in`, a tuple re-hashed as a dict key), which emits no
+# frame, so the frame-ratio guards below were blind to it (#553).
+#
+# Base 1600, not `_BASE`, and the recorded negative control is why.
+# Measured 2026-09-28 on py3.11, three runs of each on the tree before
+# the fix (003b4962), ratio for 4x the run:
+#
+#   base           given_part_run      given_part_titles
+#    800 (_BASE)   6.71  7.60  5.97    7.83  8.31  8.16
+#   1600           8.67  8.43  8.51   10.09 10.95 10.29
+#
+# against 3.94-4.32 for both rows at both bases on the fixed tree
+# (60aa9028). At 800 the run row's quadratic read 5.97 once, under
+# `_MAX_RATIO` -- a coin-flip guard; at 1600 the bound sits ~1.4x over
+# the worst clean run and ~1.4x under the weakest broken one, so
+# `_MAX_RATIO` did not move. Each row also fails, three runs of three,
+# against a copy reverting only ITS half of the fix, and passes against
+# a copy reverting only the other half.
+#
+# SKIPPED UNDER A LINE TRACER (`sys.settrace`), the core coverage.py
+# 7.15 uses below py3.14 -- a local `pytest --cov` on 3.11-3.13, or a
+# debugger; CI collects coverage on 3.14 alone, so no CI job has one
+# and every CI job measures these rows. A line
+# tracer slows every Python line and leaves a C-level scan alone, so
+# the quadratic becomes a smaller share of the parse. Measured the same
+# day under `coverage run` on py3.11, three runs each:
+#
+#   base    broken: run    broken: titles    fixed: run / titles
+#   1600    5.46 - 5.52     6.50 - 6.54            --
+#   3200    6.61 - 6.70     8.19 - 8.23      4.16 / 4.17
+#   6400    8.19 - 8.29    10.03 - 10.23     4.21-4.28 / 4.22-4.25
+#
+# so at this base the run row PASSES a broken tree under that tracer.
+# 6400 separates the populations again and costs 15.6s a job under
+# coverage (4.9s without), against ~1s here; declined for the CI time
+# AGENTS.md's grid rules guard. The `sys.monitoring` core coverage
+# uses from 3.14 does NOT dilute it -- 8.87-10.91 broken against
+# 3.99-4.08 fixed at this base, GIL py3.14, same day -- so the rows
+# run in CI's coverage job too. `ja-extra` (py3.14, no coverage:
+# 9.27-10.95 broken against 3.95-4.03 fixed) also sets
+# NAMEPARSER_REQUIRE_CLOCK_GUARDS, under which a line tracer FAILS
+# these rows instead of skipping them: whatever the build matrix's
+# coverage setup becomes, one job cannot retire this guard in silence.
+_PREFIXED_BASE = 1600
+#
+# #613's PR review added four rows, every one a C-level or growing-
+# slice cost in `_comma.decide`'s reading of the part after the comma
+# that no frame guard could see. Measured 2026-10-06 on py3.11 at this
+# base, three runs of best-of-three each, on 9dd271b2 (broken) against
+# the fixed tree: title_chain 11.78-11.88 against 4.19-4.23, pair_run
+# 9.99-10.07 against 4.02-4.16, caps_pairs 9.86-10.03 against
+# 4.09-4.20, delimiter_cores 10.06-10.22 against 4.16-4.34.
+_PREFIXED_SHAPES: dict[
+        str, tuple[str, str, Parser, Callable[[str], bool]]] = {
+    # every word of the run is a middle name, so the walk asks the
+    # untitled membership test once per piece
+    "given_part_run": (
+        "Doe, Jane ", "Smith ", Parser(),
+        lambda text: (parse(text).middle.split() == text.split()[2:]
+                      and parse(text).family == "Doe"),
+    ),
+    # every trailing title joins the H5 chain, so the walk asks the
+    # titled membership test once per piece, and the name word in
+    # front of the chain asks it again at every step of walking down
+    # through it (`previous_kept`)
+    "given_part_titles": (
+        "Doe, Jane Smith ", "Prof. ", Parser(),
+        lambda text: (parse(text).title.split() == text.split()[3:]
+                      and (parse(text).given, parse(text).family)
+                      == ("Jane", "Doe")),
+    ),
+    # every 'and' joins the title chain the comma decision builds:
+    # #613's first copy of the loop rebuilt the growing piece from a
+    # slice at each join (the control above, on 9dd271b2); since #617
+    # the chain is `_pieces.join_connectives`, group's loop, which
+    # extends in place. Re-taken on the moved code 2026-10-06, py3.11,
+    # this base, three runs of best-of-five: 4.47-4.49 against
+    # 9.95-10.00 with the slice rebuild planted in `merge_pieces`
+    "title_chain": (
+        "John Smith, ", "Mr. and ", Parser(),
+        lambda text: (parse(text).given == "John"
+                      and parse(text).title.startswith("Mr. and Mr.")),
+    ),
+    # every pair is paired initials behind a dual, so the speaker test
+    # runs per pair; a copy of the shape set per pair was quadratic
+    "pair_run": (
+        "John Smith, MD ", "G.J. ", Parser(),
+        lambda text: parse(text).given == "John",
+    ),
+    # every two-capital word is a caps-shape pair, through the same
+    # per-pair test and the members list scanned per piece
+    "caps_pairs": (
+        "John Smith, ", "XY ", Parser(),
+        lambda text: parse(text).given == "John",
+    ),
+    # every core is dropped behind the whole name, and the part was
+    # filtered against a list of the cores
+    "delimiter_cores": (
+        "John Smith, ", "MD / ",
+        Parser(policy=Policy(extra_suffix_delimiters=frozenset({"/"}))),
+        lambda text: Parser(policy=Policy(
+            extra_suffix_delimiters=frozenset({"/"}))).parse(text).given
+        == "John",
+    ),
+}
+
+
+@pytest.mark.parametrize("prefix,unit,parser,reaches",
+                         _PREFIXED_SHAPES.values(),
+                         ids=list(_PREFIXED_SHAPES))
+def test_prefixed_cost_grows_no_worse_than_linearly(
+        prefix: str, unit: str, parser: Parser,
+        reaches: Callable[[str], bool]) -> None:
+    # at the measured size, with each row's own reading asserted: a
+    # shape that stopped reaching the code it guards would go on timing
+    # something else (the titles row reads the same title on the
+    # comma-less path, which is why its probe holds the family comma)
+    text = prefix + unit * _PREFIXED_BASE
+    assert reaches(text), "shape no longer reaches the code it guards"
+    if sys.gettrace() is not None:
+        reason = ("a line tracer dilutes a C-level cost below the bound "
+                  "(#553)")
+        if os.environ.get("NAMEPARSER_REQUIRE_CLOCK_GUARDS"):
+            pytest.fail(f"{reason}, and this run is the one that must "
+                        f"measure it: drop the tracer from this job")
+        pytest.skip(reason)
+    _assert_grows_linearly(unit, parser.parse, prefix=prefix,
+                           base=_PREFIXED_BASE)
 
 
 # Shapes that need a NON-DEFAULT POLICY to reach the code they guard.
@@ -326,13 +574,15 @@ _POLICY_SHAPES: dict[str, tuple[str, Parser, Callable[[Parser], bool]]] = {
 
 def test_shape_tables_are_not_empty() -> None:
     # pytest turns an EMPTY parametrize into a SKIP, not a failure, so
-    # deleting the last entry of either table would retire its guard
+    # deleting the last entry of any of these tables would retire its guard
     # into the skip count with nothing going red. _POLICY_SHAPES is
     # the nearer risk, holding only shapes whose stage a default parse
     # cannot reach at all -- so it gains an entry only when an opt-in
     # Policy field turns out to have a scaling cliff behind it.
     assert _SHAPES
     assert _POLICY_SHAPES
+    assert _PREFIXED_SHAPES
+    assert _REREAD_SHAPES
 
 
 @pytest.mark.parametrize("unit,parser,reaches", _POLICY_SHAPES.values(),
@@ -342,3 +592,548 @@ def test_policy_gated_cost_grows_no_worse_than_linearly(
         reaches: Callable[[Parser], bool]) -> None:
     assert reaches(parser), "shape no longer reaches the gated stage"
     _assert_grows_linearly(unit, parser.parse)
+
+
+# The shapes above repeat a unit 800 times and measure the CLOCK. That
+# pairing cannot guard a mutual recursion: #531's trailing-slot walk
+# re-entered the predicate that owns it, so a run of k ambiguous
+# credentials cost 2**k, and a run long enough to separate 2**k from
+# k**2 on the clock does not finish -- 24 members measured 5.8s and
+# 5.9s on two runs, 32 would be days. So this one counts FRAMES over a
+# run of 8 against a run of 16, where the exponential is still cheap
+# enough to profile (112ms at 16 UNDER the sys.setprofile hook this
+# measures with, which is most of that figure: 23ms unprofiled) and
+# already 168x.
+#
+# Frames are the right instrument here for the #475 reason and one
+# more: the recursion IS frame entries, one per re-entry, so the count
+# is the defect itself rather than a proxy for it. Measured on the
+# unfixed tree before the fix landed: 2,347 frames at 8 and 394,671 at
+# 16. On this tree (py3.11): 865 at 8, 1,497 at 16, 5,289 at 64.
+#
+# TWO ratios, ordered, because one pair cannot see both defects. At 2x
+# the input a quadratic is NOT the textbook 4x -- the per-member linear
+# work dominates at these sizes, and the per-member memo #531 first
+# shipped, a genuine quadratic, measured 2.08x here against this tree's
+# 1.73x. So the 8-vs-16 pair guards the EXPONENTIAL and nothing else,
+# and a second pair at 4x the input separates quadratic from linear:
+# 16-vs-64 measures 3.53x here, 3.33x at cc78c960 (the tree before the
+# slot existed at all) and 7.42x with that memo. The ORDER is what
+# keeps the larger pair usable: an exponential does not return from a
+# run of 64, so the cheap pair is asserted first and the tree that
+# would hang has already failed.
+_RUN_SMALL = 8
+_RUN_LARGE = 16
+_RUN_HUGE = 64
+#: 8 -> 16, the exponential's bound: 1.73x measured here against the
+#: 168x of the recursion this was written for, so 6.0 leaves 3.5x of
+#: headroom over the measurement and nothing short of a re-entrant walk
+#: can reach it. It does NOT see a quadratic (2.08x, measured above),
+#: which is what the second bound is for.
+_RUN_MAX_RATIO = 6.0
+#: 16 -> 64, the quadratic's bound: 3.53x measured here against the
+#: memo version's 7.42x, so 5.0 sits ~1.4x over the measurement and
+#: ~1.5x under the regression it is aimed at. Frame counts do not move
+#: under load, so both margins are for a future shape change rather
+#: than for runner noise.
+_RUN_HUGE_MAX_RATIO = 5.0
+
+
+def _frames_for(text: str, only: str | None = None) -> int:
+    """Python frame entries for ONE parse of `text` -- of every
+    function, or of the one named `only`.
+
+    One parse, not a mean: this measures growth between two inputs, and
+    the count is deterministic for a given (tree, interpreter) -- see
+    `_calls_per_parse`, which takes a mean only because it reports an
+    absolute figure against a 2% band.
+    """
+    parse("warm up the caches")
+    calls = 0
+
+    def counter(frame: FrameType, event: str, arg: object) -> None:
+        nonlocal calls
+        if event == "call" and (only is None
+                                or frame.f_code.co_name == only):
+            calls += 1
+
+    sys.setprofile(counter)
+    try:
+        parse(text)
+    finally:
+        sys.setprofile(None)
+    return calls
+
+
+def test_a_trailing_credential_run_does_not_cost_exponentially() -> None:
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    small_text = "Doe, John " + "MA " * _RUN_SMALL
+    large_text = "Doe, John " + "MA " * _RUN_LARGE
+    huge_text = "Doe, John " + "MA " * _RUN_HUGE
+    # REACHABILITY, for the reason _POLICY_SHAPES carries one: the walk
+    # under measurement runs only where every member of the run reads
+    # as a credential. Route these to MIDDLE instead and the guard
+    # measures a walk that no longer happens, at a comfortable ratio,
+    # forever. Asked of the longest run too: the run length is what
+    # this varies, so "still a credential run" is a claim at each size.
+    assert parse(small_text).suffix == " ".join(["MA"] * _RUN_SMALL)
+    assert parse(huge_text).suffix == " ".join(["MA"] * _RUN_HUGE)
+    small = _frames_for(small_text)
+    large = _frames_for(large_text)
+    ratio = large / small
+    assert ratio < _RUN_MAX_RATIO, (
+        f"a run of {_RUN_SMALL} credentials costs {small} frames and a run "
+        f"of {_RUN_LARGE} costs {large} -- {ratio:.1f}x for 2x the input, "
+        f"where this tree measures 1.7x and the exponential this guards "
+        f"measured 168x. The trailing-slot walk in _assign.py has "
+        f"re-entered the predicate that owns it (#531)")
+    # Only now the long run: it is the pair that can see a QUADRATIC,
+    # and it is also the one an exponential never returns from, which
+    # the assertion above has already caught.
+    huge = _frames_for(huge_text)
+    huge_ratio = huge / large
+    assert huge_ratio < _RUN_HUGE_MAX_RATIO, (
+        f"a run of {_RUN_LARGE} credentials costs {large} frames and a run "
+        f"of {_RUN_HUGE} costs {huge} -- {huge_ratio:.1f}x for 4x the "
+        f"input, where this tree measures 3.5x and the per-member memo "
+        f"#531 first shipped measured 7.4x. Something in _assign.py's "
+        f"trailing slot is asking a walk per member again (#531)")
+
+
+# The clause caller of the same walk, and a THIRD instrument for the
+# same reason the one above needed a second: `_SHAPES` repeats a unit
+# and nothing else, so it cannot express "a name word, a marker, then
+# a long run" -- and a maiden clause needs exactly that prefix.
+# Measured: `"nee i Und " * n` never reached the clause link exception
+# (retired by #601; `_clause_run` says what the guard measures now)
+# at all (the take declines, and b9ed1429 and this tree measure the
+# identical 3.92/4.07/4.12 on it), which is the silent-no-op a
+# reachability probe exists to catch. So this guard builds its own
+# input and counts FRAMES, which the walk is made of and which do not
+# move under load.
+#
+# One pair, not two: the defect here is a quadratic and there is no
+# exponential to order it against, so the 16-vs-64 pair is the whole
+# guard. Re-measured 2026-09-21 on py3.11 through this file's own
+# `_frames_for`: 859 frames at 16 and 2,587 at 64 on this tree
+# (3.01x), against 1,125 and 6,741 at b9ed1429 (5.99x), where
+# `_between_name_words` walked the run once per member -- identical on
+# three repeated runs at each end, frame counts being deterministic.
+# One frame per link below the 875/2,651 this same helper read before
+# `_between_name_words` answered both sides in one call. The pair
+# first recorded here, 876/2,652, is one frame above that and does NOT
+# reproduce: re-measured 2026-09-22 on py3.11, 6048eb5d -- the commit
+# that wrote those two figures into this comment -- reads 875 and
+# 2,651, which is the same pair 9fd84463 reads. So that recording came
+# off another interpreter; it stays, with the py3.11 reading of its own
+# tree now beside it.
+_CLAUSE_RUN_SMALL = 16
+_CLAUSE_RUN_LARGE = 64
+#: 3.01x measured here against 5.99x at b9ed1429: 4.5 sits ~1.5x over
+#: the measurement and ~1.3x under the regression. Frame counts are
+#: deterministic for a given tree and interpreter, so both margins are
+#: for a future shape change rather than for runner noise.
+_CLAUSE_RUN_MAX_RATIO = 4.5
+
+
+def _clause_run(members: int) -> str:
+    """A maiden clause whose birth name is a RUN of links.
+
+    Mixed case on purpose: written wholly in one case the letter reads
+    as an initial (rules.md#P3's marked subset). Since #601 the clause
+    keeps the run because nothing in it ends the clause, so this
+    measures the take's walk over a long clause; until then it measured
+    the clause's link exception, which #601 retired.
+    """
+    return "Jane Doe nee Puig " + "i " * members + "Soler"
+
+
+def _name_link_run(members: int) -> str:
+    """A NAME whose family is a run of links, the shape P3's frozen
+    loop asks `_group._between_name_words` about once per link. Mixed
+    case on purpose, for the reason `_clause_run` gives."""
+    return "Jane Puig " + "i " * members + "Soler"
+
+
+def test_a_clause_link_run_does_not_cost_quadratically() -> None:
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    small_text = _clause_run(_CLAUSE_RUN_SMALL)
+    large_text = _clause_run(_CLAUSE_RUN_LARGE)
+    # REACHABILITY, the probe every shape in this file carries: the
+    # take walks the clause only while the clause KEEPS the run. End
+    # the clause at the first link instead and the guard measures a
+    # walk that no longer happens, at a comfortable ratio, forever.
+    # Asked at both sizes, the run length being what this varies.
+    for text, members in ((small_text, _CLAUSE_RUN_SMALL),
+                          (large_text, _CLAUSE_RUN_LARGE)):
+        assert parse(text).maiden == " ".join(
+            ["Puig"] + ["i"] * members + ["Soler"])
+    small = _frames_for(small_text)
+    large = _frames_for(large_text)
+    ratio = large / small
+    assert ratio < _CLAUSE_RUN_MAX_RATIO, (
+        f"a clause holding {_CLAUSE_RUN_SMALL} links costs {small} frames "
+        f"and one holding {_CLAUSE_RUN_LARGE} costs {large} -- "
+        f"{ratio:.1f}x for 4x the input, where this tree measures 3.0x "
+        f"and the per-member walk at b9ed1429 measured 6.0x. "
+        f"_group.py's `_between_name_words` is walking the run per member "
+        f"again (#397)")
+
+
+# #563 simplify round: the paired-initials speaker test scanned every
+# word in front of EACH pair for a non-title speaker, so a comma run of
+# title/suffix duals followed by pairs ('MD MD ... G.J. G.J. ...') cost
+# duals x pairs. Only the first speaker's position can change the
+# answer, and the fix finds it once. A `_SHAPES` row cannot express it
+# -- the run needs the 'John Smith, ' prefix -- and the cost is
+# Python-level, so it is counted in frames of the function the scan
+# calls, which isolates it from the rest of the parse.
+#
+# The function counted MOVED with the code, and that is this guard's
+# recorded failure: #563 counted `_normalize`, which segment's scan
+# reached, and when #613 moved the scan into `_comma.decide` it called
+# `is_suffix_piece` there instead, so the quadratic came back while
+# this guard read 3.6x and passed (caught in review, 2026-10-06).
+# Measured 2026-10-06 on py3.11 through `_frames_for(...,
+# only="is_suffix_piece")`, k duals and k pairs: 44 at k=8 and 164 at
+# k=32 on this tree (3.7x), against 120 and 1,620 at 47fb2b21 (13.5x),
+# where every pair rescanned. A change to what the scan calls must
+# move `only=` with it, and re-take that negative control.
+_PAIR_SCAN_SMALL = 8
+_PAIR_SCAN_LARGE = 32
+_PAIR_SCAN_MAX_RATIO = 6.0
+
+
+def test_the_paired_initials_title_scan_does_not_cost_quadratically() -> None:
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    small_text = "John Smith, " + "MD " * _PAIR_SCAN_SMALL + "G.J. " * _PAIR_SCAN_SMALL
+    large_text = "John Smith, " + "MD " * _PAIR_SCAN_LARGE + "G.J. " * _PAIR_SCAN_LARGE
+    # REACHABILITY: the flip REPORTS only where the scan ran and found
+    # nothing but titles in front of the first pair, every shape word
+    # being a pair (rules.md#C1's "nothing but other paired initials").
+    # A change that stopped the scan being asked -- 'MD' leaving the
+    # titles, the pair test moving -- loses the report and fails here
+    # rather than leaving this guard measuring nothing.
+    for text, k in ((small_text, _PAIR_SCAN_SMALL),
+                    (large_text, _PAIR_SCAN_LARGE)):
+        name = parse(text)
+        assert len(name.suffix.split()) == 2 * k, text
+        assert [a.kind.value for a in name.ambiguities] == ["suffix-or-name"]
+    small = _frames_for(small_text, only="is_suffix_piece")
+    large = _frames_for(large_text, only="is_suffix_piece")
+    ratio = large / small
+    assert ratio < _PAIR_SCAN_MAX_RATIO, (
+        f"{_PAIR_SCAN_SMALL} duals and pairs cost {small} is_suffix_piece "
+        f"calls and {_PAIR_SCAN_LARGE} cost {large} -- {ratio:.1f}x for 4x "
+        f"the input, where this tree measures 3.7x and the per-pair rescan "
+        f"at 47fb2b21 measured 13.5x. _comma.py's paired-initials speaker "
+        f"scan is running once per pair again (#563, #613)")
+
+
+def test_a_listing_comma_with_nothing_to_decide_skips_the_counts() -> None:
+    """`_comma.decide` runs on every family-comma parse, so its early
+    return is a cost gate on the commonest comma shape: a part after
+    the comma that holds a name word, no ambiguous member and no core
+    returns before C1's counts are taken. Recorded negative control,
+    a review mutation of #613 (2026-10-06, py3.11): with the early
+    return's whole `if` deleted no output moves, `_whole_name` is entered once on
+    'Doe Smith, Jane Q.', and that parse costs 22 more frames -- a
+    regression no output test and no ±2% band could see, since the
+    reference parse has no comma. The ambiguous-class count is asked
+    only where a member stands in the part, which is the second gate."""
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    for text in ("Doe Smith, Jane Q.", "Smith, John"):
+        # REACHABILITY: decide is asked, so a zero below means it
+        # returned early rather than that it never ran
+        assert _frames_for(text, only="decide") == 1, text
+        assert _frames_for(text, only="_whole_name") == 0, text
+        assert _frames_for(text, only="name_word_count") == 0, text
+    # a part of unambiguous credentials takes the whole-name count and
+    # not the class count; a member in it takes both
+    assert _frames_for("John Smith, PhD", only="name_word_count") == 0
+    assert _frames_for("John Smith, MA", only="name_word_count") == 1
+
+
+def test_a_comma_part_with_no_free_connective_skips_the_join() -> None:
+    """`_comma._reading_pieces` enters the shared connective loop only
+    where the part holds a connective left free: the loop asks
+    `is_conj_piece` of every piece twice, which the comma decision's
+    own copy had asked inline before #617 folded it, and every
+    family-comma parse paid two frames a word of the part. Recorded
+    negative control, #617's second review (2026-10-07, py3.11): with
+    the gate removed no output moves (66,924 parses compared),
+    `join_connectives` is entered once on both names below, and
+    'Smith, John' costs 163 frames against 161. Group asks nothing of
+    parts this short, so every call counted is the comma decision's."""
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    for text in ("Smith, John", "John Smith, PhD MD"):
+        # REACHABILITY: decide reads the part, so a zero below means the
+        # gate declined rather than that nothing ran
+        assert _frames_for(text, only="_reading_pieces") == 1, text
+        assert _frames_for(text, only="join_connectives") == 0, text
+    # a part holding a connective takes the loop
+    assert _frames_for("John Smith, Mr. and Mrs.",
+                       only="join_connectives") == 1
+
+
+def test_a_given_part_with_no_particle_skips_the_chain_bound() -> None:
+    """Group asks where the particle chain stops only where a particle
+    stands past the chain's lead, since the chain merges nothing
+    otherwise: after a family comma the bound is `trailing_run_start`,
+    a whole `tail_reading` (#623), which every family-comma name with a
+    trailing word would pay for nothing. Recorded negative control,
+    #623's review (2026-10-10, py3.11): with the gate removed no output
+    moves (226,776 parses compared), the bound is entered twice on each
+    name below (the bound and the re-ask after the chain), and 'Smith,
+    John Prof.' costs 250 frames against 207."""
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    for text in ("Smith, John Prof.", "Smith, John PhD"):
+        assert _frames_for(text, only="trailing_run_start") == 0, text
+    # REACHABILITY: a particle in the given part asks it
+    assert _frames_for("Smith, John van der Berg",
+                       only="trailing_run_start") == 1
+
+
+def test_a_segment_with_no_free_connective_skips_the_join() -> None:
+    """Group's side of the same gate: a segment with no connective left
+    free to join runs neither P3's rootname count, whose only reader is
+    the carve-out, nor the shared loop, both of which do nothing there.
+    Recorded negative control, #617's /simplify (2026-10-07, py3.11):
+    with the gate removed no output moves (both #617 grids, the
+    fingerprint and the connective grid), the reference-shaped
+    'Dr. Juan Q. Xavier de la Vega III' enters `join_connectives` once and `_is_rootname` 8 times and costs
+    436 frames against 386, and 'John Quincy Smith' 229 against 207 --
+    39 frames on `_CALL_BASELINE`'s reference row, outside its band."""
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    for text in ("Dr. Juan Q. Xavier de la Vega III", "John Quincy Smith"):
+        assert _frames_for(text, only="join_connectives") == 0, text
+        assert _frames_for(text, only="_is_rootname") == 0, text
+    # REACHABILITY: a segment whose connective joins takes both
+    assert _frames_for("Josep Carod i Rovira", only="join_connectives") == 1
+    assert _frames_for("Josep Carod i Rovira", only="_is_rootname") == 4
+
+
+# Fixed points and scans that re-read what they had already read, each
+# found by the `_pipeline/` sweep for #553. A `_SHAPES` row cannot
+# express any of them: the tail ones need a name in front of the run,
+# and the chain one grows at BOTH ends. The cost is Python-level, so it
+# is counted in frames of the one function each re-ran, which isolates
+# it from the rest of the parse and holds under a line tracer.
+#
+#   tail     #558: `tail_reading` re-peeled the whole walk once per
+#            title the H5 chain took, asking `listed_lean` of every
+#            member it had already peeled.
+#   clause   #558 again, through the maiden take, which reads that
+#            fixed point over the clause-free view (until #601 three
+#            times: the take, its release check, and
+#            `trailing_start_past_titles`).
+#   chain    #559: the particle chain asked "is every piece ahead of
+#            this one a title?" afresh at every chain site, so leading
+#            titles x particle sites `is_leading_title` calls.
+#   lead     #573: the given slot asked each member whether the
+#            never-given particle run in front of it was all
+#            particles, rescanning the run per member. That scan lived
+#            in generator expressions, so this row counts every
+#            `<genexpr>` frame in the parse -- NOT isolated like the
+#            three above: the pre-#573 tree already reads 3.39x on
+#            this input from generators elsewhere, and the signal sits
+#            on top of that background.
+#
+# Measured 2026-10-01 on py3.11 through `_frames_for(..., only=...)`, k
+# units, ratio for 4x the units:
+#
+#             k=8 -> k=32, fixed     k=8 -> k=32, at fc682e36 (broken)
+#   tail      9 -> 33      3.67x     36 -> 528       14.67x
+#   clause    27 -> 99     3.67x     108 -> 1,584    14.67x
+#   chain     52 -> 196    3.77x     108 -> 1,188    11.00x
+#   lead      212 -> 716   3.38x     408 -> 3,072    7.53x  (at 30e38ed5,
+#                                                   measured 2026-10-02)
+#
+# 6.0 sits between the populations with room on both sides for the
+# first three; for `lead` the broken side's margin is thin (7.53x), so
+# a shape change there wants re-measuring. Counts are deterministic,
+# so the margin is for future shape changes, not noise.
+# Each probe pins the reading the shape needs, so a change that stops
+# the shape reaching the walk fails here instead of leaving the row
+# counting nothing.
+_REREAD_SMALL = 8
+_REREAD_LARGE = 32
+_REREAD_MAX_RATIO = 6.0
+_REREAD_SHAPES: dict[str, tuple[Callable[[int], str], str,
+                                Callable[[ParsedName, int], bool]]] = {
+    "tail": (
+        lambda k: "John Smith " + "MA Prof. " * k, "listed_lean",
+        lambda n, k: (n.title.split() == ["Prof."] * k
+                      and n.suffix.split() == ["MA"] * k
+                      and n.family == "Smith"),
+    ),
+    "clause": (
+        lambda k: "Jane Doe nee Smith " + "MA Prof. " * k, "listed_lean",
+        lambda n, k: (n.title.split() == ["Prof."] * k
+                      and n.suffix.split() == ["MA"] * k
+                      and n.maiden == "Smith"),
+    ),
+    "chain": (
+        lambda k: "Dr. " * k + "Jan " + "van Berg " * k, "is_leading_title",
+        lambda n, k: (n.title.split() == ["Dr."] * k
+                      and n.given == "Jan" and n.family == "van Berg"),
+    ),
+    # #573: a never-given particle run opening the given part, then
+    # members -- the slot asks each member whether it is the run's
+    # word. A per-member rescan of the run was 7.53x here (counted in
+    # generator frames, which is where the rescan lived; 3.38x with
+    # the run's end kept once). Measured 2026-10-02, py3.11.
+    "lead": (
+        lambda k: "SMITH, VD " + "DE " * k + "MA " * k, "<genexpr>",
+        lambda n, k: (n.family == "SMITH VD " + "DE " * k + "MA"
+                      and n.suffix.split() == ["MA"] * (k - 1)),
+    ),
+}
+
+
+@pytest.mark.parametrize("text,only,reaches", _REREAD_SHAPES.values(),
+                         ids=list(_REREAD_SHAPES))
+def test_a_fixed_point_does_not_reread_what_it_has_read(
+        text: Callable[[int], str], only: str,
+        reaches: Callable[[ParsedName, int], bool]) -> None:
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    for k in (_REREAD_SMALL, _REREAD_LARGE):
+        assert reaches(parse(text(k)), k), (
+            f"shape no longer reaches the walk at k={k}")
+    small = _frames_for(text(_REREAD_SMALL), only=only)
+    large = _frames_for(text(_REREAD_LARGE), only=only)
+    ratio = large / small
+    assert ratio < _REREAD_MAX_RATIO, (
+        f"{_REREAD_SMALL} units cost {small} {only} calls and "
+        f"{_REREAD_LARGE} cost {large} -- {ratio:.1f}x for 4x the input, "
+        f"where this tree measured under 3.8x and the re-reading walk "
+        f"7.5-14.7x (#558, #559, #573)")
+
+
+# THE ABSOLUTE COST OF A LINK, which the ratio above cannot see: a
+# change costing ONE MORE FRAME PER LINK moves both ends of the pair
+# and leaves the ratio where it was. Re-splitting the #397 follow-up's
+# fold is exactly that change -- 859/2,587 here against 875/2,651 at
+# 9fd84463, +1 per link at each size -- and against THIS suite the
+# pre-fold parser is green everywhere but here. Measured 2026-09-22 on
+# py3.11: a copy of this tree carrying `git archive 9fd84463
+# nameparser` in place of its own runs 9,652 passed, 324 skipped, 4
+# xfailed and ONE failure, this test. So a link-bearing name gets a
+# banded absolute pin, keyed by interpreter and banded like
+# `_CALL_BASELINE` above.
+#
+# THE LONG RUN AND NOT THE SHORT ONE, and the arithmetic is the whole
+# reason: +1 per link is 16 frames at `_CLAUSE_RUN_SMALL`, and 2% of
+# 859 is 17.2, so the small end's band swallows the very regression
+# this pin exists for (875 sits inside 842-876). At
+# `_CLAUSE_RUN_LARGE` the same change is +64 against a 2% band of
+# 51.7, and 2,651 sits outside 2,535-2,639. A tighter band on the
+# short name would do it too and was not taken: the band is the one
+# `_CALL_BASELINE` uses, and a bespoke one here would need its own
+# argument every time the shape moved.
+#
+# RE-POINTED 2026-10-04 (#601), and why: the pin measured a link run
+# in a MAIDEN CLAUSE, whose link exception asked `_between_name_words`
+# once per link. #601 retired the exception -- the clause keeps its
+# links because nothing in it ends the clause -- and the clause's
+# links leave with it before P3's frozen loop runs, so that shape
+# reached the function 0 times (measured). The same run written in
+# the NAME reaches it 64 times, one per link, and a per-link
+# regression moves it as it moved the clause: +64 against a 2% band
+# of 53.6 at the 2,678 frames recorded below.
+#
+# An unknown interpreter SKIPS rather than fails -- which is where
+# this parts company with `_check_budget`, whose table carries every
+# interpreter CI runs and so can afford to fail on a missing row. A
+# figure nobody ran is not a pin: until 2026-10-07 only py3.11 was
+# measurable in this working tree, and the #537 reviewer's 3.12-3.14
+# figures were deliberately left unrecorded for want of a run behind
+# them. The 3.12-3.15 rows were added 2026-10-07, each measured on its
+# own interpreter (2,459 on all four, one below py3.11's 2,478). A new
+# interpreter gets a row the same way: run it there, then add it.
+#
+# Lowered 2026-09-26 from 2587 with `_CALL_BASELINE` above, for the
+# same reason (decisions.md#parse-cost). 2,678 from 2026-10-04, the
+# re-pointed name-level shape (above), measured on py3.11. 2,479
+# from 2026-10-06 (#617), 199 below 83f4e914's 2,678, for two
+# reasons, counted per function: P3's joins call the piece
+# predicates directly rather than through `_group_segment`'s
+# closures (the `conj` closure's 133 frames, two more from `title`
+# and `prefix`), and the single-letter test no longer joins the
+# piece's text through a generator (65 frames, one per connective,
+# more than this pin's whole band); `join_connectives` adds one.
+# 2,478 from 2026-10-07, one below: the name asks group's chain
+# `is_prefix_piece` once, which had gone through a closure.
+_LINK_BASELINE = {
+    (3, 11): 2478,
+    (3, 12): 2459,
+    (3, 13): 2459,
+    (3, 14): 2459,
+    (3, 15): 2459,
+}
+#: The same +-2% `_CALL_BASELINE` uses, and for the same reason: frame
+#: counts are deterministic for a given tree and interpreter, so the
+#: band is headroom for a deliberate shape change rather than for
+#: runner noise.
+_LINK_BAND = 0.02
+
+
+def test_a_link_costs_what_it_is_pinned_at() -> None:
+    """The absolute frame cost of one link-bearing name.
+
+    The ratio guard above cannot fail on a per-link constant, because
+    a constant moves its two ends together. This one can, and it is
+    the only thing in the suite that can.
+    """
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    version = sys.version_info[:2]
+    if version not in _LINK_BASELINE:
+        pytest.skip(
+            f"no link baseline for Python {version[0]}.{version[1]}; "
+            f"measure `_name_link_run({_CLAUSE_RUN_LARGE})` on this "
+            f"interpreter and add the row to _LINK_BASELINE")
+    text = _name_link_run(_CLAUSE_RUN_LARGE)
+    # REACHABILITY, the probe every shape in this file carries: the
+    # frames counted are P3's link test's, and they are only there
+    # while every link joins the family. A link that stopped joining
+    # would leave a name that no longer holds 64 links in one run,
+    # comfortably inside the band forever.
+    assert parse(text).family == " ".join(
+        ["Puig"] + ["i"] * _CLAUSE_RUN_LARGE + ["Soler"])
+    baseline = _LINK_BASELINE[version]
+    actual = _frames_for(text)
+    low, high = baseline * (1 - _LINK_BAND), baseline * (1 + _LINK_BAND)
+    assert low <= actual <= high, (
+        f"a name holding {_CLAUSE_RUN_LARGE} links costs "
+        f"{actual} frames on Python {version[0]}.{version[1]}, band "
+        f"{low:.0f}-{high:.0f} around a baseline of {baseline}. Growth "
+        f"and shrinkage are both signals, and one frame per link is "
+        f"enough to reach this band where the ratio guard above cannot "
+        f"see it: check whether `_group._between_name_words` still "
+        f"answers both sides of a link in one call, then move the "
+        f"baseline deliberately (#397)")
+
+
+def test_a_member_opening_a_comma_part_asks_no_anchor_pass() -> None:
+    """rules.md#S2's company clause speaks only for a member with a
+    credential in FRONT of it, so a member opening the part after a
+    one-word family comma ('Smith, Ed') is never anchored, and
+    `segment_suffix_reading` builds no `credential_anchors` pass for
+    it: the pass is built only where `anchor_in_reach` finds a suffix
+    piece in front. RECORDED NEGATIVE CONTROL: with the pass built
+    for every member whose writing declines, `credential_anchors` is
+    entered once for each of these (measured 2026-09-28)."""
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    for text in ("Smith, Ed", "Smith, Ma", "Smith, Ed John"):
+        assert parse(text).family == "Smith", text
+        assert _frames_for(text, only="credential_anchors") == 0, text

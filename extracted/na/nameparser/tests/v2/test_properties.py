@@ -7,22 +7,33 @@ keeps runs reproducible on shared CI runners -- this layer guards
 against regressions; exploratory fuzzing happened during review.
 """
 import dataclasses
+import functools
+import hashlib
+import itertools
+import re
+import unicodedata
 import warnings
-
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from nameparser._policy import CapsSuffixes
 from nameparser import (
     DEFAULT_SCRIPT_ORDERS, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST,
-    GIVEN_FIRST, Lexicon, Parser, PatronymicRule, Policy, Script, parse,
+    GIVEN_FIRST, HumanName, Lexicon, Parser, PatronymicRule, Policy,
+    Script, parse,
 )
+from nameparser.config import Constants
 from nameparser._lexicon import _VOCAB_FIELDS
 from nameparser._pipeline import run
-from nameparser._pipeline._state import ParseState
-from nameparser._pipeline._vocab import effective_script
-from nameparser._types import AmbiguityKind, Role
+from nameparser._pipeline._state import (AMBIGUOUS_ACRONYM_TAG,
+                                         ParseState)
+from nameparser._pipeline._vocab import ambiguous_lean, effective_script
+from nameparser._types import (SHAPE_ACRONYM_TAG, UNJOINED_CONJUNCTION_TAG,
+                               UNJOINED_TAG, AmbiguityKind, ParsedName,
+                               Role, Token)
 
+from .cases import CASES
 from .conftest import differential_corpus
 
 _ALPHABET = st.sampled_from(
@@ -170,6 +181,904 @@ def test_a_leading_ambiguous_particle_is_reported_once_and_only_once(
         f"{len(failures)} shape(s) disagree:\n" + "\n".join(failures[:15]))
 
 
+#: The three `do` rows P6's attachment owns by design. A CLOSED list
+#: with the rule that owns each one: a fourth exception fails, which is
+#: the whole point of carrying them by name rather than by count.
+_COMMA_AGREEMENT_EXCEPTIONS = {
+    "John Doe do": "rules.md#P6 attaches the lower-case particle member",
+    "John Q. Doe do": "rules.md#P6 attaches the lower-case particle member",
+    "Mary Jo Doe do": "rules.md#P6 attaches the lower-case particle member",
+}
+
+
+def test_a_comma_form_and_its_comma_less_twin_agree_on_the_class(
+) -> None:
+    """#531's invariant, and the shape of the defect it closed.
+
+    A word ending the given part of a family-comma listing and the
+    same word ending the comma-less spelling of the same name must be
+    put in the SAME CLASS -- credential (role SUFFIX) or name (any of
+    the other six roles). CLASS, not FIELD, and the difference
+    matters: 'John Doe Ma' reads family 'Ma' with middle 'Doe' while
+    'Doe, John Ma' reads middle 'Ma', different fields and both
+    'name', and this test must pass on that pair.
+
+    Measured on this tree before #531: 48 of the 78 pairs disagreed,
+    every one of them in the same direction -- the comma form
+    declining a credential the comma-less form took. After: 3, and
+    they are the allowlist above.
+    """
+    words = []
+    for base in ("ba", "do", "ed", "jd", "ma", "x.y.z.", "q.w.e.r.t."):
+        words += [base, base.upper(), base.capitalize()]
+    words += ["phd", "PhD", "Jr", "xyz", "XYZ"]
+    shapes = (("John Doe {w}", "Doe, John {w}"),
+              ("John Q. Doe {w}", "Doe, John Q. {w}"),
+              ("Mary Jo Doe {w}", "Doe, Mary Jo {w}"))
+    parser = Parser()
+
+    def side(name: object, word: str) -> str:
+        for role in Role:
+            value = getattr(name, role.value)
+            if value == word or word in value.split():
+                return "credential" if role is Role.SUFFIX else "name"
+        return "absent"
+
+    failures = []
+    for word in words:
+        for plain, comma in shapes:
+            a = side(parser.parse(plain.format(w=word)), word)
+            b = side(parser.parse(comma.format(w=word)), word)
+            if a == b:
+                continue
+            key = plain.format(w=word)
+            if key in _COMMA_AGREEMENT_EXCEPTIONS:
+                continue
+            failures.append(
+                f"{key!r} reads {a} but {comma.format(w=word)!r} "
+                f"reads {b}")
+    assert not failures, (
+        f"{len(failures)} pair(s) disagree:\n" + "\n".join(failures[:15]))
+
+
+def test_the_comma_agreement_exceptions_are_all_still_exceptions(
+) -> None:
+    """The allowlist's own negative control: a row that stopped being
+    an exception is an allowlist entry silently covering nothing, and
+    the sweep above cannot notice that about itself."""
+    parser = Parser()
+    for plain in _COMMA_AGREEMENT_EXCEPTIONS:
+        comma_form = "Doe, " + plain.replace("John Doe ", "John ").replace(
+            "John Q. Doe ", "John Q. ").replace("Mary Jo Doe ", "Mary Jo ")
+        assert parser.parse(plain).suffix, plain
+        assert not parser.parse(comma_form).suffix, comma_form
+
+
+#: The one-case-head exception class, and the recorded size of it.
+#: Structural rather than a name list: a name whose OWN words are
+#: written in one case, where the member's own writing is the only
+#: contrast in the string, so the clause hides it. `own_words` stops
+#: at the maiden marker (rules.md#P3), so a member inside the clause
+#: cannot contribute the case contrast `one_case` is computed from --
+#: which is decisions.md#S2's own "THE PREDICATE KEEPS THE JUDGED
+#: TOKEN IN THE SPAN" (the 2026-09-14 #289/#516 entry) failing
+#: structurally, the judged token never being in the span at this
+#: slot. Accepted by Derek 2026-09-19 and recorded in
+#: decisions.md#S2 as the M2 instance of #492's deferred question.
+#: The class is asserted beside the count because a structural
+#: allowlist cannot notice a new member of it, and a COUNT cannot
+#: notice a swap -- one pair leaving and another arriving keeps the
+#: number. So the SET is pinned, by digest: sha256 over the sorted
+#: "<policy>|<marker>|<clause name>" lines, printed by the assertion
+#: when it fails, which is how a deliberate move is re-recorded.
+#: Re-measured 2026-09-19 on the widened grid below: 1,026 of 18,144
+#: pairs, which is exactly 9x the 114 of 2,016 the single-marker,
+#: single-policy grid held -- three markers x three policies, and the
+#: class is indifferent to both, which is the finding. (Before #533
+#: the same grid had 186 allowlisted and 984 failing.)
+#:
+#: The ANCHORED-HEAD class beside it (#544), pinned the same way: a
+#: head ending in an unambiguous credential anchors a member written
+#: straight after it and not one written after a clause (rules.md#M2's
+#: boundary). Recorded 2026-09-27 on the #544 tree: 810 of the 20,412
+#: pairs, 270 for each head ending in a credential ('Jane Doe Jr.',
+#: 'Jane Doe PhD', 'Doe, Jane PhD') and every one a Title-case member
+#: (a caps member leans credential on both sides and a lower one is
+#: counted on both, so neither disagrees); 0 with the anchor off, which
+#: is the recorded negative control. The one-case class's 1,026 is
+#: unmoved by the three heads #544 added ('Jane Doe PhD', 'Doe, Jane
+#: PhD', 'PhD'), all three being mixed case.
+#: Re-recorded 2026-10-04 for #602: 1,134, every one of the 324 new
+#: members under the `nodot` policy -- a by-shape dotted member
+#: ('X.Y.Z.', 'R.A.I.' in each case) behind one of the three
+#: credential heads, 108 each, which the head's credential run (#602)
+#: took in. Then EMPTIED the same day by #601, and kept at 0 rather
+#: than deleted, so a member arriving fails here: a marker behind a
+#: credential is an ordinary word now (rules.md#M2), the credential's
+#: run takes the whole clause in, and the clause form reads the member
+#: as a credential exactly as the plain form does.
+_MAIDEN_ANCHORED_HEAD_EXCEPTIONS = 0
+_MAIDEN_ANCHORED_HEAD_DIGEST = (
+    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+_MAIDEN_AGREEMENT_EXCEPTIONS = 1026
+_MAIDEN_AGREEMENT_DIGEST = (
+    "4b70727a2633fea1a9c219173d48b223cc0866a5d340b69a9eb4f14fc386ae6a")
+
+
+def _one_case(text: str) -> bool | None:
+    """ParseState.one_case for a whole parse -- `is_one_case` over the
+    name's own words, which is exactly the span the allowlist asks
+    about."""
+    return run(ParseState(original=text, lexicon=Lexicon.default(),
+                          policy=Policy())).one_case
+
+
+def _qualifying_front(toks: list[tuple[Token, tuple[int, int]]], i: int,
+                      original: str) -> tuple[Token, int] | None:
+    """rules.md#S2's company clause: walk back from `toks[i]` (a
+    member of the ambiguous class) through lone members to the piece
+    that would speak for their company, and return it -- with its OWN
+    index, which a caller's role question needs -- if it structurally
+    qualifies: unambiguous suffix vocabulary, not tagged an initial,
+    not a connective, not a particle, not a single-letter roman
+    numeral, and neither a comma nor a maiden marker stands between it
+    and `toks[i]` (the company is read within one comma part, and does
+    not reach across a clause, rules.md#M2). None if no such piece exists or it fails one
+    of those tests.
+
+    Says NOTHING about either token's ROLE -- not `toks[i]`'s, and not
+    the front's. That is deliberate: a caller checking whether the
+    front SPEAKS asks its own role question afterward (a title heading
+    the part speaks for nothing, 'Smith, Ms Ma'; the piece a name
+    reserve keeps speaks for nothing either, `_reserve_kept` below),
+    and the two properties this feeds ask DIFFERENT things of the
+    SAME front's role -- shared here only where they agree."""
+    tok, span = toks[i]
+    j = i - 1
+    while (j >= 0 and AMBIGUOUS_ACRONYM_TAG in toks[j][0].tags
+           and SHAPE_ACRONYM_TAG not in toks[j][0].tags):
+        j -= 1
+    if j < 0:
+        return None
+    front, front_span = toks[j]
+    between = original[front_span[1]:span[0]]
+    letters = front.text.rstrip(".")
+    if ("," in between or _MARKER_RE.search(between)
+            or "vocab:suffix" not in front.tags
+            or "initial" in front.tags
+            or "conjunction" in front.tags
+            or "particle" in front.tags
+            or (len(letters) == 1 and letters.lower() in "ivx")):
+        return None
+    return front, j
+
+
+def _reserve_kept(toks: list[tuple[Token, tuple[int, int]]], j: int,
+                  original: str) -> bool:
+    """Whether `toks[j]` is the reserve rules.md#H4's no-comma
+    carve-out keeps regardless of its own vocabulary: the name's
+    first non-TITLE piece, in a name with NO COMMA anywhere before
+    it, and no GIVEN/MIDDLE/FAMILY token before it either. 'PhD Ma'
+    is this shape (the reserve keeps 'PhD'); 'Smith, PhD Ma' is NOT --
+    a family already exists from before the comma, so nothing here
+    is H4's carve-out, whatever `segment_suffix_reading` does with
+    the given part on its own account (not modelled by this walk;
+    `_outside_its_company`'s docstring names where that shape is
+    pinned instead). A
+    comma anywhere before `toks[j]` therefore answers False outright.
+
+    A maiden clause crossed on the way answers nothing on its own: a
+    MAIDEN-role token is simply not a name role, so the walk continues
+    through it exactly as it does through a TITLE, to whatever real
+    name may stand on the far side of the marker -- 'Jane nee Doe PhD
+    Ma' finds 'Jane' (GIVEN) past the clause and answers False, PhD
+    not being the reserve there either."""
+    for k in range(j - 1, -1, -1):
+        tok, span = toks[k]
+        _, next_span = toks[k + 1]
+        between = original[span[1]:next_span[0]]
+        if "," in between:
+            return False
+        if tok.role in (Role.GIVEN, Role.MIDDLE, Role.FAMILY):
+            return False
+    return True
+
+
+def _outside_its_company(name: ParsedName) -> list[str]:
+    """rules.md#S2's company clause, read off a finished parse (#544):
+    a LISTED member of the ambiguous class written behind an
+    unambiguous credential -- with nothing but listed members between
+    them, in the same comma part and on the same side of a maiden
+    marker -- is read as a credential. The word in front must
+    structurally qualify (`_qualifying_front`) and speak for itself:
+    not read as a TITLE, which is how the parse reads a dual opening
+    the given part ('Smith, Ms Ma'), and not the piece a name reserve
+    keeps regardless of its own vocabulary (`_reserve_kept`: 'PhD Ma'
+    reads family 'Ma', because 'PhD' is the name the reserve kept, not
+    a credential run's own member).
+
+    A dual in the given part's leading title run also keeps a
+    credential BEHIND it from speaking for a member in that part
+    ('Smith, MD PhD Ma' keeps given 'PhD', middle 'Ma'), and that
+    exemption is NOT modelled here: no head of the
+    walk opens a comma part with a title/suffix dual, so it would be
+    code no parse reaches. The case rows
+    `a_dual_opening_the_given_part_turns_the_anchor_off` and
+    `a_dual_opening_the_given_part_silences_a_later_degree`, and
+    test_pieces' `test_a_dual_in_the_leading_title_run_turns_the_anchor_off`,
+    pin it instead.
+
+    Deliberately does NOT require the front to already be in the
+    SUFFIX role: that was tried and it blinded the check to exactly
+    the no-comma half of the defect this exists for -- with the
+    anchor off, a lost anchor costs the credential IN FRONT its
+    SUFFIX role too ('Jane Doe Jr. Ma' read middle 'Doe Jr.' before
+    #544), and a check requiring `front.role is Role.SUFFIX` would
+    have passed on that very defect by exempting every front it broke.
+
+    The walk this test runs never puts a bare, real family name
+    before a comma with nothing but a credential run after it
+    ('Smith, PhD Ma') -- every head either has no comma at all or
+    already carries a given name across it. That comma-side shape is
+    pinned separately: `tests/v2/cases.py`'s `family_comma_lone_degree`
+    and `family_comma_two_credentials` rows, and rules.md#S2's
+    'Smith, PhD' boundary example.
+
+    DELIBERATELY A SECOND IMPLEMENTATION of `_pieces.credential_anchors`,
+    over the finished parse's tokens, tags and roles rather than over
+    pieces."""
+    toks = _placed(name)
+    out = []
+    for i, (tok, span) in enumerate(toks):
+        if (tok.role is Role.SUFFIX
+                or AMBIGUOUS_ACRONYM_TAG not in tok.tags
+                or SHAPE_ACRONYM_TAG in tok.tags):
+            continue
+        qualifies = _qualifying_front(toks, i, name.original)
+        if qualifies is None:
+            continue
+        front, j = qualifies
+        if front.role is Role.TITLE or _reserve_kept(toks, j, name.original):
+            continue
+        out.append(f"{tok.text!r} -> {tok.role.value} behind "
+                   f"{front.text!r}")
+    return out
+
+
+def _credential_without_suffix_role(name: ParsedName) -> list[str]:
+    """The converse of `_outside_its_company` (#544): a
+    member read as a credential (role SUFFIX) because a qualifying
+    word stands in front of it must have that FRONT word in the
+    SUFFIX role too -- the front cannot itself be reserved as the
+    given or family name while lending its credential-ness to the
+    member behind it. 'PhD Ma' reading given 'PhD', suffix 'Ma',
+    family '' is the shape this catches: 'Ma' inheriting PhD's company
+    while PhD itself is handed back to the given slot the walk has to
+    reserve, losing the family entirely (the recorded control below). Same `_qualifying_front` walk-back as
+    `_outside_its_company`, checked the other way; the two properties
+    then ask DIFFERENT role questions of the front on purpose (see
+    `_qualifying_front`'s docstring) -- this one does NOT exempt a
+    front the reserve kept, because that is exactly the shape the
+    defect took: the reserve-kept front is the one whose SUFFIX role
+    went missing.
+
+    `_one_case(name.original)` is a full extra pipeline run, asked
+    only for a SURVIVING candidate: a member whose qualifying front is
+    outside both TITLE and SUFFIX. Every other member is decided by
+    role tests alone.
+
+    Skips a member whose OWN case-based lean (rules.md#S2, #289 -- an
+    ALL-CAPS member of a mixed-case name) already reads it as a
+    credential with no company at all: that class predates #544 and
+    reaches the very same H4 carve-out on its own ('PhD MA' -> given
+    'PhD', suffix 'MA' on 1.4.0), so it is not this property's
+    question."""
+    toks = _placed(name)
+    out = []
+    for i, (tok, span) in enumerate(toks):
+        if tok.role is not Role.SUFFIX or AMBIGUOUS_ACRONYM_TAG not in tok.tags:
+            continue
+        qualifies = _qualifying_front(toks, i, name.original)
+        if qualifies is None:
+            continue
+        front, _ = qualifies
+        if front.role is Role.TITLE or front.role is Role.SUFFIX:
+            continue
+        # a surviving candidate: only now is the extra run worth its cost
+        one_case = _one_case(name.original)
+        # inlined `_pieces.listed_lean`'s own gate, over the public
+        # `Token` rather than the pipeline's `WorkToken` -- the two
+        # types share `.text`/`.tags`, and this is a second
+        # implementation on purpose, like the rest of this function
+        own_lean = (None if (one_case is None
+                            or SHAPE_ACRONYM_TAG in tok.tags)
+                    else ambiguous_lean(tok.text, one_case))
+        if own_lean == "credential":
+            continue
+        out.append(f"{front.text!r} -> {front.role.value} in "
+                   f"front of {tok.text!r}, which reads suffix")
+    return out
+
+
+def test_a_maiden_clause_does_not_change_how_a_trailing_word_reads(
+) -> None:
+    """#533's invariant: appending a maiden clause to a name must not
+    change the CLASS a trailing word is read in.
+
+    A member of the ambiguous credential class ending a name that
+    carries a maiden clause, and the same member ending the same name
+    with the clause removed, must land in the same class -- credential
+    (role SUFFIX) or name (any other role). CLASS, not FIELD.
+
+    The clause bodies are NAME WORDS ONLY on purpose: a suffix word or
+    a title inside the clause is a word the count reads, so removing
+    the clause changes the question rather than answering it ('J. nee
+    Smith Jr MA' against 'J. MA' is not a pair).
+
+    Measured on this tree before #533: 984 of 2016 pairs disagreed
+    outside the allowlist. After: 0, and the allowlist holds exactly
+    its recorded size.
+
+    #544 joins this walk rather than opening a grid: every parse it
+    takes is also asked `_outside_its_company` and
+    `_credential_without_suffix_role` (rules.md#S2's company clause,
+    both directions), and the two heads ending in 'PhD' were added so
+    that the given slot holds members behind a credential beside the
+    comma-less trailing slot 'Jane Doe Jr.' already held. A third
+    head, the bare 'PhD', was added so `_credential_without_suffix_role`
+    has a shape to catch at all -- none of the other heads is itself a
+    bare listed-suffix word, so none reaches the walk's own leading
+    position, which is exactly the shape the converse question is
+    about. Each text is parsed ONCE -- the plain form once per head
+    and member, not once per body and marker -- which took the walk
+    from 3.25s to 2.53s on 3.11 while the grid grew from 18,144 pairs
+    to 20,412 (measured 2026-09-27, `--durations`; `_credential_without_suffix_role`
+    forces its own extra parse, `_one_case`, only for a surviving
+    candidate a qualifying front's role has not already decided,
+    rather than unconditionally for every parse).
+
+    The `company` and `orphaned` asserts below run BEFORE `failures`,
+    so each control here trips its OWN assert rather than one masking
+    another: `assert not company` is the company check's recorded
+    negative control, `assert not orphaned` the converse's.
+    RECORDED NEGATIVE CONTROL for `assert not company`: with
+    `credential_anchors` answering False, it fails on 48 of the walk's
+    parses ('Jane Doe Jr. Ma' reading family 'Ma'); 0 here. RECORDED
+    NEGATIVE CONTROL for `assert not orphaned`: the walk's own leading
+    piece never anchors, and the no-comma peel holds that twice --
+    `credential_anchors` skips the position, and the peel's reach test
+    (`anchor_in_reach`) never looks at it. With both removed it fails
+    on 42 of the walk's plain-form parses ('PhD Ma' reading given
+    'PhD', suffix 'Ma', and the by-shape 'PhD X.Y.Z.' alike); with
+    either one alone removed, 0; 0 here (measured 2026-09-28).
+    """
+    members = ("ba", "do", "ed", "jd", "ma", "x.y.z.", "r.a.i.")
+    # 'Dr.' left the heads with #601: a marker behind a lone title is
+    # an ordinary word, so its pairs compared a name holding one more
+    # word to spare against one without it (648 pairs disagreed, every
+    # one on that head, measured 2026-10-04). Every other head agrees
+    # -- the comma heads, whose marker is a word too, and the heads
+    # ending in a credential, whose run (#602) takes the clause in.
+    heads = ("Jane Doe", "Doe, Jane", "John", "J.", "Jane",
+             "Jane van der Berg", "JANE DOE", "jane doe", "DOE, JANE",
+             "doe, jane", "Jane Q. Doe", "Doe, Dr. Jane", "Doe, J.",
+             "Smith, Jane", "Jane Doe Jr.", "Jane Doe PhD",
+             "Doe, Jane PhD", "PhD")
+    bodies = ("Smith", "Yo-Yo", "van der Berg", "Jones Smith", "MA",
+              "Ma")
+    # three markers and the two 2.4 switches beside the default: the
+    # switches change WHICH tokens are in the class, and the marker
+    # spellings are what `own_words` stops at, so both are dimensions
+    # the allowlist's structural argument rests on.
+    markers = ("nee", "née", "geb.")
+    policies = (("default", Policy()),
+                ("caps", Policy(unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE)),
+                ("nodot", Policy(unlisted_dotted_suffixes=False)))
+
+    def side(name: ParsedName, word: str) -> str:
+        hits = [t for t in name.tokens if t.text == word]
+        if not hits:
+            return "gone"
+        return ("credential" if hits[-1].role is Role.SUFFIX
+                else "name")
+
+    pairs = 0
+    allowed: list[str] = []
+    # #544: the ANCHORED-HEAD class. A head that ENDS in an unambiguous
+    # credential ('Jane Doe Jr.') anchors a member written straight
+    # after it ('Jane Doe Jr. Ma' reads suffix 'Jr. Ma'), while the
+    # clause puts its name words between the two ('Jane Doe Jr. nee
+    # Smith Ma'), and the anchor never reaches across a clause
+    # (rules.md#M2, decided, a boundary). So the pair differs by
+    # construction, and in ONE direction only: the clause reads a name,
+    # the plain form a credential. Admitted only where the parser
+    # itself gives the head's last token the suffix role and the pair
+    # disagrees in that direction, and pinned by count and digest like
+    # the class above.
+    anchored_head: list[str] = []
+    company: list[str] = []
+    # #544: the converse of `company` -- a member reading
+    # SUFFIX because of its company must have that company ALSO in the
+    # SUFFIX role, never handed back to a given/family reserve while
+    # still lending its credential-ness behind it
+    orphaned: list[str] = []
+
+    def audit(label: str, text: str, name: ParsedName) -> None:
+        company.extend(f"[{label}] {text!r}: {bad}"
+                       for bad in _outside_its_company(name))
+        orphaned.extend(f"[{label}] {text!r}: {bad}"
+                        for bad in _credential_without_suffix_role(name))
+
+    failures = []
+    for label, policy in policies:
+        parser = Parser(policy=policy)
+        for head in heads:
+            head_tokens = parser.parse(head).tokens
+            head_ends_in_credential = bool(head_tokens) and (
+                head_tokens[-1].role is Role.SUFFIX)
+            for base in members:
+                for word in (base.lower(), base.title(), base.upper()):
+                    plain = f"{head} {word}"
+                    plain_name = parser.parse(plain)
+                    audit(label, plain, plain_name)
+                    plain_side = side(plain_name, word)
+                    for body in bodies:
+                        for marker in markers:
+                            clause = f"{head} {marker} {body} {word}"
+                            clause_name = parser.parse(clause)
+                            audit(label, clause, clause_name)
+                            clause_side = side(clause_name, word)
+                            pairs += 1
+                            if clause_side == plain_side:
+                                continue
+                            if _one_case(clause) and not _one_case(plain):
+                                allowed.append(
+                                    f"{label}|{marker}|{clause}")
+                                continue
+                            if (head_ends_in_credential
+                                    and clause_side == "name"
+                                    and plain_side == "credential"):
+                                anchored_head.append(
+                                    f"{label}|{marker}|{clause}")
+                                continue
+                            failures.append(
+                                f"[{label}] {clause!r} reads "
+                                f"{clause_side} but {plain!r} reads "
+                                f"{plain_side}")
+    # company and orphaned assert BEFORE failures: each is its own
+    # control (the anchor-off/reserve-regression negative controls
+    # this test's docstring records), and a pair-agreement failure
+    # elsewhere in the grid must never mask either one
+    assert not company, (
+        f"{len(company)} member(s) read as a name behind an "
+        f"unambiguous credential:\n" + "\n".join(company[:15]))
+    assert not orphaned, (
+        f"{len(orphaned)} member(s) read as a credential behind a "
+        f"word not itself in the suffix role:\n"
+        + "\n".join(orphaned[:15]))
+    assert not failures, (
+        f"{len(failures)} of {pairs} pair(s) disagree outside the "
+        f"one-case-head class:\n" + "\n".join(failures[:15]))
+    anchored_digest = hashlib.sha256(
+        "\n".join(sorted(anchored_head)).encode()).hexdigest()
+    assert (len(anchored_head), anchored_digest) == (
+        _MAIDEN_ANCHORED_HEAD_EXCEPTIONS, _MAIDEN_ANCHORED_HEAD_DIGEST), (
+        f"the anchored-head class holds {len(anchored_head)} of {pairs} "
+        f"pairs with digest {anchored_digest}. Re-record both "
+        f"deliberately, saying why. Members:\n"
+        + "\n".join(sorted(anchored_head)[:10]))
+    digest = hashlib.sha256(
+        "\n".join(sorted(allowed)).encode()).hexdigest()
+    assert (len(allowed), digest) == (
+        _MAIDEN_AGREEMENT_EXCEPTIONS, _MAIDEN_AGREEMENT_DIGEST), (
+        f"the one-case-head class holds {len(allowed)} of {pairs} "
+        f"pairs with digest {digest}, recorded as "
+        f"{_MAIDEN_AGREEMENT_EXCEPTIONS} / "
+        f"{_MAIDEN_AGREEMENT_DIGEST} on 2026-09-19. The SET is "
+        f"pinned, not only the size: a swap keeps the count. "
+        f"Re-record both deliberately, saying why. Members:\n"
+        + "\n".join(sorted(allowed)[:10]))
+
+
+#: The tags that make a token a member of the ambiguous credential
+#: class as the reader sees it -- the listed one and the by-shape one
+#: a 2.4 switch writes. Spelled here rather than imported so the
+#: property is stated in the terms rules.md#M2 states it in, and so a
+#: rename in the pipeline cannot quietly narrow what this checks.
+_CLASS_TAGS = frozenset({"vocab:suffix-ambiguous", "shape:acronym"})
+
+#: Two-member trailing runs: the one shape that puts a maiden-clause
+#: report and an assign-peel report on the same parse, each naming a
+#: different token. Written out rather than generated, because what
+#: makes them work is the CONTRAST between the two members' writing.
+_TAILS = ("Ma JD", "MA JD", "MA Ma")
+
+
+def _maiden_clause_grid() -> list[tuple[str, Parser, str]]:
+    """(name, parser, policy label) for the M2 release grid.
+
+    Heads where a marker counts (rules.md#M2, #601): particle heads, a
+    bound-given head and pair, a title-led head, a lone name word and a
+    Vietnamese head whose surname is particle vocabulary, with by-shape
+    and caps-on members, two adjacent particle members, mixed/ALL-CAPS/
+    lower writing, a suffix-comma tail beside none, four markers, and
+    the default policy beside each 2.4 switch. Until #601 it also held
+    the #533 review's comma heads ('Doe, Prof.', 'Berg, abdul', ...),
+    where a marker is an ordinary word now; a grid of them could no
+    longer reach the take at all.
+    """
+    heads = ("Jane Doe", "Jane van der Berg", "abdul Berg", "J. Doe",
+             "Doe", "Prof. Jane Doe", "Jane Q. Doe", "abdul rahman",
+             "Mai Le")
+    bodies = ("Smith", "Smith MA", "Smith Ma", "Smith ma", "Smith A.B.",
+              "Smith X.Y.Z.", "Smith XYZ", "Smith ba", "Smith DO",
+              "Smith Do", "Smith do", "Smith MA XYZ", "Smith DO DO",
+              "Smith Ma JD", "Smith MA JD", "Smith MA Ma",
+              "Smith V MA", "MA", "MA PhD", "MA ba", "Smith Jones MA",
+              "Smith PhD", "Smith Jr", "Jones Smith Ma", "Smith MA PhD")
+    policies = (("default", Policy()),
+                ("caps", Policy(unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE)),
+                ("nodot", Policy(unlisted_dotted_suffixes=False)))
+    parsers = [(label, Parser(policy=p)) for label, p in policies]
+    texts: list[str] = []
+    seen: set[str] = set()
+    for head in heads:
+        for body in bodies:
+            markers = ("nee", "née", "geb.", "z domu") if " " not in body \
+                else ("nee",)
+            for marker in markers:
+                base = f"{head} {marker} {body}"
+                for text in (base, f"{base}, MD"):
+                    for written in (text, text.upper(), text.lower()):
+                        if written not in seen:
+                            seen.add(written)
+                            texts.append(written)
+    return [(t, parser, label) for t in texts for label, parser in parsers]
+
+
+def _released_but_not_suffix(text: str, parser: Parser) -> list[str]:
+    """Words rules.md#M2 says must be SUFFIX-roled and are not.
+
+    The clause's parent-style reach is everything from the marker to
+    the first CERTAIN suffix word -- suffix vocabulary that is not
+    initial-shaped, which is where the walk stopped before #533 and
+    still stops. Inside that reach a class member is either still in
+    the maiden name or was given up as a credential; any third answer
+    is a word the clause released into the current name, which is the
+    failure this property exists for.
+    """
+    marker = _MARKER_RE.search(text)
+    if marker is None:
+        return []
+    name = parser.parse(text)
+    if not name.maiden:
+        return []
+    out = []
+    for tok in name.tokens:
+        if tok.span is None or tok.span.start < marker.end():
+            continue
+        if "vocab:suffix" in tok.tags and "initial" not in tok.tags:
+            break
+        if (not _CLASS_TAGS.isdisjoint(tok.tags)
+                and tok.role not in (Role.MAIDEN, Role.SUFFIX)):
+            out.append(f"{tok.text!r} -> {tok.role.value}")
+    return out
+
+
+_MARKER_RE = re.compile(
+    r"(?<![\w.])(nee|née|geb\.|z domu)(?![\w])", re.IGNORECASE)
+
+
+def test_a_word_the_clause_gives_up_lands_in_suffix() -> None:
+    """rules.md#M2's invariant, over the whole release grid.
+
+    The clause may hand a word to the trailing rule that reads it as
+    a credential, and it may keep the word. There is no third answer:
+    a released word that ends the parse in `given`, `middle` or
+    `family` has crossed from the BIRTH name into the current one,
+    silently, and that is the class of failure #424 named from the
+    other direction.
+
+    The grid is the pin, and it is a grid rather than a name list so
+    that it could fail. Since #601 the invariant holds by construction
+    -- the take hands the run to the suffix and title roles itself --
+    so the RECORDED NEGATIVE CONTROL is the design that construction
+    replaced: prototype variant 4 of #601 (the head rule, the run read
+    once over the name as written, and NOT bound) fails 350 of this
+    grid's 4,482 parses, 512 tokens across 122 distinct texts; this
+    tree fails none (measured 2026-10-04). The history, over the
+    pre-#601 grid of 17 heads and 8,466 parses: at d97d3eb7 -- the
+    commit the #533 review round started from -- it failed on 790 of
+    them, 290 distinct names, covering every shape the review reported: 'Doe, Prof. nee
+    Smith A.B.' reading given 'A.B.' (32 parses, and 'X.Y.Z.' another
+    32), 'DOE, PROF. NEE SMITH MA' reading given 'MA' (206, the
+    largest class, with 'ba' at 96), 'Berg, Jane van der nee Smith
+    DO' reading family 'van der DO Berg' (12) and 'Jane Doe nee Smith
+    DO DO' reading family 'DO DO' (108, two words apiece). At
+    2f57ff21, the parent, it passes on all 8,466 -- the invariant is
+    what the conservative direction always held.
+    """
+    failures = []
+    grid = _maiden_clause_grid()
+    for text, parser, label in grid:
+        for bad in _released_but_not_suffix(text, parser):
+            failures.append(f"[{label}] {text!r}: {bad}")
+    assert not failures, (
+        f"{len(failures)} of {len(grid)} parse(s) released a word the "
+        f"clause should have kept:\n" + "\n".join(failures[:20]))
+    # the grid has to be able to fail: every shape above must actually
+    # reach the walk, which it does only where a clause is taken
+    reached = sum(bool(p.parse(t).maiden) for t, p, _ in grid)
+    assert reached > len(grid) // 2, (
+        f"only {reached} of {len(grid)} grid parses carry a maiden "
+        f"name; the rest cannot exercise M2 at all")
+
+
+def test_a_trailing_title_is_transparent_to_the_maiden_clause() -> None:
+    """rules.md#H5's transparency, asked where #535 found it broken:
+    a maiden clause ending '<run> Prof.' and one ending 'Prof. <run>'
+    must read alike in every field but the order of the title words,
+    wherever a trailing rule reads the clause -- no comma, the part
+    before a suffix comma, the given part after a family comma -- and
+    the run behind the title reads as post-nominals, i.e. the clause
+    gives the credential up, and nothing ahead stands to take the
+    title (no particle chain, no bound-given join, no name left
+    empty). The invariant is claimed over the forms below and no
+    wider. Where the clause KEEPS the credential the spellings differ,
+    a clause being one contiguous run: 'Doe nee Smith ba Prof.' gives
+    the title up, 'Doe nee Smith Prof. ba' cannot; and where something
+    in or ahead of the clause would take the title they differ too
+    ('Jane van der Berg nee Smith PhD Prof.' against '... Prof. PhD',
+    'Jane Doe nee Smith do MA Prof.' against '... do Prof. MA') --
+    rules.md#M2's Accepted pairs, which are examples rather than a
+    complete list. No head or run below has a particle, a bound given
+    name or an empty name in or ahead of the clause.
+
+    An invariant over two INPUTS (docs/design/AGENTS.md axis 11), so it
+    consults no rule statement. RECORDED NEGATIVE CONTROL: at e0f1a2fa,
+    before the walk read the chain, these 36 pairs disagreed on 72
+    fields ('Jane Doe nee Smith MA Prof.' read maiden 'Smith MA Prof.'
+    against 'Smith Prof.' and suffix 'MA').
+    """
+    forms = ("Jane Doe nee Smith {}", "Doe, Jane nee Smith {}",
+             "JANE DOE NEE SMITH {}", "jane doe nee smith {}",
+             "Prof. Jane Doe nee Smith {}", "Jane Doe nee Smith {}, PhD")
+    runs = ("MA", "V", "PhD", "Jr.", "MA JD", "M.A.")
+    failures = []
+    for form in forms:
+        for tail in runs:
+            title = "Prof."
+            if form == form.upper():
+                tail, title = tail.upper(), title.upper()
+            elif form == form.lower():
+                tail, title = tail.lower(), title.lower()
+            a = parse(form.format(f"{tail} {title}"))
+            b = parse(form.format(f"{title} {tail}"))
+            for field in ("given", "middle", "family", "suffix", "maiden"):
+                if str(getattr(a, field)) != str(getattr(b, field)):
+                    failures.append(
+                        f"{form!r} {tail!r} {field}: "
+                        f"{str(getattr(a, field))!r} vs "
+                        f"{str(getattr(b, field))!r}")
+            if sorted(str(a.title).split()) != sorted(str(b.title).split()):
+                failures.append(f"{form!r} {tail!r} title")
+    assert not failures, "\n".join(failures)
+
+
+def test_a_title_the_clause_gives_up_lands_in_title() -> None:
+    """rules.md#M2's invariant for a title in the run (#535, #601): a
+    period-marked title word written after the marker ends the parse
+    in the maiden name or in the title field, never in a name part.
+
+    Over heads where a marker counts (#601): a plain head, an initial,
+    a particle head (the chain a released title would join) and a
+    bound-given head (P5). The comma heads and the bare title head the
+    #535 version held put the marker where it is an ordinary word now,
+    so they asked nothing of a clause. RECORDED NEGATIVE CONTROL,
+    measured 2026-10-04: prototype variant 4 of #601 (the run read
+    once over the name as written, and not bound) fails 35 tokens
+    across 32 of these 120 texts; this tree none. The #535 figure,
+    over that version's 240 texts: the title stop's release check
+    replaced by `if True:` failed 83 tokens across 78 of them.
+    """
+    heads = ("Jane Doe", "J.", "Jane van der Berg", "abdul Berg")
+    bodies = ("Smith Prof.", "Smith MA Prof.", "Smith Prof. MA",
+              "Smith V Prof.", "Smith Ma Prof.", "Smith Prof. Dr.",
+              "Prof.", "Prof. Dr.", "Smith King.", "Smith MA do Prof.",
+              "Smith i DO Prof.", "Smith i MA Prof.", "Smith St.",
+              "Smith MA St.", "Smith V St.")
+    failures = []
+    for head in heads:
+        for body in bodies:
+            for text in (f"{head} nee {body}",
+                         f"{head} nee {body}".upper()):
+                name = parse(text)
+                marker = text.lower().index(" nee ") + 5
+                for tok in name.tokens:
+                    if (tok.span is not None and tok.span.start >= marker
+                            and "vocab:title" in tok.tags
+                            and tok.text.endswith(".")
+                            and tok.role not in (Role.MAIDEN, Role.TITLE)):
+                        failures.append(
+                            f"{text!r}: {tok.text!r} -> {tok.role.value}")
+    assert not failures, "\n".join(failures)
+
+
+def test_a_title_first_word_counts_as_a_word() -> None:
+    """rules.md#M2's first-word floor, over two INPUTS: the floor is
+    the title chain's own (`trailing_titles` takes it), so whether the
+    first word after the marker IS title vocabulary ('King.') or not
+    ('Smith') must not change what a trailing credential behind it
+    reads as -- the floor holds either word out of the chain's count,
+    so the credential is read the same way in both. Both sides must
+    also take a clause whose first word is that head, so two declined
+    clauses cannot pass by agreeing about nothing.
+
+    An invariant over two INPUTS (docs/design/AGENTS.md axis 11), so
+    it consults no rule statement. The second form puts a suffix comma
+    after the clause, where a trailing rule still reads it; until #601
+    it was a family-comma head, where the marker is an ordinary word
+    now. RECORDED NEGATIVE CONTROL, measured 2026-10-04: with the
+    first word after the marker let into the view `_maiden_take` reads
+    the run over (its two `lo + 1` bounds made `lo`), every one of the
+    30 pairs fails, on the head check alone -- the suffixes still
+    agree, which is why the head check is here. The same profile was
+    recorded on 2026-09-26 for the floor `tail_reading` then carried.
+    """
+    forms = ("Jane Doe nee {} {}", "Jane Doe nee {} {}, MD")
+    runs = ("ba", "MA", "V", "PhD", "MA JD")
+    heads = ("King.", "Smith")
+    failures = []
+    for form in forms:
+        for tail in runs:
+            texts = [form.format(h, tail) for h in heads]
+            for variant in (texts, [t.upper() for t in texts],
+                            [t.lower() for t in texts]):
+                a, b = (parse(t) for t in variant)
+                if str(a.suffix) != str(b.suffix):
+                    failures.append(
+                        f"{variant[0]!r} vs {variant[1]!r}: "
+                        f"{str(a.suffix)!r} vs {str(b.suffix)!r}")
+                # both sides take a clause, and its first word is the
+                # head -- otherwise agreeing suffixes could be two
+                # declined clauses agreeing about nothing
+                for name, text in ((a, variant[0]), (b, variant[1])):
+                    head = text.split(" nee ", 1)[-1].split(" NEE ", 1)[-1]
+                    if str(name.maiden).split()[:1] != head.split()[:1]:
+                        failures.append(
+                            f"{text!r}: maiden {str(name.maiden)!r}")
+    assert not failures, "\n".join(failures)
+
+
+def test_no_two_ambiguities_name_the_same_token_span() -> None:
+    """The maiden walk and assign's trailing peel both report at this
+    class, and group's particle-chain emitter stands beside them. None
+    of the three may report a word another already did -- the maiden
+    pieces are removed before the chain runs, and a member the reading
+    TOOK is out of the clause by the time roles are assigned.
+
+    Per TOKEN, not per whole span: a first draft compared the
+    ambiguities' token tuples for equality, which sees two reports of
+    the same span and misses the likelier defect -- one report naming
+    `Smith MA` while another names `MA`. The check below is over the
+    spans the reports claim, so an OVERLAP fails it however the two
+    spans differ in length.
+
+    Measured 2026-09-19: 0 over 27,216 parses, every particle shape
+    among them ('nee van der Berg Ma', 'nee de Ma', 'nee van Ma').
+    A COUNT of the parses that carry two reports rides along, because
+    a comparison over one report is vacuous and nothing else would
+    say so.
+
+    The count is also what caught this test measuring the wrong
+    thing. Every one of the 2,160 multi-report parses the grid held
+    at the review paired the MAIDEN emitter with the particle-chain
+    emitter -- the pair this test is named for, maiden against
+    assign's peel, never occurred, because one trailing member is
+    either kept by the clause or peeled by assign and no grid row had
+    TWO. The `_TAILS` below are that shape: 'Ma JD' keeps 'Ma' and
+    peels 'JD', 'MA JD' releases 'MA' and peels 'JD' behind it, and
+    'MA Ma' keeps the Title-case one with the caps one in front. The
+    count is re-pinned on the widened grid, and the pairing is
+    asserted directly beside it so a later edit that drops the tails
+    fails here rather than silently turning this back into a test of
+    the particle emitter.
+    """
+    members = ("ba", "do", "ed", "jd", "ma", "x.y.z.", "r.a.i.")
+    heads = ("Jane Doe", "Doe, Jane", "John", "J.", "Dr.", "Jane",
+             "Jane van der Berg", "JANE DOE", "jane doe", "DOE, JANE",
+             "doe, jane", "Jane Q. Doe", "Doe, Dr. Jane", "Doe, J.",
+             "Smith, Jane", "Jane Doe Jr.", "Doe, Jane van",
+             "Doe, Jane van der")
+    bodies = ("Smith", "Yo-Yo", "van der Berg", "de", "van",
+              "Jones Smith")
+    parsers = [Parser(),
+               Parser(policy=Policy(unlisted_dotted_suffixes=False)),
+               Parser(policy=Policy(unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE))]
+    failures = []
+    multi = 0
+    for head in heads:
+        for body in bodies:
+            for base in members:
+                for word in (base.lower(), base.title(), base.upper()):
+                    for marker in ("nee", "née", "geb."):
+                        text = f"{head} {marker} {body} {word}"
+                        for parser in parsers:
+                            claimed: set[object] = set()
+                            overlap = False
+                            spans = []
+                            reports = parser.parse(text).ambiguities
+                            multi += len(reports) > 1
+                            for a in reports:
+                                # a synthetic token has no span; fall
+                                # back on its identity so it cannot
+                                # collide with another report's
+                                span = {t.span if t.span is not None
+                                        else id(t) for t in a.tokens}
+                                spans.append(sorted(map(str, span)))
+                                overlap = overlap or bool(claimed & span)
+                                claimed |= span
+                            if overlap:
+                                failures.append(f"{text!r}: {spans}")
+    # the tails that put the maiden emitter and assign's peel on one
+    # parse -- the pair this test is named for, which the grid above
+    # cannot produce (see the docstring)
+    both = 0
+    for head in heads:
+        for body in bodies:
+            for tail in _TAILS:
+                for marker in ("nee", "née", "geb."):
+                    text = f"{head} {marker} {body} {tail}"
+                    for parser in parsers:
+                        claimed = set()
+                        overlap = False
+                        spans = []
+                        reports = parser.parse(text).ambiguities
+                        multi += len(reports) > 1
+                        kinds = [a.kind for a in reports]
+                        both += (kinds.count(
+                            AmbiguityKind.SUFFIX_OR_NAME) > 1)
+                        for a in reports:
+                            span = {t.span if t.span is not None
+                                    else id(t) for t in a.tokens}
+                            spans.append(sorted(map(str, span)))
+                            overlap = overlap or bool(claimed & span)
+                            claimed |= span
+                        if overlap:
+                            failures.append(f"{text!r}: {spans}")
+    assert not failures, (
+        f"{len(failures)} parse(s) report one token twice:\n"
+        + "\n".join(failures[:15]))
+    # 4,239 since 2026-10-04 (#601/#602), from 4,320: over the member
+    # grid 2,052 multi-report parses left -- every one on the heads
+    # 'Doe, Jane van' and 'Doe, Jane van der', whose clause in the
+    # given part no longer takes, and with it the maiden report beside
+    # P6's -- and 1,965 arrived, 1,134 on 'Jane Doe Jr.', whose
+    # credential now starts a run that takes the clause in and reports
+    # what it absorbs, the rest on heads whose marker is an ordinary
+    # word now; the tails loop below adds 6.
+    assert multi == 4239, (
+        f"{multi} of these parses carry more than one report, recorded "
+        f"as 4239 on 2026-10-04. A parse with one report cannot fail "
+        f"the check above, so this is what keeps the grid honest: move "
+        f"the number deliberately, and never to 0")
+    # 2,052 since 2026-10-04 (#601/#602), from 1,944: 216 parses left,
+    # every one on a comma head whose clause in the given part no
+    # longer takes ('Doe, Jane', 'Doe, Jane van', ...), and 324
+    # arrived, on 'Dr.' and 'J.' -- where the marker is an ordinary word
+    # behind the title, or the clause's own run is read over the
+    # clause-free view -- and on 'Jane Doe Jr.', whose credential run
+    # reports what it absorbs. The run's reports moved from assign's
+    # peel to the take that consumes the run (#601), so the pair is
+    # the maiden take's member report against the run's.
+    assert both == 2052, (
+        f"{both} parse(s) carry TWO suffix-or-name reports, recorded "
+        f"as 2052 on 2026-10-04. This is the pair the test is named "
+        f"for -- the clause's kept member against the trailing run's "
+        f"reading -- and it was 0 for the whole grid until the "
+        f"two-member tails were added. Never re-record it as 0")
+
+
 @pytest.mark.parametrize("text", _FORK_CORPUS)
 def test_a_fork_is_never_reported_twice_on_a_real_name(text: str) -> None:
     state = run(ParseState(original=text, lexicon=Lexicon.default(),
@@ -266,12 +1175,25 @@ _SET_FIELDS = _VOCAB_FIELDS
 
 
 @st.composite
+def _recased(draw: st.DrawFn, word: str) -> str:
+    """A capitalization_exceptions value for `word`: its own letters,
+    each drawn upper or lower. Any other value is a ValueError at
+    construction (#459's case mask), so an independent draw would
+    turn every fuzzed Lexicon holding a pair into a raise."""
+    flips = draw(st.lists(st.booleans(), min_size=len(word),
+                          max_size=len(word)))
+    return "".join(c.upper() if flip else c.lower()
+                   for c, flip in zip(word, flips))
+
+
+@st.composite
 def _lexicons(draw: st.DrawFn) -> Lexicon:
     fields = {name: draw(st.frozensets(
         _TITLE_VOCAB if name == "given_name_titles" else _VOCAB,
         max_size=5))
               for name in _SET_FIELDS}
-    caps = draw(st.lists(st.tuples(_VOCAB, _VOCAB), max_size=3))
+    keys = draw(st.lists(_VOCAB, max_size=3))
+    caps = [(key, draw(_recased(key))) for key in keys]
     return Lexicon(capitalization_exceptions=tuple(caps),
                    **_fix_invariants(**fields))
 
@@ -502,6 +1424,18 @@ def test_any_valid_config_still_parses_totally(
     assert isinstance(str(parsed), str)
     assert isinstance(parsed.capitalized().given, str)
     assert isinstance(parsed.initials(), str)
+    # rules.md#R4 under configuration: what this buys is COVERAGE of
+    # the non-mask clauses (shape-acronym, numeral, plain word) across
+    # drawn vocabularies and policies -- it falsifies on e.g. a clause
+    # that strips a period -- not DETECTION of a mask substitution.
+    # _recased draws each mask as the key's own letters recased, so
+    # under this fuzzer every masked word already differs from its
+    # mask only in case (`_apply_mask` returning `mask` verbatim still
+    # passes here); the shipped-map walk at the end of this module is
+    # what covers substitution.
+    repaired = parser.capitalized(parsed, force=True)
+    assert ([t.text.casefold() for t in repaired.tokens]
+            == [t.text.casefold() for t in parsed.tokens])
 
 
 @given(_lexicons(), _policies())
@@ -555,3 +1489,1846 @@ def test_bad_policy_field_fails_cleanly(field: str, value: object) -> None:
     except (ValueError, TypeError):
         return
     _quiet_parser(policy=policy).parse("Dr. John de la Vega III")
+
+
+# --- #397/#461: the connective grid, and its five invariants --------
+# A GRID and not a name list, for the reason #531's agreement sweep
+# was one: every invariant below is stated about a shape the parser
+# can reach in many ways, and a list pins the ways somebody thought
+# of. Generators include heads with NO name word, parts of one word,
+# a part that is nothing but the connective, comma and no-comma,
+# mixed/ALL-CAPS/lower, class members supplied by a CUSTOM lexicon
+# (a second single letter that is also generational vocabulary, and a
+# connective that is also particle vocabulary), and four policies.
+#
+# ONE PARSE, MANY CHECKS (2026-09-20). The four invariants below ask
+# four questions of the SAME parse, so the grid is walked ONCE, in
+# `_connective_findings`, and each test reads its own answers out of
+# that walk. Four tests each walking the grid for themselves is what
+# took this module from 11s to 115s and CI's build jobs from about 5
+# minutes to 17-25 (every parse costs several times more under
+# coverage tracing, which is what CI runs). A new invariant over this
+# grid joins the walk rather than opening a fifth.
+
+
+#: A grid's configuration variants: (label, value, the features of a
+#: text that reach it). See `_rows`.
+_Variants = tuple[tuple[str, Lexicon, frozenset[str]], ...]
+
+#: The policies both grids below run, each with the feature a text
+#: must hold for the policy to be distinguishable at all -- see
+#: `_rows`.
+_GRID_POLICIES: tuple[tuple[str, Policy, frozenset[str]], ...] = (
+    ("default", Policy(), frozenset()),
+    ("family-first", Policy(name_order=FAMILY_FIRST), frozenset()),
+    ("given-last", Policy(name_order=FAMILY_FIRST_GIVEN_LAST),
+     frozenset()),
+    # lenient_comma_suffixes decides what a COMMA hands to the suffix
+    # run, and a name without one has no such hand-off to decide
+    ("strict-comma", Policy(lenient_comma_suffixes=False),
+     frozenset({","})),
+)
+
+
+def _reaching(text: str) -> frozenset[str]:
+    """What of a text a configuration variant could read at all: its
+    words, folded the way the vocabulary matches them, plus ',' when
+    it carries one."""
+    out = {w.strip(".,").lower() for w in text.split()}
+    if "," in text:
+        out.add(",")
+    return frozenset(out)
+
+
+def _rows(texts: list[str],
+          lexicons: _Variants) -> list[tuple[str, Parser, str]]:
+    """Every text against the parsers that can read it DIFFERENTLY.
+
+    A variant that ADDS vocabulary changes no parse of a name not
+    containing the added word, and `lenient_comma_suffixes` decides
+    nothing in a name with no comma, so most of a full cross product
+    is one configuration re-deriving another's answer. Each variant
+    declares the words that reach it and is paired with the texts
+    holding them.
+
+    A SHAPE trim and not a sample -- the TEXTS are untouched, and so
+    is every shape class among them; what goes is duplicate pairings.
+    Measured 2026-09-20 over the full cross product of both grids:
+    177,980 collapsed rows, 0 of them differing from the row they
+    collapse onto in fields, token tags and spans, `initials()` on
+    every group, the four derived views, `capitalized()` plain and
+    forced, or the reports. Reproduce with the signature comparison
+    in the commit that introduced this (`test(#397/#461): the
+    invariant tests share one parsed grid`).
+
+    Self-maintaining, which a hand-picked subset would not be: give a
+    generator below a 'v' word and the conj+v rows come back on their
+    own. That is the one to know about -- no text of the connective
+    grid holds a standalone 'v', so `conj+v` earns no row there and
+    earns them in the off-switch grid, whose suffixes include 'V'.
+    """
+    parsers = [(f"{ln}/{pn}", Parser(lexicon=lex, policy=pol),
+                lex_need | pol_need)
+               for ln, lex, lex_need in lexicons
+               for pn, pol, pol_need in _GRID_POLICIES]
+    out: list[tuple[str, Parser, str]] = []
+    for text in texts:
+        reach = _reaching(text)
+        out += [(text, parser, label)
+                for label, parser, need in parsers if need <= reach]
+    return out
+
+
+def _signature(parser: Parser, text: str) -> tuple[object, ...]:
+    """Everything the four grids' invariants can read of one parse.
+
+    Used only by the trim's own guard below, which is why it is
+    exhaustive rather than cheap: it has to be able to see a
+    difference no invariant in this file happens to ask about.
+    """
+    name = parser.parse(text)
+    return (
+        tuple(sorted(name.as_dict().items())),
+        tuple((t.text, t.role.value, tuple(sorted(t.tags)), t.span)
+              for t in name.tokens),
+        name.initials(),
+        tuple(name.initials(f"{{{r.value}}}") for r in _NAME_ROLES),
+        name.family_base, name.family_particles,
+        str(parser.capitalized(name)),
+        str(parser.capitalized(name, force=True)),
+        tuple(sorted((a.kind.value, a.detail,
+                      tuple(t.text for t in a.tokens))
+                     for a in name.ambiguities)),
+    )
+
+
+#: Every (text, lexicon, policy) the trim drops is checked against
+#: the row it collapses onto, one in `_TRIM_STRIDE` of them.
+_TRIM_STRIDE = 61
+
+
+def _dropped_rows(texts: list[str], lexicons: _Variants) -> list[
+        tuple[str, tuple[str, Lexicon], tuple[str, Policy],
+              tuple[str, Lexicon], tuple[str, Policy]]]:
+    """The pairings `_rows` declines, each with the pairing it
+    collapses onto: the same text under the variant it could not read
+    differently, replaced by the baseline of whichever dimension
+    declined.
+
+    Deterministically sampled by stride rather than at random -- a
+    random slice makes a failure unreproducible, and the shapes here
+    are generated in a fixed order.
+    """
+    base_lex = lexicons[0]
+    base_pol = _GRID_POLICIES[0]
+    out = []
+    for i, text in enumerate(texts):
+        if i % _TRIM_STRIDE:
+            continue
+        reach = _reaching(text)
+        for ln, lex, lex_need in lexicons:
+            for pn, pol, pol_need in _GRID_POLICIES:
+                if (lex_need | pol_need) <= reach:
+                    continue
+                twin_lex = (ln, lex) if lex_need <= reach else base_lex[:2]
+                twin_pol = (pn, pol) if pol_need <= reach else base_pol[:2]
+                out.append((text, (ln, lex), (pn, pol),
+                            twin_lex, twin_pol))
+    return out
+
+
+@functools.cache
+def _class_letters(lexicon: Lexicon) -> frozenset[str]:
+    """The class rules.md#P3's both-sides condition is about: a
+    connective that is ALSO generational vocabulary.
+
+    NO LENGTH TEST, matching the rule's own scope and the stage's
+    (#397 second review, where a `len(w) == 1` came out of both).
+    Measured no-op over every lexicon these grids build: `i` is the
+    only member in the default vocabulary and in every locale pack,
+    and the two variant lexicons add a one-letter connective and a
+    particle.
+
+    Cached on the lexicon -- a frozen, hashable value -- because both
+    grids ask this of every row and there are five lexicons between
+    them.
+    """
+    return frozenset(w for w in lexicon.conjunctions
+                     if w in lexicon.suffix_words)
+
+
+#: The two grids' lexicon variants, module-level so
+#: `test_every_declared_variant_earns_a_row` can name them. See
+#: `_rows` for what the third element of each declares.
+_CONNECTIVE_LEXICONS: _Variants = (
+    ("default", Lexicon.default(), frozenset()),
+    ("conj+v", Lexicon.default().add(conjunctions={"v"}),
+     frozenset({"v"})),
+    ("part+y", Lexicon.default().add(particles={"y"}),
+     frozenset({"y"})))
+_OFF_SWITCH_LEXICONS: _Variants = (
+    ("default", Lexicon.default(), frozenset()),
+    ("conj+v", Lexicon.default().add(conjunctions={"v"}),
+     frozenset({"v"})))
+
+
+def _connective_grid() -> list[tuple[str, Parser, str]]:
+    heads: tuple[list[str], ...] = (
+        [], ["Josep"], ["Josep", "Lluis"], ["Dr."], ["Dr.", "Josep"])
+    mids: tuple[list[str], ...] = (
+        [], ["Carod"], ["de", "Carod"], ["Carod", "Rovira"])
+    conns = ("i", "y", "e", "and", "&", "of", "и")
+    tails: tuple[list[str], ...] = (
+        [], ["Rovira"], ["de", "Rovira"], ["Rovira", "Puig"])
+    suffixes: tuple[list[str], ...] = (
+        [], ["III"], ["Jr."], ["I"], ["MA"])
+    texts: list[str] = []
+    seen: set[str] = set()
+    for head, mid, conn, tail, suffix, comma in itertools.product(
+            heads, mids, conns, tails, suffixes, (False, True)):
+        if not (mid or tail):
+            continue
+        if comma and tail:
+            base = " ".join(tail) + ", " + " ".join(head + mid + [conn])
+        else:
+            base = " ".join(head + mid + [conn] + tail)
+        base = (base + " " + " ".join(suffix)).strip()
+        for written in (base, base.upper(), base.lower()):
+            if written not in seen:
+                seen.add(written)
+                texts.append(written)
+    return _rows(texts, _CONNECTIVE_LEXICONS)
+
+
+_CONNECTIVE_GRID = _connective_grid()
+
+
+def _readmitted(tok: Token) -> bool:
+    return not {UNJOINED_TAG, UNJOINED_CONJUNCTION_TAG}.isdisjoint(tok.tags)
+
+
+def _has_something_to_join(tok: Token, part: tuple[Token, ...]) -> bool:
+    """rules.md#R3's question, asked of the WHOLE PART.
+
+    Working particles are set aside -- a particle the unjoined mark
+    has NOT readmitted is doing a particle's work and is no name word
+    for a connective to join.
+    """
+    return any(other is not tok
+               and "conjunction" not in other.tags
+               and not ("particle" in other.tags
+                        and UNJOINED_TAG not in other.tags)
+               for other in part)
+
+
+def _predicted_initials(part: tuple[Token, ...], role: Role) -> list[str]:
+    out = []
+    for tok in part:
+        skip = ("conjunction" in tok.tags
+                or ("particle" in tok.tags and role is not Role.GIVEN))
+        if not skip or _readmitted(tok):
+            out.append(tok.text[0])
+    return out
+
+
+#: The two kinds whose details assert DIFFERENT readings of the same
+#: word: one says the letter is read as an initial, the other that it
+#: is read as a generational suffix. A token cannot be both, so a
+#: token named by both carries a report that contradicts the reading
+#: beside it (#397 second review).
+_CONTRADICTORY_KINDS = (AmbiguityKind.CONJUNCTION_OR_INITIAL,
+                        AmbiguityKind.SUFFIX_OR_NAME)
+
+
+def _record_contradicting_reports(name: ParsedName, label: str, text: str,
+                                  out: list[str]) -> None:
+    """INV10 (#397 second review). Two statements of one rule, the
+    second wider than the first and both about the same defect.
+
+    rules.md#A1's own sentence, that a report names the reading the
+    parse took. The
+    connective-or-initial fork offers a connective and an initial and
+    says which it took, so a token the parse roles SUFFIX or TITLE
+    resolved that fork to NEITHER branch and the report is false on
+    its face. And no token may be named by two reports whose details
+    assert different readings of it, which is the same defect stated
+    without naming a role: 'JOHN QUINCY SMITH I' carried
+    connective-or-initial beside suffix-or-name, one saying the
+    letter reads as an initial and the other that it reads as the
+    generation.
+
+    'i' is the first word that is both a marked connective and suffix
+    vocabulary, so this could not arise before this cycle -- which is
+    why the invariant is worth writing down now rather than having
+    been written down before.
+    """
+    by_span: dict[tuple[int, int] | None, set[AmbiguityKind]] = {}
+    for amb in name.ambiguities:
+        for tok in amb.tokens:
+            span = None if tok.span is None else (tok.span.start,
+                                                  tok.span.end)
+            by_span.setdefault(span, set()).add(amb.kind)
+            if (amb.kind is AmbiguityKind.CONJUNCTION_OR_INITIAL
+                    and tok.role in (Role.SUFFIX, Role.TITLE)):
+                out.append(
+                    f"[{label}] {text!r}: {tok.text!r} is roled "
+                    f"{tok.role.value} and reports "
+                    f"{amb.kind.value}")
+    for span, kinds in by_span.items():
+        if set(_CONTRADICTORY_KINDS) <= kinds:
+            out.append(
+                f"[{label}] {text!r}: the token at {span} carries both "
+                f"{_CONTRADICTORY_KINDS[0].value} and "
+                f"{_CONTRADICTORY_KINDS[1].value}")
+
+
+@functools.cache
+def _connective_findings() -> dict[str, list[str]]:
+    """One walk of the connective grid; FIVE invariants' answers.
+
+    Each key below is one test's failure list, built with the parse
+    in hand and in grid order, so a test reads exactly what it would
+    have found walking the grid itself -- same rows, same order, same
+    message. What the walk does NOT do is decide anything: every
+    predicate stays where it was, spelled in the terms its own rule
+    is stated in, and this function only asks them all at once.
+    """
+    out: dict[str, list[str]] = {k: [] for k in
+                                 ("INV1", "INV2", "INV3/4", "INV5",
+                                  "INV10")}
+    for text, parser, label in _CONNECTIVE_GRID:
+        letters = _class_letters(parser.lexicon)
+        name = parser.parse(text)
+        _record_contradicting_reports(name, label, text, out["INV10"])
+        for role in _NAME_ROLES:
+            part = name.tokens_for(role)
+            # hoisted out of the INV3/INV4 comprehensions below, where
+            # it used to be recomputed once per token of the part
+            predicted = _predicted_initials(part, role)
+            if len(part) >= 2:
+                for i, tok in enumerate(part):
+                    if ("conjunction" not in tok.tags
+                            or len(tok.text) != 1
+                            or tok.text.lower() not in letters):
+                        continue
+                    left = any("conjunction" not in t.tags
+                               for t in part[:i])
+                    right = any("conjunction" not in t.tags
+                                for t in part[i + 1:])
+                    if not (left and right):
+                        out["INV1"].append(
+                            f"[{label}] {text!r}: {role.value} "
+                            f"{tok.text!r}")
+            for tok in part:
+                if "conjunction" not in tok.tags:
+                    continue
+                joinable = _has_something_to_join(tok, part)
+                if joinable == _readmitted(tok):
+                    out["INV2"].append(
+                        f"[{label}] {text!r}: {role.value} {tok.text!r} "
+                        f"joinable={joinable} "
+                        f"marked={_readmitted(tok)}")
+            got = name.initials(
+                f"{{{role.value}}}").replace(".", "").split()
+            if got != predicted:
+                out["INV5"].append(
+                    f"[{label}] {text!r}: {role.value} {got!r} != "
+                    f"predicted {predicted!r}")
+            if role is not Role.FAMILY:
+                continue
+            base = name.family_base.split()
+            contributing = [t for t in part
+                            if t.text[0] in predicted
+                            and (not ("conjunction" in t.tags
+                                      or "particle" in t.tags)
+                                 or _readmitted(t))]
+            for tok in contributing:
+                if tok.text not in base:
+                    out["INV3/4"].append(
+                        f"[{label}] {text!r}: INV3 {tok.text!r} initials "
+                        f"but is not in base {base!r}")
+            for tok in part:
+                if (tok.text in base and tok not in contributing
+                        and "conjunction" not in tok.tags):
+                    out["INV3/4"].append(
+                        f"[{label}] {text!r}: INV4 {tok.text!r} is a base "
+                        f"word, contributes no initial, and is no "
+                        f"connective")
+    return out
+
+
+@pytest.mark.parametrize("grid_name", ("connective", "off-switch"))
+def test_the_reach_trim_drops_only_rows_a_kept_row_repeats(
+        grid_name: str) -> None:
+    """The TRIM ITSELF, as a mechanism rather than as a measurement.
+
+    `_rows` pairs a text only with the configurations that can read
+    it differently, and each variant declares its reach as a set of
+    WORDS that `_reaching` folds a text into. Sound for the variants
+    that stand here today -- verified row by row when the trim
+    landed -- and silently wrong for a variant nobody has written
+    yet: `_reaching` splits on whitespace and strips edge periods, so
+    a variant declaring a MULTI-WORD entry ("van der") or a
+    hyphenated one would be matched by no text at all and would
+    contribute ZERO rows, leaving a green suite testing one
+    configuration fewer than it names.
+
+    Two checks, and the second is the one that catches that: every
+    dropped pairing parses identically to the pairing it collapses
+    onto, and every declared variant earns at least one row. A
+    variant that reaches nothing passes the first vacuously.
+
+    Sampled by stride (`_TRIM_STRIDE`), which keeps this at about a
+    second while covering every shape class: the generators emit
+    shapes in a fixed order, so a stride walks all of them.
+    """
+    grid, lexicons = ((_CONNECTIVE_GRID, _CONNECTIVE_LEXICONS)
+                      if grid_name == "connective"
+                      else (_OFF_SWITCH_GRID, _OFF_SWITCH_LEXICONS))
+    texts: list[str] = []
+    seen: set[str] = set()
+    for text, _parser, _label in grid:
+        if text not in seen:
+            seen.add(text)
+            texts.append(text)
+    cache: dict[tuple[str, str, str], tuple[object, ...]] = {}
+
+    def sig(text: str, lex: tuple[str, Lexicon],
+            pol: tuple[str, Policy]) -> tuple[object, ...]:
+        key = (text, lex[0], pol[0])
+        if key not in cache:
+            cache[key] = _signature(
+                Parser(lexicon=lex[1], policy=pol[1]), text)
+        return cache[key]
+
+    dropped = _dropped_rows(texts, lexicons)
+    assert dropped, "the trim dropped nothing; it has stopped trimming"
+    problems = [
+        f"{text!r} [{lex[0]}/{pol[0]}] differs from its kept twin "
+        f"[{twin_lex[0]}/{twin_pol[0]}]"
+        for text, lex, pol, twin_lex, twin_pol in dropped
+        if sig(text, lex, pol) != sig(text, twin_lex, twin_pol)]
+    assert not problems, (
+        f"{len(problems)} of {len(dropped)} dropped row(s) are not "
+        f"repeats:\n" + "\n".join(problems[:10]))
+
+
+def test_every_declared_variant_earns_a_row_somewhere() -> None:
+    """The other half of the trim's guard: a variant whose declared
+    reach no text can satisfy contributes ZERO rows and the suite
+    goes on testing one configuration fewer than it names, in
+    silence. `_reaching` splits a text on whitespace and strips edge
+    periods, so a multi-word or hyphenated entry is the shape that
+    would do it.
+
+    Asked of the two grids TOGETHER, because a variant earning rows
+    in one of them alone is the state today and is recorded rather
+    than a defect: no text of the connective grid holds a standalone
+    'v', so `conj+v` earns its rows in the off-switch grid, whose
+    suffixes include 'V'. `_rows` says so and calls it
+    self-maintaining -- give a connective generator a 'v' word and
+    the rows come back. What no generator can repair is a reach
+    nothing folds to, and that is what this refuses.
+    """
+    labels = ({label for _t, _p, label in _CONNECTIVE_GRID}
+              | {label for _t, _p, label in _OFF_SWITCH_GRID}
+              | {label for _t, _p, label in _MAIDEN_LINK_GRID})
+    declared = {f"{ln}/{pn}"
+                for lexicons in (_CONNECTIVE_LEXICONS,
+                                 _OFF_SWITCH_LEXICONS)
+                for ln, _lex, _ln_need in lexicons
+                for pn, _pol, _pn_need in _GRID_POLICIES}
+    missing = sorted(declared - labels)
+    assert not missing, (
+        f"declared variant(s) earning no row in any grid: {missing}")
+
+
+def test_the_connective_grid_can_fail() -> None:
+    """The reachability probe every grid in this file carries.
+
+    A grid that reaches none of the shapes it is about passes
+    vacuously, and a comparison over a population of zero is the same
+    silence as a clean run. These three counts are a dated recorded
+    control, measured 2026-09-20 on the shipped tree.
+
+    The row count fell from 170,100 to 55,800 when `_rows` stopped
+    pairing a text with configurations that cannot read it; the TEXT
+    count did not move, and that is the number to watch here, because
+    it is the one that says a shape was dropped. 1,580 of the first
+    2,000 rows join, against 1,280 of the old grid's first 2,000 --
+    the same texts, reached sooner, the old slice having held twelve
+    rows per text where this one holds three or four.
+    """
+    assert len(_CONNECTIVE_GRID) == 55800, len(_CONNECTIVE_GRID)
+    assert len({t for t, _, _ in _CONNECTIVE_GRID}) == 14175
+    joined = sum(1 for text, parser, _ in _CONNECTIVE_GRID[:2000]
+                 if any("conjunction" in tok.tags
+                        for tok in parser.parse(text).tokens))
+    assert joined > 1000, joined
+
+
+def test_a_generational_connective_joins_only_with_both_sides() -> None:
+    """INV1 (#397). For a single-letter connective that is ALSO
+    generational vocabulary: if it shares its role part with any other
+    word, a non-connective word stands before it AND after it.
+
+    Mutation-checked, 2026-09-20, re-measured on the trimmed grid:
+    dropping the whole both-sides condition fails this on 162 parses,
+    where the full cross product gave 504. The gate's other two
+    failure modes stay invisible here and are INV6's and INV1-
+    strengthened's to catch -- testing POSITION instead of class, and
+    dropping the count's frozen exclusion, each leave this invariant
+    green on every row, which is why those two exist. The CLASS test
+    is NOT covered here and has its own rows -- see
+    tests/v2/pipeline/test_group.py.
+    """
+    failures = _connective_findings()["INV1"]
+    assert not failures, (
+        f"{len(failures)} parse(s) joined a generational connective "
+        f"without a name word on each side:\n" + "\n".join(failures[:10]))
+
+
+def test_the_mark_is_exactly_the_parts_with_nothing_to_join() -> None:
+    """INV2 (#461). A connective carries a readmitting mark IFF its
+    part holds no other word that is neither a connective nor a
+    working particle.
+
+    Stated over the PAIR of marks deliberately: keyed on the new mark
+    alone it fails 272 times, every one of them under
+    `add(particles={"y"})`, where the part is all-particle and R2's
+    OLD mark does the readmitting. Mutation-checked, re-measured
+    2026-09-20 on the trimmed grid: neutering the walk's
+    lone-connective arm, so the new mark is never written, fails this
+    on 4,639 rows -- 14,078 of the full cross product, which is what
+    the trim costs a count and not what it costs detection.
+    """
+    failures = _connective_findings()["INV2"]
+    assert not failures, (
+        f"{len(failures)} connective token(s) disagree with the "
+        f"criterion:\n" + "\n".join(failures[:10]))
+
+
+def test_initials_take_only_base_words_and_drop_only_joiners() -> None:
+    """INV3 and INV4, beside R2's existing invariant.
+
+    INV3: every family word `initials()` contributes is a word of
+    `family_base`. INV4: every `family_base` word that contributes no
+    initial is tagged conjunction. Together they say the two views of
+    one parse cannot come apart again, which is the defect #461 was
+    filed about.
+
+    Mutation-checked, re-measured 2026-09-20 on the trimmed grid:
+    swapping the two branches of the mark walk fails this on 94
+    parses (188 over the full cross product) -- `Carod y` under
+    `add(particles={"y"})`, whose base is empty while its `y`
+    initials.
+    """
+    failures = _connective_findings()["INV3/4"]
+    assert not failures, (
+        f"{len(failures)} disagreement(s) between initials() and "
+        f"family_base:\n" + "\n".join(failures[:10]))
+
+
+def test_initials_emit_exactly_the_predicted_contributors() -> None:
+    """INV5. Per group, `initials("{role}")` emits exactly the words
+    the criterion predicts, in field order.
+
+    The output-level statement of the same rule, and the one that
+    catches a view reading the marks correctly and then rendering
+    something else. Mutation-checked, re-measured 2026-09-20 on the
+    trimmed grid: restoring the given group's old blanket exemption
+    (`_SKIP_TAGS_GIVEN` back to the empty set) fails this on 9,308
+    parses, and dropping the new mark from the readmitting set on
+    4,639 -- 27,103 and 14,078 over the full cross product.
+    """
+    failures = _connective_findings()["INV5"]
+    assert not failures, (
+        f"{len(failures)} group(s) emitted something other than the "
+        f"criterion's contributors:\n" + "\n".join(failures[:10]))
+
+
+def test_no_report_contradicts_the_reading_beside_it() -> None:
+    """INV10 (#397 second review). Two forms of one rule, both over
+    the connective grid's 55,800 rows: no token carries
+    connective-or-initial while the parse roles it SUFFIX or TITLE,
+    and no token is named by two reports whose details assert
+    different readings of it.
+
+    The fork classify takes offers a connective and an initial. A
+    generation is neither, so where the parse reads one the report
+    describes a branch nobody took -- which is the narrow half. The
+    wide half needs no role at all: two reports on one token, one
+    saying it reads as an initial and the other that it reads as a
+    generational suffix, cannot both be true whatever the roles say.
+
+    Mutation-checked, 2026-09-20: it fails on 8,204 rows at
+    dc3bdf9c -- 5,078 the narrow half and 3,126 the wide one -- and
+    on the same 8,204 at e540d4c5 and c8550b64, the report having
+    been wrong since the letter joined the marked subset. 0 here,
+    and deleting the withdrawal in `_pipeline/_assemble.py` restores
+    all 8,204.
+    """
+    failures = _connective_findings()["INV10"]
+    assert not failures, (
+        f"{len(failures)} report(s) contradict the reading beside "
+        f"them:\n" + "\n".join(failures[:10]))
+
+
+# --- #397 review: the OFF-SWITCH grid, and its two invariants -------
+# A second grid, kept apart from the one above rather than folded
+# into it, and the reason is the cost: both invariants below parse
+# every entry TWICE -- once as configured and once with the class
+# letter out of the connective vocabulary -- so the shapes that
+# earned a place here are the ones the first cut of #397 got wrong,
+# not every shape the file already covers. What this one adds over
+# `_connective_grid`: the trailing numeral and bare acronym assign's
+# peel takes ('V', 'i', beside the 'III'/'Jr.'/'I'/'MA' both carry),
+# a maiden clause, a head that is nothing but an initial or a
+# particle, and the SUFFIX comma as a third comma shape.
+#
+# The same ONE PARSE, MANY CHECKS rule as the grid above, and here it
+# buys twice as much: the three invariants share BOTH parses of every
+# row -- six parses became two -- in `_off_switch_findings`.
+
+
+def _off_switch_grid() -> list[tuple[str, Parser, str]]:
+    heads: tuple[list[str], ...] = (
+        [], ["Josep"], ["Josep", "Lluis"], ["Dr."], ["J."], ["van"],
+        ["Josep", "Lluis", "Marti"])
+    mids: tuple[list[str], ...] = ([], ["Carod"], ["de", "Carod"])
+    conns = ("i", "y", "e", "and")
+    tails: tuple[list[str], ...] = ([], ["Rovira"], ["de", "Rovira"])
+    # The last two are the #397 SECOND review's addition: a trailing
+    # TITLE, alone and standing behind a credential. Where the peel
+    # is read over the pieces as WRITTEN a following title hides the
+    # suffix run from it, so the bound the join checks its right
+    # neighbour against said "name word" of a credential and the join
+    # swallowed it -- 'John Quincy Adams i MA Prof.' read family
+    # 'Adams i MA' where 'John Quincy Adams i MA' reads family
+    # 'Adams'. The lower-case spelling of the title comes free with
+    # the casing loop below, and the leading-title-only head is
+    # `["Dr."]` above.
+    suffixes: tuple[list[str], ...] = (
+        [], ["III"], ["Jr."], ["I"], ["V"], ["MA"], ["i"], ["nee", "Puig"],
+        ["MA", "Prof."], ["Prof."])
+    texts: list[str] = []
+    seen: set[str] = set()
+    for head, mid, conn, tail, suffix, comma in itertools.product(
+            heads, mids, conns, tails, suffixes, (0, 1, 2)):
+        if not (mid or tail):
+            continue
+        if comma == 1 and not tail:
+            continue
+        if comma == 2 and not suffix:
+            continue
+        front = head + mid + [conn]
+        if comma == 1:
+            base = " ".join(tail) + ", " + " ".join(front + suffix)
+        elif comma == 2:
+            base = " ".join(front + tail) + ", " + " ".join(suffix)
+        else:
+            base = " ".join(front + tail + suffix)
+        for written in (base, base.upper(), base.lower()):
+            if written not in seen:
+                seen.add(written)
+                texts.append(written)
+    return _rows(texts, _OFF_SWITCH_LEXICONS)
+
+
+_OFF_SWITCH_GRID = _off_switch_grid()
+_OFF_PARSERS: dict[tuple[int, frozenset[str]], Parser] = {}
+
+
+def _off_switch(parser: Parser, letters: frozenset[str]) -> Parser:
+    """The same parser with those letters out of the connectives --
+    the parent-equivalent reading, where nothing can have joined.
+
+    Keyed by `id`, which is safe here and nowhere else: the grid above
+    holds every parser for the module's lifetime, so no id is reused.
+    A `Parser` is not hashable (its `Lexicon` carries a mappingproxy).
+    """
+    key = (id(parser), letters)
+    if key not in _OFF_PARSERS:
+        _OFF_PARSERS[key] = Parser(
+            lexicon=parser.lexicon.remove(conjunctions=set(letters)),
+            policy=parser.policy)
+    return _OFF_PARSERS[key]
+
+
+def _present(text: str, letters: frozenset[str]) -> frozenset[str]:
+    words = {w.strip(".,").lower() for w in text.split()}
+    return frozenset(letters & words)
+
+
+_Placed = tuple[Token, tuple[int, int]]
+
+
+def _placed(name: ParsedName) -> list[_Placed]:
+    """The parse's tokens with their spans, spliced ones dropped."""
+    return [(tok, tok.span) for tok in name.tokens if tok.span is not None]
+
+
+def _off_roles(off: ParsedName) -> dict[tuple[int, int], Role]:
+    return {span: tok.role for tok, span in _placed(off)}
+
+
+def _name_word_on_the_side(toks: list[_Placed], i: int, step: int,
+                           off_role: dict[tuple[int, int], Role],
+                           original: str) -> bool:
+    """Whether a name word stands on the `step` side of toks[i],
+    judged by the OFF-SWITCH parse's roles -- which is what makes
+    this a PRE-JOIN reading: in that parse the class letter is no
+    connective, so no join has moved anything. A comma between ends
+    the walk (it is another segment), and connectives are stepped
+    over because a run of them joins as one.
+
+    DELIBERATELY A SECOND IMPLEMENTATION, and named so that the
+    mirror cannot be mistaken for the glass: it asks ONE side per
+    call over spans and off-switch roles, where the parser's
+    `_group._between_name_words` asks both at once over pieces and
+    tags. The name it used to carry was the implementation's own,
+    which read as a call into the thing under test rather than as a
+    model of it."""
+    j = i
+    while True:
+        k = j + step
+        if not 0 <= k < len(toks):
+            return False
+        left, right = (j, k) if step > 0 else (k, j)
+        if "," in original[toks[left][1][1]:toks[right][1][0]]:
+            return False
+        j = k
+        if "conjunction" in toks[j][0].tags:
+            continue
+        return off_role.get(toks[j][1]) in _NAME_ROLES
+
+
+def _without_the_link(text: str, letters: frozenset[str]) -> str:
+    """The same name with every class letter deleted -- the LINK-FREE
+    CONTROL.
+
+    What it is for: a credential can land inside a name part for a
+    reason that has nothing to do with the link, and one such reason
+    is older than #397 and untouched by it. The particle chain reads
+    where the trailing suffix run begins over the pieces as WRITTEN,
+    so a trailing title hides that run from it and the chain runs to
+    the end of the segment -- 'Josep de Carod y Rovira MA Prof.'
+    reads family 'de Carod y Rovira MA Prof.' at the parent 46651750
+    and at 1.4.0, with no link of the generational class in it at
+    all. Deleting the link answers whether the link is what put the
+    credential there: where the control puts it in a name part too,
+    it did not.
+
+    A trailing comma rides back onto the word before, so the comma
+    SHAPE survives the deletion ('Josep Carod i, MA' -> 'Josep
+    Carod, MA') -- the one structure whose loss would make the
+    control a different name rather than the same one shorter.
+    """
+    out: list[str] = []
+    for word in text.split():
+        core = word.rstrip(",")
+        if core.lower() in letters:
+            if word.endswith(",") and out:
+                out[-1] += ","
+            continue
+        out.append(word)
+    return " ".join(out)
+
+
+def _initial_spans(name: ParsedName,
+                   letters: frozenset[str]) -> set[tuple[int, int]]:
+    return {span for tok, span in _placed(name)
+            if "initial" in tok.tags and tok.text.lower() in letters}
+
+
+def _initial_reading_moved(on: ParsedName, off: ParsedName,
+                           letters: frozenset[str]) -> bool:
+    """Whether the two parses disagree about a class letter being an
+    INITIAL -- rules.md#P3's marked-subset clause rather than its
+    both-sides one, and the one thing an off-switch comparison cannot
+    hold fixed: taking the word out of the connectives decides that
+    question too, in either direction. A marked letter in a one-case
+    name reads as an initial only while it IS connective vocabulary;
+    a bare capital the caller's own connectives claim stops reading
+    as one."""
+    return _initial_spans(on, letters) != _initial_spans(off, letters)
+
+
+def _link_joins_between_name_words(on: ParsedName, off: ParsedName,
+                                   letters: frozenset[str]) -> bool:
+    off_role = _off_roles(off)
+    toks = _placed(on)
+    for i, (tok, _span) in enumerate(toks):
+        if ("conjunction" not in tok.tags
+                or tok.text.lower() not in letters):
+            continue
+        if (_name_word_on_the_side(toks, i, -1, off_role, on.original)
+                and _name_word_on_the_side(toks, i, 1, off_role,
+                                           on.original)):
+            return True
+    return False
+
+
+@functools.cache
+def _off_switch_findings() -> dict[str, list[str]]:
+    """One walk of the off-switch grid; FOUR invariants' answers.
+
+    Both parses of a row -- as configured, and with the class letters
+    out of the connectives -- are taken once here and handed to all
+    four predicates, which is the whole of what this walk does. The
+    exemptions stay each test's own: INV6 takes the join and the
+    initial reading, INV1-strengthened the initial reading and the
+    link-free control, INV7 the join and the initial reading plus
+    R4's placed-connective sentence, exactly as their docstrings say.
+
+    INV6b costs NO parse at all, which is why it joins this walk
+    rather than opening a grid of its own: the grid already writes
+    every text in three casings, so the ALL-CAPS twin of a lower-case
+    row is another row of this same walk and the comparison is a
+    lookup over what the walk already read. The link-free controls
+    INV1-strengthened wants are the only parses added here, and only
+    on a row that would otherwise be recorded as a failure.
+    """
+    out: dict[str, list[str]] = {k: [] for k in
+                                 ("INV6", "INV1-strengthened", "INV7",
+                                  "INV6b")}
+    v1_off: dict[frozenset[str], Constants] = {}
+    #: (label, text) -> the roles the configured parse gave, in token
+    #: order, for INV6b's casing comparison below.
+    roles_by: dict[tuple[str, str],
+                   tuple[tuple[str, str, bool], ...]] = {}
+    for text, parser, label in _OFF_SWITCH_GRID:
+        letters = _present(text, _class_letters(parser.lexicon))
+        if not letters:
+            continue
+        on = parser.parse(text)
+        # INV6b's rows, and its scope: the MARKED subset. Its claim
+        # is decisions.md#P3's own -- a one-case name reads the
+        # marked letter as an initial and so reads as its ALL-CAPS
+        # twin already did -- and a class letter the caller's lexicon
+        # leaves UNMARKED is the shape P3's Accepted block records
+        # instead, where a bare Latin capital and its lowercase
+        # spelling genuinely part. The `conj+v` variant is exactly
+        # that caller: it adds 'v' to the connectives and not to the
+        # marked subset, so 'carod y rovira, v' and its ALL-CAPS twin
+        # disagree, identically at the parent 46651750 (20 rows,
+        # measured 2026-09-20, every one of them strict-comma).
+        if letters <= parser.lexicon.conjunctions_ambiguous:
+            roles_by[(label, text)] = tuple(
+                (tok.text.lower(), tok.role.value,
+                 AMBIGUOUS_ACRONYM_TAG in tok.tags) for tok in on.tokens)
+        off_parser = _off_switch(parser, letters)
+        off = off_parser.parse(text)
+        # the SEVEN FIELDS, and not comparison_key: a parse carries
+        # more than its fields, and what the off-switch legitimately
+        # moves besides them is the conjunction-or-initial report
+        same_fields = on.as_dict() == off.as_dict()
+        moved = _initial_reading_moved(on, off, letters)
+        if not (same_fields
+                or _link_joins_between_name_words(on, off, letters)
+                or moved):
+            out["INV6"].append(f"[{label}] {text!r}: {on.as_dict()} != "
+                               f"off-switch {off.as_dict()}")
+        if not moved:
+            off_role = _off_roles(off)
+            for role in _NAME_ROLES:
+                part = on.tokens_for(role)
+                if len(part) < 2:
+                    continue
+                for tok in part:
+                    # not the LINK itself: it is generational
+                    # vocabulary by definition of the class, so the
+                    # off-switch parse reads it as the suffix in every
+                    # name it ends. This rule is about the OTHER word
+                    # -- the credential a link must not take with it.
+                    # `span is None` is a typing guard and nothing
+                    # else: every token of a PARSER-produced name
+                    # carries one, and this grid holds no spliced
+                    # parse.
+                    if "conjunction" in tok.tags or tok.span is None:
+                        continue
+                    if off_role.get(tok.span) is not Role.SUFFIX:
+                        continue
+                    # THE LINK-FREE CONTROL, and the reason it is
+                    # asked here rather than folded into the oracle:
+                    # the particle chain puts a credential into the
+                    # family on its own where a trailing title hides
+                    # the suffix run from it, link or no link, at
+                    # this commit and at the parent and at 1.4.0
+                    # alike ('Josep de Carod y Rovira MA Prof.').
+                    # Turning the class letter off ALSO stops that
+                    # chain -- the letter becomes suffix vocabulary
+                    # again and the chain halts at it -- so the
+                    # off-switch parse reads the credential as a
+                    # suffix for a reason this rule is not about.
+                    # Deleting the link asks the question directly.
+                    # Recorded boundary, not a silence: the shape is
+                    # pinned by test_a_trailing_title_still_hides_the
+                    # _suffix_run_from_the_particle_chain below and
+                    # is the #535 family.
+                    #
+                    # Taken only on a row already read as a failure,
+                    # so the green state pays 15 parses over the
+                    # whole grid (measured 2026-09-20).
+                    control = parser.parse(
+                        _without_the_link(text, letters))
+                    if any(c.text == tok.text and c.role is role
+                           for c in control.tokens_for(role)):
+                        continue
+                    out["INV1-strengthened"].append(
+                        f"[{label}] {text!r}: {tok.text!r} reads as "
+                        f"the suffix and joined into {role.value}")
+        if not (same_fields and not moved
+                and not _placed_as_a_connective(on, letters)):
+            continue
+        for force in (False, True):
+            here = str(parser.capitalized(on, force=force))
+            there = str(off_parser.capitalized(off, force=force))
+            if here != there:
+                out["INV7"].append(
+                    f"[{label}] {text!r} force={force}: {here!r} != "
+                    f"off-switch {there!r}")
+            if label != "default/default":
+                continue
+            if letters not in v1_off:
+                v1_off[letters] = _v1_off_switch(letters)
+            v1_here = _v1_capitalized(text, None, force)
+            v1_there = _v1_capitalized(text, v1_off[letters], force)
+            if v1_here != v1_there:
+                out["INV7"].append(
+                    f"[v1] {text!r} force={force}: {v1_here!r} != "
+                    f"off-switch {v1_there!r}")
+    # INV6b, over what the walk above already read. A text that is
+    # its own lower-casing and is not its own upper-casing is the
+    # all-lower spelling of a one-case name, and the grid wrote its
+    # ALL-CAPS twin too, under the same labels.
+    for (label, text), roles in roles_by.items():
+        if text != text.lower() or text == text.upper():
+            continue
+        twin = roles_by.get((label, text.upper()))
+        if twin is None or twin == roles:
+            continue
+        if _a_case_reading_the_docs_already_own(roles, twin):
+            continue
+        out["INV6b"].append(
+            f"[{label}] {text!r}: {list(roles)} != ALL-CAPS twin "
+            f"{list(twin)}")
+    return out
+
+
+def _a_case_reading_the_docs_already_own(
+        lower: tuple[tuple[str, str, bool], ...],
+        upper: tuple[tuple[str, str, bool], ...]) -> bool:
+    """INV6b's TWO exemptions, both of them case readings this
+    library decided long before #397 and neither of them the marked
+    subset's.
+
+    ONE: a single-letter suffix word the lower spelling reads as the
+    suffix and the ALL-CAPS spelling does not. That is the
+    `suffix_not_acronyms` vs `is_an_initial` tension, Latin-only:
+    `_vocab.is_initial` matches an ASCII CAPITAL, so the peel's veto
+    fires on 'I' and 'V' and never on 'i' and 'v'. Measured
+    2026-09-20 at the parent 46651750 on letters this branch does not
+    touch at all -- 'carod y i' reads suffix 'i' where 'CAROD Y I'
+    reads family 'I', and 'carod y v' against 'CAROD Y V' and 'carod
+    e i' against 'CAROD E I' are the same pair.
+
+    TWO: a member of the AMBIGUOUS credential class reading
+    differently in the two spellings. That is decisions.md#S2's own
+    lean -- an ALL-CAPS bare member of the class reads as the
+    credential and a lower-case one as a name word -- and it decides
+    the COMMA STRUCTURE, so its effect reaches every token of the
+    name: 'i rovira, ma' reads given 'ma' and 'I ROVIRA, MA' suffix
+    'MA', and the rest of the row moves with it. Identical at the
+    parent on all 24 rows it exempts, measured 2026-09-20, and 21 of
+    those carry no letter of #397's class at all.
+
+    Neither exemption reaches what the branch DID close, which is
+    what makes INV6b worth running: 'rovira, i', 'john smith i jr'
+    and 'josep de carod i rovira' each disagreed with its ALL-CAPS
+    twin at the parent and agrees with it here.
+
+    Compared by token INDEX, the two spellings having the same tokens
+    in the same order by construction.
+    """
+    return any(
+        (a[1] == Role.SUFFIX.value and b[1] != Role.SUFFIX.value
+         and len(a[0]) == 1)
+        or ((a[2] or b[2]) and a[1] != b[1])
+        for a, b in zip(lower, upper))
+
+
+def test_the_off_switch_grid_can_fail() -> None:
+    """The reachability probe, the shape every grid in this file
+    carries. Dated recorded control, measured 2026-09-20.
+
+    The row count fell from 103,040 to 53,312 with `_rows` (see the
+    connective probe above); the TEXT count is unmoved by the trim,
+    and 2,011 of the first 4,000 rows carried a class letter against
+    1,800 of the pre-trim grid's first 4,000.
+
+    RE-MEASURED 2026-09-20 for the #397 second review, which added
+    the two trailing-title suffix runs: 66,752 rows over 16,576
+    texts, 2,109 of the first 4,000 rows carrying a class letter and
+    28,448 over the whole grid -- those being the rows parsed twice.
+    The module's own runtime is the budget these numbers spend, and
+    it is stated where the walk is built."""
+    assert len(_OFF_SWITCH_GRID) == 66752, len(_OFF_SWITCH_GRID)
+    assert len({t for t, _, _ in _OFF_SWITCH_GRID}) == 16576
+    reached = sum(1 for text, parser, _ in _OFF_SWITCH_GRID[:4000]
+                  if _present(text, _class_letters(parser.lexicon)))
+    assert reached > 1000, reached
+
+
+def test_a_link_that_joins_nothing_changes_no_field() -> None:
+    """INV6 (#397 review), and the strongest thing this rule can be
+    asked: turning the class letter OFF is the parent's reading, so
+    a letter that joins nothing must leave every field where the
+    parent left it.
+
+    Two exemptions, both narrow and both P3's own OTHER clauses. A
+    letter that JOINED between name words is the rule working, judged
+    on the off-switch parse's classes so an absorbed suffix cannot
+    pass itself off as the name word on the right. And a letter the
+    two parses disagree about being an INITIAL is the marked-subset
+    clause, which the switch decides along with the join and so
+    cannot hold fixed.
+
+    Mutation-checked, re-measured 2026-09-20 over the grid as it
+    now stands (the second review added the two trailing-title
+    suffix runs, so every count here moved with it): this fails on
+    1,480 parses at c8550b64, the commit the first review was
+    written against, on 764 where the both-sides gate tests POSITION
+    rather than class -- the c8550b64 defect isolated, which is the
+    one INV1 above cannot see -- and on 154 at dc3bdf9c, where the
+    join's right-hand bound was read over the pieces as WRITTEN and
+    a trailing title hid the suffix run from it. 0 here.
+    """
+    failures = _off_switch_findings()["INV6"]
+    assert not failures, (
+        f"{len(failures)} parse(s) moved a field with no link joining "
+        f"anything:\n" + "\n".join(failures[:10]))
+
+
+def test_a_trailing_credential_never_joins_into_a_name_part() -> None:
+    """INV1 strengthened (#397 review). INV1 above inspects the part
+    a join PRODUCED, where an absorbed credential is itself the name
+    word standing on the right, so it is satisfied by the very defect
+    it is about -- `Josep Lluis Carod i III` passes it. This asks the
+    off-switch parse instead: a word THAT reading puts in the suffix
+    never lands inside a joined name part.
+
+    It carries INV6's second exemption and not its first: a letter
+    the two parses disagree about being an INITIAL moved for the
+    marked-subset clause's reasons, not this one. The JOIN exemption
+    is deliberately absent -- a link joining elsewhere in the name
+    never licenses a credential joining here.
+
+    THE LINK-FREE CONTROL is its third exemption, added by the
+    second review and documented at the walk: a credential can land
+    in a name part for a reason older than #397 and untouched by it,
+    and deleting the link is how this asks whether the link is what
+    put it there.
+
+    Mutation-checked, re-measured 2026-09-20 over the grid as it now
+    stands: this fails on 639 parses at c8550b64, where INV1 fails
+    on none of them, on the same 639 where the both-sides gate tests
+    POSITION rather than class, and on 105 at dc3bdf9c -- the
+    trailing-title bound, the defect the two new suffix runs were
+    added to see. 0 here.
+    """
+    failures = _off_switch_findings()["INV1-strengthened"]
+    assert not failures, (
+        f"{len(failures)} credential(s) joined into a name part:\n"
+        + "\n".join(failures[:10]))
+
+
+def _placed_as_a_connective(on: ParsedName,
+                            letters: frozenset[str]) -> bool:
+    """Whether the parse put a class letter among the NAME words as a
+    connective -- rules.md#R4's own reading, and the one thing an
+    off-switch comparison of case repair cannot hold fixed: a
+    connective keeps its lowercase there and the off-switch parse,
+    where the letter is no connective at all, capitalizes it. Asked
+    of the token's WORDS rather than of its whole text, because a
+    merged piece renders word by word and repair asks per word."""
+    for tok in on.tokens:
+        if tok.role is Role.SUFFIX or "conjunction" not in tok.tags:
+            continue
+        if letters & {w.strip(".,").lower() for w in tok.text.split()}:
+            return True
+    return False
+
+
+def _v1_off_switch(letters: frozenset[str]) -> Constants:
+    constants = Constants()
+    for letter in letters:
+        constants.conjunctions.remove(letter)
+    return constants
+
+
+def _v1_capitalized(text: str, constants: Constants | None,
+                    force: bool) -> str:
+    name = HumanName(text) if constants is None else HumanName(text,
+                                                               constants)
+    name.capitalize(force=force)
+    return str(name)
+
+
+def test_a_letter_that_did_not_join_repairs_as_the_off_switch_does() -> None:
+    """INV7 (#397 review). Case repair is the third view, and the one
+    the differential cannot see at all, so it gets the same treatment
+    INV6 gives the fields: turning the class letter OFF is the
+    parent's reading, so a letter that became no connective of this
+    name must leave every repair where the parent left it, plain and
+    forced, on both surfaces.
+
+    Three exemptions. The first two are INV6's -- a name whose FIELDS
+    moved is a name the join changed, and a letter the two parses
+    disagree about being an INITIAL is the marked-subset clause. The
+    third is rules.md#R4's own sentence: a connective the parse
+    placed among the name words keeps its lowercase there, which the
+    off-switch parse cannot agree with, since for it the letter is
+    not a connective at all. What is left is the generation, and the
+    rule for it is that it repairs as the generation it was read as.
+
+    Mutation-checked, re-measured 2026-09-20 over the grid as it
+    now stands: this fails on 7,860 repairs at e540d4c5, where the
+    suffix-roled letter still took the connective conjunct, on 8,054
+    with the generation conjunct removed outright, and on 0 here and
+    at dc3bdf9c -- dc3bdf9c PASSES it, which is the point of INV7b
+    below: the guard there was the suffix ROLE alone, which is too
+    wide, and too wide in a direction this invariant's subject
+    cannot reach. The v1 arm runs on the default-lexicon,
+    default-policy rows, the only ones a `Constants` can express,
+    and 1,017 of the e540d4c5 failures are its.
+    """
+    failures = _off_switch_findings()["INV7"]
+    assert not failures, (
+        f"{len(failures)} repair(s) moved for a letter that joined "
+        f"nothing:\n" + "\n".join(failures[:10]))
+
+
+def test_a_one_case_name_reads_the_same_in_either_case() -> None:
+    """INV6b (#397 second review). decisions.md#P3 states in prose
+    that a name written wholly in lower case now reads as its
+    ALL-CAPS twin already did, and INV6 cannot hold it: the
+    `_initial_reading_moved` exemption there swallows the one-case
+    population, 9,296 of the 28,448 rows that carry a class letter,
+    which is exactly where the marked subset's riskiest movement
+    lives.
+
+    Every all-lower row's roles, token for token, against the roles
+    of the same text ALL-CAPS under the same parser. Costs no parse:
+    the grid writes both spellings, so the twin is another row of the
+    walk that just ran.
+
+    Scope and exemptions in `_a_case_reading_the_docs_already_own`
+    and at the `roles_by` write -- the marked subset, less two case
+    readings the library decided long before this rule.
+
+    Mutation-checked, 2026-09-20: marking the letter for ALL-CAPS
+    names only -- `and token.text.isupper()` on classify's fork --
+    fails this on 944 rows. Five unit tests in
+    tests/v2/pipeline/test_classify.py fall with it, so this is not
+    the only guard on that line and is not claimed to be; what it
+    adds is the SHAPE of the claim. Those five each assert one
+    spelling's reading against a stored expectation; this asserts
+    that the two spellings AGREE, over the 6,496 all-lower rows this
+    invariant's scope keeps -- where INV6 is exempt and where, until
+    the four rows this round added, no row of tests/v2/cases.py
+    stood. What it holds is
+    real: 'rovira, i', 'john smith i jr' and 'josep de carod i
+    rovira' each disagreed with its ALL-CAPS twin at the parent
+    46651750 and agrees with it here.
+    """
+    failures = _off_switch_findings()["INV6b"]
+    assert not failures, (
+        f"{len(failures)} one-case name(s) read differently from "
+        f"their ALL-CAPS twin:\n" + "\n".join(failures[:10]))
+
+
+# --- #397 second review: the SUFFIX-FIELD CONNECTIVE grid -----------
+# A fourth grid, and a tiny one -- 60 rows against the three above in
+# the tens of thousands -- because the shape it is about is one none
+# of them can generate. Every grid above puts its connective among
+# the name's own words or inside a clause; this one puts a connective
+# in the SUFFIX FIELD without its being generational vocabulary, and
+# there are exactly two ways to do that: a third comma part, whose
+# words assign reads as the suffix run whatever they are, and a field
+# spliced in after the parse.
+#
+# The oracle cannot be the off switch, and that is the reason for the
+# separate grid rather than a second reason for it: no `i` stands in
+# any of these names, so removing `i` from the connectives changes
+# nothing and the comparison would be vacuous -- the silence a
+# reachability probe exists to catch. The oracle is the RULE instead,
+# the RULE instead, rules.md#R4 read in its own words: a suffix-roled
+# connective that the suffix vocabulary does NOT hold was read as no
+# generation and keeps its lowercase.
+# The literal strings the released wheels give are pinned separately,
+# as unit tests in tests/v2/test_render.py.
+
+_SUFFIX_FIELD_CONNECTIVES = ("and", "y", "e", "und", "of", "&", "и")
+
+
+def _suffix_field_rows() -> list[tuple[str, str]]:
+    """(description, the connective word) for every way this grid
+    puts a connective into the suffix field."""
+    rows: list[tuple[str, str]] = []
+    for word in _SUFFIX_FIELD_CONNECTIVES:
+        rows += [(f"Smith, John, {word}", word),
+                 (f"Doe, Jane, {word} Jr.", word),
+                 (f"Smith, John, {word} III", word)]
+    return rows
+
+
+def test_a_connective_the_suffix_field_holds_keeps_its_lowercase() -> None:
+    """INV7b (#397 second review). R4's clause turns on the
+    GENERATION and not on the field: a connective the suffix field
+    merely holds, which the suffix vocabulary does not know, was read
+    as no generation, so case repair leaves it lowercase -- plain and
+    forced, on both surfaces.
+
+    INV7 cannot see this. Its oracle is the off switch and its
+    subject is the class letter, and no name here carries one: `and`,
+    `y`, `e`, `und`, `of`, `&` and `и` are connectives and nothing
+    else, which is the whole point -- they are what a role test alone
+    could not tell apart from the generation.
+
+    Mutation-checked, 2026-09-20: this fails on 36 of its 42 rows
+    at dc3bdf9c, where `role is not Role.SUFFIX` gated both
+    conjunction arms, and on 0 here; the six that pass there are the
+    Cyrillic 'и', which repairs to itself either way. 'Smith, John,
+    and' repaired forced to 'John Smith And' there, against 'John
+    Smith and' at 1.4.0, at 2.0.0 through 2.3.0 and at the parent
+    46651750. INV7 above cannot see any of this -- it passes at
+    dc3bdf9c.
+    """
+    parser = Parser()
+    failures = []
+    for text, word in _suffix_field_rows():
+        name = parser.parse(text)
+        if word not in {t.text for t in name.tokens_for(Role.SUFFIX)}:
+            failures.append(f"{text!r}: {word!r} is not in the suffix")
+            continue
+        for force in (False, True):
+            repaired = str(parser.capitalized(name, force=force))
+            v1 = _v1_capitalized(text, None, force)
+            for label, got in (("core", repaired), ("v1", v1)):
+                if word not in got.split():
+                    failures.append(
+                        f"[{label}] {text!r} force={force}: {got!r} does "
+                        f"not keep {word!r} lowercase")
+    assert not failures, (
+        f"{len(failures)} repair(s) capitalized a connective the "
+        f"suffix field merely holds:\n" + "\n".join(failures[:10]))
+
+
+def test_the_suffix_field_connective_grid_can_fail() -> None:
+    """The reachability probe, the shape every grid in this file
+    carries. Dated recorded control, measured 2026-09-20.
+
+    The one that matters here is the SECOND: a row whose connective
+    the parse did not actually put in the suffix field would pass
+    INV7b for the wrong reason, and the invariant records that as a
+    failure rather than skipping it, so this counts the rows that
+    reach the repair at all.
+    """
+    rows = _suffix_field_rows()
+    assert len(rows) == 21, len(rows)
+    parser = Parser()
+    reached = sum(
+        1 for text, word in rows
+        if word in {t.text for t in parser.parse(text).tokens_for(
+            Role.SUFFIX)})
+    assert reached == 21, reached
+    assert not _class_letters(Lexicon.default()) & {
+        w for _t, w in rows}, "a class letter would make INV7 the oracle"
+
+
+# --- #397 review: the MAIDEN-CLAUSE LINK grid, and its two ----------
+# invariants
+# A third grid, kept apart from the two above for the reason the
+# off-switch one is: every row here is parsed TWICE, once as written
+# and once with the link spelled `y`, and the texts that earn the
+# second parse are the clause shapes -- which neither grid above
+# generates, both putting their connective among the name's own
+# words. What this one adds: a link INSIDE a maiden clause, in every
+# position a clause can hold one, under every marker the library
+# ships and behind every trailing run the walk stops at.
+#
+# The `y` spelling is the ORACLE and not a second subject. It is the
+# same sentence with the ambiguity removed: `y` is connective
+# vocabulary and no generation, so nothing in the walk can read it as
+# the end of the clause, and whatever it does is what the `i`
+# spelling has to do wherever P3 says the letter is joining.
+
+#: The clause bodies, `@` standing where the link goes: a link
+#: between two words, with a word run on either side of it, doubled,
+#: and the two shapes where it joins NOTHING -- nothing on its right,
+#: nothing on its left but the marker. The last two are the
+#: controls the guard below must refuse, and
+#: `test_the_maiden_link_grid_can_fail` counts them out.
+_LINK_BODIES: tuple[tuple[str, ...], ...] = (
+    ("Puig", "@", "Soler"),
+    ("Puig", "@", "Soler", "Roig"),
+    ("Puig", "Soler", "@", "Roig"),
+    ("Puig", "@", "Soler", "@", "Roig"),
+    ("Puig", "@"),
+    ("@", "Soler"),
+)
+#: Nothing, the two generations and the two credential classes -- the
+#: four trailing runs M2's walk stops at, plus the empty one.
+_LINK_TAILS: tuple[tuple[str, ...], ...] = (
+    (), ("III",), ("Jr.",), ("MA",), ("PhD",))
+#: One to three words, and the last carries a link of its OWN, which
+#: stays spelled `i` in both parses: the head's reading is not what
+#: this grid is about, and holding it fixed is what makes a moved
+#: field the clause's doing.
+_LINK_HEADS: tuple[tuple[str, ...], ...] = (
+    ("Jane",), ("Doe", "Jane"), ("Jane", "Doe"),
+    ("Jane", "M.", "Doe"), ("Carod", "i", "Rovira"))
+
+_LINK_RE = re.compile(r"(?<!\S)y(?!\S)")
+
+
+def _link_texts() -> dict[str, str]:
+    """Every clause shape, mapped to its `y`-spelled twin.
+
+    The two spellings differ in one CHARACTER per link, so their
+    token spans line up exactly -- which is what lets the second
+    invariant below delimit the clause with the twin's own maiden
+    tokens and then read the first parse at those offsets.
+    """
+    out: dict[str, str] = {}
+    markers = sorted(Lexicon.default().maiden_markers)
+    for head, marker, body, tail, comma in itertools.product(
+            _LINK_HEADS, markers, _LINK_BODIES, _LINK_TAILS,
+            (False, True)):
+        if comma and len(head) < 2:
+            continue
+        pair = []
+        for link in ("i", "y"):
+            words = [link if w == "@" else w for w in body]
+            rest = list(head[1:] if comma else head) + [marker] \
+                + words + list(tail)
+            pair.append(f"{head[0]}, " + " ".join(rest) if comma
+                        else " ".join(rest))
+        out.setdefault(pair[0], pair[1])
+    return out
+
+
+_LINK_TWIN = _link_texts()
+_MAIDEN_LINK_GRID = _rows(
+    list(_LINK_TWIN),
+    (("default", Lexicon.default(), frozenset()),))
+
+
+def _link_joins_inside_the_clause(maiden: str) -> bool:
+    """Whether the ORACLE parse put a link inside the birth name with
+    a birth-name word on each side of it -- rules.md#P3's both-sides
+    condition, read off the `y` spelling's own maiden field.
+
+    The guard, and it is narrower than "the twin keeps the link" for
+    a measured reason: 'Jane Doe nee Puig y' keeps its `y` in maiden
+    'Puig y', and 'Jane Doe nee Puig i' reads maiden 'Puig' with
+    suffix 'i' -- deliberately, the link there joining nothing and
+    being the generation it also spells (rules.md#M2). So a guard
+    asking only whether the twin kept the letter would demand the two
+    agree where the rules say they must not. `Puig y III` and `y
+    Soler` are the same shape from the other two sides.
+    """
+    words = maiden.split()
+    at = [k for k, w in enumerate(words) if w == "y"]
+    return bool(at) and all(
+        any(w != "y" for w in words[:k])
+        and any(w != "y" for w in words[k + 1:]) for k in at)
+
+
+@functools.cache
+def _maiden_link_findings() -> dict[str, list[str]]:
+    """One walk of the maiden-link grid; two invariants' answers.
+
+    Both parses of a row are taken once here and handed to both
+    predicates, which is all this walk does -- the ONE PARSE, MANY
+    CHECKS rule the two grids above follow.
+    """
+    out: dict[str, list[str]] = {k: [] for k in ("INV8", "INV9")}
+    for text, parser, label in _MAIDEN_LINK_GRID:
+        twin = parser.parse(_LINK_TWIN[text])
+        if not _link_joins_inside_the_clause(twin.maiden):
+            continue
+        on = parser.parse(text)
+        want = {k: _LINK_RE.sub("i", v) for k, v in twin.as_dict().items()}
+        if on.as_dict() != want:
+            out["INV8"].append(f"[{label}] {text!r}: {on.as_dict()} != "
+                               f"y-twin {want}")
+        spans = [tok.span for tok in twin.tokens
+                 if tok.role is Role.MAIDEN and tok.span is not None]
+        lo = min(s.start for s in spans)
+        hi = max(s.end for s in spans)
+        for tok in on.tokens:
+            if (tok.span is not None and lo <= tok.span.start
+                    and tok.span.end <= hi and tok.role in _NAME_ROLES):
+                out["INV9"].append(
+                    f"[{label}] {text!r}: {tok.text!r} of the birth "
+                    f"name reads as {tok.role.value}")
+    return out
+
+
+def test_the_maiden_link_grid_can_fail() -> None:
+    """The reachability probe, the shape every grid in this file
+    carries. Dated recorded control, measured 2026-09-20.
+
+    The third count is the one to watch: the guard above refuses the
+    two joining-nothing bodies outright, so a grid whose every row
+    were one of those would pass both invariants in silence. 1,350 of
+    the first 2,000 rows are guarded in, and 10,540 of all 15,810 --
+    two thirds, which is the four admitted bodies of six.
+    """
+    assert len(_MAIDEN_LINK_GRID) == 15810, len(_MAIDEN_LINK_GRID)
+    assert len(_LINK_TWIN) == 4590, len(_LINK_TWIN)
+    guarded = sum(
+        1 for text, parser, _ in _MAIDEN_LINK_GRID[:2000]
+        if _link_joins_inside_the_clause(parser.parse(_LINK_TWIN[text]).maiden))
+    assert guarded > 800, guarded
+
+
+def test_a_clause_link_reads_as_its_y_twin_does() -> None:
+    """INV8 (#397 review). THE y TWIN. Where the `y` spelling puts a
+    link inside the birth name with a birth-name word on each side,
+    the `i` spelling gives the same seven fields, letter for letter
+    apart from the link itself.
+
+    `y` is connective vocabulary and nothing else, so its reading is
+    the one the maiden walk was never able to get wrong; `i` is that
+    same connective AND the roman numeral, and the walk used to end
+    the birth name at it. The pair is the whole statement of
+    rules.md#M2's link clause, and it needs no expected values of its
+    own.
+
+    Mutation-checked, 2026-09-20: it fails on all 10,540 guarded rows
+    at 0fbcaa0b -- this branch's tip before the fix -- and on the same
+    10,540 at the parent 46651750, the walk having truncated the
+    birth name at the link since long before #397 reached it. That it
+    is EVERY guarded row and not a subset is the finding: no clause
+    shape holding a joining link read as its twin did.
+    """
+    failures = _maiden_link_findings()["INV8"]
+    assert not failures, (
+        f"{len(failures)} parse(s) read a clause link differently "
+        f"from its y twin:\n" + "\n".join(failures[:10]))
+
+
+def test_no_birth_name_word_reads_as_a_word_of_the_current_name() -> None:
+    """INV9 (#397 review). The failure class #424 and #533 exist to
+    prevent, stated for the link: no token standing inside the birth
+    name -- as the `y` twin's own maiden tokens delimit it -- is
+    roled GIVEN, MIDDLE or FAMILY.
+
+    Weaker than INV8 and kept beside it because it is the one that
+    names the HARM. A truncation moves fields too, and this stays
+    green for it; what it refuses is a word of one person's birth
+    name being handed to the surname they carry now.
+
+    Mutation-checked, 2026-09-20: it fails on 28,985 tokens at
+    0fbcaa0b and on 22,185 at the parent 46651750, over the same
+    10,540 guarded rows. The GAP between those two is what this
+    branch added: at the parent the released words are a truncation
+    that left them in `middle` and `family`, and with the link
+    joining they became words of the current surname itself.
+    """
+    failures = _maiden_link_findings()["INV9"]
+    assert not failures, (
+        f"{len(failures)} birth-name word(s) read as a word of the "
+        f"current name:\n" + "\n".join(failures[:10]))
+
+
+# --- #459/#492/#478: case repair changes case and nothing else ------
+# Not a grid, and deliberately not joined to one: the three grids
+# above generate connective shapes under variant lexicons, and this
+# invariant is about every name a caller has actually written -- the
+# deduped corpus glob plus the case table's texts -- under the two
+# lexicons that decide what the exceptions map can do, the shipped one
+# and one with the map emptied. The fuzzed half rides the existing
+# hypothesis walk instead (test_any_valid_config_still_parses_totally),
+# which already draws masks. Measured 2026-09-23 on py3.11: 1606 texts,
+# and the whole walk -- two lexicons, both surfaces, plain and forced
+# -- under a second (`--durations`).
+
+_CASE_ONLY_TEXTS = list(dict.fromkeys(
+    [*_FORK_CORPUS, *(case.text for case in CASES)]))
+_FACADE_LISTS = ("title_list", "first_list", "middle_list", "last_list",
+                 "suffix_list", "nickname_list", "maiden_list")
+
+
+def _case_only_violations() -> list[str]:
+    """Every repaired token, and every repaired facade list element,
+    that differs from what it repaired by more than case. Compared
+    token by token on the core and list by list on the facade, never
+    through a rendered string, so render spacing cannot hide or fake
+    a difference."""
+    emptied = dataclasses.replace(Lexicon.default(),
+                                  capitalization_exceptions=())
+    configs = (("default", Parser(), Constants()),
+               ("map emptied", Parser(lexicon=emptied),
+                Constants(capitalization_exceptions={})))
+    out: list[str] = []
+    for label, parser, constants in configs:
+        for text in _CASE_ONLY_TEXTS:
+            name = parser.parse(text)
+            for force in (False, True):
+                repaired = parser.capitalized(name, force=force)
+                for was, now in zip(name.tokens, repaired.tokens,
+                                    strict=True):
+                    if was.text.casefold() != now.text.casefold():
+                        out.append(
+                            f"[core, {label}, force={force}] {text!r}: "
+                            f"{was.text!r} -> {now.text!r}")
+            human = HumanName(text, constants=constants)
+            before = {attr: getattr(human, attr) for attr in _FACADE_LISTS}
+            # capitalize() mutates in place, so the forced call repairs
+            # the plain call's output -- still compared against the
+            # lists as parsed, which casefold equality makes transitive
+            for force in (False, True):
+                human.capitalize(force=force)
+                for attr in _FACADE_LISTS:
+                    after = getattr(human, attr)
+                    if ([s.casefold() for s in after]
+                            != [s.casefold() for s in before[attr]]):
+                        out.append(
+                            f"[facade, {label}, force={force}] {text!r} "
+                            f"{attr}: {before[attr]!r} -> {after!r}")
+    return out
+
+
+def test_case_repair_changes_case_and_nothing_else() -> None:
+    """rules.md#R4 read as an invariant: a repaired token equals its
+    input under str.casefold(), on both surfaces, plain and forced,
+    under the shipped lexicon and under one whose exceptions map is
+    empty. casefold(), not a character-for-character check, is the
+    comparator because the rule was never stated against Python's own
+    casing tables: 'ß'.upper() is 'SS', two characters for one, and
+    'ß' and 'ss' fold alike, so a lengthened word still passes -- and
+    so would a repair trading 'ss' for 'ß', the comparator's recorded
+    blind spot. It is not blind the other way: the roman-numeral
+    shape under re.I admits the dotless 'ı', which upper()s to 'I',
+    and 'I' does NOT fold back to 'ı', so a name spelling a numeral
+    with it would fail this walk; none in the walk does. Both cases
+    are decisions.md#R4's Unicode boundary.
+
+    Recorded negative control, measured 2026-09-23 over this walk: at
+    the parent 4d0680e6, where the exceptions map SUBSTITUTED its
+    value ('md' -> 'M.D.', 'iii.' -> 'III'), this fails on 257
+    repairs, every one under the shipped lexicon and none with the map
+    emptied. The live control is the test below.
+    """
+    failures = _case_only_violations()
+    assert not failures, (
+        f"{len(failures)} repair(s) changed more than case:\n"
+        + "\n".join(failures[:10]))
+
+
+def test_the_case_only_walk_can_fail(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """The walk above must be able to report a violation, or its
+    silence proves nothing. Putting the pre-#459 substitution back --
+    the mask applier returning the map's value verbatim -- has to be
+    seen. Measured 2026-09-23, it fails on 16 repairs: 8 token repairs
+    counted on both surfaces (core and facade), the same way the
+    parent's 257 is counted -- the five texts that write Ph.D. with
+    its periods, in either case, including the all-initials spelling
+    p.h.d., which the mask 'PhD' would strip of them. Far fewer than
+    the parent's 257 because the shipped map no longer holds a value
+    spelled unlike its key's common spellings; the count is a floor on
+    the walk's reach, not a target.
+    """
+    import nameparser._render as render_module
+    monkeypatch.setattr(render_module, "_apply_mask",
+                        lambda word, mask: mask)
+    failures = _case_only_violations()
+    assert failures, "the case-only walk cannot see a substitution"
+    assert any("'Ph.D.' -> 'PhD'" in line for line in failures), failures
+
+
+# --- #542/#585: a decomposed name renders as its composed twin does -
+# The same texts as the walk above, those that decompose at all, each
+# parsed in both forms, repaired and initialled, and compared once the
+# decomposed output is composed again. A text whose two forms PARSE
+# differently is set aside rather than compared: both views follow the
+# parse, so the comparison would report the parse, and the one class that does so is
+# unspaced hangul, which segmentation matches as written by decision
+# (docs/usage.rst, "Decomposed text"). The test below pins that filter.
+
+def _hangul(text: str) -> bool:
+    return any("가" <= c <= "힣"
+               for c in unicodedata.normalize("NFC", text))
+
+
+def _nfd_twin_findings() -> tuple[list[str], list[str], int]:
+    """(disagreements, texts set aside, texts compared)."""
+    def nfc(text: str) -> str:
+        return unicodedata.normalize("NFC", text)
+
+    parser = Parser()
+    out: list[str] = []
+    set_aside: list[str] = []
+    compared = 0
+    for text in _CASE_ONLY_TEXTS:
+        decomposed = unicodedata.normalize("NFD", text)
+        if decomposed == nfc(text):
+            continue
+        name, composed = parser.parse(decomposed), parser.parse(nfc(text))
+        if ([(t.role, nfc(t.text)) for t in name.tokens]
+                != [(t.role, t.text) for t in composed.tokens]):
+            set_aside.append(text)
+            continue
+        compared += 1
+        human, twin = HumanName(decomposed), HumanName(nfc(text))
+        for surface, decomposed_initials, composed_initials in (
+                ("core", name.initials(), composed.initials()),
+                ("facade", human.initials(), twin.initials())):
+            if nfc(decomposed_initials) != composed_initials:
+                out.append(f"[initials, {surface}] {text!r}: "
+                           f"{nfc(decomposed_initials)!r} != "
+                           f"{composed_initials!r}")
+        for force in (False, True):
+            got = [nfc(t.text) for t in
+                   parser.capitalized(name, force=force).tokens]
+            want = [t.text for t in
+                    parser.capitalized(composed, force=force).tokens]
+            if got != want:
+                out.append(f"[core, force={force}] {text!r}: "
+                           f"{got!r} != {want!r}")
+        for force in (False, True):
+            human.capitalize(force=force)
+            twin.capitalize(force=force)
+            for attr in _FACADE_LISTS:
+                got = [nfc(s) for s in getattr(human, attr)]
+                if got != getattr(twin, attr):
+                    out.append(f"[facade, force={force}] {text!r} {attr}: "
+                               f"{got!r} != {getattr(twin, attr)!r}")
+    return out, set_aside, compared
+
+
+def test_a_decomposed_name_renders_as_its_composed_twin() -> None:
+    """rules.md#R3 and #R4 read as an invariant over encodings: a
+    letter written as a base letter and its combining accent initials
+    (#585) and repairs (#542) as the letter written whole does. Core
+    and facade; repair plain and forced. The output is compared
+    composed because both views keep the form they were given.
+
+    Recorded negative controls, measured 2026-10-02. Repair, with
+    97af1f02's _render.py, before a word ran on through its marks, over
+    #542's corpus (its own two R4 rows included): 144 disagreements over
+    the 137 texts compared, 47 more set aside, every one hangul
+    ('JOSÉ GARCÍA' repairing to 'José GarcíA'). Initials, with
+    _first_letter taking text[0] again, over #585's corpus (its own two
+    R3 rows included, so 139 texts compared where #542's had 137): 44
+    disagreements, 22 texts each failing on both surfaces, katakana as
+    well as Latin ('マイケル ジャクソン' initialling 'マ. シ.', the
+    dakuten of 'ジ' decomposing to a combining mark). The live
+    controls are the two tests below."""
+    failures, set_aside, compared = _nfd_twin_findings()
+    assert compared, "no decomposable text was compared"
+    assert all(_hangul(text) for text in set_aside), (
+        "a non-hangul text parses differently decomposed: "
+        f"{[t for t in set_aside if not _hangul(t)]}")
+    assert not failures, (
+        f"{len(failures)} decomposed rendering(s) disagree:\n"
+        + "\n".join(failures[:10]))
+
+
+def test_the_decomposed_walk_can_fail(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stopping a word at its first combining mark again -- #542's
+    defect -- has to be seen by the walk above."""
+    import nameparser._render as render_module
+    monkeypatch.setattr(render_module, "_past_marks",
+                        lambda text, end: end)
+    failures, _, _ = _nfd_twin_findings()
+    assert any("'José', 'GarcíA'" in line for line in failures), failures
+
+
+def test_the_decomposed_initials_walk_can_fail(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Taking a token's first code point again -- #585's defect -- has
+    to be seen by the walk above, on both surfaces."""
+    import nameparser._render as render_module
+    monkeypatch.setattr(render_module, "_first_letter",
+                        lambda text: text[0])
+    failures, _, _ = _nfd_twin_findings()
+    for surface in ("core", "facade"):
+        assert any(line.startswith(f"[initials, {surface}]")
+                   for line in failures), failures
+
+
+_TWIN_HEADS = ("Smith, John,", "Smith, John, Jr.,", "Doe, Jane, PhD")
+_TWIN_BODIES = (
+    "PhD née Puig Mr. i Soler", "PhD née Puig i Soler",
+    "PhD née Puig Dr. i y Soler", "MD née Carod i Rovira Mr.",
+    "PhD née Jones Smith i Soler", "PhD née Puig y Soler",
+    "Puig i Soler", "Puig Dr. i y Soler", "PhD and MD", "PhD i MD",
+    "PhD MD FACS", "Puig y Soler")
+
+
+def _twin_record(name: ParsedName) -> tuple[object, ...]:
+    """The role fields and the reported kinds, less `comma-structure`:
+    C2 reports it once per extra comma part, so the typed comma adds
+    one the core does not, by construction rather than by reading."""
+    kinds = sorted(a.kind for a in name.ambiguities
+                   if a.kind is not AmbiguityKind.COMMA_STRUCTURE)
+    return (name.as_dict(), kinds)
+
+
+def _comma_twin_findings(parser: Parser) -> tuple[list[str], int]:
+    """Each body with a ' - ' core in one interior gap, against the same
+    text with a typed comma there, all seven fields."""
+    failures = []
+    total = 0
+    for head in _TWIN_HEADS:
+        for body in _TWIN_BODIES:
+            parts = body.split()
+            for gap in range(1, len(parts)):
+                left, right = " ".join(parts[:gap]), " ".join(parts[gap:])
+                total += 1
+                got = _twin_record(parser.parse(f"{head} {left} - {right}"))
+                want = _twin_record(parser.parse(f"{head} {left}, {right}"))
+                if got != want:
+                    failures.append(f"{head} {left} - {right}: "
+                                    f"{got} != {want}")
+    return failures, total
+
+
+def test_a_delimiter_core_in_a_tail_reads_as_its_comma_twin() -> None:
+    """rules.md's C1: "a delimiter the policy declares parts a trailing
+    suffix part as a comma would" (#549). Every role field of a name
+    with a declared core standing in a part after the suffix comma, and
+    every kind it reports but `comma-structure` (`_twin_record`),
+    equals that of the same text written with a comma in the core's
+    place -- the maiden clause, the connective join and the entry
+    boundary alike. The heads put the core in a TRAILING part only: before the
+    first comma, or in the given part of the listing form, the core is
+    a word (C1's Accepted entry), and its comma twin a different
+    structure.
+
+    RECORDED NEGATIVE CONTROL: at 061f02da, where the join and the
+    maiden walk stepped over a core instead (#538), 102 of these 129
+    texts disagreed -- 'Puig - i Soler' read suffix 'Puig - i Soler'
+    against 'Puig, i Soler', and 'PhD née Puig - i Soler' maiden
+    'Puig i Soler' against 'Puig'.
+    """
+    dash = Parser(policy=Policy(extra_suffix_delimiters=frozenset({" - "})))
+    failures, total = _comma_twin_findings(dash)
+    assert total == 129
+    assert not failures, "\n".join(failures)
+
+
+# A one-letter word written with its period is an initial and not a
+# particle (rules.md#P7), so a name holding 'Ó.' must read exactly as
+# the same name holding any other initial does. Two INPUTS,
+# not two views of one parse (docs/design/AGENTS.md axis 11): the rule
+# is not consulted, so the test can find the rule wrong as well as the
+# code. 'Q.' is the comparison initial because no word of the grid
+# holds a q, so mapping it back to Ó cannot touch another word.
+#
+# Every particle reader in the package is a site, and each is checked
+# by every view the comparison takes: the parse's own fields, reports,
+# initials and case repair, and the v1 facade's initials and its
+# last-name split. The grid is the eight words below, two and three at
+# a time, every comma position, each name holding 'Ó.' and run as
+# written, upper-cased and lower-cased: 537 texts. One walk of both
+# sides is about 0.75s; the 'Q.' side is walked once per lexicon and
+# shared, so the invariant and its four-site control together cost
+# about 3s (measured 2026-10-04, py3.11).
+_P7_WORDS = ('Ó.', 'de', 'Pérez', 'Juan', 'MA', 'Ed', 'DO', 'Jr.')
+
+
+def _p7_texts() -> list[str]:
+    texts = set()
+    for k in (2, 3):
+        for words in itertools.product(_P7_WORDS, repeat=k):
+            if 'Ó.' not in words:
+                continue
+            texts.add(' '.join(words))
+            for c in range(1, k):
+                texts.add(' '.join(words[:c]) + ', ' + ' '.join(words[c:]))
+    return sorted(texts)
+
+
+def _p7_views(text: str, lexicon: Lexicon) -> str:
+    parser = Parser(lexicon=lexicon)
+    out = []
+    for written in (text, text.upper(), text.lower()):
+        name = parser.parse(written)
+        legacy = HumanName(written)
+        out.append((name.as_dict(), [a.kind for a in name.ambiguities],
+                    name.initials(), str(name.capitalized(lexicon)),
+                    legacy.initials(), legacy.last_prefixes,
+                    legacy.last_base))
+    return str(out)
+
+
+@functools.cache
+def _p7_reference(lexicon: Lexicon) -> dict[str, str]:
+    """The 'Q.' side of the comparison, mapped back to Ó: walked once
+    per lexicon and shared. No veto site can move it -- each asks the
+    helper only after a particle-membership hit, and no particle of the
+    grid is a one-letter word but 'ó' -- so the site control's patch
+    leaves it as it is."""
+    return {text: _p7_views(text.replace('Ó.', 'Q.'), lexicon)
+            .replace('Q', 'Ó').replace('q', 'ó') for text in _p7_texts()}
+
+
+def _p7_disagreements(lexicon: Lexicon | None = None) -> list[str]:
+    lexicon = lexicon or Lexicon.default()
+    reference = _p7_reference(lexicon)
+    return [text for text in _p7_texts()
+            if _p7_views(text, lexicon) != reference[text]]
+
+
+def test_a_one_letter_particle_with_its_period_reads_as_any_initial() -> None:
+    assert _p7_disagreements() == []
+
+
+#: The recorded negative control: how many grid texts disagree with the
+#: veto removed from ONE site, measured 2026-10-04 (classify 412 and
+#: the facade 121 until #603 the same day, whose opened comma part
+#: reads some texts the same with the veto off or on, the credential
+#: opening the part either way: nine of classify's, 'DO Ó., ...'
+#: shapes, and one of the facade's), and re-measured 2026-10-06 after
+#: #613 decided the comma once at group's head, which moved classify,
+#: the facade and _render one text each. Every site moves
+#: some, so none is decoration. _render's is measured without the
+#: particle case masks, as for a caller's one-letter particle that has
+#: none: with the shipped 'ó' mask the repair takes the mask before
+#: the particle arm is asked (rules.md#R4), so the default vocabulary
+#: alone cannot see that veto.
+_P7_SITE_EFFECT = {
+    "nameparser._pipeline._classify": 404,
+    "nameparser._pipeline._vocab": 21,
+    "nameparser._render": 339,
+    "nameparser._facade": 121,
+}
+
+
+def _without_particle_masks() -> Lexicon:
+    default = Lexicon.default()
+    return dataclasses.replace(default, capitalization_exceptions=tuple(
+        (key, mask) for key, mask in default.capitalization_exceptions
+        if key not in default.particles))
+
+
+@pytest.mark.parametrize("module", sorted(_P7_SITE_EFFECT))
+def test_every_one_letter_particle_veto_is_load_bearing(
+        module: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    import importlib
+    lexicon = None
+    if module == "nameparser._render":
+        # the invariant itself, on the lexicon only this case walks
+        lexicon = _without_particle_masks()
+        assert _p7_disagreements(lexicon) == []
+    monkeypatch.setattr(importlib.import_module(module),
+                        "_spells_an_initial", lambda n, text: False)
+    assert len(_p7_disagreements(lexicon)) == _P7_SITE_EFFECT[module]

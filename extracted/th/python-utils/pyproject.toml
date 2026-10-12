@@ -125,7 +125,7 @@ source-include = [
 
 [project]
 name = "python-utils"
-version = "4.1.0"
+version = "4.1.1"
 description = "Python Utils is a module with some convenient utilities not included with the standard Python install"
 readme = "README.md"
 requires-python = ">=3.10"

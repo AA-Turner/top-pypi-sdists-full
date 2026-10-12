@@ -77,6 +77,9 @@ class AgmetGeo(base.BaseGeo):
             "AGMET", "plot_snow_thickness", fallback=False
         )
         self.eo_plot = self._expand_eo_plot(eo_plot_raw, self.plot_snow_thickness)
+        # Unit of the yields shown in the recent-years NDVI legend; the same
+        # per-project key the ML plots read (poppy: kg/ha).
+        self.yield_units = self.parser.get("ML", "yield_units", fallback="MT/ha")
         self.eo_model = self._get_option(
             "eo_model",
             ["ndvi", "chirts_era5_tmax", "chirts_era5_tmin", "chirps", "esi_4wk", "nsidc_surface", "nsidc_rootzone"],
@@ -753,6 +756,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 admin_level=obj.scale,
                 show_logos=obj.show_logos,
                 logo_max_px=obj.logo_max_px,
+                yield_units=obj.yield_units,
             ).plot()
 
         ###############################################################
@@ -866,6 +870,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
                     admin_level=obj.scale,
                     show_logos=obj.show_logos,
                     logo_max_px=obj.logo_max_px,
+                    yield_units=obj.yield_units,
                 ).plot()
 
 

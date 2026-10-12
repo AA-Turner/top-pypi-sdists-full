@@ -4,6 +4,7 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::{Bound, PyModule, PyModuleMethods, PyResult, Python};
 use pyo3::{pyfunction, wrap_pyfunction};
 use sqlbuild_core::text::main::python_text::python_text;
+use sqlbuild_core::text::models::PythonText;
 use sqlbuild_sqltext::compiler::main::declaration_references::scan_declaration_references;
 use sqlbuild_sqltext::compiler::models::{
     DeclarationReference, DeclarationReferenceKind, DeclarationReferenceScan,
@@ -26,13 +27,40 @@ fn scan_sql_declaration_references(
     python_version: (u8, u8),
     unicode_version: &str,
 ) -> PyResult<Vec<ScanRow>> {
+    scanned_rows(py, sqls, (python_version, unicode_version), false)
+}
+
+/// The same scan walking past malformed references, as Python's declaration usage walk did.
+#[pyfunction]
+fn scan_sql_declaration_usages(
+    py: Python<'_>,
+    sqls: Vec<String>,
+    python_version: (u8, u8),
+    unicode_version: &str,
+) -> PyResult<Vec<ScanRow>> {
+    scanned_rows(py, sqls, (python_version, unicode_version), true)
+}
+
+fn scanned_rows(
+    py: Python<'_>,
+    sqls: Vec<String>,
+    (python_version, unicode_version): ((u8, u8), &str),
+    skip_malformed: bool,
+) -> PyResult<Vec<ScanRow>> {
     let python = python_text(python_version, unicode_version).ok_or_else(|| {
         PyRuntimeError::new_err("declaration scanning needs a supported Python (see D017)")
     })?;
     let scanned: Vec<DeclarationReferenceScan> = py
-        .compiler_detach(|| Ok(scan_declaration_references(python, &sqls)))
+        .compiler_detach(|| Ok(scan_declaration_references(python, &sqls, skip_malformed)))
         .map_err(compiler_error)?;
     Ok(scanned.into_iter().map(scan_row).collect())
+}
+
+/// One SQL string's references and stop code, scanned without walking past malformed ones.
+pub(crate) fn declaration_scan(python: PythonText, sql: &str) -> ScanRow {
+    let scanned: Vec<DeclarationReferenceScan> =
+        scan_declaration_references(python, &[sql.to_owned()], false);
+    scanned.into_iter().next().map(scan_row).unwrap_or_default()
 }
 
 fn scan_row(scan: DeclarationReferenceScan) -> ScanRow {
@@ -63,5 +91,6 @@ fn reference_row(reference: DeclarationReference) -> ReferenceRow {
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(scan_sql_declaration_references, module)?)?;
+    module.add_function(wrap_pyfunction!(scan_sql_declaration_usages, module)?)?;
     Ok(())
 }

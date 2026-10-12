@@ -59,7 +59,6 @@ class UnifiedConfigModel(BaseModel):
     messages: Any | list[Any] | list[dict[str, Any]]
     system_instruction: str | dict | Any | None = None
     system_prompt_frozen: bool = False
-    system_prompt_spans: list[dict[str, Any]] | None = None
     stream: bool = False
     matrx_model_name: str | None = None
     offering_id: str | None = None  # never populated in 6,485 stored configs
@@ -76,6 +75,11 @@ class UnifiedConfigModel(BaseModel):
     dynamic_tools_withheld: list[str] = Field(default_factory=list)
     agent_auto_tools_disabled: bool | None = None
     agent_excluded_tools: list[str] | None = None
+    prompt_blocks: list[str] = Field(default_factory=list)
+    prompt_block_creator: str | None = None
+    prompt_block_texts: dict[str, str] | None = None
+    prompt_block_report: list[dict[str, Any]] = Field(default_factory=list)
+    prompt_block_tool_ids: list[str] = Field(default_factory=list)
     tool_authority_filtered: bool = False
     tool_authority_exclusions: list[str] = Field(default_factory=list)
     tool_authority_filter_applied_runtime: bool = False
@@ -86,6 +90,7 @@ class UnifiedConfigModel(BaseModel):
     tool_delegation_registry_fingerprint: str | None = None
     tool_delegation_filter_applied_runtime: bool = False
     responder_mandate_key: str | None = None
+    model_turn_only_restore: dict[str, Any] | None = None
     tool_choice: Optional[Literal['none', 'auto', 'required']] = None  # never populated in 6,485 stored configs
     parallel_tool_calls: bool = True
     skill_injected_tool_ids: list[str] = Field(default_factory=list)

@@ -3,10 +3,11 @@ from collections.abc import Iterator
 
 import pytest
 
+from nameparser._policy import CapsSuffixes
 from nameparser._policy import (
     DEFAULT_SCRIPT_ORDERS, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST,
     GIVEN_FIRST, PatronymicRule, Policy, PolicyPatch, Script, UNSET,
-    _SCRIPT_RANGES, _script_matcher, apply_patch,
+    _BOOL_FIELDS, _SCRIPT_RANGES, _script_matcher, apply_patch,
 )
 from nameparser._types import Role
 
@@ -288,10 +289,50 @@ def test_unset_fields_are_distinguishable_from_defaults() -> None:
 def test_policy_rejects_non_bool_flags() -> None:
     # "no" and "false" are truthy: storing them would silently invert
     # the caller's intent downstream.
-    for flag in ("middle_as_family", "lenient_comma_suffixes",
-                 "strip_emoji", "strip_bidi"):
+    #
+    # Swept over the DATACLASS, not over a list written here. The list
+    # this replaced named 2.3's four flags and was never extended when
+    # 2.4 added `unlisted_dotted_suffixes` and `unlisted_caps_suffixes`,
+    # so both shipped with no coverage for the check the library was
+    # already making -- the drift AGENTS.md's guard-the-whole-family
+    # rule is about, in the test rather than in the guard.
+    assert set(_BOOL_FIELDS) == {
+        f.name for f in dataclasses.fields(Policy)
+        if isinstance(getattr(Policy(), f.name), bool)}
+    for flag in _BOOL_FIELDS:
         with pytest.raises(TypeError, match="must be a bool"):
             Policy(**{flag: "no"})  # type: ignore[arg-type]
+
+
+#: 2.3's Policy fields, in 2.3's order, read off the released tree with
+#: `git show 1f78bef:nameparser/_policy.py`. A dated snapshot of an
+#: immutable commit, so it cannot go stale (AGENTS.md's counting
+#: claims).
+_FIELDS_AT_2_3 = (
+    "name_order", "script_orders", "segment_scripts", "patronymic_rules",
+    "middle_as_family", "nickname_delimiters", "maiden_delimiters",
+    "extra_suffix_delimiters", "lenient_comma_suffixes", "strip_emoji",
+    "strip_bidi",
+)
+
+
+def test_the_2_3_positional_fields_did_not_move() -> None:
+    # Policy and PolicyPatch are not `kw_only`, so a field's POSITION
+    # is API: `Policy(GIVEN_FIRST, ..., True, False)` binds by
+    # position, and inserting a field mid-class silently re-binds every
+    # argument after it. 2.4's two switches were first written beside
+    # `lenient_comma_suffixes`, which moved `strip_emoji` and
+    # `strip_bidi` two places to the right; they are appended now, and
+    # this is what holds them there.
+    for cls in (Policy, PolicyPatch):
+        names = tuple(f.name for f in dataclasses.fields(cls))
+        assert names[:len(_FIELDS_AT_2_3)] == _FIELDS_AT_2_3, cls.__name__
+        assert names[len(_FIELDS_AT_2_3):] == (
+            "unlisted_dotted_suffixes", "unlisted_caps_suffixes"), cls.__name__
+    # the positional binding itself, not just the names
+    assert Policy(GIVEN_FIRST, (), frozenset(), frozenset(), False,
+                  frozenset(), frozenset(), frozenset(), True,
+                  False).strip_emoji is False
 
 
 def test_patronymic_rules_generator_errors_propagate_untouched() -> None:
@@ -739,3 +780,118 @@ def test_policy_patch_one_shot_bad_tail_defers_without_silent_drop() -> None:
     with pytest.raises(TypeError,
                        match=r"script_orders entries must be .* got 5"):
         apply_patch(Policy(), patch)
+
+
+def test_unlisted_dotted_suffixes_is_a_validated_bool_defaulting_on() -> None:
+    # #516's dotted half is a switch, and it is ON: a token of two or
+    # more period-separated chunks that no vocabulary claims reads by
+    # position, which is what the periods are for.
+    assert Policy().unlisted_dotted_suffixes is True
+    assert Policy(unlisted_dotted_suffixes=False).unlisted_dotted_suffixes \
+        is False
+    with pytest.raises(TypeError, match="unlisted_dotted_suffixes"):
+        Policy(unlisted_dotted_suffixes="no")  # type: ignore[arg-type]
+    # the patch mirrors it as a SCALAR, override not merge
+    assert Policy().patched(
+        PolicyPatch(unlisted_dotted_suffixes=False)
+    ).unlisted_dotted_suffixes is False
+
+
+def test_unlisted_dotted_suffixes_off_reads_name_material() -> None:
+    # The switch's whole behavior, both directions, on one name --
+    # "name material" for a token no chunk claims; the roman-chunk
+    # retirement (rules.md#S3) and real chunk-level vocabulary
+    # ('Msc.Ed.', 'JD.CPA') are not behind this switch either way.
+    from nameparser import Parser
+
+    on = Parser().parse("John Smith X.Y.Z.")
+    off = Parser(policy=Policy(unlisted_dotted_suffixes=False)).parse(
+        "John Smith X.Y.Z.")
+    assert (on.family, on.suffix) == ("Smith", "X.Y.Z.")
+    assert (off.middle, off.family, off.suffix) == ("Smith", "X.Y.Z.", "")
+    # OFF still reports: the parser chose the name reading over a
+    # credential one, and that is the fork (#516)
+    assert [a.kind.value for a in off.ambiguities] == ["suffix-or-name"]
+    # and the vocabulary is untouched either way
+    for p in (Parser(), Parser(policy=Policy(unlisted_dotted_suffixes=False))):
+        assert p.parse("John Smith M.A.").suffix == "M.A."
+        assert p.parse("Doe, John Msc.Ed.").suffix == "Msc.Ed."
+
+
+def test_unlisted_caps_suffixes_is_a_validated_enum_defaulting_after_comma(
+) -> None:
+    # #564: the all-caps half reads the comma position by default and
+    # the trailing one only on request -- an all-caps SURNAME is a real
+    # convention there, and never after a comma behind a full name.
+    assert Policy().unlisted_caps_suffixes is CapsSuffixes.AFTER_COMMA
+    # a plain string is coerced at runtime; the annotation names what
+    # the field stores, so the type checker wants the member
+    assert (Policy(unlisted_caps_suffixes="everywhere")  # type: ignore[arg-type]
+            .unlisted_caps_suffixes is CapsSuffixes.EVERYWHERE)
+    assert Policy().patched(
+        PolicyPatch(unlisted_caps_suffixes=CapsSuffixes.OFF)
+    ).unlisted_caps_suffixes is CapsSuffixes.OFF
+    with pytest.raises(ValueError, match="after-comma, everywhere"):
+        Policy(unlisted_caps_suffixes="yes")  # type: ignore[arg-type]
+    # a bool: a TypeError naming the members, in a form that
+    # type-checks when pasted (AGENTS.md)
+    for old, new in ((True, "CapsSuffixes.EVERYWHERE"),
+                     (False, "CapsSuffixes.OFF")):
+        with pytest.raises(TypeError, match=new.replace(".", r"\.")):
+            Policy(unlisted_caps_suffixes=old)  # type: ignore[arg-type]
+
+
+def test_unlisted_caps_suffixes_on_reads_an_all_caps_word() -> None:
+    # Frames, recorded honestly (#516 review round, F4, corrected
+    # 2026-09-18): the switch is OPT-IN and OFF-BAND --
+    # `tools/perf/call_count.py`'s reference name and the
+    # DEFAULT-policy comma harness both measure +0, the only figures
+    # test_benchmark.py's band gates. With the switch ON, a genuine
+    # comma candidate pays for the fact it forces: re-measured
+    # 2026-09-18 on this tree, same-interpreter harness (the resolved
+    # `sys.executable` used on both sides, `Parser().parse` and
+    # `Parser(policy=Policy(unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE)).parse`, mean
+    # of 50 after one warm-up parse) -- `"Smith, John"` is +7
+    # (206 -> 213), `"Smith, XYZ"` (a real candidate) is +40
+    # (205 -> 245). An earlier round's comment here read +6/+39
+    # against baselines 207/206, which do not reproduce (this tree's
+    # own default reading of the two names is 206/205, matching
+    # f7089763 exactly); the earlier round's post-consolidation
+    # measurement itself was one frame off on each name, not the
+    # consolidation's own effect, which still stands (the prior,
+    # three-copies-of-the-predicate tree, cbd87a7d, reads 215 and 256
+    # with the switch on -- +9/+51 against the same 206/205 baseline,
+    # so the consolidation saved 2 and 11). Nothing gates either number;
+    # they are reported here, dated, so a reader who turns the switch
+    # on knows what it costs and a later re-measurement does not read
+    # as a silent drift.
+    #
+    # 2026-10-01, #564: the default is now AFTER_COMMA, which reads the
+    # comma position, so `default` below is no longer "off" and these
+    # assertions are about the TRAILING slot EVERYWHERE adds. Default
+    # costs, same harness against master: 'Smith, John' 183 -> 183,
+    # 'Smith, XYZ' 182 -> 182 (the comma test needs two words before
+    # the comma), 'John Smith, XYZ' 251 -> 266 (decisions.md#S2).
+    from nameparser import Parser
+
+    on = Parser(policy=Policy(unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE))
+    default = Parser()
+    # what it buys
+    assert on.parse("John Smith XYZ").suffix == "XYZ"
+    assert on.parse("John Smith, XYZ").suffix == "XYZ"
+    # what it costs, and why the trailing slot is not the default
+    assert on.parse("Jean Pierre DUPONT").suffix == "DUPONT"
+    assert default.parse("Jean Pierre DUPONT").family == "DUPONT"
+    # the default emits nothing at the trailing slot
+    assert default.parse("John Smith XYZ").ambiguities == ()
+    # the boundaries: one case, one letter, a digit, and vocabulary.
+    # 'John Smith X' is NOT the single-letter control -- 'X' is a bare
+    # roman numeral (rules.md#S2's numeral fork) and reads as suffix
+    # 'X' with the switch either way, unrelated to this one; 'Z' is
+    # not vocabulary at all and stays unaffected by the switch, which
+    # is the actual boundary (a single capital never satisfies the
+    # `len(text) >= 2` half of the shape test, on or off).
+    assert on.parse("JOHN SMITH XYZ").family == "XYZ"
+    assert on.parse("John Smith Z").family == default.parse("John Smith Z").family
+    assert on.parse("John Smith XY2").family == "XY2"
+    assert on.parse("John Smith MC").suffix == "MC"

@@ -31,7 +31,7 @@ def test_same_fields_in_the_same_order():
 
 
 def test_field_count_matches_dataclass():
-    assert len(UnifiedConfigModel.model_fields) == len(dataclasses.fields(UnifiedConfig)) == 103
+    assert len(UnifiedConfigModel.model_fields) == len(dataclasses.fields(UnifiedConfig)) == 108
 
 
 def test_annotations_are_identical_except_the_staged_two():
@@ -153,7 +153,7 @@ def test_post_init_is_not_replicated_and_that_blocks_the_flip():
     `dynamic_tools` with filter-aware rules, and REHYDRATES `custom_tools` and
     `mcp_servers` from their authored counterparts on an unfiltered reload —
     changing what the config CONTAINS. It also calls `MessageList.sanitize()`,
-    `_resolve_message_patterns()` and `_normalize_system_instruction()`.
+    `_normalize_system_instruction()`.
 
     The generated twin has the 90 fields and none of that, so exactly five
     fields diverge on construction. Porting the constructor is BLOCKED, not

@@ -3,19 +3,37 @@ build-backend = "uv_build"
 requires = ["uv_build>=0.8.0,<1.0"]
 
 [dependency-groups]
-dev = [{include-group = "lint"}, {include-group = "test"}, {include-group = "typecheck"}]
-lint = ["pre-commit", "ruff"]
-test = ["aiohttp", "pytest", "pytest-asyncio"]
-typecheck = ["aiohttp", "pyright"]
+lint = [
+    "pre-commit",
+    "ruff",
+]
+test = [
+    "aiohttp",
+    "pytest",
+    "pytest-asyncio",
+]
+typecheck = [
+    "aiohttp",
+    "pyright",
+]
+
+[[dependency-groups.dev]]
+include-group = "lint"
+
+[[dependency-groups.dev]]
+include-group = "test"
+
+[[dependency-groups.dev]]
+include-group = "typecheck"
 
 [project]
-authors = [{name = "Bryce Boe", email = "bbzbryce@gmail.com"}]
 classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -30,8 +48,12 @@ license = "BSD-2-Clause"
 license-files = ["LICENSE.txt"]
 name = "update_checker"
 readme = "README.md"
-requires-python = ">=3.10"
-version = "1.0.0"
+requires-python = ">=3.9"
+version = "1.0.1"
+
+[[project.authors]]
+name = "Bryce Boe"
+email = "bbzbryce@gmail.com"
 
 [project.optional-dependencies]
 async = ["aiohttp"]
@@ -44,7 +66,7 @@ Source = "https://github.com/bboe/update_checker"
 
 [tool.pyright]
 include = ["src"]
-pythonVersion = "3.10"
+pythonVersion = "3.9"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -54,18 +76,20 @@ preview = true
 
 [tool.ruff.lint]
 ignore = [
-    "COM812",  # conflicts with the formatter
-    "CPY001",  # this project does not use copyright notices
-    "D203",  # incompatible with D211
-    "D213",  # incompatible with D212
+    "COM812",
+    "CPY001",
+    "D203",
+    "D213",
 ]
 select = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
-    "D103",  # test functions do not need docstrings
-    "INP001",  # the tests directory is intentionally not a package
-    "PLC2701",  # tests may exercise private helpers
-    "PLR2004",  # magic values are expected in test assertions
-    "S101",  # pytest relies on assert
+    "D103",
+    "INP001",
+    "PLC2701",
+    "PLR2004",
+    "S101",
+    "S404",
+    "S603",
 ]

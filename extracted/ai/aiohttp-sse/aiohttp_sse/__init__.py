@@ -1,17 +1,20 @@
 import asyncio
 import io
 import re
-import sys
+import socket
+from collections.abc import AsyncIterator, Mapping
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from types import TracebackType
-from typing import Any, Mapping, Optional, Type, TypeVar, Union, overload
+from typing import Any, Self, TypeVar, overload
 
 from aiohttp.abc import AbstractStreamWriter
 from aiohttp.web import BaseRequest, ContentCoding, Request, StreamResponse
+from aiohttp.web_exceptions import HTTPMethodNotAllowed
 
-from .helpers import _ContextManager
-
-__version__ = "2.2.0"
+__version__ = "3.0"
 __all__ = ["EventSourceResponse", "sse_response"]
+
+_TCP_USER_TIMEOUT = getattr(socket, "TCP_USER_TIMEOUT", None)
 
 
 class EventSourceResponse(StreamResponse):
@@ -19,15 +22,16 @@ class EventSourceResponse(StreamResponse):
     streaming data to client, usually browser with EventSource::
 
         async def hello(request):
-            # create response object
-            resp = await EventSourceResponse()
+            resp = EventSourceResponse()
+            await resp.prepare(request)
             async with resp:
                 # stream data
-                resp.send('foo')
+                await resp.send('foo')
             return resp
     """
 
-    DEFAULT_PING_INTERVAL = 15
+    DEFAULT_PING_INTERVAL: float = 15
+    DEFAULT_SEND_TIMEOUT: float | None = 120
     DEFAULT_SEPARATOR = "\r\n"
     DEFAULT_LAST_EVENT_HEADER = "Last-Event-Id"
     LINE_SEP_EXPR = re.compile(r"\r\n|\r|\n")
@@ -36,9 +40,12 @@ class EventSourceResponse(StreamResponse):
         self,
         *,
         status: int = 200,
-        reason: Optional[str] = None,
-        headers: Optional[Mapping[str, str]] = None,
-        sep: Optional[str] = None,
+        reason: str | None = None,
+        headers: Mapping[str, str] | None = None,
+        sep: str | None = None,
+        allow_all_methods: bool = False,
+        send_timeout: float | None = DEFAULT_SEND_TIMEOUT,
+        ping_interval: float = DEFAULT_PING_INTERVAL,
     ):
         super().__init__(status=status, reason=reason)
 
@@ -51,9 +58,15 @@ class EventSourceResponse(StreamResponse):
         self.headers["Connection"] = "keep-alive"
         self.headers["X-Accel-Buffering"] = "no"
 
-        self._ping_interval: float = self.DEFAULT_PING_INTERVAL
-        self._ping_task: Optional[asyncio.Task[None]] = None
+        if ping_interval <= 0:
+            raise ValueError("ping interval must be positive")
+        self._ping_interval: float = ping_interval
+        self._ping_task: asyncio.Task[None] | None = None
         self._sep = sep if sep is not None else self.DEFAULT_SEPARATOR
+        self._allow_all_methods = allow_all_methods
+        self._send_timeout = send_timeout
+        self._saved_tcp_user_timeout: int | None = None
+        self._tcp_sock: socket.socket | None = None
 
     def is_connected(self) -> bool:
         """Check connection is prepared and ping task is not done."""
@@ -62,17 +75,16 @@ class EventSourceResponse(StreamResponse):
 
         return not self._ping_task.done()
 
-    async def _prepare(self, request: Request) -> "EventSourceResponse":
-        # TODO(PY311): Use Self for return type.
-        await self.prepare(request)
-        return self
-
-    async def prepare(self, request: BaseRequest) -> Optional[AbstractStreamWriter]:
+    async def prepare(self, request: BaseRequest) -> AbstractStreamWriter | None:
         """Prepare for streaming and send HTTP headers.
 
         :param request: regular aiohttp.web.Request.
         """
+        if not self._allow_all_methods and request.method != "GET":
+            raise HTTPMethodNotAllowed(request.method, ("GET",))
+
         if not self.prepared:
+            self._set_tcp_user_timeout(request)
             writer = await super().prepare(request)
             self._ping_task = asyncio.create_task(self._ping())
             # explicitly enabling chunked encoding, since content length
@@ -88,34 +100,84 @@ class EventSourceResponse(StreamResponse):
                 raise asyncio.CancelledError()
             return self._payload_writer
 
+    def _set_tcp_user_timeout(self, request: BaseRequest) -> None:
+        """Ask the kernel to abort the connection when transmitted data
+        remains unacknowledged for ``send_timeout`` (Linux only).
+
+        This detects a hung peer as soon as any write goes unacknowledged
+        (including the periodic pings), long before enough data queues up
+        for ``send()`` to block on flow control - which, with autotuned
+        kernel buffers, can take days for a low-rate stream.
+        """
+        if self._send_timeout is None or _TCP_USER_TIMEOUT is None:
+            return
+        assert request.transport is not None
+        sock = request.transport.get_extra_info("socket")
+        if sock is None or sock.family not in (socket.AF_INET, socket.AF_INET6):
+            return
+        self._saved_tcp_user_timeout = sock.getsockopt(
+            socket.IPPROTO_TCP, _TCP_USER_TIMEOUT
+        )
+        self._tcp_sock = sock
+        sock.setsockopt(
+            socket.IPPROTO_TCP, _TCP_USER_TIMEOUT, int(self._send_timeout * 1000)
+        )
+
+    def _restore_tcp_user_timeout(self) -> None:
+        if self._saved_tcp_user_timeout is None:
+            return
+        assert self._tcp_sock is not None
+        assert _TCP_USER_TIMEOUT is not None
+        saved = self._saved_tcp_user_timeout
+
+        if self._tcp_sock.fileno() >= 0:  # Not restorable once the socket is closed.
+            self._tcp_sock.setsockopt(socket.IPPROTO_TCP, _TCP_USER_TIMEOUT, saved)
+        self._tcp_sock = None
+        self._saved_tcp_user_timeout = None
+
+    async def write_eof(self, data: bytes = b"") -> None:
+        await super().write_eof(data)
+        self._restore_tcp_user_timeout()
+
     async def send(
         self,
         data: str,
-        id: Optional[str] = None,
-        event: Optional[str] = None,
-        retry: Optional[int] = None,
+        id: str | None = None,
+        event: str | None = None,
+        retry: int | None = None,
     ) -> None:
         """Send data using EventSource protocol
 
         :param str data: The data field for the message.
         :param str id: The event ID to set the EventSource object's last
-            event ID value to.
+            event ID value to. Must not contain line separators or
+            null characters.
         :param str event: The event's type. If this is specified, an event will
             be dispatched on the browser to the listener for the specified
             event name; the web site would use addEventListener() to listen
             for named events. The default event type is "message".
+            Must not contain line separators.
         :param int retry: The reconnection time to use when attempting to send
-            the event. [What code handles this?] This must be an integer,
-            specifying the reconnection time in milliseconds. If a non-integer
-            value is specified, the field is ignored.
+            the event, in milliseconds. Must not be negative.
+
+        Raises ``TimeoutError`` and aborts the connection if the write
+        exceeds the response's ``send_timeout`` (i.e. a stalled client).
+        Defaults to ``DEFAULT_SEND_TIMEOUT``; pass ``send_timeout=None``
+        to wait on a stalled client indefinitely.
         """
         buffer = io.StringIO()
         if id is not None:
-            buffer.write(self.LINE_SEP_EXPR.sub("", f"id: {id}"))
+            if self.LINE_SEP_EXPR.search(id) or "\0" in id:
+                raise ValueError(
+                    "id must not contain line separators or null characters"
+                )
+            buffer.write(f"id: {id}")
             buffer.write(self._sep)
 
         if event is not None:
-            buffer.write(self.LINE_SEP_EXPR.sub("", f"event: {event}"))
+            if self.LINE_SEP_EXPR.search(event):
+                raise ValueError("event must not contain line separators")
+            buffer.write(f"event: {event}")
             buffer.write(self._sep)
 
         for chunk in self.LINE_SEP_EXPR.split(data):
@@ -123,16 +185,21 @@ class EventSourceResponse(StreamResponse):
             buffer.write(self._sep)
 
         if retry is not None:
-            if not isinstance(retry, int):
-                raise TypeError("retry argument must be int")
+            if retry < 0:
+                raise ValueError("retry must not be negative")
             buffer.write(f"retry: {retry}")
             buffer.write(self._sep)
 
         buffer.write(self._sep)
         try:
-            await self.write(buffer.getvalue().encode("utf-8"))
+            async with asyncio.timeout(self._send_timeout):
+                await self.write(buffer.getvalue().encode("utf-8"))
         except ConnectionResetError:
             self.stop_streaming()
+            raise
+        except TimeoutError:
+            self.stop_streaming()
+            self._abort_transport()
             raise
 
     async def wait(self) -> None:
@@ -146,11 +213,7 @@ class EventSourceResponse(StreamResponse):
         try:
             await self._ping_task
         except asyncio.CancelledError:
-            if (
-                sys.version_info >= (3, 11)
-                and (task := asyncio.current_task())
-                and task.cancelling()
-            ):
+            if (task := asyncio.current_task()) and task.cancelling():
                 raise
 
     def stop_streaming(self) -> None:
@@ -161,13 +224,25 @@ class EventSourceResponse(StreamResponse):
             raise RuntimeError("Response is not started")
         self._ping_task.cancel()
 
+    def _abort_transport(self) -> None:
+        """Abort the transport.
+
+        A stalled peer never drains the write buffer, so a graceful
+        close would block indefinitely; abort instead.
+        """
+        assert self._req is not None
+        if (transport := self._req.transport) is not None:
+            transport.abort()
+
     def enable_compression(
-        self, force: Union[bool, ContentCoding, None] = False
+        self,
+        force: bool | ContentCoding | None = None,
+        strategy: int | None = None,
     ) -> None:
         raise NotImplementedError
 
     @property
-    def last_event_id(self) -> Optional[str]:
+    def last_event_id(self) -> str | None:
         """Last event ID, requested by client."""
         if self._req is None:
             msg = "EventSource request must be prepared first"
@@ -175,47 +250,31 @@ class EventSourceResponse(StreamResponse):
 
         return self._req.headers.get(self.DEFAULT_LAST_EVENT_HEADER)
 
-    @property
-    def ping_interval(self) -> float:
-        """Time interval between two ping massages"""
-        return self._ping_interval
-
-    @ping_interval.setter
-    def ping_interval(self, value: float) -> None:
-        """Setter for ping_interval property.
-
-        :param value: interval in sec between two ping values.
-        """
-
-        if not isinstance(value, (int, float)):
-            raise TypeError("ping interval must be int or float")
-        if value < 0:
-            raise ValueError("ping interval must be greater then 0")
-
-        self._ping_interval = value
-
     async def _ping(self) -> None:
         # periodically send ping to the browser. Any message that
         # starts with ":" colon ignored by a browser and could be used
         # as ping message.
-        message = ": ping{0}{0}".format(self._sep).encode("utf-8")
+        message = f": ping{self._sep}{self._sep}".encode()
         while True:
             await asyncio.sleep(self._ping_interval)
             try:
-                await self.write(message)
+                async with asyncio.timeout(self._send_timeout):
+                    await self.write(message)
+            except TimeoutError:
+                self._abort_transport()
+                break
             except (ConnectionResetError, RuntimeError):
                 # RuntimeError - on writing after EOF
                 break
 
-    async def __aenter__(self) -> "EventSourceResponse":
-        # TODO(PY311): Use Self
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
         self.stop_streaming()
         await self.wait()
@@ -230,10 +289,13 @@ def sse_response(
     request: Request,
     *,
     status: int = 200,
-    reason: Optional[str] = None,
-    headers: Optional[Mapping[str, str]] = None,
-    sep: Optional[str] = None,
-) -> _ContextManager[EventSourceResponse]: ...
+    reason: str | None = None,
+    headers: Mapping[str, str] | None = None,
+    sep: str | None = None,
+    allow_all_methods: bool = False,
+    send_timeout: float | None = EventSourceResponse.DEFAULT_SEND_TIMEOUT,
+    ping_interval: float = EventSourceResponse.DEFAULT_PING_INTERVAL,
+) -> AbstractAsyncContextManager[EventSourceResponse]: ...
 
 
 @overload
@@ -241,27 +303,48 @@ def sse_response(
     request: Request,
     *,
     status: int = 200,
-    reason: Optional[str] = None,
-    headers: Optional[Mapping[str, str]] = None,
-    sep: Optional[str] = None,
-    response_cls: Type[ESR],
-) -> _ContextManager[ESR]: ...
+    reason: str | None = None,
+    headers: Mapping[str, str] | None = None,
+    sep: str | None = None,
+    allow_all_methods: bool = False,
+    send_timeout: float | None = EventSourceResponse.DEFAULT_SEND_TIMEOUT,
+    ping_interval: float = EventSourceResponse.DEFAULT_PING_INTERVAL,
+    response_cls: type[ESR],
+) -> AbstractAsyncContextManager[ESR]: ...
 
 
 def sse_response(
     request: Request,
     *,
     status: int = 200,
-    reason: Optional[str] = None,
-    headers: Optional[Mapping[str, str]] = None,
-    sep: Optional[str] = None,
-    response_cls: Type[EventSourceResponse] = EventSourceResponse,
+    reason: str | None = None,
+    headers: Mapping[str, str] | None = None,
+    sep: str | None = None,
+    send_timeout: float | None = EventSourceResponse.DEFAULT_SEND_TIMEOUT,
+    ping_interval: float = EventSourceResponse.DEFAULT_PING_INTERVAL,
+    response_cls: type[EventSourceResponse] = EventSourceResponse,
+    allow_all_methods: bool = False,
 ) -> Any:
     if not issubclass(response_cls, EventSourceResponse):
         raise TypeError(
             "response_cls must be subclass of "
-            "aiohttp_sse.EventSourceResponse, got {}".format(response_cls)
+            f"aiohttp_sse.EventSourceResponse, got {response_cls}"
         )
 
-    sse = response_cls(status=status, reason=reason, headers=headers, sep=sep)
-    return _ContextManager(sse._prepare(request))
+    sse = response_cls(
+        status=status,
+        reason=reason,
+        headers=headers,
+        sep=sep,
+        allow_all_methods=allow_all_methods,
+        send_timeout=send_timeout,
+        ping_interval=ping_interval,
+    )
+    return _stream(sse, request)
+
+
+@asynccontextmanager
+async def _stream(sse: ESR, request: Request) -> AsyncIterator[ESR]:
+    await sse.prepare(request)
+    async with sse as resp:
+        yield resp

@@ -7,12 +7,14 @@ from pathlib import Path
 
 import pytest
 
+from nameparser import _config_shim
 from nameparser import GIVEN_FIRST, HumanName, Lexicon, PatronymicRule, Policy
 from nameparser._config_shim import (
     CONSTANTS, Constants, SetManager, TupleManager, _DelimiterManager,
     _RegexesProxy, _cached_parser,
 )
 from nameparser.config.regexes import EMPTY_REGEX, REGEXES
+from nameparser.util import lc
 
 _DATA_DIR = Path(__file__).parent / "data"
 
@@ -375,6 +377,35 @@ def test_v14_pickle_restores_and_parses_warning_free() -> None:
         HumanName("Jane Roe", constants=c)
 
 
+def test_an_unrelated_capitalization_exceptions_valueerror_has_no_v1_hint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The v1-spelled hint is added ONLY for _MaskValueError -- a value
+    that does not spell its key -- caught by TYPE in _build_snapshot's
+    try/except. Since #582 the shim drops every key Lexicon would fold
+    to empty, so no config reaches a plain ValueError from _normpairs
+    here; the filter is switched off to force one, so the except clause
+    is still pinned to catch by TYPE and to pass an unrelated ValueError
+    through without the v1 hint."""
+    monkeypatch.setattr(_config_shim, "_v1_matchable", lambda e: True)
+    c = Constants(capitalization_exceptions={'\u3002': 'x'})
+    with pytest.raises(ValueError, match="normalizes to empty") as caught:
+        HumanName("john smith", constants=c)
+    assert "on a v1 Constants" not in str(caught.value)
+
+
+def test_a_non_str_exception_value_raises_typeerror_at_the_first_parse(
+) -> None:
+    """The shim does not translate or otherwise intercept a
+    capitalization_exceptions value -- a caller's non-str entry
+    (v1's TupleManager stores dict[str, object], never statically
+    str-typed) reaches Lexicon's own TypeError unchanged, at the
+    first parse where the snapshot is built."""
+    c = Constants(capitalization_exceptions={'phd': 42})
+    with pytest.raises(TypeError, match="str -> str"):
+        HumanName("john smith phd", constants=c)
+
+
 def test_snapshot_keeps_a_multi_word_first_name_title() -> None:
     # v1 looks first_name_titles up on the joined title string, so a
     # multi-word entry is reachable with only its WORDS in titles.
@@ -401,7 +432,8 @@ def test_snapshot_drops_first_name_titles_v1_could_not_match(entry: str) -> None
     c = Constants()
     c.titles.add("grand", "duke")
     c.first_name_titles.add(entry)
-    lexicon, _, _ = c._snapshot()               # must not raise
+    with pytest.warns(UserWarning, match="first_name_titles"):
+        lexicon, _, _ = c._snapshot()           # must not raise
     assert "" not in lexicon.given_name_titles
     name = HumanName("Grand Duke John", constants=c)
     assert (name.first, name.last) == ("", "John")
@@ -497,6 +529,27 @@ def test_snapshot_removing_a_honorific_word_turns_the_peel_off() -> None:
     # which is 2.0's answer for this input
     name = HumanName("김민준씨", constants=c)
     assert (name.first, name.last, name.suffix) == ("민준씨", "김", "")
+
+
+def test_snapshot_removing_a_conjunction_turns_the_marker_off() -> None:
+    # The deciding case for conjunctions_ambiguous, which has no v1
+    # manager of its own: the snapshot intersects CONJUNCTIONS_AMBIGUOUS
+    # with the v1 conjunction set, so deleting 'e' from the one v1 knob
+    # that reaches it must make the marking stop mattering rather than
+    # raise the subset error or leave 'e' reading as an initial on a
+    # word the parse no longer treats as a connective at all. With the
+    # default config the intersection is a no-op, so the default-equality
+    # test above pins nothing here.
+    c = Constants()
+    assert HumanName("john e smith", constants=c).middle == "e"   # baseline
+    c.conjunctions.remove("e")
+    lexicon, _, _ = c._snapshot()                             # must not raise
+    assert "e" not in lexicon.conjunctions_ambiguous
+    # 'e' is no vocabulary at all now: a bare lowercase letter is not
+    # initial-shaped, so it is an ordinary middle name word
+    name = HumanName("john e smith", constants=c)
+    assert (name.first, name.middle, name.last) == ("john", "e", "smith")
+    assert name.initials() == "j. e. s."
 
 
 def test_snapshot_field_translation() -> None:
@@ -824,7 +877,35 @@ def test_multiword_warning_through_shim_points_at_caller() -> None:
         warnings.simplefilter("always")
         HumanName("John Smith", constants=c)   # snapshot builds lazily here
     multi = [x for x in w if "matched one word at a time" in str(x.message)]
-    assert multi and all(x.filename == __file__ for x in multi)
+    assert len(multi) == 1
+    assert multi[0].filename == __file__
+
+
+def test_a_multiword_capitalization_exceptions_key_warns_exactly_once(
+) -> None:
+    """_build_snapshot's Lexicon(...) construction is the ONLY place
+    capitalization_exceptions is validated, so a multi-word key must
+    warn once, not twice."""
+    c = Constants(capitalization_exceptions={'zqx zqy': 'ZqXZqY'})
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        HumanName("John Smith", constants=c)   # snapshot builds lazily here
+    multi = [x for x in w if "matched one word at a time" in str(x.message)]
+    assert len(multi) == 1
+
+
+def test_a_multiword_capitalization_exceptions_key_with_a_bad_mask_only_warns(
+) -> None:
+    """#459 review, shim half of test_a_multiword_key_skips_the_mask_
+    check_entirely in tests/v2/test_lexicon.py: a v1 caller's
+    multi-word key is unreachable through capitalized() regardless of
+    its value, so a value that does not spell it must not raise here
+    either."""
+    c = Constants(capitalization_exceptions={'ph d': 'Doctor'})
+    with pytest.warns(UserWarning, match="matched one word at a time"):
+        HumanName("John Smith", constants=c)
+    lexicon, _policy, _render = c._snapshot()
+    assert lexicon.capitalization_exceptions_map == {"ph d": "Doctor"}
 
 
 def test_2x_pickle_roundtrip_keeps_a_readded_dead_entry() -> None:
@@ -837,3 +918,349 @@ def test_2x_pickle_roundtrip_keeps_a_readded_dead_entry() -> None:
         HumanName("John Smith", constants=c)   # snapshot builds lazily here
     c2 = pickle.loads(pickle.dumps(c))
     assert "leed ap" in c2.suffix_acronyms
+
+
+# -- entries v1 could never match (#541) ---------------------------------
+#
+# A v1 piece comes from a whitespace split, re-joined only with single
+# spaces, so nameparser 1.x never matched an entry that is empty or
+# holds edge whitespace, a whitespace run or any whitespace character
+# other than a single space (a tab, NBSP, newline). Each row names a text
+# on which the entry WOULD act if the shim translated it, so a row that
+# reads like the entry-free parse proves the drop rather than an inert
+# word. An entry holding only full stops is dropped too: Lexicon folds
+# it to empty (#582), although v1 could match a token made of that full
+# stop. (field, entry, text, mask value for capitalization_exceptions)
+_V1_UNMATCHABLE_ROWS = [
+    ("titles", " dean ", "dean john smith", None),
+    ("titles", "dean\t", "dean john smith", None),
+    ("titles", "...", "dean john smith", None),
+    ("titles", "de  an", "de an john smith", None),
+    ("prefixes", " zz ", "john zz smith", None),
+    ("suffix_acronyms", " zzq ", "john smith zzq", None),
+    ("suffix_not_acronyms", " zzw", "john smith zzw", None),
+    ("suffix_not_acronyms", "ma ", "John Smith", None),
+    ("suffix_not_acronyms", "ba ", "John Smith", None),
+    ("suffix_acronyms_ambiguous", "phd ", "John Smith PhD", None),
+    ("conjunctions", " zand ", "john zand jane smith", None),
+    ("bound_first_names", " zzb ", "zzb ali smith", None),
+    ("bound_first_names", "'t ", "Gerard 't Hooft", None),
+    ("non_first_name_prefixes", " van ", "van johnson", None),
+    ("capitalization_exceptions", " zzc ", "john zzc", "ZzC"),
+    ("capitalization_exceptions", "...", "john zzc", "ZzC"),
+    ("first_name_titles", "grand  duke", "Grand Duke John", None),
+    ("titles", "。", "。 john smith", None),
+    ("prefixes", "．", "john ． smith", None),
+    ("suffix_acronyms", "｡", "john smith ｡", None),
+    ("conjunctions", "。 。", "john 。 。 jane smith", None),
+    ("capitalization_exceptions", "。", "john zzc", "。"),
+]
+
+# Recorded negative control: what each row did with the filter off
+# (measured 2026-10-02 on master 42515ebd, where only first_name_titles
+# was filtered). "raises" rows broke the shim's never-raise contract,
+# "activates" rows its never-silently-change one; "inert" rows were
+# harmless already and are swept so the warning covers the whole family.
+_UNFILTERED_OUTCOME = {
+    ("titles", " dean "): "activates",
+    ("titles", "dean\t"): "activates",
+    ("titles", "..."): "raises",
+    ("titles", "de  an"): "inert",
+    ("prefixes", " zz "): "activates",
+    ("suffix_acronyms", " zzq "): "activates",
+    ("suffix_not_acronyms", " zzw"): "activates",
+    ("suffix_not_acronyms", "ma "): "raises",
+    ("suffix_not_acronyms", "ba "): "raises",
+    ("suffix_acronyms_ambiguous", "phd "): "inert",
+    ("conjunctions", " zand "): "activates",
+    ("bound_first_names", " zzb "): "activates",
+    ("bound_first_names", "'t "): "raises",
+    ("non_first_name_prefixes", " van "): "inert",
+    ("capitalization_exceptions", " zzc "): "activates",
+    ("capitalization_exceptions", "..."): "raises",
+    ("first_name_titles", "grand  duke"): "activates",
+    ("titles", "。"): "raises",
+    ("prefixes", "．"): "raises",
+    ("suffix_acronyms", "｡"): "raises",
+    ("conjunctions", "。 。"): "raises",
+    ("capitalization_exceptions", "。"): "raises",
+}
+
+
+def _base(field: str) -> Constants:
+    c = Constants()
+    if field == "first_name_titles":   # the entry only acts on known titles
+        c.titles.add("grand", "duke")
+    return c
+
+
+def _with_entry(field: str, entry: str, value: str | None) -> Constants:
+    c = _base(field)
+    if value is None:
+        getattr(c, field).add(entry)
+    else:
+        c.capitalization_exceptions[entry] = value
+    return c
+
+
+def _reading(c: Constants, text: str) -> tuple[dict[str, str], str]:
+    name = HumanName(text, constants=c)
+    fields = name.as_dict()
+    name.capitalize(force=True)
+    return fields, str(name)
+
+
+@pytest.mark.parametrize(("field", "entry", "text", "value"),
+                         _V1_UNMATCHABLE_ROWS)
+def test_an_entry_v1_could_not_match_is_dropped_with_one_warning(
+    field: str, entry: str, text: str, value: str | None,
+) -> None:
+    baseline = _reading(_base(field), text)
+    c = _with_entry(field, entry, value)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        got = _reading(c, text)
+    assert got == baseline
+    messages = [str(w.message) for w in caught]
+    assert len(messages) == 1, messages
+    assert caught[0].category is UserWarning
+    # a set field stores the lc()-folded entry, a mask key as written
+    shown = entry if value is not None else lc(entry)
+    assert f"{field}: {shown!r}" in messages[0]
+    # attributed to the caller's line, not to library code
+    assert caught[0].filename == __file__
+
+
+@pytest.mark.parametrize(("field", "entry", "text", "value"),
+                         _V1_UNMATCHABLE_ROWS)
+def test_the_unmatchable_entry_filter_has_a_recorded_control(
+    field: str, entry: str, text: str, value: str | None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(_config_shim, "_v1_matchable", lambda e: True)
+    # the three rows that recorded "raises" through the two cross-set
+    # checks ('ma ', 'ba ', "'t ") raise only while those compare RAW
+    # spellings; the shim now folds them there (#582), which would turn
+    # them into "inert". This control measures the filter alone, so that
+    # fold is switched off beside it.
+    monkeypatch.setattr(_config_shim, "_normalize", lambda e: e)
+    baseline = _reading(_base(field), text)
+    c = _with_entry(field, entry, value)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")   # Lexicon's multi-word warning
+        try:
+            got = _reading(c, text)
+        except ValueError:
+            outcome = "raises"
+        else:
+            outcome = "activates" if got != baseline else "inert"
+    assert outcome == _UNFILTERED_OUTCOME[(field, entry)]
+
+
+# -- an edge full stop and the two cross-set checks (#582) ---------------
+#
+# Lexicon strips a CJK full stop at an entry's edge, v1's lc() does not.
+# Lexicon folds each field on its own, but re-checks two relations
+# between separately built sets AFTER its fold, and the shim built those
+# two from raw strings: 'ma。' beside the ambiguous 'ma' (suffix word vs
+# ambiguous acronym) and a bound 'zed。' beside the particle 'zed' (bound
+# given name vs particles_ambiguous). 1.4.0 through 2.2.0 accepted both.
+# Each row: (id, plain entries as (field, word), the field and spelling
+# carrying the edge full stop, text).
+_EDGE_COLLISION_ROWS = [
+    # (case, the config's entries, text): each fold folds BOTH of its
+    # operands, so each computation gets a row with the full stop on
+    # either side of the pair
+    ("ambiguous-vs-word", [("suffix_not_acronyms", "ma\u3002")], "jack ma"),
+    ("word-vs-ambiguous",
+     [("suffix_acronyms", "zq\u3002"),
+      ("suffix_acronyms_ambiguous", "zq\u3002"),
+      ("suffix_not_acronyms", "zq")], "john smith zq"),
+    ("bound-vs-particle",
+     [("prefixes", "zed"), ("non_first_name_prefixes", "zed"),
+      ("bound_first_names", "zed\u3002")], "zed bakr smith"),
+    ("particle-vs-bound",
+     [("prefixes", "zed\u3002"), ("non_first_name_prefixes", "zed\u3002"),
+      ("bound_first_names", "zed")], "zed bakr smith"),
+]
+
+# Recorded negative control: with the shim's fold switched to identity
+# all four raise ValueError at the first parse (measured 2026-10-02).
+# It measures the raise only; the readings are pinned by the tests below.
+_UNFOLDED_OUTCOME = {
+    "ambiguous-vs-word": "raises",
+    "word-vs-ambiguous": "raises",
+    "bound-vs-particle": "raises",
+    "particle-vs-bound": "raises",
+}
+
+
+def _edge_config(entries: list[tuple[str, str]]) -> Constants:
+    c = Constants()
+    for field, word in entries:
+        getattr(c, field).add(word)
+    return c
+
+
+@pytest.mark.parametrize(("case", "entries", "text"), _EDGE_COLLISION_ROWS,
+                         ids=[r[0] for r in _EDGE_COLLISION_ROWS])
+def test_an_edge_full_stop_collision_reads_as_its_folded_spelling(
+    case: str, entries: list[tuple[str, str]], text: str,
+) -> None:
+    folded = [(f, w.strip("\u3002\uff0e\uff61")) for f, w in entries]
+    want = _reading(_edge_config(folded), text)
+    got = _reading(_edge_config(entries), text)   # error filter: no warning
+    assert got == want
+
+
+@pytest.mark.parametrize(("case", "entries", "text"), _EDGE_COLLISION_ROWS,
+                         ids=[r[0] for r in _EDGE_COLLISION_ROWS])
+def test_the_edge_full_stop_fold_has_a_recorded_control(
+    case: str, entries: list[tuple[str, str]], text: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(_config_shim, "_normalize", lambda e: e)
+    try:
+        _reading(_edge_config(entries), text)
+    except ValueError:
+        outcome = "raises"
+    else:
+        outcome = "reads"
+    assert outcome == _UNFOLDED_OUTCOME[case]
+
+
+def _fields(first: str, last: str, suffix: str, title: str = "") -> dict[str, str]:
+    return {"title": title, "first": first, "middle": "", "last": last,
+            "suffix": suffix, "nickname": "", "maiden": ""}
+
+
+# Readings recorded 2026-10-02 on the tree before any shim fold (afc45f35,
+# a scratch `git archive` copy), where these configs never raised: the
+# fold must not move them. A field Lexicon folds on its own is NOT
+# re-folded by the shim, so 'zz。' in non_first_name_prefixes beside the
+# particle 'zz' still leaves 'zz' a given name.
+_UNCHANGED_READINGS = [
+    ("never-given-edge-stop",
+     [("prefixes", "zz")], "non_first_name_prefixes", "zz\u3002", "zz smith",
+     (_fields("zz", "smith", ""), "Zz Smith")),
+    ("never-given-fullwidth-stop",
+     [("prefixes", "zz")], "non_first_name_prefixes", "zz\uff0e", "zz smith",
+     (_fields("zz", "smith", ""), "Zz Smith")),
+    ("never-given-nfd-nfc",
+     [("prefixes", "z\u00e9")], "non_first_name_prefixes", "ze\u0301",
+     "z\u00e9 smith",
+     (_fields("z\u00e9", "smith", ""), "Z\u00e9 Smith")),
+    ("ambiguous-edge-stop",
+     [("suffix_acronyms", "zq")], "suffix_acronyms_ambiguous", "zq\u3002",
+     "john zq", (_fields("john", "", "zq"), "John ZQ")),
+    ("title-edge-stop",
+     [], "titles", "dean\u3002", "dean john smith",
+     (_fields("john", "smith", "", "dean"), "Dean John Smith")),
+]
+
+
+@pytest.mark.parametrize(("case", "plain", "field", "entry", "text", "want"),
+                         _UNCHANGED_READINGS,
+                         ids=[r[0] for r in _UNCHANGED_READINGS])
+def test_an_edge_full_stop_entry_outside_the_two_checks_reads_as_before(
+    case: str, plain: list[tuple[str, str]], field: str, entry: str,
+    text: str, want: tuple[dict[str, str], str],
+) -> None:
+    assert _reading(_edge_config([*plain, (field, entry)]), text) == want
+
+
+def test_the_offered_remedy_runs_and_silences_the_warning() -> None:
+    c = Constants()
+    c.titles.add(" dean ")
+    c.bound_first_names.add("'t ")              # a quote the remedy must repr
+    c.capitalization_exceptions[" zzc "] = "ZzC"
+    c.capitalization_exceptions["'q "] = "Q"
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        HumanName("x", constants=c)
+    assert len(caught) == 1                       # one warning for them all
+    message = str(caught[0].message)
+    listing, remedy = message.split("remove these: ")
+    for label in ("titles: ' dean '", "bound_first_names: \"'t \"",
+                  "capitalization_exceptions: ' zzc '",
+                  "capitalization_exceptions: \"'q \""):
+        assert label in listing, label
+    # the offered spelling, pinned, and then run as written
+    # (in the shim's field order, entries sorted within a field)
+    assert remedy == (
+        "constants.bound_first_names.remove(\"'t \"); "
+        "constants.titles.remove(' dean '); "
+        "del constants.capitalization_exceptions[' zzc ']; "
+        "del constants.capitalization_exceptions[\"'q \"]")
+    exec(remedy, {"constants": c})   # the code the message hands over
+    c.titles.add("dean")              # the stripped word, if it was meant
+    c.capitalization_exceptions["zzc"] = "ZzC"
+    name = HumanName("dean john zzc", constants=c)   # no warning: error filter
+    assert name.title == "dean"                      # as 1.4.0 reads "dean"
+    name.capitalize(force=True)
+    assert str(name) == "Dean John ZzC"
+
+
+def test_the_1_4_typo_roster_is_keyed_by_field() -> None:
+    # 'actor ' is silent only where 1.4.0 shipped it, in titles
+    c = Constants()
+    c.prefixes.add("actor ")
+    with pytest.warns(UserWarning, match="prefixes: 'actor '"):
+        HumanName("x", constants=c)
+
+
+def test_the_warning_fires_once_per_config_change() -> None:
+    c = Constants()
+    c.titles.add(" dean ")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        HumanName("dean john smith", constants=c)
+        HumanName("dean john smith", constants=c)   # cached snapshot
+        assert len(caught) == 1
+        c.titles.add("x")                            # a new generation
+        HumanName("dean john smith", constants=c)
+    assert len(caught) == 2
+
+
+def test_a_clean_config_snapshots_without_a_warning() -> None:
+    c = Constants()
+    c.titles.add("dean")
+    c.capitalization_exceptions["McDonald"] = "McDonald"  # case: accepted widening
+    lexicon, _, _ = c._snapshot()                # error filter: any warning fails
+    assert "dean" in lexicon.titles
+
+
+def test_the_1_4_shipped_typos_are_dropped_silently() -> None:
+    c = Constants()
+    c.titles.remove("actor")
+    c.titles.add("actor ")
+    name = HumanName("Actor John Smith", constants=c)   # error filter
+    assert (name.first, name.title) == ("Actor", "")
+
+
+def test_the_1_4_shipped_unmatchable_roster_is_exactly_the_pickles() -> None:
+    with open(_DATA_DIR / "constants_v14.pickle", "rb") as f:
+        c = pickle.load(f)
+    found = {
+        (field, entry)
+        for field in _config_shim._SET_FIELDS
+        for entry in getattr(c, field)
+        if not _config_shim._v1_matchable(entry)
+    } | {
+        ("capitalization_exceptions", key)
+        for key in c.capitalization_exceptions
+        if not _config_shim._v1_matchable(key)
+    }
+    assert found == _config_shim._V14_SHIPPED_UNMATCHABLE
+
+
+def test_a_first_name_title_lexicon_folds_to_nothing_is_dropped_with_the_warning(
+) -> None:
+    # '。' survives v1's lc() but Lexicon's fold empties it (#582):
+    # dropped like any other entry that matches no name word
+    c = Constants()
+    c.first_name_titles.add("。")
+    with pytest.warns(UserWarning, match="first_name_titles: '。'"):
+        lexicon, _, _ = c._snapshot()
+    assert "" not in lexicon.given_name_titles
+    assert HumanName("john smith", constants=c).last == "smith"

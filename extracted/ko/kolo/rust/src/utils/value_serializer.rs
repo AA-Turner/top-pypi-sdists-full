@@ -16,6 +16,7 @@ use std::sync::{Arc, Mutex};
 use thread_local::ThreadLocal;
 
 use super::super::trace_container::TraceCapture;
+use super::construction;
 
 extern "C" {
     // Exported by every supported CPython (Cython-generated extensions rely
@@ -656,7 +657,7 @@ struct Fail;
 
 type Packed = Result<(), Fail>;
 
-const MAX_EXT_HEADER_LEN: usize = 6;
+pub(super) const MAX_EXT_HEADER_LEN: usize = 6;
 // Containers nested natively before Pyodide's WebAssembly stack runs out
 // well below msgpack's own nesting limit.
 #[cfg(target_family = "wasm")]
@@ -899,7 +900,11 @@ fn write_ext(buf: &mut Vec<u8>, code: i8, payload: &[u8]) -> PyResult<()> {
 
 /// Replace the reserved header at `start` with the real extension header
 /// for the bytes encoded after it.
-fn finish_reserved_extension(buf: &mut Vec<u8>, start: usize, code: i8) -> PyResult<()> {
+pub(super) fn finish_reserved_extension(
+    buf: &mut Vec<u8>,
+    start: usize,
+    code: i8,
+) -> PyResult<()> {
     let inner_start = start + MAX_EXT_HEADER_LEN;
     let Some(inner_len) = checked_msgpack_len(buf.len() - inner_start) else {
         return Err(PyValueError::new_err("EXT data is too large"));
@@ -1226,6 +1231,10 @@ pub(super) struct NativeMsgpackEncoder<'a> {
     /// Bytes of `buf` held by extension headers reserved at their largest
     /// size and not yet finished, which the wire format will not keep.
     reserved_header_bytes: usize,
+    /// The objects whose constructor is running, found when the event first
+    /// packs a value that could be one: the stack below Kolo does not change
+    /// during an event.
+    construction: Option<construction::UnderConstruction>,
 }
 
 impl Drop for NativeMsgpackEncoder<'_> {
@@ -1278,6 +1287,7 @@ impl<'a> NativeMsgpackEncoder<'a> {
             value_budget: None,
             budget_end: usize::MAX,
             reserved_header_bytes: 0,
+            construction: None,
         }
     }
 
@@ -2625,11 +2635,31 @@ impl<'a> NativeMsgpackEncoder<'a> {
         self.used_default_hook = true;
         self.set_profiler_flag(py)?;
 
+        // Whether the ladder provably matches nothing and reading
+        // `__class__` runs no code, so only `repr()` is left to run (and with
+        // `lightweight_repr` nothing).
         #[cfg(all(Py_3_12, not(Py_GIL_DISABLED)))]
-        if self
+        let falls_through = self
             .serializer
-            .falls_through_ladder(value, self.lightweight_repr)
+            .falls_through_ladder(value, self.lightweight_repr);
+        #[cfg(not(all(Py_3_12, not(Py_GIL_DISABLED))))]
+        let falls_through = false;
+
+        // Kept to two type reads here, with the rest out of line: this is
+        // the path of every value the hook sees.
+        if construction::worth_checking(
+            value.as_ptr(),
+            falls_through,
+            self.lightweight_repr,
+            self.serializer.method_type,
+        ) && !matches!(&self.construction, Some(found) if found.is_empty())
         {
+            if let Some(defaulted) = self.construction_default(value, falls_through)? {
+                return Ok(defaulted);
+            }
+        }
+
+        if falls_through {
             let payload = self.unmatched_leaf_payload(value);
             return self.check(payload);
         }
@@ -2693,6 +2723,92 @@ impl<'a> NativeMsgpackEncoder<'a> {
         });
         let payload = self.default_leaf_payload(value, &mut class_is_type, room);
         self.check(payload)
+    }
+
+    /// What the hook returns for a value under construction, or None.
+    #[inline(never)]
+    fn construction_default<'py>(
+        &mut self,
+        value: &Bound<'py, PyAny>,
+        falls_through: bool,
+    ) -> Result<Option<Defaulted<'py>>, Fail> {
+        let placeholder = self.construction_placeholder(value, falls_through);
+        match self.check(placeholder)? {
+            Some(text) => {
+                // A class name can hold lone surrogates.
+                let payload = escaped_utf8_payload(text);
+                Ok(Some(Defaulted::Ext(0, self.check(payload)?)))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// `kolo.serialize._under_construction_ext`: the text recorded for an
+    /// object whose constructor is still running (or a method bound to
+    /// one), whose `repr()` could change it. None for any other value.
+    fn construction_placeholder<'py>(
+        &mut self,
+        value: &Bound<'py, PyAny>,
+        falls_through: bool,
+    ) -> PyResult<Option<Bound<'py, PyAny>>> {
+        let object = value.as_ptr();
+        // Safety: reads a live object's type; an exact bound method's
+        // `__self__` is set at creation, never NULL and kept alive by it.
+        let (is_method, subject) = unsafe {
+            if ffi::Py_TYPE(object) as usize == self.serializer.method_type {
+                (true, PyMethod_Self(object))
+            } else {
+                (false, object)
+            }
+        };
+        // `lightweight_repr` does not `repr()` a method. A value that falls
+        // through the ladder got here because `repr()` would run its class's
+        // code (`worth_checking`); for any other, look at the type first.
+        if (is_method && self.lightweight_repr)
+            || ((is_method || !falls_through || self.lightweight_repr)
+                && !construction::may_run_user_code(
+                    value.py(),
+                    subject,
+                    self.lightweight_repr,
+                    self.serializer.object_class,
+                ))
+        {
+            return Ok(None);
+        }
+        self.placeholder_if_under_construction(value, subject, is_method)
+    }
+
+    #[inline(never)]
+    fn placeholder_if_under_construction<'py>(
+        &mut self,
+        value: &Bound<'py, PyAny>,
+        subject: *mut ffi::PyObject,
+        is_method: bool,
+    ) -> PyResult<Option<Bound<'py, PyAny>>> {
+        let py = value.py();
+        if self.construction.is_none() {
+            let found = construction::find(py, || {
+                self.global(intern!(py, "_objects_under_construction"))
+            })?;
+            self.construction = Some(found);
+        }
+        let under_construction = self
+            .construction
+            .as_ref()
+            .is_some_and(|found| found.contains(subject));
+        if !under_construction {
+            return Ok(None);
+        }
+        if is_method {
+            let describe = self.global(intern!(py, "_method_under_construction_repr"))?;
+            let text = describe.call1((value,))?;
+            return Ok((!text.is_none()).then_some(text));
+        }
+        let lightweight_repr = self.lightweight_repr;
+        construction::placeholder_text(value, lightweight_repr, || {
+            self.global(intern!(py, "_under_construction_repr"))?
+                .call1((value, false, lightweight_repr))
+        })
     }
 
     /// The hook's remaining branches, each producing an ExtType.

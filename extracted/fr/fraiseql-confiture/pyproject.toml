@@ -1,6 +1,6 @@
 [project]
 name = "fraiseql-confiture"
-version = "1.35.0"
+version = "1.36.0"
 description = "PostgreSQL migrations, sweetly done: build from DDL, migrate, preflight, sync 🍓"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -302,7 +302,6 @@ max-returns = 8
 "python/confiture/core/differ.py" = ["PLR2004"]
 "python/confiture/core/dry_run.py" = ["PLR2004"]
 "python/confiture/core/error_handler.py" = ["PLR0911"]
-"python/confiture/core/git_accompaniment.py" = ["PLR2004"]
 "python/confiture/core/hooks/notifications/transport.py" = ["PLR2004"]
 "python/confiture/core/idempotency/_captures.py" = ["PLR2004"]
 "python/confiture/core/idempotency/models.py" = ["PLR2004"]

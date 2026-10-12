@@ -31,6 +31,25 @@ if TYPE_CHECKING:
             id="amp-entity-undone",
         ),
         pytest.param("https://test.org/example/&", "https://test.org/example/", id="trailing-slash-amp"),
+        pytest.param("https://test.org/example/&\x00>", "https://test.org/example/", id="trailing-control-slash-amp"),
+        pytest.param(
+            "https://test.org/example/&?\x00>", "https://test.org/example/", id="trailing-control-empty-query"
+        ),
+        pytest.param(
+            "https://test.org/example/&#\x00>", "https://test.org/example/", id="trailing-control-empty-fragment"
+        ),
+        pytest.param(
+            "https://test.org/example/&?#\x00>", "https://test.org/example/", id="trailing-control-empty-both"
+        ),
+        pytest.param("https://test.org/example/x?#\x00>", "https://test.org/example/x", id="trailing-control-no-amp"),
+        pytest.param("https://test.org/example/&x#\x00>", "https://test.org/example/&x", id="trailing-control-path"),
+        pytest.param("https://test.org/example/&?x\x00>", "https://test.org/example/&?x", id="trailing-control-query"),
+        pytest.param(
+            "https://test.org/example/x?\x00>", "https://test.org/example/x", id="trailing-control-no-amp-query"
+        ),
+        pytest.param(
+            "https://test.org/example/&x\x00>", "https://test.org/example/&x", id="trailing-control-path-only"
+        ),
         pytest.param("https://test.org/a&b", "https://test.org/a&b", id="interior-amp-kept"),
         pytest.param(
             "https://example.org:443/file.html?p=100&abc=1#frag",
@@ -41,6 +60,21 @@ if TYPE_CHECKING:
 )
 def test_clean_scrubs_markup_damage(url: str, expected: str) -> None:
     assert clean_url(url) == expected
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("https://example.org/&?&", "https://example.org/", id="empty-query-amp"),
+        pytest.param("https://example.org//&?&&", "https://example.org//", id="empty-query-amps"),
+        pytest.param("https://example.org/&?&#", "https://example.org/", id="empty-query-fragment"),
+        pytest.param("https://example.org/&?foo=1", "https://example.org/&?foo=1", id="nonempty-query"),
+        pytest.param("https://example.org/&?#keep", "https://example.org/&#keep", id="nonempty-fragment"),
+        pytest.param("https://example.org/a&?&", "https://example.org/a&", id="nonslash-amp-kept"),
+    ],
+)
+def test_clean_dangling_amp_after_query_cleanup(url: str, expected: str) -> None:
+    assert ((cleaned := clean_url(url)), clean_url(cleaned) if cleaned is not None else None) == (expected, expected)
 
 
 @pytest.mark.parametrize(
@@ -73,6 +107,18 @@ def test_clean_accepts_colon_hosts(url: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "url",
+    [
+        pytest.param("https://[:::1]/", id="extra-compression-colon"),
+        pytest.param("https://[::g]/", id="non-hex-group"),
+        pytest.param("https://[1:2:3]/", id="too-few-groups"),
+    ],
+)
+def test_clean_rejects_invalid_ipv6_hosts(url: str) -> None:
+    assert clean_url(url) is None
+
+
+@pytest.mark.parametrize(
     ("url", "expected"),
     [
         pytest.param("HTTP://LOCALHOST:/x", None, id="dotless-empty-port"),
@@ -93,12 +139,12 @@ def test_clean_accepts_colon_hosts(url: str) -> None:
         pytest.param("HTTP://EXAMPLE｡ORG:80/x", "http://example.org/x", id="halfwidth-dot"),
         pytest.param("HTTP://user:pw@LOCALHOST:80/a/../x", "http://user:pw@localhost/x", id="userinfo-colon-kept"),
         pytest.param("HTTP://m\xfcnchen.de:80/a/../x", "http://xn--mnchen-3ya.de/x", id="latin1-host"),
-        pytest.param("HTTP://\xe9:pw@LOCALHOST:80/a/../x", "http://\xe9:pw@localhost/x", id="latin1-userinfo-colon"),
+        pytest.param("HTTP://\xe9:pw@LOCALHOST:80/a/../x", "http://%C3%A9:pw@localhost/x", id="latin1-userinfo-colon"),
         pytest.param("HTTP://\xe9@LOCALHOST:80/a/../x", None, id="latin1-userinfo-no-colon"),
-        pytest.param("HTTP://\u0100:pw@LOCALHOST:80/a/../x", "http://\u0100:pw@localhost/x", id="bmp-userinfo-colon"),
+        pytest.param("HTTP://\u0100:pw@LOCALHOST:80/a/../x", "http://%C4%80:pw@localhost/x", id="bmp-userinfo-colon"),
         pytest.param("HTTP://\u0100@LOCALHOST:80/a/../x", None, id="bmp-userinfo-no-colon"),
         pytest.param(
-            "HTTP://\U00010000:pw@LOCALHOST:80/a/../x", "http://\U00010000:pw@localhost/x", id="astral-userinfo-colon"
+            "HTTP://\U00010000:pw@LOCALHOST:80/a/../x", "http://%F0%90%80%80:pw@localhost/x", id="astral-userinfo-colon"
         ),
         pytest.param("HTTP://\U00010000@LOCALHOST:80/a/../x", None, id="astral-userinfo-no-colon"),
         pytest.param("HTTP://a\u202eb/a/../x", None, id="bmp-host-low-byte-dot"),
@@ -107,7 +153,7 @@ def test_clean_accepts_colon_hosts(url: str) -> None:
         pytest.param("HTTP://\U0001003a@LOCALHOST:80/a/../x", None, id="astral-userinfo-low-byte-colon"),
         pytest.param("HTTP://a\ufffeb.EXAMPLE:80/a/../x", "http://a\ufffeb.example/x", id="wide-host-dot"),
         pytest.param(
-            "HTTP://u\x00:pw@LOCALHOST:80/a/../x", "http://u\x00:pw@localhost/x", id="nul-before-userinfo-colon"
+            "HTTP://u\x00:pw@LOCALHOST:80/a/../x", "http://u%00:pw@localhost/x", id="nul-before-userinfo-colon"
         ),
         pytest.param("HTTP://a\x00b.EXAMPLE:80/a/../x", None, id="nul-before-host-dot"),
         pytest.param("HTTP://:8000/a/../x", None, id="empty-host"),
@@ -170,6 +216,8 @@ def test_clean_strict_checks_language_subdomains(url: str, expected: str | None)
         pytest.param("http://a.com/\udce9", None, id="surrogate-in-path"),
         pytest.param("http://a.com/p?q=\udce9", None, id="surrogate-in-query"),
         pytest.param("http://a.com/p#\udce9", None, id="surrogate-in-fragment"),
+        pytest.param("http://\udce9:p@a.com/", None, id="surrogate-in-username"),
+        pytest.param("http://u:\udce9@a.com/", None, id="surrogate-in-password"),
         pytest.param("http://\udce9.com/", "http://\udce9.com/", id="surrogate-in-host-survives"),
     ],
 )
@@ -238,10 +286,25 @@ def test_the_document_entry_point_rejects_too_few_arguments() -> None:
         ),
         pytest.param("http://x.com:0080/", "http://x.com/", id="leading-zeros-read-as-the-default"),
         pytest.param("http://x.com:0081/", "http://x.com:81/", id="leading-zeros-fall-away"),
-        pytest.param("ftp://x.com", "ftp://x.com", id="a-non-web-scheme-keeps-its-empty-path"),
+        pytest.param("ftp://x.com", "ftp://x.com/", id="special-ftp-empty-path-is-root"),
+        pytest.param("ws://x.com", "ws://x.com/", id="special-ws-empty-path-is-root"),
+        pytest.param("wss://x.com", "wss://x.com/", id="special-wss-empty-path-is-root"),
+        pytest.param("foo://x.com", "foo://x.com", id="non-special-empty-path-stays-empty"),
         pytest.param("http:/x", "http:///x", id="a-netloc-scheme-without-an-authority-gets-the-marker"),
         pytest.param("http:x", "http:x", id="a-netloc-scheme-with-a-relative-path-keeps-its-shape"),
         pytest.param("http:", "http://", id="a-netloc-scheme-alone-gets-the-marker"),
+        pytest.param("gopher:/a", "gopher:/a", id="non-special-hostless-path-keeps-its-shape"),
+        pytest.param("git:/a", "git:/a", id="git-hostless-path-keeps-its-shape"),
+        pytest.param("gopher:", "gopher:", id="non-special-empty-path-has-no-authority"),
+        pytest.param("mailto://", "mailto://", id="non-special-empty-authority"),
+        pytest.param("data://", "data://", id="data-empty-authority"),
+        pytest.param("urn://", "urn://", id="urn-empty-authority"),
+        pytest.param("mailto://?x=1", "mailto://?x=1", id="empty-authority-with-query"),
+        pytest.param("custom:///", "custom:///", id="non-special-empty-authority-root"),
+        pytest.param("data:/.//", "data:/.//", id="hostless-double-slash-path-keeps-its-guard"),
+        pytest.param("data:/path/..//", "data:/.//", id="dot-segments-expose-a-hostless-double-slash"),
+        pytest.param("data:/.//x", "data:/.//x", id="hostless-double-slash-path-with-segment"),
+        pytest.param("data:////", "data:////", id="explicit-empty-authority-keeps-double-slash-path"),
         pytest.param("mailto:x@y.com", "mailto:x@y.com", id="an-opaque-scheme"),
         pytest.param("/a/b?utm_source=x#top", "/a/b#top", id="a-relative-reference"),
         pytest.param("////x", "////x", id="an-empty-authority-before-a-double-slash-path"),
@@ -254,13 +317,17 @@ def test_normalize_reassembles_every_shape(url: str, expected: str) -> None:
 @pytest.mark.parametrize(
     ("url", "expected"),
     [
-        pytest.param("http://x.com//", "http://x.com", id="a-slash-run-is-trimmed-whole"),
+        pytest.param("http://x.com//", "http://x.com/", id="a-slash-run-keeps-root"),
+        pytest.param("http://x.com/a//", "http://x.com/a", id="a-slash-run-after-segment"),
+        pytest.param("file://server//", "file://server/", id="a-file-root"),
+        pytest.param("foo://server//", "foo://server/", id="a-non-special-root"),
         pytest.param("http://x.com/", "http://x.com/", id="the-root-stays"),
         pytest.param("http://x.com/a", "http://x.com/a", id="no-slash-to-trim"),
     ],
 )
 def test_trailing_slash_off(url: str, expected: str) -> None:
-    assert normalize_url(url, UrlCleaning(trailing_slash=False)) == expected
+    options: Final = UrlCleaning(trailing_slash=False)
+    assert ((normalized := normalize_url(url, options)), normalize_url(normalized, options)) == (expected, expected)
 
 
 def test_a_fragment_key_with_a_lone_surrogate_cannot_be_encoded() -> None:
@@ -288,6 +355,12 @@ def test_clean_drops_a_fragment_key_with_a_lone_surrogate() -> None:
 )
 def test_anchor_attributes_are_read_the_way_html_defines_them(html: str, expected: set[str]) -> None:
     assert extract_links(html, "https://test.com/") == expected
+
+
+def test_extract_links_keeps_unicode_whitespace_in_base_path() -> None:
+    assert extract_links('<base href="\u2028"><a href="?x=1">x</a>', "https://test.com/dir/page") == {
+        "https://test.com/dir/%E2%80%A8?x=1"
+    }
 
 
 def test_a_longer_hreflang_subtag_is_another_language() -> None:
@@ -329,7 +402,13 @@ def test_a_relative_href_against_an_unsplittable_base_element_raises() -> None:
         pytest.param("http://[::1]:80/", "http://[::1]/", id="ipv6-default-port"),
         pytest.param("http://[::1]:8080/", "http://[::1]:8080/", id="ipv6-other-port"),
         pytest.param("http://[::1]:/", "http://[::1]/", id="ipv6-empty-port"),
-        pytest.param("http://user:pw@Example.ORG/x", "http://user:pw@example.org/x", id="userinfo-kept-verbatim"),
+        pytest.param("http://user:pw@Example.ORG/x", "http://user:pw@example.org/x", id="userinfo-colon-preserved"),
+        pytest.param("http://user:pa ss@Example.ORG/x", "http://user:pa%20ss@example.org/x", id="password-space"),
+        pytest.param("http://us:er:pa@Example.ORG/x", "http://us:er%3Apa@example.org/x", id="password-colon"),
+        pytest.param("http://a@b@Example.ORG/x", "http://a%40b@example.org/x", id="repeated-at-sign"),
+        pytest.param("http://user:@Example.ORG/x", "http://user@example.org/x", id="empty-password"),
+        pytest.param("http://:@Example.ORG/x", "http://example.org/x", id="empty-credentials"),
+        pytest.param("http://u%3As:p%40w@Example.ORG/x", "http://u%3As:p%40w@example.org/x", id="existing-escapes"),
         pytest.param("http://münchen.de", "http://xn--mnchen-3ya.de/", id="unicode-host-to-punycode"),
         pytest.param("http://münchen..de/x", "http://xn--mnchen-3ya..de/x", id="empty-label-still-encoded"),
         pytest.param(
@@ -354,15 +433,66 @@ def test_a_relative_href_against_an_unsplittable_base_element_raises() -> None:
         pytest.param("http://x.org/r%c3%a9sum%c3%a9", "http://x.org/r%C3%A9sum%C3%A9", id="escape-hex-uppercased"),
         pytest.param("http://x.org/a b", "http://x.org/a%20b", id="space-percent-encoded"),
         pytest.param("http://x.org/ab'c!$&,;=", "http://x.org/ab'c!$&,;=", id="path-safe-punctuation-kept"),
+        pytest.param("http://x.org/a^b", "http://x.org/a%5Eb", id="caret-encoded-in-path"),
         pytest.param("http://x.org/a{b}", "http://x.org/a%7Bb%7D", id="curly-braces-encoded-in-path"),
         pytest.param("http://x.org/x?q=a b#f g", "http://x.org/x?q=a%20b#f%20g", id="query-and-fragment-encoded"),
+        pytest.param("foo://x.org/x?q=a'b", "foo://x.org/x?q=a'b", id="non-special-query-apostrophe-kept"),
+        pytest.param("foo://x.org/x?q=☃'b", "foo://x.org/x?q=%E2%98%83'b", id="non-ascii-query-apostrophe-kept"),
+        pytest.param("http://x.org/x?q=a'b", "http://x.org/x?q=a%27b", id="special-query-apostrophe-encoded"),
+        pytest.param("ftp://x.org/x?q=a'b", "ftp://x.org/x?q=a%27b", id="ftp-query-apostrophe-encoded"),
+        pytest.param("file:///x?q=a'b", "file:///x?q=a%27b", id="file-query-apostrophe-encoded"),
+        pytest.param("ws://x.org/x?q=a'b", "ws://x.org/x?q=a%27b", id="ws-query-apostrophe-encoded"),
+        pytest.param("wss://x.org/x?q=a'b", "wss://x.org/x?q=a%27b", id="wss-query-apostrophe-encoded"),
+        pytest.param("foo://x.org/x?q=a%27b", "foo://x.org/x?q=a%27b", id="existing-query-escape-kept"),
         pytest.param("http://x.org/x#a{b}", "http://x.org/x#a{b}", id="fragment-set-looser-than-path"),
         pytest.param("mailto:someone@example.org", "mailto:someone@example.org", id="opaque-scheme-untouched"),
+        pytest.param("foo:hello world", "foo:hello world", id="opaque-path-keeps-interior-space"),
+        pytest.param("foo:hello<>world", "foo:hello<>world", id="opaque-path-keeps-angle-brackets"),
+        pytest.param("foo:hello`{world}", "foo:hello`{world}", id="opaque-path-keeps-printable-ascii"),
+        pytest.param("foo:hello ?x", "foo:hello%20?x", id="opaque-path-encodes-space-before-query"),
+        pytest.param("foo:hello #x", "foo:hello%20#x", id="opaque-path-encodes-space-before-fragment"),
+        pytest.param("foo:hello%2f", "foo:hello%2F", id="opaque-path-normalizes-escape"),
+        pytest.param("foo:a\x01b", "foo:a%01b", id="opaque-path-encodes-control"),
+        pytest.param("foo:é", "foo:%C3%A9", id="opaque-path-encodes-non-ascii"),
+        pytest.param("foo:", "foo:", id="empty-opaque-path"),
+        pytest.param("foo:hello ?", "foo:hello%20", id="empty-query-marker-keeps-path-encoding"),
+        pytest.param("foo:/hello world", "foo:/hello%20world", id="hierarchical-path-encodes-space"),
+        pytest.param("ftp:x y", "ftp:x%20y", id="ftp-path-encodes-space"),
+        pytest.param("http:x y", "http:x%20y", id="http-path-encodes-space"),
+        pytest.param("https:x y", "https:x%20y", id="https-path-encodes-space"),
+        pytest.param("ws:x y", "ws:x%20y", id="ws-path-encodes-space"),
+        pytest.param("wss:x y", "wss:x%20y", id="wss-path-encodes-space"),
+        pytest.param("foo:/a/../b", "foo:/b", id="hostless-non-special-dot-segment"),
+        pytest.param("foo:/a/%2e%2e/b?x=1#f", "foo:/b?x=1#f", id="hostless-escaped-dot-segment"),
+        pytest.param("mailto:/a/../b", "mailto:/b", id="hostless-mailto-dot-segment"),
+        pytest.param("foo:a/../b", "foo:a/../b", id="opaque-dot-segment-untouched"),
         pytest.param("page.html?b=2&a=1", "page.html?a=1&b=2", id="relative-url-keeps-shape"),
     ],
 )
 def test_normalize_spec_behaviors(url: str, expected: str) -> None:
     assert normalize_url(url) == expected
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("http://[u@example.org/x", "http://%5Bu@example.org/x", id="open-in-username"),
+        pytest.param("http://]u@example.org/x", "http://%5Du@example.org/x", id="close-in-username"),
+        pytest.param("http://[u]@example.org/x", "http://%5Bu%5D@example.org/x", id="paired-in-username"),
+        pytest.param("http://u]@[::1]/x", "http://u%5D@[::1]/x", id="close-in-username-ipv6-host"),
+    ],
+)
+def test_normalize_encodes_userinfo_brackets(url: str, expected: str) -> None:
+    assert normalize_url(url) == expected
+
+
+def test_normalize_rejects_unclosed_host_bracket_after_userinfo() -> None:
+    with pytest.raises(ValueError, match="Invalid IPv6 URL"):
+        normalize_url("http://]u@[::1/x")
+
+
+def test_clean_accepts_unpaired_userinfo_bracket() -> None:
+    assert clean_url("http://[u@example.org/x") == "http://%5Bu@example.org/x"
 
 
 @pytest.mark.parametrize(
@@ -429,6 +559,48 @@ def test_normalize_fragment_cleaning(url: str, expected: str) -> None:
     assert normalize_url(url) == expected
 
 
+@pytest.mark.parametrize("normalizer", [normalize_url, clean_url], ids=["normalize", "clean"])
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "https://example.org/#a=o'k&b=2",
+            "https://example.org/#a=o'k&b=2",
+            id="apostrophe-kept",
+        ),
+        pytest.param(
+            "https://example.org/#a=`&b=2",
+            "https://example.org/#a=%60&b=2",
+            id="backtick-encoded",
+        ),
+        pytest.param(
+            "https://example.org/#a=foo#bar&b=2",
+            "https://example.org/#a=foo#bar&b=2",
+            id="hash-kept",
+        ),
+        pytest.param(
+            "https://example.org/#a=o%27k&b=2",
+            "https://example.org/#a=o%27k&b=2",
+            id="existing-escape-kept",
+        ),
+        pytest.param(
+            "https://example.org/#b=2&a=1",
+            "https://example.org/#a=1&b=2",
+            id="pairs-sorted",
+        ),
+        pytest.param(
+            "https://example.org/#utm_source=x&a=1",
+            "https://example.org/#a=1",
+            id="tracker-removed",
+        ),
+    ],
+)
+def test_query_shaped_fragment_uses_fragment_encoding(
+    normalizer: Callable[[str], str | None], source: str, expected: str
+) -> None:
+    assert normalizer(source) == expected
+
+
 @pytest.mark.parametrize(
     ("url", "options", "expected"),
     [
@@ -469,10 +641,19 @@ def test_normalize_rejects_unsplittable_input() -> None:
         normalize_url("http://[::1/x")
 
 
-def test_normalize_rejects_lone_surrogate() -> None:
+@pytest.mark.parametrize(
+    "url",
+    [
+        pytest.param("http://a.com/\udce9", id="path"),
+        pytest.param("http://\udce9:p@a.com/", id="username"),
+        pytest.param("http://u:\udce9@a.com/", id="password"),
+        pytest.param("foo:\udce9", id="opaque"),
+    ],
+)
+def test_normalize_rejects_lone_surrogate(url: str) -> None:
     # a lone surrogate has no UTF-8 form, so the component cannot be percent-encoded and the URL is not serializable
     with pytest.raises(ValueError, match="cannot be percent-encoded"):
-        normalize_url("http://a.com/\udce9")
+        normalize_url(url)
 
 
 def test_normalize_rejects_non_str() -> None:
@@ -626,6 +807,10 @@ def test_dot_segment_resolution(url: str, expected: str) -> None:
         pytest.param("http://[fe80:0:0:0:0:0:0:0]/", "http://[fe80::]/", id="trailing-zero-run"),
         pytest.param("http://[2001:db8:0:0:1:0:0:1]/", "http://[2001:db8::1:0:0:1]/", id="first-longest-run-wins"),
         pytest.param("http://[::]/", "http://[::]/", id="all-zeros"),
+        pytest.param("http://[::ffff:192.168.0.1]/", "http://[::ffff:c0a8:1]/", id="embedded-ipv4"),
+        pytest.param("http://[2001:db8:0:0:0:0:192.0.2.1]/", "http://[2001:db8::c000:201]/", id="full-ipv4-tail"),
+        pytest.param("http://[::ffff:0.0.0.0]/", "http://[::ffff:0:0]/", id="zero-ipv4-tail"),
+        pytest.param("http://[::ffff:255.255.255.255]/", "http://[::ffff:ffff:ffff]/", id="max-ipv4-tail"),
         pytest.param("http://good%2eexample/", "http://good.example/", id="percent-dot"),
         pytest.param(
             "http://trusted.example%2eattacker.example/", "http://trusted.example.attacker.example/", id="split-label"
@@ -652,7 +837,15 @@ def test_normalize_url_canonicalizes_hosts(url: str, expected: str) -> None:
         pytest.param("http://99999999999/", id="number-over-32-bits"),
         pytest.param("http://foo.0x1/", id="non-numeric-leading-part"),
         pytest.param("http://1..2.3/", id="empty-interior-part"),
-        pytest.param("http://[::ffff:1.2.3.4]/", id="embedded-ipv4-tail"),
+        pytest.param("http://[::ffff:192.168.00.1]/", id="ipv4-tail-leading-zero"),
+        pytest.param("http://[::ffff:256.1.1.1]/", id="ipv4-tail-out-of-range"),
+        pytest.param("http://[1:2:3:4:5:6:7:1.2.3.4]/", id="ipv4-tail-too-many-pieces"),
+        pytest.param("http://[::ffff:1.2.3]/", id="ipv4-tail-too-few-parts"),
+        pytest.param("http://[::ffff:1.2.3.]/", id="ipv4-tail-empty-part"),
+        pytest.param("http://[::ffff:1.2.3.-4]/", id="ipv4-tail-negative-part"),
+        pytest.param("http://[::ffff:1.2.3.x]/", id="ipv4-tail-letter-part"),
+        pytest.param("http://[::ffff:1.2.3:4]/", id="ipv4-tail-missing-dot"),
+        pytest.param("http://[::ffff:1.2.3.4x]/", id="ipv4-tail-extra-suffix"),
         pytest.param("http://[::1x]/", id="trailing-non-hex"),
         pytest.param("http://[1:2:3]/", id="too-few-groups"),
         pytest.param("http://[:::1]/", id="double-compressor"),
@@ -665,6 +858,370 @@ def test_normalize_url_canonicalizes_hosts(url: str, expected: str) -> None:
     ],
 )
 def test_normalize_url_keeps_hosts_it_cannot_parse(url: str) -> None:
-    # a numeric-looking host that is no valid IPv4 address stays a registered name, and an IPv6 literal the compact
-    # parser rejects (an embedded-IPv4 tail, or an invalid form) keeps its spelling
     assert normalize_url(url) == url
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("https://example.org/a ", "https://example.org/a", id="trailing-space"),
+        pytest.param("https://example.org/a\x00", "https://example.org/a", id="trailing-null"),
+        pytest.param(" \x01https://example.org/a\x1f ", "https://example.org/a", id="both-edges"),
+        pytest.param("https://example.org/a ?x=1", "https://example.org/a%20?x=1", id="interior-space"),
+        pytest.param("https://example.org/a#f ", "https://example.org/a#f", id="fragment-edge"),
+        pytest.param("foo:hello ", "foo:hello", id="opaque-path-edge"),
+        pytest.param("https://example.org/a\x7f", "https://example.org/a%7F", id="del-not-c0"),
+    ],
+)
+def test_normalize_url_trims_input_edges(url: str, expected: str) -> None:
+    assert normalize_url(url) == expected
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        pytest.param(f"a%{code:02X}b.example", id=f"encoded-{code:02x}")
+        for code in (*range(0x21), 0x23, 0x25, 0x2F, 0x3A, 0x3C, 0x3E, 0x3F, 0x40, 0x5B, 0x5C, 0x5D, 0x5E, 0x7C, 0x7F)
+    ]
+    + [
+        pytest.param("\uff05\uff10\uff10", id="mapped-null-escape"),
+        pytest.param("\uff05\uff14\uff11", id="mapped-letter-escape"),
+        pytest.param("a\uff03b.example", id="mapped-fragment-delimiter"),
+        pytest.param("a\uff1ab.example", id="mapped-port-delimiter"),
+        pytest.param("a\uff20b.example", id="mapped-userinfo-delimiter"),
+    ],
+)
+def test_normalize_rejects_forbidden_domain(host: str) -> None:
+    with pytest.raises(ValueError, match="host contains a forbidden domain code point"):
+        normalize_url(f"http://{host}/")
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("//\uff05\uff10\uff10", id="mapped-null"),
+        pytest.param("http://o%23", id="fragment"),
+        pytest.param("http://o%3F", id="query"),
+        pytest.param("//\uff05\uff14\uff11", id="mapped-escape"),
+        pytest.param("file://%3A", id="port"),
+        pytest.param("//%09t", id="tab"),
+    ],
+)
+def test_normalize_rejects_saved_reparse_findings(source: str) -> None:
+    with pytest.raises(ValueError, match="host contains a forbidden domain code point"):
+        normalize_url(source)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("http://good%2eexample/", "http://good.example/", id="decoded-dot"),
+        pytest.param("http://%41.example/", "http://a.example/", id="decoded-letter"),
+        pytest.param("http://caf%C3%A9.example/", "http://xn--caf-dma.example/", id="decoded-unicode"),
+        pytest.param("http://a\u0085b.example/", "http://a\u0085b.example/", id="retained-c1-fallback"),
+        pytest.param("http://a\u2028b.example/", "http://a\u2028b.example/", id="retained-disallowed-fallback"),
+        pytest.param("file:///", "file:///", id="empty-file-host"),
+        pytest.param("http://[::1]/", "http://[::1]/", id="ipv6"),
+        pytest.param("http://1g/", "http://1g/", id="numeric-prefix-fallback"),
+        pytest.param("http://-a/", "http://-a/", id="leading-hyphen-domain"),
+    ],
+)
+def test_normalize_host_valid_and_fallback_forms(source: str, expected: str) -> None:
+    normalized: Final = normalize_url(source)
+    assert (normalized, normalize_url(normalized)) == (expected, expected)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("https://user@", id="special-user"),
+        pytest.param("https://@/path", id="special-empty-user"),
+        pytest.param("git://user@?query", id="opaque-user"),
+        pytest.param("git://@", id="opaque-empty-user"),
+    ],
+)
+def test_normalize_rejects_credentials_without_host(source: str) -> None:
+    with pytest.raises(ValueError, match="missing host after credentials"):
+        normalize_url(source)
+
+
+def test_normalize_accepts_credentials_with_host() -> None:
+    assert normalize_url("git://user@host/path") == "git://user@host/path"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("http://a%23b.example/", id="decoded-fragment"),
+        pytest.param("http://a\uff05\uff14\uff11.example/", id="mapped-escape"),
+    ],
+)
+def test_clean_rejects_forbidden_domain(source: str) -> None:
+    assert clean_url(source) is None
+
+
+def test_external_links_reject_forbidden_base_domain() -> None:
+    with pytest.raises(ValueError, match="host contains a forbidden domain code point"):
+        extract_links("<a href='https://valid.example/'>link</a>", "http://a%23b.example/", external_only=True)
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("file:", "file:///", id="empty"),
+        pytest.param("file://", "file:///", id="empty-authority"),
+        pytest.param("file:\\", "file:///", id="single-backslash"),
+        pytest.param("file:\\\\", "file:///", id="double-backslash"),
+        pytest.param("file:\\\\\\", "file:///", id="three-backslashes"),
+        pytest.param("file:\\\\\\\\", "file:////", id="four-backslashes"),
+        pytest.param("file:/\\", "file:///", id="mixed-opener"),
+        pytest.param("file:\\/", "file:///", id="reversed-opener"),
+        pytest.param("FILE://SERVER/share\\a?x=1#part", "file://server/share/a?x=1#part", id="unc-path"),
+        pytest.param("file:\\\\SERVER\\share\\a?x=1#part", "file://server/share/a?x=1#part", id="unc-backslash-opener"),
+        pytest.param("file:///C:/a\\b?x=1#part", "file:///C:/a/b?x=1#part", id="absolute-drive"),
+        pytest.param("FILE:///a/%5C/b?x=1#part", "file:///a/%5C/b?x=1#part", id="encoded-backslash"),
+        pytest.param("FILE:///a/b?x=1#part", "file:///a/b?x=1#part", id="forward-slashes"),
+        pytest.param("file:///a\\\u0100", "file:///a/%C4%80", id="two-byte-unicode"),
+        pytest.param("file:///a\\\U0001f600", "file:///a/%F0%9F%98%80", id="four-byte-unicode"),
+        pytest.param("file:///a\\\x00b", "file:///a/%00b", id="embedded-null"),
+        pytest.param("FIZZ://EXAMPLE.ORG/a\\b?x=1#part", "fizz://EXAMPLE.ORG/a\\b?x=1#part", id="f-prefixed-non-file"),
+        pytest.param("HTTPS://EXAMPLE.ORG/a\\b?x=1#part", "https://example.org/a/b?x=1#part", id="web-path-policy"),
+        pytest.param(
+            "CUSTOM://EXAMPLE.ORG/a\\b?x=1#part", "custom://EXAMPLE.ORG/a\\b?x=1#part", id="custom-path-policy"
+        ),
+    ],
+)
+def test_normalize_file_path(url: str, expected: str) -> None:
+    normalized: Final = normalize_url(url)
+    assert (normalized, normalize_url(normalized)) == (expected, expected)
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("file:///C|/foo", "file:///C:/foo", id="absolute-drive"),
+        pytest.param("file:///c|", "file:///c:", id="lowercase-drive"),
+        pytest.param("file:/C|/foo", "file:///C:/foo", id="single-slash"),
+        pytest.param("file:///C|\\foo", "file:///C:/foo", id="backslash-separator"),
+        pytest.param("file:///C|?x=1", "file:///C:?x=1", id="query-after-drive"),
+        pytest.param("file:///C|/\u0100", "file:///C:/%C4%80", id="two-byte-unicode"),
+        pytest.param("file:///C|/\U0001f600", "file:///C:/%F0%9F%98%80", id="four-byte-unicode"),
+        pytest.param("file:///C|foo", "file:///C|foo", id="longer-segment"),
+        pytest.param("file:///1|/foo", "file:///1|/foo", id="non-letter"),
+        pytest.param("FILE:ab|\\foo", "file:ab|/foo", id="relative-file-path"),
+    ],
+)
+def test_normalize_file_drive_separator(url: str, expected: str) -> None:
+    normalized: Final = normalize_url(url)
+    assert (normalized, normalize_url(normalized)) == (expected, expected)
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("file://localhost/C:/foo", "file:///C:/foo", id="localhost"),
+        pytest.param("file://LOCALHOST/x", "file:///x", id="uppercase"),
+        pytest.param("file://%6cocalhost/x", "file:///x", id="encoded"),
+        pytest.param("file://localhost./x", "file://localhost./x", id="trailing-dot"),
+        pytest.param("file://localhosx/x", "file://localhosx/x", id="same-length-host"),
+    ],
+)
+def test_normalize_file_localhost_host(url: str, expected: str) -> None:
+    normalized: Final = normalize_url(url)
+    assert (normalized, normalize_url(normalized)) == (expected, expected)
+
+
+def test_normalize_file_root_survives_trailing_slash_option() -> None:
+    assert normalize_url("FILE:", UrlCleaning(trailing_slash=False)) == "file:///"
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("file:///C:/../x", "file:///C:/x", id="drive-root-parent"),
+        pytest.param("file:///C:/a/../../x", "file:///C:/x", id="drive-root-nested-parent"),
+        pytest.param("file:///C:/../C:/x", "file:///C:/C:/x", id="repeated-drive-segment"),
+        pytest.param("file:///C:/%2e%2e/x", "file:///C:/x", id="drive-root-escaped-parent"),
+        pytest.param("file:///C:/..", "file:///C:/", id="drive-root-trailing-parent"),
+        pytest.param("file:///C:", "file:///C:", id="drive-root-without-child"),
+        pytest.param("file:///", "file:///", id="short-file-root"),
+        pytest.param("file:///..", "file:///", id="short-parent-path"),
+        pytest.param("file:///C:foo", "file:///C:foo", id="long-first-segment-without-dot"),
+        pytest.param("file:///C:foo/../x", "file:///x", id="long-first-segment-with-parent"),
+        pytest.param("file://server/C:/../x", "file://server/C:/x", id="unc-drive-root-parent"),
+        pytest.param("file:///CC:/../x", "file:///x", id="long-segment-is-not-drive"),
+        pytest.param("file:///4:/../x", "file:///x", id="digit-is-not-drive"),
+        pytest.param("file:///Ca/../x", "file:///x", id="missing-drive-colon"),
+        pytest.param("foo:/C:/../x", "foo:/x", id="other-scheme-does-not-protect-drive"),
+        pytest.param("file:ab:c/foo", "file:ab:c/foo", id="colon-without-leading-slash"),
+    ],
+)
+def test_normalize_file_keeps_drive_root(url: str, expected: str) -> None:
+    normalized: Final = normalize_url(url)
+    assert (normalized, normalize_url(normalized)) == (expected, expected)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        pytest.param("file://user@server/share", id="username"),
+        pytest.param("file://user:pass@server/share", id="password"),
+        pytest.param("file://@server/share", id="empty-username"),
+        pytest.param("file://user@localhost/share", id="local-host"),
+    ],
+)
+def test_normalize_file_rejects_userinfo(url: str) -> None:
+    with pytest.raises(ValueError, match="file URL cannot contain userinfo"):
+        normalize_url(url)
+
+
+def test_normalize_file_keeps_at_in_path() -> None:
+    assert normalize_url("file://server/share@name") == "file://server/share@name"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        pytest.param("file:///a\udce9", id="unchanged-path-surrogate"),
+        pytest.param("file:///a\\\udce9", id="rewritten-path-surrogate"),
+    ],
+)
+def test_normalize_file_rejects_surrogate(url: str) -> None:
+    with pytest.raises(ValueError, match="cannot be percent-encoded"):
+        normalize_url(url)
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("https://example.org/a\\b", "https://example.org/a/b", id="https-path"),
+        pytest.param("http://example.org\\a", "http://example.org/a", id="http-authority-boundary"),
+        pytest.param("ftp://example.org/a\\b", "ftp://example.org/a/b", id="ftp-path"),
+        pytest.param("ws://example.org/a\\b", "ws://example.org/a/b", id="ws-path"),
+        pytest.param("wss://example.org/a\\b", "wss://example.org/a/b", id="wss-path"),
+        pytest.param("https://example.org/a\\..\\b", "https://example.org/b", id="parent-segment"),
+        pytest.param(
+            "https://example.org/a\\b?x=\\y#z\\w",
+            "https://example.org/a/b?x=\\y#z\\w",
+            id="query-and-fragment-remain-separate",
+        ),
+        pytest.param("https://example.org/a%5Cb", "https://example.org/a%5Cb", id="encoded-reverse-solidus"),
+        pytest.param("foo://example.org/a\\b", "foo://example.org/a\\b", id="non-special-path"),
+    ],
+)
+def test_normalize_special_path_reverse_solidus(url: str, expected: str) -> None:
+    normalized: Final = normalize_url(url)
+    assert (normalized, normalize_url(normalized)) == (expected, expected)
+
+
+def test_clean_special_path_reverse_solidus() -> None:
+    assert clean_url("https://example.org/a\\b") == "https://example.org/a/b"
+
+
+@pytest.mark.parametrize(
+    "normalizer",
+    [pytest.param(normalize_url, id="normalize"), pytest.param(clean_url, id="clean")],
+)
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("http://example.com:८०/", "http://example.com:८०/", id="non-ascii-decimal-port"),
+        pytest.param("http://example.com:①/", "http://example.com:①/", id="non-decimal-digit-port"),
+        pytest.param("http://example.com:0080/", "http://example.com/", id="ascii-default-port"),
+        pytest.param("http://example.com:80x/", "http://example.com:80x/", id="invalid-ascii-port"),
+        pytest.param("http://example.com:!/", "http://example.com:!/", id="punctuation-port"),
+        pytest.param("http://example.com:65536/", "http://example.com:65536/", id="overflowing-ascii-port"),
+    ],
+)
+def test_normalize_port_uses_ascii_digits(normalizer: Callable[[str], str | None], url: str, expected: str) -> None:
+    assert normalizer(url) == expected
+
+
+@pytest.mark.parametrize(
+    "normalizer",
+    [pytest.param(normalize_url, id="normalize"), pytest.param(clean_url, id="clean")],
+)
+@pytest.mark.parametrize(
+    ("port", "suffix"),
+    [
+        pytest.param("0080", "", id="ascii-default-control"),
+        pytest.param("65536", ":65536", id="ascii-overflow-control"),
+        pytest.param("9" * 19, ":" + "9" * 19, id="long-limit"),
+        pytest.param("9" * 20, ":" + "9" * 20, id="long-overflow"),
+        pytest.param("0" * 20 + "80", "", id="padded-default"),
+        pytest.param("0" * 4301 + "80", "", id="padded-default-past-python-limit"),
+        pytest.param("0" * 4301 + "1", ":1", id="padded-nondefault-past-python-limit"),
+        pytest.param("0" * 4301, ":0", id="zero-past-python-limit"),
+        pytest.param("0" * 4301 + "9" * 20, ":" + "9" * 20, id="padded-overflow-past-python-limit"),
+        pytest.param("9" * 4301, ":" + "9" * 4301, id="overflow-past-python-limit"),
+    ],
+)
+def test_normalize_long_ascii_port(normalizer: Callable[[str], str | None], port: str, suffix: str) -> None:
+    assert normalizer(f"http://example.com:{port}/") == f"http://example.com{suffix}/"
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("git://EXAMPLE.ORG/a", "git://EXAMPLE.ORG/a", id="ascii-case"),
+        pytest.param("git://münchen.de/a", "git://m%C3%BCnchen.de/a", id="latin1-host"),
+        pytest.param("git://Ā.example/a", "git://%C4%80.example/a", id="bmp-host"),
+        pytest.param("git://中.example/a", "git://%E4%B8%AD.example/a", id="three-byte-host"),
+        pytest.param("git://😀.example/a", "git://%F0%9F%98%80.example/a", id="astral-host"),
+        pytest.param("git://0/a", "git://0/a", id="numeric-host"),
+        pytest.param("git://exa%6dple.org/a", "git://exa%6dple.org/a", id="existing-escape"),
+        pytest.param("git://exa%2fple.org/a", "git://exa%2fple.org/a", id="escaped-slash"),
+        pytest.param("git://exa%aaple.org/a", "git://exa%aaple.org/a", id="escaped-non-ascii"),
+        pytest.param("git://münchen%aa.de/a", "git://m%C3%BCnchen%aa.de/a", id="unicode-and-escape"),
+        pytest.param("git://a\x01b/a", "git://a%01b/a", id="c0-control"),
+        pytest.param("git://a\x7fb/a", "git://a%7Fb/a", id="del-control"),
+        pytest.param("git://[0:0::1]/a", "git://[::1]/a", id="ipv6-literal"),
+    ],
+)
+def test_normalize_opaque_host(source: str, expected: str) -> None:
+    normalized: Final = normalize_url(source)
+    assert (normalized, normalize_url(normalized)) == (expected, expected)
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        pytest.param("a b", id="space"),
+        pytest.param("a^b", id="caret"),
+        pytest.param("a\x00b", id="null"),
+    ],
+)
+def test_normalize_rejects_forbidden_opaque_host(host: str) -> None:
+    with pytest.raises(ValueError, match="host contains a forbidden host code point"):
+        normalize_url(f"git://{host}/")
+
+
+def test_normalize_rejects_surrogate_opaque_host() -> None:
+    with pytest.raises(ValueError, match="cannot be percent-encoded"):
+        normalize_url("git://a\udcff/")
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        pytest.param("file://C:/foo", "file:///C:/foo", id="colon-drive"),
+        pytest.param("file://C|/foo", "file:///C:/foo", id="bar-drive"),
+        pytest.param("file://C:", "file:///C:", id="drive-only"),
+        pytest.param("file://C|", "file:///C:", id="bar-drive-only"),
+        pytest.param("file://c:/foo", "file:///c:/foo", id="lowercase-drive"),
+        pytest.param("file://ab/foo", "file://ab/foo", id="two-letter-host"),
+        pytest.param("file://C|?q=1", "file:///C:?q=1", id="query-after-drive"),
+        pytest.param("file://C|#part", "file:///C:#part", id="fragment-after-drive"),
+    ],
+)
+def test_normalize_file_drive_in_authority(url: str, expected: str) -> None:
+    normalized: Final = normalize_url(url)
+    assert (normalized, normalize_url(normalized)) == (expected, expected)
+
+
+@pytest.mark.parametrize("scheme", ["http", "fuzz", "fizz", "film"])
+def test_normalize_file_drive_authority_only_for_file(scheme: str) -> None:
+    url: Final = f"{scheme}://c:/foo"
+    expected: Final = f"{scheme}://c/foo"
+    normalized: Final = normalize_url(url)
+    assert (normalized, normalize_url(normalized)) == (expected, expected)

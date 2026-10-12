@@ -122,6 +122,8 @@ std::shared_ptr<QPDF> open_pdf(py::object stream,
 
     qpdf_basic_settings(*q);
     q->setSuppressWarnings(suppress_warnings);
+    if (auto entry = QpdfRegistry::instance().lookup_entry(q.get()))
+        entry->warnings_suppressed.store(suppress_warnings, std::memory_order_relaxed);
     q->setPasswordIsHexKey(hex_password);
     q->setIgnoreXRefStreams(ignore_xref_streams);
     q->setAttemptRecovery(attempt_recovery);
@@ -151,9 +153,19 @@ std::shared_ptr<QPDF> open_pdf(py::object stream,
     }
 
     if (!success && access_mode == access_stream) {
-        auto stream_input_source = std::make_unique<PythonStreamInputSource>(
-            stream, description, closing_stream);
-        auto input_source = std::shared_ptr<InputSource>(stream_input_source.release());
+        // If we opened the file ourselves, read from its file descriptor
+        // directly rather than calling back into Python for every read. A
+        // stream that was passed to us is only ever used through its methods.
+        py::object fd = py::none();
+        if (closing_stream)
+            fd = py::module_::import_("pikepdf._io").attr("input_fd")(stream);
+        std::shared_ptr<InputSource> input_source;
+        if (!fd.is_none())
+            input_source =
+                std::make_shared<FdInputSource>(stream, py::cast<int>(fd), description);
+        else
+            input_source = std::make_shared<PythonStreamInputSource>(
+                stream, description, closing_stream);
         py::gil_scoped_release release;
         q->processInputSource(input_source, password.c_str());
         success = true;
@@ -197,18 +209,18 @@ std::shared_ptr<QPDF> open_pdf_json(
 
 class PikeProgressReporter : public QPDFWriter::ProgressReporter {
 public:
-    PikeProgressReporter(py::object callback) { this->callback = callback; }
+    PikeProgressReporter(py::object callback) { callback_ = callback; }
 
     virtual ~PikeProgressReporter() = default;
 
     virtual void reportProgress(int percent) override
     {
         py::gil_scoped_acquire acquire;
-        this->callback(percent);
+        callback_(percent);
     }
 
 private:
-    py::object callback;
+    py::object callback_;
 };
 
 void update_xmp_pdfversion(QPDF &q, std::string version)
@@ -920,6 +932,12 @@ void init_qpdf(py::module_ &m)
             [](QPDF &q, std::pair<int, int> objgen, QPDFObjectHandle &h) {
                 QpdfLockGuard lock(&q);
                 q.replaceObject(objgen.first, objgen.second, h);
+                // qpdf moves the value into the object already filed under
+                // that number, so that existing references see it, and leaves
+                // the handle passed in as a separate object that forwards to
+                // it. Point the caller's handle at the real one, so that it
+                // is the same object as every other reference.
+                h = q.getObject(objgen.first, objgen.second);
             })
         .def("_count_orphaned_widgets",
             [](QPDF &q) -> size_t {

@@ -24,10 +24,12 @@ from .filters.kolo import kolo_filter_filename
 from .git import COMMIT_SHA
 from .plugins import PluginProcessor, load_plugin_data
 from .serialize import (
+    IMPLICIT_ITERABLE_IS_RAW,
     FramePathCache,
     dump_frame_msgpack,
     dump_msgpack,
     dump_msgpack_lightweight_repr,
+    hide_implicit_iterable,
     load_msgpack_raw,
     user_code_call_site,
 )
@@ -98,6 +100,8 @@ def build_frame_data(
         frame_locals = None
     else:
         frame_locals = {k: v for k, v in frame.f_locals.items() if k != "__builtins__"}
+        if IMPLICIT_ITERABLE_IS_RAW:
+            hide_implicit_iterable(frame, frame_locals)
     return {
         "path": path,
         "co_name": name,

@@ -11,13 +11,20 @@ tests/v2/test_layering.py).
 from __future__ import annotations
 
 import bisect
-from collections.abc import Sequence
+import dataclasses
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
+from types import MappingProxyType
+from typing import TYPE_CHECKING, TypeVar
 
 from nameparser._lexicon import Lexicon
 from nameparser._policy import Policy
-from nameparser._types import AmbiguityKind, Role, Segmenter, Span
+from nameparser._types import (SHAPE_ACRONYM_TAG, AmbiguityKind,
+                               Role, Segmenter, Span)
+
+if TYPE_CHECKING:
+    from nameparser._pipeline._pieces import TailRead
 
 
 # The comma characters (ASCII/Arabic/fullwidth, #265). Shared here so
@@ -57,16 +64,53 @@ class WorkToken:
 
 #: M4's two carve-outs, as the tags classify recorded them: a bound
 #: given-name word is vocabulary claiming the word as a given name,
-#: and `initial` is the shape claim. Neither is a predicate M4 owns.
+#: and `initial` is the initial reading. Neither is a predicate M4 owns.
 #: Shared here beside WorkToken.tags for the reason COMMA_CHARS is:
 #: assign's `_WORD_ALREADY_CLAIMED` is built from this pair, and the
 #: two stages must not drift (post_rules imports _assign, so _assign
 #: cannot reach the other way).
 _NEVER_FLIPPED = frozenset({"vocab:bound-given", "initial"})
 
+# SHAPE_ACRONYM_TAG is defined and explained in _types (its #: block
+# above the constant, not restated here -- defined there so _render
+# can read it too); re-exported here beside the membership half below
+# because the stages read both halves from one module.
+
+#: The MEMBERSHIP half of the same class: classify's tag for a token
+#: the ambiguous credential vocabulary claims, by listing
+#: (`Lexicon.suffix_acronyms_ambiguous`) or -- where a Policy switch
+#: admits the by-shape half -- beside `SHAPE_ACRONYM_TAG`. Beside that
+#: constant and for its reason: the string was spelled out at eight
+#: sites across four modules, each of them a place for a typo to pass
+#: silently, since a tag that is never written is simply a tag no
+#: reader ever finds.
+AMBIGUOUS_ACRONYM_TAG = "vocab:suffix-ambiguous"
+
+#: EITHER way a token joins the ambiguous credential class -- the
+#: vocabulary's claim and the writing's. The two emitters that report
+#: a fork the peel called and declined ask exactly this: `_group`'s
+#: prefix chain (a listed member the case lean read as a name, 'John
+#: van der Berg Ma'; a by-shape member the count left standing,
+#: 'Freiherr von Berg X.Y.I.') and `_assign`'s family-comma slot. One
+#: constant beside the two above and for their reason -- the pair was
+#: spelled two ways, a frozenset here and an `or` of two `in` tests
+#: there -- and a frozenset so each test is one `isdisjoint`, a C call
+#: with no Python frame, on a branch every chained name reaches.
+_AMBIGUOUS_CREDENTIAL_TAGS = frozenset(
+    {AMBIGUOUS_ACRONYM_TAG, SHAPE_ACRONYM_TAG})
+
+#: The roles that make a piece a name word (rules.md#P6's walk), and
+#: the roles of a word not yet read as one: a suffix, or nothing yet
+#: -- what `_pieces.particle_tail` reads, asked by assign's given-part
+#: walk when it reaches the credential run, whose words are unread.
+NAME_ROLES = (Role.GIVEN, Role.MIDDLE, Role.FAMILY)
+SUFFIX_OR_UNREAD = (Role.SUFFIX, None)
+
 
 class Structure(Enum):
-    """segment's comma-structure decision."""
+    """The comma structure: segment writes NO_COMMA or FAMILY_COMMA,
+    and group's head decides a comma form once classify has tagged the
+    words, which may make it SUFFIX_COMMA (#613, `_comma.decide`)."""
 
     NO_COMMA = auto()
     FAMILY_COMMA = auto()   # "Family, Given ..." (v1 lastname-comma)
@@ -86,30 +130,61 @@ class PendingAmbiguity:
     extract_delimited knows only a character offset, so it records that
     and tokenize resolves it to the containing token's index. Stages
     after tokenize set ``indices`` directly and leave ``origin`` None.
+
+    ``field_tail`` is for a report that names the field its word was
+    read into. post_rules may still move the word (H1's move behind a
+    title, P1's family-first fold, P6's attachment, and under opt-in
+    policies the patronymic rotations and `middle_as_family`'s fold),
+    so the emitter
+    writes ``detail`` up to the field and the rest of its sentence
+    here -- ``""`` where the field ends the sentence, which is why
+    assemble tests ``is not None`` -- and assemble joins them around
+    the FIELD_READING of the first referent's final role, the one
+    place that knows it (#626). Until then ``detail`` is a fragment.
     """
 
     kind: AmbiguityKind
     detail: str
     indices: tuple[int, ...] = ()
     origin: int | None = None
+    field_tail: str | None = None
+
+
+#: How a report names the field a word was read into, by final role.
+FIELD_READING: Mapping[Role, str] = MappingProxyType({
+    Role.TITLE: "a title", Role.GIVEN: "a given name",
+    Role.MIDDLE: "a middle name", Role.FAMILY: "a family name",
+    Role.SUFFIX: "a suffix", Role.NICKNAME: "a nickname",
+    Role.MAIDEN: "a maiden name"})
+# every role a referent can hold, or a new one is a KeyError at the
+# first parse whose report lands in it
+assert FIELD_READING.keys() == set(Role)
 
 
 @dataclass(frozen=True, slots=True)
 class ParseState:
     """Carried through the stage fold. Frozen; stages return copies via
-    dataclasses.replace. Fields are filled progressively:
+    copy_with. Fields are filled progressively:
     extract_delimited -> extracted/masked; tokenize -> tokens (span-
     sorted)/comma_offsets/interpunct_offsets (the 间隔号 offsets the
     order and segmentation decisions consult, #298; the nakaguro
-    separators record NOTHING); segment -> segments/structure;
+    separators record NOTHING); segment -> segments/structure/one_case
+    (lazily, only where C2's flag asks for it -- #289/#516, #613);
     script_segment -> tokens and segments again (the one stage that
     changes the token COUNT: an unspaced CJK token splits into n+1
     pieces, still as sub-slices of the original, and every later index
-    in the segment runs shifts by n); classify -> token tags; group ->
-    pieces/piece_tags/dropped AND maiden token roles;
+    in the segment runs shifts by n); classify -> token tags AND
+    one_case; group -> structure (its head decides a comma form, #613)
+    AND the SUFFIX/TITLE roles of a postnominal part after the comma,
+    whose segment it empties so no join reaches it,
+    then pieces/piece_tags/dropped AND maiden token roles, plus the
+    SUFFIX/TITLE roles of the run a maiden take gives up (#601), AND
+    tail_reads, S2's trailing run read once before its joins (#614);
     assign -> the remaining token roles AND `order`, the effective
-    order it read them under; post_rules -> roles again, and the
-    ambiguity P6's attachment reports.
+    order it read them under, AND the folded-middle tag on the
+    particles P6's attachment joins after a family comma (#613);
+    post_rules -> roles again, and the ambiguity P6's no-comma
+    attachment reports (#467).
     Ambiguities are recorded by every stage that DECIDES one --
     extract (resolved to a token index by tokenize), segment,
     script_segment, classify, group, assign, and post_rules -- since a
@@ -140,6 +215,15 @@ class ParseState:
     pieces: tuple[tuple[tuple[int, ...], ...], ...] = ()
     piece_tags: tuple[tuple[frozenset[str], ...], ...] = ()
     dropped: tuple[int, ...] = ()   # structural tokens (maiden markers)
+    #: rules.md#S2's trailing run per segment, as group read it ONCE
+    #: after P3's joins and before the particle chain (#614), for
+    #: assign to place and report
+    #: rather than peel again; None where group read none -- a family
+    #: comma's parts, a part past a comma, a segment of fewer than
+    #: three pieces, a run with a name piece inside it -- and assign
+    #: reads those for itself, as it does a name group's joins left
+    #: without a name word. Aligned with `pieces`.
+    tail_reads: tuple[TailRead | None, ...] = ()
     #: The order `assign` actually READ the name under -- name_order,
     #: or the script_orders entry that overrode it. None wherever no
     #: positional read happened: after a family comma (which fixes the
@@ -153,4 +237,123 @@ class ParseState:
     #: script_orders entry -- which is why the test for it builds its
     #: own (test_post_rules.py).
     order: tuple[Role, Role, Role] | None = None
+    #: Whether the name's OWN words are written wholly in one case --
+    #: all upper or all lower alike -- and so carry no case EVIDENCE
+    #: about any word in them (rules.md#P3's own-words span,
+    #: _pieces.own_words). None means NOT ASKED YET: the fact is
+    #: computed by whichever of segment and classify needs it first,
+    #: segment only when C2's flag on a part past the second comma asks
+    #: for it, so a reader between the two stages sees None and must
+    #: not guess -- script_segment asks for itself there (#613).
+    #: Recorded rather than recomputed, the way `order` above is: the
+    #: trailing suffix slot, the post-comma slot, the tail-segment
+    #: reading, the prefix chain's own tail measure (_group) and the
+    #: glued-honorific peel's decline of a post-comma run
+    #: (_script_segment) all consult it and must not disagree
+    #: (#289/#516, decisions.md#S2). Five stages read it in all --
+    #: segment, script_segment, classify, group and assign -- plus the
+    #: two predicate layers they read it through (_pieces, _vocab).
+    #: A fact segment records SURVIVES script_segment, the one stage
+    #: that changes the token count, and survives it unrecomputed
+    #: because splitting a token cannot change the answer: the verdict
+    #: is `is_one_case` over the name's own words JOINED, and a split
+    #: only moves a space into a string whose upper/lower comparison
+    #: ignores spaces entirely -- '김민준씨' and '김민준 씨' fold alike.
+    #: So the field is carried through rather than invalidated, and
+    #: script_segment reads it where segment recorded it (its suffix-run
+    #: predicate takes the lean), asking for itself only where segment
+    #: did not, without recording the answer (`_one_case`).
+    one_case: bool | None = None
     ambiguities: tuple[PendingAmbiguity, ...] = ()
+
+
+def _copy_refusals(cls: type) -> list[str]:
+    """Why a field copy of `cls` might not build what
+    `dataclasses.replace` builds, one reason per unmet condition.
+
+    `replace` calls `obj.__class__(...)`, and every hook that call can
+    run -- a metaclass `__call__`, a `__new__`, the `__init__` and any
+    `__setattr__` it goes through, a `__post_init__`, an `InitVar` it
+    demands for want of a default -- is one a field copy skips. These conditions are a
+    TRIPWIRE for a realistic edit to the pipeline's three classes, not
+    a proof against any class at all: a forged `__qualname__` on a
+    borrowed `__init__` combined with its own decoration, or a
+    `__class__` property, is out of scope, and `copy_with` copies
+    nothing but those three anyway."""
+    reasons = []
+    params = cls.__dict__.get("__dataclass_params__")
+    if params is None:
+        reasons.append("not decorated as a dataclass itself")
+    elif not params.frozen:
+        reasons.append("not frozen")
+    init = cls.__dict__.get("__init__")
+    # dataclasses compiles the __init__ it generates from a string and
+    # names it after the class; one written in a class body carries its
+    # source file, and one borrowed from another class keeps that
+    # class's name.
+    if (init is None or init.__code__.co_filename != "<string>"
+            or init.__qualname__ != f"{cls.__qualname__}.__init__"):
+        reasons.append("__init__ not generated for it")
+        init = None
+    fields = dataclasses.fields(cls)
+    if init is not None:
+        # an InitVar is an __init__ parameter that is not a field
+        code = init.__code__
+        taken = code.co_argcount + code.co_kwonlyargcount - 1
+        if taken != sum(f.init for f in fields):
+            reasons.append("__init__ does not take exactly its init fields")
+    if type(cls) is not type:
+        reasons.append("built by a metaclass")
+    if any("__new__" in vars(k) for k in cls.__mro__[:-1]):
+        reasons.append("defines __new__")
+    if hasattr(cls, "__post_init__"):
+        reasons.append("defines __post_init__")
+    if not all(f.init for f in fields):
+        reasons.append("has an init=False field")
+    return reasons
+
+
+def _copyable_fields(cls: type) -> tuple[str, ...]:
+    """The fields `copy_with` carries for `cls`, or TypeError naming
+    every condition of `_copy_refusals` it fails."""
+    reasons = _copy_refusals(cls)
+    if reasons:
+        raise TypeError(
+            f"copy_with cannot copy {cls.__name__}: it needs a frozen "
+            "dataclass whose generated __init__ only assigns its fields "
+            f"({'; '.join(reasons)})")
+    return tuple(f.name for f in dataclasses.fields(cls))
+
+
+#: Built once, at import: a pipeline class that stops qualifying fails
+#: here rather than in a parse, and `copy_with` copies nothing else.
+_COPY_FIELDS: Mapping[type, tuple[str, ...]] = MappingProxyType({
+    cls: _copyable_fields(cls)
+    for cls in (WorkToken, PendingAmbiguity, ParseState)})
+
+_T = TypeVar("_T")
+
+if TYPE_CHECKING:
+    # mypy's dataclass plugin checks replace's keywords against the
+    # class, which a `**changes: object` signature would not.
+    from dataclasses import replace as copy_with
+else:
+    def copy_with(obj: _T, /, **changes: object) -> _T:
+        """`dataclasses.replace` for the pipeline's own dataclasses,
+        without its per-call cost: a direct field copy, which for the
+        classes in `_COPY_FIELDS` builds the same object
+        (decisions.md#parse-cost has the measurement)."""
+        cls = type(obj)
+        names = _COPY_FIELDS.get(cls)
+        if names is None:
+            raise TypeError(
+                f"copy_with copies only the pipeline's own dataclasses, "
+                f"not {cls.__name__}")
+        new = object.__new__(cls)
+        for name in names:
+            value = changes.pop(name) if name in changes else getattr(obj, name)
+            object.__setattr__(new, name, value)
+        if changes:
+            raise TypeError(f"{cls.__name__} has no field named "
+                            f"{', '.join(sorted(changes))}")
+        return new

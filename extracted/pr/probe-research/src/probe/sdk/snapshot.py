@@ -1418,6 +1418,13 @@ def _probe_config_excluded(path: str, is_dir: bool) -> bool:
     return _exclusions.excluded(path, is_dir=is_dir, hot=True).excluded
 
 
+def _config_checker():
+    """A `.probe.config` checker for one snapshot (`probe_config.Checker`)."""
+    from . import exclusions as _exclusions
+
+    return _exclusions.checker(hot=True)
+
+
 class _Ignored:
     """Paths a ``.probeignore`` pattern excluded (plan (n)), reported under
     reason ``probeignore``: an excluded directory once (the top-most one), not
@@ -1435,7 +1442,7 @@ class _Ignored:
         self.cwd = cwd
         self.records: dict[str, dict[str, Any]] = {}
         self._dirs: dict[str, bool] = {}
-        self._config_dirs: dict[str, bool] = {}
+        self._config = _config_checker()
         self.count = 0
 
     def _dir(self, rel_dir: str) -> bool:
@@ -1448,17 +1455,14 @@ class _Ignored:
         return hit
 
     def _config_dir(self, rel_dir: str) -> bool:
-        hit = self._config_dirs.get(rel_dir)
-        if hit is None:
-            hit = self._config_dirs[rel_dir] = _probe_config_excluded(os.path.join(self.cwd, rel_dir), True)
-        return hit
+        """For a walk that prunes: is this folder closed (`off`)? A `read` folder
+        stays open, for an `@probe on` line inside it; its files are checked."""
+        return self._config.closed(os.path.join(self.cwd, rel_dir))
 
     def config_excluded(self, rel: str) -> bool:
-        """Is this file, or a folder above it, excluded by a `.probe.config`?"""
-        parts = rel.split("/")
-        if any(self._config_dir("/".join(parts[:depth])) for depth in range(1, len(parts))):
-            return True
-        return _probe_config_excluded(os.path.join(self.cwd, rel), False)
+        """Is this file excluded by a `.probe.config` (itself, or a closed folder
+        above it)? One `Checker` per snapshot: paths in a row share their folders."""
+        return self._config.check(os.path.join(self.cwd, rel), is_dir=False).excluded
 
     def unnamed(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """`records` minus any whose path a `.probe.config` excludes (as a file
@@ -1467,7 +1471,7 @@ class _Ignored:
         return [
             r for r in records
             if not isinstance(r.get("path"), str)
-            or not (self._config_dir(r["path"]) or self.config_excluded(r["path"]))
+            or not self._config.check(os.path.join(self.cwd, r["path"])).excluded
         ]
 
     def directory(self, rel_dir: str) -> bool:
@@ -1541,6 +1545,7 @@ def _include_entries(
     same goes for the SDK's own folders (``own``, `probe.sdk.owndirs`): its
     queue is never the run's code, reported once per folder.
     """
+    config = _config_checker()
     import glob as _glob
 
     own_reported = {s["path"] for s in skipped if s.get("reason") == _owndirs.REASON}
@@ -1569,7 +1574,7 @@ def _include_entries(
                     raise SnapshotError(f"--include {pattern!r} escapes {cwd}: {rel}")
                 if rel in already or rel in seen:
                     continue
-                if _probe_config_excluded(full, os.path.isdir(full)):
+                if config.check(full, is_dir=os.path.isdir(full)).excluded:
                     continue  # a researcher's `.probe.config` beats an explicit include
                 top = own.top(rel) if own is not None else None
                 if top is not None:

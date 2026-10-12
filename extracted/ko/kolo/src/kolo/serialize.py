@@ -4,8 +4,10 @@ import functools
 import gzip
 import logging
 import os
+import sys
 import threading
 import types
+from contextvars import ContextVar
 from datetime import date, datetime, time
 from decimal import Decimal
 from email.message import Message
@@ -15,6 +17,23 @@ from uuid import UUID
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple, TypedDict, TypeVar
 
 import msgpack
+
+from ._construction import CHECK as _CONSTRUCTION_CHECK
+from ._construction import (
+    _CPYTHON,
+    _TPFLAGS_HEAPTYPE,
+    _type_flags,
+    may_run_user_code as _may_run_user_code,
+    objects_under_construction as _objects_under_construction,
+    placeholder as _construction_placeholder,
+)
+
+# The native encoder reads these two, and `_objects_under_construction`, from
+# this module's globals.
+from ._construction import (  # noqa: F401
+    method_under_construction_repr as _method_under_construction_repr,
+    under_construction_repr as _under_construction_repr,
+)
 
 logger = logging.getLogger("kolo")
 
@@ -144,6 +163,58 @@ class _QueryGuard(threading.local):
     # A depth rather than a flag, so encodes that end out of order (greenlets
     # switching mid-repr) cannot leave it set.
     depth = 0
+
+
+# `[found]` for the root being dumped: what `_objects_under_construction`
+# found (None: not looked for yet). The stack below Kolo cannot change while
+# one root is serialized, so one walk serves all its values. Each dump owns
+# its list, and a context variable keeps greenlets that switch inside a
+# `__repr__` from reading each other's.
+_CONSTRUCTION: ContextVar = ContextVar("kolo_objects_under_construction", default=None)
+
+
+try:
+    # The same walk in native code, far cheaper on a deep stack; None when
+    # it leaves the answer to `_objects_under_construction`.
+    from kolo._kolo import _validated_objects_under_construction
+except ImportError:  # pragma: no cover - PyPy and builds without the extension
+    _validated_objects_under_construction = None
+
+
+def _find_objects_under_construction():
+    found = None
+    if _validated_objects_under_construction is not None:
+        found = _validated_objects_under_construction()
+    if found is None:
+        found = _objects_under_construction()
+    return found
+
+
+def _under_construction_ext(obj, lightweight=False):
+    """The placeholder for an object whose constructor is still running (see
+    `kolo._construction`), or None to serialize `obj` as usual."""
+    if not _CONSTRUCTION_CHECK:
+        return None
+    kind = type(obj)
+    # Spelled out for the usual case, a value of a builtin type: this runs
+    # for every value the packer hands to the hook.
+    if _CPYTHON and not _type_flags(kind) & _TPFLAGS_HEAPTYPE:
+        if kind is not types.MethodType or not _may_run_user_code(type(obj.__self__)):
+            return None
+    memo = _CONSTRUCTION.get()
+    if memo is None:
+        found = _find_objects_under_construction()
+    else:
+        found = memo[0]
+        if found is None:
+            found = memo[0] = _find_objects_under_construction()
+    if len(found) == 1:
+        return None
+    text = _construction_placeholder(found, obj, lightweight)
+    if text is None:
+        return None
+    # A class name can hold lone surrogates; escape them rather than fail.
+    return msgpack.ExtType(0, text.encode("utf-8", "backslashreplace"))
 
 
 # Set once Django's database layer is patched, so the Python serializers cost
@@ -347,6 +418,10 @@ def _describe_instance(meta, loaded) -> str:
 
 def msgpack_encode_hook(obj):
     try:
+        skipped = _under_construction_ext(obj)
+        if skipped is not None:
+            return skipped
+
         if isinstance(obj, tuple):
             code = 6
         elif isinstance(obj, set):
@@ -690,6 +765,7 @@ def dump_msgpack(data, may_share=None):
     guard = _QUERY_GUARD
     if guard is not None:
         guard.depth += 1
+    construction = _CONSTRUCTION.set([None])
     try:
         if may_share is None:
             may_share = _may_share(data)
@@ -704,6 +780,10 @@ def dump_msgpack(data, may_share=None):
         IN_KOLO_PROFILER = False
         if guard is not None:
             guard.depth -= 1
+        try:
+            _CONSTRUCTION.reset(construction)
+        except ValueError:  # pragma: no cover - ended in another context
+            _CONSTRUCTION.set(None)
 
 
 def msgpack_encode_hook_lightweight_repr(obj):
@@ -715,6 +795,10 @@ def msgpack_encode_hook_lightweight_repr(obj):
 
 
 def _lightweight_repr_ext(obj):
+    skipped = _under_construction_ext(obj, True)
+    if skipped is not None:
+        return skipped
+
     if isinstance(obj, tuple):
         code = 6
     elif isinstance(obj, set):
@@ -776,6 +860,7 @@ def dump_msgpack_lightweight_repr(data, may_share=None):
     guard = _QUERY_GUARD
     if guard is not None:
         guard.depth += 1
+    construction = _CONSTRUCTION.set([None])
     try:
         if may_share is None:
             may_share = _may_share(data)
@@ -789,6 +874,10 @@ def dump_msgpack_lightweight_repr(data, may_share=None):
     finally:
         if guard is not None:
             guard.depth -= 1
+        try:
+            _CONSTRUCTION.reset(construction)
+        except ValueError:  # pragma: no cover - ended in another context
+            _CONSTRUCTION.set(None)
 
 
 _PLAIN_CONTAINER_TYPE_IDS = frozenset({id(list), id(dict)})
@@ -980,6 +1069,71 @@ class _SharedValueEncoder:
                 self.numbers[id(obj)] = self.completed
                 self.pins.append(obj)
             self.completed += 1
+
+
+_TYPE_MRO = vars(type)["__mro__"].__get__
+_TYPE_DICT = vars(type)["__dict__"].__get__
+
+
+def _type_defines(cls, name: str) -> bool:
+    """Whether ``cls`` fills the type slot behind ``name``, as ``PyIter_Check``
+    and ``PyAIter_Check`` read it: a class on the MRO defines the name (even
+    as ``None``). Read through ``type``'s own descriptors, so that no
+    metaclass attribute, hook or property runs."""
+    for klass in _TYPE_MRO(cls):
+        if name in _TYPE_DICT(klass):
+            return True
+    return False
+
+
+_COMPREHENSIONS = frozenset(("<genexpr>", "<listcomp>", "<setcomp>", "<dictcomp>"))
+
+# Whether the interpreter passes a generator expression its iterable rather
+# than an iterator (see ``hide_implicit_iterable``). Callers on the per-event
+# path test this instead of paying for a call on older versions.
+IMPLICIT_ITERABLE_IS_RAW = sys.version_info >= (3, 15)
+
+
+def hide_implicit_iterable(frame, frame_locals: Dict[str, Any]) -> None:
+    """Record the iterable a generator expression was called with by identity.
+
+    Up to CPython 3.14 the caller of a generator expression (or of a
+    comprehension that is not inlined) runs ``iter()`` and passes the iterator
+    as the implicit ``.0`` argument, recorded as ``<list_iterator object at
+    0x...>``. From 3.15 the caller passes the iterable itself, so ``.0`` holds
+    the whole collection for the life of the frame: recorded like any other
+    local, a generator expression over ``n`` items would write all ``n`` of
+    them at its call, return, and every yield and resume. ``.0`` is not a name
+    the program wrote, so on 3.15 a value that is not already an iterator is
+    recorded as ``object.__repr__`` shows it: its type and address, as on
+    earlier versions.
+
+    Only call this when ``IMPLICIT_ITERABLE_IS_RAW``. ``frame_locals`` is a
+    copy Kolo owns and is changed in place. Mirrors
+    ``hide_implicit_iterable`` in the Rust frame writer.
+    """
+    if ".0" not in frame_locals:
+        return
+    # Only the compiler's implicit argument: a ".0" key in the namespace
+    # given to exec(), or a parameter of a function built from an AST, is the
+    # program's own.
+    code = frame.f_code
+    if code.co_varnames[:1] != (".0",) or code.co_name not in _COMPREHENSIONS:
+        return
+    iterable = frame_locals[".0"]
+    cls = type(iterable)
+    if _type_defines(cls, "__next__"):
+        return
+    # An async iterator that can also be iterated synchronously (``__iter__``
+    # or the sequence protocol) may be the collection a synchronous generator
+    # expression iterates: only one that cannot be is kept.
+    if (
+        _type_defines(cls, "__anext__")
+        and not _type_defines(cls, "__iter__")
+        and not _type_defines(cls, "__getitem__")
+    ):
+        return
+    frame_locals[".0"] = object.__repr__(iterable)
 
 
 def truncation_marker(value, max_value_bytes: int) -> msgpack.ExtType:

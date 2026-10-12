@@ -33,6 +33,8 @@ CLINIC_ORG = "5a1c0e2b-3d4f-4a6b-8c7d-9e0f1a2b3c4d"
 OWNER = "b7c8d9e0-0000-4000-8000-00000000c001"  # Dr. Okafor — owns the note
 OUTSIDER = "b7c8d9e0-0000-4000-8000-00000000d002"  # Jordan — another business
 NOTE_ID = "6e0f7a1b-0000-4000-8000-000000000001"
+HOME_PHARMACY = "9a1b2c3d-0000-4000-8000-0000000000a1"
+HOME_BILLING = "9a1b2c3d-0000-4000-8000-0000000000b2"
 NOTE_BODY = "Ketamine 100mg/mL: 3 vials on hand after Tuesday's spay block. Counted by DO + RN."
 
 _acting: ContextVar[str | None] = ContextVar("fake_acting_user_notes", default=None)
@@ -143,6 +145,18 @@ class RlsNotesTable:
         return 1
 
 
+@pytest.fixture(autouse=True)
+def _homes_by_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The scope-name reader is a database read of custom.context_scopes; answer from a fixed map."""
+    from matrx_ai.tools.implementations import notes as notes_tool
+
+    async def names(ids):
+        known = {HOME_PHARMACY: "Pharmacy", HOME_BILLING: "Billing"}
+        return {str(i): known[str(i)] for i in ids if i and str(i) in known}
+
+    monkeypatch.setattr(notes_tool, "home_names", names)
+
+
 @asynccontextmanager
 async def _nothing():
     yield
@@ -158,7 +172,7 @@ def table(monkeypatch: pytest.MonkeyPatch) -> RlsNotesTable:
         {
             "id": NOTE_ID,
             "label": "Controlled-substance log — ketamine count",
-            "folder_name": "Pharmacy",
+            "home_scope_id": HOME_PHARMACY,
             "content": NOTE_BODY,
             "tags": ["dea", "pharmacy"],
             "published_to_web": False,
@@ -380,3 +394,42 @@ async def test_create_without_an_organization_is_held_and_never_touches_the_db(t
     assert created.error.error_type == "organization_required", created.error
     assert created.output and "hold" in created.output
     assert table.db_calls == calls_before, "a held create still reached workbench.notes"
+
+
+@pytest.mark.asyncio
+async def test_a_note_reports_its_home_by_name_and_moves_through_set_home(table, person_session, monkeypatch):
+    """`home` replaces `folder_name`: results name the home; a move is platform.set_home as the person."""
+    from matrx_ai.tools.implementations import note_homes, notes as notes_tool
+
+    names = {HOME_PHARMACY: "Pharmacy", HOME_BILLING: "Billing"}
+    moves: list[tuple[str, str, int | None, str | None]] = []
+
+    async def fake_names(ids):
+        return {str(i): names[str(i)] for i in ids if i and str(i) in names}
+
+    async def fake_resolve(home, organization_id):
+        assert organization_id == CLINIC_ORG  # resolved inside the note's own organization
+        hit = next((i for i, n in names.items() if n.casefold() == home.casefold()), None)
+        return note_homes.HomeChoice(hit, names.get(hit)) if hit else note_homes.HomeChoice(None, error="no such home")
+
+    async def fake_set_home(note_id, scope_id, expected_version=None):
+        moves.append((note_id, scope_id, expected_version, _acting.get()))
+        table.rows[note_id]["home_scope_id"] = scope_id
+        return {"home_scope_id": scope_id}
+
+    monkeypatch.setattr(notes_tool, "home_names", fake_names)
+    monkeypatch.setattr(notes_tool, "resolve_home", fake_resolve)
+    monkeypatch.setattr(note_homes, "set_home", fake_set_home)
+    ctx = _ctx(monkeypatch, person_session, OWNER)
+
+    got = await _note({"action": "get", "note_id": NOTE_ID}, ctx)
+    assert got.output["home"] == "Pharmacy" and "folder_name" not in got.output
+
+    moved = await _note({"action": "update", "note_id": NOTE_ID, "home": "billing"}, ctx)
+    assert moved.success, moved.error
+    assert moved.output["home"] == "Billing"
+    assert moves == [(NOTE_ID, HOME_BILLING, 4, OWNER)]  # ran inside the person's session
+
+    bad = await _note({"action": "update", "note_id": NOTE_ID, "home": "Nowhere"}, ctx)
+    assert not bad.success and bad.error.error_type == "validation"
+    assert table.violations == []

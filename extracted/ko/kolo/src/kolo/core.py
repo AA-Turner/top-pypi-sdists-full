@@ -1,11 +1,21 @@
 from __future__ import annotations
 
 import atexit
+import os
 import platform
 import sys
 import threading
+import time
+import types
 from collections.abc import Mapping
-from functools import wraps
+from contextvars import Context, ContextVar, copy_context
+from functools import partial, wraps
+from inspect import (
+    CO_ITERABLE_COROUTINE,
+    isasyncgenfunction,
+    iscoroutinefunction,
+    isgeneratorfunction,
+)
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, TypeVar, overload
 
@@ -42,6 +52,38 @@ _auto_emit_children_lock = threading.Lock()
 # check before either claims the sys.monitoring tool ID, causing a ValueError.
 _activation_lock = threading.Lock()
 
+# Enters whose exit cannot simply end the session, innermost last. A decorator
+# reuses one Enabled instance for every call, so a recursive call's exit must
+# not end the session the outermost call started. Kept per context, so that
+# threads and asyncio tasks sharing an instance each pair their own enters
+# and exits.
+_nested_enters: ContextVar[tuple[tuple[Enabled, bool], ...]] = ContextVar(
+    "kolo_nested_enters", default=()
+)
+
+# The profiler session of each thread, as (enabled, profiler). A profiler
+# traces only the thread that started it, so threads sharing an Enabled
+# instance each keep, and later end, their own.
+_profiler_sessions = threading.local()
+
+
+def _end_orphaned_profiler_session() -> None:
+    """End this thread's profiler session if its owner finished elsewhere.
+
+    Only this thread can clear its profile hook, so a session whose owner
+    finished on another thread waits here for the thread's next activation.
+    """
+    session = getattr(_profiler_sessions, "session", None)
+    if session is None:
+        return
+    enabled, profiler = session
+    if profiler.orphaned:
+        enabled._deactivate()
+
+
+def _leave_to_wrapper(agen: object) -> None:
+    """Finalizer of an async generator that kolo.enable's wrapper closes."""
+
 
 def _release_idle_kolo_tool() -> None:
     """Release the sys.monitoring tool Kolo keeps armed between sessions.
@@ -77,14 +119,231 @@ def save_trace_in_thread(
     if platform.machine() == "wasm32":  # pragma: no cover
         save_then_emit()
     else:
-        name = "kolo-save_trace_in_db"
-        # daemon=False explicitly: Thread inherits the parent's daemon flag
-        # by default, so if kolo.enable() is called from a daemon thread, the
-        # save thread would also be daemon and CPython would not wait for it
-        # at interpreter shutdown, re-exposing the C-extension-teardown race.
-        # sys.monitoring is interpreter-global, so a later Kolo activation can
-        # observe this worker even though it belongs to the preceding trace.
-        kolo_worker_thread(save_then_emit, name=name, daemon=False).start()
+        _run_on_save_worker(save_then_emit)
+
+
+SAVE_WORKER_THREAD_NAME = "kolo-save_trace_in_db"
+# Set on the Thread of a save worker that waits for further saves.
+SAVE_WORKER_REUSED_MARKER = "_kolo_reused_save_worker"
+
+# Starting a thread costs more than saving a small trace, and a process that
+# traces many short sessions (a test suite, a busy dev server) starts one per
+# trace. A save worker therefore waits a moment after its save for the next
+# one before it exits. Nothing else about the threads changes: they have the
+# same name, are Kolo worker threads from their first event (so never
+# traced), are not daemons (so the interpreter waits for their saves at
+# exit), and each save still runs on a worker of its own while others are
+# busy.
+#
+# - Joining a save worker by name still waits for its save; it returns up to
+#   the linger after the save finished, or, while further saves keep
+#   arriving, once the worker reaches its maximum age.
+#   ``wait_for_pending_saves`` returns as soon as the saves are done.
+# - Each save runs in the context a thread started for it would have had:
+#   a copy of the submitter's where threads inherit one, else an empty one.
+# - At interpreter exit the waiting workers are told to stop before threading
+#   joins its threads, so exit does not wait out the linger. That needs
+#   ``threading._register_atexit`` (Python 3.9+); without it workers exit
+#   after their save, as before.
+# - A forked child has none of the parent's threads: it starts with no
+#   workers and no pending saves.
+# - KOLO_REUSE_SAVE_WORKERS=0 (read when Kolo is imported) turns it off: a
+#   thread per save again, which exits when its save is done. The Rust
+#   extension reads the same variable and then starts a writer thread per
+#   capture instead of parking one.
+_SAVE_WORKER_LINGER_SECONDS = 0.02
+# A worker stops waiting for further saves once it is this old, so that under
+# a steady stream of saves a join of it still returns.
+_SAVE_WORKER_MAX_AGE_SECONDS = 1.0
+
+
+class _SaveWorker:
+    __slots__ = ("job", "wake")
+
+    def __init__(self, job: Callable[[], None]) -> None:
+        self.job: Callable[[], None] | None = job
+        # Held while the worker has no job; released to hand it one.
+        self.wake = threading.Lock()
+        self.wake.acquire()
+
+
+def _stop_save_worker() -> None:
+    """The job that tells a waiting save worker to exit."""
+
+
+_save_workers_lock = threading.Lock()
+_save_workers_changed = threading.Condition(_save_workers_lock)
+_save_workers_idle: list[_SaveWorker] = []
+_save_workers_pending = 0
+# Bumped in a forked child, where the parent's workers and saves do not exist.
+_save_workers_generation = 0
+_save_workers_pid = os.getpid()
+# None until the first save: whether workers may wait for further saves.
+_save_workers_linger: bool | None = (
+    False if os.environ.get("KOLO_REUSE_SAVE_WORKERS") == "0" else None
+)
+
+
+def _forget_save_workers_of_another_process() -> None:
+    if _save_workers_pid != os.getpid():
+        # Forked without Python's fork hooks running: the workers, and
+        # whoever held the lock, are the parent's.
+        _reset_save_workers_after_fork()
+
+
+def _stop_idle_save_workers() -> None:
+    """Runs when threading shuts down, before it joins its threads."""
+    global _save_workers_linger
+
+    _forget_save_workers_of_another_process()
+    with _save_workers_lock:
+        _save_workers_linger = False
+        idle = list(_save_workers_idle)
+        _save_workers_idle.clear()
+        for worker in idle:
+            worker.job = _stop_save_worker
+            worker.wake.release()
+
+
+def _enable_save_worker_linger() -> bool:
+    register = getattr(threading, "_register_atexit", None)
+    if register is None:  # pragma: no cover - Python 3.8
+        return False
+    try:
+        register(_stop_idle_save_workers)
+    except RuntimeError:  # pragma: no cover - threading is shutting down
+        return False
+    return True
+
+
+def _reset_save_workers_after_fork() -> None:
+    global _save_workers_lock, _save_workers_changed, _save_workers_idle
+    global _save_workers_pending, _save_workers_generation, _save_workers_pid
+
+    _save_workers_pid = os.getpid()
+    # Another thread of the parent may have held the lock during the fork.
+    _save_workers_lock = threading.Lock()
+    _save_workers_changed = threading.Condition(_save_workers_lock)
+    _save_workers_idle = []
+    _save_workers_pending = 0
+    _save_workers_generation += 1
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_save_workers_after_fork)
+
+
+def _save_worker_main(worker: _SaveWorker, generation: int) -> None:
+    global _save_workers_pending
+
+    job = worker.job
+    started = time.monotonic()
+    while True:
+        assert job is not None
+        worker.job = None
+        try:
+            job()
+        except BaseException:
+            # An exception ends the worker, as it ended a save's own thread.
+            _forget_save_workers_of_another_process()
+            with _save_workers_lock:
+                if generation == _save_workers_generation:
+                    _save_workers_pending -= 1
+                    _save_workers_changed.notify_all()
+            raise
+        _forget_save_workers_of_another_process()
+        with _save_workers_lock:
+            # In a forked child this thread is no worker any more.
+            if generation != _save_workers_generation:
+                return
+            # In one step, so whoever waited for this save finds the worker
+            # ready for the next.
+            _save_workers_pending -= 1
+            _save_workers_changed.notify_all()
+            if (
+                not _save_workers_linger
+                or time.monotonic() - started >= _SAVE_WORKER_MAX_AGE_SECONDS
+            ):
+                return
+            _save_workers_idle.append(worker)
+        if not worker.wake.acquire(timeout=_SAVE_WORKER_LINGER_SECONDS):
+            with _save_workers_lock:
+                if generation != _save_workers_generation:
+                    return
+                if worker.job is None:
+                    _save_workers_idle.remove(worker)
+                    return
+            # Handed a job as the wait ran out: take the wake-up it sent.
+            worker.wake.acquire()
+        job = worker.job
+        if job is _stop_save_worker:
+            return
+
+
+def _in_new_thread_context(job: Callable[[], None]) -> Callable[[], None]:
+    """``job``, run in the context variables a thread started now would see."""
+    if getattr(sys.flags, "thread_inherit_context", False):
+        context = copy_context()
+    else:
+        context = Context()
+
+    def run_in_context() -> None:
+        context.run(job)
+
+    return run_in_context
+
+
+def _run_on_save_worker(job: Callable[[], None]) -> None:
+    global _save_workers_pending, _save_workers_linger
+
+    job = _in_new_thread_context(job)
+    _forget_save_workers_of_another_process()
+    with _save_workers_lock:
+        if _save_workers_linger is None:
+            _save_workers_linger = _enable_save_worker_linger()
+        _save_workers_pending += 1
+        if _save_workers_idle:
+            worker = _save_workers_idle.pop()
+            worker.job = job
+            worker.wake.release()
+            return
+        generation = _save_workers_generation
+    worker = _SaveWorker(job)
+    # daemon=False explicitly: Thread inherits the parent's daemon flag
+    # by default, so if kolo.enable() is called from a daemon thread, the
+    # save thread would also be daemon and CPython would not wait for it
+    # at interpreter shutdown, re-exposing the C-extension-teardown race.
+    # sys.monitoring is interpreter-global, so a later Kolo activation can
+    # observe this worker even though it belongs to the preceding trace.
+    thread = kolo_worker_thread(
+        _save_worker_main,
+        name=SAVE_WORKER_THREAD_NAME,
+        daemon=False,
+        args=(worker, generation),
+    )
+    setattr(thread, SAVE_WORKER_REUSED_MARKER, True)
+    try:
+        thread.start()
+    except BaseException:
+        with _save_workers_lock:
+            if generation == _save_workers_generation:
+                _save_workers_pending -= 1
+                _save_workers_changed.notify_all()
+        raise
+
+
+def wait_for_pending_saves(timeout: float | None = None) -> bool:
+    """Wait until every trace handed to a save worker has been saved.
+
+    Returns False if ``timeout`` (seconds) ran out first. Joining the
+    ``kolo-save_trace_in_db`` threads waits for the same saves, but a worker
+    stays around briefly for the next one, so the join returns later.
+    """
+    _forget_save_workers_of_another_process()
+    with _save_workers_lock:
+        return _save_workers_changed.wait_for(
+            lambda: _save_workers_pending == 0, timeout
+        )
 
 
 def _build_emit_subprocess_kwargs(db_path: Path | None) -> dict[str, Any]:
@@ -335,6 +594,16 @@ class Enabled:
     - Context manager: with kolo.enable(): ...
     - Decorator: @kolo.enable or @kolo.enable(config={...})
 
+    Only one session runs at a time. An enable entered while a session is
+    already running joins it: its config and name are ignored, it neither
+    starts nor ends a trace, and the outermost enable keeps owning the session.
+
+    A decorated coroutine function is traced from its first step until it
+    returns. A decorated generator or async generator function is traced from
+    its first item until it is exhausted, closed or garbage collected, which
+    includes the code its consumer runs between items. Whether it starts a
+    session or joins a running one is decided once, at its first item.
+
     For automatic .pth file activation, use _AutoEnabled instead.
     """
 
@@ -353,7 +622,6 @@ class Enabled:
         if config is None:
             config = {}
         self.config = load_config(config)
-        self._profiler: Optional[KoloProfiler] = None
         self._monitor: Optional[KoloMonitor] = None
         self.source = source
         self.one_trace_per_test = one_trace_per_test
@@ -365,13 +633,137 @@ class Enabled:
         self.inline = inline
         self.inline_returns = inline_returns
 
+    @property
+    def _profiler(self) -> Optional[KoloProfiler]:
+        session = getattr(_profiler_sessions, "session", None)
+        if session is None or session[0] is not self:
+            return None
+        return session[1]
+
+    @_profiler.setter
+    def _profiler(self, profiler: Optional[KoloProfiler]) -> None:
+        if profiler is not None:
+            _profiler_sessions.session = (self, profiler)
+        elif self._profiler is not None:
+            _profiler_sessions.session = None
+
     def __call__(self, func):
+        # Calling a coroutine or generator function only creates the object
+        # that runs its body later, so these wrappers hold the session open
+        # for as long as the body runs. They keep the session they started
+        # in their own frame rather than in _nested_enters: a generator can be
+        # resumed, and finalized, from a context other than the one that
+        # started it.
+        if iscoroutinefunction(func):
+
+            @wraps(func)
+            async def coroutine_inner(*args, **kwargs):
+                session = self._start_session()
+                try:
+                    return await func(*args, **kwargs)
+                finally:
+                    self._end_session(session)
+
+            return coroutine_inner
+
+        if isasyncgenfunction(func):
+
+            @wraps(func)
+            async def async_generator_inner(*args, **kwargs):
+                session = self._start_session()
+                try:
+                    agen = func(*args, **kwargs)
+                    # Only this wrapper is registered with the event loop.
+                    # A loop shutting down closes every generator it knows at
+                    # once, and would close the inner one while this wrapper
+                    # is closing it. The same goes for the garbage collector
+                    # finalizing both, so the inner one's finalizer does
+                    # nothing and leaves closing it to the wrapper.
+                    hooks = sys.get_asyncgen_hooks()
+                    sys.set_asyncgen_hooks(None, _leave_to_wrapper)
+                    try:
+                        first = agen.__anext__()
+                    finally:
+                        sys.set_asyncgen_hooks(*hooks)
+                    try:
+                        value = await first
+                        while True:
+                            try:
+                                sent = yield value
+                            except BaseException as exc:
+                                # Includes the GeneratorExit of a close: the
+                                # inner generator then finishes or raises it
+                                # back, which ends this wrapper too.
+                                value = await agen.athrow(exc)
+                            else:
+                                value = await agen.asend(sent)
+                    except StopAsyncIteration:
+                        return
+                finally:
+                    self._end_session(session)
+
+            return async_generator_inner
+
+        if isgeneratorfunction(func):
+
+            @wraps(func)
+            def generator_inner(*args, **kwargs):
+                session = self._start_session()
+                try:
+                    return (yield from func(*args, **kwargs))
+                finally:
+                    self._end_session(session)
+
+            function = func
+            while isinstance(function, partial):
+                function = function.func
+            code = getattr(function, "__code__", None)
+            if code is not None and code.co_flags & CO_ITERABLE_COROUTINE:
+                # A generator-based coroutine has to stay awaitable.
+                return types.coroutine(generator_inner)
+            return generator_inner
+
         @wraps(func)
         def inner(*args, **kwargs):
             with self:
                 return func(*args, **kwargs)
 
         return inner
+
+    def _start_session(self) -> Any:
+        """Start a session for a decorated coroutine or generator.
+
+        Returns the session to pass to _end_session, or None when the
+        function joined a running session and has nothing to end.
+        """
+        if not self._activate():
+            return None
+        profiler = self._profiler
+        return self._monitor if profiler is None else profiler
+
+    def _end_session(self, session: Any) -> None:
+        if session is None:
+            return
+        if session is self._monitor or session is self._profiler:
+            self._deactivate(*sys.exc_info())
+            return
+        # Only reachable with the profiler: its session can only be ended
+        # from the thread it traces, and this thread may have its own.
+        if not session.thread.is_alive():
+            # Nothing is left to trace, and no later activation to end it.
+            session.__exit__()
+            session.save()
+            if self.config.get("auto_emit", True):
+                _spawn_auto_emit(db_path=session.db_path)
+            return
+        session.orphaned = True
+        logger.warning(
+            "A function decorated with kolo.enable (%s) finished on a "
+            "different thread than it started on. The thread it started on "
+            "stays traced, and its trace unsaved, until that thread next "
+            "uses kolo.enable.",
+            self.source,
+        )
 
     def _is_already_active(self) -> bool:
         """
@@ -389,7 +781,7 @@ class Enabled:
         default_use_monitoring = sys.version_info >= (3, 12)
         use_monitoring = self.config.get("use_monitoring", default_use_monitoring)
 
-        if use_monitoring and sys.version_info >= (3, 12):
+        if sys.version_info >= (3, 12):
             from .monitoring import (  # type: ignore[attr-defined]
                 KOLO_TOOL_ID,
                 kolo_tool_is_idle,
@@ -397,14 +789,20 @@ class Enabled:
 
             tool_name = sys.monitoring.get_tool(KOLO_TOOL_ID)  # type: ignore[attr-defined]
             if tool_name and not (tool_name == "kolo" and kolo_tool_is_idle()):
-                if tool_name != "kolo":
-                    logger.warning(
-                        "Tool ID %d is in use by %r (expected 'kolo'). "
-                        "Another tool may be using Kolo's reserved tool ID.",
-                        KOLO_TOOL_ID,
-                        tool_name,
-                    )
-                return True
+                if use_monitoring:
+                    if tool_name != "kolo":
+                        logger.warning(
+                            "Tool ID %d is in use by %r (expected 'kolo'). "
+                            "Another tool may be using Kolo's reserved tool ID.",
+                            KOLO_TOOL_ID,
+                            tool_name,
+                        )
+                    return True
+                # A running monitoring session also blocks an enable asking
+                # for the profiler, which would otherwise trace alongside it.
+                # A tool ID Kolo could not release has no events and does not.
+                if tool_name == "kolo" and sys.monitoring.get_events(KOLO_TOOL_ID):  # type: ignore[attr-defined]
+                    return True
 
         if sys.getprofile() is not None:
             return True
@@ -437,6 +835,7 @@ class Enabled:
         # Acquire lock to prevent race condition between check and activation.
         # This ensures only one thread can be in the activation window at a time.
         with _activation_lock:
+            _end_orphaned_profiler_session()
             if self._is_already_active():
                 # Another profiler may be what blocks this session; the tool
                 # kept armed for it is then of no use.
@@ -494,20 +893,26 @@ class Enabled:
                 from .profiler import KoloProfiler
 
                 _release_idle_kolo_tool()
-                self._profiler = KoloProfiler(
+                profiler = KoloProfiler(
                     db_path,
                     config=self.config,
                     source=self.source,
                     one_trace_per_test=self.one_trace_per_test,
                     name=self.name,
                 )
-                self._profiler.__enter__()
-                self.trace_id = self._profiler.trace_id
+                self._profiler = profiler
+                profiler.__enter__()
+                self.trace_id = profiler.trace_id
 
             return True
 
     def __enter__(self):
-        self._activate()
+        activated = self._activate()
+        nested = _nested_enters.get()
+        # An enter that started a session is only recorded when an earlier
+        # enter of this instance is waiting on its exit, to tell them apart.
+        if not activated or any(enabled is self for enabled, _ in nested):
+            _nested_enters.set((*nested, (self, activated)))
         return self
 
     def register_monitor(self, db_path):
@@ -644,6 +1049,14 @@ class Enabled:
             self._output_inline_trace()
 
     def __exit__(self, *exc) -> None:
+        nested = _nested_enters.get()
+        for index in range(len(nested) - 1, -1, -1):
+            enabled, activated = nested[index]
+            if enabled is self:
+                _nested_enters.set(nested[:index] + nested[index + 1 :])
+                if not activated:
+                    return
+                break
         self._deactivate(*exc)
 
     def _output_inline_trace(self):

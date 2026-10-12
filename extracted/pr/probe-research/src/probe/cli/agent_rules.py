@@ -28,7 +28,11 @@ never needs a path. So this block named NO tool, NO skill and NO command until
 (`track-work`, `instrument-code`) and the `probe` switch: the trigger eval showed
 an agent handed only "a skill" improvising CLI calls instead of loading one.
 The cost is that a rename of either skill is now a POINTER_VERSION bump. It
-still names no namespaced id and no command that can rot.
+still names no namespaced id and no command that can rot. v40 (2026-10-11)
+names a third, `plan-research-review`, in the routing paragraph the wizard's
+"Research plan review" row switches (`PLAN_REVIEW_PARAGRAPHS`). Renaming it
+moves: a POINTER_VERSION bump, both paragraph tables here, the pi extension's
+`DAEMON_ADDED_SKILLS` and `pi_config.DAEMON_EXTENSION_SKILLS`.
 
 It is user-global, so it fires in repositories that have nothing to do with
 research. That is why the rule stays conditional on the work being part of the
@@ -44,6 +48,13 @@ call, and the per-conversation toggle is the researcher's opt-out. The same
 rework routed FILES for the first time -- a customer's agents wrote 140k
 characters of notes about documents they never uploaded, because every
 destination this block named was prose.
+v41 (Richard 2026-10-12) brings a scope list back, as track-work's "WHAT
+COUNTS AS ML WORK": a definition, the ML work to record, setup (a note at
+most) and the work that is not ML work. It scopes SESSIONS, not what to keep
+inside ML work -- there "everything is recorded" still holds, and work that
+fits both lists is ML work. Its not-ML list is this block's "Do not call
+Probe for" line, the daemon reader's and the ML gate's, word for word
+(`tests/test_prose_anchors.py`, `tests/unit/test_companion_classify.py`).
 
 THE PROMPT IS WRITTEN HERE, not composed. It lived in fragments in
 `probe/doctrine.py` until 2026-09-13, because the MCP instruction sheet once
@@ -110,7 +121,7 @@ NOTE_BLOCK_VERSION = 2
 
 #: Bumped when POINTER_BODY changes, so an older installed block is recognised
 #: as stale and rewritten instead of being left in place or duplicated.
-POINTER_VERSION = 39
+POINTER_VERSION = 41
 
 POINTER_BODY = """## Probe Research
 
@@ -149,13 +160,18 @@ the work that is currently being done or whenever you think it would be
 useful. Follow MCP instructions. If the MCP is unavailable, say so rather
 than proceeding as if no prior work exists.
 
+Before writing code for ML research - reproducing a paper, building on a
+paper's or a repo's code, a new method or experiment - run the
+`plan-research-review` skill, unless an approved plan already covers the
+work.
+
 The `probe` switch (on / daemon / read / off) determines how the plugin
 should behave. It's the researcher's: never move it yourself - ask if you
 need to do something but is blocked by the state.
 
 Do not call Probe for:
 - anything the repo, the local files, or this conversation already answers
-- coding with no bearing on ML work - a CSS bug, a typo, a dotfile, an unrelated test
+- work that is not ML work - product code that only calls a model (UI, API routes, CSS); CI, deploys, releases, dependency bumps of product code; typos, dotfiles, product docs, tests unrelated to a model; work on Probe's own code (its CLI, SDK, server or plugins) - using Probe in ML work is not this
 - status and shipping - CI, deploys, what landed
 - a new request, a plan (except ML related), or a compaction; none is a trigger by itself
 
@@ -194,6 +210,10 @@ The Probe daemon runs beside this session and does all Probe reads and writes - 
 ### ASK THE DAEMON:
 
 `probe ask "<question>"` - before proposing any new ML work, check the team's prior work to prevent work duplication. Also ask when the team's previous work might be relevant to the work that is currently being done. It returns at once - carry on; the answer arrives later as a `[Probe]` message. If you cannot go on without the answer, use `probe ask --wait` - it waits for the answer and prints it; give the shell command a long timeout.
+
+### PLAN FIRST:
+
+Before writing code for ML research - reproducing a paper, building on a paper's or a repo's code, a new method or experiment - run the `plan-research-review` skill, unless an approved plan already covers the work.
 
 ### DAEMON MESSAGES:
 
@@ -242,12 +262,65 @@ def memory_path(source: str | None = None) -> Path:
     return harness.home_dir() / harness.instructions["global"]
 
 
-def render_block(*, version: int = POINTER_VERSION, profile: Profile = Profile.AGENT) -> str:
+#: The research plan review's routing paragraph in each body -- the gstack
+#: "Skill routing" line: what makes the agent run `plan-research-review` unasked.
+#: The wizard's Settings row "Research plan review" (`defaults.plan_review`)
+#: swaps it for `PLAN_REVIEW_OFF_PARAGRAPHS`. Each is the body's own bytes,
+#: exactly once -- tests/test_agent_rules.py holds them to it.
+PLAN_REVIEW_PARAGRAPHS: dict[Profile, str] = {
+    Profile.AGENT: (
+        "Before writing code for ML research - reproducing a paper, building on a\n"
+        "paper's or a repo's code, a new method or experiment - run the\n"
+        "`plan-research-review` skill, unless an approved plan already covers the\n"
+        "work.\n\n"
+    ),
+    Profile.DAEMON: (
+        "### PLAN FIRST:\n\n"
+        "Before writing code for ML research - reproducing a paper, building on a paper's or a repo's code, "
+        "a new method or experiment - run the `plan-research-review` skill, unless an approved plan already "
+        "covers the work.\n\n"
+    ),
+}
+
+#: What the setting OFF puts in the paragraph's place: gstack's
+#: `proactive: false` ("do not auto-invoke ... only run skills the user
+#: explicitly invokes"). Removing the paragraph alone was not enough: the
+#: skill's description still started it unasked on 23-26 of 40 research
+#: prompts in `evals/triggering/plan_review.py` (2026-10-11).
+PLAN_REVIEW_OFF_PARAGRAPHS: dict[Profile, str] = {
+    Profile.AGENT: "Run the `plan-research-review` skill only when the researcher asks for it.\n\n",
+    Profile.DAEMON: (
+        "### PLAN FIRST:\n\n"
+        "Run the `plan-research-review` skill only when the researcher asks for it.\n\n"
+    ),
+}
+
+
+def body_for(profile: Profile, *, plan_review: bool) -> str:
+    """The profile's body, with the plan-review paragraph on or off."""
+    body = DAEMON_POINTER_BODY if profile == Profile.DAEMON else POINTER_BODY
+    if plan_review:
+        return body
+    return body.replace(PLAN_REVIEW_PARAGRAPHS[profile], PLAN_REVIEW_OFF_PARAGRAPHS[profile], 1)
+
+
+def render_block(
+    *, version: int = POINTER_VERSION, profile: Profile = Profile.AGENT, plan_review: bool | None = None
+) -> str:
     """The managed block, markers included. The daemon profile's stamp names it
-    (`<!-- v36 daemon -->`); the agent profile's stamp is unchanged."""
+    (`<!-- v36 daemon -->`); the agent profile's stamp is unchanged.
+
+    `plan_review` None reads this machine's setting (`session_marker.plan_review_on`),
+    so every writer -- the wizard, Who records, the refresh `notes sync` runs --
+    keeps the researcher's choice without carrying it."""
+    if plan_review is None:
+        from probe.sdk.session_marker import plan_review_on
+
+        plan_review = plan_review_on()
+    body = body_for(profile, plan_review=plan_review)
     if profile == Profile.DAEMON:
-        return f"{BEGIN_MARKER}\n<!-- v{version} {Profile.DAEMON} -->\n{DAEMON_POINTER_BODY}{END_MARKER}\n"
-    return f"{BEGIN_MARKER}\n<!-- v{version} -->\n{POINTER_BODY}{END_MARKER}\n"
+        return f"{BEGIN_MARKER}\n<!-- v{version} {Profile.DAEMON} -->\n{body}{END_MARKER}\n"
+    return f"{BEGIN_MARKER}\n<!-- v{version} -->\n{body}{END_MARKER}\n"
 
 
 def installed_profile(path: Path | None = None) -> Profile | None:
@@ -559,7 +632,8 @@ POINTER_REFRESHED = "refreshed"
 
 
 def refresh_pointer(path: Path) -> str:
-    """Rewrite an ALREADY-INSTALLED pointer block that predates this CLI.
+    """Rewrite an ALREADY-INSTALLED pointer block that predates this CLI, or a
+    current one whose plan-review paragraph disagrees with the setting.
 
     REFRESH, NEVER INSTALL. An absent block means this machine never opted in
     -- or opted out through the wizard, which is the same bytes -- and a
@@ -582,11 +656,43 @@ def refresh_pointer(path: Path) -> str:
     installed = installed_version(path)
     if installed is None:
         return POINTER_ABSENT
-    if installed >= POINTER_VERSION:
+    if installed > POINTER_VERSION:
         return POINTER_CURRENT
     # The same profile's body: which one is the wizard's call, never a refresh's.
-    install(path, block=render_block(profile=installed_profile(path) or Profile.AGENT))
+    profile = installed_profile(path) or Profile.AGENT
+    if installed == POINTER_VERSION and not _plan_review_drifted(path, profile):
+        return POINTER_CURRENT
+    install(path, block=render_block(profile=profile))
     return POINTER_REFRESHED
+
+
+def _plan_review_drifted(path: Path, profile: Profile) -> bool:
+    """A CURRENT block whose plan-review paragraph disagrees with the setting.
+
+    The Settings row saves the config, then rewrites each block; a write that
+    failed, a process killed between the two, a config edited by hand, or a
+    refresh that ran while the config was unreadable (it reads as on) leaves the
+    block saying the other thing, and the version stamp alone would keep it
+    that way until the next bump. The refreshes repair it: the next session
+    start (`probe agent-rules refresh`, the current agent's file) and any Stop
+    whose `notes sync` reaches the server (every agent's file). Only the
+    paragraph is compared: anything else typed inside the markers waits for a
+    version bump, as before.
+    """
+    from probe.sdk.session_marker import plan_review_on
+
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    span = _find_block(text)
+    if span is None:
+        return False
+    block = text[span[0] : span[1]]
+    on = plan_review_on()
+    want = (PLAN_REVIEW_PARAGRAPHS if on else PLAN_REVIEW_OFF_PARAGRAPHS)[profile]
+    wrong = (PLAN_REVIEW_OFF_PARAGRAPHS if on else PLAN_REVIEW_PARAGRAPHS)[profile]
+    return wrong in block and want not in block
 
 
 def install(path: Path | None = None, *, spec: BlockSpec = POINTER_BLOCK, block: str | None = None) -> bool:

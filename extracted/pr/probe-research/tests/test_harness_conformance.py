@@ -16,11 +16,17 @@ import pytest
 
 from probe.daemon import adapters
 from probe.harness import get_registry
+from probe.harness.registry import FAMILY_CLOUD
 from probe.sdk import agent_session
 
 AGENT = Path(__file__).resolve().parents[1]
 REG = get_registry()
 CAPTURED = [h.id for h in REG.captured()]
+#: Captured harnesses whose sessions the Probe daemon can read as they are
+#: written. A cloud harness (Capy) has no local session to sit beside: its
+#: transcripts are pulled from the vendor's API afterwards, so it has no
+#: daemon reader (the hosted daemon is deferred).
+DAEMON_READ = [h.id for h in REG.captured() if h.family != FAMILY_CLOUD]
 
 
 def _tap_sources():
@@ -67,12 +73,23 @@ def test_the_tap_has_exactly_the_captured_harnesses():
     assert sorted(_tap_sources().SOURCES) == sorted(CAPTURED)
 
 
-@pytest.mark.parametrize("harness_id", CAPTURED)
+@pytest.mark.parametrize("harness_id", DAEMON_READ)
 def test_every_captured_harness_has_a_daemon_adapter(harness_id):
     assert adapters.for_source(harness_id).name == harness_id
 
 
-@pytest.mark.parametrize("harness_id", CAPTURED)
+@pytest.mark.parametrize("harness_id", [h.id for h in REG.all() if h.family == FAMILY_CLOUD])
+def test_a_cloud_harness_never_offers_the_daemon(harness_id):
+    """Nothing runs beside a cloud harness's session on this machine, so the
+    wizard must never offer to move it to the daemon (no lean profile) and no
+    hook capability can be claimed for it."""
+    harness = REG.get(harness_id)
+    assert harness.lean_profile is None
+    assert not harness.installable
+    assert not any(harness.can(c) for c in ("prompt_context", "wake", "root_skills"))
+
+
+@pytest.mark.parametrize("harness_id", DAEMON_READ)
 def test_the_daemon_adapter_capabilities_agree(harness_id):
     """The registry's hook capabilities are the adapter's: context at the next
     prompt, a wake for a late answer, the question tool a hook reads."""

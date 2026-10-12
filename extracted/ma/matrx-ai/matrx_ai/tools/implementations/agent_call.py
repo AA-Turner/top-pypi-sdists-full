@@ -515,6 +515,9 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 fork_info = await forker(
                     source_conversation_id=source_conversation_id,
                     user_id=str(app_ctx.user_id),
+                    organization_id=(
+                        str(app_ctx.organization_id) if app_ctx.organization_id else None
+                    ),
                     up_to_position=parsed.history_up_to_position,
                     parent_conversation_id=app_ctx.conversation_id_for_lineage,
                     conversation_type=fork_type,

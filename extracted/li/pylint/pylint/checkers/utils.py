@@ -301,6 +301,32 @@ def is_defined_in_scope(
     return defnode_in_scope(var_node, varname, scope) is not None
 
 
+def _defnode_in_targets(
+    var_node: nodes.NodeNG,
+    varname: str,
+    targets: Iterable[nodes.NodeNG],
+    scope: nodes.LocalsDictNodeNG,
+) -> nodes.AssignName | None:
+    """Return the node binding ``varname`` in ``targets`` before ``var_node``.
+
+    Targets are bound left to right, so a name read inside a target, as in
+    ``a = b[a] = 0`` or ``with f() as (a, b[a]):``, can only use a name bound
+    before it.
+    """
+    for target in targets:
+        for ass_node in target.nodes_of_class(nodes.AssignName):
+            if (ass_node.lineno, ass_node.col_offset) > (
+                var_node.lineno,
+                var_node.col_offset,
+            ):
+                return None
+            # Skip names bound in a nested scope, such as a lambda or
+            # comprehension inside a subscript
+            if ass_node.name == varname and ass_node.scope() is scope:
+                return ass_node
+    return None
+
+
 # pylint: disable = too-many-branches
 def defnode_in_scope(
     var_node: nodes.NodeNG,
@@ -320,11 +346,17 @@ def defnode_in_scope(
             if ass_node.name == varname:
                 return ass_node
     elif isinstance(scope, nodes.With):
-        for expr, ids in scope.items:
-            if expr.parent_of(var_node):
-                break
-            if ids and isinstance(ids, nodes.AssignName) and ids.name == varname:
-                return ids
+        # Each item's target is bound after its context manager is evaluated
+        return _defnode_in_targets(
+            var_node,
+            varname,
+            (ids for _, ids in scope.items if ids is not None),
+            scope.scope(),
+        )
+    elif isinstance(scope, nodes.Assign):
+        # The targets are bound after the value is evaluated
+        if any(target.parent_of(var_node) for target in scope.targets):
+            return _defnode_in_targets(var_node, varname, scope.targets, scope.scope())
     elif isinstance(scope, (nodes.Lambda, nodes.FunctionDef)):
         if scope.args.is_argument(varname):
             # If the name is found inside a default value
@@ -364,6 +396,9 @@ def is_defined_before(var_node: nodes.Name) -> bool:
         defnode = defnode_in_scope(var_node, varname, parent)
         if defnode is None:
             continue
+        if isinstance(parent, nodes.Assign):
+            # Bound by an earlier target of the same assignment
+            return True
         defnode_scope = defnode.scope()
         if isinstance(
             defnode_scope, (*COMP_NODE_TYPES, nodes.Lambda, nodes.FunctionDef)
@@ -1655,6 +1690,20 @@ def is_overload_stub(node: nodes.NodeNG) -> bool:
     """
     decorators = getattr(node, "decorators", None)
     return bool(decorators and decorated_with(node, ["typing.overload", "overload"]))
+
+
+def is_in_stub_file(node: nodes.NodeNG) -> bool:
+    """Check if a node comes from a ``.pyi`` stub file.
+
+    A stub declares signatures and leaves every body as ``...``, so checks about
+    what a body does (whether it uses an argument, whether it calls the parent
+    ``__init__``) say nothing about the code the stub describes.
+
+    :param node: Node to check.
+    :returns: True if the node's module was parsed from a ``.pyi`` file.
+    """
+    file = node.root().file
+    return bool(file) and file.endswith(".pyi")
 
 
 def is_protocol_class(cls: nodes.NodeNG) -> bool:

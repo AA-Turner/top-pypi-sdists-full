@@ -16,7 +16,7 @@ from typing import cast
 
 from public import public
 
-from flufl.bounce.interfaces import NoFailures, NoTemporaryFailures, Recipients
+from flufl.bounce._interfaces import NoFailures, NoTemporaryFailures, Recipients
 
 
 scre = re.compile(b'Message not delivered to the following', re.IGNORECASE)
@@ -39,24 +39,22 @@ class Yale:
             return NoFailures
         try:
             whofrom = getaddresses([msg.get('from', '')])[0][1]
-            if not whofrom:
+            if whofrom == '':
                 return NoFailures
             username, domain = whofrom.split('@', 1)
-        except (IndexError, ValueError):
+        except ValueError:
+            # The From address has no @ to split on.
             return NoFailures
         if username.lower() != 'mailer-daemon':
             return NoFailures
-        parts = domain.split('.')
-        parts.reverse()
-        for part1, part2 in zip(parts, ('edu', 'yale'), strict=False):
-            if part1 != part2:
-                return NoFailures
-        # Okay, we've established that the bounce came from the mailer-daemon
-        # at yale.edu.  Let's look for a name, and then guess the relevant
-        # domains.
+        # The bounce must come from yale.edu itself or one of its subdomains.
+        if domain.lower().split('.')[-2:] != ['yale', 'edu']:
+            return NoFailures
+        # Okay, we've established that the bounce came from the mailer-daemon at yale.edu.  Let's
+        # look for a name, and then guess the relevant domains.
         names: set[bytes] = set()
-        # msg was validated non-multipart above, so the decoded payload is
-        # bytes at runtime; pyrefly sees the wider Message | bytes | Any union.
+        # msg was validated non-multipart above, so the decoded payload is bytes at runtime; pyrefly
+        # sees the wider Message | bytes | Any union.
         body = BytesIO(cast(bytes, msg.get_payload(decode=True)))
         state = ParseState.start
         for line in body:
@@ -64,11 +62,9 @@ class Yale:
                 state = ParseState.intro_found
             elif state is ParseState.intro_found and ecre.search(line):
                 break
-            elif state is ParseState.intro_found:
-                if mo := acre.search(line):
-                    names.add(mo.group('addr'))
-        # Now we have a bunch of names, these are either @yale.edu or
-        # @cs.yale.edu.  Add them both.
+            elif state is ParseState.intro_found and (mo := acre.search(line)):
+                names.add(mo.group('addr'))
+        # Now we have a bunch of names, these are either @yale.edu or @cs.yale.edu.  Add them both.
         addresses: set[bytes] = set()
         for name in names:
             addresses.add(name + b'@yale.edu')

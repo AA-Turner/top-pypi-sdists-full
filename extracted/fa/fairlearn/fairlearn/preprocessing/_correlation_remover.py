@@ -6,9 +6,7 @@ from collections.abc import Iterable
 import narwhals.stable.v1 as nw
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.utils.validation import check_is_fitted
-
-from fairlearn.utils._fixes import validate_data
+from sklearn.utils.validation import check_is_fitted, validate_data
 
 
 class CorrelationRemover(TransformerMixin, BaseEstimator):
@@ -99,7 +97,9 @@ class CorrelationRemover(TransformerMixin, BaseEstimator):
         X = nw.from_native(X, pass_through=True, eager_only=True)
         if isinstance(X, nw.DataFrame):
             self.lookup_ = {c: i for i, c in enumerate(X.columns)}
+            self._columns_in_ = list(X.columns)
             return X.to_numpy()
+        self._columns_in_ = None
         # correctly handle a 1d input
         X = validate_data(self, X, ensure_2d=False, ensure_min_samples=0)
         if len(X.shape) == 1:
@@ -109,25 +109,46 @@ class CorrelationRemover(TransformerMixin, BaseEstimator):
         return X
 
     def fit(self, X, y=None):
-        """Learn the projection required to make the dataset uncorrelated with sensitive columns."""  # noqa: E501
+        """Learn the projection required to make the dataset uncorrelated with sensitive columns.
 
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The feature matrix. pandas DataFrame, Polars DataFrame, and PyArrow
+            Table inputs are supported. Sensitive feature columns identified by
+            ``sensitive_feature_ids`` must be present in ``X``.
+        y : Ignored
+            Not used; present for API compatibility with scikit-learn.
+
+        Returns
+        -------
+        self : object
+            Fitted CorrelationRemover instance.
+
+        Raises
+        ------
+        ValueError
+            If the number of features in ``X`` differs from the number seen
+            during a previous call to ``fit``.
+        """
         first_call = not hasattr(self, "_n_features_in_")
 
         self._check_sensitive_features_in_X(X)
         X = self._create_lookup(X)
         X = validate_data(self, X)
 
-        if not first_call:
-            if self._n_features_in_ != X.shape[1]:
-                raise ValueError(
-                    "X has %d features, but %s is expecting %d features as input"
-                    % (X.shape[1], self.__class__.__name__, self._n_features_in_)
-                )
+        if not first_call and self._n_features_in_ != X.shape[1]:
+            raise ValueError(
+                f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                f"is expecting {self._n_features_in_} features as input"
+            )
 
         X_use, X_sensitive = self._split_X(X)
 
         # correctly handle zero provided sensitive features
-        self.sensitive_mean_ = np.array([]) if X_sensitive.shape[1] == 0 else X_sensitive.mean()
+        self.sensitive_mean_ = (
+            np.array([]) if X_sensitive.shape[1] == 0 else X_sensitive.mean(axis=0)
+        )
 
         X_s_center = X_sensitive - self.sensitive_mean_
         self.beta_, _, _, _ = np.linalg.lstsq(X_s_center, X_use, rcond=None)
@@ -136,18 +157,47 @@ class CorrelationRemover(TransformerMixin, BaseEstimator):
         return self
 
     def transform(self, X):
-        """Transform X by applying the correlation remover."""
+        """Transform X by applying the correlation remover.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The feature matrix to transform. pandas DataFrame, Polars DataFrame,
+            and PyArrow Table inputs are supported. Must have the same number of
+            features as the ``X`` passed to ``fit``.
+
+        Returns
+        -------
+        numpy.ndarray
+            The transformed feature matrix with sensitive correlations removed.
+            The sensitive feature columns are dropped; non-sensitive columns
+            are replaced by their residuals after projecting out the sensitive
+            features, blended with the originals according to ``alpha``.
+
+        Raises
+        ------
+        NotFittedError
+            If the estimator has not been fitted yet.
+        ValueError
+            If the number of features in ``X`` differs from the number seen
+            during ``fit``, or named columns do not match the fitted column order.
+        """
         check_is_fitted(self, ["beta_", "_n_features_in_", "lookup_", "sensitive_mean_"])
 
         X = nw.from_native(X, pass_through=True, eager_only=True)
         if isinstance(X, nw.DataFrame):
+            if self._columns_in_ is not None and list(X.columns) != self._columns_in_:
+                raise ValueError(
+                    "Named columns must match the columns and order seen during fit. "
+                    f"Expected columns: {self._columns_in_}; got: {list(X.columns)}."
+                )
             X = X.to_numpy()
 
         X = validate_data(self, X)
         if self._n_features_in_ != X.shape[1]:
             raise ValueError(
-                "X has %d features, but %s is expecting %d features as input"
-                % (X.shape[1], self.__class__.__name__, self._n_features_in_)
+                f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                f"is expecting {self._n_features_in_} features as input"
             )
 
         X_use, X_sensitive = self._split_X(X)
@@ -156,6 +206,51 @@ class CorrelationRemover(TransformerMixin, BaseEstimator):
         X_use = np.atleast_2d(X_use)
         X_filtered = np.atleast_2d(X_filtered)
         return self.alpha * X_filtered + (1 - self.alpha) * X_use
+
+    def get_feature_names_out(self, input_features=None):
+        """Get output feature names for transformation.
+
+        The sensitive feature columns are dropped, so the output contains the
+        non-sensitive features in their input order.
+
+        Parameters
+        ----------
+        input_features : array-like of str or None, default=None
+            Input feature names. If ``None``, the column names seen during
+            ``fit`` are used, or ``["x0", "x1", ...]`` if ``X`` had no column
+            names. If given, it must match the column names seen during ``fit``.
+
+        Returns
+        -------
+        numpy.ndarray of str
+            The names of the transformed features.
+
+        Raises
+        ------
+        NotFittedError
+            If the estimator has not been fitted yet.
+        ValueError
+            If ``input_features`` does not match the features seen during ``fit``.
+        """
+        check_is_fitted(self, ["beta_", "_n_features_in_", "lookup_"])
+
+        if input_features is None:
+            if self._columns_in_ is not None:
+                input_features = self._columns_in_
+            else:
+                input_features = [f"x{i}" for i in range(self._n_features_in_)]
+        elif len(input_features) != self._n_features_in_:
+            raise ValueError(
+                f"input_features should have length equal to number of features "
+                f"({self._n_features_in_}), got {len(input_features)}"
+            )
+        elif self._columns_in_ is not None and list(input_features) != self._columns_in_:
+            raise ValueError("input_features is not equal to the column names seen during fit")
+
+        sensitive = {self.lookup_[i] for i in self.sensitive_feature_ids}
+        return np.asarray(
+            [name for i, name in enumerate(input_features) if i not in sensitive], dtype=object
+        )
 
     def _check_sensitive_features_in_X(self, X) -> None:
         """Check if the sensitive features are in X."""
@@ -170,7 +265,7 @@ class CorrelationRemover(TransformerMixin, BaseEstimator):
 
         if len(missing_columns) > 0:
             raise ValueError(
-                "0 feature(s) (shape=(%d, 0)) while a minimum of %d is required. "
-                "Columns %s not found in the input data."
-                % (len(missing_columns), len(missing_columns), missing_columns)
+                f"0 feature(s) (shape=({len(missing_columns)}, 0)) while a minimum of "
+                f"{len(missing_columns)} is required. "
+                f"Columns {missing_columns} not found in the input data."
             )

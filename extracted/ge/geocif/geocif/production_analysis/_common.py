@@ -360,17 +360,19 @@ def run_beast(y, y0, cfg, **overrides):
     stays importable in environments that don't have the binary wheel.
     """
     import Rbeast as rb  # noqa: PLC0415 — lazy by design
+    from geocif.ml.beast_compat import quiet_rbeast  # noqa: PLC0415
 
     tcp_minmax = overrides.get("tcp_minmax", cfg.tcp_minmax)
     tseg_minlength = overrides.get("tseg_minlength", cfg.tseg_minlength)
     mcmc_seed = overrides.get("mcmc_seed", cfg.mcmc_seed)
-    return rb.beast(
-        y, start=y0, deltat=1, season="none",
-        tcp_minmax=tcp_minmax, tseg_minlength=tseg_minlength,
-        mcmc_seed=mcmc_seed,
-        quiet=True, print_param=False,
-        print_progress=False, print_warning=False,
-    )
+    with quiet_rbeast():
+        return rb.beast(
+            y, start=y0, deltat=1, season="none",
+            tcp_minmax=tcp_minmax, tseg_minlength=tseg_minlength,
+            mcmc_seed=mcmc_seed,
+            quiet=True, print_param=False,
+            print_progress=False, print_warning=False,
+        )
 
 
 def extract_sorted_cps(beast_result):

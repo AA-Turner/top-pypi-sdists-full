@@ -21,7 +21,7 @@ import pytest
 
 import pikepdf
 from pikepdf import Pdf, PdfError
-from pikepdf._io import atomic_overwrite, atomic_write_verified, output_fd
+from pikepdf._io import atomic_overwrite, atomic_write_verified, input_fd, output_fd
 
 # pylint: disable=redefined-outer-name
 
@@ -207,6 +207,241 @@ def test_mmap_only_file(resources):
     f = UnreadableFile(resources / 'pal.pdf', 'rb')
     with pytest.raises(ExpectedError):
         Pdf.open(f, access_mode=pikepdf._core.AccessMode.stream)
+
+
+def _everything(pdf):
+    """Read every object and stream, so that the whole input is consumed."""
+    out = []
+    for obj in pdf.objects:
+        out.append(repr(obj))
+        if isinstance(obj, pikepdf.Stream):
+            out.append(obj.read_raw_bytes())
+    return out
+
+
+def test_input_fd(resources, tmp_path):
+    with open(resources / 'pal.pdf', 'rb') as f:
+        assert input_fd(f) == f.fileno()
+    assert input_fd(f) is None  # closed
+    with open(resources / 'pal.pdf', 'rb', buffering=0) as f:
+        assert input_fd(f) == f.fileno()
+    with open(tmp_path / 'rw.pdf', 'w+b') as f:
+        assert input_fd(f) == f.fileno()
+    with open(tmp_path / 'w.pdf', 'wb') as f:
+        assert input_fd(f) is None  # not readable
+    assert input_fd(BytesIO()) is None
+
+    class Subclass(FileIO):
+        pass
+
+    with Subclass(resources / 'pal.pdf', 'rb') as f:
+        assert input_fd(f) is None  # may override read methods
+
+
+@pytest.mark.skipif(not hasattr(os, 'mkfifo'), reason="needs FIFOs")
+def test_input_fd_rejects_non_regular_file(tmp_path):
+    fifo = tmp_path / 'fifo'
+    os.mkfifo(fifo)
+    fd = os.open(fifo, os.O_RDWR)  # read-write, so opening does not block
+    with open(fd, 'rb') as f:
+        assert input_fd(f) is None
+
+
+@pytest.fixture
+def input_fd_results(monkeypatch):
+    """Record what input_fd() returned each time opening a Pdf consulted it."""
+    results = []
+
+    def spy(stream):
+        results.append(input_fd(stream))
+        return results[-1]
+
+    monkeypatch.setattr(pikepdf._io, 'input_fd', spy)
+    return results
+
+
+def _assert_stream_unmoved(stream):
+    # POSIX reads are positioned, so they leave the Python stream we created
+    # where it was. Windows has to seek the descriptor to read from it.
+    if os.name != 'nt':
+        assert stream.tell() == 0
+
+
+@pytest.mark.parametrize('access_mode', ['default', 'stream'])
+def test_open_filename_reads_descriptor_directly(
+    resources, access_mode, input_fd_results
+):
+    # When pikepdf opens the file itself, it reads through the descriptor
+    with Pdf.open(
+        resources / 'pal.pdf', access_mode=getattr(pikepdf.AccessMode, access_mode)
+    ) as pdf:
+        _everything(pdf)
+        assert input_fd_results == [pdf._input_stream.fileno()]
+        _assert_stream_unmoved(pdf._input_stream)
+
+
+def test_open_stream_is_read_through_python(resources, input_fd_results):
+    # A stream the caller passed in is only ever used through its methods,
+    # even if it is a plain file that would otherwise qualify.
+    with open(resources / 'pal.pdf', 'rb') as f:
+        with Pdf.open(f) as pdf:
+            _everything(pdf)
+            assert input_fd_results == []
+            assert f.tell() != 0
+
+
+def test_open_filename_falls_back_from_mmap_to_descriptor(
+    resources, monkeypatch, input_fd_results
+):
+    import mmap
+
+    def raises_oserror(*args, **kwargs):
+        raise OSError("This file is temporarily not mmap-able")
+
+    monkeypatch.setattr(mmap, 'mmap', raises_oserror)
+    with Pdf.open(resources / 'pal.pdf', access_mode=pikepdf.AccessMode.mmap) as pdf:
+        _everything(pdf)
+        assert input_fd_results == [pdf._input_stream.fileno()]
+        _assert_stream_unmoved(pdf._input_stream)
+
+
+@pytest.mark.parametrize('access_mode', ['mmap', 'mmap_only'])
+def test_open_filename_prefers_mmap(resources, access_mode, input_fd_results):
+    with Pdf.open(
+        resources / 'pal.pdf', access_mode=getattr(pikepdf.AccessMode, access_mode)
+    ) as pdf:
+        _everything(pdf)
+        assert input_fd_results == []
+
+
+def test_open_filename_unqualified_stream_uses_python(
+    resources, monkeypatch, input_fd_results
+):
+    # If the stream we opened is not a plain file, fall back to its methods.
+    monkeypatch.setattr(
+        pikepdf._methods, 'open', lambda f, mode: FileIOSubclass(f, mode), raising=False
+    )
+    with Pdf.open(resources / 'pal.pdf') as pdf:
+        _everything(pdf)
+        assert input_fd_results == [None]
+        assert pdf._input_stream.tell() != 0
+
+
+class FileIOSubclass(FileIO):
+    pass
+
+
+@pytest.mark.parametrize(
+    'name',
+    [
+        'pal.pdf',
+        'newline-buffer-test.pdf',
+        'fourpages.pdf',
+        'outlines.pdf',
+        'sandwich.pdf',
+        'content-stream-errors.pdf',
+    ],
+)
+def test_descriptor_reads_match_stream_reads(resources, name):
+    with open(resources / name, 'rb') as f:
+        with Pdf.open(resources / name) as by_fd, Pdf.open(f) as by_stream:
+            assert _everything(by_fd) == _everything(by_stream)
+            assert by_fd.get_warnings() == by_stream.get_warnings()
+
+
+def _outcome(filename_or_stream, description):
+    try:
+        with Pdf.open(filename_or_stream) as pdf:
+            return (
+                _everything(pdf),
+                [w.replace(description, 'INPUT') for w in pdf.get_warnings()],
+            )
+    except PdfError as e:
+        return str(e).replace(description, 'INPUT')
+
+
+@pytest.mark.parametrize('padding', [0, 1, 4000, 16300, 16384, 16390, 70000])
+@pytest.mark.parametrize('truncate', [None, 0, 1, 9, -40])
+def test_descriptor_reads_match_stream_reads_damaged(tmp_path, padding, truncate):
+    # There is no xref table, so qpdf scans the whole file line by line to
+    # recover objects, exercising end of file and line ending handling with
+    # line endings of all kinds falling on and around buffer boundaries.
+    path = tmp_path / 'damaged.pdf'
+    data = (
+        b'%PDF-1.4\r\n'
+        + b'%' * padding
+        + b'\r\n\r1 0 obj\r<< /Type /Catalog /Pages 2 0 R >>\n\nendobj\n\r'
+        + b'2 0 obj\r\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\rendobj\r\r\n\n'
+        + b'3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 9 9] >> endobj\n'
+        + b'%\n' * 5000
+        + b'trailer << /Root 1 0 R >>\r\n'
+    )
+    path.write_bytes(data[:truncate])
+
+    with open(path, 'rb') as f:
+        by_stream = _outcome(f, f'stream {f}')
+    assert _outcome(path, str(path)) == by_stream
+
+
+def test_descriptor_reads_from_threads(resources):
+    # Reads release the GIL and do not share a file position
+    def work():
+        with Pdf.open(resources / 'fourpages.pdf') as pdf:
+            _everything(pdf)
+
+    threads = [threading.Thread(target=work) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+
+class _MisbehavingStream(io.RawIOBase):
+    def __init__(self, data):
+        self._bio = BytesIO(data)
+
+    def readable(self):
+        return True
+
+    def seekable(self):
+        return True
+
+    def seek(self, offset, whence=io.SEEK_SET):
+        return self._bio.seek(offset, whence)
+
+    def tell(self):
+        return self._bio.tell()
+
+
+class _OverReportingStream(_MisbehavingStream):
+    # Consumes more of the underlying data than was requested and says so,
+    # as a broken wrapper that reads to the end of its own chunk might.
+    def readinto(self, b):
+        n = self._bio.readinto(b)
+        self._bio.seek(100, io.SEEK_CUR)
+        return n + 100 if n else n
+
+
+class _NonBlockingStream(_MisbehavingStream):
+    # A non-blocking stream signals "no data available right now" with None.
+    def readinto(self, b):
+        return None
+
+
+def test_stream_read_overreport(resources):
+    # A file object that reports more bytes than were requested must raise,
+    # not make qpdf read past its buffer or silently skip consumed bytes.
+    data = (resources / 'pal-1bit-trivial.pdf').read_bytes()
+    with pytest.raises(ValueError, match='more bytes than requested'):
+        Pdf.open(
+            _OverReportingStream(data), access_mode=pikepdf._core.AccessMode.stream
+        )
+
+
+def test_stream_read_nonblocking(resources):
+    data = (resources / 'pal-1bit-trivial.pdf').read_bytes()
+    with pytest.raises(ValueError, match='non-blocking'):
+        Pdf.open(_NonBlockingStream(data), access_mode=pikepdf._core.AccessMode.stream)
 
 
 def test_save_bytesio(resources, outpdf):

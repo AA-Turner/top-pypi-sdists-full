@@ -97,5 +97,8 @@ def test_the_declared_field_count_the_plan_rests_on():
     tool policy carried by the conversation so every later turn honors it), twinned.
 
     103 since 2026-10-03: dynamic_tool_sources + dynamic_tools_withheld (the conversation's
-    sticky toolset, TOOL-SOURCES.md), twinned."""
-    assert len(dataclasses.fields(UnifiedConfig)) == 103
+    sticky toolset, TOOL-SOURCES.md), twinned.
+
+    One fewer since 2026-10-10: system_prompt_spans retired with content blocks and <<MATRX>>
+    (prompt blocks plan §8.3)."""
+    assert len(dataclasses.fields(UnifiedConfig)) == 108

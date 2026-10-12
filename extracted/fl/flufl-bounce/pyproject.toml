@@ -6,7 +6,7 @@ authors = [
 ]
 description = 'Email bounce detectors'
 readme = 'README.rst'
-requires-python = '>=3.10'
+requires-python = '>=3.11'
 license = {text = 'Apache-2.0'}
 keywords = [
     'email',
@@ -43,7 +43,6 @@ tests = [
     'coverage[toml]',
     'diff-cover',
     'pytest',
-    'importlib_resources; python_version < "3.12"',
     'sybil[pytest]',
 ]
 
@@ -99,7 +98,7 @@ run = [
 ]
 
 [[tool.hatch.envs.test.matrix]]
-python = ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
+python = ['3.11', '3.12', '3.13', '3.14', '3.15']
 
 [tool.hatch.envs.qa]
 # No dependencies: each `hatch check` subcommand runs in its own internal environment with its own
@@ -160,7 +159,7 @@ branch = true
 parallel = true
 
 [tool.coverage.report]
-fail_under = 95
+fail_under = 100
 show_missing = true
 exclude_also = [
     'if TYPE_CHECKING:',
@@ -174,20 +173,16 @@ src = ['src']
 # Hatch's curated set selects no pydocstyle rules, so docstring linting is an explicit choice.
 # The `convention` setting below only takes effect once these are selected.
 extend-select = ['D']
-# TODO: Temporary, for the 5.1 release only.  Each of these rules fires somewhere in src/ today,
-# and fixing them is deferred to 6.0.  Most come from Hatch's curated set, which the old
-# configuration had switched off, rather than from the D rules selected above.  6.0 fixes the
-# offending code and deletes this whole list.
 extend-ignore = [
-    'D202',
-    'D205',
-    'D400',
-    'G004',
-    'I001',
+    # The detectors normalize each line as they read it, e.g. `line = line.strip()` at the top of
+    # the loop, and the rest of the loop body only ever wants the normalized value.  Rebinding the
+    # loop variable is deliberate.
     'PLW2901',
-    'SIM102',
+    # Every cast() target here is built from the builtin `bytes` or email.message.Message, which
+    # its module already imports at runtime, so quoting it would only skip a name lookup -- not
+    # worth spelling types as strings.  Note this is unrelated to PEP 563: cast()'s first argument
+    # is a normal call argument, evaluated whatever the floor is.
     'TC006',
-    'TD004',
 ]
 
 [tool.ruff.lint.extend-per-file-ignores]
@@ -227,10 +222,6 @@ quote-style = 'single'
 convention = 'pep257'
 
 [tool.ruff.lint.isort]
-# tomllib joined the standard library in 3.11, so with a 3.10 floor ruff files it under
-# third-party.  Only tools/ imports it, and that script declares its own >=3.11 floor in its
-# PEP 723 metadata, which ruff does not read from here.
-extra-standard-library = ['tomllib']
 case-sensitive = true
 forced-separate = ['docutils', 'sphinx']
 known-first-party = ['flufl.bounce']

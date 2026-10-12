@@ -115,11 +115,8 @@ fn contract_covers_the_audited_directive_matrix() {
         .expect("queue contract");
     assert_eq!(queue.alias.as_deref(), Some("q"));
     assert_eq!(queue.feature_flag.as_deref(), None);
-    assert_eq!(
-        queue.positional_role,
-        Some(DirectiveValueRole::NonNegativeInt)
-    );
-    assert_eq!(queue.positional_suggestions[0].value, "0");
+    assert_eq!(queue.positional_role, Some(DirectiveValueRole::PositiveInt));
+    assert_eq!(queue.positional_suggestions[0].value, "1");
     let on_queue =
         directive_contract_with_flags(&["queue_capacity_budget".to_string()])
             .into_iter()
@@ -261,7 +258,10 @@ fn contract_covers_the_audited_directive_matrix() {
     );
     assert_eq!(
         if_directive.syntax_forms,
-        vec![DirectiveSyntaxForm::Parenthesized]
+        vec![
+            DirectiveSyntaxForm::Parenthesized,
+            DirectiveSyntaxForm::DoubleColon
+        ]
     );
     assert_eq!(
         if_directive
@@ -274,26 +274,14 @@ fn contract_covers_the_audited_directive_matrix() {
     assert!(!directive_is_hidden_from_name_completion("if"));
     assert!(!directive_is_hidden_from_name_completion_with_flags(
         "if",
-        &["typed_launch_units".to_string()]
+        &[]
     ));
-    let flagged_if =
-        directive_contract_with_flags(&["typed_launch_units".to_string()])
-            .into_iter()
-            .find(|entry| entry.name == "if")
-            .expect("flagged if contract");
-    assert_eq!(
-        flagged_if.syntax_forms,
-        vec![
-            DirectiveSyntaxForm::Parenthesized,
-            DirectiveSyntaxForm::DoubleColon
-        ]
-    );
 
     let proc = contract
         .iter()
         .find(|entry| entry.name == "proc")
         .expect("proc contract");
-    assert_eq!(proc.feature_flag.as_deref(), Some("typed_launch_units"));
+    assert_eq!(proc.feature_flag.as_deref(), None);
     assert_eq!(proc.body_kind, crate::DirectiveBodyKind::OptionalFencedCode);
     assert_eq!(
         proc.keywords
@@ -684,9 +672,14 @@ fn removed_auto_approve_aliases_do_not_resolve_or_complete() {
     assert!(build_directive_completion_candidates("%approve")
         .candidates
         .is_empty());
-    assert!(build_directive_completion_candidates("%p")
-        .candidates
-        .is_empty());
+    assert_eq!(
+        build_directive_completion_candidates("%p")
+            .candidates
+            .iter()
+            .map(|candidate| candidate.name.as_str())
+            .collect::<Vec<_>>(),
+        ["proc"]
+    );
     assert_eq!(
         build_directive_completion_candidates("%ta")
             .candidates
@@ -750,24 +743,8 @@ fn queue_argument_candidates_use_runtime_keywords() {
 }
 
 #[test]
-fn queue_name_completion_uses_flag_aware_documentation() {
-    let off = build_directive_completion_candidates_with_flags("%q", &[]);
-    let off_queue = off
-        .candidates
-        .iter()
-        .find(|candidate| candidate.name == "queue")
-        .expect("queue completion candidate");
-    assert_eq!(off_queue.insertion, "%queue");
-    assert_eq!(off_queue.detail.as_deref(), Some("alias %q"));
-    assert_eq!(
-        off_queue.documentation.as_deref(),
-        Some("Set weighted-load capacity, priority, and capacity weight")
-    );
-
-    let on = build_directive_completion_candidates_with_flags(
-        "%q",
-        &["queue_capacity_budget".to_string()],
-    );
+fn queue_name_completion_documents_capacity_budget() {
+    let on = build_directive_completion_candidates_with_flags("%q", &[]);
     let on_queue = on
         .candidates
         .iter()
@@ -1202,9 +1179,18 @@ fn clause_candidates_cover_roles_conflicts_and_self_references() {
     };
     assert_eq!(
         queue_insertions("%q("),
-        ["capacity=", "p=", "priority=", "w=", "weight=", "0", "1"]
+        [
+            "capacity=",
+            "p=",
+            "priority=",
+            "w=",
+            "weight=",
+            "1",
+            "100",
+            "1.5x"
+        ]
     );
-    assert_eq!(queue_insertions("%q:"), ["0", "1"]);
+    assert_eq!(queue_insertions("%q:"), ["1", "100", "1.5x"]);
     assert_eq!(
         queue_insertions("%q(5, "),
         ["p=", "priority=", "w=", "weight="]
@@ -1215,11 +1201,11 @@ fn clause_candidates_cover_roles_conflicts_and_self_references() {
     );
     assert_eq!(
         queue_insertions("%q(p=20, "),
-        ["capacity=", "w=", "weight=", "0", "1"]
+        ["capacity=", "w=", "weight=", "1", "100", "1.5x"]
     );
     assert_eq!(
         queue_insertions("%q(w=0.25, "),
-        ["capacity=", "p=", "priority=", "0", "1"]
+        ["capacity=", "p=", "priority=", "1", "100", "1.5x"]
     );
     assert_eq!(queue_insertions("%q(weight="), ["0", "0.25", "1.0", "2.0"]);
     assert!(queue_insertions("%q(")
@@ -1270,7 +1256,6 @@ fn macros_enabled_alias_canonicalizes_to_legacy() {
     for contract in [
         directive_contract(),
         directive_contract_with_flags(&[]),
-        directive_contract_with_flags(&["typed_launch_units".to_string()]),
         directive_contract_with_flags(&["queue_capacity_budget".to_string()]),
     ] {
         assert!(contract

@@ -4,7 +4,15 @@ import numpy as np
 import pytest
 
 from pyscipopt import Model, cos, exp, log, quickprod, sin, sqrt
-from pyscipopt.scip import CONST, Expr, ExprCons, GenExpr, MatrixGenExpr
+from pyscipopt.scip import (
+    CONST,
+    Constant,
+    Expr,
+    ExprCons,
+    GenExpr,
+    MatrixGenExpr,
+    ProdExpr,
+)
 
 
 @pytest.fixture(scope="module")
@@ -212,14 +220,49 @@ def test_getVal_with_GenExpr():
     assert m.getVal(y / x) == 2
     # test "**(prod(1.0,**(sum(0.0,prod(1.0,x)),-1)),2)"
     assert m.getVal((1 / x) ** 2) == 1
-    # test "sin(sum(0.0,prod(1.0,x)))"
+
+    # test C-level math functions
+    assert m.getVal(abs(x)) == 1
+    assert m.getVal(abs(-x)) == 1
+    assert m.getVal(abs(abs(-x))) == 1
+    assert round(m.getVal(exp(x)), 6) == round(math.exp(1), 6)
+    assert round(m.getVal(log(x)), 6) == round(math.log(1), 6)
+    assert round(m.getVal(sqrt(x)), 6) == round(math.sqrt(1), 6)
     assert round(m.getVal(sin(x)), 6) == round(math.sin(1), 6)
+    assert round(m.getVal(cos(x)), 6) == round(math.cos(1), 6)
 
     with pytest.raises(TypeError):
         m.getVal(1)
 
     with pytest.raises(ZeroDivisionError):
         m.getVal(1 / z)
+
+    # math domain errors match the math module
+    with pytest.raises(ValueError, match="math domain error"):
+        m.getVal(log(z))  # log(0)
+
+    with pytest.raises(ValueError, match="math domain error"):
+        m.getVal(log(-y))  # log(-2)
+
+    with pytest.raises(ValueError, match="math domain error"):
+        m.getVal(sqrt(-y))  # sqrt(-2)
+
+    # sqrt(0) is inside the domain, like math.sqrt(0)
+    assert m.getVal(sqrt(z)) == 0
+
+    # +inf is inside log's domain, like math.log(inf) -> inf
+    assert m.getVal(log(math.inf)) == math.inf
+
+    # sin and cos reject infinite arguments, like math.sin(inf)
+    with pytest.raises(ValueError, match="math domain error"):
+        m.getVal(sin(math.inf))
+
+    with pytest.raises(ValueError, match="math domain error"):
+        m.getVal(cos(-math.inf))
+
+    # nested unary expressions propagate the inner domain error
+    with pytest.raises(ValueError, match="math domain error"):
+        m.getVal(exp(log(-x)))
 
 
 def test_unary_ufunc(model):
@@ -522,3 +565,97 @@ def test_term_eq():
     assert t3 != t4  # same length, but different term
     assert t1 != t3  # different length
     assert t1 != "not a term"  # different type
+
+
+def test_Expr_add_Expr():
+    m = Model()
+    x = m.addVar(name="x")
+    y = m.addVar(name="y")
+
+    e1 = -x + 1
+    e2 = y - 1
+    e3 = e1 + e2
+    assert str(e1) == "Expr({Term(x): -1.0, Term(): 1.0})"
+    assert str(e2) == "Expr({Term(y): 1.0, Term(): -1.0})"
+    assert str(e3) == "Expr({Term(x): -1.0, Term(): 0.0, Term(y): 1.0})"
+
+
+def test_Expr_iadd_Expr():
+    m = Model()
+    x = m.addVar(name="x")
+    y = m.addVar(name="y")
+
+    e1 = -x + 1
+    e2 = y - 1
+    e1 += e2
+    assert str(e1) == "Expr({Term(x): -1.0, Term(): 0.0, Term(y): 1.0})"
+    assert str(e2) == "Expr({Term(y): 1.0, Term(): -1.0})"
+
+
+def test_pos():
+    m = Model()
+    x = m.addVar(name="x")
+
+    # test Variable
+    res = +x
+    assert str(res) == "x"
+    assert res is x
+
+    # test Expr
+    e = x + 1
+    res = +(x + 1)
+    assert str(res) == "Expr({Term(x): 1.0, Term(): 1.0})"
+    assert e is not res
+
+    # test SumExpr
+    e = sqrt(x) + 1
+    res = +e
+    assert str(res) == str(e)
+    assert e is not res
+
+    # test UnaryExpr
+    e = cos(x)
+    res = +e
+    assert str(res) == str(e)
+    assert e is not res
+
+    # test ProdExpr
+    e = x * sin(x)
+    res = +e
+    assert str(res) == str(e)
+    assert e is not res
+
+    # test PowExpr
+    e = log(x)**2
+    res = +e
+    assert str(res) == str(e)
+    assert e is not res
+
+    # test Constant
+    c = sqrt(1).children[0]
+    assert type(c) is not int
+    e = +c
+    assert str(e) == str(c)
+    assert e is not c
+
+def test_neg():
+    m = Model()
+    x = m.addVar(name="x")
+
+    expr = (x + 1) ** 3
+    neg_expr = -expr
+    assert isinstance(expr, Expr)
+    assert isinstance(neg_expr, Expr)
+    assert (
+        str(neg_expr)
+        == "Expr({Term(x, x, x): -1.0, Term(x, x): -3.0, Term(x): -3.0, Term(): -1.0})"
+    )
+
+    base = sqrt(x)
+    expr = base * -1
+    neg_expr = -expr
+    assert isinstance(expr, ProdExpr)
+    assert isinstance(neg_expr, ProdExpr)
+    assert str(neg_expr) == "prod(1.0,sqrt(sum(0.0,prod(1.0,x))))"
+
+    assert str(-Constant(3.0)) == "-3.0"

@@ -17,8 +17,18 @@ from aioquic.h3.events import (
     WebTransportStreamDataReceived,
 )
 from aioquic.h3.exceptions import InvalidStreamTypeError, NoAvailablePushIDError
-from aioquic.quic.connection import QuicConnection, stream_is_unidirectional
-from aioquic.quic.events import DatagramFrameReceived, QuicEvent, StreamDataReceived
+from aioquic.quic.connection import (
+    QuicConnection,
+    stream_is_client_initiated,
+    stream_is_unidirectional,
+)
+from aioquic.quic.events import (
+    DatagramFrameReceived,
+    QuicEvent,
+    StopSendingReceived,
+    StreamDataReceived,
+    StreamReset,
+)
 from aioquic.quic.logger import QuicLoggerTrace
 
 logger = logging.getLogger("http3")
@@ -140,6 +150,10 @@ class DatagramError(ProtocolError):
     error_code = ErrorCode.H3_DATAGRAM_ERROR
 
 
+class FrameError(ProtocolError):
+    error_code = ErrorCode.H3_FRAME_ERROR
+
+
 class FrameUnexpected(ProtocolError):
     error_code = ErrorCode.H3_FRAME_UNEXPECTED
 
@@ -179,8 +193,12 @@ def encode_settings(settings: dict[int, int]) -> bytes:
 
 def parse_max_push_id(data: bytes) -> int:
     buf = Buffer(data=data)
-    max_push_id = buf.pull_uint_var()
-    assert buf.eof()
+    try:
+        max_push_id = buf.pull_uint_var()
+    except BufferReadError:
+        raise FrameError("Could not parse MAX_PUSH_ID frame")
+    if not buf.eof():
+        raise FrameError("MAX_PUSH_ID frame has trailing data")
     return max_push_id
 
 
@@ -188,8 +206,11 @@ def parse_settings(data: bytes) -> dict[int, int]:
     buf = Buffer(data=data)
     settings: dict[int, int] = {}
     while not buf.eof():
-        setting = buf.pull_uint_var()
-        value = buf.pull_uint_var()
+        try:
+            setting = buf.pull_uint_var()
+            value = buf.pull_uint_var()
+        except BufferReadError:
+            raise FrameError("Could not parse SETTINGS frame")
         if setting in RESERVED_SETTINGS:
             raise SettingsError("Setting identifier 0x%x is reserved" % setting)
         if setting in settings:
@@ -454,6 +475,10 @@ class H3Connection:
                     return self._receive_stream_data(event)
                 elif isinstance(event, DatagramFrameReceived):
                     return self._receive_datagram(event.data)
+                elif isinstance(event, StopSendingReceived):
+                    self._receive_stop_sending(event.stream_id)
+                elif isinstance(event, StreamReset):
+                    self._receive_stream_reset(event.stream_id)
             except ProtocolError as exc:
                 self._is_done = True
                 self._quic.close(
@@ -495,12 +520,15 @@ class H3Connection:
         If there are not available push IDs, an
         :class:`~aioquic.h3.exceptions.NoAvailablePushIDError` exception is raised.
 
+        If called by a client, a :class:`RuntimeError` exception is raised.
+
         .. aioquic_transmit::
 
         :param stream_id: The stream ID on which to send the data.
         :param headers: The HTTP request headers for this push.
         """
-        assert not self._is_client, "Only servers may send a push promise."
+        if self._is_client:
+            raise RuntimeError("Only servers may send a push promise.")
 
         # check stream ID is valid
         if not stream_is_request_response(stream_id):
@@ -658,7 +686,15 @@ class H3Connection:
     @contextlib.contextmanager
     def _get_or_create_stream(self, stream_id: int) -> Generator[H3Stream]:
         if stream_id not in self._stream:
-            self._stream[stream_id] = H3Stream(stream_id)
+            stream = H3Stream(stream_id)
+            if stream_is_unidirectional(stream_id):
+                # A unidirectional stream only has one half, the other one is
+                # ended from the start.
+                if stream_is_client_initiated(stream_id) == self._is_client:
+                    stream.receiving_ended = True
+                else:
+                    stream.sending_ended = True
+            self._stream[stream_id] = stream
         stream = self._stream[stream_id]
         try:
             yield stream
@@ -820,7 +856,10 @@ class H3Connection:
             )
         elif frame_type == FrameType.PUSH_PROMISE:
             frame_buf = Buffer(data=frame_data)
-            push_id = frame_buf.pull_uint_var()
+            try:
+                push_id = frame_buf.pull_uint_var()
+            except BufferReadError:
+                raise FrameError("Could not parse PUSH_PROMISE frame")
             headers = self._decode_headers(
                 stream.stream_id, frame_data[frame_buf.tell() :]
             )
@@ -936,6 +975,24 @@ class H3Connection:
         return [
             DatagramReceived(data=data[buf.tell() :], stream_id=quarter_stream_id * 4)
         ]
+
+    def _receive_stop_sending(self, stream_id: int) -> None:
+        """
+        Handle the peer asking us to stop sending on a stream.
+        """
+        if stream_id in (
+            self._local_control_stream_id,
+            self._local_decoder_stream_id,
+            self._local_encoder_stream_id,
+        ):
+            raise ClosedCriticalStream("Stopping a critical stream is not allowed")
+
+        # The QUIC layer has already reset the sending part of the stream.
+        stream = self._stream.get(stream_id)
+        if stream is not None:
+            stream.sending_ended = True
+            if stream.is_ended():
+                self._stream.pop(stream_id)
 
     def _receive_stream_data(self, event: StreamDataReceived) -> list[H3Event]:
         stream_id = event.stream_id
@@ -1299,7 +1356,41 @@ class H3Connection:
                     )
                 )
 
+            # The stream may have ended while it was blocked.
+            if stream.is_ended():
+                self._stream.pop(stream_id)
+
         return http_events
+
+    def _receive_stream_reset(self, stream_id: int) -> None:
+        """
+        Handle the peer resetting a stream.
+        """
+        if stream_id in (
+            self._peer_control_stream_id,
+            self._peer_decoder_stream_id,
+            self._peer_encoder_stream_id,
+        ):
+            raise ClosedCriticalStream("Resetting a critical stream is not allowed")
+
+        stream = self._stream.get(stream_id)
+
+        # Header blocks on the stream will not be decoded, let the peer's
+        # encoder know (RFC 9204 section 4.4.2).
+        if not stream_is_unidirectional(stream_id) or (
+            stream is not None and stream.stream_type == StreamType.PUSH
+        ):
+            decoder = self._decoder.cancel_stream(stream_id)
+            self._decoder_bytes_sent += len(decoder)
+            self._quic.send_stream_data(self._local_decoder_stream_id, decoder)
+
+        if stream is not None:
+            stream.blocked = False
+            stream.blocked_frame_size = None
+            stream.buffer = b""
+            stream.receiving_ended = True
+            if stream.is_ended():
+                self._stream.pop(stream_id)
 
     def _validate_settings(self, settings: dict[int, int]) -> None:
         for setting in [

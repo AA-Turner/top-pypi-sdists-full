@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spiceypy
-Version: 8.2.0
+Version: 8.3.0
 Summary: A Python Wrapper for the NAIF CSPICE Toolkit
 Keywords: spiceypy,spice,cspice,naif,jpl,space,geometry,ephemeris
 Author-Email: "Andrew M. annex" <ama6fy@virginia.edu>
@@ -17,7 +17,9 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Cython
+Classifier: Typing :: Typed
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: POSIX :: BSD :: FreeBSD
@@ -151,7 +153,7 @@ as newer versions are released.
 
 - OS: OS X, Linux, Windows, FreeBSD
 - CPU: x64, arm
-- Python 3.10, 3.11, 3.12, 3.13, 3.14
+- Python 3.10, 3.11, 3.12, 3.13, 3.14, 3.15
 - ARM support for Linux-aarch64 & osx-arm64
 
 * Support for Python 2.7 ended with version 2.3.2 January 2020 *

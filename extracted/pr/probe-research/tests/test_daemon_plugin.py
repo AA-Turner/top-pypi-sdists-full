@@ -55,12 +55,16 @@ def _makefile_list() -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def test_the_skills_are_instrument_code_and_the_switch_and_instrument_code_is_the_canonical_copy():
-    skills = {path.parent.name for path in (LEAN / "skills").glob("*/SKILL.md")}
+@pytest.mark.parametrize("copied", ["instrument-code", "plan-research-review"])
+def test_the_skills_are_instrument_code_plan_review_and_the_switch_and_the_copies_are_canonical(copied):
+    skills = {path.parent.name for path in (LEAN / "agent-skills").glob("*/SKILL.md")}
     # `probe` is the on / read / off switch (Richard 2026-09-29), hand-kept here.
-    assert skills == {"instrument-code", "probe"}, "no track-work (or any other skill): Claude Code lists it to the agent"
-    canonical = ROOT / "skills" / "instrument-code"
-    shipped = LEAN / "skills" / "instrument-code"
+    # `plan-research-review` plans with the researcher and records nothing
+    # (Richard 2026-10-11: every profile gets it).
+    assert skills == {"instrument-code", "probe", "plan-research-review"}, (
+        "no track-work (or any other recording skill): Claude Code lists it to the agent")
+    canonical = ROOT / "skills" / copied
+    shipped = LEAN / "agent-skills" / copied
     names = sorted(p.relative_to(canonical) for p in canonical.rglob("*") if p.is_file())
     assert names == sorted(p.relative_to(shipped) for p in shipped.rglob("*") if p.is_file())
     for rel in names:
@@ -82,7 +86,7 @@ def test_the_manifests():
     assert claude["hooks"] == "./hooks/claude-reads.json", "the Stop wake (asyncRewake) lives only there"
     assert (LEAN / "hooks" / "claude-reads.json").is_file()
     codex = _json(LEAN / ".codex-plugin" / "plugin.json")
-    assert codex["skills"] == "./skills/"
+    assert codex["skills"] == "./agent-skills/"
     assert "hooks" not in codex, "Codex discovers hooks/hooks.json itself; declaring it runs every hook twice"
     full = _json(FULL / ".claude-plugin" / "plugin.json")
     assert claude["version"] == codex["version"] == full["version"]
@@ -92,7 +96,14 @@ def test_hook_files_are_byte_identical_copies_of_the_full_plugins():
     listed = _makefile_list()
     shipped = sorted(p.name for p in (LEAN / "hooks").iterdir() if p.is_file() and p.name != "routes.json")
     assert shipped == sorted(listed), "hooks/ holds exactly the files `make sync-daemon-plugin` copies"
-    assert "note_audit.py" not in listed, "the team-note audit reminder needs Probe reads: not wired"
+    # The team-note audit reminder ships for INLINE sessions only (daemon-team-note-audit):
+    # the daemon audits the sessions it records, and its route marks the profile so the
+    # hook stays silent there (`test_the_audit_reminder_speaks_only_inline`).
+    assert "note_audit.py" in listed
+    routes = _json(LEAN / "hooks" / "routes.json")["hooks"]
+    [audit_route] = [h["command"] for g in routes["UserPromptSubmit"] for h in g["hooks"]
+                     if "note_audit.py" in h["command"]]
+    assert audit_route.startswith("/bin/bash -c 'export PROBE_PLUGIN_PROFILE=daemon;")
     for name in listed:
         lean, full = LEAN / "hooks" / name, FULL / "hooks" / name
         assert lean.read_bytes() == full.read_bytes(), f"hooks/{name} drifted: make sync-daemon-plugin"
@@ -119,11 +130,11 @@ def test_the_guard_and_session_start_run_in_the_daemon_profile():
     for event, matcher, hook in _commands(_hooks(LEAN)):
         scripts = _scripts(hook["command"])
         profiled = hook["command"].startswith("/bin/bash -c '" + PROFILE_EXPORT)
-        if scripts & {"tracking_guard.py", "session-start.sh"}:
+        if scripts & {"tracking_guard.py", "session-start.sh", "note_audit.py"}:
             assert profiled, f"{event} {matcher}: {scripts} must run with PROBE_PLUGIN_PROFILE=daemon"
             seen.add((event, matcher, *sorted(scripts)))
         else:
-            assert not profiled, f"{event}: only the guard and session start need the profile"
+            assert not profiled, f"{event}: only the guard, session start and the audit reminder need the profile"
     assert seen == {
         ("SessionStart", None, "session-start.sh"),
         ("PreCompact", None, "session-start.sh"),
@@ -132,6 +143,8 @@ def test_the_guard_and_session_start_run_in_the_daemon_profile():
         # The switch: a typed `/probe on|read|off` and the Skill tool (Richard 2026-09-29).
         ("UserPromptSubmit", None, "tracking_guard.py"),
         ("PostToolUse", "^(Bash|Skill|SlashCommand)$|probe[-_]research", "tracking_guard.py"),
+        # The audit reminder, silent unless the session is inline (daemon-team-note-audit).
+        ("UserPromptSubmit", None, "note_audit.py"),
     }, "the guard: the refusal before a call, and the on / read / off switch"
 
 
@@ -140,7 +153,8 @@ def test_what_the_daemon_profile_keeps_and_drops():
     for event, _matcher, hook in _commands(_hooks(LEAN)):
         by_event.setdefault(event, set()).update(_scripts(hook["command"]))
     assert by_event == {
-        "UserPromptSubmit": {"tracking_guard.py", "statusline_refresh.py", "approvals_hook.py", "reads_hook.py"},
+        "UserPromptSubmit": {"tracking_guard.py", "statusline_refresh.py", "note_audit.py", "approvals_hook.py",
+                             "reads_hook.py"},
         "SessionStart": {"session-start.sh", "statusline_refresh.py", "approvals_hook.py"},
         "PreCompact": {"session-start.sh"},
         "PreToolUse": {"tracking_guard.py", "approvals_hook.py"},
@@ -149,6 +163,29 @@ def test_what_the_daemon_profile_keeps_and_drops():
         "SessionEnd": {"telemetry.py", "team-note-sync.sh"},
         "Stop": {"statusline_notify.py", "team-note-sync.sh"},
     }
+
+
+def test_the_inline_audit_skill_is_the_full_plugins_byte_for_byte():
+    """note_audit.py names `inline/audit-team-note/SKILL.md` to an inline agent: a
+    stale copy would audit by an old skill (`make sync-daemon-plugin`)."""
+    full = FULL / "agent-skills" / "audit-team-note" / "SKILL.md"
+    assert (LEAN / "inline" / "audit-team-note" / "SKILL.md").read_bytes() == full.read_bytes(), (
+        "run `make sync-daemon-plugin`")
+
+
+def test_every_inline_file_exists_and_is_not_empty():
+    """`inline/` is built by copying out of the full plugin's skills folder, so a
+    rename there (`skills/` -> `agent-skills/`, 2026-10-12) can silently empty
+    it. Nothing looks wrong until a researcher types `/probe inline` and the
+    agent is sent to files that do not exist -- it then records nothing."""
+    inline = LEAN / "inline"
+    names = sorted(p.name for p in inline.iterdir() if p.is_dir())
+    assert names == ["audit-team-note", "edit-notes", "track-work"], names
+    for slug in names:
+        skill = inline / slug / "SKILL.md"
+        assert skill.is_file() and skill.stat().st_size > 500, f"{slug} is missing or truncated"
+        assert skill.read_bytes() == (FULL / "agent-skills" / slug / "SKILL.md").read_bytes()
+    assert (inline / "track-work" / "reference.md").stat().st_size > 500
 
 
 def test_marketplaces_list_it():

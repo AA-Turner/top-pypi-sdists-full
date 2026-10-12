@@ -33,6 +33,12 @@ serde_json = "1.0"
 
 [profile.release]
 
+# Fat LTO with the default codegen-units and opt-level. codegen-units = 1,
+# thin LTO and opt-level 2 were measured (python/bench/README.md, "Release
+# builds"): none is faster beyond the few percent a hot path moves between two
+# builds of the same source. The gain that holds is profile-guided
+# optimisation, which wheels and benchmark builds get from `maturin --pgo`.
+# panic = "abort" is not an option: the tracing callbacks rely on catch_unwind.
 lto = true
 # debug = true
 

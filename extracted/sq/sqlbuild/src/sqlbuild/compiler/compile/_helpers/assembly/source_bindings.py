@@ -7,8 +7,11 @@ from graphlib import TopologicalSorter
 from typing import Any
 
 from sqlbuild.adapter.contract.models import ColumnInfo, ExpressionInferenceProfile
-from sqlbuild.compiler.compile._helpers.analysis.compact import (
-    analyze_columns_and_lineage_with_polyglot,
+from sqlbuild.compiler.analysis_session.main._infer_native_query_columns import (
+    infer_native_query_columns,
+)
+from sqlbuild.compiler.analysis_session.models import NativeColumnQuery, NativeQueryColumns
+from sqlbuild.compiler.compile._helpers.analysis.binding_requests import (
     get_complete_schema_binding_request,
 )
 from sqlbuild.compiler.compile._helpers.assembly.binding_positions import (
@@ -19,7 +22,7 @@ from sqlbuild.compiler.compile._helpers.assembly.native_declarations import (
     known_function_names,
 )
 from sqlbuild.compiler.compile._helpers.assembly.semantic_shapes import (
-    binding_relation_names,
+    binding_relation_row_names,
     published_model_shape,
     semantic_shapes,
 )
@@ -27,14 +30,13 @@ from sqlbuild.compiler.compile._helpers.render.cursor_intrinsics import (
     cursor_intrinsics_analysis_sql,
 )
 from sqlbuild.compiler.compile.models import (
-    CompiledModel,
     CompiledObjectKey,
-    CompiledProject,
     CompiledSqlExpansion,
     CompilerDiagnostic,
-    PolyglotAnalysisResult,
 )
 from sqlbuild.compiler.compile.types import (
+    CompiledModelView,
+    CompiledProjectView,
     CompiledResourceType,
     DiagnosticPhase,
     DiagnosticSeverity,
@@ -52,14 +54,14 @@ from sqlbuild.compiler.sql_analysis.models import SqlBindingResult, SqlSchemaVal
 
 
 def _model_shapes(
-    *, model: CompiledModel, shapes: dict[str, dict[str, str]]
+    *, model: CompiledModelView, shapes: dict[str, dict[str, str]]
 ) -> dict[str, dict[str, str]]:
-    return {name: shapes.get(name, {}) for name in binding_relation_names(model.references)}
+    return {name: shapes.get(name, {}) for name in binding_relation_row_names(model.reference_rows)}
 
 
 def get_source_binding_diagnostics(
     *,
-    project: CompiledProject,
+    project: CompiledProjectView,
     columns: dict[str, tuple[ColumnInfo, ...]],
     profile: ExpressionInferenceProfile,
     selected_keys: frozenset[CompiledObjectKey],
@@ -96,7 +98,7 @@ def get_source_binding_diagnostics(
         else None
     )
     profile = replace(profile, binding_catalog=physical_catalog)
-    by_name: dict[str, CompiledModel] = {model.name: model for model in project.models}
+    by_name: dict[str, CompiledModelView] = {model.name: model for model in project.models}
     graph: dict[str, tuple[str, ...]] = {}
     for model in project.models:
         graph[model.name] = tuple(
@@ -105,9 +107,9 @@ def get_source_binding_diagnostics(
             if reference.ref_kind == SqlReferenceKind.REF and reference.ref_name in by_name
         )
     affected: set[str] = set()
-    models: list[CompiledModel] = []
+    models: list[CompiledModelView] = []
     for name in TopologicalSorter(graph).static_order():
-        model: CompiledModel = by_name[name]
+        model: CompiledModelView = by_name[name]
         if model.key not in selected_keys or model.config.values.get("sql_analysis") is False:
             continue
         if any(
@@ -125,16 +127,19 @@ def get_source_binding_diagnostics(
                 table: dict.fromkeys(shape, InferredNullability.UNKNOWN)
                 for table, shape in inputs.items()
             }
-            analysis: PolyglotAnalysisResult = analyze_columns_and_lineage_with_polyglot(
-                query_sql=model.query_sql,
-                references=model.references,
-                placeholders=_placeholders(model),
+            analysis: NativeQueryColumns = infer_native_query_columns(
+                queries=(
+                    NativeColumnQuery(
+                        sql=model.query_sql,
+                        mode="reanalysis",
+                        placeholders=_placeholders(model),
+                        references=model.references,
+                    ),
+                ),
+                profile=profile,
                 column_types_by_table=inputs,
                 column_nullability_by_table=nullability,
-                inference_profile=profile,
-                allow_compact_analysis=True,
-                recover_cte_facts=True,
-            )
+            )[0]
             if analysis.columns and (not analysis.has_star or all(inputs.values())):
                 shapes[model.name] = published_model_shape(
                     sql=model.query_sql,
@@ -212,7 +217,7 @@ def _adds_physical_evidence(*, physical: dict[str, str], known: dict[str, str] |
     )
 
 
-def _placeholders(model: CompiledModel) -> dict[str, str] | None:
+def _placeholders(model: CompiledModelView) -> dict[str, str] | None:
     values: object = model.config.values.get("placeholders")
     if isinstance(values, dict):
         return {str(key): str(value) for key, value in values.items()}

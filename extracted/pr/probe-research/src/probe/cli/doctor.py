@@ -713,6 +713,11 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None) -> str:
     lines.extend(_daemon_rows(caps))
     lines.append("")
 
+    capy_rows = _capy_rows()
+    if capy_rows:
+        lines.extend(capy_rows)
+        lines.append("")
+
     lines.append("Agent rules")
     # pi is no longer capture-only, so this asks the same real question every
     # other source gets. `agent_rules.memory_path("pi")` resolves pi's own
@@ -1161,6 +1166,18 @@ def _kimi_rows() -> list[str]:
         )
         rows.append(_row("Kimi plugin list", ", ".join(ours) if ours else "no Probe plugins"))
     return rows
+
+
+def _capy_rows() -> list[str]:
+    """Capy capture, when this machine is connected to Capy (`probe capy
+    connect`): local files only, so doctor stays fast and offline-safe. Its
+    failures are otherwise silent: the timer runs with nobody watching."""
+    from probe.cli import capy_cli
+
+    facts = capy_cli.doctor_facts()
+    if not facts:
+        return []
+    return ["Capy capture", *(_row(label, value) for label, value in facts)]
 
 
 def _live_runs() -> list[str]:

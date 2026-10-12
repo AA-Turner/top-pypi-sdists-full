@@ -1,7 +1,7 @@
 """The pi package's skill copies must match the canonical `skills/`.
 
 `plugins/probe-research-pi/skills/` is a COPY of `skills/`, not a symlink —
-same contract as `plugins/probe-research/skills/` (guarded by
+same contract as `plugins/probe-research/agent-skills/` (guarded by
 `tests/test_skills_sync.py`) and `plugins/probe-research-tap/tap/` (guarded
 by `tests/test_tap_core_sync.py`): the pi package ships self-contained, so
 pi's own package manager can read it without reaching outside the package
@@ -37,6 +37,10 @@ from probe import skill_versions
 _ROOT = Path(__file__).resolve().parent.parent
 
 _CANONICAL = _ROOT / "skills"
+#: Skills only the Capy bundle ships (profiles.json "capy"): the public mirror
+#: renders them under capy/skills/, and no pi package carries them.
+_PROFILES = json.loads((_CANONICAL / "profiles.json").read_text())
+_CAPY_ONLY = set(_PROFILES["capy"]) - set(_PROFILES["full"])
 _PI_PLUGIN = _ROOT / "plugins" / "probe-research-pi" / "skills"
 _PI_PACKAGE_JSON = _ROOT / "plugins" / "probe-research-pi" / "package.json"
 
@@ -49,6 +53,7 @@ _SYNCED = (
     "audit-team-note",
     "edit-notes",
     "notes-audit",
+    "plan-research-review",
 )
 
 
@@ -92,7 +97,7 @@ def test_every_canonical_skill_is_covered_by_this_guard() -> None:
     package.json's "pi.skills", AND to `_SYNCED` here — otherwise it is
     silently missing from the pi package while every parametrized case
     above still passes."""
-    on_disk = {path.name for path in _CANONICAL.iterdir() if path.is_dir()}
+    on_disk = {path.name for path in _CANONICAL.iterdir() if path.is_dir()} - _CAPY_ONLY
     covered = set(_SYNCED)
     assert on_disk == covered, (
         f"skills/ holds {sorted(on_disk)} but this guard covers {sorted(covered)}; "
@@ -154,7 +159,7 @@ def test_package_json_declares_exactly_the_synced_skills() -> None:
 # The daemon profile's `probe` skill (pi on the Probe daemon).
 # ---------------------------------------------------------------------------
 
-_DAEMON_SKILL = _ROOT / "plugins" / "probe-research-daemon" / "skills" / "probe" / "SKILL.md"
+_DAEMON_SKILL = _ROOT / "plugins" / "probe-research-daemon" / "agent-skills" / "probe" / "SKILL.md"
 _PI_DAEMON_SKILLS = _ROOT / "plugins" / "probe-research-pi" / "daemon-skills"
 
 
@@ -166,7 +171,7 @@ def test_pi_daemon_skill_is_a_byte_copy_of_the_lean_plugins() -> None:
     assert copy.is_file(), "pi's daemon skill copy is missing; run `make sync-pi-daemon-skill`"
     assert copy.read_bytes() == _DAEMON_SKILL.read_bytes(), (
         "plugins/probe-research-pi/daemon-skills/probe/SKILL.md differs from the lean plugin's; "
-        "run `make sync-pi-daemon-skill` (edit plugins/probe-research-daemon/skills/probe, never the copy)"
+        "run `make sync-pi-daemon-skill` (edit plugins/probe-research-daemon/agent-skills/probe, never the copy)"
     )
     assert sorted(p.relative_to(_PI_DAEMON_SKILLS).as_posix() for p in _PI_DAEMON_SKILLS.rglob("*") if p.is_file()) == [
         "probe/SKILL.md"
@@ -178,7 +183,7 @@ def test_sync_pi_daemon_skill_copies_that_file_and_runs_in_the_composite() -> No
     m = re.search(r"^sync-pi-daemon-skill:\n((?:\t.*\n)+)", makefile, re.MULTILINE)
     assert m, "could not find the sync-pi-daemon-skill target"
     assert (
-        "cp plugins/probe-research-daemon/skills/probe/SKILL.md "
+        "cp plugins/probe-research-daemon/agent-skills/probe/SKILL.md "
         "plugins/probe-research-pi/daemon-skills/probe/SKILL.md"
     ) in m.group(1)
     composite = re.search(r"^sync-plugin:\s*(.+)$", makefile, re.MULTILINE)

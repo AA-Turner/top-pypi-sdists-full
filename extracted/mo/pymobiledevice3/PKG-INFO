@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 11.26.1
+Version: 11.27.2
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
@@ -29,15 +29,12 @@ Requires-Dist: coloredlogs
 Requires-Dist: IPython
 Requires-Dist: bpylist2>=4.0.1
 Requires-Dist: pygments
-Requires-Dist: hexdump
 Requires-Dist: daemonize
-Requires-Dist: gpxpy!=1.6.0,<1.7.0
 Requires-Dist: pykdebugparser>=1.2.7
 Requires-Dist: pyusb>=1.2.1
 Requires-Dist: tqdm
 Requires-Dist: requests
 Requires-Dist: xonsh
-Requires-Dist: parameter_decorators
 Requires-Dist: packaging
 Requires-Dist: typing_extensions>=4.1.0
 Requires-Dist: pygnuutils>=0.0.7
@@ -48,7 +45,7 @@ Requires-Dist: uvicorn>=0.15.0
 Requires-Dist: wsproto
 Requires-Dist: Pillow
 Requires-Dist: questionary>=2.0.0
-Requires-Dist: ipsw_parser>=1.6.0
+Requires-Dist: ipsw_parser>=1.8.0
 Requires-Dist: ifaddr
 Requires-Dist: hyperframe
 Requires-Dist: srptools
@@ -60,7 +57,6 @@ Requires-Dist: pytun-pmd3>=3.0.3
 Requires-Dist: prompt_toolkit
 Requires-Dist: sslpsk-pmd3>=1.0.3; python_version < "3.13"
 Requires-Dist: python-pcapng>=2.1.1
-Requires-Dist: plumbum
 Requires-Dist: pyimg4>=0.8.8
 Requires-Dist: pyiosbackup>=0.2.4
 Requires-Dist: typer<0.24.0,>=0.23.2; python_version < "3.10"
@@ -71,6 +67,7 @@ Requires-Dist: pywin32; platform_system == "Windows"
 Requires-Dist: ioregistry>=0.0.6; platform_system == "Darwin"
 Requires-Dist: av>=14.0.0; platform_system != "Darwin"
 Requires-Dist: pmd-pytcp>=0.3.7; python_version >= "3.9"
+Requires-Dist: pmd-net-addr
 Requires-Dist: asgiwebdav>=2.0.1; python_version >= "3.10"
 Requires-Dist: backports.zstd; python_version >= "3.10" and python_version < "3.14"
 Requires-Dist: chardet!=7.6.0; python_version >= "3.15"

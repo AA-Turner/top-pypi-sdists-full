@@ -18,92 +18,52 @@ defaults:
     shell: bash
 
 env:
-  rustlib: lonlat_bng
   wheelname: convertbng
 
 
 jobs:
-  get_latest_lib_tag:
-    name: Get latest Rust lib tag
+  lint:
+    name: Check Rust formatting and lints
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.latest-tag.outputs.tag}}
     steps:
-      - id: latest-tag
-        uses: oprypin/find-latest-tag@v1
-        with:
-          repository: urschrei/${{ env.rustlib }}  # The repository to scan.
-          releases-only: true  # We know that all relevant tags have a GitHub release for them.
-      - run: echo "Latest lib tag ${{ steps.latest-tag.outputs.tag }}"
+      - uses: actions/checkout@v7
+      - run: cargo fmt --check
+      - run: cargo clippy --locked -- -D warnings
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }} ${{ matrix.arch }}
-    needs: get_latest_lib_tag
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
         - os: ubuntu-latest
-          pybuilds: cp3{10,11,12,13,14}-manylinux_x86_64
+          pybuilds: cp3{11,12,13,14,15}-manylinux_x86_64
           arch: x86_64
           id: linux
         - os: ubuntu-24.04-arm
-          pybuilds: cp3{10,11,12,13,14}-manylinux_aarch64
+          pybuilds: cp3{11,12,13,14,15}-manylinux_aarch64
           arch: aarch64
           id: linux_arm64
         - os: macos-latest
-          pybuilds: cp3{10,11,12,13,14}-macosx_x86_64
+          pybuilds: cp3{11,12,13,14,15}-macosx_x86_64
           arch: x86_64
           id: macos_x86
         - os: macos-latest
-          pybuilds: cp3{10,11,12,13,14}-macosx_arm64
+          pybuilds: cp3{11,12,13,14,15}-macosx_arm64
           arch: arm64
           id: macos_arm64
         - os: windows-latest
-          pybuilds: cp3{10,11,12,13,14}-win_amd64
+          pybuilds: cp3{11,12,13,14,15}-win_amd64
           arch: x86_64
           id: windows
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # Optional, use if you use setuptools_scm
           submodules: true  # Optional, use if you have submodules
         name: Check out repo
-
-      - id: set-filename
-        name: Set compressed Rust lib filename to retrieve based on OS
-        run: |
-            if [ "${{ matrix.id }}" == "linux" ]; then
-                echo "filename=${{ env.rustlib }}-${{ needs.get_latest_lib_tag.outputs.tag }}-x86_64-unknown-linux-gnu.tar.gz" >> $GITHUB_ENV
-            elif [ "${{ matrix.id }}" == "linux_arm64" ]; then
-                echo "filename=${{ env.rustlib }}-${{ needs.get_latest_lib_tag.outputs.tag }}-aarch64-unknown-linux-gnu.tar.gz" >> $GITHUB_ENV
-            elif [ "${{ matrix.id }}" == "windows" ]; then
-                echo "filename=${{ env.rustlib }}-${{ needs.get_latest_lib_tag.outputs.tag }}-x86_64-pc-windows-msvc.tar.gz" >> $GITHUB_ENV
-            elif [ "${{ matrix.id }}" == "macos_arm64" ]; then
-                echo "filename=${{ env.rustlib }}-${{ needs.get_latest_lib_tag.outputs.tag }}-aarch64-apple-darwin.tar.gz" >> $GITHUB_ENV
-            elif [ "${{ matrix.id }}" == "macos_x86" ]; then
-                echo "filename=${{ env.rustlib }}-${{ needs.get_latest_lib_tag.outputs.tag }}-x86_64-apple-darwin.tar.gz" >> $GITHUB_ENV
-            fi
-        shell: bash
-
-      - id: get-rust-lib
-        uses: robinraju/release-downloader@v1.13
-        name: Download latest Rust lib release
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: urschrei/${{ env.rustlib }}
-          tag: ${{ needs.get_latest_lib_tag.outputs.tag }}
-          fileName: ${{ env.filename }}
-          out-file-path: rustlib
-
-      - name: Extract downloaded lib
-        run:   |
-               tar -xvf "rustlib/${{ env.filename }}" -C src/${{ env.wheelname }}
-               mkdir wheelhouse
-               git status
-        shell: bash
 
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v7
@@ -111,13 +71,13 @@ jobs:
           version: "latest"
 
       - name: Cache cibuildwheel interpreters
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/.cibw-cache
           key: cibw-${{ matrix.id }}-${{ hashFiles('.github/workflows/wheels.yml') }}
 
       - name: Build and Test Wheels
-        uses: pypa/cibuildwheel@v4.0.0
+        uses: pypa/cibuildwheel@v4.3.0
         env:
           CIBW_CACHE_PATH: ${{ github.workspace }}/.cibw-cache
           CIBW_BUILD: ${{ matrix.pybuilds }}
@@ -137,16 +97,12 @@ jobs:
           path: |
             ${{ steps.attest.outputs.bundle-path }}
             ./wheelhouse/*.whl
-            ./wheelhouse/*.so
-            ./wheelhouse/*.dylib
-            ./wheelhouse/*.lib
-            ./wheelhouse/*.dll
 
   make_sdist:
     name: Make SDist
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0  # Optional, use if you use setuptools_scm
         submodules: true  # Optional, use if you have submodules
@@ -166,7 +122,7 @@ jobs:
   release_artifacts:
     if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
     name: Release repaired and tested wheels
-    needs: build_wheels
+    needs: [lint, build_wheels, make_sdist]
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -175,7 +131,7 @@ jobs:
       contents: write
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0  # Optional, use if you use setuptools_scm
         submodules: true  # Optional, use if you have submodules
@@ -201,11 +157,11 @@ jobs:
       uses: ncipollo/release-action@v1
       with:
         allowUpdates: true
-        artifacts: "${{ steps.download.outputs.download-path }}/*.whl,${{ steps.download.outputs.download-path }}/*.gz,${{ steps.download.outputs.download-path }}/*.so,${{ steps.download.outputs.download-path }}/*.dylib,${{ steps.download.outputs.download-path }}/*.lib,${{ steps.download.outputs.download-path }}/*.dll"
+        artifacts: "${{ steps.download.outputs.download-path }}/*.whl,${{ steps.download.outputs.download-path }}/*.gz"
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: PyPI Publish
-      uses: pypa/gh-action-pypi-publish@v1.14.0
+      uses: pypa/gh-action-pypi-publish@v1.14.2
       with:
         packages-dir: ${{ steps.download.outputs.download-path }}
 

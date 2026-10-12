@@ -13,7 +13,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -22,7 +21,7 @@ classifiers = [
     "Topic :: Utilities",
 ]
 dependencies = [
-    "Django>=5.2,<7.0",
+    "Django>=5.2",
     "beautifulsoup4>=4.10.0",
 ]
 description = "Bootstrap 4 for Django"
@@ -38,8 +37,8 @@ license-files = [
 ]
 name = "django-bootstrap4"
 readme = "README.md"
-requires-python = ">=3.10"
-version = "26.2"
+requires-python = ">=3.11"
+version = "26.3"
 
 [[project.authors]]
 name = "Dylan Verheul"
@@ -97,6 +96,7 @@ package = [
 ]
 
 [tool.coverage.report]
+fail_under = 100
 show_missing = true
 skip_covered = true
 

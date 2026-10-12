@@ -408,7 +408,7 @@ _SHELL_LANGUAGE_NAMES: Final = frozenset({"", "bash", "console", "sh", "shell", 
 _SHELL_DIALECT_BY_SUFFIX: Final = MappingProxyType(
     {
         ".bash": "bash",
-        ".bats": "bash",
+        ".bats": "bats",
         ".dash": "dash",
         ".ksh": "ksh",
         ".sh": "sh",
@@ -416,7 +416,13 @@ _SHELL_DIALECT_BY_SUFFIX: Final = MappingProxyType(
     }
 )
 _SHELL_SHEBANG_RE: Final = re.compile(
-    rb"^#!\s*(?:/usr/bin/env(?:\s+-S)?\s+|/(?:usr/)?bin/)(?P<shell>bash|busybox|dash|ksh|sh|zsh)(?:\s|$)"
+    rb"^#!\s*(?:/(?:[^ \t\r\n/]+/)*env(?:\s+-S)?\s+|/(?:[^ \t\r\n/]+/)*)"
+    rb"(?P<shell>bash|bats|busybox|dash|ksh|sh|zsh)(?:\s|$)"
+)
+_SHELL_HEADER_LIMIT: Final = 8192
+_SHELL_DIRECTIVE_RE: Final = re.compile(r"^#[ \t]*shellcheck[ \t]+")
+_SHELL_DIRECTIVE_FIELD_RE: Final = re.compile(
+    r"(?P<key>[A-Za-z-]+)=(?:'(?P<single>[^'\r\n]+)'|\"(?P<double>[^\"\r\n]+)\"|(?P<plain>[^'\" \t\r\n]+))(?:[ \t]+|$)"
 )
 _LARGE_SHELL_SUBSTANTIVE_LINES: Final = 200
 _QUERY_TOKEN_RE: Final = re.compile(
@@ -1132,14 +1138,46 @@ def is_text_path(path: Path) -> bool:
 def shell_dialect(path: Path) -> str | None:
     try:
         with path.open("rb") as stream:
-            first_line = stream.readline(256)
+            header = stream.read(_SHELL_HEADER_LIMIT)
     except OSError:
         return _SHELL_DIALECT_BY_SUFFIX.get(path.suffix.casefold())
+    first_line = header.partition(b"\n")[0]
     if (match := _SHELL_SHEBANG_RE.match(first_line)) is not None:
         return match.group("shell").decode("ascii")
     if first_line.startswith(b"#!"):
         return None
+    if not path.suffix or path.suffix.casefold() in _SHELL_DIALECT_BY_SUFFIX:
+        for line in shell_header_comments(header.decode("utf-8", errors="replace")):
+            if (dialect := _shell_directive_dialect(line)) is not None:
+                # Bash analysis also describes Bats' additional test syntax.
+                if dialect == "bash" and path.suffix.casefold() == ".bats":
+                    return "bats"
+                return dialect
     return _SHELL_DIALECT_BY_SUFFIX.get(path.suffix.casefold())
+
+
+def _shell_directive_dialect(line: str) -> str | None:
+    prefix = _SHELL_DIRECTIVE_RE.match(line)
+    if prefix is None:
+        return None
+    cursor = prefix.end()
+    while (field := _SHELL_DIRECTIVE_FIELD_RE.match(line, cursor)) is not None:
+        if field.group("key") == "shell":
+            value = field.group("single") or field.group("double") or field.group("plain")
+            return value if value in {"bash", "dash", "ksh", "sh"} else None
+        cursor = field.end()
+    return None
+
+
+def shell_header_comments(source: str) -> tuple[str, ...]:
+    comments: list[str] = []
+    for raw in source[:_SHELL_HEADER_LIMIT].split("\n"):
+        line = raw.strip()
+        if line and not line.startswith("#"):
+            break
+        if line:
+            comments.append(line)
+    return tuple(comments)
 
 
 def check_paths(

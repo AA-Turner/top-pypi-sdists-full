@@ -25,9 +25,9 @@ sanitization can accomplish.
 
 from __future__ import annotations
 
-import functools
-from typing import TYPE_CHECKING, ParamSpec, TypeVar
+from typing import TYPE_CHECKING
 
+from pikepdf._core import ObjectSet
 from pikepdf._explicit_conv import explicit_conversion
 from pikepdf.objects import Array, Dictionary, Name, Stream
 
@@ -67,25 +67,11 @@ _MEDIA_ANNOT_KEYS: dict[Name, tuple[Name, ...]] = {
     Name('/3D'): (Name('/3DD'),),
 }
 
-_P = ParamSpec('_P')
-_R = TypeVar('_R')
-
-
-def _explicit(func: Callable[_P, _R]) -> Callable[_P, _R]:
-    """Run *func* in explicit conversion mode.
-
-    The sanitizer reads untrusted documents, where any value may have the wrong
-    type. In explicit mode every value read is a :class:`pikepdf.Object`, so a
-    scalar where a dictionary belongs fails an ``isinstance`` check instead of
-    arriving as a Python ``int`` or ``bool`` that lacks the object interface.
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-        with explicit_conversion():
-            return func(*args, **kwargs)
-
-    return wrapper
+# Every entry point below runs under @explicit_conversion(). The sanitizer
+# reads untrusted documents, where any value may have the wrong type. In
+# explicit mode every value read is a pikepdf.Object, so a scalar where a
+# dictionary belongs fails an isinstance check instead of arriving as a Python
+# int or bool that lacks the object interface.
 
 
 # Guard against pathological /Next chains, such as those built from inline
@@ -114,20 +100,6 @@ def _is_targeted_action(obj: Object, targets: frozenset[Name]) -> bool:
     return isinstance(subtype, Name) and subtype in targets
 
 
-def _cycle_hit(obj: Object, seen: set[tuple[int, int]]) -> bool:
-    """Track visited indirect objects to break cyclic /Next chains.
-
-    Direct (inline) objects all report objgen ``(0, 0)`` and cannot be
-    deduplicated this way; the recursion depth cap handles those.
-    """
-    if obj.is_indirect:
-        objgen = obj.objgen
-        if objgen in seen:
-            return True
-        seen.add(objgen)
-    return False
-
-
 def _as_actions(next_obj: Object) -> list[Object]:
     """Normalize a /Next value (single action dict or Array) to a list."""
     if isinstance(next_obj, Array):
@@ -138,7 +110,7 @@ def _as_actions(next_obj: Object) -> list[Object]:
 def _neutralize_next_chain(
     action: Object,
     targets: frozenset[Name],
-    seen: set[tuple[int, int]],
+    seen: ObjectSet,
     depth: int = 0,
 ) -> None:
     """Prune targeted actions from *action*'s /Next chain, in place.
@@ -163,7 +135,7 @@ def _neutralize_next_chain(
         # such as a nested array, cannot be examined, so it is dropped.
         if not _is_action_dict(child):
             continue
-        if _cycle_hit(child, seen):
+        if not seen.add(child):
             continue
         # Clean the child's own chain first, so grafted survivors are clean.
         _neutralize_next_chain(child, targets, seen, depth + 1)
@@ -187,7 +159,7 @@ def _neutralize_slot(
     holder: Object,
     key: Name,
     targets: frozenset[Name],
-    seen: set[tuple[int, int]],
+    seen: ObjectSet,
 ) -> None:
     """Neutralize a single-action slot, e.g. an annotation's /A.
 
@@ -197,7 +169,7 @@ def _neutralize_slot(
     action = holder.get(key)
     if action is None or not _is_action_dict(action):
         return  # e.g. /OpenAction holding a destination array
-    if _cycle_hit(action, seen):
+    if not seen.add(action):
         return
     if _is_targeted_action(action, targets):
         del holder[key]
@@ -214,7 +186,7 @@ def _neutralize_additional_actions(holder: Object, targets: frozenset[Name]) -> 
     if not isinstance(aa, Dictionary):
         return
     for event_key in list(aa.keys()):
-        _neutralize_slot(aa, Name(event_key), targets, set())
+        _neutralize_slot(aa, Name(event_key), targets, ObjectSet())
     if len(aa.keys()) == 0:
         del holder[Name.AA]
 
@@ -224,7 +196,7 @@ def _sanitize_actions(pdf: Pdf, targets: frozenset[Name]) -> None:
     root = pdf.Root
 
     # Document catalog.
-    _neutralize_slot(root, Name.OpenAction, targets, set())
+    _neutralize_slot(root, Name.OpenAction, targets, ObjectSet())
     _neutralize_additional_actions(root, targets)
 
     # Pages and their annotations.
@@ -236,7 +208,7 @@ def _sanitize_actions(pdf: Pdf, targets: frozenset[Name]) -> None:
             for annot in annots:
                 if not isinstance(annot, Dictionary):
                     continue
-                _neutralize_slot(annot, Name.A, targets, set())
+                _neutralize_slot(annot, Name.A, targets, ObjectSet())
                 _neutralize_additional_actions(annot, targets)
 
     # Interactive form fields.
@@ -262,15 +234,15 @@ def _neutralize_field_tree(root: Object, targets: frozenset[Name]) -> None:
     fields = acroform.get(Name.Fields)
     if not isinstance(fields, Array):
         return
-    visited: set[tuple[int, int]] = set()
+    visited = ObjectSet()
     stack = list(fields)
     while stack:
         node = stack.pop()
         if not isinstance(node, Dictionary):
             continue
-        if _cycle_hit(node, visited):
+        if not visited.add(node):
             continue
-        _neutralize_slot(node, Name.A, targets, set())
+        _neutralize_slot(node, Name.A, targets, ObjectSet())
         _neutralize_additional_actions(node, targets)
         kids = node.get(Name.Kids)
         if isinstance(kids, Array):
@@ -287,20 +259,20 @@ def _neutralize_outlines(root: Object, targets: frozenset[Name]) -> None:
     outlines = root.get(Name.Outlines)
     if not isinstance(outlines, Dictionary):
         return
-    visited: set[tuple[int, int]] = set()
+    visited = ObjectSet()
     stack = [outlines.get(Name.First)]
     while stack:
         item = stack.pop()
         if not isinstance(item, (Dictionary, Stream)):
             continue
-        if _cycle_hit(item, visited):
+        if not visited.add(item):
             continue
-        _neutralize_slot(item, Name.A, targets, set())
+        _neutralize_slot(item, Name.A, targets, ObjectSet())
         stack.append(item.get(Name.Next))
         stack.append(item.get(Name.First))
 
 
-@_explicit
+@explicit_conversion()
 def remove_javascript(pdf: Pdf) -> None:
     """Remove all JavaScript from a PDF, in place.
 
@@ -340,7 +312,7 @@ def _drop_named_javascript(pdf: Pdf) -> None:
         del names[Name.JavaScript]
 
 
-@_explicit
+@explicit_conversion()
 def remove_attachments(pdf: Pdf) -> None:
     """Remove all embedded files (attachments) from a PDF, in place.
 
@@ -411,7 +383,7 @@ def _af_holds_embedded_file(af: Object | None) -> bool:
     )
 
 
-@_explicit
+@explicit_conversion()
 def remove_external_access(pdf: Pdf) -> None:
     """Neutralize actions that reach the network or filesystem, in place.
 
@@ -441,7 +413,7 @@ def remove_external_access(pdf: Pdf) -> None:
     _sanitize_actions(pdf, _EXTERNAL_SUBTYPES)
 
 
-@_explicit
+@explicit_conversion()
 def remove_thumbnails(pdf: Pdf) -> None:
     """Remove embedded page thumbnails from a PDF, in place.
 
@@ -463,7 +435,7 @@ def remove_thumbnails(pdf: Pdf) -> None:
             del page.obj[Name.Thumb]
 
 
-@_explicit
+@explicit_conversion()
 def remove_search_index(pdf: Pdf) -> None:
     """Remove an embedded full-text search index from a PDF, in place.
 
@@ -492,7 +464,7 @@ def remove_search_index(pdf: Pdf) -> None:
         del pdf.Root[Name.PieceInfo]
 
 
-@_explicit
+@explicit_conversion()
 def remove_multimedia(pdf: Pdf) -> None:
     """Remove multimedia and rich-media content from a PDF, in place.
 
@@ -548,7 +520,7 @@ def _remove_multimedia_structural(pdf: Pdf) -> None:
                     del annot[key]
 
 
-@_explicit
+@explicit_conversion()
 def remove_web_capture(pdf: Pdf) -> None:
     """Remove Web Capture (spider) information from a PDF, in place.
 
@@ -568,7 +540,7 @@ def remove_web_capture(pdf: Pdf) -> None:
         del pdf.Root[Name.SpiderInfo]
 
 
-@_explicit
+@explicit_conversion()
 def remove_private_app_data(pdf: Pdf) -> None:
     """Remove private application data (page-piece dictionaries), in place.
 
@@ -598,7 +570,7 @@ def remove_private_app_data(pdf: Pdf) -> None:
             del page.obj[Name.PieceInfo]
 
 
-@_explicit
+@explicit_conversion()
 def remove_collection(pdf: Pdf) -> None:
     """Remove the PDF portfolio (collection) presentation, in place.
 
@@ -713,7 +685,7 @@ class Sanitizer:
         self._structural.append(remove_collection)
         return self
 
-    @_explicit
+    @explicit_conversion()
     def apply(self, pdf: Pdf) -> Pdf:
         """Apply the recorded operations to *pdf*, in place.
 

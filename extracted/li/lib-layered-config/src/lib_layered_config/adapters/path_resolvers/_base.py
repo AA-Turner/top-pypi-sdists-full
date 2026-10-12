@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .._path_probe import PathKind, checked_kind
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
@@ -47,7 +49,8 @@ class PlatformContext:
         vendor: Vendor name used in platform-specific directory structures.
         app: Application name used in platform-specific directory structures.
         slug: Short identifier used in Linux/XDG paths.
-        cwd: Current working directory for project-relative searches.
+        cwd: Current working directory for project-relative searches; ``None`` when the OS
+            cannot name it.
         env: Environment variable mapping (for overrides and XDG lookups).
         hostname: Hostname for host-specific configuration lookups.
         profile: Optional profile name for environment-specific configurations.
@@ -56,7 +59,7 @@ class PlatformContext:
     vendor: str
     app: str
     slug: str
-    cwd: Path
+    cwd: Path | None
     env: dict[str, str]
     hostname: str
     profile: str | None = None
@@ -162,5 +165,5 @@ def collect_layer(base: Path) -> Iterable[str]:
     config_file = base / "config.toml"
     config_d_dir = base / "config.d"
 
-    if config_file.is_file() or config_d_dir.is_dir():
+    if checked_kind(config_file) is PathKind.FILE or checked_kind(config_d_dir) is PathKind.DIRECTORY:
         yield str(config_file)

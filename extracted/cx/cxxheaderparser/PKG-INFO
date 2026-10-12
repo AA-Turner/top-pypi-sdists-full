@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cxxheaderparser
-Version: 2.1.0
+Version: 2.2.0
 Summary: Modern C++ header parser
 Project-URL: Source code, https://github.com/robotpy/cxxheaderparser
 Author-email: Dustin Spicuzza <robotpy@googlegroups.com>

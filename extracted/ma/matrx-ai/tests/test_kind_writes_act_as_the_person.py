@@ -1,7 +1,7 @@
 """Kind tools write the four CERTIFIED tables as the person — RLS decides.
 
 Chair ruling (2026-09-27): content_ir.kind_definition, content_ir.kind_instance,
-skill.definition and skill.render_definition are certified, so every kind-tool write
+skill.definition and agent.prompt_block are certified, so every kind-tool write
 to them runs inside the caller's RLS session (``kind_shared.writing_as_the_person``;
 the admin lane opened inside it on an admin surface). The five uncertified component
 tables stay on the privileged connection until iam.apply_rls re-runs on them
@@ -30,7 +30,7 @@ import pytest
 from matrx_ai.tools.models import ToolContext
 
 _IMPL = Path(__file__).resolve().parents[1] / "matrx_ai" / "tools" / "implementations"
-_CERTIFIED_MODELS = {"KindDefinition", "KindInstance", "SklDefinition", "RenderDefinition"}
+_CERTIFIED_MODELS = {"KindDefinition", "KindInstance", "SklDefinition", "PromptBlock"}
 _WRITE_METHODS = {"create_item", "update_where", "delete_where", "create_items"}
 _PERSON_WRITERS = {"writing_as_the_person", "update_as_the_person"}
 
@@ -78,7 +78,7 @@ def test_the_pending_tables_are_named_and_disjoint_from_the_certified_ones() -> 
 
     assert set(kind_shared.KIND_TABLES_WRITTEN_AS_THE_PERSON) == {
         "content_ir.kind_definition", "content_ir.kind_instance",
-        "skill.definition", "skill.render_definition",
+        "skill.definition", "agent.prompt_block",
     }
     assert not set(kind_shared.KIND_TABLES_PENDING_CANONICAL_RLS) & set(
         kind_shared.KIND_TABLES_WRITTEN_AS_THE_PERSON

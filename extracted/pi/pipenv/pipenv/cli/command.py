@@ -93,6 +93,7 @@ def cmd_install(args, state):
         requirementstxt=state.installstate.requirementstxt,
         # execution_options
         extra_pip_args=state.installstate.extra_pip_args,
+        config_settings=state.installstate.config_settings,
         resolver=state.resolver,
     )
     do_install(state.project, ctx)
@@ -459,6 +460,7 @@ def cmd_sync(args, state):
         site_packages=state.site_packages,
         # install_policy
         clear=state.clear,
+        clean=args.clean,
         # package_selection
         categories=state.installstate.categories,
         dev=state.installstate.dev,
@@ -466,9 +468,7 @@ def cmd_sync(args, state):
         extra_pip_args=state.installstate.extra_pip_args,
         bare=args.bare,
     )
-    retcode = do_sync(state.project, ctx)
-    if retcode:
-        sys.exit(1)
+    do_sync(state.project, ctx)
 
 
 def cmd_clean(args, state):
@@ -478,6 +478,7 @@ def cmd_clean(args, state):
         state.project,
         python=state.python,
         dry_run=args.dry_run,
+        bare=args.bare,
         system=state.system,
     )
 
@@ -530,6 +531,7 @@ def cmd_requirements(args, state):
         from_pipfile=from_pipfile,
         no_lock=no_lock,
         include_index=not args.exclude_index,
+        pypi_mirror=state.pypi_mirror,
     )
 
 
@@ -696,7 +698,7 @@ def cli():
 
         argcomplete.autocomplete(parser)
     except ImportError:
-        pass
+        pass  # argcomplete is an optional shell-completion dependency
 
     argv = sys.argv[1:]
 
@@ -756,7 +758,7 @@ def cli():
                     console.print(f"  - {key}", style="bold")
             console.print(
                 "\nYou can learn more at:\n   "
-                "[green]https://pipenv.pypa.io/en/latest/advanced/#configuration-with-environment-variables[/green]",
+                "[green]https://pipenv.pypa.io/en/latest/configuration.html#available-environment-variables[/green]",
             )
             return 0
 
@@ -838,6 +840,7 @@ def cli():
         handler(args, state, extra_args=remaining)
     else:
         handler(args, state)
+    return 0
 
 
 if __name__ == "__main__":

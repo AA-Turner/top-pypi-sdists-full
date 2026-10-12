@@ -473,6 +473,26 @@ def test_browse_omits_unfiled_when_there_are_none_and_scoped_reads_never_ask(app
     assert len([r for r in app.requests if r.url.params.get("unfiled")]) == before
 
 
+def test_browse_under_a_workspace_lens_names_no_unfiled_runs(app, client):
+    """A floating run belongs to no workspace, so a workspace's listing must not
+    carry the lab's unfiled bucket -- nor ask for it, nor mark it missing."""
+    from probe.mcp.service import ResearchReadService
+    from probe.mcp.source import ResearchOSSource
+    from tests.test_mcp import _browse_payload
+
+    client.run(description="f")
+    app.browse_response = _browse_payload()
+    service = ResearchReadService(ResearchOSSource(client))
+    assert service.browse_research()["data"]["unfiled"], "the lab root still names it"
+    before = len([r for r in app.requests if r.url.params.get("unfiled")])
+
+    envelope = service.browse_research(workspace_id="5d1c0b2a-3e4f-4a5b-8c6d-7e8f9a0b1c2d")
+
+    assert "unfiled" not in envelope["data"]
+    assert "unfiled_runs" not in (envelope.get("completeness") or {}).get("missing", [])
+    assert len([r for r in app.requests if r.url.params.get("unfiled")]) == before
+
+
 def test_browse_on_a_backend_without_floating_runs_marks_it_missing(app, client):
     from probe.mcp.service import ResearchReadService
     from probe.mcp.source import ResearchOSSource

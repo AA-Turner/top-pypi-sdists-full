@@ -798,7 +798,10 @@ class _Checker:
         protected: Sequence[Path],
         write_dirs: Sequence[Path],
         read_dirs: Sequence[Path] = (),
+        hidden: Callable[[str], bool] | None = None,
     ) -> None:
+        #: A path a `.probe.config` sets to `off`: Probe never reads it, in any mode.
+        self.hidden = hidden
         self.home = _norm(os.path.abspath(str(home)))
         self.home_real = os.path.realpath(self.home)
         self.cwd = os.path.realpath(str(cwd))
@@ -1309,6 +1312,8 @@ class _Checker:
             for real in sorted(reals):
                 if self._protected(lex) or self._protected(real):
                     raise _Never(f"{verb} {text}: Probe's own key or state, or a credential folder.")
+                if self.hidden is not None and (self.hidden(lex) or self.hidden(real)):
+                    raise _Never(f"{verb} {text}: a .probe.config sets it to off, so Probe never reads it.")
                 if self._secret(lex) or self._secret(real):
                     raise _Refuse(
                         f"{verb} {text}, which looks like a credential or Probe's key file."
@@ -1704,6 +1709,8 @@ class _Checker:
             hidden = next((c for c in comps[:-1] if c.startswith(".") and c not in (".", "..")), None)
             if self._secret(path):
                 raise _Refuse(f"git {verb} {v} names a file credentials are kept in.")
+            if self.hidden is not None and self.hidden(os.path.join(self.cwd, path)):
+                raise _Never(f"git {verb} {v}: a .probe.config sets it to off, so Probe never reads it.")
             if hidden:
                 raise _Refuse(f"git {verb} {v} names something inside a hidden folder ({hidden}).")
 
@@ -1731,6 +1738,8 @@ def classify(
     protected: Sequence[Path] = (),
     write_dirs: Sequence[Path] = (),
     piped_input: bool = False,
+    hidden: Callable[[str], bool] | None = None,
+    off_inside: Callable[[str], bool] | None = None,
 ) -> Verdict:
     """Decide, without running anything, whether `command` may run at once.
 
@@ -1739,8 +1748,11 @@ def classify(
     note-writing heredoc may write into. `piped_input`: its stdin is another
     command's output that may hold a file's text (a compound's `probe ... | X`).
     """
+    refused = _config_refusal(command, cwd, hidden, off_inside)
+    if refused:
+        return Verdict(False, refused, refused=True)
     checker = _Checker(
-        workdirs=workdirs, home=home, cwd=cwd, protected=protected, write_dirs=write_dirs
+        workdirs=workdirs, home=home, cwd=cwd, protected=protected, write_dirs=write_dirs, hidden=hidden
     )
     try:
         return checker.classify(command, piped_input)
@@ -1752,6 +1764,36 @@ def classify(
         return Verdict(False, str(refusal))
 
 
+def _config_refusal(command: str, cwd: Path, hidden: Callable[[str], bool] | None,
+                    off_inside: Callable[[str], bool] | None) -> str | None:
+    """`.probe.config`: a command that reads an `off` file its words name only
+    bare (`cat secret.txt`), or a whole tree holding one (`rg x .`, `grep -r`,
+    `find`, `ls -R`, a repo-wide `git diff`), is refused in every mode: its output
+    cannot be trusted to name what it read (`rg -I`). Named files are checked
+    again, with everything else, by `_Checker._check_path`."""
+    if hidden is None and off_inside is None:
+        return None
+    from probe.daemon.exclusions import command_bases, command_reads, named_off
+
+    files, trees = command_reads(command, str(cwd))
+    for path in files:
+        if hidden is not None and hidden(path):
+            return f"It reads {path}: a .probe.config sets it to off, so Probe never reads it."
+    if hidden is not None:
+        class _Hidden:
+            def check(self, path, **_kw):
+                return type("V", (), {"hidden": hidden(str(path))})()
+
+        if named_off(command, command_bases(command, str(cwd)), _Hidden(), lambda name, base: [name]):
+            return "It names a file a .probe.config sets to off, so Probe never reads it."
+    for tree in trees:
+        if off_inside is not None and off_inside(tree):
+            return (f"It reads every file below {tree}, which holds a path a .probe.config sets to off or is "
+                    "too big to check, so Probe never runs it. Name the files, or a smaller folder that "
+                    "holds none of them.")
+    return None
+
+
 def read_refusal(
     path: str,
     *,
@@ -1761,6 +1803,7 @@ def read_refusal(
     protected: Sequence[Path] = (),
     write_dirs: Sequence[Path] = (),
     read_dirs: Sequence[Path] = (),
+    hidden: Callable[[str], bool] | None = None,
 ) -> tuple[str, bool] | None:
     """Why the daemon's file reader may not read `path` at once, or None: the
     rules of a safe `cat PATH` (inside the working folders or the checked-out
@@ -1769,7 +1812,7 @@ def read_refusal(
     `read_dirs` (the Probe skills) besides. `(reason, never)`: `never` when no
     mode may read it (Probe's own key and state)."""
     checker = _Checker(workdirs=workdirs, home=home, cwd=cwd, protected=protected, write_dirs=write_dirs,
-                       read_dirs=read_dirs)
+                       read_dirs=read_dirs, hidden=hidden)
     try:
         checker._check_path(path, path == "~" or path.startswith("~/"), [checker.cwd])
     except _Never as refusal:

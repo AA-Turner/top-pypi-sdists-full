@@ -647,6 +647,26 @@ _refuses("shape/scalar by_options",
 _refuses("shape/list by_options",
          {"temperature": [1.0] * 3, "temperature_by_options": [["choice:2", 1.5]]},
          "temperature_by_options")
+# A falsy non-object is the same mistake as a truthy one, but `payload.get(...) or {}` used to
+# hide it: JSON's `0`, `0.0`, `""`, `false` and `[]` each became an empty bucket map and loaded,
+# so a hand-written file whose map is a list of pairs silently lost every per-bucket temperature
+# instead of being refused. Measured against the previous build, all five of those shapes loaded
+# and installed `temperature_by_options == {}`; here all five raise the ValueError the
+# docstring names. `binning_map`, the other field the same sentence lists, already refused them.
+for _falsy in (0, 0.0, "", False, []):
+    _refuses("shape/falsy non-object by_options %r" % (_falsy,),
+             {"temperature": [1.0] * 3, "temperature_by_options": _falsy},
+             "temperature_by_options")
+# `null` is the deliberate other half: a file written before bucket temperatures existed has no
+# key at all, and an explicit null means the same thing, so both install an empty map rather
+# than refusing -- the treatment an absent `binning_map` already gets ("stub/binning_map cleared
+# when absent", above).
+_no_key = type("Stub", (), {})()
+apply_calibration_payload(_no_key, {"temperature": [1.0, 1.0, 1.0]})
+check("shape/absent by_options installs an empty map", _no_key.temperature_by_options, {})
+_null_key = type("Stub", (), {})()
+apply_calibration_payload(_null_key, {"temperature": [1.0] * 3, "temperature_by_options": None})
+check("shape/null by_options installs an empty map", _null_key.temperature_by_options, {})
 # and a numeric string version still parses, as it did before the check existed
 version_ok = type("Stub", (), {})()
 apply_calibration_payload(version_ok, {"temperature": [1.1, 1.2, 1.3], "version": "1"})
@@ -876,6 +896,70 @@ check_true("binning/values are probabilities", all(0.0 <= v <= 1.0 for v in _ent
 check("binning/apply unknown bucket is identity", apply_binning_map(0.73, "choice:6-10", bmap), 0.73)
 check_true("binning/apply in range for conf=1.0", 0.0 <= apply_binning_map(1.0, "choice:2", bmap) <= 1.0)
 check_true("binning/apply in range for conf=0.0", 0.0 <= apply_binning_map(0.0, "choice:2", bmap) <= 1.0)
+
+# --------------------------------------------------------------- an empty bin is a centre, not a pass-through
+# The line above is the ONLY identity this map has: a bucket it never saw. An empty *bin* -- a
+# confidence range the calibration set never produced, inside a bucket it did -- is not identity, and
+# `fit_binning_map`'s docstring said it was ("maps to its own midpoint, i.e. leaves that region
+# unchanged"). `values.append((b + 0.5) / bins)` rewrites every value in the region to one number, so
+# a confidence in an untouched bin moves by up to half a bin width. Someone reasoning about a gate
+# near the cut from the old wording would expect the number to survive it. These checks hold the
+# rewritten-to-the-centre behaviour, its bound, and the one thing the sentence was right to promise
+# (never a fabricated 0), and pin the docstring against them.
+def _at_conf(k, conf):
+    """One record whose temperature-1.0 confidence is exactly `conf`, with argmax 0 and gold 0."""
+    L = float(np.log(conf * (k - 1) / (1 - conf)))
+    z = np.zeros(k, dtype=np.float32)
+    z[0] = L
+    t = np.zeros(k, dtype=np.float32)
+    t[0] = 1.0
+    return (QTYPES["choice"], z, t, k)
+
+
+_EB_BINS = 10
+_EB_BUCKET = temp_bucket(QTYPES["choice"], 3)  # "choice:3-5"
+# Every record at conf 0.65: bin 6 of 10 holds them all, the other nine are empty by construction.
+emap = fit_binning_map([_at_conf(3, 0.65)] * MIN_BINNING_BUCKET_N, [1.0, 1.0, 1.0], {},
+                       bins=_EB_BINS, min_bucket_n=MIN_BINNING_BUCKET_N)
+_eb = emap[_EB_BUCKET]["values"]
+check("empty-bin/filled bin holds its empirical accuracy", _eb[6], 1.0)
+check("empty-bin/an untouched bin holds its centre", _eb[0], (0 + 0.5) / _EB_BINS)
+check_true("empty-bin/exactly the filled bin is not a centre",
+           [b for b, v in enumerate(_eb) if v == (b + 0.5) / _EB_BINS] == [0, 1, 2, 3, 4, 5, 7, 8, 9], _eb)
+for _b, _probe in ((0, 0.01), (0, 0.0999), (9, 0.91), (9, 0.9999)):
+    _got = apply_binning_map(_probe, _EB_BUCKET, emap)
+    check("empty-bin/conf %g in bin %d comes back as the centre" % (_probe, _b),
+          _got, (_b + 0.5) / _EB_BINS)
+    check_true("empty-bin/conf %g in bin %d is not the value it came in as" % (_probe, _b),
+               _got != _probe, "unchanged at %.6f" % _got)
+# The bound the centre gives, inside a bin the map never filled: no value moves further than half a
+# bin width, and none lands on 0. Bin 6 is excluded because it IS filled -- its value is an empirical
+# accuracy that can sit anywhere in [0, 1], which is the whole point of the map (measured below by
+# "binning/lowers ECE vs temperature on the bucket").
+def _bin_of(c):
+    return min(_EB_BINS - 1, max(0, int(c * _EB_BINS)))
+
+
+_empty_probes = [i / 1000.0 for i in range(1, 1000) if _bin_of(i / 1000.0) != 6]
+check_true("empty-bin/an untouched bin moves a value by at most half a bin width",
+           all(abs(apply_binning_map(c, _EB_BUCKET, emap) - c) <= 0.5 / _EB_BINS + 1e-12
+               for c in _empty_probes))
+check_true("empty-bin/no confidence is recalibrated to 0",
+           all(apply_binning_map(c, _EB_BUCKET, emap) > 0.0 for c in _empty_probes))
+
+# The docstring, held against the behaviour above (the same way
+# `tests/test_conformal_abstention.py` holds `check_min_confidence_map`'s prose to its refusals).
+# Both directions: a reworded sentence fails the positive checks, and a re-adopted "unchanged" claim
+# fails the negative one while the behaviour checks above keep failing too.
+_eb_doc = " ".join(inspect.getdoc(fit_binning_map).split())
+check_true("doc/the docstring says an empty bin maps to the bin centre",
+           "maps to that bin's centre" in _eb_doc, _eb_doc)
+check_true("doc/the docstring says the value is rewritten", "the value is still rewritten" in _eb_doc, _eb_doc)
+check_true("doc/the docstring promises no pass-through for an empty bin",
+           "leaves that region unchanged" not in _eb_doc and "unchanged, so an unseen value" not in _eb_doc,
+           _eb_doc)
+check_true("doc/the docstring names the missing bucket as the identity case",
+           "only a bucket the map has no entry for" in _eb_doc, _eb_doc)
 
 # Binning reduces ECE where temperature alone cannot: recalibrate the temperature-scaled
 # confidences of a bucket and compare ECE on the same data.

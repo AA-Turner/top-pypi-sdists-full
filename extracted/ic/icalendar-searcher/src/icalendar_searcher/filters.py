@@ -1,12 +1,12 @@
 """Filtering logic for icalendar components."""
 
-from collections.abc import Iterable
 from datetime import datetime, timedelta
 
 from icalendar import Component, error
-from icalendar.prop import vCategory, vText
+from icalendar.prop import vText
 from recurring_ical_events import DATE_MAX_DT, DATE_MIN_DT
 
+from . import comma_list
 from .collation import Collation, get_collation_function
 from .utils import _normalize_dt
 
@@ -204,200 +204,106 @@ class FilterMixin:
         :return: True if the component matches all property filters, False otherwise
         """
         for key, operator in self._property_operator.items():
-            filter_value = self._property_filters.get(key)
+            if not self._check_property_filter(component, key, operator, skip_undef):
+                return False
+        return True
 
-            # Map "category" (singular) to "CATEGORIES" (plural) in the component
-            if key in ("categories", "category"):
-                comp_key = "categories"
-                comp_value = set([str(x) for x in component.categories])
-            else:
-                comp_key = key
-                comp_value = component.get(comp_key)
+    def _check_property_filter(
+        self, component: Component, key: str, operator: str, skip_undef: bool = False
+    ) -> bool:
+        """Check if a component matches a single property filter.
 
-            # Get collation settings for this property
-            collation = self._property_collation.get(key, Collation.SIMPLE)
-            locale = self._property_locale.get(key)
-            case_sensitive = self._property_case_sensitive.get(key, True)
+        Every ``return`` in here concerns this one filter only;
+        :meth:`_check_property_filters` combines the results.
+        """
+        filter_value = self._property_filters.get(key)
 
-            ## "categories" (plural) needs special preprocessing - split on commas
-            if key == "categories" and comp_value is not None and filter_value is not None:
-                if isinstance(filter_value, vCategory):
-                    ## TODO: This special case, handling one element different from several, is a bit bad indeed
-                    if len(filter_value.cats) == 1:
-                        filter_value = str(filter_value.cats[0])
-                        if "," in filter_value:
-                            filter_value = set(filter_value.split(","))
-                    else:
-                        filter_value = set([str(x) for x in filter_value.cats])
-                elif isinstance(filter_value, str) or isinstance(filter_value, vText):
-                    ## TODO: probably this is irrelevant dead code
-                    filter_value = str(filter_value)
-                    if "," in filter_value:
-                        filter_value = set(filter_value.split(","))
-                elif isinstance(filter_value, Iterable):
-                    ## TODO: probably this is irrelevant dead code
-                    # Convert iterable to set, splitting on commas if strings contain them
-                    result_set = set()
-                    for item in filter_value:
-                        item_str = str(item)
-                        if "," in item_str:
-                            result_set.update(item_str.split(","))
-                        else:
-                            result_set.add(item_str)
-                    filter_value = result_set
-            if operator == "undef":
-                if skip_undef:
-                    ## The base (master) element of this recurrence set already
-                    ## passed the undef check.  Expanded occurrences may have
-                    ## this property added as a computed value by
-                    ## recurring_ical_events (e.g. DTEND for all-day events), so
-                    ## we skip the check here to avoid false negatives.
-                    continue
-                ## Property should NOT be defined
-                if key in ("categories", "category"):
-                    ## icalendar (>=6.x) provides a default empty vCategory object
-                    ## even when CATEGORIES is not explicitly set in the iCalendar data,
-                    ## making `"categories" in component` always True.  Check the
-                    ## already-computed comp_value set instead: if it is non-empty the
-                    ## property is actually present.
-                    if comp_value:
-                        return False
-                elif comp_key in component:
-                    return False
-            elif operator == "contains":
-                ## Property should contain the filter value (substring match)
-                if comp_key not in component:
-                    return False
-                if key == "category":
-                    # "category" (singular) does substring matching within category names
-                    # comp_value is a vCategory object
-                    if comp_value is not None:
-                        filter_str = str(filter_value)
-                        # Check if filter_str is a substring of any category
-                        collation_fn = get_collation_function(collation, case_sensitive, locale)
-                        for cat in comp_value:
-                            if collation_fn(filter_str, cat):
-                                return True
-                    return False
-                if key == "categories":
-                    # For categories, "contains" means filter categories is a subset of component categories
-                    # filter_value can be a string (single category) or set (multiple categories)
-                    if isinstance(filter_value, str):
-                        # Single category: check if it's in component categories
-                        if not case_sensitive:
-                            return any(filter_value.lower() == cv.lower() for cv in comp_value)
-                        else:
-                            return filter_value in comp_value
-                    else:
-                        # Multiple categories (set): check if all are in component categories (subset check)
-                        assert isinstance(filter_value, set), (
-                            f"Expected set but got {type(filter_value)}"
-                        )
-                        for fv in filter_value:
-                            if not case_sensitive:
-                                if not any(fv.lower() == cv.lower() for cv in comp_value):
-                                    return False
-                            else:
-                                if fv not in comp_value:
-                                    return False
-                        return True
+        # Get collation settings for this property
+        collation = self._property_collation.get(key, Collation.SIMPLE)
+        locale = self._property_locale.get(key)
+        case_sensitive = self._property_case_sensitive.get(key, True)
 
-                ## Convert to string for substring matching
+        ## Comma-token-list properties (CATEGORIES; see comma_list.py) carry
+        ## their own plural/singular matching semantics.  Delegate the whole
+        ## per-key decision so that logic lives in exactly one place.
+        if comma_list.is_comma_list_key(key):
+            if operator == "undef" and skip_undef:
+                ## See the skip_undef note below.
+                return True
+            matched = comma_list.matches(
+                key,
+                operator,
+                filter_value,
+                component,
+                collation=collation,
+                case_sensitive=case_sensitive,
+                locale=locale,
+            )
+            return matched
+
+        comp_key = key
+        comp_value = component.get(comp_key)
+        if operator == "undef":
+            if skip_undef:
+                ## The base (master) element of this recurrence set already
+                ## passed the undef check.  Expanded occurrences may have
+                ## this property added as a computed value by
+                ## recurring_ical_events (e.g. DTEND for all-day events), so
+                ## we skip the check here to avoid false negatives.
+                return True
+            ## Property should NOT be defined
+            if comp_key in component:
+                return False
+        elif operator == "contains":
+            ## Property should contain the filter value (substring match)
+            if comp_key not in component:
+                return False
+
+            ## Convert to string for substring matching
+            comp_str = str(comp_value)
+            filter_str = str(filter_value)
+
+            # Use collation function for text matching
+            collation_fn = get_collation_function(collation, case_sensitive, locale)
+            if not collation_fn(filter_str, comp_str):
+                return False
+        elif operator == "==":
+            ## Property should exactly match the filter value
+            if comp_key not in component:
+                return False
+
+            ## Compare the values This is tricky, as the values
+            ## may have different types.  TODO: we should add more
+            ## logic for the different property types.  Maybe get
+            ## it into the icalendar library.
+            if comp_value == filter_value:
+                return True
+            if isinstance(filter_value, str) and isinstance(comp_value, set):
+                return filter_value in comp_value
+
+            # For text properties, use collation for exact match comparison
+            if isinstance(filter_value, (str, vText)) and isinstance(comp_value, (str, vText)):
                 comp_str = str(comp_value)
                 filter_str = str(filter_value)
 
-                # Use collation function for text matching
-                collation_fn = get_collation_function(collation, case_sensitive, locale)
-                if not collation_fn(filter_str, comp_str):
-                    return False
-            elif operator == "==":
-                ## Property should exactly match the filter value
-                if comp_key not in component:
-                    return False
-
-                ## For "category" (singular), check exact match to at least one category name
-                if key == "category":
-                    if comp_value is not None:
-                        filter_str = str(filter_value)
-                        # Check if filter_str exactly matches any category
-                        for cat in comp_value:
-                            if not case_sensitive:
-                                if filter_str.lower() == cat.lower():
-                                    return True
-                            else:
-                                if filter_str == cat:
-                                    return True
-                    return False
-
-                ## For categories, check exact set equality with collation support
-                if key == "categories":
-                    # filter_value can be a string (single category) or set (multiple categories)
-                    assert isinstance(comp_value, set), f"Expected set but got {type(comp_value)}"
-
-                    if isinstance(filter_value, str):
-                        # Single category with "==" operator: component must have exactly that one category
-                        if len(comp_value) != 1:
-                            return False
-                        if not case_sensitive:
-                            return filter_value.lower() == list(comp_value)[0].lower()
-                        else:
-                            return filter_value in comp_value
+                # Use collation-specific comparison
+                if collation == Collation.SIMPLE:
+                    if case_sensitive:
+                        return comp_str == filter_str
                     else:
-                        # Multiple categories (set): check exact equality with collation
-                        assert isinstance(filter_value, set), (
-                            f"Expected set but got {type(filter_value)}"
-                        )
-                        if len(filter_value) != len(comp_value):
-                            return False
-                        # Check if all filter categories have a matching component category
-                        for fv in filter_value:
-                            found = False
-                            for cv in comp_value:
-                                if not case_sensitive:
-                                    if fv.lower() == cv.lower():
-                                        found = True
-                                        break
-                                else:
-                                    if fv == cv:
-                                        found = True
-                                        break
-                            if not found:
-                                return False
-                        return True
+                        return comp_str.lower() == filter_str.lower()
+                elif collation in (Collation.UNICODE, Collation.LOCALE):
+                    # For UNICODE/LOCALE collations, use sort keys for comparison
+                    # Two strings are equal if they have the same sort key
+                    from .collation import get_sort_key_function
 
-                ## Compare the values This is tricky, as the values
-                ## may have different types.  TODO: we should add more
-                ## logic for the different property types.  Maybe get
-                ## it into the icalendar library.
-                if comp_value == filter_value:
-                    return True
-                if isinstance(filter_value, str) and isinstance(comp_value, set):
-                    return filter_value in comp_value
+                    sort_key_fn = get_sort_key_function(collation, case_sensitive, locale)
+                    return sort_key_fn(comp_str) == sort_key_fn(filter_str)
 
-                # For text properties, use collation for exact match comparison
-                if isinstance(filter_value, (str, vText)) and isinstance(comp_value, (str, vText)):
-                    comp_str = str(comp_value)
-                    filter_str = str(filter_value)
-
-                    # Use collation-specific comparison
-                    if collation == Collation.SIMPLE:
-                        if case_sensitive:
-                            return comp_str == filter_str
-                        else:
-                            return comp_str.lower() == filter_str.lower()
-                    elif collation in (Collation.UNICODE, Collation.LOCALE):
-                        # For UNICODE/LOCALE collations, use sort keys for comparison
-                        # Two strings are equal if they have the same sort key
-                        from .collation import get_sort_key_function
-
-                        sort_key_fn = get_sort_key_function(collation, case_sensitive, locale)
-                        return sort_key_fn(comp_str) == sort_key_fn(filter_str)
-
-                return False
-            else:
-                ## This shouldn't happen as add_property_filter validates operators
-                raise NotImplementedError(f"Operator {operator} not implemented")
-
+            return False
+        else:
+            ## This shouldn't happen as add_property_filter validates operators
+            raise NotImplementedError(f"Operator {operator} not implemented")
         return True
 
     ## DISCLAIMER: Mostly AI-generated code, with a touch of human polishing

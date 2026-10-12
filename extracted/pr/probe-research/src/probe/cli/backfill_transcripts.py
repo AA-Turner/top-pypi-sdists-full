@@ -30,7 +30,7 @@ from typing import NamedTuple
 
 from ..sdk.durable import file_lock, fsync_directory, now_iso
 from ..sdk.tls import ssl_context
-from ..tap_core import codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
+from ..tap_core import capy_sanitize, codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
 from ..tap_core.session_identity import compatible_copy, validate_identity
 from ..tap_core.session_journal import (
     DELETED_STATE, RECEIPTED_PROTOCOLS, DeliveryPending, Journal, ProtocolRestarted,
@@ -64,6 +64,17 @@ def _captured_rows():
 
 INGEST_PATH = {h.id: f"/ingest/v1/sessions/{h.route}" for h in _captured_rows()}
 
+#: The agents whose past sessions this lane can import: every captured one
+#: except a cloud harness (Capy), whose sessions never existed on this machine
+#: until `probe capy sync` pulled them, and which that command uploads itself.
+def _importable_rows():
+    from probe.harness import FAMILY_CLOUD
+
+    return tuple(h.id for h in _captured_rows() if h.family != FAMILY_CLOUD)
+
+
+IMPORTABLE = _importable_rows()
+
 #: The sanitizer modules a registry row can name (`capture.sanitizer`).
 #:
 #: The import lane uses them unchanged, exactly as live capture does. It used
@@ -77,6 +88,7 @@ _SANITIZER_MODULES = {
     "codex_sanitize": codex_sanitize,
     "pi_sanitize": pi_sanitize,
     "kimi_sanitize": kimi_sanitize,
+    "capy_sanitize": capy_sanitize,
 }
 SANITIZER = {h.id: _SANITIZER_MODULES[h.capture.sanitizer].sanitize_event for h in _captured_rows()}
 
@@ -1826,13 +1838,13 @@ def _run_lane(
     """
     from . import capabilities, setup, tui
 
-    # Every agent the registry captures (INGEST_PATH is built from it), so a
-    # new harness is offered here without another edit.
+    # Every agent the registry captures whose sessions live on this machine
+    # (IMPORTABLE), so a new harness is offered here without another edit.
     wanted = list(dict.fromkeys(sources)) if sources is not None else [
-        source for source in INGEST_PATH
+        source for source in IMPORTABLE
         if (include_codex or source != CODEX) and (include_pi or source != PI)
     ]
-    unknown = [source for source in wanted if source not in INGEST_PATH]
+    unknown = [source for source in wanted if source not in IMPORTABLE]
     if unknown:
         raise ValueError(f"Unknown coding-agent history source: {', '.join(unknown)}")
     if not wanted:

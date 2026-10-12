@@ -13,7 +13,6 @@ from zipfile import ZipFile
 
 import typer
 from packaging.version import Version
-from plumbum import local
 from typer_injector import InjectingTyper
 
 from pymobiledevice3.cli.cli_common import RSDServiceProviderDep, ServiceProviderDep, async_command, print_json
@@ -97,6 +96,7 @@ async def debugserver_start_server(
         print(DEBUGSERVER_CONNECTION_STEPS.format(host=service_provider.service.address[0], port=debugserver_port))
     else:
         print("local_port is required for iOS < 17.0")
+        raise typer.Exit(1)
 
 
 @cli.command("lldb")
@@ -144,7 +144,7 @@ async def debugserver_lldb(
     """
     if Version(service_provider.product_version) < Version("17.0"):
         logger.error("lldb is only supported on iOS >= 17.0")
-        return
+        raise typer.Exit(1)
 
     if service_provider.is_in_process_tunnel:
         # The flow spawns an external lldb and feeds it `process connect connect://[<device>]:<port>`;
@@ -169,21 +169,33 @@ async def debugserver_lldb(
     if target_path.suffix == ".xcodeproj":
         if not target_path.exists():
             logger.error(f"xcodeproj not found: {target_path}")
-            return
-        with local.cwd(target_path.parent):
-            logger.info(f"Building {target_path} for {configuration} configuration")
-            local["xcodebuild"]["-project", str(target_path), "-configuration", configuration, "build"]()
-            app_candidates = [app for app in Path("build").rglob("*.app") if (app / "Info.plist").exists()]
-            if not app_candidates:
-                logger.error("No built .app with Info.plist found under build/.")
-                return
-            app_candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-            local_app = app_candidates[0].absolute()
-            install_source = local_app
+            raise typer.Exit(1)
+        project_dir = target_path.absolute().parent
+        logger.info(f"Building {target_path} for {configuration} configuration")
+        build = subprocess.run(
+            ["xcodebuild", "-project", str(target_path.absolute()), "-configuration", configuration, "build"],
+            cwd=project_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            errors="replace",
+        )
+        if build.returncode != 0:
+            # Quiet on success, but a failed build is only explained by xcodebuild's own output
+            sys.stderr.write(build.stdout)
+            logger.error(f"xcodebuild failed with exit status {build.returncode}")
+            raise typer.Exit(1)
+        app_candidates = [app for app in (project_dir / "build").rglob("*.app") if (app / "Info.plist").exists()]
+        if not app_candidates:
+            logger.error("No built .app with Info.plist found under build/.")
+            raise typer.Exit(1)
+        app_candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        local_app = app_candidates[0]
+        install_source = local_app
     elif target_path.suffix == ".ipa":
         if not target_path.exists():
             logger.error(f"IPA not found: {target_path}")
-            return
+            raise typer.Exit(1)
         temp_dir = TemporaryDirectory()
         with ZipFile(target_path, "r") as ipa_zip:
             ipa_zip.extractall(temp_dir.name)
@@ -192,11 +204,11 @@ async def debugserver_lldb(
         if not apps:
             logger.error("No .app bundle found in IPA Payload.")
             temp_dir.cleanup()
-            return
+            raise typer.Exit(1)
         if len(apps) > 1:
             logger.error("Multiple .app bundles found in IPA Payload; please provide a single-app IPA.")
             temp_dir.cleanup()
-            return
+            raise typer.Exit(1)
         local_app = apps[0].absolute()
         install_source = target_path
     else:
@@ -221,7 +233,7 @@ async def debugserver_lldb(
         apps = await installation_proxy.get_apps(bundle_identifiers=[bundle_identifier])
         if bundle_identifier not in apps:
             logger.error(f"App with bundle identifier '{bundle_identifier}' is not installed on the device")
-            return
+            raise typer.Exit(1)
 
         remote_path = apps[bundle_identifier]["Path"]
         logger.info(f"Remote path: {remote_path}")

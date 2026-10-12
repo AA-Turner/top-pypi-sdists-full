@@ -156,7 +156,19 @@ def test_ignore_check(home, monkeypatch, capsys):
     assert cli.main(["ignore", "check", "m.ckpt", "train.py"]) in (0, None)
     rows = json.loads(capsys.readouterr().out)
     assert rows[0]["excluded"] is True and rows[0]["source"].endswith(".probe.config:2 (*.ckpt)")
-    assert rows[1] == {"path": rows[1]["path"], "excluded": False, "source": None, "at": None}
+    assert rows[0]["level"] == "off"
+    assert rows[1] == {"path": rows[1]["path"], "level": "on", "excluded": False, "source": None, "at": None}
+
+
+def test_ignore_check_prints_each_level_and_its_line(home, monkeypatch, capsys):
+    (home / pc.CONFIG_NAME).write_text("@probe read\nnotebooks/\nnotebooks/public.md @probe on\n")
+    (home / "notebooks").mkdir()
+    monkeypatch.chdir(home)
+    assert cli.main(["ignore", "check", "notebooks/a.ipynb", "notebooks/public.md"]) in (0, None)
+    nb, public = json.loads(capsys.readouterr().out)
+    assert (nb["level"], nb["excluded"]) == ("read", True) and nb["source"].endswith(".probe.config:2 (notebooks/)")
+    assert (public["level"], public["excluded"]) == ("on", False)
+    assert public["source"].endswith(".probe.config:3 (notebooks/public.md @probe on)")
 
 
 def test_ignore_check_is_allowed_in_the_daemon_profile():

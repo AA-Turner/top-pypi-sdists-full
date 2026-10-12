@@ -1,16 +1,16 @@
 import asyncio
-import sys
-from typing import Awaitable, Callable, List
+import socket as sock_mod
+import tempfile
 
+import aiohttp
 import pytest
 from aiohttp import web
-from aiohttp.test_utils import TestClient, make_mocked_request
+from aiohttp.pytest_plugin import AiohttpClient
+from aiohttp.test_utils import make_mocked_request
 
 from aiohttp_sse import EventSourceResponse, sse_response
 
-ClientFixture = Callable[[web.Application], Awaitable[TestClient]]
-
-socket = web.AppKey("socket", List[EventSourceResponse])
+socket = web.AppKey("socket", list[EventSourceResponse])
 
 
 @pytest.mark.parametrize(
@@ -18,17 +18,21 @@ socket = web.AppKey("socket", List[EventSourceResponse])
     (False, True),
     ids=("without_sse_response", "with_sse_response"),
 )
-async def test_func(with_sse_response: bool, aiohttp_client: ClientFixture) -> None:
-    async def func(request: web.Request) -> web.StreamResponse:
-        if with_sse_response:
-            resp = await sse_response(request, headers={"X-SSE": "aiohttp_sse"})
-        else:
-            resp = EventSourceResponse(headers={"X-SSE": "aiohttp_sse"})
-            await resp.prepare(request)
+async def test_func(with_sse_response: bool, aiohttp_client: AiohttpClient) -> None:
+    async def send_all(resp: EventSourceResponse) -> None:
         await resp.send("foo")
         await resp.send("foo", event="bar")
         await resp.send("foo", event="bar", id="xyz")
         await resp.send("foo", event="bar", id="xyz", retry=1)
+
+    async def func(request: web.Request) -> web.StreamResponse:
+        if with_sse_response:
+            async with sse_response(request, headers={"X-SSE": "aiohttp_sse"}) as resp:
+                await send_all(resp)
+            return resp
+        resp = EventSourceResponse(headers={"X-SSE": "aiohttp_sse"})
+        await resp.prepare(request)
+        await send_all(resp)
         resp.stop_streaming()
         await resp.wait()
         return resp
@@ -62,7 +66,7 @@ async def test_func(with_sse_response: bool, aiohttp_client: ClientFixture) -> N
     assert streamed_data == expected
 
 
-async def test_wait_stop_streaming(aiohttp_client: ClientFixture) -> None:
+async def test_wait_stop_streaming(aiohttp_client: AiohttpClient) -> None:
     async def func(request: web.Request) -> web.StreamResponse:
         app = request.app
         resp = EventSourceResponse()
@@ -73,7 +77,7 @@ async def test_wait_stop_streaming(aiohttp_client: ClientFixture) -> None:
         return resp
 
     app = web.Application()
-    app[socket] = []  # type: ignore[misc]
+    app[socket] = []
     app.router.add_route("GET", "/", func)
 
     client = await aiohttp_client(app)
@@ -92,12 +96,12 @@ async def test_wait_stop_streaming(aiohttp_client: ClientFixture) -> None:
     assert streamed_data == expected
 
 
-async def test_retry(aiohttp_client: ClientFixture) -> None:
+async def test_retry(aiohttp_client: AiohttpClient) -> None:
     async def func(request: web.Request) -> web.StreamResponse:
         resp = EventSourceResponse()
         await resp.prepare(request)
-        with pytest.raises(TypeError):
-            await resp.send("foo", retry="one")  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="retry must not be negative"):
+            await resp.send("foo", retry=-1)
         await resp.send("foo", retry=1)
         resp.stop_streaming()
         await resp.wait()
@@ -133,38 +137,42 @@ def test_compression_not_implemented() -> None:
         response.enable_compression()
 
 
-class TestPingProperty:
-    @pytest.mark.parametrize("value", (25, 25.0, 0), ids=("int", "float", "zero int"))
-    def test_success(self, value: float) -> None:
-        response = EventSourceResponse()
-        response.ping_interval = value
-        assert response.ping_interval == value
-
-    @pytest.mark.parametrize("value", [None, "foo"], ids=("None", "str"))
-    def test_wrong_type(self, value: float) -> None:
-        response = EventSourceResponse()
-        with pytest.raises(TypeError) as ctx:
-            response.ping_interval = value
-
-        assert ctx.match("ping interval must be int or float")
-
-    def test_negative_int(self) -> None:
-        response = EventSourceResponse()
-        with pytest.raises(ValueError) as ctx:
-            response.ping_interval = -42
-
-        assert ctx.match("ping interval must be greater then 0")
+class TestPingInterval:
+    @pytest.mark.parametrize("value", (25, 25.0), ids=("int", "float"))
+    def test_constructor(self, value: float) -> None:
+        response = EventSourceResponse(ping_interval=value)
+        assert response._ping_interval == value
 
     def test_default_value(self) -> None:
         response = EventSourceResponse()
-        assert response.ping_interval == response.DEFAULT_PING_INTERVAL
+        assert response._ping_interval == response.DEFAULT_PING_INTERVAL
+
+    @pytest.mark.parametrize("value", (0, -42), ids=("zero", "negative"))
+    def test_not_positive(self, value: float) -> None:
+        with pytest.raises(ValueError, match="ping interval must be positive"):
+            EventSourceResponse(ping_interval=value)
 
 
-async def test_ping(aiohttp_client: ClientFixture) -> None:
+@pytest.mark.parametrize("invalid_id", ("a\nb", "a\rb", "a\r\nb", "a\0b"))
+async def test_send_rejects_invalid_id(invalid_id: str) -> None:
+    response = EventSourceResponse()
+    with pytest.raises(
+        ValueError, match="id must not contain line separators or null characters"
+    ):
+        await response.send("foo", id=invalid_id)
+
+
+@pytest.mark.parametrize("invalid_event", ("a\nb", "a\rb", "a\r\nb"))
+async def test_send_rejects_invalid_event(invalid_event: str) -> None:
+    response = EventSourceResponse()
+    with pytest.raises(ValueError, match="event must not contain line separators"):
+        await response.send("foo", event=invalid_event)
+
+
+async def test_ping(aiohttp_client: AiohttpClient) -> None:
     async def func(request: web.Request) -> web.StreamResponse:
         app = request.app
-        resp = EventSourceResponse()
-        resp.ping_interval = 1
+        resp = EventSourceResponse(ping_interval=1)
         await resp.prepare(request)
         await resp.send("foo")
         app[socket].append(resp)
@@ -172,7 +180,7 @@ async def test_ping(aiohttp_client: ClientFixture) -> None:
         return resp
 
     app = web.Application()
-    app[socket] = []  # type: ignore[misc]
+    app[socket] = []
     app.router.add_route("GET", "/", func)
 
     client = await aiohttp_client(app)
@@ -192,13 +200,12 @@ async def test_ping(aiohttp_client: ClientFixture) -> None:
 
 
 async def test_ping_reset(
-    aiohttp_client: ClientFixture,
+    aiohttp_client: AiohttpClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def func(request: web.Request) -> web.StreamResponse:
         app = request.app
-        resp = EventSourceResponse()
-        resp.ping_interval = 1
+        resp = EventSourceResponse(ping_interval=1)
         await resp.prepare(request)
         await resp.send("foo")
         app[socket].append(resp)
@@ -206,7 +213,7 @@ async def test_ping_reset(
         return resp
 
     app = web.Application()
-    app[socket] = []  # type: ignore[misc]
+    app[socket] = []
     app.router.add_route("GET", "/", func)
 
     client = await aiohttp_client(app)
@@ -233,13 +240,11 @@ async def test_ping_reset(
     assert streamed_data == expected
 
 
-async def test_ping_auto_close(aiohttp_client: ClientFixture) -> None:
+async def test_ping_auto_close(aiohttp_client: AiohttpClient) -> None:
     """Test ping task automatically closed on send failure."""
 
     async def handler(request: web.Request) -> EventSourceResponse:
-        async with sse_response(request) as sse:
-            sse.ping_interval = 999
-
+        async with sse_response(request, ping_interval=999) as sse:
             request.protocol.force_close()
             with pytest.raises(ConnectionResetError):
                 await sse.send("never-should-be-delivered")
@@ -258,7 +263,7 @@ async def test_ping_auto_close(aiohttp_client: ClientFixture) -> None:
         assert 200 == response.status
 
 
-async def test_context_manager(aiohttp_client: ClientFixture) -> None:
+async def test_context_manager(aiohttp_client: AiohttpClient) -> None:
     async def func(request: web.Request) -> web.StreamResponse:
         h = {"X-SSE": "aiohttp_sse"}
         async with sse_response(request, headers=h) as sse:
@@ -297,7 +302,8 @@ class TestCustomResponseClass:
             pass
 
         request = make_mocked_request("GET", "/")
-        await sse_response(request, response_cls=CustomEventSource)
+        async with sse_response(request, response_cls=CustomEventSource) as resp:
+            assert isinstance(resp, CustomEventSource)
 
     async def test_not_related_class(self) -> None:
         class CustomClass:
@@ -305,14 +311,14 @@ class TestCustomResponseClass:
 
         request = make_mocked_request("GET", "/")
         with pytest.raises(TypeError):
-            await sse_response(
+            sse_response(
                 request=request,
                 response_cls=CustomClass,  # type: ignore[type-var]
             )
 
 
 @pytest.mark.parametrize("sep", ["\n", "\r", "\r\n"], ids=("LF", "CR", "CR+LF"))
-async def test_custom_sep(aiohttp_client: ClientFixture, sep: str) -> None:
+async def test_custom_sep(aiohttp_client: AiohttpClient, sep: str) -> None:
     async def func(request: web.Request) -> web.StreamResponse:
         h = {"X-SSE": "aiohttp_sse"}
         async with sse_response(request, headers=h, sep=sep) as sse:
@@ -398,7 +404,7 @@ async def test_custom_sep(aiohttp_client: ClientFixture, sep: str) -> None:
     ),
 )
 async def test_multiline_data(
-    aiohttp_client: ClientFixture,
+    aiohttp_client: AiohttpClient,
     stream_sep: str,
     line_sep: str,
 ) -> None:
@@ -436,7 +442,7 @@ async def test_multiline_data(
 
 
 class TestSSEState:
-    async def test_context_states(self, aiohttp_client: ClientFixture) -> None:
+    async def test_context_states(self, aiohttp_client: AiohttpClient) -> None:
         async def func(request: web.Request) -> web.StreamResponse:
             async with sse_response(request) as resp:
                 assert resp.is_connected()
@@ -456,7 +462,7 @@ class TestSSEState:
         assert not response.is_connected()
 
 
-async def test_connection_is_not_alive(aiohttp_client: ClientFixture) -> None:
+async def test_connection_is_not_alive(aiohttp_client: AiohttpClient) -> None:
     async def func(request: web.Request) -> web.StreamResponse:
         # within context manager first preparation is already done
         async with sse_response(request) as sse:
@@ -477,7 +483,7 @@ async def test_connection_is_not_alive(aiohttp_client: ClientFixture) -> None:
 
 
 class TestLastEventId:
-    async def test_success(self, aiohttp_client: ClientFixture) -> None:
+    async def test_success(self, aiohttp_client: AiohttpClient) -> None:
         async def func(request: web.Request) -> web.StreamResponse:
             async with sse_response(request) as sse:
                 assert sse.last_event_id is not None
@@ -510,9 +516,9 @@ class TestLastEventId:
     "http_method",
     ("GET", "POST", "PUT", "DELETE", "PATCH"),
 )
-async def test_http_methods(aiohttp_client: ClientFixture, http_method: str) -> None:
+async def test_http_methods(aiohttp_client: AiohttpClient, http_method: str) -> None:
     async def handler(request: web.Request) -> EventSourceResponse:
-        async with sse_response(request) as sse:
+        async with sse_response(request, allow_all_methods=True) as sse:
             await sse.send("foo")
         return sse
 
@@ -528,11 +534,29 @@ async def test_http_methods(aiohttp_client: ClientFixture, http_method: str) -> 
     assert streamed_data == "data: foo\r\n\r\n"
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 11),
-    reason=".cancelling() missing in older versions",
+@pytest.mark.parametrize(
+    "http_method",
+    ("POST", "PUT", "DELETE", "PATCH"),
 )
-async def test_cancelled_not_swallowed(aiohttp_client: ClientFixture) -> None:
+async def test_not_allowed_methods(
+    aiohttp_client: AiohttpClient,
+    http_method: str,
+) -> None:
+    """Check that EventSourceResponse works only with GET method."""
+
+    async def handler(request: web.Request) -> EventSourceResponse:
+        async with sse_response(request):
+            assert False
+
+    app = web.Application()
+    app.router.add_route(http_method, "/", handler)
+
+    client = await aiohttp_client(app)
+    async with client.request(http_method, "/") as resp:
+        assert resp.status == 405
+
+
+async def test_cancelled_not_swallowed(aiohttp_client: AiohttpClient) -> None:
     """Test asyncio.CancelledError is not swallowed by .wait().
 
     Relates to:
@@ -559,3 +583,276 @@ async def test_cancelled_not_swallowed(aiohttp_client: ClientFixture) -> None:
 
     async with client.get("/") as response:
         assert 200 == response.status
+
+
+@pytest.mark.parametrize("timeout", (None, 0.1))
+async def test_with_timeout(
+    aiohttp_client: AiohttpClient,
+    timeout: float | None,
+) -> None:
+    """Test that a timeout occurs when client is not reading responses."""
+    timeout_raised = False
+    should_raise_timeout = timeout is not None
+
+    async def handler(request: web.Request) -> EventSourceResponse:
+        async with sse_response(request, send_timeout=timeout) as sse:
+            while True:
+                # .send() only yields if socket is full, so yield here to run client.
+                await asyncio.sleep(0)
+                try:
+                    await sse.send("x" * 10000000)  # Enough data to fill socket
+                except TimeoutError:
+                    nonlocal timeout_raised
+                    timeout_raised = True
+                    break
+
+        assert False
+
+    app = web.Application()
+    app.router.add_route("GET", "/", handler)
+
+    client = await aiohttp_client(app)
+    async with client.get("/") as resp:
+        assert resp.status == 200
+        await asyncio.sleep(0.5)
+        assert timeout_raised is should_raise_timeout
+
+
+async def test_ping_timeout(aiohttp_client: AiohttpClient) -> None:
+    """Test that a ping write timeout aborts a stalled connection."""
+
+    async def handler(request: web.Request) -> EventSourceResponse:
+        # Huge separator makes the ping message itself fill the socket.
+        sep = "\r\n" + " " * 10_000_000
+        async with sse_response(
+            request, sep=sep, send_timeout=0.1, ping_interval=0.01
+        ) as sse:
+            # Returns once the timed-out ping stops the stream. The test
+            # server then cancels the handler (handler_cancellation=True),
+            # so nothing after this await is reachable under test.
+            await sse.wait()
+        assert False
+
+    app = web.Application()
+    app.router.add_route("GET", "/", handler)
+
+    client = await aiohttp_client(app)
+    async with client.get("/") as resp:
+        assert resp.status == 200
+        await asyncio.sleep(0.5)  # Let the server stall on a ping and time out.
+        # The server must have aborted the connection; otherwise reading
+        # would stream pings forever (bounded here by the timeout below).
+        with pytest.raises(aiohttp.ClientPayloadError):
+            async with asyncio.timeout(5):
+                await resp.content.read(-1)
+
+
+async def test_abort_when_transport_already_gone() -> None:
+    """A timeout can race a disconnect; cleanup must cope without a transport.
+
+    Uses a plain AppRunner because TestServer enables handler_cancellation,
+    which would cancel the handler at the moment of disconnect.
+    """
+    aborted = asyncio.Event()
+
+    async def handler(request: web.Request) -> EventSourceResponse:
+        async with sse_response(request, send_timeout=10) as sse:
+            # Wait for connection_lost to clear the transport.
+            while request.protocol.transport is not None:
+                await asyncio.sleep(0.01)
+            # Same state as a timeout firing in the window where the
+            # peer already disconnected: no transport left to abort.
+            sse._abort_transport()
+            # Restore is equally safe once the socket is closed.
+            sse._restore_tcp_user_timeout()
+            aborted.set()
+        return sse
+
+    app = web.Application()
+    app.router.add_route("GET", "/", handler)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    port = runner.addresses[0][1]
+
+    try:
+        reader, writer = await asyncio.open_connection("127.0.0.1", port)
+        writer.write(b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        await writer.drain()
+        await reader.readuntil(b"\r\n\r\n")  # Response headers received.
+        writer.close()
+        await writer.wait_closed()
+        async with asyncio.timeout(5):
+            await aborted.wait()
+    finally:
+        await runner.cleanup()
+
+
+@pytest.mark.skipif(
+    not hasattr(sock_mod, "TCP_USER_TIMEOUT"),
+    reason="TCP_USER_TIMEOUT is Linux-only",
+)
+async def test_tcp_user_timeout_set(aiohttp_client: AiohttpClient) -> None:
+    """send_timeout is mirrored into TCP_USER_TIMEOUT for kernel detection.
+
+    The asyncio-level timeout only fires once enough data queues to block
+    on flow control; TCP_USER_TIMEOUT detects a hung peer as soon as any
+    write (e.g. a ping) goes unacknowledged for the same duration.
+    """
+    value = None
+
+    async def handler(request: web.Request) -> EventSourceResponse:
+        async with sse_response(request, send_timeout=2.5) as sse:
+            assert request.transport is not None
+            sock = request.transport.get_extra_info("socket")
+            nonlocal value
+            value = sock.getsockopt(sock_mod.IPPROTO_TCP, sock_mod.TCP_USER_TIMEOUT)
+        return sse
+
+    app = web.Application()
+    app.router.add_route("GET", "/", handler)
+
+    client = await aiohttp_client(app)
+    async with client.get("/") as resp:
+        assert resp.status == 200
+    assert value == 2500
+
+
+@pytest.mark.skipif(
+    not hasattr(sock_mod, "TCP_USER_TIMEOUT"),
+    reason="TCP_USER_TIMEOUT is Linux-only",
+)
+async def test_tcp_user_timeout_aborts_hung_client() -> None:
+    """The kernel aborts a hung connection long before buffers fill.
+
+    The client's receive window is shrunk so it exhausts after a few KB,
+    while the server writes less than aiohttp's 64KiB flow-control limit:
+    send() returns immediately and no asyncio timer is ever pending, so
+    only TCP_USER_TIMEOUT (zero-window handling, Linux 5.1+) can detect
+    the hung peer.  Without the sockopt this test times out.
+
+    Uses a plain AppRunner so the handler survives the disconnect
+    (TestServer enables handler_cancellation).
+    """
+    loop = asyncio.get_running_loop()
+    woke = asyncio.Event()
+
+    async def handler(request: web.Request) -> EventSourceResponse:
+        async with sse_response(request, send_timeout=1, ping_interval=0.1) as sse:
+            # Over the client's tiny receive window, under the 64KiB
+            # high-water mark, so send() does not block on flow control.
+            await sse.send("x" * 48_000)
+            # Woken by the ping task ending when the kernel aborts.
+            await sse.wait()
+            woke.set()
+        return sse
+
+    app = web.Application()
+    app.router.add_route("GET", "/", handler)
+    runner = web.AppRunner(app, shutdown_timeout=1)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    port = runner.addresses[0][1]
+
+    sock = sock_mod.socket(sock_mod.AF_INET, sock_mod.SOCK_STREAM)
+    try:
+        # Must be set before connect to cap the advertised window.
+        # By reducing the client buffer, we can ensure the stall appears due to
+        # the client not accepting any more data once the buffer is full.
+        sock.setsockopt(sock_mod.SOL_SOCKET, sock_mod.SO_RCVBUF, 4096)
+        sock.setblocking(False)
+        await loop.sock_connect(sock, ("127.0.0.1", port))
+        await loop.sock_sendall(sock, b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        await loop.sock_recv(sock, 1024)  # Headers; then never read again.
+        # send_timeout=1 plus one retransmission backoff; generous margin.
+        async with asyncio.timeout(5):
+            await woke.wait()
+    finally:
+        sock.close()
+        await runner.cleanup()
+
+
+@pytest.mark.skipif(
+    not hasattr(sock_mod, "AF_UNIX"),
+    reason="Unix sockets unavailable",
+)
+async def test_unix_socket() -> None:
+    """SSE over a Unix socket works: TCP_USER_TIMEOUT must not be applied.
+
+    Not using the tmp_path fixture: sun_path is limited to ~104 bytes on
+    macOS and pytest's basetemp exceeds it.
+    """
+
+    async def handler(request: web.Request) -> EventSourceResponse:
+        async with sse_response(request) as sse:  # Default send_timeout.
+            await sse.send("hi")
+        return sse
+
+    app = web.Application()
+    app.router.add_route("GET", "/", handler)
+    runner = web.AppRunner(app, shutdown_timeout=1)
+    await runner.setup()
+    with tempfile.TemporaryDirectory(dir="/tmp") as tmp_dir:
+        path = f"{tmp_dir}/sse.sock"
+        await web.UnixSite(runner, path).start()
+
+        try:
+            connector = aiohttp.UnixConnector(path=path)
+            async with aiohttp.ClientSession(connector=connector) as session:
+                async with session.get("http://localhost/") as resp:
+                    assert resp.status == 200
+                    assert await resp.text() == "data: hi\r\n\r\n"
+        finally:
+            await runner.cleanup()
+
+
+@pytest.mark.skipif(
+    not hasattr(sock_mod, "TCP_USER_TIMEOUT"),
+    reason="TCP_USER_TIMEOUT is Linux-only",
+)
+async def test_tcp_user_timeout_restored_on_keepalive_reuse(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    seen = []
+
+    def record(request: web.Request) -> None:
+        assert request.transport is not None
+        sock = request.transport.get_extra_info("socket")
+        seen.append(
+            (
+                sock.getpeername(),
+                sock.getsockopt(sock_mod.IPPROTO_TCP, sock_mod.TCP_USER_TIMEOUT),
+            )
+        )
+
+    async def sse_handler(request: web.Request) -> EventSourceResponse:
+        assert request.transport is not None
+        # Simulate a value inherited from the listening socket.
+        request.transport.get_extra_info("socket").setsockopt(
+            sock_mod.IPPROTO_TCP, sock_mod.TCP_USER_TIMEOUT, 7000
+        )
+        async with sse_response(request, send_timeout=1) as sse:
+            record(request)
+            await sse.send("x")
+        return sse
+
+    async def plain_handler(request: web.Request) -> web.Response:
+        record(request)
+        return web.Response(text="ok")
+
+    app = web.Application()
+    app.router.add_route("GET", "/first", sse_handler)
+    app.router.add_route("GET", "/second", plain_handler)
+
+    client = await aiohttp_client(app)
+    async with client.get("/first") as resp:
+        await resp.text()
+    async with client.get("/second") as resp:
+        await resp.text()
+
+    (peer1, timeout1), (peer2, timeout2) = seen
+    assert peer1 == peer2  # Same connection, or the test proves nothing.
+    assert timeout1 == 1000  # Active during the SSE stream.
+    assert timeout2 == 7000  # Original value restored for the next request.

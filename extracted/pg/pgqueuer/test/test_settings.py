@@ -1,16 +1,24 @@
 from __future__ import annotations
 
 import dataclasses
+from typing import Callable
 
 import pytest
 from pydantic import ValidationError
 
+from pgqueuer.adapters.cli.cli import AppConfig
+from pgqueuer.adapters.inmemory import InMemoryDriver, InMemoryQueries
+from pgqueuer.adapters.persistence.queries import Queries
+from pgqueuer.core.applications import PgQueuer
+from pgqueuer.core.qm import QueueManager
 from pgqueuer.domain.settings import (
     ConnectionSettings,
     DBSettings,
     QualifiedNames,
     add_prefix,
+    db_settings,
 )
+from pgqueuer.domain.types import Channel
 
 pytestmark = pytest.mark.usefixtures("clean_connection_env")
 
@@ -170,3 +178,86 @@ def test_connection_settings_pgqueuer_dsn_wins_over_pgdsn(
     monkeypatch.setenv("PGDSN", "postgresql://example/libpq")
     monkeypatch.setenv("PGQUEUER_DSN", "postgresql://example/pgqueuer")
     assert ConnectionSettings().dsn == "postgresql://example/pgqueuer"
+
+
+def test_db_settings_reads_the_env_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PGQUEUER_PREFIX", "first_")
+    settings = db_settings()
+    monkeypatch.setenv("PGQUEUER_PREFIX", "second_")
+    assert db_settings() is settings
+    assert settings.prefix == "first_"
+
+    db_settings.cache_clear()
+    assert db_settings().prefix == "second_"
+
+
+@pytest.mark.parametrize("make", [Queries, InMemoryQueries])
+def test_queries_builders_share_one_settings(
+    make: Callable[[InMemoryDriver], Queries | InMemoryQueries],
+) -> None:
+    q = make(InMemoryDriver())
+    assert q.qbe.settings is q.qbq.settings is q.qbs.settings is db_settings()
+
+
+def test_channel_default_resolves_at_construction(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The default channel follows PGQUEUER_PREFIX set after pgqueuer was imported."""
+    monkeypatch.setenv("PGQUEUER_PREFIX", "acme_")
+    driver = InMemoryDriver()
+    assert QueueManager(InMemoryQueries(driver=driver)).channel == "acme_ch_pgqueuer"
+    assert PgQueuer(driver).channel == "acme_ch_pgqueuer"
+
+
+def test_cli_setup_env_refreshes_db_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """--prefix/--schema reach settings even when they were read before the callback ran."""
+    monkeypatch.delenv("PGQUEUER_PREFIX", raising=False)
+    monkeypatch.delenv("PGQUEUER_SCHEMA", raising=False)
+    assert db_settings().prefix == ""
+    AppConfig(prefix="acme_", schema="billing").setup_env()
+    assert (db_settings().prefix, db_settings().db_schema) == ("acme_", "billing")
+
+
+# Before #945 only prefix and db_schema were validated, so a name like
+# "evil; CREATE TABLE x; --" reached the SQL string verbatim. Object names must
+# be identifiers or dotted identifier chains; the channel, which goes into SQL
+# as a string literal, may also hold dots and dashes.
+
+OBJECT_NAME_FIELDS = [
+    "function",
+    "statistics_table",
+    "queue_status_type",
+    "queue_table",
+    "queue_table_log",
+    "trigger",
+    "schedules_table",
+]
+
+
+@pytest.mark.parametrize("field", [*OBJECT_NAME_FIELDS, "channel"])
+@pytest.mark.parametrize("bad", ["evil; CREATE TABLE x; --", "x'y", "x y", 'x"y'])
+def test_name_field_rejects_sql(field: str, bad: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(f"PGQUEUER_{field.upper()}", bad)
+    with pytest.raises(ValidationError):
+        DBSettings()
+
+
+@pytest.mark.parametrize("field", OBJECT_NAME_FIELDS)
+@pytest.mark.parametrize("bad", ["x-y", "x..y", ".x", "x."])
+def test_object_name_rejects_non_identifier(
+    field: str, bad: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(f"PGQUEUER_{field.upper()}", bad)
+    with pytest.raises(ValidationError):
+        DBSettings()
+
+
+def test_default_names_are_valid() -> None:
+    DBSettings()
+    DBSettings(prefix="acme_")
+
+
+def test_dotted_object_name_still_accepted() -> None:
+    assert DBSettings(queue_table="myschema.pgqueuer").queue_table == "myschema.pgqueuer"
+
+
+def test_channel_keeps_dots_and_dashes() -> None:
+    assert DBSettings(channel=Channel("my-app.events")).channel == "my-app.events"

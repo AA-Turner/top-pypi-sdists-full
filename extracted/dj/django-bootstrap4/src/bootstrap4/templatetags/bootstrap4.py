@@ -21,6 +21,7 @@ from ..forms import (
     render_label,
 )
 from ..utils import (
+    add_css_class,
     handle_var,
     parse_token_contents,
     render_link_tag,
@@ -484,7 +485,8 @@ def bootstrap_field(*args, **kwargs):
             CSS class of the ``div`` that wraps the field.
 
         label_class
-            CSS class of the ``label`` element. Will always have ``control-label`` as the last CSS class.
+            CSS class of the ``label`` element. In ``horizontal`` layout, ``col-form-label`` is added as the
+            last CSS class.
 
         form_check_class
             CSS class of the ``div`` element wrapping the label and input when rendering checkboxes and radio buttons.
@@ -567,7 +569,7 @@ def bootstrap_field(*args, **kwargs):
         error_css_class
             CSS class used when the field has an error
 
-            :default: ``'has-error'``. Can be changed :doc:`settings`
+            :default: ``'is-invalid'``. Can be changed :doc:`settings`
 
         required_css_class
             CSS class used on the ``div.form-group`` to indicate a field is required
@@ -577,7 +579,7 @@ def bootstrap_field(*args, **kwargs):
         bound_css_class
             CSS class used when the field is bound
 
-            :default: ``'has-success'``. Can be changed :doc:`settings`
+            :default: ``'is-valid'``. Can be changed :doc:`settings`
 
     **Usage**::
 
@@ -780,6 +782,9 @@ class ButtonsNode(template.Node):
         buttons = " ".join(buttons) + self.nodelist.render(context)
         output_kwargs.update({"label": None, "field": buttons})
         css_class = output_kwargs.pop("form_group_class", "form-group")
+        if output_kwargs.get("layout") == "horizontal":
+            # The col-* classes inside need a row to divide, same as FieldRenderer.get_form_group_class does.
+            css_class = add_css_class(css_class, "row")
         output = render_form_group(render_field_and_label(**output_kwargs), css_class=css_class)
         if self.asvar:
             context[self.asvar] = output
@@ -901,9 +906,8 @@ def get_pagination_context(
         raise ValueError(f"Pagination pages_to_show should be a positive integer, you specified {pages_to_show}.")
     num_pages = page.paginator.num_pages
     current_page = page.number
+    # pages_to_show is an int of at least 1 by now, so the half window cannot be negative.
     half_page_num = int(floor(pages_to_show / 2))
-    if half_page_num < 0:
-        half_page_num = 0
     first_page = current_page - half_page_num
     if first_page <= 1:
         first_page = 1

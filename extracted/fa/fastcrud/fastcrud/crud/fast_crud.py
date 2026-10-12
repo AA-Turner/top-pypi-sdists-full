@@ -1,4 +1,8 @@
+import copy
+from functools import partial
 from typing import Any, Generic, Sequence, overload, Literal, cast
+
+from typing_extensions import Self
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -8,16 +12,19 @@ from sqlalchemy import (
     delete,
     func,
     column,
+    false,
 )
-from sqlalchemy.exc import MultipleResultsFound
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.sql import Join
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.engine.row import Row
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.sql.elements import BinaryExpression
 from sqlalchemy.sql.selectable import Select
+from pydantic import BaseModel
 
 from fastcrud.types import (
+    WhereClause,
     CreateSchemaType,
     DeleteSchemaType,
     ModelType,
@@ -46,17 +53,41 @@ from ..core import (
     process_joined_data,
     build_joined_query,
     execute_joined_query,
+    refuse_a_cartesian_product,
     format_joined_response,
     split_join_configs,
     fetch_and_merge_one_to_many,
 )
 
 from .validation import (
+    refuse_without_filters,
     validate_update_delete_operation,
     validate_pagination_params,
     validate_joined_query_params,
 )
-from .data_preparation import prepare_update_data
+from .data_preparation import instantiate_related_objects, prepare_update_data
+from .policy_enforcement import (
+    conditions_in_reach,
+    hidden_column_keys,
+    hidden_columns_of,
+    primary_key_of,
+    primary_keys_matching,
+    refuse_columns_that_are_not_columns,
+    refuse_hidden_input,
+    refuse_relationship_data,
+    refuse_rows_failing_check,
+    refuse_schema_requiring_hidden,
+    refuse_unwritable_data,
+    row_in_reach,
+    existing_keys,
+    keys_in_reach,
+    without_hidden_columns,
+    without_hidden_fields,
+)
+from ..core.query.one_to_many import parent_link_attributes
+from ..core.config.policy_configs import PolicyConfig, RowOperation
+from ..core.filtering.processor import where_conditions
+from ..exceptions.access import AccessDenied
 from .execution import (
     execute_update_and_return_response,
     handle_joined_filters_delegation,
@@ -92,6 +123,9 @@ class FastCRUD(
         updated_at_column: Optional column name to use for storing the timestamp of an update. Defaults to `"updated_at"`.
         custom_filters: Optional dictionary of custom filter operators. Keys are operator names (e.g., 'year'),
             values are callables that take a column and return a filter function.
+        policy: Optional `PolicyConfig` deciding which operations are allowed and which rows each one reaches.
+            Defaults to `None`, no restriction. Use `with_policy` to get a copy with another policy, such as one
+            built per request.
 
     Methods:
         create:
@@ -520,6 +554,7 @@ class FastCRUD(
         updated_at_column: str = "updated_at",
         multi_response_key: str = "data",
         custom_filters: dict[str, FilterCallable] | None = None,
+        policy: PolicyConfig | None = None,
     ) -> None:
         self.model = model
         self.model_col_names = [col.key for col in model.__table__.columns]
@@ -531,6 +566,71 @@ class FastCRUD(
         self._primary_keys = get_primary_key_columns(self.model)
         self._filter_processor = FilterProcessor(self.model, custom_filters)
         self._query_builder = SQLQueryBuilder(self.model)
+        refuse_columns_that_are_not_columns(policy, model)
+        self.policy = policy
+
+    def with_policy(self, policy: PolicyConfig | None) -> Self:
+        """
+        A copy of this instance under another policy.
+
+        The original is unchanged, so an instance shared across requests can hand
+        each request its own policy. The copy keeps every other setting, such as
+        ``custom_filters`` and the soft delete columns.
+
+        Args:
+            policy: The copy's policy, or ``None`` for no restriction.
+
+        Returns:
+            A new instance with ``policy``.
+
+        Example:
+            >>> post_crud = FastCRUD(Post)
+            >>> async def list_posts(db, me):
+            ...     crud = post_crud.with_policy(PolicyConfig(read=Post.owner_id == me))
+            ...     return await crud.get_multi(db)
+        """
+        refuse_columns_that_are_not_columns(policy, self.model)
+        copy_under_policy = copy.copy(self)
+        copy_under_policy.policy = policy
+        return copy_under_policy
+
+    def _refuse_response_schema(
+        self, schema_to_select: type[BaseModel] | None, return_as_model: bool
+    ) -> None:
+        """Refuse a response model that needs a hidden column, before any query."""
+        if return_as_model:
+            refuse_schema_requiring_hidden(self.policy, self.model, schema_to_select)
+
+    def _hidden_columns_joins_need(
+        self, one_to_many_with_limits: Sequence[JoinConfig]
+    ) -> frozenset[str]:
+        """
+        The hidden columns a joined read selects anyway, because FastCRUD needs them.
+
+        Nesting groups rows by the primary key, and a ``nested_limit`` join links
+        parents by the columns its ``join_on`` names. They're selected for that and
+        dropped from the results before they're returned.
+        """
+        hidden = hidden_columns_of(self.policy)
+        if not hidden:
+            return frozenset()
+        needed = set(get_primary_key_names(self.model)) | parent_link_attributes(
+            one_to_many_with_limits, self.model
+        )
+        return hidden & needed
+
+    def _joined_where(self, *configs: Sequence[Any] | None) -> list[Any]:
+        """The ``where`` of the caller's join and count configs."""
+        return [config.where for group in configs for config in group or []]
+
+    def _reach(self, operation: RowOperation) -> list[Any]:
+        """
+        The policy's conditions on the rows an operation reaches; ``[]`` without one.
+
+        Raises:
+            AccessDenied: If the policy denies the operation.
+        """
+        return conditions_in_reach(self.policy, self.model, operation)
 
     @overload
     async def create(
@@ -541,6 +641,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: type[_OverrideSchemaType],
         return_as_model: Literal[True],
+        server_data: dict[str, Any] | None = None,
     ) -> _OverrideSchemaType: ...
 
     @overload
@@ -552,6 +653,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: None = None,
         return_as_model: Literal[False] = False,
+        server_data: dict[str, Any] | None = None,
     ) -> None: ...
 
     @overload
@@ -563,6 +665,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: type[SelectSchemaType],
         return_as_model: Literal[False] = False,
+        server_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]: ...
 
     @overload
@@ -574,6 +677,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
+        server_data: dict[str, Any] | None = None,
     ) -> None | SelectSchemaType | dict[str, Any]: ...
 
     async def create(  # type: ignore[misc]
@@ -583,6 +687,8 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
+        *,
+        server_data: dict[str, Any] | None = None,
     ) -> None | SelectSchemaType | dict[str, Any]:
         """
         Create a new record in the database.
@@ -593,6 +699,9 @@ class FastCRUD(
             commit: If `True`, commits the transaction immediately. Default is `True`.
             schema_to_select: Pydantic schema for selecting specific columns.
             return_as_model: If `True`, returns data as an instance of `schema_to_select`.
+            server_data: Column values server code writes, such as an owner set from the request's
+                user. They win over the caller's values for the same field and are exempt from the
+                policy's column rules, but they're part of the row its checks see.
 
         Returns:
             The created database record or None:
@@ -604,10 +713,41 @@ class FastCRUD(
             raise ValueError(
                 "schema_to_select must be provided when return_as_model is True."
             )
+        self._refuse_response_schema(schema_to_select, return_as_model)
 
-        object_dict = object.model_dump()
+        object_data = object.model_dump()
+        if self.policy is not None and not self.policy.grants("create"):
+            raise AccessDenied("create", self.model)
+        refuse_relationship_data(self.policy, self.model, "create", object_data)
+        server_columns = self._server_columns(server_data)
+        refuse_unwritable_data(
+            self.policy, self.model, "create", object.model_fields_set
+        )
+        if self.policy is not None:
+            object_data = {
+                field: value
+                for field, value in object_data.items()
+                if field in object.model_fields_set
+                or field not in self.policy.unwritable_columns
+            }
+        object_data = {**object_data, **server_columns}
+        object_dict = instantiate_related_objects(object_data, self.model)
         db_object: ModelType = self.model(**object_dict)
-        db.add(db_object)
+
+        check = self.policy.check_conditions_for("create") if self.policy else []
+        if check:
+            async with db.begin_nested():
+                db.add(db_object)
+                await db.flush()
+                await refuse_rows_failing_check(
+                    db,
+                    self.model,
+                    [primary_key_of(self.model, db_object)],
+                    check,
+                    "create",
+                )
+        else:
+            db.add(db_object)
 
         if commit:
             await db.commit()
@@ -620,8 +760,11 @@ class FastCRUD(
             return None
 
         mapper = inspect(db_object.__class__)
+        hidden = hidden_columns_of(self.policy)
         data_dict = {
-            attr.key: getattr(db_object, attr.key) for attr in mapper.column_attrs
+            attr.key: getattr(db_object, attr.key)
+            for attr in mapper.column_attrs
+            if attr.key not in hidden
         }
         if not return_as_model:
             return data_dict
@@ -632,6 +775,7 @@ class FastCRUD(
         schema_to_select: type[SelectSchemaType] | None = None,
         sort_columns: str | list[str] | None = None,
         sort_orders: str | list[str] | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> Select:
         """
@@ -645,10 +789,18 @@ class FastCRUD(
             schema_to_select: Pydantic schema to determine which columns to include in the selection. If not provided, selects all columns of the model.
             sort_columns: A single column name or list of column names to sort the query results by. Must be used in conjunction with `sort_orders`.
             sort_orders: A single sort order (`"asc"` or `"desc"`) or a list of sort orders, corresponding to each column in `sort_columns`. If not specified, defaults to ascending order for all `sort_columns`.
+            where: SQLAlchemy conditions, AND-ed with the keyword filters: one condition
+                or a list of them. Use it for what keyword filters can't express, such as
+                `(Post.author == me) | (Post.region == "EU")`, column-to-column comparisons
+                or subqueries.
             **kwargs: Filters to apply to the query, including advanced comparison operators for more detailed querying.
 
         Returns:
             An SQL Alchemy `Select` statement object that can be executed or further modified.
+            Under a policy, it already carries the policy's `read` condition.
+
+        Raises:
+            AccessDenied: If the instance's policy denies reads.
 
         Examples:
             Selecting specific columns with filtering and sorting:
@@ -682,11 +834,21 @@ class FastCRUD(
             This method does not execute the generated SQL statement.
             Use `db.execute(stmt)` to run the query and fetch results.
         """
-        to_select = extract_matching_columns_from_schema(
-            model=self.model, schema=schema_to_select
+        refuse_hidden_input(
+            self.policy,
+            self.model,
+            filters=kwargs,
+            where=where,
+            sort_columns=sort_columns,
         )
-        filters = self._filter_processor.parse_filters(**kwargs)
-        stmt = select(*to_select).filter(*filters)
+        to_select = without_hidden_columns(
+            self.policy,
+            extract_matching_columns_from_schema(
+                model=self.model, schema=schema_to_select
+            ),
+        )
+        filters = self._filter_processor.parse_filters(where=where, **kwargs)
+        stmt = select(*to_select).filter(*filters, *self._reach("read"))
 
         if sort_columns:
             stmt = self._query_builder.apply_sorting(stmt, sort_columns, sort_orders)
@@ -700,6 +862,7 @@ class FastCRUD(
         schema_to_select: type[_OverrideSchemaType],
         return_as_model: Literal[True],
         one_or_none: bool = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> _OverrideSchemaType | None: ...
 
@@ -711,6 +874,7 @@ class FastCRUD(
         schema_to_select: None = None,
         return_as_model: Literal[False] = False,
         one_or_none: bool = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, Any] | None: ...
 
@@ -722,6 +886,7 @@ class FastCRUD(
         schema_to_select: type[SelectSchemaType],
         return_as_model: Literal[False] = False,
         one_or_none: bool = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, Any] | None: ...
 
@@ -733,6 +898,7 @@ class FastCRUD(
         schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
         one_or_none: bool = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, Any] | SelectSchemaType | None: ...
 
@@ -742,6 +908,7 @@ class FastCRUD(
         schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
         one_or_none: bool = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, Any] | SelectSchemaType | None:
         """
@@ -756,6 +923,10 @@ class FastCRUD(
             schema_to_select: Optional Pydantic schema for selecting specific columns.
             return_as_model: If `True`, converts the fetched data to Pydantic models based on `schema_to_select`. Defaults to `False`.
             one_or_none: Flag to get strictly one or no result. Multiple results are not allowed.
+            where: SQLAlchemy conditions, AND-ed with the keyword filters: one condition
+                or a list of them. Use it for what keyword filters can't express, such as
+                `(Post.author == me) | (Post.region == "EU")`, column-to-column comparisons
+                or subqueries.
             **kwargs: Filters to apply to the query, using field names for direct matches or appending comparison operators for advanced queries.
 
         Raises:
@@ -792,7 +963,11 @@ class FastCRUD(
             user = await user_crud.get(db, username__ne='admin')
             ```
         """
-        stmt = await self.select(schema_to_select=schema_to_select, **kwargs)
+        self._refuse_response_schema(schema_to_select, return_as_model)
+        stmt = await self.select(
+            schema_to_select=schema_to_select, where=where, **kwargs
+        )
+        refuse_a_cartesian_product(stmt)
 
         db_row = await db.execute(stmt)
         result: Row | None = db_row.one_or_none() if one_or_none else db_row.first()
@@ -806,6 +981,232 @@ class FastCRUD(
                 "schema_to_select must be provided when return_as_model is True."
             )
         return schema_to_select(**out)
+
+    async def _upsert_under_policy(
+        self,
+        db: AsyncSession,
+        instance: Any,
+        schema_to_select: type[SelectSchemaType] | None,
+        return_as_model: bool,
+    ) -> SelectSchemaType | dict[str, Any] | None:
+        """
+        Upsert one record under the policy.
+
+        The key is looked up regardless of the policy. An existing row outside the
+        update's reach raises ``AccessDenied``, as Postgres refuses an
+        ``ON CONFLICT DO UPDATE`` whose row fails its ``USING``: treating it as
+        absent would mean inserting it, which would collide, so the refusal has
+        ``reason="row"``. Otherwise the record
+        is updated or created, with the policy's rules and checks, and the written
+        row is returned even when it's outside ``read``, without hidden columns.
+        """
+        schema = schema_to_select or type(instance)
+        self._refuse_response_schema(schema, return_as_model)
+        primary_key = self._get_pk_dict(instance)
+        key = tuple(primary_key.values())
+        if await existing_keys(db, self.model, [key]):
+            reach = self._reach("update")
+            if not await keys_in_reach(db, self.model, [key], reach):
+                raise AccessDenied("update", self.model, reason="row")
+            await self.update(db, instance, **primary_key)
+        else:
+            await self.create(db, instance)
+
+        written = await self.with_policy(None).get(
+            db, schema_to_select=schema, **primary_key
+        )
+        if written is None:  # pragma: no cover
+            return None
+        visible = without_hidden_fields(self.policy, written)
+        return schema(**visible) if return_as_model else visible
+
+    async def _upsert_multi_under_policy(
+        self,
+        db: AsyncSession,
+        instances: list[Any],
+        commit: bool,
+        return_columns: list[str] | None,
+        schema_to_select: type[SelectSchemaType] | None,
+        return_as_model: bool,
+        update_override: dict[str, Any],
+        where: WhereClause,
+        **kwargs: Any,
+    ) -> UpsertMultiResponseDict | None:
+        """
+        Upsert many records under the policy, in a savepoint.
+
+        The keys are looked up first, locking the existing rows: new keys need
+        ``create`` and conflicting ones ``update``, and each instance's data is
+        checked against the column rules for its operation, before anything is
+        written. PostgreSQL and SQLite put the update's reach in
+        ``ON CONFLICT DO UPDATE ... WHERE`` (``false`` when the policy denies
+        updates) and return the written keys. Every supplied key that wasn't
+        written met a conflicting row, even one another transaction inserted after
+        the lookup: one outside the reach raises ``AccessDenied``, and one the
+        caller's own ``where=`` skipped stays skipped. MySQL has no such ``WHERE``, so the conflicting rows are checked
+        against the reach before the upsert. Created rows must then pass
+        ``create_check`` and updated ones ``update_check``; any refusal rolls the
+        savepoint back. On PostgreSQL, a row inserted concurrently after the
+        lookup gets ``create_check`` while ``ON CONFLICT ... WHERE`` still applies
+        the reach.
+        """
+        assert self.policy is not None
+        policy = self.policy
+        dialect = db.bind.dialect.name
+        self._refuse_response_schema(schema_to_select, return_as_model)
+        refuse_hidden_input(policy, self.model, filters=kwargs, where=where)
+        refuse_unwritable_data(policy, self.model, "update", update_override)
+        filters = self._filter_processor.parse_filters(where=where, **kwargs)
+        is_mysql = dialect in ["mysql", "mariadb"]
+        if is_mysql and filters:
+            raise ValueError("MySQL does not support filtering on insert operations.")
+        if is_mysql and (return_columns or schema_to_select or return_as_model):
+            raise ValueError(
+                "MySQL does not support the returning clause for insert operations."
+            )
+
+        primary_key_names = [
+            inspect(self.model).mapper.get_property_by_column(primary_key_column).key
+            for primary_key_column in self._primary_keys
+        ]
+        keys = [
+            tuple(getattr(instance, name, None) for name in primary_key_names)
+            for instance in instances
+        ]
+        if (
+            is_mysql
+            and policy.create_check is not None
+            and any(None in key for key in keys)
+        ):
+            raise ValueError(
+                "upsert_multi on MySQL under a policy with create_check needs every "
+                "instance's primary key, to check the created rows without RETURNING"
+            )
+
+        async with db.begin_nested():
+            conflicting = await existing_keys(db, self.model, keys)
+            is_new = [None in key or key not in conflicting for key in keys]
+            if any(is_new) and not policy.grants("create"):
+                raise AccessDenied("create", self.model)
+            if conflicting and not policy.grants("update"):
+                raise AccessDenied("update", self.model)
+            for instance, new in zip(instances, is_new):
+                operation: Literal["create", "update"] = "create" if new else "update"
+                refuse_relationship_data(
+                    policy, self.model, operation, instance.model_dump()
+                )
+                refuse_unwritable_data(
+                    policy, self.model, operation, instance.model_fields_set
+                )
+            reach = self._reach("update") if policy.grants("update") else [false()]
+            if (
+                is_mysql
+                and await keys_in_reach(db, self.model, conflicting, reach)
+                != conflicting
+            ):
+                raise AccessDenied("update", self.model, reason="row")
+
+            statement, params = await self._policy_upsert_statement(
+                dialect, instances, [*filters, *reach], update_override, policy
+            )
+            requested = return_columns or (
+                self.model_col_names if return_as_model else []
+            )
+            hidden_keys = hidden_column_keys(policy, self.model)
+            requested = [name for name in requested if name not in hidden_keys]
+            if is_mysql:
+                await db.execute(statement, params)
+                written_rows: list[dict[str, Any]] = []
+                inserted = {key for key, new in zip(keys, is_new) if new}
+                updated = conflicting
+            else:
+                key_columns = [
+                    primary_key_column.key for primary_key_column in self._primary_keys
+                ]
+                result = await db.execute(
+                    statement.returning(
+                        *[
+                            column(name)
+                            for name in dict.fromkeys([*key_columns, *requested])
+                        ]
+                    ),
+                    params,
+                )
+                written_rows = [dict(row) for row in result.mappings()]
+                written = {
+                    tuple(row[name] for name in key_columns) for row in written_rows
+                }
+                skipped = {key for key in keys if None not in key} - written
+                if await keys_in_reach(db, self.model, skipped, reach) != skipped:
+                    raise AccessDenied(
+                        "update",
+                        self.model,
+                        reason="row" if policy.grants("update") else "operation",
+                    )
+                inserted = written - conflicting
+                updated = written & conflicting
+            await refuse_rows_failing_check(
+                db,
+                self.model,
+                list(inserted),
+                policy.check_conditions_for("create"),
+                "create",
+            )
+            await refuse_rows_failing_check(
+                db,
+                self.model,
+                list(updated),
+                policy.check_conditions_for("update"),
+                "update",
+            )
+        if commit:
+            await db.commit()
+        if not requested:
+            return None
+        rows_data = [{name: row[name] for name in requested} for row in written_rows]
+        return {
+            "data": format_multi_response(rows_data, schema_to_select, return_as_model)
+        }
+
+    async def _policy_upsert_statement(
+        self,
+        dialect: str,
+        instances: list[Any],
+        conflict_conditions: list[Any],
+        update_override: dict[str, Any],
+        policy: PolicyConfig,
+    ) -> tuple[Any, list[dict]]:
+        """The dialect's upsert, leaving the policy's unwritable columns out."""
+        key_names = [column.name for column in self._primary_keys]
+        if dialect == "postgresql":
+            return await upsert_multi_postgresql(
+                self.model,
+                key_names,
+                instances,
+                conflict_conditions,
+                update_override,
+                left_out=policy.unwritable_columns,
+            )
+        if dialect == "sqlite":
+            return await upsert_multi_sqlite(
+                self.model,
+                key_names,
+                instances,
+                conflict_conditions,
+                update_override,
+                left_out=policy.unwritable_columns,
+            )
+        if dialect in ["mysql", "mariadb"]:
+            return await upsert_multi_mysql(
+                self.model,
+                instances,
+                update_override,
+                self.deleted_at_column,
+                left_out=policy.unwritable_columns,
+            )
+        raise NotImplementedError(  # pragma: no cover
+            f"Upsert multi is not implemented for {dialect}"
+        )
 
     def _get_pk_dict(self, instance):
         return {pk.name: getattr(instance, pk.name) for pk in self._primary_keys}
@@ -873,6 +1274,10 @@ class FastCRUD(
             - When `return_as_model=True` and `schema_to_select` is provided: `SelectSchemaType`
             - When `return_as_model=False`: `Dict[str, Any]`
         """
+        if self.policy is not None:
+            return await self._upsert_under_policy(
+                db, instance, schema_to_select, return_as_model
+            )
         _pks = self._get_pk_dict(instance)
         schema_to_select = schema_to_select or type(instance)  # type: ignore
         db_instance = await self.get(
@@ -889,7 +1294,7 @@ class FastCRUD(
                 return_as_model=return_as_model,
             )
         else:
-            await self.update(db, instance)  # type: ignore
+            await self.update(db, instance, **_pks)  # type: ignore
             db_instance = await self.get(
                 db,
                 schema_to_select=schema_to_select,  # type: ignore
@@ -910,6 +1315,7 @@ class FastCRUD(
         schema_to_select: type[_OverrideSchemaType],
         return_as_model: Literal[True],
         update_override: dict[str, Any] | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> UpsertMultiResponseModel[_OverrideSchemaType] | None: ...
 
@@ -924,6 +1330,7 @@ class FastCRUD(
         schema_to_select: None = None,
         return_as_model: Literal[False] = False,
         update_override: dict[str, Any] | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> UpsertMultiResponseDict | None: ...
 
@@ -938,6 +1345,7 @@ class FastCRUD(
         schema_to_select: type[SelectSchemaType],
         return_as_model: Literal[False] = False,
         update_override: dict[str, Any] | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> UpsertMultiResponseDict | None: ...
 
@@ -952,6 +1360,7 @@ class FastCRUD(
         schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
         update_override: dict[str, Any] | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> (
         UpsertMultiResponseDict | UpsertMultiResponseModel[SelectSchemaType] | None
@@ -966,6 +1375,7 @@ class FastCRUD(
         schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
         update_override: dict[str, Any] | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> UpsertMultiResponseDict | UpsertMultiResponseModel[SelectSchemaType] | None:
         """
@@ -979,6 +1389,10 @@ class FastCRUD(
             schema_to_select: Optional Pydantic schema for selecting specific columns. Required if return_as_model is True.
             return_as_model: If True, returns data as instances of the specified Pydantic model.
             update_override: Optional dictionary to override the update values for the upsert operation.
+            where: SQLAlchemy conditions, AND-ed with the keyword filters: one condition
+                or a list of them. Use it for what keyword filters can't express, such as
+                `(Post.author == me) | (Post.region == "EU")`, column-to-column comparisons
+                or subqueries.
             **kwargs: Filters to identify the record(s) to update on conflict, supporting advanced comparison operators for refined querying.
 
         Returns:
@@ -995,9 +1409,21 @@ class FastCRUD(
             ValueError: If the MySQL dialect is used with filters, return_columns, schema_to_select, or return_as_model.
             NotImplementedError: If the database dialect is not supported for upsert multi.
         """
+        if self.policy is not None:
+            return await self._upsert_multi_under_policy(
+                db,
+                instances,
+                commit=commit,
+                return_columns=return_columns,
+                schema_to_select=schema_to_select,
+                return_as_model=return_as_model,
+                update_override=update_override or {},
+                where=where,
+                **kwargs,
+            )
         if update_override is None:
             update_override = {}
-        filters = self._filter_processor.parse_filters(**kwargs)
+        filters = self._filter_processor.parse_filters(where=where, **kwargs)
 
         if db.bind.dialect.name == "postgresql":
             statement, params = await upsert_multi_postgresql(
@@ -1054,7 +1480,12 @@ class FastCRUD(
             await db.commit()
         return None
 
-    async def exists(self, db: AsyncSession, **kwargs: Any) -> bool:
+    async def exists(
+        self,
+        db: AsyncSession,
+        where: WhereClause = None,
+        **kwargs: Any,
+    ) -> bool:
         """
         Checks if any records exist that match the given filter conditions.
 
@@ -1062,6 +1493,10 @@ class FastCRUD(
 
         Args:
             db: The database session to use for the operation.
+            where: SQLAlchemy conditions, AND-ed with the keyword filters: one condition
+                or a list of them. Use it for what keyword filters can't express, such as
+                `(Post.author == me) | (Post.region == "EU")`, column-to-column comparisons
+                or subqueries.
             **kwargs: Filters to apply to the query, supporting both direct matches and advanced comparison operators for refined search criteria.
 
         Returns:
@@ -1092,8 +1527,10 @@ class FastCRUD(
             exists = await user_crud.exists(db, username__ne='admin')
             ```
         """
-        filters = self._filter_processor.parse_filters(**kwargs)
-        stmt = select(self.model).filter(*filters).limit(1)
+        refuse_hidden_input(self.policy, self.model, filters=kwargs, where=where)
+        filters = self._filter_processor.parse_filters(where=where, **kwargs)
+        stmt = select(self.model).filter(*filters, *self._reach("read")).limit(1)
+        refuse_a_cartesian_product(stmt)
 
         result = await db.execute(stmt)
         return result.first() is not None
@@ -1103,6 +1540,7 @@ class FastCRUD(
         db: AsyncSession,
         joins_config: list[JoinConfig] | None = None,
         distinct_on_primary: bool = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> int:
         """
@@ -1118,6 +1556,10 @@ class FastCRUD(
             distinct_on_primary: If True, counts only distinct base model rows when using joins.
                 This is particularly useful for one-to-many relationships to avoid inflated counts
                 from multiple joined rows per base row. Defaults to False.
+            where: SQLAlchemy conditions, AND-ed with the keyword filters: one condition
+                or a list of them. Use it for what keyword filters can't express, such as
+                `(Post.author == me) | (Post.region == "EU")`, column-to-column comparisons
+                or subqueries.
             **kwargs: Filters to apply for the count, including field names for equality checks or with comparison operators for advanced queries.
 
         Returns:
@@ -1180,7 +1622,42 @@ class FastCRUD(
             count = await project_crud.count(db, joins_config=joins_config)
             ```
         """
-        primary_filters = self._filter_processor.parse_filters(**kwargs)
+        refuse_hidden_input(
+            self.policy,
+            self.model,
+            filters=kwargs,
+            where=where,
+            joined_where=self._joined_where(joins_config),
+        )
+        return await self._count_in_reach(
+            db,
+            self._reach("read"),
+            joins_config=joins_config,
+            distinct_on_primary=distinct_on_primary,
+            where=where,
+            **kwargs,
+        )
+
+    async def _count_in_reach(
+        self,
+        db: AsyncSession,
+        reach: list[Any],
+        joins_config: list[JoinConfig] | None = None,
+        distinct_on_primary: bool = False,
+        where: WhereClause = None,
+        **kwargs: Any,
+    ) -> int:
+        """
+        Count the matching rows among those a policy lets an operation reach.
+
+        ``count`` passes the ``read`` reach; updates and deletes pass their own, so
+        the counts behind ``allow_multiple`` and ``NoResultFound`` see only the
+        rows the write can reach.
+        """
+        primary_filters = [
+            *self._filter_processor.parse_filters(where=where, **kwargs),
+            *reach,
+        ]
 
         if joins_config is not None:
             primary_keys = list(get_primary_key_names(self.model))
@@ -1196,6 +1673,7 @@ class FastCRUD(
                 base_query, joins_config, select_joined_columns=False
             )
             base_query = self._query_builder.apply_filters(base_query, primary_filters)
+            refuse_a_cartesian_product(base_query)
 
             if distinct_on_primary:
                 base_query = base_query.distinct()
@@ -1208,6 +1686,7 @@ class FastCRUD(
             count_query = self._query_builder.apply_filters(
                 count_query, primary_filters
             )
+            refuse_a_cartesian_product(count_query)
 
         total_count: int | None = await db.scalar(count_query)
         if total_count is None:
@@ -1227,6 +1706,7 @@ class FastCRUD(
         sort_orders: str | list[str] | None = None,
         return_as_model: Literal[True],
         return_total_count: bool = True,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> GetMultiResponseModel[_OverrideSchemaType]: ...
 
@@ -1242,6 +1722,7 @@ class FastCRUD(
         sort_orders: str | list[str] | None = None,
         return_as_model: Literal[False] = False,
         return_total_count: bool = True,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> GetMultiResponseDict: ...
 
@@ -1257,6 +1738,7 @@ class FastCRUD(
         sort_orders: str | list[str] | None = None,
         return_as_model: Literal[False] = False,
         return_total_count: bool = True,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> GetMultiResponseDict: ...
 
@@ -1272,6 +1754,7 @@ class FastCRUD(
         sort_orders: str | list[str] | None = None,
         return_as_model: bool = False,
         return_total_count: bool = True,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> GetMultiResponseModel[SelectSchemaType] | GetMultiResponseDict: ...
 
@@ -1285,6 +1768,7 @@ class FastCRUD(
         sort_orders: str | list[str] | None = None,
         return_as_model: bool = False,
         return_total_count: bool = True,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> GetMultiResponseModel[SelectSchemaType] | GetMultiResponseDict:
         """
@@ -1301,6 +1785,10 @@ class FastCRUD(
             sort_orders: Corresponding sort orders (`"asc"`, `"desc"`) for each column in `sort_columns`.
             return_as_model: If `True`, returns data as instances of the specified Pydantic model.
             return_total_count: If `True`, also returns the total count of rows with the selected filters. Useful for pagination.
+            where: SQLAlchemy conditions, AND-ed with the keyword filters: one condition
+                or a list of them. Use it for what keyword filters can't express, such as
+                `(Post.author == me) | (Post.region == "EU")`, column-to-column comparisons
+                or subqueries.
             **kwargs: Filters to apply to the query, including advanced comparison operators for more detailed querying.
 
         Returns:
@@ -1384,6 +1872,7 @@ class FastCRUD(
             )
             ```
         """
+        self._refuse_response_schema(schema_to_select, return_as_model)
         validate_pagination_params(offset, limit)
         regular_filters, joined_filters_info = (
             self._filter_processor.separate_joined_filters(**kwargs)
@@ -1401,6 +1890,7 @@ class FastCRUD(
                 sort_orders=sort_orders,
                 return_as_model=return_as_model,
                 return_total_count=return_total_count,
+                where=where,
                 **regular_filters,
             )
 
@@ -1408,17 +1898,19 @@ class FastCRUD(
             schema_to_select=schema_to_select,
             sort_columns=sort_columns,
             sort_orders=sort_orders,
+            where=where,
             **kwargs,
         )
 
         stmt = self._query_builder.apply_pagination(stmt, offset, limit)
+        refuse_a_cartesian_product(stmt)
         result = await db.execute(stmt)
         data = [dict(row) for row in result.mappings()]
         formatted_data = format_multi_response(data, schema_to_select, return_as_model)
 
         response: dict[str, Any] = {self.multi_response_key: formatted_data}
         if return_total_count:
-            total_count = await self.count(db=db, **kwargs)
+            total_count = await self.count(db=db, where=where, **kwargs)
             response["total_count"] = total_count
 
         return cast(
@@ -1435,6 +1927,7 @@ class FastCRUD(
         schema_to_select: type[_OverrideSchemaType],
         return_as_model: Literal[True],
         nest_joins: bool = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> _OverrideSchemaType | None: ...
 
@@ -1447,6 +1940,7 @@ class FastCRUD(
         schema_to_select: type[SelectSchemaType],
         return_as_model: Literal[False] = False,
         nest_joins: bool = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, Any] | None: ...
 
@@ -1459,6 +1953,7 @@ class FastCRUD(
         schema_to_select: None = None,
         return_as_model: bool = False,
         nest_joins: bool = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, Any] | None: ...
 
@@ -1479,6 +1974,7 @@ class FastCRUD(
         joins_config: list[JoinConfig] | None = None,
         nest_joins: bool = False,
         relationship_type: str | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> _OverrideSchemaType | None: ...
 
@@ -1499,6 +1995,7 @@ class FastCRUD(
         joins_config: list[JoinConfig] | None = None,
         nest_joins: bool = False,
         relationship_type: str | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, Any] | None: ...
 
@@ -1519,6 +2016,7 @@ class FastCRUD(
         joins_config: list[JoinConfig] | None = None,
         nest_joins: bool = False,
         relationship_type: str | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, Any] | None: ...
 
@@ -1539,6 +2037,7 @@ class FastCRUD(
         joins_config: list[JoinConfig] | None = None,
         nest_joins: bool = False,
         relationship_type: str | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, Any] | SelectSchemaType | None: ...
 
@@ -1559,6 +2058,7 @@ class FastCRUD(
         relationship_type: str | None = None,
         auto_detect_relationships: bool | Sequence[str] = False,
         include_one_to_many: bool = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, Any] | SelectSchemaType | None:
         """
@@ -1584,6 +2084,10 @@ class FastCRUD(
             relationship_type: Specifies the relationship type, such as `"one-to-one"` or `"one-to-many"`. Used to determine how to nest the joined data. If `None`, uses `"one-to-one"`.
             auto_detect_relationships: Automatically detect and join SQLAlchemy relationships. Can be `True` (all relationships), `False` (none), or a list of relationship names to include selectively (e.g., `["tier", "department"]`). Cannot be used with manual join parameters (`join_model`, `joins_config`, etc.). Gracefully falls back to regular `get()` if no relationships exist. Defaults to `False`.
             include_one_to_many: When using `auto_detect_relationships=True`, whether to include one-to-many relationships. Defaults to `False` for safety since one-to-many JOINs can return unbounded data. Set to `True` to include all relationship types. This is ignored when specific relationship names are provided.
+            where: SQLAlchemy conditions, AND-ed with the keyword filters: one condition
+                or a list of them. Use it for what keyword filters can't express, such as
+                `(Post.author == me) | (Post.region == "EU")`, column-to-column comparisons
+                or subqueries.
             **kwargs: Filters to apply to the primary model query, supporting advanced comparison operators for refined searching.
 
         Returns:
@@ -1820,6 +2324,14 @@ class FastCRUD(
             # All defined relationships (tier, department, etc.) are automatically joined
             ```
         """
+        self._refuse_response_schema(schema_to_select, return_as_model)
+        refuse_hidden_input(
+            self.policy,
+            self.model,
+            filters=kwargs,
+            where=where,
+            joined_where=self._joined_where(joins_config),
+        )
         if auto_detect_relationships:
             if (
                 joins_config
@@ -1848,6 +2360,7 @@ class FastCRUD(
                     db=db,
                     schema_to_select=schema_to_select,
                     return_as_model=return_as_model,
+                    where=where,
                     **kwargs,
                 )
 
@@ -1861,12 +2374,6 @@ class FastCRUD(
             raise ValueError(
                 "You need one of join_model, joins_config, or auto_detect_relationships."
             )
-
-        primary_select = extract_matching_columns_from_schema(
-            model=self.model,
-            schema=schema_to_select,
-        )
-        stmt = self._query_builder.build_base_select(primary_select)
 
         join_definitions = joins_config if joins_config else []
         if join_model:
@@ -1886,11 +2393,23 @@ class FastCRUD(
             )
 
         regular_joins, one_to_many_with_limits = split_join_configs(join_definitions)
+        primary_select = without_hidden_columns(
+            self.policy,
+            extract_matching_columns_from_schema(
+                model=self.model,
+                schema=schema_to_select,
+            ),
+            kept=self._hidden_columns_joins_need(one_to_many_with_limits),
+        )
+        stmt = self._query_builder.build_base_select(primary_select)
         stmt = self._query_builder.prepare_joins(
             stmt=stmt, joins_config=regular_joins, use_temporary_prefix=nest_joins
         )
-        primary_filters = self._filter_processor.parse_filters(**kwargs)
-        stmt = self._query_builder.apply_filters(stmt, primary_filters)
+        primary_filters = self._filter_processor.parse_filters(where=where, **kwargs)
+        stmt = self._query_builder.apply_filters(
+            stmt, [*primary_filters, *self._reach("read")]
+        )
+        refuse_a_cartesian_product(stmt)
 
         db_rows = await db.execute(stmt)
         has_regular_one_to_many = any(
@@ -1915,19 +2434,17 @@ class FastCRUD(
             data_list, regular_joins, nest_joins, self.model
         )
         if one_to_many_with_limits and processed_data:
-            pk_names = get_primary_key_names(self.model)
-            pk_name = pk_names[0] if pk_names else "id"
-
             results_list = [processed_data] if processed_data else []
             merged_results = await fetch_and_merge_one_to_many(
                 db=db,
                 primary_model=self.model,
                 main_results=results_list,
                 one_to_many_configs=one_to_many_with_limits,
-                pk_column_name=pk_name,
             )
             processed_data = merged_results[0] if merged_results else None
 
+        if processed_data is not None:
+            processed_data = without_hidden_fields(self.policy, processed_data)
         if processed_data is None or not return_as_model:
             return processed_data
 
@@ -1952,6 +2469,7 @@ class FastCRUD(
         sort_columns: str | list[str] | None = None,
         sort_orders: str | list[str] | None = None,
         return_total_count: bool = True,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> GetMultiResponseModel[_OverrideSchemaType]: ...
 
@@ -1969,6 +2487,7 @@ class FastCRUD(
         sort_columns: str | list[str] | None = None,
         sort_orders: str | list[str] | None = None,
         return_total_count: bool = True,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> GetMultiResponseDict: ...
 
@@ -1986,6 +2505,7 @@ class FastCRUD(
         sort_columns: str | list[str] | None = None,
         sort_orders: str | list[str] | None = None,
         return_total_count: bool = True,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> GetMultiResponseDict: ...
 
@@ -2012,6 +2532,7 @@ class FastCRUD(
         return_total_count: bool = True,
         relationship_type: str | None = None,
         nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> GetMultiResponseModel[_OverrideSchemaType]: ...
 
@@ -2038,6 +2559,7 @@ class FastCRUD(
         return_total_count: bool = True,
         relationship_type: str | None = None,
         nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> GetMultiResponseDict: ...
 
@@ -2064,6 +2586,7 @@ class FastCRUD(
         return_total_count: bool = True,
         relationship_type: str | None = None,
         nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> GetMultiResponseDict: ...
 
@@ -2091,6 +2614,7 @@ class FastCRUD(
         return_total_count: bool = True,
         relationship_type: str | None = None,
         nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> GetMultiResponseModel[SelectSchemaType] | GetMultiResponseDict: ...
 
@@ -2118,6 +2642,7 @@ class FastCRUD(
         nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
         auto_detect_relationships: bool | Sequence[str] = False,
         include_one_to_many: bool = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> GetMultiResponseModel[SelectSchemaType] | GetMultiResponseDict:
         """
@@ -2148,6 +2673,10 @@ class FastCRUD(
             nested_schema_to_select: A dictionary mapping join prefixes to their corresponding Pydantic schemas for nested data conversion. If not provided, schemas are auto-detected from `joins_config`.
             auto_detect_relationships: Automatically detect and join SQLAlchemy relationships. Can be `True` (all relationships), `False` (none), or a list of relationship names to include selectively (e.g., `["tier", "department"]`). Cannot be used with manual join parameters (`join_model`, `joins_config`, etc.). Gracefully falls back to regular `get_multi()` if no relationships exist. Defaults to `False`.
             include_one_to_many: When using `auto_detect_relationships=True`, whether to include one-to-many relationships. Defaults to `False` for safety since one-to-many JOINs can return unbounded data. Set to `True` to include all relationship types. This is ignored when specific relationship names are provided.
+            where: SQLAlchemy conditions, AND-ed with the keyword filters: one condition
+                or a list of them. Use it for what keyword filters can't express, such as
+                `(Post.author == me) | (Post.region == "EU")`, column-to-column comparisons
+                or subqueries.
             **kwargs: Filters to apply to the primary query, including advanced comparison operators for refined searching.
 
         Returns:
@@ -2446,6 +2975,15 @@ class FastCRUD(
             # All defined relationships (tier, department, etc.) are automatically joined
             ```
         """
+        self._refuse_response_schema(schema_to_select, return_as_model)
+        refuse_hidden_input(
+            self.policy,
+            self.model,
+            filters=kwargs,
+            where=where,
+            sort_columns=sort_columns,
+            joined_where=self._joined_where(joins_config, counts_config),
+        )
         if auto_detect_relationships:
             if (
                 joins_config
@@ -2479,6 +3017,7 @@ class FastCRUD(
                     sort_columns=sort_columns,
                     sort_orders=sort_orders,
                     return_total_count=return_total_count,
+                    where=where,
                     **kwargs,
                 )
 
@@ -2512,6 +3051,9 @@ class FastCRUD(
             config=main_query_config,
             schema_to_select=schema_to_select,
             nest_joins=nest_joins,
+            hidden_columns=hidden_columns_of(self.policy)
+            - self._hidden_columns_joins_need(one_to_many_with_limits),
+            where=[*where_conditions(where), *self._reach("read")],
             **kwargs,
         )
         raw_data = await execute_joined_query(
@@ -2525,15 +3067,11 @@ class FastCRUD(
         )
 
         if one_to_many_with_limits and raw_data:
-            pk_names = get_primary_key_names(self.model)
-            pk_name = pk_names[0] if pk_names else "id"
-
             raw_data = await fetch_and_merge_one_to_many(
                 db=db,
                 primary_model=self.model,
                 main_results=raw_data,
                 one_to_many_configs=one_to_many_with_limits,
-                pk_column_name=pk_name,
             )
 
         return cast(
@@ -2549,6 +3087,8 @@ class FastCRUD(
                 db=db,
                 nested_schema_to_select=nested_schema_to_select,
                 count_func=self.count if return_total_count else None,
+                hidden_columns=hidden_columns_of(self.policy),
+                where=where,
                 **kwargs,
             ),
         )
@@ -2564,6 +3104,7 @@ class FastCRUD(
         sort_column: str = "id",
         sort_order: str = "asc",
         return_as_model: Literal[True],
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, list[_OverrideSchemaType] | Any]: ...
 
@@ -2578,6 +3119,7 @@ class FastCRUD(
         sort_column: str = "id",
         sort_order: str = "asc",
         return_as_model: Literal[False] = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, list[dict[str, Any]] | Any]: ...
 
@@ -2592,6 +3134,7 @@ class FastCRUD(
         sort_column: str = "id",
         sort_order: str = "asc",
         return_as_model: Literal[False] = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, list[dict[str, Any]] | Any]: ...
 
@@ -2606,6 +3149,7 @@ class FastCRUD(
         sort_column: str = "id",
         sort_order: str = "asc",
         return_as_model: bool = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, list[dict[str, Any] | SelectSchemaType] | Any]: ...
 
@@ -2618,6 +3162,7 @@ class FastCRUD(
         sort_column: str = "id",
         sort_order: str = "asc",
         return_as_model: bool = False,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -2633,6 +3178,10 @@ class FastCRUD(
             sort_column: Column name to use for sorting and cursor pagination.
             sort_order: Sorting direction, either `"asc"` or `"desc"`.
             return_as_model: If `True`, converts the fetched data to Pydantic models based on `schema_to_select`. Defaults to `False`.
+            where: SQLAlchemy conditions, AND-ed with the keyword filters: one condition
+                or a list of them. Use it for what keyword filters can't express, such as
+                `(Post.author == me) | (Post.region == "EU")`, column-to-column comparisons
+                or subqueries.
             **kwargs: Filters to apply to the query, including advanced comparison operators for detailed querying.
 
         Returns:
@@ -2704,10 +3253,14 @@ class FastCRUD(
             This method is designed for efficient pagination in large datasets and is ideal for infinite scrolling features.
             Make sure the column used for cursor pagination is indexed for performance.
         """
+        self._refuse_response_schema(schema_to_select, return_as_model)
+        refuse_hidden_input(self.policy, self.model, sort_columns=sort_column)
         if limit == 0:
             return {"data": [], "next_cursor": None}
 
-        stmt = await self.select(schema_to_select=schema_to_select, **kwargs)
+        stmt = await self.select(
+            schema_to_select=schema_to_select, where=where, **kwargs
+        )
 
         if cursor:
             cursor_filter = []
@@ -2723,6 +3276,7 @@ class FastCRUD(
 
         stmt = self._query_builder.apply_sorting(stmt, sort_column, sort_order)
         stmt = self._query_builder.apply_pagination(stmt, 0, limit)
+        refuse_a_cartesian_product(stmt)
 
         result = await db.execute(stmt)
         data = [dict(row) for row in result.mappings()]
@@ -2744,6 +3298,8 @@ class FastCRUD(
         schema_to_select: type[SelectSchemaType],
         return_as_model: Literal[True],
         one_or_none: bool = False,
+        where: WhereClause = None,
+        server_data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> SelectSchemaType | None: ...
 
@@ -2759,6 +3315,8 @@ class FastCRUD(
         schema_to_select: None = None,
         return_as_model: Literal[False] = False,
         one_or_none: bool = False,
+        where: WhereClause = None,
+        server_data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any] | None: ...
 
@@ -2774,6 +3332,8 @@ class FastCRUD(
         schema_to_select: type[SelectSchemaType],
         return_as_model: Literal[False] = False,
         one_or_none: bool = False,
+        where: WhereClause = None,
+        server_data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any] | None: ...
 
@@ -2789,6 +3349,8 @@ class FastCRUD(
         schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
         one_or_none: bool = False,
+        where: WhereClause = None,
+        server_data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any] | SelectSchemaType | None: ...
 
@@ -2802,6 +3364,8 @@ class FastCRUD(
         schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
         one_or_none: bool = False,
+        where: WhereClause = None,
+        server_data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict | SelectSchemaType | None:
         """
@@ -2818,6 +3382,13 @@ class FastCRUD(
             schema_to_select: Pydantic schema for selecting specific columns from the updated record(s). Required if `return_as_model` is `True`.
             return_as_model: If `True`, returns the updated record(s) as Pydantic model instances based on `schema_to_select`. Default is False.
             one_or_none: If `True`, returns a single record if only one record matches the filters. Default is `False`.
+            server_data: Column values server code writes, such as an owner set from the request's
+                user. They win over the caller's values for the same field and are exempt from the
+                policy's column rules, but they're part of the row its checks see.
+            where: SQLAlchemy conditions, AND-ed with the keyword filters: one condition
+                or a list of them. Use it for what keyword filters can't express, such as
+                `(Post.author == me) | (Post.region == "EU")`, column-to-column comparisons
+                or subqueries.
             **kwargs: Filters to identify the record(s) to update, supporting advanced comparison operators for refined querying.
 
         Returns:
@@ -2829,6 +3400,7 @@ class FastCRUD(
         Raises:
             MultipleResultsFound: If `allow_multiple` is `False` and more than one record matches the filters.
             NoResultFound: If no record matches the filters. (on version 0.15.3)
+            ValueError: If no filters are provided (to prevent accidental update of all records). `where=true()` updates them all.
             ValueError: If extra fields not present in the model are provided in the update data.
             ValueError: If `return_as_model` is `True` but `schema_to_select` is not provided.
 
@@ -2888,28 +3460,113 @@ class FastCRUD(
                 "return_columns must be a list of column name strings or None."
             )
 
+        reach = self._reach("update")
+        written_data = self._written_data(object)
+        server_columns = self._server_columns(server_data)
+        refuse_relationship_data(self.policy, self.model, "update", written_data)
+        refuse_unwritable_data(self.policy, self.model, "update", written_data)
+        refuse_hidden_input(self.policy, self.model, filters=kwargs, where=where)
+        self._refuse_response_schema(schema_to_select, return_as_model)
+        filters = self._filter_processor.parse_filters(where=where, **kwargs)
+        refuse_without_filters(filters, "update")
+        filters_in_reach = [*filters, *reach]
+        refuse_a_cartesian_product(select(self.model).where(*filters_in_reach))
+
         await validate_update_delete_operation(
-            self.count, db, allow_multiple, "update", **kwargs
+            partial(self._count_in_reach, reach=reach),
+            db,
+            allow_multiple,
+            "update",
+            where=where,
+            **kwargs,
         )
         update_data = prepare_update_data(
             object, self.model_col_names, self.updated_at_column, self.model
         )
-
-        filters = self._filter_processor.parse_filters(**kwargs)
-        stmt = update(self.model).filter(*filters).values(update_data)
+        mapper = inspect(self.model).mapper
+        update_data |= {
+            mapper.get_property(field).columns[0].key: value
+            for field, value in server_columns.items()
+        }
+        stmt = update(self.model).filter(*filters_in_reach).values(update_data)
 
         if return_as_model:
             return_columns = self.model_col_names
+        if return_columns:
+            hidden_keys = hidden_column_keys(self.policy, self.model)
+            return_columns = [
+                name for name in return_columns if name not in hidden_keys
+            ]
 
-        return await execute_update_and_return_response(
-            db=db,
-            stmt=stmt,
-            commit=commit,
-            return_columns=return_columns,
-            schema_to_select=schema_to_select,
-            return_as_model=return_as_model,
-            allow_multiple=allow_multiple,
-            one_or_none=one_or_none,
+        check = self.policy.check_conditions_for("update") if self.policy else []
+        if not check:
+            return await execute_update_and_return_response(
+                db=db,
+                stmt=stmt,
+                commit=commit,
+                return_columns=return_columns,
+                schema_to_select=schema_to_select,
+                return_as_model=return_as_model,
+                allow_multiple=allow_multiple,
+                one_or_none=one_or_none,
+            )
+
+        async with db.begin_nested():
+            keys_before = await primary_keys_matching(db, self.model, filters_in_reach)
+            response = await execute_update_and_return_response(
+                db=db,
+                stmt=stmt,
+                commit=False,
+                return_columns=return_columns,
+                schema_to_select=schema_to_select,
+                return_as_model=return_as_model,
+                allow_multiple=allow_multiple,
+                one_or_none=one_or_none,
+            )
+            await refuse_rows_failing_check(
+                db,
+                self.model,
+                [self._key_after_update(key, update_data) for key in keys_before],
+                check,
+                "update",
+            )
+        if commit:
+            await db.commit()
+        return response
+
+    def _server_columns(self, server_data: dict[str, Any] | None) -> dict[str, Any]:
+        """
+        Validate that ``server_data`` holds column values only.
+
+        Raises:
+            ValueError: Naming the fields that aren't columns of the model, such
+                as relationships.
+        """
+        if not server_data:
+            return {}
+        columns = set(inspect(self.model).mapper.column_attrs.keys())
+        not_columns = sorted(set(server_data) - columns)
+        if not_columns:
+            raise ValueError(
+                f"server_data takes column values of {self.model.__name__}, "
+                f"got {', '.join(not_columns)}"
+            )
+        return dict(server_data)
+
+    def _written_data(self, object: Any) -> dict[str, Any]:
+        """The fields a create or update writes, as a dict."""
+        if isinstance(object, dict):
+            return object
+        written: dict[str, Any] = object.model_dump(exclude_unset=True)
+        return written
+
+    def _key_after_update(
+        self, key: tuple[Any, ...], update_data: dict[str, Any]
+    ) -> tuple[Any, ...]:
+        """A row's primary key once an update has set any of its columns."""
+        return tuple(
+            update_data.get(column.key, value)
+            for column, value in zip(self._primary_keys, key)
         )
 
     async def db_delete(
@@ -2918,6 +3575,7 @@ class FastCRUD(
         allow_multiple: bool = False,
         commit: bool = True,
         filters: DeleteSchemaType | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -2930,13 +3588,17 @@ class FastCRUD(
             allow_multiple: If `True`, allows deleting multiple records that match the filters. If `False`, raises an error if more than one record matches the filters.
             commit: If `True`, commits the transaction immediately. Default is `True`.
             filters: Optional Pydantic schema instance containing filters to identify the record(s) to delete.
+            where: SQLAlchemy conditions, AND-ed with the keyword filters: one condition
+                or a list of them. Use it for what keyword filters can't express, such as
+                `(Post.author == me) | (Post.region == "EU")`, column-to-column comparisons
+                or subqueries.
             **kwargs: Additional filters to identify the record(s) to delete, including advanced comparison operators for detailed querying.
 
         Returns:
             None
 
         Raises:
-            ValueError: If no filters are provided (to prevent accidental deletion of all records).
+            ValueError: If no filters are provided (to prevent accidental deletion of all records). `where=true()` deletes them all.
             MultipleResultsFound: If `allow_multiple` is `False` and more than one record matches the filters.
 
         Examples:
@@ -2989,21 +3651,26 @@ class FastCRUD(
         if filters:
             combined_filters.update(filters.model_dump(exclude_unset=True))
         combined_filters.update(kwargs)
+        refuse_hidden_input(
+            self.policy, self.model, filters=combined_filters, where=where
+        )
 
-        if not combined_filters:
-            raise ValueError(
-                "No filters provided. To prevent accidental deletion of all records, at least one filter must be specified."
-            )
+        reach = self._reach("delete")
+        parsed_filters = self._filter_processor.parse_filters(
+            where=where, **combined_filters
+        )
+        refuse_without_filters(parsed_filters, "delete")
+        parsed_filters = [*parsed_filters, *reach]
+        refuse_a_cartesian_product(select(self.model).where(*parsed_filters))
 
-        if (
-            not allow_multiple
-            and (total_count := await self.count(db, **combined_filters)) > 1
-        ):
-            raise MultipleResultsFound(
-                f"Expected exactly one record to delete, found {total_count}."
-            )
-
-        parsed_filters = self._filter_processor.parse_filters(**combined_filters)
+        await validate_update_delete_operation(
+            partial(self._count_in_reach, reach=reach),
+            db,
+            allow_multiple,
+            "delete",
+            where=where,
+            **combined_filters,
+        )
         stmt = delete(self.model).filter(*parsed_filters)
         await db.execute(stmt)
         if commit:
@@ -3016,6 +3683,7 @@ class FastCRUD(
         allow_multiple: bool = False,
         commit: bool = True,
         filters: DeleteSchemaType | None = None,
+        where: WhereClause = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -3029,10 +3697,14 @@ class FastCRUD(
             allow_multiple: If `True`, allows deleting multiple records that match the filters. If `False`, raises an error if more than one record matches the filters.
             commit: If `True`, commits the transaction immediately. Default is `True`.
             filters: Optional Pydantic schema instance containing filters to identify the record(s) to delete.
+            where: SQLAlchemy conditions, AND-ed with the keyword filters: one condition
+                or a list of them. Use it for what keyword filters can't express, such as
+                `(Post.author == me) | (Post.region == "EU")`, column-to-column comparisons
+                or subqueries.
             **kwargs: Additional filters to identify the record(s) to delete, supporting advanced comparison operators for refined querying.
 
         Raises:
-            ValueError: If no filters are provided and db_row is None (to prevent accidental deletion of all records).
+            ValueError: If no filters are provided and db_row is None (to prevent accidental deletion of all records). `where=true()` deletes them all.
             MultipleResultsFound: If `allow_multiple` is `False` and more than one record matches the filters.
             NoResultFound: If no record matches the filters.
 
@@ -3089,8 +3761,13 @@ class FastCRUD(
         if filters:
             combined_filters.update(filters.model_dump(exclude_unset=True))
         combined_filters.update(kwargs)
+        refuse_hidden_input(
+            self.policy, self.model, filters=combined_filters, where=where
+        )
 
         if db_row:
+            if not await row_in_reach(db, self.model, db_row, self._reach("delete")):
+                raise NoResultFound("No record found to delete.")
             has_soft_delete = hasattr(db_row, self.is_deleted_column) and hasattr(
                 db_row, self.deleted_at_column
             )
@@ -3103,16 +3780,22 @@ class FastCRUD(
                 await db.commit()
             return
 
-        if not combined_filters:
-            raise ValueError(
-                "No filters provided. To prevent accidental deletion of all records, at least one filter must be specified."
-            )
+        reach = self._reach("delete")
+        parsed_filters = self._filter_processor.parse_filters(
+            where=where, **combined_filters
+        )
+        refuse_without_filters(parsed_filters, "delete")
+        parsed_filters = [*parsed_filters, *reach]
+        refuse_a_cartesian_product(select(self.model).where(*parsed_filters))
 
         await validate_update_delete_operation(
-            self.count, db, allow_multiple, "delete", **combined_filters
+            partial(self._count_in_reach, reach=reach),
+            db,
+            allow_multiple,
+            "delete",
+            where=where,
+            **combined_filters,
         )
-
-        parsed_filters = self._filter_processor.parse_filters(**combined_filters)
 
         update_values: dict[str, bool | datetime] = {}
         if self.deleted_at_column in self.model_col_names:

@@ -258,6 +258,10 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
         "GET",
         "/v1/workspaces/{}/canvas/experiments/{}",
     ): "dashboard home canvas; clients read lineage per entity",
+    ("GET", "/v1/projects/{}/canvas"): "dashboard project canvas; clients read lineage per entity",
+    # Where canvas boxes go by meaning: answered for the browser's own saved
+    # arrangement, which no client holds.
+    ("POST", "/v1/canvas/semantic-place"): "dashboard canvas placement; positions live in the browser",
     ("GET", "/v1/sessions/{}/receipts"): "authenticated operator receipt inspection; the capture producer uses the device-scoped endpoint",
     ("GET", "/ingest/v1/sessions/{}/{}/receipts"): "paired-device protocol, reached by tap_core.session_journal.Wire through urllib rather than the SDK transport",
     # PRB-011: this route is now `include_in_schema=False`, so it is absent from a

@@ -1,6 +1,8 @@
 """Not a stage: converts the final ParseState into a public ParsedName.
 
-Consumes: tokens (all roles set), dropped, ambiguities (by index).
+Consumes: tokens (all roles set), dropped, ambiguities (by index;
+one carrying ``field_tail`` is worded from its word's final role,
+#626).
 Produces: a validated ParsedName -- the constructor re-checks every
 invariant (span order/bounds, ambiguity subset), so a pipeline bug
 that would produce an invalid result dies HERE, not in a renderer
@@ -18,8 +20,10 @@ tests/v2/pipeline/test_assemble.py.
 """
 from __future__ import annotations
 
-from nameparser._pipeline._state import ParseState
-from nameparser._types import Ambiguity, ParsedName, Role, Token
+from nameparser._pipeline._state import FIELD_READING, ParseState
+from nameparser._types import (
+    Ambiguity, AmbiguityKind, ParsedName, Role, Token,
+)
 
 
 # rules.md#A2: "a name with no name content parses to the empty
@@ -81,8 +85,46 @@ def assemble(state: ParseState) -> ParsedName:
             # referents did not lose a contest, they were discarded
             # wholesale, and the report still describes the input.
             continue
-        ambiguities.append(
-            Ambiguity(pending.kind, pending.detail, materialized))
+        # rules.md#A1: "a report names the reading the parse took, so
+        # a report whose fork the rest of the parse then resolved to
+        # NEITHER branch is withdrawn rather than carried beside a
+        # reading it contradicts". classify's connective-or-initial
+        # fork offers exactly two readings and its detail says which
+        # it took ("it is read as an initial"); a generation and an
+        # honorific are neither. So where the parse goes on to role
+        # that letter SUFFIX or TITLE the report is false on its
+        # face, and 'JOHN QUINCY SMITH I' carried it beside a
+        # suffix-or-name saying the same token reads as a
+        # generational suffix (#397 second review). 'i' is the first
+        # word that is both a marked connective and suffix
+        # vocabulary, so no parse before this cycle could reach the
+        # shape.
+        #
+        # WITHDRAWN HERE and not emitted later, which is the narrow
+        # reading of mechanisms.md#AMBIGUITY-AT-THE-DECISION-SITE
+        # rather than an exception to it: "Emit at the site that
+        # takes the branch, not where an ambiguous tag sits" governs
+        # the EMISSION, classify still owns the fork, and what this
+        # drops is a report whose subject the parse went on to read
+        # as something else. Here is the one place that knows --
+        # roles are final and nothing downstream moves them -- and
+        # the loop already withdraws a report whose referents did not
+        # survive, just above.
+        if (pending.kind is AmbiguityKind.CONJUNCTION_OR_INITIAL
+                and any(t.role in (Role.SUFFIX, Role.TITLE)
+                        for t in materialized)):
+            continue
+        detail = pending.detail
+        if pending.field_tail is not None:
+            # A report naming a field, in a name emptied above (no
+            # emitter of one reaches that today: every referent is a
+            # name word): no field is left to name, so it goes rather
+            # than ship the sentence's first half.
+            if not materialized:
+                continue
+            detail = (f"{detail}{FIELD_READING[materialized[0].role]}"
+                      f"{pending.field_tail}")
+        ambiguities.append(Ambiguity(pending.kind, detail, materialized))
     return ParsedName(original=state.original,
                       tokens=tuple(final.values()),
                       ambiguities=tuple(ambiguities))

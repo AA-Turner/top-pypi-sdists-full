@@ -1,7 +1,10 @@
+pub(crate) mod binding_locations;
 mod catalog;
 pub(crate) mod conversions;
+pub(crate) mod explicit_references;
 pub(crate) mod normalization;
 pub(crate) mod normalization_results;
 mod positions;
 pub(crate) mod queries;
+pub(crate) mod relation_names;
 pub(crate) mod sql_tests;

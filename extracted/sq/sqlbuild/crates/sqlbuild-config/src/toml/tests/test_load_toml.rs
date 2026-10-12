@@ -2,7 +2,50 @@ use crate::errors::ConfigErrorKind;
 use crate::models::{ConfigDate, ConfigDateTime, ConfigTime, ConfigValue};
 use crate::toml::main::load_toml::load_toml;
 use crate::toml::tests::helpers::table;
-use crate::toml::tests::test_types::{HostileTomlTestCase, LoadTomlTestCase};
+use crate::toml::tests::test_types::{
+    DeepTomlTestCase, HostileTomlTestCase, LoadTomlTestCase, TomlErrorPositionTestCase,
+};
+
+#[test]
+fn given_invalid_toml_when_loading_then_error_reports_line_and_character_column() {
+    let test_cases = [
+        TomlErrorPositionTestCase {
+            description: "an unclosed table header points into the header line",
+            text: "name = \"orders\"\n\n[settings\nsql_analysis = true\n".to_owned(),
+            expected_position: (Some(3), Some(10)),
+        },
+        TomlErrorPositionTestCase {
+            description: "a leading byte order mark does not shift first-line columns",
+            text: "\u{feff}a = 1 x".to_owned(),
+            expected_position: (Some(1), Some(5)),
+        },
+        TomlErrorPositionTestCase {
+            description: "the same error without a byte order mark",
+            text: "a = 1 x".to_owned(),
+            expected_position: (Some(1), Some(5)),
+        },
+        TomlErrorPositionTestCase {
+            description: "columns count characters, not bytes, after multibyte text",
+            text: "label = \"café\" x\n".to_owned(),
+            expected_position: (Some(1), Some(16)),
+        },
+        TomlErrorPositionTestCase {
+            description: "nesting past the supported depth points at the container exceeding it",
+            text: format!("x = 1\nvalue = {}1{}\n", "[".repeat(70), "]".repeat(70)),
+            expected_position: (Some(2), Some(73)),
+        },
+    ];
+    for test_case in test_cases {
+        let error = load_toml(&test_case.text).expect_err(test_case.description);
+        assert_eq!(
+            (error.line, error.column),
+            test_case.expected_position,
+            "{}: {}",
+            test_case.description,
+            error.message
+        );
+    }
+}
 
 #[test]
 fn given_toml_documents_when_loading_then_values_match_tomllib() {
@@ -27,6 +70,24 @@ fn given_toml_documents_when_loading_then_values_match_tomllib() {
                     )]),
                 ),
             ])),
+        },
+        LoadTomlTestCase {
+            description: "integers beyond 64 bits are rejected",
+            text: "a = 18_446_744_073_709_551_616",
+            expected_value: Err(ConfigErrorKind::Syntax),
+        },
+        LoadTomlTestCase {
+            description: "the 64-bit integer bounds are read exactly",
+            text: "a = 9223372036854775807\nb = -9223372036854775808",
+            expected_value: Ok(table(vec![
+                ("a", ConfigValue::Integer(i64::MAX)),
+                ("b", ConfigValue::Integer(i64::MIN)),
+            ])),
+        },
+        LoadTomlTestCase {
+            description: "an invalid integer literal stays a syntax error",
+            text: "a = 1__000000000000000000000",
+            expected_value: Err(ConfigErrorKind::Syntax),
         },
         LoadTomlTestCase {
             description: "implicit parent tables are created where first named",
@@ -209,9 +270,18 @@ fn given_toml_documents_when_loading_then_values_match_tomllib() {
             ])),
         },
         LoadTomlTestCase {
-            description: "a dotted key cannot reach into an array of tables",
+            description: "a dotted key under a table extends its array of tables' last element",
             text: "[[a.b]]\n[a]\nb.c.d = 1",
-            expected_value: Err(ConfigErrorKind::Syntax),
+            expected_value: Ok(table(vec![(
+                "a",
+                table(vec![(
+                    "b",
+                    ConfigValue::List(vec![table(vec![(
+                        "c",
+                        table(vec![("d", ConfigValue::Integer(1))]),
+                    )])]),
+                )]),
+            )])),
         },
         LoadTomlTestCase {
             description: "a two-segment dotted key cannot reach into an array of tables",
@@ -274,9 +344,9 @@ fn given_toml_documents_when_loading_then_values_match_tomllib() {
             )])),
         },
         LoadTomlTestCase {
-            description: "a byte order mark is rejected as tomllib rejects it",
+            description: "a leading byte order mark is ignored",
             text: "\u{feff}a = 1",
-            expected_value: Err(ConfigErrorKind::Syntax),
+            expected_value: Ok(table(vec![("a", ConfigValue::Integer(1))])),
         },
         LoadTomlTestCase {
             description: "CRLF line endings are normalized inside multi-line strings",
@@ -297,6 +367,11 @@ fn given_toml_documents_when_loading_then_values_match_tomllib() {
 #[test]
 fn given_hostile_toml_when_loading_then_native_reader_rejects_without_exhausting_the_stack() {
     let test_cases = [
+        HostileTomlTestCase {
+            description: "sixty-five nested arrays exceed the supported depth",
+            text: format!("a = {}1{}", "[".repeat(65), "]".repeat(65)),
+            expected_error: ConfigErrorKind::Syntax,
+        },
         HostileTomlTestCase {
             description: "ten thousand nested arrays",
             text: format!("a = {}{}", "[".repeat(10_000), "]".repeat(10_000)),
@@ -323,6 +398,37 @@ fn given_hostile_toml_when_loading_then_native_reader_rejects_without_exhausting
         assert_eq!(
             actual,
             Err(test_case.expected_error),
+            "{}",
+            test_case.description
+        );
+    }
+}
+
+#[test]
+fn given_values_nested_to_the_supported_depth_when_loading_then_values_are_kept() {
+    let test_cases = [
+        DeepTomlTestCase {
+            description: "sixty-four nested arrays",
+            text: format!("a = {}1{}\nb = 2", "[".repeat(64), "]".repeat(64)),
+            expected_value: (0..64).fold(ConfigValue::Integer(1), |inner, _| {
+                ConfigValue::List(vec![inner])
+            }),
+        },
+        DeepTomlTestCase {
+            description: "sixty-four nested inline tables",
+            text: format!("a = {}1{}\nb = 2", "{b = ".repeat(64), "}".repeat(64)),
+            expected_value: (0..63)
+                .fold(table(vec![("b", ConfigValue::Integer(1))]), |inner, _| {
+                    table(vec![("b", inner)])
+                }),
+        },
+    ];
+    for test_case in test_cases {
+        let loaded = load_toml(&test_case.text).map(|value| value.get("a").cloned());
+
+        assert_eq!(
+            loaded,
+            Ok(Some(test_case.expected_value)),
             "{}",
             test_case.description
         );

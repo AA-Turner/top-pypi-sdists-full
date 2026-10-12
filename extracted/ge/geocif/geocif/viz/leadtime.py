@@ -47,13 +47,13 @@ PRED = "Predicted Yield (tn per ha)"
 # Baselines fit on absolute yield with no EO input -> flat across stages.
 BASELINES = ("trend", "null")
 # Drawn as curves, in a fixed order so colors are stable across figures.
-ML_ORDER = ("tabpfn", "cubist", "catboost")
+ML_ORDER = ("tabpfn", "cubist", "catboost", "kumo")
 
 _MONTH_NUM = {m: i + 1 for i, m in enumerate(_MONTHS)}
 
 # CVD-safe, distinguishable in grayscale by marker as well as hue.
-COLORS = {"tabpfn": "#1f4e79", "cubist": "#c1666b", "catboost": "#3f8f5b"}
-MARKERS = {"tabpfn": "o", "cubist": "s", "catboost": "^"}
+COLORS = {"tabpfn": "#1f4e79", "cubist": "#c1666b", "catboost": "#3f8f5b", "kumo": "#d08c2b"}
+MARKERS = {"tabpfn": "o", "cubist": "s", "catboost": "^", "kumo": "D"}
 BASE_STYLE = {"trend": ("#7a6a9b", (0, (6, 3))), "null": ("#8a8a8a", (0, (2, 2)))}
 
 METRICS = [
@@ -84,6 +84,24 @@ def _asof_month(stage_name, swd):
         if left in _MONTH_NUM:
             return _MONTH_NUM[left]
     return None
+
+
+def _season_order(months):
+    """Calendar month -> position on a season-ordered axis.
+
+    A season that crosses the new year (poppy: Oct-Aug) otherwise plots
+    Oct-Dec to the right of August. The season starts at the first month
+    after the largest gap between the months present; months earlier in the
+    calendar than that start get +12 (January after December becomes 13).
+    Labels read ``_MONTHS[(x - 1) % 12]``. A season within one calendar year
+    (or all twelve months) keeps calendar order.
+    """
+    present = sorted({int(m) for m in months})
+    if len(present) < 2:
+        return {m: m for m in present}
+    gaps = [((present[(i + 1) % len(present)] - m) % 12, i) for i, m in enumerate(present)]
+    start = present[(max(gaps)[1] + 1) % len(present)]
+    return {m: m if m >= start else m + 12 for m in present}
 
 
 def load(db_path, table):
@@ -126,6 +144,8 @@ def prepare(df, min_region_frac=0.5):
             "month-window stages (run_time_steps=all), not pre-season labels."
         )
     df["asof"] = df["asof"].astype(int)
+    # season order, so a season crossing the new year plots Oct..Aug, not Jan..Dec
+    df["asof"] = df["asof"].map(_season_order(df["asof"]))
 
     # common (region, year) sample across stages AND models
     common, per_model = common_pairs_across_models(df)
@@ -180,7 +200,7 @@ def score(df, national=False):
             obs, pred = g[OBS].values, g[PRED].values
             n = len(g)
         rmse, mape, r2 = _metrics(obs, pred)
-        rows.append({"stage": stage, "asof": asof, "asof_month": _MONTHS[asof - 1],
+        rows.append({"stage": stage, "asof": asof, "asof_month": _MONTHS[(asof - 1) % 12],
                      "Model": model, "RMSE": rmse, "MAPE": mape, "R2": r2, "n": n})
     out = pd.DataFrame(rows)
     return out.sort_values(["asof", "Model"]).reset_index(drop=True)
@@ -233,7 +253,7 @@ def plot_metric(tab, metric, ylabel, higher_better, title, out_stem, units="Mg/h
         # had no legend entry and so was undiscoverable. That information now
         # lives in one clearly-labelled place: plot_crossings().
         ax.set_xticks(xs_all)
-        ax.set_xticklabels([_MONTHS[x - 1] for x in xs_all], fontsize=9)
+        ax.set_xticklabels([_MONTHS[(x - 1) % 12] for x in xs_all], fontsize=9)
         ax.set_xlabel("Forecast issue month (EO data through end of month)", fontsize=10)
         ax.set_ylabel(ylabel.format(units=units), fontsize=10)
         ax.tick_params(labelsize=9)
@@ -366,7 +386,7 @@ def plot_crossings(cross, out_stem, agg):
         ax.set_yticks([], minor=True)
         ax.set_xticks(list(range(lo, hi + 1)))
         ax.set_xticks([], minor=True)
-        ax.set_xticklabels([_MONTHS[x - 1] for x in range(lo, hi + 1)], fontsize=9)
+        ax.set_xticklabels([_MONTHS[(x - 1) % 12] for x in range(lo, hi + 1)], fontsize=9)
         ax.set_xlim(lo - 0.45, hi + (1.7 if any_never else 0.45))
         ax.set_xlabel("First forecast issue month beating the baseline "
                       "(EO data through end of month)", fontsize=10)
@@ -441,7 +461,7 @@ def run(db, out_dir, tables=None, units="Mg/ha"):
                     bv = float(s.median())
                     for m in [x for x in ML_ORDER if x in set(tab["Model"])]:
                         x = _crossings(tab[tab["Model"] == m], col, bv, hb)
-                        bits.append(f"{m}>{b}:{_MONTHS[x-1] if x else 'never'}")
+                        bits.append(f"{m}>{b}:{_MONTHS[(x - 1) % 12] if x else 'never'}")
                 print(f"  [{agg}] {col:4s} crossings — " + "  ".join(bits))
 
     # cross-crop crossing summary, one figure + CSV per aggregation
@@ -456,7 +476,7 @@ def run(db, out_dir, tables=None, units="Mg/ha"):
         out = cross.copy()
         for c in ("cross_r2", "cross_rmse", "cross_mape", "cross_min", "cross_max"):
             out[c + "_month"] = [
-                _MONTHS[int(v) - 1] if pd.notna(v) else "never" for v in cross[c]
+                _MONTHS[(int(v) - 1) % 12] if pd.notna(v) else "never" for v in cross[c]
             ]
         out.to_csv(csv, index=False)
         written.append(csv)

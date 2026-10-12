@@ -13,7 +13,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -35,8 +34,8 @@ license-files = [
 ]
 name = "django-bootstrap5"
 readme = "README.md"
-requires-python = ">=3.10"
-version = "26.3"
+requires-python = ">=3.11"
+version = "26.4"
 
 [[project.authors]]
 name = "Dylan Verheul"
@@ -97,6 +96,7 @@ package = [
 ]
 
 [tool.coverage.report]
+fail_under = 100
 show_missing = true
 skip_covered = true
 
@@ -136,7 +136,6 @@ docs = [
     "sphinx>=7.1.2",
 ]
 test = [
-    "coverage[toml]>=7.6.1",
     "beautifulsoup4>=4.12.3",
     "coverage[toml]>=7.6.1",
     "pillow>=11.0.0",

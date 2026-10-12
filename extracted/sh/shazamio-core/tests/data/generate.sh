@@ -1,23 +1,45 @@
 #!/usr/bin/env bash
-# Regenerates the three probe files the golden fingerprint tests read.
+# Regenerates the probe files the golden fingerprint tests read.
 #
-# They are synthetic: two linear chirps plus four fixed tones, so they carry no
-# third-party licence and no attribution. Real music would carry both, and no
-# recording short enough to commit is free of either.
+# They are synthetic: chirps, fixed tones and a harmonic chord, so they carry no
+#  third-party licence and no attribution. Real music would carry both, and no
+#  recording short enough to commit is free of either.
 #
-# The content is chosen to survive lossy encoding: the chirps sweep across the
-# bands the fingerprint peaks in, and the fixed tones give every band a peak that
-# stays put. A plain sine wave yields a near-empty signature.
+# `probe.*` is the format matrix: one source encoded five ways, so every decoder
+#  path runs against identical audio. Its content is chosen to survive lossy
+#  encoding: the chirps sweep across the bands the fingerprint peaks in, and the
+#  fixed tones give every band a peak that stays put. A plain sine wave yields a
+#  near-empty signature.
 #
-# Re-running this reproduces `probe.mp3` and `probe.flac` byte for byte. It does
-# not reproduce `probe.ogg`: an Ogg stream carries a random serial number, so 80
-# of its 48330 bytes change per run. The decoded audio does not, and neither does
-# the fingerprint -- so `probe.flac.uri`, the one golden left, survives a
-# regeneration. Checked on ffmpeg 8.0.1; another build may re-encode differently,
-# and then the golden has to be rewritten alongside the audio.
+# `chord.flac` is what a change to decoding or resampling is judged on, because
+#  `probe.*` is the wrong signal for that. The probe's two channels carry different
+#  chirps, so a change to the downmix moves far more than it would on a stereo mix,
+#  and the higher of them only reaches the 3500 to 5500 Hz band in the last 1.65 s:
+#  `450+240*t` sweeps at twice `240`, so it ends at 4290 Hz. The chord carries the
+#  same partials in both channels, phase shifted, and holds that band for its whole
+#  length, up to 6.6 kHz.
+#
+# Re-running this reproduces every file byte for byte. Every encode passes
+#  `bitexact`, without which the Ogg muxer draws a random serial number and the
+#  Matroska one a random track UID on every run.
+#  https://github.com/FFmpeg/FFmpeg/blob/894da5ca7d742e4429ffb2af534fcda0103ef593/libavformat/oggenc.c#L485-L518
+#  https://github.com/FFmpeg/FFmpeg/blob/894da5ca7d742e4429ffb2af534fcda0103ef593/libavformat/matroskaenc.c#L3470-L3474
+#  Run it through `just regenerate`, never bare: the MP3, Vorbis and Opus files also
+#  depend on the encoder libraries built into `ffmpeg`, and Ubuntu's 8.0.1 writes
+#  all five of them differently from the static 8.0.1 the image pins.
 set -euo pipefail
 
 cd "$(dirname "$0")"
+
+# Errors only: the banner and the stream summary of every call bury a failure, and
+#  the diff after it in CI, under about 60 KB of log.
+#  `-cpuflags 0` keeps every DSP routine on its C version. The resampler picks its
+#  FMA3 code by CPU, which wrote other Opus bytes on the CI runner than locally.
+#  https://github.com/FFmpeg/FFmpeg/blob/894da5ca7d742e4429ffb2af534fcda0103ef593/libswresample/x86/resample_init.c#L72
+#  https://github.com/FFmpeg/FFmpeg/blob/894da5ca7d742e4429ffb2af534fcda0103ef593/fftools/opt_common.c#L1064-L1072
+ffmpeg() {
+  command ffmpeg -hide_banner -loglevel error -cpuflags 0 "$@"
+}
 
 ffmpeg -y -f lavfi -i "aevalsrc=\
 0.30*sin(2*PI*(300+180*t)*t)+0.22*sin(2*PI*1237*t)+0.16*sin(2*PI*3001*t)|\
@@ -25,7 +47,85 @@ ffmpeg -y -f lavfi -i "aevalsrc=\
 :s=44100:d=8" -c:a pcm_s16le probe.wav
 
 ffmpeg -y -i probe.wav -c:a libmp3lame -b:a 128k probe.mp3
-ffmpeg -y -i probe.wav -c:a libvorbis -b:a 96k probe.ogg
+ffmpeg -y -i probe.wav -c:a libvorbis -b:a 96k -flags:a +bitexact -fflags +bitexact probe.ogg
 ffmpeg -y -i probe.wav -c:a flac -compression_level 8 probe.flac
+ffmpeg -y -i probe.wav -c:a aac -b:a 128k probe.m4a
+# `-vbr constrained` because the default unconstrained VBR ignores `-b:a` on this
+#  signal and writes 185 kbps, four times the size of every other probe.
+ffmpeg -y -i probe.wav -c:a libopus -b:a 96k -vbr constrained -flags:a +bitexact -fflags +bitexact probe.opus
+
+# The same Opus in Matroska rather than in Ogg. Both carry the end padding, and only
+#  the Ogg reader applies it: the Matroska one reads `DiscardPadding` and drops it,
+#  so this file keeps the padding the `.opus` beside it loses.
+#  https://github.com/pdeljanov/Symphonia/blob/ee35874b571a35a9a6e15d3bc9a3aaf8f11fbeee/symphonia-format-mkv/src/segment.rs#L1187
+ffmpeg -y -i probe.wav -c:a libopus -b:a 96k -vbr constrained -flags:a +bitexact -fflags +bitexact matroska.webm
+
+# AC-3, which `symphonia` names and does not decode, alone and ahead of a FLAC track.
+#  `bitexact` fixes the Matroska track UIDs, so both files regenerate byte for byte.
+ffmpeg -y -f lavfi -i "sine=frequency=440:sample_rate=48000:duration=1" \
+  -c:a ac3 -flags:a +bitexact -fflags +bitexact ac3.mka
+ffmpeg -y -f lavfi -i "sine=frequency=440:sample_rate=48000:duration=1" \
+  -map 0:a -map 0:a -c:a:0 ac3 -c:a:1 flac -flags:a +bitexact -fflags +bitexact ac3_then_flac.mka
+
+# Six channels, which `libopus` decodes only through its multistream API: above two
+#  channels `OpusHead` carries mapping family 1 and a table of streams to channels.
+ffmpeg -y -i probe.wav -ac 6 -c:a libopus -b:a 128k -vbr constrained -flags:a +bitexact -fflags +bitexact \
+  surround.opus
+
+# A chained Ogg whose links agree on rate and channel count but decode into buffers
+#  of different widths: Vorbis holds 1024 frames at 16 kHz, the FLAC link after it
+#  1152. A decoder sizes its buffer once, so only a chain makes the buffer grow.
+ffmpeg -y -f lavfi -i "sine=frequency=440:sample_rate=16000:duration=1" \
+  -ac 2 -c:a libvorbis -flags:a +bitexact -fflags +bitexact chained_capacity_link1.ogg
+# `bitexact` numbers serials from 0 in each file, so the second link is offset to
+#  keep its serial apart from the first, as a random one was.
+ffmpeg -y -f lavfi -i "sine=frequency=660:sample_rate=16000:duration=1" \
+  -ac 2 -c:a flac -serial_offset 1 -flags:a +bitexact -fflags +bitexact -f ogg chained_capacity_link2.ogg
+cat chained_capacity_link1.ogg chained_capacity_link2.ogg > chained_capacity.ogg
+rm chained_capacity_link1.ogg chained_capacity_link2.ogg
 
 rm probe.wav
+
+# One file per codec the matrix above leaves out, each in the container that probes
+#  it. Half a second of a sine is enough: these prove the decoder runs and how long
+#  its output is, not what it fingerprints to.
+codec() {
+  local name="$1"
+  shift
+  ffmpeg -y -f lavfi -i "sine=frequency=440:sample_rate=44100:duration=0.5" "$@" \
+    -flags:a +bitexact -fflags +bitexact "$name"
+}
+codec pcm_f32.wav -c:a pcm_f32le
+codec pcm_s16.aiff -c:a pcm_s16be
+codec pcm_s24.caf -c:a pcm_s24le
+codec adpcm_ima.wav -c:a adpcm_ima_wav
+codec adpcm_ms.wav -c:a adpcm_ms
+codec alac.m4a -c:a alac
+codec mp2.mp2 -c:a mp2 -b:a 64k
+codec aac.aac -c:a aac -b:a 64k -f adts
+
+# One expression per channel of the chord. The right channel is phase shifted and
+#  has every third partial pulled down, which is what makes the two correlated
+#  without being identical.
+chord_side() {
+  awk -v phase="$1" -v tilt="$2" 'BEGIN {
+    count = split("110 165 220 275 330 440 550 660 880 1100 1320 1760 2200 2640 3300 4400 5500 6600", partials, " ")
+    for (number = 1; number <= count; number++) {
+      amplitude = 0.9 / number ^ 0.6 * (1 - tilt * ((number - 1) % 3))
+      printf "%s%.4f*sin(2*PI*%d*t+%s)", (number > 1 ? "+" : ""), amplitude, partials[number], phase
+    }
+  }'
+}
+
+# The chord is struck twice a second and decays, so the fingerprint has onsets to
+#  lock onto instead of one continuous tone.
+chord_envelope="(0.35+0.65*exp(-6*mod(t,0.5)))"
+
+ffmpeg -y -f lavfi -i "aevalsrc=exprs='\
+0.16*${chord_envelope}*($(chord_side 0 0))|\
+0.16*${chord_envelope}*($(chord_side 0.35 0.08))\
+':s=44100:d=8" -c:a pcm_s16le chord.wav
+
+ffmpeg -y -i chord.wav -c:a flac -compression_level 8 chord.flac
+
+rm chord.wav

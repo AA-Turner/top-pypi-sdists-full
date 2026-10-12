@@ -29,6 +29,24 @@ def _line(line: int | None) -> str:
     return "?" if line is None else str(line)
 
 
+def assignment_line(frame: dict) -> str:
+    """The source line of a ``line_events`` assignment frame, or ``?``."""
+    path = frame.get("path")
+    if not isinstance(path, str):
+        return "?"
+    try:
+        return _line(get_line_number_from_path(path))
+    except ValueError:
+        return "?"
+
+
+def unattached_assignment_label(frame: dict) -> str:
+    """Where an assignment outside any recorded call happened:
+    ``path:line qualname``."""
+    name = frame.get("qualname") or frame.get("co_name") or "<unknown>"
+    return f"{frame.get('path')} {name}"
+
+
 class ProcessedNode(ABC):
     def __init__(
         self,
@@ -152,6 +170,11 @@ class ProcessedNode(ABC):
         """Return the return value as a string. Subclasses can override."""
         return ""
 
+    def assignment_values(self) -> Iterator[str]:
+        """The node's recorded assignments (``line_events``), in order, as
+        ``line N: name = value`` strings. Subclasses can override."""
+        return iter(())
+
     def full_compact_tree_line(self, include_return_value: bool) -> str:
         """Generate the full compact representation line."""
 
@@ -168,9 +191,13 @@ class ProcessedNode(ABC):
         output = f"{indent}{idx} {core} {dur}"
 
         if include_return_value:
-            output += f"""
-{input_output_indent} ↪ {self.input_value()}
-{input_output_indent} ↩ {self.return_value()}"""
+            lines = [output, f"{input_output_indent} ↪ {self.input_value()}"]
+            lines.extend(
+                f"{input_output_indent} ≔ {assignment}"
+                for assignment in self.assignment_values()
+            )
+            lines.append(f"{input_output_indent} ↩ {self.return_value()}")
+            output = "\n".join(lines)
 
         return output
 
@@ -219,6 +246,11 @@ class FrameSpanNode(ProcessedNode):
             return ""
 
         return repr(return_value)
+
+    def assignment_values(self) -> Iterator[str]:
+        for frame in self.data.get("assignments", ()):
+            variable, value = frame["assign"]
+            yield f"line {assignment_line(frame)}: {variable} = {value!r}"
 
     def compact_tree_line(self) -> str:
         call_frame = self.data["call_frame"]

@@ -21,7 +21,9 @@ Ctrl-C before `Install ›` configures nothing and `--no-capture` still exists
 for scripts. Afterwards Probe comes off WHOLE, through Uninstall: the Settings
 screen used to turn tracking, capture and the instruction rules off one at a
 time, which is how a device ended up running the half a product this paragraph
-opens with. It keeps automatic updates, the one row that is not a part of Probe.
+opens with. It keeps automatic updates, the one row that is not a part of Probe,
+and the research plan review, which switches one routing line inside Probe's
+block rather than a part of Probe (`apply_plan_review`).
 
 The flag path is the CONTRACT and the screens are a front end over it (see
 `resolve_selection` for the truth table). CI, piped stdin and dumb terminals all
@@ -42,7 +44,16 @@ from probe._compat import StrEnum
 from pathlib import Path
 from urllib.parse import urlparse
 
-from probe.cli import agent_rules, autoupdate, claude_cli, codex_config, pi_config, plugin_cli, reasoning_summaries
+from probe.cli import (
+    agent_rules,
+    autoupdate,
+    claude_cli,
+    codex_config,
+    pi_config,
+    plugin_cli,
+    reasoning_summaries,
+    root_skills,
+)
 from probe.cli.capabilities import (
     CODEX_MCP_NAME,
     CODEX_TAP_PLUGIN_NAME,
@@ -2522,8 +2533,14 @@ def apply_tracking(want: bool, *, on_retry=None, keep_capture: bool | None = Non
             result = pi_config.set_tracking(True, daemon=daemon_records(selected))
         if not result.ok:
             messages.append(f"could not install {name}: {result.detail}")
+        else:
+            messages.extend(_apply_root_skills(selected, name))
         return [*messages, *(_pi_project_override(want=True) if pi else [])]
     result = uninstall_plugin(name, keep_capture=capture_stays) if pi else uninstall_plugin(name)
+    if result.ok:
+        # The plugin is the skills' source; with it gone they must go too, or the
+        # agent keeps naming a skill whose plugin no longer exists.
+        messages.extend(remove_root_skills(selected))
     if not result.ok:
         messages.append(f"could not uninstall {name}: {result.detail}")
     elif pi and capture_stays:
@@ -2664,6 +2681,94 @@ def apply_recorder_rules(source: str, value: str, rules: bool | None = None) -> 
     except (OSError, UnicodeDecodeError) as exc:
         return [f"! could not update {short_path(path)}: {exc}"]
     return []
+
+
+def remove_root_skills(source: str) -> list[str]:
+    """Prune Probe's skills when no plugin is left to do it.
+
+    A researcher who removes the plugin with `/plugin uninstall` leaves no hook
+    behind, so the copies in their own skills folder would never be refreshed or
+    removed again. Marker-bearing folders only, as everywhere else.
+    """
+    try:
+        return root_skills.remove(source)
+    except OSError as exc:
+        return [f"! could not remove Probe's skills: {exc}"]
+
+
+def _apply_root_skills(source: str, plugin: str) -> list[str]:
+    """Put the installed plugin's skills in the agent's own skills folder.
+
+    Claude Code only (the capability gates it); every other harness reads the
+    plugin's `agent-skills/` by manifest key and gets an empty list here. The
+    plugin stays the source: `root_skills_sync.py` on SessionStart keeps the
+    copies current, and this is the same work done at the moment of install so
+    the researcher does not have to start a second session to get their skills.
+    """
+    try:
+        return root_skills.apply(source, root_skills.installed_plugin_root(plugin))
+    except OSError as exc:
+        # Fail-open, the contract every other step in this wizard follows and
+        # the one the hook already had: an unwritable skills folder reported a
+        # PermissionError out of `apply_recorder` AFTER the new plugin was
+        # installed and BEFORE `write_recorder`, leaving both plugins present
+        # and the setting unwritten, with no message saying so.
+        return [f"! could not install Probe's skills: {exc}"]
+
+
+def apply_plan_review(on: bool) -> list[str]:
+    """The "Research plan review" row: save the setting, then re-render every
+    Probe block already on this device so the routing paragraph comes or goes
+    now, not at the next refresh.
+
+    An absent block stays absent (absent is that agent's opt-out, see
+    `apply_recorder_rules`), and a block a NEWER CLI wrote is left alone, the
+    same rule `refresh_pointer` keeps: rewriting it here would downgrade it.
+    Both say so, so the screen never reports a change it did not make.
+
+    Each block renders the PERSISTED setting, read under that file's lock, not
+    this call's `on`: two toggles racing would otherwise leave the last
+    renderer's value in a file while the config holds the other one. A write
+    that fails anyway is repaired by `refresh_pointer` at the next session
+    start or synced Stop.
+    """
+    from probe.harness import get_registry
+    from probe.sdk import session_marker
+    from probe.sdk.config import ConfigUnreadable
+
+    try:
+        session_marker.write_plan_review(on)
+    except (OSError, ValueError, ConfigUnreadable) as exc:
+        return [f"! could not set Research plan review: {exc}"]
+    lines = [f"Research plan review → {'on' if on else 'off'}"]
+    seen: set[Path] = set()
+    blocks = 0
+    for harness in get_registry().all():
+        try:
+            path = agent_rules.memory_path(harness.id)
+        except ValueError:
+            continue  # no instruction file Probe manages for this agent
+        if path in seen:
+            continue
+        seen.add(path)
+        try:
+            with _instruction_file_lock(path):
+                installed = agent_rules.installed_version(path)
+                if installed is None:
+                    continue
+                blocks += 1
+                if installed > agent_rules.POINTER_VERSION:
+                    lines.append(f"! left {short_path(path)} alone: a newer Probe CLI wrote it; set this there")
+                    continue
+                profile = agent_rules.installed_profile(path) or agent_rules.Profile.AGENT
+                agent_rules.install(path, block=agent_rules.render_block(profile=profile))
+        except agent_rules.DamagedBlock as exc:
+            lines.append(f"! left {short_path(path)} alone: {exc}")
+        except (OSError, UnicodeDecodeError) as exc:
+            lines.append(f"! could not update {short_path(path)}: {exc}")
+    if not blocks:
+        lines.append("! no agent on this device has Probe's instructions, so this changes nothing yet")
+    return lines
 
 
 @dataclass
@@ -2848,6 +2953,11 @@ def apply_recorder(caps: Capabilities, value: str, *, base_url: str, rules: bool
         result = install_plugin(want, source=source, on_retry=_may_retry)
         if not result.ok:
             return [*lines, f"! could not install {want} for {label}: {result.detail}", stopped]
+        # The two profiles ship different skills (8 vs 3). This installs the new
+        # plugin's set and prunes the other's: a `track-work` left behind on the
+        # daemon profile would have the agent record inline while the daemon
+        # records the same session.
+        lines.extend(_apply_root_skills(source, want))
     try:
         session_marker.write_recorder(source, value)
     except (OSError, ValueError, ConfigUnreadable) as exc:
@@ -4408,6 +4518,7 @@ class Setting(StrEnum):
     RECORDER_PI = "recorder_pi"
     RECORDER_KIMI_CODE = "recorder_kimi_code"
     REASONING_SUMMARIES = "reasoning_summaries"
+    PLAN_REVIEW = "plan_review"
 
 
 #: The "Who records" rows (daemon reads), one per coding agent with a daemon
@@ -4440,6 +4551,7 @@ SETTING_CAPABILITY: dict[Setting, Capability] = {
 #: lengthening one flat column.
 SETTINGS_GROUPS: tuple[tuple[str, tuple[Setting, ...]], ...] = (
     ("Updates", (Setting.AUTO_UPDATE,)),
+    ("Planning", (Setting.PLAN_REVIEW,)),
 )
 
 #: The daemon's page: Enter on the main menu's Who records row while the daemon
@@ -4464,6 +4576,13 @@ SETTINGS_COPY: dict[Setting, tuple[str, tuple[str, ...]]] = {
     Setting.AUTO_UPDATE: (
         "Automatic updates",
         ("Updates the CLI and plugins at session start.",),
+    ),
+    # On by default and offered only here, never during install (Richard
+    # 2026-10-11): the routing line in each Probe block that runs the
+    # `plan-research-review` skill unasked (`apply_plan_review`).
+    Setting.PLAN_REVIEW: (
+        "Research plan review",
+        ("Your agent plans with you before writing research code.",),
     ),
     Setting.TRACKING_DEFAULT: (
         "Probe in new sessions",
@@ -4715,6 +4834,7 @@ def read_settings(caps_by_source: dict | None = None) -> dict[Setting, bool]:
         # the row is drawn, so the registry check always has a value.
         **{setting: session_marker.recorder(source) for setting, source in RECORDER_SETTINGS.items()},
         Setting.REASONING_SUMMARIES: reasoning_summaries.row_on(reasoning_sources(caps_by_source)),
+        Setting.PLAN_REVIEW: session_marker.plan_review_on(),
     }
     if caps_by_source is not None:
         values.update(capability_settings_state(caps_by_source))
@@ -4777,6 +4897,8 @@ def apply_settings(
             lines.append(f"Probe in new sessions → {session_marker.state_label(state)}")
         elif setting is Setting.REASONING_SUMMARIES:
             lines.extend(reasoning_summaries.set_explicit(bool(value), reasoning_sources(caps_by_source)))
+        elif setting is Setting.PLAN_REVIEW:
+            lines.extend(apply_plan_review(bool(value)))
         else:
             raise AssertionError(f"apply_settings has no writer for {setting!r}")
     return lines
@@ -4904,8 +5026,8 @@ def run_settings_menu(
     """The settings screen: the install panels' shape, pointed at what is left.
 
     Checkbox rows, ticked = on, grouped under headings like every other panel:
-    Automatic updates, and -- when offered -- the "Who records" rows, which
-    CYCLE rather than tick (`agent` <-> `daemon`, one state per press). Nothing
+    Automatic updates and Research plan review; a page handed `groups` draws its
+    own rows, and a cycling row CYCLES rather than ticks (one state per press). Nothing
     is written while you press -- `→` on the `Set settings ›` band is the
     commit, and so is LEAVING: `←`/Escape after a change applies it too. They
     used to drop it without a word, and a researcher who switched a row and
@@ -4942,8 +5064,8 @@ def run_settings_menu(
     message = tui.framed(*frame) if frame is not None else tui.framed(
         "Settings on this device:",
         [
-            f"  {SETTINGS_COPY[Setting.AUTO_UPDATE][0]:<28} "
-            f"{'on' if current[Setting.AUTO_UPDATE] else 'off'}"
+            f"  {SETTINGS_COPY[setting][0]:<28} {'on' if current[setting] else 'off'}"
+            for setting in (Setting.AUTO_UPDATE, Setting.PLAN_REVIEW)
         ],
         "How should this device behave?",
     )

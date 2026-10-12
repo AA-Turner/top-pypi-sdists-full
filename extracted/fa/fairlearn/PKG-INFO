@@ -1,35 +1,25 @@
 Metadata-Version: 2.4
 Name: fairlearn
-Version: 0.14.0
+Version: 0.15.0
 Summary: A Python package to assess and improve fairness of machine learning models.
-Home-page: https://github.com/fairlearn/fairlearn
 Author: Miroslav Dudik, Richard Edgar, Adrin Jalali, Roman Lutz, Michael Madaio, Hilde Weerts, Allie Saizan, Tamara Atanasoska, Tahar Allouche
-Author-email: fairlearn-internal@python.org
-Classifier: Programming Language :: Python :: 3.10
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/fairlearn/fairlearn
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 3 - Alpha
-Requires-Python: >=3.10
-Description-Content-Type: text/markdown
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: narwhals>=1.14.0
 Requires-Dist: numpy>=1.24.4
 Requires-Dist: pandas>=2.0.3
-Requires-Dist: scikit-learn>=1.5.0
+Requires-Dist: scikit-learn>=1.6.0
 Requires-Dist: scipy>=1.9.3
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 |MIT license| |PyPI| |Discord| |StackOverflow|
 
@@ -101,18 +91,18 @@ The Fairlearn Python package has two components:
    along a variety of fairness definitions.
 
 Fairlearn metrics
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 Check out our in-depth `guide on the Fairlearn metrics <https://fairlearn.org/main/user_guide/assessment>`__.
 
 Fairlearn algorithms
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 For an overview of our algorithms please refer to our
 `website <https://fairlearn.org/main/user_guide/mitigation/index.html>`__.
 
 Getting Started with Fairlearn
------------------------------
+------------------------------
 
 First steps
 ~~~~~~~~~~~
@@ -129,10 +119,10 @@ First steps
 
 
 For Users & Practitioners
-~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Browse the `example gallery <https://fairlearn.org/main/auto_examples/index.html>`__. 
-Please note that notebooks downloaded from `main` may not be compatible with pip-installed versions.
+- Browse the `example gallery <https://fairlearn.org/main/auto_examples/index.html>`__.
+  Please note that notebooks downloaded from `main` may not be compatible with pip-installed versions.
 
 - Check the `API reference <https://fairlearn.org/main/api_reference/index.html>`__.
 
@@ -143,7 +133,7 @@ Please note that notebooks downloaded from `main` may not be compatible with pip
   - Join the `Discord community <https://discord.gg/R22yCfgsRn>`__ for discussions.
 
 For Contributors
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 - Read the `contributor guide <https://fairlearn.org/main/contributor_guide/index.html>`__.
 

@@ -63,8 +63,8 @@ DB_REQUIREMENTS = {
         {"key": "AiSettingProfile", "table": "ai.setting_profile"},
         {"key": "AiTranslationCell", "table": "ai.translation_cell"},
         {"key": "AiOfferingRulesCompiled", "view": "ai.offering_rules_compiled"},
-        # skill.render_definition — the canonical block table (content_blocks retired).
-        {"key": "RenderDefinition", "table": "skill.render_definition"},
+        # agent.prompt_block — the canonical block table (skill.render_definition retired).
+        {"key": "PromptBlock", "table": "agent.prompt_block"},
         # platform — the judge accuracy ledger (matrx_ai.evaluators.judge).
         {"key": "JudgeVerdict", "table": "platform.judge_verdict"},
         # public.
@@ -151,10 +151,5 @@ DB_REQUIREMENTS = {
         {"keys": ["mcp_config_manager_instance", "tool_mcp_config_manager_instance"], "table": "tool.mcp_config"},
     ],
     "extras": [
-        {
-            "key": "RenderDefinitionDTO",
-            "import_from": "db.managers.skill.render_definition",
-            "symbol": "RenderDefinitionDTO",
-        },
     ],
 }

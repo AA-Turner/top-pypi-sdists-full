@@ -4,8 +4,18 @@
 #include "pikepdf.h"
 #include "utils.h"
 
+#include <algorithm>
+#include <cerrno>
+#include <climits>
 #include <cstdio>
 #include <cstring>
+
+#ifdef _WIN32
+#    include <io.h>
+#else
+#    include <sys/stat.h>
+#    include <unistd.h>
+#endif
 
 #include <qpdf/Constants.h>
 #include <qpdf/DLL.h>
@@ -14,6 +24,33 @@
 #include <qpdf/QPDFExc.hh>
 #include <qpdf/QUtil.hh>
 #include <qpdf/Types.h>
+
+// Close a stream that an input source owns, from the input source's destructor.
+inline void close_owned_stream(py::object &stream)
+{
+    py::gil_scoped_acquire gil;
+    // A Pdf may be deallocated while a Python exception is still propagating,
+    // e.g. when it is dropped from a partially built list literal during
+    // unwind (issue #732). Save and clear that in-flight error before calling
+    // back into Python: otherwise close() observes it (CPython raises
+    // "returned a result with an exception set") and the resulting exception
+    // escaping this destructor calls std::terminate. error_scope is declared
+    // at function scope so it restores the original error *after* the handlers
+    // below run, letting it resume propagating normally.
+    py::error_scope save_in_flight_error;
+    try {
+        if (py::hasattr(stream, "close"))
+            stream.attr("close")();
+    } catch (py::python_error &e) {
+        e.restore();
+        PyErr_WriteUnraisable(nullptr);
+    } catch (const std::runtime_error &e) {
+        if (!str_startswith(e.what(), "StopIteration"))
+            std::cerr << "Exception in " << __func__ << ": " << e.what();
+    } catch (...) {
+        // A destructor must never let an exception escape.
+    }
+}
 
 // GIL usage:
 // The GIL must be held while this class is constructed, by the constructor's caller,
@@ -29,66 +66,45 @@
 class PythonStreamInputSource : public InputSource {
 public:
     PythonStreamInputSource(const py::object &stream, std::string name, bool close)
-        : name(name), close(close)
+        : name_(name), close_(close)
     {
         py::gil_scoped_acquire gil; // GIL must be held anyway, issue #295
-        this->stream = stream;
-        if (!py::cast<bool>(this->stream.attr("readable")()))
+        stream_ = stream;
+        if (!py::cast<bool>(stream_.attr("readable")()))
             throw py::value_error("not readable");
-        if (!py::cast<bool>(this->stream.attr("seekable")()))
+        if (!py::cast<bool>(stream_.attr("seekable")()))
             throw py::value_error("not seekable");
     }
     virtual ~PythonStreamInputSource()
     {
-        if (!this->close)
+        if (!close_)
             return;
-        py::gil_scoped_acquire gil;
-        // A Pdf may be deallocated while a Python exception is still propagating,
-        // e.g. when it is dropped from a partially built list literal during
-        // unwind (issue #732). Save and clear that in-flight error before calling
-        // back into Python: otherwise close() observes it (CPython raises
-        // "returned a result with an exception set") and the resulting exception
-        // escaping this destructor calls std::terminate. error_scope is declared
-        // at function scope so it restores the original error *after* the handlers
-        // below run, letting it resume propagating normally.
-        py::error_scope save_in_flight_error;
-        try {
-            if (py::hasattr(this->stream, "close"))
-                this->stream.attr("close")();
-        } catch (py::python_error &e) {
-            e.restore();
-            PyErr_WriteUnraisable(nullptr);
-        } catch (const std::runtime_error &e) {
-            if (!str_startswith(e.what(), "StopIteration"))
-                std::cerr << "Exception in " << __func__ << ": " << e.what();
-        } catch (...) {
-            // A destructor must never let an exception escape.
-        }
+        close_owned_stream(stream_);
     }
     PythonStreamInputSource(const PythonStreamInputSource &) = delete;
     PythonStreamInputSource &operator=(const PythonStreamInputSource &) = delete;
     PythonStreamInputSource(PythonStreamInputSource &&) = default;
     PythonStreamInputSource &operator=(PythonStreamInputSource &&) = delete;
 
-    std::string const &getName() const override { return this->name; }
+    std::string const &getName() const override { return name_; }
 
     qpdf_offset_t tell() override
     {
         py::gil_scoped_acquire gil;
-        return py::cast<qpdf_offset_t>(this->stream.attr("tell")());
+        return py::cast<qpdf_offset_t>(stream_.attr("tell")());
     }
 
     void seek(qpdf_offset_t offset, int whence) override
     {
         py::gil_scoped_acquire gil;
-        this->stream.attr("seek")(offset, whence);
+        stream_.attr("seek")(offset, whence);
     }
 
     // LCOV_EXCL_START
     void rewind() override
     {
         // qpdf never seems to use this but still requires
-        this->seek(0, SEEK_SET);
+        seek(0, SEEK_SET);
     }
     // LCOV_EXCL_STOP
 
@@ -96,36 +112,31 @@ public:
     {
         py::gil_scoped_acquire gil;
 
-#if defined(PYPY_VERSION)
-        // PyPy does not permit readinto(memoryview), so read to a buffer and
-        // memcpy that buffer. Error message is:
-        // "TypeError: a read-write bytes-like object is required, not memoryview"
-        this->last_offset = this->tell();
-        py::bytes result = this->stream.attr("read")(length);
-        const char *data = PyBytes_AsString(result.ptr());
-        Py_ssize_t bytes_read = PyBytes_Size(result.ptr());
-
-        memcpy(buffer, data, std::min(length, static_cast<size_t>(bytes_read)));
-#else
-        auto view_buffer_info = py::steal<py::object>(
+        auto view = py::steal<py::object>(
             py::handle(PyMemoryView_FromMemory(buffer, length, PyBUF_WRITE)));
-        this->last_offset = this->tell();
-        py::object result = this->stream.attr("readinto")(view_buffer_info);
+        last_offset = tell();
+        py::object result = stream_.attr("readinto")(view);
         if (result.is_none())
-            return 0;
+            throw py::value_error(
+                "Stream readinto() returned None; non-blocking streams are not "
+                "supported");
         size_t bytes_read = py::cast<size_t>(result);
-#endif
+        // qpdf trusts bytes_read bytes of buffer as valid, and the stream has
+        // likely consumed whatever it reported, so an over-report is an error
+        // rather than something to clamp (see also Pl_PythonOutput::write).
+        if (bytes_read > length)
+            throw py::value_error("Read more bytes than requested");
         if (bytes_read == 0) {
             if (length > 0) {
                 // EOF
-                this->seek(0, SEEK_END);
-                this->last_offset = this->tell();
+                seek(0, SEEK_END);
+                last_offset = tell();
             }
         }
         return bytes_read;
     }
 
-    void unreadCh(char ch) override { this->seek(-1, SEEK_CUR); }
+    void unreadCh(char ch) override { seek(-1, SEEK_CUR); }
 
     qpdf_offset_t findAndSkipNextEOL() override
     {
@@ -137,10 +148,10 @@ public:
         std::string line_endings = "\r\n";
 
         while (true) {
-            qpdf_offset_t cur_offset = this->tell();
-            size_t len = this->read(rawbuf, sizeof(rawbuf));
+            qpdf_offset_t cur_offset = tell();
+            size_t len = read(rawbuf, sizeof(rawbuf));
             if (len == 0) {
-                result = this->tell();
+                result = tell();
                 break;
             }
             std::string_view buf(rawbuf, len);
@@ -159,14 +170,200 @@ public:
                 continue;
             }
             result = cur_offset + found_end;
-            this->seek(result, SEEK_SET);
+            seek(result, SEEK_SET);
             break;
         }
         return result;
     }
 
 private:
-    py::object stream;
-    std::string name;
-    bool close;
+    py::object stream_;
+    std::string name_;
+    bool close_;
+};
+
+// Reads a file descriptor without calling into Python, so it neither needs nor
+// touches the GIL. Used only when pikepdf itself opened the file: the Python
+// stream is kept so that it owns the descriptor and closes it, but is not
+// otherwise used.
+//
+// The position is tracked here and reads are positioned, so the descriptor's
+// own file position is never relied on. qpdf makes many small reads, often
+// preceded by a seek, so reads go through a buffer, and seeking within the
+// buffered range costs nothing.
+class FdInputSource : public InputSource {
+public:
+    FdInputSource(const py::object &stream, int fd, std::string name)
+        : stream_(stream), fd_(fd), name_(name), buffer_(new char[buffer_size])
+    {
+    }
+    virtual ~FdInputSource() { close_owned_stream(stream_); }
+    FdInputSource(const FdInputSource &) = delete;
+    FdInputSource &operator=(const FdInputSource &) = delete;
+    FdInputSource(FdInputSource &&) = delete;
+    FdInputSource &operator=(FdInputSource &&) = delete;
+
+    std::string const &getName() const override { return name_; }
+
+    qpdf_offset_t tell() override { return pos_; }
+
+    void seek(qpdf_offset_t offset, int whence) override
+    {
+        qpdf_offset_t base = 0;
+        switch (whence) {
+        case SEEK_SET:
+            break;
+        case SEEK_CUR:
+            base = pos_;
+            break;
+        case SEEK_END:
+            base = file_size();
+            break;
+        default:
+            // LCOV_EXCL_START
+            throw std::logic_error("FdInputSource: invalid whence");
+            // LCOV_EXCL_STOP
+        }
+        if (base + offset < 0) {
+            errno = EINVAL;
+            QUtil::throw_system_error(name_);
+        }
+        pos_ = base + offset;
+    }
+
+    // LCOV_EXCL_START
+    void rewind() override
+    {
+        // qpdf never seems to use this but still requires
+        seek(0, SEEK_SET);
+    }
+    // LCOV_EXCL_STOP
+
+    size_t read(char *out, size_t length) override
+    {
+        last_offset = pos_;
+        size_t so_far = copy_from_buffer(out, length);
+        if (so_far < length) {
+            auto remaining = length - so_far;
+            if (remaining >= buffer_size) {
+                so_far += read_at(out + so_far, remaining, pos_);
+                pos_ = last_offset + static_cast<qpdf_offset_t>(so_far);
+            } else {
+                buf_start_ = pos_;
+                buf_len_ = 0; // In case the read throws
+                buf_len_ = read_at(buffer_.get(), buffer_size, pos_);
+                so_far += copy_from_buffer(out + so_far, remaining);
+            }
+        }
+        if (so_far == 0 && length > 0) {
+            // EOF
+            pos_ = file_size();
+            last_offset = pos_;
+        }
+        return so_far;
+    }
+
+    void unreadCh(char ch) override { seek(-1, SEEK_CUR); }
+
+    qpdf_offset_t findAndSkipNextEOL() override
+    {
+        bool in_eol = false;
+        while (true) {
+            if (!buffered(pos_)) {
+                char ch;
+                if (read(&ch, 1) == 0)
+                    return pos_;
+                pos_--;
+            }
+            const char *start = buffer_.get() + (pos_ - buf_start_);
+            const char *end = buffer_.get() + buf_len_;
+            auto is_eol = [](char ch) { return ch == '\r' || ch == '\n'; };
+            const char *p = start;
+            if (!in_eol) {
+                p = std::find_if(p, end, is_eol);
+                in_eol = (p != end);
+            }
+            if (in_eol) {
+                p = std::find_if_not(p, end, is_eol);
+                if (p != end) {
+                    pos_ += p - start;
+                    return pos_;
+                }
+            }
+            pos_ += end - start;
+        }
+    }
+
+private:
+    static constexpr size_t buffer_size = 16 * 1024;
+
+    bool buffered(qpdf_offset_t offset) const
+    {
+        return offset >= buf_start_ &&
+               offset < buf_start_ + static_cast<qpdf_offset_t>(buf_len_);
+    }
+
+    // Copy what the buffer holds at the current position, and advance past it.
+    size_t copy_from_buffer(char *out, size_t length)
+    {
+        if (!buffered(pos_))
+            return 0;
+        auto buf_offset = static_cast<size_t>(pos_ - buf_start_);
+        auto n = std::min(length, buf_len_ - buf_offset);
+        std::memcpy(out, buffer_.get() + buf_offset, n);
+        pos_ += static_cast<qpdf_offset_t>(n);
+        return n;
+    }
+
+    // Read until length bytes are read or the end of file is reached.
+    size_t read_at(char *out, size_t length, qpdf_offset_t offset)
+    {
+        size_t so_far = 0;
+        while (so_far < length) {
+            // qpdf reads a whole stream in one call, so length can exceed what
+            // a single read accepts: Windows takes an int, and macOS fails with
+            // EINVAL rather than reading short when asked for more than INT_MAX.
+            auto chunk = std::min<size_t>(length - so_far, INT_MAX);
+#ifdef _WIN32
+            if (::_lseeki64(fd_, offset, SEEK_SET) < 0)
+                QUtil::throw_system_error(name_);
+            auto count = ::_read(fd_, out + so_far, static_cast<unsigned int>(chunk));
+#else
+            auto count = ::pread(fd_, out + so_far, chunk, offset);
+#endif
+            if (count < 0) {
+                if (errno == EINTR)
+                    continue;
+                QUtil::throw_system_error(name_);
+            }
+            if (count == 0)
+                break;
+            so_far += static_cast<size_t>(count);
+            offset += count;
+        }
+        return so_far;
+    }
+
+    qpdf_offset_t file_size()
+    {
+#ifdef _WIN32
+        auto size = ::_filelengthi64(fd_);
+        if (size < 0)
+            QUtil::throw_system_error(name_);
+        return size;
+#else
+        struct stat st;
+        if (::fstat(fd_, &st) != 0)
+            QUtil::throw_system_error(name_);
+        return st.st_size;
+#endif
+    }
+
+    py::object stream_;
+    int fd_;
+    std::string name_;
+    std::unique_ptr<char[]> buffer_;
+    qpdf_offset_t buf_start_ = 0;
+    size_t buf_len_ = 0;
+    qpdf_offset_t pos_ = 0;
 };

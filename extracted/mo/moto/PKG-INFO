@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: moto
-Version: 5.2.3
+Version: 5.2.4
 Summary: A library that allows you to easily mock out tests based on AWS infrastructure
 Home-page: https://github.com/getmoto/moto
 Author: Steve Pulec
@@ -40,9 +40,7 @@ Requires-Dist: jsonschema; extra == "all"
 Requires-Dist: openapi-spec-validator>=0.5.0; extra == "all"
 Requires-Dist: pyparsing>=3.0.7; extra == "all"
 Requires-Dist: py-partiql-parser==0.6.3; extra == "all"
-Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "all"
-Requires-Dist: setuptools; extra == "all"
-Requires-Dist: multipart; extra == "all"
+Requires-Dist: aws-xray-sdk>=2.10.0; extra == "all"
 Provides-Extra: proxy
 Requires-Dist: antlr4-python3-runtime; extra == "proxy"
 Requires-Dist: joserfc>=0.9.0; extra == "proxy"
@@ -54,9 +52,7 @@ Requires-Dist: cfn-lint>=0.40.0; extra == "proxy"
 Requires-Dist: openapi-spec-validator>=0.5.0; extra == "proxy"
 Requires-Dist: pyparsing>=3.0.7; extra == "proxy"
 Requires-Dist: py-partiql-parser==0.6.3; extra == "proxy"
-Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "proxy"
-Requires-Dist: setuptools; extra == "proxy"
-Requires-Dist: multipart; extra == "proxy"
+Requires-Dist: aws-xray-sdk>=2.10.0; extra == "proxy"
 Provides-Extra: server
 Requires-Dist: antlr4-python3-runtime; extra == "server"
 Requires-Dist: joserfc>=0.9.0; extra == "server"
@@ -68,8 +64,7 @@ Requires-Dist: cfn-lint>=0.40.0; extra == "server"
 Requires-Dist: openapi-spec-validator>=0.5.0; extra == "server"
 Requires-Dist: pyparsing>=3.0.7; extra == "server"
 Requires-Dist: py-partiql-parser==0.6.3; extra == "server"
-Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "server"
-Requires-Dist: setuptools; extra == "server"
+Requires-Dist: aws-xray-sdk>=2.10.0; extra == "server"
 Requires-Dist: flask!=2.2.0,!=2.2.1; extra == "server"
 Requires-Dist: flask-cors; extra == "server"
 Provides-Extra: acm
@@ -106,8 +101,7 @@ Requires-Dist: cfn-lint>=0.40.0; extra == "cloudformation"
 Requires-Dist: openapi-spec-validator>=0.5.0; extra == "cloudformation"
 Requires-Dist: pyparsing>=3.0.7; extra == "cloudformation"
 Requires-Dist: py-partiql-parser==0.6.3; extra == "cloudformation"
-Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "cloudformation"
-Requires-Dist: setuptools; extra == "cloudformation"
+Requires-Dist: aws-xray-sdk>=2.10.0; extra == "cloudformation"
 Provides-Extra: cloudfront
 Provides-Extra: cloudtrail
 Provides-Extra: cloudwatch
@@ -231,8 +225,7 @@ Provides-Extra: timestreamwrite
 Provides-Extra: transcribe
 Provides-Extra: wafv2
 Provides-Extra: xray
-Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "xray"
-Requires-Dist: setuptools; extra == "xray"
+Requires-Dist: aws-xray-sdk>=2.10.0; extra == "xray"
 Dynamic: license-file
 
 # Moto - Mock AWS Services

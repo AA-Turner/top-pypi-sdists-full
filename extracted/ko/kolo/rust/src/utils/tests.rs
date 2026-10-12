@@ -880,6 +880,101 @@ fn test_direct_frame_line_number_matches_f_lineno() {
 }
 
 #[test]
+fn test_plugin_call_site_snapshot_preserves_tail_order_and_live_frames() {
+    Python::initialize();
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"import inspect\ndef caller():\n    yield inspect.currentframe()\n    yield inspect.currentframe()\ngenerator = caller()\nframe = next(generator)\n",
+            c"plugin_call_site_snapshot.py",
+            c"plugin_call_site_snapshot",
+        )
+        .expect("call-site fixture compiles");
+        let frame = module
+            .getattr("frame")
+            .expect("frame exists")
+            .cast_into::<PyFrame>()
+            .expect("frame is a frame");
+        let ids = [
+            FrameId::from_str("frm_00000000000000000000000001"),
+            FrameId::from_str("frm_00000000000000000000000002"),
+            FrameId::from_str("frm_00000000000000000000000003"),
+        ];
+        let mut call_frames = CallFrames::default();
+        assert!(
+            user_code_call_site(call_frames.snapshot_call_site_frames(py), "plugin")
+                .expect("empty stack is valid")
+                .is_none()
+        );
+        for id in &ids {
+            call_frames
+                .get_user_code_call_site(&frame, Event::Call, id, None)
+                .expect("native call appends a frame");
+            if id == &ids[0] {
+                assert_eq!(call_frames.snapshot_call_site_frames(py).len(), 1);
+                assert!(user_code_call_site(
+                    call_frames.snapshot_call_site_frames(py),
+                    id.as_str(),
+                )
+                .expect("single current frame is valid")
+                .is_none());
+            }
+        }
+        let snapshot = call_frames.snapshot_call_site_frames(py);
+        assert_eq!(snapshot.len(), 2);
+        assert_eq!(snapshot[0].1, ids[1].as_str());
+        assert_eq!(snapshot[1].1, ids[2].as_str());
+        call_frames
+            .get_user_code_call_site(&frame, Event::Return, &ids[2], None)
+            .expect("the active stack can change after a snapshot");
+        let after_exit = call_frames.snapshot_call_site_frames(py);
+        assert_eq!(after_exit.len(), 2);
+        assert_eq!(after_exit[0].1, ids[0].as_str());
+        assert_eq!(after_exit[1].1, ids[1].as_str());
+        drop(call_frames);
+        module
+            .getattr("generator")
+            .expect("generator exists")
+            .call_method0("__next__")
+            .expect("caller advances to the next line");
+        for (current_id, expected_id) in [("plugin", ids[2]), (ids[2].as_str(), ids[1])] {
+            let site = user_code_call_site(snapshot.clone(), current_id)
+                .expect("snapshot survives changes to the active stack")
+                .expect("snapshot has a caller")
+                .into_pydict(py);
+            assert_eq!(
+                site.get_item("call_frame_id")
+                    .unwrap()
+                    .unwrap()
+                    .extract::<&str>()
+                    .unwrap(),
+                expected_id.as_str(),
+            );
+            assert_eq!(
+                site.get_item("line_number")
+                    .unwrap()
+                    .unwrap()
+                    .extract::<i32>()
+                    .unwrap(),
+                4,
+            );
+        }
+
+        let mut call_frames = CallFrames::default();
+        for id in [&ids[0], &ids[1], &ids[1]] {
+            call_frames
+                .get_user_code_call_site(&frame, Event::Call, id, None)
+                .expect("native call appends a frame");
+        }
+        assert!(
+            user_code_call_site(call_frames.snapshot_call_site_frames(py), ids[1].as_str())
+                .expect("repeated current IDs are valid")
+                .is_none()
+        );
+    });
+}
+
+#[test]
 fn test_call_site_dicts_preserve_native_and_plugin_frame_ids() {
     Python::initialize();
     Python::attach(|py| {
@@ -2183,5 +2278,217 @@ fn test_max_value_mb_upper_bound_matches_python() {
             resolve(too_large / 2.0).expect("accepted"),
             Some(1usize << 62)
         );
+    });
+}
+
+#[test]
+fn test_assign_tuple_encoded_in_place_matches_python_at_every_extension_header_size() {
+    // The tuple is encoded behind a header reserved at its largest size and
+    // shrunk afterwards. Walk the payload across every header size msgpack
+    // has: fixext 4/8/16 and ext 8/16/32.
+    Python::initialize();
+
+    Python::attach(|py| {
+        let serializer = Serializer::new(py).expect("serializer loads");
+        let mut headers = std::collections::BTreeSet::new();
+        let lengths = (0..=40).chain(240..=260).chain(65_520..=65_540);
+        for len in lengths {
+            let value = PyString::new(py, &"x".repeat(len)).into_any();
+            let expected = python_assign_reference(py, &serializer, "v", &value, false)
+                .expect("Python reference serializes a str");
+            // After the `assign` key (a fixstr of 6 bytes).
+            headers.insert(expected[7]);
+            // The destination is non-empty, as a frame arena is.
+            let mut actual = vec![0xc0, 0xc3];
+            write_assign_tuple(&mut actual, &serializer, ("v", value), false, None)
+                .expect("a str encodes");
+            assert!(actual.starts_with(&[0xc0, 0xc3]));
+            assert_eq!(&actual[2..], expected, "str of {len} bytes");
+        }
+        let one_byte = 1_i64.into_pyobject(py).unwrap().into_any();
+        let expected = python_assign_reference(py, &serializer, "v", &one_byte, false).unwrap();
+        headers.insert(expected[7]);
+        let mut actual = Vec::new();
+        write_assign_tuple(&mut actual, &serializer, ("v", one_byte), false, None).unwrap();
+        assert_eq!(actual, expected);
+        assert_eq!(
+            headers.into_iter().collect::<Vec<_>>(),
+            [0xc7, 0xc8, 0xc9, 0xd6, 0xd7, 0xd8]
+        );
+    });
+}
+
+/// A line frame as it was written before its per-code fields were cached:
+/// every field formatted from the live frame with `rmp`.
+// Line events need sys.monitoring.
+#[cfg(Py_3_12)]
+fn reference_line_frame(
+    py: Python<'_>,
+    serializer: &Serializer,
+    frame: &Bound<'_, PyFrame>,
+    frame_id: Option<&str>,
+    timestamp: f64,
+    assign: (&str, &Bound<'_, PyAny>),
+) -> Vec<u8> {
+    let str_pair = |buf: &mut Vec<u8>, key: &str, value: Option<&str>| {
+        rmp::encode::write_str(buf, key).unwrap();
+        match value {
+            Some(value) => rmp::encode::write_str(buf, value).unwrap(),
+            None => rmp::encode::write_nil(buf).unwrap(),
+        }
+    };
+    let code = frame.getattr("f_code").unwrap();
+    let path = FramePathCache::new().format_frame_path(frame).unwrap();
+    let co_name = code.getattr("co_name").unwrap().extract::<String>().unwrap();
+    let qualname = get_qualname(frame, py).unwrap().unwrap();
+    let mut expected = Vec::new();
+    rmp::encode::write_map_len(&mut expected, 8).unwrap();
+    str_pair(&mut expected, "path", Some(&path));
+    str_pair(&mut expected, "co_name", Some(&co_name));
+    str_pair(&mut expected, "qualname", Some(&qualname));
+    str_pair(&mut expected, "event", Some("line"));
+    str_pair(&mut expected, "frame_id", frame_id);
+    rmp::encode::write_str(&mut expected, "timestamp").unwrap();
+    rmp::encode::write_f64(&mut expected, timestamp).unwrap();
+    str_pair(&mut expected, "type", Some("frame"));
+    expected.extend(
+        python_assign_reference(py, serializer, assign.0, assign.1, false)
+            .expect("reference assignment serializes"),
+    );
+    expected
+}
+
+#[cfg(Py_3_12)]
+#[test]
+fn test_line_frame_with_cached_code_fields_matches_per_frame_formatting() {
+    Python::initialize();
+
+    Python::attach(|py| {
+        // One code object run under different globals: an ordinary module
+        // name, none, a non-str, a str subclass, one with a lone surrogate
+        // and one long enough for a two-byte str header. The last frame has
+        // no line number.
+        let module = PyModule::from_code(
+            py,
+            c"import inspect, sys, types\nclass Name(str):\n    def __str__(self):\n        return 'from __str__'\ndef outer():\n    def target():\n        marker = 1\n        return sys._getframe()\n    return target\ntarget = outer()\nframes = [\n    types.FunctionType(target.__code__, namespace)()\n    for namespace in (\n        {'sys': sys, '__name__': 'package.module'},\n        {'sys': sys},\n        {'sys': sys, '__name__': 5},\n        {'sys': sys, '__name__': Name('subclass')},\n        {'sys': sys, '__name__': 'lone\\ud800surrogate'},\n        {'sys': sys, '__name__': 'm' * 300},\n    )\n]\ndef generator():\n    yield inspect.currentframe()\nframes.append(next(types.FunctionType(generator.__code__.replace(co_linetable=b''), globals())()))\nvalues = [1, 'x' * 300, [1, 2], None]\n",
+            c"line_frame_fields.py",
+            c"line_frame_fields",
+        )
+        .expect("line frame fixture compiles");
+        let serializer = Serializer::new(py).expect("serializer loads");
+        let values = module.getattr("values").unwrap();
+        let frames = module.getattr("frames").unwrap();
+        let mut qualnames = Vec::new();
+        let mut line_codes = std::collections::HashMap::new();
+        let paths = FramePathCache::new();
+        for frame in frames.try_iter().unwrap() {
+            let frame = frame.unwrap().cast_into::<PyFrame>().expect("a frame");
+            let code = frame.getattr("f_code").unwrap();
+            let filename = code
+                .getattr("co_filename")
+                .unwrap()
+                .extract::<String>()
+                .unwrap();
+            // Shared by the frames of one code object, as in a session, so
+            // the joined qualname is replaced when the module name changes.
+            let line_code = line_codes
+                .entry(code.as_ptr() as usize)
+                .or_insert_with(|| {
+                    Arc::new(
+                        LineCode::new(&code, FramePathCache::new().relative_path(&filename))
+                            .expect("code fields read"),
+                    )
+                })
+                .clone();
+            assert!(line_code.co_qualname.is_some());
+            for frame_id in [None, Some("frm_00000000000000000000000001")] {
+                for value in values.try_iter().unwrap() {
+                    let value = value.unwrap();
+                    let line_frame = LineFrame::capture(
+                        &line_code,
+                        &code,
+                        &frame,
+                        &paths,
+                        frame_id.map(FrameId::from_str),
+                    )
+                    .expect("line frame captures");
+                    // The destination is non-empty, as a frame arena is.
+                    let mut actual = vec![0xc0];
+                    line_frame
+                        .write_msgpack_into(
+                            &mut actual,
+                            &serializer,
+                            ("marker", value.clone()),
+                            false,
+                            None,
+                        )
+                        .expect("line frame encodes");
+                    let decoded = rmpv::decode::read_value(&mut &actual[1..]).unwrap();
+                    let field = |name: &str| {
+                        decoded
+                            .as_map()
+                            .unwrap()
+                            .iter()
+                            .find(|(key, _)| key.as_str() == Some(name))
+                            .map(|(_, value)| value.clone())
+                            .unwrap()
+                    };
+                    let timestamp = field("timestamp").as_f64().unwrap();
+                    let expected = reference_line_frame(
+                        py,
+                        &serializer,
+                        &frame,
+                        frame_id,
+                        timestamp,
+                        ("marker", &value),
+                    );
+                    assert_eq!(&actual[1..], expected);
+                    qualnames.push(field("qualname").as_str().unwrap().to_string());
+                }
+            }
+        }
+        // A frame of other code than the instruction's (a replaced
+        // `sys._getframe`) keeps its own path and qualname, read from the
+        // frame, under the instruction's co_name.
+        let frames = frames.cast::<PyList>().unwrap();
+        let target = frames.get_item(0).unwrap().cast_into::<PyFrame>().unwrap();
+        let generator = frames.get_item(6).unwrap().cast_into::<PyFrame>().unwrap();
+        let generator_code = generator.getattr("f_code").unwrap();
+        let instruction_code =
+            Arc::new(LineCode::new(&generator_code, "elsewhere.py".to_string()).unwrap());
+        let value = values.get_item(0).unwrap();
+        let mut actual = Vec::new();
+        LineFrame::capture(&instruction_code, &generator_code, &target, &paths, None)
+            .unwrap()
+            .write_msgpack_into(&mut actual, &serializer, ("marker", value.clone()), false, None)
+            .unwrap();
+        let decoded = rmpv::decode::read_value(&mut &actual[..]).unwrap();
+        let field = |name: &str| {
+            decoded
+                .as_map()
+                .unwrap()
+                .iter()
+                .find(|(key, _)| key.as_str() == Some(name))
+                .map(|(_, value)| value.as_str().unwrap().to_string())
+                .unwrap()
+        };
+        assert_eq!(field("path"), paths.format_frame_path(&target).unwrap());
+        assert_eq!(field("qualname"), get_qualname(&target, py).unwrap().unwrap());
+        assert_eq!(field("co_name"), "generator");
+
+        // The fixture reached every way a qualname is put together.
+        for expected in [
+            "package.module.outer.<locals>.target".to_string(),
+            "<unknown>.outer.<locals>.target".to_string(),
+            "5.outer.<locals>.target".to_string(),
+            "from __str__.outer.<locals>.target".to_string(),
+            format!("{}.outer.<locals>.target", "m".repeat(300)),
+            "line_frame_fields.generator".to_string(),
+        ] {
+            assert!(qualnames.contains(&expected), "{expected}: {qualnames:?}");
+        }
+        assert!(qualnames.iter().any(|qualname| {
+            qualname.starts_with("lone") && qualname.ends_with("surrogate.outer.<locals>.target")
+        }));
     });
 }

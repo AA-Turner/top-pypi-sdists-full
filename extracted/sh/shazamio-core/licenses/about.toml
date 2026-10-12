@@ -1,0 +1,48 @@
+# Every licence the shipped dependency tree is allowed to carry. `cargo about`
+#  errors on one that is absent, so a new statically linked crate cannot arrive
+#  without somebody reading its terms first.
+accepted = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "MPL-2.0",
+    "Zlib",
+    "0BSD",
+    "Unicode-3.0",
+    "Unlicense",
+]
+
+# Build and dev dependencies never reach a user, so their terms are not ours to
+#  reproduce. This is what drops `target-lexicon`, whose
+#  `Apache-2.0 WITH LLVM-exception` `pyo3-build-config` only needs at build time.
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+
+# The root crate is harvested like any dependency, so a file of third-party notices
+#  listed this project among them, and the paragraph promising every crate below is
+#  published on `crates.io` was false for that row: it is not published anywhere.
+#  `ignore` drops a workspace member that publishes nowhere.
+#  https://embarkstudios.github.io/cargo-about/cli/generate/config.html
+private = { ignore = true }
+
+# The six targets the wheels are built for, so a crate pulled in by a `cfg()`
+#  none of them match stays out of the notices. Canonical list:
+#  `.github/workflows/ci.yaml`.
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+    "i686-pc-windows-msvc",
+]
+
+# `opusic-sys` vendors `libopus`, whose C sources repeat the notice in every
+#  header, so harvesting reports sixteen near-identical texts and buries the one
+#  that matters: the crate's own `LICENSE`, byte-identical to `opus/COPYING`.
+[opusic-sys.clarify]
+license = "BSD-3-Clause"
+
+[[opusic-sys.clarify.files]]
+path = "LICENSE"
+checksum = "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551"

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pyzstd
-Version: 0.19.1
+Version: 0.20.0
 Summary: Support for Zstandard (zstd) compression
 Project-URL: Homepage, https://github.com/Rogdham/pyzstd
 Project-URL: Documentation, https://pyzstd.readthedocs.io/
@@ -14,13 +14,13 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: System :: Archiving :: Compression
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: backports-zstd>=1.0.0; python_version < '3.14'
 Requires-Dist: typing-extensions>=4.13.2; python_version < '3.13'
 Description-Content-Type: text/markdown

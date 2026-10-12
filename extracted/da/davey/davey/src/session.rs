@@ -67,7 +67,10 @@ pub const DAVE_PROTOCOL_VERSION: u16 = 1;
 /// The operation type of the proposals payload.
 /// @see https://daveprotocol.com/#dave_mls_proposals-27
 #[cfg_attr(feature = "napi", napi)]
-#[cfg_attr(feature = "pyo3", pyclass(eq, eq_int, rename_all = "snake_case"))]
+#[cfg_attr(
+  feature = "pyo3",
+  pyclass(eq, eq_int, rename_all = "snake_case", from_py_object)
+)]
 #[derive(Clone, Copy, Debug, FromPrimitive, PartialEq, Eq)]
 pub enum ProposalsOperationType {
   APPEND = 0,
@@ -76,7 +79,10 @@ pub enum ProposalsOperationType {
 
 /// The status of the DAVE session.
 #[cfg_attr(feature = "napi", napi)]
-#[cfg_attr(feature = "pyo3", pyclass(eq, eq_int, rename_all = "snake_case"))]
+#[cfg_attr(
+  feature = "pyo3",
+  pyclass(eq, eq_int, rename_all = "snake_case", from_py_object)
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum SessionStatus {
@@ -903,7 +909,7 @@ impl DaveSession {
 
   /// Set whether passthrough mode is enabled on all decryptors. The transition expiry (in seconds) when disabling passthrough mode defaults to 10 seconds
   pub fn set_passthrough_mode(&mut self, passthrough_mode: bool, transition_expiry: Option<u32>) {
-    for (_, decryptor) in self.decryptors.iter_mut() {
+    for decryptor in self.decryptors.values_mut() {
       decryptor
         .transition_to_passthrough_mode(passthrough_mode, transition_expiry.unwrap_or(10) as usize);
     }

@@ -285,6 +285,7 @@ def forest_yield_ci(
     reference_label: str = "Observed",
     reference_cmap: str = "tab10",
     production_pct: dict | None = None,
+    yield_units: str = "Mg/ha",
 ) -> bool:
     """Horizontal forest plot: steelblue error bars per region + diamond markers.
 
@@ -359,7 +360,7 @@ def forest_yield_ci(
 
     ax.set_yticks(list(y))
     ax.set_yticklabels(display_labels, fontsize=8)
-    ax.set_xlabel("Yield (tn per ha)")
+    ax.set_xlabel(f"Yield ({yield_units})")  # display unit only; values are not converted
     ax.set_title(title, fontsize=11, fontweight="bold")
 
     handles, labels = ax.get_legend_handles_labels()
@@ -997,7 +998,8 @@ def mape_box_by_region(
         ycmap = plt.get_cmap("viridis")
         ynorm = None
         if has_year:
-            _yrs = df[year_col].dropna()
+            # analysis.py passes years as strings; colour by their numeric value
+            _yrs = pd.to_numeric(df[year_col], errors="coerce").dropna()
             if len(_yrs):
                 ynorm = plt.Normalize(vmin=float(_yrs.min()), vmax=float(_yrs.max()))
         for i, vals in enumerate(data_clipped):
@@ -1007,7 +1009,7 @@ def mape_box_by_region(
             if has_year and ynorm is not None:
                 ax.scatter(
                     vals, ys, s=16,
-                    c=grp[regions_sorted[i]][year_col].to_numpy(),
+                    c=pd.to_numeric(grp[regions_sorted[i]][year_col], errors="coerce").to_numpy(),
                     cmap=ycmap, norm=ynorm, alpha=0.8,
                     edgecolors="none", zorder=3,
                 )
@@ -1698,17 +1700,20 @@ def cid_vs_yield_scatters(
     year_col: str = "Harvest Year",
     method: str = "monthly",
     season_stages: int | None = None,
+    yield_units: str | None = None,
 ) -> int:
     """One scatter per CID: x = CID value over its full planting→harvest
     cumulative span, y = observed yield. Points coloured by ``year_col``.
 
-    Per-CID column choice: amongst all wide-format columns matching the
-    canonical renamed format ``"<CID> <Mon> <day>-<Mon> <day>"``, the one
-    with the longest cumulative **stage chain** wins. Chain length is
-    method-aware — under ``monthly_r`` the chain walks backward, so a
-    label like ``Dec 1-Nov 30`` is 2 stages (Nov+Dec) not 12 calendar
-    months. ``season_stages`` (if given) caps the picker as a sanity
-    guard against any over-long chain sneaking in.
+    Per-CID values come from ``utils.full_season_cid_values``: amongst the
+    wide-format columns ``"<CID> <Mon> <day>-<Mon> <day>"``, each region uses
+    the one with the longest cumulative **stage chain** that has data for
+    that region, so regions with shorter calendars are not dropped. Chain
+    length is method-aware — under ``monthly_r`` the chain walks backward,
+    so ``Dec 1-Nov 30`` is 2 stages (Nov+Dec) not 12 calendar months.
+    ``season_stages`` (if given) caps the picker. The Pearson summary is
+    ``utils.compute_pearson_summary`` on the same values (CIDs with too few
+    region-years are left unranked). ``yield_units`` labels the yield axis.
 
     Output layout (figure rendering is idempotent — skipped if any PNG
     already exists for this country/crop, so it's safe to call from every
@@ -1739,29 +1744,19 @@ def cid_vs_yield_scatters(
         logger.warning(f"  cid_vs_yield_scatters: {year_col!r} missing — skipping")
         return 0
 
-    # For each parseable column, score its chain length. Then pick longest-chain per CID.
-    by_cid: dict[str, tuple[str, int]] = {}  # cid → (column, chain_length)
-    for col in df.columns:
-        parsed = _parse_cid_column(col, method=method)
-        if parsed is None:
-            continue
-        cid, chain = parsed
-        if season_stages is not None and chain > season_stages:
-            continue  # over-cap (shouldn't happen but defensive)
-        prev = by_cid.get(cid)
-        if prev is None or chain > prev[1]:
-            by_cid[cid] = (col, chain)
-    if not by_cid:
+    from geocif import utils as _utils
+
+    # Each region's own full season per CID (regions' calendars differ).
+    full = _utils.full_season_cid_values(df, method=method, season_stages=season_stages)
+    if not full:
         logger.info(f"  cid_vs_yield_scatters: no parseable CID columns in {country}/{crop}")
         return 0
-
-    max_chain = max(c for _, c in by_cid.values())
-    n_at_max = sum(1 for _, c in by_cid.values() if c == max_chain)
+    chain_max = max((max(ch) for _, ch in full.values() if ch), default=0)
     logger.info(
         f"  cid_vs_yield_scatters: {country}/{crop} method={method!r} "
-        f"max_chain={max_chain} stages, {n_at_max}/{len(by_cid)} CIDs at max "
-        f"({len(by_cid) - n_at_max} picked shorter)"
+        f"{len(full)} CIDs, each region's full season (up to {chain_max} stages)"
     )
+    y_label = f"Observed yield ({yield_units})" if yield_units else target_col
 
     out_dir.mkdir(parents=True, exist_ok=True)
     csv_dir = out_dir / "csvs"
@@ -1795,13 +1790,14 @@ def cid_vs_yield_scatters(
             }
 
     n_plotted = 0
-    pearson_rows: list[tuple[str, int, float]] = []  # (cid, n, r_p) for the summary fig
-    cid_series: dict[str, pd.Series] = {}            # cid → full-season values for pairwise corr
-    for cid, (col, chain) in sorted(by_cid.items()):
-        keep_cols = [col, target_col, year_col] + ([region_col] if region_col else [])
-        sub = df[keep_cols].dropna(subset=[col, target_col, year_col])
+    col = "cid_value"
+    for cid, (values, chains) in sorted(full.items()):
+        sub = df[[target_col, year_col] + ([region_col] if region_col else [])].assign(cid_value=values)
+        sub = sub.dropna(subset=[col, target_col, year_col])
         if sub.empty:
             continue
+        span = f"{chains[0]}" if len(chains) == 1 else f"{chains[0]}-{chains[-1]}"
+        x_label = f"{cid}, each region's full season ({span} stages)"
         # Spearman + Pearson for the annotation box. Slow methods over
         # ~1k rows is still <10ms; safe to compute every call.
         try:
@@ -1813,13 +1809,9 @@ def cid_vs_yield_scatters(
         except (TypeError, ValueError):
             r_s = float("nan")
 
-        if np.isfinite(r_p):
-            pearson_rows.append((cid, len(sub), r_p))
-            cid_series[cid] = sub[col].reset_index(drop=True)
-
         # Everything below re-renders the cached artifacts (figures + their
         # paired per-CID CSVs) — skip when PNGs already exist. The Pearson
-        # stats above still accumulated so the summary CSVs stay fresh.
+        # summary below is recomputed regardless, so its CSVs stay fresh.
         if skip_figures:
             continue
 
@@ -1832,8 +1824,8 @@ def cid_vs_yield_scatters(
                 sub[col], sub[target_col],
                 c=colors, s=22, alpha=0.78, edgecolors="white", linewidths=0.4,
             )
-            ax.set_xlabel(f"{col}   (full-season ≈ {chain} stages)", fontsize=9)
-            ax.set_ylabel(target_col, fontsize=9)
+            ax.set_xlabel(x_label, fontsize=9)
+            ax.set_ylabel(y_label, fontsize=9)
             ax.set_title(
                 f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')}  —  {cid}",
                 fontsize=10, fontweight="bold",
@@ -1904,8 +1896,8 @@ def cid_vs_yield_scatters(
                         s=22, alpha=0.78, edgecolors="white", linewidths=0.4,
                         label=label,
                     )
-                ax.set_xlabel(f"{col}   (full-season ≈ {chain} stages)", fontsize=9)
-                ax.set_ylabel(target_col, fontsize=9)
+                ax.set_xlabel(x_label, fontsize=9)
+                ax.set_ylabel(y_label, fontsize=9)
                 ax.set_title(
                     f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')}  —  {cid}  (by region, OLS fits)",
                     fontsize=10, fontweight="bold",
@@ -1929,7 +1921,7 @@ def cid_vs_yield_scatters(
                             dpi=200, bbox_inches="tight")
                 plt.close(fig)
 
-        out_df = sub.assign(cid=cid).rename(columns={col: "cid_value"})
+        out_df = sub.assign(cid=cid)
         ordered = (
             ([region_col] if region_col else [])
             + [year_col, "cid", "cid_value", target_col]
@@ -1938,37 +1930,15 @@ def cid_vs_yield_scatters(
         out_df.to_csv(csv_dir / f"{safe}.csv", index=False)
         n_plotted += 1
 
-    if pearson_rows:
-        pearson_df = pd.DataFrame(pearson_rows, columns=["cid", "n", "pearson_r"])
-        pearson_df["abs_r"] = pearson_df["pearson_r"].abs()
-        pearson_df = pearson_df.sort_values("abs_r", ascending=False).reset_index(drop=True)
-        pearson_df["rank_raw"] = pearson_df.index + 1
-
-        # Row-aligned CID-value matrix for pairwise pruning. Outer-join
-        # on the (region, year) index lets pandas drop NaNs natively per
-        # column-pair when computing the correlation matrix.
-        cid_value_df = pd.concat(
-            {c: cid_series[c] for c in pearson_df["cid"] if c in cid_series},
-            axis=1,
-        )
-        corr_abs = (
-            cid_value_df.corr(method="pearson").abs()
-            if cid_value_df.shape[1] >= 2
-            else pd.DataFrame()
-        )
-        kept, pruned = greedy_dedup_by_mutual_corr(
-            pearson_df["cid"].tolist(),
-            corr_abs,
-            _PEARSON_DEDUP_THRESHOLD,
-        )
-        kept_set = set(kept)
-        pearson_df["kept"] = pearson_df["cid"].isin(kept_set)
-        pearson_df["redundant_with"] = pearson_df["cid"].map(
-            lambda c: pruned.get(c, ("", float("nan")))[0]
-        )
-        pearson_df["mutual_r"] = pearson_df["cid"].map(
-            lambda c: pruned.get(c, ("", float("nan")))[1]
-        )
+    # Same values, ranked by the shared path that auto_/top10_ models use:
+    # rows aligned on (region, year) for the pairwise |rho| pruning, and CIDs
+    # with too few region-years left unranked (n = 2 gives r = +-1).
+    pearson_df, corr_abs = _utils.compute_pearson_summary(
+        df, target_col=target_col, method=method, season_stages=season_stages,
+    )
+    if not pearson_df.empty:
+        pearson_df = pearson_df.reset_index()
+        kept = pearson_df.loc[pearson_df["kept"], "cid"].tolist()
         pearson_df.to_csv(csv_dir / "pearson_summary.csv", index=False)
 
         # Persist the pairwise |ρ| matrix so the auto-CID selector

@@ -1373,11 +1373,11 @@ def create_server(
         Use the `entity` tool to get the full details of an entity returned by
         this tool.
 
-        Runs can start with no project and be filed later: at the lab root (no `ref`), `unfiled` lists yours that are not filed yet.
+        Runs can start with no project and be filed later: at the lab root (no `ref` or `workspace_id`), `unfiled` lists yours that are not filed yet.
 
         ### `mode`:
         1. `tree` (default) - projects -> experiments -> runs, walked with `ref`/`depth`
-        2. `runs` - every run filed under a project, FLAT and NEWEST FIRST: the team's last N runs is `limit=N`, "what is running now" is `active=true`; `ref` narrows to a project or experiment. Unfiled runs are in browse with no `ref`
+        2. `runs` - every run filed under a project, FLAT and NEWEST FIRST: the team's last N runs is `limit=N`, "what is running now" is `active=true`; `ref` narrows to a project or experiment. Unfiled runs are in browse with no `ref` or `workspace_id`
         3. `workspaces` - the team's filing locations with their NAMES (how a `workspace_id` becomes something a person can read)
         4. `notes` - the notes catalog: what the team wrote down across every project, run and file; `query` matches note text literally (search ranks by meaning instead)
         5. `files` - the team's Shared folder, or one workspace's files with `workspace_id`; `prefix` narrows to a folder. A run's or project's own files are `entity(view="artifacts")`

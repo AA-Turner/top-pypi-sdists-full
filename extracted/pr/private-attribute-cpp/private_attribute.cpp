@@ -3188,9 +3188,14 @@ new_type_tp_setattro(PyObject* self, PyObject* name, PyObject* value) noexcept
     return result;
 }
 
+static bool has_init_slots = false;
+
 static int
 init_all_slots() noexcept
 {
+    if (has_init_slots || PyType_Type.tp_setattro == new_type_tp_setattro) {
+        return 0;
+    }
     original_type_tp_setattro = PyType_Type.tp_setattro;
     PyObject* original_setattr = PyObject_GetAttrString((PyObject*)&PyType_Type, "__setattr__");
     if (!original_setattr) {return -1;}
@@ -3209,6 +3214,7 @@ init_all_slots() noexcept
     if (!all_metaclasses) {return -1;}
     if (!PyList_Check(all_metaclasses)) {
         Py_DECREF(all_metaclasses);
+        has_init_slots = true;
         return 0;
     }
     Py_ssize_t list_len = PyList_GET_SIZE(all_metaclasses);
@@ -3220,6 +3226,7 @@ init_all_slots() noexcept
         }
     }
     Py_DECREF(all_metaclasses);
+    has_init_slots = true;
     return 0;
 }
 
@@ -3675,6 +3682,29 @@ PrivateTempObject_dealloc(PyObject* self) noexcept
     Py_TYPE(self)->tp_free(self);
 }
 
+static PyObject*
+PrivateTempObject_postprocess(PyObject* self, PyObject* type) noexcept
+{
+    if (!PyType_Check(type)) {
+        PyErr_SetString(PyExc_TypeError, "type must be a type");
+        return NULL;
+    }
+    if ((((PrivateTempObject*)self)->tmp->cleared)) {
+        PyErr_SetString(PyExc_RuntimeError, "temp not init or have been used");
+        return NULL;
+    }
+    if (!PrivateAttrType_postprocess(type, *(((PrivateTempObject*)self)->tmp))) {
+        return NULL;
+    }
+    ((PrivateTempObject*)self)->tmp->clear();
+    Py_RETURN_NONE;
+}
+
+static PyMethodDef PrivateTempObject_methods[] = {
+    {"postprocess", (PyCFunction)PrivateTempObject_postprocess, METH_O, "postprocess the temp object"},
+    {NULL}
+};
+
 static PyTypeObject PrivateTempType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "private_attribute._PrivateTemp",    // tp_name
@@ -3703,7 +3733,7 @@ static PyTypeObject PrivateTempType = {
     0, //tp_weaklistoffset
     0, //tp_iter
     0, //tp_iternext
-    0, //tp_methods
+    PrivateTempObject_methods, //tp_methods
     0, //tp_members
     PrivateTempObject_getsets //tp_getset
 };
@@ -3735,19 +3765,7 @@ postprocess_for_PrivateAttr(PyObject* /*self*/, PyObject* args) noexcept
     if (!PyArg_ParseTuple(args, "OO", &type, &tmp)) {
         return NULL;
     }
-    if (!PyType_Check(type)) {
-        PyErr_SetString(PyExc_TypeError, "type must be a type");
-        return NULL;
-    }
-    if (!PyObject_TypeCheck(tmp, &PrivateTempType)) {
-        PyErr_SetString(PyExc_TypeError, "tmp must be a private_temp");
-        return NULL;
-    }
-    if (!PrivateAttrType_postprocess(type, *(((PrivateTempObject*)tmp)->tmp))) {
-        return NULL;
-    }
-    ((PrivateTempObject*)tmp)->tmp->clear();
-    Py_RETURN_NONE;
+    return PrivateTempObject_postprocess(tmp, type);
 }
 
 #define METACLASS_WEAKREF_CALLBACK_REMOVE_ITEM(name) do {\
@@ -4115,7 +4133,7 @@ class PrivateAbcMeta(ABCMeta):
     def __new__(cls, *args, **kwargs):
         temp = private_attribute.prepare(*args, **kwargs)
         typ = super().__new__(cls, temp.name, temp.bases, temp.attrs, **temp.kwds)
-        private_attribute.postprocess(typ, temp)
+        private_attribute.postprocess(typ, temp) # or temp.postprocess(typ)
         return typ
 
 private_attribute.register_metaclass(PrivateAbcMeta)
@@ -4301,9 +4319,14 @@ static PyMethodDef clean_storage = {
     "Clean all storages"
 };
 
+static bool resigtered_clean_func = false;
+
 static int
 atexit_register_clean_func(void) noexcept
 {
+    if (resigtered_clean_func) {
+        return 0;
+    }
     PyObject* atexit = PyImport_ImportModule("atexit");
     if (!atexit) {
         return -1;
@@ -4323,6 +4346,7 @@ atexit_register_clean_func(void) noexcept
         return -1;
     }
     Py_DECREF(result);
+    resigtered_clean_func = true;
     return 0;
 }
 

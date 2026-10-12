@@ -10,6 +10,7 @@ import pytest
 from coord.config import (
     Config,
     SmokeRule,
+    SmokeStage,
     SmokeTestsConfig,
     load,
     native_execution_capability,
@@ -25,6 +26,7 @@ from coord.smoke import (
     SmokePartition,
     UnroutableCapability,
     build_smoke_briefing,
+    cancel_stale_smoke_legs,
     dispatch_pending_smoke,
     dispatch_smoke,
     environmental_smoke_legs,
@@ -34,10 +36,12 @@ from coord.smoke import (
     mute_smoke_legs,
     mute_smoke_tally,
     partition_capability_requirements,
+    partition_command_stages,
     pick_smoke_machine,
     required_capabilities,
     resolve_rule_command,
     resolve_smoke_command,
+    resolve_stage_command,
     smoke_leg_capabilities,
     smoke_leg_issue_title,
     unverified_native_capabilities,
@@ -3010,6 +3014,81 @@ def test_dispatch_smoke_a_cordoned_fleet_still_recovers_after_the_cordon_lifts(
     assert completed.test_state == "running"
 
 
+def test_dispatch_smoke_a_machine_at_its_cargo_heavy_cap_leaves_the_row_waiting(
+    repo: Repo, caplog: pytest.LogCaptureFixture,
+) -> None:
+    """#3692: the only capability-matched machine is not paused and not
+    missing — it is merely at its #3673 cargo-heavy concurrency cap right
+    now. That is a load snapshot, not an operator decision, and clears
+    itself the moment the in-flight leg finishes — same self-clearing
+    shape as a release cordon (#3599) — so it must NOT durably block the
+    row, the reason must name the busy machine, and a later call once the
+    machine is back under its cap must dispatch to it."""
+    desktop = Machine(
+        name="desktop-a",
+        host="desktop-a.tail",
+        capabilities=["python", "gtk"],
+        repos=["api"],
+        repo_paths={"api": "/a/api"},
+        max_workers=1,
+    )
+    cfg = Config(
+        repos=[repo],
+        machines=[desktop],
+        smoke_tests=SmokeTestsConfig(
+            auto_queue=True,
+            capability_rules=[SmokeRule(files=["src/gtk/"], requires=["gtk"])],
+        ),
+    )
+    completed = _completed(machine="server")
+    busy_leg = Assignment(
+        machine_name="desktop-a",
+        repo_name="api",
+        issue_number=99,
+        issue_title="other in-flight work",
+        briefing="Worker briefing",
+        assignment_id="busy-leg",
+        status="running",
+        branch="other-branch",
+        dispatched_at=0.0,
+        type="work",
+    )
+    board = Board(completed=[completed], active=[busy_leg])
+
+    with caplog.at_level("WARNING", logger="coord.smoke"):
+        result = dispatch_smoke(
+            completed, board, cfg,
+            http_client=_MultiHostClient(),
+            diff_lookup=lambda r, b: _GTK_DIFF,
+        )
+
+    assert result is None
+    assert completed.test_state != "blocked", (
+        "a machine that is merely busy at its cargo-heavy cap must leave "
+        "the row re-dispatchable, not durably block it"
+    )
+    # Transient dead ends are logged, not written to the board — the
+    # message must name the busy machine, not read as a generic
+    # capability miss.
+    logged = "\n".join(r.message for r in caplog.records)
+    assert "desktop-a" in logged
+    assert "cargo-heavy concurrency cap" in logged
+    assert "no configured machine declares capability" not in logged
+
+    # Once the in-flight leg clears, the machine is back under its cap and
+    # the very next call dispatches to it.
+    board.active.remove(busy_leg)
+    second = dispatch_smoke(
+        completed, board, cfg,
+        http_client=_MultiHostClient(),
+        diff_lookup=lambda r, b: _GTK_DIFF,
+    )
+    assert second is not None, (
+        "the row must dispatch once the machine is back under its cap"
+    )
+    assert completed.test_state == "running"
+
+
 def test_dispatch_smoke_a_mixed_pause_and_cordon_fleet_still_durably_blocks(
     three_gtk_config: Config,
 ) -> None:
@@ -3819,6 +3898,170 @@ def test_partition_command_does_not_leak_into_a_sibling_partition() -> None:
     resolved_macos = resolve_rule_command(list(macos.files), rules)
     assert resolved_macos is not None
     assert resolved_macos.command == "pytest macos_suite"
+
+
+# ── Stage-decomposed commands (#3696) ───────────────────────────────────────
+
+
+_GTK_WINDOWS_PARTITION = SmokePartition(capabilities=("gtk", "windows"), files=())
+_MACOS_PARTITION = SmokePartition(capabilities=("macos",), files=())
+_STAGE_PARTITIONS = [_GTK_WINDOWS_PARTITION, _MACOS_PARTITION]
+
+
+def test_partition_command_stages_assigns_each_stage_to_exactly_one_partition() -> None:
+    """#3696 acceptance: every declared stage lands in exactly one
+    partition's list — no gap, no duplicate — when each stage's `requires`
+    is covered by exactly one of the fan-out's partitions."""
+    stages = [
+        SmokeStage(name="build-gtk", command="cargo build --features gtk", requires=["gtk"]),
+        SmokeStage(name="build-win", command="cargo build --features win", requires=["windows"]),
+        SmokeStage(name="build-macos", command="cargo build --features macos", requires=["macos"]),
+    ]
+    assignments = partition_command_stages(stages, _STAGE_PARTITIONS)
+
+    all_assigned = [s for group in assignments.values() for s in group]
+    assert sorted(s.name for s in all_assigned) == ["build-gtk", "build-macos", "build-win"]
+    assert len(all_assigned) == len(stages)
+
+    gtk_windows_names = {s.name for s in assignments[_GTK_WINDOWS_PARTITION.capabilities]}
+    macos_names = {s.name for s in assignments[_MACOS_PARTITION.capabilities]}
+    assert gtk_windows_names == {"build-gtk", "build-win"}
+    assert macos_names == {"build-macos"}
+    # No stage name appears in more than one partition's list.
+    assert gtk_windows_names.isdisjoint(macos_names)
+
+
+def test_partition_command_stages_capability_agnostic_stage_goes_to_first_partition() -> None:
+    """A stage with empty `requires` (e.g. a shared lint step) always lands
+    on `partitions[0]` — every capability set is a superset of the empty
+    set, so the first-match-wins rule picks the first partition."""
+    stages = [SmokeStage(name="lint", command="make lint", requires=[])]
+    assignments = partition_command_stages(stages, _STAGE_PARTITIONS)
+    assert assignments == {_GTK_WINDOWS_PARTITION.capabilities: stages}
+
+
+def test_partition_command_stages_falls_back_to_first_partition_when_unrouted() -> None:
+    """#3696 "no gap" guarantee: a stage whose `requires` names a capability
+    NO partition has still gets assigned — to `partitions[0]` — rather than
+    silently vanishing from every leg's command."""
+    stages = [
+        SmokeStage(name="android", command="./gradlew test", requires=["android"]),
+    ]
+    assignments = partition_command_stages(stages, _STAGE_PARTITIONS)
+    assert assignments == {_GTK_WINDOWS_PARTITION.capabilities: stages}
+
+
+def test_partition_command_stages_empty_partitions_assigns_nothing() -> None:
+    stages = [SmokeStage(name="lint", command="make lint")]
+    assert partition_command_stages(stages, []) == {}
+
+
+def test_resolve_stage_command_returns_none_when_repo_declares_no_stages() -> None:
+    """Pre-#3696 behaviour: a repo that hasn't opted into `command_stages`
+    gets `None` here every time, so `_dispatch_smoke_fanout` falls straight
+    through to `resolve_smoke_command` unchanged."""
+    smoke_cfg = SmokeTestsConfig()
+    resolved = resolve_stage_command(smoke_cfg, _GTK_WINDOWS_PARTITION, _STAGE_PARTITIONS)
+    assert resolved is None
+
+
+def test_resolve_stage_command_returns_none_when_partition_owns_no_stage() -> None:
+    smoke_cfg = SmokeTestsConfig(
+        command_stages=(
+            SmokeStage(name="build-macos", command="cargo build --features macos", requires=("macos",)),
+        ),
+    )
+    resolved = resolve_stage_command(smoke_cfg, _GTK_WINDOWS_PARTITION, _STAGE_PARTITIONS)
+    assert resolved is None
+
+
+def test_resolve_stage_command_joins_owned_stages_with_and_and() -> None:
+    smoke_cfg = SmokeTestsConfig(
+        command_stages=(
+            SmokeStage(name="build-gtk", command="cargo build --features gtk", requires=("gtk",)),
+            SmokeStage(name="test-gtk", command="cargo test --features gtk", requires=("gtk",)),
+            SmokeStage(name="build-macos", command="cargo build --features macos", requires=("macos",)),
+        ),
+    )
+    resolved = resolve_stage_command(smoke_cfg, _GTK_WINDOWS_PARTITION, _STAGE_PARTITIONS)
+    assert resolved is not None
+    assert resolved.command == "cargo build --features gtk && cargo test --features gtk"
+    assert resolved.from_stages is True
+    assert resolved.ci_equivalent is False
+    assert "command_stages" in resolved.source
+
+    resolved_macos = resolve_stage_command(smoke_cfg, _MACOS_PARTITION, _STAGE_PARTITIONS)
+    assert resolved_macos is not None
+    assert resolved_macos.command == "cargo build --features macos"
+
+
+def test_dispatch_smoke_fanout_scopes_stage_command_to_its_own_partition(
+    repo: Repo,
+) -> None:
+    """#3696 acceptance: with `command_stages` declared, each partition's
+    leg command contains only ITS OWN stages — never a stage another
+    partition owns — so a macmini `[macos]` leg no longer runs the
+    cross-target Windows build the `[gtk+windows]` leg already covers."""
+    from coord.smoke import _dispatch_smoke_legs
+
+    cfg = Config(
+        repos=[repo],
+        machines=[
+            _machine("dell64", "dell64.tail", caps=["gtk", "windows"], path="/d/api"),
+            _machine("macmini", "macmini.tail", caps=["macos"], path="/m/api"),
+        ],
+        smoke_tests=SmokeTestsConfig(
+            auto_queue=True,
+            capability_rules=[
+                SmokeRule(files=["quadraui/src/gtk/"], requires=["gtk"]),
+                SmokeRule(files=["quadraui/src/win/"], requires=["windows"]),
+                SmokeRule(files=["quadraui/src/macos/"], requires=["macos"]),
+            ],
+            command_stages=(
+                SmokeStage(name="build-gtk", command="cargo build --features gtk", requires=("gtk",)),
+                SmokeStage(name="build-win", command="cargo build --features win", requires=("windows",)),
+                SmokeStage(name="build-macos", command="cargo build --features macos", requires=("macos",)),
+            ),
+        ),
+    )
+    completed = _completed()
+    diff = [
+        "quadraui/src/gtk/a.rs",
+        "quadraui/src/win/b.rs",
+        "quadraui/src/macos/c.rs",
+    ]
+    board = Board()
+    client = _MultiHostClient(assign={
+        "dell64.tail": {"id": "dell64-leg"},
+        "macmini.tail": {"id": "macmini-leg"},
+    })
+    legs = _dispatch_smoke_legs(
+        completed, board, cfg, http_client=client, diff_lookup=lambda r, b: diff,
+    )
+
+    assert len(legs) == 2
+    by_machine = {a.machine_name: a for a in legs}
+
+    dell64_briefing = by_machine["dell64"].briefing
+    macmini_briefing = by_machine["macmini"].briefing
+
+    # Every declared stage's command appears in EXACTLY ONE leg's briefing —
+    # no gap, no duplicate.
+    for stage_command in (
+        "cargo build --features gtk",
+        "cargo build --features win",
+        "cargo build --features macos",
+    ):
+        appears_in = [
+            b for b in (dell64_briefing, macmini_briefing) if stage_command in b
+        ]
+        assert len(appears_in) == 1, (
+            f"{stage_command!r} must appear in exactly one leg, found in {len(appears_in)}"
+        )
+
+    assert "cargo build --features macos" not in dell64_briefing
+    assert "cargo build --features gtk" not in macmini_briefing
+    assert "cargo build --features win" not in macmini_briefing
 
 
 def test_dispatch_smoke_fanout_reports_unconfigured_command_naming_the_partition() -> None:
@@ -5921,3 +6164,284 @@ def test_smoke_leg_issue_title_round_trips_through_smoke_leg_capabilities() -> N
     # An ordinary, untagged single-leg row is never mistaken for a leg.
     assert smoke_leg_capabilities("[smoke] Fix cross-platform bug") is None
     assert smoke_leg_capabilities(None) is None
+
+
+# ── #3695: re-checking a Test-stage routing dead end every tick ────────────
+#
+# `required_caps_from_test_reason` recovers the capability list a `(#1672)`
+# "no capability-matched machine" reason embedded, EXCEPT when the reason's
+# own cause is "no configured machine declares this capability at all" — a
+# config gap, never self-clearing, which must read as `None` so the drive-
+# queue sweep never mistakes it for a re-checkable fleet-state cause.
+# `test_stage_routable_now` is the cheap per-tick recheck itself: it REUSES
+# `rank_smoke_machines` rather than re-deriving routing logic, then crosses
+# the result against the board daemon's cached `/health` payload.
+
+
+def test_required_caps_from_test_reason_returns_none_for_no_reason() -> None:
+    from coord.smoke import required_caps_from_test_reason
+
+    assert required_caps_from_test_reason(None) is None
+    assert required_caps_from_test_reason("") is None
+
+
+def test_required_caps_from_test_reason_returns_none_for_no_configured_machine() -> None:
+    """The #3695 scenario-(c) shape: a config gap, not fleet state — this is
+    the ONE case `is_test_stage_routing_dead_end_reason` cannot itself tell
+    apart from a self-clearing fleet-state cause, so the split is pinned
+    here instead."""
+    from coord.smoke import required_caps_from_test_reason
+
+    reason = (
+        "Test stage cannot be routed: no configured machine declares "
+        "capability [gtk] AND can build repo 'api' — the Test stage cannot "
+        "run for this completion until a capable machine is added."
+    )
+    assert required_caps_from_test_reason(reason) is None
+
+
+def test_required_caps_from_test_reason_returns_none_with_no_bracket() -> None:
+    from coord.smoke import required_caps_from_test_reason
+
+    assert required_caps_from_test_reason("no capability bracket in this text") is None
+
+
+def test_required_caps_from_test_reason_returns_empty_list_for_any_capable_machine() -> None:
+    from coord.smoke import required_caps_from_test_reason
+
+    reason = "capability [(none — any capable machine)] for repo 'api' is paused"
+    assert required_caps_from_test_reason(reason) == []
+
+
+def test_required_caps_from_test_reason_parses_a_real_bracketed_list() -> None:
+    from coord.smoke import required_caps_from_test_reason
+
+    reason = (
+        "Test stage cannot be routed: every machine that declares capability "
+        "[gtk, windows] for repo 'api' is paused or inside its quiet-hours "
+        "window right now: desktop-a. (#2636)"
+    )
+    assert required_caps_from_test_reason(reason) == ["gtk", "windows"]
+
+
+def test_stage_routable_now_is_true_when_a_capable_machine_is_free(
+    three_gtk_config: Config,
+) -> None:
+    from coord.smoke import test_stage_routable_now
+
+    assert test_stage_routable_now(["gtk"], "api", Board(), three_gtk_config) is True
+
+
+def test_stage_routable_now_is_false_when_no_machine_declares_the_capability(
+    three_gtk_config: Config,
+) -> None:
+    """Reuses `rank_smoke_machines` — no candidates at all means not
+    routable, the same as a busy/paused/cordoned fleet would report."""
+    from coord.smoke import test_stage_routable_now
+
+    assert test_stage_routable_now(["cuda"], "api", Board(), three_gtk_config) is False
+
+
+def test_stage_routable_now_is_false_when_the_only_candidate_is_unreachable(
+    three_gtk_config: Config,
+) -> None:
+    """`rank_smoke_machines` alone would say "routable" here — the health
+    cross-check against the board daemon's cached payload is what catches a
+    machine that is capability-matched but not actually reachable right
+    now."""
+    from coord.config import Config as _Config
+
+    single = _Config(
+        repos=three_gtk_config.repos,
+        machines=[m for m in three_gtk_config.machines if m.name == "desktop-a"],
+        smoke_tests=three_gtk_config.smoke_tests,
+    )
+    payload = {
+        "fleet_health": {
+            "machine_health": [
+                {"machine": "desktop-a", "state": "timeout", "stale": False},
+            ],
+        },
+    }
+    from coord.smoke import test_stage_routable_now
+
+    assert (
+        test_stage_routable_now(["gtk"], "api", Board(), single, payload=payload)
+        is False
+    )
+
+
+def test_stage_routable_now_skips_the_health_cross_check_when_no_payload(
+    three_gtk_config: Config,
+) -> None:
+    """`payload=None` (the shell's own fail-soft fallback when the board
+    daemon fetch itself errors) must not block an otherwise-routable
+    reading — only degrade to capability/pause/cordon routing alone."""
+    from coord.smoke import test_stage_routable_now
+
+    assert (
+        test_stage_routable_now(["gtk"], "api", Board(), three_gtk_config, payload=None)
+        is True
+    )
+
+
+# ── cancel_stale_smoke_legs (#3696) ─────────────────────────────────────────
+
+
+def _smoke_leg(
+    *,
+    machine: str = "server",
+    repo: str = "api",
+    branch: str = "issue-287-fix",
+    status: str = "running",
+    assignment_id: str = "smoke1",
+) -> Assignment:
+    return Assignment(
+        machine_name=machine,
+        repo_name=repo,
+        issue_number=287,
+        issue_title="Test: GTK key routing fix",
+        briefing="Smoke briefing",
+        assignment_id=assignment_id,
+        status=status,
+        branch=branch,
+        dispatched_at=0.0,
+        type="smoke",
+    )
+
+
+def test_cancel_stale_smoke_legs_cancels_matching_running_leg(
+    monkeypatch, gtk_and_server_config: Config,
+) -> None:
+    from coord.network import CancelResult
+
+    seen: list[tuple[str, str]] = []
+
+    def _fake_cancel(machine, assignment_id, **kwargs):
+        seen.append((machine.name, assignment_id))
+        return CancelResult(ok=True, status="cancelled")
+
+    monkeypatch.setattr("coord.network.cancel_assignment", _fake_cancel)
+
+    leg = _smoke_leg()
+    board = Board(active=[leg])
+
+    cancelled = cancel_stale_smoke_legs(
+        board, gtk_and_server_config, repo_name="api", branch="issue-287-fix",
+    )
+
+    assert cancelled == [leg]
+    assert seen == [("server", "smoke1")]
+
+
+def test_cancel_stale_smoke_legs_cancels_pending_leg_too(
+    monkeypatch, gtk_and_server_config: Config,
+) -> None:
+    from coord.network import CancelResult
+
+    monkeypatch.setattr(
+        "coord.network.cancel_assignment",
+        lambda machine, assignment_id, **kwargs: CancelResult(ok=True, status="cancelled"),
+    )
+
+    leg = _smoke_leg(status="pending")
+    board = Board(active=[leg])
+
+    cancelled = cancel_stale_smoke_legs(
+        board, gtk_and_server_config, repo_name="api", branch="issue-287-fix",
+    )
+
+    assert cancelled == [leg]
+
+
+def test_cancel_stale_smoke_legs_ignores_other_branches_and_repos(
+    monkeypatch, gtk_and_server_config: Config,
+) -> None:
+    called = []
+    monkeypatch.setattr(
+        "coord.network.cancel_assignment",
+        lambda machine, assignment_id, **kwargs: called.append(assignment_id),
+    )
+
+    other_branch = _smoke_leg(branch="issue-999-fix", assignment_id="smoke-other-branch")
+    other_repo = _smoke_leg(repo="other-repo", assignment_id="smoke-other-repo")
+    board = Board(active=[other_branch, other_repo])
+
+    cancelled = cancel_stale_smoke_legs(
+        board, gtk_and_server_config, repo_name="api", branch="issue-287-fix",
+    )
+
+    assert cancelled == []
+    assert called == []
+
+
+def test_cancel_stale_smoke_legs_ignores_non_smoke_and_finished_legs(
+    monkeypatch, gtk_and_server_config: Config,
+) -> None:
+    """A `type="work"` row and an already-`"done"` smoke leg on the exact
+    same branch must not be touched — only in-flight (`running`/`pending`)
+    `type="smoke"` legs are superseded by a new fix round."""
+    called = []
+    monkeypatch.setattr(
+        "coord.network.cancel_assignment",
+        lambda machine, assignment_id, **kwargs: called.append(assignment_id),
+    )
+
+    work_row = _completed(branch="issue-287-fix")
+    done_smoke = _smoke_leg(status="done", assignment_id="smoke-done")
+    board = Board(active=[work_row, done_smoke])
+
+    cancelled = cancel_stale_smoke_legs(
+        board, gtk_and_server_config, repo_name="api", branch="issue-287-fix",
+    )
+
+    assert cancelled == []
+    assert called == []
+
+
+def test_cancel_stale_smoke_legs_skips_machine_missing_from_config(
+    monkeypatch, gtk_and_server_config: Config,
+) -> None:
+    """A leg's machine no longer in `config.machines` must be skipped —
+    best-effort, never raising — rather than block the fix dispatch that
+    called this."""
+    called = []
+    monkeypatch.setattr(
+        "coord.network.cancel_assignment",
+        lambda machine, assignment_id, **kwargs: called.append(assignment_id),
+    )
+
+    leg = _smoke_leg(machine="decommissioned-box")
+    board = Board(active=[leg])
+
+    cancelled = cancel_stale_smoke_legs(
+        board, gtk_and_server_config, repo_name="api", branch="issue-287-fix",
+    )
+
+    assert cancelled == [leg]
+    assert called == []
+
+
+def test_cancel_stale_smoke_legs_tolerates_cancel_failure(
+    monkeypatch, gtk_and_server_config: Config,
+) -> None:
+    """A failed agent-side cancel (machine unreachable, dirty worktree,
+    etc.) is logged, not raised — the leg is still reported as
+    attempted-cancel so the caller can count/log it."""
+    from coord.network import CancelResult
+
+    monkeypatch.setattr(
+        "coord.network.cancel_assignment",
+        lambda machine, assignment_id, **kwargs: CancelResult(
+            ok=False, error="connection refused",
+        ),
+    )
+
+    leg = _smoke_leg()
+    board = Board(active=[leg])
+
+    cancelled = cancel_stale_smoke_legs(
+        board, gtk_and_server_config, repo_name="api", branch="issue-287-fix",
+    )
+
+    assert cancelled == [leg]

@@ -297,7 +297,8 @@ class ReaderLane:
         the one it was made in is out of date: dropped."""
         turn = self.store.current_turn()
         for path, msg in mailbox.waiting(self.sid):
-            if msg.kind == mailbox.Kind.MESSAGE and msg.origin_turn is not None and int(msg.origin_turn) < turn - 1:
+            if (msg.kind == mailbox.Kind.MESSAGE and not msg.keep and msg.origin_turn is not None
+                    and int(msg.origin_turn) < turn - 1):
                 path.unlink(missing_ok=True)
 
     # -- when -------------------------------------------------------------------
@@ -610,16 +611,26 @@ def _last_prompt_tokens(run: Any) -> int | None:
 
 def _too_big(run: Any, size: int, exc: BaseException | None = None) -> str | None:
     """Why the reader's conversation must start fresh next turn, or None: the
-    request was refused as too long (or, through Probe's route, refused as sent),
-    or the turn's last request was over the size."""
+    request was refused as too long (or, through Probe's route, refused as sent,
+    or refused by the route itself: a 400, such as more than 2,000 messages), or
+    the turn ended over the size or over the message count compaction runs at
+    (rule A: fresh, not a summary call at the start of the next turn)."""
     if exc is not None:
         status = getattr(exc, "status_code", None)
         body = str(getattr(exc, "body", "") or "")
         if status == 422 and _GATEWAY_REJECTED in body:
             return f"the model provider refused the request as sent ({_GATEWAY_REJECTED})"
+        if status == 400:
+            return f"the model route refused the request as sent (400: {body[:200]})"
         if any(marker in str(exc).lower() for marker in _TOO_LONG):
             return f"the model refused the request as too long ({type(exc).__name__})"
     last = _last_prompt_tokens(run)
     if last is not None and size > 0 and last > size:
         return f"the last request was {last:,} tokens, over the size ({size:,})"
+    try:
+        wire = agent_mod.wire_messages(run.all_messages()) if run is not None else 0
+    except Exception:  # noqa: BLE001 -- no history to count
+        wire = 0
+    if wire > agent_mod.COMPACT_MESSAGES:
+        return f"the conversation is {wire:,} messages, over {agent_mod.COMPACT_MESSAGES:,}"
     return None

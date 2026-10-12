@@ -7137,6 +7137,11 @@ class ServingSessionHandle(SessionHandle):
             # ``reportUnreachable`` and flake8 has no unreachable check, so CI stays
             # green either way. The dead line is gone; this argument is not.
             return self._approvals_slash(session, args, SlashResult, may_loosen=may_loosen)
+        if command == "language":
+            # The terminal's funnel, served: one `settings_io.write_setting`
+            # against the `language` key; receipts word for word (see
+            # `_language_slash`).
+            return self._language_slash(args, SlashResult)
         # THE DELETE-SCOPED VERBS ARE GATED HERE, where the verb is chosen.
         # ``slash_result`` is authorised on ``slash``, which a ``drive`` member
         # holds while holding no ``delete`` — and these three produce exactly the
@@ -8187,10 +8192,14 @@ class ServingSessionHandle(SessionHandle):
             detach = getattr(session, "attach_team", None)
             if not callable(detach):
                 # Same shape as the attach guard below: state what this session
-                # can do rather than promising a detach it cannot perform.
+                # can do rather than promising a detach it cannot perform. The
+                # sentence is the CONTRACT's own (see
+                # ``tui/app.py::_team_detach_receipt``), byte-for-byte, so the
+                # three refusal surfaces cannot drift (M12 follow-up, #2072).
                 return SlashResult(
                     kind="notice",
-                    text="this session cannot run a team, so there is no team to detach",
+                    text="this session can list and chart teams, but not run one, "
+                    "so there is no team to detach",
                     style="warning",
                 )
             # Read BEFORE the call, and off the OBJECT rather than its name
@@ -8262,7 +8271,8 @@ class ServingSessionHandle(SessionHandle):
             # refusal because nothing on screen says which one you got.
             return SlashResult(
                 kind="notice",
-                text="this session cannot run a team. /team chart <name> shows a roster",
+                text="this session can list and chart teams, but not run one. "
+                "/team chart <name> shows a roster",
                 style="warning",
             )
         # Read BEFORE the attach: it is the team a TEAM SWITCH displaces, and
@@ -8923,6 +8933,86 @@ class ServingSessionHandle(SessionHandle):
             else "fast mode: on → off — standard speed and pricing"
         )
         return SlashResult(kind="notice", text=text, style="info")
+
+    def _language_slash(self, arg: str, SlashResult: Any) -> Any:
+        """Report the language, and CHANGE it — the terminal's own funnel.
+
+        One ``settings_io.write_setting`` against the ``language`` registry
+        key, the same call ``OperatorApp._cmd_language`` makes, so a phone
+        switch and a terminal switch write one value space the same way.
+        Applying the swap is the FRONTEND's half: a running TUI re-renders
+        from its config watcher (slice C's external-change path announces
+        it), which is why this branch writes and receipts but never repaints.
+
+        The receipts mirror the terminal's word for word — the ``/effort``
+        precedent — the option list and the "already" no-op included.
+        """
+        from local_operator import settings_io
+        from local_operator.i18n.resolve import (
+            DEFAULT_LANGUAGE,
+            config_value,
+            language_name,
+            language_options,
+            normalise_locale,
+            resolve_language,
+        )
+
+        wanted = arg.strip()
+        resolved = resolve_language()
+        options = dict(language_options())
+        if not wanted:
+            return SlashResult(
+                kind="notice",
+                text=(
+                    f"language: {resolved} ({language_name(resolved)}) — "
+                    f"/language <{'|'.join(options)}>; space"
+                ),
+                style="info",
+            )
+        key = (
+            DEFAULT_LANGUAGE
+            if wanted.casefold() == DEFAULT_LANGUAGE
+            else normalise_locale(wanted) or wanted
+        )
+        if key not in options:
+            # SHIPPED locales only, exactly as the terminal refuses: an
+            # unaudited locale keys no catalogue and would render codes.
+            return SlashResult(
+                kind="notice",
+                text=f"unknown language {wanted!r} — available: {', '.join(options)}",
+                style="warning",
+            )
+        stored = config_value()
+        current = (normalise_locale(stored) or stored) if stored else DEFAULT_LANGUAGE
+        if key == current:
+            return SlashResult(
+                kind="notice",
+                text=f"language: already {key} — resolves to {resolved} "
+                f"({language_name(resolved)})",
+                style="info",
+            )
+        setting = settings_io.resolve_key("language")
+        if setting is None:  # the registry owns the key; guard a broken build
+            return SlashResult(
+                kind="notice",
+                text="language: the setting is not registered in this build",
+                style="warning",
+            )
+        try:
+            from local_operator.config import ConfigManager
+            from local_operator.paths import config_dir
+
+            settings_io.write_setting(ConfigManager(config_dir()), setting, key)
+        except Exception as error:  # noqa: BLE001 — reported to the caller verbatim
+            return SlashResult(
+                kind="notice", text=f"language: could not save {key} — {error}", style="warning"
+            )
+        active = resolve_language()
+        return SlashResult(
+            kind="notice",
+            text=f"language: {key} saved — active {active} ({language_name(active)})",
+            style="info",
+        )
 
     @staticmethod
     def _adopt_remedy(saved: str, *, may_loosen: bool | None = None) -> str:
@@ -9739,6 +9829,7 @@ class ServingSessionHandle(SessionHandle):
                 context_window=store.read_field("context_window"),
                 context_is_estimate=store.read_field("context_is_estimate"),
                 usage=usage,
+                spend_channels=store.spend_channels_copy(),
             )
         # Publish the child roster beside the session state, the way the TUI
         # host does (``mobile/tui_handle.py::_refresh_state``). The folded

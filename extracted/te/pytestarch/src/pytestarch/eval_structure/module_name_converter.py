@@ -27,8 +27,8 @@ class ModuleNameConverter:
         """Converts each regex pattern that serves to identify module names into actual modules that match this pattern.
 
         Args:
-            - modules: list of modules, some of which may need converting since their names are regex patterns
-            - arch: architecture that contains actual modules
+            modules: list of modules, some of which may need converting since their names are regex patterns
+            arch: architecture that contains actual modules
 
         Returns:
             - list of module filters, now without any regex patterns. Will be used for later dependency graph queries.
@@ -60,8 +60,7 @@ class ModuleNameConverter:
                     converted_module_filters.add(converted_module_filter)
                     conversion_mapping[module_to_match].append(converted_module)
 
-                    if module_to_match in never_matched:
-                        never_matched.remove(module_to_match)
+                    never_matched.discard(module_to_match)
 
                     submodules_of_match = get_all_submodules_of(
                         arch._graph,  # type: ignore
@@ -74,7 +73,7 @@ class ModuleNameConverter:
 
         if never_matched:
             raise ImpossibleMatch(
-                f'No modules found that match: {", ".join(never_matched)}'
+                f"No modules found that match: {', '.join(never_matched)}"
             )
 
         all_converted_modules = list(converted_module_filters) + other_modules  # type: ignore

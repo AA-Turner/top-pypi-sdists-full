@@ -417,6 +417,11 @@ SLICE_MODULES: tuple[str, ...] = (
     # S1 of the mesh rolling updates: the ``update`` capability's op halves. It
     # starts no thread of its own (the S3 rollout driver is a different slice).
     "local_operator.network.meshupdate",
+    # S3a of the rolling updates: the rollout record and the serial pass. It
+    # serves NO ops of its own — one start hook, the ``mesh-rollout`` driver
+    # thread — and it opens no record by itself: the trigger that does is
+    # S3b's, so this slice ships inert in production by construction.
+    "local_operator.network.rollouts",
 )
 
 #: Which link, if any, THIS thread is currently serving a request for.
@@ -4177,6 +4182,14 @@ class RelayServer:
         #: installed at CONSTRUCTION and a test builds hundreds of relays it never
         #: starts, so working here would spend their time on work no test asked for.
         self._slice_start_hooks: list[tuple[str, Callable[[], Any]]] = []
+        #: ``(name, hook)`` a slice registered to run when the relay STOPS (see
+        #: ``register_ops``, ``on_stop``). Run synchronously from ``stop()``: a
+        #: slice loop that outlives the relay keeps touching a root the caller
+        #: believes is quiet — the mesh-rollout driver did exactly that and its
+        #: boundary was visible to a co-resident test's ``time.sleep`` patch
+        #: (QA round 5, Q-R5-1) — and an asynchronous hop here would hand the
+        #: caller that same race back.
+        self._slice_stop_hooks: list[tuple[str, Callable[[], Any]]] = []
         self._slow_lock = threading.Lock()
         self._slow_pool: ThreadPoolExecutor | None = None
         self._slow_slots: threading.BoundedSemaphore | None = None
@@ -4278,6 +4291,21 @@ class RelayServer:
             thread = threading.Thread(target=_run, name=f"mesh-start-{label}", daemon=True)
             thread.start()
 
+    def _run_slice_stop_hooks(self) -> None:
+        """Run each slice's stop hook, INLINE and in registration order.
+
+        WHY INLINE (QA round 5, Q-R5-1): ``stop()``'s return is when the caller
+        reads the device as quiet, and the driver this exists for is what made
+        that false — an off-thread hop would put the same race back in a
+        different shape. A hook that raises is REPORTED, and the remaining hooks
+        still run: one slice's teardown must never strand another's.
+        """
+        for label, hook in self._slice_stop_hooks:
+            try:
+                hook()
+            except Exception as exc:  # noqa: BLE001 — see the docstring
+                print(f"mesh relay: stop hook {label} failed ({exc})", file=sys.stderr)
+
     def _sweep_approvals_once(self) -> None:
         """One best-effort retention sweep for the device-local approvals store.
 
@@ -4357,6 +4385,12 @@ class RelayServer:
         narrow the race it is meant to close.
         """
         self._stop.set()
+        # SLICE LOOPS GO NEXT, before any of the link teardown below: a slice's
+        # stop hook is synchronous by contract (``register_ops``'s ``on_stop``),
+        # the driver it reaps must not tick through a teardown it would race,
+        # and "stop() returned" has to mean the device is quiet (round 5,
+        # Q-R5-1).
+        self._run_slice_stop_hooks()
         # THE MEMBERSHIP LOOP SLEEPS ON ITS OWN WAKE EVENT, so a stop must set that
         # too: without it a stop waits out up to MEMBERSHIP_PULL_PASS_S before the
         # loop notices — the same "nothing on the way in checks _stop" shape this
@@ -5836,6 +5870,7 @@ class RelayServer:
         slow: Mapping[str, float] | None = None,
         replace: bool = False,
         on_start: Mapping[str, Callable[[], Any]] | None = None,
+        on_stop: Mapping[str, Callable[[], Any]] | None = None,
     ) -> None:
         """Let a slice module serve its ops without editing this file.
 
@@ -5844,7 +5879,9 @@ class RelayServer:
         control-socket ops (:data:`SLICE_LOCAL_OPS`). ``slow`` maps a peer op to
         its owner-side deadline in seconds and moves its handler off the link's
         reader (see :data:`SLOW_OP_WORKERS`). ``on_start`` maps a LABEL to a
-        callable run once when the relay starts, on its own daemon thread.
+        callable run once when the relay starts, on its own daemon thread;
+        ``on_stop`` maps a LABEL to a callable run when the relay stops, INLINE
+        on the stopping thread.
 
         WHY ``on_start`` EXISTS. Some slice state can only be settled by a relay
         that is up: the move's crash recovery has to run when a relay starts on a
@@ -5855,6 +5892,16 @@ class RelayServer:
         M-3). Each hook runs on a DAEMON THREAD and its failure is logged and
         swallowed: a relay that refused to start because one slice's housekeeping
         raised would take every link on this device down with it.
+
+        WHY ``on_stop`` EXISTS. A slice loop started by ``on_start`` (the
+        mesh-rollout driver; the definitions syncer for its own reasons) must not
+        outlive the relay: a scan thread that keeps ticking a root the caller
+        believes quiet is a leak with a visible cost — the driver's
+        ``time.sleep`` boundary was captured by a co-resident test's
+        process-global patch and took ``test (3.12, 0)`` red twice (QA round 5,
+        Q-R5-1). ``on_stop`` hooks run INLINE on the stopping thread, in
+        registration order, so ``stop()``'s return is the moment the quiet is
+        real; a hook that raises is REPORTED and the remaining hooks still run.
 
         THE RULES, each a refusal rather than a warning:
 
@@ -5901,7 +5948,13 @@ class RelayServer:
                 raise TypeError(f"start hook {label!r} is not callable")
             if any(label == existing for existing, _hook in self._slice_start_hooks):
                 raise ValueError(f"a start hook named {label!r} is already registered")
+        for label, hook in (on_stop or {}).items():
+            if not callable(hook):
+                raise TypeError(f"stop hook {label!r} is not callable")
+            if any(label == existing for existing, _hook in self._slice_stop_hooks):
+                raise ValueError(f"a stop hook named {label!r} is already registered")
         self._slice_start_hooks.extend((label, hook) for label, hook in (on_start or {}).items())
+        self._slice_stop_hooks.extend((label, hook) for label, hook in (on_stop or {}).items())
         self._handlers.update(handlers)
         self._local_slice_handlers.update(local_handlers)
         for name in handlers:
@@ -6047,6 +6100,7 @@ class RelayServer:
         session), so a reader can distinguish "local" from "written by a build
         that does not know about the mesh".
         """
+        from local_operator.session.last_user import last_user_at
         from local_operator.session.placement import local_placement, read_stamp
         from local_operator.session.runtime import registry
 
@@ -6075,6 +6129,25 @@ class RelayServer:
                     # bool's own readers read the RECORD, not a federated row
                     # (the unengaged send gate, the broadcast/steer admission).
                     "started": float(record.started_at or 0.0),
+                    # THE PERSON'S OWN CLOCK, on the rows the remote sidebar's
+                    # RUNNING order can read it on — the local half's own pay
+                    # rule (``server/utils/desktop_sessions.py``): a running
+                    # row orders by when the person last sent it a message,
+                    # every other row's value goes unread, and the tracker's
+                    # cold scan is a real read that a row the section will not
+                    # order must not buy. Payable here: busy, wedged, and a
+                    # waiting gate (``pending``); ``delegating`` is not — it
+                    # derives from live child counts a federated row does not
+                    # carry, so a remote row can never be filed under Running
+                    # for it and its clock would never be read. ``None``
+                    # elsewhere is the unknown this key means on the wire — the
+                    # value the renderer's fallback (``created_at``, then
+                    # catalogue order) runs on, never a minted epoch.
+                    "last_user_at": (
+                        last_user_at(self.root / "sessions" / record.session_id)
+                        if record.busy or state == "wedged" or record.pending
+                        else None
+                    ),
                     "pid": record.pid,
                     "kind": record.kind,
                     "capabilities": list(record.capabilities),
@@ -6174,6 +6247,10 @@ class RelayServer:
                     # listing normally ranks on is exactly what this session has
                     # not written yet.
                     "started": float(stamp.created_at or 0.0),
+                    # No turn yet and no runtime behind the row, so there is
+                    # nothing this clock would order — the same rule and
+                    # spelling as the two halves above (``None`` = no claim).
+                    "last_user_at": None,
                     "pid": 0,
                     "kind": "daemon",
                     "capabilities": [],
@@ -6273,6 +6350,11 @@ class RelayServer:
                     "pending": None,
                     "detached": True,
                     "started": float(getattr(entry.row, "mtime", 0.0) or 0.0),
+                    # Cold on disk, so never filed under Running remotely: no
+                    # scan is bought for it either — same rule and spelling as
+                    # the live half (``local_session_rows``), ``None`` = no
+                    # claim.
+                    "last_user_at": None,
                     "pid": 0,
                     "kind": "daemon",
                     "capabilities": [],
@@ -11960,6 +12042,19 @@ def render_systemd(port: int = DEFAULT_PORT) -> str:
         exec_start=(
             f"{supervisors.quoted(str(image))} -m local_operator.network.relay " f"--port {port}"
         ),
+        # ``KillMode=process`` IS THE SESSION-SAFETY FIX (2026-10-11), and the
+        # relay is the one unit that must carry it: this device's session
+        # runtimes are children of the relay, so under systemd's default
+        # (``control-group``) ANY relay restart — the manual verb, an update's
+        # roll, the member pass — killed the node's sessions, including the
+        # session that asked. ``process`` kills only the main process and is
+        # macOS parity by design (launchd children survive). A survivor
+        # reparents to ``systemd --user`` and re-attaches when the relay is
+        # back; see ``supervisors.render_systemd_unit`` for the no-reap
+        # decision (an ExecStop reaper would fire on RESTART too and recreate
+        # this defect) and ``refresh_unit_if_stale`` below for the migration
+        # that adds this line to units installed before it existed.
+        kill_mode="process",
         post_lines=[
             f"Environment={supervisors.quoted(f'{CONFIG_DIR_ENV}={config_dir()}')}",
             *supervisors.output_redirect_lines(log_path()),
@@ -12047,6 +12142,154 @@ def refresh_plist_if_stale() -> Any:
         from local_operator import launchd
 
         return launchd.PlistRefresh(name=name, kind="failed", detail=str(exc))
+
+
+def refresh_unit_if_stale() -> Any:
+    """The Linux arm of the daemon-refresh seam: migrate the unit, move a stale relay.
+
+    WHY THIS EXISTS (2026-10-11, the rolling-updates drill): the member pass — and
+    ``lop update``'s own tail, and ``lop services restart`` — all reach
+    ``update.refresh_service_daemons_after_upgrade`` to roll the supervised
+    services onto the build the pointer now names, and on Linux that call was an
+    announced no-op (audit A24): the node's install moved while its relay kept
+    serving the previous build, because a relay advertises the build it RUNS and
+    nothing restarted it. This is the systemd sibling of
+    :func:`refresh_plist_if_stale`, sharing its second staleness question and its
+    outcome vocabulary (``launchd.PlistRefresh``, so ``daemon_report`` parsing
+    and the update report are the same for both platforms).
+
+    THE TWO HALVES, in the order that makes the second one safe:
+
+    1. **Migrate the unit file.** A unit whose content differs from
+       :func:`render_systemd`'s is rewritten and ``daemon-reload``ed. This is
+       also how an installed unit grows ``KillMode=process`` — the
+       session-safety fix every pre-existing unit predates — and it must land
+       BEFORE any restart below: under systemd's default ``control-group`` a
+       restart kills every process left in the unit's cgroup, and the session
+       runtimes live there (``supervisors.render_systemd_unit`` carries the
+       semantics and the no-reap decision). A rewrite that cannot be written or
+       re-read is a ``failed`` outcome and the refresh STOPS — restarting on a
+       unit whose kill semantics are unproven is the exact defect this arm
+       removes, so it is refused rather than risked.
+    2. **Move a provably-stale relay.** ``_managed_service_pid`` plus
+       ``update.stale_generation_of_process`` — the same question the macOS arm
+       asks — and only a PROVEN move restarts, through :func:`service_action`,
+       whose wrapper verifies a new pid actually serves before anything claims
+       a move. A rewrite alone restarts nothing: ``daemon-reload`` makes the
+       new definition effective at the next start, and no summary line is
+       printed for it (the launchd ``repaired`` sentence claims a restart,
+       which would be false here).
+
+    GUARDS, all silent declines: a Linux host with its supervisor; the unit
+    exists; the unit is addressable from this run (a sandboxed ``HOME``
+    declines before any manager is reached); and the unit's image names this
+    install's stable shim (``_unit_image``/``_names_the_shim``) — a unit that
+    would restart through some other tree is not this run's to move, and the
+    shim is exactly the generation axis the build question needs. Every path is
+    no-raise: an upgrade that already succeeded is the only caller.
+    """
+    from local_operator import launchd, update
+
+    name = "network relay"
+    recovery = "lop network install"
+    try:
+        if not (sys.platform.startswith("linux") and is_supported()):
+            return launchd.PlistRefresh(name=name, kind="unsupported")
+        path = systemd_path()
+        if not path.exists():
+            return launchd.PlistRefresh(name=name, kind="not-installed")
+        if not supervisors.systemd_unit_is_addressable(SYSTEMD_UNIT):
+            return launchd.PlistRefresh(name=name, kind="not-addressable")
+        image = _unit_image()
+        if image is None or not _names_the_shim(image):
+            # NOT THIS RUN'S TO MOVE: the unit's image does not resolve the
+            # generation pointer, so there is no proven move to make and a
+            # rewrite could repoint a tree this refresh does not own. The F10
+            # discipline — an unanswered question declines; it does not guess.
+            return launchd.PlistRefresh(name=name, kind="not-addressable")
+        rendered = render_systemd(_service_port())
+        try:
+            current = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            return launchd.PlistRefresh(
+                name=name,
+                kind="failed",
+                detail=f"could not read {path}: {exc} — run `{recovery}` to reinstall the unit",
+            )
+
+        def reload_unit() -> Any:
+            # DISK-CURRENT IS NOT MANAGER-CURRENT: a prior failed reload leaves
+            # the safe unit on disk but control-group loaded. Another refresh
+            # may also see that disk during a writer's write/reload gap. Each
+            # proven-move caller therefore needs its own successful reload;
+            # neither disk equality nor another caller's attempt proves safety.
+            reloaded = supervisors.systemctl_user("daemon-reload")
+            if reloaded.returncode != 0:
+                return launchd.PlistRefresh(
+                    name=name,
+                    kind="failed",
+                    detail=(
+                        "rewrote the relay unit but systemctl could not re-read it: "
+                        f"{supervisors.translate_systemctl_error(reloaded.stderr)} — "
+                        f"run `{recovery}` to reinstall it"
+                    ),
+                )
+            return None
+
+        if current != rendered:
+            try:
+                path.write_text(rendered, encoding="utf-8")
+            except OSError as exc:
+                return launchd.PlistRefresh(
+                    name=name,
+                    kind="failed",
+                    detail=(
+                        f"could not rewrite {path}: {exc} — run `{recovery}` to reinstall "
+                        "the unit"
+                    ),
+                )
+            failure = reload_unit()
+            if failure is not None:
+                return failure
+        pid = _managed_service_pid()
+        if pid is None:
+            # No running process, no build to compare — a stopped daemon is the
+            # installers' to repair, not this refresh's (same rule as the
+            # macOS arm's "no live pid" decline).
+            return launchd.PlistRefresh(name=name, kind="current")
+        stale = update.stale_generation_of_process(pid)
+        if stale is None:
+            return launchd.PlistRefresh(name=name, kind="current")
+        if current == rendered:
+            # The rewrite arm already reloaded this caller's new definition.
+            # A byte-current unit needs the same loaded-state guarantee, but
+            # only on a proven move: no-move probes still leave it untouched.
+            failure = reload_unit()
+            if failure is not None:
+                return failure
+        result = service_action("restart")
+        if not result.get("ok"):
+            # Same refusal as the macOS arm's, in this platform's words: the
+            # move was proven and did not happen; the sentence names the
+            # installer that can make it.
+            why = "systemctl would not restart it"
+            if str(result.get("reason") or "") == "not_restarted":
+                why = "the restart it accepted did not take"
+            return launchd.build_move_failure(name, recovery, stale, why=why)
+        return launchd.PlistRefresh(
+            name=name,
+            kind="restarted",
+            detail=stale.name,
+            consequence="expect a brief mesh blip",
+        )
+    except Exception as exc:  # noqa: BLE001 — a repair must never fail an upgrade
+        from local_operator import launchd
+
+        return launchd.PlistRefresh(
+            name=name,
+            kind="failed",
+            detail=f"could not refresh the relay unit: {exc} — run `{recovery}` to reinstall it",
+        )
 
 
 def install(port: int = DEFAULT_PORT, *, dry_run: bool = False) -> dict[str, Any]:

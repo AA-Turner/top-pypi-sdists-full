@@ -46,6 +46,7 @@ use crate::project_spec::{
 use crate::queue_directive::{
     authored_queue_weight_is_valid, queue_weight_is_valid,
 };
+use crate::AgentRecoveryWire;
 
 const USED_MACROS_FILE: &str = "macros.json";
 // legacy xprompt spelling
@@ -1587,6 +1588,7 @@ fn agent_meta_from_object(data: &Map<String, Value>) -> AgentMetaWire {
         ),
         auto_approve_argument: coerce_str(data.get("auto_approve_argument")),
         autonomy,
+        auto_restart: coerce_object(data.get("auto_restart")),
     }
 }
 
@@ -1864,7 +1866,24 @@ fn done_marker_from_object(data: &Map<String, Value>) -> DoneMarkerWire {
         monitor_followup_budget_decision_path: coerce_str(
             data.get("monitor_followup_budget_decision_path"),
         ),
+        recovery: coerce_recovery(data.get("recovery")),
     }
+}
+
+fn coerce_recovery(value: Option<&Value>) -> Option<AgentRecoveryWire> {
+    let obj = value.and_then(|item| item.as_object())?;
+    if obj.is_empty() {
+        return None;
+    }
+    Some(AgentRecoveryWire {
+        state: coerce_str(obj.get("state")),
+        reason: coerce_str(obj.get("reason")),
+        reason_text: coerce_str(obj.get("reason_text")),
+        requested_at: coerce_str(obj.get("requested_at")),
+        updated_at: coerce_str(obj.get("updated_at")),
+        episode_id: coerce_str(obj.get("episode_id")),
+        ledger_key: coerce_str(obj.get("ledger_key")),
+    })
 }
 
 fn running_marker_from_object(data: &Map<String, Value>) -> RunningMarkerWire {
@@ -2031,7 +2050,7 @@ fn plan_path_from_object(data: &Map<String, Value>) -> PlanPathMarkerWire {
 mod tests {
     use std::path::Path;
 
-    use serde_json::{json, Value};
+    use serde_json::{json, Map, Value};
     use tempfile::tempdir;
 
     use super::*;
@@ -3230,6 +3249,71 @@ mod tests {
         assert!(encoded.get("autonomy").is_none());
         let decoded: AgentMetaWire = serde_json::from_value(encoded).unwrap();
         assert_eq!(decoded.autonomy, None);
+    }
+
+    fn meta_with_auto_restart(value: Value) -> AgentMetaWire {
+        let mut data = Map::new();
+        data.insert("name".to_string(), json!("probe"));
+        data.insert("auto_restart".to_string(), value);
+        agent_meta_from_object(&data)
+    }
+
+    #[test]
+    fn scanner_reads_auto_restart_object() {
+        let meta = meta_with_auto_restart(json!({
+            "of_artifacts_dir": "/tmp/old",
+            "episode_id": "sase@9fd8a08",
+            "from_rev": "9c5000f",
+            "to_rev": "9fd8a08",
+        }));
+        let provenance = meta.auto_restart.as_ref().unwrap();
+        assert_eq!(provenance["episode_id"], "sase@9fd8a08");
+        assert_eq!(provenance["from_rev"], "9c5000f");
+        for value in [json!("not-an-object"), json!(7), json!(null), json!([])]
+        {
+            assert_eq!(meta_with_auto_restart(value).auto_restart, None);
+        }
+    }
+
+    #[test]
+    fn agent_meta_wire_omits_absent_auto_restart() {
+        let encoded = serde_json::to_value(AgentMetaWire::default()).unwrap();
+        assert!(encoded.get("auto_restart").is_none());
+        let decoded: AgentMetaWire = serde_json::from_value(encoded).unwrap();
+        assert_eq!(decoded.auto_restart, None);
+    }
+
+    #[test]
+    fn scanner_round_trips_auto_restart_through_snapshot() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let artifact = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20261009120400");
+        write_json(
+            &artifact.join("agent_meta.json"),
+            json!({
+                "name": "research.46.final",
+                "auto_restart": {
+                    "of_artifacts_dir": "/tmp/old",
+                    "lineage_root": "20261009120000",
+                    "episode_id": "sase@9fd8a08",
+                    "from_rev": "9c5000f",
+                    "to_rev": "9fd8a08"
+                }
+            }),
+        );
+        let snapshot = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        );
+        assert_eq!(snapshot.records.len(), 1);
+        let meta = snapshot.records[0].agent_meta.as_ref().unwrap();
+        let provenance = meta.auto_restart.as_ref().unwrap();
+        assert_eq!(provenance["episode_id"], "sase@9fd8a08");
+        assert_eq!(provenance["to_rev"], "9fd8a08");
     }
 
     #[test]

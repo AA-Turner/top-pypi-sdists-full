@@ -187,12 +187,12 @@ class SessionRow(BaseModel):
     #: a row this build cannot answer for carries the null rather than an
     #: omission.
     #:
-    #: REMOTE ROWS carry no VALUE in this build — the mesh lane owns the
-    #: producer half and adds the same name and unit later; until then the
-    #: key holds the declared default on those rows like every other field only
-    #: the local half fills, and an older daemon omits it entirely. A client
-    #: reads null/absent as "fall back to the row's creation time", which is
-    #: also what it does before the first user message of a session exists.
+    #: REMOTE ROWS carry the peer's claim whenever the peer computes one (the
+    #: mesh producer half: ``network/relay.py`` computes it on outbound peer
+    #: rows); a peer that predates it omits the key entirely, and a peer row
+    #: whose transcript holds no typed user send holds the declared default. A
+    #: client reads null/absent as "fall back to the row's creation time",
+    #: which is also what it does before the first user message exists.
     last_user_at: float | None = None
 
     @field_validator("subagents_running", "subagents_queued", mode="before")
@@ -1255,6 +1255,49 @@ class JobCancelReceipt(BaseModel):
 
     job_id: str
     cancelled: bool
+
+
+class SupplementReceipt(BaseModel):
+    """What a supplement control op was ACKNOWLEDGED as, in the runtime's own words.
+
+    THE THREE OPS behind the Highlights block's controls (``cancel``,
+    ``steer``, ``restart``; memo §2.7). ``receipt`` is the RUNTIME's word,
+    verbatim and never composed or re-worded here -- the
+    ``InterruptReceipt.receipt`` rule, one family over -- and its vocabulary is
+    the closed set the runtime's ops answer with:
+
+    * ``cancelled``        -- the running attempt was cut; a ``cancelled`` row
+      is written (the row's own settle is the outcome's durable evidence,
+      exactly as it is for a job cancel above);
+    * ``steering``         -- the steer was ACCEPTED: the in-flight attempt was
+      cut and version + 1 starts with the instruction, or -- when the named job
+      was not the running one -- the request is QUEUED behind the running job
+      (memo §2.9, depth 1; a newer request replaces the queued one). The word
+      is the same either way BY DESIGN (the runtime's own test pins the queued
+      case to ``steering``): the surface paints acceptance, never a claim that
+      the new version started immediately;
+    * ``restarting``       -- the restart was accepted, same queue rule;
+    * ``already finished`` -- the NEUTRAL receipt for a job this op cannot act
+      on: one that settled, one the runtime forgot, or a pair its identity gate
+      refuses. The neutrality is deliberate (memo §2.7, reusing image-gen's
+      ``ALREADY_FINISHED_NOTE``, which "must never wear the error ink or
+      glyph"): a surface that lost a race with the job's own end must not be
+      told something happened. A STALE JOB ID IS REFUSED BY THIS RECEIPT,
+      never resolved onto a newer job -- the runtime's identity gate decides,
+      and the route adds no lookup of its own.
+
+    ``op``/``anchor``/``job`` echo the request's own identity so a caller can
+    key a receipt to the pair it sent without correlating arrays: ``anchor`` is
+    the answer the row rides under and ``job`` is the id the press named. Like
+    ``JobCancelReceipt``'s fields, these exist for the route's tests and any
+    later reader; the shipped UI reads none of them, converging on the live
+    events and the canonical re-read either way.
+    """
+
+    op: Literal["cancel", "steer", "restart"]
+    anchor: str
+    job: str
+    receipt: str
 
 
 class MoveReceipt(BaseModel):

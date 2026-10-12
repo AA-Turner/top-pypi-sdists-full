@@ -8252,3 +8252,260 @@ class TestDriveQueueListReadDistinguishesFailureFromEmpty:
 
         assert result.exit_code == 0
         assert result.output.strip() == "(drive queue is empty)"
+
+
+# ── #3695: Test-stage routing dead-ends that are only transient fleet state
+# must re-check routability every tick, instead of staying `blocked` forever
+# the way every other `(#2019)` dead end correctly does. ────────────────────
+#
+# `_reconcile_blocked_test_routing` is the new sibling to `_reconcile_blocked`
+# that `plan_tick` runs first: it only fires when `is_test_stage_routing_
+# dead_end_reason(entry.last_reason)` is True (the ONE `(#1672)+(#2019)`
+# dead-end shape caused by fleet state, never a guard refusal, config gap,
+# or any other `(#2019)` shape), and only when the shell's live probe
+# (`live_test_routing_clear`) says a capability-matched machine is now free
+# and healthy.
+
+_TEST_ROUTING_REASON = (
+    "the Test stage for claude-coordinator#3600-work is BLOCKED: Test stage "
+    "cannot be routed: every machine that declares capability [gtk] for "
+    "repo 'claude-coordinator' is paused or inside its quiet-hours window "
+    "right now: desktop-a. (#2636) — coord.smoke.dispatch_smoke found no "
+    "capability-matched machine and recorded 'blocked' rather than "
+    "re-probing a broken fleet on every tick (#1672). It will not try "
+    "again on its own, so waiting for a verdict here waits forever "
+    "(#2019). Fix the fleet (or the capability rules), then clear the "
+    "marker."
+)
+
+_TEST_ROUTING_NO_CONFIGURED_MACHINE_REASON = (
+    "the Test stage for claude-coordinator#3600-work is BLOCKED: Test stage "
+    "cannot be routed: no configured machine declares capability [gtk] AND "
+    "can build repo 'claude-coordinator' — the Test stage cannot run for "
+    "this completion until a capable machine is added. — "
+    "coord.smoke.dispatch_smoke found no capability-matched machine and "
+    "recorded 'blocked' rather than re-probing a broken fleet on every "
+    "tick (#1672). It will not try again on its own, so waiting for a "
+    "verdict here waits forever (#2019). Fix the fleet (or the capability "
+    "rules), then clear the marker."
+)
+
+_TEST_ROUTING_GUARD_REFUSAL_REASON = (
+    "drive refused to launch claude-coordinator#3600: the diff touches a "
+    "sealed acceptance path (#1844): this is an unconditional, mandatory "
+    "stop, not something a later tick can re-check (#2019)"
+)
+
+
+def test_a_blocked_test_routing_dead_end_resumes_when_the_fleet_frees_up():
+    """Scenario (a): a capability-matched machine is now free and healthy —
+    the row must clear exactly like `coord diagnose --stage test --reset`
+    would, and fall straight into this tick's launch selection."""
+    entries = [_blocked_entry(3600, position=3, last_reason=_TEST_ROUTING_REASON)]
+    plan = plan_tick(
+        entries,
+        board(),
+        capacity=1,
+        live_test_routing_clear={entry_key(REPO, 3600): True},
+        live_test_routing_reason={
+            entry_key(REPO, 3600): "a capability-matched machine is now free and healthy"
+        },
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "test_routing_recovered"
+    assert reconcile.updates["state"] == STATE_WAITING
+    assert reconcile.updates["attempts"] == 0
+    assert reconcile.updates["resumes"] == 1
+    assert plan.launch is not None and plan.launch.issue == 3600
+
+
+def test_a_blocked_test_routing_dead_end_stays_blocked_while_still_unroutable():
+    """Scenario (b): the capable machine is still busy/unhealthy, or there
+    is simply no live evidence either way — the row is left untouched,
+    same as the pre-existing `live_blocked_gate` no-evidence convention."""
+    entries = [_blocked_entry(3600, position=3, last_reason=_TEST_ROUTING_REASON)]
+
+    plan_still_blocked = plan_tick(
+        entries,
+        board(),
+        capacity=1,
+        live_test_routing_clear={entry_key(REPO, 3600): False},
+    )
+    assert plan_still_blocked.reconciles == ()
+    assert plan_still_blocked.launch is None
+
+    plan_no_evidence = plan_tick(
+        entries, board(), capacity=1, live_test_routing_clear={}
+    )
+    assert plan_no_evidence.reconciles == ()
+    assert plan_no_evidence.launch is None
+
+
+def test_a_test_routing_dead_end_with_no_configured_machine_stays_blocked():
+    """Scenario (c): the dead end's embedded cause is "no configured
+    machine declares capability X" — a config problem, not fleet state.
+    `coord.smoke.required_caps_from_test_reason` returns `None` for this
+    message shape (pinned separately in `tests/test_smoke.py`), so the
+    shell never populates a live reading for this key at all; here we pin
+    that an empty/absent reading leaves the row blocked exactly like any
+    other no-evidence case, never guessing it is routable."""
+    entries = [
+        _blocked_entry(
+            3600, position=3, last_reason=_TEST_ROUTING_NO_CONFIGURED_MACHINE_REASON
+        )
+    ]
+    plan = plan_tick(entries, board(), capacity=1, live_test_routing_clear={})
+    assert plan.reconciles == ()
+    assert plan.launch is None
+
+
+def test_a_guard_refusal_dead_end_never_resumes_even_if_mislabeled_clear():
+    """Scenario (d): an `(#1844)` guard refusal is NOT a Test-stage routing
+    dead end (no `(#1672)` marker at all) — `is_test_stage_routing_dead_end_
+    reason` must gate on the predicate, not merely on absent evidence, so
+    even a deliberately contradicting `live_test_routing_clear=True` reading
+    must never resume it."""
+    entries = [
+        _blocked_entry(
+            3600, position=3, last_reason=_TEST_ROUTING_GUARD_REFUSAL_REASON
+        )
+    ]
+    plan = plan_tick(
+        entries,
+        board(),
+        capacity=1,
+        live_test_routing_clear={entry_key(REPO, 3600): True},
+    )
+    assert plan.reconciles == ()
+    assert plan.launch is None
+
+
+def test_a_test_routing_dead_end_inside_its_grace_window_is_not_resumed_yet():
+    """#3536-style anti-flap: even with a clear live reading, a row whose
+    `last_reason` was recorded less than `TEST_STAGE_ROUTING_RECHECK_GRACE_
+    SECONDS` ago must not be bounced back to `waiting` on this same tick —
+    a flapping machine must not thrash the row."""
+    from coord.drive_queue import TEST_STAGE_ROUTING_RECHECK_GRACE_SECONDS
+
+    entries = [
+        _blocked_entry(
+            3600,
+            position=3,
+            last_reason=_TEST_ROUTING_REASON,
+            reason_at=NOW - (TEST_STAGE_ROUTING_RECHECK_GRACE_SECONDS / 2),
+        )
+    ]
+    plan = plan_tick(
+        entries,
+        board(),
+        capacity=1,
+        now=NOW,
+        live_test_routing_clear={entry_key(REPO, 3600): True},
+    )
+    assert plan.reconciles == ()
+    assert plan.launch is None
+
+
+def test_a_test_routing_dead_end_past_max_resumes_reports_oscillating_not_waiting():
+    """#2230's churn bound applies here too: an entry that has already
+    resumed `MAX_BLOCKED_RESUMES` times must stop auto-resuming and instead
+    report an `oscillating` note, staying blocked.
+
+    #3695 review finding 2: the oscillating write must layer this tick's
+    finding on TOP of the entry's original `(#1672)`/`(#2019)` cause,
+    never replace it outright — a wholesale replacement would strip both
+    markers and make the row fall out of `is_test_stage_routing_dead_end_
+    reason` AND `is_permanent_block_reason` on the very next tick, handing
+    it to the unrelated merge-gate `_reconcile_blocked` path and bypassing
+    this oscillation ceiling entirely. Also pin the idempotent no-op: a
+    second tick that would produce the exact same note must not re-stamp
+    an identical string forever."""
+    from coord.drive_queue import (
+        MAX_BLOCKED_RESUMES,
+        is_permanent_block_reason,
+        is_test_stage_routing_dead_end_reason,
+    )
+
+    entries = [
+        _blocked_entry(
+            3600,
+            position=3,
+            last_reason=_TEST_ROUTING_REASON,
+            resumes=MAX_BLOCKED_RESUMES,
+        )
+    ]
+    plan = plan_tick(
+        entries,
+        board(),
+        capacity=1,
+        live_test_routing_clear={entry_key(REPO, 3600): True},
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "oscillating"
+    assert reconcile.updates.get("state") != STATE_WAITING
+    assert str(MAX_BLOCKED_RESUMES) in reconcile.reason
+    assert plan.launch is None
+
+    noted_reason = reconcile.updates["last_reason"]
+    # The original cause's markers must survive the note being appended —
+    # otherwise the row falls out of BOTH classifications on the next tick.
+    assert is_test_stage_routing_dead_end_reason(noted_reason)
+    assert is_permanent_block_reason(noted_reason)
+    assert "#1672" in noted_reason
+    assert "#2019" in noted_reason
+
+    # A second tick that sees the SAME already-noted reason, with nothing
+    # new to say, must be a no-op rather than re-stamping an identical
+    # string forever (the `reason == entry.last_reason` short-circuit).
+    entries_again = [
+        _blocked_entry(
+            3600,
+            position=3,
+            last_reason=noted_reason,
+            resumes=MAX_BLOCKED_RESUMES,
+        )
+    ]
+    plan_again = plan_tick(
+        entries_again,
+        board(),
+        capacity=1,
+        live_test_routing_clear={entry_key(REPO, 3600): True},
+    )
+    assert plan_again.reconciles == ()
+    assert plan_again.launch is None
+
+
+def test_an_unconfirmed_test_state_reset_reason_keeps_the_dead_end_markers():
+    """#3695 review round 2: when the self-clear's second half — clearing the
+    assignment's own `test_state` — is not observed to land, the shell puts
+    the row back to `blocked` carrying this text. Like the oscillating note
+    above it must LAYER on the original cause: strip `(#1672)`/`(#2019)` and
+    the next tick stops recognising the row as a Test-routing dead end (so it
+    never retries the self-clear) and stops treating it as permanent at all.
+    It must also say what was actually observed, so the audit trail and
+    `status` never read as a recovery."""
+    from coord.drive_queue import (
+        is_permanent_block_reason,
+        is_test_stage_routing_dead_end_reason,
+        test_routing_recovery_unconfirmed_reason,
+    )
+
+    observed = "the reset raised OperationalError: database is locked"
+    reason = test_routing_recovery_unconfirmed_reason(_TEST_ROUTING_REASON, observed)
+
+    assert is_test_stage_routing_dead_end_reason(reason)
+    assert is_permanent_block_reason(reason)
+    assert "#1672" in reason and "#2019" in reason
+    assert _TEST_ROUTING_REASON.split(" — ")[0] in reason
+    assert observed in reason
+    assert "NOT confirmed" in reason
+
+    # Re-composing over an already-noted reason replaces the note instead of
+    # growing the string forever (the `_strip_test_routing_probe_note` half
+    # of the convention).
+    again = test_routing_recovery_unconfirmed_reason(reason, observed)
+    assert again == reason
+
+    # With no original cause to layer onto, the note stands alone rather
+    # than emitting a dangling separator.
+    assert not test_routing_recovery_unconfirmed_reason("", observed).startswith(" —")

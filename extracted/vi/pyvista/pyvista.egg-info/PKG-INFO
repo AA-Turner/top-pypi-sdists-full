@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvista
-Version: 0.49.0
+Version: 0.49.1
 Summary: 3D visualization and mesh analysis for science and engineering.
 Author-email: PyVista Developers <info@pyvista.org>
 License-Expression: MIT
@@ -55,9 +55,7 @@ Provides-Extra: io-override
 Requires-Dist: pyvista-miniply>=0.5.2; extra == "io-override"
 Requires-Dist: pyvista-stl>=0.5.3; extra == "io-override"
 Provides-Extra: jupyter
-Requires-Dist: ipywidgets; extra == "jupyter"
-Requires-Dist: nest-asyncio2; extra == "jupyter"
-Requires-Dist: trame-pyvista; extra == "jupyter"
+Requires-Dist: trame-pyvista[jupyter]; extra == "jupyter"
 Dynamic: license-file
 
 <p align="center">

@@ -147,6 +147,7 @@ class AgmetPlotter:
         admin_level=None,
         show_logos=True,
         logo_max_px=LOGO_MAX_PX,
+        yield_units="MT/ha",
     ):
         self.df = df.copy()
         self.names_cols = names_cols
@@ -167,6 +168,7 @@ class AgmetPlotter:
         self.admin_level = admin_level
         self.show_logos = show_logos
         self.logo_max_px = logo_max_px
+        self.yield_units = yield_units
 
         self.use_forecast = False
         self.color_list = get_colors("tableau", only_colors=True)
@@ -298,7 +300,7 @@ class AgmetPlotter:
 
             label = str(y)
             if not np.isnan(_yld):
-                label += f", {_yld:.2f} MT/ha"
+                label += f", {_yld:.2f} {self.yield_units}"
 
             if y == self.frcast_yr:
                 kwargs = dict(lw=1.5, color="b", label=label)

@@ -48,6 +48,9 @@ from collections import namedtuple
 from copy import deepcopy
 import sys
 from radboy.Unified.BACKUP import *
+import holidays
+from pandas.tseries.offsets import BusinessDay,CustomBusinessDay
+from pandas.tseries.holiday import USFederalHolidayCalendar,Holiday
 
 try:
     import pyperclip
@@ -23436,3 +23439,362 @@ def fromDTOE_legalage_dtplus():
         return datetime.now()+relativedelta(**args)
     except Exception as e:
         print(e)
+
+def paydays():
+    try:
+        fields={
+            'pay-period':{
+                'type':'integer',
+                'default':detectGetOrSet("paydays pay-period",7,setValue=False,literal=False),
+                'help':'how long between paydays',
+                'ptext':'Pay Period Length in Days'
+            },
+            'last-pay-day':{
+                'type':'datetime',
+                'default':detectGetOrSet("paydays last-pay-day",datetime(2026,10,5),setValue=False,literal=True),
+                'help':'Your last paydate',
+                'ptext':'Last Pay Date'
+            },
+            'employer':{
+                'type':'string',
+                'default':detectGetOrSet("paydays employer",'7Eleven',setValue=False,literal=True),
+                'help':'Employer Name Text',
+                'ptext':'Employer Name'
+            },
+            'length-ahead':{
+                'type':'integer',
+                'default':detectGetOrSet("paydays length-head",365,setValue=False,literal=False),
+                'help':'how far ahead in days',
+                'ptext':'Days Ahead to Calculate For'
+            },
+            'direction':{
+                'type':'string',
+                'default':'+',
+                'help':'Are You looking forwards(+) or backwards(-)',
+                'ptext':'Direction + or -'
+            },
+        }
+        fb=FormBuilder(data=fields,passThruText="Calculate Future Paydays")
+        if fb in BooleanAnswers.NONE:
+            return
+        for k in fb:
+            if k == 'direction':
+                continue
+            settings=fields[k]['default']
+            if fb[k] !=  settings:
+                if fields[k]['type'] in ('string','datetime'):
+                    save=detectGetOrSet(f"paydays {k}",fb[k],setValue=True,literal=True)
+                else:
+                    save=detectGetOrSet(f"paydays {k}",fb[k],setValue=True,literal=False)
+        count=0
+        ct=int(fb['length-ahead']/fb['pay-period'])
+        x=[]
+        while True:
+            try:
+                    previous=datetime.strptime(fb['last-pay-day'],"%Y-%m-%d %H:%M:%S")+relativedelta(days=fb['pay-period']*(count-1))
+                    next_pday=datetime.strptime(fb['last-pay-day'],"%Y-%m-%d %H:%M:%S")+relativedelta(days=fb['pay-period']*count)
+            except Exception as e:
+                    previous=fb['last-pay-day']+relativedelta(days=fb['pay-period']*(count-1))
+                    next_pday=fb['last-pay-day']+relativedelta(days=fb['pay-period']*count)
+
+
+            #if fb['direction'] == '+':
+            if (datetime.combine(today(),time.min).timestamp() <= next_pday.timestamp()) and (datetime.combine(today(),time.min).timestamp() >= previous.timestamp()):
+                current_period=f'CPD: {Fore.light_cyan}[X]'
+            else:
+                current_period=f"CPD: {Fore.light_cyan}[ ]"
+            #else:
+            #    if (datetime.combine(today(),time.min).timestamp() >= next_pday.timestamp()) and (datetime.combine(today(),time.min).timestamp() <= previous.timestamp()):
+            #        current_period=f'CPD: {Fore.light_cyan}[X]'
+            #    else:
+            #        current_period=f"CPD: {Fore.light_cyan}[ ]"
+
+            msg=std_colorize(f"{current_period} {Fore.light_yellow}EmployerName{Fore.light_green}:{Fore.light_steel_blue} {fb['employer']} | {Fore.light_yellow}Pay-Day{Fore.light_green}:{Fore.light_steel_blue} {next_pday} | {Fore.light_yellow}Pay-Period-Length{Fore.light_green}:{Fore.light_steel_blue} {fb['pay-period']} | {Fore.yellow}Days({fb['direction']}){Fore.light_green} From Last Payday:{Fore.light_steel_blue} {count*fb['pay-period']} | {Fore.yellow}Periods({fb['direction']}) From Last Pay Day{Fore.light_green}:{Fore.light_steel_blue} {count}",count,ct)
+            x.append(msg)
+            if fb['direction'] == '+':
+                count+=1
+                if count >= (fb['length-ahead']/fb['pay-period']):
+                    break
+            else:
+                count-=1
+                if count <= -(fb['length-ahead']/fb['pay-period']):
+                    break
+        x='\n'.join(x)
+        x+="\n** CPD = Current Pay Period"
+        xx={'colorized':x,'stripped colors':strip_colors(x),}
+        
+        return results_def(xx)
+    except Exception as e:
+        print(e)
+
+def holidays_short_view(self,data:list,printToScreen=True,num=None):
+        xtext=[]
+        ct=len(data)
+        ii=''
+        #template text
+        #{Fore.cyan}{i.}{Fore.light_steel_blue} ={Fore.sea_green_1a}'{i.}{Style.reset}'
+        for xnum,i in enumerate(data):
+            msg=f"HDName: '{getattr(i,'holiday_name')}' HDDate: '{getattr(i,'date_observed')}' Org:'{getattr(i,'observed_by')}'"
+            xtext.append(std_colorize(msg,xnum,ct))
+
+        if printToScreen:
+            print('\n'.join(xtext))
+        return '\n'.join(xtext)
+
+def holidays_StoreForCDP(self,item):
+    try:
+        with Session(ENGINE) as session:
+            log=session.query(self.Model).filter(self.primaryKey(self.Model)==self.primaryKey(item)).first()
+            keys={
+           
+            }
+            htext=[]
+            cta=len(keys)
+            for num,k in enumerate(keys):
+                htext.append(std_colorize(f"Field {k} = '{keys[k]}'",num,cta))
+            htext='\n'.join(htext)
+            while True:
+                try:
+                    print(htext)
+                    which=Control(func=FormBuilderMkText,ptext=f"Which {Fore.light_blue}index {Fore.light_yellow}for{Fore.light_red} field{Fore.light_yellow} do you wish to return?",helpText=f"index integer for field starting at 0:\n{htext}",data="integer")
+                    if which is None:
+                        return
+                    elif which in ['NAN','NaN',None,'None','d','']:
+                        return
+                    else:
+                        self.StoreInCB(ncb_text=str(tuple(keys.values())[which]))
+                    return
+                except Exception as e:
+                    print(e)
+
+    except Exception as e:
+        print(e)
+        return item
+    pass
+
+def s2cb_holidays(self,menu=False,short=True):
+        with Session(ENGINE) as session:
+            filt=abstract_filter(self.Model)
+
+            core={
+                'limit':{
+                'default':None,
+                'type':"integer"
+                },
+                'offset':{
+                'default':None,
+                'type':'integer,'
+                }
+            }
+            fd=FormBuilder(data=core,passThruText="limit your results.")
+            if fd is None:
+                print("exited early")
+                return
+            if filt is not None:
+                query=session.query(self.Model).filter(filt)
+            else:
+                query=session.query(self.Model)
+            
+            
+            orderedQuery=orderQuery(query,self.Model.dtoe)
+            limited=limitOffset(orderedQuery,limit=fd['limit'],offset=fd['offset'])
+            results=limited.all()
+            if short:
+                htext=self.short_view(self=self,data=results,printToScreen=False)
+            else:
+                htext=self.long_view(data=results,printToScreen=False)
+
+            if menu:
+                #next update
+                cta=len(results)
+                gotoNext=None
+                for num,log in enumerate(results):
+                    if log == None:
+                        continue
+                    while True:
+                        if log is None:
+                            gotoNext=True
+                            break
+                        
+                        cmds=['edit=ed/edit/e','delete=rm/del/delete/remove','save2cb=s2cb/clipbd/memo']
+                        try:
+                            if short:
+                                l=self.short_view(self=self,data=[log,],printToScreen=False,num=num)
+                            else:
+                                l=self.long_view(self=self,data=[log,],printToScreen=False,num=num)
+                            doWhat=Control(func=FormBuilderMkText,ptext=f"{l}\n[{cmds}]?",helpText=f"{l}\n{cmds}",data="string")
+                            if doWhat in ['NaN',None]:
+                                return
+                            elif doWhat.lower() in ['d','']:
+                                gotoNext=True
+                                break
+                            elif doWhat.lower() in [i.lower() for i in 'edit=ed/edit/e'.split('=')[-1].split("/")]:
+                                log=self.edit_id(log)
+
+                                continue
+                            elif doWhat.lower() in [i.lower() for i in 'save2cb=s2cb/clipbd/memo'.split('=')[-1].split("/")]:
+                                log=holidays_StoreForCDP(self,log)
+                                continue
+                            elif doWhat.lower() in [i.lower() for i in 'delete=rm/del/delete/remove'.split('=')[-1].split("/")]:
+                                log=self.delete_id(log)
+                                continue
+                            else:
+                                gotoNext=True
+                                break
+                            if gotoNext:
+                                gotoNext=False
+                                break
+                        except Exception as e:
+                            print(e)
+                            gotoNext=True
+                            break
+            else:
+                print(htext)    
+
+def preload_us_holidays():
+    try:
+        print(f"For year {datetime.now().year}")
+        with Session(ENGINE) as session:
+            query=session.query(Holidays)
+            holidays_us=holidays.US()
+            while True:
+                year=Control(ptext="What year for[b==back]?",helpText="what integer value of a year; b key will exit this function",data="integer")
+                if year in BooleanAnswers.NONE:
+                    return
+                elif year in ['d',]:
+                    year=datetime.now().year
+
+                start_dtoe=datetime(year,1,1)
+                current_dtoe=datetime(year,1,1)
+                end_dtoe=datetime(year,12,31)
+                
+                while current_dtoe <= end_dtoe:
+                    if current_dtoe in holidays_us:
+                        hday=holidays_us.get(current_dtoe)
+                        name=str(hday)
+                        r=query.filter(func.date(Holidays.date_observed)==func.date(current_dtoe))
+                        first=r.first()
+                        if first in [None,]:
+                            h=Holidays(holiday_name=name,date_observed=current_dtoe,observed_by="federal;us")
+                            session.add(h)
+                            session.commit()
+                            session.refresh(h)
+                            print(h)
+                        else:
+                            print(first)
+                    current_dtoe+=timedelta(days=1)
+
+    except Exception as e:
+        print(e)
+
+def search_us_holidays():
+    try:
+        print(f"For year {datetime.now().year}")
+        with Session(ENGINE) as session:
+            query=session.query(Holidays)
+            holidays_us=holidays.US()
+            search_dtoe=Control(ptext="what date are you looking for?",helpText="a dtoe",data="datetime")
+            if search_dtoe in BooleanAnswers.NONE:
+                return
+            elif search_dtoe in ['d',]:
+                return
+
+            r=query.filter(func.date(Holidays.date_observed)==func.date(search_dtoe))
+            first=r.first()
+            if first in [None,]:
+                print("No Results!")
+            else:
+                print(first)
+
+    except Exception as e:
+        print(e)
+#business days tools here
+def date_from_x_bdays():
+    fields={
+        'days':{
+            'type':'integer',
+            'default':1,
+            'help':'an integer',
+            'ptext':'Days'
+        },
+        'start_date':{
+            'type':'datetime',
+            'default':datetime.now(),
+            'help':'date to start from',
+            'ptext':'Start Date'
+        }
+    }
+    fb=FormBuilder(data=fields,passThruText='DateTime from xnm business days from y')
+    if fb in BooleanAnswers.NONE:
+        return
+    days=fb['days']
+    start_date=fb['start_date']
+    if start_date == None:
+        return
+    if days == None:
+        return
+
+    my_custom_holiday=[]
+    with Session(ENGINE) as session:
+        filtertext=Control(ptext="Filter Text For Holidays Observed by",helpText="observed by text",data="string")
+        if filtertext in BooleanAnswers.NONE:
+            return
+        elif filtertext in ['d',]:
+            filtertext=''
+
+        hds=session.query(Holidays).filter(Holidays.observed_by.icontains(filtertext)).all()
+        for i in hds:
+            print(i.holiday_name)
+            my_custom_holiday.append(Holiday(i.holiday_name, year=i.date_observed.year, month=i.date_observed.month, day=i.date_observed.day))
+    calendarXY=USFederalHolidayCalendar()
+    class CustomCalendar(USFederalHolidayCalendar):
+        rules = USFederalHolidayCalendar.rules + my_custom_holiday
+
+    calendarX=CustomCalendar(calendarXY)
+
+    future_date_weekends_only = start_date + BusinessDay(days)
+    print
+
+    # Option B: Exclude weekends AND US Federal Holidays
+    us_business_day = CustomBusinessDay(calendar=calendarX)
+    future_date_with_holidays = start_date + days * us_business_day
+    
+    holidays_within=calendarX.holidays(start=start_date,end=future_date_weekends_only)
+    ct=len(holidays_within)
+    x=[]
+    x.append(f"days business days (weekends only): {future_date_weekends_only.date()}")
+    x.append(f"days business days (with US holidays): {future_date_with_holidays.date()}")
+    for num,i in enumerate(holidays_within):
+        msg=std_colorize(f"{i,holidays.US().get(i)}",num,ct)
+        x.append(msg)
+    print('\n'.join(x))
+    return
+
+holidays_menu={
+    str(uuid1()):{
+    "cmds":['holidays custom',],
+    "exec":lambda self:s2cb_holidays(self,menu=True,short=True),
+    "desc":"Save to Clipboard custom formats",
+    },
+    str(uuid1()):{
+    "cmds":['preload us holidays',],
+    "exec":lambda self:preload_us_holidays(),
+    "desc":"preload us holidays from holidays.US()",
+    },
+    str(uuid1()):{
+    "cmds":['search by dtoe',],
+    "exec":lambda self:search_us_holidays(),
+    "desc":"search for holiday stored by dtoe",
+    },
+    str(uuid1()):{
+    "cmds":['bsns dy frm',],
+    "exec":lambda self:date_from_x_bdays(),
+    "desc":"date business days from date",
+    },
+    
+}
+#bptxt - bill paid text
+
+#TriedToWake
+def holidaysLogger(Model=Holidays,short_view=holidays_short_view,menu=holidays_menu):
+    return ModelLogger(Model=Holidays,short_view=holidays_short_view,menu=holidays_menu)

@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import time
 from email.utils import formatdate, parsedate_to_datetime
 from pathlib import Path
@@ -20,6 +21,18 @@ from .._compat import httpx
 from ..controller import get_rule_for_request
 
 logger = logging.getLogger(__name__)
+
+# Held for the cache rule's TTL, like a 200.
+CACHED_REDIRECTS = frozenset({301, 302, 307, 308})
+
+MAX_READABLE_NAME = 120
+
+
+def _points_to_itself(request: httpx.Request, location: str) -> bool:
+    """Redirect target shares the cache key."""
+    # keys omit scheme: http->https collides
+    target = request.url.join(location)
+    return (target.host, target.path, target.query) == (request.url.host, request.url.path, request.url.query)
 
 
 class AlreadyLockedError(Exception):
@@ -88,7 +101,9 @@ class FileCache:
         if query:
             name += "-" + unquote(query).replace("&", "-").replace("=", "-")
         digest = hashlib.blake2b(f"{path}?{query}".encode(), digest_size=4).hexdigest()
-        return self.cache_dir / site / (quote(name, safe="._-~") + "-" + digest)
+        # filesystem name limits; digest disambiguates
+        readable = re.sub(r"%[0-9A-Fa-f]?$", "", quote(name, safe="._-~")[:MAX_READABLE_NAME])
+        return self.cache_dir / site / (readable + "-" + digest)
 
     def get_if_fresh(
         self, host: str, path: str, query: str, cache_rules: dict[str, dict[str, Union[bool, int]]]
@@ -121,6 +136,21 @@ class FileCache:
             age = 0
         logger.info("file is %s seconds old, policy allows caching for up to %s", age, cached)
         return (age <= cached, p)
+
+    def store_redirect(self, p: Path, status_code: int, location: str, date: Optional[str]) -> None:
+        """Store a redirect as an empty body plus its location."""
+        fetched = int(parsedate_to_datetime(date).timestamp()) if date else int(time.time())
+        lock = FileLock(str(p) + ".lock") if self.locking else None
+        if lock:
+            lock.acquire()
+        try:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(b"")
+            meta = {"fetched": fetched, "origin_lm": None, "status": status_code, "location": location}
+            self._meta_path(p).write_text(json.dumps(meta))
+        finally:
+            if lock:
+                lock.release()
 
 
 class _TeeCore:
@@ -264,6 +294,10 @@ class CachingTransport(httpx.BaseTransport, httpx.AsyncBaseTransport):
         """
         meta = json.loads(path.with_suffix(path.suffix + ".meta").read_text())
         date = formatdate(timeval=meta["fetched"], usegmt=True)
+        if meta.get("status") in CACHED_REDIRECTS:
+            headers = [("x-cache", "HIT"), ("location", meta["location"]), ("Date", date), ("content-length", "0")]
+            return httpx.Response(status_code=meta["status"], headers=headers, content=b"", request=req)
+
         last_modified = formatdate(timeval=meta["origin_lm"], usegmt=True)
 
         ct = meta.get("headers", {}).get("content-type", "application/octet-stream")
@@ -305,6 +339,11 @@ class CachingTransport(httpx.BaseTransport, httpx.AsyncBaseTransport):
         path: Path,
         tee_factory: Callable[..., Union[httpx.SyncByteStream, httpx.AsyncByteStream]],
     ):
+        location = net.headers.get("location")
+        if net.status_code in CACHED_REDIRECTS and location and not _points_to_itself(req, location):
+            self._cache.store_redirect(path, net.status_code, location, net.headers.get("Date"))
+            return net
+
         if net.status_code != 200:
             return net
 
@@ -333,6 +372,10 @@ class CachingTransport(httpx.BaseTransport, httpx.AsyncBaseTransport):
 
         if path:
             if fresh:
+                meta = json.loads(path.with_suffix(path.suffix + ".meta").read_text())
+                if meta.get("status") in CACHED_REDIRECTS and _points_to_itself(request, meta.get("location", "")):
+                    logger.info("Ignoring self-redirect cached for %s", request.url)
+                    return None, None
                 return self._cache_hit_response(request, path), path
             else:
                 lm = json.loads(path.with_suffix(path.suffix + ".meta").read_text()).get("origin_lm")
@@ -355,6 +398,9 @@ class CachingTransport(httpx.BaseTransport, httpx.AsyncBaseTransport):
         net = self.transport.handle_request(request)
         if net.status_code == 304:
             logger.info("304 for %s", request)
+            # Drain the network response
+            net.read()
+            net.close()
             assert path is not None  # must be true
             return self._cache_hit_response(request, path, status_code=304)
 
@@ -378,6 +424,9 @@ class CachingTransport(httpx.BaseTransport, httpx.AsyncBaseTransport):
 
         net: httpx.Response = await transport.handle_async_request(request)
         if net.status_code == 304:
+            # Drain the network response
+            await net.aread()
+            await net.aclose()
             assert path is not None  # must be true
             logger.info("304 for %s", request)
             return self._cache_hit_response(request, path, status_code=304)

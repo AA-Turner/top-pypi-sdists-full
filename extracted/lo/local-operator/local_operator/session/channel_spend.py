@@ -34,11 +34,14 @@ reason.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
+import os
 import time
 import uuid
-from collections.abc import Mapping, Sequence
+from collections import deque
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -79,6 +82,32 @@ BASIS_SUBSCRIPTION = "subscription_api_equivalent"
 BASIS_ESTIMATED = "estimated"
 BASIS_NOT_TRACKED = "not_tracked"
 BASIS_VALUES = frozenset({BASIS_BILLED, BASIS_SUBSCRIPTION, BASIS_ESTIMATED, BASIS_NOT_TRACKED})
+
+#: What each basis MEANS, published on the wire through the ``vocabulary``
+#: section so every surface prints one set of words and no UI carries its own
+#: copy (design §5). ``source_class`` is a property of the BASIS VALUE, not of
+#: a provider: ``paygo`` money was charged as it was used, ``subscription``
+#: money was funded by a plan (its figure is the published API-equivalent,
+#: never cash), ``unknown`` covers the not-tracked placeholder and every
+#: foreign spelling. ``marker`` is the compact per-entry tag a surface may
+#: print verbatim; ``note`` is the ONE explanatory sentence to render when
+#: money on this basis is present — present only where there is something to
+#: explain, so a pay-as-you-go session renders no subscription prose (design
+#: §6). A guard test pins that this table covers :data:`BASIS_VALUES`.
+BASIS_META: Mapping[str, Mapping[str, Any]] = {
+    BASIS_BILLED: {"label": "billed", "source_class": "paygo", "marker": "billed"},
+    BASIS_SUBSCRIPTION: {
+        "label": "API-equivalent",
+        "source_class": "subscription",
+        "marker": "API-equivalent · subscription",
+        "note": (
+            "You're on a subscription, so API-equivalent amounts are list-price "
+            "equivalents — not what you are charged."
+        ),
+    },
+    BASIS_ESTIMATED: {"label": "estimated", "source_class": "paygo", "marker": "estimated"},
+    BASIS_NOT_TRACKED: {"label": "not tracked", "source_class": "unknown", "marker": "not tracked"},
+}
 
 #: Wire-only ``by_basis`` key: the micro-USD amount whose billing BASIS is not
 #: tracked yet — the session's OWN inference (its route→basis mapping is PR-3)
@@ -126,6 +155,33 @@ CHANNELS = frozenset(
     }
 )
 
+#: Core-published display words for the channel ids (design §5). Derived into
+#: the wire's ``vocabulary`` section so a surface prints these words instead
+#: of carrying its own copy — registering a new channel here is what gives it
+#: a curated name with zero UI edits. A guard test pins that this table covers
+#: :data:`CHANNELS`; an id outside it is ECHOED as ``id.capitalize()`` until a
+#: later PR curates it.
+CHANNEL_LABELS: Mapping[str, str] = {
+    CHANNEL_INFERENCE: "Inference",
+    "image": "Image",
+    "tts": "TTS",
+    "stt": "STT",
+    "search": "Search",
+    "read": "Read",
+    "classification": "Classification",
+    "other": "Other",
+}
+
+#: The most entries one ``breakdown`` partition may carry IN TOTAL (design
+#: §4.6; review round 1, MINOR). ``by_agent`` is bounded at 2 by construction;
+#: ``by_source`` grows with the session's channel ids, and the section must
+#: never scale with a pathological session — so the same overflow discipline
+#: the wire's row cap uses applies, with the count itself bounded: the first
+#: ``cap - 1`` ranked entries keep their order, every entry past that edge is
+#: GROUPED into ``other`` (money summed, worst knowledge applied, counts
+#: preserved), keeping the partition reconcilable to the total.
+SPEND_BREAKDOWN_ENTRY_CAP = 12
+
 STATUS_OK = "ok"
 STATUS_FAILED = "failed"
 STATUS_CANCELLED = "cancelled"
@@ -145,6 +201,48 @@ SEARCH_PRICE_VERSION = "client-search-table-2026-09"  # MIGRATE to catalogue
 #: live estimate from a recovered one.
 WEB_SEARCH_PRICE_VERSION = "client-search-table-2026-09"  # MIGRATE to catalogue
 WEB_SEARCH_PRICE_VERSION_LEGACY = "client-search-table-legacy"  # MIGRATE to catalogue
+
+#: The §4.2 FALLBACK's wire state: a voice record exists in analytics for this
+#: session, but the owning session's journal does not hold it — the process
+#: that served ``/v1/tools/speech`` or ``/v1/transcriptions`` runs in the
+#: daemon, not in the runtime that owns the journal, and handing the record
+#: over live needs a new attach-protocol op (the design note's spike; the
+#: sidecar below is the interim). The wire presents the CHANNEL as
+#: ``voice`` because the state is about the two voice channels jointly, and a
+#: surface must render it instead of a figure — never as $0, and never inside
+#: ``total_micro`` (the same total shows everywhere; that is what keeps the
+#: fallback's "surfaces never disagree" claim true).
+PENDING_OWNER_APPEND = "pending_owner_append"
+
+#: The sentence a surface shows beside the state — and the wire's ``reason``
+#: value. Written to be read by a PERSON (design round 1, D2): the TUI renders
+#: it verbatim beside a count, so internal vocabulary (a protocol operation's
+#: name) is banned, and the claim it makes must be true even when the analytics
+#: mirror dropped its copy — "recorded" means the daemon produced the record
+#: for this session, which the marker itself is the evidence of, and "not yet
+#: included" is independent of where the copy lives (review round 1, MINOR 5).
+PENDING_OWNER_APPEND_REASON = (
+    "Voice spend for this conversation is recorded but not yet included in the total"
+)
+
+#: The per-session sidecar the route-level voice emitters append one JSON line
+#: to (``{"record_id", "channel", "ts_ms", "reason"}``). It lives INSIDE the
+#: session directory so a fork/copy carries it with the conversation, and it is
+#: append-only: the fold reads it and excludes anything its own ``record_id``
+#: set already holds, so a later owner-append of the same record retires the
+#: marker by construction rather than by a second write.
+PENDING_SIDECAR_NAME = "channel_pending.jsonl"
+
+#: The channels the pending sidecar speaks for. Voice only, today: it is the
+#: one route-level family whose caller runs outside the owning process. A
+#: second family joins by naming its channels here AND passing them through
+#: the same reader — the wire key stays ``voice`` until that happens.
+PENDING_VOICE_CHANNELS = frozenset({"tts", "stt"})
+
+#: A parse bound for the sidecar reader: one line per call is tiny, but a file
+#: that somehow grew unbounded must not be walked whole by a paint path. Only
+#: the trailing window can matter — every entry says the same thing.
+_PENDING_SIDECAR_MAX_LINES = 2000
 
 
 def usd_to_micro(value: Any) -> int | None:
@@ -260,6 +358,89 @@ def new_record_id(channel: str, correlation: str = "") -> str:
     """
     key = (correlation or "").strip() or uuid.uuid4().hex
     return f"{channel}:{key}"
+
+
+def write_pending_record(directory: str | os.PathLike[str], record: ChannelSpendRecord) -> bool:
+    """Append ONE record's pending marker to a session directory's sidecar.
+
+    THE §4.2 FALLBACK'S WRITE HALF. A route-level voice caller (the daemon's
+    speech/transcription routes) cannot append to the owning runtime's journal:
+    the journal's writer is an in-process lock, there is no cross-process file
+    lock, and an append from beside it would race the owner's own compaction
+    rewrite. So the record is mirrored to analytics (with its ``session_id``)
+    and this sidecar carries the fact the OWNING session's fold needs to state
+    in its published object: a voice record exists that it has not folded.
+
+    ONE ``O_APPEND`` line per call: a write that small is atomic for readers on
+    the local filesystem, which is the whole cross-process contract — the fold
+    only ever reads, and excludes entries its own fold already holds.
+
+    Never raises; returns whether the marker was written. Best-effort by
+    design: a lost marker must not fail a paid request. The analytics mirror is
+    best-effort TOO — the recorder drops silently when its queue is full or it
+    is closing (review round 1, MINOR 5) — so this marker, not the mirror, is
+    the copy the owning session is guaranteed to see; the record's own claim
+    ("recorded but not yet included") holds in both outcomes.
+    """
+    if record.channel not in PENDING_VOICE_CHANNELS:
+        return False
+    try:
+        root = os.fspath(directory)
+        if not root or not os.path.isdir(root):
+            # A REMOTE or never-materialised session: writing a spurious local
+            # directory for another device's id would be worse than the lost
+            # marker, so the write is skipped and the analytics row stands
+            # alone. The wire then simply carries no pending state, exactly as
+            # for a call that never named a session.
+            return False
+        payload = {
+            "record_id": record.record_id,
+            "channel": record.channel,
+            "ts_ms": int(record.ts_ms),
+            "reason": PENDING_OWNER_APPEND,
+        }
+        line = json.dumps(payload, separators=(",", ":")) + "\n"
+        with open(os.path.join(root, PENDING_SIDECAR_NAME), "a", encoding="utf-8") as handle:
+            handle.write(line)
+        return True
+    except Exception:  # noqa: BLE001 — a lost marker is not a failed request
+        logger.debug("channel pending marker write failed", exc_info=True)
+        return False
+
+
+def read_pending_records(directory: str | os.PathLike[str]) -> list[dict[str, Any]]:
+    """The sidecar's marker entries, oldest first; ``[]`` when absent.
+
+    Tolerant per line — a corrupt line is skipped, never fatal — and bounded to
+    the trailing window (see ``_PENDING_SIDECAR_MAX_LINES``). The window is
+    STREAMED, not sliced after the fact: a paint path must not hold a whole
+    (potentially unbounded) file in memory to read its last 2000 lines, which
+    is the shape the docstring of the bound already promised (review round 1,
+    NIT 1). The reader has no fold to exclude against: the caller subtracts
+    the ``record_id`` set it holds, which is what retires a marker once the
+    record is folded.
+    """
+    try:
+        path = os.path.join(os.fspath(directory), PENDING_SIDECAR_NAME)
+        if not os.path.isfile(path):
+            return []
+        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+            lines: list[str] = list(deque(handle, maxlen=_PENDING_SIDECAR_MAX_LINES))
+    except Exception:  # noqa: BLE001 — an unreadable sidecar is "no markers"
+        logger.debug("channel pending sidecar read failed", exc_info=True)
+        return []
+    out: list[dict[str, Any]] = []
+    for raw in lines:
+        text = raw.strip()
+        if not text:
+            continue
+        try:
+            entry = json.loads(text)
+        except ValueError:
+            continue
+        if isinstance(entry, dict) and entry.get("record_id"):
+            out.append(entry)
+    return out
 
 
 @dataclass(frozen=True)
@@ -549,6 +730,23 @@ class ChildrenSnapshot:
     reason: str = ""
 
 
+def _identity_bases(entry: Mapping[str, Any]) -> list[str]:
+    """The billing bases ONE identity's priced calls recorded (PR-3).
+
+    ``SessionSpend`` writes ``bases: {basis: micro}`` on each by-identity
+    entry; a record from before that key — or a host that never set it — has
+    none, and the row then says ``not_tracked``, which is the honest legacy
+    state and never a guess. Only bases that CARRY money are stated: an entry
+    with unpriced calls reads ``$—`` through ``knowledge``, and a basis about
+    money that does not exist would contradict it.
+    """
+    bases = entry.get("bases")
+    if not isinstance(bases, Mapping):
+        return [BASIS_NOT_TRACKED]
+    stated = sorted(str(name) for name, micro in bases.items() if int(micro or 0) > 0)
+    return stated or [BASIS_NOT_TRACKED]
+
+
 def _inference_rows(inference: InferenceSnapshot) -> list[dict[str, Any]]:
     """One wire row per serving identity, plus an UNATTRIBUTED row if needed.
 
@@ -595,7 +793,7 @@ def _inference_rows(inference: InferenceSnapshot) -> list[dict[str, Any]]:
                 "unit": "calls",
                 "amount_micro": micro,
                 "knowledge": row_knowledge,
-                "basis": [BASIS_NOT_TRACKED],
+                "basis": _identity_bases(entry),
                 "price_versions": [],
             }
         )
@@ -747,6 +945,453 @@ def _channel_rows(records: Sequence[ChannelSpendRecord]) -> list[dict[str, Any]]
     return rows
 
 
+# -- the additive breakdown and its vocabulary (design §4/§5) ---------------
+#
+# ``combine`` also publishes TWO complete, independently reconcilable
+# partitions of the same ``total_micro``: ``by_agent`` (parent vs subagents)
+# and ``by_source`` (per channel, tree-wide). A reader must NEVER add the two
+# together — they are two views of one total — and must never re-derive a
+# number from ``rows`` to fill a gap: every sum below is derived from the same
+# pieces ``combine`` already sums, in this one module.
+
+#: The knowledge precedence as ranks, worst first — the same order
+#: :data:`_KNOWLEDGE_ORDER` states. An unrecognised spelling ranks as
+#: ``unknown``: a rung this build cannot classify must never be presented as
+#: exacter than one it can.
+_RUNG_RANK = {rung: index for index, rung in enumerate(_KNOWLEDGE_ORDER)}
+
+
+def _worst_rung(*rungs: str) -> str:
+    """The worst of ``rungs`` under the module's knowledge precedence."""
+    worst = _RUNG_RANK["exact"]
+    for rung in rungs:
+        worst = min(worst, _RUNG_RANK.get(str(rung), 0))
+    return _KNOWLEDGE_ORDER[worst]
+
+
+def _entry_rung(amount_micro: int | None, *rungs: str) -> str:
+    """An entry's rung: the worst of its contributors, floored at ``partial``.
+
+    An entry that carries STATED money must never read ``unknown`` (review
+    round 3): ``unknown`` is combine's "nothing stateable" rung, and stated
+    money contradicts it. A contributor that is unsized ALONE (the relayed
+    record set, an own-records set beside a stated inference half) is
+    therefore rated at the ENTRY level — where some of the money IS stated —
+    reading ``partial`` exactly as combine rates the same bundle ``partial``
+    at the session and ``subagents`` level. Entries with no stated amount
+    keep ``unknown``: that is the honest reading of "nothing was sized".
+    """
+    knowledge = _worst_rung(*rungs)
+    if knowledge == "unknown" and amount_micro is not None:
+        return "partial"
+    return knowledge
+
+
+def _record_rung(records: Sequence[ChannelSpendRecord]) -> str:
+    """One rung for a set of records, from the same booleans the rows derive.
+
+    Mirrors ``_channel_rows``' group rule: a record with no stated amount that
+    is not a failed-unbilled job makes the set ``partial`` when money is stated
+    somewhere in it and ``unknown`` when it is not; a failed record with no
+    figure keeps its documented presumption of no charge and adds no rung.
+    """
+    stated = any(record.amount_micro is not None for record in records)
+    unstated = any(
+        record.amount_micro is None and record.status != STATUS_FAILED for record in records
+    )
+    if unstated:
+        return "partial" if stated else "unknown"
+    return "exact"
+
+
+def _inference_half_rung(inference: InferenceSnapshot) -> str:
+    """The rung the inference half contributes to a breakdown entry.
+
+    Mirrors ``combine``'s OWN inference booleans (review round 1, MAJOR): an
+    ``unknown`` accumulator degrades only when calls EXIST — money without
+    calls is a stated remainder, not unpriced activity — and it degrades to
+    ``partial``, because some money is stated and some calls are not. A
+    ``partial``/``floor`` accumulator contributes as-is. Deriving an entry's
+    rung from these same facts is what keeps it from reading exacter OR
+    vaguer than the session over the identical money.
+    """
+    if str(inference.knowledge) == "unknown":
+        return "partial" if inference.calls > 0 else "exact"
+    return str(inference.knowledge)
+
+
+def _contributes(record: ChannelSpendRecord) -> bool:
+    """Whether one record is ACTIVITY for a breakdown entry.
+
+    Money (stated or free) counts; an unstated non-failed record counts as
+    money we know exists and cannot size; a failed record with no figure is the
+    documented presumption of no charge and is activity for nothing — the same
+    split ``by_basis`` applies when it counts ``not_tracked_calls``.
+    """
+    return record.amount_micro is not None or record.status != STATUS_FAILED
+
+
+def _unstated_count(records: Sequence[ChannelSpendRecord]) -> int:
+    """COUNT (never money) of records with no stated amount and no failure."""
+    return sum(
+        1 for record in records if record.amount_micro is None and record.status != STATUS_FAILED
+    )
+
+
+def _stated_bases(records: Sequence[ChannelSpendRecord]) -> set[str]:
+    """The billing-basis spellings of records that STATE an amount.
+
+    An unstated record carries ``not_tracked`` by normalisation, NOT as a
+    billing fact (its basis is not known), so it contributes no spelling here;
+    the explicit money-is-not-tracked facts (inference, the children ledger)
+    are added by the callers that know them.
+    """
+    return {record.billing_basis for record in records if record.amount_micro is not None}
+
+
+def _sum_stated(amounts: Sequence[int | None]) -> int | None:
+    """The sum of the STATED amounts, or ``None`` when not one is stated.
+
+    ``None`` — never 0 — is the entry shape's rule for "nothing here was
+    sized"; an explicit 0 survives as a 0, because a free call is a
+    measurement (design §4.6).
+    """
+    stated = [int(amount) for amount in amounts if amount is not None]
+    return sum(stated) if stated else None
+
+
+def _inference_half_statement(inference: InferenceSnapshot) -> int | None:
+    """The inference half's STATED amount, or ``None`` when nothing was sized.
+
+    "Stated" is a property of the ACCUMULATOR, not of its rung (review round
+    2, MAJOR): money (``micro``) or a priced call is a figure — a free call
+    keeps its stated 0 — while a never-accrued accumulator is not a
+    measurement. So an entry whose only contributors are unstated reads
+    ``null``, never 0, and agrees with its sibling entries on the same
+    payload.
+    """
+    if int(inference.micro) != 0 or inference.priced_calls > 0:
+        return int(inference.micro)
+    return None
+
+
+def _inference_half_bases(inference: InferenceSnapshot) -> set[str]:
+    """The inference half's stated bases, from PR-3's per-route columns.
+
+    ``SessionSpend`` accrues a basis per call into each ``by_identity``
+    entry's ``bases: {basis: micro}`` — the same columns the row builder and
+    ``combine``'s ``by_basis`` folding read — so a plan-funded call surfaces
+    ``subscription_api_equivalent`` here exactly when the ledger says so.
+    Money the entries do not attribute (a pre-PR-3 entry, the unattributed
+    remainder) states ``not_tracked``: the fallback appears only for money
+    whose basis truly is untracked, never for money that HAS one.
+    """
+    bases: set[str] = set()
+    attributed = 0
+    for entry in (inference.by_identity or {}).values():
+        if not isinstance(entry, Mapping):
+            continue
+        entry_bases = entry.get("bases")
+        if not isinstance(entry_bases, Mapping):
+            continue
+        for name, micro in entry_bases.items():
+            value = int(micro or 0)
+            if value <= 0:
+                continue
+            bases.add(str(name))
+            attributed += value
+    if max(0, int(inference.micro) - attributed) > 0:
+        bases.add(BASIS_NOT_TRACKED)
+    return bases
+
+
+def _ledger_statement(total_micro: int) -> int | None:
+    """The children ledger's STATED amount, or ``None`` when it carries none.
+
+    The same accumulator rule as the inference half (review round 2, MAJOR):
+    the ledger states a figure when it carries money; an exact zero with
+    nothing recorded in it is "no ledger", not a measurement — it must not
+    fabricate a 0 into an entry whose records are all unsized. A relayed FREE
+    record still states its own 0 AS A RECORD, which is where a real zero in
+    the children money comes from.
+    """
+    return int(total_micro) if int(total_micro) != 0 else None
+
+
+def _channel_label(channel: str) -> str:
+    """The display word for a channel id: curated, else ``id.capitalize()``."""
+    label = CHANNEL_LABELS.get(channel)
+    return label if label else channel.capitalize()
+
+
+def _basis_meta(spelling: str) -> dict[str, Any]:
+    """The vocabulary entry for one basis spelling — curated or ECHOED.
+
+    A spelling outside :data:`BASIS_META` is echoed as itself with
+    ``source_class: "unknown"`` and no note: a foreign string must never
+    inherit the subscription claim's words, and it must never make an amount
+    read as exacter than the producer stated (design §6.4).
+    """
+    meta = BASIS_META.get(spelling)
+    if meta is None:
+        return {"label": spelling, "source_class": "unknown", "marker": spelling}
+    return dict(meta)
+
+
+def _breakdown_entry(
+    entry_id: str,
+    label: str,
+    *,
+    amount_micro: int | None,
+    rungs: Sequence[str],
+    unstated_records: int,
+    bases: Iterable[str],
+) -> dict[str, Any]:
+    """One entry of a ``breakdown`` partition (the frozen §4.2 shape)."""
+    return {
+        "id": entry_id,
+        "label": label,
+        "amount_micro": amount_micro,
+        "knowledge": _entry_rung(amount_micro, *rungs),
+        "unstated_records": int(unstated_records),
+        "bases": sorted({str(basis) for basis in bases}),
+    }
+
+
+def _group_entries_past_cap(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Bound one partition to :data:`SPEND_BREAKDOWN_ENTRY_CAP` entries.
+
+    The same overflow discipline the wire's row cap uses, with one stronger
+    rule (review round 1, MINOR): the COUNT is bounded, not just the prefix —
+    the first ``cap - 1`` ranked entries keep their places, and every entry
+    past that edge folds into the ``other`` entry (reused in place when the
+    session already has one, else appended as the aggregate). The folded
+    money is SUMMED, its worst rung applies, its unstated counts are preserved
+    and its bases are unioned — so the partition still reconciles to the total
+    and a reader can see that more categories exist.
+    """
+    if len(entries) <= SPEND_BREAKDOWN_ENTRY_CAP:
+        return entries
+    kept = entries[: SPEND_BREAKDOWN_ENTRY_CAP - 1]
+    folded = entries[SPEND_BREAKDOWN_ENTRY_CAP - 1 :]
+    aggregate = next((entry for entry in kept if entry["id"] == "other"), None)
+    if aggregate is None:
+        aggregate = _breakdown_entry(
+            "other",
+            _channel_label("other"),
+            amount_micro=None,
+            rungs=(),
+            unstated_records=0,
+            bases=(),
+        )
+        kept = kept + [aggregate]
+    aggregate["amount_micro"] = _sum_stated(
+        [aggregate["amount_micro"], *(entry["amount_micro"] for entry in folded)]
+    )
+    aggregate["knowledge"] = _entry_rung(
+        aggregate["amount_micro"],
+        str(aggregate["knowledge"]),
+        *(str(entry["knowledge"]) for entry in folded),
+    )
+    aggregate["unstated_records"] = int(aggregate["unstated_records"]) + sum(
+        int(entry["unstated_records"]) for entry in folded
+    )
+    aggregate["bases"] = sorted(
+        set(aggregate["bases"]) | {basis for entry in folded for basis in entry["bases"]}
+    )
+    return kept
+
+
+def _breakdown_sections(
+    records: Sequence[ChannelSpendRecord],
+    child_records: Sequence[ChannelSpendRecord],
+    *,
+    inference: InferenceSnapshot,
+    children: ChildrenSnapshot,
+    children_total_micro: int,
+    children_knowledge: str,
+) -> dict[str, list[dict[str, Any]]]:
+    """The two additive partitions of ``total_micro`` (design §4.4).
+
+    ``by_agent``: ``parent`` = inference + the session's own stated records;
+    ``subagents`` = the children block (ledger lump + relayed records). The
+    inference half's bases come from PR-3's per-route columns (``by_identity``
+    entries' ``bases: {basis: micro}`` — the same data the rows and
+    ``by_basis`` read), so a plan-funded call surfaces
+    ``subscription_api_equivalent``; ``not_tracked`` appears only for money
+    those columns do not attribute, and the ledger lump keeps it for
+    subagents.
+
+    ``by_source``: ``inference`` = the token half + the children LEDGER lump
+    (the lump is priced from ``Usage`` components — harness/jobs.py →
+    model/costs.py — so inference is its honest home; a future non-token lane
+    in job accounting must classify itself here); every other entry = that
+    channel's own stated records + relayed child records, tree-wide.
+
+    Entry rungs come from the SAME booleans ``combine`` already derives (the
+    worst of its contributors' rungs), so an entry can never read exacter than
+    its money — nor VAGUER (review round 1, MAJOR): the inference half's rung
+    is itself derived through :func:`_inference_half_rung`, with combine's own
+    activity gate on the unpriced-calls case. The subagents rung is the
+    published ``children_knowledge``: the block itself already degrades to
+    ``partial`` when a relayed record cannot be sized.
+    """
+    ledger_rung = str(children.knowledge)
+    ledger_stated = _ledger_statement(int(children.total_micro))
+    inference_rung = _inference_half_rung(inference)
+    inference_stated = _inference_half_statement(inference)
+
+    # -- by_agent ------------------------------------------------------------
+    by_agent: list[dict[str, Any]] = []
+    if (
+        any(_contributes(record) for record in records)
+        or inference.calls > 0
+        or inference.micro != 0
+    ):
+        parent_bases = _stated_bases(records)
+        parent_bases.update(_inference_half_bases(inference))
+        by_agent.append(
+            _breakdown_entry(
+                "parent",
+                "Parent agent",
+                amount_micro=_sum_stated(
+                    [inference_stated, *(record.amount_micro for record in records)]
+                ),
+                rungs=(_record_rung(records), inference_rung),
+                unstated_records=_unstated_count(records),
+                bases=parent_bases,
+            )
+        )
+    if (
+        children_total_micro != 0
+        or str(children_knowledge) != "exact"
+        or any(_contributes(record) for record in child_records)
+    ):
+        subagent_bases = _stated_bases(child_records)
+        if children.total_micro > 0:
+            subagent_bases.add(BASIS_NOT_TRACKED)
+        by_agent.append(
+            _breakdown_entry(
+                "subagents",
+                "Subagents",
+                amount_micro=_sum_stated(
+                    [ledger_stated, *(record.amount_micro for record in child_records)]
+                ),
+                rungs=(str(children_knowledge),),
+                unstated_records=_unstated_count(child_records),
+                bases=subagent_bases,
+            )
+        )
+
+    # -- by_source -----------------------------------------------------------
+    own_by_channel: dict[str, list[ChannelSpendRecord]] = {}
+    for record in records:
+        own_by_channel.setdefault(record.channel, []).append(record)
+    relayed_by_channel: dict[str, list[ChannelSpendRecord]] = {}
+    for record in child_records:
+        relayed_by_channel.setdefault(record.channel, []).append(record)
+    # ``inference`` is fold-only by rule (see ``CHANNELS``): token money is
+    # never re-recorded as channel rows. A stray record that names it anyway
+    # is folded into the inference entry rather than emitted as a second,
+    # colliding entry id — the partition must keep summing to the total.
+    inference_named = [
+        *own_by_channel.pop(CHANNEL_INFERENCE, []),
+        *relayed_by_channel.pop(CHANNEL_INFERENCE, []),
+    ]
+
+    by_source: list[dict[str, Any]] = []
+    if (
+        inference.calls > 0
+        or inference.micro != 0
+        or int(children.total_micro) != 0
+        or any(_contributes(record) for record in inference_named)
+    ):
+        inference_bases = _stated_bases(inference_named)
+        inference_bases.update(_inference_half_bases(inference))
+        if int(children.total_micro) > 0:
+            inference_bases.add(BASIS_NOT_TRACKED)
+        by_source.append(
+            _breakdown_entry(
+                CHANNEL_INFERENCE,
+                _channel_label(CHANNEL_INFERENCE),
+                amount_micro=_sum_stated(
+                    [
+                        inference_stated,
+                        ledger_stated,
+                        *(record.amount_micro for record in inference_named),
+                    ]
+                ),
+                rungs=(
+                    inference_rung,
+                    ledger_rung,
+                    # The BUNDLE's own degradation (review round 2, MAJOR): a
+                    # relayed record with no stated amount degrades it to
+                    # ``partial``, and the entry carrying the ledger lump must
+                    # take that worst rung — never out-read the bundle.
+                    str(children_knowledge),
+                    _record_rung(inference_named),
+                ),
+                unstated_records=_unstated_count(inference_named),
+                bases=inference_bases,
+            )
+        )
+    for channel in sorted(set(own_by_channel) | set(relayed_by_channel)):
+        own = own_by_channel.get(channel, [])
+        relayed = relayed_by_channel.get(channel, [])
+        pool = [*own, *relayed]
+        if not any(_contributes(record) for record in pool):
+            continue
+        by_source.append(
+            _breakdown_entry(
+                channel,
+                _channel_label(channel),
+                amount_micro=_sum_stated([record.amount_micro for record in pool]),
+                rungs=(_record_rung(own), _record_rung(relayed)),
+                unstated_records=_unstated_count(pool),
+                bases=_stated_bases(pool),
+            )
+        )
+    # §4.6 order: registered ids in CHANNEL_ORDER order, then contributed
+    # unknown ids alphabetically. The published order IS the render order.
+    by_source.sort(key=lambda entry: (_channel_rank(str(entry["id"])), str(entry["id"])))
+    return {"by_agent": by_agent, "by_source": _group_entries_past_cap(by_source)}
+
+
+def _vocabulary_section(
+    rows: Sequence[Mapping[str, Any]],
+    breakdown: Mapping[str, Sequence[Mapping[str, Any]]],
+) -> dict[str, Any]:
+    """The display vocabulary for the ids and spellings THIS object carries.
+
+    Derived per object — only values present — so the section stays small and
+    an old producer's absence of the whole key is clean (design §5.2). Channel
+    ids cover the row list and the by-source partition (including a grouped
+    ``other``); basis spellings cover the rows' ``basis`` lists and every
+    entry's ``bases``. A registered id/spelling curates its words from the
+    tables above; anything else is echoed, which is what lets a NEW category
+    render with zero UI edits. Published order is deterministic (display
+    rank, then name) so two equal objects serialize identically.
+    """
+    channel_ids = {str(row.get("channel") or "") for row in rows}
+    channel_ids.update(str(entry["id"]) for entry in breakdown["by_source"])
+    channel_ids.discard("")
+    spellings = {str(basis) for row in rows for basis in (row.get("basis") or ())}
+    for partition in ("by_agent", "by_source"):
+        for entry in breakdown[partition]:
+            spellings.update(str(basis) for basis in entry["bases"])
+    return {
+        "channels": {
+            channel: {"label": _channel_label(channel)}
+            for channel in sorted(channel_ids, key=lambda value: (_channel_rank(value), value))
+        },
+        "bases": {
+            spelling: _basis_meta(spelling)
+            for spelling in [value for value in BASIS_META if value in spellings]
+            + sorted(spellings - set(BASIS_META))
+        },
+    }
+
+
 def combine(
     records: Sequence[ChannelSpendRecord],
     *,
@@ -755,6 +1400,7 @@ def combine(
     child_records: Sequence[ChannelSpendRecord] = (),
     tracked: bool = False,
     lost: bool = False,
+    pending: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """The ONE derivation of the ``spend_channels`` wire object (design §5.1).
 
@@ -769,6 +1415,15 @@ def combine(
     their home, one line on the panel beside the session's own rows — and they
     can never double count: a child's own object carries its records under the
     child's session, and the parent only ever sees each ``record_id`` once.
+
+    The ADDITIVE ``breakdown``/``vocabulary`` sections (design §4/§5) ride the
+    same object: TWO complete, independently reconcilable partitions of
+    ``total_micro`` (``by_agent``: parent vs subagents; ``by_source``: per
+    channel, tree-wide) plus the display words for the ids and basis spellings
+    this object carries. They are derived from the same pieces this function
+    sums, so a reader gets the partitions without re-deriving a number from
+    ``rows`` — and a reader must NEVER add the two partitions together: they
+    are two views of ONE total.
 
     Knowledge precedence is ``unknown > partial > floor > exact``:
 
@@ -788,6 +1443,15 @@ def combine(
     - ``floor``: rows were POSITIVELY reported lost (``lost_money_rows``) or a
       component's own knowledge is a floor.
     - ``exact``: everything that spent money has a stated figure.
+
+    ``pending`` carries the §4.2 fallback's per-record markers (the session
+    directory sidecar): voice records that exist in analytics but are NOT in
+    the fold, because the process that served them could not hand them to the
+    owner. They are EXCLUDED from ``total_micro`` — the same total shows on
+    every surface, at the price of leaving voice out until the owner-append op
+    lands — and the object states them under ``pending`` so a surface can say
+    why the number is not the whole story. The CALLER excludes records the
+    fold already holds; ``combine`` has no fold of its own to subtract.
     """
     records = list(records)
     child_records = list(child_records)
@@ -880,12 +1544,46 @@ def combine(
             record_not_tracked_micro += int(record.amount_micro)
             continue
         by_basis[record.billing_basis] += int(record.amount_micro)
+    # Inference money with a RECORDED basis attributes to its buckets (PR-3):
+    # ``SessionSpend`` accrues a basis per call and folds it into each
+    # by-identity entry's ``bases: {basis: micro}``. Everything else — an entry
+    # from before that key, the unattributed remainder, the children bundle —
+    # stays in ``not_tracked_micro``, because the buckets must keep summing to
+    # the total and no historic row may be forced into a basis it never
+    # recorded.
+    inference_attributed = 0
+    for entry in (inference.by_identity or {}).values():
+        bases = entry.get("bases") if isinstance(entry, Mapping) else None
+        if not isinstance(bases, Mapping):
+            continue
+        for name, micro in bases.items():
+            value = int(micro or 0)
+            if value <= 0:
+                continue
+            if name in (BASIS_BILLED, BASIS_SUBSCRIPTION, BASIS_ESTIMATED):
+                by_basis[name] += value
+            else:
+                # The foreign-basis rule the channel arm keeps (R3-5): a
+                # stated amount whose basis is off-vocabulary lands in
+                # ``not_tracked_micro``, never a fifth bucket key.
+                record_not_tracked_micro += value
+            inference_attributed += value
     by_basis[NOT_TRACKED_MICRO] = (
-        max(0, int(inference.micro)) + max(0, children_total_micro) + record_not_tracked_micro
+        max(0, int(inference.micro) - inference_attributed)
+        + max(0, children_total_micro)
+        + record_not_tracked_micro
     )
 
     rows = _inference_rows(inference) + _channel_rows(records)
-    return {
+    breakdown = _breakdown_sections(
+        records,
+        child_records,
+        inference=inference,
+        children=children,
+        children_total_micro=children_total_micro,
+        children_knowledge=children_knowledge,
+    )
+    payload = {
         "version": CHANNEL_SPEND_WIRE_VERSION,
         "tracked": bool(tracked),
         "total_micro": int(total_micro),
@@ -900,7 +1598,40 @@ def combine(
             # re-readable — review m4/Q9). Absent when there is nothing to say.
             **({"reason": children.reason} if children.reason else {}),
         },
+        # Additive on the v1 wire (design §4/§5): an old reader ignores both
+        # keys; a new reader renders the partitions and takes its words from
+        # the vocabulary instead of carrying its own maps.
+        "breakdown": breakdown,
+        "vocabulary": _vocabulary_section(rows, breakdown),
     }
+    # ADDITIVE on the v1 wire, and present ONLY when unfoled voice records
+    # exist: the golden fixture (and every session without voice) keeps the
+    # exact key set it always had, while a session that HAS them can state why
+    # its total does not move. Never inside ``total_micro`` — see the docstring.
+    #
+    # ``calls`` counts CHARGES, not marker lines: a retried emission writes a
+    # second identical marker, analytics still holds one row, and one fold
+    # retires both — so two markers must read "1 request", never a count the
+    # user cannot reconcile with what they did (QA round 1, Q6). Deduped by
+    # ``record_id`` (the marker's own idempotency key); a marker without one is
+    # already unreadable to the fold, so it cannot join the count.
+    seen: set[str] = set()
+    pending_voice: list[Mapping[str, Any]] = []
+    for entry in pending:
+        if str(entry.get("channel", "")) not in PENDING_VOICE_CHANNELS:
+            continue
+        record_id = str(entry.get("record_id", ""))
+        if not record_id or record_id in seen:
+            continue
+        seen.add(record_id)
+        pending_voice.append(entry)
+    if pending_voice:
+        payload["pending"] = {
+            "voice": PENDING_OWNER_APPEND,
+            "calls": len(pending_voice),
+            "reason": PENDING_OWNER_APPEND_REASON,
+        }
+    return payload
 
 
 def web_search_record(*, channel: str, provider: str, usd: float | None) -> ChannelSpendRecord:

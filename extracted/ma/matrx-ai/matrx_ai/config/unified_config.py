@@ -11,7 +11,6 @@ from matrx_utils import vcprint
 from pydantic import BaseModel, TypeAdapter
 
 from matrx_ai.instructions.core import SystemInstruction
-from matrx_ai.instructions.pattern_parser import expand_matrx_patterns
 
 from .dictionary_config import DictionaryConfig
 from .enums import Role
@@ -178,10 +177,6 @@ class UnifiedConfig:
     # marks this true as soon as its first completed turn persists; every later
     # per-turn addition must use a user message instead.
     system_prompt_frozen: bool = False
-    # Where the server-shaped pieces (content blocks, ``<<MATRX>>`` expansions) sit inside the
-    # frozen prompt — recorded when it is frozen, carried every later turn in the conversation's
-    # config, sliced back out by the host's receipt and viewer (``SystemInstruction.frozen_spans``).
-    system_prompt_spans: list[dict[str, Any]] | None = None
     stream: bool = False
 
     # The CANONICAL matrx model name (ai.model_definition.name), stamped by
@@ -603,7 +598,6 @@ class UnifiedConfig:
 
         self.tool_choice = self._normalize_tool_choice(self.tool_choice)
         self.system_instruction = self._normalize_system_instruction(self.system_instruction)
-        self._resolve_message_patterns()
         # Agent definitions are hydrated before request input is composed. An
         # authored definition may therefore contain only an empty user
         # placeholder at this phase. Normalize it now but defer the empty-list
@@ -638,24 +632,6 @@ class UnifiedConfig:
         Providers should use this property instead of reading tts_voice directly.
         """
         return TTSVoiceConfig.from_config(self)
-
-    def _resolve_message_patterns(self) -> None:
-        """Resolve <<MATRX>> data-fetch patterns in all TextContent across messages.
-
-        Each expansion is recorded on ``matrx_message_expansions`` (raw pattern → the text the
-        model reads in its place): the pattern is gone from the message once resolved, so this
-        is the only place a host's context viewer can learn what was fetched."""
-        recorded = self.__dict__.setdefault("_matrx_message_expansions", [])
-        for message in self.messages:
-            for content in message.content:
-                if isinstance(content, TextContent) and content.text:
-                    content.text, pairs = expand_matrx_patterns(content.text)
-                    recorded.extend(pairs)
-
-    @property
-    def matrx_message_expansions(self) -> list[tuple[str, str]]:
-        """Every <<MATRX>> pattern resolved in this config's messages and its replacement."""
-        return list(self.__dict__.get("_matrx_message_expansions") or ())
 
     @staticmethod
     def _normalize_system_instruction(
@@ -787,11 +763,6 @@ class UnifiedConfig:
             messages=parsed_messages,
             system_instruction=system_instruction,
             system_prompt_frozen=bool(data.get("system_prompt_frozen", False)),
-            system_prompt_spans=(
-                data.get("system_prompt_spans")
-                if isinstance(data.get("system_prompt_spans"), list)
-                else None
-            ),
             stream=data.get("stream", False),
             max_output_tokens=data.get("max_output_tokens"),
             temperature=data.get("temperature"),
@@ -1070,15 +1041,6 @@ class UnifiedConfig:
             config["skill_injected_tool_ids"] = self.skill_injected_tool_ids
         if self.system_prompt_frozen:
             config["system_prompt_frozen"] = True
-        # The frozen prompt's spans: recorded from the first render that freezes it (and pinned
-        # on this object, so a repeat persist of the same turn writes the same spans), carried
-        # unchanged on every later turn — whose prompt reloads with no pieces to locate.
-        if not self.system_prompt_spans and isinstance(self.system_instruction, SystemInstruction):
-            spans = self.system_instruction.frozen_spans(system_instruction_storage or "")
-            if spans:
-                self.system_prompt_spans = spans
-        if self.system_prompt_spans:
-            config["system_prompt_spans"] = self.system_prompt_spans
         if self.tool_choice is not None:
             config["tool_choice"] = self.tool_choice
         if not self.parallel_tool_calls:

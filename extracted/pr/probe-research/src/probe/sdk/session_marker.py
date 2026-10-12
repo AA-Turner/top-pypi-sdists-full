@@ -1123,6 +1123,21 @@ DAEMON_RUN_WRITES = frozenset({"artifact add"})
 #: and does not repeat it.
 DIRECTED_FLAG = "--directed"
 
+#: What a refusal tells the agent about `DIRECTED_FLAG`: the `daemon` state's
+#: (`DENY_REASON_DAEMON`) and the daemon profile's, for a write
+#: (`DAEMON_PROFILE_DENY_WRITE`).
+DIRECTED_RETRY = "If the researcher asked for exactly this, run it again with `--directed`."
+
+
+def carries_directed(args: "list[str]") -> bool:
+    """Do these args (after `probe`) carry `DIRECTED_FLAG` where the CLI reads it?
+
+    Before a standalone `--` only, as `write_gate.split_directed` strips it:
+    after that it belongs to the command `probe exec` launches.
+    """
+    own = args[: args.index("--")] if "--" in args else args
+    return DIRECTED_FLAG in own
+
 
 def command_words(args: "list[str]") -> "list[str]":
     """The (at most three) words click dispatches on, from the args after `probe`.
@@ -1207,7 +1222,8 @@ def daemon_allows_agent(matched: str) -> bool:
 #: agent's `probe` is `ask`, `exec`, its runs' own data (`DAEMON_AGENT_WRITES`)
 #: and `session status`. The guard in that plugin refuses every other `probe`
 #: command, reads included, with `DAEMON_PROFILE_DENY` (the approved text:
-#: `~/daemon-prompts/reads/agent-facing/guard-refusal.NEW.md`).
+#: `~/daemon-prompts/reads/agent-facing/guard-refusal.NEW.md`), except a write
+#: the researcher asked for (`--directed`), which runs as in the `daemon` state.
 #: `probe --version` needs no entry (no command words); `probe version` is the
 #: experiment-versions group, a write. While the researcher has Probe inline
 #: (`is_inline`) the guard refuses only `RESEARCHER_SWITCH`.
@@ -1244,8 +1260,12 @@ DAEMON_PROFILE_DENY = (
     'The Probe daemon records this session and reads the team\'s work for you, so `{matched}` was refused before it ran. You only instrument your runs with the SDK. To ask about the team\'s prior work: `probe ask "<question>"`. If you need to do it yourself, ask the researcher to type `/probe inline`.'
 )
 
+#: `DAEMON_PROFILE_DENY` for a WRITE: `--directed` admits one the researcher
+#: asked for. A read keeps the plain text: no flag admits it, `probe ask` reads.
+DAEMON_PROFILE_DENY_WRITE = DAEMON_PROFILE_DENY + "\n\n" + DIRECTED_RETRY
 
-#: `.probe.config`: paths Probe never records (`probe_config.py`).
+
+#: `.probe.config`: paths at `read` or `off`, which Probe never records (`probe_config.py`).
 EXCLUDED_DENY = (
     "`{path}` is excluded by `{source}`, so `{matched}` was refused before it ran. Probe "
     "records nothing about it; do not route around it."
@@ -1253,7 +1273,7 @@ EXCLUDED_DENY = (
 
 #: A `.probe.config` above the launch folder: asked once per session, under `on`.
 PARENT_ASK = (
-    "`{files}`, above where this session started, keeps Probe from recording some paths here. "
+    "`{files}`, above where this session started, blocks Probe from recording some paths here. "
     "Ask the researcher once: follow it, or set it aside for this session? Record their answer "
     "with `probe session parent follow --directed` or `probe session parent ignore --directed`. "
     "It is followed until then; never choose for them."
@@ -1261,8 +1281,10 @@ PARENT_ASK = (
 
 PARENT_ASK_DENY = "`{matched}` was held back so you ask this first; retry it after. " + PARENT_ASK
 
-#: Session start, when any `.probe.config` reaches this session's folder.
-EXCLUDED_CONTEXT = "`.probe.config` keeps Probe from recording: {paths}. Reads are unaffected."
+#: Session start, when any `.probe.config` reaches this session's folder: every
+#: profile, the daemon's included (Richard 2026-10-09, his wording). `read` and
+#: `off` paths alike: the agent records neither.
+EXCLUDED_CONTEXT = "`.probe.config` blocks Probe from recording: {paths}."
 
 
 def moves_switch(args: "list[str]") -> "str | None":
@@ -1273,7 +1295,12 @@ def moves_switch(args: "list[str]") -> "str | None":
 
 
 def daemon_profile_allows(args: "list[str]") -> "tuple[bool, str]":
-    """`(allowed, matched)` for the args after `probe` in the daemon profile."""
+    """`(allowed, matched)` for the args after `probe` in the daemon profile.
+
+    A write carrying `--directed` is allowed, as the CLI's gate allows it in the
+    `daemon` state (`write_gate.refusal`). A read is not (reads go through
+    `probe ask`), and neither is the researcher's switch (`RESEARCHER_SWITCH`).
+    """
     words = command_words(args)
     if not words:
         return (True, "probe")
@@ -1281,8 +1308,18 @@ def daemon_profile_allows(args: "list[str]") -> "tuple[bool, str]":
     two = " ".join(words[:2])
     if head in DAEMON_PROFILE_ALLOWED or two in DAEMON_PROFILE_ALLOWED:
         return (True, "probe " + (two if two in DAEMON_PROFILE_ALLOWED else head))
-    _kind, matched = classify_probe_args(args)
+    kind, matched = classify_probe_args(args)
+    if kind == "write" and carries_directed(args) and two not in RESEARCHER_SWITCH:
+        return (True, matched)
     return (daemon_allows_agent(matched), matched)
+
+
+def daemon_profile_deny(args: "list[str]", matched: str) -> str:
+    """The refusal for args `daemon_profile_allows` refused: a write is told
+    that `--directed` runs it (`DAEMON_PROFILE_DENY_WRITE`)."""
+    kind, _matched = classify_probe_args(args)
+    deny = DAEMON_PROFILE_DENY_WRITE if kind == "write" else DAEMON_PROFILE_DENY
+    return deny.format(matched=matched)
 
 
 #: The refusals, shared by the guard hook and the CLI gate. Placeholders:
@@ -1307,7 +1344,7 @@ DENY_REASON_DAEMON = (
     "refused before it ran: that write is the daemon's, and it creates the project, "
     "experiment and group your runs are filed in. Yours are starting runs (they may start "
     "with no project), the run's own data and `probe run end`; `probe session status` lists "
-    "them.\n\nIf the researcher asked for exactly this, run it again with `--directed`."
+    "them.\n\n" + DIRECTED_RETRY
 )
 
 #: THE ONE STATEMENT OF WHO WRITES WHAT IN THE `daemon` STATE. Every surface that
@@ -2856,6 +2893,52 @@ def write_recorder(source: str, value: str) -> Path:
             data[DEFAULTS_KEY][RECORDERS_KEY] = table
         else:
             data[DEFAULTS_KEY].pop(RECORDERS_KEY, None)
+        _save_json_file(target, data, private=True, _resolved=True)
+    return path
+
+
+#: The wizard's "Research plan review" setting: whether the Probe block in each
+#: agent's CLAUDE.md / AGENTS.md tells it to run `plan-research-review` before
+#: writing code for ML research (`agent_rules.render_block`). ON unless the
+#: config holds exactly `false`: absent is the shipped default, and an odd value
+#: reads as on, the same fail-soft direction as `recorder`.
+PLAN_REVIEW_KEY = "plan_review"
+
+
+def plan_review_on(config: "dict | None" = None) -> bool:
+    """True unless this machine turned the research plan review off."""
+    data = _read_config() if config is None else config
+    defaults = data.get(DEFAULTS_KEY) if isinstance(data, dict) else None
+    return not (isinstance(defaults, dict) and defaults.get(PLAN_REVIEW_KEY) is False)
+
+
+def write_plan_review(on: bool) -> Path:
+    """Persist the research plan review setting; returns the config path. Same
+    file, lock and loader as `write_recorder`. On removes the key (absent is on),
+    so a machine that never turned it off keeps no trace of it."""
+    from probe.sdk.config import (
+        CONFIG_VERSION,
+        DEFAULT_CONTEXT,
+        _config_lock,
+        _load_json_file,
+        _save_json_file,
+        _write_target,
+    )
+
+    path = config_path()
+    target = _write_target(path)
+    with _config_lock(target, _resolved=True):
+        data = _load_json_file(target, strict=True, migrate=True) or {
+            "version": CONFIG_VERSION,
+            "current_context": DEFAULT_CONTEXT,
+            "contexts": {},
+        }
+        defaults = data.get(DEFAULTS_KEY)
+        data[DEFAULTS_KEY] = defaults if isinstance(defaults, dict) else {}
+        if on:
+            data[DEFAULTS_KEY].pop(PLAN_REVIEW_KEY, None)
+        else:
+            data[DEFAULTS_KEY][PLAN_REVIEW_KEY] = False
         _save_json_file(target, data, private=True, _resolved=True)
     return path
 

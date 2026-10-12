@@ -2,18 +2,23 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
+from collections.abc import Mapping, Sequence
 from itertools import chain
-from typing import Any, Literal, cast
+from typing import Any, Literal, TypeVar, cast
 
 import numpy as np
 import torch
+from datasets import Column
 from tokenizers import Tokenizer
 from torch import nn
 from tqdm import trange
 
 from model2vec.inference import evaluate_single_or_multi_label
-from model2vec.train.base import BaseFinetuneable
+from model2vec.model import DEFAULT_MAX_LENGTH, PathLike, StaticModel
+from model2vec.train.base import BaseFinetuneable, _load_static_model, _static_model_arguments
+from model2vec.train.dataset import read_label_column
 from model2vec.train.utils import DEFAULT_RANDOM_SEED, seed_everything
+from model2vec.types import _UNSET, _UnsetType
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +26,9 @@ LabelType = list[str] | list[list[str]]
 
 
 def _classifier_metrics(head_out: torch.Tensor, y: torch.Tensor, loss: torch.Tensor) -> dict[str, float]:
-    """Validation metrics for single-label classification: loss and accuracy."""
+    """Metrics for single-label classification: loss and accuracy."""
     accuracy = (head_out.argmax(dim=1) == y).float().mean()
-    return {"val_loss": loss.item(), "val_accuracy": accuracy.item()}
+    return {"loss": loss.item(), "accuracy": accuracy.item()}
 
 
 def _compute_accuracy(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
@@ -35,10 +40,101 @@ def _compute_accuracy(y_true: torch.Tensor, y_pred: torch.Tensor) -> float:
 
 
 def _multilabel_classifier_metrics(head_out: torch.Tensor, y: torch.Tensor, loss: torch.Tensor) -> dict[str, float]:
-    """Validation metrics for multi-label classification: loss and Jaccard accuracy."""
+    """Metrics for multi-label classification: loss and Jaccard accuracy."""
     preds = (torch.sigmoid(head_out) > 0.5).float()
     accuracy = _compute_accuracy(y, preds)
-    return {"val_loss": loss.item(), "val_accuracy": accuracy}
+    return {"loss": loss.item(), "accuracy": accuracy}
+
+
+def _focal_modulation(nll: torch.Tensor, gamma: float) -> torch.Tensor:
+    """Compute the focal modulating factor (1 - p) ** gamma from the negative log-likelihood.
+
+    :param nll: The negative log-likelihood of the target.
+    :param gamma: The focusing parameter.
+    :return: The modulating factor.
+    """
+    min_value = torch.finfo(nll.dtype).tiny
+    one_minus_p = (-torch.expm1(-nll)).clamp(min=min_value)
+    return one_minus_p**gamma
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, gamma: float = 0.0, weight: torch.Tensor | None = None) -> None:
+        """Initialize the focal loss for single-label classification.
+
+        :param gamma: The focusing parameter. If this is 0.0, the loss is equal to cross-entropy.
+        :param weight: The weight of each class, or None to weight all classes equally.
+        """
+        super().__init__()
+        self.gamma = gamma
+        self.weight: torch.Tensor | None
+        self.register_buffer("weight", weight)
+
+    def forward(self, head_out: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        """Returns the focal loss, averaged like weighted cross-entropy.
+
+        :param head_out: The logits.
+        :param y: The class indices.
+        :return: The mean loss.
+        """
+        nll = -torch.log_softmax(head_out, dim=1).gather(1, y[:, None]).squeeze(1)
+        loss = _focal_modulation(nll, self.gamma) * nll
+        if self.weight is None:
+            return loss.mean()
+        sample_weight = self.weight[y]
+        return (loss * sample_weight).sum() / sample_weight.sum()
+
+
+class BinaryFocalLoss(nn.Module):
+    def __init__(self, gamma: float = 0.0, pos_weight: torch.Tensor | None = None) -> None:
+        """Initialize the focal loss for multi-label classification.
+
+        :param gamma: The focusing parameter. If this is 0.0, the loss is equal to binary cross-entropy.
+        :param pos_weight: The weight of the positive examples of each class, or None to weight them equally.
+        """
+        super().__init__()
+        self.gamma = gamma
+        self.pos_weight: torch.Tensor | None
+        self.register_buffer("pos_weight", pos_weight)
+
+    def forward(self, head_out: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        """Returns the focal loss, averaged over all samples and classes.
+
+        :param head_out: The logits.
+        :param y: The multi-hot targets.
+        :return: The mean loss.
+        """
+        loss = nn.functional.binary_cross_entropy_with_logits(head_out, y, pos_weight=self.pos_weight, reduction="none")
+        if self.gamma == 0:
+            return loss.mean()
+        nll = nn.functional.binary_cross_entropy_with_logits(head_out, y, reduction="none")
+        return (_focal_modulation(nll, self.gamma) * loss).mean()
+
+
+def _read_labels(y: LabelType, name: str) -> tuple[bool, Counter]:
+    """Determine whether labels are multi-label, and count the number of times each class occurs.
+
+    :param y: The labels. If the first label is a list, multi-label classification is assumed. A column of a
+        Hugging Face dataset is read in batches, without converting it to Python objects.
+    :param name: The name of the labels, used in error messages.
+    :return: Whether the labels are multi-label, and the number of times each class occurs.
+    :raises ValueError: If the labels are inconsistent, or are not strings, integers, or lists of those.
+    """
+    if isinstance(y, Column):
+        return read_label_column(y, name)
+    if isinstance(y, (np.ndarray, torch.Tensor)):
+        y = y.tolist()
+
+    if isinstance(y[0], (str, int)):
+        if not all(isinstance(label, (str, int)) for label in y):
+            raise ValueError(f"Inconsistent label types in {name}. All labels must be strings or integers.")
+        return False, Counter(cast(list[str], y))
+    if not all(isinstance(label, (list, tuple)) for label in y):
+        raise ValueError(f"Inconsistent label types in {name}. All labels must be lists or tuples.")
+    classes = list(chain.from_iterable(cast(list[list[str]], y)))
+    if not all(isinstance(label, (str, int)) for label in classes):
+        raise ValueError(f"Inconsistent label types in {name}. All classes must be strings or integers.")
+    return True, Counter(classes)
 
 
 class StaticModelForClassification(BaseFinetuneable):
@@ -53,12 +149,12 @@ class StaticModelForClassification(BaseFinetuneable):
         n_layers: int = 1,
         hidden_dim: int = 512,
         out_dim: int = 2,
-        pad_id: int = 0,
         token_mapping: list[int] | None = None,
         weights: torch.Tensor | None = None,
         freeze: bool = False,
         normalize: bool = True,
-        freeze_weights: bool = False,
+        freeze_weights: bool | None = None,
+        max_length: int | None = DEFAULT_MAX_LENGTH,
     ) -> None:
         """Initialize a standard classifier model."""
         # Alias: Follows scikit-learn. Set to dummy classes
@@ -68,7 +164,6 @@ class StaticModelForClassification(BaseFinetuneable):
         super().__init__(
             vectors=vectors,
             out_dim=out_dim,
-            pad_id=pad_id,
             tokenizer=tokenizer,
             token_mapping=token_mapping,
             weights=weights,
@@ -77,12 +172,108 @@ class StaticModelForClassification(BaseFinetuneable):
             n_layers=n_layers,
             normalize=normalize,
             freeze_weights=freeze_weights,
+            max_length=max_length,
+        )
+
+    @classmethod
+    def from_pretrained(
+        cls: type[T],
+        path: PathLike = "minishlab/potion-base-32m",
+        *,
+        token: str | None = None,
+        model_name: PathLike | None = None,
+        max_length: int | None | _UnsetType = _UNSET,
+        n_layers: int = 1,
+        hidden_dim: int = 512,
+        out_dim: int = 2,
+        freeze: bool = False,
+        normalize: bool = True,
+        freeze_weights: bool | None = None,
+        **kwargs: Any,
+    ) -> T:
+        """Load a classifier from a pretrained model2vec model.
+
+        :param path: The path to the folder containing the model, or a repository on the Hugging Face Hub.
+        :param token: The token to use to download the model from the hub.
+        :param model_name: Deprecated alias for `path`.
+        :param max_length: The default maximum sequence length to use for tokenization. If not passed, the
+            static model's `max_length` is used. Pass None to disable truncation.
+        :param n_layers: The number of hidden layers in the head.
+        :param hidden_dim: The hidden dimension of the head.
+        :param out_dim: The number of classes. This is reset when calling `fit`.
+        :param freeze: Whether to freeze the embeddings.
+        :param normalize: Whether to normalize the embeddings.
+        :param freeze_weights: Whether to freeze the token weights. If None, the model's own weights are trained,
+            and a model without weights gets none. If False, a model without weights learns weights that start at 1.
+        :param **kwargs: Additional keyword arguments passed to the constructor.
+        :return: The initialized classifier.
+        """
+        model = _load_static_model(path, token=token, model_name=model_name)
+        return cls.from_static_model(
+            model=model,
+            max_length=max_length,
+            n_layers=n_layers,
+            hidden_dim=hidden_dim,
+            out_dim=out_dim,
+            freeze=freeze,
+            normalize=normalize,
+            freeze_weights=freeze_weights,
+            **kwargs,
+        )
+
+    @classmethod
+    def from_static_model(
+        cls: type[T],
+        *,
+        model: StaticModel,
+        max_length: int | None | _UnsetType = _UNSET,
+        n_layers: int = 1,
+        hidden_dim: int = 512,
+        out_dim: int = 2,
+        freeze: bool = False,
+        normalize: bool = True,
+        freeze_weights: bool | None = None,
+        **kwargs: Any,
+    ) -> T:
+        """Load a classifier from a static model.
+
+        :param model: The static model to load from.
+        :param max_length: The default maximum sequence length to use for tokenization. If not passed, the
+            static model's `max_length` is used. Pass None to disable truncation.
+        :param n_layers: The number of hidden layers in the head.
+        :param hidden_dim: The hidden dimension of the head.
+        :param out_dim: The number of classes. This is reset when calling `fit`.
+        :param freeze: Whether to freeze the embeddings.
+        :param normalize: Whether to normalize the embeddings.
+        :param freeze_weights: Whether to freeze the token weights. If None, the model's own weights are trained,
+            and a model without weights gets none. If False, a model without weights learns weights that start at 1.
+        :param **kwargs: Additional keyword arguments passed to the constructor.
+        :return: The initialized classifier.
+        """
+        return cls(
+            **_static_model_arguments(model, max_length=max_length),
+            n_layers=n_layers,
+            hidden_dim=hidden_dim,
+            out_dim=out_dim,
+            freeze=freeze,
+            normalize=normalize,
+            freeze_weights=freeze_weights,
+            **kwargs,
         )
 
     @property
     def classes(self) -> np.ndarray:
         """Return all clasess in the correct order."""
         return np.array(self.classes_)
+
+    def construct_head(self) -> nn.Sequential:
+        """Constructs a classifier head, which always has at least one linear layer."""
+        if self.n_layers == 0:
+            linear = nn.Linear(self.embed_dim, self.out_dim)
+            nn.init.xavier_uniform_(linear.weight)
+            nn.init.zeros_(linear.bias)
+            return nn.Sequential(linear)
+        return super().construct_head()
 
     def predict(
         self, X: list[str], show_progress_bar: bool = False, batch_size: int = 1024, threshold: float = 0.5
@@ -130,20 +321,22 @@ class StaticModelForClassification(BaseFinetuneable):
 
     def fit(
         self,
-        X: list[str],
+        X: Sequence[str],
         y: LabelType,
         learning_rate: float = 1e-3,
         batch_size: int | None = None,
         min_epochs: int | None = None,
         max_epochs: int | None = -1,
         early_stopping_patience: int | None = 5,
-        test_size: float = 0.1,
+        test_size: float | int = 0.1,
         device: str = "auto",
-        X_val: list[str] | None = None,
+        X_val: Sequence[str] | None = None,
         y_val: LabelType | None = None,
         class_weight: Literal["balanced"] | dict[str, float] | torch.Tensor | None = None,
         validation_steps: int | None = None,
         random_seed: int = DEFAULT_RANDOM_SEED,
+        token_dropout: float = 0.0,
+        focal_gamma: float = 0.0,
     ) -> StaticModelForClassification:
         """Fit a model.
 
@@ -157,6 +350,9 @@ class StaticModelForClassification(BaseFinetuneable):
         If `X_val` and `y_val` are not provided, the function will automatically
         split the training data into a train and validation set using `test_size`.
 
+        The texts and labels are read and tokenized per batch. They can be lists, or columns of a Hugging Face
+        dataset, such as `dataset["text"]`, which are not loaded into memory. The dataset must not have a transform.
+
         :param X: The texts to train on.
         :param y: The labels to train on. If the first element is a list, multi-label classification is assumed.
         :param learning_rate: The learning rate.
@@ -166,42 +362,44 @@ class StaticModelForClassification(BaseFinetuneable):
             If this is -1, the model trains until early stopping is triggered.
         :param early_stopping_patience: The patience for early stopping.
             If this is None, early stopping is disabled.
-        :param test_size: The test size for the train-test split.
+        :param test_size: The size of the validation split if `X_val` is None: a fraction of the data, capped at
+            10,000 rows, or a number of rows if it is an int. The split is stratified if `y` holds single
+            labels.
         :param device: The device to train on. If this is "auto", the device is chosen automatically.
         :param X_val: The texts to be used for validation.
         :param y_val: The labels to be used for validation.
-        :param class_weight: The weight of the classes. If None, all classes are weighted equally. Must
-            have the same length as the number of classes.
+        :param class_weight: The weight of the classes. If None, all classes are weighted equally.
+            If "balanced", weights are computed as the inverse class frequency.
+            If a dict, it must map each class to its weight.
         :param validation_steps: The number of steps to run validation for. If None, validation steps are estimated from the data.
         :param random_seed: The random seed to use. Defaults to 42.
+        :param token_dropout: The fraction of tokens to randomly drop from each training sample.
+            Has no effect during validation. Must be in the range [0, 1).
+        :param focal_gamma: The gamma of the focal loss. If this is 0.0, (binary) cross-entropy is used.
+            Must be non-negative.
         :return: The fitted model.
-        :raises ValueError: If either X_val or y_val are provided, but not both.
+        :raises ValueError: If `focal_gamma` is negative.
         """
+        if focal_gamma < 0:
+            raise ValueError(f"focal_gamma must be non-negative, got {focal_gamma}.")
         seed_everything(random_seed)
         logger.info("Re-initializing model.")
+        self._check_inputs(X=X, y=y, X_val=X_val, y_val=y_val)
 
-        # Determine whether the task is multilabel based on the type of y.
-        self._initialize_on_labels(y)
+        label_counts = self._initialize_on_labels(y)
+        if y_val is not None:
+            self._check_validation_labels(y_val)
         self._initialize()
-
-        if class_weight is not None:
-            if isinstance(class_weight, torch.Tensor):
-                logger.warning("You are passing a tensor as class weight. This will be removed in an upcoming version.")
-                if len(class_weight) != len(self.classes_):
-                    raise ValueError("class_weight must have the same length as the number of classes.")
-                class_weight = {self.classes_[idx]: w for idx, w in enumerate(class_weight.tolist())}
-            resolved_class_weight = self._determine_class_weight(class_weight, y)
-        else:
-            resolved_class_weight = None
-
-        train_dataset, val_dataset = self._create_datasets(X, y, X_val, y_val, test_size)
-        batch_size = self._determine_batch_size(batch_size, len(train_dataset))
+        resolved_class_weight = self._resolve_class_weight(class_weight, label_counts)
+        train_dataset, val_dataset = self._create_datasets(
+            X, y, X_val, y_val, test_size, stratify_by=None if self.multilabel else y, random_seed=random_seed
+        )
 
         if self.multilabel:
-            loss_function: nn.Module = nn.BCEWithLogitsLoss(pos_weight=resolved_class_weight)
+            loss_function: nn.Module = BinaryFocalLoss(gamma=focal_gamma, pos_weight=resolved_class_weight)
             compute_metrics = _multilabel_classifier_metrics
         else:
-            loss_function = nn.CrossEntropyLoss(weight=resolved_class_weight)
+            loss_function = FocalLoss(gamma=focal_gamma, weight=resolved_class_weight)
             compute_metrics = _classifier_metrics
 
         self._train(
@@ -209,28 +407,44 @@ class StaticModelForClassification(BaseFinetuneable):
             learning_rate=learning_rate,
             train_dataset=train_dataset,
             val_dataset=val_dataset,
-            batch_size=batch_size,
+            batch_size=self._determine_batch_size(batch_size, len(train_dataset)),
             early_stopping_patience=early_stopping_patience,
             min_epochs=min_epochs,
             max_epochs=max_epochs,
             device=device,
             validation_steps=validation_steps,
             compute_metrics=compute_metrics,
+            token_dropout=token_dropout,
         )
 
         return self
 
-    def _determine_class_weight(
-        self, class_weight: dict[str, float] | Literal["balanced"], y: LabelType
+    def _resolve_class_weight(
+        self,
+        class_weight: Literal["balanced"] | dict[str, float] | torch.Tensor | None,
+        counts: Mapping[Any, int],
+    ) -> torch.Tensor | None:
+        """Turn the `class_weight` passed to `fit` into a tensor with one weight per class.
+
+        :param class_weight: The class weight passed to `fit`.
+        :param counts: The number of times each class occurs.
+        :return: The weight of each class, or None if `class_weight` is None.
+        :raises ValueError: If `class_weight` is a tensor with the wrong length.
+        """
+        if class_weight is None:
+            return None
+        if isinstance(class_weight, torch.Tensor):
+            logger.warning("You are passing a tensor as class weight. This will be removed in an upcoming version.")
+            if len(class_weight) != len(self.classes_):
+                raise ValueError("class_weight must have the same length as the number of classes.")
+            class_weight = {self.classes_[idx]: w for idx, w in enumerate(class_weight.tolist())}
+        return self._class_weight_from_counts(class_weight, counts)
+
+    def _class_weight_from_counts(
+        self, class_weight: dict[str, float] | Literal["balanced"], counts: Mapping[Any, int]
     ) -> torch.Tensor:
-        """Determine the class weight for the classifier."""
+        """Determine the class weight for the classifier from the number of times each class occurs."""
         if class_weight == "balanced":
-            if self.multilabel:
-                y = cast(list[list[str]], y)
-                counts = Counter(chain.from_iterable(y))
-            else:
-                y = cast(list[str], y)
-                counts = Counter(y)
             total = sum(counts.values())
             n_classes = len(counts)
             # Reciprocal weight: upweight rare classes, downweight frequent ones
@@ -254,43 +468,53 @@ class StaticModelForClassification(BaseFinetuneable):
         predictions = self.predict(X, show_progress_bar=True, batch_size=batch_size, threshold=threshold)
         return evaluate_single_or_multi_label(predictions=predictions, y=y)
 
-    def _initialize_on_labels(self, y: LabelType) -> None:
-        """Sets the output dimensionality, the classes, and initializes the head.
+    def _initialize_on_labels(self, y: LabelType) -> Mapping[Any, int]:
+        """Sets the output dimensionality and the classes from the labels.
 
-        :param y: The labels.
-        :raises ValueError: If the labels are inconsistent.
+        :param y: The labels. A column of a Hugging Face dataset is read in batches, without converting it to
+            Python objects.
+        :return: The number of times each class occurs.
         """
-        if isinstance(y[0], (str, int)):
-            y = cast(list[str], y)
-            # Check if all labels are strings or integers.
-            if not all(isinstance(label, (str, int)) for label in y):
-                raise ValueError("Inconsistent label types in y. All labels must be strings or integers.")
-            self.multilabel = False
-            classes = sorted(set(y))
-        else:
-            y = cast(list[list[str]], y)
-            # Check if all labels are lists or tuples.
-            if not all(isinstance(label, (list, tuple)) for label in y):
-                raise ValueError("Inconsistent label types in y. All labels must be lists or tuples.")
-            self.multilabel = True
-            classes = sorted(set(chain.from_iterable(y)))
-
-        self.classes_ = classes
+        self.multilabel, counts = _read_labels(y, "y")
+        self.classes_ = sorted(counts)
         self.out_dim = len(self.classes_)
+        return counts
 
-    def _labels_to_tensor(self, labels: Any) -> torch.Tensor:
-        """Convert a list or list of list of labels to a tensor."""
-        if self.multilabel:
-            # Convert labels to multi-hot vectors
-            num_classes = len(self.classes_)
-            labels_tensor = torch.zeros(len(labels), num_classes, dtype=torch.float)
-            mapping = {label: idx for idx, label in enumerate(self.classes_)}
-            for i, sample_labels in enumerate(labels):
-                indices = [mapping[label] for label in sample_labels]
-                labels_tensor[i, indices] = 1.0
-        else:
-            labels_tensor = torch.tensor(
-                [self.classes_.index(label) for label in cast(list[str], labels)], dtype=torch.long
-            )
+    def _check_validation_labels(self, y_val: LabelType) -> None:
+        """Check that the validation labels match the labels the classifier was initialized on.
 
-        return labels_tensor
+        :param y_val: The validation labels.
+        :raises ValueError: If `y_val` is multi-label and `y` is not, or the other way around, or if `y_val`
+            contains classes that are not in `y`.
+        """
+        multilabel, counts = _read_labels(y_val, "y_val")
+        if multilabel != self.multilabel:
+            raise ValueError("y_val must be multi-label if and only if y is multi-label.")
+        unknown = set(counts) - set(self.classes_)
+        if unknown:
+            raise ValueError(f"y_val contains classes that are not in y: {sorted(unknown, key=str)}.")
+
+    def _to_targets(self, labels: Any) -> torch.Tensor:
+        """Turn a batch of labels into targets.
+
+        :param labels: The labels. A tensor or an array is converted to a list first.
+        :return: The class indices, or the multi-hot vectors if the task is multilabel.
+        :raises ValueError: If a label is not one of the classes.
+        """
+        if isinstance(labels, (torch.Tensor, np.ndarray)):
+            labels = labels.tolist()
+        index = {label: i for i, label in enumerate(self.classes_)}
+        try:
+            if not self.multilabel:
+                return torch.tensor([index[label] for label in labels], dtype=torch.long)
+            targets = torch.zeros(len(labels), len(index), dtype=torch.float)
+            for row, sample_labels in enumerate(labels):
+                if isinstance(sample_labels, (torch.Tensor, np.ndarray)):
+                    sample_labels = sample_labels.tolist()
+                targets[row, [index[label] for label in sample_labels]] = 1.0
+            return targets
+        except KeyError as error:
+            raise ValueError(f"Label {error.args[0]!r} is not one of the classes {self.classes_}.") from None
+
+
+T = TypeVar("T", bound=StaticModelForClassification)

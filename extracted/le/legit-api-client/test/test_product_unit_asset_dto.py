@@ -38,7 +38,8 @@ class TestProductUnitAssetDto(unittest.TestCase):
                 asset_type = 'Repository',
                 asset_id = '',
                 product_id = '',
-                asset_name = ''
+                asset_name = '',
+                directory = ''
             )
         else:
             return ProductUnitAssetDto(

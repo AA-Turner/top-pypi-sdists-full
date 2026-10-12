@@ -363,16 +363,16 @@ def test_the_status_line_says_the_daemon_words():
 def test_no_probe_skill_offers_a_daemon_position():
     for path in (
         AGENT_ROOT / "skills" / "probe" / "SKILL.md",
-        AGENT_ROOT / "plugins" / "probe-research" / "skills" / "probe" / "SKILL.md",
+        AGENT_ROOT / "plugins" / "probe-research" / "agent-skills" / "probe" / "SKILL.md",
         AGENT_ROOT / "plugins" / "probe-research-pi" / "skills" / "probe" / "SKILL.md",
-        AGENT_ROOT / "plugins" / "probe-research-daemon" / "skills" / "probe" / "SKILL.md",
+        AGENT_ROOT / "plugins" / "probe-research-daemon" / "agent-skills" / "probe" / "SKILL.md",
     ):
         text = path.read_text(encoding="utf-8")
         assert "/probe daemon  " not in text and "| `daemon` |" not in text, path
 
 
 def test_the_lean_plugins_switch_skill_uses_the_daemon_words():
-    text = (AGENT_ROOT / "plugins" / "probe-research-daemon" / "skills" / "probe" / "SKILL.md").read_text()
+    text = (AGENT_ROOT / "plugins" / "probe-research-daemon" / "agent-skills" / "probe" / "SKILL.md").read_text()
     assert text.startswith("---\nname: probe\n")
     for words in ("on (daemon)", "read only (daemon)", "probe wizard"):
         assert words in text

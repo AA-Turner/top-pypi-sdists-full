@@ -3,23 +3,22 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Any, cast
+from typing import Any
 
 from sqlbuild.adapter.contract.models import ExpressionInferenceProfile
-from sqlbuild.compiler.compile._helpers.analysis.columns import table_function_analysis_name
-from sqlbuild.compiler.compile._helpers.analysis.compact import (
-    NativeCompactAnalysis,
-    analyze_columns_and_lineage_with_polyglot,
-    analyze_queries_with_compact_polyglot_batch,
+from sqlbuild.compiler.analysis_session.main._infer_native_expression_source_shapes import (
+    infer_native_expression_source_shapes,
 )
+from sqlbuild.compiler.compile._helpers.analysis.reference_names import table_function_analysis_name
 from sqlbuild.compiler.compile.constants import NOT_NULL_AUDIT_NAME
 from sqlbuild.compiler.compile.models import (
-    CompiledModel,
-    CompiledProject,
-    CompileModelInput,
-    CompileProjectInputs,
     CompileSqlReference,
-    PolyglotAnalysisResult,
+)
+from sqlbuild.compiler.compile.types import (
+    CompiledModelView,
+    CompiledProjectView,
+    CompileInputsView,
+    ModelInput,
 )
 from sqlbuild.compiler.lineage.types import InferredNullability
 from sqlbuild.compiler.planner.constants import (
@@ -30,7 +29,6 @@ from sqlbuild.compiler.planner.types import ContractPolicy, MaterializationType
 from sqlbuild.compiler.references.types import SqlReferenceKind
 from sqlbuild.compiler.sql_analysis.constants import (
     CASE_SENSITIVE_BINDING_DIALECTS,
-    NATIVE_DIALECT_ALIASES,
 )
 from sqlbuild.compiler.sql_analysis.main._binding_catalog import create_binding_catalog
 from sqlbuild.compiler.sql_analysis.main._normalize_analysis import normalize_analysis_sql
@@ -43,19 +41,27 @@ from sqlbuild.spec.contracts.models import (
 
 
 def binding_relation_names(references: tuple[CompileSqlReference, ...]) -> frozenset[str]:
-    return frozenset(
-        table_function_analysis_name(reference.ref_name)
-        if reference.ref_kind == SqlReferenceKind.TABLE_FUNCTION
-        else reference.ref_name
-        for reference in references
-        if reference.ref_kind != SqlReferenceKind.UDF
+    return binding_relation_row_names(
+        [(str(reference.ref_kind), reference.ref_name, None, None) for reference in references]
     )
 
 
-def binding_required_names(model_input: CompileModelInput) -> frozenset[str] | None:
+def binding_relation_row_names(
+    rows: list[tuple[str, str, str | None, int | None]],
+) -> frozenset[str]:
+    """The analysis names `(kind, name, package, count)` reference rows bind, UDFs excluded."""
+
+    return frozenset(
+        table_function_analysis_name(name) if kind == SqlReferenceKind.TABLE_FUNCTION else name
+        for kind, name, _, _ in rows
+        if kind != SqlReferenceKind.UDF
+    )
+
+
+def binding_required_names(model_input: ModelInput) -> frozenset[str] | None:
     if not model_input.sql_validation_enabled:
         return None
-    return binding_relation_names(model_input.references)
+    return binding_relation_row_names(model_input.reference_rows)
 
 
 def published_model_shape(
@@ -80,7 +86,7 @@ def published_model_shape(
 
 
 def binding_schema_for_model(
-    *, model_input: CompileModelInput, complete_binding_schemas: dict[str, dict[str, str]]
+    *, model_input: ModelInput, complete_binding_schemas: dict[str, dict[str, str]]
 ) -> dict[str, dict[str, str]] | None:
     required_names: frozenset[str] | None = binding_required_names(model_input)
     if required_names is None:
@@ -114,7 +120,7 @@ def inferred_binding_shape(
     )
 
 
-def build_declared_column_types(inputs: CompileProjectInputs) -> dict[str, dict[str, str]]:
+def build_declared_column_types(inputs: CompileInputsView) -> dict[str, dict[str, str]]:
     """Collect declared type hints independently of closed-schema authority."""
     facts: dict[str, dict[str, str]] = {}
     for model_input in inputs.model_inputs:
@@ -139,7 +145,7 @@ def build_declared_column_types(inputs: CompileProjectInputs) -> dict[str, dict[
 
 
 def build_column_nullability_by_table(
-    inputs: CompileProjectInputs,
+    inputs: CompileInputsView,
 ) -> dict[str, dict[str, InferredNullability]]:
     """Return what each model, seed, source and table function declares about column nulls."""
 
@@ -197,7 +203,7 @@ def _declared_column_nullability(
     return InferredNullability.UNKNOWN
 
 
-def build_complete_binding_schemas(inputs: CompileProjectInputs) -> dict[str, dict[str, str]]:
+def build_complete_binding_schemas(inputs: CompileInputsView) -> dict[str, dict[str, str]]:
     """Collect authoritative declared interfaces before SQL inference."""
     schemas: dict[str, dict[str, str]] = {}
     for model in inputs.model_inputs:
@@ -230,7 +236,7 @@ def build_complete_binding_schemas(inputs: CompileProjectInputs) -> dict[str, di
 
 def semantic_shapes(
     *,
-    project: CompiledProject,
+    project: CompiledProjectView,
     profile: ExpressionInferenceProfile | None = None,
 ) -> dict[str, dict[str, str]]:
     """Return closed shapes; absence means open, never an empty physical table."""
@@ -258,54 +264,39 @@ def semantic_shapes(
             }
         elif entry.expression:
             expression_sources.append((source.name, entry.expression))
-    source_shapes: tuple[dict[str, str] | None, ...] = get_expression_source_shapes(
+    source_shapes: tuple[dict[str, str] | None, ...] = infer_native_expression_source_shapes(
         expressions=tuple(expression for _, expression in expression_sources), profile=profile
     )
     for (source_name, _), source_shape in zip(expression_sources, source_shapes, strict=True):
         if source_shape is not None:
             shapes[source_name] = source_shape
-    pending: list[CompiledModel] = list(project.models)
+    pending: list[CompiledModelView] = list(project.models)
     while pending:
-        remaining: list[CompiledModel] = []
+        remaining: list[CompiledModelView] = []
         for model in pending:
+            declared: list[tuple[str, str | None]] | None = model.schema_column_rows
+            inferred: list[tuple[str, str | None, str]] | None = model.inferred_rows
+            rows: list[tuple[str, str, str | None, int | None]] = model.reference_rows
+            relations: frozenset[str] = binding_relation_row_names(rows)
             if (
                 model.config.values.get("contract") == ContractPolicy.ENFORCED
-                and model.schema_entry
-                and not model.schema_entry.dynamic_columns
+                and declared is not None
+                and not model.has_dynamic_columns
             ):
+                unchecked: frozenset[str] = model.unchecked_output_columns
                 shapes[model.name] = {
-                    column.name: "UNKNOWN"
-                    if column.name in model.unchecked_output_columns
-                    else column.type or "UNKNOWN"
-                    for column in model.schema_entry.columns
+                    name: "UNKNOWN" if name in unchecked else column_type or "UNKNOWN"
+                    for name, column_type in declared
                 }
-            elif model.inferred_columns and (
+            elif inferred and (
                 not model.fast_lineage_has_star
-                or (
-                    model.fast_lineage_star_resolved
-                    and model.references
-                    and all(
-                        (
-                            table_function_analysis_name(reference.ref_name)
-                            if reference.ref_kind == SqlReferenceKind.TABLE_FUNCTION
-                            else reference.ref_name
-                        )
-                        in shapes
-                        for reference in model.references
-                        if reference.ref_kind != SqlReferenceKind.UDF
-                    )
-                )
+                or (model.fast_lineage_star_resolved and rows and relations <= shapes.keys())
             ):
                 shapes[model.name] = published_model_shape(
                     sql=model.query_sql,
                     profile=replace(profile, binding_catalog=project.binding_catalog),
-                    columns={
-                        column.name: column.type or "UNKNOWN" for column in model.inferred_columns
-                    },
-                    inputs={
-                        name: shapes.get(name, {})
-                        for name in binding_relation_names(model.references)
-                    },
+                    columns={name: column_type or "UNKNOWN" for name, column_type, _ in inferred},
+                    inputs={name: shapes.get(name, {}) for name in relations},
                     config_values=model.config.values,
                 )
             else:
@@ -316,69 +307,8 @@ def semantic_shapes(
     return shapes
 
 
-def get_expression_source_shapes(
-    *, expressions: tuple[str, ...], profile: ExpressionInferenceProfile | None
-) -> tuple[dict[str, str] | None, ...]:
-    """Infer expression-source shapes in one native batch, reusing the compile catalog's answers."""
-    effective_profile: ExpressionInferenceProfile = profile or ExpressionInferenceProfile()
-    effective_profile = replace(
-        effective_profile,
-        sql_analysis_dialect=NATIVE_DIALECT_ALIASES.get(
-            effective_profile.sql_analysis_dialect or "generic",
-            effective_profile.sql_analysis_dialect,
-        ),
-    )
-    catalog: Any = effective_profile.binding_catalog
-    cache: dict[str, dict[str, str] | None] = (
-        catalog.expression_shapes if catalog is not None else {}
-    )
-    pending: tuple[str, ...] = tuple(
-        dict.fromkeys(expression for expression in expressions if expression not in cache)
-    )
-    if pending:
-        prepared: tuple[NativeCompactAnalysis, ...] = analyze_queries_with_compact_polyglot_batch(
-            query_sqls=pending,
-            references=tuple(() for _ in pending),
-            placeholders=tuple(None for _ in pending),
-            column_nullability_by_table={},
-            column_types_by_table={},
-            inference_profile=effective_profile,
-            recover_cte_facts=tuple(True for _ in pending),
-            rich_type_inference=True,
-        )
-        for expression, precomputed in zip(pending, prepared, strict=True):
-            cache[expression] = _expression_source_shape(
-                expression=expression, profile=effective_profile, precomputed=precomputed
-            )
-    return tuple(
-        None if cache[expression] is None else dict(cast(dict[str, str], cache[expression]))
-        for expression in expressions
-    )
-
-
-def _expression_source_shape(
-    *, expression: str, profile: ExpressionInferenceProfile, precomputed: NativeCompactAnalysis
-) -> dict[str, str] | None:
-    analysis: PolyglotAnalysisResult = analyze_columns_and_lineage_with_polyglot(
-        query_sql=expression,
-        references=(),
-        inference_profile=profile,
-        allow_compact_analysis=True,
-        recover_cte_facts=True,
-        precomputed=precomputed,
-    )
-    if not analysis.columns or analysis.has_star:
-        return None
-    return inferred_binding_shape(
-        sql=expression,
-        profile=profile,
-        columns={column.name: column.type or "UNKNOWN" for column in analysis.columns},
-        inputs={},
-    )
-
-
 def referenced_model_names(
-    *, model_input: CompileModelInput, available_names: frozenset[str] | None = None
+    *, model_input: ModelInput, available_names: frozenset[str] | None = None
 ) -> tuple[str, ...]:
     return tuple(
         sorted(
@@ -393,7 +323,7 @@ def referenced_model_names(
 
 
 def upstream_signatures(
-    *, model_input: CompileModelInput, signatures: dict[str, str], available_names: frozenset[str]
+    *, model_input: ModelInput, signatures: dict[str, str], available_names: frozenset[str]
 ) -> dict[str, str]:
     """Return the output signatures of the analyzed models this model references."""
 

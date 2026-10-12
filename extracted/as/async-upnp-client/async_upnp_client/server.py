@@ -9,7 +9,7 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 from asyncio.transports import DatagramTransport
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import partial, wraps
 from itertools import cycle
 from random import randrange
@@ -51,6 +51,7 @@ from async_upnp_client.const import (
     DeviceInfo,
     EventableStateVariableTypeInfo,
     HttpRequest,
+    HttpResponse,
     NotificationSubType,
     ServiceInfo,
     StateVariableInfo,
@@ -95,6 +96,13 @@ _LOGGER_TRAFFIC_UPNP.info = _LOGGER_TRAFFIC_UPNP.debug  # type: ignore
 
 class NopRequester(UpnpRequester):  # pylint: disable=too-few-public-methods
     """NopRequester, does nothing."""
+
+    async def async_http_request(
+        self,
+        http_request: HttpRequest,
+    ) -> HttpResponse:
+        """Do nothing, return an empty response."""
+        return HttpResponse(200, {}, None)
 
 
 class EventSubscriber:
@@ -153,7 +161,7 @@ class UpnpEventableStateVariable(UpnpStateVariable):
     def __init__(self, state_variable_info: StateVariableInfo, schema: vol.Schema) -> None:
         """Initialize."""
         super().__init__(state_variable_info, schema)
-        self._last_sent = datetime.fromtimestamp(0, timezone.utc)
+        self._last_sent = datetime.fromtimestamp(0, UTC)
         self._defered_event: asyncio.TimerHandle | None = None
         self._sent_event = asyncio.Event()
 
@@ -191,7 +199,7 @@ class UpnpEventableStateVariable(UpnpStateVariable):
 
     async def trigger_event(self) -> None:
         """Update any waiting subscribers."""
-        self._last_sent = datetime.now(timezone.utc)
+        self._last_sent = datetime.now(UTC)
         service = self.service
         assert isinstance(service, UpnpServerService)
         self._sent_event.set()
@@ -496,6 +504,8 @@ class SsdpSearchResponder:
                 remote_addr,
                 responses,
             )
+            return
+
         self._send_responses(remote_addr, responses)
 
     def _build_responses(self, headers: CaseInsensitiveDict) -> list[bytes]:
@@ -525,9 +535,9 @@ class SsdpSearchResponder:
         elif matched_devices := self.device.get_devices_matching_udn(search_target):
             responses.extend(self._build_responses_device_udn(device) for device in matched_devices)
         elif matched_devices := self._matched_devices_by_type(search_target):
-            responses.extend(self._build_responses_device_type(device, search_target) for device in matched_devices)
+            responses.extend(self._build_responses_device_type(device, st_header) for device in matched_devices)
         elif matched_services := self._matched_services_by_type(search_target):
-            responses.extend(self._build_responses_service(service, search_target) for service in matched_services)
+            responses.extend(self._build_responses_service(service, st_header) for service in matched_services)
 
         if self.options.get(SSDP_SEARCH_RESPONDER_OPTION_ALWAYS_REPLY_WITH_ROOT_DEVICE):
             responses.append(self._build_response_rootdevice())
@@ -1144,7 +1154,10 @@ async def subscribe_handler(service: UpnpServerService, request: Request) -> Res
             subscriber = EventSubscriber(callback_url, timeout_val)
 
     if not subscriber:
-        return Response(status=404)
+        # UDA 1.1 section 4.1.2: an unknown or expired SID, or a new
+        # subscription without a valid CALLBACK, is 412 Precondition Failed.
+        # 412 is what tells a control point to subscribe afresh.
+        return Response(status=412)
 
     headers = {
         "DATE": format_date_time(mktime(datetime.now().timetuple())),

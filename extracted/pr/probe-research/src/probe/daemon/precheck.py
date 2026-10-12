@@ -58,7 +58,9 @@ OWNERS: dict[str, str] = {
     "artifact add": DAEMON, "artifact delete": DAEMON, "artifact download": RESEARCHER,
     "artifact gc-uploads": SERVER, "artifact list": READ, "artifact move": DAEMON, "artifact pin-impact": READ,
     "artifact set": DAEMON, "artifact tree": READ, "artifact version-add": DAEMON, "artifact versions": READ,
-    "backfill": RESEARCHER, "bundle": READ, "commits": READ,
+    "backfill": RESEARCHER, "bundle": READ,
+    "capy connect": SETUP, "capy disconnect": SETUP, "capy status": READ, "capy sync": RESEARCHER,
+    "commits": READ,
     "companion authorize": SETUP, "companion feedback": RESEARCHER, "companion log": READ,
     "companion report": READ, "companion trace": READ,
     "context delete": SETUP, "context list": READ, "context show": READ, "context use": SETUP,
@@ -258,7 +260,7 @@ class Block:
 
     id: str
     why: str
-    check: str  # "allowed" | "secret" | "parse" | "option" | "no_trash" | "document"
+    check: str  # "allowed" | "secret" | "parse" | "option" | "no_trash" | "document" | "probe_config"
     flagged: str | None = None  # the masked secret, for an override question
     argv: list[str] = field(default_factory=list)
     overridable: bool = True  # False: no `probe daemon override` for this one
@@ -507,6 +509,89 @@ def _check_manifest(path: Path, parsed: Parsed, cwd: Path) -> Block | None:
                 block = _check_file(_resolve(text, cwd), parsed)
                 if block:
                     return block
+    return None
+
+
+#: A write that names a path a `.probe.config` keeps out of the record (`read`
+#: or `off`): the folder file is the researcher's, so there is no override.
+CONFIG_REFUSED = (
+    "`{path}` is set to {level} by `{source}`, so `probe {command}` was refused: Probe records "
+    "nothing about it. Do not retry"
+)
+#: A word in text the daemon sends that could name a place: it has a `/`.
+_PATH_TOKEN_RE = re.compile(r"""[^\s'"()<>`,;|]+""")
+#: Markdown and punctuation around a path in prose (`**secret/x**`, `[a/b](...)`):
+#: never a leading `.` or `~`, which are part of `./x`, `../x`, `~/x`, `.hidden/x`.
+_PATH_LEAD = "*_[{"
+_PATH_TRAIL = "*_]}.:!?#"
+
+
+def _path_tokens(text: str) -> list[str]:
+    """Every word in `text` that could name a place (it has a `/`), unwrapped.
+    No cap: each check is cheap, and an unchecked path would fail open."""
+    out = []
+    for token in _PATH_TOKEN_RE.findall(text):
+        token = token.lstrip(_PATH_LEAD).rstrip(_PATH_TRAIL)
+        if token.startswith("@"):
+            token = token[1:]
+        token = re.sub(r":\d+$", "", token)
+        if "/" in token and "://" not in token and len(token) > 1:
+            out.append(token)
+    return out
+
+
+def check_config(parsed: Parsed, *, cwd: Path, checker: Any, document: Path | None = None) -> Block | None:
+    """A command that would record something about a path a `.probe.config` sets
+    to `read` or `off`: a file it sends (a manifest's rows included), a path its
+    text names (a write's options and arguments), or one its document names
+    (`notes push`). `checker` is the session's `probe_config.Checker`."""
+
+    def blocked(path: str) -> Block | None:
+        verdict = checker.check(path)
+        if not verdict.excluded:
+            return None
+        rule = verdict.rule
+        source = ".probe.config"
+        if rule is not None:
+            from probe.sdk import probe_config as _pc
+
+            where = _pc.shown(rule.source)
+            source = f"{where}:{rule.line} ({rule.pattern})" if rule.line else f"{where} ({rule.pattern})"
+        why = CONFIG_REFUSED.format(path=path, level=verdict.level, source=source, command=parsed.path)
+        return Block(new_block_id(), why, "probe_config", argv=parsed.argv, overridable=False)
+
+    for sent in files_sent(parsed, cwd):
+        found = blocked(str(sent))
+        if found:
+            return found
+    if parsed.owner != READ:
+        file_params = set(FILE_PARAMS.get(parsed.path, ())) | {n for c, n in MANIFEST_PARAMS if c == parsed.path}
+        for key, value in parsed.params.items():
+            if key in file_params:
+                continue
+            for text in _strings(value):
+                for token in _path_tokens(text):
+                    found = blocked(str(_resolve(token, cwd)))
+                    if found:
+                        return found
+    bodies = [document] if document is not None else []
+    if parsed.owner != READ:  # `--notes @x.md`: the file's text is what is recorded
+        file_params = set(FILE_PARAMS.get(parsed.path, ()))
+        for key, value in parsed.params.items():
+            if key in file_params:
+                continue
+            for text in _strings(value):
+                if text.startswith("@") and len(text) > 1 and (parsed.path, key) not in LITERAL_TEXT:
+                    bodies.append(_resolve(text[1:], cwd))
+    for body in bodies:
+        try:
+            text = body.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue  # the CLI reports a file it cannot read
+        for token in _path_tokens(text):
+            found = blocked(str(_resolve(token, cwd)))
+            if found:
+                return found
     return None
 
 

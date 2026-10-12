@@ -20,6 +20,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 from typing import Any, ClassVar, Dict, List, Optional
 from unitycatalog.delta.models.delta_commit import DeltaCommit
+from unitycatalog.delta.models.delta_maintenance_operation import DeltaMaintenanceOperation
 from unitycatalog.delta.models.delta_table_metadata import DeltaTableMetadata
 from unitycatalog.delta.models.delta_uniform_metadata import DeltaUniformMetadata
 from typing import Optional, Set
@@ -33,7 +34,8 @@ class DeltaLoadTableResponse(BaseModel):
     commits: Optional[List[DeltaCommit]] = Field(default=None, description="All unbackfilled CCv2 commits, in descending version order (newest first). For managed Delta tables the list is complete and contiguous up to latest-table-version and is returned atomically with the metadata; the server bounds its size at write time (ResourceExhaustedException) rather than truncating the response. ")
     uniform: Optional[DeltaUniformMetadata] = None
     latest_table_version: Optional[StrictInt] = Field(default=None, description="The latest ratified table version tracked by the server, including data-only commits. Compare with metadata.last-commit-version which only tracks metadata-changing commits.", alias="latest-table-version")
-    __properties: ClassVar[List[str]] = ["metadata", "commits", "uniform", "latest-table-version"]
+    allowed_maintenance_operations: Optional[List[DeltaMaintenanceOperation]] = Field(default=None, description="Maintenance operations that the catalog permits in addition to the operations that the Delta protocol permits by default. A missing or empty list permits no additional operations. A client must not perform an operation that it does not recognize. ", alias="allowed-maintenance-operations")
+    __properties: ClassVar[List[str]] = ["metadata", "commits", "uniform", "latest-table-version", "allowed-maintenance-operations"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -102,7 +104,8 @@ class DeltaLoadTableResponse(BaseModel):
             "metadata": DeltaTableMetadata.from_dict(obj["metadata"]) if obj.get("metadata") is not None else None,
             "commits": [DeltaCommit.from_dict(_item) for _item in obj["commits"]] if obj.get("commits") is not None else None,
             "uniform": DeltaUniformMetadata.from_dict(obj["uniform"]) if obj.get("uniform") is not None else None,
-            "latest-table-version": obj.get("latest-table-version")
+            "latest-table-version": obj.get("latest-table-version"),
+            "allowed-maintenance-operations": obj.get("allowed-maintenance-operations")
         })
         return _obj
 

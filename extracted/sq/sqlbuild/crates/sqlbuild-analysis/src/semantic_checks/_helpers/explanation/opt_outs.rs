@@ -9,7 +9,7 @@ use crate::semantic_checks::constants::{
     ADDITIONAL_HELP_SEPARATOR, FINDING_KINDS, PROJECT_CONFIG_FILENAME, REQUIRE_SQL_ANALYSIS_KEY,
     SETTING_SNIPPET_INDENT, SETTINGS_SECTION,
 };
-use crate::semantic_checks::models::{OptOutDiagnostic, SemanticDeferral};
+use crate::semantic_checks::models::{OptOutDiagnostic, SemanticFailure};
 
 static FINDING_PATTERNS: LazyLock<Result<Regex, String>> = LazyLock::new(|| {
     let alternatives: Vec<String> = FINDING_KINDS
@@ -25,9 +25,26 @@ pub(crate) fn opt_out_diagnostic(
     name: &str,
     location_file: Option<&str>,
     hidden_codes: &[&str],
-) -> Result<OptOutDiagnostic, SemanticDeferral> {
+) -> Result<OptOutDiagnostic, SemanticFailure> {
+    let path_default = location_file == Some(PROJECT_CONFIG_FILENAME);
+    let (message, note, help) = unneeded_opt_out("model", name, path_default, hidden_codes)?;
+    Ok(OptOutDiagnostic {
+        model,
+        message,
+        note,
+        help,
+    })
+}
+
+/// Python's `unneeded_opt_out_diagnostic` message, note and help for one `kind` of resource.
+pub(crate) fn unneeded_opt_out(
+    kind: &str,
+    name: &str,
+    path_default: bool,
+    hidden_codes: &[&str],
+) -> Result<(String, String, String), SemanticFailure> {
     let findings: String = finding_counts(pattern(&FINDING_PATTERNS)?, hidden_codes);
-    let opt_out: &str = if location_file == Some(PROJECT_CONFIG_FILENAME) {
+    let opt_out: &str = if path_default {
         "`sql_analysis = false` from this [path_defaults] entry"
     } else {
         "`sql_analysis false`"
@@ -45,16 +62,15 @@ pub(crate) fn opt_out_diagnostic(
          {PROJECT_CONFIG_FILENAME}:\n{SETTING_SNIPPET_INDENT}[{SETTINGS_SECTION}]\n\
          {SETTING_SNIPPET_INDENT}{REQUIRE_SQL_ANALYSIS_KEY} = false"
     );
-    Ok(OptOutDiagnostic {
-        model,
-        message: format!("`sql_analysis false` is not needed for model '{name}'"),
-        note: format!(
+    Ok((
+        format!("`sql_analysis false` is not needed for {kind} '{name}'"),
+        format!(
             "{PROJECT_CONFIG_FILENAME} sets [{SETTINGS_SECTION}] {REQUIRE_SQL_ANALYSIS_KEY} = true\
              , which only allows `sql_analysis false` on SQL that SQLBuild cannot parse; \
-             this model parses successfully."
+             this {kind} parses successfully."
         ),
-        help: format!("{fix}{ADDITIONAL_HELP_SEPARATOR}{setting_help}"),
-    })
+        format!("{fix}{ADDITIONAL_HELP_SEPARATOR}{setting_help}"),
+    ))
 }
 
 /// Python's `_finding_counts`: kinds by descending count, ties in first-seen order.

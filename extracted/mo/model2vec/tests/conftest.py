@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Iterator, cast
 
 import numpy as np
@@ -15,7 +16,12 @@ from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
 from model2vec.inference import StaticModelPipeline
 from model2vec.model import StaticModel
-from model2vec.train import StaticModelForClassification, StaticModelForRegression, StaticModelForSimilarity
+from model2vec.train import (
+    StaticModelForClassification,
+    StaticModelForPairSimilarity,
+    StaticModelForRegression,
+    StaticModelForSimilarity,
+)
 
 _TOKENIZER_TYPES = ["wordpiece", "bpe", "unigram"]
 
@@ -62,16 +68,23 @@ def mock_tokenizermodel() -> TokenizerModel:
     return TokenizerModel.from_pretrained("tests/data/test_tokenizer")
 
 
-# TODO: Temporary fix for skeletoken 0.3.3 compatibility.
-# Once we go to >= 0.4.0 this is no longer needed
+@dataclass
+class DumbSubConfig:
+    vocab_size: int
+
+
 class DumbConfig:
     def __iter__(self) -> Iterator[tuple[str, object]]:
         """Yield no config values."""
         yield from []
 
+    def get_text_config(self) -> DumbSubConfig:
+        """Gets text config."""
+        return DumbSubConfig(30522)
+
 
 @pytest.fixture
-def mock_transformer(request: pytest.FixtureRequest) -> PreTrainedModel:
+def mock_transformer(request: pytest.FixtureRequest) -> PreTrainedModel:  # noqa: C901
     """Create a mock transformer model."""
     params = getattr(request, "param", {}) or {}
     # Default vocab size
@@ -109,6 +122,9 @@ def mock_transformer(request: pytest.FixtureRequest) -> PreTrainedModel:
         __call__ = forward
 
         def get_input_embeddings(self) -> torch.nn.Embedding:
+            return self.input_embs
+
+        def get_output_embeddings(self) -> torch.nn.Embedding:
             return self.input_embs
 
         def resize_token_embeddings(self, vocab_size: int) -> None:
@@ -218,6 +234,21 @@ def mock_trained_regression_pipeline() -> StaticModelForRegression:
     X = ["dog", "cat"]
     y = torch.randn(2, 32)
     model.fit(X, y)
+
+    return model
+
+
+@pytest.fixture(scope="session")
+def mock_trained_pair_similarity_pipeline() -> StaticModelForPairSimilarity:
+    """Mock StaticModelForPairSimilarity."""
+    tokenizer = AutoTokenizer.from_pretrained("tests/data/test_tokenizer").backend_tokenizer
+    torch.random.manual_seed(42)
+    vectors_torched = torch.randn(len(tokenizer.get_vocab()), 12)
+    model = StaticModelForPairSimilarity(vectors=vectors_torched, tokenizer=tokenizer, hidden_dim=12).to("cpu")
+
+    text_a = ["dog", "cat", "dog cat", "cat dog"]
+    text_b = ["puppy", "kitten", "puppy kitten", "kitten puppy"]
+    model.fit(text_a, text_b, test_size=0.5)
 
     return model
 

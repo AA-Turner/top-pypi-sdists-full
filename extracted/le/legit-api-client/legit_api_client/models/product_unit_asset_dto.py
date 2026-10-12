@@ -32,7 +32,8 @@ class ProductUnitAssetDto(BaseModel):
     asset_id: Optional[StrictStr] = Field(default=None, alias="assetId")
     product_id: Optional[StrictStr] = Field(default=None, alias="productId")
     asset_name: Optional[StrictStr] = Field(default=None, alias="assetName")
-    __properties: ClassVar[List[str]] = ["assetType", "assetId", "productId", "assetName"]
+    directory: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["assetType", "assetId", "productId", "assetName", "directory"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -88,6 +89,11 @@ class ProductUnitAssetDto(BaseModel):
         if self.asset_name is None and "asset_name" in self.model_fields_set:
             _dict['assetName'] = None
 
+        # set to None if directory (nullable) is None
+        # and model_fields_set contains the field
+        if self.directory is None and "directory" in self.model_fields_set:
+            _dict['directory'] = None
+
         return _dict
 
     @classmethod
@@ -103,7 +109,8 @@ class ProductUnitAssetDto(BaseModel):
             "assetType": obj.get("assetType"),
             "assetId": obj.get("assetId"),
             "productId": obj.get("productId"),
-            "assetName": obj.get("assetName")
+            "assetName": obj.get("assetName"),
+            "directory": obj.get("directory")
         })
         return _obj
 

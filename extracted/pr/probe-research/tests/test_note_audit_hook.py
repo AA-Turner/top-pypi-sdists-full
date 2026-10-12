@@ -436,18 +436,21 @@ def test_a_session_that_is_not_tracking_does_not_ask(hook, tmp_path, monkeypatch
     assert len(calls) == 1
 
 
-def test_a_daemon_session_asks(hook, tmp_path, monkeypatch) -> None:
-    """The daemon records a `daemon` session, so it is tracking and runs the
-    audit (`notes sync` is ungated). Narrowing the gate to `full` would stop
-    every daemon-mode session from ever auditing."""
+def test_a_daemon_session_is_left_to_the_daemon(hook, tmp_path, monkeypatch) -> None:
+    """A `daemon` session is audited by the daemon itself (`probe.daemon.audit`,
+    daemon-team-note-audit), whichever plugin is installed: told here too, its
+    main agent would start a second auditor on the same note under the same lease
+    holder. (Until 2026-10-11 this hook asked, because nothing else audited a
+    daemon-mode session.)"""
+    monkeypatch.delenv("PROBE_PLUGIN_PROFILE", raising=False)
     sid = "88888888-9999-aaaa-bbbb-cccccccccccc"
     calls: list = []
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     decision = hook._session_marker.state_path(sid)
     decision.parent.mkdir(parents=True, exist_ok=True)
     decision.write_text("daemon", encoding="utf-8")
-    assert _run_hook(hook, {"session_id": sid}, monkeypatch, tmp_path, "> **due**", calls) != ""
-    assert len(calls) == 1
+    assert _run_hook(hook, {"session_id": sid}, monkeypatch, tmp_path, "> **due**", calls) == ""
+    assert calls == []
 
 
 def test_a_switch_prompt_does_not_ask(hook, tmp_path, monkeypatch) -> None:
@@ -546,3 +549,82 @@ def test_it_is_registered_on_user_prompt_submit() -> None:
         for group in groups
         for entry in group.get("hooks", [])
     ), "prompt submit is the presence signal; no other event proves a person"
+
+
+# --- the daemon profile: the daemon audits; an INLINE session audits itself ------
+#
+# daemon-team-note-audit (2026-10-11): the lean plugin ships this hook, its route
+# exporting PROBE_PLUGIN_PROFILE=daemon. There the daemon runs the audit for the
+# sessions it records (`probe.daemon.audit`), so the hook speaks only where the
+# researcher set the session inline -- "whoever records also audits".
+
+
+def test_the_audit_reminder_speaks_only_inline(hook, tmp_path, monkeypatch) -> None:
+    sid = "22222222-3333-4444-5555-666666666666"
+    payload = {"session_id": sid, "hook_event_name": "UserPromptSubmit"}
+    monkeypatch.setenv("PROBE_PLUGIN_PROFILE", "daemon")
+    calls: list = []
+    monkeypatch.setattr(hook._session_marker, "is_inline", lambda s, state=None: False)
+    assert _run_hook(hook, payload, monkeypatch, tmp_path, "> **due**", calls) == ""
+    assert calls == [], "outside inline the CLI is not even asked (asking claims the lease)"
+
+    monkeypatch.setattr(hook._session_marker, "is_inline", lambda s, state=None: s == sid)
+    said = json.loads(_run_hook(hook, payload, monkeypatch, tmp_path, "> **due**", calls))
+    assert said["hookSpecificOutput"]["additionalContext"].startswith("> **due**")
+    assert len(calls) == 1
+
+
+def test_an_inline_agent_is_pointed_at_the_skills_file(hook, tmp_path, monkeypatch) -> None:
+    """The daemon profile lists no skill but its own: the line names the file."""
+    plugin = tmp_path / "plugin"
+    (plugin / "hooks").mkdir(parents=True)
+    (plugin / "inline" / "audit-team-note").mkdir(parents=True)
+    (plugin / "inline" / "audit-team-note" / "SKILL.md").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(hook, "__file__", str(plugin / "hooks" / "note_audit.py"))
+    assert hook._inline_skill_line() == f" The skill is the file {plugin / 'inline' / 'audit-team-note' / 'SKILL.md'}."
+    (plugin / "inline" / "audit-team-note" / "SKILL.md").unlink()
+    assert hook._inline_skill_line() == ""
+
+
+def test_the_full_plugin_is_unchanged_by_the_daemon_gate(hook, tmp_path, monkeypatch) -> None:
+    """No profile exported (the agent-profile plugin): it speaks as before, inline or not."""
+    monkeypatch.delenv("PROBE_PLUGIN_PROFILE", raising=False)
+    monkeypatch.setattr(hook._session_marker, "is_inline", lambda s, state=None: False)
+    payload = {"session_id": "33333333-4444-5555-6666-777777777777", "hook_event_name": "UserPromptSubmit"}
+    said = json.loads(_run_hook(hook, payload, monkeypatch, tmp_path, "> **due**", []))
+    assert said["hookSpecificOutput"]["additionalContext"] == "> **due**"
+
+
+def test_the_daemon_audit_line_has_no_dispatch() -> None:
+    """The daemon's own line (`audit_due(...).brief()`): why it is due and what to
+    do, never "run it in a BACKGROUND subagent" -- the daemon IS the background."""
+    due = tnf.audit_due(DUE, pct=None, baseline=None)
+    assert due is not None
+    brief = due.brief()
+    assert "periodic re-check" in brief and "BACKGROUND" not in brief and "YOURSELF" not in brief
+    assert tnf.audit_due("<!-- audited 2999-01-01 -->\nbody", pct=None, baseline=None) is not None  # future: due
+    import datetime as dt
+
+    today = dt.date.today().isoformat()
+    assert tnf.audit_due(f"<!-- audited {today} -->\nbody", pct=0.99, baseline=None) is None  # stamped today
+
+
+
+def test_the_cli_is_silent_for_a_session_the_daemon_records(tmp_path, monkeypatch) -> None:
+    """The CLI's own check, so an OLDER plugin's hook (no state gate of its own)
+    does not start a second auditor beside the daemon's."""
+    import importlib
+
+    from probe.sdk import session_marker
+
+    cli_main = importlib.import_module("probe.cli.main")  # the package exports a `main` function
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    sid = "99999999-aaaa-bbbb-cccc-dddddddddddd"
+    path = session_marker.state_path(sid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("daemon", encoding="utf-8")
+    assert cli_main._daemon_records(sid) is True
+    path.write_text("full", encoding="utf-8")
+    assert cli_main._daemon_records(sid) is False
+    assert cli_main._daemon_records("not-a-session") is False

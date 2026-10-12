@@ -254,7 +254,7 @@ def _format_resolution_error(install_error):
                 "  4. Re-run with --verbose for the full pip build log."
             )
     except ImportError:
-        pass
+        pass  # Enhanced diagnostics are optional when pip internals cannot load.
 
     base_msg = str(install_error)
 
@@ -843,6 +843,7 @@ class Resolver:
             if markers:
                 self.markers_lookup[install_req.name] = markers
             return markers
+        return None
 
     def resolve_constraints(self):
         """Fold per-package ``requires-python`` markers into the resolved tree.
@@ -1141,9 +1142,24 @@ _resolution_cache_timestamp = {}
 
 
 def _generate_resolution_cache_key(
-    deps, project, pipfile_category, pre, clear, allow_global, pypi_mirror, extra_pip_args
+    deps,
+    project,
+    pipfile_category,
+    pre,
+    clear,
+    allow_global,
+    pypi_mirror,
+    extra_pip_args,
+    resolver_backend=None,
 ):
-    """Generate a cache key for resolution results."""
+    """Generate a cache key for resolution results.
+
+    T_PLUMBING (Initiative G phase 3): ``resolver_backend`` participates
+    in the key so a pip-resolved cache entry can't satisfy a
+    pure-python lookup.  ``None`` collapses to the empty string so the
+    default-backend cache key is byte-identical to pre-T_PLUMBING (the
+    pre-existing on-disk caches are still valid for the default path).
+    """
     # Get lockfile and pipfile modification times
     lockfile_mtime = "no-lock"
     if project.lockfile.location:
@@ -1180,6 +1196,18 @@ def _generate_resolution_cache_key(
         str(allow_global),
         "|".join(env_factors),
     ]
+    # T_PLUMBING (Initiative G phase 3): backend selection
+    # participates in the cache key — but ONLY when a non-default
+    # backend is selected.  Appending unconditionally would change
+    # the cache key for every default-path call (the empty string
+    # would still hash differently than the no-component shape),
+    # which would invalidate pre-T_PLUMBING on-disk caches and break
+    # the "default path byte-identical" acceptance criterion.
+    # Also include the PIPENV_RESOLVER env var so that a pure-python
+    # lookup via env var never reuses a pip-backend cache entry.
+    effective_backend = (resolver_backend or os.environ.get("PIPENV_RESOLVER") or "").strip()
+    if effective_backend:
+        key_components.append(f"backend={effective_backend}")
 
     key_string = "|".join(key_components)
     return hashlib.sha256(key_string.encode()).hexdigest()
@@ -1346,11 +1374,11 @@ def resolve(cmd, st, project, *, deadline_seconds=None):
         try:
             c.kill()
         except Exception:
-            pass
+            pass  # Timeout cleanup is best-effort; preserve TimeoutExpired.
         try:
             c.wait(timeout=5)
         except Exception:
-            pass
+            pass  # Timeout cleanup is best-effort; preserve TimeoutExpired.
         stdout_thread.join(timeout=5)
         stderr_thread.join(timeout=5)
 
@@ -1490,12 +1518,13 @@ def _selected_backend_for_request(project, resolver_backend=None):
     if backend:
         return backend
 
+    # Prefer the documented ``[pipenv] resolver_backend`` key over the
+    # T_F.5 back-compat alias ``resolver``, matching ``do_lock`` and the
+    # subprocess-side fallback in ``pipenv.resolver.core``.
     pipfile_backend = None
     settings = getattr(project, "settings", None)
-    if settings is not None:
-        pipfile_backend = getattr(settings, "resolver", None)
-        if pipfile_backend is None and hasattr(settings, "get"):
-            pipfile_backend = settings.get("resolver")
+    if settings is not None and hasattr(settings, "get"):
+        pipfile_backend = settings.get("resolver_backend") or settings.get("resolver")
 
     backend = str(pipfile_backend or "").strip()
     return backend or "pip"
@@ -1961,7 +1990,17 @@ def venv_resolve_deps(
 
     extra_pip_args = list(extra_pip_args or [])
 
+    selected_backend = _selected_backend_for_request(project, resolver_backend)
+    # Preserve pre-T_PLUMBING cache-key shape for the default path:
+    # default "pip" remains unstamped (None) for byte-identical keys.
+    cache_backend = selected_backend if selected_backend != "pip" else None
+
     # Check cache before expensive resolution
+    # T_PLUMBING (Initiative G phase 3): include the effective
+    # backend (CLI/env/Pipfile precedence) in the cache key so a
+    # pip-resolved cache entry can't satisfy a pure-python lookup
+    # (and vice versa). Keep the default "pip" path un-stamped so
+    # the cache key is byte-identical to pre-T_PLUMBING.
     cache_key = _generate_resolution_cache_key(
         deps,
         project,
@@ -1971,6 +2010,7 @@ def venv_resolve_deps(
         allow_global,
         pypi_mirror,
         extra_pip_args,
+        resolver_backend=cache_backend,
     )
 
     if _should_use_resolution_cache(cache_key, clear):
@@ -2044,7 +2084,11 @@ def venv_resolve_deps(
                 extra_pip_args=extra_pip_args,
                 resolved_default_deps=resolved_default_deps,
                 project=project,
-                resolver_backend=resolver_backend,
+                # T_PLUMBING (Initiative G phase 3): stamp the
+                # parent-resolved backend name onto the typed request
+                # so both the subprocess and in-process branches see
+                # the same selection.
+                resolver_backend=selected_backend,
             )
 
             # Useful for debugging and hitting breakpoints in the resolver

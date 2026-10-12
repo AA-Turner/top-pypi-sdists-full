@@ -66,17 +66,6 @@ def picklist_placeholder(var_name: str) -> str:
     return f"{_DELIM}matrx:picklist:{var_name}{_DELIM}"
 
 
-def neutralize_terminal(text: str) -> str:
-    """Make a resolved description a terminal literal: defang ``<<MATRX`` so it can NOT be
-    re-expanded by ``resolve_matrx_patterns`` (which ``SystemInstruction.__str__`` runs on
-    every render). Braces are left exactly as written (config/template_substitution.py)."""
-    if not text:
-        return text
-    # Zero-width space breaks the literal trigger sequence while staying visually identical.
-    zwsp = "​"
-    return text.replace("<<MATRX", "<" + zwsp + "<MATRX")
-
-
 # ── Per-request wire swaps (NEVER persisted) ─────────────────────────────────────────────
 _WIRE_SWAPS: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar(
     "matrx_picklist_wire_swaps", default={}
@@ -428,8 +417,7 @@ def build_wire_config(config: Any) -> Any | None:
 
     Only ``system_instruction`` and ``messages`` are deep-copied (the rest of the config —
     tools, media, params — is shared by reference).     Uses ``copy.copy`` so the dataclass
-    ``__post_init__`` does NOT re-run (which would re-normalize system_instruction and
-    re-trigger ``resolve_matrx_patterns``).
+    ``__post_init__`` does NOT re-run (which would re-normalize system_instruction).
 
     This is the single clone-at-send seam for every wire swap. The legacy picklist
     token swaps and the Matrx Envelope ``matrx``-fence reference swaps both land in

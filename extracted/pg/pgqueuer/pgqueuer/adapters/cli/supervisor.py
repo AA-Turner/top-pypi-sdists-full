@@ -7,7 +7,7 @@ from datetime import timedelta
 from typing import Callable, TypeAlias
 
 from pgqueuer.adapters.cli import factories
-from pgqueuer.core import applications, logconfig, qm, sm
+from pgqueuer.core import applications, logconfig, qm, sm, tm
 from pgqueuer.domain import types
 
 Manager: TypeAlias = qm.QueueManager | sm.SchedulerManager | applications.PgQueuer
@@ -66,6 +66,7 @@ async def runit(
     max_concurrent_tasks: int | None,
     shutdown_on_listener_failure: bool,
     heartbeat_timeout: timedelta = timedelta(seconds=30),
+    handle_signals: bool = True,
 ) -> None:
     """Supervise a manager lifecycle; optionally restart after *restart_delay* on failure.
 
@@ -79,7 +80,8 @@ async def runit(
     if restart_delay < timedelta(0):
         raise ValueError(f"'restart_delay' must be >= 0. Got {restart_delay!r}")
 
-    setup_signal_handlers(shutdown)
+    if handle_signals:
+        setup_signal_handlers(shutdown)
 
     while not shutdown.is_set():
         cycle_shutdown = asyncio.Event()
@@ -106,15 +108,50 @@ async def runit(
                 exc_info=exc,
             )
         finally:
-            forward_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await forward_task
+            await tm.cancel_and_wait(forward_task)
 
         # Clean completion (drain / signal) ends the supervisor; only failures restart.
         if shutdown.is_set() or not failed:
             break
 
         await await_shutdown_or_timeout(shutdown, restart_delay)
+
+
+async def run(
+    factory: str | ManagerFactory,
+    *,
+    dequeue_timeout: timedelta = timedelta(seconds=30),
+    batch_size: int = 10,
+    heartbeat_timeout: timedelta = timedelta(seconds=30),
+    mode: types.QueueExecutionMode = types.QueueExecutionMode.continuous,
+    max_concurrent_tasks: int | None = None,
+    shutdown_on_listener_failure: bool = False,
+    restart_on_failure: bool = False,
+    restart_delay: timedelta = timedelta(seconds=5),
+    shutdown: asyncio.Event | None = None,
+) -> None:
+    """Run a worker from *factory*, as ``pgq run`` does, without the CLI.
+
+    *factory* is a ``module:attr`` path or the factory itself. Without *shutdown*,
+    SIGINT/SIGTERM stop the worker; with it, signal handling is left to the caller.
+
+    Usage example::
+
+        asyncio.run(pgqueuer.run("myapp:create_pgqueuer"))
+    """
+    await runit(
+        factories.load_factory(factory) if isinstance(factory, str) else factory,
+        dequeue_timeout=dequeue_timeout,
+        batch_size=batch_size,
+        restart_delay=restart_delay if restart_on_failure else timedelta(0),
+        restart_on_failure=restart_on_failure,
+        shutdown=shutdown or asyncio.Event(),
+        mode=mode,
+        max_concurrent_tasks=max_concurrent_tasks,
+        shutdown_on_listener_failure=shutdown_on_listener_failure,
+        heartbeat_timeout=heartbeat_timeout,
+        handle_signals=shutdown is None,
+    )
 
 
 async def run_manager(

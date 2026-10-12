@@ -6,16 +6,17 @@ except ImportError:
     from distutils.core import setup, Extension
 
 import glob
-import importlib
+import importlib.util
 import io
 import sys
 
 
 def version():
-    loader = importlib.machinery.SourceFileLoader(
+    spec = importlib.util.spec_from_file_location(
         "libvalkey.version", "libvalkey/version.py"
     )
-    module = loader.load_module()
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
     return module.__version__
 
 
@@ -25,10 +26,12 @@ def get_sources():
         "async",
         "conn",
         "dict",
+        "dns",
         "net",
         "read",
         "sds",
         "sockcompat",
+        "timer",
         "valkey",
     )
     return sorted(
@@ -88,7 +91,7 @@ setup(
     packages=["libvalkey"],
     package_data={"libvalkey": ["libvalkey.pyi", "py.typed"]},
     ext_modules=[ext],
-    python_requires=">=3.9",
+    python_requires=">=3.11",
     project_urls={
         "Changes": "https://github.com/valkey-io/libvalkey-py/releases",
         "Issue tracker": "https://github.com/valkey-io/libvalkey-py/issues",
@@ -102,12 +105,11 @@ setup(
         "Programming Language :: C",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Programming Language :: Python :: Implementation :: CPython",
         "Topic :: Software Development",
     ],

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from collections import defaultdict
+from collections import defaultdict, deque
 from collections.abc import Callable
 
 import torch
@@ -12,11 +12,12 @@ from tqdm import tqdm
 MetricsFn = Callable[[torch.Tensor, torch.Tensor, torch.Tensor], dict[str, float]]
 
 _UNBOUNDED_MAX_EPOCHS = 9999
+_TRAIN_METRICS_WINDOW = 50
 
 
 def default_metrics(head_out: torch.Tensor, y: torch.Tensor, loss: torch.Tensor) -> dict[str, float]:
-    """Validation metrics for tasks that only track loss (used for early stopping on val_loss)."""
-    return {"val_loss": loss.item()}
+    """Metrics for tasks that only track loss (used for early stopping on val_loss)."""
+    return {"loss": loss.item()}
 
 
 class EarlyStopper:
@@ -78,17 +79,17 @@ def _run_validation(
     total_samples = 0
     for x, y in val_loader:
         x, y = x.to(device), y.to(device)
-        batch_size = x.shape[0]
+        batch_size = len(y)
         head_out = model(x)
         loss = loss_function(head_out, y)
         for key, value in compute_metrics(head_out, y, loss).items():
-            weighted_sums[key] += value * batch_size
+            weighted_sums[f"val_{key}"] += value * batch_size
         total_samples += batch_size
     model.train()
     return {key: total / total_samples for key, total in weighted_sums.items()}
 
 
-def run_training_loop(
+def run_training_loop(  # noqa: C901
     model: nn.Module,
     loss_function: nn.Module,
     learning_rate: float,
@@ -109,7 +110,7 @@ def run_training_loop(
     :param model: The model to train, called as `head_out = model(x)`.
     :param loss_function: Computes the training and validation loss from `(head_out, y)`.
     :param learning_rate: The Adam learning rate.
-    :param val_metric: The metric key (returned by `compute_metrics`) used for early stopping.
+    :param val_metric: The metric key used for early stopping: a key returned by `compute_metrics`, prefixed with `val_`.
     :param early_stopping_direction: Either "min" or "max", the direction of improvement for `val_metric`.
     :param train_loader: The training data loader.
     :param val_loader: The validation data loader.
@@ -120,8 +121,8 @@ def run_training_loop(
     :param device: The device to train on.
     :param val_check_interval: If set, validate every this many training steps.
     :param check_val_every_epoch: If set, validate every this many epochs.
-    :param compute_metrics: Computes validation metrics from `(head_out, y, loss)`. Defaults to just `val_loss`.
-    :return: The model's state dict as of the last validation check before training stopped.
+    :param compute_metrics: Computes unprefixed metrics from `(head_out, y, loss)`. Defaults to just `loss`.
+    :return: The model's state dict from the validation check with the best `val_metric`.
     """
     model.to(device)
     loss_function.to(device)
@@ -144,17 +145,23 @@ def run_training_loop(
 
     max_epochs = _resolve_max_epochs(max_epochs)
 
-    last_checkpoint = copy.deepcopy(model.state_dict())
+    best_checkpoint = copy.deepcopy(model.state_dict())
+    best_val_metric = float("inf") if early_stopping_direction == "min" else float("-inf")
     current_epoch = 0
     global_step = 0
     postfix: dict[str, str] = {}
+    train_metric_windows: dict[str, deque[float]] = defaultdict(lambda: deque(maxlen=_TRAIN_METRICS_WINDOW))
     latest_val_loss: float | None = None
 
     def validate_and_checkpoint() -> bool:
-        nonlocal last_checkpoint, latest_val_loss
+        nonlocal best_checkpoint, best_val_metric, latest_val_loss
         metrics = _run_validation(model, loss_function, compute_metrics, val_loader, device)
         latest_val_loss = metrics["val_loss"]
-        last_checkpoint = copy.deepcopy(model.state_dict())
+        current = metrics[val_metric]
+        improved = current < best_val_metric if early_stopping_direction == "min" else current > best_val_metric
+        if improved:
+            best_val_metric = current
+            best_checkpoint = copy.deepcopy(model.state_dict())
         postfix.update({key: f"{value:.4f}" for key, value in metrics.items()})
         if early_stopper is None:
             return False
@@ -171,14 +178,19 @@ def run_training_loop(
                 optimizer.step()
                 global_step += 1
 
-                postfix["train_loss"] = f"{loss.item():.4f}"
+                with torch.no_grad():
+                    train_metrics = compute_metrics(head_out, y, loss)
+                for key, value in train_metrics.items():
+                    train_metric_windows[f"train_{key}"].append(value)
+                for key, window in train_metric_windows.items():
+                    postfix[key] = f"{sum(window) / len(window):.4f}"
                 pbar.set_postfix(postfix)
 
                 if val_check_interval is not None and global_step % val_check_interval == 0:
                     should_stop = validate_and_checkpoint()
                     pbar.set_postfix(postfix)
                     if should_stop and (min_epochs is None or current_epoch >= min_epochs):
-                        return last_checkpoint
+                        return best_checkpoint
 
             current_epoch += 1
 
@@ -186,9 +198,9 @@ def run_training_loop(
                 should_stop = validate_and_checkpoint()
                 pbar.set_postfix(postfix)
                 if should_stop and (min_epochs is None or current_epoch >= min_epochs):
-                    return last_checkpoint
+                    return best_checkpoint
 
             _step_plateau_scheduler(scheduler, latest_val_loss)
 
             if current_epoch >= max_epochs:
-                return last_checkpoint
+                return best_checkpoint

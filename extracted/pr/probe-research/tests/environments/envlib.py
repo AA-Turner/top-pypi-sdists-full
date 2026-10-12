@@ -577,7 +577,7 @@ IMAGE_REPO = "probe-env-sdk"
 
 
 def ensure_image(version: str) -> str:
-    """``probe-env-sdk:<version>``: python:3.12-slim + the released SDK. Built
+    """``probe-env-sdk:<version>``: mirror.gcr.io/library/python:3.12-slim + the released SDK. Built
     on first use and kept for the next run; ``docker rmi`` it when done."""
     tag = f"{IMAGE_REPO}:{version}"
     have = subprocess.run(["docker", "image", "inspect", tag], capture_output=True, timeout=30)

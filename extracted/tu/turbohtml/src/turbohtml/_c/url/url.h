@@ -18,7 +18,14 @@ enum { TH_HOST_REGNAME = 0, TH_HOST_IPV4 = 1, TH_HOST_IPV6 = 2 };
 
 /* The WHATWG component percent-encode sets (URL standard 1.3), the safe run each encoder keeps raw; every other byte is
    UTF-8 percent-encoded. th_url_encode_span and turbohtml_url_percent_encode take one of these tags. */
-enum { TH_URL_SET_PATH = 0, TH_URL_SET_QUERY = 1, TH_URL_SET_FRAGMENT = 2 };
+enum {
+    TH_URL_SET_PATH = 0,
+    TH_URL_SET_QUERY = 1,
+    TH_URL_SET_FRAGMENT = 2,
+    TH_URL_SET_USERINFO = 3,
+    TH_URL_SET_OPAQUE_PATH = 4,
+    TH_URL_SET_QUERY_NON_SPECIAL = 5
+};
 
 /* The RFC 3986 ALPHA run, shared by the percent-encode keep sets in url.c and the scheme scanners that build on it. */
 #define TH_URL_ALPHA "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -103,13 +110,16 @@ enum {
 
 typedef struct {
     PyObject *part[TH_URL_PART_COUNT];
+    int has_authority;
     int has_port;
     int kind;
+    int special;
+    int opaque_host;
 } th_url_parts;
 
 /* Split `url` (a str) into its components the way urllib.parse.urlsplit does, lowercasing the scheme and dropping the
    tab and newline bytes the WHATWG parser removes. Returns -1 with a ValueError set for an unbalanced IPv6 bracket. */
-int th_url_split(PyObject *url, th_url_parts *out);
+int th_url_split(PyObject *url, th_url_parts *out, int host_brackets_only);
 void th_url_parts_clear(th_url_parts *parts);
 
 /* The per-component encoder and decoder bodies, and the tracker-name test, shared with the cleaning pipeline in
@@ -117,14 +127,18 @@ void th_url_parts_clear(th_url_parts *parts);
    a lone surrogate. th_url_is_tracker_obj returns 1 for a tracker, 0 otherwise, -1 with an error set. */
 PyObject *th_url_percent_encode_obj(PyObject *text, int set_id);
 PyObject *th_url_encode_component(PyObject *text, int set_id);
+PyObject *th_url_encode_special_path(PyObject *text);
+PyObject *th_url_opaque_host_canonical(PyObject *host);
 PyObject *th_url_percent_decode_obj(PyObject *text);
 int th_url_is_tracker_obj(PyObject *key);
+PyObject *th_url_literalize_dot_segments(PyObject *url);
+PyObject *th_url_remove_file_dot_segments(PyObject *path);
 
 /* The query filter and the language filter, the bodies behind _url_normalize_query and _url_language_matches, taken
    as borrowed objects so the cleaning pipeline runs them without an argument tuple. th_url_language_matches returns 1
    to keep, 0 to reject, -1 with an error set. */
 PyObject *th_url_normalize_query(PyObject *query, PyObject *allow, PyObject *deny, int strict, PyObject *content,
-                                 PyObject *language);
+                                 PyObject *language, int set_id);
 int th_url_language_matches(PyObject *query, PyObject *path, PyObject *hostname, PyObject *language, int strict,
                             PyObject *language_params, PyObject *iso_639_1);
 

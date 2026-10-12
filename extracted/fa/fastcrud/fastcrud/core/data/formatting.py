@@ -6,10 +6,12 @@ the potential for circular dependencies. These are separated to maintain
 clean dependency hierarchy.
 """
 
+from collections.abc import Collection
 from typing import Any, Callable, TYPE_CHECKING, cast
 
 from ...types import SelectSchemaType
 from ..introspection import get_primary_key_names
+from ..query.one_to_many import split_join_configs
 from .nesting import nest_join_data
 from .transforms import format_multi_response
 
@@ -98,6 +100,7 @@ async def format_joined_response(
     db: "AsyncSession | None" = None,
     nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
     count_func: Callable | None = None,
+    hidden_columns: Collection[str] = (),
     **kwargs: Any,
 ) -> dict[str, Any]:
     """
@@ -114,6 +117,8 @@ async def format_joined_response(
         db: Database session (for count queries)
         nested_schema_to_select: Schemas for nested data
         count_func: Function to get total count
+        hidden_columns: Primary model fields to drop from each result once it's
+            nested, as a policy's ``hidden_columns`` that nesting still needed
         **kwargs: Additional filter parameters
 
     Returns:
@@ -153,13 +158,24 @@ async def format_joined_response(
                 for join in join_definitions
                 if join.schema_to_select
             },
+            hidden_columns=hidden_columns,
         )
         nested_data = list(nested_result)
     else:
         from ..join_processing import handle_null_primary_key_multi_join
 
         nested_data = handle_null_primary_key_multi_join(
-            cast(list[dict[str, Any] | SelectSchemaType], processed_data),
+            cast(
+                list[dict[str, Any] | SelectSchemaType],
+                [
+                    {
+                        field: value
+                        for field, value in row.items()
+                        if field not in hidden_columns
+                    }
+                    for row in processed_data
+                ],
+            ),
             join_definitions,
         )
 
@@ -169,9 +185,10 @@ async def format_joined_response(
     response: dict[str, Any] = {"data": formatted_data}
 
     if return_total_count and db and count_func:
+        main_query_joins, _ = split_join_configs(join_definitions)
         distinct_on_primary = bool(
             nest_joins
-            and any(j.relationship_type == "one-to-many" for j in join_definitions)
+            and any(j.relationship_type == "one-to-many" for j in main_query_joins)
         )
         non_filter_params = {
             "schema_to_select",
@@ -197,7 +214,7 @@ async def format_joined_response(
         filter_kwargs = {k: v for k, v in kwargs.items() if k not in non_filter_params}
         total_count: int = await count_func(
             db=db,
-            joins_config=join_definitions,
+            joins_config=main_query_joins,
             distinct_on_primary=distinct_on_primary,
             **filter_kwargs,
         )

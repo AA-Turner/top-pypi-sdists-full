@@ -15,6 +15,7 @@ from pgqueuer.domain.settings import (
     Durability,
     DurabilityPolicy,
     QualifiedNames,
+    db_settings,
 )
 from pgqueuer.domain.types import (
     OnConflict,
@@ -39,7 +40,7 @@ __all__ = [
 class QueryBuilderEnvironment:
     """DDL/utility query builder bound to a :class:`DBSettings`."""
 
-    settings: DBSettings = dataclasses.field(default_factory=DBSettings)
+    settings: DBSettings = dataclasses.field(default_factory=db_settings)
 
     @property
     def qualified(self) -> QualifiedNames:
@@ -193,7 +194,7 @@ ALTER TABLE {self.qualified.statistics_table} RESET (
 
 @dataclasses.dataclass
 class QueryQueueBuilder:
-    settings: DBSettings = dataclasses.field(default_factory=DBSettings)
+    settings: DBSettings = dataclasses.field(default_factory=db_settings)
     # Rendered dequeue SQL per (capacity-gated, budget-gated) shape. The bind
     # order is fixed per shape, so cached text pairs with freshly bound args.
     dequeue_sql_cache: dict[tuple[bool, bool], str] = dataclasses.field(default_factory=dict)
@@ -585,13 +586,20 @@ class QueryQueueBuilder:
         """
 
     def build_enqueue_query(self, on_conflict: OnConflict = "raise") -> str:
+        # Restating the index predicate is what lets PostgreSQL infer the
+        # arbiter; spelled() qualifies the enum for a schema'd install.
+        predicate = schema_ddl.spelled(dedupe_predicate(self.settings), self.settings)
+        same_key = ""
         if on_conflict == "skip":
-            # Restating the index predicate is what lets PostgreSQL infer the
-            # arbiter; spelled() qualifies the enum for a schema'd install.
-            predicate = schema_ddl.spelled(dedupe_predicate(self.settings), self.settings)
             on_conflict_clause = f"""ON CONFLICT (dedupe_key)
                 WHERE {predicate}
                 DO NOTHING"""
+        elif on_conflict == "update_priority":
+            on_conflict_clause = f"""ON CONFLICT (dedupe_key)
+                WHERE {predicate}
+                DO UPDATE SET priority = GREATEST(job.priority, EXCLUDED.priority)"""
+            # An updated job keeps its own id, so it maps back to its input by key.
+            same_key = "OR i.dedupe_key = ins.dedupe_key"
         elif on_conflict == "raise":
             on_conflict_clause = ""
         else:
@@ -616,25 +624,27 @@ class QueryQueueBuilder:
                 t(priority, entrypoint, payload, execute_after, dedupe_key, headers, ord)
         ),
         inserted AS (
-            INSERT INTO {self.qualified.queue_table}
+            INSERT INTO {self.qualified.queue_table} AS job
             (id, priority, entrypoint, payload, execute_after, dedupe_key, headers, status)
             SELECT id, priority, entrypoint, payload, execute_after + NOW(),
                 dedupe_key, headers, 'queued'
             FROM input
             {on_conflict_clause}
-            RETURNING id, entrypoint, priority
+            RETURNING id, entrypoint, priority, dedupe_key
         ),
         logged AS (
             INSERT INTO {self.qualified.queue_table_log}
             (job_id, status, entrypoint, priority)
             SELECT id, 'queued', entrypoint, priority
             FROM inserted
+            -- A job whose priority was updated was queued before; log new jobs only.
+            WHERE id IN (SELECT id FROM input)
         )
         -- Join maps each surviving id back to its input ordinal. Rows skipped by
         -- ON CONFLICT are absent from `inserted`, so their positions never appear.
         SELECT i.ord AS ord, ins.id AS id
         FROM inserted ins
-        JOIN input i ON i.id = ins.id
+        JOIN input i ON i.id = ins.id {same_key}
         ORDER BY i.ord
         """
 
@@ -1011,7 +1021,7 @@ class QueryQueueBuilder:
 
 @dataclasses.dataclass
 class QuerySchedulerBuilder:
-    settings: DBSettings = dataclasses.field(default_factory=DBSettings)
+    settings: DBSettings = dataclasses.field(default_factory=db_settings)
 
     @property
     def qualified(self) -> QualifiedNames:

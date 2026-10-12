@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elementary-data
-Version: 0.26.0
+Version: 0.26.1
 Summary: Data monitoring and lineage
 License: Apache-2.0
 License-File: LICENSE
@@ -21,6 +21,20 @@ Provides-Extra: athena
 Provides-Extra: bigquery
 Provides-Extra: clickhouse
 Provides-Extra: databricks
+Provides-Extra: dbt1-all
+Provides-Extra: dbt1-athena
+Provides-Extra: dbt1-bigquery
+Provides-Extra: dbt1-clickhouse
+Provides-Extra: dbt1-databricks
+Provides-Extra: dbt1-dremio
+Provides-Extra: dbt1-duckdb
+Provides-Extra: dbt1-fabric
+Provides-Extra: dbt1-postgres
+Provides-Extra: dbt1-redshift
+Provides-Extra: dbt1-snowflake
+Provides-Extra: dbt1-spark
+Provides-Extra: dbt1-sqlserver
+Provides-Extra: dbt1-trino
 Provides-Extra: dremio
 Provides-Extra: duckdb
 Provides-Extra: fabric
@@ -36,20 +50,20 @@ Requires-Dist: beautifulsoup4 (<5.0.0)
 Requires-Dist: boto3 (<2.0.0)
 Requires-Dist: click (>=7.0,<9.0)
 Requires-Dist: cryptography (>=50.0.0)
-Requires-Dist: dbt-athena-community (>=1.8,<2.0.0) ; extra == "athena" or extra == "all"
-Requires-Dist: dbt-bigquery (>=1.8,<2.0.0) ; extra == "bigquery" or extra == "all"
-Requires-Dist: dbt-clickhouse (>=1.8,<2.0.0) ; extra == "clickhouse" or extra == "all"
-Requires-Dist: dbt-core (>=1.8,<3.0.0)
-Requires-Dist: dbt-databricks (>=1.8,<2.0.0) ; extra == "databricks" or extra == "all"
-Requires-Dist: dbt-dremio (>=1.8,<2.0.0) ; extra == "dremio" or extra == "all"
-Requires-Dist: dbt-duckdb (>=1.8,<2.0.0) ; extra == "duckdb" or extra == "all"
-Requires-Dist: dbt-fabric (>=1.8,<2.0.0) ; extra == "fabric" or extra == "all"
-Requires-Dist: dbt-postgres (>=1.8,<2.0.0) ; extra == "postgres" or extra == "all"
-Requires-Dist: dbt-redshift (>=1.8,<2.0.0) ; extra == "redshift" or extra == "all"
-Requires-Dist: dbt-snowflake (>=1.8,<2.0.0) ; extra == "snowflake" or extra == "all"
-Requires-Dist: dbt-spark (>=1.8,<2.0.0) ; extra == "spark" or extra == "all"
-Requires-Dist: dbt-sqlserver (>=1.8,<2.0.0) ; extra == "sqlserver" or extra == "all"
-Requires-Dist: dbt-trino (>=1.8,<2.0.0) ; extra == "trino" or extra == "all"
+Requires-Dist: dbt-athena-community (>=1.8,<2.0.0) ; extra == "dbt1-athena" or extra == "athena" or extra == "dbt1-all" or extra == "all"
+Requires-Dist: dbt-bigquery (>=1.8,<2.0.0) ; extra == "dbt1-bigquery" or extra == "bigquery" or extra == "dbt1-all" or extra == "all"
+Requires-Dist: dbt-clickhouse (>=1.8,<2.0.0) ; extra == "dbt1-clickhouse" or extra == "clickhouse" or extra == "dbt1-all" or extra == "all"
+Requires-Dist: dbt-core (>=1.8,<2.0.0) ; extra == "dbt1-snowflake" or extra == "dbt1-bigquery" or extra == "dbt1-redshift" or extra == "dbt1-postgres" or extra == "dbt1-databricks" or extra == "dbt1-spark" or extra == "dbt1-athena" or extra == "dbt1-clickhouse" or extra == "dbt1-trino" or extra == "dbt1-duckdb" or extra == "dbt1-dremio" or extra == "dbt1-fabric" or extra == "dbt1-sqlserver" or extra == "snowflake" or extra == "bigquery" or extra == "redshift" or extra == "postgres" or extra == "databricks" or extra == "spark" or extra == "athena" or extra == "clickhouse" or extra == "trino" or extra == "duckdb" or extra == "dremio" or extra == "fabric" or extra == "sqlserver" or extra == "dbt1-all" or extra == "all"
+Requires-Dist: dbt-databricks (>=1.8,<2.0.0) ; extra == "dbt1-databricks" or extra == "databricks" or extra == "dbt1-all" or extra == "all"
+Requires-Dist: dbt-dremio (>=1.8,<2.0.0) ; extra == "dbt1-dremio" or extra == "dremio" or extra == "dbt1-all" or extra == "all"
+Requires-Dist: dbt-duckdb (>=1.8,<2.0.0) ; extra == "dbt1-duckdb" or extra == "duckdb" or extra == "dbt1-all" or extra == "all"
+Requires-Dist: dbt-fabric (>=1.8,<2.0.0) ; extra == "dbt1-fabric" or extra == "fabric" or extra == "dbt1-all" or extra == "all"
+Requires-Dist: dbt-postgres (>=1.8,<2.0.0) ; extra == "dbt1-postgres" or extra == "postgres" or extra == "dbt1-all" or extra == "all"
+Requires-Dist: dbt-redshift (>=1.8,<2.0.0) ; extra == "dbt1-redshift" or extra == "redshift" or extra == "dbt1-all" or extra == "all"
+Requires-Dist: dbt-snowflake (>=1.8,<2.0.0) ; extra == "dbt1-snowflake" or extra == "snowflake" or extra == "dbt1-all" or extra == "all"
+Requires-Dist: dbt-spark (>=1.8,<2.0.0) ; extra == "dbt1-spark" or extra == "spark" or extra == "dbt1-all" or extra == "all"
+Requires-Dist: dbt-sqlserver[pyodbc] (>=1.8,<2.0.0) ; extra == "dbt1-sqlserver" or extra == "sqlserver" or extra == "dbt1-all" or extra == "all"
+Requires-Dist: dbt-trino (>=1.8,<2.0.0) ; extra == "dbt1-trino" or extra == "trino" or extra == "dbt1-all" or extra == "all"
 Requires-Dist: google-cloud-storage (>=2.4,<3.2)
 Requires-Dist: idna (>=3.15)
 Requires-Dist: lxml (>=6.1.0)
@@ -57,7 +71,7 @@ Requires-Dist: networkx (>=2.3,<3)
 Requires-Dist: packaging (>=20.9)
 Requires-Dist: posthog (<3.0.0)
 Requires-Dist: pyasn1 (>=0.6.4)
-Requires-Dist: pyathena (>=2.25,<3.35) ; extra == "athena" or extra == "all"
+Requires-Dist: pyathena (>=2.25,<3.35) ; extra == "dbt1-athena" or extra == "athena" or extra == "dbt1-all" or extra == "all"
 Requires-Dist: pydantic (<3.0)
 Requires-Dist: pymsteams (>=0.2.2,<1.0.0)
 Requires-Dist: pytz (>=2025.1)
@@ -67,7 +81,7 @@ Requires-Dist: ruamel.yaml (<1.0.0)
 Requires-Dist: slack-sdk (>=3.20.1,<4.0.0)
 Requires-Dist: tabulate (>=0.9.0)
 Requires-Dist: tenacity (>=8.0,<10.0)
-Requires-Dist: urllib3 (>=2.7.0)
+Requires-Dist: urllib3 (>=2.8.0)
 Project-URL: Documentation, https://docs.elementary-data.com
 Project-URL: Homepage, https://www.elementary-data.com
 Project-URL: Repository, https://github.com/elementary-data/elementary

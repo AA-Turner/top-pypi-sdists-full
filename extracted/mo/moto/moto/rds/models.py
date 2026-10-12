@@ -1199,11 +1199,11 @@ class DBInstance(EventMixin, CloudFormationModel, RDSBaseModel):
         self.enabled_cloudwatch_logs_exports = enable_cloudwatch_logs_exports or []
         self.monitoring_role_arn = monitoring_role_arn
         self.monitoring_interval = monitoring_interval
-        if self.monitoring_role_arn is not None and self.monitoring_interval == 0:
+        if self.monitoring_role_arn and self.monitoring_interval == 0:
             raise InvalidParameterCombination(
                 "You must specify a MonitoringInterval value other than 0 when you specify a MonitoringRoleARN value."
             )
-        if self.monitoring_role_arn is None and self.monitoring_interval != 0:
+        if not self.monitoring_role_arn and self.monitoring_interval != 0:
             raise InvalidParameterCombination(
                 "A MonitoringRoleARN value is required if you specify a MonitoringInterval value other than 0."
             )
@@ -2858,6 +2858,14 @@ class RDSBackend(BaseBackend, TaggableResourcesMixin):
         use_latest_restorable_time: bool = False,
         **overrides: dict[str, Any],
     ) -> DBCluster:
+        if restore_to_time is not None and use_latest_restorable_time:
+            raise InvalidParameterCombination(
+                "Cannot specify both RestoreToTime and UseLatestRestorableTime"
+            )
+        if restore_to_time is not None and restore_type == "copy-on-write":
+            raise InvalidParameterCombination(
+                "RestoreToTime cannot be specified when RestoreType is copy-on-write"
+            )
         db_cluster = self.describe_db_clusters(
             db_cluster_identifier=source_db_cluster_identifier
         )[0]

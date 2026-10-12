@@ -35,6 +35,12 @@ Public entry points:
   the Test-stage command, provenance included. A matched rule's own
   `command` (#3056) outranks the repo/fleet-wide sources — see
   `resolve_rule_command` for the multiple-matching-rules tiebreak.
+- `partition_command_stages(stages, partitions)` / `resolve_stage_command(
+  smoke_cfg, partition, partitions)` (#3696) — pure: when a repo declares
+  `smoke_tests.command_stages`, assigns every stage to exactly one #3182
+  fan-out partition (by capability superset) so each partition's leg runs
+  only its own stages instead of the repo's whole command — see
+  `_dispatch_smoke_fanout`.
 - `rank_smoke_machines(required_caps, repo, worker_machine, board, config)` —
   every capability-matched machine, best first (#1672).
 - `pick_smoke_machine(required_caps, worker_machine, board, config)` — picks
@@ -101,6 +107,7 @@ from coord import github_ops
 from coord.config import (
     Config,
     SmokeRule,
+    SmokeStage,
     SmokeTestsConfig,
     native_execution_capability,
 )
@@ -885,6 +892,47 @@ def partition_capability_requirements(
     return partitions, unroutable
 
 
+def partition_command_stages(
+    stages: Sequence[SmokeStage],
+    partitions: Sequence[SmokePartition],
+) -> dict[tuple[str, ...], list[SmokeStage]]:
+    """Assign every declared `command_stages` entry to exactly one fan-out
+    partition (#3696).
+
+    Each partition's own capability tuple is checked, in `partitions`
+    order, for the first one whose capabilities are a superset of the
+    stage's own `requires` — so a `[gtk+windows]` partition claims a stage
+    that `requires=["windows"]` before a later `[macos]` partition is even
+    considered. A stage with empty `requires` is capability-agnostic and
+    always matches the first partition, by the same superset rule (every
+    set is a superset of the empty set) — e.g. a shared lint/build step
+    that does not vary per platform.
+
+    Falls back to `partitions[0]` for a stage no partition's capabilities
+    cover, so a misconfigured `requires` (one naming a capability no
+    partition has) still runs it exactly once rather than silently
+    dropping it — "no gap" is guaranteed by construction, never by the
+    operator getting the config right.
+
+    Returns one list of `SmokeStage`, in declaration order, per partition
+    — keyed by `partition.capabilities` (unique per partition within one
+    fan-out, built by `partition_capability_requirements`). A partition
+    that claims no stage at all is simply absent from the returned dict.
+    """
+    assignments: dict[tuple[str, ...], list[SmokeStage]] = {}
+    if not partitions:
+        return assignments
+    for stage in stages:
+        requires = set(stage.requires)
+        target = partitions[0]
+        for partition in partitions:
+            if requires <= set(partition.capabilities):
+                target = partition
+                break
+        assignments.setdefault(target.capabilities, []).append(stage)
+    return assignments
+
+
 # ── Capability-partition fan-out (#3182) ─────────────────────────────────────
 #
 # `partition_capability_requirements` above is the ROUTING half: the fewest
@@ -1370,6 +1418,123 @@ def rank_smoke_machines(
     return ranked
 
 
+# #3695: the exact bracketed capability list `_report_unroutable_smoke`
+# embeds in every DURABLE routing-dead-end message it writes
+# (``f"capability [{caps}] for repo ..."`` — see its own body above), and
+# the one distinct substring that marks the OTHER durable shape, "no
+# configured machine declares this capability at all" — a `coordinator.yml`
+# config gap, not fleet state, so it is excluded on sight rather than
+# re-checked tick after tick for a capability that was never going to
+# appear on its own.
+_CAPABILITY_BRACKET_RE = re.compile(r"capability \[([^\]]*)\]")
+_NO_CONFIGURED_MACHINE_MARKER = "no configured machine declares capability"
+
+
+def required_caps_from_test_reason(reason: str | None) -> list[str] | None:
+    """Recover the capability list behind a Test-stage routing dead end.
+
+    #3695: `coord.dead_end`'s ``test_stage_blocked`` shape interpolates the
+    parent row's own ``test_reason`` — the exact string
+    :func:`_report_unroutable_smoke` wrote when it first recorded
+    ``TEST_STATE_BLOCKED`` — into the `DeadEnd.reason` that eventually lands
+    in a drive-queue entry's ``last_reason``. Every one of that function's
+    DURABLE messages (paused/quiet-hours, every candidate refused, or no
+    configured machine at all) embeds the same
+    ``f"capability [{caps}] for repo ..."`` fragment, so this is read back
+    off of *reason* rather than re-deriving or re-storing the list anywhere
+    new — #2096/#2085 "one question, one answer" applies to data, not just
+    functions: there is exactly one place this list is written, and this is
+    its one reader.
+
+    Returns ``None`` — "nothing to re-check" — for two different reasons
+    that both need to leave the row alone:
+
+    * *reason* does not look like one of :func:`_report_unroutable_smoke`'s
+      own messages at all (no bracketed capability list found) — some
+      other `(#2019)` dead-end shape entirely (guard refusal, fix-round
+      ceiling, an `after=` prerequisite, ...), none of which this issue
+      touches.
+    * *reason* carries :data:`_NO_CONFIGURED_MACHINE_MARKER` — "no
+      configured machine declares capability [...] AND can build repo
+      ...". That is a `coordinator.yml` gap, not transient fleet state: no
+      amount of waiting makes an undeclared capability appear, so treating
+      it as permanent (scenario (c) in the issue) is correct, not a bug.
+
+    An empty list (as opposed to ``None``) means the dead end legitimately
+    required no capability at all (``caps`` reads
+    ``"(none — any capable machine)"`` — see the ``caps = ", ".join(...)``
+    line above) — still worth a re-check, since "no capable machine" in
+    that case can only mean every machine was paused/cordoned/refused the
+    repo itself, which is exactly the fleet-state class this issue targets.
+    """
+    if not reason:
+        return None
+    if _NO_CONFIGURED_MACHINE_MARKER in reason:
+        return None
+    match = _CAPABILITY_BRACKET_RE.search(reason)
+    if match is None:
+        return None
+    raw = match.group(1)
+    if raw == "(none — any capable machine)":
+        return []
+    return [cap.strip() for cap in raw.split(",") if cap.strip()]
+
+
+def test_stage_routable_now(
+    required_caps: list[str],
+    repo_name: str,
+    board: Board,
+    config: Config,
+    *,
+    payload: dict | None = None,
+) -> bool:
+    """#3695: is the Test stage routable RIGHT NOW — cheaply?
+
+    Answers the SAME two questions dispatch-time :func:`rank_smoke_machines`
+    already answers for a live dispatch, reused rather than re-derived
+    (#2096/#2085 "one question, one answer"):
+
+    1. Is there at least one capability-matched, unpaused, uncordoned,
+       under-cap machine for *repo_name*? — :func:`rank_smoke_machines`
+       itself, which composes :func:`_capability_matched_machines` and
+       ``coord.machine_pause.paused_set`` exactly as dispatch does.
+    2. Does its cached/last ``/health`` agree it is actually there? —
+       ``coord.drive_state._unreachable_machine_names(payload)``, the SAME
+       already-polled ``fleet_health.machine_health`` reading
+       ``eligible_hosts_for_repo``/``pick_machine_choice`` already use for
+       an identical reason, stated explicitly in their own docstrings: a
+       live per-candidate ``/health`` GET on every tick does not scale.
+       Deliberately NOT :func:`_capability_probe_reasons` — that makes a
+       live HTTP call per machine and exists for dispatch time, where
+       paying for one fresh probe per actual assignment is the point; a
+       `blocked`-row re-check runs once per tick per blocked row and must
+       stay cheap, per the issue's own "cheaply, config/board-first"
+       requirement.
+
+    *payload* is the board daemon's own ``/board`` response body (or
+    ``None`` when no live fleet-health snapshot is available, e.g. in a
+    unit test that only cares about capability/pause routing) — when
+    ``None`` the health cross-check is simply skipped, matching
+    `rank_smoke_machines`'s own graceful behaviour when a caller has
+    nothing but config and board.
+
+    Returns ``False`` the moment either question comes back empty-handed —
+    this must be a genuinely reachable branch, not a default that always
+    clears (#2096 "a gate must be able to fail"): a *required_caps* nothing
+    currently declares, or every declared candidate still paused/cordoned/
+    over-cap/unreachable, both return ``False`` unchanged.
+    """
+    candidates = rank_smoke_machines(required_caps, repo_name, None, board, config)
+    if not candidates:
+        return False
+    if payload is not None:
+        from coord.drive_state import _unreachable_machine_names  # noqa: PLC0415
+
+        unreachable = _unreachable_machine_names(payload)
+        candidates = [c for c in candidates if c.machine.name not in unreachable]
+    return bool(candidates)
+
+
 def pick_smoke_machine(
     required_caps: list[str],
     repo_name: str,
@@ -1494,12 +1659,20 @@ class SmokeCommand:
     where CI only compiles) while still being *narrower* than the whole CI
     workflow. ``briefing_note`` says this explicitly so a transcript reader
     can tell a rule-command green from a repo-command green.
+
+    ``from_stages`` (#3696) is True when this command was assembled from the
+    subset of ``smoke_tests.command_stages`` that `partition_command_stages`
+    assigned to one #3182 fan-out partition — see `resolve_stage_command`.
+    Also never ``ci_equivalent``: it is a slice of the repo-wide command,
+    not CI's own declared command, even when that slice happens to cover
+    everything CI runs for this partition's capabilities.
     """
 
     command: str | None
     source: str
     ci_equivalent: bool
     from_rule: bool = False
+    from_stages: bool = False
 
     def briefing_note(self) -> str:
         """One line for the smoke agent's briefing naming the command's origin."""
@@ -1513,6 +1686,15 @@ class SmokeCommand:
                 "CI's own leg for these files, while still being NARROWER "
                 "than the whole CI workflow. Passing here does not by "
                 "itself prove CI is green."
+            )
+        if self.from_stages:
+            return (
+                f"- Suite: `{self.source}` — this is the subset of "
+                "`smoke_tests.command_stages` (#3696) this capability "
+                "partition owns, not the repo's whole Test-stage command. "
+                "Other partitions in this fan-out cover the remaining "
+                "stages; this leg's PASS does not by itself prove the "
+                "stages another partition owns are green."
             )
         if self.ci_equivalent:
             return (
@@ -1566,6 +1748,44 @@ def resolve_rule_command(
                 from_rule=True,
             )
     return None
+
+
+def resolve_stage_command(
+    smoke_cfg: SmokeTestsConfig,
+    partition: SmokePartition,
+    partitions: Sequence[SmokePartition],
+) -> SmokeCommand | None:
+    """Return *partition*'s own command out of `smoke_tests.command_stages`
+    (#3696), or `None` when the repo hasn't declared any — the pre-#3696
+    behaviour, where this partition's leg falls all the way through to
+    `resolve_smoke_command`'s repo/rule precedence unchanged.
+
+    Only `_dispatch_smoke_fanout` calls this: `command_stages` is specifically
+    a per-*partition* decomposition, and only a #3182 fan-out leg has a
+    partition (with other partitions alongside it) to decompose against. The
+    single-leg dispatch path has exactly one implicit "partition" covering
+    every capability, so splitting stages there would buy nothing — it is
+    unaffected, by construction, since it never calls this function.
+
+    Stages this partition owns are joined with `&&` in `command_stages`
+    declaration order, so an earlier stage failing stops the later ones from
+    running — the same fail-fast shape as a single hand-written multi-step
+    command.
+    """
+    if not smoke_cfg.command_stages:
+        return None
+    assignments = partition_command_stages(smoke_cfg.command_stages, partitions)
+    stages = assignments.get(partition.capabilities, [])
+    if not stages:
+        return None
+    command = " && ".join(stage.command for stage in stages)
+    names = ", ".join(stage.name for stage in stages)
+    return SmokeCommand(
+        command,
+        f"smoke_tests.command_stages ({names})",
+        False,
+        from_stages=True,
+    )
 
 
 def resolve_smoke_command(
@@ -2172,6 +2392,7 @@ def _report_unroutable_smoke(
     *,
     paused_capable: list[str] | None = None,
     cordon_only_capable: list[str] | None = None,
+    busy_capable: list[str] | None = None,
 ) -> None:
     """Report — once — that the Test stage has no machine it can run on.
 
@@ -2223,6 +2444,14 @@ def _report_unroutable_smoke(
       --reset`, converting the TTL-bounded cordon wait into an unbounded
       one — exactly the #3599 failure this carve-out closes. Logged once
       and left re-dispatchable, same as transient-connectivity.
+    * **Transient-busy** (#3692 — see *busy_capable*): every capable,
+      unpaused candidate was filtered SOLELY by the #3673 cargo-heavy
+      concurrency cap — it is merely busy, not missing. The cap is a
+      snapshot of in-flight legs, not an operator decision, and clears
+      itself the moment one of those legs finishes; durably blocking here
+      would wedge the row on a `coord diagnose --reset` for what the very
+      next tick would have resolved for free. Logged once and left
+      re-dispatchable, same as transient-cordon.
 
     *paused_capable* (#2636): machine names that matched capability but were
     filtered out of `rank_smoke_machines`'s ranking by `paused_set` — an
@@ -2243,6 +2472,15 @@ def _report_unroutable_smoke(
     durable branch still applies — lifting the cordon alone would not make
     the row dispatchable, so a human still needs to look at the
     non-cordoned ones.
+
+    *busy_capable* (#3692): machine names that matched capability, are NOT
+    in `paused_set`, yet were still filtered out of `rank_smoke_machines`'s
+    ranking because `machine_over_cargo_heavy_cap` says they are at their
+    #3673 cargo-heavy concurrency cap. Disjoint from *paused_capable* by
+    construction (the busy check only runs over machines already excluded
+    from pause) — when non-empty it is treated as transient, same as a
+    cordon-only dead end, since a load snapshot that will shift on its own
+    is not grounds to demand a manual `coord diagnose --reset`.
 
     Never raises: a board-write failure must not take the caller down.
     """
@@ -2276,6 +2514,13 @@ def _report_unroutable_smoke(
             f"capability [{caps}] for repo {completed.repo_name!r} is "
             f"paused or inside its quiet-hours window right now: "
             f"{', '.join(paused_capable)}{cordon_note}. (#2636)"
+        )
+    elif busy_capable:
+        message = (
+            f"Test stage cannot be routed: every machine that declares "
+            f"capability [{caps}] for repo {completed.repo_name!r} is at its "
+            f"cargo-heavy concurrency cap right now: "
+            f"{', '.join(busy_capable)}. (#3673)"
         )
     elif attempts:
         message = (
@@ -2320,6 +2565,15 @@ def _report_unroutable_smoke(
             "mechanism, not an operator pause — leaving the row "
             "re-dispatchable; it retries once the cordon lifts or expires "
             "(#3599).",
+        )
+        return
+
+    if busy_capable and not paused_capable:
+        _log_once(
+            logging.WARNING,
+            f"{message} The cargo-heavy cap is a snapshot of in-flight work, "
+            "not an operator decision — leaving the row re-dispatchable; it "
+            "retries once a slot frees up (#3692).",
         )
         return
 
@@ -3173,6 +3427,7 @@ def _dispatch_smoke_single_leg(
     # pause, a quiet-hours window, or (#3599) a release cordon.
     paused_capable: list[str] = []
     cordon_only_capable: list[str] = []
+    busy_capable: list[str] = []
     if not candidates:
         capable = _capability_matched_machines(
             required_caps, completed.repo_name, config
@@ -3199,6 +3454,23 @@ def _dispatch_smoke_single_leg(
                 cordon_only_capable = sorted(
                     name for name in paused_capable if name not in non_cordon_paused
                 )
+            # #3692: a capable, unpaused machine can still be missing from
+            # `candidates` because the board-aware `_capability_matched_
+            # machines` call inside `rank_smoke_machines` filtered it out
+            # for sitting at its #3673 cargo-heavy concurrency cap — not
+            # because it lacks the capability. That is self-clearing (the
+            # cap frees up the moment one of its in-flight legs finishes),
+            # same shape as a release cordon, so it must name the busy
+            # machine and leave the row re-dispatchable rather than falling
+            # through to the durable "no configured machine declares
+            # capability" message — reusing `machine_over_cargo_heavy_cap`
+            # (#2096: one question, one answer) rather than re-deriving the
+            # cap check here.
+            busy_capable = sorted(
+                m.name for m in capable
+                if m.name not in paused
+                and machine_over_cargo_heavy_cap(m, board, config)
+            )
 
     # #2168: pin the Test stage's model to avoid the agent falling through to
     # the machine's ambient `claude -p` default (Opus). Mirrors the review
@@ -3248,7 +3520,7 @@ def _dispatch_smoke_single_leg(
         # can show it, exactly once — never the silent 30 s spin of #1678.
         _report_unroutable_smoke(
             completed, required_caps, attempts, paused_capable=paused_capable,
-            cordon_only_capable=cordon_only_capable,
+            cordon_only_capable=cordon_only_capable, busy_capable=busy_capable,
         )
         return None
 
@@ -3461,15 +3733,26 @@ def _dispatch_smoke_fanout(
     for partition in partitions:
         caps = list(partition.capabilities)
 
-        # #3298: scope resolution to the files that put THIS partition on the
-        # board — never the full diff's `touched` — so a rule-scoped command
-        # is attributed to the one leg it was written for. `partition.files`
-        # is never empty for a partition this function actually returned
-        # (see `SmokePartition`'s docstring); the `or touched` is a defensive
-        # fallback, not a path this should ever take.
-        resolved = resolve_smoke_command(
-            repo, smoke_cfg, touched_files=list(partition.files) or touched,
-        )
+        # #3696: `command_stages` decomposes the repo's whole command into
+        # capability-tagged steps, so a partition's own command is built by
+        # claiming only ITS stages — checked first because it is strictly
+        # more specific than anything `resolve_smoke_command` below can see
+        # (that function has no notion of "this partition" at all, only
+        # which files were touched). A repo with no `command_stages`
+        # declared gets `None` here every time and falls straight through
+        # to the pre-#3696 behaviour, unchanged.
+        resolved = resolve_stage_command(smoke_cfg, partition, partitions)
+        if resolved is None:
+            # #3298: scope resolution to the files that put THIS partition
+            # on the board — never the full diff's `touched` — so a
+            # rule-scoped command is attributed to the one leg it was
+            # written for. `partition.files` is never empty for a partition
+            # this function actually returned (see `SmokePartition`'s
+            # docstring); the `or touched` is a defensive fallback, not a
+            # path this should ever take.
+            resolved = resolve_smoke_command(
+                repo, smoke_cfg, touched_files=list(partition.files) or touched,
+            )
         smoke_command = resolved.command
         if smoke_command is None:
             # Skip this partition — `_report_unconfigured_smoke_command`
@@ -4151,3 +4434,63 @@ def dispatch_pending_smoke(
         dispatched.extend(_dispatch_smoke_legs(completed, board, config, now=now))
 
     return dispatched
+
+
+def cancel_stale_smoke_legs(
+    board: Board,
+    config: Config,
+    *,
+    repo_name: str,
+    branch: str,
+) -> list[Assignment]:
+    """#3696: a new fix/conflict-fix round about to push fresh commits onto
+    *branch* replaces the head any in-flight Test-stage leg for that branch
+    is currently running against. Cancel every such leg (``type="smoke"``,
+    still ``"running"`` or ``"pending"``) rather than let it burn a machine
+    for 10-20+ minutes producing a verdict on a commit nobody will trust —
+    the macmini overload (#3696) this exists for.
+
+    Best-effort and never raises, mirroring :func:`coord.network.cancel_assignment`
+    itself: a machine missing from config, or unreachable, is logged and
+    skipped rather than blocking the fix dispatch that called this. Returns
+    every matching leg this attempted to cancel (regardless of whether the
+    cancel itself succeeded), so a caller can log/count them.
+
+    Scoped to ``(repo_name, branch)`` only — not to any one work row's
+    ``review_of_assignment_id`` — because the whole point is that EVERY
+    leg still testing this branch is now stale, no matter which prior work
+    row originally queued it.
+    """
+    from coord.network import cancel_assignment  # noqa: PLC0415
+
+    stale = [
+        a
+        for a in board.active
+        if a.type == "smoke"
+        and a.repo_name == repo_name
+        and a.branch == branch
+        and a.status in ("running", "pending")
+    ]
+    for leg in stale:
+        machine = next((m for m in config.machines if m.name == leg.machine_name), None)
+        if machine is None:
+            logger.warning(
+                "cancel_stale_smoke_legs: machine %r not in config — "
+                "cannot cancel leg %s for %s/%s",
+                leg.machine_name, leg.assignment_id, repo_name, branch,
+            )
+            continue
+        result = cancel_assignment(machine, leg.assignment_id)
+        if not result.ok:
+            logger.warning(
+                "cancel_stale_smoke_legs: cancel failed for leg %s on %s "
+                "(%s/%s): %s",
+                leg.assignment_id, machine.name, repo_name, branch, result.error,
+            )
+        else:
+            logger.info(
+                "cancel_stale_smoke_legs: cancelled superseded leg %s on "
+                "%s for %s/%s",
+                leg.assignment_id, machine.name, repo_name, branch,
+            )
+    return stale

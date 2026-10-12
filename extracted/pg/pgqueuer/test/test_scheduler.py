@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from pgqueuer.adapters.inmemory import InMemoryQueries
+from pgqueuer.adapters.inmemory import InMemoryDriver, InMemoryQueries
 from pgqueuer.db import AsyncpgDriver
 from pgqueuer.domain.settings import DBSettings
 from pgqueuer.domain.types import ScheduleId
@@ -188,6 +188,121 @@ async def test_scheduler_runs_tasks(scheduler: SchedulerManager, mocker: Mock) -
     )
 
     assert executed
+
+
+@pytest.mark.parametrize("fails", (False, True))
+async def test_scheduler_releases_schedule_before_driver_exit(mocker: Mock, fails: bool) -> None:
+    """In-flight schedules are released before the driver exits (#897)."""
+    events: list[str] = []
+
+    class RecordingDriver(InMemoryDriver):
+        async def __aexit__(self, *_: object) -> None:
+            events.append("driver exit")
+
+    queries = InMemoryQueries(driver=RecordingDriver())
+    scheduler = SchedulerManager(queries)
+    mocked_now = datetime.now(timezone.utc) + timedelta(hours=1)
+    mocker.patch("pgqueuer.core.executors.utc_now", return_value=mocked_now)
+    mocker.patch(
+        "pgqueuer.core.executors.croniter",
+        return_value=mocker.Mock(get_next=mocker.Mock(return_value=mocked_now.timestamp() - 60)),
+    )
+
+    started = asyncio.Event()
+
+    async def slow_task(schedule: Schedule) -> None:
+        started.set()
+        await asyncio.sleep(0.2)
+        if fails:
+            raise ValueError
+
+    scheduler.schedule("slow_task", "* * * * *")(slow_task)
+
+    release = queries.set_schedule_queued
+
+    async def recording_release(ids: set[ScheduleId]) -> None:
+        events.append("release")
+        await release(ids)
+
+    mocker.patch.object(queries, "set_schedule_queued", side_effect=recording_release)
+
+    run = asyncio.create_task(scheduler.run())
+    await started.wait()
+    scheduler.shutdown.set()
+    await run
+
+    assert events == ["release", "driver exit"]
+
+
+@pytest.mark.parametrize("trigger", ("error", "cancel"))
+async def test_scheduler_run_exits_when_body_stops(
+    scheduler: SchedulerManager,
+    mocker: Mock,
+    trigger: str,
+) -> None:
+    """run() fails fast when its loop raises or is cancelled with shutdown unset (#881)."""
+    fetching = asyncio.Event()
+
+    async def fetch_schedule(_: object) -> list[Schedule]:
+        fetching.set()
+        if trigger == "error":
+            raise RuntimeError("fetch failed")
+        await asyncio.Future()
+        return []
+
+    mocker.patch.object(scheduler.queries, "fetch_schedule", side_effect=fetch_schedule)
+
+    run = asyncio.create_task(scheduler.run())
+    await fetching.wait()
+    if trigger == "cancel":
+        run.cancel()
+    done, _ = await asyncio.wait({run}, timeout=2)
+    if run not in done:
+        run.cancel()
+        pytest.fail("run() hung after its loop stopped")
+    expected = RuntimeError if trigger == "error" else asyncio.CancelledError
+    with pytest.raises(expected):
+        run.result()
+
+
+async def test_scheduler_run_beats_while_draining_after_error(
+    scheduler: SchedulerManager,
+    mocker: Mock,
+) -> None:
+    """A failing loop drains running schedules with their heartbeat still going."""
+    mocked_now = datetime.now(timezone.utc) + timedelta(hours=1)
+    mocker.patch("pgqueuer.core.executors.utc_now", return_value=mocked_now)
+    mocker.patch(
+        "pgqueuer.core.executors.croniter",
+        return_value=mocker.Mock(get_next=mocker.Mock(return_value=mocked_now.timestamp() - 60)),
+    )
+    failed = asyncio.Event()
+    beats_after_failure = 0
+
+    async def slow_task(schedule: Schedule) -> None:
+        await asyncio.sleep(1.5)
+
+    scheduler.schedule("slow_task", "* * * * *")(slow_task)
+    fetch_schedule = scheduler.queries.fetch_schedule
+
+    async def fail_after_first(entrypoints: object) -> list[Schedule]:
+        if scheduler.active_heartbeat_ids:
+            failed.set()
+            raise RuntimeError("fetch failed")
+        return await fetch_schedule(entrypoints)  # type: ignore[arg-type]
+
+    async def count_heartbeat(ids: set[ScheduleId]) -> None:
+        nonlocal beats_after_failure
+        if failed.is_set():
+            beats_after_failure += 1
+
+    mocker.patch.object(scheduler.queries, "fetch_schedule", side_effect=fail_after_first)
+    mocker.patch.object(scheduler.queries, "update_schedule_heartbeat", side_effect=count_heartbeat)
+
+    with pytest.raises(RuntimeError, match="fetch failed"):
+        await asyncio.wait_for(scheduler.run(), timeout=5)
+
+    assert beats_after_failure >= 1
 
 
 async def test_heartbeat_updates(scheduler: SchedulerManager, mocker: Mock) -> None:

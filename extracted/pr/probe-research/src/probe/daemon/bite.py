@@ -106,7 +106,8 @@ def render(ev: StoredEvent, *, calls: dict[str, StoredEvent] | None = None) -> s
         if not body:
             body = ev.text or ""
         label = ev.tool or "tool"
-        return f"[agent ran {label} · {ev.event_id}] {_cap(body, COMMAND_SHOWN_CHARS, ev)}"
+        shown = f"[agent ran {label} · {ev.event_id}] {_cap(body, COMMAND_SHOWN_CHARS, ev)}"
+        return f"{shown}\n({ev.note})" if ev.note else shown
     if k == Kind.TOOL_OUTPUT:
         lines = (ev.text or "").count("\n") + (1 if ev.text else 0)
         flags = []
@@ -117,7 +118,8 @@ def render(ev: StoredEvent, *, calls: dict[str, StoredEvent] | None = None) -> s
         if ev.text and _RESULTS_HINT.search(ev.text):
             flags.append("looks like results")
         tail = f" · {' · '.join(flags)}" if flags else ""
-        return f"[output {ev.event_id} · {_size(ev.chars)} · {lines} lines{tail}]"
+        shown = f"[output {ev.event_id} · {_size(ev.chars)} · {lines} lines{tail}]"
+        return f"{shown}\n({ev.note})" if ev.note else shown
     if k == Kind.SUBAGENT:
         return f"[helper agent started · {ev.stream}] {ev.text[:300]}"
     if k == Kind.TURN_END:
@@ -277,21 +279,24 @@ def skills_root() -> Path | None:
 #: The researcher's own skills the daemon records by, shown whole (their
 #: `reference.md` and other files stay a `read` away).
 SHARED_SKILLS = ("track-work", "edit-notes")
+#: The skills the team-note audit runs by (daemon-team-note-audit), shown whole:
+#: the audit itself, and how the team note is edited.
+AUDIT_SKILLS = ("audit-team-note", "edit-notes")
 
 
-def skills_text() -> str:
-    """The shared skills, verbatim as the writer's version of each (front matter
-    dropped; `skill_versions.render`): the daemon's whole judgment of what and how
-    to record comes from them."""
+def skills_text(names: tuple[str, ...] = SHARED_SKILLS) -> str:
+    """The researcher's skills, verbatim as the writer's version of each (front
+    matter dropped; `skill_versions.render`): the daemon's whole judgment of what
+    and how to record -- or, for the audit, how to audit -- comes from them."""
     root = skills_root()
     if root is None:
-        # The job text says what to record comes only from these: say so loudly.
+        # The job text says the judgment comes only from these: say so loudly.
         logging.getLogger("probe.daemon").error(
-            "the track-work and edit-notes skills were not found; the daemon records without them")
+            "the %s skills were not found; the daemon works without them", " and ".join(names))
     from probe import skill_versions
 
     out = []
-    for name in SHARED_SKILLS:
+    for name in names:
         path = root / name / "SKILL.md" if root is not None else None
         if path is None or not path.is_file():
             continue

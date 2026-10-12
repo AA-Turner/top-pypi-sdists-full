@@ -2,6 +2,8 @@ use pyo3::exceptions::{PyAttributeError, PyRecursionError};
 use pyo3::ffi;
 use pyo3::intern;
 use pyo3::prelude::*;
+#[cfg(Py_3_15)]
+use pyo3::types::PyTuple;
 use pyo3::types::{PyAny, PyDict, PyFrame, PyString, PyStringMethods};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -537,6 +539,9 @@ fn get_locals<'py>(
         }
     };
 
+    #[cfg(Py_3_15)]
+    let (locals, owned) = hide_implicit_iterable(frame, locals, owned)?;
+
     let builtins_key = intern!(py, "__builtins__");
     let result = match locals
         .get_item(builtins_key)
@@ -555,6 +560,73 @@ fn get_locals<'py>(
     };
 
     Ok(result.into_any())
+}
+
+/// Record the iterable a generator expression was called with by identity.
+///
+/// Up to CPython 3.14 the caller of a generator expression (or of a
+/// comprehension that is not inlined) runs `iter()` and passes the iterator
+/// as the implicit `.0` argument, which is recorded as
+/// `<list_iterator object at 0x...>`. From 3.15 the caller passes the
+/// iterable itself and the generator runs `GET_ITER`, so `.0` holds the whole
+/// collection for the life of the frame. Recorded like any other local, a
+/// generator expression over `n` items would write all `n` of them at its
+/// call, return, and every yield and resume. `.0` is not a name the program
+/// wrote, so on 3.15 a value that is not already an iterator is recorded as
+/// `object.__repr__` shows it: its type and address, as on earlier versions.
+/// Mirrors `hide_implicit_iterable` in `kolo.serialize`.
+#[cfg(Py_3_15)]
+fn hide_implicit_iterable<'py>(
+    frame: &Bound<'py, PyFrame>,
+    locals: Bound<'py, PyDict>,
+    owned: bool,
+) -> PyResult<(Bound<'py, PyDict>, bool)> {
+    let py = locals.py();
+    let key = intern!(py, ".0");
+    let Some(value) = locals.get_item(key)? else {
+        return Ok((locals, owned));
+    };
+    // Only the compiler's implicit argument: a ".0" key in the namespace
+    // given to exec(), or a parameter of a function built from an AST, is the
+    // program's own.
+    let code = frame.getattr(intern!(py, "f_code"))?;
+    let varnames = code
+        .getattr(intern!(py, "co_varnames"))?
+        .cast_into::<PyTuple>()?;
+    let co_name = code.getattr(intern!(py, "co_name"))?;
+    let is_comprehension = matches!(
+        co_name.cast::<PyString>()?.to_str()?,
+        "<genexpr>" | "<listcomp>" | "<setcomp>" | "<dictcomp>"
+    );
+    if !is_comprehension || varnames.is_empty() || !varnames.get_item(0)?.eq(key)? {
+        return Ok((locals, owned));
+    }
+    // SAFETY: `value` is a strong reference to a live object and this thread
+    // is attached to the interpreter; both checks only read type slots.
+    // An async iterator that can also be iterated synchronously (`__iter__`
+    // or the sequence protocol) may be the collection a synchronous generator
+    // expression iterates: only one that cannot be is kept.
+    let is_iterator = unsafe {
+        let ptr = value.as_ptr();
+        ffi::PyIter_Check(ptr) != 0
+            || (ffi::PyAIter_Check(ptr) != 0
+                && (*ffi::Py_TYPE(ptr)).tp_iter.is_none()
+                && ffi::PySequence_Check(ptr) == 0)
+    };
+    if is_iterator {
+        return Ok((locals, owned));
+    }
+    // `object.__repr__` itself, whatever the type defines: no program code runs.
+    // SAFETY: `object`'s type slots are set for the life of the interpreter,
+    // and `value` is a live object.
+    let identity = unsafe {
+        let object_repr = (*std::ptr::addr_of!(ffi::PyBaseObject_Type)).tp_repr;
+        let object_repr = object_repr.expect("object defines tp_repr");
+        Bound::from_owned_ptr_or_err(py, object_repr(value.as_ptr()))?
+    };
+    let locals = if owned { locals } else { locals.copy()? };
+    locals.set_item(key, identity)?;
+    Ok((locals, true))
 }
 
 pub fn get_thread_id(thread: &Bound<'_, PyAny>, py: Python) -> Result<String, PyErr> {

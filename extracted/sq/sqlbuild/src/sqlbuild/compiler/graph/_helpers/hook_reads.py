@@ -4,11 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlbuild.compiler.compile.models import CompiledModel, CompiledObjectKey, CompiledProject
+from sqlbuild.compiler.compile.types import CompiledModelView, CompiledProjectView
 from sqlbuild.compiler.discovery.models import PythonHookEntry, SqlHookEntry
-from sqlbuild.compiler.graph._helpers.algorithms import transitive_closure_many_impl
-from sqlbuild.compiler.graph._helpers.audit_gates import attached_audit_gate_edges_impl
-from sqlbuild.compiler.graph._helpers.lineage import build_lineage_upstream_deps_impl
 from sqlbuild.compiler.graph._helpers.sql_refs import sql_ref_key_impl
 from sqlbuild.compiler.graph.models import HookReadEdge
 from sqlbuild.compiler.graph.types import HookReadType
@@ -17,7 +14,7 @@ from sqlbuild.python_nodes.models import SqlResourceRef
 _MODEL_HOOK_KEYS: tuple[str, ...] = ("pre_hooks", "post_hooks")
 
 
-def model_python_hook_names_impl(model: CompiledModel) -> tuple[str, ...]:
+def model_python_hook_names_impl(model: CompiledModelView) -> tuple[str, ...]:
     """Return the Python hooks attached to one model, in lifecycle order."""
 
     names: list[str] = []
@@ -30,7 +27,7 @@ def model_python_hook_names_impl(model: CompiledModel) -> tuple[str, ...]:
     return tuple(dict.fromkeys(names))
 
 
-def hook_read_edges_impl(*, project: CompiledProject) -> tuple[HookReadEdge, ...]:
+def hook_read_edges_impl(*, project: CompiledProjectView) -> tuple[HookReadEdge, ...]:
     """Return edges from each hook read to the model that runs the hook."""
 
     reads_by_hook: dict[str, tuple[SqlResourceRef, ...]] = {
@@ -55,7 +52,7 @@ def hook_read_edges_impl(*, project: CompiledProject) -> tuple[HookReadEdge, ...
     return tuple(dict.fromkeys(edge for edge in candidates if edge.read != edge.gated))
 
 
-def _sql_hook_read_edges(model: CompiledModel) -> tuple[HookReadEdge, ...]:
+def _sql_hook_read_edges(model: CompiledModelView) -> tuple[HookReadEdge, ...]:
     edges: list[HookReadEdge] = []
     for hook_key in _MODEL_HOOK_KEYS:
         entries: object = model.config.values.get(hook_key)
@@ -77,26 +74,3 @@ def _sql_hook_read_edges(model: CompiledModel) -> tuple[HookReadEdge, ...]:
                 for ref in entry.reads
             )
     return tuple(edges)
-
-
-def hook_read_cycles_impl(*, project: CompiledProject) -> tuple[HookReadEdge, ...]:
-    """Return every declared hook read that depends on the model running the hook."""
-
-    edges: tuple[HookReadEdge, ...] = hook_read_edges_impl(project=project)
-    if not edges:
-        return ()
-    upstream: dict[CompiledObjectKey, list[CompiledObjectKey]] = {
-        key: list(deps) for key, deps in build_lineage_upstream_deps_impl(project).items()
-    }
-    for gate in attached_audit_gate_edges_impl(project=project):
-        upstream.setdefault(gate.gated, []).append(gate.read)
-    for edge in edges:
-        upstream.setdefault(edge.gated, []).append(edge.read)
-    return tuple(
-        edge
-        for edge in sorted(
-            edges, key=lambda item: (item.gated.name, item.hook_name, item.read.name)
-        )
-        if edge.gated
-        in transitive_closure_many_impl(starts=(edge.read,), edges=upstream, include_starts=False)
-    )

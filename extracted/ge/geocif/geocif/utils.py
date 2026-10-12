@@ -1394,41 +1394,38 @@ def pivot_long_for_pearson(df_long: pd.DataFrame, target_col: str) -> pd.DataFra
     return cid_wide.merge(target_df, on=["Region", "Harvest Year"], how="left")
 
 
-def compute_pearson_summary(
+# Fewest (zone, year) pairs a CID needs before its correlation with yield is
+# ranked. Below this a CID covering a handful of rows can top the ranking by
+# chance: n = 2 always gives r = +-1 (Afghanistan poppy's ENSO CIDs did, and
+# auto_/top10_ models read this ranking).
+MIN_PEARSON_N = 10
+MIN_PEARSON_N_FRAC = 0.5
+
+
+def full_season_cid_values(
     df_wide: pd.DataFrame,
-    target_col: str,
     method: str = "monthly",
     season_stages=None,
-):
-    """Compute (pearson_df, corr_abs) from a wide-format df.
+    region_col: str = "Region",
+) -> dict:
+    """Per CID, every region's value over that region's own full season.
 
-    Picks one column per CID NAME (the one with the longest stage chain
-    under ``method``, matching ``cid_vs_yield_scatters``'s picker),
-    computes Pearson r vs ``target_col``, then the pairwise |ρ| matrix
-    among picked columns. The shared compute path for the broad-feature
-    EDA plot and the inline fallback in auto_/top10_ models.
+    Regions with different crop calendars have different full-season
+    windows (Afghanistan poppy: Oct-Aug in some zones, Nov-Aug in others),
+    so the single longest-chain column of a CID is empty for every region
+    whose season is shorter; picking it showed 3 of 7 poppy zones. Here
+    each region takes the longest-chain column that has any value for that
+    region (columns of equal length keep their order in ``df_wide``), and
+    all its rows use that one column.
 
-    Args:
-        df_wide: wide-format df with one column per (CID, stage) and a
-            target column.
-        target_col: name of the yield column.
-        method: extraction method (drives stage-chain length picker).
-        season_stages: optional cap for sanity; columns whose chain
-            exceeds this are skipped.
-
-    Returns:
-        (pearson_df, corr_abs). ``pearson_df`` is indexed by CID name
-        with columns ``n``, ``pearson_r``, ``abs_r``, ``rank_raw``,
-        sorted by ``abs_r`` desc. ``corr_abs`` is a square DataFrame of
-        |ρ| values indexed by CID name. Both are empty when no parseable
-        CID columns are present.
+    Returns ``{cid: (values, chains)}``: ``values`` is a float Series aligned
+    to ``df_wide``'s index, ``chains`` the sorted stage-chain lengths used.
+    Without ``region_col`` every row is one group (the longest column with
+    any value), as before.
     """
     from geocif.viz.diagnostics import _parse_cid_column
 
-    if df_wide is None or df_wide.empty or target_col not in df_wide.columns:
-        return pd.DataFrame(), pd.DataFrame()
-
-    by_cid: dict = {}
+    cols: dict = {}
     for col in df_wide.columns:
         parsed = _parse_cid_column(col, method=method)
         if parsed is None:
@@ -1436,37 +1433,102 @@ def compute_pearson_summary(
         cid, chain = parsed
         if season_stages is not None and chain > season_stages:
             continue
-        prev = by_cid.get(cid)
-        if prev is None or chain > prev[1]:
-            by_cid[cid] = (col, chain)
-    if not by_cid:
+        cols.setdefault(cid, []).append((chain, col))
+
+    groups = (
+        df_wide[region_col].astype(str).to_numpy()
+        if region_col in df_wide.columns
+        else np.zeros(len(df_wide), dtype=int)
+    )
+    out = {}
+    for cid, cands in cols.items():
+        cands.sort(key=lambda t: -t[0])  # longest first; stable for ties
+        mat = df_wide[[c for _, c in cands]].apply(pd.to_numeric, errors="coerce").to_numpy(float)
+        has = pd.DataFrame(~np.isnan(mat)).groupby(groups).any()
+        has_any = has.to_numpy().any(axis=1)
+        first = pd.Series(has.to_numpy().argmax(axis=1), index=has.index)
+        row_pick = first.reindex(groups).to_numpy()
+        values = pd.Series(mat[np.arange(len(mat)), row_pick], index=df_wide.index)
+        chains = sorted({cands[i][0] for i, ok in zip(first.to_numpy(), has_any) if ok})
+        out[cid] = (values, chains)
+    return out
+
+
+def compute_pearson_summary(
+    df_wide: pd.DataFrame,
+    target_col: str,
+    method: str = "monthly",
+    season_stages=None,
+    *,
+    min_n: int = MIN_PEARSON_N,
+    min_n_frac: float = MIN_PEARSON_N_FRAC,
+):
+    """Compute (pearson_df, corr_abs) from a wide-format df.
+
+    Each CID is taken over every region's own full season
+    (``full_season_cid_values``), correlated with ``target_col``, and the
+    pairwise |rho| matrix is computed among the CIDs on the same rows. The
+    shared compute path for the broad-feature EDA plot
+    (``cid_vs_yield_scatters``) and the inline fallback in auto_/top10_
+    models.
+
+    A CID is ranked only when it has at least ``min_n`` (region, year) pairs
+    and at least ``min_n_frac`` of the best-covered CID's pairs; others are
+    left out of both outputs, because auto_select_cids ranks on |r| alone.
+
+    Args:
+        df_wide: wide-format df with one column per (CID, stage), a
+            target column and, ideally, ``Region``.
+        target_col: name of the yield column.
+        method: extraction method (drives stage-chain length picker).
+        season_stages: optional cap for sanity; columns whose chain
+            exceeds this are skipped.
+        min_n, min_n_frac: coverage a CID needs to be ranked.
+
+    Returns:
+        (pearson_df, corr_abs). ``pearson_df`` is indexed by CID name
+        with columns ``n``, ``pearson_r``, ``abs_r``, ``rank_raw``,
+        ``kept``, ``redundant_with``, ``mutual_r``, sorted by ``abs_r``
+        desc. ``corr_abs`` is a square DataFrame of |rho| values indexed by
+        CID name. Both are empty when no CID qualifies.
+    """
+    if df_wide is None or df_wide.empty or target_col not in df_wide.columns:
         return pd.DataFrame(), pd.DataFrame()
 
-    pearson_rows: list = []
-    cid_series: dict = {}
-    for cid, (col, _chain) in by_cid.items():
-        sub = df_wide[[col, target_col]].dropna()
-        if sub.empty:
+    target = pd.to_numeric(df_wide[target_col], errors="coerce")
+    rows: list = []
+    series: dict = {}
+    for cid, (values, _chains) in full_season_cid_values(
+        df_wide, method=method, season_stages=season_stages
+    ).items():
+        ok = values.notna() & target.notna()
+        if ok.sum() < 3:
             continue
-        try:
-            r_p = float(sub[col].corr(sub[target_col], method="pearson"))
-        except (TypeError, ValueError):
-            continue
+        r_p = float(values[ok].corr(target[ok], method="pearson"))
         if np.isfinite(r_p):
-            pearson_rows.append((cid, len(sub), r_p))
-            cid_series[cid] = sub[col].reset_index(drop=True)
-    if not pearson_rows:
+            rows.append((cid, int(ok.sum()), r_p))
+            series[cid] = values.where(ok)  # aligned on df_wide's rows
+    if not rows:
         return pd.DataFrame(), pd.DataFrame()
 
-    pearson_df = pd.DataFrame(pearson_rows, columns=["cid", "n", "pearson_r"])
+    pearson_df = pd.DataFrame(rows, columns=["cid", "n", "pearson_r"])
+    need = max(min_n, int(np.ceil(min_n_frac * pearson_df["n"].max())))
+    too_few = pearson_df["n"] < need
+    if too_few.any():
+        import logging
+        logging.getLogger(__name__).info(
+            f"compute_pearson_summary: {int(too_few.sum())} CID(s) with fewer than "
+            f"{need} (region, year) pairs left unranked: "
+            f"{', '.join(pearson_df.loc[too_few, 'cid'].head(10))}"
+        )
+        pearson_df = pearson_df[~too_few]
+    if pearson_df.empty:
+        return pd.DataFrame(), pd.DataFrame()
     pearson_df["abs_r"] = pearson_df["pearson_r"].abs()
     pearson_df = pearson_df.sort_values("abs_r", ascending=False).reset_index(drop=True)
     pearson_df["rank_raw"] = pearson_df.index + 1
 
-    cid_value_df = pd.concat(
-        {c: cid_series[c] for c in pearson_df["cid"] if c in cid_series},
-        axis=1,
-    )
+    cid_value_df = pd.concat({c: series[c] for c in pearson_df["cid"]}, axis=1)
     corr_abs = (
         cid_value_df.corr(method="pearson").abs()
         if cid_value_df.shape[1] >= 2

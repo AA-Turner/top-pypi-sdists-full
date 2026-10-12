@@ -2,13 +2,14 @@
 
 import re
 
+from contextlib import suppress
 from email.iterators import body_line_iterator
 from email.message import Message
 from enum import Enum
 
 from public import public
 
-from flufl.bounce.interfaces import NoFailures, NoTemporaryFailures, Recipients
+from flufl.bounce._interfaces import NoFailures, NoTemporaryFailures, Recipients
 
 
 tcre = re.compile(r'the following recipients did not receive this message:', re.IGNORECASE)
@@ -34,6 +35,12 @@ class Caiwireless:
                     state = ParseState.tag_seen
                 elif state is ParseState.tag_seen and line:
                     if mo := acre.match(line):
-                        return NoTemporaryFailures, frozenset([mo.group('addr').encode('us-ascii')])
+                        # By now the email package has replaced any non-ASCII bytes in the address
+                        # with U+FFFD, so it can't be reported faithfully; skip it.  See GL#3.
+                        address = None
+                        with suppress(UnicodeEncodeError):
+                            address = mo.group('addr').encode('us-ascii')
+                        if address is not None:
+                            return NoTemporaryFailures, frozenset([address])
                     break
         return NoFailures

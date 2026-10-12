@@ -1757,6 +1757,46 @@ def test_purge_queue_before_delete_message():
 
 
 @mock_aws
+def test_purge_queue_twice_raises_purge_in_progress():
+    client = boto3.client("sqs", region_name=REGION)
+    name = f"purge-{str(uuid4())[0:6]}"
+    queue_url = client.create_queue(QueueName=name)["QueueUrl"]
+
+    client.send_message(QueueUrl=queue_url, MessageBody="first")
+    client.purge_queue(QueueUrl=queue_url)
+
+    with pytest.raises(ClientError) as exc:
+        client.purge_queue(QueueUrl=queue_url)
+
+    err = exc.value.response["Error"]
+    assert err["Code"] == "AWS.SimpleQueueService.PurgeQueueInProgress"
+    assert err["Message"] == (
+        f"Only one PurgeQueue operation on {name} is allowed every 60 seconds."
+    )
+
+
+@mock_aws
+def test_purge_queue_allowed_after_60_seconds():
+    if settings.TEST_SERVER_MODE:
+        raise SkipTest("Cant manipulate time in server mode")
+
+    client = boto3.client("sqs", region_name=REGION)
+    name = f"purge-{str(uuid4())[0:6]}"
+
+    with freeze_time("2015-01-01 12:00:00"):
+        queue_url = client.create_queue(QueueName=name)["QueueUrl"]
+        client.send_message(QueueUrl=queue_url, MessageBody="first")
+        client.purge_queue(QueueUrl=queue_url)
+
+    with freeze_time("2015-01-01 12:01:01"):
+        client.send_message(QueueUrl=queue_url, MessageBody="second")
+        client.purge_queue(QueueUrl=queue_url)
+
+        resp = client.receive_message(QueueUrl=queue_url)
+        assert resp.get("Messages", []) == []
+
+
+@mock_aws
 def test_delete_message_after_visibility_timeout():
     VISIBILITY_TIMEOUT = 1
     sqs = boto3.resource("sqs", region_name=REGION)
@@ -2880,6 +2920,43 @@ def test_receive_message_for_queue_with_receive_message_wait_time_seconds_set():
     )
 
     queue.receive_messages()
+
+
+@mock_aws
+def test_list_queues_paginated():
+    client = boto3.client("sqs", region_name=REGION)
+
+    prefix = str(uuid4())[0:6]
+    queue_urls = [
+        client.create_queue(QueueName=f"{prefix}-{i}")["QueueUrl"] for i in range(5)
+    ]
+
+    page1 = client.list_queues(QueueNamePrefix=prefix, MaxResults=2)
+    assert page1["QueueUrls"] == queue_urls[0:2]
+    assert "NextToken" in page1
+
+    page2 = client.list_queues(
+        QueueNamePrefix=prefix, MaxResults=2, NextToken=page1["NextToken"]
+    )
+    assert page2["QueueUrls"] == queue_urls[2:4]
+    assert "NextToken" in page2
+
+    page3 = client.list_queues(
+        QueueNamePrefix=prefix, MaxResults=2, NextToken=page2["NextToken"]
+    )
+    assert page3["QueueUrls"] == queue_urls[4:]
+    assert "NextToken" not in page3
+
+    # NextToken is only returned when MaxResults is supplied
+    assert "NextToken" not in client.list_queues(QueueNamePrefix=prefix)
+
+    paginator = client.get_paginator("list_queues")
+    pages = paginator.paginate(QueueNamePrefix=prefix, PaginationConfig={"PageSize": 2})
+    assert [page["QueueUrls"] for page in pages] == [
+        queue_urls[0:2],
+        queue_urls[2:4],
+        queue_urls[4:],
+    ]
 
 
 @mock_aws

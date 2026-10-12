@@ -571,6 +571,25 @@ def test_nul_in_table_text_keeps_whitespace_inside(html: str, expected: str) -> 
     assert body.inner_html == expected
 
 
+def test_fostered_whitespace_reopens_active_formatting() -> None:
+    assert parse_fragment("<table><ul><h1><b>x</h1>\n").inner_html == (
+        "<ul><h1><b>x</b></h1><b>\n</b></ul><table></table>"
+    )
+
+
+@pytest.mark.parametrize(
+    ("tag", "expected"),
+    [
+        pytest.param("thead", "<b>x</b><table><thead> \n</thead></table>", id="head"),
+        pytest.param("tfoot", "<b>x</b><table><tfoot> \n</tfoot></table>", id="foot"),
+        pytest.param("tbody", "<b>x</b><table><tbody> \n</tbody></table>", id="body"),
+        pytest.param("tr", "<b>x</b><table><tbody><tr> \n</tr></tbody></table>", id="row"),
+    ],
+)
+def test_table_whitespace_does_not_reopen_fostered_formatting(tag: str, expected: str) -> None:
+    assert parse_fragment(f"<table><b>x<{tag}> \n").inner_html == expected
+
+
 @pytest.mark.parametrize(
     ("html", "inner"),
     [
@@ -590,6 +609,35 @@ def test_formatting_end_tag_ignored_across_foreign_scope_boundary(html: str, inn
     body = parse(html).find("body")
     assert body is not None
     assert body.inner_html == inner
+
+
+@pytest.mark.parametrize(
+    ("html", "expected"),
+    [
+        pytest.param(
+            "<h1><math><annotation-xml></h1><span>x",
+            "<h1><math><annotation-xml></annotation-xml></math><span>x</span></h1>",
+            id="mathml-annotation-xml",
+        ),
+        pytest.param(
+            "<h1><math><mi></h1><span>x",
+            "<h1><math><mi><span>x</span></mi></math></h1>",
+            id="mathml-mi",
+        ),
+        pytest.param(
+            "<h1><svg><foreignObject></h1><span>x",
+            "<h1><svg><foreignObject><span>x</span></foreignObject></svg></h1>",
+            id="svg-foreignobject",
+        ),
+        pytest.param(
+            "<h1><svg><desc></h1><span>x",
+            "<h1><svg><desc><span>x</span></desc></svg></h1>",
+            id="svg-desc",
+        ),
+    ],
+)
+def test_heading_end_tag_ignored_across_foreign_scope_boundary(html: str, expected: str) -> None:
+    assert parse_fragment(html).inner_html == expected
 
 
 @pytest.mark.parametrize(

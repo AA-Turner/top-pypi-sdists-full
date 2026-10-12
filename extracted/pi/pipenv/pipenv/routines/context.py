@@ -49,6 +49,7 @@ class InstallPolicy:
     lock_only: bool = False
     lock: bool = False
     dry_run: bool = False
+    clean: bool = False
 
 
 @dataclass(frozen=True)
@@ -124,6 +125,7 @@ class ExecutionOptions:
     """
 
     extra_pip_args: Sequence[str] = ()
+    config_settings: Sequence[str] = ()
     requirements_directory: str | None = None
     no_deps: bool = False
     ignore_hashes: bool = False
@@ -172,6 +174,7 @@ class RoutineContext:
         lock_only: bool = False,
         lock: bool = False,
         dry_run: bool = False,
+        clean: bool = False,
         # package_selection
         packages: Sequence[str] = (),
         editable_packages: Sequence[str] = (),
@@ -185,6 +188,7 @@ class RoutineContext:
         requirementstxt: str | None = None,
         # execution_options
         extra_pip_args: Sequence[str] = (),
+        config_settings: Sequence[str] = (),
         requirements_directory: str | None = None,
         no_deps: bool = False,
         ignore_hashes: bool = False,
@@ -203,7 +207,8 @@ class RoutineContext:
         by passing ``allow_global=`` explicitly.
 
         Sequence-typed inputs (``packages``, ``editable_packages``,
-        ``categories``, ``extra_pip_args``) are tuple-coerced so the
+        ``categories``, ``extra_pip_args``, and ``config_settings``) are
+        tuple-coerced so the
         resulting dataclasses stay genuinely immutable even if the
         caller hands in a list.
         """
@@ -226,6 +231,7 @@ class RoutineContext:
                 lock_only=lock_only,
                 lock=lock,
                 dry_run=dry_run,
+                clean=clean,
             ),
             package_selection=PackageSelection(
                 packages=tuple(packages),
@@ -241,6 +247,7 @@ class RoutineContext:
             ),
             execution_options=ExecutionOptions(
                 extra_pip_args=tuple(extra_pip_args),
+                config_settings=tuple(config_settings),
                 requirements_directory=requirements_directory,
                 no_deps=no_deps,
                 ignore_hashes=ignore_hashes,

@@ -8,9 +8,12 @@ wire), never at a mock of `alerts.report`.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import re
+import socket
+import threading
 import time
 from pathlib import Path
 
@@ -125,6 +128,66 @@ def _mcp_connect_error() -> RuntimeError:
             raise RuntimeError(f"Client failed to connect: {inner}") from inner
     except RuntimeError as outer:
         return outer
+
+
+def _mcp_init_timeout() -> BaseException:
+    """What the Probe MCP's client raises when the server takes the connection
+    but never finishes the handshake. Built by a real fastmcp Client against a
+    socket that never answers, not by hand: fastmcp wipes the TimeoutError it
+    was raised from (`alerts.MCP_INIT_TIMEOUT`), and a fake that kept it passed
+    while the real error pinged."""
+    fastmcp = pytest.importorskip("fastmcp")
+    listener = socket.create_server(("127.0.0.1", 0))
+    held: list[socket.socket] = []
+
+    def accept() -> None:
+        with contextlib.suppress(OSError):
+            while True:
+                conn, _ = listener.accept()
+                held.append(conn)  # read nothing, answer nothing
+
+    threading.Thread(target=accept, daemon=True).start()
+
+    async def connect() -> BaseException:
+        url = f"http://127.0.0.1:{listener.getsockname()[1]}/mcp"
+        try:
+            async with fastmcp.Client(url, init_timeout=0.2):
+                pass
+        except Exception as exc:  # noqa: BLE001
+            return exc
+        raise AssertionError("the handshake finished against a socket that never answers")
+
+    try:
+        return asyncio.run(connect())
+    finally:
+        listener.close()
+        for conn in held:
+            conn.close()
+
+
+def test_the_mcp_handshake_timing_out_is_the_network_for_the_writer(tmp_path, sent):
+    error = _mcp_init_timeout()
+    assert alerts.MCP_INIT_TIMEOUT in str(error)
+    assert alerts.network_only(error) and alerts.bite_kind(error) is None
+    w = _worker(tmp_path, model=_raising(error))
+    w.read_new()
+    assert _bite(w) is False
+    assert _pings(sent) == []
+
+
+def test_the_mcp_handshake_timing_out_is_the_network_for_the_reader(tmp_path, sent):
+    lane = _lane(_worker(tmp_path), _mcp_init_timeout())
+    for _ in range(rl.READ_FAILURES_TO_REPORT):
+        lane.next_attempt_at = 0.0
+        asyncio.run(lane.run_turn("ask"))
+    assert _pings(sent) == []
+
+
+def test_a_bug_that_reads_like_the_handshake_still_pings():
+    """Only fastmcp's own RuntimeError, with exactly its text, is the handshake."""
+    assert alerts.bite_kind(RuntimeError(f"{alerts.MCP_INIT_TIMEOUT}: unexpected tool schema")) \
+        == alerts.Kind.BITE_FAILED
+    assert alerts.bite_kind(ValueError(alerts.MCP_INIT_TIMEOUT)) == alerts.Kind.BITE_FAILED
 
 
 def _bite(w: worker_mod.Worker) -> bool:

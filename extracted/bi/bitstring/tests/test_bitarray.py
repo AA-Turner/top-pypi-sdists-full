@@ -6,30 +6,119 @@ Unit tests for the bitarray module.
 import pytest
 import sys
 import os
-import bitarray
 import bitstring
 from bitstring import BitArray, Bits
+from tibs import Mutibs, Tibs
 
 sys.path.insert(0, '..')
 
 
 class TestAll:
-    def test_creation_from_uint(self):
-        s = BitArray(uint=15, length=6)
+    def test_explicit_factory_methods_return_bitarray(self, tmp_path):
+        assert type(BitArray.from_string("0xf")) is BitArray
+        assert type(BitArray.from_dtype("u8", 12)) is BitArray
+        assert type(BitArray.from_bytes(b"\xf0", offset=1, length=3)) is BitArray
+        assert type(BitArray.from_bools([True, 0, "x"])) is BitArray
+        assert type(BitArray.from_zeros(5)) is BitArray
+        assert type(BitArray.from_ones(5)) is BitArray
+        assert type(BitArray.from_joined(["0xa", "0xb"])) is BitArray
+        assert BitArray.from_joined(["0xa", "0xb"]) == "0xab"
+        assert BitArray.from_joined([]) == BitArray()
+
+        filename = tmp_path / "factory.bin"
+        filename.write_bytes(b"\x12\x34")
+        assert type(BitArray.from_file(filename)) is BitArray
+
+        bits = BitArray.from_ones(4)
+        bits.append("0b0")
+        assert bits == "0b11110"
+
+    def test_to_immutable(self):
+        bitarray = BitArray("0b101")
+        bits = bitarray.to_immutable()
+        assert type(bits) is Bits
+        assert bits == bitarray
+        bitarray.append("0b1")
+        assert bits == "0b101"
+        assert bitarray == "0b1011"
+
+    def test_tibs_conversion(self):
+        tibs = Tibs.from_bin("101")
+        bitarray = BitArray.from_tibs(tibs)
+        assert type(bitarray) is BitArray
+        assert bitarray == "0b101"
+        assert type(bitarray.to_tibs()) is Tibs
+        assert bitarray.to_tibs() == tibs
+
+        snapshot = bitarray.to_tibs()
+        bitarray.append("0b0")
+        assert snapshot == tibs
+        assert bitarray == "0b1010"
+
+        mutibs = Mutibs.from_bin("101")
+        bitarray = BitArray.from_tibs(mutibs)
+        assert type(bitarray) is BitArray
+        assert bitarray == "0b101"
+        mutibs.append(0)
+        assert bitarray == "0b101"
+
+    @pytest.mark.parametrize("tibs_type", [Tibs, Mutibs])
+    def test_constructor_accepts_tibs_types(self, tibs_type):
+        tibs = tibs_type.from_bin("101")
+        bitarray = BitArray(tibs)
+        assert type(bitarray) is BitArray
+        assert bitarray == "0b101"
+
+        bitarray.append("0b0")
+        assert bitarray == "0b1010"
+
+    @pytest.mark.parametrize("tibs_type", [Tibs, Mutibs])
+    def test_constructor_rejects_tibs_types_with_length(self, tibs_type):
+        tibs = tibs_type.from_bin("101")
+        with pytest.raises(ValueError, match="explicit length"):
+            BitArray(tibs, length=2)
+
+    def test_mutibs_input_is_copied(self):
+        source = Mutibs.from_bin("101")
+        constructed = BitArray(source)
+        from_tibs = BitArray.from_tibs(source)
+
+        source.append(0)
+
+        assert constructed == "0b101"
+        assert from_tibs == "0b101"
+
+        constructed.append("0b1")
+        assert source.to_bin() == "1010"
+
+    def test_tibs_types_promote_as_bits_type(self):
+        bitarray = BitArray("0b10")
+        bitarray.append(Tibs.from_bin("11"))
+        assert bitarray == "0b1011"
+
+        bitarray.append(Mutibs.from_bin("00"))
+        assert bitarray == "0b101100"
+
+        replacements = bitarray.replace(Mutibs.from_bin("0"), Tibs.from_bin("11"), count=1)
+        assert replacements == 1
+        assert bitarray == "0b1111100"
+
+    def test_creation_from_u(self):
+        s = BitArray(u=15, length=6)
         assert s.bin == '001111'
-        s = BitArray(uint=0, length=1)
+        s = BitArray(u=0, length=1)
         assert s.bin == '0'
         s.u = 1
         assert s.uint == 1
-        s = BitArray(length=8)
+        s = BitArray.from_zeros(8)
         s.uint = 0
         assert s.uint == 0
         s.u8 = 255
         assert s.uint == 255
-        assert s.len == 8
-        with pytest.raises(bitstring.CreationError):
+        assert len(s) == 8
+        with pytest.raises(ValueError):
             s.uint = 256
-        with pytest.raises(bitstring.CreationError):
+        with pytest.raises(ValueError):
             s.uint = -1
 
     def test_creation_from_oct(self):
@@ -39,7 +128,7 @@ class TestAll:
         s.append('0o1')
         assert s.bin == '111001'
         s.oct = '12345670'
-        assert s.length == 24
+        assert len(s) == 24
         assert s.bin == '001010011100101110111000'
         s = BitArray('0o123')
         assert s.oct == '123'
@@ -58,22 +147,22 @@ class TestNoPosAttribute:
 
     def test_insert(self):
         s = BitArray('0b00')
-        s.insert('0xf', 1)
+        s.insert(1, '0xf')
         assert s == '0b011110'
 
     def test_insert_self(self):
         b = BitArray('0b10')
-        b.insert(b, 0)
+        b.insert(0, b)
         assert b == '0b1010'
         c = BitArray('0x00ff')
-        c.insert(c, 8)
+        c.insert(8, c)
         assert c == '0x0000ffff'
         a = BitArray('0b11100')
-        a.insert(a, 3)
+        a.insert(3, a)
         assert a == '0b1111110000'
 
     def test_no_bit_pos_for_insert(self):
-        s = BitArray(100)
+        s = BitArray.from_zeros(100)
         with pytest.raises(TypeError):
             s.insert('0xabc')
 
@@ -82,9 +171,16 @@ class TestNoPosAttribute:
         with pytest.raises(TypeError):
             s.insert('0x4')
 
+    def test_insert_overwrite_old_argument_order_raises(self):
+        s = BitArray('0x0000')
+        with pytest.raises(TypeError, match="argument order changed"):
+            s.insert('0xf', 4)
+        with pytest.raises(TypeError, match="argument order changed"):
+            s.overwrite('0xf', 4)
+
     def test_overwrite(self):
         s = BitArray('0b01110')
-        s.overwrite('0b000', 1)
+        s.overwrite(1, '0b000')
         assert s == '0b00000'
 
     def test_overwrite_no_pos(self):
@@ -124,7 +220,7 @@ class TestNoPosAttribute:
 
 class TestBugs:
     def test_adding_nonsense(self):
-        a = BitArray([0])
+        a = BitArray.from_bools([0])
         with pytest.raises(ValueError):
             a += '3'
         with pytest.raises(ValueError):
@@ -133,7 +229,7 @@ class TestBugs:
             a += 'float:32'
 
     def test_prepend_after_creation_from_data_with_offset(self):
-        s1 = BitArray(bytes=b'\x00\x00\x07\xff\xf0\x00', offset=21, length=15)
+        s1 = BitArray.from_bytes(b'\x00\x00\x07\xff\xf0\x00', offset=21, length=15)
         assert not s1.any(0)
         b = s1.tobytes()
         assert b == b'\xff\xfe'
@@ -145,13 +241,7 @@ class TestBugs:
 
 class TestByteAligned:
 
-    def test_changing_it(self):
-        bitstring.bytealigned = True
-        assert bitstring.bytealigned
-        bitstring.bytealigned = False
-        assert not bitstring.bytealigned
-
-    def test_not_byte_aligned(self):
+    def test_not_bytealigned(self):
         a = BitArray('0xff00ff')
         s = a.split('0xff')
         s = list(s)
@@ -159,29 +249,27 @@ class TestByteAligned:
         a = BitArray('0x00 ff 0f f')
         li = list(a.findall('0xff'))
         assert li == [8, 20]
-        p = a.find('0x0f')[0]
+        p = a.find('0x0f')
         assert p == 4
-        p = a.rfind('0xff')[0]
+        p = a.rfind('0xff')
         assert p == 20
         s = list(a.split('0xff'))
         assert s == ['0x00', '0xff0', '0xff']
         a.replace('0xff', '')
         assert a == '0x000'
 
-    def test_byte_aligned(self):
-        bitstring.bytealigned = True
+    def test_bytealigned(self):
         a = BitArray('0x00 ff 0f f')
-        li = list(a.findall('0xff'))
+        li = list(a.findall('0xff', bytealigned=True))
         assert li == [8]
-        p = a.find('0x0f')[0]
+        p = a.find('0x0f', bytealigned=True)
         assert p == 16
-        p = a.rfind('0xff')[0]
+        p = a.rfind('0xff', bytealigned=True)
         assert p == 8
-        s = list(a.split('0xff'))
+        s = list(a.split('0xff', bytealigned=True))
         assert s == ['0x00', '0xff0ff']
-        a.replace('0xff', '')
+        a.replace('0xff', '', bytealigned=True)
         assert a == '0x000ff'
-        bitstring.bytealigned = False
 
 
 class TestSliceAssignment:
@@ -213,7 +301,7 @@ class TestSliceAssignment:
         a[0] = '0b000'
         assert a.bin5 == '00010'
         a[0:3] = '0b111'
-        assert a.b5 == '11110'
+        assert a.bin5 == '11110'
         a[-2:] = '0b011'
         assert a.bin == '111011'
         a[:] = '0x12345'
@@ -264,11 +352,11 @@ class TestSliceAssignment:
         assert a == '0b01000001'
 
     def test_del_slice_errors(self):
-        a = BitArray(10)
+        a = BitArray.from_zeros(10)
         del a[5:3]
-        assert a == Bits(10)
+        assert a == Bits.from_zeros(10)
         del a[3:5:-1]
-        assert a == Bits(10)
+        assert a == Bits.from_zeros(10)
 
     def test_del_single_element(self):
         a = BitArray('0b0010011')
@@ -288,14 +376,14 @@ class TestSliceAssignment:
         a[7:3:-1] = [1, 1, 1, 0]
         assert a.bin == '1010011110'
         a[7:1:-2] = [0, 0, 1]
-        assert a.b == '1011001010'
+        assert a.bin == '1011001010'
         a[::-5] = [1, 1]
         assert a.bin == '1011101011'
         a[::-1] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
         assert a.bin == '1000000000'
 
     def test_set_slice_step_with_int(self):
-        a = BitArray(9)
+        a = BitArray.from_zeros(9)
         a[5:8] = -1
         assert a.bin == '000001110'
         a[:] = 10
@@ -306,15 +394,15 @@ class TestSliceAssignment:
         assert a.bin == '111110101'
 
     def test_set_slice_errors(self):
-        a = BitArray(8)
+        a = BitArray.from_zeros(8)
         with pytest.raises(ValueError):
             a[::3] = [1]
 
-        class A(object):
+        class A:
             pass
         with pytest.raises(TypeError):
             a[1:2] = A()
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             a[1:4:-1] = [1, 2]
 
 
@@ -337,13 +425,13 @@ class TestClear:
     def test_clear(self):
         s = BitArray('0xfff')
         s.clear()
-        assert s.len == 0
+        assert len(s) == 0
 
 
 class TestCopy:
 
     def test_copy_method(self):
-        s = BitArray(9)
+        s = BitArray.from_zeros(9)
         t = s.copy()
         assert s == t
         t[0] = True
@@ -354,290 +442,13 @@ class TestCopy:
 class TestModifiedByAddingBug:
 
     def test_adding(self):
-        a = BitArray.fromstring('0b0')
+        a = BitArray.from_string('0b0')
         b = BitArray('0b11')
         c = a + b
         assert c == '0b011'
         assert a == '0b0'
         assert b == '0b11'
 
-
-class TestLsb0Setting:
-
-    @classmethod
-    def setup_class(cls):
-        bitstring.lsb0 = True
-
-    @classmethod
-    def teardown_class(cls):
-        bitstring.lsb0 = False
-
-    def test_set_single_bit(self):
-        a = BitArray(10)
-        a[0] = True
-        assert a == '0b0000000001'
-        a[1] = True
-        assert a == '0b0000000011'
-        a[0] = False
-        assert a == '0b0000000010'
-        a[9] = True
-        assert a == '0b1000000010'
-        with pytest.raises(IndexError):
-            a[10] = True
-
-    def test_set_single_negative_bit(self):
-        a = BitArray('0o000')
-        a[-1] = True
-        assert a == '0b100000000'
-        a[-2] = True
-        assert a == '0o600'
-        a[-9] = True
-        assert a == '0o601'
-        with pytest.raises(IndexError):
-            a[-10] = True
-
-    def test_invert_bit(self):
-        a = BitArray('0b11110000')
-        a.invert()
-        assert a == '0x0f'
-        a.invert(0)
-        assert a == '0b00001110'
-        a.invert(-1)
-        assert a == '0b10001110'
-
-    def test_deleting_bits(self):
-        a = BitArray('0b11110')
-        del a[0]
-        assert a == '0xf'
-
-    def test_deleting_range(self):
-        a = BitArray('0b101111000')
-        del a[0:1]
-        assert a == '0b10111100'
-        del a[2:6]
-        assert a == '0b1000'
-        a = BitArray('0xabcdef')
-        del a[:8]
-        assert a == '0xabcd'
-        del a[-4:]
-        assert a == '0xbcd'
-        del a[:-4]
-        assert a == '0xb'
-
-    def test_appending_bits(self):
-        a = BitArray('0b111')
-        a.append('0b000')
-        assert a.bin == '000111'
-        a += '0xabc'
-        assert a == '0xabc, 0b000111'
-
-    def test_setting_slice(self):
-        a = BitArray('0x012345678')
-        a[4:12] = '0xfe'
-        assert a == '0x012345fe8'
-        a[0:4] = '0xbeef'
-        assert a == '0x012345febeef'
-
-    def test_truncating_start(self):
-        a = BitArray('0b1110000')
-        a = a[4:]
-        assert a == '0b111'
-
-    def test_truncating_end(self):
-        a = BitArray('0x123456')
-        a = a[:16]
-        assert a == '0x3456'
-
-    def test_all(self):
-        a = BitArray('0b0000101')
-        assert a.all(1, [0, 2])
-        assert a.all(False, [-1, -2, -3, -4])
-
-        b = Bits(bytes=b'\x00\xff\xff', offset=7)
-        assert b.all(1, [1, 2, 3, 4, 5, 6, 7])
-        assert b.all(1, [-2, -3, -4, -5, -6, -7, -8])
-
-    def test_any(self):
-        a = BitArray('0b0001')
-        assert a.any(1, [0, 1, 2])
-
-    def test_endswith(self):
-        a = BitArray('0xdeadbeef')
-        assert a.endswith('0xdead')
-
-    def test_startswith(self):
-        a = BitArray('0xdeadbeef')
-        assert a.startswith('0xbeef')
-
-    def test_cut(self):
-        a = BitArray('0xff00ff1111ff2222')
-        li = list(a.cut(16))
-        assert li == ['0x2222', '0x11ff', '0xff11', '0xff00']
-
-    def test_find(self):
-        t = BitArray('0b10')
-        p, = t.find('0b1')
-        assert p == 1
-        t = BitArray('0b1010')
-        p, = t.find('0b1')
-        assert p == 1
-        a = BitArray('0b10101010, 0xabcd, 0b10101010, 0x0')
-        p, = a.find('0b10101010', bytealigned=False)
-        assert p == 4
-        p, = a.find('0b10101010', start=4, bytealigned=False)
-        assert p == 4
-        p, = a.find('0b10101010', start=5, bytealigned=False)
-        assert p == 22
-
-    def test_find_failing(self):
-        a = BitArray()
-        p = a.find('0b1')
-        assert p == ()
-        a = BitArray('0b11111111111011')
-        p = a.find('0b100')
-        assert not p
-
-    def test_find_failing2(self):
-        s = BitArray('0b101')
-        p, = s.find('0b1', start=2)
-        assert p == 2
-
-    def test_rfind(self):
-        a = BitArray('0b1000000')
-        p = a.rfind('0b1')
-        assert p == (6,)
-        p = a.rfind('0b000')
-        assert p == (3,)
-
-    def test_rfind_with_start_and_end(self):
-        a = BitArray('0b11 0000 11 00')
-        p = a.rfind('0b11', start=8)
-        assert p[0] == 8
-        p = a.rfind('0b110', start=8)
-        assert p == ()
-        p = a.rfind('0b11', end=-1)
-        assert p[0] == 2
-
-    def test_findall(self):
-        a = BitArray('0b001000100001')
-        b = list(a.findall('0b1'))
-        assert b == [0, 5, 9]
-        c = list(a.findall('0b0001'))
-        assert c == [0, 5]
-        d = list(a.findall('0b10'))
-        assert d == [4, 8]
-        e = list(a.findall('0x198273641234'))
-        assert e == []
-
-    def test_find_all_with_start_and_end(self):
-        a = BitArray('0xaabbccaabbccccbb')
-        b = list(a.findall('0xbb', start=0, end=8))
-        assert b == [0]
-        b = list(a.findall('0xbb', start=1, end=8))
-        assert b == []
-        b = list(a.findall('0xbb', start=0, end=7))
-        assert b == []
-        b = list(a.findall('0xbb', start=48))
-        assert b == [48]
-        b = list(a.findall('0xbb', start=47))
-        assert b == [48]
-        b = list(a.findall('0xbb', start=49))
-        assert b == []
-
-    def test_find_all_byte_aligned(self):
-        a = BitArray('0x0550550')
-        b = list(a.findall('0x55', bytealigned=True))
-        assert b == [16]
-
-    def test_find_all_with_count(self):
-        a = BitArray('0b0001111101')
-        b = list(a.findall([1], start=1, count=1))
-        assert b == [2]
-
-    def test_split(self):
-        a = BitArray('0x4700004711472222')
-        li = list(a.split('0x47', bytealigned=True))
-        assert li == ['', '0x472222', '0x4711', '0x470000']
-
-    def test_byte_swap(self):
-        a = BitArray('0xaa00ff00ff00')
-        n = a.byteswap(2, end=32, repeat=True)
-        assert n == 2
-        assert a == '0xaa0000ff00ff'
-
-    def test_insert(self):
-        a = BitArray('0x0123456')
-        a.insert('0xf', 4)
-        assert a == '0x012345f6'
-
-    def test_overwrite(self):
-        a = BitArray('0x00000000')
-        a.overwrite('0xdead', 4)
-        assert a == '0x000dead0'
-
-    def test_replace(self):
-        a = BitArray('0x5551100')
-        n = a.replace('0x1', '0xabc')
-        assert n == 2
-        assert a == '0x555abcabc00'
-        n = a.replace([1], [0], end=12)
-        assert n == 2
-        assert a == '0x555abcab000'
-
-    def test_reverse(self):
-        a = BitArray('0x0011223344')
-        a.reverse()
-        assert a == '0x22cc448800'
-        a.reverse(0, 16)
-        assert a == '0x22cc440011'
-
-    def test_ror(self):
-        a = BitArray('0b111000')
-        a.ror(1)
-        assert a == '0b011100'
-        a = BitArray('0b111000')
-        a.ror(1, start=2, end=6)
-        assert a == '0b011100'
-
-    def test_rol(self):
-        a = BitArray('0b1')
-        a.rol(12)
-        assert a == '0b1'
-        b = BitArray('0b000010')
-        b.rol(3)
-        assert b == '0b010000'
-
-    def test_set(self):
-        a = BitArray(100)
-        a.set(1, [0, 2, 4])
-        assert a[0]
-        assert a.startswith('0b000010101')
-        a = BitArray('0b111')
-        a.set(False, 0)
-        assert a == '0b110'
-
-    def test_failing_repr(self):
-        a = BitArray('0b010')
-        a.find('0b1')
-        assert repr(a) == "BitArray('0b010')"
-
-    def test_left_shift(self):
-        a = BitArray('0b11001')
-        assert (a << 1).b == '10010'
-        assert (a << 5).b == '00000'
-        assert (a << 0).b == '11001'
-
-    def test_right_shift(self):
-        a = BitArray('0b11001')
-        assert (a >> 1).b == '01100'
-        assert (a >> 5).b == '00000'
-        assert (a >> 0).b == '11001'
-
-    # def testConstFileBased(self):
-    #     filename = os.path.join(THIS_DIR, 'test.m1v')
-    #     a = Bits(filename=filename, offset=8)
-    #     self.assertTrue(a[-8])
-    #     self.assertTrue(a.endswith('0x01b3'))
 
 
 class TestRepr:
@@ -651,20 +462,30 @@ class TestNewProperties:
 
     def test_aliases(self):
         a = BitArray('0x1234567890ab')
-        assert a.oct == a.o
-        assert a.hex == a.h
-        assert a.bin == a.b
         assert a[:32].float == a[:32].f
         assert a.int == a.i
         assert a.uint == a.u
 
+    def test_removed_string_aliases(self):
+        a = BitArray('0x123')
+        for alias in ['b', 'o', 'h', 'b12', 'o12', 'h12']:
+            with pytest.raises(AttributeError):
+                getattr(a, alias)
+            # The setter reports an unknown name the same way the getter does.
+            with pytest.raises(AttributeError):
+                setattr(a, alias, '0')
+            with pytest.raises(ValueError):
+                bitstring.Dtype(alias)
+            with pytest.raises(ValueError):
+                a.unpack(alias)
+
     def test_aliases_with_lengths(self):
         a = BitArray('0x123')
-        h = a.h12
+        h = a.hex12
         assert h == '123'
-        b = a.b12
+        b = a.bin12
         assert b == '000100100011'
-        o = a.o12
+        o = a.oct12
         assert o == '0443'
         u = a.u12
         assert u == a.u
@@ -682,92 +503,129 @@ class TestNewProperties:
         assert a.u88 == 1244322
         a.i3 = -3
         assert a.i3 == -3
-        a.h16 = '0x1234'
-        assert a.h16 == '1234'
-        a.o9 = '0o765'
-        assert a.o9 == '765'
-        a.b7 = '0b0001110'
-        assert a.b7 == '0001110'
+        a.hex16 = '0x1234'
+        assert a.hex16 == '1234'
+        a.oct9 = '0o765'
+        assert a.oct9 == '765'
+        a.bin7 = '0b0001110'
+        assert a.bin7 == '0001110'
 
     def test_assignments_without_length(self):
-        a = BitArray(64)
+        a = BitArray.from_zeros(64)
         a.f = 1234.5
         assert a.float == 1234.5
-        assert a.len == 64
+        assert len(a) == 64
         a.u = 99
         assert a.uint == 99
-        assert a.len == 64
+        assert len(a) == 64
         a.i = -999
         assert a.int == -999
-        assert a.len == 64
-        a.h = 'feedbeef'
+        assert len(a) == 64
+        a.hex = 'feedbeef'
         assert a.hex == 'feedbeef'
-        a.o = '1234567'
+        a.oct = '1234567'
         assert a.oct == '1234567'
-        a.b = '001'
+        a.bin = '001'
         assert a.bin == '001'
 
     def test_getter_length_errors(self):
-        a = BitArray('0x123')
-        with pytest.raises(bitstring.InterpretError):
-            _ = a.h16
-        with pytest.raises(bitstring.InterpretError):
-            _ = a.b3317777766
-        with pytest.raises(AttributeError):
-            _ = a.o2
-        with pytest.raises(bitstring.InterpretError):
-            _ = a.f
-        with pytest.raises(bitstring.InterpretError):
+        a = BitArray('0x123')  # 12 bits
+        # These are all real dtypes, so the attribute exists - this bitstring just
+        # isn't the right length to be read as one.
+        with pytest.raises(ValueError):
+            _ = a.hex16
+        with pytest.raises(ValueError):
+            _ = a.bin3317777766
+        with pytest.raises(ValueError):
             _ = a.f32
-        with pytest.raises(bitstring.InterpretError):
+        with pytest.raises(ValueError):
             _ = a.u13
-        with pytest.raises(bitstring.InterpretError):
+        with pytest.raises(ValueError):
             _ = a.i1
+        # 'oct2' isn't a dtype for a bitstring of any length, as octal lengths are
+        # multiples of three, so it is a missing attribute rather than a bad length.
+        with pytest.raises(AttributeError):
+            _ = a.oct2
+        assert hasattr(a, 'u12')
+        # As the error isn't an AttributeError, hasattr() doesn't hide it. Dtype
+        # attributes depend on the data, so hasattr() isn't a test for them.
+        with pytest.raises(ValueError):
+            hasattr(a, 'u16')
+        # The bare names behave the same way as the ones carrying a length.
+        with pytest.raises(ValueError):
+            _ = a.f
+        # There is no zero-length 'u' dtype, so this is a missing attribute rather
+        # than a bad length for an existing one.
         b = BitArray()
-        with pytest.raises(bitstring.InterpretError):
+        with pytest.raises(AttributeError):
             _ = b.u0
+        assert not hasattr(b, 'u0')
+
+    def test_setting_an_unknown_attribute(self):
+        # The setter side reports an unknown name the same way the getter does, rather
+        # than surfacing the dtype register's lookup failure.
+        a = BitArray('0xff')
+        for attribute in ['nonsense', 'uint9x', '_not_a_slot']:
+            with pytest.raises(AttributeError) as e:
+                setattr(a, attribute, 5)
+            assert attribute in str(e.value)
+            # The register's list of every known dtype shouldn't be dumped into it.
+            assert 'Names available' not in str(e.value)
+        assert a == '0xff'
+
+    def test_setting_a_known_dtype_still_works(self):
+        a = BitArray('0xff')
+        a.u8 = 3
+        assert a == '0x03'
+        # A setter with a different length redefines the length, unlike the getter.
+        a.u16 = 3
+        assert a == '0x0003'
 
     def test_setter_length_errors(self):
         a = BitArray()
         a.u8 = 255
-        assert a.len == 8
+        assert len(a) == 8
         with pytest.raises(ValueError):
             a.u8 = 256
         a.f32 = 10
         a.f64 = 10
-        with pytest.raises(ValueError):
+        # There is no 256 bit float, so this is an unknown attribute rather than a
+        # bad value for a known one.
+        with pytest.raises(AttributeError):
             a.f256 = 10
-        with pytest.raises(bitstring.CreationError):
+        # No zero-length 'u' dtype exists, so this is an unknown attribute.
+        with pytest.raises(AttributeError):
             a.u0 = 2
-        with pytest.raises(bitstring.CreationError):
+        with pytest.raises(ValueError):
             a.hex4 = '0xab'
         assert len(a) == 64
-        with pytest.raises(bitstring.CreationError):
-            a.o3 = '0xab'
-        with pytest.raises(bitstring.CreationError):
-            a.b4 = '0xab'
-        a.h0 = ''
-        assert a.len == 0
+        with pytest.raises(ValueError):
+            a.oct3 = '0xab'
+        with pytest.raises(ValueError):
+            a.bin4 = '0xab'
+        a.hex0 = ''
+        assert len(a) == 0
         a.i8 = 127
         a.i8 = -128
         with pytest.raises(ValueError):
             a.i8 = 128
         with pytest.raises(ValueError):
             a.i8 = -129
-        with pytest.raises(bitstring.CreationError):
+        with pytest.raises(AttributeError):
             a.froggy16 = '0xabc'
 
     def test_unpack(self):
         a = BitArray('0xff160120')
-        b = a.unpack('h8,2*u12')
+        b = a.unpack('hex8,2*u12')
         assert b == ['ff', 352, 288]
 
     def test_reading(self):
-        a = bitstring.BitStream.fromstring('0x01ff')
-        b = a.read('u8')
+        a = BitArray.from_string('0x01ff')
+        r = bitstring.Reader(a)
+        b = r.read_value('u8')
         assert b == 1
-        assert a.pos == 8
-        assert a.read('i') == -1
+        assert r.pos == 8
+        assert r.read_value('i') == -1
 
     def test_longer_more_general_names(self):
         a = BitArray()
@@ -782,13 +640,13 @@ class TestNewProperties:
         assert a.bytes5 == b'hello'
         a.bytes3 = b'123'
         assert a.bytes == b'123'
-        with pytest.raises(bitstring.CreationError):
+        with pytest.raises(ValueError):
             a.bytes5 = b'123456789'
-        with pytest.raises(bitstring.CreationError):
+        with pytest.raises(ValueError):
             a.bytes5 = b'123'
 
     def test_conversion_to_bytes(self):
-        a = BitArray(bytes=b'1234')
+        a = BitArray.from_bytes(b'1234')
         b = bytes(a)
         assert b == b'1234'
         a += [1]
@@ -823,13 +681,13 @@ class TestBFloats:
     def test_creation_errors(self):
         a = BitArray(bfloat=-0.25, length=16)
         assert len(a) == 16
-        with pytest.raises(bitstring.CreationError):
+        with pytest.raises(ValueError):
             _ = BitArray(bfloat=10, length=15)
-        with pytest.raises(bitstring.CreationError):
+        with pytest.raises(ValueError):
             _ = BitArray('bfloat:1=0.5')
 
     def test_little_endian(self):
-        a = BitArray.fromstring('f32=1000')
+        a = BitArray.from_string('f32=1000')
         b = BitArray(bfloat=a.f)
         assert a[0:16] == b[0:16]
 
@@ -841,12 +699,12 @@ class TestBFloats:
         assert b.bfloat == 1000.0
         assert b.bfloatbe == 1000.0
 
-        with pytest.raises(bitstring.CreationError):
+        with pytest.raises(ValueError):
             _ = BitArray(bfloatle=-5, length=15)
         c = BitArray()
-        with pytest.raises(bitstring.InterpretError):
+        with pytest.raises(ValueError):
             _ = c.bfloatle
-        with pytest.raises(bitstring.InterpretError):
+        with pytest.raises(AttributeError):
             _ = c.bfloatne
 
     def test_more_creation(self):
@@ -855,15 +713,15 @@ class TestBFloats:
         assert (x, y, z) == (1.0, 2.0, 3.0)
 
     def test_interpret_bug(self):
-        a = BitArray(100)
-        with pytest.raises(bitstring.InterpretError):
+        a = BitArray.from_zeros(100)
+        with pytest.raises(ValueError):
             v = a.bfloat
 
     def test_overflows(self):
         s = BitArray()
-        inf16 = BitArray(float=float('inf'), length=16)
-        inf32 = BitArray(float=float('inf'), length=32)
-        inf64 = BitArray(float=float('inf'), length=64)
+        inf16 = BitArray(f=float('inf'), length=16)
+        inf32 = BitArray(f=float('inf'), length=32)
+        inf64 = BitArray(f=float('inf'), length=64)
         infbfloat = BitArray(bfloat=float('inf'))
         
         s.f64 = 1e400
@@ -875,9 +733,9 @@ class TestBFloats:
         s.bfloat = 1e60
         assert s == infbfloat
 
-        ninf16 = BitArray(float=float('-inf'), length=16)
-        ninf32 = BitArray(float=float('-inf'), length=32)
-        ninf64 = BitArray(float=float('-inf'), length=64)
+        ninf16 = BitArray(f=float('-inf'), length=16)
+        ninf32 = BitArray(f=float('-inf'), length=32)
+        ninf64 = BitArray(f=float('-inf'), length=64)
         ninfbfloat = BitArray(bfloat=float('-inf'))
 
         s.f64 = -1e400
@@ -901,81 +759,14 @@ class TestBFloats:
         assert a.bfloatle == 4.5
         assert b.bfloatle == -2.25
 
-    def test_native_endian_string_initialisers(self):
-        a = BitArray('bfloatne=4.5')
-        b = BitArray('bfloatne:16=-2.25')
-        assert a.bfloatne == 4.5
-        assert b.bfloatne == -2.25
+    def test_native_endian_string_initialisers_removed(self):
+        for token in ['bfloatne=4.5', 'bfloatne:16=-2.25']:
+            with pytest.raises(ValueError):
+                _ = BitArray(token)
 
 
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-
-class TestBitarray:
-
-    def teardown_method(self) -> None:
-        bitstring.lsb0 = False
-
-    def test_to_bitarray(self):
-        a = BitArray('0xff, 0b0')
-        if a._bitstore.using_rust_core():
-            with pytest.raises(TypeError):
-                _ = a.tobitarray()
-        else:
-            b = a.tobitarray()
-            assert type(b) == bitarray.bitarray
-            assert b == bitarray.bitarray('111111110')
-
-    def test_to_bitarray_lsb0(self):
-        bitstring.lsb0 = True
-        a = bitstring.Bits('0xff, 0b0')
-        if a._bitstore.using_rust_core():
-            with pytest.raises(TypeError):
-                _ = a.tobitarray()
-        else:
-            b = a.tobitarray()
-            assert type(b) == bitarray.bitarray
-            assert b == bitarray.bitarray('111111110')
-
-    def test_from_file(self):
-        a = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'))
-        if a._bitstore.using_rust_core():
-            with pytest.raises(TypeError):
-                _ = a.tobitarray()
-        else:
-            b = a.tobitarray()
-            assert a.bin == b.to01()
-
-    def test_with_offset(self):
-        a = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'))
-        b = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'), offset=11)
-        assert len(a) == len(b) + 11
-        if a._bitstore.using_rust_core():
-            with pytest.raises(TypeError):
-                _ = a.tobitarray()
-        else:
-            assert a[11:].tobitarray() == b.tobitarray()
-
-    def test_with_length(self):
-        a = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'))
-        b = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'), length=11)
-        assert len(b) == 11
-        if a._bitstore.using_rust_core():
-            with pytest.raises(TypeError):
-                _ = a.tobitarray()
-        else:
-            assert a[:11].tobitarray() == b.tobitarray()
-
-    def test_with_offset_and_length(self):
-        a = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'))
-        b = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'), offset=17, length=7)
-        assert len(b) == 7
-        if a._bitstore.using_rust_core():
-            with pytest.raises(TypeError):
-                _ = a.tobitarray()
-        else:
-            assert a[17:24].tobitarray() == b.tobitarray()
-
 
 try:
     import numpy as np
@@ -1003,21 +794,22 @@ class TestNumpy:
 
     @pytest.mark.skipif(not numpy_installed, reason="numpy not installed.")
     def test_creation(self):
-        a = BitArray(np.longlong(12))
+        with pytest.raises(TypeError, match="from_zeros"):
+            _ = BitArray(np.longlong(12))
+        a = BitArray.from_zeros(np.longlong(12))
         assert a.hex == '000'
 
 
-def test_bytes_from_list():
-    s = Bits(bytes=[1, 2])
+def test_from_bytes_rejects_list():
+    with pytest.raises(TypeError, match="bytes-like"):
+        Bits.from_bytes([1, 2])
+    with pytest.raises(TypeError, match="bytes-like"):
+        BitArray.from_bytes([1, 2])
+
+    s = Bits.from_bytes(bytearray([1, 2]))
     assert s == '0x0102'
-    s = Bits(bytes=bytearray([1, 2]))
+    s = BitArray.from_bytes(bytearray([1, 2]))
     assert s == '0x0102'
-    s = BitArray(bytes=[1, 2])
-    assert s == '0x0102'
-    s = BitArray(bytes=bytearray([1, 2]))
-    assert s == '0x0102'
-    s.bytes = [10, 20]
-    assert s == '0x0a14'
 
 
 def test_slice_bug():

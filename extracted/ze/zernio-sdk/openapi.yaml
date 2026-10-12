@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.252.0"
+  version: "1.253.1"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -2646,7 +2646,8 @@ components:
             Facebook, WhatsApp, Telegram groups), `comment` on an Instagram or Facebook comment (the
             run starts with no conversation and its first `send_message`, which must be text (with
             optional buttons or quick replies) or cards and must follow the trigger directly (checked
-            on save; Instagram delivers only plain text to commenters who do not follow the account),
+            on save; on some Instagram accounts Meta refuses buttons and cards to commenters who do
+            not follow the account),
             is sent as a private reply to the comment;
             the run then continues in the conversation that reply opens; when an active comment
             automation's keywords match the comment, the automation answers and the workflow does
@@ -14226,11 +14227,11 @@ components:
         cacheWriteTokens: { type: integer }
     SupportRun:
       type: object
-      required: [runId, threadId, status, stopReason, answer, usage, costUsd, maxCostUsd, createdAt, startedAt, finishedAt]
+      required: [runId, threadId, status, stopReason, answer, usage, costUsd, maxCostUsd, createdAt, startedAt, finishedAt, supportTicket]
       properties:
         runId: { type: string, description: 'Run id, a 24-character hex string.' }
         threadId: { type: string, description: 'Conversation thread id. Send it back as `threadId` to ask a follow-up in the same thread.' }
-        status: { type: string, enum: [queued, running, completed, needs_human, failed], description: 'queued and running are in progress. needs_human means Ana handed the question to a person instead of answering.' }
+        status: { type: string, enum: [queued, running, completed, needs_human, failed], description: 'queued and running are in progress. needs_human means Ana handed the question to a person instead of answering; when `supportTicket` is set, a Zernio teammate has been notified and will follow up by email.' }
         stopReason:
           type: [string, "null"]
           enum: [answered, human_review, cost_cap, deadline, max_iterations, error, expired, null]
@@ -14242,6 +14243,12 @@ components:
         createdAt: { type: string, format: date-time }
         startedAt: { type: [string, "null"], format: date-time }
         finishedAt: { type: [string, "null"], format: date-time }
+        supportTicket:
+          type: [object, "null"]
+          description: 'Set when Ana opened a support ticket with the Zernio team. Null otherwise. A teammate follows up by email with the user whose API key started the run.'
+          required: [openedAt]
+          properties:
+            openedAt: { type: string, format: date-time }
         pollAfterSeconds: { type: integer, description: 'Seconds to wait before polling again. Present only while the run is queued or running.' }
     CommerceCollection:
       type: object
@@ -17825,6 +17832,7 @@ paths:
                       hasAnalyticsScope: false
                       requiresReauthorization: true
                       reauthorizeUrl: "https://accounts.google.com/o/oauth2/auth?client_id=..."
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500':
           description: Internal server error
           content:
@@ -17976,6 +17984,7 @@ paths:
                       hasAnalyticsScope: false
                       requiresReauthorization: true
                       reauthorizeUrl: "https://accounts.google.com/o/oauth2/auth?client_id=..."
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500':
           description: Internal server error
           content:
@@ -18933,7 +18942,7 @@ paths:
                   error: { type: string, example: "Analytics add-on required" }
                   code: { type: string, example: "analytics_addon_required" }
         '403':
-          description: Access denied to this account
+          description: 'Access denied to this account, or the connected YouTube account or channel is suspended'
           content:
             application/json:
               schema:
@@ -39440,13 +39449,15 @@ paths:
         One reply per comment, must be sent within 7 days. Optionally attach interactive elements:
         `quickReplies` (chips above the keyboard, max 13) or `buttons` (1-3 inline postback/url
         buttons rendered in the same bubble via Meta's button_template). Chips do not render in
-        the Instagram Message Requests folder. Since late August 2026 Instagram refuses buttons,
-        cards and attachments to commenters who do not follow the account (Meta code 2, subcode
-        1545133, returned here as a non-retryable 400 that says so), and the failed call still
-        consumes the comment's single private reply. To reach non-followers send plain text and
-        add buttons once they reply. `quickReplies` and `buttons` are mutually exclusive. When
-        the comment's single private reply is spent (by this call or an earlier one) the 400
-        carries `details.privateReplyConsumed: true`; never retry it.
+        the Instagram Message Requests folder. Instagram can refuse buttons, cards and
+        attachments to commenters who do not follow the account (Meta code 2, subcode 1545133,
+        returned here as a non-retryable 400 that says so). The refusal is uneven: most accounts
+        do not get it, an affected account gets it on many of its non-followers, and only that
+        account's own past refusals show whether it is affected. The failed call still consumes the
+        comment's single private reply. On an affected account, send plain text to reach
+        non-followers and add buttons once they reply. `quickReplies` and `buttons` are mutually
+        exclusive. When the comment's single private reply is spent (by this call or an earlier
+        one) the 400 carries `details.privateReplyConsumed: true`; never retry it.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -39592,7 +39603,7 @@ paths:
                 followGated:
                   summary: "Media refused, commenter does not follow the account (reply consumed)"
                   value:
-                    error: "Instagram refused this private reply because it carries a card, buttons or an attachment and the commenter does not follow this account. Meta delivers only plain text to non-followers. This attempt consumed the comment's single private reply, so do not retry it; send a text-only private reply to reach non-followers."
+                    error: "Instagram refused this private reply because it carries a card, buttons or an attachment and the commenter does not follow this account. Meta applies this refusal unevenly: most accounts do not get it, an affected account gets it on many of its non-followers. This attempt consumed the comment's single private reply, so do not retry it; send a text-only private reply to reach other non-followers."
                     type: "platform_error"
                     code: "platform_api_error"
                     platform: "instagram"
@@ -39602,7 +39613,7 @@ paths:
                       is_transient: false
                       message: "Service temporarily unavailable"
                       error_user_title: "Your message can't be delivered"
-                      error_user_msg: "You can't send media to Jejum de Daniel unless they follow you."
+                      error_user_msg: "You can't send media to Someone unless they follow you."
                     details:
                       privateReplyConsumed: true
                 alreadyReplied:
@@ -51610,7 +51621,9 @@ paths:
         `support.run.completed` and `support.run.failed` webhooks. `GET /v1/support/runs/{runId}`
         is the fallback. Pass `threadId` to continue an earlier conversation, and `context`
         to point Ana at a post, account or profile. Billed when the run finishes at the model
-        cost plus 20%, never above `maxCostUsd`; failed runs are free. Requires an unrestricted
+        cost plus 20%, never above `maxCostUsd`; failed runs are free. When Ana finds a problem
+        on Zernio's side she opens a support ticket with the team (see `supportTicket` on the
+        run) and the run ends as `needs_human`. Requires an unrestricted
         API key, usage-based billing and a card on file. Limits per account: 3 active runs and
         $100 of runs per UTC month. Send an Idempotency-Key header to make retries safe.
       parameters:
@@ -51838,10 +51851,14 @@ paths:
       operationId: updateWorkflow
       summary: Update workflow
       description: >
-        Update name, description, the graph, or reassign to a different account. The graph can only
-        be modified while the workflow is draft or paused. Account swaps re-validate the graph
-        against the new platform (so e.g. moving from WhatsApp to Facebook surfaces a `start_call`
-        node as an error instead of silently saving an unrunnable graph).
+        Update name, description, the graph, or reassign to a different account. The graph can be
+        modified in any status, including `active`: a run already in progress reloads the saved
+        graph at its next step, and a run parked on a node the edit removed completes instead of
+        failing. Every graph edit is re-validated and an invalid graph answers 400 regardless of
+        status. `status` is not a field of this request; use the activate and pause endpoints.
+        Account swaps re-validate the graph against the new platform (so e.g. moving from WhatsApp
+        to Facebook surfaces a `start_call` node as an error instead of silently saving an
+        unrunnable graph).
       tags: [Workflows]
       parameters:
         - { name: workflowId, in: path, required: true, schema: { type: string } }
@@ -51884,7 +51901,7 @@ paths:
                       entryNodeId: { type: string }
                       nodeCount: { type: integer }
                       updatedAt: { type: string, format: date-time }
-        '400': { description: "Invalid graph (including a WhatsApp interactive list node whose sections carry no rows), or a graph edit attempted while the workflow is active" }
+        '400': { description: "Invalid graph (including a WhatsApp interactive list node whose sections carry no rows), or an account swap to an inactive account or to a platform workflows do not support" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
@@ -52253,8 +52270,8 @@ paths:
       description: >
         Replace the current graph with the named version's snapshot. Before the swap, the current
         graph is itself snapshotted as a new version, so a restore is reversible. The workflow must
-        be in `draft` or `paused` status (same gate as a normal graph edit). The returned workflow
-        carries `restoredFromVersion` so the UI can surface which version was rolled back to.
+        not be `active`: pause it first, then restore. The returned workflow carries
+        `restoredFromVersion` so the UI can surface which version was rolled back to.
       tags: [Workflows]
       parameters:
         - { name: workflowId, in: path, required: true, schema: { type: string } }
@@ -52279,7 +52296,7 @@ paths:
                       nodeCount: { type: integer }
                       updatedAt: { type: string, format: date-time }
                   restoredFromVersion: { type: integer }
-        '400': { description: "Workflow is not draft/paused, or the named version's graph is invalid for the current platform" }
+        '400': { description: "Workflow is active, or the named version's graph is invalid for the current platform" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -53148,7 +53165,7 @@ paths:
       operationId: deleteCommentAutomation
       tags: [Comment Automations]
       summary: Delete automation
-      description: Permanently delete an automation and all its trigger logs.
+      description: 'Delete an automation. Its trigger logs are kept so tracked links already sent in DMs keep redirecting; they are removed with the account.'
       security:
         - bearerAuth: []
       parameters:

@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from laya.common import QTYPES, TEMP_MAX, TEMP_MIN, clamp_temperature, temp_bucket  # noqa: E402
 from laya.lang import analyse, detect_script, guess_latin_language, is_english, state_text  # noqa: E402
+from laya.lang import _non_english_segment  # noqa: E402
 from laya.router import (  # noqa: E402
     BUNDLE_REPO,
     DEFAULT_MODELS,
@@ -532,6 +533,19 @@ for label, state, segment in [
     check("mixed/routes multilingual: " + label, _r_lat.route(state).model, "multilingual")
 check("mixed/reason names the segment",
       "a line or field reads as 'pt'" in _r_lat.route(_TRACE).reason, True)
+# ...but only the segment scan fills it. `_non_english_segment` reads 4,000 characters in all across
+# every leaf, so a long English first field can leave a foreign one unread; the per-value read that
+# then catches it (#384) keeps the leaf in a local and does not report it. `mixed_segment` is None
+# here even though `language` names the field's language -- asserted rather than assumed, because a
+# future change could fill it and no caller can tell the two provenances apart otherwise.
+_BUDGET_NOTE = "Thanks for reaching out. " * 200          # 5,000 chars, first leaf, all English
+_BUDGET_BODY = "WIE SPAET IST ES IN KOELN HEUTE ABEND"
+check("mixed/segment budget exhausted before the foreign field",
+      _non_english_segment({"note": _BUDGET_NOTE, "body": _BUDGET_BODY}), None)
+check("mixed/the per-value read still names the language",
+      analyse({"note": _BUDGET_NOTE, "body": _BUDGET_BODY})["language"], "de")
+check("mixed/and leaves mixed_segment None",
+      analyse({"note": _BUDGET_NOTE, "body": _BUDGET_BODY})["mixed_segment"], None)
 # English stays English: several English lines, a short foreign sign-off, and code pasted into a request
 # (`os.path` reads as Portuguese, `round(el, 2)` as Spanish, `np.mean(na)` as Portuguese)
 for label, state in [
@@ -2063,6 +2077,69 @@ check("near-typo/warnings-as-errors names both",
       _roll_raised is not None and "englsh" in str(_roll_raised) and "english" in str(_roll_raised), True)
 check("near-typo/warnings-as-errors leaves the router unchanged",
       (dict(_roll.models), dict(_roll.descriptions), dict(_roll.sha256_digests)), _roll_before)
+
+
+# --------------------------------------------------------------------- sort report (#1111)
+# The reorder switches per checkpoint/question group inside predict_batch, on each group's own
+# state count -- a denominator no caller outside can see, which is why the shell's old note read
+# the file and went quiet exactly when auto-routing split a batch into smaller groups. The
+# `diagnostics` out-dict hands the per-group outcome back once the batch has run. Explicit
+# `model` overrides split the batch without loading anything and `load` is stubbed, so this
+# runs with no checkpoints.
+class _SortAgent:
+    def __init__(self, name):
+        self.name = name
+        self.calls = []
+
+    def predict_batch(self, states, questions, batch_size=None, sort_by_length=False):
+        chunk = batch_size if (batch_size and batch_size > 0) else len(states)
+        self.calls.append((len(states), batch_size, sort_by_length,
+                           bool(sort_by_length and 1 < chunk < len(states))))
+        return [{"model": self.name, "answers": {}, "usage": {}} for _ in states]
+
+
+_sr = Router()
+_sr_agents = {}
+
+
+def _sr_load(name, _rr=_sr):
+    key = _rr.resolve(name)
+    if key not in _sr_agents:
+        _sr_agents[key] = _SortAgent(key)
+    return _sr_agents[key]
+
+
+_sr.load = _sr_load
+# Six requests like the issue's file: four that route to one checkpoint, two to another.
+_sr_requests = [{"state": {"body": "line %d" % i}, "questions": Q_GENERIC,
+                 "model": "english" if i < 4 else "multilingual"} for i in range(6)]
+
+_report = {}
+_sr.predict_batch(_sr_requests, batch_size=5, sort_by_length=True, diagnostics=_report)
+check("sort report/two groups, a batch wider than both reorders neither", _report,
+      {"sort_by_length": {"groups": 2, "reordered": 0, "smallest": 2, "largest": 4}})
+check("sort report/each group still got the knob and kept its own size",
+      [_sr_agents["english"].calls, _sr_agents["multilingual"].calls],
+      [[(4, 5, True, False)], [(2, 5, True, False)]])
+
+for _a in _sr_agents.values():
+    _a.calls = []
+_report = {}
+_sr.predict_batch(_sr_requests, batch_size=3, sort_by_length=True, diagnostics=_report)
+check("sort report/a batch between the group sizes reorders exactly one", _report,
+      {"sort_by_length": {"groups": 2, "reordered": 1, "smallest": 2, "largest": 4}})
+check("sort report/only the group that cleared the gate reordered",
+      [_sr_agents["english"].calls, _sr_agents["multilingual"].calls],
+      [[(4, 3, True, True)], [(2, 3, True, False)]])
+
+_report = {}
+_sr.predict_batch(_sr_requests, batch_size=2, diagnostics=_report)
+check("sort report/untouched when the knob is off", _report, {})
+
+check("sort report/results keep input order regardless",
+      [r["routing"]["model"] for r in _sr.predict_batch(_sr_requests, batch_size=3,
+                                                        sort_by_length=True)],
+      ["english"] * 4 + ["multilingual"] * 2)
 
 
 # --------------------------------------------------------------------- report

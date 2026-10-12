@@ -490,7 +490,7 @@ def _callable(pf, spec, member, overloads, defined, scope=None,
                                 "multiple plugins have returned values from sip_overload_get_typing()")
 
         if type_hint:
-            pf.write(_indent(indent) + type_hint)
+            pf.write(_indent(indent) + type_hint + '\n')
 
             if ignore_others:
                 return
@@ -578,7 +578,7 @@ def _overload(pf, spec, overload, overloaded, first_overload, is_method,
     s = _indent(indent)
 
     if is_eq_slot:
-        signature = '(self, other: object)'
+        signature = '(self, other: object) -> bool'
     else:
         need_self = (is_method and not overload.is_static)
 

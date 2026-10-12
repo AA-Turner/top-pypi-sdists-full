@@ -2,14 +2,15 @@
 
 import re
 
+from contextlib import suppress
 from email.iterators import body_line_iterator
-from email.utils import parseaddr
 from email.message import Message
+from email.utils import parseaddr
 from enum import Enum
 
 from public import public
 
-from flufl.bounce.interfaces import NoFailures, NoTemporaryFailures, Recipients
+from flufl.bounce._interfaces import NoFailures, NoTemporaryFailures, Recipients
 
 
 tcre = (
@@ -31,7 +32,6 @@ ecre = (
 class _ParseState(Enum):
     start = 0
     tag_seen = 1
-    all_done = 2
 
 
 @public
@@ -40,8 +40,8 @@ class Yahoo:
 
     def process(self, msg: Message) -> tuple[Recipients, Recipients]:
         """See `BounceDetector`."""
-        # Yahoo! bounces seem to have a known subject value and something
-        # called an x-uidl: header, the value of which seems unimportant.
+        # Yahoo! bounces seem to have a known subject value and something called an x-uidl: header,
+        # the value of which seems unimportant.
         sender = parseaddr(msg.get('from', '').lower())[1] or ''
         if not sender.startswith('mailer-daemon@yahoo'):
             return NoFailures
@@ -50,20 +50,14 @@ class Yahoo:
         for line in body_line_iterator(msg):
             line = line.strip()
             if state is _ParseState.start:
-                for cre in tcre:
-                    if cre.match(line):
-                        state = _ParseState.tag_seen
-                        break
-            elif state is _ParseState.tag_seen:
-                if mo := acre.match(line):
+                if any(cre.match(line) for cre in tcre):
+                    state = _ParseState.tag_seen
+            elif mo := acre.match(line):
+                # By now the email package has replaced any non-ASCII bytes in the address with
+                # U+FFFD, so it can't be reported faithfully; skip it.  See GL#3.
+                with suppress(UnicodeEncodeError):
                     addresses.add(mo.group('addr').encode('us-ascii'))
-                    continue
-                for cre in ecre:
-                    mo = cre.match(line)
-                    if mo:
-                        # We're at the end of the error response.
-                        state = _ParseState.all_done
-                        break
-                if state is _ParseState.all_done:
-                    break
+            elif any(cre.match(line) for cre in ecre):
+                # We're at the end of the error response.
+                break
         return NoTemporaryFailures, frozenset(addresses)

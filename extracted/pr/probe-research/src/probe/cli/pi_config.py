@@ -899,19 +899,32 @@ def migrate_legacy_symlink(
 # (verified on pi 1.0.0: `"skills": ["skills/instrument-code"]` loads exactly
 # that one). The extension does the rest at runtime from the profile `probe
 # session initialize` reports: no MCP bridge, the guard, the daemon's own
-# `probe` skill (its daemon-skills/ copy, added through `resources_discover`),
-# and the pi dialog for the daemon's questions.
+# `probe` skill (its daemon-skills/ copy) and `plan-research-review` (both
+# added through `resources_discover`), and the pi dialog for the daemon's
+# questions.
 
 #: The package version whose extension runs the daemon profile. Older ones
 #: ignore `profile` and would connect the MCP bridge in a daemon session.
 DAEMON_MIN_PACKAGE_VERSION = (0, 3, 0)
 
 #: Skills the package's settings entry loads in the daemon profile: the
-#: `daemon` profile of agent/skills/profiles.json minus `probe`, whose daemon
-#: wording the extension adds itself (the package's own `skills/probe` is the
-#: agent profile's switch text). tests/test_pi_daemon_profile.py pins this to
-#: profiles.json.
+#: `daemon` profile of agent/skills/profiles.json minus `DAEMON_EXTENSION_SKILLS`.
+#: tests/test_pi_daemon_profile.py pins this to profiles.json.
+#:
+#: NEVER WIDEN IT. The filter is written once, by the wizard, and
+#: `_is_daemon_filter` matches it exactly: a longer tuple here would make every
+#: machine already on the daemon profile read as the agent profile (doctor,
+#: capture teardown), and still never load the new skill there. A skill added to
+#: the daemon profile later goes in `DAEMON_EXTENSION_SKILLS` instead.
 DAEMON_PACKAGE_SKILLS = ("instrument-code",)
+
+#: Daemon-profile skills the pi EXTENSION adds itself through
+#: `resources_discover`, at runtime, so they reach every machine on the profile
+#: whatever filter its wizard wrote: `probe` (the daemon's own wording, its
+#: daemon-skills/ copy; the package's `skills/probe` is the agent profile's
+#: switch text) and the ones added after the filter shipped
+#: (`DAEMON_ADDED_SKILLS` in the extension's src/profile.ts).
+DAEMON_EXTENSION_SKILLS = ("probe", "plan-research-review")
 
 #: How long the wizard waits for `pi update` before saying what to run.
 UPDATE_TIMEOUT_S = 30

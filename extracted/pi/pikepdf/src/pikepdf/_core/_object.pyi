@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2022 James R. Barlow
 # SPDX-License-Identifier: MPL-2.0
 
-# Type stubs for the bindings in src/core/object.cpp and object_methods.cpp.
+# Type stubs for the bindings in src/core/object.cpp, object_arithmetic.cpp,
+# object_list.cpp, object_map.cpp and object_methods.cpp.
 # See pikepdf/_core/__init__.pyi for how this stub package is laid out.
 
 # pylint: disable=no-method-argument,unused-argument,no-self-use,too-many-public-methods
@@ -580,6 +581,32 @@ class Object:
         """Read the content stream associated with a Stream, without decoding."""
     def same_owner_as(self, other: Object) -> bool:
         """Test if two objects are owned by the same :class:`pikepdf.Pdf`."""
+    def is_same_object_as(self, other: object) -> bool:
+        """Test if this is the same object as *other*, not merely an equal one.
+
+        Two references to one indirect object are the same object: a change
+        made through either is seen through the other. Two dictionaries with
+        the same contents are equal (``==``) but are not the same object.
+
+        None of Python's own tests answers this question. ``is`` compares the
+        Python wrappers, and pikepdf creates a new wrapper each time an object
+        is read, so ``pdf.Root is pdf.Root`` is ``False``. ``==`` compares
+        contents. Comparing :attr:`objgen` fails for direct objects, which all
+        report ``(0, 0)``, and for objects in different :class:`pikepdf.Pdf`,
+        whose numbers often coincide.
+
+        *other* may be a :class:`pikepdf.Object` or a helper such as
+        :class:`pikepdf.Page`, which counts as the object it wraps. Any other
+        value is not the same object, including the Python numbers and
+        booleans that pikepdf converts PDF scalars to. This test is meant for
+        dictionaries, arrays and streams; for names, strings and numbers,
+        compare values with ``==``.
+
+        To test one object against many, such as the objects already visited
+        while following references, use :class:`pikepdf.ObjectSet`.
+
+        .. versionadded:: 10.17
+        """
     def to_json(self, dereference: bool = ..., schema_version: int = ...) -> bytes:
         r"""Convert to a qpdf JSON representation of the object.
 
@@ -787,6 +814,12 @@ class Object:
         By definition, if this is an indirect object, it has a "objgen",
         and can be looked up using this in the cross-reference (xref) table.
         Direct objects cannot necessarily be looked up.
+
+        Do not use this value to decide whether two objects are the same
+        object. All direct objects report ``(0, 0)``, and objects in different
+        :class:`pikepdf.Pdf` often have the same numbers. Use
+        :meth:`is_same_object_as` to compare two objects, and
+        :class:`pikepdf.ObjectSet` to keep track of objects already seen.
 
         The generation number is usually 0, except for PDFs that have been
         incrementally updated. Incrementally updated PDFs are now uncommon,

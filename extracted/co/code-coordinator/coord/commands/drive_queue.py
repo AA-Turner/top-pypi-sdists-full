@@ -96,6 +96,7 @@ from coord.drive_queue import (
     is_merge_gate_block_reason,
     is_permanent_block_reason,
     is_pre_dispatch_block_reason,
+    is_test_stage_routing_dead_end_reason,
     is_unsatisfiable_prereq_reason,
     merge_gate_remedy_command,
     merge_plan_inspect_command,
@@ -110,6 +111,7 @@ from coord.drive_queue import (
     resolve_max_parallel,
     resolve_max_parallel_per_repo,
     resolve_repo_ceilings,
+    test_routing_recovery_unconfirmed_reason,
     unreachable_wait_alert,
     validate_apply_gate,
     validate_enqueue,
@@ -5502,6 +5504,128 @@ def _fetch_live_blocked_gate(
     return overrides, reasons, unreadable
 
 
+def _fetch_live_test_routing_clear(
+    entries: list, config_path: Path | None
+) -> tuple[dict[str, bool], dict[str, str]]:
+    """``({entry_key: now_routable}, {entry_key: human_reason})`` for every
+    ``blocked`` entry whose dead end is a Test-stage ROUTING cause (#3695) —
+    a sibling of :func:`_fetch_live_blocked_gate` for the one `(#2019)` shape
+    that function's own `is_permanent_block_reason` filter deliberately
+    excludes: fleet state (a machine merely busy, briefly unhealthy, or
+    paused/cordoned at dispatch time), not a deterministic cause.
+
+    THE GAP THIS CLOSES. `coord.dead_end`'s ``test_stage_blocked`` shape
+    (#1672/#2019) is classified permanent by `is_permanent_block_reason`,
+    so `_reconcile_blocked` never looks at it again — the row sits
+    `blocked` forever until an operator runs `coord diagnose <repo> <N>
+    --stage test --reset`, 27 times since August per the issue. Most of
+    those causes self-clear within minutes on their own; nothing was ever
+    asking again.
+
+    THE CHEAP RE-CHECK, reused rather than re-derived (#2096/#2085 "one
+    question, one answer"): :func:`coord.smoke.required_caps_from_test_reason`
+    recovers the capability list :func:`coord.smoke._report_unroutable_smoke`
+    originally embedded in the dead end's reason text, then :func:`coord.
+    smoke.test_stage_routable_now` asks the SAME two questions dispatch-time
+    `rank_smoke_machines` already answers — a capability-matched, unpaused,
+    uncordoned, under-cap machine, cross-checked against the board daemon's
+    own cached ``fleet_health`` reading — never a fresh per-candidate
+    ``/health`` probe (that is dispatch-time's job, not a once-per-tick
+    blocked-row re-check's).
+
+    NOT EVERY BLOCKED ENTRY QUALIFIES. `required_caps_from_test_reason`
+    returns ``None`` — and this function then skips the entry, leaving it
+    absent from both returned dicts — for every other `(#2019)` shape (a
+    guard refusal, a fix-round ceiling, an `after=` prerequisite,
+    `test_stage_human_attended`, the #2272 mute-smoke-legs sibling) and for
+    the "no machine declares this capability at all" config-gap case
+    (scenario (c) in the issue): no amount of re-checking fixes an
+    undeclared capability, so treating it as permanent is correct, not a
+    bug — `coord.drive_queue.is_test_stage_routing_dead_end_reason` applies
+    the identical exclusion on the pure side before ever consulting these
+    dicts, so this function's own skip is belt-and-suspenders, not the only
+    guard.
+
+    Same fail-open-per-entry, fail-closed-overall contract as
+    `_fetch_live_blocked_gate`: any exception while loading config/board, or
+    while fetching the board-daemon payload, leaves BOTH dicts empty for
+    every target — `_reconcile_blocked_test_routing` then does nothing for
+    any of them (no live opinion means no auto-clear), exactly as a thin
+    client with no board-service of its own already does nothing here.
+    """
+    targets = [
+        e for e in entries
+        if e.state == STATE_BLOCKED
+        and is_test_stage_routing_dead_end_reason(getattr(e, "last_reason", "") or "")
+    ]
+    if not targets:
+        return {}, {}
+
+    from coord.board_service import resolve as resolve_board_service  # noqa: PLC0415
+
+    if resolve_board_service() is not None:
+        return {}, {}
+
+    try:
+        from coord import smoke as _smoke  # noqa: PLC0415
+        from coord.commands._common import _load_config  # noqa: PLC0415
+        from coord.state import load_board as _load_board  # noqa: PLC0415
+
+        cfg = _load_config(config_path)
+        board = _load_board()
+    except Exception as exc:  # noqa: BLE001 — see the fail-soft note above
+        log.warning(
+            "test-routing sweep (#3695): could not build board/config for "
+            "this tick's %d qualifying blocked entr%s — every one is left "
+            "to the pure side's own cheap board-only fallback: %r",
+            len(targets), "y" if len(targets) == 1 else "ies", exc,
+        )
+        return {}, {}
+
+    try:
+        payload = _fetch_board_payload()
+    except Exception as exc:  # noqa: BLE001 — health cross-check is best-effort
+        log.warning(
+            "test-routing sweep (#3695): could not fetch the board payload "
+            "for the fleet-health cross-check — continuing with "
+            "capability/pause/cordon routing only, no health reading: %r",
+            exc,
+        )
+        payload = None
+
+    clear: dict[str, bool] = {}
+    reasons: dict[str, str] = {}
+    for e in targets:
+        reason = getattr(e, "last_reason", "") or ""
+        required_caps = _smoke.required_caps_from_test_reason(reason)
+        if required_caps is None:
+            continue
+        parsed = parse_key(e.key)
+        if parsed is None:
+            log.warning(
+                "test-routing sweep (#3695): %s — key does not parse as "
+                "repo#issue, skipping", e.key,
+            )
+            continue
+        repo_name, _issue_num = parsed
+        try:
+            routable = _smoke.test_stage_routable_now(
+                required_caps, repo_name, board, cfg, payload=payload
+            )
+        except Exception as exc:  # noqa: BLE001 — leave this one entry alone
+            log.warning(
+                "test-routing sweep (#3695): %s — test_stage_routable_now "
+                "raised: %r", e.key, exc,
+            )
+            continue
+        clear[e.key] = routable
+        if routable:
+            reasons[e.key] = (
+                "a capability-matched machine is now free and healthy"
+            )
+    return clear, reasons
+
+
 def _fetch_live_running_merge_gate(
     entries: list, exit_reasons: Mapping[str, str], config_path: Path | None
 ) -> tuple[dict[str, bool], dict[str, str]]:
@@ -7210,6 +7334,16 @@ def drive_queue_tick(
             _fetch_live_blocked_gate(entries, config_path)
         )
 
+        # #3695: the sibling re-check for the ONE `(#2019)` dead-end shape
+        # `is_permanent_block_reason` deliberately excludes above — a
+        # Test-stage ROUTING dead end whose cause is fleet state (a machine
+        # merely busy, briefly unhealthy, or paused/cordoned), not anything
+        # deterministic. See `_fetch_live_test_routing_clear`'s docstring
+        # for the gap this closes (27 hand `--reset`s since August).
+        live_test_routing_clear, live_test_routing_reason = (
+            _fetch_live_test_routing_clear(entries, config_path)
+        )
+
         # #3577: the same live re-derivation, for `running` entries whose
         # OWN exit this tick already named a merge-gate block — see
         # `_fetch_live_running_merge_gate`'s docstring for the gap this
@@ -7303,6 +7437,8 @@ def drive_queue_tick(
             fix_round_config_default=_pipeline_max_fix_rounds_default(config_path),
             live_running_merge_gate=live_running_merge_gate,
             live_running_merge_gate_reason=live_running_merge_gate_reason,
+            live_test_routing_clear=live_test_routing_clear,
+            live_test_routing_reason=live_test_routing_reason,
         )
 
         if roll_pending is not None:
@@ -7630,6 +7766,137 @@ def drive_queue_tick(
                 command=merge_plan_inspect_command(parsed[0]),
             )
 
+        # #3695 review finding 1: `_apply_writes(plan)` above only ever
+        # touches `_DRIVE_QUEUE_UPDATABLE` columns on the DRIVE QUEUE row
+        # itself (`update_drive_queue_entry`) — it has no way to reach the
+        # parent work assignment's own `test_state`/`test_reason` columns.
+        # A `test_routing_recovered` reconcile flips the queue row back to
+        # `waiting`, but if the assignment's `test_state` is left at its
+        # stale `blocked` reading, `dispatch_pending_smoke` keeps skipping
+        # the row (it never considers a row whose `test_state` already
+        # reads `blocked`) and `coord.dead_end.detect_dead_end` immediately
+        # re-observes the same stale state and re-raises the dead end on
+        # its very next look — the self-clear this issue exists to add
+        # would silently do nothing in production. `coord.state
+        # .reset_work_test_state` is the exact call `coord diagnose --stage
+        # test --reset` itself makes (see `_reset_test_stage`) — this is
+        # that same reset, fired automatically instead of by a human.
+        #
+        # #3695 review round 2: the reset is OBSERVED, never assumed. Its
+        # return value (rows updated) is bound and a fresh
+        # `test_reset_candidates` re-read confirms nothing is still set —
+        # exactly what `coord.diagnose._reset_test_stage` does around the
+        # same call, and what epic #2096 requires of any success report. An
+        # unconfirmed clear takes the honest path instead: no
+        # `test_routing_recovered` audit row, a warning plus its own
+        # business-tier `test_routing_recovery_unconfirmed` row, and the queue
+        # row put BACK to `blocked` (pre-tick attempts restored, the bumped
+        # `resumes` kept so repeated failures still reach #2230's ceiling
+        # and escalate). Leaving it `waiting` would launch a fresh Work leg
+        # straight into the same poisoned gate — `build_gate_report` and
+        # `dispatch_pending_smoke` both read that stale `blocked`
+        # `test_state` — while the audit log claimed it had healed.
+        unconfirmed_test_recovery: set[str] = set()
+        from coord.audit import record_audit  # noqa: PLC0415
+        from coord.state import (  # noqa: PLC0415
+            reset_work_test_state,
+            test_reset_candidates,
+        )
+
+        for item in plan.reconciles:
+            if item.outcome != "test_routing_recovered":
+                continue
+            parsed = parse_key(item.key)
+            if parsed is None:
+                continue
+            repo_name, issue_number = parsed
+            updated = 0
+            unconfirmed: str | None = None
+            try:
+                updated = reset_work_test_state(repo_name, issue_number)
+                if not updated:
+                    unconfirmed = (
+                        "the reset matched no work assignment row for this "
+                        "issue"
+                    )
+                else:
+                    still_set = [
+                        f"{aid} ({typ}): {ts}"
+                        for aid, typ, ts in test_reset_candidates(
+                            repo_name, issue_number
+                        )
+                        if ts
+                    ]
+                    if still_set:
+                        unconfirmed = (
+                            f"the reset reported {updated} row(s) updated, but "
+                            f"test_state is STILL set on re-read for: "
+                            f"{', '.join(still_set)}"
+                        )
+            except Exception as exc:  # noqa: BLE001 — never let a failed
+                # reset turn an already-applied tick into a reported CLI
+                # failure; it is reported through the row and the audit log
+                # (below) instead, which is what an operator actually reads.
+                unconfirmed = (
+                    f"the reset raised {type(exc).__name__}: {exc}"
+                    if str(exc)
+                    else f"the reset raised {type(exc).__name__}"
+                )
+            if unconfirmed is None:
+                record_audit(
+                    tier="business",
+                    category="test",
+                    event_type="test_routing_recovered",
+                    actor="drive-queue-tick",
+                    summary=(
+                        f"Test-stage routing dead end self-cleared: "
+                        f"{repo_name}#{issue_number}"
+                    ),
+                    repo=repo_name,
+                    issue=issue_number,
+                    details={"reason": item.reason, "assignments_reset": updated},
+                )
+                continue
+            unconfirmed_test_recovery.add(item.key)
+            entry = by_key.get(item.key)
+            reason = test_routing_recovery_unconfirmed_reason(
+                entry.last_reason if entry else None, unconfirmed
+            )
+            log.warning(
+                "test-routing self-clear (#3695) NOT confirmed for %s: %s",
+                item.key,
+                unconfirmed,
+            )
+            update_drive_queue_entry(
+                repo_name,
+                issue_number,
+                state=STATE_BLOCKED,
+                attempts=entry.attempts if entry else 0,
+                last_reason=reason,
+            )
+            record_audit(
+                # Business tier, same as the recovery it replaces: an
+                # `operational` row is DROPPED outright under
+                # `audit.level: business` (see `record_audit`), and the
+                # failed half of a self-clear is exactly the row an
+                # operator needs to still be there.
+                tier="business",
+                category="test",
+                event_type="test_routing_recovery_unconfirmed",
+                actor="drive-queue-tick",
+                summary=(
+                    f"Test-stage routing self-clear NOT confirmed, staying "
+                    f"blocked: {repo_name}#{issue_number}"
+                ),
+                repo=repo_name,
+                issue=issue_number,
+                details={"observed": unconfirmed, "assignments_reset": updated},
+            )
+            click.echo(
+                f"self-clear not confirmed for {item.key}: {unconfirmed} "
+                "— left blocked (#3695)"
+            )
+
         if plan.alert is not None:
             _escalate(
                 QUEUE_ALERT_REPO,
@@ -7669,6 +7936,17 @@ def drive_queue_tick(
 
         target = plan.launch
         if target is None:
+            return
+        if target.key in unconfirmed_test_recovery:
+            # The only reason this row was launchable at all is the
+            # `test_routing_recovered` reconcile above, whose second half —
+            # clearing the assignment's own `test_state` — was NOT observed
+            # to land. The row is back to `blocked`; spending a Work leg on
+            # a gate still reading `blocked` would just dead-end again.
+            click.echo(
+                f"no launch for {target.key}: its Test-stage self-clear was "
+                "not confirmed this tick (#3695)"
+            )
             return
 
         # #2972: pass this entry's own board facts so a relaunch's

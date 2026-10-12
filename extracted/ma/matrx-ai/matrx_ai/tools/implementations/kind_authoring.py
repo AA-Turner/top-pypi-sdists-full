@@ -1253,7 +1253,7 @@ async def _content_block_category_id() -> str | None:
 
     This is a DIFFERENT category system from `_render_block_category_id` above
     (that one is a skl category on `skill.definition`; this is a
-    `platform.categories` row referenced by `skill.render_definition`). Resolved
+    `platform.categories` row referenced by `agent.prompt_block`). Resolved
     by name + placement so no UUID is hardcoded; falls back to any content-block
     placement category so the block always lands somewhere the menu renders,
     never uncategorized (the invisible-block bug)."""
@@ -1415,14 +1415,13 @@ async def kind_create_skill(args: dict[str, Any], ctx: ToolContext) -> ToolResul
 
 async def kind_create_content_block(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Create the render block for this kind — the reusable palette item
-    (``skill.render_definition``) that shows up in the user's content-block /
+    (``agent.prompt_block``, block_type ``render_kind``) that shows up in the user's content-block /
     render-block context menu and drops the emit template into a prompt.
     ``template`` overrides the generated one. Requires a canonical example
     unless template is provided.
 
-    Writes to ``skill.render_definition`` — the table the live context menu
-    (``agent.context_menu_view``) actually reads. (The retired
-    ``public.content_blocks`` table is admin-only and never reaches the menu.)
+    Writes to ``agent.prompt_block`` — the table the live context menu
+    (``agent.context_menu_view``) reads since aidream migration 1471.
     """
     from matrx_ai.tools._generated_declarations import KindCreateContentBlockArgs
 
@@ -1455,8 +1454,8 @@ async def kind_create_content_block(args: dict[str, Any], ctx: ToolContext) -> T
             )
 
         block_id = f"kind-{kd.kind.replace('_', '-')}"
-        RenderDefinition = get_db_model("RenderDefinition")
-        existing = [b for b in await RenderDefinition.filter(block_id=block_id).all()
+        PromptBlock = get_db_model("PromptBlock")
+        existing = [b for b in await PromptBlock.filter(name=block_id).all()
                     if b.deleted_at is None and str(b.organization_id) == str(kd.organization_id)]
         if existing:
             return err(
@@ -1482,27 +1481,19 @@ async def kind_create_content_block(args: dict[str, Any], ctx: ToolContext) -> T
                 f"- Valid JSON only; emit the complete object, one per instance."
             )
 
-        # Link the block to its skill (kind_<slug>) when that skill exists in
-        # the same org — formalizes the skill<->block pairing via the FK.
-        SklDefinition = get_db_model("SklDefinition")
-        skill_row = next(
-            (s for s in await SklDefinition.filter(skill_id=f"kind_{kd.kind}").all()
-             if s.deleted_at is None and str(s.organization_id) == str(kd.organization_id)),
-            None,
-        )
-
-        # skill.render_definition is certified: written AS THE PERSON (RLS decides).
+        # agent.prompt_block is certified: written AS THE PERSON (RLS decides).
+        # metadata is system-owned on this table (client keys are refused), so the
+        # kind link lives in the name (kind-<slug>) and block_type 'render_kind'.
         try:
             async with writing_as_the_person(ctx):
-                created = await RenderDefinition.create_item(
-                    block_id=block_id,
+                created = await PromptBlock.create_item(
+                    name=block_id,
                     label=label or kd.label,
                     description=f"Render block teaching an agent to emit the {kd.kind} kind.",
                     icon_name="Shapes",
-                    template=template,
-                    is_active=True,
+                    content=template,
+                    block_type="render_kind",
                     category_id=await _content_block_category_id(),
-                    skill_id=str(skill_row.id) if skill_row else None,
                     organization_id=str(kd.organization_id),
                     created_by=ctx_user_id(ctx),
                     # The block follows its kind's web lane and list filter. Enums are
@@ -1510,7 +1501,6 @@ async def kind_create_content_block(args: dict[str, Any], ctx: ToolContext) -> T
                     # repr, which the EnumField rejects (this killed every wave-4 write).
                     **publish_columns(is_published(kd), ctx_user_id(ctx)),
                     **({"shown_to": enum_str(kd.shown_to)} if getattr(kd, "shown_to", None) else {}),
-                    metadata={"kind_definition_id": str(kd.id), "created_via": "kind_create_content_block"},
                 )
         except WriteRefused as exc:
             return refused("the content block for kind", str(kd.id), exc)
@@ -1671,12 +1661,12 @@ async def kind_activate(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                         if skill_res.success
                         else {"error": skill_res.error.message if skill_res.error else "failed"}
                     )
-                RenderDefinition = get_db_model("RenderDefinition")
+                PromptBlock = get_db_model("PromptBlock")
                 block_id = f"kind-{kd.kind.replace('_', '-')}"
                 block_exists = any(
                     b.deleted_at is None
                     and str(b.organization_id) == str(kd.organization_id)
-                    for b in await RenderDefinition.filter(block_id=block_id).all()
+                    for b in await PromptBlock.filter(name=block_id).all()
                 )
                 if not block_exists:
                     block_res = await kind_create_content_block({"kind": str(kd.id)}, ctx)

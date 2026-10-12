@@ -379,17 +379,18 @@ CONFIG_MAP: ConfigDict = {
     "detect-hash": {
         "min-scene-len": TimecodeValue(0),
         "lowpass": RangeValue(2, min_val=1, max_val=256),
-        "size": RangeValue(16, min_val=1, max_val=256),
-        "threshold": RangeValue(0.395, min_val=0.0, max_val=1.0),
+        "size": RangeValue(8, min_val=1, max_val=256),
+        "threshold": RangeValue(0.35, min_val=0.0, max_val=1.0),
     },
     "detect-hist": {
         "min-scene-len": TimecodeValue(0),
-        "threshold": RangeValue(0.05, min_val=0.0, max_val=1.0),
-        "bins": RangeValue(256, min_val=1, max_val=256),
+        "threshold": RangeValue(0.20, min_val=0.0, max_val=1.0),
+        "bins": RangeValue(128, min_val=1, max_val=256),
     },
     "detect-threshold": {
         "add-last-scene": True,
         "fade-bias": RangeValue(0, min_val=-100.0, max_val=100.0),
+        "min-out-length": TimecodeValue("0.1s"),
         "min-scene-len": TimecodeValue(0),
         "threshold": RangeValue(12.0, min_val=0.0, max_val=255.0),
     },
@@ -458,6 +459,10 @@ CONFIG_MAP: ConfigDict = {
     "save-qp": {
         "disable-shift": False,
         "filename": "$VIDEO_NAME.qp",
+        "output": None,
+    },
+    "save-keyframes": {
+        "filename": "$VIDEO_NAME-keyframes.txt",
         "output": None,
     },
     "save-fcp": {

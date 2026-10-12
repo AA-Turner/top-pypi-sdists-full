@@ -554,6 +554,69 @@ def test_the_detector_counts_the_same_refusal_whatever_its_block_id():
     assert "stopped this run" in skipped.value.result
 
 
+def _outside(run: str) -> str:
+    return (f"not read: It reads /Users/r/outputs/{run}_execution/publication-readback.json: outside the working "
+            "folders. The reader reads only what a safe `cat` may read - `cat` through the shell asks the researcher.")
+
+
+def _reads_per_round(rounds: list[list[str]]) -> agent_mod.LoopDetector:
+    """A real Pydantic AI run (so `ctx.run_step` is the library's own): round i
+    asks for `rounds[i]`'s files together, each refused as outside the working
+    folders; then the run ends. Returns its detector."""
+    from pydantic_ai import Agent
+
+    detector = agent_mod.LoopDetector()
+    step = {"n": 0}
+
+    def model(messages, info: AgentInfo) -> ModelResponse:
+        n = step["n"]
+        step["n"] += 1
+        if n < len(rounds):
+            return ModelResponse(parts=[ToolCallPart("read", {"path": run}, tool_call_id=f"r{n}-{i}")
+                                        for i, run in enumerate(rounds[n])])
+        return ModelResponse(parts=[TextPart("done")])
+
+    agent = Agent(FunctionModel(model), capabilities=[detector])
+
+    @agent.tool_plain
+    def read(path: str) -> str:
+        return _outside(path)
+
+    asyncio.run(agent.run("look"))
+    return detector
+
+
+def test_refusals_from_one_round_of_parallel_calls_count_once():
+    """strand-ai 2026-10-11: the reader asked for three run folders' files in ONE
+    round; ids masked, the three refusals read alike and stopped its turn. Calls
+    made together have not seen each other's answer: one attempt, not a loop."""
+    detector = _reads_per_round([["fm93-ncbi485", "fm95-ncbi505", "fm93-ncbi509"]])
+    assert detector.tripped is None
+
+
+def test_the_same_refusal_in_three_rounds_still_stops_the_run():
+    detector = _reads_per_round([["fm93-ncbi485", "fm95-ncbi505"], ["fm93-ncbi509"], ["fm94-ncbi511"]])
+    assert detector.tripped and "the same refusal 3 times in one run" in detector.tripped
+
+
+def test_the_same_call_three_times_in_one_round_still_stops_the_run():
+    """Only refusals that read alike across DIFFERENT calls count once a round.
+    The same call -- tool and arguments -- counts every time: a failing command
+    the model repeats in one response must not run a fourth time."""
+    detector = _reads_per_round([["fm93-ncbi485"] * 3])
+    assert detector.tripped and "the same refusal 3 times" in detector.tripped
+
+    class Call:
+        tool_name = "shell"
+
+    failing = agent_mod.LoopDetector()
+    ctx = dataclasses.make_dataclass("Ctx", [("run_step", int)])(1)
+    for _ in range(3):
+        asyncio.run(failing.after_tool_execute(ctx, call=Call(), tool_def=None, args={"command": "make upload"},
+                                               result="[exit 1]\nfailed"))
+    assert failing.tripped and "the same failure 3 times" in failing.tripped
+
+
 # ---------------------------------------------------------------------------
 # T2: a run yields between model rounds.
 # ---------------------------------------------------------------------------
@@ -1195,3 +1258,30 @@ def test_a_yes_that_cannot_run_says_only_why(tmp_path, monkeypatch):
     asyncio.run(w.settle_answers())
     last = [e.text for e in w.store.pending() if e.kind == Kind.META][-1]
     assert last == f"question {other.id} was answered yes but not run: request {other.id} no longer matches"
+
+
+def test_the_reader_starts_fresh_over_the_message_count_or_on_the_routes_400():
+    """Rule A: a reader turn that ends over the size starts the next turn fresh
+    instead of paying a summary call; the same past COMPACT_MESSAGES. And a 400
+    from the route (such as more than 2,000 messages) is not resent as is."""
+    from pydantic_ai.exceptions import ModelHTTPError
+    from pydantic_ai.messages import UserPromptPart
+
+    from probe.daemon import reader_lane
+
+    class Run:
+        def __init__(self, messages):
+            self._messages = messages
+
+        def all_messages(self):
+            return self._messages
+
+    history = [m for i in range(agent_mod.COMPACT_MESSAGES // 2 + 1)
+               for m in (ModelRequest(parts=[UserPromptPart("q")]), ModelResponse(parts=[TextPart(f"r{i}")]))]
+    assert agent_mod.wire_messages(history) > agent_mod.COMPACT_MESSAGES
+    why = reader_lane._too_big(Run(history), 120_000)
+    assert why and "messages, over" in why
+    assert reader_lane._too_big(Run(history[-10:]), 120_000) is None
+    refused = ModelHTTPError(400, "default", {"message": "invalid request: messages: List should have at most "
+                                                          "2000 items after validation, not 2003"})
+    assert "400" in reader_lane._too_big(Run(history[-10:]), 120_000, refused)

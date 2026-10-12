@@ -2516,6 +2516,9 @@ class Geocif:
             country=self.country, crop=self.crop, year_col="Harvest Year",
             method=getattr(self, "method", "monthly"),
             season_stages=season_stages,
+            # stored yields are in the base unit ([ML] yield_display only
+            # converts for display), so the base label is the right one here
+            yield_units=self.parser.get("ML", "yield_units", fallback="Mg/ha"),
         )
 
     def _filter_by_simulation_stages(self) -> pd.DataFrame:
@@ -7360,10 +7363,12 @@ class Geocif:
         # TabPFN/TabICL use native quantile prediction (no conformal wrapper),
         # so SHAP can still introspect the underlying model when estimate_ci
         # is True. The guard only matters for tree models wrapped by crepes/MAPIE.
-        if self.estimate_ci and self.model_name not in ("tabpfn", "tabicl"):
+        # kumo's interval is native too (no conformal wrapper; see
+        # _predict_kumo_with_ci), so self.model is the bare regressor.
+        if self.estimate_ci and self.model_name not in ("tabpfn", "tabicl", "kumo"):
             self.logger.warning("Cannot perform XAI if estimate_ci is True")
             return
-        
+
         kwargs = {
             "cluster_strategy": self.cluster_strategy,
             "model": self.model,
@@ -7373,6 +7378,11 @@ class Geocif:
             "country": self.country,
             "analysis_dir": self.dir_analysis,
             "db_path": self.db_path,
+            # Used by xai's mixed-type branch (cubist, kumo): the columns the
+            # model was fitted on, and predict() with its test-time
+            # preprocessing. Neither model is scaled, hence scaler=None.
+            "feature_names": list(self.selected_features) + list(self.cat_features),
+            "predict_fn": lambda X: self.model.predict(self._preprocess_test_data(X, None)),
         }
         
         try:

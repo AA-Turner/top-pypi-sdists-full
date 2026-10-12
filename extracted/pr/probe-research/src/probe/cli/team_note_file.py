@@ -1072,6 +1072,64 @@ def _untouched_since_audit(document: str, baseline: "dict | None") -> bool:
     return hashlib.sha256(document.strip().encode("utf-8")).hexdigest() == recorded
 
 
+@dataclass(frozen=True)
+class AuditDue:
+    """Why the note is due its audit, in the words both dispatches use: the
+    prompt hook's line (`audit_advisory`, for an agent that starts the audit
+    itself) and the daemon's (`AuditDue.brief`, daemon-team-note-audit)."""
+
+    headline: str
+    reasons: str
+    removal: str
+    job: str
+
+    def brief(self) -> str:
+        return f"> **{self.headline}** ({self.reasons}). {self.removal} {self.job}"
+
+
+def audit_due(document: str, *, pct: "float | None", baseline: "dict | None", today=None) -> "AuditDue | None":
+    """Is the note due its audit, and which half? None when it is not."""
+    today = today or _dt.date.today()
+    horizon = _audit_env("PROBE_NOTES_AUDIT_HORIZON_DAYS", AUDIT_HORIZON_DAYS, 0)
+    age = _stamp_age_days(document, today)
+    interval = _audit_env("PROBE_NOTES_AUDIT_INTERVAL_DAYS", AUDIT_INTERVAL_DAYS, 0)
+    # TWO TRIGGERS, AND THE SENTENCE SAYS WHICH ONE. Size fires the TIGHTENING
+    # half: the block is about to stop arriving at all, and only cutting bytes
+    # fixes that. The interval fires the TRUTH half: a small note is otherwise
+    # re-checked by nothing, because the on-read prong corrects only the claims
+    # a reader happens to hold evidence against. They are not interchangeable --
+    # tightening a note that is inside its budget is busywork, so the overdue
+    # dispatch says not to. No SECTION NUMBERS in either sentence: the skills
+    # renumber, and a stale pointer sends the auditor to the wrong rules.
+    oversized = pct is not None and pct >= AUDIT_SIZE_PCT
+    overdue = interval > 0 and (age is None or age >= interval)
+    if not oversized and not overdue:
+        return None
+    # A 24-hour floor: a note stamped TODAY is not asked again, however large.
+    # It caps the rate at one audit per day rather than one per session.
+    if age is not None and age < 1:
+        return None
+    # An unchanged document cannot have GROWN since the last pass, so a second
+    # tightening has nothing to find. It gates SIZE only: the world moves under
+    # a document nobody has touched, which is the whole point of the interval.
+    if oversized and not overdue and _untouched_since_audit(document, baseline):
+        return None
+    removal = (
+        "Delete what the evidence disproves."
+        if horizon > 0
+        else "Deletion is DISABLED: correct claims in place, delete nothing."
+    )
+    if oversized:
+        return AuditDue("This note has outgrown its budget", f"at {round(pct * 100)}% of its render budget",
+                        removal, "Tighten what stays.")
+    return AuditDue(
+        "This note is due its periodic re-check",
+        "never audited" if age is None else f"{age} days since the last audit",
+        removal,
+        "Do NOT tighten it -- it is inside its budget, and this pass is about what is still TRUE.",
+    )
+
+
 def audit_advisory(
     document: str, *, source: str, pct: "float | None", baseline: "dict | None", today=None
 ) -> str:
@@ -1088,30 +1146,8 @@ def audit_advisory(
     The SIZE half reads the LAST render's measurement, not this one's: this
     string is about to change the length it would be measuring.
     """
-    today = today or _dt.date.today()
-    horizon = _audit_env("PROBE_NOTES_AUDIT_HORIZON_DAYS", AUDIT_HORIZON_DAYS, 0)
-    age = _stamp_age_days(document, today)
-    interval = _audit_env("PROBE_NOTES_AUDIT_INTERVAL_DAYS", AUDIT_INTERVAL_DAYS, 0)
-    # TWO TRIGGERS, AND THE SENTENCE SAYS WHICH ONE. Size fires the TIGHTENING
-    # half: the block is about to stop arriving at all, and only cutting bytes
-    # fixes that. The interval fires the TRUTH half: a small note is otherwise
-    # re-checked by nothing, because the on-read prong corrects only the claims
-    # a reader happens to hold evidence against. They are not interchangeable --
-    # tightening a note that is inside its budget is busywork, so the overdue
-    # dispatch says not to. No SECTION NUMBERS in either sentence: the skills
-    # renumber, and a stale pointer sends the auditor to the wrong rules.
-    oversized = pct is not None and pct >= AUDIT_SIZE_PCT
-    overdue = interval > 0 and (age is None or age >= interval)
-    if not oversized and not overdue:
-        return ""
-    # A 24-hour floor: a note stamped TODAY is not asked again, however large.
-    # It caps the rate at one audit per day rather than one per session.
-    if age is not None and age < 1:
-        return ""
-    # An unchanged document cannot have GROWN since the last pass, so a second
-    # tightening has nothing to find. It gates SIZE only: the world moves under
-    # a document nobody has touched, which is the whole point of the interval.
-    if oversized and not overdue and _untouched_since_audit(document, baseline):
+    due = audit_due(document, pct=pct, baseline=baseline, today=today)
+    if due is None:
         return ""
     dispatch = (
         "Run the `audit-team-note` skill (`notes-audit` on plugins before 0.90.0) YOURSELF now, before taking up the user's work "
@@ -1120,27 +1156,32 @@ def audit_advisory(
         else "Run the `audit-team-note` skill (`notes-audit` on plugins before 0.90.0) in a BACKGROUND subagent and carry on with "
         "the user's work -- never inline."
     )
-    removal = (
-        "Delete what the evidence disproves."
-        if horizon > 0
-        else "Deletion is DISABLED: correct claims in place, delete nothing."
-    )
-    if oversized:
-        headline = "This note has outgrown its budget"
-        reasons = f"at {round(pct * 100)}% of its render budget"
-        job = "Tighten what stays."
-    else:
-        headline = "This note is due its periodic re-check"
-        reasons = "never audited" if age is None else f"{age} days since the last audit"
-        job = (
-            "Do NOT tighten it -- it is inside its budget, and this pass is about "
-            "what is still TRUE."
-        )
     return (
-        f"> **{headline}** ({reasons}). "
-        f"{dispatch} {removal} {job} "
+        f"> **{due.headline}** ({due.reasons}). "
+        f"{dispatch} {due.removal} {due.job} "
         "If research tracking is off for this session, skip it."
     )
+
+
+def _local_note_state(source: str, *, settings) -> "tuple[str, float | None, dict | None] | None":
+    """This machine's note, and the last render's size and audit baseline for
+    `source`, off disk. None when the note is unreadable or empty."""
+    try:
+        document = paths_for(settings).document.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    if not document:
+        return None
+    try:
+        health = json.loads(note_health_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        health = {}
+    sources = health.get("sources") if isinstance(health, dict) else None
+    entry = sources.get(source) if isinstance(sources, dict) else None
+    pct = entry.get("pct") if isinstance(entry, dict) else None
+    baseline = health.get("audit") if isinstance(health, dict) else None
+    return (document, pct if isinstance(pct, (int, float)) else None,
+            baseline if isinstance(baseline, dict) else None)
 
 
 def advisory_for_source(source: str, *, settings, today=None) -> str:
@@ -1152,27 +1193,21 @@ def advisory_for_source(source: str, *, settings, today=None) -> str:
     ask. Anything unreadable answers "" -- a missing health file means no
     measurement, which is not an audit trigger.
     """
-    try:
-        document = paths_for(settings).document.read_text(encoding="utf-8").strip()
-    except OSError:
+    state = _local_note_state(source, settings=settings)
+    if state is None:
         return ""
-    if not document:
-        return ""
-    try:
-        health = json.loads(note_health_path().read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        health = {}
-    sources = health.get("sources") if isinstance(health, dict) else None
-    entry = sources.get(source) if isinstance(sources, dict) else None
-    pct = entry.get("pct") if isinstance(entry, dict) else None
-    baseline = health.get("audit") if isinstance(health, dict) else None
-    return audit_advisory(
-        document,
-        source=source,
-        pct=pct if isinstance(pct, (int, float)) else None,
-        baseline=baseline if isinstance(baseline, dict) else None,
-        today=today,
-    )
+    document, pct, baseline = state
+    return audit_advisory(document, source=source, pct=pct, baseline=baseline, today=today)
+
+
+def audit_due_for_source(source: str, *, settings, today=None) -> "AuditDue | None":
+    """`audit_due` for THIS machine's note, from local state only (the daemon's
+    audit pulls the team's copy first, then asks this)."""
+    state = _local_note_state(source, settings=settings)
+    if state is None:
+        return None
+    document, pct, baseline = state
+    return audit_due(document, pct=pct, baseline=baseline, today=today)
 
 
 #: How long one session's dispatch holds this machine's audit. The advisory is

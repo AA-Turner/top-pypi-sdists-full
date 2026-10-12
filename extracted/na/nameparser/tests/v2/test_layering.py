@@ -16,7 +16,7 @@ _MUST_EXIST = {"_types.py", "_lexicon.py", "_policy.py", "_locale.py",
                "_render.py", "_pipeline/_state.py", "_pipeline/__init__.py",
                "_pipeline/_extract.py", "_pipeline/_tokenize.py",
                "_pipeline/_vocab.py", "_pipeline/_script_segment.py",
-               "_pipeline/_segment.py",
+               "_pipeline/_segment.py", "_pipeline/_comma.py",
                "_pipeline/_classify.py", "_pipeline/_group.py",
                "_pipeline/_pieces.py",
                "_pipeline/_assign.py", "_pipeline/_post_rules.py",
@@ -65,15 +65,25 @@ ALLOWED = {
     "_pipeline/_state.py": ("nameparser._types", "nameparser._lexicon",
                             "nameparser._policy"),
     "_pipeline/__init__.py": ("nameparser._pipeline.",),
-    "_pipeline/_vocab.py": _PIPELINE_STAGE_ALLOWED,
+    # Tighter than the stage allowance on purpose: _vocab takes
+    # normalized-or-raw text explicitly, no state, with named
+    # departures (its own docstring) -- tag_marker_runs is one, and it
+    # reads WorkToken.role/span and comma_bucket, never a whole
+    # ParseState. Widening this past _state is the tell that a text-
+    # level predicate has grown a dependency on a stage.
+    "_pipeline/_vocab.py": ("nameparser._lexicon", "nameparser._policy",
+                            "nameparser._pipeline._state"),
     "_pipeline/_extract.py": _PIPELINE_STAGE_ALLOWED,
     "_pipeline/_tokenize.py": _PIPELINE_STAGE_ALLOWED,
     "_pipeline/_script_segment.py": _PIPELINE_STAGE_ALLOWED,
     "_pipeline/_segment.py": _PIPELINE_STAGE_ALLOWED,
     "_pipeline/_classify.py": _PIPELINE_STAGE_ALLOWED,
-    # Piece-level predicates shared by group and assign
-    # (mechanisms.md#ONE-PREDICATE-PER-QUESTION). Tighter than the
-    # stage allowance on purpose: it is a leaf both stages sit on, so
+    # Piece-level predicates shared by four stages -- segment,
+    # classify, group and assign
+    # (mechanisms.md#ONE-PREDICATE-PER-QUESTION). Segment joined with
+    # #289/#516's own-words span, and "both stages" below was written
+    # when there were two. Tighter than the
+    # stage allowance on purpose: it is a leaf those stages sit on, so
     # it may read the token type and the vocabulary layer and NOTHING
     # else -- not even _lexicon, which is the likeliest next reach (a
     # title predicate wanting _title_key) and so the one this entry
@@ -84,6 +94,8 @@ ALLOWED = {
     "_pipeline/_pieces.py": ("nameparser._pipeline._state",
                              "nameparser._pipeline._vocab"),
     "_pipeline/_group.py": _PIPELINE_STAGE_ALLOWED,
+    # not a stage: C1's decision, which group calls at its head (#613)
+    "_pipeline/_comma.py": _PIPELINE_STAGE_ALLOWED,
     "_pipeline/_assign.py": _PIPELINE_STAGE_ALLOWED,
     "_pipeline/_post_rules.py": _PIPELINE_STAGE_ALLOWED,
     "_pipeline/_assemble.py": _PIPELINE_STAGE_ALLOWED,
@@ -219,7 +231,7 @@ def test_every_pipeline_module_is_keyed_in_allowed() -> None:
         f"from the layering contract entirely: {missing}. Add each with "
         f"the narrowest prefix tuple that admits what it actually "
         f"imports -- _PIPELINE_STAGE_ALLOWED for a stage, something "
-        f"tighter for a leaf both stages sit on (see _pipeline/_pieces.py)"
+        f"tighter for a leaf several stages sit on (see _pipeline/_pieces.py)"
     )
 
 

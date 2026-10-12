@@ -42,13 +42,21 @@ UNIFIED_CONFIG_INTERNAL_FIELDS = {
     # dynamic mutations, and host-policy transition markers across turns.
     # Exposing them through LLMParams would let a caller forge internal state.
     "system_prompt_frozen",
-    "system_prompt_spans",
     "authored_tools",
     "dynamic_tools",
     "dynamic_tool_sources",
     # The agent's tool policy carried by the conversation (stamped by the host funnel).
     "agent_auto_tools_disabled",
     "agent_excluded_tools",
+    # Declared prompt blocks and their first-turn resolution (matrx_ai/prompt_blocks): agent
+    # declaration + frozen-with-the-conversation state, never a caller override.
+    "prompt_blocks",
+    "prompt_block_creator",
+    "prompt_block_texts",
+    "prompt_block_report",
+    "prompt_block_tool_ids",
+    # The model-turn-only restore marker carried by a conversation (host-written state).
+    "model_turn_only_restore",
     "dynamic_tools_withheld",
     "tool_authority_filtered",
     "tool_authority_exclusions",

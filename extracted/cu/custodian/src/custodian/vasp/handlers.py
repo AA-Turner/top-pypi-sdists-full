@@ -6,7 +6,7 @@ by modifying the input files.
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import logging
 import multiprocessing
 import os
@@ -15,7 +15,7 @@ import shutil
 import time
 import warnings
 from collections import Counter
-from math import ceil, prod
+from math import ceil
 from typing import ClassVar
 
 import numpy as np
@@ -23,6 +23,8 @@ from monty.dev import deprecated
 from monty.io import zopen
 from monty.os.path import zpath
 from monty.serialization import loadfn
+from pymatgen.analysis.molecule_structure_comparator import CovalentRadius
+from pymatgen.core.periodic_table import Element
 from pymatgen.core.structure import Structure
 from pymatgen.io.vasp.inputs import Incar, Kpoints, Poscar, VaspInput
 from pymatgen.io.vasp.outputs import Oszicar
@@ -58,27 +60,187 @@ VASP_BACKUP_FILES = {
     "std_err.txt",
 }
 
+# Minimum allowed ratio of an interatomic distance to the sum of the two covalent
+# radii. Contacts below this are treated as unphysically close (e.g., ZPOTRF on the
+# first ionic step). 0.7 is a conservative heuristic; real bonds are typically >0.85.
+MIN_COVALENT_DISTANCE_RATIO = 0.7
 
-def _correct_grad_not_orth(incar: Incar, errors: set[str]) -> list[dict]:
-    """Return corrections for a non-orthogonal EDWAV gradient."""
-    actions = []
-    # Often coincides with algo_tet, in which the algo_tet error handler will also resolve grad_not_orth.
-    # When not present alongside algo_tet, the grad_not_orth error is due to how VASP is compiled.
-    # Depending on the optimization flag and choice of compiler, the ALGO = All and Damped algorithms
-    # may not work. The only fix is either to change ALGO or to recompile VASP.
-    if incar.get("ALGO", "Normal").lower() in {"all", "conjugate", "damped"}:
-        if incar.get("METAGGA", "none") == "none" and not incar.get("LHFCALC", False):
-            actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Fast"}}})
-        else:
-            # Meta-GGAs and hybrids should not be run with ALGO = Fast
-            actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
-    if "algo_tet" not in errors:
-        warnings.warn(
-            "EDWAV error reported by VASP without a simultaneous algo_tet error. You may wish to consider "
-            "recompiling VASP with the -O1 optimization if you used -O2 and this error keeps cropping up.",
-            UserWarning,
-        )
-    return actions
+# Maximum isotropic linear strain applied in one correction to relieve close contacts.
+MAX_CLOSE_CONTACT_STRAIN = 0.1
+
+
+def _get_covalent_radius(element: Element) -> float | None:
+    """Covalent radius in Angstrom, falling back to the atomic radius if unavailable."""
+    radius = CovalentRadius.radius.get(element.symbol)
+    if radius is None and element.atomic_radius is not None:
+        radius = float(element.atomic_radius)
+    return radius
+
+
+def _min_covalent_distance_ratio(structure: Structure) -> float | None:
+    """Minimum d_ij / (r_cov_i + r_cov_j) over all site pairs, including periodic images.
+
+    Args:
+        structure: Structure to check.
+
+    Returns:
+        The minimum ratio, or None if no pair lies within MIN_COVALENT_DISTANCE_RATIO
+        of contact (or no radii are known).
+    """
+    radii = []
+    for site in structure:
+        try:
+            radii.append(_get_covalent_radius(Element(site.specie.symbol)))
+        except ValueError:  # e.g., DummySpecies
+            radii.append(None)
+    known = [r for r in radii if r is not None]
+    if not known:
+        return None
+    # Only pairs closer than threshold * (r_i + r_j) matter, so this cutoff suffices.
+    cutoff = MIN_COVALENT_DISTANCE_RATIO * 2 * max(known)
+    min_ratio = None
+    for i, neighbors in enumerate(structure.get_all_neighbors(cutoff)):
+        if radii[i] is None:
+            continue
+        for nn in neighbors:
+            r_j = radii[nn.index]
+            if r_j is None:
+                continue
+            ratio = nn.nn_distance / (radii[i] + r_j)
+            if min_ratio is None or ratio < min_ratio:
+                min_ratio = ratio
+    return min_ratio
+
+
+# See https://www.vasp.at/wiki/index.php/ALGO. Except for the spelled-out values, only the first letter
+# of an electronic-minimisation ALGO matters, so e.g. "F" == "Fast". Conjugate and All are synonymous.
+_ALGO_SPELLED_OUT = {"exact", "eigenval", "none", "nothing"}
+_ALGO_BY_FIRST_LETTER = {
+    "n": "normal",
+    "v": "veryfast",
+    "f": "fast",
+    "a": "all",
+    "c": "all",
+    "d": "damped",
+    "s": "subrot",
+}
+# Response-function, GW, BSE and ACFDT/RPA values are full names and must not be read by first letter.
+_ALGO_MANY_BODY = {
+    "chi",
+    "tdhf",
+    "bse",
+    "timeev",
+    "acfdt",
+    "rpa",
+    "acfdtr",
+    "rpar",
+    "crpa",
+    "evgw0",
+    "evgw",
+    "qpgw0",
+    "qpgw",
+    "gw0r",
+    "gwr",
+    "g0w0r",
+    "evgw0r",
+    "gw0",
+    "gw",
+    "scgw0",
+    "scgw",
+}
+# vasp.6 variants selecting the vasp.5 Fast/VeryFast algorithms.
+_ALGO_OLD = {"old fast": "fast", "of": "fast", "old veryfast": "veryfast", "ov": "veryfast"}
+# See https://www.vasp.at/wiki/index.php/ALGO and https://www.vasp.at/wiki/index.php/IALGO.
+_IALGO_TO_ALGO = {
+    38: "normal",
+    48: "veryfast",
+    68: "fast",
+    58: "all",
+    53: "damped",
+    90: "exact",
+    4: "subrot",
+    3: "eigenval",
+    2: "none",
+}
+
+
+def _get_algo(incar: Incar) -> str:
+    """Return the canonical lowercase ALGO of an INCAR.
+
+    Electronic-minimisation values are resolved by their first letter as VASP does ("F" -> "fast",
+    "Conjugate" -> "all"). Exact, Eigenval, None and Nothing are passed through as spelled-out names, as are
+    many-body and unrecognised values. If ALGO is absent, a common IALGO is mapped to its ALGO equivalent.
+    Otherwise the VASP default "normal" is returned.
+    """
+    if (algo := incar.get("ALGO")) is None:
+        return _IALGO_TO_ALGO.get(incar.get("IALGO"), "normal")
+    algo = " ".join(str(algo).lower().split())
+    if not algo:
+        return "normal"
+    if algo in _ALGO_SPELLED_OUT or algo in _ALGO_MANY_BODY:
+        return algo
+    if algo in _ALGO_OLD:
+        return _ALGO_OLD[algo]
+    return _ALGO_BY_FIRST_LETTER.get(algo[0], algo)
+
+
+def _fallback_algo(incar: Incar) -> str:
+    """Return a stable ALGO to fall back to.
+
+    ALGO = Fast is not properly supported for hybrids (https://www.vasp.at/wiki/index.php/LHFCALC).
+    Meta-GGAs are conservatively kept on ALGO = Normal as well.
+    """
+    if str(incar.get("METAGGA", "None")).lower() == "none" and not incar.get("LHFCALC", False):
+        return "Fast"
+    return "Normal"
+
+
+def _correct_grad_not_orth(incar: Incar, errors: set[str], error_count: Counter, directory: str) -> list[dict]:
+    """Return corrections for a non-orthogonal EDWAV gradient.
+
+    Without a simultaneous algo_tet, the ladder is: a different ALGO if ALGO = All/Damped,
+    then a one-off 10% increase in NBANDS, then unrecoverable. At most two corrections are made.
+
+    Args:
+        incar (Incar): Current INCAR.
+        errors (set[str]): All errors detected in this check.
+        error_count (Counter): The handler's error counts. The "grad_not_orth" (corrections made
+            without a simultaneous algo_tet) and "grad_not_orth_nbands" (NBANDS increases) counts
+            are updated here.
+        directory (str): Calculation directory, used to read NBANDS from the OUTCAR.
+
+    Returns:
+        list[dict]: Actions to apply.
+    """
+    fallback = []
+    if _get_algo(incar) in {"all", "damped"}:
+        fallback = [{"dict": "INCAR", "action": {"_set": {"ALGO": _fallback_algo(incar)}}}]
+    # Often coincides with algo_tet, in which case changing ALGO resolves both.
+    if "algo_tet" in errors:
+        return fallback
+
+    # Otherwise the error is numerical: the wavefunctions lose orthonormality in the Davidson steps.
+    # VASP staff have traced it to Intel-compiled VASP on AMD CPUs (https://vasp.at/forum/viewtopic.php?p=25241)
+    # and to meta-GGAs restarted from CHGCAR without TAUCAR or too few NBANDS
+    # (https://vasp.at/forum/viewtopic.php?p=33191). Moving off ALGO = All/Damped is the fix that works
+    # in practice, so it is tried first; more bands are tried once ALGO is already Normal/Fast.
+    warnings.warn(
+        "EDWAV error reported by VASP without a simultaneous algo_tet error. This has been traced to "
+        "Intel-compiled VASP on AMD CPUs, where a GNU or AOCC build avoids it, and, for meta-GGAs restarted "
+        "from CHGCAR, to a missing TAUCAR.",
+        UserWarning,
+    )
+    if error_count["grad_not_orth"] >= 2:
+        return []
+    error_count["grad_not_orth"] += 1
+    if fallback:
+        return fallback
+    if error_count["grad_not_orth_nbands"] == 0 and (
+        nbands := incar.get("NBANDS") or VaspErrorHandler._get_nbands_from_outcar(directory)
+    ):
+        error_count["grad_not_orth_nbands"] += 1
+        return [{"dict": "INCAR", "action": {"_set": {"NBANDS": max(int(1.1 * nbands), nbands + 1)}}}]
+    return []
 
 
 class VaspErrorHandler(ErrorHandler):
@@ -333,16 +495,33 @@ class VaspErrorHandler(ErrorHandler):
         if "amin" in self.errors and vi["INCAR"].get("AMIN", 0.1) > 0.01:
             actions.append({"dict": "INCAR", "action": {"_set": {"AMIN": 0.01}}})
 
-        if "inv_rot_mat" in self.errors and vi["INCAR"].get("SYMPREC", 1e-5) > 1e-8:
-            actions.append({"dict": "INCAR", "action": {"_set": {"SYMPREC": 1e-8}}})
+        if "inv_rot_mat" in self.errors:
+            # VASP itself says to increase SYMPREC. VASP staff note that the k-mesh often breaks the
+            # symmetry (e.g. even meshes on hexagonal/low-symmetry cells) and recommend an odd mesh:
+            # https://vasp.at/forum/viewtopic.php?p=486
+            # SYMPREC = 1e-4 can already over-symmetrise the density and 1e-2 should never be used:
+            # https://vasp.at/forum/viewtopic.php?p=33600
+            # Ladder: 1. MP -> Gamma-centred mesh, 2. SYMPREC x10 (capped at 1e-4), 3. ISYM = 0, 4. give up.
+            symprec = vi["INCAR"].get("SYMPREC", 1e-5)
+            if vi["KPOINTS"] is not None and vi["KPOINTS"].style == Kpoints.supported_modes.Monkhorst:
+                actions.append({"dict": "KPOINTS", "action": {"_set": {"generation_style": "Gamma"}}})
+            elif symprec < 1e-4:
+                actions.append(
+                    {"dict": "INCAR", "action": {"_set": {"SYMPREC": float(f"{min(symprec * 10, 1e-4):.1e}")}}}
+                )
+            elif vi["INCAR"].get("ISYM", 2) > 0:
+                actions.append({"dict": "INCAR", "action": {"_set": {"ISYM": 0}}})
+            self.error_count["inv_rot_mat"] += 1
 
         if "brmix" in self.errors:
             # If there is not a valid OUTCAR already, increment
             # error count to 1 to skip first fix
             if self.error_count["brmix"] == 0:
                 try:
-                    assert load_outcar(zpath(os.path.join(directory, "OUTCAR"))).is_stopped is False
+                    valid_outcar = load_outcar(zpath(os.path.join(directory, "OUTCAR"))).is_stopped is False
                 except Exception:
+                    valid_outcar = False
+                if not valid_outcar:
                     self.error_count["brmix"] += 1
 
             if self.error_count["brmix"] == 0:
@@ -390,19 +569,17 @@ class VaspErrorHandler(ErrorHandler):
                         }
                     )
 
-            elif self.error_count["brmix"] in {2, 3} and vi["INCAR"].get("KSPACING"):
+            elif (
+                self.error_count["brmix"] in {2, 3}
+                and vi["INCAR"].get("KSPACING")
+                and not vi["INCAR"].get("KGAMMA", True)
+            ):
                 actions.append({"dict": "INCAR", "action": {"_set": {"KGAMMA": True}}})
+                self.error_count["brmix"] += 1
 
             else:
                 if vi["INCAR"].get("ISYM", 2) > 0:
                     actions.append({"dict": "INCAR", "action": {"_set": {"ISYM": 0}}})
-                if vi["KPOINTS"] and vi["KPOINTS"].style == Kpoints.supported_modes.Monkhorst:
-                    actions.append(
-                        {
-                            "dict": "KPOINTS",
-                            "action": {"_set": {"generation_style": "Gamma"}},
-                        }
-                    )
                 if vi["KPOINTS"] and vi["KPOINTS"].style == Kpoints.supported_modes.Monkhorst:
                     actions.append(
                         {
@@ -422,34 +599,65 @@ class VaspErrorHandler(ErrorHandler):
                 self.error_count["brmix"] += 1
 
         if "zpotrf" in self.errors:
-            # Usually caused by short bond distances. If on the first step,
-            # volume needs to be increased. Otherwise, it was due to a step
-            # being too big and POTIM should be decreased. If a static run
+            # Usually caused by short bond distances. If on the first step and
+            # atoms are too close, the volume is increased, but only if VASP is
+            # allowed to change the volume (ISIF = 3, 6 or 7). Otherwise, it was due
+            # to a step being too big and POTIM should be decreased. If a static run
             # try turning off symmetry. This also happens if NCORE or NPAR
             # is set to a large value for a small structure.
+            incar = vi["INCAR"]
+            zpotrf_actions = []
 
             try:
                 oszicar = Oszicar(os.path.join(directory, "OSZICAR"))
-                nsteps = len(oszicar.ionic_steps)
+                # Oszicar returns [{}] for an empty file, so only count populated steps.
+                nsteps = len([step for step in oszicar.ionic_steps if step])
             except Exception:
                 nsteps = 0
 
-            if vi["INCAR"].get("ISYM", 2) > 0:
-                actions.append({"dict": "INCAR", "action": {"_set": {"ISYM": 0}}})
+            if incar.get("ISYM", 2) > 0:
+                zpotrf_actions.append({"dict": "INCAR", "action": {"_set": {"ISYM": 0}}})
 
             # The natoms of 5 was chosen somewhat arbitrarily. Could be worth revisiting to fine-tune.
-            if len(vi["POSCAR"].structure) < 5 and (vi["INCAR"].get("NCORE", 1) > 1 or vi["INCAR"].get("NPAR", 1) > 1):
-                actions.append({"dict": "INCAR", "action": {"_set": {"NCORE": 1}}})
-                if vi["INCAR"].get("NPAR", 1) > 1:
-                    actions.append({"dict": "INCAR", "action": {"_unset": {"NPAR": 1}}})
-            elif vi["INCAR"].get("NSW", 0) > 0:
+            if len(vi["POSCAR"].structure) < 5 and (incar.get("NCORE", 1) > 1 or incar.get("NPAR", 1) > 1):
+                zpotrf_actions.append({"dict": "INCAR", "action": {"_set": {"NCORE": 1}}})
+                if incar.get("NPAR", 1) > 1:
+                    zpotrf_actions.append({"dict": "INCAR", "action": {"_unset": {"NPAR": 1}}})
+            elif incar.get("NSW", 0) > 0:
                 if nsteps == 0:
-                    s = vi["POSCAR"].structure
-                    s.apply_strain(0.2)
-                    actions.append({"dict": "POSCAR", "action": {"_set": {"structure": s.as_dict()}}})
+                    # Only expand the cell if atoms are actually too close. Scale isotropically
+                    # so the closest contact reaches the threshold, capping the linear strain.
+                    structure = vi["POSCAR"].structure
+                    min_ratio = _min_covalent_distance_ratio(structure)
+                    if min_ratio is not None and min_ratio < MIN_COVALENT_DISTANCE_RATIO:
+                        # The default ISIF (0 for MD, 2 otherwise) and ISIF = 4, 5 keep the volume fixed,
+                        # e.g. for slabs. The cell is the user's choice there, so the input is unrecoverable.
+                        if incar.get("ISIF", 2) not in {3, 6, 7}:
+                            warnings.warn(
+                                f"ZPOTRF on the first ionic step with interatomic distances down to {min_ratio:.2f} "
+                                "times the sum of covalent radii. The cell is not expanded since ISIF does not "
+                                "allow volume changes; check the input structure.",
+                                UserWarning,
+                            )
+                            zpotrf_actions = []
+                        else:
+                            scale = MIN_COVALENT_DISTANCE_RATIO / max(min_ratio, 1e-8)
+                            strain = min(scale - 1, MAX_CLOSE_CONTACT_STRAIN)
+                            structure.apply_strain(strain)
+                            zpotrf_actions.append(
+                                {"dict": "POSCAR", "action": {"_set": {"structure": structure.as_dict()}}}
+                            )
+                            # VASP recommends deleting CHGCAR/WAVECAR if incompatible with the structure.
+                            if incar.get("ICHARG", 0) < 10:
+                                zpotrf_actions += [
+                                    {"file": "CHGCAR", "action": {"_file_delete": {"mode": "actual"}}},
+                                    {"file": "WAVECAR", "action": {"_file_delete": {"mode": "actual"}}},
+                                ]
                 else:
-                    potim = round(vi["INCAR"].get("POTIM", 0.5) / 2.0, 2)
-                    actions.append({"dict": "INCAR", "action": {"_set": {"POTIM": potim}}})
+                    potim = round(incar.get("POTIM", 0.5) / 2.0, 2)
+                    zpotrf_actions.append({"dict": "INCAR", "action": {"_set": {"POTIM": potim}}})
+
+            actions.extend(zpotrf_actions)
 
         if self.errors.intersection(["subspacematrix"]):
             # Sometimes, this error can be due to parallelization issues with running across too many cores
@@ -579,7 +787,7 @@ class VaspErrorHandler(ErrorHandler):
             new_nbands = max(int(1.1 * nbands), nbands + 1)  # This handles the case when nbands is too low (< 8).
             actions.append({"dict": "INCAR", "action": {"_set": {"NBANDS": new_nbands}}})
 
-        if self.errors & {"pssyevx", "pdsyevx"} and vi["INCAR"].get("ALGO", "Normal").lower() != "normal":
+        if self.errors & {"pssyevx", "pdsyevx"} and _get_algo(vi["INCAR"]) != "normal":
             actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
 
         if "eddrmm" in self.errors:
@@ -587,7 +795,7 @@ class VaspErrorHandler(ErrorHandler):
             # Copy CONTCAR to POSCAR if CONTCAR has already been populated.
             if is_valid_poscar("CONTCAR", directory):
                 actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
-            if vi["INCAR"].get("ALGO", "Normal").lower() in {"fast", "veryfast"}:
+            if _get_algo(vi["INCAR"]) in {"fast", "veryfast"}:
                 actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
             else:
                 current_potim = vi["INCAR"].get("POTIM", 0.5)
@@ -609,7 +817,7 @@ class VaspErrorHandler(ErrorHandler):
                 actions.append({"file": "CHGCAR", "action": {"_file_delete": {"mode": "actual"}}})
 
             # This sometimes comes up with ALGO = Fast. We will switch the ALGO.
-            if vi["INCAR"].get("ALGO", "Normal").lower() != "all":
+            if _get_algo(vi["INCAR"]) != "all":
                 actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All", "ISEARCH": 1}}})
 
             # This can sometimes be due to load-balancing issues for small systems.
@@ -629,16 +837,23 @@ class VaspErrorHandler(ErrorHandler):
                     actions.append({"dict": "INCAR", "action": {"_unset": {"NPAR": 1}}})
 
         if "grad_not_orth" in self.errors:
-            actions.extend(_correct_grad_not_orth(vi["INCAR"], self.errors))
+            actions.extend(_correct_grad_not_orth(vi["INCAR"], self.errors, self.error_count, directory))
 
         if self.errors & {"zheev", "eddiag"}:
-            # Copy CONTCAR to POSCAR if CONTCAR has already been populated.
-            if is_valid_poscar("CONTCAR", directory):
-                actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
-            if vi["INCAR"].get("ALGO", "Normal").lower() == "fast":
-                actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
-            elif vi["INCAR"].get("ALGO", "Normal").lower() == "normal":
-                actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "exact"}}})
+            # Escalate VeryFast/Fast -> Normal -> All. ALGO = Exact is avoided since it is expensive
+            # and memory-heavy, and ALGO = All is skipped for ISMEAR < 0 since it triggers algo_tet.
+            # If ALGO cannot be changed, no actions are returned so the error is unrecoverable.
+            algo = _get_algo(vi["INCAR"])
+            algo_action = None
+            if algo in {"veryfast", "fast"}:
+                algo_action = {"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}}
+            elif algo == "normal" and vi["INCAR"].get("ISMEAR", 1) >= 0:
+                algo_action = {"dict": "INCAR", "action": {"_set": {"ALGO": "All", "ISEARCH": 1}}}
+            if algo_action:
+                # Copy CONTCAR to POSCAR if CONTCAR has already been populated.
+                if is_valid_poscar("CONTCAR", directory):
+                    actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
+                actions.append(algo_action)
 
         if "elf_kpar" in self.errors and vi["INCAR"].get("KPAR", 1) != 1:
             actions.append({"dict": "INCAR", "action": {"_set": {"KPAR": 1}}})
@@ -688,8 +903,8 @@ class VaspErrorHandler(ErrorHandler):
             # For bravais: VASP recommends refining the lattice parameters
             # or changing SYMPREC (default = 1e-5). See
             # https://www.vasp.at/forum/viewtopic.php?f=3&t=19109
-            # Appears to occur when SYMPREC is very low, so we change it to
-            # the default if it's not already. If it's the default, we x10.
+            # Following VASP's advice, we first reduce SYMPREC to 1e-6. If that
+            # fails, we turn off symmetry.
             # For ksymm, there's not much information about the issue other than the
             # direct and reciprocal meshes being incompatible.
             # This is basically the same as bravais
@@ -698,17 +913,20 @@ class VaspErrorHandler(ErrorHandler):
                 actions.append(
                     {"dict": "INCAR", "action": {"_set": {"SYMPREC": min(symprec / 10.0, vasp_recommended_symprec)}}}
                 )
-            elif vi["INCAR"].get("ISYM") > 0:  # Default ISYM is variable, but never 0
+            elif vi["INCAR"].get("ISYM", 2) > 0:  # Default ISYM is variable, but always > 0
                 actions.append({"dict": "INCAR", "action": {"_set": {"ISYM": 0}}})
 
         if "nbands_not_sufficient" in self.errors:
             outcar = load_outcar(os.path.join(directory, "OUTCAR"))
-            nelect = outcar.nelect
-            nions = len(vi["POSCAR"].structure)
+            nbands = self._default_nbands(vi["INCAR"], outcar.nelect, len(vi["POSCAR"].structure))
+            # Never lower an NBANDS the user set or VASP actually used.
+            used_nbands = self._get_nbands_from_outcar(directory) or 0
+            nbands = max(nbands, vi["INCAR"].get("NBANDS") or 0, used_nbands)
             ncore = vi["INCAR"].get("NCORE", 1)
-            default_nbands = round(max(nelect / 2 + nions / 2, nelect * 0.6))
-            default_nbands_adjusted = ceil(default_nbands / ncore) * ncore
-            actions.append({"dict": "INCAR", "action": {"_set": {"NBANDS": default_nbands_adjusted}}})
+            default_nbands_adjusted = ceil(nbands / ncore) * ncore
+            # Rerunning with the NBANDS that just failed would not help, so only act if it increases.
+            if default_nbands_adjusted > used_nbands:
+                actions.append({"dict": "INCAR", "action": {"_set": {"NBANDS": default_nbands_adjusted}}})
 
         if "set_core_wf" in self.errors:
             # Unfixable error where the solution is to update the POTCARs
@@ -737,7 +955,7 @@ class VaspErrorHandler(ErrorHandler):
 
         if "algo_tet" in self.errors:
             # NOTE: This is the algo_tet handler response.
-            algo = vi["INCAR"].get("ALGO", "Normal").lower()
+            algo = _get_algo(vi["INCAR"])
             # ALGO=All/Damped / IALGO=5X often fails with ISMEAR < 0. There are two options VASP
             # suggests: 1) Use ISMEAR = 0 (and a small sigma) to get the SCF to converge.
             # 2) Use ALGO = Damped but only *after* an ISMEAR = 0 run where the wavefunction
@@ -747,10 +965,11 @@ class VaspErrorHandler(ErrorHandler):
                 and vi["INCAR"].get("ISMEAR", 1) < 0
                 and self.error_count["algo_tet"] == 0
             ):
-                # first recovery attempt is to set ALGO to fast. Could fail again in which
-                # case we end up here again if some other handler switches algo back to all/damped.
-                # This time try the recovery below.
-                actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Fast"}}})
+                # first recovery attempt is to set ALGO to fast (normal for meta-GGAs and hybrids,
+                # consistent with the grad_not_orth fix that often accompanies this error). Could fail
+                # again in which case we end up here again if some other handler switches algo back to
+                # all/damped. This time try the recovery below.
+                actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": _fallback_algo(vi["INCAR"])}}})
             #
             # We will only hit the 2nd algo_tet error if the ALGO was changed back from Fast to All/Damped
             # by e.g. NonConvergingErrorHandler
@@ -767,6 +986,29 @@ class VaspErrorHandler(ErrorHandler):
 
         VaspModder(vi=vi, directory=directory).apply_actions(actions)
         return {"errors": list(self.errors), "actions": actions}
+
+    @staticmethod
+    def _default_nbands(incar: Incar, nelect: float, nions: int) -> int:
+        """Return the default NBANDS that VASP would use.
+
+        The base formula is from https://www.vasp.at/wiki/index.php/NBANDS. The wiki only says that the
+        spin-polarised default is increased for the initial magnetic moments; the floor((sum(MAGMOM) + 1) / 2)
+        term follows VASP's main.F (as in pymatgen's VaspInputSet.estimate_nbands). Noncollinear runs
+        (LNONCOLLINEAR or LSORBIT) double the default.
+        """
+        nbands = max(int(nelect + 2.5) // 2 + max(nions // 2, 3), int(0.6 * nelect))  # int(x + 0.5) is NINT
+        noncollinear = incar.get("LNONCOLLINEAR", False) or incar.get("LSORBIT", False)
+        if incar.get("ISPIN", 1) == 2 and not noncollinear:
+            magmom = incar.get("MAGMOM", [1.0] * nions)  # VASP default is 1 muB per ion
+            try:
+                total_mag = sum(float(m) for m in magmom)
+            except (TypeError, ValueError):
+                total_mag = 0.0
+            if np.isfinite(total_mag):
+                nbands += max(int((total_mag + 1) // 2), 0)
+        if noncollinear:
+            nbands *= 2
+        return nbands
 
     @staticmethod
     def _get_nbands_from_outcar(directory: str) -> int | None:
@@ -886,12 +1128,10 @@ class StdErrHandler(ErrorHandler):
         actions = []
         vi = VaspInput.from_directory(directory)
 
-        if "kpoints_trans" in self.errors and self.error_count["kpoints_trans"] == 0:
-            m = prod(vi["KPOINTS"].kpts[0])
-            m = max(round(m ** (1 / 3)), 1)
-            if vi["KPOINTS"] and vi["KPOINTS"].style.name.lower().startswith("m"):
-                m += m % 2
-            actions.append({"dict": "KPOINTS", "action": {"_set": {"kpoints": [[m] * 3]}}})
+        # Per the VASP wiki (Number_of_G-vectors_changed_in_the_star), the k-mesh is not the cause.
+        # Of the advised fixes, only switching off symmetry leaves the user's ENCUT and k-points intact.
+        if "kpoints_trans" in self.errors and vi["INCAR"].get("ISYM", 2) > 0:
+            actions.append({"dict": "INCAR", "action": {"_set": {"ISYM": 0}}})
             self.error_count["kpoints_trans"] += 1
 
         if "out_of_memory" in self.errors and vi["INCAR"].get("KPAR", 1) > 1:
@@ -899,7 +1139,7 @@ class StdErrHandler(ErrorHandler):
             actions.append({"dict": "INCAR", "action": {"_set": {"KPAR": reduced_kpar}}})
 
         if "grad_not_orth" in self.errors:
-            actions.extend(_correct_grad_not_orth(vi["INCAR"], self.errors))
+            actions.extend(_correct_grad_not_orth(vi["INCAR"], self.errors, self.error_count, directory))
 
         VaspModder(vi=vi, directory=directory).apply_actions(actions)
         return {"errors": list(self.errors), "actions": actions}
@@ -997,17 +1237,40 @@ class AliasingErrorHandler(ErrorHandler):
 
 
 class DriftErrorHandler(ErrorHandler):
-    """Corrects for total drift exceeding the force convergence criteria."""
+    """Corrects for total drift exceeding the force convergence criteria.
+
+    Drift is reduced by setting PREC = Accurate, which gives more accurate forces. If PREC is
+    already Accurate, the error is unrecoverable. PREC = High with ENAUG is not used, since
+    PREC = High is deprecated and ENAUG only has an effect with the deprecated PREC settings.
+    ADDGRID and ENCUT are never changed: VASP advises against setting ADDGRID by default, and
+    ENCUT is the user's choice of basis.
+    """
 
     def __init__(self, max_drift=None, to_average=3, enaug_multiply=2) -> None:
-        """Initialize the handler with max drift
+        """Initialize the handler with max drift.
+
         Args:
-            max_drift (float): This defines the max drift. Leaving this at the default of None gets the max_drift from
-                EDFIFFG.
+            max_drift (float): Max allowed drift in eV/Å. Leaving this at the default of None uses
+                -EDIFFG from the INCAR of the job being checked.
+            to_average (int): Number of most recent ionic steps over which the drift is averaged.
+            enaug_multiply (float): Deprecated and unused. Kept only so that serialized handlers
+                can still be loaded.
         """
         self.max_drift = max_drift
         self.to_average = int(to_average)
         self.enaug_multiply = enaug_multiply
+        if enaug_multiply != 2:
+            warnings.warn(
+                "enaug_multiply is deprecated and has no effect; DriftErrorHandler no longer adjusts ENAUG.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        # Effective max drift for the current job, recomputed on every check
+        self.curr_max_drift = max_drift
+
+    def _get_curr_drift(self, outcar) -> float:
+        drifts = outcar.data.get("drift", [])[::-1][: self.to_average]
+        return np.average([np.linalg.norm(dct) for dct in drifts])
 
     def check(self, directory="./"):
         """Check for error."""
@@ -1017,8 +1280,7 @@ class DriftErrorHandler(ErrorHandler):
             # NSW check prevents accidental effects when running DFPT
             return False
 
-        if not self.max_drift:
-            self.max_drift = incar["EDIFFG"] * -1
+        self.curr_max_drift = self.max_drift or -incar["EDIFFG"]
 
         try:
             outcar = load_outcar(os.path.join(directory, "OUTCAR"))
@@ -1030,45 +1292,28 @@ class DriftErrorHandler(ErrorHandler):
             # Ensure enough steps to get average drift
             return False
 
-        curr_drift = outcar.data.get("drift", [])[::-1][: self.to_average]
-        curr_drift = np.average([np.linalg.norm(dct) for dct in curr_drift])
-        return curr_drift > self.max_drift
+        return self._get_curr_drift(outcar) > self.curr_max_drift
 
     def correct(self, directory="./"):
         """Perform corrections."""
+        vi = VaspInput.from_directory(directory)
+        outcar = load_outcar(os.path.join(directory, "OUTCAR"))
+        errors = [f"Excessive drift {self._get_curr_drift(outcar)} > {self.curr_max_drift}"]
+
+        # PREC = Accurate is the only correction, so there is nothing left to try once it is set.
+        if str(vi["INCAR"].get("PREC", "Normal")).lower() == "accurate":
+            return {"errors": errors, "actions": None}
+
         backup(VASP_BACKUP_FILES, directory=directory)
         actions = []
-        vi = VaspInput.from_directory(directory)
-
-        incar = vi["INCAR"]
-        outcar = load_outcar(os.path.join(directory, "OUTCAR"))
-
         # Move CONTCAR to POSCAR if valid
         if is_valid_poscar("CONTCAR", directory):
             actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
+        # Denser FFT grid reduces egg-box effects and noise in the forces
+        actions.append({"dict": "INCAR", "action": {"_set": {"PREC": "Accurate"}}})
 
-        # Set PREC to High so ENAUG can be used to control Augmentation Grid Size
-        if incar.get("PREC", "Accurate").lower() != "high":
-            actions += [
-                {"dict": "INCAR", "action": {"_set": {"PREC": "High"}}},
-                {"dict": "INCAR", "action": {"_set": {"ENAUG": incar.get("ENCUT", 520) * 2}}},
-            ]
-        # PREC is already high and ENAUG set so just increase it
-        else:
-            actions.append(
-                {
-                    "dict": "INCAR",
-                    "action": {"_set": {"ENAUG": int(incar.get("ENAUG", 1040) * self.enaug_multiply)}},
-                }
-            )
-
-        curr_drift = outcar.data.get("drift", [])[::-1][: self.to_average]
-        curr_drift = np.average([np.linalg.norm(dct) for dct in curr_drift])
         VaspModder(vi=vi, directory=directory).apply_actions(actions)
-        return {
-            "errors": f"Excessive drift {curr_drift} > {self.max_drift}",
-            "actions": actions,
-        }
+        return {"errors": errors, "actions": actions}
 
 
 class MeshSymmetryErrorHandler(ErrorHandler):
@@ -1128,11 +1373,16 @@ class MeshSymmetryErrorHandler(ErrorHandler):
         """Perform corrections."""
         backup(VASP_BACKUP_FILES | {self.output_filename}, directory=directory)
         vi = VaspInput.from_directory(directory)
-        m = prod(vi["KPOINTS"].kpts[0])
-        m = max(round(m ** (1 / 3)), 1)
-        if vi["KPOINTS"] and vi["KPOINTS"].style.name.lower().startswith("m"):
-            m += m % 2
-        actions = [{"dict": "KPOINTS", "action": {"_set": {"kpoints": [[m] * 3]}}}]
+        kpoints = vi.get("KPOINTS")
+        # A Gamma-centred mesh with the same subdivisions preserves the lattice symmetry
+        # (only Gamma-centred meshes are safe for hexagonal and fcc cells). Failing that,
+        # switch off symmetry.
+        if kpoints is not None and kpoints.style == Kpoints.supported_modes.Monkhorst:
+            actions = [{"dict": "KPOINTS", "action": {"_set": {"generation_style": "Gamma"}}}]
+        elif vi["INCAR"].get("ISYM", 2) > 0:
+            actions = [{"dict": "INCAR", "action": {"_set": {"ISYM": 0}}}]
+        else:
+            return {"errors": ["mesh_symmetry"], "actions": None}
         VaspModder(vi=vi, directory=directory).apply_actions(actions)
         return {"errors": ["mesh_symmetry"], "actions": actions}
 
@@ -1164,7 +1414,7 @@ class UnconvergedErrorHandler(ErrorHandler):
     def correct(self, directory="./"):
         """Perform corrections."""
         v = load_vasprun(os.path.join(directory, self.output_filename))
-        algo = v.incar.get("ALGO", "Normal").lower()
+        algo = _get_algo(v.incar)
         actions = []
         errors = ["Unconverged"]
         if not v.converged_electronic:
@@ -1176,7 +1426,8 @@ class UnconvergedErrorHandler(ErrorHandler):
             if (
                 v.incar.get("ISMEAR", -1) >= 0
                 and v.incar.get("METAGGA", "--") != "--"
-                and (algo != "all" or (not 50 <= v.incar.get("IALGO", 38) <= 59))
+                and algo != "all"
+                and not 50 <= v.incar.get("IALGO", 38) <= 59
             ):
                 # If meta-GGA, go straight to Algo = All only if ISMEAR is greater or equal 0.
                 # Algo = All is recommended in the VASP manual and some meta-GGAs explicitly
@@ -1186,12 +1437,13 @@ class UnconvergedErrorHandler(ErrorHandler):
 
             # If a hybrid is used, do not set Algo = Fast or VeryFast. Hybrid calculations do not
             # support these algorithms, but no warning is printed.
+            # The ladder is All -> Damped. If ALGO is already Damped, fall through to the mixing settings below.
             if v.incar.get("LHFCALC", False):
                 if v.incar.get("ISMEAR", -1) >= 0 or not 50 <= v.incar.get("IALGO", 38) <= 59:
-                    if algo != "all":
+                    if algo not in {"all", "damped"}:
                         actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All", "ISEARCH": 1}}})
                     # See the VASP manual section on LHFCALC for more information.
-                    elif algo != "damped":
+                    elif algo == "all":
                         actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Damped", "TIME": 0.5}}})
                 else:
                     actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
@@ -1417,7 +1669,6 @@ class LargeSigmaHandler(ErrorHandler):
 
             completed_ionic_steps = len(outcar.data.get("completed_ionic_steps"))
             entropies_per_atom = [0.0 for _ in range(completed_ionic_steps)]
-            n_atoms = len(Structure.from_file(os.path.join(directory, "POSCAR")))
 
             electronic_step_indices = [step[0] for step in outcar.data.get("electronic_step_indices", [])]
             smearing_entropy = outcar.data.get("smearing_entropy", [0.0 for _ in electronic_step_indices])
@@ -1443,6 +1694,10 @@ class LargeSigmaHandler(ErrorHandler):
 
     def correct(self, directory="./"):
         """Perform corrections."""
+        # entropy_per_atom is set by check(); it is absent on a fresh or deserialized handler
+        if not hasattr(self, "entropy_per_atom"):
+            self.check(directory)
+
         backup(VASP_BACKUP_FILES, directory=directory)
         actions = []
         vi = VaspInput.from_directory(directory)
@@ -1451,16 +1706,24 @@ class LargeSigmaHandler(ErrorHandler):
 
         # From F.J. dos Santos and N. Marzari, Phys. Rev. B 107, 195122 (2023),
         # DOI: 10.1103/PhysRevB.107.195122, Eq. (19)
-        # When the smearing width is acceptably small, the electronic free energy
-        # F(sigma) \approx E(0) + gamma * sigma**2 / 2
-        # where E(0) = F(sigma --> 0) is the actual ground-state energy
-        # E_entropy(sigma) = gamma * sigma**2 / 2
-        # is the contribution electronic smearing entropy
-        # We can approximate the ``optimal'' sigma to reduce to via
-        # sigma_new = [E_entropy(new) / E_entropy(current) ]**(0.5) * sigma_current,
-        # Practically, E_entropy(new) = 1 meV/atom
+        # For Gaussian smearing (ISMEAR = 0) and small sigma, the electronic free energy is
+        # F(sigma) \approx E(0) - gamma * sigma**2 / 2
+        # where E(0) = F(sigma --> 0) is the actual ground-state energy, and the
+        # smearing entropy term T*S = sigma * S(sigma) scales as sigma**2.
+        # For Methfessel-Paxton smearing of order N = ISMEAR >= 1 (M. Methfessel and
+        # A.T. Paxton, Phys. Rev. B 40, 3616 (1989)), the broadening function has vanishing
+        # moments up to order 2N + 1, so S(sigma) = O(sigma**(2N + 1)) and
+        # T*S = O(sigma**(2N + 2)) (dos Santos and Marzari, Eqs. (12), (13) and (24): N = 1
+        # removes the terms linear and quadratic in sigma from S).
+        # Hence T*S \propto sigma**p with p = 2 for ISMEAR = 0 and p = 2N + 2 otherwise,
+        # and the ``optimal'' sigma to reduce to is approximately
+        # sigma_new = [E_entropy(new) / E_entropy(current) ]**(1 / p) * sigma_current,
+        # Practically, E_entropy(new) = e_entropy_tol (default 1 meV/atom), with a 0.8 safety factor
         if sigma > self.min_sigma:
-            updated_sigma = max(self.min_sigma, 0.8 * (self.e_entropy_tol / self.entropy_per_atom) ** (0.5) * sigma)
+            exponent = 2 * ismear + 2
+            updated_sigma = max(
+                self.min_sigma, 0.8 * (self.e_entropy_tol / self.entropy_per_atom) ** (1 / exponent) * sigma
+            )
             actions.append(
                 {
                     "dict": "INCAR",
@@ -1510,7 +1773,7 @@ class PotimErrorHandler(ErrorHandler):
         """Check for error."""
         try:
             oszicar = Oszicar(os.path.join(directory, self.output_filename))
-            n = len(Poscar.from_file(self.input_filename).structure)
+            n = len(Poscar.from_file(os.path.join(directory, self.input_filename)).structure)
             max_dE = max(s["dE"] for s in oszicar.ionic_steps[1:]) / n
             if max_dE > self.dE_threshold:
                 return True
@@ -1520,17 +1783,18 @@ class PotimErrorHandler(ErrorHandler):
 
     def correct(self, directory="./"):
         """Perform corrections."""
-        backup(VASP_BACKUP_FILES, directory=directory)
         vi = VaspInput.from_directory(directory)
         potim = vi["INCAR"].get("POTIM", 0.5)
         ibrion = vi["INCAR"].get("IBRION", 0)
         if potim < 0.2 and ibrion != 3:
             actions = [{"dict": "INCAR", "action": {"_set": {"IBRION": 3, "SMASS": 0.75}}}]
         elif potim < 0.1:
-            actions = [{"dict": "INCAR", "action": {"_set": {"SYMPREC": 1e-8}}}]
+            # Already on damped MD with a tiny POTIM. Nothing left to try.
+            return {"errors": ["POTIM"], "actions": None}
         else:
             actions = [{"dict": "INCAR", "action": {"_set": {"POTIM": potim * 0.5}}}]
 
+        backup(VASP_BACKUP_FILES, directory=directory)
         VaspModder(vi=vi, directory=directory).apply_actions(actions)
         return {"errors": ["POTIM"], "actions": actions}
 
@@ -1538,7 +1802,8 @@ class PotimErrorHandler(ErrorHandler):
 class FrozenJobErrorHandler(ErrorHandler):
     """
     Detects an error when the output file has not been updated
-    in timeout seconds. Changes ALGO to Normal from Fast.
+    in timeout seconds. Changes ALGO to Normal from Fast. Otherwise, for
+    ionic runs, restarts from CONTCAR so that ionic progress is kept.
     """
 
     is_monitor = True
@@ -1553,7 +1818,7 @@ class FrozenJobErrorHandler(ErrorHandler):
                 default redirect used by :class:`custodian.vasp.jobs.VaspJob`.
             timeout (int): The time in seconds between checks where if there
                 is no activity on the output file, the run is considered
-                frozen. Defaults to 3600 seconds, i.e., 1 hour.
+                frozen. Defaults to 21600 seconds, i.e., 6 hours.
         """
         self.output_filename = output_filename
         self.timeout = timeout
@@ -1567,15 +1832,18 @@ class FrozenJobErrorHandler(ErrorHandler):
 
     def correct(self, directory="./"):
         """Perform corrections."""
-        backup(VASP_BACKUP_FILES | {self.output_filename}, directory=directory)
-
         vi = VaspInput.from_directory(directory)
         actions = []
-        if vi["INCAR"].get("ALGO", "Normal").lower() == "fast":
+        if _get_algo(vi["INCAR"]) == "fast":
             actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
+        elif vi["INCAR"].get("NSW", 0) > 0 and is_valid_poscar("CONTCAR", directory):
+            # Restart from the last geometry to keep ionic progress.
+            actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
         else:
-            actions.append({"dict": "INCAR", "action": {"_set": {"SYMPREC": 1e-8}}})
+            # Unfixable error. Just return None for actions.
+            return {"errors": ["Frozen job"], "actions": None}
 
+        backup(VASP_BACKUP_FILES | {self.output_filename}, directory=directory)
         VaspModder(vi=vi, directory=directory).apply_actions(actions)
 
         return {"errors": ["Frozen job"], "actions": actions}
@@ -1622,16 +1890,14 @@ class NonConvergingErrorHandler(ErrorHandler):
     def correct(self, directory="./"):
         """Perform corrections."""
         incar = (vi := VaspInput.from_directory(directory))["INCAR"]
-        algo = incar.get("ALGO", "Normal").lower()
+        algo = _get_algo(incar)
         amix = incar.get("AMIX", 0.4)
         bmix = incar.get("BMIX", 1.0)
         amin = incar.get("AMIN", 0.1)
         actions = []
 
         # NOTE: This is the algo_tet handler response.
-        if (
-            incar.get("ALGO", "Normal").lower() in {"all", "damped"} or (50 <= incar.get("IALGO", 38) <= 59)
-        ) and incar.get("ISMEAR", 1) < 0:
+        if (algo in {"all", "damped"} or (50 <= incar.get("IALGO", 38) <= 59)) and incar.get("ISMEAR", 1) < 0:
             # ALGO=All/Damped / IALGO=5X often fails with ISMEAR < 0. There are two options VASP
             # suggests: 1) Use ISMEAR = 0 (and a small sigma) to get the SCF to converge.
             # 2) Use ALGO = Damped but only *after* an ISMEAR = 0 run where the wavefunction
@@ -1657,8 +1923,13 @@ class NonConvergingErrorHandler(ErrorHandler):
         # support these algorithms, but no warning is printed.
         # If meta-GGA, go straight to Algo = All. Algo = All is recommended in the VASP
         # manual and some meta-GGAs explicitly say to set Algo = All for proper convergence.
+        # Damped is the preferred algorithm for hybrids, so don't switch it back to All (this
+        # would also fight UnconvergedErrorHandler, which moves hybrids from All to Damped).
         # I am using "none" here because METAGGA is a string variable and this is the default
-        if (incar.get("LHFCALC", False) or incar.get("METAGGA", "none").lower() != "none") and algo != "all":
+        if (incar.get("LHFCALC", False) or incar.get("METAGGA", "none").lower() != "none") and algo not in {
+            "all",
+            "damped",
+        }:
             actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All", "ISEARCH": 1}}})
 
         # Ladder from VeryFast to Fast to Normal to All
@@ -1768,14 +2039,10 @@ class WalltimeHandler(ErrorHandler):
         # future jobs in the same batch environment.  Can also be
         # set manually be the user in the batch environment.
         if "CUSTODIAN_WALLTIME_START" in os.environ:
-            self.start_time = datetime.datetime.strptime(
-                os.environ["CUSTODIAN_WALLTIME_START"], "%a %b %d %H:%M:%S %Z %Y"
-            )
+            self.start_time = dt.datetime.strptime(os.environ["CUSTODIAN_WALLTIME_START"], "%a %b %d %H:%M:%S %Z %Y")
         else:
-            self.start_time = datetime.datetime.now()
-            os.environ["CUSTODIAN_WALLTIME_START"] = datetime.datetime.strftime(
-                self.start_time, "%a %b %d %H:%M:%S UTC %Y"
-            )
+            self.start_time = dt.datetime.now()
+            os.environ["CUSTODIAN_WALLTIME_START"] = dt.datetime.strftime(self.start_time, "%a %b %d %H:%M:%S UTC %Y")
 
         self.electronic_step_stop = electronic_step_stop
         self.electronic_steps_timings = [0]
@@ -1784,7 +2051,7 @@ class WalltimeHandler(ErrorHandler):
     def check(self, directory="./") -> bool:
         """Check for error."""
         if self.wall_time:
-            run_time = datetime.datetime.now() - self.start_time
+            run_time = dt.datetime.now() - self.start_time
             total_secs = run_time.total_seconds()
             try:
                 outcar = load_outcar(os.path.join(directory, "OUTCAR"))
@@ -1845,19 +2112,19 @@ class CheckpointHandler(ErrorHandler):
             Defaults to 3600 (1 hr).
         """
         self.interval = interval
-        self.start_time = datetime.datetime.now()
+        self.start_time = dt.datetime.now()
         self.chk_counter = 0
 
     def check(self, directory="./"):
         """Check for error."""
-        run_time = datetime.datetime.now() - self.start_time
+        run_time = dt.datetime.now() - self.start_time
         total_secs = run_time.seconds + run_time.days * 3600 * 24
         return total_secs > self.interval
 
     def correct(self, directory="./"):
         """Perform corrections."""
         content = "LSTOP = .TRUE."
-        chkpt_content = f'Index: {self.chk_counter}\nTime: "{datetime.datetime.now()}"'
+        chkpt_content = f'Index: {self.chk_counter}\nTime: "{dt.datetime.now()}"'
         self.chk_counter += 1
 
         # Write STOPCAR
@@ -1874,7 +2141,7 @@ class CheckpointHandler(ErrorHandler):
             modder.modify(action["action"], action["file"])
 
         # Reset the clock.
-        self.start_time = datetime.datetime.now()
+        self.start_time = dt.datetime.now()
 
         return {"errors": ["Checkpoint reached"], "actions": actions}
 
@@ -1957,8 +2224,8 @@ class PositiveEnergyErrorHandler(ErrorHandler):
         """Perform corrections."""
         # change ALGO = Fast to Normal if ALGO is !Normal
         vi = VaspInput.from_directory(directory)
-        algo = vi["INCAR"].get("ALGO", "Normal").lower()
-        if algo not in {"normal", "n"}:
+        algo = _get_algo(vi["INCAR"])
+        if algo != "normal":
             backup(VASP_BACKUP_FILES | {self.output_filename}, directory=directory)
             actions = [{"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}}]
             VaspModder(vi=vi, directory=directory).apply_actions(actions)

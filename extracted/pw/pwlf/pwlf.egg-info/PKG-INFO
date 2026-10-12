@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pwlf
-Version: 2.6.0
+Version: 2.7.0
 Summary: fit piecewise linear functions to data
 Author-email: Charles Jekel <cjekel@gmail.com>
 License: MIT License
@@ -17,6 +17,9 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: numpydoc; extra == "dev"
 Dynamic: license-file
 
 # About

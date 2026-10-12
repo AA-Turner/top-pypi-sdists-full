@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 2.24.5
+Version: 2.24.9
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Nouamane Tazi <nouamane@huggingface.co>, Nils Reimers <info@nils-reimers.de>
 Maintainer-email: Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Roman Solomatin <risolomatin@gmail.com>, Isaac Chung <chungisaac1217@gmail.com>
@@ -123,6 +123,8 @@ Requires-Dist: bm25s>=0.2.6; extra == "bm25s"
 Requires-Dist: PyStemmer>=2.2.0.3; extra == "bm25s"
 Provides-Extra: boto3
 Requires-Dist: boto3>=1.34.0; extra == "boto3"
+Provides-Extra: av
+Requires-Dist: av>=17.0.0; extra == "av"
 Provides-Extra: gritlm
 Requires-Dist: gritlm>=1.0.2; extra == "gritlm"
 Provides-Extra: xformers
@@ -142,7 +144,7 @@ Requires-Dist: cohere==5.14.0; extra == "cohere"
 Provides-Extra: vertexai
 Requires-Dist: vertexai==1.71.1; extra == "vertexai"
 Provides-Extra: google-genai
-Requires-Dist: google-genai>=1.7.0; extra == "google-genai"
+Requires-Dist: google-genai>=1.72.0; extra == "google-genai"
 Provides-Extra: octen
 Requires-Dist: octen>=0.4.0; extra == "octen"
 Provides-Extra: llm2vec
@@ -217,6 +219,7 @@ Provides-Extra: muq
 Requires-Dist: muq==0.1.0; extra == "muq"
 Provides-Extra: wav2clip
 Requires-Dist: wav2clip==0.1.0; extra == "wav2clip"
+Requires-Dist: accelerate>=0.26.0; extra == "wav2clip"
 Provides-Extra: fusion-embedding
 Requires-Dist: librosa>=0.10.0; extra == "fusion-embedding"
 Requires-Dist: soundfile>=0.13.1; extra == "fusion-embedding"
@@ -282,6 +285,25 @@ Requires-Dist: transformers<4.52.0; extra == "gme"
 Provides-Extra: imagebind
 Requires-Dist: imagebind-unofficial>=0.1.0; extra == "imagebind"
 Requires-Dist: soundfile>=0.13.1; extra == "imagebind"
+Requires-Dist: einops>=0.8.0; extra == "imagebind"
+Requires-Dist: setuptools<81; extra == "imagebind"
+Provides-Extra: speecht5
+Requires-Dist: sentencepiece>=0.2.0; extra == "speecht5"
+Provides-Extra: seamless-m4t
+Requires-Dist: sentencepiece>=0.2.0; extra == "seamless-m4t"
+Requires-Dist: protobuf>=3.0.0; extra == "seamless-m4t"
+Provides-Extra: audio-flamingo-3
+Requires-Dist: accelerate>=0.26.0; extra == "audio-flamingo-3"
+Provides-Extra: bidirlm-omni
+Requires-Dist: librosa>=0.10.0; extra == "bidirlm-omni"
+Provides-Extra: viclip
+Requires-Dist: einops>=0.8.0; extra == "viclip"
+Requires-Dist: timm<1.1.0,>=1.0.15; extra == "viclip"
+Requires-Dist: ftfy>=6.0; extra == "viclip"
+Requires-Dist: regex; extra == "viclip"
+Requires-Dist: fvcore; extra == "viclip"
+Requires-Dist: setuptools<81; extra == "viclip"
+Requires-Dist: transformers<5; extra == "viclip"
 Dynamic: license-file
 
 <h1 align="center">

@@ -3049,6 +3049,12 @@ def _generate_breakpoint_plots(df_pred_store, dir_outlook, parser):
 
     obs_col = "Yield (tn per ha)"  # stats-CSV column name
 
+    # Kill switch for environments where Rbeast misbehaves (the figure is
+    # a diagnostic; nothing downstream reads it).
+    if not parser.getboolean("BEAST", "breakpoint_plots", fallback=True):
+        logger.info("Breakpoint diagnostics skipped ([BEAST] breakpoint_plots = False)")
+        return
+
     country_crop_set = set()
     for (country, crop, _model) in df_pred_store.keys():
         if country == "pooled":
@@ -3089,6 +3095,7 @@ def _generate_breakpoint_plots(df_pred_store, dir_outlook, parser):
             continue
 
         results = {}
+        failures = []  # (region, exc): logged once per country/crop
         for region, yr in series_by_region.items():
             try:
                 intercept, slope, cp_used, n_used = _trend.segment_aware_trend(
@@ -3099,7 +3106,8 @@ def _generate_breakpoint_plots(df_pred_store, dir_outlook, parser):
                     tseg_minlength=tseg_minlength,
                     mcmc_seed=mcmc_seed,
                 )
-            except Exception:
+            except Exception as exc:  # noqa: BLE001
+                failures.append((region, exc))
                 continue
             results[region] = {
                 "yields": yr,
@@ -3109,6 +3117,13 @@ def _generate_breakpoint_plots(df_pred_store, dir_outlook, parser):
                 "n_used": n_used,
             }
 
+        if failures:
+            region, exc = failures[0]
+            logger.warning(
+                f"Breakpoint diagnostics {country}/{crop}: {len(failures)} of "
+                f"{len(series_by_region)} region(s) skipped; first failure "
+                f"{region}: {type(exc).__name__}: {exc}"
+            )
         if not results:
             continue
 
@@ -3761,6 +3776,8 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
                     ("area_pct_of_country", "Region % of country area"),
                     ("obs_yield_5yr_mean", f"Mean obs yield ({yield_units})"),
                 ]
+                if not diag.is_production_share_shown():
+                    _row_dims = [d for d in _row_dims if d[0] != "area_pct_of_country"]
                 if is_production_share_shown():
                     _row_dims.insert(
                         1,
@@ -3885,10 +3902,14 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
                 if area_pct:
                     order = sorted(pivot.index, key=lambda r: area_pct.get(r, 0))
                     pivot = pivot.reindex(order)
-                    pivot.index = [
-                        f"{r} ({area_pct[r]:.1f}%)" if r in area_pct else r
-                        for r in pivot.index
-                    ]
+                    # Region-share labels follow [ML] show_production_share, as the
+                    # perc_area maps in analysis.py already do: poppy's area statistics
+                    # are not split for South-Western, so its shares mislead.
+                    if diag.is_production_share_shown():
+                        pivot.index = [
+                            f"{r} ({area_pct[r]:.1f}%)" if r in area_pct else r
+                            for r in pivot.index
+                        ]
                 # Rename columns to include national metric
                 # Use consistent model colors
                 bar_colors = [_MODEL_COLORS.get(m, "steelblue") for m in pivot.columns]
@@ -5474,6 +5495,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     reference_value_col="Observed Yield (tn per ha)",
                     reference_label=obs_label,
                     production_pct=prod_pct,
+                    yield_units=_yield_display_for(parser, crop)[0],
                 )
 
                 # Per-region tabular summary (same ordering as the forest
@@ -5693,7 +5715,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 )
 
             # % of national crop area — choropleth (mirrors analysis.py's perc_area map)
-            area_pct = diag.compute_area_pct(df, country)
+            area_pct = diag.compute_area_pct(df, country) if diag.is_production_share_shown() else {}
             if area_pct:
                 df_area_pct = pd.DataFrame(
                     [{"Region": r, "% of National Area (ha)": v}

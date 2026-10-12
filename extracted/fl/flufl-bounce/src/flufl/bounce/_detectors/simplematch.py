@@ -3,14 +3,14 @@
 import re
 
 from email.iterators import body_line_iterator
-from email.quoprimime import unquote
 from email.message import Message
+from email.quoprimime import unquote
 from enum import Enum
 from typing import AnyStr
 
 from public import public
 
-from flufl.bounce.interfaces import NoTemporaryFailures, Recipients
+from flufl.bounce._interfaces import NoTemporaryFailures, Recipients
 
 
 class ParseState(Enum):
@@ -23,11 +23,10 @@ def _unquote_match(match: re.Match[str]) -> str:
 
 
 def _quopri_decode(address: str) -> bytes:
-    # Some addresses come back with quopri encoded spaces.  This will decode
-    # them and strip the spaces.  We can't use the undocumebted
-    # email.quoprimime.header_decode() because that also turns underscores
-    # into spaces, which is not good for us.  Instead we'll use the
-    # undocumented email.quoprimime.unquote().
+    # Some addresses come back with quopri encoded spaces.  This will decode them and strip the
+    # spaces.  We can't use the undocumented email.quoprimime.header_decode() because that also
+    # turns underscores into spaces, which is not good for us.  Instead we'll use the undocumented
+    # email.quoprimime.unquote().
     #
     # For compatibility with Python 3, the API requires byte addresses.
     unquoted = re.sub('=[a-fA-F0-9]{2}', _unquote_match, address)
@@ -49,11 +48,10 @@ VALID = _c(rb'^[\x21-\x3d\x3f\x41-\x7e]+@[a-z0-9._]+$')
 #
 #     (start cre, end cre, address cre)
 #
-# where 'cre' means compiled regular expression, start is the line just before
-# the bouncing address block, end is the line just after the bouncing address
-# block, and address cre is the regexp that will recognize the addresses.  It
-# must have a group called 'addr' which will contain exactly and only the
-# address that bounced.
+# where 'cre' means compiled regular expression, start is the line just before the bouncing address
+# block, end is the line just after the bouncing address block, and address cre is the regexp that
+# will recognize the addresses.  It must have a group called 'addr' which will contain exactly and
+# only the address that bounced.
 PATTERNS = [
     # sdm.de
     (
@@ -146,11 +144,10 @@ PATTERNS = [
     # thehartford.com / songbird
     (
         _c(r'Del(i|e)very to the following recipients (failed|was aborted)'),
-        # this one may or may not have the original message, but there's nothing
-        # unique to stop on, so stop on the first line of at least 3 characters
-        # that doesn't start with 'D' (to not stop immediately) and has no '@'.
-        # Also note that simple_30.txt contains an apparent misspelling in the
-        # MTA's DSN section.
+        # this one may or may not have the original message, but there's nothing unique to stop on,
+        # so stop on the first line of at least 3 characters that doesn't start with 'D' (to not
+        # stop immediately) and has no '@'.  Also note that simple_30.txt contains an apparent
+        # misspelling in the MTA's DSN section.
         _c(r'^[^D][^@]{2,}$'),
         _c(r'^[\s*]*(?P<addr>[^\s@]+@[^\s@]+)\s*$'),
     ),
@@ -232,7 +229,7 @@ PATTERNS = [
         _c(r'\s*Error Type'),
         _c(r'^(?P<addr>[^\s@]+@[^\s@<>]+)'),
     ),
-    # xxx.com (simple_36.txt)
+    # Domain xxx.com (simple_36.txt)
     (
         _c(r'Could not deliver message to the following recipient'),
         _c(r'\s*-- The header'),
@@ -297,13 +294,11 @@ class SimpleMatch:
         """See `BounceDetector`."""
         addresses: set[bytes] = set()
         new_addresses: set[bytes] = set()
-        # MAS: This is a mess. The outer loop used to be over the message
-        # so we only looped through the message once.  Looping through the
-        # message for each set of patterns is obviously way more work, but
-        # if we don't do it, problems arise because scre from the wrong
-        # pattern set matches first and then acre doesn't match.  The
-        # alternative is to split things into separate modules, but then
-        # we process the message multiple times anyway.
+        # MAS: This is a mess.  The outer loop used to be over the message so we only looped through
+        # the message once.  Looping through the message for each set of patterns is obviously way
+        # more work, but if we don't do it, problems arise because scre from the wrong pattern set
+        # matches first and then acre doesn't match.  The alternative is to split things into
+        # separate modules, but then we process the message multiple times anyway.
         for scre, ecre, acre in self.PATTERNS:
             state = ParseState.start
             for line in body_line_iterator(msg):

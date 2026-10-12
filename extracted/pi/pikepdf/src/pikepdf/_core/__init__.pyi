@@ -62,6 +62,7 @@ from pikepdf._core._exceptions import (
     PasswordError,
     PdfError,
     PikepdfError,
+    QpdfRuntimeError,
     ReferenceCycleError,
 )
 from pikepdf._core._job import (
@@ -180,6 +181,13 @@ from pikepdf._core._transcoding import (
     _unpack_subbyte_2bit,
     _unpack_subbyte_4bit,
 )
+from pikepdf._core._traversal import (
+    ObjectSet,
+    _action_chain,
+    _ContentScopeKind,
+    _ContentScopeWalk,
+    _reachable_objects,
+)
 from pikepdf._core._typing import (
     Numeric,
     T,
@@ -196,6 +204,10 @@ __all__ = [
     '_get_explicit_conversion_mode',
     '_get_qpdf_global',
     '_NameObjectMeta',
+    '_action_chain',
+    '_ContentScopeKind',
+    '_ContentScopeWalk',
+    '_reachable_objects',
     '_NamePath',
     '_NamePathMeta',
     '_new_array',
@@ -267,6 +279,7 @@ __all__ = [
     'Numeric',
     'Object',
     'ObjectHelper',
+    'ObjectSet',
     'ObjectStreamMode',
     'ObjectType',
     'Operator',
@@ -277,6 +290,7 @@ __all__ = [
     'pdf_doc_to_utf8',
     'PdfError',
     'PikepdfError',
+    'QpdfRuntimeError',
     'qpdf_version',
     'Real',
     'Rectangle',

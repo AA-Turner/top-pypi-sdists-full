@@ -5916,13 +5916,15 @@ def test_the_settings_screen_offers_no_part_of_probe_to_turn_off():
     a row per part is how devices ended up running half of it -- so none of
     those words may come back, and every drawn row is automatic updates or a
     "Who records" row -- or the reasoning row beside them, the
-    agents' own setting for the daemon rather than a part of Probe."""
+    agents' own setting for the daemon rather than a part of Probe -- or the
+    research plan review, which turns off one routing line in the block, not
+    the block (Richard 2026-10-11)."""
     _, control, rows = _built_menu()
 
     rendered = "".join(t[1] for t in control._get_choice_tokens())
     for part in ("CLI + MCP", "Session capture", "Rules in your global"):
         assert part not in rendered, f"{part!r} is back on the settings screen"
-    assert set(rows) == {setup.Setting.AUTO_UPDATE}
+    assert set(rows) == {setup.Setting.AUTO_UPDATE, setup.Setting.PLAN_REVIEW}
     assert setup.Setting.TRACKING_DEFAULT not in rows, "the default lives on the main menu"
     assert not set(rows) & set(setup.RECORDER_SETTINGS), "so does Who records (Richard 2026-09-29)"
 
@@ -6728,9 +6730,9 @@ def test_the_picker_answer_becomes_a_full_settings_map(isolate, monkeypatch):
     current = _settings_defaults()
 
     monkeypatch.setattr(tui, "ask", lambda q, height=None: [setup.Setting.AUTO_UPDATE])
-    assert setup.run_settings_menu(current) == {setup.Setting.AUTO_UPDATE: True}
+    assert setup.run_settings_menu(current) == {setup.Setting.AUTO_UPDATE: True, setup.Setting.PLAN_REVIEW: False}
     monkeypatch.setattr(tui, "ask", lambda q, height=None: [])
-    assert setup.run_settings_menu(current) == {setup.Setting.AUTO_UPDATE: False}
+    assert setup.run_settings_menu(current) == {setup.Setting.AUTO_UPDATE: False, setup.Setting.PLAN_REVIEW: False}
 
     monkeypatch.setattr(tui, "ask", lambda q, height=None: [setup.Setting.REASONING_SUMMARIES])
     assert setup.run_settings_menu(current, groups=setup.DAEMON_GROUPS) == {
@@ -8414,3 +8416,151 @@ def test_a_new_agent_never_opens_a_browser_to_join_the_daemon(monkeypatch):
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: "/libs")
     lines = wizard.follow_machine_recorder("kimi_code", _caps(), base_url="https://api.test")
     assert lines and "Who records" in lines[0]
+
+
+# --- Research plan review (Richard 2026-10-11) -------------------------------
+
+
+def test_the_research_plan_review_row_is_short_and_on_by_default():
+    """One title, one detail line, the "Automatic updates" row's shape; in its
+    own group on the settings screen and nowhere in the install."""
+    title, detail = setup.SETTINGS_COPY[setup.Setting.PLAN_REVIEW]
+    assert title == "Research plan review"
+    assert detail == ("Your agent plans with you before writing research code.",)
+    assert len(detail[0]) <= 60
+    assert ("Planning", (setup.Setting.PLAN_REVIEW,)) in setup.SETTINGS_GROUPS
+    assert setup.Setting.PLAN_REVIEW not in setup.MENU_SETTINGS
+    assert setup.read_settings()[setup.Setting.PLAN_REVIEW] is True
+
+
+def _probe_block(path, *, profile=None, version=None):
+    from probe.cli import agent_rules
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("# mine\n\n" + agent_rules.render_block(
+        profile=profile or agent_rules.Profile.AGENT,
+        version=agent_rules.POINTER_VERSION if version is None else version))
+
+
+def test_turning_research_plan_review_off_and_on_rewrites_every_probe_block(isolate, monkeypatch):
+    from probe.cli import agent_rules
+    from probe.sdk import session_marker
+
+    claude = isolate / "claude" / "CLAUDE.md"
+    codex = isolate / "codex" / "AGENTS.md"
+    pi = isolate / "pi-agent" / "AGENTS.md"
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude.parent))
+    monkeypatch.setenv("CODEX_HOME", str(codex.parent))
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(pi.parent))
+    _probe_block(claude)
+    _probe_block(codex, profile=agent_rules.Profile.DAEMON)
+    # pi never had the block: absent is that agent's opt-out and stays absent
+
+    lines = setup.apply_settings({setup.Setting.PLAN_REVIEW: False})
+    assert lines == ["Research plan review → off"]
+    assert session_marker.plan_review_on() is False
+    for path in (claude, codex):
+        text = path.read_text()
+        assert text.startswith("# mine\n")
+        assert "Before writing code for ML research" not in text
+        assert "only when the researcher asks for it" in text
+    assert agent_rules.installed_profile(codex) == agent_rules.Profile.DAEMON, "the profile is kept"
+    assert not pi.exists()
+
+    assert setup.apply_settings({setup.Setting.PLAN_REVIEW: True}) == ["Research plan review → on"]
+    for path, profile in ((claude, agent_rules.Profile.AGENT), (codex, agent_rules.Profile.DAEMON)):
+        text = path.read_text()
+        assert agent_rules.PLAN_REVIEW_PARAGRAPHS[profile] in text
+        assert agent_rules.PLAN_REVIEW_OFF_PARAGRAPHS[profile] not in text
+        assert "only when the researcher asks for it" not in text
+    assert not pi.exists()
+
+
+def test_research_plan_review_leaves_a_newer_clis_block_alone(isolate, monkeypatch):
+    from probe.cli import agent_rules
+
+    claude = isolate / "claude" / "CLAUDE.md"
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude.parent))
+    _probe_block(claude, version=agent_rules.POINTER_VERSION + 1)
+    before = claude.read_text()
+    lines = setup.apply_settings({setup.Setting.PLAN_REVIEW: False})
+    assert claude.read_text() == before
+    assert any(line.startswith("! left") and "newer Probe CLI" in line for line in lines), lines
+
+
+def test_research_plan_review_keeps_every_block_when_the_setting_cannot_be_saved(isolate, monkeypatch):
+    """Config first, blocks second: a failed save must not leave blocks saying
+    off while the config still says on."""
+    from probe.sdk import session_marker
+
+    claude = isolate / "claude" / "CLAUDE.md"
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude.parent))
+    _probe_block(claude)
+    before = claude.read_text()
+
+    def unwritable(on):
+        raise OSError("read-only config")
+
+    monkeypatch.setattr(session_marker, "write_plan_review", unwritable)
+    lines = setup.apply_settings({setup.Setting.PLAN_REVIEW: False})
+    assert lines == ["! could not set Research plan review: read-only config"]
+    assert claude.read_text() == before
+
+
+def test_research_plan_review_reports_a_damaged_block_and_still_rewrites_the_rest(isolate, monkeypatch):
+    from probe.cli import agent_rules
+
+    claude = isolate / "claude" / "CLAUDE.md"
+    codex = isolate / "codex" / "AGENTS.md"
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude.parent))
+    monkeypatch.setenv("CODEX_HOME", str(codex.parent))
+    claude.parent.mkdir(parents=True, exist_ok=True)
+    claude.write_text(f"{agent_rules.BEGIN_MARKER}\n<!-- v{agent_rules.POINTER_VERSION} -->\nno end marker\n")
+    damaged = claude.read_text()
+    _probe_block(codex)
+
+    lines = setup.apply_settings({setup.Setting.PLAN_REVIEW: False})
+    assert any(line.startswith("! left") and "CLAUDE.md" in line for line in lines), lines
+    assert claude.read_text() == damaged
+    assert "Before writing code for ML research" not in codex.read_text()
+
+
+def test_research_plan_review_upgrades_an_older_block(isolate, monkeypatch):
+    from probe.cli import agent_rules
+
+    claude = isolate / "claude" / "CLAUDE.md"
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude.parent))
+    _probe_block(claude, version=agent_rules.POINTER_VERSION - 1)
+    setup.apply_settings({setup.Setting.PLAN_REVIEW: False})
+    assert agent_rules.installed_version(claude) == agent_rules.POINTER_VERSION
+    assert agent_rules.PLAN_REVIEW_OFF_PARAGRAPHS[agent_rules.Profile.AGENT] in claude.read_text()
+
+
+def test_research_plan_review_says_when_no_agent_has_the_instructions(isolate, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(isolate / "claude"))
+    monkeypatch.setenv("CODEX_HOME", str(isolate / "codex"))
+    lines = setup.apply_settings({setup.Setting.PLAN_REVIEW: False})
+    assert lines[0] == "Research plan review → off"
+    assert any("changes nothing yet" in line for line in lines), lines
+
+
+def test_research_plan_review_renders_what_the_config_holds_not_its_argument(isolate, monkeypatch):
+    """Two toggles racing: the one that renders last must write the PERSISTED
+    value, or the file and the config disagree for good."""
+    from probe.cli import agent_rules
+    from probe.sdk import session_marker
+
+    claude = isolate / "claude" / "CLAUDE.md"
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude.parent))
+    _probe_block(claude)
+    real_write = session_marker.write_plan_review
+
+    def racing_write(on):
+        path = real_write(on)
+        real_write(not on)  # another toggle lands between our save and our render
+        return path
+
+    monkeypatch.setattr(session_marker, "write_plan_review", racing_write)
+    setup.apply_settings({setup.Setting.PLAN_REVIEW: False})
+    assert session_marker.plan_review_on() is True
+    assert agent_rules.PLAN_REVIEW_PARAGRAPHS[agent_rules.Profile.AGENT] in claude.read_text()

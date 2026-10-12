@@ -5,7 +5,7 @@ backend-path = ["."]
 
 [project]
 name = "kolo"
-version = "3.5.0"
+version = "3.6.0"
 description = "Kolo is a text-based Python debugger for AI agents. Capture every executed function call, return value, local variable, HTTP request, and more in greppable trace files."
 readme = "README.md"
 authors = [{ name = "Wilhelm Klopp", email = "team@kolo.app" }]
@@ -91,6 +91,11 @@ features = ["pyo3/extension-module"]
 profile = "release"
 module-name = "kolo._kolo"
 include = ["kolo/web/static/**/*"]
+# Wheels and benchmark builds pass `--pgo` (see .github/workflows): maturin
+# builds an instrumented extension, runs this in a temporary virtualenv and
+# rebuilds with the recorded profile. Needs maturin >= 1.15 and the
+# `llvm-tools` rustup component. A plain build ignores it.
+pgo-command = "python scripts/pgo_train.py"
 
 [tool.coverage.paths]
 # Normalize paths from different CI runners to canonical 'src' directory

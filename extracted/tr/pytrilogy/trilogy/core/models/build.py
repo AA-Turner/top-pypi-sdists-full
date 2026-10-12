@@ -1405,26 +1405,6 @@ class BuildConcept(Addressable, BuildConceptArgs, DataTyped):
         """`spellings` widened to the pseudonym class: any name of the value."""
         return {self.address, self.canonical_address, *self.pseudonyms}
 
-    def with_materialized_source(self) -> Self:
-
-        return self.__class__(
-            name=self.name,
-            canonical_name=self.canonical_name,
-            datatype=self.datatype,
-            purpose=self.purpose,
-            metadata=self.metadata,
-            lineage=None,
-            grain=self.grain,
-            namespace=self.namespace,
-            keys=self.keys,
-            modifiers=self.modifiers,
-            pseudonyms=self.pseudonyms,
-            ## bound
-            derivation=Derivation.ROOT,
-            granularity=self.granularity,
-            build_is_aggregate=self.build_is_aggregate,
-        )
-
     def with_grain(self, grain: BuildGrain | None = None) -> Self:
         grain = grain if grain else DEFAULT_GRAIN
         if grain == self.grain:
@@ -3381,7 +3361,6 @@ class Factory:
             self.environment,
             assemble_full_graph(self.environment, self.domain_graph),
             self._named_pin_keys,
-            self.domain_graph.canonical_map(),
         )
 
     def _named_pin_keys(self, address: str) -> frozenset[str]:
@@ -3441,7 +3420,6 @@ class Factory:
             [b for b in base.by if isinstance(b, ConceptRef)],
             self.environment,
             assemble_full_graph(self.environment, self.domain_graph),
-            self.domain_graph.canonical_map(),
         )
         self._by_scoped = True
         try:
@@ -4523,7 +4501,6 @@ class Factory:
             base,
             self.environment,
             assemble_full_graph(self.environment, self.domain_graph),
-            self.domain_graph.canonical_map(),
         )
 
         materialized: dict[str, BuildConcept] = {}

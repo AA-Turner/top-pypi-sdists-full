@@ -25,7 +25,7 @@ from aioquic.h3.connection import (
 from aioquic.h3.events import DataReceived, HeadersReceived, PushPromiseReceived
 from aioquic.h3.exceptions import InvalidStreamTypeError, NoAvailablePushIDError
 from aioquic.quic.configuration import QuicConfiguration
-from aioquic.quic.events import StreamDataReceived
+from aioquic.quic.events import StopSendingReceived, StreamDataReceived, StreamReset
 from aioquic.quic.logger import QuicLogger
 
 from .test_connection import client_and_server, transfer
@@ -205,6 +205,23 @@ class H3ConnectionTest(TestCase):
             ],
         )
 
+    def _send_request_headers(self, h3_client, h3_server):
+        quic_client = h3_client._quic
+
+        stream_id = quic_client.get_next_available_stream_id()
+        h3_client.send_headers(
+            stream_id=stream_id,
+            headers=[
+                (b":method", b"POST"),
+                (b":scheme", b"https"),
+                (b":authority", b"localhost"),
+                (b":path", b"/"),
+            ],
+        )
+        h3_transfer(quic_client, h3_server)
+        self.assertIn(stream_id, h3_server._stream)
+        return stream_id
+
     def test_handle_control_frame_headers(self):
         """
         We should not receive HEADERS on the control stream.
@@ -316,6 +333,28 @@ class H3ConnectionTest(TestCase):
             )
         self.assertIsNone(quic_server.closed)
         self.assertEqual(h3_server.received_settings, DUMMY_SETTINGS)
+
+    def test_handle_control_frame_settings_truncated(self):
+        """
+        We should reject a SETTINGS frame which ends in the middle of a setting.
+        """
+        quic_server = FakeQuicConnection(
+            configuration=QuicConfiguration(is_client=False)
+        )
+        h3_server = H3Connection(quic_server)
+
+        h3_server.handle_event(
+            StreamDataReceived(
+                stream_id=2,
+                data=encode_uint_var(StreamType.CONTROL)
+                + encode_frame(FrameType.SETTINGS, b"\x01"),
+                end_stream=False,
+            )
+        )
+        self.assertEqual(
+            quic_server.closed,
+            (ErrorCode.H3_FRAME_ERROR, "Could not parse SETTINGS frame"),
+        )
 
     def test_handle_control_frame_unknown_before_settings(self):
         """
@@ -493,6 +532,36 @@ class H3ConnectionTest(TestCase):
             (ErrorCode.H3_FRAME_UNEXPECTED, "Servers must not send MAX_PUSH_ID"),
         )
 
+    def test_handle_control_frame_max_push_id_malformed(self):
+        """
+        A server should reject a MAX_PUSH_ID frame which is empty or has
+        trailing data.
+        """
+        for frame_data, reason_phrase in [
+            (b"", "Could not parse MAX_PUSH_ID frame"),
+            (b"\x05\x00", "MAX_PUSH_ID frame has trailing data"),
+        ]:
+            with self.subTest(frame_data=frame_data):
+                quic_server = FakeQuicConnection(
+                    configuration=QuicConfiguration(is_client=False)
+                )
+                h3_server = H3Connection(quic_server)
+
+                h3_server.handle_event(
+                    StreamDataReceived(
+                        stream_id=2,
+                        data=encode_uint_var(StreamType.CONTROL)
+                        + encode_frame(
+                            FrameType.SETTINGS, encode_settings(DUMMY_SETTINGS)
+                        )
+                        + encode_frame(FrameType.MAX_PUSH_ID, frame_data),
+                        end_stream=False,
+                    )
+                )
+                self.assertEqual(
+                    quic_server.closed, (ErrorCode.H3_FRAME_ERROR, reason_phrase)
+                )
+
     def test_handle_control_settings_twice(self):
         """
         We should not receive HEADERS on the control stream.
@@ -589,6 +658,59 @@ class H3ConnectionTest(TestCase):
             (
                 ErrorCode.H3_STREAM_CREATION_ERROR,
                 "Only one control stream is allowed",
+            ),
+        )
+
+    def test_handle_control_stream_reset(self):
+        """
+        Resetting the control stream is not allowed.
+        """
+        quic_client = FakeQuicConnection(
+            configuration=QuicConfiguration(is_client=True)
+        )
+        h3_client = H3Connection(quic_client)
+
+        # Receive SETTINGS.
+        h3_client.handle_event(
+            StreamDataReceived(
+                stream_id=3,
+                data=encode_uint_var(StreamType.CONTROL)
+                + encode_frame(FrameType.SETTINGS, encode_settings(DUMMY_SETTINGS)),
+                end_stream=False,
+            )
+        )
+        self.assertIsNone(quic_client.closed)
+
+        # Receive unexpected RESET_STREAM.
+        h3_client.handle_event(StreamReset(error_code=0, stream_id=3))
+        self.assertEqual(
+            quic_client.closed,
+            (
+                ErrorCode.H3_CLOSED_CRITICAL_STREAM,
+                "Resetting a critical stream is not allowed",
+            ),
+        )
+
+    def test_handle_control_stream_stop_sending(self):
+        """
+        Asking us to stop sending on our control stream is not allowed.
+        """
+        quic_client = FakeQuicConnection(
+            configuration=QuicConfiguration(is_client=True)
+        )
+        h3_client = H3Connection(quic_client)
+
+        # Receive unexpected STOP_SENDING.
+        h3_client.handle_event(
+            StopSendingReceived(
+                error_code=0, stream_id=h3_client._local_control_stream_id
+            )
+        )
+        self.assertEqual(
+            quic_client.closed,
+            (
+                ErrorCode.H3_CLOSED_CRITICAL_STREAM,
+                "Stopping a critical stream is not allowed",
             ),
         )
 
@@ -788,6 +910,34 @@ class H3ConnectionTest(TestCase):
         )
         self.assertEqual(quic_client.closed, (ErrorCode.QPACK_ENCODER_STREAM_ERROR, ""))
 
+    def test_handle_qpack_encoder_stream_reset(self):
+        """
+        Resetting the QPACK encoder stream is not allowed.
+        """
+        quic_client = FakeQuicConnection(
+            configuration=QuicConfiguration(is_client=True)
+        )
+        h3_client = H3Connection(quic_client)
+
+        h3_client.handle_event(
+            StreamDataReceived(
+                stream_id=7,
+                data=encode_uint_var(StreamType.QPACK_ENCODER),
+                end_stream=False,
+            )
+        )
+        self.assertIsNone(quic_client.closed)
+
+        # Receive unexpected RESET_STREAM.
+        h3_client.handle_event(StreamReset(error_code=0, stream_id=7))
+        self.assertEqual(
+            quic_client.closed,
+            (
+                ErrorCode.H3_CLOSED_CRITICAL_STREAM,
+                "Resetting a critical stream is not allowed",
+            ),
+        )
+
     def test_handle_request_frame_bad_headers(self):
         """
         We should not receive HEADERS which cannot be decoded.
@@ -885,6 +1035,27 @@ class H3ConnectionTest(TestCase):
         self.assertEqual(
             quic_server.closed,
             (ErrorCode.H3_FRAME_UNEXPECTED, "Clients must not send PUSH_PROMISE"),
+        )
+
+    def test_handle_request_frame_push_promise_truncated(self):
+        """
+        A client should reject a PUSH_PROMISE frame without a push ID.
+        """
+        quic_client = FakeQuicConnection(
+            configuration=QuicConfiguration(is_client=True)
+        )
+        h3_client = H3Connection(quic_client)
+
+        h3_client.handle_event(
+            StreamDataReceived(
+                stream_id=0,
+                data=encode_frame(FrameType.PUSH_PROMISE, b""),
+                end_stream=False,
+            )
+        )
+        self.assertEqual(
+            quic_client.closed,
+            (ErrorCode.H3_FRAME_ERROR, "Could not parse PUSH_PROMISE frame"),
         )
 
     def test_handle_request_frame_wrong_frame_type(self):
@@ -1468,6 +1639,11 @@ class H3ConnectionTest(TestCase):
                 ],
             )
 
+            # push streams are no longer tracked
+            for push_stream_id in (push_stream_id_css, push_stream_id_js):
+                self.assertNotIn(push_stream_id, h3_client._stream)
+                self.assertNotIn(push_stream_id, h3_server._stream)
+
     def test_request_with_server_push_max_push_id(self):
         with h3_client_and_server() as (quic_client, quic_server):
             h3_client = H3Connection(quic_client)
@@ -1607,11 +1783,36 @@ class H3ConnectionTest(TestCase):
                 end_stream=False,
             )
 
+    def test_send_push_promise_from_client(self):
+        """
+        Clients cannot send a push promise.
+        """
+        quic_client = FakeQuicConnection(
+            configuration=QuicConfiguration(is_client=True)
+        )
+        h3_client = H3Connection(quic_client)
+
+        with self.assertRaises(RuntimeError) as cm:
+            h3_client.send_push_promise(stream_id=0, headers=[])
+        self.assertEqual(str(cm.exception), "Only servers may send a push promise.")
+
     def test_blocked_stream(self):
         quic_client = FakeQuicConnection(
             configuration=QuicConfiguration(is_client=True)
         )
         h3_client = H3Connection(quic_client)
+
+        # Send request.
+        h3_client.send_headers(
+            stream_id=0,
+            headers=[
+                (b":method", b"GET"),
+                (b":scheme", b"https"),
+                (b":authority", b"localhost"),
+                (b":path", b"/"),
+            ],
+            end_stream=True,
+        )
 
         h3_client.handle_event(
             StreamDataReceived(
@@ -1676,6 +1877,82 @@ class H3ConnectionTest(TestCase):
                 ),
             ],
         )
+
+        # The stream is no longer tracked.
+        self.assertNotIn(0, h3_client._stream)
+
+    def test_blocked_stream_reset(self):
+        quic_client = FakeQuicConnection(
+            configuration=QuicConfiguration(is_client=True)
+        )
+        h3_client = H3Connection(quic_client)
+
+        # Send request.
+        h3_client.send_headers(
+            stream_id=0,
+            headers=[
+                (b":method", b"GET"),
+                (b":scheme", b"https"),
+                (b":authority", b"localhost"),
+                (b":path", b"/"),
+            ],
+            end_stream=True,
+        )
+
+        # Receive response headers, which are blocked.
+        h3_client.handle_event(
+            StreamDataReceived(
+                stream_id=3,
+                data=binascii.unhexlify(
+                    "0004170150000680020000074064091040bcc0000000faceb00c"
+                ),
+                end_stream=False,
+            )
+        )
+        h3_client.handle_event(
+            StreamDataReceived(stream_id=7, data=b"\x02", end_stream=False)
+        )
+        h3_client.handle_event(
+            StreamDataReceived(stream_id=11, data=b"\x03", end_stream=False)
+        )
+        h3_client.handle_event(
+            StreamDataReceived(
+                stream_id=0, data=binascii.unhexlify("01040280d910"), end_stream=False
+            )
+        )
+        self.assertTrue(h3_client._stream[0].blocked)
+        quic_client.stream_queue.clear()
+
+        # The server resets the stream.
+        self.assertEqual(
+            h3_client.handle_event(StreamReset(error_code=0, stream_id=0)), []
+        )
+        self.assertNotIn(0, h3_client._stream)
+
+        # A Stream Cancellation is sent on the QPACK decoder stream.
+        self.assertEqual(
+            b"".join(
+                event.data
+                for event in quic_client.stream_queue
+                if event.stream_id == h3_client._local_decoder_stream_id
+            ),
+            b"\x40",
+        )
+
+        # The encoder stream data no longer unblocks the stream.
+        self.assertEqual(
+            h3_client.handle_event(
+                StreamDataReceived(
+                    stream_id=7,
+                    data=binascii.unhexlify(
+                        "3fe101c696d07abe941094cb6d0a08017d403971966e32ca98b46f"
+                    ),
+                    end_stream=False,
+                )
+            ),
+            [],
+        )
+        self.assertNotIn(0, h3_client._stream)
 
     def test_blocked_stream_trailer(self):
         quic_client = FakeQuicConnection(
@@ -1780,9 +2057,34 @@ class H3ConnectionTest(TestCase):
             h3_server = H3Connection(quic_server)
 
             quic_client.send_stream_data(
-                14, b"\xff\xff\xff\xff\xff\xff\xff\xfeGREASE is the word"
+                14,
+                b"\xff\xff\xff\xff\xff\xff\xff\xfeGREASE is the word",
+                end_stream=True,
             )
             self.assertEqual(h3_transfer(quic_client, h3_server), [])
+
+            # the stream is no longer tracked
+            self.assertNotIn(14, h3_server._stream)
+
+    def test_uni_stream_reset(self):
+        with h3_client_and_server() as (quic_client, quic_server):
+            h3_server = H3Connection(quic_server)
+
+            for _ in range(10):
+                # Open a stream of a reserved type, then reset it.
+                stream_id = quic_client.get_next_available_stream_id(
+                    is_unidirectional=True
+                )
+                quic_client.send_stream_data(stream_id, b"\x21")
+                self.assertEqual(h3_transfer(quic_client, h3_server), [])
+                self.assertIn(stream_id, h3_server._stream)
+
+                quic_client.reset_stream(stream_id, ErrorCode.H3_REQUEST_CANCELLED)
+                self.assertEqual(h3_transfer(quic_client, h3_server), [])
+                self.assertNotIn(stream_id, h3_server._stream)
+
+            # No Stream Cancellation is sent for unidirectional streams.
+            self.assertEqual(h3_server._decoder_bytes_sent, 0)
 
     def test_request_with_trailers(self):
         with h3_client_and_server() as (quic_client, quic_server):
@@ -2174,6 +2476,55 @@ class H3ConnectionTest(TestCase):
             # Only 3 streams should be opened: Control, QPACK encoder and QPACK decoder
             self.assertEqual(len(h3_client._stream), 3)
             self.assertEqual(len(h3_server._stream), 3)
+
+    def test_streams_are_closed_after_reset(self):
+        with h3_client_and_server() as (quic_client, quic_server):
+            h3_client = H3Connection(quic_client)
+            h3_server = H3Connection(quic_server)
+            stream_id = self._send_request_headers(h3_client, h3_server)
+            decoder_bytes_sent = h3_server._decoder_bytes_sent
+
+            # The client resets the request.
+            quic_client.reset_stream(stream_id, ErrorCode.H3_REQUEST_CANCELLED)
+            self.assertEqual(h3_transfer(quic_client, h3_server), [])
+
+            # A Stream Cancellation is sent on the QPACK decoder stream.
+            self.assertEqual(h3_server._decoder_bytes_sent, decoder_bytes_sent + 1)
+
+            # The stream is kept until the server finishes sending.
+            self.assertIn(stream_id, h3_server._stream)
+            h3_server.send_headers(
+                stream_id=stream_id, headers=[(b":status", b"200")], end_stream=True
+            )
+            self.assertNotIn(stream_id, h3_server._stream)
+
+    def test_streams_are_closed_after_reset_and_stop_sending(self):
+        with h3_client_and_server() as (quic_client, quic_server):
+            h3_client = H3Connection(quic_client)
+            h3_server = H3Connection(quic_server)
+            stream_id = self._send_request_headers(h3_client, h3_server)
+
+            # The client resets the request and asks the server to stop sending.
+            quic_client.reset_stream(stream_id, ErrorCode.H3_REQUEST_CANCELLED)
+            quic_client.stop_stream(stream_id, ErrorCode.H3_REQUEST_CANCELLED)
+            self.assertEqual(h3_transfer(quic_client, h3_server), [])
+            self.assertNotIn(stream_id, h3_server._stream)
+
+    def test_streams_are_closed_after_stop_sending(self):
+        with h3_client_and_server() as (quic_client, quic_server):
+            h3_client = H3Connection(quic_client)
+            h3_server = H3Connection(quic_server)
+            stream_id = self._send_request_headers(h3_client, h3_server)
+
+            # The client finishes the request.
+            h3_client.send_data(stream_id=stream_id, data=b"", end_stream=True)
+            h3_transfer(quic_client, h3_server)
+            self.assertIn(stream_id, h3_server._stream)
+
+            # The client asks the server to stop sending the response.
+            quic_client.stop_stream(stream_id, ErrorCode.H3_REQUEST_CANCELLED)
+            self.assertEqual(h3_transfer(quic_client, h3_server), [])
+            self.assertNotIn(stream_id, h3_server._stream)
 
     def test_streams_are_not_closed_prematurely(self):
         with h3_client_and_server() as (quic_client, quic_server):

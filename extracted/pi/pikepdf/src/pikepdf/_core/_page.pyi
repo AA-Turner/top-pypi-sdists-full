@@ -10,8 +10,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any, overload
+from collections.abc import Iterable, Iterator
+from typing import TYPE_CHECKING, Any, overload
 
 from pikepdf._core._matrix import Matrix
 from pikepdf._core._object import Object, StreamParser, _ObjectMapping
@@ -19,6 +19,9 @@ from pikepdf._core._object_construct import Array, Dictionary, Name, Stream
 from pikepdf._core._rectangle import Rectangle
 from pikepdf._core._tokenfilter import TokenFilter
 from pikepdf._core._typing import T
+
+if TYPE_CHECKING:
+    from pikepdf._content_scopes import ContentScope, ContentScopeKind
 
 class Page:
     """Support model wrapper around a page dictionary object."""
@@ -251,6 +254,91 @@ class Page:
 
         .. versionadded:: 10.9
         """
+    def content_scopes(
+        self, *, kinds: Iterable[ContentScopeKind] | ContentScopeKind | None = ...
+    ) -> Iterator[ContentScope]:
+        """Iterate over every content stream this page can draw.
+
+        A page draws more than its own content stream. That stream may draw
+        form XObjects, paint with tiling patterns, show text in Type 3 fonts
+        whose glyphs are themselves content streams, and apply soft masks; the
+        page's annotations have appearance streams; and each of those may use
+        any of the others in turn. Each is a *content scope*: a content stream
+        together with the resource dictionary that the names in it refer to.
+
+        To find everything a page uses -- every font, every image, every
+        colour space -- look at the resources of each scope:
+
+        .. code-block:: python
+
+            for scope in page.content_scopes():
+                if scope.resources is None:
+                    continue
+                for font in (scope.resources.get_dict(Name.Font) or {}).values():
+                    ...
+
+        To examine more than one page, use :meth:`pikepdf.Pdf.content_scopes`,
+        which reports what pages share only once.
+
+        Scopes are found through resource dictionaries and annotations, not by
+        reading content streams, so a scope is reported if it could be drawn,
+        whether or not anything draws it. The page comes first, and each scope
+        comes before the scopes found in its resources.
+
+        Each scope is reported once however many ways there are to reach it,
+        including when resources are shared or refer back to a stream that
+        uses them, so this method is safe where a hand-written recursive
+        search is not: see :class:`pikepdf.ObjectSet`.
+
+        All of this page's scopes are found when the method is called, and
+        nothing is modified.
+
+        This method can also be used on a form XObject:
+        ``Page(form).content_scopes()`` reports the form and what it uses.
+
+        Args:
+            kinds: The kinds of scope to report, as one or more of ``'page'``,
+                ``'form'``, ``'appearance'``, ``'pattern'``, ``'glyph'`` and
+                ``'softmask'``; see :attr:`pikepdf.ContentScope.kind`. The
+                default is all of them. Everything is searched whichever kinds
+                are reported, so ``kinds='form'`` gives every form XObject
+                this page can draw, including those used only by an
+                annotation's appearance stream or a pattern.
+
+        Raises:
+            ValueError: If *kinds* contains anything else.
+
+        .. versionadded:: 10.17
+        """
+    def get_resources(self) -> Dictionary | None:
+        """Return the resources this page uses, without changing the page.
+
+        A page's ``/Resources`` dictionary names the fonts, images, form
+        XObjects and other objects that its content stream refers to. A page
+        with no ``/Resources`` of its own uses those of the nearest ancestor in
+        the page tree that has one. This method returns whichever dictionary
+        applies, or ``None`` if there is none or the value is not a dictionary.
+        (By default :meth:`pikepdf.Pdf.open` copies inherited attributes onto
+        each page, but pages added or edited afterwards may still inherit.)
+
+        Use this method to examine a page. It differs from :attr:`resources`,
+        which is meant for editing: that property does not look at the page
+        tree, creates an empty dictionary on the page if it has none, and
+        raises :exc:`TypeError` if ``/Resources`` is not a dictionary.
+
+        The dictionary returned is the one in the file, and it may be shared
+        with other pages and form XObjects, so changing it may change them too.
+
+        This method can be used on a form XObject as well as on a page:
+        ``Page(form).get_resources()`` returns the form's own resources. Form
+        XObjects do not inherit resources.
+
+        To examine everything a page can draw, including what its form
+        XObjects and annotations use, see :meth:`content_scopes`.
+
+        .. versionadded:: 10.17
+        """
+    def _get_inherited(self, key: str) -> Object | None: ...
     def contents_add(self, contents: Stream | bytes, *, prepend: bool = ...) -> None:
         """Append or prepend to an existing page's content stream.
 
@@ -473,7 +561,10 @@ class Page:
     def trimbox(self, val: Array | Rectangle) -> None: ...
     @property
     def resources(self) -> Dictionary:
-        """Return this page's resources dictionary.
+        """Return this page's resources dictionary, for editing.
+
+        To read the resources a page uses, including those it inherits from
+        the page tree, use :meth:`get_resources`, which changes nothing.
 
         .. versionchanged:: 7.0.0
             If the resources dictionary does not exist, an empty one will be created.

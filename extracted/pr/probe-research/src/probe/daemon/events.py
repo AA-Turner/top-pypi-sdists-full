@@ -44,6 +44,8 @@ class Event:
     side_file: str | None = None  # a persisted output's full text lives here (E4)
     parent: str | None = None  # a subagent's parent tool call
     cwd: str | None = None
+    #: A daemon tag the model sees with the event (`.probe.config` `read`).
+    note: str | None = None
 
     @property
     def event_id(self) -> str:

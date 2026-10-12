@@ -292,6 +292,14 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
             return True, output, ""
         else:
             stderr = combined_output
+            # Setup warnings may contain HTTP errors even when fallback extraction
+            # succeeds. Keep terminal ERROR blocks, including continuation lines.
+            error_output = "\n".join(
+                re.findall(
+                    r"(?ms)^ERROR:.*?(?=^(?:WARNING:|ERROR:|\[[^\n]*\])|\Z)",
+                    stderr,
+                ),
+            )
 
             # These are NOT errors - page simply has no downloadable media
             # Return success with no output (legitimate "nothing to download")
@@ -315,12 +323,19 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
                 return True, "No media found", ""
 
             # These ARE errors - something went wrong
-            if "HTTP Error 404" in stderr:
+            if "HTTP Error 404" in error_output:
                 return False, None, "404 Not Found"
-            if "HTTP Error 403" in stderr:
+            if "HTTP Error 403" in error_output:
                 return False, None, "403 Forbidden"
-            if "Unable to extract" in stderr:
+            if "Unable to extract" in error_output:
                 return False, None, "Unable to extract media info"
+            # Reddit's extractor reports text-only posts with this expected
+            # no-format error. Keep HTTP and extraction failures above authoritative.
+            if re.search(
+                r"(?m)^ERROR: \[Reddit\] [0-9a-z]+: No media found$",
+                stderr,
+            ):
+                return True, "No media found", ""
 
             return False, None, f"yt-dlp error: {stderr}"
 

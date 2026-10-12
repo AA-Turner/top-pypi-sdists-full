@@ -19,8 +19,6 @@ from sqlbuild.compiler.discovery._helpers.native.payloads import (
     native_request,
     seed_snapshot_listings,
 )
-from sqlbuild.compiler.discovery._helpers.sql.declarations import typed_constant_declaration
-from sqlbuild.compiler.discovery._helpers.sql.model_files import project_native_header_values
 from sqlbuild.compiler.discovery._helpers.sql.schema_columns import parse_schema_columns
 from sqlbuild.compiler.discovery.classes.directory_snapshot import DirectorySnapshot
 from sqlbuild.compiler.discovery.constants import (
@@ -48,8 +46,6 @@ from sqlbuild.compiler.discovery.models import (
     ModelSchemaDeclaration,
 )
 from sqlbuild.compiler.discovery.types import NativeFileScope, NativeLocation, NativeScopeFields
-from sqlbuild.compiler.frontier.main.report_native_answer import report_native_answer
-from sqlbuild.compiler.frontier.types import NativeStage
 from sqlbuild.compiler.scopes.types import DeclarationKind, ScopeKind
 
 type _NativeDeclarationFile = tuple[str, NativeFileScope | None, tuple[object, ...]]
@@ -178,7 +174,6 @@ def native_seed_files(*, project_dir: Path) -> tuple[DiscoveredSeedFile, ...]:
         DiscoveredSeedFile(file_path=project_dir / relative_path, relative_path=Path(relative_path))
         for relative_path, _scope, _payload in _native_files(project_dir=project_dir, kind="seed")
     )
-    report_native_answer(stage=NativeStage.DECLARATION_FILES, kind="seed_files", units=len(seeds))
     return seeds
 
 
@@ -259,12 +254,10 @@ def _record[RecordT](
     scope, payload = item
     tag: object = payload[0]
     if tag == NATIVE_PARSED_TAG:
-        report_native_answer(stage=NativeStage.DECLARATION_FILES, kind="parsed_files")
         return build(
             project_dir=project_dir, relative_path=relative_path, scope=scope, payload=payload
         )
     if tag == NATIVE_FAILED_TAG:
-        report_native_answer(stage=NativeStage.DECLARATION_FILES, kind="failed_files")
         raise native_failure(payload)
     raise native_read_error(payload=payload, file_path=project_dir / relative_path)
 
@@ -292,7 +285,7 @@ def _optional_path(text: str | None) -> Path | None:
 
 def _audit_block(block: tuple[object, ...]) -> DiscoveredAuditBlock:
     audit_index, values, sql_body, name, mode, measure_sql, evidence_sql = block
-    header_values: dict[str, object] = project_native_header_values(cast(dict[str, object], values))
+    header_values: dict[str, object] = cast(dict[str, object], values)
     evaluation_mode: AuditEvaluationMode = AuditEvaluationMode(str(mode))
     return DiscoveredAuditBlock(
         audit_index=cast(int, audit_index),
@@ -336,7 +329,7 @@ def _enum_file(
 
 def _enum_declaration(*, relative_path: Path, declaration: _EnumPayload) -> EnumDeclaration:
     name, members, scalar_type = declaration
-    projected: dict[str, object] = project_native_header_values(members)
+    projected: dict[str, object] = members
     return EnumDeclaration(
         name=name,
         members=tuple(
@@ -377,14 +370,11 @@ def _constant_declaration(
     *, file_path: Path, relative_path: Path, declaration: _ConstantPayload
 ) -> ConstantDeclaration:
     name, value, explicit_type, render_as = declaration
-    return typed_constant_declaration(
-        name=name,
-        value=project_native_header_values(value)["value"],
-        explicit_type=explicit_type,
-        render_as_text=render_as,
-        file_path=file_path,
-        relative_path=relative_path,
-        model_name=None,
+    return cast(
+        ConstantDeclaration,
+        _native.typed_constant_record(
+            (name, value["value"]), (explicit_type, render_as), (file_path, relative_path)
+        ),
     )
 
 
@@ -422,7 +412,7 @@ def _schema_declaration(
         description=description,
         extends=extends,
         columns=parse_schema_columns(
-            raw_columns=project_native_header_values(columns).get("columns"),
+            raw_columns=columns.get("columns"),
             file_path=file_path,
             label=f"schema '{name}'",
             error_class=DeclarationParseError,
@@ -446,7 +436,7 @@ def _function_file(
         file_path=project_dir / relative_path,
         relative_path=relative_path,
         contents=str(contents),
-        header_values=project_native_header_values(cast(dict[str, object], header_values)),
+        header_values=cast(dict[str, object], header_values),
         body_sql=str(body_sql),
     )
 
@@ -463,7 +453,7 @@ def _hook_file(
         file_path=project_dir / relative_path,
         relative_path=relative_path,
         contents=str(contents),
-        header_values=project_native_header_values(cast(dict[str, object], header_values)),
+        header_values=cast(dict[str, object], header_values),
         sql_body=str(sql_body),
         name=str(name),
         description=cast(str | None, description),

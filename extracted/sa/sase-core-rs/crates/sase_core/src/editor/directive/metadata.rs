@@ -122,18 +122,6 @@ const WAIT_TIME_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
     },
 ];
 
-const WAIT_CAPACITY_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
-    DirectiveSuggestedValue {
-        value: "0",
-        documentation:
-            "Drain barrier: start after occupied weighted load is zero",
-    },
-    DirectiveSuggestedValue {
-        value: "1",
-        documentation: "Start when occupied weighted load is at most 1",
-    },
-];
-
 const WAIT_CAPACITY_BUDGET_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
     DirectiveSuggestedValue {
         value: "1",
@@ -204,7 +192,6 @@ const ALT_FORMS: &[DirectiveSyntaxForm] = &[
     DirectiveSyntaxForm::Colon,
     DirectiveSyntaxForm::Parenthesized,
 ];
-const PAREN: &[DirectiveSyntaxForm] = &[DirectiveSyntaxForm::Parenthesized];
 const PAREN_DOUBLE_COLON: &[DirectiveSyntaxForm] = &[
     DirectiveSyntaxForm::Parenthesized,
     DirectiveSyntaxForm::DoubleColon,
@@ -393,82 +380,18 @@ const IF_KEYWORDS: &[DirectiveKeywordSpec] = &[DirectiveKeywordSpec {
     suggested_values: SHOULD_RUN_SUGGESTIONS,
 }];
 
-pub(super) const IF_DIRECTIVE_OFF: DirectiveMetadata = DirectiveMetadata {
+pub(super) const IF_DIRECTIVE: DirectiveMetadata = DirectiveMetadata {
     name: "if",
     alias: None,
     description:
-        "Statically omit a prompt segment, or gate launch with a typed predicate when enabled",
-    argument_hint: "(should_run=true|false)",
+        "Statically omit a prompt segment, or gate launch with a typed predicate",
+    argument_hint: "(should_run=true|false) or :: plus one bash/python fence",
     takes_argument: true,
     allows_multiple: false,
-    syntax_forms: PAREN,
+    syntax_forms: PAREN_DOUBLE_COLON,
     positional_role: None,
     positional_suggestions: &[],
     keywords: IF_KEYWORDS,
-    dynamic_keyword_role: None,
-};
-
-pub(super) const IF_DIRECTIVE_ON: DirectiveMetadata = DirectiveMetadata {
-    syntax_forms: PAREN_DOUBLE_COLON,
-    argument_hint: "(should_run=true|false) or :: plus one bash/python fence",
-    ..IF_DIRECTIVE_OFF
-};
-
-const QUEUE_KEYWORDS: &[DirectiveKeywordSpec] = &[
-    DirectiveKeywordSpec {
-        name: "capacity",
-        description:
-            "Start when occupied weighted load is at most this threshold",
-        value_role: DirectiveValueRole::NonNegativeInt,
-        repeatable: false,
-        conflicts_with: &[],
-        suggested_values: WAIT_CAPACITY_SUGGESTIONS,
-    },
-    DirectiveKeywordSpec {
-        name: "p",
-        description: "Alias for priority=; lower values start first",
-        value_role: DirectiveValueRole::NonNegativeInt,
-        repeatable: false,
-        conflicts_with: &["priority"],
-        suggested_values: WAIT_PRIORITY_SUGGESTIONS,
-    },
-    DirectiveKeywordSpec {
-        name: "priority",
-        description: "Lower values start first; the default is 10",
-        value_role: DirectiveValueRole::NonNegativeInt,
-        repeatable: false,
-        conflicts_with: &["p"],
-        suggested_values: WAIT_PRIORITY_SUGGESTIONS,
-    },
-    DirectiveKeywordSpec {
-        name: "w",
-        description: "Alias for weight=; non-negative capacity units claimed by this launch; 0 adds no load",
-        value_role: DirectiveValueRole::NonNegativeFloat,
-        repeatable: false,
-        conflicts_with: &["weight"],
-        suggested_values: QUEUE_WEIGHT_SUGGESTIONS,
-    },
-    DirectiveKeywordSpec {
-        name: "weight",
-        description: "Non-negative capacity units claimed by this launch; 0 adds no load",
-        value_role: DirectiveValueRole::NonNegativeFloat,
-        repeatable: false,
-        conflicts_with: &["w"],
-        suggested_values: QUEUE_WEIGHT_SUGGESTIONS,
-    },
-];
-
-pub(super) const QUEUE_DIRECTIVE_OFF: DirectiveMetadata = DirectiveMetadata {
-    name: "queue",
-    alias: Some("q"),
-    description: "Set weighted-load capacity, priority, and capacity weight",
-    argument_hint: ":N or (N, capacity=, priority=, p=, weight=, w=)",
-    takes_argument: true,
-    allows_multiple: true,
-    syntax_forms: COLON_PAREN,
-    positional_role: Some(DirectiveValueRole::NonNegativeInt),
-    positional_suggestions: WAIT_CAPACITY_SUGGESTIONS,
-    keywords: QUEUE_KEYWORDS,
     dynamic_keyword_role: None,
 };
 
@@ -719,7 +642,7 @@ pub const DIRECTIVES: &[DirectiveMetadata] = &[
         keywords: WAIT_KEYWORDS,
         dynamic_keyword_role: None,
     },
-    QUEUE_DIRECTIVE_OFF,
+    QUEUE_DIRECTIVE_ON,
     DirectiveMetadata {
         name: "hold",
         alias: None,
@@ -761,7 +684,7 @@ pub const DIRECTIVES: &[DirectiveMetadata] = &[
         keywords: &[],
         dynamic_keyword_role: None,
     },
-    IF_DIRECTIVE_OFF,
+    IF_DIRECTIVE,
     DirectiveMetadata {
         name: "proc",
         alias: None,

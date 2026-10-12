@@ -133,6 +133,42 @@ class FieldTest(TestCase):
             "The help text should have the class 'text-muted'.",
         )
 
+    def test_checkbox_form_check_class(self):
+        """The form_check_class parameter should set the class of the div wrapping a single checkbox (#290)."""
+        res = render_template_with_form("{% bootstrap_field form.cc_myself form_check_class='custom-control' %}")
+        self.assertIn('<div class="custom-control">', res)
+        self.assertNotIn('<div class="form-check">', res)
+
+    def test_radio_select_button_group_keeps_widget_classes(self):
+        """The renderer must not strip the classes a custom widget template sets (#894)."""
+        res = render_form_field("category5")
+        soup = BeautifulSoup(res, "html.parser")
+        enclosing_div = soup.select_one(".form-group > div")
+        self.assertIn("btn-group", enclosing_div["class"])
+        self.assertIn("btn-group-toggle", enclosing_div["class"])
+
+    def test_radio_select_keeps_default_classes(self):
+        """Django's own widgets set no class here, so their output is unchanged (#894)."""
+        for field in ("category1", "category2"):
+            with self.subTest(field=field):
+                soup = BeautifulSoup(render_form_field(field), "html.parser")
+                enclosing_div = soup.select_one(".form-group > div")
+                self.assertNotIn("btn-group", enclosing_div["class"])
+
+    def test_radio_select_button_group_label_ids(self):
+        """Each button group label must point at its own input, with no duplicate ids (#309)."""
+        res = render_form_field("category5")
+        soup = BeautifulSoup(res, "html.parser")
+        ids = [element["id"] for element in soup.find_all(id=True)]
+        self.assertEqual(len(ids), len(set(ids)), f"Duplicate id attributes in rendered widget: {ids}")
+        labels = soup.select("label[for]")
+        self.assertEqual(len(labels), 5, "Every option should have a label with a for attribute.")
+        for label in labels:
+            self.assertIsNotNone(
+                soup.find("input", id=label["for"]),
+                f"Label for={label['for']!r} does not point at an input.",
+            )
+
     def test_checkbox_multiple_select(self):
         res = render_form_field("category2")
         expected_html = (
@@ -187,6 +223,15 @@ class FieldTest(TestCase):
         self.assertIn('class="input-group"', res)
         self.assertIn('class="input-group-prepend"><span class="input-group-text">$', res)
         self.assertIn('class="input-group-append"><span class="input-group-text">.00', res)
+
+    def test_input_group_size(self):
+        """The size parameter should also size the input group wrapper, not just the input (#128)."""
+        res = render_template_with_form('{% bootstrap_field form.subject addon_before="$" size="small" %}')
+        self.assertIn('class="input-group input-group-sm"', res)
+        res = render_template_with_form('{% bootstrap_field form.subject addon_before="$" size="large" %}')
+        self.assertIn('class="input-group input-group-lg"', res)
+        res = render_template_with_form('{% bootstrap_field form.subject addon_before="$" %}')
+        self.assertIn('class="input-group"', res)
 
     def test_input_group_addon_button(self):
         res = render_template_with_form(
@@ -310,6 +355,21 @@ class ShowLabelTest(TestCase):
         form = CharFieldTestForm()
         res = render_template_with_form("{% bootstrap_form form show_label='skip' %}", {"form": form})
         self.assertNotIn("<label>", res)
+
+    def test_show_label_false_for_checkbox(self):
+        """show_label=False should hide the checkbox label, not be ignored (#127)."""
+        res = render_template_with_form("{% bootstrap_field form.cc_myself show_label=False %}")
+        self.assertIn('class="form-check-label sr-only"', res)
+
+    def test_show_label_skip_for_checkbox(self):
+        """show_label='skip' should drop the checkbox label entirely (#127)."""
+        res = render_template_with_form("{% bootstrap_field form.cc_myself show_label='skip' %}")
+        self.assertNotIn("<label", res)
+
+    def test_label_class_for_checkbox(self):
+        """label_class should extend form-check-label rather than be dropped (#127)."""
+        res = render_template_with_form("{% bootstrap_field form.cc_myself label_class='my-label' %}")
+        self.assertIn('class="form-check-label my-label"', res)
 
     def test_for_formset(self):
         TestFormSet = formset_factory(CharFieldTestForm, extra=1)

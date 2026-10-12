@@ -12,7 +12,11 @@ except ImportError:  # pragma: no cover
         """Stub type so isinstance returns False"""
 
 
-from ..serialize import FramePathCache
+from ..serialize import (
+    IMPLICIT_ITERABLE_IS_RAW,
+    FramePathCache,
+    hide_implicit_iterable,
+)
 from .core import get_ignore_frames, get_include_frames, library_filter
 
 
@@ -28,12 +32,14 @@ def serialize_exception_frame(
 ) -> "ExceptionFrameInfo":
     if frame_paths is None:
         frame_paths = FramePathCache()
+    # Convert to dict (Python 3.13+ FrameLocalsProxy compatibility)
+    frame_locals = dict(frame.f_locals)
+    if IMPLICIT_ITERABLE_IS_RAW:
+        hide_implicit_iterable(frame, frame_locals)
     return {
         "path": frame_paths.format(frame),
         "co_name": frame.f_code.co_name,
-        "locals": dict(
-            frame.f_locals
-        ),  # Convert to dict (Python 3.13+ FrameLocalsProxy compatibility)
+        "locals": frame_locals,
         "expanded_locals": expanded_locals,
     }
 

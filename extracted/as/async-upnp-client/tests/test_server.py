@@ -89,7 +89,7 @@ class ServerDeviceTest(UpnpServerDevice):
     """Test device."""
 
     DEVICE_DEFINITION = DeviceInfo(
-        device_type=":urn:schemas-upnp-org:device:TestServerDevice:1",
+        device_type="urn:schemas-upnp-org:device:TestServerDevice:1",
         friendly_name="Test Server",
         manufacturer="Test",
         manufacturer_url=None,
@@ -285,7 +285,7 @@ async def test_subscribe(upnp_server: UpnpServerTuple) -> None:
     assert not data
     sid = response.headers.get("SID")
     assert sid
-    with suppress(asyncio.TimeoutError):
+    with suppress(TimeoutError):
         await asyncio.wait_for(event.wait(), 2)
     assert event.is_set()
 
@@ -293,9 +293,54 @@ async def test_subscribe(upnp_server: UpnpServerTuple) -> None:
     while not service.get_subscriber(sid):
         await asyncio.sleep(0)
     service.set_eventable(1)
-    with suppress(asyncio.TimeoutError):
+    with suppress(TimeoutError):
         await asyncio.wait_for(event.wait(), 2)
     assert event.is_set()
+
+
+@pytest.mark.asyncio
+async def test_subscribe_renewal_unknown_sid_is_412(upnp_server: UpnpServerTuple) -> None:
+    """A renewal with a SID the server does not know is 412, not 404.
+
+    UDA 1.1 section 4.1.2: "412 Precondition Failed: SID does not correspond
+    to a known, un-expired subscription". 412 is what tells a control point
+    to subscribe afresh; a control point that renews against a restarted
+    server and gets 404 does not.
+    """
+    # pylint: disable=redefined-outer-name
+    http_client = upnp_server.http_client
+
+    # Positive control: a renewal of a live subscription is 200.
+    response = await http_client.request(
+        "SUBSCRIBE",
+        "/upnp/event/TestServerService",
+        headers={"CALLBACK": "</foo/bar>", "NT": "upnp:event", "TIMEOUT": "Second-30"},
+    )
+    assert response.status == 200
+    sid = response.headers.get("SID")
+    assert sid
+    response = await http_client.request(
+        "SUBSCRIBE",
+        "/upnp/event/TestServerService",
+        headers={"SID": sid, "TIMEOUT": "Second-30"},
+    )
+    assert response.status == 200
+
+    # The case under test: a SID from a previous incarnation of the server.
+    response = await http_client.request(
+        "SUBSCRIBE",
+        "/upnp/event/TestServerService",
+        headers={"SID": "uuid:00000000-0000-0000-0000-000000000000", "TIMEOUT": "Second-30"},
+    )
+    assert response.status == 412
+
+    # And a new subscription with no CALLBACK: also 412 per the same table.
+    response = await http_client.request(
+        "SUBSCRIBE",
+        "/upnp/event/TestServerService",
+        headers={"NT": "upnp:event", "TIMEOUT": "Second-30"},
+    )
+    assert response.status == 412
 
 
 def test_send_search_response_ok(upnp_server: UpnpServerTuple) -> None:
@@ -344,3 +389,75 @@ def test_send_search_response_oserror(upnp_server: UpnpServerTuple) -> None:
     search_responser._on_data("M-SEARCH * HTTP/1.1", headers)
 
     response_transport.sendto.assert_called()
+
+
+@pytest.mark.parametrize(
+    "search_target",
+    [
+        "urn:schemas-upnp-org:device:TestServerDevice:1",
+        "urn:schemas-upnp-org:device:testserverdevice:1",
+        "urn:schemas-upnp-org:service:TestServerService:1",
+        "urn:schemas-upnp-org:service:testserverservice:1",
+    ],
+)
+def test_send_search_response_st_as_requested(upnp_server: UpnpServerTuple, search_target: str) -> None:
+    """Test that the ST of a search response is the request's ST, spelled as the request spelled it."""
+    # pylint: disable=redefined-outer-name, protected-access
+    server = upnp_server.server
+    search_responder = server._search_responder
+    assert search_responder
+    assert search_responder._response_transport
+    response_transport = cast(Mock, search_responder._response_transport)
+    sent: list[bytes] = []
+    response_transport.sendto = Mock(side_effect=lambda data, _addr: sent.append(data))
+
+    headers = CaseInsensitiveDict(
+        {
+            "HOST": "192.168.1.100",
+            "man": '"ssdp:discover"',
+            "st": search_target,
+            "_remote_addr": ("192.168.1.101", 31234),
+        }
+    )
+    search_responder._on_data("M-SEARCH * HTTP/1.1", headers)
+
+    assert len(sent) == 1
+    st_lines = [line for line in sent[0].decode().split("\r\n") if line.lower().startswith("st:")]
+    assert st_lines == [f"ST:{search_target}"]
+
+
+def test_send_search_response_with_mx_is_sent_once(upnp_server: UpnpServerTuple, monkeypatch: Any) -> None:
+    """Test that a search with an MX header is answered once, after the delay, not immediately as well."""
+    # pylint: disable=redefined-outer-name, protected-access
+    server = upnp_server.server
+    search_responder = server._search_responder
+    assert search_responder
+    assert search_responder._response_transport
+    response_transport = cast(Mock, search_responder._response_transport)
+    response_transport.sendto = Mock(side_effect=None)
+
+    scheduled: list[tuple[Callable[..., None], tuple[Any, ...]]] = []
+    loop = Mock()
+    loop.time = Mock(return_value=0.0)
+    loop.call_at = Mock(side_effect=lambda _when, callback, *args: scheduled.append((callback, args)))
+    monkeypatch.setattr(search_responder, "_loop", loop)
+
+    headers = CaseInsensitiveDict(
+        {
+            "HOST": "192.168.1.100",
+            "man": '"ssdp:discover"',
+            "st": "upnp:rootdevice",
+            "mx": "3",
+            "_remote_addr": ("192.168.1.101", 31234),
+        }
+    )
+    search_responder._on_data("M-SEARCH * HTTP/1.1", headers)
+
+    # The response is deferred: scheduled once, nothing on the wire yet.
+    assert len(scheduled) == 1
+    response_transport.sendto.assert_not_called()
+
+    # When the delay elapses, the one response is sent.
+    callback, args = scheduled[0]
+    callback(*args)
+    assert response_transport.sendto.call_count == 1

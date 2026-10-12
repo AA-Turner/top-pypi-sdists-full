@@ -288,6 +288,38 @@ mod _kolo {
     }
 
     #[pyfunction]
+    /// The native stack walk's answer to
+    /// `kolo._construction.objects_under_construction()` for the caller's
+    /// stack, or None where it leaves the answer to that function.
+    fn _native_objects_under_construction(py: Python<'_>) -> Option<Vec<usize>> {
+        utils::native_objects_under_construction(py)
+    }
+
+    #[pyfunction]
+    /// The same, but None until that walk has been checked against
+    /// `objects_under_construction` in this process.
+    fn _validated_objects_under_construction(py: Python<'_>) -> PyResult<Option<Vec<usize>>> {
+        utils::validated_objects_under_construction(py)
+    }
+
+    #[pyfunction]
+    /// `(frame.f_locals[name],)`, or None if `name` is unbound, without
+    /// building the frame's locals dict. CPython 3.12 and newer.
+    fn _frame_local<'py>(
+        frame: &Bound<'py, PyAny>,
+        name: &Bound<'py, pyo3::types::PyString>,
+    ) -> PyResult<Option<(Bound<'py, PyAny>,)>> {
+        utils::frame_local(frame, name)
+    }
+
+    #[pyfunction]
+    /// Whether the native encoder uses that walk: "valid" once it has agreed
+    /// with `objects_under_construction` in this process.
+    fn _native_construction_walk_state() -> &'static str {
+        utils::native_walk_state()
+    }
+
+    #[pyfunction]
     fn writer_circuit_open() -> bool {
         trace_container::writer_circuit_open()
     }
@@ -372,14 +404,16 @@ mod _kolo {
         use super::monitoring::KoloMonitor;
         #[pymodule_export]
         use super::{
-            _count_plain_containers, _current_thread_hook_state, _native_dump_msgpack,
-            _native_encode_in_progress, _repr_reuse_configure, _repr_reuse_stats,
-            _reset_thread_hooks_after_fork, register_monitor, register_noop_profiler,
+            _count_plain_containers, _current_thread_hook_state, _frame_local, _native_dump_msgpack,
+            _native_construction_walk_state, _native_encode_in_progress,
+            _native_objects_under_construction, _repr_reuse_configure, _repr_reuse_stats,
+            _reset_thread_hooks_after_fork, _validated_objects_under_construction, register_monitor, register_noop_profiler,
             register_profiler, set_current_thread_kolo_worker, writer_circuit_open,
         };
 
         #[pymodule_init]
         fn init(module: &pyo3::Bound<'_, pyo3::types::PyModule>) -> pyo3::PyResult<()> {
+            super::utils::read_switches();
             super::utils::repr_reuse_preload(module.py())
         }
     }

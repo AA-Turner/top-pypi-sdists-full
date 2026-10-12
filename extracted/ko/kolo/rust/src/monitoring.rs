@@ -26,7 +26,8 @@ use super::thread_hooks;
 use super::trace_container::{ForkAwareMutex, FrameStore, TraceCapture};
 use super::utils;
 use super::utils::{
-    stopped_after_panic_error, Event, FrameSequence, LineFrame, SerializedFrame, Serializer,
+    stopped_after_panic_error, Event, FrameSequence, LineCode, LineFrame, SerializedFrame,
+    Serializer,
 };
 
 /// Monotonic source for `OS_THREAD_TOKEN`. Starts at 1 so 0 can act as the
@@ -228,7 +229,8 @@ struct CodeInstructionMetadata {
     // reused for different bytecode during this monitoring session.
     _code: Py<PyCode>,
     filename: String,
-    name: String,
+    /// The path and names every line frame of this code repeats.
+    line_code: Arc<LineCode>,
     /// `include_frame(filename)`, which depends only on the filename and
     /// this monitor's filters. `None` for an empty filename (attrs-generated
     /// code), whose decision depends on the live parent frame.
@@ -486,6 +488,8 @@ pub struct KoloMonitor {
     subtree_stack: Mutex<HashMap<String, Vec<OpenSubtree>>>,
     flush_in_progress: Mutex<HashSet<String>>,
     root_trace_id: Mutex<String>,
+    /// Events this session skipped near the end of the C stack.
+    stack_skips: utils::StackSkips,
 }
 
 /// What a monitoring callback fired for, so its result can sometimes be
@@ -637,6 +641,7 @@ impl KoloMonitor {
             subtree_stack: Mutex::new(HashMap::new()),
             flush_in_progress: Mutex::new(HashSet::new()),
             root_trace_id: Mutex::new(root_trace_id),
+            stack_skips: utils::StackSkips::default(),
         })
     }
 
@@ -700,7 +705,11 @@ impl KoloMonitor {
         if !processor.matches_event(py, pyframe.as_any(), event, arg)? {
             return Ok(None);
         }
-        let call_frames = self.call_frames.get_or_default().borrow().get_bound(py);
+        let call_frames = self
+            .call_frames
+            .get_or_default()
+            .borrow()
+            .snapshot_call_site_frames(py);
         processor.process(py, pyframe, event, arg, call_frames, self.lightweight_repr)
     }
 
@@ -1496,8 +1505,8 @@ impl KoloMonitor {
         match include_frame {
             true => {
                 self.process_instruction(
-                    py,
-                    &metadata.name,
+                    code,
+                    &metadata.line_code,
                     &instruction.variables,
                     instruction.opname,
                     instruction_offset,
@@ -1557,10 +1566,14 @@ impl KoloMonitor {
         } else {
             Some(self.include_frame(py, &filename)?)
         };
+        let line_code = Arc::new(LineCode::new(
+            code.as_any(),
+            self.frame_paths.relative_path(&filename),
+        )?);
         let metadata = Arc::new(CodeInstructionMetadata {
             _code: code.clone().unbind(),
             filename,
-            name: code.getattr(intern!(py, "co_name"))?.extract::<String>()?,
+            line_code,
             include_frame,
             instructions,
         });
@@ -1576,12 +1589,13 @@ impl KoloMonitor {
 
     fn process_instruction(
         &self,
-        py: Python,
-        name: &str,
+        code: &Bound<'_, PyCode>,
+        line_code: &Arc<LineCode>,
         variables: &Arc<[String]>,
         opname: Opname,
         offset: usize,
     ) -> Result<(), PyErr> {
+        let py = code.py();
         let frame = self.sys_getframe_fn.bind(py).call1((0,))?;
         let pyframe_id = frame.as_ptr() as usize;
         let frame_id = self
@@ -1591,13 +1605,8 @@ impl KoloMonitor {
             .get_option(pyframe_id);
         let pyframe = frame.cast()?;
 
-        let line_frame_data = LineFrame::new(
-            self.frame_paths.format_frame_path(pyframe)?,
-            name.to_string(),
-            utils::get_qualname(pyframe, py)?.expect("qualname always exists on Python 3.12+"),
-            frame_id.map(|frame_id| frame_id.as_str().to_owned()),
-            utils::timestamp(),
-        );
+        let line_frame_data =
+            LineFrame::capture(line_code, code.as_any(), pyframe, &self.frame_paths, frame_id)?;
         self.instruction_data
             .get_or_default()
             .replace(Some(InstructionData {
@@ -1965,6 +1974,11 @@ impl KoloMonitor {
     fn build_trace_inner(&self, py: Python) -> Result<Py<PyBytes>, PyErr> {
         let (frames_by_thread, threads, trace_id, root_trace_id, timestamp, _capture, value_table) =
             self.take_trace_inputs(py)?;
+        self.stack_skips.warn_if_nothing_recorded(
+            py,
+            &trace_id,
+            frames_by_thread.values().all(|frames| frames.is_empty()),
+        );
         let trace_name = self.trace_name_for_full_capture(py, &frames_by_thread);
         // A callback publishes its Python Thread object before it appends its
         // first frame. A concurrent snapshot can therefore legitimately have
@@ -2924,6 +2938,7 @@ impl KoloMonitor {
         };
         // Not DISABLE: the same code runs fine again with more stack free.
         if stack == utils::StackDecision::Skip {
+            self.stack_skips.note();
             return Ok(py.None());
         }
         let result = catch_unwind(AssertUnwindSafe(|| {
@@ -3281,6 +3296,7 @@ impl KoloMonitor {
         if value {
             // See `end_session`.
             self.assignment_owner.set_live(true);
+            self.stack_skips.reset();
         }
         self.session_epoch.fetch_add(1, Ordering::Relaxed);
         self.active.store(value, Ordering::Release);
@@ -3464,6 +3480,11 @@ impl KoloMonitor {
             capture,
             value_table,
         ) = self.take_trace_inputs(py)?;
+        self.stack_skips.warn_if_nothing_recorded(
+            py,
+            &trace_id,
+            frames_by_thread.values().all(|frames| frames.is_empty()),
+        );
         let trace_name = self.trace_name_for_full_capture(py, &frames_by_thread);
         // Resolve Python-derived metadata before entering the best-effort
         // persistence boundary. Programming/environment errors must still
@@ -4172,13 +4193,7 @@ prefix = [
                     .eval(&std::ffi::CString::new(frame).unwrap(), None, None)
                     .expect("fake frame")
                     .unbind(),
-                line_frame_data: LineFrame::new(
-                    "store.py".to_string(),
-                    "store".to_string(),
-                    "store".to_string(),
-                    None,
-                    0.0,
-                ),
+                line_frame_data: LineFrame::for_test("store.py", "store"),
             };
             let no_lasti = "__import__('types').SimpleNamespace()";
             let bad_lasti = "__import__('types').SimpleNamespace(f_lasti='x')";
@@ -4224,13 +4239,7 @@ prefix = [
                 offset: 0,
                 opname: Opname::StoreFast,
                 line_frame: py.None(),
-                line_frame_data: LineFrame::new(
-                    "circuit.py".to_string(),
-                    "callback".to_string(),
-                    "callback".to_string(),
-                    None,
-                    0.0,
-                ),
+                line_frame_data: LineFrame::for_test("circuit.py", "callback"),
             }));
         thread_hooks::set_assignment(
             &monitor.assignment_owner,
@@ -4268,13 +4277,7 @@ prefix = [
                 offset: 0,
                 opname: Opname::StoreFast,
                 line_frame: py.None(),
-                line_frame_data: LineFrame::new(
-                    "circuit.py".to_string(),
-                    "callback".to_string(),
-                    "callback".to_string(),
-                    None,
-                    0.0,
-                ),
+                line_frame_data: LineFrame::for_test("circuit.py", "callback"),
             };
             monitor
                 .deferred_stores
