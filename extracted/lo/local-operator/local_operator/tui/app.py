@@ -420,10 +420,7 @@ from local_operator.tui.widgets.link_picker import LinkPickerScreen
 from local_operator.tui.widgets.model_picker import ModelRow
 from local_operator.tui.widgets.move_picker import MovePickerScreen
 from local_operator.tui.widgets.network_panel import NetworkCommandRequested
-from local_operator.tui.widgets.org_chart_view import (
-    OrgChartView,
-    OrgChartViewDismissed,
-)
+from local_operator.tui.widgets.org_chart_messages import OrgChartViewDismissed
 from local_operator.tui.widgets.projects_send import (
     SEND_FAULT_NOTICE,
     SendTarget,
@@ -35652,6 +35649,11 @@ class OperatorApp(App[None]):
         re-resolving, so a repaint costs no registry I/O.
         """
 
+        # Conversation boot needs the dismissal message, not the optional
+        # renderer. Import before registry/focus/layout work so a first-use
+        # import failure remains observable without leaving a half-entered mode.
+        from local_operator.tui.widgets.org_chart_view import OrgChartView
+
         registry = self._team_registry()
         agents = getattr(self._session, "agent_registry", None)
         from local_operator.org_chart import resolve_org
@@ -37562,16 +37564,90 @@ class OperatorApp(App[None]):
         if not ends_empty_state:
             self._sync_boot_layout()
 
+    def _replace_block(self, old: Any, block: Any) -> bool:
+        """Swap a seat for its successor at the same position (ReplayTarget).
+
+        The provenance-upgrade counterpart of :meth:`_append_block`: a
+        same-ID row whose replay learned richer facts is corrected IN PLACE,
+        never appended beside the stale one. Source coordinates carry over
+        from the seat, so a receipt that replaced a human row keeps that row's
+        id/part for every later same-ID replay to find again. The collected
+        page and the mounted view take the same shape.
+        """
+        if old.navigation_anchor_id and not block.navigation_anchor_id:
+            block.navigation_anchor_id = old.navigation_anchor_id
+            block.navigation_anchor_part = old.navigation_anchor_part
+        if self._block_sink is not None:
+            try:
+                index = self._block_sink.index(old)
+            except ValueError:
+                return False
+            self._block_sink[index] = block
+            return True
+        transcript = self._transcript_view()
+        for candidate in transcript.blocks():
+            if candidate is old:
+                return transcript.replace_block(old, block)
+        return False
+
     def _append_image_blocks(
         self,
         images: list[ImageContent],
         *,
         marker_text: str | None = None,
         fold_width: int = 0,
+        source_id: str | None = None,
+        source_indices: list[int] | None = None,
+        source_total: int | None = None,
+        after: Any | None = None,
     ) -> list[ImageBlock]:
         from local_operator.tui.session_presentation import append_image_blocks
 
-        return append_image_blocks(self, images, marker_text=marker_text, fold_width=fold_width)
+        return append_image_blocks(
+            self,
+            images,
+            marker_text=marker_text,
+            fold_width=fold_width,
+            source_id=source_id,
+            source_indices=source_indices,
+            source_total=source_total,
+            after=after,
+        )
+
+    def _insert_after(self, anchor: Any, block: Any) -> None:
+        """Mount ``block`` immediately after ``anchor`` (ReplayTarget).
+
+        An ADOPTED source-owned part belongs at its original source seat: a
+        late same-ID picture appended at the physical tail lands past a
+        reader-facing boundary its source never crossed (review round 5, R3-3
+        placement; QA Q-R6-2). Source order is the view's own block order, so
+        the seat is the anchor's index plus one.
+
+        The bounded-resume collection (``_block_sink``) is a page BUILD with
+        no laid-out view to index into; there the collection order is the
+        mount order and the part keeps the plain append behaviour.
+        """
+        if self._projection_message_id:
+            if not block.navigation_anchor_id:
+                block.navigation_anchor_id = self._projection_message_id
+                block.navigation_anchor_part = self._projection_part
+            self._projection_part += 1
+        block.ends_empty_state = True
+        if self._block_sink is not None:
+            self._block_sink.append(block)
+            return
+        transcript = self._transcript_view()
+        blocks = transcript.blocks()
+        if anchor not in blocks:
+            transcript.append_block(block)
+            return
+        transcript.insert_blocks(blocks.index(anchor) + 1, [block])
+        # The fold must learn about the row as a SOURCE-PART change at its own
+        # seat, not as a tail append: `insert_blocks` alone left a seated
+        # picture outside its owner bar's membership, so a collapsed bar hid
+        # the receipt while its picture stayed on screen (review round 6,
+        # R6-1 / QA Q-R7-1).
+        transcript.note_quiet_source_part(block)
 
     # -- slash commands -----------------------------------------------------
     def _notice(self, body: str, kind: NoticeKind = "info") -> None:
@@ -49891,6 +49967,16 @@ class OperatorApp(App[None]):
                         (short, Style(color=theme_mod.semantic_color("signal"))),
                     )
                 )
+            if provider_id == "meta-muse":
+                # This device flow has no loopback /launch alias. Its verified
+                # public approval URL must remain reachable locally AND over
+                # SSH even if automatic opening is unavailable or declined.
+                lines.append(
+                    Text.assemble(
+                        ("Approval page: ", dim),
+                        (url, Style(color=theme_mod.semantic_color("signal"), link=url)),
+                    )
+                )
             if rest:
                 lines.append(Text(rest, style=dim))
             from local_operator.providers.login_catalog import (
@@ -49915,7 +50001,7 @@ class OperatorApp(App[None]):
                     style=dim,
                 )
             )
-            if headless_display():
+            if headless_display() and provider_id != "meta-muse":
                 # THE ONE CASE THE DUMP EXISTS FOR (design round 1, D5): a
                 # browser on another machine cannot follow the short /launch
                 # link, which points at THIS host's loopback, so the full URL is
@@ -49966,7 +50052,10 @@ class OperatorApp(App[None]):
             )
         if not getattr(definition, "accepts_paste_prompt", False):
             return LoginCallbacks(
-                on_auth_url=on_auth_url, on_progress=on_progress, on_warning=on_warning
+                on_auth_url=on_auth_url,
+                on_progress=on_progress,
+                on_warning=on_warning,
+                displays_warnings=True,
             )
 
         label = getattr(definition, "name", None) or getattr(definition, "id", "this provider")
@@ -49992,6 +50081,7 @@ class OperatorApp(App[None]):
             on_progress=on_progress,
             on_input_rejected=on_input_rejected,
             on_manual_code_input=on_manual_code_input,
+            displays_warnings=True,
         )
 
     async def _request_login_key(

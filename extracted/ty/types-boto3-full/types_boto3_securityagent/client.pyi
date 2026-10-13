@@ -64,6 +64,10 @@ from .type_defs import (
     BatchDeleteSecurityRequirementsOutputTypeDef,
     BatchDeleteThreatModelsInputTypeDef,
     BatchDeleteThreatModelsOutputTypeDef,
+    BatchDisassociateFindingIssueInputTypeDef,
+    BatchDisassociateFindingIssueOutputTypeDef,
+    BatchExportFindingsInputTypeDef,
+    BatchExportFindingsOutputTypeDef,
     BatchGetAgentSpacesInputTypeDef,
     BatchGetAgentSpacesOutputTypeDef,
     BatchGetArtifactMetadataInputTypeDef,
@@ -337,6 +341,26 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_delete_threat_models.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/client/#batch_delete_threat_models)
+        """
+
+    def batch_disassociate_finding_issue(
+        self, **kwargs: Unpack[BatchDisassociateFindingIssueInputTypeDef]
+    ) -> BatchDisassociateFindingIssueOutputTypeDef:
+        """
+        Disassociates a batch of findings from their linked issues.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_disassociate_finding_issue.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/client/#batch_disassociate_finding_issue)
+        """
+
+    def batch_export_findings(
+        self, **kwargs: Unpack[BatchExportFindingsInputTypeDef]
+    ) -> BatchExportFindingsOutputTypeDef:
+        """
+        Exports a batch of findings to the connected issue tracker as issues.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_export_findings.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/client/#batch_export_findings)
         """
 
     def batch_get_agent_spaces(

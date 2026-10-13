@@ -1,11 +1,18 @@
 from abc import ABCMeta, abstractmethod
+from copy import deepcopy
 import logging
 import numpy as np
 from sklearn.metrics import roc_auc_score as auc
 from sklearn.linear_model import LogisticRegressionCV
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_test_split
 from sklearn.isotonic import IsotonicRegression
-import xgboost as xgb
+
+try:
+    import xgboost as xgb
+except ValueError as exc:
+    from causalml.exceptions import handle_xgboost_error
+
+    handle_xgboost_error(exc)
 
 logger = logging.getLogger("causalml")
 
@@ -41,7 +48,9 @@ class PropensityModel(metaclass=ABCMeta):
             X (numpy.ndarray, pd.DataFrame, or pl.DataFrame): a feature matrix.
                 scikit-learn >= 1.6 accepts pandas and Polars DataFrames
                 natively, so no conversion is performed here.
-            y (numpy.ndarray, pd.Series, or pl.Series): a binary target vector
+            y (numpy.ndarray, pd.Series, or pl.Series): the binary treatment
+                indicator, not the outcome. A propensity score is P(W = 1 | X),
+                so this vector must be the treatment assignment.
         """
         self.model.fit(X, y)
         if self.calibrate:
@@ -76,7 +85,9 @@ class PropensityModel(metaclass=ABCMeta):
 
         Args:
             X (numpy.ndarray, pd.DataFrame, or pl.DataFrame): a feature matrix
-            y (numpy.ndarray, pd.Series, or pl.Series): a binary target vector
+            y (numpy.ndarray, pd.Series, or pl.Series): the binary treatment
+                indicator, not the outcome. A propensity score is P(W = 1 | X),
+                so this vector must be the treatment assignment.
 
         Returns:
             (numpy.ndarray): Propensity scores between 0 and 1.
@@ -96,7 +107,8 @@ class LogisticRegressionPropensityModel(PropensityModel):
         kwargs = {
             "penalty": "elasticnet",
             "solver": "saga",
-            "Cs": np.logspace(1e-3, 1 - 1e-3, 4),
+            "Cs": 4,
+            "scoring": "neg_log_loss",
             "l1_ratios": np.linspace(1e-3, 1 - 1e-3, 4),
             "cv": StratifiedKFold(
                 n_splits=(
@@ -141,7 +153,7 @@ class GradientBoostedPropensityModel(PropensityModel):
     @property
     def _model(self):
         kwargs = {
-            "max_depth": 8,
+            "max_depth": 3,
             "learning_rate": 0.1,
             "n_estimators": 100,
             "objective": "binary:logistic",
@@ -162,11 +174,23 @@ class GradientBoostedPropensityModel(PropensityModel):
 
         Args:
             X (numpy.ndarray, pd.DataFrame, or pl.DataFrame): a feature matrix
-            y (numpy.ndarray, pd.Series, or pl.Series): a binary target vector
+            y (numpy.ndarray, pd.Series, or pl.Series): the binary treatment
+                indicator, not the outcome. A propensity score is P(W = 1 | X),
+                so this vector must be the treatment assignment.
         """
         if self.early_stop:
+            # Same seed as the classifier (see _model), and stratified on
+            # treatment so the validation set keeps both arms. stratify needs
+            # at least two members per class, so fall back to a plain split
+            # for degenerate treatment vectors.
+            _, class_counts = np.unique(y, return_counts=True)
+            stratify = y if class_counts.min() >= 2 else None
             X_train, X_val, y_train, y_val = train_test_split(
-                X, y, test_size=stop_val_size
+                X,
+                y,
+                test_size=stop_val_size,
+                random_state=self.model_kwargs.get("random_state", 42),
+                stratify=stratify,
             )
 
             self.model.fit(
@@ -230,3 +254,110 @@ def compute_propensity_score(
         p = p_model.predict(X_pred)
 
     return p, p_model
+
+
+def compute_r_residuals(
+    X,
+    treatment,
+    y,
+    outcome_learner,
+    propensity_learner=None,
+    p=None,
+    method="predict",
+    n_folds=5,
+    random_state=None,
+    n_jobs=-1,
+    compute_w_residual=True,
+):
+    """Cross-fitted outcome/treatment residuals for the R-loss (Nie & Wager, 2021).
+
+    Computes out-of-fold m_hat(X) = E[Y|X] and e_hat(X) = E[W|X] via
+    n_folds-fold cross-fitting, stratified on treatment so every fold retains
+    both arms, and returns:
+
+        y_residual = y - m_hat(X)
+        w_residual = w - e_hat(X)
+
+    A candidate CATE model tau_hat is scored against these via the R-loss:
+
+        R-loss(tau_hat) = mean[(y_residual - w_residual * tau_hat(X)) ** 2]
+
+    This is also the quantity BaseRLearner.fit() implicitly minimizes: fitting
+    the per-arm effect model against target (y_residual / w_residual) with
+    sample_weight = w_residual ** 2 is the weighted-least-squares solution to
+    the same R-loss objective.
+
+    Args:
+        X (numpy.ndarray or pandas.DataFrame): a feature matrix
+        treatment (numpy.ndarray or pandas.Series): a binary treatment indicator (0 or 1)
+        y (numpy.ndarray or pandas.Series): an outcome vector
+        outcome_learner (model): a model to estimate E[Y|X]. Must implement
+            fit/predict (or predict_proba if method="predict_proba")
+        propensity_learner (PropensityModel, optional): passed through to
+            compute_propensity_score(). Ignored if `p` is given.
+            Defaults to ElasticNetPropensityModel
+        p (numpy.ndarray or pandas.Series, optional): pre-computed propensity
+            scores. If given, propensity is not re-estimated in-fold
+        method (str, optional): "predict" or "predict_proba" (for classifier
+            outcome learners, e.g. BaseRClassifier). Only the positive-class
+            column is used for "predict_proba". Default "predict"
+        n_folds (int, optional): number of cross-fitting folds. Default 5
+        random_state (int or None, optional): random seed for the fold splitter
+        n_jobs (int, optional): parallel jobs forwarded to cross_val_predict
+            for the outcome model. Default -1
+        compute_w_residual (bool, optional): whether to compute and return
+            w_residual. If False, skips propensity estimation entirely (no
+            in-fold propensity model is fit) and returns w_residual=None.
+            Set False when only the outcome residual is needed -- e.g.
+            BaseRLearner.fit(), which already has propensity scores from
+            elsewhere and would otherwise pay for a redundant per-fold
+            propensity fit whose output is discarded. Default True.
+
+    Returns:
+        (tuple):
+            - y_residual (numpy.ndarray): y - m_hat(X), out-of-fold
+            - w_residual (numpy.ndarray or None): w - e_hat(X), out-of-fold
+              (or w - p directly if `p` was supplied), or None if
+              compute_w_residual=False
+    """
+    X = np.asarray(X)
+    treatment = np.asarray(treatment)
+    y = np.asarray(y, dtype=float)
+
+    splits = list(
+        StratifiedKFold(
+            n_splits=n_folds, shuffle=True, random_state=random_state
+        ).split(X, treatment)
+    )
+
+    if method == "predict_proba":
+        yhat = cross_val_predict(
+            outcome_learner, X, y, cv=splits, method="predict_proba", n_jobs=n_jobs
+        )[:, 1]
+    else:
+        yhat = cross_val_predict(outcome_learner, X, y, cv=splits, n_jobs=n_jobs)
+
+    y_residual = y - yhat
+
+    if not compute_w_residual:
+        return y_residual, None
+
+    if p is not None:
+        w_residual = treatment - np.asarray(p, dtype=float)
+    else:
+        w_residual = np.empty(len(treatment), dtype=float)
+        for train_idx, test_idx in splits:
+            p_test, _ = compute_propensity_score(
+                X=X[train_idx],
+                treatment=treatment[train_idx],
+                p_model=(
+                    deepcopy(propensity_learner)
+                    if propensity_learner is not None
+                    else None
+                ),
+                X_pred=X[test_idx],
+                treatment_pred=treatment[test_idx],
+            )
+            w_residual[test_idx] = treatment[test_idx] - p_test
+
+    return y_residual, w_residual

@@ -182,6 +182,7 @@ def daemon_status(as_json: bool = typer.Option(False, "--json")) -> None:
 @daemon_app.command("install")
 def daemon_install() -> None:
     """Install the daemon's AI libraries into this CLI's environment (the `daemon` extra)."""
+    import dataclasses
     import subprocess
 
     from probe import __version__
@@ -208,15 +209,32 @@ def daemon_install() -> None:
     install = updater.detect_install()
     # `all` stays (plan 2.11: the CLI's own dependencies leave core in the next
     # release), and so does whatever the install records beside it (#2043 review).
-    kept = updater.kept_from_uv_receipt() or updater.KeptInstall()
+    # `daemon` is asked for here, not inferred: on a first switch to the daemon
+    # neither the libraries nor the setting exist yet.
+    kept = updater.kept_from_uv_receipt()
+    if kept is None and install.method in (updater.Method.UV_TOOL, updater.Method.UV_TOOL_LEGACY):
+        # Unreadable, or an editable or local `--with`, constraints: a reinstall
+        # would drop what it cannot restate, which `probe update` refuses too.
+        typer.echo(
+            "this install's uv receipt cannot be restated (unreadable, or an editable or local `--with` "
+            "package, constraints). Add the extra yourself: uv tool install "
+            f"'probe-research[all,daemon]=={__version__}' with your own `--with` packages.",
+            err=True,
+        )
+        raise typer.Exit(2)
+    kept = kept or updater.KeptInstall()
+    wanted = dataclasses.replace(kept, extras=tuple(sorted({"daemon", *kept.extras})))
     extras = ",".join(sorted({"all", "daemon", *kept.extras}))
     spec = f"probe-research[{extras}]=={__version__}"
-    if install.method in (updater.Method.UV_TOOL, updater.Method.UV_TOOL_LEGACY):
-        cmd = ["uv", "tool", "install", "--force", spec]
-        for requirement in kept.with_packages:
-            cmd += ["--with", requirement]
-        if kept.python:
-            cmd += ["--python", kept.python]
+    if install.method == updater.Method.UV_TOOL:
+        # No `--force`: a plain install adds the missing packages to the
+        # environment it has. `--force` deletes and rebuilds the environment --
+        # on the newest Python uv has, unless told -- under every running `probe`
+        # (2026-10-12: a daemon worker crashed reading its own files).
+        cmd = updater.uv_tool_install_command(wanted, version=f"=={__version__}")
+    elif install.method == updater.Method.UV_TOOL_LEGACY:
+        # The old probe-agent tool owns `probe`: only `--force` takes it over.
+        cmd = updater.uv_tool_install_command(wanted, force=True, version=f"=={__version__}")
     elif install.method == updater.Method.PIPX:
         cmd = ["pipx", "install", "--force", spec]
     elif install.method == updater.Method.PIP:
@@ -224,16 +242,74 @@ def daemon_install() -> None:
     else:
         typer.echo(f"install the extra with your package manager: {spec} ({install.detail or install.method})", err=True)
         raise typer.Exit(2)
+    _run_install(cmd)
+    # The old probe-agent tool's interpreter is not the one the install filled:
+    # ask the `probe` it left behind.
+    python = _installed_python() if install.method == updater.Method.UV_TOOL_LEGACY else sys.executable
+    ready = _fresh_ai_libraries(python)
+    if ready is None and install.method == updater.Method.UV_TOOL:
+        # A receipt that already asks for `daemon` makes the plain install a
+        # no-op ("already installed") even when the packages themselves are
+        # broken or gone: reinstall just those, in place.
+        repair = [*cmd]
+        for package in _DAEMON_PACKAGES:
+            repair += ["--reinstall-package", package]
+        _run_install(repair)
+        ready = _fresh_ai_libraries(python)
+    if ready is None:
+        typer.echo(
+            "the install finished but the daemon's AI libraries still do not import. Capture keeps running; "
+            "daemon mode stays unavailable.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    typer.echo("installed: daemon mode can run on this machine")
+
+
+#: The `daemon` extra's own packages: what a repair reinstalls.
+_DAEMON_PACKAGES = ("pydantic-ai-slim", "pydantic-ai-harness", "pydantic-ai-skills")
+
+
+def _run_install(cmd: list[str]) -> None:
+    import subprocess
+
     typer.echo("$ " + " ".join(cmd))
     try:
-        done = subprocess.run(cmd, timeout=600)
+        done = subprocess.run(cmd, timeout=600)  # noqa: S603 - fixed argv, no shell
     except (OSError, subprocess.TimeoutExpired) as exc:
         typer.echo(f"install failed: {exc}. Capture keeps running; daemon mode stays unavailable.", err=True)
         raise typer.Exit(1) from None
     if done.returncode != 0:
         typer.echo("install failed. Capture keeps running; daemon mode stays unavailable.", err=True)
         raise typer.Exit(done.returncode)
-    typer.echo("installed: daemon mode can run on this machine")
+
+
+def _installed_python() -> str:
+    """The interpreter of the `probe-research` uv tool environment, found through
+    uv itself (`uv tool dir`, custom locations included), not a `probe` on PATH,
+    which can still be the old probe-agent tool or another copy."""
+    from pathlib import Path
+
+    from probe.cli import bootstrap, updater
+
+    env = bootstrap._persistent_tool_env(["uv", "tool", "dir"], updater.DIST)
+    return str(Path(env) / "bin" / "python") if env else sys.executable
+
+
+def _fresh_ai_libraries(python: str) -> str | None:
+    """`ai_libraries` asked of a NEW interpreter: this process imported (or
+    failed to import) before the install changed the environment."""
+    import subprocess
+
+    try:
+        done = subprocess.run(  # noqa: S603 - that environment's own interpreter, no shell
+            [python, "-c", _IMPORT_AI_LIBRARIES],
+            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    version = (done.stdout or "").strip()
+    return version if done.returncode == 0 and version else None
 
 
 @daemon_app.command("override", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
@@ -347,7 +423,9 @@ def ask_cmd(
         raise typer.Exit(1)
     sid = agent_session.session_id_from_env()
     if not sid:
-        typer.echo(ASK_NO_SESSION, err=True)
+        from probe.cli.capabilities import cloud_agent_refusal
+
+        typer.echo(cloud_agent_refusal("probe ask") or ASK_NO_SESSION, err=True)
         raise typer.Exit(1)
     state = session_marker.session_state(sid)
     if state == session_marker.STATE_OFF:

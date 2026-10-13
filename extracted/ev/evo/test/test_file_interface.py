@@ -22,6 +22,8 @@ along with evo.  If not, see <http://www.gnu.org/licenses/>.
 import io
 import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 from rosbags.rosbag1 import Reader as Rosbag1Reader, Writer as Rosbag1Writer
@@ -30,7 +32,7 @@ from rosbags.rosbag2 import Reader as Rosbag2Reader, Writer as Rosbag2Writer
 import helpers
 import evo.core.lie_algebra as lie
 from evo.core.result import Result
-from evo.core.trajectory import PosePath3D, PoseTrajectory3D
+from evo.core.trajectory import PosePath3D, PoseTrajectory3D, merge
 from evo.tools import file_interface
 from evo.tools.settings import SETTINGS
 
@@ -76,6 +78,19 @@ class TestTumFile(MockFileTestCase):
         self.assertIsInstance(traj_in, PoseTrajectory3D)
         self.assertTrue(traj_in.check())
         self.assertTrue(traj_out == traj_in)
+
+    def test_name_from_file(self):
+        """
+        Checks that a trajectory is named after the file it's loaded from.
+        """
+        traj_out = helpers.fake_trajectory(10, 0.1)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            file_path = Path(tmp_dir) / "test.tum"
+            file_interface.write_tum_trajectory_file(file_path, traj_out)
+            traj_in = file_interface.read_tum_trajectory_file(file_path)
+            self.assertEqual(traj_in.name, str(file_path))
+        # In-memory buffers have no file name.
+        self.assertIsNone(file_interface.name_from_file(io.StringIO()))
 
     @MockFileTestCase.run_and_clear
     def test_trailing_delim(self):
@@ -154,31 +169,87 @@ class TestBagFile(MockFileTestCase):
     def __init__(self, *args, **kwargs):
         super(TestBagFile, self).__init__(io.BytesIO(), *args, **kwargs)
 
+    def _write_test_bag(
+        self,
+        reader_t: type[Rosbag1Reader | Rosbag2Reader],
+        bag_path: Path,
+        trajectory: PoseTrajectory3D,
+        *,
+        topic="/test",
+        frame_id="map",
+    ):
+        writer: Rosbag1Writer | Rosbag2Writer = (
+            Rosbag1Writer(bag_path)
+            if reader_t is Rosbag1Reader
+            else Rosbag2Writer(
+                bag_path, version=SETTINGS.ros2_bag_format_version
+            )
+        )
+        with writer:
+            file_interface.write_bag_trajectory(
+                writer, trajectory, topic, frame_id=frame_id
+            )
+
     def test_write_read_integrity(self):
         for reader_t in [Rosbag1Reader, Rosbag2Reader]:
-            # TODO: rosbags cannot overwrite existing paths, this forces us
-            # to do this here to get only a filepath:
-            tmp_filename = tempfile.NamedTemporaryFile(delete=True).name
-            if reader_t is Rosbag1Reader:
-                bag_out = Rosbag1Writer(tmp_filename)
-            else:
-                bag_out = Rosbag2Writer(
-                    tmp_filename, version=SETTINGS.ros2_bag_format_version
+            with (
+                self.subTest(reader=reader_t),
+                tempfile.TemporaryDirectory() as tmp,
+            ):
+                traj_out = helpers.fake_trajectory(1000, 0.1)
+                self.assertTrue(traj_out.check())
+                bag_out = Path(tmp) / "trajectory.bag"
+                self._write_test_bag(reader_t, bag_out, traj_out)
+                bag_in = reader_t(bag_out)
+                with bag_in:
+                    traj_in = file_interface.read_bag_trajectory(
+                        bag_in, "/test"
+                    )
+                    self.assertIsInstance(traj_in, PoseTrajectory3D)
+                    self.assertTrue(traj_in.check())
+                    self.assertTrue(traj_out == traj_in)
+                    self.assertEqual(traj_in.meta["frame_id"], "map")
+                    self.assertEqual(traj_in.name, "/test")
+
+    def test_frame_id(self):
+        """A `frame_id` is kept in the `meta` field of the trajectory."""
+        for reader_t in [Rosbag1Reader, Rosbag2Reader]:
+            with (
+                self.subTest(reader=reader_t),
+                tempfile.TemporaryDirectory() as tmp,
+            ):
+                traj_out = helpers.fake_trajectory(1000, 0.1)
+                bag_path = Path(tmp) / "trajectory.bag"
+                self._write_test_bag(
+                    reader_t, bag_path, traj_out, frame_id="test123"
                 )
-            bag_out.open()
-            traj_out = helpers.fake_trajectory(1000, 0.1)
-            self.assertTrue(traj_out.check())
-            file_interface.write_bag_trajectory(
-                bag_out, traj_out, "/test", frame_id="map"
-            )
-            bag_out.close()
-            bag_in = reader_t(tmp_filename)
-            bag_in.open()
-            traj_in = file_interface.read_bag_trajectory(bag_in, "/test")
-            self.assertIsInstance(traj_in, PoseTrajectory3D)
-            self.assertTrue(traj_in.check())
-            self.assertTrue(traj_out == traj_in)
-            self.assertEqual(traj_in.meta["frame_id"], "map")
+                with reader_t(bag_path) as reader:
+                    loaded = file_interface.read_bag_trajectory(
+                        reader, "/test"
+                    )
+                self.assertEqual(loaded.meta["frame_id"], "test123")
+                self.assertEqual(loaded.name, "/test")
+
+    def test_read_empty_topic(self):
+        """Checks that an empty (but advertised) topic causes an error."""
+        for reader_t in [Rosbag1Reader, Rosbag2Reader]:
+            with (
+                self.subTest(reader=reader_t),
+                tempfile.TemporaryDirectory() as tmp,
+            ):
+                bag_path = Path(tmp) / "trajectory.bag"
+                traj_out = helpers.fake_trajectory(1000, 0.1)
+                self._write_test_bag(reader_t, bag_path, traj_out)
+                with reader_t(bag_path) as reader:
+                    # Mock a bag file with 0 messages for an advertised topic.
+                    with patch.object(
+                        reader, "messages", return_value=iter(())
+                    ):
+                        with self.assertRaisesRegex(
+                            file_interface.FileInterfaceException,
+                            "no messages for topic '/test' in bag",
+                        ):
+                            file_interface.read_bag_trajectory(reader, "/test")
 
 
 class TestResultFile(MockFileTestCase):

@@ -12,8 +12,11 @@ import schemathesis
 from schemathesis.auths import AuthContext
 from schemathesis.core.cache import Manifest, write
 from schemathesis.core.cache.models import FORMAT_VERSION
+from schemathesis.core.errors import LoaderError
+from schemathesis.specs.openapi.object_authorization import apply_as
 from schemathesis.wfc.converter import wfc_to_auth_provider
 from schemathesis.wfc.errors import WFCLoginError, WFCValidationError
+from schemathesis.wfc.escalation import escalating_provider, identity_assignments, restore_identity_assignments
 from schemathesis.wfc.loader import load_from_dict
 from test.apps.catalog.openapi import wfc as wfc_apps
 from test.apps.catalog.openapi.wfc import WFC_PASSWORD, WFC_SESSION, WFC_TOKEN, WFC_USERNAME
@@ -110,6 +113,34 @@ def test_wfc_user_flag_selects_within_a_configured_file(cli, ctx, tmp_path):
 
     assert _run_wfc(cli, api, auth, "--auth-wfc-user=bob").exit_code == 0
     assert all(_header(c, "X-Api-Key") == "bob-key" for c in _protected_calls(api))
+
+
+def test_wfc_user_requires_path(cli, tmp_path):
+    schema = _write(
+        tmp_path,
+        {"openapi": "3.0.0", "info": {"title": "Test", "version": "1.0"}, "paths": {}},
+        name="schema.json",
+    )
+
+    result = cli.run(schema, "--url=http://127.0.0.1", "--auth-wfc-user=bob")
+
+    assert result.exit_code == 2
+    assert result.stderr == (
+        "Usage: schemathesis run [OPTIONS] LOCATION\n"
+        "Try 'schemathesis run --help' for help.\n\n"
+        "Error: --auth-wfc-user requires --auth-wfc or path under [auth.wfc]\n"
+    )
+
+
+def test_replay_wfc_user_requires_path(cli):
+    result = cli.main("replay", "--auth-wfc-user=bob")
+
+    assert result.exit_code == 2
+    assert result.stderr == (
+        "Usage: schemathesis replay [OPTIONS] [PATH]\n"
+        "Try 'schemathesis replay --help' for help.\n\n"
+        "Error: --auth-wfc-user requires --auth-wfc or path under [auth.wfc]\n"
+    )
 
 
 def test_wfc_fixed_headers_reach_requests(cli, ctx, tmp_path):
@@ -1141,6 +1172,56 @@ def test_content_type_probe_refusal_does_not_move_the_identity(cli, ctx, tmp_pat
     assert set(sent) == {"ApiKey viewer"}
 
 
+BASIC_AUTH = {
+    "auth": [
+        {"name": "alice", "fixedHeaders": [{"name": "Authorization", "value": "Basic YWxpY2U6c2VjcmV0"}]},
+        {"name": "bob", "fixedHeaders": [{"name": "Authorization", "value": "Basic Ym9iOnNlY3JldA=="}]},
+    ]
+}
+
+
+@pytest.mark.parametrize(
+    ("version", "scheme"),
+    [
+        ("2.0", {"type": "basic"}),
+        ("3.0.2", {"type": "http", "scheme": "basic"}),
+        ("3.0.2", {"type": "http", "scheme": "bearer"}),
+    ],
+    ids=["swagger-basic", "openapi-basic", "openapi-bearer"],
+)
+def test_case_without_credentials_does_not_move_the_identity(ctx, app_runner, tmp_path, version, scheme):
+    # The coverage phase drops the credentials on purpose, so its 401 says nothing about the identity.
+    responses = {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}}
+    security = (
+        {"securityDefinitions": {"auth": scheme}, "basePath": "/"}
+        if version == "2.0"
+        else {"components": {"securitySchemes": {"auth": scheme}}}
+    )
+    app, _ = ctx.openapi.make_flask_app(
+        {"/api/first": {"get": {"responses": responses}}, "/api/orders": {"get": {"responses": responses}}},
+        version=version,
+        security=[{"auth": []}],
+        **security,
+    )
+
+    @app.route("/api/first", endpoint="first")
+    @app.route("/api/orders", endpoint="orders")
+    def protected():
+        return jsonify({}), 200 if request.headers.get("Authorization") else 401
+
+    config = schemathesis.Config.from_dict({"auth": {"wfc": {"path": _write(tmp_path, BASIC_AUTH)}}})
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app), config=config)
+    schema.config.phases.fuzzing.enabled = False
+    schema.config.phases.stateful.enabled = False
+    list(schemathesis.engine.from_schema(schema).execute())
+
+    provider = escalating_provider(schema)
+    assert [provider.names[provider.index_for(label)] for label in ("GET /api/first", "GET /api/orders")] == [
+        "alice",
+        "alice",
+    ]
+
+
 def test_identity_refused_before_accounts_exist_is_retried(cli, ctx, tmp_path):
     # An API may create its accounts mid-run, so a 401 from before then says nothing about the identity.
     api = ctx.openapi.apps.wfc_accounts_seeded_later()
@@ -1344,3 +1425,98 @@ def test_credentials_that_never_work_reach_anonymous_early(cli, ctx, tmp_path):
     public = [r for r in api.requests if r.path.startswith("/api/public")]
     assert public, "operation was never called"
     assert any(r.headers.get("Authorization") is None for r in public)
+
+
+PEER_AUTH = {
+    "auth": [
+        {
+            "name": "alice",
+            "fixedHeaders": [
+                {"name": "Authorization", "value": "ApiKey alice"},
+                {"name": "X-Tenant", "value": "alice"},
+            ],
+        },
+        {"name": "bob", "fixedHeaders": [{"name": "Authorization", "value": "ApiKey bob"}]},
+        {"name": "admin", "fixedHeaders": [{"name": "Authorization", "value": "ApiKey admin"}]},
+    ]
+}
+
+
+def _peer_schema(ctx, tmp_path, *, peers=("alice", "bob"), **wfc):
+    raw = ctx.openapi.build_schema({"/api/protected": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    config = {"path": _write(tmp_path, PEER_AUTH), "peers": list(peers), **wfc}
+    return schemathesis.openapi.from_dict(raw, config=schemathesis.Config.from_dict({"auth": {"wfc": config}}))
+
+
+def _authenticated_case(schema):
+    operation = schema["/api/protected"]["GET"]
+    case = operation.Case()
+    schema.auth.set(case, AuthContext(operation=operation, app=None))
+    return case
+
+
+def test_apply_as_sends_only_the_peer_credentials(ctx, tmp_path):
+    schema = _peer_schema(ctx, tmp_path)
+    case = _authenticated_case(schema)
+
+    probe = apply_as(case, escalating_provider(schema).provider_for("bob"), "bob")
+
+    assert (dict(probe.headers), probe._auth_identity) == ({"Authorization": "ApiKey bob"}, "bob")
+    assert dict(case.headers) == {"Authorization": "ApiKey alice", "X-Tenant": "alice"}
+
+
+def test_pinned_user_with_peers_tags_cases(ctx, tmp_path):
+    schema = _peer_schema(ctx, tmp_path, user="bob")
+    escalating_provider(schema).record("GET /api/protected", "bob", 403)
+
+    assert _authenticated_case(schema)._auth_identity == "bob"
+
+
+def test_pinned_user_ignores_persisted_assignments(ctx, tmp_path):
+    schema = _peer_schema(ctx, tmp_path, user="bob")
+    restore_identity_assignments(schema, {"GET /api/protected": "alice"})
+
+    assert (identity_assignments(schema), _authenticated_case(schema)._auth_identity) == ({}, "bob")
+
+
+@pytest.mark.parametrize(
+    "login",
+    [_login(token=_token(sendIn="query", sendName="token", sendTemplate="{token}")), _login(expectCookies=True)],
+    ids=["query-token", "cookie"],
+)
+def test_apply_as_strips_login_credentials(ctx, tmp_path, login):
+    api = ctx.openapi.apps.wfc_login()
+    doc = {
+        "auth": [
+            {"name": "alice", "loginEndpointAuth": login},
+            {"name": "bob", "fixedHeaders": [{"name": "Authorization", "value": "ApiKey bob"}]},
+        ]
+    }
+    config = {"path": _write(tmp_path, doc), "peers": ["alice", "bob"]}
+    schema = schemathesis.openapi.from_url(
+        api.schema_url, config=schemathesis.Config.from_dict({"auth": {"wfc": config}})
+    )
+    case = _authenticated_case(schema)
+
+    probe = apply_as(case, escalating_provider(schema).provider_for("bob"), "bob")
+
+    assert (dict(probe.headers), probe.query, probe.cookies) == ({"Authorization": "ApiKey bob"}, {}, {})
+
+
+def test_probe_is_claimed_once(ctx, tmp_path):
+    provider = escalating_provider(_peer_schema(ctx, tmp_path))
+    key = ("GET /api/orders/{id}", "Order", "bob")
+
+    assert [provider.claim_probe(key), provider.claim_probe(key)] == [True, False]
+
+
+def test_unknown_peer_is_rejected(ctx, tmp_path):
+    with pytest.raises(LoaderError, match="Peer 'carol' not found in WFC auth document"):
+        _peer_schema(ctx, tmp_path, peers=("alice", "carol"))
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+@pytest.mark.parametrize("peers", [["alice"], ["alice", "alice"]], ids=["single", "duplicate"])
+def test_peers_need_two_distinct_users(cli, ctx, tmp_path, snapshot_cli, peers):
+    api = ctx.openapi.apps.wfc_login()
+    assert _run_wfc(cli, api, _write(tmp_path, PEER_AUTH), peers=peers) == snapshot_cli

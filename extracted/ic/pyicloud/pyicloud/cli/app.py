@@ -12,11 +12,16 @@ from pyicloud.cli.commands.devices import app as devices_app
 from pyicloud.cli.commands.doctor import doctor
 from pyicloud.cli.commands.drive import app as drive_app
 from pyicloud.cli.commands.hidemyemail import app as hidemyemail_app
+from pyicloud.cli.commands.invites import app as invites_app
 from pyicloud.cli.commands.notes import app as notes_app
 from pyicloud.cli.commands.photos import app as photos_app
 from pyicloud.cli.commands.reminders import app as reminders_app
-from pyicloud.cli.context import CLIAbort
+from pyicloud.cli.context import CONNECTION_FAILURE_MESSAGE, CLIAbort
 from pyicloud.diagnostics import installed_version
+from pyicloud.exceptions import (
+    PyiCloudAccountLockedException,
+    PyiCloudConnectionException,
+)
 
 app = typer.Typer(
     help="Command line interface for pyicloud services.",
@@ -85,6 +90,9 @@ app.add_typer(
 app.add_typer(
     notes_app, name="notes", invoke_without_command=True, callback=_group_root
 )
+app.add_typer(
+    invites_app, name="invites", invoke_without_command=True, callback=_group_root
+)
 
 # A leaf rather than a group: `icloud doctor` is what someone types when a
 # service stopped working, and it should run rather than print a group listing.
@@ -96,6 +104,15 @@ def main() -> int:
 
     try:
         app()
+    except PyiCloudAccountLockedException as err:
+        typer.echo(f"{err}. Unlock it before trying again.", err=True)
+        return 1
+    except PyiCloudConnectionException:
+        # Backstop for paths that reach the transport layer outside a
+        # service_call() or get_login_api() wrapper, so an outage prints a
+        # retry hint instead of a traceback.
+        typer.echo(CONNECTION_FAILURE_MESSAGE, err=True)
+        return 1
     except CLIAbort as err:
         typer.echo(str(err), err=True)
         return 1

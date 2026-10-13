@@ -1512,6 +1512,7 @@ fn extract_page_text_items(
         eprintln!("[extract-debug] char_count={char_count}, skip_invisible={skip_invisible}");
     }
 
+    let clips = crate::text_clip::TextClip::new(page);
     let page_rotation = page.rotation();
     let vp_xform = page.viewport_transform(view_box);
     let mut items: Vec<TextItem> = Vec::new();
@@ -1529,6 +1530,10 @@ fn extract_page_text_items(
             ch: &ch,
             rec: char_chunks.as_mut().and_then(|chunks| chunks.record(i)),
         };
+        if clips.hides(&cv) {
+            seg.flush(&mut items);
+            continue;
+        }
         let unicode = cv.unicode();
         let is_generated = cv.is_generated();
 
@@ -2746,6 +2751,7 @@ impl ObjMetaCache {
 /// char-info records (`FPDF_CHARINFO_LP::char_type`).
 const CHAR_TYPE_GENERATED: i32 = 1;
 const CHAR_TYPE_NOT_UNICODE: i32 = 2;
+const CHAR_TYPE_HYPHEN: i32 = 3;
 
 /// Records per `FPDFText_GetCharInfoBatch` call (80 bytes each → ~1.3 MB).
 const CHAR_INFO_CHUNK: usize = 16 * 1024;
@@ -2823,6 +2829,13 @@ impl CharView<'_, '_> {
         match &self.rec {
             Some(rec) => rec.char_type == CHAR_TYPE_NOT_UNICODE,
             None => self.ch.has_unicode_map_error(),
+        }
+    }
+
+    pub(crate) fn is_hyphen(&self) -> bool {
+        match &self.rec {
+            Some(rec) => rec.char_type == CHAR_TYPE_HYPHEN,
+            None => self.ch.is_hyphen(),
         }
     }
 

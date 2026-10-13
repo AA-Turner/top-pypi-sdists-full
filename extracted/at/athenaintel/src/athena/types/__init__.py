@@ -31,6 +31,7 @@ if typing.TYPE_CHECKING:
     from .asset_content_request_out import AssetContentRequestOut
     from .asset_node import AssetNode
     from .asset_read_error_out import AssetReadErrorOut
+    from .asset_read_identity_out import AssetReadIdentityOut
     from .asset_read_response_out import AssetReadResponseOut
     from .asset_read_result import AssetReadResult
     from .asset_screenshot_response_out import AssetScreenshotResponseOut
@@ -149,6 +150,7 @@ if typing.TYPE_CHECKING:
     from .run_task_response import RunTaskResponse
     from .save_asset_request_out import SaveAssetRequestOut
     from .semantic_model_meta_response_out import SemanticModelMetaResponseOut
+    from .semantic_model_order_entry import SemanticModelOrderEntry
     from .semantic_model_query_response_out import SemanticModelQueryResponseOut
     from .semantic_model_token_response_out import SemanticModelTokenResponseOut
     from .session_out import SessionOut
@@ -221,6 +223,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AssetContentRequestOut": ".asset_content_request_out",
     "AssetNode": ".asset_node",
     "AssetReadErrorOut": ".asset_read_error_out",
+    "AssetReadIdentityOut": ".asset_read_identity_out",
     "AssetReadResponseOut": ".asset_read_response_out",
     "AssetReadResult": ".asset_read_result",
     "AssetScreenshotResponseOut": ".asset_screenshot_response_out",
@@ -339,6 +342,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "RunTaskResponse": ".run_task_response",
     "SaveAssetRequestOut": ".save_asset_request_out",
     "SemanticModelMetaResponseOut": ".semantic_model_meta_response_out",
+    "SemanticModelOrderEntry": ".semantic_model_order_entry",
     "SemanticModelQueryResponseOut": ".semantic_model_query_response_out",
     "SemanticModelTokenResponseOut": ".semantic_model_token_response_out",
     "SessionOut": ".session_out",
@@ -435,6 +439,7 @@ __all__ = [
     "AssetContentRequestOut",
     "AssetNode",
     "AssetReadErrorOut",
+    "AssetReadIdentityOut",
     "AssetReadResponseOut",
     "AssetReadResult",
     "AssetScreenshotResponseOut",
@@ -553,6 +558,7 @@ __all__ = [
     "RunTaskResponse",
     "SaveAssetRequestOut",
     "SemanticModelMetaResponseOut",
+    "SemanticModelOrderEntry",
     "SemanticModelQueryResponseOut",
     "SemanticModelTokenResponseOut",
     "SessionOut",

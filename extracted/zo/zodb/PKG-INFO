@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ZODB
-Version: 6.3
+Version: 6.4
 Summary: ZODB, a Python object-oriented database
 Author-email: Jim Fulton <jim@zope.com>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database
@@ -73,7 +74,7 @@ ZODB, a Python object-oriented database
    :alt: Documentation status
 
 ZODB provides an object-oriented database for Python that provides a
-high-degree of transparency. ZODB runs on Python 3.7 and
+high-degree of transparency. ZODB runs on Python 3.10 and
 above. It also runs on PyPy.
 
 - no separate language for database operations
@@ -89,7 +90,7 @@ above. It also runs on PyPy.
 
 ZODB is an ACID Transactional database.
 
-To learn more, visit: https://zodb-docs.readthedocs.io
+To learn more, visit: https://zodb.org/
 
 The github repository is at https://github.com/zopefoundation/zodb
 
@@ -101,8 +102,16 @@ If you're interested in contributing to ZODB itself, see the
  Change History
 ================
 
+6.4 (2026-10-12)
+================
+
+- Add ``StateLoadError``, raised when an object's state cannot be loaded.
+
+- Add support for Python 3.15.
+
+
 6.3 (2026-04-14)
-----------------
+================
 
 - Add ``class_factory`` parameter to ``DB.__init__()`` and
   ``class-factory`` option to ZConfig database configuration.

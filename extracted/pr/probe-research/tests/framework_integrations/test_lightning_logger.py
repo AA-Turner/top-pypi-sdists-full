@@ -136,6 +136,11 @@ def _keep_sigint():
 def wired(app, tmp_path, monkeypatch):
     """A bare `probe.init()` builds a client wired to the fake: the path the
     logger takes in real use."""
+    # CI runners are disposable machines, so their local disk reads as
+    # throwaway and every location-only checkpoint would warn. In-process
+    # tests see lasting storage unless they say otherwise; subprocess tests
+    # keep the runner's own answer (their child closes take that path).
+    monkeypatch.setenv("PROBE_EPHEMERAL", "0")
     monkeypatch.setattr(fluent, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool"))
     app.seed_experiment("e1")
 
@@ -1383,6 +1388,125 @@ def test_a_workers_copy_pickled_again_carries_no_token(app, wired, tmp_path):
     assert pickle.loads(blob)._client_settings is None
     probe.finish()
     client.close()
+
+
+# -- checkpoints="upload" -------------------------------------------------------------
+
+
+def _index_rows(app, run_id: str) -> dict[str, dict]:
+    """Checkpoint rows by NAME, folded as the server stores them (a re-log of
+    a hashless reference refreshes it in place)."""
+    stored: dict[tuple[str, str], dict] = {}
+    for post in _checkpoint_posts(app, run_id):
+        stored[(post["name"], post["uri"])] = post
+    return {row["name"]: row for row in stored.values()}
+
+
+def _members_of(app, run_id: str, index: str) -> dict[str, dict]:
+    prefix = index + "/"
+    return {a["name"][len(prefix):]: a for a in app.artifacts.get(run_id, []) if a["name"].startswith(prefix)}
+
+
+def _sha(path: str) -> str:
+    import hashlib
+
+    with open(path, "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
+
+
+def test_upload_files_each_save_as_a_set_whose_index_follows_best(app, wired, tmp_path):
+    """Review C4: an uploaded `checkpoint` row could not be refreshed, so its
+    `best` stayed what it was at the save. Each save is now an index row (a
+    reference, refreshed in place) plus its file uploaded as a `file` row, and
+    exactly one index says best: the callback's."""
+    callback = ModelCheckpoint(monitor="val_loss", save_top_k=-1, filename="e{epoch}")
+    _trainer(ProbeLogger(experiment="e1", checkpoints="upload"), tmp_path, callbacks=[callback], max_epochs=3).fit(
+        Tiny(), _loader(), _loader()
+    )
+    run_id = _only_run(app)["id"]
+    probe.finish()
+    indexes = _index_rows(app, run_id)
+    assert len(indexes) == 3 and all("@step" in name for name in indexes)
+    for name, index in indexes.items():
+        local = index["meta"]["local_path"]
+        assert index["is_reference"] is True and index["meta"]["upload"] == "requested"
+        assert index["meta"]["members"] == [os.path.basename(local)]
+        (member,) = _members_of(app, run_id, name).values()
+        assert member.get("kind", "file") == "file" and member["is_reference"] is False
+        assert member["content_hash"] == _sha(local)
+    best = os.path.abspath(callback.best_model_path)
+    assert [r["meta"]["local_path"] for r in indexes.values() if r["meta"].get("best")] == [best]
+
+
+def test_a_checkpoint_saved_again_in_place_starts_a_new_set(app, wired, tmp_path):
+    """`last.ckpt` is rewritten at every save: each save is its own set, the
+    earlier one marked superseded, so a download never mixes two saves."""
+    callback = ModelCheckpoint(save_last=True)  # top-1 by recency, plus last.ckpt each epoch
+    _trainer(ProbeLogger(experiment="e1", checkpoints="upload"), tmp_path, callbacks=[callback], max_epochs=2).fit(
+        Tiny(), _loader(), _loader()
+    )
+    run_id = _only_run(app)["id"]
+    probe.finish()
+    indexes = {name: row for name, row in _index_rows(app, run_id).items() if name.startswith("last@")}
+    assert sorted(indexes) == ["last@step4.ckpt", "last@step8.ckpt"]
+    older, newer = indexes["last@step4.ckpt"]["meta"], indexes["last@step8.ckpt"]["meta"]
+    assert older["superseded"] is True and older["last"] is False
+    assert newer["last"] is True and "superseded" not in newer
+    (old_file,) = _members_of(app, run_id, "last@step4.ckpt").values()
+    (new_file,) = _members_of(app, run_id, "last@step8.ckpt").values()
+    assert old_file["content_hash"] != new_file["content_hash"]
+    assert new_file["content_hash"] == _sha(callback.last_model_path)
+
+
+def test_upload_stores_a_sharded_folder_checkpoint(app, wired, tmp_path):
+    """A sharded checkpoint (DeepSpeed, FSDP) is a FOLDER, which upload mode
+    used to record as a location anyway. Each save's shards are now its set."""
+    callback = ModelCheckpoint(save_last=True)
+    _trainer(ProbeLogger(experiment="e1", checkpoints="upload"), tmp_path, callbacks=[callback], plugins=[_FolderIO()]).fit(
+        Tiny(), _loader()
+    )
+    run_id = _only_run(app)["id"]
+    probe.finish()
+    last = _index_rows(app, run_id)["last@step8.ckpt"]
+    assert last["meta"]["members"] == ["model_states.pt", "optim_states.pt"]
+    members = _members_of(app, run_id, "last@step8.ckpt")
+    for rel, row in members.items():
+        assert row["content_hash"] == _sha(os.path.join(callback.last_model_path, rel))
+    assert len(members) == 2
+
+
+def test_a_location_only_checkpoint_on_a_throwaway_disk_warns_once(app, wired, tmp_path, monkeypatch):
+    monkeypatch.setenv("PROBE_EPHEMERAL", "1")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _trainer(ProbeLogger(experiment="e1"), tmp_path, max_epochs=2).fit(Tiny(), _loader(), _loader())
+    said = [str(w.message) for w in caught if "own disk" in str(w.message)]
+    assert len(said) == 1 and 'checkpoints="upload"' in said[0]
+    probe.finish()
+
+
+def test_no_throwaway_warning_on_lasting_storage(app, wired, tmp_path, monkeypatch):
+    monkeypatch.setenv("PROBE_EPHEMERAL", "0")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _trainer(ProbeLogger(experiment="e1"), tmp_path, max_epochs=1).fit(Tiny(), _loader(), _loader())
+    assert not [w for w in caught if "own disk" in str(w.message)]
+    probe.finish()
+
+
+def test_the_environment_chooses_upload_and_a_wrong_value_falls_back(app, wired, tmp_path, monkeypatch):
+    monkeypatch.setenv("PROBE_CHECKPOINTS", "everything")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        logger = ProbeLogger(experiment="e1")
+    assert logger._checkpoints == "reference"
+    assert [w for w in caught if "PROBE_CHECKPOINTS" in str(w.message)]
+    monkeypatch.setenv("PROBE_CHECKPOINTS", "upload")
+    _trainer(ProbeLogger(experiment="e1"), tmp_path / "env", max_epochs=1).fit(Tiny(), _loader(), _loader())
+    probe.finish()
+    run_id = next(r["id"] for r in app.runs.values())
+    assert any(n.startswith(("last@step", "epoch=")) and "@step" in n for n in _index_rows(app, run_id))
+    assert any("/" in a["name"] for a in app.artifacts.get(run_id, []))  # its files were uploaded
 
 
 def test_only_a_monitored_callback_marks_a_checkpoint_best(app, wired, tmp_path):

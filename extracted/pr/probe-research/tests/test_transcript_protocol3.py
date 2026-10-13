@@ -261,11 +261,13 @@ def _flatten(outputs) -> list[dict]:
     return events
 
 
-def _expected_fragments(events: list[dict]) -> list[dict]:
-    """The contract's order, by hand: events scrubbed together, fragment each,
-    fragments scrubbed to their own fixed point."""
+def _expected_fragments(events: list[dict], version: int = 1) -> list[dict]:
+    """The contract's order, by hand: events scrubbed together, fragment each
+    (in the negotiated version), fragments scrubbed to their own fixed point."""
     scrubbed = sj._scrub_content({"events": events})["events"]
-    return sj._scrub_content({"fragments": [atif_fragment.fragment(e) for e in scrubbed]})["fragments"]
+    return sj._scrub_content(
+        {"fragments": [atif_fragment.fragment(e, version) for e in scrubbed]}
+    )["fragments"]
 
 
 def _tables(journal: Journal) -> dict[str, set[str]]:
@@ -306,8 +308,10 @@ def _answer(**accepts):
                      id="offered"),
         pytest.param(_answer(protocols=[2, 3], fragment_versions=[1], events=True), (3, True),
                      id="offered-with-events"),
-        pytest.param(_answer(protocols=[2, 3], fragment_versions=[2], events=True), (2, False),
+        pytest.param(_answer(protocols=[2, 3], fragment_versions=[3], events=True), (2, False),
                      id="fragment-version-unsupported"),
+        pytest.param(_answer(protocols=[2, 3], fragment_versions=[2], events=True), (3, True),
+                     id="only-version-2"),
         pytest.param(_answer(protocols=[2, 3], events=False), (2, False), id="no-versions"),
         pytest.param(_answer(protocols=[2, "3", True], fragment_versions=[1]), (2, False),
                      id="only-the-integer-3"),
@@ -423,7 +427,7 @@ def test_a_protocol_3_stream_stays_on_3_when_the_offer_is_withdrawn(tmp_path):
     _start(fresh, wire, sid, path)
     _drain(fresh, wire, sid)
     assert [b["protocol_version"] for b in wire.bodies(sid)] == [3, 3, 3, 3]
-    assert all(b["fragment_version"] == atif_fragment.FRAGMENT_VERSION for b in wire.bodies(sid))
+    assert all(b["fragment_version"] == 1 for b in wire.bodies(sid))  # the door offers [1]
     reopened.close()
     fresh.close()
 
@@ -985,13 +989,17 @@ def test_an_older_tap_beside_the_restart_leaves_one_stream(tmp_path, old_stages_
 # -- the batch (§2, §3) --------------------------------------------------------------
 
 
+@pytest.mark.parametrize("versions", [(1,), (1, 2)], ids=["door-v1", "door-v1-v2"])
 @pytest.mark.parametrize("events", [False, True], ids=["fragments", "fragments+events"])
 @pytest.mark.parametrize("harness", HARNESSES)
-def test_fragments_are_the_vendored_builders_over_the_scrubbed_events(tmp_path, harness, events):
+def test_fragments_are_the_vendored_builders_over_the_scrubbed_events(
+    tmp_path, harness, events, versions
+):
     """Per harness, from the probe-events/1 goldens: the batch's fragments are
-    `fragment(event)` of the scrubbed events, one per ordinal, and the events
-    go beside them only when the server asked."""
-    wire = DoorWire(harness, offers=True, events=events)
+    `fragment(event, v)` of the scrubbed events, one per ordinal, in the
+    highest version the door and the builder share, and the events go beside
+    them only when the server asked."""
+    wire = DoorWire(harness, offers=True, events=events, versions=versions)
     sid = str(uuid.uuid4())
     path = tmp_path / f"{sid}.jsonl"
     path.write_bytes((GOLDENS / harness / "raw.jsonl").read_bytes())
@@ -1006,13 +1014,14 @@ def test_fragments_are_the_vendored_builders_over_the_scrubbed_events(tmp_path, 
     ]
     expected_events = _flatten(golden)
     assert body["event_start"] == 0 and body["event_end"] == len(expected_events) > 0
-    assert body["fragments"] == _expected_fragments(expected_events)
+    assert body["fragments"] == _expected_fragments(expected_events, max(versions))
+    assert {f["v"] for f in body["fragments"]} == {max(versions)}
     assert [f["line"]["line_no"] for f in body["fragments"]] == list(range(len(expected_events)))
     if events:
         assert body["events"] == sj._scrub_content({"events": expected_events})["events"]
     else:
         assert "events" not in body
-    assert body["fragment_version"] == atif_fragment.FRAGMENT_VERSION == 1
+    assert body["fragment_version"] == max(versions) == journal.get(sid)["fragment_version"]
     journal.close()
 
 
@@ -1025,7 +1034,7 @@ def test_finalize_carries_the_fragment_version_and_nothing_else(tmp_path):
     _drain(journal, wire, sid, finalize=True)
     data, final = wire.bodies(sid)
     assert final["finalize"] is True and final["protocol_version"] == 3
-    assert final["fragment_version"] == atif_fragment.FRAGMENT_VERSION
+    assert final["fragment_version"] == data["fragment_version"] == 1  # the door offers [1]
     assert not {"fragments", "events", "cwd"} & final.keys()
     assert final["event_start"] == final["event_end"] == data["event_end"]
     assert journal.get(sid)["finalized"]
@@ -1035,10 +1044,10 @@ def test_finalize_carries_the_fragment_version_and_nothing_else(tmp_path):
 def test_a_fragment_that_raises_still_covers_its_ordinal(tmp_path, monkeypatch):
     real = atif_fragment.fragment
 
-    def flaky(event):
+    def flaky(event, version):
         if event["line_no"] == 1:
             raise RuntimeError("synthetic")
-        return real(event)
+        return real(event, version)
 
     monkeypatch.setattr(atif_fragment, "fragment", flaky)
     wire = DoorWire(offers=True)
@@ -1054,7 +1063,7 @@ def test_a_fragment_that_raises_still_covers_its_ordinal(tmp_path, monkeypatch):
 
 
 def test_memory_error_is_never_sent_as_an_empty_fragment(tmp_path, monkeypatch):
-    def exhausted(event):
+    def exhausted(event, version):
         raise MemoryError
 
     monkeypatch.setattr(atif_fragment, "fragment", exhausted)
@@ -1160,7 +1169,10 @@ def test_packing_never_builds_a_fragment_twice(tmp_path, monkeypatch):
     built once, for the batch that sends it."""
     built = []
     real = atif_fragment.fragment
-    monkeypatch.setattr(atif_fragment, "fragment", lambda event: built.append(event["line_no"]) or real(event))
+    monkeypatch.setattr(
+        atif_fragment, "fragment",
+        lambda event, version: built.append(event["line_no"]) or real(event, version),
+    )
     sid, path = _long_session(tmp_path)
     wire = DoorWire(offers=True)
     journal = _journal(tmp_path, wire)

@@ -7,6 +7,7 @@ import json
 import re
 from bisect import bisect_right
 from dataclasses import dataclass
+from functools import lru_cache
 from hashlib import blake2s
 from html import unescape
 from html.parser import HTMLParser
@@ -429,6 +430,15 @@ YARN_DEPENDENCY_RE = re.compile(
 )
 
 IGNORE_DIRECTIVE = "skylos: ignore[SKY-S101]"
+# A secret-like name before a generic high-entropy value on its line.
+_SECRET_NAME_NEARBY_RE = re.compile(
+    r"(?i)key|token|secret|passw|pwd|auth|credential|private|api|signature"
+    r"|session|cookie|(?<![a-z])sig(?![a-z])"
+)
+# Names that keep a digest-shaped (SRI) value reported.
+_SRI_SECRET_NAME_RE = re.compile(
+    r"(?i)key|token|secret|passw|pwd|auth|credential|private|session|cookie"
+)
 DEFAULT_MIN_ENTROPY = 3.9
 _ORDERED_ASCII_RUN_MIN_LENGTH = 8
 _ORDERED_CHARACTER_SET_PUNCTUATION = frozenset("-._~+/=")
@@ -585,7 +595,60 @@ def _keyed_value_is_not_secret(key: str, value: str) -> bool:
     )
 
 
-def _keyed_generic_candidates(line_content: str):
+def _label_literal_ends_after_line(file_lines, line_number, comment_prefix):
+    if file_lines is None:
+        return False  # Without source context an end of line is ambiguous.
+    # Fail conservatively if a long comment/blank region prevents a bounded
+    # lookahead from proving that this mapping value is complete.
+    stop = min(len(file_lines), line_number + 32)
+    for index in range(line_number, stop):
+        following = file_lines[index].lstrip()
+        if not following or (comment_prefix and following.startswith(comment_prefix)):
+            continue
+        return following[0] in "}]"
+    return stop == len(file_lines)
+
+
+def _complete_token_label_literal(
+    line_content: str, match, rel_name: str, file_lines, line_number
+) -> bool:
+    """A label exclusion needs a whole literal, not an expression prefix."""
+    following = line_content[match.end() :].lstrip(" \t\r\n")
+    if following and following[0] in "}];":
+        return True
+    # A comma terminates a mapping value; after '=' it can begin a tuple.
+    if following.startswith(","):
+        return line_content[: match.start("q")].rstrip().endswith(":")
+    suffix = PurePosixPath(rel_name).suffix.lower()
+    comment_prefix = ""
+    if suffix in {".py", ".pyi", ".pyw", ".env", ".yml", ".yaml", ".toml"}:
+        comment_prefix = "#"
+    elif suffix in {
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".mjs",
+        ".cjs",
+        ".mts",
+        ".cts",
+        ".go",
+        ".php",
+        ".rs",
+        ".dart",
+        ".cs",
+        ".kt",
+        ".kts",
+    }:
+        comment_prefix = "//"
+    if following and not (comment_prefix and following.startswith(comment_prefix)):
+        return False
+    return _label_literal_ends_after_line(file_lines, line_number, comment_prefix)
+
+
+def _keyed_generic_candidates(
+    line_content: str, *, rel_name: str = "", file_lines=None, line_number=0
+):
     candidates = []
     keyed_spans = []
     for keyed_match in GENERIC_KEYED_VALUE.finditer(line_content):
@@ -595,11 +658,33 @@ def _keyed_generic_candidates(line_content: str):
         key = _keyed_match_name(keyed_match)
         if secret_shapes.is_location_value(key, keyed_token):
             continue  # a URL: its own parts are scanned as bare tokens
+        if secret_shapes.is_file_path_value(keyed_token) or (
+            secret_shapes.is_public_url_value(keyed_token)
+            and not _has_random_component(keyed_token)
+        ):
+            # A file path, or a URL without credentials. A secret-named URL
+            # with a random component (a capability link) stays reported.
+            continue
         keyed_spans.append((keyed_start, keyed_end))
-        if _keyed_value_is_not_secret(key, keyed_token):
+        if _keyed_value_is_not_secret(key, keyed_token) or (
+            secret_shapes.describes_token_label(key, keyed_token)
+            and _complete_token_label_literal(
+                line_content, keyed_match, rel_name, file_lines, line_number
+            )
+        ):
             continue
         candidates.append((keyed_start, 0, keyed_token, False, keyed_end))
     return candidates, keyed_spans
+
+
+_RANDOM_COMPONENT_RE = re.compile(r"[A-Za-z0-9_-]{20,}")
+
+
+def _has_random_component(value: str) -> bool:
+    return any(
+        _has_bare_token_charset_mix(part) and _entropy(part) >= DEFAULT_MIN_ENTROPY
+        for part in _RANDOM_COMPONENT_RE.findall(value)
+    )
 
 
 def _is_covered_by_span(token: str, start: int, *span_groups) -> bool:
@@ -815,6 +900,8 @@ def _find_generic_values(
     approved_structural_spans: tuple[tuple[int, int], ...],
     structural_contexts: tuple[tuple[int, int, str, str], ...],
     rel_name: str,
+    file_lines=None,
+    line_number=0,
 ):
     if rel_name == "yarn.lock":
         yarn_match = YARN_INTEGRITY_RE.fullmatch(line_content)
@@ -833,7 +920,9 @@ def _find_generic_values(
     context_spans = _merge_spans(
         (start, end) for start, end, _, _ in structural_contexts
     )
-    candidates, keyed_spans = _keyed_generic_candidates(line_content)
+    candidates, keyed_spans = _keyed_generic_candidates(
+        line_content, rel_name=rel_name, file_lines=file_lines, line_number=line_number
+    )
     candidates.extend(
         _structural_generic_candidates(structural_contexts, keyed_spans, approved_spans)
     )
@@ -873,8 +962,31 @@ def _find_generic_values(
         )
     )
 
-    for start, _, token, is_bare, source_end in sorted(candidates):
-        yield token, is_bare, start, source_end
+    in_lockfile = _is_lockfile_name(rel_name)
+    sri_name_at = -1  # searched once, when a digest-shaped value needs it
+    for start, priority, token, is_bare, source_end in sorted(candidates):
+        keyed = priority == 0
+        if not keyed and not in_lockfile and _is_valid_sri_token(token):
+            if sri_name_at == -1:
+                sri_name = _SRI_SECRET_NAME_RE.search(line_content)
+                sri_name_at = sri_name.start() if sri_name is not None else None
+            if sri_name_at is None or sri_name_at >= start:
+                # A CSP source or subresource-integrity hash ('sha256-<digest>'):
+                # a public digest of public content. Lockfiles keep their own
+                # structural checks; a secret- or session-named value stays.
+                continue
+        yield token, is_bare, start, source_end, keyed
+
+
+@lru_cache(maxsize=256)
+def _is_lockfile_name(rel_name: str) -> bool:
+    lowered = rel_name.lower()
+    return (
+        lowered.endswith(".lock")
+        or lowered in JSON_LOCKFILE_NAMES
+        or lowered == "pnpm-lock.yaml"
+        or _is_nuget_lockfile_name(rel_name)
+    )
 
 
 def _merge_spans(spans) -> list[tuple[int, int]]:
@@ -3826,6 +3938,7 @@ def _is_public_bare_token(file_lines, line_number, token, start, public_pem):
         secret_shapes.is_word_slug(token)
         or secret_shapes.is_evm_address(token)
         or secret_shapes.in_public_document_url(line, start, end)
+        or secret_shapes.in_public_location(line, start, end)
         or secret_shapes.in_ssh_public_key(line, start, end)
         or secret_shapes.covered(public_pem.get(line_number, ()), start, end)
         or secret_shapes.is_jwk_public_member(file_lines, line_number - 1, token)
@@ -4113,6 +4226,7 @@ def scan_ctx(
         in_tests = bool(
             IS_TEST_PATH.search(rel_path.replace("\\", "/"))
             or _JS_TEST_PATH.search(rel_path.replace("\\", "/"))
+            or rel_path.endswith("_test.go")
         )
 
         if in_tests:
@@ -4125,6 +4239,8 @@ def scan_ctx(
                 ),
                 structural_contexts=structural_context_spans.get(line_number, ()),
                 rel_name=rel_name,
+                file_lines=file_lines,
+                line_number=line_number,
             )
             if rel_name.lower().endswith(
                 (".html", ".htm", ".css", ".map")
@@ -4137,8 +4253,9 @@ def scan_ctx(
                     candidate for candidate in generic_values if not candidate[1]
                 )
 
+        first_secret_name_at = -1  # searched once, when a finding needs it
         for generic_value in generic_values:
-            extracted_token, is_bare, col_pos, source_end = generic_value
+            extracted_token, is_bare, col_pos, source_end, keyed = generic_value
             clean_token = extracted_token.strip()
 
             if not clean_token:
@@ -4181,6 +4298,26 @@ def scan_ctx(
                 "preview": _mask(clean_token),
                 "entropy": round(tok_entropy, 2),
             }
+            if not keyed and first_secret_name_at == -1:
+                first_secret_name = _SECRET_NAME_NEARBY_RE.search(line_content)
+                first_secret_name_at = (
+                    first_secret_name.start() if first_secret_name is not None else None
+                )
+            named = (
+                first_secret_name_at not in (-1, None)
+                and first_secret_name_at < col_pos
+            )
+            if (
+                not keyed
+                and not named
+                and not secret_shapes.in_url_credential(
+                    line_content, col_pos, col_pos + len(extracted_token)
+                )
+            ):
+                # Randomness alone, with no secret-like name on the line, is
+                # an unverified lead; CRITICAL stays for named secrets.
+                generic_finding["severity"] = "HIGH"
+                generic_finding["severity_reason"] = "no_secret_name"
             findings.append(generic_finding)
 
         if not in_tests:

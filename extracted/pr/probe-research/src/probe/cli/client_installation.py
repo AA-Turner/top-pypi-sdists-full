@@ -7,6 +7,10 @@ backend resolves that credential to the durable installation row.
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
+
+from probe._compat import StrEnum
 from probe.cli.capabilities import Capabilities
 from probe.sdk import errors
 from probe.sdk.client import Client
@@ -15,7 +19,25 @@ from probe.sdk.device import hostname
 from probe.sdk.surface import Surface
 
 
-def snapshot(caps: Capabilities, *, complete: bool = True) -> dict[str, str]:
+class Installed(StrEnum):
+    """The wire's tri-state for `tracking` and `capture` (the server's
+    `InstalledState`)."""
+
+    INSTALLED = "installed"
+    ABSENT = "absent"
+    UNKNOWN = "unknown"
+
+
+#: One agent's pass: its state, and whether its run FINISHED (`complete`).
+Pass = tuple[Capabilities, bool]
+
+
+def snapshot(
+    caps: Capabilities,
+    *,
+    complete: bool = True,
+    alongside: Sequence[Pass] = (),
+) -> dict[str, str]:
     """Return schema v2 using installed state, not runtime health.
 
     v2 changes two things. `tracking` replaces the v1 `mcp`/`skills` pair, which
@@ -45,21 +67,84 @@ def snapshot(caps: Capabilities, *, complete: bool = True) -> dict[str, str]:
     outcome column and no lockstep release. The cost is that an older CLI keeps
     reporting `absent` on a failed install, so the dashboard only stops
     believing it once the CLI updates.
+
+    `alongside` is the rest of the run: the other coding agents' passes,
+    oldest first. The server keeps one row per installation -- a machine, not
+    an agent -- so `tracking` and `capture` read `installed` when ANY finished
+    pass has them, `unknown` when none does and some pass did not finish (an
+    unfinished run cannot report a removal), and `absent` only when every pass
+    finished without them. Registered agent by agent, a machine with capture in
+    one agent and not another reported `absent` then `installed` seconds apart
+    on every auto-update, and each `absent` posted a false "Probe removed from
+    a machine" (one customer, 2026-10-02 to 10-13: 3 of 3 such pings). Only
+    each agent's LATEST pass counts. `auto_update` is a device setting, so it
+    is read from `caps`, the newest pass.
+
+    The merge covers the agents IN THIS RUN, not every agent on the machine: a
+    run that names one agent still reports that agent alone.
     """
-    auto_update = "on" if caps.auto_update_enabled else "off"
-    if not complete:
-        return {
-            "schema_version": 2,
-            "auto_update": auto_update,
-            "tracking": "unknown",
-            "capture": "unknown",
-        }
+    latest = _latest_per_agent((*alongside, (caps, complete)))
+    finished = [state for state, done in latest if done]
+    unfinished = any(not done for _state, done in latest)
+
+    def reported(has) -> Installed:
+        if any(has(state) for state in finished):
+            return Installed.INSTALLED
+        return Installed.UNKNOWN if unfinished else Installed.ABSENT
+
     return {
         "schema_version": 2,
-        "auto_update": auto_update,
-        "tracking": "installed" if caps.tracking_plugin_installed else "absent",
-        "capture": "installed" if caps.capture_on else "absent",
+        "auto_update": "on" if caps.auto_update_enabled else "off",
+        "tracking": reported(lambda state: state.tracking_plugin_installed),
+        "capture": reported(lambda state: state.capture_on),
     }
+
+
+def _latest_per_agent(passes: Sequence[Pass]) -> list[Pass]:
+    """One pass per coding agent, the later winning: an agent whose capture was
+    just turned off must not stay `installed` on the strength of its own
+    earlier pass."""
+    latest: dict[str | None, Pass] = {}
+    for state, done in passes:
+        latest[state.agent_source] = (state, done)
+    return list(latest.values())
+
+
+#: What `merged_registration` is holding -- (passes, settings) per
+#: registration -- or None outside one.
+_held: list[tuple[tuple[Pass, ...], Settings | None]] | None = None
+
+
+@contextmanager
+def merged_registration() -> Iterator[list[str]]:
+    """Hold every registration made inside, and send ONE for the machine on exit.
+
+    For a wizard action that runs once per coding agent (Update, Settings): each
+    pass registered its own agent's state against the machine's one row, so the
+    row flipped between agents within seconds (see `snapshot`). Yields the list
+    the send's warnings land in, filled when the block exits.
+
+    Sends only on a normal exit: a run that raised leaves the row as it was,
+    which can never read as a removal. A pass that was CAUGHT failing (Settings
+    contains each agent's) is still held, as unfinished. Nested blocks belong
+    to the outermost.
+    """
+    global _held
+    warnings: list[str] = []
+    if _held is not None:
+        yield warnings
+        return
+    _held = []
+    try:
+        yield warnings
+    except BaseException:
+        _held = None
+        raise
+    held, _held = _held, None
+    if not held:
+        return
+    *earlier, (latest, done) = [one for passes, _settings in held for one in passes]
+    warnings.extend(register(latest, settings=held[-1][1], complete=done, alongside=earlier))
 
 
 def register(
@@ -67,6 +152,7 @@ def register(
     *,
     settings: Settings | None = None,
     complete: bool = True,
+    alongside: Sequence[Pass] = (),
 ) -> list[str]:
     """Register actual post-action state and adopt a legacy MCP PAT if present.
 
@@ -80,16 +166,23 @@ def register(
     PAT, and skipping it would strand that credential on a run that got far
     enough to mint one.
 
+    `alongside`: the machine's other agents, merged into the snapshot (see
+    `snapshot`). Inside `merged_registration` nothing is sent here; the block
+    sends one registration when it ends.
+
     Returns human-facing warnings. A 404 is ignored throughout so a newly
     released wizard stays compatible with an older or self-hosted backend during
     rollout.
     """
+    if _held is not None:
+        _held.append(((*alongside, (caps, complete)), settings))
+        return []
     settings = settings or resolve()
     if not settings.token:
         return []
 
     warnings: list[str] = []
-    state = snapshot(caps, complete=complete)
+    state = snapshot(caps, complete=complete, alongside=alongside)
     try:
         with Client(
             base_url=settings.base_url,

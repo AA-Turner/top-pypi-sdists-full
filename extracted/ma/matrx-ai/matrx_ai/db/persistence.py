@@ -293,6 +293,41 @@ def _get_coordinator():
     return _gc()
 
 
+async def _existing_row_metadata(kind: str, row_id: str) -> dict[str, Any]:
+    """The metadata jsonb the row holds in the database right now ({} when absent/unreadable).
+
+    A finalize UPDATE carries the RUN CONTEXT's metadata. A resumed request
+    (ask_person answer, recovery, inline reply) is a new context that never saw
+    what the door wrote on the row (mandate_key, mandate_resolution, ...), so
+    writing it whole erased those keys. Finalize therefore starts from this.
+    """
+    try:
+        if kind == "user_request":
+            rows = await _cxm().user_request.filter_user_requests(id=row_id)
+            row = rows[0] if rows else None
+        else:
+            row = await _cxm().conversation.load_conversation_by_id(row_id)
+        meta = getattr(row, "metadata", None) if row is not None else None
+        return dict(meta) if isinstance(meta, dict) else {}
+    except Exception as exc:  # noqa: BLE001 - row may still be a queued INSERT
+        vcprint(
+            f"[CX PERSISTENCE] existing {kind}.metadata read deferred for {row_id}: "
+            f"{type(exc).__name__}: {exc}",
+            color="yellow",
+        )
+        return {}
+
+
+async def merge_into_existing_metadata(
+    kind: str, row_id: str, incoming: dict[str, Any]
+) -> dict[str, Any]:
+    """``incoming`` laid over the row's stored metadata, per key: finalize MERGES, never replaces."""
+    from matrx_ai.persistence.queue_helpers import merge_conversation_metadata
+
+    existing = await _existing_row_metadata(kind, row_id)
+    return merge_conversation_metadata(existing, incoming)
+
+
 def _queue_conversation_update(conv_id, **kwargs):
     from matrx_ai.persistence.queue_helpers import queue_conversation_update as _q
 
@@ -975,7 +1010,9 @@ async def persist_completed_request(
                     color="cyan",
                 )
             if conv_data.get("metadata") is not None:
-                update_kwargs["metadata"] = conv_data["metadata"]
+                update_kwargs["metadata"] = await merge_into_existing_metadata(
+                    "conversation", db_conversation_id, conv_data["metadata"]
+                )
             if conv_data.get("parent_conversation_id") and _is_valid_uuid(
                 conv_data["parent_conversation_id"]
             ):
@@ -1696,7 +1733,9 @@ async def persist_completed_request(
             ur_update_data: dict[str, Any] = {
                 "status": ur_data.get("status", "completed"),
                 "completed_at": now,
-                "metadata": request_metadata,
+                "metadata": await merge_into_existing_metadata(
+                    "user_request", user_request_id, request_metadata
+                ),
             }
 
             if ur_data.get("finish_reason"):

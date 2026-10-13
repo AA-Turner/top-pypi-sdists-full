@@ -35,6 +35,7 @@ from probe.cli.capabilities import (
 )
 from probe.cli.versions import _LEGACY_TAP_PLUGINS
 from probe.harness import get_registry
+from probe.sdk import session_marker
 from probe.sdk.redaction import scrub_text
 from probe.sdk.tls import ssl_context
 
@@ -455,15 +456,44 @@ def _dist(extras: tuple[str, ...] = ()) -> str:
     the CLI's and MCP server's dependencies leave core in the next release, so
     every install must have asked for them by then), plus `daemon` when this
     environment has the daemon's AI libraries, so an upgrade never strips them,
-    plus ``extras`` (the ones the install already records)."""
+    or when it is a tool install and the daemon records for a coding agent here
+    (`_daemon_wanted_here`), so an update puts them back after something else
+    stripped them, plus ``extras`` (the ones the install already records)."""
     wanted = {"all", *extras}
     try:
-        import pydantic_ai  # noqa: F401
+        # The daemon's own harness, not `pydantic_ai`: a project environment with
+        # its own Pydantic AI must not be handed the daemon's pinned stack.
+        import pydantic_ai_harness  # noqa: F401
     except ImportError:
-        pass
+        if _daemon_wanted_here():
+            wanted.add("daemon")
     else:
         wanted.add("daemon")
     return f"{DIST}[{','.join(sorted(wanted))}]"
+
+
+#: Installs whose environment is the one the daemon's worker runs from: a tool
+#: install (uv or pipx), or a launcher's temporary copy reinstalling one. A pip
+#: install lives in a project or training environment that pinning the daemon's
+#: AI stack could break, so it gets the libraries only when someone asks
+#: (`probe daemon install`).
+_DAEMON_HEAL_METHODS = frozenset({Method.UV_TOOL, Method.UV_TOOL_LEGACY, Method.PIPX, Method.EPHEMERAL})
+
+
+def _daemon_wanted_here() -> bool:
+    """Does the daemon record for a coding agent on this machine, and is this a
+    tool install that runs it? (2026-10-12: a bare `uv tool install --force
+    probe-research` dropped the `daemon` extra, and every update after restated
+    `[all]` alone because `_dist` only asked whether the libraries imported.)"""
+    try:
+        if detect_install().method not in _DAEMON_HEAL_METHODS:
+            return False
+        return any(
+            session_marker.recorder(harness.id) == session_marker.RECORDER_DAEMON
+            for harness in get_registry().installable()
+        )
+    except Exception:  # noqa: BLE001 - an unreadable config keeps today's spec
+        return False
 
 
 @dataclass(frozen=True)
@@ -540,11 +570,38 @@ def kept_from_uv_receipt(prefix: str | Path | None = None) -> KeptInstall | None
             return None
         with_packages.append(requirement)
     python = tool.get("python")
-    return KeptInstall(
-        extras=extras,
-        with_packages=tuple(with_packages),
-        python=python if isinstance(python, str) and python else None,
-    )
+    if not isinstance(python, str) or not python or (os.path.isabs(python) and not os.path.exists(python)):
+        python = _env_interpreter(path.parent)
+    return KeptInstall(extras=extras, with_packages=tuple(with_packages), python=python)
+
+
+def _env_interpreter(prefix: Path) -> str | None:
+    """The exact interpreter this tool environment runs on (`pyvenv.cfg`'s
+    `home` + `pythonX.Y`), or None. A receipt that records no Python lets uv
+    choose one: `--force`, and a plain install on uv before 0.10, rebuild the
+    environment on the NEWEST Python uv has, deleting `lib/pythonX.Y` under every
+    running `probe` (2026-10-12: 3.13 -> 3.14 under a live daemon worker). Only
+    the exact path keeps it: `--python 3.12` let uv pick its managed 3.12 over the
+    system one the environment ran on, and rebuild just the same."""
+    try:
+        text = (prefix / "pyvenv.cfg").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    fields = {}
+    for line in text.splitlines():
+        key, sep, value = line.partition("=")
+        if sep:
+            fields[key.strip()] = value.strip()
+    home = fields.get("home")
+    if not home:
+        return None
+    found = re.match(r"(\d+)\.(\d+)", fields.get("version_info") or fields.get("version") or "")
+    if not found:
+        return None
+    # Only the versioned name: a bare `python3` there may be another version by
+    # now. Without it (Windows' `python.exe` among them) no pin, as before.
+    candidate = Path(home) / f"python{found.group(1)}.{found.group(2)}"
+    return str(candidate) if candidate.exists() else None
 
 
 def uv_tool_install_command(
@@ -691,7 +748,7 @@ def upgrade_cli(install: Install, current: str | None, target: str | None) -> Cl
         unrecorded = (
             "; `probe-research[all]` is NOT recorded in this install's uv receipt, which "
             "has entries the wizard's Update cannot restate. Before the next release, run "
-            "`uv tool install --force 'probe-research[all]'` with your own `--with` packages"
+            f"`uv tool install '{_dist()}'` with your own `--with` packages"
         )
     if _run(["uv", "tool", "upgrade", DIST], _UPGRADE_TIMEOUT_S) is None:
         return CliResult(
@@ -702,10 +759,14 @@ def upgrade_cli(install: Install, current: str | None, target: str | None) -> Cl
     if not res.ok:
         # `uv tool upgrade` no-ops on a version-pinned install (exits 0, changes
         # nothing), and on uv's cached index when that predates the release
-        # (`uv tool upgrade` takes no refresh flag): force a clean reinstall of
-        # the latest from a FRESH index, then re-verify (R9).
+        # (`uv tool upgrade` takes no refresh flag): install the latest from a
+        # FRESH index, then re-verify (R9). Not `--force`: a plain install of a
+        # new requirement upgrades the environment in place, while `--force`
+        # deletes and rebuilds it -- on the newest Python uv has, unless told --
+        # under every running `probe` (2026-10-12: a daemon worker crashed
+        # reading its own files from the deleted lib/python3.13).
         _run(
-            uv_tool_install_command(kept or KeptInstall(), force=True, version="@latest", refresh=True),
+            uv_tool_install_command(kept or KeptInstall(), version="@latest", refresh=True),
             _UPGRADE_TIMEOUT_S,
         )
         res = _finalize(current, target, "uv")

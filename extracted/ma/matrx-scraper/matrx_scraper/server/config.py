@@ -35,6 +35,13 @@ class ServerConfig:
     aidream_url: str = ""
     aidream_service_token: str = ""
 
+    # Which deployment this is ("production", "development"). Identity, not a toggle: every
+    # run lease records it, and the crash-resume sweep only continues sessions its own
+    # deployment last ran (web_crawl/persistence.py::set_run_deployment). Unset = this process
+    # auto-resumes nothing, announced at boot — a laptop or a forgotten dev app can never take
+    # over a production crawl.
+    deployment: str = ""
+
     # NOTE: browser pool SIZE is intentionally NOT here. A concurrency ceiling
     # is not configuration — it lives in code as DEFAULT_BROWSER_POOL_SIZE
     # (browser_pool.py). An env var for it silently drifts between hosts.
@@ -82,5 +89,6 @@ class ServerConfig:
             brave_api_key=os.getenv("BRAVE_SEARCH_API_KEY_PRO_AI", ""),
             aidream_url=os.getenv("AIDREAM_URL", ""),
             aidream_service_token=os.getenv("AIDREAM_SERVICE_TOKEN", ""),
+            deployment=os.getenv("MATRX_SCRAPER_DEPLOYMENT", ""),
             log_level=os.getenv("LOG_LEVEL", "info"),
         )

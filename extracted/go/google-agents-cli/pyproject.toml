@@ -1,6 +1,6 @@
 [project]
 name = "google-agents-cli"
-version = "1.9.0"
+version = "1.10.0"
 description = "Agents CLI — Agent Development Lifecycle toolchain for ADK"
 readme = "README.md"
 license = "Apache-2.0"
@@ -16,7 +16,7 @@ dependencies = [
   "PyYAML>=6.0.2,<7",
   "cookiecutter>=2.6.0,<3",
   "jinja2>=3.1.0",
-  "google-cloud-aiplatform[evaluation]>=1.165.0,<2",
+  "google-cloud-aiplatform[evaluation]>=2.2.0,<3",
   "google-cloud-resource-manager>=1.12.0",
   "google-auth[pyopenssl]>=2.47.0",
   # pyOpenSSL 26.2 forbids mutating a used SSL Context; urllib3 does it per
@@ -135,11 +135,14 @@ ignore = ["E501", "C901", "RUF001", "UP036", "RUF067", "RUF069"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["PLR0917"]
+# The only module allowed to import private Agent Platform SDK modules; keep in
+# sync with ALLOWED_PRIVATE_IMPORT_FILES in tools/ci/check_private_imports.py.
+"src/google/agents/cli/_sdk_compat.py" = ["TID251"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "rich.console.Console" = { msg = "Use `google.agents.cli._output.Console` instead to ensure project-wide defaults (soft_wrap=True) are applied." }
 "agentplatform.Client" = { msg = "Use `google.agents.cli._agent_platform.AgentPlatformClient` instead, so the client retries throttled requests." }
-"agentplatform._genai" = { msg = "Private SDK module that can change without notice. Use `types` from `google.agents.cli._agent_platform_types` for SDK types." }
+"agentplatform._genai" = { msg = "Private SDK module that can change without notice. Use `types` from `google.agents.cli._agent_platform_types` for SDK types, and add any other private SDK use to `google.agents.cli._sdk_compat`." }
 
 [tool.ruff.lint.pylint]
 max-positional-args = 5

@@ -41,6 +41,60 @@ if TYPE_CHECKING:
     from .group import Group
 
 
+class _LazyDocstring:
+    """The class docstring, or a generated one on a predefined trait or group.
+
+    {meth}`_Identifiable.__post_init__` installs one in place of the docstring
+    of a class when the class gets its first instance. Read on the class, it
+    hands back that docstring, so `help()` and autodoc see the class as written.
+
+    The class definition is too early to install it. `@dataclass` runs after
+    `__init_subclass__` and replaces an empty class docstring with the
+    signature of the class, and `python -OO` leaves every class docstring
+    empty.
+
+    Read on a member of `ALL_TRAITS` or `ALL_GROUPS`, it calls the instance's
+    `generate_docstring()` once and keeps the result in the instance's own
+    `__dict__`, where later reads find it first. Membership is by equality: an
+    equal copy of a predefined object reads the same generated docstring.
+
+    Read on any other instance, it hands back the class docstring too. A
+    generated docstring describes a predefined object: it links a detection
+    function and Pytest decorators that only those have, and a derived group
+    would borrow the attribute docstring of the predefined group whose ID it
+    carries.
+
+    Generating on first read spares `import extra_platforms` the parse of each
+    data module's source and the membership walk of every trait.
+    """
+
+    __slots__ = ("class_doc",)
+
+    def __init__(self, class_doc: str | None) -> None:
+        self.class_doc = class_doc
+
+    def __get__(
+        self, instance: Trait | Group | None, owner: type | None = None
+    ) -> str | None:
+        if instance is None:
+            return self.class_doc
+
+        # Avoid circular import.
+        from .group_data import ALL_GROUPS, ALL_TRAITS
+
+        if isinstance(instance, Trait):
+            predefined = instance in ALL_TRAITS
+        else:
+            predefined = instance in ALL_GROUPS
+        if not predefined:
+            return self.class_doc
+
+        doc = instance.generate_docstring()
+        # Bypasses the frozen dataclass guard, like the other derived fields.
+        object.__setattr__(instance, "__doc__", doc)
+        return doc
+
+
 @dataclass(frozen=True)
 class _Identifiable:
     """Base class for identifiable objects with common documentation fields.
@@ -166,7 +220,14 @@ class _Identifiable:
         - Set the symbolic ID.
         - Set the detection function ID.
         - Set the Pytest decorator IDs.
+        - Install the lazy docstring on the class of the instance.
         """
+        # Serve the docstring of each instance on first read: see _LazyDocstring.
+        cls = type(self)
+        class_doc = cls.__dict__.get("__doc__")
+        if not isinstance(class_doc, _LazyDocstring):
+            cls.__doc__ = _LazyDocstring(class_doc)  # type: ignore[assignment]
+
         assert self.id, f"{self.__class__.__name__} ID cannot be empty."
 
         object.__setattr__(self, "symbol_id", self.id.upper())
@@ -218,11 +279,11 @@ class Trait(_Identifiable, ABC):
 
         - Ensure the URL is not empty and starts with `https://`.
         - Validate aliases are lowercase and distinct from the canonical ID.
-        - Populate the docstring (deferred until after module initialization).
 
         ```{hint}
-        Docstring generation is deferred to avoid circular imports during module
-        initialization. See _docstrings._initialize_all_docstrings().
+        The docstring is not built here. For a predefined trait,
+        `_LazyDocstring` generates it on the first read of `__doc__`, once
+        every module is imported and the groups a trait belongs to are known.
         ```
         """
         super().__post_init__()

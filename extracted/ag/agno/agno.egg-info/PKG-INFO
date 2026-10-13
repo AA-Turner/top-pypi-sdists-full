@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 3.1.2
+Version: 3.1.3
 Summary: The programming language for agentic software.
 Author-email: Agno Team <hello@agno.com>
 License:                                  Apache License
@@ -267,6 +267,7 @@ Requires-Dist: agno[scheduler]; extra == "dev"
 Provides-Extra: os
 Requires-Dist: fastapi; extra == "os"
 Requires-Dist: python-multipart>=0.0.18; extra == "os"
+Requires-Dist: jsonschema; extra == "os"
 Requires-Dist: uvicorn; extra == "os"
 Requires-Dist: websockets; extra == "os"
 Requires-Dist: sqlalchemy[asyncio]; extra == "os"
@@ -339,6 +340,7 @@ Provides-Extra: cel
 Requires-Dist: cel-python; extra == "cel"
 Provides-Extra: agentql
 Requires-Dist: agentql; extra == "agentql"
+Provides-Extra: anakin
 Provides-Extra: apify
 Requires-Dist: apify-client; extra == "apify"
 Provides-Extra: arxiv
@@ -599,6 +601,7 @@ Requires-Dist: agno[openai]; extra == "models"
 Requires-Dist: agno[portkey]; extra == "models"
 Provides-Extra: tools
 Requires-Dist: agno[agentql]; extra == "tools"
+Requires-Dist: agno[anakin]; extra == "tools"
 Requires-Dist: agno[apify]; extra == "tools"
 Requires-Dist: agno[arxiv]; extra == "tools"
 Requires-Dist: agno[browserbase]; extra == "tools"
@@ -705,6 +708,7 @@ Requires-Dist: agno[pdf-ocr]; extra == "knowledge-full"
 Provides-Extra: embedders
 Requires-Dist: agno[huggingface]; extra == "embedders"
 Provides-Extra: tests
+Requires-Dist: claude-agent-sdk>=0.2.148; extra == "tests"
 Requires-Dist: agno[pages]; extra == "tests"
 Requires-Dist: agno[a2a]; extra == "tests"
 Requires-Dist: agno[slack]; extra == "tests"

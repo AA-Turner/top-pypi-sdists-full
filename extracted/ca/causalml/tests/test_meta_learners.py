@@ -24,6 +24,7 @@ from causalml.inference.meta import (
     BaseTClassifier,
     XGBTRegressor,
     MLPTRegressor,
+    XGBTClassifier,
 )
 from causalml.inference.meta import BaseXLearner, BaseXClassifier, BaseXRegressor
 from causalml.inference.meta import (
@@ -31,11 +32,13 @@ from causalml.inference.meta import (
     BaseRClassifier,
     BaseRRegressor,
     XGBRRegressor,
+    XGBRClassifier,
 )
 from causalml.inference.meta import TMLELearner
 from causalml.inference.meta import BaseDRLearner
 from causalml.inference.meta import BaseDRRegressor
 from causalml.inference.meta import BaseDRClassifier
+from causalml.inference.meta.explainer import Explainer
 from causalml.metrics import ape, auuc_score
 
 from .const import RANDOM_SEED, N_SAMPLE, ERROR_THRESHOLD, CONTROL_NAME, CONVERSION
@@ -106,13 +109,13 @@ def test_BaseSLearner(generate_regression_data):
     learner = BaseSLearner(learner=LinearRegression())
 
     # check the accuracy of the ATE estimation
-    ate_p, lb, ub = learner.estimate_ate(X=X, treatment=treatment, y=y, return_ci=True)
+    ate_p, lb, ub = learner.estimate_ate(X=X, treatment=treatment, y=y)
     assert (ate_p >= lb) and (ate_p <= ub)
     assert ape(tau.mean(), ate_p) < ERROR_THRESHOLD
 
     # check pre-train model
     ate_p_pt, lb_pt, ub_pt = learner.estimate_ate(
-        X=X, treatment=treatment, y=y, return_ci=True, pretrain=True
+        X=X, treatment=treatment, y=y, pretrain=True
     )
     assert (ate_p_pt == ate_p) and (lb_pt == lb) and (ub_pt == ub)
 
@@ -138,15 +141,13 @@ def test_BaseSRegressor(generate_regression_data):
     learner = BaseSRegressor(learner=XGBRegressor())
 
     # check the accuracy of the ATE estimation
-    ate_p, lb, ub = learner.estimate_ate(
-        X=X, treatment=treatment, y=y, return_ci=True, n_bootstraps=10
-    )
+    ate_p, lb, ub = learner.estimate_ate(X=X, treatment=treatment, y=y, n_bootstraps=10)
     assert (ate_p >= lb) and (ate_p <= ub)
     assert ape(tau.mean(), ate_p) < ERROR_THRESHOLD
 
     # check pre-train model
     ate_p_pt, lb_pt, ub_pt = learner.estimate_ate(
-        X=X, treatment=treatment, y=y, return_ci=True, n_bootstraps=10, pretrain=True
+        X=X, treatment=treatment, y=y, n_bootstraps=10, pretrain=True
     )
     assert (ate_p_pt == ate_p) and (lb_pt == lb) and (ub_pt == ub)
 
@@ -190,6 +191,20 @@ def test_LRSRegressor(generate_regression_data):
         X=X, treatment=treatment, y=y, pretrain=True
     )
     assert (ate_p_pt == ate_p) and (lb_pt == lb) and (ub_pt == ub)
+
+
+def test_LRSRegressor_dataframe(generate_regression_data):
+    y, X, treatment, tau, b, e = generate_regression_data()
+    X_df = pd.DataFrame(X, columns=["col_" + str(i) for i in range(X.shape[1])])
+    learner = LRSRegressor()
+    result = learner.estimate_ate(X=X_df, treatment=treatment, y=y)
+
+    assert isinstance(result, tuple) and len(result) == 3
+    ate_p, lb, ub = result
+    assert isinstance(ate_p, np.ndarray) and ate_p.shape == (1,)
+    assert isinstance(lb, np.ndarray) and lb.shape == (1,)
+    assert isinstance(ub, np.ndarray) and ub.shape == (1,)
+    assert (ate_p >= lb) and (ate_p <= ub)
 
 
 def test_BaseTLearner(generate_regression_data):
@@ -599,6 +614,30 @@ def test_BaseRLearner(generate_regression_data):
     )  # might need to look into higher ape
 
 
+def test_BaseRLearner_uses_custom_propensity_learner_on_first_fit(
+    generate_regression_data,
+):
+    # Regression test: a user-supplied propensity_learner must be used on the
+    # very first fit of a fresh object. Previously model_p was assigned after
+    # _set_propensity_models ran, so the first fit silently fell back to the
+    # default ElasticNet and only a second fit of the same object honored it.
+    from causalml.propensity import ElasticNetPropensityModel
+
+    class MarkerPropensityModel(ElasticNetPropensityModel):
+        pass
+
+    y, X, treatment, tau, b, e = generate_regression_data()
+
+    learner = BaseRLearner(
+        learner=XGBRegressor(),
+        propensity_learner=MarkerPropensityModel(),
+    )
+    learner.fit(X=X, treatment=treatment, y=y, p=None)
+
+    for group in learner.t_groups:
+        assert isinstance(learner.propensity_model[group], MarkerPropensityModel)
+
+
 def test_BaseRRegressor(generate_regression_data):
     y, X, treatment, tau, b, e = generate_regression_data()
 
@@ -640,6 +679,34 @@ def test_BaseRRegressor(generate_regression_data):
     assert auuc["cate_p"] > 0.5
 
 
+def test_explainer_auto_importance_catboost(generate_regression_data):
+    catboost = pytest.importorskip("catboost")
+
+    y, X, treatment, tau, b, e = generate_regression_data()
+
+    model_tau = catboost.CatBoostRegressor(
+        iterations=10,
+        verbose=False,
+        random_seed=RANDOM_SEED,
+    )
+
+    explainer = Explainer(
+        method="auto",
+        control_name=CONTROL_NAME,
+        X=X,
+        tau=tau,
+        classes={CONTROL_NAME: 0},
+        model_tau=model_tau,
+    )
+
+    importance = explainer.get_importance()
+
+    assert len(importance) == 1
+    assert CONTROL_NAME in importance
+    assert isinstance(importance[CONTROL_NAME], pd.Series)
+    assert len(importance[CONTROL_NAME]) == X.shape[1]
+
+
 def test_BaseRLearner_without_p(generate_regression_data):
     y, X, treatment, tau, b, e = generate_regression_data()
 
@@ -679,6 +746,54 @@ def test_BaseRLearner_without_p(generate_regression_data):
         normalize=True,
     )
     assert auuc["cate_p"] > 0.5
+
+
+def test_BaseRLearner_predict_return_components_different_size(
+    generate_regression_data,
+):
+    y, X, treatment, tau, b, e = generate_regression_data()
+
+    learner = BaseRLearner(learner=LinearRegression())
+
+    learner.fit(
+        X=X[:200],
+        treatment=treatment[:200],
+        y=y[:200],
+        verbose=False,
+    )
+
+    te, yhat, p = learner.predict(
+        X=X[200:300],
+        return_components=True,
+    )
+
+    assert te.shape == (100, len(learner.t_groups))
+    assert yhat.shape == (100,)
+
+    for g in learner.t_groups:
+        assert p[g].shape == (100,)
+
+
+def test_BaseRLearner_predict_without_propensity_model_raises(
+    generate_regression_data,
+):
+    y, X, treatment, tau, b, e = generate_regression_data()
+
+    learner = BaseRLearner(learner=LinearRegression())
+
+    learner.fit(
+        X=X,
+        treatment=treatment,
+        y=y,
+        p=e,
+        verbose=False,
+    )
+
+    with pytest.raises(ValueError):
+        learner.predict(
+            X=X,
+            return_components=True,
+        )
 
 
 def test_BaseRRegressor_without_p(generate_regression_data):
@@ -914,7 +1029,25 @@ def test_BaseRClassifier(generate_classification_data):
         y=df_train[CONVERSION].values,
     )
 
-    tau_pred = uplift_model.predict(X=df_test[x_names].values)
+    tau_pred = uplift_model.predict(
+        X=df_test[x_names].values,
+        p=df_test["propensity_score"].values,
+    )
+
+    te, yhat, p = uplift_model.predict(
+        X=df_test[x_names].values,
+        p=df_test["propensity_score"].values,
+        return_components=True,
+    )
+
+    assert te.shape == tau_pred.shape
+    assert yhat.shape == (len(df_test),)
+
+    assert isinstance(p, dict)
+    assert set(p.keys()) == set(uplift_model.t_groups)
+
+    for g in uplift_model.t_groups:
+        assert p[g].shape == (len(df_test),)
 
     auuc_metrics = pd.DataFrame(
         {
@@ -964,7 +1097,10 @@ def test_BaseRClassifier_with_sample_weights(generate_classification_data):
         sample_weight=df_train["sample_weights"],
     )
 
-    tau_pred = uplift_model.predict(X=df_test[x_names].values)
+    tau_pred = uplift_model.predict(
+        X=df_test[x_names].values,
+        p=df_test["propensity_score"].values,
+    )
 
     auuc_metrics = pd.DataFrame(
         {
@@ -995,7 +1131,24 @@ def test_XGBRegressor_with_sample_weights(generate_regression_data):
     # when sample_weight is passed
     uplift_model = XGBRRegressor()
     uplift_model.fit(X=X, p=e, treatment=treatment, y=y, sample_weight=weights)
-    tau_pred = uplift_model.predict(X=X)
+    tau_pred = uplift_model.predict(
+        X=X,
+    )
+
+    te, yhat, p = uplift_model.predict(
+        X=X,
+        p=e,
+        return_components=True,
+    )
+
+    assert te.shape == tau_pred.shape
+    assert yhat.shape == (X.shape[0],)
+
+    assert isinstance(p, dict)
+
+    for g in uplift_model.t_groups:
+        assert p[g].shape == (X.shape[0],)
+
     assert len(tau_pred) == len(weights)
 
 
@@ -1008,9 +1161,7 @@ def test_pandas_input(generate_regression_data):
 
     try:
         learner = BaseSLearner(learner=LinearRegression())
-        ate_p, lb, ub = learner.estimate_ate(
-            X=X, treatment=treatment, y=y, return_ci=True
-        )
+        ate_p, lb, ub = learner.estimate_ate(X=X, treatment=treatment, y=y)
     except AttributeError:
         assert False
     try:
@@ -1232,9 +1383,9 @@ def test_BaseTLearner_predict_return_ci(generate_regression_data):
 
     # Test 1: store_bootstraps=True then predict with return_ci=True
     learner.fit(
-        X,
-        treatment,
-        y,
+        X=X,
+        treatment=treatment,
+        y=y,
         store_bootstraps=True,
         n_bootstraps=50,
         bootstrap_size=500,
@@ -1249,7 +1400,7 @@ def test_BaseTLearner_predict_return_ci(generate_regression_data):
 
     # Test 2: ValueError without store_bootstraps
     learner2 = BaseTRegressor(learner=LinearRegression(), control_name=0)
-    learner2.fit(X, treatment, y)
+    learner2.fit(X=X, treatment=treatment, y=y)
     with pytest.raises(ValueError):
         learner2.predict(X, return_ci=True)
 
@@ -1264,9 +1415,9 @@ def test_BaseTLearner_predict_return_ci(generate_regression_data):
     # Test 5: reproducibility via random_state
     learner3 = BaseTRegressor(learner=LinearRegression(), control_name=0)
     learner3.fit(
-        X,
-        treatment,
-        y,
+        X=X,
+        treatment=treatment,
+        y=y,
         store_bootstraps=True,
         n_bootstraps=50,
         bootstrap_size=500,
@@ -1279,9 +1430,9 @@ def test_BaseTLearner_predict_return_ci(generate_regression_data):
     # Test 6: parallel execution (n_jobs=2) produces same result as serial
     learner_parallel = BaseTRegressor(learner=LinearRegression(), control_name=0)
     learner_parallel.fit(
-        X,
-        treatment,
-        y,
+        X=X,
+        treatment=treatment,
+        y=y,
         store_bootstraps=True,
         n_bootstraps=50,
         bootstrap_size=500,
@@ -1295,9 +1446,9 @@ def test_BaseTLearner_predict_return_ci(generate_regression_data):
     # Test 7: different random_state produces different bounds
     learner_diff = BaseTRegressor(learner=LinearRegression(), control_name=0)
     learner_diff.fit(
-        X,
-        treatment,
-        y,
+        X=X,
+        treatment=treatment,
+        y=y,
         store_bootstraps=True,
         n_bootstraps=50,
         bootstrap_size=500,
@@ -1327,8 +1478,7 @@ def test_multi_treatment_learners():
       - ``fit_predict(..., return_ci=False)`` → CATE ``np.ndarray`` only (not a tuple)
       - ``fit_predict(..., return_ci=True)`` → ``tuple`` ``(te, lb, ub)`` of three ndarrays
       - ``estimate_ate(...)`` → ``tuple`` ``(ate, lb, ub)`` with each vector of shape
-        ``(n_treatment_groups,)`` for T/X/R/DR by default; **BaseSLearner** returns only
-        ``ate`` unless ``return_ci=True`` (then same triple as the others).
+        ``(n_treatment_groups,)`` for all meta-learners.
     """
     np.random.seed(RANDOM_SEED)
     n, p, n_groups = 600, 5, 3
@@ -1569,13 +1719,10 @@ def test_multi_treatment_learners():
         name,
         "fit_predict",
     )
-    ate_only = sl.estimate_ate(X=X, treatment=treatment, y=y, return_ci=False)
-    assert isinstance(ate_only, np.ndarray) and ate_only.shape == (
-        n_groups,
-    ), f"{name}.estimate_ate(return_ci=False) must be shape (n_groups,)"
-    _assert_ate(sl.estimate_ate(X=X, treatment=treatment, y=y, return_ci=True), name)
+
+    _assert_ate(sl.estimate_ate(X=X, treatment=treatment, y=y), name)
     _assert_ate(
-        sl.estimate_ate(X=X, treatment=treatment, y=y, return_ci=True, pretrain=True),
+        sl.estimate_ate(X=X, treatment=treatment, y=y, pretrain=True),
         name,
     )
 
@@ -1657,15 +1804,83 @@ def test_multi_treatment_learners():
         assert hasattr(rl, attr) and isinstance(getattr(rl, attr), dict)
         assert set(getattr(rl, attr).keys()) == set(rl.t_groups)
 
-    # R-learner: predict(X, p=...) returns CATE only (no return_components path).
+    # R-learner: predict(return_components=True) returns
+    # (te, yhat, propensity) where yhat and propensity are
+    # the nuisance components used by the R-learner.
     te = rl.predict(X=X, p=p_scores)
     _assert_te(te, name, "predict()")
 
-    fp_plain_r = rl.fit_predict(
-        X=X, treatment=treatment, y=y, p=p_scores, verbose=False
+    out_pc = rl.predict(X=X, p=p_scores, return_components=True)
+    assert isinstance(out_pc, tuple) and len(out_pc) == 3
+
+    te2, yhat, p = out_pc
+
+    np.testing.assert_array_equal(
+        te,
+        te2,
+        err_msg=f"{name}: predict inconsistency",
     )
+
+    assert isinstance(yhat, np.ndarray)
+    assert yhat.shape == (n,)
+    assert np.all(np.isfinite(yhat))
+
+    assert isinstance(p, dict)
+    assert set(p.keys()) == set(rl.t_groups)
+
+    for g in rl.t_groups:
+        assert isinstance(p[g], np.ndarray)
+        assert p[g].shape == (n,)
+        assert np.all(np.isfinite(p[g]))
+
+    fp_plain_r = rl.fit_predict(
+        X=X,
+        treatment=treatment,
+        y=y,
+        p=p_scores,
+        verbose=False,
+    )
+
     _assert_plain_fit_predict(fp_plain_r, name)
     _assert_te(fp_plain_r, name, "fit_predict()")
+
+    fp_components = rl.fit_predict(
+        X=X,
+        treatment=treatment,
+        y=y,
+        p=p_scores,
+        return_components=True,
+        verbose=False,
+    )
+
+    assert isinstance(fp_components, tuple)
+    assert len(fp_components) == 3
+
+    te_fp, yhat_fp, p_fp = fp_components
+
+    _assert_te(te_fp, name, "fit_predict(return_components=True)")
+
+    assert isinstance(yhat_fp, np.ndarray)
+    assert yhat_fp.shape == (n,)
+    assert np.all(np.isfinite(yhat_fp))
+
+    assert isinstance(p_fp, dict)
+    assert set(p_fp.keys()) == set(rl.t_groups)
+
+    for g in rl.t_groups:
+        assert isinstance(p_fp[g], np.ndarray)
+        assert p_fp[g].shape == (n,)
+        assert np.all(np.isfinite(p_fp[g]))
+    with pytest.raises(ValueError):
+        rl.fit_predict(
+            X=X,
+            treatment=treatment,
+            y=y,
+            p=p_scores,
+            return_ci=True,
+            return_components=True,
+            verbose=False,
+        )
     _assert_ci_triple(
         rl.fit_predict(
             X=X,
@@ -1702,9 +1917,9 @@ def test_BaseTClassifier_predict_return_ci(generate_classification_data):
 
     # Test 1: return_ci=True returns (te, lb, ub)
     learner.fit(
-        X,
-        treatment,
-        y,
+        X=X,
+        treatment=treatment,
+        y=y,
         store_bootstraps=True,
         n_bootstraps=50,
         bootstrap_size=500,
@@ -1718,7 +1933,7 @@ def test_BaseTClassifier_predict_return_ci(generate_classification_data):
 
     # Test 2: ValueError without store_bootstraps
     learner2 = BaseTClassifier(learner=LogisticRegression(), control_name=0)
-    learner2.fit(X, treatment, y)
+    learner2.fit(X=X, treatment=treatment, y=y)
     with pytest.raises(ValueError):
         learner2.predict(X, return_ci=True)
 
@@ -1750,7 +1965,7 @@ def _sklearn_fit(learner, y=None):
     """Fit with the right outcome type; returns whatever fit() returns."""
     if y is None:
         y = _Y_BIN if "Classifier" in type(learner).__name__ else _Y_CONT
-    return learner.fit(_X, _TREATMENT, y)
+    return learner.fit(X=_X, treatment=_TREATMENT, y=y)
 
 
 def _sklearn_predict(learner, **kw):
@@ -1781,6 +1996,8 @@ _CLASSIFIER_CONFIGS = [
     (BaseSClassifier, {"learner": _DT_CLF}),
     (BaseTClassifier, {"learner": _DT_CLF}),
     (BaseXClassifier, {"outcome_learner": _DT_CLF, "effect_learner": _DT_REG}),
+    (XGBTClassifier, {"xgb_kwargs": {"n_estimators": 5}}),
+    (XGBRClassifier, {"outcome_xgb_kwargs": {"n_estimators": 5}}),
 ]
 
 
@@ -1843,6 +2060,132 @@ def test_xgb_rregressor_clone_with_kwargs():
     assert _params_repr_equal(r2.get_params(), r.get_params())
 
 
+def test_XGBTClassifier(generate_classification_data):
+    np.random.seed(RANDOM_SEED)
+
+    df, x_names = generate_classification_data()
+    df["treatment_group_key"] = np.where(
+        df["treatment_group_key"] == CONTROL_NAME, 0, 1
+    )
+
+    df_train, df_test = train_test_split(df, test_size=0.2, random_state=RANDOM_SEED)
+
+    uplift_model = XGBTClassifier(xgb_kwargs={"n_estimators": 50})
+    uplift_model.fit(
+        X=df_train[x_names].values,
+        treatment=df_train["treatment_group_key"].values,
+        y=df_train[CONVERSION].values,
+    )
+
+    # The outcome models are XGBClassifiers built in fit(), with xgb_kwargs forwarded.
+    assert isinstance(uplift_model.model_c, XGBClassifier)
+    assert uplift_model.model_c.n_estimators == 50
+    for g in uplift_model.t_groups:
+        assert isinstance(uplift_model.models_t[g], XGBClassifier)
+
+    tau_pred = uplift_model.predict(
+        X=df_test[x_names].values, treatment=df_test["treatment_group_key"].values
+    )
+
+    auuc_metrics = pd.DataFrame(
+        {
+            "tau_pred": tau_pred.flatten(),
+            "W": df_test["treatment_group_key"].values,
+            CONVERSION: df_test[CONVERSION].values,
+            "treatment_effect_col": df_test["treatment_effect"].values,
+        }
+    )
+    auuc = auuc_score(
+        auuc_metrics,
+        outcome_col=CONVERSION,
+        treatment_col="W",
+        treatment_effect_col="treatment_effect_col",
+        normalize=True,
+    )
+    assert auuc["tau_pred"] > 0.5
+
+
+def test_XGBRClassifier(generate_classification_data):
+    np.random.seed(RANDOM_SEED)
+
+    df, x_names = generate_classification_data()
+    df["treatment_group_key"] = np.where(
+        df["treatment_group_key"] == CONTROL_NAME, 0, 1
+    )
+
+    propensity_model = LogisticRegression()
+    propensity_model.fit(X=df[x_names].values, y=df["treatment_group_key"].values)
+    df["propensity_score"] = propensity_model.predict_proba(df[x_names].values)[:, 1]
+
+    df_train, df_test = train_test_split(df, test_size=0.2, random_state=RANDOM_SEED)
+
+    uplift_model = XGBRClassifier(
+        outcome_xgb_kwargs={"n_estimators": 50},
+        effect_xgb_kwargs={"n_estimators": 50},
+    )
+    uplift_model.fit(
+        X=df_train[x_names].values,
+        p=df_train["propensity_score"].values,
+        treatment=df_train["treatment_group_key"].values,
+        y=df_train[CONVERSION].values,
+    )
+
+    # Outcome model is an XGBClassifier, effect model an XGBRegressor; kwargs forwarded.
+    assert isinstance(uplift_model.model_mu, XGBClassifier)
+    assert isinstance(uplift_model.model_tau, XGBRegressor)
+    assert uplift_model.model_mu.n_estimators == 50
+    assert uplift_model.model_tau.n_estimators == 50
+
+    tau_pred = uplift_model.predict(
+        X=df_test[x_names].values, p=df_test["propensity_score"].values
+    )
+
+    auuc_metrics = pd.DataFrame(
+        {
+            "tau_pred": tau_pred.flatten(),
+            "W": df_test["treatment_group_key"].values,
+            CONVERSION: df_test[CONVERSION].values,
+            "treatment_effect_col": df_test["treatment_effect"].values,
+        }
+    )
+    auuc = auuc_score(
+        auuc_metrics,
+        outcome_col=CONVERSION,
+        treatment_col="W",
+        treatment_effect_col="treatment_effect_col",
+        normalize=True,
+    )
+    assert auuc["tau_pred"] > 0.5
+
+
+def test_xgbt_classifier_clone():
+    """XGBTClassifier round-trips through clone() / get_params() (unfitted)."""
+    m = XGBTClassifier(xgb_kwargs={"max_depth": 3, "n_estimators": 5})
+    assert m.get_params()["xgb_kwargs"] == {"max_depth": 3, "n_estimators": 5}
+    m2 = clone(m)
+    assert type(m2) is XGBTClassifier
+    assert m2.xgb_kwargs == {"max_depth": 3, "n_estimators": 5}
+    assert _params_repr_equal(m2.get_params(), m.get_params())
+    assert not hasattr(m2, "t_groups")
+
+
+def test_xgbr_classifier_clone():
+    """XGBRClassifier round-trips through clone() / get_params() (unfitted)."""
+    m = XGBRClassifier(
+        outcome_xgb_kwargs={"max_depth": 3},
+        effect_xgb_kwargs={"n_estimators": 5},
+    )
+    params = m.get_params()
+    assert params["outcome_xgb_kwargs"] == {"max_depth": 3}
+    assert params["effect_xgb_kwargs"] == {"n_estimators": 5}
+    m2 = clone(m)
+    assert type(m2) is XGBRClassifier
+    assert m2.outcome_xgb_kwargs == {"max_depth": 3}
+    assert m2.effect_xgb_kwargs == {"n_estimators": 5}
+    assert _params_repr_equal(m2.get_params(), m.get_params())
+    assert not hasattr(m2, "t_groups")
+
+
 def test_xgb_rregressor_fit_predict_return_ci():
     """XGBRRegressor.fit_predict(return_ci=True) exercises clone(self) in bootstrap.
 
@@ -1851,7 +2194,12 @@ def test_xgb_rregressor_fit_predict_return_ci():
     """
     r = XGBRRegressor(effect_learner_n_estimators=20, random_state=0)
     te, lo, hi = r.fit_predict(
-        _X, _TREATMENT, _Y_CONT, return_ci=True, n_bootstraps=5, bootstrap_size=200
+        X=_X,
+        treatment=_TREATMENT,
+        y=_Y_CONT,
+        return_ci=True,
+        n_bootstraps=5,
+        bootstrap_size=200,
     )
     assert te.shape == lo.shape == hi.shape == (_N, 1)
     assert np.all(lo <= hi), "CI lower bound must be <= upper bound"
@@ -1899,9 +2247,9 @@ def test_finite_predict_stochastic(Cls, kwargs):
 def test_bit_identical_estimate_ate_s():
     """S-learner estimate_ate() CI triple is bit-identical across clone+refit."""
     m1 = BaseSRegressor(learner=_DT_REG)
-    ate1, lb1, ub1 = m1.estimate_ate(_X, _TREATMENT, _Y_CONT, return_ci=True)
+    ate1, lb1, ub1 = m1.estimate_ate(X=_X, treatment=_TREATMENT, y=_Y_CONT)
     m2 = clone(m1)
-    ate2, lb2, ub2 = m2.estimate_ate(_X, _TREATMENT, _Y_CONT, return_ci=True)
+    ate2, lb2, ub2 = m2.estimate_ate(X=_X, treatment=_TREATMENT, y=_Y_CONT)
     np.testing.assert_array_equal(ate1, ate2)
     np.testing.assert_array_equal(lb1, lb2)
     np.testing.assert_array_equal(ub1, ub2)
@@ -1911,10 +2259,10 @@ def test_t_regressor_return_ci_bit_identical():
     """TLearner stored bootstrap ensemble is reproducible with fixed random_state."""
     kw = dict(store_bootstraps=True, n_bootstraps=10, random_state=7)
     m1 = BaseTRegressor(learner=_DT_REG)
-    m1.fit(_X, _TREATMENT, _Y_CONT, **kw)
+    m1.fit(X=_X, treatment=_TREATMENT, y=_Y_CONT, **kw)
     te1, lo1, hi1 = m1.predict(_X, return_ci=True, verbose=False)
     m2 = BaseTRegressor(learner=_DT_REG)
-    m2.fit(_X, _TREATMENT, _Y_CONT, **kw)
+    m2.fit(X=_X, treatment=_TREATMENT, y=_Y_CONT, **kw)
     te2, lo2, hi2 = m2.predict(_X, return_ci=True, verbose=False)
     np.testing.assert_array_equal(te1, te2)
     np.testing.assert_array_equal(lo1, lo2)
@@ -1956,7 +2304,7 @@ def test_x_learner_pretrain_before_fit_raises():
     """BaseXRegressor.estimate_ate(pretrain=True) before fit() raises ValueError."""
     with pytest.raises(ValueError):
         BaseXRegressor(learner=_DT_REG).estimate_ate(
-            _X, _TREATMENT, _Y_CONT, pretrain=True
+            X=_X, treatment=_TREATMENT, y=_Y_CONT, pretrain=True
         )
 
 
@@ -1968,5 +2316,60 @@ def test_dr_learner_pretrain_before_fit_raises():
     """
     with pytest.raises(ValueError):
         BaseDRRegressor(learner=_DT_REG).estimate_ate(
-            _X, _TREATMENT, _Y_CONT, pretrain=True
+            X=_X, treatment=_TREATMENT, y=_Y_CONT, pretrain=True
         )
+
+
+def test_base_rlearner_bootstrap_reproducibility(generate_regression_data):
+    y, X, treatment, tau, b, e = generate_regression_data()
+
+    np.random.seed(RANDOM_SEED)
+    learner1 = BaseRRegressor(learner=LinearRegression(), random_state=42)
+    ate1, lb1_ate, ub1_ate = learner1.estimate_ate(
+        X, treatment=treatment, y=y, bootstrap_ci=True, n_bootstraps=5
+    )
+    te1, lb1_te, ub1_te = learner1.fit_predict(
+        X, treatment=treatment, y=y, return_ci=True, n_bootstraps=5
+    )
+
+    np.random.rand(100)
+
+    learner2 = BaseRRegressor(learner=LinearRegression(), random_state=42)
+    ate2, lb2_ate, ub2_ate = learner2.estimate_ate(
+        X, treatment=treatment, y=y, bootstrap_ci=True, n_bootstraps=5
+    )
+    te2, lb2_te, ub2_te = learner2.fit_predict(
+        X, treatment=treatment, y=y, return_ci=True, n_bootstraps=5
+    )
+
+    learner3 = BaseRRegressor(
+        learner=LinearRegression(), random_state=np.random.RandomState(42)
+    )
+    ate3, lb3_ate, ub3_ate = learner3.estimate_ate(
+        X, treatment=treatment, y=y, bootstrap_ci=True, n_bootstraps=5
+    )
+    te3, lb3_te, ub3_te = learner3.fit_predict(
+        X, treatment=treatment, y=y, return_ci=True, n_bootstraps=5
+    )
+
+    np.random.rand(100)
+
+    learner4 = BaseRRegressor(
+        learner=LinearRegression(), random_state=np.random.RandomState(42)
+    )
+    ate4, lb4_ate, ub4_ate = learner4.estimate_ate(
+        X, treatment=treatment, y=y, bootstrap_ci=True, n_bootstraps=5
+    )
+    te4, lb4_te, ub4_te = learner4.fit_predict(
+        X, treatment=treatment, y=y, return_ci=True, n_bootstraps=5
+    )
+
+    np.testing.assert_array_equal(lb1_ate, lb2_ate)
+    np.testing.assert_array_equal(ub1_ate, ub2_ate)
+    np.testing.assert_array_equal(lb1_te, lb2_te)
+    np.testing.assert_array_equal(ub1_te, ub2_te)
+
+    np.testing.assert_array_equal(lb3_ate, lb4_ate)
+    np.testing.assert_array_equal(ub3_ate, ub4_ate)
+    np.testing.assert_array_equal(lb3_te, lb4_te)
+    np.testing.assert_array_equal(ub3_te, ub4_te)

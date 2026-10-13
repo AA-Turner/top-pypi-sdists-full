@@ -137,8 +137,9 @@ def test_upgrade_uv_tool_advances(monkeypatch):
     ]
 
 
-def test_upgrade_uv_tool_pinned_noop_then_force(monkeypatch):
-    # `uv tool upgrade` no-ops on a version pin (exits 0, version unchanged) -> force @latest
+def test_upgrade_uv_tool_pinned_noop_then_latest(monkeypatch):
+    # `uv tool upgrade` no-ops on a version pin (exits 0, version unchanged) -> install @latest,
+    # without `--force`: that would delete and rebuild the environment under running workers
     calls = _record_run(monkeypatch)
     _stub_installed(monkeypatch, ["0.8.1", "0.8.2"])  # after upgrade (no move), after force (moved)
     res = updater.upgrade_cli(updater.Install(updater.Method.UV_TOOL), "0.8.1", "0.8.2")
@@ -146,7 +147,7 @@ def test_upgrade_uv_tool_pinned_noop_then_force(monkeypatch):
     assert calls == [
         ["uv", "tool", "install", "probe-research[all]"],
         ["uv", "tool", "upgrade", "probe-research"],
-        ["uv", "tool", "install", "--force", "--refresh-package", "probe-research", "probe-research[all]@latest"],
+        ["uv", "tool", "install", "--refresh-package", "probe-research", "probe-research[all]@latest"],
     ]
 
 
@@ -191,7 +192,7 @@ def test_every_install_asks_for_the_all_extra(monkeypatch):
     real_import = builtins.__import__
 
     def without_daemon(name, *a, **kw):
-        if name == "pydantic_ai":
+        if name == "pydantic_ai_harness":
             raise ImportError(name)
         return real_import(name, *a, **kw)
 
@@ -201,8 +202,121 @@ def test_every_install_asks_for_the_all_extra(monkeypatch):
     import sys
     import types
 
-    monkeypatch.setitem(sys.modules, "pydantic_ai", types.ModuleType("pydantic_ai"))
+    monkeypatch.setitem(sys.modules, "pydantic_ai_harness", types.ModuleType("pydantic_ai_harness"))
     assert updater._dist() == "probe-research[all,daemon]"
+
+
+def test_a_project_environment_with_its_own_pydantic_ai_is_not_handed_the_daemon_stack(monkeypatch):
+    """`import pydantic_ai` succeeds in any project that uses Pydantic AI; only the
+    daemon's own harness says these are the daemon's libraries."""
+    import sys
+    import types
+
+    monkeypatch.setitem(sys.modules, "pydantic_ai", types.ModuleType("pydantic_ai"))
+    monkeypatch.setitem(sys.modules, "pydantic_ai_harness", None)
+    assert updater._dist() == "probe-research[all]"
+
+
+def _without_daemon_libraries(monkeypatch):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "pydantic_ai_harness", None)  # its import raises ImportError
+
+
+def _installed_as(monkeypatch, method):
+    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(method))
+
+
+def test_a_tool_install_that_lost_the_daemon_extra_gets_it_back_where_the_daemon_records(monkeypatch):
+    """2026-10-12: a bare `uv tool install --force probe-research` stripped the
+    daemon's libraries, and every update after restated `[all]` alone because it
+    only asked whether they were importable. Who records is the daemon, so the
+    update puts them back."""
+    from probe.sdk import session_marker
+
+    _without_daemon_libraries(monkeypatch)
+    _installed_as(monkeypatch, updater.Method.UV_TOOL)
+    assert updater._dist() == "probe-research[all]"
+    session_marker.write_recorder("codex", session_marker.RECORDER_DAEMON)
+    assert updater._dist() == "probe-research[all,daemon]"
+    session_marker.write_recorder("codex", session_marker.RECORDER_AGENT)
+    assert updater._dist() == "probe-research[all]"
+
+
+@pytest.mark.parametrize("method", [updater.Method.PIP, updater.Method.MANAGED, updater.Method.EDITABLE])
+def test_a_pip_install_is_not_given_the_daemon_stack_by_the_setting(monkeypatch, method):
+    """A pip install lives in a project or training environment: the daemon's
+    pinned AI stack goes there only when someone asks (`probe daemon install`)."""
+    from probe.sdk import session_marker
+
+    _without_daemon_libraries(monkeypatch)
+    _installed_as(monkeypatch, method)
+    session_marker.write_recorder("claude_code", session_marker.RECORDER_DAEMON)
+    assert updater._dist() == "probe-research[all]"
+
+
+def _tool_env(tmp_path: Path, receipt: str, pyvenv: str | None, interpreters: tuple[str, ...] = ()) -> Path:
+    env = tmp_path / "env"
+    home = tmp_path / "home-bin"
+    env.mkdir()
+    home.mkdir()
+    for name in interpreters:
+        (home / name).write_text("")
+    (env / "uv-receipt.toml").write_text(receipt)
+    if pyvenv is not None:
+        (env / "pyvenv.cfg").write_text(pyvenv.format(home=home))
+    return env
+
+
+_BARE_RECEIPT = '[tool]\nrequirements = [{ name = "probe-research", extras = ["all"] }]\n'
+_PYVENV = "home = {home}\nimplementation = CPython\nuv = 0.12.5\nversion_info = 3.12.3\n"
+
+
+def test_a_receipt_without_a_python_restates_the_exact_interpreter_the_environment_runs_on(tmp_path):
+    """2026-10-12: with no Python in the receipt, `--force` (and a plain install on
+    uv before 0.10) rebuilt the tool on the newest Python and deleted
+    `lib/pythonX.Y` under a live daemon worker. `--python 3.12` is no cure: uv
+    picked its managed 3.12 over the system one and rebuilt just the same. Only
+    the exact path keeps the environment."""
+    env = _tool_env(tmp_path, _BARE_RECEIPT, _PYVENV, ("python3.12", "python3"))
+    kept = updater.kept_from_uv_receipt(env)
+    assert kept.python == str(tmp_path / "home-bin" / "python3.12")
+    assert updater.uv_tool_install_command(kept)[-2:] == ["--python", kept.python]
+
+
+@pytest.mark.parametrize(
+    "receipt, pyvenv, interpreters, python",
+    [
+        # What the receipt records is the user's choice, kept as it is.
+        ('[tool]\nrequirements = [{ name = "probe-research" }]\npython = "3.11"\n', _PYVENV, ("python3.12",), "3.11"),
+        # ...unless it is a path that no longer exists: the environment's own then.
+        ('[tool]\nrequirements = [{ name = "probe-research" }]\npython = "/gone/python3.9"\n', _PYVENV,
+         ("python3.12",), "HOME/python3.12"),
+        # No `pythonX.Y` in `home`: a bare `python3` may be another version by now.
+        (_BARE_RECEIPT, _PYVENV, ("python3", "python"), None),
+        # No interpreter at `home`, no pyvenv.cfg: no pin, as before.
+        (_BARE_RECEIPT, _PYVENV, (), None),
+        (_BARE_RECEIPT, None, ("python3.12",), None),
+    ],
+)
+def test_which_python_a_reinstall_restates(tmp_path, receipt, pyvenv, interpreters, python):
+    env = _tool_env(tmp_path, receipt, pyvenv, interpreters)
+    expected = python.replace("HOME", str(tmp_path / "home-bin")) if python else None
+    assert updater.kept_from_uv_receipt(env).python == expected
+
+
+def test_the_update_restates_the_daemon_extra_from_the_setting_alone(monkeypatch):
+    from probe.sdk import session_marker
+
+    _without_daemon_libraries(monkeypatch)
+    _installed_as(monkeypatch, updater.Method.UV_TOOL)
+    session_marker.write_recorder("claude_code", session_marker.RECORDER_DAEMON)
+    calls: list[list[str]] = []
+    monkeypatch.setattr(updater, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    _stub_installed(monkeypatch, ["0.8.1", "0.8.2"])
+    updater.upgrade_cli(updater.Install(updater.Method.UV_TOOL), "0.8.1", "0.8.2")
+    assert calls[0] == ["uv", "tool", "install", "probe-research[all,daemon]"]
 
 
 @pytest.mark.parametrize(
@@ -585,4 +699,4 @@ def test_an_upgrade_keeps_the_daemon_extra(monkeypatch):
     calls = _record_run(monkeypatch, daemon_extra=True)
     _stub_installed(monkeypatch, ["0.8.1", "0.8.1", "0.8.2"])
     updater.upgrade_cli(updater.Install(updater.Method.UV_TOOL), "0.8.1", "0.8.2")
-    assert ["uv", "tool", "install", "--force", "--refresh-package", "probe-research", "probe-research[all,daemon]@latest"] in calls
+    assert ["uv", "tool", "install", "--refresh-package", "probe-research", "probe-research[all,daemon]@latest"] in calls

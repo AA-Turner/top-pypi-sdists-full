@@ -40,7 +40,14 @@ class RecordingHook:
 
     async def __call__(self, landing: dict[str, Any]) -> dict[str, Any]:
         self.calls.append(landing)
-        return {"processed_document_id": "doc-1", "source_id": "spp-1", "notices": []}
+        return {
+            "processed_document_id": "doc-1",
+            "source_id": "spp-1",
+            "reused_existing": False,
+            "kept": False,
+            "intelligence": "deferred",
+            "notices": [],
+        }
 
 
 def _request() -> Any:

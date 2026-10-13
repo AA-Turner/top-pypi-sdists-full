@@ -382,6 +382,8 @@ class AdCampaignsResource:
         budget_amount: float | None = None,
         budget_type: str | None = None,
         status: str | None = "PAUSED",
+        start_date: datetime | str | None = None,
+        end_date: datetime | str | None = None,
         location_targeting_type: Any | None = None,
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
@@ -405,6 +407,8 @@ class AdCampaignsResource:
             budget_amount=budget_amount,
             budget_type=budget_type,
             status=status,
+            start_date=start_date,
+            end_date=end_date,
             location_targeting_type=location_targeting_type,
             bid_strategy=bid_strategy,
             bid_amount=bid_amount,
@@ -537,12 +541,18 @@ class AdCampaignsResource:
         return self._client._put(f"/v1/ads/campaigns/{campaign_id}", data=payload)
 
     def delete_ad_campaign(
-        self, campaign_id: str, platform: str, *, account_id: str | None = None
+        self,
+        campaign_id: str,
+        platform: str,
+        *,
+        account_id: str | None = None,
+        ad_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Delete a campaign"""
         payload = self._build_payload(
             platform=platform,
             account_id=account_id,
+            ad_account_id=ad_account_id,
         )
         return self._client._delete(f"/v1/ads/campaigns/{campaign_id}", data=payload)
 
@@ -1134,6 +1144,7 @@ class AdCampaignsResource:
         identity_type: str | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
+        lifetime_budget_cap: float | None = None,
         budget: dict[str, Any] | None = None,
         instagram_account_id: str | None = None,
         destination_type: str | None = None,
@@ -1192,6 +1203,7 @@ class AdCampaignsResource:
             identity_type=identity_type,
             budget_amount=budget_amount,
             budget_type=budget_type,
+            lifetime_budget_cap=lifetime_budget_cap,
             budget=budget,
             instagram_account_id=instagram_account_id,
             destination_type=destination_type,
@@ -1942,6 +1954,8 @@ class AdCampaignsResource:
         budget_amount: float | None = None,
         budget_type: str | None = None,
         status: str | None = "PAUSED",
+        start_date: datetime | str | None = None,
+        end_date: datetime | str | None = None,
         location_targeting_type: Any | None = None,
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
@@ -1965,6 +1979,8 @@ class AdCampaignsResource:
             budget_amount=budget_amount,
             budget_type=budget_type,
             status=status,
+            start_date=start_date,
+            end_date=end_date,
             location_targeting_type=location_targeting_type,
             bid_strategy=bid_strategy,
             bid_amount=bid_amount,
@@ -2103,12 +2119,18 @@ class AdCampaignsResource:
         )
 
     async def adelete_ad_campaign(
-        self, campaign_id: str, platform: str, *, account_id: str | None = None
+        self,
+        campaign_id: str,
+        platform: str,
+        *,
+        account_id: str | None = None,
+        ad_account_id: str | None = None,
     ) -> dict[str, Any]:
         """Delete a campaign (async)"""
         payload = self._build_payload(
             platform=platform,
             account_id=account_id,
+            ad_account_id=ad_account_id,
         )
         return await self._client._adelete(
             f"/v1/ads/campaigns/{campaign_id}", data=payload
@@ -2712,6 +2734,7 @@ class AdCampaignsResource:
         identity_type: str | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
+        lifetime_budget_cap: float | None = None,
         budget: dict[str, Any] | None = None,
         instagram_account_id: str | None = None,
         destination_type: str | None = None,
@@ -2770,6 +2793,7 @@ class AdCampaignsResource:
             identity_type=identity_type,
             budget_amount=budget_amount,
             budget_type=budget_type,
+            lifetime_budget_cap=lifetime_budget_cap,
             budget=budget,
             instagram_account_id=instagram_account_id,
             destination_type=destination_type,

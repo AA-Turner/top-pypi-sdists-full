@@ -49,3 +49,19 @@ async def test_a_real_user_turn_is_sent() -> None:
         policy=TrimPolicy(),
     )
     assert "empty_conversation_check" in prep.steps
+
+
+def test_the_refusal_carries_everything_the_executor_failure_path_reads() -> None:
+    """The executor reads is_retryable / details / retry_schedule off ``exc.error_info``.
+
+    The refusal once carried a lookalike without them, so the executor turned this plain
+    refusal into ``AttributeError: ... has no attribute 'is_retryable'`` (found by the Model
+    view capture, 2026-10-11). It must be the same envelope every other classified error uses.
+    """
+    from matrx_ai.providers.errors import RetryableError
+
+    info = EmptyConversationError(step="conversation c1").error_info
+    assert isinstance(info, RetryableError)
+    assert info.is_retryable is False
+    assert info.status_code == 422
+    assert info.user_message == "There is nothing to send yet. Type a message and try again."

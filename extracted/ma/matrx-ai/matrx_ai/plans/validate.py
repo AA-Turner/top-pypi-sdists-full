@@ -22,6 +22,7 @@ from matrx_ai.plans.errors import PlanIssue
 from matrx_ai.plans.types import (
     AGENT_PAYLOAD_KEYS,
     FAN_OUT_PAYLOAD_KEYS,
+    RESERVED_INPUT_KEYS,
     SCALAR_PAYLOAD_KEYS,
     WHEN_REF_RE,
     AgentPlan,
@@ -582,7 +583,7 @@ async def validate_plan_agents(plan: AgentPlan, app_ctx: Any) -> list[PlanIssue]
             if isinstance(entry, dict) and entry.get("name"):
                 declared[str(entry["name"])] = entry
         for key in s.inputs:
-            if key == "user_input":
+            if key in RESERVED_INPUT_KEYS:
                 continue
             if key not in declared:
                 known = ", ".join(sorted(declared)) or "(none)"

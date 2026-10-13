@@ -61,6 +61,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from matrx_ai.agents.definition import Agent, AgentExecuteResult
 from matrx_ai.agents.source_tracking import resolve_child_source
+from matrx_ai.config.host_turn import HostTurn, refuse_both
 from matrx_ai.config.media_config import collect_media_refs
 from matrx_ai.config.usage_config import AggregatedUsage, TokenUsage
 
@@ -440,6 +441,7 @@ async def run_agent(
     max_iterations: int | None = None,
     metadata: dict[str, Any] | None = None,
     stream_data_types: frozenset[str] | None = None,
+    host_turn: HostTurn | None = None,
 ) -> AgentRunResult[ParsedT]:
     """Execute an already-prepared ``Agent`` inside ``child_agent_context``.
 
@@ -485,6 +487,9 @@ async def run_agent(
         user_input: Optional user message (string or content blocks)
                     appended before execution. Equivalent to passing
                     ``user_input=`` to ``agent.execute``.
+        host_turn: A turn the HOST writes (``matrx_ai.config.host_turn``) —
+                    stored host-authored, never as ``user_input``. Mutually
+                    exclusive with ``user_input``.
         json_schema: Optional Pydantic model or persisted JSON-schema dictionary
                      used to enforce provider-native structured output before
                      the call. Pydantic models also parse and validate the
@@ -557,6 +562,7 @@ async def run_agent(
         ``AgentRunResult`` — ``success`` indicates execution status;
         ``parsed`` / ``parse_error`` cover JSON validation when requested.
     """
+    refuse_both(user_input, host_turn)
     if json_schema is not None:
         try:
             bind_structured_output(agent, json_schema)
@@ -804,7 +810,7 @@ async def run_agent(
                 raise
 
             execute_result: AgentExecuteResult = await agent.execute(
-                user_input=user_input, max_iterations=max_iterations
+                user_input=user_input, max_iterations=max_iterations, host_turn=host_turn
             )
             if require_complete_output:
                 child_status = str((execute_result.metadata or {}).get("status") or "")

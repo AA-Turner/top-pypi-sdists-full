@@ -81,8 +81,15 @@ def _invocations(text: str) -> list[str]:
     return found
 
 
+#: The lean daemon plugin's hand-kept skills (the Makefile's `DAEMON_HAND_KEPT`):
+#: their own wording, so not covered by the canonical skills/ above.
+_HAND_KEPT = _SKILLS.parent / "plugins" / "probe-research-daemon" / "agent-skills"
+
+
 def _skill_files() -> list[Path]:
-    return sorted(set(_SKILLS.rglob("*.md")))
+    hand_kept = {_HAND_KEPT / name / "SKILL.md" for name in ("probe", "visualize-progress")}
+    assert all(path.is_file() for path in hand_kept), hand_kept
+    return sorted(set(_SKILLS.rglob("*.md")) | hand_kept)
 
 
 @pytest.mark.parametrize("path", _skill_files(), ids=lambda p: p.parent.name + "/" + p.name)

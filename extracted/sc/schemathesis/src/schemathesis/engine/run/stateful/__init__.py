@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from schemathesis.engine import Status, events
 from schemathesis.engine.run import Phase, PhaseName, PhaseSkipReason
+from schemathesis.generation.feedback import FeedbackSources
 from schemathesis.generation.stateful import STATEFUL_TESTS_LABEL
 
 if TYPE_CHECKING:
@@ -14,16 +15,20 @@ if TYPE_CHECKING:
 EVENT_QUEUE_TIMEOUT = 0.01
 
 
+def _stateful_feedback(engine: EngineContext) -> FeedbackSources:
+    return FeedbackSources(
+        extra_data_source=engine.extra_data_source,
+        error_feedback=engine.error_feedback,
+        constants_value_source=engine.constants_value_source(),
+    )
+
+
 def execute(engine: EngineContext, phase: Phase) -> events.EventGenerator:
     from schemathesis.engine.run.stateful._executor import execute_state_machine_loop
 
     try:
-        constants_value_source = engine.constants_extraction if not engine.constants_extraction.is_empty() else None
         state_machine = engine.schema._build_state_machine(
-            error_feedback=engine.error_feedback,
-            link_calibration=engine.link_calibration,
-            extra_data_source=engine.extra_data_source,
-            constants_value_source=constants_value_source,
+            feedback=_stateful_feedback(engine), link_calibration=engine.link_calibration
         )
     except Exception as exc:
         yield events.NonFatalError(error=exc, phase=phase.name, label=STATEFUL_TESTS_LABEL, related_to_operation=False)
@@ -39,6 +44,7 @@ def execute(engine: EngineContext, phase: Phase) -> events.EventGenerator:
     )
     status: Status | None = None
     is_executed = False
+    checks_ran = False
 
     thread.start()
     try:
@@ -54,6 +60,8 @@ def execute(engine: EngineContext, phase: Phase) -> events.EventGenerator:
                     and (status is None or status < event.status)
                 ):
                     status = event.status
+                if isinstance(event, events.ScenarioFinished):
+                    checks_ran = checks_ran or any(event.recorder.checks.values())
                 yield event
             except queue.Empty:
                 # The producer may put its final events and exit between this thread's
@@ -83,5 +91,8 @@ def execute(engine: EngineContext, phase: Phase) -> events.EventGenerator:
         phase.skip_reason = PhaseSkipReason.NOTHING_TO_TEST
         status = Status.SKIP
     elif status is None:
+        status = Status.SKIP
+    elif status == Status.SUCCESS and not checks_ran:
+        phase.skip_reason = PhaseSkipReason.NO_CHECKS_RAN
         status = Status.SKIP
     yield events.PhaseFinished(phase=phase, status=status, payload=None)

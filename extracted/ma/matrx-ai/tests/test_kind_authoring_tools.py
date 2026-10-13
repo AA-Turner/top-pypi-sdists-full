@@ -1430,6 +1430,8 @@ async def test_content_block_is_unpublished_when_its_kind_says_nothing(
     [row] = created["prompt_block"]
     assert row["published_to_web"] is False
     assert "shown_to" not in row
+    # The receipt names the prompt block it created.
+    assert hasattr(result.output, "prompt_block_id")
 
 
 # ---------------------------------------------------------------------------

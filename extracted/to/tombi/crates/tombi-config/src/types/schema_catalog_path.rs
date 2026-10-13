@@ -1,0 +1,51 @@
+pub const TOMBI_SCHEMASTORE_CATALOG_URL: &str = concat!(
+    "tombi://",
+    tombi_uri::schemastore_hostname!(),
+    "/api/json/catalog.json"
+);
+pub const JSON_SCHEMASTORE_CATALOG_URL: &str = concat!(
+    "https://",
+    tombi_uri::schemastore_hostname!(),
+    "/api/json/catalog.json"
+);
+
+/// Schema catalog path or URL
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "jsonschema", schemars(example = TOMBI_SCHEMASTORE_CATALOG_URL))]
+#[cfg_attr(feature = "jsonschema", schemars(example = JSON_SCHEMASTORE_CATALOG_URL))]
+pub struct SchemaCatalogPath(String);
+
+impl SchemaCatalogPath {
+    #[inline]
+    pub fn value(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn try_to_catalog_url(
+        &self,
+        base_dir_path: Option<&std::path::Path>,
+    ) -> Result<tombi_uri::Uri, tombi_uri::ParseError> {
+        match self.0.parse() {
+            Ok(url) => Ok(url),
+            Err(err) => match base_dir_path {
+                Some(base_dir_path) => tombi_uri::Uri::from_file_path(base_dir_path.join(&self.0)),
+                None => tombi_uri::Uri::from_file_path(&self.0),
+            }
+            .map_err(|_| err),
+        }
+    }
+}
+
+impl std::fmt::Display for SchemaCatalogPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<&str> for SchemaCatalogPath {
+    fn from(value: &str) -> Self {
+        SchemaCatalogPath(value.to_string())
+    }
+}

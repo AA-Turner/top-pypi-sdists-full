@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instaloader
-Version: 4.15.3
+Version: 4.15.4
 Summary: Download pictures (or videos) along with their captions and other metadata from Instagram.
 Home-page: https://instaloader.github.io/
 Author: Alexander Graf, André Koch-Kramer
@@ -13,16 +13,16 @@ Classifier: Intended Audience :: End Users/Desktop
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Internet
 Classifier: Topic :: Multimedia :: Graphics
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
 License-File: AUTHORS.md
 Requires-Dist: requests>=2.25

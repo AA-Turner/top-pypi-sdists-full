@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: iterm2
-Version: 2.25
+Version: 2.30
 Summary: Python interface to iTerm2's scripting API
 Home-page: http://github.com/gnachman/iTerm2
 Author: George Nachman
@@ -8,7 +8,7 @@ Author-email: gnachman@gmail.com
 License: GPLv2
 Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
-Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.10
 Requires-Dist: protobuf
 Requires-Dist: websockets
 Provides-Extra: full

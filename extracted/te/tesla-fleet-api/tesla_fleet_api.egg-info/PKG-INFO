@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tesla_fleet_api
-Version: 1.17.3
+Version: 1.18.0
 Summary: Tesla Fleet API library for Python
 Author-email: Brett Adams <hello@teslemetry.com>
 License-Expression: Apache-2.0
@@ -219,10 +219,14 @@ entered backend I/O and then failed or timed out is delivery-ambiguous and
 raises `BluetoothTimeout`/`BluetoothUnconfirmedCommand` instead. Mutating BLE
 commands use a confirmation ladder controlled by `confirmation` (`"ack"` by
 default) and `raise_unconfirmed` (`False` by default): an inconclusive lost
-acknowledgement resolves as best-effort success unless you opt in to
+acknowledgement normally resolves as best-effort success unless you opt in to
 `BluetoothUnconfirmedCommand`, while a command proven not to have applied raises
-`BluetoothCommandFailed`. See [Bluetooth for Vehicles](docs/bluetooth_vehicles.md)
-for the full ladder. Catch `TeslaFleetError` to handle Bluetooth transport
+`BluetoothCommandFailed`. Charge-port opening under `confirmation="verify"`
+requires physical latch/flap confirmation even after an acknowledgement. An
+unresolved result raises `BluetoothUnconfirmedCommand` regardless of
+`raise_unconfirmed`, preventing cloud replay. See
+[Bluetooth for Vehicles](docs/bluetooth_vehicles.md) for the full ladder.
+Catch `TeslaFleetError` to handle Bluetooth transport
 failures (including `bleak.exc.BleakError` and builtin `TimeoutError` from
 ESPHome proxies) and response-wait timeouts through the same library error
 hierarchy.
@@ -321,7 +325,7 @@ logging.getLogger("tesla_fleet_api").setLevel(logging.DEBUG)
 ```
 
 Command log lines use `transport=bluetooth`, `fleet`, `teslemetry`, or `tessie`.
-Routers also emit `backend=<ClassName>` lines for each backend tried. See
+Routers also emit `backend=<ClassName>` lines for each backend tried, except a local Powerwall in an `EnergySiteRouter`, which logs `transport=lan`. See
 [Bluetooth for Vehicles](docs/bluetooth_vehicles.md#troubleshooting-enable-debug-logging)
 for examples and the signed-command naming details.
 REST responses that are valid JSON but not objects, such as `null`, lists, or

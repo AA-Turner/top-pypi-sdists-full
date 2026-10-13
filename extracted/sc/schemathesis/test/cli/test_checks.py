@@ -1,4 +1,5 @@
 import re
+import time
 import uuid
 import xml.etree.ElementTree as ET
 
@@ -41,7 +42,7 @@ def test_negative_data_rejection(ctx, cli):
             }
         }
     )
-    cli.run_and_assert(
+    result = cli.run_and_assert(
         str(schema_path),
         f"--url={api.base_url}/api",
         "--checks",
@@ -51,6 +52,7 @@ def test_negative_data_rejection(ctx, cli):
         "--max-examples=5",
         exit_code=ExitCode.TESTS_FAILED,
     )
+    assert "- API accepted schema-violating request\n" in result.stdout
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -141,12 +143,9 @@ def test_negative_data_rejection_path_parameter_type_mutation(ctx, cli, snapshot
 
     @app.route("/api/run/<path:id>", methods=["POST"])
     def run_endpoint(id):
-        # Server accepts numeric-looking paths (including negative numbers like -1, -42)
-        try:
-            int(id)
+        if re.fullmatch(r"[+-]?[0-9]+", id):
             return "", 200
-        except ValueError:
-            return "", 400
+        return "", 400
 
     assert (
         cli.run_openapi_app(
@@ -154,6 +153,7 @@ def test_negative_data_rejection_path_parameter_type_mutation(ctx, cli, snapshot
             "--checks=negative_data_rejection",
             "--mode=negative",
             "--phases=fuzzing",
+            # The mutation behind the false positive is rare, so the run needs many cases to reach it.
             "--max-examples=200",
         )
         == snapshot_cli
@@ -177,6 +177,8 @@ def test_negative_data_rejection_path_parameter_number_type_mutation(ctx, cli, s
 
     @app.route("/api/rate/<path:value>", methods=["GET"])
     def rate(value):
+        if not value.isascii() or "_" in value or value != value.strip():
+            return "", 400
         try:
             float(value)
             return "", 200
@@ -189,6 +191,7 @@ def test_negative_data_rejection_path_parameter_number_type_mutation(ctx, cli, s
             "--checks=negative_data_rejection",
             "--mode=negative",
             "--phases=fuzzing",
+            # The mutation behind the false positive is rare, so the run needs many cases to reach it.
             "--max-examples=200",
         )
         == snapshot_cli
@@ -282,7 +285,43 @@ def test_negative_data_rejection_uuid_path_param_with_pattern_no_false_positive(
         "--checks=negative_data_rejection",
         "--mode=negative",
         "--phases=stateful,fuzzing",
+        # The mutation behind the false positive is rare, so the run needs many cases to reach it.
         "--max-examples=200",
+        exit_code=ExitCode.OK,
+    )
+
+
+def test_negative_data_rejection_configured_user_agent_header_parameter_no_false_positive(ctx, cli, app_runner):
+    # The configured User-Agent replaces any generated value on the wire, so it must not be mutated.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/api/agent": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "User-Agent",
+                            "in": "header",
+                            "required": True,
+                            "schema": {"type": "string", "enum": ["ok"]},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}, "400": {"description": "Bad"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/api/agent")
+    def agent():
+        return ("", 200) if request.headers.get("User-Agent") == "ok" else ("", 400)
+
+    cli.run_and_assert(
+        app_runner.openapi_url(app),
+        "--header=User-Agent: ok",
+        "--checks=negative_data_rejection",
+        "--mode=negative",
+        "--max-examples=10",
+        "--seed=1",
         exit_code=ExitCode.OK,
     )
 
@@ -402,6 +441,7 @@ def test_negative_data_rejection_xml_body_string_type_no_false_positive(ctx, cli
             "--checks=negative_data_rejection",
             "--mode=negative",
             "--phases=fuzzing",
+            # The mutation behind the false positive is rare, so the run needs many cases to reach it.
             "--max-examples=200",
         )
         == snapshot_cli
@@ -453,6 +493,7 @@ def test_negative_data_rejection_number_body_field_accepts_integer_no_false_posi
         "--checks=negative_data_rejection",
         "--mode=negative",
         "--phases=fuzzing",
+        # The mutation behind the false positive is rare, so the run needs many cases to reach it.
         "--max-examples=200",
         exit_code=ExitCode.OK,
     )
@@ -497,7 +538,8 @@ def test_negative_data_rejection_body_override_restoring_mutated_field(ctx, cli)
         "--checks=negative_data_rejection",
         "--mode=negative",
         "--phases=fuzzing",
-        "--max-examples=50",
+        # Only a type change of `name` exposes the bug, so the run needs enough cases to always draw one.
+        "--max-examples=100",
         config={
             "operations": [
                 {"include-name": name, "parameters": {"body.token": "confirm-token"}}
@@ -624,6 +666,7 @@ def test_negative_data_rejection_boolean_query_param_accepts_coercible_no_false_
         "--checks=negative_data_rejection",
         "--mode=negative",
         "--phases=fuzzing",
+        # The mutation behind the false positive is rare, so the run needs many cases to reach it.
         "--max-examples=200",
         exit_code=ExitCode.OK,
         config={"generation": {"allow-extra-parameters": False}},
@@ -734,6 +777,15 @@ def test_optional_auth_should_not_trigger_ignored_auth_check(ctx, cli, snapshot_
         return jsonify({"status": "Ok"})
 
     assert cli.run_openapi_app(app, "-c ignored_auth", "--phases=fuzzing", "--max-examples=3") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_final_line_when_no_checks_ran(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
+    assert (
+        cli.run(api.schema_url, "--phases=fuzzing", "--max-examples=3", config={"checks": {"enabled": False}})
+        == snapshot_cli
+    )
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -1865,6 +1917,12 @@ def test_positive_data_acceptance_no_additional_properties_hint_for_nul(
 
 
 def test_positive_data_acceptance_body_list_examples_verbatim(ctx, cli, app_runner):
+    example = {
+        "request": {
+            "payment": {"SupplierAccount": "5411707635"},
+            "audit": {"requestedSystem": "a22c6ad7"},
+        }
+    }
     app, raw_schema = ctx.openapi.make_flask_app(
         {
             "/api/payments": {
@@ -1877,16 +1935,7 @@ def test_positive_data_acceptance_body_list_examples_verbatim(ctx, cli, app_runn
                                 "schema": {"$ref": "#/components/schemas/PaymentsRequest"},
                                 # OAS3 Examples Object should be a dict, but some schemas use a list here.
                                 # Each element is an OAS3-style Example Object with a "value" key.
-                                "examples": [
-                                    {
-                                        "value": {
-                                            "request": {
-                                                "payment": {"SupplierAccount": "5411707635"},
-                                                "audit": {"requestedSystem": "a22c6ad7"},
-                                            }
-                                        }
-                                    }
-                                ],
+                                "examples": [{"value": example}],
                             }
                         },
                     },
@@ -1918,9 +1967,12 @@ def test_positive_data_acceptance_body_list_examples_verbatim(ctx, cli, app_runn
         },
     )
 
+    bodies = []
+
     @app.route("/api/payments", methods=["POST"])
     def payments_list_examples():
         body = request.get_json(silent=True)
+        bodies.append(body)
         if not isinstance(body, dict) or "request" not in body:
             return (
                 jsonify(
@@ -1941,6 +1993,7 @@ def test_positive_data_acceptance_body_list_examples_verbatim(ctx, cli, app_runn
         "--phases=examples",
         exit_code=ExitCode.OK,
     )
+    assert bodies == [example]
     cli.run_and_assert(
         schema_url,
         "--checks=positive_data_acceptance",
@@ -2299,3 +2352,28 @@ def test_ignored_auth_probes_each_operation_until_enforcement_is_confirmed(ctx, 
     unauthorized = [request for request in api.requests if request.headers.get("Authorization") != "Basic dGVzdDp0ZXN0"]
     assert len(authorized) > 1
     assert len(unauthorized) == 2
+
+
+@pytest.mark.parametrize("phase", ["fuzzing", "stateful"])
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_phase_without_checks_is_skipped(ctx, cli, snapshot_cli, phase):
+    api = ctx.openapi.apps.users_crud()
+    result = cli.run(api.schema_url, f"--phases={phase}", "--max-examples=1", config={"checks": {"enabled": False}})
+    phase_body = result.stdout.split("SUMMARY", 1)[0].split(f"{phase.title()} (", 1)[1]
+    assert "without checks" in phase_body
+    assert "passed" not in phase_body
+    assert result == snapshot_cli
+
+
+# Cycling ends at the deadline however slow the runner is; dropping the phase ends the run well before it.
+def test_phase_without_checks_keeps_running_until_max_time(ctx, cli):
+    api = ctx.openapi.apps.payload()
+    started = time.monotonic()
+    cli.run(
+        api.schema_url,
+        "--phases=fuzzing",
+        "--max-examples=1",
+        "--max-time=2",
+        config={"checks": {"enabled": False}},
+    )
+    assert time.monotonic() - started >= 2

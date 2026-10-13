@@ -98,6 +98,7 @@ from local_operator.server.utils.store_failures import (
     sqlite_store_failure,
     store_failure,
 )
+from local_operator.session import open_trace
 from local_operator.session.attached import RuntimeUnresponsiveError
 from local_operator.session.attention import (
     SUPERSEDED_TOKEN_CODE,
@@ -129,7 +130,10 @@ from local_operator.slash_commands import (
     slash_command_for,
     whole_draft_command,
 )
-from local_operator.supplements.contract import STEER_TEXT_MAX_CHARS
+from local_operator.supplements.contract import (
+    STEER_TEXT_MAX_CHARS,
+    supplement_read_options,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -2010,6 +2014,7 @@ async def errors(request: Request, copy: StoreRefusalCopy | None = None) -> Asyn
             ProfileRegistryUnavailable,
             RuntimeRetiring,
         )
+        from local_operator.session.model_admission import RuntimeUpgradeNeededError
 
         if isinstance(error, ForkRefused):
             # THE REFUSAL IS THE ANSWER, exactly as it is for the arms around it.
@@ -2132,6 +2137,25 @@ async def errors(request: Request, copy: StoreRefusalCopy | None = None) -> Asyn
             # that control instead of retrying a call that cannot succeed. The
             # conversation exists, so 404 would be a lie about the user's own
             # work, and nothing failed, so 500 would be a lie about the machine.
+            raise HTTPException(
+                409, _wd.desktop_refusal(error=str(error)).envelope(code=error.code)
+            ) from None
+        if isinstance(error, RuntimeUpgradeNeededError):
+            # THE TYPED MODEL-SWITCH REFUSAL (agent review round 1, R1-1). The
+            # desktop's forwarded ``/model`` slash now pays the owner-record
+            # admission BEFORE it reaches the owner
+            # (``AttachedSession._require_routed_model_admission``); this arm is
+            # what carries that refusal to the renderer. Unlisted, the class
+            # landed in the catch-all below as a bare 409 whose body has no
+            # ``code`` at all (measured on the R1-1 repro), so a client could
+            # only parse prose. 409, in this block's established named-condition
+            # shape: the request is well-formed and the conversation's CURRENT
+            # runtime is what cannot honour it — the sentence itself names the
+            # remedies (a new conversation, or resuming after an idle-boundary
+            # update), and a sign-in repair is exactly what must NOT be
+            # suggested. A ``ValueError`` subclass precisely so it lands in THIS
+            # block rather than the generic arms below, exactly as
+            # ``AsideUnanswered`` is one for the same reason.
             raise HTTPException(
                 409, _wd.desktop_refusal(error=str(error)).envelope(code=error.code)
             ) from None
@@ -3138,6 +3162,13 @@ async def snapshot(
     request: Request,
     entry_ts: int = Query(default=0, ge=0),
     open_frame: int = Query(default=0, ge=0),
+    journal_order: Annotated[int, Query(ge=0, le=1)] = 0,
+    order_ids: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=128)]] | None,
+        Query(max_length=512),
+    ] = None,
+    peer_journal_source: Annotated[int, Query(ge=0, le=1)] = 0,
+    supplements: int = Query(default=0, ge=0),
 ):
     # READ: an existing but silent owner must not fail a read. The durable answer
     # is on disk in this same process, so the attempt is bounded
@@ -3186,7 +3217,15 @@ async def snapshot(
         errors(request),
         host(request).session(session_id, read=True, allow_draft=True) as bridge,
     ):
-        return reply(await bridge.snapshot(entry_times=bool(entry_ts), open_frame=bool(open_frame)))
+        return reply(
+            await bridge.snapshot(
+                entry_times=bool(entry_ts),
+                open_frame=bool(open_frame),
+                **({"journal_order": True, "order_ids": order_ids} if journal_order else {}),
+                peer_journal_source=bool(peer_journal_source),
+                **supplement_read_options(bool(supplements)),
+            )
+        )
 
 
 async def _remote_open_refusal(request: Request, session_id: str) -> None:
@@ -3238,10 +3277,30 @@ async def history(
     limit: int = Query(default=100, ge=1, le=500),
     entry_ts: int = Query(default=0, ge=0),
     open_frame: int = Query(default=0, ge=0),
+    journal_order: Annotated[int, Query(ge=0, le=1)] = 0,
+    order_ids: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=128)]] | None,
+        Query(max_length=512),
+    ] = None,
+    peer_journal_source: Annotated[int, Query(ge=0, le=1)] = 0,
+    source_read: Annotated[str | None, Query(max_length=32)] = None,
+    expected_journal_generation: Annotated[str | None, Query(max_length=128)] = None,
+    supplements: int = Query(default=0, ge=0),
 ):
     # READ, for the same reason as ``snapshot`` beside it — and on a draft the
     # empty page is the correct answer (the open frame's own ``history()``
     # returns one for a directory that does not exist), not a 404.
+    #
+    # ``peer_journal_source=1`` IS THE COMPLETE CONTRACT'S DECLARATION (the
+    # matching feature key is ``peer_journal_source`` in ``GET /v1/capabilities``
+    # ``features``): a renderer that sends it, together with ``journal_order``,
+    # is served the owner's own source state for a PEER session — including
+    # ``building``, which an availability wake settles — and its answers carry
+    # the per-response ACK. Without it every answer is byte-for-byte today's.
+    # ``source_read`` selects one typed purpose (``metadata``/``payload``;
+    # ``availability`` is the bridge's internal lane and is refused here like
+    # any other value on a non-peer session), and ``expected_journal_generation``
+    # is the payload purpose's REQUIRED domain fence.
     #
     # ``around_id``/``before``/``after`` are the anchored mode (design §D4): one
     # page centred on an entry id, for the renderer's far jump. The reader's own
@@ -3279,6 +3338,15 @@ async def history(
                 limit=limit,
                 entry_times=bool(entry_ts),
                 open_frame=bool(open_frame),
+                **({"journal_order": True, "order_ids": order_ids} if journal_order else {}),
+                peer_journal_source=bool(peer_journal_source),
+                # Passed explicitly rather than unpacked: ``None`` IS "absent"
+                # for both (the bridge tests ``is not None``), and a str-valued
+                # unpack beside the bool-valued ones makes the whole kwargs
+                # block one inferred union type under pyright.
+                source_read=source_read,
+                expected_journal_generation=expected_journal_generation,
+                **supplement_read_options(bool(supplements)),
             )
         )
 
@@ -5325,6 +5393,12 @@ async def events(
     frontend_replace: int = Query(default=0, ge=0),
     entry_ts: int = Query(default=0, ge=0),
     open_frame: int = Query(default=0, ge=0),
+    journal_order: Annotated[int, Query(ge=0, le=1)] = 0,
+    order_ids: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=128)]] | None,
+        Query(max_length=512),
+    ] = None,
+    peer_journal_source: Annotated[int, Query(ge=0, le=1)] = 0,
     supplements: int = Query(default=0, ge=0),
 ):
     # Acquire BEFORE returning response headers: invalid identity/capacity must
@@ -5351,7 +5425,10 @@ async def events(
             # themselves are journaled either way; this gates the live carriage,
             # not the record.
             sub = bridge.subscribe(
-                frontend_replace=bool(frontend_replace), supplements=bool(supplements)
+                frontend_replace=bool(frontend_replace),
+                supplements=bool(supplements),
+                journal_order=bool(journal_order),
+                peer_journal_source=bool(peer_journal_source),
             )
         except LegacySubscriberDuringMove as error:
             await context.__aexit__(None, None, None)
@@ -5411,11 +5488,23 @@ async def events(
                     after_seq=after_seq,
                     entry_times=bool(entry_ts),
                     open_frame=bool(open_frame),
+                    **({"journal_order": True, "order_ids": order_ids} if journal_order else {}),
+                    peer_journal_source=bool(peer_journal_source),
                 )
             ) as frames:
                 try:
                     async for frame in frames:
-                        yield "data: " + json.dumps(frame, separators=(",", ":")) + "\n\n"
+                        ser_at = time.monotonic() if open_trace.enabled() else 0.0
+                        text = "data: " + json.dumps(frame, separators=(",", ":")) + "\n\n"
+                        if ser_at:
+                            open_trace.mark(
+                                "a.wire.frame",
+                                (time.monotonic() - ser_at) * 1000,
+                                session=session_id,
+                                kind=frame.get("type") if isinstance(frame, dict) else "",
+                                chars=len(text),
+                            )
+                        yield text
                 finally:
                     # STAMPED BEFORE THE GENERATOR IS CLOSED, AND THE ORDER IS
                     # LOAD-BEARING RATHER THAN TIDY (F-B). Closing it arms the

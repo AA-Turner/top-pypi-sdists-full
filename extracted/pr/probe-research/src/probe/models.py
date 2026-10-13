@@ -95,6 +95,9 @@ from ._generated.models import (
 from ._generated.models import Direction as CitationDirection
 from ._generated.models import GraphState as CitationGraphState
 
+# The research literature (`Client.find_papers`, `probe paper find`).
+from ._generated.models import PaperExpansion, PaperMode
+
 #: What a scope id or slug names (`GET /v1/scopes/...`): project, experiment or
 #: run. The generator names it after its server module.
 from ._generated.models import AppProjectsTwinScopeKind as ScopeKind
@@ -149,6 +152,8 @@ __all__ = [
     "MetricViewPreviewRequest",
     "MetricViewSpec",
     "PaperCitationsOut",
+    "PaperExpansion",
+    "PaperMode",
     "ParentRelation",
     "ProjectCreate",
     "ProjectKind",

@@ -1,6 +1,6 @@
 [project]
 name = "aiointercept"
-version = "0.1.12"
+version = "1.0.0"
 description = "aiohttp mock library that routes requests through a real test server"
 authors = [
     {name = "Pablo Estevez",email = "pablo22estevez@gmail.com"}
@@ -8,7 +8,7 @@ authors = [
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 keywords = ["aiohttp", "mock", "testing", "pytest", "asyncio", "aioresponses"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -18,7 +18,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -31,7 +30,7 @@ classifiers = [
 dependencies = [
     "yarl >=1.23.0,<2.0.0",
     "aiohttp >=3.13.3,<4.0.0",
-    "multidict >=6.0,<7.0",
+    "multidict >=6.0,<8.0",
 ]
 
 [project.optional-dependencies]
@@ -58,7 +57,7 @@ artifacts = ["aiointercept/py.typed"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py311"
 extend-exclude = ["tests/test_aioresponse.py"]
 
 [tool.ruff.lint]
@@ -85,6 +84,7 @@ select = [
 
 [tool.mypy]
 files = ["aiointercept"]
+python_version = "3.11"
 strict = true
 warn_unreachable = true
 
@@ -106,11 +106,13 @@ show_missing = true
 tests = [
     "pytest (>=9.0.2,<10.0.0)",
     "ddt (>=1.7.2,<2.0.0)",
-    "pytest-asyncio (>=1.3.0,<2.0.0)"
+    "pytest-asyncio (>=1.3.0,<2.0.0)",
+    "httpx>=0.28.1",
+    "requests>=2.34.2",
 ]
 dev = [
     "ruff (>=0.16.0,<0.17.0)",
-    "mypy (>=2.3.0,<2.4.0)",
+    "mypy (>=2.4.0,<2.5.0)",
     "pre-commit>=4.5.1",
     "pytest-cov>=7.1.0",
 ]

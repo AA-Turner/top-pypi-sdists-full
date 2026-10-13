@@ -17,6 +17,7 @@ The workflow is:
 
 from __future__ import annotations
 
+import copy
 import csv
 from dataclasses import dataclass
 import hashlib
@@ -25,11 +26,14 @@ import importlib.util
 import inspect
 import json
 import logging
+import marshal
 import operator
 import os
 from pathlib import Path
 import sys
+import threading
 import traceback
+import types
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import ClassVar
@@ -37,19 +41,35 @@ from typing import Literal
 
 import torch
 
+from .. import exc
 from .._hardware import get_hardware_info
+from .._utils import indexing_uses_tensor_descriptor
 from ..runtime.config import Config
+from ..runtime.cute_structural_config import CuteStructuralConfig
+from ..runtime.cute_structural_config import StructuralPolicyError
+from ..runtime.cute_structural_config import bound_structural_policy
+from ..runtime.cute_structural_config import config_artifact_json
+from ..runtime.cute_structural_config import decode_structural_policy
+from ..runtime.cute_structural_config import require_same_structural_policy
 from .aot_kernel import _flatten_key_value
 from .aot_kernel import extract_key_features
 from .aot_kernel import extract_shape_features
+from .aot_structural_policy import load_policy_module
+from .aot_structural_policy import measurement_config_hash
+from .aot_structural_policy import measurement_metadata
+from .aot_structural_policy import model_configs
+from .aot_structural_policy import policy_path
 from .base_cache import AutotuneCacheBase
 from .base_cache import BoundKernelInMemoryCacheKey
 from .base_cache import LooseAutotuneCacheKey
+from .benchmark_provider import _MultiShapeAutotuneArgs
+from .benchmark_provider import _searching_candidates
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Callable
 
+    from ..runtime.cute_structural_policy import CuteStructuralPolicy
     from .base_search import BaseSearch
 
 log: logging.Logger = logging.getLogger(__name__)
@@ -63,6 +83,12 @@ HEURISTIC_DIR_ENV = "HELION_HEURISTIC_DIR"
 AOT_VERBOSE_ENV = "HELION_AOT_VERBOSE"
 
 AOTMode = Literal["collect", "measure", "evaluate", "compile", "disabled"]
+
+
+def _config_uses_tensor_descriptor(config: Config) -> bool:
+    return indexing_uses_tensor_descriptor(
+        config.indexing
+    ) or indexing_uses_tensor_descriptor(config.atomic_indexing)
 
 
 def get_aot_mode() -> AOTMode:
@@ -93,13 +119,15 @@ def get_aot_data_dir() -> Path:
 
 
 # Cache for heuristic file lookups
-_heuristic_file_cache: dict[str, Path | None] = {}
+_heuristic_file_cache: dict[str | tuple[str, ...], Path | None] = {}
 
 
 def find_heuristic_file(
     kernel_source_file: str | Path,
     kernel_name: str | None = None,
     data_dir: Path | None = None,
+    *,
+    policy: CuteStructuralPolicy | None = None,
 ) -> Path | None:
     """
     Find the heuristic file for a kernel.
@@ -121,7 +149,16 @@ def find_heuristic_file(
     Returns:
         Path to heuristic file if found, None otherwise
     """
-    cache_key = str(kernel_source_file)
+    cache_key: str | tuple[str, ...] = str(kernel_source_file)
+    if policy is not None:
+        cache_key = (
+            str(kernel_source_file),
+            kernel_name or "",
+            str(data_dir),
+            os.environ.get(HEURISTIC_DIR_ENV, ""),
+            get_hardware_info().hardware_id,
+            policy.identity(),
+        )
     if cache_key in _heuristic_file_cache:
         return _heuristic_file_cache[cache_key]
 
@@ -155,6 +192,7 @@ def find_heuristic_file(
     # Find first existing file
     result: Path | None = None
     for candidate in candidates:
+        candidate = policy_path(candidate, policy)
         if candidate.exists():
             log.debug(f"Found heuristic file: {candidate}")
             result = candidate
@@ -169,7 +207,12 @@ def clear_heuristic_cache() -> None:
     _heuristic_file_cache.clear()
 
 
-def load_kernel_source_files(data_dir: Path, hardware_id: str) -> dict[str, str]:
+def load_kernel_source_files(
+    data_dir: Path,
+    hardware_id: str,
+    *,
+    policy: CuteStructuralPolicy | None = None,
+) -> dict[str, str]:
     """
     Load kernel source file mappings from tuned configs JSON.
 
@@ -191,10 +234,17 @@ def load_kernel_source_files(data_dir: Path, hardware_id: str) -> dict[str, str]
         result: dict[str, str] = {}
         for kernel_name, configs in data.items():
             for cfg in configs:
+                if policy is not None and (
+                    "cute_structural_policy" not in cfg
+                    or decode_structural_policy(cfg["cute_structural_policy"]) != policy
+                ):
+                    continue
                 if cfg.get("kernel_source_file"):
                     result[kernel_name] = cfg["kernel_source_file"]
                     break
         return result
+    except StructuralPolicyError:
+        raise
     except Exception as e:
         log.warning(f"Failed to load kernel source files: {e}")
         return {}
@@ -207,14 +257,18 @@ class ShapeKey:
     kernel_name: str
     specialization_key: tuple[Any, ...]
     hardware_id: str
+    search_policy_hash: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to a JSON-serializable dict."""
-        return {
+        result = {
             "kernel_name": self.kernel_name,
             "specialization_key": _serialize_tuple(self.specialization_key),
             "hardware_id": self.hardware_id,
         }
+        if self.search_policy_hash:
+            result["search_policy_hash"] = self.search_policy_hash
+        return result
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ShapeKey:
@@ -223,6 +277,7 @@ class ShapeKey:
             kernel_name=data["kernel_name"],
             specialization_key=_deserialize_tuple(data["specialization_key"]),
             hardware_id=data["hardware_id"],
+            search_policy_hash=data.get("search_policy_hash", ""),
         )
 
     def stable_hash(self) -> str:
@@ -264,6 +319,7 @@ class TunedConfig:
     # [1] = input tensor hashes after kernel runs (to detect in-place modifications)
     # [2] = output tensor hashes
     tensor_hashes: list[list[str]] | None = None
+    cute_structural_policy: CuteStructuralPolicy | None = None
 
 
 class AOTAutotuneCache(AutotuneCacheBase):
@@ -288,14 +344,28 @@ class AOTAutotuneCache(AutotuneCacheBase):
 
     # Class-level caches for heuristic lookup (shared across instances)
     # Maps heuristic file path -> loaded module
-    _heuristic_modules: ClassVar[dict[Path, Any]] = {}
+    _heuristic_modules: ClassVar[dict[Path | tuple[Path, str], Any]] = {}
     # Maps (kernel_source_file, kernel_name, shape_features_hash) -> Config
     # Using source file ensures kernels with same name in different modules don't collide
-    _heuristic_results: ClassVar[dict[tuple[str, str, str], Config]] = {}
+    _heuristic_results: ClassVar[
+        dict[tuple[str, ...], Config | CuteStructuralConfig]
+    ] = {}
     # Tracks which kernels have shown the "no heuristic" warning (to avoid spam)
     _no_heuristic_warned: ClassVar[set[str]] = set()
     # Tracks which kernels have already been compiled in compile mode
-    _compiled_kernels: ClassVar[set[str]] = set()
+    _compiled_kernels: ClassVar[set[str | tuple[str, ...]]] = set()
+    # Static-shape compile mode accumulates one source variant per normalized
+    # call signature and rewrites the dispatcher whenever a shape is observed.
+    _compiled_kernel_variants: ClassVar[
+        dict[
+            tuple[str | bool, ...],
+            dict[tuple[object, ...], tuple[str, str]],
+        ]
+    ] = {}
+    _compiled_kernel_variants_lock: ClassVar[Any] = threading.RLock()
+    _policy_dynamic_variants: ClassVar[
+        dict[tuple[str, ...], dict[tuple[object, ...], tuple[str, ...]]]
+    ] = {}
 
     @classmethod
     def clear_caches(cls) -> None:
@@ -304,6 +374,9 @@ class AOTAutotuneCache(AutotuneCacheBase):
         cls._heuristic_results.clear()
         cls._no_heuristic_warned.clear()
         cls._compiled_kernels.clear()
+        with cls._compiled_kernel_variants_lock:
+            cls._compiled_kernel_variants.clear()
+            cls._policy_dynamic_variants.clear()
         clear_heuristic_cache()  # Clear module-level cache
         cls._mode_announced.clear()
         log.debug("Cleared AOTAutotuneCache caches")
@@ -315,6 +388,8 @@ class AOTAutotuneCache(AutotuneCacheBase):
         autotuner_factory: Callable[[], BaseSearch] | None = None,
     ) -> None:
         super().__init__(autotuner, autotuner_factory=autotuner_factory)
+        if not isinstance(self.args, _MultiShapeAutotuneArgs):
+            self.args = self.kernel.kernel.normalize_args(*self.args)
         self.mode = get_aot_mode()
         self.hardware_id = get_hardware_info().hardware_id
         self.data_dir = get_aot_data_dir()
@@ -348,6 +423,20 @@ class AOTAutotuneCache(AutotuneCacheBase):
     def _should_report_cache_hit(self) -> bool:
         return self.mode not in ("evaluate", "compile") or self._verbose
 
+    def _search_policy_allows_cache_io(self) -> bool:
+        # Evaluate/compile/disabled select an AOT heuristic or default config;
+        # they are not search-result cache reads and must never start tuning.
+        if self.mode in ("disabled", "evaluate", "compile"):
+            return True
+        return super()._search_policy_allows_cache_io()
+
+    def _search_policy_allows_cache_write(self) -> bool:
+        # Collect must record a newly tuned config even when its custom search
+        # policy is intentionally ineligible for later cache reuse.
+        if self.mode == "collect":
+            return True
+        return super()._search_policy_allows_cache_write()
+
     @property
     def _configs_file(self) -> Path:
         """Path to the tuned configs JSON file."""
@@ -356,7 +445,10 @@ class AOTAutotuneCache(AutotuneCacheBase):
     @property
     def _measurements_file(self) -> Path:
         """Path to the measurements CSV file."""
-        return self.data_dir / f"measurements_{self.hardware_id}.csv"
+        return policy_path(
+            self.data_dir / f"measurements_{self.hardware_id}.csv",
+            bound_structural_policy(self.kernel),
+        )
 
     def _load_tuned_configs(self) -> dict[str, list[TunedConfig]]:
         """Load tuned configs from disk."""
@@ -366,18 +458,31 @@ class AOTAutotuneCache(AutotuneCacheBase):
             data = json.loads(self._configs_file.read_text())
             result: dict[str, list[TunedConfig]] = {}
             for kernel_name, configs in data.items():
-                result[kernel_name] = [
-                    TunedConfig(
-                        config=Config(**cfg["config"]),
-                        shape_key=ShapeKey.from_dict(cfg["shape_key"]),
-                        timing_ms=cfg.get("timing_ms"),
-                        kernel_source_file=cfg.get("kernel_source_file"),
-                        shape_features=cfg.get("shape_features"),
-                        tensor_hashes=cfg.get("tensor_hashes"),
+                result[kernel_name] = []
+                for cfg in configs:
+                    policy = (
+                        decode_structural_policy(cfg["cute_structural_policy"])
+                        if "cute_structural_policy" in cfg
+                        else None
                     )
-                    for cfg in configs
-                ]
+                    result[kernel_name].append(
+                        TunedConfig(
+                            config=(
+                                Config.from_dict(cfg["config"])
+                                if policy is not None
+                                else Config(**cfg["config"])
+                            ),
+                            shape_key=ShapeKey.from_dict(cfg["shape_key"]),
+                            timing_ms=cfg.get("timing_ms"),
+                            kernel_source_file=cfg.get("kernel_source_file"),
+                            shape_features=cfg.get("shape_features"),
+                            tensor_hashes=cfg.get("tensor_hashes"),
+                            cute_structural_policy=policy,
+                        )
+                    )
             return result
+        except StructuralPolicyError:
+            raise
         except Exception as e:
             log.warning(f"Failed to load tuned configs: {e}")
             return {}
@@ -394,6 +499,11 @@ class AOTAutotuneCache(AutotuneCacheBase):
                     "kernel_source_file": cfg.kernel_source_file,
                     "shape_features": cfg.shape_features,
                     "tensor_hashes": cfg.tensor_hashes,
+                    **(
+                        {"cute_structural_policy": cfg.cute_structural_policy.to_dict()}
+                        if cfg.cute_structural_policy is not None
+                        else {}
+                    ),
                 }
                 for cfg in config_list
             ]
@@ -415,12 +525,14 @@ class AOTAutotuneCache(AutotuneCacheBase):
 
         shape_hash = shape_key.stable_hash()
         config_dict = dict(config)
+        policy = bound_structural_policy(self.kernel)
 
         # Check if this exact config already exists for this shape
         for existing in self._tuned_configs[kernel_name]:
             if (
                 existing.shape_key.stable_hash() == shape_hash
                 and dict(existing.config) == config_dict
+                and existing.cute_structural_policy == policy
             ):
                 # Update if we have better timing
                 if timing_ms is not None:
@@ -436,12 +548,13 @@ class AOTAutotuneCache(AutotuneCacheBase):
 
         self._tuned_configs[kernel_name].append(
             TunedConfig(
-                config=config,
+                config=copy.deepcopy(config) if policy is not None else config,
                 shape_key=shape_key,
                 timing_ms=timing_ms,
                 kernel_source_file=kernel_source_file,
                 shape_features=shape_features,
                 tensor_hashes=tensor_hashes,
+                cute_structural_policy=policy,
             )
         )
 
@@ -451,13 +564,18 @@ class AOTAutotuneCache(AutotuneCacheBase):
             return []
         seen: set[str] = set()
         result: list[Config] = []
+        policy = bound_structural_policy(self.kernel)
         for tc in self._tuned_configs[kernel_name]:
+            if tc.cute_structural_policy != policy:
+                continue
             config_hash = hashlib.sha256(
-                json.dumps(dict(tc.config), sort_keys=True).encode()
+                config_artifact_json(tc.config, tc.cute_structural_policy).encode()
             ).hexdigest()
             if config_hash not in seen:
                 seen.add(config_hash)
-                result.append(tc.config)
+                result.append(
+                    copy.deepcopy(tc.config) if policy is not None else tc.config
+                )
         return result
 
     def _save_measurement(
@@ -469,9 +587,8 @@ class AOTAutotuneCache(AutotuneCacheBase):
         shape_features: dict[str, Any],
     ) -> None:
         """Save a measurement to CSV."""
-        config_hash = hashlib.sha256(
-            json.dumps(dict(config), sort_keys=True).encode()
-        ).hexdigest()[:16]
+        policy = bound_structural_policy(self.kernel)
+        config_hash = measurement_config_hash(config, policy)
         row = {
             "kernel_name": kernel_name,
             "shape_hash": shape_key.stable_hash(),
@@ -479,6 +596,7 @@ class AOTAutotuneCache(AutotuneCacheBase):
             "config": json.dumps(dict(config)),
             "shape_features": json.dumps(shape_features),
             "timing_ms": timing_ms,
+            **measurement_metadata(policy),
         }
         file_exists = self._measurements_file.exists()
         with open(self._measurements_file, "a", newline="") as f:
@@ -489,10 +607,19 @@ class AOTAutotuneCache(AutotuneCacheBase):
 
     def _create_shape_key(self) -> ShapeKey:
         """Create a shape key for the current kernel invocation."""
+        from .local_cache import _cute_flash_search_policy_hash
+
+        search_policy_hash = _cute_flash_search_policy_hash(
+            self.autotuner,
+            cute_flash_search_enabled=bool(
+                getattr(self.kernel.config_spec, "cute_flash_search_enabled", False)
+            ),
+        )
         return ShapeKey(
             kernel_name=self.kernel.kernel.name,
             specialization_key=self.kernel.kernel.specialization_key(self.args),
             hardware_id=self.hardware_id,
+            search_policy_hash=search_policy_hash,
         )
 
     def _extract_shape_features(
@@ -523,9 +650,17 @@ class AOTAutotuneCache(AutotuneCacheBase):
             kernel_name = self.kernel.kernel.name
             configs = self._tuned_configs.get(kernel_name, [])
             for tc in configs:
-                if tc.shape_key.stable_hash() == self.shape_key.stable_hash():
+                if (
+                    tc.shape_key.stable_hash() == self.shape_key.stable_hash()
+                    and tc.cute_structural_policy
+                    == bound_structural_policy(self.kernel)
+                ):
                     log.info(f"AOT collect: Using existing config for {kernel_name}")
-                    return tc.config
+                    return (
+                        copy.deepcopy(tc.config)
+                        if tc.cute_structural_policy is not None
+                        else tc.config
+                    )
             return None  # Need to tune
 
         if self.mode == "measure":
@@ -538,7 +673,7 @@ class AOTAutotuneCache(AutotuneCacheBase):
 
         # For disabled/evaluate/compile modes: try heuristic, fall back to default config
         # (never trigger autotuning for aot_kernel)
-        config = self._get_heuristic_config()
+        config = self._get_heuristic_config(self.args)
         if config is not None:
             return config
 
@@ -642,9 +777,8 @@ class AOTAutotuneCache(AutotuneCacheBase):
 
         # Set up provider resources if needed (normally done inside autotune())
         benchmark_provider = self.autotuner.benchmark_provider
-        benchmark_provider.setup()
-
         try:
+            benchmark_provider.setup()
             for i, config in enumerate(all_configs):
                 try:
                     # Benchmark this config
@@ -702,6 +836,7 @@ class AOTAutotuneCache(AutotuneCacheBase):
             kernel_source_file,
             kernel_name=kernel_name,
             data_dir=self.data_dir,
+            policy=bound_structural_policy(self.kernel),
         )
 
     def _get_heuristic_config(
@@ -735,27 +870,34 @@ class AOTAutotuneCache(AutotuneCacheBase):
         ).hexdigest()[:16]
 
         # Check if we already have a cached result for this kernel+shape
+        policy = bound_structural_policy(self.kernel)
         cache_key = (kernel_source_file, kernel_name, shape_hash)
+        if policy is not None:
+            cache_key = (
+                *cache_key,
+                policy.identity(),
+                str(heuristic_file.resolve()),
+                hashlib.sha256(heuristic_file.read_bytes()).hexdigest(),
+            )
         if cache_key in AOTAutotuneCache._heuristic_results:
             log.debug(
                 f"Using cached heuristic result for {kernel_name} shape={shape_hash}"
             )
-            return AOTAutotuneCache._heuristic_results[cache_key]
+            result = AOTAutotuneCache._heuristic_results[cache_key]
+            if isinstance(result, CuteStructuralConfig):
+                require_same_structural_policy(
+                    result.policy, policy, context="Cached AOT heuristic"
+                )
+                return result.config
+            require_same_structural_policy(None, policy, context="Cached AOT heuristic")
+            return result
 
         try:
-            # Load heuristic module from cache or import fresh
-            if heuristic_file in AOTAutotuneCache._heuristic_modules:
-                module = AOTAutotuneCache._heuristic_modules[heuristic_file]
-            else:
-                spec = importlib.util.spec_from_file_location(
-                    "heuristic", heuristic_file
-                )
-                if spec is None or spec.loader is None:
-                    return None
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                AOTAutotuneCache._heuristic_modules[heuristic_file] = module
-                log.debug(f"Loaded heuristic module: {heuristic_file}")
+            module = self._load_heuristic_module(heuristic_file, policy)
+            if module is None:
+                return None
+
+            model_configs(module, kernel_name, policy, required=False)
 
             # Call autotune_<kernel>(*args) to get the config
             # If there's a user key, we need to pass flattened key values, not raw args
@@ -771,33 +913,72 @@ class AOTAutotuneCache(AutotuneCacheBase):
                 else:
                     # No user key: pass raw args to heuristic
                     config_dict = autotune_fn(*args)
-                config = Config(**config_dict)
+                if isinstance(config_dict, CuteStructuralConfig):
+                    require_same_structural_policy(
+                        config_dict.policy, policy, context="AOT heuristic"
+                    )
+                    config = config_dict.config
+                else:
+                    require_same_structural_policy(
+                        None, policy, context="Unversioned AOT heuristic"
+                    )
+                    config = Config(**config_dict)
 
             # Cache the result
             if config is not None:
-                AOTAutotuneCache._heuristic_results[cache_key] = config
+                AOTAutotuneCache._heuristic_results[cache_key] = (
+                    CuteStructuralConfig(config, policy)
+                    if policy is not None
+                    else config
+                )
                 log.debug(
                     f"Cached heuristic result for {kernel_name} shape={shape_hash}"
                 )
 
             return config
+        except StructuralPolicyError:
+            raise
         except Exception as e:
             log.warning(f"Failed to load heuristic from {heuristic_file}: {e}")
 
         return None
 
+    @classmethod
+    def _load_heuristic_module(
+        cls, path: Path, policy: CuteStructuralPolicy | None
+    ) -> types.ModuleType | None:
+        key: Path | tuple[Path, str] = path
+        if policy is not None:
+            source = path.read_bytes()
+            key = (path, hashlib.sha256(source).hexdigest())
+            if key not in cls._heuristic_modules:
+                module = load_policy_module(path, source)
+                cls._heuristic_modules[key] = module
+                cls._heuristic_modules[path] = module
+            return cls._heuristic_modules[key]
+        if key not in cls._heuristic_modules:
+            spec = importlib.util.spec_from_file_location("heuristic", path)
+            if spec is None or spec.loader is None:
+                return None
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            cls._heuristic_modules[key] = module
+            # Retain the public diagnostic view of the last module at a path.
+            cls._heuristic_modules[path] = module
+        return cls._heuristic_modules[key]
+
     def _maybe_run_compile(self) -> None:
         """
-        In compile mode, generate Triton code for all heuristic-selected
-        configs and write a standalone ``.py`` file with zero Helion deps.
+        In compile mode, generate code for all heuristic-selected configs and
+        write a standalone ``.py`` file. Backends with a dependency-free
+        launcher need no Helion runtime; CuTe currently retains its launcher
+        import.
 
-        Runs at most once per kernel (tracked by ``_compiled_kernels``).
+        Dynamic-shape kernels compile every heuristic config once. Static-shape
+        kernels compile the selected config for each observed BoundKernel and
+        dispatch by a normalized call signature.
         """
         kernel_name = self.kernel.kernel.name
-        if kernel_name in AOTAutotuneCache._compiled_kernels:
-            return
-        AOTAutotuneCache._compiled_kernels.add(kernel_name)
-
         heuristic_file = self._find_heuristic_file()
         if heuristic_file is None:
             log.warning(
@@ -805,34 +986,101 @@ class AOTAutotuneCache(AutotuneCacheBase):
             )
             return
 
-        # -- load heuristic module ------------------------------------------
-        if heuristic_file in AOTAutotuneCache._heuristic_modules:
-            module = AOTAutotuneCache._heuristic_modules[heuristic_file]
-        else:
-            spec = importlib.util.spec_from_file_location("heuristic", heuristic_file)
-            if spec is None or spec.loader is None:
-                return
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            AOTAutotuneCache._heuristic_modules[heuristic_file] = module
+        policy = bound_structural_policy(self.kernel)
+        module = self._load_heuristic_module(heuristic_file, policy)
+        if module is None:
+            return
+        records = model_configs(module, kernel_name, policy)
 
         # -- extract selected configs ---------------------------------------
         # nearest_neighbor backend: module-level CONFIGS
         # decision_tree backend: _C = [...] inside autotune_<kernel>
-        configs_list: list[dict[str, object]] | None = getattr(module, "CONFIGS", None)
-        if configs_list is None:
+        configs_list: list[dict[str, object]] | None = (
+            [dict(record.config) for record in records]
+            if records is not None
+            else getattr(module, "CONFIGS", None)
+        )
+        if configs_list is None and policy is None:
             configs_list = self._parse_configs_from_autotune(module, kernel_name)
+
+        if self.kernel.settings.static_shapes:
+            # Static dispatch already keys exact shape and stride. Enable the two
+            # remaining descriptor predicates consistently for the whole file if
+            # any heuristic-selected config can use descriptor indexing.
+            # Structural-policy (CuTe) files have no Triton descriptor predicates.
+            tensor_descriptor_guards = policy is None and (
+                configs_list is None
+                or any(
+                    _config_uses_tensor_descriptor(
+                        # pyrefly: ignore [bad-argument-type]
+                        self.kernel._normalized_config_copy(Config(**config_dict))
+                    )
+                    for config_dict in configs_list
+                )
+            )
+            self._compile_current_static_shape(
+                heuristic_file,
+                kernel_name,
+                tensor_descriptor_guards=tensor_descriptor_guards,
+            )
+            return
+
         if configs_list is None:
             log.warning("Cannot extract configs from heuristic for '%s'", kernel_name)
             return
 
+        configs = [
+            Config(**config_dict)  # pyrefly: ignore [bad-argument-type]
+            if policy is None
+            else Config.from_dict(config_dict)
+            for config_dict in configs_list
+        ]
+        if policy is None:
+            configs = [
+                self.kernel._normalized_config_copy(config) for config in configs
+            ]
+            if any(map(_config_uses_tensor_descriptor, configs)):
+                raise exc.InvalidAPIUsage(
+                    "dynamic standalone AOT does not support tensor-descriptor "
+                    "indexing; use pointer or block-pointer indexing"
+                )
+
+        compile_key: str | tuple[str, ...] = kernel_name
+        if policy is not None:
+            from .aot_structural_export import _export_call_key
+            from .aot_structural_export import export_runtime_guards
+
+            source_path = Path(self.kernel.kernel.__code__.co_filename)
+            guards, guard_key = export_runtime_guards(self.kernel, tuple(self.args))
+            compile_key = (
+                self.kernel.kernel.__code__.co_filename,
+                kernel_name,
+                str(self.data_dir.resolve()),
+                self.hardware_id,
+                policy.identity(),
+                hashlib.sha256(
+                    source_path.read_bytes()
+                    if source_path.is_file()
+                    else marshal.dumps(self.kernel.kernel.__code__)
+                ).hexdigest(),
+                hashlib.sha256(heuristic_file.read_bytes()).hexdigest(),
+                self.kernel.config_spec.cache_fingerprint_hash(),
+                repr(_export_call_key(tuple(self.args))),
+                repr((guards, guard_key)),
+            )
+        if compile_key in AOTAutotuneCache._compiled_kernels:
+            return
+        if policy is None:
+            AOTAutotuneCache._compiled_kernels.add(compile_key)
+
         # -- generate Triton code for each config --------------------------
         triton_codes: list[str] = []
-        for i, config_dict in enumerate(configs_list):
-            config = Config(**config_dict)  # pyrefly: ignore [bad-argument-type]
+        for i, config in enumerate(configs):
             try:
                 triton_codes.append(self.kernel.to_triton_code(config))
             except Exception:
+                if policy is not None:
+                    raise
                 log.warning(
                     "Config %d failed to compile for '%s'",
                     i,
@@ -847,6 +1095,10 @@ class AOTAutotuneCache(AutotuneCacheBase):
         # -- emit standalone file -------------------------------------------
         from .aot_compile import generate_standalone_file
 
+        if policy is not None:
+            self._compile_policy_dynamic(heuristic_file, triton_codes, policy)
+            AOTAutotuneCache._compiled_kernels.add(compile_key)
+            return
         out_path = generate_standalone_file(
             kernel_name=kernel_name,
             triton_codes=triton_codes,
@@ -854,6 +1106,203 @@ class AOTAutotuneCache(AutotuneCacheBase):
             output_dir=self.data_dir,
             kernel_source_file=self.kernel.kernel.__code__.co_filename,
         )
+        AOTAutotuneCache._compiled_kernels.add(compile_key)
+        print(f"[AOT] Standalone: {out_path}", file=sys.stderr)
+
+    def _compile_policy_dynamic(
+        self,
+        heuristic_file: Path,
+        codes: list[str],
+        policy: CuteStructuralPolicy,
+    ) -> None:
+        from ..language.constexpr import ConstExpr
+        from .aot_compile import generate_standalone_file
+        from .aot_structural_export import _export_call_key
+        from .aot_structural_export import export_runtime_guards
+
+        code_object = self.kernel.kernel.__code__
+        source_path = Path(code_object.co_filename).resolve()
+        source_file = str(source_path) if source_path.is_file() else None
+        source_digest = hashlib.sha256(
+            source_path.read_bytes() if source_file else marshal.dumps(code_object)
+        ).hexdigest()
+        guards, guard_key = export_runtime_guards(self.kernel, tuple(self.args))
+        key = (
+            str(source_path),
+            self.kernel.kernel.name,
+            str(self.data_dir.resolve()),
+            self.hardware_id,
+            policy.identity(),
+            source_digest,
+            hashlib.sha256(heuristic_file.read_bytes()).hexdigest(),
+            repr(guards),
+        )
+        # Structural rewrites can specialize dimensions even with static_shapes
+        # disabled (e.g. operand materialization's hl.specialize(shape)). These
+        # facts normally live in BoundKernel, not the generated host wrapper.
+        env = self.kernel.env
+        requires_bound = bool(
+            env.specialized_vars
+            or env.specialized_strides
+            or env.tensor_descriptor_layout_guards
+            or ConstExpr in self.kernel.kernel._annotations
+            or any(
+                fact.fact == "input_tensor_metadata"
+                for fact in self.kernel._compiler_seed_specialization_extractors
+            )
+        )
+        group = (
+            ("exact", (_export_call_key(tuple(self.args)), guard_key))
+            if requires_bound
+            else (
+                "dynamic",
+                (_export_call_key(tuple(self.args), dynamic=True), guard_key),
+            )
+        )
+        with self._compiled_kernel_variants_lock:
+            variants = self._policy_dynamic_variants.setdefault(key, {})
+            if group in variants:
+                if variants[group] != tuple(codes):
+                    raise StructuralPolicyError(
+                        "Dynamic standalone binding collision: specialize the "
+                        "metadata that changes generated code before exporting"
+                    )
+                return
+            updated = variants | {group: tuple(codes)}
+            flattened: list[str] = []
+            groups: list[tuple[tuple[object, ...], list[int]]] = []
+            for signature, group_codes in sorted(
+                updated.items(), key=lambda item: repr(item[0])
+            ):
+                start = len(flattened)
+                flattened.extend(group_codes)
+                groups.append((signature, list(range(start, len(flattened)))))
+            out_path = generate_standalone_file(
+                kernel_name=self.kernel.kernel.name,
+                triton_codes=flattened,
+                heuristic_code=heuristic_file.read_text(),
+                output_dir=self.data_dir,
+                kernel_source_file=source_file,
+                structural_policy=policy,
+                dynamic_groups=groups,
+                runtime_guards=guards,
+                user_key=getattr(self.kernel.kernel, "_aot_user_key", None),
+            )
+            variants[group] = tuple(codes)
+        print(f"[AOT] Standalone: {out_path}", file=sys.stderr)
+
+    def _compile_current_static_shape(
+        self,
+        heuristic_file: Path,
+        kernel_name: str,
+        *,
+        tensor_descriptor_guards: bool = False,
+    ) -> None:
+        """Compile one observed static call and update its exact dispatcher."""
+        normalized_args = self.kernel.kernel.normalize_args(*self.args)
+        config = self._get_heuristic_config(normalized_args)
+        if config is None:
+            log.warning(
+                "No heuristic config for static kernel '%s', skipping standalone compile",
+                kernel_name,
+            )
+            return
+
+        from .aot_compile import _standalone_call_key
+        from .aot_compile import generate_standalone_file
+
+        policy = bound_structural_policy(self.kernel)
+        call_key = _standalone_call_key(
+            normalized_args,
+            tensor_descriptor_guards=tensor_descriptor_guards,
+        )
+        code_object = self.kernel.kernel.__code__
+        source_path = Path(code_object.co_filename).resolve()
+        if source_path.is_file():
+            source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+            kernel_source_file: str | None = str(source_path)
+            output_identity = str(
+                policy_path(
+                    source_path.parent
+                    / f"{source_path.stem}_{kernel_name}_standalone.py",
+                    policy,
+                )
+            )
+        else:
+            source_digest = hashlib.sha256(marshal.dumps(code_object)).hexdigest()
+            kernel_source_file = None
+            output_identity = str(
+                policy_path(
+                    (self.data_dir / f"{kernel_name}_standalone.py").resolve(), policy
+                )
+            )
+        variants_key = (
+            output_identity,
+            kernel_name,
+            self.hardware_id,
+            hashlib.sha256(heuristic_file.read_bytes()).hexdigest(),
+            source_digest,
+            tensor_descriptor_guards,
+        )
+        if policy is not None:
+            variants_key = (*variants_key, policy.identity())
+        config_fingerprint = (
+            config_artifact_json(config, policy)
+            if policy is not None
+            else json.dumps(dict(config), sort_keys=True, default=repr)
+        )
+        try:
+            code = self.kernel.to_triton_code(config)
+        except Exception as error:
+            raise RuntimeError(
+                f"static standalone variant failed to compile for {kernel_name}"
+            ) from error
+        if code is None:
+            raise RuntimeError(
+                f"static standalone variant emitted no code for {kernel_name}"
+            )
+        export_options: dict[str, Any] = {}
+        if policy is not None:
+            from .aot_structural_export import _export_call_key
+            from .aot_structural_export import export_runtime_guards
+
+            guards, guard_key = export_runtime_guards(self.kernel, normalized_args)
+            call_key = (_export_call_key(normalized_args), guard_key)
+            variants_key = (*variants_key, repr(guards))
+            export_options = {"structural_policy": policy, "runtime_guards": guards}
+
+        # The compile workflow runs in one process. Serialize concurrent calls
+        # in that process so two newly observed signatures cannot each rewrite
+        # an incomplete dispatcher. ``generate_standalone_file`` replaces the
+        # output atomically, so readers never observe a partial module.
+        with AOTAutotuneCache._compiled_kernel_variants_lock:
+            variants = AOTAutotuneCache._compiled_kernel_variants.setdefault(
+                variants_key, {}
+            )
+            existing = variants.get(call_key)
+            if existing is not None:
+                if existing != (config_fingerprint, code):
+                    raise RuntimeError(
+                        f"static standalone call-key collision for {kernel_name}: "
+                        "the normalized arguments do not distinguish all generated "
+                        "specializations; expose value-derived compile-time metadata "
+                        "as scalar or container kernel arguments"
+                    )
+                return
+
+            updated = {**variants, call_key: (config_fingerprint, code)}
+            ordered = sorted(updated.items(), key=lambda item: repr(item[0]))
+            out_path = generate_standalone_file(
+                kernel_name=kernel_name,
+                triton_codes=[variant[1][1] for variant in ordered],
+                heuristic_code=heuristic_file.read_text(),
+                output_dir=self.data_dir,
+                kernel_source_file=kernel_source_file,
+                dispatch_keys=[variant[0] for variant in ordered],
+                tensor_descriptor_guards=tensor_descriptor_guards,
+                **export_options,
+            )
+            variants[call_key] = (config_fingerprint, code)
         print(f"[AOT] Standalone: {out_path}", file=sys.stderr)
 
     @staticmethod
@@ -967,7 +1416,8 @@ class AOTAutotuneCache(AutotuneCacheBase):
             for config in all_configs:
                 try:
                     bound = self.kernel.kernel.bind(input_args)
-                    fn = bound.compile_config(config)
+                    with _searching_candidates():
+                        fn = bound.compile_config(config)
 
                     from triton.testing import do_bench
 
@@ -1036,11 +1486,18 @@ class AOTAutotuneCache(AutotuneCacheBase):
         return super().autotune(skip_cache=skip_cache)
 
 
+def _code_identity(
+    code: types.CodeType,
+) -> tuple[bytes, tuple[Any, ...], tuple[str, ...]]:
+    """Semantic identity of a code object: bytecode + constants + referenced names."""
+    return (code.co_code, code.co_consts, code.co_names)
+
+
 def _serialize_value(val: object) -> object:
     """Serialize a single value to JSON-compatible format.
 
     Supports: None, bool, int, float, str, type, tuple, frozenset, set,
-    torch.dtype, torch.device, list, dict.
+    torch.dtype, torch.device, list, dict, code, bytes, ellipsis, complex.
     """
     if val is None:
         return None
@@ -1062,13 +1519,25 @@ def _serialize_value(val: object) -> object:
         return [_serialize_value(v) for v in val]
     if isinstance(val, dict):
         return {k: _serialize_value(v) for k, v in val.items()}
+    if isinstance(val, types.CodeType):
+        return _serialize_value(_code_identity(val))
+    if isinstance(val, bytes):
+        return {"__bytes__": val.hex()}
+    if isinstance(val, types.EllipsisType):
+        return {"__ellipsis__": True}
+    if isinstance(val, complex):
+        return {"__complex__": [val.real, val.imag]}
     raise TypeError(f"Cannot serialize type: {type(val).__name__}")
 
 
 def _deserialize_value(val: object) -> object:
     """Deserialize a JSON value back to Python object.
 
-    Handles tagged dicts: __tuple__, __frozenset__, __set__, __dtype__, __device__, __type__.
+    Handles tagged dicts: __tuple__, __frozenset__, __set__, __dtype__, __device__,
+    __type__, __bytes__, __ellipsis__, __complex__.
+
+    Note: __code__ is not turned back into a code object. This is fine because the AOT
+    cache only compares specialization keys, it never calls the original function.
     """
     if isinstance(val, dict):
         if "__tuple__" in val:
@@ -1084,6 +1553,13 @@ def _deserialize_value(val: object) -> object:
             return torch.device(val["__device__"])
         if "__type__" in val:
             return _import_type(val["__type__"])
+        if "__bytes__" in val:
+            return bytes.fromhex(val["__bytes__"])
+        if "__ellipsis__" in val:
+            return ...
+        if "__complex__" in val:
+            real, imag = _deserialize_tuple(val["__complex__"])
+            return complex(real, imag)
         return {k: _deserialize_value(v) for k, v in val.items()}
     if isinstance(val, list):
         return [_deserialize_value(v) for v in val]

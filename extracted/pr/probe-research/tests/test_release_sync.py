@@ -273,3 +273,19 @@ def test_the_n1_gate_opens_when_every_item_is_done(tmp_path, monkeypatch) -> Non
     """Control: self-reinstall + a bumped launcher asking for `[all]` passes."""
     _n1_ready(tmp_path, monkeypatch, launcher_version="0.13.0")
     test_release_n1_waits_for_the_self_reinstall()
+
+
+def test_the_real_tree_renders_the_capy_plugin() -> None:
+    """The release gate runs this file, not test_mirror_render.py: a main
+    plugin `.mcp.json` the cloud plugin cannot read must fail here, before
+    PyPI and npm publish, not at the mirror step after them."""
+    import importlib.util
+    import sys
+
+    spec = importlib.util.spec_from_file_location("mirror_render", _ROOT / "tools" / "mirror_render.py")
+    mirror_render = importlib.util.module_from_spec(spec)
+    sys.modules.setdefault(spec.name, mirror_render)
+    spec.loader.exec_module(mirror_render)
+    for harness_id in mirror_render.CLOUD_BUNDLES:
+        files = mirror_render.cloud_plugin(_ROOT, harness_id)
+        assert files["plugin.json"]["version"] == json.loads(_PLUGIN_JSON.read_text())["version"]

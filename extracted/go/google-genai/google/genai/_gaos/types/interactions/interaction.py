@@ -166,11 +166,6 @@ class InteractionTypedDict(TypedDict):
     r"""Configuration parameters for the agent interaction."""
     cached_content: NotRequired[str]
     r"""The name of the cached content used as context to serve the prediction. Note: only used in explicit caching, where users can have control over caching (e.g. what content to cache) and enjoy guaranteed cost savings. Format: cachedContents/{cachedContent}"""
-    continuation_token: NotRequired[str]
-    r"""Opaque token to resume a long decode. Output: set when status is
-    INCOMPLETE and decoding can be resumed. Input: pass the latest token
-    back unchanged in CreateInteraction to continue decoding.
-    """
     created: NotRequired[str]
     r"""Required. Output only. The time at which the response was created in ISO 8601 format
     (YYYY-MM-DDThh:mm:ssZ).
@@ -261,12 +256,6 @@ class Interaction(BaseModel):
         ),
     ] = None
     r"""The name of the cached content used as context to serve the prediction. Note: only used in explicit caching, where users can have control over caching (e.g. what content to cache) and enjoy guaranteed cost savings. Format: cachedContents/{cachedContent}"""
-
-    continuation_token: Optional[str] = None
-    r"""Opaque token to resume a long decode. Output: set when status is
-    INCOMPLETE and decoding can be resumed. Input: pass the latest token
-    back unchanged in CreateInteraction to continue decoding.
-    """
 
     created: Optional[str] = None
     r"""Required. Output only. The time at which the response was created in ISO 8601 format
@@ -379,7 +368,6 @@ class Interaction(BaseModel):
                 "agent",
                 "agent_config",
                 "cached_content",
-                "continuation_token",
                 "created",
                 "environment",
                 "environment_id",
@@ -448,13 +436,14 @@ class Interaction(BaseModel):
     def _coerce_outputs_to_steps(cls, data: Any) -> Any:
         return cls._maybe_coerce_outputs(data)
 
+    # Applied to `Interaction(BaseModel)`: use `super().model_construct(...)`
+    # rather than `pydantic.BaseModel.model_construct(...)` so `cls` stays bound to
+    # `Interaction` through its MRO.
     @classmethod
     def model_construct(cls, _fields_set=None, **values):
-        # Coerce legacy lyria ``outputs`` -> ``steps`` here as well: validators
+        # Coerce legacy lyria `outputs` -> `steps` here as well: validators
         # do not run on model_construct (used by deferred SSE parsing).
-        return pydantic.BaseModel.model_construct(
-            _fields_set, **cls._maybe_coerce_outputs(values)
-        )
+        return super().model_construct(_fields_set, **cls._maybe_coerce_outputs(values))
 
     @pydantic.model_validator(mode="after")
     def _populate_output_helpers(self):

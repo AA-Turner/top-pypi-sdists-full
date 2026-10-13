@@ -196,6 +196,43 @@ class ScenarioDataAppend(TypedDict, total=False):
     missing: list[str]
 
 
+class ScenarioAction(TypedDict):
+    """One thing the run did, such as a tool it called or a message it sent.
+
+    ``details`` holds what the action was given. ``result`` is what came back,
+    or ``None`` when nothing did. ``failed`` is ``True`` when the action
+    errored. ``at`` is when it happened, or ``None`` when that is not known.
+    """
+
+    name: str
+    details: dict[str, Any]
+    result: str | None
+    failed: bool
+    at: str | None
+
+
+class ScenarioActualOutcome(TypedDict):
+    """What one run in this scenario actually did, never what it should have done.
+
+    ``summary`` says it in a sentence or two, and ``actions`` lists what the run
+    did in order. ``source`` names the span the outcome was read from, on this
+    trace or another trace linked to the same scenario. Leave it out or set it
+    to ``None`` when there is no such span. Bitfab never fills this in, so it
+    holds only what a caller saved.
+    """
+
+    summary: str
+    actions: list[ScenarioAction]
+    source: NotRequired[ScenarioSource | None]
+
+
+class _ActualOutcomeUnset:
+    pass
+
+
+_ACTUAL_OUTCOME_UNSET = _ActualOutcomeUnset()
+
+
 class Scenario(TypedDict):
     id: str
     createdAt: str
@@ -208,6 +245,7 @@ class Scenario(TypedDict):
     description: str
     trigger: ScenarioTrigger
     data: ScenarioData
+    actualOutcome: ScenarioActualOutcome | None
     triggerSummary: str
     dataSummary: str
 
@@ -326,6 +364,7 @@ def _scenario_payload(
     trigger: ScenarioTrigger | None,
     data: ScenarioData | None,
     append_data: ScenarioDataAppend | None,
+    actual_outcome: ScenarioActualOutcome | None | _ActualOutcomeUnset,
 ) -> dict[str, Any]:
     if data is not None and append_data is not None:
         raise ValueError(
@@ -340,10 +379,12 @@ def _scenario_payload(
         "appendData": append_data,
     }
     payload = {key: value for key, value in fields.items() if value is not None}
+    if not isinstance(actual_outcome, _ActualOutcomeUnset):
+        payload["actualOutcome"] = actual_outcome
     if not payload:
         raise ValueError(
             "save_scenario needs at least one of name, description, trigger, "
-            "data, or append_data."
+            "data, append_data, or actual_outcome."
         )
     return payload
 
@@ -479,6 +520,10 @@ class TracesClient:
         return result["archived"]
 
     def get_scenario(self, trace_id: str) -> Scenario:
+        """Read the scenario built from a trace.
+
+        Raises ``requests.HTTPError`` with a 404 when the trace has no scenario.
+        """
         result = self._http_client.get(_trace_scenario_path(trace_id))
         return result["scenario"]
 
@@ -491,7 +536,26 @@ class TracesClient:
         trigger: ScenarioTrigger | None = None,
         data: ScenarioData | None = None,
         append_data: ScenarioDataAppend | None = None,
+        actual_outcome: ScenarioActualOutcome
+        | None
+        | _ActualOutcomeUnset = _ACTUAL_OUTCOME_UNSET,
     ) -> Scenario:
-        payload = _scenario_payload(name, description, trigger, data, append_data)
+        """Update the scenario built from a trace and return the saved scenario.
+
+        ``name``, ``description``, ``trigger``, and ``data`` each replace the
+        saved value whole, and leaving one out keeps it. ``append_data`` adds
+        history entries and missing items after the saved ones. Passing both
+        ``data`` and ``append_data`` raises ``ValueError``.
+
+        ``actual_outcome`` is what one run actually did. Passing it replaces the
+        saved value whole, passing ``None`` clears it, and leaving it out keeps
+        it. It may be the only field sent.
+
+        Sending nothing raises ``ValueError`` before any request. A trace with
+        no scenario raises ``requests.HTTPError`` with a 404.
+        """
+        payload = _scenario_payload(
+            name, description, trigger, data, append_data, actual_outcome
+        )
         result = self._http_client.request(_trace_scenario_path(trace_id), payload)
         return result["scenario"]

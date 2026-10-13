@@ -370,9 +370,9 @@ def test_a_lone_route_in_process_sees_what_its_bash_line_gives(tmp_path, codex, 
     if matcher:
         group["matcher"] = matcher
     root = _plugin(tmp_path, {"hooks": {event: [group]}}, {script: _STUB})
-    tool = "AskUserQuestion" if matcher and "AskUserQuestion" in matcher else "Bash"
-    if matcher and not dispatch.matches(matcher, tool):
-        tool = "Write"
+    # The first tool the route's matcher accepts (every existing route keeps the
+    # tool it had; `^WebSearch$` is the papers hook's).
+    tool = next(t for t in ("Bash", "AskUserQuestion", "Write", "WebSearch") if not matcher or dispatch.matches(matcher, t))
     payload = '{"session_id": "%s", "hook_event_name": "%s",\r\n "tool_name": "%s"}\n' % (SID, event, tool)
     env = _env(tmp_path, root, codex)
     direct = subprocess.run(["/bin/bash", "-c", command], input=payload, capture_output=True, text=True, env=env, timeout=30)

@@ -83,9 +83,11 @@ def _drive(monkeypatch, *, selected, cycle=None):
 def test_leaving_the_settings_screen_keeps_a_switched_row(monkeypatch):
     current = dict.fromkeys(setup.Setting, True)
     # Automatic updates switched off, then `←`
-    _drive(monkeypatch, selected=[setup.Setting.PLAN_REVIEW])
+    _drive(monkeypatch, selected=[setup.Setting.PLAN_REVIEW, setup.Setting.PASTED_IMAGES])
 
-    assert setup.run_settings_menu(current) == {setup.Setting.AUTO_UPDATE: False, setup.Setting.PLAN_REVIEW: True}
+    assert setup.run_settings_menu(current) == {
+        setup.Setting.AUTO_UPDATE: False, setup.Setting.PLAN_REVIEW: True, setup.Setting.PASTED_IMAGES: True,
+    }
 
 
 def test_leaving_the_daemon_page_keeps_a_switched_row(monkeypatch):
@@ -99,7 +101,7 @@ def test_leaving_the_daemon_page_keeps_a_switched_row(monkeypatch):
 
 def test_leaving_the_settings_screen_unchanged_is_still_back(monkeypatch):
     current = dict.fromkeys(setup.Setting, True)
-    _drive(monkeypatch, selected=[setup.Setting.AUTO_UPDATE, setup.Setting.PLAN_REVIEW])
+    _drive(monkeypatch, selected=[setup.Setting.AUTO_UPDATE, setup.Setting.PLAN_REVIEW, setup.Setting.PASTED_IMAGES])
 
     assert setup.run_settings_menu(current) is tui.BACK
 

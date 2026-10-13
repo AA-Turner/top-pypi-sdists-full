@@ -8,8 +8,13 @@ from schemathesis.cli.events import LoadingFinished
 from schemathesis.core.failures import RUN_CHECKS_LABEL
 from schemathesis.engine import Status, events
 from schemathesis.engine.run import PhaseName
-from schemathesis.engine.statistic import GroupedFailures
-from schemathesis.reporting.recorders import scenario_elapsed, scenario_failures, scenario_has_failures, unique_labels
+from schemathesis.reporting.recorders import (
+    recorder_failures,
+    scenario_elapsed,
+    scenario_failures,
+    scenario_has_failures,
+    unique_labels,
+)
 
 if TYPE_CHECKING:
     from schemathesis.cli.context import BaseExecutionContext
@@ -28,7 +33,7 @@ class AllureHandler(EventHandler):
     def handle_event(self, ctx: BaseExecutionContext, event: events.EngineEvent) -> None:
         if isinstance(event, events.ScenarioFinished):
             label = event.recorder.label
-            failures = list(ctx.statistic.failures.get(label, {}).values()) if event.status == Status.FAILURE else []
+            failures = recorder_failures(ctx.statistic, event.recorder) if event.status == Status.FAILURE else []
             is_stateful = event.phase == PhaseName.STATEFUL_TESTING
             operation = ctx.find_operation_by_label(label) if not is_stateful and ctx.find_operation_by_label else None
             self.writer.record_scenario(
@@ -62,17 +67,18 @@ class AllureHandler(EventHandler):
                     tags=None,
                 )
         elif isinstance(event, LoadingFinished):
-            self.writer.api_title = event.schema.get("info", {}).get("title")
+            self.writer.api_title = event.title
         elif isinstance(event, events.NonFatalError):
             self.writer.record_error(label=event.label, message=event.info.format())
         elif isinstance(event, events.EngineFinished):
             if event.failures:
-                group = GroupedFailures(case_id=None, code_sample=None, failures=event.failures, response=None)
+                # Recorded by the execution context before handlers run, deduplicated and sorted.
+                groups = list(ctx.statistic.failures[RUN_CHECKS_LABEL].values())
                 self.writer.record_scenario(
                     label=RUN_CHECKS_LABEL,
                     elapsed_sec=0.0,
                     status=Status.FAILURE,
-                    failures=[group],
+                    failures=groups,
                     skip_reason=None,
                     tags=None,
                 )

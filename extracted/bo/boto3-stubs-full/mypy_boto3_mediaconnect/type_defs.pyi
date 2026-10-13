@@ -75,6 +75,9 @@ from .literals import (
     StatusType,
     TcsType,
     ThumbnailStateType,
+    VideoColorimetryType,
+    VideoMatrixCoefficientsType,
+    VideoTransferCharacteristicsType,
 )
 
 if sys.version_info >= (3, 12):
@@ -124,6 +127,7 @@ __all__ = (
     "BridgeOutputTypeDef",
     "BridgeSourceTypeDef",
     "BridgeTypeDef",
+    "ColorInformationTypeDef",
     "ContentQualityAnalysisFeatureConfigurationTypeDef",
     "CreateBridgeRequestTypeDef",
     "CreateBridgeResponseTypeDef",
@@ -601,6 +605,11 @@ class MessageDetailTypeDef(TypedDict):
     Message: str
     ResourceName: NotRequired[str]
 
+class ColorInformationTypeDef(TypedDict):
+    Colorimetry: NotRequired[VideoColorimetryType]
+    TransferCharacteristics: NotRequired[VideoTransferCharacteristicsType]
+    MatrixCoefficients: NotRequired[VideoMatrixCoefficientsType]
+
 class FrozenFramesConfigurationTypeDef(TypedDict):
     State: ContentQualityAnalysisStateType
     ThresholdSeconds: int
@@ -876,6 +885,7 @@ class NdiSourceInfoTypeDef(TypedDict):
 
 class NdiSourceSettingsTypeDef(TypedDict):
     SourceName: NotRequired[str]
+    AudioReferenceLevel: NotRequired[int]
 
 class ResourceSpecificationTypeDef(TypedDict):
     ResourceType: Literal["Mbps_Outbound_Bandwidth"]
@@ -1443,6 +1453,7 @@ class NdiMediaStreamInfoTypeDef(TypedDict):
     Codec: str
     StreamId: int
     ScanMode: NotRequired[ScanModeType]
+    Color: NotRequired[ColorInformationTypeDef]
     FrameResolution: NotRequired[FrameResolutionTypeDef]
     FrameRate: NotRequired[str]
     Channels: NotRequired[int]
@@ -1453,6 +1464,7 @@ class TransportStreamTypeDef(TypedDict):
     StreamType: str
     Channels: NotRequired[int]
     Codec: NotRequired[str]
+    Color: NotRequired[ColorInformationTypeDef]
     FrameRate: NotRequired[str]
     FrameResolution: NotRequired[FrameResolutionTypeDef]
     SampleRate: NotRequired[int]
@@ -1582,6 +1594,7 @@ TransportTypeDef = TypedDict(
         "NdiProgramName": NotRequired[str],
         "NdiSourceSettings": NotRequired[NdiSourceSettingsTypeDef],
         "NdiOutputTimecodeSource": NotRequired[NdiOutputTimecodeSourceType],
+        "NdiAudioReferenceLevel": NotRequired[int],
     },
 )
 
@@ -2125,6 +2138,7 @@ class NdiSourceMetadataInfoTypeDef(TypedDict):
 
 class TransportMediaInfoTypeDef(TypedDict):
     Programs: list[TransportStreamProgramTypeDef]
+    TsId: NotRequired[int]
 
 MonitoringConfigUnionTypeDef = Union[MonitoringConfigTypeDef, MonitoringConfigOutputTypeDef]
 
@@ -2370,6 +2384,7 @@ AddOutputRequestTypeDef = TypedDict(
         "RouterIntegrationState": NotRequired[StateType],
         "RouterIntegrationTransitEncryption": NotRequired[FlowTransitEncryptionUnionTypeDef],
         "NdiOutputTimecodeSource": NotRequired[NdiOutputTimecodeSourceType],
+        "NdiAudioReferenceLevel": NotRequired[int],
     },
 )
 SetSourceRequestTypeDef = TypedDict(
@@ -2430,6 +2445,7 @@ UpdateFlowOutputRequestTypeDef = TypedDict(
         "RouterIntegrationState": NotRequired[StateType],
         "RouterIntegrationTransitEncryption": NotRequired[FlowTransitEncryptionUnionTypeDef],
         "NdiOutputTimecodeSource": NotRequired[NdiOutputTimecodeSourceType],
+        "NdiAudioReferenceLevel": NotRequired[int],
     },
 )
 UpdateFlowSourceRequestTypeDef = TypedDict(

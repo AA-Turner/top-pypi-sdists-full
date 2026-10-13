@@ -12,6 +12,7 @@ from schemathesis.config import (
     SchemathesisWarning,
     get_workers_count,
 )
+from schemathesis.config._auth import WFCAuthConfig
 from schemathesis.config._phases import DEFAULT_UNEXPECTED_METHODS
 from schemathesis.config._validator import CONFIG_SCHEMA
 from schemathesis.errors import HookError
@@ -75,6 +76,27 @@ def test_escaped_placeholder_is_resolved_once(monkeypatch):
     monkeypatch.delenv("TEST_STRING_1", raising=False)
     config = SchemathesisConfig.from_str("[auth.wfc]\npath = '$${TEST_STRING_1}.yaml'")
     assert repr(config.projects.default.auth.wfc) == "WFCAuthConfig(path='${TEST_STRING_1}.yaml')"
+
+
+def test_wfc_path_override_preserves_configured_values():
+    config = SchemathesisConfig.from_dict(
+        {
+            "auth": {
+                "wfc": {
+                    "path": "configured.json",
+                    "user": "alice",
+                    "refresh_interval": 60,
+                    "peers": ["alice", "bob"],
+                }
+            }
+        }
+    )
+
+    config.projects.override.update(wfc_auth="override.json")
+
+    assert config.projects.get_default().auth.wfc == WFCAuthConfig(
+        path="override.json", user="alice", refresh_interval=60, peers=["alice", "bob"]
+    )
 
 
 def test_config_repr_omits_parameters_set_to_none():
@@ -295,6 +317,24 @@ def test_generation_mode_all_and_maximize_list():
         list(schemathesis.GenerationMode),
         ["response_time"],
     )
+
+
+def test_coverage_generation_rejects_max_examples():
+    with pytest.raises(ConfigError) as exc:
+        SchemathesisConfig.from_str("[phases.coverage.generation]\nmax-examples = 5\n")
+
+    assert str(exc.value) == (
+        "`max-examples` has no effect in the coverage phase: it generates every case the schema defines."
+    )
+
+
+def test_max_examples_loads_for_bounded_generation():
+    assert (
+        SchemathesisConfig.from_str("[generation]\nmax-examples = 5\n").projects.default.generation.max_examples,
+        SchemathesisConfig.from_str(
+            "[phases.fuzzing.generation]\nmax-examples = 5\n"
+        ).projects.default.phases.fuzzing.generation.max_examples,
+    ) == (5, 5)
 
 
 def test_warnings_disabled_in_table_form_hide_and_never_fail():

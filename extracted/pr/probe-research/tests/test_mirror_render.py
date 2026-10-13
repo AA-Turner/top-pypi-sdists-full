@@ -49,6 +49,10 @@ def make_source(root: Path, *, cli="0.72.0", plugin="0.17.0", tap="0.2.1") -> Pa
         agent / "plugins" / "probe-research" / ".claude-plugin" / "plugin.json",
         {"name": "probe-research", "version": plugin},
     )
+    _write_json(
+        agent / "plugins" / "probe-research" / ".mcp.json",
+        {"mcpServers": {"probe-research": {"type": "http", "url": "https://mcp.example/mcp"}}},
+    )
     # The daemon profile's lean plugin: released with probe-research.
     _write_json(
         agent / "plugins" / "probe-research-daemon" / ".claude-plugin" / "plugin.json",
@@ -527,11 +531,78 @@ def test_render_produces_exactly_the_item_list_and_stomps_strays(tmp_path):
         "pre-existing mirror content must be stomped — the mirror is a build artifact"
     )
     assert not any(p.startswith((".github", "src", "tests")) for p in tree)
-    # The Capy bundle: plain Agent Skills plus its setup guide, nothing else.
+    # The Capy bundle: plain Agent Skills, its setup guide and the generated
+    # plugin manifests, nothing else.
     assert "capy/README.md" in tree
     assert sorted(p.split("/")[2] for p in tree if p.startswith("capy/skills/")) == sorted(
         mirror_render.CLOUD_BUNDLES["capy"]
     )
+    assert {p for p in tree if p.startswith("capy/") and not p.startswith("capy/skills/")} == {
+        "capy/README.md",
+        "capy/.mcp.json",
+        *(f"capy/{rel}" for rel in mirror_render.CLOUD_PLUGIN_MANIFESTS),
+    }
+
+
+def test_the_capy_folder_is_one_plugin_with_probes_mcp_server_and_version(tmp_path):
+    """Capy adds a plugin from a GitHub folder. Its manifest format is
+    unpublished, so every conventional spot carries the same manifest; the
+    version and MCP URL come from probe-research, so they cannot drift."""
+    agent = make_source(tmp_path, plugin="1.2.3")
+    mirror = make_mirror(tmp_path)
+    mirror_render.render(agent, mirror)
+    manifests = [
+        json.loads((mirror / "capy" / rel).read_text())
+        for rel in mirror_render.CLOUD_PLUGIN_MANIFESTS
+    ]
+    assert all(m == manifests[0] for m in manifests)
+    manifest = manifests[0]
+    assert manifest["version"] == "1.2.3"
+    assert manifest["skills"] == "./skills/"
+    # probe-capy tells the agent to call `probe__search`.
+    server = {
+        "probe": {
+            "type": "http",
+            "url": "https://mcp.example/mcp",
+            "auth": "oauth",
+            "connection": "member",
+        }
+    }
+    assert manifest["mcpServers"] == server
+    assert json.loads((mirror / "capy" / ".mcp.json").read_text()) == {"mcpServers": server}
+
+
+@pytest.mark.parametrize(
+    "servers",
+    [
+        {},
+        {"probe-research": {"type": "http", "url": "http://insecure.example/mcp"}},
+        {"a": {"url": "https://a.example/mcp"}, "b": {"url": "https://b.example/mcp"}},
+    ],
+)
+def test_no_single_https_mcp_url_blocks_the_render(tmp_path, servers):
+    agent = make_source(tmp_path)
+    _write_json(agent / "plugins" / "probe-research" / ".mcp.json", {"mcpServers": servers})
+    with pytest.raises(mirror_render.GuardError, match="expected one https MCP server"):
+        mirror_render.check_source(agent)
+
+
+def test_renaming_the_main_plugins_server_key_does_not_block_the_render(tmp_path):
+    agent = make_source(tmp_path)
+    _write_json(
+        agent / "plugins" / "probe-research" / ".mcp.json",
+        {"mcpServers": {"renamed": {"type": "http", "url": "https://mcp.example/mcp"}}},
+    )
+    mirror_render.check_source(agent)
+
+
+def test_the_capy_plugin_server_is_the_one_the_manual_steps_name():
+    """A user who connected the server by hand and then adds the plugin must
+    end up with one server, not two under different names."""
+    guide = (_AGENT / "docs" / "capy.md").read_text()
+    assert f"named `{mirror_render.CLOUD_MCP_SERVER_KEY}`" in guide
+    skill = (_AGENT / "skills" / "probe-capy" / "SKILL.md").read_text()
+    assert f"`{mirror_render.CLOUD_MCP_SERVER_KEY}__search`" in skill
 
 
 def test_the_capy_bundle_is_the_capy_profile_and_names_no_plugin_skill_twice():

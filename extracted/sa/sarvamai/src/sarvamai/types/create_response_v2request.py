@@ -48,7 +48,7 @@ class CreateResponseV2Request(UniversalBaseModel):
 
     reasoning: typing.Optional[ResponseReasoning] = pydantic.Field(default=None)
     """
-    Optional reasoning config for `glm5.3` and `deepseekv4-flash`. On `glm5.3`, a reasoning item is always in `output` — read `summary[0].text`. **`effort`:** on `glm5.3`, `low` or `high` only — omit for `max`-level reasoning (the literal string `max` returns `400`); on `deepseekv4-flash`, `low`, `high`, or `max` all work directly. Optional **`summary`:** `auto` or `detailed`.
+    Optional reasoning config for `glm5.3` and `deepseekv4.1-flash`. On `glm5.3`, a reasoning item is always in `output` — read `summary[0].text`. **`effort`:** on `glm5.3`, `low` or `high` only — omit for `max`-level reasoning (the literal string `max` returns `400`); on `deepseekv4.1-flash`, `low`, `high`, or `max` all work directly. Optional **`summary`:** `auto` or `detailed`.
     """
 
     extra_body: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
@@ -88,7 +88,7 @@ class CreateResponseV2Request(UniversalBaseModel):
 
     parallel_tool_calls: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    Not currently enforced on this route for any model that supports tool calling here (`glm5.3`, `gemma4`, `deepseekv4-flash`). Setting **`false`** is accepted without error, but the model may still return multiple tool calls in one turn.
+    Not currently enforced on this route for any model that supports tool calling here (`glm5.3`, `gemma4`, `deepseekv4.1-flash`). Setting **`false`** is accepted without error, but the model may still return multiple tool calls in one turn.
     """
 
     n: typing.Optional[int] = pydantic.Field(default=None)

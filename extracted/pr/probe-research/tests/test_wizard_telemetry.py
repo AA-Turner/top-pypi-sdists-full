@@ -240,7 +240,7 @@ def configure_stubs(monkeypatch, wizard_stubs, registrations):
     monkeypatch.setattr(
         main_mod,
         "_register_local_capabilities",
-        lambda caps, settings=None, complete=True: (registrations.append(complete), [])[1],
+        lambda caps, settings=None, complete=True, alongside=(): (registrations.append(complete), [])[1],
     )
     return wizard_stubs
 

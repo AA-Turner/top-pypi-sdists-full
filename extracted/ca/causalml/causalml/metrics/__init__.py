@@ -1,3 +1,4 @@
+from .ground_truth import pehe, ate_error, policy_risk  # noqa
 from .classification import roc_auc_score, logloss, classification_metrics  # noqa
 from .regression import (
     ape,
@@ -26,6 +27,12 @@ from .visualize import (
 )  # noqa
 from .visualize import auuc_score, qini_score  # noqa
 from .rate import get_toc, rate_score, plot_toc  # noqa
+from .cate_scoring import (
+    compute_dr_pseudo_outcomes,
+    dr_score,
+    plug_in_t_score,
+    rlearner_score,
+)  # noqa
 from .sensitivity import Sensitivity, SensitivityPlaceboTreatment  # noqa
 from .sensitivity import (
     SensitivityRandomCause,

@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from schemathesis.core.error_feedback.parsers import PARSERS
+from schemathesis.core.error_feedback.parsers.extractors import parse_number, split_field_path
 from schemathesis.core.error_feedback.store import (
     BoundDirection,
     FormatPayload,
@@ -12,7 +13,6 @@ from schemathesis.core.error_feedback.store import (
     Observation,
     ObservationKind,
     ObservationPayload,
-    ParameterPath,
     PatternPayload,
     SizeBoundPayload,
     TypeMismatchPayload,
@@ -168,11 +168,6 @@ def _iter_carrier_strings(body: dict) -> Iterable[str]:
                     yield value
 
 
-def _split_path(field: str) -> ParameterPath:
-    # Spring uses dotted paths for nested fields (e.g. `address.street`).
-    return tuple(field.split(".")) if field else ()
-
-
 def _classify(message: str) -> tuple[tuple[ObservationKind, ObservationPayload], ...]:
     if _NON_BLANK.search(message):
         return ((ObservationKind.MUST_NOT_BE_BLANK, None),)
@@ -189,11 +184,15 @@ def _classify(message: str) -> tuple[tuple[ObservationKind, ObservationPayload],
         return (
             (
                 ObservationKind.NUMERIC_BOUND,
-                NumericBoundPayload(bound=float(range_match.group(1)), direction=BoundDirection.MIN, exclusive=False),
+                NumericBoundPayload(
+                    bound=parse_number(range_match.group(1)), direction=BoundDirection.MIN, exclusive=False
+                ),
             ),
             (
                 ObservationKind.NUMERIC_BOUND,
-                NumericBoundPayload(bound=float(range_match.group(2)), direction=BoundDirection.MAX, exclusive=False),
+                NumericBoundPayload(
+                    bound=parse_number(range_match.group(2)), direction=BoundDirection.MAX, exclusive=False
+                ),
             ),
         )
     numeric_match = _NUMERIC_BOUND.search(message)
@@ -203,7 +202,7 @@ def _classify(message: str) -> tuple[tuple[ObservationKind, ObservationPayload],
             (
                 ObservationKind.NUMERIC_BOUND,
                 NumericBoundPayload(
-                    bound=float(numeric_match.group("value")),
+                    bound=parse_number(numeric_match.group("value")),
                     direction=direction,
                     exclusive=numeric_match.group("inclusive") is None,
                 ),
@@ -238,7 +237,7 @@ def _emit(operation: APIOperation, field: str, message: str) -> list[Observation
         Observation(
             operation_label=operation.label,
             location=location,
-            parameter_path=_split_path(field),
+            parameter_path=split_field_path(field),
             kind=kind,
             raw_message=message,
             payload=payload,
@@ -320,7 +319,7 @@ class SpringParser:
                     kind=ObservationKind.NUMERIC_BOUND,
                     raw_message=line,
                     payload=NumericBoundPayload(
-                        bound=float(_JAVA_TYPE_MAX[type_hint.group("type")]),
+                        bound=_JAVA_TYPE_MAX[type_hint.group("type")],
                         direction=BoundDirection.MAX,
                         exclusive=False,
                     ),
@@ -439,6 +438,14 @@ class SpringParser:
                     location=ParameterLocation.BODY,
                     parameter_path=(match.group("name"),),
                     kind=ObservationKind.UNEXPECTED_PROPERTY,
+                    raw_message=message,
+                )
+                # The server rejects unknown keys, so invented extras would be refused too.
+                yield Observation(
+                    operation_label=operation.label,
+                    location=ParameterLocation.BODY,
+                    parameter_path=(),
+                    kind=ObservationKind.FORBIDS_ADDITIONAL_PROPERTIES,
                     raw_message=message,
                 )
             for match in _UNEXPECTED_PARAMETER.finditer(message):

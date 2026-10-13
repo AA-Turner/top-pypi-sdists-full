@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Massachusetts Institute of Technology
+# Copyright (c) 2026 Massachusetts Institute of Technology
 # SPDX-License-Identifier: MIT
 # flake8: noqa: E402
 
@@ -69,3 +69,13 @@ if not TYPE_CHECKING:
         __version__ = "unknown version"
 else:  # pragma: no cover
     __version__: str
+
+# must run after hydra_zen.funcs is importable
+from hydra_zen._target_policy_patches import (
+    apply_partial_with_wrapper_patch,
+    apply_resolver_authorization_patch,
+)
+
+apply_partial_with_wrapper_patch()
+apply_resolver_authorization_patch()
+del apply_partial_with_wrapper_patch, apply_resolver_authorization_patch

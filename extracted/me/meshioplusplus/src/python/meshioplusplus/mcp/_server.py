@@ -256,6 +256,7 @@ def _register_conversion(server: FastMCP) -> None:
         write_grid_functions: bool = False,
         elmer_halo: bool = False,
         patran_results: Optional[Dict[str, str]] = None,
+        write_nurbs: Optional[bool] = None,
     ) -> dict:
         """Convert a mesh between formats (formats inferred from extensions
         unless given). grid_functions ({name: path}) reads MFEM .gf fields onto
@@ -279,7 +280,10 @@ def _register_conversion(server: FastMCP) -> None:
         inputs (VTU/VTP/VTS/VTR/VTI) accept appended raw/base64 arrays natively;
         Multiple pieces concatenate without welding; VTP/VTS/VTR/VTI retain
         inline output. Legacy VTK structured datasets also read natively.
-        XDMF time-series reads preserve fixed shared point/cell/side regions."""
+        XDMF time-series reads preserve fixed shared point/cell/side regions.
+        An MFEM NURBS input keeps its patches, so an MFEM output is written back
+        as the NURBS mesh; write_nurbs=False writes the sampled cells instead,
+        True refuses anything else."""
         return _guard(
             _tools.tool_convert,
             input_path=input_path,
@@ -297,6 +301,7 @@ def _register_conversion(server: FastMCP) -> None:
             write_grid_functions=write_grid_functions,
             elmer_halo=elmer_halo,
             patran_results=patran_results,
+            write_nurbs=write_nurbs,
         )
 
     @server.tool()
@@ -334,7 +339,8 @@ def _register_conversion(server: FastMCP) -> None:
         component point_data array is exported raw as a custom attribute
         (temperature -> _TEMPERATURE); fields=false skips them. color_by names
         a point_data or cell_data array to bake into COLOR_0 through cmap
-        (viridis|coolwarm|turbo) over vmin..vmax (default: the finite range of
+        (viridis, coolwarm, turbo, magma, inferno, plasma, grey, synthwave,
+        or a reversed *_r variant) over vmin..vmax (default: the finite range of
         what is exported), with an unlit material unless unlit=false;
         multi-component arrays reduce to component or their magnitude and
         non-finite values take nan_color (#rrggbb). The output is Y-up,
@@ -405,7 +411,7 @@ def _register_conversion(server: FastMCP) -> None:
         transient dataset. Give exactly one of input_pattern (a glob -- '*' and
         '?' only) or input_paths. A '{step}'/'{index}' token in output_path
         writes one file per step (fan-out); a plain path writes one multi-step
-        file (fan-in, only for xdmf, gid, usd, vtkhdf, pvd and femap -- any
+        file (fan-in, only for xdmf, gid, usd, vtkhdf, pvd, femap and frd -- any
         other format fails by name rather than silently keeping step 0).
         XDMF fan-in stores the first mesh's fixed point/cell/side regions;
         later steps do not change their membership.
@@ -1249,6 +1255,154 @@ def _register_operations(server: FastMCP) -> None:
         )
 
     @server.tool()
+    def render_mesh(
+        input_path: str,
+        output_path: Optional[str] = None,
+        input_format: Optional[str] = None,
+        width: int = 640,
+        height: int = 480,
+        cols: int = 100,
+        rows: int = 40,
+        encoding: str = "halfblock",
+        text_format: str = "plain",
+        view: Optional[str] = None,
+        azimuth: Optional[float] = None,
+        elevation: Optional[float] = None,
+        perspective: bool = False,
+        zoom: Optional[float] = None,
+        shading: str = "flat",
+        edges: str = "none",
+        color_by: Optional[str] = None,
+        component: Optional[int] = None,
+        cmap: Optional[str] = None,
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+        colorbar: bool = False,
+        supersample: int = 2,
+        background: Optional[str] = None,
+        axes: bool = False,
+        expr: Optional[str] = None,
+        reduce: Optional[str] = None,
+        clip: Optional[list] = None,
+        symmetric: bool = False,
+        scale: Optional[str] = None,
+        categorical: bool = False,
+        color_regions: bool = False,
+        category_edges: bool = False,
+        isolines: int = 0,
+        vectors: Optional[str] = None,
+        warp: Optional[str] = None,
+        warp_scale: float = 1.0,
+        warp_outline: bool = False,
+        diagnostic: Optional[str] = None,
+        quality_metric: Optional[str] = None,
+        cutaway: Optional[list] = None,
+        cutaway_tint: Optional[str] = None,
+        streamlines: Optional[str] = None,
+        stream_seeds: int = 40,
+        stream_length: float = 0.5,
+        stream_color: Optional[str] = None,
+    ):
+        """Look at a mesh: draw it with the software rasterizer, which needs
+        no display, GPU or optional extra (unlike screenshot).
+
+        Without output_path the picture comes back as text, cols x rows
+        terminal cells: text_format "plain" (glyphs only, the default),
+        "ansi" (24-bit colour escapes) or "html"; encoding is halfblock,
+        quadrant, sextant, braille or ascii. With output_path the extension
+        picks the form: .png (width x height pixels, returned as an image),
+        .txt, .ansi, .html, or .cast (an asciinema orbit). The camera is a
+        named view (iso, +x, -x, +y, -y, +z, -z: the side the camera sits
+        on) or azimuth/elevation in degrees, orthographic unless
+        perspective; zoom magnifies the fitted view. shading is none, flat
+        or smooth; edges none, all or feature. color_by maps a point or cell
+        data array through cmap (viridis, coolwarm, turbo, ...) over
+        vmin..vmax, with an optional colorbar; component picks one component
+        of a vector array (else its magnitude). background is #rrggbb,
+        #rrggbbaa or none (transparent, the default); axes draws the world
+        axes. Volume meshes are drawn through their boundary skin.
+
+        Field rendering: expr colours by a data_calc expression ("mag(u) /
+        max(p)") instead of color_by, and reduce ("mises", "hydrostatic" or
+        "principal", with component) by a tensor invariant of color_by; clip
+        is [low, high] percentiles bounding the range (null for either end),
+        symmetric centres it on zero, and scale is "linear", "log" or
+        "symlog". categorical colours integer data (a material id) and
+        color_regions the named cell regions from a fixed palette, with a key
+        in the notes under the picture; category_edges draws where they meet.
+        isolines draws that many contour lines of the point array color_by,
+        vectors draws arrows for a vector point array, and warp moves the
+        points by a displacement point array (times warp_scale), with
+        warp_outline drawing the undeformed outline. diagnostic is one of
+        quality (with quality_metric, e.g. scaled_jacobian), inverted,
+        degenerate, orientation (front and back faces), free_edges (open,
+        non-manifold and inconsistent edges) or edge_length. cutaway clips
+        the geometry away to look inside: a list of at most two planes, each
+        a string like "+x:0.5" (keep x >= 0.5; "-x:0.5" keeps x <= 0.5) or
+        six numbers [px, py, pz, nx, ny, nz] (a point and the normal of the
+        side kept); the back faces then in view, the inside of the cut, are
+        drawn in cutaway_tint (#rrggbb). streamlines draws lines that follow
+        a vector point array over the mesh's cells from about stream_seeds
+        seeds (default 40), each at most stream_length diagonals of the model
+        long (default 0.5) in each direction, in stream_color (#rrggbb); on a
+        volume they run inside it, so combine them with cutaway. Returned
+        text ends with the colour range, ticks and keys."""
+        report = _guard(
+            _tools.tool_render_mesh,
+            input_path=input_path,
+            output_path=output_path,
+            input_format=input_format,
+            width=width,
+            height=height,
+            cols=cols,
+            rows=rows,
+            encoding=encoding,
+            text_format=text_format,
+            view=view,
+            azimuth=azimuth,
+            elevation=elevation,
+            perspective=perspective,
+            zoom=zoom,
+            shading=shading,
+            edges=edges,
+            color_by=color_by,
+            component=component,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            colorbar=colorbar,
+            supersample=supersample,
+            background=background,
+            axes=axes,
+            expr=expr,
+            reduce=reduce,
+            clip=clip,
+            symmetric=symmetric,
+            scale=scale,
+            categorical=categorical,
+            color_regions=color_regions,
+            category_edges=category_edges,
+            isolines=isolines,
+            vectors=vectors,
+            warp=warp,
+            warp_scale=warp_scale,
+            warp_outline=warp_outline,
+            diagnostic=diagnostic,
+            quality_metric=quality_metric,
+            cutaway=cutaway,
+            cutaway_tint=cutaway_tint,
+            streamlines=streamlines,
+            stream_seeds=stream_seeds,
+            stream_length=stream_length,
+            stream_color=stream_color,
+        )
+        if isinstance(report, dict) and str(
+            report.get("output_path", "")
+        ).lower().endswith(".png"):
+            return [Image(path=report["output_path"]), report]
+        return report
+
+    @server.tool()
     def feature_edges(
         input_path: str,
         output_path: str,
@@ -1288,6 +1442,90 @@ def _register_operations(server: FastMCP) -> None:
             non_manifold=non_manifold,
             inconsistent=inconsistent,
             region=region,
+        )
+
+    @server.tool()
+    def segment(
+        input_path: str,
+        output_path: str,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        feature_angle: float = 30.0,
+        normal_tolerance: float = 0.0,
+        curvature_tolerance: float = 0.0,
+        min_patch_cells: int = 1,
+        region: str = "",
+        prefix: str = "patch",
+    ) -> dict:
+        """Split a surface into smooth patches -- the first step of turning a
+        triangle skin (an STL, a scan) into a CAD model.
+
+        A patch grows from its lowest-numbered cell across every edge two
+        cells share whose dihedral angle is at most feature_angle degrees
+        (default 30); open, non-manifold and sharp edges are never crossed.
+        normal_tolerance (degrees) also bounds a cell's normal against its
+        seed's, and curvature_tolerance (1/length) its curvature estimate
+        against the patch's mean so far -- both off at 0. Patches with fewer than
+        min_patch_cells cells merge into the neighbour sharing the most edges.
+        The mesh is written unchanged plus cell data segment:patch, field data
+        segment:adjacency (rows a, b, shared edges) and one cell region per
+        patch named <prefix>:<k>. Reports num_patches, num_merged,
+        num_feature_edges, num_boundary_edges and num_non_manifold_edges.
+        Feed the output to fit_primitives."""
+        return _guard(
+            _tools.tool_segment,
+            input_path=input_path,
+            output_path=output_path,
+            input_format=input_format,
+            output_format=output_format,
+            feature_angle=feature_angle,
+            normal_tolerance=normal_tolerance,
+            curvature_tolerance=curvature_tolerance,
+            min_patch_cells=min_patch_cells,
+            region=region,
+            prefix=prefix,
+        )
+
+    @server.tool()
+    def fit_primitives(
+        input_path: str,
+        output_path: str,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        patch_data: str = "segment:patch",
+        tolerance: float = 1e-3,
+        relative: bool = True,
+        min_inlier_fraction: float = 0.9,
+        types: Optional[List[str]] = None,
+        max_iterations: int = 50,
+    ) -> dict:
+        """Fit a plane, sphere, cylinder, cone or torus to each patch of a
+        surface and report how well it fits -- a recovered radius, axis or
+        plane normal is a measurement.
+
+        Patches are the integer cell-data label patch_data (segment:patch,
+        written by the segment tool; "" fits the whole surface as one patch).
+        A type is accepted when its RMS orthogonal distance is at most
+        tolerance (a fraction of the patch's bounding-box diagonal unless
+        relative is false) and at least min_inlier_fraction of the points lie
+        within it; the first accepted of plane, sphere, cylinder, cone, torus
+        wins (types narrows the list), else the patch is reported unfitted
+        with its best residual. The mesh is written with cell data fit:type /
+        fit:rms / fit:max and field data fit:patch_*; the report lists each
+        patch's type, params (x, y, z, ax, ay, az, r1, r2, angle_deg, 0), rms,
+        max and fraction, plus counts per type."""
+        return _guard(
+            _tools.tool_fit_primitives,
+            input_path=input_path,
+            output_path=output_path,
+            input_format=input_format,
+            output_format=output_format,
+            patch_data=patch_data,
+            tolerance=tolerance,
+            relative=relative,
+            min_inlier_fraction=min_inlier_fraction,
+            types=types,
+            max_iterations=max_iterations,
         )
 
     @server.tool()
@@ -2516,6 +2754,10 @@ def _register_dataset(server: FastMCP) -> None:
         group: Optional[str] = None,
         notes: Optional[str] = None,
         metadata: Optional[dict] = None,
+        thumbnail: Optional[str] = None,
+        render_thumbnail: bool = False,
+        thumbnail_width: int = 256,
+        thumbnail_height: int = 192,
     ) -> dict:
         """Add a case to a dataset manifest JSON (created if absent). Give
         exactly one of input_pattern (a glob) or input_paths; the source is
@@ -2524,7 +2766,10 @@ def _register_dataset(server: FastMCP) -> None:
         superresolution dataset: the two must have the same number of steps at
         the same instants, checked here. Leave it out for the ordinary case --
         an entry without a target is self-supervised, one mesh supplying both
-        sides. Optional curation: split, tags, group, notes, metadata."""
+        sides. Optional curation: split, tags, group, notes, metadata, and a
+        picture of the case: thumbnail (an existing PNG under the manifest's
+        directory) or render_thumbnail=true, which draws the first step with
+        the software rasterizer to thumbnails/<id>.png beside the manifest."""
         return _guard(
             _tools.tool_dataset_add,
             manifest_path=manifest_path,
@@ -2546,6 +2791,10 @@ def _register_dataset(server: FastMCP) -> None:
             group=group,
             notes=notes,
             metadata=metadata,
+            thumbnail=thumbnail,
+            render_thumbnail=render_thumbnail,
+            thumbnail_width=thumbnail_width,
+            thumbnail_height=thumbnail_height,
         )
 
     @server.tool()
@@ -2583,11 +2832,19 @@ def _register_dataset(server: FastMCP) -> None:
         notes: Optional[str] = None,
         metadata: Optional[dict] = None,
         drop_metadata: Optional[List[str]] = None,
+        thumbnail: Optional[str] = None,
+        render_thumbnail: bool = False,
+        thumbnail_step: int = 0,
+        thumbnail_width: int = 256,
+        thumbnail_height: int = 192,
     ) -> dict:
         """Curate a dataset manifest: set a split on selected entries, assign
         splits by fractions (assign_splits={"train": 0.8, ...}, deterministic
         via seed; by_group keeps groups together), add/remove tags, or set one
-        entry's group/notes/metadata."""
+        entry's group/notes/metadata. thumbnail records an existing PNG under
+        the manifest's directory as one entry's picture ("none" clears it);
+        render_thumbnail=true draws each selected entry's step
+        thumbnail_step to thumbnails/<id>.png beside the manifest."""
         return _guard(
             _tools.tool_dataset_update,
             manifest_path=manifest_path,
@@ -2603,6 +2860,11 @@ def _register_dataset(server: FastMCP) -> None:
             notes=notes,
             metadata=metadata,
             drop_metadata=drop_metadata,
+            thumbnail=thumbnail,
+            render_thumbnail=render_thumbnail,
+            thumbnail_step=thumbnail_step,
+            thumbnail_width=thumbnail_width,
+            thumbnail_height=thumbnail_height,
         )
 
     @server.tool()
@@ -3029,8 +3291,9 @@ def _register_gated(server: FastMCP) -> None:
         transparent: bool = False,
     ):
         """Render an off-screen PNG screenshot of the mesh (optionally colored
-        by a data array). Needs the [viewer] extra (polyscope); a missing
-        install returns a named error."""
+        by a data array). Uses polyscope when the [viewer] extra is installed
+        (size and transparent apply to it); otherwise the software rasterizer
+        draws the picture (see render_mesh for its options)."""
         try:
             report = _tools.tool_screenshot(
                 input_path=input_path,

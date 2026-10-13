@@ -1,7 +1,11 @@
-"""
-Filter feature selection methods for uplift modeling
+"""Filter feature selection methods for uplift modeling.
 
-- Currently only for classification problem: the outcome variable of uplift model is binary.
+.. note::
+    The likelihood-ratio filter (:func:`FilterSelect.filter_LR`) and the
+    divergence-based filters (:func:`FilterSelect.filter_D` -- ``KL``, ``ED``,
+    ``Chi``) require a **binary** outcome (values in ``{0, 1}``) and raise
+    ``ValueError`` otherwise. Use the F-test filter
+    (:func:`FilterSelect.filter_F`) for a continuous outcome.
 """
 
 import numpy as np
@@ -9,6 +13,34 @@ import pandas as pd
 import statsmodels.api as sm
 from scipy import stats
 from sklearn.impute import SimpleImputer
+
+
+def _check_binary_outcome(y, y_name="y"):
+    """Validate that an outcome column is binary (values in ``{0, 1}``).
+
+    The likelihood-ratio (``filter_LR``) and divergence-based (``filter_D``:
+    KL / ED / Chi) filters model a binary conversion outcome. A continuous or
+    multi-class outcome silently yields meaningless statistics, so fail fast
+    with a clear message. Use ``filter_F`` (OLS F-test) for continuous outcomes.
+
+    Args:
+        y (array-like): outcome values.
+        y_name (str): outcome column name, used in the error message.
+
+    Raises:
+        ValueError: if ``y`` is empty or contains any value other than 0 or 1.
+    """
+    y = np.asarray(y)
+    if np.issubdtype(y.dtype, np.floating):
+        y = y[~np.isnan(y)]
+    unique_values = set(np.unique(y).tolist())
+    if not unique_values or not unique_values.issubset({0, 1}):
+        raise ValueError(
+            "Outcome column '{}' must be binary (values in {{0, 1}}) for this "
+            "filter, but found {}. Use filter_F for a continuous outcome.".format(
+                y_name, sorted(unique_values)[:10]
+            )
+        )
 
 
 class FilterSelect:
@@ -242,6 +274,8 @@ class FilterSelect:
         if order not in [1, 2, 3]:
             raise Exception("ValueError: order argument only takes value 1,2,3.")
 
+        _check_binary_outcome(data[y_name], y_name)
+
         all_result = pd.DataFrame()
         for x_name_i in features:
             one_result = self._filter_LR_one_feature(
@@ -343,11 +377,30 @@ class FilterSelect:
             pk (float): Probability of class 1 in treatment group
             qk (float): Probability of class 1 in control group
         """
-        if qk < 0.1**6:
-            qk = 0.1**6
-        elif qk > 1 - 0.1**6:
-            qk = 1 - 0.1**6
-        S = pk * np.log(pk / qk) + (1 - pk) * np.log((1 - pk) / (1 - qk))
+        # Identical arms have no divergence. This is checked before the clamp
+        # below, which would otherwise move qk away from pk and report a
+        # difference between two arms that behaved the same. It is also the only
+        # way pk reaches 0 or 1 through filter_D: _GetNodeSummary smooths a
+        # missing count to 1, so a degenerate pk means the whole bin is
+        # degenerate and qk holds the same value.
+        if pk == qk:
+            return 0.0
+
+        eps = 0.1**6
+        if qk < eps:
+            qk = eps
+        elif qk > 1 - eps:
+            qk = 1 - eps
+
+        # pk = 0 and pk = 1 send one of the two terms to 0 * log(0), which numpy
+        # evaluates as NaN rather than the 0 the limit gives. Take the limits
+        # directly, as _kl_divergence in inference/tree/_uplift/_criterion.pyx does.
+        if pk == 0:
+            S = -np.log(1 - qk)
+        elif pk == 1:
+            S = -np.log(qk)
+        else:
+            S = pk * np.log(pk / qk) + (1 - pk) * np.log((1 - pk) / (1 - qk))
         return S
 
     def _evaluate_KL(self, nodeSummary, control_group="control"):
@@ -549,6 +602,8 @@ class FilterSelect:
             all_result : pd.DataFrame
                 a data frame containing the feature importance statistics
         """
+
+        _check_binary_outcome(data[y_name], y_name)
 
         all_result = pd.DataFrame()
 

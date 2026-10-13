@@ -530,20 +530,22 @@ class OpenAITranslator(BaseTranslator):
         # function_call was replayed between the reasoning and its message).
         pre_text_content = list(ordered_pre_text)
 
-        if pre_text_content:
-            role = Role.OUTPUT if has_thinking else Role.ASSISTANT
-            messages.append(
-                UnifiedMessage(
-                    role=role,
-                    content=pre_text_content,
-                )
-            )
-
-        if has_text:
+        # ONE ROW PER VISIBLE ANSWER (2026-10-12): reasoning / search blocks and the
+        # answer text are ONE assistant message. They were two — the reasoning in a
+        # role='output' row, the text in the next — so a plain reasoning-model reply
+        # (gpt-5-mini "ok") was announced as two assistant rows: the reserved loop-start
+        # row took the reasoning-only row and the answer arrived on a second,
+        # late-announced ``iteration_persist`` row. The client streams the answer onto
+        # the FIRST reservation, so the turn rendered blank until reload. Replay is
+        # unchanged: ``to_openai_items_modified`` flattens a message's blocks in order
+        # (reasoning item -> message), the same order the two messages produced.
+        # Tool calls stay in their own LAST message (see above).
+        answer_content = [*pre_text_content, *text_blocks]
+        if answer_content:
             messages.append(
                 UnifiedMessage(
                     role=Role.ASSISTANT,
-                    content=text_blocks,
+                    content=answer_content,
                 )
             )
 

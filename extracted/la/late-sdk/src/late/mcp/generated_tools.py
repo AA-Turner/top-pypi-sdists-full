@@ -670,7 +670,7 @@ def register_generated_tools(mcp, _get_client):
                 platform: Filter accounts by platform (e.g. "instagram", "twitter").
                 status: Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
                 search: Case-insensitive match on the account username, display name or platform user id, or an exact account id. Combine with page/limit to paginate the matches.
-                category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, social = every other platform.
+                category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, social = every other platform.
                 sort: Sort a paginated listing (page/limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.
                 order: Direction for `sort`.
                 include_over_limit: When true, includes accounts from over-limit profiles.
@@ -883,6 +883,7 @@ def register_generated_tools(mcp, _get_client):
             "xads",
             "googleads",
             "openaiads",
+            "redditads",
             "whopads",
         ]
         | None = None,
@@ -920,14 +921,16 @@ def register_generated_tools(mcp, _get_client):
 
         A failing or stalled analytics sync (see `analyticsSync`) raises a healthy account to at least `warning`.
 
+        On Facebook, Instagram and Threads the token is also probed live. A probe Meta refuses with a
+        dead-token error sets `tokenStatus.valid` to `false` and names Meta's code, subcode and
+        fbtrace in `issues`, unless an analytics sync succeeded with that token in the last six
+        hours: then the token stays `valid` and `issues` reports the probe as inconclusive, since
+        Meta answers a transient 190 to live tokens now and then. Neither verdict disconnects the
+        account; that happens only when a real operation fails, and `account.disconnected` is sent.
+
         For WhatsApp accounts the response also includes `platformConnection`, a live probe of the
         Meta link behind the channel (the same read as `GET /v1/whatsapp/number-info`). The OAuth
-        token can be perfectly valid while Meta refuses to serve the phone-number object (for
-        example after a phone-side coexistence disconnect), so `tokenStatus` alone is not a
-        liveness signal for WhatsApp. When the Meta link is dead, `platformConnection.status` is
-        `disconnected` and the overall `status` is `error`. When Meta reports that the number's
-        inbound message webhook does not reach Zernio, `platformConnection.inboundWebhookSubscribed`
-        is `false`, an entry is added to `issues`, and the overall `status` is at least `warning`.
+        token can be perfectly valid while Meta refuses to serve ...
 
         Args:
             account_id: The account ID to check (required)"""
@@ -2153,7 +2156,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List comments on an ad
 
-        Returns comments on an ad's underlying creative post. Useful for moderating or analyzing
+        Lists the comments on an ad's post, including dark posts that never ran organically, so you can moderate ad engagement.
+
+        Useful for moderating or analyzing
         engagement on dark posts (ad creatives that never went live organically), which the
         regular GET /v1/inbox/comments/{postId} endpoint cannot serve because dark posts are
         not in Zernio's post database.
@@ -2167,7 +2172,7 @@ def register_generated_tools(mcp, _get_client):
 
         For Instagram-placed comments, the Instagram account that runs the ad must be connected
         to Zernio, because those comments are read through that account's token. If no connected
-        Instagram account on the profile can read the ad's media, the call returns ...
+        Instagram ...
 
         Platforms: meta, tiktok
 
@@ -2382,6 +2387,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Ad account change / audit log
 
+        Shows who changed what in an ad account and when, as an audit log of edits to campaigns, ad sets and ads.
+
         **Google**: reads the customer's `change_event` history, newest first. Google keeps 30 days
         of it, so `since` defaults to 29 days ago and an older `since` returns 400; `until`
         defaults to today. Each change is mapped onto the Meta row shape: `event_type` =
@@ -2392,10 +2399,7 @@ def register_generated_tools(mcp, _get_client):
         Pass `paging.after` back as `after` for the next page; it is null when nothing older is
         left. A page never splits a change batch (the changes of one request share an
         `event_time`), so a page can hold fewer rows than `limit` while more follow, or more
-        when one batch is larger than `limit`. `adAccountId` is the numeric customer id.
-
-        **Meta**:
-        Account-level audit log from Meta's ...
+        when one batch is larger ...
 
         Platforms: meta, google
 
@@ -2439,6 +2443,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """A/B tests and lift studies
 
+        Lists the A/B tests and lift studies on a Meta ad account, with their timing and test groups.
+
         Lists the ad account's A/B tests and lift studies (Meta's `/act_X/ad_studies`), rows
         returned verbatim. The default projection covers id, name, type, timing and cells with
         split percentages; `fields` is a raw-passthrough override.
@@ -2477,6 +2483,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List Instagram ad identities
 
+        Lists the Instagram accounts a Meta ad connection can run ads as, so you can pick the identity for a new ad.
+
         Discovers identities through connected_instagram_accounts, Page linkage and Page-backed identities, with a best-effort business fallback. Business permission errors do not fail discovery. The resolved object uses the same profile-scoped resolver as ad creation; null means no identity was resolved. Format-specific observed-actor fallbacks at creative creation are not predicted.
 
         Platforms: meta
@@ -2510,7 +2518,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List Instagram posts to boost
 
-        Lists the media of the Instagram account this Meta connection can reach, so an existing Instagram post can be boosted without connecting the Instagram account separately. Each `posts[].id` is the existing-post id to send as `platformPostId` when creating the ad; Meta turns it into `source_instagram_media_id` on the creative. Identity resolution reuses the same resolver as `/v1/ads/instagram-accounts`. `igUserId` is always checked against the identities the connection can reach and is never trusted as sent. When no identity is reachable the endpoint fails instead of returning an empty list, and the two causes stay apart: `403 reconnect_required` means the connection predates Instagram access (Meta then omits `instagram_business_account` from the Page read rather than erroring, so it looks identical to having no data) and the account must be reconnected granting Instagram access, while `422 instagram_business_account_unresolved` means the Page genuinely has no Instagram professional ...
+        Lists posts from the Instagram account a Meta ad connection can reach, so you can boost one as an ad.
+
+        Lists the media of the Instagram account this Meta connection can reach, so an existing Instagram post can be boosted without connecting the Instagram account separately. Each `posts[].id` is the existing-post id to send as `platformPostId` when creating the ad; Meta turns it into `source_instagram_media_id` on the creative. Identity resolution reuses the same resolver as `/v1/ads/instagram-accounts`. `igUserId` is always checked against the identities the connection can reach and is never trusted as sent. When no identity is reachable the endpoint fails instead of returning an empty list, and the two causes stay apart: `403 reconnect_required` means the connection predates Instagram access (Meta then omits `instagram_business_account` from the Page read rather than erroring, so it looks identical to having no data) and the account must be reconnected granting Instagram access, ...
 
         Platforms: meta
 
@@ -2546,6 +2556,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List advertisable apps
 
+        Lists the mobile apps a Meta ad account can promote, with their platforms and store links, for app install campaigns.
+
         Lists applications available to a Meta ad account, their supported platforms and unmodified object store URLs. A listed app still needs a configured mobile platform and store URL to run install promotion.
 
         Platforms: meta
@@ -2575,7 +2587,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get iOS 14 campaign limits
 
-        Reads Meta iOS 14 campaign limits for an application on an ad account. applicationId is sent as Meta app_id. This read does not establish that the application is configured for iOS promotion.
+        Shows Meta's iOS 14 campaign limits for an app on an ad account (it does not confirm the app is set up for iOS promotion).
+
+        applicationId is sent as Meta app_id. This read does not establish that the application is configured for iOS promotion.
 
         Platforms: meta
 
@@ -2606,6 +2620,8 @@ def register_generated_tools(mcp, _get_client):
         account_id: str, limit: int = 25, after: str | None = None
     ) -> str:
         """Businesses list
+
+        Lists the Meta business portfolios the connected user belongs to, with their verification status.
 
         Business Manager portfolios the connected Meta user belongs to (Meta's `/me/businesses`),
         rows returned verbatim (id, name, verification_status, created_time). Token-scoped, so no
@@ -2638,6 +2654,8 @@ def register_generated_tools(mcp, _get_client):
     def ad_accounts_list_meta_business_users(account_id: str, business_id: str) -> str:
         """Business users
 
+        Lists the people and system users of a Meta business portfolio, with the ids you need to assign them to Pages or ad accounts.
+
         People and system users of a Meta business portfolio, with the business-scoped ids that
         `POST /v1/ads/accounts/users` and `POST /v1/ads/page-users` take. The connected Meta
         user must be an admin of the portfolio.
@@ -2668,6 +2686,8 @@ def register_generated_tools(mcp, _get_client):
         account_id: str, page_id: str, business_id: str
     ) -> str:
         """Page users of a business
+
+        Lists the people in a business portfolio who are assigned to a Facebook Page it owns or was shared as a partner.
 
         People of a business portfolio assigned to a Facebook Page the portfolio owns or was
         granted as a partner (`POST /v1/accounts/{accountId}/business-partners` on the owner side).
@@ -2714,6 +2734,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Assign a user to a Page
 
+        Gives a person in your business portfolio tasks on a Facebook Page, such as advertising, so they can run ads for it.
+
         Gives a person of the portfolio tasks on a Page the portfolio owns or was granted as a
         partner. Meta does not assign partner admins automatically, so after an owner shares a
         Page the partner calls this for the people whose tokens will advertise for it.
@@ -2754,6 +2776,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Remove a user from a Page
 
+        Removes a person's access to a Facebook Page assigned through your business portfolio.
+
         Platforms: meta
 
         Args:
@@ -2786,7 +2810,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List ad labels
 
-        Lists the organizational labels on an ad account.
+        Lists the labels used to organise campaigns and ads in an ad account.
 
         - **Meta**: pass `adAccountId=act_<n>`. Rows are Meta's `/act_X/adlabels` returned verbatim
           (id, name, created/updated time), paginated with `limit` / `after`.
@@ -2834,7 +2858,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create a Google Ads label
 
-        Creates a label on a Google Ads customer. Attach it to campaigns, ad groups, ads and
+        Creates a Google Ads label you can then attach to campaigns, ad groups, ads and keywords to organize and filter them.
+
+        Attach it to campaigns, ad groups, ads and
         keywords with `POST /v1/ads/labels/{labelId}/assignments`. Label names are unique per
         customer; a duplicate is a 400.
 
@@ -2880,7 +2906,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update a Google Ads label
 
-        Changes the name, color or description of a label. Only the fields sent are written.
+        Changes a Google Ads label's name, color or description.
+
+        Only the fields sent are written.
 
         Platforms: google
 
@@ -2923,7 +2951,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Remove a Google Ads label
 
-        Removes the label. Google drops it from every campaign, ad group, ad and keyword it was attached to.
+        Deletes a Google Ads label and removes it from everything it was attached to.
+
+        Google drops it from every campaign, ad group, ad and keyword it was attached to.
 
         Platforms: google
 
@@ -2963,6 +2993,8 @@ def register_generated_tools(mcp, _get_client):
         keyword_ids: list[str] | None = None,
     ) -> str:
         """Attach a Google Ads label
+
+        Attaches a Google Ads label to campaigns, ad groups, ads and keywords in one call, skipping any that already have it.
 
         Attaches the label to campaigns, ad groups, ads and keywords (Google CampaignLabel,
         AdGroupLabel, AdGroupAdLabel and AdGroupCriterionLabel) in one mutate. Idempotent: a
@@ -3018,7 +3050,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Detach a Google Ads label
 
-        Removes the label from the given targets. Idempotent; a target without the label is counted in `unchanged`. Fields go in the query string. A JSON body with the same fields is also accepted and, when sent, the query string is ignored.
+        Removes a Google Ads label from the campaigns, ad groups, ads or keywords you name, skipping any that do not have it.
+
+        Idempotent; a target without the label is counted in `unchanged`. Fields go in the query string. A JSON body with the same fields is also accepted and, when sent, the query string is ignored.
 
         Platforms: google
 
@@ -3063,6 +3097,8 @@ def register_generated_tools(mcp, _get_client):
         after: str | None = None,
     ) -> str:
         """List high-demand periods
+
+        Lists the scheduled budget increases set on a Meta campaign or ad set.
 
         Scheduled budget increases (Meta's budget-scheduling API). The Graph edge lives on the
         campaign and ad-set nodes only, so exactly one of `campaignId` / `adSetId` (platform
@@ -3111,8 +3147,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Schedule a budget increase
 
-        Pre-schedule a temporary budget increase (Black Friday, a launch, a sale) instead of
-        editing the budget by hand on the day. Same target rule as the GET: exactly one of
+        Schedules a temporary budget increase on a Meta campaign or ad set for a busy period, like Black Friday or a launch.
+
+        Same target rule as the GET: exactly one of
         `campaignId` / `adSetId`.
 
         Two Meta constraints worth knowing before you call it. `timeStart` / `timeEnd` must
@@ -3163,6 +3200,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List value rule sets
 
+        Lists a Meta ad account's value rule sets, which raise or lower bids for audience segments you value differently.
+
         Lists the ad account's value rule sets (Meta's `/act_X/value_rule_set`). A value rule
         set adjusts the auction bid up or down for audience segments you value differently;
         attach one to an ad set with `valueRuleSetId` on `POST /v1/ads/create` or
@@ -3179,7 +3218,7 @@ def register_generated_tools(mcp, _get_client):
         order that is stored and returned.
 
         Eligibility: value rule sets apply only to ad sets on the `LOWEST_COST_WITHOUT_CAP`
-        (auto-bid) or `COST_CAP` bid strategies. Meta rejects the rest server-side.
+        (auto-bid) or `COST_CAP` bid ...
 
         Platforms: meta
 
@@ -3216,6 +3255,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create a value rule set
 
+        Creates a Meta value rule set that raises or lowers bids for chosen audience segments, ready to attach to ad sets.
+
         Creates a value rule set on the ad account (Meta's `POST /act_X/value_rule_set`).
         Attach the returned id to an ad set with `valueRuleSetId` on `POST /v1/ads/create` or
         `PUT /v1/ads/ad-sets/{adSetId}`.
@@ -3231,9 +3272,7 @@ def register_generated_tools(mcp, _get_client):
         order). Every type is the literal `\"NONE\"` except on `LOCATION`, which uses
         `LOCATION_COUNTRY` / `LOCATION_REGION` / `LOCATION_CITY` / `LOCATION_COMSCORE_MARKET`
         and may mix them within one criterion. Location values are Targeting-Search keys: a
-        two-letter country code for `LOCATION_COUNTRY`, a numeric key for the rest.
-
-        `LOCATION_DMA` was replaced by `LOCATION_COMSCORE_MARKET` ...
+        two-letter country ...
 
         Platforms: meta
 
@@ -3264,6 +3303,8 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_accounts_get_value_rule_set(value_rule_set_id: str, account_id: str) -> str:
         """Read a value rule set
+
+        Shows one Meta value rule set with all its rules and criteria, the first step before editing it.
 
         Reads one value rule set including every nested rule id and criterion id. This is step
         one of any edit: `PUT` is a full replace, so you need the ids before you can keep the
@@ -3302,6 +3343,8 @@ def register_generated_tools(mcp, _get_client):
         rules: list[dict[str, Any]] | None,
     ) -> str:
         """Replace a value rule set
+
+        Replaces a Meta value rule set with the rules you send, so any rule left out is deleted.
 
         **THIS IS A FULL REPLACE, NOT A PATCH.** Meta's update is declarative: the body you
         send becomes the rule set.
@@ -3352,6 +3395,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Delete a value rule set
 
+        Deletes a Meta value rule set (detach it from ad sets first, since they are not changed here).
+
         Deletes the rule set (Meta's `POST /{value-rule-set-id}/delete_rule_set`, a custom
         action edge rather than an HTTP DELETE on its side). Ad sets pointing at it are not
         modified here; detach them first with `valueRulesApplied: false` on
@@ -3392,10 +3437,13 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
     ) -> str:
         """List negative keyword lists
+
+        Lists the shared negative keyword lists in a Google Ads account, which you can apply to many campaigns at once.
 
         Google Ads shared negative keyword lists (shared_set type NEGATIVE_KEYWORDS). Reads are cached for 10 minutes; quota exhaustion may return the last successful result for up to 7 days with stale=true. Customer selection is limited to this connection and its account scope.
 
@@ -3440,11 +3488,14 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
         keywords: list[Any] | None = None,
     ) -> str:
         """Create a negative keyword list
+
+        Creates a shared Google Ads negative keyword list, optionally with starting keywords; it is not attached to any campaign yet.
 
         Creates one Google Ads shared negative keyword list with optional initial keywords in a single atomic mutation. Daily quota is reserved for every mutate item, so large batches may return 429 before any change. This operation is not idempotent. The list is not attached to any campaign.
 
@@ -3493,10 +3544,13 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
     ) -> str:
         """Get a negative keyword list
+
+        Shows one shared Google Ads negative keyword list with all of its keywords.
 
         Google Ads shared negative keyword lists (shared_set type NEGATIVE_KEYWORDS). Reads are cached for 10 minutes; quota exhaustion may return the last successful result for up to 7 days with stale=true. Customer selection is limited to this connection and its account scope. Includes the keywords and their criterion ids.
 
@@ -3544,12 +3598,15 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
     ) -> str:
         """Rename a negative keyword list
 
-        Renames a shared negative keyword list. Keywords and campaign associations are unchanged. Use the keywords endpoint to edit the desired keyword set.
+        Renames a shared Google Ads negative keyword list without changing its keywords or the campaigns using it.
+
+        Keywords and campaign associations are unchanged. Use the keywords endpoint to edit the desired keyword set.
 
         Platforms: google
 
@@ -3596,12 +3653,15 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
     ) -> str:
         """Delete a negative keyword list
 
-        Removes the Google shared negative keyword list. Detach it from all campaigns first; an in-use list is rejected. Only NEGATIVE_KEYWORDS shared sets are supported.
+        Deletes a shared Google Ads negative keyword list; detach it from every campaign first.
+
+        Detach it from all campaigns first; an in-use list is rejected. Only NEGATIVE_KEYWORDS shared sets are supported.
 
         Platforms: google
 
@@ -3647,12 +3707,15 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
     ) -> str:
         """Replace negative list keywords
 
-        Replaces the full desired keyword set. Existing keywords are diffed by normalized text and match type; creates and removals are applied atomically in one mutation. Unchanged criteria retain their ids. Send an empty keywords array to clear the list. Changes affect every campaign using this list. Each create or removal consumes one daily operation; the entire batch must fit the remaining quota.
+        Replaces all keywords in a shared Google Ads negative keyword list (or clears it), affecting every campaign that uses the list.
+
+        Existing keywords are diffed by normalized text and match type; creates and removals are applied atomically in one mutation. Unchanged criteria retain their ids. Send an empty keywords array to clear the list. Changes affect every campaign using this list. Each create or removal consumes one daily operation; the entire batch must fit the remaining quota.
 
         Platforms: google
 
@@ -3692,7 +3755,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List account callouts
 
-        Lists directly attached Google assets. Fresh reads are cached for 10 minutes; exhausted quota may return the last successful read with stale=true. Inherited assets are not included. Preserves Google RMF C.75 account-level callouts.
+        Lists the callouts attached at account level in Google Ads, which can show on ads across all campaigns.
+
+        Fresh reads are cached for 10 minutes; exhausted quota may return the last successful read with stale=true. Inherited assets are not included. Preserves Google RMF C.75 account-level callouts.
 
         Platforms: google
 
@@ -3726,6 +3791,8 @@ def register_generated_tools(mcp, _get_client):
         customer_id: str | None = None,
     ) -> str:
         """Add account callouts
+
+        Creates callouts and attaches them at account level in Google Ads so they can show on ads across all campaigns.
 
         Creates assets and customer_asset links for this Google customer. Links apply at account level.
 
@@ -3764,7 +3831,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update account callouts
 
-        Edits existing Google assets in place. Send updates with assetResourceName and the fields to change. An asset is shared: changes affect every attachment using it. Omitted fields stay unchanged. The operation consumes the Google operations budget and invalidates affected cached lists.
+        Edits existing Google Ads callouts in place; the change applies everywhere that callout is used.
+
+        Send updates with assetResourceName and the fields to change. An asset is shared: changes affect every attachment using it. Omitted fields stay unchanged. The operation consumes the Google operations budget and invalidates affected cached lists.
 
         Platforms: google
 
@@ -3800,6 +3869,8 @@ def register_generated_tools(mcp, _get_client):
         customer_id: str | None = None,
     ) -> str:
         """Remove account callout
+
+        Detaches a callout from the Google Ads account level, leaving it on any campaigns or ad groups that still use it.
 
         Removes the customer_asset attachment only. The underlying shared asset and its campaign or ad-group attachments remain. Fields go in the query string. A JSON body with the same fields is also accepted and, when sent, the query string is ignored.
 
@@ -3837,7 +3908,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List account sitelinks
 
-        Lists directly attached Google assets. Fresh reads are cached for 10 minutes; exhausted quota may return the last successful read with stale=true. Inherited assets are not included.
+        Lists the sitelinks attached at account level in Google Ads, which can show on ads across all campaigns.
+
+        Fresh reads are cached for 10 minutes; exhausted quota may return the last successful read with stale=true. Inherited assets are not included.
 
         Platforms: google
 
@@ -3871,6 +3944,8 @@ def register_generated_tools(mcp, _get_client):
         customer_id: str | None = None,
     ) -> str:
         """Add account sitelinks
+
+        Creates sitelinks and attaches them at account level in Google Ads so they can show on ads across all campaigns.
 
         Creates assets and customer_asset links for this Google customer. Links apply at account level.
 
@@ -3909,7 +3984,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update account sitelinks
 
-        Edits existing Google assets in place. Send updates with assetResourceName and the fields to change. An asset is shared: changes affect every attachment using it. Omitted fields stay unchanged. The operation consumes the Google operations budget and invalidates affected cached lists.
+        Edits existing Google Ads sitelinks in place; the change applies everywhere that sitelink is used.
+
+        Send updates with assetResourceName and the fields to change. An asset is shared: changes affect every attachment using it. Omitted fields stay unchanged. The operation consumes the Google operations budget and invalidates affected cached lists.
 
         Platforms: google
 
@@ -3945,6 +4022,8 @@ def register_generated_tools(mcp, _get_client):
         customer_id: str | None = None,
     ) -> str:
         """Remove account sitelink
+
+        Detaches a sitelink from the Google Ads account level, leaving it on any campaigns or ad groups that still use it.
 
         Removes the customer_asset attachment only. The underlying shared asset and its campaign or ad-group attachments remain. Fields go in the query string. A JSON body with the same fields is also accepted and, when sent, the query string is ignored.
 
@@ -3982,7 +4061,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List account snippets
 
-        Lists directly attached Google assets. Fresh reads are cached for 10 minutes; exhausted quota may return the last successful read with stale=true. Inherited assets are not included.
+        Lists the structured snippets attached at account level in Google Ads, which can show on ads across all campaigns.
+
+        Fresh reads are cached for 10 minutes; exhausted quota may return the last successful read with stale=true. Inherited assets are not included.
 
         Platforms: google
 
@@ -4016,6 +4097,8 @@ def register_generated_tools(mcp, _get_client):
         customer_id: str | None = None,
     ) -> str:
         """Add account snippets
+
+        Creates structured snippets and attaches them at account level in Google Ads so they can show on ads across all campaigns.
 
         Creates assets and customer_asset links for this Google customer. Links apply at account level.
 
@@ -4054,7 +4137,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update account snippets
 
-        Edits existing Google assets in place. Send updates with assetResourceName and the fields to change. An asset is shared: changes affect every attachment using it. Omitted fields stay unchanged. The operation consumes the Google operations budget and invalidates affected cached lists.
+        Edits existing Google Ads structured snippets in place; the change applies everywhere that snippet is used.
+
+        Send updates with assetResourceName and the fields to change. An asset is shared: changes affect every attachment using it. Omitted fields stay unchanged. The operation consumes the Google operations budget and invalidates affected cached lists.
 
         Platforms: google
 
@@ -4090,6 +4175,8 @@ def register_generated_tools(mcp, _get_client):
         customer_id: str | None = None,
     ) -> str:
         """Remove account snippet
+
+        Detaches a structured snippet from the Google Ads account level, leaving it on any campaigns or ad groups that still use it.
 
         Removes the customer_asset attachment only. The underlying shared asset and its campaign or ad-group attachments remain. Fields go in the query string. A JSON body with the same fields is also accepted and, when sent, the query string is ignored.
 
@@ -4127,7 +4214,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get manager account hierarchy
 
-        Live manager (MCC) and client tree for a Google Ads connection. Starts from every customer the Google user behind the connection can access directly and walks each tree to any depth with `customer_client`, then reads each manager's own client links so every client carries its direct parent, the `managerLinkId` and the link status. Invitations a manager sent that the client has not accepted yet appear as clients with `linkStatus: PENDING` (Google returns no name or currency for them). Refused, canceled and ended links are history and are omitted. `managerLinks` on a root lists the managers linked to that account, including invitations it can still accept with PATCH /v1/ads/accounts/manager-links. A directly accessible account that is also nested in another tree appears only once, inside that tree. `directCustomers` lists every account the Google user accesses directly (the ones this connection can accept or decline invitations for) with their pending invitations, including accounts ...
+        Shows the Google Ads manager (MCC) and client account tree for a connection, including pending invitations and link status.
+
+        Live manager (MCC) and client tree for a Google Ads connection. Starts from every customer the Google user behind the connection can access directly and walks each tree to any depth with `customer_client`, then reads each manager's own client links so every client carries its direct parent, the `managerLinkId` and the link status. Invitations a manager sent that the client has not accepted yet appear as clients with `linkStatus: PENDING` (Google returns no name or currency for them). Refused, canceled and ended links are history and are omitted. `managerLinks` on a root lists the managers linked to that account, including invitations it can still accept with PATCH /v1/ads/accounts/manager-links. A directly accessible account that is also nested in another tree appears only once, inside that tree. `directCustomers` lists every account the Google user accesses ...
 
         Platforms: google
 
@@ -4161,6 +4250,8 @@ def register_generated_tools(mcp, _get_client):
         validate_only: bool = False,
     ) -> str:
         """Invite a client account to a manager
+
+        Invites a Google Ads account to be managed by one of your manager accounts; the link stays pending until the client accepts.
 
         Sends a manager-to-client link invitation from `managerCustomerId` to `clientCustomerId` (Google's CustomerClientLinkService). The manager must be one the connection's Google user reaches, directly or under another manager (see GET /v1/ads/accounts/hierarchy); the client can be any Google Ads account. The link stays `PENDING` until someone with access to the client accepts it in Google Ads or through PATCH on this path. Not idempotent: Google refuses a second invitation while one is pending. Send `validateOnly: true` to have Google check the request without sending anything.
 
@@ -4201,6 +4292,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Accept, decline, cancel or end a manager link
 
+        Accepts, declines or cancels a Google Ads manager invitation, or ends an existing manager-client link.
+
         Changes one manager-client link, identified by `managerCustomerId`, `clientCustomerId` and `managerLinkId` (all from GET /v1/ads/accounts/hierarchy). `accept` and `decline` answer a pending invitation as the client (CustomerManagerLinkService), so the connection's Google user needs direct access to the client account; access through a manager is not enough, because the link does not exist yet. `cancel` withdraws a pending invitation and `unlink` ends an active link, both as the manager (CustomerClientLinkService). Send `validateOnly: true` to have Google check the change without applying it.
 
         Platforms: google
@@ -4239,7 +4332,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Ad account users
 
-        People of a business portfolio assigned to a Meta ad account, with their tasks.
+        Lists the people in a business portfolio assigned to a Meta ad account, with what each can do.
+
         Ids are business-scoped user ids (see `GET /v1/ads/businesses/users`).
 
         Platforms: meta
@@ -4275,7 +4369,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Assign a user to an ad account
 
-        Gives a person of the portfolio tasks on the ad account. `MANAGE` is admin, `ADVERTISE`
+        Gives a person in your business portfolio access to a Meta ad account, as admin, advertiser, analyst or draft editor.
+
+        `MANAGE` is admin, `ADVERTISE`
         creates and edits ads, `ANALYZE` reads reports, `DRAFT` edits drafts only. Assigning an
         already assigned user replaces their task set.
 
@@ -4311,6 +4407,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Remove a user from an ad account
 
+        Removes a person's access to a Meta ad account assigned through your business portfolio.
+
         Platforms: meta
 
         Args:
@@ -4336,6 +4434,8 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_accounts_get_ad_account_finance(account_id: str, ad_account_id: str) -> str:
         """Ad account finances
+
+        Shows a Meta ad account's balance, total spend, spend cap and funding source.
 
         Finances of one Meta ad account: prepaid `balance`, lifetime `amountSpent`, account
         `spendCap` (null = no cap) and the `fundingSource`. Money values are converted from
@@ -4373,6 +4473,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Read an ad account's campaigns and ad sets live
 
+            Reads an ad account's campaigns and ad sets straight from Meta or TikTok, so checks like budget limits see current values.
+
             Reads the campaigns and ad sets of one Meta ad account or TikTok advertiser **live from
             the platform**, so it is cheap enough to run before every write: for example a
             per-ad-account spend ceiling that must see the current daily / lifetime budget rather
@@ -4385,8 +4487,7 @@ def register_generated_tools(mcp, _get_client):
             `live=true` re-reads only the on/off switches of at most 20 objects. This endpoint returns
             what Meta reports at `readAt`, for every matching campaign and ad set, and stores nothing.
 
-            Budgets and bid amounts are in whole units of `currency`, the same units as the synced
-            rows (Meta's minor units are converted; TikTok ...
+            Budgets ...
 
             Platforms: meta, tiktok
 
@@ -4441,6 +4542,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create Meta ad account
 
+        Creates a new Meta ad account in the user's own business portfolio (a payment method must then be added in Ads Manager).
+
         Creates a durable Meta ad account in the end user's own business portfolio using
         their connected Meta Ads token. Requires an active metaads accountId, Ads access,
         business_management permission and business admin access. Discover portfolios with
@@ -4453,9 +4556,7 @@ def register_generated_tools(mcp, _get_client):
         create. Closing an account does not guarantee more capacity. An ad account cannot
         truly be deleted, even after closing it and removing it from a business.
 
-        timezoneId is Meta's numeric ID, not an IANA timezone name. Select it from
-        https://developers.facebook.com/docs/marketing-api/reference/ad-account/timezone-ids/.
-        For example, 1 is America/Los_Angeles. Meta validates ...
+        timezoneId is Meta's numeric ID, not an IANA timezone name. Select it from ...
 
         Platforms: meta
 
@@ -4511,6 +4612,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List ad accounts
 
+        Lists the ad accounts a connection can manage, such as Meta ad accounts, TikTok advertisers or Google Ads customers.
+
         Returns the platform ad accounts available for the given account (e.g. Meta ad
         accounts, TikTok advertiser IDs, Google Ads customer IDs).
         Meta business-login accounts use their own system-user token. Fresh Meta discovery
@@ -4524,9 +4627,9 @@ def register_generated_tools(mcp, _get_client):
         SocialAccount; lazy-refreshed on first call after expiry.
 
         For Google Ads: responds `429` when Google's API quota is temporarily exhausted
-        (instead of an empty list). Retry after a delay.
+        (instead of an empty list). Retry ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
             account_id: Account ID (required)
@@ -4562,8 +4665,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update ad account settings
 
-        Updates a Meta ad account in place: its name, its account-level spend cap, and its
-        default DSA beneficiary and payor. Pass any combination of fields.
+        Changes a Meta ad account's name, spend cap or default EU DSA beneficiary and payor.
+
+        Pass any combination of fields.
 
         **Spend cap.** `spendCap` is the total the account may spend before Meta pauses every
         campaign in it, in whole units of the account currency. `spendCap: null` removes the
@@ -4577,7 +4681,7 @@ def register_generated_tools(mcp, _get_client):
         `/v1/ads/ctwa` on that ad account can omit `dsaBeneficiary`/`dsaPayor`: Meta applies
         the defaults automatically.
 
-        The values are written to the ad account on Meta, the same ...
+        The values are written to the ad account on Meta, the same setting Ads Manager edits. ...
 
         Platforms: meta, google
 
@@ -4619,6 +4723,8 @@ def register_generated_tools(mcp, _get_client):
     def ad_accounts_get_dsa_defaults(account_id: str, ad_account_id: str) -> str:
         """Get ad account DSA defaults
 
+        Shows the default EU DSA beneficiary and payor set on a Meta ad account.
+
         Returns the default DSA beneficiary and payor currently set on a Meta ad account,
         whether they were set via `PATCH /v1/ads/accounts` or in Meta Ads Manager. Fields
         are omitted when no default is configured. Meta accounts only.
@@ -4647,6 +4753,8 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_accounts_get_dsa_recommendations(account_id: str, ad_account_id: str) -> str:
         """Get DSA recommendations
+
+        Suggests beneficiary and payor names for a Meta ad account's EU DSA disclosures, for your user to pick from.
 
         Returns Meta's suggested beneficiary/payor names for an ad account, derived by Meta
         from the account's recent activity. Useful for prefilling `dsaBeneficiary`/`dsaPayor`
@@ -4682,6 +4790,8 @@ def register_generated_tools(mcp, _get_client):
     def ad_accounts_list_custom_conversions(account_id: str, ad_account_id: str) -> str:
         """List custom conversions
 
+        Lists a Meta ad account's custom conversions, including archived ones.
+
         The ad account's Meta custom conversions, including archived ones (`isArchived`).
 
         Platforms: meta
@@ -4715,6 +4825,8 @@ def register_generated_tools(mcp, _get_client):
         rule: dict[str, Any] | None,
     ) -> str:
         """Create custom conversion
+
+        Creates a Meta custom conversion for ads to optimise toward, reusing an existing one with the same name and pixel.
 
         Provision the Meta custom conversion an ads flow optimises toward, and hand back the
         `customConversionId` for `promotedObject.customConversionId` on POST /v1/ads/create.
@@ -4829,7 +4941,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List custom audiences
 
-        Returns custom audiences for the given ad account. Supports Meta, Google, TikTok, Pinterest, LinkedIn, and X.
+        Lists the custom audiences in an ad account so you can reuse them for targeting.
+
+        Supports Meta, Google, TikTok, Pinterest, LinkedIn, and X.
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x
 
@@ -4861,7 +4975,9 @@ def register_generated_tools(mcp, _get_client):
     def ad_audiences_create_ad_audience(body: dict[str, Any]) -> str:
         """Create custom audience
 
-        Create a custom audience. `customer_list` is supported on Meta, Google, X, LinkedIn, TikTok, and Pinterest.
+        Creates a custom audience from a customer list, website visitors, a lookalike, or people who engaged with your content.
+
+        `customer_list` is supported on Meta, Google, X, LinkedIn, TikTok, and Pinterest.
         `website` (pixel/tag visitors) and `lookalike` are supported on Meta, TikTok, Pinterest and Google.
         `meta_engagement` is Meta-only, `tiktok_engagement` TikTok-only, `pinterest_engagement` Pinterest-only;
         `company_list`, `engagement` and `website_retargeting` are LinkedIn-only. A type sent to a platform
@@ -4872,8 +4988,7 @@ def register_generated_tools(mcp, _get_client):
         - Meta: `pixelId` required, `retentionDays` 1-180, optional `urlContains` or raw `rule`. `event` is not accepted.
         - TikTok: `pixelId` required, `retentionDays` one of 7, 14, 30, 60, 90, 180. `event` is a TikTok pixel event
           (default `PAGE BROWSE`; also `CLICK BUTTON`, `PIXEL SUBMIT FORM`, `CONTACT`, `DOWNLOAD`,
-          `PIXEL ADD PAYMENT INFO`, `COMPLETE PAYMENT`, `INITIATE CHECKOUT`, `COMPLETE REGISTRATION`,
-          `PRODUCT DETAIL PAGE BROWSE`, `PIXEL SEARCH`, `PIXEL ADD TO CART`, `PLACE AN ...
+          `PIXEL ADD PAYMENT INFO`, `COMPLETE PAYMENT`, `INITIATE CHECKOUT`, `COMPLETE ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x
 
@@ -4896,6 +5011,8 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_audiences_get_ad_audience(audience_id: str) -> str:
         """Get audience details
+
+        Shows a custom audience's details, including its latest data from the ad platform when available.
 
         Returns the local audience record and fresh data from Meta (if available).
 
@@ -4926,7 +5043,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update an audience
 
-        Update an audience. `saved_targeting` audiences accept `name`, `description`, and `spec`
+        Renames or redescribes an audience, or replaces a saved targeting audience's rules; platform audience rules cannot change.
+
+        `saved_targeting` audiences accept `name`, `description`, and `spec`
         (full replacement, no merge, Zernio-only, no platform call). Platform audiences
         (uploaded/website/lookalike) accept `name` and `description` only, updated on the
         platform first and then mirrored locally; their rules are immutable, so `spec` returns
@@ -4940,7 +5059,7 @@ def register_generated_tools(mcp, _get_client):
             audience_id: (required)
             name
             description
-            spec: Full replacement for the stored targeting spec. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the other ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X and Pinterest; rejected with 400 on OpenAI. A code the ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400)."""
+            spec: Full replacement for the stored targeting spec. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from."""
         client = _get_client()
         try:
             response = client.ad_audiences.update_ad_audience(
@@ -4960,6 +5079,8 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_audiences_delete_ad_audience(audience_id: str) -> str:
         """Delete custom audience
+
+        Removes a custom audience from its ad platform (archiving it where the platform does not delete).
 
         Removes the audience on its ad platform, then deletes the Zernio record. Meta, Google, TikTok,
         LinkedIn list and engagement segments, and X are deleted; Pinterest audiences and LinkedIn
@@ -4994,7 +5115,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Add users to audience
 
-        Upload user data to a customer_list audience. Data is SHA256-hashed server-side before sending to the platform.
+        Uploads customer emails (and phone numbers on Meta) to a customer list audience, hashed before they are sent.
+
+        Data is SHA256-hashed server-side before sending to the platform.
         Email is used on every platform; phone is used on Meta only (other platforms ignore it). On TikTok and Pinterest,
         the first upload also provisions the audience (deferred create). LinkedIn uploads are full-replace. Max 10,000 users per request.
 
@@ -5095,6 +5218,7 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
         account_id: str | None = None,
@@ -5111,6 +5235,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List ads
 
+        Lists your ads with their performance over a date range, including ads created directly in each platform's ads manager.
+
         Returns a paginated list of ads with metrics computed over an optional date range.
         Use source=all to include externally-synced ads from platform ad managers.
         If no date range is provided, defaults to the last 90 days. Date range is capped at 730 days max.
@@ -5121,7 +5247,7 @@ def register_generated_tools(mcp, _get_client):
         lives on, and are also returned on each ad's `creative` object. Then call
         GET /v1/ads/{adId}/comments with the returned ad id.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
             page: Page number
@@ -5181,6 +5307,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List Google Ads recommendations
 
+        Lists Google's optimization suggestions for an ad account, with the estimated impact of each.
+
         Google's optimization recommendations for one ad account: type, estimated impact (base vs potential metrics, cost in account currency units), the campaign, ad group or budget they target, and the type-specific payload Google returns (`details`, in Google's own shape with micros). Filter by campaignId and types. Cached for 10 minutes and cleared by apply or dismiss; served stale when Google quota is exhausted.
 
         Platforms: google
@@ -5219,6 +5347,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Apply Google Ads recommendations
 
+        Applies Google's optimization suggestions to an ad account, using Google's values or your own; the changes cannot be undone.
+
         Apply up to 100 recommendations. This changes the account (budgets, bidding, keywords, assets) and is not reversible or idempotent; Google offers no validate-only mode for it. Items run in partial-failure mode, so one stale recommendation does not block the rest. `parameters` is optional and takes exactly one key named for the recommendation type, in Google's ApplyRecommendationOperation shape (for example `campaignBudget: { newBudgetAmountMicros }` or `keyword: { matchType, cpcBidMicros }`); omit it to apply Google's suggested values.
 
         Platforms: google
@@ -5252,6 +5382,8 @@ def register_generated_tools(mcp, _get_client):
         ad_account_id: str | None = None,
     ) -> str:
         """Dismiss Google Ads recommendations
+
+        Dismisses Google optimization suggestions so Google stops showing them.
 
         Dismiss up to 100 recommendations so Google stops suggesting them. Items run in partial-failure mode.
 
@@ -5288,6 +5420,8 @@ def register_generated_tools(mcp, _get_client):
         to_date: str | None = None,
     ) -> str:
         """List portfolio bid strategies
+
+        Lists a Google Ads account's shared bid strategies with how many campaigns use each and how they performed.
 
         Bidding strategy report: type, status, campaign count, clicks, cost, cost per conversion, impressions, average CPC and conversions over the date range (default last 30 days). Reads Google's `bidding_strategy` resource, cached for the quota window. Draws on the shared Google Ads operations budget. The response carries `cachedAt` and `stale`, set when a quota-exhausted call falls back to the last-good copy instead of a live read.
 
@@ -5338,7 +5472,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create portfolio bid strategy
 
-        Creates a standalone bid strategy shared across campaigns. Attach it to a campaign with `portfolioBidStrategyId` on POST /v1/ads/create, PUT /v1/ads/campaigns/{campaignId}, or PUT /v1/ads/ad-sets/{adSetId}. Attaching a strategy aligned to a shared budget fails there with a 400 (Google's `BIDDING_STRATEGY_AND_BUDGET_MUST_BE_ALIGNED`); this is not retryable.
+        Creates a Google Ads bid strategy that several campaigns can share, such as one target CPA or ROAS.
+
+        Attach it to a campaign with `portfolioBidStrategyId` on POST /v1/ads/create, PUT /v1/ads/campaigns/{campaignId}, or PUT /v1/ads/ad-sets/{adSetId}. Attaching a strategy aligned to a shared budget fails there with a 400 (Google's `BIDDING_STRATEGY_AND_BUDGET_MUST_BE_ALIGNED`); this is not retryable.
 
         Platforms: google
 
@@ -5395,7 +5531,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update portfolio bid strategy
 
-        Renames or retargets a portfolio bid strategy. The strategy's status is output only on Google's side, so it cannot be changed here; remove a strategy in Google Ads. `type` is only needed alongside `targetCpa`/`targetRoas` to disambiguate the field Google writes to (TARGET_CPA and MAXIMIZE_CONVERSIONS both take a target CPA; TARGET_ROAS and MAXIMIZE_CONVERSION_VALUE both take a target ROAS); the strategy's family is otherwise immutable once created.
+        Renames a shared Google Ads bid strategy or changes its target CPA or ROAS.
+
+        The strategy's status is output only on Google's side, so it cannot be changed here; remove a strategy in Google Ads. `type` is only needed alongside `targetCpa`/`targetRoas` to disambiguate the field Google writes to (TARGET_CPA and MAXIMIZE_CONVERSIONS both take a target CPA; TARGET_ROAS and MAXIMIZE_CONVERSION_VALUE both take a target ROAS); the strategy's family is otherwise immutable once created.
 
         Platforms: google
 
@@ -5439,6 +5577,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List shared budgets
 
+        Lists a Google Ads account's shared budgets and how many campaigns draw from each.
+
         Lists the Google Ads customer's shared campaign budgets (`campaign_budget.explicitly_shared`
         = true, not removed), with how many campaigns use each. Move a campaign onto one with
         `sharedBudgetId` on PUT /v1/ads/campaigns/{campaignId}. Google only; other platforms return 501.
@@ -5473,6 +5613,8 @@ def register_generated_tools(mcp, _get_client):
         type: Literal["daily", "lifetime"] = "daily",
     ) -> str:
         """Create a shared budget
+
+        Creates a daily Google Ads budget that several campaigns can share.
 
         Creates a daily shared campaign budget (`explicitly_shared: true`, standard delivery) that
         several campaigns can draw from. A lifetime budget returns 422, like every Google budget.
@@ -5522,6 +5664,8 @@ def register_generated_tools(mcp, _get_client):
         search: str | None = None,
     ) -> str:
         """List Search keywords
+
+        Lists the keywords and negative keywords in your Google Search ad groups.
 
         Returns the Google Search keyword criteria (positive and negative) synced from
         connected Google Ads accounts, one row per ad-group keyword. Refreshed about
@@ -5582,6 +5726,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Add Search ad-group keywords
 
+        Adds keywords, or negative keywords, to a Google Search ad group without replacing the ones already there.
+
         Adds one or more keyword criteria to an existing Google Search ad group,
         without touching the keywords already there (unlike the whole-set diff on
         `PUT /v1/ads/{adId}`, `keywords`/`negativeKeywords` in `platformSpecificData`,
@@ -5620,6 +5766,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Pause or enable a Search keyword
 
+        Pauses or re-enables a single Google Search keyword.
+
         Changes `ad_group_criterion.status` for one keyword criterion (M.140).
         Negative keywords have no status on Google and cannot be paused or enabled.
 
@@ -5647,6 +5795,8 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_campaigns_remove_ad_keyword(keyword_id: str) -> str:
         """Remove a Search keyword
+
+        Removes a single keyword or negative keyword from a Google Search ad group.
 
         Removes one keyword criterion (positive or negative) from its ad group (M.140).
 
@@ -5683,6 +5833,7 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
         status: Literal[
@@ -5707,6 +5858,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List campaigns
 
+        Lists your campaigns with spend, impressions and clicks summed across their ads, plus each campaign's status and budget.
+
         Returns campaigns as virtual aggregations over ad documents grouped by platform campaign ID.
         Metrics (spend, impressions, clicks, etc.) are summed across all ads in each campaign.
         Campaign status is derived from child ad statuses (active > pending_review > paused > error > completed > cancelled > rejected).
@@ -5717,10 +5870,9 @@ def register_generated_tools(mcp, _get_client):
         and `platformCampaignStatus` are the values Zernio last stored. Background sync refreshes
         them, typically within 15 to 60 minutes (Google up to about 3 hours), and ended or
         long-paused objects may be refreshed less often. Zernio's own status writes re-read the
-        switches they change. A change made in the platform's own ads manager therefore shows up
-        here only after the next sync. Controllers that act on a switch should pass ...
+        switches they change. A change made in the ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
             include_empty: Meta only. Campaign reads aggregate over ad documents, so a campaign with ZERO ads is normally invisible here, the state the two-step create (campaign, then ads via `existingCampaignId`) leaves behind whenever Meta rejects the ad step. Set true to list those too, with `adCount: 0` and zeroed metrics. Requires `accountId` and `adAccountId`, since an empty campaign has no ad row to resolve a token or ad account from.
@@ -5805,6 +5957,8 @@ def register_generated_tools(mcp, _get_client):
         budget_amount: float | None = None,
         budget_type: Literal["daily", "lifetime"] | None = None,
         status: Literal["ACTIVE", "PAUSED"] = "PAUSED",
+        start_date: str | None = None,
+        end_date: str | None = None,
         location_targeting_type: Literal["presence", "presence_or_interest"]
         | None = None,
         bid_strategy: Literal[
@@ -5823,6 +5977,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create a standalone campaign
 
+        Creates an empty campaign, paused, so you can add ad sets and ads to it afterwards.
+
         Creates a campaign WITHOUT its first ad set / ad, on the platform of the given
         `accountId`. Ad sets join it later via `existingCampaignId` on the create endpoints.
         Platform notes: on Meta a budget here is campaign-level (CBO) by definition; omit it
@@ -5831,14 +5987,12 @@ def register_generated_tools(mcp, _get_client):
         accepts `portfolioBidStrategyId` instead. Google, X and OpenAI require a budget
         (422 without one; OpenAI accepts daily or lifetime, Google only
         `budgetType: daily`). On OpenAI `goal` sets the campaign objective, and
-        `conversions` needs an active standard conversion event on the account. LinkedIn creates the
-        campaign GROUP (our campaign level) and rejects a budget, which lives on the
-        campaign (ad set) level there; it comes back `status: DRAFT`. Created `PAUSED`
-        (TikTok `DISABLE`) unless `status: ACTIVE` where the platform supports it.
+        `conversions` needs an active standard conversion event on the account. On Reddit
+        `goal` is one of traffic, awareness, conversions, video_views or lead_generation
+        (422 otherwise) and the budget is optional: with one, the campaign uses Reddit's
+        campaign budget optimization and ...
 
-        **Idempotency:** send an ...
-
-        Platforms: meta, google, linkedin, tiktok, x, pinterest, openai
+        Platforms: meta, google, linkedin, tiktok, x, pinterest, openai, reddit
 
         Args:
             account_id: Zernio SocialAccount id (posting or ads variant); its platform decides where the campaign is created. (required)
@@ -5853,6 +6007,8 @@ def register_generated_tools(mcp, _get_client):
             budget_amount: Campaign-level (CBO) budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Requires budgetType.
             budget_type
             status
+            start_date: Reddit only (400 elsewhere). Campaign start (ISO 8601); a value without an offset is read in the ad account time zone. Requires a campaign budget (`budgetAmount` + `budgetType`, 400 otherwise). Defaults to now.
+            end_date: Reddit only (400 elsewhere). Campaign end (ISO 8601); a value without an offset is read in the ad account time zone. Requires a campaign budget (400 otherwise), and is required for `budgetType: lifetime`.
             location_targeting_type: Google only (400 elsewhere). Written on the new campaign.
             bid_strategy: Campaign bid strategy. Meta stores `bid_strategy` alongside the budget, so this REQUIRES `budgetAmount` + `budgetType` on the same request; sending it without a campaign budget is a 400. A campaign carrying a strategy without its `bid_amount` makes every ad set created under it fail with an error that names the ad set (code 100, subcode 1815857), so the bad state is rejected up front rather than accepted. To bid at ad-set level on Meta, set the strategy there instead. On Google: LOWEST_COST_WITHOUT_CAP = Maximize Conversions, COST_CAP + bidAmount = Target CPA, LOWEST_COST_WITH_MIN_ROAS + roasAverageFloor = Target ROAS, LOWEST_COST_WITH_BID_CAP + bidAmount = Maximize Clicks with a CPC ceiling; portfolioBidStrategyId attaches a portfolio strategy instead.
             bid_amount: Whole currency units (USD: 5 = $5.00). Required for LOWEST_COST_WITH_BID_CAP and COST_CAP; ignored otherwise. On Meta, validated here but NOT stored: the campaign object has no bid_amount field, only bid_strategy lives on it, and the amount takes effect once an ad set joins this campaign (existingCampaignId on POST /v1/ads/create) and supplies its own bidAmount there. On Google, stored directly on the campaign's bidding strategy.
@@ -5876,6 +6032,8 @@ def register_generated_tools(mcp, _get_client):
                 budget_amount=budget_amount,
                 budget_type=budget_type,
                 status=status,
+                start_date=start_date,
+                end_date=end_date,
                 location_targeting_type=location_targeting_type,
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
@@ -5909,9 +6067,12 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ],
     ) -> str:
         """Pause or resume a campaign
+
+        Pauses or resumes a campaign, leaving the on/off switches of its ad sets and ads as they are.
 
         Writes the campaign's own on/off switch and nothing else, on every platform (Meta, TikTok,
         Google, LinkedIn campaign group, Pinterest, X, ChatGPT (OpenAI)). Its ad sets and ads keep
@@ -5924,10 +6085,9 @@ def register_generated_tools(mcp, _get_client):
         live read shows it already in the requested state nothing is written (`updated: 0`,
         `skipped: 1`, with the reason). Otherwise the switch is written (`updated: 1`), read back and
         stored, and the delivery status of the ads under it (up to 20) is re-read and stored, so an
-        immediate GET returns what the platform now reports. A stored switch never skips a write, and
-        when the platform cannot be ...
+        immediate GET returns what the ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
 
         Args:
             campaign_id: Platform campaign ID (required)
@@ -5959,6 +6119,8 @@ def register_generated_tools(mcp, _get_client):
         to_date: str | None = None,
     ) -> str:
         """Read a campaign's ad schedule (dayparting)
+
+        Shows the days and hours a Google campaign runs and its bid adjustments, optionally with performance by day and hour.
 
         The windows a Google campaign serves in, with the bid modifier on each, plus the
         criterion ids Google minted for them.
@@ -6010,7 +6172,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Replace a campaign's ad schedule (dayparting)
 
-        Replaces the campaign's whole ad schedule with the windows you send. This is a
+        Replaces the days and hours a Google campaign runs, or clears them so it serves around the clock.
+
+        This is a
         REPLACE, not a merge: windows you leave out stop serving.
 
         Send `schedule: []` to clear dayparting, which returns the campaign to serving around
@@ -6027,7 +6191,7 @@ def register_generated_tools(mcp, _get_client):
 
         Google cannot edit an ad schedule in place (every AdScheduleInfo field is prohibited on
         update), so this removes the live criteria and creates the new ones in a single atomic
-        mutate. The response is read back from ...
+        mutate. The ...
 
         Platforms: google
 
@@ -6060,6 +6224,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Read a campaign's current bidding
 
+        Shows a Google campaign's current bidding strategy and targets, ready to prefill an edit.
+
         Read of the campaign's bidding strategy on Google, cached for the quota window, for
         pre-filling the bid strategy block before a PUT to /v1/ads/campaigns/{campaignId}.
         Google Ads only; `platform` is required and rejected when it is anything else, since
@@ -6072,7 +6238,7 @@ def register_generated_tools(mcp, _get_client):
         + `roasAverageFloor` (Target ROAS), `LOWEST_COST_WITH_BID_CAP` + `bidAmount` (Maximize Clicks with
         a CPC ceiling). A campaign on a portfolio strategy returns `portfolio` (id + name) and
         `bidSpec.portfolioBidStrategyId` instead of the triplet. Anything else (Manual CPC, Target
-        Impression Share, ...) returns `bidSpec: null`; show `biddingStrategyType` as-is.
+        Impression ...
 
         Platforms: google
 
@@ -6108,6 +6274,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get live campaign details
 
+        Shows a Meta campaign's current settings straight from Meta, such as its objective, budget, bid strategy, schedule and delivery issues.
+
         Reads one campaign live from Meta, returned verbatim, so a caller that knows a
         campaign id no longer has to page `GET /v1/ads/campaigns` to find it. The default
         projection covers name, status, objective, buying type, bid strategy, budgets,
@@ -6140,7 +6308,17 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_campaigns_update_ad_campaign(
         campaign_id: str,
-        platform: Literal["facebook", "instagram", "google"],
+        platform: Literal[
+            "facebook",
+            "instagram",
+            "tiktok",
+            "linkedin",
+            "pinterest",
+            "google",
+            "twitter",
+            "openai",
+            "reddit",
+        ],
         account_id: str | None = None,
         bid_strategy: Literal[
             "LOWEST_COST_WITHOUT_CAP",
@@ -6165,7 +6343,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update a campaign
 
-        Campaign-level edits. Send at least one of `budget`, `bidStrategy`,
+        Changes a campaign's settings, such as its name, budget, bidding or tracking URLs.
+
+        Send at least one of `budget`, `bidStrategy`,
         `portfolioBidStrategyId`, `targetImpressionShare`, `manualCpc`, `networkSettings`,
         `trackingUrlTemplate`, `finalUrlSuffix`, `sharedBudgetId`, `name` or `platformSpecificData`. An unsupported
         field is always an error, never a silent drop.
@@ -6180,12 +6360,11 @@ def register_generated_tools(mcp, _get_client):
         | `networkSettings` | 400 | Search only | 400 |
         | `trackingUrlTemplate`, `finalUrlSuffix` | 400 | Yes | 400 |
         | `sharedBudgetId` | 400 | Yes | 400 |
-        | `budget` (CBO; ABO returns 409) | Yes | Daily only | OpenAI: daily or lifetime; others 501 |
-        | `name` | Yes | 501 | 501 |
-        | `platformSpecificData.spendCap` | Yes | 400 | 400 |
-        | `accountId` (empty campaigns) | Yes | - | - | ...
+        | `budget` (CBO; ABO returns 409) | Yes | Daily only | OpenAI and Reddit: daily or lifetime; others 501 |
+        | `name` | Yes | 501 | Reddit: Yes; others 501 |
+        | ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
 
         Args:
             campaign_id: Platform campaign ID (required)
@@ -6202,8 +6381,8 @@ def register_generated_tools(mcp, _get_client):
             tracking_url_template: **Google only.** campaign.tracking_url_template; an empty string clears it.
             final_url_suffix: **Google only.** campaign.final_url_suffix; an empty string clears it.
             shared_budget_id: **Google only.** Move the campaign onto this shared budget (id from GET /v1/ads/shared-budgets), or null to move it back onto a budget of its own sized by `budget`.
-            budget: Meta CBO, Google daily, or OpenAI Ads daily or lifetime campaign budget, in whole currency units. Object with keys: amount (number, required) - Budget amount in the ad account's currency; type (one of: daily, lifetime; required)
-            name: **Meta only.** Rename the campaign.
+            budget: Meta CBO, Google daily, or OpenAI Ads or Reddit Ads daily or lifetime campaign budget, in whole currency units. Object with keys: amount (number, required) - Budget amount in the ad account's currency; type (one of: daily, lifetime; required)
+            name: **Meta and Reddit.** Rename the campaign.
             platform_specific_data: **Meta only.** Platform implied by the `platform` body param, same convention as POST /v1/ads/create. Object with keys: spendCap (number or null) - Campaign lifetime spend cap, in the ad account's currency (Meta `spend_cap`). Pass null to remove the cap; 0 is rejected by Meta."""
         client = _get_client()
         try:
@@ -6240,33 +6419,54 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_campaigns_delete_ad_campaign(
         campaign_id: str,
-        platform: Literal["facebook", "instagram", "google"],
+        platform: Literal[
+            "facebook",
+            "instagram",
+            "tiktok",
+            "linkedin",
+            "pinterest",
+            "google",
+            "twitter",
+            "openai",
+            "reddit",
+        ],
         account_id: str | None = None,
+        ad_account_id: str | None = None,
     ) -> str:
         """Delete a campaign
 
-        Deletes the whole campaign on the platform, cascading to its ad sets
-        and ads. Locally, all Ad documents for this campaign are marked
+        Deletes a campaign along with all of its ad sets and ads, including a campaign that never got any ads.
+
+        Locally, all Ad documents for this campaign are marked
         `status: cancelled`.
 
         **Empty campaigns.** A campaign with zero ads has no local Ad documents
         to resolve, so it is invisible to `/v1/ads/tree` and this endpoint would
         404. That state is produced by the two-step create flow (campaign, then
         ads via `existingCampaignId`) whenever Meta rejects the ad step. To
-        delete such a shell, send `accountId` in the body: we skip the local
-        lookup entirely and forward the delete to Meta. `accountId` is ignored
-        when the campaign does have ads.
+        delete such a shell, send `accountId` in the body or the query string:
+        we skip the local lookup entirely and forward the delete to Meta, or to
+        X when `accountId` is an X or X Ads connection. On X the ad account comes
+        from the synced campaign, which wins over `adAccountId`; when the campaign
+        was never synced, send `adAccountId` too. Before deleting, Zernio asks X
+        whether the campaign still holds undeleted line items (ads not synced
+        yet); if it does the answer is 409 `invalid_field_value` on `campaignId`
+        and nothing is deleted. ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
 
         Args:
             campaign_id: Platform campaign ID (required)
             platform: (required)
-            account_id: Zernio SocialAccount id owning the ad account. Required only to delete an EMPTY campaign (zero ads), which has no local Ad documents to resolve a token from."""
+            account_id: Zernio SocialAccount id owning the ad account. Required only to delete an EMPTY campaign (zero ads), which has no local Ad documents to resolve a token from.
+            ad_account_id: X only, for an EMPTY campaign that was never synced: the X ad account id the campaign belongs to (lowercase letters and digits). The synced campaign's ad account wins when there is one. Also accepted on the query string."""
         client = _get_client()
         try:
             response = client.ad_campaigns.delete_ad_campaign(
-                campaign_id=campaign_id, platform=platform, account_id=account_id
+                campaign_id=campaign_id,
+                platform=platform,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -6291,10 +6491,13 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
     ) -> str:
         """List campaign-level negative keywords
+
+        Lists the negative keywords set on a whole Google campaign, separate from ad group negatives.
 
         Returns the campaign-level negative keywords (`campaign_criterion.negative`),
         distinct from the ad-group-level negatives under `GET /v1/ads/keywords`. Cached
@@ -6340,10 +6543,13 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
     ) -> str:
         """Replace campaign-level negative keywords
+
+        Replaces a Google campaign's full list of campaign-level negative keywords, or clears it.
 
         Replaces the FULL set of campaign-level negative keywords (C.270): the desired
         list is diffed against what Google already has, and the difference is applied
@@ -6381,18 +6587,20 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Pause or resume many campaigns
 
-        Process up to 50 campaigns in one call. Each campaign is updated
+        Pauses or resumes up to 50 campaigns in one call, with a separate result per campaign so one failure does not block the rest.
+
+        Each campaign is updated
         concurrently and the response contains a per-campaign result so a
         single bad row does not fail the whole batch. Each campaign is read,
         written and re-read exactly as PUT /v1/ads/campaigns/{campaignId}/status
         describes: only the campaign's own switch is written, never its ad sets'
         or ads'. `updated` / `skipped` count campaigns.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
             status: (required)
-            campaigns: Each item is an object with keys: platformCampaignId (string, required) - The campaign id on the ad platform (e.g. the numeric Google campaign id), not a Zernio id.; platform (one of: facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, googleads, tiktokads, linkedinads, pinterestads, xads, openaiads; required) - The ad platform, e.g. `google` for Google Ads. The ads connection slug (`googleads`, `tiktokads`, ...) is accepted as an alias. `metaads` is not: send ... (required)"""
+            campaigns: Each item is an object with keys: platformCampaignId (string, required) - The campaign id on the ad platform (e.g. the numeric Google campaign id), not a Zernio id.; platform (one of: facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai, reddit, googleads, tiktokads, linkedinads, pinterestads, xads, openaiads, redditads; required) - The ad platform, e.g. `google` for Google Ads. The ads connection slug (`googleads`, `tiktokads`, ...) is accepted as an alias. `metaads` is not: send ... (required)"""
         client = _get_client()
         try:
             response = client.ad_campaigns.bulk_update_ad_campaign_status(
@@ -6425,6 +6633,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Duplicate a campaign
 
+        Copies a campaign with its ad sets, ads, creatives and targeting, created paused so you can review it before launch.
+
         Duplicates a campaign, including its ad sets, ads, creatives, and
         targeting by default (`deepCopy: true`). The copy is created paused
         so callers can review before launching.
@@ -6440,9 +6650,7 @@ def register_generated_tools(mcp, _get_client):
         - **LinkedIn** has no native copy primitive; Zernio walks the source
           CampaignGroup → Campaigns → Creatives and recreates each entity,
           carrying over `type` / `costType` / `unitCost` /
-          `optimizationTargetType` / `creativeSelection` / `objectiveType` /
-          `format` / `dailyBudget` / `totalBudget` / `targetingCriteria` /
-          `runSchedule` and every Creative's `content` object ...
+          `optimizationTargetType` / `creativeSelection` / `objectiveType` / ...
 
         Platforms: meta, tiktok, linkedin
 
@@ -6488,6 +6696,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Read a Google campaign's device, location, excluded location, and language targeting
 
+        Shows a Google campaign's device, location, excluded location and language targeting so you can build an editor for it.
+
         Google Ads compliance requires geo, language, budget, and bidding targeting
         set at creation to stay editable afterwards; this reads the campaign state
         so an integrator can build an editor around it. Cached for the quota window
@@ -6502,8 +6712,7 @@ def register_generated_tools(mcp, _get_client):
 
         `excludedLocations` lists the campaign's negative location criteria (the
         places it never serves in). `locations` still lists every location criterion,
-        each flagged with `negative`, so a client reading the targeted set filters
-        `negative: false`.
+        each flagged with `negative`, so a ...
 
         Platforms: google
 
@@ -6532,6 +6741,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Edit a Google campaign's device, location, excluded location, or language targeting
 
+        Changes a Google campaign's device, location, excluded location or language targeting after it was created.
+
         Google Ads compliance row M.10: geo and language targeting set at
         creation must stay editable afterwards. Send at least one of `devices`,
         `locations`, `excludedLocations`, `languages`, `locationTargetingType`; each provided field REPLACES that field's
@@ -6546,9 +6757,7 @@ def register_generated_tools(mcp, _get_client):
 
         `locations` accepts the same shapes as campaign creation: a bare array of
         ISO country codes, or an object with `countries`/`regions`/`cities`/`zips`/`metros`
-        key lists (`key` from GET /v1/ads/targeting/search?dimension=geo). Excluded
-        locations are left untouched by `locations`. An empty location list
-        returns 400 ...
+        key lists (`key` from GET ...
 
         Platforms: google
 
@@ -6587,10 +6796,13 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
     ) -> str:
         """List ad sets
+
+        Lists ad sets (ad groups on Google) with their targeting, bidding and optimization settings, optionally for one campaign.
 
         Ad sets (Google ad groups) synced for the connection, optionally
         filtered by platform and campaignId. Reads the `ad_sets` table
@@ -6604,11 +6816,9 @@ def register_generated_tools(mcp, _get_client):
         carries the ad set's config (`targeting`, `bidStrategy`, `bidAmount`, `optimizationGoal`,
         `billingEvent`, `promotedObject`), so `?accountId=...&adAccountId=act_...` returns the config of
         every ad set of an ad account in one call, without a `campaignId`. To read
-        budgets, status, targeting, promoted object and bid strategy of every campaign and ad set of a
-        Meta ad account LIVE in one call (for example as a pre-write spend gate), use
-        GET /v1/ads/accounts/live ...
+        budgets, status, targeting, promoted object and bid strategy of every campaign and ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
 
         Args:
             account_id: Account ID
@@ -6648,6 +6858,7 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ],
         campaign_id: str,
         name: str,
@@ -6657,6 +6868,8 @@ def register_generated_tools(mcp, _get_client):
         customer_id: str | None = None,
     ) -> str:
         """Create a standalone ad group
+
+        Creates an empty Google ad group under an existing campaign, ready for ads to be added later.
 
         Google Ads compliance row C.190: creates an ad group WITHOUT an ad,
         under an existing campaign. Ads join it later via `adSetId`
@@ -6720,7 +6933,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Duplicate an ad set
 
-        Duplicates an ad set. The copy is created paused so callers can review before launching.
+        Copies an ad set, optionally with its ads and into another campaign, created paused so you can review it before launch.
+
+        The copy is created paused so callers can review before launching.
         `campaignId` retargets the copy into another campaign; omitted = the source's own campaign.
 
         Meta: ads and creatives are included by default (`deepCopy: true`) via Meta's native
@@ -6786,6 +7001,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Duplicate an ad
 
+        Copies a single Meta ad, optionally into another ad set, created paused so you can review it before launch.
+
         Duplicates a single ad via Meta's native `POST /{ad-id}/copies`. The copy is created
         paused. `adSetId` retargets the copy into another ad set; omitted = the source's own ad
         set. Accepts the Zernio ad id or the platform ad id. Sync discovery is triggered
@@ -6837,6 +7054,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get live ad-set details
 
+        Shows a Meta ad set's current settings straight from Meta, including its learning phase, budget, schedule and targeting.
+
         Reads the ad set live from Meta, returned verbatim. The default projection includes
         `learning_stage_info` (learning-phase status: LEARNING / SUCCESS / FAIL / WAIVING; Meta
         omits its `status` key on paused ad sets), delivery settings, budgets, schedule and
@@ -6877,6 +7096,7 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ],
         budget: dict[str, Any] | None = None,
         status: Literal["active", "paused"] | None = None,
@@ -6897,7 +7117,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update an ad set
 
-            Ad-set-level writes. Use this for ABO budget updates, ad-set-scoped
+            Changes an ad set's settings, such as its budget, bid strategy, status or delivery options.
+
+            Use this for ABO budget updates, ad-set-scoped
             pause/resume, bid-strategy edits, Meta value-rule-set attach/detach, and
             Meta-only post-launch delivery settings via `platformSpecificData`. At
             least one updatable field is required.
@@ -6910,30 +7132,34 @@ def register_generated_tools(mcp, _get_client):
             - Sending `valueRulesApplied: false` TOGETHER with `valueRuleSetId` returns 400
               `mutually_exclusive_fields`. This is deliberate: Meta attaches the rule set
               whenever `value_rule_set_id` is present, even with `value_rules_applied` false,
-              so echoing stored state while asking to detach would silently keep the bid
-              adjustments live.
-            - Eligibility: only ad sets on ...
+              so echoing stored state while asking to detach would silently keep the bid ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
 
             Args:
                 ad_set_id: Platform ad set ID (required)
                 platform: (required)
                 budget: Omit if not updating budget Object with keys: amount (number); type (one of: daily, lifetime)
-                status: Writes the ad set's own on/off switch (Meta: `configured_status`) on Meta and LinkedIn, whatever delivery status its ads report. Omit if not toggling delivery state.
-                name: Rename the ad set (Meta only; other platforms return 501). At least one of budget/status/bidStrategy/name is required.
+                status: Writes the ad set's own on/off switch (Meta: `configured_status`; X: the line item's `entity_status` ACTIVE / PAUSED), whatever delivery status its ads report. Omit if not toggling delivery state.
+                name: Rename the ad set (on X, the line item `name`). Platforms without a rename return 501. At least one of budget/status/bidStrategy/name is required.
                 bid_strategy: Ad-set-level bid strategy. Overrides the campaign-level default.
         Supported on Meta (facebook, instagram), TikTok, and OpenAI. On TikTok the
         Meta-style enum is mapped to bid_type / bid_price / deep_bid_type
         automatically. On OpenAI, LOWEST_COST_WITH_BID_CAP and COST_CAP both map to
         the ad group's `bidding_config.max_bid_micros` (one knob covers both);
         LOWEST_COST_WITH_MIN_ROAS is rejected with 422 (OpenAI has no ROAS-based
-        bidding). Other platforms (linkedin, pinterest, google, twitter) return 501
-        Not Implemented when bidStrategy is set.
+        bidding). On X it writes the line item's `bid_strategy`:
+        LOWEST_COST_WITHOUT_CAP = AUTO, LOWEST_COST_WITH_BID_CAP = MAX and
+        COST_CAP = TARGET, with `bidAmount` as `bid_amount_local_micro`;
+        LOWEST_COST_WITH_MIN_ROAS is rejected with 422. X decides which strategy
+        the line item's objective allows (TARGET only on REACH, FOLLOWERS and
+        WEBSITE_CLICKS, MAX not on REACH or FOLLOWERS). On Reddit, see the mapping in the
+        description above (LOWEST_COST_WITH_MIN_ROAS returns 422). Other platforms
+        (linkedin, pinterest, google) return 501 Not Implemented when bidStrategy is set.
                 smart_targeting: TikTok only (a 400 elsewhere). TikTok Smart Targeting on the ad group: `audience` is TikTok's `smart_audience_enabled`, `interestsBehaviors` its `smart_interest_behavior_enabled`. When on, TikTok may deliver beyond the selected audiences or interests. Available on Video views, Traffic, Lead generation, App install, Web conversion and Community interaction. Only the flags you send are written; an unwritten flag reads back null in `nativeSettings`, so send `false` explicitly to be able to verify it is off. Applied with TikTok's adgroup/update; read it back with GET /v1/ads/ad-sets?adSetId=...&live=true. Object with keys: audience (boolean) - TikTok smart_audience_enabled.; interestsBehaviors (boolean) - TikTok smart_interest_behavior_enabled.
                 bid_amount: Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
         bidStrategy is LOWEST_COST_WITH_BID_CAP or COST_CAP. Internally converted to Meta's
-        smallest-denomination integer, or (on OpenAI) to micros (× 1,000,000). Meta only:
+        smallest-denomination integer, or (on OpenAI and X) to micros (× 1,000,000). Meta only:
         may be sent alone, WITHOUT bidStrategy, to update the cap amount on an ad set whose
         parent campaign is COST_CAP or LOWEST_COST_WITH_BID_CAP (the strategy is inherited
         from the campaign and is left untouched).
@@ -6980,16 +7206,17 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_delete_ad_set(ad_set_id: str) -> str:
         """Delete an ad set
 
-        Deletes the ad set on the platform, cascading to its ads only (never the
-        campaign). Locally, every Ad document under the ad set is marked
+        Deletes an ad set and its ads while keeping the campaign, archiving it instead on platforms without a hard delete.
+
+        Locally, every Ad document under the ad set is marked
         `status: cancelled`.
 
         Delete is soft on platforms that have no hard delete: LinkedIn moves the
-        campaign to `PENDING_DELETION`, Pinterest archives the ad group, and X
+        campaign to `PENDING_DELETION`, Pinterest and Reddit archive the ad group, and X
         soft-flags the line item. Google removes the ad group. All remain readable
         for reporting.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
             ad_set_id: Platform ad set ID (required)"""
@@ -7020,11 +7247,14 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ],
     ) -> str:
         """Pause or resume a single ad set
 
-        Ad-set-scoped pause/resume (doesn't touch sibling ad sets). Thin wrapper
+        Pauses or resumes one ad set without touching its campaign, its sibling ad sets or the switches of its ads.
+
+        Thin wrapper
         over PUT /v1/ads/ad-sets/{adSetId} for callers that only want the
         status toggle and prefer a symmetric URL to
         /v1/ads/campaigns/{campaignId}/status.
@@ -7032,7 +7262,7 @@ def register_generated_tools(mcp, _get_client):
         Writes the ad set's own on/off switch and nothing else, on every platform
         (Meta `configured_status`, TikTok ad group `operation_status`, Google ad
         group status, LinkedIn campaign, Pinterest ad group, X line item, ChatGPT
-        (OpenAI) ad group). Its ads keep their own switches: an ad you paused
+        (OpenAI) ad group, Reddit ad group `configured_status`). Its ads keep their own switches: an ad you paused
         individually stays paused when the ad set resumes. The campaign above is
         not touched either, so an ad set resumed under a paused campaign reads
         `status: paused` until the campaign is resumed too. See the Status model
@@ -7040,10 +7270,9 @@ def register_generated_tools(mcp, _get_client):
 
         **Live read, then write.** The ad set's switch is read from the platform
         first. When that live read shows it already in the requested state
-        nothing is written (`updated: 0`, `skipped: 1`, with the reason).
-        Otherwise the switch is written ...
+        nothing is ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
 
         Args:
             ad_set_id: Platform ad set ID (required)
@@ -7079,6 +7308,7 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
         status: Literal[
@@ -7108,7 +7338,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get campaign tree
 
-        Returns a nested Campaign > Ad Set > Ad hierarchy with rolled-up metrics at each level.
+        Shows your campaigns with their ad sets and ads nested inside, with spend and results rolled up at every level.
+
         Uses a two-stage aggregation: ads are grouped into ad sets, then ad sets into campaigns.
         Metrics are computed over an optional date range, then rolled up from ad level to ad set
         and campaign levels. Pagination is at the campaign level. Ads without a campaign or ad set
@@ -7121,9 +7352,9 @@ def register_generated_tools(mcp, _get_client):
         calling the tree once per day for per-campaign daily trends.
 
         **Deleted objects stay in the tree.** Deleting an ad or a campaign is a soft delete: the Ad
-        documents move to `status: cancelled` and are kept ...
+        documents move to `status: ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
             page: Page number
@@ -7194,10 +7425,13 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
     ) -> str:
         """Get daily account metrics
+
+        Returns an ads account's spend, results and other metrics day by day, ready for a daily performance chart.
 
         Returns daily aggregate metrics across all ads in a SocialAccount as a single
         time series, one row per calendar day in the requested range. Use this for
@@ -7213,9 +7447,9 @@ def register_generated_tools(mcp, _get_client):
         and `backfillPending: true` while the rest is backfilled in the background;
         repeat the request shortly until it returns 200 with full data.
 
-        With adAccountId set to a Google customer id this is the customer-level performance report (clicks, cost, impressions, conversions, all conversions per day).
+        With adAccountId set to a Google customer id this is the customer-level performance report (clicks, ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
             account_id: Account ID. Sibling-expanded to its linked posting↔ads pair. (required)
@@ -7247,7 +7481,8 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_get_ad(ad_id: str) -> str:
         """Get ad details
 
-           Returns an ad with its creative, targeting, status, and performance metrics.
+           Shows one ad with its creative, targeting, status and performance metrics.
+
            Google Search ads include current creative.headlines, creative.descriptions and creative.finalUrls,
            preserving pinnedField. Top-level cachedAt and stale report cache freshness. Google mutations invalidate this read.
            RSA enrichment requires a stored advertisingChannelType of SEARCH. Ads with an unknown or other channel
@@ -7262,7 +7497,7 @@ def register_generated_tools(mcp, _get_client):
 
            Any of the four resolve to the same ad. Caller doesn't need a translation ...
 
-           Platforms: meta, google, tiktok, linkedin, pinterest, x
+           Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
            Args:
                ad_id: Zernio `_id` (hex), Meta `platformAdId` (numeric), or one of the creative's effective story/media IDs. See description for details.
@@ -7297,6 +7532,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update ad
 
+        Changes an ad's status, budget, targeting or creative and applies the change on the platform.
+
         Patch one or more fields on an ad. Status, budget, targeting, and creative changes
         are propagated to the platform.
 
@@ -7311,10 +7548,9 @@ def register_generated_tools(mcp, _get_client):
           edits via `targeting.languages`.
           Each list you send becomes the FULL new set of its kind (criteria not in the
           list are removed, except devices, which Google cannot remove and which are
-          switched off with a bid modifier of 0 instead); a kind left out is untouched.
-          Any other `targeting` field ...
+          switched off ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
             ad_id: (required)
@@ -7358,11 +7594,13 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_delete_ad(ad_id: str) -> str:
         """Cancel an ad
 
-        Deletes the ad on the platform and marks it as cancelled in the database. The ad is preserved for history. OpenAI Ads has no delete API; the ad is archived instead (a terminal state, the closest equivalent).
+        Deletes an ad on the platform while keeping its history, and removes empty parents only when they were created through this API.
 
-        Only the ad is deleted; a campaign or ad set is never deleted while it still holds another ad. On Meta, when the ad set and campaign were created by Zernio (by `POST /v1/ads/create` or `POST /v1/ads/boost`) and Meta lists no other ad in the ad set (archived ads count), the emptied ad set is deleted too, then the campaign once it holds no other ad set. Parents created outside Zernio, and the parents of an ad imported from the platform, are always kept. On LinkedIn the ad is a creative inside a campaign inside a campaign group: the creative is always removed, the campaign only when Zernio created it and LinkedIn lists no other creative in it that is not archived, canceled or deleted, and the campaign group only when Zernio created it and LinkedIn lists no other campaign in it that ...
+        Deletes the ad on the platform and marks it as cancelled in the database. The ad is preserved for history. OpenAI Ads has no delete API; the ad is archived instead (a terminal state, the closest equivalent). Reddit Ads has no delete either: the ad is archived (`configured_status` ARCHIVED).
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x
+        Only the ad is deleted; a campaign or ad set is never deleted while it still holds another ad. On Meta, when the ad set and campaign were created by Zernio (by `POST /v1/ads/create` or `POST /v1/ads/boost`) and Meta lists no other ad in the ad set (archived ads count), the emptied ad set is deleted too, then the campaign once it holds no other ad set. Parents created outside Zernio, and the parents of an ad imported from the platform, are always kept. On LinkedIn the ad is a creative inside a campaign inside a campaign group: the creative is always removed, the ...
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
             ad_id: (required)"""
@@ -7386,9 +7624,11 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Pause or resume a single ad
 
+        Pauses or resumes a single ad without touching its ad set, campaign or sibling ads.
+
         Ad-scoped pause/resume: flips ONLY this ad's own switch (Meta
         `configured_status`, TikTok `operation_status`, Google ad group ad
-        status, LinkedIn creative, Pinterest ad), never its parent ad set or
+        status, LinkedIn creative, Pinterest ad, Reddit ad `configured_status`), never its parent ad set or
         campaign, so sibling ads keep running. X is the exception: its smallest
         switch is the line item. Thin wrapper over the `status` field of
         PUT /v1/ads/{adId}, for callers that want a URL symmetric to
@@ -7399,13 +7639,9 @@ def register_generated_tools(mcp, _get_client):
         `configuredStatus: ACTIVE`) can still be switched off here, and
         switching an ad on under a paused campaign leaves it `paused` until the
         campaign is resumed. After the write the switch is read back from the
-        platform and returned as `configuredStatus`, together with the
-        resulting delivery `status`.
+        platform and returned as `configuredStatus`, together with the ...
 
-        `{adId}` accepts the same identifier dialects as GET/PUT /v1/ads/{adId}
-        (Zernio hex `_id`, ...
-
-        Platforms: meta, google, tiktok, linkedin, pinterest, x
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
             ad_id: Zernio `_id` (hex), Meta `platformAdId` (numeric), or one of the creative's effective story/media IDs. (required)
@@ -7433,7 +7669,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List campaign assets
 
-        Lists directly attached Google assets. Fresh reads are cached for 10 minutes; exhausted quota may return the last successful read with stale=true. Inherited assets are not included.
+        Lists the sitelinks, callouts and other assets attached directly to a Google campaign.
+
+        Fresh reads are cached for 10 minutes; exhausted quota may return the last successful read with stale=true. Inherited assets are not included.
 
         Platforms: google
 
@@ -7473,6 +7711,8 @@ def register_generated_tools(mcp, _get_client):
         images: list[str] | None = None,
     ) -> str:
         """Attach campaign assets
+
+        Adds sitelinks, callouts, structured snippets and images to a Google campaign in one step.
 
         Creates and attaches sitelinks, callouts, structured snippets and image assets in one Google mutation. Google shows images only on accounts it deems eligible (account age, policy history, vertical).
 
@@ -7520,7 +7760,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update campaign assets
 
-        Edits existing Google assets in place. Send updates with assetResourceName and the fields to change. An asset is shared: changes affect every attachment using it. Omitted fields stay unchanged. The operation consumes the Google operations budget and invalidates affected cached lists.
+        Edits a Google campaign's existing assets, such as sitelinks or callouts, in place; the change applies everywhere that asset is used.
+
+        Send updates with assetResourceName and the fields to change. An asset is shared: changes affect every attachment using it. Omitted fields stay unchanged. The operation consumes the Google operations budget and invalidates affected cached lists.
 
         Platforms: google
 
@@ -7561,7 +7803,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Remove campaign assets
 
-        Removes the specified attachments only. Google assets cannot be deleted. Other attachments remain. assetResourceNames is retained for compatibility. Fields go in the query string. A JSON body with the same fields is also accepted and, when sent, the query string is ignored.
+        Detaches assets from a Google campaign without deleting them, so they stay in the account and on anything else they are attached to.
+
+        Google assets cannot be deleted. Other attachments remain. assetResourceNames is retained for compatibility. Fields go in the query string. A JSON body with the same fields is also accepted and, when sent, the query string is ignored.
 
         Platforms: google
 
@@ -7602,7 +7846,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List ad-group assets
 
-        Lists directly attached Google assets. Fresh reads are cached for 10 minutes; exhausted quota may return the last successful read with stale=true. Inherited assets are not included.
+        Lists the sitelinks, callouts, snippets and images attached directly to a Google ad group, not those inherited from the campaign or account.
+
+        Fresh reads are cached for 10 minutes; exhausted quota may return the last successful read with stale=true. Inherited assets are not included.
 
         Platforms: google
 
@@ -7642,6 +7888,8 @@ def register_generated_tools(mcp, _get_client):
         images: list[str] | None = None,
     ) -> str:
         """Attach ad-group assets
+
+        Creates sitelinks, callouts, structured snippets or image assets and attaches them to a Google ad group in one step.
 
         Creates and attaches sitelinks, callouts, structured snippets and image assets in one Google mutation. Google shows images only on accounts it deems eligible (account age, policy history, vertical).
 
@@ -7689,7 +7937,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update ad-group assets
 
-        Edits existing Google assets in place. Send updates with assetResourceName and the fields to change. An asset is shared: changes affect every attachment using it. Omitted fields stay unchanged. The operation consumes the Google operations budget and invalidates affected cached lists.
+        Edits a Google ad group's existing assets in place; the change applies everywhere that asset is used.
+
+        Send updates with assetResourceName and the fields to change. An asset is shared: changes affect every attachment using it. Omitted fields stay unchanged. The operation consumes the Google operations budget and invalidates affected cached lists.
 
         Platforms: google
 
@@ -7730,7 +7980,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Remove ad-group assets
 
-        Removes the specified attachments only. Google assets cannot be deleted. Other attachments remain. assetResourceNames is retained for compatibility. Fields go in the query string. A JSON body with the same fields is also accepted and, when sent, the query string is ignored.
+        Detaches assets from a Google ad group without deleting them, so they stay in the account and on anything else they are attached to.
+
+        Google assets cannot be deleted. Other attachments remain. assetResourceNames is retained for compatibility. Fields go in the query string. A JSON body with the same fields is also accepted and, when sent, the query string is ignored.
 
         Platforms: google
 
@@ -7766,6 +8018,8 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_get_ad_review(ad_id: str) -> str:
         """Read the platform's review verdict for an ad
 
+        Shows whether the platform approved an ad, where it may not deliver, and every rejection reason, without re-enabling a paused ad.
+
         Reads the ad's review verdict from the platform now: whether it was approved, where it may
         not deliver, and every rejection reason with TikTok's suggestion and the piece of content it
         refers to. Read-only, so it works on a paused ad without re-enabling it.
@@ -7776,12 +8030,9 @@ def register_generated_tools(mcp, _get_client):
         ELIGIBLE_MAY_SERVE); `approved` is true for the three approved statuses, false for
         DISAPPROVED, null otherwise. `policyTopics` carries every policy topic entry with its
         `type` (PROHIBITED, LIMITED, ...) and Google's `evidences` and `constraints` verbatim; each
-        PROHIBITED topic is also listed in `rejections` (reason = the topic). The `forbidden*`
-        arrays are TikTok-only and always empty on Google.
+        PROHIBITED topic is also listed in `rejections` (reason = the topic). The ...
 
-        TikTok uses `/ad/review_info/`; every other platform returns 501. On TikTok, ...
-
-        Platforms: tiktok, google
+        Platforms: tiktok, google, meta
 
         Args:
             ad_id: Zernio ad id (24-char hex) or the platform ad id. (required)"""
@@ -7811,12 +8062,15 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
     ) -> str:
         """List campaign negative lists
 
-        Returns shared negative keyword lists attached to the campaign, separate from campaign-level negative keywords. Google Ads shared negative keyword lists (shared_set type NEGATIVE_KEYWORDS). Reads are cached for 10 minutes; quota exhaustion may return the last successful result for up to 7 days with stale=true. Customer selection is limited to this connection and its account scope.
+        Lists the shared negative keyword lists attached to a Google campaign, separate from its own campaign-level negatives.
+
+        Google Ads shared negative keyword lists (shared_set type NEGATIVE_KEYWORDS). Reads are cached for 10 minutes; quota exhaustion may return the last successful result for up to 7 days with stale=true. Customer selection is limited to this connection and its account scope.
 
         Platforms: google
 
@@ -7852,12 +8106,15 @@ def register_generated_tools(mcp, _get_client):
             "google",
             "twitter",
             "openai",
+            "reddit",
         ]
         | None = None,
     ) -> str:
         """Replace campaign negative lists
 
-        Sets the full desired set of shared negative keyword list associations on this campaign. Send listIds=[] to detach all negative keyword lists. Only campaign_shared_set links are changed; the lists and their keywords are preserved. Every list must belong to the campaign customer and have type NEGATIVE_KEYWORDS.
+        Sets exactly which shared negative keyword lists apply to a Google campaign, or detaches them all, without changing the lists themselves.
+
+        Send listIds=[] to detach all negative keyword lists. Only campaign_shared_set links are changed; the lists and their keywords are preserved. Every list must belong to the campaign customer and have type NEGATIVE_KEYWORDS.
 
         Platforms: google
 
@@ -7907,6 +8164,7 @@ def register_generated_tools(mcp, _get_client):
         | None = None,
         budget_amount: float | None = None,
         budget_type: Literal["daily", "lifetime"] | None = None,
+        lifetime_budget_cap: float | None = None,
         budget: dict[str, Any] | None = None,
         instagram_account_id: str | None = None,
         destination_type: Literal[
@@ -7975,8 +8233,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Boost post as ad
 
-            Creates a paid ad from an existing published post, keeping the post's
-            engagement. By default it provisions the whole hierarchy (campaign, ad
+            Turns an already published post into a paid ad that keeps the post's likes and comments, creating the campaign around it.
+
+            By default it provisions the whole hierarchy (campaign, ad
             set, ad).
 
             **Attach shape (Meta).** Send `adSetId` to put the ad under an EXISTING
@@ -7994,37 +8253,37 @@ def register_generated_tools(mcp, _get_client):
             media id); a Zernio `postId` is a 400 there.
 
             For X, `accountId` may be the posting X account or its X Ads
-            connection: either resolves the other on the same profile. A Zernio
-            `postId` on an X Ads ...
+            connection: either resolves the other on the same ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
             Args:
                 creative_features
                 post_id: Zernio post ID (provide this or platformPostId)
-                platform_post_id: Platform post ID (alternative to postId). Meta: a Page post id (`<pageId>_<postId>` or the bare post id) or an Instagram media id. On a Meta Ads business-login connection (platform metaads) the id is resolved live: an Instagram media id is boosted as that media, running as the Instagram account that owns it.
-                account_id: Zernio account id. Normally the connected posting account (facebook, instagram, tiktok, linkedin, pinterest, twitter) or a googleads account. TikTok: the TikTok Ads connection (platform tiktokads) is accepted too when the post brings its own authorization (sparkAuthCode or sparkPosts), so Spark ads need no organic TikTok account connected; such a call must use platformPostId, not postId. (required)
+                platform_post_id: Platform post ID (alternative to postId). Reddit: the post id, with or without the `t3_` prefix. Meta: a Page post id (`<pageId>_<postId>` or the bare post id) or an Instagram media id. On a Meta Ads business-login connection (platform metaads) the id is resolved live: an Instagram media id is boosted as that media, running as the Instagram account that owns it.
+                account_id: Zernio account id. Normally the connected posting account (facebook, instagram, tiktok, linkedin, pinterest, twitter), a googleads account or a redditads account. TikTok: the TikTok Ads connection (platform tiktokads) is accepted too when the post brings its own authorization (sparkAuthCode or sparkPosts), so Spark ads need no organic TikTok account connected; such a call must use platformPostId, not postId. (required)
                 ad_account_id: Platform ad account ID (required)
                 name: (required)
                 campaign_name: Exact name for the campaign this boost provisions. Omitted keeps the default `<name> - Campaign`. Every platform: on LinkedIn it names the campaign group. Ignored on the Meta attach shape (`adSetId`), which creates no campaign.
                 ad_set_name: Exact name for the ad-group level this boost provisions. Omitted keeps the default `<name> - Ad Group`. Meta: ad set; TikTok, Pinterest, Google: ad group; X: line item; LinkedIn: the campaign under the campaign group. Ignored on the Meta attach shape.
-                goal: Available goals vary by platform. Meta (Facebook/Instagram) and TikTok support all 7. LinkedIn supports all except app_promotion. X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views. (required)
+                goal: Available goals vary by platform. Meta (Facebook/Instagram) and TikTok support all 7. LinkedIn supports all except app_promotion. X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views. Reddit supports traffic, awareness, video_views, lead_generation and conversions. (required)
                 ad_set_id: Meta, or TikTok with `smartPlus: true`. Attach the boosted post to this existing ad set instead of creating a campaign. On TikTok the id is an existing Smart+ ad group: the post is added as one more Spark ad in it (up to 30 per ad group), under the identity its `sparkAuthCode` creates; goal and budget are inherited from the Smart+ campaign; a regular ad group is rejected with a 400. Meta: The ad set then owns budget, schedule and targeting; sending those too is a 400.
                 existing_campaign_id: TikTok only. Create the ad group and the Spark ad under this existing TikTok campaign instead of creating a new campaign. The campaign keeps its own status and objective (the objective must fit `goal`). Cannot be combined with adSetId or smartPlus. On Meta use POST /v1/ads/create with existingCampaignId.
                 identity_id: TikTok only. The identity the ad runs as (the profile shown on the ad), from GET /v1/ads/tiktok-identities. Default: the connected TikTok account's own identity. Must be authorized on the advertiser or the call fails naming the available ones.
                 identity_type: TikTok only. Type of identityId; resolved from the advertiser's identity list when omitted.
                 budget_amount: Budget in whole currency units, the same flat field as POST /v1/ads/create. Required unless adSetId is set. Minimum varies: TikTok=$20, Pinterest=$5, others=$1
                 budget_type: Goes together with budgetAmount. lifetime requires schedule.endDate.
+                lifetime_budget_cap: X only. A lifetime total, in whole currency units, that caps a daily budget (budgetType daily): the line item gets both daily_budget_amount_local_micro and total_budget_amount_local_micro, and stops spending once the total is reached. Must be at least budgetAmount. Read back as budget.daily and budget.lifetime. 400 on a lifetime budget or on another platform.
                 budget: Alias of budgetAmount + budgetType, kept for existing callers Object with keys: amount (number, required) - Minimum varies: TikTok=$20, Pinterest=$5, others=$1; type (one of: daily, lifetime; required)
                 instagram_account_id: Meta only. Instagram identity the ad runs AS (creative.instagram_user_id), overriding the account linked to the Page. Live-verified against a Page-post creative.
                 destination_type: Meta only. Ad-set destination_type: where the click LANDS, as opposed to instagramAccountId which is who the ad runs as. Independent of plain link CTAs and their goal. A messaging callToAction selects its destination automatically; an explicit destinationType must then match. Lead ads use ON_AD.
                 whatsapp_phone_number: Meta WhatsApp only. E.164 number already paired with the Page. Omit to use the default pairing. Requires WHATSAPP_MESSAGE callToAction. Stored as creative.whatsappPhoneNumber on the ad.
                 workflow_id: Meta messaging boosts only (callToAction MESSAGE_PAGE, WHATSAPP_MESSAGE or INSTAGRAM_MESSAGE). A workflow in the account's profile, started in the conversation a click on the ad opens. Stored on the ad. 400 without a messaging callToAction or on another platform, 404 when no such workflow exists in the profile.
                 currency: ISO 4217 currency code matching the ad account's currency. Meta only. Optional: Zernio resolves it from the ad account when omitted. The value selects the minor-unit exponent Zernio converts budget/bid amounts by before calling Meta (most currencies are cents; zero-decimal currencies like JPY/KRW are sent as-is).
-                start_date: Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the ad set's `start_time`. When omitted the ad starts delivering immediately. On Meta, TikTok, X and Pinterest a value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone. Same field as on POST /v1/ads/create.
-                end_date: Ad-set end time (ISO 8601), mapped to the ad set's `end_time`. Required for lifetime budgets. On Meta, TikTok, X and Pinterest a value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone, and a date-only end runs to 23:59:59 local. Same field as on POST /v1/ads/create.
+                start_date: Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the ad set's `start_time`. When omitted the ad starts delivering immediately. On Meta, TikTok, X, Pinterest and Reddit a value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone. Same field as on POST /v1/ads/create.
+                end_date: Ad-set end time (ISO 8601), mapped to the ad set's `end_time` (on X, the line item's `end_time`; X campaigns carry no flight dates). Required for lifetime budgets. On Meta, TikTok, X, Pinterest and Reddit a value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone, and a date-only end runs to 23:59:59 local. Same field as on POST /v1/ads/create.
                 schedule: Alias of the top-level `startDate` / `endDate`, kept for existing callers. Sending both forms with differing values is a 400. Object with keys: startDate (string) - Alias of startDate, kept for existing callers; endDate (string) - Alias of endDate, kept for existing callers
-                targeting: Same geo/demographic fields as the `TargetingSpec` used by /v1/ads/create. Geo keys (`regions`/`cities`/`zips`/`metros`) resolve via GET /v1/ads/targeting/search?dimension=geo. City radius and lat/lng `customLocations` are Meta-only and preserve the boosted post's social proof (the ad references the existing post). Object with keys: ageMin (integer); ageMax (integer); gender (one of: all, male, female) - Applied on Meta, TikTok and Pinterest. Ignored on Google, LinkedIn and X.; languages (list of string) - Meta locale ids (numeric), passed through as given.; countries (list of string) - ISO country codes. Required for TikTok boosts (TikTok's ad group requires location_ids); optional on other platforms.; regions (list of objects with keys key, name) - Region/state targeting. `key` from /v1/ads/targeting/search?dimension=geo&geoType=region.; cities (list of objects with keys key, name, radius, distanceUnit) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits (both set together, Meta only).; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`).; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations). No geo `key` lookup needed.; interests (list of objects with keys id, name) - Interest objects from /v1/ads/interests. Each must include id and name.; advantage_audience (one of: 0, 1) - Meta only. 0 = disabled (default), 1 = enabled.
+                targeting: Same geo/demographic fields as the `TargetingSpec` used by /v1/ads/create. Geo keys (`regions`/`cities`/`zips`/`metros`) resolve via GET /v1/ads/targeting/search?dimension=geo. City radius and lat/lng `customLocations` are Meta-only and preserve the boosted post's social proof (the ad references the existing post). On Reddit the whole `TargetingSpec` applies, including `communities`, `excludedCommunities`, `conversationKeywords`, `excludedConversationKeywords`, `interests`, `audienceInclude` / `audienceExclude` and `excludedLocations`; without any geo the ad targets the US. Object with keys: ageMin (integer); ageMax (integer); gender (one of: all, male, female) - Applied on Meta, TikTok, Pinterest and Reddit. Ignored on Google, LinkedIn and X.; languages (list of string) - Meta locale ids (numeric), passed through as given. Reddit: language codes (e.g. `en`).; countries (list of string) - ISO country codes. Required for TikTok boosts (TikTok's ad group requires location_ids); optional on other platforms.; regions (list of objects with keys key, name) - Region/state targeting. `key` from /v1/ads/targeting/search?dimension=geo&geoType=region.; cities (list of objects with keys key, name, radius, distanceUnit) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits (both set together, Meta only).; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`).; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations). No geo `key` lookup needed.; interests (list of objects with keys id, name) - Interest objects from /v1/ads/interests. Each must include id and name.; advantage_audience (one of: 0, 1) - Meta only. 0 = disabled (default), 1 = enabled.
                 location_targeting_type: Google only (400 elsewhere). Written on the campaign the boost creates.
                 raw_targeting: Meta only. A Meta-native targeting spec (e.g.
         `{ "geo_locations": { "cities": [{ "key": "...", "radius": 15, "distance_unit": "kilometer" }] } }`).
@@ -8048,7 +8307,9 @@ def register_generated_tools(mcp, _get_client):
                 bid_strategy: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
 
         Meta bid strategy applied to the ad set. On TikTok, mapped to
-        `bid_type` / `bid_price` / `deep_bid_type` automatically.
+        `bid_type` / `bid_price` / `deep_bid_type` automatically. On Reddit,
+        applied to the new ad group (see the Reddit section above; 422 for
+        LOWEST_COST_WITH_MIN_ROAS).
                 bid_amount: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
 
         Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
@@ -8060,7 +8321,7 @@ def register_generated_tools(mcp, _get_client):
         `bidStrategy` is `LOWEST_COST_WITH_MIN_ROAS`. Sent to Meta as
         `bid_constraints.roas_average_floor` × 10000 (Meta uses fixed-point integers).
                 platform_specific_data: Platform-specific options. The platform is derived from `accountId`; sending options for a different platform returns a 400. LinkedIn (campaign bidding and delivery controls) and Meta (the bid trio) have options today. **Meta**: `bidStrategy`, `bidAmount` and `roasAverageFloor` may be sent here instead of at the root, which is the preferred home going forward. Sending the bid fields in BOTH places returns a 400 (`mutually_exclusive_fields`). Object with keys: costType (one of: CPM, CPC, CPV) - Campaign cost model (billing event). Defaults to `CPM`. Required when `unitCost` is set so the manual bid applies to an explicit cost model.; unitCost (number) - Manual bid in WHOLE account-currency units (e.g. 2.5 = $2.50). Requires `costType`. Omit for LinkedIn's automated (max delivery) bidding. LinkedIn enforces ...; optimizationTargetType (string) - Campaign `optimizationTargetType` (e.g. `MAX_CLICK`, `TARGET_COST_PER_CLICK`, `MAX_IMPRESSION`). Forwarded verbatim, LinkedIn validates compatibility with the ...; creativeSelection (one of: OPTIMIZED, ROUND_ROBIN) - How LinkedIn rotates creatives within the campaign. Defaults to `OPTIMIZED`.; audienceExpansionEnabled (boolean) - Enable LinkedIn audience expansion. Defaults to false.; offsiteDeliveryEnabled (boolean) - Deliver on the LinkedIn Audience Network. Defaults to false.; connectedTelevisionOnly (boolean) - Restrict delivery to Connected TV inventory.; carousel (object with keys cards) - POST /v1/ads/create only. Carousel ad with 2-10 image cards. Mutually exclusive with the other creative sources.; document (object with keys url, title) - POST /v1/ads/create only. Document ad rendered as an in-feed viewer. PDF, PPT or DOC up to 100MB. Mutually exclusive with the other creative sources.; spotlight (object with keys headline, description, callToAction, landingUrl, logoUrl, organizationName, showMemberProfilePhoto, backgroundImageUrl) - POST /v1/ads/create only. Dynamic Spotlight Ad personalized with the viewer's profile photo. Supported goals: traffic, awareness. logoUrl and organizationName ...; follower (object with keys headline, description, callToAction, logoUrl, organizationName, showMemberProfilePhoto) - POST /v1/ads/create only. Dynamic Follower Ad promoting the Company Page. Supported goals: engagement, awareness. headline and description take exactly one of ...; jobs (object with keys headline, buttonLabel, logoUrl, organizationName, showMemberProfilePhoto) - POST /v1/ads/create only. Dynamic Jobs Ad promoting your open roles, personalized with the viewer's profile photo. Requires goal job_applicants and a Company ...; textAd (object with keys headline, description, landingUrl, imageUrl) - POST /v1/ads/create only. Classic right-rail Text Ad. The copy lives here; ad-level body and headline are not used. Mutually exclusive with the other creative ...; conversation (object with keys subject, sender, body, footer, headline, firstMessageId, messages) - POST /v1/ads/create only. Conversation Ad: a choose-your-path message tree delivered to the member's LinkedIn inbox. Messages are flat nodes wired by local ...; event (object with keys urn) - POST /v1/ads/create only. Promotes an existing LinkedIn Event; no headline needed. Mutually exclusive with the other creative sources.; thoughtLeader (object with keys postUrn) - POST /v1/ads/create only. Sponsors an existing LinkedIn post (a share or ugcPost authored by your organization's Company Page) as the creative, keeping its ...
-                tracking: Meta only. Tracking specs (pixel, URL tags). Object with keys: pixelId (string); urlTags (list of objects with keys key, value) - URL parameters appended to the ad link, rendered as `key=value` pairs joined with `&`. Meta dynamic macros ({{ad.id}}, {{campaign.id}}, {{placement}}, ...) ...
+                tracking: Meta only, except `pixelId`, which also picks the Reddit pixel of the new ad group (`promotedObject.pixelId` wins when both are sent). Tracking specs (pixel, URL tags). Object with keys: pixelId (string); urlTags (list of objects with keys key, value) - URL parameters appended to the ad link, rendered as `key=value` pairs joined with `&`. Meta dynamic macros ({{ad.id}}, {{campaign.id}}, {{placement}}, ...) ...
                 special_ad_categories: Meta only. Required for housing, employment, credit, or political ads.
                 special_ad_category_country: Meta (metaads) only. 2-letter ISO country codes the special ad category applies to. Requires specialAdCategories to be set (400 otherwise).
                 regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV). Forwarded to the ad set.
@@ -8076,6 +8337,8 @@ def register_generated_tools(mcp, _get_client):
         **TikTok**: maps to `landing_page_url` on the Spark Ad creative
         (`AdcreateCreatives.landing_page_url`); Spark Ads have no clickable
         destination without it.
+
+        **Reddit**: the ad's `click_url`, where a click on the promoted post lands.
 
         Ignored on LinkedIn / Pinterest / X / Google, which infer the destination
         from the boosted post.
@@ -8099,7 +8362,7 @@ def register_generated_tools(mcp, _get_client):
                 smart_plus: TikTok only. Run the Spark post in a Smart+ campaign (goal `conversions` = Smart+ Web Conversions, `lead_generation` = Smart+ Lead Generation) instead of a regular campaign. Requires `sparkAuthCode` (the Smart+ ad runs the post under the identity that redeeming its Spark code creates; a Business Center-owned post is not accepted there) and `promotedObject.pixelId` + `customEventType`. `app_promotion` is not available on a Spark post. Rejected with a 400 on other platforms. A Smart+ Spark ad uses a dynamic CTA portfolio, sent as ad_configuration.call_to_action_id (TikTok does not accept a named call to action there): Zernio creates one per ad account and reuses it, and `callToAction` is rejected with a 400 on this path.
                 spark_posts: TikTok Smart+ only (requires `smartPlus: true`). Several Spark posts as creatives of ONE Smart+ ad, each with its own post code (TikTok allows 1-50 per ad; posts from different creators mix). Replaces `platformPostId` + `sparkAuthCode`. Without `adSetId` it creates campaign + ad group + one ad carrying all of them; with `adSetId` it creates one new ad with all of them in that ad group. Rejected with a 400 on other platforms. Each item is an object with keys: platformPostId (string, required) - TikTok post (item) id.; sparkAuthCode (string, required) - That post's Spark code.
                 promo_codes: TikTok Smart+ Web Conversions only (requires `smartPlus: true`, goal `conversions`). Promo codes or offers TikTok highlights on the ad (Ads Manager's "Add promo code or offer"). A promo code needs shoppers to enter it at checkout; an entry without `promoCode` is an offer applied automatically. Rejected with a 400 on other platforms and on Lead Generation campaigns. Each item is an object with keys: discountType (one of: PERCENTAGE, CASH; required); discountValue (number, required) - PERCENTAGE: integer 1-100. CASH: amount greater than 0 in discountCurrency.; discountCurrency (string) - ISO 4217; required for CASH.; promoCode (string) - Code entered at checkout; omit for an automatic offer.; minimumPurchaseType (one of: QUANTITY, SUBTOTAL); minimumPurchaseValue (number) - Required with minimumPurchaseType; QUANTITY is an integer >= 0, SUBTOTAL an amount > 0.; minimumPurchaseCurrency (string) - ISO 4217; required for SUBTOTAL.
-                promoted_object: Meta and TikTok. What the conversion ad set optimizes toward, so a boost of an existing organic post can run for a conversion instead of only engagement or traffic. Required when `goal` is `conversions` (Meta also `lead_conversion`); ignored on goals that do not optimize for a conversion. Meta: `pixelId` + `customEventType` (a commerce event such as PURCHASE under `conversions`, a leads-class event such as LEAD under `lead_conversion`), or `customConversionId` to optimize against a Custom Conversion, or `customEventType: OTHER` + `customEventStr` for a pixel custom event. Becomes the ad set `promoted_object`; without it Meta rejects the ad set ("Please select a promoted object", subcode 1815430). With `adSetId` the existing ad set already carries it. TikTok: BOTH `pixelId` and `customEventType` are required. TikTok refuses a conversion ad group with no pixel ("Please select a pixel") and one with a pixel but no event ("Select a pixel event."). Combine freely with `platformPostId` + `sparkAuthCode`: the pixel lives on the ad group and the Spark item on the creative. Object with keys: pixelId (string) - Meta Pixel id, or TikTok Pixel (numeric id or the alphanumeric pixel code from Events Manager, resolved for you).; customEventType (string) - Meta: standard pixel event (PURCHASE, LEAD, ...) or OTHER with customEventStr. TikTok: optimization_event code (e.g. ON_WEB_ORDER, SHOPPING, FORM) or the ...; customEventStr (string) - Meta only. Pixel custom event name as it appears in Events Manager; requires customEventType OTHER.; customConversionId (string) - Meta only. Custom Conversion to optimize against, instead of pixelId + customEventType.
+                promoted_object: Meta, TikTok and Reddit. What the conversion ad set optimizes toward, so a boost of an existing organic post can run for a conversion instead of only engagement or traffic. Required when `goal` is `conversions` (Meta also `lead_conversion`); ignored on goals that do not optimize for a conversion. Meta: `pixelId` + `customEventType` (a commerce event such as PURCHASE under `conversions`, a leads-class event such as LEAD under `lead_conversion`), or `customConversionId` to optimize against a Custom Conversion, or `customEventType: OTHER` + `customEventStr` for a pixel custom event. Becomes the ad set `promoted_object`; without it Meta rejects the ad set ("Please select a promoted object", subcode 1815430). With `adSetId` the existing ad set already carries it. TikTok: BOTH `pixelId` and `customEventType` are required. TikTok refuses a conversion ad group with no pixel ("Please select a pixel") and one with a pixel but no event ("Select a pixel event."). Combine freely with `platformPostId` + `sparkAuthCode`: the pixel lives on the ad group and the Spark item on the creative. Reddit: every ad group carries a pixel, whatever the goal. `pixelId` picks it (default: the ad account's first pixel; 422 when the account has none). `conversions` requires `customEventType` (PURCHASE, LEAD, COMPLETE_REGISTRATION, SIGN_UP, ADD_TO_CART, PAGE_VISIT, VIEW_CONTENT or CONTENT_VIEW), and the pixel must already have received that event (422 otherwise); `lead_generation` needs the pixel to have received Lead. Object with keys: pixelId (string) - Meta Pixel id, TikTok Pixel (numeric id or the alphanumeric pixel code from Events Manager, resolved for you), or Reddit pixel id.; customEventType (string) - Meta: standard pixel event (PURCHASE, LEAD, ...) or OTHER with customEventStr. TikTok: optimization_event code (e.g. ON_WEB_ORDER, SHOPPING, FORM) or the ...; customEventStr (string) - Meta only. Pixel custom event name as it appears in Events Manager; requires customEventType OTHER.; customConversionId (string) - Meta only. Custom Conversion to optimize against, instead of pixelId + customEventType.
                 dsa_beneficiary: Legal entity that benefits from the ad. Required when targeting EU users
         (EU DSA, Article 26). Optional if the ad account has a default beneficiary:
         set it once via `PATCH /v1/ads/accounts` or in Meta Ads Manager, and Meta
@@ -8108,7 +8371,7 @@ def register_generated_tools(mcp, _get_client):
         (for example, an agency paying for a client's ads). Same rules as
         `dsaBeneficiary`: required for EU targeting unless the ad account has
         a default payor.
-                lead_gen_form_id: Lead Gen form ID to attach to the boosted ad's creative. REQUIRED when `goal` is `lead_generation`. On Meta this is the leadgen_forms ID (create one via POST /v1/ads/lead-forms). On LinkedIn this is the adForm ID (create one via POST /v1/ads/lead-forms with a LinkedIn account); the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}`. Ignored for other goals.
+                lead_gen_form_id: Lead Gen form ID to attach to the boosted ad's creative. REQUIRED when `goal` is `lead_generation`. On Meta this is the leadgen_forms ID (create one via POST /v1/ads/lead-forms). On LinkedIn this is the adForm ID (create one via POST /v1/ads/lead-forms with a LinkedIn account); the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}`. Ignored for other goals. Reddit: rejected with 400 on every goal (Reddit retired its native lead forms).
                 status: Publish state of the created entities, on every platform. Omitted or ACTIVE publishes live (default); PAUSED pauses only the top-most object this boost creates and switches everything below it on: a new campaign is held paused with its ad set and ad on (one PUT /v1/ads/campaigns/{campaignId}/status with `active` brings it live); into an existing campaign (TikTok `existingCampaignId`) the new ad set is held paused; attached to an existing ad set (`adSetId`) the new ad itself is paused. On LinkedIn the held campaign group is PAUSED, its campaign and creative ACTIVE. X has no per-ad switch, so its lowest level is the line item. `campaignStatus`, `adSetStatus` and `adStatus` set one level each and always win for that level; `status: PAUSED` adds a hold of its own only when none of them is PAUSED. To create every object paused, send all three as PAUSED.
                 campaign_status: Every platform, same semantics as POST /v1/ads/create. Sets the switch of the new campaign alone (LinkedIn: the campaign group) and overrides `status` for it. `ACTIVE` with `status: PAUSED` switches the campaign on and holds the new ad set paused (its ad on). Omitted, it follows `status`. Rejected with a 400 alongside `adSetId` or `existingCampaignId`, where no campaign is created (change an existing one with PUT /v1/ads/campaigns/{campaignId}/status).
                 ad_set_status: Every platform, same semantics as POST /v1/ads/create. Sets the switch of the new ad set alone (Google, TikTok and Pinterest: the ad group; LinkedIn: the campaign, which stays DRAFT when held; X: the line item) and overrides `status` for it. Omitted, it follows `status`.
@@ -8153,6 +8416,7 @@ def register_generated_tools(mcp, _get_client):
                 identity_type=identity_type,
                 budget_amount=budget_amount,
                 budget_type=budget_type,
+                lifetime_budget_cap=lifetime_budget_cap,
                 budget=budget,
                 instagram_account_id=instagram_account_id,
                 destination_type=destination_type,
@@ -8209,7 +8473,9 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_list_google_asset_groups(campaign_id: str) -> str:
         """List Performance Max asset groups
 
-        Read Performance Max asset groups and their linked text, image and YouTube assets. campaignId is the platform campaign id returned by creation or the campaign list. The campaign must be visible to the caller. Uses a 10-minute cache, with the last successful response served as stale when Google quota is exhausted. Removed groups and asset links are excluded. Campaign-level brand assets on campaigns with brand guidelines enabled are not included.
+        Lists a Performance Max campaign's asset groups with their linked text, image and YouTube assets.
+
+        campaignId is the platform campaign id returned by creation or the campaign list. The campaign must be visible to the caller. Uses a 10-minute cache, with the last successful response served as stale when Google quota is exhausted. Removed groups and asset links are excluded. Campaign-level brand assets on campaigns with brand guidelines enabled are not included.
 
         Platforms: google
 
@@ -8246,7 +8512,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create a Performance Max asset group
 
-        Add an asset group to an existing Performance Max campaign. The group, any new assets, their links and an optional listing-group tree are created in one atomic request, so Google checks the asset minimums (for non-retail campaigns) against the whole set. Created PAUSED unless status is ENABLED. validateOnly: true runs Google's validation without creating anything.
+        Adds an asset group with its assets and optional product targeting to a Performance Max campaign, or just validates it without creating anything.
+
+        The group, any new assets, their links and an optional listing-group tree are created in one atomic request, so Google checks the asset minimums (for non-retail campaigns) against the whole set. Created PAUSED unless status is ENABLED. validateOnly: true runs Google's validation without creating anything.
 
         Platforms: google
 
@@ -8292,6 +8560,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get a Performance Max asset group
 
+        Shows one Performance Max asset group with its linked assets, ad strength, status and product targeting tree.
+
         One asset group with its linked assets, ad strength, primary status and listing-group tree. Uses a 10-minute cache, served stale when Google quota is exhausted; any write below clears it.
 
         Platforms: google
@@ -8328,6 +8598,8 @@ def register_generated_tools(mcp, _get_client):
         validate_only: bool = False,
     ) -> str:
         """Update a Performance Max asset group
+
+        Changes a Performance Max asset group's name, status, final URLs or display paths.
 
         Change the name, status (ENABLED or PAUSED), final URLs or display paths. Only the fields sent are written; null on path1 or path2 clears it. Change assets with the /assets endpoint and product targeting with /listing-group-filters. validateOnly: true validates without writing.
 
@@ -8373,6 +8645,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Remove a Performance Max asset group
 
+        Permanently removes an asset group from a Performance Max campaign (this cannot be undone).
+
         Removes the asset group on Google (status REMOVED, not reversible). Pass validateOnly=true to validate without removing.
 
         Platforms: google
@@ -8408,6 +8682,8 @@ def register_generated_tools(mcp, _get_client):
         validate_only: bool = False,
     ) -> str:
         """Link or unlink asset group assets
+
+        Links new or existing assets to a Performance Max asset group and unlinks others in one change, keeping unlinked assets in the account library.
 
         Link existing assets or new content to the asset group, and unlink assets, in one atomic request. Links are applied before unlinks, so swapping the last asset of a role does not trip Google's per-role minimum. Unlinking removes the link only; the asset stays in the account library. validateOnly: true validates without writing.
 
@@ -8447,6 +8723,8 @@ def register_generated_tools(mcp, _get_client):
         validate_only: bool = False,
     ) -> str:
         """Replace an asset group's listing-group tree
+
+        Replaces the product targeting tree of a Performance Max retail asset group; only works on campaigns linked to Merchant Center.
 
         Replace the product (listing-group) tree of a Performance Max retail asset group. The current tree is removed and the new one created in one atomic request. Read the current tree with GET on the asset group. Requires a campaign linked to Merchant Center; other campaigns return 400 LISTING_SOURCE_NOT_ALLOWED from Google. validateOnly: true validates without writing.
 
@@ -8690,7 +8968,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create standalone ad
 
-            Create a paid ad with custom creative across Meta, Google Ads, Pinterest, TikTok, X, LinkedIn, and OpenAI Ads (ChatGPT Ads).
+            Creates a paid ad with your own creative, building the campaign and ad set it needs or adding it to existing ones.
+
+            Create a paid ad with custom creative across Meta, Google Ads, Pinterest, TikTok, X, LinkedIn, OpenAI Ads (ChatGPT Ads) and Reddit Ads.
 
             Google Performance Max: set `campaignType: \"pmax\"` and supply `assetGroup` with
             text, images by role, business name and finalUrl. Creates a daily budget, PAUSED
@@ -8700,20 +8980,18 @@ def register_generated_tools(mcp, _get_client):
             optional via `assetGroup.youtubeVideoId`. Brand guidelines are disabled at creation.
             All supplied asset links are validated together against Google's minimum asset requirements.
             PMax rejects ACTIVE creation, portfolio bidding, bid caps, legacy creative fields
-            and attach shapes. Geo and language targeting are supported; omitted geo targets
-            all locations. PMax does not require top-level goal, headline, body or linkUrl.
-            Supported bidding: omitted or ...
+            and attach shapes. Geo and language targeting are supported; omitted geo targets ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
 
             Args:
                 account_id: (required)
                 ad_account_id: (required)
                 name: (required)
-                campaign_name: Meta only. Exact campaign name. Overrides the default `<name> - Campaign`.
-                ad_set_name: Meta only. Exact ad set name. Overrides the default `<name> - Ad Set`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry.)
+                campaign_name: Meta and Reddit. Exact campaign name. Overrides the default `<name> - Campaign`.
+                ad_set_name: Meta and Reddit (the ad group). Exact ad set name. Overrides the default `<name> - Ad Set`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry.)
                 ad_name: Meta only. Exact ad name (the single-creative ad object's name). Overrides the default, which is `name`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry instead.)
-                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...
+                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...
                 goal: Required on legacy and multi-creative shapes; the attach shape inherits it from the ad set. Available goals vary by platform.
 
         **Meta**
@@ -8736,8 +9014,14 @@ def register_generated_tools(mcp, _get_client):
 
         **OpenAI Ads**
         - Only `traffic`, `awareness`, and `conversions` are supported (other goals return 400). Maps to OpenAI's `bidding_type` (clicks, impressions, conversions respectively). `conversions` requires an active conversion event setting on the account; create a tracking tag with `defaultEventType` via the tracking-tags API (`POST /v1/accounts/{accountId}/tracking-tags`), or configure a conversion event in OpenAI Ads Manager, or the request returns 400. Pick the event with `promotedObject.customEventType` (see AdPromotedObject); without it the most recently created optimizable event is used.
+
+        **Reddit Ads**
+        - `traffic` (CLICKS), `awareness` (BRAND_AWARENESS), `conversions`, `video_views` (VIDEO_VIEWABLE_IMPRESSIONS) and `lead_generation` (LEAD_GENERATION); any other goal returns 400.
+        - `conversions` requires `promotedObject.customEventType`; the pixel must already have received that event (see AdPromotedObject).
+        - `lead_generation` sends people to `linkUrl` and optimizes toward the pixel's Lead event, which the pixel must already have received. Reddit retired its native lead forms on September 30, 2026, so `leadGenFormId` returns 400.
+        - `video_views` needs a `video` (422 otherwise); `optimizationGoal` picks VIDEO_VIEW_6S (default) or VIDEO_VIEW_15S.
                 smart_targeting: TikTok only (a 400 elsewhere). TikTok Smart Targeting on the ad group: `audience` is TikTok's `smart_audience_enabled`, `interestsBehaviors` its `smart_interest_behavior_enabled`. When on, TikTok may deliver beyond the selected audiences or interests. Available on Video views, Traffic, Lead generation, App install, Web conversion and Community interaction. Only the flags you send are written; an unwritten flag reads back null in `nativeSettings`, so send `false` explicitly to be able to verify it is off. Not available with smartPlus or when attaching to an existing ad set (adSetId). Object with keys: audience (boolean) - TikTok smart_audience_enabled.; interestsBehaviors (boolean) - TikTok smart_interest_behavior_enabled.
-                optimization_goal: Meta, or TikTok with goal video_views (ENGAGED_VIEW, the 6-second default, or ENGAGED_VIEW_FIFTEEN; both bill per view). Meta: Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations.
+                optimization_goal: Meta, TikTok with goal video_views (ENGAGED_VIEW, the 6-second default, or ENGAGED_VIEW_FIFTEEN; both bill per view), or Reddit with goal video_views (VIDEO_VIEW_6S, the default, or VIDEO_VIEW_15S; other values return 400). Meta: Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations.
                 billing_event: Meta only. Explicit ad-set `billing_event`. Defaults to `IMPRESSIONS`. Forwarded verbatim to Meta, which validates compatibility with the optimization goal.
                 buying_type: Meta only. Defaults to AUCTION and is explicitly sent on new campaigns, including validateOnly. Reusing existingCampaignId does not change the campaign. RESERVED = Reach & Frequency: requires `rfPredictionId` (a RESERVED prediction from /v1/ads/rf-predictions + /reserve). Budget, schedule and pricing come from the reservation, so budgetAmount/budgetType are not required and bid fields are ignored. Only the plain single-ad shape (no creatives[], adSetId, existingCampaignId or dynamicCreative).
                 rf_prediction_id: Meta only. The RESERVED prediction id the R&F ad set runs on (reserving mints a new id, so pass that one). Requires buyingType RESERVED.
@@ -8747,7 +9031,7 @@ def register_generated_tools(mcp, _get_client):
                 ai_disclosure: Meta only. Meta's "Ad includes media created or edited with AI" disclosure, the checkbox in Ads Manager, stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`. OPT_IN checks it, OPT_OUT explicitly declares no AI media, omitted leaves Meta's default. Applied to each new creative, including standalone, creatives[] and attach shapes, and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision.
                 validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, all-image placementAssets with per-rule copy, existing video.id or existingCreativeId; other media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI's own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.
                 budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads: in the ad account currency, minimum 1; OpenAI can require a higher daily minimum for some currencies and names it in the error.
-                budget_type: Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads accepts both as the campaign's single spend cap. A lifetime cap can later switch to daily with PUT /v1/ads/campaigns/{campaignId}, but OpenAI never switches a daily cap back to lifetime (422). Automatic bidding (Maximize Results) needs a daily budget.
+                budget_type: Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads accepts both as the campaign's single spend cap. A lifetime cap can later switch to daily with PUT /v1/ads/campaigns/{campaignId}, but OpenAI never switches a daily cap back to lifetime (422). Automatic bidding (Maximize Results) needs a daily budget. Reddit Ads: the ad group's daily or lifetime spend goal; lifetime needs `endDate`.
                 status: Publish state of the created entities, on every platform. Omitted or ACTIVE publishes live (default, back-compat); PAUSED pauses only the TOP-MOST object this call creates and switches everything below it on, so one resume of that object brings the new tree live and nothing that already existed is touched: a new campaign is held paused with its ad set and ad on; with `existingCampaignId` the new ad set is held paused with its ad on; with `adSetId` the new ad itself is paused. `campaignStatus: ACTIVE` with `status: PAUSED` moves the pause down to the new ad set. `campaignStatus`, `adSetStatus` and `adStatus` set one level each and always win for that level; `status: PAUSED` adds a hold of its own only when none of them is PAUSED. To create every object paused, send all three as PAUSED. LinkedIn: a held campaign group is PAUSED with its campaign and creative ACTIVE; a new campaign in an existing group stays DRAFT; a held creative (with `adSetId`) is created DRAFT, as LinkedIn refuses PAUSED until its review is APPROVED. X has no per-ad switch, so its lowest level is the line item. Google Performance Max and Demand Gen accept PAUSED only (the campaign is created paused).
                 campaign_status: Every platform. Sets the switch of the new campaign alone (LinkedIn: the campaign group) and overrides `status` for it. `PAUSED` holds the campaign off with its ad set and ad on unless `adSetStatus` or `adStatus` say otherwise; `ACTIVE` with `status: PAUSED` switches the campaign on and holds the new ad set paused (its ad on). Omitted, it follows `status`. Ignored when the request creates no campaign (`existingCampaignId` or `adSetId`).
                 ad_set_status: Every platform. Sets the switch of the new ad set alone (Google, TikTok, Pinterest and ChatGPT: the ad group; LinkedIn: the campaign, which stays DRAFT when held; X: the line item) and overrides `status` for it. Omitted, it follows `status`.
@@ -8771,9 +9055,9 @@ def register_generated_tools(mcp, _get_client):
         Meta requires the budget at exactly one level, never both. Non-Meta platforms ignore
         this field. Ignored on the attach shape (`adSetId`), which inherits the existing budget.
                 currency: ISO 4217 currency code matching the ad account's currency (e.g. `USD`). Meta only. Optional: Zernio resolves it from the ad account when omitted. The value selects the minor-unit exponent Zernio converts budget/bid amounts by before calling Meta (most currencies are cents; zero-decimal currencies like JPY/KRW are sent as-is).
-                headline: Required for Meta, Google, Pinterest, LinkedIn, and OpenAI Ads on legacy + attach shapes (skip for multi-creative; use `creatives[].headline`). Ignored for TikTok. On X, the website card title (needs imageUrl and linkUrl, max 70). Max: Meta=255, Google=30, Pinterest=100, LinkedIn=400, OpenAI=50 (min 3). On LinkedIn this is the ad's headline (the bold text on the creative); for traffic ads it's the link card title. On OpenAI Ads this is the chat card's title.
+                headline: Required for Meta, Google, Pinterest, LinkedIn, OpenAI Ads and Reddit Ads on legacy + attach shapes (skip for multi-creative; use `creatives[].headline`). Ignored for TikTok. On X, the website card title (needs imageUrl and linkUrl, max 70). Max: Meta=255, Google=30, Pinterest=100, LinkedIn=400, OpenAI=50 (min 3), Reddit=300 (the promoted post's title). On LinkedIn this is the ad's headline (the bold text on the creative); for traffic ads it's the link card title. On OpenAI Ads this is the chat card's title.
                 long_headline: Google Display only. Defaults to `headline` if omitted. On LinkedIn, reused as the optional secondary description text on traffic (link) ads; omitted if not provided.
-                body: Required on legacy + attach shapes. For X this is the tweet text (max 280 chars including a ~24-char URL when `linkUrl` is set). On LinkedIn this is the post commentary (the intro text shown above the ad). On OpenAI Ads this is the chat card's body text. Max: Google=90, Pinterest=500, OpenAI=100.
+                body: Required on legacy + attach shapes. For X this is the tweet text (max 280 chars including a ~24-char URL when `linkUrl` is set). On LinkedIn this is the post commentary (the intro text shown above the ad). On OpenAI Ads this is the chat card's body text. On Reddit it is the promoted post's body: optional on image, video and carousel ads, required on text ads. Max: Google=90, Pinterest=500, OpenAI=100.
                 description: Meta only (facebook/instagram). Link description: the secondary text shown below the headline (Meta's link_data.description; on video creatives mapped to video_data.link_description). When omitted, Meta auto-pulls the destination URL's OpenGraph description. Applies on legacy, attach, and placementAssets shapes; for multi-creative use creatives[].description (this field is the shared fallback). For multi-text variations use `descriptions` (array) instead.
                 bodies: Meta only. Multiple Text Options (Advantage+ Flexible Format): supply 1-5 primary-text
         variations and Meta optimises delivery across them, WITHOUT enabling full Dynamic Creative
@@ -8793,12 +9077,12 @@ def register_generated_tools(mcp, _get_client):
         The top-level `headline` field is used as the `object_story_spec.link_data.name`
         (`video_data.title` on a video creative).
                 descriptions: Meta only. Optional description variations for Multiple Text Options. Sent alongside `bodies` and `headlines`.
-                call_to_action: Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Ignored by Google, Pinterest, and X.
-                link_url: Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination). On LinkedIn, `imageUrl` + `linkUrl` publishes an ARTICLE-content creative; this is LinkedIn's article ad format, with the image as thumbnail and `longHeadline` as description. Required for OpenAI Ads (the chat card's target_url).
-                lead_gen_form_id: Lead Gen form ID to attach to the ad's creative. REQUIRED when `goal` is `lead_generation`. Create one via POST /v1/ads/lead-forms. On Meta (facebook/instagram) this is the leadgen_forms ID; the ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. On LinkedIn this is the adForm ID; the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}` and the campaign objective is set to MAX_LEAD. Forms must be owned by the sponsoredAccount (not the organization) for the URN to resolve. Also required on every Meta ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). `placementAssets`, `dynamicCreative` and `carouselCards` (Meta multi-card Instant-Form lead ad; `linkUrl` and per-card `linkUrl` are optional and forwarded as real destinations when sent, falling back to Meta's lead-form link when omitted) ARE supported on Meta instant-form lead ads.
-                image_url: Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). On X, imageUrl + headline + linkUrl together build a website card (image, title and destination under the post; the URL is not added to the post text); sending only some of them is a 400. description, video and callToAction are rejected with 400 on X (promote a post that carries a video with POST /v1/ads/boost). For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627). Required for OpenAI Ads (uploaded as the chat card's image; OpenAI has no video ad format).
+                call_to_action: Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Reddit (image, video and carousel ads) accepts: LEARN_MORE, SHOP_NOW, SIGN_UP, CONTACT_US, DOWNLOAD, GET_QUOTE, SUBSCRIBE, APPLY_NOW, BOOK_NOW, BUY_TICKETS, DONATE_NOW, GET_DIRECTIONS, GET_SHOWTIMES, LISTEN_NOW, ORDER_NOW, SEE_MENU, INSTALL_MOBILE_APP (other values return 400). Ignored by Google, Pinterest, and X.
+                link_url: Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination). On LinkedIn, `imageUrl` + `linkUrl` publishes an ARTICLE-content creative; this is LinkedIn's article ad format, with the image as thumbnail and `longHeadline` as description. Required for OpenAI Ads (the chat card's target_url). Reddit: required on image and video ads (the post's destination and the ad's click URL), the fallback for carousel cards without their own, and refused with 400 on text ads.
+                lead_gen_form_id: Lead Gen form ID to attach to the ad's creative. REQUIRED when `goal` is `lead_generation`. Create one via POST /v1/ads/lead-forms. On Meta (facebook/instagram) this is the leadgen_forms ID; the ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. On LinkedIn this is the adForm ID; the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}` and the campaign objective is set to MAX_LEAD. Forms must be owned by the sponsoredAccount (not the organization) for the URN to resolve. Also required on every Meta ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). `placementAssets`, `dynamicCreative` and `carouselCards` (Meta multi-card Instant-Form lead ad; `linkUrl` and per-card `linkUrl` are optional and forwarded as real destinations when sent, falling back to Meta's lead-form link when omitted) ARE supported on Meta instant-form lead ads. Reddit: rejected with 400 on every goal (Reddit retired its native lead forms).
+                image_url: Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). On X, imageUrl + headline + linkUrl together build a website card (image, title and destination under the post; the URL is not added to the post text); sending only some of them is a 400. description, video and callToAction are rejected with 400 on X (promote a post that carries a video with POST /v1/ads/boost). For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627). Required for OpenAI Ads (uploaded as the chat card's image; OpenAI has no video ad format). Reddit: builds an image ad (requires `linkUrl`); on a Reddit video ad it is the fallback for `video.thumbnailUrl`.
                 images: Google Display (Responsive Display Ads) only. Google RDA requires both a landscape (1.91:1) and a square (1:1) marketing image; sending only one is rejected upstream as 'Too few.' (NOT_ENOUGH_*_MARKETING_IMAGE_ASSET). Supply both URLs here. Either this field or the legacy `imageUrl` can provide the landscape, but `square` has no legacy counterpart so it must be set here for Display. Object with keys: landscape (string) - Landscape 1.91:1 marketing image URL (e.g. 1200x628). Also accepted via the top-level `imageUrl` for backward compatibility.; square (string) - Square 1:1 marketing image URL (e.g. 1080x1080). Required for Google Display.
-                video: Meta (facebook, instagram) and LinkedIn. Creates a single VIDEO ad. Mutually exclusive with `imageUrl`. Supply `url` to upload a file, or `id` to reuse a video already on the ad account (list them with GET /v1/ads/videos). Works on the single-ad and attach (`adSetId`) shapes; for Meta multi-creative, set `video` per entry inside `creatives[]` instead. For LinkedIn the video is uploaded to LinkedIn under the authoring Company Page (see `organizationId`) and the campaign format is set to SINGLE_VIDEO; LinkedIn ignores `thumbnailUrl` (it auto-generates the poster frame). Supply MP4 H.264/AAC, 3s-30min, 75KB-500MB. Object with keys: url (string) - Public URL of the video. Meta: uploaded via chunked transfer on /act_X/advideos, then the request blocks on Meta's transcoding until status.video_status === ...; id (string) - Meta only. Reuse a video ALREADY uploaded to this ad account instead of re-uploading the file: pass the `videoId` returned by a previous create. Wins over ...; thumbnailUrl (string) - Public URL of a still-image thumbnail for the video. OPTIONAL: when omitted on Meta, the poster is auto-generated from Meta's own preferred video thumbnail ...
+                video: Meta (facebook, instagram), LinkedIn and Reddit. On Reddit `url`, `linkUrl` and a thumbnail (`thumbnailUrl`, or `imageUrl`) are all required. Creates a single VIDEO ad. Mutually exclusive with `imageUrl`. Supply `url` to upload a file, or `id` to reuse a video already on the ad account (list them with GET /v1/ads/videos). Works on the single-ad and attach (`adSetId`) shapes; for Meta multi-creative, set `video` per entry inside `creatives[]` instead. For LinkedIn the video is uploaded to LinkedIn under the authoring Company Page (see `organizationId`) and the campaign format is set to SINGLE_VIDEO; LinkedIn ignores `thumbnailUrl` (it auto-generates the poster frame). Supply MP4 H.264/AAC, 3s-30min, 75KB-500MB. Object with keys: url (string) - Public URL of the video. Meta: uploaded via chunked transfer on /act_X/advideos, then the request blocks on Meta's transcoding until status.video_status === ...; id (string) - Meta only. Reuse a video ALREADY uploaded to this ad account instead of re-uploading the file: pass the `videoId` returned by a previous create. Wins over ...; thumbnailUrl (string) - Public URL of a still-image thumbnail for the video. OPTIONAL: when omitted on Meta, the poster is auto-generated from Meta's own preferred video thumbnail ...
                 creatives: Meta-only. When present, switches to the multi-creative shape: creates 1 campaign + 1 ad set + N ads (one per entry here). Top-level `headline` / `body` / `imageUrl` / `linkUrl` / `callToAction` are ignored in this mode. Mutually exclusive with `adSetId`. Each item is an object with keys: creativeFeatures (object) - Replaces the entire top-level creativeFeatures map for this item. Omit to inherit; an empty map clears these defaults.; name (string) - Exact name for this ad. Falls back to `<name> #N` (N = 1-based position).; headline (string, required); body (string, required); description (string) - Link description for this ad (link_data.description; video creatives: video_data.link_description). Falls back to the top-level `description`; when both are ...; imageUrl (string) - Image creative. Mutually exclusive with `video`.; video (object with keys url, thumbnailUrl) - Video creative for this entry. Mutually exclusive with `imageUrl`. thumbnailUrl is optional: when omitted, the poster is auto-generated from Meta's preferred ...; linkUrl (string, required); callToAction (one of: LEARN_MORE, SHOP_NOW, SIGN_UP, BOOK_TRAVEL, CONTACT_US, DOWNLOAD, GET_OFFER, GET_QUOTE, SUBSCRIBE, WATCH_MORE, ADD_TO_CART, APPLY_NOW, BOOK_NOW, BUY_TICKETS, DONATE, DONATE_NOW, GET_DIRECTIONS, GET_SHOWTIMES, LISTEN_NOW, ORDER_NOW, PLAY_GAME, REQUEST_TIME, SEE_MENU, START_ORDER, INSTALL_MOBILE_APP, USE_APP; required)
                 ad_set_id: When present, switches to the attach shape: adds
         one new ad to this existing ad set without creating a new
@@ -8894,7 +9178,7 @@ def register_generated_tools(mcp, _get_client):
                 business_name: Google Display only
                 board_id: Pinterest only. Board ID (auto-creates if not provided).
                 organization_id: LinkedIn only. The Company Page that authors the Direct Sponsored Content ("dark") post backing the ad. Accepts a numeric organization ID or a full `urn:li:organization:N` URN. Required unless the resolved `accountId` is a connected LinkedIn Company-Page account (defaults to that page) or the LinkedIn ad account is org-owned (defaults to the account's owning organization). The authenticated member must be an ADMINISTRATOR or DIRECT_SPONSORED_CONTENT_POSTER of this page (and the page must be associated with the ad account), or LinkedIn returns 403. Ignored by every other platform.
-                targeting: Nested targeting object, the same TargetingSpec shape as `POST /v1/ads/boost`, `POST /v1/ads/targeting/reach-estimate`, and `saved_targeting` audiences. Merged UNDER the flat inline targeting fields below: `savedTargetingId` < `targeting` < flat fields (a flat field present on the body replaces the nested value entirely). Both forms are equivalent; use whichever your integration already builds. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the other ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X and Pinterest; rejected with 400 on OpenAI. A code the ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).
+                targeting: Nested targeting object, the same TargetingSpec shape as `POST /v1/ads/boost`, `POST /v1/ads/targeting/reach-estimate`, and `saved_targeting` audiences. Merged UNDER the flat inline targeting fields below: `savedTargetingId` < `targeting` < flat fields (a flat field present on the body replaces the nested value entirely). Both forms are equivalent; use whichever your integration already builds. Reddit-only targeting (`communities`, `excludedCommunities`, `conversationKeywords`, `excludedConversationKeywords`) is sent here. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
                 countries: ISO 3166-1 alpha-2 country codes (e.g. ['NL']). Defaults to ['US'] when no other geo targeting (flat or nested `targeting`) is provided. (LinkedIn and OpenAI Ads currently honour country-level targeting only; any other targeting field returns 400 for OpenAI Ads.)
                 country_groups: Meta only. Continents and trade blocs (`geo_locations.country_groups`),
         for targeting a whole region without listing its countries. Combines with
@@ -8954,11 +9238,11 @@ def register_generated_tools(mcp, _get_client):
         numeric IDs from Meta verification. Keys vary by category (e.g. universal_beneficiary /
         universal_payer for BRAZIL_REGULATION and THAILAND_UNIVERSAL). If omitted, Meta uses
         Ads Manager defaults when configured.
-                end_date: Required for lifetime budgets. Read like `startDate` (account timezone on Meta, TikTok, X, Pinterest and OpenAI; whole account-local days on Google; UTC on LinkedIn), and a date-only end runs to 23:59:59 local.
+                end_date: Required for lifetime budgets. Read like `startDate` (account timezone on Meta, TikTok, X, Pinterest, OpenAI and Reddit; whole account-local days on Google; UTC on LinkedIn), and a date-only end runs to 23:59:59 local.
                 start_date: Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the ad set's
         start (Meta `start_time`, TikTok ad group `schedule_start_time`, LinkedIn / Pinterest / X
         / Google campaign start). When omitted the ad starts delivering immediately. For lifetime
-        budgets Meta also requires `endDate`. On Meta, TikTok, X, Pinterest and OpenAI a value
+        budgets Meta also requires `endDate`. On Meta, TikTok, X, Pinterest, OpenAI and Reddit a value
         without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read
         in the ad account timezone (Meta itself would read it as UTC). Google runs whole days in
         the customer account timezone and takes the value's calendar date as written. LinkedIn
@@ -8977,7 +9261,7 @@ def register_generated_tools(mcp, _get_client):
         falling back to the Page's page-backed Instagram account. Useful when a Page has more
         than one eligible IG account.
                 dynamic_creative: Meta only. Dynamic Creative: supply a POOL of assets and Meta auto-combines and optimises them into the best-performing variations within a single ad (mapped to the creative's `asset_feed_spec`). When set, the top-level single-creative fields (`imageUrl`, `headline`, `body`, `linkUrl`, `callToAction`) are ignored. Mutually exclusive with the `creatives[]` multi-creative shape. Exactly ONE of `imageUrls` / `videoUrls` is required (Meta allows one ad format per asset feed; sending both → 400). Limits remain 10 images or videos and 5 bodies, titles or descriptions. The ad set is created with `is_dynamic_creative: true`. Combining this field with `adSetId` returns 400: omit `adSetId` to create a new dynamic ad set. Multiple headlines go in `titles`; multiple primary texts go in `bodies`. Object with keys: imageUrls (list of string) - Pool of image URLs (1-10). Uploaded to the ad account and referenced by hash in the asset feed. Mutually exclusive with `videoUrls`.; videoUrls (list of string) - Pool of video URLs (1-10). Uploaded to the ad account and referenced by video id in the asset feed. No thumbnails are needed: Meta auto-generates a poster per ...; bodies (list of string) - Primary-text variations (the body copy).; titles (list of string) - Headline variations.; descriptions (list of string) - Description (link caption) variations.; linkUrls (list of string) - Destination URL variations. At least one is required unless `goal` is `lead_generation`.; callToActionTypes (list of string) - CTA-button variations. Required.; adFormat (one of: SINGLE_IMAGE, CAROUSEL_IMAGE, SINGLE_VIDEO) - Asset-feed ad format. Must match the pool: SINGLE_IMAGE / CAROUSEL_IMAGE require `imageUrls`, SINGLE_VIDEO requires `videoUrls` (400 otherwise). Defaults to ...
-                carousel_cards: Meta only. Hand-built carousel: 2-10 authored cards in DETERMINISTIC order, mapped to the creative's `link_data.child_attachments`. Unlike `dynamicCreative`, you control the card order and per-card copy/link. Requires top-level `body` and `callToAction`; `linkUrl` is also required UNLESS `leadGenFormId` is set. Those become the ad's own Destination and button (`link_data.link` / `link_data.call_to_action`), and double as the per-card fallback when a card omits its own. Mutually exclusive with `imageUrl`/`video`, `creatives[]`, `dynamicCreative`, `placementAssets`, `existingCreativeId`, `adSetId` and goal `catalog_sales`. Combines with `leadGenFormId` to build a carousel Instant-Form lead ad: `linkUrl` and per-card `linkUrl` become OPTIONAL and, when sent, are forwarded as the real card and top-level destinations; when omitted, the destination falls back to Meta's lead-form link. Each item is an object with keys: imageUrl (string, required) - Card image; uploaded to the ad account and referenced by hash.; linkUrl (string) - Card destination URL. Defaults to the top-level linkUrl, or Meta's lead-form link when leadGenFormId is set and neither is provided.; headline (string) - Card headline, shown below the card image.; description (string) - Card description, shown under the headline.; callToAction (string) - Card CTA override. Defaults to the top-level callToAction; same enum.
+                carousel_cards: Reddit: builds a carousel ad, each card with its image, destination (card `linkUrl`, falling back to the top-level `linkUrl`, 400 when neither is set), call to action (card `callToAction`, falling back to the top-level one) and caption (card `headline`, else `description`). `headline` is still required. Meta only. Hand-built carousel: 2-10 authored cards in DETERMINISTIC order, mapped to the creative's `link_data.child_attachments`. Unlike `dynamicCreative`, you control the card order and per-card copy/link. Requires top-level `body` and `callToAction`; `linkUrl` is also required UNLESS `leadGenFormId` is set. Those become the ad's own Destination and button (`link_data.link` / `link_data.call_to_action`), and double as the per-card fallback when a card omits its own. Mutually exclusive with `imageUrl`/`video`, `creatives[]`, `dynamicCreative`, `placementAssets`, `existingCreativeId`, `adSetId` and goal `catalog_sales`. Combines with `leadGenFormId` to build a carousel Instant-Form lead ad: `linkUrl` and per-card `linkUrl` become OPTIONAL and, when sent, are forwarded as the real card and top-level destinations; when omitted, the destination falls back to Meta's lead-form link. Each item is an object with keys: imageUrl (string, required) - Card image; uploaded to the ad account and referenced by hash.; linkUrl (string) - Card destination URL. Defaults to the top-level linkUrl, or Meta's lead-form link when leadGenFormId is set and neither is provided.; headline (string) - Card headline, shown below the card image.; description (string) - Card description, shown under the headline.; callToAction (string) - Card CTA override. Defaults to the top-level callToAction; same enum.
                 default_locale: Meta only. Language the top-level copy is written in (e.g. `en`, `pt_BR`), used by the `translations` default rule. Defaults to `en`. Meta rejects a language asset feed whose default rule carries no locales of its own. Must NOT also appear as an entry in `translations`.
                 translations: Meta only. Multi-language ads (Dynamic Language Optimization): ONE ad carrying per-locale copy and, optionally, per-locale media: the "Languages" toggle in Ads Manager. Keeps social proof (likes/comments/shares) on a SINGLE post instead of splitting it across one ad per language. The ad's top-level copy is the DEFAULT shown to every locale you do NOT list, and it counts as one of the language variants. IMPORTANT, and the opposite of what you might expect: text does NOT inherit. Every entry must carry its own `headline`, `body` AND `description`, and all of them must be DISTINCT from each other and from the ad's top-level copy. Meta deduplicates identical strings inside the asset feed, so two locales sharing a string collapse into one asset and the create fails with a misleading "Too few ... texts provided in asset creation" (subcode 1885817) that names a field which is actually present. We validate this before calling Meta and return a 400 naming the offending locale and field. `description` is therefore effectively required on the ad whenever `translations` is present, even though it is optional otherwise. Do NOT list `defaultLocale` inside `translations`: Meta rejects the duplicate with "The language asset feed includes an unsupported targeting field" (subcode 1885985). Media DOES inherit and is uploaded once when shared, and `linkUrl` inherits too: each locale may name its own landing page and unlisted locales fall back to the ad's top-level `linkUrl`. Meta enforces Dynamic Creative image dimensions on language feeds, so an `imageUrl` that works on a normal ad may be rejected with "The following images have invalid dimensions for Dynamic Creative" (subcode 1885558). Video is not affected. Mutually exclusive with `dynamicCreative`, `placementAssets`, `carouselCards`, `existingCreativeId` and `creatives[]`. Meta allows one `asset_feed_spec` shape per creative. Each item is an object with keys: locale (string, required) - Language code, resolved to Meta's numeric locale id. Bare codes target the '(All)' umbrella (`es` = every Spanish variant); region-qualified codes target the ...; headline (string, required) - Headline for this language. REQUIRED, and must differ from every other locale and from the ad's top-level headline.; body (string, required) - Primary text for this language. REQUIRED, and must differ from every other locale and from the ad's top-level body.; description (string, required) - Link description for this language. REQUIRED, and must differ from every other locale and from the ad's top-level description.; linkUrl (string) - Destination URL for this language. Inherits the ad's top-level `linkUrl` when omitted, and requires it to be present (400 otherwise): the top-level URL is the ...; imageUrl (string) - Image for this language. Inherits the ad's `imageUrl` when omitted. The feed is all-image OR all-video.; videoUrl (string) - Video for this language. Inherits the ad's `video.url` when omitted. The feed is all-image OR all-video.; thumbnailUrl (string) - Poster frame for this language's video.
                 placement_assets: Meta only. Placement asset customization: pin a SPECIFIC asset (image OR video) to each placement group on a SINGLE ad (e.g. a 9:16 on Stories/Reels and a 4:5 on Feed). The same thing Meta Ads Manager produces with "different creative per placement", mapped to the creative's `asset_feed_spec` + `asset_customization_rules`. Deterministic pinning, NOT the auto-optimizing pool of `dynamicCreative` (mutually exclusive). Works on the legacy single shape AND the attach shape (`adSetId` + placementAssets adds one placement-customized ad to an existing ad set, the way to build N per-placement ads sharing one ad set: create the first normally, attach the rest). Cannot be combined with `creatives[]` or top-level `bodies`/`headlines`/`descriptions` arrays. Each rule can override `headline`, `body` and `description` with one string per field. Omitted fields and unmatched placements use the top-level copy; `linkUrl` and `callToAction` remain shared. Zernio emits labelled text with `optimization_type: PLACEMENT`. Multiple text options rotating within a placement are not supported by this input. Each rule's `placements` accepts the same fields as the top-level `placements` object; Meta enforces co-selection rules and returns an actionable error. Meta controls text rendering by placement and format. Validation accepts these fields but does not prove that every field appears in delivery. Preview the ad; put copy that must always be visible into the image or video itself. `validateOnly: true` supports all-image placementAssets without uploading or creating anything. Video placement validation remains unsupported because it requires uploads. A block is all-image OR all-video, never mixed (Meta's asset_feed_spec carries one ad format). Image mode: `defaultImageUrl` + `rules[].imageUrl`. Video mode: `defaultVideoUrl` + `rules[].videoUrl` (optional `thumbnailUrl`/`defaultThumbnailUrl` posters; Meta auto-generates when omitted). Exactly one catch-all default is required. Object with keys: defaultImageUrl (string) - Image mode. Catch-all image for any placement no rule matches. Required in image mode (Meta mandates a default rule).; defaultVideoUrl (string) - Video mode. Catch-all video for any placement no rule matches. Required in video mode.; defaultThumbnailUrl (string) - Video mode (optional). Poster image for the default video; Meta auto-generates one when omitted.; rules (list of objects with keys imageUrl, videoUrl, thumbnailUrl, headline, body, description, placements, required) - One entry per placement group you want to pin a specific asset to.
@@ -9000,12 +9284,14 @@ def register_generated_tools(mcp, _get_client):
                 structured_snippets: Google Search only. Structured snippets: one header from Google's predefined list plus 3-10 values (max 25 chars each). Each becomes one Asset (`structured_snippet_asset`) plus a CampaignAsset link with field_type STRUCTURED_SNIPPET. Each item is an object with keys: header (one of: Amenities, Brands, Courses, Degree programs, Destinations, Featured hotels, Insurance coverage, Models, Neighborhoods, Service catalog, Shows, Styles, Types; required) - One of Google's 13 predefined snippet headers.; values (list of string, required)
                 advantage_audience: Meta only. Controls the Advantage audience feature (targeting_automation). 0 = disabled (default), 1 = enabled. Meta Marketing API requires this field on all ad set creation requests.
                 attribution_spec: Meta only. Conversion attribution window for the ad set, mapping 1:1 to Meta's ad-set `attribution_spec`. Only honored for conversion goals (`conversions`, `lead_generation`, `app_promotion`); ignored for awareness/traffic/engagement. Omit to use Meta's default (`7-day click` + `1-day view`). Meta enforces the valid combinations: `VIEW_THROUGH` only allows `windowDays: 1` (7d/28d view windows were removed Jan 2026); `ENGAGED_VIDEO_VIEW` only `1` and only alongside `VIEW_THROUGH: 1`; `CLICK_THROUGH: 28` only on certain objectives. Invalid combos surface as a Meta 400. Example: `[{ "eventType": "CLICK_THROUGH", "windowDays": 7 }, { "eventType": "VIEW_THROUGH", "windowDays": 1 }]` Each item is an object with keys: eventType (one of: CLICK_THROUGH, VIEW_THROUGH, ENGAGED_VIDEO_VIEW; required); windowDays (one of: 1, 7, 28; required)
-                gender: Restrict the audience by gender. 'male' targets men only, 'female' targets women only, 'all' (default) targets everyone. Applied on Meta, TikTok and Pinterest. Ignored on Google, LinkedIn and X.
+                gender: Restrict the audience by gender. 'male' targets men only, 'female' targets women only, 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest and Reddit. Ignored on Google, LinkedIn and X.
                 bid_strategy: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
 
         Meta bid strategy applied to the ad set.
 
         OpenAI Ads: sent via this flat field, the only channel it supports (`platformSpecificData` is Meta/LinkedIn-only and returns 400 for OpenAI). `LOWEST_COST_WITH_BID_CAP` or `COST_CAP` with `bidAmount` sets a fixed bid (`fixed_bid`, the CPA bid on `conversions`). Omitted or `LOWEST_COST_WITHOUT_CAP` bids automatically with OpenAI's Maximize Results (`maximize_clicks` for `traffic`, `maximize_conversions` for `conversions`), which needs `budgetType: daily`; on a lifetime budget or the `awareness` goal it returns 400.
+
+        Reddit Ads: sent via this flat field and applied to the new ad group. LOWEST_COST_WITHOUT_CAP or omitted = automatic bidding (BIDLESS), LOWEST_COST_WITH_BID_CAP + `bidAmount` = MANUAL_BIDDING with that bid, COST_CAP + `bidAmount` = MAXIMIZE_VOLUME with that cap. Any other strategy returns 422 before anything is created.
 
         Google (not deprecated there, this shared flat field is Google's only shape): applied to the campaign this call creates. On Google: LOWEST_COST_WITHOUT_CAP = Maximize Conversions, COST_CAP + bidAmount = Target CPA, LOWEST_COST_WITH_MIN_ROAS + roasAverageFloor = Target ROAS, LOWEST_COST_WITH_BID_CAP + bidAmount = Maximize Clicks with a CPC ceiling; portfolioBidStrategyId attaches a portfolio strategy instead. Omitted, the campaign falls back to a goal-based default.
                 bid_amount: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
@@ -9229,6 +9515,8 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_get_campaign_conversion_goals(campaign_id: str) -> str:
         """Get campaign conversion goals
 
+        Shows which conversion goals a Google campaign bids on, and whether it follows the account defaults or uses its own or a custom goal.
+
         A Google campaign's conversion goals (CampaignConversionGoal, `biddable` per category
         and origin) and its goal config (ConversionGoalCampaignConfig): `goalConfigLevel`
         CUSTOMER means the campaign follows the account-default goals, CAMPAIGN means it uses
@@ -9262,6 +9550,8 @@ def register_generated_tools(mcp, _get_client):
         custom_conversion_goal_id: str | None = None,
     ) -> str:
         """Update campaign conversion goals
+
+        Changes which conversions a Google campaign bids on, switching between account-default goals, its own goals or a custom goal.
 
         Sets `biddable` on campaign goals, switches `goalConfigLevel`, and/or points the
         campaign at a custom conversion goal, in one mutate. `customConversionGoalId: null`
@@ -9307,6 +9597,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Render pre-create ad previews
 
+        Shows how a Meta creative will look in each placement before you create the ad, as embeddable previews.
+
         Renders how a creative would look per placement BEFORE any ad exists, via Meta's
         `/generatepreviews`. Provide exactly one creative source: `existingCreativeId` or `creativeSpec`.
         Each preview is an HTML `<iframe>` snippet embeddable directly. Unknown `formats` values
@@ -9344,6 +9636,8 @@ def register_generated_tools(mcp, _get_client):
     def ad_creatives_get_ad_previews(ad_id: str, formats: str | None = None) -> str:
         """Render previews of an existing ad
 
+        Shows how an existing Meta ad looks in each placement, as embeddable previews.
+
         Renders an EXISTING ad per placement via Meta's `/{ad_id}/previews`. Each preview is an HTML
         `<iframe>` snippet embeddable directly. Unknown `formats` values return Meta's 400 verbatim.
 
@@ -9370,6 +9664,8 @@ def register_generated_tools(mcp, _get_client):
     def ad_creatives_get_ad_media(ad_id: str) -> str:
         """Direct video and image URLs for an ad
 
+        Returns fresh, short-lived download links for every image and video a Meta ad uses, including the original media of a boosted Instagram post.
+
         Returns the direct signed URLs for every video and image asset used by an ad's live
         creative, normalised across shapes: single image/video, carousel,
         Reels/Story (`object_story_spec.video_data`) and dynamic
@@ -9383,8 +9679,7 @@ def register_generated_tools(mcp, _get_client):
 
         Reads Meta live rather than the stored creative blob because Meta's signed fbcdn
         URLs carry an `oe=<hex>` expiration (image_url ~24 h, video source ~12 d). Treat
-        URLs as short-lived: re-fetch this endpoint before serving or downloading assets
-        instead of caching URLs beyond that window.
+        URLs as short-lived: re-fetch this endpoint before serving or ...
 
         Platforms: meta
 
@@ -9443,6 +9738,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Creative library
 
+        Lists the creatives saved in a Meta ad account so you can reuse one in a new ad.
+
         Lists the ad account's creative library (Meta's `/act_X/adcreatives`), rows returned
         verbatim. The default projection covers id, name, status, object type, thumbnail,
         object_story_spec / asset_feed_spec and url_tags; `fields` is a raw-passthrough
@@ -9496,6 +9793,8 @@ def register_generated_tools(mcp, _get_client):
         ai_disclosure: Literal["OPT_IN", "OPT_OUT"] | None = None,
     ) -> str:
         """Create a standalone creative
+
+        Creates a reusable Meta creative from an image or carousel without creating an ad, ready to attach to ads later.
 
         Creates a creative in the library WITHOUT an ad, reusable on the create endpoints via
         `existingCreativeId`. Provide exactly one of `imageUrl` (uploaded server-side),
@@ -9562,6 +9861,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Creative details
 
+        Shows the details of one Meta creative, such as its content, status and thumbnail.
+
         One creative's details, verbatim from Meta. `fields` is a raw-passthrough override of
         the default projection.
 
@@ -9599,7 +9900,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Rename a creative
 
-        Renames a creative. Creatives are immutable on Meta beyond `name`. For content changes
+        Renames a Meta creative (Meta does not allow other changes, so make a new creative to change its content).
+
+        Creatives are immutable on Meta beyond `name`. For content changes
         create a new creative (POST /v1/ads/creatives) and swap it onto the ad
         (PUT /v1/ads/{adId} with `creative`).
 
@@ -9629,7 +9932,9 @@ def register_generated_tools(mcp, _get_client):
     def ad_creatives_delete_ad_creative(creative_id: str, account_id: str) -> str:
         """Delete a creative
 
-        Deletes a creative from the library. Meta only allows deleting creatives not referenced
+        Deletes a Meta creative from the library, which Meta only allows when no ad uses it.
+
+        Meta only allows deleting creatives not referenced
         by any ad; otherwise its 400 surfaces verbatim.
 
         Platforms: meta
@@ -9662,8 +9967,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Upload an ad image from base64
 
-        Uploads raw image bytes to the Meta ad account's image library, for callers whose
-        creatives aren't hosted at a public URL. Returns the image `hash` (Meta's identifier for
+        Uploads an image file to a Meta ad account's library, for creatives that are not hosted at a public URL.
+
+        Returns the image `hash` (Meta's identifier for
         the asset) and the Meta-hosted `url`, which can be used directly as `imageUrl` on the
         create endpoints. Max 30 MB decoded.
 
@@ -9702,6 +10008,8 @@ def register_generated_tools(mcp, _get_client):
         after: str | None = None,
     ) -> str:
         """Ad image library
+
+        Lists the images in a Meta ad account's library so you can reuse one in a creative.
 
         Lists the ad account's image library (Meta's `/act_X/adimages`), rows returned verbatim.
         The default projection covers hash, url, name, dimensions and status; `fields` is a
@@ -9747,6 +10055,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Upload an ad video
 
+        Uploads a video to a Meta ad account from a URL or file, so you can preview it or use it in ads before any ad exists.
+
         Standalone ad-video upload (parallel to POST /v1/ads/images), so a video creative can
         be rendered via POST /v1/ads/preview or attached via `video.id` on POST /v1/ads/create
         before an ad exists.
@@ -9761,9 +10071,7 @@ def register_generated_tools(mcp, _get_client):
         up to 800 s) and answers 201.
 
         **Async mode.** Send `async: true` to get a 202 as soon as Meta has accepted the bytes,
-        with `video.status: processing`. Then either poll `GET /v1/ads/videos/{videoId}` until
-        `status` is `ready`, or subscribe to the `ad.video.processed` webhook. A create call
-        that ...
+        with `video.status: processing`. Then either poll `GET ...
 
         Platforms: meta
 
@@ -9805,6 +10113,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Ad video library
 
+        Lists the videos in a Meta ad account's library, including ones uploaded elsewhere, so you can reuse one across ads.
+
         Lists the ad account's video library (Meta's `/act_X/advideos`), rows returned verbatim.
         The default projection covers id, title, status, poster frames, length and `source` (the
         playable MP4); `fields` is a raw-passthrough override. Any `id` here is reusable as
@@ -9818,8 +10128,7 @@ def register_generated_tools(mcp, _get_client):
         tool); videos we uploaded also come back as `creative.videoId` on GET /v1/ads.
 
         Meta transcodes asynchronously, so a row is only usable once `status.video_status`
-        reads `ready`. Upload a new video via POST /v1/ads/videos, or inline via `video.url`
-        on POST /v1/ads/create.
+        reads ...
 
         Platforms: meta
 
@@ -9854,6 +10163,8 @@ def register_generated_tools(mcp, _get_client):
         video_id: str, account_id: str, ad_account_id: str
     ) -> str:
         """Get ad video processing status
+
+        Checks whether an uploaded Meta ad video has finished processing and is ready to use in an ad.
 
         Reads a video's processing state live from Meta (`GET /{video-id}?fields=status`).
         Poll this after `POST /v1/ads/videos` with `async: true` until `status` is `ready`;
@@ -9892,7 +10203,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Delete an ad video
 
-        Removes a video from the ad account's video library. Meta's canonical
+        Removes a video from a Meta ad account's video library.
+
+        Meta's canonical
         `DELETE /{video_id}` fails with code 10 / subcode 1363055 for videos uploaded via
         `/act_X/advideos` even with `ads_management`; this endpoint uses the working
         account-scoped shape `DELETE /act_X/advideos?video_id=<id>` and returns Meta's
@@ -9930,7 +10243,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List partnership ad content
 
-        Private beta. Lists creator Instagram posts available to the advertiser for Partnership Ads. Supply creatorUsername or postUrl. Requires instagram_branded_content_ads_brand permission and an advertiser Instagram Business Account.
+        Lists a creator's Instagram posts you can run as Partnership Ads, looked up by creator or post link (private beta).
+
+        Lists creator Instagram posts available to the advertiser for Partnership Ads. Supply creatorUsername or postUrl. Requires instagram_branded_content_ads_brand permission and an advertiser Instagram Business Account.
 
         Platforms: meta
 
@@ -9964,7 +10279,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List partnership permissions
 
-        Private beta. Lists granted or pending creator permissions for the advertiser Instagram Business Account. Requires instagram_branded_content_ads_brand permission.
+        Lists the creators who have granted, or have pending, permission for your Instagram account to run Partnership Ads with them (private beta).
+
+        Lists granted or pending creator permissions for the advertiser Instagram Business Account. Requires instagram_branded_content_ads_brand permission.
 
         Platforms: meta
 
@@ -9993,7 +10310,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Set partnership permission
 
-        Private beta. Requests permission from a creator or revokes it when revoke is true. Requests require the creator to approve in Instagram. Requires instagram_branded_content_ads_brand permission.
+        Asks a creator for permission to run Partnership Ads with their content, or revokes it (private beta).
+
+        Requests permission from a creator or revokes it when revoke is true. Requests require the creator to approve in Instagram. Requires instagram_branded_content_ads_brand permission.
 
         Platforms: meta
 
@@ -10032,6 +10351,8 @@ def register_generated_tools(mcp, _get_client):
         page_token: str | None = None,
     ) -> str:
         """Google Ads search terms report
+
+        Shows the actual Google searches that triggered your ads, with spend and results, so you can spot wasted spend and add negative keywords.
 
         The actual search queries that triggered your ads, with matched-keyword
         status and spend metrics, the raw material for wasted-spend analysis and
@@ -10091,6 +10412,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Google Local Services Ads leads
 
+        Lists the calls, messages and bookings your Google Local Services Ads generated, newest first.
+
         Leads generated by Local Services Ads (phone calls, messages, bookings),
         read live from Google's `local_services_lead` resource, newest first.
         No persistence: Google is the source of truth and lead/credit statuses
@@ -10144,6 +10467,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List lead conversations
 
+        Shows the calls (with recordings) and messages exchanged with one Google Local Services lead, oldest first.
+
         Conversation entries of one Local Services lead: phone calls (duration,
         recording URL) and messages (text, attachment URLs), oldest first. Read
         live from `local_services_lead_conversation`, always scoped to a single
@@ -10188,6 +10513,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get campaign analytics
 
+            Returns a campaign's performance summary and daily timeline, with optional breakdowns by age, gender and other audience dimensions.
+
             Returns performance analytics for a whole campaign in one call: summary metrics, a daily
             timeline over the requested date range (summed across the campaign's ads), and optional
             demographic breakdowns. Breakdowns are fetched live from Meta at the campaign level (one call
@@ -10197,11 +10524,9 @@ def register_generated_tools(mcp, _get_client):
             defaults to the last 90 days. Date range is capped at 730 days max.
             Google adds searchImpressionShare, searchBudgetLostImpressionShare,
             searchRankLostImpressionShare, searchTopImpressionShare and searchAbsoluteTopImpressionShare
-            under analytics.summary for the requested inclusive range. These ratios are queried
-            together without daily segmentation and cached for 10 minutes. Unavailable values are
-            null. analytics.impressionShareCache reports ...
+            under analytics.summary for the requested inclusive range. These ratios are queried ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
             Args:
                 campaign_id: Platform campaign id (platformCampaignId). (required)
@@ -10254,6 +10579,8 @@ def register_generated_tools(mcp, _get_client):
         page_token: str | None = None,
     ) -> str:
         """Generate keyword ideas
+
+        Suggests new keywords from seed keywords or a website using Google Keyword Planner, with search volume, competition and bid estimates.
 
         Google Ads only. Runs Keyword Planner's generateKeywordIdeas from seed keywords, a seed URL,
         or both, returning idea rows verbatim (avgMonthlySearches, competition, competitionIndex,
@@ -10315,6 +10642,8 @@ def register_generated_tools(mcp, _get_client):
         include_average_cpc: bool | None = None,
     ) -> str:
         """Get historical keyword metrics
+
+        Gets historical search volume, competition and bid ranges for up to 1,000 keywords from Google Keyword Planner.
 
         Google Ads only. Runs Keyword Planner's generateKeywordHistoricalMetrics for up to 1,000
         exact keywords: historical search volume, competition and top-of-page bid ranges, plus
@@ -10391,7 +10720,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Flexible live insights query
 
-        Live, flexible insights query. The account's platform picks the contract:
+        Runs a custom performance query against Meta, Google Ads or TikTok and returns the platform's rows as is, for reports the fixed endpoints don't cover.
+
+        The account's platform picks the contract:
 
         **Meta (facebook/instagram)**: forwards caller-chosen `fields`, `breakdowns` and `filtering`
         to any Meta insights node and returns Meta's rows verbatim. `objectId` (required) selects the
@@ -10402,8 +10733,7 @@ def register_generated_tools(mcp, _get_client):
         **Google Ads (googleads)**: raw GAQL passthrough. Send any read-only GAQL SELECT via `query`
         (campaign/keyword/search-term/geo/demographic/asset/shopping resources, `change_event`, any
         `segments.*`) and rows come back verbatim (camelCase, counters as strings). Results are paged
-        at a fixed 10,000 rows; follow `paging.nextPageToken` with `pageToken`. `adAccountId` (alias `customerId`) is only
-        needed when the connection has several Google Ads accounts. Semantic validation is ...
+        at a fixed 10,000 rows; follow `paging.nextPageToken` with `pageToken`. ...
 
         Platforms: meta, google, tiktok
 
@@ -10494,7 +10824,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Submit async insights report
 
-        Submits an asynchronous Meta insights report. Same query surface as GET /v1/ads/insights, but
+        Starts a background Meta insights report for long date ranges or large accounts where a live query would be too slow.
+
+        Same query surface as GET /v1/ads/insights, but
         in the JSON body; Meta processes the report server-side, which is the right choice for long
         ranges or large accounts where the sync query is slow or rate-limited. Returns a `reportRunId`
         to poll via GET /v1/ads/insights/reports/{reportRunId}.
@@ -10551,6 +10883,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Poll an async insights report run
 
+        Checks progress of a background Meta insights report and returns its results once it has finished.
+
         Status and results for a report run created via POST /v1/ads/insights/reports. While the job
         runs, returns `status` and `percentCompletion`. Once `status` is \"Job Completed\" the response
         also carries a `data` page, cursor-paginated via `limit` / `after`.
@@ -10590,11 +10924,13 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get ad analytics
 
-            Returns detailed performance analytics for an ad. Includes summary metrics, a daily timeline
+            Returns one ad's performance summary and daily timeline, with optional audience breakdowns on Meta and TikTok.
+
+            Includes summary metrics, a daily timeline
             over the requested date range, and optional demographic breakdowns (Meta and TikTok only).
             If no date range is provided, defaults to the last 90 days. Date range is capped at 730 days max.
 
-            Platforms: meta, google, tiktok, linkedin, pinterest, x
+            Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
             Args:
                 ad_id: (required)
@@ -10710,7 +11046,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Search the public Ad Library
 
-        Competitor and market research over the public ad archives. Meta's Ad Library
+        Searches Meta's or LinkedIn's public Ad Library to see what ads other advertisers run, for competitor and market research.
+
+        Meta's Ad Library
         (`GET /ads_archive`) is searched with Zernio's own developer access, so `platform=meta` needs
         no connected account at all. LinkedIn's Ad Library (`GET /rest/adLibrary`) runs on a connected
         `linkedin` / `linkedinads` account, passed as `accountId`. Passing a Meta account as `accountId`
@@ -10721,9 +11059,7 @@ def register_generated_tools(mcp, _get_client):
         in the archive only if it was delivered to the EU or UK within the last year, so a US-only
         commercial advertiser is invisible. Spend, impressions and demographics are political-only
         fields and are left out of the default projection; request them via `fields`. All customers
-        share Zernio's Meta quota, so a `429` means back off for a minute.
-
-        **LinkedIn coverage.** Ads served after June 1 ...
+        share Zernio's Meta quota, so a `429` means back off ...
 
         Platforms: meta, linkedin
 
@@ -10828,6 +11164,8 @@ def register_generated_tools(mcp, _get_client):
             "jobFunction",
             "seniority",
             "companySize",
+            "community",
+            "conversationKeyword",
         ] = "interest",
         geo_type: Literal[
             "all",
@@ -10848,6 +11186,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Search targeting options
 
+        Finds targeting options by name, such as locations, interests or behaviors, and returns the ids to use in ad targeting.
+
         Resolve a human-readable query into the platform's opaque targeting ids used in
         the `TargetingSpec` (`countries`/`regions`/`cities`/`zips`/`metros` geo keys, and
         `interests`/`behaviors` entity ids) on `POST /v1/ads/create`,
@@ -10861,11 +11201,9 @@ def register_generated_tools(mcp, _get_client):
           Meta: its fixed behaviors catalog (e.g. `Small business owners`, `Frequent Travelers`).
           TikTok: video and creator interaction categories (e.g. `Software & Apps`), with ids like
           `video:1913101` or `creator:24001` and `path` starting with `Video interactions` or
-          `Creator interactions` (hashtags are their own `hashtag` dimension). LinkedIn: member behaviors (e.g. `Frequent Travelers`,
-          `Job Seekers`, `Recently Promoted`), ids like `urn:li:memberBehavior:9`. Google has no
-          separate ...
+          `Creator interactions` (hashtags are their own `hashtag` dimension). LinkedIn: member behaviors (e.g. ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest
+        Platforms: meta, google, tiktok, linkedin, pinterest, reddit
 
         Args:
             account_id: Account ID (a connected account on the target ad platform). (required)
@@ -10907,6 +11245,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Browse targeting categories
 
+        Shows Meta's full tree of detailed targeting categories for an ad account, so you can browse options without a keyword.
+
         The whole Meta detailed-targeting category tree of one ad account (Meta's
         `GET /act_{ad_account_id}/targetingbrowse`), as one flat list you can render as a
         tree. Use it to show what can be targeted without a keyword; use
@@ -10920,9 +11260,7 @@ def register_generated_tools(mcp, _get_client):
           on `POST /v1/ads/create`; every other type goes in `rawTargeting.flexible_spec` under
           its `type` as the key. `life_events`, `family_statuses` and `income` take objects
           (`{ \"flexible_spec\": [{ \"life_events\": [{ \"id\": \"6017476616183\" }] }] }`), while
-          `education_statuses` and `relationship_statuses` take the bare number
-          (`{ \"flexible_spec\": [{ \"education_statuses\": [3] }] }`): Meta answers an object
-          there ...
+          `education_statuses` and ...
 
         Platforms: meta
 
@@ -10961,6 +11299,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Estimate audience reach
 
+            Estimates how many people a targeting setup would reach before you create a campaign.
+
             Returns a normalized pre-flight audience-size estimate for a targeting spec,
             before any campaign is created. Backed by each platform's native reach API
             (Meta `delivery_estimate`, LinkedIn `audienceCounts`, X `audience_summary`,
@@ -10975,7 +11315,7 @@ def register_generated_tools(mcp, _get_client):
             Args:
                 account_id: Zernio account ID on the target ad platform (the estimate runs against its platform). (required)
                 ad_account_id: Required. The platform ad-account ID the reach call runs against (Meta act_..., LinkedIn numeric sponsoredAccount ID, Pinterest ad-account ID, X account ID) - every backing reach API is scoped to one ad account. Get it from GET /v1/ads/accounts. (required)
-                spec: The targeting spec to estimate. Same shape used by POST /v1/ads/create. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the other ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X and Pinterest; rejected with 400 on OpenAI. A code the ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400). (required)
+                spec: The targeting spec to estimate. Same shape used by POST /v1/ads/create. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from. (required)
                 optimization_goal: Optional. The optimization goal the estimate should assume (platform's
         own vocabulary, e.g. Meta `REACH`, `LINK_CLICKS`, `OFFSITE_CONVERSIONS`).
         Some platforms vary the estimate by goal; omit to use the platform default."""
@@ -11028,7 +11368,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: Zernio account ID (LinkedIn). (required)
             ad_account_id: LinkedIn ad account ID (numeric). (required)
-            spec: Same targeting spec used by POST /v1/ads/create. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the other ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X and Pinterest; rejected with 400 on OpenAI. A code the ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400). (required)
+            spec: Same targeting spec used by POST /v1/ads/create. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from. (required)
             campaign_type: Defaults to SPONSORED_UPDATES.
             bid_type: Defaults to CPM.
             match_type: Defaults to EXACT.
@@ -11099,7 +11439,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: (required)
             ad_account_id: (required)
-            spec: Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the other ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X and Pinterest; rejected with 400 on OpenAI. A code the ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400). (required)
+            spec: Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from. (required)
             campaign_type: Defaults to SPONSORED_UPDATES.
             time_range_start: Unix ms. Must be in the future. (required)
             time_range_end: Unix ms. Must be after start and within LinkedIn's max horizon. (required)
@@ -13795,7 +14135,7 @@ def register_generated_tools(mcp, _get_client):
     def broadcasts_schedule_broadcast(broadcast_id: str, scheduled_at: str) -> str:
         """Schedule broadcast for later
 
-        Schedule a draft broadcast to be sent at a future date and time.
+        Schedule a draft broadcast, or move the date of an already scheduled one, to a future date and time.
 
         Args:
             broadcast_id: (required)
@@ -19253,6 +19593,10 @@ def register_generated_tools(mcp, _get_client):
           x_ads_denied, x_ads_auth_failed, x_ads_config_error, x_ads_account_not_found,
           x_ads_state_error, x_ads_token_failed, x_ads_token_missing, x_ads_callback_error
 
+        Reddit Ads (platform=redditads):
+          reddit_ads_auth_failed, reddit_ads_invalid_state, reddit_ads_access_denied,
+          reddit_ads_scope_not_granted, reddit_ads_no_ad_accounts, reddit_ads_callback_error
+
         Shopify (platform=shopify):
           shopify_auth_failed, shopify_config_error, shopify_invalid_state, shopify_invalid_hmac,
           shopify_invalid_shop, shopify_missing_scopes, shopify_callback_error
@@ -19263,8 +19607,8 @@ def register_generated_tools(mcp, _get_client):
         and `tiktok_ads_auth_failed` may carry the provider's raw error string in `error_message`.
 
         2. On the tiktok and twitter ads flows `platform` carries the ads platform id
-        (`tiktokads`, `xads`), not the value used in the request path. The googleads and shopify
-        flows report `googleads` and `shopify`.
+        (`tiktokads`, `xads`), not the value used in the request path. The googleads, redditads and
+        shopify flows report `googleads`, `redditads` and `shopify`.
 
         3. `missing_tiktok_permissions` means the TikTok authorization left out a permission the
         already-connected account needs, so nothing was changed and it keeps working as before.
@@ -19424,6 +19768,7 @@ def register_generated_tools(mcp, _get_client):
             "twitter",
             "pinterest",
             "googleads",
+            "redditads",
         ],
         profile_id: str,
         login_mode: Literal["classic", "business"] = "classic",
@@ -19438,7 +19783,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Connect ads for a platform
 
-            Unified ads connection endpoint. Creates a dedicated ads SocialAccount for the specified platform.
+            Starts connecting a platform's ads account, giving you a dedicated ads connection to manage campaigns without touching posting accounts.
+
+            Creates a dedicated ads SocialAccount for the specified platform.
 
             **Meta business login (opt-in).** Set `loginMode=business` for `facebook` or
             `instagram` to use Facebook Login for Business and a Business Integration System User
@@ -19449,10 +19796,9 @@ def register_generated_tools(mcp, _get_client):
             subscribedAdAccountIds to remove stale grants; an empty result leaves routing unchanged. A reconnect is
             accepted when the new grant shares at least one ad account with the existing connection (its
             scopedAdAccountIds plus the previous grant, or the ad accounts its old token can read when neither
-            is stored), so re-running the dialog can add, drop or swap ad accounts. A grant with zero overlap
-            is refused before ...
+            is stored), ...
 
-            Platforms: meta, linkedin, tiktok, twitter, pinterest, google
+            Platforms: meta, linkedin, tiktok, twitter, pinterest, google, reddit
 
             Args:
                 login_mode: Meta ads authorization mode. Business login is opt-in for Facebook and Instagram; classic preserves the posting-account flow.
@@ -19475,20 +19821,22 @@ def register_generated_tools(mcp, _get_client):
         profile's ads connection hangs off: that account is no longer connected, so the
         call returns 409 `reconnect_required` instead of reconnecting another account.
         Reconnect it via GET /v1/connect/{platform} first. Ignored for standalone
-        platforms (`googleads`).
+        platforms (`googleads`, `redditads`).
                 redirect_url: Custom URL the browser is sent to once the OAuth flow finishes. Honored on
         every ads platform, including the separate-token (`tiktok`, `twitter`) and
-        standalone (`googleads`) flows. MUST be an absolute http(s) URL or a custom
+        standalone (`googleads`, `redditads`) flows. MUST be an absolute http(s) URL or a custom
         app scheme for mobile deeplinks (e.g. myapp://callback); a relative path is
         rejected with 400 INVALID_REDIRECT_URL. On success
-        `tiktok`, `twitter` and `googleads` land on the URL unchanged, while the
+        `tiktok` lands on the URL unchanged; `twitter`, `googleads` and `redditads`
+        append `connected` (the ads platform id: `xads`, `googleads` or `redditads`),
+        `profileId`, `accountId` (the ads connection) and `username`; and the
         same-token platforms (`facebook`, `instagram`, `linkedin`, `pinterest`)
         append `connected`, `profileId`, `accountId`, `username` and, on API-key
         calls, `connect_token`. On failure the same error contract applies as on
         GET /v1/connect/{platform}: `error` and `platform` are always appended,
         other params are optional, and the value list there is not exhaustive.
-        On the tiktok, twitter and googleads flows `platform` carries
-        the ads platform id (`tiktokads`, `xads`, `googleads`), not the value
+        On the tiktok, twitter, googleads and redditads flows `platform` carries
+        the ads platform id (`tiktokads`, `xads`, `googleads`, `redditads`), not the value
         used in the request path. When omitted, the browser lands on
         the Zernio dashboard.
                 headless: Enable headless mode (same-token platforms only)
@@ -19508,7 +19856,8 @@ def register_generated_tools(mcp, _get_client):
         preserve the existing scope; supplied IDs are checked against the new grant. To change
         that scope after migration, call this endpoint with the IDs and omit loginMode. Supported
         on `facebook`/`instagram` (Meta, `act_<digits>`), `linkedin` (bare
-        numeric sponsored-account id), `googleads` (bare customer id digits)
+        numeric sponsored-account id), `googleads` (bare customer id digits),
+        `redditads` (Reddit ad account id, `a2_<id>` or `t2_<id>`)
         and `twitter` (X Ads, base36 account id). `tiktok` scopes advertisers
         at OAuth and `pinterest` has no ads discovery, so both ignore it.
         Meta ids are additionally validated against the connected token:
@@ -19524,9 +19873,9 @@ def register_generated_tools(mcp, _get_client):
         scoped ones, instead of every ad account the login can reach. The scope
         is kept when this call returns an `authUrl`, so the Meta Ads account
         created after OAuth is scoped (and only its scoped ad accounts synced and
-        subscribed) from the start. On `googleads` the scope is kept through
-        OAuth when `redirect_url` is set, so the Google Ads connection created
-        after OAuth syncs only its scoped customers from the first sync.
+        subscribed) from the start. On `googleads` and `redditads` the scope is kept through
+        OAuth when `redirect_url` is set, so the connection created after OAuth
+        syncs only its scoped ad accounts from the first sync.
         For multiple accounts use `adAccountIds` instead.
                 ad_account_ids: Scope ad sync to multiple platform ad accounts (same platform
         support and id shapes as `adAccountId`). Repeat the param
@@ -19569,6 +19918,8 @@ def register_generated_tools(mcp, _get_client):
         state: str, code: str | None = None, error: str | None = None
     ) -> str:
         """Complete Meta business login
+
+        Finishes a Meta business login after the user approves access, connects the Meta ads account and sends them back to your app.
 
         Facebook Login for Business redirect target. Meta supplies the single-use authorization code and the authenticated state returned by connectAds. The state expires after 30 minutes and binds the user, profile, Page selection and ad-account scope. No bearer token is sent by the browser. Success reconnects only metaads and redirects to the original redirect_url. Invalid state returns 400; inaccessible profiles or missing ads access cannot connect. Dashboard logins with several Pages redirect to the Facebook Page picker with an encrypted selectionToken valid for ten minutes. Listing and selecting require the initiating user and current profile access. No plaintext platform token is returned to the browser.
 
@@ -19801,7 +20152,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List Facebook pages
 
-        Returns Facebook Pages after OAuth. Classic connections require profileId and tempToken from the OAuth redirect. Use X-Connect-Token for headless connections. The dashboard business-login picker instead sends only selectionToken, an encrypted grant valid for ten minutes. This requires the initiating user and current profile access and returns only Page IDs and names. X-Connect-Token cannot authorize business selection.
+        Lists the Facebook Pages a user can pick from after signing in, so they can choose which Page to connect.
+
+        Classic connections require profileId and tempToken from the OAuth redirect. Use X-Connect-Token for headless connections. The dashboard business-login picker instead sends only selectionToken, an encrypted grant valid for ten minutes. This requires the initiating user and current profile access and returns only Page IDs and names. X-Connect-Token cannot authorize business selection.
 
         Platforms: facebook, meta
 
@@ -19832,6 +20185,8 @@ def register_generated_tools(mcp, _get_client):
     )
     def connect_select_facebook_page(body: dict[str, Any]) -> str:
         """Select Facebook page
+
+        Connects the Facebook Page the user picked after signing in, completing the Facebook or Meta Ads connection.
 
         Complete a classic Facebook Page connection with profileId, pageId, tempToken and userProfile. Use X-Connect-Token for headless connections. The dashboard business-login picker instead sends only selectionToken and pageId to complete a Meta Ads connection. The server verifies the initiating user, profile access, current grants and connection eligibility. The profile, platform token, ad-account scope and return URL come only from the encrypted grant. Business selection requires a session or bearer authentication for the initiating user; X-Connect-Token is not accepted. It returns redirect_url with connected=metaads on success or an eligibility error redirect.
 
@@ -21776,6 +22131,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get Event Match Quality
 
+        Shows how well your server-side conversion events match users, with event match quality and coverage for Meta or Pinterest.
+
         Reads Meta Event Match Quality (EMQ) and pixel↔CAPI event coverage for a
         pixel/dataset, live from Meta's Dataset Quality API. Web events only (a
         Meta limitation). Other platforms return 405, except Pinterest. Requires the Ads add-on.
@@ -21816,6 +22173,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Send conversion events
 
+            Sends conversion events, such as purchases or leads, from your server to an ad platform so it can attribute and optimize ads.
+
             Relay one or more conversion events to the target ad platform's native Conversions API.
             Platform is inferred from the provided `accountId`. Requires the Ads add-on.
 
@@ -21827,28 +22186,27 @@ def register_generated_tools(mcp, _get_client):
             - TikTok (`tiktokads`) via the Offline Events API `/offline/batch/` (OFFLINE conversions only)
             - OpenAI Ads (`openaiads`) via its Conversions API (a separate host, `bzr.openai.com`)
             - Pinterest (`pinterestads`) via `POST /v5/ad_accounts/{id}/events`
+            - Reddit (`redditads`) via the Reddit Conversions API (`POST /api/v3/pixels/{pixelId}/conversion_events`)
 
             `destinationId` semantics differ per platform:
 
             - Meta: pixel (dataset) ID, e.g. `123456789012345`
-            - Google: conversion action resource name, e.g. `customers/1234567890/conversionActions/987654321`
-            - LinkedIn: conversion rule ID or URN, e.g. `104012` or `urn:lla:llaPartnerConversion:104012`
-            - TikTok: Offline Event Set ID, e.g. `7057103914977558530`
-            - OpenAI Ads: pixel wire id (numeric `pixel_id`, ...
+            - Google: conversion action resource name, e.g. ...
 
-            Platforms: meta, google, tiktok, linkedin, pinterest
+            Platforms: meta, google, tiktok, linkedin, pinterest, reddit
 
             Args:
-                account_id: SocialAccount ID (metaads, googleads, linkedinads, tiktokads, openaiads, or pinterestads). (required)
+                account_id: SocialAccount ID (metaads, googleads, linkedinads, tiktokads, openaiads, pinterestads, or redditads). (required)
                 destination_id: Platform destination identifier. For Meta, the pixel/dataset
         ID. For Google, the conversion action resource name. For
         LinkedIn, the conversion rule ID or full
         `urn:lla:llaPartnerConversion:{id}` URN. For OpenAI Ads, the
-        pixel wire id. For Pinterest, the numeric ad account id.
+        pixel wire id. For Pinterest, the numeric ad account id. For
+        Reddit, the pixel id (`a2_...`).
          (required)
                 events: Each item is an object with keys: eventName (string, required) - Standard event name (Purchase, Lead, CompleteRegistration, AddToCart, InitiateCheckout, AddPaymentInfo, Subscribe, StartTrial, ViewContent, Search, Contact, ...; eventTime (integer, required) - When the conversion happened, in unix seconds.; eventId (string, required) - Unique dedup key. The same eventId must be used on pixel + CAPI to prevent double-counting. Mapped to event_id on Meta, transactionId on Google, eventId on ...; value (number) - Conversion value in the specified currency.; currency (string) - ISO 4217 currency code.; user (object with keys email, phone, firstName, lastName, externalId, ipAddress, userAgent, country, city, state, zip, dob, gender, leadId, clickIds, required) - User identity fields. More signals mean higher match rates.; items (list of objects with keys id, name, price, quantity, category) - Item-level detail for ecommerce events.; sourceUrl (string) - URL where the conversion originated (used by Meta).; actionSource (one of: web, app, offline, crm, phone_call, system_generated) - Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit ...; platformData (object) - Escape hatch for platform-specific fields we haven't normalized. On Meta, keys are shallow-merged into `custom_data` only: fields Zernio already builds ... (required)
-                test_code: Meta `test_event_code` passthrough. On Pinterest any value sends the batch with `test=true` (validated, not recorded). Ignored by Google, LinkedIn, and OpenAI Ads.
-                consent: Batch-level user consent. Required by Google for EEA/UK events under the Feb 2026 restrictions. On Meta, any DENIED flag enables Limited Data Use on every event in the batch (data_processing_options ["LDU"] with geolocation, country 0 / state 0); GRANTED or absent consent sends events with Meta's default processing. Ignored by LinkedIn. Object with keys: adUserData (one of: GRANTED, DENIED); adPersonalization (one of: GRANTED, DENIED)"""
+                test_code: Meta `test_event_code` passthrough. On Pinterest any value sends the batch with `test=true` (validated, not recorded). On Reddit, sent as `test_id` so the events show in the pixel's test view. Ignored by Google, LinkedIn, and OpenAI Ads.
+                consent: Batch-level user consent. Required by Google for EEA/UK events under the Feb 2026 restrictions. On Meta, any DENIED flag enables Limited Data Use on every event in the batch (data_processing_options ["LDU"] with geolocation, country 0 / state 0); GRANTED or absent consent sends events with Meta's default processing. On Reddit, `adUserData: DENIED` drops every user field from the events. Ignored by LinkedIn. Object with keys: adUserData (one of: GRANTED, DENIED); adPersonalization (one of: GRANTED, DENIED)"""
         client = _get_client()
         try:
             response = client.conversions.send_conversions(
@@ -21875,6 +22233,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Adjust uploaded conversions
 
+        Retracts, restates the value of, or enhances conversions you already sent to Google Ads, for refunds or late customer data.
+
         Adjust conversions that were previously uploaded via `POST /v1/ads/conversions`:
         retract them, restate their value, or enhance them with first-party data. Requires
         the Ads add-on.
@@ -21888,13 +22248,9 @@ def register_generated_tools(mcp, _get_client):
 
         - `RETRACTION`: remove the conversion entirely (refund, chargeback, cancelled order, churn).
         - `RESTATEMENT`: change the conversion's value (upgrade / downgrade / partial refund). Send the corrected **total** value in `restatementValue` (not a delta).
-        - `ENHANCEMENT`: attach first-party identifiers (hashed email / phone) to an existing conversion (enhanced conversions applied after the fact).
+        - `ENHANCEMENT`: attach first-party identifiers (hashed email / phone) to an existing conversion (enhanced conversions applied ...
 
-        Identifying the original conversion (per adjustment):
-
-        - `orderId`: the transaction ID you sent as ...
-
-        Platforms: meta
+        Platforms: google
 
         Args:
             account_id: SocialAccount ID. Must be a `googleads` account. (required)
@@ -21926,6 +22282,8 @@ def register_generated_tools(mcp, _get_client):
         type: str | None = None,
     ) -> str:
         """List conversion actions
+
+        Lists the conversion actions in a Google Ads account, with the website tag snippets to install where available.
 
         Lists Google Ads conversion actions on the resolved customer, all types by
         default. Each action's `tagSnippets` (global site tag + event snippet) is
@@ -22008,6 +22366,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create website conversion action
 
+        Creates a Google Ads website conversion action and returns the tag snippets to install on your site.
+
         Creates a `WEBPAGE` conversion action (category `DEFAULT`) and returns it with
         its tag snippets, read back after creation since Google never returns them on
         the create response itself. Invalidates the cached list `GET` on this resource
@@ -22066,6 +22426,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List account conversion goals
 
+        Lists a Google Ads account's default conversion goals, which ones are used for bidding, and the conversion actions in each.
+
         Google Ads account-default conversion goals (CustomerConversionGoal), one per
         category and origin, with `biddable` (whether the goal is used for bidding and
         reported in the Conversions column) and the conversion actions that belong to it,
@@ -22105,6 +22467,8 @@ def register_generated_tools(mcp, _get_client):
         customer_id: str | None = None,
     ) -> str:
         """Update account conversion goals
+
+        Turns bidding on or off for a Google Ads account's default conversion goals, which campaigns using account goals follow.
 
         Sets `biddable` on one or more account-default goals, addressed by category and
         origin, in one mutate. Campaigns that use account-level goals
@@ -22178,6 +22542,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update a conversion action's settings
 
+        Changes a Google Ads conversion action's settings, such as primary or secondary, counting, value and lookback windows, or removes or restores it.
+
         Updates a Google Ads conversion action in one mutate, each field sent written on its own
         update mask leaf so omitted fields keep their value. Send at least one field.
 
@@ -22245,6 +22611,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List custom conversion goals
 
+        Lists the custom conversion goals in a Google Ads account, each a named set of conversion actions a campaign can bid on.
+
         Google Ads custom conversion goals (a named set of conversion actions a campaign can bid on). Removed goals are excluded. Cached like the other Google reads.
 
         Platforms: google
@@ -22280,6 +22648,8 @@ def register_generated_tools(mcp, _get_client):
         customer_id: str | None = None,
     ) -> str:
         """Create a custom conversion goal
+
+        Creates a Google Ads custom conversion goal from a set of conversion actions, so a campaign can bid on just those.
 
         Creates a custom conversion goal from conversion action ids. Point a campaign at it with `PATCH /v1/ads/campaigns/{campaignId}/conversion-goals`.
 
@@ -22322,7 +22692,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update a custom conversion goal
 
-        Renames the goal and/or replaces its conversion actions. Returns the re-read goal.
+        Renames a Google Ads custom conversion goal or replaces the conversion actions in it.
+
+        Returns the re-read goal.
 
         Platforms: google
 
@@ -22363,7 +22735,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Remove a custom conversion goal
 
-        Removes the goal. Google refuses (400) while any campaign still uses it: switch those campaigns to another goal first.
+        Deletes a Google Ads custom conversion goal; switch any campaigns using it to another goal first.
+
+        Google refuses (400) while any campaign still uses it: switch those campaigns to another goal first.
 
         Platforms: google
 
@@ -22395,25 +22769,29 @@ def register_generated_tools(mcp, _get_client):
     def conversions_list_conversion_destinations(account_id: str) -> str:
         """List conversion destinations
 
+        Lists where an ad account can receive conversion events (pixels, conversion actions or rules), so you know where to send them.
+
         Returns the list of pixels (Meta), conversion actions (Google),
-        conversion rules (LinkedIn), pixels (OpenAI Ads) or ad accounts
+        conversion rules (LinkedIn), pixels (OpenAI Ads, Reddit) or ad accounts
         (Pinterest) accessible to the connected ads account. Use the returned `id` as `destinationId` when
         posting to `POST /v1/ads/conversions`.
 
         For Google and LinkedIn, each destination's `type` reflects the
         conversion type (PURCHASE, LEAD, SIGN_UP, etc.), and the event type is
-        locked to the destination. For Meta and OpenAI Ads, `type` is absent:
+        locked to the destination. For Meta, OpenAI Ads and Reddit, `type` is absent:
         pixels accept any event name per request.
 
-        For LinkedIn, destinations are returned across every sponsored ad
-        account the connected token can access; the `adAccountId` field on
-        each destination identifies the parent ad account and is required for
-        subsequent CRUD calls (update, delete, associations, metrics).
+        For Reddit, the pixels of every ad account the connection reaches (only the scoped
+        ones when the connection has an ad-account scope), each with the `adAccountId` that owns
+        it. Reddit pixels are created in Reddit Ads Manager, not through Zernio.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest
+        For LinkedIn, destinations are returned across every sponsored ad
+        account the connected token ...
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, reddit
 
         Args:
-            account_id: SocialAccount ID (metaads, googleads, linkedinads, tiktokads, openaiads, or pinterestads). (required)"""
+            account_id: SocialAccount ID (metaads, googleads, linkedinads, tiktokads, openaiads, pinterestads, or redditads). (required)"""
         client = _get_client()
         try:
             response = client.conversions.list_conversion_destinations(
@@ -22450,11 +22828,13 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create a conversion destination
 
-            Create a new conversion destination on the platform. Supported for
+            Creates a new place to send conversion events: a Google Ads conversion action or a LinkedIn conversion rule.
+
+            Supported for
             LinkedIn (conversion rule) and Google Ads (conversion action). Meta
             and OpenAI Ads pixels are created via their own tracking-tags flow
             instead (`POST /v1/accounts/{accountId}/tracking-tags`); this endpoint
-            returns 405 for both.
+            returns 405 for both, and for Reddit (create Reddit pixels in Reddit Ads Manager).
 
             **LinkedIn:** creation is NOT idempotent. A retry creates a second
             destination. Deduplicate before retrying.
@@ -22467,10 +22847,9 @@ def register_generated_tools(mcp, _get_client):
 
             **LinkedIn:** the rule is created with `conversionMethod=CONVERSIONS_API`
             and (by default) auto-associated with all of the ad account's campaigns
-            via `autoAssociationType=ALL_CAMPAIGNS`. Pass `autoAssociationType: NONE`
-            to opt out and manage associations explicitly via the ...
+            via ...
 
-            Platforms: meta, google, tiktok, linkedin
+            Platforms: google, linkedin
 
             Args:
                 account_id: SocialAccount ID (linkedinads or googleads). (required)
@@ -22550,11 +22929,13 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get a conversion destination
 
+        Shows one LinkedIn conversion rule with its full settings.
+
         LinkedIn-only today. Returns the full destination record for one
         conversion rule. The `adAccountId` query parameter is required because
         LinkedIn rules are scoped to a sponsored ad account.
 
-        Platforms: meta, google, tiktok, linkedin
+        Platforms: linkedin
 
         Args:
             account_id: (required)
@@ -22594,13 +22975,15 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update a conversion destination
 
+            Changes a LinkedIn conversion rule's name, value, attribution windows, or turns it on or off.
+
             Partial-update a conversion rule. LinkedIn-only today. Whitelisted
             fields: `name`, `enabled`, attribution windows, `valueType`, `value`,
             `attributionType`. The rule's `type` and parent ad account are
             intentionally not exposed for update. Recreate the rule if those
             need to change.
 
-            Platforms: meta, google, tiktok, linkedin
+            Platforms: linkedin
 
             Args:
                 account_id: (required)
@@ -22647,6 +23030,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Delete a conversion destination
 
+        Disables a LinkedIn conversion rule, which is how LinkedIn deletes it; the rule can still be read afterwards.
+
         LinkedIn-only today. LinkedIn does not expose hard-delete on conversion
         rules; what their UI calls \"delete\" is the same `enabled: false` flip
         we apply here. The rule remains fetchable via GET with
@@ -22656,7 +23041,7 @@ def register_generated_tools(mcp, _get_client):
         `adAccountId` may be passed as a query parameter (recommended) or as
         a JSON body field for clients that can send DELETE bodies.
 
-        Platforms: meta, google, tiktok, linkedin
+        Platforms: linkedin
 
         Args:
             account_id: (required)
@@ -22686,12 +23071,14 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List associated campaigns
 
+        Lists the LinkedIn campaigns that track a conversion rule, so you can spot newer campaigns that still need linking.
+
         LinkedIn-only today. Returns the campaigns currently associated with
         this conversion rule. Auto-association on rule creation
         runs once at create time; campaigns created after the rule still need
         explicit association.
 
-        Platforms: meta, google, tiktok, linkedin
+        Platforms: linkedin
 
         Args:
             account_id: (required)
@@ -22724,11 +23111,13 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Associate campaigns
 
-        Associate one or more campaigns with this conversion rule. Returns a
+        Links campaigns to a LinkedIn conversion rule so they track it, reporting which links succeeded or failed.
+
+        Returns a
         per-campaign success/failure result so callers can retry only the
         rows that failed (e.g. wrong campaign type for the rule's objective).
 
-        Platforms: meta, google, tiktok, linkedin
+        Platforms: linkedin
 
         Args:
             account_id: (required)
@@ -22760,7 +23149,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Remove associated campaigns
 
-        Remove one or more campaign associations from this conversion rule.
+        Unlinks campaigns from a LinkedIn conversion rule so they stop tracking it.
+
         Pass `adAccountId` and `campaignIds` as query parameters
         (`campaignIds` is comma-separated). The route also accepts a JSON
         body with the same fields for clients that prefer DELETE-with-body,
@@ -22768,7 +23158,7 @@ def register_generated_tools(mcp, _get_client):
         generators (e.g. Python) collapse query + body parameters with the
         same name into a single kwarg.
 
-        Platforms: meta, google, tiktok, linkedin
+        Platforms: linkedin
 
         Args:
             account_id: (required)
@@ -22805,6 +23195,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get attribution metrics
 
+        Shows a LinkedIn conversion rule's attributed conversions, value, leads and cost over time.
+
         LinkedIn-only today. Returns conversion-attribution metrics
         (`externalWebsiteConversions`, `externalWebsitePostClickConversions`,
         `externalWebsitePostViewConversions`, `conversionValueInLocalCurrency`,
@@ -22819,7 +23211,7 @@ def register_generated_tools(mcp, _get_client):
         window across the calling token. Single-rule queries are well within
         that limit; surfaces as 429 if hit.
 
-        Platforms: meta, google, tiktok, linkedin
+        Platforms: linkedin
 
         Args:
             account_id: (required)
@@ -25402,6 +25794,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List submitted leads
 
+        Lists the leads submitted through your Meta or LinkedIn lead forms, newest first.
+
         Returns submitted Lead Gen leads for your team, newest-first, with keyset pagination on `cursor`. For Meta (default) leads are served from the persisted cache, ingested in real time from the `leadgen` webhook. When `accountId` is a LinkedIn ads account, leads are fetched live from LinkedIn's `leadFormResponses` (LinkedIn has no webhook and enforces 90-day retention, so nothing is persisted) and `adAccountId` is required. Reading LinkedIn responses needs the `r_marketing_leadgen_automation` permission; accounts connected before it was added must reconnect. Requires the Ads add-on.
 
         Platforms: meta, linkedin
@@ -25443,7 +25837,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List lead forms
 
-        Lists the Lead Gen forms owned by the account. Meta: forms on the connected Facebook Page. Pass either the `metaads` ads connection (the Page is taken from the Facebook account linked to it) or the Facebook account itself. LinkedIn: forms owned by the ad account's Company Page. Pass `adAccountId` (LinkedIn forms are org-owned). Requires the Ads add-on.
+        Lists the lead forms on a Facebook Page or LinkedIn Company Page.
+
+        Meta: forms on the connected Facebook Page. Pass either the `metaads` ads connection (the Page is taken from the Facebook account linked to it) or the Facebook account itself. LinkedIn: forms owned by the ad account's Company Page. Pass `adAccountId` (LinkedIn forms are org-owned). Requires the Ads add-on.
 
         Platforms: meta, linkedin
 
@@ -25490,7 +25886,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create a lead form
 
-        Creates a Lead Gen form. The form content goes inside `platformSpecificData` for both platforms (the shape is selected by the accountId's platform). Meta: created on the connected Facebook Page (POST /{page-id}/leadgen_forms), where `accountId` may be the `metaads` ads connection (its Page comes from the Facebook account linked to the same profile) or the Facebook account itself; the old top-level Meta fields (questions, thankYou*, contextCard, …) are DEPRECATED but still accepted while platformSpecificData is absent; mixing both shapes is a 400. LinkedIn: created on the ad account's Company Page. NOT idempotent: a retry creates a second form. Meta prefilled question types (EMAIL, PHONE, FULL_NAME, …) must omit label/key; CUSTOM questions require both. LinkedIn exposes only free-text and multiple-choice questions via API (prefilled-from-profile fields are Campaign Manager UI-only). Requires the Ads add-on.
+        Creates a lead form on a Facebook Page or LinkedIn Company Page to collect contact details from ads.
+
+        The form content goes inside `platformSpecificData` for both platforms (the shape is selected by the accountId's platform). Meta: created on the connected Facebook Page (POST /{page-id}/leadgen_forms), where `accountId` may be the `metaads` ads connection (its Page comes from the Facebook account linked to the same profile) or the Facebook account itself; the old top-level Meta fields (questions, thankYou*, contextCard, …) are DEPRECATED but still accepted while platformSpecificData is absent; mixing both shapes is a 400. LinkedIn: created on the ad account's Company Page. NOT idempotent: a retry creates a second form. Meta prefilled question types (EMAIL, PHONE, FULL_NAME, …) must omit label/key; CUSTOM questions require both. LinkedIn exposes only free-text and multiple-choice questions via API (prefilled-from-profile fields are Campaign Manager UI-only). Requires the Ads add-on.
 
         Platforms: meta, linkedin
 
@@ -25544,6 +25942,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get a lead form
 
+        Shows a lead form in full, including its questions and thank-you page.
+
         Returns the full form, including the thank-you page, so a form can be diffed against what was created. Meta forms are scoped to the Page the accountId manages: a form on any other Page is a 404, never a read.
 
         Platforms: meta, linkedin
@@ -25571,6 +25971,8 @@ def register_generated_tools(mcp, _get_client):
     )
     def lead_gen_archive_lead_form(form_id: str, account_id: str) -> str:
         """Archive a lead form
+
+        Archives a lead form so it can no longer be used (neither Meta nor LinkedIn allows deleting one).
 
         Neither platform hard-deletes a form; this archives it (Meta status=ARCHIVED; LinkedIn state=ARCHIVED via PARTIAL_UPDATE). Meta forms must belong to the Page the accountId manages.
 
@@ -25605,7 +26007,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List leads for a single form
 
-        Returns leads for one form. Serves persisted leads (ingested via the leadgen webhook) when available, falling back to a live Graph read. Accepts a Facebook account or a metaads business-login account with leads_retrieval access to the form; the latter uses its system-user token without a posting parent.
+        Lists the leads submitted through one Meta lead form.
+
+        Serves persisted leads (ingested via the leadgen webhook) when available, falling back to a live Graph read. Accepts a Facebook account or a metaads business-login account with leads_retrieval access to the form; the latter uses its system-user token without a posting parent.
 
         Platforms: meta
 
@@ -25641,6 +26045,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create a test lead
 
+        Submits a test lead to a Meta lead form so you can check your lead retrieval without running ads.
+
         Submits a test lead against the form (POST /{form-id}/test_leads) to exercise retrieval without waiting for real ad impressions. Meta allows one test lead per form at a time.
 
         Platforms: meta
@@ -25670,6 +26076,8 @@ def register_generated_tools(mcp, _get_client):
         form_id: str, account_id: str, lead_id: str | None = None
     ) -> str:
         """Delete a test lead
+
+        Deletes the test lead on a Meta lead form so you can submit a new one (Meta allows only one at a time).
 
         Removes a test lead created for the form (DELETE /{leadgen_id}), so a new one can be submitted: Meta keeps one test lead per form and refuses a second until the first is gone. The same test lead appears in Meta's Lead Ads Testing Tool. Meta only deletes test leads; a real lead is refused.
 
@@ -26893,6 +27301,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create messaging ad
 
+            Creates a Meta ad that opens a chat with you on WhatsApp, Messenger or Instagram Direct when someone taps it.
+
             Creates a click-to-message ad; `destination` selects where the tapped ad opens a
             conversation: WhatsApp, the Page's Messenger inbox or the linked Instagram account's Direct inbox.
             `destinations` puts two or three of them on one ad set and lets Meta pick the app per viewer.
@@ -26904,14 +27314,13 @@ def register_generated_tools(mcp, _get_client):
             `existingPostId`) or `objectStoryId`, either per creative or at the top level. Omit fresh
             media and copy for that creative. Optional `whatsappPhoneNumber` selects
             a number already paired with the Page (WhatsApp destination only).
-            `accountId` is a Facebook, Instagram or Meta ads (business login) connection;
-            `pageId` picks the Page when that connection was granted several. ...
+            `accountId` is a Facebook, ...
 
             Platforms: meta
 
             Args:
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
-                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...
+                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...
                 account_id: Facebook or Instagram SocialAccount ID. (required)
                 ad_account_id: Meta ad account ID, e.g. `act_123456789`. (required)
                 name: Ad display name. Used to derive campaign / ad set names.
@@ -27019,7 +27428,7 @@ def register_generated_tools(mcp, _get_client):
                 audience_include: Custom or lookalike audience ids to include.
                 audience_exclude: Custom or lookalike audience ids to exclude.
                 saved_targeting_id: ID of a saved_targeting audience (POST /v1/ads/audiences), expanded as the base targeting. Precedence: savedTargetingId, then `targeting`, then the flat fields.
-                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the other ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X and Pinterest; rejected with 400 on OpenAI. A code the ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).
+                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
                 raw_targeting: Meta targeting spec sent as the BASE layer of the ad set's
         `targeting`, exactly as POST /v1/ads/create does: use it for
         anything the flat fields cannot express, such as a layered
@@ -27307,6 +27716,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create Click-to-Call ad
 
+            Creates a Meta ad with a Call Now button that dials your phone number, optimized for quality calls.
+
             Same shape and flow as POST /v1/ads/ctwa, but the CTA is CALL_NOW dialing `phoneNumber`
             via a tel: link. The ad set is destination_type PHONE_CALL optimizing QUALITY_CALL
             and the campaign objective defaults to OUTCOME_LEADS.
@@ -27318,7 +27729,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
-                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...
+                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...
                 account_id: Facebook or Instagram SocialAccount ID. (required)
                 ad_account_id: Meta ad account ID, e.g. `act_123456789`. (required)
                 name: Ad display name. Used to derive campaign / ad set names.
@@ -27426,7 +27837,7 @@ def register_generated_tools(mcp, _get_client):
                 audience_include: Custom or lookalike audience ids to include.
                 audience_exclude: Custom or lookalike audience ids to exclude.
                 saved_targeting_id: ID of a saved_targeting audience (POST /v1/ads/audiences), expanded as the base targeting. Precedence: savedTargetingId, then `targeting`, then the flat fields.
-                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the other ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X and Pinterest; rejected with 400 on OpenAI. A code the ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).
+                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
                 raw_targeting: Meta targeting spec sent as the BASE layer of the ad set's
         `targeting`, exactly as POST /v1/ads/create does: use it for
         anything the flat fields cannot express, such as a layered
@@ -27720,7 +28131,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
-                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...
+                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...
                 account_id: Facebook or Instagram SocialAccount ID. (required)
                 ad_account_id: Meta ad account ID, e.g. `act_123456789`. (required)
                 name: Ad display name. Used to derive campaign / ad set names.
@@ -27828,7 +28239,7 @@ def register_generated_tools(mcp, _get_client):
                 audience_include: Custom or lookalike audience ids to include.
                 audience_exclude: Custom or lookalike audience ids to exclude.
                 saved_targeting_id: ID of a saved_targeting audience (POST /v1/ads/audiences), expanded as the base targeting. Precedence: savedTargetingId, then `targeting`, then the flat fields.
-                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the other ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X and Pinterest; rejected with 400 on OpenAI. A code the ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).
+                targeting: Nested targeting object, same contract as POST /v1/ads/create and boost. Flat fields win per key. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape: excluded cities can carry a radius catchment and excluded custom (lat/lng) pins are ...; ageMin (integer) - Minimum age. Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request); rejected with 400 ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). On TikTok they target people who interacted with videos ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences (Meta custom audience ids, TikTok audience ids, Pinterest customer list ids, LinkedIn ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
                 raw_targeting: Meta targeting spec sent as the BASE layer of the ad set's
         `targeting`, exactly as POST /v1/ads/create does: use it for
         anything the flat fields cannot express, such as a layered
@@ -29198,6 +29609,7 @@ def register_generated_tools(mcp, _get_client):
         date_to: str | None = None,
         include_hidden: bool = False,
         search: str | None = None,
+        tags: str | None = None,
         sort_by: Literal[
             "scheduled-desc",
             "scheduled-asc",
@@ -29227,6 +29639,7 @@ def register_generated_tools(mcp, _get_client):
             date_to: Alias of toDate, kept for existing callers
             include_hidden
             search: Search posts by text content.
+            tags: Comma-separated tags (at most 20). Returns only posts carrying every listed tag, matched exactly and case-sensitively against the tags set when the post was created. An empty value means no tag filter. `tag` is accepted as an alias.
             sort_by: Sort order for results.
             account_id: Filter posts to those published via a specific account (24-char hex ObjectId)."""
         client = _get_client()
@@ -29246,6 +29659,7 @@ def register_generated_tools(mcp, _get_client):
                 date_to=date_to,
                 include_hidden=include_hidden,
                 search=search,
+                tags=tags,
                 sort_by=sort_by,
                 account_id=account_id,
             )
@@ -29723,7 +30137,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List Meta product catalogs
 
-        Lists the Meta Commerce catalogs of a business portfolio (owned + agency-shared). The business comes from `businessId`, else the ad account's owner (`adAccountId`), else the WhatsApp Business Account's owner when `accountId` is a WhatsApp connection, else the only business the Meta login can see. Reads work with scopes customers already granted.
+        Lists the Meta product catalogs a business portfolio owns or has been shared, for catalog and shopping ads.
+
+        The business comes from `businessId`, else the ad account's owner (`adAccountId`), else the WhatsApp Business Account's owner when `accountId` is a WhatsApp connection, else the only business the Meta login can see. Reads work with scopes customers already granted.
 
         Platforms: meta
 
@@ -29773,6 +30189,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create a Meta product catalog
 
+        Creates a Meta product catalog that can power catalog ads, Instagram and Facebook Shops, and a WhatsApp Business catalog.
+
         Creates a Meta Commerce catalog in the business portfolio (resolved like GET). The same catalog serves Advantage+ catalog ads, Instagram/Facebook Shops and the WhatsApp Business catalog: link it to a WhatsApp number with POST /v1/whatsapp/catalogs. Needs catalog_management on the Meta login.
 
         Platforms: meta
@@ -29809,6 +30227,8 @@ def register_generated_tools(mcp, _get_client):
     def product_catalogs_get_ad_catalog() -> str:
         """Get a product catalog
 
+        Shows one Meta product catalog and its details.
+
         Platforms: meta"""
         client = _get_client()
         try:
@@ -29828,7 +30248,9 @@ def register_generated_tools(mcp, _get_client):
     def product_catalogs_delete_ad_catalog() -> str:
         """Delete a product catalog
 
-        Deletes the catalog and every product in it on Meta. Ads and WhatsApp numbers that use it lose their catalog.
+        Deletes a Meta product catalog and all its products, removing it from any ads or WhatsApp numbers that use it.
+
+        Ads and WhatsApp numbers that use it lose their catalog.
 
         Platforms: meta"""
         client = _get_client()
@@ -29851,7 +30273,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List a catalog's products
 
-        Pages through the catalog's products. Filter by your own `retailerId` to look one up. `price` and `salePrice` come back formatted by Meta (for example \"€49.90\").
+        Lists the products in a Meta catalog, or looks one up by your own SKU.
+
+        Filter by your own `retailerId` to look one up. `price` and `salePrice` come back formatted by Meta (for example \"€49.90\").
 
         Platforms: meta
 
@@ -29883,7 +30307,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Add a product to a catalog
 
-        Adds one product. `retailerId` is your SKU and stays the handle for later lookups and batch updates. For many products at once use POST /v1/ads/catalogs/{catalogId}/products/batch. Needs catalog_management on the Meta login.
+        Adds a single product to a Meta catalog, keyed by your own SKU for later lookups and updates.
+
+        `retailerId` is your SKU and stays the handle for later lookups and batch updates. For many products at once use POST /v1/ads/catalogs/{catalogId}/products/batch. Needs catalog_management on the Meta login.
 
         Platforms: meta
 
@@ -29917,6 +30343,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create, update or delete products in bulk
 
+        Creates, updates or deletes up to 5,000 catalog products in one request, processed in the background by Meta.
+
         Up to 5000 CREATE / UPDATE / DELETE requests keyed by `retailerId`, processed asynchronously by Meta. Returns handles; poll GET /v1/ads/catalogs/{catalogId}/batches/{handle} for the outcome and per-item errors. CREATE requests need name, url, imageUrl, price and currency.
 
         Platforms: meta
@@ -29947,6 +30375,8 @@ def register_generated_tools(mcp, _get_client):
     def product_catalogs_get_ad_catalog_batch(handle: str) -> str:
         """Get a bulk request's status
 
+        Shows whether a bulk catalog product request has finished, with any per-product errors.
+
         Platforms: meta
 
         Args:
@@ -29968,6 +30398,8 @@ def register_generated_tools(mcp, _get_client):
     )
     def product_catalogs_get_ad_catalog_product() -> str:
         """Get a product
+
+        Shows one product from a Meta catalog.
 
         Platforms: meta"""
         client = _get_client()
@@ -29992,7 +30424,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update a product
 
-        Partial update: only the fields sent change. `retailerId` cannot change.
+        Changes some fields of a catalog product, such as its price or image, leaving the rest as they are.
+
+        `retailerId` cannot change.
 
         Platforms: meta
 
@@ -30022,6 +30456,8 @@ def register_generated_tools(mcp, _get_client):
     def product_catalogs_delete_ad_catalog_product() -> str:
         """Delete a product
 
+        Removes one product from a Meta catalog.
+
         Platforms: meta"""
         client = _get_client()
         try:
@@ -30040,6 +30476,8 @@ def register_generated_tools(mcp, _get_client):
     )
     def product_catalogs_list_ad_catalog_feeds() -> str:
         """List a catalog's product feeds
+
+        Lists the product feeds that keep a Meta catalog filled from your product files.
 
         Platforms: meta"""
         client = _get_client()
@@ -30064,6 +30502,8 @@ def register_generated_tools(mcp, _get_client):
         schedule: dict[str, Any] | None = None,
     ) -> str:
         """Create a product feed
+
+        Creates a product feed that imports a CSV, TSV or XML product file into a Meta catalog, on a schedule or on demand.
 
         A feed pulls a CSV/TSV/XML product file from a URL. With `schedule` Meta fetches it on a cadence; without it, trigger fetches with POST /v1/ads/catalogs/{catalogId}/feeds/{feedId}/uploads.
 
@@ -30097,6 +30537,8 @@ def register_generated_tools(mcp, _get_client):
     def product_catalogs_list_ad_catalog_feed_uploads(feed_id: str) -> str:
         """List a feed's uploads
 
+        Lists a product feed's past file imports so you can check how each one went.
+
         Platforms: meta
 
         Args:
@@ -30122,6 +30564,8 @@ def register_generated_tools(mcp, _get_client):
         feed_id: str, account_id: str, url: str, catalog_account_id: str | None = None
     ) -> str:
         """Fetch a feed file now
+
+        Asks Meta to import a product file into a feed right away instead of waiting for its schedule.
 
         Asks Meta to fetch the product file at `url` into the feed. Processing is asynchronous: read the outcome with GET uploads.
 
@@ -30155,7 +30599,9 @@ def register_generated_tools(mcp, _get_client):
     def product_catalogs_list_ad_catalog_product_sets() -> str:
         """List a catalog's product sets
 
-        Lists a Meta product catalog's product sets, the unit a catalog ad promotes. Pass the chosen set id, not the parent catalog id, as `promotedObject.productSetId` on POST /v1/ads/create with `goal: catalog_sales`.
+        Lists a Meta catalog's product sets, the groups of products a catalog ad promotes.
+
+        Pass the chosen set id, not the parent catalog id, as `promotedObject.productSetId` on POST /v1/ads/create with `goal: catalog_sales`.
 
         Platforms: meta"""
         client = _get_client()
@@ -30180,6 +30626,8 @@ def register_generated_tools(mcp, _get_client):
         catalog_account_id: str | None = None,
     ) -> str:
         """Create a product set
+
+        Creates a product set, a filtered group of catalog products (by SKU, brand and so on) to promote in catalog ads.
 
         A product set is a filter over the catalog, e.g. `{\"retailer_id\": {\"is_any\": [\"sku-1\", \"sku-2\"]}}` or `{\"brand\": {\"i_contains\": \"acme\"}}` (Meta's product set filter syntax).
 
@@ -30219,6 +30667,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update a product set
 
+        Changes a product set's name or the filter that decides which products it includes.
+
         Platforms: meta
 
         Args:
@@ -30250,6 +30700,8 @@ def register_generated_tools(mcp, _get_client):
     )
     def product_catalogs_delete_ad_catalog_product_set(product_set_id: str) -> str:
         """Delete a product set
+
+        Deletes a product set from a Meta catalog.
 
         Platforms: meta
 
@@ -30430,22 +30882,28 @@ def register_generated_tools(mcp, _get_client):
     def profiles_list_profiles(
         include_over_limit: bool = False,
         name: str | None = None,
+        external_id: str | None = None,
         limit: int | None = None,
         skip: int | None = None,
     ) -> str:
         """List profiles
 
-        Returns profiles sorted default-first, then by creation date. Filter with name (exact match) and paginate with limit/skip; without those params the full list is returned unchanged. Use includeOverLimit=true to include profiles that exceed the plan limit.
+        Returns profiles sorted default-first, then by creation date. Filter with name or externalId (exact match) and paginate with limit/skip; without those params the full list is returned unchanged. Use includeOverLimit=true to include profiles that exceed the plan limit.
 
         Args:
             include_over_limit: When true, includes over-limit profiles (marked with isOverLimit: true).
             name: Exact-match filter on the profile name. Useful to recover a profile id after an ambiguous create (timeout followed by a 409 on retry).
+            external_id: Exact-match filter on the externalId you set on the profile, to find the profile of one of your tenants without storing its Zernio id. Team members can each own a profile with the same externalId, so the result is a list.
             limit: Page size. When limit or skip is present, the response includes total and skip (and echoes limit).
             skip: Number of profiles to skip, applied after sorting and filtering."""
         client = _get_client()
         try:
             response = client.profiles.list_profiles(
-                include_over_limit=include_over_limit, name=name, limit=limit, skip=skip
+                include_over_limit=include_over_limit,
+                name=name,
+                external_id=external_id,
+                limit=limit,
+                skip=skip,
             )
             return _format_response(response)
         except Exception as e:
@@ -30464,20 +30922,26 @@ def register_generated_tools(mcp, _get_client):
         description: str | None = None,
         color: str | None = None,
         timezone: str | None = None,
+        external_id: str | None = None,
     ) -> str:
         """Create profile
 
-        Creates a new profile with a name, optional description, and color. Names are unique per team: a duplicate returns a 409 whose details.existingProfileId carries the id of the existing profile. Send an Idempotency-Key header to make retries safe: a retried create with the same key and body replays the original 201 (same _id) instead of conflicting.
+        Creates a new profile with a name, optional description, and color. Names are unique per team: a duplicate returns a 409 whose details.existingProfileId carries the id of the existing profile. Set externalId to your own tenant or client id to find the profile later without storing its Zernio id. A duplicate externalId returns the same kind of 409, with code profile_external_id_conflict. Send an Idempotency-Key header to make retries safe: a retried create with the same key and body replays the original 201 (same _id) instead of conflicting.
 
         Args:
             name: (required)
             description
             color
-            timezone: IANA timezone new posts on this profile use when they name no `timezone`. Omit to keep UTC. An unknown name returns 400."""
+            timezone: IANA timezone new posts on this profile use when they name no `timezone`. Omit to keep UTC. An unknown name returns 400.
+            external_id: Your own identifier for this profile, typically the id of the tenant or client it serves in your system (1 to 255 characters, trimmed). Unique among the profiles of the user who owns the profile: a duplicate returns 409 profile_external_id_conflict. Look a profile up by it with GET /v1/profiles?externalId=."""
         client = _get_client()
         try:
             response = client.profiles.create_profile(
-                name=name, description=description, color=color, timezone=timezone
+                name=name,
+                description=description,
+                color=color,
+                timezone=timezone,
+                external_id=external_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -30519,11 +30983,12 @@ def register_generated_tools(mcp, _get_client):
         description: str | None = None,
         color: str | None = None,
         timezone: str | None = None,
+        external_id: str | None = None,
         is_default: bool | None = None,
     ) -> str:
         """Update profile
 
-        Updates a profile's name, description, color, default timezone, or default status.
+        Updates a profile's name, description, color, default timezone, externalId, or default status.
 
         Args:
             profile_id: (required)
@@ -30531,6 +30996,7 @@ def register_generated_tools(mcp, _get_client):
             description: Set to null to clear the description.
             color
             timezone: IANA timezone new posts on this profile use when they name no `timezone`. Set to null to go back to UTC. An unknown name returns 400.
+            external_id: Your own identifier for this profile (1 to 255 characters, trimmed). Set to null to clear it. A value another profile of the same owner already holds returns 409 profile_external_id_conflict.
             is_default"""
         client = _get_client()
         try:
@@ -30540,6 +31006,7 @@ def register_generated_tools(mcp, _get_client):
                 description=description,
                 color=color,
                 timezone=timezone,
+                external_id=external_id,
                 is_default=is_default,
             )
             return _format_response(response)
@@ -31179,7 +31646,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create reach-frequency prediction
 
-        Creates an R&F prediction. This is a QUOTE, nothing is bought and no ad entities are created.
+        Quotes the reach or budget for a Meta reach and frequency campaign over a date range, without buying anything.
+
+        This is a QUOTE, nothing is bought and no ad entities are created.
         Provide a date range plus exactly one of `budgetAmount` (Meta predicts reach) or `reach`
         (Meta predicts the budget). The response carries the estimate and its allowed bounds
         (min/max budget and reach). Predictions expire on their own; to buy, reserve one via
@@ -31233,6 +31702,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get reach-frequency prediction
 
+        Shows a Meta reach and frequency prediction, with its estimate and status.
+
         Platforms: meta
 
         Args:
@@ -31263,7 +31734,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Cancel reach-frequency booking
 
-        Releases a RESERVATION's locked price and inventory. Unreserved predictions expire on their own.
+        Cancels a Meta reach and frequency reservation, releasing its locked price and inventory.
+
+        Unreserved predictions expire on their own.
 
         Platforms: meta
 
@@ -31294,6 +31767,8 @@ def register_generated_tools(mcp, _get_client):
         prediction_id: str, account_id: str, ad_account_id: str
     ) -> str:
         """Reserve reach-frequency inventory
+
+        Locks the quoted price and inventory of a Meta reach and frequency prediction so you can launch a campaign on it.
 
         Locks the quoted price + inventory until the returned `expiresAt` and mints a NEW
         prediction id. Pass that RESERVED id (not the original) as `rfPredictionId` on
@@ -32603,38 +33078,31 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
-    # SUPPORT_RUNS
+    # SUPPORT_ASSISTANT
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Start a support run (private beta)",
-            readOnlyHint=False,
-            destructiveHint=True,
-            openWorldHint=True,
+            title="List a thread's support answers",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
         )
     )
-    def support_runs_create_support_run(
-        message: str,
-        thread_id: str | None = None,
-        context: dict[str, Any] | None = None,
-        max_cost_usd: float = 3,
+    def support_assistant_list_support_answers(
+        thread_id: str, limit: int = 20, cursor: str | None = None
     ) -> str:
-        """Start a support run (private beta)
+        """List a thread's support answers
 
-        Private beta: returns 403 `feature_not_available` unless enabled for your account. Asks Ana, the Zernio support agent, a question about your workspace. The run is asynchronous: this returns 202 with a `runId`, and the answer arrives through the `support.run.completed` and `support.run.failed` webhooks. `GET /v1/support/runs/{runId}` is the fallback. Pass `threadId` to continue an earlier conversation, and `context` to point Ana at a post, account or profile. Billed when the run finishes at the model cost plus 20%, never above `maxCostUsd`; failed runs are free. When Ana finds a problem on Zernio's side she opens a support ticket with the team (see `supportTicket` on the run) and the run ends as `needs_human`. Requires an unrestricted API key, usage-based billing and a card on file. Limits per account: 3 active runs and $100 of runs per UTC month. Send an Idempotency-Key header to make retries safe.
+        Lists the runs of one thread that your team started, with each question and its answer, oldest first. Replies from the Zernio team after a support ticket arrive by email and are not included. Runs are kept for 90 days. Page through a long thread with `limit` and `cursor`: pass `nextCursor` as `cursor` until it is null.
 
         Args:
-            message: The question. Leading and trailing whitespace is trimmed. (required)
-            thread_id: Continue this thread. The thread must have a run started by your team, and no run in progress.
-            context: Ids Ana should look at. Each must belong to your workspace. Object with keys: postId (string); accountId (string); profileId (string)
-            max_cost_usd: Cost cap for this run, in USD. The run stops at the cap and bills at most this amount."""
+            thread_id: The thread to list, as returned by `POST /v1/support/runs`. (required)
+            limit: Runs per page.
+            cursor: Pass `nextCursor` from the previous page."""
         client = _get_client()
         try:
-            response = client.support_runs.create_support_run(
-                message=message,
-                thread_id=thread_id,
-                context=context,
-                max_cost_usd=max_cost_usd,
+            response = client.support_assistant.list_support_answers(
+                thread_id=thread_id, limit=limit, cursor=cursor
             )
             return _format_response(response)
         except Exception as e:
@@ -32642,22 +33110,22 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Get a support run (private beta)",
+            title="Get a support answer",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
         )
     )
-    def support_runs_get_support_run(run_id: str) -> str:
-        """Get a support run (private beta)
+    def support_assistant_get_support_answer(run_id: str) -> str:
+        """Get a support answer
 
-        Private beta: returns 403 `feature_not_available` unless enabled for your account. Returns a run started by your team. Prefer the `support.run.completed` and `support.run.failed` webhooks; use this as the fallback, waiting `pollAfterSeconds` between polls. `costUsd` is the amount billed: the model cost plus 20%, never above `maxCostUsd`, and 0 for a failed run.
+        Returns a run started by your team, with the answer once it is ready. Prefer the `support.run.completed` and `support.run.failed` webhooks; use this as the fallback, waiting `pollAfterSeconds` between polls. `costUsd` is the amount billed for the question, never above `maxCostUsd`, and 0 for a failed run (pricing on Ask a support question).
 
         Args:
             run_id: (required)"""
         client = _get_client()
         try:
-            response = client.support_runs.get_support_run(run_id=run_id)
+            response = client.support_assistant.get_support_answer(run_id=run_id)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -32709,6 +33177,8 @@ def register_generated_tools(mcp, _get_client):
     def tracking_tags_get_ad_tracking_tags(ad_id: str) -> str:
         """Get ad tracking tags
 
+        Shows the tracking parameters added to an ad's click URLs, such as UTM tags (not pixels).
+
         Unified read of the platform's native click-URL tracking params.
         - Meta (facebook/instagram): the creative's `url_tags` (and template_url_spec).
         - Google (googleads): the campaign's `trackingUrlTemplate` + `finalUrlSuffix`.
@@ -32750,7 +33220,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Set ad tracking tags
 
-        Unified update. Send only the fields for the ad's platform:
+        Sets the tracking parameters added to an ad's click URLs, such as UTM tags, without rebuilding the rest of the ad.
+
+        Send only the fields for the ad's platform:
         - Meta: `urlTags` (array of {key,value}). Meta creatives are immutable, so this rebuilds the
           creative and repoints the ad. By DEFAULT we PRESERVE the existing creative verbatim
           (re-post its object_story_spec + the new url_tags, reusing the image), so you send `urlTags`
@@ -32761,7 +33233,7 @@ def register_generated_tools(mcp, _get_client):
         - Google: `trackingUrlTemplate` and/or `finalUrlSuffix` (full template strings; account quota applies).
           Written at the CAMPAIGN level (the campaign's `tracking_url_template` / `final_url_suffix`), so
           the change applies to every ad in the ad's campaign.
-        - LinkedIn: `dynamicValueParameters` and/or `customValueParameters` (campaign-level Dynamic UTM).
+        - ...
 
         Platforms: meta, google, linkedin
 
@@ -32801,6 +33273,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List tracking tags
 
+        Lists the pixels and other measurement tags an ads account can see, so you can inspect or install them.
+
         Returns the tracking tags (Meta Pixels, or OpenAI Ads pixels) the
         connected ads account can see. Pass `?adAccountId=act_...` (Meta only)
         to scope the list to a single ad account; omit it to list every pixel
@@ -32815,9 +33289,7 @@ def register_generated_tools(mcp, _get_client):
         `act_...` ids from `GET /v1/ads/accounts`; `adAccountId` is ignored for
         OpenAI Ads (one API key maps to exactly one ad account).
 
-        LinkedIn (`linkedinads`): lists the Insight Tag of each ad account (LinkedIn allows one
-        per ad account; a tag shared with several accounts appears once). `adAccountId` is the
-        numeric ...
+        LinkedIn (`linkedinads`): lists the Insight Tag of each ad account (LinkedIn ...
 
         Platforms: meta, tiktok, google, x, openai, linkedin, pinterest
 
@@ -32879,6 +33351,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create a tracking tag
 
+        Creates a measurement pixel on an ad account and returns the snippet to install on your site.
+
         Meta: creates a Meta Pixel on the given ad account (`POST /act_{id}/adspixels`,
         where `name` is the only input). Returns the created tag including its
         install `code`. The pixel is owned by the Business Manager that owns the
@@ -32894,9 +33368,7 @@ def register_generated_tools(mcp, _get_client):
         key for it in the same call (`adAccountId` is required by this
         endpoint but ignored: one API key maps to exactly one ad account, so
         there's nothing to select). Returns 422 (`FEATURE_NOT_AVAILABLE`) if
-        the ad account isn't enabled for pixel management; contact your OpenAI
-        partner representative to enable it. There is no delete API for
-        OpenAI pixels. If ...
+        the ad account isn't enabled for pixel management; contact ...
 
         Platforms: meta, tiktok, google, x, openai, linkedin, pinterest
 
@@ -32932,6 +33404,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get a tracking tag
 
+        Shows one pixel or measurement tag in full, including its install snippet, when it last fired and its conversion events.
+
         Returns the full tag record including the base-code `code` snippet,
         `lastFiredTime`, `ownerBusinessId`, `isUnavailable`, etc. Meta only
         (platform `metaads`); other platforms return 501.
@@ -32946,9 +33420,7 @@ def register_generated_tools(mcp, _get_client):
 
         LinkedIn (`linkedinads`): `code` is LinkedIn's base code, `lastFiredTime` is the most
         recent callback across the tag's domains (unix seconds, null when it never fired) and
-        `events` lists the ad account's conversion rules. `siteEvent` and `siteEventId` are set
-        only on rules a page can fire (event-specific Insight Tag rules: not Conversions API
-        rules, no URL match rules). ...
+        `events` lists the ad account's conversion rules. `siteEvent` and `siteEventId` are set ...
 
         Platforms: meta, tiktok, google, x, openai, linkedin, pinterest
 
@@ -33008,6 +33480,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update a tracking tag
 
+            Changes a pixel's settings, such as its name or automatic matching, on platforms that allow edits.
+
             Partial-update a pixel. Whitelisted fields: `name` (rename),
             `enableAutomaticMatching`, `automaticMatchingFields`,
             `firstPartyCookieStatus`, `dataUseSetting`. At least one is required.
@@ -33025,8 +33499,7 @@ def register_generated_tools(mcp, _get_client):
             (`SERVICE_ACCESS_DENIED`), so the tag id and cross-account ownership
             stay managed in the Google Ads UI.
 
-            There is no DELETE: Meta has no API to delete a pixel. To stop using
-            one, unshare it from your ad accounts (`DELETE ...
+            There is no DELETE: Meta has no API to delete a pixel. ...
 
             Platforms: meta, tiktok, google, x, openai, linkedin, pinterest
 
@@ -33075,6 +33548,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List accounts it is shared with
 
+        Lists the other ad accounts a pixel is shared with.
+
         Meta (`metaads`) and LinkedIn (`linkedinads`); other platforms return 501.
 
         LinkedIn (`linkedinads`): the ad accounts this connection can see that hold access to the
@@ -33111,8 +33586,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Share with an ad account
 
-        Shares the pixel with another ad account so campaigns/audiences in that
-        account can use it. Requires that you administer both the pixel's owning
+        Shares a pixel with another ad account so its campaigns and audiences can use it.
+
+        Requires that you administer both the pixel's owning
         Business Manager and the target ad account; a pixel on a personal
         (non-BM) ad account can't be shared (Meta will reject the call). Meta
         and LinkedIn; other platforms return 501.
@@ -33154,6 +33630,8 @@ def register_generated_tools(mcp, _get_client):
         account_id: str, tag_id: str, ad_account_id: str | None = None
     ) -> str:
         """Stop sharing with an account
+
+        Stops sharing a pixel with an ad account.
 
         `adAccountId` may be passed as a query parameter (recommended) or as a
         JSON body field for clients that can send DELETE bodies. Meta and
@@ -33198,6 +33676,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Install on a Shopify store or WordPress site
 
+        Installs a pixel on a connected Shopify store or WordPress site, so store visits and purchases are reported without editing the theme.
+
         Puts the Meta pixel on a connected Shopify store's storefront and checkout through
         Zernio's Shopify web pixel (a Shopify app pixel, no theme edits). The store then sends
         PageView, ViewContent, AddToCart, Search, InitiateCheckout, AddPaymentInfo and Purchase
@@ -33210,10 +33690,7 @@ def register_generated_tools(mcp, _get_client):
         the previous one (reported in `replacedTagId`), and other platforms' tags are kept.
         Events respect the store's customer privacy settings (marketing consent).
 
-        `accountId` is the Meta ads account that owns the pixel (`tagId`); `storeAccountId` is the
-        Shopify account.
-
-        OpenAI Ads on Shopify: each event is sent through ...
+        `accountId` is the Meta ...
 
         Platforms: meta, tiktok, google, x, openai, linkedin, pinterest, whop, shopify, wordpress
 
@@ -33253,6 +33730,8 @@ def register_generated_tools(mcp, _get_client):
         ad_account_id: str | None = None,
     ) -> str:
         """Get store install status
+
+        Shows whether a tracking tag is live on your Shopify store or WordPress site, and whether a WordPress install would be blocked.
 
         Whether this tag is the one the Shopify store fires for its platform. `installedTagId`
         names the tag of that platform the store currently fires, which can be a different tag,
@@ -33300,7 +33779,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Remove from a Shopify store or WordPress site
 
-        Removes the tag from the store. Idempotent: nothing installed returns 200 with
+        Removes a tracking tag from your Shopify store or WordPress site, leaving other platforms' tags and hand-added pixel code in place.
+
+        Idempotent: nothing installed returns 200 with
         `installed: false`. If the store fires a different tag of the same platform, nothing is
         removed and the call answers 409 `invalid_resource_state`. Shopify: other platforms'
         tags stay; the web pixel itself is deleted once no tag remains.
@@ -33340,6 +33821,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List conversion events
 
+        Lists the conversion events tied to a tracking tag, such as Google conversion actions or Meta custom conversions.
+
         The tag's conversion events, on platforms where each conversion is its own object:
         Google conversion actions, LinkedIn conversion rules, X web event tags, OpenAI event
         settings, TikTok pixel events, Meta custom conversions, Pinterest advertiser defined
@@ -33353,10 +33836,7 @@ def register_generated_tools(mcp, _get_client):
         LinkedIn (`linkedinads`): the conversion rules of the ad account (`adAccountId`, default
         the account that created the tag), including Conversions API and URL-match rules.
         `siteEventId` (the rule id a page fires) is set only on event-specific Insight Tag rules;
-        `defaultValue`/`currency` come from the rule value, `clickWindowDays`/`viewWindowDays`
-        from its post-click and view-through windows.
-
-        Meta: the pixel's custom ...
+        `defaultValue`/`currency` come from the rule ...
 
         Platforms: meta, google, tiktok, linkedin, x, openai, pinterest
 
@@ -33406,7 +33886,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create a conversion event
 
-        Creates a conversion event tied to the tag. Pass the platform's own event type in `type`
+        Creates a conversion event on a tracking tag, such as a purchase or lead, so ads can measure and optimise toward it.
+
+        Pass the platform's own event type in `type`
         (e.g. Google `PURCHASE`, LinkedIn `ADD_TO_CART`, X `CHECKOUT_INITIATED`) or a neutral
         `siteEvent` the platform maps to its closest type. Each platform stores a subset of the
         optional fields; sending one it does not store answers 400 naming the supported fields.
@@ -33418,8 +33900,7 @@ def register_generated_tools(mcp, _get_client):
         `items_added`, `contents_viewed`, `checkout_started`, `registration_completed`,
         `subscription_created`, `trial_started`, `appointment_scheduled`, `page_viewed`,
         `app_installed`, `app_opened`) or, for anything else, the custom event name itself
-        (1 to 64 letters, digits, underscores or dashes; stored lowercase). `siteEvent` maps
-        `search` and ...
+        (1 to 64 letters, digits, underscores or ...
 
         Platforms: meta, google, tiktok, linkedin, x, openai, pinterest
 
@@ -33490,6 +33971,8 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Update a conversion event
 
+        Changes a conversion event's settings, such as its name or default value, where the platform allows edits.
+
         Partial update; at least one field. A field the platform does not store answers 400.
 
         OpenAI Ads answers 501: OpenAI documents only list and create for event settings, and
@@ -33507,8 +33990,7 @@ def register_generated_tools(mcp, _get_client):
         answer 404). `enabled: false` archives the action (same as DELETE) and `enabled: true`
         restores an archived one.
 
-        Pinterest (platform `pinterestads`): remaps the event to another `type` or `siteEvent`.
-        Pinterest identifies the event by its name, so `name` ...
+        Pinterest (platform `pinterestads`): ...
 
         Platforms: meta, google, tiktok, linkedin, x, openai, pinterest
 
@@ -33560,7 +34042,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Delete a conversion event
 
-        Removes the conversion event. Platforms without a hard delete archive or disable it
+        Removes a conversion event from a tracking tag, or archives or disables it on platforms that have no hard delete.
+
+        Platforms without a hard delete archive or disable it
         instead; `state` in the response says which (`deleted`, `archived`, `disabled`).
 
         OpenAI Ads answers 501: there is no delete or archive route for event settings
@@ -33574,8 +34058,7 @@ def register_generated_tools(mcp, _get_client):
         Meta: `archived`. Meta's delete archives the custom conversion (it stays readable with
         `status: archived`) and there is no hard delete; deleting an archived one is a no-op.
 
-        Google Ads (`googleads`): removes the conversion action (state `archived`). Google keeps
-        it with status REMOVED and its history; PATCH with `enabled: true` restores it. ...
+        Google Ads (`googleads`): removes the conversion action (state `archived`). Google ...
 
         Platforms: meta, google, tiktok, linkedin, x, openai, pinterest
 
@@ -33607,7 +34090,9 @@ def register_generated_tools(mcp, _get_client):
     def tracking_tags_list_tracking_tag_users(account_id: str, tag_id: str) -> str:
         """List tag users
 
-        People and system users of the owning business with access to the tag. Platforms without
+        Lists the people and system users in the owning Meta business who have access to a pixel.
+
+        Platforms without
         tag user assignment answer 501.
 
         Meta: the pixel's assigned users in its owning Business Manager. A pixel on a personal ad
@@ -33642,7 +34127,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Assign a user to a tag
 
-        Gives a user of the owning business access to the tag. Assigning an already assigned user
+        Gives a person in the owning Meta business access to a pixel, or replaces the tasks they already have on it.
+
+        Assigning an already assigned user
         replaces their task set.
 
         Meta: `tasks` are `AA_ANALYZE`, `ADVERTISE`, `ANALYZE`, `EDIT`, `UPLOAD`; `userId` is the
@@ -33708,7 +34195,9 @@ def register_generated_tools(mcp, _get_client):
     def tracking_tags_list_tracking_tag_partners(account_id: str, tag_id: str) -> str:
         """List partner businesses of a tag
 
-        Other businesses the tag is shared with. Read-only. Platforms without partner sharing
+        Lists the partner businesses a Meta pixel is shared with (read-only, sharing with new partners is not supported).
+
+        Read-only. Platforms without partner sharing
         answer 501.
 
         Meta: the pixel's shared agencies. Sharing a pixel with a new partner is not available:
@@ -33740,7 +34229,9 @@ def register_generated_tools(mcp, _get_client):
     def tracking_tags_get_tracking_tag_diagnostics(account_id: str, tag_id: str) -> str:
         """Get tag diagnostics
 
-        The platform's health checks for the tag. Platforms without tag diagnostics answer 501.
+        Shows Meta's health checks for a pixel, such as events missing parameters or product ids that do not match your catalogs.
+
+        Platforms without tag diagnostics answer 501.
 
         Meta: the pixel's checks from Events Manager (`da_checks`), e.g. whether events miss
         parameters or their content ids do not match the pixel's catalogs.
@@ -33794,8 +34285,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get aggregated event stats
 
-        Returns event counts / health for the tag, where the platform exposes
-        them. Meta: aggregated counts (`GET /{pixel_id}/stats`), rows passed
+        Shows event counts or health for a tracking tag so you can confirm it is firing, where the platform reports them.
+
+        Meta: aggregated counts (`GET /{pixel_id}/stats`), rows passed
         through as-is; their shape depends on the `aggregation` requested.
         Platforms without a stats API answer 501.
 
@@ -33810,7 +34302,7 @@ def register_generated_tools(mcp, _get_client):
         enabled for the stream answer 422 `feature_not_available`.
 
         LinkedIn (`linkedinads`): health rows rather than counts, since LinkedIn exposes no per-
-        event fire counts: one row per site domain the tag has seen ...
+        event fire counts: ...
 
         Platforms: meta, tiktok, google, x, openai, linkedin, pinterest
 

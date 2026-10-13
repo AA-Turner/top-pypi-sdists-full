@@ -319,6 +319,7 @@ async def _run_stale_session_reaper() -> None:
     """Mark orphaned queued/running sessions failed, forever, on a cadence
     NOTHING else can block. Deliberately separate from the crash-resume loop:
     this sweep is one bounded UPDATE, while a resume runs a whole crawl."""
+    from matrx_scraper.web_crawl.lease_reaper import settle_lease_expired_sessions
     from matrx_scraper.web_crawl.persistence import WebCrawlRepository
 
     while True:
@@ -327,6 +328,16 @@ async def _run_stale_session_reaper() -> None:
             if reaped:
                 print(
                     f"[scraper-server] marked {reaped} orphaned crawl session(s) failed",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            # Runs whose lease died long ago (soft-deleted rows included) →
+            # partial / lease_expired. Same sweep, no schedule of its own.
+            expired = await settle_lease_expired_sessions()
+            if expired:
+                print(
+                    f"[scraper-server] settled {len(expired)} crawl session(s) whose run "
+                    f"lease expired: {', '.join(expired)}",
                     file=sys.stderr,
                     flush=True,
                 )
@@ -907,6 +918,21 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
 
     app.state.config = config
 
+    # Every run lease this process claims names its deployment, and the
+    # crash-resume sweep only continues sessions that deployment last ran.
+    from matrx_scraper.web_crawl.persistence import set_run_deployment
+
+    set_run_deployment(config.deployment)
+    if not config.deployment:
+        print(
+            "[scraper-server] MATRX_SCRAPER_DEPLOYMENT is not set — this process will "
+            "NOT auto-resume any crashed crawl. Crawls it starts carry no deployment "
+            "name, so the 'production' deployment adopts and resumes them. Set it to "
+            "this deployment's name, e.g. 'production' or 'development'.",
+            file=sys.stderr,
+            flush=True,
+        )
+
     raw_origins = config.cors_allowed_origins.strip()
     allowed_origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
     if "*" in allowed_origins:
@@ -1097,6 +1123,8 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
             "git_sha": (os.environ.get("GIT_SHA") or os.environ.get("SOURCE_COMMIT") or "unknown"),
             "built_at": os.environ.get("BUILD_TIME") or "unknown",
             "branch": os.environ.get("COOLIFY_BRANCH"),
+            # Which deployment's crashed crawls this process continues (None = none).
+            "deployment": config.deployment or None,
         }
 
     return app

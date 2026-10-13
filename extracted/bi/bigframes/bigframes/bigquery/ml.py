@@ -1,0 +1,54 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""This module exposes `BigQuery ML
+<https://docs.cloud.google.com/bigquery/docs/bqml-introduction>`_ functions
+by directly mapping to the equivalent function names in SQL syntax.
+
+For an interface more familiar to Scikit-Learn users, see :mod:`bigframes.ml`.
+"""
+
+from bigframes.bigquery._operations.ml import (
+    arima_coefficients,
+    arima_evaluate,
+    create_model,
+    evaluate,
+    explain_forecast,
+    explain_predict,
+    forecast,
+    generate_embedding,
+    generate_text,
+    get_insights,
+    global_explain,
+    predict,
+    recommend,
+    transform,
+)
+
+__all__ = [
+    "create_model",
+    "evaluate",
+    "arima_evaluate",
+    "arima_coefficients",
+    "predict",
+    "recommend",
+    "forecast",
+    "explain_predict",
+    "explain_forecast",
+    "global_explain",
+    "transform",
+    "generate_text",
+    "generate_embedding",
+    "get_insights",
+]

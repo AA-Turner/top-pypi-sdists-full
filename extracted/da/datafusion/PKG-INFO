@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datafusion
-Version: 54.1.0
+Version: 55.0.0
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Rust
 Requires-Dist: cloudpickle>=2.0
 Requires-Dist: pyarrow>=16.0.0 ; python_full_version < '3.14'
 Requires-Dist: pyarrow>=22.0.0 ; python_full_version >= '3.14'
-Requires-Dist: typing-extensions ; python_full_version < '3.13'
+Requires-Dist: typing-extensions>=4.12 ; python_full_version < '3.13'
 License-File: LICENSE.txt
 Summary: Build and run queries against data
 Keywords: dataframe,datafusion,query-engine,rust

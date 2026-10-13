@@ -29,7 +29,6 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -61,10 +60,12 @@ from ..models import (
 from . import config as config_module
 from . import agent_session
 from . import coerce as _coerce
+from . import checkpoints as _checkpoints
 from . import safe_warn as _diagnostics
 
 from . import errors
 from . import nonfinite
+from .artifact_kinds import KIND_LABEL_KEY
 from .artifact_listing import read_artifact_rows
 from .errors import CapabilityUnavailable
 from .config import Settings, resolve
@@ -408,6 +409,14 @@ _PREDATES_CHILD_ROUTES = (
     "the server, or keep the previous probe release until it is"
 )
 
+#: What a server without experiment forks (its route answers a route-absent
+#: 404) is told: the SDK and the server ship on separate trains.
+_PREDATES_FORKS = (
+    "this Probe server predates experiment forks (POST .../experiments/{E}/fork, GET "
+    ".../inherited); upgrade the server, or use `experiment create` + `edge add` with "
+    "derived_from"
+)
+
 
 def _moved_away(exc: errors.RosError) -> bool:
     """A 404 or 410 at an experiment's remembered or supplied project: it may
@@ -557,19 +566,9 @@ def _route_absent(exc: errors.RosError) -> bool:
     return isinstance(exc, errors.NotFoundError) and exc.detail == "Not Found"
 
 
-class Anchor(str, Enum):
-    """What an artifact hangs off.
-
-    The database CHECKs that exactly one anchor is set, so this is a closed
-    vocabulary, not a hint. Four of these are *artifacts*; workspace and shared are
-    *files*, which is a different noun on the wire (see :meth:`Client.upload_file`).
-    """
-
-    RUN = "run"
-    EXPERIMENT = "experiment"
-    PROJECT = "project"
-    WORKSPACE = "workspace"
-    SHARED = "shared"
+#: What an artifact hangs off (`anchors.py`, where the lower layers can import
+#: it without this module). Re-exported: `client.Anchor` is the one class.
+from .anchors import Anchor  # noqa: E402
 
 
 #: Anchors whose upload body is a ``ScopedUploadRequest``. That model is declared
@@ -4178,6 +4177,79 @@ class Client:
                 ) from exc
         return row
 
+    def fork_experiment(
+        self,
+        source: str,
+        slug: str,
+        *,
+        question: str,
+        name: str | None = None,
+        project_id: str | None = None,
+        authored_by: str | None = None,
+    ) -> dict:
+        """Fork an experiment: a new experiment of the same project that starts
+        where ``source`` is (``POST /v1/projects/{P}/experiments/{E}/fork``).
+
+        The server COPIES the source's notes (opening with a line naming it),
+        sub-notes, page document, tags, chart settings and its own files (rows
+        naming the same bytes; nothing is uploaded again), links the fork
+        ``forked_from`` the source, and lets the fork READ the source's runs and
+        their files live (:meth:`experiment_inherited`) until one of those files
+        changes on the source side -- then the fork keeps its own copy of what it
+        had. The answer is the new experiment plus ``fork`` (what was copied and
+        the link's id). ``question`` is the fork's own: what it tries that the
+        source did not. A taken slug raises ``ConflictError``, as a create does."""
+        if not question or not question.strip():
+            raise errors.ValidationError(
+                f"a fork needs its own question: what does {slug} try that the source did not?"
+            )
+        body: dict[str, Any] = {"slug": slug, "question": question}
+        if name:
+            body["name"] = name
+        _put_authorship(body, authored_by)
+        try:
+            return _from_experiment_api(
+                self._on_experiment(
+                    lambda p, e: self.transport.post(
+                        f"/v1/projects/{p}/experiments/{e}/fork", body
+                    ),
+                    source,
+                    project_id,
+                )
+            )
+        except CapabilityUnavailable as exc:
+            raise CapabilityUnavailable("experiment_fork", _PREDATES_FORKS) from exc
+
+    def experiment_inherited(
+        self,
+        experiment_id: str,
+        *,
+        runs: bool = False,
+        after: str | None = None,
+        limit: int | None = None,
+        project_id: str | None = None,
+    ) -> dict:
+        """What a fork reads live from its source: its sources (nearest first)
+        and one page of their run files, or with ``runs`` their runs, as they
+        were at the fork (``GET /v1/projects/{P}/experiments/{E}/inherited``).
+        A file id here is the source run's file: :meth:`download_artifact`
+        reads it as is. Page on with ``after`` = the answer's ``next_after``."""
+        params: dict[str, Any] = {"kind": "runs" if runs else "files"}
+        if after is not None:
+            params["after"] = after
+        if limit is not None:
+            params["limit"] = limit
+        try:
+            return self._on_experiment(
+                lambda p, e: self.transport.get(
+                    f"/v1/projects/{p}/experiments/{e}/inherited", params=params
+                ),
+                experiment_id,
+                project_id,
+            )
+        except CapabilityUnavailable as exc:
+            raise CapabilityUnavailable("experiment_fork", _PREDATES_FORKS) from exc
+
     def _write_experiment_document(
         self,
         experiment_id: str,
@@ -7023,6 +7095,27 @@ class Client:
             self._server_features_cache = feats
         return name in feats
 
+    def supports_team_feature(self, name: str) -> bool:
+        """Whether ``GET /v1/teams/features`` lists ``name`` for this client's team.
+
+        A per-team switch (a canary list on the server), unlike
+        :meth:`supports_feature`'s per-build list. An answer is cached for the
+        client's lifetime, and so is an older server's 404 (no such route). Any
+        other failure -- no credential, a 5xx, the network -- is "not enabled"
+        THIS time and asked again next time, so one blip does not switch a
+        long-lived process off for good."""
+        feats = getattr(self, "_team_features_cache", None)
+        if feats is None:
+            try:
+                data = self.transport.get("/v1/teams/features")
+                feats = frozenset((data or {}).get("features") or ())
+            except errors.NotFoundError:
+                feats = frozenset()
+            except Exception:  # noqa: BLE001 -- unknown is not enabled, and not remembered
+                return False
+            self._team_features_cache = feats
+        return name in feats
+
     def _require_feature(self, name: str, message: str) -> None:
         """Preflight gate: refuse BEFORE any state changes, with the fix named.
 
@@ -7677,6 +7770,36 @@ class Client:
                 Path(dest).unlink(missing_ok=True)
         return {"artifact_id": artifact_id, "dest": str(dest), "size_bytes": size, "sha256": digest}
 
+    def get_artifact(self, artifact_id: str) -> dict:
+        """One artifact row by id."""
+        return self.transport.get(f"/v1/artifacts/{artifact_id}")
+
+    # -- checkpoints (probe.sdk.checkpoints) ----------------------------------
+    def checkpoint(
+        self,
+        run_id: str,
+        which: str = "latest",
+        *,
+        callback: str | None = None,
+        recoverable: bool = True,
+    ) -> dict | None:
+        """The run's ``"latest"`` (highest step) or ``"best"`` (``meta.best``)
+        checkpoint row, or None. ``recoverable=True`` skips one whose bytes are
+        gone: an upload with a file not (yet) stored, or a location known to be
+        gone, so ``"latest"`` is the newest save that can be had. Two
+        Lightning callbacks each marking a best raise ``AmbiguousCheckpoint``
+        unless ``callback=`` names one."""
+        row, _files = _checkpoints.find(self, run_id, which, callback=callback, recoverable_only=recoverable)
+        return row
+
+    def download_checkpoint(self, checkpoint: dict | str, dest: str | os.PathLike) -> dict:
+        """Write a checkpoint's stored files under the folder ``dest`` (a row
+        from :meth:`checkpoint`, or its id), each checked against its sha256.
+        Raises ``CheckpointNotStored`` naming what is missing, or where a
+        location-only checkpoint is, before writing anything."""
+        row = self.get_artifact(checkpoint) if isinstance(checkpoint, str) else checkpoint
+        return _checkpoints.download(self, row, dest)
+
     # -- artifact versions (an artifact's content history) ------------------
     def list_artifact_versions(self, artifact_id: str) -> list[dict]:
         """The artifact's version chain, newest first.
@@ -7866,7 +7989,13 @@ class Client:
             advisories.append("no_lockfiles")
         if not any(a.get("kind") == "inputs_decision" for a in artifacts):
             advisories.append("inputs_decision")
-        if not run.get("notes") and not any(a.get("kind") == "note" for a in artifacts):
+        # A note FILE: `note` is not a kind, so the server stores one as `other`
+        # with the word in `meta.kind_label`; a row the backfill has not reached
+        # yet still says `note` itself.
+        if not run.get("notes") and not any(
+            a.get("kind") == "note" or (a.get("meta") or {}).get(KIND_LABEL_KEY) == "note"
+            for a in artifacts
+        ):
             advisories.append("notes")
 
         verified = None
@@ -8327,10 +8456,12 @@ class Client:
         step_to: int | None = None,
         name: str | None = None,
         scope: str | None = None,
+        prefix: str | None = None,
     ) -> list[dict]:
         """List a run's artifacts, optionally server-filtered by kind and/or an
         inclusive step window — e.g. sandbox states around a collapse:
         ``list_run_artifacts(run_id, kind="sandbox_state", step_from=599, step_to=601)``.
+        ``prefix`` keeps one folder of names and everything under it.
 
         ``scope`` controls inheritance (default ``own`` = this run only): ``all`` also
         returns the run's experiment- and project-level artifacts, ``inherited`` only
@@ -8344,6 +8475,7 @@ class Client:
                 "step_to": step_to,
                 "name": name,
                 "scope": scope,
+                "prefix": prefix,
             }.items()
             if value is not None
         }

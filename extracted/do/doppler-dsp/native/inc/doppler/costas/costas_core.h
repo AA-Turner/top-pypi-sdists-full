@@ -87,6 +87,11 @@ typedef struct {
     size_t acc_n;            /**< samples accumulated into `acc`.          */
     float _Complex prev;      /**< previous symbol's prompt (FLL cross).    */
     int have_prev;           /**< prev valid (skip FLL on the 1st symbol). */
+    /** The 4 bytes the compiler would put before the double, named so
+     *  dp_costas_init zeroes them: the blob is the struct whole, and a
+     *  stack-built loop copied into a receiver otherwise carried 4 stack
+     *  bytes into its blob. The layout and size are unchanged. */
+    int32_t _pad;
     double lock_metric;      /**< EMA of |Re P|/|P| (1 = locked).          */
     dp_lockdet_state_t lock;    /**< decision rule on lock_metric: thresholds
                                   + verify counters, stepped per symbol.   */
@@ -108,6 +113,10 @@ typedef struct {
  * @param init_norm_freq  Seed carrier frequency, cycles/sample.
  * @param tsamps          Samples per symbol (the integrate-and-dump period).
  * @param bn_fll          FLL-assist bandwidth (0 = pure PLL).
+ *
+ * Unguarded, as the by-value path: the caller checks (bn, zeta) with
+ * dp_loop_filter_params_ok() first. Outside it the loop's gains go NaN
+ * (doppler#2103).
  */
 void dp_costas_init(dp_costas_state_t *s, double bn, double zeta,
                  double init_norm_freq, size_t tsamps, double bn_fll);
@@ -330,10 +339,17 @@ size_t dp_costas_steps(dp_costas_state_t *state, const float _Complex *x, size_t
  * (0.02, 0.01)
  *
  * @endcode
+ * @return `DP_OK`, or `DP_ERR_INVALID` for a (bn, zeta) outside
+ *         dp_loop_filter_params_ok(); a refusal changes nothing, so the
+ *         bandwidth the getter reports is always the one the loop runs
+ *         (doppler#2112).
  */
-void dp_costas_configure(dp_costas_state_t *state, double bn, double zeta);
+int dp_costas_configure(dp_costas_state_t *state, double bn, double zeta);
 double dp_costas_get_bn(const dp_costas_state_t *state);
-void dp_costas_set_bn(dp_costas_state_t *state, double val);
+/** @brief Retune bn, keeping zeta: dp_costas_configure()'s refusal and status.
+ *  As a writable property it refuses without raising until
+ *  just-buildit/just-makeit#2182: the value stays put. */
+int dp_costas_set_bn(dp_costas_state_t *state, double val);
 double dp_costas_get_norm_freq(const dp_costas_state_t *state);
 /** @brief Effective NCO frequency command (loop-filter output = integrator +
  * proportional), cycles/sample. Mean rides a ramp with no lag, unlike the

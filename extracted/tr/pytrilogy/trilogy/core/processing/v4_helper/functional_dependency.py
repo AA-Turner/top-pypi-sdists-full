@@ -2,39 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from functools import partial
-from typing import Generic, TypeVar
-from weakref import ReferenceType, ref
 
-from trilogy.core.models.build import BuildConcept
-from trilogy.core.models.build_environment import BuildEnvironment
+from trilogy.core.models.build import BuildConcept, BuildDatasource
+from trilogy.core.models.build_environment import BuildEnvironment, EnvCache
 
 from .models import ConceptAttrs
-
-T = TypeVar("T")
-
-
-class EnvCache(dict[int, tuple[ReferenceType[BuildEnvironment], T]], Generic[T]):
-    """id(environment) -> (weak handle, value). A BuildEnvironment's concepts
-    and datasources are fixed at construction (later writes go to the
-    ReferenceGraph, the authored Environment or a StrategyNode), so a value
-    can never go stale, only be discarded with its environment. The weak
-    handle makes the identity check exact: a recycled id cannot false-hit,
-    because a dead referent is never the live environment."""
-
-    def lookup(self, environment: BuildEnvironment) -> T | None:
-        cached = self.get(id(environment))
-        if cached is not None and cached[0]() is environment:
-            return cached[1]
-        return None
-
-    def store(self, environment: BuildEnvironment, value: T) -> T:
-        key = id(environment)
-        self[key] = (ref(environment, partial(self._evict, key)), value)
-        return value
-
-    def _evict(self, key: int, _dead: ReferenceType) -> None:
-        self.pop(key, None)
 
 
 def _attrs_for_address(
@@ -124,6 +96,8 @@ class _FDFacts:
     # beyond the one `_FACTS_CACHE` already makes, and eviction rides on the
     # facts entry.
     closures: dict[tuple[frozenset[str], bool], frozenset[str]]
+    # grain -> `minimize_build_grain` of it; pure over the closures above.
+    minimized: dict[frozenset[str], frozenset[str]]
     # address -> the environment keys it adds (as the key's concept address
     # or an equivalent: a key can differ from its concept's own address, and
     # the closure carries both) and the rows whose grain or keys read it
@@ -187,6 +161,7 @@ def _fd_facts(environment: BuildEnvironment) -> _FDFacts:
             rows=tuple(rows),
             equivalents=equivalents,
             closures={},
+            minimized={},
             entry_triggers=entry_triggers,
             row_triggers=row_triggers,
         ),
@@ -261,6 +236,18 @@ def minimize_build_grain(
     environment: BuildEnvironment,
     grain: Iterable[str],
 ) -> frozenset[str]:
+    memo = _fd_facts(environment).minimized
+    key = frozenset(grain)
+    cached = memo.get(key)
+    if cached is not None:
+        return cached
+    result = memo[key] = _minimize_build_grain(environment, key)
+    return result
+
+
+def _minimize_build_grain(
+    environment: BuildEnvironment, grain: frozenset[str]
+) -> frozenset[str]:
     minimized = set(grain)
     changed = True
     while changed:
@@ -279,3 +266,27 @@ def minimize_build_grain(
                 changed = True
                 break
     return frozenset(minimized)
+
+
+def origin_relation_stored(
+    origin: BuildConcept, canonical: BuildConcept, environment: BuildEnvironment
+) -> bool:
+    """A complete datasource binds `canonical` at a grain that determines the
+    keys `origin` is computed over (`merge (max(raw) by cluster_id) into
+    species` beside a `(tree_id, species)` table with `tree_id -> cluster_id`).
+    The origin then relates nothing a scan cannot: every row that could carry
+    its value already carries the canonical's. A recursion or an unnest into a
+    dimension key relates keys no table pairs (nothing binds `ecoregion_id`
+    beside `species`), so it stays the join."""
+    relating = (set(origin.keys or ()) | set(origin.grain.components)) - {
+        origin.address,
+        canonical.address,
+    }
+    if not relating:
+        return False
+    return any(
+        canonical.address in datasource.full_concepts
+        and build_fd_determines_all(environment, datasource.full_concepts, relating)
+        for datasource in environment.datasources.values()
+        if isinstance(datasource, BuildDatasource)
+    )

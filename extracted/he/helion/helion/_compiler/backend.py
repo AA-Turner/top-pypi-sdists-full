@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import abc
+import collections
 import dataclasses
+import enum
 import functools
 import logging
 import math
@@ -28,6 +30,9 @@ from .cute.attention_plan import SOFTCAP_KIND
 from .cute.attention_plan import TENSOR_BIAS_KIND
 from .cute.attention_plan import AttentionScoreModifier
 from .cute.attention_plan import AttentionScorePlan
+from .cute.tcgen05_constants import TCGEN05_GROUPED_MODE_CONFIG_KEY
+from .cute.tcgen05_constants import TCGEN05_GROUPED_MODE_WORKLIST_NM
+from .cute.tcgen05_constants import resolve_tcgen05_grouped_worklist_mma_profile
 
 if TYPE_CHECKING:
     import ast
@@ -41,11 +46,14 @@ if TYPE_CHECKING:
     from ..runtime.config import Config
     from ..runtime.kernel import BoundKernel
     from ..runtime.settings import DotPrecision
+    from .aten_lowering import Lowering
+    from .compile_environment import CompileEnvironment
     from .cute.cute_mma import _CuteMmaNode
     from .device_function import Argument
     from .device_function import DeviceFunction
     from .device_ir import DeviceIR
     from .device_ir import GraphInfo
+    from .generate_ast import GenerateAST
     from .host_function import HostFunction
     from .tile_dispatch import TileStrategyDispatch
     from .tile_strategy import TileStrategy
@@ -58,12 +66,23 @@ log: logging.Logger = logging.getLogger(__name__)
 class FlashSearchSurface(NamedTuple):
     head_dim: int
     num_kv: int
+    num_bh: int
+    tensor_4d_heads: int | None
     io_dtype: torch.dtype
     block_size_targets: dict[int, int]
     is_causal: bool
     has_kv_tile_pruning: bool
     requires_ws_overlap: bool
     small_biased_candidate: bool
+    standard_dense_output: bool
+    standard_causal_output: bool
+    output_requires_tma: bool
+    supports_tensor_4d_tma: bool
+    has_row_epilogue: bool
+    plain_row_body: bool
+    has_score_modifiers: bool
+    tmem_rowmax_compatible: bool = False
+    causal_resident_compatible: bool = False
 
 
 class AttentionSoftmaxPattern(NamedTuple):
@@ -77,6 +96,96 @@ class AttentionSoftmaxPattern(NamedTuple):
     @property
     def is_causal(self) -> bool:
         return self.score_plan.is_causal
+
+
+@dataclasses.dataclass(frozen=True)
+class LauncherInfo:
+    """Per-backend info for inlining the dependency-free launcher as a local
+    ``helion.runtime`` shim (see :mod:`helion.runtime.precompile`), used by
+    ``BoundKernel.to_code(options=OutputCodeOptions(allow_helion_deps=False))``."""
+
+    launcher_module: str  # dotted path of the dep-free launcher, inlined verbatim
+    launcher_symbol: str  # public launcher name that module defines
+    launcher_alias: str  # underscore alias generated code binds it to
+    deps: str  # runtime deps, for the header comment
+    # ``helion.runtime.<fn>`` runtime helpers the generated host wrapper calls
+    # (besides the launcher); the shim re-exports these so the body runs verbatim.
+    runtime_helper_names: tuple[str, ...] = ()
+
+
+@dataclasses.dataclass(frozen=True)
+class AutotuneGridPolicy:
+    """How a backend limits grid-shaped autotune candidates.
+
+    ``raise_independent_axis_block_size_minimums`` applies the legacy
+    search-space heuristic that limits each grid axis separately.
+    ``max_programs_per_root_grid`` enables a coupled candidate check on the
+    product of all axes in each root grid. Backends may select either policy or
+    both explicitly.
+    """
+
+    raise_independent_axis_block_size_minimums: bool = True
+    max_programs_per_root_grid: int | None = None
+
+
+def read_launcher_source(module_name: str) -> str:
+    """Raw source of a dependency-free launcher module."""
+    import importlib
+    from pathlib import Path
+
+    module = importlib.import_module(module_name)
+    assert module.__file__ is not None
+    return Path(module.__file__).read_text()
+
+
+def dedupe_preserve_order(items: list[str]) -> list[str]:
+    """De-duplicate ``items`` keeping first-seen order."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
+
+
+def _validate_subscript_indices(index: list[object]) -> int:
+    """Validate supported kernel-tensor indices and count narrowing entries."""
+    narrowed = 0
+    for value in index:
+        if value is None or (
+            isinstance(value, slice)
+            and (value.start, value.stop, value.step) == (None, None, None)
+        ):
+            continue
+        if isinstance(value, int):
+            valid = value >= 0
+        elif isinstance(value, slice):
+            valid = (
+                value.step in (None, 1)
+                and isinstance(value.start, int)
+                and isinstance(value.stop, int)
+                and value.start >= 0
+                and value.stop > value.start
+            )
+        else:
+            valid = isinstance(value, torch.SymInt) or (
+                isinstance(value, torch.Tensor) and value.ndim == 1
+            )
+        if not valid:
+            raise exc.InvalidIndexingType(repr(value))
+        narrowed += 1
+    if narrowed > 1:
+        raise exc.InvalidIndexingType(repr(index))
+    return narrowed
+
+
+class BackendState(enum.Enum):
+    """Maturity of a codegen backend."""
+
+    EXPERIMENTAL = "experimental"  # Warns on use
+    BETA = "beta"  # No warning, but no backwards-compat guarantee
+    STABLE = "stable"
 
 
 class Backend(abc.ABC):
@@ -95,9 +204,66 @@ class Backend(abc.ABC):
         ...
 
     @property
-    def experimental(self) -> bool:
-        """Whether this backend is experimental and should emit a warning."""
+    def state(self) -> BackendState:
+        """Maturity of this backend; experimental backends emit a warning."""
+        return BackendState.EXPERIMENTAL
+
+    @property
+    def supports_debug_dtype_asserts(self) -> bool:
+        """Whether ``Settings.debug_dtype_asserts`` can run on this backend.
+
+        The setting emits Triton ``tl.cast`` / ``tl.static_assert`` checks
+        after every device node, so only backends that generate Triton support
+        it.
+        """
+        return False
+
+    @property
+    def supports_eager_prepared_call(self) -> bool:
+        """Whether eager calls may reuse a resolved ``BoundKernel`` directly.
+
+        The prepared call still enters the backend's generated host wrapper; it
+        only bypasses Helion's repeated binding and specialization lookup.  The
+        default is conservative because some backends own call-time behavior in
+        :meth:`Kernel.__call__` before the wrapper is reached.
+        """
+        return False
+
+    @property
+    def supports_inductor_fusion(self) -> bool:
+        """Whether generated kernels apply Inductor's prologue/epilogue hooks.
+
+        ``torch.compile`` fusion splices Inductor-generated Triton code into the
+        kernel through ``load_transform``/``store_transform``.  A backend that
+        does not honor those hooks must lower its kernels unfused; otherwise
+        Inductor would drop the fused producers and consumers.
+        """
+        return False
+
+    @property
+    def dynamo_captures_kernel_launch(self) -> bool:
+        """Whether Dynamo may trace a kernel call inline down to its launch.
+
+        On PyTorch builds without Helion's fusion entrypoints, ``torch.compile``
+        traces ``Kernel.__call__`` and the generated host wrapper.  That is how
+        Dynamo captures Triton launches (as user-defined Triton kernels) and
+        where Pallas's compile capture hooks in, so it stays the default.
+        Backends whose launch Dynamo cannot trace return False and are captured
+        as the Helion kernel HOP instead.
+        """
         return True
+
+    @property
+    def dynamo_inline_capture_loses_view_writes(self) -> bool:
+        """Whether Dynamo's inline capture drops a launch's write through a view.
+
+        A Triton launch is captured as a user-defined Triton kernel, whose
+        functionalization clones a mutated view's base-storage span from the
+        materialized view and so loses the write.  On builds with the template
+        lowering, a call that writes an input through a view is captured as
+        the Helion kernel HOP instead.
+        """
+        return False
 
     @property
     def max_tensor_numel(self) -> int | None:
@@ -169,6 +335,14 @@ class Backend(abc.ABC):
         """
         return None
 
+    def collective_owns_tile(self, fn: DeviceFunction, block_id: int) -> bool:
+        """Whether a typed physical collective owns an axis's element coordinates."""
+        return False
+
+    def codegen_config(self, config: Config) -> Config:
+        """Resolve a backend-owned physical schedule without mutating search input."""
+        return config
+
     def config_value_priors(self, config_spec: ConfigSpec) -> dict[str, ValuePrior]:
         """Per-config-key priors that bias the autotuner's random exploration.
 
@@ -182,6 +356,20 @@ class Backend(abc.ABC):
         uniformly. The default is no bias.
         """
         return {}
+
+    def autotune_config_is_viable(
+        self, config_spec: ConfigSpec, config: Config
+    ) -> bool:
+        """Return whether an automatically generated config is worth compiling.
+
+        This hook only screens candidates produced during autotuning. An explicit
+        fixed config still reaches normal backend validation and compilation.
+        """
+        return True
+
+    def autotune_grid_policy(self, config_spec: ConfigSpec) -> AutotuneGridPolicy:
+        """Return how autotuning should limit grid-shaped candidates."""
+        return AutotuneGridPolicy()
 
     @abc.abstractmethod
     def dtype_str(self, dtype: torch.dtype) -> str:
@@ -299,6 +487,16 @@ class Backend(abc.ABC):
         """
         return requested
 
+    def reduction_block_size_is_inlined_constexpr(self) -> bool:
+        """Whether the reduction-loop block size is inlined as a module-level
+        literal instead of a constexpr kernel param.
+
+        FlyDSL's scf.for step must be a value produced inside the loop, not an
+        external constexpr param, so it inlines the block size as a literal.
+        Other backends return False and use a constexpr kernel param.
+        """
+        return False
+
     def create_synthetic_reduction_lanes(
         self,
         thread_count: int,
@@ -325,14 +523,46 @@ class Backend(abc.ABC):
         """Whether reduction strategies should occupy the first (lowest) thread axes."""
         return False
 
+    def supports_lane_loop_reductions(self) -> bool:
+        """Whether reductions may be carried by a tile strategy's lane loop."""
+        return False
+
+    def validate_reduction_input(self, block_index: int, value: torch.Tensor) -> None:
+        """Validate a value before lowering its reduction."""
+        return None
+
     def force_tile_mask(self) -> bool:
         """Whether tile strategies must emit explicit masks for all tiles."""
         return False
+
+    def launches_surplus_tile_threads(self) -> bool:
+        """Whether an axis may be launched wider than the tile it indexes."""
+        return False
+
+    def reference_override(
+        self, function: object, args: tuple[object, ...]
+    ) -> tuple[bool, object]:
+        """Optional backend semantic policy for a public operation's reference."""
+        return False, None
+
+    def validate_implicit_rng_reference(self) -> None:
+        """Validate implicit RNG support under the selected semantic policy."""
+        return None
 
     def supports_config_key(self, key: str) -> bool:
         from ..autotuner.config_spec import BACKEND_SPECIFIC_KEYS
 
         return key not in BACKEND_SPECIFIC_KEYS
+
+    def cross_loop_pipelines(self) -> tuple[str, ...]:
+        """``cross_loop_pipeline`` values this backend can lower.
+
+        Consulted only when the backend supports the ``cross_loop_pipeline``
+        config key.
+        """
+        from ..autotuner.config_spec import VALID_CROSS_LOOP_PIPELINES
+
+        return VALID_CROSS_LOOP_PIPELINES
 
     def supports_block_ptr_indexing(self) -> bool:
         return True
@@ -344,6 +574,38 @@ class Backend(abc.ABC):
     ) -> None:
         """Called during `type_propagation` when processing a `load` memory op on fake tensors"""
         return
+
+    def normalize_input_fake_tensor(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Return the tensor metadata used while tracing a kernel input."""
+        return tensor
+
+    def fake_subscript_shape(
+        self,
+        tensor: torch.Tensor,
+        index: list[object],
+    ) -> list[int | torch.SymInt]:
+        """Validate a kernel-tensor subscript and return its fake output shape.
+
+        All backends support shape-only ``None`` and full-slice indexing.
+        Backends that implement narrowing override this method so unsupported
+        indexing cannot reach backend codegen that assumes shape-only views.
+        """
+        if _validate_subscript_indices(index):
+            raise exc.BackendUnsupported(
+                self.name, "narrowing kernel-tensor subscripts"
+            )
+
+        input_size = collections.deque(tensor.size())
+        output_size: list[int | torch.SymInt] = []
+        for value in index:
+            if value is None:
+                output_size.append(1)
+            elif isinstance(value, slice) and repr(value) == "slice(None, None, None)":
+                output_size.append(input_size.popleft())
+            else:
+                raise exc.InvalidIndexingType(repr(value))
+        assert len(input_size) == 0
+        return output_size
 
     def adjust_block_size_constraints(
         self,
@@ -379,6 +641,14 @@ class Backend(abc.ABC):
         this to return their own function.
         """
         return None
+
+    def probe_long_autotune_kernels(self, config_spec: ConfigSpec) -> bool:
+        """Whether candidate timing should first probe for a long-running kernel.
+
+        The probe avoids repeatedly executing a candidate whose first measured
+        call already exceeds the benchmark's warmup and measurement windows.
+        """
+        return False
 
     def get_interleaved_bench(
         self,
@@ -479,6 +749,24 @@ class Backend(abc.ABC):
         """
         return None
 
+    def generated_source_hash(self, compiled_fn: object) -> str | None:
+        """Return the exact generated-source hash attached to ``compiled_fn``.
+
+        Backends may return ``None`` when generated-source identity is not
+        available. The autotuner uses a non-``None`` value only for
+        backend-scoped effective-code deduplication.
+        """
+        return None
+
+    def should_deduplicate_generated_sources(self, config_spec: ConfigSpec) -> bool:
+        """Whether the autotuner may merge source-identical candidates.
+
+        This is disabled by default because source identity is not necessarily
+        sufficient to establish benchmark equivalence for every backend and
+        search domain.
+        """
+        return False
+
     def classify_autotune_exception(self, err: BaseException) -> str | None:
         """Classify an exception that occurred during autotuning.
 
@@ -513,6 +801,67 @@ class Backend(abc.ABC):
         self, shape_dims: list[str], value_expr: str, dtype: torch.dtype
     ) -> str:
         raise exc.BackendUnsupported(self.name, "full tensor creation")
+
+    def reduction_acc_init_expr(
+        self, shape_dims: list[str], value_expr: str, dtype: torch.dtype
+    ) -> str:
+        """Initial value of a rolled reduction's per-thread accumulator.
+
+        Separate from :meth:`full_expr` because the accumulator must be as wide
+        as the backend's combine expression, which may promote (Metal reduces
+        ``int8``/``bool`` in an ``int``).  Declaring it at storage width would
+        truncate on every loop iteration.
+        """
+        return self.full_expr(shape_dims, value_expr, dtype)
+
+    def looped_reduction_thread_count(
+        self,
+        *,
+        requested: int,
+        block_size: int,
+        block_index: int,
+        config: Config,
+        config_spec: ConfigSpec,
+    ) -> int | None:
+        """Backend override for the per-block thread count of a looped whole-row
+        reduction.
+
+        Return None to keep the default (``requested``). Tile-level backends
+        return None.
+        """
+        return None
+
+    def register_reduction_loop_config_slots(
+        self,
+        env: CompileEnvironment,
+        block_id: int,
+        size_hint: int,
+    ) -> None:
+        """Register backend-specific config-spec slots for a rollable reduction dim.
+
+        Called once per rollable rdim during device_ir analysis, after the shared
+        ``ReductionLoopSpec`` has been appended. Default: no-op. Backends that need
+        additional tuning knobs per reduction block (e.g. flydsl's
+        ``cute_vector_widths``) override this instead of adding a name-check in
+        device_ir.
+        """
+        return
+
+    def wrap_reduction_accumulator(
+        self,
+        acc_full: str,
+        *,
+        thread_count: int,
+        loop_block_size: int,
+        acc_dtype: torch.dtype,
+    ) -> str:
+        """Wrap the looped-reduction accumulator init expression, if needed.
+
+        FlyDSL's runtime scf.for carries the accumulator as an iter_arg whose init
+        type must match the per-thread vector the loop body yields, so it wraps
+        the scalar seed in ``fx.Vector.filled(...)``. Identity by default.
+        """
+        return acc_full
 
     def reshape_expr(self, expr: str, shape: str) -> str:
         raise exc.BackendUnsupported(self.name, "reshape")
@@ -568,6 +917,11 @@ class Backend(abc.ABC):
         """Cast a lane variable for addition to an index expression."""
         raise exc.BackendUnsupported(self.name, "lane offset")
 
+    def thread_index_expr(self, *, axis: int) -> str:
+        """Bare thread index expression (no elements-per-thread stride),
+        used by the strided lane layout."""
+        raise exc.BackendUnsupported(self.name, "thread index")
+
     def reduction_combine_expr(
         self,
         reduction_type: str,
@@ -589,7 +943,16 @@ class Backend(abc.ABC):
         *,
         block_size_var: str | None = None,
         threads_in_group: int | None = None,
+        dtype: torch.dtype | None = None,
     ) -> str:
+        """Generate the cross-thread reduction expression.
+
+        ``dtype`` is the accumulation dtype (``reduction_acc_dtype``: the
+        output's computation dtype, the input's for argmin/argmax) when the
+        caller knows it.
+        Backends that allocate typed scratch storage for the reduction (e.g.
+        Metal's ``threadgroup`` buffers) need it; the rest ignore it.
+        """
         raise exc.BackendUnsupported(self.name, f"reduction {reduction_type!r}")
 
     def thread_linear_index_expr(self, axis_sizes: dict[int, int]) -> str | None:
@@ -623,7 +986,13 @@ class Backend(abc.ABC):
         block_size_var: str | None = None,
         index_dtype: torch.dtype | None = None,
         threads_in_group: int | None = None,
+        dtype: torch.dtype | None = None,
     ) -> str:
+        """Generate the cross-thread argmin/argmax expression.
+
+        ``dtype`` is the accumulation dtype of the *value* operand; see
+        :meth:`reduction_expr`.
+        """
         raise exc.BackendUnsupported(self.name, "argmin/argmax reductions")
 
     def argreduce_loop_update_statements(
@@ -634,7 +1003,13 @@ class Backend(abc.ABC):
         acc_index: str,
         value: str,
         index: str,
+        dtype: torch.dtype | None = None,
     ) -> list[str]:
+        """Per-iteration accumulator update for a rolled argmin/argmax.
+
+        ``dtype`` is the accumulation dtype of the value operand; see
+        :meth:`reduction_expr`.
+        """
         raise exc.BackendUnsupported(self.name, "argmin/argmax reductions")
 
     def inductor_op_overrides(self) -> InductorOpOverrides:
@@ -645,6 +1020,49 @@ class Backend(abc.ABC):
             self.cast_expr("{x}", self.dtype_str(target_dtype)),
             x=x,
         )
+
+    def join_cast_template(self) -> str | None:
+        """An ``expr_from_string`` template casting ``{x}`` to ``{like}``'s type.
+
+        A dynamic if whose branch reassigns a variable joins the new value
+        with the old one, which must have one type.  Backends whose emitted
+        values can carry a type other than their FX dtype return a cast here;
+        ``None`` emits no join (CuTe joins in its own if codegen).
+        """
+        return None
+
+    def scalar_float_operand_ast(
+        self, x: ast.AST, value: torch.SymFloat, *, computes_in_float64: bool
+    ) -> ast.AST:
+        """``x`` computes ``value``, a SymFloat operand (a Python-float host
+        scalar) of an Inductor op.
+
+        The op computes with it as a float32 scalar, as torch rounds such a
+        scalar to float32 (also the opmath of fp16/bf16 math, see
+        ``opmath_scalar_dtype``) unless the op's math is float64.  Backends
+        whose emitted scalar can carry another type cast it here.
+        """
+        return x
+
+    def cast_scalar_ast(self, x: ast.AST, target_dtype: torch.dtype) -> ast.AST:
+        """Cast a plain scalar (e.g. a bare number lifted from an index expr) to
+        ``target_dtype``.
+
+        Defaults to ``cast_ast``. Backends that write casts as ``value.to(dtype)``
+        must override this, because a bare number has no ``.to()`` method --
+        FlyDSL, for example, uses ``fx.Float16(5)`` instead.
+        """
+        return self.cast_ast(x, target_dtype)
+
+    def expands_broadcast_dims(self) -> bool:
+        """Whether the backend needs Triton-style ``[None, :]`` broadcast-expand
+        of sub-rank tensors.
+
+        Tile-level backends (Triton, etc.) broadcast-expand a sub-rank operand up
+        to the output rank. Backends whose per-thread vectors carry the tile/row
+        axis implicitly (e.g. FlyDSL) return False to skip the expansion.
+        """
+        return True
 
     @property
     @abc.abstractmethod
@@ -703,15 +1121,90 @@ class Backend(abc.ABC):
         """
         ...
 
+    def embedded_helper_source(self, body: str) -> str:
+        """Source of in-kernel runtime helpers to inline into the generated module.
+
+        Backends that call a helion-defined helper from inside the generated
+        kernel can return its source here (instead of importing it) so the output
+        is self-contained -- which lets the precompiler produce a helion-free
+        standalone. Only helpers actually referenced in ``body`` should be
+        emitted. Injected between the imports and the kernel body. Default: none.
+        """
+        return ""
+
+    @property
+    def dependency_free_launcher_info(self) -> LauncherInfo:
+        """Info for inlining this backend's dependency-free launcher as a local
+        ``helion.runtime`` shim, used by
+        ``to_code(options=OutputCodeOptions(allow_helion_deps=False))``. Backends
+        that cannot yet emit a helion-free module raise ``NotImplementedError``.
+        """
+        raise NotImplementedError(
+            f"the {self.name!r} backend does not support "
+            "to_code(allow_helion_deps=False) yet"
+        )
+
+    def build_standalone_code(
+        self,
+        bound: BoundKernel[Any],
+        import_lines: list[str],
+        body_root: ast.Module,
+    ) -> ast.Module | None:
+        """Optionally specialize standalone launch code for the bound workload."""
+        return None
+
+    def capture_jax_launch_metadata(
+        self, bound: BoundKernel[Any], config: Config | dict[str, object]
+    ) -> object:
+        """Capture jax_fn launch metadata (Pallas only) by compiling the kernel and
+        running a capturing launch on real tensors -- must run *outside* the
+        fake-tensor env. Consumed by :meth:`build_jax_fn_code`; backends without a
+        JAX launch path raise."""
+        raise NotImplementedError(
+            f"the {self.name!r} backend does not support to_code(jax_fn=True)"
+        )
+
+    def build_jax_fn_code(
+        self,
+        body_root: ast.Module,
+        import_lines: list[str],
+        meta: object,
+        *,
+        allow_helion_deps: bool,
+    ) -> ast.Module:
+        """Rewrite the generated module AST into a jax-native standalone module
+        (Pallas only). The entrypoint operates on ``jax.Array`` inputs;
+        ``allow_helion_deps`` toggles whether the launch core is inlined (helion-free)
+        or imported from helion. ``meta`` is the value from
+        :meth:`capture_jax_launch_metadata`. Backends without a JAX launch path raise.
+        """
+        raise NotImplementedError(
+            f"the {self.name!r} backend does not support to_code(jax_fn=True)"
+        )
+
     def launcher_keyword_args(self, config: Config, *, has_barrier: bool) -> list[str]:
         return []
 
-    def customize_ast(self, hf: HostFunction) -> None:
+    def effective_num_warps(self, config: Config) -> int:
+        """Return the warp count the backend will actually launch."""
+        return config.num_warps
+
+    def customize_ast(self, hf: HostFunction) -> bool:
         """Run backend-specific AST customizations.
 
         Called after static loop unrolling but before type propagation
         and tracing.  Backends can override this to rewrite the user's
         AST for algorithmic transformations that change loop structure.
+        Returns whether the AST was rewritten.
+        """
+        return False
+
+    def pre_inductor_lowering(self, node: torch.fx.Node) -> Lowering | None:
+        """Return a backend-owned lowering that must bypass Inductor IR.
+
+        Most ATen operations use Helion's shared Inductor lowering. Backends may
+        override this for operations whose Inductor representation cannot be
+        consumed by that shared path.
         """
         return None
 
@@ -749,6 +1242,12 @@ class Backend(abc.ABC):
         Backends can override this to wrap certain argument types.
         Called during codegen for each argument in sorted order.
         """
+        return host_str
+
+    def tensor_descriptor_host_base(
+        self, fake_value: torch.Tensor, host_str: str
+    ) -> str:
+        """Return the host tensor expression used to construct a descriptor."""
         return host_str
 
     def scalar_arg_preamble(self, arg: Argument) -> list[ast.AST]:
@@ -798,11 +1297,43 @@ class Backend(abc.ABC):
         contraction = cute_matmul_contraction_block_ids()
         if not contraction:
             return set()
-        return {
-            info.block_id
-            for info in env.block_sizes
-            if info.reduction and canonical_block_id(info.block_id) in contraction
-        }
+        result: set[int] = set()
+        for info in env.block_sizes:
+            if not info.reduction:
+                continue
+            block_id = canonical_block_id(info.block_id)
+            # Reduction lowering may materialize an output-range block whose
+            # extent aliases an already-active *tile* block.  Such an alias
+            # reuses the tile strategy and must not reserve a second copy of
+            # the contraction threads.  Canonical reduction aliases, on the
+            # other hand, still need one (deduplicated) reserve.
+            if block_id in contraction and env.block_sizes[block_id].reduction:
+                result.add(block_id)
+        return result
+
+    def _cute_matmul_contraction_extents(self, tile_block_ids: list[int]) -> list[int]:
+        """Size hints of the matmul-contraction reduction axes (above one)
+        that are *not* one of ``tile_block_ids``, i.e. handled by a separate
+        reduction strategy, not this tile strategy."""
+        from .._compat import shape_env_size_hint
+        from .compile_environment import CompileEnvironment
+
+        env = CompileEnvironment.current()
+        tile_ids = set(tile_block_ids)
+        extents: list[int] = []
+        for block_id in self._cute_matmul_contraction_reduction_block_ids():
+            if block_id in tile_ids:
+                continue
+            numel = env.block_sizes[block_id].numel
+            if isinstance(numel, (int, sympy.Integer)):
+                size_hint = int(numel)
+            elif isinstance(numel, sympy.Expr):
+                size_hint = shape_env_size_hint(env.shape_env, numel)
+            else:
+                size_hint = env.size_hint(numel)
+            if size_hint > 1:
+                extents.append(size_hint)
+        return extents
 
     def _cute_matmul_contraction_thread_reserve(
         self, fn: DeviceFunction, tile_block_ids: list[int]
@@ -816,27 +1347,11 @@ class Backend(abc.ABC):
         """
         from torch._inductor.runtime.runtime_utils import next_power_of_2
 
-        from .._compat import shape_env_size_hint
-        from .compile_environment import CompileEnvironment
-
-        env = CompileEnvironment.current()
         max_reduction_threads = self.max_reduction_threads()
         if max_reduction_threads is None:
             return 1
-        tile_ids = set(tile_block_ids)
         reserve = 1
-        for block_id in self._cute_matmul_contraction_reduction_block_ids():
-            if block_id in tile_ids:
-                continue
-            numel = env.block_sizes[block_id].numel
-            if isinstance(numel, (int, sympy.Integer)):
-                size_hint = int(numel)
-            elif isinstance(numel, sympy.Expr):
-                size_hint = shape_env_size_hint(env.shape_env, numel)
-            else:
-                size_hint = env.size_hint(numel)
-            if size_hint <= 1:
-                continue
+        for size_hint in self._cute_matmul_contraction_extents(tile_block_ids):
             reserve *= next_power_of_2(min(size_hint, max_reduction_threads))
         return reserve
 
@@ -884,8 +1399,13 @@ class Backend(abc.ABC):
 
         env = CompileEnvironment.current()
         block_size_infos = [env.block_sizes[i] for i in block_ids]
-        loop_order = env.config_spec.loop_orders.config_get(
-            config.loop_orders, block_ids[0]
+        # A registered tile can also appear in a multidimensional loop.
+        # Its permutation applies only there; a one-dimensional loop has
+        # no order to configure.
+        loop_order = (
+            env.config_spec.loop_orders.config_get(config.loop_orders, block_ids[0])
+            if len(block_ids) > 1
+            else None
         ) or [*range(len(block_ids))]
         l2_grouping = env.config_spec.l2_groupings.config_get(
             config.l2_groupings, block_ids[0], 1
@@ -893,7 +1413,8 @@ class Backend(abc.ABC):
 
         if block_size_infos[0].is_flattened(config):
             block_size = functools.reduce(  # pyrefly: ignore[incompatible-overload-residual]
-                operator.mul, [bs.from_config_assert(config) for bs in block_size_infos]
+                operator.mul,
+                [bs.from_config_assert(config) for bs in block_size_infos],
             )
             return FlattenedTileStrategy(
                 fn,
@@ -955,25 +1476,25 @@ class Backend(abc.ABC):
         if bound_kernel.settings.autotune_effort == "none" and (
             force or not bound_kernel.kernel.configs
         ):
-            config = bound_kernel.config_spec.default_config()
-        elif not force and bound_kernel.kernel.configs:
+            return bound_kernel.config_spec.default_config()
+        if not force and bound_kernel.kernel.configs:
             if len(bound_kernel.kernel.configs) == 1:
                 (config,) = bound_kernel.kernel.configs
-            else:
-                # We have finite predetermined configs, no need to precompile
-                bound_kernel.settings.autotune_precompile = None
+                return config
+            # We have finite predetermined configs, no need to precompile
+            bound_kernel.settings.autotune_precompile = None
 
-                from ..autotuner import FiniteSearch
+            from ..autotuner import FiniteSearch
 
-                config = FiniteSearch(
-                    bound_kernel, args, bound_kernel.configs
-                ).autotune()
+            autotuner = FiniteSearch(bound_kernel, args, bound_kernel.configs)
         else:
             bound_kernel.settings.check_autotuning_disabled()
-            config = bound_kernel.settings.autotuner_fn(
-                bound_kernel, args, **kwargs
-            ).autotune(skip_cache=force)
-        return config
+            autotuner = bound_kernel.settings.autotuner_fn(bound_kernel, args, **kwargs)
+        if bound_kernel.settings.autotune_handoff:
+            from ..autotuner.handoff_pipeline import autotune_with_handoff
+
+            return autotune_with_handoff(autotuner, skip_cache=force)
+        return autotuner.autotune(skip_cache=force)
 
     @staticmethod
     def map_dot_precision(precision: DotPrecision) -> str:
@@ -992,15 +1513,77 @@ class Backend(abc.ABC):
         return triton_precision_by_dot_precision.get(precision, "")
 
 
-# TPU does not natively support 64-bit element types.
-_PALLAS_UNSUPPORTED_DTYPES = frozenset({torch.int64, torch.uint64, torch.float64})
-
-
 def _largest_divisor_at_most(size: int, limit: int) -> int:
     for divisor in range(limit, 0, -1):
         if size % divisor == 0:
             return divisor
     return 1
+
+
+def _cute_rank3_rhs_static_full_tiles(
+    env: CompileEnvironment,
+    *,
+    root_grid_ids: Sequence[int],
+    k_block_id: int,
+    bm: int,
+    bn: int,
+    bk: int,
+) -> bool:
+    for block_id, block_size in (
+        (root_grid_ids[0], bm),
+        (root_grid_ids[1], bn),
+        (k_block_id, bk),
+    ):
+        size = env.block_sizes[block_id].size
+        if not isinstance(size, (int, torch.SymInt)):
+            return False
+        extent = env.size_hint(size)
+        if not env.known_equal(size, extent) or extent % block_size != 0:
+            return False
+    return True
+
+
+def _rank3_rhs_grouped_nt_can_use_specialized_mma(
+    node: torch.fx.Node,
+    *,
+    env: CompileEnvironment,
+    cg: GenerateAST,
+    config: Config,
+    mn_root_grid_ids: Sequence[int],
+    segment_root_grid_id: int | None,
+    k_block_id: int,
+    bm: int,
+    bn: int,
+    bk: int,
+) -> bool:
+    from .cute.cute_mma import _GroupedMmaAxes
+    from .cute.cute_mma import _prove_rank3_rhs_grouped_mma
+    from .cute.cute_mma import _tcgen05_cluster_m
+
+    proof = _prove_rank3_rhs_grouped_mma(
+        cg,
+        node,
+        config=config,
+        axes=_GroupedMmaAxes(
+            m_block_id=mn_root_grid_ids[0],
+            n_block_id=mn_root_grid_ids[1],
+            k_block_id=k_block_id,
+            segment_block_id=segment_root_grid_id,
+        ),
+    )
+    if proof is None:
+        return False
+    return proof.is_worklist or (
+        _tcgen05_cluster_m(config) == 1
+        and _cute_rank3_rhs_static_full_tiles(
+            env,
+            root_grid_ids=mn_root_grid_ids,
+            k_block_id=k_block_id,
+            bm=bm,
+            bn=bn,
+            bk=bk,
+        )
+    )
 
 
 def _specialized_mma_root_mn_block_ids(
@@ -2072,11 +2655,48 @@ def _attention_score_modifiers(
         return score_node, tuple(modifiers)
 
 
+class _AttentionKVLoadIndices(NamedTuple):
+    """The ``(batch, kv_tile)`` indices of a canonical K/V load.
+
+    ``kv_group`` is the grouped-query divisor: the batch index is
+    ``batch_index // kv_group`` (``1`` for the plain ``tile_b`` form, where
+    ``batch_index`` is the index node itself).
+    """
+
+    batch_index: torch.fx.Node
+    kv_tile: torch.fx.Node
+    kv_group: int
+
+
+def _attention_kv_batch_index_group(
+    node: torch.fx.Node,
+) -> tuple[torch.fx.Node, int] | None:
+    """Return ``(dividend, divisor)`` of a K/V batch index, or None.
+
+    Accepts the inner batch tile index itself (divisor 1) or its floor
+    division by a positive constant (``tile_b.index // group``), the form a
+    grouped-query kernel uses to map query heads onto shared K/V heads.
+    """
+    index_mode = _attention_collapsed_batch_index_mode(
+        node,
+        allow_mod=False,
+        allow_floordiv=True,
+    )
+    if index_mode is None:
+        return None
+    if index_mode.mode == "identity":
+        return node, 1
+    assert index_mode.mode == "floordiv" and index_mode.divisor is not None
+    dividend = node.args[0]
+    assert isinstance(dividend, torch.fx.Node)
+    return dividend, index_mode.divisor
+
+
 def _attention_canonical_kv_load_indices(
     node: torch.fx.Node,
     *,
     kv_block_id: int | None,
-) -> tuple[torch.fx.Node, torch.fx.Node] | None:
+) -> _AttentionKVLoadIndices | None:
     from ..language import memory_ops
 
     if node.op != "call_function" or node.target is not memory_ops.load:
@@ -2092,20 +2712,22 @@ def _attention_canonical_kv_load_indices(
         return None
     if not _attention_is_full_slice(indices[2]):
         return None
-    if not _attention_is_inner_batch_index(indices[0]):
+    batch_index = _attention_kv_batch_index_group(indices[0])
+    if batch_index is None:
         return None
     if kv_block_id is not None and not _attention_is_block_symnode(
         indices[1], int(kv_block_id)
     ):
         return None
-    return indices[0], indices[1]
+    dividend, kv_group = batch_index
+    return _AttentionKVLoadIndices(dividend, indices[1], kv_group)
 
 
 def _attention_k_load_indices(
     node: torch.fx.Node,
     *,
     kv_block_id: int | None,
-) -> tuple[torch.fx.Node, torch.fx.Node] | None:
+) -> _AttentionKVLoadIndices | None:
     if node.op != "call_function":
         return None
     if node.target is torch.ops.aten.permute.default:
@@ -2127,7 +2749,7 @@ def _attention_v_load_indices(
     node: torch.fx.Node,
     *,
     kv_block_id: int | None,
-) -> tuple[torch.fx.Node, torch.fx.Node] | None:
+) -> _AttentionKVLoadIndices | None:
     return _attention_canonical_kv_load_indices(node, kv_block_id=kv_block_id)
 
 
@@ -2508,7 +3130,13 @@ def _attention_softmax_pattern_head_dim(
     v_indices = _attention_v_load_indices(pv_node.args[2], kv_block_id=kv_block_id)
     if v_indices is None:
         return None
-    if k_indices[0] is not v_indices[0] or k_indices[1] is not v_indices[1]:
+    # K and V must read the same KV tile and the same (grouped) batch head:
+    # one ``kv_b = tile_b.index // group`` reused for both, or the plain index.
+    if (
+        k_indices.batch_index is not v_indices.batch_index
+        or k_indices.kv_tile is not v_indices.kv_tile
+        or k_indices.kv_group != v_indices.kv_group
+    ):
         return None
     q_placeholder = _attention_loop_carried_arg(graph, 0)
     if q_placeholder is None:
@@ -2548,6 +3176,9 @@ def _attention_softmax_pattern_head_dim(
         RELATIVE_BIAS_KIND,
         ALIBI_BIAS_KIND,
     }
+    from .compile_environment import CompileEnvironment
+
+    fast_math = CompileEnvironment.current().settings.fast_math
     scaled_modifiers = tuple(
         dataclasses.replace(
             modifier,
@@ -2561,6 +3192,7 @@ def _attention_softmax_pattern_head_dim(
                 if modifier.value_log2 is None
                 else modifier.value_log2 * bias_scale_log2
             ),
+            fast_math=fast_math,
         )
         if modifier.kind == SOFTCAP_KIND
         else modifier
@@ -2571,11 +3203,29 @@ def _attention_softmax_pattern_head_dim(
         qk_scale_log2=qk_scale_log2,
         lse_scale=lse_scale,
         modifiers=scaled_modifiers,
+        kv_group=k_indices.kv_group,
     )
     if not score_plan.has_lowering():
         return None
     assert operand_dtype is not None
     return AttentionSoftmaxPattern(score_plan=score_plan, io_dtype=operand_dtype)
+
+
+def _flash_block_sizes_reachable(
+    env: CompileEnvironment, targets: dict[int, int]
+) -> bool:
+    """True when every block id's fragment range can reach its flash target."""
+    from ..autotuner.config_fragment import BlockSizeFragment
+
+    if set(env.config_spec.block_sizes.valid_block_ids()) != set(targets):
+        return False
+    for block_id, target in targets.items():
+        block_spec = env.config_spec.block_sizes.block_id_lookup(block_id)
+        fragment = block_spec._fragment(env.config_spec)
+        assert isinstance(fragment, BlockSizeFragment)
+        if not fragment.low <= target <= fragment.high:
+            return False
+    return True
 
 
 def detect_flash_search_surface(device_ir: DeviceIR) -> FlashSearchSurface | None:
@@ -2588,7 +3238,6 @@ def detect_flash_search_surface(device_ir: DeviceIR) -> FlashSearchSurface | Non
     strict prevents the autotuner from benchmarking configs that can only fall
     back to the scalar path after the flash knobs have been added.
     """
-    from ..autotuner.config_fragment import BlockSizeFragment
     from .compile_environment import CompileEnvironment
     from .device_ir import ForLoopGraphInfo
 
@@ -2602,6 +3251,13 @@ def detect_flash_search_surface(device_ir: DeviceIR) -> FlashSearchSurface | Non
     if len(root_grid_ids) != 2:
         return None
     env = CompileEnvironment.current()
+
+    def block_sizes_reachable(targets: dict[int, int]) -> bool:
+        return _flash_block_sizes_reachable(env, targets)
+
+    flash_surface: FlashSearchSurface | None = None
+    generic_fallback_required = False
+    generic_fallback_targets: dict[int, int] | None = None
     for graph_info in device_ir.graphs:
         if not isinstance(graph_info, ForLoopGraphInfo):
             continue
@@ -2614,10 +3270,25 @@ def detect_flash_search_surface(device_ir: DeviceIR) -> FlashSearchSurface | Non
         )
         if pattern is None:
             continue
+        from .cute.cute_flash import _flash_output_requires_tma
         from .cute.cute_flash import flash_attention_graph_lse_plan_valid_from_graphs
+        from .cute.cute_flash import flash_attention_graph_row_epilogue_from_graphs
         from .cute.cute_flash import (
             flash_attention_graph_small_biased_candidate_from_graphs,
         )
+        from .cute.cute_flash import (
+            flash_attention_graph_standard_causal_output_from_graphs,
+        )
+        from .cute.cute_flash import (
+            flash_attention_graph_standard_dense_output_from_graphs,
+        )
+        from .cute.cute_flash import (
+            flash_attention_graph_supports_tensor_4d_tma_from_graphs,
+        )
+        from .cute.cute_flash import (
+            flash_attention_graph_tensor_4d_batch_heads_from_graphs,
+        )
+        from .cute.cute_flash import flash_tmem_rowmax_score_plan_supported
 
         if not flash_attention_graph_lse_plan_valid_from_graphs(
             device_ir.graphs,
@@ -2634,46 +3305,119 @@ def detect_flash_search_surface(device_ir: DeviceIR) -> FlashSearchSurface | Non
                 score_plan=pattern.score_plan,
             )
         )
+        standard_dense_output = flash_attention_graph_standard_dense_output_from_graphs(
+            device_ir.graphs,
+            root_block_ids=root_grid_ids,
+            kv_block_id=block_ids[0],
+            score_plan=pattern.score_plan,
+        )
+        standard_causal_output = (
+            flash_attention_graph_standard_causal_output_from_graphs(
+                device_ir.graphs,
+                root_block_ids=root_grid_ids,
+                kv_block_id=block_ids[0],
+                score_plan=pattern.score_plan,
+            )
+        )
+        supports_tensor_4d_tma = (
+            flash_attention_graph_supports_tensor_4d_tma_from_graphs(
+                device_ir.graphs,
+                root_block_ids=root_grid_ids,
+                kv_block_id=block_ids[0],
+                score_plan=pattern.score_plan,
+            )
+        )
+        has_row_epilogue = flash_attention_graph_row_epilogue_from_graphs(
+            device_ir.graphs,
+            root_block_ids=root_grid_ids,
+            kv_block_id=block_ids[0],
+            score_plan=pattern.score_plan,
+        )
+        tensor_4d_batch_heads = flash_attention_graph_tensor_4d_batch_heads_from_graphs(
+            device_ir.graphs,
+            root_block_ids=root_grid_ids,
+            kv_block_id=block_ids[0],
+            score_plan=pattern.score_plan,
+        )
+        num_bh = env.block_sizes[root_grid_ids[0]].size
         q_seq = env.block_sizes[root_grid_ids[1]].size
         kv_seq = env.block_sizes[block_ids[0]].size
-        if not (isinstance(q_seq, int) and isinstance(kv_seq, int) and q_seq == kv_seq):
+        if not (
+            isinstance(num_bh, int)
+            and isinstance(q_seq, int)
+            and isinstance(kv_seq, int)
+            and q_seq == kv_seq
+        ):
             continue
         if q_seq % 128 != 0:
+            continue
+        num_kv = (kv_seq + 127) // 128
+        output_requires_tma = _flash_output_requires_tma(
+            num_bh, q_seq, pattern.head_dim
+        )
+        # TMA output is currently FA4-only. Do not expose a flash search whose
+        # only legal output path is unavailable; the generic CuTe search can
+        # still handle these uncommon large-output shapes.
+        if output_requires_tma and (
+            num_kv % 2 != 0 or pattern.score_plan.requires_ws_overlap
+        ):
+            generic_fallback_required = True
+            fallback_targets = {
+                root_grid_ids[0]: 1,
+                root_grid_ids[1]: 64,
+                block_ids[0]: 64,
+            }
+            if generic_fallback_targets is None and block_sizes_reachable(
+                fallback_targets
+            ):
+                generic_fallback_targets = fallback_targets
             continue
         block_size_targets = {
             root_grid_ids[0]: 1,
             root_grid_ids[1]: 128,
             block_ids[0]: 128,
         }
-        if set(env.config_spec.block_sizes.valid_block_ids()) != set(
-            block_size_targets
-        ):
+        if not block_sizes_reachable(block_size_targets):
             continue
-        reachable = True
-        for block_id, target in block_size_targets.items():
-            try:
-                block_spec = env.config_spec.block_sizes.block_id_lookup(block_id)
-            except KeyError:
-                reachable = False
-                break
-            fragment = block_spec._fragment(env.config_spec)
-            assert isinstance(fragment, BlockSizeFragment)
-            if not fragment.low <= target <= fragment.high:
-                reachable = False
-                break
-        if not reachable:
-            continue
-        return FlashSearchSurface(
-            head_dim=pattern.head_dim,
-            num_kv=(kv_seq + 127) // 128,
-            io_dtype=pattern.io_dtype,
-            block_size_targets=block_size_targets,
-            is_causal=pattern.is_causal,
-            has_kv_tile_pruning=pattern.score_plan.has_kv_tile_pruning,
-            requires_ws_overlap=pattern.score_plan.requires_ws_overlap,
-            small_biased_candidate=small_biased_candidate,
+        if flash_surface is None:
+            flash_surface = FlashSearchSurface(
+                head_dim=pattern.head_dim,
+                num_kv=num_kv,
+                num_bh=num_bh,
+                tensor_4d_heads=(
+                    tensor_4d_batch_heads[1]
+                    if tensor_4d_batch_heads is not None
+                    else None
+                ),
+                io_dtype=pattern.io_dtype,
+                block_size_targets=block_size_targets,
+                is_causal=pattern.is_causal,
+                has_kv_tile_pruning=pattern.score_plan.has_kv_tile_pruning,
+                requires_ws_overlap=pattern.score_plan.requires_ws_overlap,
+                small_biased_candidate=small_biased_candidate,
+                standard_dense_output=standard_dense_output,
+                standard_causal_output=standard_causal_output,
+                output_requires_tma=output_requires_tma,
+                supports_tensor_4d_tma=supports_tensor_4d_tma,
+                has_row_epilogue=has_row_epilogue,
+                # The 64-row query tile exists only for plain rows.
+                plain_row_body=(
+                    not pattern.score_plan.modifiers and not has_row_epilogue
+                ),
+                # The row programs take a fused row epilogue but no modifier.
+                has_score_modifiers=bool(pattern.score_plan.modifiers),
+                # Equality and full 128-row coverage were established above.
+                causal_resident_compatible=q_seq % 256 == 0,
+                tmem_rowmax_compatible=flash_tmem_rowmax_score_plan_supported(
+                    pattern.score_plan
+                ),
+            )
+    if generic_fallback_required:
+        env.config_spec.enable_cute_attention_generic_fallback(
+            block_size_targets=generic_fallback_targets
         )
-    return None
+        return None
+    return flash_surface
 
 
 class _SpecializedMmaPlan(NamedTuple):
@@ -2682,15 +3426,172 @@ class _SpecializedMmaPlan(NamedTuple):
     n_block_id: int
 
 
+def _grouped_rank3_specialized_mma_plan(
+    node: torch.fx.Node,
+    *,
+    fn: DeviceFunction,
+    k_block_id: int,
+    bk: int,
+    config: Config,
+    env: CompileEnvironment,
+) -> _SpecializedMmaPlan | None:
+    from .cute.cute_mma import _choose_mma_impl
+    from .cute.cute_mma import _rank3_grouped_root_axes
+    from .cute.grouped_row_union import physical_schedule
+    from .host_function import HostFunction
+
+    if node.target is not torch.ops.aten.addmm.default:
+        return None
+    device_ir = HostFunction.current().device_ir
+    if len(device_ir.grid_block_ids) != 1:
+        return None
+    root_grid_ids = device_ir.grid_block_ids[0]
+    axes = None
+    semantic_block_ids = env.config_spec._tcgen05_matmul_block_ids()
+    if semantic_block_ids is not None:
+        m_block_id, n_block_id, semantic_k_block_id = semantic_block_ids
+        if env.canonical_block_id(semantic_k_block_id) == env.canonical_block_id(
+            k_block_id
+        ):
+            axes = _rank3_grouped_root_axes(
+                env,
+                device_ir,
+                m_block_id=m_block_id,
+                n_block_id=n_block_id,
+                k_block_id=k_block_id,
+            )
+    if semantic_block_ids is not None and axes is None:
+        return None
+    if axes is None:
+        if len(root_grid_ids) == 2:
+            segment_root_grid_id = None
+            mn_root_grid_ids = root_grid_ids
+        elif len(root_grid_ids) == 3:
+            segment_root_grid_id = root_grid_ids[0]
+            mn_root_grid_ids = root_grid_ids[1:]
+        else:
+            return None
+    else:
+        segment_root_grid_id = axes.segment_block_id
+        mn_root_grid_ids = [axes.m_block_id, axes.n_block_id]
+    if segment_root_grid_id is not None:
+        segment_block = env.block_sizes[segment_root_grid_id].from_config(config)
+        if segment_block != 1:
+            return None
+    bm = env.block_sizes[mn_root_grid_ids[0]].from_config(config)
+    bn = env.block_sizes[mn_root_grid_ids[1]].from_config(config)
+    if not isinstance(bm, int) or not isinstance(bn, int):
+        return None
+    if not _rank3_rhs_grouped_nt_can_use_specialized_mma(
+        node,
+        env=env,
+        cg=fn.codegen,
+        config=config,
+        mn_root_grid_ids=mn_root_grid_ids,
+        segment_root_grid_id=segment_root_grid_id,
+        k_block_id=k_block_id,
+        bm=bm,
+        bn=bn,
+        bk=bk,
+    ):
+        return None
+    lhs_node = node.args[1] if len(node.args) > 1 else None
+    if not isinstance(lhs_node, torch.fx.Node):
+        return None
+    lhs_val = lhs_node.meta.get("val")
+    if not isinstance(lhs_val, torch.Tensor):
+        return None
+    mma_bm = bm
+    mma_bn = bn
+    worklist_profile = resolve_tcgen05_grouped_worklist_mma_profile(
+        config,
+        block_k=bk,
+    )
+    if (
+        config.get(TCGEN05_GROUPED_MODE_CONFIG_KEY) == TCGEN05_GROUPED_MODE_WORKLIST_NM
+        and worklist_profile is None
+    ):
+        return None
+    row_profile = physical_schedule(config)
+    collective_profile = row_profile or worklist_profile
+    if collective_profile is not None:
+        mma_bm, mma_bn = collective_profile.mma_m, collective_profile.mma_n
+    mma_impl = _choose_mma_impl(
+        lhs_val.dtype,
+        bm=mma_bm,
+        bn=mma_bn,
+        bk=bk,
+        config=config,
+        input_device=lhs_val.device,
+        defer_grouped_worklist_smem_check=collective_profile is not None,
+    )
+    if mma_impl != "tcgen05":
+        return None
+    return _SpecializedMmaPlan(mma_impl, *mn_root_grid_ids)
+
+
+def _analyzed_specialized_mma_plan(
+    node: torch.fx.Node,
+    *,
+    fn: DeviceFunction,
+    k_block_id: int,
+    bk: int,
+    config: Config,
+    env: CompileEnvironment,
+) -> _SpecializedMmaPlan | None:
+    from .cute.cute_mma import _choose_mma_impl
+    from .cute.cute_mma import _mma_tiles_are_static_full
+    from .cute.cute_mma import analyze_cute_mma_node
+    from .cute.cute_mma import ensure_tcgen05_fragment_epilogue_plan
+
+    candidate = analyze_cute_mma_node(node, graphs=fn.codegen.codegen_graphs)
+    if (
+        candidate is None
+        or candidate.requires_accumulator_seed
+        or candidate.operands.k_block_id != k_block_id
+    ):
+        return None
+    root_mn_block_ids = _specialized_mma_root_mn_block_ids(candidate, config)
+    if root_mn_block_ids is None:
+        return None
+    bm = env.block_sizes[root_mn_block_ids[0]].from_config(config)
+    bn = env.block_sizes[root_mn_block_ids[1]].from_config(config)
+    if not isinstance(bm, int) or not isinstance(bn, int):
+        return None
+    if candidate.operands.has_leading_passthrough and not _mma_tiles_are_static_full(
+        candidate.operands, bm=bm, bn=bn, bk=bk
+    ):
+        return None
+    lhs_val = candidate.operands.lhs.source_fake
+    mma_impl = _choose_mma_impl(
+        lhs_val.dtype,
+        bm=bm,
+        bn=bn,
+        bk=bk,
+        config=config,
+        input_device=lhs_val.device,
+    )
+    if mma_impl == "universal":
+        return None
+    if mma_impl == "tcgen05" and not ensure_tcgen05_fragment_epilogue_plan(
+        fn,
+        node,
+        candidate,
+        bm=bm,
+        bn=bn,
+        bk=bk,
+        config=config,
+    ):
+        return None
+    return _SpecializedMmaPlan(mma_impl, *root_mn_block_ids)
+
+
 def _kernel_specialized_mma_plan(
     fn: DeviceFunction,
     *,
     config: Config,
 ) -> _SpecializedMmaPlan | None:
     from .compile_environment import CompileEnvironment
-    from .cute.cute_mma import _choose_mma_impl
-    from .cute.cute_mma import _mma_tiles_are_static_full
-    from .cute.cute_mma import analyze_cute_mma_node
     from .device_ir import ForLoopGraphInfo
     from .host_function import HostFunction
 
@@ -2713,38 +3614,26 @@ def _kernel_specialized_mma_plan(
             continue
         bk = block_sizes[0]
         for node in graph_info.graph.nodes:
-            candidate = analyze_cute_mma_node(node)
-            if (
-                candidate is None
-                or candidate.requires_accumulator_seed
-                or candidate.operands.k_block_id != block_ids[0]
-            ):
-                continue
-            root_mn_block_ids = _specialized_mma_root_mn_block_ids(candidate, config)
-            if root_mn_block_ids is None:
-                continue
-            bm = env.block_sizes[root_mn_block_ids[0]].from_config(config)
-            bn = env.block_sizes[root_mn_block_ids[1]].from_config(config)
-            if not isinstance(bm, int) or not isinstance(bn, int):
-                continue
-            if (
-                candidate.operands.has_leading_passthrough
-                and not _mma_tiles_are_static_full(
-                    candidate.operands, bm=bm, bn=bn, bk=bk
-                )
-            ):
-                continue
-            lhs_val = candidate.operands.lhs.source_fake
-            mma_impl = _choose_mma_impl(
-                lhs_val.dtype,
-                bm=bm,
-                bn=bn,
+            plan = _analyzed_specialized_mma_plan(
+                node,
+                fn=fn,
+                k_block_id=block_ids[0],
                 bk=bk,
                 config=config,
-                input_device=lhs_val.device,
+                env=env,
             )
-            if mma_impl != "universal":
-                return _SpecializedMmaPlan(mma_impl, *root_mn_block_ids)
+            if plan is not None:
+                return plan
+            plan = _grouped_rank3_specialized_mma_plan(
+                node,
+                fn=fn,
+                k_block_id=block_ids[0],
+                bk=bk,
+                config=config,
+                env=env,
+            )
+            if plan is not None:
+                return plan
     return None
 
 

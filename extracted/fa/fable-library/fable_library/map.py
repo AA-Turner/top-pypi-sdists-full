@@ -1195,7 +1195,7 @@ def MapTreeModule_mkIEnumerator[A, B](m: MapTreeLeaf_2[A, B] | None = None) -> I
         def System_Collections_IEnumerator_MoveNext(self, __unit: Unit = UNIT) -> bool:
             return MapTreeModule_moveNext(i)
 
-        def System_Collections_IEnumerator_Reset(self, m: Any = m) -> None:
+        def System_Collections_IEnumerator_Reset(self, __unit: Unit = UNIT, m: Any = m) -> None:
             nonlocal i
             i = MapTreeModule_mkIterator(m)
 

@@ -103,12 +103,37 @@ class LoopDependencyError(BaseError):
     )
 
 
+class CrossRootDeviceValue(BaseError):
+    message = (
+        "Device value '{0}' cannot be carried between top-level loops. "
+        "Materialize it in a tensor so the dependency can be scheduled."
+    )
+
+
+class CrossLoopSchedulingError(BaseError):
+    message = "Cross-loop scheduling cannot safely lower dependency {0}."
+
+
 class TopLevelStatementBetweenLoops(BaseError):
     message = "Statements cannot appear between top level loops."
 
 
 class BarrierOnlyAllowedAtTopLevel(BaseError):
     message = "hl.barrier() is only supported between top level hl.tile/hl.grid loops."
+
+
+class PdlPlacement(BaseError):
+    message = (
+        "PDL ops run on the host before the first top level loop (entry) or after "
+        "the last one (exit); hl.pdl_wait() only at entry."
+    )
+
+
+class PdlStateWithoutWait(BaseError):
+    message = (
+        "A PDL launch with cross-loop state needs hl.pdl_wait() before the first "
+        "loop: the state is written by the previous launch."
+    )
 
 
 class BarrierRequiresPersistent(BaseError):
@@ -144,6 +169,18 @@ class RankMismatch(BaseError):
 
 class InvalidIndexingType(BaseError):
     message = "Expected tile/int/None/tensor/etc in tensor[...], got {0!s}."
+
+
+class InvalidSliceStep(BaseError):
+    message = "Slice step must be greater than zero, as in PyTorch indexing; got {0!s}."
+
+
+class TensorSliceBound(BaseError):
+    message = (
+        "A slice bound inside a device loop must be an int (a literal, size, int "
+        "argument or tile attribute), not the tensor value {0!s}; index with a "
+        "tensor instead, e.g. ``x[tile, start + hl.arange(n)]``."
+    )
 
 
 class DotBatchDimensionMismatch(BaseError):
@@ -321,7 +358,7 @@ class MissingEnableTile(BaseError):
 class CuteBackendUnavailable(BaseError):
     message = (
         "The 'cute' backend cannot run in this environment: {0}\n"
-        "The cute backend requires nvidia-cutlass-dsl >= 4.5.1, the "
+        "The cute backend requires nvidia-cutlass-dsl >= 4.7.0, the "
         "apache-tvm-ffi package, and CUDA >= 13."
     )
 
@@ -401,6 +438,19 @@ class InvalidConfig(BaseError):
     message = "{}"
 
 
+class UnsupportedIndexRemapping(BaseError):
+    message = (
+        "{op} reads its input at other positions than it writes (inductor "
+        "index {index}), which Helion device loops do not support: element-wise "
+        "ops are lowered position by position. Index the loaded tensor instead "
+        "(for example load at reversed indices in place of torch.flip)."
+    )
+
+
+class UnsupportedSplitConfiguration(BaseError):
+    message = "{op} in Helion device loops requires {requirement}."
+
+
 class InductorLoweringError(BaseError):
     message = "{}"
 
@@ -442,6 +492,13 @@ class BaseWarning(_FixedMessage):
 
     def report(self) -> str:
         return f"WARNING[{type(self).__name__}]: {self!s}"
+
+
+class BlockPtrIndexingUnavailable(BaseWarning):
+    message = (
+        "indexing='block_ptr' was requested, but this Triton build has no block "
+        "pointers (removed in Triton 3.9); using pointer indexing instead."
+    )
 
 
 class TensorOperationInWrapper(BaseWarning):

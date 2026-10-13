@@ -73,6 +73,20 @@ def job_awaiting_start(job: dict) -> bool:
     return (not job.get('started_at')) or bool(job.get('gpu_slot_wait_started_at'))
 
 
+def is_replayed_answer(response_data: dict) -> bool:
+    """True when the router answered a session poll from its last-known-good
+    cache (every node unreachable) instead of a live node: the body carries
+    ``stale: true``. A replay repeats what the node said earlier, so nothing
+    in it -- a job "waiting to start", a liveness age -- is evidence the job
+    is moving now; a wait loop must not reset its stall timer on it.
+
+    2026-10-09 biscuit: its API stayed down for 31 hours after an upgrade.
+    The router replayed a snapshot holding train_es 'paused' (upgrade quiesce)
+    and the waiter, reading that as "waiting to start", reset its stall timer
+    on every poll for all 31 hours."""
+    return bool(response_data.get('stale'))
+
+
 def server_liveness_time(job: dict) -> float | None:
     """Local wall-clock time at which the node last saw this RUNNING job
     alive, or None when the node gave no answer.

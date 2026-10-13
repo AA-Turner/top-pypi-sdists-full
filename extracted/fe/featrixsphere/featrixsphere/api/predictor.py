@@ -29,7 +29,7 @@ from .http_client import PREDICT_ROUTER_TIMEOUT_SECONDS, TRAINING_IN_PROGRESS_ST
 from .prediction_result import PredictionResult
 from .api_endpoint import APIEndpoint
 from .exceptions import TrainingStatusUnavailableError, SessionNotFoundError
-from .poll_utils import adaptive_poll_interval, job_awaiting_start, server_liveness_time
+from .poll_utils import adaptive_poll_interval, is_replayed_answer, job_awaiting_start, server_liveness_time
 
 # A single poll reading status='failed' can be a transient/racy read — require
 # this many consecutive confirming reads before treating it as a real terminal
@@ -769,7 +769,9 @@ class Predictor:
                     status = job.get('status', 'unknown')
                     current_epoch = job.get('current_epoch') or job.get('epoch')
                     progress_fraction = job.get('progress')
-                    awaiting_start = job_awaiting_start(job)
+                    # A router replay (every node unreachable) is not evidence
+                    # the job is still queued -- see poll_utils.is_replayed_answer.
+                    awaiting_start = job_awaiting_start(job) and not is_replayed_answer(response_data)
                     # Node still sees the job working (poll_utils.server_liveness_time).
                     alive_at = server_liveness_time(job)
                     if alive_at is not None:

@@ -55,6 +55,25 @@ def test_notes_and_inputs_decision_are_advisories(client, tmp_path):
     assert "inputs_decision" not in result["missing"]
 
 
+@pytest.mark.parametrize(
+    ("kind", "meta", "advised"),
+    [
+        # `note` is not a kind: the server stores a note file as `other` with
+        # the word kept as its label, and that is still a note.
+        ("other", {"kind_label": "note"}, False),
+        # A row the server's backfill has not rewritten yet.
+        ("note", {}, False),
+        ("other", {"kind_label": "report"}, True),
+        ("other", {}, True),
+    ],
+)
+def test_a_note_file_answers_the_notes_advisory(client, tmp_path, kind, meta, advised):
+    run = open_run(client, experiment=f"exp-note-{kind}-{bool(meta)}-{advised}")
+    _snap(run, tmp_path)
+    run.log_artifact("notes.md", uri="s3://bucket/notes.md", kind=kind, meta=meta)
+    assert ("notes" in client.check_run(run.id)["advisories"]) is advised
+
+
 # -- completion warning on finish() (never a gate) ---------------------------
 
 

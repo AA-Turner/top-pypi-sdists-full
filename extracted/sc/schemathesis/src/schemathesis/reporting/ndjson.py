@@ -22,7 +22,7 @@ from schemathesis.engine import events
 from schemathesis.engine.recorder import RecordedScenario, Request, ScenarioRecorder
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
 
     from schemathesis.config import SanitizationConfig
 
@@ -34,10 +34,13 @@ SKIP_FIELDS: dict[str, frozenset[str]] = {
     # dataclass serializer doesn't run them through `sanitize_url`, so skip them entirely.
     # `base_path` is dropped alongside for consistency. `find_operation_by_label` is a callable.
     "LoadingStarted": frozenset({"location"}),
-    "LoadingFinished": frozenset({"schema", "config", "find_operation_by_label", "location", "base_url", "base_path"}),
+    "LoadingFinished": frozenset(
+        {"schema", "title", "config", "find_operation_by_label", "location", "base_url", "base_path"}
+    ),
     "Case": frozenset({"operation"}),
     "NonFatalError": frozenset({"info"}),  # Duplicate of `value`
-    "CheckFailureInfo": frozenset({"code_sample"}),  # Reconstructable from case + interaction
+    # Reconstructable from case + interaction
+    "CheckFailureInfo": frozenset({"code_sample", "steps"}),
 }
 
 # Underscore-prefixed dataclass fields are skipped by default. EXPOSE_PRIVATE_FIELDS

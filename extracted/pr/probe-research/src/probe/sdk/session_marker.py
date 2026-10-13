@@ -13,6 +13,11 @@ The division of labour is deliberate:
   a plugin hook REFRESHES this file in the background, from the server
   a status-line script READS it, in stdlib python, in about 30ms
 
+One writer is instrumented anyway: the daemon, after each of its writes lands,
+stores that write's project in ``<session_id>.scope`` (:mod:`probe.daemon.scope`),
+and :func:`read` shows it in place of the server's guess at the project. Run ids,
+liveness and capture still come from the refresh.
+
 Refreshing from the server rather than instrumenting the SDK's create paths is
 what makes the answer complete. A session's work can be created through the SDK,
 the CLI, the hosted MCP, or a training script three processes deep; only one of
@@ -47,6 +52,7 @@ import os
 import re
 import stat
 import time
+import unicodedata
 from pathlib import Path
 
 #: Mirrors probe.version_policy.STATE_DIRNAME. Duplicated rather than imported
@@ -59,6 +65,20 @@ SESSIONS_DIRNAME = "sessions"
 #: project from a conversation someone abandoned last month is a lie with a
 #: confident glyph on it; saying nothing is the honest answer.
 MAX_AGE_SECONDS = 30 * 86400
+
+#: `<session>.scope` beside the marker: the project the daemon's latest write
+#: landed in (`write_scope`). Its own file because the refresh hook replaces the
+#: marker whole. `prune` sweeps it with the rest of the directory.
+SCOPE_SUFFIX = ".scope"
+#: A bound on a project name this file stores or shows. Server slugs are
+#: free-form TEXT; the segment elides a long one anyway, so this only keeps a
+#: pathological value off the render path.
+MAX_LABEL_CHARS = 1024
+#: Unicode categories a label may not hold: controls (an escape sequence),
+#: format characters (bidi overrides, zero-width), line and paragraph
+#: separators, surrogates and private use. Not `Cn` (unassigned): the hook's
+#: python can be older than the daemon's, and a newer emoji is unassigned there.
+_UNPRINTABLE = frozenset({"Cc", "Cf", "Zl", "Zp", "Cs", "Co"})
 
 #: The ONE way any message sends a person to set up, sign in, update or repair
 #: this device: setup is wizard-only (Richard 2026-09-29), so no user-facing text
@@ -253,13 +273,35 @@ def marker_path(session_id: str) -> Path:
     return sessions_dir() / (session_id + ".json")
 
 
+#: How long `probe paper find` keeps the papers hook from holding a web search,
+#: and how long one hold keeps it from holding another (`papers_hook.py`).
+PAPER_FIND_WINDOW_S = 15 * 60
+
+
+def paper_find_stamp_path(session_id: str) -> Path:
+    """Touched by `probe paper find` when it starts: the session tried Probe's
+    paper search, so the papers hook lets web searches through."""
+    return sessions_dir() / (session_id + ".papers")
+
+
+def paper_hold_stamp_path(session_id: str) -> Path:
+    """Touched by the papers hook when it holds a web search."""
+    return sessions_dir() / (session_id + ".papers-held")
+
+
+def paper_cli_cache_path(session_id: str) -> Path:
+    """The papers hook's per-session answer to "does the local CLI have
+    `probe paper find`?" (asking, `probe paper find --help`, costs ~0.9 s)."""
+    return sessions_dir() / (session_id + ".papers-cli")
+
+
 # ---------------------------------------------------------------------------
 # Read / write
 # ---------------------------------------------------------------------------
 
 
-def read(session_id: str) -> dict | None:
-    """This session's cached work, or None.
+def _read_marker(session_id: str) -> dict | None:
+    """This session's cached work as the refresh hook stored it, or None.
 
     None for absent, unreadable, malformed, and EXPIRED alike — every one of
     them means "we cannot say what this session tracked", and a reader that
@@ -274,14 +316,109 @@ def read(session_id: str) -> dict | None:
         return None
     if not isinstance(state, dict):
         return None
-    updated_at = state.get("updated_at")
-    if not isinstance(updated_at, (int, float)):
-        return None
-    # A future timestamp (clock skew, a restored backup) must not pin a marker
-    # as fresh forever; treat anything outside the window as expired.
-    if abs(time.time() - updated_at) > MAX_AGE_SECONDS:
+    if not _fresh(state.get("updated_at")):
         return None
     return state
+
+
+def _fresh(updated_at: object) -> bool:
+    """Inside the age window. A future timestamp (clock skew, a restored backup)
+    must not pin a file as fresh forever, so anything outside the window, either
+    side, is expired -- and so is a value no clock wrote (NaN, an int too large
+    for a float), which must not raise on a render path."""
+    if isinstance(updated_at, bool) or not isinstance(updated_at, (int, float)):
+        return False
+    try:
+        return math.isfinite(updated_at) and abs(time.time() - float(updated_at)) <= MAX_AGE_SECONDS
+    except OverflowError:
+        return False
+
+
+def read(session_id: str) -> dict | None:
+    """This session's cached work, or None — with the project the daemon last
+    wrote to (`read_scope`) in place of the server's, when there is one.
+
+    The server's `project` is a GUESS at what the session works on now: the last
+    of the projects it touched, in an order that ties for every project of one
+    session (each link row carries the SESSION's first sighting), so it falls to
+    uuid order and never moves. The daemon's scope is where its writes actually
+    landed. The scope only refines a marker: without one, nothing is installed
+    to refresh it, and the answer is None as before. Every reader of the marker
+    — the segment, the notice, `probe statusline show` — goes through here, so
+    they cannot come to name different projects, and a name neither file may
+    print (`_printable`) is dropped here for all of them.
+    """
+    state = _read_marker(session_id)
+    if state is None:
+        return None
+    scope = read_scope(session_id)
+    if scope is not None:
+        return {**state, "project": scope}
+    if state.get("project") is not None and not _printable(state.get("project")):
+        return {**state, "project": None}
+    return state
+
+
+def scope_path(session_id: str) -> Path:
+    return sessions_dir() / (session_id + SCOPE_SUFFIX)
+
+
+def _printable(value: object) -> bool:
+    """A project name the segment can print: one bounded line, nothing a terminal
+    or a bidi renderer would act on. It comes from the server, where slugs are
+    free-form, so it is checked, not trusted."""
+    return (isinstance(value, str) and 0 < len(value) <= MAX_LABEL_CHARS
+            and all(unicodedata.category(ch) not in _UNPRINTABLE for ch in value))
+
+
+def write_scope(session_id: str, project: str, project_id: str | None = None) -> bool:
+    """Record the project the daemon's latest write landed in (its slug, and its
+    id so a delete by id can clear it). True when it landed.
+
+    A file of its own, not a key in the marker: the refresh hook REPLACES the
+    marker every few seconds from the server's answer, and a second writer's key
+    would be gone at the next refresh.
+    """
+    if not valid_session_id(session_id) or not _printable(project):
+        return False
+    record = {"project": project, "project_id": project_id, "updated_at": time.time()}
+    return _publish_atomically(scope_path(session_id), json.dumps(record) + "\n")
+
+
+def _read_scope_record(session_id: str) -> dict | None:
+    if not valid_session_id(session_id):
+        return None
+    try:
+        with open(scope_path(session_id), encoding="utf-8") as handle:
+            record = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(record, dict) or not _fresh(record.get("updated_at")):
+        return None
+    return record if _printable(record.get("project")) else None
+
+
+def read_scope(session_id: str) -> str | None:
+    """The project the daemon last wrote to for this session, or None: absent,
+    unreadable, malformed and expired alike, as in `_read_marker`."""
+    record = _read_scope_record(session_id)
+    return record["project"] if record is not None else None
+
+
+def clear_scope(session_id: str, ref: str) -> bool:
+    """Forget the stored project when `ref` (a slug or an id) names it: the daemon
+    deleted it, and a label naming a project in the trash is the lie this file
+    exists to stop. True when it was cleared."""
+    record = _read_scope_record(session_id)
+    project_id = record.get("project_id") if record is not None else None
+    if record is None or not (ref == record.get("project")
+                              or isinstance(project_id, str) and ref.lower() == project_id.lower()):
+        return False
+    try:
+        os.unlink(scope_path(session_id))
+        return True
+    except OSError:
+        return False
 
 
 def write(session_id: str, state: dict) -> bool:
@@ -319,9 +456,11 @@ def from_session_work(payload: dict) -> dict:
     and is treated as untrusted — every field is checked, and a shape we do not
     recognise degrades to "tracked nothing" rather than raising on a render path.
 
-    WHICH PROJECT, when a session touched several: the LAST one, because the
-    list arrives oldest-first and the thing a status line should name is what
-    you are working on now, not what you opened the session with.
+    WHICH PROJECT, when a session touched several: the LAST one. That is only a
+    GUESS: the list is ordered by each link's first sighting, which is the
+    SESSION's for every project it touched, so it ties and falls to uuid order.
+    `read` puts the daemon's own answer (`<session>.scope`) in its place when
+    there is one.
     """
     project = None
     projects = payload.get("projects")
@@ -1039,10 +1178,15 @@ READ_VERBS = frozenset(
         "upstream",
         # `experiment|project lineage`: the entity's own links in and out.
         "lineage",
+        # `experiment inherited`: what a fork reads live from its source.
+        "inherited",
         # `paper citations|graph`: the citation links the server read from
         # bibliographies (citation graph, Track C).
         "citations",
         "graph",
+        # `paper find`: the research literature (the MCP's `find_papers`), an
+        # outside index; it adds nothing to the team's records.
+        "find",
     }
 )
 
@@ -1227,8 +1371,11 @@ def daemon_allows_agent(matched: str) -> bool:
 #: `probe --version` needs no entry (no command words); `probe version` is the
 #: experiment-versions group, a write. While the researcher has Probe inline
 #: (`is_inline`) the guard refuses only `RESEARCHER_SWITCH`.
+#: `paper find` reads the research literature, an outside index, not the team's
+#: records, so the agent runs it itself (Richard 2026-10-12: "just the tools
+#: where it makes sense for the agent to call it directly").
 DAEMON_PROFILE_ALLOWED = frozenset(
-    {"ask", "session status", "session parent", "ignore check", "run expect", "doctor"}
+    {"ask", "session status", "session parent", "ignore check", "run expect", "doctor", "paper find"}
 )
 
 #: The researcher's switch and defaults, typed into a shell. In the daemon
@@ -1263,6 +1410,15 @@ DAEMON_PROFILE_DENY = (
 #: `DAEMON_PROFILE_DENY` for a WRITE: `--directed` admits one the researcher
 #: asked for. A read keeps the plain text: no flag admits it, `probe ask` reads.
 DAEMON_PROFILE_DENY_WRITE = DAEMON_PROFILE_DENY + "\n\n" + DIRECTED_RETRY
+
+#: What the papers hook answers a paper-type web search it holds (`papers_hook.py`):
+#: at most once per `PAPER_FIND_WINDOW_S`, and never after `probe paper find` ran
+#: inside it. Richard approved the wording 2026-10-12.
+PAPER_SEARCH_HOLD = (
+    "Probe searches research papers, so this web search was held. Run "
+    '`probe paper find "<the question as a sentence>"` first. After that, web searches run '
+    f"normally for {PAPER_FIND_WINDOW_S // 60} minutes."
+)
 
 
 #: `.probe.config`: paths at `read` or `off`, which Probe never records (`probe_config.py`).
@@ -2939,6 +3095,49 @@ def write_plan_review(on: bool) -> Path:
             data[DEFAULTS_KEY].pop(PLAN_REVIEW_KEY, None)
         else:
             data[DEFAULTS_KEY][PLAN_REVIEW_KEY] = False
+        _save_json_file(target, data, private=True, _resolved=True)
+    return path
+
+
+#: Images pasted into a prompt upload with the captured session (2026-10-12):
+#: on unless this machine turned it off. The capture tap reads the same key
+#: (`tap/config.py` `pasted_images_on`) before it uploads one.
+PASTED_IMAGES_KEY = "pasted_images"
+
+
+def pasted_images_on(config: "dict | None" = None) -> bool:
+    """True unless this machine turned pasted-image upload off."""
+    data = _read_config() if config is None else config
+    defaults = data.get(DEFAULTS_KEY) if isinstance(data, dict) else None
+    return not (isinstance(defaults, dict) and defaults.get(PASTED_IMAGES_KEY) is False)
+
+
+def write_pasted_images(on: bool) -> Path:
+    """Persist the pasted-image setting; returns the config path. Same file,
+    lock and loader as `write_plan_review`; on removes the key (absent is on)."""
+    from probe.sdk.config import (
+        CONFIG_VERSION,
+        DEFAULT_CONTEXT,
+        _config_lock,
+        _load_json_file,
+        _save_json_file,
+        _write_target,
+    )
+
+    path = config_path()
+    target = _write_target(path)
+    with _config_lock(target, _resolved=True):
+        data = _load_json_file(target, strict=True, migrate=True) or {
+            "version": CONFIG_VERSION,
+            "current_context": DEFAULT_CONTEXT,
+            "contexts": {},
+        }
+        defaults = data.get(DEFAULTS_KEY)
+        data[DEFAULTS_KEY] = defaults if isinstance(defaults, dict) else {}
+        if on:
+            data[DEFAULTS_KEY].pop(PASTED_IMAGES_KEY, None)
+        else:
+            data[DEFAULTS_KEY][PASTED_IMAGES_KEY] = False
         _save_json_file(target, data, private=True, _resolved=True)
     return path
 

@@ -45,8 +45,11 @@
 #include "meshioplusplus/operations/agglomerate.hpp"
 #include "meshioplusplus/operations/clean.hpp"
 #include "meshioplusplus/operations/convert_cells.hpp"
+#include "meshioplusplus/operations/render.hpp"
 #include "meshioplusplus/operations/curvature.hpp"
 #include "meshioplusplus/operations/feature_edges.hpp"
+#include "meshioplusplus/operations/fit_primitives.hpp"
+#include "meshioplusplus/operations/segment.hpp"
 #include "meshioplusplus/operations/interfaces.hpp"
 #include "meshioplusplus/operations/normals.hpp"
 #include "meshioplusplus/operations/quality_gate.hpp"
@@ -273,6 +276,11 @@ const std::vector<PipeOpSpec>& pipe_op_table() {
          {"PointNormals", "CellNormals", "Weight", "SplitAngle", "RecordParentIds", "Region"}},
         {"FeatureEdges",
          {"FeatureAngle", "Feature", "Boundary", "NonManifold", "Inconsistent", "Region"}},
+        {"Segment",
+         {"FeatureAngle", "NormalTolerance", "CurvatureTolerance", "MinPatchCells", "Region",
+          "Prefix"}},
+        {"FitPrimitives",
+         {"PatchData", "Tolerance", "Relative", "MinInlierFraction", "Types", "MaxIterations"}},
         {"EditRegions", {"Edit", "Inputs", "Output", "Kind", "Dim", "Tag", "KeepInputs"}},
         {"RegionAdjacency", {"Regions"}},
         {"FindInterface",
@@ -280,6 +288,19 @@ const std::vector<PipeOpSpec>& pipe_op_table() {
           "OverlapTolerance"}},
         {"SplitInterface", {"Region", "AddCohesive"}},
         {"QualityGate", {"Require", "MaxInverted", "MaxDegenerate"}},
+        {"Snapshot",
+         {"Path",           "Width",       "Height",       "Supersample",   "Cols",
+          "Rows",           "Encoding",    "ColorDepth",   "PngCompress",   "View",
+          "Azimuth",        "Elevation",   "Roll",         "Perspective",   "Fov",
+          "Zoom",           "Shading",     "Edges",        "FeatureAngle",  "Background",
+          "FillColor",      "ColorBy",     "Component",    "Cmap",          "VMin",
+          "VMax",           "Colorbar",    "Axes",         "ScaleBar",      "Reduce",
+          "Expr",           "ClipLow",     "ClipHigh",     "Symmetric",     "Scale",
+          "ScaleThreshold", "Categorical", "ColorRegions", "CategoryEdges", "Isolines",
+          "IsoLevels",      "Vectors",     "VectorCount",  "Warp",          "WarpScale",
+          "WarpOutline",    "Diagnostic",  "QualityMetric", "Cutaway",
+          "CutawayTint",    "Streamlines", "StreamSeeds",   "StreamLength", "StreamColor",
+          "Theme",          "Scanlines",   "Bloom",         "Fringe",       "GridFloor"}},
         {"Repair",
          {"FixOrientation", "OrientOutward", "FillHoles", "SplitNonManifold", "MaxHoleEdges",
           "WeldTolerance", "RecordProvenance"}},
@@ -510,6 +531,148 @@ Mesh pipe_apply_data_manage(Mesh mesh, const PipelineStep& rStep, PipelineReport
     }
     pipe_push_step(rReport, rStep);
     return mesh;
+}
+
+// --- Snapshot (v16.34.0) ------------------------------------------------------
+
+/// `#rrggbb`, `#rrggbbaa` or `none` (transparent) for the Snapshot colour parameters.
+RenderColor pipe_snap_color(const PipelineStep& rStep, const char* pKey,
+                            const RenderColor& rFallback) {
+    if (!pipe_find(rStep, pKey))
+        return rFallback;
+    const std::string text = pipe_text(rStep, pKey, "");
+    if (text == "none" || text == "transparent")
+        return {0, 0, 0, 0};
+    auto hex = [&](std::size_t At) {
+        int v = 0;
+        for (std::size_t k = At; k < At + 2; ++k) {
+            const char c = text[k];
+            const int d = c >= '0' && c <= '9'   ? c - '0'
+                          : c >= 'a' && c <= 'f' ? c - 'a' + 10
+                          : c >= 'A' && c <= 'F' ? c - 'A' + 10
+                                                 : -1;
+            if (d < 0)
+                throw std::invalid_argument(pipe_err(
+                    rStep,
+                    std::string("parameter '") + pKey + "' must be #rrggbb, #rrggbbaa or none"));
+            v = v * 16 + d;
+        }
+        return static_cast<std::uint8_t>(v);
+    };
+    if ((text.size() != 7 && text.size() != 9) || text[0] != '#')
+        throw std::invalid_argument(pipe_err(
+            rStep, std::string("parameter '") + pKey + "' must be #rrggbb, #rrggbbaa or none"));
+    return {hex(1), hex(3), hex(5), text.size() == 9 ? hex(7) : static_cast<std::uint8_t>(255)};
+}
+
+int pipe_snap_choice(const PipelineStep& rStep, const char* pKey,
+                     const std::vector<std::string>& rNames, int Fallback) {
+    if (!pipe_find(rStep, pKey))
+        return Fallback;
+    const std::string name = pipe_text(rStep, pKey, "");
+    for (std::size_t k = 0; k < rNames.size(); ++k)
+        if (rNames[k] == name)
+            return static_cast<int>(k);
+    std::string all;
+    for (const std::string& n : rNames)
+        all += (all.empty() ? "" : ", ") + n;
+    throw std::invalid_argument(pipe_err(
+        rStep,
+        std::string("parameter '") + pKey + "' must be one of " + all + ", not '" + name + "'"));
+}
+
+RenderOptions pipe_snap_render_options(const PipelineStep& rStep) {
+    RenderOptions o;
+    o.mWidth = static_cast<int>(pipe_number(rStep, "Width", o.mWidth));
+    o.mHeight = static_cast<int>(pipe_number(rStep, "Height", o.mHeight));
+    o.mSupersample = static_cast<int>(pipe_number(rStep, "Supersample", o.mSupersample));
+    o.mView = pipe_text(rStep, "View", "");
+    o.mAzimuth = pipe_number(rStep, "Azimuth", o.mAzimuth);
+    o.mElevation = pipe_number(rStep, "Elevation", o.mElevation);
+    o.mRoll = pipe_number(rStep, "Roll", o.mRoll);
+    if (pipe_flag(rStep, "Perspective", false))
+        o.mProjection = RenderProjection::Perspective;
+    o.mFovDeg = pipe_number(rStep, "Fov", o.mFovDeg);
+    o.mZoom = pipe_number(rStep, "Zoom", o.mZoom);
+    o.mShading = static_cast<RenderShading>(
+        pipe_snap_choice(rStep, "Shading", {"none", "flat", "smooth"}, 1));
+    o.mEdges =
+        static_cast<RenderEdges>(pipe_snap_choice(rStep, "Edges", {"none", "all", "feature"}, 0));
+    o.mFeatureAngle = pipe_number(rStep, "FeatureAngle", o.mFeatureAngle);
+    o.mBackground = pipe_snap_color(rStep, "Background", o.mBackground);
+    o.mFillColor = pipe_snap_color(rStep, "FillColor", o.mFillColor);
+    o.mColorBy = pipe_text(rStep, "ColorBy", "");
+    if (pipe_find(rStep, "Component"))
+        o.mComponent = static_cast<int>(pipe_number(rStep, "Component", 0.0));
+    o.mTheme = static_cast<RenderTheme>(pipe_snap_choice(rStep, "Theme", {"none", "synthwave"}, 0));
+    // The theme brings its own colormap unless one is named.
+    o.mCmap = pipe_text(rStep, "Cmap", o.mTheme == RenderTheme::Synthwave ? "synthwave" : "viridis");
+    o.mScanlines = pipe_flag(rStep, "Scanlines", false);
+    o.mBloom = pipe_flag(rStep, "Bloom", false);
+    o.mFringe = pipe_flag(rStep, "Fringe", false);
+    o.mGridFloor = pipe_flag(rStep, "GridFloor", false);
+    if (pipe_find(rStep, "VMin"))
+        o.mVMin = pipe_number(rStep, "VMin", 0.0);
+    if (pipe_find(rStep, "VMax"))
+        o.mVMax = pipe_number(rStep, "VMax", 0.0);
+    o.mColorbar = pipe_flag(rStep, "Colorbar", false);
+    o.mAxes = pipe_flag(rStep, "Axes", false);
+    o.mScaleBar = pipe_flag(rStep, "ScaleBar", false);
+    o.mReduce = pipe_text(rStep, "Reduce", "");
+    o.mExpr = pipe_text(rStep, "Expr", "");
+    if (pipe_find(rStep, "ClipLow"))
+        o.mClipLow = pipe_number(rStep, "ClipLow", 0.0);
+    if (pipe_find(rStep, "ClipHigh"))
+        o.mClipHigh = pipe_number(rStep, "ClipHigh", 100.0);
+    o.mSymmetric = pipe_flag(rStep, "Symmetric", false);
+    o.mScale =
+        static_cast<RenderScale>(pipe_snap_choice(rStep, "Scale", {"linear", "log", "symlog"}, 0));
+    o.mScaleThreshold = pipe_number(rStep, "ScaleThreshold", o.mScaleThreshold);
+    o.mCategorical = pipe_flag(rStep, "Categorical", false);
+    o.mColorRegions = pipe_flag(rStep, "ColorRegions", false);
+    o.mCategoryEdges = pipe_flag(rStep, "CategoryEdges", false);
+    o.mIsolines = static_cast<std::int32_t>(pipe_number(rStep, "Isolines", 0.0));
+    o.mIsoLevels = pipe_dvec(rStep, "IsoLevels");
+    o.mVectors = pipe_text(rStep, "Vectors", "");
+    o.mVectorCount = static_cast<std::int32_t>(pipe_number(rStep, "VectorCount", o.mVectorCount));
+    o.mWarp = pipe_text(rStep, "Warp", "");
+    o.mWarpScale = pipe_number(rStep, "WarpScale", o.mWarpScale);
+    o.mWarpOutline = pipe_flag(rStep, "WarpOutline", false);
+    o.mDiagnostic = static_cast<RenderDiagnostic>(pipe_snap_choice(
+        rStep, "Diagnostic",
+        {"none", "quality", "inverted", "degenerate", "orientation", "free_edges", "edge_length"},
+        0));
+    o.mQualityMetric = pipe_text(rStep, "QualityMetric", "");
+    // Cut-away planes: a flat list of numbers, six per plane (a point and the
+    // normal of the side kept).
+    const std::vector<double> cut = pipe_dvec(rStep, "Cutaway");
+    if (cut.size() % 6 != 0 || cut.size() > 12)
+        throw std::invalid_argument(pipe_err(
+            rStep, "parameter 'Cutaway' must be one or two planes of six numbers each "
+                   "(a point, then the normal of the side kept)"));
+    for (std::size_t i = 0; i + 6 <= cut.size(); i += 6) {
+        RenderCutaway plane;
+        plane.mPoint = {cut[i], cut[i + 1], cut[i + 2]};
+        plane.mNormal = {cut[i + 3], cut[i + 4], cut[i + 5]};
+        o.mCutaways.push_back(plane);
+    }
+    o.mCutawayTint = pipe_snap_color(rStep, "CutawayTint", o.mCutawayTint);
+    o.mStreamlines = pipe_text(rStep, "Streamlines", "");
+    o.mStreamSeeds = static_cast<std::int32_t>(pipe_number(rStep, "StreamSeeds", o.mStreamSeeds));
+    o.mStreamLength = pipe_number(rStep, "StreamLength", o.mStreamLength);
+    o.mStreamColor = pipe_snap_color(rStep, "StreamColor", o.mStreamColor);
+    return o;
+}
+
+TextOptions pipe_snap_text_options(const PipelineStep& rStep) {
+    TextOptions t;
+    t.mCols = static_cast<int>(pipe_number(rStep, "Cols", 100.0));
+    t.mRows = static_cast<int>(pipe_number(rStep, "Rows", 40.0));
+    t.mEncoding = static_cast<TextEncoding>(pipe_snap_choice(
+        rStep, "Encoding", {"halfblock", "quadrant", "sextant", "braille", "ascii"}, 0));
+    t.mDepth = static_cast<ColorDepth>(
+        pipe_snap_choice(rStep, "ColorDepth", {"truecolor", "256", "16", "mono"}, 0));
+    return t;
 }
 
 }  // namespace
@@ -766,6 +929,72 @@ Mesh apply_pipeline_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& r
                         {"NumNonManifold", static_cast<double>(fr.mNumNonManifold)},
                         {"NumInconsistent", static_cast<double>(fr.mNumInconsistent)}});
         return std::move(fr.mMesh);
+    }
+    if (op == "Segment") {
+        // A data step: the cells are labelled and grouped, never moved.
+        SegmentOptions opts;
+        opts.mFeatureAngleDeg = pipe_number(rStep, "FeatureAngle", 30.0);
+        opts.mNormalToleranceDeg = pipe_number(rStep, "NormalTolerance", 0.0);
+        opts.mCurvatureTolerance = pipe_number(rStep, "CurvatureTolerance", 0.0);
+        opts.mMinPatchCells = static_cast<std::int64_t>(pipe_number(rStep, "MinPatchCells", 1.0));
+        opts.mRegion = pipe_text(rStep, "Region", "");
+        opts.mPrefix = pipe_text(rStep, "Prefix", "patch");
+        SegmentResult sr = segment(mesh, opts);
+        pipe_push_step(rReport, rStep,
+                       {{"NumPatches", static_cast<double>(sr.mNumPatches)},
+                        {"NumMerged", static_cast<double>(sr.mNumMerged)},
+                        {"NumFeatureEdges", static_cast<double>(sr.mNumFeatureEdges)},
+                        {"NumBoundaryEdges", static_cast<double>(sr.mNumBoundaryEdges)}});
+        return std::move(sr.mMesh);
+    }
+    if (op == "FitPrimitives") {
+        FitPrimitivesOptions opts;
+        opts.mPatchData = pipe_text(rStep, "PatchData", "segment:patch");
+        opts.mTolerance = pipe_number(rStep, "Tolerance", 1e-3);
+        opts.mRelative = pipe_flag(rStep, "Relative", true);
+        opts.mMinInlierFraction = pipe_number(rStep, "MinInlierFraction", 0.9);
+        opts.mMaxIterations = static_cast<std::int64_t>(pipe_number(rStep, "MaxIterations", 50.0));
+        const std::vector<std::string> types = pipe_svec(rStep, "Types");
+        if (!types.empty()) {
+            static const char* const kNames[] = {"plane", "sphere", "cylinder", "cone", "torus"};
+            opts.mTypes = 0;
+            for (const std::string& t : types) {
+                bool found = false;
+                for (int k = 0; k < 5; ++k)
+                    if (t == kNames[k]) {
+                        opts.mTypes |= 1u << (k + 1);
+                        found = true;
+                    }
+                if (!found)
+                    throw std::invalid_argument(
+                        pipe_err(rStep, "unknown primitive type '" + t + "' in 'Types'"));
+            }
+        }
+        FitPrimitivesResult fr = fit_primitives(mesh, opts);
+        pipe_push_step(rReport, rStep,
+                       {{"NumPatches", static_cast<double>(fr.mNumPatches)},
+                        {"NumPlane", static_cast<double>(fr.mNumPlane)},
+                        {"NumSphere", static_cast<double>(fr.mNumSphere)},
+                        {"NumCylinder", static_cast<double>(fr.mNumCylinder)},
+                        {"NumCone", static_cast<double>(fr.mNumCone)},
+                        {"NumTorus", static_cast<double>(fr.mNumTorus)},
+                        {"NumUnfitted", static_cast<double>(fr.mNumUnfitted)}});
+        return std::move(fr.mMesh);
+    }
+    if (op == "Snapshot") {
+        // A side output, not a transform: the mesh passes through untouched and
+        // the frame is written to `Path` (.png, .txt, .ansi, .html or .cast).
+        const std::string path = pipe_text(rStep, "Path", "");
+        if (path.empty())
+            throw std::invalid_argument(pipe_err(rStep, "'Path' is required"));
+        const RenderOptions render_options = pipe_snap_render_options(rStep);
+        SnapshotOptions snapshot_options;
+        snapshot_options.mPngCompress = static_cast<int>(pipe_number(rStep, "PngCompress", 0.0));
+        write_snapshot(path, mesh, render_options, pipe_snap_text_options(rStep), snapshot_options);
+        pipe_push_step(rReport, rStep,
+                       {{"Width", static_cast<double>(render_options.mWidth)},
+                        {"Height", static_cast<double>(render_options.mHeight)}});
+        return mesh;
     }
     if (op == "QualityGate") {
         // A gate, not a transform: the mesh passes through untouched, and a

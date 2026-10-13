@@ -12,14 +12,21 @@ from .autotuner import aot_kernel
 from .autotuner import from_cache
 from .runtime import Config
 from .runtime import Kernel
+from .runtime import OutputCodeOptions
 from .runtime import kernel
 from .runtime import kernel as jit  # alias
+from .runtime.cute_structural_config import CuteStructuralConfig
+from .runtime.cute_structural_config import resolve_cute_structural_policy
+from .runtime.cute_structural_policy import CuteStructuralPolicy
 from .runtime.settings import RefMode
 from .runtime.settings import Settings
 
 __all__ = [
     "Config",
+    "CuteStructuralConfig",
+    "CuteStructuralPolicy",
     "Kernel",
+    "OutputCodeOptions",
     "RefMode",
     "Settings",
     "aot_kernel",
@@ -30,6 +37,7 @@ __all__ = [
     "kernel",
     "language",
     "next_power_of_2",
+    "resolve_cute_structural_policy",
     "runtime",
 ]
 

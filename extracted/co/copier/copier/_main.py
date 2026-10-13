@@ -628,7 +628,11 @@ class Worker:
                     question.validate_answer(answer)
                 except Exception:  # noqa: BLE001
                     del self.answers.last[var_name]
-            # Skip a question when the skip condition is met.
+
+            ask = question.get_ask()
+
+            # if when is false, we should skip the question and discard
+            # whatever previous values we had.
             if not question.get_when():
                 # Omit its answer from the answers file.
                 self.answers.hide(var_name)
@@ -651,7 +655,14 @@ class Worker:
                     question.validate_answer(answer)
                     self.answers.user[var_name] = answer
                     continue
-                if self.skip_answered and var_name in self.answers.last:
+                if var_name in self.answers.last and (self.skip_answered or not ask):
+                    continue
+                if not ask:
+                    # if the question ask: False, and we don't have a previous answer,
+                    # we use the default value if it exists.
+                    answer = question.get_default()
+                    if answer is not MISSING:
+                        self.answers.user[var_name] = answer
                     continue
                 if self.defaults:
                     answer = question.get_default()
@@ -1388,11 +1399,8 @@ class Worker:
     def _apply_update(self) -> None:  # noqa: C901
         git = get_git()
         subproject_top = Path(
-            git(
-                "-C",
-                self.subproject.local_abspath,
-                "rev-parse",
-                "--show-toplevel",
+            git.with_cwd(self.subproject.local_abspath)(
+                "rev-parse", "--show-toplevel"
             ).strip()
         )
         subproject_subdir = self.subproject.local_abspath.relative_to(subproject_top)
@@ -1523,7 +1531,7 @@ class Worker:
                     f = Path(filename)
                     f.parent.mkdir(parents=True, exist_ok=True)
                     f.touch((subproject_top / filename).stat().st_mode)
-                    git("add", "--force", filename)
+                    git("add", "--force", "--", filename)
                 self._git_commit("add new empty files")
                 # Extract diff between temporary destination and real
                 # destination
@@ -1546,7 +1554,11 @@ class Worker:
                     for f in map(
                         normalize_git_path,
                         diff_cmd(
-                            "-r", "--no-commit-id", "--name-only", subproject_subdir
+                            "-r",
+                            "--no-commit-id",
+                            "--name-only",
+                            "--",
+                            subproject_subdir,
                         ).splitlines(),
                     )
                     if self.match_skip(Path(f).relative_to(subproject_subdir))
@@ -1566,13 +1578,12 @@ class Worker:
                 apply_cmd = git[
                     "apply",
                     "--reject",
-                    "--exclude",
-                    subproject_subdir / self.answers_relpath,
+                    f"--exclude={subproject_subdir / self.answers_relpath}",
                 ]
                 # Exclude modified files that match the skip-if-exists patterns
                 # to exclude them from the patch application.
                 for filename in skip_if_exists_files:
-                    apply_cmd = apply_cmd["--exclude", filename]
+                    apply_cmd = apply_cmd[f"--exclude={filename}"]
                 ignored_files = git["status", "--ignored", "--porcelain"]()
                 # returns "!! file1\n !! file2\n"
                 # adds `--exclude file1 --exclude file2` to `git apply` command
@@ -1584,7 +1595,7 @@ class Worker:
                         # Fixes #2729, regression of #1162.
                         if (Path(new_copy) / normalize_git_path(filepath)).exists():
                             continue
-                        apply_cmd = apply_cmd["--exclude", filepath]
+                        apply_cmd = apply_cmd[f"--exclude={filepath}"]
                 (apply_cmd << diff)(retcode=None)
                 if self.conflict == "inline":
                     conflicted = []
@@ -1627,6 +1638,7 @@ class Worker:
                             "last update",
                             "-L",
                             "after updating",
+                            "--",
                             fname,
                             old_path / fname,
                             new_path / fname,
@@ -1661,7 +1673,9 @@ class Worker:
                     if conflicted:
                         input_lines = []
                         for line in (
-                            git("ls-files", "--stage", *conflicted).strip().splitlines()
+                            git("ls-files", "--stage", "--", *conflicted)
+                            .strip()
+                            .splitlines()
                         ):
                             perms_sha_mode, path = line.split("\t")
                             perms, sha, _ = perms_sha_mode.split()
@@ -1673,6 +1687,7 @@ class Worker:
                                 old_sha = git(
                                     "hash-object",
                                     "-w",
+                                    "--",
                                     old_path / normalize_git_path(path),
                                 ).strip()
                                 input_lines.append(f"{perms} {old_sha} 1\t{path}")
@@ -1682,6 +1697,7 @@ class Worker:
                                 new_sha = git(
                                     "hash-object",
                                     "-w",
+                                    "--",
                                     new_path / normalize_git_path(path),
                                 ).strip()
                                 input_lines.append(f"{perms} {new_sha} 3\t{path}")
@@ -1968,6 +1984,8 @@ def _remove_old_files(prefix: Path, cmp: dircmp[str], rm_common: bool = False) -
     # Remove files found only in old template copy
     for name in to_rm:
         target = prefix / name
+        if target.is_symlink():
+            continue
         if target.is_file():
             target.unlink()
         else:
@@ -1979,6 +1997,8 @@ def _remove_old_files(prefix: Path, cmp: dircmp[str], rm_common: bool = False) -
     # Recurse
     for key, value in subdirs.items():
         subdir = prefix / key
+        if subdir.is_symlink():
+            continue
         _remove_old_files(subdir, value)
         # Remove subdir if it ends empty
         with suppress(OSError):

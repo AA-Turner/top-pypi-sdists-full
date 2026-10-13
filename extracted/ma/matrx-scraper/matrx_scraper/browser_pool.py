@@ -8,6 +8,13 @@ from typing import Any
 
 from matrx_scraper.ai_browser.url_guard import install_egress_guard
 from matrx_scraper.utils.proxy import playwright_proxy
+from matrx_scraper.render_readiness import (
+    BLANK_RETRIES,
+    BLANK_RETRY_WAIT_MS,
+    RENDER_READY_MAX_MS,
+    png_looks_blank,
+    wait_until_painted,
+)
 from matrx_scraper.screenshot_dimensions import png_dimensions
 from matrx_scraper.user_agents import normalize_user_agent
 from matrx_scraper.utils.proxy import redact_url_secrets
@@ -370,6 +377,10 @@ async def capture_exact(page: Any, spec: ExactCaptureSpec) -> CapturedScreenshot
     return CapturedScreenshot(kind=EXACT_CAPTURE_KIND, width=width, height=height, bytes=png)
 
 
+class BrowserCaptureDeadline(Exception):
+    """`fetch_with_capture` exceeded its hard deadline — a wedged page, never a hang."""
+
+
 class BrowserInspectTimeout(Exception):
     """`inspect_url` exceeded its hard budget — retryable, page-level failure."""
 
@@ -425,6 +436,10 @@ async def capture_screenshots(
     out: list[CapturedScreenshot] = []
     if not preserve_scroll:
         await page.evaluate("window.scrollTo(0,0)")
+    # A slow site commits long before it paints. Wait (bounded, never raising)
+    # until real content is visible BEFORE `window.stop()` freezes the page —
+    # stopping early is what produced near-blank homepage frames.
+    await wait_until_painted(page)
     await asyncio.sleep(0.3)  # one settle for the whole set, not one per kind
     # The caller has already completed its bounded DOM settle and recipe (the
     # backlink recipe highlights + centers the target here). Freeze the
@@ -513,6 +528,33 @@ async def capture_screenshots(
             )
             continue
         width, height = png_dimensions(png)
+        # A frame that is one flat colour is a page that had not painted, not
+        # evidence. Wait and shoot again; keep the last frame if it never fills.
+        for attempt in range(1, BLANK_RETRIES + 1):
+            if not png_looks_blank(png, width, height):
+                break
+            logger.warning(
+                "screenshot kind=%s looks blank; waiting %dms and re-shooting (%d/%d)",
+                kind,
+                BLANK_RETRY_WAIT_MS,
+                attempt,
+                BLANK_RETRIES,
+            )
+            await asyncio.sleep(BLANK_RETRY_WAIT_MS / 1000.0)
+            try:
+                png = await page.screenshot(
+                    full_page=full_page,
+                    type="png",
+                    timeout=SCREENSHOT_CAPTURE_TIMEOUT_MS,
+                    animations="disabled",
+                    caret="hide",
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001 — keep the frame we already have
+                logger.warning("blank-retry screenshot failed for kind=%s", kind, exc_info=True)
+                break
+            width, height = png_dimensions(png)
         out.append(CapturedScreenshot(kind=kind, width=width, height=height, bytes=png))
     return out
 
@@ -647,6 +689,57 @@ class PlaywrightBrowserPool:
             self.release(browser)
 
     async def fetch_with_capture(
+        self,
+        url: str,
+        *,
+        proxy: str | None = None,
+        timeout_ms: int = 45_000,
+        settle_timeout_ms: int = 5_000,
+        screenshot_kinds: list[str] | None = None,
+        recipe_actions: list[Any] | None = None,
+        action_runner: Any | None = None,
+        user_agent: str | None = None,
+        preserve_scroll: bool = False,
+    ) -> FetchWithCaptureResult:
+        """`_fetch_with_capture` under ONE hard deadline.
+
+        Several Playwright calls inside (`page.content`, `window.stop`,
+        `context.close`, header reads) carry no timeout of their own; a page
+        that wedges one used to hold its crawl worker — and so the whole crawl —
+        open forever. The deadline covers navigation, paint wait, every shot,
+        its blank retries, and the extra device navigations.
+        """
+        kinds = list(screenshot_kinds or [])
+        per_kind_s = 30.0 + BLANK_RETRIES * (BLANK_RETRY_WAIT_MS / 1000.0 + 20.0)
+        deadline_s = (
+            (timeout_ms + settle_timeout_ms) / 1000.0
+            + RENDER_READY_MAX_MS / 1000.0
+            + per_kind_s * max(1, len(kinds))
+            + (timeout_ms / 1000.0) * len({profile_for_kind(k).name for k in kinds})
+            + 30.0
+        )
+        try:
+            return await asyncio.wait_for(
+                self._fetch_with_capture(
+                    url,
+                    proxy=proxy,
+                    timeout_ms=timeout_ms,
+                    settle_timeout_ms=settle_timeout_ms,
+                    screenshot_kinds=screenshot_kinds,
+                    recipe_actions=recipe_actions,
+                    action_runner=action_runner,
+                    user_agent=user_agent,
+                    preserve_scroll=preserve_scroll,
+                ),
+                timeout=deadline_s,
+            )
+        except TimeoutError as exc:
+            raise BrowserCaptureDeadline(
+                f"browser capture of {redact_url_secrets(url)} exceeded its "
+                f"{int(deadline_s)}s hard deadline"
+            ) from exc
+
+    async def _fetch_with_capture(
         self,
         url: str,
         *,

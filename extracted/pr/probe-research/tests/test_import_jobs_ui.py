@@ -782,8 +782,9 @@ def test_guided_install_finishes_with_dashboard_handoff_after_both_import_choice
         events.append("sessions")
         return ["Session import queued"]
 
-    def handoff(_base):
+    def handoff(_base, next_steps=()):
         assert "Install Probe" in "\n".join(tui.onboarding_header())
+        assert not next_steps, "only a cloud agent leaves steps for its own settings"
         events.append("dashboard")
         return open_dashboard
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import IO, Any
 
 import click
+from click.core import ParameterSource
 
 from schemathesis.checks import load_all_checks
 from schemathesis.cli.commands.run import executor
@@ -55,6 +56,7 @@ from schemathesis.cli.options import (
     REPORT_ALLURE_PATH,
     REPORT_DIR,
     REPORT_HAR_PATH,
+    REPORT_HTML_PATH,
     REPORT_JSON_PATH,
     REPORT_JUNIT_PATH,
     REPORT_NDJSON_PATH,
@@ -71,10 +73,11 @@ from schemathesis.cli.options import (
     WARNINGS,
     WORKERS,
 )
-from schemathesis.cli.validation import CONFLICTING_URL_MESSAGE, validate_auth_overlap
+from schemathesis.cli.validation import CONFLICTING_URL_MESSAGE, validate_auth_overlap, validate_wfc_user
 from schemathesis.config import (
     DEFAULT_REPORT_DIRECTORY,
     HealthCheck,
+    ProjectConfig,
     ReportFormat,
     SchemathesisConfig,
     SchemathesisWarning,
@@ -86,6 +89,8 @@ from schemathesis.generation.metrics import MetricFunction
 load_all_checks()
 
 DEFAULT_PHASES = ["examples", "coverage", "fuzzing", "stateful"]
+# Timeouts this long are almost always milliseconds, the unit Schemathesis 3 took.
+LIKELY_MILLISECONDS = 1000
 
 
 @click.argument(*LOCATION.args, **LOCATION.kwargs)  # type: ignore[untyped-decorator]
@@ -150,6 +155,7 @@ DEFAULT_PHASES = ["examples", "coverage", "fuzzing", "stateful"]
 @grouped_option(*REPORT_JSON_PATH.args, **REPORT_JSON_PATH.kwargs)
 @grouped_option(*REPORT_WFC_PATH.args, **REPORT_WFC_PATH.kwargs)
 @grouped_option(*REPORT_ALLURE_PATH.args, **REPORT_ALLURE_PATH.kwargs)
+@grouped_option(*REPORT_HTML_PATH.args, **REPORT_HTML_PATH.kwargs)
 @grouped_option(*REPORT_PRESERVE_BYTES.args, **REPORT_PRESERVE_BYTES.kwargs)
 @grouped_option(*OUTPUT_SANITIZE.args, **OUTPUT_SANITIZE.kwargs)
 @grouped_option(*OUTPUT_TRUNCATE.args, **OUTPUT_TRUNCATE.kwargs)
@@ -240,6 +246,7 @@ def run(
     report_json_path: IO[str] | None = None,
     report_wfc_path: IO[str] | None = None,
     report_allure_path: str | None = None,
+    report_html_path: str | None = None,
     report_preserve_bytes: bool | None = None,
     output_sanitize: bool | None = None,
     output_truncate: bool | None = None,
@@ -280,6 +287,7 @@ def run(
     ensure_color(ctx, color)
 
     validate_auth_overlap(auth, headers)
+    validate_wfc_user(config, auth_wfc, auth_wfc_user)
 
     if base_url is not None and origin is not None:
         raise click.UsageError(CONFLICTING_URL_MESSAGE)
@@ -304,6 +312,7 @@ def run(
         json_path=report_json_path.name if report_json_path else None,
         wfc_path=report_wfc_path.name if report_wfc_path else None,
         allure_path=report_allure_path,
+        html_path=report_html_path,
         directory=Path(report_directory),
         preserve_bytes=report_preserve_bytes,
     )
@@ -389,4 +398,28 @@ def run(
         config=config.projects.get_default(),
         args=ctx.args,
         params=ctx.params,
+        startup_warnings=list(_iter_timeouts_in_milliseconds(ctx, config.projects.get_default())),
     )
+
+
+def _iter_timeouts_in_milliseconds(ctx: click.Context, config: ProjectConfig) -> Iterator[str]:
+    if not config.warnings.should_display(SchemathesisWarning.TIMEOUT_UNITS):
+        return
+    for value, parameter, option, key in (
+        (config.request_timeout, "request_timeout", "--request-timeout", "request-timeout"),
+        (config.checks.max_response_time.limit, "max_response_time", "--max-response-time", "max_response_time"),
+    ):
+        if value is None or value < LIKELY_MILLISECONDS:
+            continue
+        if ctx.get_parameter_source(parameter) is ParameterSource.DEFAULT:
+            given, suggested = f"{key} = {value:g}", f"{key} = {value / 1000:g}"
+        else:
+            given, suggested = f"{option}={value:g}", f"{option}={value / 1000:g}"
+        yield f"`{given}` is {_describe_duration(value)}; Schemathesis takes seconds. Did you mean `{suggested}`?"
+
+
+def _describe_duration(seconds: float) -> str:
+    if seconds < 3600:
+        return f"{round(seconds / 60)} minutes"
+    hours = round(seconds / 3600)
+    return f"{hours} hour" if hours == 1 else f"{hours} hours"

@@ -435,6 +435,7 @@ __all__ = (
     "RecommendationResultConfigurationBundleTypeDef",
     "RecommendationResultTypeDef",
     "RecommendationSummaryTypeDef",
+    "RecordExpirySpecificationTypeDef",
     "RegistryRecordSummaryTypeDef",
     "ResourceContentTypeDef",
     "ResourceLocationTypeDef",
@@ -586,6 +587,10 @@ class AutomationStreamUpdateTypeDef(TypedDict):
 
 class BasicAuthTypeDef(TypedDict):
     secretArn: str
+
+class RecordExpirySpecificationTypeDef(TypedDict):
+    recordExpiryDurationDays: NotRequired[int]
+    action: NotRequired[Literal["REMOVE"]]
 
 class MemoryRecordOutputTypeDef(TypedDict):
     memoryRecordId: str
@@ -1986,6 +1991,7 @@ class MemoryRecordSummaryTypeDef(TypedDict):
     namespaces: list[str]
     createdAt: datetime
     score: NotRequired[float]
+    timestamp: NotRequired[datetime]
     metadata: NotRequired[dict[str, MemoryRecordMetadataValueOutputTypeDef]]
 
 class MemoryRecordTypeDef(TypedDict):
@@ -1994,7 +2000,9 @@ class MemoryRecordTypeDef(TypedDict):
     memoryStrategyId: str
     namespaces: list[str]
     createdAt: datetime
+    timestamp: NotRequired[datetime]
     metadata: NotRequired[dict[str, MemoryRecordMetadataValueOutputTypeDef]]
+    expiresAt: NotRequired[datetime]
 
 class PaymentInputTypeDef(TypedDict):
     cryptoX402: NotRequired[CryptoX402PaymentInputTypeDef]
@@ -2658,6 +2666,7 @@ class BatchCreateMemoryRecordsInputTypeDef(TypedDict):
     memoryId: str
     records: Sequence[MemoryRecordCreateInputTypeDef]
     clientToken: NotRequired[str]
+    recordExpirySpecification: NotRequired[RecordExpirySpecificationTypeDef]
 
 MemoryMetadataFilterExpressionTypeDef = TypedDict(
     "MemoryMetadataFilterExpressionTypeDef",
@@ -2671,6 +2680,7 @@ MemoryMetadataFilterExpressionTypeDef = TypedDict(
 class BatchUpdateMemoryRecordsInputTypeDef(TypedDict):
     memoryId: str
     records: Sequence[MemoryRecordUpdateInputTypeDef]
+    recordExpirySpecification: NotRequired[RecordExpirySpecificationTypeDef]
 
 class DataSourceConfigTypeDef(TypedDict):
     cloudWatchLogs: NotRequired[CloudWatchLogsSourceTypeDef]

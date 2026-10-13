@@ -1525,7 +1525,14 @@ def print_badge(
     reliability_count=0,
     quality_enabled=False,
     quality_count=0,
+    show_badge=True,
+    uncertainty_count=0,
 ):
+    """Print the closing count line, plus a README badge unless one was shown.
+
+    The grade panel already offers the Skylos grade badge; ``show_badge=False``
+    keeps a second badge prompt out of the same scan.
+    """
     console: Console = logger.console
     console.print(Rule(style="muted"))
 
@@ -1535,34 +1542,58 @@ def print_badge(
     has_quality = quality_enabled and quality_count > 0
 
     if not has_dead_code and not has_danger and not has_reliability and not has_quality:
+        headline = "No dead-code candidates found at current settings."
+        if uncertainty_count:
+            noun = "symbol" if uncertainty_count == 1 else "symbols"
+            headline += f" Usage remains uncertain for {uncertainty_count} {noun}."
+        if not show_badge:
+            console.print(headline)
+            return
         console.print(
             Panel.fit(
-                "[good]Your code is 100% dead-code free![/good]\nAdd this badge to your README:",
-                border_style="good",
+                f"{headline}\nAdd this scan badge to your README:",
+                border_style="warn" if uncertainty_count else "good",
             )
         )
         console.print("```markdown")
+        badge_value = "0_candidates"
+        badge_color = "brightgreen"
+        if uncertainty_count:
+            badge_value += f"%2C_{uncertainty_count}_uncertain"
+            badge_color = "yellow"
         console.print(
-            "![Dead Code Free](https://img.shields.io/badge/Dead_Code-Free-brightgreen?logo=moleculer&logoColor=white)"
+            f"[![Skylos dead-code scan](https://img.shields.io/badge/Dead_Code-{badge_value}-{badge_color})](https://github.com/duriantaco/skylos)"
         )
         console.print("```")
         return
 
-    headline = f"Found {dead_code_count} dead-code items"
+    counts = [_plural_count(dead_code_count, "dead-code item")]
     if danger_enabled:
-        headline += f" and {danger_count} security issues"
+        counts.append(_plural_count(danger_count, "security issue"))
     if reliability_enabled:
-        headline += f" and {reliability_count} reliability issues"
+        counts.append(_plural_count(reliability_count, "reliability issue"))
     if quality_enabled:
-        headline += f" and {quality_count} quality issues"
-    headline += ". Add this badge to your README:"
+        counts.append(_plural_count(quality_count, "quality issue"))
+    if len(counts) > 1:
+        headline = f"Found {', '.join(counts[:-1])} and {counts[-1]}."
+    else:
+        headline = f"Found {counts[0]}."
 
-    console.print(Panel.fit(headline, border_style="warn"))
+    if not show_badge:
+        console.print(headline)
+        return
+    console.print(
+        Panel.fit(f"{headline} Add this badge to your README:", border_style="warn")
+    )
     console.print("```markdown")
     console.print(
-        f"![Dead Code: {dead_code_count}](https://img.shields.io/badge/Dead_Code-{dead_code_count}_detected-orange?logo=codacy&logoColor=red)"
+        f"[![Dead Code: {dead_code_count}](https://img.shields.io/badge/Dead_Code-{dead_code_count}_detected-orange)](https://github.com/duriantaco/skylos)"
     )
     console.print("```")
+
+
+def _plural_count(count, noun):
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
 
 
 _DISPLAY_FILTER_SEVERITY_RANK = {
@@ -1765,7 +1796,9 @@ def _filter_architecture_advisories(result, filtered, keep_signal):
     filtered["architecture_metrics"] = selected_metrics
 
 
-def _apply_display_filters(result, severity=None, category=None, file_filter=None):
+def _apply_display_filters(
+    result, severity=None, category=None, file_filter=None, *, preserve_grade=True
+):
     import copy
 
     min_rank = _display_filter_min_rank(severity)
@@ -1787,8 +1820,10 @@ def _apply_display_filters(result, severity=None, category=None, file_filter=Non
     _filter_architecture_advisories(
         result,
         filtered,
-        lambda signal: (not allowed_cats or "quality" in allowed_cats)
-        and bool(_display_filter_items([signal], file_filter, min_rank)),
+        lambda signal: (
+            (not allowed_cats or "quality" in allowed_cats)
+            and bool(_display_filter_items([signal], file_filter, min_rank))
+        ),
     )
 
     reviewed_items = result.get("reviewed_findings")
@@ -1828,11 +1863,29 @@ def _apply_display_filters(result, severity=None, category=None, file_filter=Non
         )
     if "reviewed_findings_summary" in filtered:
         summary["reviewed_findings"] = copy.copy(filtered["reviewed_findings_summary"])
+    from skylos.reporting.finding_types import summarize_finding_types
+
+    summary["finding_type_counts"] = summarize_finding_types(filtered)
+    if result.get("grade") and preserve_grade:
+        # Display filters do not change the code or the scan's grade. The
+        # scope explicitly includes findings outside the current view.
+        summary["grade_scope"] = "all_analyzed_findings"
+        summary["grade_includes_filtered_findings"] = True
+    if result.get("assessment") and preserve_grade:
+        summary["assessment_scope"] = "all_analyzed_findings"
+        summary["assessment_includes_filtered_findings"] = True
+    elif not preserve_grade:
+        filtered.pop("assessment", None)
+        summary.pop("assessment_scope", None)
+        summary.pop("assessment_includes_filtered_findings", None)
+    if not preserve_grade:
+        filtered.pop("grade", None)
+        summary.pop("grade_scope", None)
+        summary.pop("grade_includes_filtered_findings", None)
     filtered["analysis_summary"] = summary
 
     # These aggregates describe the unfiltered result and must not be emitted
     # alongside a filtered machine-readable finding set.
-    filtered.pop("grade", None)
     filtered.pop("ai_security_stats", None)
     filtered.pop("provenance_summary", None)
 
@@ -1924,6 +1977,9 @@ def _apply_rule_selection(result: dict, selectors) -> dict:
     # Aggregate grades describe the unfiltered scan and would be misleading in
     # a rule-selected report.
     filtered.pop("grade", None)
+    filtered.pop("assessment", None)
+    summary.pop("assessment_scope", None)
+    summary.pop("assessment_includes_filtered_findings", None)
     return filtered
 
 
@@ -1985,10 +2041,17 @@ def render_pretty_results(
     *,
     root_path=None,
     limit=None,
+    expand_advice=False,
 ):
     from skylos.ui.terminal_report import render_pretty_results as render_impl
 
-    return render_impl(console, result, root_path=root_path, limit=limit)
+    return render_impl(
+        console,
+        result,
+        root_path=root_path,
+        limit=limit,
+        **({"expand_advice": True} if expand_advice else {}),
+    )
 
 
 def _write_rich_report_output(
@@ -1998,6 +2061,7 @@ def _write_rich_report_output(
     tree: bool = False,
     root_path=None,
     limit=None,
+    expand_advice=False,
 ):
     buffer = StringIO()
     file_console = Console(
@@ -2012,6 +2076,7 @@ def _write_rich_report_output(
         root_path=root_path,
         limit=limit,
         copy_badge=False,
+        **({"expand_advice": True} if expand_advice else {}),
     )
     if not write_text_no_symlink(output_file, buffer.getvalue(), encoding="utf-8"):
         raise OSError(f"could not safely write output file: {output_file}")
@@ -2023,6 +2088,7 @@ def _write_pretty_report_output(
     *,
     root_path=None,
     limit=None,
+    expand_advice=False,
 ):
     buffer = StringIO()
     file_console = Console(
@@ -2035,6 +2101,7 @@ def _write_pretty_report_output(
         result,
         root_path=root_path,
         limit=limit,
+        **({"expand_advice": True} if expand_advice else {}),
     )
     if not write_text_no_symlink(output_file, buffer.getvalue(), encoding="utf-8"):
         raise OSError(f"could not safely write output file: {output_file}")
@@ -2498,6 +2565,17 @@ def _print_default_excludes(console):
     console.print(f"\n[muted]Total: {len(DEFAULT_EXCLUDE_FOLDERS)} folders[/muted]")
     console.print("\nUse --no-default-excludes to disable these exclusions")
     console.print("Use --include-folder <folder> to force include specific folders")
+    console.print("\n[brand]Generated and vendored files skipped by default:[/brand]")
+    console.print(
+        " Django migrations (<app>/migrations/*.py defining class Migration; "
+        "still read for references, security and secret findings kept)"
+    )
+    console.print(" static/**/lib/** JS/CSS, *.min.js, *.min.css")
+    console.print(" JS/CSS files that open with a vendored-library licence banner")
+    console.print(
+        "\nUse --include-generated (or \\[tool.skylos] include_generated = true) "
+        "to scan them"
+    )
 
 
 def _build_main_scan_context(args):
@@ -2546,6 +2624,69 @@ def _build_main_scan_context(args):
     )
 
 
+def _gate_outcome(result: dict, config: dict, args, *, provenance=None):
+    """The --gate decision: config limits, strict when --strict or configured."""
+    from skylos.core.gate_outcome import evaluate_gate
+
+    config = config or {}
+    gate_cfg = config.get("gate") or {}
+    strict = bool(getattr(args, "strict", False) or gate_cfg.get("strict", False))
+    return evaluate_gate(result, config, strict=strict, provenance=provenance)
+
+
+def _strict_outcome(result: dict):
+    """The --strict decision without --gate: any finding fails, no config."""
+    from skylos.core.gate_outcome import evaluate_gate
+
+    return evaluate_gate(result, {}, strict=True)
+
+
+def _gate_record(result: dict, config: dict, args, *, provenance=None):
+    """The result's top-level ``gate`` object, or None when no gate applies.
+
+    --gate checks the configured policy; --strict alone checks every finding,
+    except with --force, which skips that evaluation.
+    """
+    from skylos.core.gate_outcome import gate_record
+
+    force = bool(getattr(args, "force", False))
+    if bool(getattr(args, "gate", False)):
+        outcome = _gate_outcome(result, config, args, provenance=provenance)
+        return gate_record(outcome, scope="local_configured_policy", force=force)
+    if bool(getattr(args, "strict", False)) and not force:
+        return gate_record(
+            _strict_outcome(result), scope="local_strict_policy", force=force
+        )
+    return None
+
+
+def _machine_report_on_stdout(args) -> bool:
+    return bool(getattr(args, "json", False)) and not getattr(args, "output", None)
+
+
+def _announce_outcome(outcome, args, *, gate: bool = True) -> None:
+    """Print the verdict and reasons on stderr; stdout stays machine-readable.
+
+    JSON written to stdout carries the verdict in its ``gate`` object instead,
+    so nothing is added there.
+    """
+    if outcome is None or _machine_report_on_stdout(args):
+        return
+    from skylos.core.gate_outcome import outcome_text_lines
+
+    lines = outcome_text_lines(
+        outcome, force=bool(getattr(args, "force", False)), gate=gate
+    )
+    sys.stdout.flush()
+    print("\n".join(lines), file=sys.stderr)
+
+
+def _announce_incomplete_scan(result: dict, args) -> None:
+    from skylos.core.gate_outcome import incomplete_scan_outcome
+
+    _announce_outcome(incomplete_scan_outcome(result), args, gate=False)
+
+
 def _formatted_output_gate_exit_code(
     result: dict,
     config: dict,
@@ -2553,37 +2694,52 @@ def _formatted_output_gate_exit_code(
     *,
     provenance=None,
 ) -> int:
-    """Evaluate --gate for output modes that must not print gate UI."""
-    incomplete_exit_code = _analysis_incomplete_exit_code(result)
-    if incomplete_exit_code:
-        return incomplete_exit_code
+    """Evaluate --gate for output modes that must not print gate UI on stdout.
 
-    from skylos.core.gatekeeper import (
-        build_summary_markdown,
-        check_gate,
-        write_github_summary,
-    )
+    The verdict and its reasons go to stderr (JSON on stdout carries them in
+    its ``gate`` object instead).
+    """
+    from contextlib import redirect_stdout
 
-    config = config or {}
-    gate_cfg = config.get("gate") or {}
-    strict = bool(getattr(args, "strict", False) or gate_cfg.get("strict", False))
-    passed, reasons = check_gate(result, config, strict=strict, provenance=provenance)
+    from skylos.core.gate_outcome import INCOMPLETE, PASSED
+    from skylos.core.gatekeeper import build_summary_markdown, write_github_summary
+
+    outcome = _gate_outcome(result, config, args, provenance=provenance)
 
     if bool(getattr(args, "summary", False)):
-        write_github_summary(build_summary_markdown(result, passed, reasons))
+        # Without $GITHUB_STEP_SUMMARY the markdown is printed; keep it off the
+        # machine-readable report on stdout.
+        with redirect_stdout(sys.stderr):
+            write_github_summary(
+                build_summary_markdown(
+                    result,
+                    outcome.verdict == PASSED,
+                    outcome.reasons,
+                    incomplete=outcome.verdict == INCOMPLETE,
+                )
+            )
 
-    if passed or bool(getattr(args, "force", False)):
-        return 0
-    return 1
+    _announce_outcome(outcome, args)
+    return outcome.exit_code(force=bool(getattr(args, "force", False)))
+
+
+def _finish_formatted_scan(result: dict, config: dict, args, *, provenance=None) -> int:
+    """Exit code for --gate/--strict in non-rich output, verdict on stderr."""
+    if bool(getattr(args, "gate", False)):
+        return _formatted_output_gate_exit_code(
+            result, config, args, provenance=provenance
+        )
+    exit_code = _strict_scan_exit_code(result, args)
+    if bool(getattr(args, "strict", False)):
+        _announce_outcome(_strict_outcome(result), args)
+    elif exit_code == 2:
+        _announce_incomplete_scan(result, args)
+    return exit_code
 
 
 def _concise_scan_exit_code(
     result: dict, config: dict, args, *, provenance=None
 ) -> int:
-    incomplete_exit_code = _analysis_incomplete_exit_code(result)
-    if incomplete_exit_code:
-        return incomplete_exit_code
-
     if bool(getattr(args, "gate", False)):
         return _formatted_output_gate_exit_code(
             result,
@@ -2591,6 +2747,11 @@ def _concise_scan_exit_code(
             args,
             provenance=provenance,
         )
+
+    incomplete_exit_code = _analysis_incomplete_exit_code(result)
+    if incomplete_exit_code:
+        _announce_incomplete_scan(result, args)
+        return incomplete_exit_code
 
     if not bool(getattr(args, "force", False)):
         return 1 if _has_concise_findings(result) else 0
@@ -2649,7 +2810,9 @@ def _concise_line(
 
 
 def _format_concise_results(result: dict, *, root_path=None, limit=None) -> str:
-    lines: list[str] = []
+    from skylos.reporting.assessment_display import dependency_coverage_lines
+
+    lines: list[str] = dependency_coverage_lines(result.get("analysis_summary"))
 
     for category, fallback_label in CONCISE_FINDING_CATEGORIES:
         items = list(result.get(category, []) or [])
@@ -2721,6 +2884,102 @@ def _analysis_incomplete_exit_code(result: dict) -> int:
     return 2 if _analysis_incomplete_reasons(result) else 0
 
 
+def _print_rich_scan_outcome(console, result: dict, args) -> None:
+    """End a rich scan with the --strict verdict, or with why it is incomplete."""
+    from skylos.core.gate_outcome import incomplete_scan_outcome, print_outcome
+
+    if bool(getattr(args, "strict", False)):
+        print_outcome(
+            console,
+            _strict_outcome(result),
+            force=bool(getattr(args, "force", False)),
+        )
+        return
+    outcome = incomplete_scan_outcome(result)
+    if outcome is not None:
+        print_outcome(console, outcome, gate=False)
+
+
+def _print_rich_incomplete_gate(console, result: dict, args) -> int:
+    """--gate on an incomplete scan: the step summary if asked, then the verdict.
+
+    Incompleteness alone decides this outcome, so gate limits are not read.
+    """
+    from skylos.core.gate_outcome import incomplete_scan_outcome, print_outcome
+    from skylos.core.gatekeeper import build_summary_markdown, write_github_summary
+
+    outcome = incomplete_scan_outcome(result)
+    if outcome is None:
+        return 0
+    if bool(getattr(args, "summary", False)):
+        write_github_summary(
+            build_summary_markdown(result, False, outcome.reasons, incomplete=True)
+        )
+    print_outcome(console, outcome)
+    return outcome.exit_code()
+
+
+GATE_ERROR_VERDICT = "Quality Gate: ERROR — could not decide (exit 1)"
+DIFF_UNAVAILABLE_HINT = (
+    "Check that the base ref exists in this clone (fetch it; CI checkouts often "
+    "need full history), or pass a ref that exists to --diff or --diff-base."
+)
+
+
+def _gate_requested(args) -> bool:
+    return bool(getattr(args, "gate", False) or getattr(args, "strict", False))
+
+
+def _announce_gate_stop(console, args, reason: str, *, exit_code: int, hint=None):
+    """A --gate/--strict run that stopped early still ends with a verdict.
+
+    Rich and pretty output print on the console; every other format prints on
+    stderr because stdout belongs to its report.
+    """
+    from skylos.core.gatekeeper import INCOMPLETE_VERDICT
+
+    verdict = INCOMPLETE_VERDICT if exit_code == 2 else GATE_ERROR_VERDICT
+    lines = [verdict, f"   • {reason}"]
+    if hint:
+        lines.append(f"       {hint}")
+    if console is None or _is_main_machine_output(args):
+        sys.stdout.flush()
+        print("\n".join(lines), file=sys.stderr)
+        return
+    console.print(f"\n[bold red]{_escape_markup(verdict)}[/bold red]", soft_wrap=True)
+    for line in lines[1:]:
+        console.print(_escape_markup(line), soft_wrap=True)
+
+
+POLICY_BASE_HINT = (
+    "A compared gate reads its policy from the base ref, so that ref must exist "
+    "in this clone: fetch it (CI checkouts often need full history), or pass a "
+    "ref that exists to --diff or --diff-base."
+)
+
+
+def _exit_config_error(parser, args, message: str):
+    """Report a configuration error (exit 2); a gate also states its verdict."""
+    if not _gate_requested(args):
+        parser.error(message)
+    # Same usage and error lines as argparse, then the verdict last.
+    parser.print_usage(sys.stderr)
+    print(f"{parser.prog}: error: {message}", file=sys.stderr)
+    hint = POLICY_BASE_HINT if "PR policy base" in message else None
+    _announce_gate_stop(None, args, message, exit_code=2, hint=hint)
+    raise SystemExit(2)
+
+
+def _exit_diff_unavailable(args, message: str):
+    """Stop with exit 2 when the diff base cannot be read; gates say so."""
+    reason = f"Skylos diff unavailable: {message}"
+    if _gate_requested(args):
+        _announce_gate_stop(None, args, reason, exit_code=2, hint=DIFF_UNAVAILABLE_HINT)
+    else:
+        print(reason, file=sys.stderr)
+    raise SystemExit(2)
+
+
 def _apply_config_driven_analysis_flags(args, project_cfg, console):
     security_contracts_configured = bool(project_cfg.get("security_contracts") or [])
     explicit_category_flags = any(
@@ -2733,6 +2992,34 @@ def _apply_config_driven_analysis_flags(args, project_cfg, console):
     )
 
     enabled_from_policy = []
+    coverage_policy = gate.get("coverage", {}) if isinstance(gate, dict) else {}
+    required_coverage = (
+        coverage_policy.get("required", [])
+        if isinstance(coverage_policy, dict)
+        else []
+    )
+    if isinstance(required_coverage, str):
+        required_coverage = [required_coverage]
+    if isinstance(required_coverage, list):
+        required_coverage = [
+            str(category).strip().lower() for category in required_coverage
+        ]
+    if bool(project_cfg.get("sca_enabled", False)) or (
+        isinstance(required_coverage, list) and "sca" in required_coverage
+    ) or (
+        isinstance(coverage_policy, dict)
+        and (
+            coverage_policy.get("require_resolved_versions") is True
+            or coverage_policy.get("require_resolved_versions") == "true"
+        )
+    ):
+        if not getattr(args, "sca", False):
+            args.sca = True
+            enabled_from_policy.append("sca")
+    if isinstance(required_coverage, list) and "custom_rules" in required_coverage:
+        if not getattr(args, "quality", False):
+            args.quality = True
+            enabled_from_policy.append("quality")
     if not explicit_category_flags:
         if (
             bool(project_cfg.get("security_enabled", False))
@@ -3110,25 +3397,45 @@ def _run_pre_analysis_steps(args, project_root, console):
                     "[warn]pytest had failures; unused fixture report may be partial[/warn]"
                 )
 
+    # Rendering must never decide which checks execute. Keep a bounded receipt
+    # when Cloud rules cannot be loaded, rather than treating an outage as an
+    # authoritative empty ruleset.
     custom_rules_data = None
-    if not quiet_output:
-        try:
-            from skylos.cloud.sync import get_custom_rules, get_token
+    try:
+        from skylos.cloud.sync import load_custom_rules
 
-            token = get_token()
-            if token:
-                custom_rules_data = get_custom_rules()
-                if custom_rules_data:
-                    console.print(
-                        f"[brand]Loaded {len(custom_rules_data)} custom rules from cloud[/brand]"
-                    )
-        except Exception as e:
-            if args.verbose:
-                console.print(
-                    f"[warn]Could not load custom rules: {_escape_markup(str(e))}[/warn]"
-                )
+        loaded_rules = load_custom_rules()
+        custom_rules_data = loaded_rules.get("rules") or []
+        custom_rules_coverage = {
+            key: value for key, value in loaded_rules.items() if key != "rules"
+        }
+        custom_rules_coverage["rule_count"] = sum(
+            bool(rule.get("enabled", True)) for rule in custom_rules_data
+        )
+        if custom_rules_coverage.get("status") == "complete" and any(
+            rule.get("enabled", True) and rule.get("rule_type") != "yaml"
+            for rule in custom_rules_data
+        ):
+            custom_rules_coverage.update(
+                status="unsupported", reason="unsupported_custom_rule_type"
+            )
+        if custom_rules_data and not quiet_output:
+            console.print(
+                f"[brand]Loaded {len(custom_rules_data)} configured custom rules[/brand]"
+            )
+    except Exception as error:
+        custom_rules_coverage = {
+            "status": "unavailable", "rule_count": 0,
+            "reason": "rule_loader_error", "error_type": type(error).__name__,
+        }
 
     changed_files = None
+    if getattr(args, "diff", None) and not getattr(args, "diff_base", None):
+        signal_base = args.diff
+        if signal_base == "auto":
+            signal_base = auto_diff_base_ref()
+        if signal_base:
+            os.environ["SKYLOS_DIFF_BASE"] = signal_base
     if getattr(args, "diff_base", None):
         try:
             from skylos.core.file_discovery import find_git_root
@@ -3171,19 +3478,18 @@ def _run_pre_analysis_steps(args, project_root, console):
                         f"(full scan on changed, defs/refs-only on rest)"
                     )
             else:
-                print(
-                    "Skylos diff unavailable: Git diff failed; check that the "
-                    "base ref exists in the scanned repository",
-                    file=sys.stderr,
+                _exit_diff_unavailable(
+                    args,
+                    "Git diff failed; check that the base ref exists in the "
+                    "scanned repository",
                 )
-                raise SystemExit(2)
         except FileNotFoundError:
-            print("Skylos diff unavailable: git is not installed", file=sys.stderr)
-            raise SystemExit(2) from None
+            _exit_diff_unavailable(args, "git is not installed")
 
     return SimpleNamespace(
         pytest_fixtures_ok=pytest_fixtures_ok,
         custom_rules_data=custom_rules_data,
+        custom_rules_coverage=custom_rules_coverage,
         changed_files=changed_files,
         trace_file=trace_file_for_analysis,
         dependency_bump_diff_base=_dependency_bump_cli_diff_base(args),

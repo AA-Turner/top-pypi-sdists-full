@@ -20,13 +20,13 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListNetworkConnectorsPaginator
+from .paginator import ListNetworkConnectorsPaginator, ListNetworkConnectorVersionsPaginator
 from .type_defs import (
     CreateNetworkConnectorRequestTypeDef,
     CreateNetworkConnectorResponseTypeDef,
@@ -36,6 +36,8 @@ from .type_defs import (
     GetNetworkConnectorResponseTypeDef,
     ListNetworkConnectorsRequestTypeDef,
     ListNetworkConnectorsResponseTypeDef,
+    ListNetworkConnectorVersionsRequestTypeDef,
+    ListNetworkConnectorVersionsResponseTypeDef,
     UpdateNetworkConnectorRequestTypeDef,
     UpdateNetworkConnectorResponseTypeDef,
 )
@@ -125,6 +127,16 @@ class LambdaCoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda_core/client/#get_network_connector)
         """
 
+    def list_network_connector_versions(
+        self, **kwargs: Unpack[ListNetworkConnectorVersionsRequestTypeDef]
+    ) -> ListNetworkConnectorVersionsResponseTypeDef:
+        """
+        Returns a paginated list of the versions of a network connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda-core/client/list_network_connector_versions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda_core/client/#list_network_connector_versions)
+        """
+
     def list_network_connectors(
         self, **kwargs: Unpack[ListNetworkConnectorsRequestTypeDef]
     ) -> ListNetworkConnectorsResponseTypeDef:
@@ -146,6 +158,18 @@ class LambdaCoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda_core/client/#update_network_connector)
         """
 
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_connector_versions"]
+    ) -> ListNetworkConnectorVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda-core/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda_core/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_network_connectors"]
     ) -> ListNetworkConnectorsPaginator:

@@ -12,6 +12,7 @@ these predicates.
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 
 # ---------------------------------------------------------------------------
 # Digests
@@ -110,6 +111,92 @@ def names_its_key(key: str, value: str) -> bool:
     normalized = _normalized_name(value)
     return len(normalized) >= 8 and normalized == _normalized_name(
         key.rsplit(".", 1)[-1]
+    )
+
+
+_CREDENTIAL_LABEL_WORDS = frozenset(
+    {
+        "access",
+        "api",
+        "auth",
+        "authentication",
+        "authorization",
+        "bearer",
+        "cookie",
+        "credential",
+        "credentials",
+        "encryption",
+        "key",
+        "keys",
+        "login",
+        "oauth",
+        "otp",
+        "passphrase",
+        "passwd",
+        "password",
+        "private",
+        "pwd",
+        "refresh",
+        "secret",
+        "secrets",
+        "session",
+        "signature",
+        "signing",
+    }
+)
+# Data/text/input describe the representation; event/batch/item/node/query
+# describe the measured unit; model/type/value describe its semantic role.
+# Keep this vocabulary explicit: an arbitrary short word can be a credential.
+_TOKEN_LABEL_QUALIFIERS = frozenset(
+    {
+        "batch",
+        "data",
+        "event",
+        "input",
+        "item",
+        "model",
+        "node",
+        "query",
+        "text",
+        "type",
+        "value",
+    }
+)
+
+
+def describes_token_label(key: str, value: str) -> bool:
+    """A descriptive token label that restates its segmented field name.
+
+    This is only evidence against a generic entropy candidate, never against
+    a provider credential. Spaces alone do not establish a label: every key
+    word must occur in order, with at most one known interior qualifier and
+    no extra prefix or suffix. Credential fields are deliberately excluded.
+    A secret deliberately identical to its descriptive field label remains
+    ambiguous; this does not classify unrelated prose or English passphrases.
+    """
+    if len(key) > 128 or len(value) > 192:
+        return False
+    name = key.rsplit(".", 1)[-1]
+    if not re.fullmatch(r"[A-Za-z]{2,16}(?:[_-][A-Za-z]{2,16}){2,}", name):
+        return False
+    key_words = re.split(r"[_-]", name.lower())
+    if key_words[-1] != "token" or _CREDENTIAL_LABEL_WORDS.intersection(key_words):
+        return False
+    # Only literal lowercase ASCII words and ordinary phrase separators:
+    # case changes, digits, encodings, tabs and escaped newlines stay scanned.
+    if not re.fullmatch(r"[a-z]+(?:[ /-]+[a-z]+)+", value):
+        return False
+    value_words = re.split(r"[ /-]+", value)
+    if _CREDENTIAL_LABEL_WORDS.intersection(value_words):
+        return False
+    if value_words == key_words:
+        return True
+    if len(value_words) != len(key_words) + 1:
+        return False
+    return any(
+        value_words[index] in _TOKEN_LABEL_QUALIFIERS
+        and value_words[:index] + value_words[index + 1 :] == key_words
+        for index in range(1, len(value_words) - 1)
     )
 
 
@@ -306,6 +393,152 @@ def _block_spans(lines, begin_index, end_marker, spans) -> None:
 
 def covered(spans: list[tuple[int, int]], start: int, end: int) -> bool:
     return any(left <= start and end <= right for left, right in spans)
+
+
+# ---------------------------------------------------------------------------
+# URLs and file paths
+# ---------------------------------------------------------------------------
+
+_URI_RE = re.compile(r"(?<![A-Za-z0-9+.-])[A-Za-z][A-Za-z0-9+.-]{1,30}://[^\s'\"`<>]+")
+# Query/fragment parameters that carry a credential: api_key, access_token,
+# client_secret, password, X-Amz-Signature, sig (Azure SAS), auth.
+_SECRET_PARAM_NAME_RE = re.compile(
+    r"(?i)key|token|secret|passw|pwd|sig|auth|credential"
+)
+# Hosts and path segments of URLs that carry a credential in their path:
+# /api/webhooks/<id>/<token>, /bot<id>:<token>/, /tokens/<token>.
+_CREDENTIAL_PATH_MARKER_RE = re.compile(
+    r"(?i)webhook|hook|token|secret|key|auth|credential|passw|signature"
+    r"|^sig$|^bot\d+:"
+)
+_PATH_CHUNK_DELIMITERS = frozenset(" \t\r\n'\"`()[]{}<>,;|")
+_FILE_PATH_RE = re.compile(r"(?:[A-Za-z]:)?[\\/]*(?:[\w.~-]+[\\/]+)+[\w.~-]*")
+_FILE_PATH_ANCHOR_RE = re.compile(r"(?:/|\.{1,2}[\\/]|~/|[A-Za-z]:[\\/])")
+_FILE_EXTENSION_RE = re.compile(r"\.[A-Za-z][A-Za-z0-9]{0,7}$")
+
+
+@lru_cache(maxsize=64)
+def _uri_spans(line: str) -> tuple[tuple[int, int, str], ...]:
+    # One pass per line: a long line can hold hundreds of candidates.
+    return tuple(
+        (match.start(), match.end(), match.group(0)) for match in _URI_RE.finditer(line)
+    )
+
+
+def _uri_containing(line: str, start: int, end: int):
+    for uri_start, uri_end, uri in _uri_spans(line):
+        if uri_start <= start and end <= uri_end:
+            return uri_start, uri
+        if uri_start > start:
+            break
+    return None
+
+
+def in_public_location(line: str, start: int, end: int) -> bool:
+    """The token is part of a URL or a file path, and not the part of a URL
+    that carries a credential (user info, a secret-named query parameter, or
+    a webhook/token path)."""
+    found = _uri_containing(line, start, end)
+    if found is not None:
+        uri_start, uri = found
+        return not _uri_part_carries_credential(
+            uri, start - uri_start, end - uri_start
+        )
+    return _in_file_path(line, start, end)
+
+
+def in_url_credential(line: str, start: int, end: int) -> bool:
+    """The token is the credential part of a URL on the line."""
+    found = _uri_containing(line, start, end)
+    if found is None:
+        return False
+    uri_start, uri = found
+    return _uri_part_carries_credential(uri, start - uri_start, end - uri_start)
+
+
+def is_public_url_value(value: str) -> bool:
+    """The whole value is a URL with no user info and no secret-named query
+    or fragment parameter."""
+    text = value.strip()
+    if _URI_RE.fullmatch(text) is None:
+        return False
+    authority_start = text.index("://") + 3
+    authority_end = authority_start
+    while authority_end < len(text) and text[authority_end] not in "/?#":
+        authority_end += 1
+    if "@" in text[authority_start:authority_end]:
+        return False
+    query_start = authority_end
+    while query_start < len(text) and text[query_start] not in "?#":
+        query_start += 1
+    return not _secret_parameter_at(text, query_start, None)
+
+
+def is_file_path_value(value: str) -> bool:
+    """The whole value is a file path (see ``_is_file_path``)."""
+    return _is_file_path(value.strip())
+
+
+def _uri_part_carries_credential(uri: str, start: int, end: int) -> bool:
+    """Whether ``uri[start:end]`` is where a URL carries a credential: user
+    info, the value of a secret-named parameter, or a path under a
+    webhook/token-like host or segment."""
+    authority_start = uri.index("://") + 3
+    authority_end = authority_start
+    while authority_end < len(uri) and uri[authority_end] not in "/?#":
+        authority_end += 1
+    user_info_end = uri.rfind("@", authority_start, authority_end)
+    if start < authority_end:
+        return user_info_end != -1 and start < user_info_end
+    query_start = authority_end
+    while query_start < len(uri) and uri[query_start] not in "?#":
+        query_start += 1
+    if start >= query_start:
+        return _secret_parameter_at(uri, query_start, start)
+    host = uri[max(authority_start, user_info_end + 1) : authority_end]
+    parts = [*host.split("."), *uri[authority_end:query_start].split("/")]
+    return any(part and _CREDENTIAL_PATH_MARKER_RE.search(part) for part in parts)
+
+
+def _secret_parameter_at(uri: str, query_start: int, token_start) -> bool:
+    """A secret-named query or fragment parameter with a value; when
+    ``token_start`` is given, only the parameter whose value holds it."""
+    position = query_start + 1
+    for pair in re.split(r"[&;#?]", uri[query_start + 1 :]):
+        name, separator, value = pair.partition("=")
+        value_start = position + len(name) + len(separator)
+        value_end = position + len(pair)
+        holds_token = token_start is None or value_start <= token_start < value_end
+        if separator and value and holds_token and _SECRET_PARAM_NAME_RE.search(name):
+            return True
+        position = value_end + 1
+    return False
+
+
+def _in_file_path(line: str, start: int, end: int) -> bool:
+    low = start
+    while low > 0 and line[low - 1] not in _PATH_CHUNK_DELIMITERS:
+        low -= 1
+    high = end
+    while high < len(line) and line[high] not in _PATH_CHUNK_DELIMITERS:
+        high += 1
+    return _is_file_path(line[low:high])
+
+
+def _is_file_path(chunk: str) -> bool:
+    """``/srv/app/data/<name>``, ``./x/y``, ``C:\\x\\y`` or ``dir/name.ext``:
+    path characters only (no ``+``, ``=``, ``%``, ``@``), at least two
+    segments, and either anchored like a path or ending in a file extension.
+    A base64 value with slashes has neither."""
+    if not _FILE_PATH_RE.fullmatch(chunk):
+        return False
+    segments = [part for part in re.split(r"[\\/]", chunk) if part]
+    if len(segments) < 2:
+        return False
+    return bool(
+        _FILE_PATH_ANCHOR_RE.match(chunk)
+        or _FILE_EXTENSION_RE.search(chunk.rstrip("/\\"))
+    )
 
 
 # ---------------------------------------------------------------------------

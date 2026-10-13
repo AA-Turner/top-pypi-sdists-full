@@ -17,7 +17,7 @@ from flufl.i18n._types import (
 )
 
 
-__version__ = '7.0.0'
+__version__ = '8.0.0'
 
 
 # Most of these names are re-exports, and a type checker has no way to tell a re-export from an

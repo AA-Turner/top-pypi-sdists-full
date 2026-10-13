@@ -83,9 +83,11 @@ def test_catalog_never_routes_a_known_dead_or_unverified_shape():
     # name-only Maps URL → dead_page on the live API (fixture googlemaps_full_error_not_business)
     assert match(_fix("googlemaps_full_error_not_business.json")[0]["input"]["url"]) is None
     assert match("https://www.yelp.com/biz/some-cafe") is None  # blocked live
-    assert get_entry("google_maps_reviews") is None  # sign-in wall live
-    assert get_entry("indeed_jobs_search") is None  # discover never finished
-    assert get_entry("airbnb_listing") is None  # dataset does not support collection
+    # Defaults lean open: a known-broken source still resolves (and says its issue), but is only
+    # reachable by key — never auto-routed, never "verified".
+    for key in ("google_maps_reviews", "indeed_jobs_search", "airbnb_listing"):
+        assert get_entry(key, verified_only=True) is None
+        assert get_entry(key).known_issue
     assert match("https://example.com/") is None
 
 
@@ -109,7 +111,7 @@ def test_place_info_beats_reviews_on_a_shared_host():
 def test_rendering_of_a_real_place_is_readable_and_names_the_place():
     rec = _fix("googlemaps_full.json")[0]
     text, cut = site_data.render_records([rec], label="Google Maps place")
-    assert text.startswith("Site data via Bright Data — Google Maps place (1 record)")
+    assert text.startswith("Live data — Google Maps place (1 record)")
     assert rec["name"] in text and "**address**" in text
     assert not cut
 
@@ -295,7 +297,7 @@ async def test_door_fetch_renders_and_carries_provenance():
     _ext.configure_ext(brightdata_client=client)
     res = await site_data.fetch(url=GMAPS_URL)
     assert res.ok and res.provenance["dataset"] == "google_maps_place"
-    assert res.provenance["announcement"] == "site data via Bright Data, Google Maps place"
+    assert res.provenance["announcement"] == "live data, Google Maps place"
     assert json.loads(seen[0].content) == [{"url": GMAPS_URL}]
 
 
@@ -332,9 +334,9 @@ async def test_read_page_routes_a_catalog_url_before_the_http_fetch(monkeypatch)
     _ext.configure_ext(brightdata_client=client)
     monkeypatch.setattr(rp, "fetch_normally_with_proxy", _no_http)
     out = await rp.read_page_mcp_quick(url=GMAPS_URL)
-    assert out["status"] == "success" and out["engine"] == "site_data:brightdata"
-    assert out["provenance"]["announcement"] == "site data via Bright Data, Google Maps place"
-    assert out["text"].startswith("Site data via Bright Data")
+    assert out["status"] == "success" and out["engine"] == "site_data"
+    assert out["provenance"]["announcement"] == "live data, Google Maps place"
+    assert out["text"].startswith("Live data")
     assert out["page"]["text_data"] == out["text"]
 
 
@@ -378,7 +380,7 @@ async def test_read_page_falls_through_and_says_so_when_site_data_fails(monkeypa
     monkeypatch.setattr(rp, "_read_page_http", fake_http)
     out = await rp.read_page_mcp_quick(url=GMAPS_URL)
     assert "did not answer" in out["site_data_notice"]
-    assert out["text"].startswith("[Site data via Bright Data (Google Maps place)")
+    assert out["text"].startswith("[Live data (Google Maps place)")
     assert out["text"].endswith("plain page")
 
 
@@ -399,7 +401,7 @@ async def test_read_page_falls_through_on_a_spend_refusal(monkeypatch):
 
     monkeypatch.setattr(rp, "_read_page_http", fake_http)
     out = await rp.read_page_mcp_quick(url=GMAPS_URL)
-    assert seen == [] and "was not used (Refused" in out["site_data_notice"]
+    assert seen == [] and "was not used (" in out["site_data_notice"]
 
 
 def test_the_package_never_reads_the_bright_data_key_from_the_environment():

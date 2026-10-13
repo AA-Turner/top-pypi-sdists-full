@@ -473,7 +473,7 @@ providers: list[Provider] = [
                 name='Claude Opus 5.5',
                 description='For long-running agentic coding and knowledge work',
                 context_window=1000000,
-                price_comments='Flat pricing across full 1M context window (no tiered pricing). Cache hits are 0.05x base input (not the usual 0.1x), unique to Opus 5.5. Ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing Prompt caching ref: https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing',
+                price_comments='Flat pricing across full 1M context window (no tiered pricing). Cache hits are 0.05x base input (not the usual 0.1x), as on Sonnet 5.5. Ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing Prompt caching ref: https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing',
                 prices=ModelPrice(
                     input_mtok=Decimal('4'),
                     cache_write_mtok=Decimal('5'),
@@ -616,11 +616,11 @@ providers: list[Provider] = [
                 name='Claude Sonnet 5.5',
                 description='The best combination of speed and intelligence',
                 context_window=1000000,
-                price_comments='Flat pricing across the full 1M context window (no tiered pricing). Ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing Model ID ref: https://platform.claude.com/docs/en/about-claude/models/overview',
+                price_comments='Flat pricing across the full 1M context window (no tiered pricing). Cache hits are 0.05x base input (not the usual 0.1x), as on Opus 5.5. Ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing Prompt caching ref: https://platform.claude.com/docs/en/about-claude/pricing#prompt-caching Model ID ref: https://platform.claude.com/docs/en/about-claude/models/overview',
                 prices=ModelPrice(
                     input_mtok=Decimal('2'),
                     cache_write_mtok=Decimal('2.5'),
-                    cache_read_mtok=Decimal('0.2'),
+                    cache_read_mtok=Decimal('0.1'),
                     output_mtok=Decimal('10'),
                     cache_write_1h_mtok=Decimal('4'),
                     web_searches_kcount=Decimal('10'),
@@ -1018,6 +1018,24 @@ providers: list[Provider] = [
                     UsageExtractorMapping(path='cacheWriteInputTokens', dest='input_tokens', required=False),
                     UsageExtractorMapping(path='cacheReadInputTokens', dest='cache_read_tokens', required=False),
                     UsageExtractorMapping(path='cacheWriteInputTokens', dest='cache_write_tokens', required=False),
+                    UsageExtractorMapping(
+                        path=[
+                            'cacheDetails',
+                            ArrayMatch(type='array-match', field='ttl', match=ClauseEquals(equals='5m')),
+                            'inputTokens',
+                        ],
+                        dest='cache_write_5m_tokens',
+                        required=False,
+                    ),
+                    UsageExtractorMapping(
+                        path=[
+                            'cacheDetails',
+                            ArrayMatch(type='array-match', field='ttl', match=ClauseEquals(equals='1h')),
+                            'inputTokens',
+                        ],
+                        dest='cache_write_1h_tokens',
+                        required=False,
+                    ),
                     UsageExtractorMapping(path='outputTokens', dest='output_tokens', required=True),
                 ],
                 api_flavor='default',
@@ -1114,10 +1132,23 @@ providers: list[Provider] = [
             ),
             ModelInfo(
                 id='amazon.titan-embed-text-v1',
-                match=ClauseContains(contains='amazon.titan-embed-text'),
+                match=ClauseOr(
+                    or_=[
+                        ClauseEndsWith(ends_with='amazon.titan-embed-text'),
+                        ClauseContains(contains='amazon.titan-embed-text-v1'),
+                    ]
+                ),
                 name='Titan Embeddings G1 - Text',
                 context_window=8192,
                 prices=ModelPrice(input_mtok=Decimal('0.1')),
+            ),
+            ModelInfo(
+                id='amazon.titan-embed-text-v2:0',
+                match=ClauseContains(contains='amazon.titan-embed-text-v2'),
+                name='Titan Text Embeddings V2',
+                context_window=8192,
+                price_comments='On-demand input token price from the AWS price list API, AmazonBedrock (us-east-1), usage type TitanEmbeddingV2-Text-input-tokens: $0.00002 per 1K tokens. Ref: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-amazon-titan-text-embeddings-v2.html',
+                prices=ModelPrice(input_mtok=Decimal('0.02')),
             ),
             ModelInfo(
                 id='amazon.titan-text-express-v1',
@@ -1299,7 +1330,7 @@ providers: list[Provider] = [
                     ]
                 ),
                 context_window=1000000,
-                price_comments='Global endpoint (no premium). Cache hits are 0.05x base input (not the usual 0.1x), unique to Opus 5.5. Ref: AWS price list API, AmazonBedrockFoundationModels "Claude Opus 5.5 (Amazon Bedrock Edition)" (https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrockFoundationModels/current/us-east-1/index.json) Model ID ref: https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock',
+                price_comments='Global endpoint (no premium). Cache hits are 0.05x base input (not the usual 0.1x), as on Sonnet 5.5. Ref: AWS price list API, AmazonBedrockFoundationModels "Claude Opus 5.5 (Amazon Bedrock Edition)" (https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrockFoundationModels/current/us-east-1/index.json) Model ID ref: https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock',
                 prices=ModelPrice(
                     input_mtok=Decimal('4'),
                     cache_write_mtok=Decimal('5'),
@@ -1354,11 +1385,11 @@ providers: list[Provider] = [
                     ]
                 ),
                 context_window=1000000,
-                price_comments='Global endpoint (no premium), flat across the full 1M context window. Ref: AWS price list API, AmazonBedrockFoundationModels "Claude Sonnet 5.5 (Amazon Bedrock Edition)" (https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrockFoundationModels/current/us-east-1/index.json) Model ID ref: https://platform.claude.com/docs/en/about-claude/models/overview',
+                price_comments='Global endpoint (no premium), flat across the full 1M context window. Cache hits are 0.05x base input (not the usual 0.1x), as on Opus 5.5. Ref: AWS price list API, AmazonBedrockFoundationModels "Claude Sonnet 5.5 (Amazon Bedrock Edition)" (https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrockFoundationModels/current/us-east-1/index.json) Model ID ref: https://platform.claude.com/docs/en/about-claude/models/overview',
                 prices=ModelPrice(
                     input_mtok=Decimal('2'),
                     cache_write_mtok=Decimal('2.5'),
-                    cache_read_mtok=Decimal('0.2'),
+                    cache_read_mtok=Decimal('0.1'),
                     output_mtok=Decimal('10'),
                     cache_write_1h_mtok=Decimal('4'),
                 ),
@@ -2154,7 +2185,7 @@ providers: list[Provider] = [
                     ]
                 ),
                 context_window=1000000,
-                price_comments='Regional endpoints and US/EU/JP/AU inference profiles carry a 10% premium over the global endpoint. Cache hits are 0.05x base input (not the usual 0.1x), unique to Opus 5.5. Ref: AWS price list API, AmazonBedrockFoundationModels "Claude Opus 5.5 (Amazon Bedrock Edition)" (https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrockFoundationModels/current/us-east-1/index.json)',
+                price_comments='Regional endpoints and US/EU/JP/AU inference profiles carry a 10% premium over the global endpoint. Cache hits are 0.05x base input (not the usual 0.1x), as on Sonnet 5.5. Ref: AWS price list API, AmazonBedrockFoundationModels "Claude Opus 5.5 (Amazon Bedrock Edition)" (https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrockFoundationModels/current/us-east-1/index.json)',
                 prices=ModelPrice(
                     input_mtok=Decimal('4.4'),
                     cache_write_mtok=Decimal('5.5'),
@@ -2256,11 +2287,11 @@ providers: list[Provider] = [
                     ]
                 ),
                 context_window=1000000,
-                price_comments='Regional endpoints and inference profiles carry a 10% premium over the global endpoint. Ref: AWS price list API, AmazonBedrockFoundationModels "Claude Sonnet 5.5 (Amazon Bedrock Edition)" (https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrockFoundationModels/current/us-east-1/index.json)',
+                price_comments='Regional endpoints and inference profiles carry a 10% premium over the global endpoint. Cache hits are 0.05x base input (not the usual 0.1x), as on Opus 5.5. Ref: AWS price list API, AmazonBedrockFoundationModels "Claude Sonnet 5.5 (Amazon Bedrock Edition)" (https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrockFoundationModels/current/us-east-1/index.json)',
                 prices=ModelPrice(
                     input_mtok=Decimal('2.2'),
                     cache_write_mtok=Decimal('2.75'),
-                    cache_read_mtok=Decimal('0.22'),
+                    cache_read_mtok=Decimal('0.11'),
                     output_mtok=Decimal('11'),
                     cache_write_1h_mtok=Decimal('4.4'),
                 ),
@@ -3345,6 +3376,14 @@ providers: list[Provider] = [
                 prices=ModelPrice(input_mtok=Decimal('0.09')),
             ),
             ModelInfo(
+                id='@cf/cloudflare/clef-omni',
+                match=ClauseEquals(equals='@cf/cloudflare/clef-omni'),
+                name='Clef Omni',
+                context_window=64000,
+                price_comments='Input only, $0.15 per million tokens. https://developers.cloudflare.com/workers-ai/models/clef-omni/',
+                prices=ModelPrice(input_mtok=Decimal('0.15')),
+            ),
+            ModelInfo(
                 id='@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
                 match=ClauseEquals(equals='@cf/deepseek-ai/deepseek-r1-distill-qwen-32b'),
                 name='DeepSeek R1 Distill Qwen 32B',
@@ -3609,6 +3648,15 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
+                id='@cf/zai-org/glm-5.3',
+                match=ClauseEquals(equals='@cf/zai-org/glm-5.3'),
+                name='GLM 5.3',
+                price_comments='https://developers.cloudflare.com/workers-ai/platform/pricing/',
+                prices=ModelPrice(
+                    input_mtok=Decimal('1.4'), cache_read_mtok=Decimal('0.26'), output_mtok=Decimal('4.4')
+                ),
+            ),
+            ModelInfo(
                 id='@cf/zai-org/glm-5.3-flash',
                 match=ClauseEquals(equals='@cf/zai-org/glm-5.3-flash'),
                 name='GLM 5.3 Flash',
@@ -3824,6 +3872,36 @@ providers: list[Provider] = [
                 context_window=256000,
                 price_comments='Fast on-demand usage.',
                 prices=ModelPrice(input_mtok=Decimal('4'), cache_read_mtok=Decimal('1'), output_mtok=Decimal('12')),
+            ),
+            ModelInfo(
+                id='grok-4.7',
+                match=ClauseOr(
+                    or_=[ClauseEquals(equals='grok-4.7'), ClauseRegex(regex='^grok-4\\.7\\[fast=false\\]$')]
+                ),
+                name='Grok 4.7',
+                description="Cursor and SpaceXAI's frontier model for complex coding and knowledge work.",
+                context_window=500000,
+                price_comments='Standard rates apply through 256k input tokens; longer requests use the 500k rates for all tokens. https://cursor.com/docs/models/grok-4-7',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('2'), tiers=[Tier(start=256000, price=Decimal('4'))]),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.5'), tiers=[Tier(start=256000, price=Decimal('1'))]),
+                    output_mtok=TieredPrices(base=Decimal('6'), tiers=[Tier(start=256000, price=Decimal('12'))]),
+                ),
+            ),
+            ModelInfo(
+                id='grok-4.7-fast',
+                match=ClauseOr(
+                    or_=[ClauseEquals(equals='grok-4.7-fast'), ClauseRegex(regex='^grok-4\\.7\\[fast=true\\]$')]
+                ),
+                name='Grok 4.7 Fast',
+                description='Faster Grok 4.7 speed tier for complex coding and knowledge work.',
+                context_window=500000,
+                price_comments='Fast rates apply through 256k input tokens; longer requests use the 500k Fast rates for all tokens. https://cursor.com/docs/models/grok-4-7',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('4'), tiers=[Tier(start=256000, price=Decimal('6'))]),
+                    cache_read_mtok=TieredPrices(base=Decimal('1'), tiers=[Tier(start=256000, price=Decimal('1.5'))]),
+                    output_mtok=TieredPrices(base=Decimal('12'), tiers=[Tier(start=256000, price=Decimal('18'))]),
+                ),
             ),
         ],
     ),
@@ -5077,7 +5155,7 @@ providers: list[Provider] = [
                 prices=ModelPrice(
                     input_mtok=Decimal('2'),
                     cache_write_mtok=Decimal('2.5'),
-                    cache_read_mtok=Decimal('0.2'),
+                    cache_read_mtok=Decimal('0.1'),
                     output_mtok=Decimal('10'),
                 ),
             ),
@@ -5889,6 +5967,26 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
+                id='claude-opus-4-5',
+                match=ClauseOr(
+                    or_=[
+                        ClauseContains(contains='claude-4-5-opus'),
+                        ClauseContains(contains='claude-opus-4-5'),
+                        ClauseContains(contains='claude-4.5-opus'),
+                        ClauseContains(contains='claude-opus-4.5'),
+                    ]
+                ),
+                context_window=200000,
+                price_comments='A 200K context window, so there is no long-context tier. Global endpoint rates; regional and multi-region endpoints carry a 10% premium. Ref: https://cloud.google.com/vertex-ai/generative-ai/pricing#claude-models Model ID ref: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-claude',
+                prices=ModelPrice(
+                    input_mtok=Decimal('5'),
+                    cache_write_mtok=Decimal('6.25'),
+                    cache_read_mtok=Decimal('0.5'),
+                    output_mtok=Decimal('25'),
+                    cache_write_1h_mtok=Decimal('10'),
+                ),
+            ),
+            ModelInfo(
                 id='claude-opus-4-6',
                 match=ClauseOr(
                     or_=[
@@ -6000,7 +6098,7 @@ providers: list[Provider] = [
                     ]
                 ),
                 context_window=1000000,
-                price_comments="Global endpoint pricing, flat across the full 1M context window. Multi-region and regional endpoints carry a 10% premium. Google's pricing page renders client-side and could not be read when this entry was added; the rates follow Anthropic's list price, as every other Claude entry in this file does. Cache hits are 0.05x base input (not the usual 0.1x), unique to Opus 5.5. Ref: https://cloud.google.com/vertex-ai/generative-ai/pricing#claude-models Anthropic ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing Model ID ref: https://platform.claude.com/docs/en/models/opus-5-5/overview The one-hour cache write rate is the global endpoint's, from the same pricing page.",
+                price_comments="Global endpoint pricing, flat across the full 1M context window. Multi-region and regional endpoints carry a 10% premium. Google's pricing page renders client-side and could not be read when this entry was added; the rates follow Anthropic's list price, as every other Claude entry in this file does. Cache hits are 0.05x base input (not the usual 0.1x), as on Sonnet 5.5. Ref: https://cloud.google.com/vertex-ai/generative-ai/pricing#claude-models Anthropic ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing Model ID ref: https://platform.claude.com/docs/en/models/opus-5-5/overview The one-hour cache write rate is the global endpoint's, from the same pricing page.",
                 prices=ModelPrice(
                     input_mtok=Decimal('4'),
                     cache_write_mtok=Decimal('5'),
@@ -6054,11 +6152,11 @@ providers: list[Provider] = [
                     ]
                 ),
                 context_window=1000000,
-                price_comments="Global endpoint pricing, flat across the full 1M context window. Multi-region and regional endpoints carry a 10% premium. Rates match Anthropic's list price and OpenRouter's Google endpoint. Ref: https://cloud.google.com/vertex-ai/generative-ai/pricing#claude-models Anthropic ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing OpenRouter ref: https://openrouter.ai/api/v1/models/anthropic/claude-sonnet-5.5/endpoints",
+                price_comments="Global endpoint pricing, flat across the full 1M context window. Multi-region and regional endpoints carry a 10% premium. Rates match Anthropic's list price and OpenRouter's Google endpoint. Cache hits are 0.05x base input (not the usual 0.1x), as on Opus 5.5. Ref: https://cloud.google.com/vertex-ai/generative-ai/pricing#claude-models Anthropic ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing OpenRouter ref: https://openrouter.ai/api/v1/models/anthropic/claude-sonnet-5.5/endpoints",
                 prices=ModelPrice(
                     input_mtok=Decimal('2'),
                     cache_write_mtok=Decimal('2.5'),
-                    cache_read_mtok=Decimal('0.2'),
+                    cache_read_mtok=Decimal('0.1'),
                     output_mtok=Decimal('10'),
                     cache_write_1h_mtok=Decimal('4'),
                 ),
@@ -6160,7 +6258,8 @@ providers: list[Provider] = [
                 name='Gemini 2.5 Flash Image',
                 description="Google's specialized image generation model optimized for fast, high-quality image generation. Outputs images at 1024x1024 resolution, with each image consuming 1290 output tokens.",
                 context_window=1000000,
-                price_comments='See https://ai.google.dev/gemini-api/docs/pricing#gemini-2.5-flash-image. Image output is priced at $30 per 1M tokens, with each 1024x1024 image = 1290 tokens = $0.039/image. Cache pricing is not available for this model. Text output uses the Gemini 2.5 Flash $2.50 rate and is the aggregate remainder when modality details omit text.',
+                price_comments='Deprecated. Gemini API pricing page announces "Gemini 2.5 Flash Image / Nano Banana (DEPRECATED — shut down Oct 2, 2026); migrate to Gemini 3.1 Flash Image or 3.1 Flash Lite Image." (https://ai.google.dev/gemini-api/docs/pricing). Image output is priced at $30 per 1M tokens, with each 1024x1024 image = 1290 tokens = $0.039/image. Cache pricing is not available for this model. Text output uses the Gemini 2.5 Flash $2.50 rate and is the aggregate remainder when modality details omit text.',
+                deprecated=True,
                 prices=ModelPrice(
                     input_mtok=Decimal('0.3'), output_mtok=Decimal('2.5'), output_image_mtok=Decimal('30')
                 ),
@@ -6769,6 +6868,22 @@ providers: list[Provider] = [
         ],
         models=[
             ModelInfo(
+                id='canopylabs/orpheus-arabic-saudi',
+                match=ClauseEquals(equals='canopylabs/orpheus-arabic-saudi'),
+                name='Orpheus Arabic Saudi (Canopy Labs)',
+                context_window=4000,
+                price_comments='https://console.groq.com/docs/models#canopylabs/orpheus-arabic-saudi',
+                prices=ModelPrice(input_mchars=Decimal('40')),
+            ),
+            ModelInfo(
+                id='canopylabs/orpheus-v1-english',
+                match=ClauseEquals(equals='canopylabs/orpheus-v1-english'),
+                name='Orpheus V1 English (Canopy Labs)',
+                context_window=4000,
+                price_comments='https://console.groq.com/docs/models#canopylabs/orpheus-v1-english',
+                prices=ModelPrice(input_mchars=Decimal('22')),
+            ),
+            ModelInfo(
                 id='deepseek-r1-distill-llama-70b',
                 match=ClauseEquals(equals='deepseek-r1-distill-llama-70b'),
                 name='DeepSeek R1 Distill Llama 70B',
@@ -6892,6 +7007,22 @@ providers: list[Provider] = [
                 name='Llama Guard 4 12B',
                 context_window=131072,
                 prices=ModelPrice(input_mtok=Decimal('0.2'), output_mtok=Decimal('0.2')),
+            ),
+            ModelInfo(
+                id='meta-llama/llama-prompt-guard-2-22m',
+                match=ClauseEquals(equals='meta-llama/llama-prompt-guard-2-22m'),
+                name='Llama Prompt Guard 2 22M',
+                context_window=512,
+                price_comments='https://console.groq.com/docs/models#meta-llama/llama-prompt-guard-2-22m',
+                prices=ModelPrice(input_mtok=Decimal('0.03'), output_mtok=Decimal('0.03')),
+            ),
+            ModelInfo(
+                id='meta-llama/llama-prompt-guard-2-86m',
+                match=ClauseEquals(equals='meta-llama/llama-prompt-guard-2-86m'),
+                name='Llama Prompt Guard 2 86M',
+                context_window=512,
+                price_comments='https://console.groq.com/docs/models#meta-llama/llama-prompt-guard-2-86m',
+                prices=ModelPrice(input_mtok=Decimal('0.04'), output_mtok=Decimal('0.04')),
             ),
             ModelInfo(
                 id='mistral-saba-24b',
@@ -9873,6 +10004,8 @@ providers: list[Provider] = [
                 name='Devstral 2 2512',
                 description='Devstral 2 is a state-of-the-art open-source model by Mistral AI specializing in agentic coding. It is a 123B-parameter dense transformer model supporting a 256K context window.',
                 context_window=262144,
+                price_comments='Deprecated 2026-05-22. Mistral recommends Mistral Medium 3.5 for new integrations. https://docs.mistral.ai/models/devstral-2-25-12',
+                deprecated=True,
                 prices=ModelPrice(input_mtok=Decimal('0.4'), cache_read_mtok=Decimal('0.04'), output_mtok=Decimal('2')),
             ),
             ModelInfo(
@@ -9904,6 +10037,8 @@ providers: list[Provider] = [
                 match=ClauseOr(or_=[ClauseStartsWith(starts_with='magistral-medium')]),
                 name='Magistral Medium',
                 description="Magistral is Mistral's first reasoning model. It is ideal for general purpose use requiring longer thought processing and better accuracy than with non-reasoning LLMs. From legal research and financial forecasting to software development and creative storytelling — this model solves multi-step challenges where transparency and precision are critical.",
+                price_comments='Magistral Medium 1.2 was deprecated 2026-05-22. Mistral recommends Mistral Medium 3.5. https://docs.mistral.ai/models/magistral-medium-1-2-25-09 No context_window: this record matches versions with different context limits.',
+                deprecated=True,
                 prices=ModelPrice(input_mtok=Decimal('2'), output_mtok=Decimal('5')),
             ),
             ModelInfo(
@@ -9911,6 +10046,8 @@ providers: list[Provider] = [
                 match=ClauseStartsWith(starts_with='magistral-small-'),
                 name='Magistral Small',
                 description='Magistral Small is a 24B parameter instruction-tuned model based on Mistral-Small-3.1 (2503), enhanced through supervised fine-tuning on traces from Magistral Medium and further refined via reinforcement learning. It is optimized for reasoning and supports a wide multilingual range, including over 20 languages.',
+                price_comments='Magistral Small 1.2 was deprecated 2026-04-30. Mistral recommends Mistral Small 4. https://docs.mistral.ai/models/magistral-small-1-2-25-09 No context_window: this record matches versions with different context limits.',
+                deprecated=True,
                 prices=ModelPrice(input_mtok=Decimal('0.5'), output_mtok=Decimal('1.5')),
             ),
             ModelInfo(
@@ -10041,6 +10178,7 @@ providers: list[Provider] = [
                         ClauseEquals(equals='mistral-medium-3.5'),
                         ClauseEquals(equals='mistral-medium-3-5'),
                         ClauseEquals(equals='mistral-medium-3'),
+                        ClauseEquals(equals='mistral-medium-2604'),
                     ]
                 ),
                 name='Mistral Medium 3.5',
@@ -10121,7 +10259,8 @@ providers: list[Provider] = [
                 ),
                 name='Mistral OCR 4.0',
                 context_window=16384,
-                price_comments='https://docs.mistral.ai/models/ocr-4-0',
+                price_comments='Deprecated 2026-09-29. Mistral recommends OCR 4.1 for new integrations. https://docs.mistral.ai/models/ocr-4-0',
+                deprecated=True,
                 prices=ModelPrice(input_document_kpages=Decimal('4'), input_annotated_document_kpages=Decimal('5')),
             ),
             ModelInfo(
@@ -11081,6 +11220,7 @@ providers: list[Provider] = [
                 name='gpt 4.1',
                 description="GPT-4.1 is OpenAI's latest flagship model, offering major improvements in coding, instruction following, and long context understanding with up to 1 million tokens of context.",
                 context_window=1000000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=ModelPrice(
                     input_mtok=Decimal('2'),
                     cache_read_mtok=Decimal('0.5'),
@@ -11088,6 +11228,23 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3.5'), cache_read_mtok=Decimal('0.875'), output_mtok=Decimal('14')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3.5'), cache_read_mtok=Decimal('0.875'), output_mtok=Decimal('14')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-4.1-mini',
@@ -11097,6 +11254,7 @@ providers: list[Provider] = [
                 name='gpt 4.1 mini',
                 description='GPT-4.1 Mini is a significant leap in small model performance, matching or exceeding GPT-4o in many benchmarks while reducing latency by nearly half and cost by 83%.',
                 context_window=1000000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=ModelPrice(
                     input_mtok=Decimal('0.4'),
                     cache_read_mtok=Decimal('0.1'),
@@ -11104,6 +11262,23 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.7'), cache_read_mtok=Decimal('0.175'), output_mtok=Decimal('2.8')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.7'), cache_read_mtok=Decimal('0.175'), output_mtok=Decimal('2.8')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-4.1-nano',
@@ -11113,9 +11288,27 @@ providers: list[Provider] = [
                 name='gpt 4.1 nano',
                 description="GPT-4.1 Nano is OpenAI's fastest and cheapest model, delivering exceptional performance for its size with a 1 million token context window, ideal for classification and autocompletion tasks.",
                 context_window=1000000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=ModelPrice(
                     input_mtok=Decimal('0.1'), cache_read_mtok=Decimal('0.025'), output_mtok=Decimal('0.4')
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.2'), cache_read_mtok=Decimal('0.05'), output_mtok=Decimal('0.8')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.2'), cache_read_mtok=Decimal('0.05'), output_mtok=Decimal('0.8')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-4.5-preview',
@@ -11138,6 +11331,7 @@ providers: list[Provider] = [
                 name='gpt 4o',
                 description='GPT-4 Optimized (GPT-4o) is designed for high performance in reasoning, creativity, and technical tasks while maintaining consistent output quality.',
                 context_window=128000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=ModelPrice(
                     input_mtok=Decimal('2.5'),
                     cache_read_mtok=Decimal('1.25'),
@@ -11145,6 +11339,23 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('4.25'), cache_read_mtok=Decimal('2.125'), output_mtok=Decimal('17')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('4.25'), cache_read_mtok=Decimal('2.125'), output_mtok=Decimal('17')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-4o-2024-05-13',
@@ -11152,13 +11363,26 @@ providers: list[Provider] = [
                 name='gpt 4o (2024-05-13)',
                 description='Original GPT-4o snapshot, retained at its launch rates, which are higher than later gpt-4o snapshots and have no cached-input discount.',
                 context_window=128000,
-                price_comments='Split out of the shared gpt-4o entry: OpenAI lists this snapshot separately at $5/$15 with no cached-input price. Ref: https://developers.openai.com/api/docs/pricing.md',
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision. Split out of the shared gpt-4o entry: OpenAI lists this snapshot separately at $5/$15 with no cached-input price. Ref: https://developers.openai.com/api/docs/pricing.md',
                 prices=ModelPrice(
                     input_mtok=Decimal('5'),
                     output_mtok=Decimal('15'),
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(input_mtok=Decimal('8.75'), output_mtok=Decimal('26.25')),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(input_mtok=Decimal('8.75'), output_mtok=Decimal('26.25')),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-4o-audio-preview',
@@ -11181,6 +11405,7 @@ providers: list[Provider] = [
                 name='gpt 4o mini',
                 description='GPT-4o Mini is a cost-optimized variant of GPT-4o, designed for high-efficiency processing while maintaining strong performance. It excels in rapid inference and resource-efficient operations, making it ideal for production deployments requiring a balance of cost and capability.',
                 context_window=128000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=ModelPrice(
                     input_mtok=Decimal('0.15'),
                     cache_read_mtok=Decimal('0.075'),
@@ -11188,6 +11413,23 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.25'), cache_read_mtok=Decimal('0.125'), output_mtok=Decimal('1')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.25'), cache_read_mtok=Decimal('0.125'), output_mtok=Decimal('1')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-4o-mini-2024-07-18.ft-',
@@ -11283,6 +11525,7 @@ providers: list[Provider] = [
                 name='GPT-5',
                 description="GPT-5 is OpenAI's flagship model for coding, reasoning, and agentic tasks across domains.",
                 context_window=400000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=ModelPrice(
                     input_mtok=Decimal('1.25'),
                     cache_read_mtok=Decimal('0.125'),
@@ -11290,6 +11533,30 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.625'), cache_read_mtok=Decimal('0.0625'), output_mtok=Decimal('5')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2.5'), cache_read_mtok=Decimal('0.25'), output_mtok=Decimal('20')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2.5'), cache_read_mtok=Decimal('0.25'), output_mtok=Decimal('20')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5-image',
@@ -11309,6 +11576,7 @@ providers: list[Provider] = [
                 name='GPT-5 mini',
                 description="GPT-5 mini is a faster, more cost-efficient version of GPT-5. It's great for well-defined tasks and precise prompts.",
                 context_window=400000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=ModelPrice(
                     input_mtok=Decimal('0.25'),
                     cache_read_mtok=Decimal('0.025'),
@@ -11316,6 +11584,30 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.125'), cache_read_mtok=Decimal('0.0125'), output_mtok=Decimal('1')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.45'), cache_read_mtok=Decimal('0.045'), output_mtok=Decimal('3.6')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.45'), cache_read_mtok=Decimal('0.045'), output_mtok=Decimal('3.6')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5-nano',
@@ -11323,6 +11615,7 @@ providers: list[Provider] = [
                 name='GPT-5 nano',
                 description="GPT-5 Nano is OpenAI's fastest, cheapest version of GPT-5. It's great for summarization and classification tasks.",
                 context_window=400000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=ModelPrice(
                     input_mtok=Decimal('0.05'),
                     cache_read_mtok=Decimal('0.005'),
@@ -11330,6 +11623,16 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.025'), cache_read_mtok=Decimal('0.0025'), output_mtok=Decimal('0.2')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5-pro',
@@ -11363,6 +11666,7 @@ providers: list[Provider] = [
                 name='GPT-5.1',
                 description='The best model for coding and agentic tasks across industries',
                 context_window=400000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=ModelPrice(
                     input_mtok=Decimal('1.25'),
                     cache_read_mtok=Decimal('0.125'),
@@ -11370,6 +11674,30 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.625'), cache_read_mtok=Decimal('0.0625'), output_mtok=Decimal('5')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2.5'), cache_read_mtok=Decimal('0.25'), output_mtok=Decimal('20')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2.5'), cache_read_mtok=Decimal('0.25'), output_mtok=Decimal('20')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5.1-codex-mini',
@@ -11406,6 +11734,7 @@ providers: list[Provider] = [
                 name='GPT-5.2',
                 description='The best model for coding and agentic tasks across industries',
                 context_window=400000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=ModelPrice(
                     input_mtok=Decimal('1.75'),
                     cache_read_mtok=Decimal('0.175'),
@@ -11413,6 +11742,30 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.875'), cache_read_mtok=Decimal('0.0875'), output_mtok=Decimal('7')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3.5'), cache_read_mtok=Decimal('0.35'), output_mtok=Decimal('28')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3.5'), cache_read_mtok=Decimal('0.35'), output_mtok=Decimal('28')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5.2-pro',
@@ -11457,9 +11810,27 @@ providers: list[Provider] = [
                 name='GPT-5.3-Codex',
                 description='The most capable agentic coding model',
                 context_window=400000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=ModelPrice(
                     input_mtok=Decimal('1.75'), cache_read_mtok=Decimal('0.175'), output_mtok=Decimal('14')
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3.5'), cache_read_mtok=Decimal('0.35'), output_mtok=Decimal('28')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3.5'), cache_read_mtok=Decimal('0.35'), output_mtok=Decimal('28')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5.4',
@@ -11474,7 +11845,7 @@ providers: list[Provider] = [
                 name='GPT-5.4',
                 description="OpenAI's most capable model with a 1.05M token context window.",
                 context_window=1050000,
-                price_comments='The long-context rates apply to prompts with more than 272K input tokens. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. Ref: https://developers.openai.com/api/docs/models/gpt-5.4',
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached input uses the published $0.13/MTok rate. The long-context rates apply to prompts with more than 272K input tokens. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. Ref: https://developers.openai.com/api/docs/models/gpt-5.4',
                 prices=ModelPrice(
                     input_mtok=TieredPrices(base=Decimal('2.5'), tiers=[Tier(start=272000, price=Decimal('5'))]),
                     cache_read_mtok=TieredPrices(
@@ -11484,6 +11855,38 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('1.25'), tiers=[Tier(start=272000, price=Decimal('2.5'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.13'), tiers=[Tier(start=272000, price=Decimal('0.25'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('7.5'), tiers=[Tier(start=272000, price=Decimal('11.25'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('5'), cache_read_mtok=Decimal('0.5'), output_mtok=Decimal('30')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('5'), cache_read_mtok=Decimal('0.5'), output_mtok=Decimal('30')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5.4-image-2',
@@ -11506,6 +11909,7 @@ providers: list[Provider] = [
                 name='GPT-5.4 mini',
                 description='Our strongest mini model yet for coding, computer use, and subagents.',
                 context_window=400000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=ModelPrice(
                     input_mtok=Decimal('0.75'),
                     cache_read_mtok=Decimal('0.075'),
@@ -11513,6 +11917,30 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.375'), cache_read_mtok=Decimal('0.0375'), output_mtok=Decimal('2.25')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('1.5'), cache_read_mtok=Decimal('0.15'), output_mtok=Decimal('9')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('1.5'), cache_read_mtok=Decimal('0.15'), output_mtok=Decimal('9')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5.4-nano',
@@ -11527,6 +11955,7 @@ providers: list[Provider] = [
                 name='GPT-5.4 nano',
                 description='Our cheapest GPT-5.4-class model for simple high-volume tasks.',
                 context_window=400000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=ModelPrice(
                     input_mtok=Decimal('0.2'),
                     cache_read_mtok=Decimal('0.02'),
@@ -11534,6 +11963,16 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.1'), cache_read_mtok=Decimal('0.01'), output_mtok=Decimal('0.625')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5.4-pro',
@@ -11548,13 +11987,28 @@ providers: list[Provider] = [
                 name='GPT-5.4 Pro',
                 description='Version of GPT-5.4 that produces smarter and more precise responses.',
                 context_window=1050000,
-                price_comments='The long-context rates apply to prompts with more than 272K input tokens. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. Ref: https://developers.openai.com/api/docs/models/gpt-5.4-pro',
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision. The long-context rates apply to prompts with more than 272K input tokens. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. Ref: https://developers.openai.com/api/docs/models/gpt-5.4-pro',
                 prices=ModelPrice(
                     input_mtok=TieredPrices(base=Decimal('30'), tiers=[Tier(start=272000, price=Decimal('60'))]),
                     output_mtok=TieredPrices(base=Decimal('180'), tiers=[Tier(start=272000, price=Decimal('270'))]),
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('15'), tiers=[Tier(start=272000, price=Decimal('30'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('90'), tiers=[Tier(start=272000, price=Decimal('135'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5.5',
@@ -11577,7 +12031,7 @@ providers: list[Provider] = [
                 name='GPT-5.5',
                 description='The best model for coding and agentic tasks across industries',
                 context_window=1000000,
-                price_comments='Prompts with more than 272K input tokens bill the full request at 2x input and cached input and 1.5x output. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. Ref: https://developers.openai.com/api/docs/models/gpt-5.5',
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision. Prompts with more than 272K input tokens bill the full request at 2x input and cached input and 1.5x output. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. Ref: https://developers.openai.com/api/docs/models/gpt-5.5',
                 prices=ModelPrice(
                     input_mtok=TieredPrices(base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]),
                     cache_read_mtok=TieredPrices(base=Decimal('0.5'), tiers=[Tier(start=272000, price=Decimal('1'))]),
@@ -11585,6 +12039,38 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('2.5'), tiers=[Tier(start=272000, price=Decimal('5'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.25'), tiers=[Tier(start=272000, price=Decimal('0.5'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('15'), tiers=[Tier(start=272000, price=Decimal('22.5'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('12.5'), cache_read_mtok=Decimal('1.25'), output_mtok=Decimal('75')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('12.5'), cache_read_mtok=Decimal('1.25'), output_mtok=Decimal('75')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5.5-pro',
@@ -11599,13 +12085,21 @@ providers: list[Provider] = [
                 name='GPT-5.5 Pro',
                 description='Version of GPT-5.5 that produces smarter and more precise responses.',
                 context_window=1000000,
-                price_comments='Prompts with more than 272K input tokens bill the full request at 2x input and 1.5x output. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. Ref: https://developers.openai.com/api/docs/pricing',
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. The table publishes only base Flex rates; no long-context Flex surcharge is modeled. Standard prompts with more than 272K input tokens bill the full request at 2x input and 1.5x output. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. Ref: https://developers.openai.com/api/docs/pricing',
                 prices=ModelPrice(
                     input_mtok=TieredPrices(base=Decimal('30'), tiers=[Tier(start=272000, price=Decimal('60'))]),
                     output_mtok=TieredPrices(base=Decimal('180'), tiers=[Tier(start=272000, price=Decimal('270'))]),
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(input_mtok=Decimal('15'), output_mtok=Decimal('90')),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5.6-luna',
@@ -11620,7 +12114,7 @@ providers: list[Provider] = [
                 name='GPT-5.6 Luna',
                 description='GPT-5.6 model optimized for cost-sensitive workloads.',
                 context_window=1050000,
-                price_comments='Cache writes are billed at 1.25x the uncached input rate. The 2x input and 1.5x output long-context rates apply to prompts with more than 272K input tokens. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. OpenAI reduced Luna prices by 80% on 2026-07-30. Refs: https://developers.openai.com/api/docs/models/gpt-5.6-luna, https://developers.openai.com/api/docs/changelog',
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision. Cache writes are billed at 1.25x the uncached input rate. The 2x input and 1.5x output long-context rates apply to prompts with more than 272K input tokens. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. OpenAI reduced Luna prices by 80% on 2026-07-30. Refs: https://developers.openai.com/api/docs/models/gpt-5.6-luna, https://developers.openai.com/api/docs/changelog',
                 prices=[
                     ConditionalPrice(
                         prices=ModelPrice(
@@ -11656,6 +12150,63 @@ providers: list[Provider] = [
                         ),
                     ),
                 ],
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('0.1'), tiers=[Tier(start=272000, price=Decimal('0.2'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('0.125'), tiers=[Tier(start=272000, price=Decimal('0.25'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.01'), tiers=[Tier(start=272000, price=Decimal('0.02'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('0.6'), tiers=[Tier(start=272000, price=Decimal('0.9'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('0.4'), tiers=[Tier(start=272000, price=Decimal('0.8'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('0.5'), tiers=[Tier(start=272000, price=Decimal('1'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.04'), tiers=[Tier(start=272000, price=Decimal('0.08'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('2.4'), tiers=[Tier(start=272000, price=Decimal('3.6'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('0.4'), tiers=[Tier(start=272000, price=Decimal('0.8'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('0.5'), tiers=[Tier(start=272000, price=Decimal('1'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.04'), tiers=[Tier(start=272000, price=Decimal('0.08'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('2.4'), tiers=[Tier(start=272000, price=Decimal('3.6'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5.6-sol',
@@ -11672,7 +12223,7 @@ providers: list[Provider] = [
                 name='GPT-5.6 Sol',
                 description='Frontier model for complex professional work.',
                 context_window=1050000,
-                price_comments='Cache writes are billed at 1.25x the uncached input rate. The 2x input and 1.5x output long-context rates apply to prompts with more than 272K input tokens. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. OpenAI reduced Sol input prices by 20% and output prices by 33% on 2026-08-21. Refs: https://developers.openai.com/api/docs/models/gpt-5.6-sol, https://developers.openai.com/api/docs/changelog',
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision. Cache writes are billed at 1.25x the uncached input rate. The 2x input and 1.5x output long-context rates apply to prompts with more than 272K input tokens. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. OpenAI reduced Sol input prices by 20% and output prices by 33% on 2026-08-21. Refs: https://developers.openai.com/api/docs/models/gpt-5.6-sol, https://developers.openai.com/api/docs/changelog',
                 prices=[
                     ConditionalPrice(
                         prices=ModelPrice(
@@ -11708,6 +12259,57 @@ providers: list[Provider] = [
                         ),
                     ),
                 ],
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('2'), tiers=[Tier(start=272000, price=Decimal('4'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('2.5'), tiers=[Tier(start=272000, price=Decimal('5'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.2'), tiers=[Tier(start=272000, price=Decimal('0.4'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('10'), tiers=[Tier(start=272000, price=Decimal('15'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('8'), tiers=[Tier(start=272000, price=Decimal('16'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('10'), tiers=[Tier(start=272000, price=Decimal('20'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.8'), tiers=[Tier(start=272000, price=Decimal('1.6'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('40'), tiers=[Tier(start=272000, price=Decimal('60'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('8'), tiers=[Tier(start=272000, price=Decimal('16'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('10'), tiers=[Tier(start=272000, price=Decimal('20'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.8'), tiers=[Tier(start=272000, price=Decimal('1.6'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('40'), tiers=[Tier(start=272000, price=Decimal('60'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-5.6-terra',
@@ -11722,7 +12324,7 @@ providers: list[Provider] = [
                 name='GPT-5.6 Terra',
                 description='GPT-5.6 model that balances intelligence and cost.',
                 context_window=1050000,
-                price_comments='Cache writes are billed at 1.25x the uncached input rate. The 2x input and 1.5x output long-context rates apply to prompts with more than 272K input tokens. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. OpenAI reduced Terra prices by 20% on 2026-07-30. Refs: https://developers.openai.com/api/docs/models/gpt-5.6-terra, https://developers.openai.com/api/docs/changelog',
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision. Cache writes are billed at 1.25x the uncached input rate. The 2x input and 1.5x output long-context rates apply to prompts with more than 272K input tokens. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. OpenAI reduced Terra prices by 20% on 2026-07-30. Refs: https://developers.openai.com/api/docs/models/gpt-5.6-terra, https://developers.openai.com/api/docs/changelog',
                 prices=[
                     ConditionalPrice(
                         prices=ModelPrice(
@@ -11760,6 +12362,55 @@ providers: list[Provider] = [
                         ),
                     ),
                 ],
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('1'), tiers=[Tier(start=272000, price=Decimal('2'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('1.25'), tiers=[Tier(start=272000, price=Decimal('2.5'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.1'), tiers=[Tier(start=272000, price=Decimal('0.2'))]
+                            ),
+                            output_mtok=TieredPrices(base=Decimal('6'), tiers=[Tier(start=272000, price=Decimal('9'))]),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('4'), tiers=[Tier(start=272000, price=Decimal('8'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.4'), tiers=[Tier(start=272000, price=Decimal('0.8'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('24'), tiers=[Tier(start=272000, price=Decimal('36'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('4'), tiers=[Tier(start=272000, price=Decimal('8'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.4'), tiers=[Tier(start=272000, price=Decimal('0.8'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('24'), tiers=[Tier(start=272000, price=Decimal('36'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-6-astra',
@@ -11769,7 +12420,7 @@ providers: list[Provider] = [
                 name='GPT-6 Astra',
                 description='Our most capable model, built for the hardest end-to-end work.',
                 context_window=1050000,
-                price_comments='Cache writes are billed at 1.25x the uncached input rate. The 2x input and 1.5x output long-context rates apply to prompts with more than 272K input tokens. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. Refs: https://developers.openai.com/api/docs/models/gpt-6-astra, https://developers.openai.com/api/docs/pricing',
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision. Cache writes are billed at 1.25x the uncached input rate. The 2x input and 1.5x output long-context rates apply to prompts with more than 272K input tokens. Tier starts use 272000 because the pricing engines select a tier when the token count is greater than start. Refs: https://developers.openai.com/api/docs/models/gpt-6-astra, https://developers.openai.com/api/docs/pricing',
                 prices=ModelPrice(
                     input_mtok=TieredPrices(base=Decimal('10'), tiers=[Tier(start=272000, price=Decimal('20'))]),
                     cache_write_mtok=TieredPrices(
@@ -11780,6 +12431,61 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('6.25'), tiers=[Tier(start=272000, price=Decimal('12.5'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.5'), tiers=[Tier(start=272000, price=Decimal('1'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('25'), tiers=[Tier(start=272000, price=Decimal('37.5'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('20'), tiers=[Tier(start=272000, price=Decimal('40'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('25'), tiers=[Tier(start=272000, price=Decimal('50'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('2'), tiers=[Tier(start=272000, price=Decimal('4'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('100'), tiers=[Tier(start=272000, price=Decimal('150'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('20'), tiers=[Tier(start=272000, price=Decimal('40'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('25'), tiers=[Tier(start=272000, price=Decimal('50'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('2'), tiers=[Tier(start=272000, price=Decimal('4'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('100'), tiers=[Tier(start=272000, price=Decimal('150'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-6-luna',
@@ -11789,7 +12495,7 @@ providers: list[Provider] = [
                 name='GPT-6 Luna',
                 description='Efficient model for focused, high-volume tasks.',
                 context_window=1050000,
-                price_comments='Cache reads cost 10% of input; cache writes cost 1.25x. Prompts with more than 272K input tokens cost 2x for input and cache tokens and 1.5x for output. Tier starts use 272000 because the pricing engines select a tier when token count exceeds start. Ref: https://developers.openai.com/api/docs/models/gpt-6-luna',
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision. Cache reads cost 10% of input; cache writes cost 1.25x. Prompts with more than 272K input tokens cost 2x for input and cache tokens and 1.5x for output. Tier starts use 272000 because the pricing engines select a tier when token count exceeds start. Ref: https://developers.openai.com/api/docs/models/gpt-6-luna',
                 prices=ModelPrice(
                     input_mtok=TieredPrices(base=Decimal('0.1'), tiers=[Tier(start=272000, price=Decimal('0.2'))]),
                     cache_write_mtok=TieredPrices(
@@ -11802,6 +12508,63 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('0.05'), tiers=[Tier(start=272000, price=Decimal('0.1'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('0.0625'), tiers=[Tier(start=272000, price=Decimal('0.125'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.005'), tiers=[Tier(start=272000, price=Decimal('0.01'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('0.25'), tiers=[Tier(start=272000, price=Decimal('0.375'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('0.2'), tiers=[Tier(start=272000, price=Decimal('0.4'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('0.25'), tiers=[Tier(start=272000, price=Decimal('0.5'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.02'), tiers=[Tier(start=272000, price=Decimal('0.04'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('1'), tiers=[Tier(start=272000, price=Decimal('1.5'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('0.2'), tiers=[Tier(start=272000, price=Decimal('0.4'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('0.25'), tiers=[Tier(start=272000, price=Decimal('0.5'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.02'), tiers=[Tier(start=272000, price=Decimal('0.04'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('1'), tiers=[Tier(start=272000, price=Decimal('1.5'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-6-sol',
@@ -11811,7 +12574,7 @@ providers: list[Provider] = [
                 name='GPT-6 Sol',
                 description='Model for complex coding and agentic workflows.',
                 context_window=1050000,
-                price_comments='Cache reads cost 10% of input; cache writes cost 1.25x. Prompts with more than 272K input tokens cost 2x for input and cache tokens and 1.5x for output. Tier starts use 272000 because the pricing engines select a tier when token count exceeds start. Ref: https://developers.openai.com/api/docs/models/gpt-6-sol',
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision. Cache reads cost 10% of input; cache writes cost 1.25x. Prompts with more than 272K input tokens cost 2x for input and cache tokens and 1.5x for output. Tier starts use 272000 because the pricing engines select a tier when token count exceeds start. Ref: https://developers.openai.com/api/docs/models/gpt-6-sol',
                 prices=ModelPrice(
                     input_mtok=TieredPrices(base=Decimal('2'), tiers=[Tier(start=272000, price=Decimal('4'))]),
                     cache_write_mtok=TieredPrices(base=Decimal('2.5'), tiers=[Tier(start=272000, price=Decimal('5'))]),
@@ -11820,6 +12583,57 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('1'), tiers=[Tier(start=272000, price=Decimal('2'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('1.25'), tiers=[Tier(start=272000, price=Decimal('2.5'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.1'), tiers=[Tier(start=272000, price=Decimal('0.2'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('7.5'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('4'), tiers=[Tier(start=272000, price=Decimal('8'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.4'), tiers=[Tier(start=272000, price=Decimal('0.8'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('20'), tiers=[Tier(start=272000, price=Decimal('30'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('4'), tiers=[Tier(start=272000, price=Decimal('8'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.4'), tiers=[Tier(start=272000, price=Decimal('0.8'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('20'), tiers=[Tier(start=272000, price=Decimal('30'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-6.1-sol',
@@ -11829,7 +12643,7 @@ providers: list[Provider] = [
                 name='GPT-6.1 Sol',
                 description='Model for complex coding and professional work at a lower cost than GPT-6 Astra.',
                 context_window=1050000,
-                price_comments='Released 2026-09-29. Cache reads cost 5% of input; cache writes cost 1.25x. Prompts with more than 272K input tokens cost 2x for input and cache tokens and 1.5x for output. Tier starts use 272000 because the pricing engines select a tier when token count exceeds start. Refs: https://developers.openai.com/api/docs/models/gpt-6.1-sol, https://developers.openai.com/api/docs/changelog',
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision. Released 2026-09-29. Cache reads cost 5% of input; cache writes cost 1.25x. Prompts with more than 272K input tokens cost 2x for input and cache tokens and 1.5x for output. Tier starts use 272000 because the pricing engines select a tier when token count exceeds start. Refs: https://developers.openai.com/api/docs/models/gpt-6.1-sol, https://developers.openai.com/api/docs/changelog',
                 prices=ModelPrice(
                     input_mtok=TieredPrices(base=Decimal('2'), tiers=[Tier(start=272000, price=Decimal('4'))]),
                     cache_write_mtok=TieredPrices(base=Decimal('2.5'), tiers=[Tier(start=272000, price=Decimal('5'))]),
@@ -11838,6 +12652,57 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('1'), tiers=[Tier(start=272000, price=Decimal('2'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('1.25'), tiers=[Tier(start=272000, price=Decimal('2.5'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.05'), tiers=[Tier(start=272000, price=Decimal('0.1'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('7.5'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('4'), tiers=[Tier(start=272000, price=Decimal('8'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.2'), tiers=[Tier(start=272000, price=Decimal('0.4'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('20'), tiers=[Tier(start=272000, price=Decimal('30'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('4'), tiers=[Tier(start=272000, price=Decimal('8'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.2'), tiers=[Tier(start=272000, price=Decimal('0.4'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('20'), tiers=[Tier(start=272000, price=Decimal('30'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='gpt-audio',
@@ -12129,6 +12994,7 @@ providers: list[Provider] = [
                 name='o3',
                 description='o3 is a well-rounded and powerful model across domains. It sets a new standard for math, science, coding, and visual reasoning tasks. It also excels at technical writing and instruction-following. Use it to think through multi-step problems that involve analysis across text, code, and images. Note that BYOK is required for this model. Set up here: https://openrouter.ai/settings/integrations',
                 context_window=200000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached rates retain half-rate precision.',
                 prices=[
                     ConditionalPrice(
                         prices=ModelPrice(
@@ -12148,6 +13014,30 @@ providers: list[Provider] = [
                             web_searches_kcount=Decimal('10'),
                             storage_searches_kcount=Decimal('2.5'),
                         ),
+                    ),
+                ],
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('1'), cache_read_mtok=Decimal('0.25'), output_mtok=Decimal('4')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3.5'), cache_read_mtok=Decimal('0.875'), output_mtok=Decimal('14')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3.5'), cache_read_mtok=Decimal('0.875'), output_mtok=Decimal('14')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
                     ),
                 ],
             ),
@@ -12202,6 +13092,7 @@ providers: list[Provider] = [
                 name='o4 Mini High',
                 description='OpenAI o4-mini-high is the same model as o4-mini with reasoning_effort set to high.',
                 context_window=200000,
+                price_comments='Flex/priority/fast rates verified on 2026-10-12 at https://developers.openai.com/api/docs/pricing. Tier history before this verification is not modeled. Flex cached input uses the published $0.138/MTok rate.',
                 prices=ModelPrice(
                     input_mtok=Decimal('1.1'),
                     cache_read_mtok=Decimal('0.275'),
@@ -12209,6 +13100,30 @@ providers: list[Provider] = [
                     web_searches_kcount=Decimal('10'),
                     storage_searches_kcount=Decimal('2.5'),
                 ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.55'), cache_read_mtok=Decimal('0.138'), output_mtok=Decimal('2.2')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2'), cache_read_mtok=Decimal('0.5'), output_mtok=Decimal('8')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2'), cache_read_mtok=Decimal('0.5'), output_mtok=Decimal('8')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 12)),
+                    ),
+                ],
             ),
             ModelInfo(
                 id='o4-mini-deep-research',
@@ -12877,7 +13792,7 @@ providers: list[Provider] = [
                     ]
                 ),
                 context_window=1000000,
-                price_comments='Flat pricing across full 1M context window (no tiered pricing). Cache hits are 0.05x base input (not the usual 0.1x), unique to Opus 5.5. Ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing Cache-read rate confirmed via https://openrouter.ai/api/v1/models',
+                price_comments='Flat pricing across full 1M context window (no tiered pricing). Cache hits are 0.05x base input (not the usual 0.1x), as on Sonnet 5.5. Ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing Cache-read rate confirmed via https://openrouter.ai/api/v1/models',
                 prices=ModelPrice(
                     input_mtok=Decimal('4'),
                     cache_write_mtok=Decimal('5'),
@@ -12966,11 +13881,11 @@ providers: list[Provider] = [
                     ]
                 ),
                 context_window=1000000,
-                price_comments='Flat pricing across the full 1M context window (no tiered pricing). Ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing Cache-read rate confirmed via https://openrouter.ai/api/v1/models',
+                price_comments='Flat pricing across the full 1M context window (no tiered pricing). Cache hits are 0.05x base input (not the usual 0.1x), as on Opus 5.5. Ref: https://platform.claude.com/docs/en/about-claude/pricing#model-pricing Cache-read rate confirmed via https://openrouter.ai/api/v1/models',
                 prices=ModelPrice(
                     input_mtok=Decimal('2'),
                     cache_write_mtok=Decimal('2.5'),
-                    cache_read_mtok=Decimal('0.2'),
+                    cache_read_mtok=Decimal('0.1'),
                     output_mtok=Decimal('10'),
                 ),
             ),

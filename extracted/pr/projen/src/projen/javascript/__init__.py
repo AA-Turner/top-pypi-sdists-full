@@ -20875,6 +20875,7 @@ class Transform(metaclass=jsii.JSIIMeta, jsii_type="projen.javascript.Transform"
         "no_unused_parameters": "noUnusedParameters",
         "out_dir": "outDir",
         "paths": "paths",
+        "preserve_const_enums": "preserveConstEnums",
         "resolve_json_module": "resolveJsonModule",
         "resolve_package_json_exports": "resolvePackageJsonExports",
         "resolve_package_json_imports": "resolvePackageJsonImports",
@@ -20944,6 +20945,7 @@ class TypeScriptCompilerOptions:
         no_unused_parameters: typing.Optional[builtins.bool] = None,
         out_dir: typing.Optional[builtins.str] = None,
         paths: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
+        preserve_const_enums: typing.Optional[builtins.bool] = None,
         resolve_json_module: typing.Optional[builtins.bool] = None,
         resolve_package_json_exports: typing.Optional[builtins.bool] = None,
         resolve_package_json_imports: typing.Optional[builtins.bool] = None,
@@ -21009,6 +21011,7 @@ class TypeScriptCompilerOptions:
         :param no_unused_parameters: (experimental) Report errors on unused parameters in functions. Default: true
         :param out_dir: (experimental) Output directory for the compiled files.
         :param paths: (experimental) A series of entries which re-map imports to lookup locations relative to the baseUrl, there is a larger coverage of paths in the handbook. paths lets you declare how TypeScript should resolve an import in your require/imports.
+        :param preserve_const_enums: (experimental) Preserve ``const enum`` declarations in generated code. Default: undefined
         :param resolve_json_module: (experimental) Allows importing modules with a ‘.json’ extension, which is a common practice in node projects. This includes generating a type for the import based on the static JSON shape. Default: true
         :param resolve_package_json_exports: (experimental) Forces TypeScript to consult the ``exports`` field of ``package.json`` files if it ever reads from a package in ``node_modules``. Default: true
         :param resolve_package_json_imports: (experimental) Forces TypeScript to consult the ``imports`` field of ``package.json`` when performing a lookup that begins with ``#`` from a file that has a ``package.json`` as an ancestor. Default: undefined
@@ -21077,6 +21080,7 @@ class TypeScriptCompilerOptions:
             check_type(argname="argument no_unused_parameters", value=no_unused_parameters, expected_type=type_hints["no_unused_parameters"])
             check_type(argname="argument out_dir", value=out_dir, expected_type=type_hints["out_dir"])
             check_type(argname="argument paths", value=paths, expected_type=type_hints["paths"])
+            check_type(argname="argument preserve_const_enums", value=preserve_const_enums, expected_type=type_hints["preserve_const_enums"])
             check_type(argname="argument resolve_json_module", value=resolve_json_module, expected_type=type_hints["resolve_json_module"])
             check_type(argname="argument resolve_package_json_exports", value=resolve_package_json_exports, expected_type=type_hints["resolve_package_json_exports"])
             check_type(argname="argument resolve_package_json_imports", value=resolve_package_json_imports, expected_type=type_hints["resolve_package_json_imports"])
@@ -21187,6 +21191,8 @@ class TypeScriptCompilerOptions:
             self._values["out_dir"] = out_dir
         if paths is not None:
             self._values["paths"] = paths
+        if preserve_const_enums is not None:
+            self._values["preserve_const_enums"] = preserve_const_enums
         if resolve_json_module is not None:
             self._values["resolve_json_module"] = resolve_json_module
         if resolve_package_json_exports is not None:
@@ -21795,6 +21801,18 @@ class TypeScriptCompilerOptions:
         '''
         result = self._values.get("paths")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.List[builtins.str]]], result)
+
+    @builtins.property
+    def preserve_const_enums(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Preserve ``const enum`` declarations in generated code.
+
+        :default: undefined
+
+        :see: https://www.typescriptlang.org/tsconfig/preserveConstEnums.html
+        :stability: experimental
+        '''
+        result = self._values.get("preserve_const_enums")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def resolve_json_module(self) -> typing.Optional[builtins.bool]:
@@ -31936,6 +31954,7 @@ def _typecheckingstub__c3368fe3a3107764de1a64c16f7fe4c15d510477a888b2a74df2afb14
     no_unused_parameters: typing.Optional[builtins.bool] = None,
     out_dir: typing.Optional[builtins.str] = None,
     paths: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
+    preserve_const_enums: typing.Optional[builtins.bool] = None,
     resolve_json_module: typing.Optional[builtins.bool] = None,
     resolve_package_json_exports: typing.Optional[builtins.bool] = None,
     resolve_package_json_imports: typing.Optional[builtins.bool] = None,

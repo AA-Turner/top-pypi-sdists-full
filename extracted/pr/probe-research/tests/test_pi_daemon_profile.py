@@ -66,16 +66,30 @@ def test_the_package_skills_are_the_daemon_profile_less_the_extensions_own():
 
 
 def test_the_extension_adds_the_same_skills_the_filter_leaves_out():
-    """The extension's `DAEMON_ADDED_SKILLS` (TypeScript) is this side's
-    `DAEMON_EXTENSION_SKILLS` less the daemon's own `probe`, which it adds from
-    daemon-skills/. A skill on one list and not the other loads nowhere."""
+    """The extension's `DAEMON_OWN_SKILLS` (from daemon-skills/) plus its
+    `DAEMON_ADDED_SKILLS` (from skills/) are this side's
+    `DAEMON_EXTENSION_SKILLS`. A skill on one list and not the other loads
+    nowhere."""
     import re
 
     source = (AGENT / "plugins" / "probe-research-pi" / "src" / "profile.ts").read_text()
-    match = re.search(r"DAEMON_ADDED_SKILLS: readonly string\[\] = \[([^\]]*)\]", source)
-    assert match, "profile.ts no longer declares DAEMON_ADDED_SKILLS"
-    added = re.findall(r'"([^"]+)"', match.group(1))
-    assert added == [s for s in pi_config.DAEMON_EXTENSION_SKILLS if s != "probe"]
+
+    def declared(constant: str) -> list[str]:
+        match = re.search(constant + r": readonly string\[\] = \[([^\]]*)\]", source)
+        assert match, f"profile.ts no longer declares {constant}"
+        return re.findall(r'"([^"]+)"', match.group(1))
+
+    own, added = declared("DAEMON_OWN_SKILLS"), declared("DAEMON_ADDED_SKILLS")
+    kept = re.search(r"DAEMON_PROFILE_SKILLS: ReadonlySet<string> = new Set\(\[([^\]]*)\]\)", source)
+    assert kept, "profile.ts no longer declares DAEMON_PROFILE_SKILLS"
+    profiles = json.loads((AGENT / "skills" / "profiles.json").read_text())
+    assert sorted(re.findall(r'"([^"]+)"', kept.group(1))) == sorted(profiles["daemon"]), (
+        "the prompt filter must keep exactly the daemon profile: a skill added through "
+        "resources_discover and missing here loads and is then dropped from every prompt")
+    assert not set(own) & set(added)
+    assert sorted(own + added) == sorted(pi_config.DAEMON_EXTENSION_SKILLS)
+    for name in own:
+        assert (AGENT / "plugins" / "probe-research-pi" / "daemon-skills" / name / "SKILL.md").is_file(), name
     for name in added:
         assert (AGENT / "plugins" / "probe-research-pi" / "skills" / name / "SKILL.md").is_file(), name
 

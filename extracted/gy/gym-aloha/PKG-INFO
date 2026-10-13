@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gym-aloha
-Version: 0.1.4
+Version: 0.1.5
 Summary: A gym environment for ALOHA
 License: Apache-2.0
 License-File: LICENSE
@@ -17,17 +17,18 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Build Tools
 Provides-Extra: dev
 Provides-Extra: test
-Requires-Dist: debugpy (>=1.8.1) ; extra == "dev"
-Requires-Dist: dm-control (>=1.0.15)
-Requires-Dist: gymnasium (>=0.29.1)
-Requires-Dist: imageio[ffmpeg] (>=2.34.0)
+Requires-Dist: debugpy (>=1.8.1,<1.9.0) ; extra == "dev"
+Requires-Dist: dm-control (>=1.0.15,<1.1.0)
+Requires-Dist: gymnasium (>=0.29.1,<2.0.0)
+Requires-Dist: imageio[ffmpeg] (>=2.34.0,<3.0.0)
 Requires-Dist: mujoco (>=3.0.0,<3.9.0)
-Requires-Dist: pre-commit (>=3.7.0) ; extra == "dev"
-Requires-Dist: pytest (>=8.1.0) ; extra == "test"
-Requires-Dist: pytest-cov (>=5.0.0) ; extra == "test"
+Requires-Dist: pre-commit (>=3.7.0,<4.0.0) ; extra == "dev"
+Requires-Dist: pytest (>=8.1.0,<10.0.0) ; extra == "test"
+Requires-Dist: pytest-cov (>=5.0.0,<8.0.0) ; extra == "test"
 Description-Content-Type: text/markdown
 
 # gym-aloha

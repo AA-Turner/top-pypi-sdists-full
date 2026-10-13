@@ -8,7 +8,7 @@ use std::sync::OnceLock;
 use chematic_smarts::QueryMolecule;
 use chematic_smiles::RdkitMolView;
 
-use super::bounds::BondsAndAngles;
+use super::bounds::{BondsAndAngles, ForcedTorsion};
 use super::dg::BoundsMatrix;
 use super::substruct::{Target, substruct_match};
 use super::torsion_prefs::{
@@ -144,6 +144,39 @@ fn bond_ring_counts(view: &RdkitMolView) -> Vec<usize> {
     counts
 }
 
+/// RDKit 2026.09.1 applies forced cis/trans amide and ester configurations
+/// before matching the regular experimental torsion table.
+fn add_forced_torsions(
+    view: &RdkitMolView,
+    details: &mut CrystalFfDetails,
+    done_bonds: &mut [bool],
+    excluded: &[bool],
+    ring_counts: &[usize],
+    forced_torsions: &[ForcedTorsion],
+) {
+    for forced in forced_torsions {
+        let [aid1, aid2, aid3, aid4] = forced.atoms;
+        let central = view
+            .bond_between(aid2, aid3)
+            .expect("forced torsion central bond");
+        if excluded[central] || ring_counts[central] > 3 {
+            done_bonds[central] = true;
+        }
+        if done_bonds[central] {
+            continue;
+        }
+        done_bonds[central] = true;
+        details.exp_torsion_atoms.push([aid1, aid2, aid3, aid4]);
+        let mut signs = [1; 6];
+        if forced.cis {
+            signs[0] = -1;
+        }
+        let mut force_constants = [0.0; 6];
+        force_constants[0] = 75.0;
+        details.exp_torsion_angles.push((signs, force_constants));
+    }
+}
+
 fn add_experimental_torsions(
     view: &RdkitMolView,
     details: &mut CrystalFfDetails,
@@ -247,6 +280,26 @@ pub fn get_experimental_torsions(
     use_basic_knowledge: bool,
     version: u32,
 ) -> CrystalFfDetails {
+    get_experimental_torsions_with_forced(
+        v,
+        use_exp_torsions,
+        use_small_ring_torsions,
+        use_macrocycle_torsions,
+        use_basic_knowledge,
+        version,
+        &[],
+    )
+}
+
+pub(crate) fn get_experimental_torsions_with_forced(
+    v: &RdkitMolView,
+    use_exp_torsions: bool,
+    use_small_ring_torsions: bool,
+    use_macrocycle_torsions: bool,
+    use_basic_knowledge: bool,
+    version: u32,
+    forced_torsions: &[ForcedTorsion],
+) -> CrystalFfDetails {
     let mut d = CrystalFfDetails {
         bounds_mat_force_scaling: 1.0,
         ..Default::default()
@@ -254,6 +307,16 @@ pub fn get_experimental_torsions(
     let excluded = excluded_fused_ring_bonds(v);
     let ring_counts = bond_ring_counts(v);
     let mut done_bonds = vec![false; v.num_bonds()];
+    if use_basic_knowledge {
+        add_forced_torsions(
+            v,
+            &mut d,
+            &mut done_bonds,
+            &excluded,
+            &ring_counts,
+            forced_torsions,
+        );
+    }
     if use_exp_torsions {
         add_experimental_torsions(
             v,
@@ -507,7 +570,7 @@ fn torsion_gradients(terms: &[Torsion], pos: &[f64], grad: &mut [f64]) {
         let mut tt = [cross(r[0], r[1]), cross(r[2], r[3])];
         let d = [length(tt[0]), length(tt[1])];
         if is_double_zero(d[0]) || is_double_zero(d[1]) {
-            break;
+            continue;
         }
         tt[0] = div(tt[0], d[0]);
         tt[1] = div(tt[1], d[1]);
@@ -544,7 +607,7 @@ fn inversion_gradients(terms: &[Inversion], pos: &[f64], grad: &mut [f64]) {
         let djk = length(rjk);
         let djl = length(rjl);
         if is_double_zero(dji) || is_double_zero(djk) || is_double_zero(djl) {
-            break;
+            continue;
         }
         rji = normalize(rji);
         rjk = normalize(rjk);
@@ -1032,5 +1095,69 @@ mod numerical_contract_tests {
             field.grad(&pos, &mut grad);
             assert!(grad.iter().all(|v| v.is_finite()));
         }
+    }
+
+    #[test]
+    fn degenerate_torsion_does_not_hide_following_valid_term() {
+        let first = Torsion {
+            idx: [0, 1, 2, 3],
+            fc: [2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            signs: [1; 6],
+        };
+        let second = Torsion {
+            idx: [4, 5, 6, 7],
+            fc: [2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            signs: [1; 6],
+        };
+        let pos = [
+            0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 2.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.2, 1.1, -0.4, 0.0, 0.0,
+            0.0, 1.0, 0.1, 0.2, 1.5, -0.7, 1.2,
+        ];
+        let mut expected = vec![0.0; pos.len()];
+        torsion_gradients(&[second], &pos, &mut expected);
+        let second = Torsion {
+            idx: [4, 5, 6, 7],
+            fc: [2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            signs: [1; 6],
+        };
+        let mut actual = vec![0.0; pos.len()];
+        torsion_gradients(&[first, second], &pos, &mut actual);
+        assert_eq!(actual, expected);
+        assert!(actual.iter().any(|value| *value != 0.0));
+    }
+
+    #[test]
+    fn degenerate_inversion_does_not_hide_following_valid_term() {
+        let first = Inversion {
+            idx: [0, 1, 2, 3],
+            c0: 1.0,
+            c1: -1.0,
+            c2: 0.0,
+            force_constant: 6.0,
+        };
+        let second = Inversion {
+            idx: [4, 5, 6, 7],
+            c0: 1.0,
+            c1: -1.0,
+            c2: 0.0,
+            force_constant: 6.0,
+        };
+        let pos = [
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.5,
+        ];
+        let mut expected = vec![0.0; pos.len()];
+        inversion_gradients(&[second], &pos, &mut expected);
+        let second = Inversion {
+            idx: [4, 5, 6, 7],
+            c0: 1.0,
+            c1: -1.0,
+            c2: 0.0,
+            force_constant: 6.0,
+        };
+        let mut actual = vec![0.0; pos.len()];
+        inversion_gradients(&[first, second], &pos, &mut actual);
+        assert_eq!(actual, expected);
+        assert!(actual.iter().any(|value| *value != 0.0));
     }
 }

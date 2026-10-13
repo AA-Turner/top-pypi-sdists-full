@@ -8,6 +8,7 @@ from schemathesis.config import GenerationConfig
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import deepclone
+from schemathesis.generation import GenerationMode
 from schemathesis.generation.value import GeneratedValue
 from schemathesis.specs.openapi._hypothesis import get_default_format_strategies
 from schemathesis.specs.openapi.negative import _strip_binary, negative_schema
@@ -102,6 +103,7 @@ def test_unsatisfiable_body_schema_does_not_abort_generation(data):
 
 
 @given(data=st.data())
+# The violating draw is rare, so fewer examples would let a regression pass.
 @settings(deadline=None, suppress_health_check=_SUPPRESSED, max_examples=100)
 def test_value_channel_does_not_emit_still_valid_bodies(data):
     # A permissive sibling (`minLength: 0`) next to a format field must not let a still-valid body slip through.
@@ -136,6 +138,7 @@ def test_value_channel_does_not_emit_still_valid_bodies(data):
 
 
 @given(data=st.data())
+# The violating draw is rare, so fewer examples would let a regression pass.
 @settings(deadline=None, suppress_health_check=_SUPPRESSED, max_examples=100)
 def test_value_channel_falls_back_when_violator_is_a_noop_with_binary_sibling(data):
     # `contains_binary` must not skip no-op revalidation: a binary+permissive-sibling body
@@ -266,5 +269,42 @@ def test_value_channel_base_body_is_valid():
                 validator_cls=jsonschema_rs.Draft202012Validator,
             ),
             is_invalid_before_mutation,
+            # The excluded value is rare, so a small budget would pass without looking.
             settings=settings(max_examples=1000, database=None, deadline=None, suppress_health_check=_SUPPRESSED),
         )
+
+
+def test_value_channel_keeps_earlier_bodies_intact(ctx):
+    # A value-channel break must not alter enum members shared by later draws or earlier cases.
+    operation = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["a"],
+                                    "properties": {"a": {"type": "string", "minLength": 2}},
+                                    "enum": [{"a": "xx"}],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )["/items"]["POST"]
+    drawn = []
+
+    # The value channel fires on 15% of draws, so a smaller budget can miss it.
+    @settings(max_examples=100, database=None, deadline=None, suppress_health_check=list(HealthCheck))
+    @given(operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    def collect(case):
+        drawn.append((case.body, deepclone(case.body)))
+
+    collect()
+    assert [snapshot for body, snapshot in drawn if body != snapshot] == []

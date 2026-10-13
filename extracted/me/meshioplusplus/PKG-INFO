@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: meshioplusplus
-Version: 16.32.0
+Version: 16.40.0
 Summary: meshio++: I/O for many mesh formats (C++20 core + Python bindings)
 Keywords: mesh,file formats,scientific,engineering,fem,finite elements
 Author: Vicente Mataix Ferrándiz
@@ -143,7 +143,7 @@ Serial VTK XML readers (`.vtu`, `.vtp`, `.vts`, `.vtr`, `.vti`) accept multiple 
 > [GiD postprocess](https://www.gidsimulation.com/) (`.post.msh`/`.post.res`, `.post.bin`, `.post.h5`; writing via a vendored gidpost, reading is meshio++'s own code),
 > [H5M](https://www.mcs.anl.gov/~fathom/moab-docs/h5mmain.html) (`.h5m`),
 > [Code_Aster](https://code-aster.org) native mesh (`.mail`; `GROUP_MA`/`GROUP_NO` as named regions, Code_Aster's own node order),
-> [CalculiX](http://www.dhondt.de/) results (`.frd`, read-only; every increment is a step, tensors keep the file order, opt-in von Mises and principal values),
+> [CalculiX](http://www.dhondt.de/) results (`.frd`, ASCII or binary written too; every increment is a step, tensors keep the file order, opt-in von Mises and principal values),
 > [HMF](https://loumalouomega.github.io/meshioplusplus/formats/hmf) (`.hmf`, experimental, meshio++-specific),
 > [I-deas Universal / UNV](https://www.ceas3.uc.edu/sdrluff/) (`.unv`, `.uff`),
 > [ANSYS Fluent interpolation](https://github.com/victorsndvg/FEconv) (`.ip`),
@@ -153,7 +153,7 @@ Serial VTK XML readers (`.vtu`, `.vtp`, `.vts`, `.vtr`, `.vti`) accept multiple 
 > [LS-DYNA d3plot](https://loumalouomega.github.io/meshioplusplus/formats/lsdyna_d3plot) (the binary state database, `d3plot` and its `d3plot01`... family, read-only; every state is a step, parts are regions, deletion flags a mask; SPH, airbag particles, rigid bodies and roads),
 > [LS-DYNA binout](https://loumalouomega.github.io/meshioplusplus/formats/lsdyna_binout) (the LSDA binary output, read-only; `nodout` outputs are steps, the other databases field data),
 > [Medit](https://people.sc.fsu.edu/~jburkardt/data/medit/medit.html) (`.mesh`, `.meshb`),
-> [MFEM](https://mfem.org) mesh (`.mesh`, recognised by content; order-2 curved meshes in MFEM's own numbering, attribute sets as named regions) and grid functions (`.gf`),
+> [MFEM](https://mfem.org) mesh (`.mesh`, recognised by content; order-2 curved meshes in MFEM's own numbering, attribute sets as named regions, NURBS meshes with their patches kept and written back) and grid functions (`.gf`),
 > [MED/Salome](https://docs.salome-platform.org/latest/dev/MEDCoupling/developer/med-file.html) (`.med`; native named multi-mesh access and nodal/element profile expansion),
 > [Modulef](https://github.com/victorsndvg/FEconv) (mesh `.mfm`, field `.mff`),
 > [Nastran](https://help.autodesk.com/view/NSTRN/2019/ENU/?guid=GUID-42B54ACB-FBE3-47CA-B8FE-475E7AD91A00) and [Altair OptiStruct](https://help.altair.com/hwsolvers/os/index.htm) (bulk data, `.bdf`, `.fem`, `.nas`; HyperMesh components and OptiStruct `SET`s as named regions),
@@ -167,7 +167,7 @@ Serial VTK XML readers (`.vtu`, `.vtp`, `.vts`, `.vtr`, `.vti`) accept multiple 
 > [OFF](https://segeval.cs.princeton.edu/public/off_format.html) (`.off`),
 > [OpenFOAM polyMesh](https://www.openfoam.com/) (`.foam`),
 > [OpenUSD](https://openusd.org/) (`.usd`, `.usda`, `.usdc`),
-> [OpenRadioss](https://openradioss.org/) starter deck (`_0000.rad`; parts, subsets, groups, boxes and surfaces as named regions, units applied, `#include` followed; written with optional placeholder materials and properties), animation files (`<run>A001`…, read-only; one state per file, a run's files a transient sequence) and time-history files (`<run>T01`, read-only; each output a step of field data),
+> [OpenRadioss](https://openradioss.org/) starter deck (`_0000.rad`; parts, subsets, groups, boxes and surfaces as named regions, units applied, `#include` followed; written with optional placeholder materials and properties), animation files (`<run>A001`…, read-only; one state per file, a run's files a transient sequence) and time-history files (`<run>T01`; each output a step of field data; written too, from the `radioss_th:*` field data),
 > [MSC Marc](https://hexagon.com/products/marc) input deck (`.dat`, written by name) and formatted post file (`.t19`, read-only; `DEFINE` sets as named regions, every increment is a step),
 > [MSC Patran 2 neutral file](https://hexagon.com/products/patran) (`.pat`, `.out`; named components as regions),
 > [PCD](https://pointclouds.org/documentation/tutorials/pcd_file_format.html) (Point Cloud Library point clouds, `ascii`/`binary`/`binary_compressed`) (`.pcd`),
@@ -177,12 +177,13 @@ Serial VTK XML readers (`.vtu`, `.vtp`, `.vts`, `.vtr`, `.vti`) accept multiple 
 > [PVD](https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html) (`.pvd`; a time-indexed collection of serial or parallel VTK XML files, read by ParaView),
 > [PVTP](https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html) (`.pvtp`; a parallel index over per-piece `.vtp` files) and
 > [PVTU](https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html) (`.pvtu`; a parallel index over per-piece `.vtu` files, ghost cells and `partition` output included),
+> [STEP](https://en.wikipedia.org/wiki/ISO_10303-21) (output only; a closed surface as a faceted AP214 solid that CAD tools open) (`.step`, `.stp`),
 > [STL](<https://en.wikipedia.org/wiki/STL_(file_format)>) (`.stl`),
 > [Tecplot](http://paulbourke.net/dataformats/tp/) (`.dat`, `.tec`, and binary `.plt` read-only; FE, ordered, polygonal and polyhedral zones; `.szplt` read-only through a TecIO you supply),
 > [TetGen .node/.ele](https://wias-berlin.de/software/tetgen/fformats.html),
 > [Triangle .node/.ele/.poly](https://www.cs.cmu.edu/~quake/triangle.html),
-> [SVG](https://www.w3.org/TR/SVG/) (output only; 2D direct, 3D via skin projection) (`.svg`),
-> [TikZ](https://tikz.dev/) (LaTeX output only; 2D direct, 3D via skin projection) (`.tikz`),
+> [SVG](https://www.w3.org/TR/SVG/) (2D drawing: 2D direct, 3D via skin projection; reads back only what meshio++ wrote, as planar) (`.svg`),
+> [TikZ](https://tikz.dev/) (LaTeX 2D drawing: 2D direct, 3D via skin projection; reads back only what meshio++ wrote, as planar) (`.tikz`),
 > [SU2](https://su2code.github.io/docs_v7/Mesh-File/) (`.su2`),
 > [UGRID](https://www.simcenter.msstate.edu/software/documentation/ug_io/3d_grid_file_type_ugrid.html) (`.ugrid`),
 > [VTI](https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html) (VTK XML ImageData; a regular lattice) (`.vti`),
@@ -258,6 +259,9 @@ meshioplusplus slice      in.vtu out.vtu --normal 0,0,1      # planar cross-sect
 meshioplusplus curvature  in.vtu out.vtu                     # per-vertex mean/Gaussian curvature
 meshioplusplus normals    in.vtu out.vtu --split-angle 30    # point/cell normals, split at creases
 meshioplusplus feature-edges in.stl edges.vtp --angle 45   # sharp/open/non-manifold edges as lines
+meshioplusplus segment    in.stl patches.vtu --curvature-tolerance 1  # smooth patches as regions
+meshioplusplus fit-primitives patches.vtu fits.vtu --json  # plane/sphere/cylinder/cone/torus per patch
+meshioplusplus convert    in.stl part.step               # a closed skin as a faceted CAD solid
 meshioplusplus hausdorff  a.stl b.stl --max 1e-3             # worst-case distance; nonzero exit above it
 meshioplusplus check      part.vtu -r "scaled_jacobian >= 0.2"  # quality gate: exit 1 on failure, 2 if unchecked
 meshioplusplus regions    in.msh out.msh --union inlet=in_a,in_b --rename "Surface 3=Outlet"  # region algebra
@@ -369,7 +373,7 @@ annotated = meshioplusplus.attach_quality(mesh)
 meshioplusplus.write(
     "quality.svg", annotated,
     color_by="quality:scaled_jacobian",   # or any point_data / cell_data name
-    cmap="viridis",                       # viridis / coolwarm / turbo
+    cmap="viridis",                       # viridis / coolwarm / turbo / magma / … (and *_r)
     colorbar=True,
 )
 ```
@@ -467,6 +471,19 @@ d = meshioplusplus.hausdorff_distance(before, after, face_samples=4)["distance"]
 edges = meshioplusplus.feature_edges(mesh, feature_angle=45)
 mesh = meshioplusplus.edit_regions(mesh, [{"op": "union", "inputs": ["a", "b"], "output": "inlet"}])
 pairs = meshioplusplus.match_periodic_nodes(mesh, "inlet", "outlet", translate=(2, 0, 0))
+```
+
+#### Skin to CAD: segment, fit primitives, STEP
+
+The mesh-side half of reverse engineering a triangle skin into a CAD model, with no CAD kernel in the loop, on every surface — Python, C++, C, Fortran, Julia, R, WASM, both CLIs, MCP and the pipeline. **`meshioplusplus.segment(mesh)`** splits a surface into smooth patches by region growing, bounded by its feature edges, with a curvature test that separates a fillet from the planes it is tangent to; the patches come back as `segment:patch` cell data, a patch-adjacency table and one cell region each. **`meshioplusplus.fit_primitives(mesh)`** fits a plane, sphere, cylinder, cone or torus to each patch, deterministically, and keeps the simplest within tolerance — a fit outside it is reported as `none` with its residual, never rounded to a neat primitive. The write-only **`step`** format hands a closed skin to CAD as an AP214 faceted solid (one planar face per facet, shared edges), validated against OpenCASCADE. See [skin to CAD](https://loumalouomega.github.io/meshioplusplus/cad_fit).
+
+<!--pytest-codeblocks:skip-->
+
+```python
+seg = meshioplusplus.segment(skin, curvature_tolerance=1.0, min_patch_cells=20)
+fit, report = meshioplusplus.fit_primitives(seg, tolerance=2e-3, return_report=True)
+fit.field_data["fit:patch_params"]   # per patch: point, axis, radii, half-angle
+meshioplusplus.write("part.step", skin)
 ```
 
 #### Interfaces and contact
@@ -950,6 +967,37 @@ See [the viewer docs](https://loumalouomega.github.io/meshioplusplus/viewer.html
 </details>
 
 <details>
+<summary><b>Terminal rendering</b> — a deterministic software rasterizer: draw a mesh in a terminal, a PNG, HTML or asciinema recording with no display or GPU (click to expand)</summary>
+
+### Terminal rendering
+
+Where there is no window, browser or GPU — an SSH session on a login node, a container, a CI log — `snapshot` draws the mesh anyway. A dependency-free software rasterizer (depth buffer, flat or smooth shading, element or feature edges, a mapped data field with a colour bar) turns it into pixels, and the pixels into Unicode block characters with terminal colours, a PNG, an HTML page or an [asciinema](https://asciinema.org) orbit. The output is the same bytes on every platform, thread count and CLI.
+
+```sh
+meshioplusplus snapshot part.vtu -                                    # draw it in this terminal
+meshioplusplus snapshot result.vtu - --color-by temperature --colorbar --encoding braille
+meshioplusplus snapshot part.vtu part.png --edges feature --axes      # a PNG, no display needed
+meshioplusplus tui part.vtu                                           # orbit and zoom it right here
+```
+
+```python
+print(meshioplusplus.render_text(mesh, color_by="temperature"))      # ANSI text for this terminal
+image = meshioplusplus.render_image(mesh, 800, 600, supersample=2)   # an (H, W, 4) uint8 array
+meshioplusplus.snapshot(mesh, "part.png", edges="all")               # .png .txt .ansi .html .cast
+meshioplusplus.tui(mesh)                                             # the interactive viewer
+```
+
+Field rendering colours by an array, a `data_calc` expression or a tensor invariant on a linear, log or symlog scale with percentile clipping and a legend, draws categories, regions, isolines, vector arrows, streamlines that follow a vector field and a warp with its undeformed outline, and offers quality, orientation and free-edge diagnostic views. The same options reach C, Fortran, Julia, R, WebAssembly and the settings pipeline's `Snapshot` step.
+
+`tui` is the interactive viewer for a machine with no display: drag to orbit, wheel to zoom, click to probe a cell, `x`/`y`/`z` to cut the model open, `[` `]` to step through a time series (`--follow` watches a run that is still writing), `--compare` to put two meshes side by side, a `:` command line that takes the flags of `snapshot`, and sessions saved as JSON; only the changed cells are sent, and the terminal is restored however it ends. `view()` picks it by itself when there is no display but a terminal. For fun, `--theme synthwave` puts a banded sunset and a grid floor behind the model in neon, and `--music` plays a generated loop on whichever audio player the system has (off unless asked for, and silent in CI and over SSH).
+
+![The interactive terminal viewer](doc/public/images/tui_loop.svg)
+
+It is a preview, not a replacement for the viewers above; `screenshot()` falls back to it when Polyscope is not installed, and the MCP server's `render_mesh` tool lets an agent look at a mesh. See [`doc/tui.md`](doc/tui.md).
+
+</details>
+
+<details>
 <summary><b>Interoperability</b> — PyVista/trimesh, Arrow/Parquet/pandas/polars, GPU handoff, ML graphs/features/datasets, PhysicsNeMo, grids, point clouds, proximity graphs (click to expand)</summary>
 
 ### Interoperability
@@ -1232,7 +1280,7 @@ cmake --build build && cmake --install build --prefix /opt/meshioplusplus
 ```
 
 ```cmake
-find_package(meshioplusplus 16.32.0 EXACT CONFIG REQUIRED COMPONENTS CXX)
+find_package(meshioplusplus 16.40.0 EXACT CONFIG REQUIRED COMPONENTS CXX)
 target_link_libraries(my_solver PRIVATE meshioplusplus::core)
 ```
 

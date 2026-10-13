@@ -1,17 +1,37 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: valkey
-Version: 6.1.1
+Version: 6.2.0
 Summary: Python client for Valkey forked from redis-py
-Home-page: https://github.com/valkey-io/valkey-py
-Author: valkey-py authors
-Author-email: valkey-py@lists.valkey.io
-License: MIT
+Project-URL: Homepage, https://github.com/valkey-io/valkey-py
 Project-URL: Documentation, https://valkey-py.readthedocs.io/en/latest/
 Project-URL: Changes, https://github.com/valkey-io/valkey-py/releases
 Project-URL: Code, https://github.com/valkey-io/valkey-py
 Project-URL: Issue tracker, https://github.com/valkey-io/valkey-py/issues
-Keywords: Valkey,key-value store,database
-Platform: UNKNOWN
+Author-email: valkey-py authors <valkey-py@lists.valkey.io>
+License: MIT License
+        
+        Copyright (c) 2022-2023, Redis, inc.
+        Copyright (c) 2024-present, valkey-py contributors
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: Valkey,database,key-value store
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -20,18 +40,22 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
+Requires-Python: >=3.11
+Requires-Dist: async-timeout>=4.0.3; python_full_version < '3.11.3'
 Provides-Extra: libvalkey
+Requires-Dist: libvalkey>=4.0.1; extra == 'libvalkey'
 Provides-Extra: ocsp
-License-File: LICENSE
+Requires-Dist: cryptography>=36.0.1; extra == 'ocsp'
+Requires-Dist: pyopenssl>=23.2.0; extra == 'ocsp'
+Requires-Dist: requests>=2.31.0; extra == 'ocsp'
+Description-Content-Type: text/markdown
 
 # valkey-py
 
@@ -74,12 +98,12 @@ $ pip install "valkey[libvalkey]"
 ### Basic Example
 
 ``` python
->>> import valkey
->>> r = valkey.Valkey(host='localhost', port=6379, db=0)
->>> r.set('foo', 'bar')
-True
->>> r.get('foo')
-b'bar'
+import valkey
+r = valkey.Valkey(host='localhost', port=6379, db=0)
+r.set('foo', 'bar')
+# True
+r.get('foo')
+# b'bar'
 ```
 
 The above code connects to localhost on port 6379, sets a value in Redis, and retrieves it. All responses are returned as bytes in Python, to receive decoded strings, set *decode_responses=True*.  For this, and more connection options, see [these examples](https://valkey-py.readthedocs.io/en/latest/examples.html).
@@ -89,20 +113,20 @@ The above code connects to localhost on port 6379, sets a value in Redis, and re
 You are encouraged to use the new class names, but to allow for a smooth transition alias are available:
 
 ``` python
->>> import valkey as redis
->>> r = redis.Redis(host='localhost', port=6379, db=0)
->>> r.set('foo', 'bar')
-True
->>> r.get('foo')
-b'bar'
+import valkey as redis
+r = redis.Redis(host='localhost', port=6379, db=0)
+r.set('foo', 'bar')
+# True
+r.get('foo')
+# b'bar'
 ```
 
 #### RESP3 Support
 To enable support for RESP3 change your connection object to include *protocol=3*
 
 ``` python
->>> import valkey
->>> r = valkey.Valkey(host='localhost', port=6379, db=0, protocol=3)
+import valkey
+r = valkey.Valkey(host='localhost', port=6379, db=0, protocol=3)
 ```
 
 ### Connection Pools
@@ -110,8 +134,8 @@ To enable support for RESP3 change your connection object to include *protocol=3
 By default, valkey-py uses a connection pool to manage connections. Each instance of a Valkey class receives its own connection pool. You can however define your own [valkey.ConnectionPool](https://valkey-py.readthedocs.io/en/latest/connections.html#connection-pools).
 
 ``` python
->>> pool = valkey.ConnectionPool(host='localhost', port=6379, db=0)
->>> r = valkey.Valkey(connection_pool=pool)
+pool = valkey.ConnectionPool(host='localhost', port=6379, db=0)
+r = valkey.Valkey(connection_pool=pool)
 ```
 
 Alternatively, you might want to look at [Async connections](https://valkey-py.readthedocs.io/en/latest/examples/asyncio_examples.html), or [Cluster connections](https://valkey-py.readthedocs.io/en/latest/connections.html#cluster-client), or even [Async Cluster connections](https://valkey-py.readthedocs.io/en/latest/connections.html#async-cluster-client).
@@ -152,12 +176,12 @@ The following is a basic example of a [Valkey pipeline](https://valkey.io/topics
 
 
 ``` python
->>> pipe = r.pipeline()
->>> pipe.set('foo', 5)
->>> pipe.set('bar', 18.5)
->>> pipe.set('blee', "hello world!")
->>> pipe.execute()
-[True, True, True]
+pipe = r.pipeline()
+pipe.set('foo', 5)
+pipe.set('bar', 18.5)
+pipe.set('blee', "hello world!")
+pipe.execute()
+# [True, True, True]
 ```
 
 ### PubSub
@@ -165,11 +189,11 @@ The following is a basic example of a [Valkey pipeline](https://valkey.io/topics
 The following example shows how to utilize [Valkey Pub/Sub](https://valkey.io/topics/pubsub/) to subscribe to specific channels.
 
 ``` python
->>> r = valkey.Valkey(...)
->>> p = r.pubsub()
->>> p.subscribe('my-first-channel', 'my-second-channel', ...)
->>> p.get_message()
-{'pattern': None, 'type': 'subscribe', 'channel': b'my-second-channel', 'data': 1}
+r = valkey.Valkey(...)
+p = r.pubsub()
+p.subscribe('my-first-channel', 'my-second-channel', ...)
+p.get_message()
+# {'pattern': None, 'type': 'subscribe', 'channel': b'my-second-channel', 'data': 1}
 ```
 
 
@@ -190,4 +214,3 @@ Special thanks to:
 -   Paul Hubbard for initial packaging support in redis-py.
 
 [![Valkey](./docs/logo-valkey.png)](https://valkey.io/)
-

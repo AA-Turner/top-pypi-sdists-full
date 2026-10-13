@@ -312,7 +312,7 @@ class KindSkillResult(KindModel):
     label="Kind Content Block Created",
     family="kind_authoring",
     example={
-        "render_definition_id": "ee55ee55-0000-4000-8000-000000000000",
+        "prompt_block_id": "ee55ee55-0000-4000-8000-000000000000",
         "block_id": "kind-invoice-summary",
         "kind": "invoice_summary",
         "template_chars": 640,
@@ -323,7 +323,7 @@ class KindSkillResult(KindModel):
 class KindContentBlockResult(KindModel):
     """Receipt of ``kind_create_content_block`` — the palette render block."""
 
-    render_definition_id: str = ""
+    prompt_block_id: str = ""
     block_id: str = ""
     kind: str = ""
     template_chars: int = 0

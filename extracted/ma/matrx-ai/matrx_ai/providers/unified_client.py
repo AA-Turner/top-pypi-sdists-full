@@ -1442,6 +1442,28 @@ class _SettingsSelfHeal:
         return True
 
 
+
+
+#: Chat routes whose transport stops at the send in capture mode (request_capture.py).
+_WIRE_CAPTURED_CLIENT_ATTRS: frozenset[str] = frozenset(
+    {
+        "openai_chat",
+        "anthropic_chat",
+        "cerebras_chat",
+        "together_chat",
+        "groq_chat",
+        "xai_chat",
+        "google_chat",
+        "huggingface_chat",
+        "moonshot_chat",
+        "mock_chat",
+        "generic_openai_chat",
+    }
+)
+
+class _SkipSpendGates(Exception):
+    """Internal: capture mode passes the spend gates (nothing is sent or spent)."""
+
 class UnifiedAIClient:
     """Unified client for all AI providers.
 
@@ -1638,6 +1660,20 @@ class UnifiedAIClient:
         model_name = profile.model_name
         caps = profile.capabilities
         wire_format = profile.wire_format
+
+        # CAPTURE MODE (request_capture.py): a route whose transport does not
+        # stop at the send (native decisions, extraction, research, realtime,
+        # embeddings, media) must never be reached for real — it returns the
+        # unified request it would have run, marked as not wire-captured.
+        from matrx_ai.providers.request_capture import capture_local_request, is_capturing
+
+        if is_capturing() and profile.client_attr not in _WIRE_CAPTURED_CLIENT_ATTRS:
+            capture_local_request(
+                provider=str(getattr(profile, "vendor", None) or profile.client_attr),
+                model=model_name,
+                body=config.to_dict() if hasattr(config, "to_dict") else config,
+                transport="uncaptured",
+            )
 
         # System One is a non-turn decision API, and THIS is its translator.
         #
@@ -2016,7 +2052,14 @@ class UnifiedAIClient:
         # THE HELD-RUN SEAM — any gate below that refuses hands the host what this run was about
         # to send (config, profile, the agent's variables) so a person can watch it run once.
         # Recording never changes the refusal. See providers/held_run_seam.py.
+        from matrx_ai.providers.guardrail_gate import note_paid_result
+        from matrx_ai.providers.request_capture import is_capturing
+
         try:
+            if is_capturing():
+                # CAPTURE MODE (request_capture.py): nothing is sent, nothing is
+                # spent — the spend gates have nothing to admit or refuse.
+                raise _SkipSpendGates
             from matrx_ai.providers.usage_gate import admit_paid_call
 
             await admit_paid_call()
@@ -2045,9 +2088,11 @@ class UnifiedAIClient:
             # (schedule / workflow trigger) is stopped at its max turns, max cost per run and its
             # daily / weekly / monthly caps, and refused when it carries no limits. Turns already
             # taken keep their output. The host decides from memory. See providers/guardrail_gate.py.
-            from matrx_ai.providers.guardrail_gate import admit_guardrails, note_paid_result
+            from matrx_ai.providers.guardrail_gate import admit_guardrails
 
             admit_guardrails(profile, config)
+        except _SkipSpendGates:
+            pass
         except BaseException as gate_refusal:
             from matrx_ai.providers.held_run_seam import record_refusal
 
@@ -2192,6 +2237,11 @@ class UnifiedAIClient:
                     answer_off_contract = bool(answer_problems)
                 return result
             except BaseException as exc:  # noqa: BLE001 — re-raised untouched below
+                from matrx_ai.providers.request_capture import is_request_capture
+
+                if is_request_capture(exc):
+                    # Captured, never sent: not a failure, nothing to report.
+                    raise
                 # THE one door every dispatched provider failure takes to the
                 # operator (out-of-credit alarm), then LAYER 2 — shared with
                 # runtimes that cannot hand their call here. Never raises.
@@ -2209,12 +2259,18 @@ class UnifiedAIClient:
                 )
                 raise
             finally:
+                from matrx_ai.providers.request_capture import is_capturing as _capturing
+
                 try:
-                    await flush_translation_findings(
-                        model=getattr(profile, "model_name", None),
-                        succeeded=succeeded,
-                        answer_off_contract=answer_off_contract,
-                    )
+                    if _capturing():
+                        # Captured, never sent: no call happened, so no finding is recorded.
+                        pass
+                    else:
+                        await flush_translation_findings(
+                            model=getattr(profile, "model_name", None),
+                            succeeded=succeeded,
+                            answer_off_contract=answer_off_contract,
+                        )
                 except Exception as flush_exc:  # noqa: BLE001 — a finding sink never replaces the call's outcome
                     # Never silent: this was `except Exception: pass`, so a broken
                     # sink lost every structured-output finding of the call with no

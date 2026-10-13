@@ -4,6 +4,7 @@ import importlib.resources
 import json
 import logging
 import queue
+from collections.abc import Mapping
 from enum import Enum
 from itertools import islice
 from pathlib import Path
@@ -23,8 +24,20 @@ from pymobiledevice3.cli.cli_common import (
     user_requested_colored_output,
 )
 from pymobiledevice3.exceptions import DvtException, ExtractingStackshotError
+from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.services.dvt.instruments.core_profile_session_tap import CoreProfileSessionTap
+from pymobiledevice3.services.dvt.instruments.device_support_symbols import (
+    DeviceSupportSymbols,
+    find_device_support_symbols,
+)
 from pymobiledevice3.services.dvt.instruments.dvt_provider import DvtProvider
+from pymobiledevice3.services.dvt.instruments.kernel_symbols import KernelSymbols
+from pymobiledevice3.services.dvt.instruments.stackshot import (
+    StackshotFrame,
+    StackshotProcess,
+    kernel_image_uuids,
+    resolve_stackshot,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -232,13 +245,174 @@ async def save_profile_session(
             await tap.dump(out_file)
 
 
+def _format_size(size: int) -> str:
+    value = float(size)
+    for unit in ("B", "KB", "MB"):
+        if value < 1024:
+            return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
+        value /= 1024
+    return f"{value:.1f} GB"
+
+
+def _format_stackshot_frame(index: int, frame: StackshotFrame, image_width: int, colored: bool) -> str:
+    def style(text: str, **kwargs: Any) -> str:
+        return typer.style(text, **kwargs) if colored else text
+
+    if frame.image is None:
+        location = style(f"0x{frame.address:x}", fg="bright_blue")
+    else:
+        if frame.symbol is not None:
+            position = f"{style(frame.symbol, fg='green')} + 0x{frame.symbol_offset:x}"
+        else:
+            position = style(f"0x{frame.image_offset:x}", fg="bright_blue")
+        location = f"{style(frame.image.ljust(image_width), fg='cyan')}  {position}"
+    if frame.kernel:
+        location += style("  (kernel)", dim=True)
+    return f"    {index:>3}  {location}"
+
+
+def format_stackshot(processes: list[StackshotProcess], colored: bool = False) -> str:
+    """Format the call stacks of the given processes, one block per process and thread."""
+
+    def style(text: str, **kwargs: Any) -> str:
+        return typer.style(text, **kwargs) if colored else text
+
+    lines: list[str] = []
+    for process in processes:
+        title = [style(f"{process.name} [{process.pid}]", fg="yellow", bold=True)]
+        if process.task_size:
+            title.append(f"size {_format_size(process.task_size)}")
+        if process.max_resident_size:
+            title.append(f"max rss {_format_size(process.max_resident_size)}")
+        if process.suspend_count:
+            title.append(f"suspended x{process.suspend_count}")
+        title.append(f"{len(process.threads)} threads")
+        lines.append("  ".join(title))
+
+        for thread in process.threads:
+            title = [style(f"Thread {thread.thread_id}", bold=True)]
+            title += [style(name, fg="magenta") for name in (thread.name, thread.dispatch_queue) if name]
+            title += thread.states
+            if thread.qos is not None:
+                title.append(thread.qos)
+            if thread.sched_priority is not None:
+                title.append(f"pri {thread.sched_priority}")
+            if thread.user_usec is not None and thread.system_usec is not None:
+                title.append(f"cpu {thread.user_usec / 1e6:.3f}s user, {thread.system_usec / 1e6:.3f}s sys")
+            if thread.wait_event:
+                title.append(f"wait 0x{thread.wait_event:x}")
+            if thread.continuation is not None:
+                title.append(f"continuation {thread.continuation}")
+            lines.append("  " + "  ".join(title))
+
+            image_width = max((len(frame.image) for frame in thread.frames if frame.image is not None), default=0)
+            lines.extend(
+                _format_stackshot_frame(i, frame, image_width, colored) for i, frame in enumerate(thread.frames)
+            )
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _load_stackshot_symbols(
+    service_provider: LockdownServiceProvider, symbols: Optional[Path]
+) -> Optional[DeviceSupportSymbols]:
+    if symbols is None:
+        symbols = find_device_support_symbols(service_provider)
+        if symbols is None:
+            logger.warning(
+                f"No Xcode device support was found for {service_provider.product_type} "
+                f"{service_provider.product_version} ({service_provider.product_build_version}), so call stacks are "
+                f"not symbolicated. Run `pymobiledevice3 developer fetch-symbols download` to get it."
+            )
+            return None
+    loaded_symbols = DeviceSupportSymbols.load(symbols)
+    if not loaded_symbols.has_shared_cache_images:
+        logger.warning(
+            f"{symbols} holds no images of the dyld shared cache, so call stacks are mostly not symbolicated. "
+            f"Run `pymobiledevice3 developer fetch-symbols download --force` to get them."
+        )
+    return loaded_symbols
+
+
+def _load_stackshot_kernel_symbols(
+    kernelcache: Optional[Path], signatures: Optional[Path], stackshot: Mapping[str, Any]
+) -> Optional[KernelSymbols]:
+    if kernelcache is None:
+        return None
+    try:
+        kernel_symbols = KernelSymbols.load(kernelcache, signatures)
+    except OSError as e:
+        logger.error(f"Reading the kernel symbols of {kernelcache} failed: {e}")
+        raise typer.Exit(1) from e
+
+    if not any(kernel_symbols.image_by_uuid(image_uuid) is not None for image_uuid in kernel_image_uuids(stackshot)):
+        logger.warning(
+            f"{kernelcache} is not the kernelcache the device runs, so kernel frames are not symbolicated. "
+            f"Use the one of the firmware the device has installed."
+        )
+    elif not kernel_symbols.has_symbols:
+        logger.warning(
+            f"{kernelcache} holds no symbols, so kernel frames only get the name of their image. "
+            f"Pass --kernel-signatures to symbolicate them."
+        )
+    return kernel_symbols
+
+
 @cli.command("stackshot")
 @async_command
 async def stackshot(
     service_provider: ServiceProviderDep,
-    out: Annotated[Optional[Path], typer.Option()] = None,
+    out: Annotated[
+        Optional[Path],
+        typer.Option(help="Write the raw stackshot as JSON into this file instead of printing it."),
+    ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print the raw stackshot as JSON instead of the call stacks."),
+    ] = False,
+    process: Annotated[
+        Optional[str],
+        typer.Option(help="Process ID / name to filter. Omit for all."),
+    ] = None,
+    symbols: Annotated[
+        Optional[Path],
+        typer.Option(
+            exists=True,
+            file_okay=False,
+            help="Directory of symbols to use (as created by `developer fetch-symbols download`), instead of "
+            "the Xcode device support of the device.",
+        ),
+    ] = None,
+    kernelcache: Annotated[
+        Optional[Path],
+        typer.Option(
+            exists=True,
+            dir_okay=False,
+            help="Kernelcache of the firmware the device runs (as found in its IPSW), to name the kernel "
+            "images of kernel frames. Requires `ipsw` unless it is already decompressed.",
+        ),
+    ] = None,
+    kernel_signatures: Annotated[
+        Optional[Path],
+        typer.Option(
+            exists=True,
+            file_okay=False,
+            help="Directory of `ipsw` kernel symbolication signatures (the `kernel` directory of "
+            "https://github.com/blacktop/symbolicator), to symbolicate kernel frames of --kernelcache. "
+            "Requires `ipsw`.",
+        ),
+    ] = None,
 ) -> None:
-    """Dump stackshot information."""
+    """
+    Print the call stacks of all threads of all processes.
+
+    The call stacks are symbolicated using the Xcode device support of the device, which
+    `developer fetch-symbols download` creates. Kernel frames are symbolicated when given
+    --kernelcache and --kernel-signatures.
+    """
+    if kernel_signatures is not None and kernelcache is None:
+        raise typer.BadParameter("--kernel-signatures requires --kernelcache")
+
     max_retries = 5
     retry_delay_sec = 0.5
     async with DvtProvider(service_provider) as dvt:
@@ -268,10 +442,21 @@ async def stackshot(
             # only reaches here if every attempt failed non-fatally.
             return
 
-        if out is not None:
-            out.write_text(json.dumps(data, indent=4, default=default_json_encoder))
-        else:
-            print_json(data)
+    if out is not None:
+        out.write_text(json.dumps(data, indent=4, default=default_json_encoder))
+        return
+    if json_output:
+        print_json(data)
+        return
+
+    processes = resolve_stackshot(
+        data,
+        _load_stackshot_symbols(service_provider, symbols),
+        _load_stackshot_kernel_symbols(kernelcache, kernel_signatures, data),
+    )
+    if process is not None:
+        processes = [p for p in processes if process in (str(p.pid), p.name)]
+    print(format_stackshot(processes, colored=user_requested_colored_output()))
 
 
 @cli.command("parse-live")

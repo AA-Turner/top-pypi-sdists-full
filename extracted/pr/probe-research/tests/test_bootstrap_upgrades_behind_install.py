@@ -87,6 +87,25 @@ def test_a_pinned_reinstall_pins_the_uv_spec_and_reads_a_fresh_index(monkeypatch
     assert result.installed
 
 
+def test_a_reinstall_over_an_existing_tool_environment_does_not_force(monkeypatch, tmp_path):
+    """`--force` deletes and rebuilds the environment under every running `probe`
+    (2026-10-12); over an existing uv tool a plain install upgrades in place."""
+    seen: list[list[str]] = []
+
+    def run(command, **kwargs):
+        seen.append(list(command))
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(bootstrap.shutil, "which", lambda name: "/usr/bin/" + name if name == "uv" else None)
+    monkeypatch.setattr(bootstrap.subprocess, "run", run)
+    monkeypatch.setattr(bootstrap, "_persistent_tool_env", lambda command, name: str(tmp_path))
+
+    bootstrap.install_persistent(f"{bootstrap.INSTALL_SPEC}==9.9.9")
+
+    install = next(c for c in seen if c[:3] == ["uv", "tool", "install"])
+    assert "--force" not in install and any(arg.endswith("==9.9.9") for arg in install), install
+
+
 def test_an_update_from_a_stale_copy_pins_to_the_newer_target(monkeypatch):
     """`probe update` passes the manifest's latest: a stale throwaway copy
     must not pin the install to itself when a newer one exists."""

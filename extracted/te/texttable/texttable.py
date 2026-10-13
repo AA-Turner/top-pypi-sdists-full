@@ -63,7 +63,7 @@ __all__ = ["Texttable", "ArraySizeError"]
 
 __author__ = 'Gerome Fournier <jef(at)foutaise.org>'
 __license__ = 'MIT'
-__version__ = '1.7.0'
+__version__ = '1.7.1'
 __credits__ = """\
 Jeff Kowalczyk:
     - textwrap improved import
@@ -242,6 +242,7 @@ class Texttable:
         array = [ x[:1] for x in [ str(s) for s in array ] ]
         (self._char_horiz, self._char_vert,
             self._char_corner, self._char_header) = array
+        self._hline_string = None
         return self
 
     def set_deco(self, deco):
@@ -346,6 +347,7 @@ class Texttable:
             sys.stderr.write("Wrong argument in column width specification\n")
             raise
         self._width = array
+        self._hline_string = None
         return self
 
     def set_precision(self, width):
@@ -398,7 +400,9 @@ class Texttable:
         # nb: don't use 'iter' on by-dimensional arrays, to get a
         #     usable code for python 2.1
         if header:
-            if hasattr(rows, '__iter__') and hasattr(rows, 'next'):
+            if hasattr(rows, '__next__'):
+                self.header(next(rows))
+            elif hasattr(rows, '__iter__') and hasattr(rows, 'next'):
                 self.header(rows.next())
             else:
                 self.header(rows[0])

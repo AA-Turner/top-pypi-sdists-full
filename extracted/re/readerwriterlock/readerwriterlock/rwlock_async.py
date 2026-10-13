@@ -7,6 +7,7 @@ import asyncio
 import sys
 import time
 
+from typing import Any
 from typing import Callable
 from typing import Optional
 from typing import Type
@@ -18,7 +19,10 @@ from typing_extensions import runtime_checkable
 try:
 	from asyncio import create_task as run_task
 except ImportError:  # pragma: no cover
-	from asyncio import ensure_future as run_task  # type: ignore [misc]  # pragma: no cover
+	from asyncio import ensure_future as run_task  # type: ignore [assignment]  # pragma: no cover
+
+RELEASE_ERR_MSG: str
+RELEASE_ERR_CLS: type
 
 try:
 	asyncio.Lock().release()
@@ -50,7 +54,7 @@ class Lockable(Protocol):
 		await self.acquire()
 		return False
 
-	async def __aexit__(self, exc_type: Optional[Type[BaseException]], exc_val: Optional[Exception], exc_tb: Optional[TracebackType]) -> Optional[bool]:  # type: ignore
+	async def __aexit__(self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]) -> Optional[bool]:  # type: ignore
 		"""Exit context manager."""
 		await self.release()
 		return False
@@ -80,16 +84,16 @@ class _ThreadSafeInt():
 		"""Get int value."""
 		return self.__value
 
-	def __eq__(self, other) -> bool:
+	def __eq__(self, other: Any) -> bool:
 		"""Self == other."""
 		return int(self) == int(other)
 
-	async def increment(self):
+	async def increment(self) -> None:
 		"""Increment the value by one."""
 		async with self.__value_lock:
 			self.__value += 1
 
-	async def decrement(self):
+	async def decrement(self) -> None:
 		"""Decrement the value by one."""
 		async with self.__value_lock:
 			self.__value -= 1
@@ -288,12 +292,12 @@ class RWLockWrite(RWLockable):
 			except asyncio.TimeoutError:
 				return False
 			self.c_rw_lock.v_write_count += 1
-			if 1 == int(self.c_rw_lock.v_write_count):
+			if 1 == self.c_rw_lock.v_write_count:
 				try:
 					await asyncio.wait_for(self.c_rw_lock.c_lock_read_try.acquire(), timeout=(None if c_deadline is None else max(sys.float_info.min, c_deadline - self.c_rw_lock.c_time_source())))
 				except asyncio.TimeoutError:
 					self.c_rw_lock.v_write_count -= 1
-					self.c_rw_lock.c_lock_write_count.release()
+					self.c_rw_lock.c_lock_write_count.release()  # type: ignore [func-returns-value]
 					return False
 			self.c_rw_lock.c_lock_write_count.release()
 			try:
@@ -301,7 +305,7 @@ class RWLockWrite(RWLockable):
 			except asyncio.TimeoutError:
 				await self.c_rw_lock.c_lock_write_count.acquire()
 				self.c_rw_lock.v_write_count -= 1
-				if 0 == int(self.c_rw_lock.v_write_count):
+				if 0 == self.c_rw_lock.v_write_count:
 					self.c_rw_lock.c_lock_read_try.release()
 				self.c_rw_lock.c_lock_write_count.release()
 				return False
@@ -315,7 +319,7 @@ class RWLockWrite(RWLockable):
 			self.c_rw_lock.c_resource.release()
 			await self.c_rw_lock.c_lock_write_count.acquire()
 			self.c_rw_lock.v_write_count -= 1
-			if 0 == int(self.c_rw_lock.v_write_count):
+			if 0 == self.c_rw_lock.v_write_count:
 				self.c_rw_lock.c_lock_read_try.release()
 			self.c_rw_lock.c_lock_write_count.release()
 

@@ -9,6 +9,8 @@ from tools.corpus.io import (
     iter_corpus_entries_from_refs,
     iter_corpus_file,
     iter_corpus_streaming,
+    load_corpus_entry,
+    parse_schemas,
 )
 
 
@@ -38,6 +40,31 @@ def test_iter_all_corpus_files_reads_every_tarball(tmp_path, make_tarball):
 )
 def test_get_schema_version_detects_supported_versions(raw_schema, expected):
     assert get_schema_version(raw_schema) == expected
+
+
+def test_parse_schemas_skips_schema_without_version(tmp_path):
+    valid_schema = {"openapi": "3.0.3", "info": {"title": "valid", "version": "1"}, "paths": {}}
+    (tmp_path / "valid-openapi.yaml").write_text("openapi: 3.0.3\ninfo: {title: valid, version: '1'}\npaths: {}\n")
+    (tmp_path / "versionless-openapi.yaml").write_text("info: {title: invalid, version: '1'}\npaths: {}\n")
+
+    assert parse_schemas(tmp_path) == {"3.0": {"valid-openapi.yaml": valid_schema}}
+
+
+def test_parse_schemas_reads_yaml_as_yaml_1_2(tmp_path):
+    (tmp_path / "openapi.yaml").write_text(
+        "openapi: 3.0.3\npaths: {}\nx-values: {flag: on, answer: yes, payload: !!binary YWJj}\non: off\n"
+    )
+
+    assert parse_schemas(tmp_path) == {
+        "3.0": {
+            "openapi.yaml": {
+                "openapi": "3.0.3",
+                "paths": {},
+                "x-values": {"flag": "on", "answer": "yes", "payload": "YWJj"},
+                "on": "off",
+            }
+        }
+    }
 
 
 def test_iter_corpus_streaming_filters_by_name_before_decoding(tmp_path, make_tarball):
@@ -77,6 +104,18 @@ def test_iter_corpus_entries_from_refs_reads_requested_members(tmp_path, make_ta
         CorpusEntry(corpus="openapi-3.0", name="beta.json", schema={"openapi": "3.0.0", "paths": {"/b": {}}}),
         CorpusEntry(corpus="openapi-3.0", name="alpha.json", schema={"openapi": "3.0.0", "paths": {"/a": {}}}),
     ]
+
+
+def test_load_corpus_entry_separates_data_directories(tmp_path, make_tarball):
+    first_directory = tmp_path / "first"
+    second_directory = tmp_path / "second"
+    first_directory.mkdir()
+    second_directory.mkdir()
+    make_tarball(first_directory / "same.tar.gz", {"entry.json": b'{"marker":"first"}'})
+    make_tarball(second_directory / "same.tar.gz", {"entry.json": b'{"marker":"second"}'})
+
+    assert load_corpus_entry("same", "entry.json", data_dir=first_directory).schema == {"marker": "first"}
+    assert load_corpus_entry("same", "entry.json", data_dir=second_directory).schema == {"marker": "second"}
 
 
 def test_corpus_entry_api_strips_json_suffix():

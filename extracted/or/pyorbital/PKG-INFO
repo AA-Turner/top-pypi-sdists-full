@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pyorbital
-Version: 1.13.0
+Version: 1.14.0
 Summary: Scheduling satellite passes in Python
 Project-URL: Documentation, https://pyorbital.readthedocs.io/en/latest/
 Author-email: The Pytroll Team <pytroll@googlegroups.com>
@@ -12,7 +12,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Astronomy
-Requires-Python: >=3.10
+Requires-Python: >=3.12
 Requires-Dist: defusedxml
 Requires-Dist: donfig
 Requires-Dist: numpy>=2.0.0

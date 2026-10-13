@@ -1,0 +1,145 @@
+use std::path::PathBuf;
+
+use itertools::Either;
+use tombi_config::TomlVersion;
+use tombi_glob::{MatchResult, matches_file_patterns};
+use tombi_uri::SchemaUri;
+use tower_lsp_server::gen_lsp_types::TextDocumentIdentifier;
+
+use crate::{backend::Backend, config_manager::ConfigSchemaStore, handler::TomlVersionSource};
+
+pub async fn handle_get_status(
+    backend: &Backend,
+    params: TextDocumentIdentifier,
+) -> Result<GetStatusResponse, tower_lsp_server::jsonrpc::Error> {
+    log::info!("handle_get_status");
+    log::trace!("{:?}", params);
+
+    let TextDocumentIdentifier { uri } = params;
+    let text_document_uri = uri.into();
+
+    let ConfigSchemaStore {
+        config,
+        config_path,
+        schema_store,
+    } = backend
+        .config_manager
+        .config_schema_store_for_uri(&text_document_uri)
+        .await;
+
+    let document_source = backend
+        .document_sources
+        .read()
+        .await
+        .get(&text_document_uri)
+        .cloned();
+    let (toml_version, source, schema) = {
+        if let Some(document_source) = document_source {
+            let (toml_version, source) = backend
+                .text_document_toml_version_and_source(&text_document_uri, &document_source.ast())
+                .await;
+
+            let root = document_source.ast();
+            // resolve_source_schema_from_ast checks the comment directive first,
+            // then falls back to other methods.
+            let schema_uri = match schema_store
+                .resolve_source_schema_from_ast(&root, Some(Either::Left(&text_document_uri)))
+                .await
+            {
+                Ok(Some(source_schema)) => source_schema
+                    .root_schema
+                    .as_ref()
+                    .map(|s| s.schema_document_uri().clone()),
+                _ => None,
+            };
+
+            let schema = if let Some(schema_uri) = schema_uri {
+                let schemas = schema_store.list_schemas().await;
+                if let Some(schema) = schemas.iter().find(|s| s.schema_uri == schema_uri) {
+                    Some(SchemaStatus {
+                        title: schema.title.clone(),
+                        description: schema.description.clone(),
+                        uri: schema_uri,
+                    })
+                } else {
+                    match schema_store.try_get_document_schema(&schema_uri).await {
+                        Ok(Some(doc_schema)) => {
+                            let (title, description) =
+                                if let Some(schema_view) = &doc_schema.schema_view {
+                                    (
+                                        schema_view.title().map(|s| s.to_string()),
+                                        schema_view.description().map(|s| s.to_string()),
+                                    )
+                                } else {
+                                    (None, None)
+                                };
+                            Some(SchemaStatus {
+                                title,
+                                description,
+                                uri: schema_uri,
+                            })
+                        }
+                        _ => Some(SchemaStatus {
+                            title: None,
+                            description: None,
+                            uri: schema_uri,
+                        }),
+                    }
+                }
+            } else {
+                None
+            };
+
+            (toml_version, source, schema)
+        } else {
+            (TomlVersion::default(), TomlVersionSource::Default, None)
+        }
+    };
+
+    let mut ignore = None;
+    if let Ok(text_document_path) = text_document_uri.to_file_path() {
+        ignore = match matches_file_patterns(&text_document_path, config_path.as_deref(), &config) {
+            MatchResult::IncludeNotMatched => Some(IgnoreReason::IncludeFilePatternNotMatched),
+            MatchResult::ExcludeMatched => Some(IgnoreReason::ExcludeFilePatternMatched),
+            MatchResult::Matched => None,
+        };
+    }
+
+    Ok(GetStatusResponse {
+        toml_version,
+        source,
+        config_path,
+        ignore,
+        schema,
+    })
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetStatusResponse {
+    pub toml_version: TomlVersion,
+    pub source: TomlVersionSource,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config_path: Option<PathBuf>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ignore: Option<IgnoreReason>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema: Option<SchemaStatus>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SchemaStatus {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub uri: SchemaUri,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum IgnoreReason {
+    IncludeFilePatternNotMatched,
+    ExcludeFilePatternMatched,
+}

@@ -131,6 +131,7 @@ ResourceTypeType = Literal[
     "AWS::SecurityHub::Hub",
     "AWS::SecurityHub::HubV2",
     "AWS::WAFv2::WebACL",
+    "AWS::XRay::TransactionSearchConfig",
 ]
 RuleHealthType = Literal["Healthy", "Provisioning", "Unhealthy"]
 SSEAlgorithmType = Literal["AES256", "aws:kms"]
@@ -311,6 +312,7 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
@@ -385,6 +387,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -519,6 +522,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

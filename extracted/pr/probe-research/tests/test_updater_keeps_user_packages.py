@@ -62,11 +62,13 @@ def uv_tools(tmp_path, monkeypatch):
     Yields (run, tool_dir): ``run(cmd)`` runs a command in that setup."""
     wheels = tmp_path / "wheels"
     wheels.mkdir()
-    _wheel(
-        wheels, "probe-research", "1.0.0",
-        extras={"all": ["fakecli"], "mcp-http": ["fakehttp"], "cli": ["fakecli"]}, script="probe",
-    )
-    for name in ("fakecli", "fakehttp", "sixfake"):
+    for version in ("1.0.0", "1.0.1"):
+        _wheel(
+            wheels, "probe-research", version,
+            extras={"all": ["fakecli"], "mcp-http": ["fakehttp"], "cli": ["fakecli"], "daemon": ["fakedaemon"]},
+            script="probe",
+        )
+    for name in ("fakecli", "fakehttp", "sixfake", "fakedaemon"):
         _wheel(wheels, name, "1.0.0")
     env = {
         **os.environ,
@@ -81,6 +83,7 @@ def uv_tools(tmp_path, monkeypatch):
     # The test process may have the daemon's AI libraries; the fake has no
     # `daemon` extra, so keep `_dist()` from asking for one.
     monkeypatch.setitem(sys.modules, "pydantic_ai", None)
+    monkeypatch.setitem(sys.modules, "pydantic_ai_harness", None)
     # Also for code that runs `uv` itself (bootstrap), reading os.environ.
     for key in ("UV_TOOL_DIR", "UV_TOOL_BIN_DIR", "UV_FIND_LINKS", "UV_NO_INDEX", "UV_OFFLINE", "UV_PYTHON", "UV_CACHE_DIR"):
         monkeypatch.setenv(key, env[key])
@@ -125,13 +128,62 @@ def test_the_old_restatement_drops_them(uv_tools):
 
 
 def test_the_pinned_fallback_keeps_them_too(uv_tools):
-    """`uv tool upgrade` no-ops on a pinned install; the forced `@latest`
-    reinstall that follows must carry the same things."""
+    """`uv tool upgrade` no-ops on a pinned install; the `@latest` install that
+    follows must carry the same things."""
     run, tool = uv_tools
     run(["uv", "tool", "install", "probe-research[mcp-http]==1.0.0", "--with", "sixfake"])
     kept = updater.kept_from_uv_receipt(tool)
-    run(updater.uv_tool_install_command(kept, force=True, version="@latest"))
+    run(updater.uv_tool_install_command(kept, version="@latest"))
     assert _has(tool, "sixfake_mod") and _has(tool, "fakehttp_mod") and _has(tool, "fakecli_mod")
+
+
+def _sentinel(tool: Path) -> Path:
+    """A file in the environment's `lib/pythonX.Y`, standing in for the files a
+    running `probe` (a daemon worker) reads after it started."""
+    lib = next((tool / "lib").glob("python3*"))
+    path = lib / "site-packages" / "a-running-probe-reads-me.txt"
+    path.write_text("x")
+    return path
+
+
+def _version(tool: Path) -> str:
+    python = tool / "bin" / "python"
+    done = subprocess.run(
+        [str(python), "-c", "import importlib.metadata as m; print(m.version('probe-research'))"],
+        capture_output=True, text=True, check=True,
+    )
+    return done.stdout.strip()
+
+
+def test_the_daemon_install_adds_the_extra_without_rebuilding_the_environment(uv_tools):
+    """2026-10-12: `--force` deleted and rebuilt the environment under a live
+    daemon worker. `probe daemon install`'s command adds the extra in place."""
+    run, tool = uv_tools
+    run(["uv", "tool", "install", "probe-research[mcp-http]==1.0.0"])
+    sentinel = _sentinel(tool)
+    kept = updater.kept_from_uv_receipt(tool)
+    wanted = updater.KeptInstall(extras=("daemon", *kept.extras), with_packages=kept.with_packages, python=kept.python)
+    run(updater.uv_tool_install_command(wanted, version="==1.0.0"))
+    assert sentinel.exists(), "the install rebuilt the environment under a running probe"
+    assert _has(tool, "fakedaemon_mod") and _has(tool, "fakehttp_mod")
+
+
+def test_the_update_fallback_upgrades_a_pinned_install_in_place(uv_tools):
+    run, tool = uv_tools
+    run(["uv", "tool", "install", "probe-research[mcp-http]==1.0.0"])
+    sentinel = _sentinel(tool)
+    run(updater.uv_tool_install_command(updater.kept_from_uv_receipt(tool), version="@latest"))
+    assert _version(tool) == "1.0.1"
+    assert sentinel.exists(), "the upgrade rebuilt the environment under a running probe"
+
+
+def test_a_forced_reinstall_rebuilds_the_environment(uv_tools):
+    """The control: what the two tests above would see with `--force`."""
+    run, tool = uv_tools
+    run(["uv", "tool", "install", "probe-research[mcp-http]==1.0.0"])
+    sentinel = _sentinel(tool)
+    run(updater.uv_tool_install_command(updater.kept_from_uv_receipt(tool), force=True, version="@latest"))
+    assert not sentinel.exists()
 
 
 def test_a_receipt_it_cannot_restate_is_left_alone(tmp_path):
@@ -171,6 +223,7 @@ def test_a_failed_restatement_is_not_reported_as_an_upgrade(monkeypatch):
 
     monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
     monkeypatch.setitem(sys.modules, "pydantic_ai", None)
+    monkeypatch.setitem(sys.modules, "pydantic_ai_harness", None)
     monkeypatch.setattr(updater, "_run", run)
     result = updater.upgrade_cli(updater.Install(updater.Method.UV_TOOL), "1.0.0", "1.1.0")
     assert calls == [["uv", "tool", "install", "probe-research[all]"]]
@@ -185,6 +238,7 @@ def test_pipx_keeps_the_extras_its_spec_recorded(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(sys, "prefix", str(tmp_path))
     monkeypatch.setitem(sys.modules, "pydantic_ai", None)
+    monkeypatch.setitem(sys.modules, "pydantic_ai_harness", None)
     calls: list[list[str]] = []
     monkeypatch.setattr(updater, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
     monkeypatch.setattr(updater, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))
@@ -205,6 +259,7 @@ def test_pipx_injected_packages_go_back_in(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(sys, "prefix", str(tmp_path))
     monkeypatch.setitem(sys.modules, "pydantic_ai", None)
+    monkeypatch.setitem(sys.modules, "pydantic_ai_harness", None)
     calls: list[list[str]] = []
     monkeypatch.setattr(updater, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
     monkeypatch.setattr(updater, "_finalize", lambda before, target, tool: updater.CliResult(True, True, True, before, target, "ok"))

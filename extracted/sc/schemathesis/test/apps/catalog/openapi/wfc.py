@@ -382,3 +382,210 @@ def wfc_accounts_seeded_later() -> OpenAPIApp:
         return jsonify({"name": current})
 
     return OpenAPIApp(spec=spec, server=app, kind="flask")
+
+
+_ORDER = {
+    "type": "object",
+    "properties": {"id": {"type": "integer"}, "item": {"type": "string"}, "owner": {"type": "string"}},
+    "required": ["id", "item", "owner"],
+}
+_ORDER_RESPONSE = {"content": {"application/json": {"schema": _ORDER}}}
+_OWNED_ORDERS = {
+    "/api/orders": {
+        "post": {
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"type": "object", "properties": {"item": {"type": "string"}}, "required": ["item"]}
+                    }
+                },
+            },
+            "responses": {"201": {"description": "Created", **_ORDER_RESPONSE}},
+        }
+    },
+    "/api/orders/{order_id}": {
+        "get": {
+            "parameters": [{"name": "order_id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+            "responses": {"200": {"description": "OK", **_ORDER_RESPONSE}, "404": {"description": "Not found"}},
+        }
+    },
+}
+
+
+_NOTE = {
+    "type": "object",
+    "properties": {"id": {"type": "integer"}, "order_id": {"type": "integer"}, "text": {"type": "string"}},
+    "required": ["id", "order_id", "text"],
+}
+_NOTE_BODY = {
+    "required": True,
+    "content": {
+        "application/json": {
+            "schema": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}
+        }
+    },
+}
+_NOTE_RESPONSES = {
+    "201": {"description": "Created", "content": {"application/json": {"schema": _NOTE}}},
+    "404": {"description": "Not found"},
+}
+_ORDER_ID = {"name": "order_id", "required": True, "schema": {"type": "integer"}}
+_NOTE_BODY_WITH_ORDER = {
+    "required": True,
+    "content": {
+        "application/json": {
+            "schema": {
+                "type": "object",
+                "properties": {"order_id": {"type": "integer"}, "text": {"type": "string"}},
+                "required": ["order_id", "text"],
+            }
+        }
+    },
+}
+_ORDER_NOTES = {
+    "/api/orders/{order_id}/notes": {
+        "post": {"parameters": [{**_ORDER_ID, "in": "path"}], "requestBody": _NOTE_BODY, "responses": _NOTE_RESPONSES}
+    },
+    "/api/notes": {
+        "post": {"parameters": [{**_ORDER_ID, "in": "query"}], "requestBody": _NOTE_BODY, "responses": _NOTE_RESPONSES}
+    },
+    "/api/order-notes": {"post": {"requestBody": _NOTE_BODY_WITH_ORDER, "responses": _NOTE_RESPONSES}},
+}
+
+_KEYED_CREATE = {
+    "put": {
+        "parameters": [{**_ORDER_ID, "in": "path"}],
+        "requestBody": _OWNED_ORDERS["/api/orders"]["post"]["requestBody"],
+        "responses": {"201": {"description": "Created", **_ORDER_RESPONSE}, "409": {"description": "Exists"}},
+    }
+}
+
+
+def wfc_owned_orders(
+    policy: str, listing: str | None = None, writes: bool = False, security: str = "declared"
+) -> OpenAPIApp:
+    """Orders owned by the caller; `policy` decides what another caller sees.
+
+    `listing` adds `GET /api/orders`: `own` lists the caller's orders, `all` everyone's, `ids` everyone's ids only,
+    `all_renamed` everyone's under a differently named schema, `all_paged` everyone's, one per `offset` page.
+    `writes` adds `PUT /api/orders/{order_id}`, creating the order under that id, and note endpoints that take the
+    order id in the path, query or body, accept any caller and echo the id.
+    `security` is `declared` for an API key on every operation, `undeclared` for none in the schema while the server
+    still requires one, `public_read` for the order read marked public with `security: []`, and `public_root` for
+    `security: []` on the whole schema.
+    """
+    paths = _OWNED_ORDERS
+    schemas: dict[str, object] = {}
+    if writes:
+        keyed = {"/api/orders/{order_id}": {**_OWNED_ORDERS["/api/orders/{order_id}"], **_KEYED_CREATE}}
+        paths = {**_OWNED_ORDERS, **_ORDER_NOTES, **keyed}
+    if listing is not None:
+        items: dict[str, object] = _ORDER
+        if listing == "ids":
+            items = {"type": "object", "properties": {"id": {"type": "integer"}}}
+        elif listing == "all_renamed":
+            schemas = {"OrderSummary": _ORDER}
+            items = {"$ref": "#/components/schemas/OrderSummary"}
+        listed = {"type": "array", "items": items}
+        list_orders_spec: dict[str, object] = {
+            "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": listed}}}}
+        }
+        if listing == "all_paged":
+            list_orders_spec["parameters"] = [{"name": "offset", "in": "query", "schema": {"type": "integer"}}]
+        paths = {**paths, "/api/orders": {**_OWNED_ORDERS["/api/orders"], "get": list_orders_spec}}
+    if security == "public_read":
+        item = paths["/api/orders/{order_id}"]
+        paths = {**paths, "/api/orders/{order_id}": {**item, "get": {**item["get"], "security": []}}}
+    if security in ("undeclared", "public_root"):
+        spec = build_schema(
+            paths, components={"schemas": schemas}, **({"security": []} if security == "public_root" else {})
+        )
+    else:
+        spec = build_schema(
+            paths,
+            components={
+                "schemas": schemas,
+                "securitySchemes": {"apiKey": {"type": "apiKey", "in": "header", "name": "Authorization"}},
+            },
+            security=[{"apiKey": []}],
+        )
+    app = make_flask_app_from_schema(spec)
+    orders: dict[int, dict[str, object]] = {}
+
+    def caller() -> str | None:
+        return (request.headers.get("Authorization") or "").removeprefix("ApiKey ").strip() or None
+
+    @app.route("/api/orders", methods=["POST"])
+    def create_order() -> object:
+        user = caller()
+        body = request.get_json(silent=True)
+        if user is None:
+            return jsonify({"detail": "unauthorized"}), 401
+        if not isinstance(body, dict) or not isinstance(body.get("item"), str):
+            return jsonify({"detail": "invalid"}), 400
+        # One fixed order per caller keeps reported ids and bodies independent of generated data.
+        order = next((order for order in orders.values() if order["owner"] == user), None) or {
+            "id": len(orders) + 1,
+            "item": "book",
+            "owner": user,
+        }
+        orders[order["id"]] = order
+        return jsonify(order), 201
+
+    @app.route("/api/orders", methods=["GET"])
+    def list_orders() -> object:
+        user = caller()
+        if user is None:
+            return jsonify({"detail": "unauthorized"}), 401
+        if listing == "own":
+            return jsonify([order for order in orders.values() if order["owner"] == user])
+        if listing == "ids":
+            return jsonify([{"id": order["id"]} for order in orders.values()])
+        if listing == "all_paged":
+            offset = request.args.get("offset", 0, type=int)
+            return jsonify(list(orders.values())[offset : offset + 1])
+        return jsonify(list(orders.values()))
+
+    @app.route("/api/orders/<int:order_id>", methods=["GET"])
+    def get_order(order_id: int) -> object:
+        user = caller()
+        order = orders.get(order_id)
+        if user is None and policy != "fully_public":
+            return jsonify({"detail": "unauthorized"}), 401
+        if order is None:
+            return jsonify({"detail": "not found"}), 404
+        if user == order["owner"] or policy in ("vulnerable", "fully_public"):
+            return jsonify(order)
+        if policy == "public_view":
+            return jsonify({**order, "item": "<hidden>"})
+        if policy == "peer_html":
+            return "<html>Sign in as the owner</html>", 200, {"Content-Type": "text/html"}
+        return jsonify({"detail": "not found"}), 404
+
+    @app.route("/api/orders/<int:order_id>", methods=["PUT"])
+    def create_keyed_order(order_id: int) -> object:
+        user = caller()
+        if user is None:
+            return jsonify({"detail": "unauthorized"}), 401
+        if order_id in orders:
+            return jsonify({"detail": "exists"}), 409
+        orders[order_id] = {"id": order_id, "item": "book", "owner": user}
+        return jsonify(orders[order_id]), 201
+
+    @app.route("/api/notes", methods=["POST"])
+    @app.route("/api/order-notes", methods=["POST"])
+    @app.route("/api/orders/<int:order_id>/notes", methods=["POST"])
+    def add_note(order_id: int | None = None) -> object:
+        if caller() is None:
+            return jsonify({"detail": "unauthorized"}), 401
+        if order_id is None:
+            body = request.get_json(silent=True)
+            order_id = request.args.get("order_id", type=int) or (
+                body.get("order_id") if isinstance(body, dict) else None
+            )
+        if order_id not in orders:
+            return jsonify({"detail": "not found"}), 404
+        return jsonify({"id": 7, "order_id": order_id, "text": "note"}), 201
+
+    return OpenAPIApp(spec=spec, server=app, kind="flask")

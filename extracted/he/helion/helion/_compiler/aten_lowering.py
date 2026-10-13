@@ -14,6 +14,8 @@ from torch.fx.node import Node
 from torch.fx.node import map_arg
 
 from .. import exc
+from ..language.matmul_ops import MATMUL_DIM_BLOCK_IDS_META
+from ..language.matmul_ops import MATMUL_FACT_ID_META
 from ..language.matmul_ops import enforce_dot_requirements
 from .ast_extension import expr_from_string
 from .compile_environment import CompileEnvironment
@@ -62,16 +64,18 @@ class AtenLowering(Lowering):
         self, backend: str
     ) -> Callable[[CodegenHandler], CodegenHandler]:
         def decorator(handler: CodegenHandler) -> CodegenHandler:
-            assert backend not in self.codegen_impls, (
-                f"codegen already registered for backend {backend!r}"
-            )
-            self.codegen_impls[backend] = handler
+            from ..language._decorators import _register_codegen_handler
+
+            _register_codegen_handler(self.codegen_impls, backend, handler)
             return handler
 
         return decorator
 
     def codegen(self, ctx: LoweringContext, node: Node) -> object:
         env = CompileEnvironment.current()
+        from .backend_registry import repair_backend_codegen
+
+        repair_backend_codegen(env.codegen_name)
         handler = self.codegen_impls.get(env.codegen_name)
         if handler is None:
             handler = self.codegen_impls.get("common")
@@ -483,7 +487,15 @@ def apply_dot_requirements(lowering: AtenLowering, node: Node) -> Lowering:
     assert isinstance(lproxy, torch.Tensor)
     assert isinstance(rproxy, torch.Tensor)
     # Update config spec min sizes for M, N, K
-    enforce_dot_requirements(lproxy, rproxy)
+    fact_id = enforce_dot_requirements(lproxy, rproxy)
+    node.meta[MATMUL_FACT_ID_META] = fact_id
+    fact = CompileEnvironment.current().config_spec.matmul_facts[fact_id]
+    output_ndim = max(fact.lhs_ndim, fact.rhs_ndim)
+    node.meta[MATMUL_DIM_BLOCK_IDS_META] = (
+        *(None for _ in range(output_ndim - 2)),
+        fact.m_block_id,
+        fact.n_block_id,
+    )
     # inputs to the dot operation must be zero-masked
     *maybe_acc, lnode, rnode = node.args
     assert isinstance(lnode, Node)
@@ -547,6 +559,19 @@ iota_lowering = register_lowering(torch.ops.prims.iota.default)
 
 
 arange_default_lowering = register_lowering(torch.ops.aten.arange.default)
+
+
+def rolled_reduction_iota_index(ctx: LoweringContext, node: Node) -> str | None:
+    """The rolled reduction loop's index, for an iota over its reduction dim.
+
+    ``torch.tril``'s column iota of an ``x[tile, :]`` row, or
+    ``hl.arange(row.size(1))``, spans the row's reduction dim, so inside the
+    rolled reduction loop it holds the positions of the current chunk.
+    """
+    val = node.meta.get("val")
+    if not isinstance(val, torch.Tensor) or val.ndim != 1:
+        return None
+    return ctx.cg.rolled_reduction_index_var(val.shape[0])
 
 
 def _node_dtype_kwarg(node: Node) -> torch.dtype | None:

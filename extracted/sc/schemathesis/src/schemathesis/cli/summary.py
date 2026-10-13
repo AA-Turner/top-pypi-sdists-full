@@ -41,6 +41,8 @@ class WarningData:
     low_valid_rate: set[str]
     # Operations answered mostly with `429 Too Many Requests`.
     rate_limited: set[str]
+    # Dictionary bindings whose entries mostly fail the bound parameter's schema.
+    dictionary_mismatch: set[str]
     # Acceptance counts for every operation and phase, keyed by label then phase, for reporting.
     valid_rates: dict[str, dict[str, ValidRate]]
     # Operations the stateful phase actually sent a request for.
@@ -69,6 +71,7 @@ class WarningData:
         unresolvable_reference: dict[str, set[str]] | None = None,
         low_valid_rate: set[str] | None = None,
         rate_limited: set[str] | None = None,
+        dictionary_mismatch: set[str] | None = None,
         valid_rates: dict[str, dict[str, ValidRate]] | None = None,
         stateful_exercised: set[str] | None = None,
         linked_operations: set[str] | None = None,
@@ -90,6 +93,7 @@ class WarningData:
         self.unresolvable_reference = unresolvable_reference or {}
         self.low_valid_rate = low_valid_rate or set()
         self.rate_limited = rate_limited or set()
+        self.dictionary_mismatch = dictionary_mismatch or set()
         self.valid_rates = valid_rates or {}
         self.stateful_exercised = stateful_exercised or set()
         self.linked_operations = linked_operations
@@ -125,6 +129,7 @@ class WarningData:
             SchemathesisWarning.UNRESOLVABLE_REFERENCE.value: sorted(self.unresolvable_reference),
             SchemathesisWarning.LOW_VALID_RATE.value: sorted(self.low_valid_rate_reported),
             SchemathesisWarning.RATE_LIMITED.value: sorted(self.rate_limited),
+            SchemathesisWarning.DICTIONARY_MISMATCH.value: sorted(self.dictionary_mismatch),
         }
 
     @property
@@ -143,6 +148,7 @@ class WarningData:
             or self.unresolvable_reference
             or self.low_valid_rate_reported
             or self.rate_limited
+            or self.dictionary_mismatch
         )
 
     @property
@@ -164,6 +170,7 @@ class WarningData:
                 self.unresolvable_reference,
                 self.low_valid_rate_reported,
                 self.rate_limited,
+                self.dictionary_mismatch,
             )
             if warnings
         )
@@ -285,6 +292,7 @@ def _reduce_operations(
     phases: dict[PhaseName, tuple[Status, PhaseSkipReason | None]],
     skip_reasons: dict[str, set[str]],
     stop_reason: StopReason,
+    error_phases: tuple[PhaseName, ...] | None = UNIT_PHASES,
 ) -> OperationsSummary:
     errored = len(
         statistic.errored_operations - statistic.tested_operations
@@ -292,7 +300,7 @@ def _reduce_operations(
             error.label
             for error in errors
             # Some API operations may have some tests before they have an error
-            if error.phase in UNIT_PHASES
+            if (error_phases is None or error.phase in error_phases)
             and error.label not in statistic.tested_operations
             and error.related_to_operation
         }
@@ -310,7 +318,7 @@ def _reduce_operations(
     if skipped > len(explained.keys() | without_checks):
         if stop_reason.skip_explanation is not None:
             reasons.add(stop_reason.skip_explanation)
-        elif any(phases[phase][0] == Status.ERROR for phase in UNIT_PHASES):
+        elif any(status == Status.ERROR for status, _ in phases.values()):
             reasons.add("Phase errored")
     return OperationsSummary(
         total=api_statistic.operations.total,
@@ -323,26 +331,23 @@ def _reduce_operations(
 
 
 def build_operations(
-    *, api_statistic: ApiStatistic | None, statistic: Statistic, errors: set[events.NonFatalError]
+    *,
+    api_statistic: ApiStatistic | None,
+    statistic: Statistic,
+    errors: set[events.NonFatalError],
+    stop_reason: StopReason,
 ) -> OperationsSummary | None:
     """Operation counts without phase context; `st run` uses `SummaryData.from_run` instead."""
     if api_statistic is None:
         return None
-    errored = len(
-        statistic.errored_operations - statistic.tested_operations
-        | {
-            error.label
-            for error in errors
-            if error.related_to_operation and error.label not in statistic.tested_operations
-        }
-    )
-    return OperationsSummary(
-        total=api_statistic.operations.total,
-        selected=api_statistic.operations.selected,
-        tested=len(statistic.tested_operations),
-        errored=errored,
-        skipped=0,
-        skip_reasons=[],
+    return _reduce_operations(
+        api_statistic=api_statistic,
+        statistic=statistic,
+        errors=errors,
+        phases={},
+        skip_reasons={},
+        stop_reason=stop_reason,
+        error_phases=None,
     )
 
 

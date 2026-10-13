@@ -107,17 +107,31 @@ def manual_input_code(self, username: str, choice=None):
         Code
     """
     code = None
-    while True:
-        code = input(f"Enter code (6 digits) for {username} ({choice}): ").strip()
-        if code and code.isdigit():
-            break
+    try:
+        while True:
+            code = input(f"Enter code (6 digits) for {username} ({choice}): ").strip()
+            if code and code.isdigit():
+                break
+    except EOFError as e:
+        raise ChallengeRequired(
+            "Challenge code input is unavailable. Provide a challenge_code_handler "
+            "or disable automatic resolution with with_challenge_flow=False.",
+            **{key: value for key, value in self.last_json.items() if key != "message"},
+        ) from e
     return code  # is not int, because it can start from 0
 
 
 def manual_change_password(self, username: str):
     pwd = None
-    while not pwd:
-        pwd = input(f"Enter password for {username}: ").strip()
+    try:
+        while not pwd:
+            pwd = input(f"Enter password for {username}: ").strip()
+    except EOFError as e:
+        raise ChallengeRequired(
+            "Password input is unavailable. Provide a change_password_handler "
+            "or disable automatic resolution with with_challenge_flow=False.",
+            **{key: value for key, value in self.last_json.items() if key != "message"},
+        ) from e
     return pwd
 
 
@@ -128,6 +142,7 @@ class PrivateRequestMixin:
 
     private_requests_count = 0
     handle_exception = None
+    with_challenge_flow = True
     challenge_code_handler = manual_input_code
     change_password_handler = manual_change_password
     private_request_logger = logging.getLogger("private_request")
@@ -142,6 +157,8 @@ class PrivateRequestMixin:
     last_json = {}
 
     def __init__(self, *args, **kwargs):
+        self.with_challenge_flow = kwargs.pop("with_challenge_flow", self.with_challenge_flow)
+        self._pigeon_session_id = self.generate_uuid("UFS-", "-1")
         session = requests.Session()
         self.private = session
         self.private.verify = getattr(self, "tls_verify", True)
@@ -247,7 +264,7 @@ class PrivateRequestMixin:
             "X-IG-App-Locale": locale,
             "X-IG-Device-Locale": locale,
             "X-IG-Mapped-Locale": locale,
-            "X-Pigeon-Session-Id": self.generate_uuid("UFS-", "-1"),
+            "X-Pigeon-Session-Id": self._pigeon_session_id,
             "X-Pigeon-Rawclienttime": str(round(time.time(), 3)),
             # "X-IG-Connection-Speed": "-1kbps",
             "X-IG-Bandwidth-Speed-KBPS": str(random.randint(2500000, 3000000) / 1000),  # "-1.000"
@@ -287,7 +304,6 @@ class PrivateRequestMixin:
             "X-FB-Server-Cluster": "True",
             "IG-INTENDED-USER-ID": str(self.user_id or 0),
             "X-IG-Nav-Chain": "9MV:self_profile:2,ProfileMediaTabFragment:self_profile:3,9Xf:self_following:4",
-            "X-IG-SALT-IDS": str(random.randint(1061162222, 1061262222)),
         }
         if self.user_id:
             next_year = time.time() + 31536000  # + 1 year in seconds
@@ -722,6 +738,8 @@ class PrivateRequestMixin:
             if self.handle_exception:
                 self.handle_exception(self, e)
             elif isinstance(e, ChallengeRequired):
+                if not self.with_challenge_flow:
+                    raise
                 self.challenge_resolve(self.last_json)
             else:
                 raise e

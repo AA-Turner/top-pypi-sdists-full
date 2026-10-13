@@ -7,7 +7,7 @@ authors = [
 ]
 license = "MIT"
 readme = "README.md"
-keywords = ["library", "lib", "ipld", "cid", "multibase", "multihash", "dag", "cbor", "dag-cbor"]
+keywords = ["ipld", "cid", "car", "multibase", "multihash", "dag", "cbor", "dag-cbor", "atproto", "bluesky", "rust"]
 requires-python = ">=3.8"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -27,6 +27,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
     "Topic :: Software Development",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Pre-processors",
@@ -36,22 +38,27 @@ classifiers = [
 "Homepage" = "https://github.com/MarshalX/python-libipld"
 "Repository" = "https://github.com/MarshalX/python-libipld"
 "Tracker" = "https://github.com/MarshalX/python-libipld/issues"
+"Changelog" = "https://github.com/MarshalX/python-libipld/blob/main/CHANGES.md"
 "Author" = "https://github.com/MarshalX"
 
 [dependency-groups]
-dev = ["maturin>=1.8.7,<2.0", "ruff>=0.8"]
+dev = ["maturin>=1.8.7,<2.0", "ruff>=0.17.0"]
 testing = [
     { include-group = "dev" },
     'pytest==8.3.5; python_version == "3.8"',
-    'pytest==8.4.2; python_version >= "3.9"',
+    'pytest==8.4.2; python_version == "3.9"',
+    'pytest==9.1.1; python_version >= "3.10"',
     'pytest-benchmark==4.0.0; python_version == "3.8"',
-    'pytest-benchmark==5.2.3; python_version >= "3.9"',
+    'pytest-benchmark==5.2.3; python_version == "3.9"',
+    'pytest-benchmark==5.3.0; python_version >= "3.10"',
     'pytest-xdist==3.6.1; python_version == "3.8"',
     'pytest-xdist==3.8.0; python_version >= "3.9"',
+    # only used by the free-threaded CI job
+    'pytest-run-parallel==0.10.0; python_version >= "3.14"',
 ]
 codspeed = [
     # only run on CI with the latest Python version
-    'pytest-codspeed==5.0.3; python_version == "3.14" and implementation_name == "cpython"',
+    'pytest-codspeed==5.0.3; python_version == "3.15" and implementation_name == "cpython"',
 ]
 
 all = [
@@ -61,7 +68,8 @@ all = [
 
 [tool.pytest.ini_options]
 markers = [
-    'benchmark_main: marks tests as main benchmarks to run selectively'
+    'benchmark_main: marks tests as main benchmarks to run selectively',
+    'thread_unsafe: test must not run under pytest-run-parallel',
 ]
 addopts = [
     '--benchmark-columns', 'min,mean,stddev,outliers,rounds,iterations',
@@ -74,13 +82,11 @@ module-name = "libipld._libipld"
 bindings = "pyo3"
 features = ["pyo3/extension-module"]
 
+[tool.ruff]
+line-length = 120
+
 [tool.ruff.format]
 quote-style = "single"
-
-[tool.ruff.lint.flake8-quotes]
-docstring-quotes = "double"
-multiline-quotes = "double"
-inline-quotes = "single"
 
 [build-system]
 requires = ["maturin>=1.8.7,<2.0"]

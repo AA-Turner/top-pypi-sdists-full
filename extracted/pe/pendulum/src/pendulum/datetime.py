@@ -2,13 +2,10 @@ from __future__ import annotations
 
 import calendar
 import datetime
-import traceback
 
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Callable
 from typing import ClassVar
-from typing import Optional
 from typing import cast
 from typing import overload
 
@@ -42,9 +39,15 @@ from pendulum.tz.timezone import Timezone
 
 
 if TYPE_CHECKING:
-    from typing_extensions import Literal
+    from collections.abc import Callable
+    from typing import Literal
+
     from typing_extensions import Self
     from typing_extensions import SupportsIndex
+
+
+# Weekday modifiers always use Monday-based indices.
+_MONTH_CALENDAR = calendar.Calendar(firstweekday=calendar.MONDAY)
 
 
 class DateTime(datetime.datetime, Date):
@@ -1006,7 +1009,7 @@ class DateTime(datetime.datetime, Date):
         if unit not in ["month", "quarter", "year"]:
             raise ValueError(f'Invalid unit "{unit}" for first_of()')
 
-        dt = cast("Optional[Self]", getattr(self, f"_nth_of_{unit}")(nth, day_of_week))
+        dt = cast("Self | None", getattr(self, f"_nth_of_{unit}")(nth, day_of_week))
         if not dt:
             raise PendulumException(
                 f"Unable to find occurrence {nth}"
@@ -1027,7 +1030,7 @@ class DateTime(datetime.datetime, Date):
         if day_of_week is None:
             return dt.set(day=1)
 
-        month = calendar.monthcalendar(dt.year, dt.month)
+        month = _MONTH_CALENDAR.monthdayscalendar(dt.year, dt.month)
 
         calendar_day = day_of_week
 
@@ -1050,7 +1053,7 @@ class DateTime(datetime.datetime, Date):
         if day_of_week is None:
             return dt.set(day=self.days_in_month)
 
-        month = calendar.monthcalendar(dt.year, dt.month)
+        month = _MONTH_CALENDAR.monthdayscalendar(dt.year, dt.month)
 
         calendar_day = day_of_week
 
@@ -1238,10 +1241,6 @@ class DateTime(datetime.datetime, Date):
         if not isinstance(other, datetime.timedelta):
             return NotImplemented
 
-        caller = traceback.extract_stack(limit=2)[0].name
-        if caller == "astimezone":
-            return super().__add__(other)
-
         return self._add_timedelta_(other)
 
     def __radd__(self, other: datetime.timedelta) -> Self:
@@ -1257,7 +1256,12 @@ class DateTime(datetime.datetime, Date):
 
     @classmethod
     def utcfromtimestamp(cls, t: float) -> Self:
-        return cls.instance(datetime.datetime.utcfromtimestamp(t), tz=None)
+        return cls.instance(
+            datetime.datetime.fromtimestamp(t, tz=datetime.timezone.utc).replace(
+                tzinfo=None
+            ),
+            tz=None,
+        )
 
     @classmethod
     def fromordinal(cls, n: int) -> Self:
@@ -1273,7 +1277,20 @@ class DateTime(datetime.datetime, Date):
         return cls.instance(datetime.datetime.combine(date, time), tz=tzinfo)
 
     def astimezone(self, tz: datetime.tzinfo | None = None) -> Self:
-        dt = super().astimezone(tz)
+        # Convert a plain datetime: tzinfo.fromutc() implementations add
+        # timedeltas to the value they're given and expect the standard
+        # library's arithmetic, not the overridden __add__.
+        dt = datetime.datetime(
+            self.year,
+            self.month,
+            self.day,
+            self.hour,
+            self.minute,
+            self.second,
+            self.microsecond,
+            tzinfo=self.tzinfo,
+            fold=self.fold,
+        ).astimezone(tz)
 
         return self.__class__(
             dt.year,

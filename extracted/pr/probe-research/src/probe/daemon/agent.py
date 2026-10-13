@@ -45,7 +45,7 @@ from typing import Any, Callable
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.capabilities import AbstractCapability
-from pydantic_ai.exceptions import SkipToolExecution
+from pydantic_ai.exceptions import SkipToolExecution, UnexpectedModelBehavior
 
 from probe.daemon import lease, tools
 from probe.daemon import trace as trace_mod
@@ -123,6 +123,43 @@ EARLIER_TURNS = "[earlier turns are summarized above]"
 LOOP_FAILURES = 3
 #: ...or the same successful call (tool and arguments) this many times.
 LOOP_REPEATS = 5
+#: Pydantic AI's own words (`_agent_graph`, pinned 2.51.0) for a response the token
+#: limit cut off before any of it was an answer, or in the middle of a tool call
+#: (`IncompleteToolCall`). gpt-6.1-sol spent the provider's 16,384-token default
+#: thinking (strand-ai, 2026-10-09..12: 126 such calls, one request sent 14 times).
+_NO_ANSWER = re.compile(r"Model token limit \(.*?\) exceeded (before any response was generated|while "
+                        r"generating a tool call)")
+#: What the daemon says when that happened.
+ANSWERED_NOTHING = "the model thought until its token limit and answered nothing"
+
+
+def answered_nothing(exc: BaseException) -> bool:
+    """Did the model spend its whole token limit before answering anything? The
+    same request does the same again, so it is never retried as it was. Only the
+    library's own message counts: never a body a model's words could fill."""
+    return isinstance(exc, UnexpectedModelBehavior) and bool(_NO_ANSWER.match(exc.message or ""))
+
+
+def answered(response: Any) -> bool:
+    """Did a model response come back with an answer? Only one the token limit cut
+    off (`finish_reason` "length") can be none: when it holds no words and no
+    complete tool call -- a call cut off mid arguments is no answer, the way
+    Pydantic AI's own `IncompleteToolCall` check reads it. Any other response is
+    one, a turn that only thought included (its retry is the model's next round)."""
+    from pydantic_ai.messages import TextPart, ToolCallPart
+
+    if response.finish_reason != "length":
+        return True
+    for part in response.parts:
+        if isinstance(part, TextPart) and part.content.strip():
+            return True
+        if isinstance(part, ToolCallPart):
+            try:
+                part.args_as_dict(raise_if_invalid=True)
+            except Exception:  # noqa: BLE001 -- arguments cut off mid way
+                continue
+            return True
+    return False
 
 #: The `shell` tool's description, as the researcher wrote it.
 SHELL_DESCRIPTION = (
@@ -181,6 +218,37 @@ class BiteResult(BaseModel):
     """Ends the bite."""
 
     summary: str = Field(description='ONE line - what you recorded, or "nothing new".')
+
+
+#: The output tool that ends a run (pydantic-ai's name for `BiteResult`'s tool).
+FINAL_RESULT = "final_result"
+
+#: The retry a writer reads when it ended a run in the same response as a write
+#: that did not land (B2): the run goes on, with what the command answered.
+WRITE_LOST = ("Not ended: a write in this response did not land, so the run goes on. It answered:\n{output}\n"
+              "Fix it, or say why not, then end with final_result.")
+
+
+def ends_run(ctx: RunContext) -> bool:
+    """Whether the response this tool call came in also calls `final_result`:
+    under pydantic-ai's default 'graceful' end strategy the run ends once the
+    tools before it ran, and the model never reads their answers."""
+    from pydantic_ai.messages import ModelResponse, ToolCallPart
+
+    last = ctx.messages[-1] if ctx.messages else None
+    return isinstance(last, ModelResponse) and any(
+        isinstance(p, ToolCallPart) and p.tool_name == FINAL_RESULT for p in last.parts)
+
+
+def lost_write_retry(ctx: RunContext[tools.Deps], lost_before: int, output: str) -> None:
+    """Raise `ModelRetry` (which suppresses the run's end) when this call lost a
+    write (`Deps.lost_writes` grew) in a response that also ends the run. Not on
+    the tool's last attempt: past it pydantic-ai fails the whole run, and the
+    worker's open-failures list still shows the write to the next one."""
+    from pydantic_ai import ModelRetry
+
+    if ctx.deps.lost_writes > lost_before and not ctx.last_attempt and ends_run(ctx):
+        raise ModelRetry(WRITE_LOST.format(output=output))
 
 
 @dataclass
@@ -556,13 +624,18 @@ def build_agent(instructions: str, *, model, state: RunState | None = None):
 
     @agent.tool(sequential="shell" in writes, description=SHELL_DESCRIPTION)
     async def shell(ctx: RunContext[tools.Deps], command: str, why: str = "") -> str:
+        lost = ctx.deps.lost_writes
         try:
-            return await tools.shell(ctx.deps, command, why)
+            text = await tools.shell(ctx.deps, command, why)
         except Exception as exc:  # noqa: BLE001 -- R5: a failed tool is the model's to work around
             log.warning("shell tool failed: %s", exc)
-            return f"tool error ({type(exc).__name__}): {exc}"
+            text = f"tool error ({type(exc).__name__}): {exc}"
+            ctx.deps.lost_writes += 1  # nothing says the command it was running did not write
         finally:
             _renew_after(ctx.deps)
+        # Outside the `except` above, which would turn the retry into text.
+        lost_write_retry(ctx, lost, text)
+        return text
 
     @agent.tool(sequential="read" in writes, description=READ_DESCRIPTION)
     async def read(ctx: RunContext[tools.Deps], path: str, offset: int | None = None,

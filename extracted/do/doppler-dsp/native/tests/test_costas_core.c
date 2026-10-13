@@ -446,5 +446,64 @@ main (void)
     dp_tlm_destroy (tlm);
   }
 
+  /* ── every byte of the blob is determined: the state is serialized
+     whole, and a loop built in place on the stack (as the DSSS receivers'
+     hand-offs do) used to carry the 4-byte hole after have_prev, which
+     dp_costas_init never wrote. Two states poisoned differently and
+     initialised the same must give the same blob. ── */
+  {
+    dp_costas_state_t a, b;
+    memset (&a, 0xA5, sizeof a);
+    memset (&b, 0x5A, sizeof b);
+    dp_costas_init (&a, 0.01, 0.707, 0.01, 8, 0.0);
+    dp_costas_init (&b, 0.01, 0.707, 0.01, 8, 0.0);
+    const size_t   sb = dp_costas_state_bytes (&a);
+    unsigned char *ba = malloc (sb), *bb = malloc (sb);
+    DP_REQUIRE (ba != NULL && bb != NULL);
+    memset (ba, 0xA5, sb);
+    memset (bb, 0x5A, sb);
+    dp_costas_get_state (&a, ba);
+    dp_costas_get_state (&b, bb);
+    DP_CHECK (memcmp (ba, bb, sb) == 0);
+    free (ba);
+    free (bb);
+  }
+
+  /* A bad loop parameter is refused at create and by every setter, and a
+     refused retune changes nothing -- bn, zeta and the gains -- so the
+     getter never reports a bandwidth the loop is not running. A finite bn
+     of 1e200 overflows the gains to NaN, which the predicate now refuses
+     (doppler#2112). */
+  {
+    DP_CHECK (dp_costas_create (NAN, 0.707, 0.01, 16, 0.0) == NULL);
+    DP_CHECK (dp_costas_create (1e200, 0.707, 0.01, 16, 0.0) == NULL);
+    dp_costas_state_t *c = dp_costas_create (0.05, 0.707, 0.01, 16, 0.0);
+    DP_CHECK (c != NULL);
+    if (c)
+      {
+        /* The whole object, not its loop filter: a refusal changes no byte. */
+        const size_t   cb     = dp_costas_state_bytes (c);
+        unsigned char *before = malloc (cb), *after = malloc (cb);
+        dp_costas_get_state (c, before);
+        const double bn = c->bn, zeta = c->zeta;
+        DP_CHECK (dp_costas_configure (c, NAN, 0.707) == DP_ERR_INVALID);
+        DP_CHECK (dp_costas_configure (c, 0.05, INFINITY) == DP_ERR_INVALID);
+        DP_CHECK (dp_costas_configure (c, 1e200, 0.707) == DP_ERR_INVALID);
+        /* Twice: a refusal must not compound (CarrierNda rescaled its
+           unchanged gains by 1/2pi on each). */
+        DP_CHECK (dp_costas_set_bn (c, NAN) == DP_ERR_INVALID);
+        DP_CHECK (dp_costas_set_bn (c, NAN) == DP_ERR_INVALID);
+        dp_costas_get_state (c, after);
+        DP_CHECK (memcmp (after, before, cb) == 0);
+        free (before);
+        free (after);
+        DP_CHECK (c->bn == bn && c->zeta == zeta);
+        /* The control: a good retune is taken. */
+        DP_CHECK (dp_costas_configure (c, 0.02, 1.0) == DP_OK && c->bn == 0.02
+                  && c->zeta == 1.0);
+        dp_costas_destroy (c);
+      }
+  }
+
   DP_TEST_END ("test_costas_core");
 }

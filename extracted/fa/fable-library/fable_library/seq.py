@@ -175,13 +175,13 @@ def Enumerator_FromFunctions_1__ctor_58C54629[T](
 
 
 def Enumerator_cast[T](e: IEnumerator[T]) -> IEnumerator[T]:
-    def current(e: Any = e) -> T:
+    def current(__unit: Unit = UNIT, e: Any = e) -> T:
         return e.System_Collections_Generic_IEnumerator_1_get_Current()
 
-    def next_1(e: Any = e) -> bool:
+    def next_1(__unit_1: Unit = UNIT, e: Any = e) -> bool:
         return e.System_Collections_IEnumerator_MoveNext()
 
-    def dispose(e: Any = e) -> None:
+    def dispose(__unit_2: Unit = UNIT, e: Any = e) -> None:
         dispose_2(e)
 
     return Enumerator_FromFunctions_1__ctor_58C54629(current, next_1, dispose)
@@ -226,7 +226,7 @@ def Enumerator_concat[T, U: IEnumerable](sources: IEnumerable_1[U]) -> IEnumerat
         else:
             return Enumerator_alreadyFinished()
 
-    def next_1(sources: Any = sources) -> bool:
+    def next_1(__unit: Unit = UNIT, sources: Any = sources) -> bool:
         nonlocal started
         if not started:
             started = True
@@ -282,13 +282,13 @@ def Enumerator_concat[T, U: IEnumerable](sources: IEnumerable_1[U]) -> IEnumerat
 
 
 def Enumerator_enumerateThenFinally[T](f: Callable[[], None], e: IEnumerator[T]) -> IEnumerator[T]:
-    def current(e: Any = e) -> T:
+    def current(__unit: Unit = UNIT, e: Any = e) -> T:
         return e.System_Collections_Generic_IEnumerator_1_get_Current()
 
-    def next_1(e: Any = e) -> bool:
+    def next_1(__unit_1: Unit = UNIT, e: Any = e) -> bool:
         return e.System_Collections_IEnumerator_MoveNext()
 
-    def dispose(f: Any = f, e: Any = e) -> None:
+    def dispose(__unit_2: Unit = UNIT, f: Any = f, e: Any = e) -> None:
         try:
             dispose_2(e)
 
@@ -305,7 +305,7 @@ def Enumerator_generateWhileSome[T, U](
     curr: Option[Any] = cast_1(Option[Any], None)
     state: Option[Any] = some(openf())
 
-    def dispose(closef: Any = closef) -> None:
+    def dispose(__unit: Unit = UNIT, closef: Any = closef) -> None:
         nonlocal state
         if state is not None:
             x_1: Any = value_1(state)
@@ -333,7 +333,7 @@ def Enumerator_generateWhileSome[T, U](
         else:
             return Enumerator_alreadyFinished()
 
-    def next_1(compute: Any = compute) -> bool:
+    def next_1(__unit_1: Unit = UNIT, compute: Any = compute) -> bool:
         nonlocal started, curr
         if not started:
             started = True
@@ -376,7 +376,7 @@ def Enumerator_unfold[STATE, T](f: Callable[[STATE], tuple[T, STATE] | None], st
         else:
             return Enumerator_notStarted()
 
-    def next_1(f: Any = f) -> bool:
+    def next_1(__unit: Unit = UNIT, f: Any = f) -> bool:
         nonlocal curr, acc
         curr = f(acc)
         if curr is not None:
@@ -407,14 +407,14 @@ def of_seq[T](xs: IEnumerable_1[T]) -> IEnumerator[T]:
 
 
 def delay[T](generator: Callable[[], IEnumerable_1[T]]) -> IEnumerable_1[T]:
-    def _arrow103(generator: Any = generator) -> IEnumerator[T]:
+    def _arrow103(__unit: Unit = UNIT, generator: Any = generator) -> IEnumerator[T]:
         return get_enumerator(generator())
 
     return mk_seq(_arrow103)
 
 
 def concat[COLLECTION: IEnumerable, T](sources: IEnumerable_1[COLLECTION]) -> IEnumerable_1[T]:
-    def _arrow104(sources: Any = sources) -> IEnumerator[T]:
+    def _arrow104(__unit: Unit = UNIT, sources: Any = sources) -> IEnumerator[T]:
         return Enumerator_concat(sources)
 
     return mk_seq(_arrow104)
@@ -428,7 +428,7 @@ def empty[T](__unit: Unit = UNIT) -> IEnumerable_1[T]:
 
 
 def singleton[T](x: T = UNIT) -> IEnumerable_1[T]:
-    def _arrow106(x: Any = x) -> IEnumerable_1[T]:
+    def _arrow106(__unit: Unit = UNIT, x: Any = x) -> IEnumerable_1[T]:
         return singleton_1(x, None)
 
     return delay(_arrow106)
@@ -464,7 +464,9 @@ def to_list[T](xs: IEnumerable_1[T]) -> FSharpList[T]:
 def generate[_A, _B](
     create: Callable[[], _A], compute: Callable[[_A], Option[_B]], dispose: Callable[[_A], None]
 ) -> IEnumerable_1[_B]:
-    def _arrow107(create: Any = create, compute: Any = compute, dispose: Any = dispose) -> IEnumerator[_B]:
+    def _arrow107(
+        __unit: Unit = UNIT, create: Any = create, compute: Any = compute, dispose: Any = dispose
+    ) -> IEnumerator[_B]:
         return Enumerator_generateWhileSome(create, compute, dispose)
 
     return mk_seq(_arrow107)
@@ -473,7 +475,9 @@ def generate[_A, _B](
 def generate_indexed[_A, _B](
     create: Callable[[], _A], compute: Callable[[int, _A], Option[_B]], dispose: Callable[[_A], None]
 ) -> IEnumerable_1[_B]:
-    def _arrow109(create: Any = create, compute: Any = compute, dispose: Any = dispose) -> IEnumerator[_B]:
+    def _arrow109(
+        __unit: Unit = UNIT, create: Any = create, compute: Any = compute, dispose: Any = dispose
+    ) -> IEnumerator[_B]:
         i: int = -1
 
         def _arrow108(x: _A = UNIT) -> Option[_B]:
@@ -487,7 +491,7 @@ def generate_indexed[_A, _B](
 
 
 def cast[T](xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    def _arrow110(xs: Any = xs) -> IEnumerator[T]:
+    def _arrow110(__unit: Unit = UNIT, xs: Any = xs) -> IEnumerator[T]:
         return Enumerator_cast(get_enumerator(Operators_NullArgCheck("source", xs)))
 
     return mk_seq(_arrow110)
@@ -546,7 +550,7 @@ def enumerate_from_functions[_A, _B](
 def enumerate_then_finally[T](source: IEnumerable_1[T], compensation: Callable[[], None]) -> IEnumerable_1[T]:
     compensation_1: Callable[[], None] = compensation
 
-    def _arrow113(source: Any = source) -> IEnumerator[T]:
+    def _arrow113(__unit: Unit = UNIT, source: Any = source) -> IEnumerator[T]:
         try:
             return Enumerator_enumerateThenFinally(compensation_1, of_seq(source))
 
@@ -559,7 +563,7 @@ def enumerate_then_finally[T](source: IEnumerable_1[T], compensation: Callable[[
 
 
 def enumerate_using[T: IDisposable, _A: IEnumerable, U](resource: T, source: Callable[[T], _A]) -> IEnumerable_1[U]:
-    def compensation(resource: Any = resource) -> None:
+    def compensation(__unit: Unit = UNIT, resource: Any = resource) -> None:
         if equals(resource, cast_1(Any, None)):
             pass
 
@@ -567,7 +571,7 @@ def enumerate_using[T: IDisposable, _A: IEnumerable, U](resource: T, source: Cal
             copy_of_struct: Any = resource
             dispose_2(copy_of_struct)
 
-    def _arrow114(resource: Any = resource, source: Any = source) -> IEnumerator[U]:
+    def _arrow114(__unit_1: Unit = UNIT, resource: Any = resource, source: Any = source) -> IEnumerator[U]:
         try:
             return Enumerator_enumerateThenFinally(compensation, of_seq(source(resource)))
 
@@ -1088,7 +1092,7 @@ def cache[T](source: IEnumerable_1[T]) -> IEnumerable_1[T]:
 def all_pairs[T1, T2](xs: IEnumerable_1[T1], ys: IEnumerable_1[T2]) -> IEnumerable_1[tuple[T1, T2]]:
     ys_cache: IEnumerable_1[Any] = cache(ys)
 
-    def _arrow130(xs: Any = xs) -> IEnumerable_1[tuple[T1, T2]]:
+    def _arrow130(__unit: Unit = UNIT, xs: Any = xs) -> IEnumerable_1[tuple[T1, T2]]:
         def mapping_1(x: T1 = UNIT) -> IEnumerable_1[tuple[T1, T2]]:
             def mapping(y: T2 = UNIT, x: Any = x) -> tuple[T1, T2]:
                 return (x, y)
@@ -1170,14 +1174,14 @@ def replicate[_A](n: int, x: _A) -> IEnumerable_1[_A]:
 
 
 def reverse[T](xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    def _arrow132(xs: Any = xs) -> IEnumerable_1[T]:
+    def _arrow132(__unit: Unit = UNIT, xs: Any = xs) -> IEnumerable_1[T]:
         return of_array(reverse_1(to_array(xs)))
 
     return delay(_arrow132)
 
 
 def scan[STATE, T](folder: Callable[[STATE, T], STATE], state: STATE, xs: IEnumerable_1[T]) -> IEnumerable_1[STATE]:
-    def _arrow133(folder: Any = folder, state: Any = state, xs: Any = xs) -> IEnumerable_1[STATE]:
+    def _arrow133(__unit: Unit = UNIT, folder: Any = folder, state: Any = state, xs: Any = xs) -> IEnumerable_1[STATE]:
         acc: Any = state
 
         def mapping(x: T = UNIT) -> STATE:
@@ -1193,14 +1197,14 @@ def scan[STATE, T](folder: Callable[[STATE, T], STATE], state: STATE, xs: IEnume
 def scan_back[T, STATE](
     folder: Callable[[T, STATE], STATE], xs: IEnumerable_1[T], state: STATE
 ) -> IEnumerable_1[STATE]:
-    def _arrow134(folder: Any = folder, xs: Any = xs, state: Any = state) -> IEnumerable_1[STATE]:
+    def _arrow134(__unit: Unit = UNIT, folder: Any = folder, xs: Any = xs, state: Any = state) -> IEnumerable_1[STATE]:
         return of_array(scan_back_1(folder, to_array(xs), state, None))
 
     return delay(_arrow134)
 
 
 def skip[T](count: int, source: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    def _arrow135(count: Any = count, source: Any = source) -> IEnumerator[T]:
+    def _arrow135(__unit: Unit = UNIT, count: Any = count, source: Any = source) -> IEnumerator[T]:
         e: IEnumerator[Any] = of_seq(source)
         try:
             for _ in range(1, count, 1):
@@ -1221,7 +1225,7 @@ def skip[T](count: int, source: IEnumerable_1[T]) -> IEnumerable_1[T]:
 
 
 def skip_while[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    def _arrow136(predicate: Any = predicate, xs: Any = xs) -> IEnumerable_1[T]:
+    def _arrow136(__unit: Unit = UNIT, predicate: Any = predicate, xs: Any = xs) -> IEnumerable_1[T]:
         skipped: bool = True
 
         def predicate_1(x: T = UNIT) -> bool:
@@ -1261,28 +1265,28 @@ def where[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> IEnumerabl
 
 
 def pairwise[T](xs: IEnumerable_1[T]) -> IEnumerable_1[tuple[T, T]]:
-    def _arrow139(xs: Any = xs) -> IEnumerable_1[tuple[T, T]]:
+    def _arrow139(__unit: Unit = UNIT, xs: Any = xs) -> IEnumerable_1[tuple[T, T]]:
         return of_array(pairwise_1(to_array(xs)))
 
     return delay(_arrow139)
 
 
 def split_into[T](chunks: int, xs: IEnumerable_1[T]) -> IEnumerable_1[Array[T]]:
-    def _arrow140(chunks: Any = chunks, xs: Any = xs) -> IEnumerable_1[Array[T]]:
+    def _arrow140(__unit: Unit = UNIT, chunks: Any = chunks, xs: Any = xs) -> IEnumerable_1[Array[T]]:
         return of_array(split_into_1(chunks, to_array(xs)))
 
     return delay(_arrow140)
 
 
 def windowed[T](window_size: int, xs: IEnumerable_1[T]) -> IEnumerable_1[Array[T]]:
-    def _arrow141(window_size: Any = window_size, xs: Any = xs) -> IEnumerable_1[Array[T]]:
+    def _arrow141(__unit: Unit = UNIT, window_size: Any = window_size, xs: Any = xs) -> IEnumerable_1[Array[T]]:
         return of_array(windowed_1(window_size, to_array(xs)))
 
     return delay(_arrow141)
 
 
 def transpose[_A: IEnumerable, T](xss: IEnumerable_1[_A]) -> IEnumerable_1[IEnumerable_1[T]]:
-    def _arrow142(xss: Any = xss) -> IEnumerable_1[IEnumerable_1[T]]:
+    def _arrow142(__unit: Unit = UNIT, xss: Any = xss) -> IEnumerable_1[IEnumerable_1[T]]:
         def mapping(xs_1: _A = UNIT) -> Array[T]:
             return to_array(xs_1)
 
@@ -1292,7 +1296,7 @@ def transpose[_A: IEnumerable, T](xss: IEnumerable_1[_A]) -> IEnumerable_1[IEnum
 
 
 def sort_with[T](comparer: Callable[[T, T], int], xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    def _arrow143(comparer: Any = comparer, xs: Any = xs) -> IEnumerable_1[T]:
+    def _arrow143(__unit: Unit = UNIT, comparer: Any = comparer, xs: Any = xs) -> IEnumerable_1[T]:
         arr: Array[Any] = to_array(xs)
         sort_in_place_with(comparer, arr)
         return of_array(arr)
@@ -1405,14 +1409,14 @@ def average_by[T, U](f: Callable[[T], U], xs: IEnumerable_1[T], averager: IGener
 
 
 def permute[T](f: Callable[[int], int], xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    def _arrow155(f: Any = f, xs: Any = xs) -> IEnumerable_1[T]:
+    def _arrow155(__unit: Unit = UNIT, f: Any = f, xs: Any = xs) -> IEnumerable_1[T]:
         return of_array(permute_1(f, to_array(xs)))
 
     return delay(_arrow155)
 
 
 def chunk_by_size[T](chunk_size: int, xs: IEnumerable_1[T]) -> IEnumerable_1[Array[T]]:
-    def _arrow156(chunk_size: Any = chunk_size, xs: Any = xs) -> IEnumerable_1[Array[T]]:
+    def _arrow156(__unit: Unit = UNIT, chunk_size: Any = chunk_size, xs: Any = xs) -> IEnumerable_1[Array[T]]:
         return of_array(chunk_by_size_1(chunk_size, to_array(xs)))
 
     return delay(_arrow156)
@@ -1423,7 +1427,7 @@ def insert_at[T](index: int, y: T, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     if index < 0:
         raise Exception(SR_indexOutOfBounds + " (Parameter 'index')")
 
-    def _arrow157(xs: Any = xs) -> IEnumerator[T]:
+    def _arrow157(__unit: Unit = UNIT, xs: Any = xs) -> IEnumerator[T]:
         return of_seq(xs)
 
     def _arrow158(i: int, e: IEnumerator[T], index: Any = index, y: Any = y) -> Option[T]:
@@ -1452,7 +1456,7 @@ def insert_many_at[T](index: int, ys: IEnumerable_1[T], xs: IEnumerable_1[T]) ->
     if index < 0:
         raise Exception(SR_indexOutOfBounds + " (Parameter 'index')")
 
-    def _arrow160(ys: Any = ys, xs: Any = xs) -> tuple[IEnumerator[T], IEnumerator[T]]:
+    def _arrow160(__unit: Unit = UNIT, ys: Any = ys, xs: Any = xs) -> tuple[IEnumerator[T], IEnumerator[T]]:
         return (of_seq(xs), of_seq(ys))
 
     def _arrow161(i: int, tupled_arg: tuple[IEnumerator[T], IEnumerator[T]], index: Any = index) -> Option[T]:
@@ -1499,7 +1503,7 @@ def remove_at[T](index: int, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     if index < 0:
         raise Exception(SR_indexOutOfBounds + " (Parameter 'index')")
 
-    def _arrow163(xs: Any = xs) -> IEnumerator[T]:
+    def _arrow163(__unit: Unit = UNIT, xs: Any = xs) -> IEnumerator[T]:
         return of_seq(xs)
 
     def _arrow164(i: int, e: IEnumerator[T], index: Any = index) -> Option[T]:
@@ -1531,7 +1535,7 @@ def remove_many_at[T](index: int, count: int, xs: IEnumerable_1[T]) -> IEnumerab
     if index < 0:
         raise Exception(SR_indexOutOfBounds + " (Parameter 'index')")
 
-    def _arrow166(xs: Any = xs) -> IEnumerator[T]:
+    def _arrow166(__unit: Unit = UNIT, xs: Any = xs) -> IEnumerator[T]:
         return of_seq(xs)
 
     def _arrow167(i: int, e: IEnumerator[T], index: Any = index, count: Any = count) -> Option[T]:
@@ -1565,7 +1569,7 @@ def update_at[T](index: int, y: T, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
     if index < 0:
         raise Exception(SR_indexOutOfBounds + " (Parameter 'index')")
 
-    def _arrow169(xs: Any = xs) -> IEnumerator[T]:
+    def _arrow169(__unit: Unit = UNIT, xs: Any = xs) -> IEnumerator[T]:
         return of_seq(xs)
 
     def _arrow170(i: int, e: IEnumerator[T], index: Any = index, y: Any = y) -> Option[T]:
@@ -1596,7 +1600,7 @@ def random_shuffle_by[T](randomizer: Callable[[], float], xs: IEnumerable_1[T]) 
 
 
 def random_shuffle_with[T](random: Any, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    def _arrow172(random: Any = random) -> float:
+    def _arrow172(__unit: Unit = UNIT, random: Any = random) -> float:
         return random_double(random)
 
     return random_shuffle_by(_arrow172, xs)
@@ -1623,7 +1627,7 @@ def random_choices_by[T](randomizer: Callable[[], float], count: int, xs: IEnume
 
 
 def random_choices_with[T](random: Any, count: int, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    def _arrow173(random: Any = random) -> float:
+    def _arrow173(__unit: Unit = UNIT, random: Any = random) -> float:
         return random_double(random)
 
     return random_choices_by(_arrow173, count, xs)
@@ -1638,7 +1642,7 @@ def random_sample_by[T](randomizer: Callable[[], float], count: int, xs: IEnumer
 
 
 def random_sample_with[T](random: Any, count: int, xs: IEnumerable_1[T]) -> IEnumerable_1[T]:
-    def _arrow174(random: Any = random) -> float:
+    def _arrow174(__unit: Unit = UNIT, random: Any = random) -> float:
         return random_double(random)
 
     return random_sample_by(_arrow174, count, xs)

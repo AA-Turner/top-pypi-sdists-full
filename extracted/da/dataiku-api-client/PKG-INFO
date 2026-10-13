@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: dataiku-api-client
-Version: 15.1.0
+Version: 15.1.0.1
 Summary: Python API client for Dataiku APIs
 Home-page: https://www.dataiku.com
-Download-URL: https://github.com/dataiku/dataiku-api-client-python/tarball/15.1.0
+Download-URL: https://github.com/dataiku/dataiku-api-client-python/tarball/15.1.0.1
 Author: Dataiku
 Author-email: support@dataiku.com
 License: Apache Software License

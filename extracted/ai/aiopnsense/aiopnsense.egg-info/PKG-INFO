@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiopnsense
-Version: 1.2.0
+Version: 1.2.1
 Summary: Async Python client library for OPNsense
 Author: Snuffy2
 License-Expression: Apache-2.0
@@ -88,6 +88,13 @@ Both scripts read credentials from `scripts/aiopnsense.env` by default. Copy `sc
 [pypi]: https://pypi.org/project/aiopnsense/
 
 # Changelog
+
+## [1.2.1](https://github.com/Snuffy2/aiopnsense/compare/v1.2.0...v1.2.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* correct firmware hotfix version ordering ([#146](https://github.com/Snuffy2/aiopnsense/issues/146)) ([82fd517](https://github.com/Snuffy2/aiopnsense/commit/82fd517f9709f3d158784e62ff0fc0eece98b6ce))
 
 ## [1.2.0](https://github.com/Snuffy2/aiopnsense/compare/v1.1.11...v1.2.0) (2026-10-09)
 

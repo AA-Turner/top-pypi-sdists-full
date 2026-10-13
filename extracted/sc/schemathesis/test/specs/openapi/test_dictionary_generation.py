@@ -13,6 +13,7 @@ from schemathesis.generation.dictionaries import (
     build_dictionary_overlay_strategy,
     resolve_parameter_bindings,
 )
+from schemathesis.generation.feedback import FeedbackSources
 from schemathesis.generation.value import GeneratedValue
 from schemathesis.resources import SemanticDraw
 
@@ -428,7 +429,7 @@ def test_unexpected_property_feedback_does_not_leak_invalid_dict_entries_into_po
     )
     leaked: list[DictionaryDraw] = []
 
-    @given(case=operation.as_strategy(error_feedback=store))
+    @given(case=operation.as_strategy(feedback=FeedbackSources(error_feedback=store)))
     @settings(max_examples=20, derandomize=True, database=None, suppress_health_check=list(HealthCheck))
     def collect(case):
         if case._meta is None:
@@ -493,6 +494,7 @@ def test_probability_below_one_takes_both_substitute_and_skip_branches(ctx):
     skipped = 0
 
     @given(case=operation.as_strategy())
+    # Every expected variant must appear at least once, which takes many draws.
     @settings(max_examples=60, derandomize=True, database=None, suppress_health_check=list(HealthCheck))
     def collect(case):
         nonlocal substituted, skipped

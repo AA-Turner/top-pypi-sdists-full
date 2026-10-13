@@ -1041,6 +1041,7 @@ class SpaceTypeDef(TypedDict):
 class UpdateSpaceInputTypeDef(TypedDict):
     spaceId: str
     name: NotRequired[str]
+    agentCoreEvaluationRoleArn: NotRequired[str]
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
 
 
@@ -1254,7 +1255,6 @@ class ListViewsResponseTypeDef(TypedDict):
 
 class MetricMetadataTypeDef(TypedDict):
     name: NotRequired[str]
-    namespace: NotRequired[str]
     preferredStat: NotRequired[str]
     metricType: NotRequired[str]
     attributes: NotRequired[dict[str, str]]

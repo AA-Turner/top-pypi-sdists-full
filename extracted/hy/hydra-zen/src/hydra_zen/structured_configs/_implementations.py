@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Massachusetts Institute of Technology
+# Copyright (c) 2026 Massachusetts Institute of Technology
 # SPDX-License-Identifier: MIT
 import functools
 import inspect
@@ -60,8 +60,10 @@ from typing_extensions import (
 from hydra_zen._compatibility import (
     HYDRA_SUPPORTED_PRIMITIVE_TYPES,
     HYDRA_SUPPORTED_PRIMITIVES,
+    OMEGACONF_HANDLES_PATHLIB_LOCAL,
     ZEN_SUPPORTED_PRIMITIVES,
 )
+from hydra_zen._execution_whitelist import mark_builtin_targets, register_target
 from hydra_zen.errors import (
     HydraZenDeprecationWarning,
     HydraZenUnsupportedPrimitiveError,
@@ -183,28 +185,28 @@ del _builtin_function_or_method_type
 
 # In python 3.13 the definitions for pathlib.Path, et al. were moved to the
 # pathlib._locals, changing the tag for yaml serialization. Thus we monkey-patch
-# omegaconf's yaml loader to handle these new strings.
-_original_yaml_loader = _omegaconf_utils.get_yaml_loader
+# omegaconf's yaml loader to handle these new strings. OmegaConf 2.4.0 added
+# native pathlib._local support, so the patch is only needed on older versions.
+if not OMEGACONF_HANDLES_PATHLIB_LOCAL:  # pragma: no cover
+    _original_yaml_loader = _omegaconf_utils.get_yaml_loader
 
+    def _patched_yaml_loader(*args: Any, **kwargs: Any) -> Any:  # pragma: no cover
+        loader = _original_yaml_loader(*args, **kwargs)
+        loader.add_constructor(
+            "tag:yaml.org,2002:python/object/apply:pathlib._local.Path",
+            lambda loader, node: pathlib.Path(*loader.construct_sequence(node)),
+        )
+        loader.add_constructor(
+            "tag:yaml.org,2002:python/object/apply:pathlib._local.PosixPath",
+            lambda loader, node: pathlib.PosixPath(*loader.construct_sequence(node)),
+        )
+        loader.add_constructor(
+            "tag:yaml.org,2002:python/object/apply:pathlib._local.WindowsPath",
+            lambda loader, node: pathlib.WindowsPath(*loader.construct_sequence(node)),
+        )
+        return loader
 
-def _patched_yaml_loader(*args: Any, **kwargs: Any) -> Any:  # pragma: no cover
-    loader = _original_yaml_loader(*args, **kwargs)
-    loader.add_constructor(
-        "tag:yaml.org,2002:python/object/apply:pathlib._local.Path",
-        lambda loader, node: pathlib.Path(*loader.construct_sequence(node)),
-    )
-    loader.add_constructor(
-        "tag:yaml.org,2002:python/object/apply:pathlib._local.PosixPath",
-        lambda loader, node: pathlib.PosixPath(*loader.construct_sequence(node)),
-    )
-    loader.add_constructor(
-        "tag:yaml.org,2002:python/object/apply:pathlib._local.WindowsPath",
-        lambda loader, node: pathlib.WindowsPath(*loader.construct_sequence(node)),
-    )
-    return loader
-
-
-_omegaconf_utils.get_yaml_loader = _patched_yaml_loader
+    _omegaconf_utils.get_yaml_loader = _patched_yaml_loader
 
 
 def _retain_type_info(type_: type, value: Any, hydra_recursive: Optional[bool]):
@@ -663,7 +665,9 @@ class ZenField:
     default: Union[Any, Field[Any]] = _utils.field(default=NOTHING)
     name: Union[str, type[NOTHING]] = NOTHING
     zen_convert: InitVar[Optional[ZenConvert]] = None
-    _builds_fn: "Union[BuildsFn[Any], Type[BuildsFn[Any]]]" = _utils.field(default_factory=lambda: DefaultBuilds)  # type: ignore
+    _builds_fn: "Union[BuildsFn[Any], Type[BuildsFn[Any]]]" = _utils.field(
+        default_factory=lambda: DefaultBuilds
+    )  # type: ignore
 
     def __post_init__(
         self,
@@ -954,7 +958,6 @@ class BuildsFn(Generic[T]):
             or is_dataclass(type_)
             or (isinstance(type_, type) and issubclass(type_, Enum))
         ):
-
             if wrap_optional and type_ is not Any:  # pragma: no cover
                 # normally get_type_hints automatically resolves Optional[...]
                 # when None is set as the default, but this has been flaky
@@ -1031,7 +1034,9 @@ class BuildsFn(Generic[T]):
 
     @classmethod
     def _just(cls, obj: Any) -> Just:
-        return Just(path=cls._get_obj_path(obj))
+        path = cls._get_obj_path(obj)
+        register_target(path)
+        return Just(path=path)
 
     @classmethod
     def _mutable_value(cls, x: _T, *, zen_convert: Optional[ZenConvert] = None) -> _T:
@@ -1366,9 +1371,9 @@ class BuildsFn(Generic[T]):
             type_value in _utils.KNOWN_MUTABLE_TYPES
             and type_value in HYDRA_SUPPORTED_PRIMITIVES
         ) or (
-            is_dataclass(value)
-            and not isinstance(value, type)
-            and value.__hash__ is None
+            # dataclasses reject unhashable defaults (e.g. dataclass instances, or
+            # OmegaConf containers, which are unhashable as of OmegaConf 2.4)
+            not isinstance(value, type) and value.__hash__ is None
         ):
             return cast(
                 Field[Any],
@@ -2256,6 +2261,10 @@ class BuildsFn(Generic[T]):
         else:
             target_path = manual_target_path
 
+        # Registered for `"auto"` execution whitelists only once the config has
+        # successfully been created.
+        paths_to_register: list[str] = [target_path]
+
         if zen_wrappers is not None:
             if not isinstance(zen_wrappers, Sequence) or isinstance(zen_wrappers, str):
                 zen_wrappers = (zen_wrappers,)
@@ -2292,13 +2301,17 @@ class BuildsFn(Generic[T]):
                         validated_wrappers.append(wrapper)
 
                 elif callable(wrapper):
-                    validated_wrappers.append(cls._get_obj_path(wrapper))
+                    wrapper_path = cls._get_obj_path(wrapper)
+                    paths_to_register.append(wrapper_path)
+                    validated_wrappers.append(wrapper_path)
 
                 elif isinstance(wrapper, str):
                     # Assumed that wrapper is either a valid omegaconf-style interpolation string
                     # or a "valid" path for importing an object. The latter seems hopeless for validating:
                     # https://stackoverflow.com/a/47538106/6592114
                     # so we can't make any assurances here.
+                    if not _utils.is_interpolated_string(wrapper):
+                        paths_to_register.append(wrapper)
                     validated_wrappers.append(wrapper)
                 else:
                     raise TypeError(
@@ -2616,13 +2629,40 @@ class BuildsFn(Generic[T]):
             if is_dataclass(target):
                 _fields = {f.name: f for f in fields(target)}
             else:
-                _fields = target.__fields__  # type: ignore
+                # Use model_fields for pydantic v2, __fields__ for v1
+                if hasattr(target, "model_fields"):  # pragma: no cover
+                    _fields = target.model_fields  # type: ignore
+                else:  # pragma: no cover
+                    _fields = target.__fields__  # type: ignore
             _update = {}
             for name, param in signature_params.items():
                 if name not in _fields:
                     # field is InitVar
                     continue
                 f = _fields[name]
+
+                # For pydantic dataclasses, field.default is a FieldInfo object
+                if is_dataclass(target) and hasattr(
+                    target, "__pydantic_validator__"
+                ):  # pragma: no cover
+                    _field_default = getattr(f, "default", MISSING)
+                    if _check_instance(
+                        "FieldInfo", module="pydantic.fields", value=_field_default
+                    ):
+                        # Extract default_factory from the FieldInfo
+                        _default_factory = getattr(
+                            _field_default, "default_factory", None
+                        )
+                        if _default_factory is not None and callable(_default_factory):
+                            _update[name] = inspect.Parameter(
+                                name,
+                                param.kind,
+                                annotation=param.annotation,
+                                default=_default_factory(),
+                            )
+                        continue
+
+                # Standard dataclass handling
                 if f.default_factory is not MISSING and f.default_factory is not None:
                     _update[name] = inspect.Parameter(
                         name,
@@ -2975,6 +3015,9 @@ class BuildsFn(Generic[T]):
             requires_zen_processing and safe_getattr(out, PARTIAL_FIELD_NAME, False)
         )
 
+        for path in paths_to_register:
+            register_target(path)
+
         return cast(
             Union[type[Builds[Importable]], type[BuildsWithSig[type[R], P]]], out
         )
@@ -3307,9 +3350,9 @@ class BuildsFn(Generic[T]):
 
         dataclass_options["bases"] = bases
         module = dataclass_options.pop("module", None)
-        assert _utils.parse_strict_dataclass_options(
+        assert _utils.parse_strict_dataclass_options(dataclass_options), (
             dataclass_options
-        ), dataclass_options
+        )
 
         out = make_dataclass(fields=config_fields, **dataclass_options)
 
@@ -3847,3 +3890,24 @@ ZEN_VALUE_CONVERSION[Counter] = partial(
     ConfigFromDict, _target_=BuildsFn._get_obj_path(Counter)
 )
 ZEN_VALUE_CONVERSION[functools.partial] = _unpack_partial
+
+# Targets that hydra-zen generates for value conversion, and hydra-zen's resolvers
+# (whose resolved paths are themselves authorized: see `_target_policy_patches`)
+for _obj in (
+    complex,
+    Path,
+    range,
+    timedelta,
+    as_default_dict,
+    set,
+    frozenset,
+    deque,
+    bytes,
+    bytearray,
+    Counter,
+    get_obj,
+):
+    register_target(BuildsFn._get_obj_path(_obj))
+register_target(ZEN_PROCESSING_LOCATION)
+mark_builtin_targets()
+del _obj

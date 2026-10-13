@@ -81,6 +81,7 @@ __all__ = (
     "ProgrammingLanguageType",
     "RecommendationStatusType",
     "RecommendationTypeType",
+    "RecordExpiryActionType",
     "RegistryRecordStatusType",
     "ResourceContentTypeType",
     "ResourceServiceName",
@@ -251,6 +252,7 @@ PaymentTypeType = Literal["CRYPTO_X402", "MPP"]
 ProgrammingLanguageType = Literal["javascript", "python", "typescript"]
 RecommendationStatusType = Literal["COMPLETED", "DELETING", "FAILED", "IN_PROGRESS", "PENDING"]
 RecommendationTypeType = Literal["SYSTEM_PROMPT_RECOMMENDATION", "TOOL_DESCRIPTION_RECOMMENDATION"]
+RecordExpiryActionType = Literal["REMOVE"]
 RegistryRecordStatusType = Literal[
     "APPROVED", "DEPRECATED", "DRAFT", "PENDING_APPROVAL", "REJECTED"
 ]
@@ -643,6 +645,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

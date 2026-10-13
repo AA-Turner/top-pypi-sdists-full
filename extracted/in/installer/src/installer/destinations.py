@@ -255,7 +255,10 @@ class SchemeDictionaryDestination(WheelDestination):
 
     def _compile_bytecode(self, scheme: Scheme, record: RecordEntry) -> None:
         """Compile bytecode for a single .py file."""
-        if scheme not in ("purelib", "platlib"):
+        if not self.bytecode_optimization_levels or scheme not in (
+            "purelib",
+            "platlib",
+        ):
             return
 
         import compileall
@@ -299,5 +302,5 @@ class SchemeDictionaryDestination(WheelDestination):
                 scheme, record_file_path, record_stream, is_executable=False
             )
 
-        for scheme, record in record_list:
-            self._compile_bytecode(scheme, record)
+        for scheme_, record in record_list:
+            self._compile_bytecode(scheme_, record)

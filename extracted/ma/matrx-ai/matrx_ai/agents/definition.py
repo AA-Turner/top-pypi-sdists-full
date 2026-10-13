@@ -15,6 +15,7 @@ from typing import Any
 
 from matrx_ai.agents.types import AgentConfig
 from matrx_ai.agents.variables import AgentVariable
+from matrx_ai.config.host_turn import HostTurn, refuse_both
 from matrx_ai.config.llm_params import LLMParams
 from matrx_ai.config.unified_config import UnifiedConfig, UnifiedMessage
 from matrx_ai.config.usage_config import AggregatedUsage, TokenUsage
@@ -571,6 +572,7 @@ class Agent:
         user_input: str | list[dict[str, Any]] | None = None,
         *,
         max_iterations: int | None = None,
+        host_turn: HostTurn | None = None,
     ) -> AgentExecuteResult:
         """Execute the agent with optional user input.
 
@@ -597,8 +599,15 @@ class Agent:
             # The pre-substitution step first (a ``sources`` value becomes text).
             await self.prepare_variables()
             self.apply_variables()
+        # THE HOST TURN (``matrx_ai.config.host_turn``): a machine-started turn
+        # is stored host-authored — never as ``user_input``. Appended at the
+        # same point a person's words would be, so the prepare hook below
+        # attaches this turn's context to IT.
+        refuse_both(user_input, host_turn)
         if user_input:
             self.set_user_input(user_input)
+        elif host_turn is not None:
+            self.config.messages.append(host_turn.to_message())
 
         # Edge normalization: a DB-loaded agent carries its tools as
         # ``agx_agent.tools`` UUIDs. The HTTP request path resolves them to

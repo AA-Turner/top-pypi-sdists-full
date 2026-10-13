@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: nbconvert
-Version: 7.17.1
+Version: 7.17.2
 Summary: Convert Jupyter Notebooks (.ipynb files) to other formats.
 Project-URL: Homepage, https://jupyter.org
 Author-email: Jupyter Development Team <jupyter@googlegroups.com>

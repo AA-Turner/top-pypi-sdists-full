@@ -6,9 +6,11 @@ import inspect
 import itertools
 from itertools import starmap
 from typing import TYPE_CHECKING
+from typing import Iterable
 from typing import Iterator
 from typing import Sequence
 from typing import TypeGuard
+from typing import TypeVar
 from typing import cast
 from typing import overload
 
@@ -55,6 +57,8 @@ if TYPE_CHECKING:
 
 
 __all__ = ["grid", "jagged_tile", "static_range", "tile"]
+
+_T = TypeVar("_T")
 
 
 @overload
@@ -416,12 +420,27 @@ def _add_config_choices(
             # L2 grouping now supports 3D+ grids by applying to innermost 2 dimensions
             config_spec.l2_groupings.append(L2GroupingSpec(block_ids))
         if not _allow_use_yz_grid(config_spec, block_ids):
-            config_spec.disallow_pid_type("xyz")
+            config_spec.disallow_pid_type(
+                "xyz",
+                reason="grid does not fit the y/z launch grid (needs 2-3 grid "
+                "dims with known sizes whose product is below the y/z-grid "
+                "limit, get_max_y_grid(); 65535 on NVIDIA)",
+            )
         # Data-dependent bounds require persistent kernels to ensure cudagraphability
         # (the grid size can't be data-dependent for non-persistent kernels)
         if has_data_dependent_bounds:
-            config_spec.disallow_pid_type("flat")
-            config_spec.disallow_pid_type("xyz")
+            config_spec.disallow_pid_type(
+                "flat",
+                reason="data-dependent loop bounds require a persistent kernel "
+                "(non-persistent grid size cannot be data-dependent) for "
+                "cudagraph support",
+            )
+            config_spec.disallow_pid_type(
+                "xyz",
+                reason="data-dependent loop bounds require a persistent kernel "
+                "(non-persistent grid size cannot be data-dependent) for "
+                "cudagraph support",
+            )
         # just one set of choices for when we have persistent kernel loop
         _add_config_range_choice(block_ids)
     else:
@@ -571,9 +590,21 @@ def _(
     if not dim_ranges:
         return
 
-    for combo in itertools.product(*dim_ranges):
+    for combo in _ref_device_loop(itertools.product(*dim_ranges)):
         tiles = list(starmap(RefTile, combo))
         yield tiles[0] if scalar_input else tuple(tiles)
+
+
+def _ref_device_loop(iterable: Iterable[_T]) -> Iterator[_T]:
+    """Iterate a device loop in ref mode, counting it as enclosing the body."""
+    from ..runtime.ref_mode import RefModeContext
+
+    context = RefModeContext.current()
+    context.device_loop_depth += 1
+    try:
+        yield from iterable
+    finally:
+        context.device_loop_depth -= 1
 
 
 @_decorators.api(
@@ -1039,7 +1070,7 @@ def _(
     begin_or_end: int | torch.Tensor | list[int | torch.Tensor],
     end_or_none: int | torch.Tensor | list[int | torch.Tensor] | None = None,
     step: int | torch.Tensor | Sequence[int | torch.Tensor] | None = None,
-) -> range | Iterator[tuple[int, ...]]:
+) -> Iterator[int] | Iterator[tuple[int, ...]]:
     # Step 1: Normalize begin and end values
     begin, end = _normalize_begin_end_ref(begin_or_end, end_or_none)
 
@@ -1055,8 +1086,8 @@ def _(
         step_int = _to_int(step_val)
 
         if step_int is not None:
-            return range(begin_int, end_int, step_int)
-        return range(begin_int, end_int)
+            return _ref_device_loop(range(begin_int, end_int, step_int))
+        return _ref_device_loop(range(begin_int, end_int))
 
     # Step 3: Handle multi-dimensional case
     assert isinstance(end, (list, tuple))
@@ -1070,7 +1101,7 @@ def _(
 
     # Step 5: Create ranges and return product
     ranges = _create_ranges(begin_ints, end_ints, step_ints)
-    return itertools.product(*ranges)
+    return _ref_device_loop(itertools.product(*ranges))
 
 
 @_decorators.device_func_replacement(builtins.zip)

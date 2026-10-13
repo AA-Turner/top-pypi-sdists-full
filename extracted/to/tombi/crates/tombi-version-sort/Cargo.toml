@@ -1,0 +1,17 @@
+[package]
+name = "tombi-version-sort"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+readme = "README.md"
+
+[dependencies]
+itertools.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+
+[lints]
+workspace = true

@@ -10,6 +10,17 @@ use liteparse::types::PdfInput;
 
 mod cli;
 
+fn parse_output_format(value: &str) -> PyResult<OutputFormat> {
+    match value {
+        "json" => Ok(OutputFormat::Json),
+        "text" => Ok(OutputFormat::Text),
+        "markdown" | "md" => Ok(OutputFormat::Markdown),
+        _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+            "invalid output_format: {value} (expected 'json', 'text', or 'markdown')"
+        ))),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Python type wrappers
 // ---------------------------------------------------------------------------
@@ -490,8 +501,16 @@ impl PyTextItem {
 
     /// `from_rust` with the rich-metadata fields taken from the core-gated
     /// [`liteparse::types::TextMetadata`] view, so the "what counts as text
-    /// metadata" list lives in one place instead of per binding.
-    fn from_rust_for_output(item: liteparse::types::TextItem, extract_text_metadata: bool) -> Self {
+    /// metadata" list lives in one place instead of per binding. `words` is
+    /// left empty unless `word_boxes` (see `LiteParseConfig::output_word_boxes`).
+    fn from_rust_for_output(
+        mut item: liteparse::types::TextItem,
+        extract_text_metadata: bool,
+        word_boxes: bool,
+    ) -> Self {
+        if !word_boxes {
+            item.words.clear();
+        }
         let meta = item.text_metadata(extract_text_metadata);
         let (fill_color, stroke_color, char_codes) = (
             meta.fill_color.map(str::to_owned),
@@ -666,7 +685,11 @@ impl PyParsedPage {
 }
 
 impl PyParsedPage {
-    fn from_rust(page: liteparse::types::ParsedPage, extract_text_metadata: bool) -> Self {
+    fn from_rust(
+        page: liteparse::types::ParsedPage,
+        extract_text_metadata: bool,
+        word_boxes: bool,
+    ) -> Self {
         Self {
             page_num: page.page_number as u32,
             page_label: page.page_label.clone(),
@@ -683,7 +706,9 @@ impl PyParsedPage {
             text_items: page
                 .text_items
                 .into_iter()
-                .map(|item| PyTextItem::from_rust_for_output(item, extract_text_metadata))
+                .map(|item| {
+                    PyTextItem::from_rust_for_output(item, extract_text_metadata, word_boxes)
+                })
                 .collect(),
             complexity: page
                 .complexity
@@ -851,13 +876,17 @@ impl PyParseResult {
 }
 
 impl PyParseResult {
-    fn from_rust(result: liteparse::parser::ParseResult, extract_text_metadata: bool) -> Self {
+    fn from_rust(
+        result: liteparse::parser::ParseResult,
+        extract_text_metadata: bool,
+        word_boxes: bool,
+    ) -> Self {
         Self {
             total_pages: result.total_pages,
             pages: result
                 .pages
                 .into_iter()
-                .map(|page| PyParsedPage::from_rust(page, extract_text_metadata))
+                .map(|page| PyParsedPage::from_rust(page, extract_text_metadata, word_boxes))
                 .collect(),
             text: result.text,
             images: result
@@ -1388,6 +1417,7 @@ struct PyParseSession {
     inner: liteparse::ParseSession,
     runtime: std::sync::Arc<tokio::runtime::Runtime>,
     extract_text_metadata: bool,
+    word_boxes: bool,
 }
 
 #[pymethods]
@@ -1410,7 +1440,11 @@ impl PyParseSession {
         Ok(batch.map(|batch| PyParseBatch {
             start_page: batch.start_page,
             end_page: batch.end_page,
-            result: PyParseResult::from_rust(batch.result, self.extract_text_metadata),
+            result: PyParseResult::from_rust(
+                batch.result,
+                self.extract_text_metadata,
+                self.word_boxes,
+            ),
         }))
     }
 
@@ -1551,11 +1585,7 @@ impl LiteParse {
             cfg.dpi = v;
         }
         if let Some(v) = output_format {
-            cfg.output_format = match v.as_str() {
-                "text" => OutputFormat::Text,
-                "markdown" | "md" => OutputFormat::Markdown,
-                _ => OutputFormat::Json,
-            };
+            cfg.output_format = parse_output_format(&v)?;
         }
         if let Some(v) = preserve_very_small_text {
             cfg.preserve_very_small_text = v;
@@ -1673,6 +1703,7 @@ impl LiteParse {
         Ok(PyParseResult::from_rust(
             result,
             self.config.extract_text_metadata,
+            self.config.output_word_boxes(),
         ))
     }
 
@@ -1714,6 +1745,7 @@ impl LiteParse {
         Ok(PyParseResult::from_rust(
             result,
             self.config.extract_text_metadata,
+            self.config.output_word_boxes(),
         ))
     }
 
@@ -1818,6 +1850,7 @@ impl LiteParse {
             inner: session,
             runtime: self.runtime.clone(),
             extract_text_metadata: self.config.extract_text_metadata,
+            word_boxes: self.config.output_word_boxes(),
         })
     }
 }
@@ -1930,6 +1963,35 @@ mod tests {
     use super::*;
 
     #[test]
+    fn words_are_returned_only_when_requested() {
+        let item = liteparse::types::TextItem {
+            text: "a b".into(),
+            words: vec![
+                liteparse::types::WordBox {
+                    text: "a".into(),
+                    ..Default::default()
+                },
+                liteparse::types::WordBox {
+                    text: "b".into(),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        assert!(
+            PyTextItem::from_rust_for_output(item.clone(), false, false)
+                .words
+                .is_empty()
+        );
+        assert_eq!(
+            PyTextItem::from_rust_for_output(item, false, true)
+                .words
+                .len(),
+            2
+        );
+    }
+
+    #[test]
     fn text_metadata_round_trips_through_python_type() {
         let item = liteparse::types::TextItem {
             text: "A".into(),
@@ -1976,6 +2038,20 @@ mod tests {
         };
         let py = PyLiteParseConfig::from_rust(&config);
         assert!(py.extract_text_metadata);
+    }
+
+    #[test]
+    fn output_format_rejects_invalid_values() {
+        assert_eq!(parse_output_format("json").unwrap(), OutputFormat::Json);
+        assert_eq!(parse_output_format("text").unwrap(), OutputFormat::Text);
+        assert_eq!(
+            parse_output_format("markdown").unwrap(),
+            OutputFormat::Markdown
+        );
+        assert_eq!(parse_output_format("md").unwrap(), OutputFormat::Markdown);
+
+        let error = parse_output_format("yaml").unwrap_err();
+        assert!(error.to_string().contains("invalid output_format: yaml"));
     }
 
     #[test]

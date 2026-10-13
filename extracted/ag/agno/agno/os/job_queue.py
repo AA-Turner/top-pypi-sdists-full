@@ -8,7 +8,7 @@ the corresponding runtime pieces, including the DB-backed queue worker
 import asyncio
 import contextlib
 import inspect
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, Union
 
 from agno.job_queue.config import QueueConfig, RedisCoordination
 from agno.utils.log import log_debug, log_error, log_info, log_warning
@@ -1043,7 +1043,11 @@ class QueueWorker:
             # would close cleanly and the client would never see the retry's
             # output. Leave the stream open; the retry attempt continues it
             # (dead-producer TTL detection bounds the wait if no retry comes).
-            will_retry = status == RunStatus.error and job.get("attempt", 1) < job.get("max_attempts", 1)
+            will_retry = (
+                status == RunStatus.error
+                and job.get("attempt", 1) < job.get("max_attempts", 1)
+                and not self._run_is_not_retryable(final_output)
+            )
             if not will_retry:
                 with contextlib.suppress(Exception):
                     await asyncio.shield(event_stream.complete_run(job_id, status, generation=stream_generation))
@@ -1129,7 +1133,7 @@ class QueueWorker:
             )
             return None
         from agno.run.base import RunStatus
-        from agno.run.status_persist import RunPersistOutcome, apersist_run_status, fallback_allowed
+        from agno.run.status_persist import RunPersistOutcome, apersist_run_status, component_hook, fallback_allowed
 
         fields: Dict[str, Any] = {
             "status": RunStatus.cancelled.value if status == "cancelled" else RunStatus.error.value,
@@ -1157,7 +1161,16 @@ class QueueWorker:
             return result
 
         component_type = job["component_type"]
-        if component_type == "agent":
+        persist_fallback = component_hook(component, "_apersist_run_fallback")
+        if component_type == "agent" and persist_fallback is not None:
+            hook_run = await component.aget_run_output(job["id"], job["session_id"], user_id=job.get("user_id"))
+            if hook_run is not None and hook_run.status not in (RunStatus.completed, RunStatus.cancelled):
+                hook_run.status = RunStatus.cancelled if status == "cancelled" else RunStatus.error
+                hook_run.content = hook_run.content or error
+                if cancellation_stage is not None:
+                    hook_run.cancellation_stage = cancellation_stage
+                await persist_fallback(job["session_id"], hook_run, job.get("user_id"))
+        elif component_type == "agent":
             from agno.agent._session import asave_run, asave_session
             from agno.agent._storage import aread_or_create_session
             from agno.run.agent import RunOutput
@@ -1234,6 +1247,51 @@ class QueueWorker:
             return 0  # explicit no-backoff configuration (tests, dev loops)
         ceiling = min(base * (2 ** max(0, attempt - 1)), base * 10)
         return random.randint(0, ceiling)
+
+    async def _ahonor_non_retryable_row(self, component: Any, job: Dict[str, Any]) -> bool:
+        """A reclaimed job whose earlier attempt persisted an ERROR run the component marked
+        non-retryable. The worker that wrote that row crashed before settling the ticket, so the
+        classification lives only on the row: honor it here instead of re-executing a failure
+        that would repeat. Settles the ticket failed and closes the stream view. Returns True
+        when the job must not execute now: handled this way, or the row could not be read and
+        execution is deferred to a later reclaim."""
+        from agno.run.base import RunStatus
+
+        reader = getattr(component, "aget_run_output", None)
+        if not callable(reader) or getattr(component, "db", None) is None:
+            # Nothing persisted to consult: the component keeps no run rows, so there is no
+            # classification to honor and the reclaim executes as it always did.
+            return False
+        try:
+            run = await reader(job["id"], job["session_id"], user_id=job.get("user_id"))
+        except Exception as e:
+            # Fail closed: without the row we cannot tell a transient failure from one the
+            # component refused to retry. Do not execute; leave the claim unsettled so the
+            # lease goes stale and a later reclaim reads the row again.
+            log_warning(
+                f"Job queue: reclaimed job {job['id']} (attempt {job['attempt']}) could not read its run row "
+                f"to check retryability ({e}); deferring execution until the row can be read"
+            )
+            return True
+        raw = getattr(run, "status", None)
+        status = raw.value if isinstance(raw, RunStatus) else raw
+        if run is None or str(status).upper() != RunStatus.error.value or not self._run_is_not_retryable(run):
+            return False
+        error = str(getattr(run, "content", "") or "run errored")
+        log_warning(
+            f"Job queue: reclaimed job {job['id']} (attempt {job['attempt']}) has a run row marked "
+            f"non-retryable by its component; failing the ticket without re-executing: {error}"
+        )
+        await self._asettle_ticket(job["id"], job["attempt"], "failed", error)
+        await self._terminate_stream_view(job, "error")
+        return True
+
+    @staticmethod
+    def _run_is_not_retryable(run: Any) -> bool:
+        """A run row whose component marked the failure as one that would repeat
+        (``metadata["retryable"] is False``, set by external agents from their error classification)."""
+        metadata = getattr(run, "metadata", None)
+        return isinstance(metadata, dict) and metadata.get("retryable") is False
 
     @staticmethod
     def _is_permanent_failure(exc: BaseException, continuation_component: Optional[str] = None) -> bool:
@@ -1501,7 +1559,15 @@ class QueueWorker:
         # construction: the early returns below (foreign job_type, missing
         # component) and pre-slot exceptions all unwind through the context
         # manager's finally - the bare mark/unmark pair leaked on all three.
-        with worker_managed_execution(job["id"], self.worker_id, job["attempt"]) as ownership:
+        with worker_managed_execution(
+            job["id"],
+            self.worker_id,
+            job["attempt"],
+            session_serialized=(
+                (job.get("payload") or {}).get("serialize_session") is True
+                and getattr(self.store, "serializes_sessions", False) is True
+            ),
+        ) as ownership:
             await self._execute_claimed_inner(job, ownership)
 
     async def _await_with_timeout(self, execution: Any, ownership: Any) -> Any:
@@ -1538,6 +1604,14 @@ class QueueWorker:
         job_type = job.get("job_type", "run")
         payload = job.get("payload") or {}
         component_for_stamp = self.resolve_component(job.get("component_type"), job.get("component_id"))
+        if (
+            attempt > 1
+            and job_type == "run"
+            and component_for_stamp is not None
+            and not payload.get("continue")
+            and await self._ahonor_non_retryable_row(component_for_stamp, job)
+        ):
+            return
         if (
             job_type == "run"
             and component_for_stamp is not None
@@ -1641,6 +1715,7 @@ class QueueWorker:
                 from agno.run.base import RunStatus as _RS
                 from agno.run.status_persist import RunPersistOutcome as _RPO
                 from agno.run.status_persist import apersist_run_status as _aps
+                from agno.run.status_persist import component_hook
 
                 stamp_outcome = None
                 try:
@@ -1660,6 +1735,21 @@ class QueueWorker:
                         f"Job queue: RUNNING stamp failed for job {job_id} (worker={self.worker_id}, "
                         f"attempt={attempt}): {e}"
                     )
+                persist_fallback = component_hook(component, "_apersist_run_fallback")
+                if stamp_outcome in (_RPO.MISSING, _RPO.UNAVAILABLE) and persist_fallback is not None:
+                    # The read fails closed: an unreadable row may be a CANCELLED one this ticket must not run.
+                    hook_run = await component.aget_run_output(job_id, job["session_id"], user_id=job.get("user_id"))
+                    if hook_run is not None and hook_run.status in (_RS.completed, _RS.cancelled):
+                        stamp_outcome = _RPO.TERMINAL_REFUSED
+                    elif hook_run is not None:
+                        hook_run.status = _RS.running
+                        try:
+                            await persist_fallback(job["session_id"], hook_run, job.get("user_id"))
+                        except Exception as e:
+                            log_warning(
+                                f"Job queue: RUNNING fallback failed for job {job_id} (worker={self.worker_id}, "
+                                f"attempt={attempt}): {e}"
+                            )
                 if stamp_outcome is _RPO.TERMINAL_REFUSED:
                     # The run row is already COMPLETED/CANCELLED (the guard's
                     # exact terminal set - ERROR rows pass, so operator
@@ -1705,7 +1795,17 @@ class QueueWorker:
                 await self._asettle_ticket(job_id, attempt, "cancelled")
             elif status == RunStatus.error:
                 error_content = str(getattr(result, "content", "") or "run errored")
-                await self._aretry_or_fail_ticket(job_id, attempt, error_content, self._retry_delay(attempt))
+                if self._run_is_not_retryable(result):
+                    # The component already classified this failure as one that repeats
+                    # (a limit, authentication, billing, a bad request): re-driving it would
+                    # spend the remaining attempts on the same error.
+                    log_warning(
+                        f"Job queue: run {job_id} failed with a non-retryable error; "
+                        f"failing the ticket without retry: {error_content}"
+                    )
+                    await self._asettle_ticket(job_id, attempt, "failed", error_content)
+                else:
+                    await self._aretry_or_fail_ticket(job_id, attempt, error_content, self._retry_delay(attempt))
             else:
                 await self._asettle_ticket(job_id, attempt, "completed")
         except asyncio.CancelledError:
@@ -2145,6 +2245,26 @@ async def _ainsert_session_if_absent(component: Any, session: Any) -> Optional[b
         return None
 
 
+async def _aappend_pending_run(
+    component: Any,
+    session_id: str,
+    run_dict: Dict[str, Any],
+    user_id: Optional[str],
+    load_session: Callable[[], Awaitable[Any]],
+) -> Optional[Any]:
+    """Land a PENDING run via the atomic primitives; return the loaded session only when the caller must save it."""
+    if await _atomic_append_run(component, session_id, run_dict, user_id) is not None:
+        return None  # atomically landed (True) or a worker's row already won (False)
+    # No session row yet: create it EMPTY via insert-if-absent, then retry the append.
+    # Both steps decline to a concurrent winner, so the prepare never overwrites anyone.
+    session = await load_session()
+    if await _ainsert_session_if_absent(component, session) is not None:
+        if await _atomic_append_run(component, session_id, run_dict, user_id) is not None:
+            return None
+    # Legacy create-and-save: adapters without the atomic primitives only
+    return None if session.get_run(run_dict["run_id"]) is not None else session
+
+
 async def aprepare_queued_run(
     component: Any, component_type: str, run_id: str, session_id: str, user_id: Optional[str], input: Any
 ) -> None:
@@ -2162,8 +2282,12 @@ async def aprepare_queued_run(
     the primitives keep the legacy create-and-save path (narrow unlocked
     read-check-save window, documented)."""
     from agno.run.base import RunStatus
+    from agno.run.status_persist import component_hook
 
-    if component_type == "agent":
+    prepare_hook = component_hook(component, "_aprepare_pending_run")
+    if component_type == "agent" and prepare_hook is not None:
+        await prepare_hook(run_id, session_id, user_id, input, queued=True)
+    elif component_type == "agent":
         from agno.agent._session import asave_run, asave_session
         from agno.agent._storage import aread_or_create_session, update_metadata
         from agno.run.agent import RunInput, RunOutput
@@ -2179,21 +2303,19 @@ async def aprepare_queued_run(
             # land (silently - pollers 404 and the attempt stamp finds no row)
             input=RunInput(input_content=input),
             status=RunStatus.pending,
+            # 0 marks a durable queue ticket's row before any claim; in-process rows stay None.
+            queue_attempt=0,
         )
-        run_dict = run_response_early.to_dict()
-        appended = await _atomic_append_run(component, session_id, run_dict, user_id)
-        if appended is not None:
-            return  # atomically landed (True) or a worker's row already won (False)
-        # No session row yet: create it EMPTY via insert-if-absent, then
-        # retry the row-locked append. Both steps decline to a concurrent
-        # winner, so the prepare never overwrites anyone.
-        session = await aread_or_create_session(component, session_id=session_id, user_id=user_id)
-        update_metadata(component, session=session)
-        if await _ainsert_session_if_absent(component, session) is not None:
-            if await _atomic_append_run(component, session_id, run_dict, user_id) is not None:
-                return
-        # Legacy create-and-save: adapters without the atomic primitives only
-        if session.get_run(run_id) is not None:
+
+        async def load_agent_session() -> Any:
+            agent_session = await aread_or_create_session(component, session_id=session_id, user_id=user_id)
+            update_metadata(component, session=agent_session)
+            return agent_session
+
+        session = await _aappend_pending_run(
+            component, session_id, run_response_early.to_dict(), user_id, load_agent_session
+        )
+        if session is None:
             return
         from agno.session._utils import resolve_run_index
 
@@ -2219,17 +2341,18 @@ async def aprepare_queued_run(
             user_id=user_id,
             input=TeamRunInput(input_content=input),
             status=RunStatus.pending,
+            queue_attempt=0,
         )
-        team_run_dict = team_run_early.to_dict()
-        appended = await _atomic_append_run(component, session_id, team_run_dict, user_id)
-        if appended is not None:
-            return
-        team_session = await _aread_or_create_session(component, session_id=session_id, user_id=user_id)
-        _update_metadata(component, session=team_session)
-        if await _ainsert_session_if_absent(component, team_session) is not None:
-            if await _atomic_append_run(component, session_id, team_run_dict, user_id) is not None:
-                return
-        if team_session.get_run(run_id) is not None:
+
+        async def load_team_session() -> Any:
+            loaded = await _aread_or_create_session(component, session_id=session_id, user_id=user_id)
+            _update_metadata(component, session=loaded)
+            return loaded
+
+        team_session = await _aappend_pending_run(
+            component, session_id, team_run_early.to_dict(), user_id, load_team_session
+        )
+        if team_session is None:
             return
         from agno.session._utils import resolve_run_index
 
@@ -2254,18 +2377,19 @@ async def aprepare_queued_run(
             workflow_name=getattr(component, "name", None),
             created_at=int(datetime.now().timestamp()),
             status=RunStatus.pending,
+            queue_attempt=0,
         )
-        workflow_run_dict = workflow_run_early.to_dict()
-        appended = await _atomic_append_run(component, session_id, workflow_run_dict, user_id)
-        if appended is not None:
-            return
-        workflow_session, _, _ = await component._aload_or_create_session(
-            session_id=session_id, user_id=user_id, session_state=None
+
+        async def load_workflow_session() -> Any:
+            loaded, _, _ = await component._aload_or_create_session(
+                session_id=session_id, user_id=user_id, session_state=None
+            )
+            return loaded
+
+        workflow_session = await _aappend_pending_run(
+            component, session_id, workflow_run_early.to_dict(), user_id, load_workflow_session
         )
-        if await _ainsert_session_if_absent(component, workflow_session) is not None:
-            if await _atomic_append_run(component, session_id, workflow_run_dict, user_id) is not None:
-                return
-        if workflow_session.get_run(run_id) is not None:
+        if workflow_session is None:
             return
         workflow_session.upsert_run(run=workflow_run_early)
         # Session row first, then the run row with its resolved index: the

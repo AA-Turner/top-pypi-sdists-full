@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xlwings
-Version: 0.37.5
+Version: 0.37.6
 Classifier: Development Status :: 4 - Beta
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -8,6 +8,8 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Office/Business :: Financial :: Spreadsheet
 Classifier: License :: OSI Approved :: BSD License
 Requires-Dist: pywin32>=224 ; platform_system == 'Windows'

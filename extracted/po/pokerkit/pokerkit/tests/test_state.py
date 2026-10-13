@@ -13,9 +13,11 @@ from pokerkit.games import (
     FixedLimitOmahaHoldemHighLowSplitEightOrBetter,
     FixedLimitRazz,
     FixedLimitSevenCardStud,
+    LeducHoldem,
     NoLimitDeuceToSevenLowballSingleDraw,
     NoLimitShortDeckHoldem,
     NoLimitTexasHoldem,
+    Numeral211Holdem,
     RhodeIslandHoldem,
 )
 from pokerkit.hands import KuhnPokerHand, StandardHighHand
@@ -1827,6 +1829,54 @@ class StateTestCase(TestCase):
 
         self.assertFalse(state.status)
         self.assertEqual(state.payoffs, [143, 4, -115, -117, -1, 113, -27])
+
+    def test_leduc_holdem(self) -> None:
+        state = LeducHoldem.create_state(tuple(Automation))
+
+        self.assertEqual(state.deck, Deck.LEDUC_HOLDEM)
+
+    def test_numeral211_holdem(self) -> None:
+        state = Numeral211Holdem.create_state(tuple(Automation))
+
+        self.assertEqual(state.deck, Deck.NUMERAL211_HOLDEM)
+
+    def test_short_all_ins(self) -> None:
+        state = NoLimitTexasHoldem.create_state(
+            (
+                Automation.ANTE_POSTING,
+                Automation.BET_COLLECTION,
+                Automation.BLIND_OR_STRADDLE_POSTING,
+            ),
+            True,
+            0,
+            (1, 2),
+            2,
+            (1002, 152, 1002, 202),
+            4,
+        )
+
+        state.deal_hole('AsAd')
+        state.deal_hole('KsKd')
+        state.deal_hole('QsQd')
+        state.deal_hole('JsJd')
+
+        state.check_or_call()
+        state.check_or_call()
+        state.check_or_call()
+        state.check_or_call()
+
+        state.burn_card('??')
+        state.deal_board('2c3c4c')
+
+        state.complete_bet_or_raise_to(100)
+        state.complete_bet_or_raise_to(150)
+        state.check_or_call()
+        state.complete_bet_or_raise_to(200)
+        self.assertTrue(state.can_complete_bet_or_raise_to(300))
+        state.check_or_call()
+        self.assertEqual(state.actor_index, 2)
+        self.assertEqual(state.checking_or_calling_amount, 50)
+        self.assertFalse(state.can_complete_bet_or_raise_to(300))
 
 
 if __name__ == '__main__':

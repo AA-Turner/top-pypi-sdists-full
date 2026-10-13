@@ -1,4 +1,3 @@
-# pyright: reportUnnecessaryTypeIgnoreComment=false
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 from concurrent import futures
@@ -7,23 +6,21 @@ from multiprocessing.pool import AsyncResult as AsyncResult
 from typing import Any, ClassVar, Generic, Literal, NoReturn
 
 from joblib._multiprocessing_helpers import mp as mp
-from joblib._typeshed import AnyContainer, Prefer, Require, ReturnAs
+from joblib._typeshed import Prefer, Require, ReturnAs
 from joblib.executor import get_memmapping_executor as get_memmapping_executor
 from joblib.parallel import Parallel as Parallel
 from joblib.pool import MemmappingPool as MemmappingPool
 from typing_extensions import TypeVar, deprecated
 
-_T = TypeVar("_T")
 _R = TypeVar("_R", default=Literal["list"], bound=ReturnAs)
+type _AnyContainer[T] = futures.Future[T] | AsyncResult[T]
 
 class ParallelBackendBase(Generic[_R], metaclass=ABCMeta):
     default_n_jobs: ClassVar[int]
     supports_inner_max_num_threads: ClassVar[bool]
     supports_retrieve_callback: ClassVar[bool]
-    @property
-    def supports_return_generator(self) -> bool: ...
-    @property
-    def supports_timeout(self) -> bool: ...
+    supports_return_generator: ClassVar[bool]
+    supports_timeout: ClassVar[bool]
     nesting_level: int | None
     inner_max_num_threads: int
     backend_kwargs: dict[str, Any]
@@ -38,23 +35,23 @@ class ParallelBackendBase(Generic[_R], metaclass=ABCMeta):
     @abstractmethod
     def effective_n_jobs(self, n_jobs: int) -> int: ...
     @deprecated("implement `submit` instead.")
-    def apply_async(
+    def apply_async[T](
         self,
-        func: Callable[[], _T],
-        callback: Callable[[AnyContainer[_T]], Any] | None = ...,
-    ) -> AnyContainer[_T]: ...
-    def submit(
+        func: Callable[[], T],
+        callback: Callable[[_AnyContainer[T]], Any] | None = ...,
+    ) -> _AnyContainer[T]: ...
+    def submit[T](
         self,
-        func: Callable[[], _T],
-        callback: Callable[[AnyContainer[_T]], Any] | None = ...,
-    ) -> AnyContainer[_T]: ...
-    def retrieve_result_callback(
-        self, out: futures.Future[_T] | AsyncResult[_T]
-    ) -> _T: ...
+        func: Callable[[], T],
+        callback: Callable[[_AnyContainer[T]], Any] | None = ...,
+    ) -> _AnyContainer[T]: ...
+    def retrieve_result_callback[T](
+        self, out: futures.Future[T] | AsyncResult[T]
+    ) -> T: ...
     parallel: Parallel[_R]
-    def retrieve_result(
-        self, out: futures.Future[_T] | AsyncResult[_T], timeout: float | None = ...
-    ) -> _T: ...
+    def retrieve_result[T](
+        self, out: futures.Future[T] | AsyncResult[T], timeout: float | None = ...
+    ) -> T: ...
     def configure(
         self,
         n_jobs: int = ...,
@@ -78,7 +75,7 @@ class ParallelBackendBase(Generic[_R], metaclass=ABCMeta):
 
 class SequentialBackend(ParallelBackendBase[_R], Generic[_R]):
     uses_threads: ClassVar[bool]
-    supports_timeout: ClassVar[bool]  # pyright: ignore[reportIncompatibleMethodOverride]
+    supports_timeout: ClassVar[bool]
     supports_retrieve_callback: ClassVar[bool]
     supports_sharedmem: ClassVar[bool]
     def submit(
@@ -90,11 +87,11 @@ class SequentialBackend(ParallelBackendBase[_R], Generic[_R]):
 class PoolManagerMixin:
     def effective_n_jobs(self, n_jobs: int) -> int: ...
     def terminate(self) -> None: ...
-    def submit(
+    def submit[T](
         self,
-        func: Callable[[], _T],
-        callback: Callable[[AsyncResult[_T]], Any] | None = ...,
-    ) -> AsyncResult[_T]: ...
+        func: Callable[[], T],
+        callback: Callable[[AsyncResult[T]], Any] | None = ...,
+    ) -> AsyncResult[T]: ...
     def retrieve_result_callback(self, out: Any) -> Any: ...
     def abort_everything(self, ensure_ready: bool = ...) -> None: ...
 
@@ -111,7 +108,8 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase[_R], Generic[_R]):
     supports_retrieve_callback: ClassVar[bool]
     uses_threads: ClassVar[bool]
     supports_sharedmem: ClassVar[bool]
-    def configure(  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore [bad-override]
+    def configure(
         self,
         n_jobs: int = ...,
         parallel: Parallel[_R] | None = ...,
@@ -122,7 +120,7 @@ class MultiprocessingBackend(
     PoolManagerMixin, AutoBatchingMixin[_R], ParallelBackendBase[_R], Generic[_R]
 ):
     supports_retrieve_callback: ClassVar[bool]
-    supports_return_generator: ClassVar[bool]  # pyright: ignore[reportIncompatibleMethodOverride]
+    supports_return_generator: ClassVar[bool]
     def configure(
         self,
         n_jobs: int = ...,
@@ -146,11 +144,11 @@ class LokyBackend(AutoBatchingMixin[_R], ParallelBackendBase[_R], Generic[_R]):
     ) -> int: ...
     def terminate(self) -> None: ...
     def abort_everything(self, ensure_ready: bool = ...) -> None: ...
-    def submit(
+    def submit[T](
         self,
-        func: Callable[[], _T],
-        callback: Callable[[futures.Future[_T]], Any] | None = ...,
-    ) -> futures.Future[_T]: ...
+        func: Callable[[], T],
+        callback: Callable[[futures.Future[T]], Any] | None = ...,
+    ) -> futures.Future[T]: ...
     # mypy
     def effective_n_jobs(self, n_jobs: int) -> int: ...
 

@@ -7,13 +7,6 @@ from functools import cached_property, lru_cache, partial
 from typing import Any, ClassVar, Literal, TypeVar, get_args, overload
 
 import questionary
-from cognite.client import data_modeling as dm
-from cognite.client.data_classes import (
-    Asset,
-    UserProfileList,
-)
-from cognite.client.data_classes.aggregations import Count
-from cognite.client.data_classes.data_modeling.statistics import SpaceStatistics
 from cognite.client.utils import ms_to_datetime
 from questionary import Choice
 from rich.console import Console
@@ -27,11 +20,13 @@ from cognite_toolkit._cdf_tk.client.request_classes.filters import (
     ViewFilter,
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.apm_config_v1 import APMConfigResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.canvas import IndustrialCanvasResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.chart import ChartResponse, Visibility
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
     ContainerId,
     ContainerResponse,
+    CountAggregate,
     DataModelId,
     DataModelResponse,
     DataModelResponseWithViews,
@@ -50,8 +45,10 @@ from cognite_toolkit._cdf_tk.client.resource_classes.documents import (
 from cognite_toolkit._cdf_tk.client.resource_classes.group import AllScope
 from cognite_toolkit._cdf_tk.client.resource_classes.group.acls import ChartsAdminAcl
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.statistics import SpaceStatisticsResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.streams import StreamResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.three_d import ThreeDModelClassicResponse
+from cognite_toolkit._cdf_tk.client.resource_classes.user_profile import UserProfile
 from cognite_toolkit._cdf_tk.constants import LEGACY_IMAGE360_COLLECTION_SOURCE_VIEW_DICT
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 
@@ -65,7 +62,7 @@ from .aggregators import (
 )
 from .useful_types import AssetCentricDestinationType
 
-T_Type = TypeVar("T_Type", bound=Asset | DataSetResponse)
+T_Type = TypeVar("T_Type", bound=AssetResponse | DataSetResponse)
 
 
 class AssetCentricInteractiveSelect(ABC):
@@ -94,21 +91,20 @@ class AssetCentricInteractiveSelect(ABC):
             return self.client.tool.datasets.list(limit=None)
 
     @lru_cache
-    def _get_available_hierarchies(self, data_set: str | None = None) -> list[Asset]:
+    def _get_available_hierarchies(self, data_set: str | None = None) -> list[AssetResponse]:
         data_set_external_ids = [data_set] if data_set else None
-        roots = self.client.assets.list(root=True, limit=-1, data_set_external_ids=data_set_external_ids)
-        return [asset for asset in roots if isinstance(asset, Asset)]
+        return self.client.tool.assets.list(root=True, limit=None, data_set_external_ids=data_set_external_ids)
 
-    def _create_choice(self, item: Asset | DataSetResponse) -> tuple[questionary.Choice, int]:
+    def _create_choice(self, item: AssetResponse | DataSetResponse) -> tuple[questionary.Choice, int]:
         """Create a questionary choice for the given item."""
         if item.external_id is None:
             item_count = -1  # No count available for DataSet/Assets without external_id
         elif isinstance(item, DataSetResponse):
             item_count = self.aggregate_count(tuple(), (item.external_id,))
-        elif isinstance(item, Asset):
+        elif isinstance(item, AssetResponse):
             item_count = self.aggregate_count((item.external_id,), tuple())
         else:
-            raise ToolkitValueError(f"Unexpected item type: {type(item)}. Expected Asset or DataSet.")
+            raise ToolkitValueError(f"Unexpected item type: {type(item)}. Expected AssetResponse or DataSetResponse.")
 
         return questionary.Choice(
             title=f"{item.name} ({item.external_id}) [{item_count:,}]"
@@ -212,7 +208,7 @@ class AssetCentricInteractiveSelect(ABC):
     def _select(
         self,
         what: str,
-        options: Sequence[Asset | DataSetResponse],
+        options: Sequence[AssetResponse | DataSetResponse],
         allow_empty: Literal[True, False],
         plurality: Literal["single", "multiple"],
     ) -> str | list[str] | None:
@@ -347,7 +343,7 @@ class InteractiveCanvasSelect:
         available_canvases = self.client.canvas.list(visibility=select_filter.visibility, limit=None)
         if select_filter.select_all and select_filter.created_by is None:
             return [canvas.external_id for canvas in available_canvases]
-        users = self.client.iam.user_profiles.list(limit=-1)
+        users = self.client.user_profiles.list(limit=None)
         display_name_by_user_identifier = {user.user_identifier: user.display_name or "missing" for user in users}
         if select_filter.created_by == "user":
             canvas_by_user: dict[str, list[IndustrialCanvasResponse]] = defaultdict(list)
@@ -432,7 +428,7 @@ class InteractiveChartSelect:
         if select_filter.select_all and select_filter.owned_by is None:
             return [chart.external_id for chart in available_charts]
 
-        users = self.client.iam.user_profiles.list(limit=-1)
+        users = self.client.user_profiles.list(limit=None)
         display_name_by_user_identifier = {
             user.user_identifier: user.display_name for user in users if user.display_name
         }
@@ -457,7 +453,7 @@ class InteractiveChartSelect:
 
     @classmethod
     def _select_charts_by_user(
-        cls, available_charts: list[ChartResponse], users: UserProfileList
+        cls, available_charts: list[ChartResponse], users: list[UserProfile]
     ) -> list[ChartResponse]:
         chart_by_user: dict[str, list[ChartResponse]] = defaultdict(list)
         for chart in available_charts:
@@ -554,8 +550,8 @@ class DataModelingSelect:
         self._available_spaces: list[SpaceResponse] | None = None
 
     @cached_property
-    def stats_by_space(self) -> dict[str, SpaceStatistics]:
-        result = self.client.data_modeling.statistics.spaces.list()
+    def stats_by_space(self) -> dict[str, SpaceStatisticsResponse]:
+        result = self.client.statistics.spaces.list()
         return {stat.space: stat for stat in result}
 
     @overload
@@ -740,23 +736,29 @@ class DataModelingSelect:
     ) -> Literal["node", "edge"]:
         """Selects an instance type (node or edge) interactively.
 
+        The user always confirms the choice. A view that can only be used for nodes or edges
+        still presents that single choice instead of selecting it automatically.
+
         Args:
-            view_used_for: If 'node' or 'edge', that type is returned directly.
-                           If 'all' or None, the user is prompted to select.
+            view_used_for: Limits the choices to the instance type the view supports.
+                           'all' or None offers both nodes and edges.
 
         Returns:
             The selected instance type, either 'node' or 'edge'.
         """
         if view_used_for == "record":
             raise ToolkitValueError("Record-backed views do not have node or edge instances.")
-        if view_used_for is not None and view_used_for != "all":
-            return view_used_for
+        choices = [
+            Choice(title="Nodes", value="node"),
+            Choice(title="Edges", value="edge"),
+        ]
+        if view_used_for == "node":
+            choices = [Choice(title="Nodes", value="node")]
+        elif view_used_for == "edge":
+            choices = [Choice(title="Edges", value="edge")]
         selected_instance_type = questionary.select(
             message or f"What type of instances do you want to {self.operation}?",
-            choices=[
-                Choice(title="Nodes", value="node"),
-                Choice(title="Edges", value="edge"),
-            ],
+            choices=choices,
         ).unsafe_ask()
 
         if selected_instance_type not in ("node", "edge"):
@@ -826,10 +828,6 @@ class DataModelingSelect:
             raise ToolkitMissingResourceError(
                 f"No instances found in any space for the view {selected_view!r} with instance type {instance_type!r}."
             )
-        if len(count_by_space) == 1:
-            selected_spaces = next(iter(count_by_space.keys()))
-            self.console.print(f"Only one space with instances found: {selected_spaces!r}. Using this space.")
-            return [selected_spaces] if multiselect else selected_spaces
 
         if not message:
             message = f"In which Space{'(s)' if multiselect else ''} do you want to {self.operation} instances?"
@@ -865,10 +863,6 @@ class DataModelingSelect:
         ]
         if not empty_spaces:
             raise ToolkitMissingResourceError("No empty spaces found.")
-        if len(empty_spaces) == 1:
-            selected_space = empty_spaces[0]
-            self.console.print(f"Only one empty space found: {selected_space!r}. Using this space.")
-            return [selected_space] if multiselect else selected_space
 
         message = f"In which empty Space{'(s)' if multiselect else ''} do you want to {self.operation}?"
         choices = [Choice(title=f"{space}", value=space) for space in sorted(empty_spaces)]
@@ -888,7 +882,7 @@ class DataModelingSelect:
         self, all_spaces: list[SpaceResponse], view_id: ViewId, instance_type: Literal["node", "edge"]
     ) -> dict[str, float]:
         count_by_space: dict[str, float] = {}
-        result = self.client.data_modeling.statistics.project()
+        result = self.client.statistics.retrieve()
         read_limit = result.concurrent_read_limit
 
         with ThreadPoolExecutor(max_workers=read_limit // 2) as executor:
@@ -907,10 +901,16 @@ class DataModelingSelect:
         self, space: str, view_id: ViewId, instance_type: Literal["node", "edge"]
     ) -> tuple[str, float]:
         """Get the count of instances in a specific space for a given view and instance type."""
-        sdk_view_id = dm.ViewId(space=view_id.space, external_id=view_id.external_id, version=view_id.version)
-        return space, self.client.data_modeling.instances.aggregate(
-            sdk_view_id, Count("externalId"), instance_type=instance_type, space=space
-        ).value or 0.0
+        aggregate_result = self.client.tool.instances.aggregate(
+            view_id,
+            aggregates=[CountAggregate(property="externalId")],
+            instance_type=instance_type,
+            filter={"equals": {"property": [instance_type, "space"], "value": space}},
+        )
+        count = 0.0
+        if aggregate_result.items and aggregate_result.items[0].aggregates:
+            count = float(aggregate_result.items[0].aggregates[0].value or 0.0)
+        return space, count
 
     def _get_available_spaces(self, include_global: bool = False) -> list[SpaceResponse]:
         if self._available_spaces is None:
@@ -1307,22 +1307,16 @@ class DocumentsInteractiveSelect:
         if len(buckets) == 0:
             self.client.console.print(f"No documents found for filtering on {filter_type!r}.", style="bold red")
             return
-        elif len(buckets) == 1:
-            self.client.console.print(
-                f"Only one value found for {filter_type!r}: {buckets[0].value!r}. Automatically applying this filter."
-            )
-            filter[filter_type] = {"equals": {"property": list(filter_type), "value": buckets[0].value}}
-        else:
-            selected_values = questionary.checkbox(
-                f"Select values for {filter_type!r}:",
-                choices=[
-                    Choice(title=f"{bucket.value!s} (count {bucket.count})", value=bucket.value) for bucket in buckets
-                ],
-                validate=lambda choices: True if choices else "You must select at least one value.",
-            ).unsafe_ask()
-            if not selected_values:
-                return
-            filter[filter_type] = {"in": {"property": list(filter_type), "values": list(selected_values)}}
+        selected_values = questionary.checkbox(
+            f"Select values for {filter_type!r}:",
+            choices=[
+                Choice(title=f"{bucket.value!s} (count {bucket.count})", value=bucket.value) for bucket in buckets
+            ],
+            validate=lambda choices: True if choices else "You must select at least one value.",
+        ).unsafe_ask()
+        if not selected_values:
+            return
+        filter[filter_type] = {"in": {"property": list(filter_type), "values": list(selected_values)}}
         self.status.attempted_options.add(filter_type)
 
     def _select_dataset(self) -> None:
@@ -1334,12 +1328,6 @@ class DocumentsInteractiveSelect:
             self.client.console.print("No documents found for filtering on data set ID.", style="bold red")
             return
         external_ids = self.client.lookup.data_sets.external_id(list(internal_ids))
-        if len(external_ids) == 1:
-            self.client.console.print(
-                f"Only one data set found: {external_ids[0]!r}. Automatically applying this filter."
-            )
-            self.status.data_set_id = next(iter(internal_ids.keys()))
-            return
         selected_data_set_id = questionary.select(
             message="Select data set:",
             choices=[

@@ -144,3 +144,13 @@ def test_it_looks_up_related_papers_and_proposes_never_builds():
     assert "web-call allowance" in flat, "find_papers spends the team's weekly allowance"
     assert "the map row it would change (none: drop it)" in flat
     assert "proposed, never built, after the reproduction" in flat
+
+
+def test_every_run_records_to_probe_whatever_the_repo_logs_to():
+    """Richard, 2026-10-13: on a project whose code already logged to W&B, the
+    plan kept W&B - "reuse is the default" read the tracker as code to reuse.
+    The contract carries it too: it is the text the implementing agent follows."""
+    flat = _flat(_text())
+    assert "every run logs to probe" in flat and "not reuse, not a question" in flat
+    contract = _flat(flat.split("**implementation contract**", 1)[1].replace(">", " "))
+    assert "log every run to probe (`instrument-code`), replacing" in contract

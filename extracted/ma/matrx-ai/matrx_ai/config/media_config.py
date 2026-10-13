@@ -811,6 +811,17 @@ class AudioContent:
                 )
                 return self.transcription_result
 
+        # CAPTURE RUN (Model view): transcription is a PAID call that is not the main
+        # request. Skip it, say so on the capture, and cache NOTHING (a stand-in
+        # must never reach the global transcription cache or this instance).
+        from matrx_ai.providers.request_capture import skip_paid_pre_step
+
+        if skip_paid_pre_step(
+            "audio_transcription",
+            f"model {self.transcription_model!r}, source {str(audio_source)[:80]!r}",
+        ):
+            return "[audio transcript: not generated in a Model view capture]"
+
         # Perform transcription
         try:
             from matrx_ai.processing.audio.stt import STTRequest, execute_stt

@@ -22,7 +22,13 @@ from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, get_type, make_vali
 from schemathesis.core.jsonschema.types import JsonSchema
 from schemathesis.core.mutations import Mutation, OperatorKind, render_mutations
 from schemathesis.core.parameters import ParameterLocation, plain_str_values
-from schemathesis.core.transport import HTTP_METHODS_SCHEMA, Response, expand_status_code, expand_status_codes
+from schemathesis.core.transport import (
+    HTTP_METHODS_SCHEMA,
+    SAFE_METHODS,
+    Response,
+    expand_status_code,
+    expand_status_codes,
+)
 from schemathesis.generation.case import Case
 from schemathesis.generation.meta import (
     REQUEST_SHAPE_PROBES,
@@ -48,9 +54,9 @@ from schemathesis.openapi.checks import (
     UseAfterFree,
 )
 from schemathesis.specs.openapi._auth_retry import (
-    build_retry_transport_kwargs,
     get_security_parameters,
     remove_auth,
+    send_probe,
     set_auth_for_case,
 )
 from schemathesis.specs.openapi.utils import (
@@ -760,6 +766,11 @@ def _query_as_sent(
     return sent
 
 
+def _headers_as_read(headers: Mapping[str, object]) -> dict[str, object]:
+    """Header values as the application reads them: servers drop the spaces and tabs around each value."""
+    return {name: value.strip(" \t") if isinstance(value, str) else value for name, value in headers.items()}
+
+
 def _non_body_negative_values_match_schema(response: Response, case: Case) -> bool:
     """Check if all negative non-body parameter values are still valid against their original schema."""
     from schemathesis.specs.openapi.schemas import OpenApiSchema
@@ -800,6 +811,8 @@ def _non_body_negative_values_match_schema(response: Response, case: Case) -> bo
         v = dict(value) if location == ParameterLocation.HEADER else value
         if isinstance(v, dict):
             v = plain_str_values(v)
+        if location == ParameterLocation.HEADER:
+            v = _headers_as_read(v)
         try:
             if not container.get_strict_validator().is_valid(v):
                 # At least one parameter is invalid
@@ -1214,6 +1227,8 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
     for location in (ParameterLocation.QUERY, ParameterLocation.HEADER, ParameterLocation.COOKIE):
         meta_for_location = meta.components.get(location)
         value = case.get_container(location)
+        if isinstance(value, Mapping) and location == ParameterLocation.HEADER:
+            value = _headers_as_read(value)
         if isinstance(value, Mapping) and meta_for_location is not None and meta_for_location.mode.is_negative:
             container = getattr(case.operation, location.container_name)
             schema = container.schema
@@ -1510,7 +1525,7 @@ def ensure_resource_availability(ctx: CheckContext, response: Response, case: Ca
     )
 
 
-class AuthKind(str, enum.Enum):
+class AuthKind(enum.StrEnum):
     EXPLICIT = "explicit"
     GENERATED = "generated"
 
@@ -1552,21 +1567,14 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
             # Auth is explicitly set, it is expected to be valid
             # Check if invalid auth will give an error
             no_auth_case = remove_auth(case, security_parameters)
-            kwargs = build_retry_transport_kwargs(ctx._transport_kwargs, security_parameters)
-            if case.operation.app is not None:
-                kwargs.setdefault("app", case.operation.app)
-            ctx._record_case(parent_id=case.id, case=no_auth_case)
-            no_auth_response = case.operation.schema.transport.send(no_auth_case, **kwargs)
-            ctx._record_response(case_id=no_auth_case.id, response=no_auth_response)
+            no_auth_response = send_probe(ctx, case, no_auth_case)
             if not _enforces_auth(no_auth_response, response):
                 _raise_no_auth_error(no_auth_response, no_auth_case, AuthScenario.NO_AUTH)
             # Try to set invalid auth and check if it succeeds
             for parameter in security_parameters:
                 invalid_auth_case = remove_auth(case, security_parameters)
                 set_auth_for_case(invalid_auth_case, parameter)
-                ctx._record_case(parent_id=case.id, case=invalid_auth_case)
-                invalid_auth_response = case.operation.schema.transport.send(invalid_auth_case, **kwargs)
-                ctx._record_response(case_id=invalid_auth_case.id, response=invalid_auth_response)
+                invalid_auth_response = send_probe(ctx, case, invalid_auth_case)
                 if not _enforces_auth(invalid_auth_response, response):
                     _raise_no_auth_error(invalid_auth_response, invalid_auth_case, AuthScenario.INVALID_AUTH)
             if enforced is not None:
@@ -1578,6 +1586,16 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
         else:
             # Successful response when there is no auth
             _raise_no_auth_error(response, case, AuthScenario.NO_AUTH)
+    return None
+
+
+@schemathesis.check
+@requires_openapi_schema
+def object_level_authorization(ctx: CheckContext, response: Response, case: Case) -> bool | None:
+    """Check that one identity cannot read an object another identity created."""
+    from schemathesis.specs.openapi.object_authorization import check_object_level_authorization
+
+    check_object_level_authorization(ctx, response, case)
     return None
 
 
@@ -1743,9 +1761,6 @@ def _is_prefix_operation(lhs: ResourcePath, rhs: ResourcePath) -> bool:
 
     # If we've reached this point, the LHS path is a prefix of the RHS path
     return True
-
-
-SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 
 
 def resource_was_deleted(recorder: RecordedScenario, case: Case) -> bool:

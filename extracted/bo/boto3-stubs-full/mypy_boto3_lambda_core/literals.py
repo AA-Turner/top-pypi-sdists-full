@@ -25,6 +25,7 @@ else:
 __all__ = (
     "ComputeResourceTypeType",
     "LambdaCoreServiceName",
+    "ListNetworkConnectorVersionsPaginatorName",
     "ListNetworkConnectorsPaginatorName",
     "NetworkConnectorLastUpdateStatusReasonCodeType",
     "NetworkConnectorLastUpdateStatusType",
@@ -39,7 +40,8 @@ __all__ = (
 )
 
 
-ComputeResourceTypeType = Literal["MicroVm"]
+ComputeResourceTypeType = Literal["MicroVm", "WebFunction"]
+ListNetworkConnectorVersionsPaginatorName = Literal["list_network_connector_versions"]
 ListNetworkConnectorsPaginatorName = Literal["list_network_connectors"]
 NetworkConnectorLastUpdateStatusReasonCodeType = Literal[
     "DisallowedByVpcEncryptionControl",
@@ -48,6 +50,7 @@ NetworkConnectorLastUpdateStatusReasonCodeType = Literal[
     "InternalError",
     "InvalidSecurityGroup",
     "InvalidSubnet",
+    "SecurityGroupsPerInterfaceLimitExceeded",
     "SubnetOutOfIPAddresses",
 ]
 NetworkConnectorLastUpdateStatusType = Literal["Failed", "InProgress", "Successful"]
@@ -58,6 +61,7 @@ NetworkConnectorStateReasonCodeType = Literal[
     "InternalError",
     "InvalidSecurityGroup",
     "InvalidSubnet",
+    "SecurityGroupsPerInterfaceLimitExceeded",
     "SubnetOutOfIPAddresses",
 ]
 NetworkConnectorStateType = Literal[
@@ -429,6 +433,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -506,7 +511,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_network_connectors"]
+PaginatorName = Literal["list_network_connector_versions", "list_network_connectors"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

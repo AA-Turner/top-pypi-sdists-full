@@ -1,8 +1,9 @@
 """`probe capy`: capture the researcher's Capy threads as Probe sessions.
 
-Capy (capy.ai) is a cloud coding agent (registry family `cloud`): its agent
-runs on Capy's servers and its tools on a Capy machine, so there is nothing to
-install on this one and no hook to start capture. Instead:
+Capy (capy.ai) is a coding agent whose loop runs on Capy's servers (registry
+family `cloud`); its tools run on this computer (a thread on "This Mac") or on
+a Capy machine. It runs no Probe hook and leaves no transcript here, so capture
+pulls its threads from Capy's API instead:
 
   probe capy connect     takes the researcher's own Capy API key (from
                          $CAPY_API_KEY, --api-key-stdin or a hidden prompt,
@@ -20,6 +21,14 @@ install on this one and no hook to start capture. Instead:
   probe capy disconnect  stops it: removes the timer, the key, the sync record
                          and the capture credential (the server is told the
                          device is done).
+
+The installer treats Capy like every other coding agent (`npx probe-research
+install --agent capy`, or Capy ticked in its picker): it asks for the key and
+the projects before it starts (`prepare`), then runs `connect` with them, and
+prints the steps that put Probe inside Capy (`setup_steps`), which nothing on
+this machine can do for it. Turning capture off, signing out and uninstalling
+call `capture_off` / `disconnect` (`setup.release_credentials`), and the capture
+plugin's session start runs a catch-up sync (`tap/cloud_catchup.py`).
 
 Nothing here writes to Capy: every Capy call is a GET.
 
@@ -51,6 +60,7 @@ import subprocess
 import sys
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -176,6 +186,10 @@ class CapyConfig:
     projects: list[dict]
     connected_at: str | None = None
     timer: str | None = None
+    #: The Probe server capture was paired with. A sync from a shell that
+    #: points Probe elsewhere ($PROBE_BASE_URL at staging, say) sends nothing:
+    #: the capture credential and the threads belong to this one.
+    base_url: str | None = None
 
     @property
     def project_ids(self) -> list[str]:
@@ -355,6 +369,10 @@ class Skip(str, Enum):
     TURNED_OFF = "capture is turned off for Capy on this machine (.disabled); `probe capy connect` turns it back on"
     REFUSED = "Probe refused the capture credential at the last sync: run `probe capy connect` again"
     BUSY = "another sync is running"
+    OTHER_SERVER = (
+        "Probe points at another server than the one Capy was connected to ($PROBE_BASE_URL?); "
+        "nothing was sent. `probe capy connect` pairs Capy with this one"
+    )
     NO_LOCK = "could not take the sync lock"
 
 
@@ -418,6 +436,8 @@ def sync_once(*, api: discovery.CapyAPI | None = None, wire: Any = None, now: fl
     if credential is None and wire is None:
         return SyncReport(skipped=Skip.NOT_PAIRED)
     token, base_url = credential or ("", "")
+    if config.base_url and base_url and base_url.rstrip("/") != config.base_url.rstrip("/"):
+        return SyncReport(skipped=Skip.OTHER_SERVER)
     lock = _try_lock()
     if isinstance(lock, Skip):
         return SyncReport(skipped=lock)
@@ -456,7 +476,12 @@ def sync_once(*, api: discovery.CapyAPI | None = None, wire: Any = None, now: fl
         report.auth_failed = pulled.auth_failed
         report.budget_spent = pulled.budget_spent
         uploaded = state.setdefault("uploaded", {}).setdefault(destination, {})
-        if pulled.sessions:
+        if pulled.sessions and killswitch_path().exists():
+            # Turned off while this sync was pulling: off means nothing more is
+            # sent. The mirror keeps what was read; a thread uploads with its
+            # next message after capture is back on.
+            report.errors.append("capture was turned off during this sync: nothing was uploaded")
+        elif pulled.sessions:
             try:
                 report.upload = upload(pulled.sessions, token=token, base_url=base_url, uploaded=uploaded, wire=wire)
             finally:
@@ -646,6 +671,8 @@ def remove_timer(mode: str | None) -> str | None:
     unit_dir = _systemd_dir()
     if (unit_dir / f"{TIMER_NAME}.timer").exists() and shutil.which("systemctl"):
         _run(["systemctl", "--user", "disable", "--now", f"{TIMER_NAME}.timer"])
+        # And a sync already running: disabling the timer leaves its service be.
+        _run(["systemctl", "--user", "stop", f"{TIMER_NAME}.service"])
     for suffix in (".timer", ".service"):
         (unit_dir / f"{TIMER_NAME}{suffix}").unlink(missing_ok=True)
     if shutil.which("systemctl"):
@@ -746,16 +773,26 @@ def _probe_account() -> dict:
     return me if isinstance(me, dict) else {}
 
 
+#: `_capture_customer`'s answer when the server could not be asked (offline, a
+#: 5xx): not evidence the credential belongs to another team.
+UNREACHABLE = "unreachable"
+
+
 def _capture_customer(token: str, base_url: str) -> str | None:
     """The team a capture credential uploads to (its receipts answer names it),
-    or None when the credential is refused or the server cannot say."""
+    None when the credential is refused, or UNREACHABLE when the server could
+    not answer."""
     from probe.sdk.tls import ssl_context
 
     from ..tap_core.session_journal import DeliveryPending, ReconciliationRequired, Wire
 
     try:
         return Wire(base_url, token, SOURCE, context=ssl_context()).receipts(str(uuid.uuid4()))["customer_id"]
-    except (DeliveryPending, ReconciliationRequired, KeyError):
+    except DeliveryPending as exc:
+        # Only a server that could not answer (408/429/5xx, a dropped
+        # connection) is unreachable; a 401/403 is a refused credential.
+        return UNREACHABLE if exc.retryable else None
+    except (ReconciliationRequired, KeyError):
         return None
 
 
@@ -795,6 +832,197 @@ def _choose_projects(available: list[dict], wanted: list[str], interactive: bool
     return picked
 
 
+class ConnectRefused(Exception):
+    """`connect` could not finish; the message says why, in the user's terms."""
+
+
+class KeyRefused(ConnectRefused):
+    """Capy refused the API key."""
+
+
+class CapyUnreachable(ConnectRefused):
+    """Capy's API could not be reached (the key may be fine)."""
+
+
+class NoProjectChosen(ConnectRefused):
+    """The researcher picked no project: their decision, not a failure."""
+
+
+class ProjectsUnnamed(ConnectRefused):
+    """A run with no terminal named no project (--project / --capy-project)."""
+
+
+class ProjectNotFound(ConnectRefused):
+    """A named project is not one of the key's Capy projects."""
+
+
+class EmailNotFound(ConnectRefused):
+    """No member of the Capy organization has the Probe account's email."""
+
+
+@dataclass
+class CapturePlan:
+    """What connecting needs from the researcher, asked BEFORE any setup runs
+    (`prepare`): the key Capy accepted, the projects they chose, and the
+    organization's members (their Capy user is found among them by their Probe
+    email once they are signed in). The installer asks for it on its review
+    screen, so no human wait counts against its apply budget."""
+
+    key: str
+    projects: list[dict]
+    users: list[dict]
+
+    def __repr__(self) -> str:  # never print the key
+        return f"CapturePlan(projects={[p.get('name') or p.get('id') for p in self.projects]!r})"
+
+
+@dataclass
+class Connected:
+    config: CapyConfig
+    team: str | None
+    mode: TimerMode | None
+    lines: list[str]
+    #: The first sync `connect` ran because no system timer will (None when a
+    #: timer will, or when it was told not to).
+    report: SyncReport | None = None
+
+
+def prepare(key: str, *, choose: Callable[[list[dict]], list[dict]]) -> CapturePlan:
+    """Check the key with Capy and ask `choose` which projects to capture.
+    Raises ConnectRefused with a message for the researcher."""
+    api = discovery.CapyAPI(key)
+    try:
+        projects = api.projects()
+        users = api.users()
+    except discovery.CapyAuthError:
+        raise KeyRefused("Capy refused that key. Check it under Capy Settings > API.") from None
+    except discovery.CapyError as exc:
+        raise CapyUnreachable(f"Could not reach Capy: {exc}") from None
+    chosen = choose(projects)
+    if not chosen:
+        raise NoProjectChosen("No Capy project chosen, so nothing was connected.")
+    return CapturePlan(key=key, projects=list(chosen), users=list(users))
+
+
+def _email_refusal(email: str) -> EmailNotFound:
+    return EmailNotFound(
+        f"No member of this Capy organization has the email {email} (your Probe "
+        "account's). Capture only takes your own threads, so it needs the same email "
+        "on both."
+    )
+
+
+def connect(
+    plan: CapturePlan,
+    *,
+    open_browser: bool = True,
+    on_prompt: Callable[[Any], None] | None = None,
+    timer: bool = True,
+    first_sync: bool = True,
+) -> Connected:
+    """Everything `probe capy connect` does after `prepare`, for the command
+    and the installer.
+
+    Finds the researcher's Capy user by their Probe account's email, pairs (or
+    re-checks) the capture credential for the `capy` source, turns capture back
+    on, saves the connection and installs the timer. When no system timer will
+    run (cron, or none could be installed) it syncs once right away, so
+    connecting never leaves a connection that has uploaded nothing
+    (`first_sync=False` skips that). Raises ConnectRefused with a message for
+    the researcher; returns what was done as lines to show.
+    """
+    from probe.sdk.config import resolve
+
+    from . import capabilities, setup
+
+    lines: list[str] = []
+    account = _probe_account()
+    email = str(account.get("email") or "").strip()
+    if not email:
+        raise ConnectRefused("Sign in to Probe first (`probe login`): your Capy user is found by your Probe email.")
+
+    # Only the researcher's own threads are captured, so "me" is never a
+    # choice: it is the Capy member with the Probe account's email.
+    user = discovery.resolve_me(plan.users, email=email)
+    if user is None:
+        raise _email_refusal(email)
+
+    credential = capabilities.resolved_capture_credential(SOURCE)
+    team = account.get("customer_id")
+    owner = _capture_customer(*credential) if credential is not None else None
+    if credential is not None and (
+        owner not in (team, UNREACHABLE) or (owner == UNREACHABLE and _stopped_for_another_account())
+    ):
+        # Refused, revoked, or another team's: a fresh approval replaces it.
+        # An unreachable server is not evidence of either -- unless capture was
+        # stopped because the credential belongs to another team, which only a
+        # fresh approval for this account may lift.
+        credential = None
+    if credential is None:
+        _, messages = setup.authorize(
+            ["capture"],
+            base_url=resolve().base_url,
+            capture_sources=[SOURCE],
+            open_browser=open_browser,
+            on_prompt=on_prompt,
+        )
+        lines.extend(messages)
+        if capabilities.resolved_capture_credential(SOURCE) is None:
+            raise ConnectRefused("Capture was not approved, so nothing was connected.")
+    killswitch_path().unlink(missing_ok=True)
+    refused_path().unlink(missing_ok=True)  # a refused credential's verdict no longer applies
+
+    paired = capabilities.resolved_capture_credential(SOURCE)
+    config = CapyConfig(
+        api_key=plan.key,
+        me_id=str(user["id"]),
+        me_email=user.get("email"),
+        projects=[{"id": p.get("id"), "name": p.get("name")} for p in plan.projects],
+        connected_at=now_iso(),
+        base_url=paired[1] if paired else None,
+    )
+    names = ", ".join(str(p.get("name") or p.get("id")) for p in plan.projects)
+    lines.append(
+        f"Connected as {config.me_email}; capturing threads you start in {names}, "
+        f"into Probe team {team}."
+    )
+    mode = None
+    if timer and capabilities.TokenSource.PAIRED_FILE not in capabilities.capture_token_sources(SOURCE):
+        # The timer runs without this shell's environment (and never carries a
+        # credential), so a token set only in $PROBE_CAPY_TAP_TOKEN is one it
+        # cannot see: every timed sync would say "not paired".
+        lines.append(
+            "No timer installed: the capture credential comes from $PROBE_CAPY_TAP_TOKEN, "
+            "which the timer cannot see. Unset it and run `probe capy connect` to pair this "
+            "machine, or run `probe capy sync` yourself."
+        )
+    elif timer:
+        mode, line = install_timer()
+        lines.append(line)
+    config.timer = mode.value if mode else None
+    save_config(config)
+    report = None
+    if mode in (TimerMode.SYSTEMD, TimerMode.LAUNCHD):
+        lines.append("The first sync can take a while for a long history: `probe capy status` shows it.")
+    elif first_sync:
+        report = sync_once()
+        lines.extend(report_lines(report))
+    return Connected(config=config, team=team, mode=mode, lines=lines, report=report)
+
+
+def capture_off(*, uninstall: bool) -> list[str]:
+    """Turn Capy capture off on this machine: `uninstall` disconnects (timer,
+    key, sync record and credential gone); otherwise the `.disabled` killswitch
+    stops every sync and `probe capy connect` (or the installer) turns it back
+    on. Returns what to tell the researcher."""
+    if uninstall:
+        return disconnect()
+    if load_config() is None:
+        return []
+    _turn_off("turned off by the installer")
+    return [f"{label()} capture turned off; the connection is kept (`probe capy connect` turns it back on)."]
+
+
 @capy_app.command("connect")
 def connect_cmd(
     api_key_stdin: bool = typer.Option(
@@ -808,9 +1036,7 @@ def connect_cmd(
     no_browser: bool = typer.Option(False, "--no-browser", help="print the approval link instead of opening it"),
 ) -> None:
     """Connect your Capy account: capture the threads you start, as Probe sessions."""
-    from probe.sdk.config import resolve
-
-    from . import capabilities, setup, tui
+    from . import tui
 
     interactive = tui.interactive()
     if api_key_stdin:
@@ -824,89 +1050,45 @@ def connect_cmd(
             f"a Capy API key is required: set ${ENV_API_KEY}, pipe it to --api-key-stdin, or run interactively"
         )
 
-    account = _probe_account()
-    email = str(account.get("email") or "").strip()
-    if not email:
-        typer.echo("Sign in to Probe first (`probe login`): your Capy user is found by your Probe email.", err=True)
-        raise typer.Exit(1)
-
-    api = discovery.CapyAPI(key)
-    try:
-        projects = api.projects()
-        users = api.users()
-    except discovery.CapyAuthError:
-        typer.echo("Capy refused that key. Check it under Capy Settings > API.", err=True)
-        raise typer.Exit(1) from None
-    except discovery.CapyError as exc:
-        typer.echo(f"Could not reach Capy: {exc}", err=True)
-        raise typer.Exit(1) from None
-
-    # Only the researcher's own threads are captured, so "me" is never a
-    # choice: it is the Capy member with the Probe account's email.
-    user = discovery.resolve_me(users, email=email)
-    if user is None:
-        typer.echo(
-            f"No member of this Capy organization has the email {email} (your Probe "
-            "account's). Capture only takes your own threads, so it needs the same email "
-            "on both.",
-            err=True,
-        )
-        raise typer.Exit(1)
-    chosen = _choose_projects(projects, project or [], interactive)
-
-    credential = capabilities.resolved_capture_credential(SOURCE)
-    team = account.get("customer_id")
-    if credential is not None and _capture_customer(*credential) != team:
-        # Refused, revoked, or another team's: a fresh approval replaces it.
-        credential = None
-    if credential is None:
+    def on_prompt(prompt) -> None:
         typer.echo("Approve capture for your Capy threads in your browser.")
-        _, messages = setup.authorize(
-            ["capture"],
-            base_url=resolve().base_url,
-            capture_sources=[SOURCE],
-            open_browser=not no_browser,
-            on_prompt=lambda prompt: typer.echo(f"  {prompt.verification_uri_complete}"),
-        )
-        for line in messages:
-            typer.echo(line)
-        if capabilities.resolved_capture_credential(SOURCE) is None:
-            typer.echo("Capture was not approved, so nothing was connected.", err=True)
-            raise typer.Exit(1)
-    killswitch_path().unlink(missing_ok=True)
-    refused_path().unlink(missing_ok=True)  # a refused credential's verdict no longer applies
+        typer.echo(f"  {prompt.verification_uri_complete}")
 
-    config = CapyConfig(
-        api_key=key,
-        me_id=str(user["id"]),
-        me_email=user.get("email"),
-        projects=[{"id": p.get("id"), "name": p.get("name")} for p in chosen],
-        connected_at=now_iso(),
-    )
-    names = ", ".join(str(p.get("name") or p.get("id")) for p in chosen)
-    typer.echo(
-        f"Connected as {config.me_email}; capturing threads you start in {names}, "
-        f"into Probe team {team}."
-    )
-    mode = None
-    if not no_timer and capabilities.TokenSource.PAIRED_FILE not in capabilities.capture_token_sources(SOURCE):
-        # The timer runs without this shell's environment (and never carries a
-        # credential), so a token set only in $PROBE_CAPY_TAP_TOKEN is one it
-        # cannot see: every timed sync would say "not paired".
-        typer.echo(
-            "No timer installed: the capture credential comes from $PROBE_CAPY_TAP_TOKEN, "
-            "which the timer cannot see. Unset it and run `probe capy connect` to pair this "
-            "machine, or run `probe capy sync` yourself."
+    try:
+        plan = prepare(key, choose=lambda projects: _choose_projects(projects, project or [], interactive))
+        done = connect(
+            plan,
+            open_browser=not no_browser,
+            on_prompt=on_prompt,
+            timer=not no_timer,
+            first_sync=not no_sync,
         )
-    elif not no_timer:
-        mode, line = install_timer()
+    except ConnectRefused as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    for line in done.lines:
         typer.echo(line)
-    config.timer = mode.value if mode else None
-    save_config(config)
-    if mode in (TimerMode.SYSTEMD, TimerMode.LAUNCHD):
-        typer.echo("The first sync can take a while for a long history: `probe capy status` shows it.")
-    elif not no_sync:
-        _print_report(sync_once(), quiet=False)
+
+
+def report_lines(report: SyncReport) -> list[str]:
+    """What one sync did, for a person: the summary, then each problem."""
+    if not report.ran:
+        return [report.reason or "nothing ran"]
+    up = report.upload
+    lines = [
+        f"Synced {report.pulled_sessions} Capy session(s) from {report.threads_mine} of your threads: "
+        f"{report.new_bytes} new bytes, {up.batches} batch(es) uploaded"
+        + (f", {up.deleted} deleted by your team" if up.deleted else "")
+        + "."
+    ]
+    if report.budget_spent:
+        lines.append(f"Read {discovery.MAX_CALLS_PER_SYNC} Capy pages this sync; the next sync goes on from here.")
+    if report.auth_failed:
+        lines.append("Capy refused the key: run `probe capy connect` with a new one.")
+    if up.credential_refused:
+        lines.append("Probe refused the capture credential: run `probe capy connect` again.")
+    lines.extend(f"  ! {line}" for line in (report.errors + up.errors)[:10])
+    return lines
 
 
 def _print_report(report: SyncReport, *, quiet: bool) -> None:
@@ -916,24 +1098,10 @@ def _print_report(report: SyncReport, *, quiet: bool) -> None:
         return
     if quiet and report.ok:
         return
-    up = report.upload
-    typer.echo(
-        f"Synced {report.pulled_sessions} Capy session(s) from {report.threads_mine} of your threads: "
-        f"{report.new_bytes} new bytes, {up.batches} batch(es) uploaded"
-        + (f", {up.deleted} deleted by your team" if up.deleted else "")
-        + "."
-    )
-    if report.budget_spent:
-        typer.echo(
-            f"Read {discovery.MAX_CALLS_PER_SYNC} Capy pages this sync; the next sync goes on from here.",
-            err=quiet,
-        )
-    if report.auth_failed:
-        typer.echo("Capy refused the key: run `probe capy connect` with a new one.", err=True)
-    if up.credential_refused:
-        typer.echo("Probe refused the capture credential: run `probe capy connect` again.", err=True)
-    for line in (report.errors + up.errors)[:10]:
-        typer.echo(f"  ! {line}", err=True)
+    summary, *rest = report_lines(report)
+    typer.echo(summary)
+    for line in rest:
+        typer.echo(line, err=True)
 
 
 @capy_app.command("sync")
@@ -965,13 +1133,22 @@ def status_cmd() -> None:
         typer.echo(f"    ! {line}")
 
 
-@capy_app.command("disconnect")
-def disconnect_cmd(
-    keep_capture: bool = typer.Option(
-        False, "--keep-capture", help="keep the capture credential (only remove the key, timer and sync record)"
-    ),
-) -> None:
-    """Stop capturing Capy threads: remove the timer, the key, the sync record and the capture credential."""
+def connected_here() -> bool:
+    """Whether anything of Capy capture is set up on this machine: the
+    connection, its capture credential, or its timer."""
+    return any(
+        path.exists()
+        for path in (
+            config_path(),
+            state_dir() / ".token",
+            _launchd_plist(),
+            _systemd_dir() / f"{TIMER_NAME}.timer",
+        )
+    )
+
+
+def disconnect(*, keep_capture: bool = False) -> list[str]:
+    """Stop capturing Capy threads on this machine. Returns what to tell the researcher."""
     from . import capabilities
 
     config = load_config()
@@ -985,9 +1162,428 @@ def disconnect_cmd(
         with contextlib.suppress(Exception):
             capabilities.revoke_capture_device(SOURCE)
         (state_dir() / ".token").unlink(missing_ok=True)
-    typer.echo(
+    lines = [
         "Capy disconnected. Sessions already uploaded stay in Probe; the local mirror files "
         f"stay in {mirror_root()} (delete them if you like)."
-    )
+    ]
     if hint:
-        typer.echo(hint)
+        lines.append(hint)
+    return lines
+
+
+@capy_app.command("disconnect")
+def disconnect_cmd(
+    keep_capture: bool = typer.Option(
+        False, "--keep-capture", help="keep the capture credential (only remove the key, timer and sync record)"
+    ),
+) -> None:
+    """Stop capturing Capy threads: remove the timer, the key, the sync record and the capture credential."""
+    for line in disconnect(keep_capture=keep_capture):
+        typer.echo(line)
+
+
+# --- the installer ---------------------------------------------------------------
+#
+# The installer lists Capy with the other coding agents. What it cannot do for
+# Capy is put Probe inside it (Capy has no command or API for its MCP servers
+# or plugins), so it prints `setup_steps`; what it can do is capture, through
+# `prepare` (asked on its review screen) and `connect` (run while it applies).
+
+
+class CaptureOutcome(str, Enum):
+    """How the installer's Capy capture step ended (and whether that leaves
+    the install unfinished: `blocks`)."""
+
+    CONNECTED = "connected"
+    #: Connected before this run; nothing to ask.
+    ALREADY = "already connected"
+    #: The researcher chose not to give a key or a project: their decision,
+    #: said on the final screen, never a failed install.
+    DECLINED = "declined"
+    #: A run with no terminal had no key ($CAPY_API_KEY) or no project
+    #: (--capy-project): capture was asked for and could not happen.
+    MISSING = "missing"
+    #: Capy or Probe refused (the key, the email, the approval).
+    REFUSED = "refused"
+
+    @property
+    def blocks(self) -> bool:
+        return self in (CaptureOutcome.MISSING, CaptureOutcome.REFUSED)
+
+
+@dataclass
+class CaptureAsk:
+    """The answer the installer's review screen collected for Capy capture."""
+
+    outcome: CaptureOutcome
+    plan: CapturePlan | None = None
+    lines: list[str] = field(default_factory=list)
+
+    @property
+    def pairs(self) -> bool:
+        """Whether this run should pair a capture credential for Capy: only
+        when a connection will exist (no key, no credential)."""
+        return self.outcome in (CaptureOutcome.CONNECTED, CaptureOutcome.ALREADY)
+
+
+#: Where the mirror publishes the Capy bundle and its guide (agent/tools/mirror_render.py).
+MIRROR_REPO = "https://github.com/prbe-ai/research-os-agent"
+GUIDE_URL = f"{MIRROR_REPO}/blob/main/capy/README.md"
+
+#: How to connect later, named in every line that skips or refuses.
+CONNECT_LATER = "Run `probe capy connect` to connect it later."
+
+
+def label() -> str:
+    return _harness().label
+
+
+#: What the steps say when the deployment's MCP URL cannot be derived.
+MCP_URL_UNKNOWN = "your Probe deployment's MCP URL"
+
+#: The mirror folder Capy adds as one plugin: Probe's MCP server and the Capy
+#: skills (agent/tools/mirror_render.py `cloud_plugin` writes its manifest).
+PLUGIN_URL = f"{MIRROR_REPO}/tree/main/capy"
+
+
+def _deployment_mcp(base_url: str | None) -> str | None:
+    """The Probe deployment's MCP URL, or None when it cannot be derived.
+    `base_url` is the root `--base-url`, which outranks the environment and
+    the saved config (a self-hosted manual run passes nothing else)."""
+    from probe.sdk.config import mcp_url, resolve
+
+    return mcp_url(resolve(base_url=base_url).base_url)
+
+
+def _plugin_fits(mcp: str | None) -> bool:
+    """The plugin carries the hosted MCP server; any other deployment adds its
+    own server and the skills by hand."""
+    from probe.sdk.config import STOCK_MCP_URL
+
+    return mcp == STOCK_MCP_URL
+
+
+def setup_steps(base_url: str | None = None) -> list[str]:
+    """What puts Probe inside Capy: one plugin, added in Capy's settings (Capy
+    has no command or API for its plugins), so the installer prints it, and
+    `probe wizard --action manual` does too. The plugin's skills reach every
+    thread by their descriptions, so no AGENTS.md line is needed.
+    agent/docs/capy.md is the full guide."""
+    mcp = _deployment_mcp(base_url) or MCP_URL_UNKNOWN
+    cloud = f"Threads on this computer use its `probe`; for threads in {label()}'s cloud, see {GUIDE_URL}"
+    if _plugin_fits(mcp):
+        return [
+            f"Add Probe to {label()} once: Settings > MCP & plugins > Add > From GitHub repository:",
+            f"     {PLUGIN_URL}",
+            "   then Only me > Add plugin, and Connect its probe server (approve in Probe).",
+            cloud,
+        ]
+    return [
+        f"Add Probe to {label()} once, in two steps:",
+        f"1. MCP server: in {label()}, Settings > MCP & plugins > add an MCP server named probe, Streamable HTTP:",
+        f"     {mcp}",
+        "   then Connect and approve in Probe.",
+        "2. Skills, in your repository:",
+        f"     npx skills add {PLUGIN_URL}/skills --agent universal",
+        cloud,
+    ]
+
+
+def setup_summary(base_url: str | None = None) -> list[str]:
+    """`setup_steps` in lines short enough for a wizard page, which wraps a long
+    line mid-URL and breaks the copy."""
+    mcp = _deployment_mcp(base_url)
+    if _plugin_fits(mcp):
+        return [
+            f"One step in {label()}: Settings > MCP & plugins > Add >",
+            "From GitHub repository, paste this, Only me, Add plugin:",
+            f"  {PLUGIN_URL}",
+            "then Connect its probe server and approve in Probe.",
+        ]
+    return [
+        f"Add Probe to {label()} in two steps:",
+        f"1. {label()} Settings > MCP & plugins: add an MCP server named",
+        "   probe, Streamable HTTP, then Connect, with this URL:",
+        f"   {mcp or MCP_URL_UNKNOWN}",
+        "2. Add Probe's skills to your repository.",
+        f"Both, ready to copy: `probe {SOURCE} setup`.",
+    ]
+
+
+@capy_app.command("setup")
+def setup_cmd() -> None:
+    """Print how to put Probe inside Capy (the plugin with its MCP server and
+    skills), ready to copy. Capy has no command for it."""
+    from probe.cli.main import _conn
+
+    for line in setup_steps(base_url=_conn.base_url):
+        typer.echo(line)
+
+
+def wizard_status() -> tuple[str, bool] | None:
+    """One line for the wizard's "On this device" block, and whether it is a
+    problem. None when Capy was never connected here."""
+    from . import capabilities
+
+    config = load_config()
+    if config is None:
+        return None
+    if killswitch_path().exists():
+        return "capture off (killswitch set)", True
+    credential = capabilities.resolved_capture_credential(SOURCE)
+    if credential is None:
+        return "capture not paired: run `probe capy connect`", True
+    try:
+        refused = refused_path().read_text(encoding="utf-8").strip()
+    except OSError:
+        refused = ""
+    if refused == destination_key(*credential):
+        return "Probe refused capture: run `probe capy connect`", True
+    last = _read_json(sync_state_path()).get("last_sync") or {}
+    if last.get("auth_failed"):
+        return "Capy refused the key: run `probe capy connect`", True
+    projects = len(config.projects)
+    head = f"capture on · {projects} project{'s' if projects != 1 else ''}"
+    age = _age_seconds(last.get("at")) if last else None
+    if age is None:
+        return f"{head} · not synced yet", False
+    stalled = timer_state(config.timer) == "installed" and age > STALE_AFTER_SECONDS
+    ago = f"{int(age // 60)} min ago" if age < 3 * 3600 else f"{int(age // 3600)} h ago"
+    return f"{head} · last sync {ago}" + (" (stalled)" if stalled else ""), stalled or not last.get("ok")
+
+
+def ask_capture(*, interactive: bool, projects: list[str] | None = None) -> CaptureAsk:
+    """Collect what connecting needs, before the installer applies anything.
+
+    Connected already (and no new --capy-project): the saved key and projects
+    are checked again, so a key Capy now refuses, a project gone or an account
+    that changed is asked about rather than read as connected. Otherwise the
+    key comes from $CAPY_API_KEY or, with a terminal, a hidden prompt (asked
+    again, with the reason, when Capy refuses it; empty skips); the projects
+    from `projects` (--capy-project) or, with a terminal, a picker. Without a
+    terminal a missing key or project is MISSING, never a guess. The Probe
+    account's email is matched to a Capy member here, before any capture
+    credential exists, when this machine is already signed in."""
+    config = load_config()
+    problem = None
+    if config is not None and not projects:
+        saved = set(config.project_ids)
+        try:
+            plan = prepare(config.api_key, choose=lambda available: [p for p in available if str(p.get("id")) in saved])
+        except CapyUnreachable:
+            # Cannot check it now; the connection stays as it is.
+            return CaptureAsk(CaptureOutcome.ALREADY)
+        except ConnectRefused as exc:
+            problem = f"The saved {label()} connection no longer works: {exc}"
+            if not interactive:
+                return CaptureAsk(CaptureOutcome.REFUSED, lines=[f"{problem} {CONNECT_LATER}"])
+        else:
+            return _checked(CaptureAsk(CaptureOutcome.ALREADY, plan=plan))
+    key = (os.environ.get(ENV_API_KEY) or "").strip() or (config.api_key if config is not None and not problem else "")
+    if not key and not interactive:
+        return CaptureAsk(
+            CaptureOutcome.MISSING,
+            lines=[f"{label()} capture needs a Capy API key in ${ENV_API_KEY} and --capy-project. {CONNECT_LATER}"],
+        )
+    choose = (
+        (lambda available: _choose_projects_or_refuse(available, projects or []))
+        if projects or not interactive
+        else _choose_on_screen
+    )
+    while True:
+        if not key:
+            key = _ask_key(problem)
+            if not key:
+                return CaptureAsk(
+                    CaptureOutcome.DECLINED, lines=[f"{label()} capture skipped: no key given. {CONNECT_LATER}"]
+                )
+        try:
+            return _checked(CaptureAsk(CaptureOutcome.CONNECTED, plan=prepare(key, choose=choose)))
+        except NoProjectChosen:
+            return CaptureAsk(
+                CaptureOutcome.DECLINED, lines=[f"{label()} capture skipped: no project chosen. {CONNECT_LATER}"]
+            )
+        except ProjectsUnnamed as exc:
+            return CaptureAsk(CaptureOutcome.MISSING, lines=[f"{exc} {CONNECT_LATER}"])
+        except (ProjectNotFound, CapyUnreachable) as exc:
+            # Not the key's fault: asking for another key would not help.
+            return CaptureAsk(CaptureOutcome.REFUSED, lines=[f"{exc} {CONNECT_LATER}"])
+        except ConnectRefused as exc:
+            if not interactive:
+                return CaptureAsk(CaptureOutcome.REFUSED, lines=[f"{exc} {CONNECT_LATER}"])
+            problem, key = str(exc), ""
+
+
+def _checked(ask: CaptureAsk) -> CaptureAsk:
+    """Refuse a plan whose Capy organization has no member with the signed-in
+    Probe account's email, before the install pairs a capture credential for a
+    connection `connect` would then refuse. Not signed in yet (a website code):
+    `connect` checks it, and drops the credential if it fails."""
+    email = str(_probe_account().get("email") or "").strip()
+    if email and ask.plan is not None and discovery.resolve_me(ask.plan.users, email=email) is None:
+        return CaptureAsk(CaptureOutcome.REFUSED, lines=[f"{_email_refusal(email)} {CONNECT_LATER}"])
+    return ask
+
+
+def _choose_projects_or_refuse(available: list[dict], wanted: list[str]) -> list[dict]:
+    """`_choose_projects` without a terminal, its refusals as ConnectRefused."""
+    try:
+        return _choose_projects(available, wanted, interactive=False)
+    except typer.BadParameter as exc:
+        refusal = ProjectNotFound if wanted else ProjectsUnnamed
+        raise refusal(f"{exc.message} (--capy-project).") from None
+
+
+def _ask_key(problem: str | None = None) -> str:
+    from . import tui
+
+    key = tui.secret(
+        f"Capture my {label()} threads",
+        # Paragraphs, not pre-wrapped lines: the screen wraps them to its width.
+        [
+            *([problem, ""] if problem else []),
+            "Paste a Capy API key (Capy Settings > API; give it an expiry). It is stored "
+            "owner-only on this machine and sent to Capy's API only. Leave it empty to skip "
+            f"{label()} capture for now.",
+        ],
+        "Capy API key",
+    )
+    return key.strip() if isinstance(key, str) else ""
+
+
+def _choose_on_screen(projects: list[dict]) -> list[dict]:
+    import questionary
+
+    from . import tui
+
+    if len(projects) <= 1:
+        return list(projects)
+    choices = [
+        questionary.Choice(title=str(p.get("name") or p.get("id")), value=index)
+        for index, p in enumerate(projects)
+    ]
+    message = tui.framed(
+        f"Capture my {label()} threads",
+        tui.wrap("Only threads you start are captured, in the projects you pick."),
+        "Which Capy projects?",
+    )
+    picked = tui.ask(
+        tui.checkbox(
+            message, choices=choices, instruction="(space to toggle, enter to continue)",
+            style=tui.style(), qmark=tui.qmark(), pointer=tui.pointer(),
+        ),
+        height=tui.content_height(message, choices),
+    )
+    if not isinstance(picked, list):
+        return []
+    return [projects[index] for index in picked]
+
+
+def apply_capture(ask: CaptureAsk, *, on_prompt: Callable[[Any], None] | None = None) -> tuple[CaptureOutcome, list[str]]:
+    """The installer's capture step for Capy: connect with the plan the review
+    screen collected (re-checking a saved connection's account, team and
+    timer), with the first sync in the background so a long history never
+    holds the install up. A refused connect leaves no capture credential
+    behind for a connection that does not exist."""
+    if ask.plan is None:
+        if ask.outcome is CaptureOutcome.ALREADY:
+            if _stopped_for_another_account():
+                return CaptureOutcome.REFUSED, [
+                    f"! {label()} capture stays off: it was connected for another team, and Capy could "
+                    f"not be reached to connect it to this one. {CONNECT_LATER}"
+                ]
+            killswitch_path().unlink(missing_ok=True)
+            return CaptureOutcome.ALREADY, [f"{label()} capture is connected (Capy could not be reached to check it)."]
+        return ask.outcome, [f"! {line}" if ask.outcome.blocks else line for line in ask.lines]
+    try:
+        done = connect(ask.plan, on_prompt=on_prompt, first_sync=False)
+    except ConnectRefused as exc:
+        if load_config() is None:
+            _drop_credential()
+        elif isinstance(exc, EmailNotFound):
+            # The saved connection no longer matches the signed-in account
+            # (another account, say), and this run may have paired a credential
+            # for it: stop every upload until `probe capy connect` checks it.
+            _turn_off(ANOTHER_ACCOUNT)
+        return CaptureOutcome.REFUSED, [f"! {exc} {CONNECT_LATER}"]
+    lines = list(done.lines)
+    if done.mode not in (TimerMode.SYSTEMD, TimerMode.LAUNCHD):
+        lines.append(start_background_sync())
+    outcome = CaptureOutcome.ALREADY if ask.outcome is CaptureOutcome.ALREADY else CaptureOutcome.CONNECTED
+    return outcome, lines
+
+
+def _drop_credential() -> None:
+    """Revoke and remove a capture credential with no connection behind it:
+    only the paired file's, never one the researcher exported themselves."""
+    from . import capabilities
+
+    if capabilities.TokenSource.PAIRED_FILE not in capabilities.capture_token_sources(SOURCE):
+        return
+    with contextlib.suppress(Exception):
+        capabilities.revoke_capture_device(SOURCE)
+    (state_dir() / ".token").unlink(missing_ok=True)
+
+
+#: The killswitch reason that only connecting for this account may lift.
+ANOTHER_ACCOUNT = "connected for another account"
+
+
+def _turn_off(reason: str) -> None:
+    _private_dir(state_dir())
+    write_text_atomic(killswitch_path(), f"{reason}\n", mode=0o600)
+
+
+def _stopped_for_another_account() -> bool:
+    try:
+        return killswitch_path().read_text(encoding="utf-8").strip() == ANOTHER_ACCOUNT
+    except OSError:
+        return False
+
+
+def after_sign_in() -> list[str]:
+    """Called after any sign-in. A connected Capy capture whose credential
+    belongs to another team than the account now signed in keeps uploading
+    there (sign-in never moves it: the connection names one person's threads),
+    so turn it off and say how to connect it to this account."""
+    from . import capabilities
+
+    if load_config() is None:
+        return []
+    credential = capabilities.resolved_capture_credential(SOURCE)
+    if credential is None:
+        return []
+    team = _probe_account().get("customer_id")
+    owner = _capture_customer(*credential)
+    if not team or owner in (UNREACHABLE, None):
+        return []
+    if owner == team:
+        if _stopped_for_another_account():
+            # Signed back in to the team that owns it: its own stop lifts.
+            killswitch_path().unlink(missing_ok=True)
+            return [f"{label()} capture is back on: it belongs to this account's team."]
+        return []
+    _turn_off(ANOTHER_ACCOUNT)
+    return [
+        f"! {label()} capture is off: it was connected for another team. "
+        f"`probe {SOURCE} connect` connects it to this account."
+    ]
+
+
+def start_background_sync() -> str:
+    """Start one sync detached from this process (the install does not wait
+    for a long history); its result is in `probe capy status`."""
+    probe = _installed_probe()
+    argv = [probe, SOURCE, "sync", "--quiet"] if probe else [sys.executable, "-m", "probe.cli.main", SOURCE, "sync", "--quiet"]
+    try:
+        subprocess.Popen(  # noqa: S603 -- a fixed argv, no shell
+            argv,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            close_fds=True,
+        )
+    except OSError:
+        return f"Could not start the first sync: run `probe {SOURCE} sync`."
+    return f"The first sync runs in the background: `probe {SOURCE} status` shows it."

@@ -203,6 +203,7 @@ System_String_Format_TArg2 = typing.TypeVar("System_String_Format_TArg2")
 System_String_Join_T = typing.TypeVar("System_String_Join_T")
 System_String_Create_TState = typing.TypeVar("System_String_Create_TState")
 System_Array_AsReadOnly_T = typing.TypeVar("System_Array_AsReadOnly_T")
+System_Array_CreateFilled_T = typing.TypeVar("System_Array_CreateFilled_T")
 System_Array_Resize_T = typing.TypeVar("System_Array_Resize_T")
 System_Array_BinarySearch_T = typing.TypeVar("System_Array_BinarySearch_T")
 System_Array_ConvertAll_TInput = typing.TypeVar("System_Array_ConvertAll_TInput")
@@ -982,6 +983,21 @@ class _Array_AsReadOnly:
         ...
 
 
+class _Typed_Array_CreateFilled(typing.Generic[System_Array_CreateFilled_T]):
+    """"""
+
+    @overload
+    def __call__(self, length: int, value: System_Array_CreateFilled_T) -> typing.List[System_Array_CreateFilled_T]:
+        ...
+
+
+class _Array_CreateFilled:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Array_CreateFilled_T]) -> System._Typed_Array_CreateFilled[System_Array_CreateFilled_T]:
+        ...
+
+
 class _Typed_Array_Resize(typing.Generic[System_Array_Resize_T]):
     """"""
 
@@ -1435,6 +1451,8 @@ class Array(System.Object, System.ICloneable, System.Collections.IList, System.C
         ...
 
     as_read_only: System._Array_AsReadOnly
+
+    create_filled: System._Array_CreateFilled
 
     resize: System._Array_Resize
 

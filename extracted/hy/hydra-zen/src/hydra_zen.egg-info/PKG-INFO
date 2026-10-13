@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hydra_zen
-Version: 0.16.0
+Version: 0.17.0
 Summary: Configurable, reproducible, and scalable workflows in Python, via Hydra
 Author-email: Ryan Soklaski <rsoklaski@gmail.com>, Justin Goodwin <jgoodwin@ll.mit.edu>
 Maintainer-email: Justin Goodwin <jgoodwin@ll.mit.edu>
@@ -32,7 +32,7 @@ Requires-Dist: pytest>=3.9; extra == "test"
 Requires-Dist: hypothesis>=6.28.0; extra == "test"
 Requires-Dist: pytest-trio>=0.8.0; extra == "test"
 Provides-Extra: pydantic
-Requires-Dist: pydantic<2.0.0,>=1.10.14; extra == "pydantic"
+Requires-Dist: pydantic>=2.0.0; extra == "pydantic"
 Provides-Extra: beartype
 Requires-Dist: beartype>=0.8.0; extra == "beartype"
 Dynamic: license-file

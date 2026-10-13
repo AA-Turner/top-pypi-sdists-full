@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orq-ai-sdk
-Version: 4.16.1
+Version: 4.16.3
 Summary: Python Client SDK for the Orq API.
 Author: Orq
 Project-URL: repository, https://github.com/orq-ai/orq-python.git
@@ -1162,7 +1162,7 @@ with Orq(
 **Primary error:**
 * [`OrqError`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/orqerror.py): The base class for HTTP error responses.
 
-<details><summary>Less common errors (67)</summary>
+<details><summary>Less common errors (69)</summary>
 
 <br />
 
@@ -1180,8 +1180,8 @@ with Orq(
 * [`UpdateAgentScheduleSchedulesResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updateagentscheduleschedulesresponsebody.py): Invalid type, expression, or sub-hour cadence. Status code `400`. Applicable to 1 of 337 methods.*
 * [`TriggerAgentScheduleSchedulesResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/triggeragentscheduleschedulesresponsebody.py): Schedule is inactive. Status code `400`. Applicable to 1 of 337 methods.*
 * [`SearchWebWebsearchResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/searchwebwebsearchresponsebody.py): Invalid request, unusable workspace integration, or a blocking guardrail. Check the request fields and workspace integration settings. Status code `400`. Applicable to 1 of 337 methods.*
-* [`CreateClassifyRouterClassifyResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createclassifyrouterclassifyresponsebody.py): Malformed JSON, missing or unsupported model, or invalid retry/fallback fields. Status code `400`. Applicable to 1 of 337 methods.*
-* [`CreateDecisionsRouterDecisionsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createdecisionsrouterdecisionsresponsebody.py): Malformed JSON, missing or unsupported model, or invalid retry/fallback fields. Status code `400`. Applicable to 1 of 337 methods.*
+* [`CreateClassifyRouterClassifyResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createclassifyrouterclassifyresponsebody.py): Malformed JSON, missing or unsupported model, or invalid retry, timeout, or fallback fields. Status code `400`. Applicable to 1 of 337 methods.*
+* [`CreateDecisionsRouterDecisionsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createdecisionsrouterdecisionsresponsebody.py): Malformed JSON, missing or unsupported model, or invalid retry, timeout, or fallback fields. Status code `400`. Applicable to 1 of 337 methods.*
 * [`CompactResponseResponsesResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/compactresponseresponsesresponseresponsebody.py): Unauthorized. Status code `401`. Applicable to 1 of 337 methods.*
 * [`SearchWebWebsearchResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/searchwebwebsearchresponseresponsebody.py): Missing or invalid API key. Send a valid API key in the Authorization header. Status code `401`. Applicable to 1 of 337 methods.*
 * [`CreateClassifyRouterClassifyResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createclassifyrouterclassifyresponseresponsebody.py): Missing, invalid, expired or revoked API key. Status code `401`. Applicable to 1 of 337 methods.*
@@ -1214,6 +1214,8 @@ with Orq(
 * [`RetrieveAgentScheduleSchedulesResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/retrieveagentscheduleschedulesresponsebody.py): Schedule not found, or belongs to a different agent. Status code `404`. Applicable to 1 of 337 methods.*
 * [`UpdateAgentScheduleSchedulesResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/updateagentscheduleschedulesresponseresponsebody.py): Schedule or agent version not found. Status code `404`. Applicable to 1 of 337 methods.*
 * [`TriggerAgentScheduleSchedulesResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/triggeragentscheduleschedulesresponseresponsebody.py): Schedule not found, or belongs to a different agent. Status code `404`. Applicable to 1 of 337 methods.*
+* [`CreateClassifyRouterClassifyResponse408ResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createclassifyrouterclassifyresponse408responsebody.py): The final model call exceeded its timeout after available retries and fallbacks were exhausted. Status code `408`. Applicable to 1 of 337 methods.*
+* [`CreateDecisionsRouterDecisionsResponse408ResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createdecisionsrouterdecisionsresponse408responsebody.py): The final model call exceeded its timeout after available retries and fallbacks were exhausted. Status code `408`. Applicable to 1 of 337 methods.*
 * [`DeleteEvalEvalsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/deleteevalevalsresponsebody.py): The evaluator is still referenced as an evaluator or guardrail by one or more deployments. Status code `409`. Applicable to 1 of 337 methods.*
 * [`SearchWebWebsearchResponse415ResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/searchwebwebsearchresponse415responsebody.py): Unsupported or missing Content-Type. Send application/json; an optional charset parameter is accepted. Status code `415`. Applicable to 1 of 337 methods.*
 * [`SearchWebWebsearchResponse422ResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/searchwebwebsearchresponse422responsebody.py): A configured guardrail evaluator could not complete its evaluation. Status code `422`. Applicable to 1 of 337 methods.*

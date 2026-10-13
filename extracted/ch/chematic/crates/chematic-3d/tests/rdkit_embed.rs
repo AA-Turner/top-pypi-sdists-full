@@ -1,7 +1,15 @@
-//! `rdkit_embed_molecule` against RDKit 2026.03.1:
-//! `AllChem.EmbedMolecule(Chem.AddHs(Chem.MolFromSmiles(s)), randomSeed=42)`.
+//! `rdkit_embed_molecule` against RDKit 2026.09.1 ETKDGv3.
+//!
+//! The historical 2026.03 coordinate arrays below retain atom-count coverage;
+//! current numeric parity is pinned by the simple 2026.09 oracle and the
+//! versioned corpus-scale A6 comparison lane.
 
-use chematic_3d::rdkit_embed::{RdkitEmbedError, RdkitEmbedOptions, rdkit_embed_molecule};
+use chematic_3d::rdkit_embed::{
+    RdkitEmbedError, RdkitEmbedOptions, rdkit_embed_initial_molecule, rdkit_embed_molecule,
+    rdkit_embed_multiple_confs, rdkit_embed_multiple_confs_mmff,
+    rdkit_embed_multiple_confs_mmff_adaptive, rdkit_embed_multiple_confs_mmff_diagnostics,
+    rdkit_embed_multiple_confs_mmff_gradient_rescue, rdkit_embed_multiple_confs_mmff_rescue,
+};
 
 #[allow(clippy::approx_constant, clippy::excessive_precision)]
 const CASES: &[(&str, &[[f64; 3]])] = &[
@@ -227,6 +235,56 @@ const CASES: &[(&str, &[[f64; 3]])] = &[
     ),
 ];
 
+// First-atom snapshot from RDKit 2026.09.1 ETKDGv3 with randomSeed=42.
+// Broader parity is gated by the versioned A6 bounds/quality corpus because a
+// last-bit bounds change can legitimately move a flexible molecule to another
+// local minimum while preserving its chemical constraints.
+const ETHANOL_FIRST_ATOM_2026_09_1: [f64; 3] = [
+    -0.9639577069927618,
+    0.015102231353043739,
+    0.0410206427653118,
+];
+
+const ETHANOL_INITIAL_2026_09_1: [[f64; 3]; 9] = [
+    [-0.7500043088651186, 0.4084390159458829, 0.06848496479484886],
+    [
+        0.44564780848200714,
+        -0.30357044432024505,
+        -0.2925815152031927,
+    ],
+    [1.1754601191726461, -0.458924916623023, 1.1664313728171822],
+    [-1.2354609528915097, 1.0831648725953975, -0.5316473904156442],
+    [
+        -1.5724182037685812,
+        -1.0383486994621525,
+        0.45351405445069587,
+    ],
+    [
+        -1.2999968573900929,
+        0.40241491422299236,
+        0.40181982062149446,
+    ],
+    [0.5525517516037974, -0.5577005629983048, -0.9232674186573715],
+    [0.9120715852990083, -0.80779822184343, -0.5889154542504689],
+    [1.7721490583578425, 1.2723240424828839, 0.24616156584245455],
+];
+
+#[test]
+fn initial_metric_embedding_matches_rdkit_2026_09_boundary() {
+    let mh = chematic_chem::add_hydrogens(&chematic_smiles::parse("CCO").unwrap());
+    let got = rdkit_embed_initial_molecule(&mh, &RdkitEmbedOptions::default()).unwrap();
+    assert_eq!(got.len(), ETHANOL_INITIAL_2026_09_1.len());
+    for (actual, expected) in got.iter().zip(ETHANOL_INITIAL_2026_09_1) {
+        for coordinate in 0..3 {
+            assert!((actual[coordinate] - expected[coordinate]).abs() <= 5e-4);
+        }
+    }
+    assert_eq!(
+        got,
+        rdkit_embed_initial_molecule(&mh, &RdkitEmbedOptions::default()).unwrap()
+    );
+}
+
 /// Bit-identical on the recorded Linux x86-64 comparison lane; elsewhere the
 /// platform libm's last-bit differences are allowed to accumulate through
 /// the minimizations, so coordinates are compared within 5e-4 Å. The wider
@@ -234,7 +292,7 @@ const CASES: &[(&str, &[[f64; 3]])] = &[
 /// this fixture reaches about 1.3e-4 Å.
 #[test]
 #[allow(unexpected_cfgs)]
-fn etkdg_coordinates_match_rdkit_with_platform_tolerance() {
+fn etkdg_2026_09_seed_is_deterministic_and_ethanol_matches_oracle() {
     // LLVM coverage instrumentation perturbs the accumulated floating-point
     // result by a few ULPs even on the pinned Linux x86-64 lane. Keep exact
     // comparison for ordinary release/test builds and use the documented
@@ -244,17 +302,28 @@ fn etkdg_coordinates_match_rdkit_with_platform_tolerance() {
         target_arch = "x86_64",
         not(coverage)
     ));
-    for &(smi, expected) in CASES {
+    for &(smi, legacy_expected) in CASES {
         let mh = chematic_chem::add_hydrogens(&chematic_smiles::parse(smi).unwrap());
         let got = rdkit_embed_molecule(&mh, &RdkitEmbedOptions::default())
             .unwrap_or_else(|e| panic!("{smi}: {e}"));
-        assert_eq!(got.len(), expected.len(), "{smi}");
-        for (g, e) in got.iter().zip(expected) {
-            if exact {
-                assert_eq!(g, e, "{smi}");
-            } else {
-                for k in 0..3 {
-                    assert!((g[k] - e[k]).abs() <= 5e-4, "{smi}: {g:?} vs RDKit {e:?}");
+        assert_eq!(got.len(), legacy_expected.len(), "{smi}");
+        let repeated = rdkit_embed_molecule(&mh, &RdkitEmbedOptions::default())
+            .unwrap_or_else(|e| panic!("{smi}: {e}"));
+        assert_eq!(
+            got, repeated,
+            "{smi}: fixed-seed embedding changed between calls"
+        );
+        if smi == "CCO" {
+            for coordinate in 0..3 {
+                if exact {
+                    assert_eq!(got[0][coordinate], ETHANOL_FIRST_ATOM_2026_09_1[coordinate]);
+                } else {
+                    assert!(
+                        (got[0][coordinate] - ETHANOL_FIRST_ATOM_2026_09_1[coordinate]).abs()
+                            <= 5e-4,
+                        "{smi}: {:?} vs RDKit first atom {ETHANOL_FIRST_ATOM_2026_09_1:?}",
+                        got[0]
+                    );
                 }
             }
         }
@@ -278,4 +347,153 @@ fn negative_seed_is_refused_and_fragments_are_embedded() {
     let coords = rdkit_embed_molecule(&salt, &RdkitEmbedOptions::default())
         .unwrap_or_else(|e| panic!("salt: {e}"));
     assert_eq!(coords.len(), salt.atom_count());
+}
+
+#[test]
+fn multiple_conformers_match_rdkit_seed_progression() {
+    let mh = chematic_chem::add_hydrogens(&chematic_smiles::parse("CCO").unwrap());
+    let options = RdkitEmbedOptions::default();
+    let conformers = rdkit_embed_multiple_confs(&mh, 3, &options).unwrap();
+    assert_eq!(conformers.len(), 3);
+    assert_eq!(conformers[0], rdkit_embed_molecule(&mh, &options).unwrap());
+
+    let expected_first_atoms = [
+        [
+            -0.9639577069927618,
+            0.015102231353043739,
+            0.0410206427653118,
+        ],
+        [
+            -0.946941193051227,
+            0.20466995457287168,
+            0.007322645786689314,
+        ],
+        [
+            -0.8949265887204274,
+            0.21063088448005707,
+            -0.017107180966725415,
+        ],
+    ];
+    for (conformer, expected) in conformers.iter().zip(expected_first_atoms) {
+        for coordinate in 0..3 {
+            assert!((conformer[0][coordinate] - expected[coordinate]).abs() <= 5.0e-4);
+        }
+    }
+
+    assert!(
+        rdkit_embed_multiple_confs(&mh, 0, &options)
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn multiple_conformer_mmff_is_deterministic_and_reuses_exact_field() {
+    let mh = chematic_chem::add_hydrogens(&chematic_smiles::parse("CCO").unwrap());
+    let options = RdkitEmbedOptions::default();
+    let embedded = rdkit_embed_multiple_confs(&mh, 3, &options).unwrap();
+    let optimized = rdkit_embed_multiple_confs_mmff(&mh, 3, &options, 200).unwrap();
+    let repeated = rdkit_embed_multiple_confs_mmff(&mh, 3, &options, 200).unwrap();
+    assert_eq!(optimized.len(), 3);
+    for (left, right) in optimized.iter().zip(&repeated) {
+        assert_eq!(left.coords, right.coords);
+        assert_eq!(left.status, right.status);
+        assert_eq!(left.energy, right.energy);
+        assert!(left.energy.is_finite());
+    }
+
+    let field =
+        chematic_ff::rdkit_mmff::RdkitMmffField::new(&mh, &embedded[0], 100.0, true).unwrap();
+    let mut flat: Vec<f64> = embedded[0].iter().flatten().copied().collect();
+    let (status, energy) = field.optimize(&mut flat, 200);
+    assert_eq!(optimized[0].status, status);
+    assert_eq!(optimized[0].energy, energy);
+    assert_eq!(optimized[0].coords.as_flattened(), flat);
+}
+
+#[test]
+fn multiple_conformer_mmff_diagnostics_preserve_compact_results() {
+    let mh = chematic_chem::add_hydrogens(&chematic_smiles::parse("CCCO").unwrap());
+    let options = RdkitEmbedOptions::default();
+    let compact = rdkit_embed_multiple_confs_mmff(&mh, 4, &options, 2).unwrap();
+    let detailed = rdkit_embed_multiple_confs_mmff_diagnostics(&mh, 4, &options, 2).unwrap();
+
+    assert_eq!(compact.len(), detailed.len());
+    for (compact, detailed) in compact.iter().zip(detailed) {
+        assert_eq!(compact.coords, detailed.conformer.coords);
+        assert_eq!(compact.status, detailed.conformer.status);
+        assert_eq!(compact.energy, detailed.conformer.energy);
+        assert_eq!(detailed.iterations, 2);
+        assert!(detailed.final_gradient_test.is_some_and(f64::is_finite));
+    }
+}
+
+#[test]
+fn adaptive_mmff_retries_only_low_energy_nonconverged_candidates() {
+    let mh = chematic_chem::add_hydrogens(&chematic_smiles::parse("CCCO").unwrap());
+    let options = RdkitEmbedOptions::default();
+    let initial = rdkit_embed_multiple_confs_mmff(&mh, 4, &options, 1).unwrap();
+    let adaptive = rdkit_embed_multiple_confs_mmff_adaptive(&mh, 4, &options, 1, 200, 1).unwrap();
+    let repeated = rdkit_embed_multiple_confs_mmff_adaptive(&mh, 4, &options, 1, 200, 1).unwrap();
+
+    assert_eq!(adaptive.len(), initial.len());
+    assert_eq!(adaptive.len(), repeated.len());
+    assert!(initial.iter().all(|conformer| conformer.status != 0));
+    assert_eq!(adaptive.iter().filter(|c| c.status == 0).count(), 1);
+    assert_eq!(
+        adaptive
+            .iter()
+            .zip(&initial)
+            .filter(|(after, before)| after.coords != before.coords)
+            .count(),
+        1
+    );
+    for ((after, before), again) in adaptive.iter().zip(&initial).zip(&repeated) {
+        assert!(after.energy <= before.energy);
+        assert_eq!(after.coords, again.coords);
+        assert_eq!(after.status, again.status);
+        assert_eq!(after.energy, again.energy);
+    }
+}
+
+#[test]
+fn rescue_mmff_skips_retry_when_any_candidate_converged() {
+    let mh = chematic_chem::add_hydrogens(&chematic_smiles::parse("CCCO").unwrap());
+    let options = RdkitEmbedOptions::default();
+    let initial = rdkit_embed_multiple_confs_mmff(&mh, 4, &options, 200).unwrap();
+    assert!(initial.iter().any(|conformer| conformer.status == 0));
+    let rescued = rdkit_embed_multiple_confs_mmff_rescue(&mh, 4, &options, 200, 1000, 1).unwrap();
+    assert_eq!(rescued.len(), initial.len());
+    for (after, before) in rescued.iter().zip(initial) {
+        assert_eq!(after.coords, before.coords);
+        assert_eq!(after.status, before.status);
+        assert_eq!(after.energy, before.energy);
+    }
+}
+
+#[test]
+fn gradient_rescue_retries_only_candidates_above_threshold() {
+    let mh = chematic_chem::add_hydrogens(&chematic_smiles::parse("CCCO").unwrap());
+    let options = RdkitEmbedOptions::default();
+    let initial = rdkit_embed_multiple_confs_mmff(&mh, 4, &options, 1).unwrap();
+    let rescued =
+        rdkit_embed_multiple_confs_mmff_gradient_rescue(&mh, 4, &options, 1, 200, 1, 0.0).unwrap();
+    let skipped =
+        rdkit_embed_multiple_confs_mmff_gradient_rescue(&mh, 4, &options, 1, 200, 1, f64::MAX)
+            .unwrap();
+
+    assert_eq!(rescued.iter().filter(|row| row.status == 0).count(), 1);
+    assert_eq!(
+        rescued
+            .iter()
+            .zip(&initial)
+            .filter(|(after, before)| after.coords != before.coords)
+            .count(),
+        1
+    );
+    for (after, before) in skipped.iter().zip(initial) {
+        assert_eq!(after.coords, before.coords);
+        assert_eq!(after.status, before.status);
+        assert_eq!(after.energy, before.energy);
+    }
 }

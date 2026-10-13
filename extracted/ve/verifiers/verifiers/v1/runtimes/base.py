@@ -4,6 +4,7 @@ import asyncio
 import atexit
 import base64
 import contextlib
+import copy
 import hashlib
 import logging
 import shlex
@@ -23,10 +24,11 @@ from verifiers.v1.utils.aio import run_shielded
 
 logger = logging.getLogger(__name__)
 
-# Ensure the latest `uv` is available for our PEP 723 scripts: prefer pip on Python images,
-# then fall back to the standalone installer (curl/wget), installing curl + CA certs when a
-# bare image has no downloader. Both paths install to ~/.local/bin, which we prepend to PATH.
-# (Needs network + one of pip / curl / wget / apt-get / apk.)
+# Ensure `uv` supports both script commands used below. Reuse a compatible installation;
+# upgrade older binaries bundled in task images. Prefer pip on
+# Python images, then fall back to the standalone installer (curl/wget), installing curl + CA
+# certs when a bare image has no downloader. Both install paths land in ~/.local/bin, which we
+# prepend to PATH first. (Installing needs network + one of pip / curl / wget / apt-get / apk.)
 _INSTALL_CURL = (  # only when the image has no downloader; needs a known package manager
     "{ command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1; } "
     "|| { apt-get update -qq && apt-get install -y -qq curl ca-certificates; } "
@@ -38,13 +40,17 @@ _DOWNLOAD_UV = (
 )
 _ENSURE_UV = (
     'export PATH="$HOME/.local/bin:$PATH" UV_INSTALL_DIR="$HOME/.local/bin"; '
-    "pip install -q -U --user uv 2>/dev/null "
-    f"|| {{ {_INSTALL_CURL}; {_DOWNLOAD_UV}; }}"
+    "uv_supports_scripts() { "
+    "uv sync --help 2>/dev/null | grep -q -- '--script' "
+    "&& uv python find --help 2>/dev/null | grep -q -- '--script'; }; "
+    "uv_supports_scripts "
+    "|| { pip install -q -U --user uv 2>/dev/null && hash -r && uv_supports_scripts; } "
+    f"|| {{ {{ {_INSTALL_CURL}; {_DOWNLOAD_UV}; }} && hash -r && uv_supports_scripts; }}"
 )
 
-# The single port a self-publishing runtime (modal/prime) forwards to a public URL for a server
-# hosted in its sandbox. A server placed in such a runtime binds this (on 0.0.0.0) and is reached
-# at the runtime's public URL.
+# The single port a sandbox runtime forwards out for a server hosted in it: a public URL on
+# modal/prime, a host loopback port on the local container engines. A server placed in such
+# a runtime binds this (on 0.0.0.0) and is reached at the URL `expose` returns.
 SERVICE_PORT = 8000
 
 
@@ -68,6 +74,10 @@ class RuntimeProcess(ABC):
     @abstractmethod
     async def wait(self) -> int:
         pass
+
+    @abstractmethod
+    async def poll(self) -> int | None:
+        """Return the underlying process's exit code without waiting for it to exit."""
 
     @abstractmethod
     async def terminate(self) -> None:
@@ -129,10 +139,15 @@ class BaseRuntimeInfo(BaseConfig):
 
 
 class Runtime(ABC):
-    is_local: ClassVar[bool] = True
+    __slots__ = ("env", "home", "user")
+
+    is_local: bool = True
     """Whether this runtime exchanges host-local URLs without a public tunnel. True for
-    subprocess and Docker (directly or through Docker's policy proxy); remote runtimes
-    override to False and use a host `Tunnel` inward plus `expose` outward."""
+    subprocess and the local container runtimes; remote runtimes override to False and
+    use a host `Tunnel` inward plus `expose` outward."""
+
+    supports_user: ClassVar[bool] = False
+    """Whether `with_user` can run this runtime's commands as another existing user."""
 
     scripts_dir: ClassVar[str] = "/tmp/vf-scripts"
     """Digest-keyed PEP 723 scripts inside the runtime. Sandboxes own their `/tmp`;
@@ -150,11 +165,16 @@ class Runtime(ABC):
         # Per-run task values live on the runtime rather than its serializable config/info.
         # Explicit process values (model credentials, proxy settings, etc.) override these.
         self.env: dict[str, str] = {}
-        # A borrowed box is one mutable world, so its rollouts must own it one at a time.
-        self.borrow_lock = asyncio.Lock()
+        self.user: str | None = None
+        """Existing user this view runs commands as; None uses the runtime's default."""
+        self.home: str | None = None
+        """`HOME` for `user`'s processes; None leaves the runtime's own."""
         self._uv_interpreters: dict[str, str] = {}
         self._uv_script_locks: dict[str, asyncio.Lock] = {}
+        self._mcp_sources: set[str] = set()
+        self._mcp_install_lock = asyncio.Lock()
         self._setup_claimed = False
+        self._curl_ready = False
         self.stopped = False
         """Whether teardown has begun (set by `stop`). A stopped runtime is dead: a rollout
         refuses to borrow one — the owner tore it down, so any use is a lifetime bug in the
@@ -196,7 +216,29 @@ class Runtime(ABC):
 
     def process_env(self, env: dict[str, str]) -> dict[str, str]:
         """Combine the task's runtime-wide environment with one process's values."""
-        return {**self.env, **env}
+        home = {} if self.home is None else {"HOME": self.home}
+        return {**self.env, **home, **env}
+
+    def with_env(self, env: dict[str, str]) -> "Runtime":
+        """Share this physical runtime through a view with its own process environment."""
+        runtime = copy.copy(self)
+        # `env` is slotted, so every other runtime field stays physical and shared.
+        runtime.__dict__ = self.__dict__
+        runtime.env = dict(env)
+        return runtime
+
+    def with_user(self, user: str | None, home: str | None = None) -> "Runtime":
+        """A view of this runtime whose commands and file I/O run as `user` (an existing
+        user in the box) with `HOME` set to `home`; None returns the default user."""
+        if user is not None and not self.supports_user:
+            raise ValueError(
+                f"{type(self).__name__} cannot run commands as another user"
+            )
+        runtime = copy.copy(self)
+        runtime.__dict__ = self.__dict__
+        runtime.user = user
+        runtime.home = home if user is not None else None
+        return runtime
 
     async def alive(self) -> bool:
         """Whether the box still executes anything. Not every runtime raises when
@@ -248,10 +290,20 @@ class Runtime(ABC):
         """
         data = script.encode() if isinstance(script, str) else script
         digest = hashlib.sha256(data).hexdigest()
-        path = f"{self.scripts_dir}/{digest}.py"
-        if digest not in self._uv_interpreters:
-            async with self._uv_script_locks.setdefault(digest, asyncio.Lock()):
-                if digest not in self._uv_interpreters:
+        # Each user needs its own writable script dir and uv environment.
+        directory = (
+            self.scripts_dir if self.user is None else f"{self.scripts_dir}-{self.user}"
+        )
+        path = f"{directory}/{digest}.py"
+        if path not in self._uv_interpreters:
+            async with self._uv_script_locks.setdefault(path, asyncio.Lock()):
+                if self.user is not None and not self._curl_ready:
+                    # Only root can install a downloader for the user's uv bootstrap.
+                    curl = await self.with_user(None).run(
+                        ["sh", "-c", _INSTALL_CURL], {}
+                    )
+                    self._curl_ready = curl.exit_code == 0
+                if path not in self._uv_interpreters:
                     tmp = f"{path}.{uuid.uuid4().hex}.tmp"
                     await self.write(tmp, data)
                     command = (
@@ -260,16 +312,18 @@ class Runtime(ABC):
                         f"&& uv sync --script {shlex.quote(path)} -q --no-config "
                         f"&& uv python find --script {shlex.quote(path)} --no-config"
                     )
-                    result = await self.run(["sh", "-c", command], env or {})
+                    # Bootstrap dependencies before task networking is restricted;
+                    # keep task offline settings on the returned program's processes.
+                    result = await self.run(
+                        ["sh", "-c", command], {**(env or {}), "UV_OFFLINE": "false"}
+                    )
                     if result.exit_code != 0:
                         raise RuntimeError(
                             "failed to prepare uv script: "
                             f"{result.stderr.strip()[-2000:]}"
                         )
-                    self._uv_interpreters[digest] = result.stdout.strip().splitlines()[
-                        -1
-                    ]
-        interpreter = self._uv_interpreters[digest]
+                    self._uv_interpreters[path] = result.stdout.strip().splitlines()[-1]
+        interpreter = self._uv_interpreters[path]
         if not activate:
             return [interpreter, path]
         venv = str(PurePosixPath(interpreter).parent.parent)
@@ -307,13 +361,30 @@ class Runtime(ABC):
         """Read `path` into host memory. `max_bytes` caps the transfer, raising past
         the cap — for a file written by something we don't control, whose size we
         can't assume. The cap is enforced inside the box rather than after the
-        transfer, and base64 because `run` returns decoded text. Framework method —
-        override `_read`, not this."""
+        transfer. Framework method — override `_read`, not this."""
         if max_bytes is None:
             return await self._read(path)
+        if max_bytes < 0:
+            raise ValueError("max_bytes must be non-negative")
+        # One extra byte distinguishes an exact fit from a truncated file.
+        data = await self._read(path, max_bytes=max_bytes + 1)
+        if len(data) > max_bytes:
+            raise SandboxError(f"read {path!r}: over the {max_bytes} byte limit")
+        return data
+
+    @abstractmethod
+    async def _read(self, path: str, max_bytes: int | None = None) -> bytes:
+        """Read at most `max_bytes` bytes at the source, or the whole file if None.
+
+        Overrides must accept `max_bytes` and enforce it before transferring data.
+        The public `read` method checks for overflow using one extra byte.
+        Runtimes without bounded binary reads delegate capped reads here, using
+        base64 because `run` returns decoded text.
+        """
+        assert max_bytes is not None
         # Through a temp file, not a pipe: `head | base64` exits with base64's 0
         # even when the path is missing, and a missing file must raise here just
-        # as it does from `_read`.
+        # as it does from a native binary read.
         result = await self.run(
             [
                 "sh",
@@ -324,21 +395,14 @@ class Runtime(ABC):
                     'base64 < "$t"; rc=$?; rm -f "$t"; exit $rc'
                 ),
                 "sh",
-                str(max_bytes + 1),
+                str(max_bytes),
                 path,
             ],
             {},
         )
         if result.exit_code:
             raise SandboxError(f"read {path!r}: {result.stderr.strip()[-500:]}")
-        data = base64.b64decode(result.stdout)
-        if len(data) > max_bytes:
-            raise SandboxError(f"read {path!r}: over the {max_bytes} byte limit")
-        return data
-
-    @abstractmethod
-    async def _read(self, path: str) -> bytes:
-        """Read the whole file at `path`; `read` adds the optional transfer cap."""
+        return base64.b64decode(result.stdout)
 
     @abstractmethod
     async def write(self, path: str, data: bytes) -> None:
@@ -374,13 +438,14 @@ class Runtime(ABC):
         """A fixed port this runtime exposes to the outside at startup, declared up front to the
         provider (Modal forwards only ports named at `Sandbox.create`). When set, a server placed
         here binds it instead of a host-chosen free port, and `expose` returns its public URL.
-        `None` for local runtimes (subprocess/docker), which pick a free port."""
+        `None` for runtimes whose services already sit on host loopback (subprocess,
+        apptainer), which pick a free port."""
         return None
 
-    async def expose(self, port: int) -> str | None:
-        """Publish a port running *inside this runtime* to a URL reachable from the host/outside,
-        or None when local. A remote runtime overrides this with the provider's native port
-        exposure (modal `tunnels()`, prime `client.expose`), torn down with the sandbox in
-        `stop()`. The reverse of a host `Tunnel` (interception.tunnel, which reaches a host
-        port from inside a runtime)."""
-        return None
+    async def expose(self, port: int) -> str:
+        """Publish a port running *inside this runtime* to a URL reachable from the host/outside.
+        A runtime on the host network is reached at host loopback as is; a sandbox overrides
+        this with its port exposure (modal `tunnels()`, prime `client.expose`, a container
+        engine's published port), torn down with the sandbox in `stop()`. The reverse of a
+        host `Tunnel` (interception.tunnel, which reaches a host port from inside a runtime)."""
+        return f"http://127.0.0.1:{port}"

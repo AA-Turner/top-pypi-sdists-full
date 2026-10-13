@@ -19,6 +19,9 @@ from .creation_ops import full as full
 from .creation_ops import zeros as zeros
 from .debug_ops import breakpoint as breakpoint  # noqa: A004
 from .device_print import device_print as device_print
+from .distributed_ops import AsyncCopyDescriptor as AsyncCopyDescriptor
+from .distributed_ops import make_async_remote_copy as make_async_remote_copy
+from .distributed_ops import remote_barrier as remote_barrier
 from .inline_asm_ops import inline_asm_elementwise as inline_asm_elementwise
 from .inline_triton_ops import inline_triton as inline_triton
 from .inline_triton_ops import triton_kernel as triton_kernel
@@ -30,7 +33,10 @@ from .matmul_ops import dot as dot
 from .matmul_ops import dot_scaled as dot_scaled
 from .memory_ops import load as load
 from .memory_ops import store as store
+from .pdl_ops import pdl_launch_dependents as pdl_launch_dependents
+from .pdl_ops import pdl_wait as pdl_wait
 from .quantized_ops import float4_e2m1fn_x2_to_float32 as float4_e2m1fn_x2_to_float32
+from .quantized_ops import load_bfloat16_x16_to_float16 as load_bfloat16_x16_to_float16
 from .quantized_ops import (
     load_float4_e2m1fn_x16_to_float16 as load_float4_e2m1fn_x16_to_float16,
 )

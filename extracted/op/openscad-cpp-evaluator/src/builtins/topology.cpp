@@ -7,6 +7,7 @@
 #include <manifold/polygon.h>
 
 #include <algorithm>
+#include <utility>
 
 namespace oscadeval {
 
@@ -650,27 +651,22 @@ std::vector<ColoredBody> generateMeshRepair(Evaluator& ev, const CSGParams& para
 
 // -- levelset(field, bounds, isovalue) -------------------------------------
 //
-// A solid from a grid of sampled values. Wraps Manifold::LevelSet with a C++
-// trilinear-sampling lambda over the array the script handed us.
+// A solid from a grid of sampled values: the field array the script handed
+// us, or a function sampled onto a grid at edge= spacing. The grid is then
+// marched directly, as BOSL2's isosurface() does -- see marchingCubes() and
+// the end of generateLevelSet for why Manifold::LevelSet is no longer used.
 //
-// Why a grid rather than Manifold's own SDF-callback shape, which would be
-// the obvious mapping: measured, building the field in OpenSCAD costs
-// 0.41 us/sample against 0.96 us for a closure call per sample, because the
-// arithmetic inlines into the list comprehension. More importantly a grid
-// means the C++ side never re-enters the evaluator, so canParallel can be
-// TRUE -- Manifold's docs warn that parallel policies "will crash language
-// runtimes with runtime locks that expect to not be called back by
-// unregistered threads", which is exactly what a callback design forfeits.
+// Why offer an array at all, when a function is the obvious mapping:
+// measured, building the field in OpenSCAD costs 0.41 us/sample against
+// 0.96 us for a closure call per sample, because the arithmetic inlines into
+// the list comprehension.
 //
-// The trade is memory: ~67 bytes per cell, so 200^3 is about 550 MB and that
-// is the practical ceiling. A callback samples lazily and has no ceiling.
+// The trade is memory: ~67 bytes per cell for the array, so 200^3 is about
+// 550 MB and that is the practical ceiling.
 //
-// Accuracy is bounded by the GRID, not by Manifold. At the grid's own
-// spacing (the default) the grid is marched directly, as BOSL2's
-// isosurface() does -- see marchingCubes(). An edge= asking for a different
-// spacing resamples it through LevelSet instead, which samples a
-// body-centred cubic lattice (sdf.cpp:440-446) that a plain cubic grid does
-// not line up with, so the lambda interpolates trilinearly between samples.
+// Accuracy is bounded by the GRID. An array at its own spacing (the default)
+// is marched as is; an edge= asking for a different spacing re-samples it
+// trilinearly onto a grid at that spacing first.
 
 namespace {
 
@@ -687,6 +683,44 @@ std::optional<double> fieldSample(const Value& item) {
     if (!d || std::isnan(*d)) return std::nullopt;
     constexpr double kHuge = std::numeric_limits<double>::max() / 4;
     return std::clamp(*d, -kHuge, kHuge);
+}
+
+// bounds for a field ARRAY given edge= and no bounds (#749 on BelfrySCAD):
+// the samples edge apart, centred on the origin, as BOSL2's isosurface()
+// places an array given voxel_size. The array's depth (field[i][j] or
+// field[i][j][k]) says 2D or 3D; the sizes come from its first row, and
+// readField/readPlane check the rest later. nullopt when edge is missing
+// or does not fit, leaving the caller's "bounds must be ..." warning.
+std::optional<std::pair<std::vector<double>, std::vector<double>>>
+boundsFromEdge(const Value& field, const Value& edge) {
+    std::vector<size_t> dims;
+    for (const Value* cur = &field; dims.size() < 3;) {
+        const ListPtr* l = std::get_if<ListPtr>(cur);
+        if (!l || !*l || (*l)->items.empty()) break;
+        dims.push_back((*l)->items.size());
+        cur = &(*l)->items[0];
+    }
+    if (dims.size() < 2) return std::nullopt;
+    std::vector<double> step;
+    if (const double* e = std::get_if<double>(&edge)) {
+        step.assign(dims.size(), *e);
+    } else if (const ListPtr* l = std::get_if<ListPtr>(&edge); l && *l && (*l)->items.size() == dims.size()) {
+        for (const Value& item : (*l)->items) {
+            const double* d = std::get_if<double>(&item);
+            if (!d) return std::nullopt;
+            step.push_back(*d);
+        }
+    } else {
+        return std::nullopt;
+    }
+    std::vector<double> lo, hi;
+    for (size_t a = 0; a < dims.size(); ++a) {
+        if (!std::isfinite(step[a]) || step[a] <= 0.0 || dims[a] < 2) return std::nullopt;
+        const double half = 0.5 * step[a] * static_cast<double>(dims[a] - 1);
+        lo.push_back(-half);
+        hi.push_back(half);
+    }
+    return std::make_pair(lo, hi);
 }
 
 struct ScalarField {
@@ -974,6 +1008,13 @@ manifold::MeshGL64 marchingCubes(const std::vector<double>& d, const size_t n[3]
                     const int axis = (b - a) == 1 ? 0 : (b - a) == 2 ? 1 : 2;
                     int64_t& id = edgeVert[3 * p[a] + static_cast<size_t>(axis)];
                     if (id < 0) {
+                        // Linear, as BOSL2 interpolates. Root-finding each
+                        // vertex onto the true surface of a function field was
+                        // tried and measured (#745 on BelfrySCAD): 16% less mean
+                        // normal error on a sphere, but where the grid is too
+                        // coarse for the field it put real ripples on vertices
+                        // the grid cannot connect -- jagged, sliver-strewn --
+                        // where interpolating smooths them away, as BOSL2 does.
                         const double t = v[a] / (v[a] - v[b]);
                         const double x = org[0] + h[0] * (static_cast<double>(i + (a & 1)) + (axis == 0 ? t : 0.0));
                         const double y = org[1] + h[1] * (static_cast<double>(j + (a >> 1 & 1)) + (axis == 1 ? t : 0.0));
@@ -1083,14 +1124,10 @@ std::vector<ColoredBody> generateLevelSet(Evaluator& ev, const CSGParams& params
                                            const oscad::ASTNode& node) {
     // Two shapes of field, and the choice matters beyond taste:
     //
-    //   a GRID    -- faster to sample (0.41 vs 0.96 us) and meshes in
-    //                PARALLEL, because nothing re-enters the evaluator.
-    //                Accuracy is capped by the grid; memory is the ceiling.
-    //   a FUNCTION -- Manifold picks its own sample points and can snap to
-    //                the true surface, so it is MORE accurate, with no
-    //                memory ceiling. But every sample is a closure call, and
-    //                canParallel must be false or the evaluator gets called
-    //                back from threads it knows nothing about.
+    //   a GRID    -- faster to sample (0.41 vs 0.96 us). Accuracy is capped
+    //                by the grid; memory is the ceiling.
+    //   a FUNCTION -- sampled onto a grid at edge= spacing, one closure call
+    //                per sample. Needs edge=, since nothing else says how fine.
     const Value& fieldArg = params.at("field");
     const ClosurePtr* fieldFn = std::get_if<ClosurePtr>(&fieldArg);
     // The array is NOT parsed yet: whether it should be field[i][j] or
@@ -1108,12 +1145,20 @@ std::vector<ColoredBody> generateLevelSet(Evaluator& ev, const CSGParams& params
     // matches how the caller already has to think about the box.
     const ListPtr* bb = std::get_if<ListPtr>(&params.at("bounds"));
     std::optional<std::vector<double>> bLo, bHi;
+    const bool noBounds = std::holds_alternative<std::monostate>(params.at("bounds"));
     if (bb && *bb && (*bb)->items.size() == 2) {
         bLo = numbersOrInf((*bb)->items[0]);
         bHi = numbersOrInf((*bb)->items[1]);
+    } else if (noBounds && !fieldFn) {
+        if (const auto inferred = boundsFromEdge(fieldArg, params.at("edge"))) {
+            bLo = inferred->first;
+            bHi = inferred->second;
+        }
     }
     if (!bLo || !bHi || bLo->size() != bHi->size() || (bLo->size() != 2 && bLo->size() != 3)) {
-        ev.warn("levelset(): bounds must be [[x0,y0],[x1,y1]] or [[x0,y0,z0],[x1,y1,z1]]",
+        ev.warn(noBounds && !fieldFn
+                    ? "levelset(): a field array needs bounds=, or edge= (its sample spacing) to place it"
+                    : "levelset(): bounds must be [[x0,y0],[x1,y1]] or [[x0,y0,z0],[x1,y1,z1]]",
                 &node.position());
         return {};
     }
@@ -1211,74 +1256,82 @@ std::vector<ColoredBody> generateLevelSet(Evaluator& ev, const CSGParams& params
 
     // ---- 2D: sample onto a padded grid, contour it, hand to CrossSection.
     if (is2d) {
-        size_t nx = 0, ny = 0;
-        double sx = 0, sy = 0;
         if (field) {
             ev.warn("levelset(): a 2D field must be field[i][j]; a 3D array was given",
                     &node.position());
             return {};
         }
+        const double x0 = (*bLo)[0], y0 = (*bLo)[1];
+        const double wx = (*bHi)[0] - x0, wy = (*bHi)[1] - y0;
+        double ex = edgeVec ? edgeV[0] : edge, ey = edgeVec ? edgeV[1] : edge;
+        std::optional<std::vector<std::vector<double>>> plane;
+        size_t px = 0, py = 0;
+        bool ownSamples = false;
         if (!fieldFn) {
-            const std::optional<std::vector<std::vector<double>>> plane = readPlane(fieldArg);
+            plane = readPlane(fieldArg);
             if (!plane || plane->size() < 2 || (*plane)[0].size() < 2) {
                 ev.warn("levelset(): 2D field must be a rectangular field[i][j] of numbers",
                         &node.position());
                 return {};
             }
-            nx = plane->size();
-            ny = (*plane)[0].size();
-            sx = ((*bHi)[0] - (*bLo)[0]) / static_cast<double>(nx - 1);
-            sy = ((*bHi)[1] - (*bLo)[1]) / static_cast<double>(ny - 1);
-            Contours2d g;
-            g.nx = nx + 2;
-            g.ny = ny + 2;
-            g.dx = sx;
-            g.dy = sy;
-            g.ox = (*bLo)[0] - sx;
-            g.oy = (*bLo)[1] - sy;
-            // Padded with a ring that is firmly OUTSIDE, so a contour meeting
-            // the box edge closes along it instead of running off. This is
-            // BOSL2's closed=true, and the only behaviour offered.
-            g.v.assign(g.nx * g.ny, -1.0);
-            for (size_t i = 0; i < nx; ++i)
-                for (size_t j = 0; j < ny; ++j)
-                    g.v[(j + 1) * g.nx + (i + 1)] = bandDistance((*plane)[i][j], isoLo, isoHi, invert);
-            const manifold::Polygons polys = marchingSquares(g);
-            if (polys.empty()) return {};
-            ColoredBody b;
-            b.section = clipToBounds(manifold::CrossSection(polys, manifold::CrossSection::FillRule::EvenOdd),
-                                      *bLo, *bHi);
-            if (b.section->IsEmpty()) return {};
-            std::vector<ColoredBody> out;
-            out.push_back(std::move(b));
-            return out;
+            px = plane->size();
+            py = (*plane)[0].size();
+            // Contoured on its own samples unless edge= asks for another
+            // spacing, as the 3D grid is marched; then re-sampled bilinearly.
+            const double gx = wx / static_cast<double>(px - 1), gy = wy / static_cast<double>(py - 1);
+            const auto same = [](double a, double b) { return std::abs(a - b) <= 1e-9 * std::max(a, b); };
+            ownSamples = ex <= 0.0 || (same(ex, gx) && same(ey, gy));
         }
-        // function(x,y): edge= gives the spacing, as in 3D
-        const double ex = edgeVec ? edgeV[0] : edge, ey = edgeVec ? edgeV[1] : edge;
-        nx = static_cast<size_t>(std::floor(((*bHi)[0] - (*bLo)[0]) / ex)) + 1;
-        ny = static_cast<size_t>(std::floor(((*bHi)[1] - (*bLo)[1]) / ey)) + 1;
+        // Counted from the array, not floor(width / spacing): rounding there
+        // could drop the last sample row.
+        const size_t nx = ownSamples ? px : static_cast<size_t>(std::floor(wx / ex)) + 1;
+        const size_t ny = ownSamples ? py : static_cast<size_t>(std::floor(wy / ey)) + 1;
         if (nx < 2 || ny < 2) {
             ev.warn("levelset(): edge is larger than the bounds", &node.position());
             return {};
         }
-        sx = ((*bHi)[0] - (*bLo)[0]) / static_cast<double>(nx - 1);
-        sy = ((*bHi)[1] - (*bLo)[1]) / static_cast<double>(ny - 1);
+        const double sx = wx / static_cast<double>(nx - 1), sy = wy / static_cast<double>(ny - 1);
+        // The plane at a point between its samples. Clamped at the edges,
+        // like the 3D grid sampler, so the clip below cuts a clean line.
+        const auto bilinear = [&](double x, double y) {
+            const auto cell = [](double u, size_t n, size_t& i0) {
+                i0 = static_cast<size_t>(std::clamp(std::floor(u), 0.0, static_cast<double>(n - 2)));
+                return std::clamp(u - static_cast<double>(i0), 0.0, 1.0);
+            };
+            size_t i, j;
+            const double tx = cell((x - x0) / wx * static_cast<double>(px - 1), px, i);
+            const double ty = cell((y - y0) / wy * static_cast<double>(py - 1), py, j);
+            const auto& p = *plane;
+            return (1 - tx) * ((1 - ty) * p[i][j] + ty * p[i][j + 1])
+                 + tx * ((1 - ty) * p[i + 1][j] + ty * p[i + 1][j + 1]);
+        };
         Contours2d g;
         g.nx = nx + 2;
         g.ny = ny + 2;
         g.dx = sx;
         g.dy = sy;
-        g.ox = (*bLo)[0] - sx;
-        g.oy = (*bLo)[1] - sy;
+        g.ox = x0 - sx;
+        g.oy = y0 - sy;
+        // Padded with a ring that is firmly OUTSIDE, so a contour meeting
+        // the box edge closes along it instead of running off. This is
+        // BOSL2's closed=true, and the only behaviour offered.
         g.v.assign(g.nx * g.ny, -1.0);
         for (size_t i = 0; i < nx; ++i) {
             for (size_t j = 0; j < ny; ++j) {
-                BoundArgs bound;
-                bound.set(fnParams2[0], Value{(*bLo)[0] + static_cast<double>(i) * sx});
-                bound.set(fnParams2[1], Value{(*bLo)[1] + static_cast<double>(j) * sy});
-                const Value outv =
-                    ev.evalFunctionLiteralFromBound(**fieldFn, std::move(bound), *fnCtx, &node.position());
-                const double val = fieldSample(outv).value_or(std::numeric_limits<double>::max());
+                const double x = x0 + static_cast<double>(i) * sx, y = y0 + static_cast<double>(j) * sy;
+                double val;
+                if (ownSamples) {
+                    val = (*plane)[i][j];
+                } else if (plane) {
+                    val = bilinear(x, y);
+                } else {
+                    BoundArgs bound;
+                    bound.set(fnParams2[0], Value{x});
+                    bound.set(fnParams2[1], Value{y});
+                    const Value outv =
+                        ev.evalFunctionLiteralFromBound(**fieldFn, std::move(bound), *fnCtx, &node.position());
+                    val = fieldSample(outv).value_or(std::numeric_limits<double>::max());
+                }
                 g.v[(j + 1) * g.nx + (i + 1)] = bandDistance(val, isoLo, isoHi, invert);
             }
         }
@@ -1360,13 +1413,8 @@ std::vector<ColoredBody> generateLevelSet(Evaluator& ev, const CSGParams& params
             if (i0[a] > n[a] - 2) i0[a] = n[a] - 2;
             t[a] = g[a] - static_cast<double>(i0[a]);
         }
-        // Outside the sampled block the clamping above extends the boundary
-        // values outward, so a surface meeting the box runs straight on into
-        // the padding and the clip to `bounds` below leaves a clean plane.
-        // Answering "outside" there instead (as this once did) made Manifold
-        // close the surface right AT the box face, along its own lattice: a
-        // waffle-textured staircase INSIDE the bounds, which the clip could
-        // not remove (#745 on BelfrySCAD).
+        // Clamped, though every grid node lies inside the block: the
+        // floating-point position of the last node can land a hair past it.
 
         double acc = 0.0;
         for (int c = 0; c < 8; ++c) {
@@ -1378,62 +1426,54 @@ std::vector<ColoredBody> generateLevelSet(Evaluator& ev, const CSGParams& params
         return bandDistance(acc, isoLo, isoHi, invert);
     };
 
-    // Manifold closes the mesh where the surface meets the edge of the box it
-    // is given, and that closure follows the sample lattice -- a visible
-    // staircase on anything that reaches the boundary, which a gyroid does
-    // everywhere. So sample a PADDED box, let the ragged closure happen out
-    // there, and cut back to the box actually asked for. The cut is then a
-    // clean plane.
+    // Every 3D field is marched on a REGULAR grid whose outermost nodes lie
+    // exactly on `bounds`, as BOSL2's isosurface() marches: an array at its
+    // own spacing as is, anything else sampled onto one first (a function by
+    // calling it, an array re-sampled trilinearly).
     //
-    // Exactly the fix already applied to the 2D path (clipToBounds); it was
-    // not applied here at the time because the 2D error was the one measured.
-    const manifold::vec3 E = edgeVec ? manifold::vec3(edgeV[0], edgeV[1], edgeV[2]) : manifold::vec3(edge);
-    const manifold::vec3 pad = 2.0 * E;
-    manifold::Box bounds(manifold::vec3(origin[0], origin[1], origin[2]) - pad,
-                          manifold::vec3((*hi)[0], (*hi)[1], (*hi)[2]) + pad);
-    // tolerance: Manifold root-finds along each crossing lattice edge until
-    // the bracket is within it (a distance along the edge, so independent of
-    // the field's units), instead of interpolating linearly between the two
-    // lattice samples. 1% of the edge. Measured on #745 on BelfrySCAD: the
-    // function form's vertices go from up to 0.2 off the true surface to on
-    // it, and the mean face-normal error on a per-axis edge halves to
-    // BOSL2's own; a grid gains too, since the trilinear field between
-    // samples is not linear along a lattice edge. Costs 11-20% more work.
+    // This replaced Manifold::LevelSet for the function form and for an
+    // array at another spacing (#745 on BelfrySCAD). LevelSet samples its own
+    // body-centred lattice, whose irregular triangles shade as a field of
+    // dimples even where every vertex is on the surface -- worse with a
+    // per-axis edge, which meshed a squashed field and stretched it back. And
+    // that lattice does not land on the box, so where the clip below cut it
+    // the cut face did not follow the same grid as the rest of the surface.
     //
-    // canParallel is the crux: safe for a grid because the lambda is pure
-    // C++, and NOT safe for a function, which re-enters the evaluator.
-    // Manifold: parallel policies "will crash language runtimes with runtime
-    // locks that expect to not be called back by unregistered threads".
-    //
-    // LevelSet takes a single edge length, so a per-axis edge meshes a field
-    // squashed to unit spacing on every axis and stretches the result back.
-    // The tolerance there is 1% of the unit edge, so 1% of each axis's own.
-    const double tol = 0.01 * (edgeVec ? 1.0 : edge);
-    manifold::Manifold solid;
-    if (marchGrid) {
-        const size_t n[3] = {field->nx + 2, field->ny + 2, field->nz + 2};
-        std::vector<double> d(n[0] * n[1] * n[2], -1.0);   // the "outside" ring
-        for (size_t k = 0; k < field->nz; ++k)
-            for (size_t j = 0; j < field->ny; ++j)
-                for (size_t i = 0; i < field->nx; ++i)
-                    d[((k + 1) * n[1] + (j + 1)) * n[0] + (i + 1)] =
-                        bandDistance(field->at(i, j, k), isoLo, isoHi, invert);
-        const std::array<double, 3> org{origin[0] - spacing[0], origin[1] - spacing[1], origin[2] - spacing[2]};
-        solid = manifold::Manifold(marchingCubes(d, n, org, spacing));
-        // Never expected; but a mesh Manifold refuses must not cost the
-        // user their shape, so fall back to resampling it.
-        if (solid.Status() != manifold::Manifold::Error::NoError) marchGrid = false;
+    // A per-axis edge that does not divide the box is shrunk to the nearest
+    // one that does, never grown: never coarser than the caller asked.
+    std::array<double, 3> h = spacing;
+    size_t cells[3];
+    for (int a = 0; a < 3; ++a) {
+        const double w = (*hi)[a] - origin[a];
+        if (marchGrid) {
+            cells[a] = static_cast<size_t>(std::llround(w / spacing[a]));
+        } else {
+            const double e = edgeVec ? edgeV[a] : edge;
+            cells[a] = std::max<size_t>(1, static_cast<size_t>(std::ceil(w / e - 1e-9)));
+            h[a] = w / static_cast<double>(cells[a]);
+        }
     }
-    if (!marchGrid && !edgeVec) {
-        solid = fieldFn ? manifold::Manifold::LevelSet(sampleFn, bounds, edge, 0.0, tol, /*canParallel=*/false)
-                        : manifold::Manifold::LevelSet(sampleGrid, bounds, edge, 0.0, tol, /*canParallel=*/true);
-    } else if (!marchGrid) {
-        const manifold::Box unit(bounds.min / E, bounds.max / E);
-        solid = fieldFn ? manifold::Manifold::LevelSet([&](manifold::vec3 q) { return sampleFn(q * E); },
-                                                       unit, 1.0, 0.0, tol, /*canParallel=*/false)
-                        : manifold::Manifold::LevelSet([&](manifold::vec3 q) { return sampleGrid(q * E); },
-                                                       unit, 1.0, 0.0, tol, /*canParallel=*/true);
-        solid = solid.Scale(E);
+    // One "outside" node beyond the box on every side, so every surface
+    // closes; the clip below cuts that overhang back to the box.
+    const size_t n[3] = {cells[0] + 3, cells[1] + 3, cells[2] + 3};
+    std::vector<double> d(n[0] * n[1] * n[2], -1.0);
+    for (size_t k = 0; k + 2 < n[2]; ++k)
+        for (size_t j = 0; j + 2 < n[1]; ++j)
+            for (size_t i = 0; i + 2 < n[0]; ++i) {
+                const double x = origin[0] + h[0] * static_cast<double>(i);
+                const double y = origin[1] + h[1] * static_cast<double>(j);
+                const double z = origin[2] + h[2] * static_cast<double>(k);
+                d[((k + 1) * n[1] + (j + 1)) * n[0] + (i + 1)] =
+                    marchGrid ? bandDistance(field->at(i, j, k), isoLo, isoHi, invert)
+                    : fieldFn ? sampleFn(manifold::vec3(x, y, z))
+                              : sampleGrid(manifold::vec3(x, y, z));
+            }
+    const std::array<double, 3> org{origin[0] - h[0], origin[1] - h[1], origin[2] - h[2]};
+    manifold::Manifold solid(marchingCubes(d, n, org, h));
+    if (solid.Status() != manifold::Manifold::Error::NoError) {
+        // Never expected: marchingCubes closes by construction.
+        ev.warn("levelset(): could not build a closed mesh from this field", &node.position());
+        return {};
     }
 
     if (solid.IsEmpty()) return {};

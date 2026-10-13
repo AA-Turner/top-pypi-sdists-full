@@ -4,13 +4,14 @@ A `BaseClientConfig` is an OpenAI-compatible endpoint (base_url + API-key env va
 + extra headers); `clients.resolve_client` turns one into a live `Client` — the
 interception server builds one per distinct config and shares it across the rollouts
 it multiplexes. The default Prime endpoint, API key, and team fall back to
-the active Prime CLI config, so direct `uv run eval` calls behave like `prime eval`.
+the active Prime CLI config, so direct `uv run vf-eval` calls behave like `prime eval`.
 Both the eval entrypoint (its model client) and in-env LLM calls (e.g. a judge reward)
 build clients from these. `ClientConfig` is the CLI-selectable discriminated union
 (eval | train).
 """
 
 import os
+from itertools import chain
 from typing import Annotated, Literal
 from urllib.parse import urlparse
 
@@ -26,6 +27,21 @@ PRIME_INFERENCE_HOST = "pinference.ai"
 PRIME_TEAM_ID_HEADER = "X-Prime-Team-ID"
 
 
+class ClientTimeoutConfig(BaseConfig):
+    """Timeouts (in seconds) for each phase of an HTTP request to the endpoint; `None`
+    waits indefinitely. Distinct from the agent's stage timeouts, which bound a rollout."""
+
+    connect: float | None = Field(30.0, gt=0)
+    """Time to establish a connection, so an unreachable endpoint still fails fast."""
+    read: float | None = Field(None, gt=0)
+    """Time between received bytes. Unbounded by default: agentic completions are slow
+    and the rollout timeout is the real backstop."""
+    write: float | None = Field(None, gt=0)
+    """Time between sent bytes."""
+    pool: float | None = Field(None, gt=0)
+    """Time to acquire a connection from the pool."""
+
+
 class BaseClientConfig(BaseConfig):
     """An OpenAI-compatible endpoint. The API key is read from an env var."""
 
@@ -33,6 +49,10 @@ class BaseClientConfig(BaseConfig):
     api_key_var: str = "PRIME_API_KEY"
     headers: dict[str, str] = Field(default_factory=dict)
     """Extra HTTP headers sent on every request."""
+    headers_from_env: dict[str, str] = Field(default_factory=dict)
+    """Header names mapped to environment variables, resolved when building a client.
+    Set environment values override static headers."""
+    timeout: ClientTimeoutConfig = ClientTimeoutConfig()
 
     @model_validator(mode="after")
     def apply_prime_config(self) -> "BaseClientConfig":
@@ -44,16 +64,11 @@ class BaseClientConfig(BaseConfig):
             or prime_config.get("inference_url")
             or DEFAULT_PRIME_INFERENCE_URL
         )
-        if "base_url" not in self.model_fields_set:
-            self.base_url = prime_base_url
-        host = urlparse(self.base_url).hostname or ""
-        if host != PRIME_INFERENCE_HOST and not host.endswith(
-            f".{PRIME_INFERENCE_HOST}"
+        if (
+            "base_url" not in self.model_fields_set
+            and self.base_url == DEFAULT_PRIME_INFERENCE_URL
         ):
-            return self
-        team_id = os.environ.get("PRIME_TEAM_ID") or prime_config.get("team_id")
-        if team_id:
-            self.headers.setdefault(PRIME_TEAM_ID_HEADER, team_id)
+            self.base_url = prime_base_url
         return self
 
 
@@ -65,7 +80,7 @@ class EvalClientConfig(BaseClientConfig):
 
 class TrainClientConfig(BaseClientConfig):
     """Training: a vLLM `/inference/v1/generate` endpoint with client-side tokenization (via
-    `TrainClient`), so responses carry token ids + logprobs. Needs a running vLLM engine."""
+    `TrainClient`), so responses carry token IDs and logprobs. Needs a running vLLM engine."""
 
     type: Literal["train"] = "train"
     renderer: RendererConfig | None = None
@@ -102,3 +117,29 @@ def resolve_api_key(config: BaseClientConfig) -> str:
     ):
         api_key = load_prime_config().get("api_key")
     return api_key or "EMPTY"
+
+
+def resolve_headers(config: BaseClientConfig) -> dict[str, str]:
+    """Resolve request headers for this destination without storing credentials in config."""
+    # Keep original spelling for SDKs that merge default headers case-sensitively.
+    names: dict[str, str] = {}
+    headers: dict[str, str] = {}
+    for name, value in chain(
+        config.headers.items(),
+        (
+            (name, value)
+            for name, variable in config.headers_from_env.items()
+            if (value := os.environ.get(variable)) is not None
+        ),
+    ):
+        headers[names.setdefault(name.lower(), name)] = value
+    host = urlparse(config.base_url).hostname or ""
+    if (
+        config.api_key_var == "PRIME_API_KEY"
+        and (host == PRIME_INFERENCE_HOST or host.endswith(f".{PRIME_INFERENCE_HOST}"))
+        and PRIME_TEAM_ID_HEADER.lower() not in names
+    ):
+        team_id = os.environ.get("PRIME_TEAM_ID") or load_prime_config().get("team_id")
+        if team_id:
+            headers[PRIME_TEAM_ID_HEADER] = team_id
+    return headers

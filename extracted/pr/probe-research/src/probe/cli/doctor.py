@@ -593,13 +593,46 @@ def codex_hook_rows(caps: Capabilities) -> list[str]:
     return codex_hooks.rows(codex_hooks.status(), _row)
 
 
+def render_cloud(caps: Capabilities, agent) -> str:
+    """The report inside a cloud agent (Capy): only what applies there. No
+    plugin, hook, status line or capture runs on this machine; the agent's MCP
+    connection lives in its own settings, and its threads are captured from
+    the researcher's own computer."""
+    from probe.cli import capy_cli
+
+    lines: list[str] = ["Probe Research doctor", "", "Versions", *_version_rows(caps), ""]
+    lines.append(f"Inside {agent.label}")
+    marker = next((name for name in agent.detect_env if os.environ.get(name)), "")
+    lines.append(_row("Detected", f"{agent.label} ({marker}={os.environ.get(marker, '')})" if marker else agent.label))
+    lines.append(_row("CLI version", caps.cli_version or "unknown"))
+    lines.append(_row("Install method", caps.install_method or "unknown"))
+    lines.append(_row(
+        "Signed in",
+        caps.logged_in_as
+        or f"no -- set PROBE_TOKEN in {agent.label}'s personal environment variables",
+    ))
+    lines.append(_row("Probe MCP", f"set up in {agent.label}'s settings (MCP & plugins); not visible from here"))
+    guide = f" ({capy_cli.GUIDE_URL})" if agent.id == capy_cli.SOURCE else ""
+    lines.append(_row(
+        "Thread capture",
+        f"from the computer you use {agent.label} on: `npx probe-research install --agent {agent.cli_flag}`{guide}",
+    ))
+    lines.append(_row("Not here", "plugins, hooks, status line, the Probe daemon, `probe session`, `probe ask`"))
+    return "\n".join(lines)
+
+
 def render(caps: Capabilities, codex_hooks: list[str] | None = None) -> str:
     """The full report. Pure, so it can be asserted in tests without a machine.
 
     `codex_hooks` is `codex_hook_rows(caps)`, gathered by the caller because it
     asks Codex; omitted, the section is left out.
     """
+    from probe.cli import cloud_agents
+
     lines: list[str] = ["Probe Research doctor", ""]
+    # A cloud agent (Capy) configured from this machine: no plugin, hook or
+    # instruction file of Probe's is in it, and its capture is a connection.
+    cloud = cloud_agents.is_cloud(caps.agent_source)
 
     lines.append("Versions")
     lines.extend(_version_rows(caps))
@@ -608,7 +641,11 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None) -> str:
     lines.append("Install")
     lines.append(_row("CLI version", caps.cli_version or "unknown"))
     lines.append(_row("Install method", caps.install_method or "unknown"))
-    if caps.agent_source == "pi":
+    if cloud:
+        label = cloud_agents.module(caps.agent_source).label()
+        found = cloud_agents.found_here(caps.agent_source)
+        lines.append(_row(f"{label} app", _OK if found else "not found on this machine"))
+    elif caps.agent_source == "pi":
         # Capabilities has no `pi_available` field (only claude_available /
         # codex_available -- both source-independent booleans this dataclass
         # has carried since before pi existed), and inventing one is a real
@@ -655,6 +692,19 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None) -> str:
     lines.append("")
 
     lines.append("CLI + MCP")
+    if cloud:
+        lines.append(_row("Plugin", f"none: Probe goes in through {label}'s settings"))
+        lines.append(_row("MCP", f"set up in {label}'s settings (MCP & plugins); not visible from here"))
+        lines.append("")
+        lines.append("Thread capture")
+        facts = cloud_agents.module(caps.agent_source).doctor_facts()
+        lines.extend(
+            [_row(name, value) for name, value in facts]
+            or [_row("Connection", f"not connected -- `probe {caps.agent_source} connect`")]
+        )
+        lines.append("")
+        lines.extend(_tail_rows(caps))
+        return "\n".join(lines)
     lines.append(
         _row(
             "Plugin",
@@ -742,7 +792,13 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None) -> str:
             _row("", "outdated wording -- `probe agent-rules refresh` (session start also does this)")
         )
     lines.append("")
+    lines.extend(_tail_rows(caps))
+    return "\n".join(lines)
 
+
+def _tail_rows(caps: Capabilities) -> list[str]:
+    """The device-wide end of the report: team note, snapshots, updates, outbox."""
+    lines: list[str] = []
     lines.extend(_team_note_rows())
     lines.append("")
 
@@ -790,7 +846,7 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None) -> str:
         for warning in caps.warnings:
             lines.append(f"  ! {warning}")
 
-    return "\n".join(lines)
+    return lines
 
 
 def stale_codex_token_warning() -> str | None:
@@ -1033,6 +1089,13 @@ def collect() -> Capabilities:
 
     from probe.cli import versions as versions_mod
 
+    # Only an agent with an instruction file Probe manages has rules to read: a
+    # cloud agent (Capy) has none on this machine.
+    rules_installed = rules_stale = False
+    if _has_instruction_file(selected_agent):
+        rules_installed = agent_rules.is_installed()
+        rules_stale = rules_installed and not agent_rules.is_current()
+
     version_rows, manifest_age = _version_comparison()
     tap_warning = tap_behind_warning(version_rows)
     if tap_warning:
@@ -1066,8 +1129,8 @@ def collect() -> Capabilities:
         mcp_token_held=_mcp_token_held(),
         mcp_kind=mcp_kind,
         mcp_check=mcp_check,
-        agent_rules_installed=agent_rules.is_installed(),
-        agent_rules_stale=(agent_rules.is_installed() and not agent_rules.is_current()),
+        agent_rules_installed=rules_installed,
+        agent_rules_stale=rules_stale,
         auto_update_enabled=settings_autoupdate.enabled,
         last_update_attempt=(
             settings_autoupdate.last_attempt.describe()
@@ -1132,7 +1195,9 @@ def _agent_version(source: str) -> str | None:
     question. None, same as every other "cannot check" case this function
     already returns.
     """
-    if source in ("pi", plugin_cli.KIMI):
+    from probe.cli import cloud_agents
+
+    if source in ("pi", plugin_cli.KIMI) or cloud_agents.is_cloud(source):
         return None
     try:
         from probe.cli.backfill import Agent, agent_version
@@ -1141,6 +1206,15 @@ def _agent_version(source: str) -> str | None:
         return agent_version(agent)
     except Exception:  # noqa: BLE001 - a diagnostic must never crash
         return None
+
+
+def _has_instruction_file(source: str | None) -> bool:
+    """Whether Probe manages an instruction file for this agent: false for a
+    cloud agent (Capy), whose own settings hold everything."""
+    from probe.harness import get_registry
+
+    harness = get_registry().find(source)
+    return bool(harness and harness.instructions)
 
 
 def _kimi_rows() -> list[str]:

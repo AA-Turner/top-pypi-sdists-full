@@ -46,6 +46,7 @@ from skylos.visitors.languages.typescript.analysis import (
     find_unused_ts_exports,
     mark_package_api_ts_exports_consumed,
 )
+from skylos.visitors.languages.typescript.framework import is_framework_loaded_file
 from skylos.analysis.ast_cache import (
     MODE_IGNORE,
     load_python_module,
@@ -111,6 +112,7 @@ _find_package_boundary_modules = find_package_boundary_modules
 
 _OPTIONAL_RUN_STATE_ATTRIBUTES = (
     "_sca_coverage",
+    "_dependency_import_notes",
     "_analysis_scope",
     "_review_context",
     "_review_file_configs",
@@ -145,6 +147,7 @@ _OPTIONAL_RUN_STATE_ATTRIBUTES = (
     "_ts_importers_of",
     "_ts_demoted_exports",
     "_browser_script_entry_files",
+    "_generated_file_scope",
 )
 
 
@@ -389,16 +392,25 @@ def _relative_changed_file(root, changed_file):
         return str(changed_path)
 
 
-def _scoped_changed_paths(root, scan_paths, changed_files):
+def _scoped_changed_paths(root, scan_paths, changed_files, *, resolve_symlinks=True):
     """Keep changed paths inside the requested files/directories, even if deleted."""
     targets = scan_paths if isinstance(scan_paths, (list, tuple)) else [scan_paths]
-    targets = [Path(target).resolve() for target in targets]
+
+    def normalize(value):
+        value = Path(value).expanduser()
+        if resolve_symlinks:
+            return value.resolve()
+        from skylos.security.regression_diff import _lexical_repository_path
+
+        return _lexical_repository_path(root, Path(os.path.abspath(value)))
+
+    targets = [normalize(target) for target in targets]
     selected = set()
     for changed_file in changed_files or ():
         candidate = Path(changed_file)
-        candidate = (
+        candidate = normalize(
             candidate if candidate.is_absolute() else Path(root) / candidate
-        ).resolve()
+        )
         for target in targets:
             if candidate == target or (
                 target.is_dir() and candidate.is_relative_to(target)
@@ -442,6 +454,23 @@ def _working_tree_diff_start(context, diff_base):
         return (result.stdout or "").strip() or None
 
     return run_memo(("git-merge-base", str(context.root), diff_base), compute)
+
+
+def _requires_security_control_history(context, diff_base, changed_files):
+    from skylos.security.regression_diff import SOURCE_SUFFIXES
+
+    # Git history can contain supported source behind an unsupported rename.
+    # A damaged marker must remain visible rather than look like a non-Git scan.
+    return bool(
+        diff_base
+        or find_git_root(context.root) is not None
+        or context.env.get("GIT_DIR")
+        or any(
+            (directory / ".git").is_symlink()
+            for directory in (context.root, *context.root.parents)
+        )
+        or any(Path(item).suffix.lower() in SOURCE_SUFFIXES for item in changed_files)
+    )
 
 
 def _compute_git_diff_for_changed_file(root, rel_file, diff_base):
@@ -943,8 +972,7 @@ def _grep_verify_error_payload(
             )
         message = (
             f"Grep verification exceeded its {budget:g}-second budget. "
-            "Dead-code findings that required grep verification were withheld. "
-            + hint
+            "Dead-code findings that required grep verification were withheld. " + hint
         )
         kind = "grep_budget_exhausted"
     else:
@@ -1398,6 +1426,40 @@ def _changed_definition_keys(
     )
 
 
+def _without_generated_definitions(
+    scope_keys: frozenset | None,
+    definitions: dict,
+    project_root: str | Path,
+    generated_scope,
+) -> frozenset | None:
+    """Leave definitions in generated files (Django migrations) out of the
+    dead-code scope.
+
+    Like a diff scan, the whole repository is still parsed, so what a
+    migration uses stays alive; the migration's own definitions are neither
+    grep-verified nor reported.
+    """
+    report_only = getattr(generated_scope, "report_only", None)
+    if not report_only:
+        return scope_keys
+    root = Path(project_root)
+    generated = {_canonical_analysis_path(path, root) for path in report_only}
+    canonical_by_file: dict[str, str] = {}
+    kept = []
+    for key in definitions if scope_keys is None else scope_keys:
+        definition = definitions.get(key)
+        if definition is None:
+            continue
+        filename = str(definition.filename)
+        canonical = canonical_by_file.get(filename)
+        if canonical is None:
+            canonical = _canonical_analysis_path(filename, root)
+            canonical_by_file[filename] = canonical
+        if canonical not in generated:
+            kept.append(key)
+    return frozenset(kept)
+
+
 def _suppress_django_admin_stubs(empty_files, file_contexts, project_root) -> None:
     """Keep conventional empty app admin modules in Django projects."""
     if _scan_has_top_level_python_module(project_root, file_contexts, "django"):
@@ -1550,6 +1612,30 @@ def _has_evidence_marker(defn, markers) -> bool:
     if not isinstance(refs, dict):
         return False
     return any(marker in refs for marker in markers)
+
+
+# Evidence that a framework, package, test runner or the module itself calls
+# the definition, so it is a liveness root rather than an unreferenced symbol.
+_ROOT_EVIDENCE_MARKERS = (
+    "framework_root",
+    "package_entrypoint",
+    "test_entrypoint",
+    "top_level_execution",
+)
+
+
+def _is_loaded_root(defn) -> bool:
+    """Whether root evidence on ``defn`` proves its framework calls it.
+
+    JS/TS framework marks include name-only rules, so there the file itself
+    must be one a framework or tool loads.
+    """
+    if not _has_evidence_marker(defn, _ROOT_EVIDENCE_MARKERS):
+        return False
+    filename = str(getattr(defn, "filename", ""))
+    if not filename.endswith(_TS_JS_SOURCE_EXTS):
+        return True
+    return is_framework_loaded_file(filename)
 
 
 def _annotate_dead_code_evidence_sources(defs, test_flags, framework_flags) -> None:
@@ -2119,6 +2205,11 @@ class Skylos:
             return None
 
         for key, defn in self.defs.items():
+            # A root with no static references (a Next.js page's default
+            # export, a Laravel listener) is called by its framework, so the
+            # helpers it calls must not inherit deadness from it.
+            if _is_loaded_root(defn):
+                continue
             if (
                 defn.type in ("function", "method")
                 and defn.references == 0
@@ -2291,10 +2382,11 @@ class Skylos:
     def _retain_reachability_uncertainty(self, report):
         for key in report.protected_keys:
             defn = self.defs.get(key)
-            if defn is not None and defn.references <= 0:
+            if defn is not None:
                 # Possible dynamic dispatch is retention evidence, not proof
                 # that this callable has an actual reachable invocation.
-                defn.references = 1
+                defn.references = max(1, defn.references)
+                defn.heuristic_refs.pop("dynamic_pattern", None)
                 defn.heuristic_refs["unresolved_receiver"] = 1.0
         for key in report.protected_callback_keys:
             defn = self.defs.get(key)
@@ -2316,6 +2408,9 @@ class Skylos:
             attribute_hints = max(0, getattr(defn, "_attr_name_ref_count", 0))
             has_references = defn.references > attribute_hints or bool(defn.called_by)
             defn.references = 0
+            # A compatibility name-pattern hint cannot override a complete
+            # source graph that proved this callable has no reachable use.
+            defn.heuristic_refs.pop("dynamic_pattern", None)
             if not has_references:
                 continue
             defn.heuristic_refs["unreachable_group"] = 1.0
@@ -2342,7 +2437,8 @@ class Skylos:
                 continue
             defn.references = max(1, defn.references)
             defn.heuristic_refs.pop("unreachable_group", None)
-            defn.heuristic_refs["reachable_from_root"] = 1.0
+            if key in report.proven_reachable_keys:
+                defn.heuristic_refs["reachable_from_root"] = 1.0
             reason = previous_reasons.get(key)
             if reason in defn.why_unused:
                 defn.why_unused.remove(reason)
@@ -2455,6 +2551,9 @@ class Skylos:
                 self.refs,
                 getattr(self, "_project_root", Path(".")),
                 files,
+                exclude_folders=getattr(self, "_analysis_scope", {}).get(
+                    "excluded_folders"
+                ),
             )
             self._dead_code_liveness_report = report
             if report.rescued:
@@ -2939,9 +3038,13 @@ class Skylos:
                     defn._attr_name_ref_count += 1
 
         if used_attr_context:
-            context_by_attr = defaultdict(list)
-            for attr_name, mod, cls_ctx, line_no in used_attr_context:
-                context_by_attr[attr_name].append((mod, cls_ctx, line_no))
+            from skylos.analysis.attribute_refs import AttributeContextIndex
+
+            attribute_contexts = AttributeContextIndex(
+                used_attr_context,
+                definitions=self.defs,
+                compatible_family=_compatible_family,
+            )
 
             for defn in self.defs.values():
                 if not _compatible_family(defn, "python"):
@@ -2953,35 +3056,7 @@ class Skylos:
                 else:
                     continue
 
-                contexts = context_by_attr.get(defn.simple_name)
-                if not contexts:
-                    continue
-
-                if "." in defn.name:
-                    defn_mod = defn.name.rsplit(".")[0]
-                else:
-                    defn_mod = ""
-
-                if defn_mod:
-                    defn_pkg = defn_mod.split(".")[0]
-                else:
-                    defn_pkg = ""
-
-                for ctx_mod, ctx_cls, ctx_line in contexts:
-                    ctx_pkg = ctx_mod.split(".")[0] if ctx_mod else ""
-
-                    if ctx_mod == defn_mod:
-                        defn.heuristic_refs["same_file_attr"] = defn.heuristic_refs.get(
-                            "same_file_attr", 0.0
-                        ) + _heuristic_weights.get("same_file_attr", 1.0)
-                    elif ctx_pkg and defn_pkg and ctx_pkg == defn_pkg:
-                        defn.heuristic_refs["same_pkg_attr"] = defn.heuristic_refs.get(
-                            "same_pkg_attr", 0.0
-                        ) + _heuristic_weights.get("same_pkg_attr", 0.3)
-                    else:
-                        defn.heuristic_refs["global_attr"] = defn.heuristic_refs.get(
-                            "global_attr", 0.0
-                        ) + _heuristic_weights.get("global_attr", 0.1)
+                attribute_contexts.mark(defn, _heuristic_weights)
 
     def _mark_call_arg_method_refs(self):
         param_method_refs = getattr(self, "_param_method_refs", {})
@@ -3522,6 +3597,8 @@ class Skylos:
         dependency_bump_diff_base=None,
         include_review_proofs=False,
         include_review_context=False,
+        skip_generated=False,
+        generated_keep_paths=None,
     ) -> str:
         if not isinstance(path, (str, list, tuple)):
             raise TypeError(
@@ -3596,6 +3673,11 @@ class Skylos:
         self._project_root = project_root
 
         files, root = self._discover_files(path, exclude_folders)
+        self._generated_file_scope = None
+        if skip_generated and files:
+            files, self._generated_file_scope = _skip_generated_files(
+                path, files, root, generated_keep_paths
+            )
         verification_surface_root = _verification_surface_root(
             path,
             root,
@@ -3704,10 +3786,73 @@ class Skylos:
                 },
                 "workspaces": workspace_inventory.to_dict(project_root),
             }
+            if self._generated_file_scope is not None:
+                result["analysis_summary"]["generated_files"] = (
+                    self._generated_file_scope.summary()
+                )
             if isinstance(self._review_context, dict):
                 result["analysis_summary"]["review_context"] = dict(
                     self._review_context
                 )
+            if (enable_quality or enable_danger) and not first_is_symlink:
+                from skylos.security.contracts import resolve_diff_base_ref
+                from skylos.security.regression_gate import collect_control_regressions
+
+                try:
+                    context = GitContext.from_path(root)
+                    diff_base = resolve_diff_base_ref(root)
+                    signals = changed_files
+                    if signals is None and not diff_base:
+                        detected = context.run(
+                            "diff", "--name-only", "--no-relative", "-z", "HEAD"
+                        )
+                        if detected.returncode == 0:
+                            signals = {
+                                str(context.root / name)
+                                for name in detected.stdout.split("\0") if name
+                            }
+                        elif _requires_security_control_history(context, None, ()):
+                            # A new Git repository has no HEAD to compare yet.
+                            # Existing or damaged history must fail visibly.
+                            repository = context.run("rev-parse", "--git-dir")
+                            history = context.run("rev-list", "--all", "--max-count=1")
+                            if (
+                                repository.returncode != 0
+                                or history.returncode != 0
+                                or history.stdout.strip()
+                            ):
+                                from skylos.config import ConfigError
+
+                                raise ConfigError(
+                                    "Could not inspect compared security controls"
+                                )
+                    if (diff_base or signals) and _requires_security_control_history(
+                        context, diff_base, signals or ()
+                    ):
+                        comparison_base = (
+                            _working_tree_diff_start(context, diff_base)
+                            or diff_base or "HEAD"
+                        )
+                        result["quality"] = collect_control_regressions(
+                            path,
+                            (
+                                {**project_cfg, "exclude": exclude_folders}
+                                if exclude_folders is not None else project_cfg
+                            ),
+                            comparison_base,
+                            changed_files=(
+                                _scoped_changed_paths(
+                                    root, path, signals, resolve_symlinks=False
+                                )
+                                if signals is not None else None
+                            ),
+                        )
+                        result["analysis_summary"]["quality_count"] = len(result["quality"])
+                except Exception as exc:
+                    result["analysis_errors"].append(_analysis_error_payload(
+                        root, exc, kind="security_regression_unavailable"
+                    ))
+                    result["analysis_summary"]["analysis_error_count"] = len(result["analysis_errors"])
             if first_is_symlink and required_config_rules:
                 result["analysis_errors"].append(
                     _analysis_error_payload(
@@ -3732,6 +3877,11 @@ class Skylos:
                             changed_files=changed_files,
                             ignore=project_ignore,
                             required_rules=required_config_rules,
+                            analysis_errors=result["analysis_errors"],
+                            scan_paths=path if isinstance(path, (list, tuple)) else None,
+                        )
+                        result["analysis_summary"]["analysis_error_count"] = len(
+                            result["analysis_errors"]
                         )
                         if config_findings:
                             danger_findings.extend(config_findings)
@@ -3900,6 +4050,18 @@ class Skylos:
                         expected_checks=self._ai_verification_expectations,
                     )
                 )
+            from skylos.reporting.assessment import compute_assessment
+            from skylos.reporting.finding_types import (
+                annotate_finding_types,
+                summarize_finding_types,
+            )
+
+            annotate_finding_types(result)
+            result["analysis_summary"]["finding_type_counts"] = summarize_finding_types(
+                result
+            )
+            result["assessment"] = compute_assessment(result)
+            result["analysis_summary"]["assessment_scope"] = "all_analyzed_findings"
             return json.dumps(result)
 
         logger.info(f"Analyzing {len(files)} files...")
@@ -3964,6 +4126,7 @@ class Skylos:
         all_secrets = []
         all_dangers = []
         all_quality = []
+        self._maintainability_inventory = []
         all_ai_defects = []
         all_suppressed = []
         secret_scanned_files = set()
@@ -4156,6 +4319,15 @@ class Skylos:
                 if file_clone_fragments:
                     all_clone_fragments.extend(file_clone_fragments)
                 if file_architecture_metrics:
+                    measured_units = file_architecture_metrics.get(
+                        "maintainability_inventory"
+                    )
+                    if isinstance(measured_units, dict) and measured_units.get(
+                        "rule_units"
+                    ):
+                        self._maintainability_inventory.append(
+                            {"file": str(file), **measured_units}
+                        )
                     abstractness = file_architecture_metrics.get("abstractness")
                     loc = file_architecture_metrics.get("loc")
                     has_main_guard = file_architecture_metrics.get("has_main_guard")
@@ -4369,26 +4541,34 @@ class Skylos:
                 )
 
         git_context = GitContext.from_path(root)
-        if changed_files is None and (
+        # Diff-based signals also read uncommitted work during a full scan.
+        # Keep those files separate: they must not narrow the full scan's
+        # config, injection or completeness checks to the edited files.
+        diff_signal_files = changed_files
+        if diff_signal_files is None and (
             enable_quality or enable_danger or enable_ai_defects
         ):
             try:
                 detected_changes = set()
-                for revision in ("HEAD", "--cached"):
+                from skylos.security.contracts import resolve_diff_base_ref
+
+                signal_base = resolve_diff_base_ref(root)
+                merge_base = _working_tree_diff_start(git_context, signal_base)
+                for revision in (merge_base or "HEAD", "--cached"):
                     diff_result = git_context.run(
                         "diff", "--name-only", "--no-relative", "-z", revision
                     )
                     if diff_result.returncode == 0:
                         detected_changes.update(
-                            str((git_context.root / name).resolve())
+                            str(git_context.root / name)
                             for name in diff_result.stdout.split("\0")
                             if name
                         )
                 if detected_changes:
-                    changed_files = {
+                    diff_signal_files = {
                         str(candidate)
                         for candidate in _scoped_changed_paths(
-                            root, path, detected_changes
+                            root, path, detected_changes, resolve_symlinks=False
                         )
                     }
             except Exception:
@@ -4404,55 +4584,60 @@ class Skylos:
         )
         scoped_changes = {
             candidate
-            for candidate in _scoped_changed_paths(root, path, changed_files)
+            for candidate in _scoped_changed_paths(root, path, diff_signal_files)
             if not should_exclude_path(candidate, project_root, regression_excludes)
         }
-        # Generic control-removal heuristics only apply to surviving source
-        # files. Explicit contracts can also describe deleted source files.
-        source_regression_files = (
-            scoped_changes.intersection(Path(file).resolve() for file in files)
-            if enable_quality and scoped_changes
-            else set()
-        )
         if (
-            source_regression_files
-            and enable_quality
+            diff_signal_files
+            and (enable_quality or enable_danger)
             and "SKY-L021" not in project_ignore
         ):
-            from skylos.rules.quality.regression import detect_security_regressions
             from skylos.security.contracts import resolve_diff_base_ref
+            from skylos.security.regression_diff import (
+                SOURCE_SUFFIXES,
+                _lexical_repository_path,
+                changed_sources,
+                compare_source_controls,
+            )
 
             try:
                 diff_base = resolve_diff_base_ref(root)
-
-                for cf in sorted(source_regression_files):
-                    rel_cf = git_context.relative_path(cf)
-                    if rel_cf is None:
+                comparison_base = (
+                    _working_tree_diff_start(git_context, diff_base)
+                    or diff_base or "HEAD"
+                )
+                signaled = {
+                    _lexical_repository_path(root, item)
+                    for item in diff_signal_files
+                }
+                source_changes = {}
+                if _requires_security_control_history(git_context, diff_base, signaled):
+                    source_changes = changed_sources(git_context, comparison_base)
+                for change in source_changes.values():
+                    cf = git_context.root / change.path
+                    old_cf = git_context.root / (change.base_path or change.path)
+                    if not {cf, old_cf}.intersection(signaled):
                         continue
-                    merge_base = _working_tree_diff_start(git_context, diff_base)
-                    if merge_base:
-                        diff_cmd = ["diff", merge_base]
-                    elif diff_base:
-                        diff_cmd = ["diff", f"{diff_base}...HEAD"]
-                    else:
-                        diff_cmd = ["diff", "HEAD"]
-                    diff_options = [
-                        "--no-relative",
-                        "--no-ext-diff",
-                        "--no-textconv",
-                        "--",
-                        f":(literal){rel_cf}",
-                    ]
-                    diff_result = git_context.run(*diff_cmd, *diff_options)
-                    if diff_result.returncode != 0 and diff_base:
-                        diff_result = git_context.run("diff", "HEAD", *diff_options)
-                    if diff_result.returncode == 0 and diff_result.stdout.strip():
-                        reg_findings = detect_security_regressions(
-                            diff_result.stdout,
-                            str(cf),
+                    if old_cf.suffix.lower() not in SOURCE_SUFFIXES:
+                        continue
+                    if not _scoped_changed_paths(
+                        root, path, (cf, old_cf), resolve_symlinks=False
+                    ):
+                        continue
+                    if should_exclude_path(old_cf, project_root, regression_excludes):
+                        continue
+                    try:
+                        all_quality.extend(
+                            compare_source_controls(git_context, comparison_base, change)
                         )
-                        all_quality.extend(reg_findings)
-            except Exception:
+                    except Exception as exc:
+                        analysis_errors.append(_analysis_error_payload(
+                            cf, exc, kind="security_regression_unavailable"
+                        ))
+            except Exception as exc:
+                analysis_errors.append(_analysis_error_payload(
+                    root, exc, kind="security_regression_unavailable"
+                ))
                 if os.getenv("SKYLOS_DEBUG"):
                     logger.error("Security regression scan failed", exc_info=True)
 
@@ -4587,13 +4772,17 @@ class Skylos:
                 elif _first.is_file():
                     scan_target = _first
                 else:
-                    scan_target = project_root
+                    # Import and policy resolution can use an enclosing project,
+                    # but a directory scan must keep config findings in that directory.
+                    scan_target = _first
 
                 config_findings = scan_config_files(
                     scan_target,
                     changed_files=changed_files,
                     ignore=project_ignore,
                     required_rules=required_config_rules,
+                    analysis_errors=analysis_errors,
+                    scan_paths=path if isinstance(path, (list, tuple)) else None,
                 )
                 if config_findings:
                     all_dangers.extend(config_findings)
@@ -4802,6 +4991,14 @@ class Skylos:
                         dep_findings = scan_python_dependency_hallucinations(
                             project_root, py_files
                         )
+                        unverified = getattr(dep_findings, "unverified_imports", {})
+                        if unverified:
+                            # Imports that could not be verified are a
+                            # summary note, never findings.
+                            self._dependency_import_notes = {
+                                "unverified_import_count": len(unverified),
+                                "unverified_imports": sorted(unverified)[:25],
+                            }
                         _extend_unsuppressed_ai_defect_findings(
                             dep_findings,
                             project_ignore=project_ignore,
@@ -4816,6 +5013,7 @@ class Skylos:
 
                 try:
                     from skylos.rules.ai_defect.api_signature_hallucination import (
+                        failed_python_api_signature_check,
                         scan_python_api_signature_hallucinations,
                     )
 
@@ -4827,15 +5025,35 @@ class Skylos:
                             py_files,
                             allowed_modules=tuple(api_modules) if api_modules else None,
                         )
-                        _extend_unsuppressed_ai_defect_findings(
+                        _append_ai_verification_result(
                             api_findings,
+                            getattr(
+                                api_findings,
+                                "check",
+                                failed_python_api_signature_check("coverage_receipt_missing"),
+                            ),
                             project_ignore=project_ignore,
                             per_file_ignore_lines=per_file_ignore_lines,
                             per_file_ignore_rules=per_file_ignore_rules,
                             all_ai_defects=all_ai_defects,
                             all_suppressed=all_suppressed,
+                            verification_checks=self._ai_verification_checks,
                         )
                 except Exception:
+                    if _python_signature_files(files):
+                        # The detector import itself may have failed. Build a
+                        # minimal receipt without relying on that import.
+                        self._ai_verification_checks.append(
+                            {
+                                "id": "python_installed_api_signature",
+                                "status": "skipped",
+                                "outcome": "incomplete",
+                                "scope": "installed_python_package_api_metadata",
+                                "languages": ["python"],
+                                "finding_count": 0,
+                                "reasons": [{"code": "detector_error", "count": 1}],
+                            }
+                        )
                     if os.getenv("SKYLOS_DEBUG"):
                         logger.error(traceback.format_exc())
 
@@ -5078,7 +5296,7 @@ class Skylos:
                                 exc_info=True,
                             )
 
-            if changed_files and "SKY-A101" not in project_ignore:
+            if diff_signal_files and "SKY-A101" not in project_ignore:
                 try:
                     from skylos.rules.ai_defect.assertion_weakening import (
                         detect_assertion_weakening,
@@ -5086,7 +5304,7 @@ class Skylos:
                     from skylos.security.contracts import resolve_diff_base_ref
 
                     diff_base = resolve_diff_base_ref(root)
-                    for cf in changed_files:
+                    for cf in diff_signal_files:
                         rel_cf = (
                             str(Path(cf).resolve().relative_to(root))
                             if Path(cf).is_absolute()
@@ -5114,7 +5332,7 @@ class Skylos:
                     if os.getenv("SKYLOS_DEBUG"):
                         logger.error("Assertion weakening scan failed", exc_info=True)
 
-            if changed_files and "SKY-A102" not in project_ignore:
+            if diff_signal_files and "SKY-A102" not in project_ignore:
                 try:
                     from skylos.rules.ai_defect.test_impact import (
                         detect_test_impact_gaps,
@@ -5123,7 +5341,7 @@ class Skylos:
 
                     diff_base = resolve_diff_base_ref(root)
                     changed_file_diffs = {}
-                    for cf in changed_files:
+                    for cf in diff_signal_files:
                         rel_cf = _relative_changed_file(root, cf)
                         diff_text = _git_diff_for_changed_file(root, rel_cf, diff_base)
                         if diff_text:
@@ -5131,7 +5349,7 @@ class Skylos:
 
                     test_impact_findings = detect_test_impact_gaps(
                         root,
-                        changed_files,
+                        diff_signal_files,
                         changed_file_diffs=changed_file_diffs,
                     )
                     _extend_unsuppressed_ai_defect_findings(
@@ -5160,13 +5378,13 @@ class Skylos:
                     )
                 )
 
-            if changed_files and (
+            if diff_signal_files and (
                 "SKY-A103" not in project_ignore or "SKY-A104" not in project_ignore
             ):
                 try:
                     _scan_ai_defect_diff_signals(
                         root,
-                        changed_files,
+                        diff_signal_files,
                         project_ignore=project_ignore,
                         per_file_ignore_lines=per_file_ignore_lines,
                         per_file_ignore_rules=per_file_ignore_rules,
@@ -5427,15 +5645,7 @@ class Skylos:
             name
             for name, defn in self.defs.items()
             if getattr(defn, "type", None) in ("function", "method")
-            and _has_evidence_marker(
-                defn,
-                (
-                    "framework_root",
-                    "package_entrypoint",
-                    "test_entrypoint",
-                    "top_level_execution",
-                ),
-            )
+            and _has_evidence_marker(defn, _ROOT_EVIDENCE_MARKERS)
         }
         self._apply_entry_reachability(evidence_root_names=evidence_root_names)
 
@@ -5453,10 +5663,15 @@ class Skylos:
             "enabled": bool(grep_verify),
             "rescued_count": 0,
         }
-        self._dead_code_scope_keys = _changed_definition_keys(
+        self._dead_code_scope_keys = _without_generated_definitions(
+            _changed_definition_keys(
+                self.defs,
+                project_root,
+                requested_changed_files,
+            ),
             self.defs,
             project_root,
-            requested_changed_files,
+            getattr(self, "_generated_file_scope", None),
         )
         self._grep_verify_report = grep_verify_report
         if grep_verify:
@@ -5499,7 +5714,7 @@ class Skylos:
             for config in effective_file_configs.values()
         ):
             resolution_scope_limited = True
-        refresh_review_context(changed_files)
+        refresh_review_context(diff_signal_files)
         analysis_errors, outside_diff_warnings = _split_outside_diff_analysis_errors(
             analysis_errors, changed_files
         )
@@ -5545,6 +5760,23 @@ class Skylos:
         )
 
         return json.dumps(result, indent=2)
+
+
+def _skip_generated_files(path, files, root, keep_paths):
+    """Apply the default generated/vendored scope (``skylos.core.generated_files``).
+
+    Files named on the command line are never skipped.
+    """
+    from skylos.core.generated_files import partition_generated_files
+
+    targets = path if isinstance(path, (list, tuple)) else [path]
+    explicit_files = [Path(target) for target in targets if Path(target).is_file()]
+    return partition_generated_files(
+        files,
+        Path(root),
+        keep_paths=keep_paths,
+        explicit_files=explicit_files,
+    )
 
 
 def _split_outside_diff_analysis_errors(analysis_errors, changed_files):
@@ -5638,6 +5870,8 @@ def analyze(
     dependency_bump_diff_base=None,
     include_review_proofs=False,
     include_review_context=False,
+    skip_generated=False,
+    generated_keep_paths=None,
 ) -> str:
     return Skylos().analyze(
         path,
@@ -5662,6 +5896,8 @@ def analyze(
         dependency_bump_diff_base=dependency_bump_diff_base,
         include_review_proofs=include_review_proofs,
         include_review_context=include_review_context,
+        skip_generated=skip_generated,
+        generated_keep_paths=generated_keep_paths,
     )
 
 
@@ -5820,7 +6056,7 @@ if __name__ == "__main__":
         print(f"Found {total_dead} dead code items. Add this badge to your README:")
     print("```markdown")
     print(
-        f"![Dead Code: {total_dead}](https://img.shields.io/badge/Dead_Code-{total_dead}_detected-orange?logo=codacy&logoColor=red)"
+        f"[![Dead Code: {total_dead}](https://img.shields.io/badge/Dead_Code-{total_dead}_detected-orange)](https://github.com/duriantaco/skylos)"
     )
     print("```")
 

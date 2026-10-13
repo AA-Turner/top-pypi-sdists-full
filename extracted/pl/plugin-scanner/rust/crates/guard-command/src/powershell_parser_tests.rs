@@ -1,5 +1,5 @@
 use super::*;
-use crate::powershell_reads::with_windows_powershell_reads;
+use crate::powershell_reads::{with_posix_powershell_host, with_windows_powershell_reads};
 
 fn request(command: &str, dialect: &str) -> CommandModelRequestV1 {
     CommandModelRequestV1 {
@@ -12,6 +12,10 @@ fn request(command: &str, dialect: &str) -> CommandModelRequestV1 {
 
 fn windows(command: &str) -> CanonicalCommandV1 {
     with_windows_powershell_reads(|| parse_command(&request(command, "posix")).unwrap())
+}
+
+fn posix_host(command: &str, dialect: &str) -> CanonicalCommandV1 {
+    with_posix_powershell_host(|| parse_command(&request(command, dialect)).unwrap())
 }
 
 fn canonical(model: &CanonicalCommandV1) -> Vec<Vec<String>> {
@@ -56,12 +60,7 @@ fn write_all_text_parses_exactly_as_tee() {
     assert_eq!(model.segments.len(), 1);
     assert_eq!(canonical(&model), [words(&["tee", "docs/change.md"])]);
     assert_eq!(model.segments[0].text, WRITE_ALL_TEXT);
-    assert_eq!(
-        parse_command(&request(WRITE_ALL_TEXT, "posix"))
-            .unwrap()
-            .confidence,
-        "uncertain"
-    );
+    assert_eq!(posix_host(WRITE_ALL_TEXT, "posix").confidence, "uncertain");
 }
 
 #[test]
@@ -158,13 +157,13 @@ fn unsupported_forms_stay_uncertain() {
 #[test]
 fn host_gate_off_keeps_posix_results() {
     for command in FAIL_CLOSED.iter().copied().chain([WRITE_ALL_TEXT]) {
-        let off = parse_command(&request(command, "posix")).unwrap();
+        let off = posix_host(command, "posix");
         assert_eq!(off.dialect, "posix", "{command}");
         assert_ne!(off.parser_profile, "powershell-subset-v1", "{command}");
-        assert_eq!(
-            parse_posix_command(&request(command, "posix")).unwrap(),
-            off
-        );
+        let mut expected =
+            with_posix_powershell_host(|| parse_posix_command(&request(command, "posix")).unwrap());
+        expected.security_identity = crate::canonical_command::command_security_identity(&expected);
+        assert_eq!(expected, off);
         // With the gate on, a rejected command that names a cmdlet becomes
         // uncertain; anything else the subset rejects keeps the POSIX model.
         let on = windows(command);
@@ -176,7 +175,7 @@ fn host_gate_off_keeps_posix_results() {
             assert_eq!(on, off, "{command}");
         }
     }
-    let off = parse_command(&request("Remove-Item -Recurse -Force C:\\", "posix")).unwrap();
+    let off = posix_host("Remove-Item -Recurse -Force C:\\", "posix");
     assert_eq!(off.dialect, "posix");
 }
 
@@ -186,5 +185,32 @@ fn unparsed_cmdlet_stays_uncertain_on_windows() {
         let model = windows(command);
         assert_eq!(model.confidence, "uncertain", "{command}");
         assert!(model.uncertainty_reason.is_some(), "{command}");
+    }
+}
+
+#[test]
+fn constant_text_encoding_argument_is_accepted() {
+    for command in [
+        "[System.IO.File]::WriteAllText('docs/change.md', \"x`n\", [System.Text.UTF8Encoding]::new($false))",
+        "[IO.File]::AppendAllText('docs/change.md', 'x', [Text.Encoding]::UTF8)",
+        "[IO.File]::ReadAllText('docs/change.md', [System.Text.Encoding]::UTF8)",
+    ] {
+        let model = parse_command(&request(command, "powershell")).unwrap();
+        assert_eq!(model.confidence, "exact", "{command}");
+        assert_eq!(model.segments.len(), 1, "{command}");
+        assert!(model.segments[0].tokens.contains(&"docs/change.md".to_owned()), "{command}");
+    }
+    for command in [
+        "[IO.File]::WriteAllText('a', 'x', [Text.UTF8Encoding]::new($x))",
+        "[IO.File]::WriteAllText('a', 'x', [Text.Encoding]::GetEncoding('x'))",
+        "[IO.File]::WriteAllText('a', 'x', [Text.Encoding]::UTF8, 'b')",
+        "[IO.File]::WriteAllText('a', 'x', [Text.Encoding]::UTF8.GetString())",
+        "[IO.File]::WriteAllBytes('a', 'x', [Text.Encoding]::UTF8)",
+        "[IO.File]::Delete('a', [Text.Encoding]::UTF8)",
+        "[IO.File]::WriteAllText([Text.Encoding]::UTF8, 'a', 'x')",
+        "[IO.File]::WriteAllText('a', [Text.Encoding]::UTF8)",
+    ] {
+        let model = parse_command(&request(command, "powershell")).unwrap();
+        assert_eq!(model.confidence, "uncertain", "{command}");
     }
 }

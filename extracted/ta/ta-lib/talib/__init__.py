@@ -138,7 +138,7 @@ for func_name in __TA_FUNCTION_NAMES__:
 
 from . import stream
 
-__version__ = '0.8.1'
+__version__ = '0.8.2'
 
 # In order to use this python library, talib (i.e. this __file__) will be
 # imported at some point, either explicitly or indirectly via talib.func
@@ -148,7 +148,7 @@ __version__ = '0.8.1'
 # the underlying TA-Lib.
 
 _ta_initialize()
-atexit.register(_ta_shutdown)
+atexit.register(_ta_shutdown, True)
 
 __function_groups__ = {
     'Cycle Indicators': [

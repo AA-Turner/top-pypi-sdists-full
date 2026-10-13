@@ -17,7 +17,7 @@ from flufl.lock._lockfile import (
 )
 
 
-__version__ = '9.2.0'
+__version__ = '10.0.0'
 
 
 # These names are re-exports, and a type checker has no way to tell a re-export from an

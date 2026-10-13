@@ -59,7 +59,7 @@ async def test_happy_path_returns_records_rendering_and_provenance() -> None:
     out = res.output
     assert out["status"] == "success" and out["record_count"] == 1
     assert "Googleplex" in out["rendering"]
-    assert out["provenance"]["provider"] == "brightdata" and out["provenance"]["records_billed"] == 1
+    assert out["provenance"]["provider"] == "live_data" and out["provenance"]["records_billed"] == 1
     assert len(billed) == 1
 
 
@@ -124,10 +124,10 @@ async def test_a_non_refusal_guard_bug_is_not_swallowed() -> None:
 
 
 def test_stamp_read_engine_carries_site_data_provenance_and_notice() -> None:
-    prov = {"provider": "brightdata", "engine": "site_data", "announcement": "site data via Bright Data"}
-    page = _stamp_read_engine({"engine": "site_data:brightdata", "provenance": prov,
+    prov = {"provider": "live_data", "engine": "site_data", "announcement": "live data, Google Maps place"}
+    page = _stamp_read_engine({"engine": "site_data", "provenance": prov,
                                "site_data_notice": "fell back to a direct read"}, {"text": "x"})
-    assert page["engine"] == "site_data:brightdata" and page["provenance"] == prov
+    assert page["engine"] == "site_data" and page["provenance"] == prov
     assert page["site_data_notice"] == "fell back to a direct read"
     plain = _stamp_read_engine({"text": "y"}, {"text": "y"})
     assert plain == {"text": "y"}

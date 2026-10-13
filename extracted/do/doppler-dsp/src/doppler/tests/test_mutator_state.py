@@ -216,6 +216,12 @@ class Mutator:
     stream: bool = False  # its input is the object's stream
     handle: bool = False  # it attaches a handle to the outside world
     accessor: bool = False  # jm's capacity query for a variable_output call
+    # The C first parameter is const-qualified: the call cannot mutate state,
+    # so it is a reader by the prototype, not by observation (see _pure).
+    pure: bool = False
+    # The parameters the manifest declares `out = true`: a buffer the call
+    # fills, not a value it keeps (see _outs).
+    outs: tuple[str, ...] = ()
 
     @property
     def key(self) -> str:
@@ -423,6 +429,59 @@ def _is_accessor(d: Declared, name: str) -> bool:
     return bool(base and base.get("variable_output"))
 
 
+def _outs(d: Declared, name: str) -> tuple[str, ...]:
+    """The parameters the manifest declares ``out = true`` for this method.
+
+    Read from the manifest's own ``params``, so a buffer the call fills is
+    known by the declaration, never by its name.
+    """
+    md = d.method(name) or {}
+    return tuple(
+        str(p["name"]) for p in md.get("params", []) if p.get("out") is True
+    )
+
+
+def _strip_c_comments(text: str) -> str:
+    """C source with its block and line comments removed, so a decoy in a
+    comment cannot stand for a declaration."""
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    return re.sub(r"//[^\n]*", "", text)
+
+
+def _const_state_query(text: str, cname: str) -> bool:
+    """Whether C ``text`` DECLARES ``cname`` with a const state as its first
+    parameter.
+
+    The declaration is the prototype ending in ``;``, so a definition body is
+    not one. The first parameter must be a ``const <x>_state_t *``: a const
+    float pointer to a free function's data is not a state. A const state
+    pointer is shallow, so this only says the call takes no write through it;
+    the probe still has to observe the call inert (see ``_judge``).
+    """
+    # The parameter list may wrap; a body ({) or a nested brace is not a
+    # prototype, so the match stops at the closing paren and the semicolon.
+    params = r"\s*\(\s*const\s+\w+_state_t\s*\*[^;{}]*\)\s*;"
+    decl = re.compile(r"\b" + re.escape(cname) + params)
+    return bool(decl.search(_strip_c_comments(text)))
+
+
+def _pure(d: Declared, name: str) -> bool:
+    """A value-returning method whose C prototype takes its state const.
+
+    The C name is ``dp_<comp>_<name>`` by convention, which no manifest key
+    supplies, so the rule FAILS CLOSED: a missing header, a missing
+    declaration, or a name the convention does not produce is not pure. A
+    void method is not a query, const or not, because it returns nothing.
+    """
+    md = d.method(name) or {}
+    if md.get("return_type") in (None, "void"):
+        return False
+    header = ROOT / "native" / "inc" / "doppler" / d.comp / f"{d.comp}_core.h"
+    if not header.exists():
+        return False
+    return _const_state_query(header.read_text("utf-8"), f"dp_{d.comp}_{name}")
+
+
 def _c_only(cls: str, comp: str, bound: set[str]) -> list[Mutator]:
     header = ROOT / "native" / "inc" / "doppler" / comp / f"{comp}_core.h"
     if not header.exists():
@@ -474,6 +533,8 @@ def discover() -> list[Mutator]:
                     accessor=_is_accessor(d, m)
                     and sig is not None
                     and all(_bare(q.ann) == "int" for q in sig[0]),
+                    pure=_pure(d, m),
+                    outs=_outs(d, m),
                 )
             )
         if d.view is None:  # a view shares its parent's core and its header
@@ -632,10 +693,33 @@ def _values(ann: str, lengths: list[int], seed: int) -> list[Any]:
     return _scalar_candidates(a)
 
 
+# The sizes an out buffer is offered at, beyond _lengths: a call that fills a
+# buffer refuses one too small, so the probe must reach the object's own row
+# width. A recipe's nfft is not always one of _lengths, so the default
+# (256) and a larger one (1024) are offered as well; a size that is refused is
+# skipped like any refused value.
+_OUT_LENGTHS = (256, 1024)
+
+
+def _out_buffers(p: Param, obj: Any) -> list[Any]:
+    """Buffers for an out parameter: the call fills them, so their content is
+    not a value and is not varied. Offered at every length the probe knows."""
+    dt = _dtype(_bare(p.ann))
+    if dt is None:
+        return _values(p.ann, _lengths(obj), 0)
+    sizes = dict.fromkeys([*_lengths(obj), *_OUT_LENGTHS])
+    return [_array(dt, n, seed=n) for n in sizes]
+
+
 def _calls(mut: Mutator, obj: Any) -> Iterator[Call]:
     """Candidate calls over the required parameters."""
     assert mut.params is not None
-    per = [_values(p.ann, _lengths(obj), i) for i, p in enumerate(mut.params)]
+    per = [
+        _out_buffers(p, obj)
+        if p.name in mut.outs
+        else _values(p.ann, _lengths(obj), i)
+        for i, p in enumerate(mut.params)
+    ]
     if not per:
         return iter([Call(())])
     # Each param starts at its own offset, so two params of one type are
@@ -908,8 +992,15 @@ def _judge(
     *,
     valued: bool,
     may_read: bool,
+    pure: bool = False,
 ) -> tuple[Verdict, list[Any]]:
-    """One dimension's verdict, and the values it accepted."""
+    """One dimension's verdict, and the values it accepted.
+
+    ``pure`` is the header's word that the call takes its state const. It is
+    not a verdict by itself: a const state pointer is shallow (the call can
+    still write through a member), so a pure method is READS only where the
+    probe also observes it inert, and a visible write stays the write's
+    verdict, red."""
     vals, refs, returned = _accepted(mut, make, feed, cands)
     if not vals:
         return Verdict("UNPROBED", "no value the mutator accepts"), vals
@@ -924,8 +1015,11 @@ def _judge(
         ), vals
     uncalled = _observe(_warm(make, feed), mut, feed)
     if all(r == uncalled for r in refs):
-        if returned and may_read:
-            return Verdict("READS"), vals
+        if returned and (may_read or pure):
+            return Verdict(
+                "READS",
+                "const state, and observed inert in every row" if pure else "",
+            ), vals
         return Verdict(
             "UNPROBED",
             "no value it accepts changes anything the probe can see",
@@ -962,17 +1056,24 @@ def probe(mut: Mutator, make, feed) -> Verdict:
                     break
         return _judge(mut, make, feed, cands, valued=True, may_read=False)[0]
     obj = _warm(make, feed)
+    # A declared out buffer is not a value the call keeps, so only the rest
+    # of the required parameters count as values (the manifest's out = true).
+    values = [p for p in (mut.params or ()) if p.name not in mut.outs]
     verdict, vals = _judge(
         mut,
         make,
         feed,
         _calls(mut, obj),
-        valued=bool(mut.params) and not mut.stream,
+        valued=bool(values) and not mut.stream,
         # An inert call taking a value it does not visibly keep is no
         # reader: it may be a setter the recipe cannot see. Only a call
         # with no value, a stream call (a pure transform of its input), or
-        # jm's declared capacity query reads.
-        may_read=not mut.params or mut.stream or mut.accessor,
+        # jm's declared capacity query reads. An out buffer is not a value,
+        # but a call whose only argument is an out buffer is no reader either
+        # unless an observation says it is (out-only, non-const, inert stays
+        # UNPROBED).
+        may_read=(not values and not mut.outs) or mut.stream or mut.accessor,
+        pure=mut.pure,
     )
     if not vals:
         return verdict
@@ -1189,3 +1290,64 @@ def test_only_a_crash_signal_reads_crashes(
     if os.name == "nt":
         pytest.skip("POSIX signal numbers")
     assert _died_of_a_crash(returncode) is crash
+
+
+# ── the rules that classify a method by its header and its manifest ──────────
+#
+# Unit tests over synthetic text, so each sabotage is a string this file owns:
+# the derivation is proved on the decoys it must reject, not only on the real
+# headers, which a refactor could break without a test noticing.
+
+
+@pytest.mark.parametrize(
+    "text, expect",
+    [
+        ("size_t dp_x_q (const dp_x_state_t *s, size_t n);", True),
+        ("size_t dp_x_q (dp_x_state_t *s, size_t n);", False),
+        ("float dp_x_q (const float *x, size_t n);", False),
+        ("// size_t dp_x_q (const dp_x_state_t *s);", False),
+        ("/* size_t dp_x_q (const dp_x_state_t *s); */", False),
+        ("size_t dp_x_q (const dp_x_state_t *s);\n", True),
+        ("size_t dp_x_q (\n    const dp_x_state_t *s,\n    size_t n);", True),
+        ("size_t dp_x_q (const dp_x_state_t *s) { return 0; }", False),
+        ("size_t dp_x_other (const dp_x_state_t *s);", False),
+        ("", False),
+    ],
+    ids=[
+        "const state",
+        "non-const state",
+        "const float data, not a state",
+        "line-comment decoy",
+        "block-comment decoy",
+        "declaration with a trailing newline",
+        "multi-line prototype",
+        "a definition, not a declaration",
+        "a different name",
+        "missing declaration",
+    ],
+)
+def test_const_state_query_takes_only_a_declared_const_state(text, expect):
+    """The derivation reads the declaration the header binds, only that."""
+    assert _const_state_query(text, "dp_x_q") is expect
+
+
+def test_an_out_parameter_is_out_only_when_the_manifest_declares_it():
+    """`out = true` in the manifest is the declaration; a name is not."""
+    declared = {
+        "name": "x",
+        "methods": [
+            {
+                "name": "fill",
+                "params": [{"name": "row", "type": "float[]", "out": True}],
+            },
+            {
+                "name": "row_only",
+                "params": [{"name": "row", "type": "float[]"}],
+            },
+        ],
+    }
+    d = Declared("X", "x", declared, None)
+    assert _outs(d, "fill") == ("row",)
+    # Same parameter name, not declared out: not an out buffer.
+    assert _outs(d, "row_only") == ()
+    assert _outs(d, "absent") == ()

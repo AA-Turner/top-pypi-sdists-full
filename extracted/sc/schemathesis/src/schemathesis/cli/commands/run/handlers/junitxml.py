@@ -6,9 +6,8 @@ from typing import TYPE_CHECKING
 from schemathesis.cli.commands.run.handlers.base import EventHandler, TextOutput
 from schemathesis.core.failures import RUN_CHECKS_LABEL
 from schemathesis.engine import Status, events
-from schemathesis.engine.statistic import GroupedFailures
 from schemathesis.reporting.junitxml import JunitXmlWriter
-from schemathesis.reporting.recorders import scenario_elapsed, scenario_failures, unique_labels
+from schemathesis.reporting.recorders import recorder_failures, scenario_elapsed, scenario_failures, unique_labels
 
 if TYPE_CHECKING:
     from schemathesis.cli.context import BaseExecutionContext
@@ -26,19 +25,7 @@ class JunitXMLHandler(EventHandler):
     def handle_event(self, ctx: BaseExecutionContext, event: events.EngineEvent) -> None:
         if isinstance(event, events.ScenarioFinished):
             label = event.recorder.label
-            if event.status == Status.FAILURE:
-                # Look up failures by case_id across all labels — some coverage scenarios
-                # (e.g. UNSPECIFIED_HTTP_METHOD) store failures under a remapped label
-                # (the actual method+path tested) rather than the recorder label.
-                case_ids = set(event.recorder.cases.keys())
-                failures = [
-                    group
-                    for groups in ctx.statistic.failures.values()
-                    for case_id, group in groups.items()
-                    if case_id in case_ids
-                ]
-            else:
-                failures = []
+            failures = recorder_failures(ctx.statistic, event.recorder) if event.status == Status.FAILURE else []
             self.writer.record_scenario(
                 label=label,
                 elapsed_sec=event.elapsed_time,
@@ -73,11 +60,12 @@ class JunitXMLHandler(EventHandler):
             self.writer.record_error(label=event.label, message=event.info.format())
         elif isinstance(event, events.EngineFinished):
             if event.failures:
-                group = GroupedFailures(case_id=None, code_sample=None, failures=event.failures, response=None)
+                # Recorded by the execution context before handlers run, deduplicated and sorted.
+                groups = list(ctx.statistic.failures[RUN_CHECKS_LABEL].values())
                 self.writer.record_scenario(
                     label=RUN_CHECKS_LABEL,
                     elapsed_sec=0.0,
-                    failures=[group],
+                    failures=groups,
                     skip_reason=None,
                     config=ctx.config.output,
                 )

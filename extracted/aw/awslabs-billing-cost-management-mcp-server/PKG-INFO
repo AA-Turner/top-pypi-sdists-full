@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: awslabs.billing-cost-management-mcp-server
-Version: 0.0.39
+Version: 0.0.40
 Summary: A Model Context Protocol (MCP) server that provides tools for AWS Billing and Cost Management by wrapping boto3 SDK functions.
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/billing-cost-management-mcp-server/
@@ -520,7 +520,7 @@ The server currently supports the following AWS services
     - get-billing-preferences
 
 16. **AWS Enterprise Support**
-    - `enterprise_support` tool: get_charge_summary, get_contract_details, list_linked_account_charges
+    - `enterprise-support` tool: get_charge_summary, get_contract_details, list_linked_account_charges
 
 17. **AWS Billing Views**
     - `get-billing-view`: retrieve metadata for a specific billing view

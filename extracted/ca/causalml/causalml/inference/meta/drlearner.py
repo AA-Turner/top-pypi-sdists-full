@@ -5,7 +5,13 @@ import pandas as pd
 from scipy.stats import norm
 from sklearn.model_selection import KFold
 from tqdm import tqdm
-from xgboost import XGBRegressor
+
+try:
+    from xgboost import XGBRegressor
+except ValueError as exc:
+    from causalml.exceptions import handle_xgboost_error
+
+    handle_xgboost_error(exc)
 
 from causalml.inference.meta.base import BaseLearner
 from causalml.inference.meta.utils import (
@@ -596,10 +602,9 @@ class BaseDRClassifier(BaseDRLearner):
                 groups separately. Defaults to False.
             verbose (bool, optional): whether to output progress logs. Defaults to True.
         Returns:
-            (numpy.ndarray): Predictions of treatment effects.
-            If return_components is True, also returns:
-                - dict: Predicted probabilities for the control group (yhat_cs).
-                - dict: Predicted probabilities for the treatment group (yhat_ts).
+            (numpy.ndarray): predictions of treatment effects. If ``return_components``
+            is True, also returns a dict of predicted probabilities for the control
+            group (``yhat_cs``) and a dict for the treatment group (``yhat_ts``).
         """
         X = collect_if_lazy(X)
 

@@ -23,7 +23,12 @@ class CarrierAcquisition:
     zero_pad : int, default 4
         PSD zero-pad factor (>= 1); see psd_core.h.
     window : Literal["hann", "kaiser", "blackman-harris"], default "hann"
-        Enum index; 0=hann, 1=kaiser, 2=blackman-harris.
+        "hann" (the default, and the window the threshold was fit at), "kaiser"
+        or "blackman-harris".
+
+        - ``"hann"`` — Hann: the default.
+        - ``"kaiser"`` — Kaiser, shaped by `beta`.
+        - ``"blackman-harris"`` — 4-term Blackman-Harris.
     beta : float, default 0.0
         Kaiser beta (ignored for hann/blackman-harris).
     psd_template : NDArray[np.float32], default ...
@@ -575,7 +580,10 @@ class Acquisition:
         phase by the drift over half the dwell (design section 12.11, 12.12).
         Config, not running state: not in the state blob, so a resumed engine
         wants it set again. 0.0 (the default) = uncoupled, the engine as it ran
-        without it. Raises ValueError for a negative or non-finite value.
+        without it. Raises ValueError for a carrier that is neither 0 nor
+        finite and above half the sample rate (fs / 2): every Doppler the
+        engine can report is below fs / 2, so above it |doppler / carrier| < 1
+        and the dilation stays finite.
 
         A physically-coupled Doppler moves the code as well as the carrier --
         100 chips/s at 20 ppm of 5 Mcps -- and the engine's two long
@@ -1619,10 +1627,14 @@ class BurstAcquisition:
 
     @property
     def doppler_bins(self) -> int:
-        """Coherent depth chosen: the slow-time FFT length in code reps (<=
-        reps), unless doppler_uncertainty exceeds the native span, in which
-        case this reports the wideband window-tile count instead (coherent
-        depth forced to 1 -- see acq_core.h's file doc comment).
+        """Doppler hypotheses searched: the coherent depth chosen (the
+        slow-time FFT length in code reps, <= reps), times the window-tile
+        count when doppler_uncertainty exceeds the native span -- a tile keeps
+        its own coherent depth when a design cn0_dbhz asks for one, and a hit's
+        doppler_bin indexes all of window_bins * depth rows. This is the count
+        to fold a hit's bin over (bin_to_signed(bin, doppler_bins) *
+        doppler_res_hz is the signed Doppler); it is acq_grid_bins(), and the
+        same number BurstCapture.doppler_bins reads.
         """
 
     @property
@@ -2395,11 +2407,15 @@ class BurstCapture:
 
     @property
     def doppler_bins(self) -> int:
-        """Doppler hypotheses searched: the coherent depth the sizer chose
-        (bounded by `reps`), or, when `doppler_uncertainty` exceeds the native
-        span, the window-tile count. The same number
-        `BurstAcquisition.doppler_bins` reads. `configure_search_raw` pins
-        it.
+        """Doppler hypotheses searched: the coherent depth chosen (the
+        slow-time FFT length in code reps, <= reps), times the window-tile
+        count when doppler_uncertainty exceeds the native span -- a tile keeps
+        its own coherent depth when a design cn0_dbhz asks for one, and a hit's
+        doppler_bin indexes all of window_bins * depth rows. This is the count
+        to fold a hit's bin over (bin_to_signed(bin, doppler_bins) *
+        doppler_res_hz is the signed Doppler); it is acq_grid_bins(), and the
+        same number BurstAcquisition.doppler_bins reads. `configure_search_raw`
+        pins it.
         """
 
     @property
@@ -3115,11 +3131,15 @@ class PersistentBurstCapture:
 
     @property
     def doppler_bins(self) -> int:
-        """Doppler hypotheses searched: the coherent depth the sizer chose
-        (bounded by `reps`), or, when `doppler_uncertainty` exceeds the native
-        span, the window-tile count. The same number
-        `BurstAcquisition.doppler_bins` reads. `configure_search_raw` pins
-        it.
+        """Doppler hypotheses searched: the coherent depth chosen (the
+        slow-time FFT length in code reps, <= reps), times the window-tile
+        count when doppler_uncertainty exceeds the native span -- a tile keeps
+        its own coherent depth when a design cn0_dbhz asks for one, and a hit's
+        doppler_bin indexes all of window_bins * depth rows. This is the count
+        to fold a hit's bin over (bin_to_signed(bin, doppler_bins) *
+        doppler_res_hz is the signed Doppler); it is acq_grid_bins(), and the
+        same number BurstAcquisition.doppler_bins reads. `configure_search_raw`
+        pins it.
         """
 
     @property

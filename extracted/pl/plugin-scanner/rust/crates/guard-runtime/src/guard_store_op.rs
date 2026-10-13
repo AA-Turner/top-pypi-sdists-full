@@ -20,7 +20,18 @@ use serde_json::{json, Value};
 
 use super::context_digest_json::write_canonical_json_with_limit;
 use crate::guard_store_args::Args;
+use crate::guard_store_clients as clients;
+use crate::guard_store_cmd_activity as activity;
+use crate::guard_store_cmd_api as api;
+use crate::guard_store_cmd_feedback as feedback;
+use crate::guard_store_cmd_lifecycle as lifecycle;
+use crate::guard_store_cmd_maintenance as maintenance;
+use crate::guard_store_cmd_privacy as privacy;
+use crate::guard_store_connect as connect;
 use crate::guard_store_db::{exec, query_all, query_one, text, StoreError, StoreResult};
+use crate::guard_store_inventory as inventory;
+use crate::guard_store_native_review_consume as native_review_consume;
+use crate::guard_store_observed_mcp as observed_mcp;
 use crate::guard_store_outbox_binding::{
     count_recoverable_unbound, load_binding, normalized_binding, reassign_quarantined,
     refresh_same_subject,
@@ -30,6 +41,15 @@ use crate::guard_store_outbox_queries as queries;
 use crate::guard_store_outbox_reads as reads;
 use crate::guard_store_outbox_recover::recover_sequences;
 use crate::guard_store_outbox_requeue::{repair_rejected_correlation, requeue_method};
+use crate::guard_store_policy_source_context::policy_source_contexts;
+use crate::guard_store_receipt_reads as receipt_reads;
+use crate::guard_store_receipt_rollups as receipt_rollups;
+use crate::guard_store_receipt_writes as receipt_writes;
+use crate::guard_store_sessions as sessions;
+use crate::guard_store_state_ops as state_ops;
+use crate::guard_store_storage_maintenance as storage_maintenance;
+use crate::guard_store_tool_call_evidence as tool_call_evidence;
+use crate::guard_store_wfcap_wire as wfcap;
 
 const MAX_BUSY_TIMEOUT_MS: u64 = 600_000;
 const CACHE_SIZE_KIB: i64 = 256 * 1024;
@@ -79,8 +99,8 @@ fn evaluate(request: &GuardStoreRequestV1) -> StoreResult<(Value, Option<i64>)> 
     let path =
         crate::local_store_read::require_store_path(&request.store_path, &request.guard_home)
             .map_err(|_| StoreError::Invalid("native_guard_store_path_invalid"))?;
-    let writes = match method_kind(&request.method) {
-        Some(kind) => kind == Kind::Write,
+    let kind = match method_kind(&request.method) {
+        Some(kind) => kind,
         None => return invalid("native_guard_store_method_unknown"),
     };
     let connection = Connection::open_with_flags(
@@ -89,22 +109,41 @@ fn evaluate(request: &GuardStoreRequestV1) -> StoreResult<(Value, Option<i64>)> 
     )?;
     connection.busy_timeout(Duration::from_millis(request.busy_timeout_ms))?;
     apply_pragmas(&connection)?;
-    let initial_changes = connection.total_changes();
-    if writes {
-        connection.execute_batch("BEGIN IMMEDIATE")?;
-    }
+    // A total read only writes for the one-time rebuild a migration requests;
+    // every other call stays lock-free.
     let args = Args(&request.args);
+    let kind = if (request.method == "count_receipts"
+        && kind == Kind::Read
+        && receipt_rollups::rebuild_pending(&connection)?)
+        || (connect::is_state_read(&request.method)
+            && connect::read_persists_expiry(&connection, &args)?)
+    {
+        Kind::Write
+    } else {
+        kind
+    };
+    let writes = kind == Kind::Write;
+    let initial_changes = connection.total_changes();
+    match kind {
+        Kind::Write => connection.execute_batch("BEGIN IMMEDIATE")?,
+        Kind::Snapshot => connection.execute_batch("BEGIN")?,
+        Kind::Read => {}
+    }
     let outcome = dispatch(&connection, &request.source, &request.method, &args);
     let payload = match outcome {
         Ok(payload) => payload,
         Err(error) => {
-            if writes {
+            if kind != Kind::Read {
                 let _ = connection.execute_batch("ROLLBACK");
             }
             return Err(error);
         }
     };
-    finalize_and_commit(&connection, writes)?;
+    if kind == Kind::Snapshot {
+        connection.execute_batch("ROLLBACK")?;
+    } else {
+        finalize_and_commit(&connection, writes)?;
+    }
     let generation = (connection.total_changes() > initial_changes)
         .then(|| outbox_generation(&connection))
         .transpose()?;
@@ -193,6 +232,8 @@ fn outbox_generation(connection: &Connection) -> StoreResult<i64> {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
     Read,
+    /// Several reads inside one deferred transaction for a consistent view.
+    Snapshot,
     Write,
 }
 
@@ -203,8 +244,47 @@ fn method_kind(method: &str) -> Option<Kind> {
         | "list_review_event_snapshots"
         | "get_review_event_oauth_binding"
         | "count_recoverable_unbound_review_events"
-        | "list_pending_review_request_ids" => Kind::Read,
-        "refresh_review_event_outbox_binding_for_identity"
+        | "list_pending_review_request_ids"
+        | "command_activity_by_request_correlation"
+        | "is_exact_command_activity_pre_replay"
+        | "command_activity_rollups_are_reconciled"
+        | "count_command_shadow_observations"
+        | "get_guard_session"
+        | "list_guard_sessions"
+        | "get_guard_operation"
+        | "list_guard_operations"
+        | "get_guard_operation_for_approval_request"
+        | "list_guard_operation_items"
+        | "get_guard_client_attachment"
+        | "list_guard_client_attachments"
+        | "has_guard_surface_open"
+        | "get_artifact_snapshot"
+        | "list_artifact_snapshots"
+        | "list_artifact_inventory"
+        | "find_artifact_inventory_item"
+        | "get_artifact_capability"
+        | "list_receipts"
+        | "list_receipts_since_rowid"
+        | "latest_receipt_rowid"
+        | "get_receipt"
+        | "get_receipt_for_approval_request"
+        | "get_latest_receipt"
+        | "receipt_decision_counts"
+        | "run_storage_housekeeping"
+        | "count_receipts"
+        | "artifact_latest_diff"
+        | "oauth_sources_list"
+        | "policy_source_contexts" => Kind::Read,
+        "list_command_activity_page"
+        | "command_activity_analytics"
+        | "list_command_activity_invalidations"
+        | "command_activity_diagnostics"
+        | "list_command_shadow_observations"
+        | "observed_mcp_tool_actions"
+        | "workflow_capability_plan" => Kind::Snapshot,
+        "workflow_capability_commit" => Kind::Write,
+        "consume_native_review_approval"
+        | "refresh_review_event_outbox_binding_for_identity"
         | "refresh_review_event_outbox_binding"
         | "reassign_quarantined_review_events"
         | "acknowledge_review_events"
@@ -213,7 +293,43 @@ fn method_kind(method: &str) -> Option<Kind> {
         | "requeue_pending_review_events"
         | "requeue_pending_review_events_with_marker"
         | "repair_rejected_review_correlation"
-        | "recover_review_snapshot_sequences" => Kind::Write,
+        | "recover_review_snapshot_sequences"
+        | "record_command_activity"
+        | "probe_command_activity_persistence"
+        | "transition_command_activity"
+        | "record_command_activity_persistence_failure"
+        | "record_command_activity_observation_conflict"
+        | "maintain_command_activity"
+        | "rebuild_command_activity_rollups"
+        | "record_command_activity_feedback"
+        | "clear_command_activity_evidence"
+        | "upsert_guard_session"
+        | "upsert_guard_operation"
+        | "add_guard_operation_item"
+        | "attach_guard_client"
+        | "renew_guard_client_attachment"
+        | "record_guard_surface_open"
+        | "save_artifact_snapshot"
+        | "delete_artifact_snapshot"
+        | "record_artifact_diff"
+        | "record_inventory_artifact"
+        | "mark_inventory_removed"
+        | "save_artifact_capability"
+        | "upsert_provenance_cache"
+        | "next_aibom_trust_attestation_sequence"
+        | "add_receipt"
+        | "record_tool_call_evidence"
+        | "set_receipt_action_envelope"
+        | "update_receipt_policy_decision"
+        | "update_receipt_approval_context"
+        | "list_receipts_for_command_detail_backfill"
+        | "receipt_summary_between"
+        | "receipt_analytics"
+        | "reconcile_receipt_events"
+        | "maintain_storage"
+        | "managed_keyring_reconcile" => Kind::Write,
+        _ if connect::is_state_read(method) => Kind::Read,
+        _ if connect::handles(method) => Kind::Write,
         _ => return None,
     })
 }
@@ -281,6 +397,100 @@ fn dispatch(
             repair_rejected_correlation(connection, source, args)
         }
         "recover_review_snapshot_sequences" => recover_sequences(connection, source, args),
+        "record_command_activity" => activity::record_command_activity(connection, args),
+        "probe_command_activity_persistence" => activity::probe_persistence(connection, args),
+        "transition_command_activity" => lifecycle::transition(connection, args),
+        "record_command_activity_persistence_failure" => {
+            lifecycle::persistence_failure(connection, args)
+        }
+        "record_command_activity_observation_conflict" => {
+            lifecycle::observation_conflict(connection, args)
+        }
+        "command_activity_by_request_correlation" => {
+            lifecycle::activity_by_correlation(connection, args)
+        }
+        "is_exact_command_activity_pre_replay" => lifecycle::is_exact_pre_replay(connection, args),
+        "maintain_command_activity" => maintenance::maintain(connection, args),
+        "rebuild_command_activity_rollups" => maintenance::rebuild_rollups(connection, args),
+        "command_activity_rollups_are_reconciled" => {
+            maintenance::rollups_are_reconciled(connection)
+        }
+        "list_command_activity_page" => api::list_page(connection, args),
+        "command_activity_analytics" => api::analytics(connection, args),
+        "record_command_activity_feedback" => feedback::record_feedback(connection, args),
+        "list_command_activity_invalidations" => feedback::list_invalidations(connection, args),
+        "clear_command_activity_evidence" => privacy::clear_evidence(connection),
+        "command_activity_diagnostics" => privacy::diagnostics(connection, args),
+        "count_command_shadow_observations" => privacy::count_shadow(connection),
+        "list_command_shadow_observations" => privacy::list_shadow(connection, args),
+        "observed_mcp_tool_actions" => observed_mcp::observed_mcp_tool_actions(connection),
+        "consume_native_review_approval" => native_review_consume::consume(connection, args),
+        "workflow_capability_plan" => wfcap::plan(connection, args),
+        "workflow_capability_commit" => wfcap::commit(connection, args),
+        "upsert_guard_session" => sessions::upsert_session(connection, args),
+        "get_guard_session" => sessions::get_session(connection, args),
+        "list_guard_sessions" => sessions::list_sessions(connection, args),
+        "upsert_guard_operation" => sessions::upsert_operation(connection, args),
+        "get_guard_operation" => sessions::get_operation(connection, args),
+        "list_guard_operations" => sessions::list_operations(connection, args),
+        "get_guard_operation_for_approval_request" => {
+            sessions::operation_for_approval_request(connection, args)
+        }
+        "add_guard_operation_item" => sessions::add_operation_item(connection, args),
+        "list_guard_operation_items" => sessions::list_operation_items(connection, args),
+        "attach_guard_client" => clients::attach_client(connection, args),
+        "renew_guard_client_attachment" => clients::renew_attachment(connection, args),
+        "get_guard_client_attachment" => clients::get_attachment(connection, args),
+        "list_guard_client_attachments" => clients::list_attachments(connection, args),
+        "record_guard_surface_open" => clients::record_surface_open(connection, args),
+        "has_guard_surface_open" => clients::has_surface_open(connection, args),
+        "save_artifact_snapshot" => inventory::save_snapshot(connection, args),
+        "get_artifact_snapshot" => inventory::get_snapshot(connection, args),
+        "list_artifact_snapshots" => inventory::list_snapshots(connection, args),
+        "delete_artifact_snapshot" => inventory::delete_snapshot(connection, args),
+        "record_artifact_diff" => inventory::record_diff(connection, args),
+        "record_inventory_artifact" => inventory::record_inventory_artifact(connection, args),
+        "mark_inventory_removed" => inventory::mark_removed(connection, args),
+        "list_artifact_inventory" => inventory::list_inventory(connection, args),
+        "find_artifact_inventory_item" => inventory::find_inventory_item(connection, args),
+        "save_artifact_capability" => inventory::save_capability(connection, args),
+        "get_artifact_capability" => inventory::get_capability(connection, args),
+        "upsert_provenance_cache" => inventory::upsert_provenance(connection, args),
+        "next_aibom_trust_attestation_sequence" => {
+            inventory::next_attestation_sequence(connection, args)
+        }
+        "add_receipt" => receipt_writes::add_receipt(connection, args),
+        "record_tool_call_evidence" => {
+            tool_call_evidence::record_tool_call_evidence(connection, args)
+        }
+        "set_receipt_action_envelope" => receipt_writes::set_action_envelope(connection, args),
+        "update_receipt_policy_decision" => {
+            receipt_writes::update_policy_decision(connection, args)
+        }
+        "update_receipt_approval_context" => {
+            receipt_writes::update_approval_context(connection, args)
+        }
+        "list_receipts" => receipt_reads::list_receipts(connection, args),
+        "list_receipts_since_rowid" => receipt_reads::list_since_rowid(connection, args),
+        "list_receipts_for_command_detail_backfill" => {
+            receipt_reads::list_for_command_detail_backfill(connection, args)
+        }
+        "latest_receipt_rowid" => receipt_reads::latest_rowid(connection, args),
+        "get_receipt" => receipt_reads::get_receipt(connection, args),
+        "get_receipt_for_approval_request" => {
+            receipt_reads::get_for_approval_request(connection, args)
+        }
+        "get_latest_receipt" => receipt_reads::get_latest(connection, args),
+        "count_receipts" => receipt_reads::count(connection, args),
+        "policy_source_contexts" => policy_source_contexts(connection, args),
+        "receipt_summary_between" => receipt_reads::summary_between(connection, args),
+        "receipt_analytics" => receipt_reads::analytics(connection, args),
+        "receipt_decision_counts" => receipt_reads::decision_counts(connection, args),
+        "reconcile_receipt_events" => receipt_reads::reconcile_events(connection, args),
+        "maintain_storage" => storage_maintenance::maintain(connection, args),
+        "run_storage_housekeeping" => storage_maintenance::housekeeping(connection),
+        _ if connect::handles(method) => connect::dispatch(connection, method, args),
+        _ if state_ops::handles(method) => state_ops::dispatch(connection, method, args),
         _ => Err(StoreError::Invalid("native_guard_store_method_unknown")),
     }
 }

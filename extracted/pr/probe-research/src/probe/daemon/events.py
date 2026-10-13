@@ -28,6 +28,13 @@ class Kind(str, enum.Enum):
 
 MAIN_STREAM = "main"
 
+#: `Event.source` of a `[Probe]` message the daemon's reader handed the main
+#: agent, read from the mailbox's claim log on the `READER_STREAM` stream (not
+#: the transcript), so the writer and the reader see it whole. Every other event
+#: has no source.
+READER_SOURCE = "reader"
+READER_STREAM = "reader"
+
 
 @dataclass
 class Event:
@@ -46,6 +53,8 @@ class Event:
     cwd: str | None = None
     #: A daemon tag the model sees with the event (`.probe.config` `read`).
     note: str | None = None
+    #: Who made it, when not the harness: `READER_SOURCE`.
+    source: str | None = None
 
     @property
     def event_id(self) -> str:

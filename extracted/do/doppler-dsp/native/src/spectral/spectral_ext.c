@@ -1,8 +1,9 @@
 /*
  * spectral_ext.c — Python extension module spectral
  *
- * Objects: FFT, FFT2D, Corr, Corr2D, CorrDetector, CorrDetector2D, PSD
- * GENERATED — do not hand-edit. Patches belong in the _ext_<obj>.c fragments.
+ * Objects: FFT, FFT2D, Corr, Corr2D, CorrDetector, CorrDetector2D, PSD,
+ * Spectrogram GENERATED — do not hand-edit. Patches belong in the _ext_<obj>.c
+ * fragments.
  */
 
 #define PY_SSIZE_T_CLEAN
@@ -79,6 +80,7 @@ jm_array_arg (PyObject *obj, int typenum, int requirements, const char *name)
 #include "spectral_ext_fft.c"
 #include "spectral_ext_fft2d.c"
 #include "spectral_ext_psd.c"
+#include "spectral_ext_spectrogram.c"
 
 static PyObject *
 _bind_kaiser_enbw (PyObject *self, PyObject *args, PyObject *kwds)
@@ -708,6 +710,8 @@ PyInit_spectral (void)
     return NULL;
   if (PyType_Ready (&PSDObjType) < 0)
     return NULL;
+  if (PyType_Ready (&SpectrogramObjType) < 0)
+    return NULL;
   PyObject *m = PyModule_Create (&spectral_moduledef);
   if (!m)
     return NULL;
@@ -763,5 +767,41 @@ PyInit_spectral (void)
       Py_DECREF (m);
       return NULL;
     }
+  Py_INCREF (&SpectrogramObjType);
+  if (PyModule_AddObject (m, "Spectrogram", (PyObject *)&SpectrogramObjType)
+      < 0)
+    {
+      Py_DECREF (&SpectrogramObjType);
+      Py_DECREF (m);
+      return NULL;
+    } /* gh-1117: adopt dp_interrupt_guard's process-global state from its
+         owner. */
+  {
+    void     *dp_interrupt_guard_state_ptr (void);
+    void      dp_interrupt_guard_state_adopt (void *shared);
+    PyObject *_own = PyImport_ImportModule ("doppler.interrupt.interrupt");
+    if (!_own)
+      {
+        Py_DECREF (m);
+        return NULL;
+      }
+    PyObject *_pg = PyObject_GetAttrString (_own, "_jm_pg_dp_interrupt_guard");
+    Py_DECREF (_own);
+    if (!_pg)
+      {
+        Py_DECREF (m);
+        return NULL;
+      }
+    void *_p = PyCapsule_GetPointer (
+        _pg, "doppler.dp_interrupt_guard._jm_procglobal");
+    Py_DECREF (_pg);
+    if (!_p)
+      {
+        Py_DECREF (m);
+        return NULL;
+      }
+    dp_interrupt_guard_state_adopt (_p);
+  }
+
   return m;
 }

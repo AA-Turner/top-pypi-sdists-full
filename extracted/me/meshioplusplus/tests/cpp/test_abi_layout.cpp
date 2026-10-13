@@ -67,6 +67,7 @@ static_assert(alignof(meshioplusplus::ExodusTimeSeriesWriter) == alignof(void*))
 #include "meshioplusplus/mesh.hpp"
 #include "meshioplusplus/ndarray.hpp"
 #include "meshioplusplus/properties.hpp"
+#include "meshioplusplus/nurbs.hpp"
 #include "meshioplusplus/read_options.hpp"
 #include "meshioplusplus/region.hpp"
 #include "meshioplusplus/write_options.hpp"
@@ -80,6 +81,7 @@ static_assert(alignof(meshioplusplus::ExodusTimeSeriesWriter) == alignof(void*))
 #include "meshioplusplus/formats/pcd.hpp"
 #include "meshioplusplus/formats/pvd.hpp"
 #include "meshioplusplus/formats/pvtu.hpp"
+#include "meshioplusplus/formats/radioss_th.hpp"
 #include "meshioplusplus/formats/xyz.hpp"
 #include "meshioplusplus/operations/pipeline.hpp"
 #include "meshioplusplus/operations/refine.hpp"
@@ -102,8 +104,11 @@ static_assert(alignof(meshioplusplus::ExodusTimeSeriesWriter) == alignof(void*))
 #include "meshioplusplus/operations/sequence.hpp"
 #include "meshioplusplus/operations/agglomerate.hpp"
 #include "meshioplusplus/operations/feature_edges.hpp"
+#include "meshioplusplus/operations/fit_primitives.hpp"
+#include "meshioplusplus/operations/segment.hpp"
 #include "meshioplusplus/operations/hausdorff.hpp"
 #include "meshioplusplus/operations/periodic.hpp"
+#include "meshioplusplus/operations/render.hpp"
 #include "meshioplusplus/operations/region_ops.hpp"
 #include "meshioplusplus/operations/interfaces.hpp"
 
@@ -163,8 +168,14 @@ MIO_ABI_LAYOUT(meshioplusplus::WriteOptions, 48, 8);
 // deliberate, recorded change instead of a silent one.
 static_assert(static_cast<int>(meshioplusplus::CellType::Triangle7) == 76,
               "meshio++ ABI: CellType::Triangle7 moved (ABI 16 appended it at 76)");
-static_assert(static_cast<int>(meshioplusplus::CellType::Custom) == 77,
-              "meshio++ ABI: CellType::Custom moved (ABI 16 placed it at 77)");
+// ABI 26 appended the seven VTK Bézier types after it (77-83): `Custom`
+// moved again, from 77 to 84.
+static_assert(static_cast<int>(meshioplusplus::CellType::VtkBezierCurve) == 77,
+              "meshio++ ABI: CellType::VtkBezierCurve moved (ABI 26 appended it at 77)");
+static_assert(static_cast<int>(meshioplusplus::CellType::VtkBezierPyramid) == 83,
+              "meshio++ ABI: CellType::VtkBezierPyramid moved (ABI 26 appended it at 83)");
+static_assert(static_cast<int>(meshioplusplus::CellType::Custom) == 84,
+              "meshio++ ABI: CellType::Custom moved (ABI 26 placed it at 84)");
 MIO_ABI_LAYOUT(meshioplusplus::PropertyValue, 144, 8);
 MIO_ABI_LAYOUT(meshioplusplus::PropertySet, 32, 8);
 MIO_ABI_LAYOUT(meshioplusplus::MeshMetadata, 288, 8);
@@ -198,6 +209,10 @@ MIO_ABI_LAYOUT(meshioplusplus::OpenFoamInfo, 128, 8);
 // ABI 22: periodic links join the bounding-entity vector.
 MIO_ABI_LAYOUT(meshioplusplus::GmshInfo, 48, 8);
 MIO_ABI_LAYOUT(meshioplusplus::GmshPeriodicLink, 112, 8);
+// ABI 26: the NURBS side channel (`nurbs.hpp`), new structs pinned from the start.
+MIO_ABI_LAYOUT(meshioplusplus::NurbsPatch, 216, 8);
+MIO_ABI_LAYOUT(meshioplusplus::NurbsTopology, 376, 8);
+MIO_ABI_LAYOUT(meshioplusplus::NurbsInfo, 640, 8);
 // `MdpaInfo` gained six members in v16.27.0 (roadmap §4, the blocks the
 // `Mesh` cannot hold: text ModelPartData, top-level tables, geometries, Mesh
 // blocks, sub-model-part data and raw blocks), 72 -> 216 bytes, bumping
@@ -225,6 +240,11 @@ MIO_ABI_LAYOUT(meshioplusplus::PvdSeriesWriter, 8, 8);
 // `FemapSeriesWriter` (v16.17.0) is a pimpl handle too, pinned from the release
 // that introduces it.
 MIO_ABI_LAYOUT(meshioplusplus::FemapSeriesWriter, 8, 8);
+// `FrdSeriesWriter` (v16.39.0, unreleased) is the same pimpl handle: one `unique_ptr`.
+MIO_ABI_LAYOUT(meshioplusplus::FrdSeriesWriter, 8, 8);
+// `RadiossThSeriesWriter` is the same shape, pinned from the release that
+// introduces it.
+MIO_ABI_LAYOUT(meshioplusplus::RadiossThSeriesWriter, 8, 8);
 
 // The pipeline and sequence aggregates. `run_pipeline(const Pipeline&)` and
 // `run_sequence_pipeline(const SequencePipeline&)` are exported, and both
@@ -320,6 +340,35 @@ MIO_ABI_LAYOUT(meshioplusplus::RegionSelector, 56, 8);
 MIO_ABI_LAYOUT(meshioplusplus::RegionEdit, 88, 8);
 MIO_ABI_LAYOUT(meshioplusplus::PeriodicOptions, 144, 8);
 
+// The skin-to-CAD options (roadmap §6.3), passed by const-ref through the
+// exported `segment()` and `fit_primitives()`, pinned from the release that
+// introduces them. Their results embed a Mesh and are not pinned.
+MIO_ABI_LAYOUT(meshioplusplus::SegmentOptions, 96, 8);
+MIO_ABI_LAYOUT(meshioplusplus::FitPrimitivesOptions, 72, 8);
+
+// The v16.33.0 software rasterizer (operations/render.hpp). RenderOptions,
+// TextOptions and SnapshotOptions are passed by const-ref through the exported
+// `render()`, `encode_text()`, `render_text()` and `write_snapshot()`, and Frame
+// is returned by value through `render()`; none embeds a Mesh, so all four are
+// pinned from the release that introduces them. Roadmap section 7 grows
+// RenderOptions (field rendering in v16.34.0, ABI 24, took it from 320 to 608
+// bytes; the v16.36.0 cut-away planes, ABI 25, to 640 and the v16.37.0
+// streamlines, still ABI 25 since no release carried it before them, to 696,
+// and the v16.38.0 theme, still ABI 25, to 704): each growth bumps the ABI
+// unless the version it rides has not shipped.
+MIO_ABI_LAYOUT(meshioplusplus::RenderOptions, 704, 8);
+MIO_ABI_LAYOUT(meshioplusplus::RenderCutaway, 48, 8);
+MIO_ABI_LAYOUT(meshioplusplus::Frame, 104, 8);
+MIO_ABI_LAYOUT(meshioplusplus::TextOptions, 40, 8);
+MIO_ABI_LAYOUT(meshioplusplus::SnapshotOptions, 24, 8);
+
+// v16.35.0 (the interactive viewer): the prepared-scene handle, and the cell
+// grid `encode_cells` returns by value. Neither embeds a Mesh. RenderScene is
+// an opaque shared pointer, so its layout is the only contract.
+MIO_ABI_LAYOUT(meshioplusplus::RenderScene, 16, 8);
+MIO_ABI_LAYOUT(meshioplusplus::TextCell, 32, 4);
+MIO_ABI_LAYOUT(meshioplusplus::TextGrid, 32, 8);
+
 // GltfWriteOptions is passed by const-ref through the exported `write_gltf()`,
 // pinned from the release that introduces it (the "pin in advance" lesson).
 MIO_ABI_LAYOUT(meshioplusplus::GltfWriteOptions, 168, 8);
@@ -364,6 +413,8 @@ static_assert(sizeof(meshioplusplus::PcdData) == sizeof(int),
 
 // The CalculiX reader's option struct (v15.3.0, an addition, ABI unchanged): one `bool`.
 MIO_ABI_LAYOUT(meshioplusplus::FrdReadOptions, 1, 1);
+// The CalculiX writer's option struct (v16.39.0, an addition, ABI unchanged): two `bool`s.
+MIO_ABI_LAYOUT(meshioplusplus::FrdWriteOptions, 2, 1);
 
 // The keyword-card tokenizer types (v15.2.0, additions, ABI unchanged). CardField is a `char`
 // and an `int` (8 bytes, 4-aligned); CardMode is an `int`-sized scoped enum, so appending a
@@ -473,6 +524,9 @@ TEST(AbiLayout, SnapshotIsPinnedOnTheReferenceConfiguration) {
     report<meshioplusplus::OpenFoamWriteOptions>("OpenFoamWriteOptions");
     report<meshioplusplus::PatranResultFile>("PatranResultFile");
     report<meshioplusplus::GmshInfo>("GmshInfo");
+    report<meshioplusplus::NurbsPatch>("NurbsPatch");
+    report<meshioplusplus::NurbsTopology>("NurbsTopology");
+    report<meshioplusplus::NurbsInfo>("NurbsInfo");
     report<meshioplusplus::MdpaInfo>("MdpaInfo");
     report<meshioplusplus::MdpaGeometryBlock>("MdpaGeometryBlock");
     report<meshioplusplus::MdpaMeshBlock>("MdpaMeshBlock");
@@ -482,6 +536,7 @@ TEST(AbiLayout, SnapshotIsPinnedOnTheReferenceConfiguration) {
     report<meshioplusplus::XyzReadOptions>("XyzReadOptions");
     report<meshioplusplus::detail::CardField>("CardField");
     report<meshioplusplus::FrdReadOptions>("FrdReadOptions");
+    report<meshioplusplus::FrdWriteOptions>("FrdWriteOptions");
     report<meshioplusplus::PipelineStep>("PipelineStep");
     report<meshioplusplus::PipelineInput>("PipelineInput");
     report<meshioplusplus::PipelineOutput>("PipelineOutput");
@@ -490,6 +545,10 @@ TEST(AbiLayout, SnapshotIsPinnedOnTheReferenceConfiguration) {
     report<meshioplusplus::SequenceInput>("SequenceInput");
     report<meshioplusplus::SequenceOutput>("SequenceOutput");
     report<meshioplusplus::SequencePipeline>("SequencePipeline");
+    report<meshioplusplus::RenderOptions>("RenderOptions");
+    report<meshioplusplus::Frame>("Frame");
+    report<meshioplusplus::TextOptions>("TextOptions");
+    report<meshioplusplus::SnapshotOptions>("SnapshotOptions");
     report<meshioplusplus::Mesh>("Mesh (this backend)");
 
 #if MIO_ABI_LAYOUT_PINNED

@@ -169,6 +169,7 @@ def test_netstat_text_prints_connection_line_to_stdout(monkeypatch, capsys):
 
 
 class _FakeOslogMessage:
+    device_time = datetime.datetime(2026, 10, 11, 21, 27, 0, 803022)
     process = 42
     message_type = "Default"
     sender_image_path = "/usr/lib/libfoo.dylib"
@@ -192,4 +193,55 @@ def test_oslog_json_emits_ndjson_records(monkeypatch, capsys):
     assert record["category"] == "general"
     assert record["image_name"] == "libfoo.dylib"
     assert record["message"] == "hello world"
-    assert "timestamp" in record
+    assert record["timestamp"] == "2026-10-11T21:27:00.803022"
+    assert record["format_string"] is None
+    assert record["arguments"] == []
+
+
+class _FakeOslogFormattedMessage(_FakeOslogMessage):
+    format_string = "pid %d of %s"
+    message = (
+        (b"narrative-text\x00", b"pid \x00"),
+        (b"uint64\x00\x00", b"\x2a\x00"),
+        (b"narrative-text\x00", b" of \x00"),
+        (b"string\x00\x00", b"launchd\x00\x00"),
+    )
+
+
+def test_oslog_json_carries_the_format_string_and_its_arguments(monkeypatch, capsys):
+    monkeypatch.setattr(dvt_module, "ActivityTraceTap", _fake_stream([_FakeOslogFormattedMessage()]))
+
+    dvt_module.dvt_oslog(_FAKE_SERVICE_PROVIDER, output_format=OutputFormat.JSON)
+
+    record = json.loads(capsys.readouterr().out)
+    assert record["message"] == "pid 42 of launchd"
+    assert record["format_string"] == "pid %d of %s"
+    assert record["arguments"] == [{"type": "uint64", "value": 42}, {"type": "string", "value": "launchd"}]
+
+
+class _FakeOslogMessageWithoutDeviceTime(_FakeOslogMessage):
+    device_time = None
+
+
+def test_oslog_falls_back_to_the_host_clock(monkeypatch, capsys):
+    monkeypatch.setattr(dvt_module, "ActivityTraceTap", _fake_stream([_FakeOslogMessageWithoutDeviceTime()]))
+    before = datetime.datetime.now()
+
+    dvt_module.dvt_oslog(_FAKE_SERVICE_PROVIDER, output_format=OutputFormat.JSON)
+
+    (line,) = capsys.readouterr().out.strip().splitlines()
+    assert before <= datetime.datetime.fromisoformat(json.loads(line)["timestamp"]) <= datetime.datetime.now()
+
+
+class _FakeOslogLimitMessage(_FakeOslogMessage):
+    format_string = "limit on pid %d"
+    message = ((b"narrative-text\x00", b"limit on pid \x00"), (b"uint64\x00", b"\xff" * 8 + b"\x00"))
+
+
+def test_oslog_prints_arguments_per_their_conversion(monkeypatch, capsys):
+    monkeypatch.setattr(dvt_module, "ActivityTraceTap", _fake_stream([_FakeOslogLimitMessage()]))
+
+    dvt_module.dvt_oslog(_FAKE_SERVICE_PROVIDER, output_format=OutputFormat.JSON)
+
+    (line,) = capsys.readouterr().out.strip().splitlines()
+    assert json.loads(line)["message"] == "limit on pid -1"

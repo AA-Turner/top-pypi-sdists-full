@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-localserver
-Version: 0.10.0
+Version: 0.10.0.post0
 Summary: pytest plugin to test server connections locally.
 Home-page: https://github.com/pytest-dev/pytest-localserver
 Author: Sebastian Rahlf
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Testing
 Requires-Python: >=3.7
 License-File: LICENSE

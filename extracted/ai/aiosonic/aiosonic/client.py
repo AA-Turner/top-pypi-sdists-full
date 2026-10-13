@@ -9,6 +9,7 @@ import sys
 from asyncio import wait_for
 from codecs import getincrementaldecoder, lookup
 from contextlib import aclosing, asynccontextmanager
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from email.utils import parsedate_to_datetime
 from functools import lru_cache, partial
@@ -21,7 +22,7 @@ from os.path import basename
 from secrets import token_hex
 from ssl import SSLContext
 from time import perf_counter, time
-from typing import AsyncIterator, Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import AsyncIterator, Awaitable, Callable, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import ParseResult, urlencode, urljoin
 
 from charset_normalizer import detect
@@ -50,9 +51,9 @@ from aiosonic.timeout import Timeouts
 
 # TYPES
 from aiosonic.types import BodyType, DataType, ParamsType, ParsedBodyType
+from aiosonic.structures import CaseInsensitiveDict
 from aiosonic.utils import get_debug_logger, parse_link_header, url_without_userinfo
 from aiosonic.version import VERSION
-from aiosonic_utils.structures import CaseInsensitiveDict
 
 # VARIABLES
 _HTTP_RESPONSE_STATUS_LINE = re.compile(r"HTTP/(?P<version>\d(?:\.\d)?) (?P<code>\d+)(?: (?P<reason>.*))?")
@@ -64,6 +65,8 @@ dlogger = get_debug_logger()
 
 REPLACEABLE_HEADERS = {"host", "user-agent"}
 _EVENT_HOOKS = ("request", "response")
+_IDEMPOTENT_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE", "PUT", "DELETE"})
+_MAX_ATTEMPTS = 3
 
 
 # Classes
@@ -131,7 +134,7 @@ class HttpResponse:
 
     def _set_response_initial(self, data: bytes):
         """Parse first bytes from http response."""
-        res = re.match(_HTTP_RESPONSE_STATUS_LINE, data.decode().rstrip("\r\n"))
+        res = _HTTP_RESPONSE_STATUS_LINE.match(data.decode().rstrip(CRLF))
         if not res:
             raise HttpParsingError(f"unparseable status line: {data[:80]!r}")
         self.response_initial = res.groupdict()
@@ -141,8 +144,11 @@ class HttpResponse:
         self.headers[key] = val
         self.raw_headers.append((key, val))
 
-    async def _set_response_headers(self, iterator):
-        async for header_data in iterator:
+    async def _set_response_headers(self, connection: Connection):
+        while True:
+            header_data = await connection.readline()
+            if b":" not in header_data:
+                break
             header_tuple = HttpHeaders._clear_line(header_data)
             self._set_header(*header_tuple)
 
@@ -622,108 +628,188 @@ async def _send_multipart(
     return _gen()
 
 
-async def _do_request(
-    urlparsed: ParseResult,
-    headers_data: Callable,
-    connector: TCPConnector,
-    body: Optional[ParsedBodyType],
-    verify: bool,
-    ssl: Optional[SSLContext],
-    timeouts: Optional[Timeouts],
-    http2: bool = False,
-    proxy: Optional[Proxy] = None,
-    transfer_chunked: bool = True,
-    max_decompressed_size: int = DEFAULT_MAX_DECOMPRESSED_SIZE,
-    method: str = "GET",
-    stream: bool = False,
-) -> HttpResponse:
-    """Something."""
-    timeouts = timeouts or connector.timeouts
-    url_connect = urlparsed
+@dataclass(slots=True)
+class _RequestSpec:
+    """What to send for one request of a redirect chain.
 
-    if proxy:
-        url_connect = http_parser.get_url_parsed(proxy.host)
+    Instances are not changed in place: a retry sends the same instance again, and each redirect makes a new
+    one with ``dataclasses.replace``.
 
-    connect_ssl = ssl if not proxy else None
+    Attributes:
+        url (ParseResult): The url of the request.
+        method (str): The http method.
+        headers (HttpHeaders): The headers given to the request, with the body and auth ones added. The same
+            object is shared by the whole redirect chain and updated in place by ``_handle_redirect``.
+        params (Optional[ParamsType]): Query params appended to the url.
+        multipart (bool): Whether the body is ``multipart/form-data`` built from a dict.
+        boundary (Optional[str]): The multipart boundary, when ``multipart``.
+        body (ParsedBodyType): The body to send.
+        transfer_chunked (bool): Whether an iterator body is sent with chunked transfer encoding.
+        verify (bool): Whether to verify the ssl certificate.
+        ssl (Optional[SSLContext]): A custom ssl context.
+        timeouts (Optional[Timeouts]): Timeouts of the request, the connector ones when None.
+        http2 (bool): Whether to try HTTP/2.
+        max_decompressed_size (int): Maximum size of the decompressed body.
+        stream (bool): Whether to give the response before reading its body.
+    """
+
+    url: ParseResult
+    method: str
+    headers: HttpHeaders
+    params: Optional[ParamsType]
+    multipart: bool
+    boundary: Optional[str]
+    body: ParsedBodyType
+    transfer_chunked: bool
+    verify: bool
+    ssl: Optional[SSLContext]
+    timeouts: Optional[Timeouts]
+    http2: bool
+    max_decompressed_size: int
+    stream: bool
+
+
+async def _build_body(
+    method: str, data: Optional[DataType], multipart: bool, headers: HttpHeaders
+) -> Tuple[ParsedBodyType, Optional[str], bool]:
+    """Encode the data of a request, adding its content headers.
+
+    Returns:
+        Tuple[ParsedBodyType, Optional[str], bool]: The body, the multipart boundary if any, and whether an
+        iterator body is sent with chunked transfer encoding.
+    """
+    if method == "GET":
+        return b"", None, True
+    if isinstance(data, MultipartForm):
+        body, size = await data.get_body_size()
+        http_parser.add_headers(headers, data.get_headers(size))
+        return body, None, True
+    if multipart:
+        if not isinstance(data, dict):
+            raise ValueError("data should be dict")
+        boundary = f"boundary-{token_hex(16)}"
+        return await _send_multipart(data, boundary, headers), boundary, False
+    if data:
+        return http_parser.setup_body_request(data, headers), None, True
+    return b"", None, True
+
+
+def _connect_target(
+    urlparsed: ParseResult, proxy: Optional[Proxy], ssl: Optional[SSLContext]
+) -> Tuple[ParseResult, Optional[SSLContext], Optional[Tuple[str, str, int]]]:
+    """Give the url to connect to, its ssl context and the target of the proxy tunnel, if any."""
+    if not proxy:
+        return urlparsed, ssl, None
     proxy_target = None
-    if proxy and urlparsed.scheme == "https":
+    if urlparsed.scheme == "https":
         proxy_target = (urlparsed.scheme, urlparsed.hostname, urlparsed.port or 443)
+    return http_parser.get_url_parsed(proxy.host), None, proxy_target
 
-    args = url_connect, verify, connect_ssl, timeouts, http2
+
+async def _do_request(spec: _RequestSpec, connector: TCPConnector, proxy: Optional[Proxy]) -> HttpResponse:
+    """Acquire a connection and exchange the request over it.
+
+    A dropped connection is closed, and the raised :class:`ConnectionDisconnected` tells whether it was reused.
+    """
+    timeouts = spec.timeouts or connector.timeouts
+    url_connect, connect_ssl, proxy_target = _connect_target(spec.url, proxy, spec.ssl)
+    args = url_connect, spec.verify, connect_ssl, timeouts, spec.http2
     async with await connector.acquire(*args, proxy_target=proxy_target) as connection:
-        if proxy and urlparsed.scheme == "https" and not connection.proxy_connected:
-            await _proxy_connect(connection, proxy, urlparsed, ssl or get_default_ssl_context())
-
-        to_send = headers_data(connection=connection)
-
-        if connection.h2conn:
-            response = await connection.http2_request(to_send, body)
-            response._set_request_meta(urlparsed, method)
-            connection.keep_alive()
-            return response
-
-        if not connection.writer or not connection.reader:
-            raise ConnectionError("Not connection writer or reader")
-
-        connection.write(to_send)
-
-        if body:
-            if isinstance(body, (AsyncIterator, Iterator)):
-                if transfer_chunked:
-                    await _send_chunks(connection, body)
-                else:
-                    async for chunk in body:
-                        connection.write(chunk)
-            else:
-                connection.write(body)
-
-        response = HttpResponse()
-        response._set_request_meta(urlparsed, method)
-        response.max_decompressed_size = max_decompressed_size
-
-        # get response code and version
+        reused = connection.reused
         try:
-            line = await wait_for(connection.readuntil(), timeouts.sock_read)
-            if not line:
-                raise HttpParsingError(f"response line parsing error: {line}")
-            response._set_response_initial(line)
-        except asyncio.IncompleteReadError:
-            connection.keep = False
-            raise ConnectionDisconnected()
-            # raise HttpParsingError(f"response line parsing error: {exc.partial}")
-        except HttpParsingError:
-            connection.keep = False
-            raise
-        except TimeoutException:
-            raise ReadTimeout()
+            return await _exchange(connection, spec, proxy, timeouts)
+        except ConnectionDisconnected as exc:
+            connection.close()
+            raise ConnectionDisconnected(*exc.args, reused_connection=reused) from exc
 
-        # reading headers
-        await response._set_response_headers(http_parser.parse_headers_iterator(connection))
 
-        status = response.status_code
-        no_body = method.upper() == "HEAD" or status in {204, 304} or 100 <= status < 200
-        size = None if no_body else response.headers.get("content-length")
-        chunked = not no_body and response.headers.get("transfer-encoding", "") == "chunked"
-        keepalive = "close" not in response.headers.get("connection", "")
-        response.compressed = response.headers.get("content-encoding", "")
+async def _exchange(
+    connection: Connection, spec: _RequestSpec, proxy: Optional[Proxy], timeouts: Timeouts
+) -> HttpResponse:
+    """Send a request over an acquired connection and read its response."""
+    urlparsed, method, body = spec.url, spec.method, spec.body
+    if proxy and urlparsed.scheme == "https" and not connection.proxy_connected:
+        await _proxy_connect(connection, proxy, urlparsed, spec.ssl or get_default_ssl_context())
 
-        if size and stream and int(size) > 0:
-            response._remaining = int(size)
-            connection.block_until_read_chunks()
-        elif size:
-            response._set_body(await connection.readexactly(int(size)))
+    to_send = _prepare_request_headers(
+        url=urlparsed,
+        connection=connection,
+        method=method,
+        headers=spec.headers,
+        params=spec.params,
+        multipart=spec.multipart,
+        boundary=spec.boundary,
+        proxy=proxy,
+    )
 
-        if chunked:
-            connection.block_until_read_chunks()
-            response.chunked = True
-
-        if keepalive:
-            connection.keep_alive()
-        else:
-            connection.keep = False
-        response._set_connection(connection)
-
+    if connection.h2conn:
+        response = await connection.http2_request(to_send, body)
+        response._set_request_meta(urlparsed, method)
+        connection.keep_alive()
         return response
+
+    if not connection.writer or not connection.reader:
+        raise ConnectionError("Not connection writer or reader")
+
+    connection.write(to_send)
+
+    if body:
+        if isinstance(body, (AsyncIterator, Iterator)):
+            if spec.transfer_chunked:
+                await _send_chunks(connection, body)
+            else:
+                async for chunk in body:
+                    connection.write(chunk)
+        else:
+            connection.write(body)
+
+    response = HttpResponse()
+    response._set_request_meta(urlparsed, method)
+    response.max_decompressed_size = spec.max_decompressed_size
+
+    # get response code and version
+    try:
+        line = await wait_for(connection.readuntil(), timeouts.sock_read)
+        if not line:
+            raise HttpParsingError(f"response line parsing error: {line}")
+        response._set_response_initial(line)
+    except asyncio.IncompleteReadError:
+        connection.keep = False
+        raise ConnectionDisconnected()
+        # raise HttpParsingError(f"response line parsing error: {exc.partial}")
+    except HttpParsingError:
+        connection.keep = False
+        raise
+    except TimeoutException:
+        raise ReadTimeout()
+
+    # reading headers
+    await response._set_response_headers(connection)
+
+    status = response.status_code
+    no_body = method.upper() == "HEAD" or status in {204, 304} or 100 <= status < 200
+    size = None if no_body else response.headers.get("content-length")
+    chunked = not no_body and response.headers.get("transfer-encoding", "") == "chunked"
+    keepalive = "close" not in response.headers.get("connection", "")
+    response.compressed = response.headers.get("content-encoding", "")
+
+    if size and spec.stream and int(size) > 0:
+        response._remaining = int(size)
+        connection.block_until_read_chunks()
+    elif size:
+        response._set_body(await connection.readexactly(int(size)))
+
+    if chunked:
+        connection.block_until_read_chunks()
+        response.chunked = True
+
+    if keepalive:
+        connection.keep_alive()
+    else:
+        connection.keep = False
+    response._set_connection(connection)
+
+    return response
 
 
 class HTTPClient:
@@ -734,7 +820,9 @@ class HTTPClient:
     Params:
         * **connector**: TCPConnector to be used if provided
         * **handle_cookies**: Flag to indicate if keep response cookies in
-            client and send them in next requests.
+            client and send them in next requests. Cookies with the ``Secure``
+            attribute are only sent over https, and a response over plain http
+            can not set, replace or remove them.
         * **verify_ssl**: Flag to indicate if verify ssl certificates.
         * **http2**: Flag to enable HTTP/2 for all requests made by this client.
             Per-request ``http2=True`` also works and takes precedence.
@@ -1059,6 +1147,10 @@ class HTTPClient:
             * **stream**: if true, the body is not read before returning, so it must be read
               from the response (``read_chunks``, ``iter_bytes``, ``iter_lines``, ``content``...)
               or released with ``aclose``. Prefer :meth:`stream`.
+
+        When a reused keep-alive connection drops before the response, the request is sent again over another
+        connection (3 attempts at most) if its method is idempotent and its body is not an iterator. Otherwise
+        :class:`aiosonic.exceptions.ConnectionDisconnected` is raised.
         """
         follow = follow if follow is not None else self.follow
         headers = HttpHeaders(headers)
@@ -1071,87 +1163,46 @@ class HTTPClient:
 
         urlparsed = http_parser.get_url_parsed(url)
 
-        boundary = None
-        body: ParsedBodyType = b""
-
         if self.handle_cookies:
-            self._add_cookies_to_request(str(urlparsed.hostname), headers)
+            self._add_cookies_to_request(str(urlparsed.hostname), headers, https=urlparsed.scheme == "https")
 
         resolved_auth = resolve_auth(auth, urlparsed, self.auths)
         if resolved_auth:
             resolved_auth.apply(headers, method, urlparsed.geturl())
 
-        transfer_chunked = True
-
-        if method == "GET":
-            pass  # handle GET request if necessary
-        elif isinstance(data, MultipartForm):
-            body, size = await data.get_body_size()
-            http_parser.add_headers(headers, data.get_headers(size))
-        elif multipart:
-            if not isinstance(data, dict):
-                raise ValueError("data should be dict")
-            boundary = f"boundary-{token_hex(16)}"
-            body = await _send_multipart(data, boundary, headers)
-            transfer_chunked = False
-        elif data:
-            body = http_parser.setup_body_request(data, headers)
+        body, boundary, transfer_chunked = await _build_body(method, data, multipart, headers)
 
         max_redirects = max_redirects if max_redirects is not None else self.max_redirects
         max_decompressed_size = (
             max_decompressed_size if max_decompressed_size is not None else self.max_decompressed_size
         )
-        # if class or request method has false, it will be false
-        verify_ssl = verify and self.verify_ssl
-        http2 = http2 or self.http2
-        reconnect_times = 3
+        spec = _RequestSpec(
+            url=urlparsed,
+            method=method,
+            headers=headers,
+            params=params,
+            multipart=multipart,
+            boundary=boundary,
+            body=body,
+            transfer_chunked=transfer_chunked,
+            verify=verify and self.verify_ssl,
+            ssl=ssl,
+            timeouts=timeouts,
+            http2=http2 or self.http2,
+            max_decompressed_size=max_decompressed_size,
+            stream=stream,
+        )
         history: List[HttpResponse] = []
-        while reconnect_times > 0:
-            # performance: skip building the hook url when no request hooks are registered
-            if self.event_hooks["request"]:
-                await self._run_hooks("request", method, url_without_userinfo(urlparsed), headers)
-            proxy = self.proxy
-            if proxy is None and self.trust_env and not getattr(self.connector, "uds", None):
-                proxy = proxy_from_environment(urlparsed)
-            started_at = perf_counter()
-            headers_data = partial(
-                _prepare_request_headers,
-                url=urlparsed,
-                method=method,
-                headers=headers,
-                params=params,
-                multipart=multipart,
-                boundary=boundary,
-                proxy=proxy,
-            )
+        while True:
+            first_drop: Optional[ConnectionDisconnected] = None
             try:
-                response = await wait_for(
-                    _do_request(
-                        urlparsed,
-                        headers_data,
-                        self.connector,
-                        body,
-                        verify_ssl,
-                        ssl,
-                        timeouts,
-                        http2,
-                        proxy,
-                        transfer_chunked=transfer_chunked,
-                        max_decompressed_size=max_decompressed_size,
-                        method=method,
-                        stream=stream,
-                    ),
-                    timeout=(timeouts or self.connector.timeouts).request_timeout,
+                response = await self._send_once(spec)
+            except ConnectionDisconnected as exc:
+                first_drop = exc
+            if first_drop is not None:
+                response = await _retry_after_disconnect(
+                    partial(self._send_once, spec), spec.method, spec.body, first_drop
                 )
-            except ConnectionDisconnected:
-                reconnect_times -= 1
-                continue
-            except ConnectTimeout:
-                raise
-            except TimeoutException:
-                raise RequestTimeout()
-
-            response._elapsed = perf_counter() - started_at
             response.history = history
 
             try:
@@ -1161,7 +1212,7 @@ class HTTPClient:
                 raise
 
             if self.handle_cookies:
-                self._save_new_cookies(str(urlparsed.hostname), response)
+                self._save_new_cookies(str(spec.url.hostname), response, https=spec.url.scheme == "https")
 
             if not (follow and response.status_code in {301, 302, 303, 307, 308}):
                 return response
@@ -1169,15 +1220,35 @@ class HTTPClient:
             await response.aclose()
             history = [*history, response]
             (urlparsed, method, body, transfer_chunked, max_redirects) = self._handle_redirect(
-                current_urlparsed=urlparsed,
-                headers=headers,
+                current_urlparsed=spec.url,
+                headers=spec.headers,
                 response=response,
                 max_redirects=max_redirects,
-                method=method,
-                body=body,
-                transfer_chunked=transfer_chunked,
+                method=spec.method,
+                body=spec.body,
+                transfer_chunked=spec.transfer_chunked,
             )
-        raise ConnectionDisconnected("retried 3 times unsuccessfully")
+            spec = replace(spec, url=urlparsed, method=method, body=body, transfer_chunked=transfer_chunked)
+
+    async def _send_once(self, spec: _RequestSpec) -> HttpResponse:
+        """Send one attempt of a request, without retries or redirects, and time it."""
+        if self.event_hooks["request"]:
+            await self._run_hooks("request", spec.method, url_without_userinfo(spec.url), spec.headers)
+        proxy = self.proxy
+        if proxy is None and self.trust_env and not getattr(self.connector, "uds", None):
+            proxy = proxy_from_environment(spec.url)
+        started_at = perf_counter()
+        try:
+            response = await wait_for(
+                _do_request(spec, self.connector, proxy),
+                timeout=(spec.timeouts or self.connector.timeouts).request_timeout,
+            )
+        except ConnectTimeout:
+            raise
+        except TimeoutException:
+            raise RequestTimeout()
+        response._elapsed = perf_counter() - started_at
+        return response
 
     @asynccontextmanager
     async def stream(self, method: str, url: str, **kwargs) -> AsyncIterator[HttpResponse]:
@@ -1278,7 +1349,9 @@ class HTTPClient:
             pass
 
         if self.handle_cookies:
-            self._add_cookies_to_request(str(new_urlparsed.hostname), headers, merge=True)
+            self._add_cookies_to_request(
+                str(new_urlparsed.hostname), headers, merge=True, https=new_urlparsed.scheme == "https"
+            )
 
         return new_urlparsed, method, body, transfer_chunked, max_redirects
 
@@ -1294,7 +1367,7 @@ class HTTPClient:
         except TimeoutException:
             return False
 
-    def _add_cookies_to_request(self, host: str, headers: HeadersType, merge: bool = False):
+    def _add_cookies_to_request(self, host: str, headers: HeadersType, merge: bool = False, https: bool = False):
         """Add the stored cookies of a host to the request as a single ``Cookie`` header.
 
         Args:
@@ -1302,6 +1375,7 @@ class HTTPClient:
             headers (HeadersType): The headers of the request, modified in place.
             merge (bool): Merge the stored cookies into a ``Cookie`` header already present, overriding the
                 cookies with the same name, instead of leaving it as is.
+            https (bool): Whether the request goes over https. ``Secure`` cookies are only sent when it does.
         """
         host_cookies = self.cookies_map.get(host)
         if not host_cookies:
@@ -1316,20 +1390,66 @@ class HTTPClient:
             name, _, value = pair.strip().partition("=")
             if name:
                 pairs[name] = value
-        pairs.update((name, morsel.coded_value) for name, morsel in host_cookies.items())
+        pairs.update(
+            (name, morsel.coded_value) for name, morsel in host_cookies.items() if https or not morsel["secure"]
+        )
+        if not pairs:
+            return
         cookie_value = "; ".join(f"{name}={value}" for name, value in pairs.items())
         http_parser.add_header(headers, "Cookie", cookie_value, replace=True)
 
-    def _save_new_cookies(self, host: str, response: HttpResponse):
-        """Merge the cookies set by a response into the stored cookies of a host, dropping the expired ones."""
+    def _save_new_cookies(self, host: str, response: HttpResponse, https: bool = False):
+        """Merge the cookies set by a response into the stored cookies of a host, dropping the expired ones.
+
+        A response received over plain http can not set a ``Secure`` cookie, nor change or remove a stored one.
+        """
         if not response.cookies:
             return
         host_cookies = self.cookies_map.setdefault(host, cookies.SimpleCookie())
         for name, morsel in response.cookies.items():
+            if not https and (morsel["secure"] or (name in host_cookies and host_cookies[name]["secure"])):
+                continue
             if _cookie_expired(morsel):
                 host_cookies.pop(name, None)
             else:
                 host_cookies[name] = morsel
+
+
+async def _retry_after_disconnect(
+    send: Callable[[], Awaitable[HttpResponse]],
+    method: str,
+    body: Optional[ParsedBodyType],
+    exc: ConnectionDisconnected,
+) -> HttpResponse:
+    """Send a request again after its first attempt dropped, while :func:`_can_retry` allows it.
+
+    The first attempt runs outside, so a request that does not drop pays for no retry layer. At most
+    ``_MAX_ATTEMPTS`` attempts are made in all.
+    """
+    for _ in range(_MAX_ATTEMPTS - 1):
+        if not _can_retry(exc, method, body):
+            raise exc
+        try:
+            return await send()
+        except ConnectionDisconnected as next_exc:
+            exc = next_exc
+    if not _can_retry(exc, method, body):
+        raise exc
+    raise ConnectionDisconnected(f"retried {_MAX_ATTEMPTS} times unsuccessfully", reused_connection=True) from exc
+
+
+def _is_replayable(body: Optional[ParsedBodyType]) -> bool:
+    """Tell whether a request body can be sent again, which is not the case of an iterator."""
+    return not isinstance(body, (AsyncIterator, Iterator))
+
+
+def _can_retry(exc: ConnectionDisconnected, method: str, body: Optional[ParsedBodyType]) -> bool:
+    """Tell whether a request whose connection dropped can be sent again safely.
+
+    Only a request sent over a reused keep-alive connection, which the server may have closed meanwhile, with an
+    idempotent method and a body that can be sent again, is retried (RFC 9112, section 9.3.1).
+    """
+    return exc.reused_connection and method.upper() in _IDEMPOTENT_METHODS and _is_replayable(body)
 
 
 def _cookie_expired(morsel: cookies.Morsel) -> bool:

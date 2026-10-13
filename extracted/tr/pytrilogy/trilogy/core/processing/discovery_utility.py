@@ -28,7 +28,7 @@ from trilogy.core.models.build import (
     get_concept_arguments,
     get_concept_row_arguments,
 )
-from trilogy.core.models.build_environment import BuildEnvironment
+from trilogy.core.models.build_environment import BuildEnvironment, EnvCache
 from trilogy.core.models.datasource import Address
 from trilogy.core.models.execute import QueryDatasource, UnnestJoin
 from trilogy.core.processing.constants import ROOT_DERIVATIONS
@@ -42,6 +42,7 @@ from trilogy.core.processing.utility import (
     PADS_LEFT_JOIN_TYPES,
     GroupRequiredResponse,
 )
+from trilogy.core.union_find import find
 from trilogy.utility import unique
 
 if TYPE_CHECKING:
@@ -431,6 +432,9 @@ def _anchor_nodes(concept: BuildConcept) -> list[str]:
     return nodes
 
 
+_GRAIN_ONLY_CACHE: EnvCache[dict[str, set[str]]] = EnvCache()
+
+
 def _aggregate_grain_only_parents(
     environment: BuildEnvironment,
 ) -> dict[str, set[str]]:
@@ -445,6 +449,18 @@ def _aggregate_grain_only_parents(
     ``b`` subgraphs. Mirrors the "aggregate up to an arbitrary grain can be
     joined in later" rule in ``calculate_graph_relevance``.
     """
+    # Callers only read the map.
+    cached = _GRAIN_ONLY_CACHE.lookup(environment)
+    if cached is not None:
+        return cached
+    return _GRAIN_ONLY_CACHE.store(
+        environment, _compute_grain_only_parents(environment)
+    )
+
+
+def _compute_grain_only_parents(
+    environment: BuildEnvironment,
+) -> dict[str, set[str]]:
     out: dict[str, set[str]] = {}
     for c in environment.concepts.values():
         if not isinstance(c, BuildConcept):
@@ -586,25 +602,17 @@ def _graph_inputs(
     ]
 
 
-def _is_bound(g: "ReferenceGraph", node: str) -> bool:
-    """A concept node a datasource binds, or serves as an additive rollup."""
-    return any(
-        neighbor.startswith("ds~")
-        for neighbor in (*g.successors(node), *g.predecessors(node))
-    )
-
-
 def _bound_addresses(g: "ReferenceGraph") -> set[str]:
-    return {
-        concept.address for node, concept in g.concepts.items() if _is_bound(g, node)
-    }
-
-
-def _find(parent: dict[int, int], i: int) -> int:
-    while parent[i] != i:
-        parent[i] = parent[parent[i]]
-        i = parent[i]
-    return i
+    """Addresses of the concept nodes adjacent to a datasource node, read off
+    the datasource nodes rather than every concept's neighbourhood."""
+    concepts = g.concepts
+    out: set[str] = set()
+    for ds in g.datasources:
+        for node in (*g.successors(ds), *g.predecessors(ds)):
+            concept = concepts.get(node)
+            if concept is not None:
+                out.add(concept.address)
+    return out
 
 
 def _detach_bridging_derivations(
@@ -645,10 +653,10 @@ def _detach_bridging_derivations(
     while detached and restored:
         restored = False
         for node, inputs in list(detached.items()):
-            roots = {_find(parent, component[i]) for i in inputs if i in component}
+            roots = {find(parent, component[i]) for i in inputs if i in component}
             if len(roots) != 1:
                 continue
-            parent[_find(parent, component[node])] = roots.pop()
+            parent[find(parent, component[node])] = roots.pop()
             cg.add_edges_from([(node, i) for i in inputs])
             del detached[node]
             restored = True
@@ -656,7 +664,7 @@ def _detach_bridging_derivations(
 
 def _component_map(
     environment: BuildEnvironment,
-    g: "ReferenceGraph | None" = None,
+    g: "ReferenceGraph",
     excluded_addresses: frozenset[str] = frozenset(),
     grain_only: dict[str, set[str]] | None = None,
     bound: set[str] | None = None,
@@ -672,9 +680,6 @@ def _component_map(
     unrelated models look joined). Dropped from the undirected COPY only:
     surviving concepts still name these addresses as pseudonyms, so narrowing
     the environment is not an option."""
-    from trilogy.core.env_processor import generate_graph
-
-    g = g if g is not None else generate_graph(environment)
     if grain_only is None:
         grain_only = _aggregate_grain_only_parents(environment)
 
@@ -707,13 +712,22 @@ def _component_map(
     return comp_of, g
 
 
+def connectivity_map(
+    environment: BuildEnvironment, g: "ReferenceGraph"
+) -> dict[str, int]:
+    """`_component_map` over `g` with nothing excluded, for callers running
+    several gates over one graph."""
+    return _component_map(environment, g)[0]
+
+
 def disconnected_components(
     environment: BuildEnvironment,
     concepts: list[BuildConcept],
-    g: "ReferenceGraph | None" = None,
+    g: "ReferenceGraph",
     excluded_addresses: frozenset[str] = frozenset(),
     grain_only: dict[str, set[str]] | None = None,
     bound: set[str] | None = None,
+    comp_of: dict[str, int] | None = None,
 ) -> list[list[BuildConcept]]:
     """Partition concepts by true join reachability: two concepts share a group
     iff their reference-graph nodes are in the same weakly-connected component.
@@ -735,14 +749,14 @@ def disconnected_components(
 
     See ``_component_map`` for ``excluded_addresses``.
     """
-    from trilogy.core.env_processor import generate_graph
-
-    g = g if g is not None else generate_graph(environment)
     if grain_only is None:
         grain_only = _aggregate_grain_only_parents(environment)
     if bound is None:
         bound = _bound_addresses(g)
-    comp_of, g = _component_map(environment, g, excluded_addresses, grain_only, bound)
+    if comp_of is None:
+        comp_of, g = _component_map(
+            environment, g, excluded_addresses, grain_only, bound
+        )
 
     # concept -> the component id it resolves into; a concept whose nodes are
     # absent from the graph gets a synthetic per-address component so it surfaces
@@ -867,7 +881,7 @@ def _spell_subset_join(left: BuildConcept, right: BuildConcept) -> str:
 def rowset_relation_hints(
     subgraphs: list[list[BuildConcept]],
     environment: BuildEnvironment,
-    g: "ReferenceGraph | None" = None,
+    g: "ReferenceGraph",
     excluded_addresses: frozenset[str] = frozenset(),
 ) -> list[str]:
     """The declared relations that would connect a rowset read in one subgraph
@@ -981,7 +995,7 @@ def membership_span_note(
     conditions: "BuildWhereClause | None",
     subgraphs: list[list[BuildConcept]],
     environment: BuildEnvironment,
-    g: "ReferenceGraph | None" = None,
+    g: "ReferenceGraph",
 ) -> str | None:
     """Name membership/existence predicates in the WHERE whose left side sits in
     one reported subgraph while the right side derives from another. A
@@ -1085,10 +1099,11 @@ def raise_if_disconnected_for(
     outputs: list[BuildConcept],
     conditions: "BuildWhereClause | None",
     environment: BuildEnvironment,
-    g: "ReferenceGraph | None" = None,
+    g: "ReferenceGraph",
     line_number: int | None = None,
     excluded_addresses: frozenset[str] = frozenset(),
     scope: "BuildRowsetLineage | None" = None,
+    comp_of: dict[str, int] | None = None,
 ) -> None:
     """Connectivity gate for a select's required concepts (outputs plus WHERE
     row args): raise the typed subgraph error when they span unconnected
@@ -1113,9 +1128,6 @@ def raise_if_disconnected_for(
                 outputs_rootless = False
                 output_addresses |= {c.address for c in handles}
                 concepts = unique(concepts + handles, "address")
-    from trilogy.core.env_processor import generate_graph
-
-    g = g if g is not None else generate_graph(environment)
     grain_only = _aggregate_grain_only_parents(environment)
     bound = _bound_addresses(g)
     subgraphs = disconnected_components(
@@ -1125,6 +1137,7 @@ def raise_if_disconnected_for(
         excluded_addresses=excluded_addresses,
         grain_only=grain_only,
         bound=bound,
+        comp_of=comp_of,
     )
     # what an output reads is the output's own demand, never a WHERE gate
     required = output_addresses | {
@@ -1172,7 +1185,7 @@ def _physical_tables_by_concept(
 def connected_equivalent_suggestions(
     environment: BuildEnvironment,
     subgraphs: list[list[BuildConcept]],
-    g: "ReferenceGraph | None" = None,
+    g: "ReferenceGraph",
     excluded_addresses: frozenset[str] = frozenset(),
 ) -> list[tuple[str, str]]:
     """Detect the separate-import mistake: a model imported a second time as a
@@ -1313,7 +1326,7 @@ def format_disconnected_subgraphs_error(
 
     suggestions = (
         connected_equivalent_suggestions(environment, subgraphs, g, excluded_addresses)
-        if environment is not None
+        if environment is not None and g is not None
         else []
     )
     if suggestions:
@@ -1406,7 +1419,7 @@ def raise_if_where_population_split(
     outputs: list[BuildConcept],
     conditions: "BuildWhereClause | None",
     environment: BuildEnvironment,
-    g: "ReferenceGraph | None" = None,
+    g: "ReferenceGraph",
     line_number: int | None = None,
 ) -> None:
     """Post-failure refiner: a top-level WHERE defines ONE row population, so every
@@ -1457,8 +1470,9 @@ def raise_if_where_population_split(
 def raise_if_filter_disconnected(
     output_concepts: list[BuildConcept],
     environment: BuildEnvironment,
-    g: "ReferenceGraph | None" = None,
+    g: "ReferenceGraph",
     extra_required: list[BuildConcept] | None = None,
+    comp_of: dict[str, int] | None = None,
 ) -> None:
     """Re-run the reachability check with FILTER outputs' hidden condition
     concepts surfaced (see ``_filter_hidden_concepts``). When that splits the
@@ -1477,7 +1491,7 @@ def raise_if_filter_disconnected(
         + _filter_hidden_concepts(output_concepts),
         "address",
     )
-    groups = disconnected_components(environment, required, g)
+    groups = disconnected_components(environment, required, g, comp_of=comp_of)
     if len(groups) > 1:
         raise DisconnectedConceptsException(
             format_disconnected_subgraphs_error(groups, environment, g)

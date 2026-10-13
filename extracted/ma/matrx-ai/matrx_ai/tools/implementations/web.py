@@ -221,7 +221,7 @@ async def web_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
 def _stamp_read_engine(result: Any, page: dict[str, Any]) -> dict[str, Any]:
     """Carry the reader's announcement onto the tool page: which engine answered
-    (``site_data:brightdata`` when a site-data dataset served the URL) and, when the
+    (``site_data`` when a site-data dataset served the URL) and, when the
     site-data lane failed and the page was read directly, the notice saying so."""
     if isinstance(result, dict):
         if result.get("provenance"):

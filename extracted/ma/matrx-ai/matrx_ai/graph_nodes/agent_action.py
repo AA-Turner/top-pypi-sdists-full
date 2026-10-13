@@ -52,6 +52,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from matrx_ai._ext import get_ext, has_ext
 from matrx_ai.capabilities import ClientContext, UserOverrides
+from matrx_ai.config.host_turn import HostTurn
 from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
 from matrx_ai.graph_nodes.iteration_limit import (
     AGENT_MAX_ITERATIONS_CEILING,
@@ -142,6 +143,13 @@ class AgentRunCommonInput(BaseModel):
             "User message to append before running. Accepts a string or a list of content parts."
         ),
         json_schema_extra=field_extras(widget="textarea", multiline_rows=3),
+    )
+    host_turn: HostTurn | None = Field(
+        default=None,
+        description=(
+            "A turn the workflow (not a person) starts: a short activation line, stored "
+            "host-authored. The run's specifics ride variables or context. Never with user_input."
+        ),
     )
     variables: dict[str, JsonValue] = Field(
         default_factory=dict,

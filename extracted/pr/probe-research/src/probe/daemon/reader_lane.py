@@ -41,7 +41,8 @@ from probe.daemon import alerts
 from probe.daemon import trace as trace_mod
 from probe.daemon import agent as agent_mod
 from probe.daemon import bite as bite_mod
-from probe.daemon import lease, mailbox
+from probe.daemon import lease, mailbox, reader_gate
+from probe.daemon.events import READER_STREAM
 from probe.daemon.events import Kind  # noqa: F401 -- re-exported: the reader tests read `rl.Kind`
 from probe.daemon.store import LANE_READ
 
@@ -77,6 +78,13 @@ READ_MAX_CHARS = bite_mod.NEW_SHOWN_TOKENS * bite_mod.CHARS_PER_TOKEN
 READ_GRACE_S = 120.0
 #: After a failed turn: wait this long, doubling, capped.
 READ_BACKOFF_S = 10.0
+#: The fact naming the events (and ask) a turn answered nothing on once
+#: (`agent.answered_nothing`): the next time on the same ones passes them over.
+READ_NO_ANSWER = "read_no_answer"
+#: Store fact: the last event the reader's gate passed over (ON). The reader's
+#: cursor stays behind it, so its next turn reads those events too; a prompt
+#: before it does not wake the reader again (`ReaderLane.mark`).
+GATE_SEEN = "read_gate_seen"
 READ_BACKOFF_CAP_S = 10 * 60.0
 #: Failed turns in a row before the researcher is told and open asks fail.
 READ_FAILURES_TO_REPORT = 2
@@ -118,6 +126,12 @@ class Outcome(StrEnum):
     PROSE = "prose"
     STOPPED = "stopped"
     FAILED = "failed"
+    #: The reader's gate said there was nothing to look at (`reader_gate`, ON):
+    #: no reader turn ran, only the gate's call.
+    SKIPPED = "skipped"
+    #: The model route refused the turn's conversation as over its ceiling: the
+    #: next turn starts it fresh (not a failure).
+    FRESH = "over the ceiling: fresh"
 
 
 #: Why an ask will not be answered (the main agent reads it after "failed: ").
@@ -176,7 +190,7 @@ class TurnResult:
 class ReaderLane:
     """The reader beside the writer, in the writer's process and event loop."""
 
-    def __init__(self, worker: "Worker", *, model=None) -> None:
+    def __init__(self, worker: "Worker", *, model=None, gate_model=None) -> None:
         self.w = worker
         self.store = worker.store
         self.sid = worker.session.session_id
@@ -187,6 +201,7 @@ class ReaderLane:
         self.store.on_read_turn_closed = lambda row: self.trace.end_run(row.pop("turn"), **row)
         self.clock = worker.clock
         self._model = model
+        self._gate_model = gate_model
         self.last_turn_at = float("-inf")
         self.next_attempt_at = 0.0
         self.failures = 0
@@ -235,6 +250,10 @@ class ReaderLane:
     async def tick(self) -> None:
         if self.quitting():
             return
+        from probe.daemon import worker as worker_mod
+
+        if self.w.replay is None and worker_mod.install_replaced():
+            return  # the CLI was reinstalled: the worker's next poll leaves for the new install
         try:
             self.w.read_new()
         except Exception as exc:  # noqa: BLE001
@@ -249,7 +268,7 @@ class ReaderLane:
             mailbox.sweep(self.sid, now=now)
         trigger = self.due()
         if trigger is not None:
-            await self.run_turn(trigger)
+            await self.wake(trigger)
 
     def take_asks(self) -> None:
         for ask in mailbox.pending_asks(self.sid):
@@ -305,16 +324,38 @@ class ReaderLane:
     def cursor(self) -> int:
         return int(self.store.fact("read_cursor") or 0)
 
-    def new_events(self) -> list:
-        """The events after the cursor, at most READ_MAX_EVENTS and about
-        READ_MAX_CHARS as rendered (at least one)."""
+    def mark(self) -> int:
+        """Where the next wake looks from: the cursor, or -- with the gate ON --
+        the last event the gate passed over, if that is later."""
+        from probe.daemon import model as model_mod
+
+        if model_mod.reader_gate_mode() == model_mod.GateMode.ON:
+            return max(self.cursor(), int(self.store.fact(GATE_SEEN) or 0))
+        return self.cursor()
+
+    def new_events(self, after: int | None = None) -> list:
+        """The events after the cursor (or `after`), at most READ_MAX_EVENTS and
+        about READ_MAX_CHARS as rendered (at least one): one window, oldest first."""
         out, used = [], 0
-        for ev in self.store.events_between(self.cursor() + 1)[:READ_MAX_EVENTS]:
+        for ev in self.store.events_after(self.cursor() if after is None else after, READ_MAX_EVENTS):
             used += bite_mod.shown_chars(ev)
             if out and used > READ_MAX_CHARS:
                 break
             out.append(ev)
         return out
+
+    def window_to(self, last: int) -> list:
+        """The newest events up to `last` after the cursor, as many as one turn
+        shows (READ_MAX_EVENTS, about READ_MAX_CHARS), oldest first: what a turn
+        after a gate's look reads -- the gate's own window, and as much of the
+        skipped backlog before it as still fits."""
+        out, used = [], 0
+        for ev in reversed(self.store.events_upto(self.cursor(), last, READ_MAX_EVENTS)):
+            used += bite_mod.shown_chars(ev)
+            if out and used > READ_MAX_CHARS:
+                break
+            out.append(ev)
+        return out[::-1]
 
     def due(self) -> str | None:
         if self.clock() < self.next_attempt_at:
@@ -328,11 +369,14 @@ class ReaderLane:
             # the pause -- reads this turn, never the paused backlog.
             self._skip_to_turn_start()
             return None
-        if not self.store.has_events_after(self.cursor()):  # one row, not the whole backlog
+        # One row, not the whole backlog. Its own messages (the `reader` stream) are
+        # context for its next turn, never a reason for one.
+        mark = self.mark()
+        if not self.store.has_events_after(mark, other_than=READER_STREAM):
             return None
         # Anywhere in the backlog: a prompt past the first READ_MAX_EVENTS still wakes
         # the reader, which then reads its way to it turn by turn.
-        if self.store.has_prompt_after(self.cursor()):
+        if self.store.has_prompt_after(mark):
             return "prompt"
         if READ_EVERY_S > 0 and self.clock() - self.last_turn_at >= READ_EVERY_S:
             return "events"
@@ -343,6 +387,64 @@ class ReaderLane:
         if start is not None and start - 1 > self.cursor():
             with self.store.tx():
                 self.store.set_fact("read_cursor", start - 1)
+
+    # -- the gate (daemon cost round 4, D) --------------------------------------
+    async def wake(self, trigger: str) -> TurnResult:
+        """A turn is due. An ask, or the gate OFF: the reader's turn. Else the
+        gate decides first: SHADOW records its verdict and the reader looks
+        anyway; ON skips the turn on a skip. A failed gate is a look."""
+        from probe.daemon import model as model_mod
+        from probe.daemon import worker as worker_mod
+
+        mode = model_mod.reader_gate_mode()
+        if mode == model_mod.GateMode.OFF or self.store.waiting_read_asks():
+            return await self.run_turn(trigger)
+        # The gate reads the next window after its mark, oldest first, so every
+        # event is put to it once and none is passed over unread; in SHADOW (mark =
+        # cursor) that is exactly the window the reader turn reads.
+        judged = self.new_events(self.mark())
+        verdict = await reader_gate.decide(self._gate_model_for_turn(), read_session_text(),
+                                           self.build_prompt(judged, None, first=False, with_sent=True))
+        worker_mod._count_device_tokens(verdict.uncached_tokens, LANE_READ)
+        if mode == model_mod.GateMode.ON and not verdict.look and not self.store.waiting_read_asks():
+            return self._skipped(trigger, verdict, judged, str(mode))
+        events = self.window_to(judged[-1].seq) if judged else None
+        return await self.run_turn(trigger, gate=verdict, gate_mode=str(mode), judged=judged, events=events)
+
+    def _gate_model_for_turn(self):
+        if self._gate_model is not None:
+            return self._gate_model
+        from probe.daemon import model as model_mod
+
+        return model_mod.build(model_mod.endpoint(), model_mod.LANE_GATE)
+
+    def _skipped(self, trigger: str, verdict: "reader_gate.Verdict", events: list, mode: str) -> TurnResult:
+        """ON, and the gate said skip: a SKIPPED turn that cost the gate's call.
+        The cursor stays (the next turn reads these events too), the gate's mark
+        moves past them, and the unread backlog keeps to one turn's window."""
+        first, last = (events[0].seq, events[-1].seq) if events else (None, self.mark())
+        with self.store.tx():
+            turn_id = self.store.open_read_turn(trigger, None, first, last)
+        self.trace.start_run(turn_id, trigger=trigger, ask=None, history_messages=0, events=[first, last],
+                             gate=str(verdict.decision))
+        self.trace.write(verdict.trace_line([first, last], mode))
+        with self.store.tx():
+            self.store.set_fact(GATE_SEEN, last)
+            self._trim_backlog(last)
+            self.store.close_read_turn(turn_id, outcome=Outcome.SKIPPED, error=verdict.why or None, rounds=0,
+                                       **verdict.spent())
+        self.last_turn_at = self.clock()
+        self.next_attempt_at = 0.0
+        return TurnResult(Outcome.SKIPPED)
+
+    def _trim_backlog(self, upto: int) -> None:
+        """Inside a transaction: the events the gate passed over stay unread for
+        the reader's next turn, but no more than one turn shows -- the oldest drop
+        off (the cursor moves), the newest stay. Every one of them was put to the
+        gate first."""
+        kept = self.window_to(upto)
+        if kept and kept[0].seq - 1 > self.cursor():
+            self.store.set_fact("read_cursor", kept[0].seq - 1)
 
     # -- a turn -----------------------------------------------------------------
     def _fingerprint(self, instructions: str) -> str:
@@ -365,10 +467,12 @@ class ReaderLane:
             f'<agent-memory-index path="{path}">\n{MEMORY_FRAMING}\n{text}\n</agent-memory-index>'
             for path, text in memory_mod.agent_memory_index(self.w._memory_index()))
 
-    def build_prompt(self, events: list, question: str | None, *, first: bool) -> str:
+    def build_prompt(self, events: list, question: str | None, *, first: bool, with_sent: bool = False) -> str:
+        """`with_sent` alone (the gate's prompt): what was already sent, without
+        the memory index."""
         parts = []
-        if first:
-            head = self.memory_block()
+        if first or with_sent:
+            head = self.memory_block() if first else ""
             if head:
                 parts.append(head)
             sent = self.store.sent_read_texts((mailbox.Kind.MESSAGE, mailbox.Kind.ANSWER), SENT_SHOWN)
@@ -411,7 +515,11 @@ class ReaderLane:
             conv = self.store.start_read_conversation(instructions, fingerprint)
         return conv, None
 
-    async def run_turn(self, trigger: str) -> TurnResult:
+    async def run_turn(self, trigger: str, *, gate: "reader_gate.Verdict | None" = None,
+                       gate_mode: str | None = None, judged: list | None = None,
+                       events: list | None = None) -> TurnResult:
+        """One reader turn over `events` (default: the next window after the
+        cursor). `gate`: the verdict on `judged`, recorded on the turn."""
         from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded
         from pydantic_ai.messages import ModelResponse, TextPart
         from pydantic_ai.usage import UsageLimits
@@ -421,7 +529,8 @@ class ReaderLane:
 
         asks = self.store.waiting_read_asks()
         ask = asks[0] if asks else None
-        events = self.new_events()
+        if events is None:
+            events = self.new_events()
         instructions = read_session_text()
         conv, history = self._history(instructions, self._fingerprint(instructions))
         prompt = self.build_prompt(events, ask["question"] if ask else None, first=history is None)
@@ -436,8 +545,15 @@ class ReaderLane:
                                       trace=self.trace)
         self.trace.start_run(turn_id, trigger=trigger, ask=ask["id"] if ask else None,
                              history_messages=len(history or []),
-                             events=[events[0].seq if events else None, last_seq])
-        spent = {"input_tokens": 0, "cached_tokens": 0, "output_tokens": 0, "usd": 0.0}
+                             events=[events[0].seq if events else None, last_seq],
+                             gate=str(gate.decision) if gate is not None else None)
+        # The gate's call is part of what this wake cost.
+        spent = gate.spent() if gate is not None else {"input_tokens": 0, "cached_tokens": 0, "output_tokens": 0,
+                                                       "usd": 0.0}
+        if gate is not None:
+            judged = judged or []
+            self.trace.write(gate.trace_line([judged[0].seq if judged else None,
+                                              judged[-1].seq if judged else None], gate_mode or ""))
 
         def on_round(response: Any) -> None:
             u = response.usage
@@ -463,22 +579,44 @@ class ReaderLane:
                 return run.result
 
         message, saved, outcome, stopped = "", None, Outcome.NOTHING, None
+        cursor_to, stop_exc = last_seq, None
         try:
             result = await asyncio.wait_for(go(), timeout=wall + READ_GRACE_S)
             message = (result.output.message or "").strip()
             saved = worker_mod._dump_messages(result.all_messages())
         except UnexpectedModelBehavior as exc:
-            # Prose instead of final_result, past the library's retries: for an ask the
-            # prose is the answer; a turn on its own drops it (counted).
-            run = seen.get("run")
-            for m in (run.all_messages() if run is not None else []):
-                if isinstance(m, ModelResponse):
-                    text = "\n".join(p.content for p in m.parts if isinstance(p, TextPart)).strip()
-                    message = text or message
-            outcome = Outcome.PROSE
-            log.warning("reader: no final_result (%s); its prose is %s", exc, "the answer" if ask else "dropped")
-            if not ask:
-                message = ""
+            if agent_mod.answered_nothing(exc):
+                key = {"first_seq": events[0].seq if events else None, "ask": ask["id"] if ask else None}
+                tried = self.store.fact(READ_NO_ANSWER)
+                if not (tried and all(tried.get(k) == v for k, v in key.items())):
+                    # The first time on these events and this ask (read as prose before,
+                    # the history was kept and the next wake thought to the limit again):
+                    # once more on a fresh conversation, after a short wait -- a planned
+                    # retry, not a failure toward telling the researcher the reader fails.
+                    detail = f"{type(exc).__name__}: {agent_mod.ANSWERED_NOTHING}"
+                    with self.store.tx():
+                        self.store.set_fact(READ_NO_ANSWER, {**key, "last_seq": last_seq})
+                        self.store.end_read_conversation(conv, agent_mod.ANSWERED_NOTHING)
+                        self.store.close_read_turn(turn_id, outcome=Outcome.FAILED, error=detail,
+                                                   rounds=state.rounds, **spent)
+                    self.next_attempt_at = self.clock() + READ_BACKOFF_S
+                    return TurnResult(Outcome.FAILED)
+                # The second time: passed over as a stopped turn, never a third try --
+                # only as far as the first try reached; anything newer gets its own.
+                stopped, outcome, stop_exc = agent_mod.ANSWERED_NOTHING, Outcome.STOPPED, exc
+                cursor_to = min(last_seq, int(tried.get("last_seq") or last_seq))
+            else:
+                # Prose instead of final_result, past the library's retries: for an ask the
+                # prose is the answer; a turn on its own drops it (counted).
+                run = seen.get("run")
+                for m in (run.all_messages() if run is not None else []):
+                    if isinstance(m, ModelResponse):
+                        text = "\n".join(p.content for p in m.parts if isinstance(p, TextPart)).strip()
+                        message = text or message
+                outcome = Outcome.PROSE
+                log.warning("reader: no final_result (%s); its prose is %s", exc, "the answer" if ask else "dropped")
+                if not ask:
+                    message = ""
         except (UsageLimitExceeded, asyncio.TimeoutError) as exc:
             stopped = state.limit_why or state.detector.tripped or (
                 f"{wall + READ_GRACE_S:.0f} seconds" if isinstance(exc, asyncio.TimeoutError)
@@ -497,6 +635,15 @@ class ReaderLane:
                                            rounds=state.rounds, **spent)
             raise
         except Exception as exc:  # noqa: BLE001 -- logged, backed off, never the worker's
+            if history is not None and worker_mod._refusal_code(exc) == worker_mod.PROMPT_TOO_LARGE:
+                # The route refused a continued conversation as over its ceiling: never
+                # sent. Fresh at the next poll, the same events -- not a failure.
+                with self.store.tx():
+                    self.store.end_read_conversation(conv, f"over the model route's ceiling: {exc}"[:500])
+                    self.store.close_read_turn(turn_id, outcome=Outcome.FRESH, error=str(exc)[:500],
+                                               rounds=state.rounds, **spent)
+                self.next_attempt_at = self.clock() + READ_BACKOFF_S
+                return TurnResult(Outcome.FRESH)
             why = _too_big(seen.get("run"), state.context_tokens, exc)
             if why is not None:
                 # Retrying the same history would fail the same way: the next try is fresh.
@@ -517,7 +664,7 @@ class ReaderLane:
         why = stopped or state.limit_why or state.detector.tripped
         write_status(self.sid, Status.TURN_STOPPED if why else Status.OK, why or "")
         if why:
-            alerts.report(alerts.Kind.READER_STOPPED, session_id=self.sid, lane=LANE_READ,
+            alerts.report(alerts.Kind.READER_STOPPED, session_id=self.sid, lane=LANE_READ, exc=stop_exc,
                           text=f"reader turn stopped: {why}")
 
         kind, text, reason = None, "", None
@@ -541,7 +688,9 @@ class ReaderLane:
             if too_big is not None:
                 log.info("reader: starting fresh next turn: %s", too_big)
                 self.store.end_read_conversation(conv, too_big)
-            self.store.set_fact("read_cursor", last_seq)
+            self.store.set_fact("read_cursor", cursor_to)
+            if self.store.fact(READ_NO_ANSWER) is not None:
+                self.store.set_fact(READ_NO_ANSWER, None)
             if ask is not None:
                 self._ending(ask, kind, text=text, reason=reason)
             elif kind is not None:

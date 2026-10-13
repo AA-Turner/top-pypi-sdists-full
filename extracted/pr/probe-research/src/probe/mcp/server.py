@@ -417,6 +417,7 @@ _VIEW_OPTIONS_DOC = """View-specific keys.
   depth          lineage on a run: walk upstream N hops (1-5).
   trial          diff on a run: which trial's filesystem changes (required).
   path_prefix    diff on a run: narrow to one subtree.
+  runs           inherited on an experiment: true lists the source runs, not their files.
   field          record: a dotted field ("metadata.summary"), or a path list."""
 
 _TOKEN_BUDGET_DOC = """Response size budget, 512-8000 o200k_base tokens (default 2000), for the WHOLE response. The default fits a card or notes; start at 5000+ for a `trajectory`, `transcript` or `record` walk."""
@@ -1565,7 +1566,7 @@ def create_server(
 
         ### CONSTRUCTED FORMS:
         - `artifact:<name>` for the shared-registry reuse check
-        - `session:<agent>/<session_id>` with `agent = claude_code | codex | pi`;
+        - `session:<agent>/<session_id>` `agent` = claude_code|codex|pi|kimi_code|capy
         - `trial:<rollout span id>` from a run's trials view
 
         ### FYI:

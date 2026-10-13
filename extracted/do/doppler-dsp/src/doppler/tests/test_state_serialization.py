@@ -68,7 +68,14 @@ from doppler.resample import (
     Resampler,
 )
 from doppler.source import AWGN, LO, NCO
-from doppler.spectral import PSD, Corr, Corr2D, CorrDetector, CorrDetector2D
+from doppler.spectral import (
+    PSD,
+    Corr,
+    Corr2D,
+    CorrDetector,
+    CorrDetector2D,
+    Spectrogram,
+)
 from doppler.track import (
     CarrierMpsk,
     CarrierNda,
@@ -155,6 +162,12 @@ def _frame_feed(method: str, n: int) -> _Feed:
         return np.frombuffer(o.get_state(), dtype=np.uint8)
 
     return feed
+
+
+def _spectrogram_feed(o: Any, seg: NDArray[np.complex64]) -> NDArray[Any]:
+    """Push the whole segment at once, so the partial-frame carry is state."""
+    o.push(seg.astype(np.complex64))
+    return np.frombuffer(o.get_state(), dtype=np.uint8)
 
 
 def _f32_to_int_feed(o: Any, seg: NDArray[np.complex64]) -> NDArray[Any]:
@@ -475,6 +488,13 @@ CASES: dict[str, tuple[Callable[[], Any], _Feed]] = {
     "PSD": (
         lambda: PSD(n=16, fs=1.0e6, window="hann", mode="mean", alpha=0.1),
         _frame_feed("accumulate", 16),
+    ),
+    # Spectrogram -- the framer carries up to nfft-1 samples across pushes, so
+    # a push of any size leaves a partial frame in the blob. The feed pushes
+    # the whole segment (not whole frames) so the carry is what resumes.
+    "Spectrogram": (
+        lambda: Spectrogram(nfft=16, hop=8, window="hann", mode="power"),
+        _spectrogram_feed,
     ),
     "BurstDespreader": (
         lambda: BurstDespreader(code=_CODE31, sps=4),

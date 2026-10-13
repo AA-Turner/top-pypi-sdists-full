@@ -121,7 +121,7 @@ NOTE_BLOCK_VERSION = 2
 
 #: Bumped when POINTER_BODY changes, so an older installed block is recognised
 #: as stale and rewritten instead of being left in place or duplicated.
-POINTER_VERSION = 41
+POINTER_VERSION = 42
 
 POINTER_BODY = """## Probe Research
 
@@ -210,6 +210,10 @@ The Probe daemon runs beside this session and does all Probe reads and writes - 
 ### ASK THE DAEMON:
 
 `probe ask "<question>"` - before proposing any new ML work, check the team's prior work to prevent work duplication. Also ask when the team's previous work might be relevant to the work that is currently being done. It returns at once - carry on; the answer arrives later as a `[Probe]` message. If you cannot go on without the answer, use `probe ask --wait` - it waits for the answer and prints it; give the shell command a long timeout.
+
+### PAPERS:
+
+`probe paper find "<question as a sentence>"` - search research papers (arXiv, PubMed, bioRxiv, medRxiv) yourself, before any web search. `--mode read --paper-id arxiv:<id> --query "<question>"` returns the passages of one paper that answer it.
 
 ### PLAN FIRST:
 

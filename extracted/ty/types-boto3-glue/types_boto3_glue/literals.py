@@ -58,6 +58,7 @@ __all__ = (
     "DataFormatType",
     "DataOperationType",
     "DataQualityEncryptionModeType",
+    "DataQualityEngineType",
     "DataQualityModelStatusType",
     "DataQualityRuleResultStatusType",
     "DatabaseAttributesType",
@@ -124,6 +125,7 @@ __all__ = (
     "ListAssetTypesPaginatorName",
     "ListBlueprintsPaginatorName",
     "ListConnectionTypesPaginatorName",
+    "ListDataQualityResultsV2PaginatorName",
     "ListEntitiesPaginatorName",
     "ListFormTypesPaginatorName",
     "ListGlossariesPaginatorName",
@@ -424,6 +426,7 @@ DQTransformOutputType = Literal["EvaluationResults", "PrimaryInput"]
 DataFormatType = Literal["AVRO", "JSON", "PROTOBUF"]
 DataOperationType = Literal["READ", "WRITE"]
 DataQualityEncryptionModeType = Literal["DISABLED", "SSE-KMS"]
+DataQualityEngineType = Literal["PYTHON", "SPARK"]
 DataQualityModelStatusType = Literal["FAILED", "RUNNING", "SUCCEEDED"]
 DataQualityRuleResultStatusType = Literal["ERROR", "FAIL", "PASS"]
 DatabaseAttributesType = Literal["NAME", "TARGET_DATABASE"]
@@ -585,6 +588,7 @@ LastRefreshTypeType = Literal["FULL", "INCREMENTAL"]
 ListAssetTypesPaginatorName = Literal["list_asset_types"]
 ListBlueprintsPaginatorName = Literal["list_blueprints"]
 ListConnectionTypesPaginatorName = Literal["list_connection_types"]
+ListDataQualityResultsV2PaginatorName = Literal["list_data_quality_results_v2"]
 ListEntitiesPaginatorName = Literal["list_entities"]
 ListFormTypesPaginatorName = Literal["list_form_types"]
 ListGlossariesPaginatorName = Literal["list_glossaries"]
@@ -1081,6 +1085,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -1180,6 +1185,7 @@ PaginatorName = Literal[
     "list_asset_types",
     "list_blueprints",
     "list_connection_types",
+    "list_data_quality_results_v2",
     "list_entities",
     "list_form_types",
     "list_glossaries",

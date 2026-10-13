@@ -2,7 +2,7 @@
 
 Recognises the supported jagged loop nest, captures each axis's ``(base,
 length)`` as resolvable host AST, and renders the per-kernel ``jnp`` gathers
-that feed :func:`helion.runtime.compact_worklist.flatten_worklist`.
+that feed :func:`helion.runtime.pallas.compact_worklist.flatten_worklist`.
 
 The supported loop shape is::
 
@@ -116,6 +116,14 @@ class CompactWorklistPlan:
     num_owners_expr: str = ""
     # Number of consecutive compact base tiles combined into one work item.
     grouping: int = 1
+    # The ordered loop computes only through the current compact tile's end,
+    # while its metadata and resident window retain the full source range.
+    ordered_end_clamped_to_compact: bool = False
+    # Sliding window: the ordered loop starts this many elements before the
+    # current compact tile's start, floored at the source begin.  Like the end
+    # clamp this narrows only the compute range -- range_len, the resident
+    # window, and its refills still describe the whole source range.
+    ordered_begin_window: int | None = None
 
     @property
     def owner_axis(self) -> Axis:
@@ -430,7 +438,7 @@ def build_resident_cache_admission(
     candidates, account for their scratch footprint, choose the one physical
     resident window, and drop optional prep when it cannot fit.
     """
-    from ...runtime import compact_ordered_physical_window
+    from ...runtime.pallas.launcher import compact_ordered_physical_window
 
     resident_operands = _tensor_footprints(
         host_args,
@@ -703,7 +711,6 @@ def render_build_worklist(
     lines = [
         f"def {builder_name}({', '.join(offset_params)}):",
         "    import jax.numpy as jnp",
-        "    from helion.runtime.compact_worklist import flatten_worklist",
         f"    {owner_array} = jnp.arange({num_owners_expr}, dtype=jnp.int32)",
         f"    base = {base_src}",
         f"    length = {length_src}",
@@ -861,6 +868,186 @@ def _length_ast(begin: ast.AST, end: ast.AST) -> ast.AST:
     return _plain(f"({ast.unparse(end)}) - ({ast.unparse(begin)})")
 
 
+def _same_ast(a: ast.AST, b: ast.AST) -> bool:
+    return ast.dump(a, include_attributes=False) == ast.dump(
+        b, include_attributes=False
+    )
+
+
+def _is_named_call(expr: ast.AST, name: str, qualifier: str) -> bool:
+    if not isinstance(expr, ast.Call):
+        return False
+    if isinstance(expr.func, ast.Name):
+        return expr.func.id == name
+    return (
+        isinstance(expr.func, ast.Attribute)
+        and expr.func.attr == name
+        and isinstance(expr.func.value, ast.Name)
+        and expr.func.value.id == qualifier
+    )
+
+
+def _is_tile_end(expr: ast.AST, tile_var: str) -> bool:
+    if (
+        isinstance(expr, ast.Attribute)
+        and expr.attr == "end"
+        and isinstance(expr.value, ast.Name)
+        and expr.value.id == tile_var
+    ):
+        return True
+    return (
+        _is_named_call(expr, "tile_end", "hl")
+        and isinstance(expr, ast.Call)
+        and len(expr.args) == 1
+        and not expr.keywords
+        and isinstance(expr.args[0], ast.Name)
+        and expr.args[0].id == tile_var
+    )
+
+
+def _is_tile_begin(expr: ast.AST, tile_var: str) -> bool:
+    if (
+        isinstance(expr, ast.Attribute)
+        and expr.attr == "begin"
+        and isinstance(expr.value, ast.Name)
+        and expr.value.id == tile_var
+    ):
+        return True
+    return (
+        _is_named_call(expr, "tile_begin", "hl")
+        and isinstance(expr, ast.Call)
+        and len(expr.args) == 1
+        and not expr.keywords
+        and isinstance(expr.args[0], ast.Name)
+        and expr.args[0].id == tile_var
+    )
+
+
+def _tile_begin_lookback(expr: ast.AST, tile_var: str) -> int | None:
+    """Return ``W`` for ``tile.begin - W`` / ``tile.begin``, else ``None``.
+
+    ``W`` is the sliding window's lookback in elements.  It is emitted as a
+    constant offset from the compact tile's start, so it must be a non-negative
+    integer literal.
+
+    A module global is deliberately NOT resolved here.  The kernel body reads
+    one at runtime -- it becomes a launcher-passed argument -- so baking its
+    value into the iteration bound would let a later rebind mask a window this
+    loop never visits.  A name assigned inside the kernel is fine and needs no
+    handling here: the caller has already inlined the prologue, so a literal
+    arrives as a ``Constant``.  Anything else in the ``tile.begin - X`` shape
+    is a window the caller clearly meant, so reject it by name rather than let
+    it fall through to the generic host-bound error.
+    """
+    if _is_tile_begin(expr, tile_var):
+        return 0
+    if not (
+        isinstance(expr, ast.BinOp)
+        and isinstance(expr.op, ast.Sub)
+        and _is_tile_begin(expr.left, tile_var)
+    ):
+        return None
+    window = expr.right
+    # bool is an int subclass; a window of True is a typo, not a width.  A
+    # negative literal parses as a UnaryOp, so it lands in the raise below.
+    if isinstance(window, ast.Constant) and type(window.value) is int:
+        return window.value
+    raise exc.InvalidConfig(
+        "compact_worklist: a sliding-window lookback must be an integer "
+        f"literal, got {ast.unparse(window)!r}.  A module constant is read at "
+        "runtime by the kernel body, so it would not stay in step with the "
+        "iteration bound.  Write the literal inline, or bind it to a name "
+        "inside the kernel before the loop (assignments there are inlined "
+        "into the bound, so the body sees the same value)."
+    )
+
+
+def _ordered_source_begin(
+    begin: ast.AST,
+    compact_var: str,
+) -> tuple[ast.AST, int | None]:
+    """Split an ordered begin into its source begin and any window lookback.
+
+    Accepts one form on the ordered loop's begin argument::
+
+        max(<host expr>, tile.begin - W)   -> source begin is <host expr>
+
+    Returns the full SOURCE begin -- what sizes range_len and the resident
+    window -- plus ``W``, the number of elements before the compact tile's
+    start that this work item computes from.  ``None`` means the begin is an
+    ordinary source bound.  Both operands render from what the kernel wrote, so
+    like the ``min`` end form this needs no agreement between the two begins.
+
+    A non-literal window raises from :func:`_tile_begin_lookback`.
+    """
+    if not (
+        _is_named_call(begin, "max", "builtins")
+        and isinstance(begin, ast.Call)
+        and len(begin.args) == 2
+        and not begin.keywords
+    ):
+        return begin, None
+    lhs = _tile_begin_lookback(begin.args[0], compact_var)
+    rhs = _tile_begin_lookback(begin.args[1], compact_var)
+    if (lhs is None) == (rhs is None):
+        return begin, None
+    if lhs is None:
+        return begin.args[0], rhs
+    return begin.args[1], lhs
+
+
+def _ordered_source_end(
+    begin: ast.AST,
+    end: ast.AST,
+    compact_var: str,
+    compact_begin: ast.AST,
+    compact_end: ast.AST,
+) -> tuple[ast.AST, bool]:
+    """Split an ordered end into its source end and whether it clamps.
+
+    Accepts two forms on the ordered loop's end argument::
+
+        tile.end / hl.tile_end(tile)   -> source end is the compact tile's own
+        min(<host expr>, tile.end)     -> source end is <host expr>
+
+    Returns the full SOURCE end -- what sizes range_len, the resident window,
+    and its refills -- plus whether the per-work-item compute range is clamped
+    to the compact tile's end.  Not recognized: ``max(src, tile.begin)`` (what
+    a sliding window needs), offsets from the edge, and enclosing axes other
+    than the compact tile.
+
+    Two other places recognize the same shape and must be extended in step:
+    ``tracing_ops._dependent_tile_end_expr`` matches it on the traced SymInt for
+    kernels with no worklist plan, and ``tile_strategy._fold_tile_end_op``
+    matches the bare form for every backend.
+    """
+    if _is_tile_end(end, compact_var):
+        # A bare ``tile.end`` names no source end, so the compact tile's own
+        # source range has to be the ordered range for range_len to be right.
+        if not _same_ast(begin, compact_begin):
+            raise exc.InvalidConfig(
+                "compact_worklist: an ordered bound of tile.end requires the "
+                "ordered and compact tile begins to match."
+            )
+        return compact_end, True
+
+    if (
+        _is_named_call(end, "min", "builtins")
+        and isinstance(end, ast.Call)
+        and len(end.args) == 2
+        and not end.keywords
+    ):
+        lhs_is_end = _is_tile_end(end.args[0], compact_var)
+        rhs_is_end = _is_tile_end(end.args[1], compact_var)
+        # Exactly one side is the tile edge; the other is the source end.  Both
+        # sides render faithfully from what the kernel wrote, so unlike the bare
+        # form this needs no agreement between the two begins.
+        if lhs_is_end != rhs_is_end:
+            return (end.args[1] if lhs_is_end else end.args[0]), True
+
+    return end, False
+
+
 def _packed_consecutive(begin: ast.AST, end: ast.AST, owner_var: str) -> bool:
     """True if ``(begin, end)`` are ``T[e]`` / ``T[e+1]`` on the SAME tensor ``T``.
 
@@ -873,11 +1060,6 @@ def _packed_consecutive(begin: ast.AST, end: ast.AST, owner_var: str) -> bool:
     Conservatively returns ``False`` on anything it can't prove (the caller then
     over-allocates metadata, which is safe; a too-small UPPER would not be).
     """
-
-    def _same_ast(a: ast.AST, b: ast.AST) -> bool:
-        return ast.dump(a, include_attributes=False) == ast.dump(
-            b, include_attributes=False
-        )
 
     def _owner_plus_const(node: ast.AST) -> int | None:
         """Return k for exactly ``owner_var + k`` forms, else None."""
@@ -1148,6 +1330,8 @@ def detect_compact_worklist_plan(
 
     # An inner tile loop is only supported when it is the ordered (carried-state)
     # axis: a name assigned in its body, read in its body, and read after it.
+    ordered_end_clamped_to_compact = False
+    ordered_begin_window: int | None = None
     if ordered_loop is not None:
         if not isinstance(ordered_loop.target, ast.Name):
             raise exc.InvalidConfig("compact_worklist: ordered tile var is not a Name.")
@@ -1165,9 +1349,22 @@ def detect_compact_worklist_plan(
                 "scope. Only an ordered carried-state inner loop is supported."
             )
 
-    # Prologue scalar assigns in the grid body BEFORE the compact tile loop
-    # (start = offsets[source], ...); a later reassignment must not leak in.
-    prologue = _collect_prologue_assigns(grid_loop.body, before=compact_loop)
+    # Prologue scalar assigns visible to the compact bounds: function-level
+    # ones (a window width, a shared stride) plus those in the grid body BEFORE
+    # the compact tile loop (start = offsets[source], ...).  Grid-body names
+    # shadow function-level ones, and a later reassignment must not leak in.
+    #
+    # A function-level name that one of the loops then rebinds as its target is
+    # dropped: inside the nest the loop coordinate wins, so inlining the outer
+    # value would rewrite ``offsets[seq_idx]`` to the pre-loop ``offsets[0]``
+    # and hand every owner the same range.
+    loop_targets = {owner_var, compact_var, ordered_var}
+    prologue = {
+        **{
+            name: value for name, value in top_level.items() if name not in loop_targets
+        },
+        **_collect_prologue_assigns(grid_loop.body, before=compact_loop),
+    }
 
     # Compact axis (bounds-carry): base = begin, length = end - begin.
     compact_call = _loop_iter_call(compact_loop)
@@ -1243,6 +1440,14 @@ def detect_compact_worklist_plan(
         }
         o_begin = _inline(_to_plain(ordered_call.args[0]), ordered_prologue)
         o_end = _inline(_to_plain(ordered_call.args[1]), ordered_prologue)
+        o_begin, ordered_begin_window = _ordered_source_begin(o_begin, compact_var)
+        o_end, ordered_end_clamped_to_compact = _ordered_source_end(
+            o_begin,
+            o_end,
+            compact_var,
+            c_begin,
+            c_end,
+        )
         ordered_block_id = _block_id_of_loop(ordered_loop)
         if ordered_block_id is None:
             raise exc.InvalidConfig(
@@ -1298,6 +1503,8 @@ def detect_compact_worklist_plan(
         tensor_policies=policies,
         upper_bound_expr="",  # finalized at codegen via program_id.num_pids_expr
         num_owners_expr=num_owners_expr,
+        ordered_end_clamped_to_compact=ordered_end_clamped_to_compact,
+        ordered_begin_window=ordered_begin_window,
     )
 
 

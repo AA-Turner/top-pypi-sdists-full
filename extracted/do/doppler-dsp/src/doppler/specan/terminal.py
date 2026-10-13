@@ -210,17 +210,10 @@ class TerminalDisplay:
     # ----------------------------------------------------------------
 
     def _dsp_loop(self) -> None:
-        block = max(self._engine.block_size, 4096)
-        last_fft_size = 0
         while self._running:
             try:
-                iq, fs, cf = self._source.read(block)
-                frame = self._engine.process(iq, fs, cf)
+                frame = self._engine.step(self._source)
                 if frame is not None:
-                    if frame.fft_size != last_fft_size:
-                        last_fft_size = frame.fft_size
-                        self._source.set_fft_size(frame.data_size)
-                        block = max(self._engine.block_size, 4096)
                     with self._lock:
                         self._frame = frame
                         self._error = None
@@ -379,6 +372,6 @@ class TerminalDisplay:
 
         Only then may the caller close the source and the engine: while
         the thread lives it may be inside ``source.read()``, and will call
-        ``engine.process()`` when that returns.
+        ``engine.step()`` when that returns.
         """
         return self._dsp_thread is None or not self._dsp_thread.is_alive()

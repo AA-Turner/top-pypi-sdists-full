@@ -175,17 +175,43 @@ def test_formats_payload():
     assert out["extensions"][".vtu"] == ["vtu"]
 
 
-def test_frd_is_readable_not_writable_and_convert_reaches_its_steps(tmp_path):
+def test_svg_and_tikz_are_readable_writable_drawings_and_convert(tmp_path):
+    # The 2-D drawings read back only what meshio++ wrote: planar, z = 0.
+    out = _dump(_tools.tool_formats())
+    for fmt, ext in (("svg", ".svg"), ("tikz", ".tikz")):
+        assert fmt in out["readable"] and fmt in out["writable"]
+        assert out["extensions"][ext] == [fmt]
+        mesh = meshioplusplus.Mesh(
+            [[0.0, 0.0], [2.0, 0.0], [2.0, 1.0], [0.0, 1.0]],
+            [("triangle", [[0, 1, 2], [0, 2, 3]])],
+        )
+        src = str(tmp_path / "in.vtu")
+        meshioplusplus.write(src, mesh)
+        drawing = str(tmp_path / f"drawing{ext}")
+        _tools.tool_convert(src, drawing)
+        back = str(tmp_path / f"back_{fmt}.vtu")
+        _tools.tool_convert(drawing, back)
+        written = meshioplusplus.read(back)
+        assert [b.type for b in written.cells] == ["triangle"]
+        assert len(written.cells[0].data) == 2
+        assert not written.points[:, 2].any()
+
+
+def test_frd_is_readable_and_writable_and_convert_reaches_its_steps(tmp_path):
     import pathlib
 
     frd = str(pathlib.Path(__file__).parent / "meshes" / "frd" / "mixed.frd")
     out = _dump(_tools.tool_formats())
-    assert "frd" in out["readable"] and "frd" not in out["writable"]
+    assert "frd" in out["readable"] and "frd" in out["writable"]
     target = str(tmp_path / "last.vtu")
     _tools.tool_convert(frd, target, time_step=-1)
     written = meshioplusplus.read(target)
     assert "DISP" in written.point_data and "TOSTRAIN" not in written.point_data
     assert written.field_data["meshio:time"].tolist() == [2.0]
+    # and back: the last step written as a result file keeps its step fields
+    again = str(tmp_path / "again.frd")
+    _tools.tool_convert(frd, again, time_step=-1)
+    assert meshioplusplus.read(again).field_data["meshio:time"].tolist() == [2.0]
 
 
 def test_nastran_h5_is_readable_not_writable_and_convert_reaches_its_modes(tmp_path):
@@ -347,6 +373,22 @@ def test_mfem_grid_functions_convert_both_ways(tmp_path):
     assert (tmp_path / "back.u.gf").is_file()
     with pytest.raises(ValueError, match="MFEM"):
         _tools.tool_convert(target, str(tmp_path / "x.vtu"), write_grid_functions=True)
+
+
+def test_mfem_nurbs_convert_keeps_the_patches(tmp_path):
+    import pathlib
+
+    src = (
+        pathlib.Path(__file__).parent / "meshes" / "mfem" / "nurbs" / "pipe-nurbs.mesh"
+    )
+    nurbs = tmp_path / "pipe.mesh"
+    _tools.tool_convert(str(src), str(nurbs), input_format="mfem", output_format="mfem")
+    assert nurbs.read_text().startswith("MFEM NURBS mesh v1.0")
+    sampled = tmp_path / "sampled.mesh"
+    _tools.tool_convert(str(src), str(sampled), input_format="mfem", write_nurbs=False)
+    assert sampled.read_text().startswith("MFEM mesh v1")
+    with pytest.raises(ValueError, match="write_nurbs needs MFEM"):
+        _tools.tool_convert(str(src), str(tmp_path / "x.vtu"), write_nurbs=True)
 
 
 def test_patran_results_convert(tmp_path):
@@ -788,6 +830,22 @@ def test_convert_openfoam_binary_variant(mesh_file, tmp_path):
     points = (tmp_path / "constant" / "polyMesh" / "points").read_bytes()
     assert b"format      binary;" in points
     assert out["output_format"] == "openfoam"
+
+
+def test_convert_frd_ascii_and_binary_variants(tmp_path):
+    # The CalculiX result file joined the ascii/binary variant table.
+    frd = pathlib.Path(__file__).parent / "meshes" / "frd" / "mixed.frd"
+    ascii_out, binary_out = tmp_path / "a.frd", tmp_path / "b.frd"
+    _tools.tool_convert(str(frd), str(ascii_out), mode="ascii", time_step=-1)
+    _tools.tool_convert(str(frd), str(binary_out), mode="binary", time_step=-1)
+    assert ascii_out.read_bytes().endswith(b" -3\n  9999\n")
+    assert binary_out.read_bytes().endswith(b" 9999\n")
+    assert b"\n -1" not in binary_out.read_bytes()
+    a, b = meshioplusplus.read(ascii_out), meshioplusplus.read(binary_out)
+    assert b.field_data["meshio:time"].tolist() == [2.0]
+    np.testing.assert_allclose(a.point_data["DISP"], b.point_data["DISP"], rtol=1e-5)
+    assert _tools._ASCII_VARIANT["frd"] == {"binary": False}
+    assert _tools._BINARY_VARIANT["frd"] == {"binary": True}
 
 
 def test_convert_raw_appended_variant(mesh_file, tmp_path):
@@ -1278,6 +1336,31 @@ def _unit_cube_quads():
     )
 
 
+def test_segment_fit_and_step(tmp_path):
+    src = str(tmp_path / "cube.vtu")
+    meshioplusplus.write(src, _unit_cube_quads())
+    seg = str(tmp_path / "seg.vtu")
+    out = _dump(_tools.tool_segment(src, seg))
+    assert out["num_patches"] == 6
+    assert out["num_feature_edges"] == 12
+    assert "segment:patch" in out["cell_data"]
+    fit = _dump(_tools.tool_fit_primitives(seg, str(tmp_path / "fit.vtu")))
+    assert fit["num_plane"] == 6
+    assert [p["type"] for p in fit["patches"]] == ["plane"] * 6
+    narrowed = _dump(
+        _tools.tool_fit_primitives(
+            src, str(tmp_path / "fit2.vtu"), patch_data="", types=["plane"]
+        )
+    )
+    assert narrowed["num_unfitted"] == 1
+    with pytest.raises(ValueError, match="180"):
+        _tools.tool_segment(src, str(tmp_path / "x.vtu"), feature_angle=200)
+    # the faceted STEP writer reaches MCP through the format registry
+    conv = _dump(_tools.tool_convert(src, str(tmp_path / "cube.step")))
+    assert conv["output_path"].endswith("cube.step")
+    assert "step" in _tools.tool_formats()["writable"]
+
+
 def test_feature_edges_and_hausdorff(tmp_path):
     src = str(tmp_path / "cube.vtu")
     meshioplusplus.write(src, _unit_cube_quads())
@@ -1297,6 +1380,88 @@ def test_feature_edges_and_hausdorff(tmp_path):
     assert h["distance"] == pytest.approx(0.25)
     assert h["passed"] is False
     assert _dump(_tools.tool_hausdorff(src, src))["distance"] == 0.0
+
+
+def test_render_mesh_tool(tmp_path):
+    pytest.importorskip("meshioplusplus._core")
+    src = str(tmp_path / "cube.vtu")
+    cube = _unit_cube_quads()
+    cube.point_data["x"] = cube.points[:, 0].copy()
+    cube.point_data["flow"] = np.stack(
+        [
+            -(cube.points[:, 1] - 0.5),
+            cube.points[:, 0] - 0.5,
+            np.zeros(len(cube.points)),
+        ],
+        axis=1,
+    )
+    meshioplusplus.write(src, cube)
+    text = _dump(_tools.tool_render_mesh(src, cols=24, rows=8))
+    assert (text["cols"], text["rows"]) == (24, 8)
+    assert len(text["text"].splitlines()) == 8
+    assert "\x1b" not in text["text"]
+    ansi = _dump(_tools.tool_render_mesh(src, cols=24, rows=8, text_format="ansi"))
+    assert "\x1b[" in ansi["text"]
+    png = _dump(
+        _tools.tool_render_mesh(src, str(tmp_path / "c.png"), width=48, height=32)
+    )
+    assert png["size"] == [48, 32]
+    assert open(png["output_path"], "rb").read()[:8] == b"\x89PNG\r\n\x1a\n"
+    with pytest.raises(ValueError, match="text_format"):
+        _tools.tool_render_mesh(src, text_format="svg")
+    # Field rendering: the notes under the text carry the range, ticks and keys.
+    field = _dump(
+        _tools.tool_render_mesh(
+            src,
+            cols=24,
+            rows=8,
+            color_by="x",
+            colorbar=True,
+            symmetric=True,
+            clip=[5, 95],
+        )
+    )
+    assert "x: -" in field["text"] and "ticks:" in field["text"]
+    diag = _dump(
+        _tools.tool_render_mesh(src, cols=24, rows=8, diagnostic="orientation")
+    )
+    assert "orientation:" in diag["text"]
+    with pytest.raises(ValueError, match="diagnostic must be"):
+        _tools.tool_render_mesh(src, diagnostic="plastic")
+    with pytest.raises(ValueError, match="expected .png"):
+        _tools.tool_render_mesh(src, str(tmp_path / "c.vtu"))
+    # Cut-aways: a plane as "+x:0.5" or six numbers, and the notes say so.
+    whole = _dump(_tools.tool_render_mesh(src, cols=24, rows=8, view="-x"))
+    cut = _dump(
+        _tools.tool_render_mesh(
+            src, cols=24, rows=8, view="-x", cutaway=["+x:0.5"], cutaway_tint="#00ff00"
+        )
+    )
+    assert "cutaway: 1 plane" in cut["text"] and "cutaway" not in whole["text"]
+    six = _dump(
+        _tools.tool_render_mesh(
+            src, cols=24, rows=8, view="-x", cutaway=[[0.5, 0, 0, 1, 0, 0]]
+        )
+    )
+    assert "cutaway: 1 plane" in six["text"]
+    with pytest.raises(ValueError, match="AXIS:OFFSET"):
+        _tools.tool_render_mesh(src, cutaway=["x:1"])
+    # Streamlines of a vector point array, named in the notes.
+    flow = _dump(
+        _tools.tool_render_mesh(
+            src,
+            cols=24,
+            rows=8,
+            view="-x",
+            cutaway=["+x:0.5"],
+            streamlines="flow",
+            stream_seeds=6,
+            stream_color="#ff00ff",
+        )
+    )
+    assert "streamlines: flow," in flow["text"]
+    with pytest.raises(ValueError, match="streamline array 'nope'"):
+        _tools.tool_render_mesh(src, streamlines="nope")
 
 
 def test_region_adjacency_tool(tmp_path):
@@ -1562,6 +1727,7 @@ _NOT_TOOLS = {
     # file-level use (fan-in, fan-out, N->N).
     "read_sequence",
     "view",  # interactive; screenshot is the headless tool
+    "tui",  # interactive (it takes over a terminal); render_mesh is the headless tool
     "has_viewer",
     "to_pyvista",
     "from_pyvista",
@@ -1957,6 +2123,28 @@ def test_server_lists_every_registered_tool():
         assert t.inputSchema, f"tool '{t.name}' has no input schema"
 
 
+def test_server_render_mesh_returns_an_image(mesh_file, tmp_path):
+    pytest.importorskip("meshioplusplus._core")
+    server = _server()
+    result = _run(
+        server.call_tool(
+            "render_mesh",
+            {
+                "input_path": mesh_file,
+                "output_path": str(tmp_path / "r.png"),
+                "width": 40,
+                "height": 30,
+            },
+        )
+    )
+    content = result[0] if isinstance(result, tuple) else result
+    assert any(getattr(c, "type", "") == "image" for c in content)
+    text = _tool_json(
+        _run(server.call_tool("render_mesh", {"input_path": mesh_file, "rows": 5}))
+    )
+    assert len(text["text"].splitlines()) == 5
+
+
 def test_server_call_tool_info_and_convert(mesh_file, tmp_path):
     server = _server()
     report = _tool_json(_run(server.call_tool("info", {"input_path": mesh_file})))
@@ -1981,20 +2169,23 @@ def test_server_error_payload_shape(tmp_path):
     assert "input file not found" in report["error"]
 
 
-def test_server_gated_tool_names_the_extra(mesh_file, tmp_path):
-    if meshioplusplus.has_viewer():
-        pytest.skip("polyscope installed; the gated error path is not reachable")
+def test_server_screenshot_falls_back_to_the_software_rasterizer(
+    mesh_file, tmp_path, monkeypatch
+):
+    # `screenshot` is polyscope-first, but without it (the common case on a
+    # server) it draws the PNG with the software rasterizer instead of failing.
+    pytest.importorskip("meshioplusplus._core")
+    from meshioplusplus import _viewer
+
+    monkeypatch.setattr(_viewer, "has_viewer", lambda: False)
     server = _server()
-    report = _tool_json(
-        _run(
-            server.call_tool(
-                "screenshot",
-                {"input_path": mesh_file, "output_path": str(tmp_path / "s.png")},
-            )
-        )
+    out = str(tmp_path / "s.png")
+    result = _run(
+        server.call_tool("screenshot", {"input_path": mesh_file, "output_path": out})
     )
-    assert report["error_type"] == "ImportError"
-    assert "polyscope" in report["error"]
+    content = result[0] if isinstance(result, tuple) else result
+    assert any(getattr(c, "type", "") == "image" for c in content)
+    assert open(out, "rb").read(8) == b"\x89PNG\r\n\x1a\n"
 
 
 def test_server_resources():
@@ -2068,6 +2259,56 @@ def test_dataset_add_list_update_round_trip(tmp_path, monkeypatch):
     assert entry["Id"] == "sweep" and entry["Tags"] == ["raw", "v1"]
     assert len(entry["resolved"]) == 3
     assert all(item["time_source"] for item in entry["resolved"])
+
+
+def test_dataset_tools_draw_set_and_clear_thumbnails(tmp_path, monkeypatch):
+    pytest.importorskip("meshioplusplus._core")
+    _case_files(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    manifest = str(tmp_path / "m.json")
+    out = _dump(
+        _tools.tool_dataset_add(
+            manifest,
+            input_pattern="cases/case_*.vtu",
+            entry_id="sweep",
+            render_thumbnail=True,
+            thumbnail_width=48,
+            thumbnail_height=32,
+        )
+    )
+    assert out["thumbnail"] == "thumbnails/sweep.png"
+    assert (tmp_path / "thumbnails" / "sweep.png").read_bytes()[:4] == b"\x89PNG"
+    _dump(
+        _tools.tool_dataset_add(
+            manifest, input_paths=["cases/case_0.vtu"], entry_id="one"
+        )
+    )
+    out = _dump(
+        _tools.tool_dataset_update(
+            manifest, entry_ids=["one"], render_thumbnail=True, thumbnail_step=0
+        )
+    )
+    listed = _dump(_tools.tool_dataset_list(manifest))
+    assert {e["Id"]: e.get("Thumbnail") for e in listed["entries"]} == {
+        "sweep": "thumbnails/sweep.png",
+        "one": "thumbnails/one.png",
+    }
+    _tools.tool_dataset_update(
+        manifest, entry_ids=["one"], thumbnail="thumbnails/sweep.png"
+    )
+    assert _dump(_tools.tool_dataset_list(manifest))["entries"][1]["Thumbnail"] == (
+        "thumbnails/sweep.png"
+    )
+    _tools.tool_dataset_update(manifest, entry_ids=["one"], thumbnail="none")
+    assert "Thumbnail" not in _dump(_tools.tool_dataset_list(manifest))["entries"][1]
+    with pytest.raises(ValueError, match="not both"):
+        _tools.tool_dataset_update(
+            manifest, entry_ids=["one"], thumbnail="x.png", render_thumbnail=True
+        )
+    with pytest.raises(ValueError, match="exactly one entry"):
+        _tools.tool_dataset_update(manifest, all_entries=True, thumbnail="x.png")
+    with pytest.raises(ValueError, match="not found"):
+        _tools.tool_dataset_update(manifest, entry_ids=["one"], thumbnail="missing.png")
 
 
 def test_dataset_update_assign_and_annotate(tmp_path, monkeypatch):
@@ -2595,11 +2836,17 @@ def test_libmesh_z88_fil_radioss_formats(tmp_path):
     anim = str(meshes / "radioss_anim" / "cubeA002")
     assert _dump(_tools.tool_sniff(anim))["format"] == "radioss_anim"
     assert _dump(_tools.tool_info(anim))["num_points"] == 15
-    # ... and their time-history files (v16.12.0): read-only, no points.
-    assert "radioss_th" in out["readable"] and "radioss_th" not in out["writable"]
+    # ... and their time-history files (read v16.12.0, written since): no points.
+    assert "radioss_th" in out["readable"] and "radioss_th" in out["writable"]
     th = str(meshes / "radioss_th" / "column" / "columnT01")
     assert _dump(_tools.tool_sniff(th))["format"] == "radioss_th"
     assert _dump(_tools.tool_info(th))["num_points"] == 0
+    back_th = str(tmp_path / "out" / "backT01")
+    _tools.tool_convert(th, back_th)
+    assert (
+        meshioplusplus.read(back_th).field_data.keys()
+        == meshioplusplus.read(th).field_data.keys()
+    )
 
 
 def test_vtx_and_szplt_formats():

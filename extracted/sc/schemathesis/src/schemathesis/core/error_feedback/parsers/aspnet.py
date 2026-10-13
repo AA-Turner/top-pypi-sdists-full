@@ -8,10 +8,12 @@ from schemathesis.core.error_feedback.parsers import PARSERS
 from schemathesis.core.error_feedback.parsers.extractors import (
     ClassificationResult,
     RegexHandler,
-    location_for_method,
+    location_for_parameter,
     lowercase_first_letter,
     numeric_bound,
+    parse_number,
     size_bound,
+    split_field_path,
 )
 from schemathesis.core.error_feedback.store import (
     BoundDirection,
@@ -60,10 +62,14 @@ def _walk(errors: AspNetShape) -> Iterator[WalkPair]:
     for raw_key, messages in errors.items():
         if _is_pseudo_field(raw_key):
             continue
-        field = lowercase_first_letter(raw_key)
+        # C# property names are PascalCase; their JSON names are camelCase.
+        path = tuple(
+            lowercase_first_letter(segment) if isinstance(segment, str) else segment
+            for segment in split_field_path(raw_key)
+        )
         for message in messages:
             if message:
-                yield ((field,), message)
+                yield (path, message)
 
 
 def _format(name: str) -> ClassificationResult:
@@ -138,8 +144,8 @@ def _classify(message: str) -> tuple[ClassificationResult, ...]:
     for pattern in _INCLUSIVE_RANGE_PATTERNS:
         match = pattern.match(message)
         if match is not None:
-            low = float(match.group(1))
-            high = float(match.group(2))
+            low = parse_number(match.group(1))
+            high = parse_number(match.group(2))
             return (
                 (
                     ObservationKind.NUMERIC_BOUND,
@@ -191,14 +197,13 @@ class AspNetParser:
         errors = _extract_errors(body)
         if errors is None:
             return ()
-        location = location_for_method(operation.method)
         observations: list[Observation] = []
         for path, message in _walk(errors):
             for kind, payload in _classify(message):
                 observations.append(
                     Observation(
                         operation_label=operation.label,
-                        location=location,
+                        location=location_for_parameter(operation, path, case),
                         parameter_path=path,
                         kind=kind,
                         raw_message=message,

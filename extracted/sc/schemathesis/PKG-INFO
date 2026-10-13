@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: schemathesis
-Version: 4.30.1
+Version: 4.31.0
 Summary: Adaptive API testing for OpenAPI and GraphQL
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -20,15 +20,15 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: anyio<5,>=4.5
 Requires-Dist: click<9,>=8.0
 Requires-Dist: harfile<1.0,>=0.5.0
@@ -40,7 +40,6 @@ Requires-Dist: pytest<10,>=8.4
 Requires-Dist: pyyaml<7.0,>=5.1
 Requires-Dist: requests<3,>=2.22
 Requires-Dist: rich>=13.9.4
-Requires-Dist: tomli>=2.2.1; python_version < '3.11'
 Requires-Dist: typing-extensions>=4.12.2
 Requires-Dist: werkzeug<4,>=0.16.0
 Provides-Extra: allure
@@ -64,6 +63,7 @@ Requires-Dist: httpx<1.0,>=0.22.0; extra == 'dev'
 Requires-Dist: mkdocs-material; extra == 'dev'
 Requires-Dist: mkdocstrings[python]; extra == 'dev'
 Requires-Dist: pydantic>=1.10.2; extra == 'dev'
+Requires-Dist: pymdown-extensions<12.2; extra == 'dev'
 Requires-Dist: pytest-asyncio<2.0,>=1.0; extra == 'dev'
 Requires-Dist: pytest-codspeed==5.0.3; extra == 'dev'
 Requires-Dist: pytest-httpserver<2.0,>=1.0; extra == 'dev'
@@ -81,6 +81,7 @@ Requires-Dist: webfuzzing-commons==0.11.0; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: mkdocs-material; extra == 'docs'
 Requires-Dist: mkdocstrings[python]; extra == 'docs'
+Requires-Dist: pymdown-extensions<12.2; extra == 'docs'
 Provides-Extra: profiling
 Requires-Dist: pyinstrument>=5.1; extra == 'profiling'
 Provides-Extra: scripts
@@ -142,6 +143,12 @@ Schemathesis tests OpenAPI and GraphQL APIs by generating inputs from your schem
   <i>Finding bugs that manual testing missed</i>
 </p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/schemathesis/schemathesis/master/docs/img/html-report-overview.png" alt="Schemathesis HTML report with the verdict, run details, timeline and failing operations" width="700"/>
+  <br>
+  <i>Verdict, timeline and every failure in one offline page: <code>--report html</code></i>
+</p>
+
 ## Try it now
 
 ```console
@@ -171,7 +178,7 @@ uvx schemathesis run https://your-api.com/openapi.json
 - ✅ **Custom checks** - [assert your own business rules](https://schemathesis.readthedocs.io/en/stable/guides/extending/#custom-validation-checks) next to the built-in ones.
 - 📖 **Fuzz dictionaries** - [mix real ids, wordlists, or LLM-generated payloads](https://schemathesis.readthedocs.io/en/stable/guides/fuzz-dictionary/) into generated data.
 - 🐌 **Rate limiting** - cap the request rate, or use `auto` to follow [`Retry-After` on 429](https://schemathesis.readthedocs.io/en/stable/reference/configuration/#rate-limit).
-- 📊 **Reports** - [JUnit, VCR, HAR, NDJSON, JSON](https://schemathesis.readthedocs.io/en/stable/reference/configuration/#reporting), and [Allure](https://schemathesis.readthedocs.io/en/stable/guides/allure/).
+- 📊 **Reports** - an [offline HTML page](https://schemathesis.readthedocs.io/en/stable/guides/html-report/) with every failure and its `curl` command, plus [JUnit, VCR, HAR, NDJSON, JSON](https://schemathesis.readthedocs.io/en/stable/reference/configuration/#reporting), and [Allure](https://schemathesis.readthedocs.io/en/stable/guides/allure/).
 - 🎯 **Schema coverage** - [keyword-level coverage report](https://schemathesis.readthedocs.io/en/stable/guides/coverage/) showing which constraints your tests exercised.
 - 🔁 **Replay & baseline** - [re-run past failures](https://schemathesis.readthedocs.io/en/stable/guides/crash-reproduction/) and [fail CI only on new ones](https://schemathesis.readthedocs.io/en/stable/guides/baseline/).
 
@@ -226,6 +233,8 @@ Used by teams at **[Spotify](https://github.com/backstage/backstage)**, **[WordP
 > "_Schemathesis is the best tool for fuzz testing of REST APIs on the market. We at Red Hat use it for examining our applications in functional and integration testing levels._" - Dmitry Misharov, RedHat
 
 ## See it in action
+
+🏆 **[Trophy case](https://schemathesis.readthedocs.io/en/stable/reference/trophy-case/)**: crashes and schema violations Schemathesis found in vLLM, Qdrant, OpenObserve, Ory Kratos and Formbricks, each with a link to the fix.
 
 🔬 **[Live Benchmarks](https://workbench.schemathesis.io)**: Schemathesis runs for an hour against real-world APIs such as Apache Airflow, Open WebUI and Prefect. For each one:
 

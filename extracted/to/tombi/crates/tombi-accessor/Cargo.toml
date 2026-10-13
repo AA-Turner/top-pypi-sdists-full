@@ -1,0 +1,21 @@
+[package]
+name = "tombi-accessor"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+itertools.workspace = true
+tombi-hashmap.workspace = true
+tombi-text.workspace = true
+tombi-toml-text.workspace = true
+tombi-toml-version.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+rstest.workspace = true
+
+[lints]
+workspace = true

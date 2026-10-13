@@ -38,6 +38,32 @@ So this gate makes the SSOT claim a check rather than a comment:
    never re-rendered, so a new enum value reaches the manifest, the C enum and
    the `.pyi` while that table stays short. The getter then indexes past its
    own NULL. Fail-closed: a table matching no `[[enum]]` is an error too.
+7. **An enum bound by NAME has exactly one C enum, and the same names.** An
+   `[[enum]]` that lists `enumerators` (gh-1450) makes jm write each C
+   constant by name, so the compiler checks every name the manifest uses --
+   but not the other way: a C value added with no Python name compiles and
+   is unreachable from Python. So the C enum carries `SSOT: enum=X` (and
+   nothing else), and its enumerator names equal `X.enumerators`, in order.
+   Both directions fail closed: an annotation naming no `[[enum]]`, or one
+   whose `[[enum]]` lists no `enumerators`, is an error, and so is an
+   `[[enum]]` with `enumerators` that no annotated C enum carries -- unless
+   every one of its names is a name of ONE annotated C enum, which makes it
+   a view over that enum (`carrier_acq_window` offers three of
+   `psd_window`'s four), never a source of names of its own. And the VALUES
+   hold, because they are persisted (a Spectrogram blob stores its window
+   and mode): they run consecutively in the manifest's order, and an
+   enumerator that existed at the merge base with `--base` keeps its value
+   (a shallow clone whose base will not resolve fails closed).
+8. **A view's set, stated in the manifest and again in C, is held to
+   agree.** A view names a subset of its parent for Python, but C takes the
+   parent's type, so C must refuse the rest: a second statement of the same
+   set (#2194). So the refusal carries `/* SSOT: view=X */` (or `//`) on the
+   line directly above it, the view is a PREFIX of its parent (one
+   comparison bounds it), and the comparison is `> LAST` or `>= NEXT` with
+   the enumerator alone as its operand (`> LAST + 1` admits too much). A
+   view with no such comparison, or two, an annotation naming no view, or
+   any other comparison is an error that says what to write. It holds the
+   comparison, not that the statement returns or runs first.
 
 The annotation is a plain `/* ... */` comment -- doxygen reads only `/**` and
 `/*!`, so it is invisible to the C API docs -- placed anywhere between the
@@ -63,6 +89,7 @@ import re
 import sys
 from pathlib import Path
 
+from _gitbase import BaseUnreadableError, in_git_repo, resolve_base, show_at
 from _layout import GLUE_FRAGMENT, INC_DIR, header
 
 # `tomllib` is 3.11+. Every OTHER gate under scripts/ that a test in
@@ -112,6 +139,19 @@ _DEFINE_RE = re.compile(r"^\s*#\s*define\s+(\w+)\s+(\d+)\s*$", re.MULTILINE)
 #: then not mistaken for one.
 _SSOT_RE = re.compile(
     r"^[ \t]*(?:/\*|\*)?[ \t]*SSOT:[ \t]*(?P<spec>[^*\n]+)", re.MULTILINE
+)
+#: Rule 8: `/* SSOT: view=X */` (or `// SSOT: view=X`) on the line above
+#: the comparison that refuses past view X, in C under native/.
+_VIEW_RE = re.compile(
+    r"^[ \t]*(?P<lead>/\*|\*|//)?[ \t]*SSOT:[ \t]*view=(?P<view>\w+)",
+    re.MULTILINE,
+)
+#: The refusal: `> LAST` or the equivalent `>= NEXT`, whose operand is the
+#: enumerator ALONE (`> BH + 1` admits a value past the view, so it is no
+#: refusal). `->` is a member access, never a `>`.
+_BOUND_CMP_RE = re.compile(
+    r"(?<![-=<>])(?P<op>>=?)(?!=)\s*(?P<name>[A-Za-z_]\w*)\s*(?=[)&|;?]|$)",
+    re.MULTILINE,
 )
 
 
@@ -210,6 +250,368 @@ def _c_enum(path: Path, typedef: str) -> list[tuple[str, int | None]] | None:
     return out
 
 
+#: An enum declaration, anonymous or typedef'd, in a header under INC_DIR.
+_ENUM_DECL_RE = re.compile(
+    r"(?:typedef\s+)?\benum\s*(?:\w+\s*)?\{(?P<body>[^}]*)\}\s*(?:\w+\s*)?;"
+)
+_COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
+
+
+def _enumerators(body: str) -> list[tuple[str, int | None]]:
+    """The (name, C value) pairs of an enum body, in source order.
+
+    A value is the explicit integer, or one past the previous value as C
+    counts it; None once an explicit value is not an integer literal.
+    """
+    out: list[tuple[str, int | None]] = []
+    nxt: int | None = 0
+    for part in _COMMENT_RE.sub("", body).split(","):
+        if not part.strip():
+            continue
+        name, eq, val = part.partition("=")
+        if eq:
+            try:
+                nxt = int(val.strip(), 0)
+            except ValueError:
+                nxt = None
+        out.append((name.strip(), nxt))
+        nxt = None if nxt is None else nxt + 1
+    return out
+
+
+def bound_enums(
+    root: Path,
+) -> tuple[list[tuple[str, str, list[tuple[str, int | None]]]], list[str]]:
+    """Every header enum annotated `SSOT: enum=X`, and the malformed ones.
+
+    The annotation is looked for between the previous `;` OUTSIDE a comment
+    and the enum itself -- the "since the previous declaration" rule
+    `_tables` uses -- so an enum cannot adopt an annotation written for a
+    declaration above it. Returns ``(where, X, [(name, value), ...])`` and
+    errors. Public: `check_named_args.py` reads the same enums to turn a
+    literal back into its name, rather than keeping a copy of them.
+    """
+    found: list[tuple[str, str, list[tuple[str, int | None]]]] = []
+    errs: list[str] = []
+    for path in sorted((root / INC_DIR).rglob("*.h")):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        f, e = _bound_in_text(text, path.relative_to(root).as_posix())
+        found += f
+        errs += e
+    return found, errs
+
+
+def _bound_in_text(
+    text: str, rel: str
+) -> tuple[list[tuple[str, str, list[tuple[str, int | None]]]], list[str]]:
+    """`bound_enums` for one header's text: the working tree's, or the merge
+    base's when the values ratchet reads what an enumerator used to be."""
+    found: list[tuple[str, str, list[tuple[str, int | None]]]] = []
+    errs: list[str] = []
+    if "SSOT:" not in text:
+        return found, errs
+    # Same offsets, comments blanked: a `;` inside prose ends nothing.
+    masked = _COMMENT_RE.sub(lambda m: " " * len(m.group(0)), text)
+    for m in _ENUM_DECL_RE.finditer(masked):
+        start = masked.rfind(";", 0, m.start()) + 1
+        specs = _SSOT_RE.findall(text[start : m.start()])
+        if not specs:
+            continue
+        line = text.count("\n", 0, m.start()) + 1
+        if len(specs) > 1:
+            errs.append(
+                f"{rel}:{line}: {len(specs)} `SSOT:` annotations above"
+                " one enum; exactly one describes it."
+            )
+            continue
+        fields = [f.strip() for f in specs[0].split(",") if f.strip()]
+        keys = [f.partition("=")[0].strip() for f in fields]
+        if keys != ["enum"]:
+            errs.append(
+                f"{rel}:{line}: a C enum's annotation takes `enum=` only"
+                f" (got {specs[0].strip()!r}); its names are checked"
+                " against that [[enum]]'s `enumerators`."
+            )
+            continue
+        name = fields[0].partition("=")[2].strip()
+        body = text[m.start("body") : m.end("body")]
+        found.append((f"{rel}:{line}", name, _enumerators(body)))
+    return found, errs
+
+
+def _check_bound_values(
+    root: Path, base: str, bound: list[tuple[str, str, list]]
+) -> list[str]:
+    """Rule 7's values: what a bound enumerator reads, now and since the base.
+
+    The values are persisted -- the Spectrogram blob stores its window and
+    mode, `AccTrace.mode` returns the int -- so a renumbered window re-reads
+    every saved blob as another one, and names alone cannot see it. Two
+    checks, because each misses what the other catches:
+
+    - **In the tree** (no git): every value is an integer C can read here,
+      and the values run consecutively in the manifest's order. That refuses
+      `KAISER = 5` and a duplicate, on any clone.
+    - **Since the merge base** with `base`: an enumerator that existed there
+      keeps its value. That refuses a renumber made TOGETHER with a matching
+      reorder of the manifest, which the tree alone reads as consistent.
+
+    A tree that is not a git repository has no base to compare (a seeded
+    test tree); a repository whose base will not resolve -- a shallow clone
+    -- fails CLOSED, naming the ref, because a ratchet that cannot read its
+    baseline has not been checked (scripts/_gitbase.py).
+    """
+    errs: list[str] = []
+    for where, name, pairs in bound:
+        vals = [v for _, v in pairs]
+        if any(v is None for v in vals):
+            errs.append(
+                f"{where}: [[enum]] {name}'s C enum has a value this gate"
+                " cannot read as an integer; a bound enum's values are"
+                " persisted, so each must be a plain integer."
+            )
+        elif vals != list(range(vals[0], vals[0] + len(vals))):
+            errs.append(
+                f"{where}: [[enum]] {name}'s values {vals} do not run"
+                " consecutively in the manifest's order (a duplicate, or a"
+                " renumbered enumerator)."
+            )
+    if not in_git_repo(root):
+        return errs
+    try:
+        rev = resolve_base(root, base)
+    except BaseUnreadableError:
+        return [
+            *errs,
+            f"the values ratchet cannot read its baseline: `{base}` does not"
+            " resolve here (a shallow clone?). Fetch it, e.g. `git fetch"
+            " --no-tags origin +refs/heads/main:refs/remotes/origin/main`,"
+            " or pass --base.",
+        ]
+    for where, name, pairs in bound:
+        rel = where.rpartition(":")[0]
+        then = show_at(root, rev, rel)
+        if then is None:
+            continue
+        old = {
+            n: v
+            for _, x, ps in _bound_in_text(then, rel)[0]
+            if x == name
+            for n, v in ps
+        }
+        for n, v in pairs:
+            if n in old and old[n] is not None and old[n] != v:
+                errs.append(
+                    f"{where}: {n} was {old[n]} at the merge base with"
+                    f" {base} and is {v} now. Its value is persisted, so it"
+                    " may not change: add a new enumerator instead."
+                )
+    return errs
+
+
+def _check_bound_enums(root: Path, data: dict) -> list[str]:
+    """Rule 7: an [[enum]] bound by name and its one C enum agree."""
+    bound, errs = bound_enums(root)
+    by_name = {e["name"]: e for e in data.get("enum", [])}
+    carried: dict[str, list[str]] = {}
+    for where, name, pairs in bound:
+        names = [n for n, _ in pairs]
+        carried.setdefault(name, []).append(where)
+        spec = by_name.get(name)
+        if spec is None:
+            errs.append(
+                f"{where}: `SSOT: enum={name}` names no [[enum]] in"
+                f" {MANIFEST_REL}."
+            )
+            continue
+        want = spec.get("enumerators")
+        if want is None:
+            errs.append(
+                f"{where}: [[enum]] {name} lists no `enumerators`, so jm"
+                " numbers its names by position and nothing ties them to this"
+                " C enum. Bind them by name (gh-1450)."
+            )
+            continue
+        if names != list(want):
+            errs.append(
+                f"{where}: the C enum's names != [[enum]] {name}"
+                f" enumerators\n      header:   {names}\n"
+                f"      manifest: {list(want)}"
+            )
+    views = _views(data, bound)
+    for name, spec in by_name.items():
+        if "enumerators" not in spec:
+            continue
+        homes = carried.get(name, [])
+        if len(homes) == 1:
+            continue
+        # A view: every name already belongs to one bound C enum, so the
+        # compiler checks them and none is a name of its own (rule 8 holds
+        # its C refusal to it).
+        if not homes and name in views:
+            continue
+        errs.append(
+            f"{MANIFEST_REL}: [[enum]] {name} lists `enumerators`, so"
+            f" exactly one C enum must carry `SSOT: enum={name}` (or every"
+            " name must belong to one that does); found"
+            f" {len(homes)}{': ' + ', '.join(homes) if homes else ''}."
+        )
+    return errs
+
+
+def _views(
+    data: dict, bound: list[tuple[str, str, list[tuple[str, int | None]]]]
+) -> dict[str, tuple[str, list[tuple[str, int | None]], list[str]]]:
+    """Every view: an [[enum]] with `enumerators`, no C enum of its own, and
+    every name a name of ONE bound C enum. ``{view: (parent, parent's
+    (name, value) pairs, the view's names)}`` -- rule 7's definition, in one
+    place for rule 7, rule 8 and `enum_names`."""
+    homes = {name for _, name, _ in bound}
+    out: dict[str, tuple[str, list[tuple[str, int | None]], list[str]]] = {}
+    for spec in data.get("enum", []):
+        name, want = spec.get("name"), spec.get("enumerators")
+        if not want or name in homes:
+            continue
+        for _, parent, pairs in bound:
+            if set(want) <= {n for n, _ in pairs}:
+                out[name] = (parent, pairs, list(want))
+                break
+    return out
+
+
+def enum_names(root: Path) -> tuple[dict[str, dict[int, str]], list[str]]:
+    """value -> name for every [[enum]] a C enum binds, views included: a
+    view's are its parent's, restricted to the view, so a value outside it
+    has no name. Public: `check_named_args.py` names a literal by it."""
+    bound, errs = bound_enums(root)
+    out = {
+        enum: {v: n for n, v in pairs if v is not None}
+        for _, enum, pairs in bound
+    }
+    manifest = root / MANIFEST_REL
+    if manifest.is_file():
+        data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+        for view, (_, pairs, names) in _views(data, bound).items():
+            out[view] = {
+                v: n for n, v in pairs if n in names and v is not None
+            }
+    return out, errs
+
+
+def _check_view_bounds(
+    root: Path,
+    data: dict,
+    bound: list[tuple[str, str, list[tuple[str, int | None]]]],
+) -> list[str]:
+    """Rule 8: a view's set, stated twice, is held to agree.
+
+    A view names a subset of its parent's values for Python; C, which takes
+    the parent's type, has to refuse the rest, and that refusal states the
+    same set a second time. So the refusal carries `SSOT: view=X` on the
+    line above it, the view is a PREFIX of its parent (one comparison bounds
+    it), and the comparison is `> LAST` or `>= NEXT` with the enumerator
+    alone as its operand. Adding a value to the view without moving the
+    refusal, or the reverse, is then red. It checks the comparison, not that
+    the statement returns or runs first: review and the C test hold that.
+    """
+    views = _views(data, bound)
+    marks: dict[str, list[tuple[str, tuple[str, str] | None]]] = {
+        v: [] for v in views
+    }
+    errs: list[str] = []
+    for top in SCAN_ROOTS:
+        for path in sorted((root / top).rglob("*.[ch]")):
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                continue
+            rel = path.relative_to(root).as_posix()
+            for m in _VIEW_RE.finditer(text):
+                where = f"{rel}:{text.count(chr(10), 0, m.start()) + 1}"
+                view = m.group("view")
+                if view not in views:
+                    errs.append(
+                        f"{where}: `SSOT: view={view}` names no view (an"
+                        " [[enum]] whose names all belong to one bound C"
+                        " enum, with none of its own)."
+                    )
+                    continue
+                # The comment ends at the line's end (`//`) or at its `*/`;
+                # the refusal is the next non-blank line, nothing further.
+                if m.group("lead") == "//":
+                    after = text.find("\n", m.end())
+                else:
+                    after = text.find("*/", m.end())
+                    after = after + 2 if after >= 0 else m.end()
+                after = after if after >= 0 else len(text)
+                while after < len(text) and text[after] in " \t\n":
+                    after += 1
+                eol = text.find("\n", after)
+                eol = len(text) if eol < 0 else eol
+                cmp_ = _BOUND_CMP_RE.search(text, after, eol)
+                marks[view].append(
+                    (where, (cmp_["op"], cmp_["name"]) if cmp_ else None)
+                )
+    for view, (parent, pairs, names) in views.items():
+        found = marks[view]
+        parent_names = [n for n, _ in pairs]
+        last = names[-1]
+        nxt = (
+            parent_names[len(names)]
+            if len(names) < len(parent_names)
+            else None
+        )
+        write = f"`> {last}`" + (f" (or `>= {nxt}`)" if nxt else "")
+        if not found:
+            errs.append(
+                f"{MANIFEST_REL}: view [[enum]] {view} has no C refusal."
+                f" C takes {parent}, so put `/* SSOT: view={view} */` on the"
+                f" line above the comparison that refuses past the view:"
+                f" `if (<arg> > {last})`"
+                + (f" (or `>= {nxt}`)." if nxt else ".")
+            )
+            continue
+        if len(found) > 1:
+            errs.append(
+                f"{MANIFEST_REL}: view [[enum]] {view} has {len(found)}"
+                f" `SSOT: view={view}` annotations"
+                f" ({', '.join(w for w, _ in found)}); exactly one refusal"
+                " states its bound."
+            )
+            continue
+        where, cmp_ = found[0]
+        if names != parent_names[: len(names)]:
+            errs.append(
+                f"{where}: view {view} ({names}) is not a prefix of {parent}"
+                f" ({parent_names}), so one comparison cannot bound it."
+            )
+            continue
+        if cmp_ is None:
+            errs.append(
+                f"{where}: the line after `SSOT: view={view}` is not a"
+                f" refusal of the form {write}, with the enumerator alone as"
+                " its operand."
+            )
+            continue
+        op, name = cmp_
+        if (op, name) in ((">", last), (">=", nxt)):
+            continue
+        admitted = (
+            parent_names[: parent_names.index(name) + (op == ">")]
+            if name in parent_names
+            else None
+        )
+        errs.append(
+            f"{where}: the refusal `{op} {name}` admits"
+            f" {admitted if admitted is not None else 'an unknown set'},"
+            f" but view {view} is {names}: write {write}."
+        )
+    return errs
+
+
 def _scan_files(root: Path, names_h: Path) -> list[Path]:
     out: list[Path] = []
     for rel in SCAN_ROOTS:
@@ -225,7 +627,7 @@ def _scan_files(root: Path, names_h: Path) -> list[Path]:
     return out
 
 
-def check(root: Path) -> list[str]:
+def check(root: Path, base: str = "origin/main") -> list[str]:
     """Every problem found, as ready-to-print lines."""
     errs: list[str] = []
     names_h = root / NAMES_H_REL
@@ -375,6 +777,13 @@ def check(root: Path) -> list[str]:
                     " member by member and this table is NOT re-rendered:"
                     " edit it by hand to match."
                 )
+
+    # Rule 7 -- an [[enum]] bound by name has one C enum with its names.
+    errs += _check_bound_enums(root, data)
+    bound = bound_enums(root)[0]
+    errs += _check_bound_values(root, base, bound)
+    # Rule 8 -- a view's set, stated twice, is held to agree.
+    errs += _check_view_bounds(root, data, bound)
     return errs
 
 
@@ -386,9 +795,15 @@ def main() -> int:
         default=Path(__file__).resolve().parent.parent,
         help="tree to check (default: the repository root)",
     )
+    ap.add_argument(
+        "--base",
+        default="origin/main",
+        help="ref whose merge base holds the enumerator values a bound enum"
+        " may not change (rule 7)",
+    )
     args = ap.parse_args()
 
-    errs = check(args.root.resolve())
+    errs = check(args.root.resolve(), args.base)
     if errs:
         print(f"wfm-enum-tables: {len(errs)} problem(s).")
         for e in errs:
@@ -401,9 +816,14 @@ def main() -> int:
         )
         return 1
 
-    n = len(_tables((args.root / NAMES_H_REL).read_text(encoding="utf-8")))
+    root = args.root.resolve()
+    n = len(_tables((root / NAMES_H_REL).read_text(encoding="utf-8")))
+    bound = bound_enums(root)[0]
+    data = tomllib.loads((root / MANIFEST_REL).read_text(encoding="utf-8"))
+    v = len(_views(data, bound))
     print(
         f"wfm-enum-tables: OK — {n} table(s) match their [[enum]],"
+        f" {len(bound)} C enum(s) bound by name, {v} view(s) bounded in C,"
         " 0 second homes"
     )
     return 0

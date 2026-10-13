@@ -252,9 +252,23 @@ if typing.TYPE_CHECKING:
     from .v2error_object import V2ErrorObject
     from .v2error_response import V2ErrorResponse
     from .v2model_ids import V2ModelIds
+    from .voice_cloning_configure_connection import VoiceCloningConfigureConnection
+    from .voice_cloning_configure_connection_data import VoiceCloningConfigureConnectionData
+    from .voice_cloning_configure_connection_data_output_audio_bitrate import (
+        VoiceCloningConfigureConnectionDataOutputAudioBitrate,
+    )
+    from .voice_cloning_configure_connection_data_output_audio_codec import (
+        VoiceCloningConfigureConnectionDataOutputAudioCodec,
+    )
+    from .voice_cloning_configure_connection_data_target_language_code import (
+        VoiceCloningConfigureConnectionDataTargetLanguageCode,
+    )
     from .voice_cloning_language import VoiceCloningLanguage
     from .voice_cloning_output_audio_codec import VoiceCloningOutputAudioCodec
     from .voice_cloning_response import VoiceCloningResponse
+    from .voice_cloning_send_text import VoiceCloningSendText
+    from .voice_cloning_send_text_data import VoiceCloningSendTextData
+    from .voice_cloning_stream_codec import VoiceCloningStreamCodec
     from .voice_library_create_data import VoiceLibraryCreateData
     from .voice_library_create_response import VoiceLibraryCreateResponse
     from .voice_library_detail import VoiceLibraryDetail
@@ -510,9 +524,17 @@ _dynamic_imports: typing.Dict[str, str] = {
     "V2ErrorObject": ".v2error_object",
     "V2ErrorResponse": ".v2error_response",
     "V2ModelIds": ".v2model_ids",
+    "VoiceCloningConfigureConnection": ".voice_cloning_configure_connection",
+    "VoiceCloningConfigureConnectionData": ".voice_cloning_configure_connection_data",
+    "VoiceCloningConfigureConnectionDataOutputAudioBitrate": ".voice_cloning_configure_connection_data_output_audio_bitrate",
+    "VoiceCloningConfigureConnectionDataOutputAudioCodec": ".voice_cloning_configure_connection_data_output_audio_codec",
+    "VoiceCloningConfigureConnectionDataTargetLanguageCode": ".voice_cloning_configure_connection_data_target_language_code",
     "VoiceCloningLanguage": ".voice_cloning_language",
     "VoiceCloningOutputAudioCodec": ".voice_cloning_output_audio_codec",
     "VoiceCloningResponse": ".voice_cloning_response",
+    "VoiceCloningSendText": ".voice_cloning_send_text",
+    "VoiceCloningSendTextData": ".voice_cloning_send_text_data",
+    "VoiceCloningStreamCodec": ".voice_cloning_stream_codec",
     "VoiceLibraryCreateData": ".voice_library_create_data",
     "VoiceLibraryCreateResponse": ".voice_library_create_response",
     "VoiceLibraryDetail": ".voice_library_detail",
@@ -792,9 +814,17 @@ __all__ = [
     "V2ErrorObject",
     "V2ErrorResponse",
     "V2ModelIds",
+    "VoiceCloningConfigureConnection",
+    "VoiceCloningConfigureConnectionData",
+    "VoiceCloningConfigureConnectionDataOutputAudioBitrate",
+    "VoiceCloningConfigureConnectionDataOutputAudioCodec",
+    "VoiceCloningConfigureConnectionDataTargetLanguageCode",
     "VoiceCloningLanguage",
     "VoiceCloningOutputAudioCodec",
     "VoiceCloningResponse",
+    "VoiceCloningSendText",
+    "VoiceCloningSendTextData",
+    "VoiceCloningStreamCodec",
     "VoiceLibraryCreateData",
     "VoiceLibraryCreateResponse",
     "VoiceLibraryDetail",

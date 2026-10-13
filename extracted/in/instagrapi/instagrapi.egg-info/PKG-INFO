@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 3.0.21
+Version: 3.0.24
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -48,7 +48,8 @@ Requires-Dist: mike==2.2.0; extra == "test"
 Requires-Dist: setuptools==84.0.0; extra == "test"
 Requires-Dist: markdown-include==0.8.1; extra == "test"
 Requires-Dist: mkdocs-material==9.7.7; extra == "test"
-Requires-Dist: mkdocstrings[python]==1.0.6; extra == "test"
+Requires-Dist: mkdocstrings[python]==1.0.7; python_version >= "3.11" and extra == "test"
+Requires-Dist: mkdocstrings[python]==1.0.6; python_version < "3.11" and extra == "test"
 Requires-Dist: numpy>=1.25.0; extra == "test"
 Requires-Dist: pre-commit==4.6.2; extra == "test"
 Requires-Dist: proglog<=1.0.0; extra == "test"
@@ -411,6 +412,7 @@ Related services:
 * [LamaTok](https://lamatok.com/p/B9ScEYIQ) for TikTok API access, automation, and data workflows
 * [InstaSurfBot](https://t.me/InstaSurfBot) for downloading Instagram media in Telegram
 * [OSINTagramBot](https://t.me/OSINTagramBot) for Instagram OSINT in Telegram
+* [insto](https://github.com/subzeroid/insto) for interactive Instagram OSINT from the terminal (HikerAPI or aiograpi backend)
 
 ### [HikerAPI Affiliate Program](https://hikerapi.com/help/affiliate)
 

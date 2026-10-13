@@ -783,6 +783,22 @@ class ResearchOSSource:
     def experiment_artifacts(self, experiment_id: str) -> list[dict]:
         return self.client.list_experiment_artifacts(experiment_id)
 
+    def experiment_inherited(
+        self,
+        experiment_id: str,
+        *,
+        runs: bool,
+        after: str | None,
+        limit: int,
+        project_id: str | None = None,
+    ) -> dict:
+        """One page of what a fork reads live from its source
+        (``GET /v1/projects/{P}/experiments/{E}/inherited``): its sources and
+        their run files, or with ``runs`` the runs."""
+        return self.client.experiment_inherited(
+            experiment_id, runs=runs, after=after, limit=limit, project_id=project_id
+        )
+
     def project_artifacts(self, project_id: str) -> list[dict]:
         return self.client.list_project_artifacts(project_id)
 

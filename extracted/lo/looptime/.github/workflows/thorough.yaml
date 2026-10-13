@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - main
-      - release/**
   schedule:
     - cron: "13 3 * * 6"
   workflow_dispatch: {}
@@ -11,48 +10,56 @@ on:
 jobs:
   linters:
     name: Linting and static analysis
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
-          python-version: "3.14"
-      - run: pip install --group dev --group lint -e .
+          github-token: ${{ github.token }}
+          enable-cache: true
+          python-version: "3.15"
+          activate-environment: true
+      - run: uv sync --no-dev --group lint
       - run: pre-commit run --all-files
-      - run: mypy looptime --strict
+      - run: mypy
 
   unit-tests:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
+        # Assumption: if free-threaded works in one version, it works in all versions.
+        python-version: [ "3.11", "3.12", "3.13", "3.14", "3.15", "3.15t" ]
     name: Python ${{ matrix.python-version }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
+          github-token: ${{ github.token }}
+          enable-cache: true
           python-version: ${{ matrix.python-version }}
-
-      - run: pip install --group dev -e .
-      - run: pytest --color=yes --cov=looptime --cov-branch
+          activate-environment: true
+      - run: uv sync --no-dev --group test
+      - run: coverage run --branch --source=looptime -m pytest --color=yes
 
       - name: Publish coverage to Coveralls.io
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel: true
+          flag-name: ${{ matrix.python-version }}
         if: success()
-        run: coveralls --service=github
-        env:
-          GITHUB_TOKEN: ${{ secrets.github_token }}
-        continue-on-error: true
+        continue-on-error: true  # tends to fail with no code changes (e.g. only CI/docs)
       - name: Publish coverage to CodeCov.io
-        uses: codecov/codecov-action@v3
-        if: success()
+        uses: codecov/codecov-action@v7
         env:
           PYTHON: ${{ matrix.python-version }}
         with:
           flags: unit
           env_vars: PYTHON
+          token: ${{ secrets.CODECOV_TOKEN }}
+        if: success()
         continue-on-error: true
 
   # No coverage: PyPy performs extremely poorly with tracing/coverage.
@@ -60,27 +67,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "pypy-3.10", "pypy-3.11" ]
+        python-version: [ "pypy-3.11", "pypy-3.12" ]
     name: Python ${{ matrix.python-version }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
+          github-token: ${{ github.token }}
+          enable-cache: true
           python-version: ${{ matrix.python-version }}
-
-      - run: pip install --group dev -e .
+          activate-environment: true
+      - run: uv sync --no-dev --group test
       - run: pytest --color=yes --no-cov
 
   coveralls-finish:
     name: Finalize coveralls.io
     needs: [unit-tests]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/setup-python@v6
-      - run: pip install coveralls
-      - run: coveralls --service=github --finish
-        env:
-          GITHUB_TOKEN: ${{ secrets.github_token }}
-        continue-on-error: true
+      - name: Finish coverage at Coveralls.io
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true

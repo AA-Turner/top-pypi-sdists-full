@@ -41,6 +41,7 @@ class CredentialTypes(str, Enum):
     GOOGLE_OAUTH = "GoogleOAuth"
     XWIKI = "XWiki"
     MS_TEAMS = "MSTeams"
+    MS_EXCHANGE = "MSExchange"
 
 
 class IntegrationType(str, Enum):

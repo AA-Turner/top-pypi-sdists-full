@@ -1,16 +1,18 @@
 Metadata-Version: 2.4
 Name: ultranest
-Version: 4.5.2
+Version: 4.6.2
 Summary: Fit and compare complex models reliably and rapidly. Advanced Nested Sampling.
 Home-page: https://github.com/JohannesBuchner/ultranest
 Author: Johannes Buchner
 Author-email: johannes.buchner.acad@gmx.com
-License: GNU General Public License v3
+License: GPL-3.0-only
+Project-URL: Homepage, https://github.com/JohannesBuchner/UltraNest
+Project-URL: Source, https://github.com/JohannesBuchner/UltraNest
+Project-URL: Documentation, https://johannesbuchner.github.io/UltraNest/
 Keywords: ultranest
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 2.7
@@ -32,6 +34,7 @@ Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
+Dynamic: project-url
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

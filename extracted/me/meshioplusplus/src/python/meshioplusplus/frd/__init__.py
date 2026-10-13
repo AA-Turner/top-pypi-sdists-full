@@ -2,8 +2,10 @@ from .. import _core
 from .._fallback import core_declined
 from .._files import is_buffer
 from .._helpers import register_format
+from ._frd import SeriesWriter as _PySeriesWriter
 from ._frd import read as _py_read
 from ._frd import read_dat
+from ._frd import write as _py_write
 
 
 def read(filename, points_only=False, arrays=None, time_step=0, derived=False):
@@ -40,6 +42,87 @@ def read(filename, points_only=False, arrays=None, time_step=0, derived=False):
     )
 
 
-register_format("frd", [".frd"], read, {})
+def write(filename, mesh, long_ids=True, binary=False):
+    """Write a CalculiX result file (``.frd``), ASCII or binary.
 
-__all__ = ["read", "read_dat"]
+    The inverse of :func:`read`: the points and the twelve cell types ``ccx`` writes
+    (others are dropped with a warning), ``frd:group`` / ``frd:material`` as each
+    element's group and material, and the point data as one ``-4`` result block per
+    array under its own name, a step's ``meshio:time``, ``frd:step`` and
+    ``frd:analysis`` in the ``100C`` header. ``.frd`` is nodal, holds no sets and
+    prints six digits, so cell data, regions and other field data are dropped with a
+    warning; an array whose name is longer than eight characters, or that is not one
+    value or vector per point, is dropped too. ``long_ids=True`` (what ``ccx``
+    writes) uses ``I10`` ids, ``False`` the short ``I5`` form (99999 nodes or
+    elements at most).
+
+    ``binary=True`` writes the layout ``ccx`` uses for ``*NODE OUTPUT`` and ``*ELEMENT
+    OUTPUT``: the same ASCII headers, then raw little-endian records with no
+    ``-1``/``-2``/``-3`` markers -- ``int32`` ids, ``float64`` coordinates and
+    ``float32`` results, so a round trip keeps single precision (a value beyond the
+    ``float32`` range is refused) -- and `` 9999`` to end. ``long_ids`` does not apply
+    to it, and a buffer has to take bytes. :func:`read` reads both.
+    """
+    if not is_buffer(filename, "w"):
+        try:
+            return _core.frd_write(str(filename), mesh, long_ids, binary)
+        except Exception as exc:
+            if not core_declined(exc, "frd", "write", filename):
+                raise
+    return _py_write(filename, mesh, long_ids=long_ids, binary=binary)
+
+
+class SeriesWriter:
+    """Write a time series into one result file (v16.39.0): the mesh once, then a
+    ``100C`` increment per step, which ``read`` gives back by ``time_step``. A step's
+    value is its time; its number is its ``frd:step`` when positive and unused, else
+    the next free one. Every step must have the first step's cells; a step whose
+    points moved is written with the first step's, with a warning.
+    ``write_sequence(path.frd, steps)`` uses it. ``binary=True`` writes the binary
+    layout of :func:`write`.
+
+    >>> with meshioplusplus.frd.SeriesWriter("run.frd") as w:
+    ...     for time, mesh in steps:
+    ...         w.write(time, mesh)
+
+    The C++ core writes the file; the Python twin, which writes the same bytes, when
+    the core declines to open it.
+    """
+
+    def __init__(self, filename, long_ids=True, binary=False):
+        self._core = self._py = None
+        if not is_buffer(filename, "w"):
+            try:
+                self._core = _core.FrdSeriesWriter(str(filename), long_ids, binary)
+            except Exception as exc:
+                if not core_declined(exc, "frd", "write", filename):
+                    raise
+        if self._core is None:
+            self._py = _PySeriesWriter(filename, long_ids, binary)
+
+    def write(self, time, mesh):
+        if self._core is not None:
+            self._core.write(float(time), mesh)
+        else:
+            self._py.write(time, mesh)
+
+    def close(self):
+        if self._core is not None:
+            if self._core.num_steps():
+                self._core.finalize()
+            self._core = None
+        if self._py is not None:
+            self._py.close()
+            self._py = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+
+register_format("frd", [".frd"], read, {"frd": write})
+
+__all__ = ["read", "read_dat", "write", "SeriesWriter"]

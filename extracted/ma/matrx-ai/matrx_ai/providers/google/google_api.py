@@ -35,6 +35,10 @@ from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
 from .translator import GoogleProviderConfig, GoogleTranslator
+from matrx_ai.providers.request_capture import install_genai_capture
+
+# Capture mode (request_capture.py) stops genai at its last pre-transport step.
+install_genai_capture()
 
 if TYPE_CHECKING:  # circular-by-design: catalog.models imports providers.resolved_capabilities
     from matrx_ai.catalog.models import ResolvedCallProfile

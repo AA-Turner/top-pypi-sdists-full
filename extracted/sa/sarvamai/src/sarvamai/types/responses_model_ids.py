@@ -2,4 +2,4 @@
 
 import typing
 
-ResponsesModelIds = typing.Union[typing.Literal["sarvam-105b", "glm5.3", "gemma4", "deepseekv4-flash"], typing.Any]
+ResponsesModelIds = typing.Union[typing.Literal["sarvam-105b", "glm5.3", "gemma4", "deepseekv4.1-flash"], typing.Any]

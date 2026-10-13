@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: causalml
-Version: 0.17.0
+Version: 0.18.0
 Summary: Python Package for Uplift Modeling and Causal Inference with Machine Learning Algorithms
 Author: Huigang Chen, Totte Harinen, Jeong-Yoon Lee, Jing Pan, Mike Yung, Zhenyu Zhao
 Maintainer: Jeong-Yoon Lee
@@ -21,7 +21,7 @@ Requires-Dist: scikit-learn>=1.6.0
 Requires-Dist: statsmodels>=0.14.5
 Requires-Dist: seaborn
 Requires-Dist: xgboost
-Requires-Dist: pydotplus
+Requires-Dist: pydot>=3.0.0
 Requires-Dist: tqdm
 Requires-Dist: shap
 Requires-Dist: dill
@@ -45,6 +45,13 @@ Requires-Dist: jax>=0.4.1; extra == "jax"
 Requires-Dist: flax>=0.11.0; extra == "jax"
 Requires-Dist: optax>=0.1.4; extra == "jax"
 Requires-Dist: orbax-checkpoint>=0.10.0; extra == "jax"
+Provides-Extra: docs
+Requires-Dist: sphinx<10,>=8.2; extra == "docs"
+Requires-Dist: pydata-sphinx-theme>=0.20.0; extra == "docs"
+Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
+Requires-Dist: nbsphinx; extra == "docs"
+Requires-Dist: ipython>=8.10.0; extra == "docs"
+Requires-Dist: pygments>=2.20.0; extra == "docs"
 Dynamic: license-file
 
 <div align="center">
@@ -55,7 +62,7 @@ Dynamic: license-file
 
 [![PyPI Version](https://badge.fury.io/py/causalml.svg)](https://pypi.org/project/causalml/)
 [![Build Status](https://github.com/uber/causalml/actions/workflows/python-test.yaml/badge.svg)](https://github.com/uber/causalml/actions/workflows/python-test.yaml)
-[![Documentation Status](https://readthedocs.org/projects/causalml/badge/?version=latest)](http://causalml.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/causalml/badge/?version=stable)](https://causalml.readthedocs.io/en/stable/?badge=stable)
 [![Downloads](https://static.pepy.tech/badge/causalml)](https://pepy.tech/project/causalml)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3015/badge)](https://bestpractices.coreinfrastructure.org/projects/3015)
 
@@ -77,30 +84,37 @@ research [[1]](#Literature). It provides a standard interface that allows user t
 
 # Documentation
 
-Documentation is available at:
+Documentation is available at https://causalml.readthedocs.io/. Good places to start:
 
-https://causalml.readthedocs.io/en/latest/about.html
+* [Estimating and Validating Heterogeneous Treatment Effects](https://causalml.readthedocs.io/en/stable/tutorial.html): an end-to-end walkthrough that trains one estimator per family and shows how to decide which one to believe
+* [Choosing an Estimator](https://causalml.readthedocs.io/en/stable/choosing_an_estimator.html): a decision path and capability matrix over the estimators
+* [FAQ](https://causalml.readthedocs.io/en/stable/faq.html): answers to common installation and usage questions
 
 
 # Installation
 
 Installation instructions are available at:
 
-https://causalml.readthedocs.io/en/latest/installation.html
+https://causalml.readthedocs.io/en/stable/installation.html
 
 
 # Quickstart
 
 Quickstarts with code-snippets are available at:
 
-https://causalml.readthedocs.io/en/latest/quickstart.html
+https://causalml.readthedocs.io/en/stable/quickstart.html
 
 
 # Example Notebooks
 
 Example notebooks are available at:
 
-https://causalml.readthedocs.io/en/latest/examples.html
+https://causalml.readthedocs.io/en/stable/examples.html
+
+
+# Benchmark Datasets and Leaderboard
+
+CausalML ships loaders for the standard causal inference benchmarks (LaLonde, IHDP, Twins) with SHA256-verified downloads, plus the ground-truth metrics (PEHE, ATE error, policy risk) they enable. See the [benchmark datasets](https://causalml.readthedocs.io/en/stable/datasets.html) page for each dataset's provenance and terms, and the [leaderboard notebook](https://causalml.readthedocs.io/en/stable/examples/benchmark_leaderboard.html), which regenerates every published number end to end.
 
 
 # Contributing
@@ -121,7 +135,7 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](https:
 # References
 
 ## Documentation
-* [Causal ML API documentation](https://causalml.readthedocs.io/en/latest/about.html)
+* [Causal ML API reference](https://causalml.readthedocs.io/en/stable/causalml.html)
 
 ## Workshops, Talks, and Publications
 * (Workshop) [3rd Workshop on Causal Inference and Machine Learning in Practice](https://causal-machine-learning.github.io/kdd2025-workshop/) at KDD 2025

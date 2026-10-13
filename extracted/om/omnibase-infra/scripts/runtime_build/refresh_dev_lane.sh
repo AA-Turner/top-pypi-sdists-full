@@ -38,6 +38,12 @@
 # Usage:
 #   refresh_dev_lane.sh [--ref <ref>] [--min-contracts <n>] [--execute]
 #       [--lock-timeout <seconds>]
+#   refresh_dev_lane.sh --census-gate [--execute]
+#       Run only the closing step of a refresh (OMN-20876): remove the dev
+#       lane's leftover recreate containers (--execute; without it they are only
+#       named), read the lane census, and exit with the census's code. Starts
+#       nothing and rebuilds nothing, so it is also how a lane that already
+#       carries the drift is repaired without a refresh.
 #   refresh_dev_lane.sh --print-rollback-cmd
 #       Print the exact `docker compose` command the failure rollback would
 #       run, and exit. Reads nothing live, takes no lane lock, mutates nothing.
@@ -55,6 +61,11 @@
 #   2  refresh FAILED and could not be confirmed healthy (warm-rollback also
 #      unhealthy, OR cold-aware path failed with nothing to roll back to) --
 #      STOP AND REPORT, do not retry-until-green
+#   30 the refresh landed (health-gate PASS) but the closing lane census found
+#      drift -- a required container absent, or an unexpected container carrying
+#      the lane label. The census's own drift code, passed through unchanged.
+#   4/5 the closing census could not run (inventory unobservable / host
+#      undeclared); the census's own codes, passed through unchanged.
 #   64 usage / precondition error
 
 set -euo pipefail
@@ -77,6 +88,10 @@ source "${SCRIPT_DIR}/lane_lock.sh"
 # its KAFKA_SASL_* environment. Nothing here spells a compose file by hand.
 # shellcheck source=./compose_files.sh
 source "${SCRIPT_DIR}/compose_files.sh"
+# OMN-20864: the runtime's OWN declared start budget, read by the same helpers
+# the deploy agent and onex-runtime-deploy wait on (OMN-18349/OMN-19374).
+# shellcheck source=./runtime_health_wait.sh
+source "${SCRIPT_DIR}/runtime_health_wait.sh"
 VERIFY_SCRIPT="${SCRIPT_DIR}/verify_dev_refresh.py"
 # OMN-18061: the ONE rule that decides whether a failed refresh may DESTROY the
 # lane, shared byte-for-byte with refresh_stability_lane.sh. OMN-16729 landed
@@ -277,6 +292,7 @@ MANIFEST_URL="http://${LANE_PROBE_HOST}:${DEV_RUNTIME_MAIN_PORT}/v1/introspectio
 HEALTH_URL="http://${LANE_PROBE_HOST}:${DEV_RUNTIME_MAIN_PORT}/health"
 EFFECTS_HEALTH_URL="http://${LANE_PROBE_HOST}:${DEV_RUNTIME_EFFECTS_PORT}/health"
 MODE="plan"
+CENSUS_ONLY=false
 # OMN-16729: bounded wait for the per-lane host lock, in seconds. 15 minutes by
 # default -- long enough to queue behind a legitimate peer refresh of the same
 # lane, short enough that a wedged holder surfaces as a named refusal, never a
@@ -285,7 +301,7 @@ LANE_LOCK_TIMEOUT_SECONDS="${LANE_LOCK_TIMEOUT_SECONDS:-900}"
 TRIGGERING_TAG=""
 
 usage() {
-    sed -n '4,58p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '4,69p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit "${1:-0}"
 }
 
@@ -317,6 +333,8 @@ while [[ $# -gt 0 ]]; do
             MODE="execute"; shift ;;
         --print-rollback-cmd)
             MODE="print-rollback-cmd"; shift ;;
+        --census-gate)
+            CENSUS_ONLY=true; shift ;;
         --help|-h)
             usage 0 ;;
         *)
@@ -334,6 +352,123 @@ if [[ -n "${OMNIBASE_INFRA_COMPOSE_PROJECT:-}" && "${OMNIBASE_INFRA_COMPOSE_PROJ
     err "OMNIBASE_INFRA_COMPOSE_PROJECT='${OMNIBASE_INFRA_COMPOSE_PROJECT}' is set but this script"
     err "  ONLY drives '${COMPOSE_PROJECT}' (dev). Unset it before calling this script."
     exit 64
+fi
+
+# --- the closing lane census (OMN-20876) -----------------------------------
+# A recreate leaves drift nothing repaired: on 2026-10-09 the dev lane was
+# degraded (a required container absent) with a temp-hash-named leftover
+# (`b4320b97cc9a_omnibase-infra-forward-migration`) within hours of a warm
+# refresh. A refresh now ends by READING the census -- the one reader that
+# already exists, lane-census-check.sh over lane_census_plan.py; there is no
+# second one -- and its exit code is the refresh's.
+#
+# The only repair is the one that is unambiguous: a container that carries THIS
+# lane's label, is named `<12 hex>_<name>` and has a name the manifest declares
+# for this lane under the hash is the old container of an interrupted
+# `up --force-recreate`, renamed aside. The census names it as an unexpected
+# container; it is removed, and the census is read again. Every other finding
+# (an absent container, an unexpected container of any other shape) is drift and
+# stays drift: it is reported, never guessed at. A container labelled for another
+# lane is never a candidate -- the census is read for this lane only, and the
+# label is read again from the container itself immediately before the removal.
+LANE_CENSUS_PYTHON="${LANE_CENSUS_PYTHON:-python3}"
+CENSUS_SCRIPT="${REPO_ROOT}/scripts/lane-census-check.sh"
+CENSUS_EXIT=0
+CENSUS_REMOVED=()
+
+# Read the census for this lane into $1 (the plan document, then the drift event
+# when there is drift). --dry-run: the hourly census owns publication, and a
+# refresh is not a second publisher. Returns the census's own exit code.
+read_lane_census() {
+    local out="$1" rc=0
+    LANE_CENSUS_PYTHON="${LANE_CENSUS_PYTHON}" \
+        bash "${CENSUS_SCRIPT}" --lane "${LANE}" --dry-run --json > "${out}" || rc=$?
+    return "${rc}"
+}
+
+# Print the census findings of $1 that name a leftover recreate container.
+census_leftovers() {
+    "${LANE_CENSUS_PYTHON}" - "$1" "${LANE}" "${REPO_ROOT}/scripts" <<'PY'
+import json
+import re
+import sys
+
+plan_path, lane, scripts_dir = sys.argv[1:4]
+sys.path.insert(0, scripts_dir)
+from lane_census_plan import load_manifest
+
+with open(plan_path, encoding="utf-8") as fh:
+    plan, _ = json.JSONDecoder().raw_decode(fh.read().lstrip())
+declared = {s["name"] for s in load_manifest()["lanes"][lane].get("services") or []}
+hashed = re.compile(r"^[0-9a-f]{12}_(.+)$")
+for finding in plan["findings"]:
+    if finding["lane"] != lane or finding["kind"] != "unexpected_container":
+        continue
+    match = hashed.match(finding["container"])
+    if match and match.group(1) in declared:
+        print(finding["container"])
+PY
+}
+
+# Remove one leftover, after re-reading the lane label from the container.
+remove_leftover() {
+    local name="$1" label
+    label="$(docker inspect --format '{{index .Config.Labels "com.omninode.lane"}}' "${name}")" || {
+        err "could not read the lane label of ${name}; not removing it."
+        return 1
+    }
+    if [[ "${label}" != "${LANE}" ]]; then
+        err "${name} carries lane label '${label}', not '${LANE}'; not removing it."
+        return 1
+    fi
+    docker rm -f "${name}" >/dev/null
+}
+
+# Remove this lane's leftovers (execute mode; plan mode only names them), then
+# read the census. Returns the census's exit code, read AFTER the removals.
+lane_census_close() {
+    local scratch plan rc=0 leftover removed_any=false
+    local -a leftovers=()
+    scratch="$(mktemp -d "${TMPDIR:-/tmp}/refresh-dev-lane-census.XXXXXX")"
+    plan="${scratch}/plan.json"
+    CENSUS_REMOVED=()
+
+    read_lane_census "${plan}" || rc=$?
+    # Only drift can carry a leftover; any other code means there is no plan.
+    if [[ "${rc}" -eq 30 ]]; then
+        mapfile -t leftovers < <(census_leftovers "${plan}")
+        for leftover in "${leftovers[@]}"; do
+            [[ -n "${leftover}" ]] || continue
+            if [[ "${MODE}" != "execute" ]]; then
+                log "would remove leftover recreate container ${leftover} (re-run with --execute)"
+            elif remove_leftover "${leftover}"; then
+                log "removed leftover recreate container ${leftover}"
+                CENSUS_REMOVED+=("${leftover}")
+                removed_any=true
+            fi
+        done
+        if [[ "${removed_any}" == true ]]; then
+            rc=0
+            read_lane_census "${plan}" || rc=$?
+        fi
+    fi
+    rm -rf "${scratch}"
+    return "${rc}"
+}
+
+if [[ "${CENSUS_ONLY}" == true ]]; then
+    # The census reader needs docker; nothing else of the refresh does.
+    if [[ "${MODE}" == "execute" ]]; then
+        # Removing a leftover while a refresh is mid-recreate would take away the
+        # container it is about to put back.
+        if ! lane_lock_acquire "${COMPOSE_PROJECT}" "${LANE}" "census-gate" "${LANE_LOCK_TIMEOUT_SECONDS}" "refresh_dev_lane.sh" "--census-gate"; then
+            err "lane '${COMPOSE_PROJECT}' is held by another process; not touching it."
+            exit 2
+        fi
+        trap 'lane_lock_release' EXIT
+    fi
+    lane_census_close || CENSUS_EXIT=$?
+    exit "${CENSUS_EXIT}"
 fi
 
 for cmd in docker git curl jq; do
@@ -362,6 +497,29 @@ run_verify() {
     run_python "${VERIFY_SCRIPT}" "$@"
 }
 
+# OMN-20864: seconds left of a container's declared start budget
+# (start_period + retries x (interval + timeout)), less its age. The health
+# gate does not spend its verdict wait while the runtime answers "still
+# starting" inside this window. On 2026-10-11 the gate read 503 "still
+# starting" for its whole 600 s and the receipt said FAILED over a runtime that
+# was HEALTHY 10 minutes after it started, inside its declared 2000 s. Prints 0
+# when anything is unreadable, which keeps the gate's previous behaviour.
+runtime_boot_window_seconds() {
+    local container="$1" budget started started_epoch now_epoch left
+    [[ -n "${container}" ]] || { echo 0; return 0; }
+    budget="$(runtime_health_budget_seconds "${container}")"
+    started="$(runtime_started_at "${container}")"
+    if [[ ! "${budget}" =~ ^[0-9]+$ ]] || [[ -z "${started}" ]] \
+        || ! started_epoch="$(date -u -d "${started}" +%s 2>/dev/null)"; then
+        echo 0
+        return 0
+    fi
+    now_epoch="$(date -u +%s)"
+    left=$(( budget - (now_epoch - started_epoch) ))
+    (( left > 0 )) || left=0
+    echo "${left}"
+}
+
 run_python() {
     # Run a sibling python script under whichever interpreter this host has.
     # OMN-18061: extracted from run_verify() so the shared rollback decision
@@ -388,6 +546,34 @@ run_preflight_required_env() {
         --compose-file "${INFRA_CLONE}/docker/docker-compose.infra.yml" \
         --compose-file "${INFRA_CLONE}/docker/docker-compose.dev-lane.yml"
 }
+
+# OMN-20867: the lane's env fragment from the private deployment overlay clone,
+# overlaid on the operator env sourced above for the keys it sets -- the same
+# fragment, read the same way (the clone's origin/dev, the routing table's
+# default instance), as the deploy agent's compose env, so a warm refresh never
+# undoes what the agent applied. The clone is the one under OMNI_HOME that
+# carries fragments. No clone or no fragment exports nothing; a fragment the
+# reader refuses (a key outside its schema's allowlist, an empty value, two
+# clones that both carry fragments) stops the refresh here, before anything is
+# built.
+LANE_ENV_EXPORTS=""
+if ! LANE_ENV_EXPORTS="$(PYTHONPATH="${REPO_ROOT}/scripts/deploy-agent${PYTHONPATH:+:${PYTHONPATH}}" \
+        run_python -c 'import sys
+from pathlib import Path
+from deploy_agent.instance_lanes import default_instance_lane_env_exports
+sys.stdout.write(default_instance_lane_env_exports(sys.argv[1], Path(sys.argv[2])))' \
+        "${REPO_ROOT}" "${OMNI_HOME}")"; then
+    err "LANE_ENV_FRAGMENT_REFUSED: the lane env fragment could not be applied"
+    err "  (reason above); nothing was built or restarted."
+    exit 64
+fi
+if [[ -n "${LANE_ENV_EXPORTS}" ]]; then
+    # shellcheck source=/dev/null
+    source <(printf '%s' "${LANE_ENV_EXPORTS}")
+    log "lane env fragment applied: $(printf '%s' "${LANE_ENV_EXPORTS}" | sed -e 's/^export //' | tr '\n' ' ')"
+else
+    log "lane env fragment: none"
+fi
 
 INFRA_CLONE="${OMNI_HOME}/omnibase_infra"
 
@@ -832,6 +1018,8 @@ CONTAINER_IDS_JSON="$(
 
 GATE1_JSON="${WORKDIR}/gate1.json"
 GATE_EXIT=0
+BOOT_WINDOW_SECONDS="$(runtime_boot_window_seconds "${NEW_CONTAINER_IDS[omninode-runtime]:-}")"
+log "runtime boot window: ${BOOT_WINDOW_SECONDS}s left of omninode-runtime's declared start budget"
 # shellcheck disable=SC2086
 run_verify \
     --lane "${LANE}" \
@@ -843,6 +1031,7 @@ run_verify \
     --effects-health-url "${EFFECTS_HEALTH_URL}" \
     --broker-container "${REDPANDA_CONTAINER}" \
     --min-contracts "${MIN_CONTRACTS}" \
+    --boot-window-seconds "${BOOT_WINDOW_SECONDS}" \
     ${REQUIRE_DIGEST_CHANGE} \
     --json > "${GATE1_JSON}" || GATE_EXIT=$?
 
@@ -952,6 +1141,7 @@ elif [[ "${DECISION_RESULT}" == "ROLLBACK_REQUIRED" ]]; then
     )"
     GATE2_JSON="${WORKDIR}/gate2.json"
     GATE2_EXIT=0
+    ROLLBACK_BOOT_WINDOW_SECONDS="$(runtime_boot_window_seconds "$(compose_ps_q_any omninode-runtime)")"
     run_verify \
         --lane "${LANE}" \
         --expected-revision "${OLD_INFRA_REVISION:-unknown}" \
@@ -962,6 +1152,7 @@ elif [[ "${DECISION_RESULT}" == "ROLLBACK_REQUIRED" ]]; then
         --effects-health-url "${EFFECTS_HEALTH_URL}" \
         --broker-container "${REDPANDA_CONTAINER}" \
         --min-contracts "${MIN_CONTRACTS}" \
+        --boot-window-seconds "${ROLLBACK_BOOT_WINDOW_SECONDS}" \
         --no-require-digest-change \
         --json > "${GATE2_JSON}" || GATE2_EXIT=$?
 
@@ -1003,6 +1194,29 @@ else
     err "STOP AND REPORT: cold-aware refresh FAILED health-gate and there is"
     err "no prior running state to roll back to. Manual intervention required."
     err "=============================================================="
+fi
+
+# --- close with the lane census (OMN-20876) ----------------------------------
+# A refresh that landed is only done when the lane it landed on matches its
+# manifest: the census is read last, and its exit code is the refresh's.
+CENSUS_RAN=false
+if [[ "${RESULT}" == "SUCCESS" ]]; then
+    CENSUS_RAN=true
+    log "=== Lane census ==="
+    lane_census_close || CENSUS_EXIT=$?
+    if [[ "${CENSUS_EXIT}" -ne 0 ]]; then
+        RESULT="FAILED_CENSUS_DRIFT"
+        err "=============================================================="
+        err "STOP AND REPORT: the health-gate passed but the lane census exited"
+        err "${CENSUS_EXIT} -- the dev lane does not match its manifest (findings"
+        err "above). The refresh does not certify a lane that has drifted."
+        err "=============================================================="
+    fi
+fi
+if [[ "${#CENSUS_REMOVED[@]}" -gt 0 ]]; then
+    CENSUS_REMOVED_JSON="$(printf '%s\n' "${CENSUS_REMOVED[@]}" | jq -Rn '[inputs]')"
+else
+    CENSUS_REMOVED_JSON='[]'
 fi
 
 # --- emit receipt ------------------------------------------------------------
@@ -1051,6 +1265,9 @@ jq -n \
     --argjson provenance_failures "${PROVENANCE_FAILURES_JSON}" \
     --argjson decision "${DECISION_RECORD_JSON}" \
     --argjson onex_api "${ONEX_API_JSON}" \
+    --argjson census_ran "${CENSUS_RAN}" \
+    --argjson census_exit "${CENSUS_EXIT}" \
+    --argjson census_removed "${CENSUS_REMOVED_JSON}" \
     --arg result "${RESULT}" \
     '{
         ts_utc: $ts,
@@ -1065,6 +1282,7 @@ jq -n \
         lane_health: {healthy: $lane_is_healthy, failing_dimensions: $unhealthy_dimensions},
         build_provenance: {failing_dimensions: $provenance_failures},
         onex_api: $onex_api,
+        lane_census: {ran: $census_ran, exit: $census_exit, leftovers_removed: $census_removed},
         rollback: {
             triggered: $rollback_triggered,
             gate: $rollback_gate,
@@ -1084,5 +1302,9 @@ case "${RESULT}" in
     # 1 == refresh failed, lane HEALTHY. FAILED_ROLLED_BACK got there by being
     # restored; FAILED_BUILD_PROVENANCE got there by never being touched.
     FAILED_ROLLED_BACK|FAILED_BUILD_PROVENANCE) exit 1 ;;
+    # The lane is serving and the refresh landed; the census disagrees with the
+    # manifest. The census's own code, so a caller can tell drift (30) from an
+    # unreadable census (4, 5).
+    FAILED_CENSUS_DRIFT) exit "${CENSUS_EXIT}" ;;
     *) exit 2 ;;
 esac

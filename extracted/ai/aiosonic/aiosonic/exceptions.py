@@ -52,7 +52,23 @@ class MaxRedirects(AiosonicError):
 
 # Reconnect
 class ConnectionDisconnected(AiosonicError):
-    pass
+    """Raised when the connection is closed before the response is received.
+
+    Attributes:
+        reused_connection (bool): Whether the request was sent over a reused keep-alive connection.
+    """
+
+    def __init__(self, *args, reused_connection: bool = False) -> None:
+        super().__init__(*args)
+        self.reused_connection = reused_connection
+
+
+class WebSocketMessageTooBig(ConnectionDisconnected):
+    """Raised when a received WebSocket frame is bigger than ``max_msg_size``.
+
+    Also raised for a control frame bigger than 125 bytes. The frame is not read: the connection is closed with
+    code 1009.
+    """
 
 
 # HTTP2

@@ -28,6 +28,8 @@ from nemo_gym.telemetry.config import TelemetryConfig
 from nemo_gym.telemetry.setup import (
     configure_telemetry_env,
     is_telemetry_env_enabled,
+    is_telemetry_metrics_enabled,
+    memory_profiling_config_from_env,
     telemetry_config_from_global_config,
 )
 from tests.unit_tests.telemetry.conftest import no_lens
@@ -38,17 +40,35 @@ def test_defaults_are_off_and_gym_shaped():
     assert config.enabled is False
     assert config.service_name == "nemo-gym"
     assert config.span_groups == "default"
+    assert config.memory_profiling.enabled is False
+    assert config.memory_profiling.interval_seconds == 1.0
 
 
-def test_export_strategy_defaults_to_all_ranks():
-    """Every Gym server process must export.
+def test_memory_profiling_config_is_nested_under_telemetry():
+    config = TelemetryConfig.model_validate(
+        {
+            "enabled": True,
+            "memory_profiling": {
+                "enabled": True,
+                "interval_seconds": 2.5,
+            },
+        }
+    )
 
-    NeMo-RL and Megatron-LM default to `single_rank` because they run one process tree
-    where rank 0 is representative. Every Gym server is rank 0 of its own world of 1, so
-    `single_rank` would be meaningless here and any silenced process is a hole in the
-    middle of a distributed trace.
-    """
-    assert TelemetryConfig().export_strategy == "all_ranks"
+    assert config.memory_profiling.enabled is True
+    assert config.memory_profiling.interval_seconds == 2.5
+
+
+def test_memory_profiling_interval_must_be_positive():
+    with pytest.raises(ValueError, match="interval_seconds"):
+        TelemetryConfig.model_validate(
+            {
+                "memory_profiling": {
+                    "enabled": True,
+                    "interval_seconds": 0,
+                }
+            }
+        )
 
 
 def test_unknown_keys_are_preserved_not_rejected():
@@ -100,11 +120,100 @@ def test_config_is_translated_into_env_for_spawned_servers(clean_otel_env):
     assert os.environ["OTEL_SERVICE_NAME"] == "my-gym"
 
 
+def test_otlp_destination_is_translated_into_the_standard_sdk_env_vars(clean_otel_env):
+    """The OTLP endpoint/protocol/headers must reach the standard (unprefixed) OTel SDK
+    vars, since that's what the exporter itself reads — not the NEMO_GYM_OTEL_* scheme."""
+    configure_telemetry_env(
+        TelemetryConfig(
+            enabled=True,
+            otlp_endpoint="https://api.honeycomb.io",
+            otlp_protocol="http/protobuf",
+            otlp_headers="x-honeycomb-team=abc123",
+        )
+    )
+    assert os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] == "https://api.honeycomb.io"
+    assert os.environ["OTEL_EXPORTER_OTLP_PROTOCOL"] == "http/protobuf"
+    assert os.environ["OTEL_EXPORTER_OTLP_HEADERS"] == "x-honeycomb-team=abc123"
+
+
+def test_otlp_destination_env_wins_over_yaml(clean_otel_env):
+    """Same precedence as every other field: a raw env var beats the YAML block."""
+    clean_otel_env.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://set-by-hand.example")
+
+    configure_telemetry_env(TelemetryConfig(enabled=True, otlp_endpoint="https://from-yaml.example"))
+
+    assert os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] == "https://set-by-hand.example"
+
+
+def test_unset_otlp_fields_write_nothing(clean_otel_env):
+    """The default (None) must not clobber a collector/backend default with an empty string."""
+    configure_telemetry_env(TelemetryConfig(enabled=True))
+    assert "OTEL_EXPORTER_OTLP_ENDPOINT" not in os.environ
+    assert "OTEL_EXPORTER_OTLP_PROTOCOL" not in os.environ
+    assert "OTEL_EXPORTER_OTLP_HEADERS" not in os.environ
+
+
 def test_booleans_are_translated_as_1_and_0(clean_otel_env):
-    configure_telemetry_env(TelemetryConfig(enabled=True, logs_enabled=False, metrics_enabled=True))
+    configure_telemetry_env(
+        TelemetryConfig(
+            enabled=True,
+            logs_enabled=False,
+            metrics_enabled=True,
+            memory_profiling={"enabled": True, "interval_seconds": 2.5},
+        )
+    )
     assert os.environ["NEMO_GYM_OTEL_ENABLED"] == "1"
     assert os.environ["NEMO_GYM_OTEL_LOGS_ENABLED"] == "0"
     assert os.environ["NEMO_GYM_OTEL_METRICS_ENABLED"] == "1"
+    assert os.environ["NEMO_GYM_OTEL_MEMORY_PROFILING_ENABLED"] == "1"
+    assert os.environ["NEMO_GYM_OTEL_MEMORY_PROFILING_INTERVAL_SECONDS"] == "2.5"
+
+
+def test_memory_profiling_can_be_enabled_entirely_from_env(clean_otel_env):
+    clean_otel_env.setenv("NEMO_GYM_OTEL_ENABLED", "1")
+    clean_otel_env.setenv("NEMO_GYM_OTEL_MEMORY_PROFILING_ENABLED", "1")
+    clean_otel_env.setenv("NEMO_GYM_OTEL_MEMORY_PROFILING_INTERVAL_SECONDS", "0.25")
+
+    config = TelemetryConfig()
+    configure_telemetry_env(config)
+    resolved = memory_profiling_config_from_env(config.memory_profiling)
+
+    assert resolved.enabled is True
+    assert resolved.interval_seconds == 0.25
+
+
+def test_memory_profiling_env_overrides_yaml(clean_otel_env):
+    clean_otel_env.setenv("NEMO_GYM_OTEL_MEMORY_PROFILING_ENABLED", "0")
+    clean_otel_env.setenv("NEMO_GYM_OTEL_MEMORY_PROFILING_INTERVAL_SECONDS", "3")
+    config = TelemetryConfig.model_validate(
+        {
+            "memory_profiling": {
+                "enabled": True,
+                "interval_seconds": 1,
+            }
+        }
+    )
+
+    resolved = memory_profiling_config_from_env(config.memory_profiling)
+
+    assert resolved.enabled is False
+    assert resolved.interval_seconds == 3.0
+
+
+def test_memory_profiling_env_rejects_invalid_interval(clean_otel_env):
+    clean_otel_env.setenv("NEMO_GYM_OTEL_MEMORY_PROFILING_INTERVAL_SECONDS", "0")
+
+    with pytest.raises(ValueError, match="interval_seconds"):
+        memory_profiling_config_from_env(TelemetryConfig().memory_profiling)
+
+
+def test_effective_metrics_switch_follows_env_precedence(clean_otel_env):
+    assert is_telemetry_metrics_enabled() is True
+
+    clean_otel_env.setenv("NEMO_LENS_METRICS_ENABLED", "1")
+    clean_otel_env.setenv("NEMO_GYM_OTEL_METRICS_ENABLED", "0")
+
+    assert is_telemetry_metrics_enabled() is False
 
 
 def test_env_wins_over_yaml(clean_otel_env):

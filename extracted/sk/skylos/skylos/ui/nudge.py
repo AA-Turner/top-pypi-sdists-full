@@ -1,6 +1,9 @@
 import os
+import shlex
 from pathlib import Path
 import stat
+
+from skylos.ui.dead_code_evidence import dead_code_uncertainty_summary
 
 NUDGE_PYPROJECT_MAX_BYTES = 512 * 1024
 
@@ -96,6 +99,28 @@ def _read_pyproject_text(toml_path: Path) -> str:
     return data.decode("utf-8")
 
 
+def done_tip(ref=None, project_root=None):
+    """Point from a changed-lines check to `skylos done`.
+
+    `--diff` and `skylos verify` look for findings on the changed lines;
+    `skylos done` checks how the change was made. Returns plain text, or None
+    in CI and when nudges are off.
+    """
+    if _is_ci() or not _nudges_enabled(project_root):
+        return None
+    if not ref:
+        command = "skylos done --base main"
+    elif ref == "HEAD":
+        # HEAD means uncommitted work, which is what plain `skylos done` checks.
+        command = "skylos done"
+    else:
+        command = f"skylos done --base {shlex.quote(ref)}"
+    return (
+        "To check a branch an AI agent wrote (deleted tests, loosened CI, "
+        f"test-only shortcuts), run: {command}"
+    )
+
+
 def pick_nudge(result, args, project_root=None):
     if getattr(args, "json", False):
         return None
@@ -157,6 +182,8 @@ def pick_nudge(result, args, project_root=None):
         return "[dim]Auto-remediate:[/dim] [bold]skylos agent remediate .[/bold]"
 
     if total == 0:
-        return "[dim]Clean codebase! Share it:[/dim] [bold]skylos badge[/bold]"
+        if dead_code_uncertainty_summary(result)["count"]:
+            return "[dim]Some symbols have uncertain usage. Review the scan evidence before removing them.[/dim]"
+        return "[dim]No findings at current settings. Add an Analyzed with Skylos badge:[/dim] [bold]skylos badge[/bold]"
 
     return None

@@ -58,6 +58,7 @@ from py7zr.exceptions import (
     DecompressionBombError,
     DecompressionError,
     InternalError,
+    PasswordRequired,
     UnsupportedCompressionMethodError,
 )
 from py7zr.helpers import (
@@ -469,6 +470,13 @@ class SevenZipFile(contextlib.AbstractContextManager):
         self.sig_header = SignatureHeader.retrieve(self.fp)  # type: ignore[arg-type]
         self.afterheader: int = self.fp.tell()
         self.fp.seek(self.sig_header.nextheaderofs, os.SEEK_CUR)
+        # read() pre-allocates what it is asked for, so refuse a declared header
+        # size that the file cannot hold before reading rather than after.
+        header_start = self.fp.tell()
+        file_size = self.fp.seek(0, os.SEEK_END)
+        self.fp.seek(header_start, os.SEEK_SET)
+        if self.sig_header.nextheadersize > file_size - header_start:
+            raise Bad7zFile("next header size %d exceeds the archive size" % self.sig_header.nextheadersize)
         buffer = io.BytesIO(self.fp.read(self.sig_header.nextheadersize))
         if self.sig_header.nextheadercrc != calculate_crc32(buffer.getvalue()):
             raise Bad7zFile("invalid header data")
@@ -698,6 +706,8 @@ class SevenZipFile(contextlib.AbstractContextManager):
             for f in filters:
                 if f["id"] == FILTER_DEFLATE64:
                     raise UnsupportedCompressionMethodError(filters, "Compression with deflate64 is not supported.")
+        if password is None and SupportedMethods.needs_password_for_filters(filters):
+            raise PasswordRequired(filters, "Password is required for writing encrypted archive.")
         self.header.filters = filters
         self.header.password = password
         if self.header.main_streams is not None:
@@ -712,6 +722,8 @@ class SevenZipFile(contextlib.AbstractContextManager):
             filters = DEFAULT_FILTERS.ENCRYPTED_ARCHIVE_FILTER
         elif filters is None:
             filters = DEFAULT_FILTERS.ARCHIVE_FILTER
+        if password is None and SupportedMethods.needs_password_for_filters(filters):
+            raise PasswordRequired(filters, "Password is required for writing encrypted archive.")
         self.files = ArchiveFileList()
         self.sig_header = SignatureHeader()
         self.sig_header._write_skeleton(self.fp)
@@ -819,6 +831,8 @@ class SevenZipFile(contextlib.AbstractContextManager):
             return False
 
     def _get_method_names(self) -> list[str]:
+        if self.header.main_streams is None:
+            return []
         try:
             return get_methods_names([folder.coders for folder in self.header.main_streams.unpackinfo.folders])
         except KeyError:
@@ -835,7 +849,12 @@ class SevenZipFile(contextlib.AbstractContextManager):
         return digest
 
     def _is_solid(self):
-        for f in self.header.main_streams.substreamsinfo.num_unpackstreams_folders:
+        if self.header.main_streams is None:
+            return False
+        substreamsinfo = self.header.main_streams.substreamsinfo
+        if substreamsinfo is None:
+            return False
+        for f in substreamsinfo.num_unpackstreams_folders:
             if f > 1:
                 return True
         return False
@@ -950,7 +969,8 @@ class SevenZipFile(contextlib.AbstractContextManager):
         return sevenzipinfo
 
     def archiveinfo(self) -> ArchiveInfo:
-        total_uncompressed = functools.reduce(lambda x, y: x + y, [f.uncompressed for f in self.files])
+        uncompressed_list = [f.uncompressed for f in self.files]
+        total_uncompressed = functools.reduce(lambda x, y: x + y, uncompressed_list, 0)
         if isinstance(self.fp, multivolumefile.MultiVolume):
             fname = self.fp.name
             fstat = self.fp.stat()
@@ -958,13 +978,14 @@ class SevenZipFile(contextlib.AbstractContextManager):
             fname = self.filename
             assert fname is not None
             fstat = os.stat(fname)
+        blocks = len(self.header.main_streams.unpackinfo.folders) if self.header.main_streams is not None else 0
         return ArchiveInfo(
             fname,
             fstat,
             self.header.size,
             self._get_method_names(),
             self._is_solid(),
-            len(self.header.main_streams.unpackinfo.folders),
+            blocks,
             total_uncompressed,
         )
 
@@ -1252,6 +1273,10 @@ def pack_7zarchive(base_name, base_dir, owner=None, group=None, dry_run=None, lo
     Function for registering with shutil.register_archive_format().
     """
     target_name = f"{base_name}.7z"
+    if dry_run:
+        if logger is not None:
+            logger.debug("py7zr: creating '%s' from '%s'", target_name, base_dir)
+        return target_name
     with SevenZipFile(target_name, mode="w") as archive:
         archive.writeall(path=base_dir)
     return target_name
@@ -1272,7 +1297,7 @@ class Worker:
         self.max_extract_size: int | None = None
         self._total_extracted: int = 0
         if mp:
-            self.concurrent: type[Thread] | type[Process] = Process
+            self.concurrent: type[Thread | Process] = Process
         else:
             self.concurrent = Thread
 
@@ -1324,6 +1349,7 @@ class Worker:
                     self.extract_single(open(filename, "rb"), empty_files, path, 0, 0, q)
                     concurrent_tasks = []
                     exc_q: queue.Queue = queue.Queue()
+                    max_workers = max(1, os.cpu_count() or 1)
                     for i in range(numfolders):
                         if skip_notarget:
                             if not any([self.target_filepath.get(f.id, None) for f in folders[i].files]):
@@ -1343,6 +1369,8 @@ class Worker:
                         )
                         p.start()
                         concurrent_tasks.append(p)
+                        if len(concurrent_tasks) >= max_workers:
+                            concurrent_tasks.pop(0).join()
                     for p in concurrent_tasks:
                         p.join()
                     if exc_q.empty():
@@ -1447,7 +1475,6 @@ class Worker:
                     else:
                         with fileish.open(mode="wb") as obfp:
                             crc32 = self.decompress(fp, f.folder, obfp, f.uncompressed, f.compressed, src_end, q)
-                            obfp.seek(0)
                             if f.crc32 is not None and crc32 != f.crc32:
                                 raise CrcError(crc32, f.crc32, f.filename)
                 else:
@@ -1505,6 +1532,7 @@ class Worker:
         previous_update_at = time.time()
         decompressed_bytes = 0
         while out_remaining > 0:
+            src_pos = fp.tell()
             tmp = decompressor.decompress(fp, min(out_remaining, max_block_size))
             if len(tmp) > 0:
                 if self.max_extract_size is not None:
@@ -1517,6 +1545,8 @@ class Worker:
                 out_remaining -= len(tmp)
                 fq.write(tmp)
                 crc32 = calculate_crc32(tmp, crc32)
+            elif fp.tell() == src_pos:
+                raise Bad7zFile("decompression failed to make progress before reaching declared size")
             if q is not None:
                 time_delta = time.time() - previous_update_at
                 decompressed_bytes += len(tmp)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dspy
-Version: 3.4.0
+Version: 3.4.1
 Summary: DSPy
 Author-email: Omar Khattab <okhattab@stanford.edu>
 License: MIT License
@@ -30,7 +30,7 @@ Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.16,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: openai>=1.66.2
@@ -39,14 +39,16 @@ Requires-Dist: orjson>=3.9.0
 Requires-Dist: tqdm>=4.66.1
 Requires-Dist: requests>=2.31.0
 Requires-Dist: pydantic>=2.11.0
-Requires-Dist: litellm>=1.65.8
+Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: litellm>=1.65.8; python_version < "3.15"
+Requires-Dist: jsonschema>=4.0.0
 Requires-Dist: diskcache>=5.6.0
 Requires-Dist: json-repair>=0.54.2
 Requires-Dist: tenacity>=8.2.3
 Requires-Dist: anyio
 Requires-Dist: cachetools>=5.5.0
 Requires-Dist: cloudpickle>=3.1.2
-Requires-Dist: gepa[dspy]==0.1.4
+Requires-Dist: gepa[dspy]==0.1.4; python_version < "3.15"
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.18.0; extra == "anthropic"
 Provides-Extra: typesafe
@@ -77,8 +79,9 @@ Requires-Dist: datamodel_code_generator>=0.26.3; extra == "dev"
 Requires-Dist: build>=1.0.3; extra == "dev"
 Requires-Dist: numpy>=1.26.0; extra == "dev"
 Requires-Dist: fastapi<0.140.7; (sys_platform != "win32" and python_version < "3.14") and extra == "dev"
-Requires-Dist: litellm>=1.65.8; (sys_platform == "win32" or python_version == "3.14") and extra == "dev"
+Requires-Dist: litellm>=1.65.8; (sys_platform == "win32" or python_version >= "3.14") and extra == "dev"
 Requires-Dist: litellm[proxy]>=1.65.8; (sys_platform != "win32" and python_version < "3.14") and extra == "dev"
+Requires-Dist: gepa[dspy]==0.1.4; extra == "dev"
 Provides-Extra: test-extras
 Requires-Dist: mcp; python_version >= "3.10" and extra == "test-extras"
 Requires-Dist: datasets>=2.14.6; extra == "test-extras"

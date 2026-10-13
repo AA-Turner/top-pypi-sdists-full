@@ -5,14 +5,17 @@ import itertools
 import textwrap
 import traceback
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from json import JSONDecodeError
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
-from schemathesis.core.compat import BaseExceptionGroup
-from schemathesis.core.output import decode_response_text, escape_surrogates, prepare_response_payload
+from schemathesis.core.output import (
+    BINARY_PAYLOAD,
+    EMPTY_PAYLOAD,
+    escape_surrogates,
+    format_response_payload,
+)
 from schemathesis.core.transport import Response
 
 if TYPE_CHECKING:
@@ -36,7 +39,7 @@ def reason_phrase(status_code: int) -> str:
     return _RFC9110_PHRASES.get(status_code) or http.client.responses.get(status_code, "Unknown")
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     # For server errors, security issues like ignored auth
     CRITICAL = "critical"
     # For schema violations
@@ -53,11 +56,12 @@ class Severity(str, Enum):
 _SEVERITY_ORDER = {Severity.CRITICAL: 0, Severity.HIGH: 1, Severity.MEDIUM: 2, Severity.LOW: 3}
 
 
-@dataclass
 class Failure(AssertionError):
     """API check failure."""
 
     __slots__ = ("operation", "title", "message", "case_id", "severity")
+    # Whether rerunning as the identity that sent the request reproduces the failure.
+    reproducible_by_identity: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -73,6 +77,12 @@ class Failure(AssertionError):
         self.message = message
         self.case_id = case_id
         self.severity = severity
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}(operation={self.operation!r}, title={self.title!r}, "
+            f"message={self.message!r}, case_id={self.case_id!r}, severity={self.severity!r})"
+        )
 
     def __str__(self) -> str:
         if not self.message:
@@ -338,10 +348,10 @@ class AcceptedNegativeData(Failure):
         return str(self.status_code)
 
 
-class FailureGroup(BaseExceptionGroup):
+class FailureGroup(BaseExceptionGroup[Failure]):
     """Multiple distinct check failures."""
 
-    exceptions: Sequence[Failure]
+    exceptions: tuple[Failure, ...]
 
     def __init__(self, exceptions: Sequence[Failure], message: str = "", /) -> None:
         super().__init__(message, exceptions)
@@ -365,7 +375,7 @@ def as_reported_failure(exc: FailureGroup) -> FailureGroup:
     return reported.with_traceback(exc.__traceback__)
 
 
-class MessageBlock(str, Enum):
+class MessageBlock(StrEnum):
     CASE_ID = "case_id"
     FAILURE = "failure"
     STATUS = "status"
@@ -380,6 +390,19 @@ def failure_report_title(failures: Sequence[Failure]) -> str:
     if len(failures) > 1:
         message += "s"
     return message
+
+
+def group_failures(failures: Sequence[Failure]) -> list[tuple[str, list[Failure]]]:
+    """Collapse runs of same-title same-class failures (e.g. several `JsonSchemaError`s on one response)."""
+    return [
+        (title, list(group))
+        for (_, title), group in itertools.groupby(failures, key=lambda failure: (type(failure), failure.title))
+    ]
+
+
+def reproducible_by_identity(failures: Sequence[Failure]) -> bool:
+    """Whether replaying as the identity that sent the request reproduces every failure."""
+    return all(failure.reproducible_by_identity for failure in failures)
 
 
 def format_failures(
@@ -400,10 +423,7 @@ def format_failures(
     else:
         output = ""
 
-    # Failures — collapse the title for runs of same-title same-class failures
-    # (e.g. multiple `JsonSchemaError`s on one response) into one header.
-    for (_, title), group_iter in itertools.groupby(failures, key=lambda f: (type(f), f.title)):
-        group = list(group_iter)
+    for title, group in group_failures(failures):
         suffix = f" ({len(group)} violations)" if len(group) > 1 else ""
         output += formatter(MessageBlock.FAILURE, f"\n- {title}{suffix}")
         for failure in group:
@@ -416,23 +436,18 @@ def format_failures(
     if isinstance(response, Response):
         reason = reason_phrase(response.status_code)
         output += formatter(MessageBlock.STATUS, f"\n[{response.status_code}] {reason}:\n")
-        # Response payload
-        if response.content is None or not response.content:
-            output += "\n    <EMPTY>"
+        payload = format_response_payload(response, config=config)
+        if payload in (EMPTY_PAYLOAD, BINARY_PAYLOAD):
+            output += f"\n    {payload}"
         else:
-            text = decode_response_text(response)
-            if text is None:
-                output += "\n    <BINARY>"
-            else:
-                payload = prepare_response_payload(text, config=config)
-                output += textwrap.indent(f"\n`{payload}`", prefix="    ")
-    if auth_identity is not None:
+            output += textwrap.indent(f"\n`{payload}`", prefix="    ")
+    if auth_identity is not None and reproducible_by_identity(failures):
         output += formatter(
             MessageBlock.STATUS, f"\nIdentity: {auth_identity} (reproduce with --auth-wfc-user {auth_identity})"
         )
     # `response`/`curl` are None for failures not tied to a case (e.g. after_run): nothing to show.
     if curl is not None:
-        _curl = "\n".join(f"    {line}" for line in curl.splitlines())
+        _curl = "\n".join(f"    {line}" if line else line for line in curl.splitlines())
         output += "\n" + formatter(MessageBlock.CURL, f"\nReproduce with:\n\n{_curl}")
 
     return escape_surrogates(output.rstrip("\n"))

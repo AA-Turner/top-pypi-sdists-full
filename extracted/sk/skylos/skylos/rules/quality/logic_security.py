@@ -3,6 +3,7 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+from skylos.rules import secret_shapes
 from skylos.rules.base import SkylosRule
 from skylos.rules.quality._function_defaults import (
     annotation_accepts_ellipsis,
@@ -19,17 +20,17 @@ from skylos.rules.quality.logic_foundation import _string_literal_value
 from skylos.rules.vibe_dictionary import DEFAULT_VIBE_DICTIONARY
 
 
-DEBUG_FUNCTIONS = {"print", "pprint", "breakpoint", "ic"}
+DEBUG_FUNCTIONS = {"breakpoint", "ic"}
 DEBUG_METHOD_CALLS = {
     ("pdb", "set_trace"),
     ("ipdb", "set_trace"),
     ("pudb", "set_trace"),
     ("code", "interact"),
-    ("pprint", "pprint"),
 }
 
-_CLI_FILENAMES = {"cli.py", "__main__.py", "manage.py"}
-_SKIP_DIRS = {"scripts", "bin", "tools"}
+_DEBUG_OUTPUT_MARKER = re.compile(
+    r"^\s*(?:\[(?:DEBUG|DBG)\]|(?:DEBUG|DBG)(?:\s*[:=]|\s*$))", re.IGNORECASE
+)
 
 
 @lru_cache(maxsize=4096)
@@ -45,138 +46,73 @@ def _is_test_file(filename):
     return False
 
 
-@lru_cache(maxsize=4096)
-def _is_cli_or_script(filename):
-    filename = str(filename).replace("\\", "/")
-    base = filename.rsplit("/", 1)[-1]
-    if base in _CLI_FILENAMES:
-        return True
-    for part in filename.split("/"):
-        if part in _SKIP_DIRS:
-            return True
-    return False
-
-
-def _is_main_guard(node: ast.AST) -> bool:
-    if not isinstance(node, ast.If):
-        return False
-    test = node.test
-    if not isinstance(test, ast.Compare) or len(test.ops) != 1:
-        return False
-    if not isinstance(test.ops[0], ast.Eq) or len(test.comparators) != 1:
-        return False
-    left, right = test.left, test.comparators[0]
+def _is_raw_state_dump(node: ast.AST) -> bool:
     return (
-        isinstance(left, ast.Name)
-        and left.id == "__name__"
-        and isinstance(right, ast.Constant)
-        and right.value == "__main__"
-    ) or (
-        isinstance(right, ast.Name)
-        and right.id == "__name__"
-        and isinstance(left, ast.Constant)
-        and left.value == "__main__"
-    )
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in {"locals", "globals", "vars"}
+    ) or (isinstance(node, ast.Attribute) and node.attr == "__dict__")
 
 
-def _scope_calls(statements: list[ast.stmt]) -> list[ast.Call]:
-    calls: list[ast.Call] = []
-
-    class CallVisitor(ast.NodeVisitor):
-        def visit_Call(self, node: ast.Call) -> None:
-            calls.append(node)
-            self.generic_visit(node)
-
-        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-            return
-
-        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-            return
-
-        def visit_ClassDef(self, node: ast.ClassDef) -> None:
-            return
-
-        def visit_Lambda(self, node: ast.Lambda) -> None:
-            return
-
-    visitor = CallVisitor()
-    for statement in statements:
-        visitor.visit(statement)
-    return calls
-
-
-def _is_cli_entry_name(name: str) -> bool:
-    return name == "cli" or name.endswith("_cli") or name.startswith("cli_")
-
-
-def _main_has_cli_arguments(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-    if any(arg.arg == "argv" for arg in (*node.args.posonlyargs, *node.args.args)):
-        return True
-    for call in _scope_calls(node.body):
-        if isinstance(call.func, ast.Attribute) and call.func.attr == "parse_args":
-            return True
-    return any(
-        isinstance(child, ast.Attribute)
-        and child.attr == "argv"
-        and isinstance(child.value, ast.Name)
-        and child.value.id == "sys"
-        for child in ast.walk(node)
-    )
-
-
-def _intentional_cli_prints(source: str) -> set[tuple[int, int]]:
-    try:
-        tree = ast.parse(source)
-    except (SyntaxError, ValueError):
-        return set()
-
-    functions = {
-        node.name: node
-        for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-    }
-    guard_calls = [
-        call
-        for node in tree.body
-        if _is_main_guard(node)
-        for call in _scope_calls(node.body)
-    ]
-    if not guard_calls:
-        return set()
-
-    positions = {
-        (call.lineno, call.col_offset)
-        for call in guard_calls
-        if isinstance(call.func, ast.Name) and call.func.id == "print"
-    }
-    reachable = {
-        call.func.id
-        for call in guard_calls
-        if isinstance(call.func, ast.Name)
-        and call.func.id in functions
-        and not functions[call.func.id].decorator_list
-    }
-    queued = list(reachable)
-    while queued:
-        name = queued.pop()
-        for call in _scope_calls(functions[name].body):
-            if isinstance(call.func, ast.Name) and call.func.id in functions:
-                called = call.func.id
-                if called not in reachable and not functions[called].decorator_list:
-                    reachable.add(called)
-                    queued.append(called)
-
-    for name in reachable:
-        if not (
-            _is_cli_entry_name(name)
-            or (name == "main" and _main_has_cli_arguments(functions[name]))
+def _print_diagnostic_evidence(node: ast.Call, context: dict) -> str | None:
+    """Output alone is not evidence of abandoned debugging."""
+    if node.args:
+        first = node.args[0]
+        prefix = _string_literal_value(first)
+        if isinstance(first, ast.JoinedStr) and first.values:
+            prefix = _string_literal_value(first.values[0])
+        elif isinstance(first, ast.BinOp) and isinstance(first.op, ast.Mod):
+            prefix = _string_literal_value(first.left)
+        elif (
+            isinstance(first, ast.Call)
+            and isinstance(first.func, ast.Attribute)
+            and first.func.attr == "format"
         ):
+            prefix = _string_literal_value(first.func.value)
+        marker = _DEBUG_OUTPUT_MARKER.match(prefix) if prefix is not None else None
+        if marker and not (
+            isinstance(first, ast.JoinedStr)
+            and marker.group().strip().lower() in {"debug", "dbg"}
+            and any(isinstance(part, ast.FormattedValue) for part in first.values)
+        ):
+            # A literal fragment ending at DEBUG is not a token boundary:
+            # f'DEBUG{version}' may be an ordinary identifier or filename.
+            return "explicit debug label"
+
+    for argument in node.args:
+        if _is_raw_state_dump(argument):
+            return "raw state dump"
+        if not isinstance(argument, ast.JoinedStr):
             continue
-        for call in _scope_calls(functions[name].body):
-            if not isinstance(call.func, ast.Name) or call.func.id != "print":
+        if any(
+            isinstance(part, ast.FormattedValue) and _is_raw_state_dump(part.value)
+            for part in argument.values
+        ):
+            return "raw state dump"
+        source = context.get("source", context.get("_source"))
+        if not isinstance(source, str):
+            continue
+        cached = context.get("_debug_output_source_lines")
+        if cached is None or cached[0] != source:
+            cached = (source, source.splitlines(keepends=True))
+            context["_debug_output_source_lines"] = cached
+        lines = cached[1]
+        for part in argument.values:
+            if not isinstance(part, ast.FormattedValue):
                 continue
-            positions.add((call.lineno, call.col_offset))
-    return positions
+            line = getattr(part.value, "end_lineno", None)
+            column = getattr(part.value, "end_col_offset", None)
+            if line is None or column is None or not 0 < line <= len(lines):
+                continue
+            # AST columns count UTF-8 bytes. Inspect the actual debug '=';
+            # f'{value=}' and f'value={value!r}' otherwise have identical ASTs.
+            last_line = getattr(argument, "end_lineno", line)
+            suffix = lines[line - 1].encode("utf-8")[column:]
+            if last_line > line:
+                suffix += "".join(lines[line:last_line]).encode("utf-8")
+            if re.match(rb"\s*(?:\)\s*)*=\s*[!}:]", suffix):
+                return "f-string debug expression"
+    return None
 
 
 class DebugLeftoverRule(SkylosRule):
@@ -208,6 +144,21 @@ class DebugLeftoverRule(SkylosRule):
         matched = False
         severity = "LOW"
         debug_name = func_name
+        message = f"Debug leftover '{debug_name}()' found. Remove before shipping."
+
+        is_output = (not is_method and func_name in {"print", "pprint"}) or (
+            (method_obj, func_name) in {("pprint", "pprint"), ("builtins", "print")}
+        )
+        if is_output:
+            evidence = _print_diagnostic_evidence(node, context)
+            if evidence is None:
+                return None
+            matched = True
+            debug_name = f"{method_obj}.{func_name}" if is_method else func_name
+            message = (
+                f"Possible debug output '{debug_name}()' ({evidence}). "
+                "Review before shipping."
+            )
 
         if not is_method and func_name in DEBUG_FUNCTIONS:
             matched = True
@@ -216,6 +167,7 @@ class DebugLeftoverRule(SkylosRule):
             else:
                 severity = "LOW"
             debug_name = func_name
+            message = f"Debug leftover '{debug_name}()' found. Remove before shipping."
 
         if is_method and method_obj:
             for obj, method in DEBUG_METHOD_CALLS:
@@ -223,21 +175,11 @@ class DebugLeftoverRule(SkylosRule):
                     matched = True
                     severity = "HIGH"
                     debug_name = f"{obj}.{method}"
+                    message = f"Debug leftover '{debug_name}()' found. Remove before shipping."
                     break
 
         if not matched:
             return None
-
-        if func_name == "print" or (func_name == "pprint" and not is_method):
-            if _is_cli_or_script(filename):
-                return None
-            if _is_test_file(filename):
-                return None
-            if func_name == "print" and self._is_intentional_cli_output(node, context):
-                return None
-
-        if func_name == "breakpoint" or debug_name.endswith("set_trace"):
-            pass
 
         return [
             {
@@ -249,22 +191,13 @@ class DebugLeftoverRule(SkylosRule):
                 "simple_name": debug_name,
                 "value": "debug",
                 "threshold": 0,
-                "message": f"Debug leftover '{debug_name}()' found. Remove before shipping.",
+                "message": message,
                 "file": filename,
                 "basename": Path(filename).name,
                 "line": node.lineno,
                 "col": node.col_offset,
             }
         ]
-
-    def _is_intentional_cli_output(self, node: ast.Call, context: dict) -> bool:
-        source = context.get("source")
-        if not isinstance(source, str):
-            return False
-        if "_intentional_cli_prints" not in context:
-            context["_intentional_cli_prints"] = _intentional_cli_prints(source)
-        return (node.lineno, node.col_offset) in context["_intentional_cli_prints"]
-
 
 _SECURITY_TODO_RE = re.compile(
     r"#\s*(?:TODO|FIXME|HACK|XXX|TEMP)\b[:\s].*?"
@@ -809,6 +742,18 @@ class UndefinedConfigRule(SkylosRule):
 
         env_var_name = self._extract_env_var(node)
         if not env_var_name:
+            return None
+
+        # ``os.getenv("ENABLE_X", "False")`` declares the flag's default; the
+        # read is where the setting is defined, not a reference to nothing.
+        # An explicit ``None`` default declares nothing.
+        default = node.args[1] if len(node.args) >= 2 else None
+        for kw in node.keywords:
+            if kw.arg == "default":
+                default = kw.value
+        if default is not None and not (
+            isinstance(default, ast.Constant) and default.value is None
+        ):
             return None
 
         if env_var_name in self.vibe_dictionary.well_known_env_vars:
@@ -1395,6 +1340,139 @@ def _looks_like_real_secret(value: str, vibe_dictionary=None) -> bool:
     )
 
 
+# ``APP_URL``, ``GITHUB_PAT``: two or more UPPER_SNAKE words, each letters
+# with at most two trailing digits.
+_UPPER_SNAKE_NAME_RE = re.compile(r"[A-Z]+[0-9]{0,2}(?:_[A-Z]+[0-9]{0,2})+")
+# ``django.secret_key``: two or more dotted lowercase segments.
+_DOTTED_NAME_RE = re.compile(
+    r"[a-z]+[0-9]{0,2}(?:_[a-z]+[0-9]{0,2})*"
+    r"(?:\.[a-z]+[0-9]{0,2}(?:_[a-z]+[0-9]{0,2})*)+"
+)
+# ``${NAME}`` and ``{{ name }}``: the reference forms that never hold the
+# credential themselves.
+_STRICT_REFERENCE_RES = (
+    re.compile(r"\$\{(?P<name>[A-Za-z_][A-Za-z0-9_.]*)\}"),
+    re.compile(r"\{\{\s*(?P<name>[A-Za-z_][A-Za-z0-9_.]*)\s*\}\}"),
+)
+# English words and acronyms stay below this; random runs reach it.
+_NAME_WORD_MAX_ENTROPY = 3.5
+# Any of these in a target name makes it hold a credential...
+_CREDENTIAL_NAME_STEMS = (
+    "key",
+    "secret",
+    "token",
+    "pass",
+    "pwd",
+    "auth",
+    "credential",
+    "private",
+    "signing",
+    "salt",
+    "session",
+    "jwt",
+    "api",
+)
+# ...otherwise one of these words makes it a location: ``DATABASE_URL``.
+_LOCATION_NAME_WORDS = frozenset(
+    {
+        "url",
+        "urls",
+        "uri",
+        "dsn",
+        "host",
+        "hostname",
+        "endpoint",
+        "connection",
+        "conn",
+        "address",
+        "addr",
+    }
+)
+# ``<X>_KEY`` names that hold a key, not the name of a setting.
+_SECRET_KEY_NAME_SUFFIXES = (
+    "secret_key",
+    "api_key",
+    "private_key",
+    "encryption_key",
+    "signing_key",
+    "master_key",
+    "access_key",
+    "hmac_key",
+)
+
+
+def _has_random_run(value: str) -> bool:
+    """Upper, lower and digits mixed together, or a high-entropy word."""
+    if (
+        any(c.isupper() for c in value)
+        and any(c.islower() for c in value)
+        and any(c.isdigit() for c in value)
+    ):
+        return True
+    return any(
+        _shannon_entropy(word) >= _NAME_WORD_MAX_ENTROPY
+        for word in re.split(r"[^A-Za-z0-9]+", value)
+    )
+
+
+def _is_location_name(target, var_name: str) -> bool:
+    """``DATABASE_URL``, ``DSN``, ``CONNECTION_STRING``: a plain name that
+    holds where something is, with no credential word in it."""
+    if not isinstance(target, ast.Name):
+        return False
+    lower = var_name.lower()
+    if any(stem in lower for stem in _CREDENTIAL_NAME_STEMS):
+        return False
+    return bool(set(re.split(r"[^a-z0-9]+", lower)) & _LOCATION_NAME_WORDS)
+
+
+def _is_reference_under(target, var_name: str, value: str) -> bool:
+    """A reference to a value kept elsewhere.
+
+    A location name (``DATABASE_URL = "$DATABASE_URL"``) accepts every form
+    ``secret_shapes.is_reference`` does. Under any other target ``$X`` and
+    ``%X%`` can be the credential itself (``APP_KEY = "$ADMIN2024"``), so
+    only ``${NAME}`` and ``{{ name }}`` count, with NAME in UPPER_SNAKE or a
+    dotted lowercase path and nothing random in it.
+    """
+    if _is_location_name(target, var_name):
+        return secret_shapes.is_reference(value)
+    stripped = value.strip()
+    for pattern in _STRICT_REFERENCE_RES:
+        match = pattern.fullmatch(stripped)
+        if match:
+            name = match.group("name")
+            return not _has_random_run(name) and bool(
+                _UPPER_SNAKE_NAME_RE.fullmatch(name) or _DOTTED_NAME_RE.fullmatch(name)
+            )
+    return False
+
+
+def _key_names_its_setting(target, var_name: str, value: str) -> bool:
+    """``APP_URL_KEY = "APP_URL"``: a plain name ending in ``_KEY`` whose
+    value is the rest of the name in UPPER_SNAKE with two or more words.
+    ``MASTER_KEY = "MASTER"`` and names for a key itself
+    (``JWT_SECRET_KEY``, ``STRIPE_API_KEY``) never qualify."""
+    if not isinstance(target, ast.Name):
+        return False
+    lower = var_name.lower()
+    if not lower.endswith("_key") or lower.endswith(_SECRET_KEY_NAME_SUFFIXES):
+        return False
+    return (
+        value == var_name[:-4].lstrip("_").upper()
+        and bool(_UPPER_SNAKE_NAME_RE.fullmatch(value))
+        and not _has_random_run(value)
+    )
+
+
+def _names_a_setting(target, var_name: str, value: str) -> bool:
+    """The literal names a setting rather than holding a credential: a
+    reference to one, or ``APP_URL_KEY = "APP_URL"``."""
+    return _is_reference_under(target, var_name, value) or _key_names_its_setting(
+        target, var_name, value
+    )
+
+
 def _lookup_key_name(node) -> str | None:
     """``os.getenv("X")`` / ``config.get("X")`` / ``os.environ["X"]`` -> "X"."""
     if isinstance(node, ast.Call):
@@ -1547,6 +1625,8 @@ class HardcodedCredentialRule(SkylosRule):
                     str_val = value.value
                     if not str_val or str_val.strip() == "":
                         return None
+                    if _names_a_setting(target, var_name, str_val):
+                        return findings or None
                     try:
                         if _is_env_lookup(value):
                             return None

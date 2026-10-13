@@ -32,6 +32,7 @@ tool call (E9); their lines carry `isSidechain: true`.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from probe.daemon.adapters.base import (
@@ -46,6 +47,7 @@ from probe.daemon.adapters.base import (
     existing,
     persisted_path,
 )
+from probe.daemon import mailbox
 from probe.daemon.events import Event, Kind
 
 #: User-role strings no person typed.
@@ -73,6 +75,19 @@ PROBE_MESSAGE_PREFIX = "[Probe] "
 #: SendMessage, a channel, the daemon itself): never the researcher's, whatever
 #: its `origin` says.
 _NOT_TYPED_PREFIXES = ("<agent-message", "<channel", PROBE_MESSAGE_PREFIX)
+
+#: Exactly what Claude Code writes when the reads hook's Stop waiter wakes the
+#: agent (it prints only the reader's answers, then exits 2).
+_STOP_WAKE = re.compile(r'\A<task-notification>\n<summary>Stop hook feedback</summary>\n</task-notification>\n'
+                        r'<system-reminder>\nStop hook blocking error from command "[^"\n]*": (?P<body>.*)\n'
+                        r'</system-reminder>\Z', re.S)
+
+
+def _stop_wake_of_deliveries(text: str) -> bool:
+    """Is this line only the reader's answers the Stop waiter woke the agent with?"""
+    m = _STOP_WAKE.match(text)
+    return bool(m) and not mailbox.before_deliveries(m.group("body")).strip()
+
 
 class ClaudeCode(Adapter):
     name = "claude_code"
@@ -126,12 +141,14 @@ class ClaudeCode(Adapter):
                 return [event(Kind.COMPACTION, stream, offset, ts=ts, text="(the agent's context was compacted)")]
             return []
         if kind == "attachment":
-            # What the daemon's reader handed the agent (daemon reads): its
-            # `[Probe]` messages arrive as hook context. The reader sees what was
-            # delivered, so it does not send it again.
+            # Hook context. The reader's own `[Probe]` messages in it reach the
+            # daemon whole from the mailbox's claim log (the worker's reader
+            # stream), so they are cut here; `[Probe]` text left over (a wording
+            # this CLI does not know) is still read.
             att = obj.get("attachment")
             if isinstance(att, dict) and att.get("type") == "hook_additional_context":
-                text = "\n".join(block_texts(att.get("content")))
+                text = "\n".join(t for t in (mailbox.before_deliveries(b).strip("\n")
+                                             for b in block_texts(att.get("content"))) if t)
                 if PROBE_MESSAGE_PREFIX in text:
                     return [event(Kind.META, stream, offset, ts=ts, text=text)]
             if isinstance(att, dict) and att.get("type") == "queued_command":
@@ -156,6 +173,8 @@ class ClaudeCode(Adapter):
                 if block.get("type") == "text" and isinstance(block.get("text"), str):
                     text = block["text"]
                     meta = obj.get("isMeta") or text.lstrip().startswith(_META_PREFIXES) or stream != "main"
+                    if meta and _stop_wake_of_deliveries(text):
+                        continue  # the reader's answers: whole from the claim log
                     events.append(event(Kind.META if meta else Kind.PROMPT, stream, offset, text=text, **common))
                 elif block.get("type") == "tool_result":
                     text = "\n".join(block_texts(block.get("content")))

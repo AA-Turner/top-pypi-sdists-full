@@ -174,6 +174,11 @@ def _keep_signals():
 def wired(app, tmp_path, monkeypatch):
     """A bare `probe.init()` builds a client wired to the fake: the path the
     callback takes in real use."""
+    # CI runners are disposable machines, so their local disk reads as
+    # throwaway and every location-only checkpoint would warn. In-process
+    # tests see lasting storage unless they say otherwise; subprocess tests
+    # keep the runner's own answer (their child closes take that path).
+    monkeypatch.setenv("PROBE_EPHEMERAL", "0")
     monkeypatch.setattr(
         fluent, "Client", lambda *a, **kw: make_client(app, tmp_spool=tmp_path / "spool")
     )
@@ -509,6 +514,121 @@ def test_log_model_false_records_no_checkpoint(app, wired, tmp_path):
     assert _checkpoint_posts(app, run_id) == []
     assert _points(app, run_id, "train/loss") == [1, 2, 3, 4]
     probe.finish()
+
+
+# -- checkpoints="upload" --------------------------------------------------------------
+
+
+def _files_under(folder) -> list[str]:
+    return sorted(
+        os.path.relpath(os.path.join(dirpath, f), folder).replace(os.sep, "/")
+        for dirpath, _, files in os.walk(folder)
+        for f in files
+    )
+
+
+def _members_of(app, run_id: str, index: str) -> dict[str, dict]:
+    prefix = index + "/"
+    return {a["name"][len(prefix):]: a for a in app.artifacts.get(run_id, []) if a["name"].startswith(prefix)}
+
+
+def test_upload_stores_every_file_of_each_save_and_the_save_comes_back(app, wired, tmp_path):
+    """With checkpoints="upload" each save is its own set: one `checkpoint`
+    index row (a refreshable reference listing its members) and every file of
+    the folder uploaded as a `file` row under it. After the job's disk is gone,
+    the latest set downloads whole, byte for byte, and training resumes from it."""
+    import hashlib
+    import shutil
+
+    _trainer(tmp_path, callbacks=[ProbeCallback(experiment="e1", checkpoints="upload")]).train()
+    run_id = _only_run(app)["id"]
+    probe.finish()  # the uploads are queued: let them land
+
+    stored = _stored_checkpoints(app, run_id)
+    assert sorted(stored) == ["checkpoint-2@step2", "checkpoint-4@step4"]
+    for name, index in stored.items():
+        step = int(name.rsplit("@step", 1)[1])
+        folder = os.path.join(tmp_path, "out", name.split("@")[0])
+        files = _files_under(folder)
+        assert "model.safetensors" in files and "optimizer.pt" in files
+        assert index["is_reference"] is True and index["meta"]["upload"] == "requested"
+        assert index["meta"]["members"] == files
+        assert index["size_bytes"] == _folder_bytes(folder)
+        members = _members_of(app, run_id, name)
+        assert sorted(members) == files
+        for rel, row in members.items():
+            assert row.get("kind", "file") == "file", rel  # only the index is a checkpoint
+            assert row["is_reference"] is False and row["step_index"] == step
+            assert row["meta"]["checkpoint"] == name
+            with open(os.path.join(folder, rel), "rb") as fh:
+                assert row["content_hash"] == hashlib.sha256(fh.read()).hexdigest(), rel
+
+    reader = make_client(app, tmp_spool=tmp_path / "reader-spool")
+    latest = reader.checkpoint(run_id, "latest")
+    assert latest["name"] == "checkpoint-4@step4"
+    kept = {rel: open(os.path.join(tmp_path, "out", "checkpoint-4", rel), "rb").read()
+            for rel in _files_under(os.path.join(tmp_path, "out", "checkpoint-4"))}
+    shutil.rmtree(tmp_path / "out")  # the job's own disk is gone
+    restored = tmp_path / "restored" / "checkpoint-4"
+    got = reader.download_checkpoint(latest, restored)
+    assert sorted(f["path"] for f in got["files"]) == sorted(kept)
+    for rel, data in kept.items():
+        assert (restored / rel).read_bytes() == data, rel
+    reader.close()
+
+    resumed = _trainer(tmp_path / "again", max_steps=6)
+    resumed.train(resume_from_checkpoint=str(restored))
+    assert resumed.state.global_step == 6
+
+
+def test_upload_is_chosen_by_environment_for_report_to(app, wired, tmp_path, monkeypatch):
+    """report_to="probe" builds the callback itself: PROBE_CHECKPOINTS chooses."""
+    monkeypatch.setenv("PROBE_CHECKPOINTS", "upload")
+    _trainer(tmp_path, report_to=["probe"], max_steps=2).train()
+    run_id = _only_run(app)["id"]
+    probe.finish()
+    stored = _stored_checkpoints(app, run_id)
+    assert sorted(stored) == ["checkpoint-2@step2"] and stored["checkpoint-2@step2"]["meta"]["members"]
+
+
+def test_a_callback_given_only_checkpoints_wins_over_report_to(app, wired, tmp_path, monkeypatch):
+    """`checkpoints=` counts as configuring the callback: it, not report_to's
+    bare one, logs -- or upload mode would be dropped without a word."""
+    monkeypatch.setenv("PROBE_PROJECT", "e1")
+    with pytest.warns(UserWarning, match="the one given arguments logs"):
+        _trainer(tmp_path, report_to=["probe"], callbacks=[ProbeCallback(checkpoints="upload")], max_steps=2).train()
+    run_id = _only_run(app)["id"]
+    probe.finish()
+    assert sorted(_stored_checkpoints(app, run_id)) == ["checkpoint-2@step2"]
+
+
+def test_upload_index_keeps_its_members_when_best_and_deleted_refresh_it(app, wired, tmp_path):
+    """The server replaces meta whole on a refresh: a refresh that forgot the
+    member list would make the set undownloadable."""
+    evaluations = iter([1.0, 2.0, 3.0])
+    _trainer(
+        tmp_path,
+        callbacks=[ProbeCallback(experiment="e1", checkpoints="upload")],
+        compute_metrics=lambda _prediction: {"steer": next(evaluations)},
+        max_steps=6,
+        save_total_limit=1,
+        metric_for_best_model="steer",
+        greater_is_better=False,
+    ).train()
+    run_id = _only_run(app)["id"]
+    probe.finish()
+    stored = _stored_checkpoints(app, run_id)
+    assert stored["checkpoint-4@step4"]["meta"]["deleted"] is True
+    for name, row in stored.items():
+        assert row["meta"]["members"] and row["meta"]["upload"] == "requested", name
+    reader = make_client(app, tmp_spool=tmp_path / "reader")
+    assert reader.checkpoint(run_id, "best")["name"] == "checkpoint-2@step2"
+    reader.close()
+
+
+def test_a_wrong_checkpoints_value_is_refused():
+    with pytest.raises(ValueError, match="checkpoints must be one of"):
+        ProbeCallback(checkpoints="all")
 
 
 # -- several Trainers, one process ---------------------------------------------------

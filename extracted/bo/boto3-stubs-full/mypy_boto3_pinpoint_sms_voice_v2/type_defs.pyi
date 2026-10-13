@@ -2363,6 +2363,7 @@ class PhoneNumberInformationTypeDef(TypedDict):
     PoolId: NotRequired[str]
     RegistrationId: NotRequired[str]
     MessagingLimits: NotRequired[MessagingLimitsTypeDef]
+    PricingTier: NotRequired[str]
 
 class SenderIdInformationTypeDef(TypedDict):
     SenderIdArn: str
@@ -2374,6 +2375,7 @@ class SenderIdInformationTypeDef(TypedDict):
     Registered: bool
     RegistrationId: NotRequired[str]
     MessagingLimits: NotRequired[MessagingLimitsTypeDef]
+    PricingTier: NotRequired[str]
 
 class NotifyTemplateInformationTypeDef(TypedDict):
     TemplateId: str

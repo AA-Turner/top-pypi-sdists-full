@@ -320,8 +320,9 @@ class Tcgen05LayoutOverrides:
 # - ``64`` → ``{K|MN}_SW64``  (64-byte swizzle pattern)
 # - ``128``→ ``{K|MN}_SW128`` (128-byte swizzle pattern)
 #
-# The K/MN prefix is determined by the operand's major mode (A is K-major,
-# B is MN-major in Helion's tcgen05 lowering today). ``MN_SW128_32B``
+# The K/MN prefix follows the resolved operand mode.  Canonical lowering uses
+# K-major A and MN-major B; grouped N,M can instead select MN-major A and
+# K-major B through the operand's ``k_major`` value. ``MN_SW128_32B``
 # (a fp32-only variant) is intentionally not exposed: Helion's tcgen05
 # path only runs on bf16/fp16 today, and exposing the variant without a
 # matching dtype gate would produce ``ValueError`` at codegen time.
@@ -389,7 +390,7 @@ def tcgen05_smem_layout_expr(
     num_stages: int,
     operand: str,
     swizzle_override: int | None,
-    b_k_major: bool = False,
+    k_major: bool,
 ) -> str:
     """Emit the CuTe expression that builds the staged SMEM layout for A or B.
 
@@ -414,61 +415,36 @@ def tcgen05_smem_layout_expr(
     selection: partition_shape → append num_stages → make atom →
     tile_to_mma_shape with the major-mode-determined ``order``.
 
-    Helion's tcgen05 lowering wires ``OperandMajorMode.K`` for A and
-    ``OperandMajorMode.MN`` for B (see ``make_trivial_tiled_mma``
-    call in ``runtime._append_cute_wrapper_plan``), so the ``order``
-    and atom-kind prefix below are hard-coded to that contract.
+    Helion's canonical tcgen05 lowering wires ``OperandMajorMode.K`` for A
+    and ``OperandMajorMode.MN`` for B. Grouped N,M lowering can transpose
+    those physical operand roles, so ``k_major`` selects the matching atom
+    prefix and axis order for the requested operand.
     """
-    if operand == "a":
-        if swizzle_override is None:
-            return (
-                "cutlass.utils.blackwell_helpers.make_smem_layout_a("
-                f"{tiled_mma}, ({bm}, {bn}, {bk}), {dtype_str}, {num_stages})"
-            )
-        atom_kind = (
-            f"cute.nvgpu.tcgen05.SmemLayoutAtomKind.K_"
-            f"{smem_swizzle_atom_kind_suffix(swizzle_override)}"
-        )
-        # A is K-major: partition shape uses dice (1, None, 1); the
-        # tile_to_mma_shape ``order`` is (1, 2, 3) (matches the
-        # is_k_major=True branch of ``make_smem_layout_a``).
-        return (
-            "cute.nvgpu.tcgen05.tile_to_mma_shape("
-            f"cute.nvgpu.tcgen05.make_smem_layout_atom({atom_kind}, {dtype_str}), "
-            f"cute.append({tiled_mma}.partition_shape_A("
-            f"cute.dice(({bm}, {bn}, {bk}), (1, None, 1))), {num_stages}), "
-            "order=(1, 2, 3))"
-        )
-    assert operand == "b", f"unexpected operand {operand!r}"
-    if b_k_major:
-        # K-major (column-major / K-contiguous) B. Delegate to CuTe's helper
-        # with ``is_k_major=True`` so the SMEM atom selection mirrors the
-        # K-major A path exactly; the smem_swizzle_b override knob is not
-        # plumbed through this path (correctness-first), which is fine
-        # since the fp8 default path uses swizzle_override=None.
-        return (
-            "cutlass.utils.blackwell_helpers.make_smem_layout_b("
-            f"{tiled_mma}, ({bm}, {bn}, {bk}), {dtype_str}, {num_stages}, "
-            "is_k_major=True)"
-        )
+    assert operand in ("a", "b"), f"unexpected operand {operand!r}"
+    helper = f"make_smem_layout_{operand}"
+    canonical_k_major = operand == "a"
     if swizzle_override is None:
+        major_arg = "" if k_major == canonical_k_major else f", is_k_major={k_major}"
         return (
-            "cutlass.utils.blackwell_helpers.make_smem_layout_b("
-            f"{tiled_mma}, ({bm}, {bn}, {bk}), {dtype_str}, {num_stages})"
+            f"cutlass.utils.blackwell_helpers.{helper}("
+            f"{tiled_mma}, ({bm}, {bn}, {bk}), {dtype_str}, {num_stages}"
+            f"{major_arg})"
         )
+
+    major = "K" if k_major else "MN"
+    partition = operand.upper()
+    dice = "(1, None, 1)" if operand == "a" else "(None, 1, 1)"
+    order = "(1, 2, 3)" if k_major else "(2, 1, 3)"
     atom_kind = (
-        f"cute.nvgpu.tcgen05.SmemLayoutAtomKind.MN_"
+        f"cute.nvgpu.tcgen05.SmemLayoutAtomKind.{major}_"
         f"{smem_swizzle_atom_kind_suffix(swizzle_override)}"
     )
-    # B is MN-major: partition shape uses dice (None, 1, 1); the
-    # tile_to_mma_shape ``order`` is (2, 1, 3) (matches the
-    # is_k_major=False branch of ``make_smem_layout_b``).
     return (
         "cute.nvgpu.tcgen05.tile_to_mma_shape("
         f"cute.nvgpu.tcgen05.make_smem_layout_atom({atom_kind}, {dtype_str}), "
-        f"cute.append({tiled_mma}.partition_shape_B("
-        f"cute.dice(({bm}, {bn}, {bk}), (None, 1, 1))), {num_stages}), "
-        "order=(2, 1, 3))"
+        f"cute.append({tiled_mma}.partition_shape_{partition}("
+        f"cute.dice(({bm}, {bn}, {bk}), {dice})), {num_stages}), "
+        f"order={order})"
     )
 
 
@@ -538,6 +514,36 @@ TCGEN05_NUM_EPI_WARPS_CONFIG_KEY = "tcgen05_num_epi_warps"
 # grouping math; this knob just routes the user/autotuner choice into
 # the constructor instead of relying on the ``swizzle_size=1`` default.
 TCGEN05_L2_SWIZZLE_SIZE_CONFIG_KEY = "tcgen05_l2_swizzle_size"
+
+# Persistent walk over a batched (leading passthrough) tcgen05 GEMM grid.
+# The static scheduler pairs its ``cluster_m`` CTAs along its dim 0 and its
+# ``cluster_n`` CTAs along dim 1, so the (batch, m, n) PID axes can sit on
+# the scheduler dims in two orders: ``batch_fastest`` keeps the batch on dim
+# 0 (consecutive clusters take consecutive batches of the same output tile,
+# the pre-knob order); ``batch_slowest`` walks (m, n, batch), so consecutive
+# clusters exhaust one batch before moving on and its A tile is shared by the
+# N peers and its B tile by the M clusters *at the same time* (cuBLAS's
+# batched nvjet grids put the batch on grid z).  Measured on 16 x
+# 512x768x1024 fp16 with the 2x2 256x256x64 ab6 cluster: 16.86 -> 16.10 us
+# (the batch_fastest order fetched every B tile from DRAM in two separate
+# persistent rounds); the 2x1 pair is indifferent at that shape.  Only
+# batched grids carry the knob; plain GEMMs raster through ``loop_orders``.
+TCGEN05_BATCH_RASTER_CONFIG_KEY = "tcgen05_batch_raster"
+TCGEN05_BATCH_RASTER_FASTEST = "batch_fastest"
+TCGEN05_BATCH_RASTER_SLOWEST = "batch_slowest"
+TCGEN05_BATCH_RASTER_CHOICES: tuple[str, ...] = (
+    TCGEN05_BATCH_RASTER_FASTEST,
+    TCGEN05_BATCH_RASTER_SLOWEST,
+)
+TCGEN05_BATCH_RASTER_DEFAULT = TCGEN05_BATCH_RASTER_FASTEST
+
+
+def batch_raster_from_config(config: Mapping[str, object]) -> str:
+    """Decode ``tcgen05_batch_raster`` (default ``batch_fastest``)."""
+    value = config.get(TCGEN05_BATCH_RASTER_CONFIG_KEY, TCGEN05_BATCH_RASTER_DEFAULT)
+    assert value in TCGEN05_BATCH_RASTER_CHOICES, value
+    return str(value)
+
 
 # Legal L2 tile-scheduler swizzle sizes. ``1`` means no swizzle (current
 # default), the others mirror Quack's ``max_swizzle_size`` envelope (the
@@ -699,6 +705,40 @@ def layout_overrides_from_config(
     )
 
 
+def tcgen05_explicit_epilogue_tile_supported(
+    *,
+    is_two_cta: bool,
+    bm: int,
+    bn: int,
+    tile_shape: tuple[int | None, int | None, int | None],
+) -> bool:
+    """Whether the current tcgen05 explicit-epilogue path supports the tile.
+
+    Shared by the matmul plan (configured tiles and the promoted row-vector
+    (128, 32) subtile) and the autotune seeds' SMEM model, so both agree on
+    which geometries take an explicit subtile.
+    """
+    epi_tile_m, epi_tile_n, d_store_box_n = tile_shape
+    return (
+        # Four epilogue warps own 16 or 32 supported TMEM datapaths each.
+        epi_tile_m in (64, 128)
+        # Use the dtype-independent, power-of-two TMA store widths validated by
+        # this backend; 16 is the minimum that also gives FP8 a 128-bit row.
+        and epi_tile_n in (16, 32, 64)
+        # Helion emits one epilogue subtile per TMA store box.
+        and d_store_box_n == epi_tile_n
+        # Every MMA M tile must partition into whole epilogue subtiles.
+        and bm % epi_tile_m == 0
+        # Every MMA N tile must partition into whole store boxes.
+        and bn % epi_tile_n == 0
+        # Explicit 2CTA uses the established per-CTA M128 partition.
+        and (not is_two_cta or epi_tile_m == 128)
+        # 2CTA BM128 needs a permuted per-CTA M64 layout that integer explicit
+        # tile overrides cannot express, so it stays on the implicit path.
+        and not (is_two_cta and bm == 128)
+    )
+
+
 def tcgen05_explicit_epilogue_tile_expr(tile_m: int, tile_n: int) -> str:
     """Return the CuTe expression for a validated explicit epilogue tile."""
 
@@ -817,7 +857,7 @@ def tcgen05_explicit_d_store_tile_expr(tile_m: int, d_store_box_n: int) -> str:
 # sync with ``VALID_PID_TYPES`` in ``config_spec.py``; widening that
 # tuple without revisiting this helper is a contract drift the assert
 # below catches loudly.
-_KNOWN_PID_TYPES_FOR_PERSISTENCE_MODEL: frozenset[str] = frozenset(
+TCGEN05_PERSISTENCE_MODEL_PID_TYPES: frozenset[str] = frozenset(
     {"flat", "xyz", "persistent_blocked", "persistent_interleaved"}
 )
 
@@ -844,9 +884,9 @@ def derive_persistence_model_from_pid_type(
     loudly instead of silently mapping the new value to
     ``NON_PERSISTENT``.
     """
-    assert pid_type in _KNOWN_PID_TYPES_FOR_PERSISTENCE_MODEL, (
+    assert pid_type in TCGEN05_PERSISTENCE_MODEL_PID_TYPES, (
         f"derive_persistence_model_from_pid_type: unknown pid_type "
-        f"{pid_type!r}; update _KNOWN_PID_TYPES_FOR_PERSISTENCE_MODEL "
+        f"{pid_type!r}; update TCGEN05_PERSISTENCE_MODEL_PID_TYPES "
         "to include the new value (or extend the mapping if the new "
         "pid_type implies a different persistence model)."
     )
@@ -1008,15 +1048,13 @@ _STRATEGY_SUPPORTED_CLUSTER_N: dict[Tcgen05Strategy, frozenset[int]] = {
 # (strategy, persistence_model)-conditional cluster_n accept set. Used to
 # reject combinations where the (strategy, persistence) pair has a
 # cluster-broadcast topology that has not been generalized to cluster_n>1.
-# Today's only entry: ``CLC_PERSISTENT`` under ``ROLE_LOCAL_WITH_SCHEDULER``
-# is cluster_m-only — the CLC scheduler-warp body iterates lanes
-# ``< cluster_m`` to publish to peer CTAs (see ``program_id.py``
-# ``_build_scheduler_warp_role_local_while_clc``); cluster_n>1 CTAs would
-# never receive the CLC mailbox publish and would hang on the
-# ``producer_acquire`` wait. Generalizing the CLC broadcast to cluster_n>1
-# is out of scope for cycle 33 (deferred to a future cycle alongside the
-# ``cluster_n>1`` C-input pipeline work). When a (strategy, persistence)
-# pair appears here, it overrides the per-strategy
+# ``CLC_PERSISTENT`` under ``ROLE_LOCAL_WITH_SCHEDULER`` now supports the
+# full 4-CTA cluster: the CLC leader's scheduler-warp broadcast iterates
+# lanes ``< cluster_m * cluster_n`` and publishes each peer's own (M, N)
+# tile coordinates (see ``program_id.py``
+# ``_build_scheduler_warp_role_local_while_clc``), matching Quack's
+# dynamic-persistent 2x2 topology. When a (strategy, persistence) pair
+# appears here, it overrides the per-strategy
 # ``_STRATEGY_SUPPORTED_CLUSTER_N`` entry; missing entries fall back to
 # the per-strategy capability.
 _STRATEGY_PERSISTENCE_SUPPORTED_CLUSTER_N: dict[
@@ -1025,7 +1063,7 @@ _STRATEGY_PERSISTENCE_SUPPORTED_CLUSTER_N: dict[
     (
         Tcgen05Strategy.ROLE_LOCAL_WITH_SCHEDULER,
         Tcgen05PersistenceModel.CLC_PERSISTENT,
-    ): frozenset({1}),
+    ): frozenset({1, 2}),
 }
 
 

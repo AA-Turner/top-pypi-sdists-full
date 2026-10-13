@@ -18,7 +18,7 @@ from schemathesis.resources import ExtraDataSource, PoolDraw, PoolPick
 from schemathesis.resources.repository import ResourceInstance, ResourceRepository
 from schemathesis.specs.openapi.semantic_pool import SemanticValueIndex, iter_ingestion_leaves
 from schemathesis.specs.openapi.stateful.dependencies.models import DependencyGraph, InputSlot
-from schemathesis.specs.openapi.stateful.dependencies.naming import normalize_for_matching
+from schemathesis.specs.openapi.stateful.dependencies.naming import normalize_for_matching, referenced_values
 
 if TYPE_CHECKING:
     from random import Random
@@ -174,16 +174,13 @@ class CapturedVariant:
     draws: tuple[PoolDraw, ...]
 
 
-def _build_pool_draw(slot: InputSlot, instance: ResourceInstance) -> PoolDraw:
-    """Build a `PoolDraw` provenance record for a slot that was filled from `instance`."""
-    parameter_name = slot.parameter_name if isinstance(slot.parameter_name, str) else ""
-    return PoolDraw(
-        location=slot.parameter_location.value,
-        parameter_name=parameter_name,
-        resource_name=slot.resource.name,
-        resource_field=slot.resource_field or "",
-        source_operation=instance.source_operation,
-        source_status=instance.status_code,
+def _build_pool_draw(slot: InputSlot, instance: ResourceInstance, value: object) -> PoolDraw:
+    return _build_pool_draw_from_requirement(
+        location=slot.parameter_location,
+        parameter_name=slot.parameter_name if isinstance(slot.parameter_name, str) else "",
+        requirement=ParameterRequirement(resource_name=slot.resource.name, resource_field=slot.resource_field or ""),
+        instance=instance,
+        value=value,
     )
 
 
@@ -193,8 +190,8 @@ def _build_pool_draw_from_requirement(
     parameter_name: str,
     requirement: ParameterRequirement,
     instance: ResourceInstance,
+    value: object,
 ) -> PoolDraw:
-    """Variant of `_build_pool_draw` for sites that hold a `ParameterRequirement` rather than an `InputSlot`."""
     return PoolDraw(
         location=location.value,
         parameter_name=parameter_name,
@@ -202,7 +199,33 @@ def _build_pool_draw_from_requirement(
         resource_field=requirement.resource_field,
         source_operation=instance.source_operation,
         source_status=instance.status_code,
+        source_identity=instance.identity,
+        source_input=str(value) in instance.referenced,
+        source_query=instance.query or None,
     )
+
+
+def referenced_by(case: Case) -> frozenset[str]:
+    """Values `case` sent to name existing objects, rather than the one it creates."""
+    node = case.operation.schema.analysis.dependency_graph.operations.get(case.operation.label)
+    created = {output.body_field for output in node.outputs if output.body_field} if node is not None else set()
+    path_parameters = case.path_parameters or {}
+    return frozenset(referenced_values(case.operation.path, path_parameters, case.query or {}, case.body, created))
+
+
+def declared_response_schema(
+    operation: APIOperation, status_code: int, content_type: str | None
+) -> dict[str, Any] | None:
+    """Response schema for `status_code`, or `None` when it is missing, malformed or boolean."""
+    response_def = operation.responses.find_by_status_code(status_code)
+    if response_def is None:
+        return None
+    # An unresolvable `$ref` or malformed response schema must not fail the operation when only non-schema checks run.
+    try:
+        schema = response_def.get_schema(content_type).schema
+    except (BundleError, InvalidSchema, MalformedMediaType):
+        return None
+    return schema if isinstance(schema, dict) else None
 
 
 def build_parameter_requirements(graph: DependencyGraph) -> dict[RequirementKey, ParameterRequirement]:
@@ -231,6 +254,27 @@ def build_inputs_by_label(graph: DependencyGraph) -> dict[str, list[InputSlot]]:
         if slots:
             inputs_by_label[label] = slots
     return inputs_by_label
+
+
+def build_created_keys_by_label(graph: DependencyGraph) -> dict[str, list[InputSlot]]:
+    """Index request body fields that name what a create makes, e.g. a client-chosen `title`.
+
+    Recorded after a 2xx like inputs, but never drawn: a create needs a fresh key.
+    """
+    created: dict[str, list[InputSlot]] = {}
+    for label, operation in graph.operations.items():
+        bound = {slot.parameter_name for slot in operation.inputs if slot.parameter_location == ParameterLocation.BODY}
+        for output in operation.outputs:
+            if output.body_field is not None and output.body_field not in bound:
+                created.setdefault(label, []).append(
+                    InputSlot(
+                        resource=output.resource,
+                        resource_field=output.body_field,
+                        parameter_name=output.body_field,
+                        parameter_location=ParameterLocation.BODY,
+                    )
+                )
+    return created
 
 
 def _build_property_validator(
@@ -311,6 +355,7 @@ class OpenApiExtraDataSource(ExtraDataSource):
     repository: ResourceRepository
     requirements: dict[RequirementKey, ParameterRequirement]
     inputs_by_label: dict[str, list[InputSlot]]
+    created_keys_by_label: dict[str, list[InputSlot]]
     usage_tracker: VariantUsageTracker
     semantic_index: SemanticValueIndex | None
     semantic_eligible_operations: frozenset[str]
@@ -324,10 +369,12 @@ class OpenApiExtraDataSource(ExtraDataSource):
         usage_tracker: VariantUsageTracker | None = None,
         semantic_index: SemanticValueIndex | None = None,
         semantic_eligible_operations: frozenset[str] = frozenset(),
+        created_keys_by_label: dict[str, list[InputSlot]] | None = None,
     ) -> None:
         self.repository = repository
         self.requirements = requirements
         self.inputs_by_label = inputs_by_label if inputs_by_label is not None else {}
+        self.created_keys_by_label = created_keys_by_label if created_keys_by_label is not None else {}
         self.usage_tracker = usage_tracker if usage_tracker is not None else VariantUsageTracker()
         self.semantic_index = semantic_index
         self.semantic_eligible_operations = semantic_eligible_operations
@@ -413,6 +460,7 @@ class OpenApiExtraDataSource(ExtraDataSource):
                             parameter_name=slot.lookup_key,
                             requirement=slot.requirement,
                             instance=instance,
+                            value=value,
                         ),
                     ),
                 )
@@ -455,6 +503,7 @@ class OpenApiExtraDataSource(ExtraDataSource):
                                 parameter_name=slot.lookup_key,
                                 requirement=req,
                                 instance=instance,
+                                value=value,
                             )
                         )
                 if len(filled) == len(slots):
@@ -494,6 +543,7 @@ class OpenApiExtraDataSource(ExtraDataSource):
                         parameter_name=slot.lookup_key,
                         requirement=req,
                         instance=best[1],
+                        value=best[0],
                     )
                 )
         if chosen:
@@ -623,7 +673,8 @@ class OpenApiExtraDataSource(ExtraDataSource):
             slot_by_key = {(slot.parameter_location, slot.parameter_name): slot for slot in slots}
             values = {key: value for key, (_, value) in chosen.items()}
             draws = tuple(
-                _build_pool_draw(slot_by_key[key], source_instance) for key, (source_instance, _) in chosen.items()
+                _build_pool_draw(slot_by_key[key], source_instance, value)
+                for key, (source_instance, value) in chosen.items()
             )
             return PoolPick(values=values, draws=draws)
 
@@ -644,7 +695,7 @@ class OpenApiExtraDataSource(ExtraDataSource):
             if picked is not None:
                 value, source_instance = picked
                 values_result[(slot.parameter_location, param_name)] = value
-                draws_result.append(_build_pool_draw(slot, source_instance))
+                draws_result.append(_build_pool_draw(slot, source_instance, value))
                 assert slot.resource_field is not None
                 context_constraints.append(
                     (param_name, ParameterRequirement(slot.resource.name, slot.resource_field), value)
@@ -661,7 +712,7 @@ class OpenApiExtraDataSource(ExtraDataSource):
 
     def should_record_request(self, *, operation: str) -> bool:
         """Check if request inputs should be captured for this operation."""
-        return operation in self.inputs_by_label
+        return operation in self.inputs_by_label or operation in self.created_keys_by_label
 
     def record_request(
         self,
@@ -671,7 +722,7 @@ class OpenApiExtraDataSource(ExtraDataSource):
         status_code: int,
     ) -> None:
         """Capture path-parameter and body-field values from a successful request."""
-        slots = self.inputs_by_label.get(operation.label)
+        slots = [*self.inputs_by_label.get(operation.label, ()), *self.created_keys_by_label.get(operation.label, ())]
         if not slots:
             return
         if case.meta is not None:
@@ -689,6 +740,9 @@ class OpenApiExtraDataSource(ExtraDataSource):
             case=case,
             status_code=status_code,
             context=case.path_parameters or {},
+            identity=case._auth_identity,
+            query=case.query or {},
+            referenced=referenced_by(case),
         )
 
     def record_response(
@@ -728,21 +782,13 @@ class OpenApiExtraDataSource(ExtraDataSource):
                 status_code=response.status_code,
                 payload=payload,
                 context=case.path_parameters or {},
+                identity=case._auth_identity,
+                query=case.query or {},
+                referenced=referenced_by(case),
             )
         if semantic_active:
-            response_def = operation.responses.find_by_status_code(response.status_code)
-            response_schema: dict[str, Any] | None = None
-            if response_def is not None:
-                # Recording runs outside the response-schema check path; an unresolvable
-                # `$ref` or other malformed response schema must not fail the operation
-                # when only non-schema checks are enabled. Fall back to a schemaless walk.
-                try:
-                    resolved_schema = response_def.get_schema(content_type).schema
-                except (BundleError, InvalidSchema, MalformedMediaType):
-                    resolved_schema = None
-                # A boolean JSON Schema (true/false) carries no leaf info; treat as schemaless.
-                if isinstance(resolved_schema, dict):
-                    response_schema = resolved_schema
+            # Without a usable schema, fall back to a schemaless walk.
+            response_schema = declared_response_schema(operation, response.status_code, content_type)
             # Normalize so a response echoing `user_id` is excluded when the path declares `userId`.
             excluded = (
                 frozenset(normalize_for_matching(name) for name in case.path_parameters)

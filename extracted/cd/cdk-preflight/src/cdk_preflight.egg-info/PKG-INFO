@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-preflight
-Version: 1.1.0
+Version: 1.2.0
 Summary: Catch deploy-time CloudFormation failures at synth time: a Rego rule pack for constraints that resource schemas miss, injected into the AWS CDK built-in validator
 Home-page: https://github.com/badmintoncryer/cdk-preflight.git
 Author: Kazuho CryerShinozuka<malaysia.cryer@gmail.com>
@@ -34,14 +34,14 @@ Requires-Dist: publication>=0.0.3
   <a href="https://github.com/badmintoncryer/cdk-preflight/actions/workflows/monthly-verify.yml"><img src="https://github.com/badmintoncryer/cdk-preflight/actions/workflows/monthly-verify.yml/badge.svg" alt="monthly real-deploy verification"></a>
   <a href="https://www.npmjs.com/package/cdk-preflight"><img src="https://img.shields.io/npm/v/cdk-preflight.svg" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/cdk-preflight"><img src="https://img.shields.io/npm/dt/cdk-preflight.svg" alt="npm total downloads"></a>
-  <a href="docs/rules.md"><img src="https://img.shields.io/badge/rules-3216-blue" alt="3216 bundled rules"></a>
+  <a href="docs/rules.md"><img src="https://img.shields.io/badge/rules-3217-blue" alt="3217 bundled rules"></a>
 </p>
 
 Some CloudFormation constraints are not expressed in resource provider schemas — they live only in documentation, in service API validation, or across multiple properties. Templates that violate them pass `cdk synth`, pass CloudFormation pre-deployment validation, and then fail minutes into a deployment, burning a rollback cycle.
 
 cdk-preflight is a curated [Rego rule pack](docs/rules.md) for exactly those constraints, evaluated with the CloudFormation validation engine that ships inside `aws-cdk-lib` (>= 2.267.0). By default a violation **fails `cdk synth`** — a template that is known to fail at deploy time never leaves your machine.
 
-The pack aims at **every deploy-time failure that no existing CDK mechanism already catches** — nothing narrower. Every bundled rule is backed by a `fail`/`pass` template pair, and the failure has been reproduced against real AWS. The handful of rules that could not be reproduced are marked `doc-only` and report as **warnings**, as does a rule whose remaining false positives cannot be told from the template (a cross-account Lambda layer the owner may have shared): they show up in the validation report but never fail synth. Rules that the built-in validation engine already covers are deliberately **not** duplicated — a test suite enforces this, and a rule the engine catches up with later is skipped on engines that cover it (see [Scope and rule lifecycle](#scope-and-rule-lifecycle)).
+The pack aims at **every deploy-time failure, and every post-deploy run that is certain to fail, that no existing CDK mechanism already catches** — nothing narrower. Every bundled rule is backed by a `fail`/`pass` template pair, and the failure has been reproduced against real AWS. The handful of rules that could not be reproduced are marked `doc-only` and report as **warnings**, as does a rule whose remaining false positives cannot be told from the template (a cross-account Lambda layer the owner may have shared): they show up in the validation report but never fail synth. Rules that the built-in validation engine already covers are deliberately **not** duplicated — a test suite enforces this, and a rule the engine catches up with later is skipped on engines that cover it (see [Scope and rule lifecycle](#scope-and-rule-lifecycle)).
 
 > **Requires `aws-cdk-lib` >= 2.267.0** (released 2026-08-27) — the first release that bundles
 > the CloudFormation validation engine. On older versions the rules cannot run at all.
@@ -253,7 +253,7 @@ Resource names are relative to `AWS::<Service>::`; the number in parentheses is 
 | **SES** | `ConfigurationSetEventDestination` (8), `ContactList` (1), `EmailIdentity` (6), `ReceiptRule` (6), `ReceiptRuleSet` (1), `Template` (1) |
 | **SNS** | `Subscription` (9), `Topic` (12), `TopicPolicy` (1) |
 | **SQS** | `Queue` (9), `QueuePolicy` (1) |
-| **SSM** | `Association` (3), `Document` (3), `MaintenanceWindow` (2), `MaintenanceWindowTarget` (1), `MaintenanceWindowTask` (1), `Parameter` (5) |
+| **SSM** | `Association` (4), `Document` (3), `MaintenanceWindow` (2), `MaintenanceWindowTarget` (1), `MaintenanceWindowTask` (1), `Parameter` (5) |
 | **StepFunctions** | `Activity` (3), `StateMachine` (26) |
 | **Synthetics** | `Canary` (16) |
 | **VerifiedPermissions** | `IdentitySource` (3), `Policy` (26), `PolicyStore` (23), `PolicyStoreAlias` (1), `PolicyTemplate` (29) |
@@ -306,7 +306,7 @@ missing a rule. Report it:
 
 ## Scope and rule lifecycle
 
-A constraint belongs in the pack when violating it makes a real deployment fail *and* no layer that sees the same synthesized template already blocks it. There is no further "is this worth a rule" question — if the gap is real, it gets a rule.
+A constraint belongs in the pack when violating it makes a real deployment fail, or lets the deployment succeed and then makes every run of the deployed resource fail (an SSM Automation association that targets several tags, for example), *and* no layer that sees the same synthesized template already blocks it. There is no further "is this worth a rule" question — if the gap is real, it gets a rule.
 
 CDK L2 construct validation is deliberately **not** one of those layers. `CfnXxx` usage, escape hatches, `addPropertyOverride`, `cloudformation-include` and migrated templates all bypass L2, so an L2 guard covering the same mistake neither disqualifies a rule nor retires one.
 

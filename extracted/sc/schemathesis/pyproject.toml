@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemathesis"
-version = "4.30.1"
+version = "4.31.0"
 description = "Adaptive API testing for OpenAPI and GraphQL"
 keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing", "fuzzing", "adaptive"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
 maintainers = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 readme = "README.md"
 include = ["src/schemathesis/py.typed"]
@@ -22,11 +22,11 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Topic :: Software Development :: Testing",
@@ -43,7 +43,6 @@ dependencies = [
   "PyYAML>=5.1,<7.0",
   "requests>=2.22,<3",
   "rich>=13.9.4",
-  "tomli>=2.2.1; python_version < '3.11'",
   "typing-extensions>=4.12.2",
   "werkzeug>=0.16.0,<4",
 ]
@@ -73,7 +72,7 @@ tests = [
 allure = ["allure-python-commons>=2.13.0"]
 cov = ["coverage-enable-subprocess", "coverage[toml]>=5.3"]
 bench = ["pytest-codspeed==5.0.3"]
-docs = ["mkdocs-material", "mkdocstrings[python]"]
+docs = ["mkdocs-material", "mkdocstrings[python]", "pymdown-extensions<12.2"]
 profiling = ["pyinstrument>=5.1"]
 scripts = ["tracecov>=0.21", "seaborn>=0.13"]
 dev = ["schemathesis[tests,cov,bench,docs,scripts]"]
@@ -104,6 +103,8 @@ exclude = [
 
 [tool.pytest.ini_options]
 addopts = ["-ra", "--strict-markers", "--strict-config"]
+# Dump every thread's stack for a test running over 5 minutes, so a stalled CI job names the culprit.
+faulthandler_timeout = 300
 xfail_strict = true
 truncation_limit_lines = 0
 truncation_limit_chars = 0
@@ -114,10 +115,10 @@ filterwarnings = [
     # anyio streams not closed during async test teardown (flaky on Python 3.13+)
     "ignore:Unclosed <MemoryObject.*:ResourceWarning",
     "ignore:.*Unclosed <MemoryObject.*:pytest.PytestUnraisableExceptionWarning",
-    # urllib3/http.client response finalizer raises ValueError on Python 3.14t free-threading GC
+    # urllib3/http.client response finalizer raises ValueError on free-threaded Python GC
     "ignore:Exception ignored while finalizing file <urllib3.response.HTTPResponse.*:pytest.PytestUnraisableExceptionWarning",
     "ignore:Exception ignored while finalizing file <http.client.HTTPResponse.*:pytest.PytestUnraisableExceptionWarning",
-    # asyncio event loop / anyio stream deallocators raise on Python 3.14t free-threading GC
+    # asyncio event loop / anyio stream deallocators raise on free-threaded Python GC
     "ignore:Exception ignored while calling deallocator <function BaseEventLoop.__del__.*:pytest.PytestUnraisableExceptionWarning",
     "ignore:Exception ignored while calling deallocator <function MemoryObject.*.__del__.*:pytest.PytestUnraisableExceptionWarning",
     "ignore:Exception ignored in.*<function MemoryObject.*.__del__.*:pytest.PytestUnraisableExceptionWarning",
@@ -155,7 +156,7 @@ exclude_lines = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = [

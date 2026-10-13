@@ -4,7 +4,14 @@ import numpy as np
 from tqdm import tqdm
 from scipy.stats import norm
 from sklearn.model_selection import cross_val_predict, KFold, train_test_split
-from xgboost import XGBRegressor
+from sklearn.utils import check_random_state
+
+try:
+    from xgboost import XGBRegressor, XGBClassifier
+except ValueError as exc:
+    from causalml.exceptions import handle_xgboost_error
+
+    handle_xgboost_error(exc)
 
 from causalml.inference.meta.base import BaseLearner
 from causalml.inference.meta.utils import (
@@ -16,7 +23,7 @@ from causalml.inference.meta.utils import (
     get_xgboost_objective_metric,
     get_weighted_variance,
 )
-from causalml.propensity import ElasticNetPropensityModel
+from causalml.propensity import ElasticNetPropensityModel, compute_r_residuals
 
 logger = logging.getLogger("causalml")
 
@@ -115,6 +122,12 @@ class BaseRLearner(BaseLearner):
         self.t_groups = np.unique(treatment_np[treatment_np != self.control_name])
         self.t_groups.sort()
 
+        # Resolve model_p before fitting propensity models so a user-supplied
+        # propensity_learner is honored on the first fit. _set_propensity_models
+        # reads self.model_p, so setting it afterwards meant the first fit of a
+        # fresh object silently fell back to the default ElasticNet.
+        self.model_p = self.propensity_learner
+
         if p is None:
             self._set_propensity_models(X=X, treatment=treatment_np, y=y_np)
             p = self.propensity
@@ -134,11 +147,6 @@ class BaseRLearner(BaseLearner):
             if self.effect_learner is not None
             else deepcopy(self.learner)
         )
-        self.model_p = self.propensity_learner
-        # Build CV splitter from stored n_fold / random_state.
-        self.cv = KFold(
-            n_splits=self.n_fold, shuffle=True, random_state=self.random_state
-        )
 
         self.models_tau = {group: deepcopy(self.model_tau) for group in self.t_groups}
         self.vars_c = {}
@@ -146,9 +154,20 @@ class BaseRLearner(BaseLearner):
 
         if verbose:
             logger.info("generating out-of-fold CV outcome estimates")
-        yhat = cross_val_predict(
-            self.model_mu, X, y_np, cv=self.cv, n_jobs=self.cv_n_jobs
+        y_residual, _ = compute_r_residuals(
+            X,
+            treatment_np,
+            y_np,
+            outcome_learner=self.model_mu,
+            n_folds=self.n_fold,
+            random_state=self.random_state,
+            n_jobs=self.cv_n_jobs,
+            compute_w_residual=False,
         )
+        yhat = y_np - y_residual
+        # Fit the nuisance outcome model on the full data so it can be
+        # reused by predict(return_components=True).
+        self.model_mu.fit(X, y_np)
 
         for group in self.t_groups:
             mask = (treatment_np == group) | (treatment_np == self.control_name)
@@ -186,21 +205,48 @@ class BaseRLearner(BaseLearner):
             )
         return self
 
-    def predict(self, X, p=None):
+    def predict(
+        self,
+        X,
+        p=None,
+        return_components=False,
+    ):
         """Predict treatment effects.
 
         Args:
             X (np.matrix, np.array, pd.DataFrame, pl.DataFrame, or pl.LazyFrame): a feature matrix.
-                A pl.LazyFrame is collected once at the start of this method.
+            p (np.ndarray, pd.Series, pl.Series, or dict, optional): propensity scores.
+            return_components (bool): whether to return nuisance components.
 
         Returns:
-            (numpy.ndarray): Predictions of treatment effects.
+            numpy.ndarray or tuple
         """
+
         X = collect_if_lazy(X)
+
         te = np.zeros((n_rows(X), self.t_groups.shape[0]))
+
         for i, group in enumerate(self.t_groups):
             te[:, i] = self.models_tau[group].predict(X)
-        return te
+
+        if not return_components:
+            return te
+
+        if p is None:
+            if not hasattr(self, "propensity_model"):
+                raise ValueError(
+                    "No propensity model is available. Please provide `p` or fit the learner with p=None."
+                )
+            p = {
+                group: self.propensity_model[group].predict(X)
+                for group in self.t_groups
+            }
+        else:
+            p = self._format_p(p, self.t_groups)
+
+        yhat = self.model_mu.predict(X)
+
+        return te, yhat, p
 
     def fit_predict(
         self,
@@ -212,6 +258,7 @@ class BaseRLearner(BaseLearner):
         return_ci=False,
         n_bootstraps=1000,
         bootstrap_size=10000,
+        return_components=False,
         verbose=True,
     ):
         """Fit the R learner and predict treatment effects.
@@ -228,13 +275,28 @@ class BaseRLearner(BaseLearner):
             return_ci (bool): whether to return confidence intervals
             n_bootstraps (int): number of bootstrap iterations
             bootstrap_size (int): number of samples per bootstrap
+            return_components (bool, optional): whether to return the nuisance
+            outcome prediction (yhat) and propensity estimates (p) in addition
+            to treatment effects.
             verbose (bool): whether to output progress logs
         Returns:
             (numpy.ndarray): Predictions of treatment effects.
         """
+        if return_ci and return_components:
+            raise ValueError("return_ci and return_components cannot both be True.")
         X = collect_if_lazy(X)
         self.fit(X, treatment, y, p, sample_weight, verbose=verbose)
-        te = self.predict(X)
+
+        if p is None:
+            p = self.propensity
+        else:
+            p = self._format_p(p, self.t_groups)
+
+        te = self.predict(
+            X,
+            p=p,
+            return_components=return_components,
+        )
 
         if not return_ci:
             return te
@@ -251,12 +313,15 @@ class BaseRLearner(BaseLearner):
             )
 
             logger.info("Bootstrap Confidence Intervals")
+            rng = check_random_state(self.random_state)
             for i in tqdm(range(n_bootstraps)):
                 if p is None:
                     p = self.propensity
                 else:
                     p = self._format_p(p, self.t_groups)
-                te_b = self.bootstrap(X, treatment_np, y_np, p, size=bootstrap_size)
+                te_b = self.bootstrap(
+                    X, treatment_np, y_np, p, size=bootstrap_size, rng=rng
+                )
                 te_bootstraps[:, :, i] = te_b
 
             te_lower = np.percentile(te_bootstraps, (self.ate_alpha / 2) * 100, axis=2)
@@ -353,12 +418,15 @@ class BaseRLearner(BaseLearner):
             logger.info("Bootstrap Confidence Intervals for ATE")
             ate_bootstraps = np.zeros(shape=(self.t_groups.shape[0], n_bootstraps))
 
+            rng = check_random_state(self.random_state)
             for n in tqdm(range(n_bootstraps)):
                 if p is None:
                     p = self.propensity
                 else:
                     p = self._format_p(p, self.t_groups)
-                cate_b = self.bootstrap(X, treatment_np, y_np, p, size=bootstrap_size)
+                cate_b = self.bootstrap(
+                    X, treatment_np, y_np, p, size=bootstrap_size, rng=rng
+                )
                 ate_bootstraps[:, n] = cate_b.mean(axis=0)
 
             ate_lower = np.percentile(
@@ -470,6 +538,10 @@ class BaseRClassifier(BaseRLearner):
         self.t_groups = np.unique(treatment_np[treatment_np != self.control_name])
         self.t_groups.sort()
 
+        # Set model_p before _set_propensity_models runs so a custom
+        # propensity_learner is used on the first fit (see BaseRLearner.fit).
+        self.model_p = self.propensity_learner
+
         if p is None:
             self._set_propensity_models(X=X, treatment=treatment_np, y=y_np)
             p = self.propensity
@@ -481,7 +553,6 @@ class BaseRClassifier(BaseRLearner):
         # Resolve base models from stored constructor args.
         self.model_mu = self.outcome_learner
         self.model_tau = self.effect_learner
-        self.model_p = self.propensity_learner
         self.cv = KFold(
             n_splits=self.n_fold, shuffle=True, random_state=self.random_state
         )
@@ -495,6 +566,7 @@ class BaseRClassifier(BaseRLearner):
         yhat = cross_val_predict(
             self.model_mu, X, y_np, cv=self.cv, method="predict_proba", n_jobs=-1
         )[:, 1]
+        self.model_mu.fit(X, y_np)
 
         for group in self.t_groups:
             mask = (treatment_np == group) | (treatment_np == self.control_name)
@@ -532,21 +604,38 @@ class BaseRClassifier(BaseRLearner):
             )
         return self
 
-    def predict(self, X, p=None):
-        """Predict treatment effects.
+    def predict(
+        self,
+        X,
+        p=None,
+        return_components=False,
+    ):
 
-        Args:
-            X (np.matrix, np.array, pd.DataFrame, pl.DataFrame, or pl.LazyFrame): a feature matrix.
-                A pl.LazyFrame is collected once at the start of this method.
-
-        Returns:
-            (numpy.ndarray): Predictions of treatment effects.
-        """
         X = collect_if_lazy(X)
+
         te = np.zeros((n_rows(X), self.t_groups.shape[0]))
+
         for i, group in enumerate(self.t_groups):
             te[:, i] = self.models_tau[group].predict(X)
-        return te
+
+        if not return_components:
+            return te
+
+        if p is None:
+            if not hasattr(self, "propensity_model"):
+                raise ValueError(
+                    "No propensity model is available. Please provide `p` or fit the learner with p=None."
+                )
+            p = {
+                group: self.propensity_model[group].predict(X)
+                for group in self.t_groups
+            }
+        else:
+            p = self._format_p(p, self.t_groups)
+
+        yhat = self.model_mu.predict_proba(X)[:, 1]
+
+        return te, yhat, p
 
 
 class XGBRRegressor(BaseRRegressor):
@@ -645,6 +734,10 @@ class XGBRRegressor(BaseRRegressor):
         self.t_groups = np.unique(treatment_np[treatment_np != self.control_name])
         self.t_groups.sort()
 
+        # Set model_p before _set_propensity_models runs so a custom
+        # propensity_learner is used on the first fit (see BaseRLearner.fit).
+        self.model_p = self.propensity_learner
+
         if p is None:
             self._set_propensity_models(X=X, treatment=treatment_np, y=y_np)
             p = self.propensity
@@ -679,7 +772,6 @@ class XGBRRegressor(BaseRRegressor):
 
         self.model_mu = outcome_learner
         self.model_tau = effect_learner
-        self.model_p = self.propensity_learner
         self.cv = KFold(
             n_splits=self.n_fold, shuffle=True, random_state=self.random_state
         )
@@ -691,6 +783,7 @@ class XGBRRegressor(BaseRRegressor):
         if verbose:
             logger.info("generating out-of-fold CV outcome estimates")
         yhat = cross_val_predict(self.model_mu, X, y_np, cv=self.cv, n_jobs=-1)
+        self.model_mu.fit(X, y_np)
 
         for group in self.t_groups:
             treatment_mask = (treatment_np == group) | (
@@ -767,3 +860,69 @@ class XGBRRegressor(BaseRRegressor):
             self.vars_c[group] = get_weighted_variance(diff_c, sample_weight_filt_c)
             self.vars_t[group] = get_weighted_variance(diff_t, sample_weight_filt_t)
         return self
+
+
+class XGBRClassifier(BaseRClassifier):
+    """An R-learner classifier using XGBoost models.
+
+    The outcome model is an ``XGBClassifier`` (its ``predict_proba`` drives the
+    outcome cross-fit) and the effect model is an ``XGBRegressor``. Every
+    constructor argument is stored verbatim (scikit-learn convention) so that
+    ``get_params()`` / ``clone()`` work correctly; the XGBoost models are
+    constructed in ``fit()``.
+    """
+
+    def __init__(
+        self,
+        propensity_learner=ElasticNetPropensityModel(),
+        ate_alpha=0.05,
+        control_name=0,
+        n_fold=5,
+        random_state=None,
+        outcome_xgb_kwargs=None,
+        effect_xgb_kwargs=None,
+    ):
+        """Initialize an R-learner classifier with XGBoost models.
+
+        Args:
+            propensity_learner (optional): a propensity model. Defaults to
+                ``ElasticNetPropensityModel()``.
+            ate_alpha (float, optional): the confidence level alpha of the ATE estimate
+            control_name (str or int, optional): name of control group
+            n_fold (int, optional): CV folds for the outcome learner
+            random_state (int or RandomState, optional): random seed
+            outcome_xgb_kwargs (dict, optional): keyword arguments forwarded verbatim
+                to the ``XGBClassifier`` outcome model, e.g. ``{'max_depth': 4}``.
+            effect_xgb_kwargs (dict, optional): keyword arguments forwarded verbatim
+                to the ``XGBRegressor`` effect model.
+
+        Note: all arguments are stored verbatim (scikit-learn convention) so that
+        ``get_params`` / ``clone`` work correctly. XGBoost model construction is
+        deferred to ``fit()``.
+        """
+        # Store verbatim — no XGBoost construction here.
+        self.outcome_xgb_kwargs = outcome_xgb_kwargs
+        self.effect_xgb_kwargs = effect_xgb_kwargs
+
+        # BaseRClassifier.__init__ rejects both learners being None; bypass it by
+        # initializing through the grandparent, since the learners are built in
+        # fit() rather than passed in.
+        BaseRLearner.__init__(
+            self,
+            learner=None,
+            outcome_learner=None,
+            effect_learner=None,
+            propensity_learner=propensity_learner,
+            ate_alpha=ate_alpha,
+            control_name=control_name,
+            n_fold=n_fold,
+            random_state=random_state,
+        )
+
+    def fit(self, X, treatment, y, p=None, sample_weight=None, verbose=True):
+        """Build the XGBoost models, then fit as an R-learner classifier."""
+        self.outcome_learner = XGBClassifier(**(self.outcome_xgb_kwargs or {}))
+        self.effect_learner = XGBRegressor(**(self.effect_xgb_kwargs or {}))
+        return BaseRClassifier.fit(
+            self, X, treatment, y, p=p, sample_weight=sample_weight, verbose=verbose
+        )

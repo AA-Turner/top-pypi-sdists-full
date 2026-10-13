@@ -457,3 +457,72 @@ def test_a_summary_of_the_wrong_type_is_flagged_not_shown_as_null():
     entity = {"id": str(uuid4()), "name": "n", "slug": "s", "summary_metrics": ["x"]}
     shown = _entity_projection(EntityType.PROJECT, entity, card=False, document=True)
     assert "summary" not in shown and shown["summary_truncated"] is True
+
+
+# ---------------------------------------------------------------------------
+# Forks (CONTRACT.md, Forks): the card names the source, counts the forks and
+# points at what a fork reads -- each only when it says something.
+# ---------------------------------------------------------------------------
+
+_SOURCE = {
+    "id": "src-1",
+    "slug": "warmup-500",
+    "name": "Warmup 500",
+    "project_id": "proj-1",
+    "forked_at": "2026-10-12T05:00:00Z",
+}
+
+
+def _experiment_card(**fork_fields):
+    entity = {"id": "one", "name": "lr sweep", "question": "Does lr 3e-4 help?"} | fork_fields
+    return ResearchReadService(EntitySource(EntityType.EXPERIMENT, entity)).get_entity(
+        "experiment:one"
+    )["data"]["entity"]
+
+
+def test_a_fork_card_names_its_source_and_where_it_inherits():
+    card = _experiment_card(forked_from=dict(_SOURCE), fork_count=0, inherits=True)
+    assert card["forked_from"] == {
+        "id": "src-1",
+        "slug": "warmup-500",
+        "name": "Warmup 500",
+        "forked_at": "2026-10-12T05:00:00Z",
+    }
+    assert card["read_inherited"].startswith('view="inherited"')
+    assert '"runs": true' in card["read_inherited"]
+    assert "fork_count" not in card
+
+
+def test_a_source_card_counts_its_forks_and_is_no_fork_itself():
+    card = _experiment_card(forked_from=None, fork_count=2, inherits=False)
+    assert card["fork_count"] == 2
+    assert "forked_from" not in card
+    assert "read_inherited" not in card
+
+
+def test_a_fork_whose_source_is_in_the_trash_still_points_at_what_it_inherits():
+    """`forked_from` is null for a source in the trash; the fork still reads
+    through it, so the hint keys on `inherits`."""
+    card = _experiment_card(forked_from=None, fork_count=0, inherits=True)
+    assert "forked_from" not in card
+    assert card["read_inherited"].startswith('view="inherited"')
+
+
+def test_an_experiment_with_no_fork_either_way_keeps_its_card():
+    plain = _experiment_card()
+    with_defaults = _experiment_card(forked_from=None, fork_count=0, inherits=False)
+    assert with_defaults == plain
+    assert not {"forked_from", "fork_count", "read_inherited"} & plain.keys()
+
+
+def test_a_long_source_name_is_cut_and_says_so():
+    long = dict(_SOURCE, name="n" * 1000)
+    card = _experiment_card(forked_from=long, inherits=True)
+    assert len(card["forked_from"]["name"]) < 1000
+    assert card["forked_from"]["name_truncated"] is True
+
+
+def test_a_run_card_never_carries_fork_facts():
+    entity = {"id": "one", "name": "r", "forked_from": dict(_SOURCE), "fork_count": 3}
+    card = ResearchReadService(EntitySource(EntityType.RUN, entity)).get_entity("run:one")
+    assert not {"forked_from", "fork_count", "read_inherited"} & card["data"]["entity"].keys()

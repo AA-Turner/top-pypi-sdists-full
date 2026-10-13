@@ -25,6 +25,11 @@ from skylos.cicd.risk_passport import (
     format_risk_passport_markdown,
 )
 from skylos.core.file_discovery import find_git_root
+from skylos.reporting.assessment_display import (
+    assessment_coverage_text,
+    assessment_rows,
+    maintainability_rows,
+)
 from skylos.rules.quality.regression import detect_security_regressions
 
 console = Console()
@@ -148,6 +153,7 @@ def run_pr_review(
         repo,
         grade=grade,
         previous_grade=previous_grade,
+        assessment=results.get("assessment") if isinstance(results, dict) else None,
         evidence_cards=evidence_cards,
         risk_passport=risk_passport,
     )
@@ -300,9 +306,7 @@ def get_changed_line_ranges(
     )
     if include_working_tree:
         for path in get_untracked_files(cwd):
-            ranges.append(
-                {"file": path, "start": 1, "end": _UNTRACKED_WHOLE_FILE_END}
-            )
+            ranges.append({"file": path, "start": 1, "end": _UNTRACKED_WHOLE_FILE_END})
     return ranges
 
 
@@ -698,8 +702,27 @@ def _copy_safe_finding_metadata(source: dict, target: dict) -> None:
         target["confidence"] = confidence
 
     ai_authored = source.get("ai_authored")
-    if isinstance(ai_authored, bool):
+    if isinstance(ai_authored, bool) or (
+        "ai_authored" in source and ai_authored is None
+    ):
         target["ai_authored"] = ai_authored
+
+    if isinstance(source.get("ai_declared"), bool):
+        target["ai_declared"] = source["ai_declared"]
+    for key, allowed in {
+        "attribution_level": {"recorded", "declared", "automation", "unknown"},
+        "attribution_scope": {"line", "file", "none"},
+        "evidence_source": {
+            "git_ai",
+            "agent_trace",
+            "commit_metadata",
+            "multiple",
+            "none",
+        },
+    }.items():
+        value = source.get(key)
+        if isinstance(value, str) and value in allowed:
+            target[key] = value
 
     ai_agent = source.get("ai_agent")
     if isinstance(ai_agent, str):
@@ -1250,6 +1273,7 @@ def _post_summary_comment(
     *,
     grade: dict | None = None,
     previous_grade: dict | None = None,
+    assessment: dict | None = None,
     evidence_cards: bool = False,
     risk_passport: dict | None = None,
 ) -> None:
@@ -1399,11 +1423,13 @@ def _post_summary_comment(
                         f"  - **Fix:** {sanitize_markdown_text(fix, max_length=500)}"
                     )
 
-    if grade:
+    if isinstance(assessment, dict) and assessment:
+        lines.extend(_format_assessment_markdown(assessment))
+    elif grade:
         overall = grade["overall"]
         cats = grade["categories"]
 
-        lines.extend(["", "### Codebase Grade", ""])
+        lines.extend(["", "### Legacy score", ""])
 
         if previous_grade:
             prev = previous_grade["overall"]
@@ -1416,7 +1442,7 @@ def _post_summary_comment(
                 f"({arrow}{delta})"
             )
         else:
-            lines.append(f"**Overall: {overall['letter']} ({overall['score']}/100)**")
+            lines.append(f"**Legacy: {overall['letter']} ({overall['score']}/100)**")
 
         lines.extend(
             [
@@ -1442,6 +1468,7 @@ def _post_summary_comment(
             lines.append(
                 f"| {display} | {cat['score']}{delta_str} | {cat['letter']} | {issue} |"
             )
+        lines.extend(["", "Historical result; this score is not a current risk assessment."])
 
     body = "\n".join(lines)
 
@@ -1454,6 +1481,22 @@ def _post_summary_comment(
         )
     except subprocess.CalledProcessError as e:
         console.print(f"[yellow]Failed to post summary comment: {e.stderr}[/yellow]")
+
+
+def _format_assessment_markdown(assessment: dict) -> list[str]:
+    lines = ["", "### Scan assessment", "", "| Area | Result |", "|------|--------|"]
+    for label, detail in assessment_rows(assessment):
+        safe_detail = sanitize_markdown_text(detail, max_length=500)
+        lines.append(f"| {label} | {safe_detail} |")
+    lines.extend(["", sanitize_markdown_text(assessment_coverage_text(assessment), max_length=1000)])
+    checks = maintainability_rows(assessment)
+    if checks:
+        lines.extend(["", "| Check | Spread | Magnitude |", "|-------|--------|-----------|"])
+        for row in checks:
+            safe = [sanitize_markdown_text(value, max_length=250) for value in row]
+            lines.append("| " + " | ".join(safe) + " |")
+    lines.extend(["", "Risk includes Defect and Review findings; review evidence before acting."])
+    return lines
 
 
 def _fetch_previous_grade(base_branch: str = "origin/main") -> dict | None:

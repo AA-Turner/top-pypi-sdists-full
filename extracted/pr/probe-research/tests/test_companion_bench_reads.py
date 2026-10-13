@@ -301,7 +301,6 @@ def _session_line(obj: dict) -> bytes:
 def test_a_delivery_goes_into_the_transcript_as_claude_code_writes_it_and_the_real_adapter_reads_it(tmp_path):
     sys.path.insert(0, str(AGENT / "src"))
     from probe.daemon.adapters.claude_code import PROBE_MESSAGE_PREFIX, ClaudeCode
-    from probe.daemon.events import Kind as EventKind
     from probe.daemon.mailbox import Message
 
     sid, now = "s1", time.time()
@@ -335,10 +334,10 @@ def test_a_delivery_goes_into_the_transcript_as_claude_code_writes_it_and_the_re
                                             + "\n\n".join(expected) + "\n</system-reminder>"}]
     assert [x["text"] for x in d.log] == expected
 
-    # The REAL adapter reads it as a harness line (META) the writer and the reader see.
-    events = ClaudeCode().parse_line(line, stream="main", offset=0)
-    assert [e.kind for e in events] == [EventKind.META]
-    assert events[0].text.startswith(PROBE_MESSAGE_PREFIX) and events[0].text == "\n\n".join(expected)
+    # The REAL adapter does not read this copy: the worker reads the messages whole
+    # from the claim log the driver writes, as the released hook does.
+    assert ClaudeCode().parse_line(line, stream="main", offset=0) == []
+    assert all(t.startswith(PROBE_MESSAGE_PREFIX) for t in expected)
 
     # At a prompt: the UserPromptSubmit line, which carries no `session_id`.
     _msg(tmp_path, sid, "m2", "message", now + 2, text="Another team note.")
@@ -347,8 +346,7 @@ def test_a_delivery_goes_into_the_transcript_as_claude_code_writes_it_and_the_re
     assert list(line) == CC_ATTACHMENT_KEYS and list(line["attachment"]) == CC_HOOK_KEYS
     assert line["attachment"]["hookName"] == line["attachment"]["hookEvent"] == "UserPromptSubmit"
     assert line["attachment"]["toolUseID"].startswith("hook-") and line["parentUuid"] == "u-prompt"
-    events = ClaudeCode().parse_line(line, stream="main", offset=1)
-    assert [e.kind for e in events] == [EventKind.META] and events[0].text.startswith("[Probe] Team context")
+    assert ClaudeCode().parse_line(line, stream="main", offset=1) == []
 
 
 def test_the_bench_writes_each_delivery_right_after_the_line_whose_hook_delivered_it(tmp_path):

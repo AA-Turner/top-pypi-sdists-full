@@ -12,7 +12,7 @@ from cutlass.cutlass_dsl import T
 from cutlass.cutlass_dsl import dsl_user_op
 
 if TYPE_CHECKING:
-    from cutlass._mlir import ir
+    from ._mlir_compat import ir
 
 
 @dsl_user_op
@@ -33,6 +33,31 @@ def _set_block_rank(
             "mapa.shared::cluster.u32 $0, $1, $2;",
             "=r,r,r",
             has_side_effects=False,
+            is_align_stack=False,
+        )
+    )
+
+
+@dsl_user_op
+def load_shared_remote_f32(
+    smem_ptr: cute.Pointer,
+    peer_cta_rank_in_cluster: Int32,
+    *,
+    loc: ir.Location | None = None,
+    ip: ir.InsertionPoint | None = None,
+) -> Float32:
+    """Read a published FP32 word; the caller owns both cluster rendezvous."""
+    return Float32(
+        llvm.inline_asm(
+            T.f32(),
+            [
+                cast("Any", smem_ptr).toint(loc=loc, ip=ip).ir_value(),
+                peer_cta_rank_in_cluster.ir_value(),
+            ],
+            "{ .reg .u32 peer_addr; mapa.shared::cluster.u32 peer_addr, $1, $2; "
+            "ld.shared::cluster.f32 $0, [peer_addr]; }",
+            "=f,r,r",
+            has_side_effects=True,
             is_align_stack=False,
         )
     )
@@ -82,6 +107,74 @@ def store_shared_remote_x4(
         f"st.async.shared::cluster.mbarrier::complete_tx::bytes.v4.{suffix} [$0], abcd, [$1];\n\t"
         "}\n",
         f"r,r,{constraint},{constraint},{constraint},{constraint}",
+        has_side_effects=True,
+        is_align_stack=False,
+    )
+
+
+@dsl_user_op
+def store_shared_remote_f32(
+    val: Float32,
+    smem_ptr: cute.Pointer,
+    mbar_ptr: cute.Pointer,
+    peer_cta_rank_in_cluster: Int32,
+    *,
+    loc: ir.Location | None = None,
+    ip: ir.InsertionPoint | None = None,
+) -> None:
+    """Store one f32 into another CTA's SMEM and complete the mbarrier tx."""
+
+    remote_smem_ptr_i32 = _set_block_rank(
+        smem_ptr, peer_cta_rank_in_cluster, loc=loc, ip=ip
+    ).ir_value()
+    remote_mbar_ptr_i32 = _set_block_rank(
+        mbar_ptr, peer_cta_rank_in_cluster, loc=loc, ip=ip
+    ).ir_value()
+    llvm.inline_asm(
+        None,
+        [
+            remote_smem_ptr_i32,
+            Float32(val).ir_value(loc=loc, ip=ip),
+            remote_mbar_ptr_i32,
+        ],
+        "st.async.shared::cluster.mbarrier::complete_tx::bytes.f32 [$0], $1, [$2];",
+        "r,f,r",
+        has_side_effects=True,
+        is_align_stack=False,
+    )
+
+
+@dsl_user_op
+def store_shared_remote_f32x2(
+    val0: Float32,
+    val1: Float32,
+    smem_ptr: cute.Pointer,
+    mbar_ptr: cute.Pointer,
+    peer_cta_rank_in_cluster: Int32,
+    *,
+    loc: ir.Location | None = None,
+    ip: ir.InsertionPoint | None = None,
+) -> None:
+    """Store an (f32, f32) pair into another CTA's SMEM and complete the
+    mbarrier tx.  ``smem_ptr`` must be 8-byte aligned (allocate the receive
+    buffer as ``Int64`` slots)."""
+
+    remote_smem_ptr_i32 = _set_block_rank(
+        smem_ptr, peer_cta_rank_in_cluster, loc=loc, ip=ip
+    ).ir_value()
+    remote_mbar_ptr_i32 = _set_block_rank(
+        mbar_ptr, peer_cta_rank_in_cluster, loc=loc, ip=ip
+    ).ir_value()
+    llvm.inline_asm(
+        None,
+        [
+            remote_smem_ptr_i32,
+            Float32(val0).ir_value(loc=loc, ip=ip),
+            Float32(val1).ir_value(loc=loc, ip=ip),
+            remote_mbar_ptr_i32,
+        ],
+        "st.async.shared::cluster.mbarrier::complete_tx::bytes.v2.f32 [$0], {$1, $2}, [$3];",
+        "r,f,f,r",
         has_side_effects=True,
         is_align_stack=False,
     )

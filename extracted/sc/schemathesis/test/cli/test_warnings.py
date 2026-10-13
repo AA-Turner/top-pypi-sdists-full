@@ -19,6 +19,32 @@ def _serve_schema(ctx, cli, app_runner, schema: dict, routes):
     return app_runner.openapi_url(app)
 
 
+def test_warning_titles_match_between_warnings_and_summary(ctx, cli, app_runner):
+    ok = {"200": {"description": "OK"}}
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/private": {"get": {"responses": ok}},
+            "/items/{item_id}": {
+                "get": {
+                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": ok,
+                }
+            },
+        }
+    )
+    app.add_url_rule("/private", "private", lambda: ({"detail": "Unauthorized"}, 401))
+    app.add_url_rule("/items/<item_id>", "item", lambda item_id: ({"detail": "Not found"}, 404))
+
+    stdout = cli.run(
+        app_runner.openapi_url(app), "--phases=coverage,fuzzing", "--checks=not_a_server_error", "--max-examples=10"
+    ).stdout
+    warnings, summary = stdout.split("WARNINGS", 1)[1].split("SUMMARY", 1)
+    headers = sorted(line.split(" in ", 1)[0] for line in warnings.splitlines() if ": " in line and line[0].isalpha())
+    entries = sorted(line.strip().removeprefix("⚠️ ") for line in summary.splitlines() if "⚠️" in line)
+    assert [line.split(": ", 1)[0] for line in headers] == [line.split(": ", 1)[0] for line in entries]
+    assert "Authentication failed: 1 operation returned only 401/403 responses" in headers, stdout
+
+
 def test_missing_auth_warning_with_fail_on_true(ctx, cli, tmp_path, monkeypatch):
     api = ctx.openapi.apps.basic()
     # Given a config file that fails on all warnings
@@ -51,6 +77,66 @@ fail-on = ["missing_auth"]
     # And warnings should be displayed
     assert "WARNINGS" in result.stdout
     assert "Authentication failed" in result.stdout
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_warnings_failing_the_run_are_named_in_the_final_line(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.basic()
+
+    assert (
+        cli.run(
+            api.schema_url,
+            "--checks=not_a_server_error",
+            "--phases=fuzzing",
+            "--max-examples=1",
+            config={"warnings": {"fail-on": True}},
+        )
+        == snapshot_cli
+    )
+
+
+def test_final_line_does_not_count_warnings_that_do_not_fail_the_run(ctx, cli):
+    api = ctx.openapi.apps.basic()
+    result = cli.run(
+        api.schema_url,
+        "--checks=not_a_server_error",
+        "--phases=fuzzing",
+        "--max-examples=1",
+        "--include-path=/api/basic",
+        "--include-path=/api/nope",
+        config={"warnings": {"fail-on": ["missing_auth"]}},
+    )
+    assert result.stdout.strip().splitlines()[-1].strip("= ").rsplit(" in ", 1)[0] == "Warnings fail the run"
+
+
+@pytest.mark.parametrize("fail_on", [["timeout_units"], True], ids=["specific", "all"])
+def test_timeout_units_warning_with_fail_on(ctx, cli, fail_on):
+    api = ctx.openapi.apps.success()
+
+    result = cli.run(
+        api.schema_url,
+        "--request-timeout=5000",
+        "--phases=fuzzing",
+        "--max-examples=1",
+        config={"warnings": {"fail-on": fail_on}},
+    )
+
+    final_line = result.stdout.strip().splitlines()[-1].strip("= ").rsplit(" in ", 1)[0]
+    assert (result.exit_code, final_line) == (ExitCode.TESTS_FAILED, "Warnings fail the run")
+
+
+def test_timeout_units_warning_does_not_fail_by_default(ctx, cli):
+    api = ctx.openapi.apps.success()
+
+    result = cli.run(
+        api.schema_url,
+        "--request-timeout=5000",
+        "--phases=fuzzing",
+        "--max-examples=1",
+    )
+
+    assert result.exit_code == ExitCode.OK
+    assert result.stdout.strip().splitlines()[-1].strip("= ").rsplit(" in ", 1)[0] == "1 warning"
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -212,8 +298,7 @@ def test_warnings_multiple_types_via_cli(ctx, cli):
     result = cli.run(api.schema_url, "--warnings=missing_auth,missing_test_data", "--max-examples=1")
 
     # Then warnings can still be triggered for specified types
-    # (This just validates the flag is parsed correctly - actual warnings depend on test conditions)
-    assert result.exit_code in (ExitCode.OK, ExitCode.TESTS_FAILED)
+    assert "Authentication failed: 1 operation returned only 401/403 responses" in result.stdout
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -416,6 +501,63 @@ def test_missing_test_data_advice_for_unusable_linked_data(ctx, cli, snapshot_cl
     )
 
 
+def test_withdrawn_missing_test_data_warning_does_not_fail_the_run(ctx, cli, app_runner):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "post": {
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "links": {
+                                "GetItem": {
+                                    "operationId": "getItem",
+                                    "parameters": {"item_id": "$response.body#/id"},
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            "/items/{item_id}": {
+                "get": {
+                    "operationId": "getItem",
+                    "parameters": [{"in": "path", "name": "item_id", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}, "404": {"description": "Not found"}},
+                }
+            },
+        }
+    )
+    items = set()
+
+    @app.route("/items", methods=["POST"])
+    def create_item():
+        item_id = f"item-{len(items) + 1}"
+        items.add(item_id)
+        return jsonify({"id": item_id}), 201
+
+    @app.route("/items/<item_id>", methods=["GET"])
+    def get_item(item_id):
+        if item_id in items:
+            return jsonify({"id": item_id})
+        return jsonify({"message": "Not found"}), 404
+
+    result = cli.run(
+        app_runner.openapi_url(app),
+        "-c not_a_server_error",
+        "--phases=fuzzing,stateful",
+        "--mode=positive",
+        "--max-examples=10",
+        config={"warnings": {"fail-on": ["missing_test_data"]}},
+    )
+
+    assert (
+        "WARNINGS" in result.stdout,
+        result.exit_code,
+        result.stdout.strip().splitlines()[-1].strip("= ").rsplit(" in ", 1)[0],
+    ) == (False, ExitCode.OK, "No issues found")
+
+
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_missing_test_data_advice_from_dependency_graph(ctx, cli, snapshot_cli):
     # No links are declared, so the advice comes from the inferred dependency graph:
@@ -553,8 +695,17 @@ def test_silent_when_the_schema_declares_no_base_path(ctx, cli, app_runner, snap
     assert cli.run(schema_url, f"--url={base}", "--max-examples=2", "--phases=fuzzing") == snapshot_cli
 
 
-def test_no_missing_auth_warning_when_the_operation_later_succeeds(ctx, cli, app_runner):
-    # Rejected once, served afterwards: the run as a whole got past authentication.
+ORDERS = {
+    "/orders/{orderId}": {
+        "get": {
+            "parameters": [{"name": "orderId", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "responses": {"200": {"description": "OK"}, "404": {"description": "Not Found"}},
+        }
+    }
+}
+
+
+def _rejected_once_then_served(ctx, cli, app_runner, paths, routes):
     schema = ctx.openapi.build_schema(
         {
             "/thing": {
@@ -564,7 +715,8 @@ def test_no_missing_auth_warning_when_the_operation_later_succeeds(ctx, cli, app
                     ],
                     "responses": {"200": {"description": "OK"}},
                 }
-            }
+            },
+            **paths,
         }
     )
     calls = {"n": 0}
@@ -575,20 +727,42 @@ def test_no_missing_auth_warning_when_the_operation_later_succeeds(ctx, cli, app
             return Response(status=401)
         return Response('{"ok": true}', status=200, content_type="application/json")
 
-    schema_url = _serve_schema(ctx, cli, app_runner, schema, [("GET", "/thing", thing)])
+    return _serve_schema(ctx, cli, app_runner, schema, [("GET", "/thing", thing), *routes])
+
+
+def test_no_missing_auth_warning_when_the_operation_later_succeeds(ctx, cli, app_runner):
+    # Rejected once, served afterwards: the run as a whole got past authentication.
+    schema_url = _rejected_once_then_served(ctx, cli, app_runner, {}, [])
     result = cli.run(schema_url, "-c not_a_server_error", "--max-examples=5", "--phases=examples,fuzzing")
 
-    assert "Missing authentication" not in result.stdout
+    assert "Authentication failed" not in result.stdout
 
 
-ORDERS = {
-    "/orders/{orderId}": {
-        "get": {
-            "parameters": [{"name": "orderId", "in": "path", "required": True, "schema": {"type": "string"}}],
-            "responses": {"200": {"description": "OK"}, "404": {"description": "Not Found"}},
-        }
-    }
-}
+def _not_found(order_id):
+    return Response(status=404)
+
+
+@pytest.mark.parametrize(
+    ("paths", "routes", "final_line"),
+    [
+        ({}, [], "No issues found"),
+        (ORDERS, [("GET", "/orders/<order_id>", _not_found)], "1 warning"),
+    ],
+    ids=["no-other-warnings", "other-warning-not-in-fail-on"],
+)
+def test_withdrawn_missing_auth_warning_does_not_fail_the_run(ctx, cli, app_runner, paths, routes, final_line):
+    schema_url = _rejected_once_then_served(ctx, cli, app_runner, paths, routes)
+    result = cli.run(
+        schema_url,
+        "-c not_a_server_error",
+        "--max-examples=5",
+        "--phases=examples,fuzzing",
+        config={"warnings": {"fail-on": ["missing_auth"]}},
+    )
+    assert (result.exit_code, result.stdout.strip().splitlines()[-1].strip("= ").rsplit(" in ", 1)[0]) == (
+        ExitCode.OK,
+        final_line,
+    )
 
 
 LOW_VALID_RATE_ARGS = ("--max-examples=10", "--phases=fuzzing", "-m", "positive", "--warnings=low_valid_rate")
@@ -1054,7 +1228,7 @@ def _sign_up_then_log_in(ctx, *, login_media_type="application/json", credential
 
 def test_auth_flow_suggestion_for_form_login(ctx):
     assert auth_flow_suggestion(_sign_up_then_log_in(ctx, login_media_type="application/x-www-form-urlencoded")) == (
-        "💡 POST /auth/register and POST /auth/login look like a sign-up and login flow. "
+        "POST /auth/register and POST /auth/login look like a sign-up and login flow. "
         "Register an account, then add to schemathesis.toml:\n\n"
         "    [auth.dynamic.openapi.bearerAuth]\n"
         '    path = "/auth/login"\n'
@@ -1103,7 +1277,10 @@ def test_missing_auth_warning_keeps_generic_tip_when_credentials_are_supplied(ct
         "-c not_a_server_error",
         *credentials,
     ).stdout
-    assert ("💡 Ensure valid authentication credentials are set via --auth or -H" in stdout, "sign-up" in stdout) == (
+    assert (
+        "💡 Ensure valid authentication credentials are set via `--auth` or `-H`" in stdout,
+        "sign-up" in stdout,
+    ) == (
         True,
         False,
     )

@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import secrets
 import time
 from dataclasses import asdict, dataclass, field
@@ -454,12 +455,43 @@ def claim(session_id: str, path: Path, *, by: str, now: "float | None" = None) -
     data = _read_json(dst)
     msg = Message.from_dict(data) if data else None
     try:
-        with (claimed_dir(session_id) / "log.jsonl").open("a", encoding="utf-8") as log:
+        with claim_log_path(session_id).open("a", encoding="utf-8") as log:
             log.write(json.dumps({"id": msg.id if msg else path.name, "by": by,
                                   "at": time.time() if now is None else now}) + "\n")
     except OSError:
         pass
     return msg
+
+
+#: Where a message a deliverer hands the agent starts: a `TEXT_*` up to its
+#: first field, at the start of the text or after a blank line ("nothing found"
+#: shares the answer's start). A hook joins its messages with a blank line,
+#: after any other hook's context.
+_DELIVERY_START = re.compile("(?:^|\n\n)(?:" + "|".join(
+    re.escape(t.split("{", 1)[0]) for t in (TEXT_MESSAGE, TEXT_ANSWER, TEXT_FAILED)) + ")")
+
+
+def before_deliveries(text: str) -> str:
+    """`text` up to the first message a deliverer handed the agent: what a hook's
+    context held besides them. The daemon reads the messages themselves whole
+    from the claim log, so a transcript's copy of them is not read again."""
+    m = _DELIVERY_START.search(text)
+    return text if m is None else text[:m.start()]
+
+
+def claim_log_path(session_id: str) -> Path:
+    """Every deliverer's record of what it took (the hooks, pi's extension,
+    `probe ask --wait`): one `{"id", "by", "at"}` line per claim, append-only."""
+    return claimed_dir(session_id) / "log.jsonl"
+
+
+def claimed_ids(session_id: str) -> set[str]:
+    """Ids of the messages a deliverer moved into `claimed/` (`<ns>-<id>.json`),
+    until the sweep removes them (KEEP_CLAIMED_S)."""
+    folder = claimed_dir(session_id)
+    if not folder.is_dir():
+        return set()
+    return {path.stem.rsplit("-", 1)[-1] for path in folder.glob("*.json")}
 
 
 def claim_answer(session_id: str, ask_id: str, *, by: str = "probe ask --wait") -> "Message | None":

@@ -354,6 +354,7 @@ from .literals import (
     TrainingPlanSortOrderType,
     TrainingPlanStatusType,
     TrainingRepositoryAccessModeType,
+    TrainingSessionStatusType,
     TransformInstanceTypeType,
     TransformJobStatusType,
     TrialComponentPrimaryStatusType,
@@ -551,6 +552,7 @@ __all__ = (
     "BedrockProvisionedModelThroughputMetadataTypeDef",
     "BestObjectiveNotImprovingTypeDef",
     "BiasTypeDef",
+    "BillableTokenUsageTypeDef",
     "BlueGreenUpdatePolicyTypeDef",
     "CacheHitResultTypeDef",
     "CallbackStepMetadataTypeDef",
@@ -805,6 +807,8 @@ __all__ = (
     "CreateTrainingJobResponseTypeDef",
     "CreateTrainingPlanRequestTypeDef",
     "CreateTrainingPlanResponseTypeDef",
+    "CreateTrainingSessionRequestTypeDef",
+    "CreateTrainingSessionResponseTypeDef",
     "CreateTransformJobRequestTypeDef",
     "CreateTransformJobResponseTypeDef",
     "CreateTrialComponentRequestTypeDef",
@@ -924,6 +928,7 @@ __all__ = (
     "DeleteStudioLifecycleConfigRequestTypeDef",
     "DeleteTagsInputTypeDef",
     "DeleteTrainingJobRequestTypeDef",
+    "DeleteTrainingSessionRequestTypeDef",
     "DeleteTrialComponentRequestTypeDef",
     "DeleteTrialComponentResponseTypeDef",
     "DeleteTrialRequestTypeDef",
@@ -1097,6 +1102,8 @@ __all__ = (
     "DescribeTrainingPlanExtensionHistoryResponseTypeDef",
     "DescribeTrainingPlanRequestTypeDef",
     "DescribeTrainingPlanResponseTypeDef",
+    "DescribeTrainingSessionRequestTypeDef",
+    "DescribeTrainingSessionResponseTypeDef",
     "DescribeTransformJobRequestTypeDef",
     "DescribeTransformJobRequestWaitTypeDef",
     "DescribeTransformJobResponseTypeDef",
@@ -1620,6 +1627,9 @@ __all__ = (
     "ListTrainingPlansRequestPaginateTypeDef",
     "ListTrainingPlansRequestTypeDef",
     "ListTrainingPlansResponseTypeDef",
+    "ListTrainingSessionsRequestPaginateTypeDef",
+    "ListTrainingSessionsRequestTypeDef",
+    "ListTrainingSessionsResponseTypeDef",
     "ListTransformJobsRequestPaginateTypeDef",
     "ListTransformJobsRequestTypeDef",
     "ListTransformJobsResponseTypeDef",
@@ -1641,6 +1651,7 @@ __all__ = (
     "ListWorkteamsRequestPaginateTypeDef",
     "ListWorkteamsRequestTypeDef",
     "ListWorkteamsResponseTypeDef",
+    "LoraConfigTypeDef",
     "MLflowConfigurationTypeDef",
     "ManagedConfigurationTypeDef",
     "MemberDefinitionOutputTypeDef",
@@ -2065,6 +2076,7 @@ __all__ = (
     "StopPipelineExecutionResponseTypeDef",
     "StopProcessingJobRequestTypeDef",
     "StopTrainingJobRequestTypeDef",
+    "StopTrainingSessionRequestTypeDef",
     "StopTransformJobRequestTypeDef",
     "StoppingConditionTypeDef",
     "StudioLifecycleConfigDetailsTypeDef",
@@ -2115,6 +2127,11 @@ __all__ = (
     "TrainingPlanSummaryTypeDef",
     "TrainingProgressInfoTypeDef",
     "TrainingRepositoryAuthConfigTypeDef",
+    "TrainingSessionDetailTypeDef",
+    "TrainingSessionModelConfigTypeDef",
+    "TrainingSessionOutputConfigTypeDef",
+    "TrainingSessionS3LocationTypeDef",
+    "TrainingSessionSummaryTypeDef",
     "TrainingSpecificationOutputTypeDef",
     "TrainingSpecificationTypeDef",
     "TrainingSpecificationUnionTypeDef",
@@ -2764,6 +2781,12 @@ class MetricsSourceTypeDef(TypedDict):
     ContentType: str
     S3Uri: str
     ContentDigest: NotRequired[str]
+
+
+class BillableTokenUsageTypeDef(TypedDict):
+    PrefillTokenCount: NotRequired[int]
+    SampleTokenCount: NotRequired[int]
+    TrainingTokenCount: NotRequired[int]
 
 
 class CacheHitResultTypeDef(TypedDict):
@@ -3542,6 +3565,16 @@ class TensorBoardOutputConfigTypeDef(TypedDict):
     LocalPath: NotRequired[str]
 
 
+class LoraConfigTypeDef(TypedDict):
+    Rank: int
+    Alpha: int
+
+
+class TrainingSessionModelConfigTypeDef(TypedDict):
+    BaseModelArn: str
+    AcceptEula: NotRequired[bool]
+
+
 class DataProcessingTypeDef(TypedDict):
     InputFilter: NotRequired[str]
     OutputFilter: NotRequired[str]
@@ -4003,6 +4036,10 @@ class DeleteTagsInputTypeDef(TypedDict):
 
 class DeleteTrainingJobRequestTypeDef(TypedDict):
     TrainingJobName: str
+
+
+class DeleteTrainingSessionRequestTypeDef(TypedDict):
+    TrainingSessionName: str
 
 
 class DeleteTrialComponentRequestTypeDef(TypedDict):
@@ -4681,6 +4718,10 @@ class ReservedCapacitySummaryTypeDef(TypedDict):
     DurationMinutes: NotRequired[int]
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
+
+
+class DescribeTrainingSessionRequestTypeDef(TypedDict):
+    TrainingSessionName: str
 
 
 class DescribeTransformJobRequestTypeDef(TypedDict):
@@ -5645,6 +5686,13 @@ class TrainingPlanFilterTypeDef(TypedDict):
     Value: str
 
 
+class TrainingSessionSummaryTypeDef(TypedDict):
+    TrainingSessionArn: str
+    TrainingSessionStatus: TrainingSessionStatusType
+    CreationTime: datetime
+    LastModifiedTime: NotRequired[datetime]
+
+
 class TransformJobSummaryTypeDef(TypedDict):
     TransformJobName: str
     TransformJobArn: str
@@ -6321,6 +6369,10 @@ class StopTrainingJobRequestTypeDef(TypedDict):
     TrainingJobName: str
 
 
+class StopTrainingSessionRequestTypeDef(TypedDict):
+    TrainingSessionName: str
+
+
 class StopTransformJobRequestTypeDef(TypedDict):
     TransformJobName: str
 
@@ -6357,6 +6409,11 @@ class TimeSeriesTransformationsTypeDef(TypedDict):
 
 class TrainingRepositoryAuthConfigTypeDef(TypedDict):
     TrainingRepositoryCredentialsProviderArn: str
+
+
+class TrainingSessionS3LocationTypeDef(TypedDict):
+    Path: str
+    KmsKeyArn: NotRequired[str]
 
 
 class TransformS3DataSourceTypeDef(TypedDict):
@@ -7017,6 +7074,11 @@ class CreateTrainingJobResponseTypeDef(TypedDict):
 
 class CreateTrainingPlanResponseTypeDef(TypedDict):
     TrainingPlanArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateTrainingSessionResponseTypeDef(TypedDict):
+    TrainingSessionArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -8899,6 +8961,15 @@ class ListTrainingJobsRequestTypeDef(TypedDict):
     TrainingPlanArnEquals: NotRequired[str]
 
 
+class ListTrainingSessionsRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[TrainingSessionStatusType]
+
+
 class ListTransformJobsRequestTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
@@ -9959,6 +10030,14 @@ class ListTrainingJobsRequestPaginateTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
     WarmPoolStatusEquals: NotRequired[WarmPoolResourceStatusType]
     TrainingPlanArnEquals: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListTrainingSessionsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[TrainingSessionStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -11309,6 +11388,12 @@ class ListTrainingPlansRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[TrainingPlanFilterTypeDef]]
 
 
+class ListTrainingSessionsResponseTypeDef(TypedDict):
+    TrainingSessionSummaries: list[TrainingSessionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListTransformJobsResponseTypeDef(TypedDict):
     TransformJobSummaries: list[TransformJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -11721,6 +11806,10 @@ class TrafficPatternTypeDef(TypedDict):
 class TrainingImageConfigTypeDef(TypedDict):
     TrainingRepositoryAccessMode: TrainingRepositoryAccessModeType
     TrainingRepositoryAuthConfig: NotRequired[TrainingRepositoryAuthConfigTypeDef]
+
+
+class TrainingSessionOutputConfigTypeDef(TypedDict):
+    S3Location: TrainingSessionS3LocationTypeDef
 
 
 class TransformDataSourceTypeDef(TypedDict):
@@ -13313,6 +13402,36 @@ class AlgorithmSpecificationTypeDef(TypedDict):
     TrainingImageConfig: NotRequired[TrainingImageConfigTypeDef]
 
 
+class CreateTrainingSessionRequestTypeDef(TypedDict):
+    TrainingSessionName: str
+    LoraConfig: LoraConfigTypeDef
+    RoleArn: str
+    ModelConfig: TrainingSessionModelConfigTypeDef
+    OutputConfig: TrainingSessionOutputConfigTypeDef
+    ModelPackageGroupArn: NotRequired[str]
+    VpcConfig: NotRequired[VpcConfigUnionTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class TrainingSessionDetailTypeDef(TypedDict):
+    TrainingSessionArn: str
+    TrainingSessionName: str
+    TrainingSessionStatus: TrainingSessionStatusType
+    CreationTime: datetime
+    ModelPackageGroupArn: NotRequired[str]
+    LastModifiedTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    ErrorDetails: NotRequired[str]
+    LastReceivedSequenceNumber: NotRequired[int]
+    BillableTokenUsage: NotRequired[BillableTokenUsageTypeDef]
+    VpcConfig: NotRequired[VpcConfigOutputTypeDef]
+    RoleArn: NotRequired[str]
+    LoraConfig: NotRequired[LoraConfigTypeDef]
+    ModelConfig: NotRequired[TrainingSessionModelConfigTypeDef]
+    OutputConfig: NotRequired[TrainingSessionOutputConfigTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
+
+
 class TransformInputTypeDef(TypedDict):
     DataSource: TransformDataSourceTypeDef
     ContentType: NotRequired[str]
@@ -14429,6 +14548,11 @@ class SpaceSettingsTypeDef(TypedDict):
 AlgorithmSpecificationUnionTypeDef = Union[
     AlgorithmSpecificationTypeDef, AlgorithmSpecificationOutputTypeDef
 ]
+
+
+class DescribeTrainingSessionResponseTypeDef(TypedDict):
+    TrainingSessionDetail: TrainingSessionDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateTransformJobRequestTypeDef(TypedDict):

@@ -1,6 +1,5 @@
 import platform
 import re
-import sys
 from xml.etree import ElementTree
 
 import pytest
@@ -102,7 +101,7 @@ def with_error(ctx, response, case):
 
 
 @pytest.mark.skipif(
-    sys.version_info < (3, 11) or platform.system() == "Windows",
+    platform.system() == "Windows",
     reason="Cover only tracebacks that highlight error positions in every line",
 )
 def test_error_with_traceback(ctx, with_error, cli, tmp_path):
@@ -153,8 +152,6 @@ def test_binary_response(ctx, cli, app_runner, tmp_path):
 
     @app.route("/api/binary")
     def binary():
-        from flask import Response
-
         return Response(
             b"\xa7\xf5=\x18H\xc7\xff'\xf0\xeep\x06M-RX",
             content_type="application/octet-stream",
@@ -370,3 +367,24 @@ def test_after_run_failure_in_junit(ctx, cli, ensure_reachability_module, tmp_pa
     assert run_checks is not None, list(testcases_by_name)
     assert run_checks[0].tag == "failure"
     assert "never returned 2xx" in (run_checks[0].text or run_checks[0].attrib.get("message", ""))
+
+
+def test_after_run_failures_in_junit_are_sorted_and_deduplicated(
+    ctx, cli, unsorted_run_check_failures_module, tmp_path
+):
+    api = ctx.openapi.apps.success()
+    xml_path = tmp_path / "junit.xml"
+    cli.main(
+        "run",
+        api.schema_url,
+        "-c",
+        "ZRunCheck,ARunCheck",
+        "--max-examples=1",
+        "--phases=fuzzing",
+        f"--report-junit-path={xml_path}",
+        hooks=unsorted_run_check_failures_module,
+    )
+    testcases_by_name = {testcase.attrib["name"]: testcase for testcase in ElementTree.parse(xml_path).getroot()[0]}
+    assert testcases_by_name["Run checks"][0].text == (
+        "\n- dup\n\n    aaa duplicated\n\n- Custom check failed: `ZRunCheck`\n\n    zzz run-level failure"
+    )

@@ -58,6 +58,7 @@
 #include "meshioplusplus/write_options.hpp"
 
 #include "polyscope_view.hpp"
+#include "terminal.hpp"
 #include "view_payload.hpp"
 #include "meshioplusplus/exceptions.hpp"
 #include "meshioplusplus/operations/partition.hpp"
@@ -100,6 +101,8 @@
 #include "meshioplusplus/operations/curvature.hpp"
 #include "meshioplusplus/detail/classic_stream.hpp"
 #include "meshioplusplus/operations/feature_edges.hpp"
+#include "meshioplusplus/operations/fit_primitives.hpp"
+#include "meshioplusplus/operations/segment.hpp"
 #include "meshioplusplus/operations/interfaces.hpp"
 #include "meshioplusplus/detail/data_ops.hpp"
 #include "meshioplusplus/detail/value_io.hpp"
@@ -108,6 +111,8 @@
 #include "meshioplusplus/operations/periodic.hpp"
 #include "meshioplusplus/operations/quality_gate.hpp"
 #include "meshioplusplus/operations/region_ops.hpp"
+#include "meshioplusplus/log.hpp"
+#include "meshioplusplus/operations/render.hpp"
 #include "meshioplusplus/operations/repair.hpp"
 #include "meshioplusplus/operations/shrinkwrap.hpp"
 #include "meshioplusplus/operations/sobolev_deform.hpp"
@@ -143,6 +148,9 @@
 
 // CLI-private
 #include "json_out.hpp"
+#include "render_args.hpp"
+#include "tui/loop.hpp"
+#include "tui/series.hpp"
 namespace {
 
 using meshioplusplus::DType;
@@ -155,109 +163,20 @@ using meshioplusplus::WriteError;
 // Small argument parser
 // --------------------------------------------------------------------------
 
-/// One option/flag spec: a canonical long name, its aliases, and whether it
-/// consumes a following value.
-struct cli_opt_spec {
-    std::string canonical;
-    std::vector<std::string> aliases;
-    bool takes_value;
-};
-
-/// Parsed result of a verb's argument list.
-struct cli_parsed {
-    std::vector<std::string> positionals;
-    std::unordered_map<std::string, std::string> values;  ///< canonical -> value (last wins)
-    std::unordered_set<std::string> flags;                ///< canonical present
-    /// Every occurrence of each value-option, in order. Always populated
-    /// alongside `values`, which keeps its last-wins semantics so no existing
-    /// verb changes behaviour; the `data` verbs read this instead because they
-    /// accept repeated `--point`/`--cell`/`--field`.
-    std::unordered_map<std::string, std::vector<std::string>> multi;
-    /// Every value-option occurrence as (canonical name, value), in
-    /// command-line order across options -- what `regions`' edit flags need.
-    std::vector<std::pair<std::string, std::string>> ordered;
-};
-
-/// Parse `args` against `specs`. Throws std::runtime_error on an unknown option
-/// or a value-option missing its argument. `--` stops option parsing.
-cli_parsed cli_parse(const std::vector<std::string>& rArgs,
-                     const std::vector<cli_opt_spec>& rSpecs) {
-    cli_parsed out;
-    bool positional_only = false;
-    for (std::size_t i = 0; i < rArgs.size(); ++i) {
-        const std::string& tok = rArgs[i];
-        if (positional_only || tok.empty() || tok[0] != '-' || tok == "-") {
-            out.positionals.push_back(tok);
-            continue;
-        }
-        if (tok == "--") {
-            positional_only = true;
-            continue;
-        }
-        // Split "--name=value".
-        std::string name = tok;
-        std::string inline_value;
-        bool has_inline = false;
-        auto eq = tok.find('=');
-        if (tok.rfind("--", 0) == 0 && eq != std::string::npos) {
-            name = tok.substr(0, eq);
-            inline_value = tok.substr(eq + 1);
-            has_inline = true;
-        }
-        const cli_opt_spec* match = nullptr;
-        for (const auto& s : rSpecs) {
-            if (name == "--" + s.canonical) {
-                match = &s;
-                break;
-            }
-            for (const auto& a : s.aliases) {
-                if (name == a) {
-                    match = &s;
-                    break;
-                }
-            }
-            if (match)
-                break;
-        }
-        if (!match)
-            throw std::runtime_error("unknown option '" + name + "'");
-        if (match->takes_value) {
-            std::string value;
-            if (has_inline) {
-                value = inline_value;
-            } else if (i + 1 < rArgs.size()) {
-                value = rArgs[++i];
-            } else {
-                throw std::runtime_error("option '" + name + "' requires a value");
-            }
-            out.values[match->canonical] = value;
-            out.multi[match->canonical].push_back(value);
-            out.ordered.emplace_back(match->canonical, value);
-        } else {
-            out.flags.insert(match->canonical);
-        }
-    }
-    return out;
-}
-
-std::string opt_value(const cli_parsed& rP, const std::string& rName,
-                      const std::string& rDefault = "") {
-    auto it = rP.values.find(rName);
-    return it == rP.values.end() ? rDefault : it->second;
-}
-bool has_flag(const cli_parsed& rP, const std::string& rName) {
-    return rP.flags.count(rName) != 0;
-}
-/// Every occurrence of a repeatable value-option, in order (empty if absent).
-const std::vector<std::string>& opt_values(const cli_parsed& rP, const std::string& rName) {
-    static const std::vector<std::string> empty;
-    auto it = rP.multi.find(rName);
-    return it == rP.multi.end() ? empty : it->second;
-}
-/// Whether a value-option was supplied at all (distinct from "supplied empty").
-bool has_opt(const cli_parsed& rP, const std::string& rName) {
-    return rP.values.count(rName) != 0;
-}
+using meshioplusplus::cli::cli_opt_spec;
+using meshioplusplus::cli::cli_parsed;
+using meshioplusplus::cli::cli_parse;
+using meshioplusplus::cli::opt_value;
+using meshioplusplus::cli::has_flag;
+using meshioplusplus::cli::opt_values;
+using meshioplusplus::cli::has_opt;
+using meshioplusplus::cli::cli_color_values;
+using meshioplusplus::cli::render_flag_specs;
+using meshioplusplus::cli::cli_parse_numbers;
+using meshioplusplus::cli::cli_parse_rgba;
+using meshioplusplus::cli::cli_render_options;
+using meshioplusplus::cli::cli_text_encoding;
+using meshioplusplus::cli::cli_color_depth;
 
 // --------------------------------------------------------------------------
 // Format dispatch (mirrors bindings/c / bindings/wasm)
@@ -473,6 +392,8 @@ void print_usage(std::ostream& os) {
           "  curvature               Per-vertex mean/Gaussian curvature of a surface\n"
           "  normals                 Point/cell normals of a surface, optionally split at creases\n"
           "  feature-edges           Sharp/open/non-manifold edges of a surface as a line mesh\n"
+          "  segment                 Split a surface into smooth patches (regions)\n"
+          "  fit-primitives          Fit a plane/sphere/cylinder/cone/torus to each patch\n"
           "  region-adjacency        Shared facets between Cell regions or cell blocks\n"
           "  find-interface         Match boundary facets of two Cell regions\n"
           "  contact-pairs          Project slave Point regions onto master facets\n"
@@ -541,8 +462,19 @@ void print_usage(std::ostream& os) {
           "  conservative-interpolate Mass-preserving (overlap-measure weighted) transfer\n"
           "                            from a source mesh onto a target mesh\n"
           "  stats                   Print geometric statistics (bbox/area/volume)\n"
-          "  view                    Open a mesh in an interactive viewer\n"
+          "  view                    Open a mesh in an interactive viewer (--backend\n"
+          "                            polyscope|terminal|auto; auto falls back to the\n"
+          "                            terminal viewer when built without Polyscope)\n"
           "  screenshot              Render a mesh to a PNG without a window\n"
+          "  snapshot                Draw a mesh in this terminal (OUT = -) or to a\n"
+          "                            .png/.txt/.ansi/.html/.cast file, with no display\n"
+          "                            or GPU (--encoding --color-depth --view --edges\n"
+          "                            --shading --color-by ...; see doc/tui.md)\n"
+          "  tui                     Orbit, zoom and pan a mesh in this terminal: drag or\n"
+          "                            arrows to move, wheel or +/- to zoom, ? for help,\n"
+          "                            q to quit (takes snapshot's flags; several files or a\n"
+          "                            quoted glob make a time series: [ ] step, space plays;\n"
+          "                            --compare FILE, --follow, --session FILE; see doc/tui.md)\n"
           "  data <verb>             Inspect / rename / average / compute on data arrays\n"
           "  pipeline                Run a settings.json operation chain (read -> ops ->\n"
           "                          write; see doc/pipeline.md). --input/--output\n"
@@ -936,14 +868,8 @@ int cmd_convert(const std::vector<std::string>& rArgs) {
     std::optional<int> component;
     std::optional<double> vmin;
     std::optional<double> vmax;
-    if (color) {
-        if (has_opt(p, "component"))
-            component = std::stoi(opt_value(p, "component"));
-        if (has_opt(p, "vmin"))
-            vmin = meshioplusplus::detail::stod_c(opt_value(p, "vmin"));
-        if (has_opt(p, "vmax"))
-            vmax = meshioplusplus::detail::stod_c(opt_value(p, "vmax"));
-    }
+    if (color)
+        cli_color_values(p, component, vmin, vmax);
     const std::string cmap = has_opt(p, "cmap") ? opt_value(p, "cmap") : "viridis";
 
     if (target_fmt == "gltf" && (color || gltf_flags)) {
@@ -1783,6 +1709,130 @@ int cmd_feature_edges(const std::vector<std::string>& rArgs) {
         std::cout << "  boundary:     " << r.mNumBoundary << "\n";
         std::cout << "  non-manifold: " << r.mNumNonManifold << "\n";
         std::cout << "  inconsistent: " << r.mNumInconsistent << "\n";
+    }
+    return 0;
+}
+
+int cmd_segment(const std::vector<std::string>& rArgs) {
+    auto p = cli_parse(rArgs, {
+                                  {"input-format", {"-i"}, true},
+                                  {"output-format", {"-o"}, true},
+                                  {"angle", {}, true},
+                                  {"normal-tolerance", {}, true},
+                                  {"curvature-tolerance", {}, true},
+                                  {"min-patch-cells", {}, true},
+                                  {"region", {}, true},
+                                  {"prefix", {}, true},
+                                  {"json", {}, false},
+                                  {"quiet", {"-q"}, false},
+                              });
+    if (p.positionals.size() != 2)
+        throw std::runtime_error("segment requires exactly INFILE and OUTFILE");
+    Mesh mesh = read_mesh_cli(p.positionals[0], opt_value(p, "input-format"));
+    meshioplusplus::SegmentOptions options;
+    if (has_opt(p, "angle"))
+        options.mFeatureAngleDeg = meshioplusplus::detail::stod_c(opt_value(p, "angle"));
+    if (has_opt(p, "normal-tolerance"))
+        options.mNormalToleranceDeg =
+            meshioplusplus::detail::stod_c(opt_value(p, "normal-tolerance"));
+    if (has_opt(p, "curvature-tolerance"))
+        options.mCurvatureTolerance =
+            meshioplusplus::detail::stod_c(opt_value(p, "curvature-tolerance"));
+    if (has_opt(p, "min-patch-cells"))
+        options.mMinPatchCells = std::stoll(opt_value(p, "min-patch-cells"));
+    options.mRegion = opt_value(p, "region");
+    if (has_opt(p, "prefix"))
+        options.mPrefix = opt_value(p, "prefix");
+    meshioplusplus::SegmentResult r = meshioplusplus::segment(mesh, options);
+    write_mesh_cli(p.positionals[1], r.mMesh, opt_value(p, "output-format"));
+    if (has_flag(p, "json")) {
+        meshioplusplus::cli::JsonOut json(std::cout);
+        json.BeginObject();
+        json.Field("num_patches", r.mNumPatches);
+        json.Field("num_merged", r.mNumMerged);
+        json.Field("num_feature_edges", r.mNumFeatureEdges);
+        json.Field("num_boundary_edges", r.mNumBoundaryEdges);
+        json.Field("num_non_manifold_edges", r.mNumNonManifoldEdges);
+        json.EndObject();
+    } else if (!has_flag(p, "quiet")) {
+        char deg[32];
+        meshioplusplus::detail::snprintf_c(deg, sizeof(deg), "%g", options.mFeatureAngleDeg);
+        std::cout << "segment (" << deg << " degrees): " << r.mNumPatches << " patch(es)\n";
+        std::cout << "  merged:        " << r.mNumMerged << "\n";
+        std::cout << "  feature edges: " << r.mNumFeatureEdges << "\n";
+        std::cout << "  open edges:    " << r.mNumBoundaryEdges << "\n";
+    }
+    return 0;
+}
+
+int cmd_fit_primitives(const std::vector<std::string>& rArgs) {
+    auto p = cli_parse(rArgs, {
+                                  {"input-format", {"-i"}, true},
+                                  {"output-format", {"-o"}, true},
+                                  {"patch-data", {}, true},
+                                  {"tolerance", {}, true},
+                                  {"absolute", {}, false},
+                                  {"min-inlier-fraction", {}, true},
+                                  {"types", {}, true},
+                                  {"max-iterations", {}, true},
+                                  {"json", {}, false},
+                                  {"quiet", {"-q"}, false},
+                              });
+    if (p.positionals.size() != 2)
+        throw std::runtime_error("fit-primitives requires exactly INFILE and OUTFILE");
+    Mesh mesh = read_mesh_cli(p.positionals[0], opt_value(p, "input-format"));
+    static const char* const kNames[] = {"plane", "sphere", "cylinder", "cone", "torus"};
+    meshioplusplus::FitPrimitivesOptions options;
+    if (has_opt(p, "patch-data"))
+        options.mPatchData = opt_value(p, "patch-data");
+    if (has_opt(p, "tolerance"))
+        options.mTolerance = meshioplusplus::detail::stod_c(opt_value(p, "tolerance"));
+    options.mRelative = !has_flag(p, "absolute");
+    if (has_opt(p, "min-inlier-fraction"))
+        options.mMinInlierFraction =
+            meshioplusplus::detail::stod_c(opt_value(p, "min-inlier-fraction"));
+    if (has_opt(p, "max-iterations"))
+        options.mMaxIterations = std::stoll(opt_value(p, "max-iterations"));
+    if (has_opt(p, "types")) {
+        options.mTypes = 0;
+        const std::string list = opt_value(p, "types");
+        for (std::size_t at = 0; at <= list.size();) {
+            const std::size_t comma = std::min(list.find(',', at), list.size());
+            const std::string name = list.substr(at, comma - at);
+            at = comma + 1;
+            if (name.empty())
+                continue;
+            bool found = false;
+            for (int t = 0; t < 5; ++t)
+                if (name == kNames[t]) {
+                    options.mTypes |= 1u << (t + 1);
+                    found = true;
+                }
+            if (!found)
+                throw std::runtime_error("fit-primitives: unknown primitive type '" + name + "'");
+        }
+    }
+    meshioplusplus::FitPrimitivesResult r = meshioplusplus::fit_primitives(mesh, options);
+    write_mesh_cli(p.positionals[1], r.mMesh, opt_value(p, "output-format"));
+    if (has_flag(p, "json")) {
+        meshioplusplus::cli::JsonOut json(std::cout);
+        json.BeginObject();
+        json.Field("num_patches", r.mNumPatches);
+        json.Field("num_plane", r.mNumPlane);
+        json.Field("num_sphere", r.mNumSphere);
+        json.Field("num_cylinder", r.mNumCylinder);
+        json.Field("num_cone", r.mNumCone);
+        json.Field("num_torus", r.mNumTorus);
+        json.Field("num_unfitted", r.mNumUnfitted);
+        json.EndObject();
+    } else if (!has_flag(p, "quiet")) {
+        std::cout << "fit_primitives: " << r.mNumPatches << " patch(es)\n";
+        std::cout << "  plane:     " << r.mNumPlane << "\n";
+        std::cout << "  sphere:    " << r.mNumSphere << "\n";
+        std::cout << "  cylinder:  " << r.mNumCylinder << "\n";
+        std::cout << "  cone:      " << r.mNumCone << "\n";
+        std::cout << "  torus:     " << r.mNumTorus << "\n";
+        std::cout << "  unfitted:  " << r.mNumUnfitted << "\n";
     }
     return 0;
 }
@@ -3796,11 +3846,40 @@ std::vector<cli_opt_spec> view_common_specs() {
     };
 }
 
+int cmd_tui(const std::vector<std::string>& rArgs);
+
 int cmd_view(const std::vector<std::string>& rArgs) {
     auto specs = view_common_specs();
+    specs.push_back({"backend", {}, true});
     auto p = cli_parse(rArgs, specs);
     if (p.positionals.size() != 1)
         throw std::runtime_error("view requires exactly INFILE");
+
+    // auto: the Polyscope window when this build has one, else the terminal
+    // viewer when standard input and output are terminals, else Polyscope's
+    // "built without it" error (which points at `snapshot`). The native CLI has
+    // no browser backend.
+    std::string backend = opt_value(p, "backend", "auto");
+    if (backend != "auto" && backend != "polyscope" && backend != "terminal")
+        throw std::runtime_error("view: unknown backend '" + backend +
+                                 "' (expected auto, polyscope or terminal)");
+    if (backend == "auto")
+        backend = !meshioplusplus::cli::has_polyscope() && meshioplusplus::cli::stdin_is_terminal() &&
+                          meshioplusplus::cli::stdout_is_terminal()
+                      ? "terminal"
+                      : "polyscope";
+    if (backend == "terminal") {
+        std::vector<std::string> targs = {p.positionals[0]};
+        if (has_opt(p, "input-format")) {
+            targs.push_back("--input-format");
+            targs.push_back(opt_value(p, "input-format"));
+        }
+        if (has_opt(p, "color-by")) {
+            targs.push_back("--color-by");
+            targs.push_back(opt_value(p, "color-by"));
+        }
+        return cmd_tui(targs);
+    }
 
     Mesh mesh = read_mesh_cli(p.positionals[0], opt_value(p, "input-format"));
     meshioplusplus::cli::view_mesh(
@@ -3831,11 +3910,323 @@ int cmd_screenshot(const std::vector<std::string>& rArgs) {
     }
 
     Mesh mesh = read_mesh_cli(p.positionals[0], opt_value(p, "input-format"));
+    if (!meshioplusplus::cli::has_polyscope()) {
+        // No window system in this build: the software rasterizer draws the
+        // PNG instead (what `snapshot` does), rather than failing.
+        meshioplusplus::RenderOptions render;
+        render.mWidth = width;
+        render.mHeight = height;
+        render.mSupersample = 2;
+        render.mColorBy = opt_value(p, "color-by");
+        render.mBackground = has_flag(p, "transparent")
+                                 ? meshioplusplus::RenderColor{0, 0, 0, 0}
+                                 : meshioplusplus::RenderColor{255, 255, 255, 255};
+        meshioplusplus::log::info(
+            "screenshot: no Polyscope in this build; drawing with the software "
+            "rasterizer (see `snapshot` for its options)");
+        meshioplusplus::write_snapshot(p.positionals[1], mesh, render);
+        return 0;
+    }
     meshioplusplus::cli::screenshot_mesh(
         mesh, meshioplusplus::cli::view_kind_from_name(opt_value(p, "kind", "auto")),
         opt_value(p, "color-by"), opt_value(p, "name", "mesh"), p.positionals[1], width, height,
         has_flag(p, "transparent"));
     return 0;
+}
+
+// --------------------------------------------------------------------------
+// snapshot: the software rasterizer (operations/render.hpp)
+// --------------------------------------------------------------------------
+
+int cmd_snapshot(const std::vector<std::string>& rArgs) {
+    std::vector<cli_opt_spec> specs = render_flag_specs();
+    for (cli_opt_spec spec : std::vector<cli_opt_spec>{
+             {"input-format", {"-i"}, true},
+             {"width", {}, true},
+             {"height", {}, true},
+             {"cols", {}, true},
+             {"rows", {}, true},
+             {"encoding", {}, true},
+             {"color-depth", {}, true},
+             {"cell-aspect", {}, true},
+             {"tmux", {}, false},
+             {"no-notes", {}, false},
+             {"png-compress", {}, true},
+             {"cast-frames", {}, true},
+             {"cast-fps", {}, true},
+             {"cast-degrees", {}, true},
+         })
+        specs.push_back(spec);
+    auto p = cli_parse(rArgs, specs);
+    if (p.positionals.size() != 2)
+        throw std::runtime_error(
+            "snapshot requires exactly INFILE and OUTFILE (- for this terminal)");
+    const std::string& outfile = p.positionals[1];
+    const bool to_stdout = outfile == "-";
+
+    meshioplusplus::RenderOptions render = cli_render_options(p);
+    if (has_opt(p, "width"))
+        render.mWidth = std::stoi(opt_value(p, "width"));
+    else
+        render.mWidth = 800;
+    if (has_opt(p, "height"))
+        render.mHeight = std::stoi(opt_value(p, "height"));
+    else
+        render.mHeight = 600;
+
+    meshioplusplus::TextOptions text;
+    text.mEncoding = cli_text_encoding(opt_value(p, "encoding", "halfblock"));
+    text.mDepth = cli_color_depth(opt_value(p, "color-depth", to_stdout ? "auto" : "truecolor"));
+    text.mNotes = !has_flag(p, "no-notes");
+    text.mTmuxPassthrough = has_flag(p, "tmux");
+    if (has_opt(p, "cell-aspect"))
+        text.mCellAspect = meshioplusplus::detail::stod_c(opt_value(p, "cell-aspect"));
+    // Fit the terminal this goes to (one row kept for the prompt, one per note),
+    // or 100 x 40 cells for a file or a pipe.
+    meshioplusplus::cli::TerminalSize term;
+    const bool sized = to_stdout && meshioplusplus::cli::stdout_is_terminal() &&
+                       meshioplusplus::cli::terminal_size(term);
+    text.mCols = sized ? term.mCols : 100;
+    text.mRows = sized ? std::max(1, term.mRows - 1 - (render.mColorBy.empty() ? 0 : 1)) : 40;
+    if (sized && term.mPixelWidth > 0 && term.mPixelHeight > 0) {
+        text.mCellPixelWidth = term.mPixelWidth / term.mCols;
+        text.mCellPixelHeight = term.mPixelHeight / term.mRows;
+        text.mCellAspect = static_cast<double>(term.mPixelHeight * term.mCols) /
+                           static_cast<double>(term.mPixelWidth * term.mRows);
+    }
+    if (has_opt(p, "cols"))
+        text.mCols = std::stoi(opt_value(p, "cols"));
+    if (has_opt(p, "rows"))
+        text.mRows = std::stoi(opt_value(p, "rows"));
+    const bool graphics = text.mEncoding == meshioplusplus::TextEncoding::Kitty ||
+                          text.mEncoding == meshioplusplus::TextEncoding::ITerm2 ||
+                          text.mEncoding == meshioplusplus::TextEncoding::Sixel;
+    if (graphics && meshioplusplus::cli::inside_tmux() && !text.mTmuxPassthrough)
+        throw std::runtime_error(
+            "snapshot: inside tmux the " + opt_value(p, "encoding") +
+            " protocol needs --tmux (and `set -g allow-passthrough on`, tmux 3.3+); "
+            "a cell encoding works without it");
+
+    meshioplusplus::SnapshotOptions snap;
+    if (has_opt(p, "png-compress"))
+        snap.mPngCompress = std::stoi(opt_value(p, "png-compress"));
+    if (has_opt(p, "cast-frames"))
+        snap.mCastFrames = std::stoi(opt_value(p, "cast-frames"));
+    if (has_opt(p, "cast-fps"))
+        snap.mCastFps = meshioplusplus::detail::stod_c(opt_value(p, "cast-fps"));
+    if (has_opt(p, "cast-degrees"))
+        snap.mCastDegrees = meshioplusplus::detail::stod_c(opt_value(p, "cast-degrees"));
+
+    Mesh mesh = read_mesh_cli(p.positionals[0], opt_value(p, "input-format"));
+    if (to_stdout) {
+        text.mFormat = meshioplusplus::TextFormat::Ansi;
+        if (!meshioplusplus::cli::enable_terminal_output())
+            text.mDepth = meshioplusplus::ColorDepth::Mono;
+        const std::string out = meshioplusplus::render_text(mesh, render, text);
+        std::cout.write(out.data(), static_cast<std::streamsize>(out.size()));
+        std::cout.flush();
+        return 0;
+    }
+    meshioplusplus::write_snapshot(outfile, mesh, render, text, snap);
+    return 0;
+}
+
+// The tonic of the soundtrack: a semitone above C (0 to 11) or a note name (C, C#, Db, A, ...).
+int parse_music_key(const std::string& rText) {
+    static const std::vector<std::pair<std::string, int>> names = {
+        {"C", 0},  {"C#", 1}, {"Db", 1}, {"D", 2},  {"D#", 3}, {"Eb", 3}, {"E", 4},
+        {"F", 5},  {"F#", 6}, {"Gb", 6}, {"G", 7},  {"G#", 8}, {"Ab", 8}, {"A", 9},
+        {"A#", 10}, {"Bb", 10}, {"B", 11}};
+    for (const auto& [name, semitone] : names)
+        if (rText == name)
+            return semitone;
+    try {
+        std::size_t used = 0;
+        const int v = std::stoi(rText, &used);
+        if (used == rText.size() && v >= 0 && v <= 11)
+            return v;
+    } catch (const std::exception&) {
+    }
+    throw std::runtime_error("--music-key expects a note name (C, C#, Db, ..., B) or 0 to 11, not '" +
+                             rText + "'");
+}
+
+int cmd_tui(const std::vector<std::string>& rArgs) {
+    std::vector<cli_opt_spec> specs = render_flag_specs();
+    for (cli_opt_spec spec : std::vector<cli_opt_spec>{
+             {"input-format", {"-i"}, true},
+             {"encoding", {}, true},
+             {"color-depth", {}, true},
+             {"cell-aspect", {}, true},
+             {"tmux", {}, false},
+             {"replay", {}, true},
+             {"cols", {}, true},
+             {"rows", {}, true},
+             {"compare", {}, true},
+             {"diff", {}, false},
+             {"separate-ranges", {}, false},
+             {"follow", {}, false},
+             {"follow-interval", {}, true},
+             {"settle", {}, true},
+             {"fps", {}, true},
+             {"session", {}, true},
+             {"music", {}, false},
+             {"music-out", {}, true},
+             {"volume", {}, true},
+             {"tempo", {}, true},
+             {"music-seed", {}, true},
+             {"music-key", {}, true},
+             {"music-over-ssh", {}, false},
+             {"pulse", {}, false},
+             {"reduced-motion", {}, false},
+         })
+        specs.push_back(spec);
+    auto p = cli_parse(rArgs, specs);
+    if (p.positionals.empty())
+        throw std::runtime_error(
+            "tui requires an INFILE (or several files, or a quoted glob, for a time series)");
+
+    meshioplusplus::cli::tui::TuiOptions options;
+    options.mRender = cli_render_options(p);
+    options.mTitle = std::filesystem::path(p.positionals[0]).filename().string();
+    meshioplusplus::TextOptions& text = options.mText;
+    text.mEncoding = cli_text_encoding(opt_value(p, "encoding", "halfblock"));
+    text.mDepth = cli_color_depth(opt_value(p, "color-depth", "auto"));
+    text.mTmuxPassthrough = has_flag(p, "tmux");
+    text.mNotes = false;  // the loop draws the notes itself
+    if (has_opt(p, "cell-aspect")) {
+        text.mCellAspect = meshioplusplus::detail::stod_c(opt_value(p, "cell-aspect"));
+        options.mCellAspectFromTerminal = false;
+    }
+    const bool graphics = text.mEncoding == meshioplusplus::TextEncoding::Kitty ||
+                          text.mEncoding == meshioplusplus::TextEncoding::ITerm2 ||
+                          text.mEncoding == meshioplusplus::TextEncoding::Sixel;
+    if (graphics && meshioplusplus::cli::inside_tmux() && !text.mTmuxPassthrough)
+        throw std::runtime_error(
+            "tui: inside tmux the " + opt_value(p, "encoding") +
+            " protocol needs --tmux (and `set -g allow-passthrough on`, tmux 3.3+); "
+            "a cell encoding works without it");
+    options.mSessionPath = opt_value(p, "session");
+    options.mDiff = has_flag(p, "diff");
+    options.mSharedRange = !has_flag(p, "separate-ranges");
+    if (has_flag(p, "follow")) {
+        options.mFollowMs = has_opt(p, "follow-interval") ? std::stoi(opt_value(p, "follow-interval"))
+                                                          : 500;
+        if (options.mFollowMs < 10)
+            throw std::runtime_error("--follow-interval must be at least 10 (milliseconds)");
+    } else if (has_opt(p, "follow-interval")) {
+        throw std::runtime_error("--follow-interval requires --follow");
+    }
+    if (has_opt(p, "settle"))
+        options.mFollowSettleMs = std::stoi(opt_value(p, "settle"));
+    if (has_opt(p, "fps"))
+        options.mPlayFps = meshioplusplus::detail::stod_c(opt_value(p, "fps"));
+    if (options.mDiff && !has_opt(p, "compare"))
+        throw std::runtime_error("--diff requires --compare FILE");
+
+    // The optional soundtrack (--music, --music-out) and the theme's beat.
+    meshioplusplus::detail::SynthOptions synth;
+    if (has_opt(p, "tempo"))
+        synth.mTempo = meshioplusplus::detail::stod_c(opt_value(p, "tempo"));
+    if (has_opt(p, "music-seed"))
+        synth.mSeed = static_cast<std::uint32_t>(std::stoul(opt_value(p, "music-seed")));
+    if (has_opt(p, "music-key"))
+        synth.mKey = parse_music_key(opt_value(p, "music-key"));
+    double volume = 0.3;
+    if (has_opt(p, "volume")) {
+        volume = meshioplusplus::detail::stod_c(opt_value(p, "volume"));
+        if (!(volume >= 0.05 && volume <= 0.9))
+            throw std::runtime_error("--volume must lie in [0.05, 0.9] (the default is 0.3)");
+    }
+    synth.mGain = volume;
+    for (const char* flag : {"volume", "tempo", "music-seed", "music-key", "music-over-ssh"})
+        if ((has_opt(p, flag) || has_flag(p, flag)) && !has_flag(p, "music") &&
+            !has_opt(p, "music-out") && !(std::string(flag) == "tempo" && has_flag(p, "pulse")))
+            throw std::runtime_error(std::string("--") + flag +
+                                     " needs --music, --music-out or --pulse");
+    meshioplusplus::detail::synth_synthwave(synth);  // refuses a tempo or key out of range
+    if (has_opt(p, "music-out")) {
+        meshioplusplus::cli::tui::music_write_wav(opt_value(p, "music-out"), synth);
+        std::cerr << "wrote " << opt_value(p, "music-out") << " (a generated loop, "
+                  << meshioplusplus::detail::synth_length(synth) / synth.mSampleRate
+                  << " s; play it with your own player)\n";
+    }
+    const bool reduced_motion =
+        has_flag(p, "reduced-motion") || meshioplusplus::cli::tui::reduced_motion_requested();
+    if (options.mRender.mTheme != meshioplusplus::RenderTheme::None && !reduced_motion &&
+        (has_flag(p, "pulse") || has_flag(p, "music")))
+        options.mPulseTempo = synth.mTempo;
+    meshioplusplus::cli::tui::MusicPlayer player(synth, volume);
+
+    // One mesh, or a time series: several files, a quoted glob, or --follow
+    // (which watches the file for being rewritten).
+    const std::string format = opt_value(p, "input-format");
+    Mesh mesh;  // the single mesh; unused when a series is shown
+    const bool glob = p.positionals.size() == 1 &&
+                      p.positionals[0].find_first_of("*?") != std::string::npos;
+    if (glob || p.positionals.size() > 1 || options.mFollowMs > 0) {
+        options.mpSeries = glob ? std::make_shared<meshioplusplus::cli::tui::PathSeries>(
+                                      std::vector<std::string>{}, p.positionals[0], format)
+                                : std::make_shared<meshioplusplus::cli::tui::PathSeries>(
+                                      p.positionals, std::string(), format);
+    } else {
+        mesh = read_mesh_cli(p.positionals[0], format);
+    }
+    Mesh other;
+    if (has_opt(p, "compare")) {
+        other = read_mesh_cli(opt_value(p, "compare"), format);
+        options.mpCompare = &other;
+        options.mCompareTitle = std::filesystem::path(opt_value(p, "compare")).filename().string();
+    }
+
+    if (has_opt(p, "replay")) {
+        // A recorded byte stream on a screen of a stated size: what the loop
+        // would write is printed, for tests and for the documentation figures.
+        std::string script;
+        {
+            auto in = meshioplusplus::detail::make_classic_ifstream(
+                opt_value(p, "replay"), std::ios_base::in | std::ios_base::binary);
+            if (!in)
+                throw std::runtime_error("cannot open replay file '" + opt_value(p, "replay") +
+                                         "'");
+            script.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        }
+        meshioplusplus::cli::tui::ScriptedIo io(
+            script, has_opt(p, "cols") ? std::stoi(opt_value(p, "cols")) : 100,
+            has_opt(p, "rows") ? std::stoi(opt_value(p, "rows")) : 40);
+        meshioplusplus::cli::tui::TuiSession session(mesh, options);
+        const auto report = session.Run(io);
+        std::cout.write(io.Output().data(), static_cast<std::streamsize>(io.Output().size()));
+        std::cout.flush();
+        if (!report.mError.empty())
+            std::cerr << "error: " << report.mError << "\n";
+        return report.mExit;
+    }
+
+    if (!meshioplusplus::cli::stdin_is_terminal() || !meshioplusplus::cli::stdout_is_terminal())
+        throw std::runtime_error(
+            "tui needs a terminal on standard input and output; use `snapshot` for one frame to "
+            "a file or a pipe");
+    if (!meshioplusplus::cli::enable_terminal_output())
+        throw std::runtime_error(
+            "this console does not take escape sequences (SetConsoleMode refused "
+            "ENABLE_VIRTUAL_TERMINAL_PROCESSING, as an older Windows does); use `snapshot "
+            "--color-depth mono` for plain text");
+    if (has_flag(p, "music")) {
+        std::string why;
+        std::string message;
+        if (!meshioplusplus::cli::tui::music_allowed(has_flag(p, "music-over-ssh"), why))
+            std::cerr << "music: " << why << "; the viewer goes on silently\n";
+        else if (player.Start(message))
+            options.mpMusic = &player;
+        else
+            std::cerr << message << "\n";
+    }
+    const auto report = meshioplusplus::cli::tui::run_on_terminal(mesh, options);
+    player.Stop();
+    if (!report.mError.empty())
+        throw std::runtime_error(report.mError);
+    return report.mExit;
 }
 
 int cmd_stats(const std::vector<std::string>& rArgs) {
@@ -5041,6 +5432,10 @@ int main(int argc, char** argv) {
             return cmd_check(rest);
         if (cmd == "feature-edges")
             return cmd_feature_edges(rest);
+        if (cmd == "segment")
+            return cmd_segment(rest);
+        if (cmd == "fit-primitives")
+            return cmd_fit_primitives(rest);
         if (cmd == "region-adjacency")
             return cmd_region_adjacency(rest);
         if (cmd == "find-interface")
@@ -5117,6 +5512,10 @@ int main(int argc, char** argv) {
             return cmd_stats(rest);
         if (cmd == "view")
             return cmd_view(rest);
+        if (cmd == "snapshot")
+            return cmd_snapshot(rest);
+        if (cmd == "tui")
+            return cmd_tui(rest);
         if (cmd == "screenshot")
             return cmd_screenshot(rest);
     } catch (const std::exception& e) {

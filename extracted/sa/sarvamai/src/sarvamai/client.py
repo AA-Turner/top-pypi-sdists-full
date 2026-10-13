@@ -36,6 +36,7 @@ if typing.TYPE_CHECKING:
     from .text_to_speech.client import AsyncTextToSpeechClient, TextToSpeechClient
     from .text_to_speech_streaming.client import AsyncTextToSpeechStreamingClient, TextToSpeechStreamingClient
     from .voice_cloning.client import AsyncVoiceCloningClient, VoiceCloningClient
+    from .voice_cloning_streaming.client import AsyncVoiceCloningStreamingClient, VoiceCloningStreamingClient
 
 
 class SarvamAI:
@@ -126,6 +127,7 @@ class SarvamAI:
         self._speech_to_text_translate_streaming: typing.Optional[SpeechToTextTranslateStreamingClient] = None
         self._speech_to_text_realtime_streaming: typing.Optional[SpeechToTextRealtimeStreamingClient] = None
         self._text_to_speech_streaming: typing.Optional[TextToSpeechStreamingClient] = None
+        self._voice_cloning_streaming: typing.Optional[VoiceCloningStreamingClient] = None
 
     @property
     def dubbing(self):
@@ -275,6 +277,14 @@ class SarvamAI:
             self._text_to_speech_streaming = TextToSpeechStreamingClient(client_wrapper=self._client_wrapper)
         return self._text_to_speech_streaming
 
+    @property
+    def voice_cloning_streaming(self):
+        if self._voice_cloning_streaming is None:
+            from .voice_cloning_streaming.client import VoiceCloningStreamingClient  # noqa: E402
+
+            self._voice_cloning_streaming = VoiceCloningStreamingClient(client_wrapper=self._client_wrapper)
+        return self._voice_cloning_streaming
+
 
 class AsyncSarvamAI:
     """
@@ -364,6 +374,7 @@ class AsyncSarvamAI:
         self._speech_to_text_translate_streaming: typing.Optional[AsyncSpeechToTextTranslateStreamingClient] = None
         self._speech_to_text_realtime_streaming: typing.Optional[AsyncSpeechToTextRealtimeStreamingClient] = None
         self._text_to_speech_streaming: typing.Optional[AsyncTextToSpeechStreamingClient] = None
+        self._voice_cloning_streaming: typing.Optional[AsyncVoiceCloningStreamingClient] = None
 
     @property
     def dubbing(self):
@@ -516,3 +527,11 @@ class AsyncSarvamAI:
 
             self._text_to_speech_streaming = AsyncTextToSpeechStreamingClient(client_wrapper=self._client_wrapper)
         return self._text_to_speech_streaming
+
+    @property
+    def voice_cloning_streaming(self):
+        if self._voice_cloning_streaming is None:
+            from .voice_cloning_streaming.client import AsyncVoiceCloningStreamingClient  # noqa: E402
+
+            self._voice_cloning_streaming = AsyncVoiceCloningStreamingClient(client_wrapper=self._client_wrapper)
+        return self._voice_cloning_streaming

@@ -81,6 +81,7 @@ __all__ = (
     "ProgrammingLanguageType",
     "RecommendationStatusType",
     "RecommendationTypeType",
+    "RecordExpiryActionType",
     "RegistryRecordStatusType",
     "ResourceContentTypeType",
     "ResourceServiceName",
@@ -251,6 +252,7 @@ PaymentTypeType = Literal["CRYPTO_X402", "MPP"]
 ProgrammingLanguageType = Literal["javascript", "python", "typescript"]
 RecommendationStatusType = Literal["COMPLETED", "DELETING", "FAILED", "IN_PROGRESS", "PENDING"]
 RecommendationTypeType = Literal["SYSTEM_PROMPT_RECOMMENDATION", "TOOL_DESCRIPTION_RECOMMENDATION"]
+RecordExpiryActionType = Literal["REMOVE"]
 RegistryRecordStatusType = Literal[
     "APPROVED", "DEPRECATED", "DRAFT", "PENDING_APPROVAL", "REJECTED"
 ]
@@ -360,6 +362,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -432,8 +435,10 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -505,6 +510,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -557,6 +563,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -638,6 +645,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

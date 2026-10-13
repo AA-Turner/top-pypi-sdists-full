@@ -35,6 +35,8 @@
 #include "meshioplusplus/exceptions.hpp"
 #include "meshioplusplus/log.hpp"
 #include "meshioplusplus/version.hpp"
+#include "../../src/cpp/cli/tui/loop.hpp"
+#include "../../src/cpp/cli/tui/series.hpp"
 #include "meshioplusplus/formats/abaqus.hpp"
 #include "meshioplusplus/formats/frd.hpp"
 #include "meshioplusplus/formats/lsdyna.hpp"
@@ -97,6 +99,7 @@
 #include "meshioplusplus/formats/stl.hpp"
 #include "meshioplusplus/formats/su2.hpp"
 #include "meshioplusplus/formats/gltf.hpp"
+#include "meshioplusplus/formats/step.hpp"
 #include "meshioplusplus/formats/svg.hpp"
 #include "meshioplusplus/formats/tecplot.hpp"
 #include "meshioplusplus/formats/tetgen.hpp"
@@ -126,6 +129,9 @@
 #include "meshioplusplus/operations/neighbors.hpp"
 #include "meshioplusplus/operations/blend.hpp"
 #include "meshioplusplus/operations/feature_edges.hpp"
+#include "meshioplusplus/operations/fit_primitives.hpp"
+#include "meshioplusplus/operations/segment.hpp"
+#include "meshioplusplus/operations/render.hpp"
 #include "meshioplusplus/operations/interfaces.hpp"
 #include "meshioplusplus/operations/hausdorff.hpp"
 #include "meshioplusplus/operations/periodic.hpp"
@@ -289,6 +295,426 @@ template <class TFn>
 decltype(auto) core_nogil(TFn&& fn) {
     py::gil_scoped_release release;
     return std::forward<TFn>(fn)();
+}
+
+// --------------------------------------------------------------------------
+// The software rasterizer (operations/render.hpp). Options travel as dicts
+// with snake_case keys, the names of the Python API; an unknown key is an
+// error naming the ones that exist, so a typo never silently does nothing.
+// --------------------------------------------------------------------------
+
+meshioplusplus::RenderColor render_py_color(py::handle h, const char* pKey) {
+    const std::vector<int> v = py::cast<std::vector<int>>(h);
+    if (v.size() != 3 && v.size() != 4)
+        throw std::invalid_argument(std::string("meshio++: render: ") + pKey +
+                                    " must be (r, g, b) or (r, g, b, a) with values 0-255");
+    meshioplusplus::RenderColor c = {0, 0, 0, 255};
+    for (std::size_t k = 0; k < v.size(); ++k) {
+        if (v[k] < 0 || v[k] > 255)
+            throw std::invalid_argument(std::string("meshio++: render: ") + pKey +
+                                        " values must lie in 0-255");
+        c[k] = static_cast<std::uint8_t>(v[k]);
+    }
+    return c;
+}
+
+void render_py_unknown(const py::dict& rD, const std::vector<std::string>& rKnown,
+                       const char* pWhat) {
+    for (auto item : rD) {
+        const std::string key = py::cast<std::string>(item.first);
+        if (std::find(rKnown.begin(), rKnown.end(), key) == rKnown.end()) {
+            std::string names;
+            for (const std::string& k : rKnown)
+                names += (names.empty() ? "" : ", ") + k;
+            throw std::invalid_argument("meshio++: render: unknown " + std::string(pWhat) +
+                                        " option '" + key + "' (expected one of: " + names + ")");
+        }
+    }
+}
+
+meshioplusplus::RenderOptions render_py_options(const py::dict& rD) {
+    render_py_unknown(rD, {"width",         "height",        "pixel_aspect",
+                           "supersample",   "azimuth",       "elevation",
+                           "roll",          "view",          "projection",
+                           "fov",           "zoom",          "pan",
+                           "shading",       "two_sided",     "ambient",
+                           "light_dir",     "split_angle",   "edges",
+                           "feature_angle", "edge_color",    "fill_color",
+                           "line_color",    "background",    "point_radius",
+                           "color_by",      "component",     "cmap",
+                           "vmin",          "vmax",          "nan_color",
+                           "colorbar",      "axes",          "scale_bar",
+                           "reduce",        "expr",          "clip",
+                           "symmetric",     "scale",         "scale_threshold",
+                           "categorical",   "color_regions", "category_edges",
+                           "isolines",      "iso_levels",    "iso_color",
+                           "vectors",       "vector_count",  "vector_length",
+                           "vector_color",  "warp",          "warp_scale",
+                           "warp_outline",  "outline_color", "diagnostic",
+                           "quality_metric", "cutaway",      "cutaway_tint",
+                           "streamlines",   "stream_seeds",  "stream_length",
+                           "stream_color",  "theme",         "scanlines",
+                           "bloom",         "fringe",        "grid_floor",
+                           "theme_phase"},
+                      "render");
+    meshioplusplus::RenderOptions o;
+    auto get = [&](const char* pKey) -> py::object {
+        return rD.contains(pKey) ? py::reinterpret_borrow<py::object>(rD[pKey]) : py::none();
+    };
+    py::object v;
+    if (!(v = get("width")).is_none())
+        o.mWidth = v.cast<int>();
+    if (!(v = get("height")).is_none())
+        o.mHeight = v.cast<int>();
+    if (!(v = get("pixel_aspect")).is_none())
+        o.mPixelAspect = v.cast<double>();
+    if (!(v = get("supersample")).is_none())
+        o.mSupersample = v.cast<int>();
+    if (!(v = get("azimuth")).is_none())
+        o.mAzimuth = v.cast<double>();
+    if (!(v = get("elevation")).is_none())
+        o.mElevation = v.cast<double>();
+    if (!(v = get("roll")).is_none())
+        o.mRoll = v.cast<double>();
+    if (!(v = get("view")).is_none())
+        o.mView = v.cast<std::string>();
+    if (!(v = get("projection")).is_none()) {
+        const std::string name = v.cast<std::string>();
+        if (name == "orthographic")
+            o.mProjection = meshioplusplus::RenderProjection::Orthographic;
+        else if (name == "perspective")
+            o.mProjection = meshioplusplus::RenderProjection::Perspective;
+        else
+            throw std::invalid_argument(
+                "meshio++: render: projection must be 'orthographic' or 'perspective', not '" +
+                name + "'");
+    }
+    if (!(v = get("fov")).is_none())
+        o.mFovDeg = v.cast<double>();
+    if (!(v = get("zoom")).is_none())
+        o.mZoom = v.cast<double>();
+    if (!(v = get("pan")).is_none()) {
+        const std::vector<double> pan = v.cast<std::vector<double>>();
+        if (pan.size() != 2)
+            throw std::invalid_argument("meshio++: render: pan must be (x, y)");
+        o.mPanX = pan[0];
+        o.mPanY = pan[1];
+    }
+    if (!(v = get("shading")).is_none()) {
+        const std::string name = v.cast<std::string>();
+        if (name == "none")
+            o.mShading = meshioplusplus::RenderShading::None;
+        else if (name == "flat")
+            o.mShading = meshioplusplus::RenderShading::Flat;
+        else if (name == "smooth")
+            o.mShading = meshioplusplus::RenderShading::Smooth;
+        else
+            throw std::invalid_argument(
+                "meshio++: render: shading must be 'none', 'flat' or 'smooth', not '" + name + "'");
+    }
+    if (!(v = get("two_sided")).is_none())
+        o.mTwoSided = v.cast<bool>();
+    if (!(v = get("ambient")).is_none())
+        o.mAmbient = v.cast<double>();
+    if (!(v = get("light_dir")).is_none()) {
+        const std::vector<double> d = v.cast<std::vector<double>>();
+        if (d.size() != 3)
+            throw std::invalid_argument("meshio++: render: light_dir must be (x, y, z)");
+        o.mLightDir = {d[0], d[1], d[2]};
+    }
+    if (!(v = get("split_angle")).is_none())
+        o.mSplitAngle = v.cast<double>();
+    if (!(v = get("edges")).is_none()) {
+        const std::string name = v.cast<std::string>();
+        if (name == "none")
+            o.mEdges = meshioplusplus::RenderEdges::None;
+        else if (name == "all")
+            o.mEdges = meshioplusplus::RenderEdges::All;
+        else if (name == "feature")
+            o.mEdges = meshioplusplus::RenderEdges::Feature;
+        else
+            throw std::invalid_argument(
+                "meshio++: render: edges must be 'none', 'all' or 'feature', not '" + name + "'");
+    }
+    if (!(v = get("feature_angle")).is_none())
+        o.mFeatureAngle = v.cast<double>();
+    if (!(v = get("edge_color")).is_none())
+        o.mEdgeColor = render_py_color(v, "edge_color");
+    if (!(v = get("fill_color")).is_none())
+        o.mFillColor = render_py_color(v, "fill_color");
+    if (!(v = get("line_color")).is_none())
+        o.mLineColor = render_py_color(v, "line_color");
+    if (!(v = get("background")).is_none())
+        o.mBackground = render_py_color(v, "background");
+    if (!(v = get("point_radius")).is_none())
+        o.mPointRadius = v.cast<double>();
+    if (!(v = get("color_by")).is_none())
+        o.mColorBy = v.cast<std::string>();
+    if (!(v = get("component")).is_none())
+        o.mComponent = v.cast<int>();
+    if (!(v = get("cmap")).is_none())
+        o.mCmap = v.cast<std::string>();
+    if (!(v = get("vmin")).is_none())
+        o.mVMin = v.cast<double>();
+    if (!(v = get("vmax")).is_none())
+        o.mVMax = v.cast<double>();
+    if (!(v = get("nan_color")).is_none())
+        o.mNanColor = render_py_color(v, "nan_color");
+    if (!(v = get("colorbar")).is_none())
+        o.mColorbar = v.cast<bool>();
+    if (!(v = get("axes")).is_none())
+        o.mAxes = v.cast<bool>();
+    if (!(v = get("scale_bar")).is_none())
+        o.mScaleBar = v.cast<bool>();
+    if (!(v = get("reduce")).is_none())
+        o.mReduce = v.cast<std::string>();
+    if (!(v = get("expr")).is_none())
+        o.mExpr = v.cast<std::string>();
+    if (!(v = get("clip")).is_none()) {
+        const std::vector<py::object> clip = v.cast<std::vector<py::object>>();
+        if (clip.size() != 2)
+            throw std::invalid_argument(
+                "meshio++: render: clip must be (low, high) percentiles; "
+                "use None for either end");
+        if (!clip[0].is_none())
+            o.mClipLow = clip[0].cast<double>();
+        if (!clip[1].is_none())
+            o.mClipHigh = clip[1].cast<double>();
+    }
+    if (!(v = get("symmetric")).is_none())
+        o.mSymmetric = v.cast<bool>();
+    if (!(v = get("scale")).is_none()) {
+        const std::string name = v.cast<std::string>();
+        if (name == "linear")
+            o.mScale = meshioplusplus::RenderScale::Linear;
+        else if (name == "log")
+            o.mScale = meshioplusplus::RenderScale::Log;
+        else if (name == "symlog")
+            o.mScale = meshioplusplus::RenderScale::Symlog;
+        else
+            throw std::invalid_argument(
+                "meshio++: render: scale must be 'linear', 'log' or 'symlog', not '" + name + "'");
+    }
+    if (!(v = get("scale_threshold")).is_none())
+        o.mScaleThreshold = v.cast<double>();
+    if (!(v = get("categorical")).is_none())
+        o.mCategorical = v.cast<bool>();
+    if (!(v = get("color_regions")).is_none())
+        o.mColorRegions = v.cast<bool>();
+    if (!(v = get("category_edges")).is_none())
+        o.mCategoryEdges = v.cast<bool>();
+    if (!(v = get("isolines")).is_none())
+        o.mIsolines = v.cast<std::int32_t>();
+    if (!(v = get("iso_levels")).is_none())
+        o.mIsoLevels = v.cast<std::vector<double>>();
+    if (!(v = get("iso_color")).is_none())
+        o.mIsoColor = render_py_color(v, "iso_color");
+    if (!(v = get("vectors")).is_none())
+        o.mVectors = v.cast<std::string>();
+    if (!(v = get("vector_count")).is_none())
+        o.mVectorCount = v.cast<std::int32_t>();
+    if (!(v = get("vector_length")).is_none())
+        o.mVectorLength = v.cast<double>();
+    if (!(v = get("vector_color")).is_none())
+        o.mVectorColor = render_py_color(v, "vector_color");
+    if (!(v = get("warp")).is_none())
+        o.mWarp = v.cast<std::string>();
+    if (!(v = get("warp_scale")).is_none())
+        o.mWarpScale = v.cast<double>();
+    if (!(v = get("warp_outline")).is_none())
+        o.mWarpOutline = v.cast<bool>();
+    if (!(v = get("outline_color")).is_none())
+        o.mOutlineColor = render_py_color(v, "outline_color");
+    if (!(v = get("diagnostic")).is_none()) {
+        const std::string name = v.cast<std::string>();
+        static const std::pair<const char*, meshioplusplus::RenderDiagnostic> table[] = {
+            {"none", meshioplusplus::RenderDiagnostic::None},
+            {"quality", meshioplusplus::RenderDiagnostic::Quality},
+            {"inverted", meshioplusplus::RenderDiagnostic::Inverted},
+            {"degenerate", meshioplusplus::RenderDiagnostic::Degenerate},
+            {"orientation", meshioplusplus::RenderDiagnostic::Orientation},
+            {"free_edges", meshioplusplus::RenderDiagnostic::FreeEdges},
+            {"edge_length", meshioplusplus::RenderDiagnostic::EdgeLength}};
+        bool found = false;
+        for (const auto& e : table)
+            if (name == e.first) {
+                o.mDiagnostic = e.second;
+                found = true;
+            }
+        if (!found)
+            throw std::invalid_argument(
+                "meshio++: render: diagnostic must be one of none, quality, inverted, degenerate, "
+                "orientation, free_edges, edge_length; not '" +
+                name + "'");
+    }
+    if (!(v = get("quality_metric")).is_none())
+        o.mQualityMetric = v.cast<std::string>();
+    if (!(v = get("cutaway")).is_none()) {
+        for (py::handle item : v) {
+            const std::vector<double> six = py::cast<std::vector<double>>(item);
+            if (six.size() != 6)
+                throw std::invalid_argument(
+                    "meshio++: render: each cutaway is six numbers: a point, then the normal of "
+                    "the side kept");
+            meshioplusplus::RenderCutaway plane;
+            plane.mPoint = {six[0], six[1], six[2]};
+            plane.mNormal = {six[3], six[4], six[5]};
+            o.mCutaways.push_back(plane);
+        }
+    }
+    if (!(v = get("cutaway_tint")).is_none())
+        o.mCutawayTint = render_py_color(v, "cutaway_tint");
+    if (!(v = get("streamlines")).is_none())
+        o.mStreamlines = v.cast<std::string>();
+    if (!(v = get("stream_seeds")).is_none())
+        o.mStreamSeeds = v.cast<std::int32_t>();
+    if (!(v = get("stream_length")).is_none())
+        o.mStreamLength = v.cast<double>();
+    if (!(v = get("stream_color")).is_none())
+        o.mStreamColor = render_py_color(v, "stream_color");
+    if (!(v = get("theme")).is_none()) {
+        const std::string name = v.cast<std::string>();
+        if (name == "synthwave")
+            o.mTheme = meshioplusplus::RenderTheme::Synthwave;
+        else if (name == "none")
+            o.mTheme = meshioplusplus::RenderTheme::None;
+        else
+            throw std::invalid_argument(
+                "meshio++: render: theme must be one of none, synthwave; not '" + name + "'");
+    }
+    if (!(v = get("scanlines")).is_none())
+        o.mScanlines = v.cast<bool>();
+    if (!(v = get("bloom")).is_none())
+        o.mBloom = v.cast<bool>();
+    if (!(v = get("fringe")).is_none())
+        o.mFringe = v.cast<bool>();
+    if (!(v = get("grid_floor")).is_none())
+        o.mGridFloor = v.cast<bool>();
+    if (!(v = get("theme_phase")).is_none())
+        o.mThemePhase = v.cast<std::int32_t>();
+    return o;
+}
+
+meshioplusplus::TextOptions render_py_text(const py::dict& rD) {
+    render_py_unknown(rD,
+                      {"encoding", "color_depth", "format", "cols", "rows", "cell_aspect",
+                       "cell_pixels", "tmux", "notes"},
+                      "text");
+    meshioplusplus::TextOptions t;
+    if (rD.contains("encoding")) {
+        const std::string name = py::cast<std::string>(rD["encoding"]);
+        static const std::pair<const char*, meshioplusplus::TextEncoding> table[] = {
+            {"halfblock", meshioplusplus::TextEncoding::HalfBlock},
+            {"quadrant", meshioplusplus::TextEncoding::Quadrant},
+            {"sextant", meshioplusplus::TextEncoding::Sextant},
+            {"braille", meshioplusplus::TextEncoding::Braille},
+            {"ascii", meshioplusplus::TextEncoding::Ascii},
+            {"kitty", meshioplusplus::TextEncoding::Kitty},
+            {"iterm2", meshioplusplus::TextEncoding::ITerm2},
+            {"sixel", meshioplusplus::TextEncoding::Sixel}};
+        bool found = false;
+        for (const auto& e : table)
+            if (name == e.first) {
+                t.mEncoding = e.second;
+                found = true;
+            }
+        if (!found)
+            throw std::invalid_argument(
+                "meshio++: render: encoding must be one of halfblock, quadrant, sextant, "
+                "braille, ascii, kitty, iterm2, sixel; not '" +
+                name + "'");
+    }
+    if (rD.contains("color_depth")) {
+        const std::string name = py::cast<std::string>(rD["color_depth"]);
+        if (name == "truecolor")
+            t.mDepth = meshioplusplus::ColorDepth::TrueColor;
+        else if (name == "256")
+            t.mDepth = meshioplusplus::ColorDepth::Palette256;
+        else if (name == "16")
+            t.mDepth = meshioplusplus::ColorDepth::Ansi16;
+        else if (name == "mono")
+            t.mDepth = meshioplusplus::ColorDepth::Mono;
+        else
+            throw std::invalid_argument(
+                "meshio++: render: color_depth must be 'truecolor', '256', '16' or 'mono', not '" +
+                name + "'");
+    }
+    if (rD.contains("format")) {
+        const std::string name = py::cast<std::string>(rD["format"]);
+        if (name == "ansi")
+            t.mFormat = meshioplusplus::TextFormat::Ansi;
+        else if (name == "plain")
+            t.mFormat = meshioplusplus::TextFormat::Plain;
+        else if (name == "html")
+            t.mFormat = meshioplusplus::TextFormat::Html;
+        else
+            throw std::invalid_argument(
+                "meshio++: render: format must be 'ansi', 'plain' or 'html', not '" + name + "'");
+    }
+    if (rD.contains("cols"))
+        t.mCols = py::cast<int>(rD["cols"]);
+    if (rD.contains("rows"))
+        t.mRows = py::cast<int>(rD["rows"]);
+    if (rD.contains("cell_aspect"))
+        t.mCellAspect = py::cast<double>(rD["cell_aspect"]);
+    if (rD.contains("cell_pixels")) {
+        const std::vector<int> px = py::cast<std::vector<int>>(rD["cell_pixels"]);
+        if (px.size() != 2)
+            throw std::invalid_argument("meshio++: render: cell_pixels must be (width, height)");
+        t.mCellPixelWidth = px[0];
+        t.mCellPixelHeight = px[1];
+    }
+    if (rD.contains("tmux"))
+        t.mTmuxPassthrough = py::cast<bool>(rD["tmux"]);
+    if (rD.contains("notes"))
+        t.mNotes = py::cast<bool>(rD["notes"]);
+    return t;
+}
+
+meshioplusplus::SnapshotOptions render_py_snapshot(const py::dict& rD) {
+    render_py_unknown(rD, {"png_compress", "cast_frames", "cast_fps", "cast_degrees"}, "snapshot");
+    meshioplusplus::SnapshotOptions s;
+    if (rD.contains("png_compress"))
+        s.mPngCompress = py::cast<int>(rD["png_compress"]);
+    if (rD.contains("cast_frames"))
+        s.mCastFrames = py::cast<int>(rD["cast_frames"]);
+    if (rD.contains("cast_fps"))
+        s.mCastFps = py::cast<double>(rD["cast_fps"]);
+    if (rD.contains("cast_degrees"))
+        s.mCastDegrees = py::cast<double>(rD["cast_degrees"]);
+    return s;
+}
+
+// A frame from an (H, W, 4) uint8 array (C-contiguous after the cast).
+meshioplusplus::Frame render_py_frame(
+    py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> rImage,
+    const std::vector<std::string>& rNotes) {
+    if (rImage.ndim() != 3 || rImage.shape(2) != 4 || rImage.shape(0) <= 0 || rImage.shape(1) <= 0)
+        throw std::invalid_argument("meshio++: render: an image must be an (H, W, 4) uint8 array");
+    meshioplusplus::Frame f;
+    f.mHeight = static_cast<int>(rImage.shape(0));
+    f.mWidth = static_cast<int>(rImage.shape(1));
+    f.mRgba.assign(rImage.data(), rImage.data() + rImage.size());
+    f.mCellIds.assign(static_cast<std::size_t>(f.mWidth) * static_cast<std::size_t>(f.mHeight), -1);
+    f.mNotes = rNotes;
+    return f;
+}
+
+py::dict render_py_result(meshioplusplus::Frame&& rFrame) {
+    const py::ssize_t h = rFrame.mHeight;
+    const py::ssize_t w = rFrame.mWidth;
+    py::array_t<std::uint8_t> image({h, w, static_cast<py::ssize_t>(4)});
+    std::copy(rFrame.mRgba.begin(), rFrame.mRgba.end(), image.mutable_data());
+    py::array_t<std::int64_t> ids({h, w});
+    std::copy(rFrame.mCellIds.begin(), rFrame.mCellIds.end(), ids.mutable_data());
+    py::dict out;
+    out["image"] = image;
+    out["cell_ids"] = ids;
+    out["colored"] = rFrame.mColored;
+    out["vmin"] = rFrame.mColored ? py::object(py::float_(rFrame.mVMin)) : py::object(py::none());
+    out["vmax"] = rFrame.mColored ? py::object(py::float_(rFrame.mVMax)) : py::object(py::none());
+    out["notes"] = rFrame.mNotes;
+    return out;
 }
 
 /**
@@ -2430,6 +2856,233 @@ PYBIND11_MODULE(_core, m) {
         py::arg("weight") = "angle", py::arg("split") = false, py::arg("split_angle") = 30.0,
         py::arg("record_parent_ids") = false, py::arg("region") = "");
 
+    // The software rasterizer and its encodings. See operations/render.hpp;
+    // the Python API is meshioplusplus/_render.py.
+    m.def(
+        "render",
+        [](py::object pymesh, py::dict options) {
+            meshioplusplus_py::PyMeshRefs refs;
+            meshioplusplus::Mesh cpp = meshioplusplus_py::py_to_mesh(
+                pymesh, refs, /*lenient_field_data=*/true, /*allow_ragged=*/true);
+            const meshioplusplus::RenderOptions o = render_py_options(options);
+            meshioplusplus::Frame f = core_nogil([&] { return meshioplusplus::render(cpp, o); });
+            return render_py_result(std::move(f));
+        },
+        py::arg("mesh"), py::arg("options") = py::dict());
+    m.def(
+        "render_text",
+        [](py::object pymesh, py::dict options, py::dict text) {
+            meshioplusplus_py::PyMeshRefs refs;
+            meshioplusplus::Mesh cpp = meshioplusplus_py::py_to_mesh(
+                pymesh, refs, /*lenient_field_data=*/true, /*allow_ragged=*/true);
+            const meshioplusplus::RenderOptions o = render_py_options(options);
+            const meshioplusplus::TextOptions t = render_py_text(text);
+            return core_nogil([&] { return meshioplusplus::render_text(cpp, o, t); });
+        },
+        py::arg("mesh"), py::arg("options") = py::dict(), py::arg("text") = py::dict());
+    m.def(
+        "encode_text",
+        [](py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> image,
+           py::dict text, const std::vector<std::string>& notes) {
+            const meshioplusplus::Frame f = render_py_frame(image, notes);
+            const meshioplusplus::TextOptions t = render_py_text(text);
+            return meshioplusplus::encode_text(f, t);
+        },
+        py::arg("image"), py::arg("text") = py::dict(),
+        py::arg("notes") = std::vector<std::string>());
+    m.def(
+        "encode_png",
+        [](py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> image,
+           int compress) {
+            const meshioplusplus::Frame f = render_py_frame(image, {});
+            const std::string png = meshioplusplus::encode_png(f, compress);
+            return py::bytes(png);
+        },
+        py::arg("image"), py::arg("compress") = 0);
+    m.def(
+        "text_frame_size",
+        [](py::dict text) {
+            double aspect = 1.0;
+            const std::array<int, 2> size =
+                meshioplusplus::text_frame_size(render_py_text(text), aspect);
+            return py::make_tuple(size[0], size[1], aspect);
+        },
+        py::arg("text") = py::dict());
+    m.def(
+        "detect_color_depth",
+        [](py::object no_color, py::object color_term, py::object term) {
+            auto opt = [](py::object o) -> std::optional<std::string> {
+                if (o.is_none())
+                    return std::nullopt;
+                return o.cast<std::string>();
+            };
+            const auto a = opt(no_color);
+            const auto b = opt(color_term);
+            const auto c = opt(term);
+            switch (meshioplusplus::detect_color_depth(
+                a ? a->c_str() : nullptr, b ? b->c_str() : nullptr, c ? c->c_str() : nullptr)) {
+                case meshioplusplus::ColorDepth::TrueColor:
+                    return std::string("truecolor");
+                case meshioplusplus::ColorDepth::Palette256:
+                    return std::string("256");
+                case meshioplusplus::ColorDepth::Ansi16:
+                    return std::string("16");
+                default:
+                    return std::string("mono");
+            }
+        },
+        py::arg("no_color") = py::none(), py::arg("color_term") = py::none(),
+        py::arg("term") = py::none());
+    m.def(
+        "encode_cast",
+        [](py::object pymesh, py::dict options, py::dict text, py::dict snapshot) {
+            meshioplusplus_py::PyMeshRefs refs;
+            meshioplusplus::Mesh cpp = meshioplusplus_py::py_to_mesh(
+                pymesh, refs, /*lenient_field_data=*/true, /*allow_ragged=*/true);
+            const meshioplusplus::RenderOptions o = render_py_options(options);
+            const meshioplusplus::TextOptions t = render_py_text(text);
+            const meshioplusplus::SnapshotOptions s = render_py_snapshot(snapshot);
+            return core_nogil([&] { return meshioplusplus::encode_cast(cpp, o, t, s); });
+        },
+        py::arg("mesh"), py::arg("options") = py::dict(), py::arg("text") = py::dict(),
+        py::arg("snapshot") = py::dict());
+    m.def(
+        "write_snapshot",
+        [](const std::string& path, py::object pymesh, py::dict options, py::dict text,
+           py::dict snapshot) {
+            meshioplusplus_py::PyMeshRefs refs;
+            meshioplusplus::Mesh cpp = meshioplusplus_py::py_to_mesh(
+                pymesh, refs, /*lenient_field_data=*/true, /*allow_ragged=*/true);
+            const meshioplusplus::RenderOptions o = render_py_options(options);
+            const meshioplusplus::TextOptions t = render_py_text(text);
+            const meshioplusplus::SnapshotOptions s = render_py_snapshot(snapshot);
+            core_nogil([&] { meshioplusplus::write_snapshot(path, cpp, o, t, s); });
+        },
+        py::arg("path"), py::arg("mesh"), py::arg("options") = py::dict(),
+        py::arg("text") = py::dict(), py::arg("snapshot") = py::dict());
+
+    // The interactive terminal viewer (roadmap 7.2): the same loop as the native
+    // `tui` verb, compiled from src/cpp/cli/tui. With `replay` (bytes) it plays a
+    // recorded input stream on a screen of cols x rows and returns what it wrote,
+    // which is how the tests and the documentation figures drive it; without, it
+    // takes over the terminal until the user quits.
+    m.def(
+        "tui",
+        [](py::object pymesh, py::dict options, py::dict text, const std::string& title,
+           py::object replay, int cols, int rows, py::object pycompare,
+           const std::string& compare_title, bool diff, bool shared_range,
+           const std::vector<std::string>& paths, const std::string& pattern,
+           const std::string& input_format, int follow_ms, int settle_ms, double fps,
+           const std::string& session, py::dict music) {
+            meshioplusplus_py::PyMeshRefs refs;
+            meshioplusplus_py::PyMeshRefs compare_refs;
+            meshioplusplus::Mesh cpp;
+            if (!pymesh.is_none())
+                cpp = meshioplusplus_py::py_to_mesh(pymesh, refs, /*lenient_field_data=*/true,
+                                                    /*allow_ragged=*/true);
+            meshioplusplus::Mesh other;
+            meshioplusplus::cli::tui::TuiOptions t;
+            if (!pycompare.is_none()) {
+                other = meshioplusplus_py::py_to_mesh(pycompare, compare_refs,
+                                                      /*lenient_field_data=*/true,
+                                                      /*allow_ragged=*/true);
+                t.mpCompare = &other;
+                t.mCompareTitle = compare_title;
+            }
+            t.mRender = render_py_options(options);
+            t.mText = render_py_text(text);
+            t.mText.mNotes = false;  // the loop draws the notes itself
+            if (text.contains("cell_aspect"))
+                t.mCellAspectFromTerminal = false;
+            t.mTitle = title;
+            t.mDiff = diff;
+            t.mSharedRange = shared_range;
+            t.mFollowMs = follow_ms;
+            t.mFollowSettleMs = settle_ms;
+            t.mPlayFps = fps;
+            t.mSessionPath = session;
+            if (!paths.empty() || !pattern.empty())
+                t.mpSeries = std::make_shared<meshioplusplus::cli::tui::PathSeries>(paths, pattern,
+                                                                                    input_format);
+            else if (pymesh.is_none())
+                throw std::invalid_argument("meshio++: tui: give a mesh or a series");
+            // The optional soundtrack and the theme's beat (see doc/tui.md).
+            meshioplusplus::detail::SynthOptions synth;
+            double volume = 0.3;
+            if (music.contains("tempo"))
+                synth.mTempo = music["tempo"].cast<double>();
+            if (music.contains("seed"))
+                synth.mSeed = music["seed"].cast<std::uint32_t>();
+            if (music.contains("key"))
+                synth.mKey = music["key"].cast<int>();
+            if (music.contains("volume"))
+                volume = music["volume"].cast<double>();
+            if (!(volume >= 0.05 && volume <= 0.9))
+                throw std::invalid_argument(
+                    "meshio++: tui: the volume must lie in [0.05, 0.9] (the default is 0.3)");
+            synth.mGain = volume;
+            const bool play = music.contains("enabled") && music["enabled"].cast<bool>();
+            const std::string music_out =
+                music.contains("out") ? music["out"].cast<std::string>() : std::string();
+            meshioplusplus::detail::synth_synthwave(synth);  // refuses a tempo or key out of range
+            if (!music_out.empty())
+                meshioplusplus::cli::tui::music_write_wav(music_out, synth);
+            const bool reduced = (music.contains("reduced_motion") &&
+                                  music["reduced_motion"].cast<bool>()) ||
+                                 meshioplusplus::cli::tui::reduced_motion_requested();
+            const bool pulse = music.contains("pulse") && music["pulse"].cast<bool>();
+            if (t.mRender.mTheme != meshioplusplus::RenderTheme::None && !reduced &&
+                (pulse || play))
+                t.mPulseTempo = synth.mTempo;
+            meshioplusplus::cli::tui::MusicPlayer player(synth, volume);
+            std::string music_message;
+            if (play && replay.is_none()) {
+                std::string why;
+                if (!meshioplusplus::cli::tui::music_allowed(
+                        music.contains("over_ssh") && music["over_ssh"].cast<bool>(), why))
+                    music_message = "music: " + why + "; the viewer goes on silently";
+                else if (player.Start(music_message)) {
+                    t.mpMusic = &player;
+                    music_message.clear();  // only a refusal is worth saying
+                }
+            }
+            meshioplusplus::cli::tui::TuiReport report;
+            py::dict out;
+            if (!replay.is_none()) {
+                const std::string script = py::cast<std::string>(replay);
+                meshioplusplus::cli::tui::ScriptedIo io(script, cols, rows);
+                report = core_nogil([&] {
+                    meshioplusplus::cli::tui::TuiSession session_run(cpp, t);
+                    return session_run.Run(io);
+                });
+                out["output"] = py::bytes(io.Output());
+            } else {
+                report = core_nogil([&] { return meshioplusplus::cli::tui::run_on_terminal(cpp, t); });
+                if (!report.mError.empty())
+                    throw std::runtime_error(report.mError);
+            }
+            out["exit"] = report.mExit;
+            out["frames"] = report.mFrames;
+            out["status"] = report.mStatus;
+            out["azimuth"] = report.mFinal.mAzimuth;
+            out["elevation"] = report.mFinal.mElevation;
+            out["zoom"] = report.mFinal.mZoom;
+            out["pan_x"] = report.mFinal.mPanX;
+            out["pan_y"] = report.mFinal.mPanY;
+            out["step"] = report.mStep;
+            out["probe"] = report.mProbe;
+            out["error"] = report.mError;
+            out["music"] = music_message;
+            return out;
+        },
+        py::arg("mesh") = py::none(), py::arg("options") = py::dict(),
+        py::arg("text") = py::dict(), py::arg("title") = "", py::arg("replay") = py::none(),
+        py::arg("cols") = 100, py::arg("rows") = 40, py::arg("compare") = py::none(),
+        py::arg("compare_title") = "", py::arg("diff") = false, py::arg("shared_range") = true,
+        py::arg("paths") = std::vector<std::string>{}, py::arg("pattern") = "",
+        py::arg("input_format") = "", py::arg("follow_ms") = 0, py::arg("settle_ms") = 300,
+        py::arg("fps") = 4.0, py::arg("session") = "", py::arg("music") = py::dict());
+
     // Sharp, open, non-manifold and inconsistently wound edges as a line mesh.
     // See operations/feature_edges.hpp.
     m.def(
@@ -2459,6 +3112,69 @@ PYBIND11_MODULE(_core, m) {
         py::arg("mesh"), py::arg("feature_angle") = 30.0, py::arg("feature") = true,
         py::arg("boundary") = true, py::arg("non_manifold") = true, py::arg("inconsistent") = true,
         py::arg("region") = "");
+
+    // Smooth patches by region growing. See operations/segment.hpp.
+    m.def(
+        "segment",
+        [](py::object pymesh, double feature_angle, double normal_tolerance,
+           double curvature_tolerance, std::int64_t min_patch_cells, const std::string& region,
+           const std::string& prefix) {
+            meshioplusplus_py::PyMeshRefs refs;
+            meshioplusplus::Mesh cpp = meshioplusplus_py::py_to_mesh(
+                pymesh, refs, /*lenient_field_data=*/false, /*allow_ragged=*/true);
+            meshioplusplus::SegmentOptions options;
+            options.mFeatureAngleDeg = feature_angle;
+            options.mNormalToleranceDeg = normal_tolerance;
+            options.mCurvatureTolerance = curvature_tolerance;
+            options.mMinPatchCells = min_patch_cells;
+            options.mRegion = region;
+            options.mPrefix = prefix;
+            meshioplusplus::SegmentResult r =
+                core_nogil([&] { return meshioplusplus::segment(cpp, options); });
+            py::dict out;
+            out["mesh"] = meshioplusplus_py::mesh_to_py(std::move(r.mMesh));
+            out["num_patches"] = r.mNumPatches;
+            out["num_merged"] = r.mNumMerged;
+            out["num_feature_edges"] = r.mNumFeatureEdges;
+            out["num_boundary_edges"] = r.mNumBoundaryEdges;
+            out["num_non_manifold_edges"] = r.mNumNonManifoldEdges;
+            return out;
+        },
+        py::arg("mesh"), py::arg("feature_angle") = 30.0, py::arg("normal_tolerance") = 0.0,
+        py::arg("curvature_tolerance") = 0.0, py::arg("min_patch_cells") = 1,
+        py::arg("region") = "", py::arg("prefix") = "patch");
+
+    // Plane/sphere/cylinder/cone/torus fits per patch. See operations/fit_primitives.hpp.
+    m.def(
+        "fit_primitives",
+        [](py::object pymesh, const std::string& patch_data, double tolerance, bool relative,
+           double min_inlier_fraction, std::uint32_t types, std::int64_t max_iterations) {
+            meshioplusplus_py::PyMeshRefs refs;
+            meshioplusplus::Mesh cpp = meshioplusplus_py::py_to_mesh(
+                pymesh, refs, /*lenient_field_data=*/false, /*allow_ragged=*/true);
+            meshioplusplus::FitPrimitivesOptions options;
+            options.mPatchData = patch_data;
+            options.mTolerance = tolerance;
+            options.mRelative = relative;
+            options.mMinInlierFraction = min_inlier_fraction;
+            options.mTypes = types;
+            options.mMaxIterations = max_iterations;
+            meshioplusplus::FitPrimitivesResult r =
+                core_nogil([&] { return meshioplusplus::fit_primitives(cpp, options); });
+            py::dict out;
+            out["mesh"] = meshioplusplus_py::mesh_to_py(std::move(r.mMesh));
+            out["num_patches"] = r.mNumPatches;
+            out["num_plane"] = r.mNumPlane;
+            out["num_sphere"] = r.mNumSphere;
+            out["num_cylinder"] = r.mNumCylinder;
+            out["num_cone"] = r.mNumCone;
+            out["num_torus"] = r.mNumTorus;
+            out["num_unfitted"] = r.mNumUnfitted;
+            return out;
+        },
+        py::arg("mesh"), py::arg("patch_data") = "segment:patch", py::arg("tolerance") = 1e-3,
+        py::arg("relative") = true, py::arg("min_inlier_fraction") = 0.9,
+        py::arg("types") = meshioplusplus::kFitAllTypes, py::arg("max_iterations") = 50);
 
     // Conforming shared facets between named Cell regions. `regions` is an
     // optional list of strings or selector dictionaries. See
@@ -3655,6 +4371,15 @@ PYBIND11_MODULE(_core, m) {
           }));
 
     // OFF writer / reader.
+    // STEP faceted B-rep (write-only); ragged polygon blocks are facets too.
+    m.def("step_write", [](const std::string& path, py::object pymesh) {
+        meshioplusplus_py::PyMeshRefs refs;
+        core_nogil([&, mesh = meshioplusplus_py::py_to_mesh(pymesh, refs,
+                                                            /*lenient_field_data=*/true,
+                                                            /*allow_ragged=*/true)] {
+            return meshioplusplus::write_step(path, mesh);
+        });
+    });
     m.def("off_write", [](const std::string& path, py::object pymesh) {
         meshioplusplus_py::PyMeshRefs refs;
         core_nogil([&, mesh = meshioplusplus_py::py_to_mesh(pymesh, refs)] {
@@ -3927,8 +4652,22 @@ PYBIND11_MODULE(_core, m) {
             return meshioplusplus::write_lsdyna(path, mesh);
         });
     });
-    // CalculiX results (.frd): read-only. `time_step` selects the increment;
-    // `derived` adds <NAME>_mises/<NAME>_principal beside each tensor.
+    // CalculiX results (.frd). `time_step` selects the increment; `derived` adds
+    // <NAME>_mises/<NAME>_principal beside each tensor. The writer writes one step
+    // in the ASCII layout, I10 ids (`long_ids`) or the short I5 form, or with
+    // `binary` the raw little-endian layout (int32 ids, float64 points, float32 results).
+    m.def(
+        "frd_write",
+        [](const std::string& path, py::object pymesh, bool long_ids, bool binary) {
+            meshioplusplus_py::PyMeshRefs refs;
+            meshioplusplus::FrdWriteOptions opts;
+            opts.mLongIds = long_ids;
+            opts.mBinary = binary;
+            core_nogil([&, mesh = meshioplusplus_py::py_to_mesh(pymesh, refs)] {
+                return meshioplusplus::write_frd(path, mesh, opts);
+            });
+        },
+        py::arg("path"), py::arg("mesh"), py::arg("long_ids") = true, py::arg("binary") = false);
     m.def("frd_read",
           guard_read("frd",
                      [](const std::string& path, bool points_only, py::object arrays, int time_step,
@@ -3959,19 +4698,124 @@ PYBIND11_MODULE(_core, m) {
                   core_nogil([&] { return meshioplusplus::read_code_aster(path); }));
           }));
 
-    // MFEM mesh (.mesh) and grid functions (.gf) writer / reader.
+    // MFEM mesh (.mesh) and grid functions (.gf) writer / reader. A NURBS mesh's
+    // patches travel as `mesh.info["nurbs"]` (the NurbsInfo side channel): a
+    // dict of NumPy arrays laid out as the struct is, built by the reader and
+    // checked here, key by key, before the writer sees it.
+    auto nurbs_info_to_py = [](meshioplusplus::NurbsInfo&& rInfo) {
+        using meshioplusplus_py::numpy_from_ndarray;
+        py::list patches;
+        for (auto& patch : rInfo.mPatches) {
+            py::dict p;
+            p["degrees"] = py::array_t<std::int32_t>(
+                static_cast<py::ssize_t>(patch.mDegrees.size()), patch.mDegrees.data());
+            py::list knots;
+            for (const auto& k : patch.mKnots)
+                knots.append(py::array_t<double>(static_cast<py::ssize_t>(k.size()), k.data()));
+            p["knots"] = std::move(knots);
+            p["control_points"] = numpy_from_ndarray(std::move(patch.mControlPoints));
+            p["weights"] = numpy_from_ndarray(std::move(patch.mWeights));
+            py::list fields;
+            for (auto& f : patch.mFields)
+                fields.append(numpy_from_ndarray(std::move(f)));
+            p["fields"] = std::move(fields);
+            patches.append(std::move(p));
+        }
+        py::dict out;
+        out["patches"] = std::move(patches);
+        out["field_names"] = py::cast(rInfo.mFieldNames);
+        meshioplusplus::NurbsTopology& t = rInfo.mTopology;
+        if (t.mDimension == 0) {
+            out["topology"] = py::none();
+        } else {
+            py::dict topo;
+            topo["dimension"] = t.mDimension;
+            topo["num_vertices"] = t.mNumVertices;
+            topo["patch_vertices"] = numpy_from_ndarray(std::move(t.mPatchVertices));
+            topo["patch_attributes"] = numpy_from_ndarray(std::move(t.mPatchAttributes));
+            topo["boundary_vertices"] = numpy_from_ndarray(std::move(t.mBoundaryVertices));
+            topo["boundary_attributes"] = numpy_from_ndarray(std::move(t.mBoundaryAttributes));
+            topo["edges"] = numpy_from_ndarray(std::move(t.mEdges));
+            out["topology"] = std::move(topo);
+        }
+        out["cell_patch"] = numpy_from_ndarray(std::move(rInfo.mCellPatch));
+        out["cell_span"] = numpy_from_ndarray(std::move(rInfo.mCellSpan));
+        out["boundary_cell_patch"] = numpy_from_ndarray(std::move(rInfo.mBoundaryCellPatch));
+        return out;
+    };
+    auto nurbs_info_from_py = [](py::handle obj) {
+        const auto key = [](py::handle d, const char* pKey) -> py::object {
+            if (!py::isinstance<py::dict>(d) || !d.cast<py::dict>().contains(pKey))
+                throw py::value_error(std::string("mesh.info['nurbs']: missing '") + pKey + "'");
+            return d.cast<py::dict>()[pKey];
+        };
+        const auto doubles = [](py::handle a, const std::string& rWhat) {
+            auto arr = py::array_t<double, py::array::c_style | py::array::forcecast>::ensure(a);
+            if (!arr)
+                throw py::value_error("mesh.info['nurbs']: '" + rWhat + "' is not numeric");
+            meshioplusplus::NDArray out = meshioplusplus_py::view_from_numpy(arr);
+            out.MakeOwned();
+            return out;
+        };
+        const auto ints = [](py::handle a, const std::string& rWhat) {
+            auto src = py::array::ensure(a);
+            if (!src || (src.size() && src.dtype().kind() != 'i' && src.dtype().kind() != 'u'))
+                throw py::value_error("mesh.info['nurbs']: '" + rWhat + "' is not integer");
+            auto arr =
+                py::array_t<std::int64_t, py::array::c_style | py::array::forcecast>::ensure(src);
+            meshioplusplus::NDArray out = meshioplusplus_py::view_from_numpy(arr);
+            out.MakeOwned();
+            return out;
+        };
+        meshioplusplus::NurbsInfo info;
+        for (py::handle p : py::cast<py::sequence>(key(obj, "patches"))) {
+            meshioplusplus::NurbsPatch patch;
+            for (py::handle d : py::cast<py::sequence>(key(p, "degrees")))
+                patch.mDegrees.push_back(py::cast<std::int32_t>(d));
+            for (py::handle k : py::cast<py::sequence>(key(p, "knots"))) {
+                const meshioplusplus::NDArray a = doubles(k, "knots");
+                patch.mKnots.emplace_back(a.As<double>(), a.As<double>() + a.Size());
+            }
+            patch.mControlPoints = doubles(key(p, "control_points"), "control_points");
+            patch.mWeights = doubles(key(p, "weights"), "weights");
+            for (py::handle f : py::cast<py::sequence>(key(p, "fields")))
+                patch.mFields.push_back(doubles(f, "fields"));
+            info.mPatches.push_back(std::move(patch));
+        }
+        info.mFieldNames = py::cast<std::vector<std::string>>(key(obj, "field_names"));
+        py::object topo = key(obj, "topology");
+        if (!topo.is_none()) {
+            meshioplusplus::NurbsTopology& t = info.mTopology;
+            t.mDimension = py::cast<std::int32_t>(key(topo, "dimension"));
+            t.mNumVertices = py::cast<std::int64_t>(key(topo, "num_vertices"));
+            t.mPatchVertices = ints(key(topo, "patch_vertices"), "patch_vertices");
+            t.mPatchAttributes = ints(key(topo, "patch_attributes"), "patch_attributes");
+            t.mBoundaryVertices = ints(key(topo, "boundary_vertices"), "boundary_vertices");
+            t.mBoundaryAttributes = ints(key(topo, "boundary_attributes"), "boundary_attributes");
+            t.mEdges = ints(key(topo, "edges"), "edges");
+        }
+        info.mCellPatch = ints(key(obj, "cell_patch"), "cell_patch");
+        info.mCellSpan = ints(key(obj, "cell_span"), "cell_span");
+        info.mBoundaryCellPatch = ints(key(obj, "boundary_cell_patch"), "boundary_cell_patch");
+        return info;
+    };
     m.def(
         "mfem_write",
-        [](const std::string& path, py::object pymesh, bool grid_functions) {
+        [nurbs_info_from_py](const std::string& path, py::object pymesh, bool grid_functions,
+                             py::object nurbs) {
             meshioplusplus_py::PyMeshRefs refs;
+            meshioplusplus::NurbsInfo info;
+            if (!nurbs.is_none())
+                info = nurbs_info_from_py(nurbs);
             core_nogil([&, mesh = meshioplusplus_py::py_to_mesh(pymesh, refs)] {
-                return meshioplusplus::write_mfem(path, mesh, grid_functions);
+                return meshioplusplus::write_mfem(path, mesh, grid_functions, info);
             });
         },
-        py::arg("path"), py::arg("mesh"), py::arg("grid_functions") = false);
+        py::arg("path"), py::arg("mesh"), py::arg("grid_functions") = false,
+        py::arg("nurbs") = py::none());
     m.def("mfem_read",
           guard_read("mfem",
-                     [](const std::string& path,
+                     [nurbs_info_to_py](const std::string& path,
                         const std::vector<std::pair<std::string, std::string>>& grid_functions,
                         py::object piece) {
                          std::vector<meshioplusplus::MfemGridFunction> gfs;
@@ -3982,8 +4826,16 @@ PYBIND11_MODULE(_core, m) {
                              opts.mPiece = piece.cast<std::int64_t>();
                              opts.mPieceSet = true;
                          }
-                         return meshioplusplus_py::mesh_to_py(core_nogil(
-                             [&] { return meshioplusplus::read_mfem(path, gfs, opts); }));
+                         meshioplusplus::NurbsInfo info;
+                         py::object pymesh = meshioplusplus_py::mesh_to_py(core_nogil(
+                             [&] { return meshioplusplus::read_mfem(path, gfs, opts, info); }));
+                         if (!info.mPatches.empty()) {
+                             py::object existing = pymesh.attr("info");
+                             py::dict d = existing.is_none() ? py::dict() : py::dict(existing);
+                             d["nurbs"] = nurbs_info_to_py(std::move(info));
+                             pymesh.attr("info") = std::move(d);
+                         }
+                         return pymesh;
                      }),
           py::arg("path"),
           py::arg("grid_functions") = std::vector<std::pair<std::string, std::string>>{},
@@ -4023,6 +4875,26 @@ PYBIND11_MODULE(_core, m) {
             py::arg("time"), py::arg("mesh"))
         .def("num_steps", &meshioplusplus::FemapSeriesWriter::NumSteps)
         .def("finalize", &meshioplusplus::FemapSeriesWriter::Finalize);
+
+    // A time series in one CalculiX result file (v16.39.0): the core half of
+    // `meshioplusplus.frd.SeriesWriter`.
+    py::class_<meshioplusplus::FrdSeriesWriter>(m, "FrdSeriesWriter")
+        .def(py::init([](const std::string& path, bool long_ids, bool binary) {
+                 meshioplusplus::FrdWriteOptions opts;
+                 opts.mLongIds = long_ids;
+                 opts.mBinary = binary;
+                 return std::make_unique<meshioplusplus::FrdSeriesWriter>(path, opts);
+             }),
+             py::arg("path"), py::arg("long_ids") = true, py::arg("binary") = false)
+        .def(
+            "write",
+            [](meshioplusplus::FrdSeriesWriter& rSelf, double time, py::object pymesh) {
+                meshioplusplus_py::PyMeshRefs refs;
+                rSelf.Write(time, meshioplusplus_py::py_to_mesh(pymesh, refs));
+            },
+            py::arg("time"), py::arg("mesh"))
+        .def("num_steps", &meshioplusplus::FrdSeriesWriter::NumSteps)
+        .def("finalize", &meshioplusplus::FrdSeriesWriter::Finalize);
 
     // Abaqus results file (.fil) reader.
     m.def(
@@ -4159,6 +5031,25 @@ PYBIND11_MODULE(_core, m) {
     m.def("radioss_th_time_values", [](const std::string& path) {
         return core_nogil([&] { return meshioplusplus::radioss_th_time_values(path); });
     });
+    // OpenRadioss time-history (T01) writer, and the output-by-output series writer
+    // behind `meshioplusplus.radioss_th.SeriesWriter`.
+    m.def("radioss_th_write", [](const std::string& path, py::object pymesh) {
+        meshioplusplus_py::PyMeshRefs refs;
+        core_nogil([&, mesh = meshioplusplus_py::py_to_mesh(pymesh, refs)] {
+            return meshioplusplus::write_radioss_th(path, mesh);
+        });
+    });
+    py::class_<meshioplusplus::RadiossThSeriesWriter>(m, "RadiossThSeriesWriter")
+        .def(py::init<const std::string&>(), py::arg("path"))
+        .def(
+            "write",
+            [](meshioplusplus::RadiossThSeriesWriter& rSelf, double time, py::object pymesh) {
+                meshioplusplus_py::PyMeshRefs refs;
+                rSelf.Write(time, meshioplusplus_py::py_to_mesh(pymesh, refs));
+            },
+            py::arg("time"), py::arg("mesh"))
+        .def("num_steps", &meshioplusplus::RadiossThSeriesWriter::NumSteps)
+        .def("finalize", &meshioplusplus::RadiossThSeriesWriter::Finalize);
 
 #ifdef MESHIOPLUSPLUS_HAS_ADIOS2
     // DOLFINx VTX (.bp directory) reader; ADIOS2 builds only.
@@ -4420,7 +5311,11 @@ PYBIND11_MODULE(_core, m) {
         "ensight_write",
         [](const std::string& path, py::object pymesh, bool binary, bool fortran) {
             meshioplusplus_py::PyMeshRefs refs;
-            core_nogil([&, mesh = meshioplusplus_py::py_to_mesh(pymesh, refs)] {
+            // nsided / nfaced are written natively, so jagged polygon and
+            // polyhedron blocks are accepted (copied out of their Python lists).
+            core_nogil([&, mesh = meshioplusplus_py::py_to_mesh(pymesh, refs,
+                                                                /*lenient_field_data=*/false,
+                                                                /*allow_ragged=*/true)] {
                 return meshioplusplus::write_ensight(path, mesh, binary, fortran);
             });
         },
@@ -5268,7 +6163,7 @@ data. Usable as a context manager; ``__exit__`` finalizes.
         py::arg("vmin") = std::nullopt, py::arg("vmax") = std::nullopt,
         py::arg("nan_color") = "#808080");
 
-    // SVG writer (write-only visualization; 3D input renders the projected
+    // SVG writer (3D input renders the projected
     // skin — camera args appended AFTER the existing ones, the Python shim
     // passes everything positionally).
     m.def(
@@ -5295,7 +6190,7 @@ data. Usable as a context manager; ``__exit__`` finalizes.
         py::arg("vmin") = std::nullopt, py::arg("vmax") = std::nullopt,
         py::arg("nan_color") = "#808080", py::arg("colorbar") = false);
 
-    // TikZ writer (write-only LaTeX visualization; 3D input renders the
+    // TikZ writer (LaTeX; 3D input renders the
     // projected skin — camera args appended AFTER the existing ones).
     m.def(
         "tikz_write",
@@ -5321,6 +6216,32 @@ data. Usable as a context manager; ``__exit__`` finalizes.
         py::arg("color_by") = "", py::arg("component") = std::nullopt, py::arg("cmap") = "viridis",
         py::arg("vmin") = std::nullopt, py::arg("vmax") = std::nullopt,
         py::arg("nan_color") = "gray", py::arg("colorbar") = false);
+
+    // SVG / TikZ drawing readers: only the structure the writers above emit, as a
+    // planar (z = 0) mesh. `strict=False` is ReadOptions::mLenient: read a
+    // drawing that lacks the meshio++ marker.
+    m.def("svg_read",
+          guard_read("svg",
+                     [](const std::string& path, bool points_only, py::object arrays, bool strict) {
+                         return meshioplusplus_py::mesh_to_py(
+                             core_nogil([&, opts = core_read_options(points_only, arrays, 0,
+                                                                     py::none(), !strict)] {
+                                 return meshioplusplus::read_svg(path, opts);
+                             }));
+                     }),
+          py::arg("path"), py::arg("points_only") = false, py::arg("arrays") = py::none(),
+          py::arg("strict") = true);
+    m.def("tikz_read",
+          guard_read("tikz",
+                     [](const std::string& path, bool points_only, py::object arrays, bool strict) {
+                         return meshioplusplus_py::mesh_to_py(
+                             core_nogil([&, opts = core_read_options(points_only, arrays, 0,
+                                                                     py::none(), !strict)] {
+                                 return meshioplusplus::read_tikz(path, opts);
+                             }));
+                     }),
+          py::arg("path"), py::arg("points_only") = false, py::arg("arrays") = py::none(),
+          py::arg("strict") = true);
 
     // PERMAS writer / reader (.post/.dato).
     m.def("permas_write", [](const std::string& path, py::object pymesh) {

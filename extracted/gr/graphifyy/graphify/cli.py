@@ -69,7 +69,7 @@ _READ_DENY = json.dumps({
     }
 }, ensure_ascii=False, separators=(",", ":")) + "\n"
 _HOOK_SOURCE_EXTS = (
-    '.py', '.js', '.cjs', '.ts', '.tsx', '.jsx', '.astro', '.vue', '.svelte', '.go',
+    '.py', '.js', '.cjs', '.ts', '.tsx', '.jsx', '.astro', '.vue', '.svelte', '.ejs', '.go',
     '.rs', '.java', '.rb', '.c', '.h', '.cpp', '.hpp', '.cc', '.cs', '.kt',
     '.swift', '.php', '.scala', '.lua', '.ps1', '.psm1', '.psd1',  # #4271: PowerShell sources are graphable too
     '.sh', '.md', '.rst', '.txt', '.mdx',
@@ -141,6 +141,12 @@ def _print_cloud_cta(out_dir: "Path") -> None:
         marker.write_text("1", encoding="utf-8")
     except Exception:
         pass
+
+
+def _graph_root_for(gp: Path) -> Path:
+    """The analysed repo root for a graph file: <root>/<GRAPHIFY_OUT_NAME>/graph.json, else the file's own directory."""
+    from graphify.paths import GRAPHIFY_OUT_NAME
+    return gp.parent.parent if gp.parent.name == GRAPHIFY_OUT_NAME else gp.parent
 
 
 def _default_graph_path() -> str:
@@ -769,6 +775,73 @@ def _query_stamp_fresh() -> bool:
         return False
 
 
+def _nudge_allowed(payload: dict) -> bool:
+    """Whether to emit a soft read/search nudge for this tool call (#3435).
+
+    The nudge is advisory context that used to be re-injected on EVERY qualifying
+    Read/Glob/Grep/Bash call — thousands of times per session, far more tokens
+    than the graph queries it asks for. Budgets are per agent: the session id,
+    plus the ``agent_id`` Claude Code sends for subagents (which share the
+    parent's session id but start with an empty context). Per agent:
+
+    * the first nudge always fires. The query stamp is project-wide and cannot
+      say which agent queried, so it must not silence a fresh subagent or session;
+    * after that, a fresh query stamp (query/explain/path within
+      GRAPHIFY_HOOK_STRICT_TTL) means someone oriented recently, so no nudge;
+    * at most GRAPHIFY_HOOK_NUDGE_CAP nudges (default 5; 0 or a non-number
+      disables the cap), counted in a marker next to the strict-mode ones.
+
+    Calls without a session id cannot be counted: only the stamp applies.
+    Fail-open: on a marker error, only the stamp applies.
+    """
+    from graphify.paths import out_path, write_text_atomic
+    import hashlib
+    stamp = _query_stamp_fresh()
+    try:
+        cap = int(os.environ.get("GRAPHIFY_HOOK_NUDGE_CAP", "5"))
+    except ValueError:
+        cap = 0
+    key = re.sub(r"[^A-Za-z0-9_-]", "_", str(payload.get("session_id") or ""))[:64]
+    if not key:
+        return not stamp
+    agent = str(payload.get("agent_id") or "")
+    if agent:
+        # Hashed so long ids cannot truncate two agents into one key.
+        key += "-" + hashlib.sha256(agent.encode("utf-8")).hexdigest()[:16]
+    try:
+        d = out_path("cache", "hook_sessions")
+        d.mkdir(parents=True, exist_ok=True)
+        marker = d / f"{key}.nudges"
+        try:
+            count = int(marker.read_text(encoding="utf-8").strip() or "0")
+        except (OSError, ValueError):
+            count = 0
+        if count and stamp:
+            return False
+        if 0 < cap <= count:
+            return False
+        write_text_atomic(marker, str(count + 1))
+        if count == 0:
+            _gc_hook_session_markers(d)
+        return True
+    except Exception:
+        return not stamp
+
+
+def _gc_hook_session_markers(d: "Path") -> None:
+    """Best-effort removal of per-session hook markers older than 24h."""
+    try:
+        cutoff = time.time() - 86400
+        for entry in os.scandir(d):
+            try:
+                if entry.stat().st_mtime < cutoff:
+                    os.unlink(entry.path)
+            except OSError:
+                pass
+    except OSError:
+        pass
+
+
 def _mark_session_denied(session_id: str) -> bool:
     """Atomically claim a one-time strict block for this session. Returns True only
     on the FIRST call for a given session id (O_EXCL create wins once); every later
@@ -783,16 +856,7 @@ def _mark_session_denied(session_id: str) -> bool:
         d.mkdir(parents=True, exist_ok=True)
         fd = os.open(str(d / f"{sid}.denied"), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
         os.close(fd)
-        try:
-            cutoff = time.time() - 86400
-            for entry in os.scandir(d):
-                try:
-                    if entry.stat().st_mtime < cutoff:
-                        os.unlink(entry.path)
-                except OSError:
-                    pass
-        except OSError:
-            pass
+        _gc_hook_session_markers(d)
         return True
     except FileExistsError:
         return False
@@ -928,7 +992,8 @@ def _run_hook_guard(kind: str, strict: bool = False) -> None:
             # grep. Nudge-only, even in strict mode — see the docstring.
             is_grep_tool = not cmd_str and bool(t.get("pattern"))
             is_bash_search = bool(cmd_str) and _bash_invokes_search(cmd_str)
-            if (is_grep_tool or is_bash_search) and out_path("graph.json").is_file():
+            if (is_grep_tool or is_bash_search) and out_path("graph.json").is_file() \
+                    and _nudge_allowed(d):
                 sys.stdout.write(_nudge_for_out(_SEARCH_NUDGE))
         elif kind == "read":
             vals = [str(t.get("file_path") or ""), str(t.get("pattern") or ""), str(t.get("path") or "")]
@@ -1039,7 +1104,8 @@ def _run_hook_guard(kind: str, strict: bool = False) -> None:
             except Exception:
                 pass
             if stale:
-                sys.stdout.write(_nudge_for_out(_READ_NUDGE_STALE))
+                if _nudge_allowed(d):
+                    sys.stdout.write(_nudge_for_out(_READ_NUDGE_STALE))
                 return
             # Strict block: Read tool only, first time per session, not recently
             # oriented, and the file is demonstrably indexed.
@@ -1050,7 +1116,8 @@ def _run_hook_guard(kind: str, strict: bool = False) -> None:
                     and _mark_session_denied(str(d.get("session_id") or "")):
                 sys.stdout.write(_READ_DENY)
                 return
-            sys.stdout.write(_nudge_for_out(_READ_NUDGE))
+            if _nudge_allowed(d):
+                sys.stdout.write(_nudge_for_out(_READ_NUDGE))
     except Exception:
         pass
 
@@ -1314,7 +1381,7 @@ def dispatch_command(cmd: str) -> None:
             sys.exit(1)
     elif cmd == "query":
         if len(sys.argv) < 3:
-            print("Usage: graphify query \"<question>\" [--dfs] [--context C] [--budget N] [--graph path]", file=sys.stderr)
+            print("Usage: graphify query \"<question>\" [--dfs] [--context C] [--seed X] [--budget N] [--graph path]", file=sys.stderr)
             sys.exit(1)
         from graphify.serve import _QUERY_NO_MATCH, _query_graph_text
         from graphify.security import sanitize_label
@@ -1326,6 +1393,7 @@ def dispatch_command(cmd: str) -> None:
         budget = 2000
         graph_path = _default_graph_path()
         context_filters: list[str] = []
+        seeds: list[str] = []
         args = sys.argv[3:]
         i = 0
         while i < len(args):
@@ -1349,6 +1417,16 @@ def dispatch_command(cmd: str) -> None:
             elif args[i].startswith("--context="):
                 context_filters.append(args[i].split("=", 1)[1])
                 i += 1
+            elif args[i] == "--seed" and i + 1 < len(args):
+                seeds.append(args[i + 1])
+                i += 2
+            elif args[i].startswith("--seed=") and args[i].split("=", 1)[1]:
+                seeds.append(args[i].split("=", 1)[1])
+                i += 1
+            elif args[i] == "--seed" or args[i] == "--seed=":
+                # Fail closed: a --seed with no value must not quietly become a keyword query.
+                print("error: --seed needs a value (node id, label or file path)", file=sys.stderr)
+                sys.exit(1)
             elif args[i] == "--graph" and i + 1 < len(args):
                 graph_path = args[i + 1]
                 i += 2
@@ -1420,6 +1498,9 @@ def dispatch_command(cmd: str) -> None:
             token_budget=budget,
             context_filters=context_filters,
             graph_path=str(gp),
+            seeds=seeds or None,
+            # Same root derivation as `affected` (#2706): <root>/graphify-out/graph.json.
+            seed_root=_graph_root_for(gp),
         )
         querylog.log_query(
             kind="query",
@@ -1430,6 +1511,7 @@ def dispatch_command(cmd: str) -> None:
             depth=2,
             token_budget=budget,
             duration_ms=(_time.perf_counter() - _t0) * 1000,
+            seeds=seeds or None,
         )
         _touch_query_stamp(gp)
         print(_result)
@@ -4045,6 +4127,7 @@ def dispatch_command(cmd: str) -> None:
                         for _marker in (
                             "_callable", "_callable_class", "_elixir_module",
                             "_rust_impl_key", "_rust_declaration_count",
+                            "_ts_public_twin", "_py_property", "_java_ret",
                         ):
                             if _node.get(_marker):
                                 _ctx_node[_marker] = _node[_marker]
@@ -4408,6 +4491,14 @@ def dispatch_command(cmd: str) -> None:
         # first means semantic node attributes win on collision (richer labels
         # for symbols also referenced in docs). Hyperedges only come from the
         # semantic side.
+        # Everything in sem_result is semantic tier - fresh results and cache
+        # hits alike - so say so before the merge (#2843): an unstamped item
+        # is classified by the shape of its source_location, and a doc node
+        # located at 'L12' would read as AST and be deleted by the next
+        # incremental rebuild. Fresh results already carry the stamp
+        # (llm._stamp_semantic_origin); cache entries from before it do not.
+        from graphify.llm import _stamp_semantic_origin as _stamp_sem
+        _stamp_sem(sem_result)
         merged: dict = {
             "nodes": list(ast_result.get("nodes", [])) + list(sem_result.get("nodes", [])) + list(pg_result.get("nodes", [])) + list(cargo_result.get("nodes", [])),
             "edges": list(ast_result.get("edges", [])) + list(sem_result.get("edges", [])) + list(pg_result.get("edges", [])) + list(cargo_result.get("edges", [])),

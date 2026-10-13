@@ -310,6 +310,7 @@ class QuicConnection:
         ]
         self.host_cid = self._host_cids[0].cid
         self._host_cid_seq = 1
+        self._key_update_pending = False
         self._local_ack_delay_exponent = 3
         self._local_active_connection_id_limit = 8
         self._local_challenges: dict[bytes, QuicNetworkPath] = {}
@@ -881,6 +882,26 @@ class QuicConnection:
                 )
                 return
 
+            # RFC 9000 section 7.2 requires clients to discard packets whose Source
+            # Connection ID differs from the one in the first valid server packet.
+            if (
+                self._is_client
+                and header.packet_type != QuicPacketType.ONE_RTT
+                and self._remote_initial_source_connection_id is not None
+                and header.source_cid != self._remote_initial_source_connection_id
+            ):
+                if self._quic_logger is not None:
+                    self._quic_logger.log_event(
+                        category="transport",
+                        event="packet_dropped",
+                        data={
+                            "trigger": "unexpected_source_connection_id",
+                            "raw": {"length": header.packet_length},
+                        },
+                    )
+                buf.seek(start_off + header.packet_length)
+                continue
+
             crypto_frame_required = False
 
             # Server initialization.
@@ -942,7 +963,7 @@ class QuicConnection:
                     and epoch in (tls.Epoch.HANDSHAKE, tls.Epoch.ONE_RTT)
                     and not self._crypto_retransmitted
                 ):
-                    self._loss.reschedule_data(now=now)
+                    self._loss.reschedule_data(now=now, speed_up_handshake=True)
                     self._crypto_retransmitted = True
                 continue
             except CryptoError as exc:
@@ -1109,24 +1130,38 @@ class QuicConnection:
         """
         Request an update of the encryption keys.
 
+        If the handshake is not confirmed yet, the key update is deferred until
+        it is.
+
         .. aioquic_transmit::
         """
-        if not self._handshake_complete:
-            raise RuntimeError("Cannot change key before handshake completes")
-        self._cryptos[tls.Epoch.ONE_RTT].update_key()
+        # An endpoint must not initiate a key update before the handshake is
+        # confirmed.
+        #
+        # https://datatracker.ietf.org/doc/html/rfc9001#section-6.1
+        if self._handshake_confirmed:
+            self._cryptos[tls.Epoch.ONE_RTT].update_key()
+        else:
+            self._key_update_pending = True
 
     def reset_stream(self, stream_id: int, error_code: int) -> None:
         """
         Abruptly terminate the sending part of a stream.
 
         This method has no effect if a reset has already been triggered either by a
-        call to :meth:`reset_stream` or by the reception of a STOP_SENDING frame.
+        call to :meth:`reset_stream` or by the reception of a STOP_SENDING frame, or
+        if all the stream's data has already been acknowledged.
 
         .. aioquic_transmit::
 
         :param stream_id: The stream's ID.
         :param error_code: An error code indicating why the stream is being reset.
         """
+        if self._stream_can_send(stream_id) and stream_id in self._streams_finished:
+            # The stream finished and its state was discarded, so there is nothing
+            # to reset.
+            return
+
         stream = self._get_or_create_stream_for_send(stream_id)
         stream.sender.reset(error_code)
 
@@ -1195,6 +1230,14 @@ class QuicConnection:
         At this point, TLS extensions have been received so we can parse the
         transport parameters.
         """
+        # QUIC does not use TLS 1.3 middlebox compatibility mode (RFC 9001 section 8.4).
+        if not self._is_client and self.tls.legacy_session_id:
+            raise QuicConnectionError(
+                error_code=QuicErrorCode.PROTOCOL_VIOLATION,
+                frame_type=self._crypto_frame_type,
+                reason_phrase="ClientHello has a non-empty legacy_session_id",
+            )
+
         # Parse the remote transport parameters.
         for ext_type, ext_data in self.tls.received_extensions:
             if ext_type == tls.ExtensionType.QUIC_TRANSPORT_PARAMETERS:
@@ -1302,6 +1345,22 @@ class QuicConnection:
         if self._quic_logger is not None:
             self._configuration.quic_logger.end_trace(self._quic_logger)
             self._quic_logger = None
+
+    def _confirm_handshake(self) -> None:
+        """
+        Called when the handshake is confirmed.
+
+        https://datatracker.ietf.org/doc/html/rfc9001#section-4.1.2
+        """
+        self._discard_epoch(tls.Epoch.HANDSHAKE)
+        self._handshake_confirmed = True
+        self._loss.handshake_confirmed = True
+        self._loss.peer_completed_address_validation = True
+
+        # Start the key update requested before the handshake was confirmed.
+        if self._key_update_pending:
+            self._cryptos[tls.Epoch.ONE_RTT].update_key()
+            self._key_update_pending = False
 
     def _connect(self, now: float) -> None:
         """
@@ -1413,6 +1472,8 @@ class QuicConnection:
         """
         if not self._stream_can_send(stream_id):
             raise ValueError("Cannot send data on peer-initiated unidirectional stream")
+        if stream_id in self._streams_finished:
+            raise ValueError("Cannot send data on a finished stream")
 
         stream = self._streams.get(stream_id, None)
         if stream is None:
@@ -1564,7 +1625,7 @@ class QuicConnection:
         self._spaces = {
             tls.Epoch.INITIAL: QuicPacketSpace(),
             tls.Epoch.HANDSHAKE: QuicPacketSpace(),
-            tls.Epoch.ONE_RTT: QuicPacketSpace(),
+            tls.Epoch.ONE_RTT: QuicPacketSpace(is_application_data=True),
         }
         self._loss.spaces = list(self._spaces.values())
 
@@ -1697,8 +1758,7 @@ class QuicConnection:
 
                 # for servers, the handshake is now confirmed
                 if not self._is_client:
-                    self._discard_epoch(tls.Epoch.HANDSHAKE)
-                    self._handshake_confirmed = True
+                    self._confirm_handshake()
                     self._handshake_done_pending = True
 
                 self._replenish_connection_ids()
@@ -1726,7 +1786,7 @@ class QuicConnection:
                 and context.epoch == tls.Epoch.INITIAL
                 and not self._crypto_retransmitted
             ):
-                self._loss.reschedule_data(now=context.time)
+                self._loss.reschedule_data(now=context.time, speed_up_handshake=True)
                 self._crypto_retransmitted = True
 
     def _handle_data_blocked_frame(
@@ -1796,9 +1856,7 @@ class QuicConnection:
 
         # for clients, the handshake is now confirmed
         if not self._handshake_confirmed:
-            self._discard_epoch(tls.Epoch.HANDSHAKE)
-            self._handshake_confirmed = True
-            self._loss.peer_completed_address_validation = True
+            self._confirm_handshake()
 
     def _handle_max_data_frame(
         self, context: QuicReceiveContext, frame_type: int, buf: Buffer
@@ -2237,9 +2295,11 @@ class QuicConnection:
         # check stream direction
         self._assert_stream_can_send(frame_type, stream_id)
 
-        # reset the stream
+        # Reset the stream, copying the error code as recommended.
+        #
+        # https://datatracker.ietf.org/doc/html/rfc9000#section-3.5
         stream = self._get_or_create_stream(frame_type, stream_id)
-        stream.sender.reset(error_code=QuicErrorCode.NO_ERROR)
+        stream.sender.reset(error_code=error_code)
 
         self._events.append(
             events.StopSendingReceived(error_code=error_code, stream_id=stream_id)
@@ -2534,11 +2594,20 @@ class QuicConnection:
     ) -> None:
         """
         Handle a retry packet.
+
+        A client acts upon at most one Retry packet. The packet is discarded if its
+        Destination Connection ID is not ours, if its Source Connection ID is the
+        same as the Destination Connection ID of our Initial packet, or if its
+        integrity tag cannot be verified.
+
+        See:
+        https://datatracker.ietf.org/doc/html/rfc9000#section-17.2.5
         """
         if (
             self._is_client
             and not self._retry_count
             and header.destination_cid == self.host_cid
+            and header.source_cid != self._peer_cid.cid
             and header.integrity_tag
             == get_retry_integrity_tag(
                 packet_without_tag,
@@ -2809,6 +2878,14 @@ class QuicConnection:
                     frame_type=QuicFrameType.CRYPTO,
                     reason_phrase="max_ack_delay must be < 2^14",
                 )
+            for attr in ["initial_max_streams_bidi", "initial_max_streams_uni"]:
+                value = getattr(quic_transport_parameters, attr)
+                if value is not None and value > STREAM_COUNT_MAX:
+                    raise QuicConnectionError(
+                        error_code=QuicErrorCode.TRANSPORT_PARAMETER_ERROR,
+                        frame_type=QuicFrameType.CRYPTO,
+                        reason_phrase=f"{attr} cannot exceed 2^60",
+                    )
             if quic_transport_parameters.max_udp_payload_size is not None and (
                 quic_transport_parameters.max_udp_payload_size
                 < SMALLEST_MAX_DATAGRAM_SIZE

@@ -278,15 +278,7 @@ def _preflight(config: Any, *, stage: str, conversation_id: str | None) -> dict[
         raise
 
 
-@dataclass
-class _EmptyConversationErrorInfo:
-    """Classified envelope read by the streaming layer off ``exc.error_info``
-    (same convention as provider errors and ``ToolMergeError``)."""
-
-    error_type: str
-    message: str
-    user_message: str
-    status_code: int = 422
+EMPTY_CONVERSATION_USER_MESSAGE = "There is nothing to send yet. Type a message and try again."
 
 
 class EmptyConversationError(ValueError):
@@ -302,10 +294,17 @@ class EmptyConversationError(ValueError):
         )
         super().__init__(message)
         self.step = step
-        self.error_info = _EmptyConversationErrorInfo(
+        # A full RetryableError (not a lookalike): the executor's failure path reads
+        # is_retryable / details / retry_schedule off it, and a lookalike without them
+        # turned this plain refusal into an AttributeError naming the lookalike.
+        from matrx_ai.providers.errors import RetryableError
+
+        self.error_info = RetryableError(
             error_type="empty_conversation",
             message=message,
-            user_message="There is nothing to send yet. Type a message and try again.",
+            status_code=422,
+            is_retryable=False,
+            user_message=EMPTY_CONVERSATION_USER_MESSAGE,
         )
 
 

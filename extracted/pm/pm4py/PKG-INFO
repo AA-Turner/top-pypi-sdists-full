@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pm4py
-Version: 2.7.23.9
+Version: 2.7.23.10
 Summary: Process mining for Python
 Author-email: "Process Intelligence Solutions (PIS)" <info@processintelligence.solutions>
 Maintainer-email: "Process Intelligence Solutions (PIS)" <info@processintelligence.solutions>
@@ -48,7 +48,7 @@ Provides-Extra: ocel
 Requires-Dist: jsonschema; extra == "ocel"
 Requires-Dist: pyarrow; extra == "ocel"
 Provides-Extra: polars
-Requires-Dist: polars; extra == "polars"
+Requires-Dist: polars<3,>=1.40.1; extra == "polars"
 Provides-Extra: solvers
 Requires-Dist: cvxopt; extra == "solvers"
 Provides-Extra: stable
@@ -153,6 +153,9 @@ feature in `pyproject.toml`:
 
 For a source checkout, install the project with `python -m pip install -e .`. Build, CI, and lint dependencies are
 standard dependency groups and can be installed with, for example, `python -m pip install --group lint`.
+
+Polars integration supports 1.40.1 and 2.x. Joins used in filtering and enrichment preserve event
+order, including when lazy queries use the streaming engine (the default in Polars 2.0).
 
 For optional PuLP support, PM4Py selects the backend for the installed PuLP version (3.x or 4.x).
 PuLP 4 requires CBC to be installed separately: use `python -m pip install 'pulp[cbc]'` or put `cbc` on `PATH`.

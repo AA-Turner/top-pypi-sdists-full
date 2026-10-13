@@ -120,12 +120,101 @@ class Mol:
         enforce_chirality: bool = True,
         ignore_smoothing_failures: bool = False,
     ) -> list[list[float]]:
-        """RDKit 2026.03.1's ``AllChem.EmbedMolecule(mol, randomSeed=...)``
+        """RDKit 2026.09.1's ``AllChem.EmbedMolecule(mol, randomSeed=...)``
         (ETKDGv3 defaults), bit for bit, on this explicit-hydrogen molecule
         (``m.add_hydrogens().rdkit_embed()`` ==
         ``EmbedMolecule(Chem.AddHs(m), randomSeed=42)``): one ``[x, y, z]``
         per atom. Raises ``RuntimeError`` when RDKit's embedding fails and
         ``ValueError`` for unsupported inputs."""
+        ...
+
+    def rdkit_embed_multiple_confs(
+        self,
+        num_confs: int,
+        *,
+        random_seed: int = 42,
+        max_iterations: int = 0,
+        use_exp_torsion_angle_prefs: bool = True,
+        use_basic_knowledge: bool = True,
+        et_version: int = 2,
+        use_small_ring_torsions: bool = False,
+        use_macrocycle_torsions: bool = True,
+        use_macrocycle_14_config: bool = True,
+        enforce_chirality: bool = True,
+        ignore_smoothing_failures: bool = False,
+    ) -> list[list[list[float]]]:
+        """RDKit 2026.09.1's ``AllChem.EmbedMultipleConfs`` with ETKDGv3
+        defaults on this explicit-hydrogen molecule. Failed attempts are
+        omitted; reusable setup is shared across conformers."""
+        ...
+
+    def rdkit_embed_multiple_confs_mmff(
+        self,
+        num_confs: int,
+        *,
+        random_seed: int = 42,
+        max_iterations: int = 0,
+        max_mmff_iters: int = 200,
+        retry_mmff_iters: int = 0,
+        retry_candidates: int = 0,
+        use_exp_torsion_angle_prefs: bool = True,
+        use_basic_knowledge: bool = True,
+        et_version: int = 2,
+        use_small_ring_torsions: bool = False,
+        use_macrocycle_torsions: bool = True,
+        use_macrocycle_14_config: bool = True,
+        enforce_chirality: bool = True,
+        ignore_smoothing_failures: bool = False,
+    ) -> list[tuple[int, float, list[list[float]]]]:
+        """Generate an ETKDG ensemble and optimize every conformer with
+        RDKit-compatible MMFF94. When both retry options are positive, the
+        lowest-energy non-converged candidates receive that many additional
+        MMFF iterations. Returns ``(status, energy, coords)`` tuples in
+        deterministic candidate order."""
+        ...
+
+    def rdkit_embed_multiple_confs_mmff_diagnostics(
+        self,
+        num_confs: int,
+        *,
+        random_seed: int = 42,
+        max_iterations: int = 0,
+        max_mmff_iters: int = 200,
+        use_exp_torsion_angle_prefs: bool = True,
+        use_basic_knowledge: bool = True,
+        et_version: int = 2,
+        use_small_ring_torsions: bool = False,
+        use_macrocycle_torsions: bool = True,
+        use_macrocycle_14_config: bool = True,
+        enforce_chirality: bool = True,
+        ignore_smoothing_failures: bool = False,
+    ) -> list[tuple[int, float, int, float | None, list[list[float]]]]:
+        """Generate and MMFF94-optimize an ETKDG ensemble, returning
+        ``(status, energy, iterations, gradient_test, coords)`` without an
+        extra force-field evaluation."""
+        ...
+
+    def rdkit_embed_multiple_confs_mmff_gradient_rescue(
+        self,
+        num_confs: int,
+        *,
+        random_seed: int = 42,
+        max_iterations: int = 0,
+        max_mmff_iters: int = 200,
+        retry_mmff_iters: int = 100,
+        retry_candidates: int = 1,
+        minimum_gradient_test: float = 0.05,
+        use_exp_torsion_angle_prefs: bool = True,
+        use_basic_knowledge: bool = True,
+        et_version: int = 2,
+        use_small_ring_torsions: bool = False,
+        use_macrocycle_torsions: bool = True,
+        use_macrocycle_14_config: bool = True,
+        enforce_chirality: bool = True,
+        ignore_smoothing_failures: bool = False,
+    ) -> list[tuple[int, float, list[list[float]]]]:
+        """Generate and MMFF94-optimize an ETKDG ensemble, retrying only
+        high-gradient candidates when no initial conformer converged."""
         ...
 
     def rdkit_bounds_matrix(
@@ -135,7 +224,7 @@ class Mol:
         do_triangle_smoothing: bool = True,
         use_macrocycle_14_config: bool = False,
     ) -> list[list[float]]:
-        """``rdDistGeom.GetMoleculeBoundsMatrix`` (RDKit 2026.03.1,
+        """``rdDistGeom.GetMoleculeBoundsMatrix`` (RDKit 2026.09.1,
         ``scaleVDW=False``) for the explicit-hydrogen molecule: upper bounds
         above the diagonal, lower bounds below. Raises ``ValueError`` for
         unsupported inputs."""
@@ -1309,6 +1398,21 @@ class Mol:
         """
         ...
 
+    def refine_mmff94_with_explicit_hydrogens(
+        self,
+        coords: list[list[float]],
+        max_iters: int = 200,
+        hydrogen_variant: int = 0,
+    ) -> tuple[list[list[float]], list[list[float]], float, bool, int, float]:
+        """Add implicit hydrogens at RDKit-compatible 3D positions, refine the
+        complete molecule with MMFF94, and return ``(heavy_coords,
+        all_atom_coords, energy, converged, iterations, max_residual_force)``.
+        Pair ``all_atom_coords`` with :meth:`add_hydrogens`. Positive
+        ``hydrogen_variant`` values deterministically sample terminal
+        heteroatom-H rotamers.
+        """
+        ...
+
     def mmff94_atom_types(self) -> list[str]:
         """Per-atom MMFF94 force field type names.
 
@@ -1640,6 +1744,61 @@ class Mol:
 
     def get_bond_angle(self, coords: list[list[float]], i: int, j: int, k: int) -> float:
         """Measure bond angle i–j–k in degrees (j is the central atom)."""
+        ...
+
+    def set_bond_length(
+        self,
+        coords: list[list[float]],
+        i: int,
+        j: int,
+        length: float,
+    ) -> list[list[float]]:
+        """Set bonded atoms i–j to ``length`` Å and return new coordinates.
+
+        Atom i stays fixed. Atom j and every atom on its side of the bond move
+        as one rigid fragment. Ring bonds raise ``ValueError``.
+        """
+        ...
+
+    def set_bond_angle(
+        self,
+        coords: list[list[float]],
+        i: int,
+        j: int,
+        k: int,
+        angle_deg: float,
+    ) -> list[list[float]]:
+        """Set angle i–j–k to ``angle_deg`` and return new coordinates.
+
+        Atoms i and j stay fixed. Atom k and every atom on its side of the
+        j–k bond rotate as one rigid fragment. If both angle bonds belong to a
+        ring, ``ValueError`` is raised.
+        """
+        ...
+
+    def compute_canonical_transform(
+        self,
+        coords: list[list[float]],
+        center: Optional[tuple[float, float, float]] = None,
+        normalize_covar: bool = False,
+        ignore_hs: bool = True,
+    ) -> list[list[float]]:
+        """Return the 4x4 transform that aligns a conformer to principal axes.
+
+        This follows RDKit's ``ComputeCanonicalTransform`` geometry contract.
+        Eigenvector signs are solver-dependent, so equivalent frames may
+        differ by a 180-degree proper rotation across platforms.
+        """
+        ...
+
+    def canonicalize_conformer(
+        self,
+        coords: list[list[float]],
+        center: Optional[tuple[float, float, float]] = None,
+        normalize_covar: bool = False,
+        ignore_hs: bool = True,
+    ) -> list[list[float]]:
+        """Return a copy of ``coords`` centered and aligned to principal axes."""
         ...
 
     # -- Sprint 9 additions --------------------------------------------------

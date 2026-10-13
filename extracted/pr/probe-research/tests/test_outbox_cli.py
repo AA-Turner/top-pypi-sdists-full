@@ -398,6 +398,46 @@ def test_the_hyphenated_code_kind_is_caught_too(wired_async, outbox_dir, tmp_pat
     assert op["kind"] == "upload"
 
 
+@pytest.mark.parametrize("word", ["test", "code_bundle", "script"])
+def test_a_word_filed_as_code_is_stored_not_referenced(wired_async, outbox_dir, tmp_path, capsys, word):
+    """The server files these as `code` (`artifact_kinds`), so the rule holds
+    for them as for `--kind code` -- and the CLI says where the word went."""
+    run_id = start_run(wired_async)
+    source = tmp_path / "test_train.py"
+    source.write_text("assert True\n")
+
+    rc = cli.main(["--async", "artifact", "add", run_id, str(source), "--reference", "--kind", word])
+
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "added upload" in captured.out
+    assert f"kind: filed as code (label: {word})" in captured.err
+    ((_, op),) = Journal(outbox_dir).pending()
+    assert op["kind"] == "upload"
+
+
+@pytest.mark.parametrize(
+    ("flags", "said"),
+    [
+        ([], "added upload"),
+        (["--reference"], "added reference"),
+    ],
+)
+def test_a_queued_add_says_where_an_unlisted_kind_was_filed(
+    wired_async, outbox_dir, tmp_path, capsys, flags, said
+):
+    run_id = start_run(wired_async)
+    source = tmp_path / "summary.md"
+    source.write_text("# done\n")
+
+    rc = cli.main(["--async", "artifact", "add", run_id, str(source), "--kind", "report", *flags])
+
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert said in captured.out and "(queued)" in captured.out
+    assert captured.err.count("kind: filed as other (label: report)") == 1
+
+
 def test_a_file_uri_cannot_smuggle_a_code_pointer_past_the_rule(
     wired_async, outbox_dir, tmp_path, capsys
 ):
@@ -1469,3 +1509,135 @@ def test_an_experiment_reference_is_queued_by_the_experiment_and_placed_at_drain
     posted = [r.url.path for r in wired_async.requests[before:] if r.method == "POST"]
     assert posted == [f"/v1/projects/{exp['project_id']}/experiments/{exp['id']}/artifacts"]
     assert not [r for r in wired_async.requests if r.url.path.startswith(f"/v1/projects/{exp['id']}/")]
+
+
+def test_a_big_run_file_is_queued_in_parts_not_refused(
+    wired_async, outbox_dir, tmp_path, capsys, monkeypatch
+):
+    """2026-10-12 (D15): `probe artifact add RUN FILE` -- the daemon's call --
+    used to send a file over 64 MiB to `_enqueue_upload`, whose `check_upload`
+    refuses it, so it fell back to a synchronous upload the daemon's 180 s call
+    could not wait for. Against a server that takes multipart uploads it is now
+    staged and queued in parts, and the command returns at once."""
+    # A CI runner's outbox disk reads as ephemeral, which sends a big file down
+    # the disposable-machine path instead of the queue; pin the durable disk.
+    monkeypatch.setenv("PROBE_EPHEMERAL", "0")
+    from probe.sdk import multipart
+
+    wired_async.supports_artifact_multipart = True
+    run_id = start_run(wired_async)
+    big = tmp_path / "ckpt.pt"
+    with open(big, "wb") as fh:
+        fh.write(b"weights")
+        fh.truncate(70 * 1024 * 1024)
+    capsys.readouterr()
+    before = len(wired_async.requests)
+
+    assert cli.main(["--async", "artifact", "add", run_id, str(big)]) == 0
+
+    out = capsys.readouterr().out
+    journal = Journal(outbox_dir)
+    [(_, op)] = multipart.pending(journal)
+    assert f"op={op['op_id']}" in out and "(queued)" in out
+    assert op["upload"]["anchor_id"] == run_id and op["upload"]["size_bytes"] == 70 * 1024 * 1024
+    assert journal.pending() == []  # no single-PUT op for the gate to refuse
+    assert not [r for r in wired_async.requests[before:] if r.method in ("POST", "PUT")]
+
+
+def test_a_big_run_file_queues_in_parts_even_under_probe_async_0(
+    wired_async, outbox_dir, tmp_path, capsys, monkeypatch
+):
+    """The Probe daemon runs every command with PROBE_ASYNC=0 (to see each write
+    land) and kills it at 180 s; a multi-gigabyte upload cannot land in that
+    time, so a run file over 64 MiB queues in parts unless --sync says
+    otherwise. Its notes are scrubbed like `log_artifact`'s, because the op file
+    outlives the command."""
+    from probe.sdk import multipart
+    from probe.sdk.redaction import scrub_text
+
+    monkeypatch.setenv("PROBE_ASYNC", "0")
+    # A CI runner's outbox disk reads as ephemeral; pin the durable disk.
+    monkeypatch.setenv("PROBE_EPHEMERAL", "0")
+    wired_async.supports_artifact_multipart = True
+    run_id = start_run(wired_async)
+    big = tmp_path / "ckpt.pt"
+    with open(big, "wb") as fh:
+        fh.truncate(70 * 1024 * 1024)
+    notes = "eval run, token ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+    capsys.readouterr()
+
+    assert cli.main(["artifact", "add", run_id, str(big), "--notes", notes]) == 0
+
+    assert "(queued)" in capsys.readouterr().out
+    [(_, op)] = multipart.pending(Journal(outbox_dir))
+    assert op["upload"]["notes"] == scrub_text(notes) != notes
+
+
+def test_sync_still_uploads_a_big_run_file_in_process(wired_async, outbox_dir, tmp_path):
+    from probe.sdk import multipart
+
+    wired_async.supports_artifact_multipart = True
+    run_id = start_run(wired_async)
+    big = tmp_path / "ckpt.pt"
+    with open(big, "wb") as fh:
+        fh.truncate(70 * 1024 * 1024)
+    cli.main(["--sync", "artifact", "add", run_id, str(big)])
+    assert not multipart.pending(Journal(outbox_dir))
+
+
+def _big(tmp_path, name="ckpt.pt"):
+    path = tmp_path / name
+    with open(path, "wb") as fh:
+        fh.truncate(70 * 1024 * 1024)
+    return path
+
+
+def test_without_multipart_a_forced_big_run_file_fails_as_it_did(
+    wired_async, outbox_dir, tmp_path, monkeypatch, capsys
+):
+    """An old or self-hosted server (no `artifact_multipart`) under
+    PROBE_ASYNC=0: nothing is queued in parts, and the synchronous fallback
+    refuses the size loudly, exactly as before parts were forced (exit 1)."""
+    from probe.sdk import multipart
+
+    monkeypatch.setenv("PROBE_ASYNC", "0")
+    run_id = start_run(wired_async)
+    code = cli.main(["artifact", "add", run_id, str(_big(tmp_path))])
+    assert code == 1 and "exceeds inspection size limit" in capsys.readouterr().err
+    assert not multipart.pending(Journal(outbox_dir))
+
+
+def test_a_credential_in_the_path_never_reaches_the_parts_queue(wired_async, outbox_dir, tmp_path, monkeypatch):
+    from probe.sdk import multipart
+
+    monkeypatch.setenv("PROBE_ASYNC", "0")
+    wired_async.supports_artifact_multipart = True
+    run_id = start_run(wired_async)
+    folder = tmp_path / ("ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8")
+    folder.mkdir()
+    cli.main(["artifact", "add", run_id, str(_big(folder))])
+    assert not multipart.pending(Journal(outbox_dir))
+
+
+def test_a_wrong_run_id_fails_now_not_in_the_outbox(wired_async, outbox_dir, tmp_path, monkeypatch):
+    """The daemon's rule (lineage plan L14): a write it cannot see land is never
+    queued. Forcing parts under PROBE_ASYNC=0 reads the run first."""
+    from probe.sdk import multipart
+
+    from probe.sdk import errors
+    from probe.sdk.client import Client
+
+    monkeypatch.setenv("PROBE_ASYNC", "0")
+    wired_async.supports_artifact_multipart = True
+    start_run(wired_async)
+    real_get_run = Client.get_run
+
+    def get_run(self, run_id):  # the fake invents any run it is asked for; the server 404s
+        if run_id == "no-such-run":
+            raise errors.NotFoundError("run not found", status=404)
+        return real_get_run(self, run_id)
+
+    monkeypatch.setattr(Client, "get_run", get_run)
+    assert cli.main(["artifact", "add", "no-such-run", str(_big(tmp_path))]) != 0
+    assert not multipart.pending(Journal(outbox_dir))
+

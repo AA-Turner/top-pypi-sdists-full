@@ -117,6 +117,16 @@ class XAIChat:
             chat = self.client.chat.create(
                 **route_undeclared_params(self.client.chat.create, create_kwargs, provider="xai")
             )
+            from matrx_ai.providers.request_capture import capture_grpc_request, is_capturing
+
+            if is_capturing():
+                # The exact request proto the stub would send (GetCompletion / GetCompletionChunk).
+                capture_grpc_request(
+                    provider="xai",
+                    rpc="xai_api.Chat/GetCompletionChunk" if unified_config.stream else "xai_api.Chat/GetCompletion",
+                    target="api.x.ai:443",
+                    request_proto=chat._make_request(1),
+                )
 
             if unified_config.stream:
                 return await self._execute_streaming(chat, emitter, unified_config.model)

@@ -26,7 +26,17 @@ unconditionally from Gym's config machinery.
 
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class MemoryProfilingConfig(BaseModel):
+    """Periodic host and logical-server memory sampling."""
+
+    enabled: bool = False
+    """Collect host memory and every server process tree."""
+
+    interval_seconds: float = Field(default=1.0, gt=0)
+    """Seconds between samples."""
 
 
 class TelemetryConfig(BaseModel, extra="allow"):
@@ -64,19 +74,8 @@ class TelemetryConfig(BaseModel, extra="allow"):
     span_groups: str = "default"
     """Span-group spec: a preset (``default`` | ``per_rollout`` | ``all``) or a
     comma-separated list of group names (e.g. ``"default,sandbox"``). See
-    :class:`~nemo_gym.telemetry.span_groups.GymSpanGroup`."""
-
-    export_strategy: str = "all_ranks"
-    """Which processes export: ``all_ranks`` | ``single_rank`` | ``sampled`` |
-    ``first_rank_per_node``.
-
-    Defaults to ``all_ranks``, unlike NeMo-RL and Megatron-LM which default to
-    ``single_rank``. Those run one process tree per job where rank 0 sees a
-    representative slice; Gym runs N independent server processes, each rank 0 of its own
-    world. Silencing any of them puts a hole in the middle of every distributed trace."""
-
-    export_rank: int = -1
-    """For ``single_rank``: which rank exports (``-1`` = last rank)."""
+    :class:`~nemo_gym.telemetry.span_groups.GymSpanGroup`. An unknown name is logged as a
+    warning and ignored rather than rejected."""
 
     traces_enabled: bool = True
     """Emit trace spans."""
@@ -85,14 +84,31 @@ class TelemetryConfig(BaseModel, extra="allow"):
     """Emit metric instruments (the ``gym.*`` histograms/gauges plus the FastAPI
     instrumentor's ``http.server.*``)."""
 
+    memory_profiling: MemoryProfilingConfig = Field(default_factory=MemoryProfilingConfig)
+    """Sample each Gym-managed server process tree and emit memory metrics."""
+
     logs_enabled: bool = False
     """Bridge Python logging to OTel logs, exported with trace correlation."""
 
     exporter: str = "otlp"
-    """Exporter backend: ``otlp`` | ``console``. The OTLP endpoint, headers and protocol
-    come from the standard ``OTEL_EXPORTER_OTLP_*`` env vars, so any OTLP-compatible
-    backend or an OpenTelemetry Collector works. ``console`` writes one JSON object per
+    """Exporter backend: ``otlp`` | ``console``. ``console`` writes one JSON object per
     line to stdout, which is what the local validation flow greps."""
+
+    otlp_endpoint: Optional[str] = None
+    """``OTEL_EXPORTER_OTLP_ENDPOINT`` for the ``otlp`` exporter, e.g.
+    ``https://api.honeycomb.io``. Optional: the standard env var still works and always
+    wins (``setdefault``), so any OTLP-compatible backend or collector that expects the
+    raw env var keeps working unchanged. Setting it here just means a run's destination is
+    committed with the rest of the config instead of exported by hand every time."""
+
+    otlp_protocol: Optional[str] = None
+    """``OTEL_EXPORTER_OTLP_PROTOCOL``: ``grpc`` (the OTel SDK default) or
+    ``http/protobuf``."""
+
+    otlp_headers: Optional[str] = None
+    """``OTEL_EXPORTER_OTLP_HEADERS``, e.g. ``x-honeycomb-team=...``. Prefer
+    ``${oc.env:MY_API_KEY}`` interpolation for the secret portion so the raw credential
+    does not live in a committed YAML file."""
 
     instrument_aiohttp: bool = True
     """Use nemo-lens's aiohttp auto-instrumentation for outbound calls, which produces a

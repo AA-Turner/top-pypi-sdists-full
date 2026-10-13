@@ -18,7 +18,18 @@ else:
     from typing_extensions import Self
 
 
+from algoliasearch.agent_studio.models.around_precision_union import (
+    AroundPrecisionUnion,
+)
+from algoliasearch.agent_studio.models.around_radius_union import AroundRadiusUnion
 from algoliasearch.agent_studio.models.distinct_union import DistinctUnion
+from algoliasearch.agent_studio.models.facet_filters_union_search_parameters_overrides import (
+    FacetFiltersUnionSearchParametersOverrides,
+)
+from algoliasearch.agent_studio.models.inside_bounding_box_union import (
+    InsideBoundingBoxUnion,
+)
+from algoliasearch.agent_studio.models.inside_polygon_union import InsidePolygonUnion
 from algoliasearch.agent_studio.models.optional_filters_union import (
     OptionalFiltersUnion,
 )
@@ -32,6 +43,13 @@ _ALIASES = {
     "enable_personalization": "enablePersonalization",
     "personalization_impact": "personalizationImpact",
     "optional_filters": "optionalFilters",
+    "facet_filters": "facetFilters",
+    "around_lat_lng": "aroundLatLng",
+    "around_radius": "aroundRadius",
+    "around_precision": "aroundPrecision",
+    "minimum_around_radius": "minimumAroundRadius",
+    "inside_bounding_box": "insideBoundingBox",
+    "inside_polygon": "insidePolygon",
 }
 
 
@@ -52,6 +70,13 @@ class SearchParametersOverrides(BaseModel):
     enable_personalization: Optional[bool] = None
     personalization_impact: Optional[int] = None
     optional_filters: Optional[OptionalFiltersUnion] = None
+    facet_filters: Optional[FacetFiltersUnionSearchParametersOverrides] = None
+    around_lat_lng: Optional[str] = None
+    around_radius: Optional[AroundRadiusUnion] = None
+    around_precision: Optional[AroundPrecisionUnion] = None
+    minimum_around_radius: Optional[int] = None
+    inside_bounding_box: Optional[InsideBoundingBoxUnion] = None
+    inside_polygon: Optional[InsidePolygonUnion] = None
 
     model_config = ConfigDict(
         strict=False,
@@ -96,6 +121,31 @@ class SearchParametersOverrides(BaseModel):
         obj["optionalFilters"] = (
             OptionalFiltersUnion.from_dict(obj["optionalFilters"])
             if obj.get("optionalFilters") is not None
+            else None
+        )
+        obj["facetFilters"] = (
+            FacetFiltersUnionSearchParametersOverrides.from_dict(obj["facetFilters"])
+            if obj.get("facetFilters") is not None
+            else None
+        )
+        obj["aroundRadius"] = (
+            AroundRadiusUnion.from_dict(obj["aroundRadius"])
+            if obj.get("aroundRadius") is not None
+            else None
+        )
+        obj["aroundPrecision"] = (
+            AroundPrecisionUnion.from_dict(obj["aroundPrecision"])
+            if obj.get("aroundPrecision") is not None
+            else None
+        )
+        obj["insideBoundingBox"] = (
+            InsideBoundingBoxUnion.from_dict(obj["insideBoundingBox"])
+            if obj.get("insideBoundingBox") is not None
+            else None
+        )
+        obj["insidePolygon"] = (
+            InsidePolygonUnion.from_dict(obj["insidePolygon"])
+            if obj.get("insidePolygon") is not None
             else None
         )
 

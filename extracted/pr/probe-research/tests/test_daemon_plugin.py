@@ -56,12 +56,14 @@ def _makefile_list() -> list[str]:
 
 
 @pytest.mark.parametrize("copied", ["instrument-code", "plan-research-review"])
-def test_the_skills_are_instrument_code_plan_review_and_the_switch_and_the_copies_are_canonical(copied):
+def test_the_skills_are_the_daemon_profile_and_the_copies_are_canonical(copied):
     skills = {path.parent.name for path in (LEAN / "agent-skills").glob("*/SKILL.md")}
     # `probe` is the on / read / off switch (Richard 2026-09-29), hand-kept here.
     # `plan-research-review` plans with the researcher and records nothing
-    # (Richard 2026-10-11: every profile gets it).
-    assert skills == {"instrument-code", "probe", "plan-research-review"}, (
+    # (Richard 2026-10-11: every profile gets it). `visualize-progress` draws
+    # from a `probe ask` answer and records nothing (Richard 2026-10-12),
+    # hand-kept like `probe` (tests/test_visualize_progress_daemon.py).
+    assert skills == {"instrument-code", "probe", "plan-research-review", "visualize-progress"}, (
         "no track-work (or any other recording skill): Claude Code lists it to the agent")
     canonical = ROOT / "skills" / copied
     shipped = LEAN / "agent-skills" / copied
@@ -130,11 +132,13 @@ def test_the_guard_and_session_start_run_in_the_daemon_profile():
     for event, matcher, hook in _commands(_hooks(LEAN)):
         scripts = _scripts(hook["command"])
         profiled = hook["command"].startswith("/bin/bash -c '" + PROFILE_EXPORT)
-        if scripts & {"tracking_guard.py", "session-start.sh", "note_audit.py"}:
+        if scripts & {"tracking_guard.py", "session-start.sh", "note_audit.py", "papers_hook.py"}:
             assert profiled, f"{event} {matcher}: {scripts} must run with PROBE_PLUGIN_PROFILE=daemon"
             seen.add((event, matcher, *sorted(scripts)))
         else:
-            assert not profiled, f"{event}: only the guard, session start and the audit reminder need the profile"
+            assert not profiled, (
+                f"{event}: only the guard, session start, the audit reminder and the papers hook need the profile"
+            )
     assert seen == {
         ("SessionStart", None, "session-start.sh"),
         ("PreCompact", None, "session-start.sh"),
@@ -145,6 +149,8 @@ def test_the_guard_and_session_start_run_in_the_daemon_profile():
         ("PostToolUse", "^(Bash|Skill|SlashCommand)$|probe[-_]research", "tracking_guard.py"),
         # The audit reminder, silent unless the session is inline (daemon-team-note-audit).
         ("UserPromptSubmit", None, "note_audit.py"),
+        # The papers hook: a paper-type web search held once for `probe paper find`.
+        ("PreToolUse", "^WebSearch$", "papers_hook.py"),
     }, "the guard: the refusal before a call, and the on / read / off switch"
 
 
@@ -157,7 +163,7 @@ def test_what_the_daemon_profile_keeps_and_drops():
                              "reads_hook.py"},
         "SessionStart": {"session-start.sh", "statusline_refresh.py", "approvals_hook.py"},
         "PreCompact": {"session-start.sh"},
-        "PreToolUse": {"tracking_guard.py", "approvals_hook.py"},
+        "PreToolUse": {"tracking_guard.py", "approvals_hook.py", "papers_hook.py"},
         "PostToolUse": {"telemetry.py", "tracking_guard.py", "statusline_refresh.py", "approvals_hook.py",
                         "reads_hook.py"},
         "SessionEnd": {"telemetry.py", "team-note-sync.sh"},

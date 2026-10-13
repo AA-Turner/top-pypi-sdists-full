@@ -269,6 +269,68 @@ def test_the_wizard_update_sends_one_merged_report(monkeypatch, sent):
     assert report["attempted_at"] <= int(time.time())
 
 
+def test_the_wizard_update_registers_the_machine_once(monkeypatch, sent):
+    """The capabilities registration had the same flaw. Live on a customer
+    machine (2026-10-13 00:17 UTC) one auto-update registered capture `absent`
+    from the agent without it, then `installed` 7 s later from the one with it,
+    and the `absent` posted a false "Probe removed from a machine". On main
+    before this fix the loop below registered twice: absent, then installed."""
+    import os
+
+    from probe.cli import capabilities, client_installation, doctor, setup
+    from probe.cli.capabilities import TokenSource
+
+    cli_main = importlib.import_module("probe.cli.main")
+    _stub_updater(monkeypatch, {
+        "claude_code": _plugin("0.9.14", "0.9.14"),
+        "codex": _plugin("0.9.14", "0.9.14"),
+    })
+    # Codex first, so the agent WITHOUT capture runs first -- as it did live.
+    monkeypatch.setattr(setup, "detectable_sources", lambda: ("codex", "claude_code"))
+
+    def _offline(*args, **kwargs):
+        raise OSError("no server in this test")
+
+    def _collect():
+        capturing = os.environ.get("PROBE_AGENT") == "claude_code"
+        return Capabilities(
+            agent_source=os.environ.get("PROBE_AGENT"),
+            tracking_plugin_installed=True,
+            capture_plugin_installed=capturing,
+            capture_token_sources=(TokenSource.PAIRED_FILE,) if capturing else (),
+            auto_update_enabled=True,
+        )
+
+    registered: list[dict] = []
+
+    class _Client:
+        def __init__(self, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return None
+
+        def register_client_capabilities(self, **body):
+            registered.append(body)
+            return {"installation_id": "install-1"}
+
+        def name_client_installation(self, **kwargs):
+            return {}
+
+    monkeypatch.setattr(capabilities, "device_state_request", _offline)
+    monkeypatch.setattr(doctor, "collect", _collect)
+    monkeypatch.setattr(client_installation, "Client", _Client)
+
+    assert cli_main.main(["wizard", "--yes", "--action", "update"]) == 0
+
+    assert [(body["tracking"], body["capture"]) for body in registered] == [
+        ("installed", "installed")
+    ]
+
+
 # ---------------------------------------------------------------------------
 # The local record (`autoupdate.json`, `probe doctor`) merges the same passes.
 # It had the flaw the server report had: each pass overwrote `last_attempt`.

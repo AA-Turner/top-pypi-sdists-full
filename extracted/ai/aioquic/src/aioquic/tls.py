@@ -22,7 +22,7 @@ from typing import (
 import certifi
 import service_identity
 from cryptography import x509
-from cryptography.exceptions import InvalidSignature
+from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, hmac, serialization
 from cryptography.hazmat.primitives.asymmetric import (
@@ -124,12 +124,24 @@ class AlertInternalError(Alert):
     description = AlertDescription.internal_error
 
 
+class AlertMissingExtension(Alert):
+    description = AlertDescription.missing_extension
+
+
+class AlertNoApplicationProtocol(Alert):
+    description = AlertDescription.no_application_protocol
+
+
 class AlertProtocolVersion(Alert):
     description = AlertDescription.protocol_version
 
 
 class AlertUnexpectedMessage(Alert):
     description = AlertDescription.unexpected_message
+
+
+class AlertUnsupportedCertificate(Alert):
+    description = AlertDescription.unsupported_certificate
 
 
 class Direction(Enum):
@@ -248,6 +260,11 @@ def verify_certificate(
                     certificate, server_name
                 )
 
+        except ValueError as exc:
+            # The certificate's extensions are only parsed when accessed.
+            raise AlertBadCertificate(
+                "Certificate extensions could not be parsed"
+            ) from exc
         except (
             service_identity.CertificateError,
             service_identity.VerificationError,
@@ -474,7 +491,11 @@ def pull_server_name(buf: Buffer) -> str:
             raise AlertIllegalParameter(
                 f"ServerName has an unknown name type {name_type}"
             )
-        return pull_opaque(buf, 2).decode("ascii")
+        try:
+            return pull_opaque(buf, 2).decode("ascii")
+        except UnicodeDecodeError:
+            # The host name must be ASCII (RFC 6066 section 3).
+            raise AlertDecodeError("ServerName is not ASCII")
 
 
 def push_server_name(buf: Buffer, server_name: str) -> None:
@@ -861,9 +882,14 @@ def pull_encrypted_extensions(buf: Buffer) -> EncryptedExtensions:
             extension_type = buf.pull_uint16()
             extension_length = buf.pull_uint16()
             if extension_type == ExtensionType.ALPN:
-                extensions.alpn_protocol = pull_list(
-                    buf, 2, partial(pull_alpn_protocol, buf)
-                )[0]
+                protocols = pull_list(buf, 2, partial(pull_alpn_protocol, buf))
+
+                # The server must select exactly one protocol (RFC 7301 section 3.1).
+                if len(protocols) != 1:
+                    raise AlertDecodeError(
+                        "ALPN extension must contain exactly one protocol"
+                    )
+                extensions.alpn_protocol = protocols[0]
             elif extension_type == ExtensionType.EARLY_DATA:
                 extensions.early_data = True
             else:
@@ -1115,14 +1141,19 @@ SIGNATURE_ALGORITHMS: dict = {
     SignatureAlgorithm.ECDSA_SECP256R1_SHA256: (None, hashes.SHA256),
     SignatureAlgorithm.ECDSA_SECP384R1_SHA384: (None, hashes.SHA384),
     SignatureAlgorithm.ECDSA_SECP521R1_SHA512: (None, hashes.SHA512),
-    SignatureAlgorithm.RSA_PKCS1_SHA1: (padding.PKCS1v15, hashes.SHA1),
-    SignatureAlgorithm.RSA_PKCS1_SHA256: (padding.PKCS1v15, hashes.SHA256),
-    SignatureAlgorithm.RSA_PKCS1_SHA384: (padding.PKCS1v15, hashes.SHA384),
-    SignatureAlgorithm.RSA_PKCS1_SHA512: (padding.PKCS1v15, hashes.SHA512),
     SignatureAlgorithm.RSA_PSS_RSAE_SHA256: (padding.PSS, hashes.SHA256),
     SignatureAlgorithm.RSA_PSS_RSAE_SHA384: (padding.PSS, hashes.SHA384),
     SignatureAlgorithm.RSA_PSS_RSAE_SHA512: (padding.PSS, hashes.SHA512),
 }
+
+RSA_PKCS1_SIGNATURE_ALGORITHMS = frozenset(
+    [
+        SignatureAlgorithm.RSA_PKCS1_SHA1,
+        SignatureAlgorithm.RSA_PKCS1_SHA256,
+        SignatureAlgorithm.RSA_PKCS1_SHA384,
+        SignatureAlgorithm.RSA_PKCS1_SHA512,
+    ]
+)
 
 GROUP_TO_CURVE: dict = {
     Group.SECP256R1: ec.SECP256R1,
@@ -1179,6 +1210,19 @@ def negotiate(
     return None
 
 
+def signature_algorithm_key_type(signature_algorithm: int) -> type:
+    if signature_algorithm == SignatureAlgorithm.ED25519:
+        return ed25519.Ed25519PublicKey
+    elif signature_algorithm == SignatureAlgorithm.ED448:
+        return ed448.Ed448PublicKey
+
+    padding_cls, _ = SIGNATURE_ALGORITHMS[signature_algorithm]
+    if padding_cls is None:
+        return ec.EllipticCurvePublicKey
+    else:
+        return rsa.RSAPublicKey
+
+
 def signature_algorithm_params(signature_algorithm: int) -> tuple:
     if signature_algorithm in (SignatureAlgorithm.ED25519, SignatureAlgorithm.ED448):
         return tuple()
@@ -1187,13 +1231,11 @@ def signature_algorithm_params(signature_algorithm: int) -> tuple:
     algorithm = algorithm_cls()
     if padding_cls is None:
         return (ec.ECDSA(algorithm),)
-    elif padding_cls == padding.PSS:
+    else:
         padding_obj = padding_cls(
             mgf=padding.MGF1(algorithm), salt_length=algorithm.digest_size
         )
-    else:
-        padding_obj = padding_cls()
-    return padding_obj, algorithm
+        return padding_obj, algorithm
 
 
 @contextmanager
@@ -1435,20 +1477,17 @@ class Context:
                     input_buf,
                     output_buf[Epoch.INITIAL],
                     output_buf[Epoch.HANDSHAKE],
-                    output_buf[Epoch.ONE_RTT],
                 )
             else:
                 raise AlertUnexpectedMessage
         elif self.state == State.SERVER_EXPECT_CERTIFICATE:
             if message_type == HandshakeType.CERTIFICATE:
-                self._server_handle_certificate(input_buf, output_buf[Epoch.ONE_RTT])
+                self._server_handle_certificate(input_buf)
             else:
                 raise AlertUnexpectedMessage
         elif self.state == State.SERVER_EXPECT_CERTIFICATE_VERIFY:
             if message_type == HandshakeType.CERTIFICATE_VERIFY:
-                self._server_handle_certificate_verify(
-                    input_buf, output_buf[Epoch.ONE_RTT]
-                )
+                self._server_handle_certificate_verify(input_buf)
             else:
                 raise AlertUnexpectedMessage
         elif self.state == State.SERVER_EXPECT_FINISHED:
@@ -1496,17 +1535,35 @@ class Context:
                 "CertificateVerify has a signature algorithm we did not advertise"
             )
 
-        try:
-            # The type of public_key() is CertificatePublicKeyTypes, but along with
-            # ed25519 and ed448, which are fine, this type includes
-            # x25519 and x448 which can be public keys but can't sign.  We know
-            # we won't get x25519 and x448 as they are not on our list of
-            # signature algorithms, so we can cast public key to
-            # CertificateIssuerPublicKeyTypes safely and make mypy happy.
-            public_key = cast(
-                CertificateIssuerPublicKeyTypes, self._peer_certificate.public_key()
+        # We advertise RSASSA-PKCS1-v1_5 for signatures in certificates, but RSA
+        # signatures in CertificateVerify must use RSASSA-PSS (RFC 8446 section 4.4.3).
+        if verify.algorithm in RSA_PKCS1_SIGNATURE_ALGORITHMS:
+            raise AlertIllegalParameter(
+                "CertificateVerify has an RSASSA-PKCS1-v1_5 signature algorithm"
             )
-            public_key.verify(
+
+        # The signature algorithm must be compatible with the key in the peer's
+        # certificate (RFC 8446 section 4.4.3).
+        try:
+            public_key = self._peer_certificate.public_key()
+        except UnsupportedAlgorithm as exc:
+            raise AlertUnsupportedCertificate(
+                "Certificate has an unsupported key type"
+            ) from exc
+        except ValueError as exc:
+            raise AlertBadCertificate("Certificate has an invalid key") from exc
+        if not isinstance(public_key, signature_algorithm_key_type(verify.algorithm)):
+            raise AlertDecryptError(
+                "CertificateVerify has a signature algorithm which does not match "
+                "the certificate's key"
+            )
+
+        try:
+            # The type of public_key() is CertificatePublicKeyTypes, which includes
+            # x25519 and x448 keys which cannot sign. We checked above that the key
+            # matches a signature algorithm, so we can cast it to
+            # CertificateIssuerPublicKeyTypes safely and make mypy happy.
+            cast(CertificateIssuerPublicKeyTypes, public_key).verify(
                 verify.signature,
                 self.key_schedule.certificate_verify_data(
                     SERVER_CONTEXT_STRING if self._is_client else CLIENT_CONTEXT_STRING
@@ -1587,34 +1644,40 @@ class Context:
                 binders=[bytes(binder_length)],
             )
 
-            # serialize hello without binder
-            tmp_buf = Buffer(capacity=1024)
-            push_client_hello(tmp_buf, hello)
-
-            # calculate binder
-            hash_offset = tmp_buf.tell() - binder_length - 3
-            self._key_schedule_psk.update_hash(tmp_buf.data_slice(0, hash_offset))
-            binder = self._key_schedule_psk.finished_verify_data(binder_key)
-            hello.pre_shared_key.binders[0] = binder
-            self._key_schedule_psk.update_hash(
-                tmp_buf.data_slice(hash_offset, hash_offset + 3) + binder
-            )
-
-            # calculate early data key
-            if hello.early_data:
-                early_key = self._key_schedule_psk.derive_secret(b"c e traffic")
-                self.update_traffic_key_cb(
-                    Direction.ENCRYPT,
-                    Epoch.ZERO_RTT,
-                    self._key_schedule_psk.cipher_suite,
-                    early_key,
-                )
-
         self._key_schedule_proxy = KeyScheduleProxy(self._cipher_suites)
         self._key_schedule_proxy.extract(None)
 
         with push_message(self._key_schedule_proxy, output_buf):
+            hello_start = output_buf.tell()
             push_client_hello(output_buf, hello)
+
+            # The pre_shared_key is only set by the PSK setup above, which also
+            # defines binder_key and binder_length.
+            if hello.pre_shared_key is not None:
+                # The binder is computed over the ClientHello truncated before
+                # the binders list, then written over its zero-filled
+                # placeholder (RFC 8446 section 4.2.11.2).
+                binder_start = output_buf.tell() - binder_length
+                binders_start = binder_start - 3
+                self._key_schedule_psk.update_hash(
+                    output_buf.data_slice(hello_start, binders_start)
+                )
+                binder = self._key_schedule_psk.finished_verify_data(binder_key)
+                output_buf.seek(binder_start)
+                output_buf.push_bytes(binder)
+                self._key_schedule_psk.update_hash(
+                    output_buf.data_slice(binders_start, output_buf.tell())
+                )
+
+                # calculate early data key
+                if hello.early_data:
+                    early_key = self._key_schedule_psk.derive_secret(b"c e traffic")
+                    self.update_traffic_key_cb(
+                        Direction.ENCRYPT,
+                        Epoch.ZERO_RTT,
+                        self._key_schedule_psk.cipher_suite,
+                        early_key,
+                    )
 
         self._set_state(State.CLIENT_EXPECT_SERVER_HELLO)
 
@@ -1634,6 +1697,11 @@ class Context:
             raise AlertIllegalParameter(
                 "ServerHello has a version we did not advertise"
             )
+
+        # We only offer (EC)DHE key exchange, so the server must send a key share
+        # (RFC 8446 section 9.2).
+        if peer_hello.key_share is None:
+            raise AlertMissingExtension("ServerHello has no key share")
 
         # select key schedule
         if peer_hello.pre_shared_key is not None:
@@ -1681,14 +1749,30 @@ class Context:
         self.key_schedule.update_hash(input_buf.data)
         self.key_schedule.extract(shared_key)
 
+        # Both handshake secrets are available once the ServerHello is processed
+        # (RFC 8446 section 7.1). Provide the write key to QUIC straight away, as
+        # it may need to acknowledge Handshake packets before EncryptedExtensions
+        # arrives (RFC 9001 section 4.1.4).
         self._setup_traffic_protection(
             Direction.DECRYPT, Epoch.HANDSHAKE, b"s hs traffic"
+        )
+        self._setup_traffic_protection(
+            Direction.ENCRYPT, Epoch.HANDSHAKE, b"c hs traffic"
         )
 
         self._set_state(State.CLIENT_EXPECT_ENCRYPTED_EXTENSIONS)
 
     def _client_handle_encrypted_extensions(self, input_buf: Buffer) -> None:
         encrypted_extensions = pull_encrypted_extensions(input_buf)
+
+        # If we offered ALPN, the server must select one of our protocols
+        # (RFC 9001 section 8.1). RFC 8446 only defines no_application_protocol
+        # for servers, but RFC 9001 requires QUIC clients to use it too.
+        if (
+            self._alpn_protocols is not None
+            and encrypted_extensions.alpn_protocol not in self._alpn_protocols
+        ):
+            raise AlertNoApplicationProtocol("No common ALPN protocols")
 
         self.alpn_negotiated = encrypted_extensions.alpn_protocol
         self.early_data_accepted = encrypted_extensions.early_data
@@ -1698,9 +1782,6 @@ class Context:
         if self.alpn_cb:
             self.alpn_cb(self.alpn_negotiated)
 
-        self._setup_traffic_protection(
-            Direction.ENCRYPT, Epoch.HANDSHAKE, b"c hs traffic"
-        )
         self.key_schedule.update_hash(input_buf.data)
 
         # if the server accepted our PSK we are done, other we want its certificate
@@ -1716,6 +1797,11 @@ class Context:
 
     def _client_handle_certificate(self, input_buf: Buffer) -> None:
         certificate = pull_certificate(input_buf)
+
+        # The server must send at least one certificate, otherwise the client
+        # must abort with a decode_error alert (RFC 8446 section 4.4.2.4).
+        if not certificate.certificates:
+            raise AlertDecodeError("Certificate message is empty")
         self.key_schedule.update_hash(input_buf.data)
 
         self._set_peer_certificate(certificate)
@@ -1832,7 +1918,7 @@ class Context:
             )
             self.new_session_ticket_cb(ticket)
 
-    def _server_expect_finished(self, onertt_buf: Buffer):
+    def _server_expect_finished(self) -> None:
         # anticipate client's FINISHED
         self._expected_verify_data = self.key_schedule.finished_verify_data(
             self._dec_key
@@ -1841,28 +1927,6 @@ class Context:
         push_finished(buf, Finished(verify_data=self._expected_verify_data))
         self.key_schedule.update_hash(buf.data)
 
-        # create a new session ticket
-        if (
-            self.new_session_ticket_cb is not None
-            and self._psk_key_exchange_mode is not None
-        ):
-            self._new_session_ticket = NewSessionTicket(
-                ticket_lifetime=86400,
-                ticket_age_add=struct.unpack("I", os.urandom(4))[0],
-                ticket_nonce=b"",
-                ticket=os.urandom(64),
-                max_early_data_size=self._max_early_data,
-            )
-
-            # send message
-            push_new_session_ticket(onertt_buf, self._new_session_ticket)
-
-            # notify application
-            ticket = self._build_session_ticket(
-                self._new_session_ticket, self.handshake_extensions
-            )
-            self.new_session_ticket_cb(ticket)
-
         self._set_state(State.SERVER_EXPECT_FINISHED)
 
     def _server_handle_hello(
@@ -1870,7 +1934,6 @@ class Context:
         input_buf: Buffer,
         initial_buf: Buffer,
         handshake_buf: Buffer,
-        onertt_buf: Buffer,
     ) -> None:
         peer_hello = pull_client_hello(input_buf)
 
@@ -1899,12 +1962,17 @@ class Context:
             AlertProtocolVersion("No supported protocol version"),
         )
 
+        # We only support (EC)DHE key exchange, so the client must send a key share
+        # (RFC 8446 section 9.2).
+        if peer_hello.key_share is None:
+            raise AlertMissingExtension("ClientHello has no key share")
+
         # negotiate ALPN
         if self._alpn_protocols is not None:
             self.alpn_negotiated = negotiate(
                 self._alpn_protocols,
                 peer_hello.alpn_protocols,
-                AlertHandshakeFailure("No common ALPN protocols"),
+                AlertNoApplicationProtocol("No common ALPN protocols"),
             )
 
         self.client_random = peer_hello.random
@@ -2100,28 +2168,29 @@ class Context:
         if self._request_client_certificate:
             self._set_state(State.SERVER_EXPECT_CERTIFICATE)
         else:
-            self._server_expect_finished(onertt_buf)
+            self._server_expect_finished()
 
-    def _server_handle_certificate(self, input_buf: Buffer, output_buf: Buffer) -> None:
+    def _server_handle_certificate(self, input_buf: Buffer) -> None:
         certificate = pull_certificate(input_buf)
         self.key_schedule.update_hash(input_buf.data)
 
+        # If the client sends an empty Certificate message, the server may
+        # continue the handshake without client authentication
+        # (RFC 8446 section 4.4.2.4).
         if certificate.certificates:
             self._set_peer_certificate(certificate)
             self._set_state(State.SERVER_EXPECT_CERTIFICATE_VERIFY)
         else:
-            self._server_expect_finished(output_buf)
+            self._server_expect_finished()
 
-    def _server_handle_certificate_verify(
-        self, input_buf: Buffer, output_buf: Buffer
-    ) -> None:
+    def _server_handle_certificate_verify(self, input_buf: Buffer) -> None:
         verify = pull_certificate_verify(input_buf)
 
         # check signature
         self._check_certificate_verify_signature(verify)
 
         self.key_schedule.update_hash(input_buf.data)
-        self._server_expect_finished(output_buf)
+        self._server_expect_finished()
 
     def _server_handle_finished(self, input_buf: Buffer, output_buf: Buffer) -> None:
         finished = pull_finished(input_buf)
@@ -2140,6 +2209,29 @@ class Context:
             self._dec_key,
         )
 
+        # Only send a session ticket once the client's FINISHED is received, as
+        # 1-RTT packets cannot be acknowledged before then (RFC 9001 section 4.5).
+        if (
+            self.new_session_ticket_cb is not None
+            and self._psk_key_exchange_mode is not None
+        ):
+            self._new_session_ticket = NewSessionTicket(
+                ticket_lifetime=86400,
+                ticket_age_add=struct.unpack("I", os.urandom(4))[0],
+                ticket_nonce=b"",
+                ticket=os.urandom(64),
+                max_early_data_size=self._max_early_data,
+            )
+
+            # send message
+            push_new_session_ticket(output_buf, self._new_session_ticket)
+
+            # notify application
+            ticket = self._build_session_ticket(
+                self._new_session_ticket, self.handshake_extensions
+            )
+            self.new_session_ticket_cb(ticket)
+
         self._set_state(State.SERVER_POST_HANDSHAKE)
 
     def _setup_traffic_protection(
@@ -2157,13 +2249,18 @@ class Context:
         )
 
     def _set_peer_certificate(self, certificate: Certificate) -> None:
-        self._peer_certificate = x509.load_der_x509_certificate(
-            certificate.certificates[0][0]
-        )
-        self._peer_certificate_chain = [
-            x509.load_der_x509_certificate(certificate.certificates[i][0])
-            for i in range(1, len(certificate.certificates))
-        ]
+        # A certificate which cannot be parsed is corrupt, which calls for
+        # a bad_certificate alert (RFC 8446 section 6.2).
+        try:
+            self._peer_certificate = x509.load_der_x509_certificate(
+                certificate.certificates[0][0]
+            )
+            self._peer_certificate_chain = [
+                x509.load_der_x509_certificate(certificate.certificates[i][0])
+                for i in range(1, len(certificate.certificates))
+            ]
+        except ValueError as exc:
+            raise AlertBadCertificate("Certificate could not be parsed") from exc
 
     def _set_state(self, state: State) -> None:
         if self.__logger:
@@ -2173,12 +2270,11 @@ class Context:
     def _signature_algorithms_for_private_key(self) -> list[SignatureAlgorithm]:
         signature_algorithms: list[SignatureAlgorithm] = []
         if isinstance(self.certificate_private_key, rsa.RSAPrivateKey):
+            # RSA signatures in CertificateVerify must use RSASSA-PSS
+            # (RFC 8446 section 4.4.3).
             signature_algorithms = [
                 SignatureAlgorithm.RSA_PSS_RSAE_SHA256,
-                SignatureAlgorithm.RSA_PKCS1_SHA256,
                 SignatureAlgorithm.RSA_PSS_RSAE_SHA384,
-                SignatureAlgorithm.RSA_PKCS1_SHA384,
-                SignatureAlgorithm.RSA_PKCS1_SHA1,
             ]
         elif isinstance(
             self.certificate_private_key, ec.EllipticCurvePrivateKey

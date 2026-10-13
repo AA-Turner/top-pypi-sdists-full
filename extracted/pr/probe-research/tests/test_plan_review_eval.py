@@ -77,3 +77,12 @@ def test_each_arm_lists_the_skills_its_profile_ships(plan_review):
     daemon = plan_review.PROFILE_SKILLS[plan_review.agent_rules.Profile.DAEMON]
     assert "track-work" in agent and "track-work" not in daemon
     assert "plan-research-review" in agent and "plan-research-review" in daemon
+
+
+def test_every_arm_reads_a_skill_file_that_ships(plan_review):
+    """Each arm lists its profile's skills from the files that ship: the lean
+    plugin's moved to `agent-skills/` (2026-10-12), and a stale folder made
+    every daemon arm exit before its first judge call."""
+    for profile, names in plan_review.PROFILE_SKILLS.items():
+        for name in names:
+            assert plan_review._description(profile, name), (profile, name)

@@ -7,11 +7,12 @@ from schemathesis.core.error_feedback.parsers import PARSERS
 from schemathesis.core.error_feedback.parsers.extractors import (
     ClassificationResult,
     DictHandler,
-    float_or_none,
     format_handler,
     int_or_none,
-    location_for_method,
+    location_for_parameter,
+    number_or_none,
     required_handler,
+    split_field_path,
 )
 from schemathesis.core.error_feedback.store import (
     BoundDirection,
@@ -19,7 +20,6 @@ from schemathesis.core.error_feedback.store import (
     NumericBoundPayload,
     Observation,
     ObservationKind,
-    ParameterPath,
     PatternPayload,
     SizeBoundPayload,
     TypeMismatchPayload,
@@ -54,21 +54,7 @@ _COUNT_MAX = "756b1212-697c-468d-a9ad-50dd783bb169"  # Count::TOO_MANY_ERROR
 
 _URN_UUID_PREFIX = "urn:uuid:"
 
-_PROPERTY_SEGMENT = re.compile(r"([^.\[]+)|\[(\d+)\]")
 _PERL_REGEX = re.compile(r"^/(.+)/[a-zA-Z]*$")
-
-
-def _split_property_path(path: str) -> ParameterPath:
-    """`email` → ('email',); `user.email` → ('user','email'); `tags[0]` → ('tags', 0)."""
-    if not path:
-        return ()
-    segments: list[str | int] = []
-    for prop, index in _PROPERTY_SEGMENT.findall(path):
-        if prop:
-            segments.append(prop)
-        else:
-            segments.append(int(index))
-    return tuple(segments)
 
 
 def _extract_code(violation: dict) -> str | None:
@@ -102,7 +88,7 @@ def _size_handler(direction: BoundDirection) -> DictHandler:
 
 def _bound_handler(direction: BoundDirection, exclusive: bool) -> DictHandler:
     def handler(violation: dict) -> tuple[ClassificationResult, ...]:
-        bound = float_or_none(_params(violation).get("{{ compared_value }}"))
+        bound = number_or_none(_params(violation).get("{{ compared_value }}"))
         if bound is None:
             return ()
         return (
@@ -117,8 +103,8 @@ def _bound_handler(direction: BoundDirection, exclusive: bool) -> DictHandler:
 
 def _range_handler(violation: dict) -> tuple[ClassificationResult, ...]:
     params = _params(violation)
-    low = float_or_none(params.get("{{ min }}"))
-    high = float_or_none(params.get("{{ max }}"))
+    low = number_or_none(params.get("{{ min }}"))
+    high = number_or_none(params.get("{{ max }}"))
     if low is None or high is None:
         return ()
     return (
@@ -223,10 +209,9 @@ class SymfonyParser:
         violations = _extract_violations(body)
         if violations is None or not _has_symfony_signature(violations):
             return ()
-        location = location_for_method(operation.method)
         observations: list[Observation] = []
         for violation in violations:
-            path = _split_property_path(violation["propertyPath"])
+            path = split_field_path(violation["propertyPath"])
             if not path:
                 continue
             code = _extract_code(violation)
@@ -241,7 +226,7 @@ class SymfonyParser:
                 observations.append(
                     Observation(
                         operation_label=operation.label,
-                        location=location,
+                        location=location_for_parameter(operation, path, case),
                         parameter_path=path,
                         kind=kind,
                         raw_message=raw_message,

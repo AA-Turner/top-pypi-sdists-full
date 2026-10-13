@@ -18,8 +18,16 @@ def _body(name: str) -> str:
 def test_the_daemon_blurb_is_the_approved_text():
     assert agent_rules.DAEMON_POINTER_BODY == _body("agent-facing/managed-block.PROPOSED.md")
     # 1,131 approved 09-27; the `probe session inline` line (10-05) out again 10-06;
-    # 1,365 with the PLAN FIRST section (10-11).
-    assert len(agent_rules.DAEMON_POINTER_BODY) < 1400
+    # 1,365 with the PLAN FIRST section (10-11); 1,624 with PAPERS (10-12).
+    assert len(agent_rules.DAEMON_POINTER_BODY) < 1650
+
+
+def test_the_paper_search_hold_is_the_approved_text():
+    from probe.sdk import session_marker
+
+    assert session_marker.PAPER_SEARCH_HOLD == _body("agent-facing/paper-search-hold.NEW.md")
+    # Claude Code previews hook text past ~2 KB; the hold must arrive whole.
+    assert len(session_marker.PAPER_SEARCH_HOLD) < 2000
 
 
 def test_the_daemon_block_carries_its_profile_and_a_refresh_keeps_it(tmp_path):
@@ -133,6 +141,27 @@ def test_directed_never_moves_the_researchers_switch(tmp_path, command, matched)
     assert _guard(tmp_path, command) == session_marker.RESEARCHER_SWITCH_DENY.format(matched=matched)
     args = command.split()[1:]
     assert session_marker.daemon_profile_allows(args)[0] is False
+
+
+@pytest.mark.parametrize("state", ["daemon", "read-only"])
+def test_the_agent_runs_the_paper_search_itself(tmp_path, state):
+    """`probe paper find` reads the research literature, an outside index: the
+    one read the daemon profile leaves to the agent (Richard 2026-10-12)."""
+    assert _guard(tmp_path, 'probe paper find "why GRPO collapses at zero variance"', state=state) is None
+    assert _guard(tmp_path, "probe paper find --mode read --paper-id arxiv:2610.02140", state=state) is None
+
+
+def test_off_refuses_the_paper_search_too(tmp_path):
+    """`off` is decided before the daemon profile's allowlist: no Probe call at all."""
+    refusal = _guard(tmp_path, 'probe paper find "why GRPO collapses at zero variance"', state="off")
+    assert refusal is not None and refusal.startswith("Probe is OFF for this conversation")
+
+
+def test_the_paper_search_opens_no_other_read(tmp_path):
+    assert _guard(tmp_path, "probe paper list --project p1") == session_marker.DAEMON_PROFILE_DENY.format(
+        matched="probe paper list")
+    assert _guard(tmp_path, "probe mcp call find_papers '{}'") == session_marker.DAEMON_PROFILE_DENY.format(
+        matched="probe mcp")
 
 
 def test_directed_past_a_double_dash_is_not_the_researchers(tmp_path):

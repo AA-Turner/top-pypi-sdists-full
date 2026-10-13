@@ -122,6 +122,14 @@ test_invalid_params (void)
   DP_CHECK (dp_ratesync_create (4.0, RATESYNC_PULSE_RRC, 1.5, 8, 2, 1024, 0.01,
                                 0.707, RATESYNC_TED_GARDNER)
             == NULL); /* beta > 1 */
+  /* The loop filter's own domain: the private check this replaced took an
+     infinite bn or zeta (doppler#2103). */
+  DP_CHECK (dp_ratesync_create (4.0, RATESYNC_PULSE_RRC, 0.35, 8, 2, 1024,
+                                INFINITY, 0.707, RATESYNC_TED_GARDNER)
+            == NULL);
+  DP_CHECK (dp_ratesync_create (4.0, RATESYNC_PULSE_RRC, 0.35, 8, 2, 1024,
+                                0.01, INFINITY, RATESYNC_TED_GARDNER)
+            == NULL);
   DP_CHECK (dp_ratesync_create (4.0, RATESYNC_PULSE_RRC, -0.1, 8, 2, 1024,
                                 0.01, 0.707, RATESYNC_TED_GARDNER)
             == NULL);
@@ -250,8 +258,8 @@ _lock_sweep (double sps, double evm_max_db, const char *label)
   DP_CHECK (locked == 8);
   DP_CHECK (worst < evm_max_db);
   if (locked != 8 || worst >= evm_max_db)
-    fprintf (stderr, "  %s: %d/8 locked, worst EVM %.1f dB (limit %.1f)\n",
-             label, locked, worst, evm_max_db);
+    DP_TEST_ERR ("  %s: %d/8 locked, worst EVM %.1f dB (limit %.1f)\n", label,
+                 locked, worst, evm_max_db);
 }
 
 static void
@@ -298,8 +306,8 @@ test_tracks_a_clock_offset (void)
           double est = dp_ratesync_get_rate (s);
           DP_CHECK (fabs (est - actual[i]) < 0.01);
           if (!(fabs (est - actual[i]) < 0.01))
-            fprintf (stderr, "  clock offset: true %.4f, est %.4f\n",
-                     actual[i], est);
+            DP_TEST_ERR ("  clock offset: true %.4f, est %.4f\n", actual[i],
+                         est);
           dp_ratesync_destroy (s);
         }
       free (x);
@@ -576,9 +584,9 @@ test_two_outputs_per_input (void)
             {
               DP_CHECK (doubles > 0); /* the buffer is load-bearing here */
               if (!doubles)
-                fprintf (stderr,
-                         "  sps=%g: terminal rate %.4f never emitted two\n",
-                         sps[i], s->loop.term_rate);
+                DP_TEST_ERR (
+                    "  sps=%g: terminal rate %.4f never emitted two\n", sps[i],
+                    s->loop.term_rate);
             }
           else
             DP_CHECK (doubles == 0);
@@ -628,8 +636,8 @@ test_dttl_detector (void)
           DP_CHECK (dp_ratesync_get_lock_stat (d) > 0.55);
           DP_CHECK (ev < -35.0);
           if (!(dp_ratesync_get_lock_stat (d) > 0.55) || !(ev < -35.0))
-            fprintf (stderr, "  DTTL sps=%g: lock %.3f EVM %.1f dB\n", sps[i],
-                     dp_ratesync_get_lock_stat (d), ev);
+            DP_TEST_ERR ("  DTTL sps=%g: lock %.3f EVM %.1f dB\n", sps[i],
+                         dp_ratesync_get_lock_stat (d), ev);
           /* The two detectors have different slopes against the same pulse,
              so the construct-time reciprocal must differ between them. */
           d_scale = d->loop.ted_scale;
@@ -674,10 +682,10 @@ test_dttl_detector (void)
             }
           DP_CHECK (differed);
           if (!differed)
-            fprintf (stderr,
-                     "  sps=%g: GARDNER and DTTL produced the SAME error — "
-                     "the take_output dispatch is not reaching both bodies\n",
-                     sps[i]);
+            DP_TEST_ERR (
+                "  sps=%g: GARDNER and DTTL produced the SAME error — "
+                "the take_output dispatch is not reaching both bodies\n",
+                sps[i]);
         }
       dp_ratesync_destroy (d);
       dp_ratesync_destroy (g);
@@ -821,10 +829,10 @@ test_ctrl_scale_is_the_terminal_rate (void)
      (lock_stat ~0.59 here) while demodulating 18 dB worse. `locked` is
      therefore not a check on this misconfiguration — the EVM is. */
   if (!(evm[1] > -25.0) || !(evm[1] - evm[0] > 10.0))
-    fprintf (stderr,
-             "  ctrl scale: terminal lock %.3f EVM %.1f; cascade lock %.3f "
-             "EVM %.1f\n",
-             lock[0], evm[0], lock[1], evm[1]);
+    DP_TEST_ERR (
+        "  ctrl scale: terminal lock %.3f EVM %.1f; cascade lock %.3f "
+        "EVM %.1f\n",
+        lock[0], evm[0], lock[1], evm[1]);
   free (x);
   free (y);
 }
@@ -869,8 +877,8 @@ test_clipped_reports_overdrive (void)
             int want = over && has_cic[i];
             DP_CHECK (c == want);
             if (c != want)
-              fprintf (stderr, "  clipped: sps=%g over=%d got %d want %d\n",
-                       sps[i], over, c, want);
+              DP_TEST_ERR ("  clipped: sps=%g over=%d got %d want %d\n",
+                           sps[i], over, c, want);
             /* reset() clears the flag along with everything else. */
             if (c)
               {
@@ -933,8 +941,7 @@ test_iandd_needs_m4 (void)
     }
   DP_CHECK (lock[4] - lock[2] > 0.4); /* the gap is the reason for the rule */
   if (!(lock[4] - lock[2] > 0.4))
-    fprintf (stderr, "  IANDD: lock_stat m=2 %.3f, m=4 %.3f\n", lock[2],
-             lock[4]);
+    DP_TEST_ERR ("  IANDD: lock_stat m=2 %.3f, m=4 %.3f\n", lock[2], lock[4]);
 }
 
 /* ── §15 — the loop's own state triplet ──────────────────────────────────
@@ -1052,8 +1059,8 @@ _loop_state_roundtrip_at_parity (int parity)
           if (ka != kb
               || memcmp (a + na, b + na, (ka - na) * sizeof (float _Complex))
                      != 0)
-            fprintf (stderr, "  loop blob: parity %d resumed %zu vs %zu\n",
-                     parity, ka - na, kb - na);
+            DP_TEST_ERR ("  loop blob: parity %d resumed %zu vs %zu\n", parity,
+                         ka - na, kb - na);
 
           /* Its own envelope rejects, independently of the parent's. */
           ((char *)blob)[0] ^= (char)0xFF;
@@ -1161,6 +1168,13 @@ test_configure_semantics (void)
       DP_CHECK (dp_ratesync_get_bn (s) == 0.002);
       dp_ratesync_configure (s, 0.002, 0.0);
       DP_CHECK (dp_ratesync_get_bn (s) == 0.002);
+      /* So is an infinite bn or zeta, which the private check this call
+         used to keep took (doppler#2103): nothing is written. */
+      const double kp = s->loop.lf.kp, ki = s->loop.lf.ki;
+      dp_ratesync_configure (s, INFINITY, 0.707);
+      dp_ratesync_configure (s, 0.002, INFINITY);
+      DP_CHECK (dp_ratesync_get_bn (s) == 0.002 && s->loop.zeta == 0.707);
+      DP_CHECK (s->loop.lf.kp == kp && s->loop.lf.ki == ki);
 
       /* set_bn is the property face of the same call. */
       dp_ratesync_set_bn (s, 0.004);

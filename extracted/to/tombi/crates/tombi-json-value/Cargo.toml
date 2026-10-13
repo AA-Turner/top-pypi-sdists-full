@@ -1,0 +1,21 @@
+[package]
+name = "tombi-json-value"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true, optional = true }
+tombi-hashmap = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+
+[features]
+default = ["serde"]
+serde = ["dep:serde"]
+
+[lints]
+workspace = true

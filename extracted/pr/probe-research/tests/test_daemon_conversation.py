@@ -20,7 +20,7 @@ import pytest
 pytest.importorskip("pydantic_ai")
 pytest.importorskip("pydantic_ai_harness")
 
-from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, ToolCallPart  # noqa: E402
+from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, ThinkingPart, ToolCallPart  # noqa: E402
 from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
 from probe.daemon import agent as agent_mod  # noqa: E402
@@ -251,6 +251,71 @@ def test_a_saved_history_the_model_refuses_is_dropped_and_the_retry_starts_fresh
     assert asyncio.run(w.run_bite("prompt")) is True
     assert len(retry.seen[0][0]) == 1 and FRESH in _text(retry.seen[0][0][0]), "rebuilt from disk, no history"
     assert "another prompt" in _text(retry.seen[0][0][0]) and w.store.pending() == []
+
+
+def _thinking_out(messages, info):
+    """A response cut off at its token limit with only its thinking in it: Pydantic
+    AI itself raises "Model token limit ... exceeded before any response"."""
+    return ModelResponse(parts=[ThinkingPart("weighing it " * 50)], finish_reason="length")
+
+
+def test_an_answer_the_token_limit_ate_ends_the_conversation_and_is_cut_short_then_waits(tmp_path, monkeypatch):
+    """Conversation mode (the default): the history it continued may be what sets
+    the thinking off, so the conversation ends and the retry is rebuilt from disk;
+    the bite is cut short (smaller next time) after a wait -- not a failure to
+    defer -- and no "Daemon bug" ping. One model throughout, so the fresh start
+    comes from the ended conversation, not a changed fingerprint."""
+    pinged = []
+    monkeypatch.setattr(worker_mod.alerts, "report_bite_failure", lambda exc, **kw: pinged.append(exc))
+    mode = {"think_out": False}
+    first, retry = Script([("done", "first")]), Script([("done", "recorded")])
+    current = [first]
+
+    def fn(messages, info):
+        return _thinking_out(messages, info) if mode["think_out"] else current[0](messages, info)
+
+    w = _worker(tmp_path, model=FunctionModel(fn, model_name="m"), replay=Replay(), mode="conversation",
+                monkeypatch=monkeypatch)
+    w.read_new()
+    assert asyncio.run(w.run_bite("turn end")) is True
+    saved = _live(w)["id"]
+    _append_turn(w.session.transcript, "another prompt")
+    w.read_new()
+    mode["think_out"] = True
+    assert asyncio.run(w.run_bite("prompt")) is False
+    assert w.store.recent_bites(1)[0]["outcome"] == "cut short"
+    assert w.failures == 0 and w.no_answers == 1 and not pinged and w.next_attempt_at > w.clock()
+    row = w.store.db.execute("SELECT ended, end_reason FROM conversations WHERE id = ?", (saved,)).fetchone()
+    assert row["ended"] is not None and "answered nothing" in row["end_reason"]
+    mode["think_out"], current[0] = False, retry
+    assert asyncio.run(w.run_bite("prompt")) is True
+    assert len(retry.seen[0][0]) == 1 and FRESH in _text(retry.seen[0][0][0]), "rebuilt from disk, no history"
+    assert w.no_answers == 0, "a round that answered ends the run of no-answers"
+
+
+def test_a_continued_run_that_answers_nothing_is_dropped_out_loud(tmp_path, monkeypatch):
+    """A paused run's events are covered already, so a carry-on bite that answers
+    nothing has nothing to shrink: what the run had left is dropped with a notice
+    and a logbook line, never silently."""
+    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 1)
+    mode = {"think_out": False}
+    first = Script([("shell", f"probe run tag {RUN} first")] + [("shell", f"ls never-{i}") for i in range(5)])
+
+    def fn(messages, info):
+        return _thinking_out(messages, info) if mode["think_out"] else first(messages, info)
+
+    w = _worker(tmp_path, model=FunctionModel(fn, model_name="m"), replay=Replay(), mode="conversation",
+                monkeypatch=monkeypatch)
+    w.read_new()
+    assert asyncio.run(w.run_bite("turn end")) is True
+    assert w.store.fact(worker_mod.CARRY_ON) is True and w.store.pending() == []
+    mode["think_out"] = True
+    assert asyncio.run(w.run_bite(w.due())) is True
+    assert w.store.recent_bites(1)[0]["outcome"] == "cut short: skipped"
+    [notice] = [ev.text for ev in w.store.pending() if ev.kind == Kind.META]
+    assert "continued run stopped" in notice and "answered nothing" in notice
+    assert not w.store.fact(worker_mod.CARRY_ON), "nothing is left to carry on"
+    assert any("continued run" in line for line in w.pending_lines())
 
 
 @pytest.mark.parametrize("changed", ["session", "job description", "model", "pydantic ai"])
@@ -1285,3 +1350,148 @@ def test_the_reader_starts_fresh_over_the_message_count_or_on_the_routes_400():
     refused = ModelHTTPError(400, "default", {"message": "invalid request: messages: List should have at most "
                                                           "2000 items after validation, not 2003"})
     assert "400" in reader_lane._too_big(Run(history[-10:]), 120_000, refused)
+
+
+# ---------------------------------------------------------------------------
+# The model route's prompt ceiling (daemon cost round 4, A): a continued
+# conversation it refuses starts fresh at once, quietly; and ending a
+# conversation while a paused run waits puts that run's events back.
+# ---------------------------------------------------------------------------
+
+
+def _too_large():
+    from pydantic_ai.exceptions import ModelHTTPError
+
+    return ModelHTTPError(422, "default", body={"error": {"code": "prompt_too_large", "message":
+                                                          "the prompt is about 271000 tokens, over this route's "
+                                                          "ceiling of 260000: start the conversation fresh"}})
+
+
+def test_a_conversation_over_the_routes_ceiling_starts_fresh_at_once(tmp_path, monkeypatch):
+    pinged = []
+    monkeypatch.setattr(worker_mod.alerts, "report", lambda *a, **k: pinged.append(a) or True)
+    w = _worker(tmp_path, model=FunctionModel(Script([("done", "first")]), model_name="m"), replay=Replay(),
+                mode="conversation", monkeypatch=monkeypatch)
+    w.read_new()
+    assert asyncio.run(w.run_bite("turn end")) is True
+    saved = _live(w)["id"]
+    _append_turn(w.session.transcript, "another prompt")
+    w.read_new()
+
+    def over(messages, info):
+        if len(messages) > 1:
+            raise _too_large()
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {"summary": "fresh"})])
+
+    w._model = FunctionModel(over, model_name="m")
+    assert asyncio.run(w.run_bite("prompt")) is False
+    row = w.store.db.execute("SELECT ended, end_reason FROM conversations WHERE id = ?", (saved,)).fetchone()
+    assert row["ended"] is not None and "ceiling" in row["end_reason"]
+    assert w.store.recent_bites(1)[0]["outcome"] == "over the ceiling: fresh"
+    assert w.failures == 0 and w.next_attempt_at == 0.0 and pinged == [], "not a failure, no ping, no wait"
+    retry = Script([("done", "recorded")])
+    w._model = FunctionModel(retry)
+    assert asyncio.run(w.run_bite(w.due())) is True
+    assert FRESH in _text(retry.seen[0][0][0]) and "another prompt" in _text(retry.seen[0][0][0])
+
+
+def test_ending_a_conversation_while_a_paused_run_waits_requeues_its_events(tmp_path, monkeypatch):
+    """A paused run's events were covered when it paused. If its conversation then
+    ends (over the ceiling here; a refused history or a loop alike), the fresh
+    start must still record them."""
+    monkeypatch.setattr(worker_mod, "ROUNDS_BEFORE_YIELD", 2)
+    first = Script([("shell", "ls PAUSED-RUN"), ("shell", "ls again")] + [("shell", f"ls {i}") for i in range(4)])
+    # One model name throughout: another would end the conversation by its fingerprint first.
+    w = _worker(tmp_path, model=FunctionModel(first, model_name="m"), replay=Replay(), mode="conversation",
+                monkeypatch=monkeypatch)
+    w.read_new()
+    shown = [ev.seq for ev in w.store.pending()]
+    assert asyncio.run(w.run_bite("turn end")) is True
+    assert w.store.recent_bites(1)[0]["outcome"] == "paused" and w.store.pending() == []
+
+    def over(messages, info):
+        raise _too_large()
+
+    w._model = FunctionModel(over, model_name="m")
+    assert asyncio.run(w.run_bite(w.due())) is False
+    assert w.store.recent_bites(1)[0]["outcome"] == "over the ceiling: fresh"
+    assert not w.store.fact(worker_mod.CARRY_ON)
+    assert [ev.seq for ev in w.store.pending()] == shown, "the paused run's events are back on the queue"
+
+
+def test_only_the_newest_paused_run_is_requeued(tmp_path, monkeypatch):
+    """Review 10-13: an earlier paused run was carried on by the next one; a fresh
+    start over every one of them would repeat all their writes."""
+    from probe.daemon import store as store_mod
+
+    w = _worker(tmp_path, model=FunctionModel(Script([("done", "x")]), model_name="m"), replay=Replay(),
+                mode="conversation", monkeypatch=monkeypatch)
+    w.read_new()
+    seqs = [ev.seq for ev in w.store.pending()]
+    older, newer = w.store.open_bite("turn end", seqs[0], seqs[0]), w.store.open_bite("carry on", seqs[1], seqs[1])
+    with w.store.tx():
+        w.store.mark_covered(older, seqs[0])
+        w.store.close_bite(older, outcome=store_mod.BITE_PAUSED)
+        w.store.mark_covered(newer, seqs[1])
+        w.store.close_bite(newer, outcome=store_mod.BITE_PAUSED)
+        assert w.store.requeue_paused() == 1
+    assert [ev.seq for ev in w.store.pending()][0] == seqs[1], "the newer run's event only"
+
+
+def test_a_fresh_bite_over_the_routes_ceiling_is_cut_short_then_skipped(tmp_path, monkeypatch):
+    """No conversation to start fresh from: the bite is the problem. It is cut
+    short like any other (half its events next), and skipped with a notice after
+    CUT_SHORTS_BEFORE_SKIP -- never retried forever."""
+    def over(messages, info):
+        raise _too_large()
+
+    w = _worker(tmp_path, model=FunctionModel(over, model_name="m"), replay=Replay(), mode="conversation",
+                monkeypatch=monkeypatch)
+    w.read_new()
+    outcomes = []
+    for _ in range(4):
+        w.next_attempt_at = 0.0
+        trigger = w.due()
+        if trigger is None:
+            break
+        asyncio.run(w.run_bite(trigger))
+        outcomes.append(w.store.recent_bites(1)[0]["outcome"])
+    assert outcomes[0] == "cut short" and "cut short: skipped" in outcomes, outcomes
+    assert w.failures == 0
+
+
+def test_a_run_starts_the_writers_gap_and_says_whether_it_could_wait(tmp_path, monkeypatch):
+    """The gap counts from the last run's start (`Worker.last_run_at`, set by
+    `run_bite`), and the run's trace says it was deferrable (T-E0)."""
+    now = [1000.0]
+    monkeypatch.setenv("PROBE_DAEMON_WRITER_GAP_S", "300")
+    w = _worker(tmp_path, model=FunctionModel(Script([("done", "first"), ("done", "second")]), model_name="m"),
+                replay=Replay(), clock=lambda: now[0], mode="conversation", monkeypatch=monkeypatch)
+    w.read_new()
+    assert w.due() == "turn end", "no run yet: no gap"
+    assert asyncio.run(w.run_bite("turn end")) is True
+    _append_turn(w.session.transcript, "another prompt")
+    w.read_new()
+    assert w.due() is None, "a turn end within 300 s of the last run's start waits"
+    now[0] += 300
+    assert w.due() == "turn end"
+    starts = [json.loads(line) for line in w.trace.path.read_text().splitlines() if '"run_start"' in line]
+    assert starts[0]["deferrable"] is True
+
+
+def test_an_empty_carry_on_that_paused_requeues_the_run_it_carried_on(tmp_path, monkeypatch):
+    """Review 10-13 (second pass): a carry-on with no new events that paused
+    again covered none; the events to put back are the run before it."""
+    from probe.daemon import store as store_mod
+
+    w = _worker(tmp_path, model=FunctionModel(Script([("done", "x")]), model_name="m"), replay=Replay(),
+                mode="conversation", monkeypatch=monkeypatch)
+    w.read_new()
+    seq = w.store.pending()[0].seq
+    worked, empty = w.store.open_bite("turn end", seq, seq), w.store.open_bite("carry on", 0, 0)
+    with w.store.tx():
+        w.store.mark_covered(worked, seq)
+        w.store.close_bite(worked, outcome=store_mod.BITE_PAUSED)
+        w.store.close_bite(empty, outcome=store_mod.BITE_PAUSED)
+        assert w.store.requeue_paused() == 1
+    assert w.store.pending()[0].seq == seq

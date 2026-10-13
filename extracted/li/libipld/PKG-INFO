@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: libipld
-Version: 3.4.1
+Version: 3.5.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
@@ -18,17 +18,20 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Pre-processors
 License-File: LICENSE
 Summary: Python binding to the Rust IPLD library
-Keywords: library,lib,ipld,cid,multibase,multihash,dag,cbor,dag-cbor
+Keywords: ipld,cid,car,multibase,multihash,dag,cbor,dag-cbor,atproto,bluesky,rust
 Author-email: "Ilya (Marshal)" <ilya@marshal.dev>
 License-Expression: MIT
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Author, https://github.com/MarshalX
+Project-URL: Changelog, https://github.com/MarshalX/python-libipld/blob/main/CHANGES.md
 Project-URL: Homepage, https://github.com/MarshalX/python-libipld
 Project-URL: Repository, https://github.com/MarshalX/python-libipld
 Project-URL: Tracker, https://github.com/MarshalX/python-libipld/issues
@@ -45,7 +48,7 @@ import libipld
 # CID
 print(libipld.decode_cid('bafyreig7jbijxpn4lfhvnvyuwf5u5jyhd7begxwyiqe7ingwxycjdqjjoa'))
 # Output: {'hash': {'size': 32, 'code': 18, 'digest': b'\xdfHP\x9b\xbd\xbcYOV\xd7\x14\xb1{N\xa7\x07\x1f\xc2C^\xd8D\t\xf44\xd6\xbe\x04\x91\xc1)p'}, 'version': 1, 'codec': 113}
-print(libipld.encode_cid(b'\x01q\x12 \xb6\x81\x1a\x1d\x7f\x8c\x17\x91\xdam\x1bO\x13m\xc0\xe2&y\xea\xfe\xaaX\xd6M~/\xaa\xd5\x89\x0e\x9d\x9c'))
+print(libipld.encode_cid(bytes.fromhex('01711220b6811a1d7f8c1791da6d1b4f136dc0e22679eafeaa58d64d7e2faad5890e9d9c')))
 # Output: bafyreifwqenb274mc6i5u3i3j4jw3qhcez46v7vkldle27rpvlkysdu5tq
 
 # DAG-CBOR
@@ -64,7 +67,7 @@ print(libipld.encode_multibase('u', b'yes mani !'))
 ### Features
 
 #### 🔗 CID (Content Identifier) Operations
-- **`decode_cid(data: str | bytes) -> dict`** - Decode CIDs from string representation (e.g., `'bafy...'`) or raw bytes into structured data containing version, codec, and hash information
+- **`decode_cid(data: str | bytes) -> dict[str, Any]`** - Decode CIDs from string representation (e.g., `'bafy...'`) or raw bytes into structured data containing version, codec, and hash information
 - **`encode_cid(data: str | bytes) -> str`** - Encode CID raw bytes to string representation, or return string CIDs as-is
 
 #### 📦 DAG-CBOR (Directed Acyclic Graph CBOR) Operations  
@@ -74,14 +77,37 @@ print(libipld.encode_multibase('u', b'yes mani !'))
 
 #### 🌐 Multibase Operations
 - **`decode_multibase(data: str) -> tuple[str, bytes]`** - Decode multibase-encoded strings, returning the base identifier and decoded data
-- **`encode_multibase(code: str, data: str | bytes) -> str`** - Encode data using specified multibase encoding (e.g., base58btc with code `'u'`)
+- **`encode_multibase(code: str, data: str | bytes) -> str`** - Encode data using specified multibase encoding (e.g. `'u'` for base64url)
 
 #### 🚗 CAR (Content Addressable Archives) Operations
-- **`decode_car(data: bytes) -> tuple[dict, dict[bytes, dict]]`** - Decode CAR files into header metadata and a mapping of CID bytes to block data
+- **`decode_car(data: bytes) -> tuple[dict[str, Any], dict[bytes, dict[str, Any]]]`** - Decode CAR files into header metadata and a mapping of CID bytes to block data
+
+### Error handling
+
+Every function raises `ValueError` for input it cannot decode or encode. The message starts with the failing operation (for example `Failed to read CAR block.`) followed by the reason.
+
+The DAG-CBOR and CAR functions additionally raise `RecursionError` when the data is nested deeper than `sys.getrecursionlimit()`.
+
+Inputs are validated strictly against the specifications. There is no option to skip validation or accept partially broken data. Data produced by third-party encoders is not always valid, so consumers of untrusted input (for example the AT Protocol firehose) should be prepared to catch `ValueError` per message and skip it.
+
+```python
+import libipld
+
+try:
+    header, blocks = libipld.decode_car(data)
+except ValueError as e:
+    print(f'skipping malformed CAR: {e}')
+except RecursionError:
+    print('skipping CAR with excessively nested block')
+```
+
+Passing a value of the wrong type, such as a `str` where `bytes` is expected, raises `TypeError`.
 
 ### Requirements
 
 - Python 3.8 or higher.
+
+Prebuilt wheels are published for CPython 3.8-3.15, free-threaded CPython 3.14t and 3.15t, and PyPy 3.11.
 
 ### Installing
 
@@ -95,7 +121,7 @@ pip install -U libipld
 
 Benchmarks against [`cbrrr`](https://github.com/DavidBuchanan314/dag-cbrrr) (C), [`py-ipld-dag`](https://github.com/ipld/py-ipld-dag) (Python wrapper over Rust-backed [`cbor2`](https://github.com/agronholm/cbor2)) and [`dag_cbor`](https://github.com/hashberg-io/dag-cbor) (pure Python), measured on the four classic [nativejson-benchmark](https://github.com/miloyip/nativejson-benchmark) fixtures (round-tripped through DAG-CBOR). Bars are operations/second relative to pure-Python `dag_cbor`; higher is better.
 
-Measured on Apple M1, macOS 15 (Darwin 24.6.0), CPython 3.14.0, `libipld` installed from PyPI (PGO + LTO wheel).
+Measured on Apple M1, macOS 27, CPython 3.14.0, `libipld` installed from PyPI (PGO + LTO wheel).
 
 #### Deserialization
 
@@ -112,6 +138,10 @@ cd benchmark && ./run.sh
 ```
 
 See [`benchmark/README.md`](./benchmark/README.md) for details.
+
+### Changelog
+
+See [`CHANGES.md`](./CHANGES.md) for release notes.
 
 ### Contributing
 

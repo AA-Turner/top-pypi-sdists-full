@@ -6,10 +6,12 @@ event-hook on every provider SDK's underlying HTTP client.
 
 Design contract
 ---------------
-1. **Zero impact when off.** The hook's fast path is a single ContextVar
-   read + a getattr + a bool check. If ``AppContext.snapshot`` is False
-   (which is >99% of all calls in production) the hook returns immediately.
-   No allocations, no body parsing, no emitter touch.
+1. **On for every streamed run (AI Watch, 2026-10-11).** Every run with an
+   emitter streams its exact outbound request so the "Watch AI" window can
+   show what went in before the answer arrives. ``AppContext.snapshot is
+   False`` opts a request out (one ContextVar read + a getattr, then return);
+   bodies over ``AI_WATCH_FULL_BODY_MAX_BYTES`` stream a preview unless the
+   request asked for ``snapshot=True``.
 
 2. **Wire fidelity.** The hook receives ``httpx.Request`` objects *after*
    the provider SDK has serialized them, so the captured bytes are exactly
@@ -175,9 +177,21 @@ def _is_snapshot_enabled() -> tuple[bool, Any]:
     ctx = try_get_app_context()
     if ctx is None:
         return False, None
-    if not getattr(ctx, "snapshot", False):
+    # AI WATCH (Arman, 2026-10-11: "the exact request and response must stream
+    # to the ui so I can watch them, regardless of where they happen"). Every
+    # streamed run carries its exact outbound request unless the request opted
+    # out with ``snapshot=False``. The default (None) emission is size-capped
+    # below; an explicit True keeps the full body.
+    if getattr(ctx, "snapshot", None) is False:
         return False, ctx
     return True, ctx
+
+
+#: Largest request body (bytes) the default AI Watch emission streams whole.
+#: Above it the event carries the first ``AI_WATCH_PREVIEW_BYTES`` as
+#: ``body_raw`` and the full request is read from ``chat.request_snapshot``.
+AI_WATCH_FULL_BODY_MAX_BYTES = 256 * 1024
+AI_WATCH_PREVIEW_BYTES = 64 * 1024
 
 
 async def _outbound_request_hook(request: httpx.Request) -> None:
@@ -188,6 +202,18 @@ async def _outbound_request_hook(request: httpx.Request) -> None:
     was constructed with ``make_capture_http_client()``. Keep the cold
     path tiny.
     """
+    # CAPTURE MODE (request_capture.py): the serialized request stops here,
+    # unsent, and travels back to the caller. One ContextVar read when off.
+    from matrx_ai.providers.request_capture import capture_wire_request, is_capturing
+
+    if is_capturing():
+        capture_wire_request(
+            method=request.method,
+            url=str(request.url),
+            headers=request.headers,
+            body=request.content or b"",
+        )
+
     enabled, ctx = _is_snapshot_enabled()
     if not enabled:
         return
@@ -201,7 +227,13 @@ async def _outbound_request_hook(request: httpx.Request) -> None:
         body_bytes: bytes = request.content or b""
         body_obj: dict[str, Any] | None = None
         body_raw: str | None = None
-        if body_bytes:
+        oversized_default = (
+            getattr(ctx, "snapshot", None) is not True
+            and len(body_bytes) > AI_WATCH_FULL_BODY_MAX_BYTES
+        )
+        if oversized_default:
+            body_raw = body_bytes[:AI_WATCH_PREVIEW_BYTES].decode("utf-8", errors="replace")
+        elif body_bytes:
             try:
                 parsed = json.loads(body_bytes)
                 if isinstance(parsed, dict):
@@ -396,7 +428,7 @@ async def emit_explicit_context_analysis(
     Used by SDKs that don't use ``httpx`` (or where we can't inject the
     capture client) — currently ElevenLabs and the Google ``genai`` client
     when its httpx transport isn't reachable. Same gating semantics as the
-    hook: silent no-op unless ``AppContext.snapshot`` is True.
+    hook: emits unless ``AppContext.snapshot`` is False.
 
     Provider call sites should still call ``set_call_meta(...)`` first so
     iteration / model / streaming flags are recorded consistently.

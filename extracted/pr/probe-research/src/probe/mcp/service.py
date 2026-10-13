@@ -964,6 +964,11 @@ class _ViewData:
     #: are one route page read from `_Req.after`, and the next cursor names the
     #: last row sent instead of an offset into a re-read from the first row.
     resume_key: str | None = None
+    #: The route cursor of the last row FETCHED, before anything filtered rows
+    #: out (the reader's session-work exclusion). When filtering empties a page
+    #: the walk resumes past it; resuming from where the page began would ask
+    #: the route for the same rows forever.
+    resume_fetched: str | None = None
 
 
 # (entity kind, view) -> builder method. Explicit and greppable: this table IS the
@@ -1064,6 +1069,41 @@ def _card_text(out: dict, entity: dict, key: str, limit: int) -> None:
         out[f"{key}_truncated"] = True
 
 
+#: Where a fork's inherited runs and files are read, on its card. A hint
+#: rather than a line in the tool description: that description is at the
+#: client's 2,048-char cap, and this costs nothing on an experiment that is
+#: no fork.
+_READ_INHERITED_HINT = 'view="inherited"; view_options={"runs": true} for its runs'
+
+
+def _card_fork(out: dict, entity: dict) -> None:
+    """An experiment's fork facts, each only when it says something, so a card
+    with no fork either way is the card it always was.
+
+    `forked_from` is the source the caller can see. `read_inherited` keys on
+    `inherits`, NOT on `forked_from`: a fork whose source is in the trash has
+    no `forked_from` and still reads through it (CONTRACT.md, Forks). A source
+    read without `inherits` (an API older than it) still gets the hint.
+    `fork_count` stands alone: a source with forks is no fork itself."""
+    source = entity.get("forked_from")
+    if isinstance(source, dict):
+        link = {
+            key: source[key]
+            for key in ("id", "slug", "name", "forked_at")
+            if source.get(key) is not None
+        }
+        name = link.get("name")
+        if isinstance(name, str) and len(name) > _CARD_TEXT_CHARS:
+            link["name"] = name[:_CARD_TEXT_CHARS]
+            link["name_truncated"] = True
+        out["forked_from"] = link
+    count = entity.get("fork_count")
+    if isinstance(count, int) and not isinstance(count, bool) and count > 0:
+        out["fork_count"] = count
+    if entity.get("inherits") is True or isinstance(source, dict):
+        out["read_inherited"] = _READ_INHERITED_HINT
+
+
 def _card_summary(value: Any) -> tuple[Any, bool]:
     """Keep supplied headline values; never synthesize results or recurse into metadata."""
     if isinstance(value, str):
@@ -1108,6 +1148,8 @@ def _entity_projection(kind: str, entity: dict, *, card: bool, document: bool = 
     if not card:
         return out
     out.update({key: entity[key] for key in _CARD_FIELDS[kind] if key in entity})
+    if kind == EntityType.EXPERIMENT:
+        _card_fork(out, entity)
     _card_text(out, entity, "description", _CARD_DESCRIPTION_CHARS)
     _card_text(out, entity, "question", _CARD_DESCRIPTION_CHARS)
     if kind == EntityType.ARTIFACT:
@@ -1363,6 +1405,9 @@ _VIEWS: dict[tuple[str, str], str] = {
     # call on the cheapest read (the sub-notes N+1 rule); `available_views`
     # on the card already advertises `code`, which is the discovery door.
     (EntityType.EXPERIMENT, View.CODE): "_view_experiment_code",
+    # A fork's source runs and their files, read live through its link. The
+    # card's `read_inherited` hint is the door (only forks carry it).
+    (EntityType.EXPERIMENT, View.INHERITED): "_view_experiment_inherited",
     (EntityType.PROJECT, View.CARD): "_view_project_card",
     (EntityType.PROJECT, View.NOTES): "_view_project_notes",
     (EntityType.PROJECT, View.SUMMARY): "_view_project_summary",
@@ -1504,6 +1549,9 @@ _VIEW_OPTIONS: dict[tuple[str, str], set[str]] = {
     # REQUIRED there (`Query(...)`), so the builder refuses its absence in the
     # caller's words rather than relaying a 422 about a query field.
     (EntityType.RUN, View.DIFF): {"trial", "path_prefix"},
+    # `runs` picks the route's `kind=runs` (the source runs) over its default
+    # `kind=files` (those runs' files) -- the route's own parameter.
+    (EntityType.EXPERIMENT, View.INHERITED): {"runs"},
 }
 _VIEW_OPTIONS.update(
     {(kind, View.RECORD): {"field"} for kind, view in _VIEWS if view == View.RECORD}
@@ -3341,14 +3389,15 @@ class ResearchReadService:
             rows_exhausted = not budget_cut and not result.more_beyond
             if (budget_cut or result.more_beyond) and result.resume_key:
                 # Resume on the route's own cursor, after the last row SENT --
-                # or, having sent none, from where this page itself began.
-                next_cursor = _join_get_cursor(
-                    view,
-                    0,
-                    after=(
-                        str(emitted[-1].get(result.resume_key)) if emitted else request.after
-                    ),
-                )
+                # or, having sent none, from where this page itself began; but
+                # past the last row FETCHED when filtering left nothing to send.
+                if emitted:
+                    route_after = str(emitted[-1].get(result.resume_key))
+                elif not window and result.resume_fetched:
+                    route_after = result.resume_fetched
+                else:
+                    route_after = request.after
+                next_cursor = _join_get_cursor(view, 0, after=route_after)
             elif budget_cut or result.more_beyond:
                 next_cursor = _join_get_cursor(view, request.offset + len(emitted))
             if budget_cut:
@@ -3733,6 +3782,59 @@ class ResearchReadService:
     def _view_experiment_artifacts(self, entity: dict, request: _Req) -> _ViewData:
         return _ViewData(
             rows=self.source.experiment_artifacts(str(entity["id"])), rows_key="artifacts"
+        )
+
+    def _view_experiment_inherited(self, entity: dict, request: _Req) -> _ViewData:
+        """What a fork reads live from its source: the source's run files as
+        they were at the fork, or with `view_options.runs` the runs themselves.
+
+        ONE route page per call, resumed on the route's own `after` (the last
+        row id sent, `resume_key`), so every row stays reachable without
+        re-reading from the first. `sources` is the chain, nearest first; the
+        route counts `total` on the first page only. A file the source changed
+        or removed since the fork is the fork's own file now and is listed by
+        `view="artifacts"`, not here. An experiment that is no fork answers
+        empty, and says so."""
+        runs = request.filters.get("runs", False)
+        if not isinstance(runs, bool):
+            raise errors.ValidationError(
+                "view_options.runs must be true (the source runs) or false (their files)",
+                status=422,
+            )
+        home = entity.get("project_id")
+        page = self.source.experiment_inherited(
+            str(entity["id"]),
+            runs=runs,
+            after=request.after,
+            limit=_PAGE_FETCH,
+            project_id=str(home) if home else None,
+        )
+        items = [i for i in page.get("items") or [] if isinstance(i, dict)]
+        sources = [
+            {key: src[key] for key in ("id", "slug", "name", "forked_at") if src.get(key)}
+            for src in page.get("sources") or []
+            if isinstance(src, dict)
+        ]
+        payload: dict[str, Any] = {"kind": "runs" if runs else "files", "sources": sources}
+        if isinstance(page.get("total"), int):
+            payload["total"] = page["total"]
+        if not sources:
+            payload["note"] = "Not a fork: this experiment reads nothing live from another."
+        elif not runs:
+            # The route leaves out the files of runs behind the plan's
+            # retention window and still lists those runs, so a short list here
+            # is not the whole story.
+            payload["note"] = (
+                "Files of runs older than the plan's retention window are not listed; "
+                'the runs are (view_options={"runs": true}).'
+            )
+        return _ViewData(
+            payload=payload,
+            rows=[{k: v for k, v in i.items() if v is not None} for i in items],
+            rows_key="runs" if runs else "files",
+            more_beyond=bool(page.get("next_after")) and bool(items),
+            resume_key="id",
+            resume_fetched=str(items[-1]["id"]) if items and items[-1].get("id") else None,
         )
 
     def _view_project_card(self, entity: dict, request: _Req) -> _ViewData:

@@ -19,11 +19,6 @@ from matrx_ai.tools.streaming import ToolStreamManager
 
 _RENDER_CHARS = 16_000
 
-#: Mirrors matrx_scraper.vendors.brightdata.MAX_INPUTS_PER_CALL / MAX_TOTAL_RECORDS (the client
-#: enforces the same bound for every caller); checked here first so the agent gets a typed answer.
-_MAX_INPUTS = 10
-_MAX_TOTAL_RECORDS = 100
-
 _POINTS_LIMIT_MESSAGE = "You've used all your points for now. Upgrade your plan to keep going."
 
 _REMEDY = {
@@ -73,31 +68,46 @@ async def site_data(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     parsed = SiteDataArgs.model_validate(args)
     if not parsed.url and not parsed.site:
         return _fail("input_error", "Pass url, or site with query/location/inputs.", ctx, started_at)
+    from matrx_scraper.features import site_data as door
+    from matrx_scraper.vendors.brightdata import BrightDataRecorderMissing, current_limits
+
+    # The ceiling is the host's limit (aidream: the knob the data-sources screen also obeys);
+    # checked here first so the agent gets a typed answer. The client enforces it again.
+    limits = await current_limits()
     n_inputs = len(parsed.inputs) if parsed.inputs else 1
-    if n_inputs > _MAX_INPUTS or n_inputs * parsed.max_records > _MAX_TOTAL_RECORDS:
+    if n_inputs > limits.max_inputs or n_inputs * parsed.max_records > limits.max_total_records:
         return _fail(
             "input_error",
             f"{n_inputs} inputs x max_records={parsed.max_records} could return {n_inputs * parsed.max_records} "
-            f"records; the limit is {_MAX_INPUTS} inputs and {_MAX_TOTAL_RECORDS} records in total per call. "
-            "Send fewer inputs or a smaller max_records.",
+            f"records; the limit is {limits.max_inputs} inputs and {limits.max_total_records} records in total "
+            "per call. Send fewer inputs or a smaller max_records.",
             ctx, started_at,
         )
-
-    from matrx_scraper.features import site_data as door
-    from matrx_scraper.vendors.brightdata import BrightDataRecorderMissing
 
     stream = ToolStreamManager(ctx.emitter, ctx.call_id, "site_data")
     await stream.progress(f"Fetching site data: {parsed.site or parsed.url}"[:80])
     try:
-        res = await door.fetch(
-            url=parsed.url,
-            site=parsed.site,
-            query=parsed.query,
-            location=parsed.location,
-            inputs=parsed.inputs,
-            max_records=parsed.max_records,
-            render_chars=_RENDER_CHARS,
-        )
+        if parsed.save_to_table:
+            # The host's writer (aidream: data_fetch.run_fetch) owns the job, the meter, the limits and the
+            # table write; this package only resolves the source and renders the records.
+            async def _progress(label: str) -> None:
+                await stream.progress(label[:80])
+
+            res = await door.fetch_to_table(
+                url=parsed.url, site=parsed.site, query=parsed.query, location=parsed.location,
+                inputs=parsed.inputs, max_records=parsed.max_records, table_id=parsed.table_id,
+                table_name=parsed.table_name, progress=_progress, render_chars=_RENDER_CHARS,
+            )
+        else:
+            res = await door.fetch(
+                url=parsed.url,
+                site=parsed.site,
+                query=parsed.query,
+                location=parsed.location,
+                inputs=parsed.inputs,
+                max_records=parsed.max_records,
+                render_chars=_RENDER_CHARS,
+            )
     except BrightDataRecorderMissing:
         return _fail("unavailable", "Site data is unavailable on this server right now (its cost "
                      "recording is not set up), so nothing was fetched or billed.", ctx, started_at)
@@ -112,9 +122,16 @@ async def site_data(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return _fail("no_match", f"{res.message} Covered sites: {known}.", ctx, started_at)
     if res.status not in ("success", "empty"):
         return _fail(res.status, res.message, ctx, started_at)
+    if parsed.save_to_table and res.status == "empty":
+        return _fail("error", res.message or "No records came back, so no table was written.", ctx, started_at)
 
+    saved = (
+        {k: res.table.get(k) for k in ("table_id", "table_name", "rows_created", "rows_updated", "records_billed")}
+        if res.table else {}
+    )
     output = _fit_records(
         {
+            **saved,
             "status": res.status,
             "message": res.message,
             "site": res.entry_key,

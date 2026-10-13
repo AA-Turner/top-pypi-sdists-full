@@ -5,6 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .asset_read_error_out import AssetReadErrorOut
+from .asset_read_identity_out import AssetReadIdentityOut
 from .read_capabilities_out import ReadCapabilitiesOut
 
 
@@ -16,6 +17,11 @@ class AssetReadResult(UniversalBaseModel):
     anchor_guidance: typing.Optional[str] = pydantic.Field(default=None)
     """
     Supported/preferred anchors, returned after an unsupported anchor
+    """
+
+    asset: typing.Optional[AssetReadIdentityOut] = pydantic.Field(default=None)
+    """
+    The asset the read resolved to. Set only when the caller passed the asset's permission check: on a successful read, and on a teaching error (bad anchor, unsupported format) returned after that check. Null when the asset was refused or not found.
     """
 
     asset_id: str = pydantic.Field()

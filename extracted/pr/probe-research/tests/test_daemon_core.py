@@ -248,6 +248,58 @@ def test_secret_scan_on_text_and_files(tmp_path):
     assert block is not None
 
 
+def _sparse_file(folder, name, size, *, head=b"", tail=b""):
+    path = folder / name
+    with open(path, "wb") as fh:
+        fh.write(head)
+        fh.truncate(size)
+        if tail:
+            fh.seek(size - len(tail))
+            fh.write(tail)
+    return name
+
+
+def test_the_daemon_uploads_up_to_5_gb_and_scans_the_first_scan_bytes(tmp_path, monkeypatch):
+    """2026-10-12 (D1-D3, D27): 5 GiB, not 50 MB; no separate 10 MB text cap;
+    the pre-check's credential scan reads only the first `SCAN_BYTES` (16 MiB,
+    the multipart verifier's inspection prefix)."""
+    def add(name):
+        return precheck.check(precheck.parse(["artifact", "add", "r1", name]), cwd=tmp_path)
+
+    block = add(_sparse_file(tmp_path, "huge.bin", precheck.MAX_UPLOAD_BYTES + 1))
+    assert block is not None and block.check == "secret" and "5.01 GB, over the 5 GB limit" in block.why
+    assert add(_sparse_file(tmp_path, "ckpt.pt", 1 << 30)) is None  # refused at 50 MB before
+    monkeypatch.setattr(precheck, "SCAN_BYTES", 1 << 20)
+    monkeypatch.setattr(precheck, "BINARY_SCAN_BYTES", 3 << 20)
+    (tmp_path / "train.log").write_text("step 1 loss 0.5\n" * 800_000)  # 12.8 MB of text
+    assert add("train.log") is None  # the 10 MB text cap is gone
+    leak = f"token = {FAKE_KEY}\n".encode()
+    block = add(_sparse_file(tmp_path, "early.bin", 4 << 20, head=leak))
+    assert block is not None and "credential" in block.why
+    # A binary is scanned further than text (printable runs are cheap): a key at
+    # 2 MiB is inside the binary window, past the text one.
+    with open(tmp_path / "mid.bin", "wb") as fh:
+        fh.truncate(2 << 20)
+        fh.seek(2 << 20)
+        fh.write(leak)
+        fh.truncate(4 << 20)
+    assert add("mid.bin") is not None
+    (tmp_path / "mid.txt").write_bytes(b"x" * (2 << 20) + leak + b"y" * (1 << 20))
+    assert add("mid.txt") is None  # past the text window
+    assert add(_sparse_file(tmp_path, "late.bin", 4 << 20, tail=leak)) is None  # past both windows
+
+
+def test_a_file_bigger_than_the_scan_is_identified_by_size_and_mtime_not_hashed(tmp_path, monkeypatch):
+    from probe.daemon import tools
+
+    monkeypatch.setattr(precheck, "SCAN_BYTES", 1024)
+    small, big = tmp_path / "a.txt", tmp_path / "b.bin"
+    small.write_bytes(b"x" * 100)
+    big.write_bytes(b"y" * 4096)
+    assert len(tools._file_digest(small)) == 64
+    assert tools._file_digest(big).startswith("size:4096:mtime:")
+
+
 # ---------------------------------------------------------------------------
 # Approvals (D22) and the hook
 # ---------------------------------------------------------------------------

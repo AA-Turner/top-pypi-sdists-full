@@ -1,6 +1,8 @@
 """One env agent's config: who plays the seat, and its per-run caps."""
 
-from pydantic import SerializeAsAny, model_validator
+from typing import Any
+
+from pydantic import BaseModel, Field, SerializeAsAny, field_serializer, model_validator
 from pydantic_config import BaseConfig
 
 from verifiers.v1.clients import ClientConfig
@@ -8,18 +10,21 @@ from verifiers.v1.configs.harness import HarnessConfig, WireHarnessConfig
 from verifiers.v1.configs.retries import RetryConfig
 from verifiers.v1.runtimes import PrimeConfig, RuntimeConfig
 from verifiers.v1.types import SamplingConfig
+from verifiers.v1.utils.generic import merge_defaults
 
 
 class TimeoutConfig(BaseConfig):
-    """Timeout (in seconds) for different phases of an agent's run."""
+    """Timeout (in seconds) for different phases of an agent's run. Each unset
+    stage takes the task's own timeout for it, else runs with no limit."""
 
-    setup: float | None = None  # one shared budget: task setup + provisioning
-    """Timeout (in seconds) for the task + harness setup hooks."""
-    rollout: float | None = None
+    # one shared budget: task setup + provisioning
+    setup: float | None = Field(None, gt=0)
+    """Timeout (in seconds) for task/harness setup through session preparation."""
+    rollout: float | None = Field(None, gt=0)
     """Timeout (in seconds) for the agent's solve attempt."""
-    finalize: float | None = None
+    finalize: float | None = Field(None, gt=0)
     """Timeout (in seconds) for the task + harness finalize hooks."""
-    scoring: float | None = None
+    scoring: float | None = Field(None, gt=0)
     """Timeout (in seconds) for the task + harness metrics + scoring hooks."""
 
 
@@ -49,6 +54,15 @@ class AgentConfig(BaseConfig):
     timeout: TimeoutConfig = TimeoutConfig()
     retries: RetryConfig = RetryConfig()
 
+    network_notice: bool = True
+    """Include the runtime's network restrictions in the agent's prompt."""
+
+    @field_serializer("sampling")
+    def _sampling_overrides(self, sampling: SamplingConfig | None) -> dict | None:
+        # An unresolved agent carries only overrides across env-server boundaries.
+        # resolve_agent fills every field before the config is recorded on a trace.
+        return sampling.model_dump(exclude_unset=True) if sampling is not None else None
+
     @model_validator(mode="before")
     @classmethod
     def _resolve_harness(cls, data):
@@ -77,3 +91,43 @@ class WireAgentConfig(AgentConfig):
     def _resolve_harness(cls, data):
         """Override: a record read resolves no plugins."""
         return data
+
+
+def agent_config_fields(config: BaseModel) -> dict[str, AgentConfig]:
+    """Top-level agent configs, in declaration order, keyed by their field names."""
+    return {name: value for name, value in config if isinstance(value, AgentConfig)}
+
+
+def merge_agent_defaults(config: type[BaseModel], data: Any) -> Any:
+    """Merge partial agent overrides onto their declared defaults."""
+    if isinstance(data, dict):
+        for name, field in config.model_fields.items():
+            if isinstance(field.default, AgentConfig) and isinstance(
+                data.get(name), dict
+            ):
+                data[name] = merge_defaults(field.default, data[name])
+    return data
+
+
+def resolve_agent(
+    spec: AgentConfig,
+    *,
+    model: str | None = None,
+    client: ClientConfig | None = None,
+    sampling: SamplingConfig | None = None,
+    harness: HarnessConfig | None = None,
+) -> AgentConfig:
+    """`spec` with what it leaves unset filled from the run's defaults; its own
+    sampling values merge over the run's. The one place a seat's identity resolves,
+    for configured agent roles."""
+    defaults = sampling or SamplingConfig()
+    overrides = (spec.sampling or SamplingConfig()).model_dump(exclude_unset=True)
+    merged = {**defaults.model_dump(), **merge_defaults(defaults, overrides)}
+    return spec.model_copy(
+        update={
+            "harness": spec.harness if spec.harness is not None else harness,
+            "model": spec.model if spec.model is not None else model,
+            "client": spec.client if spec.client is not None else client,
+            "sampling": SamplingConfig.model_validate(merged),
+        }
+    )

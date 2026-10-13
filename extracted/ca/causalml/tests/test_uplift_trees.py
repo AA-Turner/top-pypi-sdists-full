@@ -51,7 +51,7 @@ def test_UpliftRandomForestClassifier(
         )
         if early_stopping == "true":
             uplift_model.fit(
-                df_train[x_names].values,
+                X=df_train[x_names].values,
                 treatment=df_train["treatment_group_key"].values,
                 y=df_train[CONVERSION].values,
                 X_val=df_val[x_names].values,
@@ -60,7 +60,7 @@ def test_UpliftRandomForestClassifier(
             )
         else:
             uplift_model.fit(
-                df_train[x_names].values,
+                X=df_train[x_names].values,
                 treatment=df_train["treatment_group_key"].values,
                 y=df_train[CONVERSION].values,
             )
@@ -151,7 +151,7 @@ def UpliftTreeClassifierTesting(df, x_names, evaluation_function):
     pr = cProfile.Profile(subcalls=True, builtins=True, timeunit=0.001)
     pr.enable()
     uplift_model.fit(
-        df_train[x_names].values,
+        X=df_train[x_names].values,
         treatment=df_train["treatment_group_key"].values,
         y=df_train[CONVERSION].values,
     )
@@ -197,27 +197,30 @@ def UpliftTreeClassifierTesting(df, x_names, evaluation_function):
     assert auuc["uplift_tree"] > 0.5
 
     # Check if the total count is split correctly, at least for control group in the first level
-    def validate_cnt(cur_tree):
-        parent_control_cnt = cur_tree.nodeSummary[0][1]
-        next_level_control_cnt = 0
-        # assume the depth is at least 2
-        assert cur_tree.trueBranch or cur_tree.falseBranch
-        if cur_tree.trueBranch:
-            next_level_control_cnt += cur_tree.trueBranch.nodeSummary[0][1]
-        if cur_tree.falseBranch:
-            next_level_control_cnt += cur_tree.falseBranch.nodeSummary[0][1]
+    # The kernel tree records per-node, per-group counts in ``_node_group_counts``
+    # (control is column 0) rather than the legacy node ``nodeSummary``; ``fill``
+    # refreshes them. The invariant is the same: the root's control count equals
+    # the sum of its two children's control counts.
+    def validate_cnt(model):
+        counts = model._node_group_counts
+        tree = model.tree_
+        left, right = tree.children_left[0], tree.children_right[0]
+        # assume the tree splits at the root (depth is at least 2)
+        assert left != -1 and right != -1
+        parent_control_cnt = counts[0, 0]
+        next_level_control_cnt = counts[left, 0] + counts[right, 0]
         return [parent_control_cnt, next_level_control_cnt]
 
-    counts = validate_cnt(uplift_model.fitted_uplift_tree)
+    counts = validate_cnt(uplift_model)
     assert counts[0] > 0 and counts[0] == counts[1]
 
     # Check if it works as expected after filling with validation data
     uplift_model.fill(
-        df_test[x_names].values,
+        X=df_test[x_names].values,
         treatment=df_test["treatment_group_key"].values,
         y=df_test[CONVERSION].values,
     )
-    counts = validate_cnt(uplift_model.fitted_uplift_tree)
+    counts = validate_cnt(uplift_model)
     assert counts[0] > 0 and counts[0] == counts[1]
 
 
@@ -231,7 +234,7 @@ def test_UpliftTreeClassifier_feature_importance(generate_classification_data):
         control_name=TREATMENT_NAMES[0], random_state=RANDOM_SEED
     )
     uplift_model.fit(
-        df_train[x_names].values,
+        X=df_train[x_names].values,
         treatment=df_train["treatment_group_key"].values,
         y=df_train[CONVERSION].values,
     )
@@ -285,7 +288,7 @@ def test_uplift_tree_visualization():
     )
 
     uplift_model.fit(
-        df_train[x_names].values,
+        X=df_train[x_names].values,
         treatment=df_train["treatment_group_key"].values,
         y=df_train["conversion"].values,
     )
@@ -316,7 +319,7 @@ def test_UpliftTreeClassifier_with_nan_values():
 
     # Should not raise any exception
     uplift_model.fit(
-        df_train[x_names].values,
+        X=df_train[x_names].values,
         treatment=df_train["treatment_group_key"].values,
         y=df_train["conversion"].values,
     )
@@ -357,7 +360,7 @@ def test_UpliftTreeClassifier_with_nan_in_categorical_features():
 
     # Should not raise TypeError
     uplift_model.fit(
-        X_train,
+        X=X_train,
         treatment=df_train["treatment_group_key"].values,
         y=df_train["conversion"].values,
     )
@@ -383,7 +386,7 @@ def test_uplift_tree_pvalue_no_nan_with_sparse_groups():
         min_samples_treatment=0,
         max_depth=5,
     )
-    model.fit(X, treatment, y)
+    model.fit(X=X, treatment=treatment, y=y)
     preds = model.predict(X)
 
     assert not np.any(
@@ -414,7 +417,7 @@ def test_UpliftRandomForestClassifier_predict_shape_with_sparse_groups():
         min_samples_treatment=0,
         random_state=RANDOM_SEED,
     )
-    model.fit(X, treatment=treatment, y=y)
+    model.fit(X=X, treatment=treatment, y=y)
 
     # Verify that at least one tree was fit without some treatment groups
     assert any(

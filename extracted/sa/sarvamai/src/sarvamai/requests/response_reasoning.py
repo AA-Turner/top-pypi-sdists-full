@@ -8,7 +8,7 @@ from ..types.summary import Summary
 class ResponseReasoningParams(typing_extensions.TypedDict):
     effort: typing_extensions.NotRequired[ResponseReasoningEffort]
     """
-    `low`, `high`, or `max`. On **`glm5.3`** specifically, sending the literal string `max` returns `400` — omit the field instead to get `max`-level reasoning. **`deepseekv4-flash`** accepts `max` directly on this route.
+    `low`, `high`, or `max`. On **`glm5.3`** specifically, sending the literal string `max` returns `400` — omit the field instead to get `max`-level reasoning. **`deepseekv4.1-flash`** accepts `max` directly on this route.
     """
 
     summary: typing_extensions.NotRequired[Summary]

@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Massachusetts Institute of Technology
+# Copyright (c) 2026 Massachusetts Institute of Technology
 # SPDX-License-Identifier: MIT
 import warnings
 from collections import UserList
@@ -20,16 +20,39 @@ from hydra import initialize
 from hydra._internal.callbacks import Callbacks
 from hydra.core.config_store import ConfigStore
 from hydra.core.global_hydra import GlobalHydra
+from hydra.core.plugins import Plugins
 from hydra.core.utils import JobReturn, run_job
-from hydra.plugins.sweeper import Sweeper
 from hydra.types import HydraContext, RunMode
 from omegaconf import DictConfig, ListConfig, OmegaConf
 from typing_extensions import Literal, TypeAlias
 
-from hydra_zen._hydra_overloads import instantiate
+from hydra_zen._compatibility import HYDRA_HAS_EXECUTION_POLICY
+from hydra_zen._execution_whitelist import (
+    active_execution_whitelist,
+    check_whitelist_supported,
+    resolve_execution_whitelist,
+)
+from hydra_zen.errors import HydraZenValidationError
+from hydra_zen.structured_configs._globals import ZEN_PROCESSING_LOCATION
 from hydra_zen.typing._implementations import DataClass_, InstOrType
 
 T = TypeVar("T", bound=Any)
+
+
+def _execution_whitelist_kwargs(execution_whitelist: Any) -> dict[str, Any]:
+    """The execution whitelist to provide to Hydra for a launched job."""
+    if not HYDRA_HAS_EXECUTION_POLICY:  # pragma: no cover
+        check_whitelist_supported(execution_whitelist)
+        return {}
+    if execution_whitelist is None:  # pragma: no cover
+        # Hydra activates the context's whitelist for the job, resetting any
+        # outer context; thus we must forward the active whitelist
+        execution_whitelist = active_execution_whitelist()
+    return {  # pragma: no cover
+        "execution_whitelist": resolve_execution_whitelist(execution_whitelist)
+    }
+
+
 HydraPrimitives: TypeAlias = Union[None, int, float, bool, str, dict[str, str]]
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -163,6 +186,7 @@ def launch(
     config_name: str = ...,
     job_name: str = ...,
     with_log_configuration: bool = ...,
+    execution_whitelist: Any = ...,
     **override_kwargs: OverrideValues,
 ) -> JobReturn: ...
 
@@ -178,6 +202,7 @@ def launch(
     config_name: str = ...,
     job_name: str = ...,
     with_log_configuration: bool = ...,
+    execution_whitelist: Any = ...,
     **override_kwargs: OverrideValues,
 ) -> Any: ...
 
@@ -192,6 +217,7 @@ def launch(
     config_name: str = "zen_launch",
     job_name: str = "zen_launch",
     with_log_configuration: bool = True,
+    execution_whitelist: Any = None,
     **override_kwargs: OverrideValues,
 ) -> Union[JobReturn, Any]:
     r"""
@@ -241,6 +267,22 @@ def launch(
     with_log_configuration : bool (default: True)
         If ``True``, enables the configuration of the logging subsystem from the loaded
         config.
+
+    execution_whitelist : str | Sequence[str] | UNSAFE_DISABLE_EXECUTION_CHECKS, optional
+        Requires hydra-core 1.4 or later. The execution whitelist that is active
+        while the job runs (see ``hydra.main(execution_whitelist=...)``). If not
+        specified, an active ``hydra.utils.execution_whitelist(...)`` context is
+        used, if any.
+
+        As with ``hydra.main``, a specified whitelist *replaces* (rather than
+        extends) an active ``execution_whitelist(...)`` context for the duration of
+        the job. This differs from ``instantiate(..., _execution_whitelist_=...)``,
+        which extends an active context. Include any entries that you need, e.g.
+        ``execution_whitelist=["auto", "torch.*"]``.
+
+        ``"auto"``, either alone or as an entry in a sequence, expands to every
+        target that hydra-zen generated in-code (via ``builds``, ``just``, etc.)
+        during this process. See :func:`~hydra_zen.instantiate` for details.
 
     **override_kwargs : OverrideValues
         Keyword arguments to override existing configuration values.  Note, this only
@@ -441,7 +483,9 @@ def launch(
         run_start(config=cfg, config_name=config_name)
 
         hydra_context = HydraContext(
-            config_loader=gh.config_loader(), callbacks=callbacks
+            config_loader=gh.config_loader(),
+            callbacks=callbacks,
+            **_execution_whitelist_kwargs(execution_whitelist),
         )
 
         if not multirun:
@@ -458,10 +502,35 @@ def launch(
             # access the result to trigger an exception in case the job failed.
             _ = job.return_value
         else:
-            # Instantiate sweeper without using Hydra's Plugin discovery (Zen!)
-            sweeper = instantiate(cfg.hydra.sweeper)
-            assert isinstance(sweeper, Sweeper)
-            sweeper.setup(
+            # Resolve the sweeper through Hydra's plugin registry rather than
+            # instantiating `cfg.hydra.sweeper` directly. Hydra >= 1.3.7 refuses
+            # to instantiate `hydra._internal.*` targets named by declarative
+            # config -- which is what the stock `hydra/sweeper=basic` selects --
+            # and exempts only the plugins it constructs itself. This is the
+            # supported path: it checks that the class is a registered plugin,
+            # instantiates it, and calls `setup()` on it.
+            #
+            # The registry reads the config's `_target_` as the plugin class, so
+            # a sweeper config whose `_target_` is hydra-zen's zen-processing
+            # shim (what zen_meta / zen_wrappers produce, also via
+            # builds_bases) is refused with a message about hydra-zen
+            # internals. Say what actually went wrong instead. Anything that is
+            # not a DictConfig is left for Hydra to report in its own words.
+            sweeper_cfg = cfg.hydra.sweeper
+            if (
+                isinstance(sweeper_cfg, DictConfig)
+                and sweeper_cfg.get("_target_") == ZEN_PROCESSING_LOCATION
+            ):
+                raise HydraZenValidationError(
+                    "`launch` constructs the sweeper through Hydra's plugin "
+                    "registry, which requires the sweeper config's `_target_` "
+                    "to name the plugin class directly. This sweeper config's "
+                    f"`_target_` is `{ZEN_PROCESSING_LOCATION}` -- hydra-zen's "
+                    "zen-processing shim, which `zen_meta` and `zen_wrappers` "
+                    "produce (including when inherited through `builds_bases`). "
+                    "Those features cannot be used on the sweeper config."
+                )
+            sweeper = Plugins.instance().instantiate_sweeper(
                 config=cfg,
                 hydra_context=hydra_context,
                 task_function=task_function,

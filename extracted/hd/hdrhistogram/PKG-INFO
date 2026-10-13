@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hdrhistogram
-Version: 0.10.7
+Version: 0.10.8
 Summary: High Dynamic Range histogram in native python
 Home-page: https://github.com/HdrHistogram/HdrHistogram_py
 Author: Alec Hothan
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: pbr>=1.4
-Requires-Dist: setuptools>=78.1.1
+Requires-Dist: setuptools>=83.0.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

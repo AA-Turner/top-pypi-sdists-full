@@ -6,7 +6,7 @@ knows the one thing only the CLI knows: where each harness keeps its skills.
 
 WHAT TO INSTALL IS THE PLUGIN'S OWN `agent-skills/`, not a list read from
 somewhere else. The two install profiles ARE two plugins -- the full one carries
-eight skills, the lean daemon one carries three -- so the folder that is
+eight skills, the lean daemon one carries four -- so the folder that is
 installed answers "which profile" by itself. A second list here could disagree
 with the plugin on the machine, and the way it would disagree is the dangerous
 one: `track-work` left in place on the daemon profile has the agent recording

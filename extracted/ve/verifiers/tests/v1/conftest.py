@@ -5,7 +5,8 @@ settings that still exercise the path, then assert on the resulting `Trace`(s) �
 not unit tests of individual components. They need a model API key (`PRIME_API_KEY`);
 without one the `e2e`-marked tests skip (config parsing still runs).
 
-`run_v1` mirrors the eval CLI's in-process path (`run_eval` with `--no-serve`). Placement coverage (harness x harness runtime x tool
+`run_v1` mirrors the eval CLI (`run_eval`, in-process); `run_v1_server` drives the same env
+through an env-server worker pool, the path prime-rl trains through. Placement coverage (harness x harness runtime x tool
 server runtime) is PAIRWISE, not a full cross product: each test carries a curated list of
 combinations (in test_e2e.py) that hits every axis value and the cross-boundary pairs with
 distinct networking. The full cross bought flake exposure and CI minutes, not coverage — add
@@ -15,23 +16,25 @@ one without `indirect=True` fails loudly.
 
 Every combination carries its axes' pytest marks, so subsets select with `-m`:
 
-    uv run pytest tests/v1 -n auto                                # everything (needs modal setup)
+    uv run pytest tests/v1 -n auto                                # everything (needs remote setup)
     uv run pytest tests/v1 -n auto -m "not e2e"                   # deterministic CI matrix
-    uv run pytest tests/v1 -n auto -m "e2e and not prime and not modal"  # live CI job
+    uv run pytest tests/v1 -n auto -m "e2e and not prime and not modal and not e2b"  # live CI job
     uv run pytest tests/v1 -n auto -m docker                      # any case touching the docker runtime
     uv run pytest tests/v1 -n auto -m bash                        # only the bash harness
     uv run pytest tests/v1 -n auto -m prime                       # only prime (real sandboxes; local)
     uv run pytest tests/v1 -n auto -m modal                       # only modal (needs local setup)
+    uv run pytest tests/v1 -n auto -m e2b                         # only e2b (real sandboxes; local)
 
-Marks: runtimes `subprocess` / `docker` / `prime` / `modal`, placement `colocated`,
-harnesses `null` / `bash` / `rlm` / `kimi_code` / `pi` / `pool` / `openclaw` / `codex` /
+Marks: runtimes `subprocess` / `docker` / `podman` / `apptainer` / `prime` / `modal` / `e2b`, placement `colocated`,
+harnesses `null` / `bash` / `rlm` / `kimi_code` / `pi` / `openclaw` / `codex` /
 `claude_code` / `hermes_agent`.
 A mark is applied per axis, so it selects every case touching that value on ANY axis; for one exact
 combination use `-k` on the test id (e.g. `-k "harness-in-docker-with-tool-in-subprocess"`).
-prime/modal provision real remote sandboxes (slow, infra-flaky, need setup), so they're local-only.
+prime/modal/e2b provision real remote sandboxes (slow, infra-flaky, need setup), so they're local-only.
 CI runs deterministic tests across the Python matrix and the remaining live E2Es once.
 """
 
+import asyncio
 import os
 from pathlib import Path
 
@@ -55,7 +58,7 @@ CI_MODEL = "openai/gpt-5.6-luna"
 
 
 @pytest.fixture
-def harness_runtime(request) -> str:
+def harness_runtime(request) -> str | dict:
     return request.param
 
 
@@ -130,9 +133,8 @@ def _eval_config(
     taskset_overrides: dict | None = None,
     runtime: dict | None = None,
     env: dict | None = None,
-    pool: dict | None = None,
     reasoning_effort: str | None = None,
-    server: bool = False,
+    client: dict | None = None,
 ) -> EvalConfig:
     """Build the smallest `EvalConfig` that still exercises the path, shared by the in-process
     (`run_v1`) and env-server (`run_v1_server`) fixtures. `taskset_overrides` merges onto the
@@ -155,7 +157,13 @@ def _eval_config(
         runtime_cfg = dict(runtime)
         _configure_prime_runtimes(runtime_cfg)
         env_cfg.setdefault("agent", {})["runtime"] = runtime_cfg
-    retries = {"max_retries": 2, "include": ["ProviderError", "HarnessError"]}
+    retries = {
+        "max_retries": 0,
+        "rules": [
+            {"type": error_type, "max_retries": 2}
+            for error_type in ("ProviderError", "InterceptionError", "HarnessError")
+        ],
+    }
     env_cfg.setdefault("retries", retries)
     # Per-run caps live on the seats: resolve the env's declared roles and cap
     # each one (a test's own seat dict wins over the shared defaults).
@@ -177,24 +185,24 @@ def _eval_config(
             "taskset": taskset_cfg,
             **env_cfg,
         },
-        num_tasks=num_tasks,
+        select={"limit": num_tasks},
         num_rollouts=n,
         sampling={
             "max_tokens": max_tokens,
             "reasoning_effort": reasoning_effort,
         },
         rich=None,
-        serve=({"pool": pool} if pool else {}) if server else None,
         output_dir=output_dir.parent,
         run={"dir": output_dir.name},
         model=CI_MODEL,
+        push=False,
+        **({"client": client} if client else {}),
     )
 
 
 @pytest.fixture
 def run_v1():
-    """Run a v1 taskset end-to-end in-process (`run_eval` with `--no-serve`) and return
-    its traces."""
+    """Run a v1 taskset end-to-end in-process (`run_eval`) and return its traces."""
 
     async def _run(taskset: str, **kwargs) -> list[Trace]:
         config = _eval_config(taskset, **kwargs)
@@ -207,17 +215,56 @@ def run_v1():
 
 @pytest.fixture
 def run_v1_server():
-    """Run a v1 taskset through the env-server worker pool (`run_eval`'s default path) —
-    the path a CLI run and prime-rl training both take. Spawns the broker + a worker, so
-    it's the only fixture that exercises serving resources (shared tool servers,
-    interception pool) being stood up by the *server* rather than the in-process runner.
-    Pinned to a single static worker for determinism."""
+    """Run a v1 taskset through an env-server worker pool — the path prime-rl trains
+    through. Spawns the broker + a worker, so it's the only fixture that exercises
+    serving resources (shared tool servers, interception pool) being stood up by the
+    *server* rather than the in-process runner. Pinned to a single static worker for
+    determinism."""
+    import multiprocessing as mp
+
+    from verifiers.v1.serve import EnvClient, env_config_data, serve_env
+    from verifiers.v1.utils.loaders import load_taskset
 
     async def _run(taskset: str, **kwargs) -> list[Trace]:
-        kwargs.setdefault("pool", {"type": "static", "num_workers": 1})
-        config = _eval_config(taskset, server=True, **kwargs)
-        records = await run_eval(config)
-        return [t for r in records for t in r.traces]
+        config = _eval_config(taskset, **kwargs)
+        tasks = list(load_taskset(config.env.taskset).select(config.select))
+        mpctx = mp.get_context("spawn")
+        address_queue: mp.Queue = mpctx.Queue()
+        proc = mpctx.Process(
+            target=serve_env,
+            kwargs={
+                "max_workers": 1,
+                "elastic": False,
+                "address": "tcp://127.0.0.1:0",
+                "address_queue": address_queue,
+                "config_data": env_config_data(config.env),
+                "max_concurrent": config.max_concurrent,
+            },
+        )
+        proc.start()
+        try:
+            address = await asyncio.to_thread(address_queue.get, timeout=600)
+            client = EnvClient(address=address)
+            try:
+                await client.wait_for_server_startup(timeout=600)
+                episodes = await asyncio.gather(
+                    *(
+                        client.run(
+                            client=config.client,
+                            model=config.model,
+                            sampling=config.sampling,
+                            task_data=task.data.model_dump(mode="json"),
+                        )
+                        for task in tasks
+                        for _ in range(config.num_rollouts)
+                    )
+                )
+            finally:
+                await client.close()
+        finally:
+            proc.terminate()
+            await asyncio.to_thread(proc.join, 10)
+        return [t for e in episodes for t in e.traces]
 
     return _run
 
@@ -235,3 +282,102 @@ async def live_ctx():
         client=EvalClientConfig(),
         sampling=SamplingConfig(max_tokens=2048),
     )
+
+
+@pytest.fixture
+async def scripted_model():
+    """A deterministic upstream model: every call gets a plain "OK" in the caller's own
+    dialect (chat completions, Responses, or Anthropic messages), streamed through that
+    dialect's own encoder when asked. Yields a client config pointing at it."""
+    from aiohttp import web
+
+    from verifiers.v1.dialects.anthropic import AnthropicDialect
+    from verifiers.v1.dialects.chat import ChatDialect
+    from verifiers.v1.dialects.responses import ResponsesDialect
+
+    def chat(model: str) -> dict:
+        message = {"role": "assistant", "content": "OK"}
+        return {
+            "id": "chatcmpl-scripted",
+            "object": "chat.completion",
+            "created": 0,
+            "model": model,
+            "choices": [{"index": 0, "message": message, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        }
+
+    def responses(model: str) -> dict:
+        text = {"type": "output_text", "text": "OK", "annotations": []}
+        return {
+            "id": "resp_scripted",
+            "object": "response",
+            "created_at": 0,
+            "model": model,
+            "status": "completed",
+            "output": [
+                {
+                    "type": "message",
+                    "id": "msg_scripted",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [text],
+                }
+            ],
+            "parallel_tool_calls": True,
+            "tool_choice": "auto",
+            "tools": [],
+            "usage": {
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "total_tokens": 2,
+                "input_tokens_details": {"cached_tokens": 0},
+                "output_tokens_details": {"reasoning_tokens": 0},
+            },
+        }
+
+    def anthropic(model: str) -> dict:
+        return {
+            "id": "msg_scripted",
+            "type": "message",
+            "role": "assistant",
+            "model": model,
+            "content": [{"type": "text", "text": "OK"}],
+            "stop_reason": "end_turn",
+            "stop_sequence": None,
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+        }
+
+    routes = [
+        ("/chat/completions", ChatDialect(), chat),
+        ("/responses", ResponsesDialect(), responses),
+        ("/messages", AnthropicDialect(), anthropic),
+    ]
+
+    async def answer(request: web.Request) -> web.StreamResponse:
+        body = await request.json()
+        dialect, build = next(
+            (dialect, build)
+            for suffix, dialect, build in routes
+            if request.path.endswith(suffix)
+        )
+        raw = build(str(body.get("model", "scripted")))
+        if not dialect.streaming(body):
+            return web.json_response(raw)
+        response = web.StreamResponse(headers={"Content-Type": "text/event-stream"})
+        await response.prepare(request)
+        for event in dialect.stream_events(raw):
+            await response.write(event)
+        await response.write_eof()
+        return response
+
+    app = web.Application()
+    app.router.add_post("/{tail:.*}", answer)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    port = site._server.sockets[0].getsockname()[1]
+    try:
+        yield {"base_url": f"http://127.0.0.1:{port}/v1"}
+    finally:
+        await runner.cleanup()

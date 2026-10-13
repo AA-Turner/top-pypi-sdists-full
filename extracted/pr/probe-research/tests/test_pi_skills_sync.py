@@ -28,6 +28,7 @@ from __future__ import annotations
 import filecmp
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -156,36 +157,49 @@ def test_package_json_declares_exactly_the_synced_skills() -> None:
 
 
 # ---------------------------------------------------------------------------
-# The daemon profile's `probe` skill (pi on the Probe daemon).
+# The daemon profile's own skills (pi on the Probe daemon).
 # ---------------------------------------------------------------------------
 
-_DAEMON_SKILL = _ROOT / "plugins" / "probe-research-daemon" / "agent-skills" / "probe" / "SKILL.md"
+_LEAN_SKILLS = _ROOT / "plugins" / "probe-research-daemon" / "agent-skills"
 _PI_DAEMON_SKILLS = _ROOT / "plugins" / "probe-research-pi" / "daemon-skills"
 
 
-def test_pi_daemon_skill_is_a_byte_copy_of_the_lean_plugins() -> None:
-    """pi's daemon profile tells the agent what Claude Code's lean plugin tells
-    it: the extension adds `daemon-skills/probe` through `resources_discover`,
-    and that file must be the lean plugin's `probe` skill byte for byte."""
-    copy = _PI_DAEMON_SKILLS / "probe" / "SKILL.md"
-    assert copy.is_file(), "pi's daemon skill copy is missing; run `make sync-pi-daemon-skill`"
-    assert copy.read_bytes() == _DAEMON_SKILL.read_bytes(), (
-        "plugins/probe-research-pi/daemon-skills/probe/SKILL.md differs from the lean plugin's; "
-        "run `make sync-pi-daemon-skill` (edit plugins/probe-research-daemon/agent-skills/probe, never the copy)"
-    )
-    assert sorted(p.relative_to(_PI_DAEMON_SKILLS).as_posix() for p in _PI_DAEMON_SKILLS.rglob("*") if p.is_file()) == [
-        "probe/SKILL.md"
-    ], "daemon-skills/ carries only the daemon's probe skill"
-
-
-def test_sync_pi_daemon_skill_copies_that_file_and_runs_in_the_composite() -> None:
+def _hand_kept() -> list[str]:
+    """The Makefile's `DAEMON_HAND_KEPT`: the lean plugin's own skills."""
     makefile = (_ROOT / "Makefile").read_text(encoding="utf-8")
-    m = re.search(r"^sync-pi-daemon-skill:\n((?:\t.*\n)+)", makefile, re.MULTILINE)
-    assert m, "could not find the sync-pi-daemon-skill target"
+    m = re.search(r"^DAEMON_HAND_KEPT := (.+)$", makefile, re.MULTILINE)
+    assert m, "the Makefile no longer declares DAEMON_HAND_KEPT"
+    return m.group(1).split()
+
+
+def test_pi_daemon_skills_are_byte_copies_of_the_lean_plugins() -> None:
+    """pi's daemon profile tells the agent what Claude Code's lean plugin tells
+    it: the extension adds `daemon-skills/<name>` through `resources_discover`,
+    and each file must be the lean plugin's skill byte for byte."""
+    hand_kept = _hand_kept()
+    assert hand_kept == ["probe", "visualize-progress"]
+    for name in hand_kept:
+        copy = _PI_DAEMON_SKILLS / name / "SKILL.md"
+        assert copy.is_file(), f"pi's daemon copy of {name} is missing; run `make sync-pi-daemon-skill`"
+        assert copy.read_bytes() == (_LEAN_SKILLS / name / "SKILL.md").read_bytes(), (
+            f"plugins/probe-research-pi/daemon-skills/{name}/SKILL.md differs from the lean plugin's; "
+            f"run `make sync-pi-daemon-skill` (edit plugins/probe-research-daemon/agent-skills/{name}, never the copy)"
+        )
+    assert sorted(p.relative_to(_PI_DAEMON_SKILLS).as_posix() for p in _PI_DAEMON_SKILLS.rglob("*") if p.is_file()) == [
+        f"{name}/SKILL.md" for name in sorted(hand_kept)
+    ], "daemon-skills/ carries only the daemon's own skills"
+
+
+def test_sync_pi_daemon_skill_copies_those_files_and_runs_in_the_composite() -> None:
+    dry = subprocess.run(
+        ["make", "-n", "-C", str(_ROOT), "sync-pi-daemon-skill"], capture_output=True, text=True, check=True
+    ).stdout
+    assert f"for s in {' '.join(_hand_kept())}; do" in dry
     assert (
-        "cp plugins/probe-research-daemon/agent-skills/probe/SKILL.md "
-        "plugins/probe-research-pi/daemon-skills/probe/SKILL.md"
-    ) in m.group(1)
+        "cp plugins/probe-research-daemon/agent-skills/$s/SKILL.md "
+        "plugins/probe-research-pi/daemon-skills/$s/SKILL.md"
+    ) in dry
+    makefile = (_ROOT / "Makefile").read_text(encoding="utf-8")
     composite = re.search(r"^sync-plugin:\s*(.+)$", makefile, re.MULTILINE)
     assert composite and "sync-pi-daemon-skill" in composite.group(1).split()
 

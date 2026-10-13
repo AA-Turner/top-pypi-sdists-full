@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 import click
 
-from schemathesis.cli.constants import EXTENSIONS_DOCUMENTATION_URL, ISSUE_TRACKER_URL
+from schemathesis.cli.constants import EXTENSIONS_DOCUMENTATION_URL, ISSUE_TRACKER_URL, ExitCode
 from schemathesis.cli.core import get_terminal_width
 from schemathesis.cli.summary import (
     BaselineSummary,
@@ -33,8 +33,9 @@ from schemathesis.core.timing import Instant
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from rich.console import Console, Group
+    from rich.console import Console, ConsoleOptions, Group, RenderableType, RenderResult
     from rich.progress import Progress, TaskID
+    from rich.segment import Segment
     from rich.text import Text
 
     from schemathesis.config import OutputConfig, ProjectConfig
@@ -58,7 +59,41 @@ else:
         return click.style(text, **kwargs)
 
 
-BLOCK_PADDING = (0, 1, 0, 1)
+@dataclass
+class Indent:
+    """Shift a renderable right by `left` columns, keeping `right` columns free for wrapping.
+
+    Lines carry no trailing whitespace, so output piped to a file or CI log has no padding to the console width.
+    """
+
+    renderable: RenderableType
+    left: int = 1
+    right: int = 1
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        from rich.segment import Segment
+
+        width = options.max_width - self.left - self.right
+        lines = console.render_lines(self.renderable, options.update_width(width), pad=False)
+        margin = Segment(" " * self.left)
+        for line in lines:
+            stripped = _rstrip_segments(line)
+            if stripped:
+                yield margin
+                yield from stripped
+            yield Segment.line()
+
+
+def _rstrip_segments(line: list[Segment]) -> list[Segment]:
+    from rich.segment import Segment
+
+    end = len(line)
+    while end and not line[end - 1].text.rstrip():
+        end -= 1
+    if not end:
+        return []
+    last = line[end - 1]
+    return [*line[: end - 1], Segment(last.text.rstrip(), last.style, last.control)]
 
 
 def print_lines(lines: list[str | Generator[str, None, None]]) -> None:
@@ -89,6 +124,10 @@ def display_final_line(
     running_time: float,
     total_cases: int,
     nothing_tested_reason: str | None = None,
+    exit_code: int = 0,
+    baseline_not_saved: bool = False,
+    no_checks_ran: bool = False,
+    interrupted: bool = False,
 ) -> None:
     parts = []
     if failures:
@@ -104,11 +143,31 @@ def display_final_line(
     if nothing_tested_reason is not None:
         message = nothing_tested_reason
         color = "red"
+    # Counts after Ctrl-C cover only the part that ran, so the line says the run did not finish.
+    elif interrupted:
+        message = f"{', '.join([*parts, 'interrupted']) if parts else 'Interrupted'} after {running_time:.2f}s"
+        color = "red" if failures or errors else "yellow"
+    elif failures or errors:
+        labels = [*parts, "baseline not saved"] if baseline_not_saved else parts
+        message = f"{', '.join(labels)} in {running_time:.2f}s"
+        color = "red"
+    elif baseline_not_saved:
+        reason = ", ".join([*parts, "baseline not saved"]) if parts else "Baseline not saved"
+        message = f"{reason} in {running_time:.2f}s"
+        color = "red"
+    # Without failures or errors, a failing exit code comes from warnings configured with `fail-on`.
+    # `fail-on` may name only some of the shown warnings, so the line does not count them.
+    elif warnings and exit_code == ExitCode.FAILURES:
+        message = f"Warnings fail the run in {running_time:.2f}s"
+        color = "red"
     elif parts:
         message = f"{', '.join(parts)} in {running_time:.2f}s"
-        color = "red" if (failures or errors) else "yellow"
+        color = "yellow"
     elif total_cases == 0:
         message = "Empty test suite"
+        color = "yellow"
+    elif no_checks_ran:
+        message = f"No checks ran in {running_time:.2f}s"
         color = "yellow"
     else:
         message = f"No issues found in {running_time:.2f}s"
@@ -204,6 +263,8 @@ class LoadingProgressManager:
             RenderableColumn(progress_message),
             console=console,
             transient=True,
+            # A spinner has nothing to show outside a terminal, and stopping it there prints a blank line.
+            disable=not console.is_interactive,
         )
         self.progress_task_id = None
         self.is_interrupted = False
@@ -287,6 +348,13 @@ def failure_formatter(block: MessageBlock, content: str) -> str:
     return _style(content.replace("Reproduce with", click.style("Reproduce with", bold=True)))
 
 
+def replay_command(group: GroupedFailures, *, record_crashes: bool) -> str | None:
+    # Only hint `st replay` when a crash file was actually recorded for this case.
+    if record_crashes and group.case_id and any(is_reproducible_failure(failure) for failure in group.failures):
+        return f"st replay {group.case_id}"
+    return None
+
+
 def display_failures_for_single_test(
     config: OutputConfig, label: str, checks: Iterable[GroupedFailures], *, record_crashes: bool
 ) -> None:
@@ -294,17 +362,13 @@ def display_failures_for_single_test(
     display_section_name(label, "_", fg="red")
     for idx, group in enumerate(checks, 1):
         case_id = f"{idx}. Test Case ID: {group.case_id}" if group.case_id is not None else None
-        # Only hint `st replay` when a crash file was actually recorded for this case.
-        if record_crashes and any(is_reproducible_failure(failure) for failure in group.failures):
-            reproduce = append_replay_command(group.code_sample, group.case_id)
-        else:
-            reproduce = group.code_sample
+        replay = replay_command(group, record_crashes=record_crashes)
         click.echo(
             format_failures(
                 case_id=case_id,
                 response=group.response,
                 failures=group.failures,
-                curl=reproduce,
+                curl=group.code_sample if replay is None else append_replay_command(group.code_sample, group.case_id),
                 auth_identity=group.auth_identity,
                 formatter=failure_formatter,
                 config=config,
@@ -454,7 +518,6 @@ def display_fatal_error(
 
     Handles both loader errors (schema loading failures) and internal execution errors.
     """
-    from rich.padding import Padding
     from rich.text import Text
 
     from schemathesis.core.errors import HookExecutionError, LoaderError, format_exception, split_traceback
@@ -462,15 +525,13 @@ def display_fatal_error(
 
     if isinstance(event.exception, LoaderError):
         assert loading_manager is not None
-        message = Padding(
-            loading_manager.get_error_message("Schema Loading Error", event.exception.message), BLOCK_PADDING
-        )
+        message = Indent(loading_manager.get_error_message("Schema Loading Error", event.exception.message))
         console.print(message)
         console.print()
 
         if event.exception.extras:
             for extra in event.exception.extras:
-                console.print(Padding(Text(extra), (0, 0, 0, 5)))
+                console.print(Indent(Text(extra), left=5, right=0))
             console.print()
 
         if not (event.exception.kind == LoaderErrorKind.CONNECTION_OTHER and wait_for_schema is not None):
@@ -485,10 +546,10 @@ def display_fatal_error(
     if isinstance(event.exception, HookExecutionError):
         assert loading_manager is not None
         info = EngineErrorInfo(event.exception)
-        console.print(Padding(loading_manager.get_error_message(info.title, info.message), BLOCK_PADDING))
+        console.print(Indent(loading_manager.get_error_message(info.title, info.message)))
         console.print()
         for extra in split_traceback(info.traceback):
-            console.print(Padding(Text(extra), (0, 0, 0, 5)))
+            console.print(Indent(Text(extra), left=5, right=0))
         console.print()
         click.echo(f"For more information on how to work with hooks, visit {EXTENSIONS_DOCUMENTATION_URL}")
         raise click.Abort

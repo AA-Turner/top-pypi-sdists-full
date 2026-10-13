@@ -2256,6 +2256,16 @@ class Transcription(_common.BaseModel):
       description="""Detailed word-level transcriptions and timing details.
       """,
   )
+  start_offset: Optional[str] = Field(
+      default=None,
+      description="""Start offset in time of the transcription relative to the start of the audio.
+      """,
+  )
+  end_offset: Optional[str] = Field(
+      default=None,
+      description="""End offset in time of the transcription relative to the start of the audio.
+      """,
+  )
 
 
 class TranscriptionDict(TypedDict, total=False):
@@ -2276,6 +2286,14 @@ class TranscriptionDict(TypedDict, total=False):
 
   words: Optional[list[WordInfoDict]]
   """Detailed word-level transcriptions and timing details.
+      """
+
+  start_offset: Optional[str]
+  """Start offset in time of the transcription relative to the start of the audio.
+      """
+
+  end_offset: Optional[str]
+  """End offset in time of the transcription relative to the start of the audio.
       """
 
 
@@ -6729,6 +6747,14 @@ class GenerateContentConfig(_common.BaseModel):
       `CONTINUATION`.
       """,
   )
+  automatic_continuation: Optional[bool] = Field(
+      default=None,
+      description="""Defaults to true. When a response ends with finish reason
+      `CONTINUATION`, the SDK sends the same request again with the response's
+      continuation token until the model finishes. Timeouts, retries and
+      billing apply to each request. Set to false to turn this off.
+      """,
+  )
 
   @pydantic.field_validator('response_schema', mode='before')
   @classmethod
@@ -6954,6 +6980,13 @@ class GenerateContentConfigDict(TypedDict, total=False):
   """An opaque continuation token used to resume generation from a
       previous response that stopped with `finish_reason` set to
       `CONTINUATION`.
+      """
+
+  automatic_continuation: Optional[bool]
+  """Defaults to true. When a response ends with finish reason
+      `CONTINUATION`, the SDK sends the same request again with the response's
+      continuation token until the model finishes. Timeouts, retries and
+      billing apply to each request. Set to false to turn this off.
       """
 
 
@@ -8566,6 +8599,16 @@ class GenerateContentResponseUsageMetadata(_common.BaseModel):
       default=None,
       description="""Output only. The traffic type for this request.""",
   )
+  _initial_prompt_token_count: Optional[int] = pydantic.PrivateAttr(
+      default=None
+  )
+
+  @property
+  def initial_prompt_token_count(self) -> Optional[int]:
+    """Returns the prompt token count from the initial request prior to any continuation hops."""
+    if self._initial_prompt_token_count is not None:
+      return self._initial_prompt_token_count
+    return self.prompt_token_count
 
 
 class GenerateContentResponseUsageMetadataDict(TypedDict, total=False):
@@ -8859,6 +8902,13 @@ class GenerateContentResponse(_common.BaseModel):
       if part.code_execution_result is not None:
         return part.code_execution_result.output
     return None
+
+  @property
+  def initial_prompt_token_count(self) -> Optional[int]:
+    """Returns the prompt token count from the initial request prior to any continuation hops."""
+    if self.usage_metadata is None:
+      return None
+    return self.usage_metadata.initial_prompt_token_count
 
   @classmethod
   def _from_response(
@@ -21642,6 +21692,10 @@ class RealtimeInputConfig(_common.BaseModel):
       default=None,
       description="""Defines which input is included in the user's turn.""",
   )
+  interim_transcript_timestamp_enabled: Optional[bool] = Field(
+      default=None,
+      description="""If true, enables interim transcript timestamps.""",
+  )
 
 
 class RealtimeInputConfigDict(TypedDict, total=False):
@@ -21659,6 +21713,9 @@ class RealtimeInputConfigDict(TypedDict, total=False):
 
   turn_coverage: Optional[TurnCoverage]
   """Defines which input is included in the user's turn."""
+
+  interim_transcript_timestamp_enabled: Optional[bool]
+  """If true, enables interim transcript timestamps."""
 
 
 RealtimeInputConfigOrDict = Union[RealtimeInputConfig, RealtimeInputConfigDict]

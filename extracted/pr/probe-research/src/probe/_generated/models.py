@@ -161,6 +161,23 @@ class Notes(RootModel[str]):
     root: str = Field(..., max_length=4000, title='Notes')
 
 
+class AnchoredMultipartCreate(BaseModel):
+    """
+    Open a multipart upload at a project, experiment, workspace or Shared:
+    the single-PUT door's fields (`ScopedUploadRequest`, no run-only ones)
+    with `size_bytes` REQUIRED, as at the run door (`MultipartCreate`).
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    content_hash: str = Field(..., title='Content Hash')
+    content_type: str | None = Field(None, title='Content Type')
+    name: str = Field(..., title='Name')
+    notes: Notes | None = Field(None, title='Notes')
+    size_bytes: int = Field(..., gt=0, le=5497558138880, title='Size Bytes')
+
+
 class SizeBytes(RootModel[int]):
     root: int = Field(..., ge=0, le=9223372036854776000, title='Size Bytes')
 
@@ -170,7 +187,7 @@ class ArtifactCreate(BaseModel):
     content_type: str | None = Field(None, title='Content Type')
     coords: dict[str, Any] | None = Field(None, title='Coords')
     is_reference: bool | None = Field(False, title='Is Reference')
-    kind: str | None = Field('file', title='Kind')
+    kind: str | None = Field('other', title='Kind')
     labels: dict[str, Any] | None = Field(None, title='Labels')
     meta: dict[str, Any] | None = Field(None, title='Meta')
     name: str = Field(..., title='Name')
@@ -1225,6 +1242,7 @@ class CaptureSource(StrEnum):
     codex = 'codex'
     pi = 'pi'
     kimi_code = 'kimi_code'
+    capy = 'capy'
 
 
 class Status1(StrEnum):
@@ -1395,6 +1413,91 @@ class ExecutionRecordOut(BaseModel):
     settings: dict[str, Any] | None = Field(None, title='Settings')
 
 
+class Name1(RootModel[str]):
+    root: str = Field(
+        ...,
+        description='Display name. Omit it to let the title lane name the fork.',
+        max_length=200,
+        min_length=1,
+        title='Name',
+    )
+
+
+class ExperimentForkCreate(BaseModel):
+    """
+    A fork of the experiment in the path: a new experiment of the same
+    project that copies its notes, sub-notes, page document, tags, chart
+    settings and experiment-level files, and reads its runs' files live.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    authored_by: Authorship | None = Field(
+        None,
+        description="Who composed the name and question on this write: `human` or `agent`. Omitted reads as a person's, and a person's name or question is never rewritten by generation; `agent` leaves them for the title and description lanes to improve.",
+    )
+    name: Name1 | None = Field(
+        None,
+        description='Display name. Omit it to let the title lane name the fork.',
+        title='Name',
+    )
+    question: str = Field(
+        ...,
+        description="The fork's own question: what it tries that the source did not. Required, never blank.",
+        max_length=2000,
+        min_length=1,
+        title='Question',
+    )
+    slug: str = Field(
+        ...,
+        description="The fork's slug: unique in the tenant, in the namespace projects share. A taken slug is the create's 409 (`existing`, `suggestion`).",
+        title='Slug',
+    )
+
+
+class ExperimentForkSourceOut(BaseModel):
+    """
+    The experiment a fork was forked from.
+    """
+
+    forked_at: AwareDatetime = Field(
+        ...,
+        description="When the fork was made (the link's creation).",
+        title='Forked At',
+    )
+    id: UUID = Field(..., title='Id')
+    name: str = Field(
+        ..., description='Display name; its slug when unnamed.', title='Name'
+    )
+    project_id: UUID = Field(..., title='Project Id')
+    slug: str = Field(..., title='Slug')
+
+
+class ExperimentForkedOut(BaseModel):
+    """
+    What a fork copied, and its link.
+    """
+
+    chart_settings: int = Field(..., title='Chart Settings')
+    edge_id: UUID = Field(
+        ..., description='The `forked_from` link (fork -> source).', title='Edge Id'
+    )
+    files: int = Field(
+        ...,
+        description='Experiment-level files copied (pointer rows, no bytes).',
+        title='Files',
+    )
+    note_header: bool = Field(
+        ...,
+        description="Whether the copied note opens with the line naming the source; false when the source's note had no room left for it (or was empty).",
+        title='Note Header',
+    )
+    source_id: UUID = Field(..., title='Source Id')
+    source_slug: str = Field(..., title='Source Slug')
+    sub_notes: int = Field(..., title='Sub Notes')
+
+
 class ExperimentGroupOut(BaseModel):
     """
     A run group of the experiment: the leaf door's `RunGroupOut` plus the
@@ -1417,6 +1520,11 @@ class ExperimentGroupOut(BaseModel):
         title='Project Id',
     )
     spec: dict[str, Any] | None = Field(None, title='Spec')
+
+
+class Kind1(StrEnum):
+    files = 'files'
+    runs = 'runs'
 
 
 class ExperimentManifestOut(BaseModel):
@@ -1845,13 +1953,58 @@ class IngestArtifact(BaseModel):
     external_span_key: str | None = Field(None, title='External Span Key')
     external_span_type: str | None = Field(None, title='External Span Type')
     is_reference: bool | None = Field(False, title='Is Reference')
-    kind: str | None = Field('file', title='Kind')
+    kind: str | None = Field('other', title='Kind')
     labels: dict[str, Any] | None = Field(None, title='Labels')
     meta: dict[str, Any] | None = Field(None, title='Meta')
     name: str = Field(..., title='Name')
     size_bytes: int | None = Field(None, title='Size Bytes')
     step_index: int | None = Field(None, title='Step Index')
     uri: str | None = Field(None, title='Uri')
+
+
+class InheritedFileOut(BaseModel):
+    content_hash: str | None = Field(None, title='Content Hash')
+    content_type: str | None = Field(None, title='Content Type')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    credential_findings: list[str] | None = Field(
+        None,
+        description='As on every artifact read: what the credential scan found.',
+        title='Credential Findings',
+    )
+    id: UUID = Field(
+        ...,
+        description="The SOURCE run's file id: `probe file get` reads it as is.",
+        title='Id',
+    )
+    kind: str = Field(..., title='Kind')
+    name: str = Field(..., title='Name')
+    redacted_spans: int | None = Field(
+        None,
+        description='Non-zero: these bytes are not the original (spans redacted).',
+        title='Redacted Spans',
+    )
+    run_id: UUID = Field(..., title='Run Id')
+    run_slug: str | None = Field(None, title='Run Slug')
+    size_bytes: int | None = Field(None, title='Size Bytes')
+    source_experiment_id: UUID = Field(..., title='Source Experiment Id')
+
+
+class InheritedKind(StrEnum):
+    """
+    What `GET .../inherited` lists.
+    """
+
+    files = 'files'
+    runs = 'runs'
+
+
+class InheritedRunOut(BaseModel):
+    created_at: AwareDatetime = Field(..., title='Created At')
+    id: UUID = Field(..., title='Id')
+    name: str | None = Field(None, title='Name')
+    slug: str | None = Field(None, title='Slug')
+    source_experiment_id: UUID = Field(..., title='Source Experiment Id')
+    status: str | None = Field(None, title='Status')
 
 
 class InlineArtifact(BaseModel):
@@ -1898,6 +2051,7 @@ class CaptureSources1Enum(StrEnum):
     codex = 'codex'
     pi = 'pi'
     kimi_code = 'kimi_code'
+    capy = 'capy'
 
 
 class CaptureSources1(RootModel[list[CaptureSources1Enum]]):
@@ -2185,7 +2339,7 @@ class Origin(StrEnum):
     derived = 'derived'
 
 
-class Kind1(RootModel[str]):
+class Kind2(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Kind')
 
 
@@ -2197,7 +2351,7 @@ class MetricComparison(BaseModel):
         None, title='Dimensions'
     )
     key: str = Field(..., max_length=200, min_length=1, title='Key')
-    kind: Kind1 | None = Field(None, title='Kind')
+    kind: Kind2 | None = Field(None, title='Kind')
     op: Op = Field(..., title='Op')
     value: float = Field(..., title='Value')
 
@@ -2379,7 +2533,7 @@ class MetricViewOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
-class Name1(RootModel[str]):
+class Name2(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Name')
 
 
@@ -2404,7 +2558,7 @@ class MirrorBlock(BaseModel):
     state: str = Field(..., title='State')
 
 
-class Name2(RootModel[str]):
+class Name3(RootModel[str]):
     root: str = Field(..., max_length=120, min_length=1, title='Name')
 
 
@@ -3136,7 +3290,7 @@ class ProjectArtifactCreate(BaseModel):
     content_hash: str | None = Field(None, title='Content Hash')
     content_type: str | None = Field(None, title='Content Type')
     is_reference: bool | None = Field(False, title='Is Reference')
-    kind: str | None = Field('file', title='Kind')
+    kind: str | None = Field('other', title='Kind')
     meta: dict[str, Any] | None = Field(None, title='Meta')
     name: str = Field(..., title='Name')
     notes: Notes | None = Field(None, title='Notes')
@@ -3177,11 +3331,11 @@ class Document(RootModel[str]):
     root: str = Field(..., max_length=100000, title='Document')
 
 
-class Name4(RootModel[str]):
+class Name5(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Name')
 
 
-class Name5(RootModel[str]):
+class Name6(RootModel[str]):
     root: str = Field(
         ...,
         description='Display name. Omit it to let the title lane name the experiment once it has work worth naming; until then it reads as its slug.',
@@ -3203,7 +3357,7 @@ class ProjectExperimentCreate(BaseModel):
         None,
         description="Who composed the name and question on this write: `human` or `agent`. Omitted reads as a person's, and a person's name or question is never rewritten by generation; `agent` leaves them for the title and description lanes to improve.",
     )
-    name: Name5 | None = Field(
+    name: Name6 | None = Field(
         None,
         description='Display name. Omit it to let the title lane name the experiment once it has work worth naming; until then it reads as its slug.',
         title='Name',
@@ -3392,7 +3546,7 @@ class ExpectedDocument(RootModel[str]):
     )
 
 
-class Name6(RootModel[str]):
+class Name7(RootModel[str]):
     root: str = Field(
         ...,
         description='The new display name. Generation never renames it afterwards, unless `authored_by` is `agent` and no person has named it before.',
@@ -3402,7 +3556,7 @@ class Name6(RootModel[str]):
     )
 
 
-class Notes4(RootModel[str]):
+class Notes5(RootModel[str]):
     root: str = Field(
         ...,
         description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`, or `force`.',
@@ -3452,12 +3606,12 @@ class ProjectExperimentPatch(BaseModel):
         description='Replace the notes WITHOUT a precondition: the one way to say "I know the notes moved and I mean to overwrite them" (an operator\'s escape hatch, and the way forward when no read version is at hand). Only with `notes`, and never with `base_version`.',
         title='Force',
     )
-    name: Name6 | None = Field(
+    name: Name7 | None = Field(
         None,
         description='The new display name. Generation never renames it afterwards, unless `authored_by` is `agent` and no person has named it before.',
         title='Name',
     )
-    notes: Notes4 | None = Field(
+    notes: Notes5 | None = Field(
         None,
         description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`, or `force`.',
         title='Notes',
@@ -3558,11 +3712,11 @@ class ExpectedDocument1(RootModel[str]):
     root: str = Field(..., max_length=100000, title='Expected Document')
 
 
-class Name7(RootModel[str]):
+class Name8(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Name')
 
 
-class Notes5(RootModel[str]):
+class Notes6(RootModel[str]):
     root: str = Field(..., max_length=100000, title='Notes')
 
 
@@ -3589,8 +3743,8 @@ class ProjectPatch(BaseModel):
     force: bool | None = Field(False, title='Force')
     kind: ProjectKind | None = None
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    name: Name7 | None = Field(None, title='Name')
-    notes: Notes5 | None = Field(None, title='Notes')
+    name: Name8 | None = Field(None, title='Name')
+    notes: Notes6 | None = Field(None, title='Notes')
     notes_append: NotesAppend1 | None = Field(None, title='Notes Append')
     notes_edit: NotesEdit | None = None
     op_key: OpKey | None = Field(None, title='Op Key')
@@ -4353,18 +4507,18 @@ class LivenessProtocol(RootModel[LivenessProtocolEnum | None]):
     root: LivenessProtocolEnum | None = Field(None, title='Liveness Protocol')
 
 
-class Name8(RootModel[str]):
+class Name9(RootModel[str]):
     root: str = Field(..., min_length=1, title='Name')
 
 
-class Notes6(RootModel[str]):
+class Notes7(RootModel[str]):
     root: str = Field(..., max_length=4000, title='Notes')
 
 
 class RunGroupCreate(BaseModel):
     kind: str | None = Field('group', title='Kind')
     name: str = Field(..., title='Name')
-    notes: Notes6 | None = Field(None, title='Notes')
+    notes: Notes7 | None = Field(None, title='Notes')
     spec: dict[str, Any] | None = Field(None, title='Spec')
 
 
@@ -4393,8 +4547,8 @@ class RunGroupPatch(BaseModel):
 
     base_version: int | None = Field(None, title='Base Version')
     force: bool | None = Field(False, title='Force')
-    name: Name8 | None = Field(None, title='Name')
-    notes: Notes6 | None = Field(None, title='Notes')
+    name: Name9 | None = Field(None, title='Name')
+    notes: Notes7 | None = Field(None, title='Notes')
     notes_append: NotesAppend2 | None = Field(None, title='Notes Append')
     notes_edit: NotesEdit | None = None
     op_key: OpKey | None = Field(None, title='Op Key')
@@ -4801,7 +4955,7 @@ class ScopedUploadRequest(BaseModel):
     content_hash: str = Field(..., title='Content Hash')
     content_type: str | None = Field(None, title='Content Type')
     name: str = Field(..., title='Name')
-    notes: Notes6 | None = Field(None, title='Notes')
+    notes: Notes7 | None = Field(None, title='Notes')
     size_bytes: SizeBytes5 | None = Field(None, title='Size Bytes')
 
 
@@ -5101,6 +5255,17 @@ class SessionIngestStateOut(BaseModel):
     known: bool = Field(..., title='Known')
     last_seen_at: AwareDatetime | None = Field(None, title='Last Seen At')
     session_id: str = Field(..., title='Session Id')
+
+
+class SessionMediaOut(BaseModel):
+    """
+    A presigned GET for one pasted image (about 5 minutes), served as `media_type`.
+    """
+
+    expires_at: str = Field(..., title='Expires At')
+    media_type: str = Field(..., title='Media Type')
+    size_bytes: int = Field(..., ge=0, title='Size Bytes')
+    url: str = Field(..., title='Url')
 
 
 class SessionTrajectoryOut(BaseModel):
@@ -5519,7 +5684,7 @@ class SyncSummary(BaseModel):
     stale: bool | None = Field(False, title='Stale')
 
 
-class Name11(RootModel[str]):
+class Name12(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
 
 
@@ -5537,6 +5702,10 @@ class TeamCreate(BaseModel):
 
     display_name: str = Field(..., max_length=120, min_length=1, title='Display Name')
     slug: str = Field(..., max_length=64, min_length=1, title='Slug')
+
+
+class TeamFeaturesOut(BaseModel):
+    features: list[str] = Field(..., title='Features')
 
 
 class Role8(StrEnum):
@@ -5863,7 +6032,7 @@ class TrialOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
-class Name12(RootModel[str]):
+class Name13(RootModel[str]):
     root: str = Field(..., min_length=1, title='Name')
 
 
@@ -5888,7 +6057,7 @@ class TrialPatch(BaseModel):
     """
 
     description: Description | None = Field(None, title='Description')
-    name: Name12 | None = Field(None, title='Name')
+    name: Name13 | None = Field(None, title='Name')
 
 
 class Fn5(StrEnum):
@@ -5954,7 +6123,7 @@ class UploadRequest(BaseModel):
     kind: str | None = Field(None, title='Kind')
     meta: dict[str, Any] | None = Field(None, title='Meta')
     name: str = Field(..., title='Name')
-    notes: Notes6 | None = Field(None, title='Notes')
+    notes: Notes7 | None = Field(None, title='Notes')
     size_bytes: SizeBytes5 | None = Field(None, title='Size Bytes')
     span_id: UUID | None = Field(None, title='Span Id')
     step_index: int | None = Field(None, title='Step Index')
@@ -5977,13 +6146,13 @@ class UpstreamRunOut(BaseModel):
     status: str | None = Field(None, title='Status')
 
 
-class Name13(RootModel[str]):
+class Name14(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
 
 
 class UserMessage(BaseModel):
     content: str | list[TextPart] = Field(..., title='Content')
-    name: Name13 | None = Field(None, title='Name')
+    name: Name14 | None = Field(None, title='Name')
     role: Literal['user'] = Field(..., title='Role')
 
 
@@ -6015,7 +6184,7 @@ class VisualsState(StrEnum):
     no_current_data = 'no_current_data'
 
 
-class Name14(RootModel[str]):
+class Name15(RootModel[str]):
     root: str = Field(..., max_length=120, min_length=1, title='Name')
 
 
@@ -6621,6 +6790,7 @@ class CanvasExperiment(BaseModel):
     blurb: str | None = Field(None, title='Blurb')
     created_at: AwareDatetime = Field(..., title='Created At')
     id: UUID = Field(..., title='Id')
+    live_run_count: int | None = Field(0, title='Live Run Count')
     live_runs: list[CanvasLiveRun] | None = Field(
         [], title='Live Runs', validate_default=True
     )
@@ -7102,6 +7272,114 @@ class ExperimentCodeWindow(BaseModel):
     to_sha: str | None = Field(None, title='To Sha')
 
 
+class ExperimentForkOut(BaseModel):
+    """
+    The new fork, as the create answers it (its `notes_version` is what the
+    next note edit names), and what it copied.
+    """
+
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: str | None = Field(
+        None,
+        description="Server-stamped creator: 'user:<uuid>' or 'ingest:<token-uuid>'; null when unknown.",
+        title='Created By',
+    )
+    document: str | None = Field(
+        None,
+        description='The overview page\'s authored Markdown block as this write left it: set only when the request sent `document` (`""` when it cleared it), else null.',
+        title='Document',
+    )
+    fork: ExperimentForkedOut
+    id: UUID = Field(..., title='Id')
+    legacy_slug: str | None = Field(
+        None,
+        description='The slug this experiment had before it was renamed around a project holding the same one. Refs and ingest pushes that use it still resolve.',
+        title='Legacy Slug',
+    )
+    name: str = Field(
+        ...,
+        description='Display name. An unnamed experiment reads as its slug.',
+        title='Name',
+    )
+    notes_limit_chars: int | None = Field(
+        100000,
+        description="The notes' size cap, in characters.",
+        title='Notes Limit Chars',
+    )
+    notes_remaining_chars: int | None = Field(
+        None,
+        description='Room left in the notes before `notes_limit_chars` refuses the next write: whether the next edit fits, without echoing the text.',
+        title='Notes Remaining Chars',
+    )
+    notes_updated_at: AwareDatetime | None = Field(None, title='Notes Updated At')
+    notes_version: int | None = Field(
+        0,
+        description="The notes' write counter after this write. Send it as `base_version` with the next `notes` edit; it moves only when the text changed.",
+        title='Notes Version',
+    )
+    parallel_coordinates_panel_v1: dict[str, Any] | None = Field(
+        None,
+        description='The saved parallel-coordinates panel, echoed when the request sent `parallel_coordinates_panel_v1`, else null.',
+        title='Parallel Coordinates Panel V1',
+    )
+    project_id: UUID = Field(
+        ...,
+        description='The project this experiment is filed under. Never the experiment itself.',
+        title='Project Id',
+    )
+    question: str = Field(
+        ...,
+        description='The question the experiment answers. Never blank.',
+        title='Question',
+    )
+    run_count: int = Field(
+        ...,
+        description='How many runs the caller can see in this experiment (trashed runs excluded).',
+        title='Run Count',
+    )
+    slug: str = Field(
+        ...,
+        description='Unique in the tenant, in one namespace shared with project slugs.',
+        title='Slug',
+    )
+    tags: list[str] | None = Field(
+        None,
+        description="The experiment's stored tags, in their original order.",
+        title='Tags',
+    )
+    updated_at: AwareDatetime = Field(
+        ...,
+        description="Last substantive activity (a run edit, telemetry, a file, an edit to the experiment). Sort by this for 'recently active'.",
+        title='Updated At',
+    )
+
+
+class ExperimentInheritedOut(BaseModel):
+    """
+    What a fork reads live through its link: its sources' runs, or their
+    files, as they existed when each hop forked. A file the source changed or
+    removed since is the fork's own file now and is not listed here.
+    """
+
+    items: list[InheritedFileOut] | list[InheritedRunOut] = Field(..., title='Items')
+    kind: Kind1 = Field(..., title='Kind')
+    next_after: UUID | None = Field(
+        None,
+        description='Pass as `after` for the next page; null on the last page.',
+        title='Next After',
+    )
+    sources: list[ExperimentForkSourceOut] = Field(
+        ...,
+        description="The fork's chain of sources, nearest first. Empty for an experiment that is no fork.",
+        title='Sources',
+    )
+    total: int | None = Field(
+        None,
+        description='Everything listed, on the first page (no `after`); null after.',
+        title='Total',
+    )
+
+
 class ExperimentNode(BaseModel):
     active_run_count: int | None = Field(0, title='Active Run Count')
     created_at: AwareDatetime = Field(..., title='Created At')
@@ -7491,7 +7769,7 @@ class MetricViewData(BaseModel):
 
 class MirrorConnectIn(BaseModel):
     credentials: dict[str, str] = Field(..., title='Credentials')
-    name: Name2 | None = Field(None, title='Name')
+    name: Name3 | None = Field(None, title='Name')
     scope: list[ScopeEntry] | None = Field(None, max_length=1000, title='Scope')
     source: MirrorSource
     sync_enabled: bool | None = Field(False, title='Sync Enabled')
@@ -7530,7 +7808,7 @@ class Scope1(RootModel[list[ScopeEntry]]):
 
 class MirrorPatchIn(BaseModel):
     expected_revision: ExpectedRevision | None = Field(None, title='Expected Revision')
-    name: Name2 | None = Field(None, title='Name')
+    name: Name3 | None = Field(None, title='Name')
     scope: Scope1 | None = Field(None, title='Scope')
     sync_enabled: bool | None = Field(None, title='Sync Enabled')
 
@@ -7540,6 +7818,7 @@ class MultipartStatusOut(BaseModel):
     completed_at: AwareDatetime | None = Field(None, title='Completed At')
     content_hash: str = Field(..., title='Content Hash')
     created_at: AwareDatetime = Field(..., title='Created At')
+    experiment_id: UUID | None = Field(None, title='Experiment Id')
     failure_reason: str | None = Field(None, title='Failure Reason')
     finished_at: AwareDatetime | None = Field(None, title='Finished At')
     last_activity_at: AwareDatetime = Field(..., title='Last Activity At')
@@ -7548,10 +7827,13 @@ class MultipartStatusOut(BaseModel):
     part_count: int = Field(..., title='Part Count')
     part_size: int = Field(..., title='Part Size')
     parts: list[StoredPartOut] | None = Field(None, title='Parts')
-    run_id: UUID = Field(..., title='Run Id')
+    project_id: UUID | None = Field(None, title='Project Id')
+    run_id: UUID | None = Field(None, title='Run Id')
+    shared_folder_id: UUID | None = Field(None, title='Shared Folder Id')
     size_bytes: int = Field(..., title='Size Bytes')
     state: str = Field(..., title='State')
     upload_id: UUID = Field(..., title='Upload Id')
+    workspace_id: UUID | None = Field(None, title='Workspace Id')
     wrong_size_parts: list[int] | None = Field(None, title='Wrong Size Parts')
 
 
@@ -7693,7 +7975,7 @@ class ProjectCreate(BaseModel):
     document: Document | None = Field(None, title='Document')
     kind: ProjectKind | None = None
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    name: Name4 | None = Field(None, title='Name')
+    name: Name5 | None = Field(None, title='Name')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
     slug: str = Field(..., title='Slug')
     summary_markdown: str | None = Field(None, title='Summary Markdown')
@@ -7717,7 +7999,19 @@ class ProjectExperimentDetailOut(BaseModel):
         description="The overview page's authored Markdown block (what `PATCH` with `document` writes, and a person edits on the page). Null when the page holds none.",
         title='Document',
     )
+    fork_count: int | None = Field(
+        0, description='How many forks were made from this one.', title='Fork Count'
+    )
+    forked_from: ExperimentForkSourceOut | None = Field(
+        None,
+        description="The experiment this one was forked from (`POST .../fork`), or null. Its runs' files are listed by `GET .../inherited`.",
+    )
     id: UUID = Field(..., title='Id')
+    inherits: bool | None = Field(
+        False,
+        description='Whether this experiment is a fork that reads runs and files live from a source (`GET .../inherited`). True also when `forked_from` is null because its source is a fork in the trash that it still reads through to a live source.',
+        title='Inherits',
+    )
     legacy_slug: str | None = Field(
         None,
         description='The slug this experiment had before it was renamed around a project holding the same one. Refs and ingest pushes that use it still resolve.',
@@ -8255,8 +8549,8 @@ class RunPatch(BaseModel):
     metric_expectations: dict[str, MetricExpectation | None] | None = Field(
         None, title='Metric Expectations'
     )
-    name: Name8 | None = Field(None, title='Name')
-    notes: Notes6 | None = Field(None, title='Notes')
+    name: Name9 | None = Field(None, title='Name')
+    notes: Notes7 | None = Field(None, title='Notes')
     notes_append: NotesAppend2 | None = Field(None, title='Notes Append')
     notes_edit: NotesEdit | None = None
     op_key: OpKey | None = Field(None, title='Op Key')
@@ -8470,7 +8764,7 @@ class SyncOut(BaseModel):
 
 class SystemMessage(BaseModel):
     content: str | list[TextPart] = Field(..., title='Content')
-    name: Name11 | None = Field(None, title='Name')
+    name: Name12 | None = Field(None, title='Name')
     role: Literal['developer', 'system'] = Field(..., title='Role')
 
 
@@ -8479,7 +8773,7 @@ class WandbAccountConnect(BaseModel):
         extra='forbid',
     )
     credentials: WandbAccountCredentials
-    name: Name14 | None = Field(None, title='Name')
+    name: Name15 | None = Field(None, title='Name')
 
 
 class WandbBatchOut(BaseModel):
@@ -8865,6 +9159,19 @@ class ExperimentEffectiveShareOut(BaseModel):
     publication: ExperimentShareOut | None = None
 
 
+class ExperimentSharingOut(BaseModel):
+    """
+    An experiment's Permissions dialog in one read: `ProjectSharingOut`
+    with the twins' shapes. `access` is the experiment's served row (it always
+    inherits its project's node, 0300).
+    """
+
+    access: NodeAccess
+    effective: ExperimentEffectiveShareOut
+    governing: NodeAccess | None = None
+    publication: ExperimentShareOut | None = None
+
+
 class HashLookupOut(BaseModel):
     content_hash: str = Field(..., title='Content Hash')
     readers: list[ArtifactReaderOut] = Field(..., title='Readers')
@@ -8960,6 +9267,23 @@ class ProjectLineageOut(BaseModel):
     origin: NodeOrigin | None = None
     project_id: UUID = Field(..., title='Project Id')
     truncated: bool | None = Field(False, title='Truncated')
+
+
+class ProjectSharingOut(BaseModel):
+    """
+    Everything the Permissions dialog shows about a project, in one read.
+
+    Each field is what its own route answers, so the two cannot drift:
+    `access` is GET .../access; `governing` is the rule that applies (`access`
+    itself, or the `governed_by` node's GET .../access; null when that node
+    cannot be read); `publication` is GET .../public (null when unpublished);
+    `effective` is GET .../public/effective.
+    """
+
+    access: NodeAccess
+    effective: EffectivePublicAccessOut
+    governing: NodeAccess | None = None
+    publication: PublicAccessOut | None = None
 
 
 class ProjectWorkspaceOut(BaseModel):
@@ -9098,8 +9422,8 @@ class RunCreate(BaseModel):
     liveness_mode: str | None = Field(None, title='Liveness Mode')
     liveness_protocol: LivenessProtocol | None = Field(None, title='Liveness Protocol')
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
-    name: Name8 | None = Field(None, title='Name')
-    notes: Notes6 | None = Field(None, title='Notes')
+    name: Name9 | None = Field(None, title='Name')
+    notes: Notes7 | None = Field(None, title='Notes')
     offline: bool | None = Field(False, title='Offline')
     parent_provenance: ParentProvenance | None = None
     parent_relation: ParentRelation | None = None
@@ -9207,7 +9531,7 @@ class WorkspaceCreate(BaseModel):
     requires an explicit opt-in and the necessary write access.
     """
 
-    name: Name14 | None = Field(None, title='Name')
+    name: Name15 | None = Field(None, title='Name')
     slug: str = Field(..., max_length=120, min_length=1, title='Slug')
     writers: WorkspaceWriters | None = None
 
@@ -9488,7 +9812,7 @@ class MetricViewCreate(BaseModel):
 
 class MetricViewPatch(BaseModel):
     expected_updated_at: AwareDatetime | None = Field(None, title='Expected Updated At')
-    name: Name1 | None = Field(None, title='Name')
+    name: Name2 | None = Field(None, title='Name')
     spec: MetricViewSpec | None = None
 
 

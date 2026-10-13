@@ -25,6 +25,7 @@ import logging
 import numpy as np
 
 from evo import EvoException
+from evo.core.sync_method import SyncMethod
 from evo.core.trajectory import PoseTrajectory3D
 
 logger = logging.getLogger(__name__)
@@ -57,70 +58,132 @@ def matching_time_indices(
     matching_indices_2 = []
     stamps_2 = copy.deepcopy(stamps_2)
     stamps_2 += offset_2
+    # Fall back to linear search if timestamps are not monotonically increasing.
+    time_diffs = np.diff(stamps_2)
+    if not np.all(time_diffs >= 0):
+        logger.warning(
+            "Timestamps aren't sorted, using slower linear matching."
+        )
+        for index_1, stamp_1 in enumerate(stamps_1):
+            diffs = np.abs(stamps_2 - stamp_1)
+            index_2 = int(np.argmin(diffs))
+            if diffs[index_2] <= max_diff:
+                matching_indices_1.append(index_1)
+                matching_indices_2.append(index_2)
+        return matching_indices_1, matching_indices_2
+
+    logger.debug("Timestamps are sorted, using binary search for matching.")
     for index_1, stamp_1 in enumerate(stamps_1):
-        diffs = np.abs(stamps_2 - stamp_1)
-        index_2 = int(np.argmin(diffs))
-        if diffs[index_2] <= max_diff:
-            matching_indices_1.append(index_1)
-            matching_indices_2.append(index_2)
+        # Skip stamps that are outside the range of stamps_2 +/- max_diff.
+        if (
+            stamp_1 < stamps_2[0] - max_diff
+            or stamp_1 > stamps_2[-1] + max_diff
+        ):
+            continue
+
+        # Find the insertion index at which stamp_1
+        # would be closest to a value in stamps_2.
+        index_2 = np.searchsorted(stamps_2, stamp_1, side="right")
+
+        # Clamp an out-of-range insertion index.
+        if index_2 >= len(stamps_2):
+            index_2 = len(stamps_2) - 1
+
+        # Calculate the time differences between stamp_1
+        # and the closest timestamps in stamps_2.
+        diff_ub = stamps_2[index_2] - stamp_1
+        diff_lb = (
+            stamp_1 - stamps_2[index_2 - 1] if index_2 > 0 else float("inf")
+        )
+
+        # Check if the time differences are within the allowed max_diff
+        # and select the closest match.
+        if diff_ub <= max_diff and diff_ub < diff_lb:
+            index_best = index_2
+        elif diff_lb <= max_diff and diff_lb <= diff_ub:
+            index_best = index_2 - 1
+        else:
+            continue
+
+        matching_indices_1.append(index_1)
+        matching_indices_2.append(int(index_best))
     return matching_indices_1, matching_indices_2
 
 
 def associate_trajectories(
     traj_1: PoseTrajectory3D,
     traj_2: PoseTrajectory3D,
+    *,
+    sync_method: SyncMethod = SyncMethod.nearest_time,
     max_diff: float = 0.01,
     offset_2: float = 0.0,
-    first_name: str = "first trajectory",
-    snd_name: str = "second trajectory",
 ) -> TrajectoryPair:
     """
-    Synchronizes two trajectories by matching their timestamps.
+    Synchronizes two trajectories, so that both have the same number of poses
+    at (approximately) equal timestamps.
+    Doesn't modify the trajectories, synchronized copies are returned.
     :param traj_1: trajectory.PoseTrajectory3D object of first trajectory
     :param traj_2: trajectory.PoseTrajectory3D object of second trajectory
+    :param sync_method: SyncMethod to use for the synchronization.
+                        Both methods associate the same poses within max_diff,
+                        but interpolation resamples the trajectory with more
+                        poses exactly at the timestamps of the sparser one
+                        instead of snapping to its closest poses.
     :param max_diff: max. allowed absolute time difference for associating
     :param offset_2: optional time offset of second trajectory
-    :param first_name: name of first trajectory for verbose logging
-    :param snd_name: name of second trajectory for verbose/debug logging
     :return: traj_1, traj_2 (synchronized)
     """
-    if not isinstance(traj_1, PoseTrajectory3D) or not isinstance(
-        traj_2, PoseTrajectory3D
-    ):
-        raise SyncException("trajectories must be PoseTrajectory3D objects")
+    first_name = traj_1.name if traj_1.name else "first trajectory"
+    second_name = traj_2.name if traj_2.name else "second trajectory"
 
-    snd_longer = len(traj_2.timestamps) > len(traj_1.timestamps)
-    traj_long = copy.deepcopy(traj_2) if snd_longer else copy.deepcopy(traj_1)
-    traj_short = copy.deepcopy(traj_1) if snd_longer else copy.deepcopy(traj_2)
-    max_pairs = len(traj_short.timestamps)
+    # Start from the trajectory that has fewer poses, so that none of its
+    # poses are lost.
+    second_longer = traj_2.num_poses > traj_1.num_poses
+    traj_short = traj_1 if second_longer else traj_2
+    traj_long = traj_2 if second_longer else traj_1
+    max_pairs = traj_short.num_poses
 
     matching_indices_short, matching_indices_long = matching_time_indices(
         traj_short.timestamps,
         traj_long.timestamps,
         max_diff,
-        offset_2 if snd_longer else -offset_2,
+        offset_2 if second_longer else -offset_2,
     )
-    if len(matching_indices_short) != len(matching_indices_long):
-        raise SyncException(
-            "matching_time_indices returned unequal number of indices"
-        )
-    num_matches = len(matching_indices_long)
-    traj_short.reduce_to_ids(matching_indices_short)
-    traj_long.reduce_to_ids(matching_indices_long)
-
-    traj_1 = traj_short if snd_longer else traj_long
-    traj_2 = traj_long if snd_longer else traj_short
-
+    num_matches = len(matching_indices_short)
     if num_matches == 0:
         raise SyncException(
-            f"found no matching timestamps between {first_name} and {snd_name} with max. time "
+            f"found no matching timestamps between {first_name} and {second_name} with max. time "
             f"diff {max_diff} (s) and time offset {offset_2} (s)"
         )
 
+    traj_short = copy.deepcopy(traj_short)
+    traj_short.reduce_to_ids(matching_indices_short)
+
+    if sync_method is SyncMethod.interpolation:
+        # The time offset is only used for the association, both trajectories
+        # keep their own time frame. Therefore the interpolation timestamps
+        # have to be converted to the time frame of the longer trajectory.
+        # interpolate() returns a new trajectory, so no copy is needed here.
+        traj_long = traj_long.interpolate(
+            traj_short.timestamps + (-offset_2 if second_longer else offset_2)
+        )
+    else:
+        traj_long = copy.deepcopy(traj_long)
+        traj_long.reduce_to_ids(matching_indices_long)
+
     logger.debug(
         f"Found {num_matches} of max. {max_pairs} possible matching timestamps between...\n"
-        f"\t{first_name}\nand:\t{snd_name}\n..with max. time diff.: {max_diff} (s) "
+        f"\t{first_name}\nand:\t{second_name}\n..with max. time diff.: {max_diff} (s) "
         f"and time offset: {offset_2} (s)."
     )
+    if sync_method is SyncMethod.interpolation:
+        logger.debug(
+            f"Interpolated the poses of "
+            f"{second_name if second_longer else first_name} "
+            f"at the matched timestamps of "
+            f"{first_name if second_longer else second_name}."
+        )
 
-    return traj_1, traj_2
+    if second_longer:
+        return traj_short, traj_long
+    return traj_long, traj_short

@@ -10,22 +10,6 @@ samples_dir = parent_dir / 'samples'
 
 
 class TestRouting:
-    def test_noparenthesis(self) -> None:
-        test_input = {
-            ' test ': ' test ',
-            '(test)': '',
-            '((test))': '',
-            '(((test) (bla)))': '',
-            '(test) foo': ' foo',
-            'asd (foo (test)(() foo': 'asd (foo ( foo',
-            'foo (test) )()foo)': 'foo  )foo)',
-            '(asd)(((((': '(((((',
-            '))))(asd)': '))))',
-        }
-
-        for test, expected_result in test_input.items():
-            assert eml_parser.routing.noparenthesis(test) == expected_result
-
     def test_cleanline(self) -> None:
         test_input = {
             '   ;': '',
@@ -61,6 +45,7 @@ class TestRouting:
                 # Tests a received entry which has *from* as part of a field.
                 """Received: by f321.i.example.com with local (envelope-from <b8u3hkqlkj@example.com>) id 1khYpb-0001XE-KE for someone@here-from-there.com; Tue, 24 Nov 2020 16:58:07 +0300""",
                 {
+                    'by': ['f321.i.example.com'],
                     'for': ['someone@here-from-there.com'],
                     'src': 'Received: by f321.i.example.com with local (envelope-from <b8u3hkqlkj@example.com>) id 1khYpb-0001XE-KE for someone@here-from-there.com; Tue, 24 Nov 2020 16:58:07 +0300',
                     'with': 'local (envelope-from <b8u3hkqlkj@example.com>) id 1khypb-0001xe-ke',
@@ -71,7 +56,9 @@ class TestRouting:
                 # C.f. github issue #54; unsupported line; point of this test is to make sure we properly catch related exceptions
                 r"""Received: from)by ismtpd0112p1sjc2.abc.net (SG) with ESMTP id\n B4glDdmiQcqJYrMuLIqjUQfor <p-j.a@sdf.com>; Fri, 29 Jan 2021\n 07:24:22.501 +0000 (UTC)""",
                 {
-                    'src': r'Received: from)by ismtpd0112p1sjc2.abc.net (SG) with ESMTP id\n B4glDdmiQcqJYrMuLIqjUQfor <p-j.a@sdf.com>; Fri, 29 Jan 2021\n 07:24:22.501 +0000 (UTC)'
+                    'src': r'Received: from)by ismtpd0112p1sjc2.abc.net (SG) with ESMTP id\n B4glDdmiQcqJYrMuLIqjUQfor <p-j.a@sdf.com>; Fri, 29 Jan 2021\n 07:24:22.501 +0000 (UTC)',
+                    'by': ['ismtpd0112p1sjc2.abc.net'],
+                    'with': r'esmtp id\n b4glddmiqcqjyrmuliqjuqfor <p-j.a@sdf.com>',
                 },
             ),
         }

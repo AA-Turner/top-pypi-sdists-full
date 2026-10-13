@@ -32,6 +32,7 @@ from schemathesis.core.jsonschema import Bundler
 from schemathesis.core.jsonschema.bundler import BundleCache
 from schemathesis.core.jsonschema.patterns import update_quantifier
 from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
+from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.result import Err, Ok, Result
 from schemathesis.core.spec import CoverageCapabilities
 from schemathesis.core.statistic import ApiStatistic, StatefulInference
@@ -44,6 +45,7 @@ from schemathesis.core.transport import (
 )
 from schemathesis.engine.link_calibration import LinkCalibrationState
 from schemathesis.generation.case import Case
+from schemathesis.generation.feedback import NO_FEEDBACK, FeedbackSources
 from schemathesis.generation.meta import CaseMetadata, ComponentInfo
 from schemathesis.resources import ExtraDataSource, ResourcePool
 from schemathesis.specs.openapi import adapter
@@ -71,6 +73,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import TypeAlias
 
+    from hypothesis import HealthCheck
     from hypothesis.strategies import SearchStrategy
 
     from schemathesis.auths import AuthContext, AuthProvider, AuthStorage
@@ -78,19 +81,21 @@ if TYPE_CHECKING:
     from schemathesis.core.adapter import ParsedParameters
     from schemathesis.core.cache import CacheWriter
     from schemathesis.core.error_feedback import ErrorFeedbackStore
+    from schemathesis.core.error_feedback.store import Observation
     from schemathesis.core.jsonschema.types import JsonValue
-    from schemathesis.core.parameters import ParameterLocation
     from schemathesis.core.schema_analysis import SchemaWarning
     from schemathesis.core.spec import ApiSchema, Scheduler
     from schemathesis.engine.observations import Observations
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.engine.run import Phase
     from schemathesis.generation.coverage import GenerationSession
+    from schemathesis.generation.hypothesis.reporting import SlowParameter, UnsatisfiableParameter
     from schemathesis.generation.stateful import APIStateMachine
-    from schemathesis.python._constants.pool import ConstantsPool
+    from schemathesis.generation.stateful.state_machine import StepInput
     from schemathesis.specs.openapi.adapter import OpenApiResponses
     from schemathesis.specs.openapi.adapter.parameters import OpenApiParameter
     from schemathesis.specs.openapi.adapter.security import OpenApiSecurityParameters, SecurityRequirements
+    from schemathesis.specs.openapi.auth_flow.bootstrap import OpenApiAuthFlow
     from schemathesis.specs.openapi.types import OperationObject
 
     OpenApiOperation: TypeAlias = APIOperation[
@@ -157,11 +162,34 @@ class OpenApiSchema(BaseSchema):
     @property
     @override
     def title(self) -> str | None:
-        return self.raw_schema.get("info", {}).get("title")
+        info = self.raw_schema.get("info")
+        title = info.get("title") if isinstance(info, dict) else None
+        return title if isinstance(title, str) else None
 
     @cached_property
     def security(self) -> OpenApiSecurity:
         return OpenApiSecurity(raw_schema=self.raw_schema, adapter=self.adapter, resolver=self.root_resolver)
+
+    @override
+    def find_unsatisfiable_parameter(self, operation: APIOperation) -> UnsatisfiableParameter | None:
+        from schemathesis.specs.openapi.diagnostics import find_unsatisfiable_parameter
+
+        return find_unsatisfiable_parameter(operation)
+
+    @override
+    def find_slow_parameter(self, operation: APIOperation, reason: HealthCheck) -> SlowParameter | None:
+        from schemathesis.specs.openapi.diagnostics import find_slow_parameter
+
+        return find_slow_parameter(operation, reason)
+
+    @override
+    def auth_flow(self) -> OpenApiAuthFlow | None:
+        spec = self.analysis.auth_flow
+        if spec is None:
+            return None
+        from schemathesis.specs.openapi.auth_flow.bootstrap import OpenApiAuthFlow
+
+        return OpenApiAuthFlow(schema=self, spec=spec)
 
     @override
     def is_security_param_negated(self, case: Case) -> bool:
@@ -279,6 +307,10 @@ class OpenApiSchema(BaseSchema):
         for location in list(meta._dirty):
             value = case.get_container(location)
             current_hash = case._hash_container(value)
+            if location == ParameterLocation.HEADER and isinstance(value, Mapping):
+                # Header names are case-insensitive, and undeclared headers like auth never make the input invalid.
+                declared = {parameter.name.lower(): parameter.name for parameter in case.operation.headers}
+                value = {declared[name.lower()]: item for name, item in value.items() if name.lower() in declared}
             raw = meta.raw_containers.get(location)
             # When the container still equals its generated form, validate the typed
             # snapshot — coverage stringifies query/path values for the wire and the
@@ -321,32 +353,22 @@ class OpenApiSchema(BaseSchema):
         from schemathesis.python._constants.orchestrator import make_constants_value_source
 
         return self._build_state_machine(
-            error_feedback=None,
+            feedback=FeedbackSources(constants_value_source=make_constants_value_source(self)),
             link_calibration=None,
-            extra_data_source=None,
-            constants_value_source=make_constants_value_source(self),
         )
 
     @override
     def _build_state_machine(
         self,
         *,
-        error_feedback: ErrorFeedbackStore | None,
+        feedback: FeedbackSources,
         link_calibration: LinkCalibrationState | None,
-        extra_data_source: ExtraDataSource | None,
-        constants_value_source: ConstantsPool | None = None,
     ) -> type[APIStateMachine]:
         # Apply dependency inference if configured and not already done
         if self.analysis.should_inject_links():
             _ = self._validation_error
             self.analysis.inject_links()
-        return create_state_machine(
-            self,
-            error_feedback=error_feedback,
-            link_calibration=link_calibration,
-            extra_data_source=extra_data_source,
-            constants_value_source=constants_value_source,
-        )
+        return create_state_machine(self, feedback=feedback, link_calibration=link_calibration)
 
     @override
     def get_unit_scheduler(
@@ -425,6 +447,20 @@ class OpenApiSchema(BaseSchema):
         return weights
 
     @override
+    def record_link_outcome(
+        self,
+        *,
+        calibration: LinkCalibrationState,
+        response: Response,
+        observations: tuple[Observation, ...],
+        step_input: StepInput,
+        recorder: ScenarioRecorder,
+    ) -> None:
+        from schemathesis.specs.openapi.stateful.link_calibration import record_link_outcome
+
+        record_link_outcome(calibration, response, observations, step_input, recorder)
+
+    @override
     def iter_link_candidates(
         self,
         *,
@@ -491,7 +527,7 @@ class OpenApiSchema(BaseSchema):
 
     @override
     def _get_base_path(self) -> str:
-        return self.adapter.get_base_path(self.raw_schema)
+        return self.adapter.get_base_path(self.raw_schema, self.config.servers.variables or None)
 
     @cached_property
     def _schema_document_path(self) -> str | None:
@@ -651,9 +687,11 @@ class OpenApiSchema(BaseSchema):
         return self.adapter.get_request_payload_content_types(operation)
 
     @override
-    def get_strategies_from_examples(self, operation: APIOperation, **kwargs: Any) -> list[SearchStrategy[Case]]:
+    def get_strategies_from_examples(
+        self, operation: APIOperation, feedback: FeedbackSources = NO_FEEDBACK, **kwargs: Any
+    ) -> list[SearchStrategy[Case]]:
         """Get examples from the API operation."""
-        return get_strategies_from_examples(operation, **kwargs)
+        return get_strategies_from_examples(operation, feedback=feedback, **kwargs)
 
     def find_operation_by_id(self, operation_id: str) -> APIOperation:
         """Find an `APIOperation` instance by its `operationId`."""
@@ -693,9 +731,7 @@ class OpenApiSchema(BaseSchema):
         hooks: HookDispatcher | None = None,
         auth_storage: AuthStorage | None = None,
         generation_mode: GenerationMode = GenerationMode.POSITIVE,
-        extra_data_source: ExtraDataSource | None = None,
-        error_feedback: ErrorFeedbackStore | None = None,
-        constants_value_source: ConstantsPool | None = None,
+        feedback: FeedbackSources = NO_FEEDBACK,
         **kwargs: Any,
     ) -> SearchStrategy[Case]:
         return openapi_cases(
@@ -703,9 +739,7 @@ class OpenApiSchema(BaseSchema):
             hooks=hooks,
             auth_storage=auth_storage,
             generation_mode=generation_mode,
-            extra_data_source=extra_data_source,
-            error_feedback=error_feedback,
-            constants_value_source=constants_value_source,
+            feedback=feedback,
             **kwargs,
         )
 

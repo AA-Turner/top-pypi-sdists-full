@@ -2882,6 +2882,7 @@ def extract_corpus_parallel(
         if p.resolve() not in {c.resolve() for c in covered}
     )
     merged["uncovered_files"] = [str(p) for p in uncovered]
+    _stamp_semantic_origin(merged)
     if uncovered:
         shown = ", ".join(p.name for p in uncovered[:5])
         more = f" (+{len(uncovered) - 5} more)" if len(uncovered) > 5 else ""
@@ -2892,6 +2893,24 @@ def extract_corpus_parallel(
             file=sys.stderr,
         )
     return merged
+
+
+def _stamp_semantic_origin(result: dict) -> dict:
+    """Mark every node and edge of a semantic extraction ``_origin: "semantic"``.
+
+    build._is_ast_tier reads ``_origin`` when present and otherwise guesses
+    from the shape of ``source_location``: ``L<line>`` means AST. A backend
+    or subagent that reports line numbers for a document's sections made
+    those nodes read as AST, and the next incremental rebuild deleted them
+    with the re-extracted code file they seemed to belong to (#2843).
+    extract() stamps its items ``ast``; this is the semantic counterpart.
+    Existing stamps are kept (``setdefault``); returns ``result``.
+    """
+    for key in ("nodes", "edges"):
+        for item in result.get(key, []) or []:
+            if isinstance(item, dict):
+                item.setdefault("_origin", "semantic")
+    return result
 
 
 def _merge_into(merged: dict, result: dict) -> None:
@@ -2986,8 +3005,12 @@ def _call_llm(
         elif shutil.which("claude") is None:
             raise RuntimeError("Claude Code CLI not found on $PATH")
         cli_args = [claude_cmd, "-p", "--output-format", "json", "--no-session-persistence"]
-        if model is not None:
-            cli_args.extend(["--model", mdl])
+        cli_model = (
+            mdl if model is not None
+            else os.environ.get("GRAPHIFY_CLAUDE_CLI_MODEL", "").strip()
+        )
+        if cli_model:
+            cli_args.extend(["--model", cli_model])
         proc = subprocess.run(
             cli_args,
             input=prompt,

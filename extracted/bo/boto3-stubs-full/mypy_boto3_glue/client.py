@@ -48,6 +48,7 @@ from .paginator import (
     ListAssetTypesPaginator,
     ListBlueprintsPaginator,
     ListConnectionTypesPaginator,
+    ListDataQualityResultsV2Paginator,
     ListEntitiesPaginator,
     ListFormTypesPaginator,
     ListGlossariesPaginator,
@@ -85,6 +86,8 @@ from .type_defs import (
     BatchGetCustomEntityTypesResponseTypeDef,
     BatchGetDataQualityResultRequestTypeDef,
     BatchGetDataQualityResultResponseTypeDef,
+    BatchGetDataQualityResultV2RequestTypeDef,
+    BatchGetDataQualityResultV2ResponseTypeDef,
     BatchGetDataQualityRulesetEvaluationRunRequestTypeDef,
     BatchGetDataQualityRulesetEvaluationRunResponseTypeDef,
     BatchGetDevEndpointsRequestTypeDef,
@@ -285,6 +288,8 @@ from .type_defs import (
     GetDataQualityModelResultResponseTypeDef,
     GetDataQualityResultRequestTypeDef,
     GetDataQualityResultResponseTypeDef,
+    GetDataQualityResultV2RequestTypeDef,
+    GetDataQualityResultV2ResponseTypeDef,
     GetDataQualityRuleRecommendationRunRequestTypeDef,
     GetDataQualityRuleRecommendationRunResponseTypeDef,
     GetDataQualityRulesetEvaluationRunRequestTypeDef,
@@ -419,6 +424,8 @@ from .type_defs import (
     ListCustomEntityTypesResponseTypeDef,
     ListDataQualityResultsRequestTypeDef,
     ListDataQualityResultsResponseTypeDef,
+    ListDataQualityResultsV2RequestTypeDef,
+    ListDataQualityResultsV2ResponseTypeDef,
     ListDataQualityRuleRecommendationRunsRequestTypeDef,
     ListDataQualityRuleRecommendationRunsResponseTypeDef,
     ListDataQualityRulesetEvaluationRunsRequestTypeDef,
@@ -471,6 +478,8 @@ from .type_defs import (
     ListWorkflowsResponseTypeDef,
     ModifyIntegrationRequestTypeDef,
     ModifyIntegrationResponseTypeDef,
+    PublishDataQualityResultV2RequestTypeDef,
+    PublishDataQualityResultV2ResponseTypeDef,
     PutAssetRequestTypeDef,
     PutAssetResponseTypeDef,
     PutAssetTypeRequestTypeDef,
@@ -791,6 +800,16 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/batch_get_data_quality_result.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#batch_get_data_quality_result)
+        """
+
+    def batch_get_data_quality_result_v2(
+        self, **kwargs: Unpack[BatchGetDataQualityResultV2RequestTypeDef]
+    ) -> BatchGetDataQualityResultV2ResponseTypeDef:
+        """
+        Retrieves a list of data quality results for the specified result IDs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/batch_get_data_quality_result_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#batch_get_data_quality_result_v2)
         """
 
     def batch_get_data_quality_ruleset_evaluation_run(
@@ -1955,6 +1974,17 @@ class GlueClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_data_quality_result)
         """
 
+    def get_data_quality_result_v2(
+        self, **kwargs: Unpack[GetDataQualityResultV2RequestTypeDef]
+    ) -> GetDataQualityResultV2ResponseTypeDef:
+        """
+        Retrieves the result of a data quality rule evaluation published from any
+        supported data platform.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_data_quality_result_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_data_quality_result_v2)
+        """
+
     def get_data_quality_rule_recommendation_run(
         self, **kwargs: Unpack[GetDataQualityRuleRecommendationRunRequestTypeDef]
     ) -> GetDataQualityRuleRecommendationRunResponseTypeDef:
@@ -2654,6 +2684,17 @@ class GlueClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#list_data_quality_results)
         """
 
+    def list_data_quality_results_v2(
+        self, **kwargs: Unpack[ListDataQualityResultsV2RequestTypeDef]
+    ) -> ListDataQualityResultsV2ResponseTypeDef:
+        """
+        Returns a paginated list of data quality execution results for your account,
+        filtered by the specified criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/list_data_quality_results_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#list_data_quality_results_v2)
+        """
+
     def list_data_quality_rule_recommendation_runs(
         self, **kwargs: Unpack[ListDataQualityRuleRecommendationRunsRequestTypeDef]
     ) -> ListDataQualityRuleRecommendationRunsResponseTypeDef:
@@ -2916,6 +2957,16 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/modify_integration.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#modify_integration)
+        """
+
+    def publish_data_quality_result_v2(
+        self, **kwargs: Unpack[PublishDataQualityResultV2RequestTypeDef]
+    ) -> PublishDataQualityResultV2ResponseTypeDef:
+        """
+        This operation is intended for internal use.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/publish_data_quality_result_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#publish_data_quality_result_v2)
         """
 
     def put_asset(self, **kwargs: Unpack[PutAssetRequestTypeDef]) -> PutAssetResponseTypeDef:
@@ -3891,6 +3942,17 @@ class GlueClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_connection_types"]
     ) -> ListConnectionTypesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_quality_results_v2"]
+    ) -> ListDataQualityResultsV2Paginator:
         """
         Create a paginator for an operation.
 

@@ -15,8 +15,8 @@ use thin_vec::ThinVec;
 
 use crate::func_effect_visitor;
 use crate::options::{
-    CV_DICT_KEY_OPT, CV_FUNC_TYPE_COMMENT_FLAG, CV_HANDLER_LOCATIONS, CV_IMPORT_FLAGS,
-    CV_RAW_EXPRESSION_TYPE_NOTES, CV_UNICODE_SURROGATE, Options,
+    CV_DICT_KEY_OPT, CV_FULL_TYPE_COMMENTS, CV_FUNC_TYPE_COMMENT_FLAG, CV_HANDLER_LOCATIONS,
+    CV_IMPORT_FLAGS, CV_RAW_EXPRESSION_TYPE_NOTES, CV_UNICODE_SURROGATE, Options,
 };
 use crate::reachability::TruthValue::AlwaysTrue;
 use crate::reachability::{
@@ -257,7 +257,7 @@ pub(crate) fn serialize_python_file(
         type_comments,
         mypy_comments,
         tc_syntax_errors,
-    ) = extract_type_comments_and_ignores(parsed.tokens(), source_text, &line_index);
+    ) = extract_type_comments_and_ignores(parsed.tokens(), source_text, &line_index, &options);
     for syntax_error in tc_syntax_errors {
         syntax_errors.push(syntax_error);
     }
@@ -808,6 +808,7 @@ fn extract_type_comments_and_ignores(
     tokens: &Tokens,
     source: &str,
     line_index: &LineIndex,
+    options: &Options,
 ) -> (
     Vec<(usize, Vec<String>)>,
     Vec<(usize, Vec<String>)>,
@@ -845,7 +846,19 @@ fn extract_type_comments_and_ignores(
                 }
             }
 
-            if let Some(parts) = type_comment::parse_type_comments(comment_text) {
+            let before_comment =
+                TextRange::new(line_index.line_start(location.line, source), token.start());
+            // Note: if the code before the comment is all whitespace, we extract only comment
+            // parts before the first unrecognized part. This helps to avoid:
+            // * Spurious unused type ignores in commented out blocks of code.
+            // * Accidental whole-file type ignore (if appears before first statement).
+            let skip_commented = source[before_comment.range()].trim().is_empty()
+                || options.cache_version() < CV_FULL_TYPE_COMMENTS;
+            if let Some(parts) =
+                type_comment::parse_type_comments_full(comment_text, skip_commented)
+            {
+                let mut seen_type_ignore = false;
+                let mut seen_mypy_ignore = false;
                 for part in parts {
                     match part {
                         type_comment::TypeComment::InvalidIgnore(is_mypy) => {
@@ -861,10 +874,30 @@ fn extract_type_comments_and_ignores(
                             });
                         }
                         type_comment::TypeComment::TypeIgnore(error_codes) => {
+                            if seen_type_ignore {
+                                syntax_errors.push(SyntaxError {
+                                    line: line_number,
+                                    column,
+                                    message: "Multiple type ignores on the same line".to_string(),
+                                    blocker: false,
+                                });
+                                continue;
+                            }
                             type_ignore_lines.push((line_number, error_codes));
+                            seen_type_ignore = true;
                         }
                         type_comment::TypeComment::MypyIgnore(error_codes) => {
+                            if seen_mypy_ignore {
+                                syntax_errors.push(SyntaxError {
+                                    line: line_number,
+                                    column,
+                                    message: "Multiple mypy ignores on the same line".to_string(),
+                                    blocker: false,
+                                });
+                                continue;
+                            }
                             mypy_ignore_lines.push((line_number, error_codes));
+                            seen_mypy_ignore = true;
                         }
                         type_comment::TypeComment::TypeAnnotation(annotation) => {
                             if type_comments.contains_key(&line_number) {
@@ -872,8 +905,7 @@ fn extract_type_comments_and_ignores(
                                     line: line_number,
                                     column,
                                     message: "Multiple type comments on the same line".to_string(),
-                                    // To match old parser behavior
-                                    blocker: true,
+                                    blocker: false,
                                 });
                                 continue;
                             }
@@ -3923,22 +3955,71 @@ mod tests {
     }
 
     #[test]
+    fn test_global_ignore_positive() {
+        let source = "# type: ignore\nsomething = else\n";
+        let path = write_temp_py("test_source", source);
+        let result = serialize_python_file(&path, None, false, Options::default()).unwrap();
+        // Check that we serialize empty module.
+        assert_eq!(result.0, &[TAG_LITERAL_INT, int_val(0)]);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_global_ignore_negative() {
+        let source = "# something: else # type: ignore\nsomething = else\n";
+        let path = write_temp_py("test_source", source);
+        let result = serialize_python_file(&path, None, false, Options::default()).unwrap();
+        // Check that we serialize some non-trivial bytes.
+        assert!(result.0.len() > 40);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
     fn test_multiple_type_comments_errors() {
         let text = "x = 1  # type: int # type: str\n";
         let opt = ParseOptions::from(PySourceType::Python);
         let parsed = parse_unchecked(text, opt);
         let line_index = LineIndex::from_source_text(text);
 
-        let (_, _, _, _, syntax_errors) =
-            extract_type_comments_and_ignores(parsed.tokens(), text, &line_index);
-        assert_eq!(
-            syntax_errors
-                .iter()
-                .filter(|e| e.blocker)
-                .collect::<Vec<&SyntaxError>>()
-                .len(),
-            1
+        let (_, _, _, _, syntax_errors) = extract_type_comments_and_ignores(
+            parsed.tokens(),
+            text,
+            &line_index,
+            &Options::default(),
         );
+        assert_eq!(syntax_errors.iter().collect::<Vec<&SyntaxError>>().len(), 1);
+    }
+
+    #[test]
+    fn test_multiple_type_ignores_errors() {
+        let text = "x = 1  # type: ignore[foo] # type: ignore[bar]\n";
+        let opt = ParseOptions::from(PySourceType::Python);
+        let parsed = parse_unchecked(text, opt);
+        let line_index = LineIndex::from_source_text(text);
+
+        let (_, _, _, _, syntax_errors) = extract_type_comments_and_ignores(
+            parsed.tokens(),
+            text,
+            &line_index,
+            &Options::default(),
+        );
+        assert_eq!(syntax_errors.len(), 1);
+    }
+
+    #[test]
+    fn test_multiple_mypy_ignores_errors() {
+        let text = "x = 1  # mypy: ignore[foo] # mypy: ignore[bar]\n";
+        let opt = ParseOptions::from(PySourceType::Python);
+        let parsed = parse_unchecked(text, opt);
+        let line_index = LineIndex::from_source_text(text);
+
+        let (_, _, _, _, syntax_errors) = extract_type_comments_and_ignores(
+            parsed.tokens(),
+            text,
+            &line_index,
+            &Options::default(),
+        );
+        assert_eq!(syntax_errors.len(), 1);
     }
 
     #[test]
@@ -4128,8 +4209,12 @@ mod tests {
     fn extract_mypy_comments(source: &str) -> Vec<(usize, String)> {
         let parsed = parse_unchecked(source, ParseOptions::from(PySourceType::Python));
         let line_index = LineIndex::from_source_text(source);
-        let (_, _, _, mypy_comments, _) =
-            extract_type_comments_and_ignores(parsed.tokens(), source, &line_index);
+        let (_, _, _, mypy_comments, _) = extract_type_comments_and_ignores(
+            parsed.tokens(),
+            source,
+            &line_index,
+            &Options::default(),
+        );
         mypy_comments
     }
 

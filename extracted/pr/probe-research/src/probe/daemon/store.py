@@ -48,7 +48,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator
 
-from probe.daemon.events import Event, Kind
+from probe.daemon.events import READER_SOURCE, Event, Kind
 from probe.tap_core import secrets
 
 FORMAT_VERSION = 1
@@ -80,13 +80,15 @@ CREATE TABLE IF NOT EXISTS events (
     cwd TEXT,
     chars INTEGER NOT NULL DEFAULT 0,
     bite INTEGER,
-    note TEXT
+    note TEXT,
+    source TEXT
 );
 CREATE INDEX IF NOT EXISTS events_turn ON events (turn, seq);
 CREATE INDEX IF NOT EXISTS events_pending ON events (bite, seq);
 CREATE INDEX IF NOT EXISTS events_call ON events (call_id);
--- Covers the per-bite aggregates (`shown_turn_sizes`, `totals`) without reading
--- the event text pages.
+-- What `totals` (and, from an earlier build, `shown_turn_sizes`) reads without the
+-- event text pages; `events_sizes_source` below covers `shown_turn_sizes` now.
+-- Both stay: an earlier CLI's worker may still be serving this store.
 CREATE INDEX IF NOT EXISTS events_sizes ON events (turn, kind, chars);
 CREATE VIRTUAL TABLE IF NOT EXISTS events_fts USING fts5(
     text, command, content='events', content_rowid='seq', tokenize='unicode61'
@@ -306,6 +308,11 @@ def add_device_tokens(n: int, lane: str = LANE_WRITE) -> None:
 #: `events.bite` for an event that arrived while the switch read `read only
 #: (daemon)`: the reader reads it, no bite ever covers it (-1 is a deferred one).
 UNRECORDED_BITE = -2
+#: Fact: a conversation run paused and the next bite carries on (`worker.CARRY_ON`).
+CARRY_ON = "carry_on"
+#: A bite's outcome when its run finished, and when it paused (`Worker._paused`).
+BITE_DONE = "done"
+BITE_PAUSED = "paused"
 def _epoch(ts: str | None) -> float | None:
     """An event's ISO stamp (`2026-09-29T05:44:59.989Z`) as epoch seconds, or None."""
     if not ts:
@@ -396,6 +403,8 @@ class StoredEvent:
     note: str | None = None
     #: The folder the event ran in, when the harness said.
     cwd: str | None = None
+    #: `events.READER_SOURCE` for a message the daemon's reader handed the agent.
+    source: str | None = None
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "StoredEvent":
@@ -404,7 +413,8 @@ class StoredEvent:
                    call_id=row["call_id"], command=row["command"], is_error=bool(row["is_error"]),
                    side_file=row["side_file"], chars=row["chars"], bite=row["bite"], offset=row["offset"],
                    note=row["note"] if "note" in row.keys() else None,
-                   cwd=row["cwd"] if "cwd" in row.keys() else None)
+                   cwd=row["cwd"] if "cwd" in row.keys() else None,
+                   source=row["source"] if "source" in row.keys() else None)
 
 
 class Store:
@@ -423,6 +433,11 @@ class Store:
         self.db.executescript(_SCHEMA)
         self._add_column("conversations", "fingerprint", "TEXT")
         self._add_column("events", "note", "TEXT")
+        self._add_column("events", "source", "TEXT")
+        # Covers `shown_turn_sizes`, which sizes the reader's messages apart, without
+        # reading the event text pages. Made after the column, so a store from an
+        # earlier build gets it here.
+        self.db.execute("CREATE INDEX IF NOT EXISTS events_sizes_source ON events (turn, kind, source, chars)")
         for column, kind in (("inode", "INTEGER"), ("tail_hash", "TEXT"), ("tail_at", "INTEGER")):
             self._add_column("cursors", column, kind)
         version = self.meta("format_version")
@@ -532,12 +547,12 @@ class Store:
                     chars += len(text)
             cur = self.db.execute(
                 "INSERT OR IGNORE INTO events (event_id, stream, offset, idx, kind, turn, ts, noticed, text, tool, "
-                "call_id, command, tool_input, is_error, side_file, parent, cwd, chars, note) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "call_id, command, tool_input, is_error, side_file, parent, cwd, chars, note, source) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (ev.event_id, ev.stream, ev.offset, ev.index, ev.kind.value,
                  max(ev_turn, 1) if ev.kind != Kind.PROMPT else ev_turn,
                  ev.ts, now, text, ev.tool, ev.call_id, command, tool_input, int(ev.is_error), ev.side_file,
-                 ev.parent, ev.cwd, chars, getattr(ev, "note", None)),
+                 ev.parent, ev.cwd, chars, getattr(ev, "note", None), getattr(ev, "source", None)),
             )
             added += cur.rowcount
             if opens and cur.rowcount:
@@ -630,6 +645,24 @@ class Store:
             self.set_fact("deferred_from", first_seq)
         return True
 
+    def requeue_paused(self) -> int:
+        """Inside a transaction: the events of the NEWEST run that paused, unless a
+        run finished after it, back on the queue (how many). Only that run's: an
+        earlier one was carried on by the next, and a fresh start over all of
+        them would repeat every write they made (review 10-13). Its first event
+        is the requeued bite's first, so a command it repeats keeps its
+        Idempotency-Key (`tools._op_id`, seeded by the bite's first event)."""
+        for row in self.db.execute("SELECT id, outcome FROM bites ORDER BY id DESC"):
+            if row["outcome"] == BITE_DONE:
+                return 0
+            if row["outcome"] == BITE_PAUSED:
+                # A carry-on that paused again with no new events of its own covered
+                # none: the work it carried on is the run before it (review 10-13).
+                n = self.db.execute("UPDATE events SET bite = NULL WHERE bite = ?", (int(row["id"]),)).rowcount
+                if n:
+                    return n
+        return 0
+
     def requeue_deferred(self) -> bool:
         """Deferred events come back once nothing else is pending."""
         if not self.fact("deferred_from") or self.pending(limit=1):
@@ -638,6 +671,19 @@ class Store:
             self.db.execute("UPDATE events SET bite = NULL WHERE bite = -1")
             self.set_fact("deferred_from", None)
         return True
+
+    def events_upto(self, after: int, last: int, limit: int) -> list[StoredEvent]:
+        """The newest `limit` events after `after` up to `last`, oldest first (seq
+        numbers have gaps: an ignored duplicate still uses one up)."""
+        rows = self.db.execute("SELECT * FROM events WHERE seq > ? AND seq <= ? ORDER BY seq DESC LIMIT ?",
+                               (int(after), int(last), int(limit)))
+        return [StoredEvent.from_row(r) for r in rows][::-1]
+
+    def events_after(self, seq: int, limit: int) -> list[StoredEvent]:
+        """At most `limit` events after `seq`, oldest first: one window, never
+        the whole backlog."""
+        return [StoredEvent.from_row(r) for r in self.db.execute(
+            "SELECT * FROM events WHERE seq > ? ORDER BY seq LIMIT ?", (int(seq), int(limit)))]
 
     def events_between(self, first_seq: int, last_seq: int | None = None, *,
                        recorded: bool = False) -> list[StoredEvent]:
@@ -670,15 +716,17 @@ class Store:
 
     def shown_turn_sizes(self) -> list[tuple[int, int, int]]:
         """`[(turn, first_seq, characters as the model sees the turn)]`: outputs are a
-        one-line tag, long texts are capped (`bite.render`). Rows from `read only
+        one-line tag, long texts are capped, the reader's messages show whole up to
+        the text cap (`bite.render`, `bite.shown_chars`). Rows from `read only
         (daemon)` count too: filtering on `bite` would lose the covering index
-        (`events_sizes`), and they only make the writer's window start later."""
+        (`events_sizes_source`), and they only make the writer's window start later."""
         rows = self.db.execute(
-            "SELECT turn, min(seq) AS s, sum(CASE kind "
-            "WHEN 'tool_output' THEN 90 "
-            "WHEN 'agent_reasoning' THEN min(chars, 2000) + 40 "
-            "WHEN 'meta' THEN min(chars, 300) + 40 WHEN 'subagent' THEN min(chars, 300) + 40 "
-            "WHEN 'tool_call' THEN min(chars, 4000) + 40 "
+            "SELECT turn, min(seq) AS s, sum(CASE "
+            f"WHEN source = '{READER_SOURCE}' THEN min(chars, 20000) + 40 "
+            "WHEN kind = 'tool_output' THEN 90 "
+            "WHEN kind = 'agent_reasoning' THEN min(chars, 2000) + 40 "
+            "WHEN kind IN ('meta', 'subagent') THEN min(chars, 300) + 40 "
+            "WHEN kind = 'tool_call' THEN min(chars, 4000) + 40 "
             "ELSE min(chars, 20000) + 40 END) AS c FROM events GROUP BY turn ORDER BY turn")
         return [(r["turn"], r["s"], int(r["c"] or 0)) for r in rows]
 
@@ -951,6 +999,17 @@ class Store:
         row = self.db.execute("SELECT asked_at FROM read_asks WHERE id = ?", (ask_id,)).fetchone()
         return float(row[0]) if row else None
 
+    def read_messages(self, ids: list[str]) -> dict[str, sqlite3.Row]:
+        """The reader's own messages with these ids, by id (`rid`: the row's own
+        number, stable for the life of the store)."""
+        out: dict[str, sqlite3.Row] = {}
+        for start in range(0, len(ids), 500):
+            chunk = ids[start:start + 500]
+            marks = ", ".join("?" for _ in chunk)
+            out.update((row["id"], row) for row in self.db.execute(
+                f"SELECT rowid AS rid, * FROM read_messages WHERE id IN ({marks})", chunk))
+        return out
+
     def unpublished_read_messages(self) -> list[sqlite3.Row]:
         return list(self.db.execute("SELECT * FROM read_messages WHERE published = 0 ORDER BY made_at, id"))
 
@@ -962,9 +1021,19 @@ class Store:
             f"SELECT text FROM read_messages WHERE kind IN ({marks}) AND text != '' "
             "ORDER BY made_at DESC, id DESC LIMIT ?", (*[str(k) for k in kinds], int(limit)))]
 
-    def has_events_after(self, seq: int) -> bool:
-        """Is anything stored after `seq`? One row, not the backlog."""
-        return self.db.execute("SELECT 1 FROM events WHERE seq > ? LIMIT 1", (int(seq),)).fetchone() is not None
+    def latest_ts(self, stream: str) -> str | None:
+        """The stamp of the newest stored event of `stream` that has one."""
+        row = self.db.execute("SELECT ts FROM events WHERE stream = ? AND ts IS NOT NULL ORDER BY seq DESC LIMIT 1",
+                              (stream,)).fetchone()
+        return row["ts"] if row else None
+
+    def has_events_after(self, seq: int, *, other_than: str | None = None) -> bool:
+        """Is anything stored after `seq` (on a stream other than `other_than`)? One
+        row, not the backlog."""
+        if other_than is None:
+            return self.db.execute("SELECT 1 FROM events WHERE seq > ? LIMIT 1", (int(seq),)).fetchone() is not None
+        return self.db.execute("SELECT 1 FROM events WHERE seq > ? AND stream != ? LIMIT 1",
+                               (int(seq), other_than)).fetchone() is not None
 
     def has_prompt_after(self, seq: int) -> bool:
         """Did the researcher type a prompt after `seq`? Anywhere in the backlog,

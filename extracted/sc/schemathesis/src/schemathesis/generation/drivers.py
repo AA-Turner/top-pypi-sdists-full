@@ -22,11 +22,12 @@ from schemathesis.core.errors import (
 )
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation
 from schemathesis.generation import GenerationMode
+from schemathesis.generation._hooks import case_hook_dispatchers
 from schemathesis.generation.case import adjust_urlencoded_payload, find_invalid_headers
 from schemathesis.generation.coverage import GenerationSession
 from schemathesis.generation.hypothesis.examples import add_single_example, generate_one
-from schemathesis.generation.hypothesis.reporting import GENERIC_UNSATISFIABLE_MESSAGE, find_unsatisfiable_parameter
-from schemathesis.generation.meta import CoveragePhaseData
+from schemathesis.generation.hypothesis.reporting import GENERIC_UNSATISFIABLE_MESSAGE
+from schemathesis.generation.meta import CoveragePhaseData, TestPhase
 from schemathesis.hooks import (
     GLOBAL_HOOK_DISPATCHER,
     HookContext,
@@ -70,14 +71,13 @@ class CaseGenerator(Protocol):
 def _apply_filter_and_map_hooks(
     case: Case, dispatchers: list[HookDispatcher], hook_context: HookContext
 ) -> Case | None:
-    """Run `filter_case` then `map_case` across all dispatchers; return `None` when filtered out."""
+    """Run `filter_case` then `map_case` per dispatcher in turn; return `None` when filtered out."""
     for dispatcher in dispatchers:
         for hook in dispatcher.get_all_by_name("filter_case"):
             if _should_skip_hook(hook, hook_context):
                 continue
             if not hook(hook_context, case):
                 return None
-    for dispatcher in dispatchers:
         for hook in dispatcher.get_all_by_name("map_case"):
             if _should_skip_hook(hook, hook_context):
                 continue
@@ -177,10 +177,8 @@ class CoverageGenerator:
                 category=UserWarning,
             )
             hook_context = HookContext(operation=operation)
-            dispatchers = [GLOBAL_HOOK_DISPATCHER, operation.schema.hooks]
             # Per-test hooks are a pytest-plugin feature; the engine has none.
-            if self._hooks is not None:
-                dispatchers.append(self._hooks)
+            dispatchers = case_hook_dispatchers(operation, self._hooks)
 
             unserializable = self._controller.unserializable_media_types
             for case in operation.schema.iter_coverage_cases(
@@ -241,8 +239,7 @@ class ExamplesGenerator:
                 generate_one(strategy)
                 for strategy in operation.get_strategies_from_examples(
                     fill_missing=self._fill_missing,
-                    extra_data_source=self._feedback.extra_data_source,
-                    error_feedback=self._feedback.error_feedback,
+                    feedback=self._feedback.for_examples(),
                     **self._as_strategy_kwargs,
                 )
             ]
@@ -269,7 +266,12 @@ class ExamplesGenerator:
 
         if self._fill_missing and not cases:
             try:
-                add_single_example(operation.as_strategy(**self._as_strategy_kwargs), cases)
+                add_single_example(
+                    operation.as_strategy(
+                        phase=TestPhase.EXAMPLES, feedback=self._feedback.for_examples(), **self._as_strategy_kwargs
+                    ),
+                    cases,
+                )
             except (
                 InvalidSchema,
                 Unsatisfiable,
@@ -300,7 +302,7 @@ def _translate_examples_materialization_error(exc: Exception, operation: APIOper
     """Wrap a materialization-time exception into the user-facing form, or `None` to absorb."""
     if isinstance(exc, Unsatisfiable):
         # Probing every parameter is costly, hence only on the error path.
-        unsatisfiable = find_unsatisfiable_parameter(operation)
+        unsatisfiable = operation.schema.find_unsatisfiable_parameter(operation)
         if unsatisfiable is not None:
             cause = unsatisfiable.get_error_message(operation.schema.config.output)
         else:

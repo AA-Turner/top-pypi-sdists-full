@@ -3,6 +3,40 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* The code loop's arguments, named once: create() checks the very values
+   dsss_rx_build_chain() passes to dp_dll_create() (dp_dll_params_ok(),
+   doppler#2103). The bandwidth is the validated stable one for the
+   one-update-per-partial geometry, which AsyncDsssReceiver's Dll shares. */
+#define DSSS_RX_DLL_BN 0.002
+#define DSSS_RX_DLL_ZETA 0.707
+#define DSSS_RX_DLL_SPACING 0.5
+
+/* The chain resampler's ratio: `sps` samples a symbol out of `segments`
+   partials a code period. One expression for the build and the check, so
+   the check vouches for the very rate the build passes. */
+static double
+dsss_rx_chain_ratio (double chip_rate, double symbol_rate, size_t code_len,
+                     size_t segments, size_t sps)
+{
+  double partial_rate = chip_rate * (double)segments / (double)code_len;
+  double target_rate  = (double)sps * symbol_rate;
+  return target_rate / partial_rate;
+}
+
+/* Whether a chain at `segments`/`sps` can be built. The symbol is no faster
+   than a chip: a huge symbol rate sized the resampler's scratch at ~4e12
+   samples and aborted in steps(). And the ratio is a normal double: a tiny
+   symbol rate underflowed it to 0, which the resampler refuses under
+   dp_xnn (doppler#2103). create() and configure_chain_raw() both check it. */
+static int
+dsss_rx_chain_ok (double chip_rate, double symbol_rate, size_t code_len,
+                  size_t segments, size_t sps)
+{
+  return symbol_rate <= chip_rate
+         && isnormal (dsss_rx_chain_ratio (chip_rate, symbol_rate, code_len,
+                                           segments, sps));
+}
+
 /* MpskReceiver's terminal outputs per symbol (`m_out`) comes from
  * `mpsk_rx_derive_m_out()` in mpsk_rx_loops.h -- the rule's one home since
  * gh-644. This file used to carry a second implementation of it, and the
@@ -33,14 +67,13 @@ dsss_rx_build_chain (double chip_rate, double symbol_rate, const uint8_t *code,
                      dp_RateConverter_state_t **rc_out,
                      dp_mpsk_receiver_state_t **rx_out)
 {
-  double partial_rate = chip_rate * (double)segments / (double)code_len;
-  double target_rate  = (double)sps * symbol_rate;
+  dp_dll_state_t *dll = dp_xnn (
+      dp_dll_create (code, code_len, spc, chip_phase, DSSS_RX_DLL_BN,
+                     DSSS_RX_DLL_ZETA, DSSS_RX_DLL_SPACING, segments));
 
-  dp_dll_state_t *dll = dp_xnn (dp_dll_create (code, code_len, spc, chip_phase,
-                                               0.002, 0.707, 0.5, segments));
-
-  dp_RateConverter_state_t *rc
-      = dp_xnn (dp_RateConverter_create (target_rate / partial_rate, 0));
+  dp_RateConverter_state_t *rc = dp_xnn (dp_RateConverter_create (
+      dsss_rx_chain_ratio (chip_rate, symbol_rate, code_len, segments, sps),
+      0));
 
   /* MpskReceiver's own carrier loop is seeded at 0, NOT doppler_hz_est --
    * the pre-despread Costas loop below (FLL-assisted, seeded correctly at
@@ -294,9 +327,16 @@ dp_dsss_receiver_create (const uint8_t *code, size_t code_len,
                          double doppler_uncertainty, size_t segments,
                          size_t sps, int differential)
 {
-  if (!code || code_len < 1 || chip_rate <= 0.0 || symbol_rate <= 0.0
-      || spc < 1 || (m != 2 && m != 4 && m != 8)
-      || segments < 1
+  /* The Dll this receiver builds under dp_xnn meets the Dll's own domain
+     here, so a configuration it refuses (a 1-chip code) is refused rather
+     than aborting the process. So is a non-finite rate: the chain's
+     resampler is built from their ratio, also under dp_xnn (doppler#2103). */
+  if (!code
+      || !dp_dll_params_ok (code_len, 0.0, DSSS_RX_DLL_BN, DSSS_RX_DLL_ZETA,
+                            DSSS_RX_DLL_SPACING, segments)
+      || !(chip_rate > 0.0 && isfinite (chip_rate))
+      || !(symbol_rate > 0.0 && isfinite (symbol_rate)) || spc < 1
+      || (m != 2 && m != 4 && m != 8)
       /* sps < 2 cannot carry an m_out at all: the smallest legal terminal
          count is 2 and MpskReceiver requires sps >= m_out, so sps = 1 has
          no receiver to build. It used to pass this guard and reach
@@ -304,7 +344,8 @@ dp_dsss_receiver_create (const uint8_t *code, size_t code_len,
          through dp_xnn() and ABORTED the interpreter with no exception and
          no message (gh-782). Refusing here is the honest answer, and it is
          the range mpsk_rx_derive_m_out() already documents. */
-      || sps < 2)
+      || sps < 2
+      || !dsss_rx_chain_ok (chip_rate, symbol_rate, code_len, segments, sps))
     return NULL;
 
   dp_dsss_receiver_state_t *obj = dp_xcalloc (1, sizeof (*obj));
@@ -313,9 +354,17 @@ dp_dsss_receiver_create (const uint8_t *code, size_t code_len,
   memcpy (obj->code, code, code_len);
   obj->code_len = code_len;
 
-  obj->acq = dp_xnn (dp_acq_create_continuous (
+  /* The searcher checks its own domain (pfa, pd, C/N0 ...), so its refusal
+     is this create's, not an abort under dp_xnn (doppler#2103). */
+  obj->acq = dp_acq_create_continuous (
       obj->code, code_len, spc, chip_rate, symbol_rate, cn0_dbhz,
-      doppler_uncertainty, pfa, pd, 0 /* noise_mode=mean */, 1, 0.0));
+      doppler_uncertainty, pfa, pd, 0 /* noise_mode=mean */, 1, 0.0);
+  if (!obj->acq)
+    {
+      free (obj->code);
+      free (obj);
+      return NULL;
+    }
 
   obj->spc          = spc;
   obj->m            = m;
@@ -459,7 +508,9 @@ int
 dp_dsss_receiver_configure_chain_raw (dp_dsss_receiver_state_t *state,
                                       size_t segments, size_t sps, int n)
 {
-  if (segments < 1 || sps < 2 || n < 1 || (int)(sps % (size_t)n) != 0)
+  if (segments < 1 || sps < 2 || n < 1 || (int)(sps % (size_t)n) != 0
+      || !dsss_rx_chain_ok (state->chip_rate, state->symbol_rate,
+                            state->code_len, segments, sps))
     return -1;
 
   double chip_phase      = dp_dll_get_code_phase (state->dll);
@@ -536,8 +587,9 @@ dp_dsss_receiver_state_bytes (const dp_dsss_receiver_state_t *s)
    * state_bytes() before the blob's own car_carry_len is even read, so
    * sizing on a per-call-varying count would spuriously reject valid
    * blobs saved at a different carry depth than the live instance's
-   * current one. Always pack the full tsamps-capacity buffer; only the
-   * first car_carry_len samples are meaningful (see the struct doc). */
+   * current one. Always pack the full tsamps-capacity region: the first
+   * car_carry_len samples, then zeros, since the rest of the buffer is an
+   * earlier period's or dp_xmalloc's and not state (#2076's sibling). */
   return sizeof (dp_state_hdr_t) + sizeof (dsss_receiver_extra_t)
          + dp_acq_state_bytes (s->acq) + dp_costas_state_bytes (&s->car)
          + dp_dll_state_bytes (s->dll) + dp_RateConverter_state_bytes (s->rc)
@@ -565,7 +617,8 @@ dp_dsss_receiver_get_state (const dp_dsss_receiver_state_t *s, void *blob)
   DP_W_CHILD (&_w, dp_dll, s->dll);
   DP_W_CHILD (&_w, dp_RateConverter, s->rc);
   DP_W_CHILD (&_w, dp_mpsk_receiver, s->rx);
-  dp_w_cf32 (&_w, s->car_carry_buf, s->tsamps);
+  dp_w_cf32 (&_w, s->car_carry_buf, s->car_carry_len);
+  dp_w_zeros (&_w, (s->tsamps - s->car_carry_len) * sizeof (float _Complex));
 }
 
 int
@@ -581,12 +634,12 @@ dp_dsss_receiver_set_state (dp_dsss_receiver_state_t *s, const void *blob)
    * freshly-created (searching) engine can restore a tracking blob and
    * vice versa, since all five children always exist either way.
    * car_carry_len is bounds-checked against this instance's own tsamps
-   * capacity before it's used to size the cf32 read below -- a corrupt
-   * or hostile blob claiming an oversized carry must be rejected, not
-   * overrun the fixed-capacity car_carry_buf. */
+   * capacity: a live carry is 0..tsamps-1 samples (steps processes a full
+   * period at once), so a blob claiming tsamps or more is one get_state
+   * never wrote, and is refused rather than restored. */
   if (extra.segments != (uint64_t)s->segments || extra.sps != (uint64_t)s->sps
       || extra.n != (uint64_t)s->n
-      || extra.car_carry_len > (uint64_t)s->tsamps)
+      || extra.car_carry_len >= (uint64_t)s->tsamps)
     return DP_ERR_INVALID;
   DP_R_CHILD (&_r, dp_acq, s->acq);
   DP_R_CHILD (&_r, dp_costas, &s->car);

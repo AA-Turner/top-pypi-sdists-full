@@ -22,6 +22,7 @@ import yaml
 
 from nemo_gym.config_types import ModelServerRef, ResourcesServerRef
 from nemo_gym.openai_utils import (
+    NeMoGymChatCompletionCreateParamsNonStreaming,
     NeMoGymEasyInputMessage,
     NeMoGymFunctionCallOutput,
     NeMoGymResponseCreateParamsNonStreaming,
@@ -33,6 +34,7 @@ from nemo_gym.rollout_observability import (
     AgentObservationBundle,
     ContextCompactionObservation,
     ToolCallObservation,
+    TrajectoryRecord,
 )
 from nemo_gym.server_utils import ServerClient
 from responses_api_agents.opencode_agent.app import (
@@ -291,6 +293,7 @@ class TestParseOpencodeSession:
         assert compaction.summary == "condensed context"
         assert compaction.first_kept_item_id == "p5"
         assert "compaction_model_call_boundary_unavailable" in {gap.code for gap in bundle.gaps}
+        assert "model_call_ownership_unavailable" not in {gap.code for gap in bundle.gaps}
 
     def test_reports_unaddressable_compaction_boundary(self, tmp_path) -> None:
         db = _session_db(
@@ -389,6 +392,30 @@ class TestEnv:
         assert provider["options"]["baseURL"] == "http://model/v1"
         assert provider["models"]["Qwen3.6-35B-A3B"]["limit"]["output"] == 131072
 
+    def test_model_server_replayed_reasoning_is_accepted_by_gym_chat_completions(self) -> None:
+        agent = _make_agent(model="m", model_server=ModelServerRef(type="responses_api_models", name="policy_model"))
+        with patch.object(agent, "_resolve_model_base_url", return_value="http://model/v1"):
+            field = agent._build_opencode_config()["provider"]["nemo"]["models"]["m"]["interleaved"]["field"]
+
+        # OpenCode replays an assistant turn after a tool call with the interleaved field set.
+        replayed = {
+            "role": "assistant",
+            "content": "",
+            field: "thinking",
+            "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "task", "arguments": "{}"}}],
+        }
+        body = NeMoGymChatCompletionCreateParamsNonStreaming.model_validate(
+            {
+                "model": "m",
+                "messages": [
+                    {"role": "user", "content": "hi"},
+                    replayed,
+                    {"role": "tool", "tool_call_id": "c1", "content": "done"},
+                ],
+            }
+        )
+        assert body.messages[1]["reasoning_content"] == "thinking"
+
 
 class TestRolloutObservability:
     def test_routes_model_server_without_mutating_config(self, tmp_path: Path) -> None:
@@ -432,14 +459,22 @@ class TestRolloutObservability:
             NeMoGymEasyInputMessage(role="user", content="configured system\n\nrequest system\n\nsolve")
         ]
         assert "agent_transcript_unavailable" in {gap.code for gap in episode.observations.gaps}
+        assert "model_call_ownership_unavailable" in {gap.code for gap in episode.observations.gaps}
 
     def test_run_attaches_artifact_observations_when_enabled(self, tmp_path: Path) -> None:
-        db = _session_db(tmp_path, [("assistant", [{"type": "text", "text": "done"}])])
+        db = _session_db(
+            tmp_path,
+            [("assistant", [{"type": "step-start"}, {"type": "text", "text": "done"}, {"type": "step-finish"}])],
+        )
         items, usage = parse_opencode_session(db)
-        observations = _parse_opencode_session(db, "1-2")
         agent = _make_agent()
         agent.server_client.global_config_dict = {"observability_enabled": True}
-        agent._run_opencode = AsyncMock(return_value=(items, usage, "model", observations))
+
+        async def run_opencode(*args, trajectory, **kwargs):
+            observations = _parse_opencode_session(db, "1-2", trajectory)
+            return items, usage, "model", observations
+
+        agent._run_opencode = AsyncMock(side_effect=run_opencode)
 
         class Response:
             ok = True
@@ -475,6 +510,10 @@ class TestRolloutObservability:
         assert agent.server_client.post.await_args_list[1].kwargs["url_path"] == "/ng-rollout/1-2/v1/responses"
         verify_json = agent.server_client.post.await_args_list[2].kwargs["json"]
         assert "_ng_agent_observations" not in verify_json["response"]
+        assert "_ng_trajectory" not in verify_json["response"]
+        [turn] = TrajectoryRecord.model_validate(result.ng_trajectory).turns
+        assert (turn.task_id, turn.rollout_id, turn.answer[0]["content"][0]["text"]) == ("1", "1-2", "done")
+        assert not turn.model_calls
 
 
 class TestRepoDir:
@@ -492,12 +531,13 @@ class TestRepoDir:
         process.communicate = AsyncMock(return_value=(b"", b""))
         agent = _make_agent(repo_dir=str(repo_dir))
         scored = [NeMoGymResponseOutputMessage(id="scored", content=[])]
+        create_process = AsyncMock(return_value=process)
 
         with (
             patch.object(agent, "_workspace_root", return_value=workspace),
             patch(
                 "responses_api_agents.opencode_agent.app.asyncio.create_subprocess_exec",
-                AsyncMock(return_value=process),
+                create_process,
             ),
             patch(
                 "responses_api_agents.opencode_agent.app.parse_opencode_session",
@@ -509,12 +549,18 @@ class TestRepoDir:
             ),
         ):
             output, usage, _, observations = await agent._run_opencode(
-                "fix the issue", None, collect_observations=True
+                "fix the issue",
+                None,
+                collect_observations=True,
+                trajectory=(trajectory := TrajectoryRecord(task_id="task", rollout_id="rollout")),
             )
 
         assert output == scored
         assert usage == {"input_tokens": 1, "output_tokens": 2}
+        command = create_process.await_args.args
+        assert "--title" not in command
         assert "agent_artifact_unavailable" in {gap.code for gap in observations.gaps}
+        assert "turns_unavailable" in {gap.code for gap in trajectory.gaps}
         assert repo_dir.is_dir()
         assert not workspace.exists()
 

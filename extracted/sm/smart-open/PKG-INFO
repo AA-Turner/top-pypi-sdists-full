@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smart_open
-Version: 8.0.2
+Version: 8.0.3
 Summary: Utils for streaming large files (S3, HDFS, GCS, SFTP, Azure Blob Storage, gzip, bz2, zst...)
 Author-email: Radim Rehurek <me@radimrehurek.com>
 Project-URL: Repository, https://github.com/piskvorky/smart_open
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Topic :: Database :: Front-Ends
 Requires-Python: <4.0,>=3.10

@@ -112,7 +112,7 @@ def _calculate_key2(password: bytes, cycles: int, salt: bytes, digest: str):
     return key
 
 
-def _calculate_key3(password: bytes, cycles: int, salt: bytes, digest: str) -> bytes:
+def calculate_key(password: bytes, cycles: int, salt: bytes, digest: str) -> bytes:
     """Calculate 7zip AES encryption key.
     Concat values in order to reduce number of calls of Hash.update()."""
     assert cycles <= 0x3F
@@ -149,12 +149,6 @@ def _calculate_key3(password: bytes, cycles: int, salt: bytes, digest: str) -> b
         key = m.digest()[:32]
 
     return key
-
-
-if platform.python_implementation() == "PyPy" or sys.version_info > (3, 6):
-    calculate_key = _calculate_key3
-else:
-    calculate_key = _calculate_key2  # it is faster when CPython 3.6.x
 
 
 def filetime_to_dt(ft):
@@ -263,7 +257,7 @@ class ArchiveTimestamp(int):
         return datetime.fromtimestamp(self.totimestamp(), UTC())
 
     @classmethod
-    def from_datetime(cls, val: float | int) -> Self:
+    def from_datetime(cls, val: float) -> Self:
         return cls((val - TIMESTAMP_ADJUST) * 10000000.0)
 
     @classmethod
@@ -290,10 +284,11 @@ def readlink(path: str | pathlib.Path, *, dir_fd=None) -> str | pathlib.Path:
     if not os.path.exists(str(path)):
         raise OSError(22, "Invalid argument", path)
 
-    if isinstance(path, pathlib.Path) and dir_fd is None:
-        return path.readlink()
-    else:
-        return os.readlink(path, dir_fd=dir_fd)
+    if isinstance(path, pathlib.Path):
+        if dir_fd is None:
+            return path.readlink()
+        return pathlib.Path(os.readlink(path, dir_fd=dir_fd))
+    return os.readlink(path, dir_fd=dir_fd)
 
 
 def remove_relative_path_marker(path: str) -> str:
@@ -318,7 +313,14 @@ def remove_trailing_slash(path: str) -> str:
 
 
 def canonical_path(target: pathlib.Path) -> pathlib.Path:
-    """Return a canonical path of target argument."""
+    """Return a canonical path of target argument.
+
+    This is a purely lexical reduction: it never touches the filesystem.  Do NOT
+    use it to decide whether an archive-supplied path stays inside a directory.
+    'link/..' is the parent of the symlink *target*, not the directory holding
+    'link', so cancelling '..' lexically erases a symlink component before it can
+    be resolved.  Use is_path_valid()/_real_path() for containment decisions.
+    """
     stack: list[str] = []
     anchor = target.anchor  # preserves POSIX '/' and Windows 'C:\\' or UNC share
     for p in target.parts:
@@ -335,25 +337,53 @@ def canonical_path(target: pathlib.Path) -> pathlib.Path:
     return pathlib.Path(*stack)
 
 
+def clean_windows_extended_length_path_indicator(path: pathlib.Path) -> pathlib.Path:
+    if isinstance(path, pathlib.WindowsPath):
+        path_str = str(path)
+        if path_str.startswith("\\\\?\\UNC\\"):
+            #print(f"cleaning windows extended length path indicator from: {path}")
+            return pathlib.Path("\\\\" + path_str.removeprefix("\\\\?\\UNC\\"))
+        if path_str.startswith("\\\\?\\"):
+            #print(f"cleaning windows extended length path indicator from: {path}")
+            return pathlib.Path(path_str.removeprefix("\\\\?\\"))
+    return path
+
+
+def _real_path(target: pathlib.Path) -> pathlib.Path:
+    """Resolve a path the way the kernel will when it opens it.
+
+    Every symlink component is followed first, and only what is left is
+    normalized.  This is deliberately not canonical_path(): collapsing '..'
+    lexically before the symlinks are followed is wrong, because 'link/..' is the
+    parent of the symlink target rather than the directory holding 'link'.
+
+    os.path.realpath() never fails on a path that does not exist yet, a missing
+    component is simply normalized lexically, which is what is wanted for a
+    member that has not been extracted so far.
+    """
+    resolved = pathlib.Path(os.path.realpath(os.fspath(target)))
+    return clean_windows_extended_length_path_indicator(resolved)
+
+
 def is_relative_to(my: pathlib.Path, *other) -> bool:
     """Return True when path is relative to other path, otherwise False."""
-    base = canonical_path(*other)
     try:
         # resolve symlinks to catch Zip-Slip style vulnerability
-        my_resolved = my.resolve(strict=False)
-        base_resolved = base.resolve(strict=False)
+        my_resolved = _real_path(my)
+        base_resolved = _real_path(pathlib.Path(*other))
         if my_resolved == base_resolved:
             # don't allow paths to be equal to base
             return False
         my_resolved.relative_to(base_resolved)
-    except (ValueError, RuntimeError):
+    except (OSError, ValueError, RuntimeError):
         return False
     return True
 
 
-def get_sanitized_output_path(fname: str, path: pathlib.Path | None) -> pathlib.Path:
+def _sanitize_member_name(fname: str) -> str:
     """
-    check f.filename has invalid directory traversals
+    Normalize an archive member name and reject names that can never be extracted
+    safely, whatever the destination directory is.
     When condition is not satisfied, raise Bad7zFile
     """
     # Check for Windows drive letter (e.g., C:\, D:\)
@@ -364,14 +394,35 @@ def get_sanitized_output_path(fname: str, path: pathlib.Path | None) -> pathlib.
     if fname.startswith("/"):
         fname = fname.lstrip("/")
 
+    name = remove_relative_path_marker(fname)
+    pure = pathlib.PurePath(name)
+    parts = [p for p in pure.parts if p != "."]
+    # Never try to resolve '..' in a member name: 'sym/../x' is not 'x' when 'sym'
+    # is a symlink extracted from the same archive, so a name that reduces
+    # lexically to somewhere inside can still land outside.  Refuse it outright,
+    # as the 'data' filter of tarfile does.
+    if not parts or ".." in parts or pure.is_absolute() or re.match(r"^[A-Za-z]:", name):
+        raise Bad7zFile(f"Specified path is bad: {fname}")
+    return str(pathlib.PurePath(*parts))
+
+
+def get_sanitized_output_path(fname: str, path: pathlib.Path | None) -> pathlib.Path:
+    """
+    check f.filename has invalid directory traversals
+    When condition is not satisfied, raise Bad7zFile
+    """
+    name = _sanitize_member_name(fname)
+
     if path is None:
-        target_path = canonical_path(pathlib.Path.cwd().joinpath(fname))
-        if is_relative_to(target_path, pathlib.Path.cwd()):
-            return pathlib.Path(remove_relative_path_marker(fname))
+        # Keep it relative: callers use the result as a writer factory key.
+        # Containment is checked against the current working directory.
+        target_path = pathlib.Path(name)
+        if is_path_valid(target_path, None):
+            return target_path
     else:
-        outfile = canonical_path(path.joinpath(remove_relative_path_marker(fname)))
-        if is_relative_to(outfile, path):
-            return pathlib.Path(outfile)
+        outfile = path.joinpath(name)
+        if is_path_valid(outfile, path):
+            return outfile
     raise Bad7zFile(f"Specified path is bad: {fname}")
 
 
@@ -395,18 +446,17 @@ def check_archive_path(arcname: str) -> bool:
 def is_path_valid(target: pathlib.Path, parent: pathlib.Path | None) -> bool:
     """
     Check if target path is valid against parent path.
-    It returns False when resolved target path has '..', or point out of a parent path.
-    Otherwise, returns True.
+
+    Containment is decided on the real path: symlink components of ``target`` are
+    followed before the comparison and '..' is never collapsed lexically first.
+    It returns False when the resolved target escapes ``parent``, or is ``parent``
+    itself.  Otherwise, returns True.
     """
     if parent is None:
         parent = pathlib.Path.cwd()
-    cpath = canonical_path(target)
-    if ".." in cpath.parts:
-        return False
-    if parent.is_absolute():
-        return is_relative_to(cpath, parent)
-    else:
-        return is_relative_to(cpath, pathlib.Path.cwd().joinpath(parent))
+    elif not parent.is_absolute():
+        parent = pathlib.Path.cwd().joinpath(parent)
+    return is_relative_to(target, parent)
 
 
 def check_win32_file_namespace(pathname: pathlib.Path) -> pathlib.Path:

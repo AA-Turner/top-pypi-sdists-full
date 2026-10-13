@@ -51,6 +51,41 @@ class AiCapability(MatrxEntity):
     _is_org_scoped = True
     _rls_variant = "system"
 
+class AiVisibilityBrandCheck(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    brand_id = UUIDField(null=False)
+    checked_at = DateTimeField(null=False)
+    status = TextField(null=False, default='ok')
+    subject_kind = TextField(null=False, default='company')
+    target_name = TextField(null=False)
+    score = DecimalField()
+    total_mentions = IntegerField()
+    ai_search_volume = IntegerField()
+    entries = JSONBField(null=False, default=[])
+    platforms = JSONBField(null=False, default=[])
+    queries = JSONBField(null=False, default={})
+    competitors = JSONBField(null=False, default=[])
+    notices = JSONBField(null=False, default=[])
+    cost_usd = DecimalField()
+    run_ids = JSONBField(null=False, default=[])
+    custom_fields = JSONBField(null=False, default={})
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_seo"
+    _table_name = "ai_visibility_brand_check"
+    _db_schema = "seo"
+    _entity_token = "seo_ai_visibility_brand_check"
+    _is_versioned = False
+    _has_soft_delete = False
+    _is_org_scoped = True
+    _rls_variant = "component"
+
 class ChangeSet(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
@@ -1050,7 +1085,7 @@ class TopicalMap(MatrxEntity):
 
 class AiVisibilityPanel(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
-    site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', null=False)
+    site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', )
     name = TextField(null=False)
     prompts = JSONBField(null=False, default=[])
     key_messages = JSONBField(null=False, default=[])
@@ -1084,6 +1119,7 @@ class AiVisibilityPanel(MatrxEntity):
     tier = TextField(null=False, default='diagnostic')
     repeats = IntegerField(null=False, default=1)
     lanes = TextArrayField(null=False, default=['retrieval'])
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "ai_visibility_panel"
@@ -1100,7 +1136,7 @@ class AiVisibilityResponse(MatrxEntity):
     created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', null=False)
     command_run_id = ForeignKey(to_model=CollectionRun, to_column='id', to_schema='seo', null=False)
     provider_run_id = ForeignKey(to_model=CollectionRun, to_column='id', to_schema='seo', )
-    site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', null=False)
+    site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', )
     keyword_id = ForeignKey(to_model=Keyword, to_column='id', to_schema='seo', null=False)
     query = TextField(null=False)
     engine = TextField(null=False)
@@ -1140,6 +1176,7 @@ class AiVisibilityResponse(MatrxEntity):
     validity_status = TextField()
     parser_version = TextField()
     entities_mentioned = JSONBField()
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'ai_visibility_citation': {'from_model': 'AiVisibilityCitation', 'from_field': 'response_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_citation', 'from_schema': 'seo'}, 'ai_visibility_claim': {'from_model': 'AiVisibilityClaim', 'from_field': 'response_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_claim', 'from_schema': 'seo'}, 'ai_visibility_signal': {'from_model': 'AiVisibilitySignal', 'from_field': 'response_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_signal', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "ai_visibility_response"
@@ -2200,7 +2237,7 @@ class TrackerStory(MatrxEntity):
 class AiVisibilityCitation(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
-    site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', null=False)
+    site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', )
     response_id = ForeignKey(to_model=AiVisibilityResponse, to_column='id', to_schema='seo', null=False)
     referring_domain_profile_id = ForeignKey(to_model=ReferringDomainProfile, to_column='id', to_schema='seo', )
     ordinal = IntegerField(null=False)
@@ -2221,6 +2258,7 @@ class AiVisibilityCitation(MatrxEntity):
     updated_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "ai_visibility_citation"
@@ -2234,7 +2272,7 @@ class AiVisibilityCitation(MatrxEntity):
 class AiVisibilityClaim(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
-    site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', null=False)
+    site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', )
     response_id = ForeignKey(to_model=AiVisibilityResponse, to_column='id', to_schema='seo', null=False)
     claim_key = TextField(null=False)
     subject = TextField(null=False)
@@ -2250,6 +2288,7 @@ class AiVisibilityClaim(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "ai_visibility_claim"
@@ -2263,7 +2302,7 @@ class AiVisibilityClaim(MatrxEntity):
 class AiVisibilitySignal(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
-    site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', null=False)
+    site_id = ForeignKey(to_model='Site', to_column='id', to_schema='web', )
     response_id = ForeignKey(to_model=AiVisibilityResponse, to_column='id', to_schema='seo', null=False)
     ordinal = IntegerField(null=False)
     category = TextField(null=False)
@@ -2275,6 +2314,7 @@ class AiVisibilitySignal(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
+    brand_id = ForeignKey(to_model='Brand', to_column='id', to_schema='web', )
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "ai_visibility_signal"
@@ -3317,6 +3357,7 @@ class VUntrackedSnapshotChange(Model):
 
 __all__ = [
     "AiCapability",
+    "AiVisibilityBrandCheck",
     "ChangeSet",
     "ClassifierRevisionLedger",
     "CollectionRun",
@@ -3409,6 +3450,7 @@ __all__ = [
 model_registry.register_all(
 [
         AiCapability,
+        AiVisibilityBrandCheck,
         ChangeSet,
         ClassifierRevisionLedger,
         CollectionRun,

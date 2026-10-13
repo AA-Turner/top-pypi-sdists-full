@@ -5,16 +5,19 @@ import io
 import itertools
 import json
 import re
+import ssl
+import threading
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
 import requests
+import trustme
 from flask import Response, jsonify, request
 from rich.console import Console
+from werkzeug.serving import make_server
 
 import schemathesis
-from schemathesis.cli.commands.replay import executor
 from schemathesis.cli.commands.replay.executor import (
     LinkedValue,
     ReplayOutcome,
@@ -30,6 +33,7 @@ from schemathesis.core import NOT_SET, transport
 from schemathesis.core.failures import ServerError
 from schemathesis.core.transforms import UNRESOLVABLE
 from schemathesis.reporting.crashes import MANIFEST_FILENAME, CrashCheck, CrashFile, CrashLink, CrashStep, CrashWriter
+from test.apps.catalog.openapi import basic as openapi_basic
 from test.apps.catalog.openapi.modifiers.stateful import IndependentInternalError
 from test.apps.catalog.openapi.modifiers.under_declared_security import (
     DeclareSecurity,
@@ -687,6 +691,23 @@ def test_replay_by_case_id(cli, ctx, tmp_path):
     assert "1 case" in result.output
 
 
+def test_replay_reuses_disabled_tls_verification(cli, tmp_path):
+    server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    trustme.CA().issue_cert("127.0.0.1").configure_cert(server_context)
+    server = make_server("127.0.0.1", 0, openapi_basic.failure().server, threaded=True, ssl_context=server_context)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        cli.run(f"https://127.0.0.1:{server.server_port}/openapi.json", "--tls-verify=false")
+        assert _list_crash_files(crash_cache_dir(tmp_path))
+
+        result = cli.main("replay", "--keep")
+    finally:
+        server.shutdown()
+
+    assert result.exit_code == 1, result.output
+    assert "1 failed" in result.output
+
+
 def test_replay_by_case_id_replays_all_checks(cli, ctx, tmp_path):
     # A case failing several checks is merged into a single block with one ID and all checks, not one per check.
     api = ctx.openapi.apps.multiple_failures()
@@ -1235,12 +1256,22 @@ def test_link_derived_values_are_not_body_changes(recorded, actual, masked_point
     )
 
 
+INTERRUPT_ON_RESPONSE = """
+@schemathesis.hook
+def after_call(context, case, response):
+    raise KeyboardInterrupt
+"""
+
+
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_replay_keyboard_interrupt(cli, app_runner, ctx, crash_factory, tmp_path, snapshot_cli, monkeypatch):
-    app, _ = ctx.openapi.make_flask_app({"/a": {"get": {"responses": {"500": {"description": "Error"}}}}})
+def test_replay_keyboard_interrupt(cli, app_runner, ctx, crash_factory, tmp_path, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {path: {"get": {"responses": {"500": {"description": "Error"}}}} for path in ("/a", "/b")}
+    )
 
     @app.route("/a")
-    def endpoint_a():
+    @app.route("/b")
+    def endpoint():
         return jsonify({"error": "boom"}), 500
 
     schema_url = app_runner.openapi_url(app)
@@ -1257,26 +1288,24 @@ def test_replay_keyboard_interrupt(cli, app_runner, ctx, crash_factory, tmp_path
             case_id=f"Ab1Cd{name}",
         )
 
-    # Inject the interrupt at the per-crash boundary, the only point where a real Ctrl-C surfaces faithfully.
-    real_replay = executor.replay_crash_file
-    call_count = 0
+    module = ctx.write_pymodule(
+        """
+calls = 0
 
-    def interrupt_on_second(*args, **kwargs):
-        nonlocal call_count
-        call_count += 1
-        if call_count > 1:
-            raise KeyboardInterrupt
-        return real_replay(*args, **kwargs)
+@schemathesis.hook
+def after_call(context, case, response):
+    global calls
+    calls += 1
+    if calls > 1:
+        raise KeyboardInterrupt
+"""
+    )
 
-    monkeypatch.setattr(executor, "replay_crash_file", interrupt_on_second)
-
-    assert cli.main("replay", str(tmp_path), "--keep") == snapshot_cli
+    assert cli.main("replay", str(tmp_path), "--keep", hooks=module) == snapshot_cli
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_replay_interrupt_before_first_outcome(
-    cli, app_runner, ctx, crash_factory, tmp_path, snapshot_cli, monkeypatch
-):
+def test_replay_interrupt_before_first_outcome(cli, app_runner, ctx, crash_factory, tmp_path, snapshot_cli):
     # Ctrl-C before the first crash finishes exits without rendering a partial report.
     schema_url, base = _users_app(ctx, app_runner)
     crash_file = _write_crash(
@@ -1289,12 +1318,8 @@ def test_replay_interrupt_before_first_outcome(
         body='{"error": "boom"}',
     )
 
-    def interrupt_immediately(*args, **kwargs):
-        raise KeyboardInterrupt
-
-    monkeypatch.setattr(executor, "replay_crash_file", interrupt_immediately)
-
-    assert cli.main("replay", str(crash_file), "--keep") == snapshot_cli
+    module = ctx.write_pymodule(INTERRUPT_ON_RESPONSE)
+    assert cli.main("replay", str(crash_file), "--keep", hooks=module) == snapshot_cli
     assert crash_file.exists()
 
 
@@ -1309,13 +1334,7 @@ def test_replay_interrupt_exit_code(cli, app_runner, ctx, crash_factory, tmp_pat
         status=500,
         body='{"error": "boom"}',
     )
-    module = ctx.write_pymodule(
-        """
-@schemathesis.hook
-def after_call(context, case, response):
-    raise KeyboardInterrupt
-"""
-    )
+    module = ctx.write_pymodule(INTERRUPT_ON_RESPONSE)
     result = cli.main("replay", str(crash_file), hooks=module)
     assert (result.exit_code, crash_file.exists()) == (130, True), result.output
 

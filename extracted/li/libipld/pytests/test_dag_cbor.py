@@ -1,8 +1,10 @@
+import math
 import os
+import sys
+from pathlib import Path
 
 import libipld
 import pytest
-
 from conftest import load_cbor_data_fixtures, load_json_data_fixtures
 
 _REAL_DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
@@ -120,12 +122,12 @@ def test_dag_cbor_decode_fixtures(benchmark, data) -> None:
 
 @pytest.mark.benchmark_main
 def test_dag_cbor_decode_torture_cids(benchmark) -> None:
-    dag_cbor = open(_TORTURE_CIDS_DAG_CBOR_PATH, 'rb').read()
+    dag_cbor = Path(_TORTURE_CIDS_DAG_CBOR_PATH).read_bytes()
     benchmark(libipld.decode_dag_cbor, dag_cbor)
 
 
 def test_recursion_limit_exceed_on_nested_lists() -> None:
-    dag_cbor = open(_TORTURE_NESTED_LISTS_DAG_CBOR_PATH, 'rb').read()
+    dag_cbor = Path(_TORTURE_NESTED_LISTS_DAG_CBOR_PATH).read_bytes()
     with pytest.raises(RecursionError) as exc_info:
         libipld.decode_dag_cbor(dag_cbor)
 
@@ -133,11 +135,33 @@ def test_recursion_limit_exceed_on_nested_lists() -> None:
 
 
 def test_recursion_limit_exceed_on_nested_maps() -> None:
-    dag_cbor = open(_TORTURE_NESTED_MAPS_DAG_CBOR_PATH, 'rb').read()
+    dag_cbor = Path(_TORTURE_NESTED_MAPS_DAG_CBOR_PATH).read_bytes()
     with pytest.raises(RecursionError) as exc_info:
         libipld.decode_dag_cbor(dag_cbor)
 
     assert 'in DAG-CBOR decoding' in str(exc_info.value)
+
+
+def _nest(kind: str, depth: int):
+    obj = [] if kind == 'list' else {}
+    for _ in range(depth):
+        obj = [obj] if kind == 'list' else {'a': obj}
+    return obj
+
+
+@pytest.mark.parametrize('kind', ['list', 'dict'])
+def test_recursion_limit_exceed_on_encode(kind) -> None:
+    obj = _nest(kind, sys.getrecursionlimit() + 100)
+    with pytest.raises(RecursionError) as exc_info:
+        libipld.encode_dag_cbor(obj)
+
+    assert 'in DAG-CBOR encoding' in str(exc_info.value)
+
+
+@pytest.mark.parametrize('kind', ['list', 'dict'])
+def test_nested_within_recursion_limit_roundtrip(kind) -> None:
+    obj = _nest(kind, sys.getrecursionlimit() // 2)
+    assert libipld.decode_dag_cbor(libipld.encode_dag_cbor(obj)) == obj
 
 
 def test_dag_cbor_decode_largest_unsigned_int_roundtrip() -> None:
@@ -164,8 +188,19 @@ def test_dag_cbor_decode_invalid_utf8() -> None:
     with pytest.raises(ValueError) as exc_info:
         libipld.decode_dag_cbor(bytes.fromhex('62c328'))
 
-
+    assert str(exc_info.value).startswith('Failed to decode DAG-CBOR. UnicodeDecodeError:')
     assert 'utf-8' in str(exc_info.value)
+
+
+def test_dag_cbor_decode_lone_surrogate() -> None:
+    text = '😍😍😍😍'.encode() + bytes.fromhex('eda0bd')
+    assert len(text) == 19
+    with pytest.raises(ValueError) as exc_info:
+        libipld.decode_dag_cbor(bytes([0x60 | len(text)]) + text)
+
+    msg = str(exc_info.value)
+    assert msg.startswith('Failed to decode DAG-CBOR. UnicodeDecodeError:')
+    assert 'position 16' in msg
 
 
 def test_dab_cbor_decode_map_int_key() -> None:
@@ -232,6 +267,35 @@ def test_dag_cbor_decode_negative_infinity_f32_error() -> None:
     assert 'number out of range for f32' in str(exc_info.value).lower()
 
 
+def test_dag_cbor_decode_negative_zero_f64_error() -> None:
+    # fb8000000000000000 - IEEE 754 double precision negative zero, forbidden in DAG-CBOR
+    with pytest.raises(ValueError) as exc_info:
+        libipld.decode_dag_cbor(bytes.fromhex('fb8000000000000000'))
+
+    assert 'negative zero' in str(exc_info.value).lower()
+
+
+def test_dag_cbor_decode_negative_zero_f32_error() -> None:
+    # fa80000000 - IEEE 754 single precision negative zero, forbidden in DAG-CBOR
+    with pytest.raises(ValueError) as exc_info:
+        libipld.decode_dag_cbor(bytes.fromhex('fa80000000'))
+
+    assert 'negative zero' in str(exc_info.value).lower()
+
+
+def test_dag_cbor_decode_positive_zero_f64() -> None:
+    decoded = libipld.decode_dag_cbor(bytes.fromhex('fb0000000000000000'))
+
+    assert decoded == 0.0
+    assert math.copysign(1.0, decoded) == 1.0
+
+
+def test_dag_cbor_encode_negative_zero_as_positive_zero() -> None:
+    # -0.0 equals 0.0 and is forbidden in DAG-CBOR, so it is encoded as 0.0
+    assert libipld.encode_dag_cbor(-0.0) == bytes.fromhex('fb0000000000000000')
+    assert libipld.encode_dag_cbor(-0.0) == libipld.encode_dag_cbor(0.0)
+
+
 def test_dag_cbor_decode_cbor_sequence_error() -> None:
     # 0000 - two CBOR zeros (CBOR sequence), invalid in DAG-CBOR
     with pytest.raises(ValueError) as exc_info:
@@ -255,7 +319,7 @@ def test_encode_tag_positive_bignum() -> None:
     bignum = 18446744073709551616
 
     with pytest.raises(ValueError) as exc_info:
-         libipld.encode_dag_cbor(bignum)
+        libipld.encode_dag_cbor(bignum)
 
     assert 'number out of range' in str(exc_info.value).lower()
 
@@ -264,7 +328,7 @@ def test_encode_tag_negative_bignum() -> None:
     bignum = -18446744073709551617
 
     with pytest.raises(ValueError) as exc_info:
-         libipld.encode_dag_cbor(bignum)
+        libipld.encode_dag_cbor(bignum)
 
     assert 'number out of range' in str(exc_info.value).lower()
 
@@ -277,3 +341,25 @@ def test_roundtrip_valid_cid_with_short_tag() -> None:
     encoded = libipld.encode_dag_cbor(decoded)
 
     assert encoded == encoded_bytes
+
+
+def test_dag_cbor_decode_array_length_exceeds_data_error() -> None:
+    # 9b0000000040000000 - array claiming 2**30 elements with no payload
+    with pytest.raises(ValueError) as exc_info:
+        libipld.decode_dag_cbor(bytes.fromhex('9b0000000040000000'))
+
+    assert 'Array length exceeds remaining data' in str(exc_info.value)
+
+
+def test_dag_cbor_decode_map_length_exceeds_data_error() -> None:
+    # bb0000000040000000 - map claiming 2**30 entries with no payload
+    with pytest.raises(ValueError) as exc_info:
+        libipld.decode_dag_cbor(bytes.fromhex('bb0000000040000000'))
+
+    assert 'Map length exceeds remaining data' in str(exc_info.value)
+
+
+def test_dag_cbor_decode_error_mid_array() -> None:
+    # 83010263616263 - [1, 2, "abc"] truncated after the second element's header
+    with pytest.raises(ValueError):
+        libipld.decode_dag_cbor(bytes.fromhex('8301026361'))

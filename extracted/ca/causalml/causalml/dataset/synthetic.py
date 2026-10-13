@@ -10,6 +10,10 @@ try:
     from xgboost import XGBRegressor
 except ImportError:  # pragma: no cover
     XGBRegressor = None
+except ValueError as exc:
+    from causalml.exceptions import handle_xgboost_error
+
+    handle_xgboost_error(exc)
 from scipy.stats import entropy
 import warnings
 
@@ -409,9 +413,11 @@ def get_synthetic_preds_holdout(
             else:
                 learner = base_learner(model())
                 learner.fit(X=X_train, p=p_hat_train, treatment=w_train, y=y_train)
+
                 preds_dict_train["{} Learner ({})".format(label_l, label_m)] = (
                     learner.predict(X=X_train).flatten()
                 )
+
                 preds_dict_valid["{} Learner ({})".format(label_l, label_m)] = (
                     learner.predict(X=X_val).flatten()
                 )

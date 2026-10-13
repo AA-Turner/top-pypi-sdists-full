@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-ml
-Version: 1.35.1
+Version: 1.35.2
 Summary: Microsoft Azure Machine Learning Client Library for Python
 Author-email: Microsoft Corporation <azuresdkengsysadmins@microsoft.com>
 License-Expression: MIT
@@ -220,6 +220,11 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 [coc_contact]: mailto:opencode@microsoft.com
 
 # Release History
+
+## 1.35.2 (2026-10-08)
+
+### Features Added
+- Added Spark runtime 3.5 support for model monitoring serverless Spark compute while retaining runtime 3.4 support.
 
 ## 1.35.1 (2026-09-30)
 

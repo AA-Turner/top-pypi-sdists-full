@@ -1,0 +1,167 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import datetime
+
+import google.cloud.bigquery as bigquery
+import pytest
+
+import bigframes.pandas as bpd
+from bigframes import dtypes
+from bigframes.core import (
+    array_value,
+    blocks,
+    bq_data,
+    identifiers,
+    nodes,
+    schema,
+)
+
+pytest.importorskip("pytest_snapshot")
+
+
+def test_compile_readtable(scalar_types_df: bpd.DataFrame, snapshot):
+    snapshot.assert_match(scalar_types_df.sql, "out.sql")
+
+
+def test_compile_readtable_w_repeated_types(repeated_types_df: bpd.DataFrame, snapshot):
+    snapshot.assert_match(repeated_types_df.sql, "out.sql")
+
+
+def test_compile_readtable_w_nested_structs_types(
+    nested_structs_types_df: bpd.DataFrame, snapshot
+):
+    snapshot.assert_match(nested_structs_types_df.sql, "out.sql")
+
+
+def test_compile_readtable_w_json_types(json_types_df: bpd.DataFrame, snapshot):
+    snapshot.assert_match(json_types_df.sql, "out.sql")
+
+
+def test_compile_readtable_w_ordering(scalar_types_df: bpd.DataFrame, snapshot):
+    bf_df = scalar_types_df[["int64_col"]]
+    bf_df = bf_df.sort_values("int64_col")
+    snapshot.assert_match(bf_df.sql, "out.sql")
+
+
+def test_compile_readtable_w_limit(scalar_types_df: bpd.DataFrame, snapshot):
+    bf_df = scalar_types_df[["int64_col"]]
+    bf_df = bf_df.sort_index().head(10)
+    snapshot.assert_match(bf_df.sql, "out.sql")
+
+
+def test_compile_readtable_w_system_time(
+    compiler_session, scalar_types_table_schema, snapshot
+):
+    table_ref = bigquery.TableReference(
+        bigquery.DatasetReference("bigframes-dev", "sqlglot_test"),
+        "scalar_types",
+    )
+    table = bigquery.Table(table_ref, tuple(scalar_types_table_schema))
+    table._properties["location"] = compiler_session._location
+    compiler_session._loader._df_snapshot[str(table_ref)] = (
+        datetime.datetime(2025, 11, 9, 3, 4, 5, 678901, tzinfo=datetime.timezone.utc),
+        bq_data.GbqNativeTable.from_table(table),
+    )
+    bf_df = compiler_session.read_gbq_table(str(table_ref))
+    snapshot.assert_match(bf_df.sql, "out.sql")
+
+
+def test_compile_readtable_lakehouse_w_system_time(
+    compiler_session, scalar_types_table_schema, snapshot
+):
+    # Time-travel reads of Lakehouse tables skip the Read API and use this SQL.
+    table_ref = bigquery.TableReference(
+        bigquery.DatasetReference("bigframes-dev", "my_catalog.my_namespace"),
+        "scalar_types",
+    )
+    table = bigquery.Table(table_ref, tuple(scalar_types_table_schema))
+    table._properties["location"] = compiler_session._location
+    compiler_session._loader._df_snapshot[str(table_ref)] = (
+        datetime.datetime(2025, 11, 9, 3, 4, 5, 678901, tzinfo=datetime.timezone.utc),
+        bq_data.GbqNativeTable.from_table(table),
+    )
+
+    bf_df = compiler_session.read_gbq_table(str(table_ref))
+
+    snapshot.assert_match(bf_df.sql, "out.sql")
+
+
+def test_compile_readtable_w_columns_filters(compiler_session, snapshot):
+    columns = ["rowindex", "int64_col", "string_col"]
+    filters = [("rowindex", ">", 0), ("string_col", "in", ["Hello, World!"])]
+    bf_df = compiler_session._loader.read_gbq_table(
+        "bigframes-dev.sqlglot_test.scalar_types",
+        enable_snapshot=False,
+        columns=columns,
+        filters=filters,
+    )
+    snapshot.assert_match(bf_df.sql, "out.sql")
+
+
+def test_compile_astype_aliases(scalar_types_df: bpd.DataFrame, snapshot):
+    # Test case for issue #17394 (CAST columns lose their aliases)
+    bf_df = scalar_types_df[["timestamp_col", "int64_col"]]
+    result = bf_df.astype(
+        {
+            "timestamp_col": "string[pyarrow]",
+            "int64_col": "Float64",
+        }
+    )
+    snapshot.assert_match(result.sql + "\n", "out.sql")
+
+
+def test_compile_readtable_w_json_string_workaround(
+    compiler_session_w_json_types, json_types_table_schema, snapshot
+):
+    table_ref = bigquery.TableReference(
+        bigquery.DatasetReference("bigframes-dev", "sqlglot_test"),
+        "json_types",
+    )
+    table = bigquery.Table(table_ref, tuple(json_types_table_schema))
+    table._properties["location"] = compiler_session_w_json_types._location
+    native_table = bq_data.GbqNativeTable.from_table(table)
+
+    logical_schema = schema.ArraySchema(
+        (
+            schema.SchemaItem("rowindex", dtypes.INT_DTYPE),
+            schema.SchemaItem("json_col", dtypes.JSON_DTYPE),
+            schema.SchemaItem("json_string_col", dtypes.JSON_DTYPE),
+        )
+    )
+    source = bq_data.BigqueryDataSource(
+        table=native_table,
+        schema=logical_schema,
+    )
+    scan_list = nodes.ScanList(
+        (
+            nodes.ScanItem(identifiers.ColumnId("rowindex"), "rowindex"),
+            nodes.ScanItem(identifiers.ColumnId("json_col"), "json_col"),
+            nodes.ScanItem(identifiers.ColumnId("json_string_col"), "json_string_col"),
+        )
+    )
+    read_node = nodes.ReadTableNode(
+        source=source,
+        scan_list=scan_list,
+        table_session=compiler_session_w_json_types,
+    )
+    block = blocks.Block(
+        array_value.ArrayValue(read_node),
+        index_columns=(),
+        column_labels=("rowindex", "json_col", "json_string_col"),
+    )
+
+    bf_df = bpd.DataFrame(block)
+
+    snapshot.assert_match(bf_df.sql, "out.sql")

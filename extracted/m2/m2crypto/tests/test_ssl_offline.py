@@ -5,26 +5,8 @@ Copyright (C) 2006 Open Source Applications Foundation. All Rights Reserved.
 Copyright (C) 2009-2010 Heikki Toivonen. All Rights Reserved.
 """
 
-import doctest
-
 from M2Crypto import Rand, SSL, X509, m2
 from tests import unittest
-from tests.test_ssl import srv_host
-
-
-class CheckerTestCase(unittest.TestCase):
-    def test_checker(self):
-
-        check = SSL.Checker.Checker(
-            host=srv_host,
-            peerCertHash="9917962167CFDB8BCFAC775093E79A1113B3DA146EA4E1EB1FEFC6E58770D158",
-        )
-        x509 = X509.load_cert("tests/server.pem")
-        self.assertTrue(check(x509, srv_host))
-        with self.assertRaises(SSL.Checker.WrongHost):
-            check(x509, "example.com")
-
-        doctest.testmod(SSL.Checker)
 
 
 class ContextTestCase(unittest.TestCase):
@@ -89,7 +71,6 @@ class ContextTestCase(unittest.TestCase):
 
 def suite():
     t_suite = unittest.TestSuite()
-    t_suite.addTest(unittest.TestLoader().loadTestsFromTestCase(CheckerTestCase))
     t_suite.addTest(unittest.TestLoader().loadTestsFromTestCase(ContextTestCase))
     return t_suite
 

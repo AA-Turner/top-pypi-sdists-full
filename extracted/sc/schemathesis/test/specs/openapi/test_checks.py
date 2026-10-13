@@ -675,6 +675,11 @@ _EXTRA_PROPERTY_HINT = (
     ("error_body", "hint"),
     [
         pytest.param(b'{"name": ["This field may not be blank."]}', "", id="declared-field-blamed"),
+        pytest.param(
+            b'{"detail":[{"msg":"Input should be a valid string","loc":["parsed_body","name"],"type":"value_error"}]}',
+            "",
+            id="declared-field-blamed-by-flattened-pydantic-error",
+        ),
         pytest.param(b'{"extra": ["This field may not be blank."]}', _EXTRA_PROPERTY_HINT, id="extra-property-blamed"),
         pytest.param(b'{"detail": "Bad request"}', _EXTRA_PROPERTY_HINT, id="no-field-blamed"),
     ],
@@ -1572,6 +1577,49 @@ def test_negative_data_rejection_validates_boolean_spelling_in_headers_and_cooki
             negative_data_rejection(check_context(), response_factory.requests(), case)
 
 
+@pytest.mark.parametrize(
+    ("value", "accepted"),
+    [
+        ("a" * 255 + " ", True),
+        ("a" * 252 + "\t\t\t\t", True),
+        (" \t", False),
+        ("a" * 256 + " ", False),
+    ],
+    ids=["trailing-space", "trailing-tabs", "only-whitespace", "too-long"],
+)
+@pytest.mark.parametrize("extra", [{}, {"X-Extra": "1"}], ids=["declared-only", "with-undeclared-header"])
+def test_negative_data_rejection_validates_headers_without_surrounding_whitespace(
+    ctx, response_factory, value, accepted, extra
+):
+    # HTTP servers drop leading and trailing spaces and tabs from header values before the application reads them.
+    operation = ctx.openapi.load_schema(
+        {
+            "/tasks": {
+                "post": {
+                    "parameters": [
+                        {
+                            "in": "header",
+                            "name": "Idempotency-Key",
+                            "required": True,
+                            "schema": {"type": "string", "minLength": 1, "maxLength": 255},
+                        }
+                    ],
+                    "responses": {"201": {"description": "Created"}},
+                }
+            }
+        }
+    )["/tasks"]["POST"]
+    case = _negative_case(
+        operation, ParameterLocation.HEADER, "Idempotency-Key", None, headers={"Idempotency-Key": value, **extra}
+    )
+    response = response_factory.requests(status_code=201)
+    if accepted:
+        assert negative_data_rejection(check_context(), response, case) is None
+    else:
+        with pytest.raises(AcceptedNegativeData):
+            negative_data_rejection(check_context(), response, case)
+
+
 def test_negative_data_rejection_reports_object_query_with_another_invalid_parameter(ctx, response_factory):
     schema = ctx.openapi.load_schema(
         {
@@ -1694,6 +1742,77 @@ def test_negative_data_rejection_reports_invalid_serialized_query(
 
     with pytest.raises(AcceptedNegativeData):
         negative_data_rejection(check_context(), response, case)
+
+
+_UNPARSABLE_INTEGER_TEXTS = pytest.mark.parametrize(
+    "value", ["1_0", " 5", "\u0665"], ids=["underscore", "whitespace", "non-ascii"]
+)
+
+
+@_UNPARSABLE_INTEGER_TEXTS
+def test_negative_data_rejection_reports_unparsable_integer_in_query_array(ctx, response_factory, value):
+    schema = ctx.openapi.load_schema(
+        {"/items": {"get": {"parameters": [{"in": "query", "name": "value", "schema": {"type": "integer"}}]}}}
+    )
+    case = schema["/items"]["GET"].Case(
+        _meta=build_metadata(query=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+        query={"value": [value]},
+    )
+    with pytest.raises(AcceptedNegativeData):
+        negative_data_rejection(check_context(), response_factory.requests(), case)
+
+
+@_UNPARSABLE_INTEGER_TEXTS
+@pytest.mark.parametrize("location", [ParameterLocation.PATH, ParameterLocation.QUERY], ids=["path", "query"])
+def test_negative_data_rejection_reports_unparsable_integer_type_mutation(ctx, response_factory, value, location):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items/{value}": {
+                "get": {
+                    "parameters": [
+                        {"in": "path", "name": "value", "required": True, "schema": {"type": "integer"}},
+                        {"in": "query", "name": "value", "required": True, "schema": {"type": "integer"}},
+                    ]
+                }
+            }
+        }
+    )
+    mutation = _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="value", location=location)
+    meta = build_metadata(generation_modes=[GenerationMode.NEGATIVE], mutations=(mutation,))
+    meta.components = {location: ComponentInfo(mode=GenerationMode.NEGATIVE)}
+    case = schema["/items/{value}"]["GET"].Case(
+        _meta=meta,
+        path_parameters={"value": value if location == ParameterLocation.PATH else 1},
+        query={"value": value if location == ParameterLocation.QUERY else 1},
+    )
+    with pytest.raises(AcceptedNegativeData):
+        negative_data_rejection(check_context(), response_factory.requests(), case)
+
+
+@_UNPARSABLE_INTEGER_TEXTS
+def test_negative_data_rejection_reports_unparsable_integer_in_path_array(ctx, response_factory, value):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items/{values}": {
+                "get": {
+                    "parameters": [
+                        {
+                            "in": "path",
+                            "name": "values",
+                            "required": True,
+                            "schema": {"type": "array", "items": {"type": "integer"}},
+                        }
+                    ]
+                }
+            }
+        }
+    )
+    case = schema["/items/{values}"]["GET"].Case(
+        _meta=build_metadata(path_parameters=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+        path_parameters={"values": f"{value},2"},
+    )
+    with pytest.raises(AcceptedNegativeData):
+        negative_data_rejection(check_context(), response_factory.requests(), case)
 
 
 # Servers commonly parse these as floats, so they may legitimately read them as numbers.

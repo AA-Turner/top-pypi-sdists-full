@@ -81,12 +81,16 @@ def test_every_captured_harness_has_a_daemon_adapter(harness_id):
 @pytest.mark.parametrize("harness_id", [h.id for h in REG.all() if h.family == FAMILY_CLOUD])
 def test_a_cloud_harness_never_offers_the_daemon(harness_id):
     """Nothing runs beside a cloud harness's session on this machine, so the
-    wizard must never offer to move it to the daemon (no lean profile) and no
-    hook capability can be claimed for it."""
+    wizard must never offer to move it to the daemon (no lean profile), no hook
+    capability can be claimed for it, and nothing of Probe's installs into it
+    (no plugin, instruction file or status line). Installable means it is in
+    the installer's picker, found by its app on disk."""
     harness = REG.get(harness_id)
     assert harness.lean_profile is None
-    assert not harness.installable
     assert not any(harness.can(c) for c in ("prompt_context", "wake", "root_skills"))
+    assert harness.plugin is None and harness.instructions is None and harness.statusline is None
+    if harness.installable:
+        assert harness.cli_flag and harness.detect_paths
 
 
 @pytest.mark.parametrize("harness_id", DAEMON_READ)

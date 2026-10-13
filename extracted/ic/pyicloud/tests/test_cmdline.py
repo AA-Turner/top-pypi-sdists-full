@@ -13,14 +13,32 @@ from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, PropertyMock, call, patch
 from uuid import uuid4
 
 import click
 import pytest
+import typer
 from typer.testing import CliRunner, Result
 
+from pyicloud.diagnostics import PROBED_SERVICES
 from pyicloud.endpoints import WEBSERVICES
+from pyicloud.exceptions import (
+    PyiCloudAPIResponseException,
+    PyiCloudServiceUnavailable,
+)
+from pyicloud.services.invites import (
+    Event,
+    EventNotFound,
+    EventPlace,
+    EventScope,
+    EventShare,
+    EventTime,
+    InvitesError,
+    ResolvedShare,
+    Rsvp,
+    RsvpStatus,
+)
 from pyicloud.services.notes.models import Attachment as NoteAttachment
 from pyicloud.services.notes.models import ChangeEvent as NoteChangeEvent
 from pyicloud.services.notes.models import (
@@ -53,6 +71,7 @@ from pyicloud.services.reminders.models import (
 
 account_index_module = importlib.import_module("pyicloud.cli.account_index")
 cli_module = importlib.import_module("pyicloud.cli.app")
+invites_module = importlib.import_module("pyicloud.cli.commands.invites")
 context_module = importlib.import_module("pyicloud.cli.context")
 output_module = importlib.import_module("pyicloud.cli.output")
 app = cli_module.app
@@ -108,12 +127,24 @@ class FakeDevice:
         self.erase_message = message
 
 
+class FakeDevices(list[FakeDevice]):
+    """List of fake devices that records refresh() calls."""
+
+    def __init__(self, devices: list[FakeDevice]) -> None:
+        super().__init__(devices)
+        self.refresh_calls: list[bool] = []
+
+    def refresh(self, *, locate: bool = True) -> None:
+        """Record one periodic Find My refresh."""
+        self.refresh_calls.append(locate)
+
+
 class FakeDriveResponse:
     """Download response fixture."""
 
     def iter_content(  # pylint: disable=unused-argument
         self,
-        chunk_size: int = 8192,  # pragma: no cover - trivial
+        chunk_size: int = 8192,
     ) -> Iterator[bytes]:
         """Yield the fake download body."""
         yield b"hello"
@@ -151,7 +182,7 @@ class FakeDriveNode:
 
     def open(  # pylint: disable=unused-argument
         self,
-        **kwargs: Any,  # pragma: no cover - trivial
+        **kwargs: Any,
     ) -> FakeDriveResponse:
         """Return a fake download response."""
         return FakeDriveResponse()
@@ -617,6 +648,75 @@ class FakeNotes:
     def sync_cursor(self) -> str:
         """Return the current sync cursor."""
         return self.cursor
+
+
+class FakeInvites:
+    """Invites service fixture."""
+
+    def __init__(self) -> None:
+        self._events = [
+            Event(
+                event_id="AAAA1111-0000-0000-0000-000000000001",
+                scope=EventScope.PRIVATE,
+                title="Standup",
+                time=EventTime(start=datetime(2026, 5, 1, 9, 0, tzinfo=timezone.utc)),
+                place=EventPlace(title="Room 2", city="Dublin"),
+                is_cancelled=False,
+                is_published=True,
+            ),
+            Event(
+                event_id="AAAA2222-0000-0000-0000-000000000002",
+                scope=EventScope.SHARED,
+                title="Birthday",
+                host_display_name="Sam Appleseed",
+                time=EventTime(
+                    start=datetime(2026, 6, 2, tzinfo=timezone.utc), is_all_day=True
+                ),
+                place=EventPlace(title="The Park", city="Cork"),
+                share=EventShare(short_guid="008FIXTURE", public_permission="READ"),
+                is_cancelled=False,
+                is_published=True,
+            ),
+        ]
+
+    def events(self) -> list[Event]:
+        """Return both fixture events."""
+        return list(self._events)
+
+    def event(self, event_id: str) -> Event:
+        """Return one fixture event by exact id."""
+        for event in self._events:
+            if event.event_id == event_id:
+                return event
+        raise EventNotFound(f"Event not found: {event_id!r}")
+
+    def rsvps(self, event: Event) -> list[Rsvp]:
+        """Return one response for any event."""
+        assert event is not None
+        return [
+            Rsvp(
+                record_name="RSVP/1",
+                participant_id="P1",
+                name="Dana Appleseed",
+                status=RsvpStatus.GOING,
+                message="See you there",
+                num_additional_adults=1,
+                num_additional_kids=0,
+            )
+        ]
+
+    def resolve(self, short_guid: str) -> ResolvedShare:
+        """Return a preview of a share."""
+        return ResolvedShare(
+            short_guid=short_guid,
+            event_id="AAAA2222-0000-0000-0000-000000000002",
+            owner_given_name="Sam",
+            owner_family_name="Appleseed",
+            participant_status="INVITED",
+            participant_type="USER",
+            participant_permission="READ_WRITE",
+            share=EventShare(short_guid=short_guid, public_permission="READ"),
+        )
 
 
 class FakeReminders:
@@ -1130,7 +1230,7 @@ class FakeAPI:
         self.params: dict[str, Any] = {}
         self._webservices = None
         self.logout = MagicMock(side_effect=self._logout)
-        self.devices = [FakeDevice()]
+        self.devices = FakeDevices([FakeDevice()])
         self.account = SimpleNamespace(
             devices=[
                 {
@@ -1213,6 +1313,7 @@ class FakeAPI:
         self.hidemyemail = FakeHideMyEmail()
         self.notes = FakeNotes()
         self.reminders = FakeReminders()
+        self.invites = FakeInvites()
 
     def _logout(
         self,
@@ -1239,6 +1340,55 @@ class FakeAPI:
             "remote_logout_confirmed": True,
             "local_session_cleared": clear_local_session,
         }
+
+
+class UnavailableInvitesAPI(FakeAPI):
+    """An account where the Invites service cannot be constructed.
+
+    base.py raises PyiCloudServiceUnavailable from the property itself, not
+    from a method on the service, so the failure has to be provoked there.
+    """
+
+    @property
+    def invites(self) -> FakeInvites:
+        """Fail the way base.py does when the webservice is missing."""
+        raise PyiCloudServiceUnavailable("Invites service not available")
+
+    @invites.setter
+    def invites(self, value: FakeInvites) -> None:
+        """Absorb the assignment FakeAPI makes in its own constructor."""
+
+
+class FailingInvites(FakeInvites):
+    """Invites service whose listing fails the way Apple can."""
+
+    def events(self) -> list[Event]:
+        """Raise a service-level error."""
+        raise InvitesError("boom")
+
+
+class InvitesErrorAPI(FakeAPI):
+    """An account whose invites listing raises an InvitesError."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.invites = FailingInvites()
+
+
+class VanishingInvites(FakeInvites):
+    """Invites service that lists an event its lookup cannot fetch."""
+
+    def event(self, event_id: str) -> Event:
+        """Lose the event between the listing and the lookup."""
+        raise EventNotFound(event_id)
+
+
+class VanishingEventAPI(FakeAPI):
+    """An account whose event lookup rejects every id."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.invites = VanishingInvites()
 
 
 def _runner() -> CliRunner:
@@ -1296,6 +1446,7 @@ def _invoke(
     china_mainland: bool | None = None,
     accept_terms: bool | None = None,
     with_family: bool | None = None,
+    refresh_interval: float | None = None,
     output_format: str | None = None,
     log_level: str | None = None,
     http_proxy: str | None = None,
@@ -1335,6 +1486,8 @@ def _invoke(
         cli_args.append("--no-verify-ssl")
     if supports_devices and with_family:
         cli_args.append("--with-family")
+    if supports_devices and refresh_interval is not None:
+        cli_args.extend(["--refresh-interval", str(refresh_interval)])
     if output_format is not None:
         cli_args.extend(["--format", output_format])
     if log_level is not None:
@@ -1357,6 +1510,10 @@ def _invoke(
                 "stored-secret" if candidate in (keyring_passwords or set()) else None
             ),
         ),
+        # ``environment()`` reads installed package metadata, which touches the
+        # file system outside the test sandbox; the version itself is not what
+        # any CLI test asserts.
+        patch("pyicloud.diagnostics.installed_version", return_value="0.0.0"),
     ):
         return runner.invoke(app, cli_args)
 
@@ -1531,6 +1688,220 @@ def test_devices_help_scopes_device_options() -> None:
 
     assert result.exit_code == 0
     assert "--with-family" in text
+    assert "--refresh-interval" in text
+
+
+def test_devices_refresh_interval_reaches_service_with_locating_monitor() -> None:
+    """Devices commands should pass --refresh-interval and enable locating refreshes."""
+
+    session_dir = _unique_session_dir("devices-refresh-interval")
+    fake_api = FakeAPI(username="user@example.com", session_dir=session_dir)
+    constructor_calls: list[dict[str, Any]] = []
+
+    def build_api(**kwargs: Any) -> FakeAPI:
+        constructor_calls.append(kwargs)
+        return fake_api
+
+    with (
+        patch.object(context_module, "PyiCloudService", side_effect=build_api),
+        patch.object(
+            context_module, "configurable_ssl_verification", return_value=nullcontext()
+        ),
+        patch.object(context_module, "confirm", return_value=False),
+        patch.object(
+            context_module.utils,
+            "password_exists_in_keyring",
+            side_effect=lambda candidate: candidate == "user@example.com",
+        ),
+        patch.object(
+            context_module.utils,
+            "get_password_from_keyring",
+            side_effect=lambda candidate: (
+                "stored-secret" if candidate == "user@example.com" else None
+            ),
+        ),
+    ):
+        result = _runner().invoke(
+            app,
+            [
+                "devices",
+                "list",
+                "--username",
+                "user@example.com",
+                "--session-dir",
+                str(session_dir),
+                "--refresh-interval",
+                "90",
+                "--iterations",
+                "1",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert constructor_calls
+    for kwargs in constructor_calls:
+        assert kwargs["locate"] is True
+        assert kwargs["refresh_interval"] == 90.0
+
+
+def test_devices_list_watch_mode_repeats_until_iterations() -> None:
+    """devices list --refresh-interval should watch until --iterations runs."""
+
+    session_dir = _unique_session_dir("devices-watch")
+    fake_api = FakeAPI(username="user@example.com", session_dir=session_dir)
+    with patch("pyicloud.cli.commands.devices.time.sleep") as sleep:
+        result = _invoke_with_cli_args(
+            fake_api,
+            [
+                "devices",
+                "list",
+                "--username",
+                "user@example.com",
+                "--session-dir",
+                str(session_dir),
+                "--refresh-interval",
+                "60",
+                "--iterations",
+                "2",
+            ],
+        )
+
+    assert result.exit_code == 0
+    sleep.assert_called_once_with(60.0)
+    assert fake_api.devices.refresh_calls == [True, True]
+    output = _plain_output(result)
+    assert "Waiting 60s before device listing run 2 of 2" in output
+    assert output.count("Devices") == 2
+
+
+def test_devices_list_watch_mode_emits_bounded_json_runs() -> None:
+    """Bounded JSON watch should emit one listing payload per run."""
+
+    session_dir = _unique_session_dir("devices-watch-json")
+    fake_api = FakeAPI(username="user@example.com", session_dir=session_dir)
+    with patch("pyicloud.cli.commands.devices.time.sleep") as sleep:
+        result = _invoke_with_cli_args(
+            fake_api,
+            [
+                "devices",
+                "list",
+                "--username",
+                "user@example.com",
+                "--session-dir",
+                str(session_dir),
+                "--refresh-interval",
+                "60",
+                "--iterations",
+                "2",
+                "--format",
+                "json",
+            ],
+        )
+
+    assert result.exit_code == 0
+    sleep.assert_called_once_with(60.0)
+    payload = json.loads(result.stdout)
+    assert len(payload) == 2
+    assert payload[0][0]["id"] == "device-1"
+
+
+def test_devices_list_watch_json_stream_disables_markup() -> None:
+    """Unbounded JSON watch should stream device names without markup."""
+
+    session_dir = _unique_session_dir("devices-watch-json-stream")
+    fake_api = FakeAPI(username="user@example.com", session_dir=session_dir)
+    fake_api.devices[0].name = "[bold]Example[/bold] iPhone"
+    with patch(
+        "pyicloud.cli.commands.devices.time.sleep",
+        side_effect=KeyboardInterrupt,
+    ):
+        result = _invoke_with_cli_args(
+            fake_api,
+            [
+                "devices",
+                "list",
+                "--username",
+                "user@example.com",
+                "--session-dir",
+                str(session_dir),
+                "--refresh-interval",
+                "60",
+                "--format",
+                "json",
+            ],
+        )
+
+    assert result.exit_code == 130
+    payload = json.loads(result.stdout)
+    assert payload[0]["name"] == "[bold]Example[/bold] iPhone"
+
+
+def test_devices_list_watch_mode_exits_cleanly_on_interrupt() -> None:
+    """Watch mode should exit 130 when interrupted between runs."""
+
+    session_dir = _unique_session_dir("devices-watch-interrupt")
+    fake_api = FakeAPI(username="user@example.com", session_dir=session_dir)
+    with patch(
+        "pyicloud.cli.commands.devices.time.sleep",
+        side_effect=KeyboardInterrupt,
+    ):
+        result = _invoke_with_cli_args(
+            fake_api,
+            [
+                "devices",
+                "list",
+                "--username",
+                "user@example.com",
+                "--session-dir",
+                str(session_dir),
+                "--refresh-interval",
+                "60",
+                "--iterations",
+                "3",
+            ],
+        )
+
+    assert result.exit_code == 130
+    assert "Waiting 60s before device listing run 2 of 3" in _plain_output(result)
+
+
+def test_devices_list_iterations_requires_refresh_interval() -> None:
+    """--iterations should be rejected without --refresh-interval."""
+
+    result = _runner().invoke(app, ["devices", "list", "--iterations", "2"])
+
+    assert result.exit_code == 2
+    assert "The --iterations option requires --refresh-interval." in _plain_output(
+        result
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    [
+        ("0", "must be a positive finite number of seconds"),
+        ("-5", "must be a positive finite number of seconds"),
+        ("nan", "must be a positive finite number of seconds"),
+        ("inf", "must be a positive finite number of seconds"),
+        ("1e13", "is too large"),
+        ("0.5", "must be at least 1s"),
+    ],
+)
+def test_devices_refresh_interval_rejects_invalid_values(
+    value: str, message: str
+) -> None:
+    """--refresh-interval should reject unusable values at parse time."""
+
+    with patch.object(context_module, "PyiCloudService") as build_api:
+        result = _runner().invoke(
+            app, ["devices", "list", f"--refresh-interval={value}"]
+        )
+
+    assert result.exit_code == 2
+    # The rich error panel wraps long messages; unwrap box borders before matching.
+    error_text = " ".join(_plain_output(result).replace("│", " ").split())
+    assert message in error_text
+    build_api.assert_not_called()
 
 
 def test_account_summary_command() -> None:
@@ -2109,6 +2480,7 @@ def test_get_api_uses_keyring_password_for_session_backed_service_commands() -> 
         interactive=False,
         accept_terms=False,
         with_family=False,
+        refresh_interval=None,
         session_dir=str(session_dir),
         http_proxy=None,
         https_proxy=None,
@@ -2137,9 +2509,11 @@ def test_get_api_uses_keyring_password_for_session_backed_service_commands() -> 
     assert constructor_calls[0]["apple_id"] == "solo@example.com"
     assert constructor_calls[0]["password"] is None
     assert constructor_calls[0]["authenticate"] is False
+    assert constructor_calls[0]["locate"] is True
     assert constructor_calls[1]["apple_id"] == "solo@example.com"
     assert constructor_calls[1]["password"] == "stored-secret"
     assert constructor_calls[1]["authenticate"] is False
+    assert constructor_calls[1]["locate"] is True
     probe_api.get_auth_status.assert_called_once_with()
     service_api.get_auth_status.assert_called_once_with()
 
@@ -2181,6 +2555,7 @@ def test_get_api_hydrates_session_backed_service_commands_from_probe_state() -> 
         interactive=False,
         accept_terms=False,
         with_family=False,
+        refresh_interval=None,
         session_dir=str(session_dir),
         http_proxy=None,
         https_proxy=None,
@@ -2211,6 +2586,76 @@ def test_get_api_hydrates_session_backed_service_commands_from_probe_state() -> 
     assert service_api._webservices == probe_api.data["webservices"]
     probe_api.get_auth_status.assert_called_once_with()
     service_api.get_auth_status.assert_not_called()
+
+
+def test_get_readonly_api_builds_a_cached_probe_mode_session_api() -> None:
+    """``doctor --probe`` should get a passive api that shares the session."""
+
+    session_dir = _unique_session_dir("readonly-api")
+    _remember_local_account(
+        session_dir,
+        "solo@example.com",
+        has_session_file=True,
+        keyring_passwords={"solo@example.com"},
+    )
+
+    probe_api = FakeAPI(username="solo@example.com", session_dir=session_dir)
+    probe_api.data = {
+        "dsInfo": {"dsid": "1234567890", "hsaVersion": 2},
+        "webservices": {"findme": {"url": "https://example.invalid/findme"}},
+    }
+    service_api = FakeAPI(username="solo@example.com", session_dir=session_dir)
+    service_api.data = dict(probe_api.data)
+    service_api._webservices = probe_api.data["webservices"]
+    readonly_api = FakeAPI(username="solo@example.com", session_dir=session_dir)
+    readonly_api.data = {}
+    readonly_api.params = {}
+    readonly_api._webservices = None
+    constructor_calls: list[dict[str, Any]] = []
+
+    def build_api(**kwargs: Any) -> FakeAPI:
+        constructor_calls.append(kwargs)
+        return (probe_api, service_api, readonly_api)[len(constructor_calls) - 1]
+
+    state = context_module.CLIState(
+        username=None,
+        password=None,
+        china_mainland=None,
+        interactive=False,
+        accept_terms=False,
+        with_family=False,
+        refresh_interval=None,
+        session_dir=str(session_dir),
+        http_proxy=None,
+        https_proxy=None,
+        no_verify_ssl=False,
+        log_level=context_module.LogLevel.WARNING,
+        output_format=output_module.OutputFormat.TEXT,
+    )
+
+    with (
+        patch.object(context_module, "PyiCloudService", side_effect=build_api),
+        patch.object(
+            context_module.utils,
+            "password_exists_in_keyring",
+            side_effect=lambda candidate: candidate == "solo@example.com",
+        ),
+        patch.object(
+            context_module.utils,
+            "get_password_from_keyring",
+            return_value="stored-secret",
+        ),
+    ):
+        readonly = state.get_readonly_api()
+        again = state.get_readonly_api()
+
+    assert readonly is readonly_api
+    assert again is readonly_api
+    assert len(constructor_calls) == 3
+    assert constructor_calls[2]["locate"] is False
+    assert constructor_calls[2]["refresh_interval"] is None
+    assert readonly_api.data == probe_api.data
+    assert readonly_api._webservices == probe_api.data["webservices"]
 
 
 def test_multiple_local_accounts_require_explicit_username_for_auth_login() -> None:
@@ -2385,6 +2830,39 @@ def test_account_index_prunes_stale_entries_but_keeps_keyring_backed_accounts() 
     assert kept_api.session.session_path.endswith("keptexamplecom.session")
 
 
+def test_account_index_remember_without_pruning_keeps_neighbors() -> None:
+    """Keyring-free logins must upsert without dropping neighbor accounts."""
+
+    session_dir = _unique_session_dir("index-no-prune")
+    _remember_local_account(
+        session_dir,
+        "kept@example.com",
+        keyring_passwords={"kept@example.com"},
+    )
+    new_api = FakeAPI(username="new@example.com", session_dir=session_dir)
+    keyring_calls: list[str] = []
+
+    def _forbidden_keyring(candidate: str) -> bool:
+        keyring_calls.append(candidate)
+        return False
+
+    account_index_module.remember_account(
+        session_dir,
+        username=new_api.account_name,
+        session_path=new_api.session.session_path,
+        cookiejar_path=new_api.session.cookiejar_path,
+        china_mainland=False,
+        keyring_has=_forbidden_keyring,
+        prune=False,
+    )
+
+    assert not keyring_calls
+    assert list(account_index_module.load_accounts(session_dir)) == [
+        "kept@example.com",
+        "new@example.com",
+    ]
+
+
 def test_account_index_save_is_atomic() -> None:
     """Account index writes should use an atomic replace into accounts.json."""
 
@@ -2442,6 +2920,58 @@ def test_auth_login_non_interactive_requires_credentials() -> None:
     )
 
 
+def test_auth_login_non_interactive_explicit_password_skips_keyring() -> None:
+    """Explicit non-interactive logins must not access the local keyring and
+    must report the keyring state as unknown in JSON output."""
+
+    session_dir = Path("/virtual/non-interactive-explicit-password")
+    remember_account = MagicMock()
+    with (
+        patch.object(
+            context_module, "configurable_ssl_verification", return_value=nullcontext()
+        ),
+        patch.object(
+            context_module,
+            "PyiCloudService",
+            return_value=FakeAPI(session_dir=session_dir),
+        ),
+        patch.object(
+            context_module.utils,
+            "password_exists_in_keyring",
+            side_effect=AssertionError("Keyring must not be accessed"),
+        ),
+        patch.object(
+            context_module.utils,
+            "get_password_from_keyring",
+            side_effect=AssertionError("Keyring must not be accessed"),
+        ),
+        patch.object(context_module, "load_accounts", return_value={}),
+        patch.object(context_module.CLIState, "remember_account", remember_account),
+        patch.object(context_module.Path, "exists", return_value=False),
+    ):
+        result = _runner().invoke(
+            app,
+            [
+                "auth",
+                "login",
+                "--username",
+                "user@example.com",
+                "--password",
+                "secret",
+                "--session-dir",
+                str(session_dir),
+                "--non-interactive",
+                "--format",
+                "json",
+            ],
+        )
+
+    assert result.exit_code == 0
+    # Pruning consults the keyring for neighbouring accounts, so it must be off.
+    assert remember_account.call_args.kwargs["prune"] is False
+    assert json.loads(result.stdout)["has_keyring_password"] is None
+
+
 def test_auth_login_explicit_password_does_not_delete_stored_keyring_secret() -> None:
     """Explicit bad passwords should not delete a previously stored keyring password."""
 
@@ -2477,12 +3007,120 @@ def test_auth_login_explicit_password_does_not_delete_stored_keyring_secret() ->
                 "--password",
                 "wrong-secret",
                 "--non-interactive",
+                "--session-dir",
+                str(_unique_session_dir("auth-login-keyring")),
             ],
         )
 
     assert result.exit_code != 0
     assert str(result.exception) == "Bad username or password for user@example.com"
     delete_password.assert_not_called()
+
+
+def test_account_lock_cli_handlers_preserve_stored_keyring_secret() -> None:
+    """CLI account-lock handlers should preserve credentials and give guidance."""
+    error = context_module.PyiCloudAccountLockedException("-20209", MagicMock())
+    state = context_module.CLIState.from_options(
+        context_module.CLICommandOptions(
+            username="user@example.com",
+            china_mainland=False,
+            interactive=False,
+        )
+    )
+
+    with (
+        patch.object(state, "_password_for_login", return_value=("secret", "keyring")),
+        patch.object(context_module, "PyiCloudService", side_effect=error),
+        patch.object(
+            context_module.utils, "password_exists_in_keyring", return_value=True
+        ),
+        patch.object(
+            context_module.utils, "delete_password_in_keyring"
+        ) as delete_password,
+        pytest.raises(context_module.CLIAbort) as login_excinfo,
+    ):
+        state.get_login_api()
+
+    delete_password.assert_not_called()
+    failing_call = MagicMock(side_effect=error)
+    with pytest.raises(context_module.CLIAbort) as service_excinfo:
+        context_module.service_call("Find My", failing_call)
+
+    message = (
+        "Apple Account is locked for security reasons. Unlock it before trying again."
+    )
+    assert str(login_excinfo.value) == message
+    assert str(service_excinfo.value) == message
+
+
+def test_connection_failure_cli_handlers_preserve_keyring_and_offer_retry() -> None:
+    """An unreachable iCloud must not be reported as a login failure."""
+    error = context_module.PyiCloudConnectionException("Request failed to iCloud")
+    state = context_module.CLIState.from_options(
+        context_module.CLICommandOptions(
+            username="user@example.com",
+            china_mainland=False,
+            interactive=False,
+        )
+    )
+
+    with (
+        patch.object(state, "_password_for_login", return_value=("secret", "keyring")),
+        patch.object(context_module, "PyiCloudService", side_effect=error),
+        patch.object(
+            context_module.utils, "password_exists_in_keyring", return_value=True
+        ),
+        patch.object(
+            context_module.utils, "delete_password_in_keyring"
+        ) as delete_password,
+        pytest.raises(context_module.CLIAbort) as login_excinfo,
+    ):
+        state.get_login_api()
+
+    # An outage is not a verdict on the stored password, so it must survive.
+    delete_password.assert_not_called()
+    login_message = str(login_excinfo.value)
+    assert "Could not reach iCloud" in login_message
+    assert "Bad username or password" not in login_message
+
+    # Build outside pytest.raises: MagicMock(side_effect=...) fires on
+    # construction, which would leave two invocations able to raise.
+    service_fn = MagicMock(side_effect=error)
+    with pytest.raises(context_module.CLIAbort) as service_excinfo:
+        context_module.service_call("Find My", service_fn)
+
+    service_message = str(service_excinfo.value)
+    assert service_message.startswith("Find My could not reach iCloud")
+    # Pointing at `auth login` would be wrong advice during an outage.
+    assert "requires re-authentication" not in service_message
+
+
+def test_2fa_code_request_failure_does_not_swallow_connection_error() -> None:
+    """An outage during the 2FA prompt must abort, not fall through to a code."""
+    error = context_module.PyiCloudConnectionException("Request failed to iCloud")
+    api = MagicMock(
+        fido2_devices=[],
+        request_2fa_code=MagicMock(side_effect=error),
+        use_existing_trusted_device_code=MagicMock(),
+    )
+    state = context_module.CLIState.from_options(
+        context_module.CLICommandOptions(
+            username="user@example.com",
+            china_mainland=False,
+            interactive=True,
+        )
+    )
+
+    with (
+        patch.object(typer, "prompt") as prompt,
+        pytest.raises(context_module.CLIAbort) as excinfo,
+    ):
+        state._handle_2fa(api)
+
+    assert str(excinfo.value) == context_module.CONNECTION_FAILURE_MESSAGE
+    # The outage must abort the flow, not fall through to asking for a code.
+    prompt.assert_not_called()
+    api.use_existing_trusted_device_code.assert_not_called()
 
 
 def test_auth_logout_variants_and_remote_failure() -> None:
@@ -2605,6 +3243,37 @@ def test_security_key_flow() -> None:
     fake_api.fido2_devices = [{"id": "sk-1"}]
     result = _invoke(fake_api, "auth", "login")
     assert result.exit_code == 0
+    fake_api.confirm_security_key.assert_called_once_with({"id": "sk-1"})
+
+
+def test_security_key_account_lock_is_not_rewritten() -> None:
+    """Security-key handling should preserve the account-lock state."""
+    error = context_module.PyiCloudAccountLockedException("-20209", MagicMock())
+    fake_api = MagicMock()
+    fake_api.fido2_devices = [{"id": "sk-1"}]
+    fake_api.confirm_security_key.side_effect = error
+    state = context_module.CLIState.from_options(context_module.CLICommandOptions())
+
+    with pytest.raises(context_module.PyiCloudAccountLockedException) as excinfo:
+        state._handle_2fa(fake_api)
+
+    assert excinfo.value is error
+    fake_api.confirm_security_key.assert_called_once_with({"id": "sk-1"})
+
+
+def test_security_key_connection_failure_aborts_instead_of_swallowing() -> None:
+    """An outage during security-key verification should abort, not fall through."""
+    error = context_module.PyiCloudConnectionException("Request failed to iCloud")
+    fake_api = MagicMock()
+    fake_api.fido2_devices = [{"id": "sk-1"}]
+    fake_api.confirm_security_key.side_effect = error
+    state = context_module.CLIState.from_options(context_module.CLICommandOptions())
+
+    with pytest.raises(context_module.CLIAbort) as excinfo:
+        state._handle_2fa(fake_api)
+
+    # The generic handler would otherwise report a failed security key.
+    assert str(excinfo.value) == context_module.CONNECTION_FAILURE_MESSAGE
     fake_api.confirm_security_key.assert_called_once_with({"id": "sk-1"})
 
 
@@ -4255,18 +4924,39 @@ def test_reminders_commands_report_reauthentication_and_unavailability() -> None
     )
 
 
-def test_main_returns_clean_error_for_user_abort(
+@pytest.mark.parametrize(
+    ("error", "message"),
+    [
+        (
+            context_module.CLIAbort(
+                "No local accounts were found; pass --username to bootstrap one."
+            ),
+            "No local accounts were found; pass --username to bootstrap one.",
+        ),
+        (
+            context_module.PyiCloudAccountLockedException("-20209", MagicMock()),
+            "Apple Account is locked for security reasons. "
+            "Unlock it before trying again.",
+        ),
+        (
+            context_module.PyiCloudConnectionException("Request failed to iCloud"),
+            context_module.CONNECTION_FAILURE_MESSAGE,
+        ),
+    ],
+)
+def test_main_returns_clean_error_for_expected_cli_error(
     capsys: pytest.CaptureFixture[str],
+    error: Exception,
+    message: str,
 ) -> None:
     """The entrypoint should not emit a traceback for expected CLI errors."""
 
-    message = "No local accounts were found; pass --username to bootstrap one."
-    with patch.object(cli_module, "app", side_effect=context_module.CLIAbort(message)):
+    with patch.object(cli_module, "app", side_effect=error):
         code = cli_module.main()
     captured = capsys.readouterr()
     assert code == 1
     assert captured.out == ""
-    assert message in captured.err
+    assert captured.err == f"{message}\n"
 
 
 def _advertised_webservices() -> dict[str, Any]:
@@ -4284,11 +4974,14 @@ def _advertised_webservices() -> dict[str, Any]:
 def _unwrapped(result: Any) -> str:
     """Return command output with rich's line wrapping collapsed.
 
-    Terminal width is not part of what these tests assert, and a sentence split
-    across two lines would otherwise fail on a narrower runner than this one.
+    Terminal width is not part of what these tests assert. A cell that wraps
+    puts the table's own border characters between the fragments, so those go
+    first and the remaining whitespace is then collapsed.
     """
 
-    return " ".join(_plain_output(result).split())
+    text = _plain_output(result)
+    stripped = "".join(" " if "\u2500" <= ch <= "\u257f" else ch for ch in text)
+    return " ".join(stripped.split())
 
 
 def _doctor_api(webservices: dict[str, Any] | None = None) -> FakeAPI:
@@ -4421,3 +5114,446 @@ def test_doctor_without_a_session_still_reports_what_it_can() -> None:
     assert "Authenticated" in text
     assert "icloud auth login" in text
     assert "report is incomplete" in text
+
+
+def test_invites_list_shows_both_scopes() -> None:
+    """Listing covers events you host and events shared with you."""
+
+    result = _invoke(FakeAPI(), "invites", "list")
+    text = _unwrapped(result)
+
+    assert result.exit_code == 0
+    assert "private" in text
+    assert "shared" in text
+    assert "Standup" in text
+    assert "Sam Appleseed" in text
+
+
+def test_invites_start_times_are_rendered_compactly() -> None:
+    """A full ISO timestamp wraps a row onto three lines and hides the id.
+
+    The id column is only worth showing if enough of it survives to pass to
+    the next command, so the start time is rendered to the minute. Checked on
+    the formatter rather than the table, because a wrapped cell's fragments
+    land in different columns and cannot be reassembled from the output.
+    """
+
+    fmt = invites_module._format_when
+
+    assert (
+        fmt({"starts_at": datetime(2026, 5, 1, 9, 0, tzinfo=timezone.utc)})
+        == "2026-05-01 09:00 UTC"
+    )
+    assert (
+        fmt({
+            "starts_at": datetime(2026, 6, 2, tzinfo=timezone.utc),
+            "is_all_day": True,
+        })
+        == "2026-06-02 (all day)"
+    )
+    assert fmt({"starts_at": None}) == ""
+
+    moment = invites_module._format_moment
+    assert moment({"ends_at": None}, "ends_at") == ""
+    assert moment({"ends_at": "TBD"}, "ends_at") == "TBD"
+
+
+def test_invites_list_shows_the_compact_time_and_the_id() -> None:
+    """The rendered row carries both, which is the point of the formatting."""
+
+    text = _unwrapped(_invoke(FakeAPI(), "invites", "list"))
+
+    assert "2026-05-01 09:00" in text
+    assert "09:00:00+00:00" not in text
+    assert "AAAA1111" in text
+
+
+def test_invites_show_accepts_a_short_id_prefix() -> None:
+    """Listing truncates ids, so a few characters have to be enough to act on.
+
+    This is the whole reason prefix matching exists: the id column is cut to
+    fit the terminal, so requiring all 36 characters would make it decorative.
+    """
+
+    result = _invoke(FakeAPI(), "invites", "show", "AAAA2")
+    text = _unwrapped(result)
+
+    assert result.exit_code == 0
+    assert "Birthday" in text
+    assert "Sam Appleseed" in text
+    assert "The Park" in text
+
+
+def test_invites_show_matches_an_id_case_insensitively() -> None:
+    """Ids render upper-case but nobody types them that way."""
+
+    upper = _invoke(FakeAPI(), "invites", "show", "AAAA2222")
+    lower = _invoke(FakeAPI(), "invites", "show", "aaaa2222")
+
+    assert upper.exit_code == 0
+    assert lower.exit_code == 0
+    assert _unwrapped(upper) == _unwrapped(lower)
+
+
+def test_invites_show_accepts_a_full_id() -> None:
+    """A complete id is still an unambiguous prefix of itself."""
+
+    result = _invoke(
+        FakeAPI(), "invites", "show", "AAAA2222-0000-0000-0000-000000000002"
+    )
+
+    assert result.exit_code == 0
+    assert "Birthday" in _unwrapped(result)
+
+
+def test_invites_show_rejects_an_ambiguous_prefix() -> None:
+    """A prefix matching two events names both rather than guessing."""
+
+    # Both ids start "AAAA"; only the fifth character tells them apart.
+    result = _invoke(FakeAPI(), "invites", "show", "AAAA")
+
+    assert result.exit_code != 0
+    message = str(result.exception)
+    assert "matches more than one event" in message
+    assert "000000000001" in message
+    assert "000000000002" in message
+
+
+def test_invites_show_rejects_an_unknown_prefix() -> None:
+    """An id that matches nothing points at the command that lists them."""
+
+    result = _invoke(FakeAPI(), "invites", "show", "ZZZZ")
+
+    assert result.exit_code != 0
+    assert "icloud invites list" in str(result.exception)
+
+
+def test_invites_rsvps_lists_responses() -> None:
+    """Responses render with status and guest counts."""
+
+    result = _invoke(
+        FakeAPI(), "invites", "rsvps", "AAAA2222-0000-0000-0000-000000000002"
+    )
+    text = _unwrapped(result)
+
+    assert result.exit_code == 0
+    assert "Dana Appleseed" in text
+    assert "GOING" in text
+    assert "See you there" in text
+
+
+def test_invites_resolve_previews_a_link() -> None:
+    """Resolving shows who is inviting you without joining."""
+
+    result = _invoke(FakeAPI(), "invites", "resolve", "008FIXTURE")
+    text = _unwrapped(result)
+
+    assert result.exit_code == 0
+    assert "Sam Appleseed" in text
+    assert "INVITED" in text
+
+
+def test_invites_json_output() -> None:
+    """JSON mode carries the fields the tables show."""
+
+    result = _invoke(FakeAPI(), "invites", "list", output_format="json")
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0
+    assert {event["scope"] for event in payload} == {"private", "shared"}
+    shared = next(e for e in payload if e["scope"] == "shared")
+    assert shared["title"] == "Birthday"
+    assert shared["is_all_day"] is True
+    assert shared["location"] == "The Park"
+
+
+def test_invites_reports_an_unavailable_service_without_a_traceback() -> None:
+    """The service is built by a property, so the call has to be deferred.
+
+    `api.invites` can raise PyiCloudServiceUnavailable while constructing the
+    service. Passing `api.invites.events` to service_call instead of a lambda
+    would evaluate the property outside the guard and let that escape as a
+    traceback, which is why the lambda there is not redundant.
+    """
+
+    result = _invoke(UnavailableInvitesAPI(), "invites", "list")
+
+    assert result.exit_code != 0
+    assert "Invites service unavailable" in str(result.exception)
+
+
+def test_invites_resolve_accepts_a_whole_invite_link() -> None:
+    """People copy the link, not the trailing segment out of it."""
+
+    from_link = _invoke(
+        FakeAPI(),
+        "invites",
+        "resolve",
+        "https://www.icloud.com/invites/008FIXTURE",
+    )
+    from_guid = _invoke(FakeAPI(), "invites", "resolve", "008FIXTURE")
+
+    assert from_link.exit_code == 0
+    assert from_guid.exit_code == 0
+    assert _unwrapped(from_link) == _unwrapped(from_guid)
+
+
+def test_invites_resolve_rejects_an_empty_id_without_calling_apple() -> None:
+    """An empty id should cost a message, not a round trip and a 400."""
+
+    result = _invoke(FakeAPI(), "invites", "resolve", "   ")
+
+    assert result.exit_code != 0
+    assert "No invite id given" in str(result.exception)
+
+
+def test_invites_resolve_rejects_a_link_without_an_id() -> None:
+    """A truncated link must not forward its last path segment to Apple."""
+
+    result = _invoke(FakeAPI(), "invites", "resolve", "https://www.icloud.com/invites/")
+
+    assert result.exit_code != 0
+    assert "No invite id given" in str(result.exception)
+
+
+def test_invites_resolve_accepts_a_link_with_a_query_string() -> None:
+    """Share links often carry tracking parameters after the id."""
+
+    result = _invoke(
+        FakeAPI(),
+        "invites",
+        "resolve",
+        "https://www.icloud.com/invites/008FIXTURE?campaign=share",
+    )
+
+    assert result.exit_code == 0
+    assert "Sam Appleseed" in _unwrapped(result)
+
+
+def test_invites_show_strips_surrounding_whitespace() -> None:
+    """A copied id can arrive padded without being a different id."""
+
+    result = _invoke(FakeAPI(), "invites", "show", "  AAAA2  ")
+
+    assert result.exit_code == 0
+    assert "Birthday" in _unwrapped(result)
+
+
+def test_invites_show_rejects_an_empty_id() -> None:
+    """Whitespace is not a prefix of every event."""
+
+    result = _invoke(FakeAPI(), "invites", "show", "   ")
+
+    assert result.exit_code != 0
+    assert "No event id given" in str(result.exception)
+
+
+def test_invites_short_guid_accepts_a_path_like_id() -> None:
+    """A bare id with a trailing path segment keeps only the segment."""
+
+    assert invites_module._short_guid_from("prefix/008FIXTURE") == "008FIXTURE"
+
+
+def test_invites_show_json_output() -> None:
+    """JSON mode carries the detail fields the table shows."""
+
+    result = _invoke(FakeAPI(), "invites", "show", "AAAA2222", output_format="json")
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0
+    assert payload["title"] == "Birthday"
+    assert payload["scope"] == "shared"
+    assert payload["share_short_guid"] == "008FIXTURE"
+    assert payload["share_url"] == "https://www.icloud.com/invites/008FIXTURE"
+    assert payload["participant_count"] == 0
+
+
+def test_invites_rsvps_json_output() -> None:
+    """JSON mode carries the RSVP fields the table shows."""
+
+    result = _invoke(FakeAPI(), "invites", "rsvps", "AAAA1111", output_format="json")
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0
+    assert payload == [
+        {
+            "participant_id": "P1",
+            "name": "Dana Appleseed",
+            "status": "GOING",
+            "message": "See you there",
+            "additional_adults": 1,
+            "additional_kids": 0,
+        }
+    ]
+
+
+def test_invites_resolve_json_output() -> None:
+    """JSON mode carries the resolved share fields the table shows."""
+
+    result = _invoke(
+        FakeAPI(), "invites", "resolve", "008FIXTURE", output_format="json"
+    )
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0
+    assert payload["short_guid"] == "008FIXTURE"
+    assert payload["owner_given_name"] == "Sam"
+    assert payload["participant_status"] == "INVITED"
+    assert payload["participant_permission"] == "READ_WRITE"
+
+
+def test_invites_reports_a_listing_error_as_advice() -> None:
+    """An InvitesError is prefixed rather than escaping as a traceback."""
+
+    result = _invoke(InvitesErrorAPI(), "invites", "list")
+
+    assert result.exit_code != 0
+    assert "Invites: boom" in str(result.exception)
+
+
+def test_invites_show_reports_a_missing_event() -> None:
+    """An id that lists but cannot be fetched gets advice, not a trace.
+
+    The message names the resolved id, not the prefix the user typed, so it is
+    clear which event the listing promised but the lookup could not return.
+    """
+
+    result = _invoke(VanishingEventAPI(), "invites", "show", "AAAA2")
+
+    assert result.exit_code != 0
+    assert "No event with id AAAA2222-0000-0000-0000-000000000002" in str(
+        result.exception
+    )
+
+
+def _probing_api(
+    webservices: dict[str, Any] | None = None,
+) -> tuple[FakeAPI, dict[str, MagicMock]]:
+    """Return an authenticated fake plus the service mocks its probes will hit.
+
+    The mocks are handed back rather than read off the fake afterwards: the
+    doctor attaches services `FakeAPI` does not declare, and assertions that
+    reach through the fake for them are neither type- nor lint-checkable.
+    """
+
+    fake_api = _doctor_api(webservices)
+    services = {name: MagicMock() for name in PROBED_SERVICES}
+    services["calendar"].get_calendars.return_value = []
+    services["notes"].sync_cursor.return_value = "cursor"
+    services["reminders"].sync_cursor.return_value = "cursor"
+    services["invites"].events.return_value = []
+    services["hidemyemail"].__len__ = MagicMock(return_value=0)
+    for name, mock in services.items():
+        setattr(fake_api, name, mock)
+    return fake_api, services
+
+
+def test_doctor_does_not_call_any_service_without_the_flag() -> None:
+    """The default run must stay a pure read of already-fetched state."""
+
+    fake_api, services = _probing_api()
+
+    result = _invoke(fake_api, "doctor")
+    text = _unwrapped(result)
+
+    assert result.exit_code == 0
+    services["devices"].refresh.assert_not_called()
+    services["calendar"].get_calendars.assert_not_called()
+    assert "Service probes" not in text
+    # The verdict must not overstate what a map-only run proves.
+    assert "Nothing was called; add --probe" in text
+
+
+def test_doctor_does_not_probe_a_session_that_reports_unauthenticated() -> None:
+    """--probe must be gated on the session, like the map findings already are.
+
+    `api` can be non-null while the status read afterwards says otherwise.
+    Calling all eleven services with that session yields a page of failures
+    that say nothing about the library, under a verdict stating nothing could
+    be checked.
+    """
+
+    fake_api, services = _probing_api()
+    authed = {
+        "authenticated": True,
+        "trusted_session": True,
+        "requires_2fa": False,
+        "requires_2sa": False,
+    }
+    fake_api.get_auth_status = MagicMock(
+        side_effect=[authed, authed, {**authed, "authenticated": False}]
+    )
+
+    result = _invoke(fake_api, "doctor", "--probe", output_format="json")
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 1
+    assert payload["probes"] == []
+    services["calendar"].get_calendars.assert_not_called()
+    services["devices"].refresh.assert_not_called()
+
+
+def test_doctor_probe_calls_each_service_and_reports_it() -> None:
+    """--probe adds the section and actually exercises the services."""
+
+    fake_api, services = _probing_api()
+
+    result = _invoke(fake_api, "doctor", "--probe")
+    text = _unwrapped(result)
+
+    assert result.exit_code == 0
+    assert "Service probes" in text
+    assert "each one answered" in text
+    services["calendar"].get_calendars.assert_called_once()
+    # Find My must be read without pinging the user's hardware.
+    services["devices"].__len__.assert_called_once()
+    services["devices"].refresh.assert_not_called()
+
+
+def test_doctor_probe_fails_on_a_withdrawn_endpoint() -> None:
+    """A 410 behind a healthy host is exactly what probing exists to catch."""
+
+    fake_api, services = _probing_api()
+    type(services["photos"]).libraries = PropertyMock(
+        side_effect=PyiCloudAPIResponseException("Gone", 410)
+    )
+
+    result = _invoke(fake_api, "doctor", "--probe")
+    text = _unwrapped(result)
+
+    assert result.exit_code == 1
+    assert "GONE" in text
+    assert "affecting: photos" in text
+    assert "pyicloud needs updating" in text
+
+
+def test_doctor_probe_reports_account_state_without_failing() -> None:
+    """A migrated service is the user's account, not a pyicloud defect."""
+
+    fake_api, services = _probing_api()
+    type(services["files"]).root = PropertyMock(
+        side_effect=PyiCloudServiceUnavailable("Account migrated")
+    )
+
+    result = _invoke(fake_api, "doctor", "--probe")
+    text = _unwrapped(result)
+
+    assert result.exit_code == 0
+    assert "unavailable" in text
+    assert "Account migrated" in text
+    assert "each one answered" in text
+
+
+def test_doctor_probe_json_includes_every_result() -> None:
+    """JSON mode carries the probe outcomes alongside the map findings."""
+
+    fake_api, _services = _probing_api()
+    result = _invoke(fake_api, "doctor", "--probe", output_format="json")
+    payload = json.loads(result.stdout)
+
+    assert result.exit_code == 0
+    assert payload["ok"] is True
+    probes = {item["service"]: item for item in payload["probes"]}
+    assert probes["calendar"]["status"] == "ok"
+    assert probes["calendar"]["is_failure"] is False
+    assert set(probes) == set(PROBED_SERVICES)

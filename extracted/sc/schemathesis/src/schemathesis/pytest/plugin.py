@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import inspect
 import sys
+import time
 import unittest
 from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
@@ -15,7 +15,6 @@ from hypothesis.errors import FailedHealthCheck, InvalidArgument, Unsatisfiable
 from pluggy import Result as PluggyResult
 
 from schemathesis.checks import collect_after_run_failures, run_checks_for
-from schemathesis.core.compat import BaseExceptionGroup
 from schemathesis.core.control import SkipTest
 from schemathesis.core.errors import (
     SERIALIZERS_SUGGESTION_MESSAGE,
@@ -31,7 +30,6 @@ from schemathesis.core.failures import RUN_CHECKS_LABEL, FailureGroup, as_report
 from schemathesis.core.marks import Mark
 from schemathesis.core.result import Err, Ok, Result
 from schemathesis.engine import Status
-from schemathesis.generation import derive_operation_seed, overrides
 from schemathesis.generation.feedback import FeedbackSources
 from schemathesis.generation.hypothesis.given import (
     GivenArgsMark,
@@ -50,6 +48,7 @@ from schemathesis.generation.stateful.state_machine import StatefulCallbackMark,
 from schemathesis.pytest import _subtests
 from schemathesis.pytest._keys import _PYTEST_SCHEMAS_KEY, track_schema
 from schemathesis.pytest._subtests import HAS_CORE_SUBTESTS, is_subtest_report
+from schemathesis.pytest._test_builder import schema_error_suffix
 from schemathesis.pytest.control_flow import fail_on_no_matches
 from schemathesis.pytest.reporting import PytestReportOutcome
 from schemathesis.pytest.warnings import (
@@ -64,20 +63,23 @@ from schemathesis.schemas import APIOperation
 if TYPE_CHECKING:
     from _pytest.fixtures import FuncFixtureInfo
 
-    from schemathesis.config import OutputConfig
+    from schemathesis.config import OutputConfig, ReportsConfig
     from schemathesis.core.spec import SchemaMetadata
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.pytest.reporting import PytestReportDispatcher
     from schemathesis.reporting.allure import AllureWriter, _AllureCallBuffer, _AllureHookForwarder
     from schemathesis.reporting.har import HarWriter
+    from schemathesis.reporting.html.writer import HtmlWriter
     from schemathesis.reporting.junitxml import JunitXmlWriter
     from schemathesis.reporting.vcr import VcrWriter
     from schemathesis.schemas import BaseSchema
 
 _CASSETTE_KEY: pytest.StashKey[
-    dict[int, tuple[PytestReportDispatcher, list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter]]]
+    dict[int, tuple[PytestReportDispatcher, list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter | HtmlWriter]]]
 ] = pytest.StashKey()
-_STATEFUL_WRITERS_KEY: pytest.StashKey[list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter]] = pytest.StashKey()
+_STATEFUL_WRITERS_KEY: pytest.StashKey[list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter | HtmlWriter]] = (
+    pytest.StashKey()
+)
 _ALLURE_FORWARDER_KEY: pytest.StashKey[_AllureHookForwarder] = pytest.StashKey()
 _ALLURE_BUFFER_KEY: pytest.StashKey[_AllureCallBuffer] = pytest.StashKey()
 _REPORT_OUTCOME_KEY: pytest.StashKey[PytestReportOutcome] = pytest.StashKey()
@@ -85,6 +87,23 @@ _REPORT_OUTCOME_KEY: pytest.StashKey[PytestReportOutcome] = pytest.StashKey()
 
 # Present only while a lazy-schema subtest runs; holds that subtest's outcome.
 _SUBTEST_OUTCOME_KEY: pytest.StashKey[PytestReportOutcome] = pytest.StashKey()
+
+
+def _is_trio(test_function: Callable) -> bool:
+    return any(mark.name == "trio" for mark in getattr(test_function, "pytestmark", []))
+
+
+def _attach_async_inner(hypothesis_test: Callable, test_function: Callable) -> None:
+    import inspect
+
+    from schemathesis.generation.hypothesis.builder import make_async_test
+
+    if inspect.iscoroutinefunction(test_function):
+        # `pytest-trio` expects a coroutine function.
+        if _is_trio(test_function):
+            hypothesis_test.hypothesis.inner_test = test_function  # type: ignore[attr-defined]
+        else:
+            hypothesis_test.hypothesis.inner_test = make_async_test(test_function)  # type: ignore[attr-defined]
 
 
 def _is_schema(value: object) -> bool:
@@ -162,90 +181,50 @@ class SchemathesisCase(PyCollector):
         to produce tests out of hypothesis ones.
         """
         from schemathesis.checks import load_all_checks
-        from schemathesis.generation.hypothesis.builder import (
-            HypothesisTestConfig,
-            HypothesisTestMode,
-            create_test,
-            make_async_test,
-        )
+        from schemathesis.pytest._test_builder import build_operation_test
 
         load_all_checks()
-
-        is_trio_test = False
-        for mark in getattr(self.test_function, "pytestmark", []):
-            if mark.name == "trio":
-                is_trio_test = True
-                break
 
         if isinstance(result, Ok):
             operation = result.ok()
             if self.is_invalid_test:
                 funcobj = self.test_function
             else:
-                as_strategy_kwargs = {}
-
-                auth = self.schema.config.auth_for(operation=operation)
-                if auth is not None:
-                    from requests.auth import _basic_auth_str
-
-                    as_strategy_kwargs["headers"] = {"Authorization": _basic_auth_str(*auth)}
-                headers = self.schema.config.headers_for(operation=operation)
-                if headers:
-                    as_strategy_kwargs["headers"] = headers
-
-                override = overrides.for_operation(operation=operation, config=self.schema.config)
-                if override is not None:
-                    for location, entry in override.items():
-                        if entry:
-                            as_strategy_kwargs[location.container_name] = entry
-                modes = []
-                phases = self.schema.config.phases_for(operation=operation)
-                if phases.examples.enabled:
-                    modes.append(HypothesisTestMode.EXAMPLES)
-                if phases.fuzzing.enabled:
-                    modes.append(HypothesisTestMode.FUZZING)
-                if phases.coverage.enabled:
-                    modes.append(HypothesisTestMode.COVERAGE)
-
-                # Use fuzzing phase settings if fuzzing is enabled, since only fuzzing uses max_examples
-                phase = "fuzzing" if HypothesisTestMode.FUZZING in modes else None
                 try:
-                    funcobj = create_test(
+                    funcobj = build_operation_test(
+                        config=self.schema.config,
                         operation=operation,
                         test_func=self.test_function,
-                        config=HypothesisTestConfig(
-                            modes=modes,
-                            settings=self.schema.config.get_hypothesis_settings(operation=operation, phase=phase),
-                            explicit_setting_names=self.schema.config.explicit_hypothesis_settings(
-                                operation=operation, phase=phase
-                            ),
-                            given_kwargs=self.given_kwargs,
-                            project=self.schema.config,
-                            as_strategy_kwargs=as_strategy_kwargs,
-                            seed=derive_operation_seed(self.schema.config.seed, operation.label),
-                            feedback=feedback,
-                        ),
+                        given_kwargs=self.given_kwargs,
+                        feedback=feedback,
                     )
                 except InvalidSchema as exc:
                     # Coverage cases are built with the test, so a malformed definition surfaces here.
-                    yield from self._gen_items(Err(exc), feedback)
-                    return
-                if inspect.iscoroutinefunction(self.test_function):
-                    # `pytest-trio` expects a coroutine function
-                    if is_trio_test:
-                        funcobj.hypothesis.inner_test = self.test_function  # type: ignore[attr-defined]
-                    else:
-                        funcobj.hypothesis.inner_test = make_async_test(self.test_function)  # type: ignore[attr-defined]
+                    result = Err(exc)
+                else:
+                    _attach_async_inner(funcobj, self.test_function)
+
+        if isinstance(result, Ok):
+            operation = result.ok()
             name = self._get_test_name(operation)
+            operation_label = operation.label
+            operation_tags = operation.tags
         else:
             error = result.err()
             funcobj = error.as_failing_test_function()
-            name = self.name
-            if error.method:
-                name += f"[{error.method.upper()} {error.path}]"
-            else:
-                name += f"[{error.path}]"
+            name = f"{self.name}{schema_error_suffix(error)}"
+            operation_label = error.label
+            operation_tags = None
 
+        yield from self._make_items(funcobj, name, operation_label, operation_tags)
+
+    def _make_items(
+        self,
+        funcobj: Callable,
+        name: str,
+        operation_label: str,
+        operation_tags: list[str] | None,
+    ) -> Generator[SchemathesisFunction, None, None]:
         cls = self._get_class_parent()
         definition: FunctionDefinition = FunctionDefinition.from_parent(
             name=self.name, parent=self.parent, callobj=funcobj
@@ -258,9 +237,6 @@ class SchemathesisCase(PyCollector):
         if isinstance(self.parent, Class):
             # On pytest 7, Class collects the test methods directly, therefore
             funcobj = partial(funcobj, self.parent.obj)
-
-        operation_label = operation.label if isinstance(result, Ok) else result.err().label
-        operation_tags = operation.tags if isinstance(result, Ok) else None
 
         if not metafunc._calls:
             yield SchemathesisFunction.from_parent(
@@ -538,14 +514,20 @@ def pytest_configure(config: pytest.Config) -> None:
         config.pluginmanager.register(XdistReportingPlugin(), "schemathesis-xdist")
 
 
-def _open_writers(schema: SchemaMetadata) -> list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter]:
+def _has_reports(reports: ReportsConfig) -> bool:
+    return any(report.enabled for report in (reports.vcr, reports.har, reports.junit, reports.allure, reports.html))
+
+
+def _open_writers(schema: SchemaMetadata) -> list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter | HtmlWriter]:
     from schemathesis.config._report import ReportFormat
     from schemathesis.reporting._command import get_command_representation
     from schemathesis.reporting.har import HarWriter
+    from schemathesis.reporting.html.build import enabled_checks
+    from schemathesis.reporting.html.writer import HtmlWriter
     from schemathesis.reporting.junitxml import JunitXmlWriter
     from schemathesis.reporting.vcr import VcrWriter
 
-    writers: list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter] = []
+    writers: list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter | HtmlWriter] = []
     reports = schema.config.reports
     seed = schema.config.seed
     sanitization = schema.config.output.sanitization
@@ -571,17 +553,31 @@ def _open_writers(schema: SchemaMetadata) -> list[VcrWriter | HarWriter | JunitX
 
         path = reports.get_path(ReportFormat.ALLURE)
         writers.append(AllureWriter(output_dir=path, config=schema.config.output, api_title=schema.title))
+    if reports.html.enabled:
+        writers.append(
+            HtmlWriter(
+                reports.get_path(ReportFormat.HTML),
+                config=schema.config.output,
+                location=schema.location,
+                base_url=schema.get_base_url() or None,
+                command=command,
+                seed=seed,
+                checks=enabled_checks(schema.config.checks_config_for()),
+                started_at=time.time(),
+            )
+        )
     return writers
 
 
 def _write_to_writers(
-    writers: list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter],
+    writers: list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter | HtmlWriter],
     recorder: ScenarioRecorder,
     elapsed_sec: float,
     tags: list[str] | None = None,
     outcome: PytestReportOutcome | None = None,
     has_recorder: bool = True,
 ) -> None:
+    from schemathesis.reporting.html.writer import HtmlWriter
     from schemathesis.reporting.junitxml import JunitXmlWriter
 
     _AllureWriter: type[AllureWriter] | None = None
@@ -591,7 +587,7 @@ def _write_to_writers(
         pass
 
     for writer in writers:
-        if isinstance(writer, JunitXmlWriter):
+        if isinstance(writer, (JunitXmlWriter, HtmlWriter)):
             writer.write(
                 recorder,
                 elapsed_sec,
@@ -617,7 +613,8 @@ def _writers_key(schema: SchemaMetadata) -> int:
 
 
 def _register_allure_forwarder(
-    label: str, writers: Sequence[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter | _AllureCallBuffer]
+    label: str,
+    writers: Sequence[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter | HtmlWriter | _AllureCallBuffer],
 ) -> _AllureHookForwarder | None:
     import allure_commons
 
@@ -708,7 +705,7 @@ def _write_pytest_result(
     label: str,
     tags: list[str] | None,
     dispatcher: PytestReportDispatcher,
-    writers: list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter],
+    writers: list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter | HtmlWriter],
     outcome: PytestReportOutcome,
     allure_buffer: _AllureCallBuffer | None,
 ) -> None:
@@ -755,7 +752,7 @@ def report_subtest(
     item: pytest.Item, schema: SchemaMetadata, label: str, tags: list[str] | None
 ) -> Generator[None, None, None]:
     reports = schema.config.reports
-    if not (reports.vcr.enabled or reports.har.enabled or reports.junit.enabled or reports.allure.enabled):
+    if not (_has_reports(reports)):
         yield
         return
 
@@ -812,7 +809,7 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         _schema = schema
         if _is_xdist_worker(item.config):
             reports = _schema.config.reports
-            if reports.vcr.enabled or reports.har.enabled or reports.junit.enabled or reports.allure.enabled:
+            if _has_reports(reports):
 
                 def _xdist_stateful_callback(recorder: Any, elapsed_sec: float) -> None:
                     _push_to_xdist_workeroutput(item.config.workeroutput, _schema, recorder, elapsed_sec)
@@ -843,7 +840,7 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         return
 
     reports = schema.config.reports
-    if not (reports.vcr.enabled or reports.har.enabled or reports.junit.enabled or reports.allure.enabled):
+    if not (_has_reports(reports)):
         return
     schema_id = _writers_key(schema)
 

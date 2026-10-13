@@ -85,7 +85,23 @@ TIME_KEY = "meshio:time"
 # **`femap` joined in v16.17.0**: a neutral file holds one mesh and any number
 # of output sets, so a fan-in is the mesh once plus one output set per entry
 # (`femap.SeriesWriter`, pushed like XDMF's).
-_SERIES_WRITERS = ("xdmf", "gid", "usd", "vtkhdf", "pvd", "femap", "exodus")
+# **`frd` joined in v16.39.0**: a CalculiX result file holds one mesh and any
+# number of increments, the same shape (`frd.SeriesWriter`, pushed likewise).
+#
+# **`radioss_th` joined with the same writer shape**: a time-history file holds
+# its variables once and an output per step (`radioss_th.SeriesWriter`, pushed
+# like Femap's).
+_SERIES_WRITERS = (
+    "xdmf",
+    "gid",
+    "usd",
+    "vtkhdf",
+    "pvd",
+    "femap",
+    "frd",
+    "radioss_th",
+    "exodus",
+)
 
 # The formats whose step COUNT can be discovered, so a bare `convert in.X
 # out.Y` on one of them might silently write step 0 of many. Consulted before
@@ -814,6 +830,24 @@ def write_sequence(path, steps, *, file_format=None, **write_kwargs):
         from .femap import SeriesWriter
 
         # Pushed: the mesh with the first step, then one output set per step.
+        with SeriesWriter(path, **write_kwargs) as writer:
+            for time, mesh in steps:
+                writer.write(time, mesh)
+        return [str(path)]
+
+    if fmt == "frd":
+        from .frd import SeriesWriter
+
+        # Pushed: the mesh with the first step, then one increment per step.
+        with SeriesWriter(path, **write_kwargs) as writer:
+            for time, mesh in steps:
+                writer.write(time, mesh)
+        return [str(path)]
+
+    if fmt == "radioss_th":
+        from .radioss_th import SeriesWriter
+
+        # Pushed: the descriptions with the first step, then one output per step.
         with SeriesWriter(path, **write_kwargs) as writer:
             for time, mesh in steps:
                 writer.write(time, mesh)

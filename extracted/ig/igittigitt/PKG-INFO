@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: igittigitt
-Version: 2.2.4
+Version: 2.2.7
 Summary: A spec-compliant .gitignore parser and path filter, 100% git-compatible, with an include/whitelist mode and a streaming, memory-bounded CLI
 Project-URL: Homepage, https://github.com/bitranox/igittigitt
 Project-URL: Repository, https://github.com/bitranox/igittigitt.git
@@ -19,17 +19,18 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: click>=8.5.0
-Requires-Dist: lib-cli-exit-tools>=2.4.0
-Requires-Dist: lib-layered-config>=7.0.1
-Requires-Dist: lib-log-rich>=6.3.9
+Requires-Dist: lib-cli-exit-tools>=2.4.1
+Requires-Dist: lib-layered-config>=7.1.9
+Requires-Dist: lib-log-rich>=6.5.2
 Requires-Dist: orjson>=3.13.0
-Requires-Dist: pydantic>=2.13.5
+Requires-Dist: pydantic>=2.14.1
 Requires-Dist: python-dotenv>=1.2.4
 Requires-Dist: rich-click>=1.9.9
-Requires-Dist: wcmatch>=11.0.1
+Requires-Dist: wcmatch>=11.1
 Provides-Extra: dev
 Requires-Dist: bandit>=1.9.4; extra == 'dev'
 Requires-Dist: build>=1.6.1; extra == 'dev'
@@ -43,12 +44,12 @@ Requires-Dist: pyright[nodejs]>=1.1.414; extra == 'dev'
 Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
 Requires-Dist: pytest>=9.1.1; extra == 'dev'
 Requires-Dist: python-multipart>=0.0.32; extra == 'dev'
-Requires-Dist: rtoml>=0.13.0; extra == 'dev'
-Requires-Dist: ruff>=0.16.10; extra == 'dev'
+Requires-Dist: rtoml>=0.14.0; extra == 'dev'
+Requires-Dist: ruff>=0.17.0; extra == 'dev'
 Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=7.0.0; extra == 'dev'
 Requires-Dist: urllib3>=2.8.0; extra == 'dev'
-Requires-Dist: virtualenv>=21.14.5; extra == 'dev'
+Requires-Dist: virtualenv>=21.14.7; extra == 'dev'
 Requires-Dist: wheel>=0.48.0; extra == 'dev'
 Description-Content-Type: text/markdown
 
@@ -116,7 +117,37 @@ pipx install igittigitt
 ```
 
 The project targets **Python 3.10+** and is tested on Linux, macOS and Windows across
-CPython 3.10-3.14. See [INSTALL.md](INSTALL.md) for every install method.
+CPython 3.10-3.15. See [INSTALL.md](INSTALL.md) for every install method.
+
+### Why we recommend uv: supply-chain protection
+
+This repository commits a `uv.lock`. It pins every package the project needs, transitive
+dependencies included, to an exact version and to the hashes of that version's files. The
+`exclude-newer` setting under `[tool.uv]` in `pyproject.toml` adds a cooldown: uv leaves any
+release younger than that out of the lock. CI installs from the lock, so a hijacked release that
+gets pulled again within the cooldown never reaches our builds, and a file whose hash does not
+match is refused.
+
+That protection stays in this repository. The installable package declares only lower bounds
+(`>=`) for its dependencies, so a plain `pip install` takes the newest release of every transitive
+dependency at the moment you run it. If one of them was hijacked an hour earlier, you get the
+hijacked version. `pipx install` and `uv tool install` without options do the same.
+
+To install the command line tool with a cooldown of your own (uv then skips any release younger
+than 7 days, transitive ones included), or to run the exact tree our CI tests:
+
+```bash
+uv tool install --exclude-newer "7 days" igittigitt
+git clone https://github.com/bitranox/igittigitt.git && cd igittigitt && uv sync --locked && uv run igittigitt --help
+```
+
+If you depend on igittigitt in your own project, give that project the same cooldown (7 days here, as
+an example) and commit the `uv.lock` that `uv add igittigitt` writes:
+
+```toml
+[tool.uv]
+exclude-newer = "7 days"
+```
 
 ---
 

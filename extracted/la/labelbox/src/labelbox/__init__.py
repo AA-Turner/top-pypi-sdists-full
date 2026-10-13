@@ -1,6 +1,6 @@
 name = "labelbox"
 
-__version__ = "7.12.0"
+__version__ = "7.13.0"
 
 from labelbox.client import Client
 from labelbox.schema.annotation_import import (
@@ -102,6 +102,20 @@ from labelbox.schema.ontology_kind import OntologyKind
 from labelbox.schema.organization import Organization
 from labelbox.schema.project import Project
 from labelbox.schema.project_model_config import ProjectModelConfig
+from labelbox.schema.performance import (
+    PerformanceDeletedLabels,
+    PerformanceInterval,
+    PerformanceMemberType,
+    PerformanceMetric,
+    PerformanceMetricSeries,
+    PerformanceReportDownload,
+    PerformanceRows,
+    PerformanceScoreBucket,
+    PerformanceTimeBucket,
+    ProjectLabelerPerformance,
+    ProjectReviewerPerformance,
+    WorkspaceLabelerPerformance,
+)
 from labelbox.schema.project_overview import (
     ProjectOverview,
     ProjectOverviewDetailed,

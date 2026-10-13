@@ -21,6 +21,8 @@ Capabilities (per scope):
 from __future__ import annotations
 
 import asyncio
+import contextvars
+import inspect
 import ipaddress
 import logging
 import re
@@ -484,6 +486,148 @@ async def _discover_sitemap_urls(
 # SiteCrawler
 # ---------------------------------------------------------------------------
 
+#: The item deadline is the claim lease (knob `crawl.item_lease_seconds`) minus
+#: this margin — derived, never a second number, so the two cannot drift. The
+#: deadline must end BEFORE the lease: past the lease the item is re-claimed and
+#: settled by another worker while the wedged one lives on holding its page-slot
+#: reservation, and the run loop's stop condition (`_pages_reserved == 0`) never
+#: holds. That is how session 8beb27cd (2026-10-12) wrote a progress row every
+#: 5 s for 13+ hours with 0 queued and 0 in flight. Only the page's OWN work is
+#: charged (from `_begin_page_work`): the crawl-wide 429 pause, the per-host rate
+#: limit and the concurrency slot are pacing, not a wedge.
+ITEM_LEASE_MARGIN_SECONDS = 60.0
+#: Bound on one frontier settle write — the settle itself can wedge.
+QUEUE_SETTLE_TIMEOUT_SECONDS = 30.0
+#: Bound on one frontier read or claim (`counts`, `dequeue`, ...). These are DB
+#: round-trips; one that never answers must not freeze a worker or the run loop.
+QUEUE_CALL_TIMEOUT_SECONDS = 30.0
+#: A crawl with work left (queued, or a page slot held) whose activity has not
+#: moved for longer than the item deadline plus this grace — outside a
+#: crawl-wide 429 pause — is wedged where the item deadline cannot reach (a
+#: claim, a read, a settle). The run stops `partial` / `stalled_worker`.
+STALL_GRACE_SECONDS = 60.0
+#: The stall window is also at least this many of the slowest pacing interval
+#: (`crawl.rate_limit_max_interval_s`, up to 600 s; Crawl-delay; pinned rps).
+STALL_PACING_MULTIPLE = 3.0
+#: Bound on waiting for cancelled workers when the run loop tears down.
+WORKER_TEARDOWN_GRACE_SECONDS = 30.0
+
+
+class ClaimFenced(Exception):
+    """A write from an item task whose claim passed its deadline — dropped.
+
+    Raised by fenced writers (body persister) so the abandoned task's flow
+    stops; its events, counter updates and frontier settles are dropped silently
+    by the same fence. Another worker may already own the requeued item.
+    """
+
+
+class _ClaimFence:
+    """Per-item-task ownership flag, carried in that task's context."""
+
+    __slots__ = ("expired", "holds_slot", "work_started")
+
+    def __init__(self) -> None:
+        self.expired = False
+        # True while this claim holds a concurrency slot. The slot belongs to
+        # the CLAIM: when the deadline abandons the task the worker returns it,
+        # so a task that swallows its cancel can never starve the next page.
+        self.holds_slot = False
+        self.work_started = asyncio.Event()
+
+
+_CLAIM_FENCE: contextvars.ContextVar[_ClaimFence | None] = contextvars.ContextVar(
+    "matrx_scraper_claim_fence", default=None
+)
+
+
+def _claim_fenced() -> bool:
+    """True inside an item task whose claim passed its deadline."""
+    fence = _CLAIM_FENCE.get()
+    return fence is not None and fence.expired
+
+
+class _FencedCounter:
+    """A crawl counter whose writes from a fenced item task are dropped."""
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self._slot = f"_counter{name}"
+
+    def __get__(self, obj: Any, objtype: type | None = None) -> Any:
+        if obj is None:
+            return self
+        return obj.__dict__.get(self._slot, 0)
+
+    def __set__(self, obj: Any, value: Any) -> None:
+        if _claim_fenced():
+            return
+        obj.__dict__[self._slot] = value
+
+
+class _FencedQueue:
+    """The frontier as an item task sees it: settles and seeds from a task whose
+    claim passed its deadline are dropped (another worker may own the item now).
+    Reads pass through; every other attribute is the backend's own."""
+
+    def __init__(self, inner: QueueBackend) -> None:
+        self._inner = inner
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+    async def mark_done(self, url: str) -> None:
+        if _claim_fenced():
+            return
+        await self._inner.mark_done(url)
+
+    async def mark_failed(self, url: str, error: str, will_retry: bool = False) -> bool | None:
+        if _claim_fenced():
+            return False
+        return await self._inner.mark_failed(url, error, will_retry=will_retry)
+
+    async def enqueue(self, item: QueueItem) -> bool:
+        if _claim_fenced():
+            return False
+        return await self._inner.enqueue(item)
+
+    async def enqueue_many(self, items: list[QueueItem]) -> list[QueueItem]:
+        if _claim_fenced():
+            return []
+        return await self._inner.enqueue_many(items)
+
+
+class _FencedWriter:
+    """The body/screenshot persister behind the claim fence.
+
+    Calling it, or any of its async methods (`record_screenshots_*`, ...), from
+    an item task whose claim passed its deadline raises `ClaimFenced` — that
+    task's flow stops and nothing it would have persisted lands.
+    """
+
+    def __init__(self, writer: Any) -> None:
+        self._writer = writer
+
+    async def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        if _claim_fenced():
+            raise ClaimFenced("claim passed its deadline; persist dropped")
+        return await self._writer(*args, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._writer, name)
+        if not inspect.iscoroutinefunction(attr):
+            return attr
+
+        async def fenced(*args: Any, **kwargs: Any) -> Any:
+            if _claim_fenced():
+                raise ClaimFenced(f"claim passed its deadline; {name} dropped")
+            return await attr(*args, **kwargs)
+
+        return fenced
+
+
+def _fenced_writer(writer: Any) -> Any:
+    return None if writer is None else _FencedWriter(writer)
+
 
 #: KNOB MIRROR: knowledge.scraper.crawl.* — the values the registry rows were seeded
 #: with (migration 20260928160000_laneh_osp_crawl_knobs.sql). Used only when no
@@ -497,6 +641,7 @@ CRAWL_KNOB_MIRRORS: dict[str, Any] = {
     "crawl.max_retries_per_url": 3,
     "crawl.html_max_bytes": 1_048_576,
     "crawl.link_first": True,
+    "crawl.item_lease_seconds": 600,
 }
 
 
@@ -527,6 +672,9 @@ class CrawlKnobs:
     html_max_bytes: int
     #: Fetch link-discovered URLs before sitemap-only URLs.
     link_first: bool
+    #: How long one worker's claim on a page lasts on the durable frontier. The
+    #: page's own work must finish within this minus ITEM_LEASE_MARGIN_SECONDS.
+    item_lease_seconds: float = 600.0
 
     @classmethod
     def from_values(cls, values: dict[str, Any]) -> CrawlKnobs:
@@ -539,6 +687,7 @@ class CrawlKnobs:
             max_retries_per_url=int(values["crawl.max_retries_per_url"]),
             html_max_bytes=int(values["crawl.html_max_bytes"]),
             link_first=bool(values["crawl.link_first"]),
+            item_lease_seconds=float(values["crawl.item_lease_seconds"]),
         )
 
     @classmethod
@@ -620,6 +769,14 @@ class SiteCrawlerConfig:
 class SiteCrawler:
     """Crawls a website starting from a seed URL with typed progress events."""
 
+    # Progress counters. A write from an item task whose claim passed its
+    # deadline is dropped (see `_ClaimFence`) — the requeued item is someone else's.
+    _pages_discovered = _FencedCounter()
+    _pages_fetched = _FencedCounter()
+    _pages_downloaded = _FencedCounter()
+    _pages_failed = _FencedCounter()
+    _bytes_downloaded = _FencedCounter()
+
     def __init__(
         self,
         run_id: str,
@@ -648,8 +805,9 @@ class SiteCrawler:
         self.run_id = run_id
         self.config = config
         self.event_sink: CrawlEventSink = event_sink or _NoopSink()
-        self.queue: QueueBackend = queue_backend or InMemoryQueueBackend()
-        self.body_persister = body_persister
+        # Fenced: an item task past its deadline can no longer settle or seed.
+        self.queue: QueueBackend = _FencedQueue(queue_backend or InMemoryQueueBackend())  # type: ignore[assignment]
+        self.body_persister = _fenced_writer(body_persister)
         self.cache = cache
         self.domain_config = domain_config
         self.browser_pool = browser_pool
@@ -744,6 +902,20 @@ class SiteCrawler:
         # url -> how many times a rate-limit (429/503) response has requeued it.
         # Bounds retries per URL across requeues within one run.
         self._rate_limit_attempts: dict[str, int] = {}
+        # url -> how many times its own work blew the item deadline (a retry is
+        # only spent when the deadline settle actually took the claim).
+        self._deadline_attempts: dict[str, int] = {}
+        # Item tasks abandoned past their deadline (fenced; kept referenced).
+        self._abandoned: set[asyncio.Task[None]] = set()
+        # Last frontier counts read — what a timed-out read falls back to.
+        self._last_counts: tuple[int, int] = (0, 0)
+        # Monotonic time the last held-claim lease renewal ran.
+        self._last_lease_renewal = 0.0
+        # Stall breaker: the last observed activity signature and since when.
+        self._stall_signature: tuple[int, ...] | None = None
+        # Claims made this run — a page retried after its deadline is activity.
+        self._claims_made = 0
+        self._stall_since: float | None = None
         # One authoritative proxy failure opens a run-scoped circuit breaker.
         # A broken shared proxy should cost one bounded retry, not one failed
         # round-trip for every URL in a 500-page crawl.
@@ -991,6 +1163,7 @@ class SiteCrawler:
     async def run(self) -> dict[str, ScrapeResult]:
         self._started_at = time.monotonic()
         await self._resolve_scoped_knobs()
+        self._apply_item_lease()
 
         # Should be unreachable (CrawlStartRequest 422s invalid patterns), but
         # if a non-contract caller got one past __init__, the skip must be a
@@ -1080,7 +1253,7 @@ class SiteCrawler:
                     "capture_screenshots": self.config.capture_screenshots,
                 },
                 seeded_from_sitemap=seeded_from_sitemap,
-                initial_queue_depth=await self.queue.queue_depth(),
+                initial_queue_depth=(await self._counts_bounded())[0],
             )
         )
 
@@ -1097,7 +1270,11 @@ class SiteCrawler:
                     break
                 # Stop conditions: no work in flight AND queue is empty AND we hit
                 # max_pages OR queue is just empty.
-                qd, inflight = await self.queue.counts()
+                qd, inflight = await self._counts_bounded()
+                await self._renew_held_leases_if_due()
+                if await self._stall_detected(qd, inflight):
+                    await self._stop_for_stalled_worker(inflight)
+                    break
                 if self._stop_reason is not None:
                     # A rate-limit stop: workers take no new work; let the
                     # in-flight fetches settle, then drain the frontier below.
@@ -1150,9 +1327,16 @@ class SiteCrawler:
         finally:
             for w in workers:
                 w.cancel()
-            await asyncio.gather(*workers, return_exceptions=True)
+            # Bounded: a worker wedged in an await that swallows cancellation
+            # must not hold the run open forever (it is abandoned, and the
+            # stall/truncation accounting below reports what it left).
+            if workers:
+                await asyncio.wait(workers, timeout=WORKER_TEARDOWN_GRACE_SECONDS)
+            for w in workers:
+                if w.done() and not w.cancelled():
+                    w.exception()  # retrieved: teardown never re-raises a worker error
 
-        if self._stop_reason is not None and not self._cancel.is_set():
+        if self._stop_reason == "rate_limited" and not self._cancel.is_set():
             await self._drain_frontier_after_stop()
 
         duration_ms = int((time.monotonic() - (self._started_at or time.monotonic())) * 1000)
@@ -1161,8 +1345,10 @@ class SiteCrawler:
             # Ended by the crawler itself, not finished: `partial` + stop_reason,
             # never a false "complete" (OPENSEO-TOOLS-SPEC §8.1).
             status = "stopped"
-        remaining_queue_depth = await self.queue.queue_depth()
-        remaining_in_flight = await self.queue.in_flight_count()
+        # The final tally re-reads each number on its own (the truncation gate
+        # compares it with what the loop saw), bounded like every frontier read.
+        remaining_queue_depth = await self._read_bounded(self.queue.queue_depth(), self._last_counts[0])
+        remaining_in_flight = await self._read_bounded(self.queue.in_flight_count(), self._last_counts[1])
         limit_reached = self._pages_fetched >= self.config.max_pages and remaining_queue_depth > 0
 
         # TRUNCATION GATE — a run that stopped with work still on the frontier
@@ -1225,7 +1411,9 @@ class SiteCrawler:
         dead_lettered = 0
         if dead_letter_probe is not None:
             try:
-                dead_lettered = int(await dead_letter_probe())
+                dead_lettered = int(
+                    await asyncio.wait_for(dead_letter_probe(), timeout=QUEUE_CALL_TIMEOUT_SECONDS)
+                )
             except Exception:
                 logger.exception("could not read the frontier's dead-letter count")
         if dead_lettered:
@@ -1313,9 +1501,16 @@ class SiteCrawler:
             )
         )
 
+    def _record_crawl_pause(self, retry_after_s: float | None) -> float:
+        """Pause EVERY new request of the crawl for a 429. A fenced (abandoned)
+        item task no longer speaks for the crawl: its late 429 pauses nothing."""
+        if _claim_fenced():
+            return 0.0
+        return self._pause.record_limit(retry_after_s)
+
     async def _stop_for_rate_limits(self, reason_text: str) -> None:
         """End the crawl gracefully: the site's rate limits made going on futile."""
-        if self._stop_reason is not None:
+        if self._stop_reason is not None or _claim_fenced():
             return
         self._stop_reason = "rate_limited"
         self._stop_detail = (
@@ -1335,6 +1530,270 @@ class SiteCrawler:
                 },
             )
         )
+
+    def _item_deadline_seconds(self) -> float:
+        """The page's own-work deadline: the claim lease minus the margin."""
+        lease = float(self._knobs.item_lease_seconds)
+        if lease > 2 * ITEM_LEASE_MARGIN_SECONDS:
+            return lease - ITEM_LEASE_MARGIN_SECONDS
+        return lease / 2  # a lease too short for the margin still ends first
+
+    def _apply_item_lease(self) -> None:
+        """Hand the frontier the same lease the deadline is derived from."""
+        set_lease = getattr(self.queue, "set_lease_seconds", None)
+        if callable(set_lease):
+            set_lease(int(max(1.0, self._knobs.item_lease_seconds)))
+
+    async def _counts_bounded(self) -> tuple[int, int]:
+        """`queue.counts()` bounded in time; a read that never answers falls
+        back to the last counts seen (so the stall breaker can judge it)."""
+        try:
+            self._last_counts = await asyncio.wait_for(
+                self.queue.counts(), timeout=QUEUE_CALL_TIMEOUT_SECONDS
+            )
+        except TimeoutError:
+            logger.error(
+                "crawl %s: frontier counts read timed out; using the last counts %s",
+                self.run_id,
+                self._last_counts,
+            )
+        return self._last_counts
+
+    async def _read_bounded(self, read: Awaitable[int], fallback: int) -> int:
+        """One frontier read bounded in time; `fallback` when it never answers."""
+        try:
+            return await asyncio.wait_for(read, timeout=QUEUE_CALL_TIMEOUT_SECONDS)
+        except TimeoutError:
+            logger.error("crawl %s: frontier read timed out; using %s", self.run_id, fallback)
+            return fallback
+
+    async def _renew_held_leases_if_due(self) -> None:
+        """Keep every claim this process holds alive while the crawl is alive.
+
+        A claim's lease starts at dequeue, but a page may legitimately wait
+        before its own work starts (a crawl-wide 429 pause honours the site's
+        Retry-After, uncapped). Renewing held leases every third of the lease
+        means only a dead process's claims ever expire — never a live crawl's
+        paused ones (which the frontier reaper would re-pend: duplicate fetches,
+        and dead-letters once the attempt budget burns)."""
+        renew = getattr(self.queue, "renew_held_leases", None)
+        if not callable(renew):
+            return
+        now = time.monotonic()
+        if now - self._last_lease_renewal < max(0.05, self._knobs.item_lease_seconds / 3.0):
+            return
+        self._last_lease_renewal = now
+        try:
+            await asyncio.wait_for(renew(), timeout=QUEUE_CALL_TIMEOUT_SECONDS)
+        except Exception:  # noqa: BLE001 — a missed renewal is retried next tick
+            logger.warning("crawl %s: held-claim lease renewal failed", self.run_id, exc_info=True)
+
+    def _return_slot(self, fence: _ClaimFence | None) -> None:
+        """Release the concurrency slot exactly once, whoever gets there first:
+        the item task as it finishes, or the worker abandoning it."""
+        if fence is None:
+            self._semaphore.release()
+        elif fence.holds_slot:
+            fence.holds_slot = False
+            self._semaphore.release()
+
+    async def _stall_detected(self, queue_depth: int, in_flight: int) -> bool:
+        """True once a crawl with work left has made no progress for too long.
+
+        "Progress" is any change in (queued, in flight, discovered, fetched,
+        downloaded, failed, claims made) — not page-slot reservations, which a
+        worker whose every claim times out takes and returns forever. Work left (something
+        queued or a page slot held), no crawl-wide 429 pause in force, and no
+        change for longer than the item deadline plus a grace means the crawl is
+        wedged where the item deadline cannot reach — every claim, read or
+        settle hanging — whatever the queue depth and whether or not a claim
+        still reads in flight. Without this the loop spins forever, emitting a
+        progress heartbeat for a crawl that will never move again. A healthy
+        page cannot trip it: its own deadline fires first and the settle (and
+        the reclaim) changes the signature.
+        """
+        paused = self._pause.remaining() > 0 and not getattr(self._pause, "_halted", False)
+        if (queue_depth == 0 and self._pages_reserved == 0) or paused:
+            # Nothing left to do (the normal exits decide), or a crawl-wide 429
+            # pause — bounded by crawl.max_cooldown_minutes — is in force.
+            self._stall_signature = None
+            self._stall_since = None
+            return False
+        signature = (
+            queue_depth,
+            in_flight,
+            self._pages_discovered,
+            self._pages_fetched,
+            self._pages_downloaded,
+            self._pages_failed,
+            self._claims_made,
+        )
+        now = time.monotonic()
+        if signature != self._stall_signature or self._stall_since is None:
+            self._stall_signature = signature
+            self._stall_since = now
+            return False
+        return now - self._stall_since >= self._stall_window_seconds()
+
+    def _slowest_pacing_interval(self) -> float:
+        """The longest gap a healthy crawl may leave between two requests to a
+        host: the ramp's slowest interval (`crawl.rate_limit_max_interval_s`),
+        a pinned `host_rps`, and the site's robots.txt Crawl-delay."""
+        intervals = [float(self._knobs.rate_limit_max_interval_s)]
+        if not self._adaptive_pacing and self.config.host_rps > 0:
+            intervals.append(1.0 / self.config.host_rps)
+        if self._crawl_delay_seconds:
+            intervals.append(float(self._crawl_delay_seconds))
+        return max(intervals)
+
+    def _stall_window_seconds(self) -> float:
+        """How long nothing may move before the crawl is judged stalled: past
+        the item deadline + grace, AND at least `STALL_PACING_MULTIPLE` of the
+        slowest pacing interval — a healthy, very slow site is never stalled."""
+        return max(
+            self._item_deadline_seconds() + STALL_GRACE_SECONDS,
+            STALL_PACING_MULTIPLE * self._slowest_pacing_interval(),
+        )
+
+    async def _stop_for_stalled_worker(self, in_flight: int) -> None:
+        """End a crawl that stopped moving: its workers never came back."""
+        if self._stop_reason is not None:
+            return
+        wedged = self._pages_reserved
+        self._stop_reason = "stalled_worker"
+        self._stop_detail = (
+            f"Crawl stopped: {wedged} worker(s) stalled and never returned "
+            f"({in_flight} page(s) still claimed); {self._pages_fetched} page(s) were fetched."
+        )
+        logger.error("crawl %s stopped: %s", self.run_id, self._stop_detail)
+        await self._emit(
+            CrawlWarningEvent(
+                run_id=self.run_id,
+                message=self._stop_detail,
+                context={
+                    "stop_reason": self._stop_reason,
+                    "wedged_workers": wedged,
+                    "in_flight": in_flight,
+                },
+            )
+        )
+
+    def _begin_page_work(self) -> None:
+        """Start the item deadline: pacing is over, the page's own work begins.
+
+        Called by `_process` once it holds its concurrency slot (and by any
+        replacement `_process`). Waits before this point — the crawl-wide 429
+        pause, the per-host rate limit, the slot itself — are never charged.
+        """
+        fence = _CLAIM_FENCE.get()
+        if fence is not None:
+            fence.work_started.set()
+
+    async def _settle_claim(self, url: str, error: str, *, will_retry: bool) -> bool:
+        """Settle one claim from the worker (never fenced), bounded in time.
+
+        True only when THIS call took the claim: a claim already settled by the
+        item itself (it finished in the race with its deadline) reads False, and
+        so does a settle write that wedged past QUEUE_SETTLE_TIMEOUT_SECONDS
+        (the frontier's lease reaper is then the backstop).
+        """
+        try:
+            settled = await asyncio.wait_for(
+                self.queue.mark_failed(url, error, will_retry=will_retry),
+                timeout=QUEUE_SETTLE_TIMEOUT_SECONDS,
+            )
+        except TimeoutError:
+            logger.error(
+                "frontier settle of %s (%s) wedged past %ss — the lease reaper is the backstop",
+                redact_url_secrets(url),
+                error,
+                QUEUE_SETTLE_TIMEOUT_SECONDS,
+            )
+            return False
+        # A backend that does not report (None) is trusted to have settled.
+        return settled is not False
+
+    async def _process_within_deadline(self, item: QueueItem) -> None:
+        """Run `_process(item)` under the deadline on the page's OWN work.
+
+        The item runs as its own task carrying a claim fence. The deadline clock
+        starts at `_begin_page_work`. On expiry the fence closes FIRST — from then
+        on nothing that task does lands (events, counters, frontier settles,
+        persists), however long a thread or browser keeps it alive — then the
+        task is cancelled and abandoned, and the worker settles the claim itself:
+        requeued while retries remain, FAILED once they are spent. A failure is
+        counted only when that settle actually took the claim.
+        """
+        fence = _ClaimFence()
+        ctx = contextvars.copy_context()
+        ctx.run(_CLAIM_FENCE.set, fence)
+        task: asyncio.Task[None] = asyncio.create_task(self._process(item), context=ctx)
+        started = asyncio.create_task(fence.work_started.wait())
+        try:
+            await asyncio.wait({task, started}, return_when=asyncio.FIRST_COMPLETED)
+            if not task.done():
+                await asyncio.wait({task}, timeout=self._item_deadline_seconds())
+        except asyncio.CancelledError:
+            task.cancel()
+            await asyncio.wait({task}, timeout=QUEUE_SETTLE_TIMEOUT_SECONDS)
+            raise
+        finally:
+            started.cancel()
+        if task.done():
+            task.result()  # re-raise whatever _process raised, as before
+            return
+
+        fence.expired = True
+        self._return_slot(fence)  # the slot belongs to the claim, not the task
+        task.cancel()
+        self._abandoned.add(task)
+        task.add_done_callback(self._abandoned.discard)
+
+        attempts = self._deadline_attempts.get(item.url, 0) + 1
+        final = attempts > self._knobs.max_retries_per_url
+        if not await self._settle_claim(item.url, "item_deadline_exceeded", will_retry=not final):
+            # The item settled its own claim in the race with the deadline (or
+            # the settle wedged): nothing failed here, no retry is spent.
+            return
+        self._deadline_attempts[item.url] = attempts
+        message = (
+            f"{item.url} — page work exceeded its {int(self._item_deadline_seconds())}s "
+            f"deadline (attempt {attempts}/{self._knobs.max_retries_per_url + 1})"
+        )
+        if final:
+            self._pages_failed += 1
+            await self._emit(
+                CrawlPageFailedEvent(
+                    run_id=self.run_id,
+                    url=item.url,
+                    error_class="ItemDeadlineExceeded",
+                    error_message=message,
+                )
+            )
+        else:
+            await self._emit(CrawlWarningEvent(run_id=self.run_id, message=f"{message}; requeued"))
+
+    async def _settle_cancelled_item(self, item: QueueItem) -> None:
+        """Return an item whose task was torn down mid-flight to pending.
+
+        Torn down by the run loop, host shutdown or an external cancel, the
+        item was never terminally processed. Past its deadline the claim fence
+        drops this settle (the worker settles instead). Shielded so the
+        cancellation already unwinding the task cannot abort the write.
+        """
+        try:
+            await asyncio.shield(
+                self.queue.mark_failed(item.url, "worker_cancelled", will_retry=True)
+            )
+        except asyncio.CancelledError:
+            pass  # a second cancel hit the await; the shielded settle still runs
+        except Exception:
+            logger.warning(
+                "could not settle in-flight item %s during worker cancellation "
+                "(the frontier lease reaper is the backstop)",
+                redact_url_secrets(item.url),
+                exc_info=True,
+            )
 
     async def _record_rate_limit_timeout(self, item: QueueItem) -> None:
         """A URL the crawl never fetched because it stopped on rate limiting."""
@@ -1361,9 +1820,15 @@ class SiteCrawler:
         """
         deadline = time.monotonic() + 15.0
         while True:
-            item = await self.queue.dequeue()
+            try:
+                item = await asyncio.wait_for(
+                    self.queue.dequeue(), timeout=QUEUE_CALL_TIMEOUT_SECONDS
+                )
+            except TimeoutError:
+                logger.error("crawl %s: frontier claim timed out while draining", self.run_id)
+                return
             if item is None:
-                if await self.queue.queue_depth() > 0 and time.monotonic() < deadline:
+                if (await self._counts_bounded())[0] > 0 and time.monotonic() < deadline:
                     await asyncio.sleep(0.5)
                     continue
                 return
@@ -1390,21 +1855,31 @@ class SiteCrawler:
             if not await self._reserve_page_slot():
                 return
             try:
-                item = await self.queue.dequeue()
+                item = await asyncio.wait_for(
+                    self.queue.dequeue(), timeout=QUEUE_CALL_TIMEOUT_SECONDS
+                )
+                if item is not None:
+                    self._claims_made += 1
             except asyncio.CancelledError:
                 await self._release_page_slot()
                 raise
+            except TimeoutError:
+                # A claim that never answered: no item (a claim that did commit
+                # is returned by the frontier's lease reaper). The stall breaker
+                # judges a crawl whose every claim hangs.
+                logger.error("crawl %s: frontier claim timed out", self.run_id)
+                item = None
             if item is None:
                 await self._release_page_slot()
                 # Queue empty — wait briefly; the run loop decides when to stop.
                 await asyncio.sleep(0.1)
                 # If still empty and no in-flight, the loop will exit and cancel us.
-                queue_depth, inflight = await self.queue.counts()
+                queue_depth, inflight = await self._counts_bounded()
                 if queue_depth == 0 and inflight == 0:
                     return
                 continue
             try:
-                await self._process(item)
+                await self._process_within_deadline(item)
             finally:
                 await self._release_page_slot()
 
@@ -1452,8 +1927,12 @@ class SiteCrawler:
         # Crawl-wide pause: a 429 stops ALL new requests until the cooldown the
         # site asked for (Retry-After) is over — not just this worker's host.
         await self._pause.wait()
-        if self._stop_reason is not None:
+        if self._stop_reason == "rate_limited":
             await self._record_rate_limit_timeout(item)
+            return
+        if self._stop_reason is not None:
+            # Any other stop: the item was never worked — back to pending.
+            await self.queue.mark_failed(item.url, f"crawl_{self._stop_reason}", will_retry=True)
             return
 
         # Per-host rate limit — applied to ALL workers, so concurrency=8 against
@@ -1496,645 +1975,644 @@ class SiteCrawler:
             self._pages_failed += 1
             return
 
-        async with self._semaphore:
-            t0 = time.monotonic()
-            try:
-                await validate_public_http_url(item.url)
-                # robots.txt check (fail-open if unreachable)
-                if self._robots is not None:
-                    if not await self._robots.can_fetch(item.url):
-                        await self._emit(
-                            CrawlPageFailedEvent(
-                                run_id=self.run_id,
-                                url=item.url,
-                                error_class="RobotsDisallowed",
-                                error_message=f"robots.txt disallows {item.url} for {self.user_agent}",
-                            )
+        await self._semaphore.acquire()
+        fence = _CLAIM_FENCE.get()
+        if fence is not None:
+            fence.holds_slot = True
+        try:
+            # Pacing is over: the page's own work — and its deadline — starts here.
+            self._begin_page_work()
+            await self._process_page(item)
+        finally:
+            self._return_slot(fence)
+
+    async def _process_page(self, item: QueueItem) -> None:
+        """The page's own work, under the concurrency slot `_process` holds."""
+        t0 = time.monotonic()
+        try:
+            await validate_public_http_url(item.url)
+            # robots.txt check (fail-open if unreachable)
+            if self._robots is not None:
+                if not await self._robots.can_fetch(item.url):
+                    await self._emit(
+                        CrawlPageFailedEvent(
+                            run_id=self.run_id,
+                            url=item.url,
+                            error_class="RobotsDisallowed",
+                            error_message=f"robots.txt disallows {item.url} for {self.user_agent}",
                         )
-                        await self.queue.mark_failed(item.url, "robots_disallowed")
-                        self._pages_failed += 1
-                        return
+                    )
+                    await self.queue.mark_failed(item.url, "robots_disallowed")
+                    self._pages_failed += 1
+                    return
 
-                request_type = self._pick_request_type()
-                use_proxy = not self._proxy_disabled
-                if self.domain_config is not None:
-                    try:
-                        proxy_type = self.domain_config.get_proxy_type(item.url)
-                        if proxy_type == "none":
-                            use_proxy = False
-                    except Exception:
-                        pass
+            request_type = self._pick_request_type()
+            use_proxy = not self._proxy_disabled
+            if self.domain_config is not None:
+                try:
+                    proxy_type = self.domain_config.get_proxy_type(item.url)
+                    if proxy_type == "none":
+                        use_proxy = False
+                except Exception:
+                    pass
 
-                # Branch on render mode. The screenshot path needs the same
-                # browser session that's about to read the HTML, so we drive
-                # Playwright directly via PlaywrightBrowserPool.fetch_with_capture
-                # — recipes get a chance to run, then we synthesise a
-                # ScrapeResult through the orchestrator's parser so every
-                # downstream consumer (parser/links/SEO audit) sees the same
-                # post-recipe HTML.
-                shots: list[CapturedShot] = []
-                recipe = None
-                if self.recipe_backend is not None:
-                    try:
-                        recipe = await self.recipe_backend.find_for_url(item.url)
-                    except Exception:
-                        logger.exception("recipe lookup failed")
+            # Branch on render mode. The screenshot path needs the same
+            # browser session that's about to read the HTML, so we drive
+            # Playwright directly via PlaywrightBrowserPool.fetch_with_capture
+            # — recipes get a chance to run, then we synthesise a
+            # ScrapeResult through the orchestrator's parser so every
+            # downstream consumer (parser/links/SEO audit) sees the same
+            # post-recipe HTML.
+            shots: list[CapturedShot] = []
+            recipe = None
+            if self.recipe_backend is not None:
+                try:
+                    recipe = await self.recipe_backend.find_for_url(item.url)
+                except Exception:
+                    logger.exception("recipe lookup failed")
 
-                url_content_hint = detect_content_type_from_url(item.url)
-                browser_capture_supported = url_content_hint not in {
-                    ContentType.PDF,
-                    ContentType.JSON,
-                    ContentType.XML,
-                    ContentType.PLAIN_TEXT,
-                    ContentType.IMAGE,
-                }
-                if not browser_capture_supported:
-                    request_type = RequestType.NORMAL
+            url_content_hint = detect_content_type_from_url(item.url)
+            browser_capture_supported = url_content_hint not in {
+                ContentType.PDF,
+                ContentType.JSON,
+                ContentType.XML,
+                ContentType.PLAIN_TEXT,
+                ContentType.IMAGE,
+            }
+            if not browser_capture_supported:
+                request_type = RequestType.NORMAL
+            if (
+                self._wants_screenshots()
+                and browser_capture_supported
+                and self.browser_pool is not None
+                and hasattr(self.browser_pool, "fetch_with_capture")
+            ):
+                kinds = self.screenshot_kinds or ["viewport_desktop", "full_page"]
+                expectation_recorder = getattr(
+                    self.body_persister,
+                    "record_screenshots_expected",
+                    None,
+                )
+                if expectation_recorder is not None:
+                    await expectation_recorder(len(kinds))
+                actions = list(recipe.actions) if recipe else []
+                try:
+                    captured = await self.browser_pool.fetch_with_capture(
+                        item.url,
+                        proxy=get_required_random_proxy() if use_proxy else None,
+                        timeout_ms=self.config.browser_navigation_timeout_ms,
+                        settle_timeout_ms=self.config.browser_settle_timeout_ms,
+                        screenshot_kinds=kinds,
+                        recipe_actions=actions,
+                        action_runner=self.recipe_action_runner,
+                        **self._pool_ua_kwargs(),
+                    )
+                except Exception as proxy_exc:
+                    if not use_proxy:
+                        raise
+                    await self._emit_proxy_bypass(item.url, error=proxy_exc)
+                    use_proxy = False
+                    captured = await self.browser_pool.fetch_with_capture(
+                        item.url,
+                        proxy=None,
+                        timeout_ms=self.config.browser_navigation_timeout_ms,
+                        settle_timeout_ms=self.config.browser_settle_timeout_ms,
+                        screenshot_kinds=kinds,
+                        recipe_actions=actions,
+                        action_runner=self.recipe_action_runner,
+                        **self._pool_ua_kwargs(),
+                    )
+                if self._is_proxy_failure_status(captured.status_code) and use_proxy:
+                    await self._emit_proxy_bypass(
+                        item.url,
+                        status=captured.status_code,
+                    )
+                    use_proxy = False
+                    captured = await self.browser_pool.fetch_with_capture(
+                        item.url,
+                        proxy=None,
+                        timeout_ms=self.config.browser_navigation_timeout_ms,
+                        settle_timeout_ms=self.config.browser_settle_timeout_ms,
+                        screenshot_kinds=kinds,
+                        recipe_actions=actions,
+                        action_runner=self.recipe_action_runner,
+                        **self._pool_ua_kwargs(),
+                    )
+                # Hand the rendered HTML to the orchestrator's parser so we
+                # match the regular path's ScrapeResult shape.
+                content_type_raw = captured.headers.get("content-type", "")
+                content_type, _ = detect_response_content_type(
+                    url=captured.response_url or item.url,
+                    content_type_raw=content_type_raw,
+                    content=captured.content,
+                )
+                # A FAILING browser response gets the SAME challenge
+                # classification the HTTP path uses (one classifier, not a
+                # second hand-rolled copy) — otherwise a WAF interstitial
+                # rendered by the browser is labelled `bad_status`, misread
+                # as a rate limit, and requeued 5× for nothing. Only failing
+                # responses are classified: a healthy page may legitimately
+                # embed a Turnstile widget (a protected contact form), and
+                # that must never mark the page failed.
+                browser_failure_reasons: list[dict] = []
+                if captured.status_code >= 400:
+                    browser_failure_reasons = detect_challenge_reasons(
+                        html=captured.content, title=captured.title
+                    )
+                    browser_failure_reasons.append(
+                        {FailureReason.BAD_STATUS: f"Status code {captured.status_code}"}
+                    )
+                    # The same header/status wall rule as the HTTP path
+                    # (cf-mitigated → cloudflare_block, 401/403 → blocked).
+                    wall = wall_reason_from_status(captured.status_code, captured.headers)
+                    if wall is not None and not any(
+                        wall[0] in r for r in browser_failure_reasons
+                    ):
+                        browser_failure_reasons.append({wall[0]: wall[1]})
+                response = Response(
+                    request_url=item.url,
+                    proxy_used=use_proxy,
+                    request_type=RequestType.BROWSER,
+                    content_type=content_type,
+                    extension="",
+                    content_type_raw=content_type_raw,
+                    response_url=captured.response_url,
+                    response_headers=captured.headers,
+                    title=captured.title,
+                    status_code=captured.status_code,
+                    redirect_chain=captured.redirect_chain,
+                    content=captured.content,
+                    failed=bool(browser_failure_reasons),
+                    failed_primary_reason=(
+                        primary_failure_reason(browser_failure_reasons)
+                        if browser_failure_reasons
+                        else None
+                    ),
+                    failed_reasons=browser_failure_reasons,
+                )
+                # Same rule as the main fetch path (orchestrator.scrape):
+                # parsing is CPU-bound (a PDF body here parses the whole
+                # document) and must not block the event loop — every other
+                # worker, the heartbeat, and the stream stall behind it.
+                result = await asyncio.to_thread(_build_result_from_response, response)
+                response_ms = int((time.monotonic() - t0) * 1000)
+                shots = [
+                    CapturedShot(kind=s.kind, width=s.width, height=s.height, bytes=s.bytes)
+                    for s in captured.screenshots
+                ]
+                actual_kinds = [shot.kind for shot in shots]
+                if actual_kinds != kinds:
+                    missing = [kind for kind in kinds if kind not in actual_kinds]
+                    unexpected = [kind for kind in actual_kinds if kind not in kinds]
+                    capture_failures = [
+                        {
+                            "kind": failure.kind,
+                            "error_class": failure.error_class,
+                            "error_message": failure.error_message,
+                        }
+                        for failure in getattr(captured, "screenshot_failures", [])
+                    ]
+                    warning_message = (
+                        f"Screenshot capture was incomplete for {item.url}; "
+                        "the fetched page content was retained."
+                    )
+                    logger.warning(
+                        "%s expected=%s actual=%s missing=%s unexpected=%s failures=%s",
+                        warning_message,
+                        kinds,
+                        actual_kinds,
+                        missing,
+                        unexpected,
+                        capture_failures,
+                    )
+                    await self._emit(
+                        CrawlWarningEvent(
+                            run_id=self.run_id,
+                            message=warning_message,
+                            context={
+                                "url": item.url,
+                                "expected": kinds,
+                                "captured": actual_kinds,
+                                "missing": missing,
+                                "unexpected": unexpected,
+                                "failures": capture_failures,
+                            },
+                        )
+                    )
+                capture_recorder = getattr(
+                    self.body_persister,
+                    "record_screenshots_captured",
+                    None,
+                )
+                if capture_recorder is not None:
+                    await capture_recorder(len(shots))
+            else:
+                try:
+                    result = await scrape(
+                        item.url,
+                        use_proxy=use_proxy,
+                        request_type=request_type,
+                        cache=self.cache,
+                        domain_config=self.domain_config,
+                        browser_pool=self.browser_pool,
+                        user_agent=self._user_agent_override,
+                    )
+                except Exception as proxy_exc:
+                    if not use_proxy:
+                        raise
+                    await self._emit_proxy_bypass(item.url, error=proxy_exc)
+                    use_proxy = False
+                    result = await scrape(
+                        item.url,
+                        use_proxy=False,
+                        request_type=request_type,
+                        cache=None,
+                        domain_config=self.domain_config,
+                        browser_pool=self.browser_pool,
+                        user_agent=self._user_agent_override,
+                    )
+                if self._is_proxy_failure_status(result.status_code) and use_proxy:
+                    await self._emit_proxy_bypass(
+                        item.url,
+                        status=result.status_code,
+                    )
+                    use_proxy = False
+                    result = await scrape(
+                        item.url,
+                        use_proxy=False,
+                        request_type=request_type,
+                        cache=None,
+                        domain_config=self.domain_config,
+                        browser_pool=self.browser_pool,
+                        user_agent=self._user_agent_override,
+                    )
+                response_ms = int((time.monotonic() - t0) * 1000)
+
+                # http_first → escalate to the browser when plain HTTP was
+                # insufficient. Two triggers:
+                #   1. Thin content — a JS-rendered page returned a shell.
+                #   2. A block/transport failure a real browser routinely
+                #      gets past (Cloudflare/WAF challenges, TLS-fingerprint
+                #      blocks, 403s, connection resets). Without this, the
+                #      non-screenshot path hard-failed every page the HTTP
+                #      client couldn't reach while the screenshot path —
+                #      already browser-driven — crawled the same site fine.
+                # 429/503 are deliberately excluded: the adaptive throttle +
+                # bounded requeue below own rate-limit responses.
                 if (
-                    self._wants_screenshots()
+                    self.config.render_mode == RENDER_HTTP_FIRST
+                    and request_type == RequestType.NORMAL
                     and browser_capture_supported
                     and self.browser_pool is not None
-                    and hasattr(self.browser_pool, "fetch_with_capture")
+                    and (
+                        (result.success and self._is_thin(result))
+                        or (not result.success and self._browser_may_recover(result))
+                    )
                 ):
-                    kinds = self.screenshot_kinds or ["viewport_desktop", "full_page"]
-                    expectation_recorder = getattr(
-                        self.body_persister,
-                        "record_screenshots_expected",
-                        None,
-                    )
-                    if expectation_recorder is not None:
-                        await expectation_recorder(len(kinds))
-                    actions = list(recipe.actions) if recipe else []
-                    try:
-                        captured = await self.browser_pool.fetch_with_capture(
-                            item.url,
-                            proxy=get_required_random_proxy() if use_proxy else None,
-                            timeout_ms=self.config.browser_navigation_timeout_ms,
-                            settle_timeout_ms=self.config.browser_settle_timeout_ms,
-                            screenshot_kinds=kinds,
-                            recipe_actions=actions,
-                            action_runner=self.recipe_action_runner,
-                            **self._pool_ua_kwargs(),
-                        )
-                    except Exception as proxy_exc:
-                        if not use_proxy:
-                            raise
-                        await self._emit_proxy_bypass(item.url, error=proxy_exc)
-                        use_proxy = False
-                        captured = await self.browser_pool.fetch_with_capture(
-                            item.url,
-                            proxy=None,
-                            timeout_ms=self.config.browser_navigation_timeout_ms,
-                            settle_timeout_ms=self.config.browser_settle_timeout_ms,
-                            screenshot_kinds=kinds,
-                            recipe_actions=actions,
-                            action_runner=self.recipe_action_runner,
-                            **self._pool_ua_kwargs(),
-                        )
-                    if self._is_proxy_failure_status(captured.status_code) and use_proxy:
-                        await self._emit_proxy_bypass(
-                            item.url,
-                            status=captured.status_code,
-                        )
-                        use_proxy = False
-                        captured = await self.browser_pool.fetch_with_capture(
-                            item.url,
-                            proxy=None,
-                            timeout_ms=self.config.browser_navigation_timeout_ms,
-                            settle_timeout_ms=self.config.browser_settle_timeout_ms,
-                            screenshot_kinds=kinds,
-                            recipe_actions=actions,
-                            action_runner=self.recipe_action_runner,
-                            **self._pool_ua_kwargs(),
-                        )
-                    # Hand the rendered HTML to the orchestrator's parser so we
-                    # match the regular path's ScrapeResult shape.
-                    content_type_raw = captured.headers.get("content-type", "")
-                    content_type, _ = detect_response_content_type(
-                        url=captured.response_url or item.url,
-                        content_type_raw=content_type_raw,
-                        content=captured.content,
-                    )
-                    # A FAILING browser response gets the SAME challenge
-                    # classification the HTTP path uses (one classifier, not a
-                    # second hand-rolled copy) — otherwise a WAF interstitial
-                    # rendered by the browser is labelled `bad_status`, misread
-                    # as a rate limit, and requeued 5× for nothing. Only failing
-                    # responses are classified: a healthy page may legitimately
-                    # embed a Turnstile widget (a protected contact form), and
-                    # that must never mark the page failed.
-                    browser_failure_reasons: list[dict] = []
-                    if captured.status_code >= 400:
-                        browser_failure_reasons = detect_challenge_reasons(
-                            html=captured.content, title=captured.title
-                        )
-                        browser_failure_reasons.append(
-                            {FailureReason.BAD_STATUS: f"Status code {captured.status_code}"}
-                        )
-                        # The same header/status wall rule as the HTTP path
-                        # (cf-mitigated → cloudflare_block, 401/403 → blocked).
-                        wall = wall_reason_from_status(captured.status_code, captured.headers)
-                        if wall is not None and not any(
-                            wall[0] in r for r in browser_failure_reasons
-                        ):
-                            browser_failure_reasons.append({wall[0]: wall[1]})
-                    response = Response(
-                        request_url=item.url,
-                        proxy_used=use_proxy,
-                        request_type=RequestType.BROWSER,
-                        content_type=content_type,
-                        extension="",
-                        content_type_raw=content_type_raw,
-                        response_url=captured.response_url,
-                        response_headers=captured.headers,
-                        title=captured.title,
-                        status_code=captured.status_code,
-                        redirect_chain=captured.redirect_chain,
-                        content=captured.content,
-                        failed=bool(browser_failure_reasons),
-                        failed_primary_reason=(
-                            primary_failure_reason(browser_failure_reasons)
-                            if browser_failure_reasons
-                            else None
-                        ),
-                        failed_reasons=browser_failure_reasons,
-                    )
-                    # Same rule as the main fetch path (orchestrator.scrape):
-                    # parsing is CPU-bound (a PDF body here parses the whole
-                    # document) and must not block the event loop — every other
-                    # worker, the heartbeat, and the stream stall behind it.
-                    result = await asyncio.to_thread(_build_result_from_response, response)
-                    response_ms = int((time.monotonic() - t0) * 1000)
-                    shots = [
-                        CapturedShot(kind=s.kind, width=s.width, height=s.height, bytes=s.bytes)
-                        for s in captured.screenshots
-                    ]
-                    actual_kinds = [shot.kind for shot in shots]
-                    if actual_kinds != kinds:
-                        missing = [kind for kind in kinds if kind not in actual_kinds]
-                        unexpected = [kind for kind in actual_kinds if kind not in kinds]
-                        capture_failures = [
-                            {
-                                "kind": failure.kind,
-                                "error_class": failure.error_class,
-                                "error_message": failure.error_message,
-                            }
-                            for failure in getattr(captured, "screenshot_failures", [])
-                        ]
-                        warning_message = (
-                            f"Screenshot capture was incomplete for {item.url}; "
-                            "the fetched page content was retained."
-                        )
-                        logger.warning(
-                            "%s expected=%s actual=%s missing=%s unexpected=%s failures=%s",
-                            warning_message,
-                            kinds,
-                            actual_kinds,
-                            missing,
-                            unexpected,
-                            capture_failures,
-                        )
-                        await self._emit(
-                            CrawlWarningEvent(
-                                run_id=self.run_id,
-                                message=warning_message,
-                                context={
-                                    "url": item.url,
-                                    "expected": kinds,
-                                    "captured": actual_kinds,
-                                    "missing": missing,
-                                    "unexpected": unexpected,
-                                    "failures": capture_failures,
-                                },
-                            )
-                        )
-                    capture_recorder = getattr(
-                        self.body_persister,
-                        "record_screenshots_captured",
-                        None,
-                    )
-                    if capture_recorder is not None:
-                        await capture_recorder(len(shots))
-                else:
-                    try:
-                        result = await scrape(
-                            item.url,
-                            use_proxy=use_proxy,
-                            request_type=request_type,
-                            cache=self.cache,
-                            domain_config=self.domain_config,
-                            browser_pool=self.browser_pool,
-                            user_agent=self._user_agent_override,
-                        )
-                    except Exception as proxy_exc:
-                        if not use_proxy:
-                            raise
-                        await self._emit_proxy_bypass(item.url, error=proxy_exc)
-                        use_proxy = False
-                        result = await scrape(
-                            item.url,
-                            use_proxy=False,
-                            request_type=request_type,
-                            cache=None,
-                            domain_config=self.domain_config,
-                            browser_pool=self.browser_pool,
-                            user_agent=self._user_agent_override,
-                        )
-                    if self._is_proxy_failure_status(result.status_code) and use_proxy:
-                        await self._emit_proxy_bypass(
-                            item.url,
-                            status=result.status_code,
-                        )
-                        use_proxy = False
-                        result = await scrape(
-                            item.url,
-                            use_proxy=False,
-                            request_type=request_type,
-                            cache=None,
-                            domain_config=self.domain_config,
-                            browser_pool=self.browser_pool,
-                            user_agent=self._user_agent_override,
-                        )
-                    response_ms = int((time.monotonic() - t0) * 1000)
-
-                    # http_first → escalate to the browser when plain HTTP was
-                    # insufficient. Two triggers:
-                    #   1. Thin content — a JS-rendered page returned a shell.
-                    #   2. A block/transport failure a real browser routinely
-                    #      gets past (Cloudflare/WAF challenges, TLS-fingerprint
-                    #      blocks, 403s, connection resets). Without this, the
-                    #      non-screenshot path hard-failed every page the HTTP
-                    #      client couldn't reach while the screenshot path —
-                    #      already browser-driven — crawled the same site fine.
-                    # 429/503 are deliberately excluded: the adaptive throttle +
-                    # bounded requeue below own rate-limit responses.
-                    if (
-                        self.config.render_mode == RENDER_HTTP_FIRST
-                        and request_type == RequestType.NORMAL
-                        and browser_capture_supported
-                        and self.browser_pool is not None
-                        and (
-                            (result.success and self._is_thin(result))
-                            or (not result.success and self._browser_may_recover(result))
-                        )
-                    ):
-                        if not result.success:
-                            await self._emit(
-                                CrawlWarningEvent(
-                                    run_id=self.run_id,
-                                    message=(
-                                        f"{item.url} — HTTP fetch failed "
-                                        f"({result.failure_reason or 'unknown'}); retrying "
-                                        "with browser rendering."
-                                    ),
-                                    context={
-                                        "url": item.url,
-                                        "fallback": "browser",
-                                        "http_status": result.status_code or 0,
-                                        "failure_reason": result.failure_reason,
-                                        "failure_details": result.failure_details,
-                                    },
-                                )
-                            )
-                        browser_result = await self._browser_refetch(item, use_proxy=use_proxy)
-                        # Thin-content escalations keep the browser result
-                        # unconditionally (today's behavior). Block/failure
-                        # escalations keep it only on success — the original
-                        # HTTP failure is the more accurate diagnosis when
-                        # the browser also fails.
-                        if browser_result is not None and (
-                            result.success or browser_result.success
-                        ):
-                            result = browser_result
-                            # Timing belongs to the result we KEEP. Stamping
-                            # it unconditionally attributed the browser's
-                            # navigation time to a retained HTTP failure.
-                            response_ms = int((time.monotonic() - t0) * 1000)
-
-                bytes_total = self._estimate_bytes(result)
-                self._bytes_downloaded += bytes_total
-
-                final_url = result.response_url or item.url
-                await validate_public_http_url(final_url)
-
-                # HTTP 429/503 = the origin throttling us, not a broken page.
-                # Back the host off and requeue (bounded) instead of failing.
-                # Emit NEITHER a page_fetched (a throttled response fetched no
-                # content) NOR a terminal failure until retries are exhausted —
-                # so a retrying URL never inflates the fetched/failed counters.
-                # A recognized bot-protection challenge is EXCLUDED: it wears a
-                # 429/503 but no amount of throttling gets past a WAF, and
-                # requeueing it 5× on the same HTTP client only burns the crawl
-                # budget before mislabelling the page "RateLimited".
-                status = result.status_code or 0
-                if status in RATE_LIMIT_STATUSES and not self._is_challenge(result):
-                    attempts = self._rate_limit_attempts.get(item.url, 0) + 1
-                    self._rate_limit_attempts[item.url] = attempts
-                    # The ramp owns THIS crawl's rate (and records the rate that
-                    # provoked the limit as the discovered ceiling). The shared
-                    # throttle is still recorded so the other lanes — research,
-                    # SEO capture — learn from what the crawl discovered; a
-                    # ramp-driven host is exempt from applying it twice.
-                    await self._note_host_pushback(item.url, reason=f"http_{status}")
-                    new_rps, _ = self._rate_limiter.throttle_host(
-                        item.url,
-                        factor=RATE_LIMIT_THROTTLE_FACTOR,
-                        min_rps=RATE_LIMIT_MIN_RPS,
-                    )
-                    ramp = self._ramp_for(item.url)
-                    if ramp is not None:
-                        new_rps = ramp.current_rps
-                    pause_note = ""
-                    pause_context: dict[str, Any] = {}
-                    if status == 429:
-                        # A 429 pauses EVERY new request of the crawl — for the
-                        # Retry-After the site sent, else the default backoff.
-                        retry_after_s = parse_retry_after(result.retry_after)
-                        delay = self._pause.record_limit(retry_after_s)
-                        source = "Retry-After" if retry_after_s is not None else "backoff"
-                        pause_note = f"; every request paused {delay:.1f}s ({source})"
-                        pause_context = {
-                            "url": item.url,
-                            "http_status": status,
-                            "retry_after": result.retry_after,
-                            "pause_seconds": round(delay, 3),
-                            "pause_source": source,
-                            "consecutive_429": self._pause.consecutive,
-                        }
-                        stop_text = self._pause.stop_reason()
-                        if stop_text is not None:
-                            await self._stop_for_rate_limits(stop_text)
-                    if attempts <= self._knobs.max_retries_per_url:
+                    if not result.success:
                         await self._emit(
                             CrawlWarningEvent(
                                 run_id=self.run_id,
                                 message=(
-                                    f"{item.url} — rate limited (HTTP {status}); throttled "
-                                    f"{urlparse(item.url).netloc} to {new_rps:.2f} rps and "
-                                    f"requeued (attempt {attempts}/{self._knobs.max_retries_per_url})"
-                                    f"{pause_note}"
-                                ),
-                                context=pause_context,
-                            )
-                        )
-                        await self.queue.mark_failed(item.url, f"http_{status}", will_retry=True)
-                        return
-                    # Retries exhausted. LAYER 2 before the terminal failure: a
-                    # persistent 429/503 that throttling never clears is often a
-                    # block with an unrecognized signature (the challenge check
-                    # above only knows the signatures we've seen). Spend ONE
-                    # browser navigation on it — the same fetch that recovers a
-                    # labelled challenge — rather than hard-failing a page the
-                    # screenshot path would have crawled fine.
-                    escalated: ScrapeResult | None = None
-                    if (
-                        self.config.render_mode == RENDER_HTTP_FIRST
-                        and request_type == RequestType.NORMAL
-                        and browser_capture_supported
-                        and self.browser_pool is not None
-                    ):
-                        await self._emit(
-                            CrawlWarningEvent(
-                                run_id=self.run_id,
-                                message=(
-                                    f"{item.url} — still HTTP {status} after "
-                                    f"{self._knobs.max_retries_per_url} throttled retries; "
-                                    "trying the browser once before failing it."
+                                    f"{item.url} — HTTP fetch failed "
+                                    f"({result.failure_reason or 'unknown'}); retrying "
+                                    "with browser rendering."
                                 ),
                                 context={
                                     "url": item.url,
                                     "fallback": "browser",
-                                    "http_status": status,
-                                    "trigger": "rate_limit_exhausted",
+                                    "http_status": result.status_code or 0,
+                                    "failure_reason": result.failure_reason,
+                                    "failure_details": result.failure_details,
                                 },
                             )
                         )
-                        escalated = await self._browser_refetch(item, use_proxy=use_proxy)
-                    if escalated is None or not escalated.success:
-                        self._pages_failed += 1
-                        await self._emit(
-                            CrawlPageFailedEvent(
-                                run_id=self.run_id,
-                                url=item.url,
-                                error_class="RateLimited",
-                                error_message=(
-                                    f"HTTP {status}: host kept rate-limiting after "
-                                    f"{self._knobs.max_retries_per_url} throttled retries"
-                                ),
-                                attempt=attempts,
-                            )
-                        )
-                        await self.queue.mark_failed(item.url, f"http_{status}_exhausted")
-                        return
-                    # The browser got the page. Re-derive everything the fetched
-                    # event reports from the result we actually keep, then fall
-                    # through to the normal fetched/parsed/persist path.
-                    self._rate_limit_attempts.pop(item.url, None)
-                    result = escalated
-                    status = result.status_code or 0
-                    final_url = result.response_url or item.url
-                    await validate_public_http_url(final_url)
-                    bytes_total = self._estimate_bytes(result)
-                    self._bytes_downloaded += bytes_total
-                    response_ms = int((time.monotonic() - t0) * 1000)
+                    browser_result = await self._browser_refetch(item, use_proxy=use_proxy)
+                    # Thin-content escalations keep the browser result
+                    # unconditionally (today's behavior). Block/failure
+                    # escalations keep it only on success — the original
+                    # HTTP failure is the more accurate diagnosis when
+                    # the browser also fails.
+                    if browser_result is not None and (
+                        result.success or browser_result.success
+                    ):
+                        result = browser_result
+                        # Timing belongs to the result we KEEP. Stamping
+                        # it unconditionally attributed the browser's
+                        # navigation time to a retained HTTP failure.
+                        response_ms = int((time.monotonic() - t0) * 1000)
 
-                if status != 429:
-                    # Any answer that is not "too many requests" ends the run
-                    # of consecutive 429s the stop rule counts.
-                    self._pause.record_success()
-                self._pages_downloaded += 1
-                await self._emit(
-                    CrawlPageFetchedEvent(
-                        run_id=self.run_id,
-                        url=item.url,
-                        final_url=final_url,
-                        http_status=status,
-                        response_time_ms=response_ms,
-                        bytes=bytes_total,
-                        mime_type=result.content_type,
-                        redirected=(final_url != item.url),
-                        redirect_chain=list(result.redirect_chain or []),
-                    )
+            bytes_total = self._estimate_bytes(result)
+            self._bytes_downloaded += bytes_total
+
+            final_url = result.response_url or item.url
+            await validate_public_http_url(final_url)
+
+            # HTTP 429/503 = the origin throttling us, not a broken page.
+            # Back the host off and requeue (bounded) instead of failing.
+            # Emit NEITHER a page_fetched (a throttled response fetched no
+            # content) NOR a terminal failure until retries are exhausted —
+            # so a retrying URL never inflates the fetched/failed counters.
+            # A recognized bot-protection challenge is EXCLUDED: it wears a
+            # 429/503 but no amount of throttling gets past a WAF, and
+            # requeueing it 5× on the same HTTP client only burns the crawl
+            # budget before mislabelling the page "RateLimited".
+            status = result.status_code or 0
+            if status in RATE_LIMIT_STATUSES and not self._is_challenge(result):
+                attempts = self._rate_limit_attempts.get(item.url, 0) + 1
+                self._rate_limit_attempts[item.url] = attempts
+                # The ramp owns THIS crawl's rate (and records the rate that
+                # provoked the limit as the discovered ceiling). The shared
+                # throttle is still recorded so the other lanes — research,
+                # SEO capture — learn from what the crawl discovered; a
+                # ramp-driven host is exempt from applying it twice.
+                await self._note_host_pushback(item.url, reason=f"http_{status}")
+                new_rps, _ = self._rate_limiter.throttle_host(
+                    item.url,
+                    factor=RATE_LIMIT_THROTTLE_FACTOR,
+                    min_rps=RATE_LIMIT_MIN_RPS,
                 )
-
-                low_text_details = [
-                    detail[FailureReason.LOW_TEXT_CONTENT.value]
-                    for detail in result.failure_details
-                    if FailureReason.LOW_TEXT_CONTENT.value in detail
-                ]
-                if low_text_details:
+                ramp = self._ramp_for(item.url)
+                if ramp is not None:
+                    new_rps = ramp.current_rps
+                pause_note = ""
+                pause_context: dict[str, Any] = {}
+                if status == 429:
+                    # A 429 pauses EVERY new request of the crawl — for the
+                    # Retry-After the site sent, else the default backoff.
+                    retry_after_s = parse_retry_after(result.retry_after)
+                    delay = self._record_crawl_pause(retry_after_s)
+                    source = "Retry-After" if retry_after_s is not None else "backoff"
+                    pause_note = f"; every request paused {delay:.1f}s ({source})"
+                    pause_context = {
+                        "url": item.url,
+                        "http_status": status,
+                        "retry_after": result.retry_after,
+                        "pause_seconds": round(delay, 3),
+                        "pause_source": source,
+                        "consecutive_429": self._pause.consecutive,
+                    }
+                    stop_text = self._pause.stop_reason()
+                    if stop_text is not None:
+                        await self._stop_for_rate_limits(stop_text)
+                if attempts <= self._knobs.max_retries_per_url:
                     await self._emit(
                         CrawlWarningEvent(
                             run_id=self.run_id,
                             message=(
-                                f"{item.url} produced little extracted body text; "
-                                "the successful response is still being preserved."
+                                f"{item.url} — rate limited (HTTP {status}); throttled "
+                                f"{urlparse(item.url).netloc} to {new_rps:.2f} rps and "
+                                f"requeued (attempt {attempts}/{self._knobs.max_retries_per_url})"
+                                f"{pause_note}"
+                            ),
+                            context=pause_context,
+                        )
+                    )
+                    await self.queue.mark_failed(item.url, f"http_{status}", will_retry=True)
+                    return
+                # Retries exhausted. LAYER 2 before the terminal failure: a
+                # persistent 429/503 that throttling never clears is often a
+                # block with an unrecognized signature (the challenge check
+                # above only knows the signatures we've seen). Spend ONE
+                # browser navigation on it — the same fetch that recovers a
+                # labelled challenge — rather than hard-failing a page the
+                # screenshot path would have crawled fine.
+                escalated: ScrapeResult | None = None
+                if (
+                    self.config.render_mode == RENDER_HTTP_FIRST
+                    and request_type == RequestType.NORMAL
+                    and browser_capture_supported
+                    and self.browser_pool is not None
+                ):
+                    await self._emit(
+                        CrawlWarningEvent(
+                            run_id=self.run_id,
+                            message=(
+                                f"{item.url} — still HTTP {status} after "
+                                f"{self._knobs.max_retries_per_url} throttled retries; "
+                                "trying the browser once before failing it."
                             ),
                             context={
                                 "url": item.url,
-                                "signal": FailureReason.LOW_TEXT_CONTENT.value,
-                                "details": low_text_details,
+                                "fallback": "browser",
                                 "http_status": status,
-                                "bytes": bytes_total,
-                                "crawl_continued": True,
+                                "trigger": "rate_limit_exhausted",
                             },
                         )
                     )
-
-                if not result.success:
+                    escalated = await self._browser_refetch(item, use_proxy=use_proxy)
+                if escalated is None or not escalated.success:
                     self._pages_failed += 1
                     await self._emit(
                         CrawlPageFailedEvent(
                             run_id=self.run_id,
                             url=item.url,
-                            error_class=result.failure_reason or "ScrapeFailed",
-                            error_message=self._failure_message(result),
+                            error_class="RateLimited",
+                            error_message=(
+                                f"HTTP {status}: host kept rate-limiting after "
+                                f"{self._knobs.max_retries_per_url} throttled retries"
+                            ),
+                            attempt=attempts,
                         )
                     )
-                    await self.queue.mark_failed(item.url, result.failure_reason or "failed")
+                    await self.queue.mark_failed(item.url, f"http_{status}_exhausted")
                     return
+                # The browser got the page. Re-derive everything the fetched
+                # event reports from the result we actually keep, then fall
+                # through to the normal fetched/parsed/persist path.
+                self._rate_limit_attempts.pop(item.url, None)
+                result = escalated
+                status = result.status_code or 0
+                final_url = result.response_url or item.url
+                await validate_public_http_url(final_url)
+                bytes_total = self._estimate_bytes(result)
+                self._bytes_downloaded += bytes_total
+                response_ms = int((time.monotonic() - t0) * 1000)
 
-                # A clean fetch is the ONLY thing that earns a climb — this is
-                # the "keep pushing up higher" half of the ruling. It is placed
-                # after the failure return above so a 200-shaped failure never
-                # buys the crawl more speed.
-                await self._note_clean_response(final_url, response_ms)
+            if status != 429:
+                # Any answer that is not "too many requests" ends the run
+                # of consecutive 429s the stop rule counts.
+                self._pause.record_success()
+            self._pages_downloaded += 1
+            await self._emit(
+                CrawlPageFetchedEvent(
+                    run_id=self.run_id,
+                    url=item.url,
+                    final_url=final_url,
+                    http_status=status,
+                    response_time_ms=response_ms,
+                    bytes=bytes_total,
+                    mime_type=result.content_type,
+                    redirected=(final_url != item.url),
+                    redirect_chain=list(result.redirect_chain or []),
+                )
+            )
 
-                # Run any matching custom extractors against the raw HTML so
-                # the host can persist them alongside the page row.
-                extractor_results: dict[str, Any] = {}
-                if self.extractor_runner is not None and result.raw_html:
-                    try:
-                        extractor_results = (
-                            await self.extractor_runner(
-                                result.raw_html,
-                                final_url,
-                            )
-                            or {}
-                        )
-                    except Exception:
-                        logger.exception("extractor runner failed for %s", redact_url_secrets(item.url))
-
-                # Build the complete page summary before persistence. Canonical
-                # web persistence needs the extracted signals to create the
-                # immutable snapshot in the same operation as its artifacts.
-                summary = self._build_summary(result, item, response_ms, bytes_total, None)
-                # The byte cap bounds what is STORED, after the whole page was
-                # read: every link on the page becomes an edge and every check
-                # sees the whole page. Capping before the summary lost the links
-                # past the cap, so the pages they point at read as orphans.
-                await self._cap_page_body(result, item)
-                await enrich_image_inventory(summary.image_inventory)
-
-                # Persist body + screenshots (storage + canonical snapshot via host)
-                if self.body_persister is not None:
-                    try:
-                        persisted = await self.body_persister(
-                            PersistRequest(
-                                run_id=self.run_id,
-                                url=item.url,
-                                final_url=final_url,
-                                body=(
-                                    result.raw_body
-                                    if result.raw_body is not None
-                                    else result.raw_html or result.text_data or result.raw_text
-                                ),
-                                markdown=result.markdown_renderable,
-                                screenshots=shots,
-                                mime_type=result.content_type_raw or result.content_type,
-                                extractor_results=extractor_results,
-                                page_summary=summary,
-                                engine=getattr(result, "engine", None),
-                            )
-                        )
-                        if persisted:
-                            summary.page_id = getattr(persisted, "page_id", None)
-                            summary.snapshot_id = getattr(persisted, "snapshot_id", None)
-                            for notice in getattr(persisted, "warnings", None) or []:
-                                await self._emit(
-                                    CrawlWarningEvent(
-                                        run_id=self.run_id,
-                                        message=str(notice.get("message", "")),
-                                        context=dict(notice.get("context") or {}),
-                                    )
-                                )
-                    except Exception as exc:
-                        logger.warning(
-                            "body_persister failed for %s: %s", redact_url_secrets(item.url), redact_url_secrets(exc), exc_info=True
-                        )
-                        await self._emit(
-                            CrawlWarningEvent(
-                                run_id=self.run_id,
-                                message=CrawlPersistenceError.error_info.user_message,
-                                context={
-                                    "url": item.url,
-                                    "failure_scope": "page",
-                                    "crawl_continued": True,
-                                },
-                            )
-                        )
-                        if self.strict_persistence:
-                            raise CrawlPersistenceError() from exc
-
-                await self._emit(CrawlPageParsedEvent(run_id=self.run_id, page=summary))
-
-                if self.retain_results:
-                    self.results[item.url] = result
-                self._pages_fetched += 1
-
-                # Discover only real navigational links from the canonical HTML
-                # audit. The generic scraper result intentionally includes every
-                # href/src resource (scripts, images, oEmbed alternates, feeds);
-                # treating those machine resources as crawlable pages creates
-                # false page identities and false HTML-audit failures.
-                #
-                # Children are enqueued BEFORE the parent settles: on a durable
-                # frontier, settling first opens a crash window where the parent
-                # is recorded done but its links were never seeded — the subtree
-                # silently vanishes from any resumed run. Seed-then-settle keeps
-                # the frontier at-least-once.
-                await self._enqueue_links(summary, item)
-                await self.queue.mark_done(item.url)
-
-                await self._maybe_emit_progress()
-
-            except asyncio.CancelledError:
-                # The worker task was torn down mid-item (run-loop exit, host
-                # shutdown, external cancel of `run()`), NOT the user-cancel
-                # flag (handled at the top of `_process`). The item was never
-                # terminally processed: without a settle, a durable frontier
-                # keeps the claim IN_PROGRESS until the lease reaper (600s) —
-                # and the run's own truncation gate correctly reports it as
-                # stranded. Return it to pending, shielded so the cancellation
-                # already unwinding this task cannot abort the settle write.
-                try:
-                    await asyncio.shield(
-                        self.queue.mark_failed(item.url, "worker_cancelled", will_retry=True)
+            low_text_details = [
+                detail[FailureReason.LOW_TEXT_CONTENT.value]
+                for detail in result.failure_details
+                if FailureReason.LOW_TEXT_CONTENT.value in detail
+            ]
+            if low_text_details:
+                await self._emit(
+                    CrawlWarningEvent(
+                        run_id=self.run_id,
+                        message=(
+                            f"{item.url} produced little extracted body text; "
+                            "the successful response is still being preserved."
+                        ),
+                        context={
+                            "url": item.url,
+                            "signal": FailureReason.LOW_TEXT_CONTENT.value,
+                            "details": low_text_details,
+                            "http_status": status,
+                            "bytes": bytes_total,
+                            "crawl_continued": True,
+                        },
                     )
-                except asyncio.CancelledError:
-                    pass  # a second cancel hit the await; the shielded settle still runs
-                except Exception:
-                    logger.warning(
-                        "could not requeue in-flight item %s during worker cancellation "
-                        "(the frontier lease reaper is the backstop)",
-                        redact_url_secrets(item.url),
-                        exc_info=True,
-                    )
-                raise
-            except Exception as exc:
+                )
+
+            if not result.success:
                 self._pages_failed += 1
+                await self._emit(
+                    CrawlPageFailedEvent(
+                        run_id=self.run_id,
+                        url=item.url,
+                        error_class=result.failure_reason or "ScrapeFailed",
+                        error_message=self._failure_message(result),
+                    )
+                )
+                await self.queue.mark_failed(item.url, result.failure_reason or "failed")
+                return
+
+            # A clean fetch is the ONLY thing that earns a climb — this is
+            # the "keep pushing up higher" half of the ruling. It is placed
+            # after the failure return above so a 200-shaped failure never
+            # buys the crawl more speed.
+            await self._note_clean_response(final_url, response_ms)
+
+            # Run any matching custom extractors against the raw HTML so
+            # the host can persist them alongside the page row.
+            extractor_results: dict[str, Any] = {}
+            if self.extractor_runner is not None and result.raw_html:
                 try:
-                    await self._emit(
-                        CrawlPageFailedEvent(
+                    extractor_results = (
+                        await self.extractor_runner(
+                            result.raw_html,
+                            final_url,
+                        )
+                        or {}
+                    )
+                except Exception:
+                    logger.exception("extractor runner failed for %s", redact_url_secrets(item.url))
+
+            # Build the complete page summary before persistence. Canonical
+            # web persistence needs the extracted signals to create the
+            # immutable snapshot in the same operation as its artifacts.
+            summary = self._build_summary(result, item, response_ms, bytes_total, None)
+            # The byte cap bounds what is STORED, after the whole page was
+            # read: every link on the page becomes an edge and every check
+            # sees the whole page. Capping before the summary lost the links
+            # past the cap, so the pages they point at read as orphans.
+            await self._cap_page_body(result, item)
+            await enrich_image_inventory(summary.image_inventory)
+
+            # Persist body + screenshots (storage + canonical snapshot via host)
+            if self.body_persister is not None:
+                try:
+                    persisted = await self.body_persister(
+                        PersistRequest(
                             run_id=self.run_id,
                             url=item.url,
-                            error_class=type(exc).__name__,
-                            error_message=str(exc),
+                            final_url=final_url,
+                            body=(
+                                result.raw_body
+                                if result.raw_body is not None
+                                else result.raw_html or result.text_data or result.raw_text
+                            ),
+                            markdown=result.markdown_renderable,
+                            screenshots=shots,
+                            mime_type=result.content_type_raw or result.content_type,
+                            extractor_results=extractor_results,
+                            page_summary=summary,
+                            engine=getattr(result, "engine", None),
                         )
                     )
-                finally:
-                    await self.queue.mark_failed(item.url, f"{type(exc).__name__}: {exc}")
-                    logger.warning("crawler error on %s: %s", redact_url_secrets(item.url), redact_url_secrets(exc), exc_info=True)
+                    if persisted:
+                        summary.page_id = getattr(persisted, "page_id", None)
+                        summary.snapshot_id = getattr(persisted, "snapshot_id", None)
+                        for notice in getattr(persisted, "warnings", None) or []:
+                            await self._emit(
+                                CrawlWarningEvent(
+                                    run_id=self.run_id,
+                                    message=str(notice.get("message", "")),
+                                    context=dict(notice.get("context") or {}),
+                                )
+                            )
+                except Exception as exc:
+                    logger.warning(
+                        "body_persister failed for %s: %s", redact_url_secrets(item.url), redact_url_secrets(exc), exc_info=True
+                    )
+                    await self._emit(
+                        CrawlWarningEvent(
+                            run_id=self.run_id,
+                            message=CrawlPersistenceError.error_info.user_message,
+                            context={
+                                "url": item.url,
+                                "failure_scope": "page",
+                                "crawl_continued": True,
+                            },
+                        )
+                    )
+                    if self.strict_persistence:
+                        raise CrawlPersistenceError() from exc
+
+            await self._emit(CrawlPageParsedEvent(run_id=self.run_id, page=summary))
+
+            if self.retain_results:
+                if not _claim_fenced():
+                    self.results[item.url] = result
+            self._pages_fetched += 1
+
+            # Discover only real navigational links from the canonical HTML
+            # audit. The generic scraper result intentionally includes every
+            # href/src resource (scripts, images, oEmbed alternates, feeds);
+            # treating those machine resources as crawlable pages creates
+            # false page identities and false HTML-audit failures.
+            #
+            # Children are enqueued BEFORE the parent settles: on a durable
+            # frontier, settling first opens a crash window where the parent
+            # is recorded done but its links were never seeded — the subtree
+            # silently vanishes from any resumed run. Seed-then-settle keeps
+            # the frontier at-least-once.
+            await self._enqueue_links(summary, item)
+            await self.queue.mark_done(item.url)
+
+            await self._maybe_emit_progress()
+
+        except asyncio.CancelledError:
+            # The item task was torn down mid-item (run-loop exit, host
+            # shutdown, external cancel of `run()`, or its own deadline),
+            # NOT the user-cancel flag (handled at the top of `_process`).
+            # Without a settle, a durable frontier keeps the claim
+            # IN_PROGRESS until the lease reaper (600s) — and the run's own
+            # truncation gate correctly reports it as stranded.
+            await self._settle_cancelled_item(item)
+            raise
+        except Exception as exc:
+            self._pages_failed += 1
+            try:
+                await self._emit(
+                    CrawlPageFailedEvent(
+                        run_id=self.run_id,
+                        url=item.url,
+                        error_class=type(exc).__name__,
+                        error_message=str(exc),
+                    )
+                )
+            finally:
+                await self.queue.mark_failed(item.url, f"{type(exc).__name__}: {exc}")
+                logger.warning("crawler error on %s: %s", redact_url_secrets(item.url), redact_url_secrets(exc), exc_info=True)
 
     # ------------------------------------------------------------------
     # Helpers
@@ -2167,6 +2645,8 @@ class SiteCrawler:
         status: int | None = None,
         error: Exception | None = None,
     ) -> None:
+        if _claim_fenced():
+            return  # an abandoned item task cannot switch the crawl's proxy off
         self._proxy_disabled = True
         outcome = f"HTTP {status}" if status is not None else type(error).__name__
         logger.warning(
@@ -2345,7 +2825,7 @@ class SiteCrawler:
             return
         if self.config.max_depth is not None and parent.depth >= self.config.max_depth:
             return
-        queue_depth, _ = await self.queue.counts()
+        queue_depth, _ = await self._counts_bounded()
         if self._pages_fetched + queue_depth >= self.config.max_pages:
             return
         links = [link.target_url for link in summary.links]
@@ -2542,6 +3022,8 @@ class SiteCrawler:
         )
 
     async def _emit(self, event: CrawlEvent) -> None:
+        if _claim_fenced():
+            return  # an item task past its deadline no longer speaks for the crawl
         try:
             await self.event_sink.emit(event)
         except Exception:
@@ -2567,7 +3049,7 @@ class SiteCrawler:
             return
         self._last_progress_at = now
         self._progress_emitted_at_pages = self._pages_fetched
-        progress_queue_depth, progress_in_flight = await self.queue.counts()
+        progress_queue_depth, progress_in_flight = await self._counts_bounded()
         elapsed = int((now - (self._started_at or now)) * 1000)
         await self._emit(
             CrawlProgressEvent(
@@ -2865,4 +3347,6 @@ __all__ = [
     "RENDER_BROWSER_ALWAYS",
     "RENDER_BROWSER_WITH_SCREENSHOT",
     "VALID_RENDER_MODES",
+    "ITEM_LEASE_MARGIN_SECONDS",
+    "ClaimFenced",
 ]

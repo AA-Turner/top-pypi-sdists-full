@@ -5,7 +5,7 @@ authors = [
 ]
 description = "Keep all y'all's __all__'s in sync"
 readme = 'README.rst'
-requires-python = '>=3.10'
+requires-python = '>=3.11'
 license = {text = 'Apache-2.0'}
 keywords = [
     '__all__',

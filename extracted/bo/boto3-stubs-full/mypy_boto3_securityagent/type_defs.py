@@ -114,6 +114,13 @@ __all__ = (
     "BatchDeleteSecurityRequirementsOutputTypeDef",
     "BatchDeleteThreatModelsInputTypeDef",
     "BatchDeleteThreatModelsOutputTypeDef",
+    "BatchDisassociateFindingIssueErrorTypeDef",
+    "BatchDisassociateFindingIssueInputTypeDef",
+    "BatchDisassociateFindingIssueOutputTypeDef",
+    "BatchExportFindingErrorTypeDef",
+    "BatchExportFindingResultTypeDef",
+    "BatchExportFindingsInputTypeDef",
+    "BatchExportFindingsOutputTypeDef",
     "BatchGetAgentSpacesInputTypeDef",
     "BatchGetAgentSpacesOutputTypeDef",
     "BatchGetArtifactMetadataInputTypeDef",
@@ -258,6 +265,12 @@ __all__ = (
     "IntegratedResourceTypeDef",
     "IntegrationFilterTypeDef",
     "IntegrationSummaryTypeDef",
+    "IssueDestinationTypeDef",
+    "JiraIntegrationInputTypeDef",
+    "JiraProjectMetadataTypeDef",
+    "JiraProjectResourceTypeDef",
+    "JiraResourceCapabilitiesTypeDef",
+    "LinkedIssueTypeDef",
     "ListActorMessagesInputPaginateTypeDef",
     "ListActorMessagesInputTypeDef",
     "ListActorMessagesOutputTypeDef",
@@ -602,6 +615,40 @@ class BatchDeleteThreatModelsInputTypeDef(TypedDict):
 class DeleteThreatModelFailureTypeDef(TypedDict):
     threatModelId: NotRequired[str]
     reason: NotRequired[str]
+
+
+class BatchDisassociateFindingIssueErrorTypeDef(TypedDict):
+    findingId: str
+    code: ErrorCodeType
+    message: str
+
+
+class BatchDisassociateFindingIssueInputTypeDef(TypedDict):
+    agentSpaceId: str
+    findingIds: Sequence[str]
+    pentestJobId: NotRequired[str]
+    codeReviewJobId: NotRequired[str]
+
+
+class BatchExportFindingErrorTypeDef(TypedDict):
+    findingId: str
+    code: ErrorCodeType
+    message: str
+
+
+class LinkedIssueTypeDef(TypedDict):
+    provider: NotRequired[ProviderType]
+    integrationId: NotRequired[str]
+    projectKey: NotRequired[str]
+    issueKey: NotRequired[str]
+    issueId: NotRequired[str]
+    issueUrl: NotRequired[str]
+    siteUrl: NotRequired[str]
+
+
+class IssueDestinationTypeDef(TypedDict):
+    integrationId: str
+    projectKey: str
 
 
 class BatchGetAgentSpacesInputTypeDef(TypedDict):
@@ -1054,6 +1101,21 @@ class InitiateProviderRegistrationInputTypeDef(TypedDict):
     clientSecret: NotRequired[str]
 
 
+class JiraProjectMetadataTypeDef(TypedDict):
+    name: str
+    providerResourceId: str
+    projectKey: str
+    projectId: str
+    projectName: NotRequired[str]
+
+
+class JiraProjectResourceTypeDef(TypedDict):
+    name: str
+    projectKey: str
+    projectId: str
+    projectName: NotRequired[str]
+
+
 class IntegrationFilterTypeDef(TypedDict):
     provider: NotRequired[ProviderType]
     providerType: NotRequired[ProviderTypeType]
@@ -1068,6 +1130,18 @@ class IntegrationSummaryTypeDef(TypedDict):
     targetUrl: NotRequired[str]
     webhookUrl: NotRequired[str]
     privateConnectionName: NotRequired[str]
+
+
+class JiraIntegrationInputTypeDef(TypedDict):
+    installationId: str
+    code: str
+    state: str
+    siteUrl: str
+
+
+class JiraResourceCapabilitiesTypeDef(TypedDict):
+    createIssue: NotRequired[bool]
+    commentIssue: NotRequired[bool]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -1671,6 +1745,7 @@ class GetIntegrationOutputTypeDef(TypedDict):
     displayName: str
     kmsKeyId: str
     targetUrl: str
+    siteUrl: str
     webhookUrl: str
     privateConnectionName: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1863,6 +1938,24 @@ class BatchDeleteThreatModelsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class BatchDisassociateFindingIssueOutputTypeDef(TypedDict):
+    errors: list[BatchDisassociateFindingIssueErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BatchExportFindingResultTypeDef(TypedDict):
+    findingId: str
+    linkedIssue: LinkedIssueTypeDef
+
+
+class BatchExportFindingsInputTypeDef(TypedDict):
+    agentSpaceId: str
+    issueDestination: IssueDestinationTypeDef
+    findingIds: Sequence[str]
+    pentestJobId: NotRequired[str]
+    codeReviewJobId: NotRequired[str]
+
+
 class BatchGetSecurityRequirementsOutputTypeDef(TypedDict):
     securityRequirements: list[BatchGetSecurityRequirementResultTypeDef]
     errors: list[BatchSecurityRequirementErrorTypeDef]
@@ -2053,13 +2146,10 @@ class GetApplicationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ProviderInputTypeDef(TypedDict):
-    github: NotRequired[GitHubIntegrationInputTypeDef]
-    gitlab: NotRequired[GitLabIntegrationInputTypeDef]
-    bitbucket: NotRequired[BitbucketIntegrationInputTypeDef]
-    confluence: NotRequired[ConfluenceIntegrationInputTypeDef]
-    azureDevOps: NotRequired[AzureDevOpsIntegrationInputTypeDef]
-    bitbucketDataCenter: NotRequired[BitbucketDataCenterIntegrationInputTypeDef]
+class VerificationDetailsTypeDef(TypedDict):
+    method: NotRequired[DomainVerificationMethodType]
+    dnsTxt: NotRequired[DnsVerificationTypeDef]
+    httpRoute: NotRequired[HttpVerificationTypeDef]
 
 
 class IntegratedResourceMetadataTypeDef(TypedDict):
@@ -2068,6 +2158,7 @@ class IntegratedResourceMetadataTypeDef(TypedDict):
     bitbucketRepository: NotRequired[BitbucketRepositoryMetadataTypeDef]
     confluenceDocument: NotRequired[ConfluenceDocumentMetadataTypeDef]
     azureDevOpsRepository: NotRequired[AzureDevOpsRepositoryMetadataTypeDef]
+    jiraProject: NotRequired[JiraProjectMetadataTypeDef]
 
 
 class IntegratedResourceTypeDef(TypedDict):
@@ -2076,12 +2167,7 @@ class IntegratedResourceTypeDef(TypedDict):
     bitbucketRepository: NotRequired[BitbucketRepositoryResourceTypeDef]
     confluenceDocument: NotRequired[ConfluenceDocumentResourceTypeDef]
     azureDevOpsRepository: NotRequired[AzureDevOpsRepositoryResourceTypeDef]
-
-
-class VerificationDetailsTypeDef(TypedDict):
-    method: NotRequired[DomainVerificationMethodType]
-    dnsTxt: NotRequired[DnsVerificationTypeDef]
-    httpRoute: NotRequired[HttpVerificationTypeDef]
+    jiraProject: NotRequired[JiraProjectResourceTypeDef]
 
 
 ListIntegrationsInputTypeDef = TypedDict(
@@ -2098,6 +2184,16 @@ class ListIntegrationsOutputTypeDef(TypedDict):
     integrationSummaries: list[IntegrationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class ProviderInputTypeDef(TypedDict):
+    github: NotRequired[GitHubIntegrationInputTypeDef]
+    gitlab: NotRequired[GitLabIntegrationInputTypeDef]
+    bitbucket: NotRequired[BitbucketIntegrationInputTypeDef]
+    confluence: NotRequired[ConfluenceIntegrationInputTypeDef]
+    azureDevOps: NotRequired[AzureDevOpsIntegrationInputTypeDef]
+    bitbucketDataCenter: NotRequired[BitbucketDataCenterIntegrationInputTypeDef]
+    jira: NotRequired[JiraIntegrationInputTypeDef]
 
 
 class ListActorMessagesInputPaginateTypeDef(TypedDict):
@@ -2413,6 +2509,12 @@ class ImportSourceTypeDef(TypedDict):
     documents: NotRequired[Sequence[SecurityRequirementArtifactTypeDef]]
 
 
+class BatchExportFindingsOutputTypeDef(TypedDict):
+    results: list[BatchExportFindingResultTypeDef]
+    errors: list[BatchExportFindingErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CodeReviewJobTaskTypeDef(TypedDict):
     taskId: str
     codeReviewId: NotRequired[str]
@@ -2522,19 +2624,6 @@ class ThreatModelJobTypeDef(TypedDict):
     reportDestination: NotRequired[ReportDestinationTypeDef]
 
 
-CreateIntegrationInputTypeDef = TypedDict(
-    "CreateIntegrationInputTypeDef",
-    {
-        "provider": ProviderType,
-        "input": ProviderInputTypeDef,
-        "integrationDisplayName": str,
-        "kmsKeyId": NotRequired[str],
-        "tags": NotRequired[Mapping[str, str]],
-        "privateConnectionName": NotRequired[str],
-    },
-)
-
-
 class CreateTargetDomainOutputTypeDef(TypedDict):
     targetDomainId: str
     domainName: str
@@ -2565,6 +2654,19 @@ class UpdateTargetDomainOutputTypeDef(TypedDict):
     createdAt: datetime
     verifiedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+CreateIntegrationInputTypeDef = TypedDict(
+    "CreateIntegrationInputTypeDef",
+    {
+        "provider": ProviderType,
+        "input": ProviderInputTypeDef,
+        "integrationDisplayName": str,
+        "kmsKeyId": NotRequired[str],
+        "tags": NotRequired[Mapping[str, str]],
+        "privateConnectionName": NotRequired[str],
+    },
+)
 
 
 class CreateMembershipRequestTypeDef(TypedDict):
@@ -2693,6 +2795,7 @@ class FindingTypeDef(TypedDict):
     alignmentRationale: NotRequired[str]
     revalidationJobIds: NotRequired[list[str]]
     originalFindingId: NotRequired[str]
+    linkedIssue: NotRequired[LinkedIssueTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2938,6 +3041,7 @@ class ProviderResourceCapabilitiesOutputTypeDef(TypedDict):
     bitbucket: NotRequired[BitbucketResourceCapabilitiesOutputTypeDef]
     confluence: NotRequired[ConfluenceResourceCapabilitiesTypeDef]
     azureDevOps: NotRequired[AzureDevOpsResourceCapabilitiesOutputTypeDef]
+    jira: NotRequired[JiraResourceCapabilitiesTypeDef]
 
 
 class BitbucketResourceCapabilitiesTypeDef(TypedDict):
@@ -3118,6 +3222,7 @@ class ProviderResourceCapabilitiesTypeDef(TypedDict):
     bitbucket: NotRequired[BitbucketResourceCapabilitiesUnionTypeDef]
     confluence: NotRequired[ConfluenceResourceCapabilitiesTypeDef]
     azureDevOps: NotRequired[AzureDevOpsResourceCapabilitiesUnionTypeDef]
+    jira: NotRequired[JiraResourceCapabilitiesTypeDef]
 
 
 ProviderResourceCapabilitiesUnionTypeDef = Union[

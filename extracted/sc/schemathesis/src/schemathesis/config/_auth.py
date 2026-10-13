@@ -133,11 +133,16 @@ class WFCAuthConfig(DiffBase):
     path: str
     user: str | None
     refresh_interval: int
+    # Users that must not see each other's objects.
+    peers: list[str] | None
 
-    def __init__(self, *, path: str, user: str | None = None, refresh_interval: int = 300) -> None:
+    def __init__(
+        self, *, path: str = "", user: str | None = None, refresh_interval: int = 300, peers: list[str] | None = None
+    ) -> None:
         self.path = path
         self.user = user
         self.refresh_interval = refresh_interval
+        self.peers = peers
 
 
 @dataclass(repr=False, slots=True)
@@ -146,9 +151,7 @@ class AuthConfig(DiffBase):
     openapi: OpenAPIAuthConfig
     dynamic: OpenAPIDynamicAuthConfig
     wfc: WFCAuthConfig | None
-    # Set only from the CLI. `wfc` merges as a whole, so values named there would be dropped
-    # when the file itself comes from the config.
-    wfc_user: str | None
+    auto_signup: bool
 
     def __init__(
         self,
@@ -157,7 +160,9 @@ class AuthConfig(DiffBase):
         openapi: dict[str, dict[str, Any]] | None = None,
         dynamic: dict[str, Any] | None = None,
         wfc: dict[str, Any] | None = None,
+        auto_signup: bool = True,
     ) -> None:
+        self.auto_signup = auto_signup
         if basic is not None:
             assert "username" in basic
             username = resolve(basic["username"])
@@ -168,7 +173,6 @@ class AuthConfig(DiffBase):
         else:
             self.basic = None
 
-        self.wfc_user = None
         self.openapi = OpenAPIAuthConfig(schemes=openapi)
 
         self.dynamic = OpenAPIDynamicAuthConfig(schemes=dynamic.get("openapi") if dynamic else None)
@@ -185,7 +189,7 @@ class AuthConfig(DiffBase):
             )
 
         if wfc is not None:
-            self.wfc = WFCAuthConfig(**{key: resolve(value) for key, value in wfc.items()})
+            self.wfc = WFCAuthConfig(**{key: resolve(value) for key, value in wfc.items()})._mark_source_keys(wfc)
         else:
             self.wfc = None
 
@@ -231,11 +235,23 @@ class AuthConfig(DiffBase):
             self._mark_source_keys(("basic",))
 
         if wfc_path is not None:
+            # Only the options named on the command line override the configured ones.
             self.wfc = WFCAuthConfig(path=resolve(wfc_path), user=resolve(wfc_user))
+            self.wfc._mark_source_keys(("path", "user") if wfc_user is not None else ("path",))
             self._mark_source_keys(("wfc",))
         elif wfc_user is not None:
-            self.wfc_user = wfc_user
-            self._mark_source_keys(("wfc_user",))
+            self.wfc = WFCAuthConfig(user=resolve(wfc_user))._mark_source_keys(("user",))
+            self._mark_source_keys(("wfc",))
+
+    @classmethod
+    def from_hierarchy(cls, configs: list[AuthConfig]) -> AuthConfig:  # type: ignore[override]  # reads `wfc`
+        # Bare `super()` breaks under `@dataclass(slots=True)` on Python < 3.13.
+        output: AuthConfig = DiffBase.from_hierarchy.__func__(cls, configs)  # type: ignore[attr-defined]
+        # `wfc` is unset by default, so the generic merge would take the whole section from one level.
+        wfc_configs = [config.wfc for config in configs if config.wfc is not None]
+        if len(wfc_configs) > 1:
+            output.wfc = WFCAuthConfig.from_hierarchy(wfc_configs)
+        return output
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AuthConfig:
@@ -244,6 +260,7 @@ class AuthConfig(DiffBase):
             openapi=data.get("openapi"),
             dynamic=data.get("dynamic"),
             wfc=data.get("wfc"),
+            auto_signup=data.get("auto-signup", True),
         )._mark_source_keys(data)
 
     @property

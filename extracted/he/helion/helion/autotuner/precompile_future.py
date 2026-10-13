@@ -3,6 +3,7 @@ from __future__ import annotations
 import collections
 import contextlib
 import dataclasses
+import importlib.util
 import inspect
 import linecache
 import multiprocessing as mp
@@ -10,6 +11,7 @@ from multiprocessing import connection
 import os
 from pathlib import Path
 import pickle
+import signal
 import sys
 import time
 import traceback
@@ -36,6 +38,8 @@ from .logger import format_triton_compile_failure
 from .logger import log_generated_triton_code_debug
 from .logger import match_unrecoverable_runtime_error
 from .logger import maybe_dump_triton_failure
+from .process_utils import signal_process_tree
+from .process_utils import start_isolated_process_group
 from .progress_bar import iter_with_progress
 
 if TYPE_CHECKING:
@@ -102,6 +106,13 @@ class SerializedCompiledFunction:
     filename: str | None
     module_name: str | None
     source_hash: str | None = None
+    # (origin_module_name, origin_file_path) for every kernel-source module the
+    # generated code imports (e.g. `import <origin> as _source_module` for a
+    # module-global like a dtype constant). The worker re-registers these from
+    # their files before exec so the import resolves even when the origin module
+    # name is not importable in a fresh process (notebook / exec / import-by-path
+    # kernels, whose synthetic module name only exists in the parent).
+    source_modules: list[tuple[str, str]] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
@@ -137,9 +148,16 @@ def _serialize_compiled_fn(fn: CompiledConfig) -> SerializedCompiledFunction:
                 source_code = inspect.getsource(module)
     if source_code is None:
         raise RuntimeError("Unable to capture source for compiled kernel")
-    source_hash: str | None = None
+    source_hash = getattr(fn, "_helion_cute_source_hash", None)
+    if not isinstance(source_hash, str):
+        source_hash = None
     fn_globals = getattr(fn, "__globals__", None)
-    if isinstance(fn_globals, dict):
+    if isinstance(fn_globals, dict) and not isinstance(
+        getattr(fn, "_helion_cute_kernels", None), tuple
+    ):
+        # A conditional bundle can retain the legacy primary kernel name for
+        # its fallback. That kernel has its own hash; it is not the host
+        # bundle's source identity.
         kernel = fn_globals.get(f"_helion_{fn.__name__}")
         value = getattr(kernel, "_helion_cute_source_hash", None)
         if isinstance(value, str):
@@ -150,10 +168,97 @@ def _serialize_compiled_fn(fn: CompiledConfig) -> SerializedCompiledFunction:
         filename=filename,
         module_name=module_name,
         source_hash=source_hash,
+        source_modules=_collect_source_modules(module),
     )
 
 
+def _collect_source_modules(module: types.ModuleType | None) -> list[tuple[str, str]]:
+    """Capture (name, file) for every kernel-origin module the generated module
+    imports into its globals.
+
+    Helion codegen emits ``import <origin> as _source_module`` (and
+    ``_global_source<N>`` for other modules) whenever the kernel references a
+    module-global. The worker re-execs the generated source in a fresh process,
+    so any such import must resolve there. A kernel defined in a normal importable
+    module is fine, but one loaded by path / exec / notebook lives under a
+    synthetic module name that only exists in the parent process. Shipping the
+    origin module's real file lets the worker re-register it under the same name.
+    """
+    if module is None:
+        return []
+    out: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for value in vars(module).values():
+        if not isinstance(value, types.ModuleType):
+            continue
+        name = getattr(value, "__name__", None)
+        file = getattr(value, "__file__", None)
+        if not isinstance(name, str) or name in seen:
+            continue
+        if not isinstance(file, str) or not os.path.exists(file):
+            continue
+        # Skip modules a fresh worker can import on its own (real packages like
+        # torch/triton, or an example on PYTHONPATH) -- shipping/re-exec'ing them
+        # would be wasteful or harmful. A by-path / notebook / exec module lives
+        # under a synthetic name that only the parent's sys.modules knows about,
+        # so it is NOT freshly importable and gets shipped with its real file.
+        if _is_freshly_importable(name, file):
+            continue
+        seen.add(name)
+        out.append((name, file))
+    return out
+
+
+def _is_freshly_importable(name: str, loaded_file: str) -> bool:
+    """Would a fresh process import ``name`` and get the file we actually loaded?
+
+    ``importlib.util.find_spec`` normally returns the cached ``sys.modules``
+    entry, which would mask synthetic by-path modules. Temporarily drop the
+    cached entry (restoring it afterwards) so the lookup reflects what a worker
+    -- with an empty module cache -- would resolve.
+    """
+    saved = sys.modules.pop(name, None)
+    try:
+        spec = importlib.util.find_spec(name)
+    except Exception:
+        spec = None
+    finally:
+        if saved is not None:
+            sys.modules[name] = saved
+    origin = getattr(spec, "origin", None)
+    if not isinstance(origin, str):
+        return False
+    return os.path.realpath(origin) == os.path.realpath(loaded_file)
+
+
+def _register_source_module(name: str, file: str) -> None:
+    """Re-register a kernel-origin module from its file under ``name`` so the
+    generated code's ``import <name> as _source_module`` resolves in the worker.
+
+    No-op if the name is already present (e.g. a real importable package the
+    serializer chose not to ship, or a sibling job already loaded it)."""
+    if name in sys.modules:
+        return
+    spec = importlib.util.spec_from_file_location(name, file)
+    if spec is None or spec.loader is None:
+        return
+    module = importlib.util.module_from_spec(spec)
+    # Register BEFORE exec so self-references / decorators resolve by name.
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        # Never leave a partially initialized module behind.  A long-lived
+        # benchmark worker may otherwise let a later generated wrapper import
+        # the broken module successfully and fail only when it reads a missing
+        # global, incorrectly making a valid candidate look broken.
+        sys.modules.pop(name, None)
+        raise
+
+
 def _load_compiled_fn(fn_spec: SerializedCompiledFunction) -> CompiledConfig:
+    for origin_name, origin_file in fn_spec.source_modules:
+        _register_source_module(origin_name, origin_file)
     module_name = f"_helion_autotune_subprocess_{uuid.uuid4().hex}"
     module = types.ModuleType(module_name)
     module.__file__ = fn_spec.filename or "<helion-autotune-subprocess>"
@@ -172,12 +277,19 @@ def _load_compiled_fn(fn_spec: SerializedCompiledFunction) -> CompiledConfig:
                 "in generated module"
             )
         cute_kernel = module.__dict__.get(f"_helion_{fn_spec.function_name}")
-        if cute_kernel is not None and fn_spec.source_hash is not None:
+        if (
+            cute_kernel is not None
+            and fn_spec.source_hash is not None
+            and not isinstance(getattr(fn, "_helion_cute_kernels", None), tuple)
+        ):
             # Backend annotation is runtime metadata and is not present in the
             # generated source. Carry the parent's exact value because
             # PyCodeCache treats strip-equivalent source as one file key.
             with contextlib.suppress(AttributeError, TypeError):
                 cute_kernel._helion_cute_source_hash = fn_spec.source_hash
+        if fn_spec.source_hash is not None:
+            with contextlib.suppress(AttributeError, TypeError):
+                fn._helion_cute_source_hash = fn_spec.source_hash
         return fn
     except BaseException:
         sys.modules.pop(module_name, None)
@@ -191,8 +303,12 @@ def _unload_compiled_fn(fn: CompiledConfig) -> None:
     if module_name.startswith("_helion_autotune_subprocess_"):
         module = sys.modules.get(module_name)
         if module is not None:
-            cute_kernel = module.__dict__.get(f"_helion_{fn.__name__}")
-            if cute_kernel is not None:
+            kernels = getattr(fn, "_helion_cute_kernels", None)
+            if not isinstance(kernels, tuple):
+                kernels = (module.__dict__.get(f"_helion_{fn.__name__}"),)
+            for cute_kernel in kernels:
+                if cute_kernel is None:
+                    continue
                 launchers = getattr(
                     cute_kernel, "_helion_cute_compiled_launchers", None
                 )
@@ -220,6 +336,7 @@ def _run_kernel_in_subprocess_spawn(
     result_path: str,
     decorator: str,
 ) -> None:
+    start_isolated_process_group()
     status = 0
     _cap: list[str] = [""]
     try:
@@ -312,6 +429,7 @@ def _run_kernel_in_subprocess_fork(
     result_path: str,
     decorator: str,
 ) -> None:
+    start_isolated_process_group()
     status = 0
     _cap: list[str] = [""]
     try:
@@ -603,9 +721,8 @@ class PrecompileFuture:
         process = self.process
         if process is None or not self.started:
             return
-        if process.is_alive():
-            with contextlib.suppress(Exception):
-                process.kill()
+        with contextlib.suppress(Exception):
+            signal_process_tree(process, signal.SIGKILL)
 
     def cancel(self) -> None:
         """Terminate the underlying process (if any) without waiting for success."""
@@ -614,8 +731,7 @@ class PrecompileFuture:
         if process is not None:
             if self.started:
                 with contextlib.suppress(Exception):
-                    if process.is_alive():
-                        process.kill()
+                    signal_process_tree(process, signal.SIGKILL)
                     process.join()
         if self.ok is None:
             self.ok = False
@@ -639,13 +755,15 @@ class PrecompileFuture:
             self.start()
         if not process.is_alive():
             self.ok = process.exitcode == 0
+            if not self.ok:
+                signal_process_tree(process, signal.SIGKILL)
             self._consume_result(raise_on_raise=False)
             if self.ok:
                 self.failure_reason = "ok"
             elif self.failure_reason is None:
                 self.failure_reason = "error"
             return self.ok
-        process.terminate()
+        signal_process_tree(process, signal.SIGTERM)
         process.join(10)
         msg = f"Timeout after {self.elapsed:.0f}s compiling {self.config}"
         if process.is_alive():
@@ -654,11 +772,13 @@ class PrecompileFuture:
                     msg,
                     "(SIGKILL required)",
                 )
-            process.kill()
-            process.join()
         else:
             if not self.ctx.settings.autotune_ignore_errors:
                 self.ctx.log.warning(msg)
+        # The worker can exit on SIGTERM before a compiler grandchild does.
+        # Always hard-kill the process group after the grace period.
+        signal_process_tree(process, signal.SIGKILL)
+        process.join()
 
         self.ok = False
         self.failure_reason = "timeout"

@@ -22,6 +22,7 @@ from functools import cache, cached_property
 from types import MappingProxyType
 from typing import TypeVar, cast
 
+from ._docstrings import get_attribute_docstring
 from .trait import Trait, _Identifiable, _resolve_alias
 
 TYPE_CHECKING = False
@@ -134,8 +135,9 @@ class Group(_Identifiable):
         """Normalize members to a sorted, deduplicated mapping.
 
         ```{hint}
-        Docstring generation is deferred to avoid circular imports during module
-        initialization. See _docstrings._initialize_all_docstrings().
+        The docstring is not built here. For a predefined group,
+        `_LazyDocstring` generates it on the first read of `__doc__`, once
+        every module is imported.
         ```
         """
         super().__post_init__()
@@ -185,8 +187,6 @@ class Group(_Identifiable):
 
         Combines the attribute docstring from the source module with various metadata.
         """
-        from extra_platforms._docstrings import get_attribute_docstring
-
         lines = []
 
         # Fetch attribute docstring from source module.
@@ -225,9 +225,13 @@ class Group(_Identifiable):
 
         return "\n".join(lines)
 
-    @property
+    @cached_property
     def member_ids(self) -> frozenset[str]:
-        """A {class}`frozenset` of member IDs that belong to this group."""
+        """A {class}`frozenset` of member IDs that belong to this group.
+
+        Computed once: the members never change after `__post_init__`, and every
+        trait asks each group for it when its docstring is generated.
+        """
         return frozenset(self._members.keys())
 
     def __hash__(self) -> int:

@@ -706,7 +706,7 @@ class Corr:
         self,
         x: npt.NDArray[np.complex64],
         out: npt.NDArray[np.complex64] | None = None,
-    ) -> NDArray[np.complex64]:
+    ) -> NDArray[np.complex64] | None:
         """Correlate one frame and optionally dump the coherent accumulator.
         Runs: forward FFT → pointwise multiply with ref_spec → accumulate the
         cross-spectrum; on dump, inverse FFT → normalise (÷ n). Accumulating in
@@ -728,11 +728,11 @@ class Corr:
 
         Returns
         -------
-        NDArray[np.complex64]
+        NDArray[np.complex64] | None
             n_out on a dump call (or max_out if smaller), 0 otherwise If n_in
             is not the required length the call is REFUSED with nothing read,
             written or counted: SIZE_MAX in C, ValueError in Python (#1925).
-            (None in Python).
+            (None in Python). None when the C call writes no output.
 
         Raises
         ------
@@ -961,7 +961,7 @@ class Corr2D:
         self,
         x: npt.NDArray[np.complex64],
         out: npt.NDArray[np.complex64] | None = None,
-    ) -> NDArray[np.complex64]:
+    ) -> NDArray[np.complex64] | None:
         """Correlate one 2-D frame and optionally dump the coherent
         accumulator. Runs the 2-D pipeline: FFT2 → pointwise multiply with
         ref_spec → accumulate the cross-spectrum; on dump, IFFT2 → normalise (÷
@@ -982,11 +982,11 @@ class Corr2D:
 
         Returns
         -------
-        NDArray[np.complex64]
+        NDArray[np.complex64] | None
             ny*nx on a dump (or max_out if smaller), 0 otherwise If n_in is not
             the required length the call is REFUSED with nothing read, written
             or counted: SIZE_MAX in C, ValueError in Python (#1925). (None in
-            Python).
+            Python). None when the C call writes no output.
 
         Raises
         ------
@@ -1359,15 +1359,17 @@ class CorrDetector:
         """
 
     def destroy(self) -> None:
-        """Release the underlying C resources immediately.
+        """Close the object; the memory goes with its last user.
 
         Ordinarily unnecessary: the resources are freed when the object is
-        garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on
-        exit.
+        garbage-collected. Call this, or use the object as a context manager,
+        to end its use at a definite point.
 
-        Idempotent: calling it again on an already-released object does
-        nothing. Every other method raises ``RuntimeError`` once it has run.
+        Views this object handed out keep the memory they point into, as does a
+        call still running on another thread: it is freed when the last of
+        them, and this object, are gone, not here (gh-2187). Idempotent:
+        calling it again does nothing. Every other method raises
+        ``RuntimeError`` once it has run.
         """
 
     def __enter__(self) -> "CorrDetector":
@@ -1622,15 +1624,17 @@ class CorrDetector2D:
         """
 
     def destroy(self) -> None:
-        """Release the underlying C resources immediately.
+        """Close the object; the memory goes with its last user.
 
         Ordinarily unnecessary: the resources are freed when the object is
-        garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on
-        exit.
+        garbage-collected. Call this, or use the object as a context manager,
+        to end its use at a definite point.
 
-        Idempotent: calling it again on an already-released object does
-        nothing. Every other method raises ``RuntimeError`` once it has run.
+        Views this object handed out keep the memory they point into, as does a
+        call still running on another thread: it is freed when the last of
+        them, and this object, are gone, not here (gh-2187). Idempotent:
+        calling it again does nothing. Every other method raises
+        ``RuntimeError`` once it has run.
         """
 
     def __enter__(self) -> "CorrDetector2D":
@@ -1669,7 +1673,7 @@ class CorrDetector2D:
 
 @final
 class PSD:
-    """Create an averaging PSD estimator.
+    """Create an averaging PSD estimator whose frames are spaced by a hop.
 
     Parameters
     ----------
@@ -1679,8 +1683,13 @@ class PSD:
         Sample rate in Hz (used for dB/Hz and band frequencies); finite and >
         0.
     window : Literal["hann", "kaiser", "blackman-harris", "rect"], default "hann"
-        Window index: 0 = Hann, 1 = Kaiser, 2 = Blackman-Harris, 3 =
-        rectangular (no taper: best resolution, worst leakage).
+        The window: "hann" (the default), "kaiser", "blackman-harris" or "rect"
+        (no taper: best resolution, worst leakage).
+
+        - ``"hann"`` — Hann: the default.
+        - ``"kaiser"`` — Kaiser, shaped by `beta`.
+        - ``"blackman-harris"`` — 4-term Blackman-Harris.
+        - ``"rect"`` — Rectangular: no taper, best resolution, worst leakage.
     beta : float, default 0.0
         Kaiser beta (ignored by every other window). One that makes the window
         non-finite -- NaN, or large enough to overflow it -- is refused.
@@ -1694,25 +1703,35 @@ class PSD:
         definition of the dBFS reference); 0 = use full_scale directly. At most
         64.
     mode : Literal["mean", "exp", "maxhold", "minhold"], default "mean"
-        Averaging mode index (0=mean, 1=exp, 2=maxhold, 3=minhold).
+        Averaging mode: "mean", "exp", "maxhold" or "minhold".
+
+        - ``"mean"`` — Linear running mean of all frames.
+        - ``"exp"`` — Exponential moving average (alpha).
+        - ``"maxhold"`` — Per-bin running maximum.
+        - ``"minhold"`` — Per-bin running minimum.
     alpha : float, default 0.1
         EMA smoothing factor, exp mode only, where it must lie in (0, 1]: the
         rule is the AccTrace averager's, whose create refuses anything else, so
         this does too. Ignored, and so not checked, in the other modes.
+    hop : int, default 0
+        Samples between frame starts, 1..n. 0 means n, which gives
+        non-overlapping frames; the default. A hop above n would leave samples
+        between frames that are never kept, so it is refused.
 
     Raises
     ------
     ValueError
         If construction fails. The exception message is ``PSD: invalid
         parameter (need n >= 2, pad >= 1 with n * pad within the largest FFT,
-        finite fs > 0, bits <= 64, a finite full_scale > 0 when bits = 0, a
-        window whose taps sum to a finite nonzero value (not hann at n = 2, nor
-        a NaN or overflowing kaiser beta), and in exp mode 0 < alpha <= 1)``.
+        finite fs > 0, bits <= 64, hop in 1..n (0 = n), a finite full_scale > 0
+        when bits = 0, a window whose taps sum to a finite nonzero value (not
+        hann at n = 2, nor a NaN or overflowing kaiser beta), and in exp mode 0
+        < alpha <= 1)``.
 
     Examples
     --------
     >>> from doppler.spectral import PSD
-    >>> w = PSD(n=1024, fs=1.0e6, window="kaiser", beta=8.0, mode="mean")
+    >>> w = PSD(n=1024, fs=1.0e6, window="kaiser", beta=8.0, mode="mean", hop=512)
     >>> w.n, w.fs
     (1024, 1000000.0)
     >>> round(w.rbw / (w.fs / w.n), 3) == round(w.enbw, 3)
@@ -1731,9 +1750,11 @@ class PSD:
         bits: int = 0,
         mode: Literal["mean", "exp", "maxhold", "minhold"] = "mean",
         alpha: float = 0.1,
+        hop: int = 0,
     ) -> None: ...
     def accumulate(self, x: npt.NDArray[np.complex64]) -> None:
-        """Window, FFT and fold floor(n_in/n) cf32 frames into the average.
+        """Window, FFT and fold every cf32 frame the stream completes into the
+        average; a partial frame is carried to the next call.
 
         Parameters
         ----------
@@ -1761,8 +1782,15 @@ class PSD:
         """
 
     def accumulate_real(self, x: npt.NDArray[np.float32]) -> None:
-        """Window, zero-pad, FFT and fold floor(n_in/n) real frames into the
-        average.
+        """Window, zero-pad, FFT and fold the whole real frames of a block into
+        the average, at hop = n. A trailing partial frame is dropped. It
+        neither reads nor writes the carry of the complex accumulate, so mixing
+        the two on one object mixes two streams.
+
+        This call stays on whole frames at hop = n: it folds floor(n_in / n)
+        frames and drops a trailing partial frame. It neither reads nor writes
+        the carry of the complex accumulate call, so mixing the two on one
+        object mixes two streams, and a hop below n is not used by this call.
 
         Parameters
         ----------
@@ -1778,7 +1806,7 @@ class PSD:
         self,
         count: int = 1,
         out: npt.NDArray[np.float32] | None = None,
-    ) -> NDArray[np.float32]:
+    ) -> NDArray[np.float32] | None:
         """Averaged power spectrum in dB (None before any accumulate).
 
         Parameters
@@ -1792,8 +1820,9 @@ class PSD:
 
         Returns
         -------
-        NDArray[np.float32]
-            min(nfft, max_out), or 0 if empty.
+        NDArray[np.float32] | None
+            min(nfft, max_out), or 0 if empty. None when the C call writes no
+            output.
         """
 
     def psd_db_max_out(self) -> int:
@@ -1809,7 +1838,7 @@ class PSD:
         self,
         count: int = 1,
         out: npt.NDArray[np.float32] | None = None,
-    ) -> NDArray[np.float32]:
+    ) -> NDArray[np.float32] | None:
         """Averaged power spectral density in dB/Hz (None before any
         accumulate).
 
@@ -1826,8 +1855,8 @@ class PSD:
 
         Returns
         -------
-        NDArray[np.float32]
-            Output.
+        NDArray[np.float32] | None
+            Output. None when the C call writes no output.
 
         Examples
         --------
@@ -1854,7 +1883,7 @@ class PSD:
         self,
         count: int = 1,
         out: npt.NDArray[np.float32] | None = None,
-    ) -> NDArray[np.float32]:
+    ) -> NDArray[np.float32] | None:
         """Averaged linear power, DC-centred two-sided (length nfft);
         cg^2-normalised.
 
@@ -1869,8 +1898,9 @@ class PSD:
 
         Returns
         -------
-        NDArray[np.float32]
-            min(nfft, max_out), or 0 if empty.
+        NDArray[np.float32] | None
+            min(nfft, max_out), or 0 if empty. None when the C call writes no
+            output.
         """
 
     def power_twosided_max_out(self) -> int:
@@ -1886,7 +1916,7 @@ class PSD:
         self,
         count: int = 1,
         out: npt.NDArray[np.float32] | None = None,
-    ) -> NDArray[np.float32]:
+    ) -> NDArray[np.float32] | None:
         """Averaged linear power, one-sided fold (length nfft/2+1);
         cg^2-normalised.
 
@@ -1901,8 +1931,9 @@ class PSD:
 
         Returns
         -------
-        NDArray[np.float32]
-            min(nfft/2 + 1, max_out), or 0 if empty.
+        NDArray[np.float32] | None
+            min(nfft/2 + 1, max_out), or 0 if empty. None when the C call
+            writes no output.
         """
 
     def power_onesided_max_out(self) -> int:
@@ -1918,7 +1949,7 @@ class PSD:
         self,
         bands: npt.NDArray[np.float64],
         out: npt.NDArray[np.float32] | None = None,
-    ) -> NDArray[np.float32]:
+    ) -> NDArray[np.float32] | None:
         """Integrated power per band in dB; bands = [lo0,hi0,lo1,hi1,...] Hz.
         None when there is nothing to report: before any accumulate, or no
         complete lo/hi pair.
@@ -1932,9 +1963,10 @@ class PSD:
 
         Returns
         -------
-        NDArray[np.float32]
+        NDArray[np.float32] | None
             The number of bands written, min(n_bands, max_out); 0 (Python None)
-            when there is nothing to report.
+            when there is nothing to report. None when the C call writes no
+            output.
 
         Examples
         --------
@@ -2165,6 +2197,384 @@ class PSD:
         tb: object | None = ...,
     ) -> None:
         """Exit a context manager, releasing the PSD.
+
+        Equivalent to calling `destroy()`. Returns ``None``, so an exception
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
+
+        Parameters
+        ----------
+        exc_type : object | None
+            Exception class, or None. Ignored.
+        exc : object | None
+            Exception instance, or None. Ignored.
+        tb : object | None
+            Traceback object, or None. Ignored.
+        """
+
+@final
+class Spectrogram:
+    """A streaming short-time power spectrum: a stream in chunks of any size,
+    one row of nfft bins per hop samples, each row the PSD of its frame.
+
+    >>> import numpy as np
+    >>> from doppler.spectral import Spectrogram
+    >>> sp = Spectrogram(nfft=8, hop=8, window="rect")
+    >>> rows = sp.push(np.ones(16, np.complex64))
+    >>> rows.shape
+    (2, 8)
+
+    Parameters
+    ----------
+    nfft : int, default 256
+        Samples per frame and bins per row, which must be the same number: an
+        nfft that would be zero-padded to a longer transform (anything but a
+        power of two >= 2) is refused rather than given rows wider than its
+        frames.
+    hop : int, default 0
+        Samples between row starts, 1 to nfft. 0 means nfft, which tiles the
+        stream; the default. Less than nfft overlaps the frames. A hop above
+        nfft would leave samples no row covers, so it is refused.
+    window : Literal["hann", "kaiser", "blackman-harris", "rect"], default "hann"
+        The window: "hann", "kaiser", "blackman-harris" or "rect", as PSD takes
+        them. It also refuses a window that sums to zero at this nfft (the
+        symmetric Hann at nfft = 2).
+
+        - ``"hann"`` — Hann: the default.
+        - ``"kaiser"`` — Kaiser, shaped by `beta`.
+        - ``"blackman-harris"`` — 4-term Blackman-Harris.
+        - ``"rect"`` — Rectangular: no taper, best resolution, worst leakage.
+    beta : float, default 0.0
+        Kaiser beta (ignored for the other windows).
+    mode : Literal["power", "db"], default "power"
+        Row units: "power" (linear rows, the default) or "db" (dBFS rows, asked
+        for by name). Any other value is refused.
+
+    Raises
+    ------
+    ValueError
+        If construction fails. The exception message is ``Spectrogram: invalid
+        parameter (need hop in 0..nfft, 0 meaning nfft; nfft within the largest
+        transform, a window the PSD accepts, and mode power or db)``.
+
+    Examples
+    --------
+    Create with defaults:
+
+    >>> from doppler.spectral import Spectrogram
+    >>> obj = Spectrogram(
+    ...     nfft=256,
+    ...     hop=0,
+    ...     window="hann",
+    ...     beta=0.0,
+    ...     mode="power",
+    ... )
+
+    """
+
+    def __init__(
+        self,
+        nfft: int = 256,
+        hop: int = 0,
+        window: Literal["hann", "kaiser", "blackman-harris", "rect"] = "hann",
+        beta: float = 0.0,
+        mode: Literal["power", "db"] = "power",
+    ) -> None: ...
+    def push(
+        self,
+        x: npt.NDArray[np.complex64],
+        out: npt.NDArray[np.float32] | None = None,
+    ) -> NDArray[np.float32] | None:
+        """Push a chunk of samples, and return the rows it completes.
+
+        The rows come back as a (rows, nfft) float32 matrix, or None when the chunk
+        completes none. A partial frame is carried to the next push. consumed equals
+        the input length: the binding allocates room for every row the chunk can
+        complete, so no input is held back. To bound memory, push smaller chunks,
+        sized with rows_for(n).
+
+        An object is not thread-safe: one Spectrogram must not be pushed from two
+        threads at once, because the kernel uses the object's scratch. push releases
+        the GIL, so other Python threads run meanwhile, but not on this object.
+
+        An out array, if given, must be a float32 array of at least
+        push_max_out(len(x)) elements. A smaller out raises ValueError; it is not
+        taken as a short one.
+
+        >>> import numpy as np
+        >>> from doppler.spectral import Spectrogram
+        >>> sp = Spectrogram(nfft=8, hop=8, window="rect")
+        >>> rows = sp.push(np.ones(20, np.complex64))
+        >>> rows.shape
+        (2, 8)
+        >>> sp.consumed, sp.pending
+        (20, 4)
+
+        Takes the input in order and produces each row as soon as a frame of
+        nfft samples is complete, at every hop. A partial frame is carried to
+        the next call, so the rows do not depend on how the input was split
+        into calls. Input that completes no row is always taken whole.
+
+        Only whole rows are written. A C caller bounds the write with max_out
+        and takes the rows that fit; the consumed count reports the input those
+        rows used, and the caller offers the rest again. The Python face has no
+        short buffer: its binding sizes the output for the whole chunk (see the
+        Python method doc).
+
+        Parameters
+        ----------
+        x : npt.NDArray[np.complex64]
+            Input.
+        out : npt.NDArray[np.float32] | None
+            Rows, row-major, nfft floats each.
+
+        Returns
+        -------
+        NDArray[np.float32] | None
+            Floats written, a multiple of nfft. From Python, the completed rows
+            as a (rows, nfft) matrix, or None when none is completed. None when
+            the C call writes no output.
+        """
+
+    def push_max_out(self, n_in: int) -> int:
+        """Floats one push of n_in samples writes when out has room: the
+        rows_for(n_in) count times nfft.
+
+        The capacity that makes a push take ALL of its input. Saturates at
+
+        SIZE_MAX rather than wrapping.
+
+        Parameters
+        ----------
+        n_in : int
+            Samples about to be pushed.
+
+        Returns
+        -------
+        int
+            Output.
+        """
+
+    def flush(self, row: npt.NDArray[np.float32]) -> int:
+        """End the stream: write the row a pending partial frame is owed into
+        row.
+
+        row must be a writable float32 array of exactly nfft elements; any other size
+        raises ValueError, and the owed frame stays owed. Returns nfft when a frame was
+        owed and was written, 0 when none was owed. A flush restarts the stream.
+
+        The example uses hop 4, so the owed row starts on the hop grid, at sample 4:
+
+        >>> import numpy as np
+        >>> from doppler.spectral import Spectrogram
+        >>> sp = Spectrogram(nfft=8, hop=4, window="rect")
+        >>> _ = sp.push(np.ones(11, np.complex64))
+        >>> row = np.empty(8, np.float32)
+        >>> sp.flush(row)
+        8
+        >>> sp.flush(row)
+        0
+
+        The row sits on the hop grid: it starts at the next row start k*hop,
+        never at the first sample no row covered, so it is the row a one-shot
+        push of the input zero-padded to that row's end would have written. It
+        is written if and only if the stream holds a sample no earlier row
+        covered. Either way the spectrogram then restarts at sample 0, as after
+        reset, so a second flush writes nothing.
+
+        Parameters
+        ----------
+        row : npt.NDArray[np.float32]
+            Room for nfft floats.
+
+        Returns
+        -------
+        int
+            Floats written: nfft, or 0 if no row was owed; -1 if the row is not
+            exactly nfft floats long.
+
+        Raises
+        ------
+        ValueError
+            If the C call returns a negative value. The exception message is
+            ``flush: row must hold exactly nfft floats``, with the return code
+            appended (gh-869).
+        """
+
+    def rows_for(self, n_in: int) -> int:
+        """How many rows a push of n_in more samples would complete, from the
+        current carry.
+
+        Takes no input. Use it to size chunks that bound memory.
+
+        >>> from doppler.spectral import Spectrogram
+        >>> sp = Spectrogram(nfft=8, hop=2)
+        >>> sp.rows_for(7), sp.rows_for(8), sp.rows_for(100)
+        (0, 1, 47)
+
+        The carry plus n_in samples, cut into frames of nfft at the hop. A push
+        with room for this many rows writes exactly this many and takes all of
+        n_in.
+
+        Parameters
+        ----------
+        n_in : int
+            Samples about to be pushed.
+
+        Returns
+        -------
+        int
+            Output.
+        """
+
+    def reset(self) -> None:
+        """Forget the stream: drop the carry and restart at sample 0.
+
+        The configuration is kept. consumed and pending read 0 afterwards.
+
+        >>> import numpy as np
+        >>> from doppler.spectral import Spectrogram
+        >>> sp = Spectrogram(nfft=8, hop=8)
+        >>> _ = sp.push(np.ones(5, np.complex64))
+        >>> sp.pending
+        5
+        >>> sp.reset()
+        >>> sp.pending
+        0
+
+        The next row covers samples [0, nfft) of whatever is pushed next. The
+        consumed count and the pending count read 0. Configuration is kept.
+        """
+
+    def state_bytes(self) -> int:
+        """Size in bytes of this object's serialized state.
+
+        The exact length `get_state` returns and `set_state` requires. It
+        depends on how the object was constructed (state arrays are sized at
+        construction), so read it from the instance rather than assuming a
+        constant.
+
+        Raises ``RuntimeError`` if the Spectrogram has already been destroyed.
+
+        Returns
+        -------
+        int
+            Byte length of one serialized state blob.
+        """
+
+    def get_state(self) -> bytes:
+        """Serialize this object's mutable state to bytes.
+
+        Captures exactly the state that evolves as the object runs, so a blob
+        taken now and restored later resumes from this point. Construction
+        parameters are not included: restore into an object built the same way.
+
+        The blob is opaque and always `state_bytes()` long. Its layout is an
+        implementation detail of the C core and is not a stable format across
+        builds.
+
+        Raises ``RuntimeError`` if the Spectrogram has already been destroyed.
+
+        Returns
+        -------
+        bytes
+            Opaque snapshot, `state_bytes()` bytes long.
+        """
+
+    def set_state(self, blob: bytes) -> None:
+        """Restore mutable state from a `get_state()` blob.
+
+        Overwrites the live state in place; the object keeps the parameters it
+        was constructed with. Length is validated against `state_bytes()`
+        before the blob is handed to the C core, and the core may reject it as
+        well.
+
+        Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
+        length differs from `state_bytes()` or the core rejects it, and
+        ``RuntimeError`` if the Spectrogram has already been destroyed.
+
+        Parameters
+        ----------
+        blob : bytes
+            A `get_state()` blob from this type, exactly `state_bytes()` long.
+        """
+
+    @property
+    def nfft(self) -> int:
+        """Samples per frame, and bins per row: one number, because a frame the
+        PSD would zero-pad to a longer transform is refused at construction.
+        """
+
+    @property
+    def hop(self) -> int:
+        """Samples between row starts, 1 to nfft: nfft tiles the stream,
+        anything less overlaps the frames. A hop of 0 at construction means
+        nfft, and reads back as nfft.
+        """
+
+    @property
+    def window(self) -> Literal["hann", "kaiser", "blackman-harris", "rect"]:
+        """The window every frame is shaped by: "hann", "kaiser",
+        "blackman-harris" or "rect".
+        """
+
+    @property
+    def beta(self) -> float:
+        """The Kaiser beta the Spectrogram was made with, as the float32 it
+        keeps: 0.1 reads back 0.10000000149011612. It shapes the Kaiser window
+        only; under the others it changes no row.
+        """
+
+    @property
+    def mode(self) -> Literal["power", "db"]:
+        """The row units: "power" (linear against full scale, the default) or
+        "db" (dBFS).
+        """
+
+    @property
+    def consumed(self) -> int:
+        """Input samples the last push took. From Python it is always the
+        chunk's length: the binding sizes its output for every row the chunk
+        completes, so no input is held back.
+        """
+
+    @property
+    def pending(self) -> int:
+        """Samples pushed that no row has covered yet: what flush() would turn
+        into a row. 0 means the stream is complete as it stands.
+        """
+
+    def destroy(self) -> None:
+        """Release the underlying C resources immediately.
+
+        Ordinarily unnecessary: the resources are freed when the object is
+        garbage-collected. Call this to release them at a definite point
+        instead, or use the object as a context manager, which calls it on
+        exit.
+
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
+        """
+
+    def __enter__(self) -> "Spectrogram":
+        """Enter a context manager, returning this object.
+
+        Lets a Spectrogram be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
+
+        Returns
+        -------
+        Spectrogram
+            This same object, not a copy.
+        """
+
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
+        """Exit a context manager, releasing the Spectrogram.
 
         Equivalent to calling `destroy()`. Returns ``None``, so an exception
         raised inside the `with` body propagates normally; this never

@@ -1,13 +1,16 @@
 Metadata-Version: 2.5
 Name: mcp-server-appwrite
-Version: 1.0.10
+Version: 1.0.13
 Summary: MCP server for Appwrite: manage projects and their databases, auth, storage, functions, messaging, and sites, and search the official Appwrite documentation
 License-File: LICENSE
 Requires-Python: >=3.12
 Requires-Dist: anyio>=4.0.0
-Requires-Dist: appwrite-console<0.11,>=0.10.0
+Requires-Dist: appwrite-console<0.13,>=0.12.0
+Requires-Dist: cryptography>=44.0.0
 Requires-Dist: docstring-parser>=0.16
+Requires-Dist: httpcore>=1.0
 Requires-Dist: httpx>=0.27.0
+Requires-Dist: mcp-event-subscriptions<0.2,>=0.1.0a1
 Requires-Dist: mcp[cli]<3,>=2.3
 Requires-Dist: numpy>=2.0
 Requires-Dist: openai>=1.40
@@ -348,6 +351,8 @@ for per-client setup.
 - [How Cloud authentication works](docs/authentication.md) — the OAuth 2.1 flow.
 - [Documentation search](docs/documentation-search.md) — the in-process
   `appwrite_search_docs` tool and how to rebuild its index.
+- [Events](docs/events.md) — MCP Events: webhook subscriptions to changes in
+  your Appwrite project (in development, not available yet).
 - [Self-hosted Appwrite](docs/self-hosted.md) — run the server locally with a
   project API key.
 - [Local development](docs/development.md) — running, testing, and debugging the

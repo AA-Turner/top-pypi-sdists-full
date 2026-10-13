@@ -1,0 +1,56 @@
+[package]
+name = "tombi-extension-cargo"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+description = "Tombi extension for Cargo.toml"
+repository.workspace = true
+license.workspace = true
+readme = "README.md"
+
+[dependencies]
+futures.workspace = true
+glob.workspace = true
+itertools.workspace = true
+semver.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["macros", "rt", "sync"] }
+tombi-ast-syntax.workspace = true
+tombi-cache.workspace = true
+tombi-config.workspace = true
+tombi-document-snapshot.workspace = true
+tombi-document-tree-syntax.workspace = true
+tombi-extension.workspace = true
+tombi-extension-manifest.workspace = true
+tombi-fs.workspace = true
+tombi-future.workspace = true
+tombi-hashmap.workspace = true
+tombi-parser.workspace = true
+tombi-schema-store.workspace = true
+tombi-text = { workspace = true, features = ["lsp"] }
+tombi-uri.workspace = true
+tombi-version-sort.workspace = true
+tower-lsp-server.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tombi-test-lib.workspace = true
+
+[features]
+default = ["native"]
+native = [
+  "tokio/fs",
+  "tombi-future/native",
+  "tombi-schema-store/native",
+  "tower-lsp-server/runtime-tokio",
+]
+wasm = [
+  "tombi-future/wasm-send",
+  "tombi-schema-store/wasm",
+  "tower-lsp-server/runtime-agnostic",
+]
+
+[lints]
+workspace = true

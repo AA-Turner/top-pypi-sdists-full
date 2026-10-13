@@ -4,7 +4,7 @@ import asyncio
 from asyncio import Future, ensure_future
 from collections.abc import Awaitable, Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
-from threading import Timer
+from threading import RLock, Timer
 from typing import (
     Any,
 )
@@ -59,7 +59,7 @@ def delay[T](generator: Callable[[], Async[T]]):
 def create_cancellation_token(arg: int | bool | None = None) -> CancellationToken:
     cancelled = arg if isinstance(arg, bool) else False
     token = CancellationToken(cancelled)
-    if isinstance(arg, int):
+    if isinstance(arg, int) and not isinstance(arg, bool):
         timer = Timer(arg / 1000.0, token.cancel)
         timer.start()
 
@@ -80,19 +80,70 @@ def is_cancellation_requested(token: CancellationToken) -> bool:
     return token.is_cancelled
 
 
+def call_on_owner_loop(loop: asyncio.AbstractEventLoop, action: Callable[[], None]) -> None:
+    # decision: foreign-thread cancellation settles on the owning loop while it is running
+    if loop.is_closed() or not loop.is_running():
+        action()
+        return
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        current_loop = None
+    if current_loop is loop:
+        action()
+        return
+    try:
+        loop.call_soon_threadsafe(action)
+    except RuntimeError:
+        if not loop.is_closed():
+            raise
+        action()
+
+
 def sleep(milliseconds_duetime: int | TimeSpan) -> Async[None]:
-    def cont(ctx: IAsyncContext[None]):
-        def cancel():
-            ctx.on_cancel(OperationCanceledError())
+    def cont(ctx: IAsyncContext[None]) -> None:
+        loop = asyncio.get_running_loop()
+        gate = RLock()
+        completed = False
+        timer: asyncio.TimerHandle | None = None
+        token_id: int | None = None
 
-        token_id = ctx.cancel_token.add_listener(cancel)
+        def settle(cancelled: bool) -> None:
+            nonlocal completed
+            with gate:
+                if completed:
+                    return
+                cancelled = cancelled or ctx.cancel_token.is_cancelled
+                completed = True
+                if timer is not None:
+                    timer.cancel()
+                listener_id = token_id
+            # Dispose outside the gate: another thread may already be running cancel().
+            if listener_id is not None:
+                ctx.cancel_token.remove_listener(listener_id)
+            if cancelled:
+                ctx.on_cancel(OperationCanceledError())
+            else:
+                ctx.on_success(None)
 
-        def timeout():
-            ctx.cancel_token.remove_listener(token_id)
-            ctx.on_success(None)
+        def cancel() -> None:
+            call_on_owner_loop(loop, lambda: settle(True))
 
-        due_time = to_milliseconds(milliseconds_duetime) / 1000.0
-        ctx.trampoline.run_later(timeout, due_time)
+        # invariant: installation and settlement cannot interleave before both resources are owned
+        try:
+            with gate:
+                token_id = ctx.cancel_token.add_listener(cancel)
+                if not completed:
+                    due_time = to_milliseconds(milliseconds_duetime) / 1000.0
+                    timer = ctx.trampoline.run_later(lambda: settle(False), due_time)
+                    if completed:
+                        timer.cancel()
+        except Exception:
+            with gate:
+                completed = True
+            if token_id is not None:
+                ctx.cancel_token.remove_listener(token_id)
+            raise
 
     return protected_cont(cont)
 
@@ -113,6 +164,8 @@ def await_event[T](event: IEvent_2[Any, T], cancel_action: Callable[[], None] | 
             ctx.on_cancel(OperationCanceledError())
 
         token_id[0] = ctx.cancel_token.add_listener(cancel)
+        if ctx.cancel_token.is_cancelled:
+            return
         event.AddHandler(handler)
 
     return protected_cont(cont)
@@ -182,6 +235,21 @@ def from_continuations[T](
 ) -> Callable[[IAsyncContext[T]], None]:
     def cont(ctx: IAsyncContext[T]) -> None:
         f((ctx.on_success, ctx.on_error, ctx.on_cancel))
+
+    return protected_cont(cont)
+
+
+def from_continuations_unit(
+    f: Callable[
+        [tuple[Callable[[], None], Callable[[Exception], None], Callable[[OperationCanceledError], None]]],
+        None,
+    ],
+) -> Async[None]:
+    def cont(ctx: IAsyncContext[None]) -> None:
+        def success(value: None = None) -> None:
+            ctx.on_success(value)
+
+        f((success, ctx.on_error, ctx.on_cancel))
 
     return protected_cont(cont)
 

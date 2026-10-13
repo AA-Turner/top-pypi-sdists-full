@@ -2,7 +2,7 @@
 # https://github.com/zopefoundation/meta/tree/master/src/zope/meta/pure-python
 [build-system]
 requires = [
-    "setuptools >= 78.1.1,< 81",
+    "setuptools >= 78.1.1,< 82",
     "wheel",
 ]
 build-backend = "setuptools.build_meta"
@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ZODB"
 description = "ZODB, a Python object-oriented database"
-version = "6.3"
+version = "6.4"
 license = "ZPL-2.1"
 classifiers = [
     "Intended Audience :: Developers",
@@ -21,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Database",
@@ -101,3 +102,7 @@ directory = "parts/htmlcov"
 [tool.setuptools.dynamic]
 readme = {file = ["README.rst", "CHANGES.rst"]}
 
+[tool.zest-releaser]
+create-wheel = false
+extra-message = ""
+upload-pypi = false

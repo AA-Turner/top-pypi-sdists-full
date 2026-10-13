@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Massachusetts Institute of Technology
+# Copyright (c) 2026 Massachusetts Institute of Technology
 # SPDX-License-Identifier: MIT
 import inspect
 import warnings
@@ -378,7 +378,7 @@ def parse_dataclass_options(
 
 
 def parse_strict_dataclass_options(
-    options: Mapping[str, Any]
+    options: Mapping[str, Any],
 ) -> TypeGuard[StrictDataclassOptions]:
     return (
         options.keys() <= _STRICT_DATACLASS_OPTION_KEYS

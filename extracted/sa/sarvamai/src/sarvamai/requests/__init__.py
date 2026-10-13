@@ -181,7 +181,11 @@ if typing.TYPE_CHECKING:
     from .transliteration_response import TransliterationResponseParams
     from .v2error_object import V2ErrorObjectParams
     from .v2error_response import V2ErrorResponseParams
+    from .voice_cloning_configure_connection import VoiceCloningConfigureConnectionParams
+    from .voice_cloning_configure_connection_data import VoiceCloningConfigureConnectionDataParams
     from .voice_cloning_response import VoiceCloningResponseParams
+    from .voice_cloning_send_text import VoiceCloningSendTextParams
+    from .voice_cloning_send_text_data import VoiceCloningSendTextDataParams
     from .voice_library_create_data import VoiceLibraryCreateDataParams
     from .voice_library_create_response import VoiceLibraryCreateResponseParams
     from .voice_library_detail import VoiceLibraryDetailParams
@@ -366,7 +370,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TransliterationResponseParams": ".transliteration_response",
     "V2ErrorObjectParams": ".v2error_object",
     "V2ErrorResponseParams": ".v2error_response",
+    "VoiceCloningConfigureConnectionDataParams": ".voice_cloning_configure_connection_data",
+    "VoiceCloningConfigureConnectionParams": ".voice_cloning_configure_connection",
     "VoiceCloningResponseParams": ".voice_cloning_response",
+    "VoiceCloningSendTextDataParams": ".voice_cloning_send_text_data",
+    "VoiceCloningSendTextParams": ".voice_cloning_send_text",
     "VoiceLibraryCreateDataParams": ".voice_library_create_data",
     "VoiceLibraryCreateResponseParams": ".voice_library_create_response",
     "VoiceLibraryDetailParams": ".voice_library_detail",
@@ -575,7 +583,11 @@ __all__ = [
     "TransliterationResponseParams",
     "V2ErrorObjectParams",
     "V2ErrorResponseParams",
+    "VoiceCloningConfigureConnectionDataParams",
+    "VoiceCloningConfigureConnectionParams",
     "VoiceCloningResponseParams",
+    "VoiceCloningSendTextDataParams",
+    "VoiceCloningSendTextParams",
     "VoiceLibraryCreateDataParams",
     "VoiceLibraryCreateResponseParams",
     "VoiceLibraryDetailParams",

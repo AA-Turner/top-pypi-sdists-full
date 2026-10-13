@@ -15,6 +15,7 @@ import schemathesis
 import schemathesis.auths
 from schemathesis.config import FuzzConfig, OperationConfig, OperationsConfig, SchemathesisConfig
 from schemathesis.core.errors import SerializationNotPossible
+from schemathesis.core.rate_limit import RATE_LIMIT_AUTO_MAX_RETRIES, RATE_LIMIT_AUTO_REPORT_THRESHOLD
 from schemathesis.core.result import Ok
 from schemathesis.core.transport import Response
 from schemathesis.engine import Status, StopReason, events, from_schema
@@ -130,6 +131,27 @@ def test_fuzz_scenario_events_are_paired(ctx):
     schema = schemathesis.openapi.from_url(api.schema_url)
     collected = _collect_until_finished(schema)
     _assert_scenario_pairs(collected)
+
+
+# Only waits at or above the reporting threshold are announced, so the test sleeps that long once.
+def test_fuzz_emits_rate_limit_retry(ctx, app_runner):
+    calls = []
+    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/users")
+    def users():
+        calls.append(None)
+        if len(calls) == 1:
+            return "", 429, {"Retry-After": str(RATE_LIMIT_AUTO_REPORT_THRESHOLD)}
+        return {"ok": True}
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    schema.config.update(rate_limit="auto")
+    assert [
+        (event.operation, event.delay, event.retries_left)
+        for event in _collect_until_finished(schema)
+        if isinstance(event, events.RateLimitRetry)
+    ] == [("GET /users", RATE_LIMIT_AUTO_REPORT_THRESHOLD, RATE_LIMIT_AUTO_MAX_RETRIES - 1)]
 
 
 def test_fuzz_no_operations_emits_no_scenarios(ctx):
@@ -808,3 +830,18 @@ def test_iter_link_candidates_edge_links(ctx, case_factory, response_factory, li
         excluded_labels=set(),
     )
     assert candidates == []
+
+
+# A consumer that raises mid-run closes the stream; workers must stop instead of fuzzing forever.
+def test_fuzz_closing_stream_mid_run_stops_workers(ctx):
+    api = ctx.openapi.apps.path_variable()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    stream = from_schema(schema).fuzz(FuzzConfig())
+    for event in stream:
+        if isinstance(event, events.FuzzScenarioFinished):
+            break
+    closer = threading.Thread(target=stream.generator.close, daemon=True)
+    closer.start()
+    closer.join(timeout=10)
+    assert not closer.is_alive()
+    assert not [thread for thread in threading.enumerate() if thread.name.startswith("schemathesis_fuzz")]

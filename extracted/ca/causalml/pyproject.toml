@@ -1,6 +1,6 @@
 [project]
 name = "causalml"
-version = "0.17.0"
+version = "0.18.0"
 description = "Python Package for Uplift Modeling and Causal Inference with Machine Learning Algorithms"
 readme = { file = "README.md", content-type = "text/markdown" }
 
@@ -33,7 +33,7 @@ dependencies = [
     "statsmodels>=0.14.5",
     "seaborn",
     "xgboost",
-    "pydotplus",
+    "pydot>=3.0.0",
     "tqdm",
     "shap",
     "dill",
@@ -63,6 +63,22 @@ jax = [
     "optax>=0.1.4",
     "orbax-checkpoint>=0.10.0",
 ]
+# The Sphinx toolchain only.  Everything the docs import -- numpy, scikit-learn,
+# matplotlib and the rest -- already comes from the package's own dependencies,
+# and the neural backends are mocked in docs/conf.py rather than installed.
+# nbsphinx also needs the `pandoc` binary, which is not a Python package.
+docs = [
+    "sphinx>=8.2,<10",
+    "pydata-sphinx-theme>=0.20.0",
+    "sphinxcontrib-bibtex",
+    "nbsphinx",
+    # nbsphinx renders every notebook code cell as `ipython3`, and that Pygments
+    # lexer ships with IPython.  8.10.0 clears GHSA-29gw-9793-fvw7.
+    "ipython>=8.10.0",
+    # Sphinx pulls Pygments in regardless; < 2.20.0 carries a ReDoS in AdlLexer
+    # (GHSA-5239-wwwm-4pmq).
+    "pygments>=2.20.0",
+]
 
 [build-system]
 requires = [
@@ -75,6 +91,24 @@ requires = [
 
 [project.urls]
 homepage = "https://github.com/uber/causalml"
+
+[tool.pytest.ini_options]
+markers = [
+    # The benchmark dataset loaders fetch from their original hosts. Tests that
+    # touch the network are opt-in (`pytest -m network`) so the ordinary suite
+    # stays offline and a source URL moving cannot redden an unrelated PR.
+    "network: needs a benchmark dataset, downloaded or already cached",
+]
+filterwarnings = [
+    # CausalML's own #854 argument-order deprecation must never fire during the
+    # suite: it means the library called a shimmed method positionally, and a
+    # user calling the API correctly would see the warning with nothing to fix.
+    # Scoped to this one message rather than all FutureWarnings, so a warning
+    # from numpy, pandas or scikit-learn cannot fail the build on a dependency
+    # release. Tests that assert the warning use `pytest.warns`, which is
+    # unaffected.
+    'error:Passing .treatment. and/or .y. to \w+\(\) by position is deprecated:FutureWarning',
+]
 
 [tool.cibuildwheel]
 build = ["cp311-*", "cp312-*"]

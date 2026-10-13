@@ -642,7 +642,10 @@ def test_pointer_body_edits_force_a_version_bump() -> None:
     """
     import hashlib
 
-    digest = hashlib.sha256(agent_rules.POINTER_BODY.encode()).hexdigest()[:12]
+    # Both bodies, since 42: one stamp versions them, and a bump forgotten after
+    # a DAEMON_POINTER_BODY edit (38, 39 were unguarded) left every installed
+    # daemon block on the old text.
+    digest = hashlib.sha256((agent_rules.POINTER_BODY + "\0" + agent_rules.DAEMON_POINTER_BODY).encode()).hexdigest()[:12]
     # 34 / 939ac4c962dc: 0231 added `experiment` to the kind list this body
     # prints. The edit shipped in T2 WITHOUT the bump, which left every
     # installed block stale-but-current -- exactly what this pin exists to
@@ -664,8 +667,10 @@ def test_pointer_body_edits_force_a_version_bump() -> None:
     # ask-only line.
     # 41 / 9c6a7ae110d3: the "Do not call Probe for" line names what is not ML
     # work in track-work's own words (Richard 2026-10-12).
-    assert (agent_rules.POINTER_VERSION, digest) == (41, "9c6a7ae110d3"), (
-        "POINTER_BODY changed: bump POINTER_VERSION and re-pin this digest"
+    # 42 / f25c841552b9: DAEMON_POINTER_BODY gained the `### PAPERS:` section
+    # (`probe paper find`, Richard 2026-10-12); the digest covers both bodies from here.
+    assert (agent_rules.POINTER_VERSION, digest) == (42, "f25c841552b9"), (
+        "POINTER_BODY or DAEMON_POINTER_BODY changed: bump POINTER_VERSION and re-pin this digest"
     )
 
 

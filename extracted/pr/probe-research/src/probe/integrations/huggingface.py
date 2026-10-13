@@ -43,7 +43,11 @@ What it does, by Trainer hook, on the world-zero process only:
   ``meta.step``. With ``metric_for_best_model`` set, ``meta.monitor`` /
   ``meta.score`` and ``meta.best``; ``best`` then follows the Trainer's
   ``best_model_checkpoint``, and a folder ``save_total_limit`` removed is
-  marked ``deleted`` (the row is refreshed in place).
+  marked ``deleted`` (the row is refreshed in place). With
+  ``checkpoints="upload"`` (or ``PROBE_CHECKPOINTS=upload``) every file in the
+  folder is uploaded too, as the set ``checkpoint-<step>@step<step>``
+  (``probe.integrations._checkpoints``). A location-only checkpoint on the
+  job's own throwaway disk warns once.
 * ``on_step_end`` -- ``run.progress()``, so plan 2.8's stall detector sees the
   job advancing.
 * never finishes the run: the process's exit (``probe.init``'s exit hooks) or
@@ -156,7 +160,7 @@ except ImportError as _missing:
 import probe
 from probe.sdk import fluent, hashing, safe_warn
 
-from . import _rank_lease
+from . import _checkpoints, _rank_lease
 from ._worker_exit import (
     WORKER_CLOSE_SECONDS,
     WORKER_HOLD_SECONDS,
@@ -229,7 +233,10 @@ class ProbeCallback(TrainerCallback):
     after ``run_name`` and filed by ``PROBE_PROJECT`` (or floats until the
     daemon files it); open the run yourself with ``probe.init(...)`` to choose
     more, and the callback adopts it. ``log_model=False`` records no
-    checkpoints. ``strict=True`` lets Probe errors raise instead of warning once.
+    checkpoints. ``checkpoints="upload"`` stores each saved checkpoint's files
+    instead of only its location (``"reference"``, the default; with
+    ``report_to="probe"`` set ``PROBE_CHECKPOINTS=upload``). ``strict=True`` lets
+    Probe errors raise instead of warning once.
     """
 
     def __init__(
@@ -239,9 +246,12 @@ class ProbeCallback(TrainerCallback):
         experiment: str | None = None,
         name: str | None = None,
         log_model: bool = True,
+        checkpoints: str | None = None,
         strict: bool = False,
         **init_kwargs: Any,
     ) -> None:
+        if checkpoints is not None and checkpoints not in _checkpoints.MODES:
+            raise ValueError(f"checkpoints must be one of {_checkpoints.MODES}, not {checkpoints!r}")
         self._project = project
         self._experiment_name = experiment
         self._run_name = name
@@ -266,7 +276,12 @@ class ProbeCallback(TrainerCallback):
         self._step_seen: tuple[tuple[str, int] | None, dict[str, list[Any]]] = (None, {})
         #: One entry per checkpoint folder: what its row on the run says now.
         self._checkpoint_rows: dict[str, dict[str, Any]] = {}
+        #: Upload set names used in this run -> their folder (`_checkpoints`).
+        self._set_names: dict[str, str] = {}
         self._warned: set[str] = set()
+        #: Given (validated above), else PROBE_CHECKPOINTS, else "reference".
+        self._checkpoints_given = checkpoints
+        self._checkpoints = _checkpoints.resolve_mode(checkpoints, self._warn_once)
 
     # -- Trainer hooks ------------------------------------------------------------
     def on_init_end(self, args, state, control, **kwargs):
@@ -430,6 +445,7 @@ class ProbeCallback(TrainerCallback):
             any(v is not None for v in (self._project, self._experiment_name, self._run_name))
             or bool(self._init_kwargs)
             or not self._log_model
+            or self._checkpoints_given is not None
             or self._strict
         )
 
@@ -453,6 +469,7 @@ class ProbeCallback(TrainerCallback):
     def _forget_run(self) -> None:
         self._run, self._owns_run, self._last_step = None, False, None
         self._checkpoint_rows.clear()
+        self._set_names.clear()
 
     def _share_run_identity(self, state: Any) -> None:
         """Once per ``train()``, on every rank of a process group: rank 0
@@ -778,22 +795,25 @@ class ProbeCallback(TrainerCallback):
             meta["score"] = _score_at(state, _metric_key(monitor), step)
             meta["best"] = local == _abspath(getattr(state, "best_model_checkpoint", None))
         meta = {k: v for k, v in meta.items() if v is not None}
-        self._checkpoint_rows[local] = {
-            "name": os.path.basename(local),
-            "size": size,
-            "step": step,
-            "meta": meta,
-        }
-        run.log_artifact(
-            os.path.basename(local),
-            path=local,
-            kind="checkpoint",
-            reference=True,
-            size_bytes=size,
-            step_index=step,
-            meta=dict(meta),
-            strict=self._strict_arg,
-        )
+        name = os.path.basename(local)
+        if self._checkpoints == _checkpoints.UPLOAD:
+            name, meta = _checkpoints.upload_set(
+                run, local, name=name, step=step, meta=meta, size=size,
+                strict=self._strict_arg, warn=self._warn_once, taken=self._set_names,
+            )
+        else:
+            _checkpoints.warn_if_throwaway(local, self._warn_once)
+            run.log_artifact(
+                name,
+                path=local,
+                kind="checkpoint",
+                reference=True,
+                size_bytes=size,
+                step_index=step,
+                meta=dict(meta),
+                strict=self._strict_arg,
+            )
+        self._checkpoint_rows[local] = {"name": name, "size": size, "step": step, "meta": meta}
 
     def _refresh_checkpoints(self, run: Any, args: Any, state: Any) -> None:
         """Re-send a row whose truth changed since it was written: ``best``
@@ -833,6 +853,7 @@ class ProbeCallback(TrainerCallback):
         state["_rank_lease"] = None  # so does a rank's lease; each process takes its own
         state["_owns_run"] = False
         state["_checkpoint_rows"] = {}
+        state["_set_names"] = {}
         state["_peers"] = None  # the other callbacks of a Trainer this copy is not on
         state["_step_seen"] = (None, {})
         if state["_init_kwargs"].get("client") is not None:

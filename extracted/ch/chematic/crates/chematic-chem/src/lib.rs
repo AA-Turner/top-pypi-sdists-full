@@ -73,9 +73,9 @@ pub use descriptors::{
     num_saturated_heterocycles, num_saturated_rings, num_spiro_atoms, num_stereocenters,
     num_sulfurs, num_unspecified_stereocenters, pfizer_3_75_passes, potential_stereocenter_indices,
     rdkit_aromatic_ring_count, rdkit_hba_count, rdkit_molecular_weight, rdkit_num_rings,
-    rdkit_tpsa, reos_passes, ring_bundle, ring_count, ring_system_count, ro3_passes,
-    rotatable_bond_atom_pairs, rotatable_bond_count, tpsa, tpsa_per_atom, try_balaban_j, try_ipc,
-    usrcat, veber_passes,
+    rdkit_single_bond_radius, rdkit_tpsa, reos_passes, ring_bundle, ring_count, ring_system_count,
+    ro3_passes, rotatable_bond_atom_pairs, rotatable_bond_count, tpsa, tpsa_per_atom,
+    try_balaban_j, try_ipc, usrcat, veber_passes,
 };
 pub use iupac_stereo::iupac_name_stereo;
 #[cfg(feature = "serde")]
@@ -131,7 +131,8 @@ pub use qed::{qed, qed_with_bundle};
 pub use rdkit_graph::GraphDescriptorError;
 pub use recap::{recap_breakable_bond_count, recap_fragment};
 pub use rgroup::{
-    LabeledRGroupResult, RGroupError, RGroupResult, rgroup_decompose, rgroup_decompose_labeled,
+    LabeledRGroupResult, PreparedRGroupCore, RGroupError, RGroupResult, rgroup_decompose,
+    rgroup_decompose_labeled,
 };
 pub use sa_score::{sa_score, sa_score_with_bundle};
 pub use scaffold::{

@@ -93,6 +93,38 @@ def test_audit_schema_does_not_synthesize_response_coverage(ctx):
     assert all(not gap.get("kind", "").startswith("response_") for gap in outcome.result.gaps)
 
 
+def test_audit_schema_records_cookie_parameter_coverage(ctx):
+    outcome = audit_schema(
+        ctx.openapi.build_schema(
+            {
+                "/a": {
+                    "get": {
+                        "parameters": [
+                            {
+                                "name": "sid",
+                                "in": "cookie",
+                                "required": True,
+                                "schema": {"type": "string", "minLength": 2},
+                            },
+                            {
+                                "name": "q",
+                                "in": "query",
+                                "required": True,
+                                "schema": {"type": "string", "minLength": 2},
+                            },
+                        ],
+                        "responses": {"200": {"description": "OK"}},
+                    }
+                }
+            }
+        ),
+        api="t",
+        corpus="external",
+        phase=PhaseName.COVERAGE,
+    )
+    assert outcome.result.uncovered_keywords == []
+
+
 def test_audit_schema_records_required_invalid_for_form_urlencoded_body(ctx):
     # `requests` collapses an empty form body to None, which used to skip the body schema
     # in the recorder; the omit-required negative case must still register `/required` as
@@ -433,6 +465,55 @@ def test_audit_schema_records_unknown_unsupported(ctx):
     )
     outcome = audit_schema(raw, api="t", corpus="external", phase=PhaseName.COVERAGE)
     assert outcome.result.unknown_unsupported_media_types == ["application/x-custom"]
+
+
+def test_audit_schema_strips_unsupported_media_types_behind_request_body_ref(ctx):
+    raw = ctx.openapi.build_schema(
+        {
+            "/x": {
+                "post": {
+                    "requestBody": {"$ref": "#/components/requestBodies/Upload"},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "requestBodies": {
+                "Upload": {
+                    "required": True,
+                    "content": {
+                        "application/json": {"schema": {"type": "object"}},
+                        "application/pdf": {"schema": {"type": "string", "format": "binary"}},
+                    },
+                }
+            }
+        },
+    )
+    outcome = audit_schema(
+        raw, api="t", corpus="external", phase=PhaseName.COVERAGE, generation_modes=[GenerationMode.POSITIVE]
+    )
+    assert outcome.result.gaps == [
+        {
+            "kind": "keyword_needs_invalid",
+            "method": "POST",
+            "path": "/x",
+            "location": "body",
+            "parameter": "application/json",
+            "schema_path": "/type",
+            "satisfiability": "Normal",
+        }
+    ]
+    assert outcome.result.uncovered_keywords == [
+        {
+            "method": "POST",
+            "path": "/x",
+            "location": "body",
+            "parameter": "application/json",
+            "schema_path": "/type",
+            "state": "needs_invalid",
+            "satisfiability": "Normal",
+        }
+    ]
 
 
 @pytest.mark.parametrize(

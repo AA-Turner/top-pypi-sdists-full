@@ -8,11 +8,11 @@ from importlib import import_module
 if typing.TYPE_CHECKING:
     from .types import (
         DocAiDigitiseRequestContentType,
-        DocAiDigitiseRequestOutputFormat,
         DocAiExtractRequestOutputFormat,
         DocAiGetResultsResponse,
         DocAiGetResultsResponse_Digitise,
         DocAiGetResultsResponse_Extract,
+        Format,
     )
     from .requests import (
         DocAiGetResultsResponseParams,
@@ -21,7 +21,6 @@ if typing.TYPE_CHECKING:
     )
 _dynamic_imports: typing.Dict[str, str] = {
     "DocAiDigitiseRequestContentType": ".types",
-    "DocAiDigitiseRequestOutputFormat": ".types",
     "DocAiExtractRequestOutputFormat": ".types",
     "DocAiGetResultsResponse": ".types",
     "DocAiGetResultsResponseParams": ".requests",
@@ -29,6 +28,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocAiGetResultsResponse_DigitiseParams": ".requests",
     "DocAiGetResultsResponse_Extract": ".types",
     "DocAiGetResultsResponse_ExtractParams": ".requests",
+    "Format": ".types",
 }
 
 
@@ -55,7 +55,6 @@ def __dir__():
 
 __all__ = [
     "DocAiDigitiseRequestContentType",
-    "DocAiDigitiseRequestOutputFormat",
     "DocAiExtractRequestOutputFormat",
     "DocAiGetResultsResponse",
     "DocAiGetResultsResponseParams",
@@ -63,4 +62,5 @@ __all__ = [
     "DocAiGetResultsResponse_DigitiseParams",
     "DocAiGetResultsResponse_Extract",
     "DocAiGetResultsResponse_ExtractParams",
+    "Format",
 ]

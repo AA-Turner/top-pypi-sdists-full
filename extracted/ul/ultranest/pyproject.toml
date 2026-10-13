@@ -5,3 +5,6 @@ requires = [
         "cython",
         "numpy",
 ]
+
+[tool.pytest.ini_options]
+addopts = "--junitxml=test-reports/junit.xml  --html=tests/reports/index.html"

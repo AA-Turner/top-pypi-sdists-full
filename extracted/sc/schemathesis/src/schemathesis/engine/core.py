@@ -144,6 +144,8 @@ class ExecutionPlan:
     catchup_passes: int = 0
     # Elastic phases still worth a turn; a phase that proved idle is dropped and stops being reserved for.
     elastic: list[Phase] = field(default_factory=list)
+    # Title and message of errors already reported on an operation.
+    operation_errors: set[tuple[str, str]] = field(default_factory=set)
 
     def execute(self, engine: EngineContext) -> EventGenerator:
         """Execute all phases in sequence."""
@@ -196,7 +198,12 @@ class ExecutionPlan:
                     for event in self._run_phase(engine, phase):
                         if isinstance(event, events.ScenarioFinished):
                             executed += 1
-                        elif isinstance(event, events.PhaseFinished) and event.status == Status.SKIP:
+                        elif (
+                            isinstance(event, events.PhaseFinished)
+                            and event.status == Status.SKIP
+                            # Requests went out; a later cycle may still reach operations its checks apply to.
+                            and phase.skip_reason is not PhaseSkipReason.NO_CHECKS_RAN
+                        ):
                             idle.append(phase)
                         yield event
                     if not engine.is_interrupted:
@@ -248,7 +255,15 @@ class ExecutionPlan:
         yield events.PhaseStarted(phase=phase, payload=payload, operations=only)
         engine.reserve_time(self._time_to_reserve_after(phase, engine))
         if phase.should_execute(engine):
-            yield from run.execute(engine, phase, only=only)
+            for event in run.execute(engine, phase, only=only):
+                if isinstance(event, events.NonFatalError):
+                    key = (event.info.title, event.info.message)
+                    if event.related_to_operation:
+                        self.operation_errors.add(key)
+                    # Skip run-level errors already shown on an operation.
+                    elif key in self.operation_errors:
+                        continue
+                yield event
         else:
             if engine.has_reached_the_failure_limit:
                 phase.skip_reason = PhaseSkipReason.FAILURE_LIMIT_REACHED

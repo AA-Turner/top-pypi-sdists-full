@@ -1,12 +1,11 @@
-# spectrogram — hand-owned c_dep: a stream of any-size chunks in, rows of
-# nfft-bin spectra out, one every hop samples (docs/design/spectrogram.md).
+# spectrogram — a stream of any-size chunks in, rows of nfft-bin spectra out,
+# one every hop samples (docs/design/spectrogram.md).
 #
-# A c_dep rather than a jm object because it has no Python face yet, and jm
-# cannot declare an object without generating one: the binding (#1894 slice
-# 3b) waits on just-makeit#2152 (`out_cols`), and moves this component to an
-# objects/spectrogram.toml then. Until it does, jm apply only emits the
-# add_subdirectory for this dir (listed in [project].c_deps); this file is
-# hand-maintained, and the root CMakeLists.txt wires the core into libdoppler.
+# A jm object of the spectral module (objects/spectrogram.toml): jm emits this
+# dir's add_subdirectory and wires the core into libdoppler from the root
+# CMakeLists.txt, and generates the Python binding. This file stays
+# hand-written: it builds the core and its C test and bench (the example
+# is native/examples/CMakeLists.txt's), and the composition below is why.
 #
 # It composes, and re-implements none of: PSD's per-frame kernel (psd_core,
 # and through it fft_core / spectral_core / acc_trace_core) and the ring's
@@ -23,8 +22,11 @@ target_link_libraries(spectrogram_core PUBLIC
 
 # An OBJECT library hands its own objects to what links it, not those of the
 # OBJECT libraries it links in turn, so every executable names the whole chain.
+# The generated symbols table (test_spectrogram_symbols.c) names every function
+# the Python binding calls; linking it makes an undefined one fail the build.
 add_executable(test_spectrogram_core
-    ${CMAKE_SOURCE_DIR}/native/tests/test_spectrogram_core.c)
+    ${CMAKE_SOURCE_DIR}/native/tests/test_spectrogram_core.c
+    ${CMAKE_SOURCE_DIR}/native/tests/test_spectrogram_symbols.c)
 target_link_libraries(test_spectrogram_core PRIVATE
     spectrogram_core psd_core fft_core spectral_core acc_trace_core
     f32_buffer_core dp_interrupt_guard_core ${DP_MATH_LIBRARY})
@@ -33,8 +35,8 @@ target_include_directories(test_spectrogram_core PRIVATE
     ${CMAKE_SOURCE_DIR}/native/tests)
 add_test(NAME test_spectrogram_core COMMAND test_spectrogram_core)
 
-# The benchmark. Hand-registered because `spectrogram` is a c_dep and not one
-# of jm's components, so jm generates no target for it.
+# The benchmark. Hand-registered because this file is hand-written (above),
+# so jm generates no bench target for the object.
 add_executable(bench_spectrogram_core
     ${CMAKE_SOURCE_DIR}/native/benchmarks/bench_spectrogram_core.c)
 target_link_libraries(bench_spectrogram_core PRIVATE

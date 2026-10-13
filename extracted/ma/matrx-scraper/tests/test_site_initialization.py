@@ -29,6 +29,12 @@ from matrx_scraper.web_crawl.service import PreparedCrawl, WebCrawlService
 from matrx_scraper.web_crawl.sitemap_sync import SitemapSyncResult
 
 
+def _as_event(event: object) -> object:
+    """Command progress events stream as their persisted dict (with
+    `sequence`); read them like the model they were built from."""
+    return SimpleNamespace(**event) if isinstance(event, dict) else event
+
+
 def _response(url: str, status: int, body: str = "") -> httpx.Response:
     return httpx.Response(
         status,
@@ -559,6 +565,7 @@ async def test_initialization_step_failure_does_not_stop_independent_steps(
 
     repository = SimpleNamespace(
         persist_event=AsyncMock(),
+        persist_command_event=AsyncMock(),
         update_initialization=AsyncMock(),
         update_site_identity=AsyncMock(
             return_value={"written": ["description"], "skipped_existing": []}
@@ -648,9 +655,9 @@ async def test_initialization_step_failure_does_not_stop_independent_steps(
     repository.update_site_identity.assert_awaited_once()
     emitter.send_end.assert_awaited_once()
     steps = [
-        call.args[0]
+        _as_event(call.args[0])
         for call in emitter.send_data.await_args_list
-        if getattr(call.args[0], "event_type", None) == "initialize_step"
+        if getattr(_as_event(call.args[0]), "event_type", None) == "initialize_step"
     ]
     # The identity step (homepage + immediate site write) completes BEFORE any
     # concurrent step starts — the seconds-not-minutes contract.
@@ -686,9 +693,9 @@ async def test_initialization_step_failure_does_not_stop_independent_steps(
     )
     # The durable summary channel still emits the terminal site_update event.
     site_updates = [
-        call.args[0]
+        _as_event(call.args[0])
         for call in emitter.send_data.await_args_list
-        if getattr(call.args[0], "event_type", None) == "site_initialization_progress"
+        if getattr(_as_event(call.args[0]), "event_type", None) == "site_initialization_progress"
     ]
     assert any(event.step == "site_update" and event.status == "ok" for event in site_updates)
 
@@ -718,6 +725,7 @@ async def test_initialization_records_root_fetch_failure_once_and_skips_dependen
     )
     repository = SimpleNamespace(
         persist_event=AsyncMock(),
+        persist_command_event=AsyncMock(),
         update_initialization=AsyncMock(),
         fail_session=AsyncMock(),
     )
@@ -758,9 +766,9 @@ async def test_initialization_records_root_fetch_failure_once_and_skips_dependen
     await service.run_initialize(emitter, prepared)
 
     events = [
-        call.args[0]
+        _as_event(call.args[0])
         for call in emitter.send_data.await_args_list
-        if getattr(call.args[0], "event_type", None) == "initialize_step"
+        if getattr(_as_event(call.args[0]), "event_type", None) == "initialize_step"
     ]
     assert [(event.step, event.status) for event in events] == [
         ("identity", "started"),

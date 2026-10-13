@@ -18,13 +18,40 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from doppler.specan.engine import SpecanEngine
+    from doppler.specan.source import Source
 
 
-def _next_power_of_two(n: int) -> int:
-    p = 1
-    while p < n:
-        p <<= 1
-    return p
+# Warm up, then keep n_frames; the handshake is engine.step's.
+def collect_frames(
+    engine: SpecanEngine,
+    source: Source,
+    n_frames: int,
+    warmup: int,
+) -> list[dict]:
+    frames: list[dict] = []
+    warmed = 0
+    while len(frames) < n_frames:
+        frame = engine.step(source)
+        if frame is None:
+            continue
+        if warmed < warmup:
+            warmed += 1
+            continue
+        frames.append(
+            {
+                "db": [round(v, 1) for v in frame.db],
+                "fft_size": frame.fft_size,
+                "fs_out": frame.fs_out,
+                "center_freq": frame.center_freq,
+                "span": frame.span,
+                "rbw": round(frame.rbw, 2),
+            }
+        )
+    return frames
 
 
 def record(
@@ -104,32 +131,7 @@ def record(
     )
     engine = SpecanEngine(cfg)
 
-    frames: list[dict] = []
-    warmed = 0
-    block = 4096
-
-    while len(frames) < n_frames:
-        iq, fs, cf = source.read(block)
-        frame = engine.process(iq, fs, cf)
-        if frame is None:
-            continue
-        # Notify source of actual FFT size on first frame
-        if warmed == 0:
-            source.set_fft_size(frame.fft_size)
-        if warmed < warmup:
-            warmed += 1
-            continue
-        frames.append(
-            {
-                "db": [round(v, 1) for v in frame.db],
-                "fft_size": frame.fft_size,
-                "fs_out": frame.fs_out,
-                "center_freq": frame.center_freq,
-                "span": frame.span,
-                "rbw": round(frame.rbw, 2),
-            }
-        )
-
+    frames = collect_frames(engine, source, n_frames, warmup)
     source.close()
     engine.close()
     return frames

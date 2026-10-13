@@ -10,6 +10,7 @@ held to it here and in tests/test_pi_daemon_profile.py.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -48,7 +49,10 @@ def _make_dry_run(target: str) -> str:
 def test_the_makefile_skill_syncs_expand_to_the_profiles():
     for target in ("sync-plugin-skills", "sync-pi-skills"):
         assert f"for s in {' '.join(PROFILES['full'])}; do" in _make_dry_run(target), target
-    copied = [s for s in PROFILES["daemon"] if s != "probe"]
+    hand_kept = re.search(r"^DAEMON_HAND_KEPT := (.+)$", (AGENT / "Makefile").read_text(), re.MULTILINE)
+    assert hand_kept, "the Makefile no longer declares DAEMON_HAND_KEPT"
+    assert set(hand_kept.group(1).split()) <= set(PROFILES["daemon"])
+    copied = [s for s in PROFILES["daemon"] if s not in hand_kept.group(1).split()]
     assert f"for s in {' '.join(copied)}; do" in _make_dry_run("sync-daemon-plugin")
 
 

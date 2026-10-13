@@ -24,7 +24,7 @@ class Choice(UniversalBaseModel):
 
     logprobs: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
-    Token log probabilities when supported (`sarvam-105b`, `gemma4`). Always `null` on `glm5.3` and `deepseekv4-flash`, which don't support this field.
+    Token log probabilities when supported (`sarvam-105b`, `gemma4`). Always `null` on `glm5.3` and `deepseekv4.1-flash`, which don't support this field.
     """
 
     message: ChatCompletionResponseMessage

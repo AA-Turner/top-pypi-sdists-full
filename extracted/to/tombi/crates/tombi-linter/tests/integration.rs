@@ -1,0 +1,74 @@
+#[path = "integration/additional_properties_branch_keys_test_schema.rs"]
+mod additional_properties_branch_keys_test_schema;
+#[path = "integration/adjacent_applicators_test_schema.rs"]
+mod adjacent_applicators_test_schema;
+#[path = "integration/anchor_dynamic_ref_test_schema.rs"]
+mod anchor_dynamic_ref_test_schema;
+#[path = "integration/array_const_enum_test_schema.rs"]
+mod array_const_enum_test_schema;
+#[path = "integration/cargo_schema.rs"]
+mod cargo_schema;
+#[path = "integration/contains_test_schema.rs"]
+mod contains_test_schema;
+#[path = "integration/dependencies_strict_mode_test_schema.rs"]
+mod dependencies_strict_mode_test_schema;
+#[path = "integration/dependencies_test_schema.rs"]
+mod dependencies_test_schema;
+#[path = "integration/dependent_required_test_schema.rs"]
+mod dependent_required_test_schema;
+#[path = "integration/dependent_schemas_test_schema.rs"]
+mod dependent_schemas_test_schema;
+#[path = "integration/format_annotation_test_schema.rs"]
+mod format_annotation_test_schema;
+#[path = "integration/issue_1895_rustfmt_like_schema.rs"]
+mod issue_1895_rustfmt_like_schema;
+#[path = "integration/issue_2191_validation_vocabulary.rs"]
+mod issue_2191_validation_vocabulary;
+#[path = "integration/issue_2210_mise_dotfiles.rs"]
+mod issue_2210_mise_dotfiles;
+#[path = "integration/json_schema_test_suite.rs"]
+mod json_schema_test_suite;
+#[path = "integration/min_max_contains_test_schema.rs"]
+mod min_max_contains_test_schema;
+#[path = "integration/non_schema.rs"]
+mod non_schema;
+#[path = "integration/not_schema.rs"]
+mod not_schema;
+#[path = "integration/numeric_bounds_test_schema.rs"]
+mod numeric_bounds_test_schema;
+#[path = "integration/other_schema.rs"]
+mod other_schema;
+#[path = "integration/prefix_items_test_schema.rs"]
+mod prefix_items_test_schema;
+#[path = "integration/pyproject_schema.rs"]
+mod pyproject_schema;
+#[path = "integration/recursive_anchor_ref_test_schema.rs"]
+mod recursive_anchor_ref_test_schema;
+#[path = "integration/recursive_defs_any_of_test_schema.rs"]
+mod recursive_defs_any_of_test_schema;
+#[path = "integration/ref_sibling_assertions.rs"]
+mod ref_sibling_assertions;
+#[path = "integration/ref_sibling_object_assertions.rs"]
+mod ref_sibling_object_assertions;
+#[path = "integration/schema_resolution_error.rs"]
+mod schema_resolution_error;
+#[path = "integration/string_format_test_schema.rs"]
+mod string_format_test_schema;
+#[path = "integration/table_const_enum_test_schema.rs"]
+mod table_const_enum_test_schema;
+#[path = "integration/tombi_schema.rs"]
+mod tombi_schema;
+#[path = "integration/tuple_items_test_schema.rs"]
+mod tuple_items_test_schema;
+#[path = "integration/unevaluated_items_test_schema.rs"]
+mod unevaluated_items_test_schema;
+#[path = "integration/unevaluated_properties_branch_additional_test_schema.rs"]
+mod unevaluated_properties_branch_additional_test_schema;
+#[path = "integration/unevaluated_properties_if_then_test_schema.rs"]
+mod unevaluated_properties_if_then_test_schema;
+#[path = "integration/unevaluated_properties_test_schema.rs"]
+mod unevaluated_properties_test_schema;
+#[path = "integration/union_best_match.rs"]
+mod union_best_match;
+#[path = "integration/untagged_union_schema.rs"]
+mod untagged_union_schema;

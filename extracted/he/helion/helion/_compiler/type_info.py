@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import ast
+import contextlib
 import dataclasses
 import functools
 import re
 import types
 from typing import TYPE_CHECKING
+from typing import Any
 from typing import TypeVar
 from typing import cast
 from unittest.mock import patch
@@ -13,12 +15,16 @@ from unittest.mock import patch
 import sympy
 import torch
 from torch.fx.experimental import proxy_tensor
+from torch.utils._python_dispatch import TorchDispatchMode
 from torch.utils._pytree import tree_map_only
+from torch.utils._sympy.functions import FloorDiv
 
 from .. import exc
 from ..autotuner.config_fragment import ConfigSpecFragment
 from ..autotuner.config_spec import BlockSizeSpec
 from ..autotuner.config_spec import NumThreadsSpec
+from ..language._decorators import _TENSOR_METHOD_REPLACEMENTS
+from ..language._decorators import get_device_func_replacement
 from ..language._decorators import is_api_func
 from ..language.stack_tensor import StackTensor
 from ..language.tile_proxy import Tile
@@ -26,8 +32,10 @@ from ..language.tile_proxy import _CheckForIndexCalls
 from .ast_extension import ExtendedAST
 from .compile_environment import AutoSize
 from .compile_environment import CompileEnvironment
+from .compile_environment import ConfigValueExpression
 from .compile_environment import FixedBlockSizeSource
 from .compile_environment import LoopSpecBlockSizeSource
+from .compile_environment import RuntimeInputSpecialization
 from .compile_environment import _symint_expr
 from .compile_environment import warning
 from .device_function import contains_only_block_size_symbols
@@ -40,11 +48,16 @@ from .variable_origin import GridOrigin
 from .variable_origin import Origin
 from .variable_origin import TensorSizeOrigin
 from .variable_origin import TensorStrideOrigin
+from .variable_origin import TileBeginOrigin
+from .variable_origin import TileEndOrigin
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from collections.abc import Iterator
     from collections.abc import Sequence
     from typing_extensions import Self
+
+    from torch._ops import OpOverload
 
     _T = TypeVar("_T")
 
@@ -54,6 +67,30 @@ regexp_allowed_host_ops: re.Pattern[str] = re.compile(
     r"like|new|broadcast|promote|view|reshape|expand|permute|strided|"
     r"transpose|contiguous|unsqueeze|squeeze|zero|rand|full|fill"
 )
+
+
+def tile_spanned_by_slice(lower: object, upper: object) -> torch.SymInt | None:
+    """The tile ``lower:upper`` spans when they are its ``begin`` and ``end``.
+
+    Such a slice indexes what the tile does, with the tile's size; as a range
+    its length would be a value only the device knows.
+    """
+    if not isinstance(lower, torch.SymInt) or not isinstance(upper, torch.SymInt):
+        return None
+    origins = HostFunction.current().expr_to_origin
+    begin = origins.get(lower._sympy_())
+    end = origins.get(upper._sympy_())
+    if (
+        begin is None
+        or end is None
+        or not isinstance(begin.origin, TileBeginOrigin)
+        or not isinstance(end.origin, TileEndOrigin)
+        or begin.origin.block_id != end.origin.block_id
+    ):
+        return None
+    block_size = CompileEnvironment.current().block_sizes[begin.origin.block_id].var
+    assert isinstance(block_size, torch.SymInt)
+    return block_size
 
 
 class TypeInfo:
@@ -87,6 +124,10 @@ class TypeInfo:
             return SymIntType(origin, value)
         if isinstance(value, torch.SymFloat):
             return SymFloatType(origin, value)
+        from ..language.distributed_ops import AsyncCopyDescriptor
+
+        if isinstance(value, AsyncCopyDescriptor):
+            return AsyncCopyDescriptorType(origin=origin, element_types={})
         if type(value) in (int, float, bool, type(None), range):
             return LiteralType(origin, value)
         if type(value) in (str, torch.dtype, torch.device):
@@ -290,6 +331,33 @@ class TypeInfo:
         return self.contains_type((TensorType, TensorAttributeType))
 
 
+def _is_scaled_block_extent(expr: sympy.Basic) -> bool:
+    """A tile width scaled only by positive integer constants.
+
+    Preserve the relation needed by unpack/reshape/dot without exposing
+    partition counts (division by a block size) to singleton specialization.
+    The caller additionally requires a bounded slice and block-only symbols.
+    """
+    if isinstance(expr, sympy.Symbol):
+        return True
+    if isinstance(expr, sympy.Mul):
+        coefficient, extent = expr.as_coeff_Mul()
+        return (
+            coefficient.is_Integer is True
+            and coefficient > 0
+            and coefficient != 1
+            and _is_scaled_block_extent(extent)
+        )
+    if isinstance(expr, FloorDiv):
+        extent, divisor = expr.args
+        return (
+            divisor.is_Integer is True
+            and divisor > 0
+            and _is_scaled_block_extent(extent)
+        )
+    return False
+
+
 class TensorType(TypeInfo):
     fake_value: torch.Tensor
 
@@ -302,16 +370,11 @@ class TensorType(TypeInfo):
             )
 
     def __str__(self) -> str:
+        env = CompileEnvironment.current()
         shape: list[str] = []
         for s in self.fake_value.size():
             if isinstance(s, torch.SymInt):
-                shape.append(
-                    str(
-                        s._sympy_().xreplace(
-                            CompileEnvironment.current().debug_shape_renames
-                        )
-                    )
-                )
+                shape.append(env.sympy_debug(s._sympy_()))
             else:
                 shape.append(str(s))
         dtype = self.fake_value.dtype
@@ -324,6 +387,11 @@ class TensorType(TypeInfo):
         if origin.is_host():
             warning(exc.TensorOperationInWrapper)
         if isinstance(op, ast.Not):
+            # Host code runs as Python, where PyTorch raises this itself.
+            if origin.is_device() and tensor_may_have_many_elements(self.fake_value):
+                raise exc.TypeInferenceError(
+                    f"Boolean value of {self!s} with more than one value is ambiguous"
+                )
             return SymBoolType.new_unbacked(origin)
         try:
             return TypeInfo.from_example(_eval_unary(op, self.fake_value), origin)
@@ -364,19 +432,36 @@ class TensorType(TypeInfo):
                 size = self.fake_value.size(inputs_consumed)
                 inputs_consumed += 1
 
+                tile = tile_spanned_by_slice(slice_obj.start, slice_obj.stop)
+                if tile is not None and slice_obj.step in (None, 1):
+                    output_sizes.append(tile)
+                    continue
+
                 # For slices with steps, we need to calculate the output size differently
                 output_size = compute_slice_size(slice_obj, size)
 
                 if self.origin.is_device():
                     output_sizes.append(output_size)
-                elif output_size != 1:
-                    # If all symbols in output_size are block size symbols, we reuse them
+                elif not env.is_singleton_size(output_size):
+                    # Explicit tile windows must retain their block-size
+                    # algebra (e.g. packed loads followed by reshape/dot).
+                    # Full/stepped allocation slices and partition counts keep
+                    # a reduction variable: their expression can have hint 1
+                    # while another config needs several elements, so exposing
+                    # it directly can specialize contiguity to a singleton.
                     if isinstance(output_size, torch.SymInt):
                         expr = output_size._sympy_()
                         if (
                             isinstance(expr, sympy.Expr)
                             and expr.free_symbols
                             and contains_only_block_size_symbols(expr)
+                            and (
+                                isinstance(expr, sympy.Symbol)
+                                or (
+                                    slice_obj.stop is not None
+                                    and _is_scaled_block_extent(expr)
+                                )
+                            )
                         ):
                             output_sizes.append(output_size)
                             continue
@@ -447,11 +532,17 @@ class TensorType(TypeInfo):
                 rhs_rank = value.fake_value.ndim
                 # Allow scalar tensors (rank 0) to be assigned to any rank (broadcasts)
                 if rhs_rank != 0 and lhs_rank != rhs_rank:
-                    raise exc.RankMismatch(
-                        lhs_rank,
-                        rhs_rank,
-                        f"LHS shape: {tuple(lhs_shape)}, RHS shape: {tuple(value.fake_value.shape)}",
+                    env = CompileEnvironment.current()
+                    can_squeeze = rhs_rank > lhs_rank and all(
+                        env.known_equal(value.fake_value.size(d), 1)
+                        for d in range(rhs_rank - lhs_rank)
                     )
+                    if not can_squeeze:
+                        raise exc.RankMismatch(
+                            lhs_rank,
+                            rhs_rank,
+                            f"LHS shape: {tuple(lhs_shape)}, RHS shape: {tuple(value.fake_value.shape)}",
+                        )
             elif isinstance(value, (NumericType, LiteralType)):
                 # Allow scalar assignment to tensor (broadcasts to tensor shape)
                 pass
@@ -497,10 +588,19 @@ class TensorType(TypeInfo):
                     details=f"rank {self.fake_value.dim()} != {other.fake_value.dim()}",
                 )
             if self.fake_value.size() != other.fake_value.size():
-                raise exc.ControlFlowTensorMismatch(
-                    var=var_name,
-                    details=f"size {self.fake_value.size()} != {other.fake_value.size()}",
-                )
+                # A static size and the reduction dimension allocated for it
+                # later (e.g. by a ``:`` slice) name the same dim; compare the
+                # shapes in their block-variable form.
+                env = CompileEnvironment.current()
+                shape = env._normalize_shape_to_block_vars([*self.fake_value.size()])
+                if shape != env._normalize_shape_to_block_vars(
+                    [*other.fake_value.size()]
+                ):
+                    raise exc.ControlFlowTensorMismatch(
+                        var=var_name,
+                        details=f"size {self.fake_value.size()} != {other.fake_value.size()}",
+                    )
+                return TensorType(other.origin, self.fake_value.new_empty(shape))
             # TODO(jansel): handle symbolic shapes
             # TODO(jansel): stride check?
             return TensorType(other.origin, torch.empty_like(self.fake_value))
@@ -554,6 +654,18 @@ class TensorAttributeType(TypeInfo):
         self, args: tuple[TypeInfo, ...], kwargs: dict[str, TypeInfo], origin: Origin
     ) -> TypeInfo:
         attr = self.attr()
+        if (
+            origin.is_device()
+            and attr in _TENSOR_METHOD_REPLACEMENTS
+            and (
+                replacement := get_device_func_replacement(getattr(torch.Tensor, attr))
+            )
+        ):
+            result = CallableType(origin, replacement).propagate_call(
+                (self.tensor, *args), kwargs, origin
+            )
+            assert result is not None
+            return result
         if attr in {"dim", "ndimension"} and not (args or kwargs):
             return TypeInfo.from_example(self.tensor.fake_value.ndim, origin)
         stride_dim_kwarg = attr == "stride" and not args and set(kwargs) == {"dim"}
@@ -625,9 +737,17 @@ class TensorAttributeType(TypeInfo):
         proxy_kwargs = {k: v.tree_map(_to_proxy) for k, v in kwargs.items()}
         try:
             fn = getattr(self.tensor.fake_value, attr)
-            output_type = TypeInfo.from_example(
-                _CheckForIndexCalls.retry_call(fn, proxy_args, proxy_kwargs), origin
-            )
+            result = _CheckForIndexCalls.retry_call(fn, proxy_args, proxy_kwargs)
+            if origin.is_host():
+                # ``Tensor.new_*`` allocate like the ``torch.*`` factories;
+                # the receiver is the method's first argument.
+                CompileEnvironment.current().register_tensor_factory_layout(
+                    getattr(torch.Tensor, attr, None),
+                    (self.tensor.fake_value, *proxy_args),
+                    proxy_kwargs,
+                    result,
+                )
+            output_type = TypeInfo.from_example(result, origin)
         except exc.Base:
             raise
         except Exception as e:
@@ -710,6 +830,43 @@ class StringType(TypeInfo):
         return "str"
 
 
+def _iter_body_excluding_nested_defs(node: ast.AST) -> Iterator[ast.AST]:
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            continue
+        yield child
+        yield from _iter_body_excluding_nested_defs(child)
+
+
+class NestedFunctionType(TypeInfo):
+    func_node: ast.FunctionDef
+
+    def __init__(
+        self,
+        origin: Origin,
+        func_node: ast.FunctionDef,
+    ) -> None:
+        super().__init__(origin)
+        self.func_node = func_node
+
+    def __str__(self) -> str:
+        return f"NestedFunctionType({self.func_node.name})"
+
+    def find_effective_return(self) -> ast.Return | None:
+        func_node = self.func_node
+        for stmt in func_node.body:
+            for desc in _iter_body_excluding_nested_defs(stmt):
+                if isinstance(desc, ast.Return):
+                    raise exc.StatementNotSupported(
+                        f"Early return inside control flow is not supported "
+                        f"in nested function '{func_node.name}'"
+                    )
+        for stmt in func_node.body:
+            if isinstance(stmt, ast.Return):
+                return stmt
+        return None
+
+
 class ConfigFragmentType(LiteralType):
     """TypeInfo for config fragments are treated as constant literals during compilation."""
 
@@ -719,6 +876,70 @@ class ConfigFragmentType(LiteralType):
     def __init__(self, origin: Origin, fragment: ConfigSpecFragment) -> None:
         assert isinstance(fragment, ConfigSpecFragment)
         super().__init__(origin, fragment)
+
+
+def _starts_symmetric_allocation(values: Sequence[object]) -> bool:
+    """Runtime guard: get_remote_tensors views start at the allocation base."""
+    (local,) = values
+    if cast("torch.Tensor", local).storage_offset() != 0:
+        raise exc.InvalidAPIUsage(
+            "get_remote_tensors views start at the symmetric allocation, so the "
+            "tensor passed to it must too"
+        )
+    return True
+
+
+def _offset_expr(tensor: torch.Tensor) -> object:
+    """A tensor's storage offset as an int or a sympy expression."""
+    offset = tensor.storage_offset()
+    return offset if isinstance(offset, int) else _symint_expr(offset)
+
+
+class _PeerViewCapture(TorchDispatchMode):
+    """Record get_remote_tensors views, also when a host helper calls it."""
+
+    def __torch_dispatch__(
+        self,
+        func: OpOverload,
+        types: tuple[type, ...],
+        args: tuple[Any, ...] = (),
+        kwargs: dict[str, Any] | None = None,
+    ) -> object:
+        result = func(*args, **(kwargs or {}))
+        if func is torch.ops.symm_mem.get_remote_tensors.default:
+            local, group_name = args
+            env = CompileEnvironment.current()
+            storage = local.untyped_storage()
+            owners = [t for t in env.input_sources if t.untyped_storage() == storage]
+            source = env.tensor_input_source(owners[0]) if len(owners) == 1 else None
+            # Peer views start at the allocation base, as does the guarded owner;
+            # static fakes drop input offsets, symbolic ones are exact.
+            mapped = (
+                group_name == env.process_group_name
+                and source is not None
+                and _offset_expr(local) in (0, _offset_expr(owners[0]))
+                and local.is_contiguous()
+            )
+            if mapped:
+                env.register_runtime_input_specialization(
+                    f"symmetric_allocation_base:{source!r}",
+                    RuntimeInputSpecialization(
+                        sources=(source,),
+                        classifier_identity="symmetric_allocation_base",
+                        classifier=_starts_symmetric_allocation,
+                        reusable_tensor_properties=frozenset(
+                            ("data_ptr", "storage_span")
+                        ),
+                    ),
+                )
+            HostFunction.current().compiler_state.peer_views.update(
+                (
+                    peer.untyped_storage(),
+                    (local.untyped_storage(), rank) if mapped else None,
+                )
+                for rank, peer in enumerate(result)
+            )
+        return result
 
 
 class CallableType(LiteralType):
@@ -751,10 +972,6 @@ class CallableType(LiteralType):
             return LiteralType(origin, None)
         if self.value in (torch.nonzero, torch.Tensor.nonzero) and origin.is_device():
             raise exc.DataDependentOutputShapeNotSupported(op_desc="torch.nonzero")
-        if self.value in (torch.chunk, torch.Tensor.chunk) and origin.is_device():
-            raise exc.UnsupportedSplitOperation(op="torch.chunk")
-        if self.value in (torch.unbind, torch.Tensor.unbind) and origin.is_device():
-            raise exc.UnsupportedSplitOperation(op="torch.unbind")
         if self.value in (torch.split, torch.Tensor.split) and origin.is_device():
             raise exc.UnsupportedSplitOperation(op="torch.split")
         if (
@@ -809,20 +1026,56 @@ class CallableType(LiteralType):
             for x in proxy_args
         ):
             if self.value in self._new_symint_on_host_fns() and origin.is_host():
-                return SymIntType.new_unbacked(origin)
+                result = SymIntType.new_unbacked(origin)
+                operation = self._config_value_operation()
+                derived_args: list[int | str | ConfigValueExpression] = []
+                for arg in proxy_args:
+                    if isinstance(arg, int):
+                        derived_args.append(arg)
+                    elif isinstance(arg, torch.SymInt):
+                        expr = _symint_expr(arg)
+                        if expr is None:
+                            break
+                        expression = env.config_value_expressions.get(expr)
+                        if expression is None:
+                            break
+                        derived_args.append(expression)
+                    else:
+                        break
+                else:
+                    result_expr = _symint_expr(result.value)
+                    if (
+                        operation is not None
+                        and not proxy_kwargs
+                        and result_expr is not None
+                    ):
+                        env.config_value_expressions[result_expr] = (
+                            ConfigValueExpression(operation, tuple(derived_args))
+                        )
+                return result
             if isinstance(self.value, type) and issubclass(
                 self.value, ConfigFragmentType
             ):
                 raise exc.ConfigSpecFragmentWithSymInt(args)
 
         try:
-            with patch.object(torch.SymInt, "__index__", _raise_shape_specializing):
-                output_type = TypeInfo.from_example(
-                    _CheckForIndexCalls.retry_call(
-                        self.value, proxy_args, proxy_kwargs
-                    ),
-                    origin,
+            with (
+                patch.object(torch.SymInt, "__index__", _raise_shape_specializing),
+                _PeerViewCapture()
+                if env.process_group_name is not None
+                else contextlib.nullcontext(),
+            ):
+                result = _CheckForIndexCalls.retry_call(
+                    self.value, proxy_args, proxy_kwargs
                 )
+                if origin.is_host():
+                    env.register_tensor_factory_layout(
+                        self.value,
+                        proxy_args,
+                        proxy_kwargs,
+                        result,
+                    )
+                output_type = TypeInfo.from_example(result, origin)
             output_type.tree_map(warn_wrong_device)
             if (
                 origin.is_host()
@@ -872,6 +1125,23 @@ class CallableType(LiteralType):
             pass
         return cast("dict[object, None]", dict.fromkeys(fns))
 
+    def _config_value_operation(self) -> str | None:
+        from .._utils import cdiv
+        from .._utils import next_power_of_2
+
+        if self.value in (cdiv, next_power_of_2):
+            return self.value.__name__
+        try:
+            import triton as _triton
+
+            if self.value is _triton.cdiv:
+                return "cdiv"
+            if self.value is _triton.next_power_of_2:
+                return "next_power_of_2"
+        except ImportError:
+            pass
+        return None
+
 
 def _raise_shape_specializing(*args: object) -> None:
     raise exc.ShapeSpecializingCall
@@ -908,7 +1178,15 @@ class NumericType(TypeInfo):
         raise NotImplementedError
 
     def __str__(self) -> str:
-        return f"{type(self).__name__}({self.value})"
+        env = CompileEnvironment.current()
+        # Preserve the existing debug/golden rendering except while semantic
+        # fingerprinting supplies canonical symbolic-shape names.
+        value = (
+            env.sympy_debug(self.value._sympy_())
+            if env.has_debug_shape_rename_override
+            else self.value
+        )
+        return f"{type(self).__name__}({value})"
 
     def proxy(self) -> torch.SymInt | torch.SymBool | torch.SymFloat | int:
         return self.value
@@ -1144,14 +1422,27 @@ class TileIndexType(TypeInfo):
             if isinstance(numel, torch.SymInt):
                 maybe_bounded_by = _detect_outer_block_bound(numel, env)
                 if maybe_bounded_by is not None:
+                    bounded_by = maybe_bounded_by
                     try:
                         outer_spec = env.config_spec.block_sizes.block_id_lookup(
                             maybe_bounded_by
                         )
                     except KeyError:
-                        pass
+                        # A fixed outer tile has no autotuner BlockSizeSpec, but it
+                        # still bounds this inner loop. Retain the relationship and
+                        # use the fixed source's value as the search ceiling.
+                        if 0 <= maybe_bounded_by < len(env.block_sizes):
+                            outer_info = env.block_sizes[maybe_bounded_by]
+                            source = outer_info.block_size_source
+                            if isinstance(source, FixedBlockSizeSource):
+                                try:
+                                    outer_max = max(
+                                        1,
+                                        int(env.size_hint(source.value)),
+                                    )
+                                except Exception:
+                                    outer_max = None
                     else:
-                        bounded_by = maybe_bounded_by
                         outer_max = outer_spec.max_size
             env.config_spec.block_sizes.append(
                 BlockSizeSpec(
@@ -1572,6 +1863,68 @@ class StackTensorType(ClassType):
         )
 
 
+class AsyncCopyDescriptorType(ClassType):
+    """Type of a Helion asynchronous remote-copy handle."""
+
+    # pyrefly: ignore [bad-override]
+    def proxy(self) -> object:
+        from ..language.distributed_ops import AsyncCopyDescriptor
+
+        return AsyncCopyDescriptor()
+
+    def propagate_attribute(self, attr: str, origin: AttributeOrigin) -> TypeInfo:
+        if attr in ("start", "wait", "wait_send", "wait_recv"):
+            return _AsyncCopyDescriptorMethodType(origin, self, attr)
+        return super().propagate_attribute(attr, origin)
+
+
+class _AsyncCopyDescriptorMethodType(TypeInfo):
+    descriptor_type: AsyncCopyDescriptorType
+    method_name: str
+
+    def __init__(
+        self,
+        origin: Origin,
+        descriptor_type: AsyncCopyDescriptorType,
+        method_name: str,
+    ) -> None:
+        super().__init__(origin)
+        self.descriptor_type = descriptor_type
+        self.method_name = method_name
+
+    def propagate_call(
+        self, args: tuple[TypeInfo, ...], kwargs: dict[str, TypeInfo], origin: Origin
+    ) -> TypeInfo:
+        if args or kwargs:
+            raise exc.TypeInferenceError(
+                f"AsyncCopyDescriptor.{self.method_name}() takes no arguments"
+            )
+        from ..language.distributed_ops import start_async_remote_copy_descriptor
+        from ..language.distributed_ops import wait_async_remote_copy
+        from ..language.distributed_ops import wait_recv_async_remote_copy
+        from ..language.distributed_ops import wait_send_async_remote_copy
+
+        descriptor_ops = {
+            "start": start_async_remote_copy_descriptor,
+            "wait": wait_async_remote_copy,
+            "wait_send": wait_send_async_remote_copy,
+            "wait_recv": wait_recv_async_remote_copy,
+        }
+        result = CallableType(origin, descriptor_ops[self.method_name]).propagate_call(
+            (self.descriptor_type,), {}, origin
+        )
+        assert result is not None
+        return result
+
+    def merge(self, other: TypeInfo, var_name: str | None = None) -> TypeInfo:
+        if (
+            isinstance(other, _AsyncCopyDescriptorMethodType)
+            and self.method_name == other.method_name
+        ):
+            return self
+        return super().merge(other, var_name=var_name)
+
+
 class SliceType(CollectionType):
     # pyrefly: ignore [bad-override]
     element_types: slice
@@ -1622,8 +1975,20 @@ class SliceType(CollectionType):
         )
 
 
+def tensor_may_have_many_elements(tensor: torch.Tensor) -> bool:
+    """Whether ``tensor`` is not known to hold exactly one element (a tile's
+    extent is a block size, which may exceed 1)."""
+    env = CompileEnvironment.current()
+    return not all(env.known_equal(size, 1) for size in tensor.shape)
+
+
 def _eval_unary(op: ast.unaryop, value: object) -> object:
     if isinstance(op, ast.Not):
+        # ``not`` would call bool() and guard a symbolic value on its hint.
+        if isinstance(value, torch.SymBool):
+            return torch.sym_not(value)
+        if isinstance(value, (torch.SymInt, torch.SymFloat)):
+            return value == 0
         return not value
     if isinstance(op, ast.UAdd):
         # pyrefly: ignore [unsupported-operation]
@@ -1719,3 +2084,7 @@ def _to_proxy(arg: TypeInfo) -> object:
 
 class BarrierResultType(LiteralType):
     """Marker type returned by hl.barrier() to signal a phase boundary."""
+
+
+class PdlResultType(LiteralType):
+    """Marker type returned by the hl.pdl_* ops; the value names the op."""

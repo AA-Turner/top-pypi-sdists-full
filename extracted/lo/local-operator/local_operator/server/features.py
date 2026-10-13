@@ -257,6 +257,18 @@ def feature_flags() -> dict[str, Any]:
         # attempting an operation whose failure it cannot classify,
         # while everything else keeps working and is not gated on this.
         "radient_org": 1,
+        # Agent messages (Team Bridge, RFC §5.4): the desktop routes over
+        # `/v1/desktop/team-bridge/...` -- status, settings read/write and the
+        # allowlist. Its OWN key rather than a bump, by the rule `radient_org`
+        # states above: a renderer that does not see it is talking to a
+        # backend whose messaging routes do not exist, so the Inbox/settings
+        # surfaces must say "update the backend" instead of mounting an
+        # affordance whose every call 404s. NOTHING is gated on the number
+        # itself: with the server dark (BRIDGE_ENABLED off) the routes answer
+        # 503 `messaging_unavailable`, which the status route renders as a
+        # state, not an error -- the capability advertises that the routes
+        # EXIST, never that the deployment carries traffic.
+        "team_bridge": 1,
         # Session code memory: GET/POST/PATCH/DELETE on
         # `/v1/desktop/sessions/{id}/variables`, reading and writing a
         # session's LIVE eval-kernel namespace by session id. Its OWN key
@@ -341,6 +353,20 @@ def feature_flags() -> dict[str, Any]:
         # key exists so the NEW renderer can tell whether asking is worthwhile
         # before it sends a flag the old backend ignores.
         "entry_ts": 1,
+        # Viewer opt-in: journal-index ordinals/domain, not publication seq.
+        "journal_order": 1,
+        # THE COMPLETE PEER-SOURCE CONTRACT, and a NEW key rather than a bump of
+        # `journal_order` for the rule this whole map is written to: a renderer
+        # that only knows the LOCAL journal-order negotiation must keep working
+        # against a backend whose PEER stored reads still answer today's
+        # unsupported shape, and a renderer that sends the new
+        # `peer_journal_source` query/read purposes must be able to tell whether
+        # this backend can honour them at all before it relies on per-response
+        # acknowledgment. Remote activation requires this feature AND the new
+        # query AND new-viewer support AND the authenticated owner's per-response
+        # ACK; any one missing keeps the legacy path. Nothing user-visible changes
+        # on an old renderer, which sends no new query and sees today's bytes.
+        "peer_journal_source": 1,
         # THE OPEN FRAME. `open_frame=1` on `GET .../{id}` (the snapshot),
         # `GET .../{id}/history` and `GET .../{id}/events` asks for the page in
         # the unit a surface PAINTS: `limit` counts paintable rows, the cut

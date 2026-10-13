@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "langgraph-checkpoint-sqlite"
-version = "3.1.1"
+version = "3.1.2"
 description = "Library with a SQLite implementation of LangGraph checkpoint saver."
 authors = []
 requires-python = ">=3.10"
@@ -12,7 +12,7 @@ readme = "README.md"
 license = "MIT"
 license-files = ['LICENSE']
 dependencies = [
-    "langgraph-checkpoint>=4.1.0,<5.0.0",
+    "langgraph-checkpoint>=4.3.0,<5.0.0",
     "aiosqlite>=0.20",
     "sqlite-vec>=0.1.6",
 ]
@@ -30,6 +30,7 @@ test = [
   "pytest-mock",
   "pytest-watcher",
   "langgraph-checkpoint",
+  "langgraph-checkpoint-conformance",
   "pytest-retry>=1.7.0",
 ]
 lint = [
@@ -47,6 +48,7 @@ default-groups = ['dev']
 
 [tool.uv.sources]
 langgraph-checkpoint = { path = "../checkpoint", editable = true }
+langgraph-checkpoint-conformance = { path = "../checkpoint-conformance", editable = true }
 
 [tool.hatch.build.targets.wheel]
 include = ["langgraph"]
@@ -62,6 +64,8 @@ lint.select = [
   "UP", # pyupgrade
   "B",  # flake8-bugbear
   "I",  # isort
+  "PLC0415",  # import-outside-top-level
+  "RUF100",  # unused noqa directive
   "UP", # pyupgrade
 ]
 lint.ignore = ["E501", "B008"]

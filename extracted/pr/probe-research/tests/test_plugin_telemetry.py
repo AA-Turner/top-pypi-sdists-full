@@ -369,7 +369,13 @@ def test_routes_json_wires_exactly_the_decided_events() -> None:
     # start per file edit, bought knowingly.
     [edits] = [g for g in hooks["PreToolUse"] if g["matcher"] == "^(Write|Edit|MultiEdit|NotebookEdit)$"]
     assert edits["hooks"] == pre["hooks"]
-    assert hooks["PreToolUse"].index(edits) == len(hooks["PreToolUse"]) - 1, "new groups go last: indexes are part of the trust key"
+    # The papers hook (2026-10-12): a paper-type WebSearch held once for
+    # `probe paper find`, inert outside the daemon profile. Appended after the
+    # edits group: new groups go last, never between existing ones.
+    [papers] = [g for g in hooks["PreToolUse"] if g["matcher"] == "^WebSearch$"]
+    assert "papers_hook.py" in papers["hooks"][0]["command"]
+    order = [g["matcher"] for g in hooks["PreToolUse"]]
+    assert order[-2:] == [edits["matcher"], papers["matcher"]], "new groups go last: indexes are part of the trust key"
     prompt_hooks = hooks["UserPromptSubmit"][0]["hooks"]
     assert "tracking_guard.py" in prompt_hooks[0]["command"]
     assert all(h["timeout"] == 5 for h in prompt_hooks)

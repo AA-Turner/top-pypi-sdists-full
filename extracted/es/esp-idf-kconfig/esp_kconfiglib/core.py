@@ -1416,6 +1416,7 @@ class Kconfig(object):
                 match = set_match(line)
                 if match:
                     name, val = match.groups()
+                    val = _strip_inline_comment(val)
                     sym = get_sym(name)
                     if not sym and in_deprecated_block:
                         sym = _create_new_deprecated_symbol(name, val)
@@ -4230,6 +4231,8 @@ class Kconfig(object):
                                 f"for string symbol {sym.name}. Will be required in the future."
                             )
 
+                    elif sym.orig_type == HEX and _is_unprefixed_hex_literal(default):
+                        _note_unprefixed_hex_literal(loc, default.name)
                     elif not num_ok(default, sym.orig_type):  # INT/HEX/FLOAT
                         log.note(
                             f"{loc}: "
@@ -4255,6 +4258,11 @@ class Kconfig(object):
                     )
                 else:
                     for low, high, _ in sym.ranges:
+                        if sym.orig_type == HEX:
+                            if _is_unprefixed_hex_literal(low):
+                                _note_unprefixed_hex_literal(loc, low.name)
+                            if _is_unprefixed_hex_literal(high):
+                                _note_unprefixed_hex_literal(loc, high.name)
                         if not num_ok(low, sym.orig_type) or not num_ok(high, sym.orig_type):
                             log.note(
                                 f"{loc}: "
@@ -7632,6 +7640,17 @@ def _is_base_n(s, n):
         return False
 
 
+def _strip_inline_comment(val: str) -> str:
+    """
+    Strip a trailing inline "# comment" from an unquoted sdkconfig assignment value.
+    Quoted string values are left untouched, as they are delimited separately and may
+    legitimately contain "#".
+    """
+    if val.startswith('"'):
+        return val
+    return re.split(r"\s+#", val, maxsplit=1)[0].rstrip()
+
+
 def _looks_like_number(s):
     """
     Return True if the string 's' looks like a number.
@@ -8299,6 +8318,22 @@ STRING = _T_STRING
 INT = _T_INT
 HEX = _T_HEX
 FLOAT = _T_FLOAT
+
+# A constant symbol whose name is only hex digits, with no 0x/0X prefix (e.g. "1a2b", "10").
+_UNPREFIXED_HEX_RE = re.compile(r"^[0-9a-fA-F]+$")
+
+
+def _is_unprefixed_hex_literal(sc: "Symbol") -> bool:
+    return type(sc) is Symbol and not sc.nodes and _UNPREFIXED_HEX_RE.fullmatch(sc.name) is not None
+
+
+def _note_unprefixed_hex_literal(loc: str, token: str) -> None:
+    log.note(
+        f"{loc}: "
+        f"Deprecation notice: hex literal '{token}' without '0x' prefix detected. "
+        "In the next major version, hex literals will be required to have a '0x' prefix."
+    )
+
 
 TYPE_TO_STR = {
     UNKNOWN: "unknown",

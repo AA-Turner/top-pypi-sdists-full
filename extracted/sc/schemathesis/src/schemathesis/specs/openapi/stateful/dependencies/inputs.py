@@ -6,8 +6,9 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from schemathesis.core import media_types
-from schemathesis.core.errors import MalformedMediaType
+from schemathesis.core.errors import InvalidSchema, MalformedMediaType
 from schemathesis.core.jsonschema import maybe_resolve_bundled
+from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
 from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.jsonschema.types import JsonSchema, get_type
 from schemathesis.core.parameters import ParameterLocation
@@ -31,8 +32,8 @@ from schemathesis.specs.openapi.stateful.dependencies.resources import (
 )
 
 if TYPE_CHECKING:
-    from schemathesis.specs.openapi.adapter.parameters import OpenApiBody
-    from schemathesis.specs.openapi.schemas import APIOperation
+    from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameter
+    from schemathesis.specs.openapi.schemas import APIOperation, OpenApiSchema
 
 
 def extract_inputs(
@@ -76,6 +77,8 @@ def extract_inputs(
     for param in operation.iter_parameters():
         input_slot = _resolve_parameter_dependency(
             parameter_name=param.name,
+            parameter_schema=_parameter_schema(param),
+            parameter_types=_parameter_types(param),
             parameter_location=param.location,
             operation=operation,
             resources=resources,
@@ -122,9 +125,25 @@ def extract_inputs(
         )
 
 
+def _parameter_schema(parameter: OpenApiParameter) -> JsonSchema:
+    try:
+        return parameter.raw_schema
+    except InvalidSchema:
+        return {}
+
+
+def _parameter_types(parameter: OpenApiParameter) -> list[str]:
+    try:
+        return get_type(parameter.raw_schema)
+    except InvalidSchema:
+        return []
+
+
 def _resolve_parameter_dependency(
     *,
     parameter_name: str,
+    parameter_schema: JsonSchema,
+    parameter_types: list[str],
     parameter_location: ParameterLocation,
     operation: APIOperation,
     resources: ResourceMap,
@@ -198,7 +217,13 @@ def _resolve_parameter_dependency(
                 resources[resource_name] = resource
             field = parameter_name
     else:
-        field = _match_field(parameter_name, resource_name, resource.fields)
+        field = _prefer_string_identifier(
+            _match_field(parameter_name, resource_name, resource.fields),
+            resource,
+            parameter_name,
+            parameter_schema,
+            parameter_types,
+        )
 
     return InputSlot(
         resource=resource,
@@ -303,15 +328,22 @@ GENERIC_FIELD_NAMES = frozenset(
 )
 
 
-def _flatten_composition(schema: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+def _flatten_composition(schema: dict[str, Any], bundled: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Merge ``properties`` and ``required`` across ``allOf``/``oneOf``/``anyOf`` branches.
 
     First-seen property definition wins; required is a union across branches.
     """
     properties: dict[str, Any] = {}
     required: list[str] = []
+    seen: set[str] = set()
 
     def merge(node: dict[str, Any]) -> None:
+        reference = node.get("$ref")
+        if isinstance(reference, str) and reference not in seen:
+            seen.add(reference)
+            target = bundled.get(reference.rsplit("/", 1)[-1])
+            if isinstance(target, dict):
+                merge(target)
         node_properties = node.get("properties")
         if isinstance(node_properties, dict):
             for name, subschema in node_properties.items():
@@ -355,6 +387,7 @@ def _resolve_body_dependencies(
         return
 
     resolved = maybe_resolve_bundled(schema)
+    bundled = schema.get(BUNDLE_STORAGE_KEY, {})
 
     # For `items`, we'll inject an array with extracted resource
     items = resolved.get("items")
@@ -382,7 +415,7 @@ def _resolve_body_dependencies(
 
     # Inspect each property that could be a part of some other resource.
     # Flatten composition keywords first so bodies whose top level is allOf/oneOf/anyOf still surface their fields.
-    properties, required = _flatten_composition(resolved)
+    properties, required = _flatten_composition(resolved, bundled)
     if not properties:
         return
     path = operation.path
@@ -467,12 +500,13 @@ def _resolve_body_dependencies(
         )
 
     # Recursively find nested FK fields in request body
-    yield from _extract_nested_body_fk_fields(resolved, resources, path="", deferred=deferred_nested_fks)
+    yield from _extract_nested_body_fk_fields(resolved, resources, bundled, path="", deferred=deferred_nested_fks)
 
 
 def _extract_nested_body_fk_fields(
     schema: dict[str, Any],
     resources: ResourceMap,
+    bundled: dict[str, Any],
     path: str,
     max_depth: int = 5,
     deferred: list[tuple[str, str, str]] | None = None,
@@ -489,83 +523,59 @@ def _extract_nested_body_fk_fields(
     if max_depth <= 0:
         return
 
-    properties, _ = _flatten_composition(schema)
-    if not properties:
+    properties, _ = _flatten_composition(schema, bundled)
+    for property_name, subschema in properties.items():
+        if isinstance(subschema, dict):
+            current_path = f"{path}/{property_name}" if path else property_name
+            yield from _extract_container_fk_fields(subschema, resources, bundled, current_path, max_depth, deferred)
+
+
+def _extract_container_fk_fields(
+    schema: dict[str, Any],
+    resources: ResourceMap,
+    bundled: dict[str, Any],
+    path: str,
+    max_depth: int,
+    deferred: list[tuple[str, str, str]] | None,
+) -> Iterator[InputSlot]:
+    reference = schema.get("$ref")
+    if isinstance(reference, str):
+        target = bundled.get(reference.rsplit("/", 1)[-1])
+        if isinstance(target, dict) and target.get("type") == "array":
+            # Each followed reference spends depth, so an array whose items point back at it terminates.
+            if max_depth <= 1:
+                return
+            schema = target
+            max_depth -= 1
+    if schema.get("type") == "array":
+        items = schema.get("items")
+        if isinstance(items, dict):
+            yield from _extract_container_fk_fields(items, resources, bundled, f"{path}/0", max_depth, deferred)
         return
 
-    for property_name, subschema in properties.items():
+    # Composition branches may carry the actual object shape, so flatten before treating as object.
+    properties, _ = _flatten_composition(schema, bundled)
+    for name, subschema in properties.items():
         if not isinstance(subschema, dict):
             continue
+        fk_info = infer_fk_target(name)
+        if fk_info is None:
+            continue
+        nested_path = f"{path}/{name}"
+        target_resource_name, target_field, _ = fk_info
+        resource = resources.get(target_resource_name)
+        if resource is not None:
+            yield InputSlot(
+                resource=resource,
+                resource_field=target_field,
+                parameter_name=nested_path,
+                parameter_location=ParameterLocation.BODY,
+            )
+        elif deferred is not None:
+            deferred.append((target_resource_name, target_field, nested_path))
 
-        # Build the path for nested fields
-        current_path = f"{path}/{property_name}" if path else property_name
-
-        # Composition branches may carry the actual object shape, so flatten before treating as object.
-        sub_properties, _ = _flatten_composition(subschema)
-        prop_type = subschema.get("type")
-
-        if prop_type == "object" or sub_properties:
-            for nested_name, nested_schema in sub_properties.items():
-                if not isinstance(nested_schema, dict):
-                    continue
-
-                nested_path = f"{current_path}/{nested_name}"
-
-                # Check if nested field is a FK
-                fk_info = infer_fk_target(nested_name)
-                if fk_info is not None:
-                    target_resource_name, target_field, _ = fk_info
-                    resource = resources.get(target_resource_name)
-                    if resource is not None:
-                        yield InputSlot(
-                            resource=resource,
-                            resource_field=target_field,
-                            parameter_name=nested_path,
-                            parameter_location=ParameterLocation.BODY,
-                        )
-                    elif deferred is not None:
-                        deferred.append((target_resource_name, target_field, nested_path))
-                    continue
-
-                deeper_properties, _ = _flatten_composition(nested_schema)
-                if nested_schema.get("type") == "object" or deeper_properties:
-                    yield from _extract_nested_body_fk_fields(
-                        nested_schema, resources, nested_path, max_depth - 1, deferred=deferred
-                    )
-
-        elif prop_type == "array":
-            # Check array items for FK fields
-            items = subschema.get("items")
-            if isinstance(items, dict):
-                items_path = f"{current_path}/0"
-
-                items_props, _ = _flatten_composition(items)
-                for item_prop_name, item_prop_schema in items_props.items():
-                    if not isinstance(item_prop_schema, dict):
-                        continue
-
-                    item_path = f"{items_path}/{item_prop_name}"
-
-                    # Check if this item property is a FK
-                    fk_info = infer_fk_target(item_prop_name)
-                    if fk_info is not None:
-                        target_resource_name, target_field, _ = fk_info
-                        resource = resources.get(target_resource_name)
-                        if resource is not None:
-                            yield InputSlot(
-                                resource=resource,
-                                resource_field=target_field,
-                                parameter_name=item_path,
-                                parameter_location=ParameterLocation.BODY,
-                            )
-                        elif deferred is not None:
-                            deferred.append((target_resource_name, target_field, item_path))
-
-                # Recurse into array items
-                if items.get("type") == "object" or items_props:
-                    yield from _extract_nested_body_fk_fields(
-                        items, resources, items_path, max_depth - 1, deferred=deferred
-                    )
+    if properties:
+        yield from _extract_nested_body_fk_fields(schema, resources, bundled, path, max_depth - 1, deferred=deferred)
 
 
 def rebind_inherited_suffix_matches(operations: OperationMap, resources: ResourceMap) -> None:
@@ -576,7 +586,7 @@ def rebind_inherited_suffix_matches(operations: OperationMap, resources: Resourc
     Once every operation is known, the resource the parameter names wins if the API refers to it,
     and otherwise a field named after the parameter itself (`ReservationDetailProperties.reservationId`).
     """
-    produced = {output.resource.name for operation in operations.values() for output in operation.outputs}
+    produced = _produced_resource_names(operations)
     for operation in operations.values():
         for input_slot in operation.inputs:
             parameter_name = input_slot.parameter_name
@@ -615,6 +625,32 @@ def _match_field(parameter_name: str, resource_name: str, fields: list[str]) -> 
         return "id"
     # Without an `id` field, use the parameter name so peer captures reach this slot.
     return parameter_name
+
+
+def _prefer_string_identifier(
+    field: str,
+    resource: ResourceDefinition,
+    parameter_name: str,
+    parameter_schema: JsonSchema,
+    parameter_types: list[str],
+) -> str:
+    # A string parameter carries the resource's string identifier (`uuid`), not a numeric one (`id`), unless its
+    # name matches the field exactly or its `pattern` / `format` rules a UUID out.
+    if (
+        parameter_types != ["string"]
+        or naming.normalize_for_matching(parameter_name) == naming.normalize_for_matching(field)
+        or not isinstance(parameter_schema, dict)
+        or "pattern" in parameter_schema
+        or parameter_schema.get("format") not in (None, "uuid")
+        or naming.normalize_for_matching(field) not in naming.ID_FIELD_NAMES
+        or "string" in resource.types.get(field, {"string"})
+    ):
+        return field
+    for identifier in naming.ID_FIELD_NAMES:
+        for candidate in resource.fields:
+            if naming.normalize_for_matching(candidate) == identifier and "string" in resource.types.get(candidate, ()):
+                return candidate
+    return field
 
 
 def update_input_field_bindings(resource_name: str, operations: OperationMap) -> None:
@@ -752,7 +788,7 @@ def bind_echoed_body_fields(operations: OperationMap, writable_body_fields: dict
         if reader is None:
             continue
         # Only creation tells client-set fields apart from server-set ones; client-set fields keep generated values.
-        settable = writable_body_fields.get(labels.get(("post", update.path.rstrip("/").rsplit("/", 1)[0]), ""))
+        settable = writable_body_fields.get(labels.get(("post", naming.collection_path(update.path)), ""))
         if settable is None:
             continue
         bound = {slot.parameter_name for slot in update.inputs if slot.parameter_location == ParameterLocation.BODY}
@@ -798,7 +834,7 @@ def rebind_orphan_synthetics(operations: OperationMap, resources: ResourceMap) -
     own response describes a parent resource carrying the same field, the slot is
     really a self-FK (`spouse_id` on `POST /contacts`, `?sequence_id=` on `GET /events`).
     """
-    producer_resources = {output.resource.name for operation in operations.values() for output in operation.outputs}
+    producer_resources = _produced_resource_names(operations)
     for operation in operations.values():
         parent_name = naming.from_path(operation.path)
         if parent_name is None:
@@ -823,12 +859,11 @@ def rebind_orphan_synthetics(operations: OperationMap, resources: ResourceMap) -
                 input_slot.resource_field = input_slot.parameter_name
 
 
-def disambiguate_module_variants(operations: OperationMap, resources: ResourceMap) -> None:
-    """Swap to a same-module sibling for spec-suffixed duplicates (`Group` / `Group1`).
+def _produced_resource_names(operations: OperationMap) -> set[str]:
+    return {output.resource.name for operation in operations.values() for output in operation.outputs}
 
-    Without this, every consumer in the second module binds to the first module's
-    variant via the path-derived lookup.
-    """
+
+def _producer_modules(operations: OperationMap) -> dict[str, set[str]]:
     producer_modules: dict[str, set[str]] = {}
     for operation in operations.values():
         module = _module_of(operation.path)
@@ -836,6 +871,16 @@ def disambiguate_module_variants(operations: OperationMap, resources: ResourceMa
             continue
         for output in operation.outputs:
             producer_modules.setdefault(output.resource.name, set()).add(module)
+    return producer_modules
+
+
+def disambiguate_module_variants(operations: OperationMap, resources: ResourceMap) -> None:
+    """Swap to a same-module sibling for spec-suffixed duplicates (`Group` / `Group1`).
+
+    Without this, every consumer in the second module binds to the first module's
+    variant via the path-derived lookup.
+    """
+    producer_modules = _producer_modules(operations)
 
     by_stem: dict[str, set[str]] = {}
     for resource_name in producer_modules:
@@ -878,13 +923,7 @@ def disambiguate_path_suffix_matches(operations: OperationMap, resources: Resour
     `KeyDateResource` instead of `ResourceItem`. This pass corrects only when the
     consumer's path-derived name picks both the current and a same-module sibling.
     """
-    producer_modules: dict[str, set[str]] = {}
-    for operation in operations.values():
-        module = _module_of(operation.path)
-        if not module:
-            continue
-        for output in operation.outputs:
-            producer_modules.setdefault(output.resource.name, set()).add(module)
+    producer_modules = _producer_modules(operations)
 
     for operation in operations.values():
         consumer_module = _module_of(operation.path)
@@ -894,10 +933,7 @@ def disambiguate_path_suffix_matches(operations: OperationMap, resources: Resour
         # Limit to operations where the rebinding parameter is the leaf — otherwise
         # `/images/{imageId}/regionproposals` would rebind {imageId} to the response
         # type instead of Image.
-        segments = [segment for segment in operation.path.split("/") if segment]
-        leaf_param = (
-            segments[-1][1:-1] if segments and segments[-1].startswith("{") and segments[-1].endswith("}") else None
-        )
+        leaf_param = naming.trailing_path_parameter(operation.path)
         for input_slot in operation.inputs:
             if input_slot.parameter_location != ParameterLocation.PATH:
                 continue
@@ -1027,6 +1063,62 @@ def align_created_identifiers(operations: OperationMap) -> None:
         ]
 
 
+def bind_created_item_keys(
+    schema: OpenApiSchema, operations: OperationMap, writable_body_fields: dict[str, dict[str, JsonSchema]]
+) -> None:
+    """Link the key a client sends to `POST /things` to what `/things/{key}` takes, e.g. a chosen `title`."""
+    item_slots: dict[str, dict[str, InputSlot]] = {}
+    for operation in operations.values():
+        parameter_name = naming.trailing_path_parameter(operation.path)
+        for input_slot in operation.inputs:
+            if (
+                input_slot.parameter_location == ParameterLocation.PATH
+                and input_slot.parameter_name == parameter_name
+                and input_slot.resource_field is not None
+            ):
+                collection = naming.collection_path(operation.path)
+                item_slots.setdefault(collection, {})[input_slot.resource.name] = input_slot
+    for label, fields in writable_body_fields.items():
+        create = operations[label]
+        slots = item_slots.get(create.path.rstrip("/"), {})
+        if create.method.lower() != "post" or len(slots) != 1:
+            continue
+        (item_slot,) = slots.values()
+        key = item_slot.parameter_name
+        assert isinstance(key, str)
+        if (
+            key not in fields
+            or not _is_scalar(fields[key])
+            or any(
+                slot.parameter_location == ParameterLocation.BODY and slot.parameter_name == key
+                for slot in create.inputs
+            )
+        ):
+            continue
+        # A server-issued id is the identity, not the key the client sent.
+        if any(
+            naming.key_kind(field) == naming.KeyKind.IDENTIFIER
+            for output in create.outputs
+            for field in output.response_fields or ()
+        ):
+            continue
+        declared = schema.find_operation_by_label(label)
+        assert declared is not None
+        status_code = declared.responses.first_successful_status_code()
+        if status_code is None:
+            continue
+        # An output, not an input: a create needs a fresh key, never one taken from existing objects.
+        create.outputs.append(
+            OutputSlot(
+                resource=item_slot.resource,
+                pointer="",
+                cardinality=Cardinality.ONE,
+                status_code=status_code,
+                body_field=key,
+            )
+        )
+
+
 def bind_id_fields_to_returned_resources(operations: OperationMap) -> None:
     """Bind a placeholder `fromAirportId` to the resource responses return under `fromAirport`, by its `id`."""
     returned: dict[str, dict[str, ResourceDefinition]] = {}
@@ -1093,7 +1185,8 @@ def try_merge_input_resource(
 
         # Try to match the input parameter to producer's fields
         param_name = input_slot.parameter_name
-        if not isinstance(param_name, str):
+        # A nested body field (`recipient/clientId`) already names its own target, not the producer's resource.
+        if not isinstance(param_name, str) or "/" in param_name:
             continue
 
         for resource_name in (input_slot.resource.name, producer_resource.name):

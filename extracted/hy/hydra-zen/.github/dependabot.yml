@@ -1,15 +1,40 @@
 version: 2
 updates:
-  - package-ecosystem: "github-actions" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # Actions are pinned to commit SHAs; Dependabot updates the SHA and its version comment.
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - "*"
   - package-ecosystem: "pip"
     directory: "/docs/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
+  # pyright version for CI, and the hash-pinned tools used to build releases
   - package-ecosystem: "pip"
     directory: "/deps/"
     schedule:
-      interval: "daily"
-    target-branch: "main"
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    ignore:
+      # must match the version pinned in [build-system].requires (pyproject.toml)
+      - dependency-name: "setuptools-scm"
+  # uv.lock (development environment)
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    cooldown:
+      default-days: 7
+    groups:
+      dev-dependencies:
+        patterns:
+          - "*"

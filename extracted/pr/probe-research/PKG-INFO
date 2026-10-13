@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.237.0
+Version: 0.246.3
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -88,7 +88,7 @@ Implemented experiment calls map onto real endpoints.
 Probe Research tracks the team's ML work — experiments and training runs, but also surveys, design decisions and data processing, with a short note when setup such as provisioning trips you up — through two separate surfaces over the same backend, for two different workflows:
 
 - **`probe` — SDK + CLI (non-agent).** A Python library (`import probe`) and the `probe` command-line tool for integrating with existing setups and manual experimentation. Drop it into a training script or pipeline to record runs, metrics, spans, and artifacts. No agent required.
-- **`probe-research` — plugin: skills + MCP (agent-centric).** Installed into a coding agent (Claude Code or Codex). Its skills teach the agent the experiment workflow, its read-only MCP server lets the agent query experiment state, and writes flow through the `probe` CLI. This is the surface for agent-driven research loops such as Anthrogen.
+- **`probe-research` — plugin: skills + MCP (agent-centric).** Installed into a coding agent (Claude Code, Codex, pi or Kimi Code; Capy gets the same skills and MCP through its own settings, which its install prints, see `docs/capy.md`). Its skills teach the agent the experiment workflow, its read-only MCP server lets the agent query experiment state, and writes flow through the `probe` CLI. This is the surface for agent-driven research loops such as Anthrogen.
 
 Same backend, two entry points: humans-in-code reach for the SDK/CLI; agents-in-the-loop use the plugin.
 
@@ -751,7 +751,7 @@ or UUID returned by browse/search; `team-note` addresses the shared team documen
 | Kind | Views |
 |---|---|
 | run | `card` · `record` · `notes` · `summary` · `trajectory` · `trials` · `metrics` · `artifacts` · `reproduce` · `handoff` · `lineage` · `events` · `code` · `views` · `diff` · `sessions` |
-| experiment | `card` · `record` · `notes` · `summary` · `artifacts` · `lineage` · `groups` · `versions` · `reproduce` · `code` |
+| experiment | `card` · `record` · `notes` · `summary` · `artifacts` · `lineage` · `groups` · `versions` · `reproduce` · `code` · `inherited` (a fork's source run files; its runs with `view_options={"runs": true}`) |
 | artifact | `card` · `record` · `versions` · `sessions` |
 | project | `card` · `record` · `artifacts` · `notes` · `summary` · `code` · `papers` · `readme` |
 | group | `card` · `record` · `notes` |

@@ -7,7 +7,7 @@ permissions:
 
 env:
   UV_PYTHON: 3.8 # minimum supported version
-  DASL_TESTING_REF: "56f7fd74a8eb0955670dab139034e845329dca57"
+  DASL_TESTING_REF: "b2aacc0b352c64ad101af48d96a9763b03289a12"
 
 jobs:
   unit_tests:
@@ -41,12 +41,12 @@ jobs:
       - name: Build libipld wheel.
         run: uv build --wheel
         env:
-          UV_PYTHON: "3.13"  # DASL testing requires Python 3.13+
+          UV_PYTHON: "3.15"  # DASL testing requires Python 3.13+
 
       - name: Run DASL Python harness.
         working-directory: dasl-testing/harnesses/python
         env:
-          UV_PYTHON: "3.13"  # DASL testing requires Python 3.13+
+          UV_PYTHON: "3.15"  # DASL testing requires Python 3.13+
         run: |
           LIBIPLD_WHEEL=$(ls ../../../dist/libipld-*.whl)
           RESULT_JSON=$(
@@ -79,3 +79,38 @@ jobs:
               | "| \($file) | \($total) | \($passed) | \($failed) |"
             '
           } >> "$GITHUB_STEP_SUMMARY"
+
+  free_threaded_tests:
+    name: Unit tests (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [ '3.14t', '3.15t' ]
+
+    env:
+      UV_PYTHON: ${{ matrix.python }}
+
+    steps:
+      - name: Checkout repository.
+        uses: actions/checkout@v6
+
+      - name: Install UV.
+        uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Install dependencies.
+        run: uv sync --group testing
+
+      - name: Compile.
+        run: uv pip install -v -e .
+        env:
+          RUST_BACKTRACE: 1
+
+      - name: Check the GIL stays disabled.
+        run: uv run python -c "import sys, libipld; assert not sys._is_gil_enabled()"
+
+      - name: Run Tests.
+        run: uv run pytest
+
+      - name: Run Tests in parallel threads.
+        run: uv run pytest --parallel-threads=4 -o thread_unsafe_fixtures=benchmark

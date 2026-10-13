@@ -8,9 +8,10 @@ from schemathesis.core.error_feedback.parsers import PARSERS
 from schemathesis.core.error_feedback.parsers.extractors import (
     ClassificationResult,
     RegexHandler,
-    location_for_method,
+    location_for_parameter,
     numeric_bound,
     size_bound,
+    split_field_path,
 )
 from schemathesis.core.error_feedback.store import (
     BoundDirection,
@@ -54,7 +55,7 @@ _LARAVEL_VOCABULARY: frozenset[str] = frozenset(
 def _walk(body: LaravelShape) -> Iterator[WalkPair]:
     """Yield `(path, message)` pairs; Laravel emits dotted keys for nested attributes."""
     for raw_key, messages in body.items():
-        key_path: ParameterPath = tuple(raw_key.split(".")) if "." in raw_key else (raw_key,)
+        key_path = split_field_path(raw_key)
         for message in messages:
             if message:
                 yield (key_path, message)
@@ -167,7 +168,6 @@ class LaravelParser:
         errors = _extract_errors(body)
         if errors is None:
             return ()
-        location = location_for_method(operation.method)
         observations: list[Observation] = []
         for path, message in _walk(errors):
             classification = _classify(message)
@@ -177,7 +177,7 @@ class LaravelParser:
             observations.append(
                 Observation(
                     operation_label=operation.label,
-                    location=location,
+                    location=location_for_parameter(operation, path, case),
                     parameter_path=path,
                     kind=kind,
                     raw_message=message,

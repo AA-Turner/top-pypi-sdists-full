@@ -3,11 +3,11 @@
  * @brief The measurements the Spectrogram's characterization and
  * certification are built from.
  *
- * The Spectrogram has no Python binding until #1894's slice 3b, so its
- * evidence follows `docs/dev/contributing/validation.md` "Certifying a
- * component with no binding": **this file measures, and
- * `src/doppler/tests/validation/spectrogram/validate.py` renders and
- * asserts.** Nothing here decides whether a number is acceptable.
+ * The claims are the C header's, and the Python face is generated over this
+ * same C with no logic of its own, so the evidence is measured in C: **this
+ * file measures, and
+ * `src/doppler/spectral/tests/validation/spectrogram/validate.py` renders
+ * and asserts.** Nothing here decides whether a number is acceptable.
  *
  * Run with no arguments for a readable run (`make validate-c`), or with
  * `--emit` for the CSV blocks the validator parses.
@@ -33,8 +33,10 @@
  * - `flush`: every length 0..4*nfft+3, the grid row iff owed, once, then a
  *   restart.
  * - `state`: every cut point, two fills, a restore into a new object that
- *   holds a stray carry, the refusals, and another window's and another
- *   mode's continuation.
+ *   holds a stray carry, and the refusals: a corrupt envelope, another hop
+ *   or nfft, another window, the other mode, and under the Kaiser window
+ *   another beta (#2102). Under the other windows another beta is taken
+ *   and the stream continues bit for bit.
  * - `level`: a full-scale tone on every bin, its peak index and level: 1.0
  *   in power, 0 dB in dB, the error in the row's own units.
  *
@@ -87,7 +89,8 @@ row_of (int window, const float _Complex *x, float *row)
 {
   /* Kaiser at beta 8, a display's usual choice; beta is ignored otherwise */
   dp_spectrogram_state_t *s = dp_spectrogram_create (
-      NFFT, NFFT, window, window == 1 ? 8.0f : 0.0f, DP_SPECTROGRAM_DB);
+      NFFT, NFFT, window, window == DP_PSD_WINDOW_KAISER ? 8.0f : 0.0f,
+      DP_SPECTROGRAM_DB);
   if (!s)
     return -1;
   size_t w = dp_spectrogram_push (s, x, NFFT, row, NFFT);
@@ -122,14 +125,14 @@ enbw_of (int window, size_t n)
     {
       const double x = 2.0 * M_PI * (double)i / (double)(n - 1);
       double       w = 1.0; /* rect */
-      if (window == 0)
+      if (window == DP_PSD_WINDOW_HANN)
         w = 0.5 - 0.5 * cos (x);
-      else if (window == 1)
+      else if (window == DP_PSD_WINDOW_KAISER)
         {
           const double r = 2.0 * (double)i / (double)(n - 1) - 1.0;
           w = bessel_i0 (8.0 * sqrt (1.0 - r * r)) / bessel_i0 (8.0);
         }
-      else if (window == 2)
+      else if (window == DP_PSD_WINDOW_BLACKMAN_HARRIS)
         w = 0.35875 - 0.48829 * cos (x) + 0.14128 * cos (2.0 * x)
             - 0.01168 * cos (3.0 * x);
       s1 += w;
@@ -174,7 +177,7 @@ floor_tone (int emit)
   printf (emit ? "# floor_tone\nwindow,level_dbfs,tone_bin_db,"
                  "tone_bin_minus_level_db,tone_bin_is_floor,bins_at_floor\n"
                : "\nfloor_tone: an on-bin tone of power L dBFS, its bin\n");
-  for (int w = 0; w < 4; w++)
+  for (int w = DP_PSD_WINDOW_HANN; w <= DP_PSD_WINDOW_RECT; w++)
     for (size_t j = 0; j < nl; j++)
       {
         tone (pow (10.0, level[j] / 20.0), x);
@@ -204,7 +207,7 @@ leakage (int emit)
   printf (emit ? "# leakage\nwindow,offset,plus_dbc,minus_dbc\n"
                : "\nleakage: a full-scale on-bin tone, bins k away, dBc\n");
   tone (1.0, x);
-  for (int w = 0; w < 4; w++)
+  for (int w = DP_PSD_WINDOW_HANN; w <= DP_PSD_WINDOW_RECT; w++)
     {
       if (row_of (w, x, row))
         return 1;
@@ -225,7 +228,7 @@ floor_zero (int emit)
   float row[NFFT];
   printf (emit ? "# floor_zero\nwindow,bins_at_floor,bins,min_db,max_db\n"
                : "\nfloor_zero: an all-zero frame\n");
-  for (int w = 0; w < 4; w++)
+  for (int w = DP_PSD_WINDOW_HANN; w <= DP_PSD_WINDOW_RECT; w++)
     {
       if (row_of (w, x, row))
         return 1;
@@ -254,7 +257,7 @@ floor_noise (int emit)
                  "mean_at_floor,min_at_floor,max_at_floor\n"
                : "\nfloor_noise: complex noise of total power L dBFS, the "
                  "mean over frames\n");
-  for (int w = 0; w < 4; w++)
+  for (int w = DP_PSD_WINDOW_HANN; w <= DP_PSD_WINDOW_RECT; w++)
     for (size_t j = 0; j < nl; j++)
       {
         uint32_t     seed    = 1894u + (uint32_t)(100 * w + j);
@@ -319,7 +322,7 @@ stream_init (void)
 static float
 beta_of (int window)
 {
-  return window == 1 ? 8.0f : 0.0f;
+  return window == DP_PSD_WINDOW_KAISER ? 8.0f : 0.0f;
 }
 
 /* The two modes, the default first, and their names in the CSV. */
@@ -345,8 +348,8 @@ make (int mode, size_t nfft, size_t hop, int window)
 static dp_psd_state_t *
 ref_psd (size_t nfft, int window)
 {
-  return dp_psd_create (nfft, 1.0, window, beta_of (window), 1, 1.0, 0, 0,
-                        0.0);
+  return dp_psd_create (nfft, 1.0, window, beta_of (window), 1, 1.0, 0,
+                        ACC_TRACE_MEAN, 0.0);
 }
 
 /** @brief The header's statement of a row of `mode`, built separately:
@@ -355,9 +358,9 @@ static void
 ref_row (dp_psd_state_t *p, int mode, const cf *frame, float *out)
 {
   if (mode == DP_SPECTROGRAM_POWER)
-    dp_psd_frame_linear (p, frame, out);
+    dp_psd_frame_linear (&p->k, frame, out);
   else
-    dp_psd_frame_db (p, frame, out);
+    dp_psd_frame_db (&p->k, frame, out);
 }
 
 /** @brief Rows `len` samples make: (len - nfft) / hop + 1, or 0. */
@@ -482,11 +485,15 @@ sweep_rows (int emit)
 {
   /* nfft, hop, window, stream length */
   static const size_t shape[][4] = {
-    { 2, 1, 3, 4099 },         { 8, 8, 0, 10007 },
-    { 8, 3, 1, 10007 },        { 8, 1, 2, 6007 },
-    { 64, 16, 3, 30011 },      { 256, 64, 0, 65537 },
-    { 1024, 256, 1, MAXLEN },  { 1024, 1024, 2, MAXLEN },
-    { 4096, 1365, 3, MAXLEN },
+    { 2, 1, DP_PSD_WINDOW_RECT, 4099 },
+    { 8, 8, DP_PSD_WINDOW_HANN, 10007 },
+    { 8, 3, DP_PSD_WINDOW_KAISER, 10007 },
+    { 8, 1, DP_PSD_WINDOW_BLACKMAN_HARRIS, 6007 },
+    { 64, 16, DP_PSD_WINDOW_RECT, 30011 },
+    { 256, 64, DP_PSD_WINDOW_HANN, 65537 },
+    { 1024, 256, DP_PSD_WINDOW_KAISER, MAXLEN },
+    { 1024, 1024, DP_PSD_WINDOW_BLACKMAN_HARRIS, MAXLEN },
+    { 4096, 1365, DP_PSD_WINDOW_RECT, MAXLEN },
   };
   block (emit, "rows",
          "every row against PSD's reading of its slice, under fixed and "
@@ -567,7 +574,7 @@ sweep_backpressure (int emit)
     {
       const int mode = MODES[m];
       size_t    r_n;
-      float    *want = oracle (mode, nfft, hop, 0, len, &r_n);
+      float    *want = oracle (mode, nfft, hop, DP_PSD_WINDOW_HANN, len, &r_n);
       float    *got  = malloc ((r_n + 8) * nfft * sizeof *got);
       float    *buf  = malloc ((7 * nfft + 13) * sizeof *buf);
       if (!want || !got || !buf)
@@ -575,7 +582,8 @@ sweep_backpressure (int emit)
       for (size_t c = 0; c < sizeof chunk / sizeof *chunk; c++)
         for (size_t q = 0; q < sizeof rooms / sizeof *rooms; q++)
           {
-            dp_spectrogram_state_t *s = make (mode, nfft, hop, 0);
+            dp_spectrogram_state_t *s
+                = make (mode, nfft, hop, DP_PSD_WINDOW_HANN);
             if (!s)
               return 1;
             const size_t full = rooms[q] * nfft, cap = full + 13;
@@ -667,9 +675,10 @@ sweep_sizing (int emit)
         const size_t ns[] = { 0,        1,    hop - 1,  hop,         hop + 1,
                               nfft - 1, nfft, nfft + 1, 3 * nfft + 5 };
         const size_t cap  = ((4 * nfft + 5) / hop + 2) * nfft;
-        dp_spectrogram_state_t *base = make (mode, nfft, hop, 3);
-        dp_spectrogram_state_t *t    = make (mode, nfft, hop, 3);
-        float                  *out  = malloc (cap * sizeof *out);
+        dp_spectrogram_state_t *base
+            = make (mode, nfft, hop, DP_PSD_WINDOW_RECT);
+        dp_spectrogram_state_t *t = make (mode, nfft, hop, DP_PSD_WINDOW_RECT);
+        float                  *out = malloc (cap * sizeof *out);
         unsigned char          *blob
             = base ? malloc (dp_spectrogram_state_bytes (base)) : NULL;
         if (!base || !t || !out || !blob)
@@ -729,9 +738,11 @@ sweep_sizing (int emit)
 static int
 sweep_flush (int emit)
 {
-  static const size_t shape[][3]
-      = { { 2, 1, 3 }, { 8, 8, 0 },   { 8, 3, 1 },
-          { 8, 1, 2 }, { 64, 16, 3 }, { 256, 64, 0 } };
+  static const size_t shape[][3] = {
+    { 2, 1, DP_PSD_WINDOW_RECT },   { 8, 8, DP_PSD_WINDOW_HANN },
+    { 8, 3, DP_PSD_WINDOW_KAISER }, { 8, 1, DP_PSD_WINDOW_BLACKMAN_HARRIS },
+    { 64, 16, DP_PSD_WINDOW_RECT }, { 256, 64, DP_PSD_WINDOW_HANN }
+  };
   block (emit, "flush",
          "every stream length 0..4*nfft+3: push, flush, flush again, restart",
          "mode,nfft,hop,window,lengths,emitted,wrong_pending,wrong_decision,"
@@ -765,9 +776,10 @@ sweep_flush (int emit)
             wp += dp_spectrogram_pending (s) != owed;
             for (size_t j = 0; j < nfft; j++)
               row[j] = NAN;
-            const size_t wf = dp_spectrogram_flush (s, row);
-            wd += (wf != 0 && wf != nfft) || (wf == nfft) != (owed > 0);
-            if (wf == nfft)
+            const int64_t wf = dp_spectrogram_flush (s, row, nfft);
+            wd += (wf != 0 && wf != (int64_t)nfft)
+                  || (wf == (int64_t)nfft) != (owed > 0);
+            if (wf == (int64_t)nfft)
               {
                 emitted++;
                 /* the next row start, k*hop, zero-padded past the end */
@@ -777,7 +789,7 @@ sweep_flush (int emit)
                 ref_row (p, mode, frame, want);
                 og += memcmp (row, want, nfft * sizeof *row) != 0;
               }
-            sn += dp_spectrogram_flush (s, row) != 0;
+            sn += dp_spectrogram_flush (s, row, nfft) != 0;
             af += dp_spectrogram_consumed (s) != 0
                   || dp_spectrogram_pending (s) != 0;
             /* restarted at sample 0: the next nfft samples are row 0 */
@@ -820,9 +832,11 @@ static int
 sweep_state (int emit)
 {
   /* nfft, hop, window, cut stride */
-  static const size_t shape[][4] = {
-    { 8, 3, 0, 1 }, { 64, 16, 1, 1 }, { 256, 64, 2, 1 }, { 1024, 256, 3, 13 }
-  };
+  static const size_t shape[][4]
+      = { { 8, 3, DP_PSD_WINDOW_HANN, 1 },
+          { 64, 16, DP_PSD_WINDOW_KAISER, 1 },
+          { 256, 64, DP_PSD_WINDOW_BLACKMAN_HARRIS, 1 },
+          { 1024, 256, DP_PSD_WINDOW_RECT, 13 } };
   block (
       emit, "state",
       "a cut at every point 0..3*nfft+3 (every 13th at nfft 1024): "
@@ -832,14 +846,15 @@ sweep_state (int emit)
       "restore_refused,after_restore_wrong,resume_bad,corrupt_tried,"
       "corrupt_refused,target_changed,hop_tried,hop_refused,nfft_tried,"
       "nfft_refused,window_refused,window_wrong,mode_refused,"
-      "mode_wrong");
+      "mode_wrong,beta_refused,beta_wrong");
   for (size_t m = 0; m < NMODES; m++)
     for (size_t i = 0; i < sizeof shape / sizeof *shape; i++)
       {
         const int    mode = MODES[m], mode2 = other_mode (mode);
         const size_t nfft = shape[i][0], hop = shape[i][1];
         const size_t stride = shape[i][3], len = 4 * nfft + hop + 37;
-        const int    w = (int)shape[i][2], w2 = (w + 1) % 4;
+        const int    w    = (int)shape[i][2],
+                     w2   = (w + 1) % (DP_PSD_WINDOW_RECT + 1);
         const size_t hop2 = hop < nfft ? hop + 1 : hop - 1;
         size_t       r_n, r_d, r_m;
         float       *want = oracle (mode, nfft, hop, w, len, &r_n);
@@ -860,8 +875,9 @@ sweep_state (int emit)
         /* the size is a function of nfft alone */
         size_t                  varies = 0;
         dp_spectrogram_state_t *o[3]
-            = { make (mode, nfft, 1, 0), make (mode, nfft, nfft, 3),
-                make (mode, nfft, hop2, 1) };
+            = { make (mode, nfft, 1, DP_PSD_WINDOW_HANN),
+                make (mode, nfft, nfft, DP_PSD_WINDOW_RECT),
+                make (mode, nfft, hop2, DP_PSD_WINDOW_KAISER) };
         for (int k = 0; k < 3; k++)
           {
             if (!o[k])
@@ -880,6 +896,7 @@ sweep_state (int emit)
         size_t resume = 0, ctried = 0, crefused = 0, changed = 0;
         size_t htried = 0, hrefused = 0, ntried = 0, nrefused = 0;
         size_t wrefused = 0, wwrong = 0, mrefused = 0, mwrong = 0;
+        size_t brefused = 0, bwrong = 0;
         for (size_t cut = 0; cut <= 3 * nfft + 3; cut += stride)
           {
             cuts++;
@@ -920,7 +937,8 @@ sweep_state (int emit)
             resume += rb + rc != r_n
                       || rows_differing (got, want, r_n, nfft) != 0;
 
-            /* another window is NOT refused; the rows that follow are its */
+            /* another window is REFUSED (#2102): counted if it is taken, and
+               a taken one must not write a row */
             for (size_t k = rb * nfft; k < (r_n + 2) * nfft; k++)
               got[k] = NAN;
             if (dp_spectrogram_set_state (v, b1) != DP_OK)
@@ -935,7 +953,7 @@ sweep_state (int emit)
                                  != 0;
               }
 
-            /* nor is another mode; the rows that follow are its units */
+            /* another mode is REFUSED too (#2102): counted if taken */
             for (size_t k = rb * nfft; k < (r_n + 2) * nfft; k++)
               got[k] = NAN;
             if (dp_spectrogram_set_state (u, b1) != DP_OK)
@@ -949,6 +967,32 @@ sweep_state (int emit)
                                              ru, nfft)
                                  != 0;
               }
+
+            /* another beta: REFUSED under the Kaiser window, whose rows it
+               shapes (#2102); taken under any other, whose rows it does not
+               change, and the stream then continues bit for bit. A taken
+               Kaiser blob is wrong whatever its rows read. */
+            {
+              dp_spectrogram_state_t *k = dp_spectrogram_create (
+                  nfft, hop, w, beta_of (w) + 1.0f, mode);
+              if (!k)
+                return 1;
+              dp_spectrogram_push (k, X + 700, 3, scratch, 0);
+              for (size_t q = rb * nfft; q < (r_n + 2) * nfft; q++)
+                got[q] = NAN;
+              if (dp_spectrogram_set_state (k, b1) != DP_OK)
+                brefused++;
+              else
+                {
+                  const size_t rk
+                      = push_in_fives (k, cut, len, got + rb * nfft) / nfft;
+                  bwrong += w == DP_PSD_WINDOW_KAISER || rb + rk != r_n
+                            || rows_differing (got + rb * nfft,
+                                               want + rb * nfft, rk, nfft)
+                                   != 0;
+                }
+              dp_spectrogram_destroy (k);
+            }
 
             /* corrupt envelopes: magic, version, size */
             const size_t pend = dp_spectrogram_pending (target);
@@ -1035,11 +1079,11 @@ sweep_state (int emit)
         }
         printf (
             "%s,%zu,%zu,%s,%zu,%zu,%zu,%zu,%zu,%zu,%zu,%zu,%zu,%zu,%zu,%zu,"
-            "%zu,%zu,%zu,%zu,%zu,%zu,%zu\n",
+            "%zu,%zu,%zu,%zu,%zu,%zu,%zu,%zu,%zu\n",
             MODE_NAME[m], nfft, hop, WINDOW[w], cuts, bytes, sizes + 1, varies,
             unwritten, refused, after, resume, ctried, crefused, changed,
             htried, hrefused, ntried, nrefused, wrefused, wwrong, mrefused,
-            mwrong);
+            mwrong, brefused, bwrong);
         free (lie);
         free (b2);
         free (b1);
@@ -1065,7 +1109,7 @@ sweep_level (int emit)
          "dB)",
          "mode,window,nfft,bins,peak_wrong,max_abs_err");
   for (size_t m = 0; m < NMODES; m++)
-    for (int w = 0; w < 4; w++)
+    for (int w = DP_PSD_WINDOW_HANN; w <= DP_PSD_WINDOW_RECT; w++)
       for (size_t i = 0; i < sizeof sizes / sizeof *sizes; i++)
         {
           const int    mode         = MODES[m];

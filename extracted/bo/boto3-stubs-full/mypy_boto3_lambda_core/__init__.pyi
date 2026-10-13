@@ -12,19 +12,26 @@ Usage::
     from mypy_boto3_lambda_core import (
         Client,
         LambdaCoreClient,
+        ListNetworkConnectorVersionsPaginator,
         ListNetworkConnectorsPaginator,
     )
 
     session = Session()
     client: LambdaCoreClient = session.client("lambda-core")
 
+    list_network_connector_versions_paginator: ListNetworkConnectorVersionsPaginator = client.get_paginator("list_network_connector_versions")
     list_network_connectors_paginator: ListNetworkConnectorsPaginator = client.get_paginator("list_network_connectors")
     ```
 """
 
 from .client import LambdaCoreClient
-from .paginator import ListNetworkConnectorsPaginator
+from .paginator import ListNetworkConnectorsPaginator, ListNetworkConnectorVersionsPaginator
 
 Client = LambdaCoreClient
 
-__all__ = ("Client", "LambdaCoreClient", "ListNetworkConnectorsPaginator")
+__all__ = (
+    "Client",
+    "LambdaCoreClient",
+    "ListNetworkConnectorVersionsPaginator",
+    "ListNetworkConnectorsPaginator",
+)

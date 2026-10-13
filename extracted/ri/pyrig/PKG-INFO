@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrig
-Version: 18.107.8
+Version: 18.108.6
 Summary: A Python project setup and management tool built on infrastructure as code and convention over configuration.
 Keywords: automation,boilerplate,ci-cd,code-generation,code-quality,configuration,convention-over-configuration,developer-tools,devops,github-actions,infrastructure-as-code,project-generator,project-maintenance,project-scaffolding,project-setup,python-project,test-generation,test-scaffolding
 Author: Winipedia
@@ -26,12 +26,12 @@ Classifier: Topic :: System :: Software Distribution
 Classifier: Typing :: Typed
 Requires-Dist: inquirerpy>=0.3.4
 Requires-Dist: packaging>=26.3
-Requires-Dist: pyrig-runtime>=3.23.45
+Requires-Dist: pyrig-runtime>=3.26.0
 Requires-Dist: ruamel-yaml>=0.19.1
 Requires-Dist: ruamel-yaml-clib>=0.2.15
 Requires-Dist: spdx-matcher>=0.1.4
 Requires-Dist: tomli-w>=1.2.0
-Requires-Dist: typer>=0.27.2
+Requires-Dist: typer>=0.27.3
 Maintainer: Winipedia
 Maintainer-email: Winipedia <winipedia@gmx.de>
 Requires-Python: >=3.12
@@ -154,8 +154,8 @@ Run `pyrig sync` to create or update all config files at once.
 
 `pyrig init` sets up a CLI for your project that works immediately.
 Generate and add new commands by running `pyrig mk cmd <name>`.
-An automatic version command is included that shows the version of your project.
-Run `my-project version` to see it in action.
+An automatic `--version` flag is included that shows the version of your project.
+Run `my-project --version` to see it in action.
 
 ### [Mirror Test Structure](https://Winipedia.github.io/pyrig/mirror-tests)
 

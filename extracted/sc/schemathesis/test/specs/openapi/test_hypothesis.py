@@ -16,11 +16,11 @@ from schemathesis.config import GenerationConfig
 from schemathesis.core.jsonschema.resolver import load_file
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.generation import GenerationMode
-from schemathesis.generation.hypothesis.reporting import find_slow_parameter, find_unsatisfiable_parameter
 from schemathesis.openapi.generation import filters
 from schemathesis.openapi.generation.filters import is_valid_header
 from schemathesis.specs.openapi import _hypothesis, formats
 from schemathesis.specs.openapi._hypothesis import make_positive_strategy
+from schemathesis.specs.openapi.diagnostics import find_slow_parameter, find_unsatisfiable_parameter
 from test.utils import assert_requests_call, to_float32
 
 
@@ -537,6 +537,21 @@ def test_configure_headers():
     test()
 
 
+def test_as_strategy_keeps_passed_headers_unchanged(ctx):
+    schema = ctx.openapi.load_schema({"/x": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    schema.config.update(headers={"X-Configured": "global"})
+    headers = {"X-Caller": "local"}
+    strategy = schema["/x"]["GET"].as_strategy(headers=headers)
+    assert headers == {"X-Caller": "local"}
+
+    @given(strategy)
+    @settings(max_examples=1)
+    def test(case):
+        assert case.headers == {"X-Caller": "local", "X-Configured": "global"}
+
+    test()
+
+
 CONSTRAINED_HEADER_SCHEMAS = [
     {"type": "string", "minLength": 5},
     {"type": "string", "minLength": 20, "maxLength": 30},
@@ -618,6 +633,7 @@ def test_header_values_never_start_with_whitespace():
         find(
             formats.header_values(exclude_characters=formats.INVALID_HEADER_CHARS),
             lambda value: value[:1].strip() != value[:1],
+            # The excluded value is rare, so a small budget would pass without looking.
             settings=settings(max_examples=1000, database=None),
         )
 

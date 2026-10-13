@@ -16,7 +16,7 @@
 // under the License.
 
 use std::collections::HashMap;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::ptr::NonNull;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -844,13 +844,24 @@ impl PyDataFrame {
     }
 
     /// Print the query plan
-    #[pyo3(signature = (verbose=false, analyze=false, format=None))]
+    #[pyo3(signature = (
+        verbose=false,
+        analyze=false,
+        format=None,
+        show_statistics=None,
+        analyze_level=None,
+        analyze_categories=None
+    ))]
+    #[allow(clippy::too_many_arguments)]
     fn explain(
         &self,
         py: Python,
         verbose: bool,
         analyze: bool,
         format: Option<&str>,
+        show_statistics: Option<bool>,
+        analyze_level: Option<&str>,
+        analyze_categories: Option<Vec<String>>,
     ) -> PyDataFusionResult<()> {
         let explain_format = match format {
             Some(f) => f
@@ -860,10 +871,24 @@ impl PyDataFrame {
                 })?,
             None => datafusion::common::format::ExplainFormat::Indent,
         };
+        let analyze_level = analyze_level
+            .map(|l| l.parse::<datafusion::common::format::MetricType>())
+            .transpose()?;
+        let analyze_categories = analyze_categories
+            .map(|cats| {
+                cats.iter()
+                    .map(|c| c.parse::<datafusion::common::format::MetricCategory>())
+                    .collect::<datafusion::common::Result<Vec<_>>>()
+                    .map(datafusion::common::format::ExplainAnalyzeCategories::Only)
+            })
+            .transpose()?;
         let opts = datafusion::logical_expr::ExplainOption::default()
             .with_verbose(verbose)
             .with_analyze(analyze)
-            .with_format(explain_format);
+            .with_format(explain_format)
+            .with_show_statistics(show_statistics)
+            .with_analyze_level(analyze_level)
+            .with_analyze_categories(analyze_categories);
         let df = self.df.as_ref().clone().explain_with_options(opts)?;
         print_dataframe(py, df)
     }
@@ -1237,8 +1262,7 @@ impl PyDataFrame {
         // destructor provided by PyO3 will drop the stream unless ownership is
         // transferred to PyArrow during import.
         let stream = FFI_ArrowArrayStream::new(reader);
-        let name = CString::new(ARROW_ARRAY_STREAM_NAME.to_bytes()).unwrap();
-        let capsule = PyCapsule::new(py, stream, Some(name))?;
+        let capsule = PyCapsule::new_with_value(py, stream, ARROW_ARRAY_STREAM_NAME)?;
         Ok(capsule)
     }
 
@@ -1317,7 +1341,28 @@ impl PyDataFrame {
             None => Vec::new(), // Empty vector means fill null for all columns
         };
 
-        let df = self.df.as_ref().clone().fill_null(scalar_value.0, cols)?;
+        let cols = cols.iter().map(String::as_str).collect::<Vec<_>>();
+        let df = self.df.as_ref().fill_null(&scalar_value.0, &cols)?;
+        Ok(Self::new(df))
+    }
+
+    /// Fill NaN values with a specified value for specific floating-point columns
+    #[pyo3(signature = (value, columns=None))]
+    fn fill_nan(
+        &self,
+        value: Py<PyAny>,
+        columns: Option<Vec<PyBackedStr>>,
+        py: Python,
+    ) -> PyDataFusionResult<Self> {
+        let scalar_value: PyScalarValue = value.extract(py)?;
+
+        let cols = match columns {
+            Some(col_names) => col_names.iter().map(|c| c.to_string()).collect(),
+            None => Vec::new(), // Empty vector means fill NaN for all columns
+        };
+
+        let cols = cols.iter().map(String::as_str).collect::<Vec<_>>();
+        let df = self.df.as_ref().fill_nan(&scalar_value.0, &cols)?;
         Ok(Self::new(df))
     }
 }

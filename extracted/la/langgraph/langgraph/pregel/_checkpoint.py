@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
+from inspect import signature
 from typing import Any, Literal, cast
 
 from langchain_core.runnables import RunnableConfig
@@ -25,11 +26,13 @@ from langgraph._internal._constants import (
     CONFIG_KEY_CHECKPOINT_ID,
     NS_END,
     NS_SEP,
+    NULL_TASK_ID,
     PUSH,
     SNAPSHOT_BUMPS,
 )
 from langgraph._internal._typing import MISSING
 from langgraph.channels.base import BaseChannel
+from langgraph.channels.binop import _get_overwrite
 from langgraph.channels.delta import DeltaChannel
 from langgraph.managed.base import ManagedValueMapping, ManagedValueSpec
 
@@ -49,15 +52,38 @@ def empty_checkpoint() -> Checkpoint:
     )
 
 
+def put_writes_accepts_task_path(put_writes: Callable[..., Any]) -> bool:
+    """Whether a saver's `put_writes` or `aput_writes` takes `task_path`.
+
+    Savers written before the parameter existed don't, so it is passed only
+    when this is true.
+    """
+    return signature(put_writes).parameters.get("task_path") is not None
+
+
 def exit_delta_task_id(step: int, task_id: str) -> str:
     """Synthetic task id for exit-mode DeltaChannel writes.
 
     Embeds the superstep in the first UUID group so `ORDER BY task_id, idx`
     preserves chronological order while remaining a valid RFC UUID (required by
-    Postgres `checkpoint_writes.task_id uuid` columns).
+    Postgres `checkpoint_writes.task_id uuid` columns). Never `NULL_TASK_ID`:
+    readers apply writes under it as the anchor checkpoint's own pending writes.
     """
     parts = str(uuid.UUID(task_id)).split("-")
-    return f"{step:08d}-{parts[1]}-{parts[2]}-{parts[3]}-{parts[4]}"
+    synthetic = f"{step:08d}-{parts[1]}-{parts[2]}-{parts[3]}-{parts[4]}"
+    if synthetic == NULL_TASK_ID:
+        return f"{step:08d}-0000-0000-0000-000000000001"
+    return synthetic
+
+
+def exit_delta_late_task_id(step: int, task_id: str) -> str:
+    """Synthetic task id for exit-mode writes of a superstep after the anchor's own.
+
+    Sorts after every real task id, in step order, so replay keeps them after
+    the anchor's own superstep whether a saver orders by task path or task id.
+    """
+    parts = str(uuid.UUID(task_id)).split("-")
+    return f"ffffffff-{step >> 16:04x}-{step & 0xFFFF:04x}-{parts[3]}-{parts[4]}"
 
 
 def delta_channels_to_snapshot(
@@ -124,6 +150,23 @@ def delta_channels_with_pending_writes(
         ch
         for _, ch, _ in pending_writes or ()
         if isinstance(specs.get(ch), DeltaChannel)
+    }
+
+
+def delta_channels_overwritten(
+    specs: Mapping[str, Any], writes: Iterable[tuple[str, Any]]
+) -> set[str]:
+    """Return the names of the DeltaChannels that `writes` set with an `Overwrite`.
+
+    `update_state` saves a full snapshot of these channels in the checkpoint it
+    creates, like the loop does when a node returns an `Overwrite`. Otherwise,
+    reading the channel later starts from an older snapshot and replays the
+    writes the `Overwrite` threw away.
+    """
+    return {
+        ch
+        for ch, value in writes
+        if isinstance(specs.get(ch), DeltaChannel) and _get_overwrite(value)[0]
     }
 
 
@@ -231,6 +274,7 @@ def create_checkpoint(
     get_next_version: GetNextVersion | None = None,
     channels_to_snapshot: set[str] | None = None,
     stored_versions: ChannelVersions | None = None,
+    trigger_to_nodes: Mapping[str, Sequence[str]] | None = None,
 ) -> Checkpoint:
     """Build a new Checkpoint from the previous one and live channel state.
 
@@ -289,7 +333,9 @@ def create_checkpoint(
         id=id or str(uuid6(clock_seq=step)),
         channel_values=values,
         channel_versions=channel_versions,
-        versions_seen=_mark_bumps_seen(checkpoint["versions_seen"], bumped),
+        versions_seen=_mark_bumps_seen(
+            checkpoint["versions_seen"], bumped, trigger_to_nodes or {}
+        ),
         updated_channels=None if updated_channels is None else sorted(updated_channels),
     )
 
@@ -297,19 +343,27 @@ def create_checkpoint(
 def _mark_bumps_seen(
     versions_seen: dict[str, ChannelVersions],
     bumped: Mapping[str, tuple[Any, Any]],
+    trigger_to_nodes: Mapping[str, Sequence[str]],
 ) -> dict[str, ChannelVersions]:
     """Advance whoever had seen a bumped channel's old version to the new one.
 
     A bump that only stores a snapshot is not a write. Left unseen, it would
-    re-fire `interrupt_before` and rerun the channel's subscribers. For each
-    entry it advances, `SNAPSHOT_BUMPS` keeps the new version and the one the
-    node really read, so `versions_seen_without_bumps` can put the read back.
+    re-fire `interrupt_before` and rerun the channel's subscribers. A channel
+    bumped from no version was never written, so it also goes to the
+    subscribers that never ran: they have no entry, and would start on the bump.
+    For each entry it advances, `SNAPSHOT_BUMPS` keeps the new version and the
+    one the node really read, so `versions_seen_without_bumps` can put the read
+    back.
     """
     if not bumped:
         return versions_seen
     out = dict(versions_seen)
+    for k, (old, _) in bumped.items():
+        if old is None:
+            for node in trigger_to_nodes.get(k, ()):
+                out.setdefault(node, {})
     marks = dict(versions_seen.get(SNAPSHOT_BUMPS, {}))
-    for node, seen in versions_seen.items():
+    for node, seen in out.items():
         if node == SNAPSHOT_BUMPS:
             continue
         for k, (old, new) in bumped.items():

@@ -899,9 +899,9 @@ def migrate_legacy_symlink(
 # (verified on pi 1.0.0: `"skills": ["skills/instrument-code"]` loads exactly
 # that one). The extension does the rest at runtime from the profile `probe
 # session initialize` reports: no MCP bridge, the guard, the daemon's own
-# `probe` skill (its daemon-skills/ copy) and `plan-research-review` (both
-# added through `resources_discover`), and the pi dialog for the daemon's
-# questions.
+# `probe` and `visualize-progress` skills (their daemon-skills/ copies) and
+# `plan-research-review` (all added through `resources_discover`), and the pi
+# dialog for the daemon's questions.
 
 #: The package version whose extension runs the daemon profile. Older ones
 #: ignore `profile` and would connect the MCP bridge in a daemon session.
@@ -920,11 +920,11 @@ DAEMON_PACKAGE_SKILLS = ("instrument-code",)
 
 #: Daemon-profile skills the pi EXTENSION adds itself through
 #: `resources_discover`, at runtime, so they reach every machine on the profile
-#: whatever filter its wizard wrote: `probe` (the daemon's own wording, its
-#: daemon-skills/ copy; the package's `skills/probe` is the agent profile's
-#: switch text) and the ones added after the filter shipped
-#: (`DAEMON_ADDED_SKILLS` in the extension's src/profile.ts).
-DAEMON_EXTENSION_SKILLS = ("probe", "plan-research-review")
+#: whatever filter its wizard wrote: `probe` and `visualize-progress` (the
+#: daemon's own wording, their daemon-skills/ copies; the package's
+#: `skills/<name>` is the agent profile's text) and the ones added after the
+#: filter shipped (`DAEMON_ADDED_SKILLS` in the extension's src/profile.ts).
+DAEMON_EXTENSION_SKILLS = ("probe", "plan-research-review", "visualize-progress")
 
 #: How long the wizard waits for `pi update` before saying what to run.
 UPDATE_TIMEOUT_S = 30

@@ -29,7 +29,8 @@ def _explain(tool: str, extra: str, module: str) -> int:
         f"{tool}: this install of probe-research has the Python SDK but not the "
         f"`{extra}` dependencies (missing: {module}).\n"
         f"  Install them:  pip install 'probe-research[all]'\n"
-        f"  (a uv tool install:  uv tool install --force 'probe-research[all]')",
+        f"  (a uv tool install:  uv tool install 'probe-research[all]', or "
+        f"'probe-research[all,daemon]' where the Probe daemon records)",
         file=sys.stderr,
     )
     return 1

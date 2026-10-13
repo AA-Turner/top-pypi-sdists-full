@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import math
 import os
 import re
 from dataclasses import dataclass, field
@@ -37,6 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from probe.daemon.approvals import short_id
+from probe.sdk.upload_limits import AUTO_UPLOAD_MAX_BYTES, SCAN_PREFIX_BYTES
 from probe.tap_core import secrets
 
 # ---------------------------------------------------------------------------
@@ -59,7 +61,7 @@ OWNERS: dict[str, str] = {
     "artifact gc-uploads": SERVER, "artifact list": READ, "artifact move": DAEMON, "artifact pin-impact": READ,
     "artifact set": DAEMON, "artifact tree": READ, "artifact version-add": DAEMON, "artifact versions": READ,
     "backfill": RESEARCHER, "bundle": READ,
-    "capy connect": SETUP, "capy disconnect": SETUP, "capy status": READ, "capy sync": RESEARCHER,
+    "capy connect": SETUP, "capy disconnect": SETUP, "capy setup": READ, "capy status": READ, "capy sync": RESEARCHER,
     "commits": READ,
     "companion authorize": SETUP, "companion feedback": RESEARCHER, "companion log": READ,
     "companion report": READ, "companion trace": READ,
@@ -71,6 +73,7 @@ OWNERS: dict[str, str] = {
     "ask": RESEARCHER,
     "edge add": DAEMON, "edge remove": DAEMON, "events": READ, "exec": SDK,
     "experiment create": DAEMON, "experiment delete": DAEMON, "experiment edges": READ,
+    "experiment fork": DAEMON, "experiment inherited": READ,
     "experiment freeze": DAEMON, "experiment get": READ, "experiment lineage": READ, "experiment list": READ,
     "experiment move": DAEMON,
     "experiment reproduce": READ, "experiment set": DAEMON, "experiment tag": DAEMON,
@@ -87,7 +90,7 @@ OWNERS: dict[str, str] = {
     "notes sync": DAEMON, "notes team": READ, "notes write": RESEARCHER,
     "outbox discard": SDK, "outbox drain": SDK, "outbox pause": SDK, "outbox resume": SDK, "outbox retry": SDK,
     "outbox status": READ, "outbox watch": READ,
-    "paper add": DAEMON, "paper citations": READ, "paper edges": READ, "paper graph": READ,
+    "paper add": DAEMON, "paper citations": READ, "paper edges": READ, "paper find": READ, "paper graph": READ,
     "paper list": READ, "paper remove": DAEMON, "paper tag": DAEMON, "paper update": DAEMON,
     "project code attach": DAEMON, "project code confirm": DAEMON, "project code detach": DAEMON,
     "project code list": READ, "project contributors": READ, "project create": DAEMON, "project delete": DAEMON,
@@ -168,6 +171,10 @@ _ROOT_OK = {"--sync"}
 #: dead-letters in the outbox where nothing tells the daemon (lineage plan L14).
 #: The daemon's commands run with PROBE_ASYNC=0 to wait for the answer; this
 #: keeps a flag from undoing that. No override: the same command without it runs.
+#: One exception, made by the CLI and not by a flag: a RUN file over 64 MiB is
+#: queued in parts even under PROBE_ASYNC=0 (a multi-gigabyte transfer cannot
+#: land inside a 180 s call). The CLI reads the run first, so a wrong id still
+#: fails here; a later refusal dead-letters with a reference row.
 ASYNC_REFUSED = "`--async` would queue the write without waiting for Probe's answer - run it without `--async`"
 #: Per-command options the daemon may never pass, with why.
 _SUMMARY_IS_THE_RESEARCHERS = ("`--summary` is the researcher's own Markdown on the Overview page - the daemon "
@@ -227,6 +234,7 @@ NOT_FILES: dict[tuple[str, str], str] = {
     ("project code confirm", "source_id"): "a code source id",
     ("notes audit-advisory", "source"): "the harness whose note budget to read",
     ("edge add", "source"): "an entity ref (`run:<id>`)",
+    ("experiment fork", "source"): "the experiment to fork (a slug or id)",
     ("artifact version-add", "from_artifact"): "an artifact id",
 }
 #: Text the CLI takes LITERALLY, never as `@file` or `-`: the text-only notes
@@ -611,9 +619,26 @@ SECRET_NAME_RE = re.compile(
     r".*\.tfstate(\..*)?|\.htpasswd|\.git-credentials|\.mcp\.json)$",
     re.IGNORECASE,
 )
-MAX_UPLOAD_BYTES = 50 * 1024 * 1024
-MAX_TEXT_UPLOAD_BYTES = 10 * 1024 * 1024
+#: The most the daemon uploads (`AUTO_UPLOAD_MAX_BYTES`, 5 GiB), and how much of a
+#: file it reads to scan for credentials before the command runs. Text: the
+#: first `SCAN_BYTES` (16 MiB, the multipart verifier's inspection prefix) -- a
+#: 64 MiB text scan took 35 s here, most of a 180 s call. Binary: the first
+#: `BINARY_SCAN_BYTES` (64 MiB of printable runs took 2.6 s), so every binary
+#: the old 50 MB cap let through is still scanned whole. Past those, the upload
+#: gate redacts what it can replace in a file up to 64 MiB when the outbox sends
+#: it; a bigger one goes up in parts, and only its first 16 MiB are scanned.
+MAX_UPLOAD_BYTES = AUTO_UPLOAD_MAX_BYTES
+SCAN_BYTES = SCAN_PREFIX_BYTES
+BINARY_SCAN_BYTES = 64 * 1024 * 1024
 _PRINTABLE_RUN = re.compile(rb"[\t\x20-\x7e]{8,}")
+
+
+def _size(n: int) -> str:
+    """Bytes as the researcher reads them: whole MB below 1 GB, else GB rounded
+    UP to two decimals, so 5 GB + 1 byte never reads "5 GB, over the 5 GB limit"."""
+    if n < 1 << 30:
+        return f"{n // (1 << 20)} MB"
+    return f"{math.ceil(n * 100 / (1 << 30)) / 100:g} GB"
 
 
 def _note_dirs() -> list[Path]:
@@ -671,20 +696,18 @@ def _check_file(path: Path, parsed: Parsed) -> Block | None:
         return Block(new_block_id(), f"{resolved.name} has a name credentials are kept under", "secret",
                      argv=parsed.argv)
     size = resolved.stat().st_size
-    data = resolved.read_bytes() if size <= MAX_UPLOAD_BYTES else b""
     if size > MAX_UPLOAD_BYTES:
-        return Block(new_block_id(), f"{resolved.name} is {size // (1 << 20)} MB, over the 50 MB limit",
+        return Block(new_block_id(), f"{resolved.name} is {_size(size)}, over the {_size(MAX_UPLOAD_BYTES)} limit",
                      "secret", argv=parsed.argv)
-    head = data[:8192]
-    is_text = b"\0" not in head
+    with resolved.open("rb") as handle:
+        head = handle.read(8192)
+        is_text = b"\0" not in head
+        data = head + handle.read((SCAN_BYTES if is_text else BINARY_SCAN_BYTES) - len(head))
     if is_text:
         try:
             decoded = data.decode("utf-8")
-        except UnicodeDecodeError:
+        except UnicodeDecodeError:  # a cut at SCAN_BYTES can split a character too
             decoded = data.decode("utf-8", "replace")
-        if size > MAX_TEXT_UPLOAD_BYTES:
-            return Block(new_block_id(), f"{resolved.name} is a text file over 10 MB",
-                         "secret", argv=parsed.argv)
     else:
         runs = _PRINTABLE_RUN.findall(data) + _PRINTABLE_RUN.findall(data.replace(b"\x00", b""))
         decoded = b"\n".join(runs).decode("ascii", "replace")

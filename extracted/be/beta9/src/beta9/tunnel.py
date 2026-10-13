@@ -1,9 +1,12 @@
 """SSH byte streams use the worker's shared request replay journal."""
 
 import json
+import os
 from contextlib import suppress
 from queue import Full, Queue
+import select
 import threading
+import time
 from uuid import UUID, uuid4
 
 import websocket
@@ -30,12 +33,23 @@ class Tunnel:
     def _upload(self):
         ack = UUID(int=0)
         try:
-            while True:
-                data = (
-                    self.source.read1(65536)
-                    if hasattr(self.source, "read1")
-                    else self.source.read(65536)
-                )
+            try:
+                source_fd = self.source.fileno()
+            except (AttributeError, OSError, ValueError):
+                source_fd = None
+            while not self.stopped:
+                if source_fd is not None:
+                    # Keep stdin cancellable and avoid holding its buffered IO
+                    # lock after OpenSSH closes the remote side of the tunnel.
+                    if os.name != "nt" and not select.select([source_fd], [], [], 0.1)[0]:
+                        continue
+                    data = os.read(source_fd, 65536)
+                else:
+                    data = (
+                        self.source.read1(65536)
+                        if hasattr(self.source, "read1")
+                        else self.source.read(65536)
+                    )
                 request = uuid4()
                 sent = None
                 with self.condition:
@@ -92,6 +106,19 @@ class Tunnel:
             self.downloading = False
         self._send_read()
 
+    def _close(self, remote):
+        request = str(uuid4())
+        with suppress(OSError, ValueError, websocket.WebSocketException):
+            remote.settimeout(1)
+            remote.send(json.dumps({"type": "close", "id": request}))
+            deadline = time.monotonic() + 1
+            while time.monotonic() < deadline:
+                message = remote.recv()
+                if isinstance(message, str):
+                    control = json.loads(message)
+                    if isinstance(control, dict) and control.get("id") == request:
+                        return
+
     def _download(self):
         try:
             while True:
@@ -111,7 +138,8 @@ class Tunnel:
 
     def run(self):
         recovery = _RecoveryWindow(start=False)
-        threading.Thread(target=self._upload, daemon=True).start()
+        upload = threading.Thread(target=self._upload, daemon=True)
+        upload.start()
         threading.Thread(target=self._download, daemon=True).start()
         try:
             while not self.stopped:
@@ -153,8 +181,7 @@ class Tunnel:
                             if control["id"] != str(self.read_id):
                                 raise RuntimeError("Invalid tunnel response")
                             if control["type"] == "eof":
-                                with suppress(OSError, websocket.WebSocketException):
-                                    remote.send(json.dumps({"type": "close", "id": str(uuid4())}))
+                                self.stopped = True
                                 return
                             if control["type"] != "output":
                                 raise RuntimeError("Invalid tunnel control")
@@ -168,7 +195,12 @@ class Tunnel:
                         raise TimeoutError(
                             "Gateway did not reconnect within two minutes"
                         ) from error
+                except BaseException:
+                    self.stopped = True
+                    raise
                 finally:
+                    if self.stopped and remote is not None:
+                        self._close(remote)
                     with self.condition:
                         self.remote = None
                         self.sent_read = None
@@ -183,6 +215,7 @@ class Tunnel:
                 self.condition.notify_all()
             with suppress(Full):
                 self.output.put_nowait(None)
+            upload.join(timeout=1)
 
 
 def bridge_tunnel(connect, source, target):

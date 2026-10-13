@@ -216,6 +216,23 @@ class LLMGuidedSearch(PopulationBasedSearch):
         self._benchmark_times: list[float] = []
         self._llm_executor: concurrent.futures.ThreadPoolExecutor | None = None
 
+    def _algorithm_cache_policy(self) -> dict[str, object]:
+        return {
+            "llm_version": 1,
+            "provider": self.provider or _infer_provider(self.model),
+            "model": self.model,
+            "configs_per_round": self.configs_per_round,
+            "max_rounds": self.max_rounds,
+            "initial_random_configs": self.initial_random_configs,
+            "finishing_rounds": self.finishing_rounds,
+            "min_improvement_delta": self.min_improvement_delta,
+            "api_base": self.api_base,
+            "request_timeout_s": self.request_timeout_s,
+            "compile_timeout_s": self.compile_timeout_s,
+            "effort_level": self.effort_level,
+            "fast_mode": self.fast_mode,
+        }
+
     @classmethod
     def get_kwargs_from_profile(
         cls, profile: AutotuneEffortProfile, settings: Settings
@@ -229,8 +246,8 @@ class LLMGuidedSearch(PopulationBasedSearch):
     # ── Prompt building ─────────────────────────────────────────────
 
     def _build_system_prompt(self) -> str:
-        """Return the fixed instruction block shared by every LLM request."""
-        return build_system_prompt()
+        """Build the instruction block for this backend."""
+        return build_system_prompt(backend=self.config_spec.backend_name)
 
     def _build_initial_search_guidance(self) -> str:
         """Describe the round-0 search strategy for this config space."""
@@ -238,6 +255,7 @@ class LLMGuidedSearch(PopulationBasedSearch):
             configs_per_round=self.configs_per_round,
             compile_timeout_s=self.settings.autotune_compile_timeout,
             flat_fields=self.config_spec._flat_fields(),
+            backend=self.config_spec.backend_name,
         )
 
     def _build_initial_prompt(self) -> str:
@@ -252,8 +270,8 @@ class LLMGuidedSearch(PopulationBasedSearch):
 
     def _build_refinement_prompt(self, round_num: int) -> str:
         """Summarize search progress so the LLM can propose the next batch."""
-        del round_num
         return build_refinement_prompt(
+            backend=self.config_spec.backend_name,
             configs_per_round=self.configs_per_round,
             compile_timeout_s=self.settings.autotune_compile_timeout,
             failed_count=len(failed_benchmark_results(self._all_benchmark_results)),
@@ -261,14 +279,17 @@ class LLMGuidedSearch(PopulationBasedSearch):
             search_state=summarize_search_state_for_llm(
                 self._all_benchmark_results,
                 self._default_config_dict,
+                performance_unit=self.performance_unit,
             ),
             anchor_configs=summarize_anchor_configs_for_llm(
                 self._all_benchmark_results,
                 self._default_config_dict,
+                performance_unit=self.performance_unit,
             ),
             results=format_results_for_llm(
                 self._all_benchmark_results,
                 self._default_config_dict,
+                performance_unit=self.performance_unit,
             ),
             top_patterns=analyze_top_configs(
                 self._all_benchmark_results,
@@ -285,6 +306,7 @@ class LLMGuidedSearch(PopulationBasedSearch):
     def _call_llm(self, messages: list[dict[str, str]]) -> str:
         """Send one synchronous request to the configured provider and time it."""
         t0 = time.perf_counter()
+        trace_request = None
         try:
             provider = self.provider or _infer_provider(self.model)
             if provider == "unsupported":
@@ -294,18 +316,44 @@ class LLMGuidedSearch(PopulationBasedSearch):
                     "Responses. Set HELION_LLM_PROVIDER to override the provider "
                     "when using a proxy."
                 )
-            return _call_provider(
+            max_output_tokens = self._max_output_tokens_for_request()
+            trace_request = self.log.record_llm_request(
+                provider=provider,
+                model=self.model,
+                round=len(self._llm_call_times),
+                messages=messages,
+                max_output_tokens=max_output_tokens,
+                request_timeout_s=self.request_timeout_s,
+                effort_level=self.effort_level,
+                fast_mode=self.fast_mode,
+            )
+            response = _call_provider(
                 provider,
                 model=self.model,
                 api_base=self.api_base,
                 api_key=self.api_key,
                 messages=messages,
-                max_output_tokens=self._max_output_tokens_for_request(),
+                max_output_tokens=max_output_tokens,
                 request_timeout_s=self.request_timeout_s,
                 effort_level=self.effort_level,
                 fast_mode=self.fast_mode,
             )
+            self.log.record_llm_response(
+                trace_request,
+                status="ok",
+                response=response,
+                duration_s=time.perf_counter() - t0,
+            )
+            return response
         except Exception as e:
+            # Provider errors may contain credentials or headers. Record the
+            # exception class, while keeping the existing diagnostic log intact.
+            self.log.record_llm_response(
+                trace_request,
+                status="error",
+                error_type=type(e).__name__,
+                duration_s=time.perf_counter() - t0,
+            )
             self.log.warning(f"LLM call failed: {type(e).__name__}: {e}")
             raise
         finally:
@@ -373,7 +421,7 @@ class LLMGuidedSearch(PopulationBasedSearch):
     def _initialize_prompt_state(self) -> None:
         """Reset prompt state for a fresh guided-search run."""
         # Start each run from the fixed system prompt and the initial request.
-        self._default_config_dict = dict(self.config_spec.default_config())
+        self._default_config_dict = dict(self.config_spec.autotune_reference_config())
         self._messages = [
             {"role": "system", "content": self._build_system_prompt()},
             {"role": "user", "content": self._build_initial_prompt()},
@@ -382,7 +430,7 @@ class LLMGuidedSearch(PopulationBasedSearch):
     def _build_seed_configs(self) -> list[Config]:
         """Build the initial benchmark set: default plus a few random seeds."""
         # Start from default and add only distinct random configs that unflatten cleanly.
-        seed_configs: list[Config] = [self.config_spec.default_config()]
+        seed_configs: list[Config] = [self.config_spec.autotune_reference_config()]
         seen_config_keys = {self._config_key(seed_configs[0])}
         for flat in self.config_gen.random_population_flat(
             self.initial_random_configs + 1
@@ -425,6 +473,14 @@ class LLMGuidedSearch(PopulationBasedSearch):
         bench_t0 = time.perf_counter()
         results = self.benchmark_batch(configs, desc=desc)
         self._benchmark_times.append(time.perf_counter() - bench_t0)
+        repairs = self.benchmark_provider.take_effective_source_repairs()
+        if repairs:
+            self._apply_effective_source_repairs(repairs, self.population)
+            for config, repair in repairs.items():
+                self._latest_results_by_config_key[self._config_key(config)] = repair
+            self._all_benchmark_results = list(
+                self._latest_results_by_config_key.values()
+            )
         self._ingest_results(results)
 
     def _ingest_results(self, results: list[BenchmarkResult]) -> None:

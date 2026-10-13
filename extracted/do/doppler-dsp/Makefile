@@ -193,8 +193,8 @@ LINT_TOOLS   = conflict ruff ruff-format mdformat clang-format \
                version-literals text-encoding cmake-script-policy \
                why-param doc-claims public-symbols curl-fail \
                warnings-exempt stock-images uv-pin uv-lock tlm-name-join \
-               ring-internals spectrogram-mode
-FORMAT_TOOLS = ruff-format ruff mdformat clang-format
+               ring-internals named-args
+FORMAT_TOOLS = ruff-format ruff mdformat named-args clang-format
 
 # ruff reads its own excludes from pyproject's [tool.ruff] extend-exclude
 # (*.pyi, vendor, the re-export __init__.py shims), so the path list is just
@@ -432,13 +432,17 @@ LINT_cmake-script-policy = python3 scripts/check_cmake_script_policy.py
 LINT_header-example-arity = \
     $(UV) run python scripts/check_header_example_arity.py
 
-# dB rows are asked for by name (#1968): no dp_spectrogram_create call in a
-# tracked .c, .h or .md passes its mode as an integer literal. The constructor
-# takes a plain int, so the compiler cannot refuse `0` or `1`, and a number
-# hides which mode was meant -- #2097 swapped the values so that the zero
-# value is power, and a numbered call would have changed meaning without a
-# diff. Registration-free (git ls-files). Plain python3: stdlib only.
-LINT_spectrogram-mode = python3 scripts/check_spectrogram_mode.py
+# Integer-coded arguments are passed by name: no PSD window or averaging
+# mode, and no Spectrogram mode, is an integer literal in a tracked .c, .h or
+# .md. The constructors take a plain int, so the compiler cannot refuse `0` or
+# `1`, and a number hides which choice was meant -- #2097 swapped the
+# Spectrogram's modes, and a numbered call would have changed meaning without
+# a diff (#1968); #1894's review found 283 more. The names come from the C
+# enums `SSOT: enum=X` binds to just-makeit.toml (wfm-enum-tables rule 7),
+# read with that gate's parser, so this keeps no copy of them. `--fix` writes
+# the names, which makes this target the fixer `make format` runs too.
+# Registration-free (git ls-files). `uv run`: it reads the manifest's TOML.
+LINT_named-args = $(UV) run python scripts/check_named_args.py --fix
 
 # A refusal names its cause through `const char **why` -- a static sentence,
 # written only on refusal, NULL allowed, never freed. Every public refusal API
@@ -605,12 +609,16 @@ LEAK_CHECK    = python3 scripts/check_test_leaks.py
 # which they did twice, 2026-10-01 and 2026-10-03. `MEM_GUARD=0` skips it;
 # `make mem-guard-check` fails on a heavy command that does not reach it.
 MEM_GUARD_CMD = scripts/mem-guard.sh
+# CTEST_SELECT narrows the C suite the way PYTEST_SELECT narrows pytest:
+# `make test CTEST_SELECT='-R <re>'` runs only the matching ctests, still
+# under LEAK_CHECK. Empty by default, so the full suite is unchanged.
+CTEST_SELECT  ?=
 TEST_CMD      = $(LEAK_CHECK) --ctest -- \
                     $(CTEST) --test-dir $(BUILD_DIR) --output-on-failure \
-                    $(TEST_EXCLUDE_SWEEP)
+                    $(TEST_EXCLUDE_SWEEP) $(CTEST_SELECT)
 TEST_FAST_CMD = $(LEAK_CHECK) --ctest -- \
                     $(CTEST) --test-dir $(BUILD_DIR) --output-on-failure \
-                    --stop-on-failure $(TEST_EXCLUDE_SWEEP)
+                    --stop-on-failure $(TEST_EXCLUDE_SWEEP) $(CTEST_SELECT)
 # The SELECTION must match CI's exactly, or `make test-python` means one thing
 # locally and another in CI — which it did: local ran everything under src/,
 # CI excluded the `docs_snippets` and `examples` markers. Those two markers have
@@ -1003,6 +1011,7 @@ uv run python scripts/check_init_param_optionality.py
 uv run python scripts/check_out_param_guard.py
 uv run python scripts/check_c_api_link_refs.py
 uv run python docs/design/spectrogram-measurements/u1u4.py --check
+uv run python docs/design/spectrogram-measurements/b2094.py --check
 endef
 
 # docs-check's invariants WITHOUT the site build, so pre-commit can run them.
@@ -1116,9 +1125,10 @@ BENCH_THRESHOLD ?= 0.30
 BENCH_ALLOW ?= test_bench_execute_decim_64k
 
 # `jm bench` runs every benchmark CMake builds, not only jm's components: a
-# `c_deps` entry (conv, rs, spectrogram) or a function-only module (mpsk,
-# ber, snr, util, detection) has a bench target and no manifest object, and
-# since just-makeit#1023 jm discovers those by scanning the built targets.
+# `c_deps` entry (conv, rs), a function-only module (mpsk, ber, snr, util,
+# detection) or an object whose component CMakeLists is hand-written
+# (spectrogram) has a bench target jm did not generate, and since
+# just-makeit#1023 jm discovers those by scanning the built targets.
 # Observed 2026-10-09 on the pinned 0.100.1: `make bench BENCH_ARGS=
 # "--c-only conv rs spectrogram mpsk ber snr util detection"` ran each and
 # wrote its JSON.
@@ -1599,7 +1609,7 @@ endef
 
 # ── Clean ────────────────────────────────────────────────────────────────────
 CLEAN_PATHS = $(BUILD_DIR) $(PY_BUILD_DIR) $(UBSAN_DIR) $(TSAN_DIR) \
-              $(ASAN_DIR) \
+              $(ASAN_DIR) build-asan-* \
               $(GLIBC_BUILD_DIR) $(COV_DIR) $(NATS_FRESH_DIR) \
               docs/doxygen/ site/ \
               *.png bench_*.json zensical.toml __pycache__
@@ -1633,7 +1643,8 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
                 ci-aggregator-check python-versions-check \
                 jm-pin \
                 issue-link-check \
-                validate validate-c validate-check \
+                validate validate-py validate-c validate-check \
+                validate-spellings-check \
                 test-sweep validation-time-baseline \
                 characterize characterization-check \
                 doxygen-warn-gate \
@@ -1767,6 +1778,7 @@ lint: tests-ssot characterization-check validation-report-check changelog-check 
       ccsds-isolation-check container-mount-check cargo-lock-check \
       instrumented-sweep-check mem-guard-check \
       design-pages-check gallery-scripts-check bench-commits-check \
+      validate-spellings-check \
       drift-check doxygen-check
 
 # The base the assertion ratchet compares against, same shape as COV_BASE:
@@ -2170,6 +2182,7 @@ GALLERY_SCRIPTS := \
     src/doppler/examples/mpsk_nda_theory_demo.py \
     src/doppler/examples/q15_uq15_demo.py \
     src/doppler/examples/receiver_lock_demo.py \
+    src/doppler/examples/spectrogram_demo.py \
     src/doppler/examples/symsync_demo.py \
     src/doppler/examples/symsync_theory_demo.py
 
@@ -2184,8 +2197,16 @@ plot-rx-dynamics: build ## Render docs/assets/rx-dynamics.png from the C harness
 # committed under docs/assets/ but which nothing re-renders, because it was
 # never added to GALLERY_SCRIPTS. Passed IN, like release-freshness-check.
 # No waiver list: the 19 orphans it once held were drained in #1647.
+#
+# The second call holds the narrowing (#2058): `make -n gallery` narrowed to
+# one script must name no plot but that script's, while the default run still
+# renders every characterization. One script stands for all of them, because
+# the recipe treats them alike; the first is derived rather than named.
 gallery-scripts-check: ## Verify every committed gallery plot has a script `make gallery` runs
 	@$(UV) run python scripts/check_gallery_scripts.py $(GALLERY_SCRIPTS)
+	@$(UV) run python scripts/check_gallery_scripts.py \
+	     --narrow $(firstword $(GALLERY_SCRIPTS)) \
+	     --characterizations $(GALLERY_CHARACTERIZATIONS)
 
 # EXAMPLES_SKIP is the same list src/doppler/tests/test_examples.py reads, and
 # it is read here rather than restated: a script the smoke gate deliberately
@@ -2219,10 +2240,23 @@ gallery: ## Run the plot examples and copy their PNGs to docs/assets/
 	# which is how an artifact gets committed by accident.
 	@rm -f burst.blue probe.ci16 probe.ci16.sigmf-meta \
 	       scene.cf32 scene.cf32.sigmf-meta
+# A narrowed run renders only what it names (#2058). The characterization is
+# no named script's output, and it ran on every narrowed run anyway: on #2056,
+# `GALLERY_SCRIPTS=<one demo>` also rewrote dsss_acq_characterization.png,
+# an unrelated diff that is easy to commit by accident. So the step runs only
+# when GALLERY_SCRIPTS is the Makefile's own list, and a directive rather than
+# a shell `if`: the step is then absent from `make -n` too, which is what
+# gallery-scripts-check reads. Any GALLERY_SCRIPTS on the command line counts
+# as narrowed, the full list included. A plain `make gallery` is therefore
+# the only run that refreshes the characterization; release-freshness-check
+# reads GALLERY_CHARACTERIZATIONS so that a changed subject cannot be tagged
+# with its plot unrendered.
+ifeq ($(origin GALLERY_SCRIPTS),file)
 	@printf "  %-45s" "$(GALLERY_CHARACTERIZATIONS)"
 	@uv run python $(GALLERY_CHARACTERIZATIONS) \
 	     docs/assets/dsss_acq_characterization.png > /dev/null 2>&1 \
 	     && echo "OK" || { echo "FAIL"; exit 1; }
+endif
 	@echo "Gallery plots written to docs/assets/."
 
 # ── Undefined behaviour ──────────────────────────────────────────────────────
@@ -2319,8 +2353,21 @@ test-ubsan: ## Run the C suite under UBSan; any undefined behaviour fails
 # and fixed in the same change, so this target has never had a ratchet and
 # should not acquire its first one quietly. Adding `detect_leaks=0` or a
 # suppressions file is a change in what this gate promises; fix the code.
-ASAN_DIR   ?= build-asan
 ASAN_FLAGS  = -fsanitize=address -fno-omit-frame-pointer -g
+# clang, not the default compiler (#2130). GCC's AddressSanitizer does not
+# instrument an access through a float _Complex lvalue -- crealf(b[i]),
+# cimagf(b[i]), a whole-complex load or store -- which is how every DSP
+# kernel here reads its samples, so a gcc-built test-asan passed while
+# resamp read 19 samples past its delay line. clang reports them. clang's
+# ASan runtime ships apart from clang on Ubuntu/Debian 24.04+
+# (libclang-rt-<major>-dev); CI's image installs it (docker/ci-extra.sh), and
+# the probe at the top of test-asan says so locally. native/tests/asan_canary.c
+# holds the choice: built as the suite was, it must draw an ASan report, so
+# `ASAN_CC=gcc` is red.
+ASAN_CC    ?= clang
+# One tree per compiler, so `ASAN_CC=gcc` (the canary's sabotage) neither
+# reconfigures nor rebuilds the clang tree on the way back.
+ASAN_DIR   ?= build-asan-$(notdir $(ASAN_CC))
 # halt_on_error, for the reason UBSAN_OPTS gives above. `detect_leaks` is
 # spelled out rather than left to the platform default: it is ON by default on
 # Linux and OFF on macOS, so relying on the default would mean the gate
@@ -2328,14 +2375,86 @@ ASAN_FLAGS  = -fsanitize=address -fno-omit-frame-pointer -g
 ASAN_OPTS   = halt_on_error=1:abort_on_error=1:detect_leaks=1
 
 test-asan: ## Run the C suite under ASan+LSan; any bad access or leak fails
+# Can $(ASAN_CC) link an ASan program at all? Without the runtime, CMake's
+# compiler check fails first, with a message about the compiler and not
+# about the missing package.
+	@mkdir -p $(ASAN_DIR); \
+	 $(ASAN_CC) $(ASAN_FLAGS) native/tests/asan_canary.c \
+	   -o $(ASAN_DIR)/asan_probe > $(ASAN_DIR)/asan_probe.log 2>&1 \
+	 || { echo "test-asan: $(ASAN_CC) cannot link -fsanitize=address:"; \
+	      sed 's/^/    /' $(ASAN_DIR)/asan_probe.log; \
+	      echo "  clang's ASan runtime ships apart from clang on Ubuntu/Debian"; \
+	      echo "  24.04+ as libclang-rt-<major>-dev; the profile-runtime package"; \
+	      echo "  make coverage names for each distro holds it too."; exit 1; }
 	$(CMAKE) -B $(ASAN_DIR) -S . \
 		-DCMAKE_BUILD_TYPE=Debug \
+		-DCMAKE_C_COMPILER=$(ASAN_CC) \
 		-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 		"-DCMAKE_C_FLAGS=$(ASAN_FLAGS)" \
 		"-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address" \
 		"-DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=address" \
 		$(CMAKE_ARGS)
 	$(CMAKE) --build $(ASAN_DIR) --parallel $(NPROC)
+# The canary first: a compiler that cannot see a complex out-of-bounds read
+# makes every pass below say nothing about one (#2130). It is built with the
+# CMAKE_C_COMPILER, CMAKE_C_FLAGS and CMAKE_C_FLAGS_<build type> CMake
+# RECORDED, not $(ASAN_CC) and $(ASAN_FLAGS): a `CMAKE_ARGS` naming another
+# compiler or flags wins over the -D lines above, and a canary built the way
+# this target asked would then vouch for a suite built some other way. A
+# target's own options are not read; the scan below catches an object built
+# without ASan.
+	@cache=$(ASAN_DIR)/CMakeCache.txt; \
+	 cc=$$(sed -n 's/^CMAKE_C_COMPILER:[A-Z]*=//p' $$cache); \
+	 bt=$$(sed -n 's/^CMAKE_BUILD_TYPE:[A-Z]*=//p' $$cache | tr a-z A-Z); \
+	 cflags="$$(sed -n 's/^CMAKE_C_FLAGS:[A-Z]*=//p' $$cache) \
+	   $$(sed -n "s/^CMAKE_C_FLAGS_$$bt:[A-Z]*=//p" $$cache)"; \
+	 if [ -z "$$cc" ]; then \
+	   echo "test-asan: no CMAKE_C_COMPILER in $$cache,"; \
+	   echo "  so the canary cannot be built by the suite's compiler."; exit 1; \
+	 fi; \
+	 $$cc $$cflags native/tests/asan_canary.c -o $(ASAN_DIR)/asan_canary \
+	   || exit 1; \
+	 if ASAN_OPTIONS=$(ASAN_OPTS) $(ASAN_DIR)/asan_canary \
+	      > $(ASAN_DIR)/asan_canary.log 2>&1 \
+	    || ! grep -q 'heap-buffer-overflow' $(ASAN_DIR)/asan_canary.log; then \
+	   echo "test-asan: the canary's out-of-bounds float _Complex read went"; \
+	   echo "  unreported, so $$cc's ASan cannot see the kernels' bad"; \
+	   echo "  sample reads and this gate has not passed (#2130):"; \
+	   sed 's/^/    /' $(ASAN_DIR)/asan_canary.log; exit 1; \
+	 fi; \
+	 echo "test-asan: the canary's complex read was reported -- $$cc sees them"
+# One ASan registration flag in every test binary. clang emits
+# ___asan_globals_registered in each instrumented object, and an ELF's
+# globals are registered once per flag; when cmake/prefix_vendored.cmake
+# respelled the archive's copy, a test linking its own object beside
+# libdoppler.a held two and registered every global twice -- ASan's same-size
+# ODR reports, which surfaced in only two of the binaries holding two flags
+# (#2130). Zero flags is a binary built without ASan. The set is ctest's own,
+# the ones that are executables in this tree, and an empty set fails.
+	@bins=$$($(CTEST) --test-dir $(ASAN_DIR) $(SAN_EXCLUDE_SWEEP) -N -V \
+	   | sed -n 's/^[0-9]*: Test command: \([^ ]*\).*/\1/p' | sort -u); \
+	 checked=0; bad=0; \
+	 for b in $$bins; do \
+	   case "$$b" in $(abspath $(ASAN_DIR))/*) ;; *) continue ;; esac; \
+	   [ -x "$$b" ] || continue; \
+	   syms=$$(nm "$$b") || { echo "test-asan: nm $$b failed"; exit 1; }; \
+	   n=$$(printf '%s\n' "$$syms" \
+	     | awk '$$NF ~ /asan_globals_registered$$/' | grep -c .); \
+	   checked=$$((checked + 1)); \
+	   if [ "$$n" = 0 ]; then \
+	     echo "test-asan: $$b holds no ASan registration flag --"; \
+	     echo "  it was not built with ASan"; bad=1; \
+	   elif [ "$$n" != 1 ]; then \
+	     echo "test-asan: $$b holds $$n ASan registration flags --"; \
+	     echo "  each one registers every global again (#2130)"; bad=1; \
+	   fi; \
+	 done; \
+	 if [ "$$checked" = 0 ]; then \
+	   echo "test-asan: found no test executable to check for its ASan"; \
+	   echo "  registration flag, so that check has not passed."; exit 1; \
+	 fi; \
+	 [ "$$bad" = 0 ] || exit 1; \
+	 echo "test-asan: one ASan registration flag in each of $$checked test binaries"
 # An empty result set is not a pass -- the same trap test-tsan guards, and it
 # bites harder here because this target takes no pattern: a configure that
 # registered no tests would run zero of them and exit 0, reporting a clean
@@ -3109,12 +3228,40 @@ docs-drift-check: ## Check the generated doc regions are up to date
 # are needed.
 VALIDATORS = $(shell find src/doppler -path '*/tests/validation/*/validate.py' | sort)
 
-validate: ## Regenerate every object's validation report and plots
+# The two halves are two targets so that a run can ask for ONE by name.
+# `make validate-py VALIDATORS=<its validate.py>` regenerates a single
+# Python-only object and exits 0. The only spelling for that used to be
+# `make validate VALIDATORS=<it> VALIDATORS_C=`, and validate-c's guard
+# refused it as an empty glob -- the correct use of the target exited 2, on
+# #2033 and again on #2047. The guard cannot tell "no C harness wanted" from
+# "no C harness found", so wanting none is said by naming the half, and the
+# guard stays for the run that wants both. A prerequisite rather than a
+# second recursive call: make finishes it before this recipe starts, so the
+# Python half still runs first under -j. validate-spellings-check (on `lint`)
+# holds both directions (#2048).
+validate: validate-py ## Regenerate every object's validation report and plots (Python, then C)
+	@$(MAKE) --no-print-directory validate-c
+
+# An empty list is refused, as validate-c refuses its own: a loop over nothing
+# exits 0 having regenerated nothing, whether the glob stopped matching or
+# `VALIDATORS=` was typed bare, and either way the success is a lie.
+validate-py: ## Regenerate the Python validation reports only (VALIDATORS=<validate.py> to narrow)
+	@if [ -z "$(strip $(VALIDATORS))" ]; then \
+	    echo "validate-py: no validators -- VALIDATORS is empty, or the glob"; \
+	    echo "  over src/doppler/*/tests/validation/*/validate.py found none"; \
+	    exit 1; \
+	 fi
 	@for v in $(VALIDATORS); do \
 	    echo "=== $$v ==="; \
 	    uv run python $$v || exit 1; \
 	 done
-	@$(MAKE) --no-print-directory validate-c
+
+# Runs the real `validate-py` and `validate` with stub validators, so it runs
+# no real validator and no harness; see the script for how each case is
+# isolated. On `lint` because a gate whose correct use exits non-zero teaches
+# people to stop reading exit codes, and that is a fast-job mistake.
+validate-spellings-check: ## Verify validate-py and validate exit 0 and refuse exactly when they should
+	@python3 scripts/check_validate_spellings.py
 
 # The C half of "refresh the validation". ctest runs each of these with
 # `--check`, which is the REGRESSION SUBSET -- the downselect that would catch
@@ -3171,6 +3318,7 @@ validation-time-baseline: ## Re-record the sweep spot-check budget from a run
 validate-c: ## Run every C validation harness's FULL sweep (not the --check subset)
 	@if [ -z "$(VALIDATORS_C)" ]; then \
 	    echo "validate-c: no harness sources found under native/validation/"; \
+	    echo "  A Python-only run is 'make validate-py VALIDATORS=...'."; \
 	    exit 1; \
 	 fi
 	@mkdir -p $(VALIDATE_C_OUT)
@@ -3475,13 +3623,16 @@ tag-release: changelog-assembled-check
 # flap -- and a flapping gate gets disabled, taking the real signal with it.
 #
 # GALLERY_SCRIPTS is passed IN rather than restated in the script: a second
-# list is one that can disagree with the first.
+# list is one that can disagree with the first. GALLERY_CHARACTERIZATIONS goes
+# with it: its plot lands in docs/assets/ like the scripts' do, and only a
+# full `make gallery` renders it (#2058), so a changed subject is a stale plot
+# by the same test.
 release-freshness-check: ## VERSION=x.y.z — refuse a tag with stale plots or benchmarks
 ifndef VERSION
 	@echo "usage: make release-freshness-check VERSION=<x.y.z>"; exit 1
 endif
 	@$(UV) run python scripts/check_release_freshness.py \
-	    --version $(VERSION) $(GALLERY_SCRIPTS)
+	    --version $(VERSION) $(GALLERY_SCRIPTS) $(GALLERY_CHARACTERIZATIONS)
 
 tag-release: release-freshness-check
 

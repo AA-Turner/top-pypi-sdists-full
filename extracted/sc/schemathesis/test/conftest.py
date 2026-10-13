@@ -15,6 +15,9 @@ import httpx
 import httpx2
 import pytest
 import requests
+
+# Import eagerly: on Windows `rich` loads its console bindings on the first console, which `pytester` can race.
+import rich._windows  # noqa: F401
 import yaml
 from hypothesis import settings
 from urllib3 import HTTPResponse
@@ -27,7 +30,6 @@ import schemathesis.generation.value  # noqa: F401
 import schemathesis.specs.openapi.schemas  # noqa: F401
 from schemathesis.cli.commands.run.handlers import output
 from schemathesis.core import storage
-from schemathesis.core.transport import Response
 from schemathesis.python._constants.registry import default_registry
 
 from .utils import make_schema
@@ -514,23 +516,17 @@ def case_factory(swagger_20):
     return factory
 
 
-RESPONSE = Response(
-    status_code=200,
-    headers={},
-    content=b"",
-    request=requests.Request(method="GET", url="http://127.0.0.1/test").prepare(),
-    elapsed=0.1,
-    verify=False,
-)
-
-
-@pytest.fixture
-def mocked_call(mocker):
-    mocker.patch("schemathesis.Case.call", return_value=RESPONSE)
-
-
 @pytest.fixture
 def clean_constants_registry():
     default_registry().clear()
     yield
     default_registry().clear()
+
+
+@pytest.fixture
+def make_operation(ctx):
+    def factory(method: str = "post", path: str = "/api/users"):
+        sthesis_schema = ctx.openapi.load_schema({path: {method: {"responses": {"200": {"description": "OK"}}}}})
+        return sthesis_schema[path][method.upper()]
+
+    return factory

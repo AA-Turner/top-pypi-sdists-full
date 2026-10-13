@@ -93,6 +93,7 @@ Usage::
         ListTrainingJobsForHyperParameterTuningJobPaginator,
         ListTrainingJobsPaginator,
         ListTrainingPlansPaginator,
+        ListTrainingSessionsPaginator,
         ListTransformJobsPaginator,
         ListTrialComponentsPaginator,
         ListTrialsPaginator,
@@ -187,6 +188,7 @@ Usage::
     list_training_jobs_for_hyper_parameter_tuning_job_paginator: ListTrainingJobsForHyperParameterTuningJobPaginator = client.get_paginator("list_training_jobs_for_hyper_parameter_tuning_job")
     list_training_jobs_paginator: ListTrainingJobsPaginator = client.get_paginator("list_training_jobs")
     list_training_plans_paginator: ListTrainingPlansPaginator = client.get_paginator("list_training_plans")
+    list_training_sessions_paginator: ListTrainingSessionsPaginator = client.get_paginator("list_training_sessions")
     list_transform_jobs_paginator: ListTransformJobsPaginator = client.get_paginator("list_transform_jobs")
     list_trial_components_paginator: ListTrialComponentsPaginator = client.get_paginator("list_trial_components")
     list_trials_paginator: ListTrialsPaginator = client.get_paginator("list_trials")
@@ -368,6 +370,8 @@ from .type_defs import (
     ListTrainingJobsResponseTypeDef,
     ListTrainingPlansRequestPaginateTypeDef,
     ListTrainingPlansResponseTypeDef,
+    ListTrainingSessionsRequestPaginateTypeDef,
+    ListTrainingSessionsResponseTypeDef,
     ListTransformJobsRequestPaginateTypeDef,
     ListTransformJobsResponseTypeDef,
     ListTrialComponentsRequestPaginateTypeDef,
@@ -474,6 +478,7 @@ __all__ = (
     "ListTrainingJobsForHyperParameterTuningJobPaginator",
     "ListTrainingJobsPaginator",
     "ListTrainingPlansPaginator",
+    "ListTrainingSessionsPaginator",
     "ListTransformJobsPaginator",
     "ListTrialComponentsPaginator",
     "ListTrialsPaginator",
@@ -2221,6 +2226,27 @@ class ListTrainingPlansPaginator(_ListTrainingPlansPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListTrainingPlans.html#SageMaker.Paginator.ListTrainingPlans.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listtrainingplanspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListTrainingSessionsPaginatorBase = Paginator[ListTrainingSessionsResponseTypeDef]
+else:
+    _ListTrainingSessionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListTrainingSessionsPaginator(_ListTrainingSessionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListTrainingSessions.html#SageMaker.Paginator.ListTrainingSessions)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listtrainingsessionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTrainingSessionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListTrainingSessionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListTrainingSessions.html#SageMaker.Paginator.ListTrainingSessions.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listtrainingsessionspaginator)
         """
 
 

@@ -20,17 +20,31 @@ from matrx_ai.tools._sandbox_proxy import (
 from matrx_ai.tools.arg_models.desktop_args import (
     DesktopAppsArgs,
     DesktopAudioArgs,
+    DesktopAutomationArgs,
+    DesktopBrowserArgs,
+    DesktopCalendarArgs,
     DesktopClipboardArgs,
+    DesktopContactsArgs,
+    DesktopDocumentsArgs,
+    DesktopEntitiesArgs,
     DesktopGitArgs,
     DesktopInputArgs,
+    DesktopLocationArgs,
+    DesktopMailArgs,
+    DesktopMessagesArgs,
+    DesktopNetArgs,
+    DesktopNotesArgs,
+    DesktopPhotosArgs,
     DesktopPowerArgs,
     DesktopProcessArgs,
     DesktopResourcesArgs,
+    DesktopScheduleArgs,
     DesktopScreenArgs,
     DesktopSystemArgs,
     DesktopTranscribeArgs,
     DesktopWebArgs,
     DesktopWindowArgs,
+    DesktopWindowsAdminArgs,
     FsWatchArgs,
     ShellJobArgs,
 )
@@ -525,7 +539,18 @@ async def desktop_git(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 _WEB_BROWSER_TIMEOUT_S = 200.0
 
 
-def _web_plan(a: DesktopWebArgs) -> tuple[str, dict[str, Any], float] | str:
+def _web_land(organization_id: str | None) -> dict[str, Any]:
+    """Where a page the agent reads is saved as a Source (the op's ``land``, protocol 1.40): the
+    organization this conversation carries, never the computer's active one. With none carried the
+    op names none, and the computer saves it where its person works (its active organization)."""
+    if not organization_id:
+        return {}
+    return {"land": {"organization_id": organization_id, "keep": False, "attach_to": []}}
+
+
+def _web_plan(
+    a: DesktopWebArgs, organization_id: str | None = None
+) -> tuple[str, dict[str, Any], float] | str:
     """One device-side desktop_web action as its ``web.*`` op (params exactly the op's schema)."""
     if a.action == "fetch":
         if not a.url:
@@ -544,12 +569,21 @@ def _web_plan(a: DesktopWebArgs) -> tuple[str, dict[str, Any], float] | str:
             return "scrape needs urls (1 to 20)"
         return (
             "web.scrape",
-            {"urls": a.urls, "use_cache": a.use_cache, "get_links": a.get_links},
+            {
+                "urls": a.urls,
+                "use_cache": a.use_cache,
+                "get_links": a.get_links,
+                **_web_land(organization_id),
+            },
             300,
         )
     if not a.url:
         return "browser_fetch needs the url"
-    browser: dict[str, Any] = {"url": a.url, "extract_text": a.extract_text}
+    browser: dict[str, Any] = {
+        "url": a.url,
+        "extract_text": a.extract_text,
+        **_web_land(organization_id),
+    }
     if a.wait_for:
         browser["wait_for"] = a.wait_for
     return ("web.fetch_with_browser", browser, _WEB_BROWSER_TIMEOUT_S)
@@ -574,4 +608,459 @@ async def desktop_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         result = await web_search(query, ctx)
         result.tool_name = "desktop_web"
         return result
-    return await _call_ops("desktop_web", ctx, started_at, _web_plan(a), action=a.action)
+    from matrx_ai.tools.organization_hold import carried_organization_id
+
+    plan = _web_plan(a, carried_organization_id(ctx))
+    return await _call_ops("desktop_web", ctx, started_at, plan, action=a.action)
+
+
+# ── The user's own browser, through Matrx 2 (cap browser: the AI Matrx extension paired with it) ──
+
+#: desktop_browser action → the AI Matrx extension's own tool (matrx-extend src/lib/tools/handlers).
+#: Read tools answer at once; action tools ask the person in the browser first (initiator
+#: 'desktop'); the extension refuses its privileged tools from Matrx 2 (cdp_*, script injection).
+BROWSER_ACTION_TOOLS: dict[str, str] = {
+    "tabs": "list_open_tabs",
+    "read": "get_page_text",
+    "screenshot": "take_screenshot",
+    "navigate": "navigate_active_tab",
+    "click": "click_element",
+    "type": "type_into_element",
+    "close": "close_tab",
+}
+
+#: What the device may add on top of the person's wait (relay and core hops).
+_BROWSER_HEADROOM_S = 30.0
+
+
+def _browser_plan(a: DesktopBrowserArgs) -> tuple[str, dict[str, Any], float] | str:
+    """One desktop_browser action as its ``browser.*`` op (params exactly the op's schema)."""
+    if a.action == "sessions":
+        return ("browser.sessions", {}, 30)
+    if a.action == "call":
+        if not a.tool:
+            return "call needs tool: the extension tool's name"
+        tool, args = a.tool, dict(a.tool_args or {})
+    else:
+        tool = BROWSER_ACTION_TOOLS[a.action]
+        args = {}
+        if a.action == "read":
+            args = {"max_chars": a.max_chars}
+        elif a.action == "screenshot":
+            # The picture comes back to this turn; the extension keeps no copy of its own.
+            args = {"persist": False}
+        elif a.action == "navigate":
+            if not a.url:
+                return "navigate needs the url"
+            args = {"url": a.url}
+        elif a.action in ("click", "type"):
+            if not a.selector and not a.ref:
+                return f"{a.action} needs a selector or a ref (from read)"
+            args = {"selector": a.selector} if a.selector else {"ref": a.ref}
+            if a.action == "type":
+                if a.text is None:
+                    return "type needs the text"
+                args["text"] = a.text
+        elif a.action == "close":
+            if not a.tab_ids:
+                return "close needs tab_ids (from tabs)"
+            args = {"tab_ids": a.tab_ids}
+    params: dict[str, Any] = {"tool": tool, "args": args, "timeout_ms": a.timeout_s * 1000}
+    if a.browser:
+        params["client_instance"] = a.browser
+    return ("browser.call", params, a.timeout_s + _BROWSER_HEADROOM_S)
+
+
+def _browser_shape(output: dict[str, Any]) -> tuple[dict[str, Any], Any]:
+    """A screenshot goes to the model as an image; a tool's own refusal stays in its words."""
+    from matrx_ai.config import ImageContent, TextContent
+
+    result = output.get("result")
+    if not isinstance(result, dict):
+        return output, None
+    data = result.pop("image_base64", None)
+    if not data:
+        return output, None
+    result["size_bytes"] = len(data) * 3 // 4
+    facts = (
+        f"Screenshot of the browser tab: {result.get('width')}x{result.get('height')} "
+        f"({result.get('media_type') or 'image/jpeg'})."
+    )
+    return output, [
+        ImageContent(base64_data=data, mime_type=result.get("media_type") or "image/jpeg"),
+        TextContent(text=facts),
+    ]
+
+
+async def desktop_browser(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """The user's own browser, through the AI Matrx extension connected to Matrx 2 (ops
+    ``browser.sessions``, ``browser.call``). Only a browser signed in to the same AI Matrx account
+    as Matrx 2 is ever driven; the person confirms every action in the browser."""
+    started_at = time.time()
+    a = DesktopBrowserArgs(**args)
+    result = await _call_ops(
+        "desktop_browser",
+        ctx,
+        started_at,
+        _browser_plan(a),
+        action=a.action,
+        shape=_browser_shape,
+    )
+    # An extension tool that ran but could not do it ({ok: false, reason}) is a failure the model
+    # must see as one, not a success carrying a refusal.
+    inner = (
+        result.output.get("result") if result.success and isinstance(result.output, dict) else None
+    )
+    if isinstance(inner, dict) and inner.get("ok") is False:
+        reason = str(inner.get("reason") or inner.get("error") or "The browser could not do that")
+        return ToolResult(
+            success=False,
+            error=ToolError(error_type="browser_refused", message=reason),
+            started_at=started_at,
+            completed_at=time.time(),
+            tool_name="desktop_browser",
+            call_id=ctx.call_id,
+        )
+    return result
+
+
+# ── Matrx Local's remaining tools (desktop-protocol 1.37): one op per action, table-driven ───────
+#
+# Each action names its op, the args that become the op's params (arg name → param name), the ones
+# it cannot go without, and its timeout. Times arrive as ISO 8601 and travel as epoch ms; paths are
+# resolved against the computer's home like every desktop tool's.
+
+
+class _Act:
+    __slots__ = ("op", "fields", "required", "timeout_s")
+
+    def __init__(
+        self,
+        op: str,
+        fields: dict[str, str] | tuple[str, ...] = (),
+        required: tuple[str, ...] = (),
+        timeout_s: float = 60,
+    ) -> None:
+        self.op = op
+        self.fields = dict(fields) if isinstance(fields, dict) else {f: f for f in fields}
+        self.required = required
+        self.timeout_s = timeout_s
+
+
+#: Args holding a time (ISO 8601 in, epoch ms out).
+_TIME_ARGS = frozenset({"start", "end", "due", "since"})
+
+SIDECAR_ACTIONS: dict[str, dict[str, _Act]] = {
+    "desktop_net": {
+        "info": _Act("net.info", timeout_s=40),
+        "wifi": _Act("net.wifi", timeout_s=75),
+        "bluetooth": _Act("net.bluetooth", timeout_s=75),
+        "devices": _Act("net.devices", timeout_s=40),
+        "mdns": _Act("net.mdns", ("service_type", "timeout_s"), timeout_s=60),
+        "scan": _Act("net.scan", ("host", "ports", "allow_public"), ("host", "ports"), 300),
+        "download": _Act(
+            "net.download", ("url", "path", "overwrite", "timeout_s"), ("url", "path"), 3700
+        ),
+    },
+    "desktop_automation": {
+        "run": _Act(
+            "automation.script", ("language", "script", "timeout_s"), ("language", "script"), 660
+        ),
+    },
+    "desktop_mail": {
+        "accounts": _Act("mail.accounts", timeout_s=90),
+        "list": _Act("mail.list", ("account", "mailbox", "unread_only", "limit"), timeout_s=150),
+        "send": _Act(
+            "mail.send",
+            {
+                "to": "to",
+                "cc": "cc",
+                "subject": "subject",
+                "body": "body",
+                "sender": "from",
+                "send": "send",
+            },
+            ("to", "subject", "body"),
+            90,
+        ),
+    },
+    "desktop_messages": {
+        "chats": _Act("messages.chats", ("limit",), timeout_s=60),
+        "list": _Act("messages.list", ("chat_id", "limit"), timeout_s=60),
+        "send": _Act("messages.send", ("to", "text"), ("to", "text"), 90),
+    },
+    "desktop_contacts": {
+        "search": _Act("contacts.search", ("query", "limit"), ("query",), 150),
+        "get": _Act("contacts.get", ("id",), ("id",), 90),
+    },
+    "desktop_calendar": {
+        "events": _Act(
+            "calendar.list",
+            {"start": "from_ms", "end": "to_ms", "calendar": "calendar", "limit": "limit"},
+            ("start", "end"),
+            150,
+        ),
+        "create_event": _Act(
+            "calendar.create",
+            {
+                "title": "title",
+                "start": "start_ms",
+                "end": "end_ms",
+                "all_day": "all_day",
+                "calendar": "calendar",
+                "location": "location",
+                "notes": "notes",
+            },
+            ("title", "start", "end"),
+            90,
+        ),
+        "reminders": _Act("reminders.list", ("list", "include_completed", "limit"), timeout_s=120),
+        "create_reminder": _Act(
+            "reminders.create",
+            {"title": "title", "due": "due_ms", "list": "list", "notes": "notes"},
+            ("title",),
+            90,
+        ),
+    },
+    "desktop_photos": {
+        "search": _Act(
+            "photos.search",
+            {
+                "query": "query",
+                "start": "from_ms",
+                "end": "to_ms",
+                "favorites_only": "favorites_only",
+                "limit": "limit",
+            },
+            timeout_s=150,
+        ),
+        "get": _Act("photos.get", ("id", "export"), ("id",), 210),
+    },
+    "desktop_location": {
+        "get": _Act("location.get", ("timeout_s",), timeout_s=120),
+    },
+    "desktop_windows_admin": {
+        "registry_read": _Act("windows.registry_read", ("key", "name"), ("key",), 90),
+        "registry_write": _Act(
+            "windows.registry_write", ("key", "name", "type", "data", "delete"), ("key", "name"), 90
+        ),
+        "services": _Act("windows.services", ("filter", "limit"), timeout_s=90),
+        "service_control": _Act(
+            "windows.service_control",
+            {"name": "name", "service_action": "action"},
+            ("name", "service_action"),
+            120,
+        ),
+        "event_log": _Act(
+            "windows.event_log",
+            {"log": "log", "levels": "levels", "since": "since_ms", "limit": "limit"},
+            timeout_s=120,
+        ),
+        "features": _Act("windows.features", ("filter",), timeout_s=150),
+    },
+    "desktop_notes": {
+        "folders": _Act("notes.folders", timeout_s=60),
+        "list": _Act("notes.list", ("folder", "limit"), timeout_s=60),
+        "read": _Act("notes.read", ("path",), ("path",), 60),
+        "write": _Act(
+            "notes.write", ("folder", "label", "content", "if_hash"), ("label", "content"), 60
+        ),
+        "search": _Act("notes.search", ("query", "limit"), ("query",), 120),
+    },
+    "desktop_documents": {
+        "pdf_text": _Act(
+            "documents.pdf_text", ("path", "first_page", "last_page", "max_chars"), ("path",), 150
+        ),
+        "ocr": _Act("documents.ocr", ("path", "languages", "fast"), ("path",), 210),
+        "image_resize": _Act(
+            "documents.image_resize",
+            ("path", "out_path", "max_size", "format", "overwrite"),
+            ("path",),
+            150,
+        ),
+        "office_generate": _Act(
+            "documents.office_generate",
+            ("kind", "path", "title", "paragraphs", "sheets", "overwrite"),
+            ("kind", "path"),
+            90,
+        ),
+    },
+    "desktop_entities": {
+        "names": _Act("entities.ner", ("text", "labels"), ("text",), 150),
+        "private_data": _Act("entities.pii", ("text", "kinds", "redact"), ("text",), 60),
+    },
+}
+
+#: The protocol param names whose values are file paths (args mapped onto them are resolved).
+_PATH_PARAMS = frozenset({"path", "out_path"})
+#: Tools whose `path` is relative to their own folder on the computer, never to its home.
+_RELATIVE_PATH_TOOLS = frozenset({"desktop_notes"})
+
+
+def _epoch_ms(value: str) -> int | None:
+    """ISO 8601 (a date, or a date and time, with or without a zone: UTC when none) → epoch ms."""
+    from datetime import UTC, datetime
+
+    try:
+        dt = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return int(dt.timestamp() * 1000)
+
+
+def _sidecar_plan(tool: str, action: str, a: Any) -> tuple[str, dict[str, Any], float] | str:
+    """One action of a Matrx Local successor tool as its op, params exactly the op's schema."""
+    spec = SIDECAR_ACTIONS[tool].get(action)
+    if spec is None:
+        return f"{tool} has no action {action}"
+    missing = [f for f in spec.required if getattr(a, f, None) in (None, "", [])]
+    if missing:
+        return f"{action} needs {', '.join(missing)}"
+    params: dict[str, Any] = {}
+    for arg, param in spec.fields.items():
+        value = getattr(a, arg, None)
+        if value is None:
+            continue
+        if arg in _TIME_ARGS:
+            ms = _epoch_ms(str(value))
+            if ms is None:
+                return f"{arg} must be an ISO 8601 date or time, such as 2026-10-12T09:00:00-07:00"
+            value = ms
+        elif param in _PATH_PARAMS and isinstance(value, str) and tool not in _RELATIVE_PATH_TOOLS:
+            value = _path(value)
+        params[param] = value
+    return (spec.op, params, spec.timeout_s)
+
+
+async def _sidecar(
+    tool: str, model: Any, args: dict[str, Any], ctx: ToolContext, default_action: str | None = None
+) -> ToolResult:
+    started_at = time.time()
+    a = model(**args)
+    action = getattr(a, "action", None) or default_action or ""
+    return await _call_ops(tool, ctx, started_at, _sidecar_plan(tool, action, a), action=action)
+
+
+async def desktop_net(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """The user's computer's network (ops ``net.*``): interfaces, Wi-Fi, Bluetooth, local devices,
+    Bonjour, a port probe of a host on its network, downloads onto it."""
+    return await _sidecar("desktop_net", DesktopNetArgs, args, ctx)
+
+
+async def desktop_automation(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """A script in the computer's own automation language (op ``automation.script``)."""
+    return await _sidecar(
+        "desktop_automation", DesktopAutomationArgs, args, ctx, default_action="run"
+    )
+
+
+async def desktop_mail(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """The Mail app on the user's Mac (ops ``mail.*``)."""
+    return await _sidecar("desktop_mail", DesktopMailArgs, args, ctx)
+
+
+async def desktop_messages(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """The Messages app on the user's Mac (ops ``messages.*``)."""
+    return await _sidecar("desktop_messages", DesktopMessagesArgs, args, ctx)
+
+
+async def desktop_contacts(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Contacts on the user's Mac (ops ``contacts.*``)."""
+    return await _sidecar("desktop_contacts", DesktopContactsArgs, args, ctx)
+
+
+async def desktop_calendar(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Calendar and Reminders on the user's Mac (ops ``calendar.*``, ``reminders.*``)."""
+    return await _sidecar("desktop_calendar", DesktopCalendarArgs, args, ctx)
+
+
+async def desktop_photos(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """The Photos library on the user's Mac (ops ``photos.*``)."""
+    return await _sidecar("desktop_photos", DesktopPhotosArgs, args, ctx)
+
+
+async def desktop_location(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Where the user's computer is (op ``location.get``)."""
+    return await _sidecar("desktop_location", DesktopLocationArgs, args, ctx, default_action="get")
+
+
+async def desktop_windows_admin(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Windows administration on the user's PC (ops ``windows.*``)."""
+    return await _sidecar("desktop_windows_admin", DesktopWindowsAdminArgs, args, ctx)
+
+
+async def desktop_notes(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """The user's local notes in Documents/Matrx/Notes (ops ``notes.*``)."""
+    return await _sidecar("desktop_notes", DesktopNotesArgs, args, ctx)
+
+
+async def desktop_documents(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """PDF text, OCR, images and Office files on the user's computer (ops ``documents.*``)."""
+    return await _sidecar("desktop_documents", DesktopDocumentsArgs, args, ctx)
+
+
+async def desktop_entities(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Names and private data in a text, found on the user's computer (ops ``entities.*``)."""
+    return await _sidecar("desktop_entities", DesktopEntitiesArgs, args, ctx)
+
+
+#: The tools desktop_schedule can put on an interval (their actions' plans, run by the device).
+_SCHEDULABLE: dict[str, Any] = {
+    "desktop_net": DesktopNetArgs,
+    "desktop_notes": DesktopNotesArgs,
+    "desktop_documents": DesktopDocumentsArgs,
+    "desktop_entities": DesktopEntitiesArgs,
+    "desktop_mail": DesktopMailArgs,
+    "desktop_messages": DesktopMessagesArgs,
+    "desktop_contacts": DesktopContactsArgs,
+    "desktop_calendar": DesktopCalendarArgs,
+    "desktop_photos": DesktopPhotosArgs,
+    "desktop_location": DesktopLocationArgs,
+    "desktop_automation": DesktopAutomationArgs,
+    "desktop_windows_admin": DesktopWindowsAdminArgs,
+}
+_SCHEDULE_DEFAULT_ACTION = {"desktop_automation": "run", "desktop_location": "get"}
+
+
+def _schedule_plan(a: DesktopScheduleArgs) -> tuple[str, dict[str, Any], float] | str:
+    if a.action == "list":
+        return ("schedule.list", {"include_finished": bool(a.include_finished)}, 30)
+    if a.action == "cancel":
+        return (
+            ("schedule.cancel", {"id": a.id}, 30)
+            if a.id
+            else "cancel needs the id (from create or list)"
+        )
+    if not (a.name and a.tool and a.interval_s):
+        return "create needs name, tool and interval_s"
+    model = _SCHEDULABLE.get(a.tool)
+    if model is None:
+        return f"{a.tool} cannot be scheduled; one of: {', '.join(sorted(_SCHEDULABLE))}"
+    try:
+        inner = model(**(a.tool_args or {}))
+    except Exception as exc:  # noqa: BLE001 - the model's own words go back to the agent
+        return f"tool_args for {a.tool}: {str(exc)[:300]}"
+    action = getattr(inner, "action", None) or _SCHEDULE_DEFAULT_ACTION.get(a.tool, "")
+    plan = _sidecar_plan(a.tool, action, inner)
+    if isinstance(plan, str):
+        return plan
+    op, params, _ = plan
+    create: dict[str, Any] = {
+        "name": a.name,
+        "op": op,
+        "params": params,
+        "interval_s": a.interval_s,
+        "run_now": bool(a.run_now),
+    }
+    if a.max_runs is not None:
+        create["max_runs"] = a.max_runs
+    return ("schedule.create", create, 60)
+
+
+async def desktop_schedule(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Run a desktop tool's action on the user's computer on an interval (ops ``schedule.*``)."""
+    started_at = time.time()
+    a = DesktopScheduleArgs(**args)
+    return await _call_ops("desktop_schedule", ctx, started_at, _schedule_plan(a), action=a.action)

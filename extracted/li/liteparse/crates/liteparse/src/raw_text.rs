@@ -4,9 +4,10 @@
 //! [`crate::extract`]. It applies no layout heuristics — no gap-based line or word
 //! merging, no invisible-text skip, no ligature expansion, no punctuation
 //! normalisation, no dedup — so its output is a stable function of what pdfium
-//! reports and a consumer can build its own segmentation on top. Every glyph pdfium
-//! reports lands in exactly one item, in page order, and a glyph is never dropped on
-//! its own.
+//! reports and a consumer can build its own segmentation on top. Glyphs hidden by
+//! known rectangular clips are omitted before grouping; partially clipped glyphs
+//! are kept in full whenever their loose box intersects the clip. Unknown clips
+//! preserve text.
 //!
 //! Rules:
 //!
@@ -157,6 +158,7 @@ pub fn extract_raw_text_items(
     let char_count = text_page.char_count();
     let page_rotation = page.rotation();
     let mut chunks = CharInfoChunks::new(text_page);
+    let clips = crate::text_clip::TextClip::new(page);
     let mut items = Vec::new();
     let mut run: Vec<Glyph> = Vec::new();
     // Outline shapes repeat across a page (the same glyph at the same size and
@@ -186,6 +188,10 @@ pub fn extract_raw_text_items(
             ch: &ch,
             rec: chunks.as_mut().and_then(|chunks| chunks.record(i)),
         };
+        if clips.hides(&cv) {
+            flush(&mut run, &mut items);
+            continue;
+        }
         let glyph = load_glyph(page, view_box, page_rotation, &cv, i);
 
         if let Some(first) = run.first()
@@ -210,6 +216,9 @@ pub fn extract_raw_text_items(
     items
 }
 
+/// The code pdfium gives a hyphen it found at the end of a line (`FPDFText_IsHyphen`).
+const LINE_END_HYPHEN: u32 = 0x02;
+
 /// The per-glyph reads. A glyph whose loose box cannot be read falls back to its
 /// strict box.
 fn load_glyph(
@@ -221,10 +230,14 @@ fn load_glyph(
 ) -> Glyph {
     let generated = cv.is_generated();
     let char_code = if generated { 0 } else { cv.char_code() };
-    let unicode = if cv.has_unicode_map_error() {
-        0
-    } else {
-        cv.unicode()
+    let unicode = match cv.has_unicode_map_error() {
+        true => 0,
+        // pdfium reports a hyphen drawn at the end of a line as U+0002. Read as
+        // a control code it would also flag the whole word as a buggy font and
+        // re-decode it through the glyph map, so restore the drawn '-'. A 0x02
+        // pdfium does not flag as a hyphen is a real code and stays as it is.
+        false if cv.unicode() == LINE_END_HYPHEN && cv.is_hyphen() => u32::from('-'),
+        false => cv.unicode(),
     };
     let strict = cv.strict_char_box().unwrap_or_default();
     let loose = cv.loose_char_box().unwrap_or(strict);

@@ -44,7 +44,7 @@ from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
 
-from probe.daemon.events import Kind
+from probe.daemon.events import READER_SOURCE, Kind
 from probe.daemon.store import StoredEvent, Store
 
 CHARS_PER_TOKEN = 4
@@ -94,6 +94,10 @@ def _size(chars: int) -> str:
 
 def render(ev: StoredEvent, *, calls: dict[str, StoredEvent] | None = None) -> str:
     """One event as the model sees it."""
+    if ev.source == READER_SOURCE:
+        # What the daemon's reader handed the main agent (from the mailbox's claim
+        # log): whole up to the text cap, one message per event, not a harness preview.
+        return f"[Probe message to the main agent · {ev.event_id}]\n{_cap(ev.text, TEXT_SHOWN_CHARS, ev)}"
     k = ev.kind
     if k == Kind.PROMPT:
         return f"[researcher · turn {ev.turn} · {ev.event_id}]\n{_cap(ev.text, TEXT_SHOWN_CHARS, ev)}"
@@ -150,6 +154,8 @@ def _cap(text: str, limit: int, ev: StoredEvent) -> str:
 def shown_chars(ev: StoredEvent) -> int:
     """About how many characters `render` shows for `ev`: the same estimate as
     `Store.shown_turn_sizes`, without rendering."""
+    if ev.source == READER_SOURCE:
+        return min(ev.chars, TEXT_SHOWN_CHARS) + 40
     k = ev.kind
     if k == Kind.TOOL_OUTPUT:
         return 90

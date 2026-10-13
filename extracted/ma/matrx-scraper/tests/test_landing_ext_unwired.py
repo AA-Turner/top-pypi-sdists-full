@@ -71,7 +71,17 @@ class RecordingHook:
         self.calls.append(landing)
         if self.fail is not None:
             raise self.fail
-        return {"processed_document_id": DOC_ID, "source_id": "spp-1", "notices": [], "kept": landing["keep"]}
+        # The door's whole LandedSource, as aidream's land_source answers.
+        return {
+            "processed_document_id": DOC_ID,
+            "source_id": "spp-1",
+            "reused_existing": False,
+            "new_version_of": None,
+            "kept": landing["keep"],
+            "intelligence": "queued" if landing["keep"] else "deferred",
+            "original_file_id": None,
+            "notices": [],
+        }
 
 
 class FakeCache:
@@ -319,6 +329,52 @@ async def test_content_save_lands_desktop_captures_as_local_residential(registry
     prov = hook.calls[0]["provenance"]
     assert (prov["origin_client"], prov["capture_method"], prov["user_id"]) == ("local", "residential", USER_ID)
     assert hook.calls[0]["published_to_web"] is False
+
+
+@pytest.mark.asyncio
+async def test_content_save_answers_the_doors_whole_landed_source(registry: dict[str, Any]) -> None:
+    """A device shows "Already saved", "Version n", Keep and the kept original: the route answers
+    every LandedSource field, never only the ids."""
+    registry["source_landing"] = RecordingHook()
+    answer = await ext_router.content_save(request=_save(keep=True), ctx=_ctx())
+    assert answer == {
+        "status": "saved",
+        "page_name": answer["page_name"],
+        "processed_document_id": DOC_ID,
+        "source_id": "spp-1",
+        "reused_existing": False,
+        "new_version_of": None,
+        "kept": True,
+        "intelligence": "queued",
+        "original_file_id": None,
+        "notices": [],
+    }
+
+
+@pytest.mark.asyncio
+async def test_content_save_records_the_browser_lane_as_the_rung(registry: dict[str, Any]) -> None:
+    """A page this computer's own browser rendered says so in provenance (captured_by_rung)."""
+    hook = RecordingHook()
+    registry["source_landing"] = hook
+    await ext_router.content_save(
+        request=_save(content={"title": "Widgets", "markdown_renderable": PAGE_MD, "engine": "browser"}), ctx=_ctx()
+    )
+    prov = hook.calls[0]["provenance"]
+    assert (prov["capture_method"], prov["captured_by_rung"]) == ("residential", "browser")
+
+
+@pytest.mark.asyncio
+async def test_content_save_refuses_a_short_door_answer_loudly(registry: dict[str, Any]) -> None:
+    from fastapi import HTTPException
+
+    async def short(landing: dict[str, Any]) -> dict[str, Any]:
+        return {"processed_document_id": DOC_ID, "source_id": "spp-1"}
+
+    registry["source_landing"] = short
+    with pytest.raises(HTTPException) as excinfo:
+        await ext_router.content_save(request=_save(), ctx=_ctx())
+    assert excinfo.value.status_code == 502
+    assert excinfo.value.detail["code"] == "landing_answer_malformed"
 
 
 @pytest.mark.asyncio

@@ -1534,7 +1534,9 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
         self._version: str | None = None
         self._parent_instance_id: str | None = None
         self._completion_status: pb.OrchestrationStatus | None = None
-        self._received_events: dict[str, list[str | None]] = {}
+        # Keep arrival indexes separate from task IDs and retain raw payloads.
+        self._received_events: dict[str, list[tuple[int, str | None]]] = {}
+        self._received_event_sequence = 0
         self._pending_events: dict[str, list[task.CancellableTask[Any]]] = {}
         self._new_input: Any | None = None
         self._new_version: str | None = None
@@ -1674,13 +1676,16 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
                 carryover_events = []
                 # We need to save the current set of pending events so that they can be
                 # replayed when the new instance starts.
-                for event_name, values in self._received_events.items():
-                    for event_value in values:
-                        # Buffered events are stored as their raw JSON payload
-                        # (or None), so carry them over as-is without re-encoding.
-                        carryover_events.append(
-                            ph.new_event_raised_event(event_name, event_value)
-                        )
+                buffered_events = sorted(
+                    (index, event_name, value)
+                    for event_name, values in self._received_events.items()
+                    for index, value in values
+                )
+                for _, event_name, event_value in buffered_events:
+                    # Carry over raw JSON payloads (or None) without re-encoding.
+                    carryover_events.append(
+                        ph.new_event_raised_event(event_name, event_value)
+                    )
             action = ph.new_complete_orchestration_action(
                 self.next_sequence_number(),
                 pb.ORCHESTRATION_STATUS_CONTINUED_AS_NEW,
@@ -2109,7 +2114,7 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
         event_name = name.casefold()
         event_list = self._received_events.get(event_name, None)
         if event_list:
-            event_data = event_list.pop(0)
+            _, event_data = event_list.pop(0)
             if not event_list:
                 del self._received_events[event_name]
             external_event_task.complete(self._data_converter.deserialize(event_data, data_type))
@@ -2571,6 +2576,10 @@ class _OrchestrationExecutor:
                             scheduled_time_ns=created_ns,
                             parent_trace_context=ctx._orchestration_trace_context or ctx._parent_trace_context,  # pyright: ignore[reportPrivateUsage]
                         )
+                # A prior event in this batch may have ended the orchestration.
+                # Do not schedule another chunk, retry work, or resume user code.
+                if ctx._is_complete:  # pyright: ignore[reportPrivateUsage]
+                    return
                 next_fire_at = timer_task._handle_timer_fired(event.timerFired.fireAt.ToDatetime())  # pyright: ignore[reportPrivateUsage]
                 if next_fire_at is not None:
                     id = ctx.next_sequence_number()
@@ -2843,7 +2852,9 @@ class _OrchestrationExecutor:
                         self._logger.info(f"{ctx.instance_id} Event raised: {event_name}")
                     task_list = ctx._pending_events.get(event_name, None)  # pyright: ignore[reportPrivateUsage]
                     decoded_result: Any | None = None
-                    if task_list:
+                    # Completed executions leave abandoned waits behind. Buffer
+                    # trailing events instead, so continue-as-new can carry them over.
+                    if task_list and not ctx._is_complete:  # pyright: ignore[reportPrivateUsage]
                         event_task = task_list.pop(0)
                         if not ph.is_empty(event.eventRaised.input):
                             decoded_result = self._data_converter.deserialize(
@@ -2866,10 +2877,11 @@ class _OrchestrationExecutor:
                         buffered_payload: str | None = None
                         if not ph.is_empty(event.eventRaised.input):
                             buffered_payload = event.eventRaised.input.value
-                        event_list.append(buffered_payload)
+                        event_list.append((ctx._received_event_sequence, buffered_payload))  # pyright: ignore[reportPrivateUsage]
+                        ctx._received_event_sequence += 1  # pyright: ignore[reportPrivateUsage]
                         if not ctx.is_replaying:
                             self._logger.info(
-                                f"{ctx.instance_id}: Event '{event_name}' has been buffered as there are no tasks waiting for it."
+                                f"{ctx.instance_id}: Event '{event_name}' has been buffered as there are no active tasks waiting for it."
                             )
             elif event.HasField("executionSuspended"):
                 if not self._is_suspended and not ctx.is_replaying:

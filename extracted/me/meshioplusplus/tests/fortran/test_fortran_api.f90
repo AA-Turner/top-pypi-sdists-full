@@ -146,6 +146,61 @@ program test_fortran_api
         close (unit, status='delete')
     end block
 
+    ! ---- the NURBS side channel of an MFEM NURBS mesh -------------------
+    block
+        type(mio_mesh) :: nurbs_mesh, back
+        type(mio_format_info) :: info, back_info
+        integer :: unit
+        integer(int64), allocatable :: ids(:, :)
+        real(real64), allocatable :: xyz(:, :), weights(:)
+        character(:), allocatable :: input_path, output_path
+
+        input_path = prefix//'_nurbs.mesh'
+        output_path = prefix//'_nurbs_out.mesh'
+        open (newunit=unit, file=input_path, status='replace')
+        write (unit, '(a)') 'MFEM NURBS mesh v1.0', 'dimension', '2', 'elements', '1', &
+            '5 3 0 1 2 3', 'boundary', '0', 'edges', '4', '0 0 1', '0 3 2', '1 0 3', '1 1 2', &
+            'vertices', '4', 'knotvectors', '2', '2 3 0 0 0 1 1 1', '1 2 0 0 1 1', 'weights', &
+            '1', '1', '1', '1', '0.70710678118654757', '0.70710678118654757', &
+            'FiniteElementSpace', 'FiniteElementCollection: NURBS2', 'VDim: 2', 'Ordering: 1', &
+            '1 0', '0 1', '0 2', '2 0', '1 1', '2 2'
+        close (unit)
+        call nurbs_mesh%read_with_info(input_path, info, 'mfem', stat=ierr, errmsg=msg)
+        call check(ierr == 0, 'nurbs read_with_info succeeds')
+        if (ierr == 0) then
+            call check(info%format() == 'mfem', 'nurbs format name')
+            call check(info%nurbs_count(MIO_NURBS_PATCHES) == 1, 'nurbs patch count')
+            call check(info%nurbs_count(MIO_NURBS_FIELDS) == 0, 'nurbs field count')
+            call check(info%nurbs_int(MIO_NURBS_PATCHES, 1, 0) == 2_int64, 'nurbs dimension')
+            call check(all(info%nurbs_degrees(1) == [2, 1]), 'nurbs degrees')
+            call check(all(info%nurbs_knots(1, 2) == [0.0_real64, 0.0_real64, 1.0_real64, &
+                                                      1.0_real64]), 'nurbs knots')
+            xyz = info%nurbs_control_points(1)
+            call check(all(shape(xyz) == [2, 6]), 'nurbs control net shape')
+            call check(all(xyz(:, 2) == [1.0_real64, 1.0_real64]), 'nurbs control point')
+            weights = info%nurbs_weights(1)
+            call check(abs(weights(2) - sqrt(0.5_real64)) < 1e-15_real64, 'nurbs weight')
+            ids = info%nurbs_ids(MIO_NURBS_TOPOLOGY, 0)
+            call check(all(ids(:, 1) == [1_int64, 2_int64, 3_int64, 4_int64]), &
+                       'nurbs 1-based patch vertices')
+            ids = info%nurbs_ids(MIO_NURBS_CELL_MAP, 0)
+            call check(all(shape(ids) == [1, 1]) .and. ids(1, 1) == 1_int64, 'nurbs cell patch')
+            call nurbs_mesh%write_with_info(output_path, info, 'mfem', stat=ierr)
+            call check(ierr == 0, 'nurbs write_with_info succeeds')
+            call back%read_with_info(output_path, back_info, 'mfem', stat=ierr)
+            call check(ierr == 0, 'nurbs reread succeeds')
+            call check(all(back_info%nurbs_control_points(1) == xyz), 'nurbs round trip')
+            call back%free()
+            call back_info%free()
+            open (newunit=unit, file=output_path, status='old')
+            close (unit, status='delete')
+        end if
+        call nurbs_mesh%free()
+        call info%free()
+        open (newunit=unit, file=input_path, status='old')
+        close (unit, status='delete')
+    end block
+
     points = reshape([0.0_real64, 0.0_real64, 0.0_real64, &
                       1.1_real64, 0.2_real64, 0.3_real64, &
                       0.4_real64, 1.2_real64, 0.5_real64, &
@@ -1570,6 +1625,7 @@ program test_fortran_api
     call check_curvature()
     call check_normals()
     call check_analysis_editing()
+    call check_render(prefix)
     call check_repair_shrinkwrap_sobolev()
     call check_mdpa_side_channel(prefix)
 
@@ -1888,8 +1944,8 @@ contains
     end subroutine
 
     subroutine check_analysis_editing()
-        type(mio_mesh) :: sq, other, edges, edited, bad
-        integer(int64) :: nfeat, nbound, nfixed
+        type(mio_mesh) :: sq, other, edges, edited, bad, seg, fitted
+        integer(int64) :: nfeat, nbound, nfixed, npatch, nplane
         integer(int64), allocatable :: s_ids(:), m_ids(:)
         integer :: ierr
         real(real64) :: cube_points(3, 8), d, ab
@@ -1925,6 +1981,18 @@ contains
         call edges%free()
         bad = sq%feature_edges(feature_angle=200.0_real64, stat=ierr)
         call check(ierr /= 0, 'feature_edges rejects an angle above 180')
+
+        ! Segment and fit: six flat faces, six planes.
+        seg = sq%segment(num_patches=npatch, stat=ierr)
+        call check(ierr == 0, 'segment succeeded')
+        call check(npatch == 6_int64, 'a cube segments into 6 patches')
+        fitted = seg%fit_primitives(num_plane=nplane, stat=ierr)
+        call check(ierr == 0, 'fit_primitives succeeded')
+        call check(nplane == 6_int64, 'every cube face fits a plane')
+        call fitted%free()
+        call seg%free()
+        bad = sq%segment(feature_angle=200.0_real64, stat=ierr)
+        call check(ierr /= 0, 'segment rejects an angle above 180')
 
         ! Hausdorff: a cube against itself.
         call other%create()
@@ -1971,6 +2039,168 @@ contains
         call check(ierr == 0 .and. .not. passed, 'check_quality fails a tight bound')
         passed = sq%check_quality('bogus >= 1', stat=ierr)
         call check(ierr /= 0, 'check_quality rejects an unknown metric')
+        call sq%free()
+    end subroutine
+
+    subroutine check_render(out_prefix)
+        character(*), intent(in) :: out_prefix
+        type(mio_mesh) :: sq
+        type(mio_frame) :: f, bad
+        type(mio_render_settings) :: set
+        type(mio_text_settings) :: tset
+        real(real64) :: cube_points(3, 8), lo, hi
+        integer(int64) :: cube_conn(4, 6)
+        integer(int64), allocatable :: ids(:, :)
+        integer, allocatable :: rgba(:, :, :), png(:)
+        character(:), allocatable :: text
+        integer :: ierr, w, h, x, y, covered
+        logical :: colored
+        real(real64) :: flow(3, 8)
+
+        cube_points = reshape([0.0_real64, 0.0_real64, 0.0_real64, &
+                               1.0_real64, 0.0_real64, 0.0_real64, &
+                               1.0_real64, 1.0_real64, 0.0_real64, &
+                               0.0_real64, 1.0_real64, 0.0_real64, &
+                               0.0_real64, 0.0_real64, 1.0_real64, &
+                               1.0_real64, 0.0_real64, 1.0_real64, &
+                               1.0_real64, 1.0_real64, 1.0_real64, &
+                               0.0_real64, 1.0_real64, 1.0_real64], [3, 8])
+        cube_conn = reshape([1_int64, 4_int64, 3_int64, 2_int64, &
+                             5_int64, 6_int64, 7_int64, 8_int64, &
+                             1_int64, 2_int64, 6_int64, 5_int64, &
+                             4_int64, 8_int64, 7_int64, 3_int64, &
+                             1_int64, 5_int64, 8_int64, 4_int64, &
+                             2_int64, 3_int64, 7_int64, 6_int64], [4, 6])
+        call sq%create()
+        call sq%set_points(cube_points)
+        call sq%add_cell_block('quad', cube_conn)
+        flow(1, :) = -(cube_points(2, :) - 0.5_real64)
+        flow(2, :) = cube_points(1, :) - 0.5_real64
+        flow(3, :) = 0.0_real64
+        call sq%add_point_data('flow', flow)
+
+        ! A frame: size, pixels, ids.
+        set%width = 48
+        set%height = 32
+        set%background = mio_rgba(255, 255, 255)
+        f = sq%render(set, stat=ierr)
+        call check(ierr == 0 .and. f%is_valid(), 'render succeeded')
+        w = f%width()
+        h = f%height()
+        call check(w == 48 .and. h == 32, 'the frame has the requested size')
+        call f%get_rgba(rgba)
+        call f%get_cell_ids(ids)
+        call check(all(shape(rgba) == [4, 48, 32]), 'rgba is (4, width, height)')
+        call check(rgba(4, 1, 1) == 255 .and. rgba(1, 1, 1) == 255, 'the corner is the white background')
+        covered = 0
+        do y = 1, h
+            do x = 1, w
+                if (ids(x, y) >= 0) covered = covered + 1
+            end do
+        end do
+        call check(covered > 100, 'the cube covers pixels')
+        call check(.not. f%range(lo, hi), 'no field is mapped by default')
+        call f%png(png, stat=ierr)
+        call check(ierr == 0 .and. size(png) > 8, 'the PNG has bytes')
+        call check(png(2) == 80 .and. png(3) == 78 .and. png(4) == 71, 'the PNG starts with the PNG signature')
+        call f%png(png, compress=10, stat=ierr)
+        call check(ierr /= 0, 'a compression level of 10 is refused')
+        tset%color_depth = MIO_COLOR_MONO
+        text = f%text(tset, stat=ierr)
+        call check(ierr == 0 .and. len(text) > 0, 'a frame encodes as text')
+        call f%free()
+
+        ! Text sized to the cells, with a mapped field's note.
+        tset%cols = 20
+        tset%rows = 6
+        tset%color_depth = MIO_COLOR_MONO
+        set = mio_render_settings()
+        text = sq%render_text(set, tset, stat=ierr)
+        call check(ierr == 0, 'render_text succeeded')
+        call check(count([(text(x:x) == achar(10), x=1, len(text))]) == 6, 'render_text has one line per row')
+        call check(.not. any([(iachar(text(x:x)) == 27, x=1, len(text))]), 'mono text has no escape sequence')
+
+        ! A mapped field: a vertex array that does not exist is refused by name.
+        set%color_by = 'nope'
+        bad = sq%render(set, stat=ierr)
+        call check(ierr /= 0 .and. .not. bad%is_valid(), 'an unknown array is refused')
+        call check(index(mio_error_message(), 'nope') > 0, 'the error names the array')
+        set%color_by = ''
+        set%scale = 9
+        bad = sq%render(set, stat=ierr)
+        call check(ierr /= 0, 'an unknown scale is refused')
+
+        ! A cut-away: the camera sits on -x and a plane keeps x >= 0.5, so the near
+        ! face goes and the far one (cell 5) shows from inside, in the tint.
+        set = mio_render_settings()
+        set%width = 32
+        set%height = 32
+        set%view = '-x'
+        set%shading = MIO_SHADING_NONE
+        set%background = mio_rgba(0, 0, 0)
+        set%cutaways = [0.5_real64, 0.0_real64, 0.0_real64, 1.0_real64, 0.0_real64, 0.0_real64]
+        set%cutaway_tint = mio_rgba(10, 200, 30)
+        f = sq%render(set, stat=ierr)
+        call check(ierr == 0 .and. f%is_valid(), 'render with a cut-away succeeded')
+        call f%get_cell_ids(ids)
+        call f%get_rgba(rgba)
+        call check(ids(17, 17) == 5, 'the cut shows the far face at the centre')
+        call check(rgba(1, 17, 17) == 10 .and. rgba(2, 17, 17) == 200 .and. rgba(3, 17, 17) == 30, &
+                   'the inside is drawn in the tint')
+        call f%free()
+        set%cutaways = [0.5_real64, 0.0_real64, 0.0_real64, 1.0_real64, 0.0_real64, 0.0_real64, &
+                        0.0_real64, 0.5_real64, 0.0_real64, 0.0_real64, 1.0_real64, 0.0_real64]
+        f = sq%render(set, stat=ierr)
+        call check(ierr == 0, 'two cut-away planes are accepted')
+        call f%free()
+        set%cutaways = [1.0_real64, 2.0_real64, 3.0_real64]
+        bad = sq%render(set, stat=ierr)
+        call check(ierr /= 0 .and. .not. bad%is_valid(), 'a plane of three numbers is refused')
+        set%cutaways = [0.0_real64, 0.0_real64, 0.0_real64, 0.0_real64, 0.0_real64, 0.0_real64]
+        bad = sq%render(set, stat=ierr)
+        call check(ierr /= 0 .and. index(mio_error_message(), 'normal') > 0, 'a plane with no normal is refused')
+
+        ! Streamlines of a vector point array: red lines on the top face, none
+        ! without the array named, and an unknown array is refused by name.
+        set = mio_render_settings()
+        set%width = 64
+        set%height = 64
+        set%view = '+z'
+        set%shading = MIO_SHADING_NONE
+        set%background = mio_rgba(0, 0, 0)
+        f = sq%render(set, stat=ierr)
+        call f%get_rgba(rgba)
+        call check(count(rgba(1, :, :) == 255 .and. rgba(2, :, :) == 0 .and. rgba(3, :, :) == 0) == 0, &
+                   'no streamline without an array named')
+        call f%free()
+        set%streamlines = 'flow'
+        set%stream_color = mio_rgba(255, 0, 0)
+        f = sq%render(set, stat=ierr)
+        call check(ierr == 0 .and. f%is_valid(), 'render with streamlines succeeded')
+        call f%get_rgba(rgba)
+        call check(count(rgba(1, :, :) == 255 .and. rgba(2, :, :) == 0 .and. rgba(3, :, :) == 0) > 20, &
+                   'the streamlines are drawn in their colour')
+        call f%free()
+        set%streamlines = 'nope'
+        bad = sq%render(set, stat=ierr)
+        call check(ierr /= 0 .and. index(mio_error_message(), 'nope') > 0, 'an unknown streamline array is refused')
+        set%streamlines = 'flow'
+        set%stream_seeds = 0
+        bad = sq%render(set, stat=ierr)
+        call check(ierr /= 0 .and. index(mio_error_message(), 'seeds') > 0, 'zero seeds are refused')
+
+        ! Files by extension.
+        set = mio_render_settings()
+        set%width = 32
+        set%height = 24
+        call sq%write_snapshot(out_prefix//'_render.png', set, stat=ierr)
+        call check(ierr == 0, 'write_snapshot .png succeeded')
+        call sq%write_snapshot(out_prefix//'_render.vtu', set, stat=ierr)
+        call check(ierr /= 0, 'write_snapshot refuses an unknown extension')
+
+        call check(mio_detect_color_depth(no_color='1') == MIO_COLOR_MONO, 'NO_COLOR gives mono')
+        call check(mio_detect_color_depth(color_term='truecolor') == MIO_COLOR_TRUECOLOR, 'truecolor')
+        call check(mio_detect_color_depth(term='xterm-256color') == MIO_COLOR_256, '256 colours')
         call sq%free()
     end subroutine
 

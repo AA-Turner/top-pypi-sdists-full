@@ -838,8 +838,8 @@ acq_intra_umax (size_t D, size_t sb, double du, double span)
 }
 
 /* The Doppler-axis interpolation a grid gets: none for a single coherent
- * bin (there is no slow-time transform to pad) or in wideband mode (the
- * window axis is not a slow-time FFT), ACQ_DOPPLER_INTERP otherwise. One
+ * bin (there is no slow-time transform to pad), ACQ_DOPPLER_INTERP for a
+ * coherent slow-time axis, including one inside each wideband tile. One
  * rule, because acq_regrid() applies it to the surface and the Pd model
  * derates scalloping over the bin it produces -- a model still averaging
  * over the NATIVE bin read 0.47 where the engine measured 0.72
@@ -1144,10 +1144,10 @@ acq_commit_thresholds (dp_acq_state_t *st, double pfa, double pd, double snr,
 /* Ascend n_noncoh from 1 until the AVERAGED Pd meets pd, capped at
  * ACQ_N_NONCOH_SAFETY_CEILING (the internal safety valve replacing the old
  * caller-supplied max_noncoh cap -- see its doc comment in acq_core.h).
- * Shared by the wideband/window-tiling path (D pinned to 1, sb = window
- * count) and the burst path's non-coherent fallback (D = the coherent depth
- * that fell short, sb = its searched-bin count).  det_n_noncoh sizes at the
- * mean straddle amplitude -- a fast initializer that Jensen makes slightly
+ * Shared by the continuous engine's window-tiling path (D pinned to 1, sb =
+ * window count) and the burst path's non-coherent fallback (D = the coherent
+ * depth that fell short, sb = its searched-bin count).  det_n_noncoh sizes at
+ * the mean straddle amplitude -- a fast initializer that Jensen makes slightly
  * optimistic -- then the count escalates until the AVERAGED Pd meets the
  * target. */
 static size_t
@@ -1202,7 +1202,10 @@ acq_cover_window_bins (double du, double span)
 {
   if (!(du > 0.0))
     return 1;
-  const double res = 2.0 * span; /* D == 1 in every wideband path */
+  /* The spacing of the TILES, one native span wide each, at any depth: a
+     depth D inside a tile refines the combined grid to res / D, it does
+     not move the tiles. */
+  const double res = 2.0 * span;
   /* The -1e-9 is a boundary guard, not a fudge: a du that is an exact whole
      number of bins lands on an integer here, and floating-point rounding can
      put it one ULP ABOVE that integer (du = 3*span at span = 1e6/62 gives
@@ -1238,10 +1241,11 @@ acq_cover_window_bins (double du, double span)
  * Pd the honest answer is `underpowered`, which acq_commit_thresholds()
  * sets from pd_predicted; it is not more looks.
  *
- * du > span (wideband fallback): coherent depth structurally can't cover
- * more than one native span regardless of reps, so *out_d is forced to 1
- * and *out_window_bins = ceil(du/span) tiles the requested uncertainty
- * instead.
+ * du > span (wideband): *out_window_bins = 2*ceil((du - span)/(2*span)) + 1
+ * (acq_cover_window_bins(), always odd) tiles the requested uncertainty, and
+ * the sizer still chooses a coherent depth inside each tile. Each tile is one
+ * native span wide; the slow-time FFT resolves the residual within it. The
+ * tile count and depth are both priced into the global threshold.
  *
  * du <= span: picks the smallest coherent depth D in [1, d_max] whose
  * burst Pd (pd_burst: every dwell a uniformly aligned preamble spans, at the
@@ -1260,24 +1264,24 @@ acq_auto_config_burst (const dp_acq_state_t *st, double pfa, double pd,
   const size_t cb   = st->code_bins;
   const double span = st->doppler_span_hz;
 
-  *out_nc = 1; /* see above: a burst has one frame of preamble */
-  if (du > span)
-    {
-      *out_d           = 1;
-      *out_window_bins = acq_cover_window_bins (du, span);
-      return;
-    }
-  *out_window_bins   = 1;
+  *out_nc            = 1; /* see above: a burst has one frame of preamble */
+  *out_window_bins   = (du > span) ? acq_cover_window_bins (du, span) : 1u;
   const size_t d_max = acq_drift_depth (st->chip_rate / (double)st->sf,
                                         st->doppler_rate, st->reps);
 
   /* No design C/N0: integrate the whole preamble. The smallest-depth search
      below trades sensitivity for latency against a stated signal; with no
      signal stated there is nothing to trade, and a burst's preamble is all
-     there is to integrate. */
+     there is to integrate.
+     EXCEPT in a tiled search: there the depth multiplies the buffers (a
+     block of window_bins * D epochs, 0.1 MB -> 14.5 MB at sf 127, reps 64,
+     du 10 * span), the decision latency (reps epochs before the first
+     verdict) and the state blob, and the default-built object -- no design
+     point given -- has always been D = 1. A depth in a tiled search is the
+     answer to a stated C/N0, never a default. */
   if (!(snr > 0.0))
     {
-      *out_d = d_max;
+      *out_d = (*out_window_bins > 1) ? 1u : d_max;
       return;
     }
 
@@ -1290,19 +1294,23 @@ acq_auto_config_burst (const dp_acq_state_t *st, double pfa, double pd,
    * alignment: one aligned dwell under-credits a small D, which gets about
    * reps/D dwells, and over-credits a large one, whose dwells straddle the
    * preamble's edge (doppler#1498). */
-  size_t best_d = 1;
-  double best_p = -1.0;
-  int    met    = 0;
+  size_t       best_d      = 1;
+  double       best_p      = -1.0;
+  int          met         = 0;
+  const size_t window_bins = *out_window_bins;
   for (size_t D = 1; D <= d_max; D++)
     {
-      size_t       sb   = acq_searched_bins (D, du, span);
-      double       umax = acq_intra_umax (D, sb, du, span);
-      double       pc   = dp_det_pfa_cell (pfa, (double)(sb * cb));
-      double       eta  = dp_det_threshold (pc);
-      const double k_ref
-          = st->noise_mode == DET_NOISE_MEAN ? (double)(D * cb) : 0.0;
-      double p = acq_mean_pd (snr, D, umax, &st->shape, (int)(D * cb), eta, 1,
-                              acq_interp_for (D, 1), st->reps, k_ref);
+      const size_t sb    = window_bins > 1 ? window_bins * D
+                                           : acq_searched_bins (D, du, span);
+      double       umax  = acq_intra_umax (D, sb, du, span);
+      double       pc    = dp_det_pfa_cell (pfa, (double)(sb * cb));
+      double       eta   = dp_det_threshold (pc);
+      const double k_ref = st->noise_mode == DET_NOISE_MEAN
+                               ? (double)(window_bins * D * cb)
+                               : 0.0;
+      double       p
+          = acq_mean_pd (snr, D, umax, &st->shape, (int)(D * cb), eta, 1,
+                         acq_interp_for (D, window_bins), st->reps, k_ref);
       if (p >= pd)
         {
           best_d = D;
@@ -1459,9 +1467,9 @@ acq_regrid (dp_acq_state_t *st, size_t new_db, size_t new_nc,
   const int    grid_changed = (new_db != st->coherent_bins) || (new_n != st->n)
                               || (new_freq_bins != st->window_bins);
   const size_t new_frame_n  = (new_freq_bins > 1) ? cb : new_n;
-  /* Interpolate the Doppler axis only where there IS one: wideband mode
-     tiles frequency with window_bins and pins coherent_bins at 1, so its
-     rows are hypotheses rather than FFT bins and have no scalloping to fix. */
+  /* Interpolate each coherent Doppler axis. In wideband mode the window axis
+    supplies coarse frequency tiles; each tile can still have a coherent
+    slow-time FFT and its own interpolated rows. */
   const size_t new_interp = acq_interp_for (new_db, new_freq_bins);
   const size_t new_n_surf = new_n * new_interp;
 
@@ -1889,12 +1897,15 @@ acq_acq_create_impl (const float _Complex *replica, size_t sf,
   const double span = (sf > 0) ? chip_rate / (2.0 * (double)sf) : 0.0;
   /* doppler_uncertainty > span is not rejected: it engages wideband mode
    * (see the file doc comment's "Wideband window-tiling mode" section)
-   * instead of being an out-of-range error. */
+   * instead of being an out-of-range error. It must be finite, though: a
+   * NaN or an infinity reached the searched-bin and window counts through
+   * a float-to-size conversion (doppler#2103). */
   if (!replica || sf < 1 || spc < 1 || reps < 1 || !(chip_rate > 0.0)
       || !(isfinite (cn0_dbhz) || (!continuous && isnan (cn0_dbhz)))
       || !(pfa > 0.0 && pfa < 1.0) || !(pd > 0.0 && pd < 1.0)
-      || doppler_uncertainty < 0.0 || code_only_epochs < 1
-      || !(doppler_rate >= 0.0) || !isfinite (doppler_rate))
+      || !(doppler_uncertainty >= 0.0 && isfinite (doppler_uncertainty))
+      || code_only_epochs < 1 || !(doppler_rate >= 0.0)
+      || !isfinite (doppler_rate))
     return NULL;
 
   dp_acq_state_t *st = (dp_acq_state_t *)calloc (1, sizeof (*st));
@@ -2461,10 +2472,18 @@ dp_acq_position (const dp_acq_state_t *state)
 int
 dp_acq_set_carrier_freq_hz (dp_acq_state_t *state, double carrier_freq_hz)
 {
-  if (!(carrier_freq_hz >= 0.0) || !isfinite (carrier_freq_hz))
+  if (!dp_acq_carrier_freq_ok (carrier_freq_hz, state->fs))
     return DP_ERR_INVALID;
   state->carrier_freq_hz = carrier_freq_hz;
   return DP_OK;
+}
+
+int
+dp_acq_carrier_freq_ok (double carrier_freq_hz, double sample_rate_hz)
+{
+  return carrier_freq_hz == 0.0
+         || (isfinite (carrier_freq_hz)
+             && carrier_freq_hz > 0.5 * sample_rate_hz);
 }
 
 double
@@ -2718,13 +2737,16 @@ dp_acq_get_state (const dp_acq_state_t *st, void *blob)
   if (ex.has_nc)
     memcpy (acq_state_nc (blob, st), st->nc_surface,
             st->n_surf * sizeof (float));
-  uint32_t *tw = acq_state_twins (blob, st);
-  memset (tw, 0, 2 * st->max_peaks * sizeof (uint32_t));
+  /* The twin pairs, then zeros to max_peaks: each region has a writer of
+     its own, so its pad is dp_w_zeros like every other blob's. */
+  dp_writer_t tw = dp_writer_init (acq_state_twins (blob, st),
+                                   2 * st->max_peaks * sizeof (uint32_t));
   for (size_t k = 0; k < st->n_twins; k++)
     {
-      tw[2 * k]     = st->twin_row[k];
-      tw[2 * k + 1] = st->twin_col[k];
+      dp_w_u32 (&tw, (uint32_t)st->twin_row[k]);
+      dp_w_u32 (&tw, (uint32_t)st->twin_col[k]);
     }
+  dp_w_zeros (&tw, 2 * (st->max_peaks - st->n_twins) * sizeof (uint32_t));
   /* A tiled block is written one epoch at a time, so only its first
      blk_epoch epochs are this block's -- or all D once a block has completed
      and blk_epoch has wrapped to 0: that whole block is what
@@ -2739,20 +2761,22 @@ dp_acq_get_state (const dp_acq_state_t *st, void *blob)
                                              : 0;
   if (st->blk)
     {
-      float _Complex *dst = acq_state_blk (blob, st);
+      dp_writer_t bw
+          = dp_writer_init (acq_state_blk (blob, st),
+                            acq_blk_cells (st) * sizeof (float _Complex));
       for (size_t r = 0; r < st->window_bins; r++)
         {
-          memcpy (dst + r * D * nx, st->blk + r * D * nx,
-                  live * nx * sizeof (float _Complex));
-          memset (dst + (r * D + live) * nx, 0,
-                  (D - live) * nx * sizeof (float _Complex));
+          dp_w_cf32 (&bw, st->blk + r * D * nx, live * nx);
+          dp_w_zeros (&bw, (D - live) * nx * sizeof (float _Complex));
         }
     }
   if (st->blk_raw)
     {
-      float _Complex *dst = acq_state_blk_raw (blob, st);
-      memcpy (dst, st->blk_raw, live * nx * sizeof (float _Complex));
-      memset (dst + live * nx, 0, (D - live) * nx * sizeof (float _Complex));
+      dp_writer_t rw
+          = dp_writer_init (acq_state_blk_raw (blob, st),
+                            acq_blk_raw_cells (st) * sizeof (float _Complex));
+      dp_w_cf32 (&rw, st->blk_raw, live * nx);
+      dp_w_zeros (&rw, (D - live) * nx * sizeof (float _Complex));
     }
 }
 

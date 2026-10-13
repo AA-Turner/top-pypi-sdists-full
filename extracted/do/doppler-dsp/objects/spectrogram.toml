@@ -1,0 +1,237 @@
+# spectrogram -- streaming short-time power spectrum: a stream of chunks in,
+# rows of nfft bins out (one PSD frame per row, no averaging).
+#
+# Block-I/O object (opaque handle). Each row is the PSD of one frame, so a
+# row equals the PSD estimator's single-frame output (the shared kernel,
+# dp_psd_frame_linear / dp_psd_frame_db). Chunk sizes are arbitrary: a
+# partial frame is carried to the next push, and a trailing partial frame
+# is dropped unless flush() is called.
+#
+# The C header's Doxygen is the contract for the C face. The Python face's
+# methods carry their own `doc` keys below, because the C prose describes a
+# C caller: out-buffer sizing, the sentinel return and the window indices.
+# The generated Parameters and Returns sections still come from the header's
+# @param and @return, so those are written to read correctly on both faces.
+
+[spectrogram]
+arg_type = "float _Complex"
+return_type = "float"
+mutable = "false"
+no_state = "true"
+no_step = "true"
+class_name = "Spectrogram"
+# The push kernel reaches the framer (f32_buffer_core), which needs the
+# interrupt primitive, so the object links the process-wide guard declaratively
+# and the module joins its rendezvous (doppler#976). A link jm cannot see is a
+# module that keeps its own flag.
+depends_on = ["fft_core", "spectral_core", { name = "psd", link = true }, { name = "dp_interrupt_guard", link = true }]
+serializable = "true"
+fragment = "generated"
+create_error = "ValueError"
+create_error_message = "Spectrogram: invalid parameter (need hop in 0..nfft, 0 meaning nfft; nfft within the largest transform, a window the PSD accepts, and mode power or db)"
+doc = """A streaming short-time power spectrum: a stream in chunks of any size, one row of nfft bins per hop samples, each row the PSD of its frame.
+
+>>> import numpy as np
+>>> from doppler.spectral import Spectrogram
+>>> sp = Spectrogram(nfft=8, hop=8, window="rect")
+>>> rows = sp.push(np.ones(16, np.complex64))
+>>> rows.shape
+(2, 8)
+"""
+
+[[spectrogram.init_params]]
+name = "nfft"
+type = "size_t"
+default = "256"
+
+# 0 (the default) means nfft, PSD's own rule, so the default tiles the stream
+# at any nfft; less than nfft overlaps the frames, and above it is refused.
+[[spectrogram.init_params]]
+name = "hop"
+type = "size_t"
+default = "0"
+
+# The same [[enum]] as objects/psd.toml (psd_window, bound by name to
+# DP_PSD_WINDOW_*): the C create validates it through dp_psd_kernel_init,
+# the one owner of the window index.
+[[spectrogram.init_params]]
+name = "window"
+type = "enum:psd_window"
+default = "hann"
+
+[[spectrogram.init_params]]
+name = "beta"
+type = "float"
+default = "0.0f"
+
+# [[enum]] spectrogram_mode, bound by name to DP_SPECTROGRAM_POWER / _DB, so
+# the binding writes the constants and their order is the header's alone.
+#
+# Configuration: create() sets the mode. The state blob (version 2) carries it
+# with the rest of the configuration a row depends on (nfft, hop, window, the
+# Kaiser beta), so set_state refuses a blob from another mode (#2102).
+[[spectrogram.init_params]]
+name = "mode"
+type = "enum:spectrogram_mode"
+default = "power"
+
+# push() returns the completed rows as a (rows, nfft) float32 matrix, or None
+# when it completes none. out_cols names the row width from the object; the
+# `state` alias is what the binding generates for it. The binding sizes its
+# output for every row the chunk can complete, so consumed equals the chunk
+# length; a caller bounds memory by pushing smaller chunks, sized with
+# rows_for. A smaller out is refused with ValueError (jm#2230 is the gap).
+[[spectrogram.methods]]
+name = "push"
+arg_type = "float _Complex[]"
+return_type = "float"
+variable_output = true
+pass_capacity = true
+out_cols = "state->nfft"
+none_on_empty = true
+# The GIL is released across the kernel, as the ddc precedent does for its
+# execute. A single object is not safe for concurrent use from two threads.
+nogil = true
+doc = """Push a chunk of samples, and return the rows it completes.
+
+The rows come back as a (rows, nfft) float32 matrix, or None when the chunk
+completes none. A partial frame is carried to the next push. consumed equals
+the input length: the binding allocates room for every row the chunk can
+complete, so no input is held back. To bound memory, push smaller chunks,
+sized with rows_for(n).
+
+An object is not thread-safe: one Spectrogram must not be pushed from two
+threads at once, because the kernel uses the object's scratch. push releases
+the GIL, so other Python threads run meanwhile, but not on this object.
+
+An out array, if given, must be a float32 array of at least
+push_max_out(len(x)) elements. A smaller out raises ValueError; it is not
+taken as a short one.
+
+>>> import numpy as np
+>>> from doppler.spectral import Spectrogram
+>>> sp = Spectrogram(nfft=8, hop=8, window="rect")
+>>> rows = sp.push(np.ones(20, np.complex64))
+>>> rows.shape
+(2, 8)
+>>> sp.consumed, sp.pending
+(20, 4)
+"""
+
+# flush() writes the one zero-padded row a pending partial frame is owed into
+# a caller buffer of exactly nfft floats, and returns the floats written (0
+# when no frame is owed). The buffer is a fixed out-parameter: a flush owes at
+# most one row, so it has no count. A row of any other size is refused as
+# -1, which the binding raises as ValueError (error_negative); 0 still means "nothing
+# owed".
+[[spectrogram.methods]]
+name = "flush"
+arg_type = "void"
+return_type = "int64_t"
+params = [{ name = "row", type = "float[]", out = true }]
+error_negative = true
+error = "ValueError"
+error_message = "flush: row must hold exactly nfft floats"
+doc = """End the stream: write the row a pending partial frame is owed into row.
+
+row must be a writable float32 array of exactly nfft elements; any other size
+raises ValueError, and the owed frame stays owed. Returns nfft when a frame was
+owed and was written, 0 when none was owed. A flush restarts the stream.
+
+The example uses hop 4, so the owed row starts on the hop grid, at sample 4:
+
+>>> import numpy as np
+>>> from doppler.spectral import Spectrogram
+>>> sp = Spectrogram(nfft=8, hop=4, window="rect")
+>>> _ = sp.push(np.ones(11, np.complex64))
+>>> row = np.empty(8, np.float32)
+>>> sp.flush(row)
+8
+>>> sp.flush(row)
+0
+"""
+
+[[spectrogram.methods]]
+name = "rows_for"
+arg_type = "void"
+return_type = "size_t"
+params = [{ name = "n_in", type = "size_t" }]
+doc = """How many rows a push of n_in more samples would complete, from the current carry.
+
+Takes no input. Use it to size chunks that bound memory.
+
+>>> from doppler.spectral import Spectrogram
+>>> sp = Spectrogram(nfft=8, hop=2)
+>>> sp.rows_for(7), sp.rows_for(8), sp.rows_for(100)
+(0, 1, 47)
+"""
+
+[[spectrogram.methods]]
+name = "reset"
+arg_type = "void"
+return_type = "void"
+doc = """Forget the stream: drop the carry and restart at sample 0.
+
+The configuration is kept. consumed and pending read 0 afterwards.
+
+>>> import numpy as np
+>>> from doppler.spectral import Spectrogram
+>>> sp = Spectrogram(nfft=8, hop=8)
+>>> _ = sp.push(np.ones(5, np.complex64))
+>>> sp.pending
+5
+>>> sp.reset()
+>>> sp.pending
+0
+"""
+
+# The configuration reads back, read-only: each is a member the state blob
+# already serializes, so `field = true` reads it directly. The docs are the
+# Python face's own (the struct's /**< text is C-shaped). window and mode
+# decode through the same [[enum]] the constructor takes, so they read back
+# as the strings that made them.
+[[spectrogram.properties]]
+name = "nfft"
+type = "size_t"
+field = true
+doc = "Samples per frame, and bins per row: one number, because a frame the PSD would zero-pad to a longer transform is refused at construction."
+
+[[spectrogram.properties]]
+name = "hop"
+type = "size_t"
+field = true
+doc = "Samples between row starts, 1 to nfft: nfft tiles the stream, anything less overlaps the frames. A hop of 0 at construction means nfft, and reads back as nfft."
+
+[[spectrogram.properties]]
+name = "window"
+type = "int"
+enum = "psd_window"
+field = true
+doc = "The window every frame is shaped by: \"hann\", \"kaiser\", \"blackman-harris\" or \"rect\"."
+
+[[spectrogram.properties]]
+name = "beta"
+type = "float"
+field = true
+doc = "The Kaiser beta the Spectrogram was made with, as the float32 it keeps: 0.1 reads back 0.10000000149011612. It shapes the Kaiser window only; under the others it changes no row."
+
+[[spectrogram.properties]]
+name = "mode"
+type = "int"
+enum = "spectrogram_mode"
+field = true
+doc = "The row units: \"power\" (linear against full scale, the default) or \"db\" (dBFS)."
+
+[[spectrogram.properties]]
+name = "consumed"
+type = "size_t"
+field = true
+doc = "Input samples the last push took. From Python it is always the chunk's length: the binding sizes its output for every row the chunk completes, so no input is held back."
+
+# A computed value, read through the core's own query: no `<core>_get_`
+# wrapper is needed for an `expr` property.
+[[spectrogram.properties]]
+name = "pending"
+type = "size_t"
+expr = "dp_spectrogram_pending (self->handle)"
+doc = "Samples pushed that no row has covered yet: what flush() would turn into a row. 0 means the stream is complete as it stands."

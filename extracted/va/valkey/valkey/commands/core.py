@@ -735,8 +735,9 @@ class ManagementCommands(CommandsProtocol):
 
         :param timeout: milliseconds to pause clients
         :param all: If true (default) all client commands are blocked.
-        otherwise, clients are only blocked if they attempt to execute
-        a write command.
+            otherwise, clients are only blocked if they attempt to execute
+            a write command.
+
         For the WRITE mode, some commands have special behavior:
         EVAL/EVALSHA: Will block client for all scripts.
         PUBLISH: Will block client.
@@ -895,13 +896,11 @@ class ManagementCommands(CommandsProtocol):
         return self.execute_command("DEBUG OBJECT", key, **kwargs)
 
     def debug_segfault(self, **kwargs) -> None:
-        raise NotImplementedError(
-            """
+        raise NotImplementedError("""
             DEBUG SEGFAULT is intentionally not implemented in the client.
 
             For more information see https://valkey.io/commands/debug-segfault
-            """
-        )
+            """)
 
     def echo(self, value: EncodableT, **kwargs) -> ResponseT:
         """
@@ -1013,13 +1012,11 @@ class ManagementCommands(CommandsProtocol):
 
         For more information see https://valkey.io/commands/latency-doctor
         """
-        raise NotImplementedError(
-            """
+        raise NotImplementedError("""
             LATENCY DOCTOR is intentionally not implemented in the client.
 
             For more information see https://valkey.io/commands/latency-doctor
-            """
-        )
+            """)
 
     def latency_graph(self):
         """Raise a NotImplementedError, as the client will not support LATENCY GRAPH.
@@ -1027,13 +1024,11 @@ class ManagementCommands(CommandsProtocol):
 
         For more information see https://valkey.io/commands/latency-graph.
         """
-        raise NotImplementedError(
-            """
+        raise NotImplementedError("""
             LATENCY GRAPH is intentionally not implemented in the client.
 
             For more information see https://valkey.io/commands/latency-graph
-            """
-        )
+            """)
 
     def lolwut(self, *version_numbers: Union[str, float], **kwargs) -> ResponseT:
         """
@@ -1110,22 +1105,18 @@ class ManagementCommands(CommandsProtocol):
         )
 
     def memory_doctor(self, **kwargs) -> None:
-        raise NotImplementedError(
-            """
+        raise NotImplementedError("""
             MEMORY DOCTOR is intentionally not implemented in the client.
 
             For more information see https://valkey.io/commands/memory-doctor
-            """
-        )
+            """)
 
     def memory_help(self, **kwargs) -> None:
-        raise NotImplementedError(
-            """
+        raise NotImplementedError("""
             MEMORY HELP is intentionally not implemented in the client.
 
             For more information see https://valkey.io/commands/memory-help
-            """
-        )
+            """)
 
     def memory_stats(self, **kwargs) -> ResponseT:
         """
@@ -2289,7 +2280,7 @@ class BasicKeyCommands(CommandsProtocol):
         params = sum(op is not None for op in [ex, px, exat, pxat])
         if params > 1:
             raise DataError(
-                "``ex``, ``px``, ``exat`` and ``pxat`` " "are mutually exclusive."
+                "``ex``, ``px``, ``exat`` and ``pxat`` are mutually exclusive."
             )
         pieces: list[EncodableT] = [name, value]
         options = {}
@@ -4162,8 +4153,7 @@ class SortedSetCommands(CommandsProtocol):
             raise DataError("ZADD allows either 'gt' or 'lt', not both")
         if incr and len(mapping) != 1:
             raise DataError(
-                "ZADD option 'incr' only works when passing a "
-                "single element/score pair"
+                "ZADD option 'incr' only works when passing a single element/score pair"
             )
         if nx and (gt or lt):
             raise DataError("Only one of 'nx', 'lt', or 'gr' may be defined.")
@@ -5055,6 +5045,82 @@ class HashCommands(CommandsProtocol):
         """
         return self.execute_command("HSETNX", name, key, value)
 
+    def hsetex(
+        self,
+        name: str,
+        key: Optional[str] = None,
+        value: Optional[str] = None,
+        mapping: Optional[dict] = None,
+        items: Optional[list] = None,
+        ex: Union[ExpiryT, None] = None,
+        px: Union[ExpiryT, None] = None,
+        exat: Union[AbsExpiryT, None] = None,
+        pxat: Union[AbsExpiryT, None] = None,
+        keepttl: bool = False,
+        nx: bool = False,
+        xx: bool = False,
+        fnx: bool = False,
+        fxx: bool = False,
+    ) -> Union[Awaitable[bool], bool]:
+        """
+        Set key to value within hash ``name``,
+        ``mapping`` accepts a dict of key/value pairs to be added to hash ``name``.
+        ``items`` accepts a list of key/value pairs to be added to hash ``name``.
+        Set expiration options for the hash fields.
+
+        For more information see https://valkey.io/commands/hsetex
+        """
+
+        if key is None and not mapping and not items:
+            raise DataError("'hsetex' with no key value pairs")
+        if int(key is not None) + int(mapping is not None) + int(items is not None) > 1:
+            raise DataError(
+                "Only one of 'key/value', 'mapping', or 'items' can be specified."
+            )
+
+        if int(keepttl) + sum(arg is not None for arg in [ex, px, exat, pxat]) > 1:
+            raise DataError(
+                "Only one of 'ex', 'px', 'exat', 'pxat', or 'keepttl' can be specified."
+            )
+        if nx and xx:
+            raise DataError("Only one of 'nx' or 'xx' can be specified.")
+        if fnx and fxx:
+            raise DataError("Only one of 'fnx' or 'fxx' can be specified.")
+        pieces = []
+        if ex is not None:
+            pieces.extend(["EX", ex])
+        if px is not None:
+            pieces.extend(["PX", px])
+        if exat is not None:
+            pieces.extend(["EXAT", exat])
+        if pxat is not None:
+            pieces.extend(["PXAT", pxat])
+        if nx:
+            pieces.append("NX")
+        if xx:
+            pieces.append("XX")
+        if fnx:
+            pieces.append("FNX")
+        if fxx:
+            pieces.append("FXX")
+        pieces.append("FIELDS")
+        if key is not None and value is not None:
+            pieces.append(1)  # for one field
+            pieces.append(key)
+            pieces.append(value)
+        if mapping:
+            pieces.append(len(mapping))
+            for key, value in mapping.items():
+                if key is None or value is None:
+                    raise DataError("'hsetex' mapping contains None key or value")
+                pieces.append(key)
+                pieces.append(value)
+        if items:
+            pieces.append(len(items) // 2)
+            pieces.extend(items)
+
+        return self.execute_command("HSETEX", name, *pieces)
+
     def hmset(self, name: str, mapping: dict) -> Union[Awaitable[str], str]:
         """
         Set key to value within hash ``name`` for each corresponding
@@ -5118,11 +5184,7 @@ class Script:
         if isinstance(script, str):
             # We need the encoding from the client in order to generate an
             # accurate byte representation of the script
-            try:
-                encoder = registered_client.connection_pool.get_encoder()
-            except AttributeError:
-                # Cluster
-                encoder = registered_client.get_encoder()
+            encoder = self.get_encoder()
             script = encoder.encode(script)
         self.sha = hashlib.sha1(script).hexdigest()
 
@@ -5152,6 +5214,24 @@ class Script:
             # Overwrite the sha just in case there was a discrepancy.
             self.sha = client.script_load(self.script)
             return client.evalsha(self.sha, len(keys), *args)
+
+    def get_encoder(self):
+        """Get the encoder to encode string scripts into bytes."""
+        try:
+            return self.registered_client.get_encoder()
+        except AttributeError:
+            # DEPRECATED
+            # In version <=4.1.2, this was the code we used to get the encoder.
+            # However, after 4.1.2 we added support for scripting in clustered
+            # valkey. ClusteredValkey doesn't have a `.connection_pool` attribute
+            # so we changed the Script class to use
+            # `self.registered_client.get_encoder` (see above).
+            # However, that is technically a breaking change, as consumers who
+            # use Scripts directly might inject a `registered_client` that
+            # doesn't have a `.get_encoder` field. This try/except prevents us
+            # from breaking backward-compatibility. Ideally, it would be
+            # removed in the next major release.
+            return self.registered_client.connection_pool.get_encoder()
 
 
 class AsyncScript:
@@ -5929,62 +6009,6 @@ class ModuleCommands(CommandsProtocol):
         return self.execute_command("COMMAND")
 
 
-class Script:
-    """
-    An executable Lua script object returned by ``register_script``
-    """
-
-    def __init__(self, registered_client, script):
-        self.registered_client = registered_client
-        self.script = script
-        # Precalculate and store the SHA1 hex digest of the script.
-
-        if isinstance(script, str):
-            # We need the encoding from the client in order to generate an
-            # accurate byte representation of the script
-            encoder = self.get_encoder()
-            script = encoder.encode(script)
-        self.sha = hashlib.sha1(script).hexdigest()
-
-    def __call__(self, keys=[], args=[], client=None):
-        "Execute the script, passing any required ``args``"
-        if client is None:
-            client = self.registered_client
-        args = tuple(keys) + tuple(args)
-        # make sure the Valkey server knows about the script
-        from valkey.client import Pipeline
-
-        if isinstance(client, Pipeline):
-            # Make sure the pipeline can register the script before executing.
-            client.scripts.add(self)
-        try:
-            return client.evalsha(self.sha, len(keys), *args)
-        except NoScriptError:
-            # Maybe the client is pointed to a different server than the client
-            # that created this instance?
-            # Overwrite the sha just in case there was a discrepancy.
-            self.sha = client.script_load(self.script)
-            return client.evalsha(self.sha, len(keys), *args)
-
-    def get_encoder(self):
-        """Get the encoder to encode string scripts into bytes."""
-        try:
-            return self.registered_client.get_encoder()
-        except AttributeError:
-            # DEPRECATED
-            # In version <=4.1.2, this was the code we used to get the encoder.
-            # However, after 4.1.2 we added support for scripting in clustered
-            # valkey. ClusteredValkey doesn't have a `.connection_pool` attribute
-            # so we changed the Script class to use
-            # `self.registered_client.get_encoder` (see above).
-            # However, that is technically a breaking change, as consumers who
-            # use Scripts directly might inject a `registered_client` that
-            # doesn't have a `.get_encoder` field. This try/except prevents us
-            # from breaking backward-compatibility. Ideally, it would be
-            # removed in the next major release.
-            return self.registered_client.connection_pool.get_encoder()
-
-
 class AsyncModuleCommands(ModuleCommands):
     async def command_info(self) -> None:
         return super().command_info()
@@ -6061,9 +6085,10 @@ class FunctionCommands:
     ) -> Union[Awaitable[List], List]:
         """
         Return information about the functions and libraries.
-        :param library: pecify a pattern for matching library names
+
+        :param library: specify a pattern for matching library names
         :param withcode: cause the server to include the libraries source
-         implementation in the reply
+            implementation in the reply
         """
         args = ["LIBRARYNAME", library]
         if withcode:

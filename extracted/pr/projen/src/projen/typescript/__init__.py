@@ -984,6 +984,7 @@ class TsJestTsconfig(
         no_unused_parameters: typing.Optional[builtins.bool] = None,
         out_dir: typing.Optional[builtins.str] = None,
         paths: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
+        preserve_const_enums: typing.Optional[builtins.bool] = None,
         resolve_json_module: typing.Optional[builtins.bool] = None,
         resolve_package_json_exports: typing.Optional[builtins.bool] = None,
         resolve_package_json_imports: typing.Optional[builtins.bool] = None,
@@ -1050,6 +1051,7 @@ class TsJestTsconfig(
         :param no_unused_parameters: (experimental) Report errors on unused parameters in functions. Default: true
         :param out_dir: (experimental) Output directory for the compiled files.
         :param paths: (experimental) A series of entries which re-map imports to lookup locations relative to the baseUrl, there is a larger coverage of paths in the handbook. paths lets you declare how TypeScript should resolve an import in your require/imports.
+        :param preserve_const_enums: (experimental) Preserve ``const enum`` declarations in generated code. Default: undefined
         :param resolve_json_module: (experimental) Allows importing modules with a ‘.json’ extension, which is a common practice in node projects. This includes generating a type for the import based on the static JSON shape. Default: true
         :param resolve_package_json_exports: (experimental) Forces TypeScript to consult the ``exports`` field of ``package.json`` files if it ever reads from a package in ``node_modules``. Default: true
         :param resolve_package_json_imports: (experimental) Forces TypeScript to consult the ``imports`` field of ``package.json`` when performing a lookup that begins with ``#`` from a file that has a ``package.json`` as an ancestor. Default: undefined
@@ -1118,6 +1120,7 @@ class TsJestTsconfig(
             no_unused_parameters=no_unused_parameters,
             out_dir=out_dir,
             paths=paths,
+            preserve_const_enums=preserve_const_enums,
             resolve_json_module=resolve_json_module,
             resolve_package_json_exports=resolve_package_json_exports,
             resolve_package_json_imports=resolve_package_json_imports,

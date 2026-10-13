@@ -253,6 +253,9 @@ _REFUSED = [
     ("unknown block with content", _with_block({"type": "document", "source": {"data": "x"}})),
     ("image bytes", _with_block({"type": "image", "source": {"type": "base64", "data": "iVBOR"}})),
     ("image data URL", _with_block({"type": "image", "source": {"type": "url", "url": "data:image/png;base64,x"}})),
+    ("image digest that is not a sha256", _with_block({"type": "image", "mimeType": "image/png", "bytes": 4, "sha256": "iVBOR"})),
+    ("image digest in capitals", _with_block({"type": "image", "mimeType": "image/png", "bytes": 4, "sha256": "AB" * 32})),
+    ("image bytes beside a digest", _with_block({"type": "image", "mimeType": "image/png", "bytes": 4, "sha256": "ab" * 32, "data": "iVBOR"})),
     ("file attachment", {"type": "attachment", "attachment": {"type": "file", "content": "x"}}),
     ("attachment content key", {"type": "attachment", "attachment": {"type": "compact_file_reference", "content": "x"}}),
     ("codex action", {**_ASSISTANT, "_codex_extras": {"action": {"command": ["ls"]}}}),
@@ -268,3 +271,16 @@ _REFUSED = [
 @pytest.mark.parametrize("event", [r[1] for r in _REFUSED], ids=[r[0] for r in _REFUSED])
 def test_the_schema_refuses_what_capture_must_not_send(event: dict) -> None:
     assert list(VALIDATOR.iter_errors(event)), "the schema would accept this"
+
+
+def test_a_pasted_image_may_carry_its_digest_and_nothing_more() -> None:
+    """Tap 0.9.17: an image the researcher pasted names its uploaded bytes by
+    SHA-256 (the engine's copy of this schema took the field first)."""
+    event = _with_block({"type": "image", "mimeType": "image/png", "bytes": 4, "sha256": "ab" * 32})
+    assert not list(VALIDATOR.iter_errors(event))
+
+
+def test_the_oversize_line_marker_is_a_probe_event() -> None:
+    from probe.tap_core.session_journal import oversize_line_event
+
+    assert not list(VALIDATOR.iter_errors(oversize_line_event(70 * 1024 * 1024)))

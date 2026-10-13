@@ -1,6 +1,6 @@
 [project]
 name = "opendataloader-pdf"
-version = "2.5.12"
+version = "2.5.13"
 description = "A Python wrapper for the opendataloader-pdf Java CLI."
 readme = "README.md"
 license = "Apache-2.0"
@@ -17,6 +17,7 @@ dependencies = []
 [project.optional-dependencies]
 hybrid = [
     "docling[easyocr]>=2.126.0,<3",
+    "docling-parse>=7.22.2,<8",
     "fastapi>=0.141.1,<0.142",
     "uvicorn>=0.52.4,<0.53",
     "python-multipart>=0.0.32,<0.1",

@@ -1196,3 +1196,529 @@ def test_connect_installs_no_timer_for_an_environment_only_token(home, connect_e
         result = _invoke(["connect", "--project", "proj_1", "--no-sync"], env={capy_cli.ENV_API_KEY: fake.key})
     assert result.exit_code == 0, result.output
     assert "No timer installed" in result.output
+
+
+# --- the installer: Capy is a coding agent like the others ----------------------------
+
+
+def test_the_wizard_menu_has_no_separate_cloud_agents_section():
+    """Capy is in Install with the other agents (Richard 2026-10-12: "it should be
+    under the exact same ui"), so the menu has no section of its own for it."""
+    from probe.cli import actions
+
+    assert "cloud-agents" not in {a.value for a in actions.Action}
+    assert all(group != "Cloud agents" for group, _ in actions.grouped_actions())
+
+
+_PLUGIN_STEP = "From GitHub repository"
+_SKILLS_STEP = f"{capy_cli.PLUGIN_URL}/skills"
+
+
+def test_the_setup_is_one_plugin_from_the_mirror(home, monkeypatch):
+    """Richard 2026-10-13: no extra steps in the wizard. The mirror's capy/
+    folder is one plugin carrying the hosted MCP server and the skills, and the
+    skills reach every thread by their descriptions, so no AGENTS.md line."""
+    from probe.cli import actions
+
+    monkeypatch.delenv("PROBE_MCP_URL", raising=False)
+    monkeypatch.delenv("PROBE_BASE_URL", raising=False)
+    text = "\n".join(capy_cli.setup_steps())
+    assert _PLUGIN_STEP in text and capy_cli.PLUGIN_URL in text and "MCP & plugins" in text
+    assert _SKILLS_STEP not in text and "npx skills" not in text and "AGENTS.md" not in text
+    summary = capy_cli.setup_summary()
+    assert len(summary) == 4 and capy_cli.PLUGIN_URL in "\n".join(summary)
+    manual = actions.manual_steps(base_url="https://api.research.prbe.ai", agent_source="capy")
+    assert _PLUGIN_STEP in manual and _SKILLS_STEP not in manual and "probe capy connect" in manual
+    assert "plugin marketplace add" not in manual, "nothing installs into Capy from a shell"
+
+
+def test_another_deployment_adds_its_own_mcp_server_and_the_skills(home, monkeypatch):
+    """The plugin carries the hosted MCP server: a self-hosted Probe would wire
+    the wrong one, so it keeps the server and skills steps (still no AGENTS.md)."""
+    monkeypatch.delenv("PROBE_MCP_URL", raising=False)
+    monkeypatch.setenv("PROBE_BASE_URL", "https://probe.example.com")
+    text = "\n".join(capy_cli.setup_steps())
+    assert _SKILLS_STEP in text and "add an MCP server named probe" in text
+    assert _PLUGIN_STEP not in text and "https://mcp.research.prbe.ai/mcp" not in text
+    assert "AGENTS.md" not in text
+    assert any("probe capy setup" in line for line in capy_cli.setup_summary())
+
+
+def test_a_base_url_flag_alone_chooses_the_self_hosted_steps(home, monkeypatch):
+    """`probe --base-url <self-hosted> ...` with nothing in the environment or
+    config: the manual action and `probe capy setup` must not hand out the
+    hosted plugin, whose server is the wrong deployment."""
+    import importlib
+
+    from typer.testing import CliRunner
+
+    from probe.cli import actions
+
+    cli_main = importlib.import_module("probe.cli.main")
+    # The root callback stores --base-url on a module global; put it back after.
+    monkeypatch.setattr(cli_main._conn, "base_url", cli_main._conn.base_url)
+
+    monkeypatch.delenv("PROBE_MCP_URL", raising=False)
+    monkeypatch.delenv("PROBE_BASE_URL", raising=False)
+    manual = actions.manual_steps(base_url="https://probe.internal.corp", agent_source="capy")
+    assert _SKILLS_STEP in manual and _PLUGIN_STEP not in manual
+    result = CliRunner().invoke(cli_main.app, ["--base-url", "https://probe.internal.corp", "capy", "setup"])
+    assert result.exit_code == 0, result.output
+    assert _SKILLS_STEP in result.output and _PLUGIN_STEP not in result.output
+
+
+def test_the_final_page_summary_fits_and_setup_prints_the_copyable_commands(home, monkeypatch):
+    """The wizard's page wraps a long line mid-URL, which breaks a copy: every
+    line but a URL alone on its own line fits, and `probe capy setup` prints
+    the commands whole."""
+    cases = [
+        ("https://api.research.prbe.ai", None),
+        ("https://probe.example.com", None),
+        ("https://probe.example.com", "https://mcp.probe-selfhosted.example-corp.internal/mcp"),
+    ]
+    for base, mcp in cases:
+        monkeypatch.setenv("PROBE_BASE_URL", base)
+        if mcp:
+            monkeypatch.setenv("PROBE_MCP_URL", mcp)
+        else:
+            monkeypatch.delenv("PROBE_MCP_URL", raising=False)
+        for line in capy_cli.setup_summary():
+            assert len(line) <= 68 or line.strip().startswith("https://"), (base, line)
+            assert not ("https://" in line and line.strip() != line.strip().split()[-1]), (
+                "a URL sits alone on its line",
+                line,
+            )
+    monkeypatch.delenv("PROBE_BASE_URL")
+    monkeypatch.delenv("PROBE_MCP_URL")
+    result = _invoke(["setup"])
+    assert result.exit_code == 0, result.output
+    assert _PLUGIN_STEP in result.output and capy_cli.PLUGIN_URL in result.output
+
+
+@pytest.mark.parametrize(
+    ("setup", "expect", "problem"),
+    [
+        ({}, "not synced yet", False),
+        ({"last_sync": {"at": "NOW", "ok": True}}, "last sync 0 min ago", False),
+        ({"last_sync": {"at": "NOW", "ok": False, "auth_failed": True}}, "Capy refused the key", True),
+        ({"refused": True}, "Probe refused capture", True),
+        ({"killswitch": True}, "killswitch", True),
+    ],
+)
+def test_the_wizard_status_line(home, monkeypatch, setup, expect, problem):
+    from probe.cli import capabilities
+    from probe.sdk.durable import now_iso
+
+    assert capy_cli.wizard_status() is None, "nothing until Capy is connected"
+    monkeypatch.setattr(capabilities, "resolved_capture_credential", lambda s=None: ("t", "http://x"))
+    capy_cli.save_config(capy_cli.CapyConfig(api_key="k", me_id=ME, me_email=None, projects=[{"id": "p"}]))
+    if "last_sync" in setup:
+        last = {**setup["last_sync"], "at": now_iso()}
+        capy_cli._write_private_json(capy_cli.sync_state_path(), {"last_sync": last})
+    if setup.get("refused"):
+        capy_cli.refused_path().write_text(capy_cli.destination_key("t", "http://x") + "\n")
+    if setup.get("killswitch"):
+        capy_cli.killswitch_path().write_text("off\n")
+    text, flagged = capy_cli.wizard_status()
+    assert expect in text and flagged is problem
+
+
+def test_the_device_summary_row_reads_the_capy_connection(home, monkeypatch):
+    from probe.cli import capabilities, setup
+
+    monkeypatch.setattr(capabilities, "resolved_capture_credential", lambda s=None: ("t", "http://x"))
+    caps = {"capy": capabilities.Capabilities(agent_source="capy")}
+    [before] = [str(line) for line in setup._agent_rows(caps)]
+    capy_cli.save_config(capy_cli.CapyConfig(api_key="k", me_id=ME, me_email=None, projects=[{"id": "p"}]))
+    [after] = [str(line) for line in setup._agent_rows(caps)]
+    assert "capture off (not connected)" in before and "capture on" in after
+    assert "MCP in its settings" in after, "its MCP lives in Capy's settings, not here"
+
+
+def _interactive(monkeypatch, secrets):
+    from probe.cli import tui
+
+    asked: list = []
+
+    def secret(title, lines, prompt):
+        asked.append(list(lines))
+        return secrets.pop(0)
+
+    monkeypatch.setattr(tui, "secret", secret)
+    return asked
+
+
+def test_ask_capture_takes_the_key_and_projects_before_anything_applies(home, monkeypatch):
+    monkeypatch.delenv(capy_cli.ENV_API_KEY, raising=False)
+    _interactive(monkeypatch, ["  capy_" + "k" * 43 + "  "])
+    monkeypatch.setattr(capy_cli, "_choose_on_screen", lambda projects: projects[:1])
+    with FakeCapy() as fake:
+        monkeypatch.setenv(discovery.ENV_API_BASE, fake.base)
+        monkeypatch.setattr(fake, "key", "capy_" + "k" * 43)
+        ask = capy_cli.ask_capture(interactive=True)
+    assert ask.outcome is capy_cli.CaptureOutcome.CONNECTED and ask.pairs
+    assert ask.plan.key == "capy_" + "k" * 43, "the pasted key is trimmed"
+    assert [p["id"] for p in ask.plan.projects] == ["proj_1"]
+    assert ask.plan.key not in repr(ask.plan) and ask.plan.key not in repr(ask)
+    assert capy_cli.load_config() is None, "asking connects nothing"
+
+
+def test_a_refused_key_is_asked_again_with_the_reason_and_empty_skips(home, monkeypatch):
+    monkeypatch.delenv(capy_cli.ENV_API_KEY, raising=False)
+    asked = _interactive(monkeypatch, ["capy_wrong", ""])
+    with FakeCapy() as fake:
+        monkeypatch.setenv(discovery.ENV_API_BASE, fake.base)
+        ask = capy_cli.ask_capture(interactive=True)
+    assert ask.outcome is capy_cli.CaptureOutcome.DECLINED and not ask.outcome.blocks
+    assert any("Capy refused that key" in line for line in asked[1])
+    assert any("probe capy connect" in line for line in ask.lines)
+
+
+def test_without_a_terminal_a_missing_key_or_project_is_missing_not_a_guess(home, monkeypatch):
+    monkeypatch.delenv(capy_cli.ENV_API_KEY, raising=False)
+    ask = capy_cli.ask_capture(interactive=False)
+    assert ask.outcome is capy_cli.CaptureOutcome.MISSING and ask.outcome.blocks
+    assert capy_cli.ENV_API_KEY in ask.lines[0]
+    with FakeCapy() as fake:
+        monkeypatch.setenv(discovery.ENV_API_BASE, fake.base)
+        monkeypatch.setenv(capy_cli.ENV_API_KEY, fake.key)
+        unnamed = capy_cli.ask_capture(interactive=False)
+        named = capy_cli.ask_capture(interactive=False, projects=["infra"])
+        wrong = capy_cli.ask_capture(interactive=False, projects=["nope"])
+    assert unnamed.outcome is capy_cli.CaptureOutcome.MISSING and "ml-research" in unnamed.lines[0]
+    assert named.outcome is capy_cli.CaptureOutcome.CONNECTED
+    assert [p["id"] for p in named.plan.projects] == ["proj_2"]
+    assert wrong.outcome is capy_cli.CaptureOutcome.REFUSED and "nope" in wrong.lines[0]
+
+
+def test_a_connected_machine_is_checked_again_not_asked(home, monkeypatch):
+    """A saved connection is re-checked with its own key and projects (no
+    prompt); a key Capy now refuses is not read as connected."""
+    monkeypatch.setattr(capy_cli, "_ask_key", lambda problem=None: pytest.fail("asked a connected machine"))
+    with FakeCapy() as fake:
+        monkeypatch.setenv(discovery.ENV_API_BASE, fake.base)
+        capy_cli.save_config(capy_cli.CapyConfig(api_key=fake.key, me_id=ME, me_email=None, projects=[{"id": "proj_2"}]))
+        ask = capy_cli.ask_capture(interactive=True)
+        assert ask.outcome is capy_cli.CaptureOutcome.ALREADY and ask.pairs
+        assert [p["id"] for p in ask.plan.projects] == ["proj_2"]
+        capy_cli.save_config(capy_cli.CapyConfig(api_key="capy_revoked", me_id=ME, me_email=None, projects=[{"id": "proj_2"}]))
+        refused = capy_cli.ask_capture(interactive=False)
+    assert refused.outcome is capy_cli.CaptureOutcome.REFUSED and "no longer works" in refused.lines[0]
+
+
+def test_an_unreachable_capy_keeps_a_saved_connection(home, monkeypatch):
+    capy_cli.save_config(capy_cli.CapyConfig(api_key="k", me_id=ME, me_email=None, projects=[{"id": "p"}]))
+    capy_cli.killswitch_path().write_text("off\n")
+
+    def unreachable(key, *, choose):
+        raise capy_cli.CapyUnreachable("Could not reach Capy: timed out")
+
+    monkeypatch.setattr(capy_cli, "prepare", unreachable)
+    ask = capy_cli.ask_capture(interactive=False)
+    assert ask.outcome is capy_cli.CaptureOutcome.ALREADY and ask.plan is None
+    outcome, _ = capy_cli.apply_capture(ask)
+    assert outcome is capy_cli.CaptureOutcome.ALREADY
+    assert not capy_cli.killswitch_path().exists(), "installing turns capture back on"
+
+
+def test_a_wrong_capy_project_is_refused_without_asking_for_another_key(home, monkeypatch):
+    monkeypatch.setattr(capy_cli, "_ask_key", lambda problem=None: pytest.fail("re-asked the key"))
+    with FakeCapy() as fake:
+        monkeypatch.setenv(discovery.ENV_API_BASE, fake.base)
+        monkeypatch.setenv(capy_cli.ENV_API_KEY, fake.key)
+        ask = capy_cli.ask_capture(interactive=True, projects=["nope"])
+    assert ask.outcome is capy_cli.CaptureOutcome.REFUSED and "nope" in ask.lines[0]
+
+
+def test_an_email_no_capy_member_has_is_refused_before_anything_is_paired(home, monkeypatch):
+    monkeypatch.setattr(capy_cli, "_probe_account", lambda: {"email": "someone@else.example"})
+    with FakeCapy() as fake:
+        monkeypatch.setenv(discovery.ENV_API_BASE, fake.base)
+        monkeypatch.setenv(capy_cli.ENV_API_KEY, fake.key)
+        ask = capy_cli.ask_capture(interactive=False, projects=["ml-research"])
+    assert ask.outcome is capy_cli.CaptureOutcome.REFUSED and not ask.pairs
+    assert "someone@else.example" in ask.lines[0]
+
+
+def test_a_refused_connect_drops_the_credential_it_would_have_used(home, monkeypatch):
+    from probe.cli import capabilities
+
+    revoked: list = []
+    monkeypatch.setattr(capabilities, "revoke_capture_device", lambda s=None: revoked.append(s))
+    capy_cli._private_dir(capy_cli.state_dir())
+    (capy_cli.state_dir() / ".token").write_text("secret\n")
+
+    def refuse(plan, **kwargs):
+        raise capy_cli.EmailNotFound("No member of this Capy organization has the email me@x")
+
+    monkeypatch.setattr(capy_cli, "connect", refuse)
+    plan = capy_cli.CapturePlan(key="k", projects=[{"id": "p"}], users=[])
+    outcome, lines = capy_cli.apply_capture(capy_cli.CaptureAsk(capy_cli.CaptureOutcome.CONNECTED, plan=plan))
+    assert outcome is capy_cli.CaptureOutcome.REFUSED and lines[0].startswith("! ")
+    assert revoked == [capy_cli.SOURCE] and not (capy_cli.state_dir() / ".token").exists()
+
+
+def test_the_installer_syncs_in_the_background_never_inline(home, monkeypatch):
+    """A long history must not hold the install's apply phase (no system timer)."""
+    seen: dict = {}
+
+    def connect(plan, **kwargs):
+        seen.update(kwargs)
+        return capy_cli.Connected(config=None, team="t", mode=None, lines=["Connected"])
+
+    monkeypatch.setattr(capy_cli, "connect", connect)
+    monkeypatch.setattr(capy_cli, "sync_once", lambda: pytest.fail("synced inside the install"))
+    plan = capy_cli.CapturePlan(key="k", projects=[{"id": "p"}], users=[])
+    outcome, lines = capy_cli.apply_capture(capy_cli.CaptureAsk(capy_cli.CaptureOutcome.CONNECTED, plan=plan))
+    assert outcome is capy_cli.CaptureOutcome.CONNECTED and seen["first_sync"] is False
+    assert any("background" in line for line in lines)
+
+
+def test_a_sync_turned_off_mid_pull_uploads_nothing(home, monkeypatch):
+    """`capture_off` while a sync is pulling: off means nothing more is sent."""
+    from probe.cli import capabilities
+
+    monkeypatch.setattr(capabilities, "resolved_capture_credential", lambda s=None: ("t", "http://door"))
+    monkeypatch.setattr(capy_cli, "upload", lambda *a, **k: pytest.fail("uploaded after capture was turned off"))
+    with FakeCapy() as fake:
+        fake.add_thread(thread("t1"), [message("m1", "user", "hello")])
+        monkeypatch.setenv(discovery.ENV_API_BASE, fake.base)
+        capy_cli.save_config(capy_cli.CapyConfig(api_key=fake.key, me_id=ME, me_email=None, projects=[{"id": "proj_1"}]))
+        real_pull = discovery.pull
+
+        def pull_then_turn_off(*args, **kwargs):
+            result = real_pull(*args, **kwargs)
+            capy_cli.killswitch_path().write_text("off\n")
+            return result
+
+        monkeypatch.setattr(discovery, "pull", pull_then_turn_off)
+        report = capy_cli.sync_once(wire=DoorWire(source="capy"))
+    assert report.pulled_sessions and any("turned off" in e for e in report.errors)
+
+
+def test_apply_capture_connects_with_the_plan_and_reports_a_refusal(home, monkeypatch):
+    plan = capy_cli.CapturePlan(key="k", projects=[{"id": "proj_1"}], users=[])
+    seen: list = []
+    monkeypatch.setattr(
+        capy_cli, "connect",
+        lambda p, **kw: seen.append(p) or capy_cli.Connected(config=None, team="t", mode=None, lines=["Connected"]),
+    )
+    outcome, lines = capy_cli.apply_capture(capy_cli.CaptureAsk(capy_cli.CaptureOutcome.CONNECTED, plan=plan))
+    assert outcome is capy_cli.CaptureOutcome.CONNECTED and lines[0] == "Connected" and seen == [plan]
+
+    def refuse(p, **kw):
+        raise capy_cli.ConnectRefused("No member of this Capy organization has the email me@x")
+
+    monkeypatch.setattr(capy_cli, "connect", refuse)
+    outcome, lines = capy_cli.apply_capture(capy_cli.CaptureAsk(capy_cli.CaptureOutcome.CONNECTED, plan=plan))
+    assert outcome is capy_cli.CaptureOutcome.REFUSED and outcome.blocks
+    assert lines[0].startswith("! ") and "probe capy connect" in lines[0]
+
+
+@pytest.mark.parametrize("timer_mode", [None, "cron"])
+def test_connect_syncs_once_when_no_system_timer_will(home, connect_env, monkeypatch, timer_mode):
+    """A failed timer install, or the cron fallback, must not leave a connection
+    that has uploaded nothing (Codex review O3)."""
+    monkeypatch.setattr(
+        capy_cli, "install_timer",
+        lambda: (capy_cli.TimerMode(timer_mode) if timer_mode else None, "could not install the timer"),
+    )
+    synced: list = []
+    monkeypatch.setattr(capy_cli, "sync_once", lambda: synced.append(1) or capy_cli.SyncReport(pulled_sessions=2))
+    with FakeCapy() as fake:
+        monkeypatch.setenv(discovery.ENV_API_BASE, fake.base)
+        plan = capy_cli.prepare(fake.key, choose=lambda projects: projects[:1])
+        done = capy_cli.connect(plan)
+        quiet = capy_cli.connect(plan, first_sync=False)
+    assert synced == [1] and done.report.pulled_sessions == 2
+    assert any("Synced 2 Capy session(s)" in line for line in done.lines)
+    assert quiet.report is None
+
+
+def test_capture_off_keeps_the_connection_and_uninstall_removes_it(home, monkeypatch):
+    monkeypatch.setattr(capy_cli, "remove_timer", lambda mode: None)
+    capy_cli.save_config(capy_cli.CapyConfig(api_key="k", me_id=ME, me_email=None, projects=[]))
+    assert "turned off" in capy_cli.capture_off(uninstall=False)[0]
+    assert capy_cli.killswitch_path().exists() and capy_cli.load_config() is not None
+    capy_cli.capture_off(uninstall=True)
+    assert capy_cli.load_config() is None
+
+
+def test_connect_refuses_when_no_project_is_chosen(home, connect_env, monkeypatch):
+    with FakeCapy() as fake:
+        monkeypatch.setenv(discovery.ENV_API_BASE, fake.base)
+        with pytest.raises(capy_cli.ConnectRefused, match="No Capy project"):
+            capy_cli.prepare(fake.key, choose=lambda projects: [])
+    assert capy_cli.load_config() is None
+
+
+# --- T12: sign-out and uninstall stop Capy capture --------------------------------------
+
+
+def test_sign_out_and_uninstall_disconnect_capy(home, monkeypatch):
+    from probe.cli import capabilities, setup
+
+    revoked: list = []
+    monkeypatch.setattr(capabilities, "revoke_capture_device", lambda s=None: revoked.append(s))
+    monkeypatch.setattr(capy_cli.platform, "system", lambda: "Linux")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / "cfg"))
+    for release in (setup.sign_out, setup.finish_removal):
+        capy_cli.save_config(capy_cli.CapyConfig(api_key="k", me_id=ME, me_email=None, projects=[]))
+        (capy_cli.state_dir() / ".token").write_text("secret\n")
+        unit = capy_cli._systemd_dir() / f"{capy_cli.TIMER_NAME}.timer"
+        unit.parent.mkdir(parents=True, exist_ok=True)
+        unit.write_text("[Timer]\n")
+        monkeypatch.setattr(capy_cli, "_run", lambda argv: True)
+        assert capy_cli.connected_here()
+        lines = release() if release is setup.finish_removal else release(())
+        assert any("Capy disconnected" in line for line in lines), lines
+        assert not capy_cli.connected_here(), "timer, key and credential are all gone"
+        assert not capy_cli.config_path().exists() and not unit.exists()
+    assert revoked == [capy_cli.SOURCE, capy_cli.SOURCE]
+
+
+def test_sign_out_without_capy_says_nothing_about_it(home, monkeypatch):
+    from probe.cli import setup
+
+    assert not capy_cli.connected_here()
+    assert not any("Capy" in line for line in setup.sign_out(()))
+
+
+# --- T13: Capy named right ------------------------------------------------------------
+
+
+def test_a_capy_pairing_names_capy_not_a_generic_agent():
+    from probe.cli import setup
+
+    assert setup.agent_label(capy_cli.SOURCE) == capy_cli.label()
+    assert setup.agent_label("not-an-agent") == "coding agent"
+
+
+def test_doctor_inside_capy_describes_capy_not_claude_code(monkeypatch):
+    from probe.cli import capabilities, doctor
+
+    monkeypatch.delenv("PROBE_CAPY", raising=False)
+    assert capabilities.cloud_agent_here() is None
+    monkeypatch.setenv("PROBE_CAPY", "1")
+    agent = capabilities.cloud_agent_here()
+    assert agent is not None and agent.id == capy_cli.SOURCE
+    caps = capabilities.Capabilities(cli_version="0.238.0", install_method="uv tool", logged_in_as="me@lab.example")
+    text = doctor.render_cloud(caps, agent)
+    assert "Inside Capy" in text and "PROBE_CAPY=1" in text and "me@lab.example" in text
+    assert "Claude Code" not in text
+    assert not any(line.strip().startswith("Plugin") for line in text.split("Not here")[0].splitlines())
+    assert "npx probe-research install --agent capy" in text
+    unsigned = doctor.render_cloud(capabilities.Capabilities(cli_version="0.238.0"), agent)
+    assert "set PROBE_TOKEN" in unsigned
+
+
+def test_session_and_ask_inside_capy_say_why_and_where_to_go(monkeypatch):
+    from probe.cli import capabilities
+
+    monkeypatch.delenv("PROBE_CAPY", raising=False)
+    assert capabilities.cloud_agent_refusal("probe ask") is None
+    monkeypatch.setenv("PROBE_CAPY", "1")
+    text = capabilities.cloud_agent_refusal("probe ask")
+    assert "inside Capy" in text and "MCP `search`" in text
+
+
+def test_probe_ask_inside_capy_points_at_mcp_search(monkeypatch):
+    import importlib
+
+    from typer.testing import CliRunner
+
+    cli_main = importlib.import_module("probe.cli.main")
+    for name in ("CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "PI_SESSION_ID", "PROBE_KIMI_SESSION_ID"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("PROBE_CAPY", "1")
+    result = CliRunner().invoke(cli_main.app, ["ask", "has anyone tried lr 3e-4?"])
+    assert result.exit_code != 0
+    assert "inside Capy" in result.output
+
+
+# --- T17: the wizard's Capy row -------------------------------------------------------
+
+
+def test_every_captured_agent_has_a_wizard_logo():
+    from probe.cli import setup
+    from probe.harness import get_registry
+
+    for harness in get_registry().captured():
+        logo = setup.agent_logo(harness.id)
+        assert logo and logo.startswith(b"\x89PNG"), harness.id
+
+
+def test_the_capy_row_draws_its_logo_like_every_agent_row(home, monkeypatch):
+    from probe.cli import capabilities, setup, tui
+
+    monkeypatch.setattr(capabilities, "resolved_capture_credential", lambda s=None: ("t", "http://x"))
+    capy_cli.save_config(capy_cli.CapyConfig(api_key="k", me_id=ME, me_email=None, projects=[{"id": "p"}]))
+    caps = {"capy": capabilities.Capabilities(agent_source="capy")}
+    [row] = setup._agent_rows(caps, images=tui.ImageProtocol.KITTY)
+    assert row.escapes and row.hover == capy_cli.label() and "capture on" in row
+    summary = [str(line) for line in setup.describe_state({}, installed=[])]
+    assert any("none found on this device" in line for line in summary)
+
+
+# --- review of the surfaces branch ------------------------------------------------------
+
+
+def test_a_failing_capy_disconnect_never_stops_sign_out(home, monkeypatch):
+    from probe.cli import setup
+
+    capy_cli.save_config(capy_cli.CapyConfig(api_key="k", me_id=ME, me_email=None, projects=[]))
+
+    def boom(**kwargs):
+        raise PermissionError("root-owned unit dir")
+
+    monkeypatch.setattr(capy_cli, "disconnect", boom)
+    lines = setup.sign_out(())
+    assert any("could not disconnect Capy (PermissionError)" in line for line in lines)
+    assert any("still installed" in line for line in lines), "the rest of sign-out ran"
+
+
+def test_a_capy_org_with_no_projects_is_refused_not_a_crash():
+    assert capy_cli._choose_on_screen([]) == []
+
+
+def test_sync_from_a_shell_pointing_probe_elsewhere_sends_nothing(home, monkeypatch):
+    from probe.cli import capabilities
+
+    monkeypatch.setattr(capabilities, "resolved_capture_credential",
+                        lambda s=None: ("t", "https://staging.example"))
+    capy_cli.save_config(capy_cli.CapyConfig(api_key="k", me_id=ME, me_email=None, projects=[],
+                                             base_url="https://api.research.prbe.ai"))
+    report = capy_cli.sync_once(wire=DoorWire(source="capy"))
+    assert report.skipped is capy_cli.Skip.OTHER_SERVER
+
+
+def test_connect_pins_the_server_it_paired_with(home, connect_env, monkeypatch):
+    with FakeCapy() as fake:
+        monkeypatch.setenv(discovery.ENV_API_BASE, fake.base)
+        result = _invoke(["connect", "--project", "proj_1", "--no-timer", "--no-sync"],
+                         env={capy_cli.ENV_API_KEY: fake.key})
+    assert result.exit_code == 0, result.output
+    assert capy_cli.load_config().base_url == "http://door"
+
+
+def test_removing_the_timer_also_stops_a_running_sync(home, monkeypatch):
+    monkeypatch.setattr(capy_cli.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(capy_cli.shutil, "which", lambda name: f"/opt/bin/{name}")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / "cfg"))
+    unit = capy_cli._systemd_dir() / f"{capy_cli.TIMER_NAME}.timer"
+    unit.parent.mkdir(parents=True)
+    unit.write_text("[Timer]\n")
+    ran: list = []
+    monkeypatch.setattr(capy_cli, "_run", lambda argv: ran.append(argv) or True)
+    capy_cli.remove_timer(None)
+    assert ["systemctl", "--user", "stop", f"{capy_cli.TIMER_NAME}.service"] in ran
+
+
+def test_the_menu_reads_capy_state_once_not_every_frame(home, monkeypatch):
+    from probe.cli import capabilities, setup
+
+    calls: list = []
+    monkeypatch.setattr(setup, "cloud_status", lambda *a, **k: calls.append(1) or {})
+    caps = {"capy": capabilities.Capabilities(agent_source="capy")}
+    setup.describe_state(caps, installed=["capy"], cloud={"capy": ("capture on", False)})
+    assert calls == [], "a precomputed status is used as given"

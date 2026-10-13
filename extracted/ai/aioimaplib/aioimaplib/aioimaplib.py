@@ -28,7 +28,7 @@ from collections import namedtuple
 from copy import copy
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Union, Any, Coroutine, Callable, Optional, Pattern, List
+from typing import Union, Any, Coroutine, Callable, Optional, List
 
 # to avoid imap servers to kill the connection after 30mn idling
 # cf https://www.imapwiki.org/ClientImplementation/Synchronization
@@ -140,9 +140,18 @@ def arguments_rfs2971(**kwargs: Union[dict, list, str]) -> Union[dict, list]:
     return args
 
 
+# NUL, CR and LF end or split a command line on the wire (RFC 3501 section 9), so an argument
+# carrying one of them would be executed by the server as a separate command. Same check as
+# CPython's imaplib (gh-143921).
+CONTROL_CHARS = re.compile(r'[\x00\r\n]')
+
+
 class Command:
     def __init__(self, name: str, tag: str, *args, prefix: str = None, untagged_resp_name: str = None,
                  loop: asyncio.AbstractEventLoop = None, timeout: float = None) -> None:
+        for arg in args:
+            if arg is not None and CONTROL_CHARS.search(str(arg)):
+                raise ValueError('NUL, CR and LF are not allowed in %s command arguments' % name)
         self.name = name
         self.tag = tag
         self.args = args
@@ -620,7 +629,7 @@ class IMAP4ClientProtocol(asyncio.Protocol):
     async def wait_async_pending_commands(self) -> None:
         await asyncio.wait([asyncio.ensure_future(cmd.wait()) for cmd in self.pending_async_commands.values()])
 
-    async def wait(self, state_regexp: Pattern) -> None:
+    async def wait(self, state_regexp: str) -> None:
         state_re = re.compile(state_regexp)
         async with self.state_condition:
             await self.state_condition.wait_for(lambda: state_re.match(self.state))
@@ -724,7 +733,12 @@ class IMAP4:
         return self.protocol.state
 
     async def wait_hello_from_server(self) -> None:
-        await asyncio.wait_for(self.protocol.wait('AUTH|NONAUTH'), self.timeout)
+        await asyncio.wait_for(self._wait_connection_and_hello(), self.timeout)
+
+    async def _wait_connection_and_hello(self) -> None:
+        # a refused connection, a failed DNS lookup or a TLS handshake error is raised here
+        await self._client_task
+        await self.protocol.wait('AUTH|NONAUTH')
 
     async def login(self, user: str, password: str) -> Response:
         return await asyncio.wait_for(self.protocol.login(user, password), self.timeout)
@@ -840,7 +854,7 @@ class IMAP4:
     async def getquotaroot(self, mailbox_name: str) -> Response:
         return await asyncio.wait_for(self.protocol.execute(Command('GETQUOTAROOT', self.protocol.new_tag(), 'INBOX', untagged_resp_name='QUOTA')), self.timeout)
 
-    async def list(self, reference_name: str, mailbox_pattern: Pattern) -> Response:
+    async def list(self, reference_name: str, mailbox_pattern: str) -> Response:
         return await asyncio.wait_for(self.protocol.simple_command('LIST', reference_name, mailbox_pattern), self.timeout)
 
     async def append(self, message_bytes, mailbox: str = 'INBOX', flags: str = None, date: Any = None) -> Response:

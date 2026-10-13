@@ -4,24 +4,10 @@ import inspect
 import random
 import sys
 import warnings
+from collections import OrderedDict
+from collections.abc import Callable, Coroutine, Hashable
 from functools import _CacheInfo, _make_key, partial, partialmethod
-from typing import (
-    Any,
-    Callable,
-    Coroutine,
-    Generic,
-    Hashable,
-    List,
-    Optional,
-    OrderedDict,
-    Type,
-    TypedDict,
-    TypeVar,
-    Union,
-    cast,
-    final,
-    overload,
-)
+from typing import Any, Generic, TypedDict, TypeVar, cast, final, overload
 
 
 if sys.version_info >= (3, 11):
@@ -33,7 +19,7 @@ if sys.version_info < (3, 14):
     from asyncio.coroutines import _is_coroutine  # type: ignore[attr-defined]
 
 
-__version__ = "2.3.0"
+__version__ = "2.4.0"
 
 __all__ = ("AlruCacheLoopResetWarning", "alru_cache")
 
@@ -42,7 +28,7 @@ _T = TypeVar("_T")
 _R = TypeVar("_R")
 _Coro = Coroutine[Any, Any, _R]
 _CB = Callable[..., _Coro[_R]]
-_CBP = Union[_CB[_R], "partial[_Coro[_R]]", "partialmethod[_Coro[_R]]"]
+_CBP = _CB[_R] | partial[_Coro[_R]] | partialmethod[_Coro[_R]]
 
 
 class AlruCacheLoopResetWarning(UserWarning):
@@ -52,16 +38,16 @@ class AlruCacheLoopResetWarning(UserWarning):
 @final
 class _CacheParameters(TypedDict):
     typed: bool
-    maxsize: Optional[int]
+    maxsize: int | None
     tasks: int
     closed: bool
 
 
 @final
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _CacheItem(Generic[_R]):
     task: "asyncio.Task[_R]"
-    later_call: Optional[asyncio.Handle]
+    later_call: asyncio.Handle | None
     waiters: int
 
     def cancel(self) -> None:
@@ -72,13 +58,34 @@ class _CacheItem(Generic[_R]):
 
 @final
 class _LRUCacheWrapper(Generic[_R]):
+    # No slot for _is_coroutine_marker: inspect.markcoroutinefunction() must
+    # store it in __dict__, which _LRUCacheWrapperInstanceMethod copies.
+    __slots__ = (
+        "__wrapped__",
+        "__maxsize",
+        "__typed",
+        "__ttl",
+        "__jitter",
+        "__key",
+        "__cache",
+        "__closed",
+        "__hits",
+        "__misses",
+        "__first_loop",
+        "__warned_loop_reset",
+        "_is_coroutine",
+        "__dict__",
+        "__weakref__",
+    )
+
     def __init__(
         self,
         fn: _CB[_R],
-        maxsize: Optional[int],
+        maxsize: int | None,
         typed: bool,
-        ttl: Optional[float],
-        jitter: Optional[float],
+        ttl: float | None,
+        jitter: float | None,
+        key: Callable[..., Hashable] | None = None,
     ) -> None:
         try:
             self.__module__ = fn.__module__
@@ -96,10 +103,21 @@ class _LRUCacheWrapper(Generic[_R]):
             self.__doc__ = fn.__doc__
         except AttributeError:
             pass
-        try:
-            self.__annotations__ = fn.__annotations__
-        except AttributeError:
-            pass
+        # Copy the lazy __annotate__ function; reading fn.__annotations__
+        # would force evaluation of deferred annotations (PEP 649).
+        if sys.version_info >= (3, 14):
+            try:
+                self.__annotate__ = fn.__annotate__
+            except AttributeError:
+                try:
+                    self.__annotations__ = fn.__annotations__
+                except AttributeError:
+                    pass
+        else:
+            try:
+                self.__annotations__ = fn.__annotations__
+            except AttributeError:
+                pass
         try:
             self.__dict__.update(fn.__dict__)
         except AttributeError:
@@ -113,15 +131,16 @@ class _LRUCacheWrapper(Generic[_R]):
         self.__typed = typed
         self.__ttl = ttl
         self.__jitter = jitter
+        self.__key = key
         self.__cache: OrderedDict[Hashable, _CacheItem[_R]] = OrderedDict()
         self.__closed = False
         self.__hits = 0
         self.__misses = 0
-        self.__first_loop: Optional[asyncio.AbstractEventLoop] = None
+        self.__first_loop: asyncio.AbstractEventLoop | None = None
         self.__warned_loop_reset = False
 
     @property
-    def __tasks(self) -> List["asyncio.Task[_R]"]:
+    def __tasks(self) -> list["asyncio.Task[_R]"]:
         # NOTE: I don't think we need to form a set first here but not
         # too sure we want it for guarantees
         return list(
@@ -155,11 +174,19 @@ class _LRUCacheWrapper(Generic[_R]):
 
         Does not affect hit/miss counters or LRU ordering.
         """
-        key = _make_key(args, kwargs, self.__typed)
+        # Inlined instead of a shared helper: an extra method call is
+        # measurable on these short code paths (CodSpeed).
+        if self.__key is not None:
+            key = self.__key(*args, **kwargs)
+        else:
+            key = _make_key(args, kwargs, self.__typed)
         return key in self.__cache
 
     def cache_invalidate(self, /, *args: Hashable, **kwargs: Any) -> bool:
-        key = _make_key(args, kwargs, self.__typed)
+        if self.__key is not None:
+            key = self.__key(*args, **kwargs)
+        else:
+            key = _make_key(args, kwargs, self.__typed)
 
         cache_item = self.__cache.pop(key, None)
         if cache_item is None:
@@ -258,7 +285,10 @@ class _LRUCacheWrapper(Generic[_R]):
         loop = asyncio.get_running_loop()
         self._check_loop(loop)
 
-        key = _make_key(fn_args, fn_kwargs, self.__typed)
+        if self.__key is not None:
+            key = self.__key(*fn_args, **fn_kwargs)
+        else:
+            key = _make_key(fn_args, fn_kwargs, self.__typed)
         cache_item = self.__cache.get(key)
 
         if cache_item is not None:
@@ -287,8 +317,8 @@ class _LRUCacheWrapper(Generic[_R]):
         return await self._shield_and_handle_cancelled_error(cache_item, key)
 
     def __get__(
-        self, instance: _T, owner: Optional[Type[_T]]
-    ) -> Union[Self, "_LRUCacheWrapperInstanceMethod[_R, _T]"]:
+        self, instance: _T, owner: type[_T] | None
+    ) -> Self | "_LRUCacheWrapperInstanceMethod[_R, _T]":
         if owner is None:
             return self
         else:
@@ -297,6 +327,15 @@ class _LRUCacheWrapper(Generic[_R]):
 
 @final
 class _LRUCacheWrapperInstanceMethod(Generic[_R, _T]):
+    __slots__ = (
+        "__dict__",
+        "__weakref__",
+        "_is_coroutine",
+        "__wrapped__",
+        "__instance",
+        "__wrapper",
+    )
+
     def __init__(
         self,
         wrapper: _LRUCacheWrapper[_R],
@@ -318,10 +357,21 @@ class _LRUCacheWrapperInstanceMethod(Generic[_R, _T]):
             self.__doc__ = wrapper.__doc__
         except AttributeError:
             pass
-        try:
-            self.__annotations__ = wrapper.__annotations__
-        except AttributeError:
-            pass
+        # Prefer the lazy __annotate__ function, see the matching logic
+        # in _LRUCacheWrapper.__init__.
+        if sys.version_info >= (3, 14):
+            try:
+                self.__annotate__ = wrapper.__annotate__
+            except AttributeError:
+                try:
+                    self.__annotations__ = wrapper.__annotations__
+                except AttributeError:
+                    pass
+        else:
+            try:
+                self.__annotations__ = wrapper.__annotations__
+            except AttributeError:
+                pass
         try:
             self.__dict__.update(wrapper.__dict__)
         except AttributeError:
@@ -370,15 +420,20 @@ class _LRUCacheWrapperInstanceMethod(Generic[_R, _T]):
 
 
 def _make_wrapper(
-    maxsize: Optional[int],
+    maxsize: int | None,
     typed: bool,
-    ttl: Optional[float] = None,
-    jitter: Optional[float] = None,
+    ttl: float | None = None,
+    jitter: float | None = None,
+    key: Callable[..., Hashable] | None = None,
 ) -> Callable[[_CBP[_R]], _LRUCacheWrapper[_R]]:
     if jitter is not None and ttl is None:
         raise ValueError("jitter requires ttl to be set")
     if jitter is not None and jitter < 0:
         raise ValueError("jitter must be non-negative")
+    if key is not None and not callable(key):
+        raise TypeError("key must be callable")
+    if key is not None and typed:
+        raise ValueError("typed is ignored when a custom key callable is provided")
 
     def wrapper(fn: _CBP[_R]) -> _LRUCacheWrapper[_R]:
         origin = fn
@@ -392,7 +447,7 @@ def _make_wrapper(
         if hasattr(fn, "_make_unbound_method"):
             fn = fn._make_unbound_method()
 
-        wrapper = _LRUCacheWrapper(cast(_CB[_R], fn), maxsize, typed, ttl, jitter)
+        wrapper = _LRUCacheWrapper(cast(_CB[_R], fn), maxsize, typed, ttl, jitter, key)
         if sys.version_info >= (3, 12):
             wrapper = inspect.markcoroutinefunction(wrapper)
         return wrapper
@@ -402,11 +457,12 @@ def _make_wrapper(
 
 @overload
 def alru_cache(
-    maxsize: Optional[int] = 128,
+    maxsize: int | None = 128,
     typed: bool = False,
     *,
-    ttl: Optional[float] = None,
-    jitter: Optional[float] = None,
+    ttl: float | None = None,
+    jitter: float | None = None,
+    key: Callable[..., Hashable] | None = None,
 ) -> Callable[[_CBP[_R]], _LRUCacheWrapper[_R]]:
     ...
 
@@ -420,14 +476,15 @@ def alru_cache(
 
 
 def alru_cache(
-    maxsize: Union[Optional[int], _CBP[_R]] = 128,
+    maxsize: int | _CBP[_R] | None = 128,
     typed: bool = False,
     *,
-    ttl: Optional[float] = None,
-    jitter: Optional[float] = None,
-) -> Union[Callable[[_CBP[_R]], _LRUCacheWrapper[_R]], _LRUCacheWrapper[_R]]:
+    ttl: float | None = None,
+    jitter: float | None = None,
+    key: Callable[..., Hashable] | None = None,
+) -> Callable[[_CBP[_R]], _LRUCacheWrapper[_R]] | _LRUCacheWrapper[_R]:
     if maxsize is None or isinstance(maxsize, int):
-        return _make_wrapper(maxsize, typed, ttl, jitter)
+        return _make_wrapper(maxsize, typed, ttl, jitter, key)
     else:
         fn = cast(_CB[_R], maxsize)
 

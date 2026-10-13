@@ -67,6 +67,7 @@ from typing import Any, Callable, Literal
 
 from probe.daemon import approvals as appr
 from probe.daemon import precheck
+from probe.daemon import scope
 from probe.daemon.events import Kind
 from probe.daemon.store import UNRECORDED_BITE, Store, scrub
 from probe.sdk.key_refusal import KEY_REFUSED_LINE
@@ -117,7 +118,7 @@ _TRANSPORT_FAILURE = re.compile(r"^error: (GET|HEAD|POST|PATCH|PUT|DELETE) /\S*:
 #: never retried: the CLI cannot say that nothing was written.
 IDEMPOTENT_COMMANDS = frozenset({
     "project create", "group create",
-    "experiment create", "experiment set", "experiment move",
+    "experiment create", "experiment set", "experiment move", "experiment fork",
     "project set", "project tag", "project move",
     "run set", "run tag", "run move", "group set",
     "artifact set", "artifact move", "paper add", "paper update", "paper tag",
@@ -179,6 +180,34 @@ class Deps:
     #: question -- anything that would wait for a yes is refused (`AUDIT_REFUSED`).
     #: Its `write_dirs` is its draft folder alone (`audit.AuditLane._deps`).
     audit: bool = False
+    #: Writes that failed or were not run (`_probe_command`, `_shell_command`,
+    #: `_run_steps`). A write the researcher was asked about is not one: it waits
+    #: for them (`asked`). The writer's shell tool compares this count before and
+    #: after a call, so a run that ends in the same response as a write that did
+    #: not land goes on (B2, `agent.lost_write_retry`).
+    lost_writes: int = 0
+    #: Questions put to the researcher that did not come back yes (`_hold`).
+    asked: int = 0
+
+
+def _hold(deps: Deps, *, policy: str, facts: dict, held: dict) -> appr.Request:
+    """Ask the researcher (`Board.hold`). A question that did not come back yes
+    (waiting, or a no given before) is counted in `Deps.asked`: the write behind
+    it did not fail, it is theirs to decide."""
+    req = deps.board.hold(policy=policy, session_id=deps.session_id, facts=facts, held=held, bypass=deps.bypass,
+                          mode_known=deps.mode_known)
+    if req.state != appr.APPROVED:
+        deps.asked += 1
+    return req
+
+
+def _writes(argv: list[str]) -> bool:
+    """Whether a `probe ...` command writes. One that cannot be parsed counts:
+    it did not run, and nothing says it would only have read."""
+    try:
+        return precheck.parse(argv).owner != precheck.READ
+    except precheck.ParseError:
+        return True
 
 
 def _classify(deps: Deps, command: str, cwd: Path, *, piped_input: bool = False) -> Any:
@@ -285,14 +314,14 @@ def _family(parsed: precheck.Parsed) -> str | None:
 
 
 def _file_digest(path: Path) -> str:
-    """sha256 of a file's bytes; its size and mtime when it is over the upload
-    limit (the pre-check refuses it anyway, and hashing it would stall the bite);
-    "missing" when it cannot be read."""
+    """sha256 of a file's bytes; its size and mtime when it is bigger than the
+    pre-check scans (hashing gigabytes would stall the bite); "missing" when it
+    cannot be read."""
     try:
         stat = path.stat()
         if not path.is_file():
             return "missing"
-        if stat.st_size > precheck.MAX_UPLOAD_BYTES:
+        if stat.st_size > precheck.SCAN_BYTES:
             return f"size:{stat.st_size}:mtime:{stat.st_mtime_ns}"
         digest = hashlib.sha256()
         with path.open("rb") as handle:
@@ -473,8 +502,19 @@ AUDIT_SYNC_IS_THE_DAEMONS = ("`probe notes sync` is the daemon's: it pulled the 
                              "publishes your copy when you end with final_result")
 
 
+#: `probe` commands that read the open web, refused to the team-note audit as
+#: their MCP tools are (`agent.AUDIT_REFUSED_TOOLS`): `paper find` is
+#: `find_papers` from the shell, and text anyone can author must not reach an
+#: audit that publishes into every teammate's instructions.
+AUDIT_WEB_COMMANDS = frozenset({"paper find"})
+
+
 def audit_probe_refusal(parsed: "precheck.Parsed") -> str | None:
     """None when the team-note audit may run this `probe` command; else why not."""
+    if parsed.path in AUDIT_WEB_COMMANDS:
+        from probe.daemon.agent import AUDIT_WEB_REFUSED  # agent imports this module
+
+        return AUDIT_WEB_REFUSED
     if parsed.owner == precheck.READ:
         return None
     if parsed.path == "notes sync":
@@ -648,6 +688,7 @@ async def shell(deps: Deps, command: str, why: str = "") -> str:
     if verdict.safe and verdict.note_target:
         found = secrets.scan(verdict.note_body or "")
         if found and not auto:
+            deps.lost_writes += 1
             return (f"not run: the note text looks like it contains a credential ({found[0].rule}). A note is "
                     "uploaded to Probe.")
         if _in_team_note(verdict.note_target):
@@ -661,7 +702,18 @@ async def _shell_command(deps: Deps, command: str, verdict: Any, why: str, cwd: 
     """One shell command that is not a `probe` command, classified (`verdict`)
     for `cwd`: run at once when safe, else refused, asked about, or (bypass mode)
     run. `(what the model reads, its exit code; None when it did not run to an
-    end)`. `stdin`: the output of the probe command it is piped from."""
+    end)`. `stdin`: the output of the probe command it is piped from. A write
+    (a note file, or anything off the safe list) that failed or was not run, and
+    was not asked about, counts in `Deps.lost_writes`."""
+    asked = deps.asked
+    text, code = await _checked_shell_command(deps, command, verdict, why, cwd, stdin=stdin)
+    if code != 0 and deps.asked == asked and deps.stopped is None and (verdict.note_target or not verdict.safe):
+        deps.lost_writes += 1
+    return text, code
+
+
+async def _checked_shell_command(deps: Deps, command: str, verdict: Any, why: str, cwd: Path, *,
+                                 stdin: bytes | None = None) -> tuple[str, int | None]:
     from probe.daemon import shell as sh
 
     if verdict.refused:  # never a question, not even in bypass mode (`shell._Never`)
@@ -713,8 +765,7 @@ async def _shell_command(deps: Deps, command: str, verdict: Any, why: str, cwd: 
         if scripts:
             facts["scripts"] = scripts
     held = {"kind": "shell", "command": command, "cwd": str(cwd), "op_id": _op_id(deps, ["sh", "-c", command])}
-    req = deps.board.hold(policy="shell.unsafe_command", session_id=deps.session_id, facts=facts, held=held,
-                          bypass=deps.bypass, mode_known=deps.mode_known)
+    req = _hold(deps, policy="shell.unsafe_command", facts=facts, held=held)
     if req.state == appr.DENIED:
         return _already_no(req), None
     if req.state == appr.APPROVED:
@@ -747,6 +798,8 @@ async def _run_steps(deps: Deps, steps: list, why: str) -> str:
         shown = f"$ {scrub(step.text)}"
         if (step.before == "&&" and status != 0) or (step.before == "||" and status == 0):
             out.append(f"{shown}\n[not run: the part before it {'failed' if status else 'succeeded'}]")
+            if status != 0 and _step_writes(deps, step, cwd):
+                deps.lost_writes += 1  # a write that waited on a failure never ran
             continue
         if step.cd is not None:
             text, status, cwd = _cd_step(deps, step, cwd)
@@ -761,6 +814,22 @@ async def _run_steps(deps: Deps, steps: list, why: str) -> str:
             break
         _renew_after_step(deps)
     return _cap("\n\n".join(out))
+
+
+def _step_writes(deps: Deps, step: Any, cwd: Path) -> bool:
+    """Whether a part of a compound command writes: a `probe` write, or a
+    command off the safe list or into a note file."""
+    if step.cd is not None:
+        return False
+    if step.probe_argv is not None:
+        if _writes(step.probe_argv):
+            return True
+        if step.filter is None:
+            return False
+        verdict = _classify(deps, step.filter, cwd, piped_input=True)
+        return bool(verdict.note_target or not verdict.safe)
+    verdict = _classify(deps, step.text, cwd)
+    return bool(verdict.note_target or not verdict.safe)
 
 
 def _renew_after_step(deps: Deps) -> None:
@@ -818,6 +887,8 @@ async def _probe_step(deps: Deps, step: Any, cwd: Path, why: str) -> tuple[str, 
         # would have landed while the model is told "not run".
         verdict = _classify(deps, step.filter, cwd, piped_input=True)
         if verdict.refused or not (verdict.safe or (deps.bypass and deps.mode_known)):
+            if deps.stopped is None and _writes(step.probe_argv):
+                deps.lost_writes += 1
             return (f"not run: the filter after `probe {shlex.join(step.probe_argv)}` would not run at once "
                     f"({verdict.reason}), so neither part ran.", 1)
     text, result = await _probe_command(deps, step.probe_argv, why=why, cwd=cwd)
@@ -933,12 +1004,13 @@ async def _hold_team_note_write(deps: Deps, command: str, verdict: Any, why: str
     facts = _team_note_write_facts(verdict)
     facts["reason"] = why
     held = {"kind": "shell", "command": command, "cwd": str(deps.cwd), "op_id": _op_id(deps, ["sh", "-c", command])}
-    req = deps.board.hold(policy="team_note.edit", session_id=deps.session_id, facts=facts, held=held,
-                          bypass=deps.bypass, mode_known=deps.mode_known)
+    req = _hold(deps, policy="team_note.edit", facts=facts, held=held)
     if req.state == appr.DENIED:
         return _already_no(req)
     if req.state == appr.APPROVED:
         result = await _run_shell_write(deps, command, held["op_id"], head="team note", request=req.id)
+        if result.exit_code != 0 and deps.stopped is None:
+            deps.lost_writes += 1
         return f"[{appr.AUTO} · {_shell_status(result)}]\n{scrub(result.output)}"
     deps.store.log_write(bite=deps.bite_id, op_id=held["op_id"], argv=["sh", "-c", command], head="team note",
                          status="held", reason="a team note change waits for the researcher", request=req.id)
@@ -961,8 +1033,7 @@ async def _maybe_hold_team_note_sync(deps: Deps, parsed: precheck.Parsed, op_id:
            for r in deps.board.all(session_id=deps.session_id, state=appr.APPROVED)):
         return None
     held = {"kind": "probe", "argv": parsed.argv, "op_id": op_id, "cwd": str(deps.cwd)}
-    req = deps.board.hold(policy="team_note.edit", session_id=deps.session_id, facts=facts, held=held,
-                          bypass=deps.bypass, mode_known=deps.mode_known)
+    req = _hold(deps, policy="team_note.edit", facts=facts, held=held)
     if req.state == appr.DENIED:
         return _already_no(req)
     if req.state == appr.APPROVED:
@@ -1038,7 +1109,18 @@ Outcome = tuple[str, "ProbeResult | None"]
 
 async def _probe_command(deps: Deps, argv: list[str], *, why: str = "", cwd: Path | None = None) -> Outcome:
     """The pre-checks, then the real CLI with the daemon's key and an
-    Idempotency-Key, in `cwd` (default: the session's folder)."""
+    Idempotency-Key, in `cwd` (default: the session's folder). A write that
+    failed or was not run -- not asked about, and not stopped because this
+    process may no longer write -- counts in `Deps.lost_writes`."""
+    asked = deps.asked
+    text, result = await _checked_probe_command(deps, argv, why=why, cwd=cwd)
+    if ((result is None or result.code != 0) and deps.asked == asked and deps.stopped is None
+            and _writes(argv)):
+        deps.lost_writes += 1
+    return text, result
+
+
+async def _checked_probe_command(deps: Deps, argv: list[str], *, why: str = "", cwd: Path | None = None) -> Outcome:
     here = cwd or deps.cwd
     stop = write_refusal(deps)
     if stop is not None:
@@ -1109,6 +1191,10 @@ async def _probe_command(deps: Deps, argv: list[str], *, why: str = "", cwd: Pat
                          reason=_cap(why, 300) or None)
     if code == 0:
         _remember_note(deps, parsed, result.stdout)
+        # After the logbook line: a bite cut short during the lookup must not
+        # read as a write cut short. Not for a queued write: nothing landed yet.
+        if write_status(code, result.stderr) == "ran":
+            await scope.stamp(deps, parsed)
     elif parsed.path not in IDEMPOTENT_COMMANDS:
         output += "\n[not retried: it may have written part of its work]"
     stop = write_refusal(deps) if deps.key_refused else None
@@ -1159,8 +1245,7 @@ async def _maybe_hold_delete(deps: Deps, parsed: precheck.Parsed, op_id: str, wh
         return None
     facts["reason"] = why
     held = {"kind": "probe", "argv": parsed.argv, "op_id": op_id, "cwd": str(deps.cwd)}
-    req = deps.board.hold(policy="delete.others_data", session_id=deps.session_id, facts=facts, held=held,
-                          bypass=deps.bypass, mode_known=deps.mode_known)
+    req = _hold(deps, policy="delete.others_data", facts=facts, held=held)
     if req.state == appr.DENIED:
         return _already_no(req), None
     if req.state == appr.APPROVED:
@@ -1256,8 +1341,7 @@ async def _hold_permanent_delete(deps: Deps, parsed: precheck.Parsed, op_id: str
     facts = {"command": shown, "what": precheck.PERMANENT_DELETES[parsed.path], "undo": "cannot be undone",
              "reason": why}
     held = {"kind": "probe", "argv": parsed.argv, "op_id": op_id, "cwd": str(deps.cwd)}
-    req = deps.board.hold(policy="delete.permanent", session_id=deps.session_id, facts=facts, held=held,
-                          bypass=deps.bypass, mode_known=deps.mode_known)
+    req = _hold(deps, policy="delete.permanent", facts=facts, held=held)
     if req.state == appr.DENIED:
         return _already_no(req), None
     if req.state == appr.APPROVED:
@@ -1275,6 +1359,8 @@ async def _run_approved(deps: Deps, argv: list[str], op_id: str, *, head: str, r
     deps.store.log_write(bite=deps.bite_id, op_id=op_id, argv=["probe", *argv], head=head,
                          status=write_status(code, result.stderr), reason=appr.AUTO, output=output, exit_code=code,
                          request=request)
+    if write_status(code, result.stderr) == "ran":
+        await scope.stamp_argv(deps, argv)
     stop = write_refusal(deps) if deps.key_refused else None
     return f"[{appr.AUTO} · exit {code}]\n{_cap(scrub(output))}" + (f"\n{stop}" if stop else ""), result
 
@@ -1326,8 +1412,7 @@ async def _request_override(deps: Deps, args: list[str], *, why: str) -> Outcome
     held = {"kind": "probe", "argv": block.argv, "op_id": _op_id(deps, block.argv, content, family=family),
             "cwd": str(here),
             "override": block.check}
-    req = deps.board.hold(policy="check.override", session_id=deps.session_id, facts=facts, held=held,
-                          bypass=deps.bypass, mode_known=deps.mode_known)
+    req = _hold(deps, policy="check.override", facts=facts, held=held)
     if req.state == appr.DENIED:
         return _already_no(req), None
     if req.state == appr.APPROVED:

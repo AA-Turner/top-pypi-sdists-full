@@ -38,7 +38,7 @@ SYNC = _sync()
 #: must run, so client and server build the same fragments. Moving one is a
 #: change on both sides: re-vendor (scripts/sync_atif_fragment.py), then here.
 ENGINE_PINS = {
-    "engine/ingest/atif/fragment.py": "83cbfbe7341db227592c5a82c37e8a47201890def95e1f852b0478534fff89cb",
+    "engine/ingest/atif/fragment.py": "b0d5ac850d7c84ff1028d42ee95a04041c80ce1f73b6ea580ec8b00a2516a809",
     "engine/shared/transcript_render.py": "c0bb4168f7aa86f89a9c6360d1f120b588458d94ad5e0b84cd9c077942008c9e",
 }
 

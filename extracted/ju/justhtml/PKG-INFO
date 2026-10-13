@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: justhtml
-Version: 3.13.0
+Version: 3.13.1
 Summary: A pure Python HTML5 parser that just works.
 Project-URL: Homepage, https://github.com/emilstenstrom/justhtml
 Project-URL: Issues, https://github.com/emilstenstrom/justhtml/issues
@@ -39,7 +39,7 @@ Requires-Dist: beautifulsoup4>=4.14.3; extra == 'benchmark'
 Requires-Dist: html5-parser>=0.4.12; extra == 'benchmark'
 Requires-Dist: html5lib>=1.1; extra == 'benchmark'
 Requires-Dist: lxml>=6.1.1; extra == 'benchmark'
-Requires-Dist: markupever>=0.3.4; extra == 'benchmark'
+Requires-Dist: markupever>=0.3.6; extra == 'benchmark'
 Requires-Dist: selectolax>=0.4.11; extra == 'benchmark'
 Requires-Dist: turbohtml>=1.4.0; extra == 'benchmark'
 Requires-Dist: zstandard>=0.25.0; extra == 'benchmark'

@@ -531,6 +531,12 @@ class AuditLane:
         if not mailbox.enabled(source=self.w.session.source):
             log.info("audit report (no mailbox for %s): %s", self.w.session.source, text)
             return
-        mailbox.publish(mailbox.Message(id=mailbox.new_message_id(), session=self.sid, kind=mailbox.Kind.MESSAGE,
-                                        text=agent_mod.AUDIT_REPORT_PREFIX + text,
-                                        origin_turn=self.store.current_turn(), keep=True))
+        msg = mailbox.Message(id=mailbox.new_message_id(), session=self.sid, kind=mailbox.Kind.MESSAGE,
+                              text=agent_mod.AUDIT_REPORT_PREFIX + text, origin_turn=self.store.current_turn(),
+                              keep=True)
+        # Beside the reader's own messages, published: the worker shows a claimed
+        # message only when this daemon recorded it (`Worker._read_reader_log`).
+        with self.store.tx():
+            self.store.add_read_message(message_id=msg.id, kind=msg.kind, text=msg.text, origin_turn=msg.origin_turn)
+            self.store.mark_read_message_published(msg.id)
+        mailbox.publish(msg)

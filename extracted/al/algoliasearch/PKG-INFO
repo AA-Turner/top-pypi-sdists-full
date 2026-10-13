@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: algoliasearch
-Version: 4.47.0
+Version: 4.48.0
 Summary: A fully-featured and blazing-fast Python API client to interact with Algolia.
 License: MIT
 License-File: LICENSE
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP :: Indexing/Search
 Requires-Dist: aiohttp (>=3.10.11)
 Requires-Dist: async-timeout (>=4.0.3)

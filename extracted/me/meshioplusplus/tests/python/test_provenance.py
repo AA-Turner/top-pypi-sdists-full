@@ -82,6 +82,7 @@ def _cases():
     from meshioplusplus.femap import _femap as py_femap
     from meshioplusplus.flac3d import _flac3d as py_flac3d
     from meshioplusplus.flux import _flux as py_flux
+    from meshioplusplus.frd import _frd as py_frd
     from meshioplusplus.gltf import _gltf as py_gltf
     from meshioplusplus.lsdyna import _lsdyna as py_lsdyna
     from meshioplusplus.marc import _marc as py_marc
@@ -96,6 +97,7 @@ def _cases():
     from meshioplusplus.permas import _permas as py_permas
     from meshioplusplus.ply import _ply as py_ply
     from meshioplusplus.radioss import _radioss as py_radioss
+    from meshioplusplus.radioss_th import _th as py_radioss_th
     from meshioplusplus.stl import _stl as py_stl
     from meshioplusplus.tecplot import _tecplot as py_tecplot
     from meshioplusplus.tetgen import _tetgen as py_tetgen
@@ -136,6 +138,8 @@ def _cases():
         # The tag ends the header line (Z88 reads its first five integers).
         "z88": (TET, ".txt", _core.z88_write, py_z88.write),
         "radioss": (TET, ".rad", _core.radioss_write, py_radioss.write),
+        # The title record's 80-character field; the file name ends in T01.
+        "radioss_th": (TRI, "T01", _core.radioss_th_write, py_radioss_th.write),
         "marc": (TET, ".dat", _core.marc_write, py_marc.write),
         "permas": (TRI, ".post", _core.permas_write, py_permas.write),
         "flac3d": (
@@ -145,6 +149,7 @@ def _cases():
             lambda p, m: py_flac3d.write(p, m, binary=False),
         ),
         "flux": (TRI, ".pf3", _core.flux_write, py_flux.write),
+        "frd": (TRI, ".frd", _core.frd_write, py_frd.write),
         "tecplot": (TRI, ".dat", _core.tecplot_write, py_tecplot.write),
         "ansys": (
             TRI,

@@ -2,9 +2,8 @@ import sys
 import unittest
 from collections import Counter
 from dataclasses import replace
-from pathlib import Path
 
-from justhtml import JustHTML
+from justhtml import JustHTML, Sanitize
 from justhtml.dom import DocumentFragment, Element, Template, Text
 from justhtml.parser.context import FragmentContext
 from justhtml.parser.engine import (
@@ -28,7 +27,6 @@ from justhtml.parser.options import ParserOptions
 from justhtml.sanitizer import DEFAULT_DOCUMENT_POLICY, DEFAULT_POLICY, SanitizationPolicy, UrlPolicy, UrlRule
 from justhtml.serializer import to_test_format
 from tests.harness.scaling import assert_scales_linearly
-from tests.harness.tree import TestRunner
 
 
 class _ParserEngineTestCase(unittest.TestCase):
@@ -36,6 +34,94 @@ class _ParserEngineTestCase(unittest.TestCase):
         document = JustHTML(html, **kwargs)
         assert document.to_html(pretty=False) == expected
         return document
+
+
+class TestFramesetRecovery(unittest.TestCase):
+    def test_foreign_frameset_eligibility_rejects_non_whitespace_descendants(self) -> None:
+        engine = ParseEngine("", fragment=False, plan=compile_raw_engine_plan(False))
+        engine.parse()
+        foreign = Element("svg", {}, "svg")
+        descendant = Element("g", {}, "svg")
+        descendant.append_child(Text("x"))
+        foreign.append_child(descendant)
+        engine._append(engine._body, foreign)
+        assert not engine._body_allows_frameset(engine._body)
+
+    def test_foreign_replacement_characters_preserve_frameset_state(self) -> None:
+        for content in ("\ufffd", "&#xFFFD;", "<![CDATA[\ufffd]]>"):
+            source = f"<!doctype html><svg>{content}</svg><frameset><frame>"
+            assert not JustHTML(source, sanitize=False).query("frameset")
+            projected = JustHTML(source).to_html(pretty=False)
+            assert "<body>" in projected
+            assert projected == JustHTML(source, transforms=[Sanitize()]).to_html(pretty=False)
+        for content in ("\0", "<![CDATA[\0]]>", " "):
+            source = f"<!doctype html><svg>{content}</svg><frameset><frame>"
+            assert JustHTML(source, sanitize=False).query("frameset")
+            assert JustHTML(source).to_html(pretty=False) == JustHTML(source, transforms=[Sanitize()]).to_html(
+                pretty=False
+            )
+
+    def test_html_fragments_retain_projected_rawtext_before_framesets(self) -> None:
+        for tag in ("noembed", "noscript", "noframes"):
+            source = f"<{tag}>x</{tag}><frameset>"
+            context = FragmentContext("html")
+            projected = JustHTML(source, fragment_context=context).to_html(pretty=False)
+            assert projected == "x"
+            assert projected == JustHTML(source, fragment_context=context, transforms=[Sanitize()]).to_html(
+                pretty=False
+            )
+
+    def test_frameset_eligibility_agrees_across_sanitization_paths(self) -> None:
+        prefixes = (
+            "<span>",
+            "<abbr>",
+            "<section><h1>",
+            "<custom-element>",
+            "<div><!--comment-->",
+            "<div><style>x</style>",
+            "<div><title>x</title>",
+            "<div><noembed>x</noembed>",
+            "<div><noembed>x</noembed> ",
+            "<div><noembed>x</noembed><noembed>y</noembed>",
+            "<div><noscript>x</noscript>",
+            "<div><noframes>x</noframes>",
+            "<span><input type=hidden>",
+            "<noframes>x</noframes><noframes>y</noframes>",
+        )
+        for prefix in prefixes:
+            with self.subTest(prefix=prefix):
+                source = prefix + "<frameset>"
+                assert len(JustHTML(source, sanitize=False).query("frameset")) == 1
+                projected = JustHTML(source).to_html(pretty=False)
+                assert projected == JustHTML(source, transforms=[Sanitize()]).to_html(pretty=False)
+                assert "<body>" not in projected
+
+    def test_frameset_blockers_survive_text_projection(self) -> None:
+        prefixes = (
+            "<div>x<noembed>y</noembed>",
+            "<div><noembed>x</noembed>y",
+            "<div><noembed>x</noembed>y<noembed>z</noembed>",
+            "<span><li>",
+            "<span><pre>",
+            "<span><br>",
+            "<span><hr>",
+            "<span><img>",
+            "<span><table></table>",
+            "<span><template></template>",
+            "<span><input>",
+        )
+        for prefix in prefixes:
+            with self.subTest(prefix=prefix):
+                source = prefix + "<frameset>"
+                assert not JustHTML(source, sanitize=False).query("frameset")
+                projected = JustHTML(source).to_html(pretty=False)
+                assert projected == JustHTML(source, transforms=[Sanitize()]).to_html(pretty=False)
+                assert "<body>" in projected
+        source = "<div><noscript>x</noscript><frameset>"
+        assert not JustHTML(source, sanitize=False, scripting_enabled=False).query("frameset")
+        assert JustHTML(source, scripting_enabled=False).to_html(pretty=False) == JustHTML(
+            source, scripting_enabled=False, transforms=[Sanitize()]
+        ).to_html(pretty=False)
 
 
 class TestDocumentShellScaling(unittest.TestCase):
@@ -2084,52 +2170,3 @@ class TestParserDiagnosticModes(_ParserEngineTestCase):
         assert [(error.code, error.message) for error in engine.errors] == [
             ("unexpected-end-tag", "Unexpected </object> end tag"),
         ]
-
-    def test_upstream_inputs_across_diagnostic_modes(self) -> None:
-        config = {
-            "fail_fast": False,
-            "test_specs": [],
-            "exclude_html": None,
-            "filter_html": None,
-            "exclude_errors": None,
-            "filter_errors": None,
-            "exclude_files": None,
-        }
-        runner = TestRunner(Path("tests/html5lib-tests-tree"), config)
-
-        parsed = 0
-        for file_path, tests in runner.load_tests():
-            for index, test in enumerate(tests):
-                if not runner._should_run_test(file_path.name, index, test):
-                    continue
-                scripting_enabled = test.script_directive != "script-off"
-
-                located = JustHTML(
-                    test.data,
-                    fragment_context=test.fragment_context,
-                    scripting_enabled=scripting_enabled,
-                    sanitize=False,
-                    collect_errors=True,
-                    track_node_locations=True,
-                )
-                assert located.root is not None
-
-                xml = JustHTML(
-                    test.data,
-                    fragment_context=test.fragment_context,
-                    scripting_enabled=scripting_enabled,
-                    sanitize=False,
-                    _parser_opts=ParserOptions(xml_coercion=True),
-                )
-                assert xml.root is not None
-
-                projected = JustHTML(
-                    test.data,
-                    fragment_context=test.fragment_context,
-                    scripting_enabled=scripting_enabled,
-                    track_node_locations=True,
-                )
-                assert projected.root is not None
-                parsed += 1
-
-        assert parsed >= 1700

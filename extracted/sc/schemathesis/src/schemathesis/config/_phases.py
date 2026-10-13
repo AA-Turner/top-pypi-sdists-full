@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from schemathesis.config._checks import ChecksConfig
@@ -61,7 +61,7 @@ class ErrorFeedbackConfig(DiffBase):
         return cls(enabled=data.get("enabled", True))._mark_source_keys(data)
 
 
-class OperationOrdering(str, Enum):
+class OperationOrdering(StrEnum):
     """Strategy for ordering API operations during test execution."""
 
     AUTO = "auto"
@@ -275,6 +275,10 @@ class CoveragePhaseConfig(DiffBase):
         *,
         dictionaries: dict[str, DictionaryDefinition] | None = None,
     ) -> CoveragePhaseConfig:
+        if "max-examples" in data.get("generation", {}):
+            raise ConfigError(
+                "`max-examples` has no effect in the coverage phase: it generates every case the schema defines."
+            )
         return cls(
             enabled=data.get("enabled", True),
             generate_duplicate_query_parameters=data.get("generate-duplicate-query-parameters", False),
@@ -290,7 +294,7 @@ class CoveragePhaseConfig(DiffBase):
         )._mark_source_keys(data)
 
 
-class InferenceAlgorithm(str, Enum):
+class InferenceAlgorithm(StrEnum):
     LOCATION_HEADERS = "location-headers"
     DEPENDENCY_ANALYSIS = "dependency-analysis"
 

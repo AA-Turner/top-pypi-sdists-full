@@ -1,6 +1,30 @@
 import numpy as np
+import pytest
 
 from doppler.source import AWGN, awgn
+
+
+@pytest.mark.parametrize("amplitude", [float("nan"), float("inf"), -1.0])
+def test_invalid_amplitude_raises(amplitude):
+    """An amplitude outside the domain (finite, >= 0) is refused at create,
+    as a ValueError naming it, rather than building a generator with NaN or
+    negative noise (doppler#2084)."""
+    with pytest.raises(ValueError):
+        AWGN(0, amplitude)
+
+
+def test_invalid_amplitude_setter_keeps_old_value():
+    """The property does not raise: an invalid assignment is ignored and the
+    amplitude keeps its old value, so a bad sigma is never taken."""
+    # The setter is silent here; the C setter returns DP_ERR_INVALID. When
+    # just-makeit#2182 ships and objects/awgn.toml declares error="ValueError",
+    # this becomes pytest.raises (#1987), as test_acc_trace.py's does.
+    obj = AWGN(0, 0.5)
+    obj.amplitude = -1.0
+    assert obj.amplitude == 0.5
+    obj.amplitude = float("nan")
+    assert obj.amplitude == 0.5
+    obj.destroy()
 
 
 def test_create():

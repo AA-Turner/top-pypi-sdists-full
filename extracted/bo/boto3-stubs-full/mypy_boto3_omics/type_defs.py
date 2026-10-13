@@ -1035,6 +1035,7 @@ class VpcConfigResponseTypeDef(TypedDict):
     securityGroupIds: NotRequired[list[str]]
     subnetIds: NotRequired[list[str]]
     vpcId: NotRequired[str]
+    vpcOwnerAccountId: NotRequired[str]
 
 
 GetRunTaskRequestTypeDef = TypedDict(
@@ -1433,6 +1434,7 @@ class ReadOptionsTypeDef(TypedDict):
 class VpcConfigTypeDef(TypedDict):
     securityGroupIds: NotRequired[Sequence[str]]
     subnetIds: NotRequired[Sequence[str]]
+    vpcOwnerAccountId: NotRequired[str]
 
 
 class StartReadSetActivationJobSourceItemTypeDef(TypedDict):

@@ -24,14 +24,17 @@ import torch_geometric.nn
 import torch_geometric.explain
 import torch_geometric.profile
 
-from .experimental import (is_experimental_mode_enabled, experimental_mode,
-                           set_experimental_mode)
+from .experimental import (
+    is_experimental_mode_enabled,
+    experimental_mode,
+    set_experimental_mode,
+)
 from .lazy_loader import LazyLoader
 
 contrib = LazyLoader('contrib', globals(), 'torch_geometric.contrib')
 graphgym = LazyLoader('graphgym', globals(), 'torch_geometric.graphgym')
 
-__version__ = '2.8.0.post1'
+__version__ = '2.8.1'
 
 __all__ = [
     'Index',
@@ -62,21 +65,25 @@ if not torch_geometric.typing.WITH_PT113:
     import warnings as std_warnings
 
     std_warnings.warn(
-        "PyG 2.7 removed support for PyTorch < 1.13. "
-        "Consider upgrading to PyTorch >= 1.13 or downgrading "
-        "to PyG <= 2.6. ", stacklevel=2)
+        'PyG 2.7 removed support for PyTorch < 1.13. '
+        'Consider upgrading to PyTorch >= 1.13 or downgrading '
+        'to PyG <= 2.6. ',
+        stacklevel=2,
+    )
 
 # Serialization ###############################################################
 
 if torch_geometric.typing.WITH_PT24:
-    torch.serialization.add_safe_globals([
-        dict,
-        list,
-        defaultdict,
-        Index,
-        torch_geometric.index.CatMetadata,
-        EdgeIndex,
-        torch_geometric.edge_index.SortOrder,
-        torch_geometric.edge_index.CatMetadata,
-        HashTensor,
-    ])
+    torch.serialization.add_safe_globals(
+        [
+            dict,
+            list,
+            defaultdict,
+            Index,
+            torch_geometric.index.CatMetadata,
+            EdgeIndex,
+            torch_geometric.edge_index.SortOrder,
+            torch_geometric.edge_index.CatMetadata,
+            HashTensor,
+        ]
+    )

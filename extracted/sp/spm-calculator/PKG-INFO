@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spm-calculator
-Version: 1.0.0.post1
+Version: 1.0.1
 Summary: Calculate Supplemental Poverty Measure thresholds and conditional forecasts
 Author-email: PolicyEngine <hello@policyengine.org>
 License-Expression: MIT

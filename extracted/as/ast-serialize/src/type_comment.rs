@@ -19,6 +19,10 @@ pub enum TypeComment {
     InvalidIgnore(bool),
 }
 
+fn parse_type_comments(comment: &str) -> Option<Vec<TypeComment>> {
+    parse_type_comments_full(comment, false)
+}
+
 /// Parse a type comment and extract all parts (type annotation and/or type: ignore).
 ///
 /// # Arguments
@@ -33,26 +37,47 @@ pub enum TypeComment {
 /// # Examples
 ///
 /// ```
-/// use mypy_parser::type_comment::{parse_type_comments, TypeComment};
+/// use mypy_parser::type_comment::{parse_type_comments_full, TypeComment};
 ///
 /// // Pure type: ignore
-/// let result = parse_type_comments("# type: ignore").unwrap();
+/// let result = parse_type_comments_full("# type: ignore").unwrap();
 /// assert_eq!(result.len(), 1);
 ///
 /// // Type annotation with type: ignore on same line
-/// let result = parse_type_comments("# type: int  # type: ignore[arg-type]").unwrap();
+/// let result = parse_type_comments_full("# type: int  # type: ignore[arg-type]").unwrap();
 /// assert_eq!(result.len(), 2);  // Both annotation and ignore
 /// ```
-pub fn parse_type_comments(comment: &str) -> Option<Vec<TypeComment>> {
+pub fn parse_type_comments_full(comment: &str, skip_commented: bool) -> Option<Vec<TypeComment>> {
     if !comment.starts_with('#') {
         // Guard against some possible parse error recovery
         return None;
     }
     let mut parts = Vec::new();
 
-    // Remove (one) leading '#' and whitespace (to match old parser behavior)
-    let trimmed = comment.strip_prefix('#').unwrap().trim_start();
+    let mut ignore_next = false;
+    for part in comment.strip_prefix('#').unwrap().split("#") {
+        // Special case: ignore components prefixed with two hashes.
+        // This allows to ignore a type ignore, see test_commented_out_comment().
+        if part.trim() == "" {
+            ignore_next = true;
+            continue;
+        }
+        if ignore_next {
+            ignore_next = false;
+            continue;
+        }
+        if let Some(parsed) = parse_comment_part(part) {
+            parts.push(parsed);
+        } else if skip_commented {
+            break;
+        }
+    }
 
+    if parts.is_empty() { None } else { Some(parts) }
+}
+
+pub(crate) fn parse_comment_part(part: &str) -> Option<TypeComment> {
+    let trimmed = part.trim();
     let mypy_comment = trimmed.starts_with("mypy:");
     // Check if it starts with "type:"
     if !trimmed.starts_with("type:") && !mypy_comment {
@@ -67,60 +92,27 @@ pub fn parse_type_comments(comment: &str) -> Option<Vec<TypeComment>> {
         // Check if "ignore" is followed by whitespace, '[', or end of string
         let after_ignore = &after_type["ignore".len()..];
         if after_ignore.is_empty()
-            || after_ignore.starts_with(|c: char| c.is_whitespace() || c == '[' || c == '#')
+            || after_ignore.starts_with(|c: char| c.is_whitespace() || c == '[')
         {
             // Parse as type: ignore
             let error_codes = parse_error_codes(after_ignore);
             if error_codes.is_none() {
-                parts.push(TypeComment::InvalidIgnore(mypy_comment));
-            } else if mypy_comment {
-                parts.push(TypeComment::MypyIgnore(error_codes.unwrap()));
-            } else {
-                parts.push(TypeComment::TypeIgnore(error_codes.unwrap()));
+                return Some(TypeComment::InvalidIgnore(mypy_comment));
             }
-            if let Some(hash_pos) = after_type.find('#') {
-                // We allow multiple ignore comments per line.
-                if let Some(remainder_ignores) = parse_type_comments(&after_type[hash_pos..]) {
-                    for part in remainder_ignores {
-                        parts.push(part);
-                    }
-                }
+            if mypy_comment {
+                return Some(TypeComment::MypyIgnore(error_codes.unwrap()));
             }
-            return Some(parts);
+            return Some(TypeComment::TypeIgnore(error_codes.unwrap()));
         }
     }
 
     // Anything like `mypy: enable` etc. doesn't have any special meaning in this context.
-    if mypy_comment && !after_type.starts_with("ignore") {
+    // Note we do not flag it as an invalid ignore, since then some mypy inline configs
+    // may cause spurious errors.
+    if mypy_comment {
         return None;
     }
-
-    // Parse type annotation, stopping at the next '#'
-    let (type_annotation, remainder) = if let Some(hash_pos) = after_type.find('#') {
-        // There's another comment after the type annotation
-        (
-            after_type[..hash_pos].trim_end(),
-            Some(&after_type[hash_pos..]),
-        )
-    } else {
-        // No trailing comment
-        (after_type.trim_end(), None)
-    };
-
-    parts.push(TypeComment::TypeAnnotation(type_annotation.to_string()));
-
-    // Check if there's a "# type: ignore" in the remainder
-    if let Some(remainder_str) = remainder {
-        // Recursively parse the remainder to check for type: ignore
-        if let Some(remainder_parts) = parse_type_comments(remainder_str) {
-            // Add any ignore parts found
-            for part in remainder_parts {
-                parts.push(part);
-            }
-        }
-    }
-
-    if parts.is_empty() { None } else { Some(parts) }
+    Some(TypeComment::TypeAnnotation(after_type.to_string()))
 }
 
 fn parse_error_codes(after_ignore: &str) -> Option<Vec<String>> {
@@ -352,6 +344,42 @@ mod tests {
     fn test_commented_out_comment() {
         assert_eq!(parse_type_comment("## type: ignore"), None);
         assert_eq!(parse_type_comment("## type: ignore[arg-type]"), None);
+
+        // Double-hash only deactivates the next directive/pragma, not all of them
+        let result = parse_type_comments("## type: ignore # type: ignore").unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(matches!(&result[0], TypeComment::TypeIgnore(s) if s.is_empty()));
+
+        let result = parse_type_comments("# type: ignore ## type: ignore").unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(matches!(&result[0], TypeComment::TypeIgnore(s) if s.is_empty()));
+    }
+
+    #[test]
+    fn test_empty_part_is_also_special() {
+        assert_eq!(parse_type_comments("# # type: ignore"), None);
+        assert_eq!(parse_type_comments("# # type: ignore[arg-type]"), None);
+
+        // Double-hash only deactivates the next directive/pragma, not all of them
+        let result = parse_type_comments("# # type: ignore # type: ignore").unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(matches!(&result[0], TypeComment::TypeIgnore(s) if s.is_empty()));
+
+        let result = parse_type_comments("# type: ignore # # type: ignore").unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(matches!(&result[0], TypeComment::TypeIgnore(s) if s.is_empty()));
+    }
+
+    #[test]
+    fn test_skip_commented() {
+        assert_eq!(
+            parse_type_comments_full("# x: str = 1 # type: ignore", true),
+            None
+        );
+        assert_eq!(
+            parse_type_comments_full("# avoid more # type: ignores", true),
+            None
+        );
     }
 
     #[test]
@@ -457,6 +485,31 @@ mod tests {
     }
 
     #[test]
+    fn test_type_ignore_mixed_order() {
+        let result =
+            parse_type_comments("# other: ignore[hm] # mypy: ignore[foo] # type: ignore[bar]")
+                .unwrap();
+        assert_eq!(result.len(), 2);
+        assert!(
+            matches!(&result[0], TypeComment::MypyIgnore(codes) if codes == &vec!["foo".to_string()])
+        );
+        assert!(
+            matches!(&result[1], TypeComment::TypeIgnore(codes) if codes == &vec!["bar".to_string()])
+        );
+
+        let result =
+            parse_type_comments("# mypy: ignore[foo] # other: ignore[hm] # type: ignore[bar]")
+                .unwrap();
+        assert_eq!(result.len(), 2);
+        assert!(
+            matches!(&result[0], TypeComment::MypyIgnore(codes) if codes == &vec!["foo".to_string()])
+        );
+        assert!(
+            matches!(&result[1], TypeComment::TypeIgnore(codes) if codes == &vec!["bar".to_string()])
+        );
+    }
+
+    #[test]
     fn test_type_comment_kind_mypy_ignore_with_annotation() {
         // Type annotation followed by mypy: ignore on the same line
         let result = parse_type_comments("# type: str # mypy: ignore").unwrap();
@@ -540,6 +593,11 @@ mod tests {
         let result = parse_type_comments("# type: ignore[mypy:assign-rule_22]").unwrap();
         assert_eq!(result.len(), 1);
         assert!(matches!(&result[0], TypeComment::TypeIgnore(s) if s[0] == "mypy:assign-rule_22"));
+    }
+
+    #[test]
+    fn test_mypy_is_not_type() {
+        assert_eq!(parse_type_comments("# mypy: ignore-errors"), None);
     }
 
     #[test]

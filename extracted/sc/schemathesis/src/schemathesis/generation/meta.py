@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 from schemathesis.core.mutations import Mutation
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from schemathesis.python._constants.pool import ConstantDraw
 
 
-class TestPhase(str, Enum):
+class TestPhase(StrEnum):
     __test__ = False
 
     EXAMPLES = "examples"
@@ -27,7 +27,7 @@ class TestPhase(str, Enum):
     STATEFUL = "stateful"
 
 
-class CoverageScenario(str, Enum):
+class CoverageScenario(StrEnum):
     """Coverage test scenario types."""
 
     # Positive scenarios - Valid values
@@ -288,6 +288,9 @@ class CaseMetadata:
                     "resource_field": draw.resource_field,
                     "source_operation": draw.source_operation,
                     "source_status": draw.source_status,
+                    "source_identity": draw.source_identity,
+                    "source_input": draw.source_input,
+                    "source_query": draw.source_query,
                 }
                 for draw in self.pool_draws
             ],
@@ -354,6 +357,9 @@ class CaseMetadata:
                 resource_field=draw["resource_field"],
                 source_operation=draw["source_operation"],
                 source_status=draw["source_status"],
+                source_identity=draw.get("source_identity"),
+                source_input=draw.get("source_input", False),
+                source_query=draw.get("source_query"),
             )
             for draw in data.get("pool_draws", [])
         )

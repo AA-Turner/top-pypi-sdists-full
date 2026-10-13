@@ -33,10 +33,14 @@ from ...language import matmul_ops
 from ...language import memory_ops
 from ..compile_environment import CompileEnvironment
 from .cute_epilogue import Tcgen05UnaryEpilogueChain
-from .cute_epilogue import _AuxiliaryTensorStep
+from .cute_epilogue import _AuxiliaryTensorLoadExpr
 from .cute_epilogue import analyze_tcgen05_unary_epilogue_chain
+from .cute_epilogue import aux_leaf_promoted_by_f32_root
+from .cute_epilogue import aux_leaf_takes_promoted_f32_stage
 from .cute_fx_walk import build_inner_outputs_index_from_graphs
 from .cute_fx_walk import reach_matmul_anchors
+from .tcgen05_constants import Tcgen05RowvecAuxFacts
+from .tcgen05_constants import Tcgen05RowvecAuxRow
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -84,7 +88,7 @@ class Tcgen05AuxTensorDescriptor:
 
     - ``load_node``: the FX node for the ``helion.language.load``
       call that reads the aux tensor inside the chain. Same node
-      :class:`_AuxiliaryTensorStep` already carries; preserved here
+      :class:`_AuxiliaryTensorLoadExpr` already carries; preserved here
       verbatim so the productive-body splice can recover the
       per-thread index expression.
     - ``host_tensor_fx_node``: the FX node for the aux tensor itself
@@ -97,7 +101,7 @@ class Tcgen05AuxTensorDescriptor:
     - ``broadcast_axis``: ``None`` for the exact-shape rank-2 form
       (``residual[tile_m, tile_n]``); ``1`` for the trailing-axis
       rowvec broadcast form (``bias[tile_n]``). Matches the field on
-      :class:`_AuxiliaryTensorStep` so the productive body uses the
+      :class:`_AuxiliaryTensorLoadExpr` so the productive body uses the
       same axis convention as the existing per-thread splice.
     - ``store_value_node``: the FX node of the store value whose
       chain produced this descriptor. One matmul may be consumed by
@@ -180,7 +184,7 @@ def analyze_tcgen05_matmul_store_chains(
 
 
 def _step_host_tensor(
-    step: _AuxiliaryTensorStep,
+    step: _AuxiliaryTensorLoadExpr,
 ) -> tuple[torch.fx.Node, torch.Tensor]:
     """Return ``(host_tensor_fx_node, host_tensor_val)`` for an aux step.
 
@@ -192,23 +196,23 @@ def _step_host_tensor(
     confusing downstream codegen error.
     """
     load_node = step.load_node
-    assert load_node.args, "_AuxiliaryTensorStep.load_node missing args"
+    assert load_node.args, "_AuxiliaryTensorLoadExpr.load_node missing args"
     host_tensor_fx_node = load_node.args[0]
     assert isinstance(host_tensor_fx_node, torch.fx.Node), (
-        "_AuxiliaryTensorStep.load_node.args[0] is not an FX node"
+        "_AuxiliaryTensorLoadExpr.load_node.args[0] is not an FX node"
     )
     host_tensor_val = host_tensor_fx_node.meta.get("val")
     assert isinstance(host_tensor_val, torch.Tensor), (
-        "_AuxiliaryTensorStep host-tensor FX node has no torch.Tensor meta"
+        "_AuxiliaryTensorLoadExpr host-tensor FX node has no torch.Tensor meta"
     )
     return host_tensor_fx_node, host_tensor_val
 
 
 def _aux_descriptor_from_step(
-    step: _AuxiliaryTensorStep, store_value_node: torch.fx.Node
+    step: _AuxiliaryTensorLoadExpr, store_value_node: torch.fx.Node
 ) -> Tcgen05AuxTensorDescriptor:
     """Build a :class:`Tcgen05AuxTensorDescriptor` from one
-    :class:`_AuxiliaryTensorStep` plus the store-value node whose
+    :class:`_AuxiliaryTensorLoadExpr` plus the store-value node whose
     chain produced it.
     """
     host_tensor_fx_node, host_tensor_val = _step_host_tensor(step)
@@ -296,65 +300,83 @@ def discover_tcgen05_aux_tensor_descriptors(
         if store_value in seen_values:
             continue
         seen_values.add(store_value)
-        for step in chain.auxiliary_tensor_steps:
+        for step in chain.auxiliary_tensor_loads:
             descriptors.append(_aux_descriptor_from_step(step, store_value))
     return tuple(descriptors)
+
+
+def tcgen05_promoted_rowvec_epilogue(
+    cg: GenerateAST,
+    matmul_fx_node: torch.fx.Node,
+    *,
+    epi_warp_count: int,
+    bn: int,
+    output_column_major: bool,
+    partial_output_tma_store: bool,
+) -> bool:
+    """Whether every store of this matmul is a 16-bit row-vector epilogue whose
+    rows the store lowering stages as FP32 (``memory_ops``
+    ``rowvec_stage_promotes_to_f32``, i.e. the shared
+    :func:`aux_leaf_takes_promoted_f32_stage`): one store value, one or more
+    N-broadcast 16-bit aux leaves consumed only by the FP32 root op, each wide
+    enough for the cooperative stage copy, on a full-tile TMA-store epilogue
+    into a row-major output.
+
+    The matmul plan uses this to pick the epilogue subtile ahead of the store
+    lowering, so the plan, the store body and the wrapper-side TMA store box
+    agree, and so the (128, 32) subtile is only chosen when the stage is taken.
+    """
+    if output_column_major or partial_output_tma_store:
+        return False
+    if matmul_fx_node not in cg.device_function.cute_state.matmul_fx_nodes:
+        return False
+    analyzed_stores = analyze_tcgen05_matmul_store_chains(
+        cg.codegen_graphs, matmul_fx_node
+    )
+    if not analyzed_stores:
+        return False
+    store_values = {store_node.args[2] for store_node, _chain in analyzed_stores}
+    if len(store_values) != 1:
+        return False
+    _store_node, chain = analyzed_stores[0]
+    leaves = chain.auxiliary_tensor_loads
+    if not leaves:
+        return False
+    for leaf in leaves:
+        host_tensor = leaf.load_node.args[0]
+        assert isinstance(host_tensor, torch.fx.Node)
+        host_val = host_tensor.meta.get("val")
+        if not isinstance(host_val, torch.Tensor):
+            return False
+        extent = host_val.shape[0] if leaf.broadcast_axis == 1 else None
+        if not aux_leaf_takes_promoted_f32_stage(
+            chain,
+            leaf,
+            aux_dtype_bits=host_val.dtype.itemsize * 8,
+            epi_warp_count=epi_warp_count,
+            bn=bn,
+            aux_extent=extent if isinstance(extent, int) else None,
+        ):
+            return False
+    return True
 
 
 def host_function_has_tcgen05_aux_kernel_pattern(
     host_function: HostFunction,
 ) -> bool:
-    """Conservative pre-codegen detector for kernels whose tcgen05
-    matmul is followed by an aux-fused store
+    """Pre-codegen detector for kernels whose tcgen05 matmul is followed
+    by an aux-fused store
     (``out[tile] = (acc + residual[tile]).to(...)`` and the
-    bias / rowvec variants — see :class:`_AuxiliaryTensorStep`
+    bias / rowvec variants — see :class:`_AuxiliaryTensorLoadExpr`
     for the accepted forms).
 
-    Runs at autotune-surface configuration time (post-FX-graph
-    build, pre-autotune-sample) where the
-    :func:`discover_tcgen05_aux_tensor_descriptors` walker is
-    unavailable — that walker requires a populated
-    ``DeviceFunction.cute_state.matmul_fx_nodes`` set, which
-    is only registered at MMA-codegen time per config sample.
-    The aux pipeline only fires when the productive-body gate
-    sees aux descriptors, so the autotune surface only needs
-    to widen ``tcgen05_warp_spec_c_input_warps`` when this
-    detector returns True; otherwise the C-input warp is
-    inert and sampling ``c_input_warps=1`` would be a strict
-    resource cost for pure-matmul kernels (the inert warp
-    occupies an SM slot without delivering work).
-
-    Implementation: walk every FX graph in
-    ``host_function.device_ir.graphs`` and look for the
-    coarse pattern "the kernel has at least one MMA-anchor
-    call AND at least one ``memory_ops.load`` call whose
-    result is NOT used as one of the MMA operands". MMA
-    anchors include both the aten paths
-    (``aten.addmm`` / ``aten.baddbmm`` / ``aten.mm`` /
-    ``aten.bmm``) AND the ``hl.dot`` HOP — both ends up
-    in the tcgen05 MMA lowering, and the canonical Helion
-    residual kernel uses ``hl.dot``. Operand resolution
-    traces through the same ``convert_element_type``
-    wrappers the MMA codegen accepts
-    (``cute_mma._trace_to_load`` /
-    ``_TRACE_THROUGH_TARGETS``); without this trace,
-    kernels written as ``lhs.to(dtype) @ rhs.to(dtype)``
-    would have their operand loads classified as aux and
-    the detector would over-fire on pure matmul.
-
-    The detector is **conservative**: a false positive
-    only widens the autotune search by one enum value
-    (the productive-body safety gates handle the resulting
-    invalid combinations at codegen time and the
-    inert-body fallback handles invalid runs); a false
-    negative would miss the residual c_input=1 win. The
-    chain analyzer at codegen time
-    (``analyze_tcgen05_unary_epilogue_chain``) remains the
-    source of truth for which aux shapes are *accepted*
-    by the productive-body codegen; this detector
-    intentionally over-approximates so the autotune surface
-    admits the productive shape whenever any aux load is
-    plausibly involved.
+    This runs after the FX graphs are built but before an autotune sample has
+    registered its MMA nodes in ``DeviceFunction.cute_state``. Use the MMA
+    anchors already present in the host graphs and the same store-chain
+    analyzer as codegen so only loads in an accepted per-subtile epilogue widen
+    the search surface. Unrelated loads used for scheduler metadata, indirect
+    indices, or masks must not expose aux-only knobs such as
+    ``tcgen05_aux_load_placement``.
 
     Caught patterns include:
 
@@ -369,23 +391,66 @@ def host_function_has_tcgen05_aux_kernel_pattern(
     if not graphs:
         return False
 
-    mma_nodes, operand_load_nodes = _tcgen05_aux_detector_mma_facts(graphs)
+    mma_nodes = _tcgen05_aux_detector_mma_nodes(graphs)
     if not mma_nodes:
         return False
-    # Second pass: any ``memory_ops.load`` call whose result
-    # is NOT a resolved MMA-operand load is treated as aux.
-    # Operand loads feed the dot directly (after optional
-    # casts); aux loads feed an arithmetic op that combines
-    # with the dot's result on the way to a store.
-    for graph_info in graphs:
-        for node in graph_info.graph.nodes:
-            if (
-                node.op == "call_function"
-                and node.target is memory_ops.load
-                and node not in operand_load_nodes
-            ):
-                return True
+    for mma_node in mma_nodes:
+        analyzed_stores = analyze_tcgen05_matmul_store_chains(graphs, mma_node)
+        if analyzed_stores is not None and any(
+            chain.auxiliary_tensor_loads for _, chain in analyzed_stores
+        ):
+            return True
     return False
+
+
+def host_function_tcgen05_rowvec_aux_facts(
+    host_function: HostFunction,
+) -> Tcgen05RowvecAuxFacts | None:
+    """Row-vector aux rows of the kernel's tcgen05 epilogue chains.
+
+    Pre-codegen companion of :func:`host_function_has_tcgen05_aux_kernel_pattern`
+    for the autotune seeds: the N-broadcast rows the analyzed stores load, their
+    element sizes and whether the store lowering stages them promoted to FP32
+    (:func:`aux_leaf_promoted_by_f32_root`), plus the stored output's element
+    size. Rows are counted per store, as the store lowering allocates them.
+    ``None`` when no store chain was analyzed or the analyzed stores disagree
+    on the output element size.
+    """
+    graphs = host_function.device_ir.graphs
+    if not graphs:
+        return None
+    output_itemsize: int | None = None
+    rows: list[Tcgen05RowvecAuxRow] = []
+    for mma_node in _tcgen05_aux_detector_mma_nodes(graphs):
+        analyzed_stores = analyze_tcgen05_matmul_store_chains(graphs, mma_node)
+        if analyzed_stores is None:
+            continue
+        for store_node, chain in analyzed_stores:
+            output = _output_tensor_from_store_node(store_node)
+            if output is None or (
+                output_itemsize is not None and output.dtype.itemsize != output_itemsize
+            ):
+                return None
+            output_itemsize = output.dtype.itemsize
+            for leaf in chain.auxiliary_tensor_loads:
+                if leaf.broadcast_axis != 1:
+                    continue
+                host_tensor = leaf.load_node.args[0]
+                assert isinstance(host_tensor, torch.fx.Node)
+                host_val = host_tensor.meta.get("val")
+                if not isinstance(host_val, torch.Tensor):
+                    return None
+                itemsize = host_val.dtype.itemsize
+                rows.append(
+                    Tcgen05RowvecAuxRow(
+                        itemsize=itemsize,
+                        promoted=itemsize == 2
+                        and aux_leaf_promoted_by_f32_root(chain, leaf),
+                    )
+                )
+    if output_itemsize is None:
+        return None
+    return Tcgen05RowvecAuxFacts(output_itemsize=output_itemsize, rows=tuple(rows))
 
 
 def host_function_has_tcgen05_exact_shape_aux_kernel_pattern(
@@ -415,7 +480,7 @@ def host_function_has_tcgen05_exact_shape_aux_kernel_pattern(
     if not graphs:
         return False
 
-    mma_nodes, _operand_load_nodes = _tcgen05_aux_detector_mma_facts(graphs)
+    mma_nodes = _tcgen05_aux_detector_mma_nodes(graphs)
     if not mma_nodes:
         return False
 
@@ -435,13 +500,11 @@ def host_function_has_tcgen05_exact_shape_aux_kernel_pattern(
     )
 
 
-def _tcgen05_aux_detector_mma_facts(
+def _tcgen05_aux_detector_mma_nodes(
     graphs: Sequence[GraphInfo],
-) -> tuple[set[torch.fx.Node], set[torch.fx.Node]]:
-    # MMA anchor targets: both the aten paths and the ``hl.dot`` HOP
-    # (the canonical Helion API entrypoint).
+) -> set[torch.fx.Node]:
+    """Return aten and ``hl.dot`` MMA anchors from the host FX graphs."""
     mma_nodes: set[torch.fx.Node] = set()
-    operand_load_nodes: set[torch.fx.Node] = set()
     for graph_info in graphs:
         for node in graph_info.graph.nodes:
             if (
@@ -450,14 +513,7 @@ def _tcgen05_aux_detector_mma_facts(
             ):
                 continue
             mma_nodes.add(node)
-            # Treat every positional arg that resolves through the same operand
-            # trace accepted by MMA codegen as an operand load.
-            for arg in node.args:
-                if isinstance(arg, torch.fx.Node):
-                    load_node = _trace_to_load_through_casts(arg)
-                    if load_node is not None:
-                        operand_load_nodes.add(load_node)
-    return mma_nodes, operand_load_nodes
+    return mma_nodes
 
 
 def host_function_matmul_has_non_tcgen05_operand(
@@ -559,7 +615,7 @@ def _has_tma_compatible_analyzed_aux_store(
             continue
         chain, _anchor = analyzed
         exact_steps = [
-            step for step in chain.auxiliary_tensor_steps if step.broadcast_axis is None
+            step for step in chain.auxiliary_tensor_loads if step.broadcast_axis is None
         ]
         if not exact_steps:
             continue

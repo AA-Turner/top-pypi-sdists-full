@@ -8,6 +8,7 @@ from ..types.semantic_model_meta_response_out import SemanticModelMetaResponseOu
 from ..types.semantic_model_query_response_out import SemanticModelQueryResponseOut
 from ..types.semantic_model_token_response_out import SemanticModelTokenResponseOut
 from .raw_client import AsyncRawSemanticModelClient, RawSemanticModelClient
+from .types.semantic_model_query_request_in_order_item import SemanticModelQueryRequestInOrderItem
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -102,7 +103,7 @@ class SemanticModelClient:
         dimensions: typing.Optional[typing.Sequence[str]] = OMIT,
         filters: typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]] = OMIT,
         limit: typing.Optional[int] = OMIT,
-        order: typing.Optional[typing.Sequence[typing.Sequence[str]]] = OMIT,
+        order: typing.Optional[typing.Sequence[SemanticModelQueryRequestInOrderItem]] = OMIT,
         time_dimensions: typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SemanticModelQueryResponseOut:
@@ -125,8 +126,8 @@ class SemanticModelClient:
         limit : typing.Optional[int]
             Maximum rows to return (default 100). When the result was cut at this limit the response sets "truncated": true.
 
-        order : typing.Optional[typing.Sequence[typing.Sequence[str]]]
-            Optional ordering as [member, direction] pairs applied before "limit", e.g. [["orders.count", "desc"]] for a server-side top-N. Direction must be "asc" or "desc".
+        order : typing.Optional[typing.Sequence[SemanticModelQueryRequestInOrderItem]]
+            Optional ordering as [member, direction] pairs applied before "limit", e.g. [["orders.count", "desc"]] for a server-side top-N. Direction must be "asc" or "desc". Entries may also be given as {"member": "orders.count", "direction": "desc"} objects.
 
         time_dimensions : typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]]
             Optional Cube time dimension configs, e.g. [{"dimension": "orders.created_at", "granularity": "month", "dateRange": ["2026-01-01", "2026-06-30"]}]. The camelCase spelling "timeDimensions" (Cube's own, and the one the rest of Athena uses) is accepted as well.
@@ -270,7 +271,7 @@ class AsyncSemanticModelClient:
         dimensions: typing.Optional[typing.Sequence[str]] = OMIT,
         filters: typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]] = OMIT,
         limit: typing.Optional[int] = OMIT,
-        order: typing.Optional[typing.Sequence[typing.Sequence[str]]] = OMIT,
+        order: typing.Optional[typing.Sequence[SemanticModelQueryRequestInOrderItem]] = OMIT,
         time_dimensions: typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SemanticModelQueryResponseOut:
@@ -293,8 +294,8 @@ class AsyncSemanticModelClient:
         limit : typing.Optional[int]
             Maximum rows to return (default 100). When the result was cut at this limit the response sets "truncated": true.
 
-        order : typing.Optional[typing.Sequence[typing.Sequence[str]]]
-            Optional ordering as [member, direction] pairs applied before "limit", e.g. [["orders.count", "desc"]] for a server-side top-N. Direction must be "asc" or "desc".
+        order : typing.Optional[typing.Sequence[SemanticModelQueryRequestInOrderItem]]
+            Optional ordering as [member, direction] pairs applied before "limit", e.g. [["orders.count", "desc"]] for a server-side top-N. Direction must be "asc" or "desc". Entries may also be given as {"member": "orders.count", "direction": "desc"} objects.
 
         time_dimensions : typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]]
             Optional Cube time dimension configs, e.g. [{"dimension": "orders.created_at", "granularity": "month", "dateRange": ["2026-01-01", "2026-06-30"]}]. The camelCase spelling "timeDimensions" (Cube's own, and the one the rest of Athena uses) is accepted as well.

@@ -4033,6 +4033,16 @@ WORK_TURN_CEILING = 150
 # and unaffected either way.
 WORK_AUTOCOMPACT_TOKENS = "100000"
 
+# #3697: fix/conflict-fix legs carry the review findings as their first
+# user message (not the system prompt), so auto-compaction summarizes away
+# the precise surgical instructions the worker needs. At 100k the
+# compaction fires within ~15 turns and the worker loses file names, line
+# numbers, and reasoning — then over-explores to rediscover what it had.
+# Disable autocompact for fix legs entirely: they should be short and
+# targeted; if they're long enough to need compaction, the briefing loss
+# makes them worse, not better.
+FIX_AUTOCOMPACT_TOKENS: str | None = None
+
 # `BASH_DEFAULT_TIMEOUT_MS`/`BASH_MAX_TIMEOUT_MS` (claude -p env vars, not
 # CLI flags) — see `_worker_subprocess_env`. #3672: quadraui#1321's 5
 # longest waits were exactly 120s each, on `cargo test --features ...
@@ -4057,8 +4067,17 @@ You are a Claude Code worker executing an assignment from the coordinator.
 Rules:
 - Do NOT run gh commands. The coordinator owns all GitHub interactions \
 (issues, PRs, comments). Use regular git commands only.
-- Stay within the files listed in your briefing. If you need to touch \
-other files, do so only if strictly necessary and note it.
+- Stay within the files listed in your briefing. If your planned diff \
+will touch significantly more files or modules than the briefing's \
+`## Files` declares, you are over-scoping — a sprawling single-pass \
+change is the #1 cause of avoidable smoke-test failures. Two options, in \
+preference order: \
+(a) decompose and fan out — use the Agent tool to spawn narrowly-scoped \
+subagents (each touching ≤3 files), coordinate their results in this \
+session, and run the scoped test suite before pushing; \
+(b) if the issue genuinely needs splitting into separate issues, report \
+in your final message that this should be epic-decomposed and stop. \
+Either way, do not attempt a 10+ file single-pass change.
 - If the briefing lists forbidden files, do NOT read or modify them. \
 They are managed by the coordinator.
 - Code comments describe the code as it is now, never its history. No \
@@ -6146,7 +6165,15 @@ def default_worker_command(spec: AssignmentSpec, *, binary: str = DEFAULT_WORKER
         # `compact_boundary` events; the lower threshold here is what makes
         # at least one fire before context reaches the 425K-token range
         # that analysis measured.
-        autocompact_tokens = WORK_AUTOCOMPACT_TOKENS
+        #
+        # #3697: fix/conflict-fix legs carry the review findings as their
+        # first user message — compacting that away destroys the roadmap and
+        # causes massive over-exploration. Use FIX_AUTOCOMPACT_TOKENS (None
+        # by default = disabled) for these legs instead.
+        if spec.type in ("fix", "conflict-fix"):
+            autocompact_tokens = FIX_AUTOCOMPACT_TOKENS
+        else:
+            autocompact_tokens = WORK_AUTOCOMPACT_TOKENS
 
     # NOTE: briefing is NOT passed as a positional arg — it is written to
     # stdin as the first stream-json user message by ``_spawn``.

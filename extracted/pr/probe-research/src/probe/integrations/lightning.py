@@ -25,7 +25,10 @@ What it does, by Lightning hook (verified against Lightning 2.6.6):
   checkpoint is a folder; its size is the folder's. As top-k pruning moves on,
   the rows of earlier checkpoints are refreshed: ``best`` follows the
   callback, ``superseded`` marks one it no longer keeps, ``deleted`` one whose
-  path is gone.
+  path is gone. With ``checkpoints="upload"`` each save's files are uploaded as
+  the set ``<name>@step<N>``, its row the set's index; a path saved again in
+  place (``last.ckpt``) starts a new set and marks the earlier one superseded.
+  A location-only checkpoint on the job's own throwaway disk warns once.
 * ``finalize`` -- never finishes the run (Lightning calls it after EVERY stage,
   and ``fit`` then ``test`` is one run): the process's own exit decides that
   (``probe.init``'s exit hooks, or your ``probe.finish()``). On
@@ -118,7 +121,7 @@ except ImportError:  # pragma: no cover - exercised only without `lightning`
 import probe
 from probe.sdk import fluent, hashing, safe_warn
 
-from . import _rank_lease
+from . import _checkpoints, _rank_lease
 from ._worker_exit import (  # noqa: F401 -- also read from here by tests
     WORKER_CLOSE_SECONDS,
     WORKER_HOLD_SECONDS,
@@ -133,7 +136,7 @@ log = logging.getLogger(__name__)
 PREFIX_SEPARATOR = "/"
 
 #: How a kept checkpoint is recorded: a path reference (default) or its bytes.
-CHECKPOINTS = ("reference", "upload")
+CHECKPOINTS = _checkpoints.MODES
 
 #: How long closing the previous trial's run may hold the next Trainer's start
 #: before the rest of its delivery is deferred to the outbox (plan (j)'s bound).
@@ -172,9 +175,11 @@ class ProbeLogger(Logger):
     ``prefix`` is prepended to every metric key as ``prefix/key``. ``save_dir``
     is where Lightning puts checkpoints (``None``: the trainer's
     ``default_root_dir``). ``log_model=False`` records no checkpoints;
-    ``checkpoints="upload"`` stores their bytes instead of a path reference
-    (an uploaded row keeps the flags it was saved with). ``strict=True`` lets
-    Probe errors raise instead of warning once.
+    ``checkpoints="upload"`` (or ``PROBE_CHECKPOINTS=upload``) stores each
+    save's files, a sharded folder's included, as its own set beside the
+    checkpoint row (``probe.integrations._checkpoints``); the default,
+    ``"reference"``, records where it is. ``strict=True`` lets Probe errors
+    raise instead of warning once.
 
     Spawned and forked workers (``ddp_spawn``, ``ddp_fork``, and
     ``ddp_notebook``, Lightning's default in Jupyter with more than one
@@ -198,20 +203,19 @@ class ProbeLogger(Logger):
         name: str | None = None,
         prefix: str = "",
         save_dir: str | os.PathLike | None = None,
-        checkpoints: str = "reference",
+        checkpoints: str | None = None,
         log_model: bool = True,
         strict: bool = False,
         **init_kwargs: Any,
     ) -> None:
         super().__init__()
-        if checkpoints not in CHECKPOINTS:
+        if checkpoints is not None and checkpoints not in CHECKPOINTS:
             raise ValueError(f"checkpoints must be one of {CHECKPOINTS}, not {checkpoints!r}")
         self._project = project
         self._experiment_name = experiment
         self._run_name = name
         self._prefix = prefix
         self._save_dir = os.fspath(save_dir) if save_dir is not None else None
-        self._checkpoints = checkpoints
         self._log_model = log_model
         self._strict = strict
         self._init_kwargs = init_kwargs
@@ -230,8 +234,13 @@ class ProbeLogger(Logger):
         self._client_settings: Any = None
         #: One entry per checkpoint path: what its row on the run says now.
         self._checkpoint_rows: dict[str, _CheckpointRow] = {}
+        #: Upload set names used -> their path (`_checkpoints`): two callbacks'
+        #: `last.ckpt` at one step get two sets.
+        self._set_names: dict[str, str] = {}
         self._warned: set[str] = set()
         self._lock = threading.Lock()
+        #: Given (validated above), else PROBE_CHECKPOINTS, else "reference".
+        self._checkpoints = _checkpoints.resolve_mode(checkpoints, self._warn_once)
 
     # -- identity (Lightning reads these for checkpoint paths) ------------------
     @property
@@ -649,17 +658,27 @@ class ProbeLogger(Logger):
         except OSError:
             return  # removed by top-k pruning before we got here
         is_dir = stat.S_ISDIR(info.st_mode)
-        # A folder's mtime does not move when the files inside are rewritten,
-        # so the step is what tells two saves of one folder apart.
-        signature = (view.step if (exact or is_dir) else None, info.st_mtime_ns)
-        row = self._checkpoint_rows.get(local)
-        if row is not None and row.signature == signature:
-            return
-        reference = self._checkpoints == "reference" or is_dir
         if is_dir:
             size, n_files, complete = hashing.folder_size(local)
         else:
             size, n_files, complete = info.st_size, None, True
+        # A folder's mtime does not move when the files inside are rewritten,
+        # so the step is what tells two saves of one folder apart -- for the
+        # folder THIS save wrote (exact). A folder another callback merely
+        # reports keeping is the same save while its contents look the same;
+        # stamping it with every new step re-recorded (and in upload mode
+        # re-uploaded) every kept folder at every save.
+        if exact:
+            signature = (view.step, info.st_mtime_ns)
+        elif is_dir:
+            # Shards rewritten at the same sizes keep size and count: their
+            # newest mtime is what moves.
+            signature = (None, info.st_mtime_ns, size, n_files, _newest_mtime_ns(local))
+        else:
+            signature = (None, info.st_mtime_ns)
+        previous = self._checkpoint_rows.get(local)
+        if previous is not None and previous.signature == signature:
+            return
         meta = {
             "original_filename": os.path.basename(local),
             # Which callback saved it: two ModelCheckpoints each keep their own.
@@ -680,36 +699,51 @@ class ProbeLogger(Logger):
             if not complete:
                 meta["size_partial"] = True
         meta = {k: v for k, v in meta.items() if v is not None}
-        row = _CheckpointRow(
-            name=os.path.basename(local.rstrip(os.sep)),
+        name = os.path.basename(local.rstrip(os.sep))
+        if self._checkpoints == _checkpoints.UPLOAD:
+            name, meta = _checkpoints.upload_set(
+                run, local, name=name, step=view.step, meta=meta, size=size,
+                strict=self._strict, warn=self._warn_once, taken=self._set_names,
+            )
+            if previous is not None and previous.name != name and not previous.gone:
+                # Saved again in place (`last.ckpt`): this path now holds the
+                # newer set, so the earlier set's index says it is no longer
+                # what is kept there, and is no longer followed.
+                self._send_row(run, local, previous, {
+                    **previous.meta, "superseded": True, "last": False,
+                    **({"best": False} if "best" in previous.meta else {}),
+                })
+        else:
+            _checkpoints.warn_if_throwaway(local, self._warn_once)
+            run.log_artifact(
+                name,
+                path=local,
+                kind="checkpoint",
+                reference=True,
+                size_bytes=size,
+                step_index=view.step,
+                meta=dict(meta),
+                strict=self._strict,
+            )
+        self._checkpoint_rows[local] = _CheckpointRow(
+            name=name,
             owner=view.owner,
             size=size,
             step=view.step,
             meta=meta,
-            reference=reference,
             signature=signature,
-        )
-        self._checkpoint_rows[local] = row
-        run.log_artifact(
-            row.name,
-            path=local,
-            kind="checkpoint",
-            reference=reference,
-            size_bytes=size if reference else None,
-            step_index=row.step,
-            meta=dict(meta),
-            strict=self._strict,
         )
 
     def _refresh_checkpoints(self, run: Any, view: _CallbackView | None) -> None:
-        """Re-send a reference row whose truth changed since it was written.
+        """Re-send a row whose truth changed since it was written.
 
-        The server keys a hashless path reference on (run, name, uri) and
-        refreshes that row in place (``app/artifacts/service.py``), so this
-        updates the row rather than adding one. ``view`` is None at finalize,
-        where only deletions can still be learned."""
+        Every checkpoint row is a hashless path reference (an upload's is its
+        index row), which the server keys on (run, name, uri) and refreshes in
+        place (``app/artifacts/service.py``), so this updates the row rather
+        than adding one. ``view`` is None at finalize, where only deletions can
+        still be learned."""
         for local, row in self._checkpoint_rows.items():
-            if not row.reference or row.gone:
+            if row.gone:
                 continue
             meta = dict(row.meta)
             if view is not None and view.owner == row.owner and view.known:
@@ -722,19 +756,22 @@ class ProbeLogger(Logger):
                 meta["deleted"] = True
             if meta == row.meta:
                 continue
-            row.meta = meta
-            row.gone = bool(meta.get("deleted"))
-            run.log_artifact(
-                row.name,
-                path=local,
-                kind="checkpoint",
-                reference=True,
-                allow_missing=True,
-                size_bytes=row.size,
-                step_index=row.step,
-                meta=dict(meta),
-                strict=self._strict,
-            )
+            self._send_row(run, local, row, meta)
+
+    def _send_row(self, run: Any, local: str, row: _CheckpointRow, meta: dict[str, Any]) -> None:
+        row.meta = meta
+        row.gone = bool(meta.get("deleted"))
+        run.log_artifact(
+            row.name,
+            path=local,
+            kind="checkpoint",
+            reference=True,
+            allow_missing=True,
+            size_bytes=row.size,
+            step_index=row.step,
+            meta=dict(meta),
+            strict=self._strict,
+        )
 
     # -- internals ----------------------------------------------------------------
     def _guarded(self, what: str, fn: Any, *args: Any, **kwargs: Any) -> Any:
@@ -793,18 +830,29 @@ def _shared_run_message(label: str, why: str) -> str:
     )
 
 
+def _newest_mtime_ns(folder: str) -> int:
+    """The newest mtime of any file under ``folder`` (links not followed)."""
+    newest = 0
+    for root, _dirs, files in os.walk(folder, followlinks=False):
+        for leaf in files:
+            try:
+                newest = max(newest, os.lstat(os.path.join(root, leaf)).st_mtime_ns)
+            except OSError:
+                continue
+    return newest
+
+
 class _CheckpointRow:
     """What the run's artifact row for one checkpoint path says now."""
 
-    __slots__ = ("name", "owner", "size", "step", "meta", "reference", "signature", "gone")
+    __slots__ = ("name", "owner", "size", "step", "meta", "signature", "gone")
 
-    def __init__(self, *, name, owner, size, step, meta, reference, signature) -> None:
+    def __init__(self, *, name, owner, size, step, meta, signature) -> None:
         self.name = name
         self.owner = owner
         self.size = size
         self.step = step
         self.meta = meta
-        self.reference = reference
         self.signature = signature
         self.gone = False
 

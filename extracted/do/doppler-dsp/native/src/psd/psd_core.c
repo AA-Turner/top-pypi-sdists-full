@@ -20,6 +20,7 @@
 #include "doppler/spectral/spectral_core.h"
 #include "doppler/util/util_core.h"
 #include <math.h>
+#include <string.h>
 
 /* Power floor (~ -200 dB) guarding log10 of empty / zero bins. */
 #define PSD_FLOOR 1e-20
@@ -32,24 +33,24 @@ dp_psd_state_t *
 dp_psd_create (size_t n, double fs, int window, float beta, size_t pad,
                double full_scale, size_t bits, int mode, double alpha)
 {
-  /* The single definition of the dBFS reference: bits>0 selects an ADC
-   * full scale (2^(bits-1)); otherwise full_scale is the analog/general ref.
-   * bits is a depth an ADC has: past 64 the reference outgrows any sample
-   * format, and the cast to int below would be undefined past INT_MAX. */
-  if (bits > 64)
-    return NULL;
-  if (bits > 0)
-    full_scale = ldexp (1.0, (int)bits - 1);
-  /* fs and full_scale divide every reading, so each must be a finite
-   * positive number; the negated form also refuses a NaN, which passed a
-   * plain `<= 0.0` and built an estimator that read NaN. */
-  if (n < 2 || pad < 1 || !(fs > 0.0 && isfinite (fs)) || window < 0
-      || window > 3 || !(full_scale > 0.0 && isfinite (full_scale)))
-    return NULL;
-  if (mode < ACC_TRACE_MEAN || mode > ACC_TRACE_MINHOLD)
-    return NULL;
-  /* alpha is not checked here: its rule is the averager's, and an exp-mode
-   * alpha outside (0, 1] makes dp_acc_trace_create, below, return NULL. */
+  return dp_psd_create_hop (n, fs, window, beta, pad, full_scale, bits, mode,
+                            alpha, n);
+}
+
+int
+dp_psd_kernel_init (dp_psd_kernel_t *k, size_t n, int window, float beta,
+                    size_t pad, double full_scale)
+{
+  /* Zeroed first, so dp_psd_kernel_free is safe whatever this returns. */
+  memset (k, 0, sizeof *k);
+  /* full_scale divides every reading, so it must be a finite positive
+   * number; the negated form also refuses a NaN, which passed a plain
+   * `<= 0.0` and built an estimator that read NaN. */
+  if (n < 2 || pad < 1 || window < DP_PSD_WINDOW_HANN
+      || window > DP_PSD_WINDOW_RECT
+      || !(full_scale > 0.0 && isfinite (full_scale))
+      || n > ((size_t)-1) / (2 * sizeof (float _Complex)))
+    return DP_ERR_INVALID;
   /* Every buffer is sized from n or nfft = next_pow_two(n * pad), the
    * largest nfft complex floats, so n * pad may not pass the largest power
    * of two whose complex buffer has a byte count a size_t holds (2^60 on a
@@ -61,46 +62,39 @@ dp_psd_create (size_t n, double fs, int window, float beta, size_t pad,
    * report an overflowing calloc as an error rather than a NULL. */
   const size_t top_pow2 = (((size_t)-1 / sizeof (float _Complex)) >> 1) + 1;
   if (pad > top_pow2 / n)
-    return NULL;
+    return DP_ERR_INVALID;
 
-  dp_psd_state_t *s = (dp_psd_state_t *)calloc (1, sizeof (*s));
-  if (!s)
-    return NULL;
-
-  /* Caller-sized, so each can still fail, and does return NULL: not
+  /* Caller-sized, so each can still fail, and does return an error: not
    * dp_xmalloc, which is for trusted sizes and would abort instead. */
   const size_t nfft = dp_next_pow_two (n * pad);
-  s->n              = n;
-  s->nfft           = nfft;
-  s->fs             = fs;
-  s->full_scale     = full_scale;
-  s->bits           = bits;
-  s->w              = (float *)malloc (n * sizeof (float));
-  s->frame = (float _Complex *)malloc (nfft * sizeof (float _Complex));
-  s->spec  = (float _Complex *)malloc (nfft * sizeof (float _Complex));
-  s->pwr   = (float *)malloc (nfft * sizeof (float));
-  s->dbbuf = (float *)malloc (nfft * sizeof (float));
-  if (!s->w || !s->frame || !s->spec || !s->pwr || !s->dbbuf)
+  k->n              = n;
+  k->nfft           = nfft;
+  k->full_scale     = full_scale;
+  k->w              = (float *)malloc (n * sizeof (float));
+  k->frame = (float _Complex *)malloc (nfft * sizeof (float _Complex));
+  k->spec  = (float _Complex *)malloc (nfft * sizeof (float _Complex));
+  k->pwr   = (float *)malloc (nfft * sizeof (float));
+  if (!k->w || !k->frame || !k->spec || !k->pwr)
     {
-      dp_psd_destroy (s);
-      return NULL;
+      dp_psd_kernel_free (k);
+      return DP_ERR_MEMORY;
     }
 
-  if (window == 1)
-    dp_kaiser_window (s->w, n, beta);
-  else if (window == 2)
-    dp_blackman_harris_window (s->w, n);
-  else if (window == 3)
+  if (window == DP_PSD_WINDOW_KAISER)
+    dp_kaiser_window (k->w, n, beta);
+  else if (window == DP_PSD_WINDOW_BLACKMAN_HARRIS)
+    dp_blackman_harris_window (k->w, n);
+  else if (window == DP_PSD_WINDOW_RECT)
     for (size_t i = 0; i < n; i++) /* rectangular: no spectral library entry */
-      s->w[i] = 1.0f;
+      k->w[i] = 1.0f;
   else
-    dp_hann_window (s->w, n);
+    dp_hann_window (k->w, n);
 
   double cg = 0.0, s2 = 0.0;
   for (size_t i = 0; i < n; i++)
     {
-      cg += (double)s->w[i];
-      s2 += (double)s->w[i] * (double)s->w[i];
+      cg += (double)k->w[i];
+      s2 += (double)k->w[i] * (double)k->w[i];
     }
   /* Every reading divides by cg^2 (or s2): a window that sums to zero --
    * the symmetric Hann at n = 2 is [0, 0] -- would read NaN, or the -200 dB
@@ -110,16 +104,84 @@ dp_psd_create (size_t n, double fs, int window, float beta, size_t pad,
    * Blackman-Harris at n = 2 sums to 1.2e-4, tiny but valid. */
   if (!(cg > 0.0 && isfinite (cg)))
     {
+      dp_psd_kernel_free (k);
+      return DP_ERR_INVALID;
+    }
+  k->cg = cg;
+  k->s2 = s2;
+
+  k->fft = dp_fft_create (nfft, -1, 1);
+  if (!k->fft)
+    {
+      dp_psd_kernel_free (k);
+      return DP_ERR_MEMORY;
+    }
+  return DP_OK;
+}
+
+void
+dp_psd_kernel_free (dp_psd_kernel_t *k)
+{
+  if (!k)
+    return;
+  if (k->fft)
+    dp_fft_destroy (k->fft);
+  free (k->w);
+  free (k->frame);
+  free (k->spec);
+  free (k->pwr);
+  memset (k, 0, sizeof *k);
+}
+
+dp_psd_state_t *
+dp_psd_create_hop (size_t n, double fs, int window, float beta, size_t pad,
+                   double full_scale, size_t bits, int mode, double alpha,
+                   size_t hop)
+{
+  /* The single definition of the dBFS reference: bits>0 selects an ADC
+   * full scale (2^(bits-1)); otherwise full_scale is the analog/general ref.
+   * bits is a depth an ADC has: past 64 the reference outgrows any sample
+   * format, and the cast to int below would be undefined past INT_MAX. */
+  if (bits > 64)
+    return NULL;
+  if (bits > 0)
+    full_scale = ldexp (1.0, (int)bits - 1);
+  /* fs divides every Hz reading, so it must be a finite positive number;
+   * the kernel holds full_scale, n, pad and the window to the same rule. */
+  if (!(fs > 0.0 && isfinite (fs)))
+    return NULL;
+  if (hop == 0)
+    hop = n;
+  if (hop > n)
+    return NULL;
+  if (mode < ACC_TRACE_MEAN || mode > ACC_TRACE_MINHOLD)
+    return NULL;
+  /* alpha is not checked here: its rule is the averager's, and an exp-mode
+   * alpha outside (0, 1] makes dp_acc_trace_create, below, return NULL. */
+
+  dp_psd_state_t *s = (dp_psd_state_t *)calloc (1, sizeof (*s));
+  if (!s)
+    return NULL;
+  /* The window, its gains, the scratch and the plan: the kernel's own. */
+  if (dp_psd_kernel_init (&s->k, n, window, beta, pad, full_scale) != DP_OK)
+    {
       dp_psd_destroy (s);
       return NULL;
     }
-  s->cg   = cg;
-  s->s2   = s2;
-  s->enbw = (double)n * s2 / (cg * cg);
 
-  s->fft = dp_fft_create (nfft, -1, 1);
-  s->avg = dp_acc_trace_create (nfft, mode, alpha);
-  if (!s->fft || !s->avg)
+  const size_t nfft = s->k.nfft;
+  s->fs             = fs;
+  s->bits           = bits;
+  s->enbw           = (double)n * s->k.s2 / (s->k.cg * s->k.cg);
+  s->dbbuf          = (float *)malloc (nfft * sizeof (float));
+  s->avg            = dp_acc_trace_create (nfft, mode, alpha);
+  /* The framer owns a ring of two frames: the carry (< n) plus what one feed
+   * admits, so a call loops once per frame, not once per sample. Its checks
+   * share the allocation check above: a refused one frees the object. */
+  s->hop  = hop;
+  s->ring = dp_f32_create (2 * n);
+  if (!s->dbbuf || !s->avg || !s->ring
+      || dp_f32_framer_init (&s->fr, s->ring, n, hop) != DP_OK)
     {
       dp_psd_destroy (s);
       return NULL;
@@ -132,15 +194,12 @@ dp_psd_destroy (dp_psd_state_t *state)
 {
   if (!state)
     return;
-  if (state->fft)
-    dp_fft_destroy (state->fft);
+  dp_psd_kernel_free (&state->k);
   if (state->avg)
     dp_acc_trace_destroy (state->avg);
-  free (state->w);
-  free (state->frame);
-  free (state->spec);
-  free (state->pwr);
   free (state->dbbuf);
+  if (state->ring)
+    dp_f32_destroy (state->ring);
   free (state);
 }
 
@@ -148,14 +207,19 @@ void
 dp_psd_reset (dp_psd_state_t *state)
 {
   dp_acc_trace_reset (state->avg);
+  dp_f32_framer_reset (&state->fr);
 }
 
-/* Serializable state — delegates to the acc_trace power averager (the only
- * running state); window, FFT plan, and scratch are config (create). */
+/* Serializable state: the power averager, then the framer's snapshot of the
+ * carried partial frame. Both children are self-contained sub-blobs with
+ * fixed sizes (the framer's is fixed by its frame length, not its fill), so
+ * the blob's size is a function of the config, as dp_state_validate requires.
+ * Window, FFT plan, scratch, n, nfft and hop are config (create). */
 size_t
 dp_psd_state_bytes (const dp_psd_state_t *s)
 {
-  return sizeof (dp_state_hdr_t) + dp_acc_trace_state_bytes (s->avg);
+  return sizeof (dp_state_hdr_t) + dp_acc_trace_state_bytes (s->avg)
+         + dp_f32_framer_state_bytes (&s->fr);
 }
 
 void
@@ -163,118 +227,147 @@ dp_psd_get_state (const dp_psd_state_t *s, void *blob)
 {
   DP_GET_OPEN (PSD_STATE_MAGIC, PSD_STATE_VERSION, dp_psd_state_bytes (s));
   DP_W_CHILD (&_w, dp_acc_trace, s->avg);
+  DP_W_CHILD (&_w, dp_f32_framer, &s->fr);
 }
 
 int
 dp_psd_set_state (dp_psd_state_t *s, const void *blob)
 {
   DP_SET_OPEN (PSD_STATE_MAGIC, PSD_STATE_VERSION, dp_psd_state_bytes (s));
+  /* The carried frame is checked before the average is written, so a refused
+   * framer snapshot changes nothing: the framer's own check reads the blob
+   * and writes nothing, and it refuses a hop that is not this object's. */
+  uint64_t          frames;
+  const void *const framer
+      = (const uint8_t *)blob + _r.off + dp_acc_trace_state_bytes (s->avg);
+  if (dp_f32_framer_state_frames (&s->fr, framer, &frames) != DP_OK)
+    return DP_ERR_INVALID;
   DP_R_CHILD (&_r, dp_acc_trace, s->avg);
+  DP_R_CHILD (&_r, dp_f32_framer, &s->fr);
   return DP_OK;
 }
 
 /* ── accumulation ──────────────────────────────────────────────────────── */
 
-/* Transform the already-windowed-and-zero-padded state->frame into DC-centred
+/* Transform the already-windowed-and-zero-padded k->frame into DC-centred
  * two-sided power, written to pwr[0..nfft). The one place a frame becomes a
  * spectrum: dp_psd_accumulate folds it into the average, dp_psd_frame_power
  * hands it to the caller, and neither can drift from the other. */
 static void
-psd_transform (dp_psd_state_t *state, float *pwr)
+psd_transform (dp_psd_kernel_t *k, float *pwr)
 {
-  const size_t nfft = state->nfft;
+  const size_t nfft = k->nfft;
   const size_t half = nfft / 2; /* fftshift roll: bin 0 -> index nfft/2 */
 
-  dp_fft_execute_cf32 (state->fft, state->frame, nfft, state->spec, nfft);
+  dp_fft_execute_cf32 (k->fft, k->frame, nfft, k->spec, nfft);
 
-  for (size_t k = 0; k < nfft; k++)
+  for (size_t b = 0; b < nfft; b++)
     {
-      const float re  = crealf (state->spec[k]);
-      const float im  = cimagf (state->spec[k]);
-      size_t      idx = k + half;
+      const float re  = crealf (k->spec[b]);
+      const float im  = cimagf (k->spec[b]);
+      size_t      idx = b + half;
       if (idx >= nfft)
         idx -= nfft;
       pwr[idx] = re * re + im * im;
     }
 }
 
-/* Transform state->frame and fold one frame into the running average. */
+/* Transform the kernel's frame and fold it into the running average. */
 static void
 psd_fold_frame (dp_psd_state_t *state)
 {
-  psd_transform (state, state->pwr);
-  dp_acc_trace_accumulate (state->avg, state->pwr, state->nfft);
+  psd_transform (&state->k, state->k.pwr);
+  dp_acc_trace_accumulate (state->avg, state->k.pwr, state->k.nfft);
 }
 
 /* Zero the zero-pad tail frame[n..nfft-1] (no-op when nfft == n). */
 static void
-psd_zero_pad (dp_psd_state_t *state)
+psd_zero_pad (dp_psd_kernel_t *k)
 {
-  for (size_t i = state->n; i < state->nfft; i++)
-    state->frame[i] = 0.0f;
+  for (size_t i = k->n; i < k->nfft; i++)
+    k->frame[i] = 0.0f;
 }
 
-/* Window one n-sample complex frame into state->frame and zero-pad it. */
+/* Window one n-sample complex frame into k->frame and zero-pad it. */
 static void
-psd_window_frame (dp_psd_state_t *state, const float _Complex *xf)
+psd_window_frame (dp_psd_kernel_t *k, const float _Complex *xf)
 {
-  for (size_t i = 0; i < state->n; i++)
-    state->frame[i] = state->w[i] * xf[i];
-  psd_zero_pad (state);
+  for (size_t i = 0; i < k->n; i++)
+    k->frame[i] = k->w[i] * xf[i];
+  psd_zero_pad (k);
+}
+
+/* Window one n-sample REAL frame into k->frame and zero-pad it. */
+static void
+psd_window_frame_real (dp_psd_kernel_t *k, const float *xf)
+{
+  for (size_t i = 0; i < k->n; i++)
+    k->frame[i] = (float _Complex) (k->w[i] * xf[i]);
+  psd_zero_pad (k);
 }
 
 void
 dp_psd_accumulate (dp_psd_state_t *state, const float _Complex *x,
                    size_t x_len)
 {
-  const size_t n      = state->n;
-  const size_t nframe = x_len / n;
-
-  for (size_t f = 0; f < nframe; f++)
+  /* The framer cuts the stream into frames at the hop and keeps the partial
+   * one; every frame it hands out is windowed and folded in. The feed admits
+   * whatever fits the ring (the carry is < n once drained, so the ring always
+   * has room for at least one more sample), so the loop ends only when the
+   * input is used up. A call of whole frames at hop = n takes the same path
+   * as before, frame for frame. */
+  size_t taken = 0, took = 0;
+  while (taken < x_len
+         && (took = dp_f32_framer_feed_view (&state->fr, x + taken,
+                                             x_len - taken, SIZE_MAX))
+                > 0)
     {
-      psd_window_frame (state, x + f * n);
-      psd_fold_frame (state);
+      taken += took;
+      const float _Complex *frame;
+      while ((frame = dp_f32_framer_next_view (&state->fr)) != NULL)
+        {
+          psd_window_frame (&state->k, frame);
+          psd_fold_frame (state);
+        }
     }
 }
 
 void
 dp_psd_accumulate_real (dp_psd_state_t *state, const float *x, size_t x_len)
 {
-  const size_t n      = state->n;
+  const size_t n      = state->k.n;
   const size_t nframe = x_len / n;
 
   for (size_t f = 0; f < nframe; f++)
     {
-      const float *xf = x + f * n;
-      for (size_t i = 0; i < n; i++)
-        state->frame[i] = (float _Complex) (state->w[i] * xf[i]);
-      psd_zero_pad (state);
+      psd_window_frame_real (&state->k, x + f * n);
       psd_fold_frame (state);
     }
 }
 
 /* ── internal helpers ──────────────────────────────────────────────────── */
 
-/* Pull the averaged power trace into state->pwr; 0 if nothing accumulated. */
+/* Pull the averaged power trace into the kernel's pwr scratch, which the
+ * readouts borrow; 0 if nothing has been accumulated. */
 static size_t
 psd_pull_power (dp_psd_state_t *s)
 {
   if (s->avg->count == 0)
     return 0;
-  /* s->pwr is allocated at nfft, and s->avg is a length-nfft trace. */
-  return dp_acc_trace_value (s->avg, s->nfft, s->pwr, s->nfft);
+  /* k.pwr is allocated at nfft, and s->avg is a length-nfft trace. */
+  return dp_acc_trace_value (s->avg, s->k.nfft, s->k.pwr, s->k.nfft);
 }
 
 /* dBFS reference: cg^2 (coherent gain) times the 0-dBFS amplitude squared.
  * full_scale == 1.0 (the default) reduces this to the bare cg^2 normalisation,
  * so every dB getter is byte-identical to the un-scaled estimator. */
 static double
-psd_db_ref (const dp_psd_state_t *s)
+psd_db_ref (const dp_psd_kernel_t *k)
 {
-  return s->cg * s->cg * s->full_scale * s->full_scale;
+  return k->cg * k->cg * k->full_scale * k->full_scale;
 }
 
-/* pwr[0..n) read against the estimator's reference -- the one conversion
+/* pwr[0..n) read against the kernel's reference -- the one conversion
  * every averaged readout and both single-frame readouts go through.  Linear
  * (full-scale^2 units, into `lin`) and dBFS with the -200 dB floor (into
  * `db`) come from the SAME double quotient, so the dB reading is exactly
@@ -283,10 +376,10 @@ psd_db_ref (const dp_psd_state_t *s)
  * ulp, and frame_db is pinned byte-for-byte (#1894's kernel promotion).
  * Either output may be NULL. */
 static void
-psd_read_power (const dp_psd_state_t *s, const float *pwr, float *lin,
+psd_read_power (const dp_psd_kernel_t *k, const float *pwr, float *lin,
                 float *db, size_t n)
 {
-  const double ref = psd_db_ref (s);
+  const double ref = psd_db_ref (k);
   for (size_t i = 0; i < n; i++)
     {
       const double p = (double)pwr[i] / ref;
@@ -306,33 +399,32 @@ psd_fill_db (dp_psd_state_t *s, float *out, size_t max_out)
 {
   if (!psd_pull_power (s))
     return 0;
-  const size_t n_out = s->nfft < max_out ? s->nfft : max_out;
-  psd_read_power (s, s->pwr, NULL, out, n_out);
+  const size_t n_out = s->k.nfft < max_out ? s->k.nfft : max_out;
+  psd_read_power (&s->k, s->k.pwr, NULL, out, n_out);
   return n_out;
 }
 
 /* ── one frame, no averaging ────────────────────────────────────────────── */
 
 void
-dp_psd_frame_power (dp_psd_state_t *state, const float _Complex *x, float *pwr)
+dp_psd_frame_power (dp_psd_kernel_t *k, const float _Complex *x, float *pwr)
 {
-  psd_window_frame (state, x);
-  psd_transform (state, pwr);
+  psd_window_frame (k, x);
+  psd_transform (k, pwr);
 }
 
 void
-dp_psd_frame_linear (dp_psd_state_t *state, const float _Complex *x,
-                     float *out)
+dp_psd_frame_linear (dp_psd_kernel_t *k, const float _Complex *x, float *out)
 {
-  dp_psd_frame_power (state, x, state->pwr);
-  psd_read_power (state, state->pwr, out, NULL, state->nfft);
+  dp_psd_frame_power (k, x, k->pwr);
+  psd_read_power (k, k->pwr, out, NULL, k->nfft);
 }
 
 void
-dp_psd_frame_db (dp_psd_state_t *state, const float _Complex *x, float *out)
+dp_psd_frame_db (dp_psd_kernel_t *k, const float _Complex *x, float *out)
 {
-  dp_psd_frame_power (state, x, state->pwr);
-  psd_read_power (state, state->pwr, NULL, out, state->nfft);
+  dp_psd_frame_power (k, x, k->pwr);
+  psd_read_power (k, k->pwr, NULL, out, k->nfft);
 }
 
 /* ── linear-power accessors (raw spectral estimate for measurement) ────── */
@@ -340,7 +432,7 @@ dp_psd_frame_db (dp_psd_state_t *state, const float _Complex *x, float *out)
 size_t
 dp_psd_power_twosided_max_out (dp_psd_state_t *state)
 {
-  return state->nfft;
+  return state->k.nfft;
 }
 
 size_t
@@ -350,18 +442,18 @@ dp_psd_power_twosided (dp_psd_state_t *state, size_t cap, float *out,
   (void)cap;
   if (!psd_pull_power (state))
     return 0;
-  const double cg2 = state->cg * state->cg;
+  const double cg2 = state->k.cg * state->k.cg;
   /* Emission stops at the caller's capacity (jm gh-138). */
-  const size_t n_out = state->nfft < max_out ? state->nfft : max_out;
+  const size_t n_out = state->k.nfft < max_out ? state->k.nfft : max_out;
   for (size_t i = 0; i < n_out; i++)
-    out[i] = (float)((double)state->pwr[i] / cg2);
+    out[i] = (float)((double)state->k.pwr[i] / cg2);
   return n_out;
 }
 
 size_t
 dp_psd_power_onesided_max_out (dp_psd_state_t *state)
 {
-  return state->nfft / 2 + 1;
+  return state->k.nfft / 2 + 1;
 }
 
 size_t
@@ -371,8 +463,8 @@ dp_psd_power_onesided (dp_psd_state_t *state, size_t cap, float *out,
   (void)cap;
   if (!psd_pull_power (state))
     return 0;
-  const double cg2  = state->cg * state->cg;
-  const size_t nfft = state->nfft;
+  const double cg2  = state->k.cg * state->k.cg;
+  const size_t nfft = state->k.nfft;
   const size_t half = nfft / 2; /* DC sits at index half in pwr[] */
 
   /* Emission stops at the caller's capacity (jm gh-138). Unlike the other
@@ -384,13 +476,13 @@ dp_psd_power_onesided (dp_psd_state_t *state, size_t cap, float *out,
     return 0;
 
   /* DC and Nyquist have no mirror partner; interior bins fold +k with -k. */
-  out[0] = (float)((double)state->pwr[half] / cg2);
+  out[0] = (float)((double)state->k.pwr[half] / cg2);
   if (half < n_out)
-    out[half] = (float)((double)state->pwr[0] / cg2);
+    out[half] = (float)((double)state->k.pwr[0] / cg2);
   for (size_t m = 1; m < half && m < n_out; m++)
-    out[m]
-        = (float)(((double)state->pwr[half + m] + (double)state->pwr[half - m])
-                  / cg2);
+    out[m] = (float)(((double)state->k.pwr[half + m]
+                      + (double)state->k.pwr[half - m])
+                     / cg2);
   return n_out;
 }
 
@@ -406,15 +498,15 @@ psd_band_bins (const dp_psd_state_t *s, double lo, double hi, size_t *ilo_out,
       lo             = hi;
       hi             = t;
     }
-  const double half = (double)(s->nfft / 2);
-  long         ilo  = (long)lround (lo / s->fs * (double)s->nfft + half);
-  long         ihi  = (long)lround (hi / s->fs * (double)s->nfft + half);
-  if (ihi < 0 || ilo > (long)s->nfft - 1)
+  const double half = (double)(s->k.nfft / 2);
+  long         ilo  = (long)lround (lo / s->fs * (double)s->k.nfft + half);
+  long         ihi  = (long)lround (hi / s->fs * (double)s->k.nfft + half);
+  if (ihi < 0 || ilo > (long)s->k.nfft - 1)
     return 0;
   if (ilo < 0)
     ilo = 0;
-  if (ihi > (long)s->nfft - 1)
-    ihi = (long)s->nfft - 1;
+  if (ihi > (long)s->k.nfft - 1)
+    ihi = (long)s->k.nfft - 1;
   *ilo_out = (size_t)ilo;
   *ihi_out = (size_t)ihi;
   return 1;
@@ -438,10 +530,11 @@ psd_band_lin (const dp_psd_state_t *s, double lo, double hi)
   size_t ilo, ihi;
   if (!psd_band_bins (s, lo, hi, &ilo, &ihi))
     return 0.0;
-  const double ref = (double)s->nfft * s->s2 * s->full_scale * s->full_scale;
-  double       sum = 0.0;
+  const double ref
+      = (double)s->k.nfft * s->k.s2 * s->k.full_scale * s->k.full_scale;
+  double sum = 0.0;
   for (size_t i = ilo; i <= ihi; i++)
-    sum += (double)s->pwr[i] / ref;
+    sum += (double)s->k.pwr[i] / ref;
   return sum;
 }
 
@@ -450,7 +543,7 @@ psd_band_lin (const dp_psd_state_t *s, double lo, double hi)
 size_t
 dp_psd_psd_db_max_out (dp_psd_state_t *state)
 {
-  return state->nfft;
+  return state->k.nfft;
 }
 
 size_t
@@ -464,7 +557,7 @@ dp_psd_psd_db (dp_psd_state_t *state, size_t n, float *out, size_t max_out)
 size_t
 dp_psd_psd_dbhz_max_out (dp_psd_state_t *state)
 {
-  return state->nfft;
+  return state->k.nfft;
 }
 
 size_t
@@ -477,7 +570,7 @@ dp_psd_psd_dbhz (dp_psd_state_t *state, size_t n, float *out, size_t max_out)
     return 0;
   /* dB/Hz differs from the dBFS spectrum by a constant. */
   const double off
-      = 10.0 * log10 (state->fs * state->s2 / (state->cg * state->cg));
+      = 10.0 * log10 (state->fs * state->k.s2 / (state->k.cg * state->k.cg));
   for (size_t i = 0; i < n_out; i++)
     out[i] = (float)((double)out[i] - off);
   return n_out;
@@ -538,24 +631,24 @@ dp_psd_occupied_bw (dp_psd_state_t *state, double fraction)
    * -- and without the division equal bins sum exactly, so an edge landing
    * exactly on a bin boundary resolves exactly.  The private copy this
    * replaced divided, and missed such a tie by one bin. */
-  const size_t n = state->avg->count ? state->nfft : 0;
+  const size_t n = state->avg->count ? state->k.nfft : 0;
   return dp_obw_from_power (state->avg->acc, n, state->fs, fraction);
 }
 
 double
 dp_psd_noise_floor (dp_psd_state_t *state)
 {
-  if (!psd_fill_db (state, state->dbbuf, state->nfft))
+  if (!psd_fill_db (state, state->dbbuf, state->k.nfft))
     return 0.0;
-  return dp_noise_floor_db (state->dbbuf, state->nfft);
+  return dp_noise_floor_db (state->dbbuf, state->k.nfft);
 }
 
 double
 dp_psd_snr (dp_psd_state_t *state, double lo_hz, double hi_hz)
 {
-  if (!psd_fill_db (state, state->dbbuf, state->nfft))
+  if (!psd_fill_db (state, state->dbbuf, state->k.nfft))
     return 0.0;
-  const double floor = dp_noise_floor_db (state->dbbuf, state->nfft);
+  const double floor = dp_noise_floor_db (state->dbbuf, state->k.nfft);
 
   size_t ilo, ihi;
   if (!psd_band_bins (state, lo_hz, hi_hz, &ilo, &ihi))
@@ -570,11 +663,11 @@ dp_psd_snr (dp_psd_state_t *state, double lo_hz, double hi_hz)
 double
 dp_psd_sfdr (dp_psd_state_t *state, float min_db)
 {
-  if (!psd_fill_db (state, state->dbbuf, state->nfft))
+  if (!psd_fill_db (state, state->dbbuf, state->k.nfft))
     return 0.0;
   dp_peak_t    pk[16];
   const size_t np
-      = dp_find_peaks_f32 (state->dbbuf, state->nfft, 16, min_db, pk);
+      = dp_find_peaks_f32 (state->dbbuf, state->k.nfft, 16, min_db, pk);
   if (np < 2)
     return 0.0;
   /* find_peaks_f32 returns peaks sorted by descending amplitude. */

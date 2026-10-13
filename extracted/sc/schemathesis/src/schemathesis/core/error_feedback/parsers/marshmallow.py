@@ -8,8 +8,9 @@ from schemathesis.core.error_feedback.parsers import PARSERS
 from schemathesis.core.error_feedback.parsers.extractors import (
     ClassificationResult,
     RegexHandler,
-    location_for_method,
+    location_for_parameter,
     numeric_bound,
+    parse_number,
     size_bound,
     size_bound_exact,
 )
@@ -115,7 +116,7 @@ def _classify(message: str) -> tuple[ClassificationResult, ...]:
             (
                 ObservationKind.NUMERIC_BOUND,
                 NumericBoundPayload(
-                    bound=float(range_pair.group("min")),
+                    bound=parse_number(range_pair.group("min")),
                     direction=BoundDirection.MIN,
                     exclusive=range_pair.group("min_inc") is None,
                 ),
@@ -123,7 +124,7 @@ def _classify(message: str) -> tuple[ClassificationResult, ...]:
             (
                 ObservationKind.NUMERIC_BOUND,
                 NumericBoundPayload(
-                    bound=float(range_pair.group("max")),
+                    bound=parse_number(range_pair.group("max")),
                     direction=BoundDirection.MAX,
                     exclusive=range_pair.group("max_inc") is None,
                 ),
@@ -184,9 +185,10 @@ class MarshmallowParser:
 
     def parse(self, *, operation: APIOperation, body: object, case: Case) -> tuple[Observation, ...]:
         assert isinstance(body, dict)
-        default_location = location_for_method(operation.method)
         observations: list[Observation] = []
-        for path, location, message in _walk(body, path=(), location=default_location, at_root=True):
+        for path, location, message in _walk(body, path=(), location=ParameterLocation.UNKNOWN, at_root=True):
+            if location is ParameterLocation.UNKNOWN:
+                location = location_for_parameter(operation, path, case)
             for kind, payload in _classify(message):
                 observations.append(
                     Observation(

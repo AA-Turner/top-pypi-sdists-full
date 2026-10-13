@@ -424,7 +424,7 @@ def Queue_1__ensure_Z524259A4[T](this: Queue_1[T], required_size: int) -> None:
 
 
 def Queue_1__toSeq[T](this: Queue_1[T]) -> IEnumerable_1[T]:
-    def _arrow224(this: Any = this) -> IEnumerable_1[T]:
+    def _arrow224(__unit: Unit = UNIT, this: Any = this) -> IEnumerable_1[T]:
         i: int = 0
 
         def _arrow221(__unit: Unit = UNIT) -> bool:

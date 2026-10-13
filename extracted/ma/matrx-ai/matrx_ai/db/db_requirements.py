@@ -63,7 +63,7 @@ DB_REQUIREMENTS = {
         {"key": "AiSettingProfile", "table": "ai.setting_profile"},
         {"key": "AiTranslationCell", "table": "ai.translation_cell"},
         {"key": "AiOfferingRulesCompiled", "view": "ai.offering_rules_compiled"},
-        # agent.prompt_block — the canonical block table (skill.render_definition retired).
+        # agent.prompt_block — the canonical block table.
         {"key": "PromptBlock", "table": "agent.prompt_block"},
         # platform — the judge accuracy ledger (matrx_ai.evaluators.judge).
         {"key": "JudgeVerdict", "table": "platform.judge_verdict"},

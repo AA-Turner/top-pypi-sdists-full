@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: flufl.i18n
-Version: 7.0.0
+Version: 8.0.0
 Summary: A high level API for internationalizing Python libraries and applications
 Project-URL: Home Page, https://flufli18n.readthedocs.io
 Project-URL: Documentation, https://flufli18n.readthedocs.io
@@ -23,7 +23,7 @@ Classifier: Topic :: Software Development :: Internationalization
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Localization
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: atpublic
 Description-Content-Type: text/x-rst
 

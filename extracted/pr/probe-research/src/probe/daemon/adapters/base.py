@@ -107,6 +107,11 @@ class Adapter:
         return None
 
     # -- session facts --
+    def line_ts(self, obj: dict) -> str | None:
+        """A raw line's own ISO stamp, if it has one (`timestamp`, on most harnesses)."""
+        ts = obj.get("timestamp")
+        return ts if isinstance(ts, str) else None
+
     def permission_mode(self, obj: dict) -> str | None:
         """The mode a raw line announces, if it announces one."""
         return None

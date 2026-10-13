@@ -1,3 +1,4 @@
+from os import PathLike
 from pathlib import Path
 from types import ModuleType
 from typing import Any, BinaryIO, ClassVar, Literal
@@ -61,7 +62,7 @@ class NumpyPickler(Pickler):
     def save(self, obj: Any) -> None: ...
 
 class NumpyUnpickler(Unpickler):
-    # dispatch: typing.ClassVar[dict[type[typing.Any], Dispatch[typing.Any]]]  # noqa: ERA001, E501
+    # dispatch: typing.ClassVar[dict[type[typing.Any], Dispatch[typing.Any]]]  # noqa: ERA001
     mmap_mode: MmapMode
     file_handle: BinaryIO
     filename: str
@@ -79,7 +80,7 @@ class NumpyUnpickler(Unpickler):
 
 def dump(
     value: Any,
-    filename: str | Path | SupportsWrite[bytes],
+    filename: str | PathLike[str] | SupportsWrite[bytes],
     compress: int | bool | tuple[str, int] = ...,
     protocol: int | None = ...,
 ) -> list[str] | None: ...
@@ -89,7 +90,7 @@ def load_temporary_memmap(
     unlink_on_gc_collect: bool,
 ) -> Any: ...
 def load(
-    filename: str | Path | SupportsRead[bytes],
+    filename: str | PathLike[str] | PathLike[bytes] | SupportsRead[bytes],
     mmap_mode: MmapMode | None = ...,
     ensure_native_byte_order: bool | Literal["auto"] = ...,
 ) -> Any: ...

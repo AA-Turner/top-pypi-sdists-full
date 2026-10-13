@@ -291,13 +291,16 @@ def install_persistent(spec: str = INSTALL_SPEC) -> BootstrapResult:
             dropped = (
                 " The previous install's uv receipt had entries this cannot restate (an "
                 "editable or local `--with` package, constraints); they were NOT carried over. "
-                "Re-add them with `uv tool install --force 'probe-research[all]' --with ...`."
+                f"Re-add them with `uv tool install '{updater._dist()}' --with ...`."
             )
         # A pinned or @latest reinstall re-reads the index (uv's cached copy can
         # predate the release) -- unless uv is offline, which refuses a refresh.
+        # `--force` only to take `probe` over from a first install: over an
+        # existing tool environment a plain install upgrades it in place, while
+        # `--force` deletes and rebuilds it under every running `probe`.
         command = updater.uv_tool_install_command(
             kept or updater.KeptInstall(),
-            force=True,
+            force=existing is None,
             version=version,
             refresh=bool(version) and not os.environ.get("UV_OFFLINE"),
         )

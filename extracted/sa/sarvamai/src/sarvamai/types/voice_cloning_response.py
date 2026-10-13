@@ -7,9 +7,14 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class VoiceCloningResponse(UniversalBaseModel):
+    audio_b64: str = pydantic.Field()
+    """
+    Base64-encoded output audio in the requested codec. Decode client-side before playback or storage.
+    """
+
     audio: str = pydantic.Field()
     """
-    Base64-encoded output audio in the requested codec.
+    Alias of `audio_b64`, same value. Retained for callers written against it; prefer `audio_b64`.
     """
 
     request_id: str = pydantic.Field()

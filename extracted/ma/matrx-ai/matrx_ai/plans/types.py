@@ -36,6 +36,10 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validat
 # CAPS — bounds, not feature flags. A plan is a "mini" workflow by contract;
 # anything bigger belongs in the full workflow system.
 MAX_PLAN_STEPS = 20
+#: Step input keys that are NOT agent variables: ``user_input`` (what a person
+#: typed), ``context`` (named context entries) and ``host_turn`` (a turn the
+#: plan itself starts — ``matrx_ai.config.host_turn``; never with user_input).
+RESERVED_INPUT_KEYS: tuple[str, ...] = ("user_input", "context", "host_turn")
 FOR_EACH_MAX_ITEMS = 200
 
 _SEG = r"[A-Za-z_][A-Za-z0-9_]*|\d+"
@@ -142,7 +146,9 @@ class PlanStep(BaseModel):
         default_factory=dict,
         description=(
             "Inputs for the agent. The reserved key 'user_input' becomes the "
-            "user message; every other key must be one of the agent's "
+            "user message (only what a person typed); 'context' is a dict of named "
+            "context entries; 'host_turn' ({text, reason}) starts a turn the plan "
+            "writes, never with 'user_input'. Every other key must be one of the agent's "
             "declared variables. Values are JSON literals (strings, numbers, "
             "booleans, lists, objects) or $-reference strings — references "
             "work inside nested lists/objects too."

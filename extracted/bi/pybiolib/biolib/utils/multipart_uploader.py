@@ -181,7 +181,10 @@ class MultiPartUploader:
                         method='PUT',
                         timeout_in_seconds=300,
                     )
-                    return _PartMetadata(PartNumber=part_number, ETag=put_chunk_response.headers['ETag']), len(chunk)
+                    etag = put_chunk_response.headers['ETag']
+                    if not etag:
+                        raise BioLibError('Missing ETag in part upload response')
+                    return _PartMetadata(PartNumber=part_number, ETag=etag), len(chunk)
 
                 except Exception as error:  # pylint: disable=broad-except
                     logger_no_user_data.warning(f'Encountered error when uploading part {part_number}. Retrying...')

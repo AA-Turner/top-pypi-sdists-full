@@ -17,7 +17,8 @@ wrapped (:mod:`probe.sdk._readers`, installed only when the library is
 imported): ``pyarrow.parquet`` (``read_table``, ``ParquetFile``,
 ``ParquetDataset``), ``pyarrow.memory_map`` (the Hugging Face ``datasets``
 cache), ``h5py.File`` (its mode says read or write), ``safetensors``
-(``safe_open``, ``load_file``), and ``torch.save``, a write. Any other reader
+(``safe_open``, ``load_file``; ``save_file`` is a write), and ``torch.save``,
+a write. Any other reader
 can call :func:`note_read`. What stays unseen is named in the run's
 ``coverage`` so "no reads" is never mistaken for "read nothing".
 
@@ -96,8 +97,8 @@ spools, the outbox, an offline queue), and any CACHE (``.cache/``,
 something the run produced, and recording it would link every later reader of
 that model to whichever run happened to download it first -- judged on the
 path as opened and as resolved, so a link into a cache is one too. Unseen:
-files written from C or Rust (pyarrow, safetensors, sqlite -- ``torch.save``
-and ``h5py.File`` in a write mode are wrapped) and by processes that are not
+files written from C or Rust (pyarrow, sqlite -- ``torch.save``, safetensors'
+``save_file`` and ``h5py.File`` in a write mode are wrapped) and by processes that are not
 Python; the coverage says so.
 
 Switches, kept simple: writes are recorded only while reads are (the same
@@ -187,10 +188,10 @@ UNSEEN_READERS = (
     "other than as a module global (a default argument, an attribute)",
     "Python workers started by spawn or forkserver before probe.init(), or while several runs record in one process",
 )
-#: Writers the audit hook cannot see (`torch.save` and `h5py.File` in a
-#: write mode are wrapped).
+#: Writers the audit hook cannot see (`torch.save`, safetensors' `save_file`
+#: and `h5py.File` in a write mode are wrapped).
 UNSEEN_WRITERS = (
-    "C/Rust writers (pyarrow, safetensors, sqlite)",
+    "C/Rust writers (pyarrow, sqlite)",
     "processes that are not Python (cp, rsync, a compiled tool)",
     "Python workers started by spawn or forkserver before probe.init(), or while several runs record in one process",
 )

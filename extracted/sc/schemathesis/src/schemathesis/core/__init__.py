@@ -32,7 +32,7 @@ NOT_SET = NotSet()
 Body: TypeAlias = "JsonValue | bytes | NotSet"
 
 
-class SpecificationFeature(str, enum.Enum):
+class SpecificationFeature(enum.StrEnum):
     """Features that Schemathesis can provide for different specifications."""
 
     SCHEMA_ANALYSIS = "schema_analysis"
@@ -40,6 +40,8 @@ class SpecificationFeature(str, enum.Enum):
     COVERAGE = "coverage_tests"
     EXAMPLES = "example_tests"
     AUTH_BOOTSTRAP = "auth_bootstrap"
+    # Telling served requests from refused ones by the response status code.
+    STATUS_CODE_ANALYSIS = "status_code_analysis"
 
 
 @dataclass(slots=True)
@@ -64,7 +66,7 @@ class Specification:
         return feature in _FEATURES[self.kind]
 
 
-class SpecificationKind(str, enum.Enum):
+class SpecificationKind(enum.StrEnum):
     """Specification of the given schema."""
 
     OPENAPI = "openapi"
@@ -84,6 +86,7 @@ _FEATURES: dict[SpecificationKind, frozenset[SpecificationFeature]] = {
             SpecificationFeature.COVERAGE,
             SpecificationFeature.EXAMPLES,
             SpecificationFeature.AUTH_BOOTSTRAP,
+            SpecificationFeature.STATUS_CODE_ANALYSIS,
         }
     ),
     SpecificationKind.GRAPHQL: frozenset({SpecificationFeature.STATEFUL_TESTING}),

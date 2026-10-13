@@ -174,3 +174,60 @@ def test_an_unasked_message_outlives_one_correction_and_goes_stale_after_two(tmp
         w.read_new()
         lane.drop_stale_unasked()
         assert bool(_waiting()) is expect_kept, text
+
+
+# ---------------------------------------------------------------------------
+# The writer's least gap between runs (daemon cost round 4, E): only a run whose
+# reasons are the agent's turn end or the queue's age waits for it.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("lines, setup, due", [
+    (lambda: _call(1) + [TURN_END], None, None),                          # turn end: waits
+    (lambda: _call(1), "age", None),                                      # age: waits
+    (lambda: _call(1) + [_correction()] + _call(2), None, "prompt"),      # a prompt: at once
+    (lambda: _call(1) + [TURN_END], "stopping", "turn end"),              # the session ends: at once
+    (lambda: _call(1) + [TURN_END], "size", "turn end"),                  # a full queue: at once
+    (lambda: _call(1) + [TURN_END], "carry_on", "turn end"),              # a paused run: at once
+], ids=["turn-end", "age", "prompt", "session-end", "size", "carry-on"])
+def test_only_a_turn_end_or_age_run_waits_for_the_gap(tmp_path, monkeypatch, lines, setup, due):
+    now = [1000.0]
+    monkeypatch.setenv("PROBE_DAEMON_WRITER_GAP_S", "300")
+    w = _worker(tmp_path, lines(), clock=lambda: now[0])
+    w.last_run_at = now[0] - 60  # a run started a minute ago
+    if setup == "age":
+        now[0] += worker_mod.DUE_AFTER_S
+    elif setup == "stopping":
+        w.stopping = True
+    elif setup == "size":
+        monkeypatch.setattr(worker_mod, "QUEUE_LIMIT_CHARS", 1)
+    elif setup == "carry_on":
+        w.mode = worker_mod.Mode.CONVERSATION
+        w.store.set_fact(worker_mod.CARRY_ON, True)
+    assert w.due() == due
+    if due is None:
+        now[0] = w.last_run_at + 300
+        assert w.due() is not None, "the gap has passed"
+
+
+def test_no_gap_is_the_old_timing(tmp_path, monkeypatch):
+    monkeypatch.delenv("PROBE_DAEMON_WRITER_GAP_S", raising=False)
+    w = _worker(tmp_path, _call(1) + [TURN_END], clock=lambda: 1000.0)
+    w.last_run_at = 999.0
+    assert w.due() == "turn end"
+
+
+def test_the_server_sets_the_gap_and_the_environment_wins(monkeypatch):
+    from probe.daemon import model as model_mod
+
+    monkeypatch.delenv("PROBE_DAEMON_WRITER_GAP_S", raising=False)
+    monkeypatch.setattr(model_mod, "_PUSHED", {})
+    assert model_mod.writer_min_gap_s() == 0
+    model_mod.remember_pushed_settings({"x-probe-writer-min-gap-s": "300"})
+    assert model_mod.writer_min_gap_s() == 300
+    model_mod.remember_pushed_settings({"x-probe-writer-min-gap-s": "soon"})
+    assert model_mod.writer_min_gap_s() == 300, "a malformed value keeps the last good one"
+    model_mod.remember_pushed_settings({"x-probe-writer-min-gap-s": "99999"})
+    assert model_mod.writer_min_gap_s() == model_mod.MAX_WRITER_GAP_S
+    monkeypatch.setenv("PROBE_DAEMON_WRITER_GAP_S", "0")
+    assert model_mod.writer_min_gap_s() == 0

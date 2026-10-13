@@ -76,6 +76,7 @@ if TYPE_CHECKING:
         radioss,
         radioss_anim,
         radioss_th,
+        step,
         stl,
         su2,
         svg,
@@ -122,6 +123,7 @@ if TYPE_CHECKING:
     from ._diff import diff, meshes_equal
     from ._error import estimate_error
     from ._feature_edges import feature_edges
+    from ._fit_primitives import fit_primitives
     from ._gpu import (
         from_cupy,
         has_cuda_device,
@@ -197,6 +199,7 @@ if TYPE_CHECKING:
     from ._region_ops import edit_regions
     from ._remesh import remesh
     from ._remesh_volume import remesh_volume
+    from ._render import render_image, render_text, snapshot
     from ._reorder import compute_bandwidth, reorder
     from ._repair import repair
     from ._sdf import (
@@ -205,6 +208,7 @@ if TYPE_CHECKING:
         sample_distance,
         surface_watertight_check,
     )
+    from ._segment import segment
     from ._sequence import (
         TimeSeries,
         blend_steps,
@@ -227,6 +231,7 @@ if TYPE_CHECKING:
     from ._tensor_invariants import tensor_invariants
     from ._tessellation import Tessellation, tessellate
     from ._transform import transform
+    from ._tui import tui
     from ._undo_green import undo_green
     from ._viewer import has_viewer, screenshot, view
     from ._voxelize import voxelize
@@ -264,6 +269,8 @@ _LAZY_ATTRS = {
     "meshes_equal": "_diff",
     "estimate_error": "_error",
     "feature_edges": "_feature_edges",
+    "fit_primitives": "_fit_primitives",
+    "segment": "_segment",
     "from_cupy": "_gpu",
     "has_cuda_device": "_gpu",
     "has_cupy": "_gpu",
@@ -339,6 +346,10 @@ _LAZY_ATTRS = {
     "remesh": "_remesh",
     "remesh_volume": "_remesh_volume",
     "compute_bandwidth": "_reorder",
+    "render_image": "_render",
+    "render_text": "_render",
+    "snapshot": "_render",
+    "tui": "_tui",
     "reorder": "_reorder",
     "repair": "_repair",
     "compute_sdf": "_sdf",
@@ -432,6 +443,7 @@ __all__ = [
     "radioss",
     "radioss_anim",
     "radioss_th",
+    "step",
     "stl",
     "su2",
     "svg",
@@ -473,6 +485,8 @@ __all__ = [
     "compute_curvature",
     "compute_normals",
     "feature_edges",
+    "fit_primitives",
+    "segment",
     "hausdorff_distance",
     "match_periodic_nodes",
     "edit_regions",
@@ -546,6 +560,10 @@ __all__ = [
     "view",
     "screenshot",
     "has_viewer",
+    "render_image",
+    "render_text",
+    "snapshot",
+    "tui",
     "to_pyvista",
     "from_pyvista",
     "to_trimesh",

@@ -10,7 +10,7 @@ from public import public
 from flufl.i18n._types import TranslationStrategy
 
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from types import ModuleType
 
 

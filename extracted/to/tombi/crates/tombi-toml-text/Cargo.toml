@@ -1,0 +1,14 @@
+[package]
+name = "tombi-toml-text"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+tombi-toml-version.workspace = true
+
+[lints]
+workspace = true

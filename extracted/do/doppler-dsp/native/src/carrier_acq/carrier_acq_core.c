@@ -53,6 +53,17 @@ dp_carrier_acq_create (double sample_rate_hz, double symbol_rate_hz,
       || design_snr < 0.0)
     return NULL;
 
+  /* Three windows are offered -- by the header, the manifest and the
+   * Python face -- Hann, Kaiser and Blackman-Harris. PSD also takes the
+   * rectangular window, which was never offered here, so it is refused
+   * rather than built (#2185). (KAPPA, below, was fit at one Hann
+   * configuration: it does not set rect apart from the other two.) The
+   * bottom of the range is PSD's to check, as the one owner of the
+   * index. */
+  /* SSOT: view=carrier_acq_window */
+  if (window > DP_PSD_WINDOW_BLACKMAN_HARRIS)
+    return NULL;
+
   if (resolution_hz <= 0.0)
     resolution_hz = symbol_rate_hz / 10.0;
   /* Floored at 3, the shortest block whose window has gain under every
@@ -68,15 +79,16 @@ dp_carrier_acq_create (double sample_rate_hz, double symbol_rate_hz,
   if (!s)
     return NULL;
 
-  s->psd = dp_psd_create (n_fft, sample_rate_hz, window, beta, zero_pad,
-                          /*full_scale=*/1.0, /*bits=*/0, /*mode=*/0 /*mean*/,
-                          /*alpha=*/0.1);
+  s->psd
+      = dp_psd_create (n_fft, sample_rate_hz, window, beta, zero_pad,
+                       /*full_scale=*/1.0, /*bits=*/0, /*mode=*/ACC_TRACE_MEAN,
+                       /*alpha=*/0.1);
   if (!s->psd)
     {
       free (s);
       return NULL;
     }
-  s->nfft = s->psd->nfft;
+  s->nfft = s->psd->k.nfft;
 
   if (psd_template_len != 0 && psd_template_len != s->nfft)
     {
@@ -268,7 +280,7 @@ static void
 carrier_acq_process_block (dp_carrier_acq_state_t *s,
                            const float _Complex   *block)
 {
-  dp_psd_accumulate (s->psd, block, s->psd->n);
+  dp_psd_accumulate (s->psd, block, s->psd->k.n);
   s->n_blocks++;
 
   bool do_test = s->sequential || (s->n_blocks == s->dwell_target);
@@ -298,7 +310,7 @@ dp_carrier_acq_steps (dp_carrier_acq_state_t *state, const float _Complex *x,
   if (state->ready || state->n_blocks >= cap)
     return;
 
-  size_t n_fft = state->psd->n;
+  size_t n_fft = state->psd->k.n;
   size_t off   = 0;
 
   if (state->carry_len > 0)
@@ -353,7 +365,7 @@ dp_carrier_acq_state_bytes (const dp_carrier_acq_state_t *s)
 {
   return sizeof (dp_state_hdr_t) + sizeof (carrier_acq_extra_t)
          + dp_psd_state_bytes (s->psd) + dp_detector_state_bytes (s->det)
-         + s->psd->n * sizeof (float _Complex);
+         + s->psd->k.n * sizeof (float _Complex);
 }
 
 void
@@ -376,9 +388,9 @@ dp_carrier_acq_get_state (const dp_carrier_acq_state_t *s, void *blob)
   /* Only the first carry_len samples are state. The rest of the buffer is
      whatever an earlier block left there, or what malloc handed back, so
      writing it made the blob a function of the allocator, not of the
-     object (#2076). The region keeps its fixed psd->n size, as
+     object (#2076). The region keeps its fixed psd->k.n size, as
      state_bytes() promises, and carries zeros past the carry. */
-  const size_t tail = s->psd->n - s->carry_len;
+  const size_t tail = s->psd->k.n - s->carry_len;
   dp_w_cf32 (&_w, s->carry_buf, s->carry_len);
   void *zeros = dp_w_reserve (&_w, tail * sizeof (float _Complex));
   if (zeros)
@@ -395,11 +407,20 @@ dp_carrier_acq_set_state (dp_carrier_acq_state_t *s, const void *blob)
   if (extra.nfft != (uint64_t)s->nfft
       || extra.dwell_target != (uint64_t)s->dwell_target
       || extra.max_n_blocks != (uint64_t)s->max_n_blocks
-      || extra.carry_len > (uint64_t)s->psd->n)
+      /* A carry is 0..n-1 samples: steps processes a full one at once, so
+         get_state never writes n, and a blob that claims it is refused
+         rather than restored into a state steps cannot reach. */
+      || extra.carry_len >= (uint64_t)s->psd->k.n)
+    return DP_ERR_INVALID;
+  /* The residual is a bin's offset within the sample rate, so it lies within
+     half of it. A forged residual of NaN or 1e298 reached the async hand-off's
+     Dll as a NaN seed phase (doppler#2103, through set_state). `!(...)` also
+     refuses a NaN, which fails every comparison. */
+  if (!(fabs (extra.residual_hz) <= 0.5 * s->sample_rate_hz))
     return DP_ERR_INVALID;
   DP_R_CHILD (&_r, dp_psd, s->psd);
   DP_R_CHILD (&_r, dp_detector, s->det);
-  dp_r_cf32 (&_r, s->carry_buf, s->psd->n);
+  dp_r_cf32 (&_r, s->carry_buf, s->psd->k.n);
   s->n_blocks    = (size_t)extra.n_blocks;
   s->ready       = (bool)extra.ready;
   s->residual_hz = extra.residual_hz;

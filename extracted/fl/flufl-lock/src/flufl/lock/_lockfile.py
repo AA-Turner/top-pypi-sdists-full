@@ -12,7 +12,7 @@ from contextlib import suppress
 from datetime import datetime, timedelta
 from enum import Enum
 from logging import NullHandler
-from typing import TYPE_CHECKING, Final, Literal, cast
+from typing import TYPE_CHECKING, Final, Literal, Self, cast
 
 from psutil import pid_exists
 from public import public
@@ -440,7 +440,7 @@ class Lock:
             return False
         return self._is_locked_no_refresh()
 
-    def __enter__(self) -> Lock:
+    def __enter__(self) -> Self:
         self.lock()
         return self
 

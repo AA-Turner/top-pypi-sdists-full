@@ -75,6 +75,16 @@ MODELS_UPLOAD_HELP_EXAMPLES = """[dim]Examples:[/dim]
     --hf-token $HUGGING_FACE_TOKEN[/primary]
 """
 
+## Projects
+PROJECTS_HELP_EXAMPLES = """[dim]Examples:[/dim]
+[dim]-[/dim] List projects you can access:
+  [primary]tg projects list[/primary]
+
+[dim]-[/dim] Switch the saved login token to one of them:
+  [primary]tg switch[/primary]
+  [primary]tg switch <project-id>[/primary]
+"""
+
 ## Fine-tuning API commands
 FINE_TUNING_HELP_EXAMPLES = """[dim]Examples:[/dim]
 [dim]-[/dim] Create a fine-tuning job:
@@ -396,6 +406,9 @@ BETA_ENDPOINTS_DEPLOY_HELP_EXAMPLES = """[dim]Examples:[/dim]
 
 [dim]-[/dim] Deploy a private model by ID onto an existing endpoint:
   [primary]tg beta endpoints deploy ml_xxxxxxxxxxxx --endpoint ep_yyyyyyyyyyyy[/primary]
+
+[dim]-[/dim] Deploy a LoRA adapter onto a dynamic (preferred) or fixed base-model deployment:
+  [primary]tg beta endpoints deploy ml_adapter --endpoint my-endpoint[/primary]
 
 [dim]-[/dim] Pin a config and start with autoscaling:
   [primary]tg beta endpoints deploy Qwen/Qwen2.5-7B --endpoint my-endpoint \\
@@ -749,6 +762,28 @@ CLUSTERS_REMEDIATIONS_CREATE_HELP_EXAMPLES = """[dim]Examples:[/dim]
   [primary]tg clusters remediations create <cluster-id> <instance-id> --mode REBOOT_VM[/primary]
 """
 
+## Training commands
+
+TRAINING_HELP_EXAMPLES = """[dim]Examples:[/dim]
+[dim]-[/dim] List model resources:
+  [primary]tg training ls-resources[/primary]
+
+[dim]-[/dim] List training sessions you created:
+  [primary]tg training ls-sessions --created-by me[/primary]
+
+[dim]-[/dim] List inference checkpoints for one session:
+  [primary]tg training ls-checkpoints --type inference --session <session-id>[/primary]
+
+[dim]-[/dim] List training checkpoints:
+  [primary]tg training ls-checkpoints --type training[/primary]
+
+[dim]-[/dim] Fetch a model resource, training session, or checkpoint by ID:
+  [primary]tg training get <id>[/primary]
+
+[dim]-[/dim] Prepare a fine-tuned adapter for FP4 inference:
+  [primary]tg training fp4 create <adapter-object-id>[/primary]
+"""
+
 ## Beta > Jig commands
 
 JIG_HELP_EXAMPLES = """[dim]Examples:[/dim]
@@ -896,4 +931,26 @@ JIG_VOLUMES_UPDATE_HELP_EXAMPLES = """[dim]Examples:[/dim]
 
 [dim]-[/dim] Snapshot your S3 bucket again as the next volume version:
   [primary]tg beta jig volumes update --name model-weights --source s3://my-bucket/weights --aws-oidc-role-arn arn:aws:iam::123456789012:role/together[/primary]
+"""
+
+TRAINING_FP4_HELP_EXAMPLES = """[dim]Examples:[/dim]
+[dim]-[/dim] Estimate the price of preparing an adapter:
+  [primary]tg training fp4 estimate <adapter-object-id>[/primary]
+
+[dim]-[/dim] Prepare an adapter and wait for the job to finish:
+  [primary]tg training fp4 create <adapter-object-id> --watch[/primary]
+
+[dim]-[/dim] Follow a running job:
+  [primary]tg training fp4 get <job-id> --watch[/primary]
+
+[dim]-[/dim] Cancel a job:
+  [primary]tg training fp4 cancel <job-id>[/primary]
+"""
+
+TRAINING_FP4_CREATE_HELP_EXAMPLES = """[dim]Examples:[/dim]
+[dim]-[/dim] Prepare the adapter's current revision:
+  [primary]tg training fp4 create <adapter-object-id>[/primary]
+
+[dim]-[/dim] Prepare a specific revision without the confirmation prompt, and wait for it:
+  [primary]tg training fp4 create <adapter-object-id> -r <revision-id> -y --watch[/primary]
 """

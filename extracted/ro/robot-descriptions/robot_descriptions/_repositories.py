@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-#
 # SPDX-License-Identifier: Apache-2.0
 
 """Git utility functions to clone model repositories."""
@@ -126,6 +124,11 @@ REPOSITORIES: Dict[str, Repository] = {
         url="https://github.com/ianathompson/eDO_description.git",
         commit="17b3f92f834746106d6a4befaab8eeab3ac248e6",
         cache_path="edo_sim",  # match package name
+    ),
+    "epfl-lasa": Repository(
+        url="https://github.com/epfl-lasa/iiwa_ros.git",
+        commit="9d2b99f1c62e1dd57c9c351958206a7ee5066785",
+        cache_path="iiwa_description",  # match package name
     ),
     "ergocub-software": Repository(
         url="https://github.com/icub-tech-iit/ergocub-software.git",
@@ -366,6 +369,11 @@ REPOSITORIES: Dict[str, Repository] = {
         commit="4e859aed7df3c29954c9cca2a1ecb94069f7cfce",
         cache_path="simple_humanoid_description",
     ),
+    "SO-ARM-102": Repository(
+        url="https://github.com/roboninecom/SO-ARM-102.git",
+        commit="a62866a6d65efa4be7fd421e318ce8e649ac806a",
+        cache_path="so_arm_102",
+    ),
     "SO-ARM100": Repository(
         url="https://github.com/TheRobotStudio/SO-ARM100.git",
         commit="63eede5a636e548eb8f2854e558bd343c21db9f7",
@@ -455,5 +463,25 @@ REPOSITORIES: Dict[str, Repository] = {
         url="https://github.com/xArm-Developer/xarm_ros2.git",
         commit="5bb832f72ca665f1236a9d8ed1c3a82f308db489",
         cache_path="xarm_ros2",
+    ),
+    "luna_description": Repository(
+        url="https://github.com/limxdynamics/luna-description.git",
+        commit="21608d34151fdedfd3c2b6fc03d1e2ba22e503a1",
+        cache_path="luna_description",
+    ),
+    "humanoid_description": Repository(
+        url="https://github.com/limxdynamics/humanoid-description.git",
+        commit="97b2174054103f9f7085ec1e3533972e4d0f2a50",
+        cache_path="humanoid_description",
+    ),
+    "tron1_robot_description": Repository(
+        url="https://github.com/limxdynamics/tron1-robot-description.git",
+        commit="5b97add1f3b461c9ed26ff2ff2f5025cc6ee4316",
+        cache_path="tron1_robot_description",
+    ),
+    "tron2_robot_description": Repository(
+        url="https://github.com/limxdynamics/tron2-robot-description.git",
+        commit="9939c22e69d27653ec0ba8a505859a2903dd1a71",
+        cache_path="tron2_robot_description",
     ),
 }

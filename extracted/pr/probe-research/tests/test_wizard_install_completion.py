@@ -20,7 +20,8 @@ main = auth.main
 def installation(entry, monkeypatch):
     """Use the real wizard and configure action; replace only external effects."""
     state = SimpleNamespace(
-        ready=set(), modes={}, missing_rules=set(), work=[], registrations=[], offers=[], handoffs=[],
+        ready=set(), modes={}, missing_rules=set(), no_capture=set(), work=[], registrations=[],
+        offers=[], handoffs=[],
     )
     save_context({"token": "probe_pat_install_test", "mcp_token": "probe_pat_read_test"})
     monkeypatch.setattr(main, "_run_wizard_action", auth.apply_wizard_action)
@@ -53,7 +54,7 @@ def installation(entry, monkeypatch):
             tracking_plugin_installed=installed,
             capture_plugin_installed=installed,
             plugins_verified=not (attempted and mode == "unverified"),
-            capture_token_sources=(TokenSource.PAIRED_FILE,),
+            capture_token_sources=() if source in state.no_capture else (TokenSource.PAIRED_FILE,),
             capture_credential_valid=True,
             mcp_authenticated=True,
             auto_update_enabled=attempted,
@@ -67,9 +68,11 @@ def installation(entry, monkeypatch):
             state.ready.add(source)
         return ["Applied."]
 
-    def register(caps, *, settings=None, complete=True):
+    def register(caps, *, settings=None, complete=True, alongside=()):
         state.registrations.append((
-            caps.agent_source, complete, client_installation.snapshot(caps, complete=complete),
+            caps.agent_source,
+            complete,
+            client_installation.snapshot(caps, complete=complete, alongside=alongside),
         ))
         return []
 
@@ -208,3 +211,16 @@ def test_wizard_signin_does_not_publish_install_completion_before_confirmation(e
     assert len(authorizations) == 1
     assert [event for event, _ in entry] == ["menu"]
     assert registrations == []
+
+
+def test_the_settled_install_reports_the_machine_not_its_last_agent(installation):
+    """Codex runs last here with no capture credential. The machine still
+    captures through Claude Code, so the one row must say `installed` -- the
+    same answer Update now gives, or every install after an update would read
+    as a removal."""
+    installation.no_capture.add("codex")
+    result = CliRunner().invoke(main.app, ["install", "--agent", "both"])
+    assert result.exit_code == 0, result.output
+    *_, (last_agent, complete, snapshot) = installation.registrations
+    assert (last_agent, complete) == ("codex", True)
+    assert snapshot["capture"] == "installed"

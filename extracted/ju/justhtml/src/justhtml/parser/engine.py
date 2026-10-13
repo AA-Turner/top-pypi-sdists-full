@@ -244,7 +244,6 @@ _TEMPLATE_INITIAL_BODY_SWITCH_TAGS = {
     "xmp",
     "textarea",
 }
-_FRAMESET_BODY_OK_TAGS = {"div", "figure", "p", "param", "source", "track"} | FORMATTING_ELEMENTS
 _FRAMESET_BLOCKING_START_TAGS = {
     "applet",
     "area",
@@ -263,6 +262,7 @@ _FRAMESET_BLOCKING_START_TAGS = {
     "wbr",
     "xmp",
 }
+_FRAMESET_BODY_BLOCKING_TAGS = _FRAMESET_BLOCKING_START_TAGS | {"br", "hr", "img", "li", "pre", "table", "template"}
 _UNWRAP_CONSTRUCTION_SKIP_TAGS = {"col", "colgroup", "form", "menuitem"}
 _FOREIGN_FULL_PARSE_TAGS = FOREIGN_BREAKOUT_ELEMENTS | {"annotation-xml", "desc", "font", "foreignobject", "title"}
 _URL_FAST_FALLBACK = object()
@@ -1194,6 +1194,7 @@ class ParseEngine:
         "_fragment_context_node",
         "_frameset_blocked",
         "_frameset_seen",
+        "_frameset_text_prefixes",
         "_has_carriage_return",
         "_has_form_feed",
         "_has_null",
@@ -1298,6 +1299,7 @@ class ParseEngine:
         self._form_element: Element | None = None
         self._frameset_blocked = False
         self._frameset_seen = False
+        self._frameset_text_prefixes: dict[Text, int] = {}
         self._has_carriage_return = "\r" in html
         self._has_form_feed = plan.raw_mode and "\f" in html
         self._has_null = "\0" in html
@@ -2119,14 +2121,17 @@ class ParseEngine:
                             self._append_comment(html[pos + 3 : comment_end], lt)
                         pos = close + 3
                     continue
-                if (
-                    self._raw_mode
-                    and _scanner.ascii_startswith(html, "<![cdata[", lt, end)
-                    and self._stack[-1].namespace not in {None, "html"}
-                ):
+                if _scanner.ascii_startswith(html, "<![cdata[", lt, end) and self._stack[-1].namespace not in {
+                    None,
+                    "html",
+                }:
                     close = html.find("]]>", pos + 8, end)
                     cdata_end = end if close == -1 else close
-                    self._append_raw_literal_text(html[pos + 8 : cdata_end], pos + 8)
+                    text = html[pos + 8 : cdata_end]
+                    if self._raw_mode:
+                        self._append_raw_literal_text(text, pos + 8)
+                    elif text.strip(_SPACE + "\0"):
+                        self._frameset_blocked = True
                     pos = end if close == -1 else close + 3
                     continue
                 if _scanner.ascii_startswith(html, "<!doctype", lt, end):
@@ -2383,6 +2388,11 @@ class ParseEngine:
                         source_pos += leading
                 self._set_colgroup_mode(False)
         text = raw
+        if parent.namespace not in _OPEN_HTML_NAMESPACES and not self._frameset_blocked:
+            # A null token inserts U+FFFD without clearing frameset-ok; a
+            # literal or character-reference U+FFFD is ordinary character data.
+            if self._clean_text(raw).strip(_SPACE):
+                self._frameset_blocked = True
         if self._has_carriage_return and "\r" in text:
             text = text.replace("\r\n", "\n").replace("\r", "\n")
         if self._has_null and "\0" in text:
@@ -5072,13 +5082,15 @@ class ParseEngine:
                 continue
             break
 
-    def _close_open_li_for_start(self) -> None:
+    def _close_open_item_for_start(self, names: tuple[str, ...]) -> None:
+        if all(self._find_open_index(name) is None for name in names):
+            return
         stack = self._stack
-        for idx in range(len(stack) - 1, 0, -1):
+        for idx in range(len(stack) - 1, 0, -1):  # pragma: no branch - an open item or special boundary ends the scan
             node = stack[idx]
             node_name = getattr(node, "name", None)
-            if node_name == "li":
-                self._generate_implied_end_tags("li")
+            if node_name in names:
+                self._generate_implied_end_tags(node_name)
                 self._mark_active_formatting_dirty()
                 del stack[idx:]
                 return
@@ -5094,12 +5106,11 @@ class ParseEngine:
             self._close_until_before_boundary("p", _P_SCOPE_BOUNDARIES)
 
         if name == "li":
-            self._close_open_li_for_start()
+            self._close_open_item_for_start(("li",))
             return
 
         if name in {"dd", "dt"}:
-            self._close_until_before_boundary("dd", _DEFINITION_SCOPE_BOUNDARIES)
-            self._close_until_before_boundary("dt", _DEFINITION_SCOPE_BOUNDARIES)
+            self._close_open_item_for_start(("dd", "dt"))
             return
 
         if name == "option":
@@ -5361,7 +5372,18 @@ class ParseEngine:
             parent = self._head
         else:
             parent = self._current_parent()
+        # Projection removes the rawtext wrapper, but its characters never
+        # run the in-body frameset-ok rule. Keep later body text distinguishable
+        # even when adjacent text nodes are merged.
+        children = cast("list[Node | Text]", parent.children)
+        if children and type(children[-1]) is Text:
+            previous = children[-1]
+            prefix = self._frameset_text_prefixes.get(previous, 0)
+            if parent is not self._head and (previous.data or "")[prefix:].strip(_SPACE):
+                self._frameset_blocked = True
         self._append(parent, self._new_text(text, text_start))
+        projected = cast("Text", children[-1])
+        self._frameset_text_prefixes[projected] = len(projected.data or "")
         return pos
 
     def _parse_rcdata_element(
@@ -5534,6 +5556,8 @@ class ParseEngine:
         return pos
 
     def _append_raw_literal_text(self, text: str, source_pos: int | None = None) -> None:
+        if self._current_parent().namespace not in _OPEN_HTML_NAMESPACES and text.strip(_SPACE + "\0"):
+            self._frameset_blocked = True
         if self._has_carriage_return and "\r" in text:
             text = text.replace("\r\n", "\n").replace("\r", "\n")
         if self._has_null and "\0" in text:
@@ -6673,7 +6697,8 @@ class ParseEngine:
                 continue
             for child in children:
                 if type(child) is Text:
-                    if (child.data or "").strip(_SPACE):
+                    prefix = 0 if self._fragment else self._frameset_text_prefixes.get(child, 0)
+                    if (child.data or "")[prefix:].strip(_SPACE):
                         return False
                     continue
                 namespace = getattr(child, "namespace", None)
@@ -6691,8 +6716,11 @@ class ParseEngine:
                     ):  # pragma: no branch - opposite edge requires invalid parser state
                         continue
                     return False
-                if child.name not in _FRAMESET_BODY_OK_TAGS:
+                if child.name in _FRAMESET_BODY_BLOCKING_TAGS:
                     return False
+                # Text-mode characters do not run the in-body frameset-ok rule.
+                if child.name in self._rawtext_element_tags or child.name in _RCDATA_TAGS:
+                    continue
                 pending.append(child)
         return True
 

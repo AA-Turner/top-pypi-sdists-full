@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: late-sdk
-Version: 1.4.1175
+Version: 1.4.1198
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -1271,11 +1271,12 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `sms.upload_sms_opt_in_proof_file()` | Upload opt-in form proof |
 | `sms.verify_sms_registration_otp()` | Submit the sole-prop OTP |
 
-### Support Runs
+### Support Assistant
 | Method | Description |
 |--------|-------------|
-| `support_runs.create_support_run()` | Start a support run (private beta) |
-| `support_runs.get_support_run()` | Get a support run (private beta) |
+| `support_assistant.list_support_answers()` | List a thread's support answers |
+| `support_assistant.get_support_answer()` | Get a support answer |
+| `support_assistant.ask_support_question()` | Ask a support question |
 
 ### Tracking Tags
 | Method | Description |

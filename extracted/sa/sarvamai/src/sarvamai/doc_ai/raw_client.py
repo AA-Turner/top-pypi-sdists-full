@@ -23,9 +23,9 @@ from ..types.doc_ai_job_status_response import DocAiJobStatusResponse
 from ..types.doc_ai_presign_upload_response import DocAiPresignUploadResponse
 from ..types.doc_ai_start_job_response import DocAiStartJobResponse
 from .types.doc_ai_digitise_request_content_type import DocAiDigitiseRequestContentType
-from .types.doc_ai_digitise_request_output_format import DocAiDigitiseRequestOutputFormat
 from .types.doc_ai_extract_request_output_format import DocAiExtractRequestOutputFormat
 from .types.doc_ai_get_results_response import DocAiGetResultsResponse
+from .types.format import Format
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -150,7 +150,6 @@ class RawDocAiClient:
         file: typing.Optional[typing.List[core.File]] = OMIT,
         upload_ids: typing.Optional[str] = OMIT,
         language: typing.Optional[str] = OMIT,
-        output_format: typing.Optional[DocAiDigitiseRequestOutputFormat] = OMIT,
         content_type: typing.Optional[DocAiDigitiseRequestContentType] = OMIT,
         model: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -173,10 +172,7 @@ class RawDocAiClient:
             Comma-separated upload IDs returned by `POST /doc-ai/v1/job/upload`. Exactly one of `file` and `upload_ids` must be provided.
 
         language : typing.Optional[str]
-            Language code of the document (BCP-47), e.g. `en-IN`, `hi-IN`.
-
-        output_format : typing.Optional[DocAiDigitiseRequestOutputFormat]
-            Output format of the digitised document.
+            Language of the document in BCP-47 format (e.g. `hi-IN`, `en-IN`). Defaults to Indic: when omitted, the document is processed as an Indic-language document. To process an English document, set `language` to `en-IN`. Sarvam Vision supports 22 Indian languages plus English; see the [Sarvam Vision model page](/api/getting-started/models/sarvam-vision) for the full list.
 
         content_type : typing.Optional[DocAiDigitiseRequestContentType]
             Nature of the document content.
@@ -203,11 +199,6 @@ class RawDocAiClient:
                     {"upload_ids": (None, jsonable_encoder(upload_ids), "text/plain")} if upload_ids is not OMIT else {}
                 ),
                 **({"language": (None, jsonable_encoder(language), "text/plain")} if language is not OMIT else {}),
-                **(
-                    {"output_format": (None, jsonable_encoder(output_format), "text/plain")}
-                    if output_format is not OMIT
-                    else {}
-                ),
                 **(
                     {"content_type": (None, jsonable_encoder(content_type), "text/plain")}
                     if content_type is not OMIT
@@ -307,7 +298,6 @@ class RawDocAiClient:
         upload_ids: typing.Optional[str] = OMIT,
         schema: typing.Optional[str] = OMIT,
         config_id: typing.Optional[str] = OMIT,
-        language: typing.Optional[str] = OMIT,
         output_format: typing.Optional[DocAiExtractRequestOutputFormat] = OMIT,
         classification: typing.Optional[str] = OMIT,
         model: typing.Optional[str] = OMIT,
@@ -338,9 +328,6 @@ class RawDocAiClient:
         config_id : typing.Optional[str]
             Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required. To get your config_id, follow the steps listed [here](/api/api-guides-tutorials/document-intelligence/how-to/get-your-config-id).
 
-        language : typing.Optional[str]
-            Language code of the document (BCP-47), e.g. `en-IN`, `hi-IN`.
-
         output_format : typing.Optional[DocAiExtractRequestOutputFormat]
             Output format of the extraction results.
 
@@ -370,7 +357,6 @@ class RawDocAiClient:
                 ),
                 **({"schema": (None, jsonable_encoder(schema), "text/plain")} if schema is not OMIT else {}),
                 **({"config_id": (None, jsonable_encoder(config_id), "text/plain")} if config_id is not OMIT else {}),
-                **({"language": (None, jsonable_encoder(language), "text/plain")} if language is not OMIT else {}),
                 **(
                     {"output_format": (None, jsonable_encoder(output_format), "text/plain")}
                     if output_format is not OMIT
@@ -525,7 +511,7 @@ class RawDocAiClient:
         self,
         job_id: str,
         *,
-        format: typing.Optional[str] = None,
+        format: typing.Optional[Format] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[DocAiGetResultsResponse]:
         """
@@ -538,10 +524,10 @@ class RawDocAiClient:
         Parameters
         ----------
         job_id : str
-            The unique identifier of the job
+            The unique identifier of the job.
 
-        format : typing.Optional[str]
-            Output format of the results, e.g. `json`.
+        format : typing.Optional[Format]
+            Output format of the results. Choose `md` for Markdown, `html` for HTML, or `json` for structured JSON. If you omit `format`, the results are returned as `json` by default.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -781,7 +767,6 @@ class AsyncRawDocAiClient:
         file: typing.Optional[typing.List[core.File]] = OMIT,
         upload_ids: typing.Optional[str] = OMIT,
         language: typing.Optional[str] = OMIT,
-        output_format: typing.Optional[DocAiDigitiseRequestOutputFormat] = OMIT,
         content_type: typing.Optional[DocAiDigitiseRequestContentType] = OMIT,
         model: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -804,10 +789,7 @@ class AsyncRawDocAiClient:
             Comma-separated upload IDs returned by `POST /doc-ai/v1/job/upload`. Exactly one of `file` and `upload_ids` must be provided.
 
         language : typing.Optional[str]
-            Language code of the document (BCP-47), e.g. `en-IN`, `hi-IN`.
-
-        output_format : typing.Optional[DocAiDigitiseRequestOutputFormat]
-            Output format of the digitised document.
+            Language of the document in BCP-47 format (e.g. `hi-IN`, `en-IN`). Defaults to Indic: when omitted, the document is processed as an Indic-language document. To process an English document, set `language` to `en-IN`. Sarvam Vision supports 22 Indian languages plus English; see the [Sarvam Vision model page](/api/getting-started/models/sarvam-vision) for the full list.
 
         content_type : typing.Optional[DocAiDigitiseRequestContentType]
             Nature of the document content.
@@ -834,11 +816,6 @@ class AsyncRawDocAiClient:
                     {"upload_ids": (None, jsonable_encoder(upload_ids), "text/plain")} if upload_ids is not OMIT else {}
                 ),
                 **({"language": (None, jsonable_encoder(language), "text/plain")} if language is not OMIT else {}),
-                **(
-                    {"output_format": (None, jsonable_encoder(output_format), "text/plain")}
-                    if output_format is not OMIT
-                    else {}
-                ),
                 **(
                     {"content_type": (None, jsonable_encoder(content_type), "text/plain")}
                     if content_type is not OMIT
@@ -938,7 +915,6 @@ class AsyncRawDocAiClient:
         upload_ids: typing.Optional[str] = OMIT,
         schema: typing.Optional[str] = OMIT,
         config_id: typing.Optional[str] = OMIT,
-        language: typing.Optional[str] = OMIT,
         output_format: typing.Optional[DocAiExtractRequestOutputFormat] = OMIT,
         classification: typing.Optional[str] = OMIT,
         model: typing.Optional[str] = OMIT,
@@ -969,9 +945,6 @@ class AsyncRawDocAiClient:
         config_id : typing.Optional[str]
             Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required. To get your config_id, follow the steps listed [here](/api/api-guides-tutorials/document-intelligence/how-to/get-your-config-id).
 
-        language : typing.Optional[str]
-            Language code of the document (BCP-47), e.g. `en-IN`, `hi-IN`.
-
         output_format : typing.Optional[DocAiExtractRequestOutputFormat]
             Output format of the extraction results.
 
@@ -1001,7 +974,6 @@ class AsyncRawDocAiClient:
                 ),
                 **({"schema": (None, jsonable_encoder(schema), "text/plain")} if schema is not OMIT else {}),
                 **({"config_id": (None, jsonable_encoder(config_id), "text/plain")} if config_id is not OMIT else {}),
-                **({"language": (None, jsonable_encoder(language), "text/plain")} if language is not OMIT else {}),
                 **(
                     {"output_format": (None, jsonable_encoder(output_format), "text/plain")}
                     if output_format is not OMIT
@@ -1156,7 +1128,7 @@ class AsyncRawDocAiClient:
         self,
         job_id: str,
         *,
-        format: typing.Optional[str] = None,
+        format: typing.Optional[Format] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[DocAiGetResultsResponse]:
         """
@@ -1169,10 +1141,10 @@ class AsyncRawDocAiClient:
         Parameters
         ----------
         job_id : str
-            The unique identifier of the job
+            The unique identifier of the job.
 
-        format : typing.Optional[str]
-            Output format of the results, e.g. `json`.
+        format : typing.Optional[Format]
+            Output format of the results. Choose `md` for Markdown, `html` for HTML, or `json` for structured JSON. If you omit `format`, the results are returned as `json` by default.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

@@ -152,6 +152,16 @@ class MockChat:
         model_name = unified_config.model
         spec = MockSpec.from_metadata(self._raw_spec(unified_config))
 
+        from matrx_ai.providers.request_capture import capture_local_request, is_capturing
+
+        if is_capturing():
+            # No wire: the request IS the unified config the mock answers from.
+            capture_local_request(
+                provider="mock",
+                model=model_name,
+                body=unified_config.to_dict() if hasattr(unified_config, "to_dict") else unified_config,
+            )
+
         if debug or self.debug:
             vcprint(
                 data={

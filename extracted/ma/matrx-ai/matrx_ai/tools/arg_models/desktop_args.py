@@ -6,7 +6,7 @@ model, held equal by the drift gate and by test_desktop_tools.py.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -348,4 +348,348 @@ class DesktopWebArgs(ToolArgs):
     count: int = Field(default=5, ge=1, le=20, description="search: results per query.")
     freshness: Literal["pd", "pw", "pm", "py"] | None = Field(
         default=None, description="search: only results from the past day, week, month or year."
+    )
+
+
+class DesktopBrowserArgs(ToolArgs):
+    action: Literal[
+        "sessions", "tabs", "read", "screenshot", "navigate", "click", "type", "close", "call"
+    ] = Field(
+        description=(
+            "sessions: the browsers connected to Matrx 2 on the user's computer; tabs: their open "
+            "tabs; read: the active tab's text; screenshot: a picture of the active tab; navigate: "
+            "open a URL in the active tab; click: click an element; type: type into an element; "
+            "close: close tabs; call: run any other AI Matrx extension tool by name. navigate, "
+            "click, type and close ask the user to confirm in the browser first."
+        ),
+    )
+    url: str | None = Field(default=None, description="navigate: the http(s) URL.")
+    selector: str | None = Field(
+        default=None, description="click, type: the element's CSS selector."
+    )
+    ref: str | None = Field(
+        default=None, description="click, type: an element ref from read (instead of a selector)."
+    )
+    text: str | None = Field(default=None, description="type: the text to type.")
+    tab_ids: list[int] | None = Field(default=None, description="close: the tabs (ids from tabs).")
+    max_chars: int = Field(
+        default=8000, ge=100, le=50000, description="read: at most this many characters."
+    )
+    tool: str | None = Field(
+        default=None, description="call: the extension tool's name, such as find_text_on_page."
+    )
+    tool_args: dict[str, Any] | None = Field(
+        default=None, description="call: that tool's arguments."
+    )
+    browser: str | None = Field(
+        default=None,
+        description="Which browser (client_instance from sessions). Omit for the one used last.",
+    )
+    timeout_s: int = Field(
+        default=120,
+        ge=5,
+        le=600,
+        description="Seconds to wait, including the user's confirmation in the browser.",
+    )
+
+
+# ── Matrx Local's remaining tools (desktop-protocol 1.37): one op per action ───────────────────
+# Times are ISO 8601 (the implementation turns them into the ops' epoch milliseconds).
+
+
+class DesktopNetArgs(ToolArgs):
+    action: Literal["info", "wifi", "bluetooth", "devices", "mdns", "scan", "download"] = Field(
+        description=(
+            "info: interfaces, addresses, gateway and DNS; wifi: the current Wi-Fi network and the ones "
+            "in range; bluetooth: paired and connected devices; devices: devices seen on the local network; "
+            "mdns: Bonjour services (or the service types when service_type is omitted); scan: which TCP "
+            "ports answer on a host on the local network; download: save a URL onto the computer."
+        ),
+    )
+    service_type: str | None = Field(
+        default=None, description="mdns: a service type such as _http._tcp."
+    )
+    host: str | None = Field(default=None, description="scan: the host name or address.")
+    ports: list[int] | None = Field(
+        default=None, description="scan: the TCP ports to try (up to 1024)."
+    )
+    allow_public: bool | None = Field(
+        default=None,
+        description="scan: true to scan a host on the public internet (only one you are allowed to scan).",
+    )
+    url: str | None = Field(default=None, description="download: the http(s) URL.")
+    path: str | None = Field(
+        default=None,
+        description="download: where to save it on the computer (a folder keeps the URL's file name).",
+    )
+    overwrite: bool | None = Field(
+        default=None, description="download: replace a file already there."
+    )
+    timeout_s: int | None = Field(
+        default=None, ge=1, le=3600, description="mdns, download: seconds to wait."
+    )
+
+
+class DesktopAutomationArgs(ToolArgs):
+    language: Literal["applescript", "jxa", "powershell"] = Field(
+        description="applescript or jxa (JavaScript for Automation) on a Mac; powershell on Windows."
+    )
+    script: str = Field(description="The script. Its output is returned as stdout.")
+    timeout_s: int = Field(default=60, ge=1, le=600, description="Seconds before it is stopped.")
+
+
+class DesktopMailArgs(ToolArgs):
+    action: Literal["accounts", "list", "send"] = Field(
+        description="accounts: the Mail app's accounts; list: messages in a mailbox, newest first; send: send an email (or leave it open as a draft)."
+    )
+    account: str | None = Field(default=None, description="list: one account's name; omit for all.")
+    mailbox: str | None = Field(default=None, description="list: the mailbox, INBOX by default.")
+    unread_only: bool | None = Field(default=None, description="list: only unread messages.")
+    limit: int | None = Field(default=None, ge=1, le=200, description="list: at most this many.")
+    to: list[str] | None = Field(default=None, description="send: recipient addresses.")
+    cc: list[str] | None = Field(default=None, description="send: copied addresses.")
+    subject: str | None = Field(default=None, description="send: the subject.")
+    body: str | None = Field(default=None, description="send: the plain-text body.")
+    sender: str | None = Field(
+        default=None, description="send: the sending address; omit for Mail's default."
+    )
+    send: bool | None = Field(
+        default=None,
+        description="send: false leaves it open in Mail as a draft for the user to send.",
+    )
+
+
+class DesktopMessagesArgs(ToolArgs):
+    action: Literal["chats", "list", "send"] = Field(
+        description="chats: recent Messages chats; list: messages, newest first (one chat or all); send: send an iMessage or SMS."
+    )
+    chat_id: str | None = Field(default=None, description="list: one chat's chat_id (from chats).")
+    limit: int | None = Field(
+        default=None, ge=1, le=500, description="chats, list: at most this many."
+    )
+    to: str | None = Field(default=None, description="send: the phone number or email to message.")
+    text: str | None = Field(default=None, description="send: the message.")
+
+
+class DesktopContactsArgs(ToolArgs):
+    action: Literal["search", "get"] = Field(
+        description="search: find contacts; get: one contact's card."
+    )
+    query: str | None = Field(
+        default=None, description="search: a name, organization, email or phone number."
+    )
+    limit: int | None = Field(default=None, ge=1, le=200, description="search: at most this many.")
+    id: str | None = Field(default=None, description="get: the contact's id (from search).")
+
+
+class DesktopCalendarArgs(ToolArgs):
+    action: Literal["events", "create_event", "reminders", "create_reminder"] = Field(
+        description="events: calendar events in a time range; create_event: add an event; reminders: open (or all) reminders; create_reminder: add a reminder."
+    )
+    start: str | None = Field(
+        default=None, description="events: range start; create_event: event start (ISO 8601)."
+    )
+    end: str | None = Field(
+        default=None, description="events: range end; create_event: event end (ISO 8601)."
+    )
+    calendar: str | None = Field(
+        default=None, description="events, create_event: one calendar's name."
+    )
+    title: str | None = Field(default=None, description="create_event, create_reminder: the title.")
+    all_day: bool | None = Field(default=None, description="create_event: an all-day event.")
+    location: str | None = Field(default=None, description="create_event: where.")
+    notes: str | None = Field(default=None, description="create_event, create_reminder: notes.")
+    list: str | None = Field(
+        default=None, description="reminders, create_reminder: one Reminders list's name."
+    )
+    due: str | None = Field(default=None, description="create_reminder: when it is due (ISO 8601).")
+    include_completed: bool | None = Field(
+        default=None, description="reminders: also completed ones."
+    )
+    limit: int | None = Field(
+        default=None, ge=1, le=500, description="events, reminders: at most this many."
+    )
+
+
+class DesktopPhotosArgs(ToolArgs):
+    action: Literal["search", "get"] = Field(
+        description="search: photos, newest first; get: one photo, optionally exported so other tools can read the file."
+    )
+    query: str | None = Field(default=None, description="search: text in the file name or title.")
+    start: str | None = Field(default=None, description="search: taken on or after (ISO 8601).")
+    end: str | None = Field(default=None, description="search: taken on or before (ISO 8601).")
+    favorites_only: bool | None = Field(default=None, description="search: only favorites.")
+    limit: int | None = Field(default=None, ge=1, le=200, description="search: at most this many.")
+    id: str | None = Field(default=None, description="get: the photo's id (from search).")
+    export: bool | None = Field(
+        default=None,
+        description="get: copy the original to a file on the computer and return its path.",
+    )
+
+
+class DesktopLocationArgs(ToolArgs):
+    timeout_s: int = Field(default=15, ge=1, le=60, description="Seconds to wait for a fix.")
+
+
+class DesktopWindowsAdminArgs(ToolArgs):
+    action: Literal[
+        "registry_read", "registry_write", "services", "service_control", "event_log", "features"
+    ] = Field(
+        description=(
+            "registry_read: a key's values and subkeys; registry_write: set or delete a value; services: "
+            "Windows services; service_control: start, stop or restart one; event_log: recent events; "
+            "features: optional Windows features."
+        ),
+    )
+    key: str | None = Field(
+        default=None,
+        description="registry_read, registry_write: the key, such as HKCU\\Software\\Example.",
+    )
+    name: str | None = Field(
+        default=None,
+        description="registry_read, registry_write: the value's name; service_control: the service's name.",
+    )
+    type: (
+        Literal[
+            "REG_SZ",
+            "REG_EXPAND_SZ",
+            "REG_MULTI_SZ",
+            "REG_DWORD",
+            "REG_QWORD",
+            "REG_BINARY",
+            "REG_NONE",
+        ]
+        | None
+    ) = Field(default=None, description="registry_write: the value's type, REG_SZ by default.")
+    data: str | None = Field(default=None, description="registry_write: the value's data.")
+    delete: bool | None = Field(
+        default=None, description="registry_write: delete the value instead."
+    )
+    service_action: Literal["start", "stop", "restart"] | None = Field(
+        default=None, description="service_control: what to do."
+    )
+    filter: str | None = Field(default=None, description="services, features: text in the name.")
+    log: str | None = Field(
+        default=None, description="event_log: System, Application, Security… (System by default)."
+    )
+    levels: list[Literal["critical", "error", "warning", "information", "verbose"]] | None = Field(
+        default=None, description="event_log: only these levels."
+    )
+    since: str | None = Field(default=None, description="event_log: only events after (ISO 8601).")
+    limit: int | None = Field(
+        default=None, ge=1, le=1000, description="services, event_log: at most this many."
+    )
+
+
+class DesktopScheduleArgs(ToolArgs):
+    action: Literal["create", "list", "cancel"] = Field(
+        description="create: run a desktop tool action on the user's computer on an interval; list: the scheduled tasks with their latest runs; cancel: stop one."
+    )
+    name: str | None = Field(default=None, description="create: a name for the task.")
+    tool: str | None = Field(
+        default=None,
+        description="create: the desktop tool to run, such as desktop_net or desktop_notes (not desktop_schedule).",
+    )
+    tool_args: dict[str, Any] | None = Field(
+        default=None, description="create: that tool's arguments, exactly as you would call it."
+    )
+    interval_s: int | None = Field(
+        default=None, ge=10, le=2_592_000, description="create: seconds between runs."
+    )
+    max_runs: int | None = Field(
+        default=None, ge=1, le=100_000, description="create: stop after this many runs."
+    )
+    run_now: bool | None = Field(default=None, description="create: also run once right away.")
+    include_finished: bool | None = Field(
+        default=None, description="list: also finished and cancelled tasks."
+    )
+    id: str | None = Field(default=None, description="cancel: the task's id (from create or list).")
+
+
+class DesktopNotesArgs(ToolArgs):
+    action: Literal["folders", "list", "read", "write", "search"] = Field(
+        description="The user's local notes (Markdown files in Documents/Matrx/Notes). folders: the folders and their note counts; list: notes, newest first; read: one note; write: create or replace a note; search: notes containing text."
+    )
+    folder: str | None = Field(
+        default=None,
+        description="list: one folder; write: the folder (General by default), such as Work/Clients.",
+    )
+    path: str | None = Field(
+        default=None, description="read: the note's path from list, such as Work/Plan.md."
+    )
+    label: str | None = Field(default=None, description="write: the note's name, without .md.")
+    content: str | None = Field(default=None, description="write: the note's Markdown.")
+    if_hash: str | None = Field(
+        default=None, description="write: only if the note is still this version (read's hash)."
+    )
+    query: str | None = Field(default=None, description="search: the text to find.")
+    limit: int | None = Field(
+        default=None, ge=1, le=2000, description="list, search: at most this many."
+    )
+
+
+class DesktopDocumentsArgs(ToolArgs):
+    action: Literal["pdf_text", "ocr", "image_resize", "office_generate"] = Field(
+        description="pdf_text: a PDF's text by page; ocr: the text in an image; image_resize: make an image smaller or convert it; office_generate: write a Word (.docx) or Excel (.xlsx) file. All on the user's computer."
+    )
+    path: str | None = Field(
+        default=None,
+        description="pdf_text, ocr, image_resize: the file on the computer; office_generate: where to write it.",
+    )
+    first_page: int | None = Field(
+        default=None, ge=1, description="pdf_text: first page (1-based)."
+    )
+    last_page: int | None = Field(default=None, ge=1, description="pdf_text: last page.")
+    max_chars: int | None = Field(
+        default=None, ge=1, le=1_048_576, description="pdf_text: at most this much text."
+    )
+    languages: list[str] | None = Field(
+        default=None, description="ocr: language hints such as en-US."
+    )
+    fast: bool | None = Field(default=None, description="ocr: faster, less accurate.")
+    out_path: str | None = Field(
+        default=None, description="image_resize: where to write the result."
+    )
+    max_size: int | None = Field(
+        default=None, ge=1, le=32_768, description="image_resize: the longest side in pixels."
+    )
+    format: Literal["png", "jpeg", "tiff", "heic", "bmp", "gif"] | None = Field(
+        default=None, description="image_resize: the output format."
+    )
+    overwrite: bool | None = Field(
+        default=None, description="image_resize, office_generate: replace a file already there."
+    )
+    kind: Literal["docx", "xlsx"] | None = Field(
+        default=None, description="office_generate: Word or Excel."
+    )
+    title: str | None = Field(default=None, description="office_generate: the document's title.")
+    paragraphs: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="office_generate docx: paragraphs in order, each {style: title|heading1|heading2|heading3|body|bullet|numbered|quote|code, text}.",
+    )
+    sheets: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="office_generate xlsx: sheets in order, each {name, rows: [[cell, …], …], header: true}.",
+    )
+
+
+class DesktopEntitiesArgs(ToolArgs):
+    action: Literal["names", "private_data"] = Field(
+        description="names: people, places and organizations in a text (on a Mac); private_data: emails, phone numbers, card numbers, SSNs, IBANs, IP addresses, URLs and API keys, found and optionally redacted. Nothing leaves the user's computer."
+    )
+    text: str = Field(description="The text to read.")
+    labels: list[Literal["person", "place", "organization"]] | None = Field(
+        default=None, description="names: only these kinds."
+    )
+    kinds: (
+        list[
+            Literal[
+                "email", "phone", "credit_card", "us_ssn", "iban", "ip_address", "url", "api_key"
+            ]
+        ]
+        | None
+    ) = Field(default=None, description="private_data: only these kinds.")
+    redact: bool | None = Field(
+        default=None,
+        description="private_data: also return the text with each finding replaced by its kind.",
     )

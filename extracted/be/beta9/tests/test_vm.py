@@ -597,8 +597,17 @@ def test_private_bind_does_not_create_public_url():
     assert "5432" not in vm.info["urls"]
 
 
-def test_ssh_helper_keeps_diagnostics_out_of_binary_transport(monkeypatch):
+@pytest.mark.parametrize("terminate", [None, "SIGHUP", "SIGTERM"])
+def test_ssh_helper_keeps_diagnostics_out_of_binary_transport(monkeypatch, terminate):
+    if terminate and not hasattr(vm_cli.signal, terminate):
+        pytest.skip(f"{terminate} is unavailable")
     output, diagnostics = io.BytesIO(), io.StringIO()
+    previous_handlers = {
+        getattr(vm_cli.signal, name): vm_cli.signal.getsignal(getattr(vm_cli.signal, name))
+        for name in ("SIGHUP", "SIGTERM")
+        if hasattr(vm_cli.signal, name)
+    }
+    ignored_signals = []
     client = MagicMock()
     monkeypatch.setattr(vm_cli, "ServiceClient", lambda config: client)
     monkeypatch.setattr(vm_cli, "get_config_context", lambda profile: SimpleNamespace())
@@ -608,15 +617,31 @@ def test_ssh_helper_keeps_diagnostics_out_of_binary_transport(monkeypatch):
     def bridge(vm, port, source, target):
         print("connection diagnostic")
         target.write(b"SSH-2.0-OpenSSH\r\n")
+        if terminate:
+            try:
+                vm_cli.signal.raise_signal(getattr(vm_cli.signal, terminate))
+            finally:
+                for sig in previous_handlers:
+                    vm_cli.signal.raise_signal(sig)
+                    ignored_signals.append(sig)
 
     monkeypatch.setattr(vm_cli, "_bridge", bridge)
     with monkeypatch.context() as patch:
         patch.setattr(vm_cli.sys, "stdout", SimpleNamespace(buffer=output))
         patch.setattr(vm_cli.sys, "stderr", diagnostics)
         patch.setattr(vm_cli.sys, "stdin", SimpleNamespace(buffer=io.BytesIO()))
-        vm_cli._run_tunnel("local", "/tmp/config.ini", "Beam", "resource", 2222)
+        if terminate:
+            with pytest.raises(SystemExit) as exit:
+                vm_cli._run_tunnel("local", "/tmp/config.ini", "Beam", "resource", 2222)
+            assert exit.value.code == 0
+        else:
+            vm_cli._run_tunnel("local", "/tmp/config.ini", "Beam", "resource", 2222)
     assert output.getvalue() == b"SSH-2.0-OpenSSH\r\n"
     assert diagnostics.getvalue() == "connection diagnostic\n"
+    assert ignored_signals == (list(previous_handlers) if terminate else [])
+    assert all(
+        vm_cli.signal.getsignal(sig) == handler for sig, handler in previous_handlers.items()
+    )
 
 
 def test_port_forward_closes_socket_with_pending_input(cli_service, monkeypatch):
@@ -675,6 +700,8 @@ def test_tunnel_drains_response_after_stdin_eof(monkeypatch):
 
         def send(self, message):
             control = json.loads(message)
+            if control["type"] == "close":
+                self.messages.put(json.dumps({"type": "input", "id": control["id"]}))
             if control["type"] == "eof":
                 self.eof = True
                 self.messages.put(json.dumps({"type": "input", "id": control["id"]}))
@@ -801,6 +828,46 @@ def test_desktop_timeout_cancels_command_and_preserves_wait_error(sandbox_vm):
     assert raised.value is error
     process.kill.assert_called_once()
     process.stderr.read.assert_not_called()
+
+
+def test_desktop_resize_registers_custom_resolution(sandbox_vm, monkeypatch):
+    vm, _ = sandbox_vm
+    desktop = vm.desktop
+    run = MagicMock(side_effect=["1920x1080 60.00", "", "", ""])
+    monkeypatch.setattr(desktop, "_run", run)
+    desktop.resize(2560, 1440)
+    assert run.call_args_list[1].args == (
+        "xrandr",
+        "--newmode",
+        "2560x1440",
+        "221.184",
+        "2560",
+        "0",
+        "0",
+        "2560",
+        "1440",
+        "0",
+        "0",
+        "1440",
+    )
+    assert run.call_args_list[2].args == ("xrandr", "--addmode", "VNC-0", "2560x1440")
+    assert run.call_args_list[3].args == (
+        "xrandr",
+        "--output",
+        "VNC-0",
+        "--mode",
+        "2560x1440",
+    )
+
+
+def test_desktop_resize_reuses_existing_resolution(sandbox_vm, monkeypatch):
+    vm, _ = sandbox_vm
+    desktop = vm.desktop
+    run = MagicMock(side_effect=["2560x1440 60.00", ""])
+    monkeypatch.setattr(desktop, "_run", run)
+    desktop.resize(2560, 1440)
+    assert run.call_count == 2
+    assert run.call_args.args == ("xrandr", "--output", "VNC-0", "--mode", "2560x1440")
 
 
 def test_creation_retry_freezes_caller_owned_metadata_and_lists():

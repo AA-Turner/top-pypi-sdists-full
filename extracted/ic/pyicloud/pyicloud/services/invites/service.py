@@ -6,23 +6,27 @@ Read (Phase 1):
   - ``InvitesService.events()`` -> ``list[Event]``
   - ``InvitesService.event(event_id)`` -> ``Event``
   - ``InvitesService.rsvps(event)`` -> ``list[Rsvp]``
+  - ``InvitesService.rsvp_image(rsvp)`` -> ``bytes | None``
   - ``InvitesService.resolve(short_guid)`` -> ``ResolvedShare``
   - ``InvitesService.accept(short_guid)`` -> ``Event``
   - ``InvitesService.raw`` -> ``CloudKitInvitesClient``
 
 Write (Phase 2):
   - ``InvitesService.rsvp(event, status, ...)`` -> ``Rsvp``
+  - ``InvitesService.cancel(event, ...)`` -> ``Event``
 
-Write operations on ``EventDetails`` (create event, publish, cancel, invite
-via link) arrive in later phases per the design doc.
+Creating events, publishing them, and inviting via link arrive in later
+phases per the design doc.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from datetime import datetime, timezone
+import json
 import logging
 from typing import Any, cast
+from urllib.parse import urlparse
 
 from pyicloud.common.cloudkit import (
     CKLookupResponse,
@@ -31,9 +35,11 @@ from pyicloud.common.cloudkit import (
     CKQueryObject,
     CKQueryResponse,
     CKRecord,
+    CKTombstoneRecord,
     CKWriteFields,
     CKWriteRecord,
     CKZoneChangesZoneReq,
+    CKZoneID,
     CKZoneIDReq,
 )
 from pyicloud.common.cloudkit.base import CloudKitExtraMode
@@ -49,10 +55,12 @@ from ._constants import (
 from .client import (
     CloudKitInvitesClient,
     InvitesApiError,
+    InvitesEntitlementError,
     InvitesError,
     ScopeLiteral,
 )
 from .codecs import decode_integrations, decode_json_bytes
+from .entitlement import CREATE_EVENT_FEATURE, FeatureAccess
 from .models.constants import (
     EventDetailsField,
     InvitesRecordType,
@@ -82,11 +90,11 @@ class EventNotFound(InvitesError):
 
 
 class InvitesService(BaseService):
-    """Typed, read-only Invites API.
+    """Typed Invites API.
 
-    Phase 1 exposes event listing, single-event lookup, RSVP listing, and the
-    public share resolution flow (``resolve`` / ``accept``). Mutating
-    operations land in subsequent phases.
+    Reads cover event listing, single-event lookup, RSVP listing, guest photo
+    download (``rsvp_image``), and public share resolution (``resolve`` /
+    ``accept``); writes cover ``rsvp()`` and ``cancel()``.
     """
 
     _CONTAINER = CONTAINER
@@ -113,6 +121,7 @@ class InvitesService(BaseService):
             base_params,
             validation_extra=cloudkit_validation_extra,
         )
+        self._feature_access: FeatureAccess | None = None
 
     @property
     def raw(self) -> CloudKitInvitesClient:
@@ -156,13 +165,117 @@ class InvitesService(BaseService):
 
     def rsvps(self, event: Event) -> list[Rsvp]:
         """Return the list of RSVPs in an event's zone."""
-        zone_id = self._zone_id_req(event.event_id, event.scope)
-        resp = self._raw.query(
+        # A zone's changes feed can report a record more than once, or report a
+        # tombstone for one it reported earlier; keep the surviving latest state.
+        latest: dict[str, CKRecord] = {}
+        for record in self._zone_records(
             self._scope_str(event.scope),
-            query=CKQueryObject(recordType=InvitesRecordType.Rsvp.value),
-            zone_id=zone_id,
+            self._zone_id_req(event.event_id, event.scope),
+            InvitesRecordType.Rsvp.value,
+        ):
+            if isinstance(record, CKTombstoneRecord):
+                latest.pop(record.recordName, None)
+            else:
+                latest[record.recordName] = record
+        return [self._rsvp_from_record(record) for record in latest.values()]
+
+    def _zone_records(
+        self, scope_str: ScopeLiteral, zone_id: CKZoneIDReq, *record_types: str
+    ) -> Iterator[CKRecord | CKTombstoneRecord]:
+        """Yield a zone's changes for the given record types.
+
+        Not by querying it: an event's own zone rejects ``records/query`` with
+        "syncToken operations supported only in SyncZone", so a per-zone query
+        works only for events shared with you. The changes feed reads any zone.
+
+        ``desiredRecordTypes`` asks Apple for those records alone; the filter is
+        kept because that projection is a request, not a guarantee. Tombstones
+        are yielded too, unfiltered because they carry no ``recordType``, so
+        callers reconcile by ``recordName``: keep the latest live record, and
+        drop the name on a tombstone.
+        """
+
+        wanted = frozenset(record_types)
+        zone_req = CKZoneChangesZoneReq(
+            zoneID=CKZoneID(**zone_id.model_dump(exclude_none=True)),
+            desiredRecordTypes=list(record_types),
         )
-        return [self._rsvp_from_record(r) for r in self._records_of(resp)]
+        for page in self._raw.iter_changes(scope_str, zone_req=zone_req):
+            for record in page.records:
+                if isinstance(record, CKTombstoneRecord) or (
+                    isinstance(record, CKRecord) and record.recordType in wanted
+                ):
+                    yield record
+
+    def _zone_rsvps_and_links(
+        self, scope_str: ScopeLiteral, zone_id: CKZoneIDReq
+    ) -> tuple[tuple[Rsvp, ...], tuple[OneTimeLinkGuest, ...]]:
+        """Read a zone's RSVPs and one-time links in one changes-feed pass.
+
+        Both record types live in the event's zone, and the changes feed is the
+        only read an event you own supports. Records are reconciled by
+        ``recordName`` (the feed can repeat one, and a tombstone deletes one),
+        and records read before a mid-feed failure are kept: hydration is
+        best-effort, and partial data beats none.
+        """
+
+        rsvps: dict[str, Rsvp] = {}
+        links: dict[str, OneTimeLinkGuest] = {}
+        try:
+            for record in self._zone_records(
+                scope_str,
+                zone_id,
+                InvitesRecordType.Rsvp.value,
+                InvitesRecordType.OneTimeLinkGuestInfo.value,
+            ):
+                if isinstance(record, CKTombstoneRecord):
+                    rsvps.pop(record.recordName, None)
+                    links.pop(record.recordName, None)
+                elif record.recordType == InvitesRecordType.Rsvp.value:
+                    rsvps[record.recordName] = self._rsvp_from_record(record)
+                else:
+                    links[record.recordName] = self._one_time_link_from_record(record)
+        except InvitesError:
+            LOGGER.debug(
+                "invites.event.zone_read_failed zone=%s",
+                zone_id.zoneName,
+                exc_info=True,
+            )
+        return tuple(rsvps.values()), tuple(links.values())
+
+    def rsvp_image(self, rsvp: Rsvp) -> bytes | None:
+        """Return the image a guest attached to their RSVP.
+
+        ``None`` when they attached none, which is the common case: the field
+        is optional and most responses carry only a monogram.
+
+        The download goes through the private container's HTTP wrapper, which
+        only supplies the session and timeouts -- the asset URL Apple returns
+        is absolute and carries its own token, so an RSVP in a shared event
+        downloads the same way as one in your own.
+        """
+
+        url = rsvp.image_download_url
+        if not url:
+            return None
+        # The download uses the authenticated session, so an attacker-supplied
+        # scheme would put iCloud credentials on the wire in the clear. Guarded
+        # the same way PhotosUploader.send_bytes guards the upload URL Apple
+        # echoes back to it, plus a real host check so a URL without a host,
+        # such as ``https:example.com/a`` or ``https://@/a``, cannot slip
+        # through.
+        try:
+            parsed = urlparse(url)
+        except ValueError as exc:
+            raise InvitesApiError(
+                f"RSVP image URL is malformed; refusing to fetch it: {url!r}"
+            ) from exc
+        if parsed.scheme != "https" or not parsed.hostname:
+            raise InvitesApiError(
+                "RSVP image URL is not an absolute HTTPS URL; refusing to "
+                f"fetch it: {url!r}"
+            )
+        return self._raw.download_asset_bytes(url)
 
     def resolve(self, short_guid: str) -> ResolvedShare:
         """Preview a share without joining it."""
@@ -293,9 +406,163 @@ class InvitesService(BaseService):
         )
         return self._rsvp_from_modify_response(response, record_name)
 
+    def cancel(self, event: Event, *, cancelled: bool = True) -> Event:
+        """Cancel an event you host, or reinstate one you cancelled.
+
+        Apple accepts both directions, so this is a symmetric switch rather
+        than a one-way verb -- an accidental cancel is recoverable.
+
+        ``event`` must carry a current record change tag, so pass one from
+        ``event()`` or from a previous write rather than reusing a stale
+        object: Apple rejects a stale tag with an opaque ``502``.
+        """
+
+        return self._set_event_flag(event, EventDetailsField.IS_CANCELLED, cancelled)
+
     # ------------------------------------------------------------------
     # Internal: write helpers
     # ------------------------------------------------------------------
+
+    def _entitlement_token(self) -> str:
+        """Return a token proving this account may edit events.
+
+        Cached until shortly before Apple's own ``cacheTill``: the grant lasts
+        a week, and fetching one per write would add a round trip for nothing.
+        """
+
+        now = datetime.now(timezone.utc)
+        cached = self._feature_access
+        if cached is not None and cached.usable_at(now):
+            return cast(str, cached.access_token)
+
+        access = self._raw.feature_access(CREATE_EVENT_FEATURE)
+        if not access.can_use or not access.access_token:
+            raise InvitesEntitlementError(
+                "This account cannot edit events. Apple gates them behind a "
+                f"subscription feature ({CREATE_EVENT_FEATURE}) and reports "
+                "it as unavailable here."
+            )
+        self._feature_access = access
+        return access.access_token
+
+    def _set_event_flag(
+        self, event: Event, field: EventDetailsField, value: bool
+    ) -> Event:
+        """Set one boolean flag on an event, and on its share.
+
+        Two operations in one atomic modify, because the share record keeps its
+        own copies of these flags and does **not** follow the event: cancelling
+        only the event leaves the share reading as live to guests.
+
+        The ``hint`` field carries the entitlement token. Without it Apple
+        answers ``502 INTERNAL_ERROR`` with no explanation at all.
+
+        Only flags the schema stores unencrypted can go through here, and a
+        read says which those are: a field Apple sends back with
+        ``isEncrypted: true`` is PCS-protected, and writing it needs a
+        ciphertext this library cannot produce. ``isCancelled`` carries no such
+        marker and takes a plain ``INT64``. ``isPublished`` does carry it, and
+        Apple answers ``BAD_REQUEST -- expected type ENCRYPTED_NUMBER_INT64``
+        to every unencrypted encoding, so publishing waits on PCS support.
+        """
+
+        if not event.record_change_tag:
+            raise InvitesApiError(
+                f"Event {event.event_id!r} has no record change tag; fetch it "
+                "via InvitesService.event(...) before writing to it."
+            )
+
+        hint = json.dumps({"subscriptionAccessToken": self._entitlement_token()})
+        flag: dict[str, Any] = {"type": "INT64", "value": int(value)}
+        scope_str = self._scope_str(event.scope)
+        zone_id = self._zone_id_req(event.event_id, event.scope)
+
+        operations = [
+            CKModifyOperation(
+                operationType="update",
+                record=CKWriteRecord(
+                    recordName=(f"{EVENT_DETAILS_RECORD_NAME_PREFIX}{event.event_id}"),
+                    recordType=InvitesRecordType.EventDetails.value,
+                    recordChangeTag=event.record_change_tag,
+                    fields=cast(
+                        CKWriteFields,
+                        {
+                            field.value: flag,
+                            EventDetailsField.HINT.value: {
+                                "type": "STRING",
+                                "value": hint,
+                            },
+                        },
+                    ),
+                ),
+            )
+        ]
+
+        share_tag = self._share_change_tag(scope_str, zone_id)
+        if share_tag is not None:
+            operations.append(
+                CKModifyOperation(
+                    operationType="update",
+                    record=CKWriteRecord(
+                        recordName=SHARE_RECORD_NAME,
+                        recordType=InvitesRecordType.Share.value,
+                        recordChangeTag=share_tag,
+                        fields=cast(CKWriteFields, {field.value: flag}),
+                    ),
+                )
+            )
+
+        response: CKModifyResponse = self._raw.modify(
+            scope_str, operations=operations, zone_id=zone_id, atomic=True
+        )
+        return self._event_from_modify_response(
+            response,
+            f"{EVENT_DETAILS_RECORD_NAME_PREFIX}{event.event_id}",
+            event.scope,
+        )
+
+    def _share_change_tag(
+        self, scope_str: ScopeLiteral, zone_id: CKZoneIDReq
+    ) -> str | None:
+        """Return the share record's own change tag, or None if unreadable.
+
+        ``EventShare`` does not carry it and an update needs it, so read it
+        back from the same lookup ``event()`` already uses. An API error
+        reading the share still gets its event updated rather than nothing;
+        auth and rate-limit failures propagate instead, because the write that
+        follows would hit the same wall.
+        """
+
+        try:
+            resp = self._raw.lookup(scope_str, [SHARE_RECORD_NAME], zone_id=zone_id)
+        except InvitesApiError:
+            LOGGER.debug("invites.share_change_tag_failed", exc_info=True)
+            return None
+        for record in self._records_of(resp):
+            if record.recordName == SHARE_RECORD_NAME:
+                return record.recordChangeTag
+        return None
+
+    def _event_from_modify_response(
+        self, response: CKModifyResponse, record_name: str, scope: EventScope
+    ) -> Event:
+        """Pick the event record out of a modify response and convert it.
+
+        Carries the new change tag so writes can be chained. ``share`` and
+        ``rsvps`` are unset, as in ``events()``.
+        """
+
+        for record in response.records:
+            if (
+                isinstance(record, CKRecord)
+                and record.recordName == record_name
+                and record.recordType == InvitesRecordType.EventDetails.value
+            ):
+                return self._event_from_record(record, scope=scope)
+        raise InvitesApiError(
+            f"Modify response did not return {record_name!r}",
+            payload=response.model_dump(mode="json"),
+        )
 
     @staticmethod
     def _current_participant_id(event: Event) -> str:
@@ -490,41 +757,7 @@ class InvitesService(BaseService):
 
         share = self._share_from_record(share_record) if share_record else None
 
-        rsvps: tuple[Rsvp, ...] = ()
-        try:
-            rsvp_resp = self._raw.query(
-                scope_str,
-                query=CKQueryObject(recordType=InvitesRecordType.Rsvp.value),
-                zone_id=zone_id,
-            )
-            rsvps = tuple(
-                self._rsvp_from_record(r) for r in self._records_of(rsvp_resp)
-            )
-        except InvitesError:
-            LOGGER.debug(
-                "invites.event.rsvp_query_failed event_id=%s",
-                event_id,
-                exc_info=True,
-            )
-
-        otl_guests: tuple[OneTimeLinkGuest, ...] = ()
-        try:
-            otl_resp = self._raw.query(
-                scope_str,
-                query=CKQueryObject(
-                    recordType=InvitesRecordType.OneTimeLinkGuestInfo.value,
-                ),
-                zone_id=zone_id,
-            )
-            otl_guests = tuple(
-                self._one_time_link_from_record(r) for r in self._records_of(otl_resp)
-            )
-        except InvitesError:
-            LOGGER.debug(
-                "invites.event.otl_query_failed event_id=%s",
-                event_id,
-                exc_info=True,
-            )
+        rsvps, otl_guests = self._zone_rsvps_and_links(scope_str, zone_id)
 
         if share is not None and otl_guests:
             share = share.model_copy(update={"one_time_links": otl_guests})

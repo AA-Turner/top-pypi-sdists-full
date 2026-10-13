@@ -8,7 +8,7 @@ from schemathesis.config._diff_base import DiffBase
 from schemathesis.config._error import ConfigError
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
 
 NOT_A_SERVER_ERROR_EXPECTED_STATUSES = ["2xx", "3xx", "4xx"]
 NEGATIVE_DATA_REJECTION_EXPECTED_STATUSES = [
@@ -160,6 +160,7 @@ class ChecksConfig(DiffBase):
     ensure_resource_availability: SimpleCheckConfig
     missing_required_header: MissingRequiredHeaderConfig
     ignored_auth: SimpleCheckConfig
+    object_level_authorization: SimpleCheckConfig
     unsupported_method: SimpleCheckConfig
     allow_header_conformance: SimpleCheckConfig
     max_response_time: MaxResponseTimeConfig
@@ -185,6 +186,7 @@ class ChecksConfig(DiffBase):
         ensure_resource_availability: SimpleCheckConfig | None = None,
         missing_required_header: MissingRequiredHeaderConfig | None = None,
         ignored_auth: SimpleCheckConfig | None = None,
+        object_level_authorization: SimpleCheckConfig | None = None,
         unsupported_method: SimpleCheckConfig | None = None,
         allow_header_conformance: SimpleCheckConfig | None = None,
         max_response_time: MaxResponseTimeConfig | None = None,
@@ -200,6 +202,7 @@ class ChecksConfig(DiffBase):
         self.ensure_resource_availability = ensure_resource_availability or SimpleCheckConfig()
         self.missing_required_header = missing_required_header or MissingRequiredHeaderConfig()
         self.ignored_auth = ignored_auth or SimpleCheckConfig()
+        self.object_level_authorization = object_level_authorization or SimpleCheckConfig()
         self.unsupported_method = unsupported_method or SimpleCheckConfig()
         self.allow_header_conformance = allow_header_conformance or SimpleCheckConfig()
         self.max_response_time = max_response_time or MaxResponseTimeConfig()
@@ -251,6 +254,7 @@ class ChecksConfig(DiffBase):
                 merge(data.get("missing_required_header", {})),
             ),
             ignored_auth=SimpleCheckConfig.from_dict(merge(data.get("ignored_auth", {}))),
+            object_level_authorization=SimpleCheckConfig.from_dict(merge(data.get("object_level_authorization", {}))),
             unsupported_method=SimpleCheckConfig.from_dict(merge(data.get("unsupported_method", {}))),
             allow_header_conformance=SimpleCheckConfig.from_dict(merge(data.get("allow_header_conformance", {}))),
             max_response_time=MaxResponseTimeConfig(limit=data.get("max_response_time")),

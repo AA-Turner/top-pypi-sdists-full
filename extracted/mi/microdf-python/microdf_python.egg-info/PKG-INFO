@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microdf-python
-Version: 1.5.11
+Version: 1.5.12
 Summary: Weighted pandas DataFrames and Series for survey microdata
 Author-email: Max Ghenis <max@policyengine.org>
 License: MIT

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import io
 import json
+import logging
+import re
 import sys
 from functools import partial
 
@@ -116,6 +118,76 @@ def test_terminal_explains_behavior_change_without_flags(monkeypatch, capsys):
     assert "Callback result discarded" in output
     assert "callback(value)" in output and "None" in output
     assert '"schema_version"' not in output
+
+
+def _passing_diff(path, **kwargs):
+    logging.getLogger("Skylos").info("Analyzing 1 files...")
+    return {
+        "status": "pass",
+        "summary": "No issues on lines changed since origin/main",
+        "findings": [],
+    }
+
+
+def test_terminal_report_ends_with_the_done_tip_for_the_users_ref(
+    monkeypatch, capsys, tmp_path
+):
+    from skylos.ui import nudge
+
+    monkeypatch.setattr(nudge, "_is_ci", lambda: False)
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+
+    code = run_verify_command(
+        [str(tmp_path), "--diff", "origin/main"], verify_change_diff_func=_passing_diff
+    )
+
+    output = re.sub(r"\x1b\[[0-9;]*m", "", capsys.readouterr().out)
+    assert code == 0
+    assert output.startswith("Verification passed")
+    last = output.strip().splitlines()[-1]
+    assert last == (
+        "To check a branch an AI agent wrote (deleted tests, loosened CI, "
+        "test-only shortcuts), run: skylos done --base origin/main"
+    )
+
+
+@pytest.mark.parametrize("extra", [[], ["--format", "short"], ["--format", "json"]])
+def test_machine_output_has_no_done_tip(monkeypatch, capsys, tmp_path, extra):
+    from skylos.ui import nudge
+
+    monkeypatch.setattr(nudge, "_is_ci", lambda: False)
+    # Redirected output is JSON; an explicit machine format wins on a terminal.
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: bool(extra))
+
+    run_verify_command(
+        [str(tmp_path), "--diff", "origin/main", *extra],
+        verify_change_diff_func=_passing_diff,
+    )
+
+    assert "skylos done" not in capsys.readouterr().out
+
+
+def test_verify_keeps_analyzer_progress_logs_out_of_the_report(
+    monkeypatch, capsys, caplog, tmp_path
+):
+    analyzer_logger = logging.getLogger("Skylos")
+    monkeypatch.setattr(analyzer_logger, "level", logging.NOTSET)
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    levels = []
+
+    def diff(path, **kwargs):
+        levels.append(analyzer_logger.getEffectiveLevel())
+        return _passing_diff(path, **kwargs)
+
+    with caplog.at_level(logging.INFO):
+        run_verify_command(
+            [str(tmp_path), "--diff", "main"], verify_change_diff_func=diff
+        )
+
+    assert levels == [logging.WARNING]
+    assert "Analyzing" not in caplog.text
+    assert "Analyzing" not in capsys.readouterr().err
+    assert analyzer_logger.level == logging.NOTSET
 
 
 def test_stdin_keeps_json_even_in_a_terminal(monkeypatch, capsys):
@@ -330,6 +402,7 @@ def test_run_verify_command_passes_declared_external_typescript_imports(
 
     assert exit_code == 0
     assert capsys.readouterr().out.strip() == (
+        "External API references unverified: 2\n"
         "PASS: No AI-code issues found; "
         "2 external references outside local API proof"
     )
@@ -597,6 +670,38 @@ def test_verify_diff_covers_committed_staged_unstaged_and_untracked(tmp_path):
         verify_change_diff(tmp_path, ref="--output=/tmp/x")
     with pytest.raises(ValueError):
         verify_change_diff(tmp_path, ref="does-not-exist")
+
+
+@needs_git
+def test_verify_diff_preserves_unavailable_api_metadata_details(tmp_path):
+    _git(tmp_path, "init", "-q")
+    source = tmp_path / "app.py"
+    source.write_text("value = 1\n")
+    _git(tmp_path, "add", "app.py")
+    _git(tmp_path, "commit", "-qm", "base")
+    source.write_text("value = 2\n")
+
+    def analyzer(*_args, **_kwargs):
+        return {
+            "analysis_summary": {
+                "ai_verification": {
+                    "state": "incomplete",
+                    "checks": [{
+                        "id": "python_installed_api_signature",
+                        "outcome": "incomplete",
+                        "skipped_references": 1,
+                        "unchecked_modules": [{"module": "requests", "reason": "installed_api_metadata_unavailable"}],
+                    }],
+                }
+            }
+        }
+
+    result = verify_change_diff(tmp_path, analyze_func=analyzer)
+
+    assert result["status"] == "incomplete"
+    assert result["coverage"]["state"] == "incomplete"
+    assert result["coverage"]["checks"][0]["file"] == "app.py"
+    assert result["coverage"]["checks"][0]["unchecked_modules"][0]["module"] == "requests"
 
 
 @needs_git

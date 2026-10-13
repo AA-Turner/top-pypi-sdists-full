@@ -27,7 +27,6 @@ from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocatio
 from schemathesis.core.result import Ok
 from schemathesis.generation.meta import CONTENT_TYPE_PROBES, REQUEST_SHAPE_PROBES, CoverageScenario, TestPhase
 from schemathesis.specs.openapi.checks import negative_data_rejection
-from schemathesis.specs.openapi.coverage._operation import iter_coverage_cases
 from schemathesis.specs.openapi.coverage._wire import quote_path_parameter
 from schemathesis.transport.prepare import prepare_request
 from schemathesis.transport.requests import REQUESTS_TRANSPORT
@@ -44,6 +43,7 @@ from test.coverage.helpers import (
     collect_cases,
     collect_coverage_cases,
     generate_cases,
+    generate_hooked_cases,
     iter_cases,
     load_schema,
     make_request_body,
@@ -1441,7 +1441,7 @@ def test_underspecified_path_parameters(ctx, cli, app_runner, snapshot_cli, sche
     )
 
 
-def test_path_parameters_arent_missing(ctx, cli, snapshot_cli):
+def test_path_parameters_arent_missing(ctx, cli):
     # When `--mode=negative`, still generate path parameters if they can't be negated
     api = ctx.openapi.apps.success()
     schema_path = ctx.openapi.write_schema(
@@ -1467,16 +1467,15 @@ def test_path_parameters_arent_missing(ctx, cli, snapshot_cli):
             }
         }
     )
-    assert (
-        cli.run(
-            str(schema_path),
-            f"--url={api.base_url}/api",
-            "--checks=not_a_server_error",
-            "--phases=coverage",
-            "--mode=negative",
-        )
-        == snapshot_cli
+    result = cli.run(
+        str(schema_path),
+        f"--url={api.base_url}/api",
+        "--checks=not_a_server_error",
+        "--phases=coverage",
+        "--mode=negative",
     )
+    assert result.exit_code == 0, result.stdout
+    assert {request.path for request in api.requests} == {"/api/organizations/0/"}
 
 
 @pytest.mark.filterwarnings("error")
@@ -3083,13 +3082,12 @@ def test_unexpected_methods_ignore_invalid_operation_on_templated_sibling(ctx):
         }
     )
     operation = schema["/items/headers"]["GET"]
+    schema.config.phases.coverage.unexpected_methods = {"patch"}
     assert [
         case.method
-        for case in iter_coverage_cases(
-            operation=operation,
+        for case in schema.iter_coverage_cases(
+            operation,
             generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods={"patch"},
             generation_config=schema.config.generation,
         )
         if case.meta.phase.data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD
@@ -3109,13 +3107,12 @@ def test_unexpected_methods_skip_sibling_parameter_missing_from_template(ctx):
         }
     )
     operation = schema["/items/headers"]["GET"]
+    schema.config.phases.coverage.unexpected_methods = {"patch"}
     assert [
         case.method
-        for case in iter_coverage_cases(
-            operation=operation,
+        for case in schema.iter_coverage_cases(
+            operation,
             generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods={"patch"},
             generation_config=schema.config.generation,
         )
         if case.meta.phase.data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD
@@ -3883,6 +3880,62 @@ def test_positive_number_multiple_above_large_minimum(ctx):
     assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases)
 
 
+# A keyword constrains only its own type, so a schema without `type` admits values of every other type too.
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"maximum": 0},
+        {"minProperties": 3},
+        {"minLength": 2},
+        {"minItems": 2},
+        {"minProperties": 65, "maximum": 0},
+    ],
+    ids=["numeric", "object", "string", "array", "mixed"],
+)
+def test_positive_untyped_schema_with_keywords(ctx, schema):
+    operation = body_operation(ctx, schema)
+    assert_bodies(operation, GenerationMode.POSITIVE, valid=True)
+
+
+@pytest.mark.parametrize(
+    ("location", "schema", "expected"),
+    [
+        (ParameterLocation.PATH, {"maxLength": 2}, ["0"]),
+        (ParameterLocation.PATH, {"format": "uuid"}, ["e3e70682-c209-1cac-a29f-6fbed82c07cd"]),
+        (ParameterLocation.QUERY, {"maxLength": 2}, []),
+        (ParameterLocation.HEADER, {"maxLength": 2}, ["00", "0"]),
+        (ParameterLocation.BODY, {"maxLength": 2}, []),
+    ],
+    ids=["path", "path-uuid", "query", "header", "form-urlencoded"],
+)
+def test_positive_untyped_schema_with_keywords_does_not_widen_string_locations(ctx, location, schema, expected):
+    path = "/items/{value}" if location == ParameterLocation.PATH else "/items"
+    if location == ParameterLocation.BODY:
+        operation = body_operation(
+            ctx,
+            {"type": "object", "properties": {"value": schema}, "required": ["value"]},
+            path=path,
+            media_type="application/x-www-form-urlencoded",
+            version="3.1.0",
+        )
+    else:
+        operation = load_schema(
+            ctx,
+            parameters=[{"name": "value", "in": location, "required": True, "schema": schema}],
+            path=path,
+            version="3.1.0",
+        )[path]["POST"]
+    container = LOCATION_TO_CONTAINER[location]
+    cases = [
+        case
+        for case in iter_cases(operation, GenerationMode.POSITIVE)
+        if location != ParameterLocation.BODY
+        or case.meta.phase.data.description.startswith("Object with valid 'value' value:")
+    ]
+
+    assert [getattr(case, container).get("value", NOT_SET) for case in cases] == expected
+
+
 def test_positive_number_boundary_respects_exclusive_bounds(ctx):
     # Boolean `exclusiveMinimum: true` + `exclusiveMaximum: true` combined with `minimum: 0`
     # / `maximum: 1` (legacy OpenAPI 3.0 form). The boundary generator's `+= 1` / `-= 1`
@@ -4050,6 +4103,20 @@ def test_negative_additional_property_values_next_to_explicit_true(ctx, app_runn
         "Incorrect type",
         "Incorrect type",
     ]
+
+
+@pytest.mark.parametrize(
+    "sibling",
+    [{"required": ["a"]}, {"maxProperties": 1}],
+    ids=["required", "max-properties"],
+)
+def test_negative_object_baseline_independent_of_key_order(ctx, sibling):
+    properties = {"properties": {"a": {"type": "integer"}}}
+    produced = []
+    for body in ({"type": "array", **properties, **sibling}, {"type": "array", **sibling, **properties}):
+        cases = iter_cases(body_operation(ctx, body), GenerationMode.NEGATIVE)
+        produced.append(sorted((case.meta.phase.data.description, repr(case.body)) for case in cases))
+    assert produced[0] == produced[1]
 
 
 def test_positive_multipart_value_for_binary_one_of_branch(ctx, app_runner):
@@ -5443,13 +5510,13 @@ def test_filter_case_hook_applied_in_coverage_phase(ctx):
     )
     operation = loaded["/foo"]["get"]
 
-    assert generate_cases(operation, GenerationMode.POSITIVE), "Expected coverage cases before filtering"
+    assert generate_hooked_cases(operation, GenerationMode.POSITIVE), "Expected coverage cases before filtering"
 
     @loaded.hook
     def filter_case(context, case):
         return False  # reject everything
 
-    assert generate_cases(operation, GenerationMode.POSITIVE) == [], (
+    assert generate_hooked_cases(operation, GenerationMode.POSITIVE) == [], (
         "filter_case hook should suppress all coverage cases"
     )
 
@@ -5468,7 +5535,7 @@ def test_map_case_hook_applied_in_coverage_phase(ctx):
         return case
 
     operation = loaded["/foo"]["get"]
-    cases = generate_cases(operation, GenerationMode.POSITIVE)
+    cases = generate_hooked_cases(operation, GenerationMode.POSITIVE)
 
     assert cases, "Expected at least one coverage case"
     assert all(c.query is None or c.query.get("injected") == "yes" for c in cases), (
@@ -6299,6 +6366,22 @@ def test_positive_object_annotations_fall_back_to_template(ctx, annotations, exp
         validator.validate(case.body)
 
 
+@pytest.mark.parametrize(
+    "annotations",
+    [{"example": 5}, {"default": "bad"}, {"examples": ["nope", 3]}, {"example": 5, "default": "bad"}],
+    ids=["example", "default", "examples", "example-and-default"],
+)
+@pytest.mark.parametrize(
+    "base",
+    [{"type": "array"}, {"type": "array", "minItems": 2}, {"type": "array", "items": {"type": "integer"}}],
+    ids=["plain", "min-items", "items"],
+)
+def test_positive_array_invalid_annotations_keep_baseline(ctx, base, annotations):
+    expected = [case.body for case in collect_coverage_cases(ctx, base, positive=True, version="3.1.0")]
+    annotated = collect_coverage_cases(ctx, {**base, **annotations}, positive=True, version="3.1.0")
+    assert [case.body for case in annotated] == expected
+
+
 def test_positive_object_example_with_invalid_format_not_yielded(ctx):
     # Schema-level example with a property value that violates format: date-time (missing timezone).
     # The invalid example must not appear as a POSITIVE coverage case.
@@ -6911,15 +6994,14 @@ def test_undeclared_method_probes_dedup_across_operations(ctx):
         },
     )
     unexpected_methods = {"options", "patch", "trace", "query"}
+    schema.config.phases.coverage.unexpected_methods = unexpected_methods
 
     seen: list[tuple[str, str]] = []
     seen_dedup: set[tuple[str, str]] = set()
     for declared in ("GET", "POST", "PUT", "DELETE"):
-        for case in iter_coverage_cases(
-            operation=schema["/items"][declared],
+        for case in schema.iter_coverage_cases(
+            schema["/items"][declared],
             generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=unexpected_methods,
             generation_config=schema.config.generation,
             unexpected_methods_seen=seen_dedup,
         ):
@@ -9862,7 +9944,7 @@ BODY_TYPE_VIOLATIONS = [[None, None], "AAA", None, False, 0]
             {"type": "string", "minLength": 2, "not": {"maxLength": 1}},
             None,
             ["000", "00"],
-            [{}, [None, None], None, False, 0],
+            [[], "0", True, {}, [None, None], None, False, 0],
         ),
         ("3.0.2", {"type": "array", "maxItems": 40000}, None, [[]], [{}, "AAA", None, False, 0]),
         (
@@ -10128,3 +10210,28 @@ def test_coverage_pattern_with_identity_escape_in_query(ctx):
     )
 
     assert_positive_coverage(schema, [{"query": {"latitude": "0"}}])
+
+
+@pytest.mark.parametrize(
+    ("target", "body"),
+    [
+        ({"type": "integer", "maximum": 10}, {"$ref": "#/components/schemas/Target", "maximum": 100}),
+        (
+            {"type": "string", "maxLength": 3},
+            {"$ref": "#/components/schemas/Target", "minLength": 2, "maxLength": 50},
+        ),
+        (
+            {"type": "object", "properties": {"a": {"type": "integer", "minimum": 5}}, "required": ["a"]},
+            {"$ref": "#/components/schemas/Target", "properties": {"a": {"type": "integer", "minimum": 0}}},
+        ),
+        (
+            {"type": "integer", "maximum": 10},
+            {"oneOf": [{"$ref": "#/components/schemas/Target", "maximum": 100}, {"type": "string"}]},
+        ),
+    ],
+    ids=["number", "string", "object", "one-of-branch"],
+)
+def test_positive_bodies_honor_ref_siblings_and_target_in_openapi_31(ctx, target, body):
+    # Draft 2020-12 applies both the `$ref` target and the keywords beside it.
+    operation = body_operation(ctx, body, version="3.1.0", components={"schemas": {"Target": target}})
+    assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases)

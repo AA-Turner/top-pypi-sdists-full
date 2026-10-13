@@ -11,7 +11,7 @@ from schemathesis.cli.context import BaseExecutionContext
 from schemathesis.cli.events import LoadingFinished
 from schemathesis.cli.ext.fs import describe_path_error
 from schemathesis.cli.summary import SummaryData, WarningData
-from schemathesis.config import ConfigError
+from schemathesis.config import ConfigError, SchemathesisWarning
 from schemathesis.core.failures import RUN_CHECKS_LABEL, is_reproducible_failure
 from schemathesis.engine import Status, StopReason, events
 from schemathesis.engine.run import PhaseName, PhaseSkipReason
@@ -40,6 +40,8 @@ class ExecutionContext(BaseExecutionContext):
     warning_collector: WarningCollector | None = None
     baseline_update: bool = False
     baseline_prune: bool = False
+    # Problems with the invocation itself, shown before the schema is loaded.
+    startup_warnings: list[str] = field(default_factory=list)
     baseline_recorded: int | None = None
     baseline_pruned: list[str] | None = None
     baseline_write_error: str | None = None
@@ -47,6 +49,9 @@ class ExecutionContext(BaseExecutionContext):
     def __post_init__(self) -> None:
         super().__post_init__()
         self.warning_collector = WarningCollector(config=self.config)
+        # Every startup warning is a timeout given in milliseconds.
+        if self.startup_warnings:
+            self.warning_collector.on_startup_warning(SchemathesisWarning.TIMEOUT_UNITS)
 
     def on_event(self, event: events.EngineEvent) -> None:
         super().on_event(event)
@@ -55,9 +60,9 @@ class ExecutionContext(BaseExecutionContext):
         if isinstance(event, LoadingFinished):
             self.config = event.config
             collector.config = event.config
-            collector.on_unmatched_filters(self, event.statistic)
+            collector.on_unmatched_filters(event.statistic)
         elif isinstance(event, events.SchemaAnalysisWarnings):
-            collector.on_schema_warnings(self, event)
+            collector.on_schema_warnings(event)
         elif isinstance(event, events.PhaseFinished):
             # A phase repeats under a time budget; a later pass that ran out of budget or was cut short
             # must not downgrade what an earlier one already found.
@@ -80,6 +85,9 @@ class ExecutionContext(BaseExecutionContext):
             # after_run failures arrive here.
             if event.failures:
                 self.statistic.record_run_check_failures(event.failures, label=RUN_CHECKS_LABEL)
+                self.exit_code = ExitCode.FAILURES
+            # Decided once the run is over, since a later success can withdraw a warning.
+            if collector.fails_the_run() and self.exit_code == ExitCode.OK:
                 self.exit_code = ExitCode.FAILURES
             self.on_engine_finished(event.stop_reason)
             self._write_baseline()
@@ -108,7 +116,8 @@ class ExecutionContext(BaseExecutionContext):
         return super().all_skipped_reason()
 
     def _write_baseline(self) -> None:
-        if self.config.baseline is None:
+        # An interrupted run never reached some operations, so it would record or prune from partial results.
+        if self.config.baseline is None or self.stop_reason is StopReason.INTERRUPTED:
             return
         path = Path(self.config.baseline)
         # A baseline that does not exist yet is created from this run, the way a lockfile is.

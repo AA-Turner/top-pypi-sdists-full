@@ -199,6 +199,9 @@ def yolo_args(tokens: list[str], *extra: str) -> dict:
     args = {key: value for key, value in args.items() if value is not None}  # null means unset, as in default.yaml
     for key in args.keys() & {"project", "name", "save_dir"}:
         args[key] = str(args[key])
+    for value in (str(args[key]) for key in args.keys() & {"model", "data"}):  # ultralytics' rule, before any request
+        if value.startswith("ul://") and (len(parts := value[5:].split("/")) != 3 or not all(parts)):
+            raise ValueError(f"Invalid Platform URI: {value}. Use ul://owner/project/model or ul://owner/datasets/name")
     if "model" in args and not str(args["model"]).startswith("ul://"):  # URIs may end in a stem
         args["model"] = str(check_model_file_from_stem(str(args["model"])))  # yolo26n -> yolo26n.pt, as YOLO does
     return args
@@ -336,6 +339,10 @@ def package_dataset(dataset: Path, destination: str, task: str | None) -> Path:
     return archive
 
 
+class CloudJobError(Exception):
+    """A cloud job Platform accepted ended without its result: failed, cancelled, gone, or missing its artifact."""
+
+
 def wait_job(fetch) -> dict:
     """Poll a submitted cloud job until it stops, drawing epoch progress when the job reports it."""
     from ultralytics.utils.tqdm import TQDM, is_noninteractive_console
@@ -347,7 +354,7 @@ def wait_job(fetch) -> dict:
         while True:
             job = fetch()
             if job is None:
-                raise ValueError("Cloud job is no longer available")
+                raise CloudJobError("Cloud job is no longer available")
             progress = job.get("progress") or {}
             if progress.get("totalEpochs") and (bar or job["status"] in active):  # epoch bar, drawn at 0 right away
                 epoch = progress["currentEpoch"]
@@ -377,7 +384,7 @@ def wait_job(fetch) -> dict:
         if bar:
             bar.close()  # also on Ctrl-C, so the interruption message starts on its own line
     if job["status"] != "completed":
-        raise ValueError(f"Cloud job {job['status']}: {(job.get('error') or {}).get('message', '')}")
+        raise CloudJobError(f"Cloud job {job['status']}: {(job.get('error') or {}).get('message', '')}")
     return job
 
 
@@ -408,7 +415,7 @@ def download_model(client: Platform, uri: str, cfg) -> int:
         directory = get_save_dir(cfg)
         files = client.models.files(*model_path)["files"]
         if not files:
-            raise ValueError("Training completed without a downloadable checkpoint")
+            raise CloudJobError("Training completed without a downloadable checkpoint")
         checkpoint = YOLO(download_file(files[0]["downloadUrl"], directory / "weights" / "best.pt")).ckpt
         YAML.save(directory / "args.yaml", checkpoint["train_args"])
         if results := checkpoint.get("train_results"):
@@ -429,19 +436,20 @@ def cloud_train(client: Platform, tokens: list[str]) -> int:
     Local .pt weights and dataset YAMLs, directories, ZIPs, or TARs are uploaded automatically.
     project= selects the output project; default: private cloud-training.
     Prints the run and its `ul cloud download` command; `watch` follows training and downloads the results instead.
+    capture_dataset_version saves an immutable version of the dataset for this run.
     """
     from ultralytics.cfg import DEFAULT_CFG_DICT, TASK2MODEL, get_cfg
     from ultralytics.utils.callbacks.platform import slugify
     from ultralytics.utils.downloads import GITHUB_ASSETS_NAMES
 
-    args = yolo_args(tokens, "watch")
+    args = yolo_args(tokens, "watch", "capture_dataset_version")
     if not isinstance(args.get("data"), str) or not args["data"]:
         raise ValueError("data= is required: use a Platform dataset URI or local dataset")
     args.setdefault("model", TASK2MODEL.get(args.get("task"), "yolo26n.pt"))
     args.setdefault("epochs", DEFAULT_CFG_DICT["epochs"])
     cfg = get_cfg(DEFAULT_CFG_DICT | args | {"mode": "train"})  # validate local-only arguments before the paid job
     gpu_type, project, name = args.pop("gpu_type", NOT_GIVEN), args.pop("project", None), args.pop("name", None)
-    watch = args.pop("watch", False)
+    watch, capture = args.pop("watch", False), args.pop("capture_dataset_version", NOT_GIVEN)
     for key in ("device", "exist_ok", "save_dir"):  # local-only arguments; the worker assigns its own GPU
         args.pop(key, None)
     if "cache" in args and not isinstance(args["cache"], str):
@@ -470,12 +478,14 @@ def cloud_train(client: Platform, tokens: list[str]) -> int:
                 time.sleep(2)
                 state = client.datasets.retrieve(dataset["owner"], dataset["dataset"])["dataset"]
             if state.get("status") == "failed":
-                raise ValueError(f"Dataset ingestion failed; inspect {args['data']}: {state.get('processingError')}")
+                raise CloudJobError(f"Dataset ingestion failed; inspect {args['data']}: {state.get('processingError')}")
         body = {"owner": owner, "project": project_slug}
         if name:
             body |= {"model": slugify(name), "name": name}
         target = client.models.create(body=body)
-        started = client.training.start(model_id=target["id"], train_args=args, gpu_type=gpu_type)
+        started = client.training.start(
+            model_id=target["id"], train_args=args, gpu_type=gpu_type, capture_dataset_version=capture
+        )
         uri = f"ul://{target['owner']}/{target['project']}/{target['model']}"
         print(f"Model: {uri}")
         print(
@@ -655,7 +665,7 @@ def cloud_export(client: Platform, tokens: list[str]) -> int:
         output(job)
         file = job.get("file") or {}
         if not file.get("downloadUrl") or not file.get("downloadFilename"):
-            raise ValueError("Export completed without a download URL or filename")
+            raise CloudJobError("Export completed without a download URL or filename")
         download_file(file["downloadUrl"], directory.expanduser() / Path(file["downloadFilename"]).name)
     except KeyboardInterrupt:  # the remote export is unaffected; this command reattaches and downloads it
         print(f"Interrupted; run `ul cloud export model={uri} export_id={export_id}` to resume", file=sys.stderr)
@@ -673,7 +683,7 @@ def cloud_download(client: Platform, tokens: list[str]) -> int:
 
     args = yolo_args(tokens)
     uri = str(args.get("model", ""))
-    if not uri.startswith("ul://") or len(uri[5:].split("/")) != 3:
+    if not uri.startswith("ul://"):
         raise ValueError("model= must be a ul://owner/project/model URI")
     return download_model(client, uri, get_cfg(DEFAULT_CFG_DICT | args | {"mode": "train"}))
 
@@ -800,6 +810,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     except APIConnectionError as error:
         print(f"Request to {platform_url()} failed: {error}", file=sys.stderr)
+        return 1
+    except CloudJobError as error:
+        print(f"Error: {error}", file=sys.stderr)
         return 1
     except (ValueError, OSError) as error:
         print(f"Error: {error}", file=sys.stderr)

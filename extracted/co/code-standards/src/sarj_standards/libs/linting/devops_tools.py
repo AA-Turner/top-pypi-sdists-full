@@ -35,26 +35,26 @@ TOOLS: Final = MappingProxyType(
     {
         tool.name: tool
         for tool in (
-            NativeTool("helm", "3.19.0", ("version", "--short"), r"^v(?P<version>\d+\.\d+\.\d+)"),
+            NativeTool("helm", "4.3.0", ("version", "--short"), r"^v(?P<version>\d+\.\d+\.\d+)"),
             NativeTool("kubeconform", "0.8.0", ("-v",), r"^v?(?P<version>\d+\.\d+\.\d+)"),
             NativeTool("kube-linter", "0.8.3", ("version",), r"v?(?P<version>\d+\.\d+\.\d+)"),
             NativeTool("shfmt", "3.14.1", ("--version",), r"^v(?P<version>\d+\.\d+\.\d+)"),
             NativeTool("shellcheck", "0.11.0", ("--version",), r"^version:[ \t]*(?P<version>\d+\.\d+\.\d+)[ \t]*\r?$"),
             NativeTool("actionlint", "1.7.12", ("-version",), r"^(?P<version>\d+\.\d+\.\d+)"),
             NativeTool("hadolint", "2.15.1", ("--version",), r"v?(?P<version>\d+\.\d+\.\d+)"),
-            NativeTool("jscpd", "5.4.0", ("--version",), r"^jscpd (?P<version>\d+\.\d+\.\d+)$", frozenset()),
+            NativeTool("jscpd", "5.4.1", ("--version",), r"^jscpd (?P<version>\d+\.\d+\.\d+)$", frozenset()),
             NativeTool("knip", "6.41.0", ("--version",), r"^(?P<version>\d+\.\d+\.\d+)$", frozenset()),
-            NativeTool("terraform", "1.15.8", ("version",), r"Terraform v(?P<version>\d+\.\d+\.\d+)"),
+            NativeTool("terraform", "1.16.5", ("version",), r"Terraform v(?P<version>\d+\.\d+\.\d+)"),
             NativeTool(
                 "tflint",
-                "0.63.1",
+                "0.64.0",
                 ("--version", "--config", str(CONFIGS_DIR / "tflint.version.hcl")),
                 r"TFLint version (?P<version>\d+\.\d+\.\d+)",
                 frozenset({2}),
             ),
             NativeTool(
                 "docker",
-                "5.1.2",
+                "5.6.0",
                 ("compose", "version", "--format", "json"),
                 r'"version"\s*:\s*"v?(?P<version>\d+\.\d+\.\d+)"',
             ),
@@ -145,7 +145,11 @@ def _version_output(argv: Sequence[str], *, root: Path, runner: ProcessRunner) -
 
 def _version(tool: NativeTool, source: str) -> str:
     if tool.name == "docker":
-        value = parse_json(source)
+        try:
+            value = parse_json(source)
+        except ValueError as error:
+            message = "Compose version protocol must be one JSON object"
+            raise NativeToolError(message) from error
         if not is_object_mapping(value) or set(value) != {"version"} or not isinstance(value.get("version"), str):
             message = "Compose version protocol must contain exactly one version string"
             raise NativeToolError(message)

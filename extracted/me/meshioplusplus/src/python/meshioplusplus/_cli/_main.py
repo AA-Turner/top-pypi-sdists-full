@@ -24,6 +24,7 @@ from . import (
     _extract_surface,
     _feature_edges,
     _find_interface,
+    _fit_primitives,
     _grid_transfer,
     _guard,
     _hausdorff,
@@ -49,9 +50,11 @@ from . import (
     _repair,
     _resample,
     _sdf,
+    _segment,
     _shrinkwrap,
     _slice,
     _smooth,
+    _snapshot,
     _sobolev,
     _split,
     _split_interface,
@@ -59,6 +62,7 @@ from . import (
     _subdivide,
     _tessellate,
     _transform,
+    _tui,
     _undo_green,
     _view,
     _voxelize,
@@ -139,6 +143,20 @@ def main(argv=None):
     )
     _feature_edges.add_args(parser)
     parser.set_defaults(func=_feature_edges.feature_edges_cmd)
+
+    parser = subparsers.add_parser(
+        "segment",
+        help="Split a surface into smooth patches bounded by its feature edges",
+    )
+    _segment.add_args(parser)
+    parser.set_defaults(func=_segment.segment_cmd)
+
+    parser = subparsers.add_parser(
+        "fit-primitives",
+        help="Fit a plane, sphere, cylinder, cone or torus to each patch",
+    )
+    _fit_primitives.add_args(parser)
+    parser.set_defaults(func=_fit_primitives.fit_primitives_cmd)
 
     parser = subparsers.add_parser(
         "region-adjacency",
@@ -515,6 +533,21 @@ def main(argv=None):
     )
     _view.add_screenshot_args(parser)
     parser.set_defaults(func=_view.screenshot_cmd)
+
+    parser = subparsers.add_parser(
+        "snapshot",
+        help="Draw a mesh in this terminal (OUT = -) or to .png/.txt/.ansi/.html/.cast, "
+        "with no display or GPU",
+    )
+    _snapshot.add_args(parser)
+    parser.set_defaults(func=_snapshot.snapshot_cmd)
+
+    parser = subparsers.add_parser(
+        "tui",
+        help="Orbit, zoom and pan a mesh inside this terminal, with no display or GPU",
+    )
+    _tui.add_args(parser)
+    parser.set_defaults(func=_tui.tui_cmd)
 
     # Nested group: `meshioplusplus data <verb>`. The inner parsers each call
     # set_defaults(func=...), which overrides the outer default, so the

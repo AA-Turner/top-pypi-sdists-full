@@ -475,3 +475,177 @@ def test_an_unfinished_run_says_unknown_for_capture_too() -> None:
     partial = client_installation.snapshot(caps, complete=False)
     assert partial["tracking"] == "unknown"
     assert partial["capture"] == "unknown"
+
+
+# ---------------------------------------------------------------------------
+# One row per MACHINE. The wizard's Update and Settings run once per coding
+# agent, and each pass used to register its own agent's state: a machine with
+# capture in Claude Code but not Codex told the server `absent`, then
+# `installed`, seconds apart on every auto-update, and each `absent` posted a
+# false "Probe removed from a machine" to #probe-usage.
+# ---------------------------------------------------------------------------
+
+
+def _agent(source: str, *, tracking: bool = True, capture: bool = True, auto_update: bool = True):
+    from probe.cli.capabilities import TokenSource
+
+    return Capabilities(
+        agent_source=source,
+        tracking_plugin_installed=tracking,
+        capture_plugin_installed=capture,
+        capture_token_sources=(TokenSource.PAIRED_FILE,) if capture else (),
+        auto_update_enabled=auto_update,
+    )
+
+
+class _Recording(_Nameable):
+    bodies: list[dict] = []
+
+    def __init__(self, **kwargs):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return None
+
+    def register_client_capabilities(self, **body):
+        type(self).bodies.append(body)
+        return {"installation_id": "install-1"}
+
+
+def _recording_client(monkeypatch) -> list[dict]:
+    bodies: list[dict] = []
+    monkeypatch.setattr(_Recording, "bodies", bodies)
+    monkeypatch.setattr(client_installation, "Client", _Recording)
+    return bodies
+
+
+SETTINGS = Settings(base_url="https://api.test", token="probe_pat_x", mcp_token=None)
+
+
+def test_a_capability_any_agent_has_is_installed_on_the_machine() -> None:
+    claude = _agent("claude_code")
+    codex = _agent("codex", tracking=False, capture=False)
+
+    for caps, alongside in ((claude, [(codex, True)]), (codex, [(claude, True)])):
+        report = client_installation.snapshot(caps, alongside=alongside)
+        assert report["capture"] == "installed"
+        assert report["tracking"] == "installed"
+    assert client_installation.snapshot(codex)["capture"] == "absent"
+
+
+def test_an_agents_later_pass_replaces_its_own_earlier_one() -> None:
+    """Turning capture off in the only agent that had it is a real removal:
+    the agent's earlier pass must not keep the machine `installed`."""
+    before = _agent("claude_code")
+    after = _agent("claude_code", capture=False)
+
+    assert client_installation.snapshot(after, alongside=[(before, True)])["capture"] == "absent"
+
+
+def test_auto_update_is_read_from_the_newest_pass() -> None:
+    """A device setting, not a per-agent one: the newest read is the truth."""
+    earlier = _agent("claude_code", auto_update=True)
+    latest = _agent("codex", auto_update=False)
+
+    assert client_installation.snapshot(latest, alongside=[(earlier, True)])["auto_update"] == "off"
+
+
+def test_a_merged_run_registers_the_machine_once(monkeypatch) -> None:
+    bodies = _recording_client(monkeypatch)
+
+    with client_installation.merged_registration() as warnings:
+        assert client_installation.register(_agent("codex", capture=False), settings=SETTINGS) == []
+        assert client_installation.register(_agent("claude_code"), settings=SETTINGS) == []
+        assert bodies == []
+
+    assert warnings == []
+    assert bodies == [{
+        "schema_version": 2,
+        "auto_update": "on",
+        "tracking": "installed",
+        "capture": "installed",
+    }]
+
+
+def test_a_merged_run_that_raises_registers_nothing(monkeypatch) -> None:
+    """The row keeps its last state, which can never read as a removal."""
+    bodies = _recording_client(monkeypatch)
+
+    try:
+        with client_installation.merged_registration():
+            client_installation.register(_agent("codex", capture=False), settings=SETTINGS)
+            raise RuntimeError("the second agent's pass died")
+    except RuntimeError:
+        pass
+
+    assert bodies == []
+    client_installation.register(_agent("codex", capture=False), settings=SETTINGS)
+    assert len(bodies) == 1, "the hold must not outlive its block"
+
+
+def test_nested_merged_runs_register_once(monkeypatch) -> None:
+    bodies = _recording_client(monkeypatch)
+
+    with client_installation.merged_registration():
+        with client_installation.merged_registration():
+            client_installation.register(_agent("claude_code"), settings=SETTINGS)
+        client_installation.register(_agent("codex", capture=False), settings=SETTINGS)
+        assert bodies == []
+
+    assert [body["capture"] for body in bodies] == ["installed"]
+
+
+def test_an_agent_that_did_not_finish_cannot_report_a_removal(monkeypatch) -> None:
+    """Settings contains each agent's failure and carries on. The failed agent's
+    `unknown` must neither blank what a finished agent reports nor let the
+    machine read as `absent`."""
+    bodies = _recording_client(monkeypatch)
+
+    with client_installation.merged_registration():
+        client_installation.register(_agent("codex", capture=False), settings=SETTINGS, complete=False)
+        client_installation.register(_agent("claude_code", tracking=False), settings=SETTINGS)
+
+    assert [(body["tracking"], body["capture"]) for body in bodies] == [("unknown", "installed")]
+
+
+def test_a_run_where_no_agent_finished_reports_unknown(monkeypatch) -> None:
+    bodies = _recording_client(monkeypatch)
+
+    with client_installation.merged_registration():
+        client_installation.register(_agent("claude_code"), settings=SETTINGS, complete=False)
+        client_installation.register(_agent("codex"), settings=SETTINGS, complete=False)
+
+    assert [(body["tracking"], body["capture"]) for body in bodies] == [("unknown", "unknown")]
+
+
+def test_settings_registers_the_machine_once(monkeypatch) -> None:
+    """Settings applies a toggle through CONFIGURE once per agent, and each
+    CONFIGURE registers: the same flip as Update, on every toggle."""
+    import importlib
+    import os
+
+    from probe.cli import doctor, setup
+
+    cli_main = importlib.import_module("probe.cli.main")
+    bodies = _recording_client(monkeypatch)
+    agents = {
+        "codex": _agent("codex", capture=False),
+        "claude_code": _agent("claude_code"),
+    }
+    monkeypatch.setattr(doctor, "collect", lambda: agents[os.environ["PROBE_AGENT"]])
+
+    def _configure(action, *, caps, **kwargs):
+        return cli_main._register_local_capabilities(caps, settings=SETTINGS)
+
+    monkeypatch.setattr(cli_main, "_run_wizard_action", _configure)
+
+    cli_main._apply_capability_settings(
+        {setup.Setting.AUTO_UPDATE: True},
+        caps_by_source=agents,
+        base_now="https://api.test",
+    )
+
+    assert [body["capture"] for body in bodies] == ["installed"]

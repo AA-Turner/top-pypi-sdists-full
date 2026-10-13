@@ -10,6 +10,7 @@ from xml.etree import ElementTree
 import pytest
 import requests
 import yaml
+from _pytest.main import ExitCode
 from flask import jsonify, request
 
 import schemathesis
@@ -19,13 +20,17 @@ from schemathesis.cli.commands.fuzz.context import FuzzExecutionContext
 from schemathesis.cli.commands.run.handlers.allure import AllureHandler
 from schemathesis.cli.commands.run.handlers.base import EventHandler
 from schemathesis.cli.commands.run.handlers.junitxml import JunitXMLHandler
+from schemathesis.cli.summary import build_operations
 from schemathesis.config import SchemathesisConfig
 from schemathesis.core.failures import ServerError
+from schemathesis.core.statistic import ApiStatistic
 from schemathesis.core.transport import Response
-from schemathesis.engine import Status, events
+from schemathesis.engine import Status, StopReason, events
 from schemathesis.engine.events import EngineFinished
 from schemathesis.engine.fuzz._executor import FUZZ_TESTS_LABEL
 from schemathesis.engine.recorder import ScenarioRecorder
+from schemathesis.engine.statistic import Statistic
+from test.apps.fragments.schemas import linked_users
 from test.utils import assert_cli_snapshot
 
 
@@ -37,12 +42,32 @@ class _RaisingEngine:
 USERS_OK_PATHS = {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}}
 
 
+def _parse_operations_summary(output):
+    block = output.partition("API Operations:\n")[2].partition("\n\n")[0]
+    counts = {
+        label.lower(): int(value)
+        for label, value in re.findall(r"^  (Selected|Tested|Skipped|Errored): (\d+)", block, re.MULTILINE)
+    }
+    reasons = set(re.findall(r"^    - (.+)", block, re.MULTILINE))
+    return counts, reasons
+
+
 def _make_fuzz_failure_app(ctx, app_runner):
     app, _ = ctx.openapi.make_flask_app(USERS_OK_PATHS)
 
     @app.route("/users")
     def users():
         return jsonify({}), 500
+
+    return app_runner.openapi_url(app)
+
+
+def _make_multi_operation_failure_app(ctx, app_runner):
+    paths = {f"/failure/{idx}": {"get": {"responses": {"200": {"description": "OK"}}}} for idx in range(3)}
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    for idx in range(3):
+        app.add_url_rule(f"/failure/{idx}", endpoint=f"failure_{idx}", view_func=lambda: ({}, 500))
 
     return app_runner.openapi_url(app)
 
@@ -62,6 +87,66 @@ def _make_slow_fuzz_app(ctx, app_runner):
 def test_fuzz_basic(cli, app_runner, ctx, snapshot_cli):
     url = _make_fuzz_app(ctx, app_runner)
     assert_cli_snapshot(cli.main("fuzz", url, "--max-time=30"), snapshot_cli)
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_fuzz_final_line_when_no_checks_ran(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
+    assert cli.main("fuzz", api.schema_url, "--max-time=30", config={"checks": {"enabled": False}}) == snapshot_cli
+
+
+def test_fuzz_operations_summary_accounts_for_failure_limit(ctx, cli, app_runner):
+    url = _make_multi_operation_failure_app(ctx, app_runner)
+
+    result = cli.main("fuzz", url, "--max-time=30", "--checks=not_a_server_error")
+    counts, reasons = _parse_operations_summary(result.stdout)
+
+    assert counts["skipped"] > 0, result.stdout
+    assert counts["selected"] == counts["tested"] + counts["skipped"] + counts.get("errored", 0), result.stdout
+    assert "Failure limit reached" in reasons, result.stdout
+
+
+# A step left unanswered when the failure limit stops the scenario never had a chance to run checks.
+def test_fuzz_operations_summary_unanswered_step_is_skipped_by_failure_limit(ctx):
+    ok = {"get": {"responses": {"200": {"description": "OK"}}}}
+    schema = ctx.openapi.load_schema({"/answered": ok, "/unanswered": ok})
+    answered = schema["/answered"]["GET"].Case()
+    unanswered = schema["/unanswered"]["GET"].Case()
+    recorder = ScenarioRecorder(label=FUZZ_TESTS_LABEL)
+    recorder.record_case(parent_id=None, case=answered, transition=None, is_transition_applied=False)
+    recorder.record_response(
+        case_id=answered.id,
+        response=Response(
+            status_code=200,
+            headers={},
+            content=b"{}",
+            request=requests.Request(method="GET", url="http://127.0.0.1/answered").prepare(),
+            elapsed=0.1,
+            verify=False,
+        ),
+    )
+    recorder.record_check_success(name="not_a_server_error", case_id=answered.id)
+    recorder.record_case(parent_id=answered.id, case=unanswered, transition=None, is_transition_applied=False)
+    statistic = Statistic()
+    statistic.on_scenario_finished(recorder, failure_label=lambda case: case.operation.label)
+    api_statistic = ApiStatistic()
+    api_statistic.operations.total = api_statistic.operations.selected = 2
+
+    operations = build_operations(
+        api_statistic=api_statistic, statistic=statistic, errors=set(), stop_reason=StopReason.FAILURE_LIMIT
+    )
+
+    assert (operations.tested, operations.skipped, operations.skip_reasons) == (1, 1, ["Failure limit reached"])
+
+
+def test_fuzz_operations_summary_accounts_for_disabled_checks(ctx, cli):
+    api = ctx.openapi.apps.success()
+
+    result = cli.main("fuzz", api.schema_url, "--max-time=30", config={"checks": {"enabled": False}})
+    counts, reasons = _parse_operations_summary(result.stdout)
+
+    assert counts["selected"] == counts["tested"] + counts["skipped"] + counts.get("errored", 0), result.stdout
+    assert "No checks ran" in reasons, result.stdout
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -123,6 +208,48 @@ def test_fuzz_final_line_with_error(cli, app_runner, ctx, snapshot_cli):
     )
 
 
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_fuzz_interrupted(cli, app_runner, ctx, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [{"name": "q", "in": "query", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/items")
+    def items():
+        return jsonify({})
+
+    module = ctx.write_pymodule(
+        """
+calls = 0
+
+@schemathesis.hook
+def after_call(context, case, response):
+    global calls
+    calls += 1
+    if calls > 20:
+        raise KeyboardInterrupt
+"""
+    )
+    assert_cli_snapshot(
+        cli.main(
+            "fuzz",
+            app_runner.openapi_url(app),
+            "--checks=not_a_server_error",
+            "--max-time=30",
+            "--workers=1",
+            hooks=module,
+        ),
+        snapshot_cli,
+    )
+
+
 @pytest.mark.parametrize(
     ("make_app", "args", "expected"),
     [
@@ -176,6 +303,24 @@ def test_fuzz_budget_too_small_for_startup_still_runs_a_scenario(cli, app_runner
     assert "Tested: 1" in result.stdout, result.stdout
 
 
+# Steps after the first failure in a scenario were already sent, so their responses are checked too.
+def test_fuzz_checks_steps_after_a_failure(cli, app_runner, ctx):
+    app, _ = ctx.openapi.make_flask_app(
+        {f"/{name}": {"get": {"responses": {"200": {"description": "OK"}}}} for name in ("failure", "a", "b", "c")}
+    )
+    requested = set()
+
+    @app.route("/<name>")
+    def endpoint(name):
+        requested.add(name)
+        return (jsonify({}), 500) if name == "failure" else jsonify({})
+
+    result = cli.main("fuzz", app_runner.openapi_url(app), "--max-time=30")
+
+    assert "skipped" not in result.stdout, result.stdout
+    assert f"Tested: {len(requested)}\n" in result.stdout, result.stdout
+
+
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_fuzz_final_line_empty_test_suite(cli, app_runner, ctx, snapshot_cli):
     url = _make_fuzz_app(ctx, app_runner)
@@ -183,8 +328,34 @@ def test_fuzz_final_line_empty_test_suite(cli, app_runner, ctx, snapshot_cli):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
+def test_fuzz_unmatched_filter_suggests_the_operation_it_nearly_names(cli, ctx, snapshot_cli):
+    api = ctx.openapi.apps.success()
+    assert_cli_snapshot(cli.main("fuzz", api.schema_url, "--include-path=/api/succes"), snapshot_cli)
+
+
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [({"warnings": {"fail-on": ["unmatched_filter"]}}, ExitCode.TESTS_FAILED), ({}, ExitCode.OK)],
+    ids=["fail-on", "default"],
+)
+def test_fuzz_unmatched_filter_with_fail_on(cli, ctx, config, expected):
+    api = ctx.openapi.apps.success()
+    result = cli.main(
+        "fuzz", api.schema_url, "--include-path=/api/success", "--include-path=/api/nope", "--max-time=1", config=config
+    )
+    assert (result.exit_code, "Unmatched filters" in result.stdout) == (expected, True)
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
 def test_fuzz_fatal_error_loader(cli, snapshot_cli):
     assert_cli_snapshot(cli.main("fuzz", "http://127.0.0.1:1/openapi.json"), snapshot_cli)
+
+
+def test_fuzz_fatal_error_loader_omits_wait_for_schema_tip_when_set(cli):
+    result = cli.main("fuzz", "http://127.0.0.1:1/openapi.json", "--wait-for-schema=1")
+
+    assert "Connection failed" in result.stdout, result.stdout
+    assert "Tip:" not in result.stdout, result.stdout
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -494,25 +665,38 @@ def test_fuzz_all_operations_have_schema_errors(cli, app_runner, ctx, snapshot_c
 
 
 @pytest.mark.parametrize(
-    ("config", "expected"),
+    "config",
     [
-        ({"fuzz": {"max-time": 2}}, 2),
-        ({"max-time": 5}, 5),
-        ({"max-time": 5, "fuzz": {"max-time": 2}}, 2),
+        {"fuzz": {"max-time": 1}},
+        {"max-time": 1},
+        {"max-time": 60, "fuzz": {"max-time": 1}},
     ],
     ids=["fuzz-section", "root", "fuzz-section-over-root"],
 )
-def test_fuzz_max_time_from_config(cli, ctx, app_runner, monkeypatch, config, expected):
-    url = _make_fuzz_app(ctx, app_runner)
-    captured = {}
+def test_fuzz_max_time_from_config(cli, ctx, app_runner, tmp_path, config):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/users": {
+                "get": {
+                    "parameters": [{"name": "q", "in": "query", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
 
-    def fake_execute(**kwargs):
-        captured["fuzz_config"] = kwargs["fuzz_config"]
+    @app.route("/users")
+    def users():
+        return jsonify([])
 
-    monkeypatch.setattr(fuzz_executor, "execute", fake_execute)
-    result = cli.main("fuzz", url, "--mode=positive", config=config)
-    assert result.exit_code == 0, result.output
-    assert captured["fuzz_config"].max_time == expected
+    report_path = tmp_path / "report.json"
+    result = cli.main(
+        "fuzz", app_runner.openapi_url(app), "--mode=positive", f"--report-json-path={report_path}", config=config
+    )
+    report = json.loads(report_path.read_text())
+    assert (result.exit_code, report["stop_reason"], report["running_time"] < 30) == (0, "max_time", True), (
+        result.output
+    )
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -727,8 +911,6 @@ def test_fuzz_chains_via_request_body_link(cli, app_runner, ctx, snapshot_cli):
 
     @app.route("/audit", methods=["POST"])
     def audit_product():
-        from flask import request
-
         data = request.get_json(silent=True) or {}
         if not isinstance(data, dict):
             return "", 400
@@ -801,33 +983,9 @@ def test_fuzz_deadline_does_not_flake_strategy(cli, app_runner, ctx):
     assert result.exit_code == 0
 
 
-LINKED_USERS_PATHS = {
-    "/users": {
-        "post": {
-            "responses": {
-                "201": {
-                    "description": "OK",
-                    "content": {
-                        "application/json": {"schema": {"type": "object", "properties": {"id": {"type": "integer"}}}}
-                    },
-                    "links": {"GetUser": {"operationId": "getUser", "parameters": {"userId": "$response.body#/id"}}},
-                }
-            }
-        }
-    },
-    "/users/{userId}": {
-        "get": {
-            "operationId": "getUser",
-            "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "integer"}}],
-            "responses": {"200": {"description": "OK"}},
-        }
-    },
-}
-
-
 def test_fuzz_inherits_the_root_time_limit(cli, app_runner, ctx, tmp_path):
     # The root budget covers both commands, so fuzzing stops before the failure this app starts serving.
-    app, _ = ctx.openapi.make_flask_app(LINKED_USERS_PATHS)
+    app, _ = ctx.openapi.make_flask_app(linked_users())
     started = time.monotonic()
 
     @app.route("/users", methods=["POST"])
@@ -922,3 +1080,16 @@ def fails_in_first_worker(ctx, response, case):
     )
 
     assert "Stop reason: Failure limit reached" in result.stdout, result.stdout
+
+
+def test_fuzz_keyboard_interrupt_is_named_in_the_final_line(ctx, cli):
+    api = ctx.openapi.apps.success()
+    module = ctx.write_pymodule(
+        """
+@schemathesis.hook
+def after_call(context, case, response):
+    raise KeyboardInterrupt
+"""
+    )
+    result = cli.main("fuzz", api.schema_url, "--max-time=30", hooks=module)
+    assert re.fullmatch(r"=+ Interrupted after \d+\.\d{2}s =+", result.stdout.strip().splitlines()[-1])

@@ -75,6 +75,26 @@ DEFAULT_RETRY_BACKOFF_SECONDS = 5.0
 # `coverage_complete=true` (FOUND_DEFECTS 2026-07-29 F3). The store cap is a
 # zombie backstop, never the retry policy — the crawler decides retries.
 DEFAULT_ITEM_MAX_ATTEMPTS = 12
+# A resume's carry-over: an earlier execution's item in one of these states was
+# finished for good and is never fetched again; in one of the carry states it
+# is seeded into the new execution. NO cap: every unfinished item is carried.
+_PRIOR_DONE_STATES = frozenset({WorkItemState.SUCCEEDED, WorkItemState.FAILED})
+_PRIOR_CARRY_STATES = (
+    WorkItemState.PENDING,
+    WorkItemState.IN_PROGRESS,
+    WorkItemState.DEAD_LETTER,
+)
+#: Items seeded (and done-checked) per round-trip while carrying a frontier.
+#: A batch size, never a cap — the carry runs until every item is across.
+PRIOR_CARRY_BATCH = 1_000
+
+
+class FrontierCarryError(RuntimeError):
+    """A resume could not carry its earlier frontier forward completely.
+
+    Raised (never logged-and-continued) so a resume that would silently lose
+    unfinished pages refuses to start instead.
+    """
 
 
 logger = logging.getLogger(__name__)
@@ -101,8 +121,14 @@ class RuntimeWorkQueueBackend:
         lease_seconds: int = DEFAULT_ITEM_LEASE_SECONDS,
         retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
         engine: ExecutionEngine | None = None,
+        prior_execution_ids: list[str] | None = None,
     ) -> None:
         self._store = store
+        # Earlier, now-terminal executions of the SAME crawl session (a resume
+        # after a crash, error or stop; a terminal execution can never reopen).
+        # Their frontier is carried forward: what they finished is not fetched
+        # again, what they left is seeded here (`carry_over_prior_frontier`).
+        self._prior_execution_ids = list(prior_execution_ids or [])
         self._execution_id = execution_id
         self._holder = holder
         self._lease_seconds = lease_seconds
@@ -134,11 +160,88 @@ class RuntimeWorkQueueBackend:
             max_attempts=DEFAULT_ITEM_MAX_ATTEMPTS,
         )
 
+    async def _done_in_prior(self, keys: list[str]) -> set[str]:
+        """Which canonical keys an earlier execution of this session settled
+        for good (fetched, or recorded failed) — never fetched again."""
+        done: set[str] = set()
+        if not keys:
+            return done
+        for prior in self._prior_execution_ids:
+            states = await self._store.work_item_states(prior, keys)
+            done.update(k for k, st in states.items() if st in _PRIOR_DONE_STATES)
+        return done
+
+    async def carry_over_prior_frontier(self) -> int:
+        """Seed EVERYTHING the earlier executions left unfinished into this one.
+
+        Pending, in-progress (a dead process's claims) and dead-lettered items
+        come forward with their depth/parent payload; a key finished in ANY
+        earlier execution is skipped. There is no cap: each earlier execution's
+        unfinished items are read in full (the read is sized from the store's
+        own counts) and seeded in batches of `PRIOR_CARRY_BATCH`. Afterwards
+        every carried key is verified present in this execution — anything
+        missing raises `FrontierCarryError`, so nothing is ever lost silently.
+        Returns how many items newly landed."""
+        carried: dict[str, WorkItemSeed] = {}
+        for prior in self._prior_execution_ids:
+            counts = await self._store.work_item_counts(prior)
+            unfinished = sum(int(counts.get(st, 0)) for st in _PRIOR_CARRY_STATES)
+            if not unfinished:
+                continue
+            items = await self._store.list_work_items(
+                prior, states=list(_PRIOR_CARRY_STATES), limit=unfinished
+            )
+            if len(items) < unfinished:
+                raise FrontierCarryError(
+                    f"execution {prior} reports {unfinished} unfinished item(s) but "
+                    f"only {len(items)} could be read; refusing a resume that would "
+                    f"lose {unfinished - len(items)} of them"
+                )
+            for it in items:
+                carried.setdefault(
+                    it.canonical_key,
+                    WorkItemSeed(
+                        canonical_key=it.canonical_key,
+                        raw_key=it.raw_key,
+                        payload=it.payload,
+                        max_attempts=DEFAULT_ITEM_MAX_ATTEMPTS,
+                    ),
+                )
+        keys = list(carried)
+        landed = 0
+        expected: list[str] = []
+        for i in range(0, len(keys), PRIOR_CARRY_BATCH):
+            batch = keys[i : i + PRIOR_CARRY_BATCH]
+            done = await self._done_in_prior(batch)
+            seeds = [carried[k] for k in batch if k not in done]
+            if not seeds:
+                continue
+            expected.extend(seed.canonical_key for seed in seeds)
+            landed += len(await self._store.seed_work_items(self._execution_id, seeds, now=_now()))
+        missing = 0
+        for i in range(0, len(expected), PRIOR_CARRY_BATCH):
+            batch = expected[i : i + PRIOR_CARRY_BATCH]
+            present = await self._store.existing_work_item_keys(self._execution_id, batch)
+            missing += len(set(batch) - present)
+        if missing:
+            raise FrontierCarryError(
+                f"{missing} of {len(expected)} unfinished item(s) from the earlier "
+                f"execution(s) did not land in {self._execution_id}; refusing to "
+                "resume and lose them"
+            )
+        if expected:
+            logger.info(
+                "durable crawl frontier: carried %s unfinished item(s) (%s newly landed) "
+                "from %s earlier execution(s) into %s",
+                len(expected),
+                landed,
+                len(self._prior_execution_ids),
+                self._execution_id,
+            )
+        return landed
+
     async def enqueue(self, item: QueueItem) -> bool:
-        landed = await self._store.seed_work_items(
-            self._execution_id, [self._seed(item)], now=_now()
-        )
-        return bool(landed)
+        return bool(await self.enqueue_many([item]))
 
     async def enqueue_many(self, items: list[QueueItem]) -> list[QueueItem]:
         # De-dupe within the batch by canonical identity (a page links the same URL
@@ -146,6 +249,8 @@ class RuntimeWorkQueueBackend:
         by_key: dict[str, QueueItem] = {}
         for item in items:
             by_key.setdefault(normalize_url(item.url), item)
+        for key in await self._done_in_prior(list(by_key)):
+            by_key.pop(key, None)  # finished by an earlier execution of this crawl
         if not by_key:
             return []
         landed = set(
@@ -209,9 +314,35 @@ class RuntimeWorkQueueBackend:
                     item_id,
                 )
 
-    async def mark_failed(self, url: str, error: str, will_retry: bool = False) -> None:
+    async def renew_held_leases(self) -> int:
+        """Extend the lease of every claim this backend still holds.
+
+        Called by the crawler's run loop every third of the lease, so a live
+        crawl's claims never expire while a page waits (a long 429 pause) —
+        only a dead process's do, which is what the lease is for. A claim
+        already lost (expired, reclaimed) simply fails to renew. Returns how
+        many were renewed."""
+        async with self._lock:
+            held = list(self._in_flight.values())
+        renewed = 0
+        for item_id, claim_holder in held:
+            if await self._store.renew_work_item_lease(
+                item_id, holder=claim_holder, lease_seconds=self._lease_seconds, now=_now()
+            ):
+                renewed += 1
+        return renewed
+
+    def set_lease_seconds(self, lease_seconds: int) -> None:
+        """The crawl's claim lease (knob `crawl.item_lease_seconds`), set by the
+        crawler — the same number its per-item deadline is derived from."""
+        self._lease_seconds = int(lease_seconds)
+
+    async def mark_failed(self, url: str, error: str, will_retry: bool = False) -> bool:
+        """Settle a claim as failed / requeued. True only when this call took it."""
         async with self._lock:
             entry = self._in_flight.pop(url, None)
+        if entry is None:
+            return False
         if entry is not None:
             item_id, claim_holder = entry
             try:
@@ -254,10 +385,11 @@ class RuntimeWorkQueueBackend:
                     state.value,
                     DEFAULT_ITEM_MAX_ATTEMPTS,
                 )
+            return state is not None
+        return False
 
     async def is_known(self, url: str) -> bool:
-        found = await self._store.existing_work_item_keys(self._execution_id, [normalize_url(url)])
-        return bool(found)
+        return bool(await self.known_urls([url]))
 
     async def known_urls(self, urls: list[str]) -> set[str]:
         # Map canonical identity back to the ORIGINAL urls the caller passed, so the
@@ -266,6 +398,7 @@ class RuntimeWorkQueueBackend:
         for u in urls:
             key_to_urls[normalize_url(u)].append(u)
         existing = await self._store.existing_work_item_keys(self._execution_id, list(key_to_urls))
+        existing |= await self._done_in_prior([k for k in key_to_urls if k not in existing])
         return {u for key in existing for u in key_to_urls[key]}
 
     async def counts(self) -> tuple[int, int]:
@@ -480,18 +613,38 @@ def make_work_queue_factory(
             organization_id=state.organization_id,
             user_id=state.user_id,
         )
-        return RuntimeWorkQueueBackend(
+        # A resume after a crash, error or stop finds the earlier execution(s)
+        # terminal — they can never reopen — so a fresh one was created. Carry
+        # their frontier forward instead of re-crawling every page.
+        prior = [
+            ex.id
+            for ex in await engine.find_by_link(CRAWL_SESSION_LINK_KIND, session_id)
+            if ex.id != execution_id and is_terminal(ex.status)
+        ]
+        backend = RuntimeWorkQueueBackend(
             engine.store,
             execution_id,
             holder=_process_holder(session_id),
             engine=engine,
+            prior_execution_ids=prior,
         )
+        if prior:
+            try:
+                await backend.carry_over_prior_frontier()
+            except Exception as exc:
+                # The new execution was created for this run; a resume that
+                # refuses to start must not leave it RUNNING forever.
+                await backend.finalize("failed", error_message=f"{type(exc).__name__}: {exc}")
+                raise
+        return backend
 
     return factory
 
 
 __all__ = [
     "RuntimeWorkQueueBackend",
+    "FrontierCarryError",
+    "PRIOR_CARRY_BATCH",
     "DEFAULT_ITEM_LEASE_SECONDS",
     "DEFAULT_ITEM_MAX_ATTEMPTS",
     "CRAWL_SESSION_LINK_KIND",

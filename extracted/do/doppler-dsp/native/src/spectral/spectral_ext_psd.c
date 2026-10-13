@@ -41,10 +41,11 @@ PSDObj_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 static int
 PSDObj_init (PSDObject *self, PyObject *args, PyObject *kwds)
 {
-  static char *kwlist[]    = { "n",          "fs",   "window", "beta",  "pad",
-                               "full_scale", "bits", "mode",   "alpha", NULL };
-  unsigned long long n_raw = 1024;
-  double             fs    = 1.0;
+  static char *kwlist[]
+      = { "n",    "fs",   "window", "beta", "pad", "full_scale",
+          "bits", "mode", "alpha",  "hop",  NULL };
+  unsigned long long n_raw      = 1024;
+  double             fs         = 1.0;
   const char        *window_str = "hann";
   float              beta       = 0.0f;
   unsigned long long pad_raw    = 1;
@@ -52,21 +53,22 @@ PSDObj_init (PSDObject *self, PyObject *args, PyObject *kwds)
   unsigned long long bits_raw   = 0;
   const char        *mode_str   = "mean";
   double             alpha      = 0.1;
+  unsigned long long hop_raw    = 0;
 
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "|KdsfKdKsd", kwlist, &n_raw,
-                                    &fs, &window_str, &beta, &pad_raw,
-                                    &full_scale, &bits_raw, &mode_str, &alpha))
+  if (!PyArg_ParseTupleAndKeywords (
+          args, kwds, "|KdsfKdKsdK", kwlist, &n_raw, &fs, &window_str, &beta,
+          &pad_raw, &full_scale, &bits_raw, &mode_str, &alpha, &hop_raw))
     return -1;
   size_t n      = (size_t)n_raw;
   int    window = 0;
   if (strcmp (window_str, "hann") == 0)
-    window = 0;
+    window = DP_PSD_WINDOW_HANN;
   else if (strcmp (window_str, "kaiser") == 0)
-    window = 1;
+    window = DP_PSD_WINDOW_KAISER;
   else if (strcmp (window_str, "blackman-harris") == 0)
-    window = 2;
+    window = DP_PSD_WINDOW_BLACKMAN_HARRIS;
   else if (strcmp (window_str, "rect") == 0)
-    window = 3;
+    window = DP_PSD_WINDOW_RECT;
   else
     {
       PyErr_Format (PyExc_ValueError,
@@ -79,13 +81,13 @@ PSDObj_init (PSDObject *self, PyObject *args, PyObject *kwds)
   size_t bits = (size_t)bits_raw;
   int    mode = 0;
   if (strcmp (mode_str, "mean") == 0)
-    mode = 0;
+    mode = ACC_TRACE_MEAN;
   else if (strcmp (mode_str, "exp") == 0)
-    mode = 1;
+    mode = ACC_TRACE_EXP;
   else if (strcmp (mode_str, "maxhold") == 0)
-    mode = 2;
+    mode = ACC_TRACE_MAXHOLD;
   else if (strcmp (mode_str, "minhold") == 0)
-    mode = 3;
+    mode = ACC_TRACE_MINHOLD;
   else
     {
       PyErr_Format (PyExc_ValueError,
@@ -94,17 +96,19 @@ PSDObj_init (PSDObject *self, PyObject *args, PyObject *kwds)
                     mode_str);
       return -1;
     }
-  self->handle = dp_psd_create (n, fs, window, beta, pad, full_scale, bits,
-                                mode, alpha);
+  size_t hop   = (size_t)hop_raw;
+  self->handle = dp_psd_create_hop (n, fs, window, beta, pad, full_scale, bits,
+                                    mode, alpha, hop);
   if (!self->handle)
     {
       PyErr_SetString (PyExc_ValueError,
                        "PSD: invalid parameter (need n >= 2, pad >= 1 with n "
                        "* pad within the largest FFT, finite fs > 0, bits <= "
-                       "64, a finite full_scale > 0 when bits = 0, a window "
-                       "whose taps sum to a finite nonzero value (not hann "
-                       "at n = 2, nor a NaN or overflowing kaiser beta), and "
-                       "in exp mode 0 < alpha <= 1)");
+                       "64, hop in 1..n (0 = n), a finite full_scale > 0 "
+                       "when bits = 0, a window whose taps sum to a finite "
+                       "nonzero value (not hann at n = 2, nor a NaN or "
+                       "overflowing kaiser beta), and in exp mode 0 < alpha "
+                       "<= 1)");
       return -1;
     }
   return 0;
@@ -1023,7 +1027,7 @@ PSD_getprop_n (PSDObject *self, void *Py_UNUSED (closure))
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  return PyLong_FromUnsignedLongLong ((unsigned long long)self->handle->n);
+  return PyLong_FromUnsignedLongLong ((unsigned long long)(self->handle->k.n));
 }
 static PyObject *
 PSD_getprop_nfft (PSDObject *self, void *Py_UNUSED (closure))
@@ -1033,7 +1037,8 @@ PSD_getprop_nfft (PSDObject *self, void *Py_UNUSED (closure))
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  return PyLong_FromUnsignedLongLong ((unsigned long long)self->handle->nfft);
+  return PyLong_FromUnsignedLongLong (
+      (unsigned long long)(self->handle->k.nfft));
 }
 static PyObject *
 PSD_getprop_fs (PSDObject *self, void *Py_UNUSED (closure))
@@ -1053,7 +1058,7 @@ PSD_getprop_full_scale (PSDObject *self, void *Py_UNUSED (closure))
       PyErr_SetString (PyExc_RuntimeError, "destroyed");
       return NULL;
     }
-  return PyFloat_FromDouble (self->handle->full_scale);
+  return PyFloat_FromDouble ((self->handle->k.full_scale));
 }
 static PyObject *
 PSD_getprop_bits (PSDObject *self, void *Py_UNUSED (closure))
@@ -1084,7 +1089,7 @@ PSD_getprop_rbw (PSDObject *self, void *Py_UNUSED (closure))
       return NULL;
     }
   return PyFloat_FromDouble (
-      (self->handle->enbw * self->handle->fs / (double)self->handle->n));
+      (self->handle->enbw * self->handle->fs / (double)self->handle->k.n));
 }
 static PyObject *
 PSD_getprop_count (PSDObject *self, void *Py_UNUSED (closure))
@@ -1165,7 +1170,8 @@ static PyMethodDef PSDObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "accumulate(x) -> None\n"
     "\n"
-    "Window, FFT and fold floor(n_in/n) cf32 frames into the average.\n"
+    "Window, FFT and fold every cf32 frame the stream completes into the "
+    "average; a partial frame is carried to the next call.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1193,8 +1199,15 @@ static PyMethodDef PSDObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "accumulate_real(x) -> None\n"
     "\n"
-    "Window, zero-pad, FFT and fold floor(n_in/n) real frames into the "
-    "average.\n"
+    "Window, zero-pad, FFT and fold the whole real frames of a block into the "
+    "average, at hop = n. A trailing partial frame is dropped. It neither "
+    "reads nor writes the carry of the complex accumulate, so mixing the two "
+    "on one object mixes two streams.\n"
+    "\n"
+    "This call stays on whole frames at hop = n: it folds floor(n_in / n)\n"
+    "frames and drops a trailing partial frame. It neither reads nor writes\n"
+    "the carry of the complex accumulate call, so mixing the two on one\n"
+    "object mixes two streams, and a hop below n is not used by this call.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1206,7 +1219,7 @@ static PyMethodDef PSDObj_methods[] = {
     "    >>> import numpy as np\n"
     "    >>> from doppler.spectral import PSD\n"
     "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
-    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1, hop=0)\n"
     "    >>> obj.accumulate_real(np.zeros(4, dtype=np.float32))\n" },
   { "reset", (PyCFunction)PSDObj_reset, METH_NOARGS,
     "reset() -> None\n"
@@ -1217,10 +1230,10 @@ static PyMethodDef PSDObj_methods[] = {
     "--------\n"
     "    >>> from doppler.spectral import PSD\n"
     "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
-    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1, hop=0)\n"
     "    >>> obj.reset()\n" },
   { "psd_db", (PyCFunction)(void *)PSDObj_psd_db, METH_VARARGS | METH_KEYWORDS,
-    "psd_db(count=1) -> ndarray\n"
+    "psd_db(count=1) -> ndarray | None\n"
     "\n"
     "Averaged power spectrum in dB (None before any accumulate).\n"
     "\n"
@@ -1235,15 +1248,16 @@ static PyMethodDef PSDObj_methods[] = {
     "\n"
     "Returns\n"
     "-------\n"
-    "NDArray[np.float32]\n"
-    "    min(nfft, max_out), or 0 if empty.\n"
+    "NDArray[np.float32] | None\n"
+    "    min(nfft, max_out), or 0 if empty. None when the C call writes no\n"
+    "    output.\n"
     "\n"
     "Examples\n"
     "--------\n"
     "    >>> import numpy as np\n"
     "    >>> from doppler.spectral import PSD\n"
     "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
-    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1, hop=0)\n"
     "    >>> y = obj.psd_db(4)\n"
     "    >>> y.dtype\n"
     "    dtype('float32')\n" },
@@ -1258,7 +1272,7 @@ static PyMethodDef PSDObj_methods[] = {
     "    Output.\n" },
   { "psd_dbhz", (PyCFunction)(void *)PSDObj_psd_dbhz,
     METH_VARARGS | METH_KEYWORDS,
-    "psd_dbhz(count=1) -> ndarray\n"
+    "psd_dbhz(count=1) -> ndarray | None\n"
     "\n"
     "Averaged power spectral density in dB/Hz (None before any accumulate).\n"
     "\n"
@@ -1275,8 +1289,8 @@ static PyMethodDef PSDObj_methods[] = {
     "\n"
     "Returns\n"
     "-------\n"
-    "NDArray[np.float32]\n"
-    "    Output.\n"
+    "NDArray[np.float32] | None\n"
+    "    Output. None when the C call writes no output.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -1298,7 +1312,7 @@ static PyMethodDef PSDObj_methods[] = {
     "    Output.\n" },
   { "power_twosided", (PyCFunction)(void *)PSDObj_power_twosided,
     METH_VARARGS | METH_KEYWORDS,
-    "power_twosided(count=1) -> ndarray\n"
+    "power_twosided(count=1) -> ndarray | None\n"
     "\n"
     "Averaged linear power, DC-centred two-sided (length nfft); "
     "cg^2-normalised.\n"
@@ -1314,15 +1328,16 @@ static PyMethodDef PSDObj_methods[] = {
     "\n"
     "Returns\n"
     "-------\n"
-    "NDArray[np.float32]\n"
-    "    min(nfft, max_out), or 0 if empty.\n"
+    "NDArray[np.float32] | None\n"
+    "    min(nfft, max_out), or 0 if empty. None when the C call writes no\n"
+    "    output.\n"
     "\n"
     "Examples\n"
     "--------\n"
     "    >>> import numpy as np\n"
     "    >>> from doppler.spectral import PSD\n"
     "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
-    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1, hop=0)\n"
     "    >>> y = obj.power_twosided(4)\n"
     "    >>> y.dtype\n"
     "    dtype('float32')\n" },
@@ -1338,7 +1353,7 @@ static PyMethodDef PSDObj_methods[] = {
     "    Output.\n" },
   { "power_onesided", (PyCFunction)(void *)PSDObj_power_onesided,
     METH_VARARGS | METH_KEYWORDS,
-    "power_onesided(count=1) -> ndarray\n"
+    "power_onesided(count=1) -> ndarray | None\n"
     "\n"
     "Averaged linear power, one-sided fold (length nfft/2+1); "
     "cg^2-normalised.\n"
@@ -1354,15 +1369,16 @@ static PyMethodDef PSDObj_methods[] = {
     "\n"
     "Returns\n"
     "-------\n"
-    "NDArray[np.float32]\n"
-    "    min(nfft/2 + 1, max_out), or 0 if empty.\n"
+    "NDArray[np.float32] | None\n"
+    "    min(nfft/2 + 1, max_out), or 0 if empty. None when the C call\n"
+    "    writes no output.\n"
     "\n"
     "Examples\n"
     "--------\n"
     "    >>> import numpy as np\n"
     "    >>> from doppler.spectral import PSD\n"
     "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
-    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1, hop=0)\n"
     "    >>> y = obj.power_onesided(4)\n"
     "    >>> y.dtype\n"
     "    dtype('float32')\n" },
@@ -1378,7 +1394,7 @@ static PyMethodDef PSDObj_methods[] = {
     "    Output.\n" },
   { "band_power", (PyCFunction)(void *)PSDObj_band_power,
     METH_VARARGS | METH_KEYWORDS,
-    "band_power(bands, out) -> ndarray\n"
+    "band_power(bands, out) -> ndarray | None\n"
     "\n"
     "Integrated power per band in dB; bands = [lo0,hi0,lo1,hi1,...] Hz. None "
     "when there is nothing to report: before any accumulate, or no complete "
@@ -1393,9 +1409,10 @@ static PyMethodDef PSDObj_methods[] = {
     "\n"
     "Returns\n"
     "-------\n"
-    "NDArray[np.float32]\n"
+    "NDArray[np.float32] | None\n"
     "    The number of bands written, min(n_bands, max_out); 0 (Python None)\n"
-    "    when there is nothing to report.\n"
+    "    when there is nothing to report. None when the C call writes no\n"
+    "    output.\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -1436,7 +1453,7 @@ static PyMethodDef PSDObj_methods[] = {
     "    >>> import numpy as np\n"
     "    >>> from doppler.spectral import PSD\n"
     "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
-    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1, hop=0)\n"
     "    >>> obj.total_band_power(np.zeros(4, dtype=np.float64))\n"
     "    0.0\n" },
   { "occupied_bw", (PyCFunction)(void *)PSDObj_occupied_bw,
@@ -1486,7 +1503,7 @@ static PyMethodDef PSDObj_methods[] = {
     "--------\n"
     "    >>> from doppler.spectral import PSD\n"
     "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
-    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1, hop=0)\n"
     "    >>> obj.noise_floor()\n"
     "    0.0\n" },
   { "snr", (PyCFunction)(void *)PSDObj_snr, METH_VARARGS | METH_KEYWORDS,
@@ -1511,7 +1528,7 @@ static PyMethodDef PSDObj_methods[] = {
     "    >>> import numpy as np\n"
     "    >>> from doppler.spectral import PSD\n"
     "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
-    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1, hop=0)\n"
     "    >>> obj.snr(0.0, 0.0)\n"
     "    0.0\n" },
   { "sfdr", (PyCFunction)(void *)PSDObj_sfdr, METH_VARARGS | METH_KEYWORDS,
@@ -1534,7 +1551,7 @@ static PyMethodDef PSDObj_methods[] = {
     "    >>> import numpy as np\n"
     "    >>> from doppler.spectral import PSD\n"
     "    >>> obj = PSD(n=1024, fs=1.0, window=\"hann\", beta=0.0, pad=1, "
-    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1)\n"
+    "full_scale=1.0, bits=0, mode=\"mean\", alpha=0.1, hop=0)\n"
     "    >>> obj.sfdr(0.0)\n"
     "    0.0\n" },
   { "state_bytes", (PyCFunction)PSDObj_state_bytes, METH_NOARGS,
@@ -1629,7 +1646,7 @@ static PyTypeObject PSDObjType = {
   .tp_dealloc                             = (destructor)PSDObj_dealloc,
   .tp_flags                               = Py_TPFLAGS_DEFAULT,
   .tp_doc
-  = "Create an averaging PSD estimator.\n"
+  = "Create an averaging PSD estimator whose frames are spaced by a hop.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1641,8 +1658,15 @@ static PyTypeObject PSDObjType = {
     "    0.\n"
     "window : Literal[\"hann\", \"kaiser\", \"blackman-harris\", \"rect\"], "
     "default \"hann\"\n"
-    "    Window index: 0 = Hann, 1 = Kaiser, 2 = Blackman-Harris, 3 =\n"
-    "    rectangular (no taper: best resolution, worst leakage).\n"
+    "    The window: \"hann\" (the default), \"kaiser\", \"blackman-harris\" "
+    "or \"rect\"\n"
+    "    (no taper: best resolution, worst leakage).\n"
+    "\n"
+    "    - ``\"hann\"`` — Hann: the default.\n"
+    "    - ``\"kaiser\"`` — Kaiser, shaped by `beta`.\n"
+    "    - ``\"blackman-harris\"`` — 4-term Blackman-Harris.\n"
+    "    - ``\"rect\"`` — Rectangular: no taper, best resolution, worst "
+    "leakage.\n"
     "beta : float, default 0.0\n"
     "    Kaiser beta (ignored by every other window). One that makes the "
     "window\n"
@@ -1660,13 +1684,23 @@ static PyTypeObject PSDObjType = {
     "    64.\n"
     "mode : Literal[\"mean\", \"exp\", \"maxhold\", \"minhold\"], default "
     "\"mean\"\n"
-    "    Averaging mode index (0=mean, 1=exp, 2=maxhold, 3=minhold).\n"
+    "    Averaging mode: \"mean\", \"exp\", \"maxhold\" or \"minhold\".\n"
+    "\n"
+    "    - ``\"mean\"`` — Linear running mean of all frames.\n"
+    "    - ``\"exp\"`` — Exponential moving average (alpha).\n"
+    "    - ``\"maxhold\"`` — Per-bin running maximum.\n"
+    "    - ``\"minhold\"`` — Per-bin running minimum.\n"
     "alpha : float, default 0.1\n"
     "    EMA smoothing factor, exp mode only, where it must lie in (0, 1]: "
     "the\n"
     "    rule is the AccTrace averager's, whose create refuses anything else, "
     "so\n"
     "    this does too. Ignored, and so not checked, in the other modes.\n"
+    "hop : int, default 0\n"
+    "    Samples between frame starts, 1..n. 0 means n, which gives\n"
+    "    non-overlapping frames; the default. A hop above n would leave "
+    "samples\n"
+    "    between frames that are never kept, so it is refused.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -1674,17 +1708,19 @@ static PyTypeObject PSDObjType = {
     "    If construction fails. The exception message is ``PSD: invalid\n"
     "    parameter (need n >= 2, pad >= 1 with n * pad within the largest "
     "FFT,\n"
-    "    finite fs > 0, bits <= 64, a finite full_scale > 0 when bits = 0, a\n"
-    "    window whose taps sum to a finite nonzero value (not hann at n = 2, "
-    "nor\n"
-    "    a NaN or overflowing kaiser beta), and in exp mode 0 < alpha <= "
-    "1)``.\n"
+    "    finite fs > 0, bits <= 64, hop in 1..n (0 = n), a finite full_scale "
+    "> 0\n"
+    "    when bits = 0, a window whose taps sum to a finite nonzero value "
+    "(not\n"
+    "    hann at n = 2, nor a NaN or overflowing kaiser beta), and in exp "
+    "mode 0\n"
+    "    < alpha <= 1)``.\n"
     "\n"
     "Examples\n"
     "--------\n"
     ">>> from doppler.spectral import PSD\n"
     ">>> w = PSD(n=1024, fs=1.0e6, window=\"kaiser\", beta=8.0, "
-    "mode=\"mean\")\n"
+    "mode=\"mean\", hop=512)\n"
     ">>> w.n, w.fs\n"
     "(1024, 1000000.0)\n"
     ">>> round(w.rbw / (w.fs / w.n), 3) == round(w.enbw, 3)\n"

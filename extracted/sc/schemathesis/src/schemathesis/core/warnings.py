@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 
 
-class SchemathesisWarning(str, enum.Enum):
+class SchemathesisWarning(enum.StrEnum):
     MISSING_AUTH = "missing_auth"
     MISSING_TEST_DATA = "missing_test_data"
     BASE_URL_MISMATCH = "base_url_mismatch"
@@ -17,6 +17,8 @@ class SchemathesisWarning(str, enum.Enum):
     UNRESOLVABLE_REFERENCE = "unresolvable_reference"
     LOW_VALID_RATE = "low_valid_rate"
     RATE_LIMITED = "rate_limited"
+    DICTIONARY_MISMATCH = "dictionary_mismatch"
+    TIMEOUT_UNITS = "timeout_units"
 
     @classmethod
     def from_str(cls, value: str) -> SchemathesisWarning:
@@ -34,4 +36,6 @@ class SchemathesisWarning(str, enum.Enum):
             "unresolvable_reference": cls.UNRESOLVABLE_REFERENCE,
             "low_valid_rate": cls.LOW_VALID_RATE,
             "rate_limited": cls.RATE_LIMITED,
+            "dictionary_mismatch": cls.DICTIONARY_MISMATCH,
+            "timeout_units": cls.TIMEOUT_UNITS,
         }[value.lower()]

@@ -27,13 +27,17 @@ Private helpers (also re-exported as white-box affordances for tests):
   gate → cookie-mismatch → auth-redirect precedence. ``_auth.refresh`` calls it
   before parsing a response body, because Google's login page carries its own
   ``SNlM0e`` and would otherwise be mistaken for a valid app page.
+* :func:`_signed_out_probe_failure` — classifies a token-less app page by
+  where the app's ``/login`` probe lands, since a signed-out ``GET /`` no
+  longer redirects (#2479).
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
-from urllib.parse import urlparse
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
+from urllib.parse import urlparse, urlsplit, urlunsplit
 
 from .._env import get_base_host
 from .._url_utils import (
@@ -43,7 +47,7 @@ from .._url_utils import (
     is_notebooklm_unavailable_redirect,
     notebooklm_unavailable_location,
 )
-from ..exceptions import AuthExtractionError
+from ..exceptions import AuthError, AuthExtractionError
 
 
 def _build_wiz_field_patterns(key: str) -> list[re.Pattern[str]]:
@@ -291,6 +295,21 @@ class _LoginRedirectError(ValueError):
     """Private typed signal for a confirmed Google login redirect."""
 
 
+@contextmanager
+def _auth_error_boundary() -> Iterator[None]:
+    """Translate unrecovered login redirects at a public token-loading boundary.
+
+    Keep the private ValueError signal inside extraction and recovery; only
+    wrap the final acquisition attempt or the exhausted recovery ladder.
+    """
+    try:
+        yield
+    except _LoginRedirectError as expired:
+        auth_error = AuthError(str(expired))
+        auth_error.recoverable = True
+        raise auth_error from expired
+
+
 def _url_only_extraction_failure(final_url: str, redirect_urls: Sequence[str]) -> ValueError | None:
     """Classify the failures that are decidable from the URLs alone, else ``None``.
 
@@ -332,6 +351,46 @@ def _url_only_extraction_failure(final_url: str, redirect_urls: Sequence[str]) -
             "Run 'notebooklm login' to re-authenticate."
         )
     return None
+
+
+def _login_probe_url(token_url: str) -> str:
+    """Return the app's root ``/login`` URL for ``token_url``, keeping its query.
+
+    The query carries the ``authuser`` route, so the probe asks about the same
+    account the token fetch did.
+    """
+    return urlunsplit(urlsplit(token_url)._replace(path="/login", fragment=""))
+
+
+def _signed_out_probe_failure(
+    app_url: str, probe_final_url: str, probe_redirect_urls: Sequence[str]
+) -> ValueError | None:
+    """Classify a token-less app page from where the app's ``/login`` probe landed.
+
+    Since October 2026 the app host answers a signed-out ``GET /`` with an HTTP
+    200 landing page instead of redirecting to Google sign-in (#2467, #2479), so
+    a stale session reaches the app host without a CSRF token and the URL-only
+    taxonomy reads it as a page-structure change. ``/login`` still enforces a
+    session: signed in, it redirects back to the app; signed out, it redirects
+    to ``accounts.google.com``. Live-captured 2026-10-09 on
+    ``notebook.google.com`` with live, stale and empty cookie jars.
+
+    This keeps the classification URL-driven instead of keying on
+    obfuscated ``WIZ_global_data`` field names. The probe chain goes through
+    the same gate -> cookie-mismatch -> auth-redirect taxonomy as the token
+    fetch itself: a login redirect is reported as expired auth, and a gate or
+    CookieMismatch as itself. Any other outcome returns ``None`` so the caller
+    keeps its original diagnostic. A valid session whose ``authuser`` the
+    browser no longer holds also lands on sign-in and is reported as expired.
+    """
+    failure = _url_only_extraction_failure(probe_final_url, probe_redirect_urls)
+    if isinstance(failure, _LoginRedirectError):
+        return _LoginRedirectError(
+            f"Authentication expired or invalid. {_safe_url(app_url)} served a signed-out "
+            f"page, and its sign-in check redirected to {_safe_url(probe_final_url)}\n"
+            "Run 'notebooklm login' to re-authenticate."
+        )
+    return failure
 
 
 def _extraction_failure(what: str, final_url: str, redirect_urls: Sequence[str]) -> ValueError:

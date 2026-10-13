@@ -5,6 +5,7 @@ import pytest
 from matrx_scraper import browser_pool as browser_pool_module
 from matrx_scraper.browser_pool import PlaywrightBrowserPool, capture_screenshots
 from matrx_scraper.crawler import SiteCrawlerConfig
+from matrx_scraper.render_readiness import PAINT_PROBE_JS
 
 
 @pytest.mark.asyncio
@@ -344,6 +345,7 @@ async def test_font_readiness_timeout_stops_pending_loads_and_retries_once(
 
     assert len(shots) == 1
     assert screenshot_calls == 2
+    evaluations = [e for e in evaluations if e != PAINT_PROBE_JS]  # the readiness probe is not under test here
     assert evaluations[:2] == ["window.scrollTo(0,0)", "window.stop()"]
     assert "window.stop()" in evaluations[2]
     assert "document.fonts.clear()" in evaluations[2]
@@ -376,4 +378,5 @@ async def test_focused_screenshot_can_preserve_recipe_scroll(
     )
 
     assert len(shots) == 1
+    evaluations = [e for e in evaluations if e != PAINT_PROBE_JS]
     assert evaluations == ["window.stop()"]

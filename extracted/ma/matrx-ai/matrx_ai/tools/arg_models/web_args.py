@@ -93,4 +93,12 @@ class SiteDataArgs(ToolArgs):
     query: str | None = None
     location: str | None = None
     inputs: list[dict[str, Any]] | None = None
-    max_records: int = Field(default=20, ge=1, le=100)
+    #: Default request stays small; the CEILING is the host limit (checked in the tool), not ``le``.
+    max_records: int = Field(default=20, ge=1)
+    save_to_table: bool = Field(
+        default=False,
+        description="When true the records are also saved into a real table the person owns (created in their "
+                    "active organization, or added to table_id), and the result carries the table reference.",
+    )
+    table_name: str | None = Field(default=None, description="Name for the new table (save_to_table only).")
+    table_id: str | None = Field(default=None, description="Add to this existing table instead (save_to_table only).")

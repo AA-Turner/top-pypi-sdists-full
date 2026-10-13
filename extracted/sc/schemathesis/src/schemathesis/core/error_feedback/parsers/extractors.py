@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from schemathesis.core.error_feedback.store import (
     BoundDirection,
@@ -11,21 +12,53 @@ from schemathesis.core.error_feedback.store import (
     NumericBoundPayload,
     ObservationKind,
     ObservationPayload,
+    ParameterPath,
     SizeBoundPayload,
 )
 from schemathesis.core.parameters import ParameterLocation
+
+if TYPE_CHECKING:
+    from schemathesis.generation.case import Case
+    from schemathesis.schemas import APIOperation
 
 ClassificationResult = tuple[ObservationKind, ObservationPayload | None]
 RegexHandler = Callable[[re.Match[str]], ClassificationResult]
 DictHandler = Callable[[dict], tuple[ClassificationResult, ...]]
 
-# Operations using these methods bind from query, not body — observations
-# attribute under QUERY for them.
+# Operations using these methods bind from query, not body; undeclared fields attribute under QUERY for them.
 QUERY_METHODS = frozenset({"GET", "DELETE", "HEAD"})
 
 
 def location_for_method(method: str) -> ParameterLocation:
     return ParameterLocation.QUERY if method.upper() in QUERY_METHODS else ParameterLocation.BODY
+
+
+def location_for_parameter(operation: APIOperation, parameter_path: ParameterPath, case: Case) -> ParameterLocation:
+    if parameter_path and isinstance(parameter_path[0], str):
+        name = parameter_path[0]
+        # A field the sent body carries belongs to the body; otherwise one named like a declared parameter belongs there.
+        if (
+            location_for_method(operation.method) is ParameterLocation.BODY
+            and isinstance(case.body, dict)
+            and name in case.body
+        ):
+            return ParameterLocation.BODY
+        for location in (ParameterLocation.PATH, ParameterLocation.QUERY, ParameterLocation.HEADER):
+            if name in operation.get_parameter_set(location):
+                return location
+    return location_for_method(operation.method)
+
+
+_FIELD_PATH_SEGMENT = re.compile(r"([^.\[\]]+)|\[(\d+)\]")
+
+
+def split_field_path(raw: str) -> ParameterPath:
+    """`address.street` -> ('address', 'street'); `items[0].name` and `items.0.name` -> ('items', 0, 'name')."""
+    segments: list[str | int] = []
+    for name, index in _FIELD_PATH_SEGMENT.findall(raw):
+        segment = name or index
+        segments.append(int(segment) if segment.isascii() and segment.isdigit() else segment)
+    return tuple(segments)
 
 
 def lowercase_first_letter(name: str) -> str:
@@ -64,7 +97,7 @@ def numeric_bound(*, direction: BoundDirection, exclusive: bool) -> RegexHandler
 
     def handler(match: re.Match[str]) -> ClassificationResult:
         return ObservationKind.NUMERIC_BOUND, NumericBoundPayload(
-            bound=float(match.group(1)),
+            bound=parse_number(match.group(1)),
             direction=direction,
             exclusive=exclusive,
         )
@@ -96,11 +129,18 @@ def int_or_none(value: object) -> int | None:
         return None
 
 
-def float_or_none(value: object) -> float | None:
-    """Parse a string into a float; return None if the value is not a string or not parseable."""
+def parse_number(text: str) -> int | float:
+    """Parse a numeric string, keeping integers exact: a float loses precision above 2**53."""
+    try:
+        return int(text)
+    except ValueError:
+        return float(text)
+
+
+def number_or_none(value: object) -> int | float | None:
     if not isinstance(value, str):
         return None
     try:
-        return float(value)
+        return parse_number(value)
     except ValueError:
         return None

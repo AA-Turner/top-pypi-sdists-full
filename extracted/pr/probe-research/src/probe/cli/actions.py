@@ -78,7 +78,9 @@ ACCOUNT_ACTIONS = frozenset({Action.ACCOUNT, Action.SIGN_IN, Action.SIGN_OUT})
 #: Actions about the DEVICE rather than any one coding agent. There is one
 #: config file, so these run once per wizard pass and never ask which agents
 #: to configure -- the answer has no bearing on what they do.
-DEVICE_ACTIONS = ACCOUNT_ACTIONS | {Action.RECORDER, Action.DEFAULTS, Action.SETTINGS, Action.IMPORT_JOBS}
+DEVICE_ACTIONS = ACCOUNT_ACTIONS | {
+    Action.RECORDER, Action.DEFAULTS, Action.SETTINGS, Action.IMPORT_JOBS,
+}
 
 
 ACTION_COPY: dict[Action, tuple[str, str]] = {
@@ -199,8 +201,8 @@ def manual_steps(
     drifted from the commands beside it, and a printed script cannot drift from
     the code that prints it.
     """
-    from probe.cli import pi_config, plugin_cli
-    from probe.harness import FAMILY_EXTENSION, FAMILY_HOOK_PLUGIN, get_registry
+    from probe.cli import cloud_agents, pi_config, plugin_cli
+    from probe.harness import FAMILY_CLOUD, FAMILY_EXTENSION, FAMILY_HOOK_PLUGIN, get_registry
 
     registry = get_registry()
     requested = (agent_source,) if isinstance(agent_source, str) else tuple(agent_source)
@@ -211,6 +213,9 @@ def manual_steps(
     marketplace_commands: list[str] = []
     install_commands: list[str] = []
     login_commands: list[str] = []
+    # A cloud agent's capture connects AFTER sign-in: it finds the researcher's
+    # Capy user by their Probe account's email.
+    capture_commands: list[str] = []
     marketplace_harnesses = [
         h for h in harnesses if h.family == FAMILY_HOOK_PLUGIN and h.id != plugin_cli.KIMI
     ]
@@ -251,6 +256,16 @@ def manual_steps(
             install_commands.extend(
                 (*heading, f"{harness.binary} install {pi_config.MIRROR_GIT_SOURCE}   # tracking + capture + MCP")
             )
+        elif harness.family == FAMILY_CLOUD:
+            # Nothing installs into a cloud agent from a shell: Probe goes in
+            # through its own settings, and its threads are captured from here.
+            install_commands.extend(
+                (
+                    *heading,
+                    *(f"# {line}" for line in cloud_agents.module(harness.id).setup_steps(base_url=base_url)),
+                )
+            )
+            capture_commands.append(f"probe {harness.id} connect   # capture the {harness.label} threads you start")
         if harness.mcp == "config-toml":
             login_commands.append(f"{harness.binary} mcp login probe-research")
 
@@ -274,7 +289,13 @@ def manual_steps(
         if marketplace_commands
         else ("# 2. (No plugin marketplace for these agents.)", "")
     )
-    confirm_step = 6 if login_commands else 5
+    capture_step = 6 if login_commands else 5
+    capture_block = (
+        ("", f"# {capture_step}. Connect thread capture (needs the sign-in above).", *capture_commands)
+        if capture_commands
+        else ()
+    )
+    confirm_step = capture_step + (1 if capture_commands else 0)
     return "\n".join(
         (
             "# Everything the Probe Research setup wizard does, as individual commands.",
@@ -290,11 +311,35 @@ def manual_steps(
             "# 4. Approve this device in your browser. One approval, all credentials.",
             f"probe wizard --action login --base-url {base_url}",
             *mcp_login,
+            *capture_block,
             "",
             f"# {confirm_step}. Confirm.",
             "probe doctor",
         )
     )
+
+
+def _cloud_troubleshooting(caps: Capabilities) -> list[str]:
+    """`troubleshooting` for a cloud agent (Capy): no plugin or binary to check;
+    its MCP is in its own settings and its capture is a connection here."""
+    from probe.cli import cloud_agents
+
+    agent = cloud_agents.module(caps.agent_source)
+    notes = []
+    status = agent.wizard_status()
+    if status is None:
+        notes.append(
+            f"{agent.label()} capture is not connected on this machine: run `probe {caps.agent_source} connect`."
+        )
+    elif status[1]:
+        notes.append(f"{agent.label()} {status[0]}.")
+    if not caps.logged_in_as:
+        notes.append("This device is not signed in: run `probe wizard` to sign in.")
+    notes.append(
+        f"If Probe's tools are missing in {agent.label()}: its MCP server lives in {agent.label()}'s "
+        "settings (MCP & plugins). Reconnect it there; nothing on this machine can see it."
+    )
+    return notes
 
 
 def self_host_notes(*, base_url: str, mcp_endpoint: str) -> str:
@@ -326,6 +371,10 @@ def troubleshooting(caps: Capabilities) -> list[str]:
     notes: list[str] = []
 
     agent_source = caps.agent_source
+    from probe.cli import cloud_agents
+
+    if cloud_agents.is_cloud(agent_source):
+        return _cloud_troubleshooting(caps)
     # pi has no marketplace CLI this wizard installs or updates a plugin
     # through (see wizard.INSTALLABLE_AGENT_SOURCES), so there is no "is the
     # binary on PATH" question to ask here, and its auto-update never "fires

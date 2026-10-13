@@ -16,7 +16,12 @@ preloader={
 						'cmds':['depreciation','price out','fire sale'],
 						'desc':f'calculate info for firesale',
 						'exec':depreciation,
-					},
+				},
+	f'{uuid1()}':{
+				'cmds':['ldwiw','list_dates_within_include_weekends','list dates within include weekends'],
+				'desc':f'list dates within include weekends',
+				'exec':list_dates_within_include_weekends,
+				},
 	f'{uuid1()}':{
 			'cmds':['paydays',],
 			'desc':f'calculate pays for Employer with pay period in days from datetime',

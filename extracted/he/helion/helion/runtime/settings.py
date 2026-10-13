@@ -26,6 +26,10 @@ from .._compiler.backend_registry import list_backends
 from ..autotuner.effort_profile import AutotuneEffort
 from ..autotuner.effort_profile import InitialPopulation
 from ..autotuner.effort_profile import get_effort_profile
+from .cute_structural_policy import CUTE_STRUCTURAL_SETTINGS
+from .cute_structural_policy import CuteStructuralOrigins
+from .cute_structural_policy import CuteStructuralPolicy
+from .cute_structural_policy import StructuralSettingOrigin
 from .ref_mode import RefMode
 
 if TYPE_CHECKING:
@@ -33,10 +37,11 @@ if TYPE_CHECKING:
     from ..autotuner.base_search import BaseSearch
     from ..autotuner.pattern_search import InitialPopulationStrategy
     from .config import Config
+    from .cute_structural_config import CuteStructuralConfig
     from .kernel import BoundKernel
 
     _T = TypeVar("_T")
-    ConfigLike = Config | dict[str, object]
+    ConfigLike = Config | dict[str, object] | CuteStructuralConfig
 
     class AutotunerFunction(Protocol):
         def __call__(
@@ -109,7 +114,10 @@ def _env_get_optional_float(var_name: str) -> float | None:
 
 
 def _env_get_bool(var_name: str, default: bool) -> bool:
-    value = os.environ.get(var_name)
+    return _parse_env_bool(var_name, os.environ.get(var_name), default)
+
+
+def _parse_env_bool(var_name: str, value: str | None, default: bool) -> bool:
     if value is None or (value := value.strip()) == "":
         return default
     lowered = value.lower()
@@ -149,6 +157,13 @@ def _env_get_str_list(var_name: str) -> list[str]:
 
 
 def _env_get_str(var_name: str, default: str) -> str:
+    value = os.environ.get(var_name)
+    if value is None or (value := value.strip()) == "":
+        return default
+    return value
+
+
+def _env_get_str_or_none(var_name: str, default: str | None) -> str | None:
     value = os.environ.get(var_name)
     if value is None or (value := value.strip()) == "":
         return default
@@ -388,6 +403,7 @@ class _Settings:
         default_factory=_get_index_dtype
     )
     dot_precision: DotPrecision = dataclasses.field(default_factory=_get_dot_precision)
+    cute_rng_stream: Literal["auto", "word0", "philox4"] = "word0"
     fast_math: bool = dataclasses.field(
         default_factory=functools.partial(_env_get_bool, "HELION_FAST_MATH", False)
     )
@@ -416,6 +432,16 @@ class _Settings:
     autotune_log_details: bool = dataclasses.field(
         default_factory=functools.partial(
             _env_get_bool, "HELION_AUTOTUNE_LOG_DETAILS", False
+        )
+    )
+    autotune_handoff: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_AUTOTUNE_HANDOFF", False
+        )
+    )
+    autotune_handoff_budget_seconds: int = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_int, "HELION_AUTOTUNE_HANDOFF_BUDGET_SECONDS", 1500
         )
     )
     autotune_compile_timeout: int = dataclasses.field(
@@ -588,14 +614,56 @@ class _Settings:
         )
     )
     autotune_config_filter: Callable[[Config], Config | None] | None = None
+    pallas_collective_id: int | None = None
     pallas_interpret: bool = dataclasses.field(
         default_factory=functools.partial(
             _env_get_bool, "HELION_PALLAS_INTERPRET", False
         )
     )
+    pallas_topk_recall_target: float = 0.99
+    cute_region_fission: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_CUTE_REGION_FISSION", False
+        )
+    )
+    cute_materialize_transformed_operands: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_CUTE_MATERIALIZE_TRANSFORMED_OPERANDS", False
+        )
+    )
+    cute_full_slice_matmul_tiling: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_CUTE_FULL_SLICE_MATMUL_TILING", False
+        )
+    )
+    cute_segmented_matmul_tiling: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_CUTE_SEGMENTED_MATMUL_TILING", False
+        )
+    )
+    cute_flatten_nested_reductions: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_CUTE_FLATTEN_NESTED_REDUCTIONS", False
+        )
+    )
     triton_do_not_specialize: bool = dataclasses.field(
         default_factory=functools.partial(
             _env_get_bool, "HELION_TRITON_DO_NOT_SPECIALIZE", False
+        )
+    )
+    autotune_log_search_space: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_AUTOTUNE_LOG_SEARCH_SPACE", False
+        )
+    )
+    autotune_log_search_space_verbose: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_AUTOTUNE_LOG_SEARCH_SPACE_VERBOSE", False
+        )
+    )
+    autotune_log_search_space_path: str | None = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_str_or_none, "HELION_AUTOTUNE_LOG_SEARCH_SPACE_PATH", None
         )
     )
 
@@ -605,6 +673,10 @@ class Settings(_Settings):
     Settings can be passed to hl.kernel as kwargs and control the behavior of the
     compilation process. Unlike a Config, settings are not auto-tuned and set by the user.
     """
+
+    # Not a dataclass field: public serialization, equality and existing cache
+    # fingerprints continue to contain only the effective setting values.
+    _cute_structural_origins: CuteStructuralOrigins
 
     __slots__ = {
         "backend": (
@@ -621,6 +693,14 @@ class Settings(_Settings):
             "Override with HELION_INDEX_DTYPE=<dtype> (or set to 'auto')."
         ),
         "dot_precision": "Precision for dot products. For Triton backend, see `triton.language.dot` (can be 'tf32', 'tf32x3', 'ieee'). For JAX/Pallas backend, accepted values emit Pallas default precision on TPU. Unified mappings exist so that any value can be used on any backend.",
+        "cute_rng_stream": (
+            "CuTe RNG policy: auto (CuTe default) uses philox4 for explicit hl.rand "
+            "and preserves other RNG operations. philox4 maps logical offset i "
+            "to Philox(seed, i // 4)[i % 4], independently of configuration. "
+            "Set word0 for the previous reproducible stream; other backends "
+            "default to word0. Explicit philox4 rejects unsupported RNG operations. "
+            "Override with HELION_CUTE_RNG_STREAM."
+        ),
         "fast_math": (
             "If True, enable fast math approximations (Helion-level and Inductor-level). "
             "May reduce numerical precision and change NaN/Inf behavior. "
@@ -653,9 +733,22 @@ class Settings(_Settings):
             "/tmp/run.csv and /tmp/run.log with per-config metrics and debug logs."
         ),
         "autotune_log_details": (
-            "Opt-in (HELION_AUTOTUNE_LOG_DETAILS=1) to also write the cost-model "
-            "dataset sidecar /tmp/run.meta.jsonl (per-run kernel identity + the "
-            "configs tested, keyed by config_id). Off by default; needs autotune_log."
+            "Opt-in (HELION_AUTOTUNE_LOG_DETAILS=1) to write /tmp/run.trace.jsonl "
+            "with config evaluations, rebenchmarks, selection, exact LLM prompts/"
+            "responses, and timestamps, plus the cost-model dataset sidecar "
+            "/tmp/run.meta.jsonl (kernel identity and configs keyed by config_id). "
+            "Off by default; needs autotune_log."
+        ),
+        "autotune_handoff": (
+            "Hand configuration search to a native-source agent automatically. "
+            "Off by default; enable with HELION_AUTOTUNE_HANDOFF=1. "
+            "Uses the existing search budget or search completion, "
+            "then saves validated standalone source beside the autotune logs."
+        ),
+        "autotune_handoff_budget_seconds": (
+            "Wall-clock budget for the native-source agent session, excluding "
+            "search and export. Default 1500 seconds; override with "
+            "HELION_AUTOTUNE_HANDOFF_BUDGET_SECONDS."
         ),
         "autotune_compile_timeout": "Timeout for Triton compilation in seconds used for autotuning. Default is 60 seconds.",
         "autotune_benchmark_subprocess": "Run the autotune benchmark phase in a long-lived spawn subprocess so a hung/slow kernel can be killed without losing autotune progress. Enabled by default. Set HELION_AUTOTUNE_BENCHMARK_SUBPROCESS=0 to disable.",
@@ -695,9 +788,45 @@ class Settings(_Settings):
             "based on a quantile of initial compile times (with a lower bound). Lower bound and quantile "
             "are set by the effort profile. Set HELION_AUTOTUNE_ADAPTIVE_TIMEOUT=0 to disable."
         ),
+        "pallas_collective_id": (
+            "Optional Pallas collective namespace override. Distributed kernels "
+            "derive a stable ID automatically; set this only when otherwise "
+            "identical kernels use incompatible runtime communication groups."
+        ),
         "pallas_interpret": (
             "If True, run Pallas kernels in interpret mode on CPU (no TPU needed). "
             "Defaults to HELION_PALLAS_INTERPRET env var."
+        ),
+        "pallas_topk_recall_target": (
+            "Recall target for the Pallas approximate top-k lowering. Must be in "
+            "(0, 1]; use 1.0 when exact top-k results are required. Default 0.99."
+        ),
+        "cute_region_fission": (
+            "If True, distribute proven row-independent materialized regions "
+            "into ordered CuTe launches with independently tuned tile axes. "
+            "Defaults to HELION_CUTE_REGION_FISSION (False)."
+        ),
+        "cute_materialize_transformed_operands": (
+            "If True, materialize proven pure reused matrix operands before "
+            "a CuTe GEMM, with independent producer and consumer tile axes. "
+            "Input dimensions used by the proof are specialized with normal "
+            "runtime guards. Defaults to "
+            "HELION_CUTE_MATERIALIZE_TRANSFORMED_OPERANDS (False)."
+        ),
+        "cute_full_slice_matmul_tiling": (
+            "If True, give eligible direct full-slice half/BF16 matmuls an "
+            "explicit, tunable contraction tile loop on CuTe. Defaults to "
+            "HELION_CUTE_FULL_SLICE_MATMUL_TILING (False)."
+        ),
+        "cute_segmented_matmul_tiling": (
+            "If True, expose proven offset-delimited independent matrix rows "
+            "to the CuTe grouped scheduler. Defaults to "
+            "HELION_CUTE_SEGMENTED_MATMUL_TILING (False)."
+        ),
+        "cute_flatten_nested_reductions": (
+            "If True, flatten proven FP32 joint jagged/feature reductions and "
+            "independent fresh-output stores on CuTe. Defaults to "
+            "HELION_CUTE_FLATTEN_NESTED_REDUCTIONS (False)."
         ),
         "triton_do_not_specialize": (
             "If True, pass do_not_specialize for every dynamic size/stride/symbol "
@@ -729,8 +858,9 @@ class Settings(_Settings):
             "without constraining the search space."
         ),
         "disable_autotuner_heuristics": (
-            "If True, disable compiler/autotuner heuristics such as compiler seed "
-            "configs. User-provided autotune_seed_configs are unaffected. "
+            "If True, disable compiler seed generation and promotion. Correctness "
+            "fact hooks still run so explicit configs normalize safely. User-provided "
+            "autotune_seed_configs are unaffected. "
             "Set HELION_DISABLE_AUTOTUNER_HEURISTICS=1 to disable globally."
         ),
         "allow_warp_specialize": "If True, allow warp specialization for tl.range calls on CUDA devices.",
@@ -749,13 +879,17 @@ class Settings(_Settings):
         ),
         "autotune_baseline_atol": (
             "Absolute tolerance for baseline output comparison during autotuning accuracy checks. "
-            "Defaults to 1e-2, or 0.0 for fp8 dtypes (automatic bitwise comparison). "
+            "When unset, defaults to 1e-2 scaled per output tensor by max(1, rms(baseline)) "
+            "so large-magnitude reductions tolerate accumulation-order noise, or 0.0 for fp8 "
+            "dtypes (automatic bitwise comparison). Setting an explicit value disables the "
+            "RMS scaling and is applied exactly. "
             "Pass as @helion.kernel(..., autotune_baseline_atol=1e-3)."
         ),
         "autotune_baseline_rtol": (
             "Relative tolerance for baseline output comparison during autotuning accuracy checks. "
             "Defaults to 1e-2, or 0.0 for fp8 dtypes (automatic bitwise comparison). "
-            "Pass as @helion.kernel(..., autotune_baseline_rtol=1e-3)."
+            "Pass as @helion.kernel(..., autotune_baseline_rtol=1e-3). "
+            "See autotune_baseline_atol for how the absolute-tolerance floor scales when unset."
         ),
         "autotune_baseline_accuracy_check_fn": (
             "Custom accuracy check function for comparing autotuning candidate outputs against the baseline. "
@@ -816,14 +950,52 @@ class Settings(_Settings):
             "Has no effect unless torch_compile_fusion is also True. "
             "Set HELION_AUTOTUNE_WITH_TORCH_COMPILE_FUSION=1 to enable globally."
         ),
+        "autotune_log_search_space": (
+            "If True, log search space analysis after autotuning including which features "
+            "were enabled/disabled, total search space size, and coverage metrics. "
+            "Off by default; set HELION_AUTOTUNE_LOG_SEARCH_SPACE=1 to enable."
+        ),
+        "autotune_log_search_space_verbose": (
+            "If True, additionally log each search-space restriction (disabled pid_types, "
+            "tcgen05 narrowing, etc.) live at INFO the moment it is applied during "
+            "compilation, on top of the end-of-run summary. Implies "
+            "autotune_log_search_space. Off by default; set "
+            "HELION_AUTOTUNE_LOG_SEARCH_SPACE_VERBOSE=1 to enable."
+        ),
+        "autotune_log_search_space_path": (
+            "Optional path to save search space analysis JSON. "
+            "Set HELION_AUTOTUNE_LOG_SEARCH_SPACE_PATH=/path/to/analysis.json to save."
+        ),
     }
 
     def __init__(self, **settings: object) -> None:
         """
         Initialize the Settings object with the provided dictionary of settings.
         """
+        if "backend" not in settings:
+            settings["backend"] = _get_backend()
+        if "cute_rng_stream" not in settings:
+            settings["cute_rng_stream"] = _env_get_literal(
+                "HELION_CUTE_RNG_STREAM",
+                "auto" if settings["backend"] == "cute" else "word0",
+                mapping={"auto": "auto", "word0": "word0", "philox4": "philox4"},
+            )
+        origins: dict[str, StructuralSettingOrigin] = {}
+        for name in CUTE_STRUCTURAL_SETTINGS:
+            if name in settings:
+                origins[name] = "explicit"
+            else:
+                var_name = f"HELION_{name.upper()}"
+                value = os.environ.get(var_name)
+                # Capture value and origin from the same environment read.
+                # The five defaults remain False; policy selection is separate.
+                settings[name] = _parse_env_bool(var_name, value, False)
+                origins[name] = (
+                    "environment" if value is not None and value.strip() else "default"
+                )
         # pyrefly: ignore [bad-argument-type]
         super().__init__(**settings)
+        self._cute_structural_origins = CuteStructuralOrigins(**origins)
 
         if self.backend == "tileir" and os.environ.get("ENABLE_TILE", "0") != "1":
             raise exc.MissingEnableTile
@@ -835,7 +1007,64 @@ class Settings(_Settings):
                 f"(default 1 = single-trial behavior)"
             )
 
+        if self.autotune_handoff_budget_seconds < 1:
+            raise ValueError("autotune_handoff_budget_seconds must be positive")
+
         self._check_ref_eager_mode_before_print_output_code()
+
+    def __setattr__(self, name: str, value: object) -> None:
+        super().__setattr__(name, value)
+        if (
+            name in CUTE_STRUCTURAL_SETTINGS
+            and "_cute_structural_origins" in self.__dict__
+        ):
+            # Assigning the same value is still an explicit request. Initial
+            # dataclass writes precede creation of the construction origins.
+            self._cute_structural_origins = self._cute_structural_origins.with_explicit(
+                name
+            )
+
+    def __setstate__(
+        self, state: tuple[dict[str, object] | None, dict[str, object]]
+    ) -> None:
+        # copy.copy/deepcopy and pickle restore slots after the instance dict.
+        # Those restoration writes must not become explicit user overrides.
+        namespace, slots = state
+        if namespace is not None:
+            self.__dict__.update(namespace)
+        for name, value in slots.items():
+            object.__setattr__(self, name, value)
+        if "_cute_structural_origins" not in self.__dict__:
+            # Older serialized Settings contain only effective field values,
+            # just like reconstruction from to_dict(). Their flags are explicit.
+            self._cute_structural_origins = CuteStructuralOrigins().with_explicit(
+                *CUTE_STRUCTURAL_SETTINGS
+            )
+
+    def copy(self, **overrides: object) -> Settings:
+        """Copy values and origins, marking supplied structural overrides explicit.
+
+        Like dataclasses.replace, ordinary mutable field values are shared.
+        In contrast, dataclasses.replace and Settings(**settings.to_dict())
+        supply every effective field to the constructor and therefore record
+        every structural value as explicit, even when its value is unchanged.
+        """
+        result = dataclasses.replace(self, **overrides)
+        result._cute_structural_origins = self._cute_structural_origins.with_explicit(
+            *(name for name in CUTE_STRUCTURAL_SETTINGS if name in overrides)
+        )
+        return result
+
+    @property
+    def cute_structural_origins(self) -> CuteStructuralOrigins:
+        """Immutable origins captured at construction and explicit writes."""
+        return self._cute_structural_origins
+
+    def get_cute_structural_policy(self) -> CuteStructuralPolicy:
+        """Snapshot effective booleans without resolving or activating a policy."""
+        return CuteStructuralPolicy(
+            **{name: getattr(self, name) for name in CUTE_STRUCTURAL_SETTINGS}
+        )
 
     def to_dict(self) -> dict[str, object]:
         """

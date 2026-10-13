@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import subprocess
 import sys
 import tomllib
 import types
@@ -14,6 +15,7 @@ import skylos.cli as cli
 from skylos.cli_core.dispatch import EARLY_COMMAND_HANDLERS
 from skylos.cli_core.main_parser import build_main_parser
 from skylos.commands.scan_cmd import run_scan_command
+from skylos.core.safe_cache_io import write_text_no_symlink
 from skylos.debt.result import DebtHotspot, DebtScore, DebtSnapshot
 from skylos.ui.help import COMMANDS
 
@@ -181,6 +183,42 @@ def test_command_overview_distinguishes_source_artifact_and_image_checks():
     assert "skylos image scan IMAGE" in output
     assert "container vulnerabilities" in output
     assert "100% accuracy" not in output
+
+
+def test_command_overview_leads_with_scan_done_and_ci():
+    from skylos.ui.help import print_command_overview
+
+    console = Console(record=True, width=100, color_system=None)
+
+    print_command_overview(console)
+
+    output = console.export_text()
+    start = output.index("Start here")
+    more = output.index("More commands")
+    common = [
+        output.index("skylos . -a"),
+        output.index("skylos done --base main"),
+        output.index("skylos cicd init"),
+    ]
+    assert start < min(common) and max(common) < more
+    assert "an AI agent wrote" in output
+    assert more < output.index("skylos preflight [ARTIFACT]")
+    assert more < output.index("skylos image scan IMAGE")
+
+
+def test_command_map_shows_the_common_path_before_every_command():
+    from skylos.ui.help import print_flat_commands
+
+    console = Console(record=True, width=120, color_system=None)
+
+    print_flat_commands(console)
+
+    output = console.export_text()
+    assert output.index("Start here") < output.index("skylos done --base main")
+    assert output.index("skylos done --base main") < output.index("All commands")
+    assert "skylos agent audit [path]" in output
+    done = next(c for c in COMMANDS if c["name"].startswith("skylos done "))
+    assert "AI agent" in done["desc"]
 
 
 def test_preflight_help_names_scope_configuration_and_exit_codes(
@@ -1360,24 +1398,55 @@ def test_provenance_command_json_output_prints_report(tmp_path):
     assert json.loads(mock_print.call_args.args[0])["summary"]["total_files"] == 0
 
 
-def test_cicd_gate_command_reads_input_and_returns_gate_exit(tmp_path):
+@pytest.mark.parametrize("gate_exit", [0, 1])
+def test_cicd_gate_command_reads_input_and_returns_gate_exit(tmp_path, gate_exit):
+    # A compared gate needs its own tracked base; CI's checkout is unrelated
+    # to this dispatch fixture and must not become its policy/security scope.
+    assert write_text_no_symlink(tmp_path / "example.py", "ANSWER = 42\n")
+    for arguments in (
+        ("init", "-q"),
+        ("add", "example.py"),
+        (
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "--no-gpg-sign",
+            "-qm",
+            "gate fixture base",
+        ),
+    ):
+        subprocess.run(
+            ["git", *arguments], cwd=tmp_path, check=True, capture_output=True
+        )
     results_path = tmp_path / "results.json"
-    results_path.write_text(json.dumps({"project_root": str(tmp_path), "danger": []}))
+    result = {"project_root": str(tmp_path), "danger": [], "quality": []}
+    assert write_text_no_symlink(results_path, json.dumps(result))
     from skylos.commands.cicd_cmd import run_cicd_command
 
-    mock_gate = Mock(return_value=0)
+    mock_gate = Mock(return_value=gate_exit)
 
     exit_code = run_cicd_command(
-        ["gate", "--input", str(results_path), "--strict"],
+        [
+            "gate",
+            str(tmp_path),
+            "--input",
+            str(results_path),
+            "--strict",
+            "--diff-base",
+            "HEAD",
+        ],
         console_factory=lambda: Mock(),
         load_config_func=lambda path: {},
         run_gate_interaction_func=mock_gate,
         emit_github_annotations_func=Mock(),
     )
 
-    assert exit_code == 0
+    assert exit_code == gate_exit
+    mock_gate.assert_called_once()
     assert mock_gate.call_args.kwargs["strict"] is True
-    assert mock_gate.call_args.kwargs["result"]["project_root"] == str(tmp_path)
+    assert mock_gate.call_args.kwargs["result"] == result
 
 
 def test_cicd_init_rejects_control_characters_in_scan_path(tmp_path):
@@ -1503,7 +1572,12 @@ def test_cicd_review_sidecar_rejects_oversized_file(tmp_path, monkeypatch):
         )
 
 
-def test_cli_guardrail_static_json_output_passthrough(monkeypatch):
+def test_cli_guardrail_static_json_output_passthrough(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "skylos.cloud.sync.load_custom_rules",
+        lambda: {"rules": [], "status": "not_connected"},
+    )
     result = {
         "unused_functions": [{"name": "unused_func", "file": "test.py", "line": 10}],
         "unused_imports": [],
@@ -1530,7 +1604,22 @@ def test_cli_guardrail_static_json_output_passthrough(monkeypatch):
         cli.main()
 
     mock_analyze.assert_called_once()
-    mock_print.assert_called_once_with(json.dumps(result))
+    mock_print.assert_called_once()
+    payload = json.loads(mock_print.call_args.args[0])
+    expected = {
+        **result,
+        "unused_functions": [{**result["unused_functions"][0], "finding_type": "review"}],
+        "analysis_summary": {
+            **result["analysis_summary"],
+            "custom_rules_coverage": {
+                "status": "not_connected", "rule_count": 0,
+            },
+            "finding_type_counts": {
+                "defect": 0, "review": 1, "advice": 0, "advice_groups": 0,
+            },
+        },
+    }
+    assert payload == expected
 
 
 def test_cli_guardrail_debt_changed_json_keeps_project_scope(tmp_path, monkeypatch):

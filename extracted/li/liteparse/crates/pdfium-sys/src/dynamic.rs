@@ -200,6 +200,17 @@ pub struct PdfiumBindings {
         *mut std::os::raw::c_uint,
         *mut std::os::raw::c_uint,
     ) -> FPDF_BOOL,
+    pub FPDFPageObj_GetClipPath: Option<unsafe extern "C" fn(FPDF_PAGEOBJECT) -> FPDF_CLIPPATH>,
+    pub FPDFClipPath_CountPaths: Option<unsafe extern "C" fn(FPDF_CLIPPATH) -> std::os::raw::c_int>,
+    pub FPDFClipPath_CountPathSegments:
+        Option<unsafe extern "C" fn(FPDF_CLIPPATH, std::os::raw::c_int) -> std::os::raw::c_int>,
+    pub FPDFClipPath_GetPathSegment: Option<
+        unsafe extern "C" fn(
+            FPDF_CLIPPATH,
+            std::os::raw::c_int,
+            std::os::raw::c_int,
+        ) -> FPDF_PATHSEGMENT,
+    >,
     pub FPDFPageObj_GetMatrix: unsafe extern "C" fn(FPDF_PAGEOBJECT, *mut FS_MATRIX) -> FPDF_BOOL,
     pub FPDFPageObj_GetStrokeColor: unsafe extern "C" fn(
         FPDF_PAGEOBJECT,
@@ -275,6 +286,8 @@ pub struct PdfiumBindings {
     pub FPDFText_GetMatrix:
         unsafe extern "C" fn(FPDF_TEXTPAGE, std::os::raw::c_int, *mut FS_MATRIX) -> FPDF_BOOL,
     pub FPDFText_IsGenerated:
+        unsafe extern "C" fn(FPDF_TEXTPAGE, std::os::raw::c_int) -> std::os::raw::c_int,
+    pub FPDFText_IsHyphen:
         unsafe extern "C" fn(FPDF_TEXTPAGE, std::os::raw::c_int) -> std::os::raw::c_int,
     pub FPDFText_HasUnicodeMapError:
         unsafe extern "C" fn(FPDF_TEXTPAGE, std::os::raw::c_int) -> std::os::raw::c_int,
@@ -647,6 +660,10 @@ impl PdfiumBindings {
             FPDFImageObj_GetImageFilter: load_fn!(lib, "FPDFImageObj_GetImageFilter"),
             FPDFImageObj_GetImageMetadata: load_fn!(lib, "FPDFImageObj_GetImageMetadata"),
             FPDFImageObj_GetImagePixelSize: load_fn!(lib, "FPDFImageObj_GetImagePixelSize"),
+            FPDFPageObj_GetClipPath: load_fn_opt!(lib, "FPDFPageObj_GetClipPath"),
+            FPDFClipPath_CountPaths: load_fn_opt!(lib, "FPDFClipPath_CountPaths"),
+            FPDFClipPath_CountPathSegments: load_fn_opt!(lib, "FPDFClipPath_CountPathSegments"),
+            FPDFClipPath_GetPathSegment: load_fn_opt!(lib, "FPDFClipPath_GetPathSegment"),
             FPDFPageObj_GetMatrix: load_fn!(lib, "FPDFPageObj_GetMatrix"),
             FPDFPageObj_GetStrokeColor: load_fn!(lib, "FPDFPageObj_GetStrokeColor"),
             FPDFPageObj_GetFillColor: load_fn!(lib, "FPDFPageObj_GetFillColor"),
@@ -674,6 +691,7 @@ impl PdfiumBindings {
             FPDFText_GetCharOrigin: load_fn!(lib, "FPDFText_GetCharOrigin"),
             FPDFText_GetMatrix: load_fn!(lib, "FPDFText_GetMatrix"),
             FPDFText_IsGenerated: load_fn!(lib, "FPDFText_IsGenerated"),
+            FPDFText_IsHyphen: load_fn!(lib, "FPDFText_IsHyphen"),
             FPDFText_HasUnicodeMapError: load_fn!(lib, "FPDFText_HasUnicodeMapError"),
             FPDFText_GetTextObject: load_fn!(lib, "FPDFText_GetTextObject"),
             FPDFText_GetStrokeColor: load_fn!(lib, "FPDFText_GetStrokeColor"),

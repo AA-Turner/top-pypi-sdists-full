@@ -51,6 +51,7 @@ class View(StrEnum):
     CODE = "code"
     CONTENT = "content"
     PAPERS = "papers"
+    INHERITED = "inherited"
 
 
 #: What a view MEANS on a kind -- the union across both agent
@@ -73,6 +74,7 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.CARD,
             View.CODE,
             View.GROUPS,
+            View.INHERITED,
             View.LINEAGE,
             View.NOTES,
             View.OVERVIEW,
@@ -137,6 +139,7 @@ VIEW_PURPOSE: dict[View, str] = {
     View.EVENTS: "the append-only lifecycle log",
     View.GROUPS: "sweeps and ensembles under an experiment",
     View.HANDOFF: "what a new session needs to continue the work",
+    View.INHERITED: "what a fork reads live from its source: its files, or its runs with runs=true",
     View.LINEAGE: "what it came from: parents, files read, and who wrote them",
     View.METRICS: "series summaries; view_options.key drills to raw points",
     View.NOTES: "hidden operational notes: decisions, caveats, handoffs",

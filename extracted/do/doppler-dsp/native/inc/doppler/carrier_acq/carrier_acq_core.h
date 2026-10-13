@@ -49,8 +49,8 @@
  *
  * @code
  * dp_carrier_acq_state_t *ca = dp_carrier_acq_create(
- *     4.092e6, 100e3, 0.0, 4, 0, 0.0f, NULL, 0, 1e-3, 0.9, 2.0, true,
- *     100000);
+ *     4.092e6, 100e3, 0.0, 4, DP_PSD_WINDOW_HANN, 0.0f, NULL, 0, 1e-3, 0.9,
+ *     2.0, true, 100000);
  * while (!ca->ready && ca->n_blocks < ca->max_n_blocks)
  *     dp_carrier_acq_steps(ca, block, block_len);
  * double hz = ca->residual_hz; // valid only when ca->ready
@@ -84,11 +84,11 @@ typedef struct {
     dp_psd_state_t      *psd; /**< FFT + window + non-coherent power avg.  */
     dp_detector_state_t *det; /**< Correlate averaged power vs. template.  */
 
-    /* Scratch, not state -- sized nfft/psd->n, allocated once at create
+    /* Scratch, not state -- sized nfft/psd->k.n, allocated once at create
      * (no allocation in the steps() hot path). */
     float         *pwr_buf;    /**< dp_psd_power_twosided() output, nfft.  */
     float _Complex *power_buf;  /**< pwr_buf packed complex (imag=0).    */
-    float _Complex *carry_buf;  /**< Raw-input carry, capacity psd->n.   */
+    float _Complex *carry_buf;  /**< Raw-input carry, capacity psd->k.n.   */
     size_t         carry_len;  /**< Valid samples in carry_buf, 0..n-1. */
 
     /* Config, fixed at construction (restored by create(), not the
@@ -113,6 +113,10 @@ typedef struct {
 /**
  * @brief Create a carrier_acq instance.
  *
+ * In C the window is DP_PSD_WINDOW_HANN, DP_PSD_WINDOW_KAISER or
+ * DP_PSD_WINDOW_BLACKMAN_HARRIS; any other, the rectangular window
+ * included, returns NULL.
+ *
  * @param sample_rate_hz  Sample rate of the input stream, Hz (required).
  * @param symbol_rate_hz  Symbol rate, Hz -- builds the default template
  *                        (required).
@@ -122,7 +126,8 @@ typedef struct {
  *                         samples, floored at 3 -- the shortest whose
  *                         default Hann window has any gain.
  * @param zero_pad        PSD zero-pad factor (>= 1); see psd_core.h.
- * @param window          Enum index; 0=hann, 1=kaiser, 2=blackman-harris.
+ * @param window          "hann" (the default, and the window the threshold
+ *                        was fit at), "kaiser" or "blackman-harris".
  * @param beta            Kaiser beta (ignored for hann/blackman-harris).
  * @param psd_template     Known PSD-shape template override, length
  *                        must equal nfft = next_pow_two(block * zero_pad),
@@ -254,7 +259,7 @@ void dp_carrier_acq_steps(dp_carrier_acq_state_t *state, const float _Complex *x
 /* ── Serializable state (standard bytes interface; see dp_state.h) ──────────
  * Composition: psd + detector children (self-contained sub-blobs) + own
  * running fields (n_blocks/ready/residual_hz/carry_len) + the carry
- * buffer (fixed psd->n capacity: the first carry_len samples, then zeros,
+ * buffer (fixed psd->k.n capacity: the first carry_len samples, then zeros,
  * so the blob is a function of the object -- #2076). nfft/dwell_target/
  * max_n_blocks are config -- validated
  * against the live instance, not restored from the blob (a resumed

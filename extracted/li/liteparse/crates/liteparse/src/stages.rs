@@ -228,7 +228,8 @@ pub fn render_for_ocr(
 }
 
 /// Run an [`OcrEngine`] over rasters, at most `num_workers` at a time. Pure
-/// recognition; failures are per-outcome, not errors. A caller with its own
+/// recognition; failures are per-outcome, not errors.
+/// Results are returned in input order on every target. A caller with its own
 /// OCR service can skip this and build [`PageOcrOutcome`]s directly from
 /// the [`OcrRaster`] facts and its engine's word boxes (raster pixel space).
 pub async fn recognize(
@@ -238,6 +239,94 @@ pub async fn recognize(
     num_workers: usize,
 ) -> Vec<PageOcrOutcome> {
     ocr_merge::recognize_rasters(rasters, engine, language, num_workers).await
+}
+
+/// In-flight OCR recognitions for a sliding render window.
+///
+/// [`recognize`] waits for every raster in the batch it was given.
+/// [`LiteParse::parse`](crate::LiteParse::parse) instead keeps at most
+/// `num_workers` recognitions running and renders the next page as soon as
+/// one finishes, so a slow page does not idle the other workers. Raster
+/// memory stays bounded by `num_workers` when each round is rendered with
+/// [`OcrWindow::render_next`], which renders no more pages than there are
+/// free slots.
+///
+/// Native recognition runs on Tokio blocking threads.
+/// On WASM, recognition futures can await JavaScript promises.
+pub struct OcrWindow {
+    inner: ocr_merge::OcrTaskPool,
+}
+
+impl OcrWindow {
+    /// Start a window that will run at most `num_workers` recognitions at once.
+    pub fn new(engine: Arc<dyn OcrEngine>, language: &str, num_workers: usize) -> Self {
+        Self {
+            inner: ocr_merge::OcrTaskPool::new(engine, language, num_workers),
+        }
+    }
+
+    /// How many more rasters can be submitted without waiting.
+    pub fn available_capacity(&self) -> usize {
+        self.inner.available_capacity()
+    }
+
+    /// [`render_for_ocr`] capped at [`available_capacity`](Self::available_capacity)
+    /// (`options.max_rasters` is ignored). Renders nothing, and returns
+    /// `start` unchanged, when the window is full.
+    pub fn render_next(
+        &self,
+        document: &Document,
+        pages: &[Page],
+        start: usize,
+        options: &OcrRenderOptions,
+    ) -> Result<(Vec<OcrRaster>, usize), LiteParseError> {
+        match self.available_capacity() {
+            0 => Ok((Vec::new(), start)),
+            capacity => {
+                ocr_merge::render_pages_for_ocr_capped(document, pages, start, options, capacity)
+            }
+        }
+    }
+
+    /// Record recognitions that have already finished, without waiting.
+    pub fn complete_ready(&mut self) {
+        self.inner.complete_ready()
+    }
+
+    /// Wait until one in-flight recognition finishes and record it. Returns
+    /// `false` without waiting when nothing is in flight.
+    pub async fn complete_one(&mut self) -> bool {
+        self.inner.complete_one().await
+    }
+
+    /// Remove completed outcomes in submission order. Later calls to `finish`
+    /// return only outcomes that have not been removed.
+    pub fn take_completed(&mut self) -> Vec<PageOcrOutcome> {
+        self.inner.take_completed()
+    }
+
+    /// Start recognition for one raster, first waiting for a free slot if the
+    /// window is full.
+    pub async fn submit(&mut self, raster: OcrRaster) {
+        self.inner.submit(raster).await
+    }
+
+    /// Wait for the remaining recognitions and return every outcome, in
+    /// submission order.
+    pub async fn finish(self) -> Vec<PageOcrOutcome> {
+        self.inner.finish().await
+    }
+
+    /// [`finish`](Self::finish), then [`merge_ocr`] the outcomes into `pages`.
+    pub async fn finish_and_merge(
+        self,
+        pages: &mut [Page],
+        ocr_failure_fatal: bool,
+        emit_word_boxes: bool,
+    ) -> Result<(), LiteParseError> {
+        let outcomes = self.finish().await;
+        merge_ocr(pages, outcomes, ocr_failure_fatal, emit_word_boxes)
+    }
 }
 
 /// Merge recognition outcomes into `pages` in place: drop unusable native
@@ -343,6 +432,10 @@ pub struct BlockOptions<'a> {
 /// suppression, rule dedup and soft-hyphen splicing. This is exactly the
 /// decomposition [`render_page_markdown`] renders and
 /// `ParsedPage::blocks` reports.
+///
+/// Table detection splits merged cells on `TextItem.words`, so extract with
+/// `LiteParseConfig::effective_emit_word_boxes` to get the blocks `parse()`
+/// reports.
 ///
 /// Returns `None` for a page with no projected lines (blank, or fully OCR
 /// without font metadata): there is no structure to report, and rendering

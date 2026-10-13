@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: lib_layered_config
-Version: 7.1.3
+Version: 7.1.9
 Summary: Cross-platform layered configuration loader for Python
 Project-URL: Homepage, https://github.com/bitranox/lib_layered_config
 Project-URL: Repository, https://github.com/bitranox/lib_layered_config.git
@@ -18,12 +18,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: lib-cli-exit-tools>=2.4.0
+Requires-Dist: lib-cli-exit-tools>=2.4.1
 Requires-Dist: orjson>=3.13.0
 Requires-Dist: rich-click>=1.9.9
-Requires-Dist: rtoml>=0.13.0
+Requires-Dist: rtoml>=0.14.0
 Provides-Extra: dev
 Requires-Dist: bandit>=1.9.4; extra == 'dev'
 Requires-Dist: build>=1.6.1; extra == 'dev'
@@ -172,6 +173,36 @@ For local development add tooling extras:
 
 ```bash
 pip install "lib_layered_config[dev]"
+```
+
+### Why we recommend uv: supply-chain protection
+
+This repository commits a `uv.lock`. It pins every package the project needs, transitive
+dependencies included, to an exact version and to the hashes of that version's files. The
+`exclude-newer` setting under `[tool.uv]` in `pyproject.toml` adds a cooldown: uv leaves any
+release younger than that out of the lock. CI installs from the lock, so a hijacked release that
+gets pulled again within the cooldown never reaches our builds, and a file whose hash does not
+match is refused.
+
+That protection stays in this repository. The installable package declares only lower bounds
+(`>=`) for its dependencies, so a plain `pip install` takes the newest release of every transitive
+dependency at the moment you run it. If one of them was hijacked an hour earlier, you get the
+hijacked version. `pipx install` and `uv tool install` without options do the same.
+
+To install the command line tool with a cooldown of your own (uv then skips any release younger
+than 7 days, transitive ones included), or to run the exact tree our CI tests:
+
+```bash
+uv tool install --exclude-newer "7 days" lib_layered_config
+git clone https://github.com/bitranox/lib_layered_config.git && cd lib_layered_config && uv sync --locked && uv run lib_layered_config --help
+```
+
+If you depend on lib_layered_config in your own project, give that project the same cooldown (7 days here, as
+an example) and commit the `uv.lock` that `uv add lib_layered_config` writes:
+
+```toml
+[tool.uv]
+exclude-newer = "7 days"
 ```
 
 ## Quick Start
@@ -530,7 +561,8 @@ pool_size = 50
 
 - Every merged key stores metadata (`layer`, `path`, `key`).
 - Structured logging lives in `lib_layered_config.observability` (trace-aware `log_debug`, `log_info`, `log_warn`, `log_error`).
-- Use `bind_trace_id("abc123")` to correlate CLI/log events with your own tracing.
+- Use `bind_trace_id("abc123")` to correlate CLI/log events with your own tracing: `read_config*` and
+  `deploy_config` tag every event with the bound id and leave the binding in place for your later events.
 
 ### Type Conflict Warnings
 

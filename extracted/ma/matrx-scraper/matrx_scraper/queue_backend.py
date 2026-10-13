@@ -49,7 +49,7 @@ class QueueBackend(Protocol):
         """Mark a URL as successfully processed."""
         ...
 
-    async def mark_failed(self, url: str, error: str, will_retry: bool = False) -> None:
+    async def mark_failed(self, url: str, error: str, will_retry: bool = False) -> bool | None:
         """Mark a URL as failed."""
         ...
 
@@ -121,7 +121,7 @@ class InMemoryQueueBackend:
         async with self._lock:
             self._in_flight.pop(url, None)
 
-    async def mark_failed(self, url: str, error: str, will_retry: bool = False) -> None:
+    async def mark_failed(self, url: str, error: str, will_retry: bool = False) -> bool:
         # will_retry MUST re-enqueue — the crawler uses it to back a rate-limited
         # (HTTP 429) URL off and try again. Dropping it here silently (the old
         # behavior) is why retries never happened. The url stays in `_known`, so
@@ -130,6 +130,8 @@ class InMemoryQueueBackend:
             item = self._in_flight.pop(url, None)
         if will_retry and item is not None:
             await self._queue.put(item)
+        # True only when this call took the claim (it was still in flight).
+        return item is not None
 
     async def is_known(self, url: str) -> bool:
         async with self._lock:

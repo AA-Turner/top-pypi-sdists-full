@@ -1,0 +1,33 @@
+[package]
+name = "tombi-text"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+log.workspace = true
+memchr.workspace = true
+self_cell.workspace = true
+serde = { workspace = true, optional = true }
+unicode-segmentation.workspace = true
+wasm-bindgen = { workspace = true, optional = true }
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+rstest.workspace = true
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+tower-lsp-server = { workspace = true, features = ["runtime-tokio"], optional = true }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+tower-lsp-server = { workspace = true, features = ["runtime-agnostic"], optional = true }
+
+[features]
+default = ["lsp", "serde"]
+lsp = ["dep:tower-lsp-server"]
+serde = ["dep:serde"]
+wasm = ["dep:wasm-bindgen", "serde"]
+
+[lints]
+workspace = true

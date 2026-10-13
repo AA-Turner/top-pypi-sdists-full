@@ -13,6 +13,8 @@ import dataclasses
 import fcntl
 import json
 import os
+import shutil
+import re
 import signal
 import threading
 import time
@@ -822,6 +824,145 @@ def test_a_crash_is_logged_releases_the_lease_and_exits_for_a_backoff(tmp_path, 
     assert _lease()["reason"] == lease.REASON_ERROR
 
 
+def _install(tmp_path: Path, monkeypatch) -> Path:
+    """A stand-in for the CLI's `probe/` folder under `uv tool`, which this worker
+    started from."""
+    root = tmp_path / "tools" / "probe-research" / "lib" / "python3.13" / "site-packages" / "probe"
+    root.mkdir(parents=True)
+    (root / "__init__.py").write_text("__version__ = '0.243.0'\n")
+    monkeypatch.setattr(worker_mod, "install_root", lambda: root)
+    monkeypatch.setattr(worker_mod, "_INSTALL_STAMP", worker_mod._install_stamp())
+    return root
+
+
+def _reinstall(root: Path, how: str) -> None:
+    """`uv tool` under a running worker: a new Python moves the folder (`gone`), or
+    `probe update` rewrites its files where they are (`in place`)."""
+    if how == "gone":
+        shutil.rmtree(root.parents[2])
+        return
+    (root / "__init__.py").unlink()
+    (root / "__init__.py").write_text("__version__ = '0.244.0'\n")
+    os.utime(root / "__init__.py", ns=(1, 1))
+
+
+@pytest.mark.parametrize("how", ["gone", "in place", "unchanged"])
+def test_a_worker_whose_install_was_replaced_exits_for_a_restart_not_as_a_crash(tmp_path, monkeypatch, how):
+    """`uv tool` reinstalled the CLI under a running worker and its next read of
+    its own files failed (2026-10-12, CLI 0.233.1: "Daemon crashed",
+    FileNotFoundError on record_session.md). The capture supervisor starts the
+    new install as soon as the old one exits 0: no crash backoff, no ping, the
+    lease handed back. The same error in an install still as it was stays a crash."""
+    monkeypatch.setenv("PROBE_DAEMON_KEY", "k-test")
+    root = _install(tmp_path, monkeypatch)
+    pinged = []
+    monkeypatch.setattr(worker_mod.alerts, "report", lambda kind, **kw: pinged.append(kind))
+
+    async def boom(self):
+        if how != "unchanged":
+            _reinstall(root, how)
+        raise FileNotFoundError(2, "No such file or directory", str(root / "daemon" / "record_session.md"))
+
+    monkeypatch.setattr(worker_mod.Worker, "loop", boom)
+    code = _run_main(_argv(tmp_path))
+    if how == "unchanged":
+        assert code == worker_mod.EXIT_CRASHED and pinged == [worker_mod.alerts.Kind.CRASHED]
+        return
+    assert code == 0 and not pinged
+    assert _lease()["reason"] == lease.REASON_STOPPED, "the lease is handed back for the new install"
+    assert "reinstalled" in _errors(tmp_path) and "crashed" not in _errors(tmp_path)
+
+
+@pytest.mark.parametrize("how", ["gone", "in place"])
+def test_an_idle_worker_whose_install_was_replaced_leaves_at_its_next_poll(tmp_path, monkeypatch, how):
+    """Without a bite to fail, the reader -- which never ends the worker -- would
+    hit the missing or new files instead and ping "reader failing". The poll looks
+    first: the worker leaves 0 for the new install, and no bite starts."""
+    root = _install(tmp_path, monkeypatch)
+    model, calls = _raising(RuntimeError("provider down"))
+    w = _worker(tmp_path, model=model)
+    w.replay = None
+    assert asyncio.run(w.tick()) is None, "its install is as it was: it carries on"
+    tried = calls["n"]
+    w.next_attempt_at = 0.0
+    _reinstall(root, how)
+    assert asyncio.run(w.tick()) == 0
+    assert calls["n"] == tried, "no bite starts on an install that was replaced"
+    assert w.released_reason == lease.REASON_STOPPED and "restarts on the new install" in _errors(tmp_path)
+
+
+def test_a_worker_reinstalled_under_while_the_session_ends_says_what_is_left(tmp_path, monkeypatch):
+    """Ending, nobody restarts it: the line says what stays unrecorded, not that a
+    restart is coming."""
+    root = _install(tmp_path, monkeypatch)
+    w = _worker(tmp_path, model=_raising(RuntimeError("unused"))[0])
+    w.replay = None
+    w.read_new()
+    w.stopping = True
+    _reinstall(root, "in place")
+    assert asyncio.run(w.tick()) == 0
+    assert "events unrecorded" in _errors(tmp_path) and "restarts on the new install" not in _errors(tmp_path)
+
+
+def test_a_reinstall_between_two_model_rounds_stops_the_run_with_its_events_queued(tmp_path, monkeypatch):
+    """Noticed between rounds, a long run stops there: no failure counted, its
+    events queued for the new install (not a lost lease)."""
+    root = _install(tmp_path, monkeypatch)
+    rounds = {"n": 0}
+
+    def fn(messages, info):
+        rounds["n"] += 1
+        _reinstall(root, "in place")
+        return ModelResponse(parts=[ToolCallPart("shell", {"command": "ls", "why": "test"})])
+
+    w = _worker(tmp_path, model=FunctionModel(fn))
+    w.replay = None
+    w.read_new()
+    queued = [ev.seq for ev in w.store.pending()]
+    assert asyncio.run(w.run_bite("turn end")) is False
+    assert w.store.recent_bites(1)[0]["outcome"] == "stopped: reinstalled"
+    assert rounds["n"] == 1 and w.failures == 0 and [ev.seq for ev in w.store.pending()] == queued
+
+
+def test_what_counts_as_a_reinstall(tmp_path, monkeypatch):
+    """An install whose `__init__.py` could not be read at start (a zip or frozen
+    build) has nothing to compare: never "reinstalled", or it would exit every
+    poll. A version's dist-info folder gone is a reinstall even with `__init__.py`
+    as it was (a renamed prompt file is enough to break a worker)."""
+    root = _install(tmp_path, monkeypatch)
+    assert worker_mod.install_replaced() is False
+    monkeypatch.setattr(worker_mod, "_INSTALL_STAMP", None)
+    shutil.rmtree(root)
+    assert worker_mod.install_replaced() is False
+    root = _install(tmp_path / "again", monkeypatch)
+    dist = root.parent / "probe_research-0.243.0.dist-info"
+    dist.mkdir()
+    monkeypatch.setattr(worker_mod, "_DIST_INFO", dist)
+    assert worker_mod.install_replaced() is False
+    dist.rmdir()
+    assert worker_mod.install_replaced() is True
+
+
+def test_a_run_that_fails_on_a_replaced_install_is_no_bug(tmp_path, monkeypatch):
+    """A run that read its own files after a reinstall fails: no "Daemon bug" ping,
+    no failure counted, its events stay queued for the new install."""
+    root = _install(tmp_path, monkeypatch)
+    pinged = []
+    monkeypatch.setattr(worker_mod.alerts, "report_bite_failure", lambda exc, **kw: pinged.append(exc))
+
+    def fn(messages, info):
+        _reinstall(root, "in place")
+        raise ModuleNotFoundError("No module named 'probe.daemon.new_module'")
+
+    w = _worker(tmp_path, model=FunctionModel(fn))
+    w.replay = None
+    w.read_new()
+    queued = [ev.seq for ev in w.store.pending()]
+    assert asyncio.run(w.run_bite("turn end")) is False
+    assert w.store.recent_bites(1)[0]["outcome"] == "stopped: reinstalled"
+    assert not pinged and w.failures == 0 and [ev.seq for ev in w.store.pending()] == queued
+
+
 # ---------------------------------------------------------------------------
 # A5: the session-end deadline.
 # ---------------------------------------------------------------------------
@@ -1151,9 +1292,13 @@ def test_a_bite_aggregates_the_events_table_once_and_through_an_index(tmp_path, 
     monkeypatch.setattr(st, "shown_turn_sizes", lambda: seen.append(1) or real())
     assert bite_mod.build(st, trigger="age", context_line="", pending_lines=[], recent_writes=[]) is not None
     assert seen == [1]
-    plan = " ".join(str(tuple(r)) for r in st.db.execute(
-        "EXPLAIN QUERY PLAN SELECT turn, min(seq), sum(chars) FROM events GROUP BY turn"))
-    assert "COVERING INDEX events_sizes" in plan
+    statements: list[str] = []
+    st.db.set_trace_callback(statements.append)
+    real()
+    st.db.set_trace_callback(None)
+    (sql,) = [q for q in statements if q.lstrip().upper().startswith("SELECT")]
+    plan = " ".join(str(tuple(r)) for r in st.db.execute("EXPLAIN QUERY PLAN " + sql))
+    assert re.search(r"COVERING INDEX events_sizes_source\b", plan), plan
 
 
 def _inbox(msgs: list[dict], mode: str = "w") -> None:

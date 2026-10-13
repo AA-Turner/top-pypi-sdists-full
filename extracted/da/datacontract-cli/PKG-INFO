@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacontract-cli
-Version: 1.2.4
+Version: 1.2.5
 Summary: The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library.
 Author-email: Jochen Christ <jochen.christ@entropy-data.com>, Stefan Negele <stefan.negele@innoq.com>, Simon Harrer <simon.harrer@entropy-data.com>
 License-Expression: MIT
@@ -183,6 +183,7 @@ Dynamic: license-file
   <a href="https://datacontract.com/slack" rel="nofollow"><img src="https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&amp;style=social" alt="Slack Status" data-canonical-src="https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&amp;style=social" style="max-width: 100%;"></a>
 </p>
 
+**Turn your schemas into data contracts and test your data against them, on Snowflake, Databricks, BigQuery, Kafka, Postgres & 15 more. Open source, built on the Open Data Contract Standard.**
 The `datacontract` CLI is an open-source command-line tool for working with [data contracts](https://datacontract.com).
 It natively supports the [Open Data Contract Standard](https://bitol-io.github.io/open-data-contract-standard/latest/) to lint data contracts, connect to data sources and execute schema and quality tests, and export to different formats. 
 The tool is written in Python. 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import webbrowser
+from collections.abc import Sequence
 
 from probe.sdk.links import dashboard_base_url
 
@@ -17,11 +18,16 @@ def _needs_attention(jobs: list[dict]) -> bool:
                    for summary in summaries))
 
 
-def show(base_url: str) -> bool | import_jobs_ui.Navigation:
+def show(base_url: str, next_steps: Sequence[str] = ()) -> bool | import_jobs_ui.Navigation:
     """Return true for dashboard, false for main menu, or Navigation.EXIT.
 
     Opening the dashboard and exiting the wizard both leave approved background
     imports running, with their saved progress available in Existing imports.
+
+    `next_steps` are what the researcher still has to do by hand: the steps
+    that put Probe inside a cloud agent (Capy), which no command can do. The
+    install's progress page is replaced by the import offer before anyone can
+    read it, so this last page is where they stay on screen.
     """
     base = dashboard_base_url(base_url)
     url = f"{base}/projects" if base else None
@@ -30,6 +36,8 @@ def show(base_url: str) -> bool | import_jobs_ui.Navigation:
     def status():
         jobs = import_jobs.list_jobs()
         lines = ["Probe is installed."]
+        if next_steps:
+            lines.extend(["", *next_steps])
         progress = import_jobs_ui.active_progress_lines(jobs)
         if progress:
             if tui.rows() < 32:

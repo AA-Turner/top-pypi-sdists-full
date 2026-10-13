@@ -48,7 +48,12 @@ def _prepared(repository: object) -> PreparedAnalysis:
         session_id="session-1",
         root_url="https://example.com",
         repository=repository,
-        state=SimpleNamespace(run_lease_token="lease-1"),
+        state=SimpleNamespace(
+            run_lease_token="lease-1",
+            session_id="session-1",
+            site_id="site-1",
+            event_sequence=0,
+        ),
     )
 
 
@@ -58,6 +63,7 @@ def _repository() -> SimpleNamespace:
         fail_session=AsyncMock(return_value=True),
         complete_session=AsyncMock(return_value=True),
         heartbeat_run_lease=AsyncMock(return_value=True),
+        persist_command_event=AsyncMock(),
     )
 
 

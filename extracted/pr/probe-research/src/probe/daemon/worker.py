@@ -32,9 +32,11 @@ worker of a resumed session waits for the previous one to finish.
                                    from disk (a
                                    bite) when there is no usable saved history,
                                    after COMPACTIONS_BEFORE_FRESH compactions,
-                                   when the loop detector stopped a run, or
-                                   when the model refused the saved history (a
-                                   4xx not about the key, budget or rate)
+                                   when the loop detector stopped a run, when
+                                   the model thought until its token limit and
+                                   answered nothing, or when the model refused
+                                   the saved history (a 4xx not about the key,
+                                   budget or rate)
                    No bite starts while this process may not write for a
                    reason it did not make (the switch unreadable -- for
                    SWITCH_UNREADABLE_EXIT_S and it exits --, another process's
@@ -60,12 +62,15 @@ worker of a resumed session waits for the previous one to finish.
                    gateway failing twice in a row RELEASES the lease with its
                    reason, and it stays released until a model round answers
                    again (a key Probe refused: until Probe takes it again, and
-                   no model call before). A bite its limits (bites mode) or the
-                   loop detector cut short is retried over half its new events;
+                   no model call before). A bite its limits (bites mode), the
+                   loop detector or a model that answered nothing before its
+                   token limit cut short is retried over half its new events;
                    cut short twice from the same event, that range is skipped,
                    and a notice and the logbook say so
     when crashing: logged, the lease released (`error`), exit EXIT_CRASHED: the
-                   supervisor waits before it starts another
+                   supervisor waits before it starts another -- unless the CLI
+                   was reinstalled under it (`install_replaced`): exit 0, and
+                   the supervisor starts the new install at once
 
 A bite is due when the queue holds your prompt, the agent's turn end, more than
 QUEUE_LIMIT_CHARS, anything older than DUE_AFTER_S (from when it was noticed),
@@ -80,6 +85,7 @@ import dataclasses
 import hashlib
 import json
 import logging
+import math
 import os
 import signal
 import sqlite3
@@ -94,15 +100,20 @@ from typing import Callable
 
 from probe.daemon import adapters, approvals as appr, bite as bite_mod, folders, lease, mailbox, tools
 from probe.daemon import alerts
+from probe.daemon import scope
 from probe.daemon import gate as gate_mod
 from probe.daemon.adapters.base import MODE_BYPASS, MODE_UNKNOWN, Adapter
 from probe.daemon import exclusions as exclusions_mod
-from probe.daemon.events import Event, Kind
+from probe.daemon.events import MAIN_STREAM, READER_SOURCE, READER_STREAM, Event, Kind
 from probe.daemon import shipper as shipper_mod
 from probe.daemon import trace as trace_mod
 from probe.sdk.session_marker import WIZARD_HINT
 from probe.daemon.store import (
+    BITE_DONE,
+    BITE_PAUSED,
+    CARRY_ON,
     LANE_WRITE,
+    _epoch,
     Store,
     StoreVersionError,
     add_device_tokens,
@@ -114,6 +125,9 @@ log = logging.getLogger("probe.daemon")
 
 POLL_S = 2.0
 DUE_AFTER_S = 120.0
+#: The two run triggers the writer's least gap may hold back (`Worker.deferrable`).
+TRIGGER_TURN_END = "turn end"
+TRIGGER_AGE = "age"
 QUEUE_LIMIT_CHARS = 200_000
 READ_CHUNK_BYTES = 4 * 1024 * 1024
 MAX_LINE_BYTES = 8 * 1024 * 1024
@@ -135,7 +149,6 @@ ENV_MODE = "PROBE_DAEMON_MODE"
 #: Conversation mode: a run is paused after this many model rounds, so the events
 #: that queued meanwhile get in; the next bite carries on (the fact CARRY_ON).
 ROUNDS_BEFORE_YIELD = BITE_REQUESTS
-CARRY_ON = "carry_on"
 #: "<conversation id>:<compactions>" the agent memory index was last shown after.
 INDEX_AFTER_COMPACTION = "index_after_compaction"
 #: Conversation mode: after this many compactions the next bite starts fresh from disk.
@@ -173,6 +186,12 @@ DEADLINE_POLL_S = 1.0
 #: a 5xx) releases the lease (`gateway`): the agent records until a model round
 #: answers again.
 GATEWAY_FAILURES_BEFORE_RELEASE = 2
+#: Bites in a row whose model thought until its token limit and answered nothing
+#: (`agent.answered_nothing`) release the lease with the gateway's reason: the agent
+#: records until a round answers again. Each such bite also waits longer before the
+#: next (30 s doubling, BACKOFF_CAP_S at most), so a model that never answers costs
+#: about two calls an hour, not one every few minutes forever (strand-ai 2026-10-12).
+NO_ANSWERS_BEFORE_RELEASE = 3
 #: A bite cut short by its limits is retried over half as many new events; this
 #: many in a row from the same first event and those events are skipped (a notice
 #: and a logbook line say so), never retried forever.
@@ -216,6 +235,16 @@ EXIT_CRASHED = 4
 #: supervisor starts one again as soon as the switch reads `daemon` -- never
 #: "gave up", which a switch readable again by the time it looks would pin (T11).
 EXIT_RESPAWN_LATER = 5
+#: The daemon's AI libraries are missing: the supervisor tries again later
+#: (LIBS_RETRY_SECONDS on its side), because an update or `probe daemon install`
+#: puts them back. Only to a supervisor that sets SUPERVISOR_RETRIES_LIBS_ENV
+#: (tap 0.9.19+); an older tap gets EXIT_DO_NOT_RESPAWN, which it understands.
+EXIT_RETRY_LIBS = 6
+#: Set by a supervisor that retries after EXIT_RETRY_LIBS.
+SUPERVISOR_RETRIES_LIBS_ENV = "PROBE_TAP_RETRIES_LIBS"
+#: How often the missing-libraries line reaches `daemon-errors.log` per session:
+#: a supervisor that retries would otherwise add one every few minutes.
+LIBS_MISSING_LOG_EVERY_S = 3600.0
 STATE_DAEMON = lease.STATE_DAEMON
 #: Releases this worker made that a model round answering again takes back.
 _RECOVERABLE = (lease.REASON_UNAUTHORIZED, lease.REASON_BUDGET, lease.REASON_GATEWAY)
@@ -234,6 +263,8 @@ class CutShort(StrEnum):
 
     LIMITS = "limits"  # its per-bite caps (bites mode)
     LOOP = "loop"  # the loop detector
+    NO_ANSWER = "no answer"  # the model thought until its token limit (`agent.answered_nothing`)
+    TOO_LARGE = "too large"  # the model route refused the prompt as over its ceiling (`PROMPT_TOO_LARGE`)
 
 
 #: Why a run stopped between two model rounds (`Worker._between_rounds`).
@@ -241,6 +272,9 @@ STOP_LOOP = "loop"
 STOP_LEASE = "lease"
 STOP_DEADLINE = "session end"
 STOP_YIELD = "yield"
+#: Why a run stopped when the CLI was reinstalled under it (`install_replaced`).
+REINSTALLED = "the probe CLI was reinstalled under this worker"
+STOP_REINSTALLED = "reinstalled"
 
 
 class Interrupted(Exception):
@@ -281,6 +315,12 @@ class Worker:
         self.clock = clock
         self.adapter: Adapter = adapters.for_source(session.source)
         self.store = Store(store_path(session.session_id), clock=clock)
+        #: Per chat stream: did its last read stop at READ_CHUNK_BYTES with whole
+        #: lines still waiting (a backlog read a chunk a poll)?
+        self.stream_behind: dict[str, bool] = {}
+        #: The newest stamp of any main chat line this worker has read (`_parse`).
+        self.chat_seen_at: float | None = None
+        self._start_reader_log()
         #: The writer's trace in the session's folder (`trace.py`): each bite's
         #: start and end from here, its model calls and tool runs from the agent.
         self.trace = trace_mod.TraceFile(session.session_id, "writer")
@@ -295,7 +335,11 @@ class Worker:
         self._stop_ends: dict[str, int] | None = None
         self.drained = False
         self.failures = 0
+        #: Bites in a row whose model answered nothing (NO_ANSWERS_BEFORE_RELEASE).
+        self.no_answers = 0
         self.next_attempt_at = 0.0
+        #: When the last run started (`clock`): the writer's least gap counts from it.
+        self.last_run_at = float("-inf")
         #: Why this worker released the lease; renewing waits until a model round answers again.
         self.released_reason: str | None = None
         self.parent_pid = os.getppid()
@@ -369,11 +413,13 @@ class Worker:
         self.released_reason = reason
 
     def _model_answered(self) -> None:
-        """A model round came back: progress. A release made for the key or the
-        budget ends here, and the lease is renewed -- except one made because
+        """A model round answered (`agent.answered`): progress. A release made for
+        the key, the budget, the gateway or answers the token limit ate ends here,
+        and the lease is renewed -- except one made because
         PROBE refused the key: the model's route may take a key Probe's other
         routes refuse, so only `_probe_accepts_key` passing ends that one."""
         self.gateway_failures = 0
+        self.no_answers = 0
         if self.released_reason in _RECOVERABLE and not self.probe_refused_key:
             log.info("the model answers again: taking the lease back (released: %s)", self.released_reason)
             self.released_reason = None
@@ -489,6 +535,10 @@ class Worker:
             added += self._read_stream(stream, path, None if until is None else until[stream])
         if until is None or "sdk" in until:
             added += self._read_inbox(None if until is None else until["sdk"])
+        # Not while a chat backlog is still being read a chunk a poll: a claim is
+        # placed by when it is read, so it must not come before those lines.
+        if (until is None or READER_STREAM in until) and not self.stream_behind.get("main"):
+            added += self._read_reader_log(None if until is None else until[READER_STREAM])
         self._mark_inline()
         return added
 
@@ -496,7 +546,8 @@ class Worker:
         """Where each stream ends now: what a stopping worker still takes on."""
         files = self.adapter.session_files(self.session.transcript)
         paths = [("main", files.main), *((f"subagent:{p.stem}", p) for p in files.subagents),
-                 ("sdk", inbox_path(self.session.session_id))]
+                 ("sdk", inbox_path(self.session.session_id)),
+                 (READER_STREAM, mailbox.claim_log_path(self.session.session_id))]
         ends: dict[str, int] = {}
         for stream, path in paths:
             try:
@@ -539,6 +590,7 @@ class Worker:
             if size < offset:
                 return self._suspect(stream, offset, f"it is shorter than the {offset:,} bytes already read")
             end = size if until is None else min(size, until)
+            self.stream_behind[stream] = end - offset > READ_CHUNK_BYTES
             start = max(0, offset - GUARD_BYTES)
             handle.seek(start)
             before = handle.read(offset - start)
@@ -651,6 +703,12 @@ class Worker:
         return added
 
     def _parse(self, obj: dict, stream: str, end: int) -> list[Event]:
+        if stream == MAIN_STREAM:
+            # Every chat line read counts, stored or not (the hook's own copy of a
+            # reader message is not stored): the reader stream waits for it.
+            seen = _epoch(self.adapter.line_ts(obj))
+            if seen is not None and (self.chat_seen_at is None or seen > self.chat_seen_at):
+                self.chat_seen_at = seen
         mode = self.adapter.permission_mode(obj)
         if mode:
             self.store.set_fact("permission_mode", mode)
@@ -731,6 +789,104 @@ class Worker:
             self.store.set_cursor("sdk", str(path), offset + pos)
         return added
 
+    def _newest_chat(self) -> float | None:
+        """The newest main chat line's time: stored, or read and not stored (the
+        hook's own copy of a reader message), whichever is newer."""
+        stamps = (_epoch(self.store.latest_ts(MAIN_STREAM)), self.chat_seen_at)
+        return max((t for t in stamps if t is not None), default=None)
+
+    def _start_reader_log(self) -> None:
+        """Where this store starts reading the reader's claim log, decided once and
+        saved at once, so a later worker on the same store (resume, handover,
+        restart) carries on from it. A fresh store reads it all; a store an earlier
+        build kept for a session already under way starts after the last whole
+        line: its reader messages so far were seen as harness lines."""
+        if self.store.cursor(READER_STREAM)[0] is not None:
+            return
+        path = mailbox.claim_log_path(self.session.session_id)
+        start = _whole_lines_end(path) if self.store.totals()["events"] else 0
+        with self.store.tx():
+            self.store.set_cursor(READER_STREAM, str(path), start)
+            self.store.set_fact(READER_LOG_INODE, _inode(path))
+
+    def _read_reader_log(self, until: int | None = None) -> int:
+        """What the daemon's reader handed the main agent: each claim the mailbox
+        logged (whichever deliverer took it: a hook, pi's extension, `probe ask
+        --wait`), as one event holding the message as the agent read it. A claim
+        counts only for a message this daemon recorded (`read_messages`) whose file
+        a deliverer really moved into `claimed/`: a file or line anyone could write
+        never becomes the reader's. Each event is keyed on its message, so reading
+        the log again stores nothing twice. Read from the mailbox, never the
+        transcript: the same on every harness, whole however the harness stored it."""
+        sid = self.session.session_id
+        path = mailbox.claim_log_path(sid)
+        _, offset = self.store.cursor(READER_STREAM)
+        try:
+            handle = path.open("rb")
+        except OSError:
+            return 0
+        with handle:
+            stat = os.fstat(handle.fileno())
+            known = self.store.fact(READER_LOG_INODE)
+            if stat.st_size < offset or (known is not None and known != stat.st_ino):
+                offset = 0  # a new log (the folder was swept and made again): all of it is new
+            end = stat.st_size if until is None else min(stat.st_size, until)
+            if end <= offset:
+                return 0
+            handle.seek(offset)
+            buf = handle.read(min(end - offset, READ_CHUNK_BYTES))
+        pos = buf.rfind(b"\n") + 1
+        lines: list[tuple[int, str | None, object]] = []  # (bytes, message id, claimed at)
+        if pos == 0 and len(buf) == READ_CHUNK_BYTES:
+            log.warning("skipped %s bytes of the reader's claim log with no line end", len(buf))
+            lines.append((len(buf), None, None))
+        else:
+            for raw in buf[:pos].split(b"\n")[:-1]:
+                try:
+                    entry = json.loads(raw)
+                except ValueError:
+                    entry = None
+                ok = isinstance(entry, dict) and isinstance(entry.get("id"), str)
+                lines.append((len(raw) + 1, entry["id"] if ok else None, entry.get("at") if ok else None))
+        moved = mailbox.claimed_ids(sid)
+        rows = self.store.read_messages(sorted({i for _, i, _ in lines if i and i in moved}))
+        # A claim is logged before the harness writes the lines that carry it (a new
+        # prompt, the hook's own context): a claim that will show waits for them
+        # (_held), and the claims after it with it, in order. A line that is no
+        # claim of ours never holds anything; nothing waits at the shutdown drain.
+        claims: list[tuple[str, object]] = []
+        used, newest, looked = 0, None, False
+        for size, message_id, at in lines:
+            if message_id is not None and message_id in rows:
+                if until is None:
+                    if not looked:
+                        newest, looked = self._newest_chat(), True
+                    if _held(at, newest, self.clock()):
+                        break
+                claims.append((message_id, at))
+            used += size
+        if not used:
+            return 0  # all of it waits: nothing to store, the cursor stays
+        pos = used
+        added = 0
+        with self.store.tx():
+            events = []
+            for message_id, at in claims:
+                row = rows.get(message_id)
+                if row is None:
+                    continue
+                try:
+                    events.append(Event(kind=Kind.META, stream=READER_STREAM, offset=int(row["rid"]),
+                                        text=_reader_message(sid, row).rendered(), ts=_stamp(at),
+                                        source=READER_SOURCE))
+                except Exception as exc:  # noqa: BLE001 - one bad row never holds back the rest
+                    log.warning("skipped a reader message: %s: %s", type(exc).__name__, exc)
+            if events:
+                added = self.store.add(self.exclusions.keep(events, stream=READER_STREAM))
+            self.store.set_cursor(READER_STREAM, str(path), offset + pos)
+            self.store.set_fact(READER_LOG_INODE, stat.st_ino)
+        return added
+
     # -- deciding when --------------------------------------------------------
     def due(self) -> str | None:
         if self.clock() < self.next_attempt_at:
@@ -738,17 +894,38 @@ class Worker:
         pending = self.store.pending(limit=bite_mod.MAX_EVENTS_PER_BITE + 1)
         if not pending:
             return "carry on" if self._carrying_on() else None
+        from probe.daemon import model as model_mod
+
+        trigger = self._trigger(pending)
+        gap = model_mod.writer_min_gap_s()
+        if gap > 0 and self.deferrable(trigger, pending) and self.clock() - self.last_run_at < gap:
+            return None  # E: the next run waits for the gap, and takes in more of the session
+        return trigger
+
+    def _trigger(self, pending: list) -> str | None:
         if any(ev.kind == Kind.PROMPT and ev.seq != pending[0].seq for ev in pending):
             return "prompt"
         if any(ev.kind == Kind.TURN_END for ev in pending):
-            return "turn end"
-        if sum(ev.chars for ev in pending) > QUEUE_LIMIT_CHARS or len(pending) > bite_mod.MAX_EVENTS_PER_BITE:
+            return TRIGGER_TURN_END
+        if self._over_size(pending):
             return "size"
         if self.clock() - pending[0].noticed >= DUE_AFTER_S:
-            return "age"
+            return TRIGGER_AGE
         if self.stopping:
             return "session end"
         return "carry on" if self._carrying_on() else None
+
+    @staticmethod
+    def _over_size(pending: list) -> bool:
+        return sum(ev.chars for ev in pending) > QUEUE_LIMIT_CHARS or len(pending) > bite_mod.MAX_EVENTS_PER_BITE
+
+    def deferrable(self, trigger: str | None, pending: list) -> bool:
+        """Whether the writer's least gap (`model.writer_min_gap_s`, daemon cost
+        round 4, E) may hold this run back: its only reasons are the agent's
+        turn end or the queue's age. A prompt, a full queue, the session ending
+        or a paused conversation run starts it at once, whichever label won."""
+        return (trigger in (TRIGGER_TURN_END, TRIGGER_AGE) and not self._over_size(pending)
+                and not self.stopping and not self._carrying_on())
 
     def _carrying_on(self) -> bool:
         """A conversation run was paused (STOP_YIELD): the next bite is due now."""
@@ -837,8 +1014,12 @@ class Worker:
         state = self._run_state(bite_id, conversation=conversation is not None,
                                 shown=(built.first_seq, built.last_seq))
         state.trace = self.trace
+        # T-E0: whether the writer's least gap could have held this run back.
+        deferrable = self.deferrable(trigger, self.store.pending(limit=bite_mod.MAX_EVENTS_PER_BITE + 1))
+        self.last_run_at = self.clock()
         self.trace.start_run(bite_id, trigger=trigger, mode=str(self.mode), conversation=conversation,
-                             history_messages=len(history or []), events=[built.first_seq, built.last_seq])
+                             history_messages=len(history or []), events=[built.first_seq, built.last_seq],
+                             deferrable=deferrable)
         try:
             result = await self._until_finish_by(self._agent_run(built, deps, usage, state=state,
                                                                  history=history))
@@ -868,7 +1049,7 @@ class Worker:
             if conversation is not None:
                 self.store.save_conversation(conversation, saved, compactions=state.compactions)
             self.store.mark_covered(bite_id, built.last_seq)
-            self.store.close_bite(bite_id, outcome="done", input_tokens=in_tok, output_tokens=out_tok,
+            self.store.close_bite(bite_id, outcome=BITE_DONE, input_tokens=in_tok, output_tokens=out_tok,
                                   cached_tokens=cached)
             if self.store.fact("cut_short"):
                 self.store.set_fact("cut_short", None)
@@ -922,8 +1103,9 @@ class Worker:
         if live is not None and live["messages"] and live["fingerprint"] != fingerprint:
             log.info("conversation %s was made by another session, job description, model or Pydantic AI version: "
                      "a fresh start from disk", live["id"])
-            self.store.end_conversation(live["id"], "its fingerprint no longer matches (the session, the job "
-                                                    "description, the model or the Pydantic AI version changed)")
+            with self.store.tx():
+                self._end_resumed(live["id"], "its fingerprint no longer matches (the session, the job "
+                                              "description, the model or the Pydantic AI version changed)")
             live = None
         if live is not None and live["messages"]:
             try:
@@ -931,7 +1113,8 @@ class Worker:
             except Exception as exc:  # noqa: BLE001 -- a history that cannot be read is replaced, never fatal
                 log.warning("conversation %s: its saved history could not be read (%s): a fresh start from disk",
                             live["id"], type(exc).__name__)
-                self.store.end_conversation(live["id"], f"its saved history could not be read ({type(exc).__name__})")
+                with self.store.tx():
+                    self._end_resumed(live["id"], f"its saved history could not be read ({type(exc).__name__})")
                 live, history = None, None
             if history:
                 built = bite_mod.build_next(self.store, trigger=trigger, instructions=live["instructions"],
@@ -1056,6 +1239,10 @@ class Worker:
         spent = {"input_tokens": in_tok, "output_tokens": out_tok, "cached_tokens": cached}
         if stop.kind != STOP_YIELD:  # a pause is logged by `_paused`: it is not a problem
             log.warning("bite %s stopped between model rounds (%s): %s", bite_id, stop.kind, stop.why)
+        if stop.kind == STOP_REINSTALLED:
+            # Not a failure: its events stay queued, and the next poll leaves for the new install.
+            self.store.close_bite(bite_id, outcome="stopped: reinstalled", error=stop.why, **spent)
+            return False
         if _key_refused(deps):
             self.store.close_bite(bite_id, outcome="key refused", **spent)
             return self._refused_key("a `probe` command", probe=True)
@@ -1081,7 +1268,7 @@ class Worker:
         with self.store.tx():
             self.store.save_conversation(conversation, _dump_messages(stop.messages), compactions=compactions)
             self.store.mark_covered(bite_id, built.last_seq)
-            self.store.close_bite(bite_id, outcome="paused", error=stop.why, **spent)
+            self.store.close_bite(bite_id, outcome=BITE_PAUSED, error=stop.why, **spent)
             self.store.set_fact(CARRY_ON, True)
             if self.store.fact("cut_short"):
                 self.store.set_fact("cut_short", None)
@@ -1101,9 +1288,12 @@ class Worker:
     def _failed(self, bite_id: int, built: bite_mod.Bite, exc: Exception, usage=None,
                 deps: tools.Deps | None = None, *, resumed: int | None = None) -> bool:
         """`resumed`: the conversation whose saved history this run continued. A
-        failure that history can cause (`_history_rejected`) ends it, so the retry
-        starts fresh from disk instead of sending the same history forever."""
+        failure that history can cause (`_history_rejected`, or a model that
+        answered nothing: `agent.answered_nothing`) ends it, so the retry starts
+        fresh from disk instead of sending the same history forever."""
         from pydantic_ai.exceptions import ModelHTTPError, UsageLimitExceeded
+
+        from probe.daemon import agent as agent_mod
 
         text = f"{type(exc).__name__}: {exc}"[:2000]
         log.warning("bite %s failed: %s", bite_id, text)
@@ -1111,14 +1301,51 @@ class Worker:
         # row (the device counter took each round as it came, `_record_round`).
         in_tok, out_tok, cached = _tokens(usage)
         spent = {"input_tokens": in_tok, "output_tokens": out_tok, "cached_tokens": cached}
+        if self.replay is None and install_replaced():
+            # Not a bug: the run read its own files after the CLI was reinstalled. No
+            # ping, no failure; its events stay queued and the next poll leaves.
+            self.store.close_bite(bite_id, outcome="stopped: reinstalled", error=text, **spent)
+            return False
         if isinstance(exc, UsageLimitExceeded) and not _key_refused(deps):
             return self._cut_short(bite_id, built, text, spent)
+        if agent_mod.answered_nothing(exc) and not _key_refused(deps):
+            # The same request thinks to the limit again: never retried as it was, nor
+            # backed off and deferred forever. The history it continued may be what
+            # sets it off, so the retry is fresh from disk and smaller; each one in a
+            # row waits longer, and NO_ANSWERS_BEFORE_RELEASE of them hand recording to
+            # the agent until a round answers.
+            if resumed is not None:
+                self.store.end_conversation(resumed, f"{agent_mod.ANSWERED_NOTHING}: {text[:300]}")
+            self.gateway_failures = 0  # the gateway answered: a 200, cut off at the limit
+            self.no_answers += 1
+            self.next_attempt_at = self.clock() + min(BACKOFF_CAP_S, 30 * (2 ** (self.no_answers - 1)))
+            if self.no_answers >= NO_ANSWERS_BEFORE_RELEASE and self.released_reason is None:
+                log.warning("the model answered nothing %s bites in a row: releasing the lease", self.no_answers)
+                self._release(lease.REASON_GATEWAY)
+                _device_error(f"session {self.session.session_id}: the daemon's model answered nothing "
+                              f"{self.no_answers} bites in a row ({agent_mod.ANSWERED_NOTHING}); the agent records "
+                              "until it answers again")
+            return self._cut_short(bite_id, built, text, spent, cause=CutShort.NO_ANSWER, exc=exc)
+        if _refusal_code(exc) == PROMPT_TOO_LARGE and not _key_refused(deps):
+            # The route refused the prompt as over its ceiling (daemon cost round 4,
+            # A): never sent, never billed. A continued conversation ends and the
+            # bite runs again at once, fresh from disk (far under it) -- not a
+            # failure, no ping. A fresh one over it is cut short like any other.
+            if resumed is not None:
+                with self.store.tx():
+                    self._end_resumed(resumed, f"over the model route's ceiling: {text[:300]}")
+                    self.store.close_bite(bite_id, outcome="over the ceiling: fresh", error=text, **spent)
+                self.next_attempt_at = 0.0
+                self.last_run_at = float("-inf")  # the fresh retry does not wait for the writer's gap
+                return False
+            return self._cut_short(bite_id, built, text, spent, cause=CutShort.TOO_LARGE, exc=exc)
         status = getattr(exc, "status_code", None) if isinstance(exc, ModelHTTPError) else None
         self.store.close_bite(bite_id, outcome="failed", error=text, **spent)
         if resumed is not None and _history_rejected(exc):
             log.warning("conversation %s: the model refused its saved history (%s): the next bite starts fresh "
                         "from disk", resumed, text[:200])
-            self.store.end_conversation(resumed, f"the model refused its saved history: {text[:300]}")
+            with self.store.tx():
+                self._end_resumed(resumed, f"the model refused its saved history: {text[:300]}")
         if _key_refused(deps):
             return self._refused_key("a `probe` command", probe=True)
         if status in (401, 403):
@@ -1149,6 +1376,20 @@ class Worker:
         if self.failures >= FAILURES_BEFORE_BACK_OF_QUEUE:
             self._defer(built)
         return False
+
+    def _end_resumed(self, conversation: int, why: str) -> None:
+        """Inside a transaction: end a conversation that cannot go on (the model
+        route refused its history or its size; its fingerprint or saved history no
+        longer serves). A run of it that paused (CARRY_ON) had its events
+        covered at the pause and never finished: its events go back on the queue
+        for the fresh start (`Store.requeue_paused`, the newest paused run only),
+        in the same transaction, so a crash cannot strand them (R2c; review 10-13).
+        The loop detector and a model that answered nothing end conversations
+        their own way: a skip, said in a notice."""
+        self.store.end_conversation(conversation, why)
+        if self.store.fact(CARRY_ON):
+            self.store.requeue_paused()
+            self.store.set_fact(CARRY_ON, None)
 
     def _refused_key(self, by: str, *, probe: bool = False, reason: str | None = None) -> bool:
         """The daemon's key was refused (by the model gateway or, `probe`, by Probe
@@ -1187,14 +1428,39 @@ class Worker:
         return True
 
     def _cut_short(self, bite_id: int, built: bite_mod.Bite, text: str, spent: dict, *,
-                   cause: CutShort = CutShort.LIMITS) -> bool:
-        """A bite its limits (CutShort.LIMITS, bites mode) or the loop detector
-        (CutShort.LOOP) cut short. Its events are NOT covered: the next bite takes half
+                   cause: CutShort = CutShort.LIMITS, exc: BaseException | None = None) -> bool:
+        """A bite its limits (CutShort.LIMITS, bites mode), the loop detector
+        (CutShort.LOOP), a model that answered nothing before its token limit
+        (CutShort.NO_ANSWER) or the route's prompt ceiling (CutShort.TOO_LARGE) cut short. Its events are NOT covered: the next bite takes half
         as many new events from the same first one (`bite.cover`'s `shrink`).
         CUT_SHORTS_BEFORE_SKIP in a row from the same first event: that range is
         covered as skipped -- a notice for the model, a logbook line in "Not
         recorded yet" and `probe companion log`, a device error line -- never a
-        loop that spends a bite on it forever."""
+        loop that spends a bite on it forever. A carry-on bite (`first_seq` 0, its
+        events covered when its run paused) has nothing to shrink: what the run had
+        left is dropped at once, said the same way. `exc` keeps the alert's dedupe
+        key apart from the other causes'."""
+        from probe.daemon import agent as agent_mod
+
+        if not built.first_seq:
+            why = {
+                CutShort.LIMITS: "it hit its limits",
+                CutShort.LOOP: "it went round in circles (the loop detector stopped it)",
+                CutShort.NO_ANSWER: agent_mod.ANSWERED_NOTHING,
+                CutShort.TOO_LARGE: "its prompt was over the model route's ceiling",
+            }[cause]
+            with self.store.tx():
+                self.store.close_bite(bite_id, outcome="cut short: skipped", error=text, **spent)
+                self.store.set_fact("cut_short", None)
+                self.store.set_fact(CARRY_ON, None)
+                self.store.log_write(bite=bite_id, op_id=uuid.uuid4().hex, argv=["continued run"], head="skipped",
+                                     status="not_run", reason=why)
+                self.store.add([_notice_event(self.store, (
+                    f"The continued run stopped before it finished and what it had left was not recorded: {why}."))])
+            _device_error(f"session {self.session.session_id}: a continued run stopped unfinished: {why}")
+            alerts.report(alerts.Kind.EVENTS_SKIPPED, session_id=self.session.session_id, lane=LANE_WRITE, exc=exc,
+                          text=f"a continued run stopped unfinished: {why}")
+            return True
         cut = self.store.fact("cut_short") or {}
         times = int(cut.get("times") or 0) + 1 if cut.get("first_seq") == built.first_seq else 1
         if times < CUT_SHORTS_BEFORE_SKIP:
@@ -1205,9 +1471,14 @@ class Worker:
                                                   "max_events": max(1, took // 2)})
             return False
         what = f"events #{built.first_seq}-#{built.last_seq}"
-        why = (f"skipped as too costly: {times} bites in a row hit their limits (model requests, tool calls or "
-               "tokens) on them") if cause == CutShort.LIMITS else (
-               f"skipped: {times} bites in a row went round in circles on them (the loop detector stopped them)")
+        why = {
+            CutShort.LIMITS: (f"skipped as too costly: {times} bites in a row hit their limits (model requests, "
+                              "tool calls or tokens) on them"),
+            CutShort.LOOP: (f"skipped: {times} bites in a row went round in circles on them (the loop detector "
+                            "stopped them)"),
+            CutShort.NO_ANSWER: f"skipped: {times} bites in a row on them, {agent_mod.ANSWERED_NOTHING}",
+            CutShort.TOO_LARGE: f"skipped: {times} bites in a row on them were over the model route's ceiling",
+        }[cause]
         skipped = self.store.pending_count(built.first_seq, built.last_seq)
         with self.store.tx():
             self.store.mark_covered(bite_id, built.last_seq)
@@ -1218,9 +1489,13 @@ class Worker:
             self.store.add([_notice_event(self.store, (
                 f"{what} (turn {self.store.turn_of(built.first_seq)}) were not recorded: {why}."))])
         _device_error(f"session {self.session.session_id}: {what} were {why}")
-        how = (f"{times} bites in a row hit their limits" if cause == CutShort.LIMITS
-               else f"the loop detector stopped {times} bites in a row")
-        alerts.report(alerts.Kind.EVENTS_SKIPPED, session_id=self.session.session_id, lane=LANE_WRITE,
+        how = {
+            CutShort.LIMITS: f"{times} bites in a row hit their limits",
+            CutShort.LOOP: f"the loop detector stopped {times} bites in a row",
+            CutShort.NO_ANSWER: f"the model answered nothing {times} bites in a row (token limit)",
+            CutShort.TOO_LARGE: f"{times} bites in a row were over the model route's ceiling",
+        }[cause]
+        alerts.report(alerts.Kind.EVENTS_SKIPPED, session_id=self.session.session_id, lane=LANE_WRITE, exc=exc,
                       text=f"{skipped} events skipped: {how}", count=skipped)
         return True
 
@@ -1248,13 +1523,16 @@ class Worker:
                   UsageLimits(request_limit=BITE_REQUESTS, tool_calls_limit=BITE_TOOL_CALLS,
                               total_tokens_limit=BITE_TOKENS))
         requests = 0
-        from probe.daemon.agent import keep_lease
+        from probe.daemon.agent import answered, keep_lease
 
         async with keep_lease(deps), agent.iter(built.prompt, deps=deps, usage_limits=limits, usage=usage,
                                                 message_history=history) as run:
             async for node in run:
                 if Agent.is_call_tools_node(node):
-                    self._model_answered()
+                    # A round that only thought (cut off at its token limit) is no
+                    # answer: it must not take back a lease released for one.
+                    if answered(node.model_response):
+                        self._model_answered()
                 elif Agent.is_model_request_node(node):
                     requests += 1
                     if requests > 1:
@@ -1280,6 +1558,10 @@ class Worker:
         deadline (SIGTERM, or capture gone: FINISH_CAP_S from then)."""
         if state.detector.tripped is not None:
             return Interrupted(STOP_LOOP, state.detector.tripped)
+        if self.replay is None and install_replaced():
+            # Its next read of its own files would be the new version's, or fail: the
+            # run stops with its events queued, and the next poll leaves for the new install.
+            return Interrupted(STOP_REINSTALLED, REINSTALLED)
         if not self.stopping and self._parent_gone():
             log.info("capture is gone: finishing what is queued")
             self.begin_stopping()
@@ -1437,6 +1719,8 @@ class Worker:
         self.store.log_write(bite=None, op_id=held["op_id"], argv=["probe", *held["argv"]], head="approved",
                              status=tools.write_status(code, stderr), reason=f"yes to {req.id}", output=output,
                              exit_code=code, request=req.id)
+        if tools.write_status(code, stderr) == "ran":
+            scope.forget_argv(deps, held["argv"])  # a deleted project leaves the status line
         return f"exit {code}\n{output}", (deps.stopped or "it did not finish in time") if code is None else None
 
     def _notice(self, text: str) -> None:
@@ -1460,6 +1744,23 @@ class Worker:
 
     async def tick(self) -> int | None:
         """One poll. An exit code when the worker is done, else None."""
+        if self.replay is None and install_replaced():
+            # The next read of its own files would fail or be the new version's, in
+            # either lane (the reader, which never ends the worker, would only ping
+            # "failing"). Leave 0 and the supervisor starts the new install, which
+            # takes the session over -- unless the session is ending: then nobody
+            # restarts it, and what is still queued waits for the next daemon.
+            log.warning("%s; exiting for the new install", REINSTALLED)
+            if self.stopping:
+                unrecorded = len(self.store.pending())
+                if unrecorded:
+                    _device_error(f"session {self.session.session_id} ended with {unrecorded} events unrecorded; "
+                                  "the next daemon on this machine finishes them")
+            else:
+                _device_error(f"session {self.session.session_id}: the probe CLI was reinstalled; the daemon "
+                              "restarts on the new install")
+            self._release(lease.REASON_STOPPED)
+            return 0
         state = lease.session_state(self.session.session_id)
         if self.replay is None:
             if lease.inline(self.session.session_id, state):
@@ -1854,6 +2155,11 @@ _REFUSAL_REASONS = {
 }
 
 
+#: The model route's code for a prompt over its token ceiling
+#: (`app/companion/router.py` `PROMPT_TOO_LARGE`): start the conversation fresh.
+PROMPT_TOO_LARGE = "prompt_too_large"
+
+
 def _refusal_code(exc: BaseException) -> str | None:
     """The server's `code` on a model-route refusal. The OpenAI client hands over
     the envelope's inner `error` object as the body; a raw envelope is read too."""
@@ -1901,6 +2207,56 @@ def _spans(value: object) -> dict:
     if not isinstance(value, dict):
         return {}
     return {k: v for k, v in value.items() if isinstance(v, list) and len(v) == 2}
+
+
+#: The claim log's inode when the reader stream's cursor was last saved.
+READER_LOG_INODE = "reader_log_inode"
+#: How long a claim waits for the chat line that carries it (`_held`).
+CLAIM_HOLD_S = 10.0
+
+
+def _held(at: object, newest: float | None, now: float) -> bool:
+    """Does a claim made at `at` still wait for the chat? Until a chat line at
+    least as new is stored (`newest`, the newest chat line's time), so it is
+    placed after the prompt or tool result it came with, never a turn early;
+    for CLAIM_HOLD_S at most, so a harness that writes nothing more never holds it."""
+    if isinstance(at, bool) or not isinstance(at, (int, float)) or not math.isfinite(at):
+        return False
+    if not 0 <= now - at < CLAIM_HOLD_S:  # a stamp from the future never holds
+        return False
+    return newest is None or newest < at
+
+
+def _inode(path: Path) -> int | None:
+    try:
+        return path.stat().st_ino
+    except OSError:
+        return None
+
+
+def _whole_lines_end(path: Path) -> int:
+    """The offset just past the file's last whole line (0 when there is none)."""
+    try:
+        with path.open("rb") as handle:
+            size = handle.seek(0, os.SEEK_END)
+            at = size
+            while at > 0:
+                step = min(at, 64 * 1024)
+                handle.seek(at - step)
+                nl = handle.read(step).rfind(b"\n")
+                if nl >= 0:
+                    return at - step + nl + 1
+                at -= step
+    except OSError:
+        pass
+    return 0
+
+
+def _reader_message(session_id: str, row) -> mailbox.Message:
+    """A `read_messages` row as the mailbox message the agent was handed."""
+    return mailbox.Message(id=row["id"], session=session_id, kind=row["kind"], text=row["text"] or "",
+                           ask=row["ask"], question=row["question"], reason=row["reason"],
+                           made_at=row["made_at"], origin_turn=row["origin_turn"])
 
 
 def _stamp(at: object) -> str | None:
@@ -1956,12 +2312,103 @@ def _mark(path: Path) -> None:
         log.warning("marker %s not written: %s", path.name, exc)
 
 
+_INSTALL_ROOT = Path(__file__).resolve().parents[1]
+
+
+def install_root() -> Path:
+    """The folder this worker's code was loaded from (`probe/`)."""
+    return _INSTALL_ROOT
+
+
+def _install_stamp() -> tuple[int, int] | None:
+    """Which `probe/__init__.py` this is: `uv tool` writes it anew on a reinstall,
+    with the install's time (its size and mtime, not its inode, which a network
+    mount may change on its own)."""
+    try:
+        st = (install_root() / "__init__.py").stat()
+    except OSError:
+        return None
+    return st.st_size, st.st_mtime_ns
+
+
+def _dist_info() -> Path | None:
+    """This version's `probe_research-<version>.dist-info` beside `probe/`, when the
+    install has one there (`uv tool` does; an editable checkout does not)."""
+    from probe import __version__
+
+    path = install_root().parent / f"probe_research-{__version__}.dist-info"
+    try:
+        return path if path.is_dir() else None
+    except OSError:
+        return None
+
+
+#: The install this worker started from.
+_INSTALL_STAMP = _install_stamp()
+_DIST_INFO = _dist_info()
+
+
+def install_replaced() -> bool:
+    """Was the CLI reinstalled under this worker? `uv tool` either moves its folder
+    (a new Python: `lib/python3.13` -> `lib/python3.14`, the old one gone) or
+    replaces its files where they are (`probe update`). Either way the worker's next
+    read of its own files -- a skill, a prompt, a first import -- would fail or be
+    the new version's. An unreadable folder (a stale network mount) is not a
+    reinstall, and neither is an install whose `__init__.py` could not be read
+    when the worker started (a zip or frozen build): nothing to compare. A new
+    version also takes its `dist-info` folder's place, gone even where a file this
+    worker reads was only renamed."""
+    if _INSTALL_STAMP is None:
+        return False
+    try:
+        if _DIST_INFO is not None:
+            _DIST_INFO.stat()
+        st = (install_root() / "__init__.py").stat()
+    except (FileNotFoundError, NotADirectoryError):
+        return True
+    except OSError:
+        return False
+    return (st.st_size, st.st_mtime_ns) != _INSTALL_STAMP
+
+
 def _device_error(text: str) -> None:
     """The shared device-level error log `probe doctor` and the status line show."""
     path = _state_base() / "daemon-errors.log"
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {text}\n")
+
+
+def ai_libraries_importable() -> bool:
+    """Both halves the daemon imports unconditionally, the pair
+    `probe.cli.daemon_cli.ai_libraries` checks: a half-installed `daemon` extra
+    must take the missing-libraries exit, not crash at a later import."""
+    try:
+        import pydantic_ai  # noqa: F401
+        import pydantic_ai_harness  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def libs_missing_exit_code() -> int:
+    """How a worker without its AI libraries leaves: EXIT_RETRY_LIBS to a
+    supervisor that retries (SUPERVISOR_RETRIES_LIBS_ENV), else
+    EXIT_DO_NOT_RESPAWN, which an older tap holds until the switch moves."""
+    return EXIT_RETRY_LIBS if os.environ.get(SUPERVISOR_RETRIES_LIBS_ENV) == "1" else EXIT_DO_NOT_RESPAWN
+
+
+def _libs_missing_log_due(session_id: str) -> bool:
+    """Whether this session's missing-libraries line is due in `daemon-errors.log`
+    (at most once per LIBS_MISSING_LOG_EVERY_S): a stamp file, because each retry
+    is a fresh process. It lives in the session's own folder, which `sweep_stale`
+    deletes with the session."""
+    directory = trace_mod.session_dir(session_id)
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return True
+    return telemetry.report_due(str(directory), "libs-missing", interval_s=LIBS_MISSING_LOG_EVERY_S)
 
 
 def inline_exit_code() -> int:
@@ -2093,14 +2540,13 @@ def main(argv: list[str] | None = None) -> int:
     trace_mod.quiet_noisy_loggers()
     # The harness warns through `warnings` (a collapsed prompt cache, T3): into the log.
     logging.captureWarnings(True)
-    try:
-        import pydantic_ai  # noqa: F401
-    except ImportError:
-        _device_error(f"daemon mode needs the AI libraries: Enter on Who records in the Probe wizard "
-                      f"installs them ({WIZARD_HINT})")
+    if not ai_libraries_importable():
+        if _libs_missing_log_due(args.session_id):
+            _device_error(f"daemon mode needs the AI libraries: Enter on Who records in the Probe wizard "
+                          f"installs them ({WIZARD_HINT})")
         print(f"the daemon's AI libraries are not installed: Enter on Who records in the Probe wizard "
               f"installs them ({WIZARD_HINT})", file=sys.stderr)
-        return EXIT_DO_NOT_RESPAWN
+        return libs_missing_exit_code()
     from probe.daemon import model as model_mod
 
     try:
@@ -2146,6 +2592,19 @@ def main(argv: list[str] | None = None) -> int:
             log.warning("sweeping old daemon files failed: %s", exc)
         return asyncio.run(worker.loop())
     except Exception as exc:  # noqa: BLE001 -- a bug hands writing back and waits, never a hot crash loop
+        if install_replaced():
+            # Not a bug: the CLI was reinstalled under this worker (2026-10-12, CLI
+            # 0.233.1: FileNotFoundError on record_session.md, pinged as a crash).
+            # Exit 0 and the supervisor starts the new install now, which takes the
+            # session over; no crash backoff, no ping.
+            log.warning("the probe CLI was reinstalled under this worker (%s: %s); exiting for the new install",
+                        type(exc).__name__, exc)
+            _device_error(f"session {sid}: the probe CLI was reinstalled; the daemon restarts on the new install")
+            try:
+                lease.release(sid, lease.REASON_STOPPED)
+            except Exception:  # noqa: BLE001
+                pass
+            return 0
         log.exception("the daemon worker crashed")
         _device_error(f"session {sid}: the daemon crashed ({type(exc).__name__}: {str(exc)[:300]}); "
                       "the agent records until capture starts it again")

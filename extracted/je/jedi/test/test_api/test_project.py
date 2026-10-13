@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -52,6 +53,24 @@ def test_load_save_project(tmpdir):
 
     loaded = Project.load(tmpdir.strpath)
     assert loaded.added_sys_path == ['/foo']
+
+
+def test_load_project_ignores_environment_path(tmpdir, monkeypatch):
+    # The project file can be part of a checked out repository, so it must not
+    # be able to point Jedi at a binary to execute.
+    def _get_subprocess(self):
+        raise RuntimeError('Should not get called!')
+
+    monkeypatch.setattr('jedi.api.environment.Environment._get_subprocess',
+                        _get_subprocess)
+
+    Project(tmpdir.strpath, environment_path=sys.executable).save()
+    assert Project.load(tmpdir.strpath)._environment_path is None
+
+
+def test_load_project_ignores_unsafe_extensions(tmpdir):
+    Project(tmpdir.strpath, load_unsafe_extensions=True).save()
+    assert Project.load(tmpdir.strpath).load_unsafe_extensions is False
 
 
 @pytest.mark.parametrize(

@@ -14,12 +14,20 @@ from causalml.propensity import compute_propensity_score
 from scipy.stats import norm
 from sklearn.model_selection import KFold
 from tqdm import tqdm
-from xgboost import XGBRegressor
+
+try:
+    from xgboost import XGBRegressor
+except ValueError as exc:
+    from causalml.exceptions import handle_xgboost_error
+
+    handle_xgboost_error(exc)
+
+from causalml.inference.serialization import SerializableLearner
 
 logger = logging.getLogger("causalml")
 
 
-class BaseDRIVLearner:
+class BaseDRIVLearner(SerializableLearner):
     """A parent class for DRIV-learner regressor classes.
 
     A DRIV-learner estimates endogenous treatment effects for compliers with machine learning models.
@@ -28,6 +36,10 @@ class BaseDRIVLearner:
     The DR moment condition for LATE comes from
     `Chernozhukov et al (2018) <https://academic.oup.com/ectj/article/21/1/C1/5056401>`_.
     """
+
+    def _is_fitted(self):
+        """DRIV learners set t_groups during fit()."""
+        return hasattr(self, "t_groups")
 
     def __init__(
         self,
@@ -441,6 +453,7 @@ class BaseDRIVLearner:
         bootstrap_size=10000,
         seed=None,
         calibrate=True,
+        pretrain=False,
     ):
         """Estimate the Average Treatment Effect (ATE) for compliers.
 
@@ -462,19 +475,38 @@ class BaseDRIVLearner:
             n_bootstraps (int): number of bootstrap iterations
             bootstrap_size (int): number of samples per bootstrap
             seed (int): random seed for cross-fitting
+            pretrain (bool): whether a model has been fit, default False. When True
+                the fitted models are reused instead of being refit, so these rows
+                can be ones they never saw. ``p`` is required in that case: the
+                propensity :meth:`fit` stored belongs to the rows it was fit on, and
+                the standard error needs the propensity of the rows estimated here.
+                ``assignment`` and ``pZ`` are only used to fit, so they go unused.
         Returns:
             The mean and confidence interval (LB, UB) of the ATE estimate.
         """
-        te, yhat_cs, yhat_ts = self.fit_predict(
-            X,
-            assignment,
-            treatment,
-            y,
-            p,
-            return_components=True,
-            seed=seed,
-            calibrate=calibrate,
-        )
+        if pretrain:
+            if not hasattr(self, "t_groups"):
+                raise ValueError(
+                    "No fitted model found. Call fit() before estimate_ate(pretrain=True)."
+                )
+            if p is None:
+                raise ValueError(
+                    "estimate_ate(pretrain=True) requires p, the propensity of the rows "
+                    "passed here. The propensity stored by fit() belongs to the rows it "
+                    "was fit on, and the standard error indexes it by these rows."
+                )
+            te, yhat_cs, yhat_ts = self.predict(X, treatment, y, return_components=True)
+        else:
+            te, yhat_cs, yhat_ts = self.fit_predict(
+                X,
+                assignment,
+                treatment,
+                y,
+                p,
+                return_components=True,
+                seed=seed,
+                calibrate=calibrate,
+            )
         X, assignment, treatment, y = convert_pd_to_np(X, assignment, treatment, y)
 
         if p is None:
@@ -638,13 +670,16 @@ class BaseDRIVLearner:
         based on a specified method.
 
         Currently supported methods are:
-            - auto (calculates importance based on estimator's default implementation of feature importance;
-                    estimator must be tree-based)
-                    Note: if none provided, it uses lightgbm's LGBMRegressor as estimator, and "gain" as
-                    importance type
-            - permutation (calculates importance based on mean decrease in accuracy when a feature column is permuted;
-                           estimator can be any form)
-        Hint: for permutation, downsample data for better performance especially if X.shape[1] is large
+
+            - auto (calculates importance based on estimator's default implementation
+              of feature importance; estimator must be tree-based).
+              Note: if none provided, it uses lightgbm's LGBMRegressor as estimator,
+              and "gain" as importance type.
+            - permutation (calculates importance based on mean decrease in accuracy
+              when a feature column is permuted; estimator can be any form).
+
+        Hint: for permutation, downsample data for better performance especially if
+        X.shape[1] is large.
 
         Args:
             X (np.matrix or np.array or pd.Dataframe): a feature matrix
@@ -708,13 +743,16 @@ class BaseDRIVLearner:
         based on a specified method.
 
         Currently supported methods are:
-            - auto (calculates importance based on estimator's default implementation of feature importance;
-                    estimator must be tree-based)
-                    Note: if none provided, it uses lightgbm's LGBMRegressor as estimator, and "gain" as
-                    importance type
-            - permutation (calculates importance based on mean decrease in accuracy when a feature column is permuted;
-                           estimator can be any form)
-        Hint: for permutation, downsample data for better performance especially if X.shape[1] is large
+
+            - auto (calculates importance based on estimator's default implementation
+              of feature importance; estimator must be tree-based).
+              Note: if none provided, it uses lightgbm's LGBMRegressor as estimator,
+              and "gain" as importance type.
+            - permutation (calculates importance based on mean decrease in accuracy
+              when a feature column is permuted; estimator can be any form).
+
+        Hint: for permutation, downsample data for better performance especially if
+        X.shape[1] is large.
 
         Args:
             X (np.matrix or np.array or pd.Dataframe): a feature matrix

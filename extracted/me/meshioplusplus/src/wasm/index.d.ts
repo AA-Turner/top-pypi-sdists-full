@@ -185,7 +185,7 @@ export interface Mesh {
   /**
    * Format-specific side-channel metadata a generic `Mesh` cannot represent,
    * attached by `readMeshSelective(path, {info: true})`. Present only for
-   * formats with one (openfoam/med/mdpa/ansysinp/unv/gmsh/exodus); absent
+   * formats with one (openfoam/med/mdpa/ansysinp/unv/gmsh/exodus/mfem); absent
    * otherwise, even when `info: true` was requested. Its own `format` field
    * is what `writeMesh` checks before reusing it on a write with no explicit
    * `options.info`. See doc/wasm.md's "Side channel (info)" section.
@@ -201,7 +201,8 @@ export type MeshInfo =
   | AnsysInfo
   | UnvInfo
   | GmshInfo
-  | ExodusInfo;
+  | ExodusInfo
+  | MfemInfo;
 
 /** OpenFOAM's side channel: `readMeshSelective`'s cell_tags/patch-type map, reshaped per patch. */
 export interface OpenFoamInfo {
@@ -305,6 +306,54 @@ export interface GmshInfo {
   periodic?: { entity: number[]; affine: number[]; nodePairs: BigInt64Array | number[] }[];
 }
 
+/**
+ * MFEM's side channel (v16.40.0): the NURBS patches an `MFEM NURBS mesh` was
+ * sampled from (C++ `NurbsInfo`). Arrays are flat, their widths given beside
+ * them; every index is 0-based. `writeMesh` writes the patches back as an
+ * `MFEM NURBS mesh` while the mesh still is their sampling (it refuses a mesh
+ * moved or edited since). A mesh that is not NURBS has no patches.
+ */
+export interface MfemInfo {
+  format: 'mfem';
+  patches: {
+    /** Degree per parametric direction. */
+    degrees: number[];
+    /** One knot vector per parametric direction. */
+    knots: number[][];
+    /** Components of each control point. */
+    spaceDim: number;
+    /** (points, spaceDim) Cartesian control points, direction 0 fastest. */
+    controlPoints: Float64Array;
+    /** One weight per control point. */
+    weights: Float64Array;
+    /** Per field (see `fieldNames`): (points, fieldComponents[k]) control values. */
+    fields: Float64Array[];
+  }[];
+  /** The point-data name of each field the patches carry. */
+  fieldNames: string[];
+  /** Components of each field. */
+  fieldComponents: number[];
+  /** The file's patch topology, or null when the source states none. */
+  topology: {
+    dimension: number;
+    numVertices: number;
+    /** (patches, 2^dimension) corner vertices. */
+    patchVertices: BigInt64Array | number[];
+    patchAttributes: BigInt64Array | number[];
+    /** (boundary patches, 2^(dimension-1)) corner vertices. */
+    boundaryVertices: BigInt64Array | number[];
+    boundaryAttributes: BigInt64Array | number[];
+    /** (edges, 3): knot vector, vertex, vertex. */
+    edges: BigInt64Array | number[];
+  } | null;
+  /** The patch of each element cell (the first block). */
+  cellPatch: BigInt64Array | number[];
+  /** (element cells, 3): each one's knot span per direction. */
+  cellSpan: BigInt64Array | number[];
+  /** The boundary patch of each boundary cell. */
+  boundaryCellPatch: BigInt64Array | number[];
+}
+
 /** Exodus's side channel: info/QA records. Read-only -- there is no Info-bearing Exodus writer. */
 export interface ExodusInfo {
   format: 'exodus';
@@ -394,10 +443,124 @@ export interface RegionSummary {
  * `WriteOptions` field on the C++ side (gzip level 4 is a fixed registry
  * default; `vtk42`/`vtk51` are separate format keys, not a `vtk` option).
  */
+/** A built-in colormap (shared with the SVG and TikZ writers). */
+export type ColormapBase = "viridis" | "coolwarm" | "turbo" | "magma" | "inferno" | "plasma" | "grey" | "synthwave";
+/** A built-in colormap or its reversed `_r` variant. */
+export type ColormapName = ColormapBase | `${ColormapBase}_r`;
+
+/** A colour: `0xRRGGBBAA` as a number (alpha 0 is transparent), or `[r, g, b, a?]` in 0-255. */
+export type RenderColor = number | [number, number, number] | [number, number, number, number];
+
+/**
+ * Options of the software rasterizer (`render`, `renderText`, `renderPng`); every
+ * field is optional and an unknown key is an error. See doc/tui.md.
+ */
+export interface RenderOptions {
+  width?: number;
+  height?: number;
+  pixelAspect?: number;
+  /** 1, 2 or 4 samples per pixel along each axis. */
+  supersample?: number;
+  azimuth?: number;
+  elevation?: number;
+  roll?: number;
+  /** `"iso"`, `"+x"`, `"-x"`, `"+y"`, `"-y"`, `"+z"` or `"-z"`: the side the camera sits on. */
+  view?: string;
+  projection?: "orthographic" | "perspective";
+  fov?: number;
+  zoom?: number;
+  pan?: [number, number];
+  shading?: "none" | "flat" | "smooth";
+  twoSided?: boolean;
+  ambient?: number;
+  lightDir?: [number, number, number];
+  splitAngle?: number;
+  edges?: "none" | "all" | "feature";
+  featureAngle?: number;
+  edgeColor?: RenderColor;
+  fillColor?: RenderColor;
+  lineColor?: RenderColor;
+  background?: RenderColor;
+  pointRadius?: number;
+  colorBy?: string;
+  component?: number;
+  cmap?: ColormapName;
+  vmin?: number;
+  vmax?: number;
+  nanColor?: RenderColor;
+  colorbar?: boolean;
+  axes?: boolean;
+  scaleBar?: boolean;
+  /** `"mises"`, `"hydrostatic"` or `"principal"` reduction of the `colorBy` tensor array. */
+  reduce?: "mises" | "hydrostatic" | "principal";
+  /** A `dataCalc` expression to colour by instead of `colorBy`. */
+  expr?: string;
+  /** Percentiles bounding the automatic range; `null` leaves an end alone. */
+  clip?: [number | null, number | null];
+  symmetric?: boolean;
+  scale?: "linear" | "log" | "symlog";
+  scaleThreshold?: number;
+  categorical?: boolean;
+  colorRegions?: boolean;
+  categoryEdges?: boolean;
+  isolines?: number;
+  isoLevels?: number[];
+  isoColor?: RenderColor;
+  vectors?: string;
+  vectorCount?: number;
+  vectorLength?: number;
+  vectorColor?: RenderColor;
+  warp?: string;
+  warpScale?: number;
+  warpOutline?: boolean;
+  outlineColor?: RenderColor;
+  diagnostic?: "none" | "quality" | "inverted" | "degenerate" | "orientation" | "free_edges" | "edge_length";
+  qualityMetric?: string;
+  /**
+   * One or two cut-away planes that clip the geometry away: each is six numbers,
+   * a point and then the normal of the side kept (`[0.5, 0, 0, 1, 0, 0]` keeps `x >= 0.5`).
+   * The back faces then in view, the inside of the cut, are drawn in `cutawayTint`.
+   */
+  cutaway?: number[] | number[][];
+  cutawayTint?: RenderColor;
+  /** A vector point array to follow with streamlines, drawn over the mesh's own cells. */
+  streamlines?: string;
+  /** About this many seeds (default 40). */
+  streamSeeds?: number;
+  /** The longest a line grows each way from its seed, in model diagonals (default 0.5). */
+  streamLength?: number;
+  streamColor?: RenderColor;
+}
+
+/** Options of `renderText`: the cell encodings only (the graphics protocols are CLI features). */
+export interface RenderTextOptions {
+  encoding?: "halfblock" | "quadrant" | "sextant" | "braille" | "ascii";
+  colorDepth?: "truecolor" | "256" | "16" | "mono";
+  format?: "ansi" | "plain" | "html";
+  cols?: number;
+  rows?: number;
+  cellAspect?: number;
+  notes?: boolean;
+}
+
+/** A rendered image. */
+export interface RenderedFrame {
+  width: number;
+  height: number;
+  /** RGBA, rows top to bottom, straight alpha: `new ImageData(frame.rgba, frame.width, frame.height)`. */
+  rgba: Uint8ClampedArray;
+  /** The input cell (global, block-major) drawn at each pixel; -1 for none. */
+  cellIds: Float64Array;
+  /** The mapped `[vmin, vmax]`, or `null` when no field is mapped. */
+  range: [number, number] | null;
+  /** The colour range, ticks and keys, as text. */
+  notes: string[];
+}
+
 /** glTF writer parameters. Components are 0-based; omitted selects magnitude. */
 export interface GltfWriteOptions {
   colorBy?: string;
-  cmap?: "viridis" | "coolwarm" | "turbo";
+  cmap?: ColormapName;
   component?: number;
   vmin?: number;
   vmax?: number;
@@ -1450,7 +1613,7 @@ export interface MeshioPlusPlusModule {
    *
    * Prefer this over a hardcoded table when building a file-picker filter or a
    * "convert to" menu: the two lists genuinely differ (`openfoam` is
-   * read-only, `svg`, `tikz` and `gltf` are write-only), and the set depends on how
+   * read-only, `gltf` and `step` are write-only), and the set depends on how
    * the artifact was built -- an official build carries the HDF5/netCDF-backed
    * formats, one built with `--without-hdf5` does not.
    */
@@ -2184,6 +2347,20 @@ export interface MeshioPlusPlusModule {
    * cover the whole surface, selected or not. See doc/feature_edges.md.
    * @throws {Error} on an angle outside [0, 180] or an unknown region.
    */
+  /**
+   * Render a mesh into an RGBA frame with a deterministic software rasterizer: no
+   * WebGL, so it works in a Node script or a server-side preview. Volume cells
+   * are drawn through their boundary skin. See doc/tui.md.
+   * @throws {Error} on an unknown option, an invalid value or an unknown array.
+   */
+  render(mesh: Mesh, options?: RenderOptions): RenderedFrame;
+  /**
+   * Render a mesh as terminal-cell text sized `cols` x `rows` (default 80 x 24).
+   * The Kitty, iTerm2 and Sixel encodings are not exported here.
+   */
+  renderText(mesh: Mesh, options?: RenderOptions, text?: RenderTextOptions): string;
+  /** Render a mesh and encode it as an RGBA PNG; `compress` 0 stores it uncompressed (default). */
+  renderPng(mesh: Mesh, options?: RenderOptions, compress?: number): Uint8Array;
   featureEdges(
     mesh: Mesh,
     featureAngle?: number,
@@ -2198,6 +2375,58 @@ export interface MeshioPlusPlusModule {
     numBoundary: number;
     numNonManifold: number;
     numInconsistent: number;
+  };
+
+  /**
+   * Split a surface into smooth patches by region growing, bounded by its
+   * feature edges. The mesh comes back unchanged plus cell data
+   * `segment:patch` (-1 off the surface), field data `segment:adjacency`
+   * (rows `[a, b, sharedEdges]`) and one cell region per patch,
+   * `<prefix>:<k>`. See doc/segment.md.
+   * @throws {Error} on an option out of range, an unknown region or a volume block.
+   */
+  segment(
+    mesh: Mesh,
+    featureAngle?: number,
+    normalTolerance?: number,
+    curvatureTolerance?: number,
+    minPatchCells?: number,
+    region?: string,
+    prefix?: string,
+  ): {
+    mesh: Mesh;
+    numPatches: number;
+    numMerged: number;
+    numFeatureEdges: number;
+    numBoundaryEdges: number;
+    numNonManifoldEdges: number;
+  };
+
+  /**
+   * Fit a plane, sphere, cylinder, cone or torus to each patch of a surface
+   * (the first accepted in that order, or none). The mesh comes back unchanged
+   * plus cell data `fit:type`, `fit:rms`, `fit:max` and per-patch field data
+   * `fit:patch_*`; `patchData = ''` fits the whole surface. See
+   * doc/fit_primitives.md.
+   * @throws {Error} on a bad option, an unknown type or a missing label array.
+   */
+  fitPrimitives(
+    mesh: Mesh,
+    patchData?: string,
+    tolerance?: number,
+    relative?: boolean,
+    minInlierFraction?: number,
+    types?: Array<'plane' | 'sphere' | 'cylinder' | 'cone' | 'torus'>,
+    maxIterations?: number,
+  ): {
+    mesh: Mesh;
+    numPatches: number;
+    numPlane: number;
+    numSphere: number;
+    numCylinder: number;
+    numCone: number;
+    numTorus: number;
+    numUnfitted: number;
   };
 
   /**

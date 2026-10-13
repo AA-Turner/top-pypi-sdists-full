@@ -21,12 +21,14 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from urllib.parse import urlparse
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
+from pydantic import BaseModel
+
 from matrx_connect import AppContext, Emitter
 from matrx_files import FileManager
 from matrx_files.cloud_sync.models import SyncResult
 from matrx_files.service import FileService
 from matrx_orm import IntegrityError, call_function, rls_session, transaction
-from matrx_utils import utcnow
+from matrx_utils import capture_error, utcnow
 from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT
 
 from matrx_scraper.crawler import (
@@ -105,6 +107,8 @@ SCREENSHOT_HISTORY_KEEP_PRIOR = 3
 # erase a page.
 GONE_AFTER_CONSECUTIVE_MISSES = 3
 STALE_SESSION_AFTER = timedelta(minutes=30)
+#: The only statuses a run may still write over. Terminal is terminal.
+ACTIVE_SESSION_STATUSES = ("queued", "running")
 STALE_SESSION_ERROR = (
     "Crawler service restarted or stopped receiving progress before this session "
     "could write a terminal status."
@@ -364,6 +368,49 @@ def _process_identity() -> str:
     """Host + pid of the process holding a lease — for the human reading a 409."""
 
     return f"{socket.gethostname()}:{os.getpid()}"
+
+
+# THE DEPLOYMENT THAT OWNS A RUN. Every scraper deployment (production, dev,
+# a developer's laptop) talks to the ONE database, so every one of them sees
+# every crashed session. Each run lease records the named deployment that
+# claimed it (`metadata.run_lease.deployment`), and the crash-resume sweep only
+# continues sessions whose last lease its OWN deployment held. A process with
+# no declared name stamps nothing and auto-resumes nothing. The host declares
+# the name once at boot (`set_run_deployment`); a person's explicit resume is
+# never gated by it — the deployment that serves the resume becomes the owner.
+# Live case 2026-10-12: the dev deployment's sweep, on a stale build, took over
+# production session 8beb27cd and its workers hung.
+_RUN_DEPLOYMENT: str | None = None
+
+
+def set_run_deployment(name: str | None) -> None:
+    """Declare which deployment this process is ("production", "development"…)."""
+
+    global _RUN_DEPLOYMENT
+    _RUN_DEPLOYMENT = (name or "").strip() or None
+
+
+def run_deployment() -> str | None:
+    """The deployment name this process stamps on the run leases it claims."""
+
+    return _RUN_DEPLOYMENT
+
+
+# A run lease with no `deployment` name — written by a build that predates the
+# stamp, or by an unnamed process — belongs to production, the deployment that
+# ran every crawl before the stamp existed. Without this, every crawl in flight
+# when production first deploys the stamp would be stranded.
+UNNAMED_RUN_OWNER = "production"
+
+# The crash-resume read scans this many times its limit before matching owners
+# in Python, so other deployments' crashed sessions cannot crowd ours out.
+CRASH_RESUME_OWNER_SCAN_FACTOR = 10
+
+
+def run_owner_deployment(session: object) -> str:
+    """The deployment whose sweep may auto-resume this session."""
+
+    return str(read_run_lease(session).get("deployment") or UNNAMED_RUN_OWNER)
 
 
 def _lease_filter(lease_token: str | None) -> dict[str, Any]:
@@ -947,6 +994,7 @@ class WebCrawlRepository:
                 "acquired_at": now.isoformat(),
                 "heartbeat_at": now.isoformat(),
                 "host": _process_identity(),
+                "deployment": run_deployment(),
             }
             updates: dict[str, Any] = {"status": "running", "started_at": now, "metadata": metadata}
             attempt = int((metadata.get("resume") or {}).get("attempts") or 0)
@@ -1012,17 +1060,24 @@ class WebCrawlRepository:
 
     @staticmethod
     async def list_crash_resumable_sessions(
-        *, lookback: timedelta, limit: int
+        *, lookback: timedelta, limit: int, deployment: str
     ) -> list[WebCrawlSession]:
-        """Sessions the boot sweep may auto-resume: failed for INFRASTRUCTURE
+        """Sessions THIS deployment's sweep may auto-resume — only those whose
+        last run lease `deployment` held (see `set_run_deployment`), failed for INFRASTRUCTURE
         reasons — reaped as stale (STALE_SESSION_ERROR) or gracefully cancelled
         by a shutdown/deploy (WORKER_STOPPED_ERROR) — recent, and not
         soft-deleted. Mode/cancel/attempt gates are enforced by prepare_resume
         per session (worker-owned read, no RLS — the sweep acts as each
         session's own creator). Deploys are the COMMON killer: without the
         WORKER_STOPPED_ERROR arm, every mid-crawl deploy permanently killed
-        the crawl (observed live 2026-08-08)."""
-        return (
+        the crawl (observed live 2026-08-08).
+
+        Ownership is matched here rather than in SQL because a lease with NO
+        `deployment` (claimed by a build before the stamp existed, or by an
+        unnamed process) belongs to `UNNAMED_RUN_OWNER` — "key absent" is not
+        expressible as one JSON-containment filter. The read window is widened
+        so another deployment's crashed sessions cannot crowd ours out."""
+        rows = (
             await WebCrawlSession.filter(
                 status="failed",
                 error__in=[STALE_SESSION_ERROR, WORKER_STOPPED_ERROR],
@@ -1030,9 +1085,10 @@ class WebCrawlRepository:
                 finished_at__gte=utcnow() - lookback,
             )
             .order_by("-finished_at")
-            .limit(limit)
+            .limit(limit * CRASH_RESUME_OWNER_SCAN_FACTOR)
             .all()
         )
+        return [row for row in rows if run_owner_deployment(row) == deployment][:limit]
 
     @staticmethod
     async def fail_stale_sessions() -> int:
@@ -1181,6 +1237,40 @@ class WebCrawlRepository:
             request = (session.metadata or {}).get("cancel_request") or {}
             return bool(request.get("requested"))
 
+    async def persist_command_event(
+        self,
+        payload: dict[str, Any],
+        state: CrawlPersistenceState,
+    ) -> None:
+        """Append one site-command progress event to the session's ledger.
+
+        A log row only: a command owns its session status through its own
+        complete/fail calls, so nothing here touches the session row.
+        """
+
+        sequence = payload.get("sequence")
+        site_id = payload.get("site_id")
+        session_id = payload.get("session_id")
+        event_type = str(payload.get("event_type") or "")
+        if not isinstance(sequence, int) or not site_id or not session_id or not event_type:
+            raise ValueError("command event is missing site/session/sequence/event_type")
+        message = str(payload.get("message") or "")[:2_000] or None
+        ts = payload.get("ts")
+        async with transaction(WEB_DB_NAME):
+            await WebCrawlEvent.create(
+                organization_id=state.organization_id,
+                created_by=state.user_id,
+                site_id=site_id,
+                session_id=session_id,
+                sequence=sequence,
+                event_type=event_type,
+                phase="command",
+                level="error" if payload.get("status") == "failed" else "info",
+                message=message,
+                payload=payload,
+                occurred_at=_parse_event_time(ts) if isinstance(ts, str) and ts else datetime.now(UTC),
+            )
+
     async def persist_event(
         self,
         event: CrawlEvent,
@@ -1197,7 +1287,13 @@ class WebCrawlRepository:
             # process that lost cross-process ownership may still append its
             # own event rows (they are a log), but it must never rewrite the
             # session's status, stats, or terminal outcome.
-            session_filter = {"id": state.session_id, **_lease_filter(state.run_lease_token)}
+            # And never a settled row: a zombie run (its lease reaped, or an
+            # unleased caller) must not flip a terminal session back to life.
+            session_filter = {
+                "id": state.session_id,
+                "status__in": list(ACTIVE_SESSION_STATUSES),
+                **_lease_filter(state.run_lease_token),
+            }
             if isinstance(event, CrawlStartedEvent):
                 await WebCrawlSession.update_where(
                     session_filter,
@@ -2679,13 +2775,22 @@ class CanonicalBodyPersister:
 
 
 class DurableCrawlEventSink:
-    """Sequence, durably append, publish, then live-emit each crawl event."""
+    """Sequence, durably append, publish, then live-emit each crawl event.
+
+    Site COMMANDS (sitemap/GSC/link/URL-reconciliation/analysis sync and the
+    initialize steps) ride the same sink through `emit_command`: their
+    progress events are sequenced on the session's one counter, appended to
+    `web.crawl_event` BEFORE they stream, and only then sent. Until 2026-10-12
+    they went to the stream alone, so a client whose socket dropped had no
+    rows to follow and every healthy long command read as stalled. A command
+    has no replay broker (`broker=None`); its rows are the replay.
+    """
 
     def __init__(
         self,
         repository: WebCrawlRepository,
         state: CrawlPersistenceState,
-        broker: CrawlEventBroker,
+        broker: CrawlEventBroker | None,
         emitter: Emitter,
         before_completed: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
@@ -2742,8 +2847,69 @@ class DurableCrawlEventSink:
                 if isinstance(canonical, CrawlUrlsClassifiedEvent)
                 else canonical
             )
-            await self.broker.publish(wire_event)
+            if self.broker is not None:
+                await self.broker.publish(wire_event)
             await self.emitter.send_data(wire_event)
+
+    async def emit_command(self, event: BaseModel) -> None:
+        """Sequence, durably append, then live-emit one site-command progress
+        event. The row carries the event's full JSON (summary counters
+        included) plus `run_id`/`session_id`/`site_id`/`sequence`, exactly the
+        shape the live wire carries."""
+
+        async with self._lock:
+            self._sequence += 1
+            payload: dict[str, Any] = event.model_dump(mode="json")
+            payload.update(
+                {
+                    "run_id": self.state.session_id,
+                    "session_id": self.state.session_id,
+                    "site_id": self.state.site_id,
+                    "sequence": self._sequence,
+                }
+            )
+            try:
+                await self._persist_command_payload(payload)
+            except Exception as exc:  # noqa: BLE001 — a progress-log row never kills its command
+                # The progress row is a log for viewers who reconnect; the
+                # command's work and its session's terminal status are the
+                # product. A failed insert is captured loudly, the event still
+                # streams, and the command runs on to settle its session.
+                logger.exception(
+                    "command progress event %s for session %s was NOT persisted; "
+                    "streaming it anyway",
+                    payload.get("event_type") or type(event).__name__,
+                    self.state.session_id,
+                )
+                await capture_error(
+                    exc,
+                    kind="web_crawl_command_event_persist_failed",
+                    context={
+                        "session_id": self.state.session_id,
+                        "sequence": payload.get("sequence"),
+                    },
+                )
+            await self.emitter.send_data(payload)
+
+    async def _persist_command_payload(self, payload: dict[str, Any]) -> None:
+        for attempt in range(1, EVENT_SEQUENCE_MAX_RETRIES + 1):
+            try:
+                await self.repository.persist_command_event(payload, self.state)
+                return
+            except IntegrityError as exc:
+                if not _is_event_sequence_collision(exc) or attempt == EVENT_SEQUENCE_MAX_RETRIES:
+                    raise
+                ledger_max = await self.repository.max_event_sequence(self.state.session_id)
+                self._sequence = max(self._sequence, ledger_max) + 1
+                logger.error(
+                    "command event sequence collision on session %s (attempt %s/%s): "
+                    "re-sequencing to %s and retrying.",
+                    self.state.session_id,
+                    attempt,
+                    EVENT_SEQUENCE_MAX_RETRIES,
+                    self._sequence,
+                )
+                payload["sequence"] = self._sequence
 
     async def _persist_with_sequence_recovery(
         self, canonical: CrawlEvent, payload: dict[str, Any]

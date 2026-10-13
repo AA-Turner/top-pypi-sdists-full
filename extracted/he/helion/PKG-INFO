@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: helion
-Version: 1.4.0
+Version: 1.5.0
 Summary: A Python-embedded DSL that makes it easy to write ML kernels
 Project-URL: Homepage, https://github.com/pytorch/helion
 Project-URL: Issues, https://github.com/pytorch/helion/issues
@@ -43,7 +43,7 @@ Requires-Dist: scikit-learn>=1.3.0
 Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: cute
 Requires-Dist: apache-tvm-ffi; extra == 'cute'
-Requires-Dist: nvidia-cutlass-dsl[cu13]==4.5.2; extra == 'cute'
+Requires-Dist: nvidia-cutlass-dsl[cu13]==4.7.0; extra == 'cute'
 Provides-Extra: dev
 Requires-Dist: expecttest; extra == 'dev'
 Requires-Dist: hypothesis; extra == 'dev'
@@ -379,7 +379,7 @@ For detailed documentation, see the [TileIR Backend Guide](docs/tileir_backend.m
 
 ## CuTe Backend (CUDA 13+)
 
-Helion has an experimental [CUTLASS CuTe DSL](https://github.com/NVIDIA/cutlass) backend that lowers kernels through CuTe instead of Triton.
+Helion has a beta [CUTLASS CuTe DSL](https://github.com/NVIDIA/cutlass) backend that lowers kernels through CuTe instead of Triton.
 
 **Requirements:** PyTorch must be built against **CUDA 13 or later** (`torch.version.cuda >= "13"`). The backend will refuse to launch on older CUDA builds.
 
@@ -495,6 +495,9 @@ Note: You can still run the underlying tools directly via `./lint.sh [fix|check|
 ## Community
 
 Questions or feedback? Join us on the [GPU MODE Discord](https://discord.gg/gpumode) in the `#helion` channel.
+
+- [Project governance and maintainers](GOVERNANCE.md)
+- [Technical charter](TECHNICAL_CHARTER.md)
 
 ## License
 

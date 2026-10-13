@@ -63,7 +63,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from doppler.acquire import BurstAcquisition
-from doppler.spectral import FFT, PSD, Corr, hann_window, magnitude_db_cf32
+from doppler.spectral import PSD, Corr, Spectrogram
 from doppler.wfm import PN, Composer, FrameDesc, Segment, bpsk_map
 
 # ── burst geometry ───────────────────────────────────────────────────────────
@@ -220,32 +220,13 @@ def psd_db(x: np.ndarray, nfft: int = 512) -> np.ndarray:
 
 
 def spectrogram(x: np.ndarray, nfft: int = 128, hop: int = 32) -> np.ndarray:
-    """Short-time FFT magnitude in dB, normalised to its peak.
-
-    Every stage is a doppler primitive rather than its numpy equivalent:
-    :func:`~doppler.spectral.hann_window` for the taper,
-    :class:`~doppler.spectral.FFT` for the transform, and
-    :func:`~doppler.spectral.magnitude_db_cf32` for the dB magnitude. The
-    library owns each of those exactly once, and this is the same window and
-    the same transform :class:`~doppler.spectral.PSD` uses in panel C — so
-    the two spectral panels cannot disagree about what a Hann window is.
-    """
-    win = np.empty(nfft, np.float32)
-    hann_window(win)
-    with FFT(n=nfft) as fft:
-        cols = [
-            np.fft.fftshift(
-                magnitude_db_cf32(
-                    fft.execute_cf32(
-                        (x[i : i + nfft] * win).astype(np.complex64)
-                    ),
-                    1e-9,  # -180 dB floor: the guard against log10(0)
-                    0.0,
-                )
-            )
-            for i in range(0, len(x) - nfft, hop)
-        ]
-    sg = np.array(cols).T
+    """Spectrogram rows in dB, normalised to the peak, tail flushed."""
+    sp = Spectrogram(nfft=nfft, hop=hop, window="hann", mode="db")
+    rows = sp.push(np.asarray(x, dtype=np.complex64))
+    tail = np.zeros(nfft, np.float32)
+    if sp.flush(tail):  # the zero-padded frame the stream's end owes
+        rows = np.vstack([rows, tail[None, :]])
+    sg = rows.T
     return sg - sg.max()
 
 
@@ -423,6 +404,25 @@ fig.suptitle(
 # ── A: spectrogram ───────────────────────────────────────────────────────────
 ax = axes[0, 0]
 sg = spectrogram(burst)
+# Un-flushed, the count is the whole frames; flushed, it adds the owed tail.
+whole = (len(burst) - 128) // 32 + 1
+owed = (len(burst) - 128) % 32 != 0
+unflushed = (
+    Spectrogram(nfft=128, hop=32, window="hann", mode="db")
+    .push(np.asarray(burst, dtype=np.complex64))
+    .shape[0]
+)
+assert unflushed == whole, (unflushed, whole)
+assert sg.shape == (128, whole + owed), sg.shape
+# Payload columns carry the spread signal; silence columns carry noise only.
+col_mid = np.arange(sg.shape[1]) * 32 + 64
+pay = (col_mid >= acq_end) & (col_mid < payload_end)
+sil = col_mid >= payload_end
+gain_db = 10 * np.log10(
+    np.mean(10 ** (sg[:, pay] / 10)) / np.mean(10 ** (sg[:, sil] / 10))
+)
+# The expected lift is 10*log10(1+SNR), about 18 dB; the bound is SNR_DB - 6.
+assert gain_db > SNR_DB - 6, (gain_db, SNR_DB)
 t_sg = np.linspace(0, len(burst) / FS * 1e3, sg.shape[1])
 f_sg = np.linspace(-FS / 2e3, FS / 2e3, sg.shape[0])
 ax.pcolormesh(t_sg, f_sg, sg, vmin=-50, vmax=0, cmap="magma", shading="auto")

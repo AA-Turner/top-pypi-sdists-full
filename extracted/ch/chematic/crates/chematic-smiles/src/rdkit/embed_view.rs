@@ -11,6 +11,9 @@ use chematic_core::{AtomIdx, Element, Molecule};
 use super::RdkitSmilesError;
 use super::mol::{BondStereo, ChiralTag, Hybridization};
 
+type RingList = Vec<Vec<usize>>;
+type EmbeddingRingInfo = (RingList, RingList);
+
 /// One atom of [`RdkitMolView`].
 #[derive(Clone, Debug)]
 pub struct RdkitViewAtom {
@@ -218,6 +221,62 @@ impl RdkitMolView {
     }
 }
 
+/// RDKit `PeriodicTable::getRcovalent` for an atomic number.
+///
+/// Values outside the supported periodic-table range use the dummy-atom
+/// radius, matching the bounded lookup used by [`RdkitMolView`].
+pub fn rdkit_covalent_radius(atomic_num: u32) -> f64 {
+    super::periodic::RCOV[(atomic_num as usize).min(118)]
+}
+
+fn embedding_ring_info(molecule: &super::mol::Mol) -> Result<EmbeddingRingInfo, RdkitSmilesError> {
+    let ring_input: Vec<_> = molecule
+        .bonds
+        .iter()
+        .map(|bond| {
+            (
+                bond.begin,
+                bond.end,
+                bond.bt != super::mol::BondType::Dative,
+            )
+        })
+        .collect();
+    let mut atom_rings =
+        chematic_perception::relevant_cycles_from_graph(molecule.atoms.len(), &ring_input, 10_000)
+            .map_err(|error| RdkitSmilesError::Unsupported(error.to_string()))?;
+    for ring in &mut atom_rings {
+        normalize_embedding_ring(ring);
+    }
+    let bond_rings = atom_rings
+        .iter()
+        .map(|ring| {
+            (0..ring.len())
+                .map(|index| {
+                    molecule
+                        .bond_between(ring[index], ring[(index + 1) % ring.len()])
+                        .expect("relevant-cycle atoms are bonded")
+                })
+                .collect()
+        })
+        .collect();
+    Ok((atom_rings, bond_rings))
+}
+
+/// RingDecomposerLib starts each returned cycle at its lowest atom index and
+/// chooses the direction with the lower adjacent index first. ETKDG consumes
+/// the cycle order when it appends flat-ring torsions, so preserving this
+/// otherwise cosmetic ordering avoids input-order-dependent rounding changes
+/// in the force-field minimizer.
+fn normalize_embedding_ring(ring: &mut [usize]) {
+    let Some((start, _)) = ring.iter().enumerate().min_by_key(|(_, atom)| *atom) else {
+        return;
+    };
+    ring.rotate_left(start);
+    if ring.len() > 2 && ring[1] > ring[ring.len() - 1] {
+        ring[1..].reverse();
+    }
+}
+
 /// Number of trailing hydrogen atoms appended by `add_hydrogens` (RDKit
 /// `AddHs`): H atoms without a hydrogen count, bonded once.
 fn added_h_start(mol: &Molecule) -> usize {
@@ -265,7 +324,12 @@ pub fn rdkit_mol_view(mol: &Molecule) -> Result<RdkitMolView, RdkitSmilesError> 
     super::sanitize::sanitize_keeping_hs(&mut m)?;
     super::stereo::legacy_stereo_perception(&mut m, true, true);
 
-    let rings = m.ring_info().clone();
+    // RDKit 2026.09 switched its default ring backend to RingDecomposerLib.
+    // Its ring families are the relevant cycles, not the legacy symmetrized
+    // SSSR stored by the 2026.03-compatible sanitizer above. Keep this change
+    // local to the embedding view so older SMILES/canonical contracts are not
+    // silently redefined.
+    let (atom_rings, bond_rings) = embedding_ring_info(&m)?;
     let atoms = (0..m.atoms.len())
         .map(|a| {
             let at = &m.atoms[a];
@@ -330,8 +394,24 @@ pub fn rdkit_mol_view(mol: &Molecule) -> Result<RdkitMolView, RdkitSmilesError> 
         atoms,
         bonds,
         atom_bonds: m.atom_bonds.clone(),
-        atom_rings: rings.atom_rings,
-        bond_rings: rings.bond_rings,
+        atom_rings,
+        bond_rings,
         chematic_bond: order.iter().map(|b| b.0 as usize).collect(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_embedding_ring;
+
+    #[test]
+    fn embedding_ring_order_matches_ring_decomposer_convention() {
+        for (mut ring, expected) in [
+            (vec![13, 12, 18, 17, 15, 14], vec![12, 13, 14, 15, 17, 18]),
+            (vec![6, 21, 20, 9, 8, 7], vec![6, 7, 8, 9, 20, 21]),
+        ] {
+            normalize_embedding_ring(&mut ring);
+            assert_eq!(ring, expected);
+        }
+    }
 }

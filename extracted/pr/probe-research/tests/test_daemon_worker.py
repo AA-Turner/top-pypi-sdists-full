@@ -15,7 +15,7 @@ import pytest
 
 pytest.importorskip("pydantic_ai")
 
-from pydantic_ai.messages import ModelResponse, ToolCallPart  # noqa: E402
+from pydantic_ai.messages import ModelResponse, ThinkingPart, ToolCallPart  # noqa: E402
 from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
 from probe.daemon import store as store_mod  # noqa: E402
@@ -287,6 +287,140 @@ def test_a_bite_cut_short_is_retried_smaller_then_skipped_loudly(tmp_path, monke
     skipped = f"events #{queued[0]}-#{queued[taken - 1]}"
     assert any(line.startswith(f"not run: {skipped}") and "too costly" in line for line in w.pending_lines())
     assert skipped in (tmp_path / "state" / "probe" / "daemon-errors.log").read_text()
+
+
+def _thinks_to_the_limit(calls: dict) -> FunctionModel:
+    """Every answer is thinking cut off at the token limit, so Pydantic AI itself
+    raises "Model token limit ... exceeded before any response was generated"
+    (gpt-6.1-sol at its 16,384-token default, strand-ai 2026-10-12)."""
+    def fn(messages, info):
+        calls["n"] += 1
+        return ModelResponse(parts=[ThinkingPart("weighing it " * 50)], finish_reason="length")
+
+    return FunctionModel(fn)
+
+
+def test_an_answer_the_token_limit_ate_is_retried_smaller_then_skipped_never_looped(tmp_path, monkeypatch):
+    """The same request thinks to the limit again every time: before, each failure
+    backed off, a third moved the range to the back of the queue with the count
+    reset, and the bite came back to fail again (41 runaways in 3.5 hours, about
+    $0.25 each). Now it is cut short like a bite over its limits: half the events,
+    then skipped out loud, and no "Daemon bug" ping."""
+    transcript, work = _session(tmp_path, monkeypatch)
+    pinged = []
+    monkeypatch.setattr(worker_mod.alerts, "report_bite_failure", lambda exc, **kw: pinged.append(exc))
+    calls = {"n": 0}
+    w = worker_mod.Worker(worker_mod.Session(SID, transcript, work, "claude_code", home=tmp_path / "home"),
+                          replay=Replay(), model=_thinks_to_the_limit(calls))
+    w.read_new()
+    queued = [ev.seq for ev in w.store.pending()]
+    assert asyncio.run(w.run_bite("turn end")) is False
+    first = w.store.recent_bites(1)[0]
+    assert first["outcome"] == "cut short" and "token limit" in first["error"]
+    assert w.failures == 0 and w.no_answers == 1, "not a failure to defer: it is retried smaller"
+    assert w.next_attempt_at > w.clock(), "but after a wait, so a model that never answers cannot spin"
+    assert asyncio.run(w.run_bite("turn end")) is True
+    second = w.store.recent_bites(1)[0]
+    assert second["first_seq"] == queued[0] and second["outcome"] == "cut short: skipped"
+    notice = [ev.text for ev in w.store.pending() if ev.kind == Kind.META]
+    assert len(notice) == 1 and "answered nothing" in notice[0]
+    assert calls["n"] == 2 and not pinged
+
+
+def test_a_tool_call_the_token_limit_cut_off_is_the_same_no_answer(tmp_path, monkeypatch):
+    """Thinking until the limit can also end in the middle of the final tool call:
+    Pydantic AI's IncompleteToolCall, the same runaway, the same handling."""
+    transcript, work = _session(tmp_path, monkeypatch)
+
+    def fn(messages, info):
+        return ModelResponse(parts=[ThinkingPart("weighing it " * 50),
+                                    ToolCallPart(info.output_tools[0].name, '{"summary": "half')],
+                             finish_reason="length")
+
+    w = worker_mod.Worker(worker_mod.Session(SID, transcript, work, "claude_code", home=tmp_path / "home"),
+                          replay=Replay(), model=FunctionModel(fn))
+    w.read_new()
+    assert asyncio.run(w.run_bite("turn end")) is False
+    assert w.store.recent_bites(1)[0]["outcome"] == "cut short" and w.failures == 0 and w.no_answers == 1
+
+
+def test_a_refused_key_outranks_an_answer_the_token_limit_ate(tmp_path, monkeypatch):
+    """Probe refused the daemon's key in the same run: the key's handling wins --
+    the lease released `unauthorized`, the range kept for when the key works --
+    never a cut short that could end in skipping it."""
+    transcript, work = _session(tmp_path, monkeypatch)
+    monkeypatch.setattr(worker_mod, "_key_refused", lambda deps: True)
+    w = worker_mod.Worker(worker_mod.Session(SID, transcript, work, "claude_code", home=tmp_path / "home"),
+                          replay=Replay(), model=_thinks_to_the_limit({"n": 0}))
+    w.read_new()
+    queued = [ev.seq for ev in w.store.pending()]
+    assert asyncio.run(w.run_bite("turn end")) is False
+    assert w.released_reason == "unauthorized" and w.no_answers == 0
+    assert [ev.seq for ev in w.store.pending()] == queued and w.store.fact("cut_short") is None
+
+
+def _cut_off_mid_tool_call(calls: dict) -> FunctionModel:
+    """Thinking until the limit, then the final tool call cut off mid arguments:
+    Pydantic AI's IncompleteToolCall."""
+    def fn(messages, info):
+        calls["n"] += 1
+        return ModelResponse(parts=[ThinkingPart("weighing it " * 50),
+                                    ToolCallPart(info.output_tools[0].name, '{"summary": "half')],
+                             finish_reason="length")
+
+    return FunctionModel(fn)
+
+
+@pytest.mark.parametrize("form", [_thinks_to_the_limit, _cut_off_mid_tool_call])
+def test_answers_the_token_limit_ate_in_a_row_hand_recording_to_the_agent_until_one_answers(tmp_path, monkeypatch,
+                                                                                           form):
+    """A model that never answers: each such bite waits longer, and after
+    NO_ANSWERS_BEFORE_RELEASE the lease goes (the agent records). A round the
+    limit cut off -- with only thinking, or a tool call cut off mid arguments --
+    never takes it back; the first that answers does."""
+    transcript, work = _session(tmp_path, monkeypatch)
+    calls = {"n": 0}
+    w = worker_mod.Worker(worker_mod.Session(SID, transcript, work, "claude_code", home=tmp_path / "home"),
+                          replay=Replay(), model=form(calls))
+    w.read_new()
+    waits = []
+    for _ in range(worker_mod.NO_ANSWERS_BEFORE_RELEASE):
+        asyncio.run(w.run_bite("turn end"))
+        waits.append(w.next_attempt_at - w.clock())
+    assert waits == sorted(waits) and waits[0] < waits[-1], "each one in a row waits longer"
+    assert w.no_answers == worker_mod.NO_ANSWERS_BEFORE_RELEASE
+    assert w.released_reason == "gateway" and "answered nothing" in (tmp_path / "state" / "probe" /
+                                                                      "daemon-errors.log").read_text()
+    asyncio.run(w.run_bite("turn end"))
+    assert w.released_reason == "gateway", "a round that only thought is no answer"
+    model, _ = _scripted([], "recorded again")
+    w._model = model
+    with transcript.open("a") as handle:
+        handle.write(_line({"type": "user", "message": {"content": "and now the RBF kernel"}}))
+    w.read_new()
+    assert asyncio.run(w.run_bite("turn end")) is True
+    assert w.released_reason is None and w.no_answers == 0
+
+
+def test_a_released_lease_comes_back_when_the_first_round_only_thinks_and_ends(tmp_path, monkeypatch):
+    """A turn that only thought, ended normally (not at the limit), is an answer:
+    the model's next round is its retry, and the lease released for the gateway
+    comes back rather than the run stopping for want of it."""
+    transcript, work = _session(tmp_path, monkeypatch)
+    rounds = {"n": 0}
+
+    def fn(messages, info):
+        rounds["n"] += 1
+        if rounds["n"] == 1:
+            return ModelResponse(parts=[ThinkingPart("let me think about the sweep")], finish_reason="stop")
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {"summary": "recorded"})])
+
+    w = worker_mod.Worker(worker_mod.Session(SID, transcript, work, "claude_code", home=tmp_path / "home"),
+                          replay=Replay(), model=FunctionModel(fn))
+    w.read_new()
+    w._release("gateway")
+    assert asyncio.run(w.run_bite("turn end")) is True
+    assert w.released_reason is None
 
 
 def test_three_failures_move_a_range_to_the_back_and_it_comes_back_later(tmp_path, monkeypatch):

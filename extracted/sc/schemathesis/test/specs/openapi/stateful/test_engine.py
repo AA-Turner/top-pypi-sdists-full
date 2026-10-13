@@ -167,6 +167,16 @@ def test_internal_error_in_check(engine_factory, kwargs):
     assert isinstance(result.errors[0].value, ZeroDivisionError)
 
 
+@pytest.mark.usefixtures("restore_checks")
+def test_assumption_in_check_skips_step(engine_factory):
+    @schemathesis.check
+    def skip_reads(ctx, response, case):
+        hypothesis.assume(case.method != "GET")
+
+    result = collect_result(engine_factory(checks=[skip_reads], max_examples=10))
+    assert (result.events[-1].status, result.errors, result.failures) == (Status.SUCCESS, [], [])
+
+
 @pytest.mark.parametrize("exception_args", [(), ("Oops!",)])
 @pytest.mark.usefixtures("restore_checks")
 def test_custom_assertion_in_check(engine_factory, exception_args):
@@ -283,6 +293,7 @@ def test_failure_hidden_behind_another_failure(engine_factory):
     engine = engine_factory(
         FailureBehindFailure(),
         checks=[dynamic_check],
+        # The bug needs a specific call sequence, which takes many scenarios to reach.
         max_examples=60,
     )
     failures = []
@@ -317,6 +328,7 @@ def test_find_use_after_free(engine_factory):
     engine = engine_factory(
         UseAfterFree(),
         checks=[use_after_free],
+        # The bug needs a specific call sequence, which takes many scenarios to reach.
         max_examples=60,
     )
     result = collect_result(engine)
@@ -326,6 +338,7 @@ def test_find_use_after_free(engine_factory):
 
 
 _STATE_MACHINE_SETTINGS = hypothesis.settings(
+    # Planted bugs need specific call sequences, which take many scenarios to reach.
     max_examples=60,
     stateful_step_count=10,
     deadline=None,
@@ -381,6 +394,7 @@ def test_no_false_positive_use_after_free_when_id_reused(engine_factory):
         CircularLinks(),
         ReuseDeletedIds(),
         checks=[use_after_free],
+        # A false positive needs a specific call sequence, which takes many scenarios to reach.
         max_examples=60,
     )
     result = collect_result(engine)
@@ -402,6 +416,7 @@ def test_no_false_positive_ensure_resource_availability_when_id_reused(engine_fa
         CircularLinks(),
         ReuseDeletedIds(),
         checks=[ensure_resource_availability],
+        # A false positive needs a specific call sequence, which takes many scenarios to reach.
         max_examples=60,
     )
     result = collect_result(engine)
@@ -618,6 +633,7 @@ def test_external_link(ctx):
     )
     root_api = ctx.openapi.apps.stateful_users(IndependentInternalError())
     schema.config.update(base_url=f"{root_api.base_url}/")
+    # The bug needs a specific call sequence, which takes many scenarios to reach.
     schema.config.generation.update(max_examples=75, database="none", modes=[GenerationMode.POSITIVE])
     engine = stateful.execute(
         engine=EngineContext(schema=schema, stop_event=threading.Event()),

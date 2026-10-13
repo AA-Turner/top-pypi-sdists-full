@@ -373,6 +373,25 @@ def test_create_experiment_posts_a_closed_body_under_its_project(monkeypatch):
     assert row["project_id"] == P and row["kind"] == "experiment"
 
 
+def test_fork_experiment_posts_a_closed_body_at_the_source(monkeypatch):
+    monkeypatch.delenv("PROBE_AGENT_SESSION_ID", raising=False)
+    fork = {**_experiment(), "id": "f" * 8, "fork": {"source_id": E, "files": 2}}
+    client, rec = _client(
+        {("POST", f"/v1/projects/{P}/experiments/{E}/fork"): (201, fork)}
+    )
+    row = client.fork_experiment(E, "lr-sweep-2", question="Is 1e-4 better?", project_id=P)
+    assert rec.calls == [f"POST /v1/projects/{P}/experiments/{E}/fork"]
+    assert rec.body(0) == {"slug": "lr-sweep-2", "question": "Is 1e-4 better?"}
+    assert row["fork"]["source_id"] == E and row["kind"] == "experiment"
+
+
+def test_a_fork_without_its_own_question_is_refused_before_any_request():
+    client, rec = _client({})
+    with pytest.raises(errors.ValidationError):
+        client.fork_experiment(E, "lr-sweep-2", question="  ", project_id=P)
+    assert rec.calls == []
+
+
 def test_create_experiment_writes_its_document_and_checks_it_landed():
     doc = "# Plan\n\nSetup."
     client, rec = _client(
@@ -762,8 +781,17 @@ def _placed(routes: dict) -> dict:
         (lambda c: c.get_experiment_code(E), "GET", "/code", {}),
         (lambda c: c.list_experiment_artifacts(E), "GET", "/artifacts", {}),
         (lambda c: c.list_sub_notes("experiment", E), "GET", "/sub-notes", {}),
+        (
+            lambda c: c.experiment_inherited(E, runs=True, limit=5),
+            "GET",
+            "/inherited",
+            {"kind": "runs", "limit": "5"},
+        ),
     ],
-    ids=["groups", "edges", "lineage", "versions", "version", "reproduce", "code", "artifacts", "sub-notes"],
+    ids=[
+        "groups", "edges", "lineage", "versions", "version", "reproduce", "code", "artifacts",
+        "sub-notes", "inherited",
+    ],
 )
 def test_every_child_read_is_the_experiment_api_s(call, method, suffix, params):
     client, rec = _client(_placed({(method, f"{_BASE}{suffix}"): []}))

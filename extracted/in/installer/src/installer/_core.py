@@ -3,7 +3,6 @@
 import posixpath
 import warnings
 from io import BytesIO
-from pathlib import Path
 from typing import cast
 
 from installer.destinations import WheelDestination
@@ -42,7 +41,7 @@ def _determine_scheme(
     data_dir = source.data_dir
 
     # If it's in not `{distribution}-{version}.data`, then it's in root_scheme.
-    if posixpath.commonprefix([data_dir, path]) != data_dir:
+    if posixpath.commonpath([data_dir, path]) != data_dir:
         return root_scheme, path
 
     # Figure out which scheme this goes to.
@@ -102,7 +101,7 @@ def install(
         if path == record_file_path:
             continue
 
-        if "__pycache__" in Path(path).parts[:-1]:
+        if "__pycache__" in path.split("/")[:-1]:
             warnings.warn(
                 (
                     f"Skip installing {path} from {source.distribution}."

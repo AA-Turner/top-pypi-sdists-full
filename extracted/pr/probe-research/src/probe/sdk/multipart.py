@@ -68,8 +68,22 @@ is going this way). The server's verifier inspects a bounded prefix and
 RECORDS findings on the artifact; nothing is blocked. A credential in the
 PATH is still refused before anything happens (`secret_gate._check_path`).
 
-Only an explicit ``log_artifact`` uses this (D12): output capture keeps files
-over 64 MiB as pointers.
+Four callers queue these ops: an explicit ``log_artifact``; ``probe artifact
+add RUN FILE`` (the CLI's own door, which the Probe daemon's calls reach even
+under PROBE_ASYNC=0); ``probe artifact add FILE --project|--experiment|
+--workspace|--shared`` (below); and output capture, for a team switched on
+server-side (`GET /v1/teams/features`), which scans the staged copy's first
+16 MiB before it queues and never copies to stage. Elsewhere capture keeps
+files over 64 MiB as pointers (D12).
+
+ANCHORS (0333). An op names where its file goes in ``upload.anchor`` /
+``upload.anchor_id`` -- the shape every upload op has always had -- a run, a
+project, an experiment, a workspace or the team Shared folder (no id). The
+server takes the four beyond a run only when it declares
+``artifact_multipart_anchored``; ``probe artifact add --project ...`` queues
+one then (`cli/main.py`). An op from before carries ``anchor: "run"`` and
+goes to the run doors, as it always did. Every path below is spelled per
+anchor, literally: the contract-parity guard reads call sites statically.
 """
 
 from __future__ import annotations
@@ -84,6 +98,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import errors
+from .anchors import Anchor
 from .durable import fsync_directory, try_clone, write_text_atomic
 from .hashing import fingerprint
 from .journal import OpInProgress
@@ -92,6 +107,8 @@ from .journal import OpInProgress
 KIND = "multipart_upload"
 #: What the server declares when it takes multipart uploads.
 FEATURE = "artifact_multipart"
+#: ...and when it takes them at a project, experiment, workspace or Shared too.
+ANCHORED_FEATURE = "artifact_multipart_anchored"
 #: Part PUTs in flight at once, per upload.
 PARALLEL_PARTS = 4
 #: Wall clock one drain visit may spend sending parts before it saves and
@@ -226,9 +243,13 @@ class StageRefused(Exception):
     reference row and warns."""
 
 
-def stage(journal: Any, src: str, op_id: str) -> dict:
+def stage(journal: Any, src: str, op_id: str, *, allow_copy: bool = True) -> dict:
     """Make the immutable copy the upload will read. Returns the op's
-    ``multipart`` staging fields; raises `StageRefused` with the reason."""
+    ``multipart`` staging fields; raises `StageRefused` with the reason.
+
+    ``allow_copy=False`` refuses rather than copy the bytes: output capture
+    stages at a run's close on the caller's thread, where a cross-filesystem
+    copy of gigabytes has no deadline (D18). It keeps a pointer instead."""
     directory = _private(staged_dir(journal))
     dest = directory / f"{op_id}.src"
     size = os.stat(src).st_size
@@ -251,6 +272,11 @@ def stage(journal: Any, src: str, op_id: str) -> dict:
         try:
             if try_clone(src, str(temporary)):
                 mode = "reflink"
+            elif not allow_copy:
+                raise StageRefused(
+                    "it is on another filesystem than the outbox, and output capture does not "
+                    "copy a big file at a run's close"
+                )
             else:
                 shutil.copyfile(src, temporary)
                 mode = "copy"
@@ -270,7 +296,7 @@ def stage(journal: Any, src: str, op_id: str) -> dict:
 def build_op(
     journal: Any,
     *,
-    run_id: str,
+    run_id: str | None = None,
     name: str,
     src: str,
     kind: str | None,
@@ -279,15 +305,28 @@ def build_op(
     notes: str | None,
     span_id: str | None,
     step_index: int | None,
+    allow_copy: bool = True,
+    anchor: str = Anchor.RUN.value,
+    anchor_id: str | None = None,
 ) -> dict:
     """The queued op, staged. Its ``upload`` block has the shape every reader
     of an upload op already knows (the dead-letter reference row, output
-    capture's dedupe, `probe outbox status`); ``multipart`` is its own state."""
-    op = journal._base_op(KIND, run_id)
+    capture's dedupe, `probe outbox status`); ``multipart`` is its own state.
+
+    A run's op (the default) names its run in ``run_id``; any other anchor
+    passes ``anchor`` and ``anchor_id`` (None for Shared) and rides no run's
+    lane -- its ``run_ref`` is None, its lane its own as for every op here.
+    ``kind``/``meta``/``span_id``/``step_index`` are a run's alone."""
+    anchor = Anchor(anchor).value
+    if anchor == Anchor.RUN.value:
+        anchor_id = run_id
+    if anchor != Anchor.SHARED.value and not anchor_id:
+        raise ValueError(f"a {anchor} upload needs its {anchor}'s id")
+    op = journal._base_op(KIND, anchor_id if anchor == Anchor.RUN.value else None)
     op["blocking"] = False
     op["lane"] = f"multipart:{op['op_id']}"
     op["multipart"] = {
-        **stage(journal, src, op["op_id"]),
+        **stage(journal, src, op["op_id"], allow_copy=allow_copy),
         "upload_id": None,
         "artifact_id": None,
         "part_size": None,
@@ -295,8 +334,8 @@ def build_op(
         "state": "staged",
     }
     op["upload"] = {
-        "anchor": "run",
-        "anchor_id": run_id,
+        "anchor": anchor,
+        "anchor_id": anchor_id,
         "name": name,
         "src_path": os.path.abspath(src),
         # Not in the outbox's blob store: `journal.gc_blobs` must leave it be.
@@ -410,13 +449,144 @@ def on_dead_letter(journal: Any, client_for: Callable[[Any], Any], op: dict) -> 
     upload = op.get("upload") or {}
     if state.get("upload_id") and state.get("state") not in ("verified", "have"):
         try:
-            client = client_for(op.get("context"))
-            client.transport.delete(
-                f"/v1/runs/{upload.get('anchor_id')}/artifacts/multipart/{state['upload_id']}"
-            )
+            _abort(client_for(op.get("context")), upload, state["upload_id"])
         except Exception:  # noqa: BLE001 -- the server sweeps an idle upload anyway
             pass
     release_staged(state)
+
+
+def _anchor_of(upload: dict) -> str:
+    """The op's anchor; an op without one is a run's (only runs had these)."""
+    return str(upload.get("anchor") or Anchor.RUN.value)
+
+
+# ---------------------------------------------------------------------------
+# The doors, one literal path per anchor (the parity guard reads call sites).
+# An experiment's are under the project it is filed in NOW, placed per call.
+# ---------------------------------------------------------------------------
+
+
+def _open(client: Any, upload: dict, body: dict) -> Any:
+    anchor, ref = _anchor_of(upload), upload.get("anchor_id")
+    if anchor == Anchor.RUN.value:
+        return client.transport.post(f"/v1/runs/{ref}/artifacts/multipart", body, idempotent=True)
+    if anchor == Anchor.PROJECT.value:
+        return client.transport.post(
+            f"/v1/projects/{ref}/artifacts/multipart", body, idempotent=True
+        )
+    if anchor == Anchor.EXPERIMENT.value:
+        return client._on_experiment(
+            lambda p, e: client.transport.post(
+                f"/v1/projects/{p}/experiments/{e}/artifacts/multipart", body, idempotent=True
+            ),
+            str(ref),
+        )
+    if anchor == Anchor.WORKSPACE.value:
+        return client.transport.post(
+            f"/v1/workspaces/{ref}/files/multipart", body, idempotent=True
+        )
+    if anchor == Anchor.SHARED.value:
+        return client.transport.post("/v1/shared/files/multipart", body, idempotent=True)
+    raise errors.ValidationError(f"a multipart upload has no {anchor!r} anchor", status=422)
+
+
+def _grant(client: Any, upload: dict, upload_id: str, body: dict) -> Any:
+    anchor, ref = _anchor_of(upload), upload.get("anchor_id")
+    if anchor == Anchor.RUN.value:
+        return client.transport.post(
+            f"/v1/runs/{ref}/artifacts/multipart/{upload_id}/parts", body, idempotent=True
+        )
+    if anchor == Anchor.PROJECT.value:
+        return client.transport.post(
+            f"/v1/projects/{ref}/artifacts/multipart/{upload_id}/parts", body, idempotent=True
+        )
+    if anchor == Anchor.EXPERIMENT.value:
+        return client._on_experiment(
+            lambda p, e: client.transport.post(
+                f"/v1/projects/{p}/experiments/{e}/artifacts/multipart/{upload_id}/parts",
+                body,
+                idempotent=True,
+            ),
+            str(ref),
+        )
+    if anchor == Anchor.WORKSPACE.value:
+        return client.transport.post(
+            f"/v1/workspaces/{ref}/files/multipart/{upload_id}/parts", body, idempotent=True
+        )
+    if anchor == Anchor.SHARED.value:
+        return client.transport.post(
+            f"/v1/shared/files/multipart/{upload_id}/parts", body, idempotent=True
+        )
+    raise errors.ValidationError(f"a multipart upload has no {anchor!r} anchor", status=422)
+
+
+def _status(client: Any, upload: dict, upload_id: str) -> Any:
+    anchor, ref = _anchor_of(upload), upload.get("anchor_id")
+    if anchor == Anchor.RUN.value:
+        return client.transport.get(f"/v1/runs/{ref}/artifacts/multipart/{upload_id}")
+    if anchor == Anchor.PROJECT.value:
+        return client.transport.get(f"/v1/projects/{ref}/artifacts/multipart/{upload_id}")
+    if anchor == Anchor.EXPERIMENT.value:
+        return client._on_experiment(
+            lambda p, e: client.transport.get(
+                f"/v1/projects/{p}/experiments/{e}/artifacts/multipart/{upload_id}"
+            ),
+            str(ref),
+        )
+    if anchor == Anchor.WORKSPACE.value:
+        return client.transport.get(f"/v1/workspaces/{ref}/files/multipart/{upload_id}")
+    if anchor == Anchor.SHARED.value:
+        return client.transport.get(f"/v1/shared/files/multipart/{upload_id}")
+    raise errors.ValidationError(f"a multipart upload has no {anchor!r} anchor", status=422)
+
+
+def _finish(client: Any, upload: dict, upload_id: str) -> Any:
+    anchor, ref = _anchor_of(upload), upload.get("anchor_id")
+    if anchor == Anchor.RUN.value:
+        return client.transport.post(
+            f"/v1/runs/{ref}/artifacts/multipart/{upload_id}/complete", idempotent=True
+        )
+    if anchor == Anchor.PROJECT.value:
+        return client.transport.post(
+            f"/v1/projects/{ref}/artifacts/multipart/{upload_id}/complete", idempotent=True
+        )
+    if anchor == Anchor.EXPERIMENT.value:
+        return client._on_experiment(
+            lambda p, e: client.transport.post(
+                f"/v1/projects/{p}/experiments/{e}/artifacts/multipart/{upload_id}/complete",
+                idempotent=True,
+            ),
+            str(ref),
+        )
+    if anchor == Anchor.WORKSPACE.value:
+        return client.transport.post(
+            f"/v1/workspaces/{ref}/files/multipart/{upload_id}/complete", idempotent=True
+        )
+    if anchor == Anchor.SHARED.value:
+        return client.transport.post(
+            f"/v1/shared/files/multipart/{upload_id}/complete", idempotent=True
+        )
+    raise errors.ValidationError(f"a multipart upload has no {anchor!r} anchor", status=422)
+
+
+def _abort(client: Any, upload: dict, upload_id: str) -> Any:
+    anchor, ref = _anchor_of(upload), upload.get("anchor_id")
+    if anchor == Anchor.RUN.value:
+        return client.transport.delete(f"/v1/runs/{ref}/artifacts/multipart/{upload_id}")
+    if anchor == Anchor.PROJECT.value:
+        return client.transport.delete(f"/v1/projects/{ref}/artifacts/multipart/{upload_id}")
+    if anchor == Anchor.EXPERIMENT.value:
+        return client._on_experiment(
+            lambda p, e: client.transport.delete(
+                f"/v1/projects/{p}/experiments/{e}/artifacts/multipart/{upload_id}"
+            ),
+            str(ref),
+        )
+    if anchor == Anchor.WORKSPACE.value:
+        return client.transport.delete(f"/v1/workspaces/{ref}/files/multipart/{upload_id}")
+    if anchor == Anchor.SHARED.value:
+        return client.transport.delete(f"/v1/shared/files/multipart/{upload_id}")
+    raise errors.ValidationError(f"a multipart upload has no {anchor!r} anchor", status=422)
 
 
 def _fields(op: dict) -> tuple[dict, dict]:
@@ -424,7 +594,7 @@ def _fields(op: dict) -> tuple[dict, dict]:
     if (
         not isinstance(upload, dict)
         or not isinstance(state, dict)
-        or not upload.get("anchor_id")
+        or not (upload.get("anchor_id") or _anchor_of(upload) == Anchor.SHARED.value)
         or not upload.get("name")
         or not state.get("staged_path")
         or not isinstance(state.get("identity"), dict)
@@ -458,19 +628,21 @@ def _create(client: Any, upload: dict) -> dict:
         "content_hash": upload["blob"],
         "size_bytes": upload["size_bytes"],
         "content_type": upload.get("content_type"),
-        "span_id": upload.get("span_id"),
-        "step_index": upload.get("step_index"),
-        "kind": upload.get("kind"),
-        "meta": upload.get("meta"),
         "notes": upload.get("notes"),
     }
+    if _anchor_of(upload) == Anchor.RUN.value:
+        # A run's alone: every other door forbids them (`extra=forbid`).
+        body.update(
+            span_id=upload.get("span_id"),
+            step_index=upload.get("step_index"),
+            kind=upload.get("kind"),
+            meta=upload.get("meta"),
+        )
     body = {k: v for k, v in body.items() if v is not None}
     try:
-        # Idempotent server-side: the same (run, name, bytes) gets its own
+        # Idempotent server-side: the same (anchor, name, bytes) gets its own
         # upload back while it is active.
-        return client.transport.post(
-            f"/v1/runs/{upload['anchor_id']}/artifacts/multipart", body, idempotent=True
-        ) or {}
+        return _open(client, upload, body) or {}
     except errors.ConflictError as exc:
         detail = exc.detail if isinstance(exc.detail, dict) else {}
         if detail.get("state") in ("uploading", "verifying"):
@@ -553,10 +725,11 @@ def _send_parts(
     for start in range(0, len(numbers), _PART_URL_BATCH):
         if time.monotonic() >= deadline:
             return
-        grant = client.transport.post(
-            f"/v1/runs/{upload['anchor_id']}/artifacts/multipart/{state['upload_id']}/parts",
+        grant = _grant(
+            client,
+            upload,
+            state["upload_id"],
             {"part_numbers": numbers[start : start + _PART_URL_BATCH]},
-            idempotent=True,
         ) or {}
 
         def put(part: dict) -> bool:
@@ -655,9 +828,7 @@ def advance(
                 state=created.get("state") or "uploading",
             )
             save()
-        status = client.transport.get(
-            f"/v1/runs/{upload['anchor_id']}/artifacts/multipart/{state['upload_id']}"
-        ) or {}
+        status = _status(client, upload, state["upload_id"]) or {}
         current = status.get("state")
         if current != state.get("state"):
             state["state"] = current
@@ -703,10 +874,7 @@ def advance(
                 raise errors.ServerError("multipart complete keeps refusing", status=503)
             completes += 1
             try:
-                client.transport.post(
-                    f"/v1/runs/{upload['anchor_id']}/artifacts/multipart/{state['upload_id']}/complete",
-                    idempotent=True,
-                )
+                _finish(client, upload, state["upload_id"])
             except errors.ConflictError as exc:
                 detail = exc.detail if isinstance(exc.detail, dict) else {}
                 if detail.get("state") != "uploading":
@@ -809,7 +977,7 @@ def settle_for_close(client: Any, op_ids: list[str], deadline: float, *, why: st
 def upload_now(
     client: Any,
     *,
-    run_id: str,
+    run_id: str | None = None,
     name: str,
     src: str,
     kind: str | None,
@@ -818,16 +986,22 @@ def upload_now(
     notes: str | None,
     span_id: str | None,
     step_index: int | None,
+    anchor: str = Anchor.RUN.value,
+    anchor_id: str | None = None,
 ) -> dict:
     """The synchronous door (``sync=True``, ``strict``, a fail-closed client,
-    or one with no queue): hash, send every part, complete, and return once
-    the server is verifying (it has every byte). Blocks the caller for the
-    whole transfer, which is what those callers asked for.
+    or one with no queue; `probe artifact add --sync` at any anchor): hash,
+    send every part, complete, and return once the server is verifying (it
+    has every byte). Blocks the caller for the whole transfer, which is what
+    those callers asked for. ``anchor``/``anchor_id`` as in `build_op`.
 
     Reads the caller's file where it is, not a staged copy: the caller is
     blocked on this call, and the identity check (same inode, size and mtime
     around every step) refuses the upload if another thread rotates or
     rewrites it meanwhile."""
+    anchor = Anchor(anchor).value
+    if anchor == Anchor.RUN.value:
+        anchor_id = run_id
     st = os.stat(src)
     op = {
         "op_id": "sync",
@@ -840,8 +1014,8 @@ def upload_now(
             "state": "staged",
         },
         "upload": {
-            "anchor": "run",
-            "anchor_id": run_id,
+            "anchor": anchor,
+            "anchor_id": anchor_id,
             "name": name,
             "src_path": os.path.abspath(src),
             "blob": None,

@@ -160,6 +160,7 @@ FAST_CRAWL_KNOBS: dict[str, object] = {
     "crawl.max_retries_per_url": 3,
     "crawl.html_max_bytes": 1_048_576,
     "crawl.link_first": True,
+    "crawl.item_lease_seconds": 600,
 }
 
 

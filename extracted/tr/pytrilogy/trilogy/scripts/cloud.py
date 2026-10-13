@@ -61,6 +61,15 @@ means "accepted", not "succeeded". ``--wait`` (and ``runs wait <id>``) blocks
 until the server stamps the run finished and then exits non-zero unless it
 ended ``completed``.
 
+**A run's logs are an excerpt until you ask for the file.** ``runs show`` and a
+failed ``--wait`` print the tail of the stdout/stderr the run row carries,
+which the worker has already cut to a head and tail. A long statement echo can
+fill that tail before the error appears. ``runs logs <id>`` fetches the
+complete stream the worker uploaded: ``--stream`` chooses stderr (the default),
+stdout or the execution log, ``--attempt`` an earlier try of a retried run, and
+``-o`` a file to write it to. The API answers with a short-lived signed URL,
+which the CLI downloads without sending your token.
+
 **Getting a repository onto the cloud is one command.** ``cloud bootstrap
 [ROOT]``, run from a checkout, does the whole first-time setup: it syncs the
 tree to production under your own credentials (so the workspace, jobs and
@@ -117,6 +126,7 @@ import webbrowser
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from dataclasses import fields as dataclass_fields
 from datetime import datetime
 from functools import cache
@@ -142,6 +152,7 @@ from trilogy.scripts.cloud_models import (
     JobVersion,
     Me,
     OrgSummary,
+    RunArtifactDownload,
     Schedule,
     ScheduleExt,
     SecretMeta,
@@ -169,7 +180,27 @@ from trilogy.scripts.source_identity import (
 DEFAULT_API_URL = "https://trilogy-cloud-api.fly.dev"
 ENV_API_URL = "TRILOGY_CLOUD_API"
 ENV_TOKEN = "TRILOGY_CLOUD_TOKEN"
+ENV_REQUEST_TIMEOUT = "TRILOGY_CLOUD_TIMEOUT"
 CREDENTIALS_PATH = Path.home() / ".trilogy" / "cloud_credentials.json"
+
+# Seconds one API request may take. Generous because a content write is the
+# slow call and a sync makes one per job: a sync that dies at job 90 of 136
+# because one write took longer than usual is worse than one that waits.
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 300.0
+# Attempts per request when the failure says "try again" (a gateway error, a
+# rate limit, a dropped connection, a timeout), and the first pause between
+# them; each later pause doubles, and a Retry-After the server sends wins, up
+# to the cap.
+REQUEST_ATTEMPTS = 4
+RETRY_BACKOFF_SECONDS = 2.0
+RETRY_MAX_PAUSE_SECONDS = 30.0
+RETRYABLE_STATUSES = frozenset({429, 502, 503, 504})
+# Methods a retry cannot double. PUT and PATCH write the same state again (a
+# content PUT the server already holds is a no-op), and a DELETE whose earlier
+# attempt landed answers 404, which is reported as done. POST creates: a retry
+# after a create that landed but whose answer was lost would make a second
+# job, so POST is never retried.
+RETRYABLE_METHODS = frozenset({"GET", "PUT", "PATCH", "DELETE"})
 
 # PubSub caps a published message at 10MB and the job's files ride inside one;
 # same margin as trilogy-cloud's bundler so the two agree on what fits.
@@ -188,8 +219,11 @@ DEFAULT_EXCLUDE = (
 
 LOGIN_TIMEOUT_SECONDS = 300
 # How much of a run's stdout/stderr to echo. Full logs are an artifact
-# download, not a terminal dump.
+# download (`runs logs`), not a terminal dump.
 RUN_LOG_TAIL_CHARS = 4000
+#: The run artifacts that are logs; `state` is an artifact too, but not one.
+RUN_LOG_STREAMS = ("stderr", "stdout", "exec_log")
+ARTIFACT_DOWNLOAD_TIMEOUT_SECONDS = 300.0
 
 #: A run is over when the server stamps ``finished_at``. The status set is a
 #: belt-and-braces second signal, so a terminal state that somehow carries no
@@ -572,22 +606,68 @@ def forget_token(api_url: str) -> bool:
 # ============================================================================
 
 
+def resolve_request_timeout(explicit: float | None) -> float:
+    """--request-timeout flag > $TRILOGY_CLOUD_TIMEOUT > the default."""
+    if explicit is not None:
+        return explicit
+    env = os.environ.get(ENV_REQUEST_TIMEOUT)
+    if not env:
+        return DEFAULT_REQUEST_TIMEOUT_SECONDS
+    try:
+        value = float(env)
+    except ValueError:
+        value = 0.0
+    if value <= 0:
+        raise CloudError(
+            f"${ENV_REQUEST_TIMEOUT} must be a positive number of seconds, got {env!r}."
+        )
+    return value
+
+
+def _retry_after(exc: HTTPError) -> float | None:
+    """The server's Retry-After in seconds, when it sent a number."""
+    value = exc.headers.get("Retry-After") if exc.headers else None
+    try:
+        return float(value) if value is not None else None
+    except ValueError:
+        return None
+
+
+def _is_timeout(exc: BaseException) -> bool:
+    return isinstance(exc, TimeoutError) or isinstance(
+        getattr(exc, "reason", None), TimeoutError
+    )
+
+
+# Indirected so tests can retry without waiting.
+_sleep = time.sleep
+
+
 @dataclass
 class CloudClient:
     api_url: str
     token: str | None
+    timeout: float = dataclass_field(
+        default_factory=lambda: resolve_request_timeout(None)
+    )
+    attempts: int = REQUEST_ATTEMPTS
 
     def request(
         self,
         method: str,
         path: str,
         body: dict | list | bytes | None = None,
-        timeout: float = 120.0,
+        timeout: float | None = None,
     ) -> Any:
         """The decoded JSON body, or ``None`` when the response is empty.
 
         ``body`` may be pre-encoded bytes, so a caller that measured a bundle
         against the queue limit sends exactly what it measured.
+
+        A transient failure (a gateway error, a rate limit, a dropped
+        connection, a timeout) is retried with backoff for the methods in
+        ``RETRYABLE_METHODS``. A sync is hundreds of requests against a
+        service that redeploys and scales, and one blip used to fail the run.
         """
         url = f"{self.api_url}{path}"
         if isinstance(body, bytes):
@@ -601,31 +681,83 @@ class CloudClient:
             headers["Authorization"] = f"Bearer {self.token}"
         if data is not None:
             headers["Content-Type"] = "application/json"
-        req = Request(url, data=data, headers=headers, method=method)
-        try:
-            with urlopen(req, timeout=timeout) as resp:
-                raw = resp.read()
-        except HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace").strip()
-            hint = ""
-            if exc.code == 401:
-                # `cloud login` is useless advice on a runner that got its
-                # token from the environment.
-                if self.token and self.token == os.environ.get(ENV_TOKEN):
-                    hint = f" (check ${ENV_TOKEN})"
-                else:
-                    hint = " (run `trilogy cloud login`)"
-            raise CloudError(
-                f"{method} {path} failed: {exc.code} {detail or exc.reason}{hint}"
-            ) from exc
-        except (URLError, TimeoutError) as exc:
-            raise CloudError(f"Could not reach {self.api_url}: {exc}") from exc
+        timeout = self.timeout if timeout is None else timeout
+        attempts = max(1, self.attempts) if method in RETRYABLE_METHODS else 1
+        pause = RETRY_BACKOFF_SECONDS
+        attempt = 0
+        while True:
+            attempt += 1
+            req = Request(url, data=data, headers=headers, method=method)
+            wait = pause
+            try:
+                with urlopen(req, timeout=timeout) as resp:
+                    raw = resp.read()
+                break
+            except HTTPError as exc:
+                if method == "DELETE" and exc.code == 404 and attempt > 1:
+                    # An earlier attempt landed; only its answer was lost.
+                    return None
+                if exc.code not in RETRYABLE_STATUSES or attempt >= attempts:
+                    raise self._http_error(method, path, exc, attempt) from exc
+                wait = _retry_after(exc) or pause
+                failure = f"{exc.code} {exc.reason}"
+            except (URLError, TimeoutError, ConnectionError) as exc:
+                if attempt >= attempts:
+                    raise self._transport_error(
+                        method, path, exc, timeout, attempt
+                    ) from exc
+                failure = (
+                    f"no answer within {timeout:.0f}s"
+                    if _is_timeout(exc)
+                    else str(getattr(exc, "reason", exc))
+                )
+            wait = min(wait, RETRY_MAX_PAUSE_SECONDS)
+            print_warning(
+                f"{method} {path}: {failure}; retrying in {wait:.0f}s "
+                f"(attempt {attempt + 1} of {attempts})"
+            )
+            _sleep(wait)
+            pause *= 2
         if not raw:
             return None
         try:
             return json.loads(raw.decode("utf-8"))
         except json.JSONDecodeError as exc:
             raise CloudError(f"{method} {path}: response was not JSON") from exc
+
+    def _http_error(
+        self, method: str, path: str, exc: HTTPError, attempt: int
+    ) -> CloudError:
+        detail = exc.read().decode("utf-8", errors="replace").strip()
+        hint = ""
+        if exc.code == 401:
+            # `cloud login` is useless advice on a runner that got its
+            # token from the environment.
+            if self.token and self.token == os.environ.get(ENV_TOKEN):
+                hint = f" (check ${ENV_TOKEN})"
+            else:
+                hint = " (run `trilogy cloud login`)"
+        tries = f" after {attempt} attempts" if attempt > 1 else ""
+        return CloudError(
+            f"{method} {path} failed{tries}: {exc.code} {detail or exc.reason}{hint}"
+        )
+
+    def _transport_error(
+        self,
+        method: str,
+        path: str,
+        exc: BaseException,
+        timeout: float,
+        attempt: int,
+    ) -> CloudError:
+        tries = f" after {attempt} attempts" if attempt > 1 else ""
+        if _is_timeout(exc):
+            return CloudError(
+                f"{method} {path} got no answer within {timeout:.0f}s{tries}. "
+                f"Raise the limit with --request-timeout or ${ENV_REQUEST_TIMEOUT}; "
+                "a sync that stopped part-way is safe to re-run."
+            )
+        return CloudError(f"Could not reach {self.api_url}{tries}: {exc}")
 
     def get(self, path: str) -> Any:
         return self.request("GET", path)
@@ -680,7 +812,11 @@ def _client(ctx: click.Context, require_auth: bool = True) -> CloudClient:
             f"Not logged in to {api_url}. Run `trilogy cloud login` "
             f"(or pass --token, or set {ENV_TOKEN})."
         )
-    return CloudClient(api_url=api_url, token=token)
+    return CloudClient(
+        api_url=api_url,
+        token=token,
+        timeout=resolve_request_timeout(ctx.obj.get("CLOUD_REQUEST_TIMEOUT")),
+    )
 
 
 def _resolve_org(ctx: click.Context, client: CloudClient) -> str:
@@ -1050,15 +1186,29 @@ def browser_login(api_url: str) -> str:
         "credentials. Prefer the env var in CI to keep it out of argv."
     ),
 )
+@click.option(
+    "--request-timeout",
+    type=click.FloatRange(min=0, min_open=True),
+    default=None,
+    help=(
+        "Seconds to wait for each API request (default: $TRILOGY_CLOUD_TIMEOUT, "
+        f"or {DEFAULT_REQUEST_TIMEOUT_SECONDS:.0f})."
+    ),
+)
 @click.pass_context
 def cloud(
-    ctx: click.Context, api_url: str | None, org_slug: str | None, token: str | None
+    ctx: click.Context,
+    api_url: str | None,
+    org_slug: str | None,
+    token: str | None,
+    request_timeout: float | None,
 ) -> None:
     """Interact with a trilogy-cloud environment (jobs, runs, schedules)."""
     ctx.ensure_object(dict)
     ctx.obj["CLOUD_API"] = api_url
     ctx.obj["CLOUD_ORG"] = org_slug
     ctx.obj["CLOUD_TOKEN"] = token
+    ctx.obj["CLOUD_REQUEST_TIMEOUT"] = request_timeout
 
 
 @cloud.command()
@@ -1074,7 +1224,11 @@ def login(ctx: click.Context, token_value: str | None) -> None:
     api_url = resolve_api_url(ctx.obj.get("CLOUD_API"))
     token = token_value or ctx.obj.get("CLOUD_TOKEN") or browser_login(api_url)
 
-    client = CloudClient(api_url=api_url, token=token)
+    client = CloudClient(
+        api_url=api_url,
+        token=token,
+        timeout=resolve_request_timeout(ctx.obj.get("CLOUD_REQUEST_TIMEOUT")),
+    )
     me = client.get_one("/auth/me", Me)
     store_token(api_url, token, me.email)
 
@@ -2703,11 +2857,28 @@ def _wait_for_run(
 
 
 def _print_run_logs(run: JobRunExt) -> None:
+    printed = False
     for stream, body in (("stdout", run.stdout), ("stderr", run.stderr)):
         text = (body or "").strip()
         if text:
             print_info(f"--- {stream} (tail) ---")
             click.echo(text[-RUN_LOG_TAIL_CHARS:])
+            printed = True
+    if printed:
+        print_info(f"Full logs: trilogy cloud runs logs {run.id}")
+
+
+def _download_signed(url: str) -> bytes:
+    """Fetch a signed artifact URL. No bearer token: the URL is its own
+    credential, and object storage rejects a second one."""
+    req = Request(url, headers={"User-Agent": "trilogy-cli"})
+    try:
+        with urlopen(req, timeout=ARTIFACT_DOWNLOAD_TIMEOUT_SECONDS) as resp:
+            return resp.read()
+    except HTTPError as exc:
+        raise CloudError(f"Downloading the artifact failed: {exc.code}") from exc
+    except (URLError, TimeoutError) as exc:
+        raise CloudError(f"Could not download the artifact: {exc}") from exc
 
 
 def _report_finished_run(org: str, run: JobRunExt, logs: bool = False) -> None:
@@ -2796,6 +2967,69 @@ def runs_show(ctx: click.Context, run_id: str) -> None:
         for step in run.files:
             print_info(f"  {step.status}: {step.name}")
     _print_run_logs(run)
+
+
+@runs.command("logs")
+@click.argument("run_id")
+@click.option(
+    "--stream",
+    type=click.Choice(RUN_LOG_STREAMS),
+    default="stderr",
+    show_default=True,
+    help="Which log: the job's stderr or stdout, or the per-statement "
+    "execution log (exec_log, JSON lines).",
+)
+@click.option(
+    "--attempt",
+    type=int,
+    default=None,
+    help="A retried run's earlier attempt, by its sequence number in "
+    "`runs show --json` (default: the current attempt).",
+)
+@click.option(
+    "--output",
+    "-o",
+    "output_path",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Write the log to this file instead of printing it.",
+)
+@click.pass_context
+def runs_logs(
+    ctx: click.Context,
+    run_id: str,
+    stream: str,
+    attempt: int | None,
+    output_path: Path | None,
+) -> None:
+    """A run's full log, as the worker uploaded it.
+
+    `runs show` prints only a tail of an excerpt, which a long statement echo
+    can fill before the error is reached; this is the whole stream.
+    """
+    client, org = _org_client(ctx)
+    path = f"/orgs/{org}/jobs/runs/{quote(run_id)}/artifacts/{stream}"
+    if attempt is not None:
+        path += f"?{urlencode({'attempt': str(attempt)})}"
+    grant = client.get_one(path, RunArtifactDownload)
+    body = _download_signed(grant.url)
+    if output_path is not None:
+        output_path.write_bytes(body)
+    if is_json_mode():
+        fields: dict[str, Any] = {
+            "run_id": run_id,
+            "stream": stream,
+            "bytes": len(body),
+        }
+        if output_path is not None:
+            fields["path"] = str(output_path)
+        else:
+            fields["log"] = body.decode("utf-8", errors="replace")
+        emit_event("run_log", org=org, **fields)
+    elif output_path is not None:
+        print_success(f"Wrote {len(body)} bytes of {stream} to {output_path}")
+    else:
+        click.echo(body.decode("utf-8", errors="replace"), nl=False)
 
 
 @cloud.group()

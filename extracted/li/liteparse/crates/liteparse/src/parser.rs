@@ -353,7 +353,10 @@ impl LiteParse {
             std::collections::HashSet::new()
         };
         stages::OcrRenderOptions {
-            // One round per `num_workers` pages bounds raster memory.
+            // Limit direct `stages::render_for_ocr` calls to at most
+            // `num_workers.max(1)` rasters per call.
+            // `parse()` uses `OcrWindow::render_next`, which limits rendering
+            // by free slots and ignores this field.
             max_rasters: self.config.num_workers.max(1),
             dpi: self.config.dpi,
             grayscale,
@@ -471,7 +474,7 @@ impl LiteParse {
         // pass fast (its whole purpose is a cheap pre-OCR check).
         let password = self.config.password.as_deref();
 
-        let (pages, mut page_complexities) = {
+        let (mut pages, mut page_complexities) = {
             let lib = Library::init();
             let document = self.open_document(&lib, &validated_input, password)?;
 
@@ -536,6 +539,8 @@ impl LiteParse {
         // Layout signals come from the real projection pass so they match
         // what a full parse will decide.
         let t_layout = web_time::Instant::now();
+        // Same order as parse: complexity sees every item, layout the filtered page.
+        stages::apply_content_filters(&mut pages, &self.content_filters());
         let parsed_pages = stages::project(pages);
         for (stats, page) in page_complexities.iter_mut().zip(&parsed_pages) {
             stats.layout = Some(stages::layout_complexity(page));
@@ -792,37 +797,45 @@ impl LiteParse {
         if let Some(engine) = ocr_engine {
             let render_options = ocr_render_options;
             let ocr_input = repaired_input.as_ref().unwrap_or(validated_input);
-            let mut round_start = 0usize;
-            while round_start < pages.len() {
+            let mut scan_start = 0usize;
+            let mut ocr_tasks =
+                stages::OcrWindow::new(engine, &self.config.ocr_language, self.config.num_workers);
+            loop {
+                // Reap completions before deciding whether to render so every
+                // available slot can be refilled immediately.
+                ocr_tasks.complete_ready();
+
+                if scan_start >= pages.len() || ocr_tasks.available_capacity() == 0 {
+                    if !ocr_tasks.complete_one().await {
+                        break;
+                    }
+                    continue;
+                }
+
+                // Open the document for one render round that fills the available
+                // slots. Drop the document and library before awaiting OCR.
+                // On native targets, this releases the process-wide PDFium lock.
                 let (rendered, next_start) = {
                     let lib = Library::init();
                     let document = self.open_document(&lib, ocr_input, password)?;
-                    stages::render_for_ocr(&document, &pages, round_start, &render_options)?
-                    // `lib` drops here, releasing the PDFium lock before the
-                    // engine's async recognition below.
+                    ocr_tasks.render_next(&document, &pages, scan_start, &render_options)?
                 };
-                round_start = next_start;
-                if rendered.is_empty() {
-                    // The scan reached the end without finding another page
-                    // that needs OCR.
-                    continue;
+                scan_start = next_start;
+                for raster in rendered {
+                    ocr_tasks.submit(raster).await;
                 }
-                // `OcrRaster::page_idx` is absolute, so the whole slice is
-                // passed regardless of where this round started.
-                let outcomes = stages::recognize(
-                    rendered,
-                    engine.clone(),
-                    &self.config.ocr_language,
-                    self.config.num_workers,
-                )
-                .await;
-                stages::merge_ocr(
+            }
+
+            // Merge once, after every page has been recognized:
+            // `ocr_failure_fatal` only applies when *every* OCR task failed,
+            // which can't be decided from a single page's outcome.
+            ocr_tasks
+                .finish_and_merge(
                     &mut pages,
-                    outcomes,
                     self.config.ocr_failure_fatal,
                     self.config.effective_emit_word_boxes(),
-                )?;
-            }
+                )
+                .await?;
         }
         let t_ocr = web_time::Instant::now();
         log(&format!(

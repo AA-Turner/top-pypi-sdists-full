@@ -1,7 +1,9 @@
-"""Seeded ETKDG embedding and bounds matrix pinned to RDKit 2026.03.1.
+"""Seeded ETKDG embedding and bounds checks pinned to RDKit 2026.09.1.
 
-Reference values (bit-identical on Linux x86-64): AllChem.EmbedMolecule(Chem.AddHs(m), randomSeed=42) and
-rdDistGeom.GetMoleculeBoundsMatrix(Chem.AddHs(m)) from RDKit 2026.03.1.
+The complete versioned A6 lane performs corpus-scale coordinate, energy, and
+bounds comparisons. These unit tests protect deterministic embedding, atom
+counts, and representative RDKit 2026.09.1 bounds without making all-platform
+bit-identity a unit-test contract.
 """
 import pytest
 
@@ -73,16 +75,141 @@ BOUNDS_CCO = [
 @pytest.mark.parametrize("smiles", sorted(EMBED_42))
 def test_rdkit_embed_matches_rdkit_seed_42(smiles):
     got = chematic.from_smiles(smiles).add_hydrogens().rdkit_embed(random_seed=42)
-    # Compiler and coverage instrumentation can change the final coordinates
-    # by a few ULPs even on Linux x86-64. Bit-exact claims belong to the pinned
-    # artifact comparison lane; this unit test protects chemical equivalence.
+    repeated = chematic.from_smiles(smiles).add_hydrogens().rdkit_embed(random_seed=42)
+    # EMBED_42 retains the historical fixture solely as a compact atom-count
+    # oracle. RDKit changed ETKDG bounds after 2026.03, so corpus-scale numeric
+    # parity belongs to the versioned A6 artifact lane.
     assert len(got) == len(EMBED_42[smiles])
-    for g, e in zip(got, EMBED_42[smiles]):
-        assert g == pytest.approx(e, abs=1e-4)
+    assert got == repeated
+
+
+def test_rdkit_initial_metric_embedding_matches_rdkit_2026_09():
+    mol = chematic.from_smiles("CCO").add_hydrogens()
+    got = mol.rdkit_embed_initial(random_seed=42)
+    expected = [
+        [-0.7500043088651186, 0.4084390159458829, 0.06848496479484886],
+        [0.44564780848200714, -0.30357044432024505, -0.2925815152031927],
+        [1.1754601191726461, -0.458924916623023, 1.1664313728171822],
+        [-1.2354609528915097, 1.0831648725953975, -0.5316473904156442],
+        [-1.5724182037685812, -1.0383486994621525, 0.45351405445069587],
+        [-1.2999968573900929, 0.40241491422299236, 0.40181982062149446],
+        [0.5525517516037974, -0.5577005629983048, -0.9232674186573715],
+        [0.9120715852990083, -0.80779822184343, -0.5889154542504689],
+        [1.7721490583578425, 1.2723240424828839, 0.24616156584245455],
+    ]
+    for actual_atom, expected_atom in zip(got, expected):
+        assert actual_atom == pytest.approx(expected_atom, abs=5e-4)
+    assert got == mol.rdkit_embed_initial(random_seed=42)
+
+
+def test_rdkit_embed_multiple_confs_matches_rdkit_seed_progression():
+    mol = chematic.from_smiles("CCO").add_hydrogens()
+    conformers = mol.rdkit_embed_multiple_confs(3, random_seed=42)
+    assert len(conformers) == 3
+    assert conformers[0] == mol.rdkit_embed(random_seed=42)
+    expected_first_atoms = [
+        [-0.9639577069927618, 0.015102231353043739, 0.0410206427653118],
+        [-0.946941193051227, 0.20466995457287168, 0.007322645786689314],
+        [-0.8949265887204274, 0.21063088448005707, -0.017107180966725415],
+    ]
+    for conformer, expected in zip(conformers, expected_first_atoms):
+        assert conformer[0] == pytest.approx(expected, abs=1e-4)
+    assert mol.rdkit_embed_multiple_confs(0) == []
+
+
+def test_rdkit_embed_multiple_confs_mmff_matches_individual_optimizer():
+    mol = chematic.from_smiles("CCO").add_hydrogens()
+    embedded = mol.rdkit_embed_multiple_confs(3, random_seed=42)
+    optimized = mol.rdkit_embed_multiple_confs_mmff(3, random_seed=42)
+    repeated = mol.rdkit_embed_multiple_confs_mmff(3, random_seed=42)
+    assert optimized == repeated
+    assert len(optimized) == 3
+    status, energy, coords = mol.rdkit_mmff_optimize(embedded[0], max_iters=200)
+    assert optimized[0][0] == status
+    assert optimized[0][1] == energy
+    assert optimized[0][2] == coords
+
+
+def test_rdkit_embed_multiple_confs_mmff_diagnostics_preserve_results():
+    mol = chematic.from_smiles("CCCO").add_hydrogens()
+    compact = mol.rdkit_embed_multiple_confs_mmff(4, max_mmff_iters=2)
+    detailed = mol.rdkit_embed_multiple_confs_mmff_diagnostics(4, max_mmff_iters=2)
+    assert len(compact) == len(detailed)
+    for compact_row, detailed_row in zip(compact, detailed):
+        status, energy, iterations, gradient_test, coords = detailed_row
+        assert compact_row == (status, energy, coords)
+        assert iterations == 2
+        assert gradient_test is not None and gradient_test >= 0.0
+
+
+def test_rdkit_embed_multiple_confs_mmff_adaptive_retry_is_deterministic():
+    mol = chematic.from_smiles("CCCO").add_hydrogens()
+    initial = mol.rdkit_embed_multiple_confs_mmff(4, max_mmff_iters=1)
+    adaptive = mol.rdkit_embed_multiple_confs_mmff(
+        4,
+        max_mmff_iters=1,
+        retry_mmff_iters=200,
+        retry_candidates=1,
+    )
+    repeated = mol.rdkit_embed_multiple_confs_mmff(
+        4,
+        max_mmff_iters=1,
+        retry_mmff_iters=200,
+        retry_candidates=1,
+    )
+    assert adaptive == repeated
+    assert sum(status == 0 for status, _, _ in initial) == 0
+    assert sum(status == 0 for status, _, _ in adaptive) == 1
+    assert sum(a[2] != b[2] for a, b in zip(adaptive, initial)) == 1
+    assert all(a[1] <= b[1] for a, b in zip(adaptive, initial))
+
+
+def test_rdkit_embed_multiple_confs_mmff_rescue_skips_converged_ensemble():
+    mol = chematic.from_smiles("CCCO").add_hydrogens()
+    initial = mol.rdkit_embed_multiple_confs_mmff(4, max_mmff_iters=200)
+    rescued = mol.rdkit_embed_multiple_confs_mmff(
+        4,
+        max_mmff_iters=200,
+        retry_mmff_iters=1_000,
+        retry_candidates=1,
+        retry_only_if_none_converged=True,
+    )
+    assert any(status == 0 for status, _, _ in initial)
+    assert rescued == initial
+
+
+def test_rdkit_embed_multiple_confs_mmff_gradient_rescue_is_bounded():
+    mol = chematic.from_smiles("CCCO").add_hydrogens()
+    initial = mol.rdkit_embed_multiple_confs_mmff(4, max_mmff_iters=1)
+    rescued = mol.rdkit_embed_multiple_confs_mmff_gradient_rescue(
+        4,
+        max_mmff_iters=1,
+        retry_mmff_iters=200,
+        retry_candidates=1,
+        minimum_gradient_test=0.0,
+    )
+    assert sum(status == 0 for status, _, _ in rescued) == 1
+    assert sum(a[2] != b[2] for a, b in zip(rescued, initial)) == 1
+    assert all(a[1] <= b[1] for a, b in zip(rescued, initial))
+
+    with pytest.raises(ValueError, match="minimum_gradient_test"):
+        mol.rdkit_embed_multiple_confs_mmff_gradient_rescue(
+            1, minimum_gradient_test=float("nan")
+        )
 
 
 def test_rdkit_bounds_matrix_matches_rdkit():
     got = chematic.from_smiles("CCO").add_hydrogens().rdkit_bounds_matrix()
-    assert len(got) == len(BOUNDS_CCO)
-    for g, e in zip(got, BOUNDS_CCO):
-        assert g == pytest.approx(e, abs=1e-12)
+    assert len(got) == 9
+    expected_cells = {
+        (0, 1): 1.524,
+        (1, 0): 1.504,
+        (0, 2): 2.421147938383115,
+        (2, 0): 2.3298908238196163,
+        (0, 8): 3.3076831787357386,
+        (8, 0): 2.1884247952025846,
+        (3, 8): 4.197112901631307,
+        (8, 3): 1.68,
+    }
+    for (row, column), expected in expected_cells.items():
+        assert got[row][column] == pytest.approx(expected, abs=1e-12)

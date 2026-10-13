@@ -28,7 +28,6 @@ from renderers.base import (
 
 _request_logger = logging.getLogger("renderers.client")
 ROUTED_EXPERTS_DATA_PREFIX = b'"routed_experts":{"data":"'
-KEPT_TOKENS_IDS_PREFIX = b'"kept_tokens":{"ids":"'
 # vLLM uses this value both when sampled-token evidence is missing and as a
 # lower-bound clamp, so receiving it cannot prove the real logprob was returned.
 VLLM_LOGPROB_SENTINEL = -9999.0
@@ -129,12 +128,9 @@ def _strip_base64_field(raw: bytes, prefix: bytes) -> tuple[bytes, memoryview | 
 
 def parse_generate_response(raw: bytes) -> dict[str, Any]:
     stripped, routed_data = _strip_base64_field(raw, ROUTED_EXPERTS_DATA_PREFIX)
-    stripped, kept_ids_data = _strip_base64_field(stripped, KEPT_TOKENS_IDS_PREFIX)
     payload: dict[str, Any] = json.loads(stripped)
     if routed_data is not None:
         payload["choices"][0]["routed_experts"]["data"] = routed_data
-    if kept_ids_data is not None:
-        payload["choices"][0]["kept_tokens"]["ids"] = kept_ids_data
     return payload
 
 
@@ -207,6 +203,7 @@ async def generate(
     priority: int | None = None,
     extra_headers: dict[str, str] | None = None,
     max_prompt_len: int | None = None,
+    process_multimodal: bool = True,
 ) -> dict[str, Any]:
     """Tokenize messages, call vLLM /inference/v1/generate, parse the response.
 
@@ -226,6 +223,9 @@ async def generate(
     sidecar, then serializes it to vLLM's ``features`` schema (mm_hashes,
     mm_placeholders, kwargs_data) before POSTing. The serializer imports
     ``vllm.*`` lazily so text-only consumers never pay for the import.
+    With ``process_multimodal=False``, rendering skips image processing and
+    the request carries ``content_parts`` with ``return_token_ids=true``;
+    vLLM returns the expanded prompt and multimodal placeholder ranges.
 
     ``max_prompt_len`` controls the pre-flight overflow check. When the
     rendered prompt is strictly longer than the cap, the request is never
@@ -236,10 +236,15 @@ async def generate(
     cache a ``None`` cap and the pre-flight silently disables. Engine 4xx
     that still slip through propagate raw — converting them into a domain
     error is the calling client's job (its error shape is engine-specific).
+    Calls with ``process_multimodal=False`` skip this pre-flight because only
+    vLLM knows the expanded prompt length.
 
-    Returns a dict with: request_id, prompt_ids, completion_ids,
-    completion_logprobs, content, reasoning_content, tool_calls,
-    finish_reason, routed_experts, multi_modal_data, prompt_attribution.
+    Returns a dict with: request_id, prompt_ids, renderer_prompt_ids,
+    mm_placeholders, completion_ids, completion_logprobs, content,
+    reasoning_content, tool_calls, finish_reason, routed_experts,
+    multi_modal_data, prompt_attribution. ``renderer_prompt_ids`` is the
+    unexpanded logical prompt when ``process_multimodal=False`` and ``None``
+    otherwise.
 
     ``prompt_attribution`` is the renderer's :class:`RenderedTokens` for
     the prompt — either the one this call computed via
@@ -258,6 +263,12 @@ async def generate(
             f"{type(renderer).__name__} does not support tools. "
             "Choose a model-specific renderer instead of the default fallback."
         )
+    if not process_multimodal and not getattr(
+        renderer, "supports_process_multimodal", False
+    ):
+        raise NotImplementedError(
+            f"{type(renderer).__name__} does not support process_multimodal=False"
+        )
 
     def _prepare():
         if prompt_ids is not None:
@@ -270,7 +281,15 @@ async def generate(
                 multi_modal_data,
                 prompt_attribution,
             )
-        rendered = renderer.render(messages, tools=tools, add_generation_prompt=True)
+        render_kwargs: dict[str, Any] = {}
+        if not process_multimodal:
+            render_kwargs["process_multimodal"] = False
+        rendered = renderer.render(
+            messages,
+            tools=tools,
+            add_generation_prompt=True,
+            **render_kwargs,
+        )
         return (
             rendered.token_ids,
             renderer.get_stop_token_ids(),
@@ -280,12 +299,13 @@ async def generate(
 
     prompt_ids, stop_token_ids, mm_data, prompt_attr = _prepare()
 
-    if max_prompt_len is None:
-        max_prompt_len = await _resolve_max_prompt_len(client, model)
-    if max_prompt_len is not None and len(prompt_ids) > max_prompt_len:
-        raise OverlongPromptError(
-            prompt_len=len(prompt_ids), max_prompt_len=max_prompt_len
-        )
+    if process_multimodal:
+        if max_prompt_len is None:
+            max_prompt_len = await _resolve_max_prompt_len(client, model)
+        if max_prompt_len is not None and len(prompt_ids) > max_prompt_len:
+            raise OverlongPromptError(
+                prompt_len=len(prompt_ids), max_prompt_len=max_prompt_len
+            )
 
     sp: dict[str, Any] = dict(sampling_params or {})
     sp["stop_token_ids"] = stop_token_ids
@@ -297,11 +317,15 @@ async def generate(
         "token_ids": prompt_ids,
         "sampling_params": sp,
     }
+    content_parts = _content_parts(messages) if not process_multimodal else None
     features = (
         _build_mm_features(renderer, mm_data)
-        if mm_data and not mm_data.is_empty()
+        if process_multimodal and mm_data and not mm_data.is_empty()
         else None
     )
+    if content_parts:
+        body["content_parts"] = content_parts
+        body["return_token_ids"] = True
     if features is not None:
         body["features"] = features
     if cache_salt is not None:
@@ -331,13 +355,29 @@ async def generate(
 
     choice = (data.get("choices") or [{}])[0]
     completion_ids = choice.get("token_ids") or []
+    effective_prompt_ids = data.get("prompt_token_ids")
+    if content_parts and not isinstance(effective_prompt_ids, list):
+        raise MalformedGenerateResponseError(
+            "Engine response must include prompt_token_ids when process_multimodal=False."
+        )
+    mm_placeholders = data.get("mm_placeholders")
+    if content_parts and not isinstance(mm_placeholders, dict):
+        raise MalformedGenerateResponseError(
+            "Engine response must include mm_placeholders when process_multimodal=False."
+        )
 
     completion_logprobs = _parse_completion_logprobs(choice, completion_ids)
 
-    parsed = renderer.parse_response(completion_ids, tools=tools)
+    parsed = renderer.parse_response(
+        completion_ids,
+        prompt_ids=list(effective_prompt_ids or prompt_ids),
+        tools=tools,
+    )
 
     routed_experts = choice.get("routed_experts")
-    kept_tokens = choice.get("kept_tokens")
+    # vLLM's native kept-set sampling masks (``--return-sampling-mask``):
+    # one list of surviving vocab ids per completion token.
+    sampling_mask = choice.get("sampling_mask")
 
     # /inference/v1/generate returns finish_reason in {"stop","length",...} —
     # never "tool_calls" (a chat-completions concept). Promote stop→tool_calls
@@ -356,15 +396,19 @@ async def generate(
 
     return {
         "request_id": data.get("request_id") or "",
-        "prompt_ids": list(prompt_ids),
+        "usage": data.get("usage"),
+        "prompt_ids": list(effective_prompt_ids or prompt_ids),
+        "renderer_prompt_ids": list(prompt_ids) if content_parts else None,
+        "mm_placeholders": mm_placeholders,
         "completion_ids": list(completion_ids),
         "completion_logprobs": completion_logprobs,
         "content": parsed.content,
         "reasoning_content": parsed.reasoning_content,
         "tool_calls": parsed.tool_calls,
         "finish_reason": finish_reason,
+        "reasoning_complete": parsed.reasoning_complete,
         "routed_experts": routed_experts,
-        "kept_tokens": kept_tokens,
+        "sampling_mask": sampling_mask,
         # The mm sidecar consumed on the request side, surfaced back so
         # callers can persist it on the trajectory step for downstream
         # multi-turn bridging and training-sample construction.
@@ -378,6 +422,43 @@ async def generate(
         # when the caller passed prompt_ids without attribution.
         "prompt_attribution": prompt_attr,
     }
+
+
+_MEDIA_URL_TYPES = {
+    "image": "image_url",
+    "image_url": "image_url",
+    "audio": "audio_url",
+    "audio_url": "audio_url",
+    "video": "video_url",
+    "video_url": "video_url",
+}
+
+
+def _content_parts(messages: list[Message]) -> list[dict[str, Any]]:
+    """Flatten raw media in prompt order for vLLM's token generate endpoint."""
+    parts: list[dict[str, Any]] = []
+    for message in messages:
+        content = message.get("content")
+        if not isinstance(content, list):
+            continue
+        for part in content:
+            if not isinstance(part, Mapping):
+                continue
+            part_type = part.get("type")
+            if part_type is None:
+                part_type = next(
+                    (key for key in _MEDIA_URL_TYPES if part.get(key)), None
+                )
+            if not isinstance(part_type, str) or part_type not in _MEDIA_URL_TYPES:
+                continue
+            source = part.get(part_type)
+            if source is None:
+                source = part.get(_MEDIA_URL_TYPES[part_type]) or part.get("url")
+            url = source.get("url") if isinstance(source, Mapping) else source
+            if not isinstance(url, str) or not url:
+                raise ValueError(f"{part_type} content part is missing a URL")
+            parts.append({"type": _MEDIA_URL_TYPES[part_type], "url": url})
+    return parts
 
 
 def _build_mm_features(
@@ -406,6 +487,7 @@ def _build_mm_features(
     to change. Don't pre-build the abstraction with one engine in tree.
     """
     from renderers.gemma4 import Gemma4Renderer
+    from renderers.nemotron3 import Nemotron35Renderer
     from renderers.qwen3_vl import Qwen3VLRenderer
     from renderers.qwen35 import Qwen35Renderer
 
@@ -418,11 +500,86 @@ def _build_mm_features(
         return _build_qwen_vl_features(mm_data, spatial_merge_size=2)
     if issubclass(renderer_cls, Gemma4Renderer):
         return _build_gemma4_features(mm_data)
+    if issubclass(renderer_cls, Nemotron35Renderer):
+        return _build_nemotron35_features(mm_data)
 
     raise NotImplementedError(
         f"Multimodal serialization not implemented for {renderer_cls.__name__}. "
         "Add a dispatch branch in renderers.client._build_mm_features."
     )
+
+
+def _build_nemotron35_features(mm_data: MultiModalData) -> dict[str, Any]:
+    """Encode dynamic-resolution Nemotron image inputs for vLLM."""
+    _require_transformers("Encoding Nemotron 3.5 multimodal features for vLLM")
+    try:
+        import torch
+        from transformers.feature_extraction_utils import BatchFeature
+        from vllm.entrypoints.scale_out.token_in_token_out.mm_serde import (
+            encode_mm_kwargs_item,
+        )
+        from vllm.multimodal.inputs import (
+            MultiModalFieldConfig,
+            MultiModalKwargsItems,
+        )
+    except ImportError as exc:
+        raise RuntimeError(
+            "Nemotron 3.5 multimodal generate requires vLLM and torch."
+        ) from exc
+
+    out: dict[str, Any] = {
+        "mm_hashes": {},
+        "mm_placeholders": {},
+        "kwargs_data": {},
+    }
+    image_items = mm_data.mm_items.get("image") or []
+    if image_items:
+        pixel_values_flat = []
+        imgs_sizes = []
+        num_tokens_per_image = []
+        for item in image_items:
+            pixel_values = torch.as_tensor(item["pixel_values"])
+            if pixel_values.ndim != 4 or pixel_values.shape[0] != 1:
+                raise ValueError(
+                    "Each Nemotron pixel_values item must have shape (1, C, H, W)."
+                )
+            sizes = item["imgs_sizes"]
+            token_counts = item["num_tokens"]
+            if not (len(sizes) == len(token_counts) == 1):
+                raise ValueError(
+                    "Each Nemotron image item must contain one size and token count."
+                )
+            pixel_values_flat.append(pixel_values[0])
+            imgs_sizes.append(tuple(int(value) for value in sizes[0]))
+            num_tokens_per_image.append(int(token_counts[0]))
+
+        hf_inputs = BatchFeature(
+            data={
+                "pixel_values_flat": pixel_values_flat,
+                "imgs_sizes": imgs_sizes,
+                "num_tokens_per_image": num_tokens_per_image,
+            }
+        )
+        field_config = {
+            "pixel_values_flat": MultiModalFieldConfig.batched("image"),
+            "num_tokens_per_image": MultiModalFieldConfig.batched(
+                "image", keep_on_cpu=True
+            ),
+            "imgs_sizes": MultiModalFieldConfig.batched("image", keep_on_cpu=True),
+        }
+        kwargs_items = MultiModalKwargsItems.from_hf_inputs(hf_inputs, field_config)
+        out["kwargs_data"]["image"] = [
+            encode_mm_kwargs_item(item) for item in kwargs_items["image"]
+        ]
+        out["mm_hashes"]["image"] = list(mm_data.mm_hashes.get("image") or [])
+        out["mm_placeholders"]["image"] = [
+            {"offset": placeholder.offset, "length": placeholder.length}
+            for placeholder in mm_data.mm_placeholders.get("image") or []
+        ]
+
+    if not any(out["kwargs_data"].values()):
+        out["kwargs_data"] = None
+    return out
 
 
 def _build_gemma4_features(mm_data: MultiModalData) -> dict[str, Any]:

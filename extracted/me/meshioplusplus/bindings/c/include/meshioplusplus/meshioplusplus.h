@@ -189,7 +189,11 @@ typedef enum mio_dtype {
                                     X(Polyhedron) X(VtkLagrangeCurve) X(VtkLagrangeTriangle)       \
                                         X(VtkLagrangeQuadrilateral) X(VtkLagrangeTetrahedron)      \
                                             X(VtkLagrangeHexahedron) X(VtkLagrangeWedge)           \
-                                                X(VtkLagrangePyramid) X(Triangle7)
+                                                X(VtkLagrangePyramid) X(Triangle7)                 \
+                                                X(VtkBezierCurve)                                  \
+                                                X(VtkBezierTriangle) X(VtkBezierQuadrilateral)     \
+                                                X(VtkBezierTetrahedron) X(VtkBezierHexahedron)     \
+                                                X(VtkBezierWedge) X(VtkBezierPyramid)
 
 /** Integer mirror of the meshio++ cell-type table. The string names (e.g.
  *  "tetra10") are the primary representation everywhere in this API; the
@@ -250,7 +254,7 @@ typedef struct mio_region_info {
  * project(... VERSION ...), so the copies cannot drift.
  */
 #define MIO_VERSION_MAJOR 16
-#define MIO_VERSION_MINOR 32
+#define MIO_VERSION_MINOR 40
 #define MIO_VERSION_PATCH 0
 #define MIO_VERSION (MIO_VERSION_MAJOR * 10000 + MIO_VERSION_MINOR * 100 + MIO_VERSION_PATCH)
 
@@ -298,7 +302,7 @@ MIO_API const char* mio_cell_type_name(mio_cell_type t);
 MIO_API mio_cell_type mio_cell_type_from_name(const char* name);
 
 /** @return the fixed nodes-per-cell of `t`, or -1 for variable-size types
- *          (polygon, polyhedron, VTK Lagrange) and MIO_CELL_Custom. */
+ *          (polygon, polyhedron, VTK Lagrange and Bezier) and MIO_CELL_Custom. */
 MIO_API int mio_cell_type_num_nodes(mio_cell_type t);
 
 /** @return the topological dimension (0-3) of `t`, or -1 for MIO_CELL_Custom. */
@@ -624,8 +628,8 @@ typedef struct mio_format_info mio_format_info;
 /**
  * Read a mesh, keeping what it cannot hold in `*info`.
  *
- * Formats with a side channel (currently "mdpa" and "gmsh") read through their full
- * reader and set `*info` to a new handle; every other format reads exactly as
+ * Formats with a side channel (currently "mdpa", "gmsh" and "mfem") read through their
+ * full reader and set `*info` to a new handle; every other format reads exactly as
  * mio_read_ex() and sets `*info` to NULL. `opts` may be NULL (the defaults).
  * @return the mesh, or NULL on failure (`*info` is then NULL too).
  */
@@ -668,6 +672,47 @@ MIO_API int64_t mio_gmsh_info_count(const mio_format_info* info, int32_t section
 MIO_API mio_status mio_gmsh_info_array(const mio_format_info* info, int32_t section, int64_t index,
                                        int32_t field, const void** data, mio_dtype* dtype,
                                        int32_t* ndim, int64_t* shape);
+
+/** NURBS side-channel sections (an "mfem" handle, v16.40.0): the patches an
+ * `MFEM NURBS mesh` was sampled from (`NurbsInfo`, nurbs.hpp). Every index is
+ * 0-based; a handle of a mesh that is not NURBS has no patches.
+ *  - PATCHES: one item per patch. int field 0 = parametric dimension d, 1 =
+ *    space dimension; array field 0 = Int32 degrees [d], 1 = Float64 control
+ *    points (n, space dimension), direction 0 fastest, 2 = Float64 weights [n],
+ *    3 + j (j < d) = Float64 knot vector of direction j, 6 + k = Float64
+ *    (n, components) control values of field k.
+ *  - FIELDS: one item per field. string field 0 = its point-data name.
+ *  - TOPOLOGY: one item (none if the source states no topology). int field 0 =
+ *    dimension, 1 = topological vertices; array field 0 = Int64 patch vertices
+ *    (patches, 2^d), 1 = Int64 patch attributes, 2 = Int64 boundary vertices
+ *    (boundary patches, 2^(d-1)), 3 = Int64 boundary attributes, 4 = Int64
+ *    edges (edges, 3: knot vector, vertex, vertex).
+ *  - CELL_MAP: one item. array field 0 = Int64 patch of each element cell
+ *    (the first block), 1 = Int64 (cells, 3) knot span per direction, 2 =
+ *    Int64 boundary patch of each boundary cell.
+ * mio_write_with_info() writes the patches back as an `MFEM NURBS mesh`; it
+ * fails if the mesh is no longer their sampling. */
+typedef enum mio_nurbs_section {
+    MIO_NURBS_PATCHES = 0,
+    MIO_NURBS_FIELDS = 1,
+    MIO_NURBS_TOPOLOGY = 2,
+    MIO_NURBS_CELL_MAP = 3
+} mio_nurbs_section;
+
+/** Number of items, or -1 on an invalid handle/section. */
+MIO_API int64_t mio_nurbs_info_count(const mio_format_info* info, int32_t section);
+/** Integer field `field` of item `index` into `*value`. */
+MIO_API mio_status mio_nurbs_info_int(const mio_format_info* info, int32_t section, int64_t index,
+                                      int32_t field, int64_t* value);
+/** Borrow array field `field` of item `index` until info is freed. Any out
+ *  pointer may be NULL; `shape` must hold MIO_MAX_NDIM entries. */
+MIO_API mio_status mio_nurbs_info_array(const mio_format_info* info, int32_t section, int64_t index,
+                                        int32_t field, const void** data, mio_dtype* dtype,
+                                        int32_t* ndim, int64_t* shape);
+/** Copy string field `field` of item `index` into `buf`.
+ *  @return the required length excluding the NUL, or -1 on error. */
+MIO_API int64_t mio_nurbs_info_string(const mio_format_info* info, int32_t section, int64_t index,
+                                      int32_t field, char* buf, int64_t buflen);
 
 /**
  * The sections of an MDPA side channel. Each is a list; the accessors below
@@ -4264,6 +4309,123 @@ typedef struct mio_feature_edges_report {
 MIO_API mio_mesh* mio_feature_edges(const mio_mesh* mesh, const mio_feature_edges_opts* opts,
                                     mio_feature_edges_report* report);
 
+/* ---------------------------------------------------------------------
+ * Skin to CAD (roadmap §6.3): smooth patches and primitive fits. See
+ * doc/segment.md, doc/fit_primitives.md and doc/cad_fit.md.
+ * --------------------------------------------------------------------- */
+
+/**
+ * Options for mio_segment. Same ABI rules as mio_feature_edges_opts; always
+ * initialize through mio_segment_opts_init(): the feature angle defaults to 30
+ * and min_patch_cells to 1, so an all-zero struct is NOT the default.
+ */
+typedef struct mio_segment_opts {
+    /** Restrict to this named cell region; NULL or "" takes every cell. */
+    const char* region;
+    /** The patch regions are named "<prefix>:<k>"; NULL or "" means "patch". */
+    const char* prefix;
+    /** The largest dihedral angle, in degrees, still crossed; [0, 180]. */
+    double feature_angle;
+    /** The largest angle, in degrees, between a cell's normal and its seed's; 0 = off. */
+    double normal_tolerance;
+    /** The largest curvature-estimate difference from the patch mean (1/length); 0 = off. */
+    double curvature_tolerance;
+    /** Patches with fewer cells merge into a neighbour; >= 1. */
+    int64_t min_patch_cells;
+    int64_t reserved[6]; /**< must be zero; room for additive growth */
+} mio_segment_opts;
+
+/** Initialize segment options: 30 degrees, no tolerances, min_patch_cells 1. */
+MIO_API void mio_segment_opts_init(mio_segment_opts* opts);
+
+/** What mio_segment found. */
+typedef struct mio_segment_report {
+    int64_t num_patches;
+    int64_t num_merged;
+    int64_t num_feature_edges;
+    int64_t num_boundary_edges;
+    int64_t num_non_manifold_edges;
+    int64_t reserved[3]; /**< must be zero; room for additive growth */
+} mio_segment_report;
+
+/**
+ * Split a surface into smooth patches by region growing, bounded by its feature
+ * edges. Returns the input unchanged plus Int64 cell data "segment:patch"
+ * (-1 off the surface), Int64 field data "segment:adjacency" ((m, 3): patch a,
+ * patch b, shared edges) and one cell region per patch.
+ *
+ * @param mesh   a surface mesh (volume blocks fail; take the skin first).
+ * @param opts   options; NULL means every mio_segment_opts_init() default.
+ * @param report optional out: the counts.
+ * @return the annotated mesh (free with mio_mesh_free), or NULL on failure.
+ */
+MIO_API mio_mesh* mio_segment(const mio_mesh* mesh, const mio_segment_opts* opts,
+                              mio_segment_report* report);
+
+/** The values of "fit:type" / "fit:patch_type"; `1 << type` selects a type. */
+typedef enum mio_fit_type {
+    MIO_FIT_NONE = 0,
+    MIO_FIT_PLANE = 1,
+    MIO_FIT_SPHERE = 2,
+    MIO_FIT_CYLINDER = 3,
+    MIO_FIT_CONE = 4,
+    MIO_FIT_TORUS = 5
+} mio_fit_type;
+
+/** Every primitive: `(1 << MIO_FIT_PLANE) | ... | (1 << MIO_FIT_TORUS)`. */
+#define MIO_FIT_ALL_TYPES 0x3Eu
+
+/**
+ * Options for mio_fit_primitives. Same ABI rules as above; always initialize
+ * through mio_fit_primitives_opts_init().
+ */
+typedef struct mio_fit_primitives_opts {
+    /** The Int cell-data patch label; NULL means "segment:patch", "" the whole surface. */
+    const char* patch_data;
+    /** The acceptance tolerance on the orthogonal distance; > 0. */
+    double tolerance;
+    /** The share of a patch's points that must lie within tolerance; [0, 1]. */
+    double min_inlier_fraction;
+    /** Nonzero: tolerance is a fraction of each patch's bounding-box diagonal. */
+    int32_t relative;
+    /** The types to try, as `1 << mio_fit_type` bits; MIO_FIT_ALL_TYPES by default. */
+    uint32_t types;
+    /** The Levenberg-Marquardt iteration cap per fit; >= 1. */
+    int64_t max_iterations;
+    int64_t reserved[6]; /**< must be zero; room for additive growth */
+} mio_fit_primitives_opts;
+
+/** Initialize fit options: tolerance 1e-3 relative, 0.9 inliers, every type, 50 iterations. */
+MIO_API void mio_fit_primitives_opts_init(mio_fit_primitives_opts* opts);
+
+/** How many patches took each type. */
+typedef struct mio_fit_primitives_report {
+    int64_t num_patches;
+    int64_t num_plane;
+    int64_t num_sphere;
+    int64_t num_cylinder;
+    int64_t num_cone;
+    int64_t num_torus;
+    int64_t num_unfitted;
+    int64_t reserved[5]; /**< must be zero; room for additive growth */
+} mio_fit_primitives_report;
+
+/**
+ * Fit a plane, sphere, cylinder, cone or torus to each patch of a surface. Returns
+ * the input unchanged plus cell data "fit:type" (Int64, a mio_fit_type or -1),
+ * "fit:rms" and "fit:max", and per-patch field data "fit:patch_id",
+ * "fit:patch_type", "fit:patch_params" ((m, 10) Float64), "fit:patch_rms",
+ * "fit:patch_max", "fit:patch_fraction" and "fit:patch_tolerance". See
+ * doc/fit_primitives.md for the parameter layout.
+ *
+ * @param mesh   a surface mesh carrying the patch labels.
+ * @param opts   options; NULL means every mio_fit_primitives_opts_init() default.
+ * @param report optional out: the per-type counts.
+ * @return the annotated mesh (free with mio_mesh_free), or NULL on failure.
+ */
+MIO_API mio_mesh* mio_fit_primitives(const mio_mesh* mesh, const mio_fit_primitives_opts* opts,
+                                     mio_fit_primitives_report* report);
+
 /**
  * Options for mio_hausdorff_distance. Same ABI rules as above; an all-zero
  * struct IS the default here, but initialize through mio_hausdorff_opts_init().
@@ -4501,6 +4663,260 @@ MIO_API const int64_t* mio_periodic_pairs_unmatched(const mio_periodic_pairs* pa
 
 /** Destroy a pairs handle. Safe to call with NULL. */
 MIO_API void mio_periodic_pairs_free(mio_periodic_pairs* pairs);
+
+/* --------------------------------------------------------------------------
+ * Software rendering (v16.33.0 core, v16.34.0 field rendering): a
+ * deterministic software rasterizer and its terminal, HTML and PNG encodings.
+ * It needs no display, GPU or windowing library, and a frame is the same bytes
+ * on every platform and thread count. See doc/tui.md.
+ *
+ * The interactive terminal loop is CLI-only and has no entry point here.
+ * Colours are packed 0xRRGGBBAA (R in the most significant byte); alpha 0 is
+ * transparent.
+ * -------------------------------------------------------------------------- */
+
+/** `view` names, `shading`, `edges`, `scale` and `diagnostic` values. */
+#define MIO_SHADING_NONE 0
+#define MIO_SHADING_FLAT 1
+#define MIO_SHADING_SMOOTH 2
+#define MIO_EDGES_NONE 0
+#define MIO_EDGES_ALL 1
+#define MIO_EDGES_FEATURE 2
+#define MIO_SCALE_LINEAR 0
+#define MIO_SCALE_LOG 1
+#define MIO_SCALE_SYMLOG 2
+#define MIO_DIAGNOSTIC_NONE 0
+#define MIO_DIAGNOSTIC_QUALITY 1
+#define MIO_DIAGNOSTIC_INVERTED 2
+#define MIO_DIAGNOSTIC_DEGENERATE 3
+#define MIO_DIAGNOSTIC_ORIENTATION 4
+#define MIO_DIAGNOSTIC_FREE_EDGES 5
+#define MIO_DIAGNOSTIC_EDGE_LENGTH 6
+
+/**
+ * Options for mio_render and the functions built on it.
+ *
+ * ABI NOTE: this struct is part of the installed library's permanent ABI. New
+ * fields may only be appended, replacing `reserved` capacity; never reorder,
+ * resize or repurpose an existing field. Always initialize through
+ * mio_render_opts_init(): an all-zero struct is NOT the default (a zero width
+ * is an error). String fields are borrowed for the call; NULL or "" means unset.
+ */
+typedef struct mio_render_opts {
+    const char*
+        view; /**< "iso", "+x" ... "-z": the side the camera sits on; overrides azimuth/elevation */
+    const char* color_by; /**< data array to colour by; NULL for the fill colour */
+    const char* cmap;     /**< colormap name (default "viridis") */
+    const char* reduce;   /**< "mises", "hydrostatic" or "principal" tensor reduction of color_by */
+    const char* expr;     /**< a data_calc expression to colour by instead of color_by */
+    const char* vectors;  /**< vector point array drawn as arrows */
+    const char* warp;     /**< displacement point array that moves the points */
+    const char* quality_metric; /**< metric of MIO_DIAGNOSTIC_QUALITY, e.g. "scaled_jacobian" */
+    const double* iso_levels;   /**< explicit contour levels (num_iso_levels of them), or NULL */
+    int64_t num_iso_levels;
+    double pixel_aspect; /**< height over width of a pixel; 1 for an image */
+    double azimuth;      /**< degrees; default 45 (isometric) */
+    double elevation;    /**< degrees; default 35.264389682754654 */
+    double roll;         /**< degrees */
+    double fov_deg; /**< vertical field of view of the perspective camera, (0, 180); default 30 */
+    double zoom;    /**< magnification over the fitted view; default 1 */
+    double pan_x;   /**< shift, in fractions of the frame */
+    double pan_y;
+    double ambient; /**< light floor in [0, 1]; default 0.25 */
+    double light_x; /**< direction toward the light in camera space; default (0, 0, 1) */
+    double light_y;
+    double light_z;
+    double split_angle;   /**< crease angle of smooth shading, degrees; default 30 */
+    double feature_angle; /**< crease angle of MIO_EDGES_FEATURE, degrees; default 30 */
+    double point_radius;  /**< disc radius of drawn points, pixels; default 1.5 */
+    double vmin;          /**< range low end, used when has_vmin */
+    double vmax;
+    double clip_low; /**< percentile bounding the automatic range, used when has_clip_low */
+    double clip_high;
+    double scale_threshold; /**< linear region of MIO_SCALE_SYMLOG; default 1 */
+    double vector_length;   /**< model units of every arrow; 0 scales them by magnitude */
+    double warp_scale;      /**< default 1 */
+    int32_t width;          /**< pixels; default 320 */
+    int32_t height;         /**< default 240 */
+    int32_t supersample;    /**< 1, 2 or 4 samples per pixel along each axis; default 1 */
+    int32_t perspective;    /**< nonzero: a pinhole camera instead of an orthographic one */
+    int32_t shading;        /**< MIO_SHADING_*; default MIO_SHADING_FLAT */
+    int32_t two_sided;      /**< nonzero lights both sides of a face; default 1 */
+    int32_t edges;          /**< MIO_EDGES_*; default MIO_EDGES_NONE */
+    int32_t component;      /**< component of a vector or tensor array; -1 takes the magnitude */
+    int32_t has_vmin;
+    int32_t has_vmax;
+    int32_t has_clip_low;
+    int32_t has_clip_high;
+    int32_t colorbar;       /**< nonzero draws a colour bar with ticks */
+    int32_t axes;           /**< nonzero draws the world axes */
+    int32_t scale_bar;      /**< nonzero draws a scale bar (orthographic only) */
+    int32_t symmetric;      /**< nonzero makes the range symmetric about zero */
+    int32_t scale;          /**< MIO_SCALE_*; default MIO_SCALE_LINEAR */
+    int32_t categorical;    /**< nonzero colours integer data as categories */
+    int32_t color_regions;  /**< nonzero colours cells by their first named cell region */
+    int32_t category_edges; /**< nonzero draws the edges where two categories meet */
+    int32_t isolines; /**< number of equally spaced contour levels of the point array color_by */
+    int32_t vector_count;   /**< about this many arrows; default 200 */
+    int32_t warp_outline;   /**< nonzero also draws the undeformed outline */
+    int32_t diagnostic;     /**< MIO_DIAGNOSTIC_* */
+    uint32_t edge_color;    /**< default 0x000000FF */
+    uint32_t fill_color;    /**< default 0xC8C5BDFF */
+    uint32_t line_color;    /**< default 0x000080FF */
+    uint32_t background;    /**< default 0x00000000 (transparent) */
+    uint32_t nan_color;     /**< default 0x808080FF */
+    uint32_t iso_color;     /**< default 0x1E1E1EFF */
+    uint32_t vector_color;  /**< default 0xDC3232FF */
+    uint32_t outline_color; /**< default 0x969696FF */
+    /** v16.36.0: up to two cut-away planes, `num_cutaways` of them, each six
+     * consecutive doubles (a point, then the normal of the side kept); NULL
+     * for none. Borrowed for the call. */
+    const double* cutaways;
+    int32_t num_cutaways;
+    uint32_t cutaway_tint; /**< back faces seen through a cut; default 0xE88034FF */
+    /** v16.37.0: streamlines of this vector point array (NULL or "" for none),
+     * from about `stream_seeds` seeds (default 40), each growing at most
+     * `stream_length` diagonals of the model (default 0.5) from its seed, in
+     * `stream_color` (default 0xF050A0FF). Take three of the former `reserved`
+     * slots; size unchanged. */
+    const char* streamlines;
+    int32_t stream_seeds;
+    uint32_t stream_color;
+    double stream_length;
+    int64_t reserved[1]; /**< must be zero; room for additive growth */
+} mio_render_opts;
+
+/** Initialize render options to the defaults named above. */
+MIO_API void mio_render_opts_init(mio_render_opts* opts);
+
+/** `encoding` values of mio_text_opts. */
+#define MIO_ENCODING_HALFBLOCK 0
+#define MIO_ENCODING_QUADRANT 1
+#define MIO_ENCODING_SEXTANT 2
+#define MIO_ENCODING_BRAILLE 3
+#define MIO_ENCODING_ASCII 4
+#define MIO_ENCODING_KITTY 5
+#define MIO_ENCODING_ITERM2 6
+#define MIO_ENCODING_SIXEL 7
+/** `color_depth` values. */
+#define MIO_COLOR_TRUECOLOR 0
+#define MIO_COLOR_256 1
+#define MIO_COLOR_16 2
+#define MIO_COLOR_MONO 3
+/** `format` values. */
+#define MIO_TEXT_ANSI 0
+#define MIO_TEXT_PLAIN 1
+#define MIO_TEXT_HTML 2
+
+/**
+ * Options for the text encodings. Same ABI rules as mio_render_opts; initialize
+ * through mio_text_opts_init().
+ */
+typedef struct mio_text_opts {
+    double cell_aspect;        /**< height over width of a terminal cell; default 2 */
+    int32_t encoding;          /**< MIO_ENCODING_*; default MIO_ENCODING_HALFBLOCK */
+    int32_t color_depth;       /**< MIO_COLOR_*; default MIO_COLOR_TRUECOLOR */
+    int32_t format;            /**< MIO_TEXT_*; default MIO_TEXT_ANSI */
+    int32_t cols;              /**< terminal size mio_render_text fits the frame to; default 80 */
+    int32_t rows;              /**< default 24 */
+    int32_t cell_pixel_width;  /**< pixel size of a cell, for the graphics protocols; default 8 */
+    int32_t cell_pixel_height; /**< default 16 */
+    int32_t tmux;              /**< nonzero wraps graphics protocols for tmux passthrough */
+    int32_t notes;       /**< nonzero appends the frame's notes under the picture; default 1 */
+    int32_t flags;       /**< must be zero */
+    int64_t reserved[6]; /**< must be zero; room for additive growth */
+} mio_text_opts;
+
+/** Initialize text options to the defaults named above. */
+MIO_API void mio_text_opts_init(mio_text_opts* opts);
+
+/** An owned rendered image. */
+typedef struct mio_frame mio_frame;
+
+/**
+ * Render a mesh into an RGBA frame with a per-pixel cell-id buffer.
+ * @param mesh a mesh (volume cells are drawn through their boundary skin).
+ * @param opts options; NULL means every mio_render_opts_init() default.
+ * @return the frame (free with mio_frame_free), or NULL on failure.
+ */
+MIO_API mio_frame* mio_render(const mio_mesh* mesh, const mio_render_opts* opts);
+
+/** NULL is allowed. Everything borrowed from the frame expires with it. */
+MIO_API void mio_frame_free(mio_frame* frame);
+
+/** Size in pixels; 0 on a NULL frame. */
+MIO_API int32_t mio_frame_width(const mio_frame* frame);
+MIO_API int32_t mio_frame_height(const mio_frame* frame);
+
+/** Borrow `width * height * 4` bytes, RGBA, rows top to bottom, straight alpha. */
+MIO_API const uint8_t* mio_frame_rgba(const mio_frame* frame);
+
+/** Borrow `width * height` ids: the input cell (global, block-major) drawn at
+ * each pixel, -1 for none. */
+MIO_API const int64_t* mio_frame_cell_ids(const mio_frame* frame);
+
+/** @return 1 when a field was mapped (then *vmin and *vmax, either may be NULL,
+ * receive its range), 0 when not, -1 on error. */
+MIO_API int32_t mio_frame_range(const mio_frame* frame, double* vmin, double* vmax);
+
+/** @return the number of text notes (colour range, ticks, keys), or -1. */
+MIO_API int64_t mio_frame_num_notes(const mio_frame* frame);
+
+/** String rule 5: required byte length excluding NUL, -1 on error. */
+MIO_API int64_t mio_frame_note(const mio_frame* frame, int64_t index, char* buf, int64_t buflen);
+
+/**
+ * Encode a frame as text (terminal cells, or a graphics-protocol image). A cell
+ * encoding needs a frame whose size is a multiple of its cell grid; use
+ * mio_render_text to have it sized. String rule 5; buffer may be NULL/zero to
+ * query the length.
+ */
+MIO_API int64_t mio_frame_text(const mio_frame* frame, const mio_text_opts* opts, char* buf,
+                               int64_t buflen);
+
+/**
+ * Encode a frame as an RGBA PNG. `compress` 0 writes stored deflate blocks (the
+ * same bytes everywhere, no zlib needed); 1-9 compress through zlib where the
+ * build has it. Returns the required byte length (the bytes are not
+ * NUL-terminated), or -1 on error; the buffer may be NULL/zero to query it.
+ */
+MIO_API int64_t mio_frame_png(const mio_frame* frame, int32_t compress, uint8_t* buf,
+                              int64_t buflen);
+
+/**
+ * Render a mesh to text sized to opts->cols x opts->rows cells. String rule 5.
+ * @param render render options (NULL for defaults; width and height are
+ *        replaced by the size the encoding needs).
+ */
+MIO_API int64_t mio_render_text(const mio_mesh* mesh, const mio_render_opts* render,
+                                const mio_text_opts* text, char* buf, int64_t buflen);
+
+/** Options of mio_write_snapshot beyond the render and text ones. */
+typedef struct mio_snapshot_opts {
+    double cast_fps;      /**< asciicast frame rate; default 12 */
+    double cast_degrees;  /**< azimuth swept by an asciicast orbit; default 360 */
+    int32_t png_compress; /**< 0 stored; 1-9 zlib; default 0 */
+    int32_t cast_frames;  /**< asciicast frames; default 36 */
+    int64_t reserved[6];  /**< must be zero; room for additive growth */
+} mio_snapshot_opts;
+
+MIO_API void mio_snapshot_opts_init(mio_snapshot_opts* opts);
+
+/**
+ * Render a mesh to a file chosen by extension: `.png`, `.txt`, `.ansi`, `.html`
+ * or `.cast` (an asciinema orbit). Text forms are sized by text->cols and rows.
+ * Any option may be NULL for its defaults.
+ */
+MIO_API mio_status mio_write_snapshot(const char* path, const mio_mesh* mesh,
+                                      const mio_render_opts* render, const mio_text_opts* text,
+                                      const mio_snapshot_opts* snapshot);
+
+/**
+ * The colour depth a terminal advertises: pass the values of NO_COLOR,
+ * COLORTERM and TERM (NULL when unset). @return a MIO_COLOR_* value.
+ */
+MIO_API int32_t mio_detect_color_depth(const char* no_color, const char* color_term,
+                                       const char* term);
 
 #ifdef __cplusplus
 }

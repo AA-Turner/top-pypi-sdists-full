@@ -7,9 +7,17 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pyicloud.common.cloudkit import CKQueryObject, CKZoneIDReq
+from pyicloud.common.cloudkit import (
+    CKModifyOperation,
+    CKQueryObject,
+    CKWriteRecord,
+    CKZoneChangesZoneReq,
+    CKZoneID,
+    CKZoneIDReq,
+)
 from pyicloud.common.cloudkit.client import (
     CloudKitApiError,
+    CloudKitAuthError,
     CloudKitContainerClient,
     CloudKitRateLimited,
     redact_cloudkit_url,
@@ -137,6 +145,78 @@ def test_cloudkit_client_raises_rate_limited_with_retry_after() -> None:
     assert exc_info.value.retry_after == 2.5
 
 
+def _zone_error_client(zone_error: dict[str, Any]) -> CloudKitContainerClient:
+    session = MagicMock()
+    session.post.return_value = _json_response({
+        "zones": [{"zoneID": {"zoneName": "Reminders"}, **zone_error}]
+    })
+    return CloudKitContainerClient("https://example.com/database", session, {})
+
+
+_ZONE_REQ = CKZoneChangesZoneReq(zoneID=CKZoneID(zoneName="Reminders"))
+
+
+@pytest.mark.parametrize("code", ["THROTTLED", "TRY_AGAIN_LATER", "ZONE_BUSY"])
+def test_cloudkit_client_changes_zone_error_retryable(code: str) -> None:
+    """A retryable zone-level error raises rate limited, not a validation error."""
+    client = _zone_error_client({
+        "serverErrorCode": code,
+        "reason": "busy",
+        "retryAfter": 3,
+    })
+
+    with pytest.raises(CloudKitRateLimited) as exc_info:
+        client.changes(zone_req=_ZONE_REQ)
+
+    assert str(exc_info.value) == f"Zone changes failed: {code} (busy)"
+    assert exc_info.value.retry_after == 3.0
+
+
+def test_cloudkit_client_changes_zone_error_without_retry_after() -> None:
+    """A retryable zone-level error without retryAfter leaves it unset."""
+    client = _zone_error_client({"serverErrorCode": "THROTTLED"})
+
+    with pytest.raises(CloudKitRateLimited) as exc_info:
+        client.changes(zone_req=_ZONE_REQ)
+
+    assert str(exc_info.value) == "Zone changes failed: THROTTLED"
+    assert exc_info.value.retry_after is None
+
+
+def test_cloudkit_client_changes_zone_error_auth() -> None:
+    """An authentication zone-level error raises an auth error."""
+    client = _zone_error_client({"serverErrorCode": "AUTHENTICATION_REQUIRED"})
+
+    with pytest.raises(CloudKitAuthError):
+        client.changes(zone_req=_ZONE_REQ)
+
+
+def test_cloudkit_client_changes_zone_error_other() -> None:
+    """Any other zone-level error raises an API error carrying the payload."""
+    client = _zone_error_client({
+        "serverErrorCode": "ZONE_NOT_FOUND",
+        "reason": "zone does not exist",
+    })
+
+    with pytest.raises(CloudKitApiError) as exc_info:
+        client.changes(zone_req=_ZONE_REQ)
+
+    assert str(exc_info.value) == (
+        "Zone changes failed: ZONE_NOT_FOUND (zone does not exist)"
+    )
+    payload = exc_info.value.payload
+    assert payload is not None
+    assert payload["zones"][0]["serverErrorCode"] == "ZONE_NOT_FOUND"
+
+
+def test_cloudkit_client_iter_changes_zone_error() -> None:
+    """Paged zone changes raise on a zone-level error too."""
+    client = _zone_error_client({"serverErrorCode": "TRY_AGAIN_LATER"})
+
+    with pytest.raises(CloudKitRateLimited):
+        list(client.iter_changes(zone_req=_ZONE_REQ))
+
+
 def test_cloudkit_client_download_asset_bytes() -> None:
     """Downloading an asset returns its raw bytes with default timeout."""
     session = MagicMock()
@@ -176,3 +256,120 @@ def test_cloudkit_client_download_asset_stream_closes_on_error() -> None:
         list(client.download_asset_stream("https://example.com/asset"))
 
     response.close.assert_called_once()
+
+
+def _modify_op() -> CKModifyOperation:
+    """One trivial update operation, enough to send a modify."""
+
+    return CKModifyOperation(
+        operationType="update",
+        record=CKWriteRecord(recordName="R1", recordType="Thing"),
+    )
+
+
+def test_a_rejected_record_raises_with_apples_reason() -> None:
+    """CloudKit reports write failures per record, inside a 200 response.
+
+    Every caller looked for its record by name, found an error entry instead of
+    a CKRecord, and skipped it -- so a rejected write surfaced as a missing
+    record or as nothing at all. The reason Apple gave has to reach the caller.
+    """
+
+    op = _modify_op()
+    zone_id = CKZoneIDReq(zoneName="Z")
+    session = MagicMock()
+    session.post.return_value = _json_response({
+        "records": [
+            {
+                "recordName": "EventDetails:E1",
+                "serverErrorCode": "BAD_REQUEST",
+                "reason": (
+                    "Attempt to save encrypted data in non encrypted field type"
+                ),
+            }
+        ]
+    })
+    client = CloudKitContainerClient("https://example.com/database", session, {})
+
+    with pytest.raises(CloudKitApiError) as exc_info:
+        client.modify(operations=[op], zone_id=zone_id)
+
+    message = str(exc_info.value)
+    assert "BAD_REQUEST" in message
+    assert "encrypted data in non encrypted field type" in message
+    assert "EventDetails:E1" in message
+
+
+def test_every_rejected_record_is_named() -> None:
+    """A batch that fails in more than one way should say so once."""
+
+    op = _modify_op()
+    zone_id = CKZoneIDReq(zoneName="Z")
+    session = MagicMock()
+    session.post.return_value = _json_response({
+        "records": [
+            {"recordName": "A", "serverErrorCode": "BAD_REQUEST", "reason": "bad"},
+            {"recordName": "B", "serverErrorCode": "CONFLICT"},
+        ]
+    })
+    client = CloudKitContainerClient("https://example.com/database", session, {})
+
+    with pytest.raises(CloudKitApiError) as exc_info:
+        client.modify(operations=[op], zone_id=zone_id)
+
+    message = str(exc_info.value)
+    assert "2 record(s)" in message
+    assert "A: BAD_REQUEST (bad)" in message
+    assert "B: CONFLICT" in message
+
+
+def test_a_rejected_record_with_fields_is_still_detected() -> None:
+    """An error entry carrying record fields must not pass as a record.
+
+    CloudKit's per-record error shape is resolved by a union that would pick
+    ``CKRecord`` if the entry also carried ``recordType`` and ``fields``. The
+    guard inspects the raw payload, so the rejection still surfaces.
+    """
+
+    op = _modify_op()
+    zone_id = CKZoneIDReq(zoneName="Z")
+    session = MagicMock()
+    session.post.return_value = _json_response({
+        "records": [
+            {
+                "recordName": "A",
+                "recordType": "Thing",
+                "fields": {"f": {"type": "INT64", "value": 1}},
+                "serverErrorCode": "CONFLICT",
+                "reason": "record to insert already exists",
+            }
+        ]
+    })
+    client = CloudKitContainerClient("https://example.com/database", session, {})
+
+    with pytest.raises(CloudKitApiError) as exc_info:
+        client.modify(operations=[op], zone_id=zone_id)
+
+    message = str(exc_info.value)
+    assert "CONFLICT" in message
+    assert "record to insert already exists" in message
+    assert "A" in message
+
+
+def test_a_successful_modify_still_returns_its_records() -> None:
+    """The guard must not disturb the path that already worked."""
+
+    op = _modify_op()
+    zone_id = CKZoneIDReq(zoneName="Z")
+    session = MagicMock()
+    session.post.return_value = _json_response({
+        "records": [
+            {"recordName": "R1", "recordType": "Thing", "recordChangeTag": "TAG"}
+        ]
+    })
+    client = CloudKitContainerClient("https://example.com/database", session, {})
+
+    response = client.modify(operations=[op], zone_id=zone_id)
+
+    assert len(response.records) == 1
+    assert response.records[0].recordName == "R1"

@@ -220,6 +220,16 @@ Run 'skylos tour' for a guided walkthrough of capabilities.
         help="List the default excluded folders and exit.",
     )
     parser.add_argument(
+        "--include-generated",
+        action="store_true",
+        help=(
+            "Also scan generated and vendored files that are skipped by default: "
+            "Django migrations, static/**/lib/**, *.min.js, *.min.css and files "
+            "that start with a vendored-library licence banner. "
+            "Config: [tool.skylos] include_generated = true."
+        ),
+    )
+    parser.add_argument(
         "--secrets", action="store_true", help="Scan for API keys. Off by default."
     )
     parser.add_argument(
@@ -346,6 +356,13 @@ Run 'skylos tour' for a guided walkthrough of capabilities.
         "(GITHUB_BASE_REF, Bitbucket or Azure Pipelines PR target) or origin/main.",
     )
     parser.add_argument(
+        "--diff-mode",
+        choices=("lines", "impact"),
+        default="lines",
+        help="With --diff, 'impact' also reports newly unused symbols outside changed lines "
+        "by comparing static dead-code findings with the base commit. Default: lines.",
+    )
+    parser.add_argument(
         "--github",
         action="store_true",
         help="Output GitHub Actions annotations (::warning / ::error) for inline PR comments.",
@@ -387,6 +404,15 @@ Run 'skylos tour' for a guided walkthrough of capabilities.
         ),
     )
     parser.add_argument(
+        "--expand-advice",
+        action="store_true",
+        help=(
+            "Show every Advice finding instead of grouping them by rule in "
+            "terminal and LLM reports. Defect and Review findings always retain "
+            "individual rows. JSON records, assessments and gate limits are unchanged."
+        ),
+    )
+    parser.add_argument(
         "--file-filter",
         type=str,
         default=None,
@@ -412,8 +438,8 @@ Run 'skylos tour' for a guided walkthrough of capabilities.
     parser.add_argument(
         "--no-clipboard",
         action="store_true",
-        help="Never copy the score badge to the clipboard (also: SKYLOS_NO_CLIPBOARD=1). "
-        "Copying already only happens in an interactive terminal outside CI.",
+        help="Disable clipboard access (also: SKYLOS_NO_CLIPBOARD=1). "
+        "Assessments do not automatically copy badges.",
     )
     parser.add_argument(
         "--no-provenance",

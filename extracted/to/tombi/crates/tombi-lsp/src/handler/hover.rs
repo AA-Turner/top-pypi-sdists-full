@@ -1,0 +1,791 @@
+use itertools::{Either, Itertools};
+use tombi_ast_syntax::{AstNode, DanglingCommentGroupOr};
+use tombi_document_tree_syntax::IntoDocumentTreeAndErrors;
+use tombi_extension::{HoverMetadata, HoverTextChange};
+use tombi_schema_store::SchemaContext;
+use tombi_text::IntoLsp;
+use tower_lsp_server::gen_lsp_types::{HoverParams, TextDocumentPositionParams};
+
+use crate::{
+    backend,
+    config_manager::ConfigSchemaStore,
+    hover::{HoverContent, get_document_comment_directive_hover_content, get_hover_content},
+};
+
+pub async fn handle_hover(
+    backend: &backend::Backend,
+    params: HoverParams,
+) -> Result<Option<HoverContent>, tower_lsp_server::jsonrpc::Error> {
+    log::trace!("{:?}", params);
+
+    let HoverParams {
+        text_document_position_params:
+            TextDocumentPositionParams {
+                text_document,
+                position,
+            },
+        ..
+    } = params;
+    let text_document_uri = text_document.uri.into();
+
+    let ConfigSchemaStore {
+        config,
+        schema_store,
+        ..
+    } = backend
+        .config_manager
+        .config_schema_store_for_uri(&text_document_uri)
+        .await;
+
+    if !config
+        .lsp
+        .as_ref()
+        .and_then(|server| server.hover.as_ref())
+        .and_then(|hover| hover.enabled)
+        .unwrap_or_default()
+        .value()
+    {
+        log::debug!("`server.hover.enabled` is false");
+        return Ok(None);
+    }
+
+    log::info!("handle_hover");
+
+    let Some(document_source) = backend.document_source(&text_document_uri) else {
+        return Ok(None);
+    };
+    let converter = tombi_extension::SpanConverter::new(
+        document_source.line_index(),
+        document_source.encoding_kind(),
+    );
+    let (root, document_tree, toml_version, offset): (_, _, _, tombi_text::Offset) = (
+        document_source.ast(),
+        document_source.document_tree(),
+        document_source.toml_version,
+        position.into_lsp(
+            document_source.line_index(),
+            document_source.encoding_kind(),
+        ),
+    );
+
+    let source_schema = schema_store
+        .resolve_source_schema_from_ast(&root, Some(Either::Left(&text_document_uri)))
+        .await
+        .ok()
+        .flatten();
+
+    let source_path = text_document_uri.to_file_path().ok();
+    // Check if offset is in a #:tombi comment directive
+    if let Some(content) =
+        get_document_comment_directive_hover_content(&root, offset, source_path.as_deref()).await
+    {
+        return Ok(Some(content));
+    }
+
+    let Some((keys, span)) =
+        get_hover_keys_with_span(&root, document_source.decoded(), offset, toml_version).await
+    else {
+        log::debug!("failed to get hover keys with span");
+        return Ok(None);
+    };
+
+    if keys.is_empty() && span.is_none() {
+        log::debug!("keys and span are empty");
+        return Ok(None);
+    }
+
+    let strict = tombi_validator::comment_directive::get_tombi_document_comment_directive(&root)
+        .await
+        .and_then(|directive| directive.schema.and_then(|schema| schema.strict));
+    let schema_context = SchemaContext::from_source_schema(
+        toml_version,
+        source_schema.as_ref(),
+        &schema_store,
+        strict,
+    );
+
+    let mut hover_content = get_hover_content(document_tree, offset, &keys, &schema_context).await;
+
+    if let Some(HoverContent::Value(hover_value_content)) = &mut hover_content {
+        hover_value_content.span = span;
+
+        let accessors = tombi_document_tree_syntax::get_accessors(document_tree, &keys, offset);
+        let offline = schema_store.offline();
+        let cache_options = schema_store.cache_options();
+        let tombi_hover_enabled = config
+            .tombi_extension_features()
+            .and_then(|features| features.lsp())
+            .and_then(|lsp| lsp.hover())
+            .map(|hover| hover.enabled())
+            .unwrap_or_default()
+            .value();
+        let cargo_dependency_detail_hover_enabled = config
+            .cargo_extension_features()
+            .and_then(|features| features.lsp())
+            .and_then(|lsp| lsp.hover())
+            .and_then(|hover| hover.dependency_detail())
+            .map(|dependency_detail| dependency_detail.enabled())
+            .unwrap_or_default()
+            .value();
+        let cargo_default_features_hover_enabled = config
+            .cargo_extension_features()
+            .and_then(|features| features.lsp())
+            .and_then(|lsp| lsp.hover())
+            .and_then(|hover| hover.default_features())
+            .map(|default_features| default_features.enabled())
+            .unwrap_or_default()
+            .value();
+        let cargo_feature_dependencies_hover_enabled = config
+            .cargo_extension_features()
+            .and_then(|features| features.lsp())
+            .and_then(|lsp| lsp.hover())
+            .and_then(|hover| hover.feature_dependencies())
+            .map(|feature_dependencies| feature_dependencies.enabled())
+            .unwrap_or_default()
+            .value();
+        let pyproject_dependency_detail_hover_enabled = config
+            .pyproject_extension_features()
+            .and_then(|features| features.lsp())
+            .and_then(|lsp| lsp.hover())
+            .and_then(|hover| hover.dependency_detail())
+            .map(|dependency_detail| dependency_detail.enabled())
+            .unwrap_or_default()
+            .value();
+
+        let extension_hover = if tombi_hover_enabled {
+            tombi_extension_tombi::hover(
+                &text_document_uri,
+                document_tree,
+                &accessors,
+                offset,
+                toml_version,
+                offline,
+            )
+            .await?
+        } else {
+            None
+        };
+        let extension_hover = match extension_hover {
+            some @ Some(_) => some,
+            None if cargo_dependency_detail_hover_enabled
+                || cargo_default_features_hover_enabled
+                || cargo_feature_dependencies_hover_enabled =>
+            {
+                tombi_extension_cargo::hover(
+                    &text_document_uri,
+                    document_tree,
+                    &accessors,
+                    offset,
+                    toml_version,
+                    converter,
+                    offline,
+                    cache_options,
+                    cargo_dependency_detail_hover_enabled,
+                    cargo_feature_dependencies_hover_enabled,
+                    cargo_default_features_hover_enabled,
+                )
+                .await?
+            }
+            None => None,
+        };
+        let extension_hover = match extension_hover {
+            some @ Some(_) => some,
+            None if pyproject_dependency_detail_hover_enabled => {
+                tombi_extension_pyproject::hover(
+                    &text_document_uri,
+                    document_tree,
+                    &accessors,
+                    offset,
+                    toml_version,
+                    offline,
+                    cache_options,
+                )
+                .await?
+            }
+            None => None,
+        };
+
+        if let Some(metadata) = extension_hover {
+            apply_hover_metadata(hover_value_content, metadata);
+        }
+    }
+    Ok(hover_content)
+}
+
+fn apply_hover_metadata(
+    hover_value_content: &mut crate::hover::HoverValueContent,
+    metadata: HoverMetadata,
+) {
+    apply_hover_text_change(&mut hover_value_content.title, metadata.title);
+    apply_hover_text_change(&mut hover_value_content.description, metadata.description);
+}
+
+fn apply_hover_text_change(target: &mut Option<String>, change: Option<HoverTextChange>) {
+    match change {
+        Some(HoverTextChange::Replace(text)) => *target = Some(text),
+        Some(HoverTextChange::Append(text)) => match target {
+            Some(existing) if !existing.is_empty() => {
+                existing.push_str("\n\n");
+                existing.push_str(&text);
+            }
+            Some(existing) => existing.push_str(&text),
+            None => *target = Some(text),
+        },
+        None => {}
+    }
+}
+
+pub async fn get_hover_keys_with_span<'t>(
+    root: &tombi_ast_syntax::Root<'t>,
+    decoded: &'t tombi_ast_syntax::DecodedTextResolver,
+    offset: tombi_text::Offset,
+    toml_version: tombi_config::TomlVersion,
+) -> Option<(
+    Vec<tombi_document_tree_syntax::Key<'t>>,
+    Option<tombi_text::Span>,
+)> {
+    let mut keys_vec = vec![];
+    let mut hover_span = None;
+
+    for node in root.nodes_at_offset(offset) {
+        if let tombi_ast_syntax::TomlNode::Array(array) = &node {
+            let on_leading_comment = array
+                .leading_comments()
+                .any(|comment| comment.syntax().span().contains_inclusive(offset));
+            let on_bracket_start_trailing_comment = array
+                .bracket_start_trailing_comment()
+                .is_some_and(|comment| comment.syntax().span().contains_inclusive(offset));
+            let on_trailing_comment = array
+                .trailing_comment()
+                .is_some_and(|comment| comment.syntax().span().contains_inclusive(offset));
+
+            if hover_span.is_none() && (on_leading_comment || on_bracket_start_trailing_comment) {
+                hover_span = Some(array.syntax().span());
+            } else if hover_span.is_none() && on_trailing_comment {
+                hover_span = Some(key_value_parent_or_self_span(root, array.syntax().span()));
+            } else {
+                for groups in array.value_with_comma_groups() {
+                    match groups {
+                        DanglingCommentGroupOr::DanglingCommentGroup(comment_group) => {
+                            if comment_group
+                                .comments()
+                                .any(|comment| comment.syntax().span().contains_inclusive(offset))
+                            {
+                                hover_span = Some(comment_group.syntax().span());
+                                break;
+                            }
+                        }
+                        DanglingCommentGroupOr::ItemGroup(value_group) => {
+                            for (value_or_key_value, comma) in
+                                value_group.value_or_key_values_with_comma()
+                            {
+                                if hover_span.is_none() {
+                                    let Some(span) =
+                                        array_value_hover_span(&value_or_key_value, comma.as_ref())
+                                    else {
+                                        continue;
+                                    };
+                                    if span.contains_inclusive(offset) {
+                                        hover_span = Some(span);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if let tombi_ast_syntax::TomlNode::InlineTable(inline_table) = &node {
+            let on_leading_comment = inline_table
+                .leading_comments()
+                .any(|comment| comment.syntax().span().contains_inclusive(offset));
+            let on_brace_start_trailing_comment = inline_table
+                .brace_start_trailing_comment()
+                .is_some_and(|comment| comment.syntax().span().contains_inclusive(offset));
+            let on_trailing_comment = inline_table
+                .trailing_comment()
+                .is_some_and(|comment| comment.syntax().span().contains_inclusive(offset));
+
+            if hover_span.is_none() && on_leading_comment || on_brace_start_trailing_comment {
+                hover_span = Some(inline_table.syntax().span());
+            } else if hover_span.is_none() && on_trailing_comment {
+                hover_span = Some(key_value_parent_or_self_span(
+                    root,
+                    inline_table.syntax().span(),
+                ));
+            } else {
+                for groups in inline_table.key_value_with_comma_groups() {
+                    match groups {
+                        DanglingCommentGroupOr::DanglingCommentGroup(comment_group) => {
+                            if comment_group
+                                .comments()
+                                .any(|comment| comment.syntax().span().contains_inclusive(offset))
+                            {
+                                hover_span = Some(comment_group.syntax().span());
+                                break;
+                            }
+                        }
+                        DanglingCommentGroupOr::ItemGroup(key_value_group) => {
+                            for (key_value, comma) in key_value_group.key_values_with_comma() {
+                                if hover_span.is_none() {
+                                    let Some(span) = inline_table_key_value_hover_span(
+                                        &key_value,
+                                        comma.as_ref(),
+                                    ) else {
+                                        continue;
+                                    };
+                                    if span.contains_inclusive(offset) {
+                                        hover_span = Some(span);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        let keys = if let tombi_ast_syntax::TomlNode::KeyValue(kv) = node {
+            if hover_span.is_none() {
+                hover_span = Some(
+                    kv.item_span_with_comma(offset)
+                        .or_else(|| {
+                            kv.leading_comments()
+                                .next()
+                                .map(|comment| comment.syntax().span().start)
+                                .or_else(|| kv.keys().map(|keys| keys.span().start))
+                                .map(|start| tombi_text::Span::new(start, kv.span().end))
+                        })
+                        .unwrap_or_else(|| kv.span()),
+                );
+            }
+            kv.keys()
+        } else if let tombi_ast_syntax::TomlNode::Table(table) = node {
+            let header = table.header();
+            if let Some(header) = &header
+                && hover_span.is_none()
+                && (header
+                    .keys()
+                    .last()
+                    .is_none_or(|key| key.syntax().span().contains_inclusive(offset))
+                    || table
+                        .header_leading_comments()
+                        .any(|comment| comment.syntax().span().contains_inclusive(offset))
+                    || table
+                        .header_trailing_comment()
+                        .is_some_and(|comment| comment.syntax().span().contains_inclusive(offset))
+                    || table.dangling_comment_groups().any(|comment_group| {
+                        comment_group
+                            .comments()
+                            .any(|comment| comment.syntax().span().contains_inclusive(offset))
+                    }))
+            {
+                let mut span = table.syntax().span();
+                if let Some(last_sub_table) = table.last_sub_table() {
+                    span.end = last_sub_table.syntax().span().end;
+                }
+                hover_span = Some(span);
+            } else {
+                for group in table
+                    .key_value_groups()
+                    .filter_map(DanglingCommentGroupOr::into_dangling_comment_group)
+                {
+                    if group
+                        .comments()
+                        .any(|comment| comment.syntax().span().contains_inclusive(offset))
+                    {
+                        hover_span = Some(group.syntax().span());
+                        break;
+                    }
+                }
+            }
+
+            header
+        } else if let tombi_ast_syntax::TomlNode::ArrayOfTable(array_of_table) = node {
+            let header = array_of_table.header();
+            if let Some(header) = &header
+                && hover_span.is_none()
+                && (header
+                    .keys()
+                    .last()
+                    .is_none_or(|key| key.syntax().span().contains_inclusive(offset))
+                    || array_of_table
+                        .header_leading_comments()
+                        .any(|comment| comment.syntax().span().contains_inclusive(offset))
+                    || array_of_table
+                        .header_trailing_comment()
+                        .is_some_and(|comment| comment.syntax().span().contains_inclusive(offset))
+                    || array_of_table
+                        .dangling_comment_groups()
+                        .any(|comment_group| {
+                            comment_group
+                                .comments()
+                                .any(|comment| comment.syntax().span().contains_inclusive(offset))
+                        }))
+            {
+                let mut span = array_of_table.syntax().span();
+                if let Some(last_sub_table) = array_of_table.last_sub_table() {
+                    span.end = last_sub_table.syntax().span().end;
+                }
+                hover_span = Some(span);
+            } else {
+                for group in array_of_table
+                    .key_value_groups()
+                    .filter_map(DanglingCommentGroupOr::into_dangling_comment_group)
+                {
+                    if group
+                        .comments()
+                        .any(|comment| comment.syntax().span().contains_inclusive(offset))
+                    {
+                        hover_span = Some(group.syntax().span());
+                        break;
+                    }
+                }
+            }
+
+            header
+        } else if let tombi_ast_syntax::TomlNode::Root(root) = node {
+            if hover_span.is_none()
+                && (root.dangling_comment_groups().any(|comment_group| {
+                    comment_group
+                        .comments()
+                        .any(|comment| comment.syntax().span().contains_inclusive(offset))
+                }))
+            {
+                hover_span = Some(root.syntax().span());
+            } else {
+                for group in root
+                    .key_value_groups()
+                    .filter_map(DanglingCommentGroupOr::into_dangling_comment_group)
+                {
+                    if group
+                        .comments()
+                        .any(|comment| comment.syntax().span().contains_inclusive(offset))
+                    {
+                        hover_span = Some(group.syntax().span());
+                        break;
+                    }
+                }
+            }
+
+            continue;
+        } else {
+            continue;
+        };
+
+        let Some(keys) = keys else { continue };
+
+        let keys = if keys.span().contains_inclusive(offset) {
+            let mut new_keys = Vec::with_capacity(keys.keys().count());
+            for key in keys
+                .keys()
+                .take_while(|key| key.token().unwrap().span().start <= offset)
+            {
+                let document_tree_key = key
+                    .into_document_tree_and_errors(toml_version, decoded)
+                    .tree;
+                if let Some(document_tree_key) = document_tree_key {
+                    new_keys.push(document_tree_key);
+                }
+            }
+            new_keys
+        } else {
+            let mut new_keys = Vec::with_capacity(keys.keys().count());
+            for key in keys.keys() {
+                let document_tree_key = key
+                    .into_document_tree_and_errors(toml_version, decoded)
+                    .tree;
+                if let Some(document_tree_key) = document_tree_key {
+                    new_keys.push(document_tree_key);
+                }
+            }
+            new_keys
+        };
+
+        if hover_span.is_none() {
+            hover_span = keys.iter().map(|key| key.span()).reduce(|k1, k2| k1 + k2);
+        }
+
+        keys_vec.push(keys);
+    }
+
+    Some((
+        keys_vec.into_iter().rev().flatten().collect_vec(),
+        hover_span,
+    ))
+}
+
+fn key_value_parent_or_self_span(
+    root: &tombi_ast_syntax::Root<'_>,
+    fallback_span: tombi_text::Span,
+) -> tombi_text::Span {
+    root.enclosing_key_value(fallback_span.start)
+        .map_or(fallback_span, |key_value| key_value.span())
+}
+
+#[inline]
+fn array_value_hover_span(
+    value_or_key_value: &tombi_ast_syntax::ValueOrKeyValue<'_>,
+    comma: Option<&tombi_ast_syntax::Comma<'_>>,
+) -> Option<tombi_text::Span> {
+    let start = value_or_key_value
+        .leading_comments()
+        .next()
+        .map(|comment| comment.syntax().span().start)
+        .or_else(|| match value_or_key_value {
+            tombi_ast_syntax::ValueOrKeyValue::Value(value) => Some(value.token_span().start),
+            tombi_ast_syntax::ValueOrKeyValue::KeyValue(key_value) => {
+                key_value.keys().map(|keys| keys.span().start)
+            }
+        })?;
+    let end = match value_or_key_value {
+        tombi_ast_syntax::ValueOrKeyValue::Value(value) => value.span().end,
+        tombi_ast_syntax::ValueOrKeyValue::KeyValue(key_value) => key_value
+            .value()
+            .map(|value| value.span().end)
+            .unwrap_or(key_value.span().end),
+    };
+
+    Some(with_comma_item_hover_span(start, end, comma))
+}
+
+#[inline]
+fn inline_table_key_value_hover_span(
+    key_value: &tombi_ast_syntax::KeyValue<'_>,
+    comma: Option<&tombi_ast_syntax::Comma<'_>>,
+) -> Option<tombi_text::Span> {
+    let start = key_value
+        .leading_comments()
+        .next()
+        .map(|comment| comment.syntax().span().start)
+        .or_else(|| key_value.keys().map(|keys| keys.span().start))?;
+    let end = key_value
+        .value()
+        .map(|value| value.span().end)
+        .unwrap_or(key_value.span().end);
+
+    Some(with_comma_item_hover_span(start, end, comma))
+}
+
+#[inline]
+fn with_comma_item_hover_span(
+    start: tombi_text::Offset,
+    end: tombi_text::Offset,
+    comma: Option<&tombi_ast_syntax::Comma<'_>>,
+) -> tombi_text::Span {
+    let mut span = tombi_text::Span::new(start, end);
+    if let Some(comma) = comma {
+        span += comma.span();
+    }
+    span
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use textwrap::dedent;
+    use tombi_config::TomlVersion;
+    use tombi_parser::parse;
+    use tombi_text::{EncodingKind, Offset};
+
+    fn source_and_offset_with_marker(source_with_marker: &str) -> (String, Offset) {
+        let marker = '█';
+        let mut source = dedent(source_with_marker).trim().to_string();
+        let marker_index = source.find(marker).unwrap();
+        source.remove(marker_index);
+
+        let offset = Offset::of(&source[..marker_index]);
+
+        (source, offset)
+    }
+
+    macro_rules! test_hover_range {
+        (#[tokio::test] async fn $name:ident(
+            $source:expr $(,)?
+        ) -> Ok((($start_line:expr, $start_col:expr), ($end_line:expr, $end_col:expr))) $(;)?) => {
+            #[tokio::test]
+            async fn $name() -> Result<(), Box<dyn std::error::Error>> {
+                let (source, offset) = source_and_offset_with_marker($source);
+                let parsed = parse(&source);
+                let root = parsed.root();
+                let decoded = root.decode_strings(TomlVersion::V1_0_0);
+
+                let (_, hover_span) =
+                    get_hover_keys_with_span(&root, &decoded, offset, TomlVersion::V1_0_0)
+                        .await
+                        .ok_or("failed to get hover keys with span")?;
+
+                pretty_assertions::assert_eq!(
+                    hover_span.map(|span| {
+                        root.syntax()
+                            .line_index()
+                            .range(span, EncodingKind::GraphemeCluster)
+                    }),
+                    Some(tombi_text::Range::from((
+                        ($start_line, $start_col),
+                        ($end_line, $end_col)
+                    ))),
+                );
+
+                Ok(())
+            }
+        };
+    }
+
+    test_hover_range! {
+        #[tokio::test]
+        async fn array_trailing_comment_hover_range_includes_key(
+            r#"authors = ["ya7010 <ya7010@outlook.com>"]  # a█aa"#
+        ) -> Ok(((0, 0), (0, 48)));
+    }
+
+    test_hover_range! {
+        #[tokio::test]
+        async fn inline_table_trailing_comment_hover_range_includes_key(
+            r#"dependency = { version = "1.0" }  # a█aa"#
+        ) -> Ok(((0, 0), (0, 39)));
+    }
+
+    test_hover_range! {
+        #[tokio::test]
+        async fn inline_table_key_hover_range_includes_comma_and_trailing_comment(
+            r#"
+            array5 = [
+                {
+                # key1 leading comment1
+                # key1 leading comment2
+                key█1 = 1
+                # key1 comma leading comment
+                ,  # key1 comma trailing comment
+                },
+            ]
+            "#,
+        ) -> Ok(((2, 4), (6, 36)));
+    }
+
+    test_hover_range! {
+        #[tokio::test]
+        async fn inline_table_key_hover_range_excludes_plain_indentation(
+            r#"
+            array5 = [
+              {
+                key█1 = 1,
+              },
+            ]
+            "#,
+        ) -> Ok(((2, 4), (2, 13)));
+    }
+
+    test_hover_range! {
+        #[tokio::test]
+        async fn inline_table_key_in_array_hover_range_includes_array_item_comma_and_trailing_comment(
+            r#"
+            array5 = [
+              {
+                key█1 = 1,
+              }, # array item trailing comment
+            ]
+            "#,
+        ) -> Ok(((2, 4), (2, 13)));
+    }
+
+    test_hover_range! {
+        #[tokio::test]
+        async fn non_first_inline_table_key_hover_range_excludes_plain_indentation(
+            r#"
+            array5 = [
+              {
+                first = 1,
+                sec█ond = 2,
+              },
+            ]
+            "#,
+        ) -> Ok(((3, 4), (3, 15)));
+    }
+
+    test_hover_range! {
+        #[tokio::test]
+        async fn non_first_inline_table_key_hover_range_keeps_indent_between_leading_comments_and_key(
+            r#"
+            array5 = [
+              {
+                first = 1,
+                # second leading comment
+                sec█ond = 2,
+              },
+            ]
+            "#,
+        ) -> Ok(((3, 4), (4, 15)));
+    }
+
+    test_hover_range! {
+        #[tokio::test]
+        async fn non_first_root_key_value_hover_range_excludes_previous_line_end(
+            r#"
+            first = 1
+            sec█ond = 2
+            "#,
+        ) -> Ok(((1, 0), (1, 10)));
+    }
+
+    test_hover_range! {
+        #[tokio::test]
+        async fn nested_array_hover_range_uses_innermost_value_with_comma_group(
+            r#"
+            array5 = [
+              [
+                { key█1 = 1 }, # inner array item trailing comment
+              ], # outer array item trailing comment
+            ]
+            "#,
+        ) -> Ok(((2, 6), (2, 14)));
+    }
+
+    test_hover_range! {
+        #[tokio::test]
+        async fn array_item_hover_range_excludes_plain_indentation(
+            r#"
+            array = [
+              "it█em",
+            ]
+            "#,
+        ) -> Ok(((1, 2), (1, 9)));
+    }
+
+    test_hover_range! {
+        #[tokio::test]
+        async fn array_item_hover_range_keeps_indent_between_leading_comments_and_value(
+            r#"
+            array = [
+              # leading comment
+              "it█em",
+            ]
+            "#,
+        ) -> Ok(((1, 2), (2, 9)));
+    }
+
+    test_hover_range! {
+        #[tokio::test]
+        async fn non_first_array_item_hover_range_excludes_plain_indentation(
+            r#"
+            array = [
+              "first",
+              "se█cond",
+            ]
+            "#,
+        ) -> Ok(((2, 2), (2, 11)));
+    }
+
+    test_hover_range! {
+        #[tokio::test]
+        async fn non_first_array_item_hover_range_keeps_indent_between_leading_comments_and_value(
+            r#"
+            array = [
+              "first",
+              # leading comment
+              "se█cond",
+            ]
+            "#,
+        ) -> Ok(((2, 2), (3, 11)));
+    }
+}

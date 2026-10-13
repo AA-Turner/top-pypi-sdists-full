@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-auth
-Version: 2.61.0
+Version: 2.62.0
 Summary: Google Authentication Library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-auth
 Author: Google Cloud Platform
@@ -68,7 +68,6 @@ Provides-Extra: urllib3
 Requires-Dist: urllib3<3.0.0,>=1.26.15; extra == "urllib3"
 Requires-Dist: packaging>=20.0; extra == "urllib3"
 Provides-Extra: rsa
-Requires-Dist: rsa<5,>=4.0.0; extra == "rsa"
 Provides-Extra: grpc
 Requires-Dist: grpcio<2.0.0,>=1.59.0; python_version < "3.14" and extra == "grpc"
 Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14" and extra == "grpc"

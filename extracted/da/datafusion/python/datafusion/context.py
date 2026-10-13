@@ -44,18 +44,22 @@ execution model.
 
 from __future__ import annotations
 
+import sys
 import uuid
 import warnings
 from typing import TYPE_CHECKING, Any, Protocol
 
-try:
-    from warnings import deprecated  # Python 3.13+
-except ImportError:
-    from typing_extensions import deprecated  # Python 3.12
+if sys.version_info >= (3, 13):
+    from warnings import deprecated
+else:
+    from typing_extensions import deprecated
 
+
+from urllib.parse import urlparse
 
 import pyarrow as pa
 
+from datafusion import extensions as _extensions
 from datafusion.catalog import (
     Catalog,
     CatalogList,
@@ -86,11 +90,27 @@ if TYPE_CHECKING:
 
     import pandas as pd
     import polars as pl  # type: ignore[import]
-    from _typeshed import CapsuleType as _PyCapsule
+
+    if sys.version_info >= (3, 13):
+        from types import CapsuleType as _PyCapsule
+    else:
+        from typing_extensions import CapsuleType as _PyCapsule
 
     from datafusion.catalog import CatalogProvider, Table
     from datafusion.common import DFSchema
     from datafusion.expr import Expr, SortKey
+
+    # Type-only on purpose. `datafusion.extensions` is the one home for the
+    # capsule-getter protocols; importing these at runtime would make them
+    # reachable as `datafusion.context.*`, and for
+    # `PhysicalOptimizerRuleExportable` would restore the 54.0.0 path that
+    # 55.0.0 drops. Runtime checks go through the private `_extensions` alias.
+    from datafusion.extensions import (
+        PhysicalOptimizerRuleExportable,
+        QueryPlannerExportable,
+        SessionComponentsExportable,
+        SessionPlannerExportable,
+    )
     from datafusion.plan import ExecutionPlan, LogicalPlan
     from datafusion.user_defined import (
         AggregateUDF,
@@ -127,20 +147,20 @@ class ArrowArrayExportable(Protocol):
 class TableProviderExportable(Protocol):
     """Type hint for object that has __datafusion_table_provider__ PyCapsule.
 
-    https://datafusion.apache.org/python/user-guide/io/table_provider.html
+    See :ref:`io_custom_table_provider` for registering one, and
+    :ref:`extension_providers` for writing one.
+
+    Args:
+        session: See
+            :py:class:`~datafusion.user_defined.LogicalExtensionCodecExportable`.
+            For this getter it is a session when the provider is registered
+            through :py:meth:`SessionContext.register_table` and the host's
+            logical codec when it goes through
+            :py:meth:`datafusion.catalog.Schema.register_table`, so
+            duck-typing it is not optional.
     """
 
     def __datafusion_table_provider__(self, session: Any) -> object: ...  # noqa: D105
-
-
-class PhysicalOptimizerRuleExportable(Protocol):
-    """Type hint for object that has __datafusion_physical_optimizer_rule__ PyCapsule.
-
-    The method returns a PyCapsule wrapping an ``FFI_PhysicalOptimizerRule``,
-    typically produced by a separate compiled extension.
-    """
-
-    def __datafusion_physical_optimizer_rule__(self) -> object: ...  # noqa: D105
 
 
 class SessionConfig:
@@ -149,8 +169,30 @@ class SessionConfig:
     def __init__(self, config_options: dict[str, str] | None = None) -> None:
         """Create a new :py:class:`SessionConfig` with the given configuration options.
 
+        Each entry is applied as though passed to :py:meth:`set`, so the same
+        keys are rejected. See :ref:`configuration`.
+
         Args:
-            config_options: Configuration options.
+            config_options: Options to apply, keyed by fully qualified name.
+
+        Raises:
+            ValueError: If a key names no known option, or a value does not
+                parse as that option's declared type. Which of several bad
+                entries is reported is not defined.
+
+        Example usage:
+
+        >>> from datafusion import SessionConfig, SessionContext
+        >>> ctx = SessionContext(SessionConfig())
+        >>> config = SessionConfig(
+        ...     config_options={"datafusion.execution.batch_size": "1024"}
+        ... )
+        >>> ctx = SessionContext(config.with_information_schema(True))
+        >>> ctx.sql(
+        ...     "select value from information_schema.df_settings"
+        ...     " where name = 'datafusion.execution.batch_size'"
+        ... ).collect()[0]["value"][0]
+        <pyarrow.StringScalar: '1024'>
         """
         self.config_internal = SessionConfigInternal(config_options)
 
@@ -323,14 +365,37 @@ class SessionConfig:
         return self
 
     def set(self, key: str, value: str) -> SessionConfig:
-        """Set a configuration option.
+        """Set a configuration option by its fully qualified key.
+
+        Not every key that ``information_schema.df_settings`` lists can be set
+        here: the ``datafusion.runtime.*`` entries come from the runtime
+        environment rather than from the session config. See
+        :ref:`configuration`.
 
         Args:
-        key: Option key.
-        value: Option value.
+            key: Option key including its namespace, such as
+                ``datafusion.execution.batch_size``.
+            value: Option value as a string, parsed according to the type the
+                option declares.
 
         Returns:
-            A new :py:class:`SessionConfig` object with the updated setting.
+            This :py:class:`SessionConfig`, modified in place, so that calls
+            chain.
+
+        Raises:
+            ValueError: If ``key`` names no known option, or if ``value`` does
+                not parse as that option's declared type.
+
+        Example usage:
+
+        >>> from datafusion import SessionConfig, SessionContext
+        >>> config = SessionConfig().set("datafusion.execution.batch_size", "1024")
+        >>> ctx = SessionContext(config.with_information_schema(True))
+        >>> ctx.sql(
+        ...     "select value from information_schema.df_settings"
+        ...     " where name = 'datafusion.execution.batch_size'"
+        ... ).collect()[0]["value"][0]
+        <pyarrow.StringScalar: '1024'>
         """
         self.config_internal = self.config_internal.set(key, value)
         return self
@@ -531,6 +596,27 @@ class SessionContext:
     """This is the main interface for executing queries and creating DataFrames.
 
     See :ref:`user_guide_concepts` in the online documentation for more information.
+
+    **A context is a handle on a session, not the session itself.** The
+    ``with_*`` methods — :py:meth:`with_logical_extension_codec`,
+    :py:meth:`with_physical_extension_codec`,
+    :py:meth:`with_python_udf_inlining`, and :py:meth:`with_extensions` —
+    return a new context wrapping the *same* underlying session. Only the
+    Python-side codec settings differ; catalogs, tables, registered functions,
+    and configuration are the one shared session, so a registration through
+    either handle is visible to both.
+
+    A few things therefore belong to the session rather than to a handle, and
+    take effect even if the handle that set them is discarded: the query
+    planner (see :py:meth:`set_query_planner`), and the rebuild of an installed
+    foreign planner that follows installing a codec. :ref:`extension_sessions`
+    in the online documentation works through when that matters.
+
+    **Keep a context alive for as long as anything derived from it is in use.**
+    A :py:class:`~datafusion.DataFrame`, logical plan, or exported capsule does
+    not extend the session's lifetime. Once the last context on a session is
+    collected, any operation that reaches an extension codec fails with
+    ``TaskContextProvider went out of scope over FFI boundary``.
     """
 
     def __init__(
@@ -610,6 +696,45 @@ class SessionContext:
             host: URL for the host (e.g. bucket name).
         """
         self.ctx.deregister_object_store(schema, host)
+
+    def _register_object_store_for_path(
+        self, path: str | pathlib.Path, store: Any
+    ) -> None:
+        """Parse a URL path and register the given object store for its scheme and host.
+
+        This is a convenience helper used by methods like
+        :py:meth:`register_parquet` and :py:meth:`read_parquet` to
+        automatically register an object store when an ``object_store``
+        parameter is provided.
+
+        Args:
+            path: A URL-style path (e.g. ``"s3://bucket/key.parquet"`` or
+                ``"file:///tmp/data.parquet"``).
+            store: An object store instance to register.
+
+        Raises:
+            ValueError: If the path does not contain a URL scheme, or if
+                a non-file scheme is missing a host/bucket component.
+        """
+        parsed = urlparse(str(path))
+        if not parsed.scheme:
+            msg = (
+                f"Cannot determine object store URL from path {path!r}. "
+                "The path must use a URL scheme (e.g. 's3://bucket/key')."
+            )
+            raise ValueError(msg)
+        # file:// URLs typically have an empty netloc (e.g. file:///tmp/a.parquet)
+        # For other schemes (s3, gs, az, https) the netloc (bucket/host) is required.
+        if parsed.scheme != "file" and not parsed.netloc:
+            msg = (
+                f"Cannot determine object store URL from path {path!r}. "
+                "The path must include a host or bucket "
+                "(e.g. 's3://bucket/key')."
+            )
+            raise ValueError(msg)
+        scheme = f"{parsed.scheme}://"
+        host = parsed.netloc or None
+        self.register_object_store(scheme, store, host=host)
 
     def register_listing_table(
         self,
@@ -1028,6 +1153,7 @@ class SessionContext:
         skip_metadata: bool = True,
         schema: pa.Schema | None = None,
         file_sort_order: Sequence[Sequence[SortKey]] | None = None,
+        object_store: Any | None = None,
     ) -> None:
         """Register a Parquet file as a table.
 
@@ -1049,7 +1175,41 @@ class SessionContext:
             file_sort_order: Sort order for the file. Each sort key can be
                 specified as a column name (``str``), an expression
                 (``Expr``), or a ``SortExpr``.
+            object_store: A pre-configured object store instance (e.g.
+                :py:class:`~datafusion.object_store.AmazonS3`,
+                :py:class:`~datafusion.object_store.GoogleCloud`,
+                :py:class:`~datafusion.object_store.MicrosoftAzure`) to use
+                for accessing the file. When provided, the store is
+                automatically registered for the URL scheme and host parsed
+                from ``path``, removing the need to call
+                :py:meth:`register_object_store` separately. This is
+                especially useful in multi-threaded environments where
+                setting credentials via ``os.environ`` is not thread-safe.
+
+        Examples:
+            Register a local Parquet file:
+
+            >>> import datafusion
+            >>> ctx = datafusion.SessionContext()
+            >>> ctx.register_parquet("my_table", "data.parquet")  # doctest: +SKIP
+
+            Register from S3 with inline credentials (thread-safe):
+
+            >>> from datafusion.object_store import AmazonS3  # doctest: +SKIP
+            >>> store = AmazonS3(
+            ...     bucket_name="my-bucket",
+            ...     region="us-east-1",
+            ...     access_key_id="...",
+            ...     secret_access_key="...",
+            ... )  # doctest: +SKIP
+            >>> ctx.register_parquet(
+            ...     "my_table",
+            ...     "s3://my-bucket/data.parquet",
+            ...     object_store=store,
+            ... )  # doctest: +SKIP
         """
+        if object_store is not None:
+            self._register_object_store_for_path(path, object_store)
         if table_partition_cols is None:
             table_partition_cols = []
         table_partition_cols = _convert_table_partition_cols(table_partition_cols)
@@ -1075,6 +1235,7 @@ class SessionContext:
         file_extension: str = ".csv",
         file_compression_type: str | None = None,
         options: CsvReadOptions | None = None,
+        object_store: Any | None = None,
     ) -> None:
         """Register a CSV file as a table.
 
@@ -1096,7 +1257,14 @@ class SessionContext:
             file_compression_type: File compression type.
             options: Set advanced options for CSV reading. This cannot be
                 combined with any of the other options in this method.
+            object_store: A pre-configured object store instance to use for
+                accessing the file. When provided, the store is automatically
+                registered for the URL scheme and host parsed from ``path``.
         """
+        if object_store is not None:
+            # For list paths, register from the first entry
+            register_path = path[0] if isinstance(path, list) else path
+            self._register_object_store_for_path(register_path, object_store)
         if options is not None and (
             schema is not None
             or not has_header
@@ -1124,7 +1292,7 @@ class SessionContext:
                 delimiter=delimiter,
                 schema_infer_max_records=schema_infer_max_records,
                 file_extension=file_extension,
-                file_compression_type=file_compression_type,
+                file_compression_type=file_compression_type or "",
             )
         )
 
@@ -1143,6 +1311,7 @@ class SessionContext:
         file_extension: str = ".json",
         table_partition_cols: list[tuple[str, str | pa.DataType]] | None = None,
         file_compression_type: str | None = None,
+        object_store: Any | None = None,
     ) -> None:
         """Register a JSON file as a table.
 
@@ -1159,7 +1328,12 @@ class SessionContext:
                 selected for data input.
             table_partition_cols: Partition columns.
             file_compression_type: File compression type.
+            object_store: A pre-configured object store instance to use for
+                accessing the file. When provided, the store is automatically
+                registered for the URL scheme and host parsed from ``path``.
         """
+        if object_store is not None:
+            self._register_object_store_for_path(path, object_store)
         if table_partition_cols is None:
             table_partition_cols = []
         table_partition_cols = _convert_table_partition_cols(table_partition_cols)
@@ -1180,6 +1354,7 @@ class SessionContext:
         schema: pa.Schema | None = None,
         file_extension: str = ".avro",
         table_partition_cols: list[tuple[str, str | pa.DataType]] | None = None,
+        object_store: Any | None = None,
     ) -> None:
         """Register an Avro file as a table.
 
@@ -1192,7 +1367,12 @@ class SessionContext:
             schema: The data source schema.
             file_extension: File extension to select.
             table_partition_cols:  Partition columns.
+            object_store: A pre-configured object store instance to use for
+                accessing the file. When provided, the store is automatically
+                registered for the URL scheme and host parsed from ``path``.
         """
+        if object_store is not None:
+            self._register_object_store_for_path(path, object_store)
         if table_partition_cols is None:
             table_partition_cols = []
         table_partition_cols = _convert_table_partition_cols(table_partition_cols)
@@ -1205,6 +1385,7 @@ class SessionContext:
         schema: pa.Schema | None = None,
         file_extension: str = ".arrow",
         table_partition_cols: list[tuple[str, str | pa.DataType]] | None = None,
+        object_store: Any | None = None,
     ) -> None:
         """Register an Arrow IPC file as a table.
 
@@ -1217,6 +1398,9 @@ class SessionContext:
             schema: The data source schema.
             file_extension: File extension to select.
             table_partition_cols: Partition columns.
+            object_store: A pre-configured object store instance to use for
+                accessing the file. When provided, the store is automatically
+                registered for the URL scheme and host parsed from ``path``.
 
         Examples:
             >>> import tempfile, os
@@ -1271,6 +1455,8 @@ class SessionContext:
               30
             ]
         """
+        if object_store is not None:
+            self._register_object_store_for_path(path, object_store)
         if table_partition_cols is None:
             table_partition_cols = []
         table_partition_cols = _convert_table_partition_cols(table_partition_cols)
@@ -1646,7 +1832,8 @@ class SessionContext:
 
         Args:
             rule: Object exposing ``__datafusion_physical_optimizer_rule__``,
-                a :class:`PhysicalOptimizerRuleExportable`.
+                a
+                :py:class:`~datafusion.extensions.PhysicalOptimizerRuleExportable`.
 
         Examples:
             >>> from datafusion import SessionContext
@@ -1656,6 +1843,219 @@ class SessionContext:
             >>> ctx.add_physical_optimizer_rule(rule)  # doctest: +SKIP
         """
         self.ctx.add_physical_optimizer_rule(rule)
+
+    def set_query_planner(self, planner: QueryPlannerExportable | _PyCapsule) -> None:
+        """Install a custom query planner on this session.
+
+        The planner is imported through its ``__datafusion_query_planner__``
+        PyCapsule, in the same way
+        :meth:`~SessionContext.add_physical_optimizer_rule` installs a rule.
+
+        Returns nothing, because the planner lives in the session rather than
+        in a handle on it — installing one is visible to every context sharing
+        that session, including ones an earlier ``with_*`` call returned. See
+        :py:class:`SessionContext`.
+
+        A session holds exactly one planner, so calling this again **replaces**
+        the previous one rather than layering. To chain planners, have the new
+        planner wrap the capsule from
+        :meth:`~SessionContext.__datafusion_query_planner__`, captured *before*
+        the new planner is installed.
+
+        Install any extension codecs before a layered planner; the rebuild that
+        follows a later codec install does not reach the fallback inside one.
+        See :ref:`planner_codec_rebinding`, or prefer
+        :py:meth:`with_extensions`, which cannot capture a partial chain.
+
+        Args:
+            planner: Object exposing ``__datafusion_query_planner__`` (see
+                :py:class:`~datafusion.extensions.QueryPlannerExportable`) or a raw
+                ``datafusion_query_planner`` PyCapsule.
+
+        Raises:
+            ValueError: If the capsule is not named ``datafusion_query_planner``.
+
+        Examples:
+            A session exports its own planner, which is what you capture to
+            wrap:
+
+            >>> from datafusion import SessionContext
+            >>> ctx = SessionContext()
+            >>> fallback = ctx.__datafusion_query_planner__()
+            >>> type(fallback).__name__
+            'PyCapsule'
+
+            Skipped here (needs a built extension library):
+
+            >>> from my_extension import DistributedQueryPlanner  # doctest: +SKIP
+            >>> ctx.set_query_planner(
+            ...     DistributedQueryPlanner(fallback=fallback)
+            ... )  # doctest: +SKIP
+            >>> ctx.sql("SELECT * FROM remote_table").collect()  # doctest: +SKIP
+        """
+        self.ctx.set_query_planner(planner)
+
+    def with_extensions(
+        self, *extensions: SessionComponentsExportable | SessionPlannerExportable
+    ) -> SessionContext:
+        """Create a new session context with the given extension bundles.
+
+        This is the preferred way to install extension codecs and query
+        planners, because it removes the ordering question that installing them
+        by hand creates.
+
+        Each argument is called twice, in two phases:
+
+        1. ``__datafusion_session_components__(ctx)`` on every extension, then
+           all the returned codecs are installed at once.
+        2. ``__datafusion_session_planner__(ctx, fallback)`` on every
+           extension, **in argument order**, each handed the planner built so
+           far and the context carrying every bundle's codecs. The last
+           extension listed ends up outermost.
+
+        An extension implements either hook or both. Return ``None`` from the
+        planner hook to contribute no planner; see
+        :py:class:`~datafusion.extensions.SessionPlannerExportable`.
+
+        Nothing is written to the session until every hook has returned and
+        every capsule has been validated, so a hook that raises leaves the
+        session as it was. A hook that *mutates* the context it is handed —
+        registering a table, say — is not rolled back, which is why bundle
+        objects must be configuration-only. See
+        :ref:`extension_bundles_transaction`.
+
+        Shares its session with this context — see :py:class:`SessionContext`.
+
+        See :ref:`extension_bundles` in the online documentation for why the
+        phases are split, how to contribute a bundle's two halves at different
+        positions, and a worked Rust implementation.
+
+        Args:
+            extensions: Extension bundles to install. Order is irrelevant for
+                codecs and significant for planners, which nest in this order
+                with the last one outermost. Passing none installs nothing and
+                returns a handle on this session, so a caller assembling the
+                list at runtime need not special-case it being empty.
+
+        Returns:
+            A new context with all extension components installed.
+
+        Raises:
+            TypeError: If an argument implements neither hook, if a hook
+                returns the wrong type, or if a codec is contributed as a bare
+                ``PyCapsule`` rather than an object exposing the getter.
+            ValueError: If two codecs claim the same id, or a getter returns a
+                capsule of the wrong kind. See
+                :py:meth:`with_logical_extension_codec` for how ids are
+                assigned.
+
+        Examples:
+            The returned handle is a different object sharing one session, and
+            an empty call is legal:
+
+            >>> from datafusion import SessionContext
+            >>> ctx = SessionContext()
+            >>> derived = ctx.with_extensions()
+            >>> derived is ctx
+            False
+            >>> ctx.from_pydict({"a": [1, 2]}, name="t")  # doctest: +ELLIPSIS
+            DataFrame()...
+            >>> derived.table_exist("t")
+            True
+            >>> derived.logical_extension_codec_ids()
+            []
+
+            A runnable multi-bundle example, showing what a bundle returns and
+            how its codec ids accumulate, is in :ref:`extension_bundles`.
+
+            Real usage. Skipped here (needs a built extension library); run
+            verbatim by ``test_with_extensions_docstring_example_still_runs``.
+
+            >>> from my_extension import DistributedEngineExtension  # doctest: +SKIP
+            >>> ctx = SessionContext().with_extensions(
+            ...     DistributedEngineExtension("scheduler:50050")
+            ... )  # doctest: +SKIP
+            >>> batches = ctx.sql("SELECT 1 AS n").collect()  # doctest: +SKIP
+            >>> batches[0].column(0).to_pylist()  # doctest: +SKIP
+            [1]
+        """
+        for extension in extensions:
+            if not isinstance(
+                extension,
+                (
+                    _extensions.SessionComponentsExportable,
+                    _extensions.SessionPlannerExportable,
+                ),
+            ):
+                msg = (
+                    "Extension implements neither "
+                    "__datafusion_session_components__ nor "
+                    f"__datafusion_session_planner__: {extension!r}"
+                )
+                raise TypeError(msg)
+
+        # Phase one: collect every bundle's codecs. Components are bound
+        # against this context, not a context derived from it. There is one
+        # `Arc<SessionContext>` per session, so a component bound here holds a
+        # task-context provider that the returned handle keeps alive.
+        logical_codecs: list[LogicalExtensionCodecExportable] = []
+        physical_codecs: list[PhysicalExtensionCodecExportable] = []
+        for extension in extensions:
+            if not isinstance(extension, _extensions.SessionComponentsExportable):
+                continue
+            components = extension.__datafusion_session_components__(self)
+            if not isinstance(components, _extensions.SessionExtensionComponents):
+                msg = (
+                    "__datafusion_session_components__ must return "
+                    "SessionExtensionComponents, got "
+                    f"{type(components).__name__} from {extension!r}"
+                )
+                raise TypeError(msg)
+            logical_codecs.extend(components.logical_extension_codecs)
+            physical_codecs.extend(components.physical_extension_codecs)
+
+        # Writes nothing: the chains belong to the new handle, so a failure
+        # above or below leaves this context as it was.
+        new = SessionContext.__new__(SessionContext)
+        new.ctx = self.ctx._install_extension_codecs(logical_codecs, physical_codecs)
+
+        # Phase two: nest the planners, outermost last. Each hook runs against
+        # `new`, which carries the final chains, so a planner captured here
+        # never sees a partial codec set. `planner` stays None when no bundle
+        # supplies one, which leaves an already-installed planner in place
+        # rather than wrapping the session's default in an FFI hop.
+        planner: _PyCapsule | None = None
+        for extension in extensions:
+            if not isinstance(extension, _extensions.SessionPlannerExportable):
+                continue
+            fallback = (
+                planner
+                if planner is not None
+                else new.ctx.__datafusion_query_planner__()
+            )
+            supplied = extension.__datafusion_session_planner__(new, fallback)
+            if supplied is None:
+                continue
+            planner = new.ctx._export_query_planner(supplied)
+
+        # The commit step, and the only one that writes to the session. It can
+        # still raise -- `_install_extension_planner` re-imports the capsule
+        # before binding it -- so what keeps the promise is the order, not any
+        # step being incapable of failing: every fallible operation finishes
+        # before the first write. See docs/source/contributor-guide/
+        # ffi-internals.md, "Why `with_extensions` commits last", for what a new
+        # component kind has to do to keep that true.
+        #
+        # Rebinding the session's planner is a side effect on state shared with
+        # every other handle, so do not pay it for a call that installs nothing
+        # -- the same guard `with_python_udf_inlining` carries. With no codec
+        # installed the chains the planner would be rebuilt against are the ones
+        # it already holds, so the rebuild is unobservable except in the one case
+        # where it does harm: a planner sitting on some *other* handle's codecs
+        # gets dragged onto this handle's, silently undoing that install.
+        if planner is not None or logical_codecs or physical_codecs:
+            new.ctx._install_extension_planner(planner)
+        return new
 
     def table_provider(self, name: str) -> Table:
         """Return the :py:class:`~datafusion.catalog.Table` for the given table name.
@@ -1690,6 +2090,7 @@ class SessionContext:
         file_extension: str = ".json",
         table_partition_cols: list[tuple[str, str | pa.DataType]] | None = None,
         file_compression_type: str | None = None,
+        object_store: Any | None = None,
     ) -> DataFrame:
         """Read a line-delimited JSON data source.
 
@@ -1702,10 +2103,15 @@ class SessionContext:
                 selected for data input.
             table_partition_cols: Partition columns.
             file_compression_type: File compression type.
+            object_store: A pre-configured object store instance to use for
+                accessing the file. When provided, the store is automatically
+                registered for the URL scheme and host parsed from ``path``.
 
         Returns:
             DataFrame representation of the read JSON files.
         """
+        if object_store is not None:
+            self._register_object_store_for_path(path, object_store)
         if table_partition_cols is None:
             table_partition_cols = []
         table_partition_cols = _convert_table_partition_cols(table_partition_cols)
@@ -1731,6 +2137,7 @@ class SessionContext:
         table_partition_cols: list[tuple[str, str | pa.DataType]] | None = None,
         file_compression_type: str | None = None,
         options: CsvReadOptions | None = None,
+        object_store: Any | None = None,
     ) -> DataFrame:
         """Read a CSV data source.
 
@@ -1750,10 +2157,16 @@ class SessionContext:
             file_compression_type:  File compression type.
             options: Set advanced options for CSV reading. This cannot be
                 combined with any of the other options in this method.
+            object_store: A pre-configured object store instance to use for
+                accessing the file. When provided, the store is automatically
+                registered for the URL scheme and host parsed from ``path``.
 
         Returns:
             DataFrame representation of the read CSV files
         """
+        if object_store is not None:
+            register_path = path[0] if isinstance(path, list) else path
+            self._register_object_store_for_path(register_path, object_store)
         if options is not None and (
             schema is not None
             or not has_header
@@ -1783,7 +2196,7 @@ class SessionContext:
                 schema_infer_max_records=schema_infer_max_records,
                 file_extension=file_extension,
                 table_partition_cols=table_partition_cols,
-                file_compression_type=file_compression_type,
+                file_compression_type=file_compression_type or "",
             )
         )
 
@@ -1803,6 +2216,7 @@ class SessionContext:
         skip_metadata: bool = True,
         schema: pa.Schema | None = None,
         file_sort_order: Sequence[Sequence[SortKey]] | None = None,
+        object_store: Any | None = None,
     ) -> DataFrame:
         """Read a Parquet source into a :py:class:`~datafusion.dataframe.Dataframe`.
 
@@ -1822,10 +2236,43 @@ class SessionContext:
             file_sort_order: Sort order for the file. Each sort key can be
                 specified as a column name (``str``), an expression
                 (``Expr``), or a ``SortExpr``.
+            object_store: A pre-configured object store instance (e.g.
+                :py:class:`~datafusion.object_store.AmazonS3`,
+                :py:class:`~datafusion.object_store.GoogleCloud`,
+                :py:class:`~datafusion.object_store.MicrosoftAzure`) to use
+                for accessing the file. When provided, the store is
+                automatically registered for the URL scheme and host parsed
+                from ``path``, removing the need to call
+                :py:meth:`register_object_store` separately. This is
+                especially useful in multi-threaded environments where
+                setting credentials via ``os.environ`` is not thread-safe.
 
         Returns:
             DataFrame representation of the read Parquet files
+
+        Examples:
+            Read a local Parquet file:
+
+            >>> import datafusion
+            >>> ctx = datafusion.SessionContext()
+            >>> df = ctx.read_parquet("data.parquet")  # doctest: +SKIP
+
+            Read from S3 with inline credentials (thread-safe):
+
+            >>> from datafusion.object_store import AmazonS3  # doctest: +SKIP
+            >>> store = AmazonS3(
+            ...     bucket_name="my-bucket",
+            ...     region="us-east-1",
+            ...     access_key_id="...",
+            ...     secret_access_key="...",
+            ... )  # doctest: +SKIP
+            >>> df = ctx.read_parquet(
+            ...     "s3://my-bucket/data.parquet",
+            ...     object_store=store,
+            ... )  # doctest: +SKIP
         """
+        if object_store is not None:
+            self._register_object_store_for_path(path, object_store)
         if table_partition_cols is None:
             table_partition_cols = []
         table_partition_cols = _convert_table_partition_cols(table_partition_cols)
@@ -1848,6 +2295,7 @@ class SessionContext:
         schema: pa.Schema | None = None,
         file_partition_cols: list[tuple[str, str | pa.DataType]] | None = None,
         file_extension: str = ".avro",
+        object_store: Any | None = None,
     ) -> DataFrame:
         """Create a :py:class:`DataFrame` for reading Avro data source.
 
@@ -1856,10 +2304,15 @@ class SessionContext:
             schema: The data source schema.
             file_partition_cols: Partition columns.
             file_extension: File extension to select.
+            object_store: A pre-configured object store instance to use for
+                accessing the file. When provided, the store is automatically
+                registered for the URL scheme and host parsed from ``path``.
 
         Returns:
             DataFrame representation of the read Avro file
         """
+        if object_store is not None:
+            self._register_object_store_for_path(path, object_store)
         if file_partition_cols is None:
             file_partition_cols = []
         file_partition_cols = _convert_table_partition_cols(file_partition_cols)
@@ -1873,6 +2326,7 @@ class SessionContext:
         schema: pa.Schema | None = None,
         file_extension: str = ".arrow",
         file_partition_cols: list[tuple[str, str | pa.DataType]] | None = None,
+        object_store: Any | None = None,
     ) -> DataFrame:
         """Create a :py:class:`DataFrame` for reading an Arrow IPC data source.
 
@@ -1881,6 +2335,9 @@ class SessionContext:
             schema: The data source schema.
             file_extension: File extension to select.
             file_partition_cols: Partition columns.
+            object_store: A pre-configured object store instance to use for
+                accessing the file. When provided, the store is automatically
+                registered for the URL scheme and host parsed from ``path``.
 
         Returns:
             DataFrame representation of the read Arrow IPC file.
@@ -1932,6 +2389,8 @@ class SessionContext:
               3
             ]
         """
+        if object_store is not None:
+            self._register_object_store_for_path(path, object_store)
         if file_partition_cols is None:
             file_partition_cols = []
         file_partition_cols = _convert_table_partition_cols(file_partition_cols)
@@ -1953,9 +2412,41 @@ class SessionContext:
         """Creates a :py:class:`~datafusion.dataframe.DataFrame` from a table."""
         return DataFrame(self.ctx.read_table(table))
 
-    def execute(self, plan: ExecutionPlan, partitions: int) -> RecordBatchStream:
-        """Execute the ``plan`` and return the results."""
-        return RecordBatchStream(self.ctx.execute(plan._raw_plan, partitions))
+    def execute(self, plan: ExecutionPlan, partition: int) -> RecordBatchStream:
+        """Execute a single partition of ``plan`` and stream its batches.
+
+        Args:
+            plan: The physical plan to execute.
+            partition: Index of the partition to execute, in
+                ``range(plan.partition_count)``.
+
+        Returns:
+            A stream over the record batches that partition produces.
+
+        Raises:
+            ValueError: If ``partition`` is not a valid index for ``plan``.
+            OverflowError: If ``partition`` is negative, or too large to fit a
+                platform-sized unsigned integer.
+
+        Example usage:
+
+        >>> import pyarrow as pa
+        >>> from datafusion import SessionContext
+        >>> ctx = SessionContext()
+        >>> ctx.register_record_batches(
+        ...     "t", [[pa.record_batch({"a": [1, 2]})], [pa.record_batch({"a": [3]})]]
+        ... )
+        >>> plan = ctx.sql("select a from t").execution_plan()
+        >>> plan.partition_count
+        2
+        >>> sum(
+        ...     batch.to_pyarrow().num_rows
+        ...     for p in range(plan.partition_count)
+        ...     for batch in ctx.execute(plan, p)
+        ... )
+        3
+        """
+        return RecordBatchStream(self.ctx.execute(plan._raw_plan, partition))
 
     @staticmethod
     def _convert_file_sort_order(
@@ -2017,48 +2508,268 @@ class SessionContext:
         """Access the PyCapsule FFI_TaskContextProvider."""
         return self.ctx.__datafusion_task_context_provider__()
 
-    def __datafusion_logical_extension_codec__(self) -> Any:
-        """Access the PyCapsule FFI_LogicalExtensionCodec."""
-        return self.ctx.__datafusion_logical_extension_codec__()
+    @property
+    def __datafusion_codec_id__(self) -> str:
+        """Identity this context carries when installed as an extension codec.
+
+        A context can be installed on another session as an extension codec,
+        which tags the payloads it writes with this string. It is unique per
+        session, so two contexts can be installed on one session and a plan
+        written through one will not be decoded by the other.
+
+        Contexts derived from the same session report the same id, so only one
+        of them can be installed on a given session. That is the intended
+        answer: they are one session — see :py:class:`SessionContext` — so
+        their payloads would be indistinguishable on decode.
+
+        Examples:
+            >>> from datafusion import SessionContext
+            >>> ctx = SessionContext()
+            >>> ctx.__datafusion_codec_id__.startswith("session:")
+            True
+            >>> ctx.__datafusion_codec_id__ == SessionContext().__datafusion_codec_id__
+            False
+        """
+        return self.ctx.__datafusion_codec_id__
+
+    def __datafusion_logical_extension_codec__(self, session: Any = None) -> Any:
+        """Access the PyCapsule FFI_LogicalExtensionCodec.
+
+        ``session`` is accepted so a context satisfies the same protocol an
+        extension library implements, where the argument is how the library
+        reaches the host's codec. A context already carries one, so the
+        argument is ignored. See
+        :py:class:`~datafusion.user_defined.LogicalExtensionCodecExportable`
+        for what an extension library does with it.
+
+        Args:
+            session: Accepted and ignored.
+
+        Returns:
+            A ``datafusion_logical_extension_codec`` PyCapsule.
+
+        Examples:
+            >>> from datafusion import SessionContext
+            >>> type(SessionContext().__datafusion_logical_extension_codec__()).__name__
+            'PyCapsule'
+        """
+        return self.ctx.__datafusion_logical_extension_codec__(session)
+
+    def __datafusion_query_planner__(self, session: Any = None) -> Any:
+        """Access the ``FFI_QueryPlanner`` PyCapsule for the current planner.
+
+        This is how you capture the planner a session already has in order to
+        wrap it. Capture it *before* installing the new one, since
+        :py:meth:`set_query_planner` replaces rather than layers.
+
+        Args:
+            session: Accepted and ignored. See
+                :meth:`__datafusion_logical_extension_codec__`.
+
+        Returns:
+            A ``datafusion_query_planner`` PyCapsule wrapping the session's
+            current planner, exported for a foreign planner to delegate to.
+
+        Examples:
+            >>> from datafusion import SessionContext
+            >>> ctx = SessionContext()
+            >>> fallback = ctx.__datafusion_query_planner__()
+            >>> type(fallback).__name__
+            'PyCapsule'
+
+            Both spellings work, since the argument is ignored:
+
+            >>> type(ctx.__datafusion_query_planner__(ctx)).__name__
+            'PyCapsule'
+        """
+        return self.ctx.__datafusion_query_planner__(session)
 
     def with_logical_extension_codec(
-        self, codec: LogicalExtensionCodecExportable | _PyCapsule
+        self,
+        codec: LogicalExtensionCodecExportable | _PyCapsule,
+        codec_id: str | None = None,
     ) -> SessionContext:
-        """Create a new session context with specified codec.
+        """Create a new session context with an additional logical codec.
 
         Only FFI codecs are supported. Pass any object implementing
         ``__datafusion_logical_extension_codec__`` (see
         :py:class:`~datafusion.user_defined.LogicalExtensionCodecExportable`).
+
+        Codecs compose: each call appends the codec rather than replacing
+        codecs installed earlier, so one session can carry codecs from several
+        independent libraries and the order they are installed in does not
+        affect decoding.
+
+        A serialized plan records which codec wrote each payload, as a short id
+        taken from the codec's class.
+
+        Shares its session with this context — see :py:class:`SessionContext`.
+
+        See :ref:`extension_codec_ids` in the online documentation for how ids
+        are assigned and what an extension codec has to implement, and
+        :py:meth:`with_extensions` for installing a library's codecs and planner
+        together.
+
+        Args:
+            codec: Object implementing ``__datafusion_logical_extension_codec__``
+                (see
+                :py:class:`~datafusion.user_defined.LogicalExtensionCodecExportable`),
+                or a raw ``datafusion_logical_extension_codec`` PyCapsule.
+            codec_id: Overrides the id the codec's payloads are tagged with.
+                Normally unnecessary. Pass it when installing two instances of
+                one class, which otherwise claim the same id, and when
+                installing a bare ``PyCapsule``: a capsule has no class to take
+                an id from, so it is given a random ``anon:`` id that differs on
+                every install, and plans it encodes can never be decoded
+                elsewhere.
+
+        Returns:
+            A new context carrying this codec in addition to any already
+            installed.
+
+        Raises:
+            ValueError: If the resolved id is already installed on this session.
+
+        Examples:
+            A context exports its own codec, which stands in here for a real
+            library's:
+
+            >>> from datafusion import SessionContext
+            >>> host = SessionContext()
+            >>> capsule = host.__datafusion_logical_extension_codec__()
+            >>> ctx = SessionContext().with_logical_extension_codec(
+            ...     capsule, codec_id="my_library.Codec"
+            ... )
+            >>> ctx.logical_extension_codec_ids()
+            ['my_library.Codec']
+
+            Without ``codec_id`` a bare capsule gets an anonymous id, which is
+            fine only if its plans never leave this session:
+
+            >>> ctx = SessionContext().with_logical_extension_codec(capsule)
+            >>> ctx.logical_extension_codec_ids()[0].startswith("anon:")
+            True
         """
-        new_internal = self.ctx.with_logical_extension_codec(codec)
+        new_internal = self.ctx.with_logical_extension_codec(codec, codec_id)
         new = SessionContext.__new__(SessionContext)
         new.ctx = new_internal
         return new
 
-    def __datafusion_physical_extension_codec__(self) -> Any:
-        """Access the PyCapsule FFI_PhysicalExtensionCodec."""
-        return self.ctx.__datafusion_physical_extension_codec__()
+    def logical_extension_codec_ids(self) -> list[str]:
+        """List the logical extension codecs installed on this session.
+
+        Returns the identity of each installed codec, in install order. Those
+        identities are what encoding stamps onto a payload and what decoding
+        dispatches on, so this is how to check which library owns a plan and
+        whether a session is able to decode one.
+
+        DataFusion's own default codec is not listed. It handles whatever no
+        installed codec claims, and it carries no identity to list.
+
+        Returns:
+            The installed codec ids, in install order. Empty if none are
+            installed.
+
+        Examples:
+            >>> from datafusion import SessionContext
+            >>> host = SessionContext()
+            >>> host.logical_extension_codec_ids()
+            []
+            >>> capsule = host.__datafusion_logical_extension_codec__()
+            >>> ctx = SessionContext().with_logical_extension_codec(
+            ...     capsule, codec_id="my_library.Codec"
+            ... )
+            >>> ctx.logical_extension_codec_ids()
+            ['my_library.Codec']
+        """
+        return self.ctx.logical_extension_codec_ids()
+
+    def __datafusion_physical_extension_codec__(self, session: Any = None) -> Any:
+        """Access the PyCapsule FFI_PhysicalExtensionCodec.
+
+        See :meth:`__datafusion_logical_extension_codec__` for ``session``.
+
+        Args:
+            session: Accepted and ignored.
+
+        Returns:
+            A ``datafusion_physical_extension_codec`` PyCapsule.
+
+        Examples:
+            >>> from datafusion import SessionContext
+            >>> ctx = SessionContext()
+            >>> type(ctx.__datafusion_physical_extension_codec__()).__name__
+            'PyCapsule'
+        """
+        return self.ctx.__datafusion_physical_extension_codec__(session)
+
+    def physical_extension_codec_ids(self) -> list[str]:
+        """List the physical extension codecs installed on this session.
+
+        See :py:meth:`logical_extension_codec_ids`.
+
+        Returns:
+            The installed codec ids, in install order. Empty if none are
+            installed.
+
+        Examples:
+            >>> from datafusion import SessionContext
+            >>> host = SessionContext()
+            >>> host.physical_extension_codec_ids()
+            []
+            >>> capsule = host.__datafusion_physical_extension_codec__()
+            >>> ctx = SessionContext().with_physical_extension_codec(
+            ...     capsule, codec_id="my_library.PhysicalCodec"
+            ... )
+            >>> ctx.physical_extension_codec_ids()
+            ['my_library.PhysicalCodec']
+        """
+        return self.ctx.physical_extension_codec_ids()
 
     def with_physical_extension_codec(
-        self, codec: PhysicalExtensionCodecExportable | _PyCapsule
+        self,
+        codec: PhysicalExtensionCodecExportable | _PyCapsule,
+        codec_id: str | None = None,
     ) -> SessionContext:
-        """Create a new session context with the specified physical codec.
+        """Create a new session context with an additional physical codec.
 
         Only FFI codecs are supported. Pass any object implementing
         ``__datafusion_physical_extension_codec__`` (see
         :py:class:`~datafusion.user_defined.PhysicalExtensionCodecExportable`).
+
+        Composes and assigns an id exactly as
+        :py:meth:`with_logical_extension_codec` does, including when to pass
+        ``codec_id`` and what the returned context shares. See that method.
+
+        Args:
+            codec: As :py:meth:`with_logical_extension_codec`, for the physical
+                getter.
+            codec_id: As :py:meth:`with_logical_extension_codec`.
+
+        Returns:
+            A new context carrying this codec in addition to any already
+            installed.
+
+        Raises:
+            ValueError: If the resolved id is already installed on this session.
+
+        Examples:
+            >>> from datafusion import SessionContext
+            >>> host = SessionContext()
+            >>> capsule = host.__datafusion_physical_extension_codec__()
+            >>> ctx = SessionContext().with_physical_extension_codec(
+            ...     capsule, codec_id="my_library.PhysicalCodec"
+            ... )
+            >>> ctx.physical_extension_codec_ids()
+            ['my_library.PhysicalCodec']
         """
-        new_internal = self.ctx.with_physical_extension_codec(codec)
+        new_internal = self.ctx.with_physical_extension_codec(codec, codec_id)
         new = SessionContext.__new__(SessionContext)
         new.ctx = new_internal
         return new
 
     def with_python_udf_inlining(self, *, enabled: bool) -> SessionContext:
         """Control whether Python UDFs are embedded in serialized expressions.
-
-        ``enabled`` is keyword-only and required: callers must pick a
-        mode explicitly. Fresh sessions inline UDFs (``enabled=True``
-        behavior) until this method overrides the toggle.
 
         With ``enabled=True``, serialized expressions carry the Python
         code for any scalar, aggregate, or window UDFs they reference.
@@ -2088,8 +2799,18 @@ class SessionContext:
             :func:`pickle.loads` on untrusted bytes remains unsafe
             regardless of the toggle.
 
-        Returns a new :class:`SessionContext` with the toggle applied;
-        the original session is unchanged.
+        Shares its session with this context — see
+        :py:class:`SessionContext`. The original context's own codec
+        settings are unchanged.
+
+        Args:
+            enabled: Whether to embed Python UDFs in serialized
+                expressions. Keyword-only and required, so callers must
+                pick a mode explicitly. Fresh sessions behave as
+                ``enabled=True`` until this method overrides the toggle.
+
+        Returns:
+            A new :class:`SessionContext` with the toggle applied.
 
         Examples:
             >>> import pyarrow as pa

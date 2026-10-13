@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reorder_python_imports
-Version: 3.18.0
+Version: 3.19.0
 Summary: Tool for reordering python imports
 Home-page: https://github.com/asottile/reorder-python-imports
 Author: Anthony Sottile
@@ -62,7 +62,7 @@ Sample `.pre-commit-config.yaml`
 
 ```yaml
 -   repo: https://github.com/asottile/reorder-python-imports
-    rev: v3.18.0
+    rev: v3.19.0
     hooks:
     -   id: reorder-python-imports
 ```

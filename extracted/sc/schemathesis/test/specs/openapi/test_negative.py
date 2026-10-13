@@ -1,3 +1,4 @@
+import math
 import uuid
 from urllib.parse import unquote, urlparse
 
@@ -381,6 +382,7 @@ def test_no_unsatisfiable_schemas(data):
 
 
 @given(data=st.data())
+# The crashing mutation is rare, so the sweep needs many draws.
 @settings(deadline=None, suppress_health_check=SUPPRESSED_HEALTH_CHECKS, max_examples=100, derandomize=True)
 def test_mutated_body_with_shared_ref_does_not_crash(data):
     schema = {
@@ -429,6 +431,7 @@ def test_mutated_body_with_shared_ref_does_not_crash(data):
 
 
 @given(data=st.data())
+# The crashing mutation is rare, so the sweep needs many draws.
 @settings(deadline=None, suppress_health_check=SUPPRESSED_HEALTH_CHECKS, max_examples=100, derandomize=True)
 def test_mutated_body_with_bundled_ref_and_inline_enum_does_not_crash(data):
     keywords = {
@@ -691,6 +694,7 @@ def test_allow_empty_value_is_not_generated_as_negative(ctx, parameter_schema):
         find(
             schema["/items"]["GET"].as_strategy(generation_mode=GenerationMode.NEGATIVE),
             lambda case: case.query == {"filter": ""},
+            # The excluded value is rare, so a small budget would pass without looking.
             settings=settings(max_examples=100, deadline=None),
         )
 
@@ -837,6 +841,53 @@ def test_negative_body_property_is_invalid_against_one_of_siblings(ctx):
         ):
             return
         assert not validator.is_valid(case.body["value"]), f"Valid: {case.body['value']!r}, mutations: {mutations!r}"
+
+    test()
+
+
+@pytest.mark.parametrize("negated", [False, True])
+@pytest.mark.parametrize(
+    "body_schema",
+    [
+        {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"value": {"type": "integer", "minimum": 1}},
+                "required": ["value"],
+            },
+        },
+        {
+            "type": "object",
+            "properties": {"value": {"type": "array", "items": {"type": "integer"}, "minItems": 1}},
+            "required": ["value"],
+        },
+    ],
+)
+@pytest.mark.hypothesis_nested
+def test_boolean_not_in_negative_body_schema(ctx, body_schema, negated):
+    body_schema["not"] = negated
+    operation = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": body_schema}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+    )["/items"]["POST"]
+    validator = make_validator(body_schema, operation.schema.adapter.jsonschema_validator_cls)
+
+    @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    @settings(max_examples=10, derandomize=True, database=None, deadline=None, suppress_health_check=list(HealthCheck))
+    def test(case):
+        if not isinstance(case.body, bytes):
+            assert not validator.is_valid(case.body)
 
     test()
 
@@ -1310,6 +1361,7 @@ def test_path_parameters_never_contain_slash(ctx):
     operation = schema["/api/groups/{id}"]["GET"]
 
     @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    # The violating draw is rare, so fewer examples would let a regression pass.
     @settings(deadline=None, max_examples=250, suppress_health_check=SUPPRESSED_HEALTH_CHECKS)
     def test(case):
         for value in case.path_parameters.values():
@@ -1337,6 +1389,7 @@ def test_path_boolean_param_is_not_coerced_to_int_alongside_integer_param(ctx):
     operation = schema["/items/{id}/{flag}"]["GET"]
 
     @given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
+    # The violating draw is rare, so fewer examples would let a regression pass.
     @settings(deadline=None, max_examples=100, suppress_health_check=SUPPRESSED_HEALTH_CHECKS)
     def test(case):
         flag = case.path_parameters["flag"]
@@ -1371,6 +1424,52 @@ def test_negative_boolean_query_not_mutated_to_object(ctx):
         assert not isinstance(value, dict), f"boolean query mutated to coercible object: {value!r}"
 
     test()
+
+
+def _is_fractional(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return False
+    try:
+        number = float(value)
+    except ValueError:
+        return False
+    return math.isfinite(number) and not number.is_integer()
+
+
+@pytest.mark.parametrize("location", ["body", "query"])
+def test_negative_integer_produces_fractional_numbers(ctx, location):
+    if location == "body":
+        operation_schema = {
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"type": "object", "properties": {"n": {"type": "integer"}}, "required": ["n"]}
+                    }
+                },
+            }
+        }
+    else:
+        operation_schema = {
+            "parameters": [{"name": "n", "in": "query", "required": True, "schema": {"type": "integer"}}]
+        }
+    schema = ctx.openapi.load_schema(
+        {"/items": {"post": {**operation_schema, "responses": {"200": {"description": "OK"}}}}}
+    )
+    operation = schema["/items"]["POST"]
+    values = []
+
+    # High count: a fraction needs a type change to `number` among many other mutation kinds.
+    @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    @seed(1)
+    @settings(deadline=None, max_examples=300, database=None, suppress_health_check=SUPPRESSED_HEALTH_CHECKS)
+    def test(case):
+        container = case.body if location == "body" else case.query
+        if isinstance(container, dict) and "n" in container:
+            values.append(container["n"])
+
+    test()
+    assert any(_is_fractional(value) for value in values)
 
 
 @pytest.mark.hypothesis_nested
@@ -1408,6 +1507,7 @@ def test_negative_path_parameters_reject_encoded_slash_for_explicit_slash_exampl
 
     @seed(8)
     @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    # The violating draw is rare, so fewer examples would let a regression pass.
     @settings(deadline=None, max_examples=80, suppress_health_check=SUPPRESSED_HEALTH_CHECKS)
     def test(case):
         for value in case.path_parameters.values():
@@ -1508,11 +1608,10 @@ def test_negative_data_rejection_enum_path_params_no_false_positive(ctx, cli, ap
     def items(kind, id):
         if kind not in VALID_KINDS:
             return jsonify({"error": "invalid kind"}), 400
-        try:
-            id_int = int(id)
-        except ValueError:
+        # Python's `int` also accepts surrounding whitespace, signs, underscores, and non-ASCII digits.
+        if not (id.isascii() and id.isdigit()):
             return jsonify({"error": "id must be an integer"}), 400
-        if not (0 <= id_int <= 2**63 - 1):
+        if int(id) > 2**63 - 1:
             return jsonify({"error": "id out of range"}), 400
         return jsonify({"ok": True}), 200
 
@@ -1521,6 +1620,7 @@ def test_negative_data_rejection_enum_path_params_no_false_positive(ctx, cli, ap
         "--checks=negative_data_rejection",
         "--mode=negative",
         "--phases=fuzzing",
+        # The mutation behind the false positive is rare, so the run needs many cases to reach it.
         "--max-examples=200",
         exit_code=ExitCode.OK,
     )
@@ -1571,6 +1671,7 @@ def test_negative_data_rejection_enum_path_params_non_validating_server(ctx, cli
             "--checks=negative_data_rejection",
             "--mode=negative",
             "--phases=fuzzing",
+            # The mutation behind the false positive is rare, so the run needs many cases to reach it.
             "--max-examples=200",
             "--seed=42",
         )
@@ -1966,6 +2067,7 @@ def test_omitting_required_header_next_to_explicit_one_is_negative(ctx):
     find(
         strategy,
         lambda case: "X-Token" not in case.headers and isinstance(case.body, dict) and "kind" in case.body,
+        # Ceiling for a search that stops at the first match.
         settings=settings(max_examples=100, database=None, suppress_health_check=list(HealthCheck)),
     )
 
@@ -2091,6 +2193,7 @@ def test_negative_body_stays_invalid_when_a_sibling_carries_a_format(ctx):
     validator = make_validator(body.unoptimized_schema, schema.adapter.jsonschema_validator_cls)
 
     @given(body.get_strategy(operation, GenerationConfig(), GenerationMode.NEGATIVE))
+    # The violating draw is rare, so fewer examples would let a regression pass.
     @settings(max_examples=300, deadline=None, database=None, suppress_health_check=list(HealthCheck))
     def test(value):
         if isinstance(value, GeneratedValue):
@@ -2337,6 +2440,7 @@ def test_negative_declines_unbuildable_negated_body(ctx):
 
     @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
     @seed(1)
+    # The violating draw is rare, so fewer examples would let a regression pass.
     @settings(max_examples=200, deadline=None, suppress_health_check=list(HealthCheck), phases=[Phase.generate])
     def test(case):
         pass

@@ -42,12 +42,13 @@ import numpy as np
 from doppler.wfm import Composer, Segment, Writer, qpsk, tone
 
 FS = 1e6  # scene sample rate, Hz
+CW_HZ = 2e5  # the CW tone's frequency, Hz
 
 # 1. Mix a scene: a QPSK SoI under a CW interferer, over one noise
 #    floor. fs on the sum resolves every absolute freq below — without
 #    it the default fs=1.0 silently aliases the "+200 kHz" tone to DC.
 soi = qpsk(snr=15, snr_mode="esno", sps=8, level=-10.0, seed=1)
-inter = tone(freq=2e5, level=-3.0)  # −3 dBFS CW at +200 kHz
+inter = tone(freq=CW_HZ, level=-3.0)  # −3 dBFS CW at +200 kHz
 scene = Segment.sum(soi, inter, num_samples=1 << 16, fs=FS)
 
 # 2. Sequence it after a preamble (time, not frequency).
@@ -62,7 +63,7 @@ x = Composer(timeline).compose()  # → complex64
 # The narrative block above must stay self-contained (the gallery page
 # includes it verbatim), so this import follows it. noqa: E402 — import
 # not at top of file, by design.
-from doppler.spectral import PSD  # noqa: E402
+from doppler.spectral import PSD, Spectrogram  # noqa: E402
 
 N = 1 << 16  # == the scene's num_samples above
 
@@ -79,15 +80,14 @@ def psd_db(x, nfft=1024):
     return p - p.max()
 
 
-# A short-time spectrogram has no single-shot PSD analogue, so this STFT helper
-# stays explicit (per-frame FFT magnitude, not an averaged power estimate).
+# One dB row per hop, through the library's spectrogram: every whole frame,
+# the last one included.
 def spectrogram_db(x, nfft=256, hop=64):
-    win = np.hanning(nfft)
-    cols = [
-        np.fft.fftshift(np.abs(np.fft.fft(x[i : i + nfft] * win)))
-        for i in range(0, len(x) - nfft, hop)
-    ]
-    s = 20 * np.log10(np.array(cols).T + 1e-9)
+    s = (
+        Spectrogram(nfft=nfft, hop=hop, window="hann", mode="db")
+        .push(np.asarray(x, dtype=np.complex64))
+        .T
+    )
     return s - s.max()
 
 
@@ -172,6 +172,11 @@ ax[0, 0].grid(alpha=0.3)
 
 # B: timeline spectrogram
 s = spectrogram_db(x)
+assert s.shape == (256, (len(x) - 256) // 64 + 1), s.shape
+# The CW is the strongest line in the last frame, which lies inside the scene,
+# so the column's argmax is its bin: DC plus the tone's offset in bins.
+cw_bin = 256 // 2 + round(CW_HZ / FS * 256)
+assert int(np.argmax(s[:, -1])) == cw_bin, (np.argmax(s[:, -1]), cw_bin)
 ax[0, 1].imshow(
     s,
     aspect="auto",

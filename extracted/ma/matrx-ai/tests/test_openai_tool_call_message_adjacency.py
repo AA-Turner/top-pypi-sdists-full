@@ -129,8 +129,7 @@ def test_tool_calls_are_emitted_after_the_text_message() -> None:
     )
 
     assert _content_types(messages) == [
-        ("output", ["ThinkingContent"]),
-        ("assistant", ["TextContent"]),
+        ("assistant", ["ThinkingContent", "TextContent"]),
         ("assistant", ["ToolCallContent"]),
     ]
 
@@ -160,8 +159,7 @@ def test_parallel_tool_calls_share_one_trailing_message() -> None:
     )
 
     assert _content_types(messages) == [
-        ("output", ["ThinkingContent"]),
-        ("assistant", ["TextContent"]),
+        ("assistant", ["ThinkingContent", "TextContent"]),
         ("assistant", ["ToolCallContent", "ToolCallContent"]),
     ]
 
@@ -176,8 +174,7 @@ def test_reasoning_then_text_ordering_is_preserved() -> None:
     reasoning item that is not followed by its associated output item."""
     messages = OpenAITranslator()._build_unified_messages([_reasoning(), _text_message()])
     assert _content_types(messages) == [
-        ("output", ["ThinkingContent"]),
-        ("assistant", ["TextContent"]),
+        ("assistant", ["ThinkingContent", "TextContent"]),
     ]
 
 

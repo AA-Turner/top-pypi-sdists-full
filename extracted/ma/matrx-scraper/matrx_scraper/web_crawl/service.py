@@ -102,6 +102,7 @@ from matrx_scraper.web_crawl.persistence import (
     build_user_claims,
     is_start_claim_conflict,
     read_run_lease,
+    run_deployment,
     run_lease_is_live,
 )
 from matrx_scraper.utils.url import validate_public_http_url
@@ -690,8 +691,13 @@ class WebCrawlService:
         Non-resumable candidates (cancelled, finished, attempt-capped, short
         runs) are skipped quietly; real failures are loud and move on.
         """
+        # Only the deployment that last held a session's run lease continues it;
+        # an unnamed process resumes nothing (persistence.set_run_deployment).
+        deployment = run_deployment()
+        if deployment is None:
+            return 0
         candidates = await WebCrawlRepository.list_crash_resumable_sessions(
-            lookback=lookback, limit=max(limit * 3, limit)
+            lookback=lookback, limit=max(limit * 3, limit), deployment=deployment
         )
         resumed = 0
         for session in candidates:
@@ -856,13 +862,18 @@ class WebCrawlService:
         """Standalone streaming sitemap sync — same operation as the
         initialize-site sitemaps step, exposed as its own command."""
 
+        # Every progress event lands in web.crawl_event BEFORE it streams, so a
+        # client whose socket dropped follows the same rows (rows a viewer
+        # renders from outlive the viewer). Same sequencing as a crawl's sink.
+        sink = DurableCrawlEventSink(prepared.repository, prepared.state, None, emitter)
+
         async def emit(
             status: str,
             message: str,
             summary: SitemapSyncSummary,
             errors: list[str] | None = None,
         ) -> None:
-            await emitter.send_data(
+            await sink.emit_command(
                 SitemapSyncProgressEvent(
                     site_id=prepared.site_id,
                     session_id=prepared.session_id,
@@ -970,8 +981,13 @@ class WebCrawlService:
         """Streaming GSC sync — Search Analytics daily page stats + canonical
         page upserts + the property's submitted-sitemaps listing."""
 
+        # Every progress event lands in web.crawl_event BEFORE it streams, so a
+        # client whose socket dropped follows the same rows (rows a viewer
+        # renders from outlive the viewer). Same sequencing as a crawl's sink.
+        sink = DurableCrawlEventSink(prepared.repository, prepared.state, None, emitter)
+
         async def emit(status: str, message: str, summary: GscSyncSummary) -> None:
-            await emitter.send_data(
+            await sink.emit_command(
                 GscSyncProgressEvent(
                     site_id=prepared.site_id,
                     session_id=prepared.session_id,
@@ -1060,12 +1076,16 @@ class WebCrawlService:
         emitter: Emitter,
         prepared: PreparedUrlReconciliation,
     ) -> None:
+        # Every progress event lands in web.crawl_event BEFORE it streams, so a
+        # client whose socket dropped follows the same rows (rows a viewer
+        # renders from outlive the viewer). Same sequencing as a crawl's sink.
+        sink = DurableCrawlEventSink(prepared.repository, prepared.state, None, emitter)
         async def emit(
             status: str,
             message: str,
             summary: UrlReconciliationSummary,
         ) -> None:
-            await emitter.send_data(
+            await sink.emit_command(
                 UrlReconciliationProgressEvent(
                     site_id=prepared.site_id,
                     session_id=prepared.session_id,
@@ -1154,8 +1174,13 @@ class WebCrawlService:
     async def run_link_resolution(self, emitter: Emitter, prepared: PreparedLinkResolution) -> None:
         """Streaming link-target backfill over the site's internal edges."""
 
+        # Every progress event lands in web.crawl_event BEFORE it streams, so a
+        # client whose socket dropped follows the same rows (rows a viewer
+        # renders from outlive the viewer). Same sequencing as a crawl's sink.
+        sink = DurableCrawlEventSink(prepared.repository, prepared.state, None, emitter)
+
         async def emit(status: str, message: str, summary: LinkResolutionSummary) -> None:
-            await emitter.send_data(
+            await sink.emit_command(
                 LinkResolutionProgressEvent(
                     site_id=prepared.site_id,
                     session_id=prepared.session_id,
@@ -1233,8 +1258,13 @@ class WebCrawlService:
     async def run_link_check(self, emitter: Emitter, prepared: PreparedLinkCheck) -> None:
         """Streaming link-status verification over the site's edges."""
 
+        # Every progress event lands in web.crawl_event BEFORE it streams, so a
+        # client whose socket dropped follows the same rows (rows a viewer
+        # renders from outlive the viewer). Same sequencing as a crawl's sink.
+        sink = DurableCrawlEventSink(prepared.repository, prepared.state, None, emitter)
+
         async def emit(status: str, message: str, summary: LinkCheckSummary) -> None:
-            await emitter.send_data(
+            await sink.emit_command(
                 LinkCheckProgressEvent(
                     site_id=prepared.site_id,
                     session_id=prepared.session_id,
@@ -1316,8 +1346,13 @@ class WebCrawlService:
     async def run_link_score(self, emitter: Emitter, prepared: PreparedLinkScore) -> None:
         """Streaming internal-link PageRank recompute for one site."""
 
+        # Every progress event lands in web.crawl_event BEFORE it streams, so a
+        # client whose socket dropped follows the same rows (rows a viewer
+        # renders from outlive the viewer). Same sequencing as a crawl's sink.
+        sink = DurableCrawlEventSink(prepared.repository, prepared.state, None, emitter)
+
         async def emit(status: str, message: str, summary: LinkScoreSummary) -> None:
-            await emitter.send_data(
+            await sink.emit_command(
                 LinkScoreProgressEvent(
                     site_id=prepared.site_id,
                     session_id=prepared.session_id,
@@ -1410,8 +1445,13 @@ class WebCrawlService:
         A run that dies silently is the bug this replaced.
         """
 
+        # Every progress event lands in web.crawl_event BEFORE it streams, so a
+        # client whose socket dropped follows the same rows (rows a viewer
+        # renders from outlive the viewer). Same sequencing as a crawl's sink.
+        sink = DurableCrawlEventSink(prepared.repository, prepared.state, None, emitter)
+
         async def emit(status: str, message: str, summary: AnalysisSummary) -> None:
-            await emitter.send_data(
+            await sink.emit_command(
                 AnalysisProgressEvent(
                     site_id=prepared.site_id,
                     session_id=prepared.session_id,
@@ -1918,8 +1958,23 @@ class WebCrawlService:
                     site_id=prepared.site_id,
                 )
             )
-            queue_backend = await self._resolve_durable_queue(prepared)
-            crawler, _ = await self._build_crawler(prepared, sink, queue_backend=queue_backend)
+            # The run lease must keep beating while the durable frontier is
+            # resolved — a resume's carry-over of a large earlier frontier can
+            # take a while, and a silent lease reads as a dead run.
+            early_heartbeat = asyncio.create_task(
+                self._heartbeat_run_lease(
+                    prepared.session_id,
+                    prepared.repository,
+                    lease_token=prepared.state.run_lease_token,
+                )
+            )
+            try:
+                queue_backend = await self._resolve_durable_queue(prepared)
+                crawler, _ = await self._build_crawler(prepared, sink, queue_backend=queue_backend)
+            finally:
+                early_heartbeat.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await early_heartbeat
             cancel_watcher = asyncio.create_task(
                 self._watch_for_cancel(
                     prepared.session_id,
@@ -2057,7 +2112,7 @@ class WebCrawlService:
             error: str | None = None,
         ) -> None:
             async with progress_lock:
-                await emitter.send_data(
+                await sink.emit_command(
                     InitializeStepEvent(
                         site_id=prepared.site_id,
                         session_id=prepared.session_id,
@@ -2086,7 +2141,7 @@ class WebCrawlService:
                 except Exception as exc:
                     self._record_initialization_error(summary, "site_update", exc)
                     logger.exception("failed to checkpoint site initialization after %s", step)
-                await emitter.send_data(
+                await sink.emit_command(
                     InitializeStepEvent(
                         site_id=prepared.site_id,
                         session_id=prepared.session_id,
@@ -2419,7 +2474,7 @@ class WebCrawlService:
             )
 
             await self._emit_initialization_progress(
-                emitter,
+                sink,
                 prepared,
                 summary,
                 step="url_reconciliation",
@@ -2435,7 +2490,7 @@ class WebCrawlService:
                 )
                 summary.url_reconciliation = reconciliation.summary.model_dump(mode="json")
                 await self._emit_initialization_progress(
-                    emitter,
+                    sink,
                     prepared,
                     summary,
                     step="url_reconciliation",
@@ -2448,7 +2503,7 @@ class WebCrawlService:
             except Exception as exc:
                 self._record_initialization_error(summary, "url_reconciliation", exc)
                 await self._emit_initialization_progress(
-                    emitter,
+                    sink,
                     prepared,
                     summary,
                     step="url_reconciliation",
@@ -2463,7 +2518,7 @@ class WebCrawlService:
                     completed=True,
                 )
                 await self._emit_initialization_progress(
-                    emitter,
+                    sink,
                     prepared,
                     summary,
                     step="site_update",
@@ -2473,7 +2528,7 @@ class WebCrawlService:
             except Exception as exc:
                 self._record_initialization_error(summary, "site_update", exc)
                 await self._emit_initialization_progress(
-                    emitter,
+                    sink,
                     prepared,
                     summary,
                     step="site_update",
@@ -2514,7 +2569,7 @@ class WebCrawlService:
 
     @staticmethod
     async def _emit_initialization_progress(
-        emitter: Emitter,
+        sink: DurableCrawlEventSink,
         prepared: PreparedCrawl,
         summary: SiteInitializationSummary,
         *,
@@ -2522,7 +2577,7 @@ class WebCrawlService:
         status: InitializationStepStatus,
         message: str,
     ) -> None:
-        await emitter.send_data(
+        await sink.emit_command(
             SiteInitializationProgressEvent(
                 site_id=prepared.site_id,
                 session_id=prepared.session_id,
@@ -2539,6 +2594,35 @@ class WebCrawlService:
         await repository.assert_site_editor(str(session.site_id), ctx.user_id)
         await repository.request_cancel(session_id, ctx.user_id)
         await self.controls.cancel(session_id)
+
+    @staticmethod
+    async def _heartbeat_run_lease(
+        session_id: str,
+        repository: WebCrawlRepository,
+        *,
+        lease_token: str | None,
+    ) -> None:
+        """Beat the run lease until cancelled — for the stretch before a crawl's
+        cancel watcher (which beats it from then on) exists."""
+        if not lease_token:
+            return
+        while True:
+            try:
+                if not await repository.heartbeat_run_lease(session_id, lease_token):
+                    logger.error(
+                        "crawl session %s lost its run lease (%s) while its frontier "
+                        "was being prepared",
+                        session_id,
+                        lease_token,
+                    )
+                    return
+            except Exception:
+                logger.warning(
+                    "run-lease heartbeat failed for crawl session %s",
+                    session_id,
+                    exc_info=True,
+                )
+            await asyncio.sleep(RUN_LEASE_HEARTBEAT_EVERY.total_seconds())
 
     async def _watch_for_cancel(
         self,

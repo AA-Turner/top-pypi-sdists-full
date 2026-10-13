@@ -58,6 +58,7 @@ def test_max_failures(ctx, cli, snapshot_cli):
         cli.run(
             api.schema_url,
             "--no-shrink",
+            # The bug needs a specific call sequence, which takes many scenarios to reach.
             "--max-examples=80",
             "--max-failures=2",
             "-c not_a_server_error",
@@ -108,6 +109,7 @@ def test_junit(ctx, tmp_path, cli):
         api.schema_url,
         "--phases=stateful",
         "--no-shrink",
+        # The bug needs a specific call sequence, which takes many scenarios to reach.
         "--max-examples=80",
         "--max-failures=1",
         "--seed=1",
@@ -138,6 +140,7 @@ def test_stateful_only(ctx, cli, snapshot_cli):
             "--phases=stateful",
             "--mode=positive",
             "--no-shrink",
+            # The bug needs a specific call sequence, which takes many scenarios to reach.
             "--max-examples=200",
             "-c not_a_server_error",
         )
@@ -187,13 +190,16 @@ def test_proxy_error(ctx, cli, snapshot_cli):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_keyboard_interrupt(ctx, cli, mocker, snapshot_cli):
-    def mocked(*args, **kwargs):
-        raise KeyboardInterrupt
-
+def test_keyboard_interrupt(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.users_crud_with_success()
-    mocker.patch("schemathesis.Case.call", wraps=mocked)
-    assert cli.run(api.schema_url, "--phases=stateful") == snapshot_cli
+    module = ctx.write_pymodule(
+        """
+@schemathesis.hook
+def before_call(context, case, kwargs):
+    raise KeyboardInterrupt
+"""
+    )
+    assert cli.run(api.schema_url, "--phases=stateful", hooks=module) == snapshot_cli
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -284,6 +290,105 @@ def test_missing_body_parameter(ctx, cli, snapshot_cli):
             "-n 30",
             "-c not_a_server_error",
             "--mode=positive",
+            config={"phases": {"stateful": {"inference": {"algorithms": []}}}},
+        )
+        == snapshot_cli
+    )
+
+
+EXTRACTION_FAILURE_LINKS = ["Link5", "Link2", "Link6", "Link1", "Link4", "Link3"]
+
+
+def test_extraction_failures_order_is_stable(ctx, cli):
+    links = {
+        name: {"operationId": "getUser", "parameters": {"userId": "$response.body#/id"}}
+        for name in EXTRACTION_FAILURE_LINKS
+    }
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/users": {
+                "post": {
+                    "operationId": "createUser",
+                    "responses": {"201": {"description": "Created", "links": links}},
+                }
+            },
+            "/users/{userId}": {
+                "get": {
+                    "operationId": "getUser",
+                    "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"404": {"description": "Not found"}},
+                }
+            },
+        }
+    )
+
+    @app.route("/users", methods=["POST"])
+    def create_user():
+        return jsonify({"name": "x"}), 201
+
+    @app.route("/users/<int:user_id>", methods=["GET"])
+    def get_user(user_id):
+        return jsonify({}), 404
+
+    result = cli.run_openapi_app(app, "--phases=stateful", "-n 50", "--workers=1", "--seed=42", "-c not_a_server_error")
+    reported = [
+        line.strip()
+        for line in result.stdout.split("Failed to extract data from response:")[1].splitlines()
+        if line.strip().startswith("POST /users -> ")
+    ]
+    assert reported == [
+        f"POST /users -> [201] {name} -> GET /users/{{userId}}" for name in sorted(EXTRACTION_FAILURE_LINKS)
+    ]
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_link_with_multiple_failing_parameters(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "post": {
+                    "operationId": "createItem",
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {"application/json": {"schema": {"type": "object"}}},
+                            "links": {
+                                "GetItem": {
+                                    "operationId": "getItem",
+                                    "parameters": {"id": "$response.body#/id", "owner": "$response.body#/owner"},
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/items/{id}": {
+                "get": {
+                    "operationId": "getItem",
+                    "parameters": [
+                        {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}},
+                        {"name": "owner", "in": "query", "required": True, "schema": {"type": "string"}},
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+
+    @app.route("/items", methods=["POST"])
+    def create_item():
+        return jsonify({"name": "x"}), 201
+
+    @app.route("/items/<int:item_id>", methods=["GET"])
+    def get_item(item_id):
+        return jsonify({})
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--phases=stateful",
+            "--max-examples=5",
+            "-c not_a_server_error",
             config={"phases": {"stateful": {"inference": {"algorithms": []}}}},
         )
         == snapshot_cli
@@ -447,6 +552,7 @@ def test_non_json_response(ctx, cli, snapshot_cli, content):
         cli.run(
             api.schema_url,
             "--phases=stateful",
+            # The bug needs a specific call sequence, which takes many scenarios to reach.
             "-n 80",
             "-c not_a_server_error",
             "--mode=positive",
@@ -1174,3 +1280,100 @@ def map_query(context, query):
     )
     assert "Unexpected error during testing of this API operation: Rejected by hook" in result.stdout
     assert "Invalid `operationRef` definition" not in result.stdout
+
+
+# An exception leaking out of the stateful thread is printed as a traceback.
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
+def test_negative_only_steps_without_negatable_parameters_still_run(ctx, cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "post": {
+                    "operationId": "createItem",
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "links": {
+                                "GetItem": {"operationId": "getItem", "parameters": {"itemId": "$response.body#/id"}}
+                            },
+                        }
+                    },
+                }
+            },
+            "/items/{itemId}": {
+                "get": {
+                    "operationId": "getItem",
+                    "parameters": [{"name": "itemId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    fetched = []
+
+    @app.route("/items", methods=["POST"])
+    def create_item():
+        return jsonify({"id": 42}), 201
+
+    @app.route("/items/<item_id>", methods=["GET"])
+    def get_item(item_id):
+        fetched.append(item_id)
+        return jsonify({}), 200
+
+    cli.run_openapi_app(
+        app,
+        "--phases=stateful",
+        "--mode=negative",
+        "-c negative_data_rejection",
+        "--max-examples=10",
+        "--seed=1",
+    )
+    assert "42" in fetched
+
+
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
+def test_skip_raised_during_stateful_skips_the_suite(ctx, cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "post": {
+                    "operationId": "createItem",
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "links": {
+                                "GetItem": {"operationId": "getItem", "parameters": {"itemId": "$response.body#/id"}}
+                            },
+                        }
+                    },
+                }
+            },
+            "/items/{itemId}": {
+                "get": {
+                    "operationId": "getItem",
+                    "parameters": [{"name": "itemId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+
+    @app.route("/items", methods=["POST"])
+    def create_item():
+        return jsonify({"id": 42}), 201
+
+    @app.route("/items/<item_id>", methods=["GET"])
+    def get_item(item_id):
+        return jsonify({}), 200
+
+    module = ctx.write_pymodule(
+        """
+from schemathesis.core.control import SkipTest
+
+@schemathesis.hook
+def before_call(context, case, **kwargs):
+    raise SkipTest("Skipped by hook")
+"""
+    )
+    result = cli.run_openapi_app(app, "--phases=stateful", "--max-examples=10", "--seed=1", hooks=module)
+    assert "⏭  Stateful" in result.stdout

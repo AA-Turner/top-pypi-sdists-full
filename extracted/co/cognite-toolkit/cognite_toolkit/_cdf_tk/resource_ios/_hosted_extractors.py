@@ -1,6 +1,8 @@
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any, Literal, final
 
+from typing_extensions import TypeForm
+
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client._resource_base import Identifier
 from cognite_toolkit._cdf_tk.client.identifiers import ExternalId
@@ -62,8 +64,9 @@ class HostedExtractorSourceIO(
     ]
 ):
     folder_name = "hosted_extractors"
-    resource_cls = HostedExtractorSourceResponseUnion  # type: ignore[assignment]
-    resource_write_cls = HostedExtractorSourceRequestUnion  # type: ignore[assignment]
+    # These are Annotated unions, not classes. Call sites load them through the TypeAdapter.
+    resource_cls: TypeForm[HostedExtractorSourceResponseUnion] = HostedExtractorSourceResponseUnion
+    resource_write_cls: TypeForm[HostedExtractorSourceRequestUnion] = HostedExtractorSourceRequestUnion
     kind = "Source"
     yaml_cls = HostedExtractorSourceYAML
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
@@ -85,7 +88,7 @@ class HostedExtractorSourceIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -222,7 +225,7 @@ class HostedExtractorDestinationIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -336,7 +339,7 @@ class HostedExtractorJobIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod
@@ -423,7 +426,7 @@ class HostedExtractorMappingIO(
         return id.dump()
 
     @classmethod
-    def as_str(cls, id: ExternalId) -> str:
+    def as_filename(cls, id: ExternalId) -> str:
         return sanitize_filename(id.external_id)
 
     @classmethod

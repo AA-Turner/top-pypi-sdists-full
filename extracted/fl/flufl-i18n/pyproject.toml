@@ -5,7 +5,7 @@ authors = [
 ]
 description = 'A high level API for internationalizing Python libraries and applications'
 readme = 'README.rst'
-requires-python = '>=3.10'
+requires-python = '>=3.11'
 license = {text = 'Apache-2.0'}
 keywords = [
     'i18n',
@@ -97,7 +97,7 @@ run = [
 ]
 
 [[tool.hatch.envs.test.matrix]]
-python = ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
+python = ['3.11', '3.12', '3.13', '3.14', '3.15']
 
 [tool.hatch.envs.qa]
 # No dependencies: each `hatch check` subcommand runs in its own internal environment with its own
@@ -160,6 +160,9 @@ parallel = true
 [tool.coverage.report]
 fail_under = 100
 show_missing = true
+exclude_also = [
+    'if TYPE_CHECKING:',
+]
 
 [tool.ruff]
 line-length = 100
@@ -223,10 +226,6 @@ quote-style = 'single'
 convention = 'pep257'
 
 [tool.ruff.lint.isort]
-# tomllib joined the standard library in 3.11, so with a 3.10 floor ruff files it under
-# third-party.  Only tools/ imports it, and that script declares its own >=3.11 floor in its
-# PEP 723 metadata, which ruff does not read from here.
-extra-standard-library = ['tomllib']
 case-sensitive = true
 forced-separate = ['docutils', 'sphinx']
 known-first-party = ['flufl.i18n']

@@ -79,6 +79,8 @@
 #include "meshioplusplus/operations/isosurface.hpp"
 #include "meshioplusplus/operations/merge.hpp"
 #include "meshioplusplus/operations/feature_edges.hpp"
+#include "meshioplusplus/operations/fit_primitives.hpp"
+#include "meshioplusplus/operations/segment.hpp"
 #include "meshioplusplus/operations/hausdorff.hpp"
 #include "meshioplusplus/operations/normals.hpp"
 #include "meshioplusplus/operations/optimize_volume.hpp"
@@ -98,6 +100,7 @@
 #include "meshioplusplus/operations/split.hpp"
 #include "meshioplusplus/operations/subdivide.hpp"
 #include "meshioplusplus/operations/surface.hpp"
+#include "meshioplusplus/operations/render.hpp"
 #include "meshioplusplus/operations/undo_green.hpp"
 #include "meshioplusplus/operations/voxelize.hpp"
 #include "meshioplusplus/parallel.hpp"
@@ -237,7 +240,10 @@ Mesh bench_ops_ragged(const Mesh& rVolume) {
     static const int faces[4][3] = {{0, 2, 1}, {0, 1, 3}, {1, 2, 3}, {0, 3, 2}};
     std::vector<std::int64_t> flat, rows{0}, cells{0}, ring, poly_rows{0};
     flat.reserve(nc * 12);
+    rows.reserve(nc * 4 + 1);
+    cells.reserve(nc + 1);
     ring.reserve(nc * 3);
+    poly_rows.reserve(nc + 1);
     for (std::size_t c = 0; c < nc; ++c) {
         const std::int64_t* v = cb.Conn().As<std::int64_t>() + 4 * c;
         for (const auto& f : faces) {
@@ -301,6 +307,26 @@ double bench_ops_median(const std::function<void()>& rFn, int Runs) {
     std::sort(ts.begin(), ts.end());
     return ts[ts.size() / 2];
 }
+
+// A derived input built on first use. At tier XL (10M tetrahedra) every
+// derived mesh held at once is more than a 15 GiB machine has, so a run that
+// selects rows with `--ops` builds only the inputs those rows read. What a row
+// times and hashes is unchanged: the mesh is built before its warmup run.
+class BenchLazyMesh {
+public:
+    explicit BenchLazyMesh(std::function<Mesh()> Make) : mMake(std::move(Make)) {}
+    const Mesh& Get() const {
+        if (!mMesh)
+            mMesh.emplace(mMake());
+        return *mMesh;
+    }
+    operator const Mesh&() const { return Get(); }
+    const Mesh* operator->() const { return &Get(); }
+
+private:
+    std::function<Mesh()> mMake;
+    mutable std::optional<Mesh> mMesh;
+};
 
 }  // namespace
 
@@ -366,25 +392,29 @@ int main(int argc, char** argv) {
         // point (boundary points slide in their face plane only, which keeps
         // the cube's boundary intact for `optimize_volume`).
         const double h = 1.0 / static_cast<double>(n);
-        const Mesh jittered = bench_ops_moved(volume, [&](std::size_t i, double* pP) {
-            for (int d = 0; d < 3; ++d) {
-                if (pP[d] <= 0.0 || pP[d] >= 1.0)
-                    continue;
-                pP[d] += 0.3 * h * std::sin(1.7 * static_cast<double>(3 * i + d) + 0.3);
-            }
+        const BenchLazyMesh jittered([&] {
+            return bench_ops_moved(volume, [&](std::size_t i, double* pP) {
+                for (int d = 0; d < 3; ++d) {
+                    if (pP[d] <= 0.0 || pP[d] >= 1.0)
+                        continue;
+                    pP[d] += 0.3 * h * std::sin(1.7 * static_cast<double>(3 * i + d) + 0.3);
+                }
+            });
         });
-        const Mesh inflated = bench_ops_moved(surface, [](std::size_t, double* pP) {
-            for (int d = 0; d < 3; ++d)
-                pP[d] = 0.5 + 1.25 * (pP[d] - 0.5);
+        const BenchLazyMesh inflated([&] {
+            return bench_ops_moved(surface, [](std::size_t, double* pP) {
+                for (int d = 0; d < 3; ++d)
+                    pP[d] = 0.5 + 1.25 * (pP[d] - 0.5);
+            });
         });
         // Two copies of the cube, unwelded: the welding rows' input.
-        const Mesh doubled = [&] {
+        const BenchLazyMesh doubled([&] {
             mio::MergeOptions o;
             o.source_tag = false;
             return mio::merge({&volume, &volume}, o).mMesh;
-        }();
+        });
         // The volume with a smooth point field, for `hessian`.
-        const Mesh with_field = [&] {
+        const BenchLazyMesh with_field([&] {
             Mesh m = bench_ops_moved(volume, [](std::size_t, double*) {});
             NDArray u = NDArray::Uninit(DType::Float64, {m.NumPoints()});
             const double* p = m.Points().As<double>();
@@ -392,27 +422,27 @@ int main(int argc, char** argv) {
                 u.As<double>()[i] = p[3 * i] * p[3 * i] + p[3 * i + 1] * p[3 * i + 2];
             m.AddPointData("u", std::move(u));
             return m;
-        }();
+        });
         // The cube elevated to quadratic tetrahedra, for `linearize`.
-        const Mesh quadratic = [&] {
+        const BenchLazyMesh quadratic([&] {
             mio::ConvertCellsOptions o;
             o.mMode = mio::ConvertCellsMode::Elevate;
             return mio::convert_cells(volume, o).mMesh;
-        }();
+        });
         // A green-closed refinement of every 7th cell, for `undo_green`.
-        const Mesh green = [&] {
+        const BenchLazyMesh green([&] {
             mio::RefineOptions o;
             for (std::size_t c = 0; c < ncells; c += 7)
                 o.mCells.push_back(static_cast<std::int64_t>(c));
             o.mRecordHierarchy = true;
             o.mRecordLevels = true;
             return mio::refine(volume, o).mMesh;
-        }();
+        });
         // The same meshes with float32 points/data and int32 connectivity.
-        const Mesh volume_narrow = bench_ops_narrowed(volume);
-        const Mesh with_field_narrow = bench_ops_narrowed(with_field);
-        const Mesh jittered_narrow = bench_ops_narrowed(jittered);
-        const Mesh quadratic_narrow = bench_ops_narrowed(quadratic);
+        const BenchLazyMesh volume_narrow([&] { return bench_ops_narrowed(volume); });
+        const BenchLazyMesh with_field_narrow([&] { return bench_ops_narrowed(with_field); });
+        const BenchLazyMesh jittered_narrow([&] { return bench_ops_narrowed(jittered); });
+        const BenchLazyMesh quadratic_narrow([&] { return bench_ops_narrowed(quadratic); });
         using Hashed = std::function<void(MeshDigest*)>;
         const auto row = [&](const char* pOp, const Hashed& rFn) {
             if (!wanted(pOp))
@@ -545,7 +575,7 @@ int main(int argc, char** argv) {
         };
         reorder_row("reorder", mio::ReorderMethod::RCM);
         reorder_row("reorder_hilbert", mio::ReorderMethod::Hilbert);
-        const Mesh ragged = bench_ops_ragged(volume);
+        const BenchLazyMesh ragged([&] { return bench_ops_ragged(volume); });
         row("reorder_ragged", [&](MeshDigest* pD) {
             auto r = mio::reorder(ragged, mio::ReorderMethod::RCM);
             of(pD, r.mMesh);
@@ -592,7 +622,7 @@ int main(int argc, char** argv) {
         // block: the per-cell and per-polyhedron scratch rows of roadmap
         // §3.2.3 (quality, data_average, interpolate's cell_data and the SFC
         // partition's centroids) run on it.
-        const Mesh ragged_field = [&] {
+        const BenchLazyMesh ragged_field([&] {
             Mesh m = bench_ops_ragged(volume);
             NDArray u = NDArray::Uninit(DType::Float64, {m.NumPoints()});
             const double* p = m.Points().As<double>();
@@ -608,7 +638,7 @@ int main(int argc, char** argv) {
             }
             m.AddCellData("c", std::move(blocks));
             return m;
-        }();
+        });
         row("quality", [&](MeshDigest* pD) { of(pD, mio::attach_quality(volume)); });
         row("quality_ragged", [&](MeshDigest* pD) { of(pD, mio::attach_quality(ragged)); });
         row("data_average", [&](MeshDigest* pD) { of(pD, mio::point_data_to_cell_data(with_field)); });
@@ -793,6 +823,82 @@ int main(int argc, char** argv) {
         // Rows for roadmap §5's analysis operations (v16.23.0).
         row("feature_edges",
             [&](MeshDigest* pD) { of(pD, mio::feature_edges(volume).mMesh); });
+        // Rows for roadmap §6.3's skin to CAD: the cube's skin segments into its
+        // six faces (the growth is the serial phase), and each face fits a plane.
+        const BenchLazyMesh segmented([&] { return mio::segment(surface).mMesh; });
+        row("segment", [&](MeshDigest* pD) { of(pD, mio::segment(surface).mMesh); });
+        row("fit_primitives",
+            [&](MeshDigest* pD) { of(pD, mio::fit_primitives(segmented).mMesh); });
+        // Rows for roadmap §7's software rasterizer (v16.33.0): a terminal-sized
+        // frame of the volume (its skin extraction is part of the cost), and a
+        // 4x-supersampled image of the field mesh with smooth shading, a mapped
+        // field and every edge. The digest covers the pixels and the id buffer,
+        // so the determinism check holds the raster to its contract.
+        const auto frame_of = [](MeshDigest* pD, const mio::Frame& rF) {
+            if (!pD)
+                return;
+            pD->Bytes(rF.mRgba.data(), rF.mRgba.size());
+            pD->Bytes(rF.mCellIds.data(), rF.mCellIds.size() * sizeof(std::int64_t));
+        };
+        row("render_frame_160x96", [&](MeshDigest* pD) {
+            mio::RenderOptions o;
+            o.mWidth = 160;
+            o.mHeight = 96;
+            frame_of(pD, mio::render(volume, o));
+        });
+        row("render_ss4_800x480", [&](MeshDigest* pD) {
+            mio::RenderOptions o;
+            o.mWidth = 800;
+            o.mHeight = 480;
+            o.mSupersample = 4;
+            o.mShading = mio::RenderShading::Smooth;
+            o.mEdges = mio::RenderEdges::All;
+            o.mColorBy = "u";
+            frame_of(pD, mio::render(with_field, o));
+        });
+        // v16.37.0: streamlines through a cut-away volume. The digest covers the
+        // pixels and the id buffer, so it holds the tracer (its point locator, its
+        // seeds and its parallel per-seed buffers) to the same contract.
+        const Mesh with_flow = [&] {
+            Mesh m = bench_ops_moved(volume, [](std::size_t, double*) {});
+            NDArray v = NDArray::Uninit(DType::Float64, {m.NumPoints(), std::size_t(3)});
+            const double* p = m.Points().As<double>();
+            for (std::size_t i = 0; i < m.NumPoints(); ++i) {
+                v.As<double>()[3 * i] = -(p[3 * i + 1] - 0.5);
+                v.As<double>()[3 * i + 1] = p[3 * i] - 0.5;
+                v.As<double>()[3 * i + 2] = 0.1;
+            }
+            m.AddPointData("flow", std::move(v));
+            return m;
+        }();
+        row("render_streamlines_320x192", [&](MeshDigest* pD) {
+            mio::RenderOptions o;
+            o.mWidth = 320;
+            o.mHeight = 192;
+            o.mSupersample = 2;
+            o.mStreamlines = "flow";
+            o.mStreamSeeds = 200;
+            mio::RenderCutaway cut;
+            cut.mPoint = {0.0, 0.0, 0.5};
+            cut.mNormal = {0.0, 0.0, -1.0};
+            o.mCutaways = {cut};
+            frame_of(pD, mio::render(with_flow, o));
+        });
+        // v16.38.0: the synthwave theme (a sunset, the grid floor and the three
+        // post-processes) on the cut-away volume.
+        row("render_synthwave_320x192", [&](MeshDigest* pD) {
+            mio::RenderOptions o;
+            o.mWidth = 320;
+            o.mHeight = 192;
+            o.mSupersample = 2;
+            o.mTheme = mio::RenderTheme::Synthwave;
+            o.mGridFloor = true;
+            o.mBloom = true;
+            o.mFringe = true;
+            o.mScanlines = true;
+            o.mThemePhase = 3;
+            frame_of(pD, mio::render(with_flow, o));
+        });
         row("hausdorff", [&](MeshDigest* pD) {
             mio::HausdorffOptions o;
             o.mFaceSamples = 2;
@@ -823,7 +929,7 @@ int main(int argc, char** argv) {
             of(pD, mio::remesh_volume(surface, o).mMesh);
         });
         row("sample_distance", [&](MeshDigest* pD) {
-            const NDArray d = mio::sample_distance(surface, jittered.Points());
+            const NDArray d = mio::sample_distance(surface, jittered->Points());
             if (pD)
                 pD->Array(d);
         });

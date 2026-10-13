@@ -74,6 +74,14 @@ export interface TranscriptEntryDetails {
 	   conversation_name / model_label / session_id / cwd, all advisory. Rides
 	   through the fold's `details` so the card can label who reached in. */
 	sender?: PeerSender;
+	/* Optional hub receipt facts. A requested agent reply is not operator
+	   attention and cannot establish an outstanding-reply state. */
+	body?: string;
+	direction?: string;
+	label?: string;
+	job_id?: string;
+	expects_reply?: boolean;
+	steer?: boolean;
 	/* Severity ink for a `notice` row, mirroring the TUI's NoticeBlock kind.
 	   A refusal, a failed turn and a failed compaction are `error`; an
 	   unattended gate timeout and a declined compaction are `warning`.
@@ -141,6 +149,10 @@ export interface TranscriptEntry {
 	    bytes): each is `{index, mime_type}`. The pixels are fetched lazily from
 	    the image endpoint — see `imageUrl` in api.ts. */
 	images?: TranscriptImageRef[];
+	/** Video artifact refs — the parallel family to `images`, its own index
+	    space; each is `{index, mime_type, duration_s?}`. Bytes come lazily
+	    from the attachment route (see `attachmentUrl` in api.ts). */
+	videos?: TranscriptVideoRef[];
 	/** Assistant rows stream: `final` flips true on message_end. */
 	final: boolean;
 }
@@ -151,6 +163,18 @@ export interface TranscriptEntry {
 export interface TranscriptImageRef {
 	index: number;
 	mime_type: string;
+}
+
+/** A reference to one video artifact on a tool row — the parallel family to
+    `TranscriptImageRef`, with its OWN index space (a video artifact never
+    shifts an image index and vice versa). The bytes live in the attachment
+    store and come lazily from the attachment route, which is Range-capable
+    because phone Safari will not play a <video> served as a full-body 200.
+    `duration_s` rides only when the artifact carried one. */
+export interface TranscriptVideoRef {
+	index: number;
+	mime_type: string;
+	duration_s?: number;
 }
 
 export interface TodoItem {
@@ -706,6 +730,9 @@ export interface SttCapability {
     dict and stays `unknown` here so a reader cannot invent its keys. */
 export interface Capabilities {
 	features?: Record<string, unknown>;
+	/** Separate routing capability: core features.i18n alone does not mean the
+	    relay app serves catalogues. Consumers must require both bits. */
+	i18n?: { catalogues: number };
 	stt?: SttCapability;
 }
 

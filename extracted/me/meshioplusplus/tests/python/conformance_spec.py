@@ -85,6 +85,11 @@ DATA_NAMES = {
 
 _PLANAR = ("vertex", "line", "triangle", "quad")
 
+# The formats that draw a mesh rather than store it (roadmap §4, "The one
+# exception: pure 2-D drawings"): their readers return the drawing as planar
+# (z = 0), so they are observed on the planar part of the canonical mesh.
+DRAWINGS = ("svg", "tikz")
+
 
 def canonical_mesh(cell_types=CELL_TYPES, data=True, regions=True, planar=False):
     """The canonical mesh restricted to ``cell_types`` (in canonical order).
@@ -162,12 +167,19 @@ def _target(tmp: pathlib.Path, fmt: str) -> pathlib.Path:
     return tmp / f"mesh{ext}"
 
 
+# Writer options a row is observed with. The SVG writer keeps three decimals of a
+# drawing scaled to 100 units wide, so its default output moves every corner by up
+# to 1.5e-5 of the drawing width and no cell would match its written corners; the
+# row is observed at full precision, and its note states the limit of the default.
+_WRITE_OPTIONS = {"svg": {"float_fmt": ".17g"}}
+
+
 def round_trip(fmt: str, mesh, tmp: pathlib.Path):
     """Write ``mesh`` as ``fmt`` into ``tmp`` and read it back."""
     path = _target(tmp, fmt)
     if path.suffix == "" and fmt in ("elmer", "openfoam"):
         path.mkdir(parents=True, exist_ok=True)
-    meshioplusplus.write(path, mesh, file_format=fmt)
+    meshioplusplus.write(path, mesh, file_format=fmt, **_WRITE_OPTIONS.get(fmt, {}))
     return meshioplusplus.read(path, file_format=_READ_AS.get(fmt, fmt))
 
 
@@ -205,7 +217,9 @@ def observe(fmt: str, cell_types=None, planar=None) -> dict:
     ``cell_types`` is the set to write; ``None`` probes each type on its own
     first (what :data:`SPEC` records as the format's accepted cells). A format
     that takes no 3-D mesh at all is retried with the planar cells in 2-D
-    (``planar``; the result then carries ``"input": "2d"``).
+    (``planar``; the result then carries ``"input": "2d"``). The 2-D drawings
+    (:data:`DRAWINGS`) are only ever observed that way: a 3-D mesh is drawn
+    projected, so nothing of it comes back at its own coordinates.
     """
     formats = meshioplusplus.formats()
     if (
@@ -213,6 +227,8 @@ def observe(fmt: str, cell_types=None, planar=None) -> dict:
         and _READ_AS.get(fmt, fmt) not in formats["readable"]
     ):
         return {"error": "write-only"}
+    if planar is None and fmt in DRAWINGS:
+        planar = True
     if planar is None:
         out = observe(fmt, cell_types, planar=False)
         if out.get("error") == "no cell type round-trips":
@@ -666,26 +682,44 @@ SPEC: dict[str, dict] = {
         "field_data": False,
         "regions": [],
     },
+    "frd": {
+        "cells": {
+            "line": "exact",
+            "triangle": "exact",
+            "quad": "exact",
+            "tetra": "exact",
+            "hexahedron": "exact",
+            "wedge": "exact",
+        },
+        "points": "exact",
+        "point_data": {"p_f64": "float64", "p_i32": "float64", "p_vec": "float64"},
+        "cell_data": {"c_f64": "missing", "c_i32": "missing"},
+        "field_data": False,
+        "regions": [],
+        "note": "Nodal, with no sets: cell data, regions and other field data are dropped "
+        "with a warning, and values print at six digits (`E12.5`). No vertex or pyramid "
+        "element exists. Only `frd:group` and `frd:material` come back as cell data.",
+    },
     "gltf": {
         "error": "write-only",
-        "note": "Written for viewers; meshio++ reads glTF only as the scene it wrote, not as "
-        "a mesh round trip.",
+        "note": "Written for viewers; no glTF reader exists yet (roadmap §3.1.1).",
     },
     "gmsh": {
         "cells": {
-            "vertex": "?",
-            "line": "?",
-            "triangle": "?",
-            "quad": "?",
-            "tetra": "?",
-            "hexahedron": "?",
-            "wedge": "?",
-            "pyramid": "?",
+            "vertex": "exact",
+            "line": "exact",
+            "triangle": "exact",
+            "quad": "exact",
+            "tetra": "exact",
+            "hexahedron": "exact",
+            "wedge": "exact",
+            "pyramid": "exact",
         },
-        "error": "WriteError",
-        "note": "The Gmsh 4.1 writer needs `gmsh:dim_tags` point data to place more than one "
-        "cell type into entities, and refuses a mixed mesh without it; `gmsh22` "
-        "writes the same mesh.",
+        "points": "exact",
+        "point_data": {"p_f64": "float64", "p_i32": "float64", "p_vec": "float64"},
+        "cell_data": {"c_f64": "float64", "c_i32": "float64"},
+        "field_data": True,
+        "regions": ["cell"],
     },
     "gmsh22": {
         "cells": {
@@ -1154,6 +1188,30 @@ SPEC: dict[str, dict] = {
         "regions": ["cell", "point", "side"],
         "note": "A starter deck holds no data arrays; a `vertex` has no element card.",
     },
+    "radioss_th": {
+        "cells": {
+            "vertex": "lost",
+            "line": "lost",
+            "triangle": "lost",
+            "quad": "lost",
+            "tetra": "lost",
+            "hexahedron": "lost",
+            "wedge": "lost",
+            "pyramid": "lost",
+        },
+        "points": "none",
+        "point_data": {"p_f64": "missing", "p_i32": "missing", "p_vec": "missing"},
+        "cell_data": {"c_f64": "missing", "c_i32": "missing"},
+        "field_data": False,
+        "regions": [],
+        "note": "A time-history file holds `radioss_th:*` field data only: points, "
+        "cells, regions and other data are not kept (a warning names the field data "
+        "dropped); the canonical `fd` is not a `radioss_th:` name.",
+    },
+    "step": {
+        "error": "write-only",
+        "note": "A faceted B-rep solid for CAD tools; a reader needs a CAD kernel (roadmap §6.2.1).",
+    },
     "stl": {
         "cells": {
             "triangle": "lost",
@@ -1185,7 +1243,21 @@ SPEC: dict[str, dict] = {
         "field_data": False,
         "regions": [],
     },
-    "svg": {"error": "write-only", "note": "A 2-D drawing, write-only."},
+    "svg": {
+        "cells": {"line": "exact", "triangle": "exact", "quad": "exact"},
+        "points": "exact",
+        "point_data": {"p_f64": "missing", "p_i32": "missing", "p_vec": "missing"},
+        "cell_data": {"c_f64": "missing", "c_i32": "missing"},
+        "field_data": False,
+        "regions": [],
+        "input": "2d",
+        "note": "A 2-D drawing, read back as planar (z = 0) from the scale and offset "
+        'meshio++ records in a comment. Observed with `float_fmt=".17g"`: the default '
+        "`.3f` keeps three decimals of a drawing 100 units wide, so corners come back to "
+        "about 1.5e-5 of its width. A 3-D mesh is drawn projected, and what comes back is "
+        "that picture. Data arrays are not drawn; a colour comes back as an RGB "
+        "`svg:fill`.",
+    },
     "tecplot": {
         "cells": {
             "line": "exact",
@@ -1212,7 +1284,19 @@ SPEC: dict[str, dict] = {
         "field_data": False,
         "regions": [],
     },
-    "tikz": {"error": "write-only", "note": "A 2-D drawing, write-only."},
+    "tikz": {
+        "cells": {"line": "exact", "triangle": "exact", "quad": "exact"},
+        "points": "exact",
+        "point_data": {"p_f64": "missing", "p_i32": "missing", "p_vec": "missing"},
+        "cell_data": {"c_f64": "missing", "c_i32": "missing"},
+        "field_data": False,
+        "regions": [],
+        "input": "2d",
+        "note": "A 2-D drawing, read back as planar (z = 0) with its coordinates verbatim, "
+        "to the digits `float_fmt` kept. A 3-D mesh is drawn projected, and what comes "
+        "back is that picture. Data arrays are not drawn; a colour comes back as an RGB "
+        "`tikz:fill`.",
+    },
     "triangle": {
         "cells": {"triangle": "exact"},
         "points": "exact",
@@ -1473,43 +1557,55 @@ SPEC: dict[str, dict] = {
 
 
 # ----------------------------------------------------------------------------
-# Read-only formats, each with the reason it has no writer
+# Formats missing a direction, each with the roadmap item that closes the gap
 # ----------------------------------------------------------------------------
 
-# Every format that reads without writing must be declared here, with the
-# reason, and nothing else may be (test_conformance.py checks it against both
-# registries). A solver's result file has the solver as its only producer:
-# writing one is worth it only when a downstream tool asks for a synthetic one
-# (roadmap, Non-goals), and none has. The reasons render into
-# doc/conformance.md, and the formats table links each read-only row there.
-_RESULT_FILE = (
-    "{tool}'s result file: {tool} is its only producer, and no downstream tool "
-    "reads one written by anything else, so there is nothing to write back."
-)
+# Every registered format reads and writes (roadmap section 3, "Reader and
+# writer parity"). A format that reads without writing is a tracked gap: it
+# must be declared here with the item that closes it, and nothing else may be
+# (test_conformance.py checks it against both registries). When the writer
+# lands, the entry goes and the format gets a SPEC declaration. The reasons
+# render into doc/conformance.md, and the formats table links each row there.
+_GAP = "Tracked gap, roadmap §{item}: no writer yet. {why}"
+_RESULT = "{tool}'s result file; the writer is the physics-ML loop's missing half."
 READ_ONLY = {
-    "abaqus_fil": _RESULT_FILE.format(tool="Abaqus"),
-    "ansys_rst": _RESULT_FILE.format(tool="Ansys"),
+    "abaqus_fil": _GAP.format(item="3.2.6", why=_RESULT.format(tool="Abaqus")),
+    "ansys_rst": _GAP.format(item="3.2.5", why=_RESULT.format(tool="Ansys")),
     "ansys_rst_cyclic": (
-        "Not a file of its own: the full rotor that a static cyclic-symmetry "
-        "`.rst` expands to, read from `ansys_rst`'s file."
+        "Exempt, not a gap: not a file of its own but the full rotor that a static "
+        "cyclic-symmetry `.rst` expands to, read from `ansys_rst`'s file. Its write "
+        "side is `ansys_rst`'s cyclic option (roadmap §3.2.5)."
     ),
-    "frd": _RESULT_FILE.format(tool="CalculiX (`ccx`)"),
-    "lsdyna_binout": _RESULT_FILE.format(tool="LS-DYNA"),
-    "lsdyna_d3plot": _RESULT_FILE.format(tool="LS-DYNA"),
-    "marc_t19": _RESULT_FILE.format(tool="Marc"),
-    "nastran_h5": _RESULT_FILE.format(tool="MSC Nastran"),
-    "nastran_op2": _RESULT_FILE.format(tool="Nastran"),
-    "radioss_anim": _RESULT_FILE.format(tool="the OpenRadioss engine"),
-    "radioss_th": _RESULT_FILE.format(tool="the OpenRadioss engine"),
-    "xplt": _RESULT_FILE.format(tool="FEBio"),
-    "vtx": (
-        "DOLFINx's output, read through ADIOS2: DOLFINx is its producer and "
-        "ParaView reads DOLFINx's own files; meshio++ hands a mesh to ParaView as "
-        "VTKHDF, XDMF or VTU instead."
+    "lsdyna_binout": _GAP.format(item="3.2.3", why=_RESULT.format(tool="LS-DYNA")),
+    "lsdyna_d3plot": _GAP.format(item="3.2.2", why=_RESULT.format(tool="LS-DYNA")),
+    "marc_t19": _GAP.format(
+        item="3.2.11",
+        why=_RESULT.format(tool="Marc") + " Only Mentat can check it.",
     ),
-    "szplt": (
-        "Undocumented: TecIO, Tecplot's own library, is its only reader and "
-        "writer; meshio++ writes Tecplot's documented `.plt`/`.dat` instead."
+    "nastran_h5": _GAP.format(item="3.2.4", why=_RESULT.format(tool="MSC Nastran")),
+    "nastran_op2": _GAP.format(item="3.2.1", why=_RESULT.format(tool="Nastran")),
+    "radioss_anim": _GAP.format(
+        item="3.2.8", why=_RESULT.format(tool="the OpenRadioss engine")
+    ),
+    "xplt": _GAP.format(item="3.2.7", why=_RESULT.format(tool="FEBio")),
+    "vtx": _GAP.format(
+        item="3.2.9",
+        why="DOLFINx's ADIOS2 output, read by ParaView; needs the optional ADIOS2 build.",
+    ),
+    "szplt": _GAP.format(
+        item="3.2.10",
+        why="Tecplot's SZL container, written through TecIO; needs the optional TecIO build.",
+    ),
+}
+
+# The mirror: formats that write without reading. `svg` and `tikz` left it when
+# their readers landed (they are 2-D drawings, read back as planar); `step` is
+# an exemption, like `ansys_rst_cyclic` above, not a gap.
+WRITE_ONLY = {
+    "gltf": "Tracked gap, roadmap §3.1.1: no reader yet. A general glTF 2.0 reader.",
+    "step": (
+        "Exempt, not a gap: reading STEP means a CAD kernel (roadmap §6.2.1). The faceted "
+        "writer is the CAD hand-off of the skin-to-CAD work (roadmap §6.3)."
     ),
 }
 
@@ -1523,4 +1619,18 @@ def read_only_drift(readable, writable, declared=None):
     return {
         "undeclared": sorted(read_only - set(declared)),
         "stale": sorted(set(declared) - read_only),
+    }
+
+
+def write_only_drift(readable, writable, declared=None):
+    """The formats that write without reading but are not declared
+    (``undeclared``), and the declared ones that read or no longer write
+    (``stale``)."""
+    declared = WRITE_ONLY if declared is None else declared
+    # `vtk42` and the like write what the registry reads under `vtk`.
+    readable = set(readable) | {n for n, r in _READ_AS.items() if r in readable}
+    write_only = set(writable) - readable
+    return {
+        "undeclared": sorted(write_only - set(declared)),
+        "stale": sorted(set(declared) - write_only),
     }

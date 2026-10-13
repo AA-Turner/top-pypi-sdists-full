@@ -388,6 +388,11 @@ def note_mandate_carrier(
             "spec_type": spec_type,
         }
 
+        from matrx_ai.providers.request_capture import is_capturing
+
+        if is_capturing():
+            # A capture run (the Model view) calls no model: there is no call to report.
+            return record
         signature = (caller, model)
         if signature in _REPORTED:
             return record

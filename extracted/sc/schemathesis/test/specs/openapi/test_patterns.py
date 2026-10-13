@@ -1,6 +1,5 @@
 import re
 import string
-import sys
 import warnings
 from itertools import product
 
@@ -38,10 +37,6 @@ from schemathesis.generation import GenerationMode
 from schemathesis.generation.hypothesis import examples
 from schemathesis.specs.openapi.converter import update_pattern_in_schema
 
-SKIP_BEFORE_PY11 = pytest.mark.skipif(
-    sys.version_info < (3, 11), reason="Possessive repeats and atomic groups are only available in Python 3.11+"
-)
-
 
 @pytest.mark.parametrize(
     ("pattern", "min_length", "max_length", "expected"),
@@ -70,9 +65,9 @@ SKIP_BEFORE_PY11 = pytest.mark.skipif(
         (".{1,5}?", None, 3, "^.{1,3}$"),
         (".{0,3}?", 1, None, ".{1,3}"),
         (".{2,}?", 1, 3, "^.{2,3}$"),
-        pytest.param(".{1,5}+", None, 3, "^.{1,3}$", marks=SKIP_BEFORE_PY11),
-        pytest.param(".{0,3}+", 1, None, ".{1,3}", marks=SKIP_BEFORE_PY11),
-        pytest.param(".{2,}+", 1, 3, "^.{2,3}$", marks=SKIP_BEFORE_PY11),
+        (".{1,5}+", None, 3, "^.{1,3}$"),
+        (".{0,3}+", 1, None, ".{1,3}"),
+        (".{2,}+", 1, 3, "^.{2,3}$"),
         # Group without quantifier
         ("[a-z]", None, 5, "^[a-z]{1,5}$"),
         ("[a-z]", 3, None, "[a-z]{3,}"),
@@ -283,10 +278,11 @@ SKIP_BEFORE_PY11 = pytest.mark.skipif(
         (r"^(.|a+){1,3}\d{1,3}$", 100, 100, r"^(.|a+){1,3}\d{1,3}$"),
         # A possessive part keeps everything it took, so any rewritten count admits strings the
         # original rejects - `0++0` matches nothing at all, while `0{1,3}0` matches "00".
-        pytest.param("0++0", None, 4, "0++0", marks=SKIP_BEFORE_PY11),
-        pytest.param("a{1,3}+a", None, 4, "a{1,3}+a", marks=SKIP_BEFORE_PY11),
-        pytest.param("(?:ab)++ab", None, 4, "(?:ab)++ab", marks=SKIP_BEFORE_PY11),
-        pytest.param("a+b++c", 1, 4, "a+b++c", marks=SKIP_BEFORE_PY11),
+        ("0++0", None, 4, "0++0"),
+        ("a{1,3}+a", None, 4, "a{1,3}+a"),
+        ("(?:ab)++ab", None, 4, "(?:ab)++ab"),
+        ("a+b++c", 1, 4, "a+b++c"),
+        (r"^(a*+)[ab]$", 2, 3, r"^(a*+)[ab]$"),
         # Anchored only at the start, with more than one part: the budget still lands, and encoding
         # a maximum closes the pattern so longer strings stop matching.
         ("^[a-zA-Z][a-zA-Z0-9_]*", 63, 63, "^[a-zA-Z][a-zA-Z0-9_]{62}$"),
@@ -533,7 +529,6 @@ def test_pin_pattern_length_random(data):
     assert re.fullmatch(pattern, value), f"{value!r} does not match {pattern}"
 
 
-@SKIP_BEFORE_PY11
 def test_pin_pattern_length_leaves_possessive_repeats_alone():
     # A possessive run keeps what it took, so a count the following part could otherwise share
     # would let strings through that the pattern turns down.
@@ -718,6 +713,7 @@ def _patterns_with_properties(draw: st.DrawFn) -> str:
 
 
 @given(_patterns_with_properties())
+# The violating draw is rare, so fewer examples would let a regression pass.
 @settings(suppress_health_check=list(HealthCheck), max_examples=200)
 def test_normalize_regex_never_produces_nested_classes(pattern: str) -> None:
     result = normalize_regex(pattern)
@@ -884,8 +880,8 @@ def is_valid_regex(pattern: str) -> bool:
         # GROUPREF_EXISTS (conditional group)
         r"(x)(?(1)a|b)",
         # ATOMIC_GROUP
-        pytest.param("(?>abc)", marks=SKIP_BEFORE_PY11),
-        pytest.param("(?>\\d+)", marks=SKIP_BEFORE_PY11),
+        "(?>abc)",
+        "(?>\\d+)",
     ],
 )
 def test_serialize_roundtrip(pattern):
@@ -904,9 +900,9 @@ def test_serialize_roundtrip(pattern):
 @pytest.mark.parametrize(
     "pattern",
     [
-        pytest.param("a*+", marks=SKIP_BEFORE_PY11),
-        pytest.param("a++", marks=SKIP_BEFORE_PY11),
-        pytest.param("a{2,5}+", marks=SKIP_BEFORE_PY11),
+        "a*+",
+        "a++",
+        "a{2,5}+",
     ],
 )
 def test_serialize_possessive(pattern):
@@ -1015,6 +1011,7 @@ def test_serialize_escaped_literal(pattern, should_match):
 
 
 @given(pattern=st.text(min_size=1, max_size=80).filter(is_valid_regex))
+# Serialization bugs hide in rare random patterns, so the sweep needs breadth.
 @settings(max_examples=500, suppress_health_check=list(HealthCheck), deadline=None)
 def test_serialize_random_pattern(pattern):
     parsed = sre_parse.parse(pattern)
@@ -1563,8 +1560,8 @@ BRUTE_FORCE_PATTERNS = [
     r"^a(?:bb)*$",
     r"^(?:aa|b){1,3}$",
     r"^(a+)\1$",
-    pytest.param(r"^(?>a+)b*$", marks=SKIP_BEFORE_PY11),
-    pytest.param(r"^(?:ab)++$", marks=SKIP_BEFORE_PY11),
+    r"^(?>a+)b*$",
+    r"^(?:ab)++$",
     r"^(?:^)*a+$",
     r"^(?:ab){3}$",
     r"^(?:aab){2,4}$",
@@ -1572,7 +1569,7 @@ BRUTE_FORCE_PATTERNS = [
     r"^((?:ab|abab)+)$",
     r"^(?:(?:ab|abab)+|(?:ba|baba)+)$",
     r"^(?:b|(a)\1)$",
-    pytest.param(r"^(?>a+)*$", marks=SKIP_BEFORE_PY11),
+    r"^(?>a+)*$",
 ]
 BRUTE_FORCE_ALPHABET = "ab"
 BRUTE_FORCE_MAX_LENGTH = 9

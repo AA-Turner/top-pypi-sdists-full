@@ -5,18 +5,38 @@ import os
 from pathlib import Path
 import stat
 import subprocess
+import sys
+
+from rich.markup import escape
 
 REVIEW_SIDECAR_MAX_BYTES = 2 * 1024 * 1024
 
 
-def _cicd_load_results(args, *, console_factory, load_config_func):
+GATE_ERROR_VERDICT = "Quality Gate: ERROR — could not decide (exit 1)"
+
+
+def _print_gate_error(console, message: str) -> None:
+    """`cicd gate` stopped before deciding: verdict line, then the reason."""
+    console.print(f"[bold red]{escape(GATE_ERROR_VERDICT)}[/bold red]", soft_wrap=True)
+    console.print(f"   • {escape(message)}", soft_wrap=True)
+
+
+def _report_load_error(console_factory, message: str, *, gate: bool) -> None:
+    console = console_factory()
+    if gate:
+        _print_gate_error(console, message)
+    else:
+        console.print(f"[bold red]{message}[/bold red]")
+
+
+def _cicd_load_results(args, *, console_factory, load_config_func, gate=False):
     if getattr(args, "input_file", None):
         try:
             with open(args.input_file) as f:
                 return json.load(f), 0
         except (FileNotFoundError, json.JSONDecodeError) as e:
-            console_factory().print(
-                f"[bold red]Error reading {args.input_file}: {e}[/bold red]"
+            _report_load_error(
+                console_factory, f"Error reading {args.input_file}: {e}", gate=gate
             )
             return None, 1
 
@@ -42,7 +62,12 @@ def _cicd_load_results(args, *, console_factory, load_config_func):
         include_review_context, include_review_proofs = review_scan_requirements(
             project_root
         )
-        analyze_kwargs = {"exclude_folders": sorted(exclude_folders)}
+        analyze_kwargs = {
+            "exclude_folders": sorted(exclude_folders),
+            "enable_danger": True,
+            "enable_quality": True,
+            "enable_secrets": True,
+        }
         if config_file is not None:
             analyze_kwargs["config_file"] = config_file
         if include_review_context:
@@ -64,7 +89,7 @@ def _cicd_load_results(args, *, console_factory, load_config_func):
                 else:
                     os.environ["SKYLOS_DIFF_BASE"] = previous_diff_base
     except Exception as e:
-        console_factory().print(f"[bold red]Analysis failed: {e}[/bold red]")
+        _report_load_error(console_factory, f"Analysis failed: {e}", gate=gate)
         return None, 1
 
 
@@ -172,6 +197,7 @@ def _run_cicd_init(cicd_args, console) -> int:
     from skylos.cicd.init_setup import detect_done_setup, print_init_next_steps
     from skylos.cicd.workflow import (
         FALLBACK_DEFAULT_BRANCHES,
+        display_path,
         generate_workflow,
         write_workflow,
     )
@@ -200,7 +226,29 @@ def _run_cicd_init(cicd_args, console) -> int:
         console.print(f"[bold red]Invalid workflow option: {e}[/bold red]")
         return 1
     output_path = cicd_args.output or _default_workflow_output()
-    write_workflow(yaml_content, output_path)
+    try:
+        existing = _existing_workflow_text(output_path)
+        if existing == yaml_content:
+            console.print(
+                f"[green]Workflow already up to date: {escape(display_path(output_path))}[/green]",
+                soft_wrap=True,
+            )
+        else:
+            if (
+                existing is not None
+                and not cicd_args.force
+                and not _confirm_workflow_replace(console, output_path)
+            ):
+                return 1
+            write_workflow(
+                yaml_content, output_path, out=console, expected_existing=existing
+            )
+    except OSError as exc:
+        console.print(
+            f"[bold red]Could not write workflow: {escape(str(exc))}[/bold red]",
+            soft_wrap=True,
+        )
+        return 1
     if use_done and not done_setup.enabled:
         done_setup = dataclasses.replace(
             done_setup, enabled=True, reason="added with --done"
@@ -220,6 +268,42 @@ def _run_cicd_init(cicd_args, console) -> int:
         branch_detected=bool(default_branch),
     )
     return 0
+
+
+def _existing_workflow_text(output_path: str) -> str | None:
+    from skylos.cicd.workflow import read_workflow_text
+
+    return read_workflow_text(output_path)
+
+
+def _confirm_workflow_replace(console, output_path: str) -> bool:
+    """Ask before replacing a workflow someone may have written by hand."""
+    from skylos.cicd.workflow import display_path, workflow_backup_path
+
+    shown = escape(display_path(output_path))
+    backup = escape(display_path(workflow_backup_path(Path(output_path))))
+    console.print(
+        f"[yellow]{shown} already exists and is different from the workflow "
+        "Skylos would write.[/yellow]",
+        soft_wrap=True,
+    )
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        console.print(
+            "Nothing was written. To replace it, run the same command with "
+            f"--force; the old file is kept as {backup}.",
+            soft_wrap=True,
+        )
+        return False
+    try:
+        answer = console.input(
+            f"Replace it? The old file is kept as {backup}. {escape('[y/N]')} "
+        )
+    except (EOFError, KeyboardInterrupt):
+        answer = ""
+    if str(answer).strip().lower() in {"y", "yes"}:
+        return True
+    console.print("Kept the existing workflow; nothing was written.")
+    return False
 
 
 def run_cicd_command(
@@ -332,6 +416,14 @@ def run_cicd_command(
         default=None,
         help="Output path (default: repo-root .github/workflows/skylos.yml)",
     )
+    p_ci_init.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "Replace an existing workflow without asking; the old file is kept "
+            "next to it as <name>.bak"
+        ),
+    )
 
     p_ci_gate = cicd_sub.add_parser("gate", help="Check quality gate (CI exit code)")
     p_ci_gate.add_argument("path", nargs="?", default=".")
@@ -352,7 +444,7 @@ def run_cicd_command(
     p_ci_gate.add_argument(
         "--diff-base",
         default=None,
-        help="Base ref for provenance detection (default: auto-detect)",
+        help="Compare security controls and use policy from this base ref (default: auto-detect in PR CI)",
     )
 
     p_ci_ann = cicd_sub.add_parser("annotate", help="Emit GitHub Actions annotations")
@@ -402,37 +494,68 @@ def run_cicd_command(
         return _run_cicd_init(cicd_args, console)
 
     if cicd_args.cicd_cmd == "gate":
-        results, exit_code = _cicd_load_results(
-            cicd_args,
-            console_factory=console_factory,
-            load_config_func=load_config_func,
+        from skylos.cicd.policy import base_policy_context
+        from skylos.core.ci_env import github_or_ci_base_ref
+        from skylos.security.contracts import resolve_diff_base_ref
+
+        # CI supplies the comparison ref; repository TOML/YAML cannot choose it.
+        cicd_args.diff_base = cicd_args.diff_base or resolve_diff_base_ref(
+            cicd_args.path
         )
-        if exit_code:
-            return exit_code
+        if not cicd_args.diff_base:
+            ci_base = github_or_ci_base_ref()
+            if ci_base:
+                cicd_args.diff_base = (
+                    ci_base if ci_base.startswith("origin/") else f"origin/{ci_base}"
+                )
+        try:
+            with base_policy_context(cicd_args.path, cicd_args.diff_base):
+                results, exit_code = _cicd_load_results(
+                    cicd_args,
+                    console_factory=console_factory,
+                    load_config_func=load_config_func,
+                    gate=True,
+                )
+                if exit_code:
+                    return exit_code
+                config_path = (
+                    cicd_args.path
+                    if cicd_args.diff_base
+                    else results.get("project_root", ".")
+                )
+                config = load_config_func(config_path)
+                if cicd_args.input_file and cicd_args.diff_base:
+                    from skylos.security.regression_gate import (
+                        recheck_control_regressions,
+                    )
 
-        config = load_config_func(results.get("project_root", "."))
+                    results = recheck_control_regressions(
+                        results, cicd_args.path, config
+                    )
+                gate_cfg = config.get("gate", {})
+                prov_report = None
+                if gate_cfg.get("agent"):
+                    try:
+                        from skylos.api import get_git_root
+                        from skylos.reporting.provenance import analyze_provenance
 
-        gate_cfg = config.get("gate", {})
-        prov_report = None
-        if gate_cfg.get("agent"):
-            try:
-                from skylos.api import get_git_root
-                from skylos.reporting.provenance import analyze_provenance
-
-                git_root = get_git_root() or results.get("project_root", ".")
-                diff_base = getattr(cicd_args, "diff_base", None)
-                prov_report = analyze_provenance(git_root, base_ref=diff_base)
-            except Exception:
-                pass
-
-        return run_gate_interaction_func(
-            result=results,
-            config=config,
-            strict=cicd_args.strict,
-            summary=cicd_args.summary,
-            provenance=prov_report,
-            advisory=cicd_args.advisory,
-        )
+                        git_root = get_git_root() or results.get("project_root", ".")
+                        prov_report = analyze_provenance(
+                            git_root, base_ref=cicd_args.diff_base
+                        )
+                    except Exception:
+                        pass
+                return run_gate_interaction_func(
+                    result=results,
+                    config=config,
+                    strict=cicd_args.strict,
+                    summary=cicd_args.summary,
+                    provenance=prov_report,
+                    advisory=cicd_args.advisory,
+                )
+        except Exception as exc:
+            _print_gate_error(console, f"PR gate failed: {exc}")
+            return 1
 
     if cicd_args.cicd_cmd == "annotate":
         results, exit_code = _cicd_load_results(

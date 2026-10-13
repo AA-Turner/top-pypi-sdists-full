@@ -8,6 +8,7 @@ import time
 import urllib.parse
 import warnings
 from collections import defaultdict
+from collections.abc import Sequence
 from types import MappingProxyType
 from typing import Any, Callable, Dict, List, Optional, Set, Union
 
@@ -31,6 +32,7 @@ from labelbox.orm.model import Entity, Field
 from labelbox.pagination import PaginatedCollection
 from labelbox.project_validation import _CoreProjectInput
 from labelbox.schema import role
+from labelbox.schema.api_key import ApiKey, IpAddressOrNetwork
 from labelbox.schema.catalog import Catalog
 from labelbox.schema.data_row import DataRow
 from labelbox.schema.data_row_metadata import DataRowMetadataOntology
@@ -42,6 +44,7 @@ from labelbox.schema.iam_integration import IAMIntegration
 from labelbox.schema.identifiables import DataRowIds, GlobalKeys
 from labelbox.schema.label_score import LabelScore
 from labelbox.schema.labeling_frontend import LabelingFrontend
+from labelbox.schema import performance as _performance
 from labelbox.schema.labeling_service_dashboard import LabelingServiceDashboard
 from labelbox.schema.media_type import (
     MediaType,
@@ -78,10 +81,9 @@ from labelbox.schema.send_to_annotate_params import (
 )
 from labelbox.schema.slice import CatalogSlice, ModelSlice
 from labelbox.schema.task import DataUpsertTask, Task
-from labelbox.schema.user import User
 from labelbox.schema.taskstatus import TaskStatus
-from labelbox.schema.api_key import ApiKey
 from labelbox.schema.timeunit import TimeUnit
+from labelbox.schema.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -1860,7 +1862,8 @@ class Client:
             raise ResourceNotFoundError(Ontology, ontology_id)
         else:
             raise LabelboxError(
-                "Failed to get the feature schema archived status."
+                "Failed to get the feature schema archived status. "
+                f"The server answered {response.status_code}: {response.text}"
             )
 
     def get_model_slice(self, slice_id) -> ModelSlice:
@@ -2326,6 +2329,213 @@ class Client:
         """
         return LabelingServiceDashboard.get_all(self, search_query=search_query)
 
+    def get_performance_metrics(self) -> List[_performance.PerformanceMetric]:
+        """Lists the performance metrics that can be queried.
+
+        These are the metrics a project's Performance page draws. Each has a
+        name to pass to :meth:`Project.get_performance_metric` or
+        :meth:`get_workspace_performance_metric`, a unit and a definition.
+
+        Returns:
+            List[PerformanceMetric]: The metrics available to your
+            organization.
+
+        Example:
+            >>> for metric in client.get_performance_metrics():
+            >>>     print(metric.name, metric.unit, metric.description)
+        """
+        return _performance.get_performance_metrics(self)
+
+    def get_workspace_performance_metric(
+        self,
+        metric: str,
+        start_date: _performance.DateLike,
+        end_date: _performance.DateLike,
+        interval: Union[
+            _performance.PerformanceInterval, str
+        ] = _performance.PerformanceInterval.DAY,
+        project_ids: Optional[List[str]] = None,
+        user_ids: Optional[List[str]] = None,
+        batch_ids: Optional[List[str]] = None,
+        deleted_labels: Union[
+            _performance.PerformanceDeletedLabels, str
+        ] = _performance.PerformanceDeletedLabels.INCLUDE,
+        use_cache: bool = True,
+        member_type: Optional[
+            Union[_performance.PerformanceMemberType, str]
+        ] = None,
+        owner_organization_ids: Optional[List[str]] = None,
+    ) -> _performance.PerformanceMetricSeries:
+        """Returns one performance metric across the workspace.
+
+        This is the workspace Monitor's data: every project your organization
+        owns and every project another organization shares with it, or only
+        the projects named in ``project_ids``.
+
+        Args:
+            metric (str): A metric name from :meth:`get_performance_metrics`,
+                for example ``"labels_created"``.
+            start_date (date, datetime or str): First day of the period, in
+                UTC. A string is a day such as ``"2026-01-31"``.
+            end_date (date, datetime or str): Last day of the period. A
+                request can cover at most 366 days.
+            interval (PerformanceInterval or str): The width of each bucket:
+                day (the default), week, month, quarter or year.
+            project_ids (Optional[List[str]]): Narrow the report to these
+                projects. You then need performance access to each of them
+                instead of the organization-wide permission.
+            user_ids (Optional[List[str]]): Count only work by these users.
+            batch_ids (Optional[List[str]]): Count only these batches.
+            deleted_labels (PerformanceDeletedLabels or str): Whether labels
+                deleted since are counted. Included by default.
+            use_cache (bool): Pass False to recompute instead of using a
+                result cached within the last few minutes.
+            member_type (Optional[PerformanceMemberType or str]): Count only
+                work by members of your own organization (``"internal"``) or
+                only by members of other organizations, such as a workforce
+                provider's (``"external"``). The Monitor's Member Type
+                filter.
+            owner_organization_ids (Optional[List[str]]): Count only projects
+                owned by these organizations. Use it to separate the projects
+                you own from the ones shared with you.
+
+        ``member_type`` and ``owner_organization_ids`` report on other
+        members, so they need permission to view all performance in every
+        project the report covers.
+
+        Returns:
+            PerformanceMetricSeries: The metric as a value per interval.
+
+        Raises:
+            lbox.exceptions.ResourceNotFoundError: The metric does not exist,
+                or a project named is not one you can see.
+            lbox.exceptions.AuthorizationError: You may not view performance
+                across the organization, or not everyone's in a project the
+                report covers.
+            lbox.exceptions.InvalidQueryError: A parameter is not valid.
+            ValueError: A filter was given as an empty list. Pass ``None``
+                to leave a filter off; an empty list is not read as one.
+
+        Example:
+            >>> series = client.get_workspace_performance_metric(
+            >>>     "labels_created", "2026-01-01", "2026-01-31", interval="week")
+            >>> for bucket in series.buckets:
+            >>>     print(bucket.start.date(), bucket.value)
+            >>>
+            >>> # The same, for the workforce provider's members only.
+            >>> series = client.get_workspace_performance_metric(
+            >>>     "labels_created", "2026-01-01", "2026-01-31",
+            >>>     member_type="external")
+        """
+        return _performance.get_workspace_metric(
+            self,
+            metric,
+            start_date,
+            end_date,
+            interval=interval,
+            project_ids=project_ids,
+            user_ids=user_ids,
+            batch_ids=batch_ids,
+            deleted_labels=deleted_labels,
+            use_cache=use_cache,
+            member_type=member_type,
+            owner_organization_ids=owner_organization_ids,
+        )
+
+    def get_workspace_labeler_performance(
+        self,
+        start_date: _performance.DateLike,
+        end_date: _performance.DateLike,
+        project_ids: Optional[List[str]] = None,
+        user_ids: Optional[List[str]] = None,
+        batch_ids: Optional[List[str]] = None,
+        deleted_labels: Union[
+            _performance.PerformanceDeletedLabels, str
+        ] = _performance.PerformanceDeletedLabels.INCLUDE,
+        member_type: Optional[
+            Union[_performance.PerformanceMemberType, str]
+        ] = None,
+        owner_organization_ids: Optional[List[str]] = None,
+        sort_by: Optional[str] = None,
+        descending: bool = False,
+        page_size: int = 50,
+        use_cache: bool = True,
+    ) -> _performance.PerformanceRows[_performance.WorkspaceLabelerPerformance]:
+        """Returns per-labeler totals across the workspace.
+
+        This is the workspace Monitor's member table: one row for each
+        labeler on each project they worked on in the period. It covers the
+        projects your organization owns and the ones other organizations
+        share with it. Each row says which organization owns the project
+        (``project_organization_id``) and whether the labeler is one of your
+        own members (``member_type``).
+
+        Args:
+            start_date (date, datetime or str): First day of the period, in
+                UTC. A string is a day such as ``"2026-01-31"``.
+            end_date (date, datetime or str): Last day of the period. A
+                request can cover at most 366 days.
+            project_ids (Optional[List[str]]): Narrow the report to these
+                projects. You then need performance access to each of them
+                instead of the organization-wide permission.
+            user_ids (Optional[List[str]]): Return only these users.
+            batch_ids (Optional[List[str]]): Count only these batches.
+            deleted_labels (PerformanceDeletedLabels or str): Whether labels
+                deleted since are counted. Included by default.
+            member_type (Optional[PerformanceMemberType or str]): Return only
+                members of your own organization (``"internal"``) or only
+                members of other organizations, such as a workforce
+                provider's (``"external"``).
+            owner_organization_ids (Optional[List[str]]): Return only
+                projects owned by these organizations.
+            sort_by (Optional[str]): A column to sort by, named as the row's
+                attribute, for example ``"labels_created"``. Without it, rows
+                are ordered by project, then labeler. Sorting by email is not
+                offered.
+            descending (bool): Sort from the highest value down.
+            page_size (int): Rows fetched per request, at most 100.
+            use_cache (bool): Pass False to read the report again instead of
+                using rows read within the last few minutes. Leave it on
+                while reading a large table, so that every page comes from
+                the same rows.
+
+        Returns:
+            PerformanceRows[WorkspaceLabelerPerformance]: One row per labeler
+            and project, fetched a page at a time as you iterate. Emails are
+            masked for labelers you may not identify.
+
+        Raises:
+            lbox.exceptions.ResourceNotFoundError: A project named is not one
+                you can see.
+            lbox.exceptions.AuthorizationError: You may not view performance
+                across the organization.
+            lbox.exceptions.InvalidQueryError: A parameter is not valid.
+            ValueError: A filter was given as an empty list. Pass ``None``
+                to leave a filter off; an empty list is not read as one.
+
+        Example:
+            >>> rows = client.get_workspace_labeler_performance(
+            >>>     "2026-01-01", "2026-01-31", member_type="external")
+            >>> print(rows.total)
+            >>> for row in rows:
+            >>>     print(row.project_name, row.email, row.labels_created)
+        """
+        return _performance.get_workspace_labelers(
+            self,
+            start_date,
+            end_date,
+            project_ids=project_ids,
+            user_ids=user_ids,
+            batch_ids=batch_ids,
+            deleted_labels=deleted_labels,
+            member_type=member_type,
+            owner_organization_ids=owner_organization_ids,
+            sort_by=sort_by,
+            descending=descending,
+            page_size=page_size,
+            use_cache=use_cache,
+        )
+
     def get_task_by_id(self, task_id: str) -> Union[Task, DataUpsertTask]:
         """
         Fetches a task by ID.
@@ -2446,6 +2656,7 @@ class Client:
         validity: int = 0,
         time_unit: TimeUnit = TimeUnit.SECOND,
         refresh_cache: bool = False,
+        allowed_ip_cidrs: Optional[Sequence[IpAddressOrNetwork]] = None,
     ) -> Dict[str, str]:
         """Creates a new API key.
 
@@ -2456,6 +2667,9 @@ class Client:
             validity (int, optional): The validity period of the API key. Defaults to 0 (no expiration).
             time_unit (TimeUnit, optional): The time unit for the validity period. Defaults to TimeUnit.SECOND.
             refresh_cache (bool, optional): Whether to refresh cached permissions and roles. Defaults to False.
+            allowed_ip_cidrs: Optional sequence of IP addresses or CIDR ranges
+                allowed to use the key. Entries may be strings or standard
+                :mod:`ipaddress` address/network objects.
 
         Returns:
             Dict[str, str]: A dictionary containing the created API key information.
@@ -2471,7 +2685,13 @@ class Client:
                 delattr(self, "_cached_available_api_key_roles")
 
         return ApiKey.create_api_key(
-            self, name, user, role, validity, time_unit
+            self,
+            name,
+            user,
+            role,
+            validity,
+            time_unit,
+            allowed_ip_cidrs,
         )
 
     def get_api_keys(self, include_expired: bool = False) -> List[ApiKey]:

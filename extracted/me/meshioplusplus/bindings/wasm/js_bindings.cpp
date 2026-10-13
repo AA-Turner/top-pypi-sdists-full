@@ -95,6 +95,7 @@
 #include "meshioplusplus/formats/cgns.hpp"
 #include "meshioplusplus/formats/exodus.hpp"
 #include "meshioplusplus/formats/gmsh.hpp"
+#include "meshioplusplus/formats/mfem.hpp"
 #include "meshioplusplus/formats/mdpa.hpp"
 #include "meshioplusplus/formats/med.hpp"
 #include "meshioplusplus/formats/openfoam.hpp"
@@ -112,6 +113,9 @@
 #include "meshioplusplus/operations/convert_cells.hpp"
 #include "meshioplusplus/operations/curvature.hpp"
 #include "meshioplusplus/operations/feature_edges.hpp"
+#include "meshioplusplus/operations/fit_primitives.hpp"
+#include "meshioplusplus/operations/segment.hpp"
+#include "meshioplusplus/operations/render.hpp"
 #include "meshioplusplus/operations/interfaces.hpp"
 #include "meshioplusplus/operations/hausdorff.hpp"
 #include "meshioplusplus/operations/normals.hpp"
@@ -830,7 +834,8 @@ namespace {
 /// The format keys with a side-channel `info` object, read or write.
 bool format_supports_info(const std::string& rFormat) {
     return rFormat == "openfoam" || rFormat == "med" || rFormat == "mdpa" ||
-           rFormat == "ansysinp" || rFormat == "unv" || rFormat == "gmsh" || rFormat == "exodus";
+           rFormat == "ansysinp" || rFormat == "unv" || rFormat == "gmsh" || rFormat == "exodus" ||
+           rFormat == "mfem";
 }
 
 val string_vec_to_val(const std::vector<std::string>& rStrings) {
@@ -1291,6 +1296,158 @@ meshioplusplus::GmshInfo val_to_gmsh_info(const val& rInfo) {
     return info;
 }
 
+// --- MFEM NURBS (NurbsInfo, v16.40.0) ---------------------------------
+// `{format: 'mfem', patches: [{degrees, knots, spaceDim, controlPoints,
+// weights, fields}], fieldNames, fieldComponents, topology | null, cellPatch,
+// cellSpan, boundaryCellPatch}`: flat typed arrays whose widths ride beside
+// them (index.d.ts `MfemInfo`), every index 0-based like the other side
+// channels. A mesh that is not NURBS has no patches.
+
+val nurbs_info_to_val(const meshioplusplus::NurbsInfo& rInfo) {
+    val out = val::object();
+    out.set("format", std::string("mfem"));
+    val patches = val::array();
+    for (const meshioplusplus::NurbsPatch& p : rInfo.mPatches) {
+        val item = val::object();
+        item.set("degrees", val::array(p.mDegrees));
+        val knots = val::array();
+        for (const std::vector<double>& k : p.mKnots)
+            knots.call<void>("push", val::array(k));
+        item.set("knots", knots);
+        item.set("spaceDim", static_cast<double>(cols_of(p.mControlPoints)));
+        item.set("controlPoints", ndarray_to_typed_array(p.mControlPoints));
+        item.set("weights", ndarray_to_typed_array(p.mWeights));
+        val fields = val::array();
+        for (const NDArray& f : p.mFields)
+            fields.call<void>("push", ndarray_to_typed_array(f));
+        item.set("fields", fields);
+        patches.call<void>("push", item);
+    }
+    out.set("patches", patches);
+    out.set("fieldNames", string_vec_to_val(rInfo.mFieldNames));
+    val components = val::array();
+    for (std::size_t k = 0; k < rInfo.mFieldNames.size(); ++k)
+        components.call<void>("push", rInfo.mPatches.empty()
+                                          ? 0.0
+                                          : static_cast<double>(cols_of(rInfo.mPatches[0].mFields[k])));
+    out.set("fieldComponents", components);
+    const meshioplusplus::NurbsTopology& t = rInfo.mTopology;
+    if (t.mDimension == 0) {
+        out.set("topology", val::null());
+    } else {
+        val topo = val::object();
+        topo.set("dimension", t.mDimension);
+        topo.set("numVertices", static_cast<double>(t.mNumVertices));
+        topo.set("patchVertices", ndarray_to_typed_array(t.mPatchVertices));
+        topo.set("patchAttributes", ndarray_to_typed_array(t.mPatchAttributes));
+        topo.set("boundaryVertices", ndarray_to_typed_array(t.mBoundaryVertices));
+        topo.set("boundaryAttributes", ndarray_to_typed_array(t.mBoundaryAttributes));
+        topo.set("edges", ndarray_to_typed_array(t.mEdges));
+        out.set("topology", topo);
+    }
+    out.set("cellPatch", ndarray_to_typed_array(rInfo.mCellPatch));
+    out.set("cellSpan", ndarray_to_typed_array(rInfo.mCellSpan));
+    out.set("boundaryCellPatch", ndarray_to_typed_array(rInfo.mBoundaryCellPatch));
+    return out;
+}
+
+// A JS array or typed array (Number or BigInt elements) as `rows x Cols` doubles.
+NDArray nurbs_js_doubles(const val& rArr, std::size_t Cols, const char* pWhat) {
+    if (rArr.isUndefined() || rArr.isNull())
+        throw meshioplusplus::WriteError(std::string("MFEM NURBS info: '") + pWhat + "' is missing");
+    const auto n = rArr["length"].as<std::size_t>();
+    if (Cols == 0 || n % Cols)
+        throw meshioplusplus::WriteError(std::string("MFEM NURBS info: '") + pWhat +
+                                         "' does not hold whole rows");
+    NDArray out = Cols == 1 ? NDArray::Uninit(DType::Float64, {n})
+                            : NDArray::Uninit(DType::Float64, {n / Cols, Cols});
+    const val number = val::global("Number");
+    for (std::size_t i = 0; i < n; ++i)
+        out.As<double>()[i] = number(rArr[i]).as<double>();
+    return out;
+}
+
+// The same as Int64, every entry an integer.
+NDArray nurbs_js_ints(const val& rArr, std::size_t Cols, const char* pWhat) {
+    if (rArr.isUndefined() || rArr.isNull())
+        throw meshioplusplus::WriteError(std::string("MFEM NURBS info: '") + pWhat + "' is missing");
+    const auto n = rArr["length"].as<std::size_t>();
+    if (Cols == 0 || n % Cols)
+        throw meshioplusplus::WriteError(std::string("MFEM NURBS info: '") + pWhat +
+                                         "' does not hold whole rows");
+    NDArray out = Cols == 1 ? NDArray::Uninit(DType::Int64, {n})
+                            : NDArray::Uninit(DType::Int64, {n / Cols, Cols});
+    const val number = val::global("Number");
+    for (std::size_t i = 0; i < n; ++i) {
+        const auto type = rArr[i].typeOf().as<std::string>();
+        const double v = number(rArr[i]).as<double>();
+        if ((type != "number" && type != "bigint") || !std::isfinite(v) || std::floor(v) != v ||
+            std::abs(v) > 9007199254740991.0)
+            throw meshioplusplus::WriteError(std::string("MFEM NURBS info: '") + pWhat +
+                                             "' must hold integers");
+        out.As<std::int64_t>()[i] = static_cast<std::int64_t>(v);
+    }
+    return out;
+}
+
+meshioplusplus::NurbsInfo val_to_nurbs_info(const val& rInfo) {
+    meshioplusplus::NurbsInfo info;
+    const val patches = rInfo["patches"];
+    if (patches.isUndefined() || patches.isNull())
+        throw meshioplusplus::WriteError("MFEM NURBS info: 'patches' is missing");
+    info.mFieldNames = emscripten::vecFromJSArray<std::string>(rInfo["fieldNames"]);
+    const std::vector<double> components = emscripten::vecFromJSArray<double>(rInfo["fieldComponents"]);
+    if (components.size() != info.mFieldNames.size())
+        throw meshioplusplus::WriteError("MFEM NURBS info: one fieldComponents entry per field");
+    const auto np = patches["length"].as<unsigned>();
+    for (unsigned i = 0; i < np; ++i) {
+        const val p = patches[i];
+        meshioplusplus::NurbsPatch patch;
+        for (double d : emscripten::vecFromJSArray<double>(p["degrees"]))
+            patch.mDegrees.push_back(static_cast<std::int32_t>(d));
+        const val knots = p["knots"];
+        for (unsigned d = 0; d < knots["length"].as<unsigned>(); ++d)
+            patch.mKnots.push_back(emscripten::vecFromJSArray<double>(knots[d]));
+        const auto sdim = static_cast<std::size_t>(p["spaceDim"].as<double>());
+        patch.mControlPoints = nurbs_js_doubles(p["controlPoints"], sdim, "controlPoints");
+        if (patch.mControlPoints.Shape().size() == 1)
+            patch.mControlPoints.Reshape({patch.mControlPoints.Size(), 1});
+        patch.mWeights = nurbs_js_doubles(p["weights"], 1, "weights");
+        const val fields = p["fields"];
+        for (std::size_t k = 0; k < info.mFieldNames.size(); ++k) {
+            NDArray f = nurbs_js_doubles(fields[static_cast<unsigned>(k)],
+                                         static_cast<std::size_t>(components[k]), "fields");
+            if (f.Shape().size() == 1)
+                f.Reshape({f.Size(), 1});
+            patch.mFields.push_back(std::move(f));
+        }
+        info.mPatches.push_back(std::move(patch));
+    }
+    const val topo = rInfo["topology"];
+    if (!topo.isUndefined() && !topo.isNull()) {
+        meshioplusplus::NurbsTopology& t = info.mTopology;
+        t.mDimension = topo["dimension"].as<std::int32_t>();
+        if (t.mDimension < 1 || t.mDimension > 3)
+            throw meshioplusplus::WriteError("MFEM NURBS info: topology dimension 1, 2 or 3");
+        t.mNumVertices = static_cast<std::int64_t>(topo["numVertices"].as<double>());
+        const std::size_t pc = std::size_t{1} << t.mDimension;
+        t.mPatchVertices = nurbs_js_ints(topo["patchVertices"], pc, "patchVertices");
+        if (t.mPatchVertices.Shape().size() == 1)
+            t.mPatchVertices.Reshape({t.mPatchVertices.Size(), pc});
+        t.mPatchAttributes = nurbs_js_ints(topo["patchAttributes"], 1, "patchAttributes");
+        const std::size_t bc = std::size_t{1} << (t.mDimension - 1);
+        t.mBoundaryVertices = nurbs_js_ints(topo["boundaryVertices"], bc, "boundaryVertices");
+        if (t.mBoundaryVertices.Shape().size() == 1)
+            t.mBoundaryVertices.Reshape({t.mBoundaryVertices.Size(), bc});
+        t.mBoundaryAttributes = nurbs_js_ints(topo["boundaryAttributes"], 1, "boundaryAttributes");
+        t.mEdges = nurbs_js_ints(topo["edges"], 3, "edges");
+    }
+    info.mCellPatch = nurbs_js_ints(rInfo["cellPatch"], 1, "cellPatch");
+    info.mCellSpan = nurbs_js_ints(rInfo["cellSpan"], 3, "cellSpan");
+    info.mBoundaryCellPatch = nurbs_js_ints(rInfo["boundaryCellPatch"], 1, "boundaryCellPatch");
+    return info;
+}
+
 // --- Exodus (read-only) ------------------------------------------------
 #ifdef MESHIOPLUSPLUS_HAS_NETCDF
 
@@ -1345,6 +1502,12 @@ Mesh read_with_info(const std::string& rPath, const std::string& rFormat,
         rInfoOut = gmsh_info_to_val(info);
         return mesh;
     }
+    if (rFormat == "mfem") {
+        meshioplusplus::NurbsInfo info;
+        Mesh mesh = meshioplusplus::read_mfem(rPath, {}, rOptions, info);
+        rInfoOut = nurbs_info_to_val(info);
+        return mesh;
+    }
 #ifdef MESHIOPLUSPLUS_HAS_HDF5
     if (rFormat == "med") {
         meshioplusplus::MedInfo info;
@@ -1382,6 +1545,10 @@ void write_with_info(const std::string& rPath, const Mesh& rMesh, const std::str
         meshioplusplus::write_openfoam(rPath, rMesh, val_to_openfoam_info(rInfo));
         return;
     }
+    if (rFormat == "mfem") {
+        meshioplusplus::write_mfem(rPath, rMesh, false, val_to_nurbs_info(rInfo));
+        return;
+    }
     if (rFormat == "mdpa") {
         meshioplusplus::write_mdpa(rPath, rMesh, val_to_mdpa_info(rInfo));
         return;
@@ -1414,7 +1581,7 @@ void write_with_info(const std::string& rPath, const Mesh& rMesh, const std::str
     throw meshioplusplus::WriteError(
         "meshio++ (wasm): '" + rFormat + "' has no side-channel info writer in this build" +
         compiled_out_hint(rFormat) +
-        " (writable info formats: openfoam, mdpa, ansysinp, unv, gmsh, med)");
+        " (writable info formats: openfoam, mdpa, ansysinp, unv, gmsh, med, mfem)");
 }
 
 }  // namespace
@@ -3960,6 +4127,435 @@ val feature_edges_js(const val& rMeshObj, double featureAngle, bool feature, boo
 }
 
 /**
+ * @brief Smooth patches by region growing. See operations/segment.hpp.
+ */
+val segment_js(const val& rMeshObj, double featureAngle, double normalTolerance,
+               double curvatureTolerance, double minPatchCells, const std::string& rRegion,
+               const std::string& rPrefix) {
+    return with_js_errors([&]() -> val {
+        meshioplusplus::SegmentOptions options;
+        options.mFeatureAngleDeg = featureAngle;
+        options.mNormalToleranceDeg = normalTolerance;
+        options.mCurvatureTolerance = curvatureTolerance;
+        options.mMinPatchCells = static_cast<std::int64_t>(minPatchCells);
+        options.mRegion = rRegion;
+        options.mPrefix = rPrefix;
+        meshioplusplus::SegmentResult r = meshioplusplus::segment(val_to_mesh(rMeshObj), options);
+        val out = val::object();
+        out.set("mesh", mesh_to_val(r.mMesh));
+        out.set("numPatches", static_cast<double>(r.mNumPatches));
+        out.set("numMerged", static_cast<double>(r.mNumMerged));
+        out.set("numFeatureEdges", static_cast<double>(r.mNumFeatureEdges));
+        out.set("numBoundaryEdges", static_cast<double>(r.mNumBoundaryEdges));
+        out.set("numNonManifoldEdges", static_cast<double>(r.mNumNonManifoldEdges));
+        return out;
+    });
+}
+
+/**
+ * @brief Plane/sphere/cylinder/cone/torus fits per patch. See
+ * operations/fit_primitives.hpp. `types` is an array of type names.
+ */
+val fit_primitives_js(const val& rMeshObj, const std::string& rPatchData, double tolerance,
+                      bool relative, double minInlierFraction, const val& rTypes,
+                      double maxIterations) {
+    return with_js_errors([&]() -> val {
+        static const char* const kNames[] = {"plane", "sphere", "cylinder", "cone", "torus"};
+        meshioplusplus::FitPrimitivesOptions options;
+        options.mPatchData = rPatchData;
+        options.mTolerance = tolerance;
+        options.mRelative = relative;
+        options.mMinInlierFraction = minInlierFraction;
+        options.mMaxIterations = static_cast<std::int64_t>(maxIterations);
+        options.mTypes = 0;
+        const unsigned n = rTypes["length"].as<unsigned>();
+        for (unsigned i = 0; i < n; ++i) {
+            const std::string name = rTypes[i].as<std::string>();
+            bool found = false;
+            for (int t = 0; t < 5; ++t)
+                if (name == kNames[t]) {
+                    options.mTypes |= 1u << (t + 1);
+                    found = true;
+                }
+            if (!found)
+                throw std::invalid_argument("meshio++: fit_primitives: unknown primitive type '" +
+                                            name + "'");
+        }
+        meshioplusplus::FitPrimitivesResult r =
+            meshioplusplus::fit_primitives(val_to_mesh(rMeshObj), options);
+        val out = val::object();
+        out.set("mesh", mesh_to_val(r.mMesh));
+        out.set("numPatches", static_cast<double>(r.mNumPatches));
+        out.set("numPlane", static_cast<double>(r.mNumPlane));
+        out.set("numSphere", static_cast<double>(r.mNumSphere));
+        out.set("numCylinder", static_cast<double>(r.mNumCylinder));
+        out.set("numCone", static_cast<double>(r.mNumCone));
+        out.set("numTorus", static_cast<double>(r.mNumTorus));
+        out.set("numUnfitted", static_cast<double>(r.mNumUnfitted));
+        return out;
+    });
+}
+
+// ---------------------------------------------------------------------
+// Software rendering (v16.33.0, field rendering v16.34.0): a deterministic
+// rasterizer that needs no WebGL (a server-side preview, a Node script). The
+// options travel as one JS object with the camelCase names of the TypeScript
+// `RenderOptions`; an unknown key is an error naming the ones that exist, so a
+// typo never silently does nothing. The graphics-protocol encodings and the
+// terminal loop are CLI features and are not exported here.
+// ---------------------------------------------------------------------
+
+meshioplusplus::RenderColor js_render_color(const val& rV, const std::string& rKey) {
+    auto channel = [&](double c) {
+        if (!(c >= 0.0 && c <= 255.0))
+            throw std::invalid_argument("meshio++: render: '" + rKey +
+                                        "' channels must lie in 0-255");
+        return static_cast<std::uint8_t>(c);
+    };
+    if (rV.typeOf().as<std::string>() == "number") {
+        const double v = rV.as<double>();
+        if (!(v >= 0.0 && v <= 4294967295.0))
+            throw std::invalid_argument("meshio++: render: '" + rKey +
+                                        "' must lie in [0, 2^32 - 1]");
+        const std::uint32_t u = static_cast<std::uint32_t>(v);
+        return {static_cast<std::uint8_t>(u >> 24), static_cast<std::uint8_t>(u >> 16),
+                static_cast<std::uint8_t>(u >> 8), static_cast<std::uint8_t>(u)};
+    }
+    const unsigned n = rV["length"].as<unsigned>();
+    if (n != 3 && n != 4)
+        throw std::invalid_argument("meshio++: render: '" + rKey +
+                                    "' must be 0xRRGGBBAA or [r, g, b, a?]");
+    meshioplusplus::RenderColor c = {0, 0, 0, 255};
+    for (unsigned k = 0; k < n; ++k)
+        c[k] = channel(rV[k].as<double>());
+    return c;
+}
+
+std::vector<double> js_number_list(const val& rV) {
+    std::vector<double> out;
+    const unsigned n = rV["length"].as<unsigned>();
+    for (unsigned k = 0; k < n; ++k)
+        out.push_back(rV[k].as<double>());
+    return out;
+}
+
+meshioplusplus::RenderOptions js_render_options(const val& rOpts) {
+    static const char* const kKnown[] = {
+        "width",        "height",        "pixelAspect",  "supersample",    "azimuth",
+        "elevation",    "roll",          "view",         "projection",     "fov",
+        "zoom",         "pan",           "shading",      "twoSided",       "ambient",
+        "lightDir",     "splitAngle",    "edges",        "featureAngle",   "edgeColor",
+        "fillColor",    "lineColor",     "background",   "pointRadius",    "colorBy",
+        "component",    "cmap",          "vmin",         "vmax",           "nanColor",
+        "colorbar",     "axes",          "scaleBar",     "reduce",         "expr",
+        "clip",         "symmetric",     "scale",        "scaleThreshold", "categorical",
+        "colorRegions", "categoryEdges", "isolines",     "isoLevels",      "isoColor",
+        "vectors",      "vectorCount",   "vectorLength", "vectorColor",    "warp",
+        "warpScale",    "warpOutline",   "outlineColor", "diagnostic",     "qualityMetric",
+        "cutaway",      "cutawayTint",   "streamlines",  "streamSeeds",    "streamLength",
+        "streamColor"};
+    meshioplusplus::RenderOptions o;
+    if (rOpts.isUndefined() || rOpts.isNull())
+        return o;
+    const val keys = val::global("Object").call<val>("keys", rOpts);
+    const unsigned num_keys = keys["length"].as<unsigned>();
+    for (unsigned i = 0; i < num_keys; ++i) {
+        const std::string key = keys[i].as<std::string>();
+        const val v = rOpts[key];
+        if (v.isUndefined() || v.isNull())
+            continue;
+        bool known = false;
+        for (const char* k : kKnown)
+            known = known || key == k;
+        if (!known) {
+            std::string names;
+            for (const char* k : kKnown)
+                names += (names.empty() ? "" : ", ") + std::string(k);
+            throw std::invalid_argument("meshio++: render: unknown option '" + key +
+                                        "' (expected one of: " + names + ")");
+        }
+        auto str = [&]() { return v.as<std::string>(); };
+        auto num = [&]() { return v.as<double>(); };
+        auto flag = [&]() { return v.as<bool>(); };
+        auto choice = [&](const std::vector<std::string>& rNames) {
+            const std::string name = str();
+            for (std::size_t k = 0; k < rNames.size(); ++k)
+                if (rNames[k] == name)
+                    return static_cast<int>(k);
+            std::string all;
+            for (const std::string& n : rNames)
+                all += (all.empty() ? "" : ", ") + n;
+            throw std::invalid_argument("meshio++: render: " + key + " must be one of " + all +
+                                        ", not '" + name + "'");
+        };
+        if (key == "width")
+            o.mWidth = static_cast<int>(num());
+        else if (key == "height")
+            o.mHeight = static_cast<int>(num());
+        else if (key == "pixelAspect")
+            o.mPixelAspect = num();
+        else if (key == "supersample")
+            o.mSupersample = static_cast<int>(num());
+        else if (key == "azimuth")
+            o.mAzimuth = num();
+        else if (key == "elevation")
+            o.mElevation = num();
+        else if (key == "roll")
+            o.mRoll = num();
+        else if (key == "view")
+            o.mView = str();
+        else if (key == "projection")
+            o.mProjection = choice({"orthographic", "perspective"}) == 1
+                                ? meshioplusplus::RenderProjection::Perspective
+                                : meshioplusplus::RenderProjection::Orthographic;
+        else if (key == "fov")
+            o.mFovDeg = num();
+        else if (key == "zoom")
+            o.mZoom = num();
+        else if (key == "pan") {
+            const std::vector<double> pan = js_number_list(v);
+            if (pan.size() != 2)
+                throw std::invalid_argument("meshio++: render: pan must be [x, y]");
+            o.mPanX = pan[0];
+            o.mPanY = pan[1];
+        } else if (key == "shading")
+            o.mShading =
+                static_cast<meshioplusplus::RenderShading>(choice({"none", "flat", "smooth"}));
+        else if (key == "twoSided")
+            o.mTwoSided = flag();
+        else if (key == "ambient")
+            o.mAmbient = num();
+        else if (key == "lightDir") {
+            const std::vector<double> d = js_number_list(v);
+            if (d.size() != 3)
+                throw std::invalid_argument("meshio++: render: lightDir must be [x, y, z]");
+            o.mLightDir = {d[0], d[1], d[2]};
+        } else if (key == "splitAngle")
+            o.mSplitAngle = num();
+        else if (key == "edges")
+            o.mEdges = static_cast<meshioplusplus::RenderEdges>(choice({"none", "all", "feature"}));
+        else if (key == "featureAngle")
+            o.mFeatureAngle = num();
+        else if (key == "edgeColor")
+            o.mEdgeColor = js_render_color(v, key);
+        else if (key == "fillColor")
+            o.mFillColor = js_render_color(v, key);
+        else if (key == "lineColor")
+            o.mLineColor = js_render_color(v, key);
+        else if (key == "background")
+            o.mBackground = js_render_color(v, key);
+        else if (key == "pointRadius")
+            o.mPointRadius = num();
+        else if (key == "colorBy")
+            o.mColorBy = str();
+        else if (key == "component")
+            o.mComponent = static_cast<int>(num());
+        else if (key == "cmap")
+            o.mCmap = str();
+        else if (key == "vmin")
+            o.mVMin = num();
+        else if (key == "vmax")
+            o.mVMax = num();
+        else if (key == "nanColor")
+            o.mNanColor = js_render_color(v, key);
+        else if (key == "colorbar")
+            o.mColorbar = flag();
+        else if (key == "axes")
+            o.mAxes = flag();
+        else if (key == "scaleBar")
+            o.mScaleBar = flag();
+        else if (key == "reduce")
+            o.mReduce = str();
+        else if (key == "expr")
+            o.mExpr = str();
+        else if (key == "clip") {
+            if (v["length"].as<unsigned>() != 2)
+                throw std::invalid_argument(
+                    "meshio++: render: clip must be [low, high] percentiles; "
+                    "null for either end");
+            if (!v[0].isNull() && !v[0].isUndefined())
+                o.mClipLow = v[0].as<double>();
+            if (!v[1].isNull() && !v[1].isUndefined())
+                o.mClipHigh = v[1].as<double>();
+        } else if (key == "symmetric")
+            o.mSymmetric = flag();
+        else if (key == "scale")
+            o.mScale =
+                static_cast<meshioplusplus::RenderScale>(choice({"linear", "log", "symlog"}));
+        else if (key == "scaleThreshold")
+            o.mScaleThreshold = num();
+        else if (key == "categorical")
+            o.mCategorical = flag();
+        else if (key == "colorRegions")
+            o.mColorRegions = flag();
+        else if (key == "categoryEdges")
+            o.mCategoryEdges = flag();
+        else if (key == "isolines")
+            o.mIsolines = static_cast<std::int32_t>(num());
+        else if (key == "isoLevels")
+            o.mIsoLevels = js_number_list(v);
+        else if (key == "isoColor")
+            o.mIsoColor = js_render_color(v, key);
+        else if (key == "vectors")
+            o.mVectors = str();
+        else if (key == "vectorCount")
+            o.mVectorCount = static_cast<std::int32_t>(num());
+        else if (key == "vectorLength")
+            o.mVectorLength = num();
+        else if (key == "vectorColor")
+            o.mVectorColor = js_render_color(v, key);
+        else if (key == "warp")
+            o.mWarp = str();
+        else if (key == "warpScale")
+            o.mWarpScale = num();
+        else if (key == "warpOutline")
+            o.mWarpOutline = flag();
+        else if (key == "outlineColor")
+            o.mOutlineColor = js_render_color(v, key);
+        else if (key == "diagnostic")
+            o.mDiagnostic = static_cast<meshioplusplus::RenderDiagnostic>(
+                choice({"none", "quality", "inverted", "degenerate", "orientation", "free_edges",
+                        "edge_length"}));
+        else if (key == "qualityMetric")
+            o.mQualityMetric = str();
+        else if (key == "cutaway") {
+            // One plane as six numbers, or an array of up to two such arrays.
+            std::vector<std::vector<double>> planes;
+            if (v["length"].as<unsigned>() > 0 && v[0].typeOf().as<std::string>() == "number")
+                planes.push_back(js_number_list(v));
+            else
+                for (unsigned p = 0; p < v["length"].as<unsigned>(); ++p)
+                    planes.push_back(js_number_list(v[p]));
+            for (const std::vector<double>& six : planes) {
+                if (six.size() != 6)
+                    throw std::invalid_argument(
+                        "meshio++: render: each cutaway is six numbers: a point, then the normal "
+                        "of the side kept");
+                meshioplusplus::RenderCutaway plane;
+                plane.mPoint = {six[0], six[1], six[2]};
+                plane.mNormal = {six[3], six[4], six[5]};
+                o.mCutaways.push_back(plane);
+            }
+        } else if (key == "cutawayTint")
+            o.mCutawayTint = js_render_color(v, key);
+        else if (key == "streamlines")
+            o.mStreamlines = str();
+        else if (key == "streamSeeds")
+            o.mStreamSeeds = static_cast<std::int32_t>(num());
+        else if (key == "streamLength")
+            o.mStreamLength = num();
+        else if (key == "streamColor")
+            o.mStreamColor = js_render_color(v, key);
+    }
+    return o;
+}
+
+meshioplusplus::TextOptions js_text_options(const val& rText) {
+    meshioplusplus::TextOptions t;
+    if (rText.isUndefined() || rText.isNull())
+        return t;
+    static const char* const kKnown[] = {"encoding", "colorDepth", "format", "cols",
+                                         "rows",     "cellAspect", "notes"};
+    const val keys = val::global("Object").call<val>("keys", rText);
+    const unsigned n = keys["length"].as<unsigned>();
+    for (unsigned i = 0; i < n; ++i) {
+        const std::string key = keys[i].as<std::string>();
+        const val v = rText[key];
+        if (v.isUndefined() || v.isNull())
+            continue;
+        auto choice = [&](const std::vector<std::string>& rNames) {
+            const std::string name = v.as<std::string>();
+            for (std::size_t k = 0; k < rNames.size(); ++k)
+                if (rNames[k] == name)
+                    return static_cast<int>(k);
+            std::string all;
+            for (const std::string& s : rNames)
+                all += (all.empty() ? "" : ", ") + s;
+            throw std::invalid_argument("meshio++: render: " + key + " must be one of " + all +
+                                        ", not '" + name + "'");
+        };
+        if (key == "encoding")
+            t.mEncoding = static_cast<meshioplusplus::TextEncoding>(
+                choice({"halfblock", "quadrant", "sextant", "braille", "ascii"}));
+        else if (key == "colorDepth")
+            t.mDepth =
+                static_cast<meshioplusplus::ColorDepth>(choice({"truecolor", "256", "16", "mono"}));
+        else if (key == "format")
+            t.mFormat = static_cast<meshioplusplus::TextFormat>(choice({"ansi", "plain", "html"}));
+        else if (key == "cols")
+            t.mCols = v.as<int>();
+        else if (key == "rows")
+            t.mRows = v.as<int>();
+        else if (key == "cellAspect")
+            t.mCellAspect = v.as<double>();
+        else if (key == "notes")
+            t.mNotes = v.as<bool>();
+        else {
+            std::string names;
+            for (const char* k : kKnown)
+                names += (names.empty() ? "" : ", ") + std::string(k);
+            throw std::invalid_argument("meshio++: render: unknown text option '" + key +
+                                        "' (expected one of: " + names + ")");
+        }
+    }
+    return t;
+}
+
+/**
+ * @brief Render a mesh into an RGBA frame: `{width, height, rgba, cellIds,
+ * range, notes}`, where `rgba` is a `Uint8ClampedArray` an `ImageData` takes
+ * directly. See operations/render.hpp.
+ */
+val render_js(const val& rMeshObj, const val& rOpts) {
+    return with_js_errors([&]() -> val {
+        const meshioplusplus::RenderOptions options = js_render_options(rOpts);
+        const meshioplusplus::Frame f = meshioplusplus::render(val_to_mesh(rMeshObj), options);
+        val out = val::object();
+        out.set("width", f.mWidth);
+        out.set("height", f.mHeight);
+        val rgba = val::global("Uint8ClampedArray").new_(f.mRgba.size());
+        rgba.call<void>("set", val(emscripten::typed_memory_view(f.mRgba.size(), f.mRgba.data())));
+        out.set("rgba", rgba);
+        std::vector<double> ids(f.mCellIds.begin(), f.mCellIds.end());
+        out.set("cellIds", float64_array_from(ids.data(), ids.size()));
+        if (f.mColored) {
+            val range = val::array();
+            range.call<void>("push", f.mVMin);
+            range.call<void>("push", f.mVMax);
+            out.set("range", range);
+        } else {
+            out.set("range", val::null());
+        }
+        val notes = val::array();
+        for (const std::string& n : f.mNotes)
+            notes.call<void>("push", val(n));
+        out.set("notes", notes);
+        return out;
+    });
+}
+
+/** @brief Render a mesh as terminal-cell text sized `cols` x `rows`. */
+std::string render_text_js(const val& rMeshObj, const val& rOpts, const val& rText) {
+    return with_js_errors([&]() -> std::string {
+        return meshioplusplus::render_text(val_to_mesh(rMeshObj), js_render_options(rOpts),
+                                           js_text_options(rText));
+    });
+}
+
+/** @brief Render a mesh and encode it as an RGBA PNG (`Uint8Array`). */
+val render_png_js(const val& rMeshObj, const val& rOpts, int compress) {
+    return with_js_errors([&]() -> val {
+        const meshioplusplus::Frame f =
+            meshioplusplus::render(val_to_mesh(rMeshObj), js_render_options(rOpts));
+        const std::string png = meshioplusplus::encode_png(f, compress);
+        val arr = val::global("Uint8Array").new_(png.size());
+        arr.call<void>("set", val(emscripten::typed_memory_view(
+                                  png.size(), reinterpret_cast<const std::uint8_t*>(png.data()))));
+        return arr;
+    });
+}
+
+/**
  * @brief The (sampled) Hausdorff distance between two surfaces. See
  * operations/hausdorff.hpp.
  */
@@ -5588,6 +6184,11 @@ EMSCRIPTEN_BINDINGS(meshioplusplus_wasm) {
     emscripten::function("computeCurvature", &compute_curvature_js);
     emscripten::function("computeNormals", &compute_normals_js);
     emscripten::function("featureEdges", &feature_edges_js);
+    emscripten::function("segment", &segment_js);
+    emscripten::function("fitPrimitives", &fit_primitives_js);
+    emscripten::function("render", &render_js);
+    emscripten::function("renderText", &render_text_js);
+    emscripten::function("renderPng", &render_png_js);
     emscripten::function("checkQuality", &check_quality_js);
     emscripten::function("hausdorffDistance", &hausdorff_distance_js);
     emscripten::function("editRegions", &edit_regions_js);

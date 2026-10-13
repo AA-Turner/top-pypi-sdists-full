@@ -91,6 +91,7 @@ def test_feedback_unmasks_planted_bug_via_missing_request_body(ctx, cli, snapsho
         cli.run(
             api.schema_url,
             "--no-shrink",
+            # Feedback must adapt generation before the planted bug surfaces, which takes many cases.
             "--max-examples=80",
             "--phases=coverage,fuzzing",
             "--mode=positive",
@@ -196,6 +197,7 @@ def test_stale_example_evicted_after_format_inference(ctx):
     schema = schemathesis.openapi.from_url(api.schema_url)
     schema.config.checks.update(included_check_names=["not_a_server_error"])
     schema.config.phases.update(phases=["coverage", "fuzzing"])
+    # A stale example that survives feedback shows up only across many draws.
     schema.config.generation.update(modes=[GenerationMode.POSITIVE], max_examples=100)
 
     fuzzing_commit_dates = _collect_body_dates(schema, phase=PhaseName.FUZZING)
@@ -209,12 +211,44 @@ def test_stale_example_evicted_after_format_inference_on_query_param(ctx):
     schema = schemathesis.openapi.from_url(api.schema_url)
     schema.config.checks.update(included_check_names=["not_a_server_error"])
     schema.config.phases.update(phases=["examples", "coverage", "fuzzing"])
+    # A stale example that survives feedback shows up only across many draws.
     schema.config.generation.update(modes=[GenerationMode.POSITIVE], max_examples=100)
 
     fuzzing_token_values = _collect_query_tokens(schema, phase=PhaseName.FUZZING)
     assert fuzzing_token_values, "No fuzzing query draws collected"
     stale = [v for v in fuzzing_token_values if v == "NOT_A_UUID"]
     assert not stale, f"Stale `token`: {len(stale)}/{len(fuzzing_token_values)} fuzzing draws"
+
+
+def test_example_of_rejected_query_parameter_not_sent(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/api/items": {
+                "get": {
+                    "parameters": [{"name": "legacy", "in": "query", "schema": {"type": "string"}, "example": "STALE"}],
+                    "responses": {"200": {"description": "OK"}, "400": {"description": "Bad"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/api/items")
+    def items():
+        if "legacy" in request.args:
+            return jsonify({"message": 'parameter name "legacy" is not allowed', "fieldErrors": []}), 400
+        return jsonify([])
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    schema.config.checks.update(included_check_names=["not_a_server_error"])
+    schema.config.phases.update(phases=["examples", "coverage", "fuzzing"])
+    schema.config.generation.update(modes=[GenerationMode.POSITIVE], max_examples=30)
+
+    fuzzing_queries = []
+    for event in from_schema(schema).execute():
+        if isinstance(event, events.ScenarioFinished) and event.phase == PhaseName.FUZZING:
+            fuzzing_queries.extend(case_node.value.query for case_node in event.recorder.cases.values())
+    assert fuzzing_queries, "No fuzzing draws collected"
+    assert [query for query in fuzzing_queries if query and "legacy" in query] == []
 
 
 def test_stale_body_example_evicted_in_coverage_after_examples_observations(ctx):

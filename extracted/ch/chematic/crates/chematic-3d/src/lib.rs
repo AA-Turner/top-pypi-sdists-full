@@ -27,6 +27,7 @@ pub mod etkdg_knowledge;
 pub(crate) mod fmath;
 #[cfg(test)]
 mod geometry_boundary_contract_tests;
+pub mod hydrogen_coords;
 #[cfg(test)]
 mod issue256_255_phase2_evaluation_tests;
 pub mod md;
@@ -65,16 +66,25 @@ pub use dg_connectivity_ordered::generate_coords_connectivity_ordered;
 pub use ensemble_v2::{
     ConformerAttempt, ConformerDisposition, ConformerSuccess, EnsembleTermination,
     EnsembleV2Config, EnsembleV2ConfigError, EnsembleV2Result, embed_ensemble_v2,
+    embed_ensemble_v2_parallel,
 };
 pub use etkdg::generate_coords_etkdg;
+pub use hydrogen_coords::{
+    ExplicitHydrogenMmffError, ExplicitHydrogenMmffResult, HydrogenCoordinateError,
+    add_hydrogens_with_coords, refine_mmff94_with_explicit_hydrogens,
+    refine_mmff94_with_explicit_hydrogens_variant,
+};
 pub use md::{MDConfig, MDFrame, MDTrajectory, Thermostat, run_md};
 pub use minimize::{
     ForceField, MinimizeConfig, minimize, minimize_dreiding, minimize_dreiding_with_config,
     minimize_mmff94, minimize_uff, minimize_with_config,
 };
 pub use mol_transforms::{
-    center_on_origin, compute_centroid, get_bond_angle, get_bond_angle_deg, get_bond_length,
-    get_dihedral, get_dihedral_deg, set_dihedral, transform_conformer,
+    CanonicalTransform, MolTransformError, canonicalize_conformer, center_on_origin,
+    compute_canonical_transform, compute_centroid, get_bond_angle, get_bond_angle_deg,
+    get_bond_length, get_dihedral, get_dihedral_deg, set_bond_angle, set_bond_length, set_dihedral,
+    transform_conformer, try_get_bond_angle_deg, try_get_bond_length, try_get_dihedral_deg,
+    try_set_dihedral,
 };
 pub use o3a::{O3AError, O3AResult, o3a_align};
 pub use pdb::{

@@ -7,7 +7,10 @@ context family, so nothing is doubled:
     {"type":"context.append_message","message":{"role":"user","content":[...],
         "origin":{"kind":"user"|"injection"|"hook_result"|"system_trigger"|...}}}
                                                     PROMPT when origin.kind is "user",
-                                                    else META (Kimi- or hook-made)
+                                                    else META (Kimi- or hook-made); a
+                                                    hook's output that is only the
+                                                    reader's messages is not read (the
+                                                    worker reads them from the claim log)
     {"type":"context.append_loop_event","event":{"type":"content.part",
         "part":{"type":"text"|"think",...}}}        AGENT_TEXT / AGENT_REASONING
     {"type":"context.append_loop_event","event":{"type":"tool.call",
@@ -43,6 +46,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -56,12 +60,19 @@ from probe.daemon.adapters.base import (
     event,
     existing,
 )
+from probe.daemon import mailbox
 from probe.daemon.events import Event, Kind
 
 #: The one permission mode in which Kimi approves everything ("Never Ask").
 BYPASS_MODE = "auto"
 #: The origin of a user message a person typed (a prompt, or a steer mid-turn).
 TYPED_ORIGIN = "user"
+#: A hook's output, which Kimi wraps as `<hook_result hook_event="...">\n...\n</hook_result>`
+#: (2.1.1, captured 2026-10-12).
+HOOK_ORIGIN = "hook_result"
+_HOOK_WRAPPER = re.compile(r'\A<hook_result[^>]*>\n(?P<body>.*)\n</hook_result>\Z', re.S)
+
+
 #: The folder Kimi Code keeps its files in, under $HOME unless KIMI_CODE_HOME says.
 HOME_DIR = ".kimi-code"
 HOME_ENV = "KIMI_CODE_HOME"
@@ -139,14 +150,19 @@ class KimiCode(Adapter):
             return [event(Kind.COMPACTION, stream, offset, ts=ts, text="(the agent's context was cleared)")]
         return []
 
+    def line_ts(self, obj: dict) -> str | None:
+        return _ts(obj)  # Kimi stamps a record with `time` (epoch milliseconds)
+
     def _message(self, message: object, *, stream: str, offset: int, ts: str | None) -> list[Event]:
         if not isinstance(message, dict) or message.get("role") != "user":
             return []
         origin = message.get("origin")
         typed = isinstance(origin, dict) and origin.get("kind") == TYPED_ORIGIN and stream == "main"
         kind = Kind.PROMPT if typed else Kind.META
+        hook = isinstance(origin, dict) and origin.get("kind") == HOOK_ORIGIN
         return [event(kind, stream, offset, ts=ts, text=text)
-                for text in block_texts(message.get("content")) if text.strip()]
+                for text in block_texts(message.get("content"))
+                if text.strip() and not (hook and _only_deliveries(text))]
 
     def _loop_event(self, loop: dict, *, stream: str, offset: int, ts: str | None) -> list[Event]:
         etype = loop.get("type")
@@ -189,3 +205,11 @@ class KimiCode(Adapter):
         kimi_home = Path(override).expanduser() if override else home / HOME_DIR
         candidates.append(("user AGENTS.md", kimi_home / "AGENTS.md"))
         return existing(candidates)
+
+
+def _only_deliveries(text: str) -> bool:
+    """Is a hook's output only the reader's messages? They reach the daemon whole
+    from the mailbox's claim log, so this copy is not read again."""
+    m = _HOOK_WRAPPER.match(text)
+    body = m.group("body") if m else text
+    return body.startswith("[Probe] ") and not mailbox.before_deliveries(body).strip()

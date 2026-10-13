@@ -268,6 +268,12 @@ TEST(CApi, CellTypeMetadata) {
     EXPECT_EQ(mio_cell_type_dimension(MIO_CELL_Triangle), 2);
     EXPECT_EQ(mio_cell_type_dimension(MIO_CELL_Custom), -1);
     EXPECT_STREQ(mio_cell_type_name(MIO_CELL_Custom), "");
+    // The VTK Bezier family (ABI 26): variable size, a fixed dimension.
+    EXPECT_STREQ(mio_cell_type_name(MIO_CELL_VtkBezierQuadrilateral), "VTK_BEZIER_QUADRILATERAL");
+    EXPECT_EQ(mio_cell_type_from_name("VTK_BEZIER_PYRAMID"), MIO_CELL_VtkBezierPyramid);
+    EXPECT_EQ(mio_cell_type_num_nodes(MIO_CELL_VtkBezierHexahedron), -1);
+    EXPECT_EQ(mio_cell_type_dimension(MIO_CELL_VtkBezierCurve), 1);
+    EXPECT_EQ(mio_cell_type_dimension(MIO_CELL_VtkBezierWedge), 3);
 }
 
 TEST(CApi, BuildAndInspect) {
@@ -894,11 +900,9 @@ TEST(CApi, ErrorPaths) {
     EXPECT_STRNE(mio_last_error(), "");
     EXPECT_EQ(mio_write("mesh.vtu", m, "no_such_format"), MIO_ERR_NOT_FOUND);
     // openfoam gained a writer in v9.20.0, so the "resolvable format with no
-    // writer" case it used to demonstrate needs a different format: svg/tikz
-    // are write-only, so pick the mirror case -- a read-only key no longer
-    // exists in the registry at all.
-    EXPECT_EQ(mio_read("mesh.svg", "svg"), nullptr);
-    // glTF is write-only too: it writes a binary container, and cannot be read back.
+    // writer" case it used to demonstrate needs a different format; svg/tikz
+    // read back the drawings meshio++ writes, so the write-only example is glTF.
+    // glTF is write-only: it writes a binary container, and cannot be read back.
     EXPECT_EQ(mio_read("mesh.glb", "gltf"), nullptr);
 
 #ifndef MESHIOPLUSPLUS_HAS_HDF5
@@ -1627,6 +1631,89 @@ TEST(CApi, GmshPeriodicSideChannel) {
             std::remove(path.c_str());
         }
     EXPECT_EQ(mio_gmsh_info_count(nullptr, MIO_GMSH_PERIODIC), -1);
+}
+
+TEST(CApi, NurbsSideChannel) {
+    // A quarter annulus, one NURBS patch of degrees (2, 1) (MFEM global form).
+    const std::string w = "0.70710678118654757";
+    const auto path = mt::temp_path(".mesh");
+    {
+        std::ofstream out(path, std::ios::binary);
+        out << "MFEM NURBS mesh v1.0\ndimension\n2\nelements\n1\n5 3 0 1 2 3\nboundary\n0\n"
+               "edges\n4\n0 0 1\n0 3 2\n1 0 3\n1 1 2\nvertices\n4\nknotvectors\n2\n"
+               "2 3 0 0 0 1 1 1\n1 2 0 0 1 1\nweights\n1\n1\n1\n1\n"
+            << w << "\n" << w
+            << "\nFiniteElementSpace\nFiniteElementCollection: NURBS2\nVDim: 2\nOrdering: 1\n"
+               "1 0\n0 1\n0 2\n2 0\n1 1\n2 2\n";
+    }
+    mio_format_info* info = nullptr;
+    mio_mesh* mesh = mio_read_with_info(path.c_str(), "mfem", nullptr, &info);
+    ASSERT_NE(mesh, nullptr) << mio_last_error();
+    ASSERT_NE(info, nullptr);
+    EXPECT_EQ(mio_nurbs_info_count(info, MIO_NURBS_PATCHES), 1);
+    EXPECT_EQ(mio_nurbs_info_count(info, MIO_NURBS_FIELDS), 0);
+    EXPECT_EQ(mio_nurbs_info_count(info, MIO_NURBS_TOPOLOGY), 1);
+    EXPECT_EQ(mio_nurbs_info_count(info, MIO_NURBS_CELL_MAP), 1);
+    EXPECT_EQ(mio_nurbs_info_count(info, 99), -1);
+    EXPECT_EQ(mio_gmsh_info_count(info, MIO_GMSH_PERIODIC), -1);  // not a gmsh handle
+    int64_t v = 0;
+    ASSERT_EQ(mio_nurbs_info_int(info, MIO_NURBS_PATCHES, 0, 0, &v), MIO_OK);
+    EXPECT_EQ(v, 2);
+    ASSERT_EQ(mio_nurbs_info_int(info, MIO_NURBS_PATCHES, 0, 1, &v), MIO_OK);
+    EXPECT_EQ(v, 2);
+    ASSERT_EQ(mio_nurbs_info_int(info, MIO_NURBS_TOPOLOGY, 0, 1, &v), MIO_OK);
+    EXPECT_EQ(v, 4);
+    EXPECT_EQ(mio_nurbs_info_int(info, MIO_NURBS_PATCHES, 1, 0, &v), MIO_ERR_INVALID_ARG);
+    const void* data = nullptr;
+    mio_dtype dtype;
+    int32_t ndim;
+    int64_t shape[MIO_MAX_NDIM]{};
+    ASSERT_EQ(mio_nurbs_info_array(info, MIO_NURBS_PATCHES, 0, 0, &data, &dtype, &ndim, shape),
+              MIO_OK);
+    EXPECT_EQ(dtype, MIO_INT32);
+    EXPECT_EQ(static_cast<const int32_t*>(data)[0], 2);
+    EXPECT_EQ(static_cast<const int32_t*>(data)[1], 1);
+    ASSERT_EQ(mio_nurbs_info_array(info, MIO_NURBS_PATCHES, 0, 1, &data, &dtype, &ndim, shape),
+              MIO_OK);
+    EXPECT_EQ(ndim, 2);
+    EXPECT_EQ(shape[0], 6);
+    EXPECT_EQ(shape[1], 2);
+    ASSERT_EQ(mio_nurbs_info_array(info, MIO_NURBS_PATCHES, 0, 2, &data, &dtype, &ndim, shape),
+              MIO_OK);
+    EXPECT_DOUBLE_EQ(static_cast<const double*>(data)[1], 0.70710678118654757);
+    ASSERT_EQ(mio_nurbs_info_array(info, MIO_NURBS_PATCHES, 0, 4, &data, &dtype, &ndim, shape),
+              MIO_OK);  // the knot vector of direction 1
+    EXPECT_EQ(shape[0], 4);
+    EXPECT_NE(mio_nurbs_info_array(info, MIO_NURBS_PATCHES, 0, 5, &data, &dtype, &ndim, shape),
+              MIO_OK);  // no direction 2
+    ASSERT_EQ(mio_nurbs_info_array(info, MIO_NURBS_CELL_MAP, 0, 1, &data, &dtype, &ndim, shape),
+              MIO_OK);
+    EXPECT_EQ(shape[0], 1);
+    EXPECT_EQ(shape[1], 3);
+    EXPECT_EQ(mio_nurbs_info_string(info, MIO_NURBS_FIELDS, 0, 0, nullptr, 0), -1);
+
+    // Written back as the NURBS mesh, and read back the same.
+    const auto output = mt::temp_path(".mesh");
+    ASSERT_EQ(mio_write_with_info(output.c_str(), mesh, "mfem", info), MIO_OK) << mio_last_error();
+    {
+        std::ifstream in(output);
+        std::string first;
+        std::getline(in, first);
+        EXPECT_EQ(first, "MFEM NURBS mesh v1.0");
+    }
+    mio_format_info* info2 = nullptr;
+    mio_mesh* back = mio_read_with_info(output.c_str(), "mfem", nullptr, &info2);
+    ASSERT_NE(back, nullptr) << mio_last_error();
+    ASSERT_EQ(mio_nurbs_info_array(info2, MIO_NURBS_PATCHES, 0, 1, &data, &dtype, &ndim, shape),
+              MIO_OK);
+    EXPECT_EQ(static_cast<const double*>(data)[2], 1.0);  // control point (1, 1)
+    EXPECT_EQ(mio_write_with_info(output.c_str(), mesh, "vtu", info), MIO_ERR_INVALID_ARG);
+    mio_mesh_free(back);
+    mio_format_info_free(info2);
+    mio_mesh_free(mesh);
+    mio_format_info_free(info);
+    std::remove(path.c_str());
+    std::remove(output.c_str());
 }
 
 // ---------------------------------------------------------------------------
@@ -4534,6 +4621,57 @@ TEST(CApi, FeatureEdgesOfACube) {
     mio_mesh_free(m);
 }
 
+TEST(CApi, SegmentAndFitACube) {
+    mio_mesh* m = capi_cube_surface();
+    mio_segment_opts sopts;
+    mio_segment_opts_init(&sopts);
+    EXPECT_DOUBLE_EQ(sopts.feature_angle, 30.0);
+    EXPECT_EQ(sopts.min_patch_cells, 1);  // an all-zero struct is NOT the default
+    mio_segment_report sreport;
+    mio_mesh* seg = mio_segment(m, &sopts, &sreport);
+    ASSERT_NE(seg, nullptr) << mio_last_error();
+    EXPECT_EQ(sreport.num_patches, 6);  // the fan diagonals are flat
+    EXPECT_EQ(sreport.num_feature_edges, 12);
+    mio_regions* regions = mio_regions_create(seg);
+    EXPECT_EQ(mio_regions_count(regions), 6);
+    mio_regions_free(regions);
+
+    mio_fit_primitives_opts fopts;
+    mio_fit_primitives_opts_init(&fopts);
+    EXPECT_EQ(fopts.types, MIO_FIT_ALL_TYPES);
+    mio_fit_primitives_report freport;
+    mio_mesh* fit = mio_fit_primitives(seg, &fopts, &freport);
+    ASSERT_NE(fit, nullptr) << mio_last_error();
+    EXPECT_EQ(freport.num_patches, 6);
+    EXPECT_EQ(freport.num_plane, 6);
+    mio_mesh_free(fit);
+
+    // No label array on the raw cube; a bad tolerance; NULL meshes.
+    EXPECT_EQ(mio_fit_primitives(m, &fopts, nullptr), nullptr);
+    fopts.patch_data = "";
+    fopts.tolerance = 0.0;
+    EXPECT_EQ(mio_fit_primitives(m, &fopts, nullptr), nullptr);
+    sopts.feature_angle = 200.0;
+    EXPECT_EQ(mio_segment(m, &sopts, nullptr), nullptr);
+    EXPECT_EQ(mio_segment(nullptr, nullptr, nullptr), nullptr);
+    EXPECT_EQ(mio_fit_primitives(nullptr, nullptr, nullptr), nullptr);
+    mio_mesh_free(seg);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, WritesAStepSolid) {
+    mio_mesh* m = capi_cube_surface();
+    const std::string path =
+        (std::filesystem::temp_directory_path() / "meshioplusplus_capi_cube.step").string();
+    ASSERT_EQ(mio_write(path.c_str(), m, nullptr), MIO_OK) << mio_last_error();
+    std::ifstream in(path);
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    EXPECT_EQ(text.rfind("ISO-10303-21;", 0), 0u);
+    EXPECT_NE(text.find("MANIFOLD_SOLID_BREP"), std::string::npos);
+    std::filesystem::remove(path);
+    mio_mesh_free(m);
+}
+
 TEST(CApi, RegionAdjacencyBetweenCellBlocks) {
     mio_mesh* m = mio_mesh_create();
     const double points[] = {0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1};
@@ -4945,4 +5083,289 @@ TEST(CApi, ReadWithInfoKeepsTheMdpaSideChannel) {
     std::error_code ec;
     for (const std::string& p : {in, out, vtu})
         std::filesystem::remove(p, ec);
+}
+
+// --- software rendering (v16.33.0, field rendering v16.34.0) ------------------
+
+TEST(CApi, RenderDefaultsAreInitializedNotZero) {
+    mio_render_opts o;
+    mio_render_opts_init(&o);
+    EXPECT_EQ(o.width, 320);
+    EXPECT_EQ(o.height, 240);
+    EXPECT_EQ(o.shading, MIO_SHADING_FLAT);
+    EXPECT_EQ(o.two_sided, 1);
+    EXPECT_EQ(o.component, -1);
+    EXPECT_EQ(o.fill_color, 0xC8C5BDFFu);
+    EXPECT_DOUBLE_EQ(o.elevation, 35.264389682754654);
+    mio_text_opts t;
+    mio_text_opts_init(&t);
+    EXPECT_EQ(t.cols, 80);
+    EXPECT_EQ(t.notes, 1);
+    // An all-zero struct is not a default: its zero width is refused by name.
+    mio_render_opts zero{};
+    mio_mesh* cube = capi_cube_surface();
+    EXPECT_EQ(mio_render(cube, &zero), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("width and height"), std::string::npos);
+    mio_mesh_free(cube);
+}
+
+TEST(CApi, RenderAFrameAndEncodeIt) {
+    mio_mesh* cube = capi_cube_surface();
+    mio_render_opts o;
+    mio_render_opts_init(&o);
+    o.width = 48;
+    o.height = 32;
+    o.background = 0xFFFFFFFFu;
+    mio_frame* f = mio_render(cube, &o);
+    ASSERT_NE(f, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_frame_width(f), 48);
+    EXPECT_EQ(mio_frame_height(f), 32);
+    ASSERT_NE(mio_frame_rgba(f), nullptr);
+    ASSERT_NE(mio_frame_cell_ids(f), nullptr);
+    EXPECT_EQ(mio_frame_range(f, nullptr, nullptr), 0);
+    std::size_t covered = 0;
+    for (int i = 0; i < 48 * 32; ++i)
+        covered += mio_frame_cell_ids(f)[i] >= 0 ? 1 : 0;
+    EXPECT_GT(covered, 100u);
+
+    // PNG: length query, then the bytes.
+    const std::int64_t need = mio_frame_png(f, 0, nullptr, 0);
+    ASSERT_GT(need, 8);
+    std::vector<std::uint8_t> png(static_cast<std::size_t>(need));
+    EXPECT_EQ(mio_frame_png(f, 0, png.data(), need), need);
+    EXPECT_EQ(std::string(png.begin(), png.begin() + 8), std::string("\x89PNG\r\n\x1a\n", 8));
+    EXPECT_EQ(mio_frame_png(f, 10, nullptr, 0), -1);
+
+    // Text: a cell encoding needs a frame sized to its grid (48 x 32 suits half blocks).
+    mio_text_opts t;
+    mio_text_opts_init(&t);
+    t.color_depth = MIO_COLOR_MONO;
+    const std::int64_t tn = mio_frame_text(f, &t, nullptr, 0);
+    ASSERT_GT(tn, 0);
+    std::string text(static_cast<std::size_t>(tn) + 1, '\0');
+    EXPECT_EQ(mio_frame_text(f, &t, text.data(), tn + 1), tn);
+    text.resize(static_cast<std::size_t>(tn));
+    EXPECT_EQ(std::count(text.begin(), text.end(), '\n'), 16);  // 32 rows of pixels = 16 cells
+    mio_frame_free(f);
+    mio_frame_free(nullptr);
+    mio_mesh_free(cube);
+}
+
+TEST(CApi, RenderTextIsSizedToTheCells) {
+    mio_mesh* cube = capi_cube_surface();
+    mio_text_opts t;
+    mio_text_opts_init(&t);
+    t.cols = 20;
+    t.rows = 6;
+    t.color_depth = MIO_COLOR_MONO;
+    const std::int64_t n = mio_render_text(cube, nullptr, &t, nullptr, 0);
+    ASSERT_GT(n, 0) << mio_last_error();
+    std::string out(static_cast<std::size_t>(n) + 1, '\0');
+    EXPECT_EQ(mio_render_text(cube, nullptr, &t, out.data(), n + 1), n);
+    out.resize(static_cast<std::size_t>(n));
+    EXPECT_EQ(std::count(out.begin(), out.end(), '\n'), 6);
+    EXPECT_EQ(mio_render_text(nullptr, nullptr, &t, nullptr, 0), -1);
+    mio_mesh_free(cube);
+}
+
+TEST(CApi, RenderFieldOptionsAndNotes) {
+    mio_mesh* m = mio_mesh_create();
+    const double points[] = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0};
+    const std::int64_t quad[] = {0, 1, 2, 3};
+    const double u[] = {0, 1, 2, 3};
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 4, 3, points), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "quad", 1, 4, MIO_INT64, quad), MIO_OK);
+    const std::int64_t u_shape[] = {4};
+    ASSERT_EQ(mio_mesh_add_point_data(m, "u", MIO_FLOAT64, 1, u_shape, u), MIO_OK);
+    mio_render_opts o;
+    mio_render_opts_init(&o);
+    o.width = 40;
+    o.height = 40;
+    o.view = "+z";
+    o.color_by = "u";
+    o.colorbar = 1;
+    o.symmetric = 1;
+    const double levels[] = {1.0, 2.0};
+    o.iso_levels = levels;
+    o.num_iso_levels = 2;
+    mio_frame* f = mio_render(m, &o);
+    ASSERT_NE(f, nullptr) << mio_last_error();
+    double lo = 0, hi = 0;
+    EXPECT_EQ(mio_frame_range(f, &lo, &hi), 1);
+    EXPECT_DOUBLE_EQ(lo, -hi);
+    const std::int64_t notes = mio_frame_num_notes(f);
+    ASSERT_GE(notes, 2);
+    char buf[256];
+    EXPECT_GT(mio_frame_note(f, 0, buf, sizeof buf), 0);
+    EXPECT_NE(std::string(buf).find("u: "), std::string::npos);
+    EXPECT_EQ(mio_frame_note(f, notes, buf, sizeof buf), -1);
+    mio_frame_free(f);
+
+    // A bad enum, a reserved word set and a misnamed array are refused by name.
+    o.num_iso_levels = 0;
+    o.iso_levels = nullptr;
+    o.scale = 9;
+    EXPECT_EQ(mio_render(m, &o), nullptr);
+    o.scale = MIO_SCALE_LINEAR;
+    o.reserved[0] = 1;
+    EXPECT_EQ(mio_render(m, &o), nullptr);
+    o.reserved[0] = 0;
+    o.color_by = "nope";
+    EXPECT_EQ(mio_render(m, &o), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("nope"), std::string::npos);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, RenderCutawaysClipAndAreValidated) {
+    mio_render_opts o;
+    mio_render_opts_init(&o);
+    EXPECT_EQ(o.num_cutaways, 0);
+    EXPECT_EQ(o.cutaways, nullptr);
+    EXPECT_EQ(o.cutaway_tint, 0xE88034FFu);
+    mio_mesh* cube = capi_cube_surface();
+    o.width = 32;
+    o.height = 32;
+    o.view = "-x";  // the camera sits on the -x side
+    o.shading = MIO_SHADING_NONE;
+    o.background = 0x000000FFu;
+    mio_frame* whole = mio_render(cube, &o);
+    ASSERT_NE(whole, nullptr) << mio_last_error();
+    const std::int64_t whole_centre = mio_frame_cell_ids(whole)[16 * 32 + 16];
+    const std::vector<std::uint8_t> whole_rgba(mio_frame_rgba(whole),
+                                               mio_frame_rgba(whole) + 32 * 32 * 4);
+    mio_frame_free(whole);
+
+    // One plane keeping x >= 0.5: the near face goes, the far one shows from inside.
+    const double plane[6] = {0.5, 0, 0, 1, 0, 0};
+    o.cutaways = plane;
+    o.num_cutaways = 1;
+    o.cutaway_tint = 0x0AC81EFFu;
+    mio_frame* cut = mio_render(cube, &o);
+    ASSERT_NE(cut, nullptr) << mio_last_error();
+    EXPECT_NE(mio_frame_cell_ids(cut)[16 * 32 + 16], whole_centre);
+    const std::uint8_t* centre = mio_frame_rgba(cut) + (16 * 32 + 16) * 4;
+    EXPECT_EQ(centre[0], 0x0A);
+    EXPECT_EQ(centre[1], 0xC8);
+    EXPECT_EQ(centre[2], 0x1E);
+    EXPECT_NE(std::vector<std::uint8_t>(mio_frame_rgba(cut), mio_frame_rgba(cut) + 32 * 32 * 4),
+              whole_rgba);
+    mio_frame_free(cut);
+
+    // A pointer without a count, a count over two, a negative one, a zero normal,
+    // and a non-zero reserved word are refused by name.
+    o.cutaways = nullptr;
+    EXPECT_EQ(mio_render(cube, &o), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("cutaways"), std::string::npos);
+    const double three[18] = {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1};
+    o.cutaways = three;
+    o.num_cutaways = 3;
+    EXPECT_EQ(mio_render(cube, &o), nullptr);
+    o.num_cutaways = -1;
+    EXPECT_EQ(mio_render(cube, &o), nullptr);
+    const double flat[6] = {0, 0, 0, 0, 0, 0};
+    o.cutaways = flat;
+    o.num_cutaways = 1;
+    EXPECT_EQ(mio_render(cube, &o), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("normal"), std::string::npos);
+    o.cutaways = plane;
+    o.reserved[0] = 1;
+    EXPECT_EQ(mio_render(cube, &o), nullptr);
+    mio_mesh_free(cube);
+}
+
+TEST(CApi, RenderStreamlinesDrawAndAreValidated) {
+    mio_render_opts o;
+    mio_render_opts_init(&o);
+    EXPECT_EQ(o.streamlines, nullptr);
+    EXPECT_EQ(o.stream_seeds, 40);
+    EXPECT_EQ(o.stream_length, 0.5);
+    EXPECT_EQ(o.stream_color, 0xF050A0FFu);
+    EXPECT_EQ(sizeof(mio_render_opts), 432u);
+    // A 6 x 6 grid of quads with a swirling vector point array.
+    const int n = 6;
+    std::vector<double> pts;
+    std::vector<double> swirl;
+    for (int j = 0; j <= n; ++j)
+        for (int i = 0; i <= n; ++i) {
+            const double x = double(i) / n;
+            const double y = double(j) / n;
+            pts.insert(pts.end(), {x, y, 0.0});
+            swirl.insert(swirl.end(), {-(y - 0.5), x - 0.5, 0.0});
+        }
+    std::vector<std::int64_t> quads;
+    for (int j = 0; j < n; ++j)
+        for (int i = 0; i < n; ++i) {
+            const std::int64_t p = j * (n + 1) + i;
+            quads.insert(quads.end(), {p, p + 1, p + n + 2, p + n + 1});
+        }
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_NE(m, nullptr);
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, (n + 1) * (n + 1), 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "quad", n * n, 4, MIO_INT64, quads.data()), MIO_OK);
+    const std::int64_t shape[2] = {(n + 1) * (n + 1), 3};
+    ASSERT_EQ(mio_mesh_add_point_data(m, "swirl", MIO_FLOAT64, 2, shape, swirl.data()), MIO_OK);
+    o.width = 96;
+    o.height = 96;
+    o.view = "+z";
+    o.shading = MIO_SHADING_NONE;
+    mio_frame* plain = mio_render(m, &o);
+    ASSERT_NE(plain, nullptr) << mio_last_error();
+    auto count = [](mio_frame* f, std::uint32_t rgba) {
+        std::size_t c = 0;
+        const std::uint8_t* px = mio_frame_rgba(f);
+        for (std::size_t i = 0; i < 96u * 96u; ++i)
+            c += px[4 * i] == (rgba >> 24) && px[4 * i + 1] == ((rgba >> 16) & 255) &&
+                 px[4 * i + 2] == ((rgba >> 8) & 255);
+        return c;
+    };
+    EXPECT_EQ(count(plain, 0xFF0000FFu), 0u);
+    mio_frame_free(plain);
+    o.streamlines = "swirl";
+    o.stream_color = 0xFF0000FFu;
+    mio_frame* lines = mio_render(m, &o);
+    ASSERT_NE(lines, nullptr) << mio_last_error();
+    EXPECT_GT(count(lines, 0xFF0000FFu), 100u);
+    mio_frame_free(lines);
+    o.streamlines = "nope";
+    EXPECT_EQ(mio_render(m, &o), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("nope"), std::string::npos);
+    o.streamlines = "swirl";
+    o.stream_seeds = 0;
+    EXPECT_EQ(mio_render(m, &o), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("seeds"), std::string::npos);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, WriteSnapshotChoosesTheFormByExtension) {
+    mio_mesh* cube = capi_cube_surface();
+    const std::string png = mt::temp_path(".png");
+    const std::string txt = mt::temp_path(".txt");
+    mio_render_opts o;
+    mio_render_opts_init(&o);
+    o.width = 32;
+    o.height = 24;
+    EXPECT_EQ(mio_write_snapshot(png.c_str(), cube, &o, nullptr, nullptr), MIO_OK)
+        << mio_last_error();
+    mio_text_opts t;
+    mio_text_opts_init(&t);
+    t.cols = 12;
+    t.rows = 4;
+    EXPECT_EQ(mio_write_snapshot(txt.c_str(), cube, nullptr, &t, nullptr), MIO_OK);
+    std::ifstream in(png, std::ios::binary);
+    char head[8];
+    in.read(head, 8);
+    EXPECT_EQ(std::string(head, 8), std::string("\x89PNG\r\n\x1a\n", 8));
+    EXPECT_NE(mio_write_snapshot("frame.vtu", cube, nullptr, nullptr, nullptr), MIO_OK);
+    mio_snapshot_opts s;
+    mio_snapshot_opts_init(&s);
+    EXPECT_EQ(s.cast_frames, 36);
+    EXPECT_NE(mio_write_snapshot(nullptr, cube, nullptr, nullptr, nullptr), MIO_OK);
+    mio_mesh_free(cube);
+}
+
+TEST(CApi, DetectColorDepth) {
+    EXPECT_EQ(mio_detect_color_depth("1", "truecolor", "xterm-256color"), MIO_COLOR_MONO);
+    EXPECT_EQ(mio_detect_color_depth(nullptr, "24bit", nullptr), MIO_COLOR_TRUECOLOR);
+    EXPECT_EQ(mio_detect_color_depth(nullptr, nullptr, "xterm-256color"), MIO_COLOR_256);
+    EXPECT_EQ(mio_detect_color_depth(nullptr, nullptr, "xterm"), MIO_COLOR_16);
 }

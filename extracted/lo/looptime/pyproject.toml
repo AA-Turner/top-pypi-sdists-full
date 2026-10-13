@@ -18,11 +18,11 @@ classifiers = [
     "Framework :: aiohttp",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
@@ -30,7 +30,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Typing :: Typed",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
 ]
 dynamic = ["version"]  # taken from git tags
@@ -51,29 +51,52 @@ docs = [
     "sphinx-llm>=0.1.4",
     "furo",
 ]
-dev = [
+test = [
     "async-timeout",
     "codecov",
     "coverage",
     "coveralls",
     "pytest",
-    "pytest-asyncio",
+    "pytest-asyncio>=1.0.0",
     "pytest-cov",
     "pytest-mock",
 ]
 lint = [
-    {include-group = "dev"},
-    "mypy==1.19.0",
+    {include-group = "test"},
+    "mypy==2.3.1",
     "pre-commit",
     "isort",
+]
+dev = [
+    {include-group = "docs"},
+    {include-group = "lint"},
+    {include-group = "test"},
 ]
 
 [tool.setuptools_scm]
 version_file = "looptime/_version.py"
 
+[tool.uv]
+exclude-newer = "7 days"
+# MyPy is pinned, so the intent is explicit, no need for time constraints.
+exclude-newer-package = { mypy=false }
+
 [tool.mypy]
+strict = true
+packages = ["looptime"]
+exclude = ['(^|/)test_.*\.py$']
+python_version = "3.11"
+exclude_gitignore = true
 warn_unused_configs = true
 ignore_missing_imports = true
+
+[tool.pytest]
+minversion = "9.0"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+log_format = "%(asctime)s %(levelname)s %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
+addopts = ["--strict-markers"]
 
 [tool.isort]
 line_length = 120

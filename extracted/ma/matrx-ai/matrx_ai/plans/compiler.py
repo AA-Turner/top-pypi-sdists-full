@@ -67,6 +67,7 @@ from matrx_graph import Definition
 from matrx_ai.plans.errors import PlanIssue, raise_if_issues
 from matrx_ai.plans.types import (
     FOR_EACH_MAX_ITEMS,
+    RESERVED_INPUT_KEYS,
     AgentPlan,
     PlanStep,
     is_ref,
@@ -313,9 +314,10 @@ def _value_expression(value: Any, plan: AgentPlan) -> str:
 def _payload_expression(step: PlanStep, plan: AgentPlan) -> str:
     """The plain-step assembler expression building {user_input?, variables?}."""
     parts: list[str] = []
-    if "user_input" in step.inputs:
-        parts.append(f"'user_input': {_value_expression(step.inputs['user_input'], plan)}")
-    variables = {k: v for k, v in step.inputs.items() if k != "user_input"}
+    for reserved in RESERVED_INPUT_KEYS:
+        if reserved in step.inputs:
+            parts.append(f"{reserved!r}: {_value_expression(step.inputs[reserved], plan)}")
+    variables = {k: v for k, v in step.inputs.items() if k not in RESERVED_INPUT_KEYS}
     if variables:
         entries = ", ".join(
             f"{k!r}: {_value_expression(v, plan)}" for k, v in sorted(variables.items())
@@ -347,9 +349,12 @@ def _payload_template(step: PlanStep, plan: AgentPlan) -> dict[str, Any]:
         return value
 
     template: dict[str, Any] = {}
-    if "user_input" in step.inputs:
-        template["user_input"] = _template_value(step.inputs["user_input"])
-    variables = {k: _template_value(v) for k, v in sorted(step.inputs.items()) if k != "user_input"}
+    for reserved in RESERVED_INPUT_KEYS:
+        if reserved in step.inputs:
+            template[reserved] = _template_value(step.inputs[reserved])
+    variables = {
+        k: _template_value(v) for k, v in sorted(step.inputs.items()) if k not in RESERVED_INPUT_KEYS
+    }
     if variables:
         template["variables"] = variables
     return template

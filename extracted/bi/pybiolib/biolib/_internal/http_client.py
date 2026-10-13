@@ -46,7 +46,7 @@ class HttpError(urllib.error.HTTPError):
 
 class HttpResponse:
     def __init__(self, response, response_path) -> None:
-        self.headers: Dict[str, str] = dict(response.headers)
+        self.headers: http.client.HTTPMessage = response.headers
         self.status_code: int = int(response.status)
         self.response_path = response_path
         if self.response_path:

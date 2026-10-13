@@ -516,7 +516,14 @@ def _stop_daemon() -> tuple[bool, list[str]]:
 
 
 def _uninstall_plugin() -> tuple[bool, list[str]]:
+    from probe.cli import cloud_agents
+
     selected = agent_source()
+    if cloud_agents.is_cloud(selected):
+        # No plugin: its capture is a connection to the vendor's API, and
+        # uninstalling it is disconnecting (timer, key and sync record).
+        cloud_agents.module(selected).disconnect(keep_capture=True)
+        return True, []
     if selected == "pi":
         # pi has no marketplace: its "plugin" is the settings.json packages
         # entry pi_config owns. Branch BEFORE plugin_cli -- this function

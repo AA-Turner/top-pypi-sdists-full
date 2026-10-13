@@ -9,12 +9,12 @@ from flufl.i18n, which re-exports them.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Self
 
 from public import public
 
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from gettext import NullTranslations
     from types import TracebackType
 
@@ -24,7 +24,7 @@ class TranslationContextManager(ABC):
     """Context manager for translations in a particular language."""
 
     @abstractmethod
-    def __enter__(self) -> TranslationContextManager:
+    def __enter__(self) -> Self:
         """Enter the translation context, returning this context manager."""
 
     @abstractmethod

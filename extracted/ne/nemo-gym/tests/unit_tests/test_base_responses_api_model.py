@@ -21,7 +21,7 @@ import pytest
 from fastapi import Body, FastAPI, Response
 from fastapi.testclient import TestClient
 from omegaconf import OmegaConf
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from nemo_gym.base_responses_api_agent import SimpleResponsesAPIAgent
 from nemo_gym.base_responses_api_model import (
@@ -75,11 +75,16 @@ class _DispatchPayload(BaseModel):
     token_ids: list[int]
 
 
+class _AliasedDispatchPayload(BaseModel):
+    schema_: dict = Field(alias="schema")
+
+
 @pytest.mark.parametrize(
     ("content", "expected"),
     [
         ({"text": "café", "token_ids": [1, 2, 3]}, {"text": "café", "token_ids": [1, 2, 3]}),
         (_DispatchPayload(text="café", token_ids=[1, 2, 3]), {"text": "café", "token_ids": [1, 2, 3]}),
+        (_AliasedDispatchPayload(schema={"type": "object"}), {"schema": {"type": "object"}}),
     ],
 )
 def test_orjson_dispatch_response_serializes_json(content, expected):
@@ -88,6 +93,32 @@ def test_orjson_dispatch_response_serializes_json(content, expected):
     assert type(response) is Response
     assert response.body == orjson.dumps(expected)
     assert response.headers["content-type"] == "application/json"
+
+
+def test_orjson_dispatch_response_preserves_pydantic_aliases():
+    content = NeMoGymResponse(
+        id="resp_1",
+        created_at=0,
+        model="test-model",
+        object="response",
+        output=[],
+        parallel_tool_calls=True,
+        tool_choice="auto",
+        tools=[],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "answer",
+                "schema": {"type": "object", "properties": {"answer": {"type": "string"}}},
+            }
+        },
+    )
+
+    body = orjson.loads(_orjson_dispatch_response(content).body)
+    wire_format = body["text"]["format"]
+
+    assert "schema" in wire_format
+    assert "schema_" not in wire_format
 
 
 def test_orjson_dispatch_response_preserves_existing_response():
@@ -156,6 +187,7 @@ def test_capture_store_raises_on_malformed_nonblank_json(tmp_path):
 def test_build_model_call_record_from_exchange():
     exchange = {
         "model_call_id": "call-1",
+        "client_session_id": "session-1",
         "dialect": "responses",
         "model_ref": {"type": "responses_api_models", "name": "srv"},
         "started_at": 100.0,
@@ -182,6 +214,7 @@ def test_build_model_call_record_from_exchange():
     rec = build_model_call_record(exchange, call_index=3)
     assert rec.model_call_id == "call-1"
     assert rec.response_id == "resp-1"
+    assert rec.client_session_id == "session-1"
     assert rec.call_index == 3
     assert rec.model_ref is not None and rec.model_ref.name == "srv"
     assert rec.model == "m"
@@ -199,6 +232,7 @@ def test_build_model_call_record_from_exchange():
     assert {
         "model_call_id",
         "response_id",
+        "client_session_id",
         "call_index",
         "model_ref",
         "model",
@@ -262,6 +296,21 @@ def test_build_model_call_record_tolerates_malformed_nested_shapes():
     assert record.tool_calls == []
 
 
+@pytest.mark.parametrize(
+    "headers,expected",
+    [
+        ([], None),
+        ([(b"X-Session-Id", b"session-1")], "session-1"),
+        ([(b"x-session-id", b"session-1"), (b"X-Session-Id", b"session-1")], "session-1"),
+        ([(b"x-session-id", b"session-1"), (b"x-session-id", b"session-2")], None),
+    ],
+)
+def test_unique_request_header_requires_one_value(headers, expected):
+    from nemo_gym.base_responses_api_model import _unique_request_header
+
+    assert _unique_request_header(headers, b"x-session-id") == expected
+
+
 def test_capture_is_durable_before_stream_terminal_event_is_sent(tmp_path):
     import asyncio
 
@@ -298,7 +347,7 @@ def test_capture_is_durable_before_stream_terminal_event_is_sent(tmp_path):
                 "type": "http",
                 "path": "/ng-rollout/fast-rollout/v1/messages",
                 "raw_path": b"/ng-rollout/fast-rollout/v1/messages",
-                "headers": [],
+                "headers": [(b"x-session-id", b"opencode-session")],
             },
             receive,
             send,
@@ -306,6 +355,8 @@ def test_capture_is_durable_before_stream_terminal_event_is_sent(tmp_path):
     )
 
     assert durable_call_counts == [0, 1, 1]
+    [call] = read_model_call_records(store, "fast-rollout")
+    assert call.client_session_id == "opencode-session"
 
 
 def test_capture_retains_partial_stream_when_downstream_raises(tmp_path):
@@ -434,6 +485,62 @@ def test_raised_call_is_captured_then_reraised(tmp_path):
     assert calls[0].started_at <= calls[0].completed_at
     assert calls[0].error_category == "exception" and calls[0].response is None
     assert calls[0].latency_ttft_ms is None  # nothing streamed before the raise
+
+
+def test_cancelled_call_is_captured_then_reraised(tmp_path):
+    import asyncio
+
+    from nemo_gym.base_responses_api_model import _CaptureMiddleware
+
+    store = CaptureStore(tmp_path)
+    seen_paths: list[str] = []
+
+    async def run_cancelled_request() -> None:
+        request_read = asyncio.Event()
+
+        async def app(scope, receive, send) -> None:
+            del send
+            seen_paths.append(scope["path"])
+            message = await receive()
+            assert message["body"] == b'{"input":"x"}'
+            request_read.set()
+            await asyncio.sleep(3600)
+
+        async def receive() -> dict:
+            return {"type": "http.request", "body": b'{"input":"x"}', "more_body": False}
+
+        async def send(_message: dict) -> None:
+            pass
+
+        task = asyncio.create_task(
+            _CaptureMiddleware(app, store=store, model_server_name="srv")(
+                {
+                    "type": "http",
+                    "path": "/ng-rollout/r-cancel/v1/responses",
+                    "raw_path": b"/ng-rollout/r-cancel/v1/responses",
+                    "headers": [],
+                },
+                receive,
+                send,
+            )
+        )
+        await request_read.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(run_cancelled_request())
+
+    assert seen_paths == ["/v1/responses"]
+    [exchange] = store.read("r-cancel")
+    assert exchange["request"] == {"input": "x"}
+    assert exchange["response"] is None
+    assert exchange["status_code"] is None
+    assert exchange["error_category"] == "cancelled"
+
+    [call] = read_model_call_records(store, "r-cancel")
+    assert call.error_category == "cancelled"
+    assert call.response is None
 
 
 def test_raised_upstream_error_preserves_status_and_body(tmp_path):
@@ -588,6 +695,7 @@ def test_classify_exception_branches():
     class _ReadTimeout(Exception):
         pass
 
+    assert _classify_exception(asyncio.CancelledError()) == "cancelled"
     assert _classify_exception(asyncio.TimeoutError()) == "timeout"
     assert _classify_exception(_ReadTimeout()) == "timeout"  # name contains "timeout"
     assert _classify_exception(ConnectionError()) == "connection"  # name contains "conn"
@@ -840,6 +948,7 @@ def test_base_agent_resolve_model_base_url(monkeypatch):
 
     monkeypatch.setattr(base_agent, "get_first_server_config_dict", lambda _config, _name: {"host": "h", "port": 1})
     agent = SimpleNamespace(
+        resolved_model_base_url=None,
         server_client=SimpleNamespace(
             global_config_dict={},
             _build_server_base_url=lambda _config: "http://h:1",
@@ -1302,6 +1411,59 @@ def test_merge_capture_attaches_metrics_without_raw_payloads(tmp_path):
     assert attached_call["response"] == exchange["response"]
     assert attached_call["request_raw"] == "malformed request"
     assert attached_call["response_raw"] == "malformed response"
+
+
+def test_merge_capture_owns_opencode_calls_by_client_session(tmp_path):
+    from nemo_gym.base_responses_api_model import CaptureStore, merge_model_call_capture_into_record
+
+    store = CaptureStore(tmp_path)
+    exchange = _capture_exchange(
+        "chat",
+        "A",
+        {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5},
+        {"id": "resp-A", "choices": [{"finish_reason": "stop", "message": {"content": "ok"}}]},
+    )
+    exchange["client_session_id"] = "opencode-root"
+    store.record("0-0", exchange)
+    record = {
+        "_ng_task_index": 0,
+        "_ng_rollout_index": 0,
+        "ng_agent_observations": {
+            "source": "opencode",
+            "records": [{"kind": "agent_invocation", "invocation_id": "opencode-root"}],
+        },
+    }
+
+    merge_model_call_capture_into_record(record, [tmp_path])
+
+    [reference] = record["ng_agent_observations"]["records"][0]["model_calls"]
+    assert reference["model_call_id"] == "call-A"
+    assert record["ng_agent_observations"]["gaps"] == []
+
+
+def test_merge_capture_reports_observation_join_failure(tmp_path, monkeypatch):
+    from nemo_gym.base_responses_api_model import CaptureStore, merge_model_call_capture_into_record
+
+    store = CaptureStore(tmp_path)
+    exchange = _capture_exchange("chat", "A", {}, {"id": "resp-A"})
+    exchange["client_session_id"] = "opencode-root"
+    store.record("0-0", exchange)
+    record = {
+        "_ng_task_index": 0,
+        "_ng_rollout_index": 0,
+        "ng_agent_observations": {
+            "source": "opencode",
+            "records": [{"kind": "agent_invocation", "invocation_id": "opencode-root"}],
+        },
+    }
+
+    def fail_association(*_args, **_kwargs):
+        raise RuntimeError("association failed")
+
+    monkeypatch.setattr("nemo_gym.base_responses_api_model.join_model_call_observations", fail_association)
+    merge_model_call_capture_into_record(record, [tmp_path])
+
+    assert [gap["code"] for gap in record["ng_model_call_capture"]["gaps"]] == ["agent_observation_join_failed"]
 
 
 def test_merge_capture_reports_missing_capture(tmp_path):

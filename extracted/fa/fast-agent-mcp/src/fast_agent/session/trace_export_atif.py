@@ -1,4 +1,4 @@
-"""ATIF v1.7 writer for persisted Fast-Agent sessions."""
+"""ATIF v1.8 writer for persisted Fast-Agent sessions."""
 
 from __future__ import annotations
 
@@ -9,18 +9,20 @@ from dataclasses import dataclass, replace
 from functools import cache
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Literal, TypedDict
 from urllib.parse import parse_qs, urlparse
 
-from mcp_types import CallToolResult, ImageContent, TextContent
+from mcp_types import AudioContent, CallToolResult, ContentBlock, ImageContent, TextContent
 
 from fast_agent.constants import (
     FAST_AGENT_COMPACTION_CHANNEL,
+    FAST_AGENT_PENDING_MEDIA_ATTACHMENTS,
     FAST_AGENT_PROCESS_POLL_FOLD,
     FAST_AGENT_RETRY,
     FAST_AGENT_SHELL_PROCESS_METADATA,
     FAST_AGENT_SUBAGENT_RESULT_METADATA,
     FAST_AGENT_TIMING,
+    FAST_AGENT_TOOL_MEDIA_MESSAGE,
     FAST_AGENT_TOOL_METADATA,
     FAST_AGENT_TOOL_TIMING,
     FAST_AGENT_USAGE,
@@ -30,6 +32,7 @@ from fast_agent.core.exceptions import AgentConfigError
 from fast_agent.history.atif_reconstruction import (
     COMPACTION_BOUNDARY,
     COPIED_CONTEXT,
+    is_export_marker,
     reconcile_transient,
     reconstruct_history,
 )
@@ -39,6 +42,7 @@ from fast_agent.history.process_poll_fold_audit import (
     ProcessPollFoldAudit,
     expand_process_poll_folds,
 )
+from fast_agent.llm.compaction_support import CompactionStrategy
 from fast_agent.llm.usage_tracking import UsageReport, UsageSummary
 from fast_agent.mcp.prompt import Prompt
 from fast_agent.mcp.prompt_message_extended import PromptMessageExtended
@@ -46,6 +50,7 @@ from fast_agent.mcp.prompt_serialization import load_messages
 from fast_agent.privacy.sanitizer import RedactionAccumulator
 from fast_agent.session.atif_models import (
     AtifAgent,
+    AtifAudioSource,
     AtifContent,
     AtifContentPart,
     AtifFinalMetrics,
@@ -57,6 +62,8 @@ from fast_agent.session.atif_models import (
     AtifSubagentTrajectoryRef,
     AtifToolCall,
     AtifTrajectory,
+    atif_audio_media_type,
+    atif_image_media_type,
 )
 from fast_agent.session.snapshot import load_session_snapshot
 from fast_agent.session.trace_export_models import ExportResult
@@ -64,7 +71,7 @@ from fast_agent.session.trace_export_models import ExportResult
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
     from datetime import datetime
-    from typing import Literal, TypeGuard
+    from typing import Literal
 
     from fast_agent.privacy.sanitizer import RedactionSummary, TraceSanitizer
     from fast_agent.session.trace_export_models import ResolvedSessionExport
@@ -257,34 +264,38 @@ def _reasoning_effort(model_name: str | None) -> str | None:
     return None
 
 
-type AtifImageMime = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
-
-
-def _is_atif_image_mime(value: str) -> TypeGuard[AtifImageMime]:
-    return value in {"image/jpeg", "image/png", "image/gif", "image/webp"}
+def _atif_media_part(block: object) -> AtifContentPart | None:
+    if isinstance(block, ImageContent):
+        image_type = atif_image_media_type(block.mime_type)
+        if image_type is None:
+            return None
+        return AtifContentPart(
+            type="image",
+            source=AtifImageSource(
+                media_type=image_type,
+                path=f"data:{image_type};base64,{block.data}",
+            ),
+        )
+    if isinstance(block, AudioContent):
+        audio_type = atif_audio_media_type(block.mime_type)
+        if audio_type is None:
+            return None
+        return AtifContentPart(
+            type="audio",
+            source=AtifAudioSource(
+                media_type=audio_type,
+                path=f"data:{audio_type};base64,{block.data}",
+            ),
+        )
+    return None
 
 
 def _atif_content(blocks: list[object]) -> AtifContent:
-    images = [
-        block
-        for block in blocks
-        if isinstance(block, ImageContent) and _is_atif_image_mime(block.mime_type)
-    ]
     texts = [block.text for block in blocks if isinstance(block, TextContent)]
-    if not images:
+    media = [part for block in blocks if (part := _atif_media_part(block)) is not None]
+    if not media:
         return "\n".join(texts)
-    parts = [AtifContentPart(type="text", text=text) for text in texts]
-    parts.extend(
-        AtifContentPart(
-            type="image",
-            source=AtifImageSource(
-                media_type=cast("AtifImageMime", image.mime_type),
-                path=f"data:{image.mime_type};base64,{image.data}",
-            ),
-        )
-        for image in images
-    )
-    return parts
+    return [AtifContentPart(type="text", text=text) for text in texts] + media
 
 
 def _result_content(result: CallToolResult) -> AtifContent:
@@ -470,10 +481,10 @@ def live_export_history(
 ) -> list[PromptMessageExtended]:
     """Keep no-history turn exports, but never let a transient hide compaction."""
     if not any(FAST_AGENT_COMPACTION_CHANNEL in (message.channels or {}) for message in history):
-        return list(transient or history)
+        return _expand_pending_tool_media(list(transient or history))
     restored = reconstruct_history(history, session_dir, agent_name)
     if not transient:
-        return restored
+        return _expand_pending_tool_media(restored)
     # Compare the lossless original poll messages to the raw ToolRunner turn,
     # not its rewritten/folded prompt representation. Keep the folded form in
     # the result so the normal writer still emits every poll context boundary.
@@ -487,11 +498,79 @@ def live_export_history(
             message_timestamps=tuple(message.timestamp for message in restored),
         )
     )
-    return reconcile_transient(
+    originals = [
+        item.message
+        for item in audit
+        if isinstance(item, _AuditMessage) and not is_export_marker(item.message)
+    ]
+    if any(
+        FAST_AGENT_PENDING_MEDIA_ATTACHMENTS in (message.channels or {}) for message in transient
+    ):
+        originals = _raw_tool_turn_messages(originals)
+    joined = reconcile_transient(
         restored,
         transient,
-        overlap_history=[item.message for item in audit if isinstance(item, _AuditMessage)],
+        overlap_history=originals,
+        allow_missing_input_timestamps=True,
     )
+    return _expand_pending_tool_media(joined)
+
+
+def _raw_tool_turn_messages(
+    history: list[PromptMessageExtended],
+) -> list[PromptMessageExtended]:
+    """Undo media staging for overlap comparison only; exported history stays canonical."""
+    result: list[PromptMessageExtended] = []
+    for message in history:
+        if (
+            FAST_AGENT_TOOL_MEDIA_MESSAGE in (message.channels or {})
+            and result
+            and result[-1].tool_results
+            and FAST_AGENT_PENDING_MEDIA_ATTACHMENTS not in (result[-1].channels or {})
+        ):
+            previous = result[-1]
+            result[-1] = previous.model_copy(
+                update={
+                    "channels": {
+                        **(previous.channels or {}),
+                        FAST_AGENT_PENDING_MEDIA_ATTACHMENTS: list(message.content),
+                    }
+                }
+            )
+        else:
+            result.append(message)
+    return result
+
+
+def _expand_pending_tool_media(
+    history: list[PromptMessageExtended],
+) -> list[PromptMessageExtended]:
+    """Surface attachments from completed tool results whose next LLM call failed."""
+    result: list[PromptMessageExtended] = []
+    for message in history:
+        channels = dict(message.channels or {})
+        pending = channels.pop(FAST_AGENT_PENDING_MEDIA_ATTACHMENTS, None)
+        if not message.tool_results or not pending:
+            result.append(message)
+            continue
+        result.append(message.model_copy(update={"channels": channels or None}))
+        media_channels: dict[str, list[ContentBlock]] = {
+            FAST_AGENT_TOOL_MEDIA_MESSAGE: [
+                TextContent(type="text", text="Tool media continuation")
+            ]
+        }
+        if COPIED_CONTEXT in channels:
+            media_channels[COPIED_CONTEXT] = list(channels[COPIED_CONTEXT])
+        result.append(
+            PromptMessageExtended(
+                role="user",
+                content=list(pending),
+                channels=media_channels,
+                timestamp=message.timestamp,
+                is_template=message.is_template,
+            )
+        )
+    return result
 
 
 def _resolve_call_step_ids(
@@ -561,6 +640,7 @@ def build_atif_trajectory(source: AtifRunSource) -> AtifTrajectory:
     context_step_ids: list[int] = []
     compaction_children: list[AtifTrajectory] = []
     summary_boundaries_with_usage = 0
+    provider_checkpoint_boundaries = 0
     audit_items = _expand_process_poll_folds(source)
     context_boundary_count = 0
 
@@ -729,6 +809,8 @@ def build_atif_trajectory(source: AtifRunSource) -> AtifTrajectory:
         removed_ids = body[template_count : len(body) - tail_count]
 
         summary_call = boundary.pop("summary_call", None)
+        if boundary.get("strategy") != CompactionStrategy.SUMMARY.value:
+            provider_checkpoint_boundaries += 1
         boundary_step_id = len(steps) + 1
         timestamp = item.timestamp
         summary_ref: list[AtifSubagentTrajectoryRef] | None = None
@@ -853,6 +935,7 @@ def build_atif_trajectory(source: AtifRunSource) -> AtifTrajectory:
                 **(
                     {
                         "summary_compactions": summary_boundaries,
+                        "provider_checkpoint_compactions": (provider_checkpoint_boundaries or None),
                         "summary_compaction_usage_complete": summary_usage_complete,
                         "accounting_scope": (
                             None
@@ -893,6 +976,7 @@ def build_atif_trajectory(source: AtifRunSource) -> AtifTrajectory:
             source.notes,
             context_boundary_count=context_boundary_count,
             summary_boundary_count=summary_boundaries,
+            provider_checkpoint_count=provider_checkpoint_boundaries,
             summary_usage_complete=summary_usage_complete,
         ),
     )
@@ -906,6 +990,7 @@ def _atif_notes(
     context_boundary_count: int,
     summary_boundary_count: int = 0,
     summary_usage_complete: bool = True,
+    provider_checkpoint_count: int = 0,
 ) -> str | None:
     additions: list[str] = []
     if summary_boundary_count:
@@ -921,6 +1006,13 @@ def _atif_notes(
             if summary_usage_complete
             else "Some summary-generation calls were not persisted: accounting excludes "
             "them, so these totals are not complete run spend."
+        )
+    if provider_checkpoint_count:
+        additions.append(
+            "Boundaries with a provider-native strategy (for example openai_compaction) "
+            "replaced the compacted region with an opaque, encrypted provider checkpoint: "
+            "their observation describes the checkpoint rather than quoting a readable "
+            "summary, and the embedded call is the provider's compaction request."
         )
     if context_boundary_count:
         additions.append(

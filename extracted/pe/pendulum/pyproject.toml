@@ -1,20 +1,20 @@
 [project]
 name = "pendulum"
-version = "3.2.0"
+version = "3.3.0"
 description = "Python datetimes made easy"
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT License" }
 authors = [{ name = "Sébastien Eustace", email = "sebastien@eustace.io" }]
 keywords = ['datetime', 'date', 'time']
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 dependencies = [
@@ -24,7 +24,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-    'time-machine>=2.6.0,<3.0.0; implementation_name != "pypy"',
+    'time-machine>=3.0.0,<4.0.0; implementation_name != "pypy"',
 ]
 
 [project.urls]
@@ -34,8 +34,8 @@ Repository = "https://github.com/sdispater/pendulum"
 
 
 [tool.poetry.group.test.dependencies]
-pytest = "^7.1.2"
-time-machine = ">=2.16.0"
+pytest = "^9.0.3"
+time-machine = ">=3.0.0"
 pytest-benchmark = "^4.0.0"
 
 [tool.poetry.group.doc.dependencies]
@@ -45,7 +45,7 @@ pygments = "^2.2"
 markdown-include = "^0.8.1"
 
 [tool.poetry.group.lint.dependencies]
-pre-commit = "^3.0.0"
+prek = ">=0.3.4"
 
 [tool.poetry.group.typing.dependencies]
 mypy = "^1.3.0"
@@ -72,7 +72,7 @@ include = [
 [tool.ruff]
 fix = true
 line-length = 88
-target-version = "py39"
+target-version = "py310"
 extend-exclude = [
     # External to the project's coding standards:
     "docs/*",
@@ -151,6 +151,7 @@ exclude = [
 module = [
     "pendulum.mixins.default",
     "tests.test_parsing",
+    "tests.test_thread_safety",
     "tests.date.test_add",
     "tests.date.test_behavior",
     "tests.date.test_construct",

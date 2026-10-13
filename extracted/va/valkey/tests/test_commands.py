@@ -22,6 +22,7 @@ from valkey._parsers.helpers import (
 from valkey.client import EMPTY_RESPONSE, NEVER_DECODE
 
 from .conftest import (
+    VALKEY_INFO,
     _get_client,
     assert_geo_is_close,
     assert_resp_response,
@@ -31,6 +32,7 @@ from .conftest import (
     skip_if_server_version_gte,
     skip_if_server_version_lt,
     skip_unless_arch_bits,
+    wait_for_condition,
 )
 
 
@@ -333,8 +335,26 @@ class TestValkeyCommands:
         assert_resp_response(
             r,
             acl["selectors"],
-            [["commands", "-@all +set", "keys", "%W~app*", "channels", ""]],
-            [{"commands": "-@all +set", "keys": "%W~app*", "channels": ""}],
+            [
+                [
+                    "commands",
+                    "-@all +set",
+                    "keys",
+                    "%W~app*",
+                    "channels",
+                    "",
+                    "databases",
+                    "alldbs",
+                ]
+            ],
+            [
+                {
+                    "commands": "-@all +set",
+                    "keys": "%W~app*",
+                    "channels": "",
+                    "databases": "alldbs",
+                }
+            ],
         )
 
     @skip_if_server_version_lt("6.0.0")
@@ -844,11 +864,13 @@ class TestValkeyCommands:
     @pytest.mark.onlynoncluster
     @skip_if_server_version_lt("5.0.0")
     def test_lolwut(self, r):
+        version = Version(VALKEY_INFO.get("version", "0"))
+        str_to_match = "Valkey ver." if version >= Version("9.0.0") else "Redis ver."
         lolwut = r.lolwut().decode("utf-8")
-        assert "Redis ver." in lolwut
+        assert str_to_match in lolwut
 
         lolwut = r.lolwut(5, 6, 7, 8).decode("utf-8")
-        assert "Redis ver." in lolwut
+        assert str_to_match in lolwut
 
     @pytest.mark.onlynoncluster
     @skip_if_server_version_lt("6.2.0")
@@ -957,7 +979,11 @@ class TestValkeyCommands:
 
     def test_bgsave(self, r):
         assert r.bgsave()
-        time.sleep(0.3)
+        # Wait for the first bgsave to finish
+        wait_for_condition(
+            lambda: r.info("persistence")["rdb_bgsave_in_progress"] == 0,
+            timeout=10,
+        )
         assert r.bgsave(True)
 
     def test_never_decode_option(self, r: valkey.Valkey):
@@ -3232,6 +3258,32 @@ class TestValkeyCommands:
         r.hset("a", mapping={"1": "22", "2": "333"})
         assert r.hstrlen("a", "1") == 2
         assert r.hstrlen("a", "2") == 3
+
+    @skip_if_server_version_lt("9.0.0")
+    def test_hsetex(self, r):
+        assert r.hsetex("a", "field1", "value1", ex=5) == 1
+        assert r.hget("a", "field1") == b"value1"
+        assert r.hsetex("a", "field1", "value2", ex=5) == 1
+        assert r.hget("a", "field1") == b"value2"
+
+    @skip_if_server_version_lt("9.0.0")
+    def test_hsetex_invalid_params(self, r):
+        with pytest.raises(exceptions.DataError):
+            r.hsetex("a", "field1", "value1", ex=5, px=5000)  # Both ex and px provided
+
+    @skip_if_server_version_lt("9.0.0")
+    def test_hsetex_px(self, r):
+        assert r.hsetex("a", "field1", "value1", px=5000) == 1
+        assert r.hget("a", "field1") == b"value1"
+        assert r.hsetex("a", "field1", "value2", px=5000) == 1
+        assert r.hget("a", "field1") == b"value2"
+
+    @skip_if_server_version_lt("9.0.0")
+    def test_hsetex_mapping(self, r):
+        mapping = {"field1": "value1", "field2": "value2"}
+        assert r.hsetex("a", mapping=mapping, ex=5) == 1
+        assert r.hget("a", "field1") == b"value1"
+        assert r.hget("a", "field2") == b"value2"
 
     # SORT
     def test_sort_basic(self, r):

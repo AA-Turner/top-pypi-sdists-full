@@ -350,7 +350,7 @@ class EnsureResourceAvailability(Failure):
         return ""
 
 
-class AuthScenario(str, enum.Enum):
+class AuthScenario(enum.StrEnum):
     NO_AUTH = "no_auth"
     INVALID_AUTH = "invalid_auth"
     GENERATED_AUTH = "generated_auth"
@@ -381,6 +381,41 @@ class IgnoredAuth(Failure):
     @property
     def _unique_key(self) -> str:
         return ""
+
+
+class ObjectLevelAuthorizationViolation(Failure):
+    """One identity received an object that another identity created."""
+
+    __slots__ = ("operation", "message", "owner", "peer", "owner_case_id", "title", "case_id", "severity")
+    # Rerunning as the peer alone does not recreate the owner's object.
+    reproducible_by_identity = False
+
+    def __init__(
+        self,
+        *,
+        operation: str,
+        message: str,
+        owner: str,
+        peer: str,
+        owner_case_id: str,
+        title: str = "Object-level authorization bypass",
+        case_id: str | None = None,
+    ) -> None:
+        self.operation = operation
+        self.message = message
+        self.owner = owner
+        self.peer = peer
+        self.owner_case_id = owner_case_id
+        self.title = title
+        self.case_id = case_id
+        self.severity = Severity.CRITICAL
+
+    @property
+    def _unique_key(self) -> str:
+        return ""
+
+    def related_case_ids(self) -> tuple[str, ...]:
+        return (self.owner_case_id,)
 
 
 class RejectedPositiveData(Failure):

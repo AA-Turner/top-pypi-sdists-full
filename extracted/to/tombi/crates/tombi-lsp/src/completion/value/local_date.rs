@@ -1,0 +1,213 @@
+use tombi_comment_directive::value::{LocalDateCommonFormatRules, LocalDateCommonLintRules};
+use tombi_extension::CompletionKind;
+use tombi_future::Boxable;
+use tombi_schema_store::{Accessor, CurrentSchema, LocalDateSchema, SchemaUri};
+use tombi_x_keyword::StringFormat;
+
+use crate::{
+    comment_directive::get_key_table_value_comment_directive_content_and_schema_uri,
+    completion::{
+        CompletionContent, CompletionEdit, CompletionHint, FindCompletionContents,
+        comment::get_tombi_comment_directive_content_completion_contents,
+        merge_adjacent_schema_completion_items,
+    },
+};
+
+impl FindCompletionContents for tombi_document_tree_syntax::LocalDate {
+    fn find_completion_contents<'a: 'b, 'b>(
+        &'a self,
+        cursor: crate::CursorPosition<'a>,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
+        accessors: &'a [Accessor],
+        current_schema: Option<&'a CurrentSchema<'a>>,
+        _schema_context: &'a tombi_schema_store::SchemaContext<'a>,
+        completion_hint: Option<CompletionHint>,
+    ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        let offset = cursor.offset();
+        log::trace!("self = {:?}", self);
+        log::trace!("offset = {:?}", offset);
+        log::trace!("keys = {:?}", keys);
+        log::trace!("accessors = {:?}", accessors);
+        log::trace!("current_schema = {:?}", current_schema);
+        log::trace!("completion_hint = {:?}", completion_hint);
+
+        async move {
+            if let Some((comment_directive_context, schema_uri)) =
+                get_key_table_value_comment_directive_content_and_schema_uri::<
+                    LocalDateCommonFormatRules,
+                    LocalDateCommonLintRules,
+                >(self.comment_directives(), offset, accessors)
+                && let Some(completions) = get_tombi_comment_directive_content_completion_contents(
+                    comment_directive_context,
+                    schema_uri,
+                )
+                .await
+            {
+                return completions;
+            }
+
+            Vec::new()
+        }
+        .boxed()
+    }
+}
+
+impl FindCompletionContents for LocalDateSchema {
+    fn find_completion_contents<'a: 'b, 'b>(
+        &'a self,
+        cursor: crate::CursorPosition<'a>,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
+        accessors: &'a [Accessor],
+        current_schema: Option<&'a CurrentSchema<'a>>,
+        schema_context: &'a tombi_schema_store::SchemaContext<'a>,
+        completion_hint: Option<CompletionHint>,
+    ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        let offset = cursor.offset();
+        log::trace!("self = {:?}", self);
+        log::trace!("offset = {:?}", offset);
+        log::trace!("keys = {:?}", keys);
+        log::trace!("accessors = {:?}", accessors);
+        log::trace!("current_schema = {:?}", current_schema);
+        log::trace!("completion_hint = {:?}", completion_hint);
+
+        async move {
+            let mut completion_items = vec![];
+            let schema_base_uri = current_schema.map(|schema| schema.schema_base_uri.as_ref());
+
+            if let Some(const_value) = &self.const_value {
+                let label = const_value.to_string();
+                let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
+                completion_items.push(CompletionContent::new_const_value(
+                    label,
+                    self.title.clone(),
+                    self.description.clone(),
+                    edit,
+                    schema_base_uri,
+                    self.deprecated(),
+                ));
+
+                return merge_adjacent_schema_completion_items(
+                    cursor,
+                    keys,
+                    accessors,
+                    current_schema,
+                    schema_context,
+                    completion_hint,
+                    completion_items,
+                    self.one_of.as_deref(),
+                    self.any_of.as_deref(),
+                    self.all_of.as_deref(),
+                )
+                .await;
+            }
+
+            if let Some(r#enum) = &self.r#enum {
+                for item in r#enum {
+                    let label = item.to_string();
+                    let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
+                    completion_items.push(CompletionContent::new_enum_value(
+                        label,
+                        self.title.clone(),
+                        self.description.clone(),
+                        edit,
+                        schema_base_uri,
+                        self.deprecated(),
+                    ));
+                }
+
+                return merge_adjacent_schema_completion_items(
+                    cursor,
+                    keys,
+                    accessors,
+                    current_schema,
+                    schema_context,
+                    completion_hint,
+                    completion_items,
+                    self.one_of.as_deref(),
+                    self.any_of.as_deref(),
+                    self.all_of.as_deref(),
+                )
+                .await;
+            }
+
+            if let Some(default) = &self.default {
+                let label = default.to_string();
+                let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
+                completion_items.push(CompletionContent::new_default_value(
+                    label,
+                    self.title.clone(),
+                    self.description.clone(),
+                    edit,
+                    schema_base_uri,
+                    self.deprecated(),
+                ));
+            }
+
+            if let Some(examples) = &self.examples {
+                for example in examples {
+                    let label = example.to_string();
+                    if completion_items.iter().any(|item| item.label == label) {
+                        continue;
+                    }
+                    let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
+                    completion_items.push(CompletionContent::new_example_value(
+                        label,
+                        self.title.clone(),
+                        self.description.clone(),
+                        edit,
+                        schema_base_uri,
+                        self.deprecated(),
+                    ));
+                }
+            }
+
+            if completion_items.is_empty() {
+                completion_items.extend(type_hint_local_date(
+                    offset,
+                    schema_base_uri,
+                    completion_hint,
+                ));
+
+                if schema_context.has_string_format(StringFormat::Date) {
+                    completion_items.extend(super::string::type_hint_string(
+                        offset,
+                        schema_base_uri,
+                        completion_hint,
+                    ));
+                }
+            }
+
+            merge_adjacent_schema_completion_items(
+                cursor,
+                keys,
+                accessors,
+                current_schema,
+                schema_context,
+                completion_hint,
+                completion_items,
+                self.one_of.as_deref(),
+                self.any_of.as_deref(),
+                self.all_of.as_deref(),
+            )
+            .await
+        }
+        .boxed()
+    }
+}
+
+pub fn type_hint_local_date(
+    offset: tombi_text::Offset,
+    schema_base_uri: Option<&SchemaUri>,
+    completion_hint: Option<CompletionHint>,
+) -> Vec<CompletionContent> {
+    let label = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let edit = CompletionEdit::new_selectable_literal(&label, offset, completion_hint);
+
+    vec![CompletionContent::new_type_hint_value(
+        CompletionKind::LocalDate,
+        label,
+        "LocalDate",
+        edit,
+        schema_base_uri,
+    )]
+}

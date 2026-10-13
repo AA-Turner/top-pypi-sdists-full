@@ -1509,7 +1509,7 @@ async def kind_create_content_block(args: dict[str, Any], ctx: ToolContext) -> T
         return ToolResult(
             success=True,
             output=KindContentBlockResult(
-                render_definition_id=str(created.id),
+                prompt_block_id=str(created.id),
                 block_id=block_id,
                 kind=kd.kind,
                 template_chars=len(template),

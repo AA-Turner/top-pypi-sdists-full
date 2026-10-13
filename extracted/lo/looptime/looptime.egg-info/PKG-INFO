@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: looptime
-Version: 0.7
+Version: 0.8
 Summary: Fast-forward asyncio event loop time (in tests)
 Author-email: Sergey Vasilyev <nolar@nolar.info>
 Maintainer-email: Sergey Vasilyev <nolar@nolar.info>
@@ -16,18 +16,18 @@ Classifier: Framework :: Pytest
 Classifier: Framework :: aiohttp
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file

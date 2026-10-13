@@ -25,11 +25,12 @@ def test_before_call_no_kwargs_unpacking(ctx, cli):
         """
 @schemathesis.hook
 def before_call(context, case, kwargs):
-    kwargs["allow_redirects"] = False
+    kwargs["auth"] = ("hook", "called")
         """
     )
     result = cli.main("run", api.schema_url, hooks=module)
     assert result.exit_code == ExitCode.OK, result.stdout
+    assert {request.headers.get("Authorization") for request in api.requests} == {"Basic aG9vazpjYWxsZWQ="}
 
 
 @pytest.mark.parametrize("phase", ["fuzzing", "stateful"])
@@ -136,6 +137,23 @@ def before_init_operation(context, operation):
     assert cli.main("run", api.schema_url, hooks=module) == snapshot_cli
 
 
+@pytest.mark.parametrize("invalid_schema", [{"pattern": "["}, {"minLength": "x"}], ids=["regex", "non-regex"])
+@pytest.mark.snapshot(replace_reproduce_with=True, replace_traceback=True)
+def test_before_generate_case_validation_error(ctx, cli, snapshot_cli, invalid_schema):
+    api = ctx.openapi.apps.success()
+    module = ctx.write_pymodule(
+        f"""
+import jsonschema_rs
+
+@schemathesis.hook
+def before_generate_case(context, strategy):
+    jsonschema_rs.Draft202012Validator({invalid_schema!r})
+    return strategy
+"""
+    )
+    assert cli.main("run", api.schema_url, "--phases=fuzzing", "--max-examples=1", hooks=module) == snapshot_cli
+
+
 def test_hooks_file_path(ctx, cli, tmp_path):
     api = ctx.openapi.apps.success()
     # When SCHEMATHESIS_HOOKS points to an absolute file path
@@ -149,6 +167,29 @@ def before_call(context, case, **kwargs):
     result = cli.main("run", api.schema_url, env={"SCHEMATHESIS_HOOKS": str(hooks_file)})
     assert result.exit_code == ExitCode.TESTS_FAILED, result.stdout
     assert "division by zero" in result.stdout
+
+
+def test_hooks_file_path_runs_once_per_call(ctx, cli, tmp_path):
+    api = ctx.openapi.apps.success()
+    calls = tmp_path / "calls.txt"
+    hooks_file = tmp_path / "counting_hooks.py"
+    hooks_file.write_text(f"""
+import schemathesis
+@schemathesis.hook
+def before_call(context, case, **kwargs):
+    with open({str(calls)!r}, "a") as fd:
+        fd.write(".")
+""")
+    result = cli.main(
+        "run",
+        api.schema_url,
+        "--phases=fuzzing",
+        "--max-examples=3",
+        env={"SCHEMATHESIS_HOOKS": str(hooks_file)},
+    )
+    assert result.exit_code == ExitCode.OK, result.stdout
+    api_calls = [request for request in api.requests if request.path.startswith("/api/")]
+    assert len(calls.read_text()) == len(api_calls)
 
 
 def test_hooks_file_path_unloadable(ctx, cli, tmp_path):
@@ -202,6 +243,21 @@ def filter_failure(context, failure, case, response):
         )
         == snapshot_cli
     )
+
+
+def test_filter_failure_is_summarized_in_fuzz(ctx, cli):
+    api = ctx.openapi.apps.failure()
+    module = ctx.write_pymodule(
+        """
+@schemathesis.hook
+def filter_failure(context, failure, case, response):
+    return response.status_code != 500
+"""
+    )
+
+    result = cli.main("fuzz", api.schema_url, "-c", "not_a_server_error", "--max-time=1", hooks=module)
+
+    assert "Filtered: " in result.stdout, result.stdout
 
 
 def test_filter_failure_keeps_what_it_does_not_reject(ctx, cli):

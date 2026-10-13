@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from gettext import NullTranslations
-from typing import TYPE_CHECKING, Literal, NamedTuple
+from typing import TYPE_CHECKING, Literal, NamedTuple, Self
 
 from public import public
 
@@ -13,10 +13,8 @@ from flufl.i18n._types import (
 )
 
 
-# fmt: off
-if TYPE_CHECKING:                       # pragma: no cover
-    from types import TracebackType     # noqa: I001 Import block is un-sorted or un-formatted
-# fmt: on
+if TYPE_CHECKING:
+    from types import TracebackType
 
 
 class _Using(TranslationContextManager):
@@ -26,7 +24,7 @@ class _Using(TranslationContextManager):
         self._application = application
         self._language_code = language_code
 
-    def __enter__(self) -> TranslationContextManager:
+    def __enter__(self) -> Self:
         self._application.push(self._language_code)
         return self
 
@@ -44,12 +42,10 @@ class _Using(TranslationContextManager):
 class _Defer(TranslationContextManager):
     """Context manager for _.defer_translation()."""
 
-    # 2020-07-06(warsaw): Once Python 3.7 is the minimum supported version, we
-    # can use `from __future__ import annotations` instead of the string type.
     def __init__(self, application: Application):
         self._application = application
 
-    def __enter__(self) -> TranslationContextManager:
+    def __enter__(self) -> Self:
         self._application.defer()
         return self
 

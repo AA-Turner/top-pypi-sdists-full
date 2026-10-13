@@ -14,8 +14,10 @@ from matrx_scraper.features.extensions import get_condenser_1
 from matrx_scraper.utils.proxy import redact_url_secrets
 
 LOCAL_DEBUG = False
-#: Records a routed page read asks for (review datasets return one record per review).
+#: Built-in stand-in for records a routed page read asks for (review datasets return one record per
+#: review). The host's knob (``EXT_ROUTE_RECORDS``) decides; this holds only when it cannot be read.
 ROUTE_MAX_RECORDS = 10
+EXT_ROUTE_RECORDS = "site_data_route_records"
 
 
 class ReadPageFetchError(RuntimeError):
@@ -76,6 +78,9 @@ async def _route_site_data(url: str) -> tuple[dict[str, Any] | None, str | None]
 
     if not url or not site_data.is_configured():
         return None, None
+    from matrx_scraper.vendors.site_catalog import ensure_catalog
+
+    await ensure_catalog()
     entry = site_data.match(url)
     if entry is None:
         return None, None
@@ -85,18 +90,28 @@ async def _route_site_data(url: str) -> tuple[dict[str, Any] | None, str | None]
                 return None, None
         except Exception as exc:  # noqa: BLE001 - knob read failed: lean open, announce
             vcprint(f"[read_page] site-data route knob unreadable ({exc!r}); routing", color="yellow")
+    route_records, records_notice = ROUTE_MAX_RECORDS, None
+    if has_ext(EXT_ROUTE_RECORDS):
+        try:
+            route_records = max(1, int(await get_ext(EXT_ROUTE_RECORDS)()))
+        except Exception as exc:  # noqa: BLE001 - knob read failed: built-in number holds, said loudly
+            vcprint(f"[read_page] site-data route records knob unreadable ({exc!r}); using {ROUTE_MAX_RECORDS}",
+                    color="red", log_level=logging.ERROR)
+            route_records = ROUTE_MAX_RECORDS
+            records_notice = (f"Using the built-in limit of {ROUTE_MAX_RECORDS} records because your "
+                              "organization's setting could not be read.")
     try:
-        res = await site_data.fetch(url=url, max_records=ROUTE_MAX_RECORDS, timeout_s=120.0)
+        res = await site_data.fetch(url=url, max_records=route_records, timeout_s=120.0)
     except Exception as exc:  # noqa: BLE001 - a refusal (spend gate) or a defect: read directly, say so
         if not getattr(exc, "is_caller_refusal", False):
             await capture_error(exc, kind="scraper_site_data_route_failed", context={"url": url})
         return None, (
-            f"Site data via Bright Data ({entry.label}) was not used ({type(exc).__name__}: "
-            f"{getattr(exc, 'message', None) or exc}). This is the page read directly instead."
+            f"Live data ({entry.label}) was not used ({getattr(exc, 'message', None) or exc}). "
+            "This is the page read directly instead."
         )
     if not res.ok:
         return None, (
-            f"Site data via Bright Data ({entry.label}) did not answer: {res.message} "
+            f"Live data ({entry.label}) did not answer: {res.message} "
             "This is the page read directly instead."
         )
     prov = res.provenance
@@ -105,9 +120,10 @@ async def _route_site_data(url: str) -> tuple[dict[str, Any] | None, str | None]
         "result": res.rendering,
         "text": res.rendering,
         "url": url,
-        "engine": "site_data:brightdata",
+        "engine": "site_data",
         "provenance": prov,
         "records": res.records,
+        **({"notice": records_notice} if records_notice else {}),
         "page": {
             "success": True,
             "url": url,
@@ -115,7 +131,7 @@ async def _route_site_data(url: str) -> tuple[dict[str, Any] | None, str | None]
             "content_type": "application/json",
             "text_data": res.rendering,
             "ai_research_with_images": res.rendering,
-            "engine": "site_data:brightdata",
+            "engine": "site_data",
             "provenance": prov,
             "raw_html": None,
         },

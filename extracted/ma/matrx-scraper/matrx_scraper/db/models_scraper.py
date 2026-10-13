@@ -1,8 +1,126 @@
 # File: matrx_scraper/db/models_scraper.py
-from matrx_orm import BooleanField, CharField, DateTimeField, EnumField, ForeignKey, IntegerField, JSONBField, MatrxEntity, Model, TextField, UUIDField, model_registry, BaseDTO, BaseManager
+from matrx_orm import BooleanField, CharField, DateTimeField, DecimalField, EnumField, ForeignKey, IntegerField, JSONBField, MatrxEntity, Model, TextField, UUIDField, model_registry, BaseDTO, BaseManager
 from enum import Enum
 from dataclasses import dataclass
 from typing import ClassVar
+
+
+
+class Visibility(str, Enum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class ShownTo(str, Enum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
+class DataFetchJob(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    source_key = TextField(null=False)
+    dataset_id = TextField(null=False)
+    inputs = JSONBField(null=False, default=[])
+    max_records = IntegerField(null=False)
+    table_id = UUIDField()
+    table_name = TextField()  # type: ignore[override]
+    key_column = TextField()
+    snapshot_id = TextField()
+    status = TextField(null=False, default='queued')
+    records_billed = IntegerField(null=False, default=0)
+    billed_at = DateTimeField()
+    rows_created = IntegerField(null=False, default=0)
+    rows_updated = IntegerField(null=False, default=0)
+    values_as_text = IntegerField(null=False, default=0)
+    cost_usd = DecimalField()
+    result = JSONBField()
+    error_code = TextField()
+    error = TextField()
+    started_at = DateTimeField()
+    finished_at = DateTimeField()
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    lease_until = DateTimeField(null=False)
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_scraper"
+    _table_name = "data_fetch_job"
+    _db_schema = "scraper"
+    _entity_token = "scraper_data_fetch_job"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "entity"
+
+
+
+class Visibility(str, Enum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class ShownTo(str, Enum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
+class DataSource(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    key = TextField(null=False)
+    label = TextField(null=False)
+    group_name = TextField(null=False)
+    subgroup = TextField()
+    description = TextField(null=False)
+    input_kind = TextField(null=False, default='url')
+    input_spec = JSONBField(null=False, default={})
+    output_fields = JSONBField(null=False, default=[])
+    key_column = TextField()
+    url_pattern = JSONBField()
+    auto_route = BooleanField(null=False, default=False)
+    enabled = BooleanField(null=False, default=True)
+    featured = BooleanField(null=False, default=False)
+    verified_live = BooleanField(null=False, default=False)
+    known_issue = TextField()
+    supports_collection = BooleanField(null=False, default=True)
+    sort_order = IntegerField(null=False, default=0)
+    dataset_id = TextField(null=False)
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    usd_per_record = DecimalField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_scraper"
+    _table_name = "data_source"
+    _db_schema = "scraper"
+    _entity_token = "scraper_data_source"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "system"
 
 class ScrapeDomain(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
@@ -214,6 +332,8 @@ class ScrapePathOverride(MatrxEntity):
     _rls_variant = "reference"
 
 __all__ = [
+    "DataFetchJob",
+    "DataSource",
     "ScrapeDomain",
     "ScrapeFailureLog",
     "ScrapeParsedPage",
@@ -228,6 +348,8 @@ __all__ = [
 
 model_registry.register_all(
 [
+        DataFetchJob,
+        DataSource,
         ScrapeDomain,
         ScrapeFailureLog,
         ScrapeParsedPage,

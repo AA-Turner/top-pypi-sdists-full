@@ -2484,9 +2484,12 @@ step('availableFormats reports what this build can read and write', () => {
     const { readers, writers } = m.availableFormats();
     assert.ok(Array.isArray(readers) && Array.isArray(writers));
     assert.ok(readers.includes('vtu') && writers.includes('vtu'));
-    // The two lists genuinely differ: svg/tikz are write-only. A viewer that
-    // assumes one list would offer broken menu items.
-    assert.ok(writers.includes('svg') && !readers.includes('svg'));
+    // The two lists genuinely differ: gltf is write-only. A viewer that
+    // assumes one list would offer broken menu items. svg and tikz read back
+    // the drawings meshio++ writes, so they are in both.
+    assert.ok(writers.includes('gltf') && !readers.includes('gltf'));
+    assert.ok(readers.includes('svg') && writers.includes('svg'));
+    assert.ok(readers.includes('tikz') && writers.includes('tikz'));
     // openfoam was read-only until v9.20.0 -- this step used to assert that.
     assert.ok(readers.includes('openfoam') && writers.includes('openfoam'));
     // The HDF5- and netCDF-backed formats are in this build too (the wasm32
@@ -2527,8 +2530,8 @@ step('availableFormats reports what this build can read and write', () => {
     assert.ok(readers.includes('code_aster') && writers.includes('code_aster'));
     // COMSOL binary meshes (roadmap section 1.2, v16.1.0): .mphbin, both directions.
     assert.ok(readers.includes('mphbin') && writers.includes('mphbin'));
-    // CalculiX results (roadmap section 1.1, v15.3.0): read-only.
-    assert.ok(readers.includes('frd') && !writers.includes('frd'));
+    // CalculiX results (roadmap section 1.1, v15.3.0; the ASCII writer of roadmap 3.2.1): both ways.
+    assert.ok(readers.includes('frd') && writers.includes('frd'));
     // Elmer mesh directories and FEBio .feb (v16.2.0) both ways; FEBio .xplt read-only.
     for (const fmt of ['elmer', 'febio'])
         assert.ok(readers.includes(fmt) && writers.includes(fmt), `missing format: ${fmt}`);
@@ -2536,13 +2539,14 @@ step('availableFormats reports what this build can read and write', () => {
     // Patran neutral, Femap neutral and MFEM (v16.5.0) both ways.
     for (const fmt of ['patran', 'femap', 'mfem'])
         assert.ok(readers.includes(fmt) && writers.includes(fmt), `missing format: ${fmt}`);
-    // Abaqus .fil (v16.7.0) read-only; Z88 and libMesh (its writer is v16.11.0)
-    // and OpenRadioss starter decks (read v16.7.0, written v16.17.0) both ways.
-    // OpenRadioss animation files (v16.11.0), time-history files and LS-DYNA
-    // binouts (v16.12.0) read-only.
-    for (const fmt of ['abaqus_fil', 'radioss_anim', 'radioss_th', 'lsdyna_binout'])
+    // Abaqus .fil (v16.7.0) read-only; Z88 and libMesh (its writer is v16.11.0),
+    // OpenRadioss starter decks (read v16.7.0, written v16.17.0) and
+    // OpenRadioss time-history files (read v16.12.0, written since) both ways.
+    // OpenRadioss animation files (v16.11.0) and LS-DYNA binouts (v16.12.0)
+    // read-only.
+    for (const fmt of ['abaqus_fil', 'radioss_anim', 'lsdyna_binout'])
         assert.ok(readers.includes(fmt) && !writers.includes(fmt), `bad format: ${fmt}`);
-    for (const fmt of ['z88', 'libmesh', 'radioss'])
+    for (const fmt of ['z88', 'libmesh', 'radioss', 'radioss_th'])
         assert.ok(readers.includes(fmt) && writers.includes(fmt), `missing format: ${fmt}`);
     // MSC Marc decks (read v16.8.0, written v16.17.0) both ways; its post files
     // and the full rotor of a cyclic Ansys .rst (v16.8.0) read-only.
@@ -2704,7 +2708,7 @@ step('.xyz reads its column layouts and refuses chemistry XYZ by name', () => {
     assert.deepEqual(Array.from(m.readMesh('/out.xyz').points), [0.5, 1, -2]);
 });
 
-step('.frd reads a CalculiX result file: node permutation, steps, tensors, read-only', () => {
+step('.frd reads a CalculiX result file: node permutation, steps, tensors, and writes it back', () => {
     const pad = (v, w) => String(v).padStart(w, ' ');
     const e12 = (v) => v.toExponential(5).toUpperCase().replace(/E([+-])(\d)$/, 'E$10$2').padStart(12, ' ');
     const header = (ids) => '    1C\n    2C' + pad(ids.length, 30) + ' '.repeat(37) + '1\n';
@@ -2739,7 +2743,20 @@ step('.frd reads a CalculiX result file: node permutation, steps, tensors, read-
     assert.equal(last.field_data['meshio:time'][0], 1.5);
     assert.equal(last.point_data.STRESS.length, 20 * 6);
     assert.throws(() => m.readMeshSelective('/r.frd', { timeStep: 2 }), /out of range/);
-    assert.throws(() => m.writeMesh('/out.frd', first), /frd/);
+    // The writer is the reader's inverse: the written file reads back the same step.
+    m.writeMesh('/out.frd', first);
+    const again = m.readMesh('/out.frd');
+    assert.deepEqual(Array.from(again.cells[0].data), Array.from(first.cells[0].data));
+    assert.equal(again.point_data.NDTEMP[19], 20);
+    assert.equal(again.field_data['meshio:time'][0], 0.5);
+    // The binary layout is an encoding option: float64 points, float32 results.
+    m.writeMesh('/out_bin.frd', first, '', { encoding: 'binary' });
+    const bin = m.FS.readFile('/out_bin.frd');
+    assert.equal(Buffer.from(bin.slice(bin.length - 6)).toString('latin1'), ' 9999\n');
+    const binary = m.readMesh('/out_bin.frd');
+    assert.deepEqual(Array.from(binary.cells[0].data), Array.from(first.cells[0].data));
+    assert.equal(binary.point_data.NDTEMP[19], 20);
+    assert.equal(binary.field_data['meshio:time'][0], 0.5);
 });
 
 step('.k reads a keyword deck with parts, sets and an *INCLUDE, and writes one back', () => {
@@ -3190,6 +3207,34 @@ step('info: mdpa entity names and property sets round-trip together', () => {
     assert.equal(back.propertySets[0].id, 1);
     assert.equal(back.propertySets[0].values[0].key, 'YOUNG_MODULUS');
     assert.equal(back.propertySets[0].values[0].values[0], 2.1e11);
+});
+
+step('info: an MFEM NURBS mesh keeps and writes back its patches', () => {
+    const w = '0.70710678118654757';
+    m.FS.writeFile('/annulus.mesh', [
+        'MFEM NURBS mesh v1.0', 'dimension', '2', 'elements', '1', '5 3 0 1 2 3',
+        'boundary', '0', 'edges', '4', '0 0 1', '0 3 2', '1 0 3', '1 1 2',
+        'vertices', '4', 'knotvectors', '2', '2 3 0 0 0 1 1 1', '1 2 0 0 1 1',
+        'weights', '1', '1', '1', '1', w, w,
+        'FiniteElementSpace', 'FiniteElementCollection: NURBS2', 'VDim: 2', 'Ordering: 1',
+        '1 0', '0 1', '0 2', '2 0', '1 1', '2 2', '',
+    ].join('\n'));
+    const mesh = m.readMeshSelective('/annulus.mesh', { format: 'mfem', info: true });
+    assert.equal(mesh.info.format, 'mfem');
+    assert.equal(mesh.info.patches.length, 1);
+    const p = mesh.info.patches[0];
+    assert.deepEqual(Array.from(p.degrees), [2, 1]);
+    assert.deepEqual(Array.from(p.knots[1]), [0, 0, 1, 1]);
+    assert.equal(p.spaceDim, 2);
+    assert.deepEqual(Array.from(p.controlPoints.slice(0, 4)), [1, 0, 1, 1]);
+    assert.equal(p.weights[1], Math.SQRT1_2);
+    assert.equal(Number(mesh.info.topology.numVertices), 4);
+    assert.deepEqual(Array.from(mesh.info.cellPatch, Number), [0]);
+    m.writeMesh('/annulus_out.mesh', mesh, 'mfem', { info: mesh.info });
+    assert.ok(new TextDecoder().decode(m.FS.readFile('/annulus_out.mesh')).startsWith('MFEM NURBS mesh v1.0'));
+    const back = m.readMeshSelective('/annulus_out.mesh', { format: 'mfem', info: true });
+    assert.deepEqual(Array.from(back.info.patches[0].controlPoints), Array.from(p.controlPoints));
+    assert.deepEqual(Array.from(back.info.patches[0].weights), Array.from(p.weights));
 });
 
 step('info: the mdpa blocks a mesh cannot hold round-trip through info', () => {
@@ -4896,12 +4941,79 @@ step('checkQuality gates on thresholds', () => {
     assert.throws(() => m.checkQuality(cubeSurface, 'bogus >= 1'));
 });
 
+step('render, renderText, renderPng', () => {
+    const f = m.render(cubeSurface, { width: 48, height: 32, background: [255, 255, 255, 255] });
+    assert.equal(f.width, 48);
+    assert.equal(f.height, 32);
+    assert.ok(f.rgba instanceof Uint8ClampedArray);
+    assert.equal(f.rgba.length, 48 * 32 * 4);
+    assert.equal(f.cellIds.length, 48 * 32);
+    assert.deepEqual(Array.from(f.rgba.slice(0, 4)), [255, 255, 255, 255]);
+    assert.ok(Array.from(f.cellIds).filter((c) => c >= 0).length > 100);
+    assert.equal(f.range, null);
+
+    const text = m.renderText(cubeSurface, {}, { cols: 20, rows: 6, colorDepth: 'mono' });
+    assert.equal(text.split('\n').length - 1, 6);
+    assert.ok(!text.includes('\x1b'));
+    assert.ok(m.renderText(cubeSurface, {}, { cols: 20, rows: 6, format: 'html' }).startsWith('<!DOCTYPE html>'));
+    assert.throws(() => m.renderText(cubeSurface, {}, { encoding: 'kitty' }), /encoding must be one of/);
+
+    const png = m.renderPng(cubeSurface, { width: 30, height: 20 });
+    assert.ok(png instanceof Uint8Array);
+    assert.deepEqual(Array.from(png.slice(0, 8)), [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+    // A cut-away: the camera sits on -x and a plane keeps x >= 0.5, so what was the
+    // near face is gone and the centre is the far face, in the tint.
+    const side = { width: 32, height: 32, view: '-x', shading: 'none', background: [0, 0, 0, 255] };
+    const whole = m.render(cubeSurface, side);
+    const cut = m.render(cubeSurface, { ...side, cutaway: [0.5, 0, 0, 1, 0, 0], cutawayTint: [10, 200, 30, 255] });
+    const centre = 16 * 32 + 16;
+    assert.notEqual(cut.cellIds[centre], whole.cellIds[centre]);
+    assert.deepEqual(Array.from(cut.rgba.slice(centre * 4, centre * 4 + 4)), [10, 200, 30, 255]);
+    assert.ok(m.render(cubeSurface, { ...side, cutaway: [[0.5, 0, 0, 1, 0, 0], [0, 0.5, 0, 0, 1, 0]] }));
+    assert.throws(() => m.render(cubeSurface, { cutaway: [1, 2, 3] }), /six numbers/);
+    assert.throws(() => m.render(cubeSurface, { cutaway: [0, 0, 0, 0, 0, 0] }), /normal/);
+
+    // Streamlines: a vector point array drawn as lines in their colour.
+    const cubeFlow = {
+        ...cubeSurface,
+        point_data: {
+            flow: new Float64Array([
+                0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0, -0.5, -0.5, 0,
+                0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0, -0.5, -0.5, 0,
+            ]),
+        },
+    };
+    const flowView = { width: 64, height: 64, view: '+z', shading: 'none', background: [0, 0, 0, 255] };
+    const redCount = (f) => {
+        let n = 0;
+        for (let i = 0; i < f.rgba.length; i += 4) n += f.rgba[i] === 255 && f.rgba[i + 1] === 0 && f.rgba[i + 2] === 0;
+        return n;
+    };
+    assert.equal(redCount(m.render(cubeFlow, flowView)), 0);
+    assert.ok(redCount(m.render(cubeFlow, { ...flowView, streamlines: 'flow', streamColor: [255, 0, 0, 255] })) > 20);
+    assert.throws(() => m.render(cubeFlow, { streamlines: 'nope' }), /nope/);
+    assert.throws(() => m.render(cubeFlow, { streamlines: 'flow', streamSeeds: 0 }), /seeds/);
+
+    assert.throws(() => m.render(cubeSurface, { bogus: 1 }), /unknown option 'bogus'/);
+    assert.throws(() => m.render(cubeSurface, { shading: 'plastic' }), /shading must be one of/);
+    assert.throws(() => m.render(cubeSurface, { colorBy: 'nope' }), /nope/);
+    assert.throws(() => m.render(cubeSurface, { supersample: 3 }), /supersample/);
+});
+
 step('featureEdges, hausdorffDistance, editRegions, matchPeriodicNodes', () => {
     const fe = m.featureEdges(cubeSurface);
     assert.equal(fe.numFeature, 12);
     assert.equal(fe.numBoundary, 0);
     assert.equal(fe.mesh.cells[0].type, 'line');
     assert.throws(() => m.featureEdges(cubeSurface, 200));
+
+    const sg = m.segment(cubeSurface);
+    assert.equal(sg.numPatches, 6);
+    const fp = m.fitPrimitives(sg.mesh);
+    assert.equal(fp.numPlane, 6);
+    assert.throws(() => m.segment(cubeSurface, 200));
+    assert.throws(() => m.fitPrimitives(sg.mesh, 'segment:patch', 1e-3, true, 0.9, ['blob']));
 
     const h = m.hausdorffDistance(cubeSurface, cubeSurface, 2);
     assert.ok(Math.abs(h.distance) < 1e-12); // face samples: rounding, not exactly 0

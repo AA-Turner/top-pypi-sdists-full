@@ -101,11 +101,53 @@ def test_the_skip_list_is_honoured(client, app, work):
     assert set(_rows(app, run)) == {"kept.txt"}
 
 
-def test_a_plot_is_filed_as_a_plot(client, app, work):
+def test_an_image_takes_the_default_kind(client, app, work):
+    """A figure is not a kind (`artifact_kinds`): a captured image is sent with
+    NO kind, like any other output, and the in-memory API stores its default."""
     run = open_run(client, experiment="cap-plot", capture_outputs=True)
     (work / "curve.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 64)
     run.finish()
-    assert _rows(app, run)["curve.png"]["kind"] == "plot"
+    assert _rows(app, run)["curve.png"]["kind"] == "file"
+
+
+def _stored_row_for(path, *, kind: str, meta: dict) -> dict:
+    import hashlib
+
+    return {"kind": kind, "content_hash": hashlib.sha256(path.read_bytes()).hexdigest(), "meta": meta}
+
+
+@pytest.mark.parametrize(
+    ("kind", "meta", "uploaded"),
+    [
+        # Code a researcher uploaded is a file they logged: the same bytes in
+        # the output folder are already stored, so they are not sent again.
+        ("code", {}, 0),
+        ("script", {}, 0),
+        ("other", {}, 0),
+        # The automatic code capture is not the run's output: a copy of a
+        # captured source file in the output folder is still captured.
+        ("code", {"capture": "code-snapshot"}, 1),
+        ("code_snapshot", {}, 1),
+        ("code_bytes", {}, 1),
+        # Spelled as rows were before the server's kind backfill reached them.
+        ("code-snapshot", {}, 1),
+        ("code-bytes", {}, 1),
+    ],
+)
+def test_bytes_stored_on_the_run_are_not_captured_again_unless_code_capture_holds_them(
+    client, work, monkeypatch, kind, meta, uploaded
+):
+    run = open_run(client, experiment=f"cap-stored-{kind}-{bool(meta)}", capture_outputs=False)
+    copy = work / "config.yaml"
+    copy.write_text("lr: 0.1\n")
+    rows = [_stored_row_for(copy, kind=kind, meta=meta)]
+    monkeypatch.setattr(client, "list_run_artifacts", lambda run_id, **_kw: rows)
+    capture = outputs.OutputCapture(client, run.id, str(work), tee=False, launcher=True)
+    try:
+        summary = capture._sweep(time.monotonic() + 60)
+    finally:
+        capture._unregister()
+    assert summary["uploaded"] == uploaded, summary
 
 
 def test_a_text_credential_is_redacted_and_the_file_still_uploaded(client, app, work):
@@ -136,6 +178,23 @@ def test_a_field_name_hit_never_skips(client, app, work):
     assert "preds.jsonl" in _rows(app, run)
 
 
+def test_a_captured_checkpoint_folder_files_its_files_as_files(client, app, work):
+    """A Trainer's checkpoint folder inside the run's folder is swept like any
+    other output; none of its files is filed a `checkpoint`. The failed-run alert
+    and the disk finding read the NEWEST `checkpoint` row, so `scheduler.pt` (a
+    few KB) would otherwise become the checkpoint they name and size against."""
+    run = open_run(client, experiment="cap-ckpt-folder", capture_outputs=True)
+    folder = work / "out" / "checkpoint-500"
+    folder.mkdir(parents=True)
+    for name in ("model.safetensors", "optimizer.pt", "scheduler.pt", "rng_state.pth", "trainer_state.json"):
+        (folder / name).write_bytes(b"\x01" * 64)
+    run.finish()
+    rows = _rows(app, run)
+    kinds = {rel: rows[rel]["kind"] for rel in rows if rel.startswith("out/")}
+    assert kinds == {f"out/checkpoint-500/{n}": "file" for n in (
+        "model.safetensors", "optimizer.pt", "scheduler.pt", "rng_state.pth", "trainer_state.json")}
+
+
 def test_a_big_file_on_lasting_storage_is_a_pointer(client, app, work, monkeypatch):
     monkeypatch.setattr(outputs, "INSPECT_LIMIT_BYTES", 1024)
     run = open_run(client, experiment="cap-pointer", capture_outputs=True)
@@ -146,6 +205,175 @@ def test_a_big_file_on_lasting_storage_is_a_pointer(client, app, work, monkeypat
     assert row["meta"]["local_path"] == str(work / "ckpt.pt")
     assert row["size_bytes"] == 5000
     assert not app.puts  # no bytes left the machine
+
+
+def _switch_on_parts(app, monkeypatch):
+    """A server taking multipart uploads, this team on its canary list, and a
+    detached worker that would carry the upload after exit (the test client
+    sends its own writes, so `settle_reason` is pinned to "none needed")."""
+    from probe.sdk import multipart
+
+    app.supports_artifact_multipart = True
+    app.multipart_min_part = 1024
+    app.team_features = (outputs.AUTO_MULTIPART_FEATURE,)
+    monkeypatch.setattr(multipart, "settle_reason", lambda client: None)
+    monkeypatch.setattr(outputs, "HEAD_SCAN_RESERVE_SECONDS", 0.0)  # tests close on a short budget
+
+
+def _drain_parts(client, seconds=30.0):
+    from probe.sdk import multipart
+
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        client.flush()
+        if not multipart.pending(client.journal):
+            return
+        time.sleep(0.05)
+    raise AssertionError("the multipart op never finished")
+
+
+def test_a_big_file_goes_up_in_parts_when_the_team_is_switched_on(client, app, work, monkeypatch):
+    """2026-10-12 (D4/D19): over the inspection limit and at most 5 GiB, a
+    switched-on team's capture queues the file in parts instead of a pointer;
+    its bytes are not read at the close."""
+    import hashlib
+
+    _switch_on_parts(app, monkeypatch)
+    monkeypatch.setattr(outputs, "INSPECT_LIMIT_BYTES", 1024)
+    run = open_run(client, experiment="cap-parts", capture_outputs=True)
+    payload = bytes(range(256)) * 20
+    (work / "ckpt.pt").write_bytes(payload)
+    run.finish()
+    _drain_parts(client)
+    row = _rows(app, run)["ckpt.pt"]
+    assert not row.get("is_reference") and row["content_hash"] == hashlib.sha256(payload).hexdigest()
+    # A captured file is never filed a checkpoint, in parts or not: it would
+    # become the newest `checkpoint` row the alert and disk finding read.
+    assert row["kind"] == "file"
+
+
+@pytest.mark.parametrize("why", ["team off", "over 5 GiB", "another filesystem"])
+def test_a_big_file_keeps_its_pointer_when_parts_cannot_carry_it(client, app, work, monkeypatch, why):
+    from probe.sdk import multipart
+
+    _switch_on_parts(app, monkeypatch)
+    monkeypatch.setattr(outputs, "INSPECT_LIMIT_BYTES", 1024)
+    if why == "team off":
+        app.team_features = ()
+    elif why == "over 5 GiB":
+        monkeypatch.setattr(outputs, "AUTO_UPLOAD_MAX_BYTES", 4096)
+    else:
+        def other_filesystem(src, dst):
+            raise OSError(18, "Invalid cross-device link")
+
+        monkeypatch.setattr(multipart.os, "link", other_filesystem)
+        monkeypatch.setattr(multipart, "try_clone", lambda src, dst: False)
+    run = open_run(client, experiment="cap-parts-off", capture_outputs=True)
+    (work / "ckpt.pt").write_bytes(b"\x01" * 5000)
+    run.finish()
+    assert not multipart.pending(client.journal)
+    row = _rows(app, run)["ckpt.pt"]
+    assert row["is_reference"] and row["uri"].startswith("file://")
+
+
+def test_a_big_file_with_a_credential_in_its_head_keeps_its_pointer(client, app, work, monkeypatch):
+    """Bytes that go up in parts cannot be redacted, and the server only
+    records what its verifier finds: the staged head is scanned before any byte
+    leaves, and a finding keeps the file on the machine, recorded by path as
+    before this change (no bytes)."""
+    from probe.sdk import multipart
+
+    _switch_on_parts(app, monkeypatch)
+    monkeypatch.setattr(outputs, "INSPECT_LIMIT_BYTES", 1024)
+    run = open_run(client, experiment="cap-parts-secret", capture_outputs=True)
+    leak = ("token = ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8\n").encode()
+    (work / "train.log").write_bytes(leak + b"step 1 loss 0.5\n" * 400)
+    run.finish()
+    assert not multipart.pending(client.journal)
+    assert not list(multipart.staged_dir(client.journal).glob("*.src"))
+    row = _rows(app, run)["train.log"]
+    assert row["is_reference"] and not app.puts
+
+
+def test_an_archive_whose_head_the_gate_refuses_keeps_its_pointer_and_the_close_goes_on(
+    client, app, work, monkeypatch
+):
+    """A .gz that expands past the gate's limits makes `inspect_bytes` refuse
+    (CredentialBlocked, not an OSError): that file keeps its pointer and every
+    file after it is still captured."""
+    import gzip as _gzip
+
+    from probe.sdk import multipart
+
+    _switch_on_parts(app, monkeypatch)
+    monkeypatch.setattr(outputs, "INSPECT_LIMIT_BYTES", 1024)
+    run = open_run(client, experiment="cap-parts-archive", capture_outputs=True)
+    (work / "a.gz").write_bytes(_gzip.compress(b"\0" * (200 * 1024 * 1024)))
+    (work / "z.txt").write_text("kept")
+    run.finish()
+    rows = _rows(app, run)
+    assert rows["a.gz"]["is_reference"]
+    assert not rows["z.txt"].get("is_reference")
+    assert not multipart.pending(client.journal)
+
+
+@pytest.mark.parametrize("leaked", [True, False])
+def test_a_cut_archive_head_is_also_scanned_as_strings(client, app, work, monkeypatch, leaked):
+    """A big zip (every PyTorch checkpoint) cut at the scan window has no
+    central directory, so the gate reads it only in part; its printable runs
+    are scanned too. A stored credential keeps the pointer; a clean one goes."""
+    import zipfile as _zipfile
+
+    from probe.sdk import multipart
+
+    _switch_on_parts(app, monkeypatch)
+    monkeypatch.setattr(outputs, "INSPECT_LIMIT_BYTES", 1024)
+    monkeypatch.setattr(outputs, "SCAN_PREFIX_BYTES", 4096)
+    secret = ("token = ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8\n") if leaked else "weights v1\n"
+    run = open_run(client, experiment=f"cap-parts-zip-{leaked}", capture_outputs=True)
+    with _zipfile.ZipFile(work / "model.pt", "w", compression=_zipfile.ZIP_STORED) as zf:
+        zf.writestr("archive/data.pkl", secret + "x" * 20_000)
+    run.finish()
+    _drain_parts(client)
+    assert _rows(app, run)["model.pt"].get("is_reference", False) is leaked
+
+
+def test_parts_need_a_worker_that_outlives_the_process(client, app, work, monkeypatch):
+    """The real gate, unpinned: this test client sends its own writes, so
+    nothing would carry a queued op after exit (`multipart.settle_reason`), and
+    the old pointer rule stands even for a switched-on team."""
+    from probe.sdk import multipart
+
+    app.supports_artifact_multipart = True
+    app.team_features = (outputs.AUTO_MULTIPART_FEATURE,)
+    assert multipart.settle_reason(client) is not None
+    monkeypatch.setattr(outputs, "INSPECT_LIMIT_BYTES", 1024)
+    run = open_run(client, experiment="cap-parts-nobody", capture_outputs=True)
+    (work / "ckpt.pt").write_bytes(b"\x01" * 5000)
+    run.finish()
+    assert not multipart.pending(client.journal)
+    assert _rows(app, run)["ckpt.pt"]["is_reference"]
+
+
+def test_parts_are_not_queued_past_the_deadline_or_over_the_cap_once_staged(client, app, work, monkeypatch):
+    from probe.sdk import multipart
+
+    _switch_on_parts(app, monkeypatch)
+    run = open_run(client, experiment="cap-parts-bounds", capture_outputs=True)
+    capture = run._capture
+    big = work / "ckpt.pt"
+    big.write_bytes(b"\x01" * 5000)
+    storage = {"durable": True}
+    assert capture._queue_in_parts("ckpt.pt", str(big), storage, deadline=0.0) is None
+    # Not enough of the close left to scan its head: the pointer stands.
+    monkeypatch.setattr(outputs, "HEAD_SCAN_RESERVE_SECONDS", 15.0)
+    soon = time.monotonic() + 7.5
+    assert capture._queue_in_parts("ckpt.pt", str(big), storage, deadline=soon) is None
+    monkeypatch.setattr(outputs, "AUTO_UPLOAD_MAX_BYTES", 4096)  # it grew past the cap after the walk
+    assert capture._queue_in_parts("ckpt.pt", str(big), storage, deadline=time.monotonic() + 60) is None
+    assert not multipart.pending(client.journal)
+    assert not list(multipart.staged_dir(client.journal).glob("*.src"))
+    run.finish()
 
 
 def test_a_big_file_on_a_throwaway_box_is_listed_not_pointed_to(client, app, work, monkeypatch):

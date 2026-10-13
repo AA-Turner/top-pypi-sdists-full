@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from _pytest.main import ExitCode
 from hypothesis import HealthCheck, given, settings
@@ -140,3 +142,22 @@ def test_unsupported_scalar_is_not_reported_as_impossible_negative(ctx, modes):
 
     with pytest.raises(UnknownScalar, match="Scalar 'FooBar' is not supported"):
         test()
+
+
+@pytest.mark.parametrize(
+    "strategy",
+    [st.nothing(), st.lists(st.just("x"), min_size=10**5).map("".join).map(nodes.String)],
+    ids=["unsatisfiable", "large-base-example"],
+)
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_custom_scalar_generation_uses_generic_diagnostics(ctx, testdir, cli, snapshot_cli, strategy):
+    schemathesis.graphql.scalar("FooBar", strategy)
+    schema_file = testdir.make_graphql_schema_file(UNSUPPORTED_SCALAR_SDL)
+    api = ctx.graphql.apps.books()
+    assert cli.run(str(schema_file), f"--url={api.schema_url}", "--phases=fuzzing", "--mode=positive") == snapshot_cli
+
+
+def test_unknown_scalar_reported_once_per_operation_across_phases(ctx, cli):
+    api = ctx.graphql.apps.use_after_create()
+    result = cli.run(api.schema_url, "--max-examples=5", "--phases=fuzzing,stateful")
+    assert re.findall(r"^_+ (.+?) _+$", result.stdout, re.MULTILINE) == ["Mutation.updateBook", "Query.book"]

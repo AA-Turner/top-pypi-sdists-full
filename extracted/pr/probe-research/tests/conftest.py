@@ -176,6 +176,21 @@ def _no_ambient_pi_binary(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _no_ambient_cloud_app(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin cloud-agent app detection OFF for the whole suite, for the same
+    reason as pi above: `detectable_sources()` finds Capy by its desktop app
+    on disk (`/Applications/Capy.app`, `~/.capy`, ...), so a developer with
+    Capy installed would get a source leaking into every picker test written
+    against the agents CI has. A connection made inside a test's HOME still
+    counts. Tests that want the app found override this themselves."""
+    from probe.cli import capy_cli, cloud_agents
+
+    monkeypatch.setattr(cloud_agents, "found_here", lambda source: False)
+    # Never start a real, detached `probe capy sync` from a test.
+    monkeypatch.setattr(capy_cli, "start_background_sync", lambda: "The first sync runs in the background.")
+
+
+@pytest.fixture(autouse=True)
 def _no_ambient_marketplace_agent(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pin claude/codex detection OFF for the whole suite -- the other half of
     `_no_ambient_pi_binary` above.
@@ -896,6 +911,11 @@ class FakeApp:
     # Off by default -- a released server before (g) -- so an existing test
     # logging a big file keeps seeing 0.7's warning and reference row.
     supports_artifact_multipart = False
+    #: `GET /v1/teams/features` for this fake's one team; None = no such route.
+    team_features: tuple[str, ...] | None = ()
+    # The server 409s a presigned download of a reference row; tests that read
+    # that answer turn this on (older tests download reference rows as bytes).
+    refuse_reference_downloads = False
     #: The layout's part floor (the real server's is 64 MiB; a test may lower it).
     multipart_min_part = 64 * 1024 * 1024
     #: GET polls answered `verifying` before the fake's verifier settles.
@@ -3534,6 +3554,13 @@ class FakeApp:
                 features.append("artifact_multipart")
             return httpx.Response(200, json={"features": features})
 
+        if path == "/v1/teams/features" and method == "GET":
+            # Per-team switches (`app/artifacts/team_features.py`). None models a
+            # server from before the route: FastAPI's route-level 404.
+            if self.team_features is None:
+                return httpx.Response(404, json={"detail": "Not Found"})
+            return httpx.Response(200, json={"features": list(self.team_features)})
+
         if path.startswith("/v1/runs/") and "/artifacts/multipart" in path:
             return self._multipart(method, path, body)
         if path.startswith("/part/") and method == "PUT":
@@ -4518,7 +4545,9 @@ class FakeApp:
 
         m = _RUN_ARTIFACTS.match(path)
         if m and method == "POST":
-            row = {"id": str(uuid.uuid4()), **body}
+            # `run_id` as the server's ArtifactOut carries it (a checkpoint's
+            # index row is read back to list its members).
+            row = {"id": str(uuid.uuid4()), "run_id": m.group(1), **body}
             self.artifacts.setdefault(m.group(1), []).append(row)
             return httpx.Response(201, json=row)
         if m and method == "GET":
@@ -4532,6 +4561,9 @@ class FakeApp:
             name = request.url.params.get("name")
             if name is not None:
                 rows = [r for r in rows if r.get("name") == name]
+            prefix = request.url.params.get("prefix")
+            if prefix is not None:  # one folder of names, as the server's derived `path`
+                rows = [r for r in rows if r.get("name") == prefix or str(r.get("name")).startswith(prefix + "/")]
             if kind is not None:
                 rows = [r for r in rows if r.get("kind") == kind.strip().lower()]
             if step_from is not None:
@@ -5053,6 +5085,96 @@ class FakeApp:
             rows = list(self.artifacts.get(f"experiment:{eid}", []))
             rows += [a for a in self.artifacts.get(eid, []) if a.get("experiment_id") == eid]
             return httpx.Response(200, json=_newest_first(rows))
+
+        m = re.match(r"^/v1/experiments/([^/]+)/inherited$", path)
+        if m and method == "GET":
+            # Mirrors app/experiments/fork_reads.py: walk the `forked_from`
+            # chain (fork -> source, nearest first); list each source's runs
+            # that existed at that hop's fork, or those runs' complete files
+            # (not code captures), by id after `after`; `total` on the first
+            # page only. An experiment that is no fork answers empty.
+            eid = m.group(1)
+            query = request.url.params
+            sources: list[dict] = []
+            hops: list[tuple[str, str]] = []
+            current = eid
+            while len(hops) < 20:
+                link = next(
+                    (
+                        e
+                        for e in self.edges
+                        if e.get("relation") == "forked_from"
+                        and e.get("source_type") == "experiment"
+                        and e.get("source_id") == current
+                    ),
+                    None,
+                )
+                if link is None:
+                    break
+                current = link["target_id"]
+                cutoff = link.get("created_at") or ""
+                hops.append((current, cutoff))
+                row = self.experiments.get(current) or self.projects.get(current) or {}
+                sources.append(
+                    {
+                        "id": current,
+                        "slug": row.get("slug") or current,
+                        "name": row.get("name") or row.get("slug") or current,
+                        "project_id": row.get("parent_project_id") or row.get("project_id"),
+                        "forked_at": cutoff,
+                    }
+                )
+            want_runs = query.get("kind") == "runs"
+            rows: list[dict] = []
+            for source, cutoff in hops:
+                runs = [
+                    r
+                    for r in self.runs.values()
+                    if r.get("experiment_id") == source
+                    and (not cutoff or (r.get("created_at") or "") <= cutoff)
+                ]
+                for run in runs:
+                    if want_runs:
+                        rows.append(
+                            {
+                                "id": run["id"],
+                                "slug": run.get("slug"),
+                                "name": run.get("name"),
+                                "status": run.get("status"),
+                                "created_at": run.get("created_at"),
+                                "source_experiment_id": source,
+                            }
+                        )
+                        continue
+                    for a in self.artifacts.get(run["id"], []):
+                        if a.get("status", "complete") != "complete" or a.get("kind") == "code_bytes":
+                            continue
+                        rows.append(
+                            {
+                                "id": a["id"],
+                                "name": a.get("name"),
+                                "kind": a.get("kind"),
+                                "created_at": a.get("created_at"),
+                                "run_id": run["id"],
+                                "run_slug": run.get("slug"),
+                                "source_experiment_id": source,
+                            }
+                        )
+            rows.sort(key=lambda r: str(r["id"]))
+            after = query.get("after")
+            limit = int(query.get("limit") or 200)
+            page = [r for r in rows if after is None or str(r["id"]) > str(after)][:limit]
+            return httpx.Response(
+                200,
+                json={
+                    "sources": sources,
+                    "kind": "runs" if want_runs else "files",
+                    "total": len(rows) if after is None else None,
+                    "items": page,
+                    # The route's rule: a full page names its last row.
+                    "next_after": str(page[-1]["id"]) if page and len(page) == limit else None,
+                },
+            )
 
         m = re.match(r"^/v1/experiments/([^/]+)/edges$", path)
         if m and method == "GET":
@@ -5625,6 +5747,14 @@ class FakeApp:
         # artifact download (presigned GET) -> used by asset materialize
         m = re.match(r"^/v1/artifacts/([^/]+)/download$", path)
         if m and method == "POST":
+            row = self._find_artifact(m.group(1)) if self.refuse_reference_downloads else None
+            if row is not None and row.get("is_reference"):
+                # As `app/artifacts/blob_access.py` answers: no managed blob.
+                meta = row.get("meta") if isinstance(row.get("meta"), dict) else {}
+                return httpx.Response(409, json={"detail": {
+                    "reason": "reference", "uri": row.get("uri"),
+                    "local_path": meta.get("local_path"), "host": meta.get("host"),
+                }})
             return httpx.Response(200, json={"download_url": f"http://r2.test/get/{m.group(1)}"})
         if path.startswith("/get/") and method == "GET":
             self.gets.append(path)

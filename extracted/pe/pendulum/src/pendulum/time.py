@@ -5,7 +5,6 @@ import datetime
 from datetime import time
 from datetime import timedelta
 from typing import TYPE_CHECKING
-from typing import Optional
 from typing import cast
 from typing import overload
 
@@ -21,7 +20,8 @@ from pendulum.tz.timezone import UTC
 
 
 if TYPE_CHECKING:
-    from typing_extensions import Literal
+    from typing import Literal
+
     from typing_extensions import Self
     from typing_extensions import SupportsIndex
 
@@ -247,7 +247,7 @@ class Time(FormattableMixin, time):
         """
         Get the difference in a human readable format in the current locale.
 
-        :param dt: The time to subtract from
+        :param other: The time to compare to (defaults to now)
         :param absolute: removes time difference modifiers ago, after, etc
         :param locale: The locale to use for localization
         """
@@ -284,7 +284,7 @@ class Time(FormattableMixin, time):
             minute,
             second,
             microsecond,
-            tzinfo=cast("Optional[datetime.tzinfo]", tzinfo),
+            tzinfo=cast("datetime.tzinfo | None", tzinfo),
             fold=fold,
         )
         return self.__class__(

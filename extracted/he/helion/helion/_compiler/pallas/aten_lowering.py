@@ -10,6 +10,7 @@ imports it at the bottom so registration keeps the same eager timing as before.
 from __future__ import annotations
 
 import ast
+import math
 from operator import getitem
 from typing import TYPE_CHECKING
 from typing import cast
@@ -18,8 +19,10 @@ import torch
 from torch.fx.node import Node
 from torch.fx.node import map_arg
 
+from ...language._tracing_ops import _mask_to
 from ..ast_extension import expr_from_string
 from ..ast_extension import statement_from_string
+from ..aten_lowering import AtenLowering
 from ..aten_lowering import _env_arg
 from ..aten_lowering import _node_dtype_kwarg
 from ..aten_lowering import _pallas_argreduce
@@ -31,6 +34,7 @@ from ..aten_lowering import baddbmm_lowering
 from ..aten_lowering import bmm_lowering
 from ..aten_lowering import constant_pad_nd_lowering
 from ..aten_lowering import expand_lowering
+from ..aten_lowering import gather_lowering
 from ..aten_lowering import iota_lowering
 from ..aten_lowering import mm_lowering
 from ..aten_lowering import permute_lowering
@@ -38,6 +42,7 @@ from ..aten_lowering import reshape_lowering
 from ..aten_lowering import sort_lowering
 from ..aten_lowering import squeeze_lowering
 from ..aten_lowering import topk_lowering
+from ..aten_lowering import unsqueeze_lowering
 from ..aten_lowering import view_lowering
 from ..compile_environment import CompileEnvironment
 from ..matmul_utils import _emit_pallas_matmul
@@ -45,6 +50,61 @@ from ..matmul_utils import _needs_f32_accumulator
 
 if TYPE_CHECKING:
     from ..aten_lowering import LoweringContext
+
+
+cat_lowering_pallas = AtenLowering(target=torch.ops.aten.cat.default)
+
+
+def _has_foldable_dot_lhs_cast(node: Node) -> bool:
+    """Whether ``node`` directly narrows an f32 left dot operand to rhs dtype."""
+    if node.target in (torch.ops.aten.mm.default, torch.ops.aten.bmm.default):
+        lhs_arg_index = 0
+    elif node.target in (
+        torch.ops.aten.addmm.default,
+        torch.ops.aten.baddbmm.default,
+    ):
+        lhs_arg_index = 1
+    else:
+        return False
+    lhs = node.args[lhs_arg_index]
+    rhs = node.args[lhs_arg_index + 1]
+    if not isinstance(lhs, Node) or not isinstance(rhs, Node):
+        return False
+    if lhs.target is not torch.ops.prims.convert_element_type.default:
+        return False
+    source = lhs.args[0]
+    return (
+        isinstance(source, Node)
+        and source.meta["val"].dtype == torch.float32
+        and lhs.args[1] == rhs.meta["val"].dtype
+        and rhs.meta["val"].dtype in (torch.bfloat16, torch.float16)
+    )
+
+
+@cat_lowering_pallas.register_codegen("pallas")
+def codegen_cat_pallas(ctx: LoweringContext, node: Node) -> ast.AST:
+    tensors = map_arg(node.args[0], lambda arg: _env_arg(ctx, arg))
+    assert isinstance(tensors, (list, tuple)) and tensors
+    assert all(isinstance(tensor, ast.AST) for tensor in tensors)
+    dim = node.args[1] if len(node.args) > 1 else node.kwargs.get("dim", 0)
+    assert isinstance(dim, int)
+    output = node.meta["val"]
+    assert isinstance(output, torch.Tensor)
+    if dim < 0:
+        dim += output.ndim
+    assert 0 <= dim < output.ndim
+
+    placeholders: dict[str, ast.AST] = {
+        f"tensor_{index}": cast("ast.AST", tensor)
+        for index, tensor in enumerate(tensors)
+    }
+    values = ", ".join(f"{{tensor_{index}}}" for index in range(len(tensors)))
+    if len(tensors) == 1:
+        values += ","
+    return expr_from_string(
+        f"jnp.concatenate(({values}), axis={dim})",
+        **placeholders,
+    )
 
 
 @argmax_lowering.register_codegen("pallas")
@@ -61,6 +121,62 @@ def codegen_argmin_pallas(ctx: LoweringContext, node: Node) -> ast.AST:
 @view_lowering.register_codegen("pallas")
 @reshape_lowering.register_codegen("pallas")
 def codegen_view_pallas(ctx: LoweringContext, node: Node) -> object:
+    from .view_ops import _resident_plan
+
+    if _resident_plan(node) is not None:
+        return _codegen_resident_view(ctx, node)
+
+    # ``torch.cat([x] * repeats, dim=-1)`` is commonly decomposed into
+    # ``x.unsqueeze(-2).expand(..., repeats, width).reshape(..., repeats * width)``.
+    # Preserve the repeat as one Pallas/JAX tile operation instead of first
+    # materializing the expanded intermediate.
+    expanded = node.args[0]
+    while (
+        isinstance(expanded, Node) and expanded.target is torch.ops.aten.clone.default
+    ):
+        expanded = expanded.args[0]
+    if isinstance(expanded, Node) and expanded.target is torch.ops.aten.expand.default:
+        unsqueezed = expanded.args[0]
+        if (
+            isinstance(unsqueezed, Node)
+            and unsqueezed.target is torch.ops.aten.unsqueeze.default
+        ):
+            source = unsqueezed.args[0]
+            source_val = source.meta.get("val") if isinstance(source, Node) else None
+            expanded_val = expanded.meta.get("val")
+            output_val = node.meta.get("val")
+            if all(
+                isinstance(value, torch.Tensor)
+                for value in (source_val, expanded_val, output_val)
+            ):
+                assert isinstance(source_val, torch.Tensor)
+                assert isinstance(expanded_val, torch.Tensor)
+                assert isinstance(output_val, torch.Tensor)
+                dim_arg = unsqueezed.args[1]
+                dim = dim_arg if isinstance(dim_arg, int) else None
+                if dim is not None and dim < 0:
+                    dim += source_val.ndim + 1
+                env = CompileEnvironment.current()
+                source_shape = tuple(env.size_hint(size) for size in source_val.shape)
+                expanded_shape = tuple(
+                    env.size_hint(size) for size in expanded_val.shape
+                )
+                output_shape = tuple(env.size_hint(size) for size in output_val.shape)
+                if (
+                    dim is not None
+                    and dim == source_val.ndim - 1
+                    and expanded_shape[:dim] == source_shape[:dim]
+                    and expanded_shape[dim + 1 :] == source_shape[dim:]
+                    and output_shape[:-1] == source_shape[:-1]
+                    and output_shape[-1] == expanded_shape[dim] * source_shape[-1]
+                ):
+                    source_ast = map_arg(source, lambda arg: _env_arg(ctx, arg))
+                    assert isinstance(source_ast, ast.AST)
+                    return expr_from_string(
+                        f"jnp.tile({{tensor}}, {expanded_shape[dim]})",
+                        tensor=source_ast,
+                    )
+
     tensor = map_arg(node.args[0], lambda arg: _env_arg(ctx, arg))
     assert isinstance(tensor, ast.AST)
     shape_str = ctx.cg.device_function.tile_strategy.shape_str(
@@ -77,6 +193,43 @@ def codegen_view_pallas(ctx: LoweringContext, node: Node) -> object:
                 tensor=tensor,
             )
     return expr_from_string(f"jnp.reshape({{tensor}}, {shape_str})", tensor=tensor)
+
+
+def _pad_fill_literal(value: object) -> str:
+    """Render a ``constant_pad_nd`` fill value as valid Python source.
+
+    ``repr()`` is wrong for the non-finite floats: it yields bare ``inf`` /
+    ``-inf`` / ``nan``, which are not names in the generated module (the
+    artifact raises ``NameError: name 'inf' is not defined``). Spell those as
+    ``float('inf')`` etc., which is valid in any module and needs no import.
+    """
+    if isinstance(value, float) and not math.isfinite(value):
+        # repr() of the value is itself the bare name (``-inf``), so quote the
+        # str() form: float('-inf') / float('inf') / float('nan').
+        return f"float({str(value)!r})"
+    return repr(value)
+
+
+@unsqueeze_lowering.register_codegen("pallas")
+def codegen_unsqueeze_pallas(ctx: LoweringContext, node: Node) -> object:
+    from .view_ops import _resident_plan
+
+    if _resident_plan(node) is not None:
+        return _codegen_resident_view(ctx, node)
+    return unsqueeze_lowering.codegen_impls["common"](ctx, node)
+
+
+def _codegen_resident_view(ctx: LoweringContext, node: Node) -> object:
+    from .view_ops import maybe_materialize_resident_ref
+
+    tensor = map_arg(node.args[0], lambda arg: _env_arg(ctx, arg))
+    assert isinstance(tensor, ast.AST)
+    shape_dims = ctx.cg.device_function.tile_strategy.shape_dims(
+        [*node.meta["val"].size()]
+    )
+    shape_str = f"({', '.join(shape_dims)},)"
+    result = expr_from_string(f"{{tensor}}.reshape({shape_str})", tensor=tensor)
+    return maybe_materialize_resident_ref(node, result)
 
 
 @constant_pad_nd_lowering.register_codegen("pallas")
@@ -104,7 +257,7 @@ def codegen_constant_pad_nd_pallas(ctx: LoweringContext, node: Node) -> object:
     ]
     pw = "(" + ", ".join(f"({lo}, {hi})" for lo, hi in pad_width) + ")"
     return expr_from_string(
-        f"jnp.pad({{t}}, {pw}, mode='constant', constant_values={value!r})",
+        f"jnp.pad({{t}}, {pw}, mode='constant', constant_values={_pad_fill_literal(value)})",
         t=tensor,
     )
 
@@ -151,6 +304,31 @@ def codegen_expand_pallas(ctx: LoweringContext, node: Node) -> object:
     )
 
 
+@gather_lowering.register_codegen("pallas")
+def codegen_gather_pallas(ctx: LoweringContext, node: Node) -> object:
+    """Lower ``torch.gather`` on resident tensors to ``take_along_axis``."""
+    tensor, dim, index = map_arg(node.args[:3], lambda arg: _env_arg(ctx, arg))
+    assert isinstance(tensor, ast.AST)
+    assert isinstance(index, ast.AST)
+    if not isinstance(dim, int):
+        raise TypeError(f"pallas gather requires a static dim, got {dim!r}")
+    ndim = node.meta["val"].ndim
+    if dim < 0:
+        dim += ndim
+    if not 0 <= dim < ndim:
+        raise IndexError(f"gather dim {dim} is out of range for rank {ndim}")
+    sparse_grad = (
+        node.args[3] if len(node.args) > 3 else node.kwargs.get("sparse_grad", False)
+    )
+    if sparse_grad:
+        raise NotImplementedError("pallas gather does not support sparse_grad=True")
+    return expr_from_string(
+        f"jnp.take_along_axis({{tensor}}, {{index}}, axis={dim})",
+        tensor=tensor,
+        index=index,
+    )
+
+
 def _pallas_dot(ctx: LoweringContext, node: Node, with_acc: bool) -> ast.AST:
     """Generate jnp.dot_general for Pallas backend."""
     if with_acc:
@@ -171,6 +349,29 @@ def _pallas_dot(ctx: LoweringContext, node: Node, with_acc: bool) -> ast.AST:
     lhs_dtype = lhs_node_arg.meta["val"].dtype
     rhs_dtype = rhs_node_arg.meta["val"].dtype
     lhs_ndim = lhs_node_arg.meta["val"].ndim
+
+    # Mosaic can apply TPU's default input precision when the dot consumes the
+    # f32 producer directly. This remains tunable because removing the explicit
+    # conversion is not faster for every TPU schedule.
+    if ctx.cg.device_function.config.get("pallas_fold_dot_lhs_cast", False):
+        cast_node = lhs_node_arg
+        if cast_node.target is _mask_to and isinstance(cast_node.args[0], Node):
+            candidate = cast_node.args[0]
+            candidate_ast = _env_arg(ctx, candidate)
+            if isinstance(candidate_ast, ast.AST) and ast.dump(lhs) == ast.dump(
+                candidate_ast
+            ):
+                cast_node = candidate
+        if (
+            cast_node.target is torch.ops.prims.convert_element_type.default
+            and cast_node.args[1] == rhs_dtype
+            and isinstance(cast_node.args[0], Node)
+            and cast_node.args[0].meta["val"].dtype == torch.float32
+            and rhs_dtype in (torch.bfloat16, torch.float16)
+        ):
+            lhs = _env_arg(ctx, cast_node.args[0])
+            assert isinstance(lhs, ast.AST)
+
     need_f32_acc = _needs_f32_accumulator(lhs_dtype, rhs_dtype)
     out_dtype = node.meta["val"].dtype if "val" in node.meta else None
 
@@ -290,10 +491,22 @@ def codegen_topk_pallas(ctx: LoweringContext, node: Node) -> object:
     assert largest, "pallas topk only supports largest=True"
     _pallas_last_dim(node, dim)
 
+    raw_recall_target = CompileEnvironment.current().settings.pallas_topk_recall_target
+    if not isinstance(raw_recall_target, (int, float)):
+        raise TypeError(
+            "pallas_topk_recall_target must be numeric, got "
+            f"{type(raw_recall_target)!r}"
+        )
+    recall_target = float(raw_recall_target)
+    if not 0.0 < recall_target <= 1.0:
+        raise ValueError(
+            f"pallas_topk_recall_target must be in (0, 1], got {recall_target}"
+        )
     result = ctx.cg.device_function.new_var("topk_result")
     ctx.cg.add_statement(
         statement_from_string(
-            f"{result} = _helion_divide_filter_topk({{t}}, {k})", t=tensor
+            f"{result} = _helion_divide_filter_topk({{t}}, {k}, {recall_target!r})",
+            t=tensor,
         )
     )
     # torch.topk returns (values, indices); skip the indices expr when unused.

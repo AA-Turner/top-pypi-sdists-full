@@ -104,6 +104,8 @@ def _db_epoch() -> Any:
 
 
 class AsyncPostgresDb(AsyncBaseDb):
+    serializes_sessions: bool = True
+
     def __init__(
         self,
         id: Optional[str] = None,
@@ -432,6 +434,13 @@ class AsyncPostgresDb(AsyncBaseDb):
             raise
 
     async def _get_table(self, table_type: str, create_table_if_not_found: Optional[bool] = False) -> Optional[Table]:
+        if table_type == "transcripts":
+            return await self._get_or_create_table(
+                table_name=self.transcripts_table_name,
+                table_type="transcripts",
+                create_table_if_not_found=create_table_if_not_found,
+            )
+
         if table_type == "sessions":
             self.session_table = await self._get_or_create_table(
                 table_name=self.session_table_name,
@@ -1094,6 +1103,7 @@ class AsyncPostgresDb(AsyncBaseDb):
             if table is None:
                 return False
             runs_table = await self._get_table(table_type="runs")
+            transcripts_table = await self._get_table(table_type="transcripts")
 
             async with self.async_session_factory() as sess, sess.begin():
                 delete_stmt = table.delete().where(table.c.session_id == session_id)
@@ -1108,6 +1118,11 @@ class AsyncPostgresDb(AsyncBaseDb):
                 # Also delete the runs belonging to the session
                 if runs_table is not None:
                     await sess.execute(runs_table.delete().where(runs_table.c.session_id == session_id))
+                # And external-agent transcripts, which also hold the conversation verbatim.
+                if transcripts_table is not None:
+                    await sess.execute(
+                        transcripts_table.delete().where(transcripts_table.c.agno_session_id == session_id)
+                    )
 
                 log_debug(f"Successfully deleted session with session_id: {session_id} in table {table.name}")
 
@@ -1137,6 +1152,7 @@ class AsyncPostgresDb(AsyncBaseDb):
             if table is None:
                 return
             runs_table = await self._get_table(table_type="runs")
+            transcripts_table = await self._get_table(table_type="transcripts")
 
             async with self.async_session_factory() as sess, sess.begin():
                 # The ids a user_id-scoped delete is allowed to touch. The
@@ -1162,6 +1178,11 @@ class AsyncPostgresDb(AsyncBaseDb):
                     if user_id is not None:
                         runs_delete_stmt = runs_delete_stmt.where(runs_table.c.user_id == user_id)
                     await sess.execute(runs_delete_stmt)
+                # And external-agent transcripts, which also hold the conversation verbatim.
+                if transcripts_table is not None:
+                    await sess.execute(
+                        transcripts_table.delete().where(transcripts_table.c.agno_session_id.in_(cascade_ids))
+                    )
 
             log_debug(f"Successfully deleted {result.rowcount} sessions")  # type: ignore
 
@@ -4557,9 +4578,10 @@ class AsyncPostgresDb(AsyncBaseDb):
         expected_attempt: Optional[int] = None,
         user_id: Optional[str] = None,
         content_if_absent: Optional[str] = None,
+        session_data: Optional[Dict[str, Any]] = None,
     ) -> "RunPersistOutcome":
         """Atomically patch fields of ONE run - ported to the denormalized
-        runs table (v3.0). Same signature and typed-outcome contract as the
+        runs table (v3.0). Same typed-outcome contract as the
         session-JSON original; the implementation is now a single row-locked
         UPDATE on agno_runs instead of a session-blob rewrite, which is the
         shape the P1 fencing design always wanted.
@@ -4569,6 +4591,9 @@ class AsyncPostgresDb(AsyncBaseDb):
         reclaimed job's later attempt owns the row). Terminal guard: a
         completed/cancelled run is never rewritten to a different status.
         The indexed ``status`` column is kept in sync with run_data.
+        Optional session_data replaces session metadata in the same transaction,
+        only after the run fence accepts the write. A failed session write rolls
+        back the run update as well.
         Exceptions PROPAGATE - a DB failure must never read as a
         fallback-permitting outcome.
         """
@@ -4584,6 +4609,11 @@ class AsyncPostgresDb(AsyncBaseDb):
             runs_table = await self._get_table(table_type="runs")
             if runs_table is None:
                 return RunPersistOutcome.MISSING
+            sessions_table = None
+            if session_data is not None:
+                sessions_table = await self._get_table(table_type="sessions")
+                if sessions_table is None:
+                    raise RuntimeError("Cannot persist run metadata without its session table")
             async with self.async_session_factory() as sess:
                 async with sess.begin():
                     row = (
@@ -4625,6 +4655,16 @@ class AsyncPostgresDb(AsyncBaseDb):
                     if fields.get("status") is not None:
                         values["status"] = fields["status"]
                     await sess.execute(update(runs_table).where(runs_table.c.run_id == run_id).values(**values))
+                    if sessions_table is not None:
+                        session_write = await sess.execute(
+                            update(sessions_table)
+                            .where(sessions_table.c.session_id == session_id)
+                            .where((sessions_table.c.user_id == user_id) | sessions_table.c.user_id.is_(None))
+                            .values(session_data=sanitize_postgres_strings(session_data), updated_at=int(time.time()))
+                            .returning(sessions_table.c.session_id)
+                        )
+                        if session_write.scalar_one_or_none() is None:
+                            raise RuntimeError("Cannot persist run metadata without its owned session")
                     return RunPersistOutcome.UPDATED
         except Exception as e:
             log_warning(f"Error updating run in runs table: {e}")
@@ -4775,6 +4815,14 @@ class AsyncPostgresDb(AsyncBaseDb):
         if table is None:
             raise RuntimeError("Job queue table is unavailable after provisioning")
 
+    async def _q_next_session_seq(self, sess: Any, table: Any, job: Dict[str, Any]) -> int:
+        """Lock the ticket's session and sequence it after every live ticket there."""
+        from agno.job_queue.session import next_session_seq_query, session_claim_lock_key
+
+        lock_key = session_claim_lock_key(table.fullname, job)
+        await sess.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": lock_key})
+        return (await sess.execute(next_session_seq_query(table, job))).scalar_one()
+
     async def enqueue_job(self, job: Dict[str, Any], max_depth: int = 0) -> Dict[str, Any]:
         """Insert an accepted run job.
 
@@ -4786,6 +4834,8 @@ class AsyncPostgresDb(AsyncBaseDb):
         """
         from sqlalchemy.exc import IntegrityError
 
+        from agno.job_queue.session import with_session_seq
+
         table = await self._get_table(table_type="jobs", create_table_if_not_found=True)
         if table is None:
             raise RuntimeError("Failed to get or create job queue table")
@@ -4794,9 +4844,12 @@ class AsyncPostgresDb(AsyncBaseDb):
         # empty-header submit into an IntegrityError -> 500
         if not job.get("idempotency_key"):
             job = {**job, "idempotency_key": None}
+        serialized = (job.get("payload") or {}).get("serialize_session") is True
         try:
             async with self.async_session_factory() as sess:
                 async with sess.begin():
+                    if serialized:
+                        await sess.connection(execution_options={"isolation_level": "READ COMMITTED"})
                     # Idempotency FIRST: resubmitting an already-accepted job
                     # must return the existing run even when the queue is full
                     if job.get("idempotency_key"):
@@ -4814,6 +4867,10 @@ class AsyncPostgresDb(AsyncBaseDb):
                         queued = (await sess.execute(count_stmt)).scalar() or 0
                         if queued >= max_depth:
                             return {"accepted": False, "reason": "queue_full", "job": None}
+                    if serialized:
+                        # Under the session lock a new ticket sorts after every live ticket of its
+                        # session, so execution follows store acceptance, not wall-clock seconds.
+                        job = with_session_seq(job, await self._q_next_session_seq(sess, table, job))
                     await sess.execute(table.insert().values(**job))
             return {"accepted": True, "reason": None, "job": job}
         except IntegrityError:
@@ -4847,6 +4904,8 @@ class AsyncPostgresDb(AsyncBaseDb):
         jobs only on matching workers; deployment_id=None degenerates to
         claiming only unstamped jobs.
         """
+        from agno.job_queue.session import session_claim_condition, session_claim_lock_key
+
         try:
             table = await self._get_table(table_type="jobs")
             if table is None:
@@ -4855,10 +4914,13 @@ class AsyncPostgresDb(AsyncBaseDb):
             stale = now - lock_grace_seconds
             async with self.async_session_factory() as sess:
                 async with sess.begin():
-                    subq = (
-                        select(table.c.id)
+                    # The session predicate and lock recheck rely on per-statement snapshots.
+                    await sess.connection(execution_options={"isolation_level": "READ COMMITTED"})
+                    candidate_query = (
+                        select(table)
                         .where(
                             table.c.available_at <= now,
+                            session_claim_condition(table),
                             or_(table.c.deployment_id.is_(None), table.c.deployment_id == deployment_id),
                             or_(
                                 table.c.status == "queued",
@@ -4869,14 +4931,33 @@ class AsyncPostgresDb(AsyncBaseDb):
                                 ),
                             ),
                         )
-                        .order_by(table.c.created_at.asc())
+                        .order_by(table.c.created_at.asc(), table.c.id.asc())
                         .limit(1)
                         .with_for_update(skip_locked=True)
-                        .scalar_subquery()
                     )
+                    candidate_row = (await sess.execute(candidate_query)).mappings().first()
+                    if candidate_row is None:
+                        return None
+                    candidate = candidate_row["id"]
+                    if (candidate_row["payload"] or {}).get("serialize_session") is True:
+                        # A concurrent claim of another ticket in this session may have committed
+                        # after the candidate scan; recheck under the session lock.
+                        lock_key = session_claim_lock_key(table.fullname, dict(candidate_row))
+                        locked = (
+                            await sess.execute(text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": lock_key})
+                        ).scalar_one()
+                        if not locked:
+                            return None
+                        eligible = (
+                            await sess.execute(
+                                select(table.c.id).where(table.c.id == candidate, session_claim_condition(table))
+                            )
+                        ).first()
+                        if eligible is None:
+                            return None
                     stmt = (
                         update(table)
-                        .where(table.c.id == subq)
+                        .where(table.c.id == candidate)
                         .values(
                             status="running",
                             locked_by=worker_id,
@@ -5228,6 +5309,8 @@ class AsyncPostgresDb(AsyncBaseDb):
     async def requeue_job(self, job_id: str) -> bool:
         """Operator requeue for a terminally failed/cancelled job: grants
         exactly one more execution by raising max_attempts to attempt + 1."""
+        from agno.job_queue.session import is_serialized, with_session_seq
+
         try:
             table = await self._get_table(table_type="jobs")
             if table is None:
@@ -5235,20 +5318,37 @@ class AsyncPostgresDb(AsyncBaseDb):
             now = _db_epoch()
             async with self.async_session_factory() as sess:
                 async with sess.begin():
-                    result = await sess.execute(
-                        update(table)
-                        .where(table.c.id == job_id, table.c.status.in_(["failed", "cancelled"]))
-                        .values(
-                            status="queued",
-                            max_attempts=table.c.attempt + 1,
-                            available_at=now,
-                            locked_by=None,
-                            locked_at=None,
-                            completed_at=None,
-                            updated_at=now,
+                    await sess.connection(execution_options={"isolation_level": "READ COMMITTED"})
+                    row = (
+                        (
+                            await sess.execute(
+                                select(table)
+                                .where(table.c.id == job_id, table.c.status.in_(["failed", "cancelled"]))
+                                .with_for_update()
+                            )
                         )
+                        .mappings()
+                        .first()
                     )
-                    return (result.rowcount or 0) > 0  # type: ignore[attr-defined]
+                    if row is None:
+                        return False
+                    values: Dict[str, Any] = dict(
+                        status="queued",
+                        max_attempts=row["attempt"] + 1,
+                        available_at=now,
+                        locked_by=None,
+                        locked_at=None,
+                        completed_at=None,
+                        updated_at=now,
+                    )
+                    job = dict(row)
+                    if is_serialized(job):
+                        # A requeued ticket rejoins its session behind every live turn.
+                        values["payload"] = with_session_seq(job, await self._q_next_session_seq(sess, table, job))[
+                            "payload"
+                        ]
+                    await sess.execute(update(table).where(table.c.id == job_id).values(**values))
+                    return True
         except Exception as e:
             log_error(f"Job queue store: requeue failed for job {job_id}: {e}")
             return False
@@ -5271,12 +5371,15 @@ class AsyncPostgresDb(AsyncBaseDb):
         requeue_job): this CAS is the durable acceptance of the continue, and
         a DB failure must surface as a 500, never masquerade as "conflict".
         """
+        from agno.job_queue.session import is_serialized
+
         table = await self._get_table(table_type="jobs")
         if table is None:
             raise RuntimeError("Job queue table not found")
         now = _db_epoch()
         async with self.async_session_factory() as sess:
             async with sess.begin():
+                await sess.connection(execution_options={"isolation_level": "READ COMMITTED"})
                 row = (await sess.execute(select(table).where(table.c.id == job_id).with_for_update())).fetchone()
                 if row is None:
                     return {"outcome": "conflict", "job": None}
@@ -5287,6 +5390,9 @@ class AsyncPostgresDb(AsyncBaseDb):
                     return {"outcome": "attach", "job": job}
                 payload = dict(job.get("payload") or {})
                 payload["continue"] = dict(continue_payload)
+                if is_serialized(job):
+                    # A continued ticket rejoins its session behind every live turn.
+                    payload["session_seq"] = await self._q_next_session_seq(sess, table, job)
                 values: Dict[str, Any] = {
                     "status": "queued",
                     "payload": payload,
@@ -5914,3 +6020,111 @@ class AsyncPostgresDb(AsyncBaseDb):
         columns = ["actor", "action", "target"]
         table = await self._get_table(table_type=table_type, create_table_if_not_found=True)
         return await authz_sql.acount_events(self.db_engine, table, search, search_columns=columns)
+
+    # --- External agent transcripts ---
+
+    async def append_transcript_entries(
+        self,
+        framework: str,
+        project_key: str,
+        session_id: str,
+        entries: List[Dict[str, Any]],
+        agno_session_id: str,
+        subpath: Optional[str] = None,
+    ) -> None:
+        if not entries:
+            return
+        from sqlalchemy.dialects.postgresql import insert as transcript_insert
+
+        from agno.db.transcripts import transcript_lock_id, transcript_rows
+
+        table = await self._get_table("transcripts", create_table_if_not_found=True)
+        if table is None:
+            raise RuntimeError("Could not create transcript table")
+        stmt = transcript_insert(table).on_conflict_do_nothing(
+            index_elements=["framework", "project_key", "session_id", "subpath", "entry_uuid"]
+        )
+        async with self.async_session_factory() as sess, sess.begin():
+            await sess.execute(
+                select(func.pg_advisory_xact_lock(transcript_lock_id(framework, project_key, session_id, subpath)))
+            )
+            previous = await sess.execute(
+                select(func.max(table.c.position)).where(
+                    table.c.framework == framework,
+                    table.c.project_key == project_key,
+                    table.c.session_id == session_id,
+                    table.c.subpath == (subpath or ""),
+                )
+            )
+            rows = transcript_rows(
+                framework, project_key, session_id, subpath, agno_session_id, entries, previous.scalar() or 0
+            )
+            await sess.execute(stmt, rows)
+
+    async def get_transcript_entries(
+        self, framework: str, project_key: str, session_id: str, subpath: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        import json
+
+        table = await self._get_table("transcripts")
+        if table is None:
+            return []
+        stmt = (
+            select(table.c.entry)
+            .where(
+                table.c.framework == framework,
+                table.c.project_key == project_key,
+                table.c.session_id == session_id,
+                table.c.subpath == (subpath or ""),
+            )
+            .order_by(table.c.position)
+        )
+        async with self.async_session_factory() as sess:
+            result = await sess.execute(stmt)
+            return [json.loads(row[0]) for row in result.fetchall()]
+
+    async def list_transcript_sessions(self, framework: str, project_key: str) -> List[Dict[str, Any]]:
+        table = await self._get_table("transcripts")
+        if table is None:
+            return []
+        stmt = (
+            select(table.c.session_id, func.max(table.c.created_at).label("mtime"))
+            .where(table.c.framework == framework, table.c.project_key == project_key, table.c.subpath == "")
+            .group_by(table.c.session_id)
+        )
+        async with self.async_session_factory() as sess:
+            result = await sess.execute(stmt)
+            return [dict(row._mapping) for row in result.fetchall()]
+
+    async def list_transcript_subpaths(self, framework: str, project_key: str, session_id: str) -> List[str]:
+        table = await self._get_table("transcripts")
+        if table is None:
+            return []
+        stmt = (
+            select(table.c.subpath)
+            .where(
+                table.c.framework == framework,
+                table.c.project_key == project_key,
+                table.c.session_id == session_id,
+                table.c.subpath != "",
+            )
+            .distinct()
+            .order_by(table.c.subpath)
+        )
+        async with self.async_session_factory() as sess:
+            result = await sess.execute(stmt)
+            return [row[0] for row in result.fetchall()]
+
+    async def delete_transcript(
+        self, framework: str, project_key: str, session_id: str, subpath: Optional[str] = None
+    ) -> None:
+        table = await self._get_table("transcripts")
+        if table is None:
+            return
+        stmt = table.delete().where(
+            table.c.framework == framework, table.c.project_key == project_key, table.c.session_id == session_id
+        )
+        if subpath is not None:
+            stmt = stmt.where(table.c.subpath == subpath)
+        async with self.async_session_factory() as sess, sess.begin():
+            await sess.execute(stmt)

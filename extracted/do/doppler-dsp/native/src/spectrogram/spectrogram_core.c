@@ -33,16 +33,20 @@ spectrogram_row (dp_spectrogram_state_t *s, const float _Complex *frame,
                  float *row)
 {
   if (s->mode == DP_SPECTROGRAM_DB)
-    dp_psd_frame_db (s->psd, frame, row);
+    dp_psd_frame_db (&s->k, frame, row);
   else
-    dp_psd_frame_linear (s->psd, frame, row);
+    dp_psd_frame_linear (&s->k, frame, row);
 }
 
 dp_spectrogram_state_t *
 dp_spectrogram_create (size_t nfft, size_t hop, int window, float beta,
                        int mode)
 {
-  /* window is validated by dp_psd_create, the one owner of the index. */
+  /* window is validated by dp_psd_kernel_init, the one owner of the index.
+     A hop of 0 means nfft, PSD's own rule (dp_psd_create_hop); nfft 0
+     leaves it 0, and that is refused with the rest of the range. */
+  if (hop == 0)
+    hop = nfft;
   if (hop == 0 || hop > nfft)
     return NULL;
   if (mode != DP_SPECTROGRAM_POWER && mode != DP_SPECTROGRAM_DB)
@@ -50,24 +54,26 @@ dp_spectrogram_create (size_t nfft, size_t hop, int window, float beta,
   if (nfft > SIZE_MAX / SPECTROGRAM_RING_FRAMES)
     return NULL;
 
-  /* n = nfft and pad = 1. fs and full scale are 1: rows are against the
-   * full scale of a unit-amplitude cf32 stream (1.0 linear, 0 dBFS). A row has
-   * the PSD's transform length of bins, so that has to BE nfft: the PSD owns
-   * the transform length (it zero-pads n to its own choice), and an nfft it
-   * would pad is refused here rather than given rows wider than its frames. */
-  dp_psd_state_t *psd
-      = dp_psd_create (nfft, 1.0, window, beta, 1, 1.0, 0, 0, 0.0);
-  if (!psd)
+  /* The kernel alone, not a PSD: a row is one frame's spectrum, so PSD's
+   * averager, dB buffer, ring and framer would be dead weight here. n = nfft
+   * and pad = 1, full scale 1: rows are against the full scale of a
+   * unit-amplitude cf32 stream (1.0 linear, 0 dBFS). A row has the kernel's
+   * transform length of bins, so that has to BE nfft: the kernel owns the
+   * transform length (it zero-pads n to a power of two), and an nfft it
+   * would pad is refused here rather than given rows wider than its
+   * frames. */
+  dp_psd_kernel_t k;
+  if (dp_psd_kernel_init (&k, nfft, window, beta, 1, 1.0) != DP_OK)
     return NULL;
-  if (psd->nfft != nfft)
+  if (k.nfft != nfft)
     {
-      dp_psd_destroy (psd);
+      dp_psd_kernel_free (&k);
       return NULL;
     }
 
   dp_spectrogram_state_t *s
       = (dp_spectrogram_state_t *)dp_xcalloc (1, sizeof *s);
-  s->psd = psd;
+  s->k = k;
   s->ring
       = (dp_f32_t *)dp_xnn (dp_f32_create (SPECTROGRAM_RING_FRAMES * nfft));
   s->last   = (float _Complex *)dp_xmalloc (nfft * sizeof *s->last);
@@ -92,7 +98,7 @@ dp_spectrogram_destroy (dp_spectrogram_state_t *s)
 {
   if (!s)
     return;
-  dp_psd_destroy (s->psd);
+  dp_psd_kernel_free (&s->k);
   if (s->ring)
     dp_f32_destroy (s->ring);
   free (s->last);
@@ -160,9 +166,14 @@ dp_spectrogram_consumed (const dp_spectrogram_state_t *s)
   return s->consumed;
 }
 
-size_t
-dp_spectrogram_flush (dp_spectrogram_state_t *s, float *row)
+int64_t
+dp_spectrogram_flush (dp_spectrogram_state_t *s, float *row, size_t row_len)
 {
+  /* A row buffer that is not exactly one row is refused before anything
+   * moves: -1, so a wrong-shape row cannot read as "nothing owed" (0). The
+   * owed frame stays owed for a retry. */
+  if (row_len != s->nfft)
+    return -1;
   /* push leaves the framer drained, so the framer's flush cannot refuse
    * here; it either copies the owed, zero-padded frame or owes none. Both
    * restart the stream. */
@@ -171,7 +182,7 @@ dp_spectrogram_flush (dp_spectrogram_state_t *s, float *row)
   if (owed != 1)
     return 0;
   spectrogram_row (s, s->last, row);
-  return s->nfft;
+  return (int64_t)s->nfft;
 }
 
 size_t
@@ -180,13 +191,19 @@ dp_spectrogram_pending (const dp_spectrogram_state_t *s)
   return dp_f32_framer_pending (&s->fr);
 }
 
-/* Serializable state: the carry, which is the framer's snapshot, nested in
- * the spectrogram's own envelope. The kernel's window, plan and scratch and
- * the mode are configuration, restored by create(). */
+/* Serializable state: the configuration the rows depend on, then the carry,
+ * which is the framer's snapshot, nested in the spectrogram's own envelope.
+ * The configuration (mode, nfft, hop, window, beta) is written so a restore
+ * can REFUSE a blob whose rows would mean something else (#2102): a power
+ * blob never loads into a dB object, and nothing is written on a refusal.
+ * The kernel's plan and scratch are not state and are rebuilt by create(). */
+#define SPECTROGRAM_CONFIG_BYTES (4u + 8u + 8u + 4u + 4u)
+
 size_t
 dp_spectrogram_state_bytes (const dp_spectrogram_state_t *s)
 {
-  return sizeof (dp_state_hdr_t) + dp_f32_framer_state_bytes (&s->fr);
+  return sizeof (dp_state_hdr_t) + SPECTROGRAM_CONFIG_BYTES
+         + dp_f32_framer_state_bytes (&s->fr);
 }
 
 void
@@ -194,6 +211,11 @@ dp_spectrogram_get_state (const dp_spectrogram_state_t *s, void *blob)
 {
   DP_GET_OPEN (SPECTROGRAM_STATE_MAGIC, SPECTROGRAM_STATE_VERSION,
                dp_spectrogram_state_bytes (s));
+  dp_w_u32 (&_w, (uint32_t)s->mode);
+  dp_w_u64 (&_w, (uint64_t)s->nfft);
+  dp_w_u64 (&_w, (uint64_t)s->hop);
+  dp_w_u32 (&_w, (uint32_t)s->window);
+  dp_w_f32 (&_w, &s->beta, 1);
   DP_W_CHILD (&_w, dp_f32_framer, &s->fr);
 }
 
@@ -202,6 +224,21 @@ dp_spectrogram_set_state (dp_spectrogram_state_t *s, const void *blob)
 {
   DP_SET_OPEN (SPECTROGRAM_STATE_MAGIC, SPECTROGRAM_STATE_VERSION,
                dp_spectrogram_state_bytes (s));
+  /* Read the configuration and refuse a mismatch before anything is written:
+   * the object is unchanged on a refusal. */
+  const uint32_t mode   = dp_r_u32 (&_r);
+  const uint64_t nfft   = dp_r_u64 (&_r);
+  const uint64_t hop    = dp_r_u64 (&_r);
+  const uint32_t window = dp_r_u32 (&_r);
+  float          beta   = 0.0f;
+  dp_r_f32 (&_r, &beta, 1);
+  /* beta only shapes the Kaiser window; elsewhere it does not change a row,
+   * so it is not compared there. */
+  const int beta_matters = s->window == DP_PSD_WINDOW_KAISER;
+  if ((int)mode != s->mode || nfft != (uint64_t)s->nfft
+      || hop != (uint64_t)s->hop || (int)window != s->window
+      || (beta_matters && beta != s->beta))
+    return DP_ERR_INVALID;
   DP_R_CHILD (&_r, dp_f32_framer, &s->fr);
   s->consumed = 0;
   return DP_OK;

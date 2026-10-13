@@ -403,6 +403,12 @@ class ProjectConfig(DiffBase):
             return self.request_retries
         return None
 
+    def continue_on_failure_for(self, *, operation: APIOperation) -> bool:
+        config = self.operations.get_for_operation(operation=operation)
+        if config.continue_on_failure is not None:
+            return config.continue_on_failure
+        return bool(self.continue_on_failure)
+
     def tls_verify_for(self, *, operation: APIOperation | None = None) -> bool | str | None:
         if operation is not None:
             config = self.operations.get_for_operation(operation=operation)
@@ -476,9 +482,7 @@ class ProjectConfig(DiffBase):
                     configs.append(op.generation)
         if phase is not None:
             phases = self.phases_for(operation=operation)
-            phase_config = phases.get_by_name(name=phase)
-            if not phase_config._is_default:
-                configs.append(phase_config.generation)
+            configs.append(phases.get_by_name(name=phase).generation)
         if not configs:
             return self.generation
         configs.append(self.generation)
@@ -500,9 +504,7 @@ class ProjectConfig(DiffBase):
                     configs.append(op.checks)
         if phase is not None:
             phases = self.phases_for(operation=operation)
-            phase_config = phases.get_by_name(name=phase)
-            if not phase_config._is_default:
-                configs.append(phase_config.checks)
+            configs.append(phases.get_by_name(name=phase).checks)
         if not configs:
             return self.checks
         configs.append(self.checks)
@@ -574,6 +576,12 @@ class ProjectConfig(DiffBase):
             stateful_step_count=self.phases.stateful.max_steps,
             **kwargs,
         )
+
+    def named_project_title(self, title: str | None) -> str | None:
+        """Return `title` when it names a `[[project]]` block."""
+        if title is not None and title in self._get_parent().projects.named:
+            return title
+        return None
 
     def _get_parent(self) -> SchemathesisConfig:
         if self._parent is None:
@@ -714,8 +722,9 @@ class ProjectsConfig(DiffBase):
         configs = []
         if not isinstance(self._override, NotSet):
             configs.append(self._override)
-        title = schema.get("info", {}).get("title")
-        if title is not None:
+        info = schema.get("info")
+        title = info.get("title") if isinstance(info, dict) else None
+        if isinstance(title, str):
             named = self.named.get(title)
             if named is not None:
                 configs.append(named)

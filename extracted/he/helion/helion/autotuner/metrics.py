@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from .._compiler.device_ir import DeviceIR
+    from ..runtime.cute_structural_policy import CuteStructuralPolicy
 
 
 _post_autotune_hooks: list[Callable[[AutotuneMetrics], None]] = []
@@ -35,35 +36,59 @@ class AutotuneMetrics:
     num_compile_failures: int = 0
     num_worker_failures: int = 0
     num_accuracy_failures: int = 0
+    num_unique_sources: int = 0
+    num_source_deduplications: int = 0
     num_generations: int = 0
     autotune_time: float = 0.0
     best_perf_ms: float = 0.0
     kernel_name: str = ""
     kernel_source: str = ""
     input_shapes: str = ""
+    dtypes: str = ""
     hardware: str = ""
     random_seed: int = 0
     search_algorithm: str = ""
+    num_isolated_rebenchmark_timeouts: int = 0
+    num_successful_candidate_measurements: int = 0
+    selected_config: dict[str, object] | None = None
+    selected_source_hash: str | None = None
+    selected_source_was_measured: bool = False
+    search_phase_metrics: dict[str, object] | None = None
 
     def finalize(self) -> None:
         self.autotune_time = time.perf_counter() - self._start_time
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        result: dict[str, object] = {
             "kernel_name": self.kernel_name,
             "kernel_source": self.kernel_source,
             "input_shapes": self.input_shapes,
+            "dtypes": self.dtypes,
             "hardware": self.hardware,
             "random_seed": self.random_seed,
             "search_algorithm": self.search_algorithm,
             "num_configs_tested": self.num_configs_tested,
             "num_compile_failures": self.num_compile_failures,
             "num_worker_failures": self.num_worker_failures,
+            "num_isolated_rebenchmark_timeouts": (
+                self.num_isolated_rebenchmark_timeouts
+            ),
             "num_accuracy_failures": self.num_accuracy_failures,
+            "num_successful_candidate_measurements": (
+                self.num_successful_candidate_measurements
+            ),
+            "num_unique_sources": self.num_unique_sources,
+            "num_source_deduplications": self.num_source_deduplications,
             "num_generations": self.num_generations,
             "autotune_time": self.autotune_time,
             "best_perf_ms": self.best_perf_ms,
+            "selected_config": self.selected_config,
+            "selected_source_hash": self.selected_source_hash,
+            "selected_source_was_measured": self.selected_source_was_measured,
         }
+        if self.search_phase_metrics is not None:
+            result["search_phase_metrics"] = self.search_phase_metrics
+        return result
 
 
 # Only codegen/perf-affecting settings belong in run_id; full settings stay in
@@ -75,7 +100,9 @@ _CODEGEN_SETTINGS: tuple[str, ...] = (
     "dot_precision",
     "fast_math",
     "index_dtype",
+    "pallas_collective_id",
     "pallas_interpret",
+    "pallas_topk_recall_target",
     "persistent_reserved_sms",
     "static_shapes",
     "triton_do_not_specialize",
@@ -113,6 +140,7 @@ class KernelMetadata:
     _device_ir: DeviceIR | None = dataclasses.field(
         default=None, repr=False, compare=False, hash=False
     )
+    cute_structural_policy: CuteStructuralPolicy | None = None
 
     @functools.cached_property
     def run_id(self) -> str:
@@ -122,10 +150,14 @@ class KernelMetadata:
             f"{self.kernel_source}\x00{_codegen_signature(self.settings)}\x00"
             f"{self.input_shapes}\x00{self.dtypes}\x00{self.hardware}"
         )
+        if self.cute_structural_policy is not None:
+            payload += (
+                f"\x00cute_structural_policy:{self.cute_structural_policy.identity()}"
+            )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        result: dict[str, object] = {
             "run_id": self.run_id,
             "kernel_name": self.kernel_name,
             "kernel_source": self.kernel_source,
@@ -135,6 +167,9 @@ class KernelMetadata:
             "settings": self.settings,
             "ir_graph": self.ir_graph,
         }
+        if self.cute_structural_policy is not None:
+            result["cute_structural_policy"] = self.cute_structural_policy.to_dict()
+        return result
 
     @functools.cached_property
     def ir_graph(self) -> dict[str, object] | None:

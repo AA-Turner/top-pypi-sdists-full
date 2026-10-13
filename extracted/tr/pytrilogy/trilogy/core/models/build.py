@@ -164,8 +164,15 @@ def _gen_comp_name(parent: BuildComparison) -> str:
     return f"{VIRTUAL_CONCEPT_PREFIX}_comp_{string_to_hash(_canonical_str_for_hash(parent))}"
 
 
-def _gen_msl_name(parent: BuildMultiSelectLineage) -> str:
-    return f"{VIRTUAL_CONCEPT_PREFIX}_msl_{string_to_hash(str(parent))}"
+def _gen_msl_name(parent: BuildMultiSelectLineage, output: str | None = None) -> str:
+    """Named by the construct's authored outputs and which one this is. The
+    lineage's repr is not an identity: it embeds build-local state (its
+    `local_concepts`, the arms' author scopes) that grows as columns build,
+    and every output of one construct shares it."""
+    identity = "|".join(
+        [type(parent).__name__, *sorted(parent.derived_concepts), f">{output}"]
+    )
+    return f"{VIRTUAL_CONCEPT_PREFIX}_msl_{string_to_hash(identity)}"
 
 
 def _gen_default_name(parent: Any) -> str:
@@ -177,10 +184,16 @@ _CONCEPT_NAME_GENERATORS: dict[type, Callable[[Any], str]] = {}
 
 
 def generate_concept_name(
-    parent: Any, merge_concepts: Iterable[str] | None = None
+    parent: Any,
+    merge_concepts: Iterable[str] | None = None,
+    output: str | None = None,
 ) -> str:
+    """`output`: the address of the concept named, for a lineage several
+    outputs share (a multiselect / union)."""
     generator = _CONCEPT_NAME_GENERATORS.get(type(parent))
-    if generator:
+    if isinstance(parent, BuildMultiSelectLineage):
+        canonical_name = _gen_msl_name(parent, output)
+    elif generator:
         canonical_name = generator(parent)
     else:
         canonical_name = _gen_default_name(parent)
@@ -473,13 +486,17 @@ def concepts_to_build_grain_concepts(
 
 
 @dataclass(slots=True)
-class LooseBuildConceptList:
+class _BuildConceptSet:
     concepts: Sequence[BuildConcept]
     addresses: set[str] = field(init=False)
     sorted_addresses: list[str] = field(init=False)
 
+    @staticmethod
+    def _key(concept: BuildConcept) -> str:
+        return concept.address
+
     def __post_init__(self):
-        self.addresses = {s.address for s in self.concepts}
+        self.addresses = {self._key(s) for s in self.concepts}
         self.sorted_addresses = sorted(self.addresses)
 
     def __str__(self) -> str:
@@ -489,12 +506,12 @@ class LooseBuildConceptList:
         return iter(self.concepts)
 
     def __eq__(self, other):
-        if not isinstance(other, LooseBuildConceptList):
+        if not isinstance(other, type(self)):
             return False
         return self.addresses == other.addresses
 
     def issubset(self, other):
-        if not isinstance(other, LooseBuildConceptList):
+        if not isinstance(other, type(self)):
             return False
         return self.addresses.issubset(other.addresses)
 
@@ -503,61 +520,54 @@ class LooseBuildConceptList:
             return other in self.addresses
         if not isinstance(other, BuildConcept):
             return False
-        return other.address in self.addresses
+        return self._key(other) in self.addresses
 
     def difference(self, other):
-        if not isinstance(other, LooseBuildConceptList):
+        if not isinstance(other, type(self)):
             return False
         return self.addresses.difference(other.addresses)
 
     def isdisjoint(self, other):
-        if not isinstance(other, LooseBuildConceptList):
+        if not isinstance(other, type(self)):
             return False
         return self.addresses.isdisjoint(other.addresses)
 
 
-@dataclass(slots=True)
-class CanonicalBuildConceptList:
-    concepts: Sequence[BuildConcept]
-    addresses: set[str] = field(init=False)
-    sorted_addresses: list[str] = field(init=False)
+class LooseBuildConceptList(_BuildConceptSet):
+    __slots__ = ()
 
-    def __post_init__(self):
-        self.addresses = {s.canonical_address for s in self.concepts}
-        self.sorted_addresses = sorted(self.addresses)
 
-    def __str__(self) -> str:
-        return f"lcl{self.sorted_addresses!s}"
+class CanonicalBuildConceptList(_BuildConceptSet):
+    __slots__ = ()
 
-    def __iter__(self):
-        return iter(self.concepts)
+    @staticmethod
+    def _key(concept: BuildConcept) -> str:
+        return concept.canonical_address
 
-    def __eq__(self, other):
-        if not isinstance(other, CanonicalBuildConceptList):
-            return False
-        return self.addresses == other.addresses
 
-    def issubset(self, other):
-        if not isinstance(other, CanonicalBuildConceptList):
-            return False
-        return self.addresses.issubset(other.addresses)
+class BuildOperandArgs(BuildConceptArgs):
+    """A predicate whose arguments are its operands', in operand order."""
 
-    def __contains__(self, other):
-        if isinstance(other, str):
-            return other in self.addresses
-        if not isinstance(other, BuildConcept):
-            return False
-        return other.canonical_address in self.addresses
+    @property
+    def operands(self) -> tuple:
+        raise NotImplementedError
 
-    def difference(self, other):
-        if not isinstance(other, CanonicalBuildConceptList):
-            return False
-        return self.addresses.difference(other.addresses)
+    @cached_property
+    def concept_arguments(self) -> list[BuildConcept]:
+        return [c for o in self.operands for c in get_concept_arguments(o)]
 
-    def isdisjoint(self, other):
-        if not isinstance(other, CanonicalBuildConceptList):
-            return False
-        return self.addresses.isdisjoint(other.addresses)
+    @property
+    def row_arguments(self) -> list[BuildConcept]:
+        return [c for o in self.operands for c in get_concept_row_arguments(o)]
+
+    @property
+    def existence_arguments(self) -> list[tuple[BuildConcept, ...]]:
+        return [
+            e
+            for o in self.operands
+            if isinstance(o, BuildConceptArgs)
+            for e in o.existence_arguments
+        ]
 
 
 class ConstantInlineable:
@@ -626,7 +636,7 @@ class BuildParamaterizedConceptReference(DataTyped):
 class BuildGrain:
     components: set[str] = field(default_factory=set)
     where_clause: BuildWhereClause | None = None
-    _str: str | None = None
+    _str: str | None = field(default=None, repr=False)
     _str_no_condition: str = field(init=False)
     abstract: bool = field(init=False)
 
@@ -799,7 +809,7 @@ class BuildParenthetical(DataTyped, ConstantInlineable, BuildConceptArgs):
 
 
 @dataclass(slots=True)
-class BuildConditional(DataTyped, BuildConceptArgs, ConstantInlineable):
+class BuildConditional(DataTyped, BuildOperandArgs, ConstantInlineable):
     left: (
         int
         | str
@@ -893,29 +903,9 @@ class BuildConditional(DataTyped, BuildConceptArgs, ConstantInlineable):
             operator=self.operator,
         )
 
-    @cached_property
-    def concept_arguments(self) -> list[BuildConcept]:
-        """Return BuildConcepts directly referenced in where clause"""
-        output = []
-        output += get_concept_arguments(self.left)
-        output += get_concept_arguments(self.right)
-        return output
-
     @property
-    def row_arguments(self) -> list[BuildConcept]:
-        output = []
-        output += get_concept_row_arguments(self.left)
-        output += get_concept_row_arguments(self.right)
-        return output
-
-    @property
-    def existence_arguments(self) -> list[tuple[BuildConcept, ...]]:
-        output: list[tuple[BuildConcept, ...]] = []
-        if isinstance(self.left, BuildConceptArgs):
-            output += self.left.existence_arguments
-        if isinstance(self.right, BuildConceptArgs):
-            output += self.right.existence_arguments
-        return output
+    def operands(self) -> tuple:
+        return (self.left, self.right)
 
     def decompose(self):
         chunks = []
@@ -973,7 +963,7 @@ class BuildHavingClause(BuildWhereClause):
 
 
 @dataclass(slots=True)
-class BuildComparison(DataTyped, BuildConceptArgs, ConstantInlineable):
+class BuildComparison(DataTyped, BuildOperandArgs, ConstantInlineable):
 
     left: (
         int
@@ -1080,30 +1070,9 @@ class BuildComparison(DataTyped, BuildConceptArgs, ConstantInlineable):
             right=new_right,
         )
 
-    @cached_property
-    def concept_arguments(self) -> list[BuildConcept]:
-        """Return BuildConcepts directly referenced in where clause"""
-        output = []
-        output += get_concept_arguments(self.left)
-        output += get_concept_arguments(self.right)
-        return output
-
     @property
-    def row_arguments(self) -> list[BuildConcept]:
-        output = []
-        output += get_concept_row_arguments(self.left)
-        output += get_concept_row_arguments(self.right)
-        return output
-
-    @property
-    def existence_arguments(self) -> list[tuple[BuildConcept, ...]]:
-        """Return BuildConcepts directly referenced in where clause"""
-        output: list[tuple[BuildConcept, ...]] = []
-        if isinstance(self.left, BuildConceptArgs):
-            output += self.left.existence_arguments
-        if isinstance(self.right, BuildConceptArgs):
-            output += self.right.existence_arguments
-        return output
+    def operands(self) -> tuple:
+        return (self.left, self.right)
 
     @property
     def output_datatype(self):
@@ -1133,7 +1102,7 @@ class BuildSubselectComparison(BuildComparison):
 
 
 @dataclass(slots=True)
-class BuildBetween(DataTyped, BuildConceptArgs, ConstantInlineable):
+class BuildBetween(DataTyped, BuildOperandArgs, ConstantInlineable):
     left: (
         int
         | str
@@ -1228,29 +1197,9 @@ class BuildBetween(DataTyped, BuildConceptArgs, ConstantInlineable):
             high=_replace(self.high),
         )
 
-    @cached_property
-    def concept_arguments(self) -> list[BuildConcept]:
-        return (
-            get_concept_arguments(self.left)
-            + get_concept_arguments(self.low)
-            + get_concept_arguments(self.high)
-        )
-
     @property
-    def row_arguments(self) -> list[BuildConcept]:
-        return (
-            get_concept_row_arguments(self.left)
-            + get_concept_row_arguments(self.low)
-            + get_concept_row_arguments(self.high)
-        )
-
-    @property
-    def existence_arguments(self) -> list[tuple[BuildConcept, ...]]:
-        output: list[tuple[BuildConcept, ...]] = []
-        for child in (self.left, self.low, self.high):
-            if isinstance(child, BuildConceptArgs):
-                output += child.existence_arguments
-        return output
+    def operands(self) -> tuple:
+        return (self.left, self.low, self.high)
 
     @property
     def output_datatype(self):
@@ -1427,33 +1376,53 @@ class BuildConcept(Addressable, BuildConceptArgs, DataTyped):
             build_is_aggregate=self.build_is_aggregate,
         )
 
-    @property
-    def _with_default_grain(self) -> Self:
+    def equals_at_grain_of(self, other: BuildConcept) -> bool:
+        # `self.with_grain(other.grain) == other` without building the copy.
+        return (
+            other.grain is not None
+            and type(other) is BuildConcept
+            and self.name == other.name
+            and self.datatype == other.datatype
+            and self.purpose == other.purpose
+            and self.namespace == other.namespace
+        )
+
+    def _default_grain_components(self) -> set[str] | None:
+        """Components of the default grain, or None when it is the concept's
+        own (or the metric default)."""
         if self.purpose == Purpose.KEY:
-            # we need to make this abstract
-            grain = BuildGrain(components={self.address})
-        elif self.purpose == Purpose.PROPERTY:
-            components = []
-            if self.keys:
-                components = [*self.keys]
+            return {self.address}
+        if self.purpose == Purpose.PROPERTY:
+            components = set(self.keys or ())
             if self.lineage:
                 for item in self.lineage.concept_arguments:
-                    components += [x.address for x in item.sources]
-            # TODO: set synonyms
-            grain = BuildGrain(
-                components={x for x in components},
-            )  # synonym_set=generate_BuildConcept_synonyms(components))
-        elif self.purpose == Purpose.METRIC:
+                    components.update(x.address for x in item.sources)
+            return components
+        if self.purpose == Purpose.CONSTANT and self.derivation != Derivation.CONSTANT:
+            return {self.address}
+        return None
+
+    @property
+    def _with_default_grain(self) -> Self:
+        # Built grains are compared by components, abstract grains all equal:
+        # decide on the components so the common no-op builds no BuildGrain.
+        if self.purpose == Purpose.METRIC:
             grain = DEFAULT_GRAIN
-        elif self.purpose == Purpose.CONSTANT:
-            if self.derivation != Derivation.CONSTANT:
-                grain = BuildGrain(components={self.address})
-            else:
-                grain = self.grain
+            if grain == self.grain:
+                return self
         else:
-            grain = self.grain
-        if grain == self.grain:
-            return self
+            components = self._default_grain_components()
+            if components is None:
+                return self
+            if self.grain is not None and (
+                components == self.grain.components
+                or (
+                    self.grain.abstract
+                    and all(c == ALL_ROWS_ADDRESS for c in components)
+                )
+            ):
+                return self
+            grain = BuildGrain(components=components)
         return self.__class__(
             name=self.name,
             canonical_name=self.canonical_name,
@@ -1643,12 +1612,6 @@ class BuildCaseSimpleWhen(DataTyped, BuildConceptArgs):
         return get_concept_arguments(self.value_expr) + get_concept_arguments(self.expr)
 
     @property
-    def concept_row_arguments(self):
-        return get_concept_row_arguments(self.value_expr) + get_concept_row_arguments(
-            self.expr
-        )
-
-    @property
     def output_datatype(self):
         return arg_to_datatype(self.expr)
 
@@ -1669,12 +1632,6 @@ class BuildCaseWhen(DataTyped, BuildConceptArgs):
     @cached_property
     def concept_arguments(self):
         return get_concept_arguments(self.comparison) + get_concept_arguments(self.expr)
-
-    @property
-    def concept_row_arguments(self):
-        return get_concept_row_arguments(self.comparison) + get_concept_row_arguments(
-            self.expr
-        )
 
     @property
     def output_datatype(self):
@@ -2377,9 +2334,7 @@ class BuildDatasource:
         exact_match = None
         canonical_match = None
         for x in self.columns:
-            is_exact = (
-                x.concept == concept or x.concept.with_grain(concept.grain) == concept
-            )
+            is_exact = x.concept == concept or x.concept.equals_at_grain_of(concept)
             if is_exact or (
                 concept.address in x.concept.pseudonyms
                 or x.concept.address in concept.pseudonyms
@@ -2532,6 +2487,17 @@ BuildExpr = (
 )
 
 
+def _rename_source(concept: Concept | None) -> str | None:
+    lineage = concept.lineage if concept is not None else None
+    if (
+        isinstance(lineage, Function)
+        and lineage.operator == FunctionType.ALIAS
+        and len(lineage.concept_arguments) == 1
+    ):
+        return lineage.concept_arguments[0].address
+    return None
+
+
 def get_canonical_pseudonyms(environment: Environment) -> dict[str, set[str]]:
     roots: dict[str, set[str]] = defaultdict(set)
     for k, v in environment.concepts.items():
@@ -2681,6 +2647,9 @@ class JoinScope:
             scope_tagged_joins(self.scoped_joins, environment)
         )
         self.scoped_merge_map = dict(self.domain_graph.canonical_map())
+        # what a build's grain normalization reads; keys caches shared across
+        # join sets
+        self.merge_token = frozenset(self.scoped_merge_map.items())
         self.scoped_partial_sources = self.domain_graph.subset_sources()
         # A global `merge` IS a scoped join persisted on the environment (FULL
         # non-partial / LEFT partial). It resolves identically to the equivalent
@@ -2827,6 +2796,11 @@ class JoinScope:
             for source in scoped_pseudonym_sources:
                 canonical_addr = self.scoped_merge_map[source]
                 groups[canonical_addr].update((source, canonical_addr))
+                # a bare rename (`auto a <- b`) merged into a key names what
+                # it renames: a scan storing `b` stores the key
+                renamed = _rename_source(environment.concepts.get(source))
+                if renamed is not None:
+                    groups[canonical_addr].add(renamed)
             chained: set[str] = set()
             for s, t, _ in self.scoped_joins:
                 root = self.scoped_merge_map.get(s, self.scoped_merge_map.get(t))
@@ -2929,9 +2903,10 @@ class Factory:
         local_concepts: dict[str, BuildConcept] | None = None,
         grain: Grain | None = None,
         pseudonym_map: dict[str, set[str]] | None = None,
-        build_cache: dict[str, BuildConcept] | None = None,
-        grain_build_cache: dict[tuple, BuildGrain] | None = None,
-        canonical_build_cache: dict[str, BuildConcept] | None = None,
+        grain_build_cache: (
+            dict[int, tuple[WhereClause, BuildWhereClause]] | None
+        ) = None,
+        canonical_build_cache: dict[tuple[str, frozenset], BuildConcept] | None = None,
         datasource_build_cache: dict[str, BuildDatasource] | None = None,
         scoped_joins: list[tuple[str, str, JoinType]] | None = None,
         aggregate_grain: Grain | None = None,
@@ -3014,6 +2989,7 @@ class Factory:
         self.scoped_joins = join_scope.scoped_joins
         self.domain_graph = join_scope.domain_graph
         self.scoped_merge_map = join_scope.scoped_merge_map
+        self._merge_token = join_scope.merge_token
         self.scoped_partial_sources = join_scope.scoped_partial_sources
         self.scoped_merge_sources_by_target = join_scope.scoped_merge_sources_by_target
         self.scoped_rowset_outer_sources = join_scope.scoped_rowset_outer_sources
@@ -3032,21 +3008,24 @@ class Factory:
         # `_env_footprint` and every write name to `_env_writes`.
         self._env_footprint: set[str] | None = None
         self._env_writes: set[str] | None = None
-        self.build_cache = build_cache or {}
-        # Cross-factory cache for BuildGrain keyed on (frozenset(components),
-        # id(where_clause)). Same lifecycle as build_cache — propagated to
-        # sub-factories that share build_cache so all factories in a parse
-        # reuse the same normalized grains.
-        self.grain_build_cache: dict[tuple, BuildGrain] = (
+        # Private: its key (address, canonical name, grain) omits the build
+        # context (scoped joins, anchors, scope salt), so sharing it across
+        # factories hands one context's concepts to another.
+        self.build_cache: dict[str, BuildConcept] = {}
+        # Cross-factory cache of built grain wheres keyed on id(where_clause),
+        # valued (where_clause, BuildWhereClause); see `_build_grain`. Same
+        # lifecycle as the other caches — propagated to sub-factories.
+        self.grain_build_cache: dict[int, tuple[WhereClause, BuildWhereClause]] = (
             {} if grain_build_cache is None else grain_build_cache
         )
         # Cache of BuildConcepts for "grain-stable" base concepts (no lineage
         # + explicit grain). Their BuildConcept is determined entirely by the
         # source Concept + env state and so is identical across every factory
         # in the call tree, regardless of the factory's grain context. Keyed
-        # by base.address. Lifetime is one get_query_node call — created by
+        # by (base.address, merge token): the grain normalizes through the
+        # scoped merges. Lifetime is one get_query_node call — created by
         # the caller and threaded through.
-        self.canonical_build_cache: dict[str, BuildConcept] = (
+        self.canonical_build_cache: dict[tuple[str, frozenset], BuildConcept] = (
             {} if canonical_build_cache is None else canonical_build_cache
         )
         # Cache of fully-built BuildDatasources. A datasource builds with its
@@ -3059,6 +3038,9 @@ class Factory:
         # Per-grain column-build scopes shared by the datasources this factory
         # builds (see `_datasource_local_scope`).
         self._datasource_scopes: dict[tuple, dict[str, BuildConcept]] = {}
+        # One scope factory per rowset whose columns this factory builds; the
+        # entry holds the rowset alive, so its id cannot be reused.
+        self._rowset_factories: dict[int, tuple[RowsetLineage, Factory]] = {}
         self.build_grain = self.build(self.grain) if self.grain else None
         # Addresses currently mid-build, in dependency order. Used to expand a
         # self-referential metric out of an abstract aggregate's resolution
@@ -3183,9 +3165,6 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: None) -> None:
-        return self._build_none(base)
-
-    def _build_none(self, base):
         return base
 
     @_build_dispatch.register
@@ -3310,9 +3289,6 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: CaseWhen) -> BuildCaseWhen:
-        return self._build_case_when(base)
-
-    def _build_case_when(self, base: CaseWhen) -> BuildCaseWhen:
         expr: Concept | FuncArgs = base.expr
         validation = requires_concept_nesting(expr)
         if validation:
@@ -3324,9 +3300,6 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: CaseSimpleWhen) -> BuildCaseSimpleWhen:
-        return self._build_simple_case_when(base)
-
-    def _build_simple_case_when(self, base: CaseSimpleWhen) -> BuildCaseSimpleWhen:
         expr: Concept | FuncArgs = base.expr
         validation = requires_concept_nesting(expr)
         if validation:
@@ -3338,9 +3311,6 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: CaseElse) -> BuildCaseElse:
-        return self._build_case_else(base)
-
-    def _build_case_else(self, base: CaseElse) -> BuildCaseElse:
         expr: Concept | FuncArgs = base.expr
         validation = requires_concept_nesting(expr)
         if validation:
@@ -3532,7 +3502,8 @@ class Factory:
         # entry — there are typically O(thousands) of these across O(hundreds)
         # of datasource factories.
         if base.lineage is None and base.grain.components:
-            cached = self.canonical_build_cache.get(base.address)
+            canonical_key = (base.address, self._merge_token)
+            cached = self.canonical_build_cache.get(canonical_key)
             if cached is not None:
                 self.local_concepts[base.address] = cached
                 return cached
@@ -3576,7 +3547,7 @@ class Factory:
             self.local_concepts[base.address] = rval
             if self._env_writes is not None:
                 self._env_writes.add(base.address)
-            self.canonical_build_cache[base.address] = rval
+            self.canonical_build_cache[canonical_key] = rval
             return rval
         base = self._grain_pinned(base)
         resolution_grain = (
@@ -3644,6 +3615,7 @@ class Factory:
                 generate_concept_name(
                     build_lineage,
                     self.scoped_merge_sources_by_target.get(base.address),
+                    output=base.address,
                 )
                 if build_lineage
                 else base.name
@@ -3652,10 +3624,6 @@ class Factory:
         cache_address = (
             f"{base.namespace}.{base.address}.{canonical_name}.{final_grain!s}"
         )
-        if self.select_grouping is not None:
-            # build_cache persists across statements; a spec-stamped build of a
-            # concept must not be served to (or from) a spec-less statement
-            cache_address += f".{self._select_grouping_token()}"
         if cache_address in self.build_cache:
             return self.build_cache[cache_address]
 
@@ -3729,20 +3697,6 @@ class Factory:
         self.build_cache[cache_address] = rval
         return rval
 
-    @_build_dispatch.register
-    def _(self, base: AggregateWrapper) -> BuildAggregateWrapper:
-        return self._build_aggregate_wrapper(base)
-
-    def _select_grouping_token(self) -> str:
-        spec = self.select_grouping
-        assert spec is not None
-        by = ",".join(str(x.address) for x in spec.by)
-        sets = "|".join(
-            ",".join(str(x.address) for x in grouping_set)
-            for grouping_set in spec.grouping_sets
-        )
-        return f"{spec.mode.value}:{by}:{sets}"
-
     def _apply_select_grouping_to_resolved(
         self, base: Concept, new_lineage: Any
     ) -> Any:
@@ -3770,7 +3724,8 @@ class Factory:
             grouping_sets=[list(g) for g in spec.grouping_sets],
         )
 
-    def _build_aggregate_wrapper(self, base: AggregateWrapper) -> BuildAggregateWrapper:
+    @_build_dispatch.register
+    def _(self, base: AggregateWrapper) -> BuildAggregateWrapper:
         spec = self.select_grouping
         grouping = base.grouping
         grouping_sets_source = base.grouping_sets
@@ -3877,9 +3832,6 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: OrderBy) -> BuildOrderBy:
-        return self._build_order_by(base)
-
-    def _build_order_by(self, base: OrderBy) -> BuildOrderBy:
         return BuildOrderBy(items=[self._build_order_item(x) for x in base.items])
 
     @_build_dispatch.register
@@ -3930,21 +3882,10 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: HavingClause) -> BuildHavingClause:
-        return self._build_having_clause(base)
-
-    def _build_having_clause(self, base: HavingClause) -> BuildHavingClause:
         conditional = self.build(base.conditional)
         if isinstance(conditional, bool):
             return BuildHavingClause(conditional=_constant_bool_comparison(conditional))
         return BuildHavingClause(conditional=conditional)
-
-    @_build_dispatch.register
-    def _(self, base: NumberingWindowItem) -> BuildNumberingWindowItem:
-        return self._build_numbering_window_item(base)
-
-    @_build_dispatch.register
-    def _(self, base: NavigationWindowItem) -> BuildNavigationWindowItem:
-        return self._build_navigation_window_item(base)
 
     def _build_over_items(self, over: list) -> list[BuildConcept]:
         # `over` may contain arbitrary expressions from `partition by expr, …`;
@@ -3994,9 +3935,8 @@ class Factory:
             out.append(x)
         return out
 
-    def _build_numbering_window_item(
-        self, base: NumberingWindowItem
-    ) -> BuildNumberingWindowItem:
+    @_build_dispatch.register
+    def _(self, base: NumberingWindowItem) -> BuildNumberingWindowItem:
         # An AggregateWrapper with empty `by` inside the order_by needs an
         # implicit grain — the rank's argument concepts define the row.
         anchor = base.arguments[0] if base.arguments else None
@@ -4008,9 +3948,8 @@ class Factory:
             over=self._build_over_items(list(base.over)),
         )
 
-    def _build_navigation_window_item(
-        self, base: NavigationWindowItem
-    ) -> BuildNavigationWindowItem:
+    @_build_dispatch.register
+    def _(self, base: NavigationWindowItem) -> BuildNavigationWindowItem:
         content: Concept | FuncArgs = base.content
         validation = requires_concept_nesting(base.content)
         if validation:
@@ -4027,9 +3966,6 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: Conditional) -> BuildConditional:
-        return self._build_conditional(base)
-
-    def _build_conditional(self, base: Conditional) -> BuildConditional:
         return BuildConditional(
             left=self.handle_constant(self.build(base.left)),
             right=self.handle_constant(self.build(base.right)),
@@ -4038,11 +3974,6 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: SubselectComparison) -> BuildSubselectComparison:
-        return self._build_subselect_comparison(base)
-
-    def _build_subselect_comparison(
-        self, base: SubselectComparison
-    ) -> BuildSubselectComparison:
         right: Any = base.right
         # this has specialized logic - include all Functions, EXCEPT a ROW_TUPLE
         # (composite-membership row constructor): it must stay a function so its
@@ -4111,10 +4042,6 @@ class Factory:
             hival = materialize_constant(high)
             return loval <= lval <= hival
         return BuildBetween(left=left, low=low, high=high)
-
-    @_build_dispatch.register
-    def _(self, base: Comparison) -> BuildComparison | bool:
-        return self._build_comparison(base)
 
     def _presence_probe_member(self, address: str, eligible: set[str]) -> str | None:
         """The join-key member a null-test operand names, or None.
@@ -4199,7 +4126,8 @@ class Factory:
         self.local_non_build_concepts[name] = new
         return new
 
-    def _build_comparison(self, base: Comparison) -> BuildComparison | bool:
+    @_build_dispatch.register
+    def _(self, base: Comparison) -> BuildComparison | bool:
         if base.operator in (ComparisonOperator.IS, ComparisonOperator.IS_NOT):
             probe: Concept | None = None
             if base.right == MagicConstants.NULL and isinstance(base.left, ConceptRef):
@@ -4264,16 +4192,10 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: AlignClause) -> BuildAlignClause:
-        return self._build_align_clause(base)
-
-    def _build_align_clause(self, base: AlignClause) -> BuildAlignClause:
         return BuildAlignClause(items=[self._build_align_item(x) for x in base.items])
 
     @_build_dispatch.register
     def _(self, base: DeriveItem) -> BuildDeriveItem:
-        return self._build_derive_item(base)
-
-    def _build_derive_item(self, base: DeriveItem) -> BuildDeriveItem:
         expr: Concept | FuncArgs = base.expr
         validation = requires_concept_nesting(expr)
         if validation:
@@ -4286,28 +4208,30 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: DeriveClause) -> BuildDeriveClause:
-        return self._build_derive_clause(base)
-
-    def _build_derive_clause(self, base: DeriveClause) -> BuildDeriveClause:
         return BuildDeriveClause(items=[self.build(x) for x in base.items])
 
     @_build_dispatch.register
     def _(self, base: RowsetItem) -> BuildRowsetItem:
-        return self._build_rowset_item(base)
-
-    def _build_rowset_item(self, base: RowsetItem) -> BuildRowsetItem:
-        factory = Factory(
-            environment=self.environment,
-            local_concepts={},
-            grain=base.rowset.select.grain,
-            pseudonym_map=self.pseudonym_map,
-            build_cache=self.build_cache,
-            grain_build_cache=self.grain_build_cache,
-            canonical_build_cache=self.canonical_build_cache,
-        )
+        entry = self._rowset_factories.get(id(base.rowset))
+        if entry is None:
+            entry = self._rowset_factories[id(base.rowset)] = (
+                base.rowset,
+                self._rowset_factory(base.rowset),
+            )
+        factory = entry[1]
         return BuildRowsetItem(
             content=factory._build_concept_ref(base.content),
             rowset=factory._build_rowset_lineage(base.rowset),
+        )
+
+    def _rowset_factory(self, rowset: RowsetLineage) -> Factory:
+        return Factory(
+            environment=self.environment,
+            local_concepts={},
+            grain=rowset.select.grain,
+            pseudonym_map=self.pseudonym_map,
+            grain_build_cache=self.grain_build_cache,
+            canonical_build_cache=self.canonical_build_cache,
         )
 
     @_build_dispatch.register
@@ -4325,9 +4249,6 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: SubselectItem) -> BuildSubselectItem:
-        return self._build_subselect_item(base)
-
-    def _build_subselect_item(self, base: SubselectItem) -> BuildSubselectItem:
         return BuildSubselectItem(
             content=self.build(base.content),
             where=self.build(base.where) if base.where else None,
@@ -4354,32 +4275,32 @@ class Factory:
         return self._build_grain(base)
 
     def _build_grain(self, base: Grain) -> BuildGrain:
-        # 99.9% of _build_grain calls have no where_clause; the normalized
-        # output is a pure function of (base.components, environment). Cache
-        # by frozenset(components) across factories sharing build_cache.
-        if not base.where_clause:
-            cache_key: tuple = (frozenset(base.components), None)
-            cached = self.grain_build_cache.get(cache_key)
-            if cached is not None:
-                return cached
-            rval = BuildGrain(
-                components=self._normalize_grain_components(base.components),
-                where_clause=None,
-            )
-            self.grain_build_cache[cache_key] = rval
-            return rval
-        factory = Factory(
-            environment=self.environment,
-            pseudonym_map=self.pseudonym_map,
-            build_cache=self.build_cache,
-            grain_build_cache=self.grain_build_cache,
-            canonical_build_cache=self.canonical_build_cache,
-        )
-        where = factory._build_where_clause(base.where_clause)
+        # Only the built where is cached across factories sharing this cache
+        # (a function of the where object and environment); components depend
+        # on this factory's scoped merges, so they normalize per call. The
+        # entry holds the source where alive, so its id cannot be reused.
+        where = base.where_clause
+        built_where = None
+        if where:
+            cached = self.grain_build_cache.get(id(where))
+            if cached is None:
+                cached = self.grain_build_cache[id(where)] = (
+                    where,
+                    self._build_grain_where(where),
+                )
+            built_where = cached[1]
         return BuildGrain(
             components=self._normalize_grain_components(base.components),
-            where_clause=where,
+            where_clause=built_where,
         )
+
+    def _build_grain_where(self, where: WhereClause) -> BuildWhereClause:
+        return Factory(
+            environment=self.environment,
+            pseudonym_map=self.pseudonym_map,
+            grain_build_cache=self.grain_build_cache,
+            canonical_build_cache=self.canonical_build_cache,
+        )._build_where_clause(where)
 
     def _normalize_grain_components(self, components) -> set[str]:
         # Collapse any merged-away source grain key to its canonical target
@@ -4398,23 +4319,14 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: TupleWrapper) -> TupleWrapper:
-        return self._build_tuple_wrapper(base)
-
-    def _build_tuple_wrapper(self, base: TupleWrapper) -> TupleWrapper:
         return TupleWrapper(val=[self.build(x) for x in base.val], type=base.type)
 
     @_build_dispatch.register
     def _(self, base: ListWrapper) -> ListWrapper:
-        return self._build_list_wrapper(base)
-
-    def _build_list_wrapper(self, base: ListWrapper) -> ListWrapper:
         return ListWrapper([self.build(x) for x in base], type=base.type)
 
     @_build_dispatch.register
     def _(self, base: FilterItem) -> BuildFilterItem:
-        return self._build_filter_item(base)
-
-    def _build_filter_item(self, base: FilterItem) -> BuildFilterItem:
         if isinstance(
             base.content, (Function, AggregateWrapper, WindowItem, FilterItem)
         ):
@@ -4463,9 +4375,6 @@ class Factory:
 
     @_build_dispatch.register
     def _(self, base: Parenthetical) -> BuildParenthetical:
-        return self._build_parenthetical(base)
-
-    def _build_parenthetical(self, base: Parenthetical) -> BuildParenthetical:
         validate = requires_concept_nesting(base.content)
         if validate:
             content, _ = self.instantiate_concept(validate)
@@ -4509,7 +4418,6 @@ class Factory:
             environment=self.environment,
             local_concepts=materialized,
             pseudonym_map=self.pseudonym_map,
-            build_cache=self.build_cache,
             grain_build_cache=self.grain_build_cache,
             canonical_build_cache=self.canonical_build_cache,
             scoped_joins=self.scoped_joins,
@@ -4547,7 +4455,6 @@ class Factory:
             environment=self.environment,
             local_concepts={},
             pseudonym_map=self.pseudonym_map,
-            build_cache=self.build_cache,
             grain_build_cache=self.grain_build_cache,
             canonical_build_cache=self.canonical_build_cache,
             scoped_joins=self.scoped_joins,
@@ -4698,7 +4605,6 @@ class Factory:
             environment=self.environment,
             local_concepts=local_build_cache,
             pseudonym_map=self.pseudonym_map,
-            build_cache=self.build_cache,
             grain_build_cache=self.grain_build_cache,
             canonical_build_cache=self.canonical_build_cache,
             scoped_joins=env_scoped_joins,
@@ -4706,7 +4612,6 @@ class Factory:
         where_factory = Factory(
             environment=self.environment,
             pseudonym_map=self.pseudonym_map,
-            build_cache=self.build_cache,
             grain_build_cache=self.grain_build_cache,
             canonical_build_cache=self.canonical_build_cache,
             scoped_joins=env_scoped_joins,
@@ -4946,6 +4851,7 @@ class Factory:
             scoped_partial_derived=b_env.scoped_partial_derived,
             scoped_join_key_groups=b_env.scoped_join_key_groups,
             domain_graph=b_env.domain_graph,
+            class_baseline=b_env,
         )
         for unit in baseline.units:
             if changed and not unit.footprint.isdisjoint(changed):
@@ -4978,56 +4884,19 @@ class Factory:
         return self._env_finish(new)
 
     @_build_dispatch.register
-    def _(self, base: TraitDataType):
-        return self._build_trait_data_type(base)
-
-    def _build_trait_data_type(self, base: TraitDataType):
-        return base
-
-    @_build_dispatch.register
-    def _(self, base: EnumType):
-        return self._build_enum_data_type(base)
-
-    def _build_enum_data_type(self, base: EnumType):
-        return base
-
-    @_build_dispatch.register
-    def _(self, base: ValidatedType):
-        return base
-
-    @_build_dispatch.register
-    def _(self, base: ArrayType):
-        return self._build_array_type(base)
-
-    def _build_array_type(self, base: ArrayType):
-        return base
-
-    @_build_dispatch.register
-    def _(self, base: StructType):
-        return self._build_struct_type(base)
-
-    def _build_struct_type(self, base: StructType):
-        return base
-
-    @_build_dispatch.register
-    def _(self, base: MapType):
-        return self._build_map_type(base)
-
-    def _build_map_type(self, base: MapType):
-        return base
-
-    @_build_dispatch.register
-    def _(self, base: ArgBinding):
-        return self._build_arg_binding(base)
-
-    def _build_arg_binding(self, base: ArgBinding):
-        return base
-
-    @_build_dispatch.register
-    def _(self, base: Ordering):
-        return self._build_ordering(base)
-
-    def _build_ordering(self, base: Ordering):
+    def _(
+        self,
+        base: (
+            TraitDataType
+            | EnumType
+            | ValidatedType
+            | ArrayType
+            | StructType
+            | MapType
+            | ArgBinding
+            | Ordering
+        ),
+    ):
         return base
 
     @_build_dispatch.register
@@ -5067,10 +4936,6 @@ class Factory:
             environment=self.environment,
             local_concepts=local_cache,
             pseudonym_map=self.pseudonym_map,
-            # build_cache = self.build_cache,
-            build_cache=(
-                self.build_cache if CONFIG.generation.datasource_build_cache else None
-            ),
             grain_build_cache=(
                 self.grain_build_cache
                 if CONFIG.generation.datasource_build_cache
@@ -5206,7 +5071,5 @@ _CONCEPT_NAME_GENERATORS.update(
         BuildFunction: _gen_function_name,
         BuildParenthetical: _gen_paren_name,
         BuildComparison: _gen_comp_name,
-        BuildMultiSelectLineage: _gen_msl_name,
-        BuildUnionSelectLineage: _gen_msl_name,
     }
 )

@@ -155,10 +155,10 @@ PrivateConnectionStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATE_IN_PROGRESS", "DELETE_FAILED", "DELETE_IN_PROGRESS"
 ]
 PrivateConnectionTypeType = Literal["SELF_MANAGED", "SERVICE_MANAGED"]
-ProviderType = Literal["AZURE_DEVOPS", "BITBUCKET", "CONFLUENCE", "GITHUB", "GITLAB"]
-ProviderTypeType = Literal["DOCUMENTATION", "SOURCE_CODE"]
+ProviderType = Literal["AZURE_DEVOPS", "BITBUCKET", "CONFLUENCE", "GITHUB", "GITLAB", "JIRA"]
+ProviderTypeType = Literal["DOCUMENTATION", "ISSUE_TRACKING", "SOURCE_CODE"]
 ResourceConfigDnsResolutionType = Literal["IN_VPC", "PUBLIC"]
-ResourceTypeType = Literal["CODE_REPOSITORY", "DOCUMENT"]
+ResourceTypeType = Literal["CODE_REPOSITORY", "DOCUMENT", "PROJECT"]
 RiskLevelType = Literal["CRITICAL", "HIGH", "INFORMATIONAL", "LOW", "MEDIUM", "UNKNOWN"]
 RiskTypeType = Literal[
     "ARBITRARY_FILE_UPLOAD",
@@ -586,6 +586,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

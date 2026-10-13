@@ -196,6 +196,51 @@ async def _scope(client: httpx.AsyncClient, ref: str) -> httpx.Response:
     return await client.get("/v1/scopes", params={"slug": ref})
 
 
+#: The status-line lookup after a write, start to finish (`scope.stamp` holds it
+#: to this): the write's tool call waits for it, and a label is never worth
+#: holding a bite up.
+SCOPE_TIMEOUT_S = 5.0
+
+
+def selector(ref: str) -> str | None:
+    """`ref` as the CLI reads it (`probe.cli.refs`) for a scope lookup: `id:<uuid>`
+    and `slug:<slug>` lose their prefix, a bare uuid or slug stays; `name:` needs a
+    search, so it is None."""
+    if ref.startswith("name:"):
+        return None
+    return ref.removeprefix("slug:") if ref.startswith("slug:") else ref.removeprefix("id:")
+
+
+async def project_slug(env: dict[str, str], ref: str) -> tuple[str, str] | None:
+    """`(slug, id)` of the project a project or experiment ref is filed under: the
+    project itself, or an experiment's project. `ref` reads as the CLI reads it
+    (`probe.cli.refs`): `id:<uuid>`, `slug:<slug>`, a bare uuid or a bare slug;
+    `name:` needs a search, so it answers None, as does an unknown ref, an unfiled
+    one and any answer but a 200. Raises `KeyRefused`, and on a transport failure."""
+    ref = selector(ref)
+    if ref is None:
+        return None
+    async with await _client(env) as client:
+        client.timeout = httpx.Timeout(SCOPE_TIMEOUT_S)
+        resp = await _scope(client, ref)
+        _refuse_key(resp)
+        if resp.status_code != 200:
+            return None
+        place = resp.json()
+        project = place.get("project_id") if isinstance(place, dict) else None
+        if not isinstance(project, str) or not _UUID.fullmatch(project):
+            return None
+        if place.get("kind") == "project" and not _UUID.fullmatch(ref):
+            return ref, project  # a project named by its slug: no second read
+        resp = await client.get(f"/v1/projects/{project}")
+        _refuse_key(resp)
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+    slug = data.get("slug") if isinstance(data, dict) else None
+    return (slug, project) if isinstance(slug, str) and slug else None
+
+
 async def edge(env: dict[str, str], edge_id: str) -> dict:
     """One lineage edge (`GET /v1/edges/{id}`), with its `meta`. Raises on any
     answer but a 200 carrying an object -- a server without the route answers

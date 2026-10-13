@@ -58,7 +58,6 @@ __all__ = [
     "prepare_verbalized_decision",
     "finalize_verbalized_decision",
     "restore_decision_turn_scope",
-    "render_decision_turn_for_preview",
 ]
 
 #: Media part kinds a text-only decision holder cannot consume. The value is
@@ -893,56 +892,3 @@ def finalize_verbalized_decision(
         metadata["decision"] = True
         metadata["method"] = answers.method
     return response
-
-
-async def render_decision_turn_for_preview(config: Any) -> str | None:
-    """Put a dry-run config into the exact shape the dispatch will send.
-
-    The prompt preview (``dry_run``) stops before ``UnifiedAIClient`` runs, so
-    it used to show the chat-shaped config — the system prompt and the authored
-    text — while the model actually receives the questions rendered as prose,
-    no system channel and no tools (Arman, 2026-09-26: "is that all the model
-    gets?"). This resolves the route the dispatch would resolve and, for a text
-    model, applies the SAME ``prepare_verbalized_decision`` the dispatch
-    applies, so the preview is the wire. The config is a throwaway dry-run copy:
-    nothing is restored.
-
-    Returns one sentence for the preview to show, or ``None`` when the request
-    asks no decision questions. A native decision route is described, not
-    rewritten — the native holder receives the state and the typed questions.
-    """
-    messages = list(getattr(config, "messages", None) or [])
-    try:
-        find_decision_questions(messages)
-    except DecisionQuestionsMissing:
-        return None
-
-    from matrx_ai.catalog.resolve import resolve_tts_call_profile
-    from matrx_ai.providers.resolved_capabilities import StructuredOutputMode
-
-    profile = await resolve_tts_call_profile(
-        config.model,
-        getattr(config, "tts_quality", None),
-        offering_id=getattr(config, "routing_offering_id", None),
-    )
-    caps = profile.capabilities
-    if caps.interaction == "decision" or profile.client_attr == "decision":
-        return (
-            f"{profile.model_name} is a native decision model: it receives the "
-            "state (the message text, the instruction and earlier turns) and the "
-            "typed questions, and computes the probabilities itself."
-        )
-    prepare_verbalized_decision(
-        config,
-        model_name=profile.model_name,
-        supports_structured_output=(
-            caps.structured_output_mode is StructuredOutputMode.SCHEMA
-        ),
-    )
-    return (
-        f"This turn asks decision questions of {profile.model_name}, a text model. "
-        "Shown exactly as sent: the questions are rendered as text in the last user "
-        "message, the agent's instruction rides inside them instead of the system "
-        "prompt, no tools are sent, and the reply is bound to a schema that returns "
-        "the answers with their probabilities."
-    )

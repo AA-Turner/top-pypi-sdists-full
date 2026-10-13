@@ -296,6 +296,7 @@ __all__ = (
     "ListTrainingJobsForHyperParameterTuningJobPaginatorName",
     "ListTrainingJobsPaginatorName",
     "ListTrainingPlansPaginatorName",
+    "ListTrainingSessionsPaginatorName",
     "ListTransformJobsPaginatorName",
     "ListTrialComponentsPaginatorName",
     "ListTrialsPaginatorName",
@@ -485,6 +486,7 @@ __all__ = (
     "TrainingPlanSortOrderType",
     "TrainingPlanStatusType",
     "TrainingRepositoryAccessModeType",
+    "TrainingSessionStatusType",
     "TransformInstanceTypeType",
     "TransformJobCompletedOrStoppedWaiterName",
     "TransformJobStatusType",
@@ -1671,6 +1673,7 @@ ListTrainingJobsForHyperParameterTuningJobPaginatorName = Literal[
 ]
 ListTrainingJobsPaginatorName = Literal["list_training_jobs"]
 ListTrainingPlansPaginatorName = Literal["list_training_plans"]
+ListTrainingSessionsPaginatorName = Literal["list_training_sessions"]
 ListTransformJobsPaginatorName = Literal["list_transform_jobs"]
 ListTrialComponentsPaginatorName = Literal["list_trial_components"]
 ListTrialsPaginatorName = Literal["list_trials"]
@@ -2900,6 +2903,18 @@ TrainingPlanSortByType = Literal["StartTime", "Status", "TrainingPlanName"]
 TrainingPlanSortOrderType = Literal["Ascending", "Descending"]
 TrainingPlanStatusType = Literal["Active", "Expired", "Failed", "Pending", "Scheduled"]
 TrainingRepositoryAccessModeType = Literal["Platform", "Vpc"]
+TrainingSessionStatusType = Literal[
+    "Blocked",
+    "Created",
+    "Deleting",
+    "DeletionFailed",
+    "Expired",
+    "Failed",
+    "Running",
+    "Scheduled",
+    "Stopped",
+    "Stopping",
+]
 TransformInstanceTypeType = Literal[
     "ml.c4.2xlarge",
     "ml.c4.4xlarge",
@@ -3400,6 +3415,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -3559,6 +3575,7 @@ PaginatorName = Literal[
     "list_training_jobs",
     "list_training_jobs_for_hyper_parameter_tuning_job",
     "list_training_plans",
+    "list_training_sessions",
     "list_transform_jobs",
     "list_trial_components",
     "list_trials",

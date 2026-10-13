@@ -79,3 +79,13 @@ def test_the_tap_tells_its_workers_it_follows_inline():
     # The name both sides read; the tap's own tests prove every spawn carries it.
     source = (TAP / "companion_supervisor.py").read_text()
     assert f'FOLLOWS_INLINE_ENV = "{worker.SUPERVISOR_FOLLOWS_INLINE_ENV}"' in source
+
+def test_the_tap_and_the_worker_agree_on_the_missing_libraries_retry():
+    """Tap 0.9.19 retries after EXIT_RETRY_LIBS and says so with the env name the
+    worker reads; a worker that sends 6 to a tap that treats it as a crash, or a
+    tap that never tells it, would undo the fix."""
+    from probe.daemon import worker
+
+    source = (TAP / "companion_supervisor.py").read_text()
+    assert f'RETRIES_LIBS_ENV = "{worker.SUPERVISOR_RETRIES_LIBS_ENV}"' in source
+    assert f"EXIT_RETRY_LIBS = {worker.EXIT_RETRY_LIBS}" in source

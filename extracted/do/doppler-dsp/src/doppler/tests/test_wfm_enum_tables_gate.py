@@ -81,6 +81,7 @@ def _seed(
     manifest: str = _MANIFEST,
     cenum: str = _CENUM,
     sources: dict[str, str] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> None:
     names = tmp_path / _HDR / "wfm" / "wfm_names.h"
     names.parent.mkdir(parents=True, exist_ok=True)
@@ -97,12 +98,62 @@ def _seed(
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(body, encoding="utf-8")
 
+    for rel, body in (headers or {}).items():
+        p = tmp_path / _HDR / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(body, encoding="utf-8")
 
-def _run(tmp_path: Path) -> subprocess.CompletedProcess[str]:
+
+#: Rule 7's fixture: an [[enum]] bound BY NAME and the one C enum carrying it.
+_BOUND_H = """\
+/** The window. A doc block above the annotation, as the real headers have. */
+/* SSOT: enum=win */
+enum {
+    W_HANN = 0, /**< Hann; a `;` in a comment ends nothing. */
+    W_RECT = 1  /**< rect. */
+};
+"""
+
+_BOUND_TOML = """
+[[enum]]
+name = "win"
+values = ["hann", "rect"]
+enumerators = ["W_HANN", "W_RECT"]
+"""
+
+
+def _seed_bound(
+    tmp_path: Path, header: str = _BOUND_H, manifest: str = _BOUND_TOML
+) -> None:
+    _seed(
+        tmp_path,
+        manifest=_MANIFEST + manifest,
+        headers={"psd/win.h": header},
+    )
+
+
+def _run(tmp_path: Path, *extra: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, str(SCRIPT), "--root", str(tmp_path)],
+        [sys.executable, str(SCRIPT), "--root", str(tmp_path), *extra],
         capture_output=True,
         text=True,
+    )
+
+
+def _git(tmp_path: Path, *args: str) -> None:
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(tmp_path),
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            *args,
+        ],
+        check=True,
+        capture_output=True,
     )
 
 
@@ -312,10 +363,316 @@ def test_an_emptied_header_is_not_a_pass(tmp_path: Path) -> None:
     assert "no name tables found" in r.stdout
 
 
+def test_a_bound_c_enum_passes(tmp_path: Path) -> None:
+    """Rule 7's baseline, so each RED below is about its one edit."""
+    _seed_bound(tmp_path)
+    r = _run(tmp_path)
+    assert r.returncode == 0, r.stdout
+    assert "1 C enum(s) bound by name" in r.stdout
+
+
+def test_a_c_value_with_no_python_name_fails(tmp_path: Path) -> None:
+    """Rule 7, the direction the compiler cannot see: jm writes each
+    manifest name as a C constant, so a missing C name fails to build, but a
+    C value the manifest never names compiles and is unreachable from
+    Python."""
+    _seed_bound(
+        tmp_path,
+        header=_BOUND_H.replace("W_RECT = 1", "W_KAISER = 1,\n    W_RECT = 2"),
+    )
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "the C enum's names != [[enum]] win enumerators" in r.stdout
+    assert "'W_HANN', 'W_KAISER', 'W_RECT'" in r.stdout
+
+
+def test_enumerators_no_c_enum_carries_fail(tmp_path: Path) -> None:
+    """Fail-closed: binding by name is a claim about ONE C enum."""
+    _seed_bound(tmp_path, header=_BOUND_H.replace("/* SSOT: enum=win */", ""))
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "exactly one C enum must carry `SSOT: enum=win`" in r.stdout
+
+
+def test_an_annotation_does_not_reach_past_a_declaration(
+    tmp_path: Path,
+) -> None:
+    """The annotation belongs to the next declaration, not to the next enum:
+    an enum must not adopt one written for something above it."""
+    _seed_bound(
+        tmp_path,
+        header=_BOUND_H.replace(
+            "/* SSOT: enum=win */", "/* SSOT: enum=win */\nint x;"
+        ),
+    )
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "exactly one C enum must carry `SSOT: enum=win`" in r.stdout
+
+
+#: Rule 8's fixture: a view over `win`, and the C comparison that bounds it.
+_VIEW_TOML = (
+    _BOUND_TOML + '\n[[enum]]\nname = "win_sub"\nvalues = ["hann"]\n'
+    'enumerators = ["W_HANN"]\n'
+)
+_VIEW_C = """\
+int make (int window)
+{
+  /* SSOT: view=win_sub */
+  if (s->window > W_HANN)
+    return 0;
+  return 1;
+}
+"""
+
+
+def _seed_view(
+    tmp_path: Path, manifest: str = _VIEW_TOML, c: str | None = _VIEW_C
+) -> None:
+    _seed_bound(tmp_path, manifest=manifest)
+    if c is not None:
+        f = tmp_path / "native/src/acq/acq_core.c"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(c, encoding="utf-8")
+
+
+def test_a_view_over_a_bound_enum_passes(tmp_path: Path) -> None:
+    """carrier_acq_window's shape: a subset of a bound enum's names, with no
+    C enum of its own, and the C comparison that refuses past it. `->` in
+    `s->window` is a member access, not the comparison."""
+    _seed_view(tmp_path)
+    r = _run(tmp_path)
+    assert r.returncode == 0, r.stdout
+    assert "1 view(s) bounded in C" in r.stdout
+
+
+def test_a_view_with_no_c_bound_fails(tmp_path: Path) -> None:
+    """Rule 8: C takes the parent's type, so a view nothing in C bounds
+    lets a C caller pass the parent's other values (#2194)."""
+    _seed_view(tmp_path, c=None)
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "view [[enum]] win_sub has no C refusal" in r.stdout
+    # the message says where the annotation goes and what to write
+    assert "`/* SSOT: view=win_sub */` on the line above" in r.stdout
+    assert "`if (<arg> > W_HANN)` (or `>= W_RECT`)" in r.stdout
+
+
+def test_a_c_bound_naming_another_enumerator_fails(tmp_path: Path) -> None:
+    """Moving the refusal without the view (or the view without the
+    refusal) makes the C and Python sets differ."""
+    _seed_view(tmp_path, c=_VIEW_C.replace("> W_HANN", "> W_RECT"))
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert (
+        "the refusal `> W_RECT` admits ['W_HANN', 'W_RECT'], but view"
+        " win_sub is ['W_HANN']: write `> W_HANN` (or `>= W_RECT`)"
+    ) in r.stdout
+
+
+def test_a_view_that_is_not_a_prefix_fails(tmp_path: Path) -> None:
+    """One comparison bounds a prefix of the parent, nothing else."""
+    _seed_view(
+        tmp_path,
+        manifest=_VIEW_TOML.replace(
+            'values = ["hann"]\nenumerators = ["W_HANN"]',
+            'values = ["rect"]\nenumerators = ["W_RECT"]',
+        ),
+        c=_VIEW_C.replace("> W_HANN", "> W_RECT"),
+    )
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "is not a prefix of win" in r.stdout
+
+
+def test_a_view_annotation_naming_no_view_fails(tmp_path: Path) -> None:
+    _seed_view(
+        tmp_path,
+        c=_VIEW_C + "/* SSOT: view=nonesuch */\nif (w > W_HANN) {}\n",
+    )
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "`SSOT: view=nonesuch` names no view" in r.stdout
+
+
+def test_a_view_with_a_name_of_its_own_fails(tmp_path: Path) -> None:
+    _seed_view(
+        tmp_path,
+        manifest=_BOUND_TOML
+        + '\n[[enum]]\nname = "win_sub"\nvalues = ["hann", "x"]\n'
+        'enumerators = ["W_HANN", "W_OTHER"]\n',
+    )
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "[[enum]] win_sub lists `enumerators`" in r.stdout
+
+
+def test_an_annotated_enum_bound_by_position_fails(tmp_path: Path) -> None:
+    """An annotation on an [[enum]] with no `enumerators` claims a tie that
+    nothing makes: jm numbers those names by position."""
+    _seed_bound(
+        tmp_path,
+        manifest=_BOUND_TOML.replace(
+            'enumerators = ["W_HANN", "W_RECT"]\n', ""
+        ),
+    )
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "[[enum]] win lists no `enumerators`" in r.stdout
+
+
+def test_an_annotation_naming_no_enum_fails(tmp_path: Path) -> None:
+    _seed_bound(tmp_path, header=_BOUND_H.replace("enum=win", "enum=nope"))
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "`SSOT: enum=nope` names no [[enum]]" in r.stdout
+
+
+def test_a_c_enum_annotation_with_table_fields_fails(tmp_path: Path) -> None:
+    _seed_bound(
+        tmp_path,
+        header=_BOUND_H.replace("enum=win */", "enum=win, count=N_WIN */"),
+    )
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "takes `enum=` only" in r.stdout
+
+
+def test_a_renumbered_enumerator_fails_in_the_tree(tmp_path: Path) -> None:
+    """Rule 7's values: a bound value is persisted (the Spectrogram blob
+    stores its window), so `KAISER = 5` re-reads every saved blob -- and the
+    names, which still match, cannot see it."""
+    _seed_bound(tmp_path, header=_BOUND_H.replace("W_RECT = 1", "W_RECT = 5"))
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "values [0, 5] do not run consecutively" in r.stdout
+
+
+def test_a_duplicate_value_fails(tmp_path: Path) -> None:
+    _seed_bound(tmp_path, header=_BOUND_H.replace("W_RECT = 1", "W_RECT = 0"))
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "values [0, 0] do not run consecutively" in r.stdout
+
+
+def _seed_bound_git(tmp_path: Path) -> None:
+    """The bound fixture as a repository whose HEAD is the base."""
+    _seed_bound(tmp_path)
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-q", "-m", "base")
+
+
+def test_an_unchanged_value_passes_against_the_base(tmp_path: Path) -> None:
+    """The ratchet's baseline, in a real repository with a real base."""
+    _seed_bound_git(tmp_path)
+    r = _run(tmp_path, "--base", "HEAD")
+    assert r.returncode == 0, r.stdout
+
+
+def test_a_renumber_with_a_matching_reorder_fails_against_the_base(
+    tmp_path: Path,
+) -> None:
+    """The case the tree cannot see: the C enum renumbered AND the manifest
+    reordered to match, so names, order and consecutiveness all hold. Only
+    the merge base remembers that W_HANN was 0."""
+    _seed_bound_git(tmp_path)
+    (tmp_path / _HDR / "psd" / "win.h").write_text(
+        "/* SSOT: enum=win */\nenum {\n    W_RECT = 0,\n    W_HANN = 1\n};\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "just-makeit.toml").write_text(
+        _MANIFEST
+        + _BOUND_TOML.replace('["hann", "rect"]', '["rect", "hann"]').replace(
+            '["W_HANN", "W_RECT"]', '["W_RECT", "W_HANN"]'
+        ),
+        encoding="utf-8",
+    )
+    r = _run(tmp_path, "--base", "HEAD")
+    assert r.returncode == 1
+    assert "W_HANN was 0 at the merge base" in r.stdout
+    assert "W_RECT was 1 at the merge base" in r.stdout
+
+
+def test_an_unreadable_base_fails_closed(tmp_path: Path) -> None:
+    """A shallow clone has a baseline it cannot read: that is a failure that
+    names the ref, never a silent pass (the alloc ratchet's #1051)."""
+    _seed_bound_git(tmp_path)
+    r = _run(tmp_path, "--base", "refs/heads/no-such-base")
+    assert r.returncode == 1
+    assert "`refs/heads/no-such-base` does not resolve" in r.stdout
+
+
 def test_the_real_tree_passes() -> None:
     """The gate against doppler itself, so the seeded cases are not the only
-    thing it has ever been pointed at."""
+    thing it has ever been pointed at.
+
+    `--base HEAD` deliberately neuters rule 7's values ratchet here. Whether
+    an enumerator's value moved since main is a question about a BRANCH, and
+    it has an execution home: `make lint-wfm-enum-tables`, which the
+    `wfm-enum-tables` pre-commit hook dispatches to at the default
+    `--base origin/main`, under the `pre-commit (lint + format)` job that
+    checks out at `fetch-depth: 0`. This test asks the other question -- does
+    the tree agree with its manifest -- and runs in the Python jobs, whose
+    shallow checkout has no `origin/main`: left at the default it fails
+    closed there, testing the fetch depth instead of the gate (#2190's first
+    CI run). Same shape as test_alloc_helper_gate.py.
+    """
     r = subprocess.run(
-        [sys.executable, str(SCRIPT)], capture_output=True, text=True
+        [sys.executable, str(SCRIPT), "--base", "HEAD"],
+        capture_output=True,
+        text=True,
     )
     assert r.returncode == 0, r.stdout
+
+
+def test_a_doubled_annotation_fails(tmp_path: Path) -> None:
+    """Exactly one refusal states a view's bound: two is as wrong as none
+    (weakening `!= 1` to `< 1` must not pass)."""
+    _seed_view(tmp_path, c=_VIEW_C + _VIEW_C.replace("make", "make2"))
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "has 2 `SSOT: view=win_sub` annotations" in r.stdout
+
+
+def test_the_equivalent_ge_form_passes(tmp_path: Path) -> None:
+    """`>= NEXT` is the same bound as `> LAST`: the likeliest rewrite."""
+    _seed_view(tmp_path, c=_VIEW_C.replace("> W_HANN", ">= W_RECT"))
+    r = _run(tmp_path)
+    assert r.returncode == 0, r.stdout
+
+
+def test_an_operand_with_arithmetic_is_no_refusal(tmp_path: Path) -> None:
+    """`> W_HANN + 1` admits a value past the view: the operand must be the
+    enumerator alone."""
+    _seed_view(tmp_path, c=_VIEW_C.replace("> W_HANN", "> W_HANN + 1"))
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "is not a refusal of the form `> W_HANN`" in r.stdout
+
+
+def test_a_line_comment_annotation_is_read(tmp_path: Path) -> None:
+    """`// SSOT: view=X` ends at its line, not at the next `*/` in the file
+    (a later block comment must not move the scan)."""
+    c = (
+        _VIEW_C.replace(
+            "  /* SSOT: view=win_sub */", "  // SSOT: view=win_sub"
+        )
+        + "/* a later comment */\n"
+    )
+    _seed_view(tmp_path, c=c)
+    r = _run(tmp_path)
+    assert r.returncode == 0, r.stdout
+
+
+def test_the_refusal_must_be_the_next_line(tmp_path: Path) -> None:
+    """The annotation sits directly above the refusal: one statement in
+    between and it describes nothing."""
+    c = _VIEW_C.replace(
+        "  /* SSOT: view=win_sub */\n",
+        "  /* SSOT: view=win_sub */\n  int unrelated = 0;\n",
+    )
+    _seed_view(tmp_path, c=c)
+    r = _run(tmp_path)
+    assert r.returncode == 1
+    assert "the line after `SSOT: view=win_sub` is not a refusal" in r.stdout

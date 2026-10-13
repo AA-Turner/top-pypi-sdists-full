@@ -14,7 +14,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, HTTPException
 from matrx_connect import AppContext, context_dep
 from matrx_orm import Count, F
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 # ``confirm_request_organization`` first ships in matrx-connect 0.1.116 (this
 # package's floor). The import is guarded because CI's dependency-floor test
@@ -75,6 +75,34 @@ class ContentSaveRequest(BaseModel):
     origin_client: Literal["local", "extension"] = "local"
     keep: bool = False
     attach_to: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ContentSaveNotice(BaseModel):
+    """One decision the landing door made on the caller's behalf (the door's ``LandingNotice``)."""
+
+    code: str
+    message: str
+    remedy: str = ""
+
+
+class ContentSaveResponse(BaseModel):
+    """The saved page: the door's whole ``LandedSource`` (aidream ``landing_types.LandedSource``,
+    field for field; aidream ``tests/test_content_save_answer_is_the_door.py`` fails when they
+    drift), plus the page name this route always answered with. A client shows every field:
+    "Already saved, no change" (``reused_existing``), "Version n" (``new_version_of``), whether
+    AI processing started (``kept``, ``intelligence``) and where the original page is kept
+    (``original_file_id``, null when the organization keeps no originals)."""
+
+    status: Literal["saved"] = "saved"
+    page_name: str
+    processed_document_id: str
+    source_id: str
+    reused_existing: bool
+    new_version_of: str | None = None
+    kept: bool
+    intelligence: Literal["queued", "deferred", "never"]
+    original_file_id: str | None = None
+    notices: list[ContentSaveNotice] = Field(default_factory=list)
 
 
 class RetryClaimRequest(BaseModel):
@@ -158,7 +186,7 @@ async def batch_scrape(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/content/save")
+@router.post("/content/save", response_model=ContentSaveResponse)
 async def content_save(
     request: ContentSaveRequest,
     ctx: AppContext = Depends(context_dep),
@@ -218,13 +246,33 @@ async def content_save(
         landed = await land_result(landing)
     except SourceLandingFailed as exc:
         raise HTTPException(status_code=502, detail=exc.as_notice()) from None
-    return {
-        "status": "saved",
-        "page_name": url_info.unique_page_name,
-        "processed_document_id": landed["processed_document_id"],
-        "source_id": landed.get("source_id"),
-        "notices": list(landed.get("notices") or []),
-    }
+    # The door's whole answer, validated here so a short one is a loud 502, never a silent gap.
+    try:
+        answer = ContentSaveResponse.model_validate(
+            {
+                "status": "saved",
+                "page_name": url_info.unique_page_name,
+                "processed_document_id": landed["processed_document_id"],
+                "source_id": landed.get("source_id"),
+                "reused_existing": landed.get("reused_existing"),
+                "new_version_of": landed.get("new_version_of"),
+                "kept": landed.get("kept"),
+                "intelligence": landed.get("intelligence"),
+                "original_file_id": landed.get("original_file_id"),
+                "notices": list(landed.get("notices") or []),
+            }
+        )
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=SourceLandingFailed(
+                "landing_answer_malformed",
+                "The page was saved, but the answer about it was incomplete, so this screen cannot "
+                f"say what happens to it next ({exc.errors()[0].get('loc')}).",
+                remedy="report_it",
+            ).as_notice(),
+        ) from None
+    return answer.model_dump()
 
 
 # ---------------------------------------------------------------------------

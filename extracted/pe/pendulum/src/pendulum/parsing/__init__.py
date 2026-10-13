@@ -9,7 +9,6 @@ from datetime import date
 from datetime import datetime
 from datetime import time
 from typing import Any
-from typing import Optional
 from typing import cast
 
 from dateutil import parser
@@ -90,7 +89,7 @@ def _normalize(
         return parsed
 
     if isinstance(parsed, time):
-        now = cast("Optional[datetime]", options["now"]) or datetime.now()
+        now = cast("datetime | None", options["now"]) or datetime.now()
 
         return datetime(
             now.year,
@@ -146,7 +145,7 @@ def _parse_common(text: str, **options: Any) -> datetime | date | time:
     month = 1
     day = 1
 
-    if not m:
+    if not m or not (m.group("date") or m.group("time")):
         raise ParserError("Invalid datetime string")
 
     if m.group("date"):

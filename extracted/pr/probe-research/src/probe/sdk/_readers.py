@@ -1,4 +1,4 @@
-"""Readers (and two writers) that open files from C, told to the recorder.
+"""Readers (and three writers) that open files from C, told to the recorder.
 
 The read recorder watches Python's ``open`` audit event (PEP 578), and a
 library that opens its files from C or Rust never raises it. For the ones
@@ -25,7 +25,9 @@ entry point so the path reaches the recorder all the same:
 * ``h5py.File(path, mode)``: ``"r"`` is a read; ``"w"``, ``"w-"``, ``"x"``,
   ``"a"`` and ``"r+"`` are writes.
 * ``safetensors.safe_open`` (a stand-in class: ``isinstance`` still works)
-  and every framework module's ``load_file``.
+  and every framework module's ``load_file``; its ``save_file`` is a write
+  (the Hugging Face Trainer saves ``model.safetensors`` with it, and
+  ``safetensors.torch.save_model`` calls it).
 * ``torch.save(obj, path)``: a write (it writes from C++). ``torch.load`` opens
   its file with Python's ``open`` and needs no wrapper.
 
@@ -342,9 +344,15 @@ class _Patcher:
         def first(args, kwargs, frame):
             self._tell(self.note_read, args[0] if args else kwargs.get("filename"), frame)
 
+        def save_file(args, kwargs, frame):
+            # (tensors, filename, metadata=None): Rust writes the file.
+            self._tell(self.note_write, args[1] if len(args) > 1 else kwargs.get("filename"), frame)
+
         self._set(module, "safe_open", first)
         if module.__name__ != "safetensors":
             self._set(module, "load_file", first)
+            # `save_model` (torch) calls this module's `save_file`, so it is seen too.
+            self._set(module, "save_file", save_file)
 
     def torch(self, module) -> None:
         def save(args, kwargs, frame):

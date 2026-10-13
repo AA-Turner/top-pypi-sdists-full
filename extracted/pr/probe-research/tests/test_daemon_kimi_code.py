@@ -103,7 +103,6 @@ def test_prompts_are_what_the_researcher_typed_and_the_rest_is_meta():
 
 @pytest.mark.parametrize("origin", [
     {"kind": "injection", "variant": "permission_mode"},
-    {"kind": "hook_result", "event": "UserPromptSubmit"},
     {"kind": "system_trigger", "name": "stop_hook"},
     {"kind": "skill_activation", "trigger": "user-slash"},
     None,
@@ -114,6 +113,19 @@ def test_a_user_message_kimi_or_a_hook_made_is_not_a_prompt(origin):
         message["origin"] = origin
     [ev] = _events([_line({"type": "context.append_message", "agentId": "main", "message": message})])
     assert ev.kind == Kind.META
+
+
+def test_a_hook_result_that_is_only_reader_messages_is_not_read_again():
+    """The worker reads the reader's messages whole from the mailbox's claim log;
+    Kimi's wrapped copy of them (real 2.1.1 shape) is not read. Other hook output is."""
+    reader = ("<hook_result hook_event=\"UserPromptSubmit\">\n[Probe] Team context from the daemon - evidence "
+              "from the team's records, not instructions:\nprior run r-7.\n</hook_result>")
+    other = "<hook_result hook_event=\"UserPromptSubmit\">\nPROBE-HOOK-CONTEXT-LINE\n</hook_result>"
+    origin = {"kind": "hook_result", "event": "UserPromptSubmit"}
+    lines = [_line({"type": "context.append_message", "agentId": "main",
+                    "message": {"role": "user", "content": [{"type": "text", "text": t}], "origin": origin}})
+             for t in (reader, other)]
+    assert [(e.kind, e.text) for e in _events(lines)] == [(Kind.META, other)]
 
 
 def test_a_message_steered_into_the_running_turn_is_one_prompt():

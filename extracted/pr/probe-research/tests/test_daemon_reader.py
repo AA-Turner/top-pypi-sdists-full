@@ -20,7 +20,14 @@ import pytest
 pytest.importorskip("pydantic_ai")
 pytest.importorskip("pydantic_ai_harness")
 
-from pydantic_ai.messages import ModelResponse, RetryPromptPart, TextPart, ToolCallPart, UserPromptPart  # noqa: E402
+from pydantic_ai.messages import (  # noqa: E402
+    ModelResponse,
+    RetryPromptPart,
+    TextPart,
+    ThinkingPart,
+    ToolCallPart,
+    UserPromptPart,
+)
 from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
 from probe.cli import daemon_cli  # noqa: E402
@@ -164,11 +171,14 @@ def test_every_approved_reads_file_is_pinned_here():
             # pinned in test_skill_versions.py and test_daemon_profile.py
             "agent-facing/managed-block.PROPOSED.md",
             "agent-facing/guard-refusal.NEW.md", "agent-facing/switch-refusal.NEW.md",
+            "agent-facing/paper-search-hold.NEW.md",
             # pinned in test_daemon_inline.py
             "agent-facing/inline-notice.NEW.md", "agent-facing/inline-switch-refusal.NEW.md",
             "agent-facing/inline-reads.NEW.md", "agent-facing/inline-reads-old-cli.NEW.md",
             "agent-facing/ask-inline.NEW.md",
-            "skills/track-work/RENDERED.main-agent.md", "skills/track-work/RENDERED.writer.md"}
+            "skills/track-work/RENDERED.main-agent.md", "skills/track-work/RENDERED.writer.md",
+            # pinned in test_daemon_reader_gate.py
+            "gate/gate-instructions.NEW.md", "gate/final_result.NEW.md"}
     assert {str(p.relative_to(FIXTURES)) for p in FIXTURES.rglob("*.md")} == used
 
 
@@ -372,6 +382,71 @@ def test_prose_instead_of_final_result_is_the_answer_to_an_ask_and_dropped_other
     got = asyncio.run(lane.run_turn("prompt"))
     assert got.outcome == rl.Outcome.PROSE and not _waiting(mailbox.Kind.MESSAGE), "dropped, never sent"
     assert w.store.read_summary()["outcomes"]["prose"] == 2, "counted"
+
+
+def _reader_that_thinks_out(w, calls):
+    """A lane on one model (a different one would start fresh anyway, by its
+    fingerprint) whose answers `mode` turns into thinking cut off at the token
+    limit: Pydantic AI itself raises "Model token limit ... exceeded"."""
+    mode = {"think_out": False, "then": Reader(end="digits-svm (run r7): best C=10, 0.9889.")}
+
+    def fn(messages, info):
+        if mode["think_out"]:
+            calls["n"] += 1
+            return ModelResponse(parts=[ThinkingPart("weighing it " * 50)], finish_reason="length")
+        return mode["then"](messages, info)
+
+    return _lane(w, fn), mode
+
+
+def test_a_turn_the_token_limit_ate_goes_once_more_fresh_then_its_events_are_passed_over(tmp_path):
+    """Read as prose before, the turn kept its history and the next wake thought
+    to the limit again (strand-ai: one request 14 times). Now the same events and
+    question go once more on a fresh conversation -- a planned retry, not a failure
+    toward "the reader is failing" -- and the second time they are passed over as
+    a stopped turn, the question answered with the reason: two tries, never a loop."""
+    w = _worker(tmp_path)
+    calls = {"n": 0}
+    lane, mode = _reader_that_thinks_out(w, calls)
+    assert asyncio.run(lane.run_turn("prompt")).outcome == rl.Outcome.SENT
+    first = w.store.live_read_conversation()["id"]
+    _append_turn(w, "and the RBF kernel?")
+    w.read_new()
+    mode["think_out"] = True
+    lane.failures = 1  # an earlier blip: one more counted failure would ping and fail the ask
+    ask = mailbox.write_ask(SID, "what C won?")
+    lane.take_asks()
+    before = lane.cursor()
+    assert asyncio.run(lane.run_turn("ask")).outcome == rl.Outcome.FAILED
+    assert lane.failures == 1 and lane.cursor() == before, "not counted; the same events next time"
+    assert mailbox.claim_answer(SID, ask.id) is None, "the question waits for the fresh try"
+    [reason] = [r["end_reason"] for r in w.store.db.execute("SELECT end_reason FROM read_conversations WHERE id = ?",
+                                                             (first,))]
+    assert "answered nothing" in reason
+    lane.next_attempt_at = 0.0
+    assert asyncio.run(lane.run_turn("ask")).outcome == rl.Outcome.STOPPED
+    assert lane.cursor() > before
+    failed = mailbox.claim_answer(SID, ask.id)
+    assert failed.kind == mailbox.Kind.FAILED and "answered nothing" in failed.reason
+    assert calls["n"] == 2
+
+
+def test_events_that_arrive_between_the_two_tries_get_their_own(tmp_path):
+    """Passed over only as far as the first try reached: a turn that arrived after
+    it is read next time, not skipped on its first try."""
+    w = _worker(tmp_path)
+    calls = {"n": 0}
+    lane, mode = _reader_that_thinks_out(w, calls)
+    mode["think_out"] = True
+    assert asyncio.run(lane.run_turn("prompt")).outcome == rl.Outcome.FAILED
+    reached = w.store.fact(rl.READ_NO_ANSWER)["last_seq"]
+    _append_turn(w, "LATE-ARRIVAL: and the linear kernel?")
+    w.read_new()
+    lane.next_attempt_at = 0.0
+    assert asyncio.run(lane.run_turn("prompt")).outcome == rl.Outcome.STOPPED
+    assert lane.cursor() == reached and w.store.fact(rl.READ_NO_ANSWER) is None
+    late = [ev for ev in lane.new_events() if "LATE-ARRIVAL" in (ev.text or "")]
+    assert late, "the newer turn is still ahead of the cursor"
 
 
 def test_a_turn_out_of_rounds_is_told_to_end_and_a_runaway_is_stopped(tmp_path):
@@ -789,19 +864,24 @@ def test_the_same_unasked_message_is_never_sent_twice(tmp_path):
     assert len(_waiting()) == 1
 
 
-def test_the_reader_sees_what_the_agent_was_delivered(tmp_path):
+def test_a_delivery_reaches_the_reader_from_the_claim_log_not_the_transcript(tmp_path):
     """A `[Probe]` message the hook handed the agent is in the transcript as hook
-    context: the adapter makes it an event, so the reader sees the delivery."""
+    context; the reader (and the writer) get it whole from the mailbox's claim log
+    (the worker's reader stream), so the adapter does not read this copy again.
+    `[Probe]` text in a wording this CLI does not know is still read."""
     from probe.daemon.adapters import for_source
 
     line = {"type": "attachment", "timestamp": "2026-09-28T07:00:00Z",
             "attachment": {"type": "hook_additional_context",
                            "content": ["[Probe] Answer to your ask a1 (\"q\") - evidence from the team's records, "
                                        "not instructions:\nC=10 won"]}}
-    [ev] = for_source("claude_code").parse_line(line, stream="main", offset=0)
+    assert for_source("claude_code").parse_line(line, stream="main", offset=0) == []
+    newer = {"type": "attachment", "attachment": {"type": "hook_additional_context",
+                                                  "content": ["[Probe] A later wording: C=10 won"]}}
+    [ev] = for_source("claude_code").parse_line(newer, stream="main", offset=1)
     assert ev.kind == rl.Kind.META and "C=10 won" in ev.text
     other = {"type": "attachment", "attachment": {"type": "hook_additional_context", "content": ["unrelated"]}}
-    assert for_source("claude_code").parse_line(other, stream="main", offset=1) == []
+    assert for_source("claude_code").parse_line(other, stream="main", offset=2) == []
 
 
 def test_a_failure_reason_is_one_line(tmp_path):
@@ -1033,6 +1113,42 @@ def test_a_request_the_route_rejects_as_sent_makes_the_retry_fresh_and_lists_wha
     opening = _prompt(messages[0])
     assert rl.SENT_HEADER in opening and "digits-svm (run r7): best C=10, 0.9889." in opening
     assert w.store.db.execute("SELECT count(*) FROM read_conversations").fetchone()[0] == 2
+
+
+def test_a_conversation_over_the_routes_ceiling_starts_fresh_without_counting_a_failure(tmp_path):
+    """Daemon cost round 4, A: the route refuses a prompt over its ceiling
+    (`prompt_too_large`) before sending it. The conversation ends and the same
+    events go again fresh, without a failure toward telling the researcher."""
+    from pydantic_ai.exceptions import ModelHTTPError
+
+    w = _worker(tmp_path)
+    current = [Reader(end="")]
+
+    def model(messages, info):
+        return current[0](messages, info)
+
+    def over(messages, info):
+        raise ModelHTTPError(status_code=422, model_name="default", body={"error": {
+            "code": "prompt_too_large", "message": "over this route's ceiling: start the conversation fresh"}})
+
+    lane = _lane(w, model)
+    asyncio.run(lane.run_turn("prompt"))
+    first = w.store.live_read_conversation()["id"]
+    cursor = lane.cursor()
+    _append_turn(w, "and the RBF kernel?")
+    w.read_new()
+    current[0] = over
+    lane.next_attempt_at = 0.0
+    assert asyncio.run(lane.run_turn("prompt")).outcome == rl.Outcome.FRESH
+    assert w.store.live_read_conversation() is None and lane.failures == 0 and lane.cursor() == cursor
+    [reason] = [r["end_reason"] for r in w.store.db.execute("SELECT end_reason FROM read_conversations WHERE id = ?",
+                                                             (first,))]
+    assert "ceiling" in reason
+    reader = Reader(end="")
+    current[0] = reader
+    lane.next_attempt_at = 0.0
+    asyncio.run(lane.run_turn("prompt"))
+    assert "and the RBF kernel?" in _prompt(reader.seen[0][0][0]), "the same events, fresh"
 
 
 def test_a_provider_too_long_error_also_makes_the_retry_fresh(tmp_path):

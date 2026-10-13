@@ -721,6 +721,12 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
 # the next backend fold that lands ahead of the client goes here, with a pointer to
 # what will close it, instead of being quietly absorbed into "not our job".
 PENDING: dict[Op, str] = {
+    # Surfaced 2026-10-12 by the `dump-openapi` that accompanied experiment
+    # forks: routes other branches added to the server with no client lane yet.
+    ("GET", "/v1/projects/{}/sharing"): "dashboard Permissions dialog read; no client lane yet",
+    ("GET", "/v1/projects/{}/experiments/{}/sharing"): "dashboard Permissions dialog read; no client lane yet",
+    ("POST", "/ingest/v1/sessions/{}/{}/media"): "capture tap pasted-image upload (tap, not the SDK)",
+    ("GET", "/v1/sessions/{}/media/{}"): "dashboard pasted-image read; no client lane yet",
     # Surfaced 2026-10-06 by the `dump-openapi` that accompanied the session
     # trajectory route: the experiment-scoped sessions list exists on the server
     # but no client lane calls it yet.

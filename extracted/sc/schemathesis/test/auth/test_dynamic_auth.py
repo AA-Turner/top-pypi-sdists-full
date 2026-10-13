@@ -5,7 +5,7 @@ import socket
 
 import pytest
 import requests
-from flask import jsonify, request
+from flask import Flask, jsonify, request
 
 import schemathesis.openapi
 from schemathesis.auths import (
@@ -173,15 +173,15 @@ def test_get_401_message_is_actionable_without_common_causes(auth_operation):
     )
 
 
-def test_fetch_http_forwards_tls_config(ctx, app_runner, mocker):
-    app, _ = ctx.openapi.make_flask_app({"/data": {"get": {"responses": {"200": {"description": "OK"}}}}})
+def test_fetch_http_forwards_tls_config(ctx, app_runner):
+    app = Flask(__name__)
 
     @app.route("/api/auth", methods=["POST"])
     def auth():
         return jsonify({"access_token": "test-token"})
 
-    spy = mocker.patch("requests.request", wraps=requests.request)
-    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    schema = ctx.openapi.load_schema({"/data": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    schema.config.update(base_url=f"https://127.0.0.1:{app_runner.run_https_flask_app(app)}")
     schema.config.tls_verify = False
     operation = schema["/data"]["GET"]
     provider = DynamicTokenAuthProvider(
@@ -193,7 +193,6 @@ def test_fetch_http_forwards_tls_config(ctx, app_runner, mocker):
         _applier=HttpBearerAuthProvider(bearer=""),
     )
     assert provider.get(operation.Case(), AuthContext(operation=operation, app=None)) == "test-token"
-    assert spy.call_args[1]["verify"] is False
 
 
 def test_get_raises_on_connection_error(ctx, cli, app_runner):
@@ -1118,12 +1117,78 @@ def test_reauth_recovers_expired_token(ctx, cli, app_runner, snapshot_cli):
     assert state["issued"] >= 2
 
 
-# A negated-security case's 401 is the expected outcome, not an expired token - the hook must not re-authenticate for it.
-def test_negative_auth_case_does_not_reauth(ctx, cli, app_runner, mocker):
-    app = _protected_app(ctx, "ApiKeyAuth", {"type": "apiKey", "in": "header", "name": "X-API-Key"})
+def test_reauth_count_in_html_report(ctx, cli, app_runner, tmp_path, snapshot_html):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/protected": {
+                "get": {
+                    "operationId": "getProtected",
+                    "security": [{"OAuth2": []}],
+                    "parameters": [{"name": "key", "in": "query", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}},
+                }
+            }
+        },
+        components={"securitySchemes": {"OAuth2": OAUTH2_SCHEME}},
+    )
+    _register_single_use_token(app)
+    report_dir = tmp_path / "report"
+
+    _run_cli(
+        cli,
+        app_runner,
+        app,
+        "--include-path=/protected",
+        "--phases=fuzzing",
+        "--mode=positive",
+        "-n 4",
+        "--seed=42",
+        f"--report-html-path={report_dir}",
+        config={
+            "checks": {"positive_data_acceptance": {"expected-statuses": ["2xx"]}},
+            "auth": _dynamic_auth("OAuth2", retry_on=[401]),
+        },
+    )
+    assert (report_dir / "index.html").read_text(encoding="utf-8") == snapshot_html
+
+
+def test_reauth_failure_in_html_report(ctx, cli, app_runner, tmp_path, snapshot_html):
+    app = _protected_app(ctx, "OAuth2", OAUTH2_SCHEME)
+    auth_calls = itertools.count()
 
     @app.route("/api/auth", methods=["POST"])
     def auth_endpoint():
+        if next(auth_calls) == 0:
+            return jsonify({"access_token": "expired"})
+        return jsonify({"error": "invalid credentials"}), 401
+
+    @app.route("/protected")
+    def protected():
+        return jsonify({"error": "unauthorized"}), 401
+
+    report_dir = tmp_path / "report"
+    _run_cli(
+        cli,
+        app_runner,
+        app,
+        "--phases=fuzzing",
+        "--mode=positive",
+        "-n 1",
+        "--seed=42",
+        f"--report-html-path={report_dir}",
+        config={"auth": _dynamic_auth("OAuth2", retry_on=[401])},
+    )
+    assert (report_dir / "index.html").read_text(encoding="utf-8") == snapshot_html
+
+
+# A negated-security case's 401 is the expected outcome, not an expired token - the hook must not re-authenticate for it.
+def test_negative_auth_case_does_not_reauth(ctx, cli, app_runner):
+    app = _protected_app(ctx, "ApiKeyAuth", {"type": "apiKey", "in": "header", "name": "X-API-Key"})
+    token_requests = []
+
+    @app.route("/api/auth", methods=["POST"])
+    def auth_endpoint():
+        token_requests.append(request.path)
         return jsonify({"access_token": "valid-token"})
 
     @app.route("/protected")
@@ -1131,8 +1196,6 @@ def test_negative_auth_case_does_not_reauth(ctx, cli, app_runner, mocker):
         if request.headers.get("X-API-Key", "") != "valid-token":
             return jsonify({"error": "unauthorized"}), 401
         return jsonify({"result": "ok"})
-
-    spy = mocker.spy(schemathesis.auths, "refresh_auth")
 
     _run_cli(
         cli,
@@ -1144,7 +1207,7 @@ def test_negative_auth_case_does_not_reauth(ctx, cli, app_runner, mocker):
         "-n 15",
         config={"auth": _dynamic_auth("ApiKeyAuth", retry_on=[401])},
     )
-    assert spy.call_count == 0
+    assert token_requests == ["/api/auth"]
 
 
 def test_dynamic_auth_integration_api_key(ctx, cli, app_runner, snapshot_cli):

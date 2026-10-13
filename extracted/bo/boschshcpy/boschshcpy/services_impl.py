@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import threading
 from enum import Enum
 from typing import Any
 
@@ -326,6 +328,14 @@ class HeatingCircuitService(SHCDeviceService):
     @setpoint_temperature_comfort.setter
     def setpoint_temperature_comfort(self, value: float) -> None:
         self.put_state_element("setpointTemperatureForLevelComfort", value)
+
+    def set_setpoint_temperature_eco(self, temperature: float) -> None:
+        """Sync write: set HeatingCircuit ECO setpoint temperature."""
+        self.put_state_element("setpointTemperatureForLevelEco", temperature)
+
+    def set_setpoint_temperature_comfort(self, temperature: float) -> None:
+        """Sync write: set HeatingCircuit comfort setpoint temperature."""
+        self.put_state_element("setpointTemperatureForLevelComfort", temperature)
 
     @property
     def temperature_override_mode_active(self) -> bool:
@@ -1827,11 +1837,15 @@ class AirQualityLevelService(SHCDeviceService):
         return str(self.state.get("description", ""))
 
     @property
-    def temperature(self) -> float:
+    def temperature(self) -> float | None:
         # Bosch reports temperature as a JSON number with one decimal
         # (OpenAPI: AirQualityLevelServiceStates.temperature = number).
         # int() truncated it to whole degrees -> stepwise jumps (#352).
-        return float(self.state["temperature"])
+        # Missing when the device reports no value (e.g. empty battery).
+        try:
+            return float(self.state["temperature"])
+        except (KeyError, TypeError):
+            return None
 
     @property
     def temperatureRating(self) -> RatingState:
@@ -1841,11 +1855,15 @@ class AirQualityLevelService(SHCDeviceService):
             return self.RatingState.UNKNOWN
 
     @property
-    def humidity(self) -> float:
+    def humidity(self) -> float | None:
         # OpenAPI AirQualityLevelServiceStates.humidity = number. int()
         # truncated the decimal (same class of bug as temperature, #352)
         # and was inconsistent with HumidityLevelService, which floats.
-        return float(self.state.get("humidity", 0.0))
+        # Missing or null when the device reports no value (empty battery).
+        try:
+            return float(self.state["humidity"])
+        except (KeyError, TypeError):
+            return None
 
     @property
     def humidityRating(self) -> RatingState:
@@ -1855,7 +1873,7 @@ class AirQualityLevelService(SHCDeviceService):
             return self.RatingState.UNKNOWN
 
     @property
-    def purity(self) -> int:
+    def purity(self) -> int | None:
         # OpenAPI AirQualityLevelServiceStates.purity = number (like
         # temperature/humidity), but the decompiled Android app's
         # AirQualityLevelState model class declares temperature/humidity as
@@ -1864,7 +1882,11 @@ class AirQualityLevelService(SHCDeviceService):
         # doesn't capture. The 0.8.3 follow-up (#352) over-generalized the
         # temperature float-fix to purity too; reverted back to int() here.
         # Do NOT re-float this without new APK/API evidence.
-        return int(self.state["purity"])
+        # Missing when the device reports no value (e.g. empty battery).
+        try:
+            return int(self.state["purity"])
+        except (KeyError, TypeError):
+            return None
 
     @property
     def purityRating(self) -> RatingState:
@@ -2879,6 +2901,12 @@ class DimmerConfigurationService(SHCDeviceService):
         except ValueError:
             return self.EdgePhaseControlMode.TRAILING
 
+    @edge_phase_control_mode.setter
+    def edge_phase_control_mode(
+        self, mode: DimmerConfigurationService.EdgePhaseControlMode
+    ) -> None:
+        self.set_edge_phase_control_mode(mode)
+
     @property
     def _brightness_range(self) -> dict[str, Any]:
         return self.state.get("brightnessRange", {}) or {}
@@ -2894,6 +2922,48 @@ class DimmerConfigurationService(SHCDeviceService):
     @property
     def dimming_speed(self) -> int:
         return int(self.state.get("dimmingSpeed", 5))
+
+    @dimming_speed.setter
+    def dimming_speed(self, speed: int) -> None:
+        self.set_dimming_speed(speed)
+
+    def set_edge_phase_control_mode(
+        self, mode: DimmerConfigurationService.EdgePhaseControlMode
+    ) -> None:
+        """Sync write: set the phase-control mode (TRAILING/LEADING)."""
+        self.put_state_element("edgePhaseControlMode", mode.value)
+
+    def set_dimming_speed(self, speed: int) -> None:
+        """Sync write: set the dimming speed (1-10)."""
+        self.put_state_element("dimmingSpeed", int(speed))
+
+    def set_brightness_range(
+        self,
+        *,
+        min_brightness: int | None = None,
+        max_brightness: int | None = None,
+    ) -> None:
+        """Sync write: update both calibrated bounds, as in the async setter."""
+        # Atomic first access ensures concurrent callers share the same lock,
+        # including service test doubles constructed via __new__.
+        lock = self.__dict__.setdefault("_sync_range_lock", threading.Lock())
+        with lock:
+            cur_min, cur_max = self.min_brightness, self.max_brightness
+            written = getattr(self, "_written_range", None)
+            if written is not None and written[0] is self._raw_state:
+                cur_min, cur_max = written[1], written[2]
+            new_min = cur_min if min_brightness is None else int(min_brightness)
+            new_max = cur_max if max_brightness is None else int(max_brightness)
+            if new_min >= new_max:
+                raise ValueError(
+                    f"Invalid brightness range: minBrightness ({new_min}) must be "
+                    f"less than maxBrightness ({new_max})"
+                )
+            rng = {"minBrightness": new_min, "maxBrightness": new_max}
+            # A push during the blocking PUT supersedes these written bounds.
+            state_before = self._raw_state
+            self.put_state_element("brightnessRange", rng)
+            self._written_range = (state_before, new_min, new_max)
 
     async def async_set_edge_phase_control_mode(
         self, mode: DimmerConfigurationService.EdgePhaseControlMode
@@ -2921,15 +2991,33 @@ class DimmerConfigurationService(SHCDeviceService):
         entities, so editing one without cross-checking the other's cached
         value could otherwise silently send an invalid range to the SHC.
         """
-        new_min = self.min_brightness if min_brightness is None else int(min_brightness)
-        new_max = self.max_brightness if max_brightness is None else int(max_brightness)
-        if new_min >= new_max:
-            raise ValueError(
-                f"Invalid brightness range: minBrightness ({new_min}) must be "
-                f"less than maxBrightness ({new_max})"
-            )
-        rng = {"minBrightness": new_min, "maxBrightness": new_max}
-        await self.async_put_state_element("brightnessRange", rng)
+        # Serialize the read-modify-write: two concurrent/back-to-back partial
+        # writes would otherwise both start from the same cached bounds and the
+        # second would revert the first (whole sub-object is sent).
+        lock = getattr(self, "_range_lock", None)
+        if lock is None:
+            lock = self._range_lock = asyncio.Lock()
+        async with lock:
+            cur_min, cur_max = self.min_brightness, self.max_brightness
+            written = getattr(self, "_written_range", None)
+            # Bounds we wrote ourselves are newer than the cached state until a
+            # push replaces the state object (identity changes).
+            if written is not None and written[0] is self._raw_state:
+                cur_min, cur_max = written[1], written[2]
+            new_min = cur_min if min_brightness is None else int(min_brightness)
+            new_max = cur_max if max_brightness is None else int(max_brightness)
+            if new_min >= new_max:
+                raise ValueError(
+                    f"Invalid brightness range: minBrightness ({new_min}) must be "
+                    f"less than maxBrightness ({new_max})"
+                )
+            rng = {"minBrightness": new_min, "maxBrightness": new_max}
+            # Capture state identity BEFORE the await: a push arriving during
+            # the PUT replaces the state object and must not be paired with our
+            # (now older) written bounds.
+            state_before = self._raw_state
+            await self.async_put_state_element("brightnessRange", rng)
+            self._written_range = (state_before, new_min, new_max)
 
     async def async_preview_max_brightness(self) -> None:
         """Async: flash the load at the configured maximum (calibration)."""

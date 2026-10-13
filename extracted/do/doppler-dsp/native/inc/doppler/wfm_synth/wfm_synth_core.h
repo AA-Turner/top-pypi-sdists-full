@@ -1160,8 +1160,12 @@ void dp_wfm_synth_set_cur_im(dp_wfm_synth_state_t *state, float val);
  * refill the blob carries it and nests the refill's own sub-blob. */
 #define WFM_SYNTH_STATE_MAGIC DP_FOURCC ('W','F','M','S')
 /* v2: + continuous-DSSS chip/symbol clocks; v3: + data_ended, the pulled
-   frame and the refill's sub-blob (doppler#1681) */
-#define WFM_SYNTH_STATE_VERSION 3u
+   frame and the refill's sub-blob (doppler#1681); v4: the embedded AWGN
+   blob is v2, which carries its seed and amplitude, so the synth blob grew
+   (#2084). A v3 blob is refused by its version (a clean one has the same
+   length, so the version alone refuses it; a noisy one is also refused by
+   its length). */
+#define WFM_SYNTH_STATE_VERSION 4u
 size_t dp_wfm_synth_state_bytes (const dp_wfm_synth_state_t *state);
 void dp_wfm_synth_get_state (const dp_wfm_synth_state_t *state, void *blob);
 int dp_wfm_synth_set_state (dp_wfm_synth_state_t *state, const void *blob);

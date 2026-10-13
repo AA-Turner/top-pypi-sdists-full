@@ -12,6 +12,8 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
+from probe._compat import StrEnum
+
 from probe.sdk import config as sdk_config
 from probe.sdk.session_marker import WIZARD_HINT
 
@@ -31,6 +33,13 @@ LANE_HEADER = "X-Probe-Daemon-Lane"
 LANE_WRITE = "write"
 LANE_READ = "read"
 LANE_AUDIT = "audit"
+#: The reader's gate (daemon cost round 4, D): a cheap model that decides, before
+#: an unasked reader turn, whether the reader should look at all. The server
+#: serves it on its own lane: no refusal fallback, a refusal is an error.
+LANE_GATE = "gate"
+#: The gate's model, per session; unset, the server's `gate` alias picks it.
+ENV_GATE_MODEL = "PROBE_COMPANION_GATE_MODEL"
+GATE_MODEL_ALIAS = "gate"
 ENV_KEY = "PROBE_DAEMON_KEY"
 #: One model request's timeout, and how often the client itself retries a failed
 #: one. A call may take 30 minutes (Richard, 2026-09-28: a 1M context, a cold
@@ -68,6 +77,30 @@ CONTEXT_CAP_HEADERS = {LANE_WRITE: "x-probe-context-tokens", LANE_READ: "x-probe
 MIN_SERVER_CONTEXT_TOKENS = 100_000
 _SERVER_CONTEXT_TOKENS: dict[str, int] = {}
 
+
+class GateMode(StrEnum):
+    """The reader gate's mode (`READER_GATE_HEADER`): OFF never calls it; SHADOW
+    calls it and records its verdict, and the reader looks anyway; ON skips the
+    reader's turn when the gate says so."""
+
+    OFF = "off"
+    SHADOW = "shadow"
+    ON = "on"
+
+
+#: Settings the server sends on every chat answer beside the context sizes
+#: (daemon cost round 4): the reader gate's mode and the writer's least gap in
+#: seconds between two runs. Absent (an older server), OFF and 0 stand. The
+#: environment variables win over the server (the bench and a researcher's own
+#: override).
+READER_GATE_HEADER = "x-probe-reader-gate"
+WRITER_GAP_HEADER = "x-probe-writer-min-gap-s"
+ENV_READER_GATE = "PROBE_DAEMON_READER_GATE"
+ENV_WRITER_GAP = "PROBE_DAEMON_WRITER_GAP_S"
+#: A pushed gap above this is clamped: a session is never recorded less than hourly.
+MAX_WRITER_GAP_S = 3600
+_PUSHED: dict[str, object] = {}
+
 _HTTP_CLIENT = None
 _PREFERRED_MODEL: str | None = None
 
@@ -85,6 +118,41 @@ async def _remember_served_model(response) -> None:
     if served:
         _PREFERRED_MODEL = served
     remember_context_sizes(response.headers)
+    remember_pushed_settings(response.headers)
+
+
+def remember_pushed_settings(headers: Any) -> None:
+    """Keep the reader gate's mode and the writer's gap from a chat answer's
+    headers. A missing or malformed value leaves the last good one."""
+    mode = (headers.get(READER_GATE_HEADER) or "").strip().lower()
+    if mode in {m.value for m in GateMode}:
+        _PUSHED[READER_GATE_HEADER] = GateMode(mode)
+    raw = headers.get(WRITER_GAP_HEADER)
+    try:
+        gap = int(str(raw).strip()) if raw is not None else None
+    except ValueError:
+        gap = None
+    if gap is not None and gap >= 0:
+        _PUSHED[WRITER_GAP_HEADER] = min(gap, MAX_WRITER_GAP_S)
+
+
+def reader_gate_mode() -> GateMode:
+    """`PROBE_DAEMON_READER_GATE`, else the server's mode, else OFF."""
+    env = (os.environ.get(ENV_READER_GATE) or "").strip().lower()
+    if env in {m.value for m in GateMode}:
+        return GateMode(env)
+    return _PUSHED.get(READER_GATE_HEADER, GateMode.OFF)  # type: ignore[return-value]
+
+
+def writer_min_gap_s() -> float:
+    """`PROBE_DAEMON_WRITER_GAP_S`, else the server's gap, else 0 (no gap)."""
+    env = os.environ.get(ENV_WRITER_GAP)
+    if env is not None:
+        try:
+            return float(min(max(int(env), 0), MAX_WRITER_GAP_S))
+        except ValueError:
+            pass
+    return float(_PUSHED.get(WRITER_GAP_HEADER, 0))  # type: ignore[arg-type]
 
 
 def remember_context_sizes(headers: Any) -> None:
@@ -195,4 +263,6 @@ def _lane_model(lane: str) -> str:
         return os.environ.get(ENV_READ_MODEL) or "reader"
     if lane == LANE_AUDIT:
         return os.environ.get(ENV_AUDIT_MODEL) or AUDITOR_MODEL_ALIAS
+    if lane == LANE_GATE:
+        return os.environ.get(ENV_GATE_MODEL) or GATE_MODEL_ALIAS
     return os.environ.get(ENV_MODEL) or "default"

@@ -63,7 +63,7 @@ from . import outputs as _outputs
 from . import preempt as _preempt
 from . import snapshot as _snapshot
 from . import unit_context
-from .filetype import artifact_kind_for, file_extension, name_with_extension
+from .filetype import artifact_kind_for, file_extension, kind_to_send, name_with_extension
 from .hashing import fingerprint, local_file_uri, reference_fields
 from .unit_context import FailureContext, UnitContext
 # What a metric point's step and key must fit (review of #2053): see
@@ -2996,8 +2996,12 @@ class Run:
         artifact is recorded, as before.
 
         ``kind`` left out is read from the file's extension (``artifact_kind_for``):
-        an image is a ``plot``, anything else (a PDF included) a ``file``. A
-        ``kind`` the caller passes always wins, ``"file"`` included."""
+        a ``.ckpt``/``.safetensors``/``.pt``/``.pth`` is a ``checkpoint``, anything
+        else (an image included) ``other``. A ``kind`` the caller passes always
+        wins. The kinds are ``checkpoint``, ``dataset``, ``evaluation``, ``code``
+        and ``other``; the server files any other word as ``other`` (a synonym
+        such as ``benchmark`` as its kind) and keeps the word in
+        ``meta.kind_label`` (``artifact_kinds``)."""
         from . import probe_config as _pc_uri
 
         local = path if path is not None else _pc_uri.local_path_of(uri)
@@ -3369,7 +3373,7 @@ class Run:
             "run_id": self.id,
             "name": name,
             "src": path,
-            "kind": kind if kind != "file" else None,
+            "kind": kind_to_send(kind),
             "content_type": content_type,
             "meta": meta or None,
             "notes": notes,
@@ -3486,7 +3490,7 @@ class Run:
                 src_path=path,
                 inline_hash=os.path.getsize(path) <= INLINE_HASH_MAX_BYTES,
                 content_type=content_type,
-                kind=kind if kind != "file" else None,
+                kind=kind_to_send(kind),
                 meta=meta or None,
                 notes=notes,
                 span_id=span_id,
@@ -3719,7 +3723,7 @@ class Run:
             content_type=content_type,
             span_id=span_id,
             step_index=step_index,
-            kind=kind if kind != "file" else None,  # None preserves labels on restage
+            kind=kind_to_send(kind),  # None preserves labels on restage
             meta=meta or None,
             notes=notes,
         )

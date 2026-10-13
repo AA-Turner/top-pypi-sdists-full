@@ -35,7 +35,7 @@ from .vector_database import VectorDatabase
 from .vector_view import VectorView
 from .reference_record import ReferenceRecord
 from .exceptions import TrainingStatusUnavailableError, SessionNotFoundError, FeatrixPredictionError
-from .poll_utils import adaptive_poll_interval, job_awaiting_start, server_liveness_time
+from .poll_utils import adaptive_poll_interval, is_replayed_answer, job_awaiting_start, server_liveness_time
 
 logger = logging.getLogger(__name__)
 
@@ -1611,7 +1611,9 @@ class FoundationalModel:
                     # job_awaiting_start also covers a job the node already
                     # started (started_at set, status 'running') but is holding
                     # for a GPU training slot (gpu_slot_wait_started_at).
-                    if job_awaiting_start(job):
+                    # A router replay (every node unreachable) is not evidence
+                    # the job is still queued -- see poll_utils.is_replayed_answer.
+                    if job_awaiting_start(job) and not is_replayed_answer(response_data):
                         elapsed = int(time.time() - start_time)
                         if job_status != last_job_status:
                             print(f"[{elapsed}s] 📥 Waiting to (re)start: {job.get('pause_reason') or 'waiting for a free compute slot'}")
@@ -1922,7 +1924,9 @@ class FoundationalModel:
                 # legitimately still None, so treat it like the 'queued'
                 # branch above rather than letting dispatch-wait time count
                 # against the stall budget.
-                if job_awaiting_start(job):
+                # A router replay (every node unreachable) is not evidence the
+                # job is still queued -- see poll_utils.is_replayed_answer.
+                if job_awaiting_start(job) and not is_replayed_answer(response_data):
                     if job_status != last_status and show_progress:
                         elapsed = int(time.time() - start_time)
                         print(f"[{elapsed}s] 📥 Waiting to (re)start: {job.get('pause_reason') or 'waiting for a free compute slot'}")
@@ -3036,14 +3040,15 @@ class FoundationalModel:
         elif session.get('started_at'):
             self.updated_at = _parse_datetime(session['started_at'])
 
-        # The session carries the ES width in optimal_es_config; epochs come
-        # from the train_es job below. Loss is not on the session at all --
-        # training_summary() reads it from the training timeline. (This used
-        # to read session['model_info'] / ['training_stats'], which no server
-        # writes, so dimensions/epochs/final_loss were None for every model.)
-        es_config = session.get('optimal_es_config') or {}
-        if es_config.get('d_model'):
-            self.dimensions = es_config['d_model']
+        # The session carries the BUILT ES architecture in es_architecture
+        # (written by train_es when it saves the ES); epochs come from the
+        # train_es job below. Loss is not on the session at all --
+        # training_summary() reads it from the training timeline. (Until
+        # 2026-10-12 this read optimal_es_config, pre-analysis's planned width,
+        # which the server's sizer floor could raise -- 96 shown, 128 built.)
+        es_architecture = session.get('es_architecture') or {}
+        if es_architecture.get('d_model'):
+            self.dimensions = es_architecture['d_model']
 
         # Extract error_message and training_progress from jobs
         for job_id, job in jobs.items():

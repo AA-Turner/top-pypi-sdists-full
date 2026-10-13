@@ -1,17 +1,13 @@
-"""Remote Prime sandbox runtime.
-
-`expose` (sandbox port -> public URL) uses the SDK's native exposure (`client.expose`), so a
-host-side harness/framework can reach a tool server hosted in the sandbox. The reverse
-direction (a program in the sandbox reaching a host service) is the shared host-side
-`Tunnel` (interception.tunnel), not the runtime's concern.
-"""
+"""Remote Prime VM sandbox runtime."""
 
 import asyncio
 import contextlib
+import io
 import logging
 import math
 import shlex
 import tempfile
+import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -24,7 +20,6 @@ from pydantic import Field, model_validator
 from verifiers.v1.configs.runtime import NetworkPolicyConfig
 from verifiers.v1.errors import SandboxError
 from verifiers.v1.runtimes.base import (
-    SERVICE_PORT,
     BaseRuntimeInfo,
     ProgramResult,
     Runtime,
@@ -34,13 +29,23 @@ from verifiers.v1.runtimes.base import (
 from verifiers.v1.runtimes.limiters import creation_limiter
 from verifiers.v1.utils.aio import run_shielded
 from verifiers.v1.utils.prime import ensure_prime_auth
+from verifiers.v1.utils.scope import run_scope
 
 logger = logging.getLogger(__name__)
 
-IDLE_FALLBACK_LIFETIME = 30 * 24 * 60 * 60
-"""Lifetime (seconds) given to container sandboxes that set an idle timeout: the
-platform requires a finite lifetime there as a safety fallback should idle detection
-fail. Far above any real run, so effectively unbounded."""
+EFFECTIVELY_UNBOUNDED_SECONDS = 30 * 24 * 60 * 60
+"""Safety deadline for APIs that require a finite bound. Normal execution remains
+bounded by idle detection or rollout cancellation; 30 days is above any real run."""
+# The SDK reads finished jobs' output through a bounded pool whose deadline includes time
+# spent queued; its defaults (20 reads, 45s) expire most reads when thousands of rollouts
+# finish a job at once (e.g. every harness's setup at a 3k-rollout start).
+_OUTPUT_READS = 100
+"""Concurrent output reads on the shared client."""
+_OUTPUT_DEADLINE_SECONDS = 300
+"""Deadline for one read of a finished job's output, queue time included."""
+_OUTPUT_RETRIES = 10
+"""Re-reads of a finished job's output that the SDK still failed to fetch, before the
+exec is reported as failed."""
 
 
 BASE_LABELS: list[str] = []
@@ -73,14 +78,11 @@ class PrimeConfig(NetworkPolicyConfig):
     type: Literal["prime"] = "prime"
     image: str = "python:3.11-slim"
     """Docker image to run. Any pullable ref works: on the first use of an image, the
-    platform auto-builds what the sandbox needs from it (a VM image for `vm` sandboxes,
-    ~10 minutes) and caches the result, so later sandboxes on the same ref start in
+    platform auto-builds the VM image that the sandbox needs from it (~10 minutes)
+    and caches the result, so later sandboxes on the same ref start in
     seconds."""
-    workdir: str = "/app"
-    vm: bool = True
-    """Run as a micro-VM rather than a container (kernel features / stronger isolation)."""
-    guaranteed: bool = False
-    """Request guaranteed (vs best-effort) capacity."""
+    workdir: str | None = None
+    """Working directory override; None uses the task's workdir, or /app."""
     region: str | None = None
     """Region to provision in (None = provider-chosen)."""
     labels: list[str] = Field(default_factory=list)
@@ -93,22 +95,21 @@ class PrimeConfig(NetworkPolicyConfig):
     gpu: str | None = None
     """GPU spec, e.g. "A100" or "A100:2" (a bare count = provider-chosen type)."""
     disk: float = 5.0
-    """Disk in GB."""
+    """Disk in GB. Unused with ``checkpoint``: a sandbox keeps its checkpoint's disk."""
+    checkpoint: str | None = None
+    """A DURABLE filesystem checkpoint to start from instead of ``image`` (see the SDK's
+    ``checkpoint`` and ``wait_for_checkpoint``)."""
     idle_timeout: float | None = 3600
     """Seconds of inactivity before the sandbox self-deletes (None disables)."""
     creates_per_min: int | None = None
-    """Pace sandbox creation to this many per minute, enforced user-wide across every
+    """Pace sandbox creation to this many per minute, enforced run-wide across every
     env-server worker process (None/<= 0 disables it). (Tunnel creation is limited separately
-    and globally — see interception.tunnel.prime.TUNNEL_LIMITER.)"""
+    — see interception.tunnel.prime.tunnel_limiter.)"""
 
     @model_validator(mode="after")
     def _validate_egress(self) -> "PrimeConfig":
         if not self.network_restricted:
             return self
-        if not self.vm:
-            raise ValueError(
-                "Prime allow/block egress lists require a VM sandbox (vm=true)"
-            )
         if not self.allow:
             return self
         validate_egress_lists(
@@ -136,6 +137,9 @@ class PrimeProcess(RuntimeProcess):
     async def wait(self) -> int:
         return await self._process.wait()
 
+    async def poll(self) -> int | None:
+        return self._process.returncode
+
     async def terminate(self) -> None:
         await self._process.terminate()
 
@@ -144,22 +148,19 @@ class PrimeProcess(RuntimeProcess):
 
 
 class PrimeRuntime(Runtime):
+    supports_user: ClassVar[bool] = True
     is_local: ClassVar[bool] = False
 
     def __init__(self, config: PrimeConfig, name: str | None = None) -> None:
         ensure_prime_auth()
         super().__init__(name)
-        self.config = config
-        self.info = PrimeRuntimeInfo(**config.model_dump())
+        self.config = config.model_copy(update={"workdir": config.workdir or "/app"})
+        self.info = PrimeRuntimeInfo(**self.config.model_dump())
         self._client = None
 
     @property
     def supports_live_processes(self) -> bool:
-        return self.config.vm
-
-    @property
-    def published_port(self) -> int | None:
-        return SERVICE_PORT
+        return True
 
     async def start(self) -> None:
         from prime_sandboxes import AsyncSandboxClient, CreateSandboxRequest
@@ -167,7 +168,9 @@ class PrimeRuntime(Runtime):
         loop = asyncio.get_running_loop()
         shared = _shared_clients.get(loop)
         if shared is None:
-            shared = _shared_clients[loop] = _SharedClient(AsyncSandboxClient())
+            shared = _shared_clients[loop] = _SharedClient(
+                AsyncSandboxClient(background_job_output_concurrency=_OUTPUT_READS)
+            )
         shared.leases += 1
         self._client = shared.client
         # Map the resources onto prime's API (minutes, split GPU; memory/disk are already
@@ -183,24 +186,27 @@ class PrimeRuntime(Runtime):
         options = {
             "cpu_cores": self.config.cpu,
             "memory_gb": self.config.memory,
-            "disk_size_gb": self.config.disk,
             "gpu_count": gpu_count,
-            # -1 is prime's convention for no lifetime limit; containers with an
-            # idle timeout must carry a finite lifetime as a safety fallback (which
-            # must exceed the idle timeout)
-            "timeout_minutes": (
-                -1
-                if self.config.vm or idle_minutes is None
-                else max(IDLE_FALLBACK_LIFETIME // 60, idle_minutes + 1)
-            ),
+            "timeout_minutes": -1,
             "idle_timeout_minutes": idle_minutes,
             "gpu_type": gpu_type,
             "region": self.config.region,
         }
+        if self.config.checkpoint:
+            source = {"checkpoint_id": self.config.checkpoint}
+        else:
+            source = {
+                "docker_image": self.config.image,
+                "disk_size_gb": self.config.disk,
+            }
+        scope = run_scope()
+        labels = [*BASE_LABELS, *self.config.labels, scope]
         try:
             async with (
                 creation_limiter(
-                    (self.config.creates_per_min or 0) / 60, "prime-sandbox"
+                    (self.config.creates_per_min or 0) / 60,
+                    "prime-sandbox",
+                    scope,
                 )
                 or contextlib.nullcontext()
             ):
@@ -211,12 +217,8 @@ class PrimeRuntime(Runtime):
                     sandbox = await self._client.create(
                         CreateSandboxRequest(
                             name=self.name,
-                            labels=list(
-                                dict.fromkeys([*BASE_LABELS, *self.config.labels])
-                            ),
-                            docker_image=self.config.image,
-                            vm=self.config.vm,
-                            guaranteed=self.config.guaranteed,
+                            labels=list(dict.fromkeys(labels)),
+                            **source,
                             environment_vars=self.env,
                             **{k: v for k, v in options.items() if v is not None},
                         )
@@ -294,27 +296,44 @@ class PrimeRuntime(Runtime):
         )
 
     async def run(self, argv: list[str], env: dict[str, str]) -> ProgramResult:
-        # Poll the job by hand: the SDK's run_background_job needs a finite deadline,
-        # but the sandbox has no lifetime limit — the rollout's stage timeouts bound
-        # this via cancellation instead.
         try:
+            # Poll directly so rollout cancellation owns the execution timeout.
             job = await self._client.start_background_job(
                 self.info.id,
                 shlex.join(argv),
                 working_dir=self.config.workdir,
                 env=self.process_env(env),
+                user=self.user,
             )
+            delay = 0.1
+            output_retries = 0
+            missing = None
             while True:
-                result = await self._client.get_background_job(self.info.id, job)
-                if result.completed:
+                result = await self._client.get_background_job(
+                    self.info.id, job, timeout=_OUTPUT_DEADLINE_SECONDS
+                )
+                # Under load the SDK can see a job finish yet miss its output (its bounded
+                # output reads expire while queued) and reports that as `*_error`. The job
+                # is done, so asking again re-reads the output.
+                missing = result.stdout_error or result.stderr_error
+                if result.completed and (
+                    missing is None or output_retries == _OUTPUT_RETRIES
+                ):
                     break
-                await asyncio.sleep(1)
+                if result.completed:
+                    output_retries += 1
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 3)
         except (
             Exception
         ) as e:  # a sandbox/API failure is one rollout's problem, not the eval's
             raise SandboxError(f"prime exec failed: {e}") from e
+        if missing is not None:
+            raise SandboxError(f"prime exec output unavailable: {missing}")
+        if result.exit_code is None:
+            raise SandboxError("prime exec completed without an exit code")
         return ProgramResult(
-            exit_code=result.exit_code or 0,
+            exit_code=result.exit_code,
             stdout=result.stdout or "",
             stderr=result.stderr or "",
         )
@@ -322,38 +341,23 @@ class PrimeRuntime(Runtime):
     async def open_process(
         self, argv: list[str], env: dict[str, str]
     ) -> RuntimeProcess:
-        if not self.config.vm:
-            raise SandboxError(
-                "persistent harness sessions on Prime require a VM sandbox; "
-                "set runtime.prime.vm=true"
-            )
         try:
             process = await self._client.open_process(
                 self.info.id,
                 shlex.join(argv),
                 working_dir=self.config.workdir,
                 env=self.process_env(env),
+                user=self.user,
             )
         except Exception as e:
             raise SandboxError(f"prime live process failed to start: {e}") from e
         return PrimeProcess(process)
 
-    async def expose(self, port: int) -> str | None:
-        # Publish a server hosted IN the sandbox via the SDK's native port exposure → a public
-        # HTTPS URL. Removed when the sandbox is deleted in stop(), so a tool in its own prime
-        # sandbox needs no host tunnel. Port exposure is region-gated: many regions (incl. the
-        # backend default, which lands in us-central) 400 it; `us` supports it. TODO: re-enable the
-        # prime cases in the e2e `skip_if_unexposable` guard once prime exposes ports in any region.
-        try:
-            exposed = await self._client.expose(self.info.id, port)
-        except Exception as e:  # surface prime's exposure constraints actionably
-            raise SandboxError(
-                "prime port exposure failed — port exposure isn't supported in this sandbox's "
-                "region; pin `tools.runtime.region` to a region that supports it (e.g. `us`), or "
-                f"use a colocated / docker / modal tools.runtime instead. ({e})"
-            ) from e
-        logger.info("prime: exposed sandbox port %d at %s", port, exposed.url)
-        return exposed.url.rstrip("/")
+    async def expose(self, port: int) -> str:
+        raise SandboxError(
+            "Prime VM sandboxes do not support port exposure; colocate the service "
+            "with its consumer, or use a docker or modal service runtime"
+        )
 
     async def run_background(
         self, argv: list[str], env: dict[str, str], log: str
@@ -365,11 +369,44 @@ class PrimeRuntime(Runtime):
                 command,
                 working_dir=self.config.workdir,
                 env=self.process_env(env),
+                user=self.user,
             )
         except Exception as e:
             raise SandboxError(f"prime background launch failed: {e}") from e
 
-    async def _read(self, path: str) -> bytes:
+    async def _read(self, path: str, max_bytes: int | None = None) -> bytes:
+        # The file API acts as the default user; a user view reads through exec.
+        if max_bytes is not None or self.user is not None:
+            reader = "cat" if max_bytes is None else f"head -c {max_bytes}"
+            try:
+                # Stream binary output: execute_command buffers base64 text for the
+                # entire file. Bound the source read and the host buffer independently.
+                process = await self._client.open_process(
+                    self.info.id,
+                    f"{reader} -- {shlex.quote(path)}",
+                    working_dir=self.config.workdir,
+                    env=self.process_env({}),
+                    user=self.user,
+                )
+                async with contextlib.aclosing(process):
+                    with io.BytesIO() as data:
+                        async for chunk in process.stdout:
+                            if (
+                                max_bytes is not None
+                                and data.tell() + len(chunk) > max_bytes
+                            ):
+                                raise SandboxError(
+                                    "read stream exceeded its byte limit"
+                                )
+                            data.write(chunk)
+                        stderr = b""
+                        async for chunk in process.stderr:
+                            stderr = (stderr + chunk)[-500:]
+                        if await process.wait():
+                            raise SandboxError(stderr.decode(errors="replace").strip())
+                        return data.getvalue()
+            except Exception as exc:
+                raise SandboxError(f"read {path!r}: {exc}") from exc
         # Avoid background-job log limits and base64 overhead by downloading binary data directly.
         # The temporary file is removed on every exit, and its byte read stays off the event loop.
         target = (
@@ -386,26 +423,33 @@ class PrimeRuntime(Runtime):
             raise SandboxError(f"read {path!r}: {e}") from e
 
     async def write(self, path: str, data: bytes) -> None:
-        # Upload via the gateway (multipart) — never inline the bytes on the command line
-        # (a large file, e.g. a task tarball, overflows the exec command-length limit and
-        # fails with ENAMETOOLONG). The upload does NOT run in the workdir, so resolve a
-        # relative path against it (and mkdir its parent) — otherwise the sidecar writes
-        # it somewhere unwritable ("Operation not permitted").
+        # The gateway creates missing parents and uploads binary data without command-line
+        # limits. Resolve relative paths here because uploads do not use this runtime's workdir.
         target = (
             path
             if path.startswith("/")
             else f"{self.config.workdir.rstrip('/')}/{path}"
         )
+        if self.user is None:
+            try:
+                await self._client.upload_bytes(
+                    self.info.id, target, data, filename=PurePosixPath(target).name
+                )
+            except Exception as e:
+                raise SandboxError(f"write {path!r}: {e}") from e
+            return
+        # Uploads act as the default user: stage the bytes, then copy them in as the user.
+        root = self.with_user(None)
+        staged = f"/tmp/vf-write-{uuid.uuid4().hex}"
         try:
-            await self._client.execute_command(
-                self.info.id,
-                f"mkdir -p {shlex.quote(str(PurePosixPath(target).parent))}",
-            )
-            await self._client.upload_bytes(
-                self.info.id, target, data, filename=PurePosixPath(target).name
-            )
-        except Exception as e:
-            raise SandboxError(f"write {path!r}: {e}") from e
+            await root.write(staged, data)
+            await root.run(["chmod", "644", staged], {})
+            copy = 'mkdir -p "$(dirname "$1")" && cat -- "$2" > "$1"'
+            result = await self.run(["sh", "-c", copy, "sh", target, staged], {})
+        finally:
+            await root.run(["rm", "-f", staged], {})
+        if result.exit_code != 0:
+            raise SandboxError(f"write {path!r}: {result.stderr.strip()[-500:]}")
 
     def cleanup(self) -> None:
         # Synchronous atexit backstop (the async client can't run once the loop is gone): delete

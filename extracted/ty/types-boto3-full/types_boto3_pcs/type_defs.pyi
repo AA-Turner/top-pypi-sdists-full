@@ -583,6 +583,7 @@ class RegisterComputeNodeGroupInstanceResponseTypeDef(TypedDict):
     computeNodeGroupId: str
     computeNodeGroupName: str
     nodeLifecycleActions: NodeLifecycleActionsTypeDef
+    schedulerVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 NodeLifecycleStagesUnionTypeDef = Union[

@@ -2,8 +2,14 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
-from renderers.base import MultiModalData
+import numpy as np
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    model_validator,
+)
 from typing_extensions import TypedDict
 
 
@@ -67,6 +73,8 @@ class ToolCall(BaseModel):
     id: str
     type: Literal["function", "custom"] = "function"
     name: str
+    namespace: str | None = None
+    """Provider namespace qualifying the tool name, when sent separately."""
     arguments: str
     """Raw function arguments or custom-tool input, exactly as the model emitted it."""
 
@@ -96,9 +104,14 @@ Messages = list[Message]
 
 
 class Tool(BaseModel):
+    # Native declarations carry format, discovery, and provider-specific settings.
+    model_config = ConfigDict(extra="allow")
+
+    type: str = "function"
     name: str
-    description: str
-    parameters: dict[str, Any]
+    namespace: str | None = None
+    description: str = ""
+    parameters: dict[str, Any] = Field(default_factory=dict)
     strict: bool | None = None
 
 
@@ -184,15 +197,29 @@ class RoutedExperts(TypedDict):
 
 
 @dataclass
-class KeptTokens:
-    """Kept-set sampling masks for sampling replay: `ids` (every kept set concatenated
-    in position order) and `counts` (kept-set size per completion token; 0 = no usable
-    mask). Base64 blobs straight off the `generate` response on the `TurnTokens`
-    carrier; decoded to flat int32 arrays on `MessageNode` (`len(ids) == sum(counts)`,
-    row boundaries recovered from `counts`)."""
+class SamplingMask:
+    """Sampling masks stored as flat int32 `ids` and `counts` arrays.
+
+    Each row contains the token ids that survived sampling filters for one completion
+    token. Row boundaries are recovered from `counts`.
+    """
 
     ids: Any
     counts: Any
+
+    @classmethod
+    def from_sampling_mask(cls, sampling_mask: list[list[int]]) -> "SamplingMask":
+        counts = np.fromiter(
+            (len(row) for row in sampling_mask),
+            dtype=np.int32,
+            count=len(sampling_mask),
+        )
+        ids = (
+            np.concatenate([np.asarray(row, dtype=np.int32) for row in sampling_mask])
+            if int(counts.sum())
+            else np.empty(0, dtype=np.int32)
+        )
+        return cls(ids=ids, counts=counts)
 
 
 class TurnTokens(BaseModel):
@@ -201,18 +228,24 @@ class TurnTokens(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     prompt_ids: list[int] = Field(default_factory=list)
+    """Effective prompt IDs evaluated by the model, after multimodal expansion."""
     completion_ids: list[int] = Field(default_factory=list)
     completion_logprobs: list[float] = Field(default_factory=list)
 
+    # Transient graph-construction metadata, consumed by the turn's commit and excluded
+    # from serialized responses.
+    renderer_prompt_ids: list[int] | None = Field(default=None, exclude=True)
+    """Logical renderer IDs before multimodal expansion, retained for bridge extension."""
+    bridged: bool = Field(default=False, exclude=True)
+    """Whether the renderer constructed this prompt by extending a stored prefix."""
     # Transient carrier (excluded): per-message token spans into `prompt_ids` from the renderer,
     # consumed by the turn's `commit` to attribute tokens per message, then dropped.
     message_spans: list[tuple[int, int] | None] | None = Field(
         default=None, exclude=True
     )
     is_content: list[bool] | None = Field(default=None, exclude=True)
-    # Transient carrier (excluded): the renderer's multimodal sidecar (image tensors + offsets),
-    # attributed per node by the turn's `commit`, then dropped — never persisted.
-    multi_modal_data: MultiModalData | None = Field(default=None, exclude=True)
+    # Authoritative effective-prompt ranges returned by vLLM, flattened across modalities.
+    mm_placeholders: list[tuple[int, int]] | None = Field(default=None, exclude=True)
     # Transient carrier (excluded): the renderer's special-token id -> modality marker map,
     # stamped onto `Trace.mm_token_type_id_map` by the turn's `commit`. None unless the
     # rendering renderer is multimodal.
@@ -221,11 +254,9 @@ class TurnTokens(BaseModel):
     # per token), attributed per node by the turn's `commit` into `MessageNode.routed_experts`,
     # then dropped. None unless the engine ran with `enable_return_routed_experts`.
     routed_experts: RoutedExperts | None = Field(default=None, exclude=True)
-    # Transient carrier (excluded): the kept-set sampling masks from `generate` (token ids
-    # surviving top-p/top-k truncation, per completion token), attributed to the assistant
-    # node by the turn's `commit`, then dropped. None unless the engine ran with
-    # `enable_return_kept_tokens`.
-    kept_tokens: KeptTokens | None = Field(default=None, exclude=True)
+    # Transient carrier (excluded): per-completion-token sampling masks,
+    # attributed to the assistant node by the turn's `commit`, then dropped.
+    sampling_mask: SamplingMask | None = Field(default=None, exclude=True)
 
 
 class Response(BaseModel):
@@ -251,17 +282,20 @@ class SamplingConfig(BaseModel):
         None, validation_alias=AliasChoices("max_tokens", "max_completion_tokens")
     )
 
-    def wire_args(self) -> dict[str, Any]:
-        """Flatten OpenAI-style ``extra_body`` before building a provider request."""
-        args = self.model_dump(exclude_none=True)
-        extra_body = {
-            key: value
-            for key, value in (args.pop("extra_body", None) or {}).items()
-            if value is not None
-        }
-        if "max_tokens" in args:
-            extra_body.pop("max_completion_tokens", None)
-        return {**extra_body, **args}
+    @model_validator(mode="before")
+    @classmethod
+    def normalize(cls, data: Any) -> Any:
+        """Use one key per parameter before merging overrides, retaining null clears."""
+        if not isinstance(data, dict):
+            return data
+        normalized = {}
+        for layer in (data.get("extra_body") or {}, data):
+            layer = dict(layer)
+            if "max_completion_tokens" in layer:
+                layer.setdefault("max_tokens", layer.pop("max_completion_tokens"))
+            layer.pop("extra_body", None)
+            normalized.update(layer)
+        return normalized
 
 
 Sampling = SamplingConfig

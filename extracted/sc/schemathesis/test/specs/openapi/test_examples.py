@@ -15,6 +15,7 @@ from schemathesis.core import NOT_SET
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.engine import events
 from schemathesis.engine.run import PhaseName
+from schemathesis.generation.feedback import FeedbackSources
 from schemathesis.generation.hypothesis import examples
 from schemathesis.generation.hypothesis._response_matching import find_matching_in_responses
 from schemathesis.generation.hypothesis.builder import generate_example_cases
@@ -3119,8 +3120,6 @@ def test_get_pool_combos_merges_multiple_locations(ctx):
 
 def test_body_example_violating_schema_is_not_used_in_positive_generation(ctx):
     # A schema's own `example` may not match its `schema`; positive generation must filter it out.
-    from schemathesis.generation.modes import GenerationMode
-
     schema = ctx.openapi.load_schema(
         {
             "/items": {
@@ -4087,6 +4086,35 @@ def test_response_derived_parameter_example_violating_schema_is_skipped(ctx):
     assert list(extract_top_level(operation)) == []
 
 
+def test_response_derived_list_field_does_not_crash_examples_phase(ctx, app_runner):
+    paths = {
+        "/orders": {
+            "get": {
+                "parameters": [{"name": "orderId", "in": "query", "schema": {"type": "integer"}}],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/Customer"},
+                                "example": {"order": [1, 2]},
+                            }
+                        },
+                    }
+                },
+            }
+        }
+    }
+    raw_schema = ctx.openapi.build_schema(paths, components={"schemas": {"Customer": {"type": "object"}}})
+    app = ctx.openapi.make_permissive_flask_app(raw_schema)
+    schema = ctx.openapi.from_full_schema(raw_schema)
+    schema.config.update(base_url=app_runner.openapi_url(app, path=""))
+
+    stream = EventStream(schema, phases=[PhaseName.EXAMPLES]).execute()
+
+    assert stream.find_all(events.NonFatalError, phase=PhaseName.EXAMPLES) == []
+
+
 def test_schema_level_parameter_example_violating_pattern_is_skipped(ctx):
     # When the `example` field lives inside the parameter's `schema` object (not on the parameter
     # definition itself), it is processed via an expanded subschema. The expanded subschema must
@@ -4450,7 +4478,7 @@ def test_get_strategies_with_binary_body_and_pool_does_not_crash(ctx):
     data_source = schema.create_extra_data_source()
     data_source.repository.record_response(operation="POST /items", status_code=201, payload={"itemId": "abc"})
 
-    strategies = get_strategies_from_examples(upload, extra_data_source=data_source)
+    strategies = get_strategies_from_examples(upload, feedback=FeedbackSources(extra_data_source=data_source))
 
     assert strategies
 
@@ -4516,7 +4544,7 @@ def test_pool_injected_body_with_multiple_media_types_does_not_crash(ctx):
         payload={"id": "9e27bc1b-7ae7-4e3b-a4e5-36153479dc01", "name": "foo"},
     )
 
-    strategies = get_strategies_from_examples(operation, extra_data_source=data_source)
+    strategies = get_strategies_from_examples(operation, feedback=FeedbackSources(extra_data_source=data_source))
     assert strategies
     for strategy in strategies:
         examples.generate_one(strategy)
@@ -5176,6 +5204,7 @@ def test_examples_with_the_same_name_are_paired_in_fuzzing(ctx):
     seen = []
 
     @given(case=schema["/search"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE))
+    # Every expected variant must appear at least once, which takes many draws.
     @settings(max_examples=200, deadline=None, phases=[Phase.generate], suppress_health_check=list(HealthCheck))
     def test(case):
         seen.append((case.query["region"], case.query["currency"]))

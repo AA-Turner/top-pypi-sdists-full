@@ -50,6 +50,15 @@ class Data:
 
     level_rows: list[list[str]] = field(default_factory=list)
     level_worst_db: float = 0.0
+    frame_oracle: list[bool] = field(default_factory=list)
+    frame_oracle_worst: float = 0.0
+    frame_chunks: bool = False
+    frame_overlap: bool = False
+    frame_hop_refused: bool = False
+    frame_hop0_same: bool = False
+    frame_state_mid: bool = False
+    frame_wrong_hop_refused: bool = False
+    frame_wrong_hop_unchanged: bool = False
     layout_exact: bool = False
     bits_is_full_scale: bool = False
     fs_tone_db: float = 0.0
@@ -258,8 +267,8 @@ def section_object() -> None:
         "into a per-bin average (mean, EMA, max-hold or min-hold), stored "
         "DC-centred. It reads the average back as a spectrum and as the "
         "measurements a spectrum analyser makes. Its per-frame kernel, "
-        "`dp_psd_frame_power` / `dp_psd_frame_db`, is what the Spectrogram "
-        "composes."
+        "`dp_psd_kernel_t` with `dp_psd_frame_power` / `dp_psd_frame_db`, "
+        "is what the Spectrogram composes."
     )
     R.md()
     R.table(
@@ -332,10 +341,28 @@ def section_object() -> None:
             ],
             ["destroy(NULL) is a no-op", "lifecycle block", P, "C-ONLY"],
             [
-                "accumulate folds floor(x_len / n) frames; a trailing "
-                "partial frame is ignored",
+                "accumulate folds every frame the stream completes; the "
+                "trailing partial is carried to the next call",
                 "accumulate block (3 frames + a partial)",
                 L,
+                "C-ONLY",
+            ],
+            [
+                "`dp_psd_kernel_init` refuses what create refuses for the "
+                "kernel (n < 2, pad 0, a window index outside 0-3, a "
+                "non-finite or non-positive full_scale, a non-finite "
+                "window, a window with no gain, an n·pad too large to "
+                "size) and leaves nothing allocated; `dp_psd_kernel_free` "
+                "is safe after any outcome and on a zeroed kernel",
+                "bare-kernel block",
+                P,
+                "C-ONLY",
+            ],
+            [
+                "a bare kernel turns a frame into the bins a PSD's own "
+                "kernel does",
+                "bare-kernel block, 4 windows, n 64, pad 2",
+                P,
                 "C-ONLY",
             ],
             [
@@ -473,6 +500,7 @@ def characterise() -> Data:
     _sec_contracts(d)
     _sec_state(d)
     _sec_candidates(d)
+    _sec_frames(d)
     return d
 
 
@@ -1251,9 +1279,183 @@ def _sec_candidates(d: Data) -> None:
     R.md()
 
 
+# ── 2.11 the frame hop and carry (the binding is the certification) ─────────
+
+# The configs of the whole-frame oracle (test_psd_core.c, T21): the same five
+# configs and two lengths, run through the binding. No value is pinned: the
+# oracle compares the binding with itself, one frame per call against a single
+# call, so it holds on any platform.
+ORACLE_CFG = (
+    (64, "hann", 0.0, 1, "mean", 0.0),
+    (256, "hann", 0.0, 2, "mean", 0.0),
+    (100, "kaiser", 8.0, 2, "mean", 0.0),
+    (32, "rect", 0.0, 1, "exp", 0.5),
+    (128, "blackman-harris", 0.0, 1, "maxhold", 0.0),
+)
+ORACLE_RUNS = tuple(
+    (cfg_i, length)
+    for cfg_i in range(len(ORACLE_CFG))
+    for length in (5 * ORACLE_CFG[cfg_i][0], 5 * ORACLE_CFG[cfg_i][0] + 37)
+)
+
+
+def _dp_uni_stream(n: int, seed: int) -> np.ndarray:
+    """The C test's stream, in pure Python: dp_xs32 then dp_uni."""
+    st = seed if seed else 1
+    out = np.empty(n, dtype=np.complex64)
+
+    def uni() -> float:
+        nonlocal st
+        x = st if st else 1
+        x ^= (x << 13) & 0xFFFFFFFF
+        x ^= x >> 17
+        x ^= (x << 5) & 0xFFFFFFFF
+        st = x
+        return (x + 1.0) / 4294967297.0
+
+    for i in range(n):
+        a = np.float32(uni() - 0.5)
+        b = np.float32(uni() - 0.5)
+        out[i] = a + 1j * b
+    return out
+
+
+def _numpy_average(x, n, pad, window, beta, mode, alpha):
+    """The old algorithm in float64 numpy: whole frames, averaged in `mode`.
+
+    Returns the trace normalised by the window's coherent gain squared, as the
+    binding's power_twosided() reports it, and the bound on its float32 error.
+    The bound is _fft_bound(nfft) times the largest frame total, the error one
+    frame's float32 FFT can make in any bin; no averaging mode is worse than
+    its worst frame, and the readout's rounding adds one float32 unit of the
+    peak. Nothing here goes through the framer or the C kernel.
+    """
+    w = _window(window, n, beta)
+    nfft = _nfft(n, pad)
+    cg2 = float(np.sum(w)) ** 2
+    acc, total_max = None, 0.0
+    for f in range(len(x) // n):
+        p = _truth_power(x[f * n : (f + 1) * n], w, nfft)
+        total_max = max(total_max, float(np.sum(p)) / cg2)
+        if acc is None:
+            acc = p.copy()
+        elif mode == "mean":
+            acc = acc + (p - acc) / (f + 1)
+        elif mode == "exp":
+            acc = alpha * p + (1.0 - alpha) * acc
+        elif mode == "maxhold":
+            acc = np.maximum(acc, p)
+        else:
+            acc = np.minimum(acc, p)
+    ref = acc / cg2
+    bound = _fft_bound(nfft) * total_max + U * float(np.max(ref))
+    return ref, bound
+
+
+def _trace_bytes(w: PSD) -> bytes:
+    """The averaged two-sided power, as the float32 bytes the C side holds."""
+    return np.asarray(
+        w.power_twosided(w.power_twosided_max_out()), dtype=np.float32
+    ).tobytes()
+
+
+def _frame_face_bits(n: int, x: np.ndarray, **kw) -> bytes:
+    """One object, one accumulate of x; the bytes of its averaged trace."""
+    w = _psd(n=n, **kw)
+    w.accumulate(x)
+    return _trace_bytes(w)
+
+
+def _sec_frames(d: Data) -> None:
+    R.md("### 2.11 The frame hop and carry (the binding is the certification)")
+    R.md()
+    oracle, worst = [], 0.0
+    for cfg_i, length in ORACLE_RUNS:
+        n, window, beta, pad, mode, alpha = ORACLE_CFG[cfg_i]
+        x = _dp_uni_stream(length, 12345 + cfg_i)
+        w = _psd(
+            n=n, window=window, beta=beta, pad=pad, mode=mode, alpha=alpha
+        )
+        w.accumulate(x)  # whole frames, and the trailing partial is carried
+        got = np.asarray(
+            w.power_twosided(w.power_twosided_max_out()), dtype=np.float64
+        )
+        ref, bound = _numpy_average(x, n, pad, window, beta, mode, alpha)
+        err = float(np.max(np.abs(got - ref)))
+        oracle.append(err <= bound)
+        worst = max(worst, err / bound)
+    d.frame_oracle = oracle
+    d.frame_oracle_worst = worst
+
+    n, length = 64, 10 * 64 + 17
+    x = _dp_uni_stream(length, 777)
+    ref = _frame_face_bits(n, x)
+    sizes = [1, 7, n - 1, n, n + 1, 3 * n + 5, 2 * n]
+    rng = np.random.default_rng(20261011)
+    for _ in range(3):
+        sizes.append(int(rng.integers(1, 2 * n + 1)))
+    chunk_ok = True
+    for size in sizes:
+        w = _psd(n=n)
+        for at in range(0, length, size):
+            w.accumulate(x[at : at + size])
+        chunk_ok = chunk_ok and _trace_bytes(w) == ref
+    d.frame_chunks = chunk_ok
+
+    hop = n // 2
+    fold = _psd(n=n)
+    for at in range(0, length - n + 1, hop):
+        fold.accumulate(x[at : at + n])
+    d.frame_overlap = _frame_face_bits(n, x, hop=hop) == _trace_bytes(fold)
+
+    try:
+        _psd(n=n, hop=n + 1)
+        d.frame_hop_refused = False
+    except ValueError:
+        d.frame_hop_refused = True
+    d.frame_hop0_same = _frame_face_bits(n, x, hop=0) == ref
+
+    a = _psd(n=n, hop=hop)
+    a.accumulate(x[: 5 * n + 11])
+    blob = a.get_state()
+    b = _psd(n=n, hop=hop)
+    b.set_state(blob)
+    a.accumulate(x[5 * n + 11 :])
+    b.accumulate(x[5 * n + 11 :])
+    d.frame_state_mid = _trace_bytes(a) == _trace_bytes(b)
+
+    src = _psd(n=n, hop=n)
+    src.accumulate(x[: 4 * n + 9])
+    dst = _psd(n=n, hop=hop)
+    dst.accumulate(x[100 : 100 + 3 * n + 1])
+    before = _trace_bytes(dst)
+    try:
+        dst.set_state(src.get_state())
+        d.frame_wrong_hop_refused = False
+    except ValueError:
+        d.frame_wrong_hop_refused = True
+    d.frame_wrong_hop_unchanged = _trace_bytes(dst) == before
+
+    R.md(
+        f"Checked through the binding against a float64 numpy average of the "
+        f"same whole frames, within the float32 FFT bound: "
+        f"{sum(d.frame_oracle)}/{len(d.frame_oracle)} within it, worst error "
+        f"{d.frame_oracle_worst:.1e} "
+        f"of the bound. Chunk invariance over "
+        f"{len(sizes)} partitions: {'yes' if chunk_ok else 'NO'}. Overlap at "
+        f"hop n/2 against the hop-n fold of the same frames: "
+        f"{'yes' if d.frame_overlap else 'NO'}. A hop above n is refused: "
+        f"{'yes' if d.frame_hop_refused else 'NO'}; hop 0 reads as hop n: "
+        f"{'yes' if d.frame_hop0_same else 'NO'}. A blob cut mid-carry "
+        f"continues to the same bits: {'yes' if d.frame_state_mid else 'NO'}. "
+        f"A blob of another hop is refused "
+        f"({'yes' if d.frame_wrong_hop_refused else 'NO'}) and leaves the "
+        f"object unchanged ({'yes' if d.frame_wrong_hop_unchanged else 'NO'})."
+    )
+    R.md()
+
+
 # ── 3. review ─────────────────────────────────────────────────────────
-
-
 def review(d: Data) -> None:
     R.md("## 3. Review — findings")
     R.md()
@@ -1284,10 +1486,14 @@ def review(d: Data) -> None:
     R.find(
         "F3",
         "C-ONLY",
-        "`dp_psd_frame_power`, `dp_psd_frame_db` and `dp_psd_frame_linear` "
-        "(#1963), the per-frame kernel the Spectrogram composes, have no "
-        "Python binding. They are "
-        "certified in `native/tests/test_psd_core.c`: one frame equals "
+        "The per-frame kernel the Spectrogram composes — "
+        "`dp_psd_kernel_t`, filled by `dp_psd_kernel_init`, and the frame "
+        "calls `dp_psd_frame_power`, `dp_psd_frame_db` and "
+        "`dp_psd_frame_linear` (#1963) that take it — has no Python "
+        "binding. It is certified in `native/tests/test_psd_core.c`: the "
+        "bare-kernel block (its refusals leave nothing allocated, free is "
+        "safe after any outcome, and a bare kernel's frames equal a PSD's "
+        "under every window); one frame equals "
         "accumulate-then-read bit for bit (4 windows x n {64, 100} x pad "
         "{1, 2}), the average is untouched (T1), 0 dBFS under every window "
         "and both references (T2), the floor (T3) and the layout (T4); "
@@ -1549,6 +1755,36 @@ def limits(d: Data) -> None:
     )
     R.limit(d.state_exact, "a state blob resumes bit-exactly")
     R.limit(d.state_rejects, "a clobbered state envelope is refused")
+
+    R.limit(
+        all(d.frame_oracle) and len(d.frame_oracle) == len(ORACLE_RUNS),
+        f"a single call of whole frames at hop = n averages to the old "
+        f"algorithm (float64 numpy) within the float32 FFT bound (5 configs "
+        f"x 2 "
+        f"lengths; worst {d.frame_oracle_worst:.1e} of the bound)",
+    )
+    R.limit(
+        d.frame_chunks,
+        "any partition of a 10n+17 stream averages to one call's bits: 7 "
+        "fixed sizes and 3 seeded splits, n = 64 Hann",
+    )
+    R.limit(
+        d.frame_overlap,
+        "hop = n/2 averages to the hop-n fold of the same frames, bit for bit",
+    )
+    R.limit(
+        d.frame_hop_refused and d.frame_hop0_same,
+        "a hop above n raises ValueError; hop 0 reads as hop = n, bit for bit",
+    )
+    R.limit(
+        d.frame_state_mid,
+        "a state blob cut mid-carry continues to the same bits (hop n/2)",
+    )
+    R.limit(
+        d.frame_wrong_hop_refused and d.frame_wrong_hop_unchanged,
+        "a blob of another hop is refused with ValueError and the object "
+        "reads unchanged",
+    )
 
 
 # ── build ─────────────────────────────────────────────────────────────

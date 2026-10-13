@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jinjanator-plugins
-Version: 26.1.0
+Version: 26.2.0
 Summary: Package which provides the plugin API for the jinjanator tool
 Project-URL: Bug Tracker, https://github.com/kpfleming/jinjanator-plugins/issues
 Project-URL: Homepage, https://github.com/kpfleming/jinjanator-plugins
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.11
 Requires-Dist: attrs
@@ -364,9 +365,9 @@ Some examples:
 Note that the function *must* be named `plugin_extensions`; it is the
 second part of the 'magic' mechanism mentioned above.
 ## Release Information
-### Backwards-incompatible Changes
+### Additions
 
-- Support for Python 3.10 has been removed.
+- Added support for Python 3.15.
   
 
 ---

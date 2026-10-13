@@ -32,7 +32,8 @@ in which case `JudgeResponse.parsed` is the validated pydantic object.
 A judge is cheap to construct (the HTTP client is opened per call, inside `complete`, and
 closed when the call returns), so build it where you use it.
 
-Passing `trace=` records the call onto it — a typed record appended to `trace.info["judge"]` and
+Passing `trace=` records the call onto it — a request/response record appended to
+`trace.info["judge_calls"]` and
 the call's tokens + cost added to `trace.extra_usage` (kept separate from the agent's `trace.usage`),
 so judge behaviour and spend are no longer invisible. The record lands even if the judge refuses, an
 empty structured output comes back, or `parse` raises (the request was already billed). Omit `trace`
@@ -52,6 +53,9 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Generic, Literal, cast
 
+from openai.types.chat.completion_create_params import (
+    CompletionCreateParamsNonStreaming,
+)
 from pydantic import BaseModel
 from typing_extensions import TypeVar
 
@@ -61,8 +65,8 @@ from verifiers.v1.configs.judge import (
     judge_key,
 )
 from verifiers.v1.dialects.chat import message_to_wire
-from verifiers.v1.types import Messages, Usage
-from verifiers.v1.utils.generic import concrete_type
+from verifiers.v1.types import Messages, SamplingConfig, Usage
+from verifiers.v1.utils.generic import concrete_type, merge_defaults
 from verifiers.v1.utils.score import parse_judge_choice
 
 if TYPE_CHECKING:
@@ -175,8 +179,24 @@ class Judge(Generic[ParsedT, ConfigT]):
             else [message_to_wire(m) for m in messages]
         )
         kwargs: dict[str, Any] = {"model": self.config.model, "messages": wire}
-        kwargs.update(self.config.sampling.model_dump(exclude_none=True))
-        kwargs.update(sampling)
+        # Transport options are SDK arguments, not model sampling parameters.
+        request_options = {
+            key: sampling.pop(key)
+            for key in ("extra_headers", "extra_query", "timeout")
+            if key in sampling
+        }
+        params = SamplingConfig.model_validate(
+            merge_defaults(self.config.sampling, sampling)
+        ).model_dump(exclude_none=True)
+        sdk_fields = CompletionCreateParamsNonStreaming.__annotations__
+        kwargs.update(
+            {key: value for key, value in params.items() if key in sdk_fields}
+        )
+        # The SDK accepts provider-specific parameters only through extra_body.
+        kwargs["extra_body"] = {
+            key: value for key, value in params.items() if key not in sdk_fields
+        }
+        kwargs.update(request_options)
 
         response: JudgeResponse[Any] | None = None
         try:
@@ -210,7 +230,14 @@ class Judge(Generic[ParsedT, ConfigT]):
             return response
         finally:
             if trace is not None and response is not None:
-                trace.record_judge(response)
+                trace.record_judge_call(
+                    name=self.reward_name,
+                    request={
+                        "model": kwargs["model"],
+                        "messages": kwargs["messages"],
+                    },
+                    response=response,
+                )
 
     async def evaluate(
         self, *, trace: Trace | None = None, **fields: Any

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from io import StringIO
 from pathlib import Path
+from copy import deepcopy
 
 import pytest
 import json
@@ -12,6 +13,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.tree import Tree as RichTree
 import skylos.cli as cli
+from skylos.api import BASE_URL
 
 from skylos.cli import (
     CleanFormatter,
@@ -24,6 +26,34 @@ from skylos.cli import (
 )
 from skylos.commands.scan_cmd import _write_scan_output
 from skylos.reporting.provenance import ProvenanceReport
+from skylos.reporting.finding_types import (
+    annotate_finding_types,
+    summarize_finding_types,
+)
+
+
+def _with_finding_type_metadata(result):
+    """Expected scan output for a disconnected Cloud custom-rule loader."""
+    expected = deepcopy(result)
+    expected.setdefault("analysis_summary", {})["custom_rules_coverage"] = {
+        "status": "not_connected",
+        "rule_count": 0,
+    }
+    annotate_finding_types(expected)
+    expected.setdefault("analysis_summary", {})["finding_type_counts"] = (
+        summarize_finding_types(expected)
+    )
+    return expected
+
+
+@pytest.fixture
+def disconnected_custom_rules(monkeypatch, tmp_path):
+    """These output-contract tests do not load a developer's Cloud rules."""
+    monkeypatch.setattr(
+        "skylos.cloud.sync.load_custom_rules",
+        lambda: {"rules": [], "status": "not_connected"},
+    )
+    monkeypatch.chdir(tmp_path)
 
 
 def test_scan_output_rejects_symlink_without_clobbering_target(tmp_path):
@@ -355,7 +385,7 @@ class TestPrintBadge:
 
         calls = [c.args[0] for c in mock_logger.console.print.call_args_list]
         badge_call = next(
-            (c for c in calls if isinstance(c, str) and "Dead_Code-Free" in c),
+            (c for c in calls if isinstance(c, str) and "Dead_Code-0_candidates" in c),
             None,
         )
         assert badge_call is not None
@@ -373,6 +403,74 @@ class TestPrintBadge:
         assert "orange" in badge_call
 
 
+class TestBadgeSummary:
+    def _printed(self, logger):
+        return [
+            call.args[0] for call in logger.console.print.call_args_list if call.args
+        ]
+
+    def test_counts_use_singular_and_plural(self):
+        logger = Mock()
+        logger.console = Mock()
+
+        print_badge(
+            1,
+            logger,
+            danger_enabled=True,
+            danger_count=1,
+            quality_enabled=True,
+            quality_count=7,
+            show_badge=False,
+        )
+
+        printed = self._printed(logger)
+        assert "Found 1 dead-code item, 1 security issue and 7 quality issues." in (
+            printed
+        )
+
+    @pytest.mark.parametrize("dead_code", [0, 6])
+    def test_no_second_badge_after_the_grade_badge(self, dead_code):
+        logger = Mock()
+        logger.console = Mock()
+
+        print_badge(dead_code, logger, show_badge=False)
+
+        printed = self._printed(logger)
+        assert not any(isinstance(item, cli.Panel) for item in printed)
+        assert not any("img.shields.io" in str(item) for item in printed)
+
+    @pytest.mark.parametrize("dead_code", [0, 6])
+    def test_badge_is_skylos_branded(self, dead_code):
+        logger = Mock()
+        logger.console = Mock()
+
+        print_badge(dead_code, logger)
+
+        badges = [p for p in self._printed(logger) if "img.shields.io" in str(p)]
+        assert len(badges) == 1
+        assert "codacy" not in badges[0] and "logo=" not in badges[0]
+        assert badges[0].endswith("(https://github.com/duriantaco/skylos)")
+
+    @pytest.mark.parametrize(("graded", "show_badge"), [(True, False), (False, True)])
+    def test_scan_offers_a_badge_once(self, monkeypatch, graded, show_badge):
+        result = {"analysis_summary": {"total_files": 1}, "quality": []}
+        if graded:
+            result["grade"] = {"overall": {"letter": "A", "score": 95}}
+        monkeypatch.setattr(cli.sys, "argv", ["skylos", "."])
+
+        with (
+            patch("skylos.cli.Progress", return_value=_progress_ctx()),
+            patch("skylos.cli.run_analyze", return_value=json.dumps(result)),
+            patch("skylos.cli.load_config", return_value={}),
+            patch("skylos.cli.render_results"),
+            patch("skylos.cli.print_badge") as badge,
+            patch("skylos.cli._is_tty", return_value=False),
+        ):
+            cli.main()
+
+        assert badge.call_args.kwargs["show_badge"] is show_badge
+
+
 class TestMainFunction:
     @pytest.fixture
     def mock_skylos_result(self):
@@ -386,7 +484,7 @@ class TestMainFunction:
             "analysis_summary": {"total_files": 2, "excluded_folders": []},
         }
 
-    def test_main_json_output(self, mock_skylos_result):
+    def test_main_json_output(self, mock_skylos_result, disconnected_custom_rules):
         """testing main function with JSON output"""
         test_args = ["cli.py", "test_path", "--json", "--no-provenance"]
 
@@ -403,11 +501,14 @@ class TestMainFunction:
             main()
 
             mock_analyze.assert_called_once()
-            mock_print.assert_called_once_with(json.dumps(mock_skylos_result))
+            mock_print.assert_called_once_with(
+                json.dumps(_with_finding_type_metadata(mock_skylos_result))
+            )
 
     @pytest.mark.parametrize("format_args", [["--json"], ["--format", "json"]])
     def test_main_json_remains_parseable_when_analysis_logs(
-        self, mock_skylos_result, tmp_path, monkeypatch, capsys, format_args
+        self, mock_skylos_result, tmp_path, monkeypatch, capsys, format_args,
+        disconnected_custom_rules,
     ):
         monkeypatch.setattr(
             sys,
@@ -426,7 +527,9 @@ class TestMainFunction:
             main()
 
         captured = capsys.readouterr()
-        assert json.loads(captured.out) == mock_skylos_result
+        assert json.loads(captured.out) == _with_finding_type_metadata(
+            mock_skylos_result
+        )
         assert "dependency inventory unavailable" in captured.err
 
     def test_main_config_file_is_loaded_and_forwarded(
@@ -471,6 +574,9 @@ class TestMainFunction:
             patch("skylos.cli.setup_logger") as mock_setup_logger,
             patch("skylos.cli.Progress") as mock_progress,
             patch("skylos.cli.upload_report") as mock_upload,
+            # The closing badge reads the console from the real "skylos"
+            # logger, which the mocked setup_logger never configures.
+            patch("skylos.cli.print_badge"),
         ):
             mock_logger = Mock()
             mock_logger.console = Mock()
@@ -615,7 +721,12 @@ class TestMainFunction:
         self, mock_skylos_result, policy
     ):
         test_args = [
-            "cli.py", "test_path", "--danger", "--gate", "--json", "--no-provenance"
+            "cli.py",
+            "test_path",
+            "--danger",
+            "--gate",
+            "--json",
+            "--no-provenance",
         ]
         with (
             patch("sys.argv", test_args),
@@ -950,14 +1061,20 @@ def test_architecture_advisories_support_rule_selection_and_display_filters():
     assert metrics["advisories"][0]["rule_ids"] == ["SKY-Q803"]
     assert metrics["advisories"][0]["signals"] == [q803]
     assert selected["analysis_summary"]["architecture_advisory_count"] == 1
-    assert cli._apply_rule_selection(result, ["SKY-Q301"])[
-        "architecture_metrics"
-    ]["advisories"] == []
+    assert (
+        cli._apply_rule_selection(result, ["SKY-Q301"])["architecture_metrics"][
+            "advisories"
+        ]
+        == []
+    )
     high = cli._apply_display_filters(result, severity="high")
     assert high["architecture_metrics"]["advisories"][0]["signals"] == [q802]
-    assert cli._apply_display_filters(result, category="security")[
-        "architecture_metrics"
-    ]["advisories"] == []
+    assert (
+        cli._apply_display_filters(result, category="security")["architecture_metrics"][
+            "advisories"
+        ]
+        == []
+    )
     assert result["architecture_metrics"]["advisories"][0]["signals"] == [
         q802,
         q803,
@@ -1336,9 +1453,11 @@ def test_generate_llm_report_formats_findings_and_defaults_dead_code(tmp_path):
         "unused_files": [],
     }
 
-    report = cli._generate_llm_report(result, tmp_path)
+    report = cli._generate_llm_report(result, tmp_path, expand_advice=True)
 
-    assert report.startswith("# Skylos Report — 3 findings\n\n")
+    assert report.startswith(
+        "# Skylos Report\n\n0 defects · 2 review · 1 advice in 1 group."
+    )
     assert "## 1. SKY-D201 | HIGH | Security\n" in report
     assert "## 2. SKY-Q301 | MEDIUM | Quality\n" in report
     assert "## 3. SKY-DC001 | MEDIUM | Dead Code\n" in report
@@ -1426,7 +1545,7 @@ def test_render_results_includes_ai_defect_summary_and_table():
         str(call.args[0]) for call in console.print.call_args_list if call.args
     )
     assert "AI defects: 1" in printed
-    console.rule.assert_any_call("[bold magenta]AI Defects")
+    console.rule.assert_any_call("[bold]AI Code")
 
     tables = [
         call.args[0]
@@ -1434,17 +1553,17 @@ def test_render_results_includes_ai_defect_summary_and_table():
         if call.args and isinstance(call.args[0], Table)
     ]
     ai_table = next(
-        table
-        for table in tables
-        if any(col.header == "Defect" for col in table.columns)
+        table for table in tables if any(col.header == "Type" for col in table.columns)
     )
     columns = {column.header: list(column._cells) for column in ai_table.columns}
 
-    assert "SKY-L012" in columns["Defect"][0]
-    assert columns["Severity"] == ["Critical"]
+    assert "SKY-L012" in columns["Rule"][0]
+    assert columns["Type"] == ["Review"]
+    assert columns["Severity"] == ["CRITICAL"]
     assert "Call to a missing local helper" in columns["Message"][0]
     assert "security.require_auth" in columns["Message"][0]
-    assert columns["Location"] == ["/root/app/views.py:5"]
+    assert columns["Location"] == ["app/views.py:5"]
+    assert result["ai_defects"][0]["file"] == "/root/app/views.py"
 
 
 def test_render_results_includes_unused_files_in_summary_and_table():
@@ -1547,7 +1666,8 @@ def test_render_results_ai_defect_message_is_visible_at_narrow_terminal_width():
     )
 
     rendered = output.getvalue()
-    assert "AI Defects" in rendered
+    assert "AI Code" in rendered
+    assert "Review" in rendered
     assert "Call to a missing" in rendered
     assert "local helper" in rendered
     assert "security.require_" in rendered
@@ -1595,7 +1715,7 @@ def test_render_results_tree_mode_includes_ai_defects():
     )
 
 
-def test_render_results_unused_table_includes_confidence_column_and_formats():
+def test_render_results_unused_table_keeps_confidence_in_readable_message():
     console = Mock()
 
     result = {
@@ -1637,21 +1757,11 @@ def test_render_results_unused_table_includes_confidence_column_and_formats():
     for col in t.columns:
         headers.append(col.header)
 
-    assert "Conf" in headers, "Expected a confidence column in unused table"
-
-    conf_col = None
-    for col in t.columns:
-        if col.header == "Conf":
-            conf_col = col
-            break
-
-    assert conf_col is not None, "Conf column not found"
-
-    conf_cells = list(conf_col._cells)
-
-    assert conf_cells[0] == "[red]95%[/red]"
-    assert conf_cells[1] == "[yellow]80%[/yellow]"
-    assert conf_cells[2] == "[dim]50%[/dim]"
+    assert "Type" in headers and "Severity" in headers
+    columns = {column.header: list(column._cells) for column in t.columns}
+    assert columns["Type"] == ["Review", "Review", "Review"]
+    for message, confidence in zip(columns["Message"], (95, 80, 50)):
+        assert f"Confidence: {confidence}%" in message
 
 
 def test_render_results_unused_table_includes_compact_dead_code_reason():
@@ -1694,12 +1804,9 @@ def test_render_results_unused_table_includes_compact_dead_code_reason():
 
     table = tables[0]
     headers = [column.header for column in table.columns]
-    assert "Evidence" in headers
-
-    evidence_col = next(
-        column for column in table.columns if column.header == "Evidence"
-    )
-    assert list(evidence_col._cells) == ["uncertain · no refs · not exported"]
+    assert "Type" in headers and "Severity" in headers
+    message_col = next(column for column in table.columns if column.header == "Message")
+    assert "Evidence: uncertain · no refs · not exported" in list(message_col._cells)[0]
 
 
 def test_render_results_shows_grep_verify_summary():
@@ -1790,7 +1897,14 @@ def test_render_results_shows_analysis_errors_without_grade():
         for call in console.print.call_args_list
         if call.args and isinstance(call.args[0], Table)
     ]
-    assert any(table.title == "Analysis Errors" for table in tables)
+    console.rule.assert_any_call("[bold]Analysis Errors")
+    error_table = next(
+        table for table in tables if any(col.header == "Type" for col in table.columns)
+    )
+    columns = {column.header: list(column._cells) for column in error_table.columns}
+    assert columns["Type"] == ["Review"]
+    assert columns["Severity"] == ["HIGH"]
+    assert "invalid syntax" in columns["Message"][0]
     panels = [
         call.args[0]
         for call in console.print.call_args_list
@@ -1827,8 +1941,8 @@ def test_render_results_uses_dedicated_reliability_section():
     cli.render_results(console, result, tree=False, root_path="/root")
 
     rule_text = [str(call.args[0]) for call in console.rule.call_args_list if call.args]
-    assert any("Reliability Issues" in text for text in rule_text)
-    assert all("Security Issues" not in text for text in rule_text)
+    assert any("Reliability" in text for text in rule_text)
+    assert all("Security" not in text for text in rule_text)
 
 
 def test_render_results_tree_mode_groups_by_file_and_sorts_by_line():
@@ -2209,7 +2323,9 @@ def test_main_json_category_reliability_excludes_security_deployment_findings(
     assert output["analysis_summary"]["danger_count"] == 0
     assert output["analysis_summary"]["reliability_count"] == 1
     assert "by_directory" not in output["analysis_summary"]
-    assert "grade" not in output
+    assert output["grade"] == result["grade"]
+    assert output["analysis_summary"]["grade_scope"] == "all_analyzed_findings"
+    assert output["analysis_summary"]["grade_includes_filtered_findings"] is True
     assert "ai_security_stats" not in output
     assert "provenance_summary" not in output
 
@@ -2319,9 +2435,7 @@ def test_explicit_rich_upload_shows_analysis_stages(monkeypatch):
         "quality": [],
         "secrets": [],
     }
-    monkeypatch.setattr(
-        cli.sys, "argv", ["skylos", ".", "--upload", "--no-provenance"]
-    )
+    monkeypatch.setattr(cli.sys, "argv", ["skylos", ".", "--upload", "--no-provenance"])
     fake_logger = Mock()
     fake_logger.console = Mock()
 
@@ -2342,13 +2456,15 @@ def test_explicit_rich_upload_shows_analysis_stages(monkeypatch):
         cli.main()
 
     messages = [
-        call.args[0]
-        for call in fake_logger.console.print.call_args_list
-        if call.args
+        call.args[0] for call in fake_logger.console.print.call_args_list if call.args
     ]
-    start = next(i for i, message in enumerate(messages) if "Analyzing locally" in str(message))
+    start = next(
+        i for i, message in enumerate(messages) if "Analyzing locally" in str(message)
+    )
     complete = next(
-        i for i, message in enumerate(messages) if "Source analysis complete" in str(message)
+        i
+        for i, message in enumerate(messages)
+        if "Source analysis complete" in str(message)
     )
     assert start < complete
     upload.assert_called_once()
@@ -2372,9 +2488,7 @@ def test_upload_with_zero_credits_still_uploads(monkeypatch, in_ci, destination)
         "quality": [],
         "secrets": [],
     }
-    monkeypatch.setattr(
-        cli.sys, "argv", ["skylos", ".", "--upload", "--no-provenance"]
-    )
+    monkeypatch.setattr(cli.sys, "argv", ["skylos", ".", "--upload", "--no-provenance"])
     fake_logger = Mock()
     fake_logger.console = Mock()
 
@@ -2428,9 +2542,7 @@ def test_explicit_rich_upload_interrupted_during_analysis_reports_no_upload(
 
     assert exc.value.code == 130
     messages = [
-        call.args[0]
-        for call in fake_logger.console.print.call_args_list
-        if call.args
+        call.args[0] for call in fake_logger.console.print.call_args_list if call.args
     ]
     assert any("Analyzing locally" in str(message) for message in messages)
     assert any("no Cloud scan was created" in str(message) for message in messages)
@@ -2473,11 +2585,15 @@ def test_explicit_rich_upload_reports_incomplete_scan_before_exit(monkeypatch):
         if call.args
     ]
     assert any("Cloud upload was not started" in message for message in messages)
-    assert any("Dependency vulnerability scan incomplete" in message for message in messages)
+    assert any(
+        "Dependency vulnerability scan incomplete" in message for message in messages
+    )
     upload.assert_not_called()
 
 
-def test_main_json_upload_calls_upload_report_quiet(monkeypatch):
+def test_main_json_upload_calls_upload_report_quiet(
+    monkeypatch, tmp_path, disconnected_custom_rules
+):
     result = {
         "analysis_summary": {"total_files": 1},
         "unused_functions": [],
@@ -2499,9 +2615,18 @@ def test_main_json_upload_calls_upload_report_quiet(monkeypatch):
         patch("skylos.cli.setup_logger", return_value=fake_logger),
         patch("skylos.cli.Progress", return_value=_progress_ctx()),
         patch("skylos.cli.run_analyze", return_value=json.dumps(result)),
+        patch("skylos.api.get_git_root", return_value=str(tmp_path)),
+        patch(
+            "skylos.reporting.provenance.analyze_provenance",
+            return_value=ProvenanceReport(),
+        ),
         patch(
             "skylos.cli.upload_report",
-            return_value={"success": True, "quality_gate_passed": True},
+            return_value={
+                "success": True,
+                "scan_id": "fixture-scan",
+                "quality_gate_passed": True,
+            },
         ) as mock_upload,
         patch("builtins.print") as mock_print,
     ):
@@ -2513,6 +2638,15 @@ def test_main_json_upload_calls_upload_report_quiet(monkeypatch):
     assert upload_result["analysis_summary"] == {
         "total_files": 1,
         "project_root": "",
+        "custom_rules_coverage": {
+            "status": "not_connected", "rule_count": 0,
+        },
+        "finding_type_counts": {
+            "defect": 0,
+            "review": 0,
+            "advice": 0,
+            "advice_groups": 0,
+        },
     }
     assert upload_result["danger"] == []
     assert upload_result["quality"] == []
@@ -2527,11 +2661,20 @@ def test_main_json_upload_calls_upload_report_quiet(monkeypatch):
     }
     mock_print.assert_called_once()
     printed_payload = json.loads(mock_print.call_args.args[0])
-    assert printed_payload["analysis_summary"] == {"total_files": 1}
+    assert (
+        printed_payload["analysis_summary"]
+        == _with_finding_type_metadata(result)["analysis_summary"]
+    )
     assert printed_payload["danger"] == []
     assert printed_payload["quality"] == []
     assert printed_payload["secrets"] == []
     assert "provenance_summary" in printed_payload
+    assert printed_payload["upload"] == {
+        "status": "uploaded",
+        "scan_id": "fixture-scan",
+        "url": f"{BASE_URL.rstrip('/')}/dashboard/scans/fixture-scan",
+        "quality_gate": {"passed": True},
+    }
 
 
 def test_main_linked_repo_does_not_upload_without_upload_flag(monkeypatch):
@@ -2568,7 +2711,9 @@ def test_main_linked_repo_does_not_upload_without_upload_flag(monkeypatch):
     mock_upload.assert_not_called()
 
 
-def test_main_json_gate_failure_exits_nonzero(monkeypatch):
+def test_main_json_gate_failure_exits_nonzero(
+    monkeypatch, disconnected_custom_rules
+):
     result = {
         "analysis_summary": {"total_files": 1},
         "unused_functions": [],
@@ -2608,7 +2753,20 @@ def test_main_json_gate_failure_exits_nonzero(monkeypatch):
             cli.main()
 
     assert e.value.code == 1
-    mock_print.assert_called_once_with(json.dumps(result))
+    mock_print.assert_called_once()
+    printed = json.loads(mock_print.call_args.args[0])
+    gate = printed.pop("gate")
+    assert printed == _with_finding_type_metadata(result)
+    assert gate["verdict"] == "failed"
+    assert gate["exit_code"] == 1
+    assert gate["strict"] is True
+    assert gate["headline"] == "Quality Gate: FAILED"
+    assert gate["passed"] is False
+    assert gate["scope"] == "local_configured_policy"
+    assert gate["reasons"] == ["Strict mode: 1 issue found"]
+    assert gate["reason_details"][0]["details"] == [
+        "SKY-Q001  app.py:1  quality issue"
+    ]
 
 
 def test_main_concise_outputs_clickable_dead_code_and_exits_nonzero(monkeypatch):
@@ -3012,7 +3170,8 @@ def test_main_rich_output_writes_report_file(monkeypatch, tmp_path):
         cli.main()
 
     output = output_path.read_text(encoding="utf-8")
-    assert "Python Static Analysis Results" in output
+    assert "Static Analysis Results" in output
+    assert "0 defects · 1 review · 0 advice in 0 groups" in output
     assert "Unused Functions" in output
     assert "dead" in output
 
@@ -3057,7 +3216,9 @@ addopts = ["--output", "{victim}"]
     assert victim.read_text(encoding="utf-8") == "KEEP\n"
 
 
-def test_main_json_strict_failure_exits_nonzero(monkeypatch):
+def test_main_json_strict_failure_exits_nonzero(
+    monkeypatch, disconnected_custom_rules
+):
     result = {
         "analysis_summary": {"total_files": 1},
         "unused_functions": [{"name": "dead", "file": "app.py", "line": 1}],
@@ -3089,7 +3250,14 @@ def test_main_json_strict_failure_exits_nonzero(monkeypatch):
             cli.main()
 
     assert e.value.code == 1
-    mock_print.assert_called_once_with(json.dumps(result))
+    mock_print.assert_called_once()
+    printed = json.loads(mock_print.call_args.args[0])
+    gate = printed.pop("gate")
+    assert printed == _with_finding_type_metadata(result)
+    assert gate["verdict"] == "failed"
+    assert gate["exit_code"] == 1
+    assert gate["scope"] == "local_strict_policy"
+    assert gate["reasons"] == ["Strict mode: 1 issue found"]
 
 
 @pytest.mark.parametrize(
@@ -3205,16 +3373,26 @@ def test_main_circular_dependency_reporting_and_exit_codes(
     if output_format == "json":
         rendered = json.loads(output)
         assert rendered.get("circular_dependencies", []) == (
-            [cycle] if show_cycle else []
+            _with_finding_type_metadata({"circular_dependencies": [cycle]})[
+                "circular_dependencies"
+            ]
+            if show_cycle
+            else []
         )
     elif show_cycle:
+        # Human output ends with the --strict verdict, which lists the cycle
+        # again as the reason; the report itself shows it once.
+        report = output.split("Quality Gate:")[0]
+        if output_format in {"rich", "pretty"} and "--strict" in extra_args:
+            assert "Quality Gate: FAILED" in output
+            assert "Strict mode: 1 issue found" in output
         if output_format == "rich":
-            assert "Circular Dependencies" in output
-            assert "pkg.left → pkg.right → pkg.left" in output
+            assert "Circular Dependencies" in report
+            assert "pkg.left → pkg.right → pkg.left" in report
         else:
-            assert output.count("SKY-CIRC") == 1
-            assert "pkg/left.py:4" in output
-            assert cycle["message"] in output
+            assert report.count("SKY-CIRC") == 1
+            assert "pkg/left.py:4" in report
+            assert cycle["message"] in report
     else:
         assert "SKY-CIRC" not in output
         assert cycle["message"] not in output
@@ -3237,7 +3415,9 @@ def test_concise_circular_dependency_without_location_remains_visible():
     )
 
 
-def test_main_json_incomplete_analysis_exits_two_after_output(monkeypatch):
+def test_main_json_incomplete_analysis_exits_two_after_output(
+    monkeypatch, disconnected_custom_rules
+):
     result = {
         "analysis_summary": {
             "total_files": 1,
@@ -3281,7 +3461,9 @@ def test_main_json_incomplete_analysis_exits_two_after_output(monkeypatch):
             cli.main()
 
     assert exc.value.code == 2
-    mock_print.assert_called_once_with(json.dumps(result))
+    expected = _with_finding_type_metadata(result)
+    expected["upload"] = {"status": "skipped", "reason": "analysis_incomplete"}
+    mock_print.assert_called_once_with(json.dumps(expected))
     upload_report.assert_not_called()
 
 
@@ -3315,7 +3497,7 @@ def test_incomplete_language_summary_uses_operational_exit_code():
 )
 @pytest.mark.parametrize("gate_args", [[], ["--gate"]])
 def test_main_json_sca_operational_status_controls_exit_and_upload(
-    monkeypatch, receipt, expected_exit, gate_args
+    monkeypatch, receipt, expected_exit, gate_args, disconnected_custom_rules
 ):
     result = {
         "analysis_summary": {
@@ -3347,7 +3529,14 @@ def test_main_json_sca_operational_status_controls_exit_and_upload(
         patch("skylos.cli.Progress", return_value=_progress_ctx()),
         patch("skylos.cli.run_analyze", return_value=json.dumps(result)),
         patch("skylos.cli.load_config", return_value={}),
-        patch("skylos.cli.upload_report", return_value={"success": True}) as upload,
+        patch(
+            "skylos.cli.upload_report",
+            return_value={
+                "success": True,
+                "scan_id": "fixture-sca-scan",
+                "quality_gate_passed": True,
+            },
+        ) as upload,
         patch("builtins.print") as mock_print,
     ):
         try:
@@ -3356,7 +3545,26 @@ def test_main_json_sca_operational_status_controls_exit_and_upload(
             exit_code = exc.code
 
     assert exit_code == expected_exit
-    mock_print.assert_called_once_with(json.dumps(result))
+    expected = _with_finding_type_metadata(result)
+    expected["upload"] = (
+        {"status": "skipped", "reason": "analysis_incomplete"}
+        if expected_exit else {
+            "status": "uploaded",
+            "scan_id": "fixture-sca-scan",
+            "url": f"{BASE_URL.rstrip('/')}/dashboard/scans/fixture-sca-scan",
+            "quality_gate": {"passed": True},
+        }
+    )
+    mock_print.assert_called_once()
+    printed = json.loads(mock_print.call_args.args[0])
+    gate = printed.pop("gate", None)
+    assert printed == expected
+    if gate_args:
+        # --gate reports the same verdict it exits with (--force: exit 0 on fail).
+        assert gate["verdict"] == ("incomplete" if expected_exit else "passed")
+        assert gate["exit_code"] == expected_exit
+    else:
+        assert gate is None
     if expected_exit:
         upload.assert_not_called()
     else:
@@ -3490,7 +3698,12 @@ def test_main_llm_output_is_quiet_and_gate_failure_exits_nonzero(monkeypatch, ll
             cli.main()
 
     assert e.value.code == 1
-    assert mock_print.call_args.args[0].startswith("# Skylos Report")
+    report_call, verdict_call = mock_print.call_args_list
+    assert report_call.args[0].startswith("# Skylos Report")
+    # The verdict ends the run on stderr; the report on stdout stays clean.
+    assert verdict_call.kwargs["file"] is sys.stderr
+    assert verdict_call.args[0].startswith("Quality Gate: FAILED\n")
+    assert "Strict mode: 1 issue found" in verdict_call.args[0]
     assert observed["analyzer_level"] == logging.WARNING
     assert analyzer_logger.level == original_level
     fake_logger.console.print.assert_not_called()
@@ -3587,7 +3800,9 @@ def test_main_command_exec_success_exits_zero(monkeypatch):
     assert len(echo_calls) == 1
 
 
-def test_main_ignores_pyproject_addopts_deployment_command(tmp_path, monkeypatch):
+def test_main_ignores_pyproject_addopts_deployment_command(
+    tmp_path, monkeypatch, disconnected_custom_rules
+):
     (tmp_path / "pyproject.toml").write_text(
         """
 [tool.skylos]
@@ -3627,6 +3842,10 @@ addopts = [".", "--", "sh", "-c", "touch SHOULD_NOT_RUN"]
         ),
         patch("skylos.cli.subprocess.Popen") as popen,
         patch("skylos.api.get_project_token", return_value=None),
+        patch(
+            "skylos.core.review_decisions.review_scan_requirements",
+            return_value=(False, False),
+        ),
     ):
         cli.main()
 
@@ -4027,6 +4246,73 @@ class TestDiffFlag:
         assert "100% dead-code free" not in output
         assert "Clean codebase" not in output
 
+    @pytest.mark.parametrize(
+        ("argv", "git_stdout", "clean_line", "command"),
+        [
+            (
+                ["--diff", "origin/main"],
+                "diff --git a/src/app.py b/src/app.py\n--- a/src/app.py\n"
+                "+++ b/src/app.py\n@@ -0,0 +1,2 @@\n+x = 1\n+y = 2\n",
+                "No issues found on changed lines.",
+                "skylos done --base origin/main",
+            ),
+            (
+                ["--diff-base", "release/2.0"],
+                "src/app.py\n",
+                "No issues found in changed files.",
+                "skylos done --base release/2.0",
+            ),
+        ],
+    )
+    def test_diff_scan_points_to_skylos_done_with_the_users_ref(
+        self, monkeypatch, capsys, argv, git_stdout, clean_line, command
+    ):
+        from skylos.ui import nudge
+
+        monkeypatch.setattr(nudge, "_is_ci", lambda: False)
+        monkeypatch.setattr(cli.sys, "argv", ["skylos", ".", *argv])
+        result = {"analysis_summary": {"total_files": 1}}
+
+        with (
+            patch("skylos.cli.Progress", return_value=_progress_ctx()),
+            patch("skylos.cli.run_analyze", return_value=json.dumps(result)),
+            patch("skylos.cli.load_config", return_value={}),
+            patch("skylos.cicd.review.subprocess.run") as git_diff,
+            patch("skylos.cli.subprocess.run") as git_name_only,
+            patch("skylos.cli.render_results"),
+            patch("skylos.cli._is_tty", return_value=False),
+        ):
+            git_diff.side_effect = _fake_git(git_stdout)
+            git_name_only.side_effect = _fake_git(git_stdout)
+            cli.main()
+
+        output = " ".join(capsys.readouterr().out.split())
+        assert clean_line in output
+        assert (
+            "To check a branch an AI agent wrote (deleted tests, loosened CI, "
+            f"test-only shortcuts), run: {command}"
+        ) in output
+
+    def test_machine_readable_diff_scan_has_no_done_tip(self, monkeypatch, capsys):
+        from skylos.ui import nudge
+
+        monkeypatch.setattr(nudge, "_is_ci", lambda: False)
+        monkeypatch.setattr(
+            cli.sys, "argv", ["skylos", ".", "--diff", "origin/main", "--json"]
+        )
+        result = {"analysis_summary": {"total_files": 1}}
+
+        with (
+            patch("skylos.cli.Progress", return_value=_progress_ctx()),
+            patch("skylos.cli.run_analyze", return_value=json.dumps(result)),
+            patch("skylos.cli.load_config", return_value={}),
+            patch("skylos.cicd.review.subprocess.run") as git_diff,
+        ):
+            git_diff.side_effect = _fake_git()
+            cli.main()
+
+        assert "skylos done" not in capsys.readouterr().out
+
     def test_diff_without_changed_lines_reports_retained_prerequisite(
         self, monkeypatch, capsys
     ):
@@ -4299,6 +4585,9 @@ class TestDiffFlag:
 
     def test_diff_keeps_selected_gpu_contract_prerequisite(self, monkeypatch):
         monkeypatch.setattr(
+            "skylos.cicd.policy.resolve_policy_base", lambda _path, _ref: "a" * 40
+        )
+        monkeypatch.setattr(
             cli.sys,
             "argv",
             [
@@ -4362,6 +4651,9 @@ class TestDiffFlag:
         assert [item["rule_id"] for item in output["reliability"]] == ["SKY-GPU000"]
 
     def test_diff_base_keeps_selected_gpu_contract_prerequisite(self, monkeypatch):
+        monkeypatch.setattr(
+            "skylos.cicd.policy.resolve_policy_base", lambda _path, _ref: "a" * 40
+        )
         monkeypatch.setattr(
             cli.sys,
             "argv",

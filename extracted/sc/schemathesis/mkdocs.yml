@@ -15,9 +15,11 @@ nav:
       - Triaging Failures: guides/triage.md
       - Replaying Failures: guides/crash-reproduction.md
       - guides/auth.md
+      - Object-Level Authorization: guides/object-level-authorization.md
       - guides/schema-conformance.md
       - guides/cicd.md
       - Baseline: guides/baseline.md
+      - HTML Report: guides/html-report.md
       - Allure Integration: guides/allure.md
       - Docker: guides/docker.md
       - guides/coverage.md
@@ -130,4 +132,4 @@ plugins:
           show_source: false
 - search
 
-copyright: Copyright &copy; 2020-2025 Dmitry Dygalo & Schemathesis.io
+copyright: Copyright &copy; 2020-2026 Dmitry Dygalo & Schemathesis.io

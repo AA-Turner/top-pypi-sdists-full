@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import re
 
+from .artifact_kinds import DEFAULT_ARTIFACT_KIND, ArtifactKind, normalize_artifact_kind
+
 #: What counts as an extension on a leaf name: alphanumeric, at most 12 characters
 #: (``safetensors`` is 11, ``dockerignore`` 12 -- the longest that occur), and it
 #: must contain a LETTER. That last rule is what keeps ``atomworks-study-v0.3`` from
@@ -58,19 +60,43 @@ def name_with_extension(name: str, path: str | None) -> str:
     return f"{name}{separator}{extension}"
 
 
-#: Extensions whose file is a picture of a result, so the SDK and `probe
-#: artifact add` file it as a ``plot`` when the caller names no kind. Lower-case,
-#: without the dot. PDF is deliberately absent: a paper or a report is a PDF far
-#: more often than a figure is, and calling it a plot would mislabel them all.
-PLOT_EXTENSIONS = frozenset({"png", "jpg", "jpeg", "svg", "gif", "webp"})
+#: Extensions whose file is saved model or training state, filed as a
+#: ``checkpoint`` when the caller names no kind -- the kind the failed-run alert
+#: ("resume from") and the disk-space finding look for. ``bin``, ``gguf`` and
+#: ``onnx`` are absent: ``bin`` is any binary, the other two are exported models.
+CHECKPOINT_EXTENSIONS = frozenset({"ckpt", "safetensors", "pt", "pth"})
 
 
-def artifact_kind_for(name: str, path: str | None = None) -> str:
-    """The artifact kind a file's extension implies: ``plot`` or ``file``.
+def artifact_kind_for(name: str, path: str | None = None, *, checkpoints: bool = True) -> str:
+    """The artifact kind a file's extension implies: ``checkpoint`` or ``other``.
 
     Only for a caller that passed no kind; an explicit kind always wins. The
     name is read first (it carries the path's extension by the time the SDK
-    asks, see ``name_with_extension``), then the path.
+    asks, see ``name_with_extension``), then the path. An image is ``other``
+    like any other file: a figure is not a kind (``artifact_kinds``), and what
+    a picture shows belongs in its notes.
+
+    ``checkpoints=False`` is output capture's: the files a run left in its folder
+    include every file of a saved checkpoint folder (``scheduler.pt``,
+    ``rng_state.pth``), and each of those filed as a ``checkpoint`` would become
+    "the last checkpoint" the alert names and the disk finding sizes against.
     """
-    extension = file_extension(name) or (file_extension(path.replace("\\", "/")) if path else "")
-    return "plot" if extension.lower() in PLOT_EXTENSIONS else "file"
+    extension = (file_extension(name) or (file_extension(path.replace("\\", "/")) if path else "")).lower()
+    if checkpoints and extension in CHECKPOINT_EXTENSIONS:
+        return ArtifactKind.CHECKPOINT.value
+    return DEFAULT_ARTIFACT_KIND.value
+
+
+def kind_to_send(kind: str | None) -> str | None:
+    """``kind`` as an upload's presign carries it: NO kind for the default one.
+
+    The server reads a presign without a kind as "the default on a fresh row,
+    whatever the row already holds on a restage", so re-uploading a name without
+    choosing a kind never clobbers the one an earlier write chose. The default
+    is spelled ``other`` now and was ``file`` before (still what the checkpoint
+    and Harbor writers pass), so both travel as None; any other word, a label
+    included, travels as itself.
+    """
+    if kind is None or normalize_artifact_kind(kind) == (DEFAULT_ARTIFACT_KIND, None):
+        return None
+    return kind

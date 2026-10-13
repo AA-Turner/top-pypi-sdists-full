@@ -193,6 +193,92 @@ def test_set_dihedral_round_trip():
     assert abs(abs(d) - 180.0) < 1.0
 
 
+def test_set_bond_length_matches_rdkit_fragment_motion():
+    """SetBondLength keeps atom i fixed and translates the j-side fragment."""
+    butane = chematic.from_smiles("CCCC")
+    coords = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0],
+              [2.0, 1.0, 0.0], [3.0, 1.0, 1.0]]
+    changed = butane.set_bond_length(coords, 0, 1, 2.0)
+    expected = [
+        [0.0, 0.0, 0.0],
+        [2.0, 0.0, 0.0],
+        [3.0, 1.0, 0.0],
+        [4.0, 1.0, 1.0],
+    ]
+    for actual_row, expected_row in zip(changed, expected):
+        assert actual_row == pytest.approx(expected_row)
+    assert butane.get_bond_length(changed, 0, 1) == pytest.approx(2.0)
+
+
+def test_set_bond_angle_matches_rdkit_fragment_motion():
+    """SetAngleDeg keeps i/j fixed and rotates the k-side fragment."""
+    butane = chematic.from_smiles("CCCC")
+    coords = [[1.0, 0.0, 0.0], [0.0, 0.0, 0.0],
+              [0.0, 1.0, 0.0], [0.0, 2.0, 0.0]]
+    changed = butane.set_bond_angle(coords, 0, 1, 2, 60.0)
+    expected = [
+        [1.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0],
+        [0.5, 0.866025403784, 0.0],
+        [1.0, 1.732050807569, 0.0],
+    ]
+    for actual_row, expected_row in zip(changed, expected):
+        assert actual_row == pytest.approx(expected_row)
+    assert butane.get_bond_angle(changed, 0, 1, 2) == pytest.approx(60.0)
+
+
+def test_canonicalize_conformer_matches_rdkit_principal_axis_contract():
+    mol = chematic.from_smiles("CCO")
+    coords = [[1.0, 2.0, 3.0], [3.0, 2.0, 3.0], [3.0, 4.0, 5.0]]
+    matrix = mol.compute_canonical_transform(coords)
+    canonical = mol.canonicalize_conformer(coords)
+
+    assert len(matrix) == 4
+    assert all(len(row) == 4 for row in matrix)
+    assert matrix[3] == pytest.approx([0.0, 0.0, 0.0, 1.0])
+    for axis in range(3):
+        norm = sum(matrix[axis][component] ** 2 for component in range(3))
+        assert norm == pytest.approx(1.0)
+    centroid = [sum(row[axis] for row in canonical) / 3.0 for axis in range(3)]
+    assert centroid == pytest.approx([0.0, 0.0, 0.0], abs=1e-12)
+
+    transformed = []
+    for point in coords:
+        transformed.append([
+            sum(matrix[row][col] * point[col] for col in range(3)) + matrix[row][3]
+            for row in range(3)
+        ])
+    for actual, expected in zip(canonical, transformed):
+        assert actual == pytest.approx(expected, abs=1e-12)
+
+
+def test_canonicalize_conformer_validates_center():
+    mol = chematic.from_smiles("C")
+    with pytest.raises(ValueError, match="center must be finite"):
+        mol.canonicalize_conformer(
+            [[1.0, 2.0, 3.0]], center=(float("nan"), 0.0, 0.0)
+        )
+
+
+def test_conformer_setters_reject_rdkit_invalid_topologies():
+    ring = chematic.from_smiles("C1CCCCC1")
+    coords = ring.generate_3d()
+    with pytest.raises(ValueError, match="must not belong to a ring"):
+        ring.set_bond_length(coords, 0, 1, 2.0)
+    with pytest.raises(ValueError, match="both bonds"):
+        ring.set_bond_angle(coords, 0, 1, 2, 90.0)
+    with pytest.raises(ValueError, match="must not belong to a ring"):
+        ring.set_dihedral(coords, 0, 1, 2, 3, 60.0)
+
+
+def test_conformer_tools_reject_bad_coordinate_shape_and_indices():
+    mol = chematic.from_smiles("CC")
+    with pytest.raises(ValueError, match="expected 2 coordinates"):
+        mol.get_bond_length([[0.0, 0.0, 0.0]], 0, 1)
+    with pytest.raises(ValueError, match="atom index 2 is out of range"):
+        mol.get_bond_length([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]], 0, 2)
+
+
 def test_generate_3d_etkdg_atom_count():
     """ETKDG should produce one coord per heavy atom."""
     m = chematic.from_smiles("c1ccccc1")

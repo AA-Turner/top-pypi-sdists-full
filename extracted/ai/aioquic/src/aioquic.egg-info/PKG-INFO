@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aioquic
-Version: 1.5.0
+Version: 1.6.1
 Summary: An implementation of QUIC and HTTP/3
 Author-email: Jeremy Lainé <jeremy.laine@m4x.org>
 License-Expression: BSD-3-Clause

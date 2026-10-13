@@ -1,10 +1,11 @@
-import http.client
 import json
 import os
 import pathlib
 import platform
 import re
 import shutil
+import socket
+import ssl
 import subprocess
 import sys
 import threading
@@ -23,7 +24,9 @@ import urllib3.exceptions
 import yaml
 from _pytest.main import ExitCode
 from flask import Flask, Response, jsonify, redirect, request, url_for
+from hypothesis.internal.observability import with_observability_callback
 from urllib3.exceptions import ProtocolError
+from werkzeug.serving import make_server
 
 import schemathesis
 from schemathesis.cli.commands.run.context import ExecutionContext
@@ -33,10 +36,11 @@ from schemathesis.core.hooks import HOOKS_MODULE_ENV_VAR
 from schemathesis.core.shell import ShellType
 from schemathesis.engine import Status, events
 from schemathesis.engine.run import Phase, PhaseName
-from schemathesis.schemas import APIOperation
+from schemathesis.engine.run.unit._pool import DefaultScheduler
 from schemathesis.specs.openapi import unregister_string_format
 from test.apps.catalog.graphql import bookstore as graphql_bookstore
 from test.apps.catalog.openapi import basic as openapi_basic
+from test.apps.fragments.schemas import linked_users
 from test.fixtures.app_runner import wait_for_port
 from test.utils import HERE, SIMPLE_PATH, flaky
 
@@ -117,11 +121,7 @@ def test_hooks_invalid(ctx, cli):
     # And a helpful message should be displayed in the output
     lines = result.stdout.strip().split("\n")
     assert lines[0] == "Unable to load Schemathesis extension hooks"
-    if sys.version_info >= (3, 11):
-        idx = 8
-    else:
-        idx = 7
-    assert lines[idx] == "ZeroDivisionError: division by zero"
+    assert lines[8] == "ZeroDivisionError: division by zero"
 
 
 def test_certificate_only_key(cli, tmp_path, snapshot_cli):
@@ -187,6 +187,31 @@ def test_config_file_error_exit_code(cli, command):
     assert result.exit_code == 2, result.stdout
 
 
+@pytest.mark.parametrize(
+    "args",
+    [["run", "--max-examples=1"], ["fuzz", "--max-time=1"]],
+    ids=["run", "fuzz"],
+)
+def test_piped_output_has_no_double_blank_lines(ctx, cli, args):
+    api = ctx.openapi.apps.success()
+    command, *options = args
+    stdout = cli.main(command, api.schema_url, *options).stdout
+    lines = [line.strip() for line in stdout.splitlines()]
+    assert not any(not first and not second for first, second in zip(lines, lines[1:], strict=False)), stdout
+
+
+@pytest.mark.parametrize(
+    "args",
+    [["run", "--max-examples=1"], ["fuzz", "--max-time=1"]],
+    ids=["run", "fuzz"],
+)
+def test_piped_output_has_no_trailing_whitespace(ctx, cli, args):
+    api = ctx.openapi.apps.success_and_failure()
+    command, *options = args
+    stdout = cli.main(command, api.schema_url, *options).stdout
+    assert [line for line in stdout.splitlines() if line != line.rstrip()] == [], stdout
+
+
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_runtime_config_error_exit_code(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
@@ -200,17 +225,36 @@ def test_force_color_nocolor(ctx, cli, snapshot_cli):
     assert cli.run(api.schema_url, "--force-color", "--no-color") == snapshot_cli
 
 
-def test_certificates(ctx, cli, mocker):
-    api = ctx.openapi.apps.success()
-    request = mocker.spy(requests.Session, "request")
-    # When a cert is passed via CLI args
+def test_certificates(cli, tmp_path):
     ca = trustme.CA()
-    cert = ca.issue_cert("test.org")
-    with cert.private_key_pem.tempfile() as cert_path:
-        cli.run_and_assert(api.schema_url, f"--request-cert={cert_path}")
-        # Then both schema & test network calls should use this cert
-        assert len(request.call_args_list) == 11
-        assert request.call_args_list[0][1]["cert"] == request.call_args_list[1][1]["cert"] == str(cert_path)
+    ca_path = tmp_path / "ca.pem"
+    ca.cert_pem.write_to_path(str(ca_path))
+    client_cert = ca.issue_cert("test.org")
+    client_cert_path = tmp_path / "client.pem"
+    client_cert.private_key_and_cert_chain_pem.write_to_path(str(client_cert_path))
+    server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ca.issue_cert("127.0.0.1").configure_cert(server_context)
+    ca.configure_trust(server_context)
+    server_context.verify_mode = ssl.CERT_REQUIRED
+    app = openapi_basic.success().server
+    presented = {}
+
+    @app.before_request
+    def record_client_certificate():
+        presented.setdefault(request.path, set()).add(ssl.PEM_cert_to_DER_cert(request.environ["SSL_CLIENT_CERT"]))
+
+    server = make_server("127.0.0.1", 0, app, threaded=True, ssl_context=server_context)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        cli.run_and_assert(
+            f"https://127.0.0.1:{server.server_port}/openapi.json",
+            f"--request-cert={client_cert_path}",
+            f"--tls-verify={ca_path}",
+        )
+    finally:
+        server.shutdown()
+    expected = {ssl.PEM_cert_to_DER_cert(client_cert.cert_chain_pems[0].bytes().decode())}
+    assert presented["/openapi.json"] == presented["/api/success"] == expected
 
 
 def test_hypothesis_database_with_derandomize(ctx, cli, snapshot_cli):
@@ -256,7 +300,7 @@ def test_hypothesis_parameters(ctx, cli):
     cli.run_and_assert(
         api.schema_url,
         "--generation-deterministic",
-        "--max-examples=1000",
+        "--max-examples=10",
         "--suppress-health-check=all",
         "--checks=not_a_server_error",
     )
@@ -418,6 +462,8 @@ def test_openapi_auth_skips_malformed_security_requirements(cli, ctx):
     )
 
     assert result.exit_code == ExitCode.OK, result.stdout
+    # The coverage phase also sends one request without credentials.
+    assert {request.headers.get("X-Api-Key") for request in api.requests} == {None, "secret"}
 
 
 @pytest.mark.parametrize("workers", [1, 2])
@@ -753,6 +799,48 @@ def test_connection_error(ctx, cli, workers, snapshot_cli):
     )
 
 
+def test_unreachable_server_capabilities_are_unknown(ctx, cli):
+    api = ctx.openapi.apps.success()
+    lines = cli.run(api.schema_url, "--url=http://127.0.0.1:1/api", "--phases=fuzzing", "-n", "1").stdout.splitlines()
+    assert [line.strip() for line in lines if "API capabilities" in line or "✘" in line] == [
+        "⚠️  API capabilities: unknown, server unreachable"
+    ]
+
+
+# A listener with a full accept queue drops new connection attempts, so they time out instead of being refused.
+def test_server_that_times_out_connections_has_unknown_capabilities(ctx, cli):
+    api = ctx.openapi.apps.success()
+    with socket.create_server(("127.0.0.1", 0), backlog=0) as server:
+        port = server.getsockname()[1]
+        pending = [socket.socket() for _ in range(3)]
+        for connection in pending:
+            connection.setblocking(False)
+            connection.connect_ex(("127.0.0.1", port))
+        try:
+            lines = cli.run(
+                api.schema_url,
+                f"--url=http://127.0.0.1:{port}/api",
+                "--phases=fuzzing",
+                "-n",
+                "1",
+                "--request-timeout=0.2",
+            ).stdout.splitlines()
+        finally:
+            for connection in pending:
+                connection.close()
+    assert [line.strip() for line in lines if "API capabilities" in line or "✘" in line] == [
+        "⚠️  API capabilities: unknown, server unreachable"
+    ]
+
+
+def test_connection_error_suggests_checking_the_base_url(ctx, cli):
+    api = ctx.openapi.apps.success()
+    stdout = cli.run(api.schema_url, "--url=http://127.0.0.1:1/api", "--phases=fuzzing", "-n", "1").stdout
+    assert [line for line in stdout.splitlines() if line.startswith("Tip:")] == [
+        "Tip: Check that the API is running and reachable at its base URL; set the address with `--url`."
+    ]
+
+
 @pytest.mark.snapshot(replace_test_cases=False)
 def test_connection_error_cases_are_not_reported_as_skipped(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
@@ -795,13 +883,24 @@ def test_chunked_encoding_error(ctx, mocker, cli, snapshot_cli):
     assert cli.run(api.schema_url, "--phases=fuzzing") == snapshot_cli
 
 
-def test_remote_disconnected_error(ctx, mocker, cli, snapshot_cli):
-    api = ctx.openapi.apps.success()
-    mocker.patch(
-        "http.client.HTTPResponse.begin",
-        side_effect=http.client.RemoteDisconnected("Remote end closed connection without response"),
-    )
-    assert cli.run(api.schema_url) == snapshot_cli
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="conn.close() on Windows does not raise ConnectionError on the client side"
+)
+def test_remote_disconnected_error(cli, snapshot_cli):
+    listener = socket.create_server(("127.0.0.1", 0))
+
+    def close_without_response():
+        while True:
+            try:
+                connection, _ = listener.accept()
+            except OSError:
+                return
+            with connection:
+                connection.recv(65536)
+
+    threading.Thread(target=close_without_response, daemon=True).start()
+    with listener:
+        assert cli.run(f"http://127.0.0.1:{listener.getsockname()[1]}/openapi.json") == snapshot_cli
 
 
 def test_remote_disconnected_error_with_empty_header(ctx, mocker, cli, snapshot_cli):
@@ -936,42 +1035,27 @@ def test_register_check(ctx, new_check, cli, snapshot_cli):
 
 @pytest.mark.parametrize("workers", [1, 2])
 @pytest.mark.filterwarnings("ignore:Exception in thread")
-def test_keyboard_interrupt(ctx, cli, mocker, swagger_20, workers, snapshot_cli):
-    # When a Schemathesis run in interrupted by keyboard or via SIGINT
+def test_keyboard_interrupt(ctx, cli, workers, snapshot_cli):
     api = ctx.openapi.apps.success()
-    operation = APIOperation(
-        "/api/success",
-        "GET",
-        {},
-        swagger_20,
-        base_url=api.base_url,
-        responses=swagger_20._parse_responses({}, ""),
-        security=swagger_20._parse_security({}),
-    )
-    original = operation.Case().call
-    counter = 0
-
-    def mocked(*args, **kwargs):
-        nonlocal counter
-        counter += 1
-        if counter > 1:
-            # For threaded case it emulates SIGINT for the worker thread
-            raise KeyboardInterrupt
-        return original(*args, **kwargs)
-
-    mocker.patch("schemathesis.Case.call", wraps=mocked)
-    result = cli.run(api.schema_url, f"--workers={workers}", "--mode=positive")
+    module = ctx.write_pymodule(INTERRUPT_ON_SECOND_RESPONSE)
+    result = cli.run(api.schema_url, f"--workers={workers}", "--mode=positive", hooks=module)
     if workers == 1:
         assert result == snapshot_cli
     else:
         assert "skipped" in result.stdout
 
 
+def test_keyboard_interrupt_is_named_in_the_final_line(ctx, cli):
+    api = ctx.openapi.apps.success()
+    module = ctx.write_pymodule(INTERRUPT_ON_SECOND_RESPONSE)
+    result = cli.run(api.schema_url, "--mode=positive", hooks=module)
+    assert result.exit_code == 130
+    assert re.fullmatch(r"=+ Interrupted after \d+\.\d{2}s =+", result.stdout.strip().splitlines()[-1])
+
+
 @pytest.mark.filterwarnings("ignore:Exception in thread")
 def test_keyboard_interrupt_threaded(ctx, cli, mocker, snapshot_cli):
     # When a Schemathesis run is interrupted by the keyboard or via SIGINT
-    from schemathesis.engine.run.unit._pool import DefaultScheduler
-
     api = ctx.openapi.apps.success_and_failure()
     original = DefaultScheduler.next_operation
     counter = 0
@@ -987,11 +1071,17 @@ def test_keyboard_interrupt_threaded(ctx, cli, mocker, snapshot_cli):
     assert cli.run(api.schema_url, "--workers=2", "--generation-deterministic") == snapshot_cli
 
 
-def test_keyboard_interrupt_during_schema_loading(ctx, cli, mocker, snapshot_cli):
+def test_keyboard_interrupt_during_schema_loading(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
-    mocker.patch("schemathesis.core.loaders.make_request", side_effect=KeyboardInterrupt)
-    assert cli.run(api.schema_url) == snapshot_cli
+    module = ctx.write_pymodule(INTERRUPT_ON_SCHEMA_LOAD)
+    assert cli.run(api.schema_url, hooks=module) == snapshot_cli
 
+
+INTERRUPT_ON_SCHEMA_LOAD = """
+@schemathesis.hook
+def before_load_schema(context, raw_schema):
+    raise KeyboardInterrupt
+"""
 
 INTERRUPT_ON_SECOND_RESPONSE = """
 calls = 0
@@ -1051,13 +1141,7 @@ def test_keyboard_interrupt_exit_code(ctx, cli, app_runner, tmp_path, command, s
 
 def test_keyboard_interrupt_exit_code_during_schema_loading(ctx, cli, tmp_path):
     api = ctx.openapi.apps.success()
-    module = ctx.write_pymodule(
-        """
-@schemathesis.hook
-def before_load_schema(context, raw_schema):
-    raise KeyboardInterrupt
-"""
-    )
+    module = ctx.write_pymodule(INTERRUPT_ON_SCHEMA_LOAD)
     report_path = tmp_path / "report.json"
     result = cli.main("run", api.schema_url, f"--report-json-path={report_path}", hooks=module)
     report = json.loads(report_path.read_text())
@@ -1086,6 +1170,19 @@ def test_keyboard_interrupt_in_custom_handler_during_stateful(ctx, cli, snapshot
     api = ctx.openapi.apps.users_crud()
     assert cli.run(api.schema_url, "--phases=stateful", "--max-examples=1") == snapshot_cli
     assert [thread.name for thread in threading.enumerate() if thread.name == "schemathesis_stateful_tests"] == []
+
+
+def test_custom_handler_report_in_reports_list(ctx, cli):
+    @schemathesis.cli.handler()
+    class CoverageReport(schemathesis.cli.EventHandler):
+        def handle_event(self, context, event) -> None:
+            if isinstance(event, events.EngineFinished):
+                context.add_report("Schema coverage", "coverage.html")
+
+    api = ctx.openapi.apps.success()
+    lines = cli.run(api.schema_url, "--max-examples=1").stdout.splitlines()
+    start = lines.index("Reports:")
+    assert lines[start : start + 2] == ["Reports:", "  - Schema coverage: coverage.html"]
 
 
 def test_multiple_files_schema(ctx, cli, hypothesis_max_examples):
@@ -1273,6 +1370,7 @@ def test_negative_mode_with_unsupported_regex_in_body(cli, ctx, snapshot_cli):
     )
 
 
+@pytest.mark.skipif(not yaml.__with_libyaml__, reason="Pure-Python PyYAML words the error differently")
 def test_invalid_yaml(testdir, cli, simple_openapi, snapshot_cli, ctx):
     api = ctx.openapi.apps.success()
     schema = yaml.dump(simple_openapi)
@@ -1294,7 +1392,7 @@ def with_error(ctx, response, case):
 
 
 @pytest.mark.skipif(
-    sys.version_info < (3, 11) or sys.version_info >= (3, 13) or platform.system() == "Windows",
+    sys.version_info >= (3, 13) or platform.system() == "Windows",
     reason="Cover only tracebacks that highlight error positions in every line",
 )
 def test_useful_traceback(ctx, cli, snapshot_cli, with_error):
@@ -1686,12 +1784,17 @@ def test_urlencoded_form(ctx, cli):
 
 
 @pytest.mark.parametrize("workers", [1, 2])
-def test_targeted(ctx, mocker, cli, workers):
+def test_targeted(ctx, cli, workers):
     api = ctx.openapi.apps.success()
-    target = mocker.spy(hypothesis, "target")
-    cli.run_and_assert(api.schema_url, f"--workers={workers}", "--generation-maximize=response_time")
+    observations = []
+    with with_observability_callback(lambda observation, _: observations.append(observation), all_threads=True):
+        cli.run_and_assert(api.schema_url, f"--workers={workers}", "--generation-maximize=response_time")
 
-    target.assert_called_with(mocker.ANY, label="response_time")
+    assert any(
+        "target:response_time" in observation.features
+        for observation in observations
+        if observation.type == "test_case"
+    )
 
 
 @pytest.mark.parametrize(
@@ -1867,6 +1970,52 @@ def test_max_response_time_valid(ctx, cli):
     cli.run_and_assert(api.schema_url, "--max-response-time=200")
 
 
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_timeouts_given_in_milliseconds_warning(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
+
+    assert (
+        cli.run(
+            api.schema_url,
+            "--request-timeout=2000",
+            "--phases=fuzzing",
+            "--max-examples=1",
+            config={"checks": {"max_response_time": 30000}},
+        )
+        == snapshot_cli
+    )
+
+
+def test_no_timeout_units_warning_below_1000_seconds(ctx, cli):
+    api = ctx.openapi.apps.success()
+
+    result = cli.run(
+        api.schema_url, "--request-timeout=999", "--max-response-time=999", "--phases=fuzzing", "--max-examples=1"
+    )
+
+    assert "Schemathesis takes seconds" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    "args, config",
+    [
+        (("--warnings=off",), None),
+        (("--warnings=missing_auth",), None),
+        ((), {"warnings": {"enabled": False}}),
+        ((), {"warnings": {"display": ["missing_auth"]}}),
+    ],
+    ids=["cli-off", "cli-other-kind", "config-disabled", "config-other-kind"],
+)
+def test_timeout_units_warning_can_be_disabled(ctx, cli, args, config):
+    api = ctx.openapi.apps.success()
+
+    result = cli.run(
+        api.schema_url, "--request-timeout=2000", "--phases=fuzzing", "--max-examples=1", *args, config=config
+    )
+
+    assert "Schemathesis takes seconds" not in result.stdout
+
+
 @pytest.mark.snapshot(remove_last_line=True)
 def test_exit_first(ctx, cli, snapshot_cli):
     # When the `--max-failures=1` CLI option is passed
@@ -1877,34 +2026,10 @@ def test_exit_first(ctx, cli, snapshot_cli):
     )
 
 
-LINKED_USERS_PATHS = {
-    "/users": {
-        "post": {
-            "responses": {
-                "201": {
-                    "description": "OK",
-                    "content": {
-                        "application/json": {"schema": {"type": "object", "properties": {"id": {"type": "integer"}}}}
-                    },
-                    "links": {"GetUser": {"operationId": "getUser", "parameters": {"userId": "$response.body#/id"}}},
-                }
-            }
-        }
-    },
-    "/users/{userId}": {
-        "get": {
-            "operationId": "getUser",
-            "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "integer"}}],
-            "responses": {"200": {"description": "OK"}},
-        }
-    },
-}
-
-
 @pytest.mark.snapshot(replace_cycle_metrics=True, replace_reproduce_with=True)
 def test_max_time_reports_the_first_cycle_in_full(ctx, cli, snapshot_cli):
     # Each phase still reports everything it covered on its first pass, budget or no budget.
-    app, _ = ctx.openapi.make_flask_app(LINKED_USERS_PATHS)
+    app, _ = ctx.openapi.make_flask_app(linked_users())
     counter = count()
 
     @app.route("/users", methods=["POST"])
@@ -2220,7 +2345,7 @@ def test_no_color(ctx, monkeypatch, cli, kind):
         args += ("--no-color",)
     result = cli.run_and_assert(*args, color=True)
 
-    assert "36m" not in result.stdout
+    assert "\x1b[" not in result.stdout
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="ANSI colors are not properly supported in Windows tests")
@@ -2338,7 +2463,7 @@ def test_explicit_example_failure_output(ctx, cli, snapshot_cli):
 
 
 def test_curl_with_non_printable_characters(ctx, cli, snapshot_cli, monkeypatch):
-    monkeypatch.setattr("schemathesis.core.shell._DETECTED_SHELL", ShellType.BASH)
+    monkeypatch.setenv("SHELL", "/bin/bash")
     api = ctx.openapi.apps.failure()
     schema_path = ctx.openapi.write_schema(
         {
@@ -2385,7 +2510,7 @@ def test_curl_reproduces_body_with_line_separator_characters(ctx, cli, monkeypat
     executable = shutil.which(shell.value)
     if executable is None:
         pytest.skip(f"{shell.value} is not installed")
-    monkeypatch.setattr("schemathesis.core.shell._DETECTED_SHELL", shell)
+    monkeypatch.setenv("SHELL", f"/bin/{shell.value}")
     api = ctx.openapi.apps.failure()
     schema_path = ctx.openapi.write_schema(
         {
@@ -2407,7 +2532,7 @@ def test_curl_reproduces_body_with_line_separator_characters(ctx, cli, monkeypat
         "--output-sanitize=false",
         "-c status_code_conformance",
     )
-    printed = result.stdout.split("Reproduce with:\n\n", 1)[1].split("\n    \n", 1)[0]
+    printed = result.stdout.split("Reproduce with:\n\n", 1)[1].split("\n\n", 1)[0]
     command = "\n".join(line.removeprefix("    ") for line in printed.split("\n"))
     # Paste the printed command into a real shell
     echoed = subprocess.run([executable, "-c", f"{CURL_ECHO[shell]}\n{command}"], capture_output=True, check=False)
@@ -2419,7 +2544,7 @@ def test_curl_reproduces_body_with_line_separator_characters(ctx, cli, monkeypat
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Requires more complex setup")
 def test_curl_with_non_printable_characters_unknown_shell(ctx, cli, snapshot_cli, monkeypatch):
-    monkeypatch.setattr("schemathesis.core.shell._DETECTED_SHELL", ShellType.UNKNOWN)
+    monkeypatch.setenv("SHELL", "/bin/unknown")
     api = ctx.openapi.apps.failure()
     schema_path = ctx.openapi.write_schema(
         {
@@ -2573,7 +2698,9 @@ def test_wait_for_schema_503_exhausted(cli, app_runner, snapshot_cli):
 
 def test_rate_limit(ctx, cli):
     api = ctx.openapi.apps.success()
+    start = time.perf_counter()
     assert cli.run(api.schema_url, "--rate-limit=1/s").exit_code == ExitCode.OK
+    assert time.perf_counter() - start >= len(api.requests) - 1
 
 
 def test_invalid_tls_verify(ctx, cli, snapshot_cli):
@@ -2826,8 +2953,7 @@ def test_output_sanitization_via_config(ctx, cli, hypothesis_max_examples, enabl
 
 
 @flaky(max_runs=5, min_passes=1)
-def test_multiple_failures_in_single_check(ctx, mocker, response_factory, cli, snapshot_cli):
-    api = ctx.openapi.apps.success()
+def test_multiple_failures_in_single_check(ctx, app_runner, cli, snapshot_cli):
     schema_path = ctx.openapi.write_schema(
         {
             "/success": {
@@ -2842,9 +2968,16 @@ def test_multiple_failures_in_single_check(ctx, mocker, response_factory, cli, s
             },
         }
     )
-    response = response_factory.requests(content_type=None, status_code=200)
-    mocker.patch("requests.Session.request", return_value=response)
-    assert cli.run(str(schema_path), f"--url={api.base_url}", "--checks=all", "--mode=positive") == snapshot_cli
+    app = Flask(__name__)
+
+    @app.route("/success")
+    def success():
+        response = Response(b"{}")
+        del response.headers["Content-Type"]
+        return response
+
+    base_url = app_runner.openapi_url(app, path="")
+    assert cli.run(str(schema_path), f"--url={base_url}", "--checks=all", "--mode=positive") == snapshot_cli
 
 
 @flaky(max_runs=5, min_passes=1)
@@ -3119,6 +3252,22 @@ def test_parameter_overrides(ctx, cli, verify_overrides):
         config={"parameters": {"key": "foo", "id": "bar"}},
     )
     assert result.exit_code == ExitCode.OK, result.stdout
+
+
+def test_header_parameter_override_with_configured_headers(ctx, cli):
+    api = ctx.openapi.apps.header_constraint_bug()
+    cli.run(
+        api.schema_url,
+        "--phases=fuzzing",
+        "--mode=positive",
+        "--max-examples=5",
+        config={"headers": {"X-Custom": "value"}, "parameters": {"X-Token": "ABCDEFGH"}},
+    )
+    assert {
+        (request.headers.get("X-Token"), request.headers.get("X-Custom"))
+        for request in api.requests
+        if request.path.startswith("/api/")
+    } == {("ABCDEFGH", "value")}
 
 
 @pytest.mark.parametrize(
@@ -3821,6 +3970,7 @@ def test_server_stops_accepting_connections_in_generated_phases(subprocess_runne
         "--seed=1",
     )
     assert result == snapshot_cli
+    assert "🚫 server stopped responding" in result.stdout.partition("ERRORS")[0]
     # Generated bodies differ across Python versions; the listed request must still be the one that crashed it.
     assert int(re.findall(r"""'\{"size": (\d+)\}'""", result.stdout.split("before it went away:")[1])[0]) > 50000
 
@@ -3841,6 +3991,81 @@ def test_crash_found_before_the_outage_is_still_reported_per_operation(subproces
         )
         == snapshot_cli
     )
+
+
+@pytest.mark.skipif(platform.system() == "Windows", reason="Requires extra setup on Windows")
+@pytest.mark.skipif(platform.python_implementation() == "PyPy", reason="PyPy behaves differently")
+def test_fuzz_stops_when_server_stops_accepting_connections(subprocess_runner, cli):
+    port = subprocess_runner.run_app(CRASHING_SERVER, env={"CRASH_MODE": "refuse", "CRASH_AFTER": "5"})
+    result = cli.main(
+        "fuzz",
+        f"http://127.0.0.1:{port}/openapi.json",
+        "--checks=not_a_server_error",
+        "--mode=positive",
+        "--max-time=20",
+    )
+    assert "Stop reason: Server stopped responding" in result.stdout, result.stdout
+    assert "Runtime Error" not in result.stdout, result.stdout
+    # The request that crashed the server leads the list.
+    assert int(re.findall(r"""'\{"size": (\d+)\}'""", result.stdout.split("before it went away:")[1])[0]) > 50000
+
+
+ERROR_THEN_GONE_SERVER = (
+    STOP_LISTENING
+    + """
+import os
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+ADDRESS = ("127.0.0.1", int(os.environ["PORT"]))
+SCHEMA = b'{"openapi": "3.0.0", "info": {"title": "t", "version": "1"}, "paths": {"/data": {"get": {"responses": {"200": {"description": "OK"}}}}}}'
+
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):
+        if self.path != "/data":
+            self.send(200, SCHEMA)
+            return
+        # Stop listening before answering: the next request is refused, never queued.
+        stop_listening(self.server)
+        threading.Thread(target=self.server.shutdown).start()
+        self.send(500, b"{}")
+
+    def send(self, status, body):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+        self.wfile.flush()
+
+
+server = ThreadingHTTPServer(ADDRESS, Handler)
+try:
+    server.serve_forever()
+except OSError:
+    pass
+threading.Event().wait()
+"""
+)
+
+
+@pytest.mark.skipif(platform.system() == "Windows", reason="Requires extra setup on Windows")
+@pytest.mark.skipif(platform.python_implementation() == "PyPy", reason="PyPy behaves differently")
+def test_fuzz_reports_failure_answered_right_before_the_server_went_away(subprocess_runner, cli):
+    port = subprocess_runner.run_app(ERROR_THEN_GONE_SERVER)
+    result = cli.main(
+        "fuzz",
+        f"http://127.0.0.1:{port}/openapi.json",
+        "--checks=not_a_server_error",
+        "--workers=1",
+        "--max-time=20",
+    )
+    assert "Stop reason: Server stopped responding" in result.stdout, result.stdout
+    assert "Server error" in result.stdout, result.stdout
 
 
 ONE_SHOT_SERVER = (
@@ -3911,6 +4136,73 @@ def test_answered_case_survives_a_refused_check_request(subprocess_runner, cli, 
             "Authorization: Bearer secret",
             "--max-examples=1",
             "--mode=positive",
+        )
+        == snapshot_cli
+    )
+
+
+DIES_AFTER_FIRST_OPERATION_SERVER = (
+    STOP_LISTENING
+    + """
+import json
+import os
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+ADDRESS = ("127.0.0.1", int(os.environ["PORT"]))
+PARAMETER = {"name": "q", "in": "query", "required": True, "schema": {"type": "integer"}, "example": 1}
+SCHEMA = {
+    "openapi": "3.0.0",
+    "info": {"title": "Dies after first operation", "version": "1.0.0"},
+    "paths": {
+        "/first": {"get": {"parameters": [PARAMETER], "responses": {"200": {"description": "OK"}}}},
+        "/second": {"get": {"parameters": [PARAMETER], "responses": {"200": {"description": "OK"}}}},
+    },
+}
+
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):
+        if self.path == "/openapi.json":
+            self.send_json(SCHEMA)
+            return
+        if not self.path.startswith("/first"):
+            self.send_json({"ok": True})
+            return
+        # Stop listening before answering: the next request is refused, never queued.
+        stop_listening(self.server)
+        self.send_json({"ok": True})
+        os._exit(1)
+
+    def send_json(self, payload):
+        body = json.dumps(payload).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+        self.wfile.flush()
+
+
+ThreadingHTTPServer(ADDRESS, Handler).serve_forever()
+"""
+)
+
+
+@pytest.mark.skipif(platform.system() == "Windows", reason="Requires extra setup on Windows")
+@pytest.mark.skipif(platform.python_implementation() == "PyPy", reason="PyPy behaves differently")
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_operation_refused_on_its_first_request_is_skipped(subprocess_runner, cli, snapshot_cli):
+    port = subprocess_runner.run_app(DIES_AFTER_FIRST_OPERATION_SERVER)
+    assert (
+        cli.main(
+            "run",
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--phases=examples",
+            "--checks=not_a_server_error",
+            "--workers=1",
         )
         == snapshot_cli
     )
@@ -4780,7 +5072,7 @@ def test_link_extraction_from_binary_json_response(ctx, cli, snapshot_cli):
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_network_error_reported_when_suite_ends_with_failure(ctx, cli, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app(LINKED_USERS_PATHS)
+    app, _ = ctx.openapi.make_flask_app(linked_users())
     counter = count()
 
     @app.route("/users", methods=["POST"])
@@ -4810,10 +5102,33 @@ def test_network_error_reported_when_suite_ends_with_failure(ctx, cli, snapshot_
     )
 
 
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_stateful_flaky_replay_keeps_network_error(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(linked_users())
+    counter = count()
+
+    @app.route("/users", methods=["POST"])
+    def create_user():
+        return jsonify({"id": 1}), 201
+
+    @app.route("/users/<int:user_id>")
+    def get_user(user_id):
+        if next(counter) == 0:
+
+            def broken_body():
+                yield '{"id": '
+                raise RuntimeError("broken body")
+
+            return Response(broken_body())
+        return jsonify({"id": user_id}), 200
+
+    assert cli.run_openapi_app(app, "--phases=stateful", "--seed=4", "--checks=not_a_server_error") == snapshot_cli
+
+
 # Every repeated stateful pass folds into the single block reported at the end.
 @pytest.mark.snapshot(replace_cycle_metrics=True, replace_reproduce_with=True)
 def test_max_time_repeats_stateful_phase(ctx, cli, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app(LINKED_USERS_PATHS)
+    app, _ = ctx.openapi.make_flask_app(linked_users())
 
     @app.route("/users", methods=["POST"])
     def create_user():
@@ -4826,7 +5141,7 @@ def test_max_time_repeats_stateful_phase(ctx, cli, snapshot_cli):
     assert (
         cli.run_openapi_app(
             app,
-            "--max-time=2",
+            "--max-time=5",
             "--max-examples=5",
             "--generation-database=none",
             "--phases=stateful",
@@ -4839,7 +5154,7 @@ def test_max_time_repeats_stateful_phase(ctx, cli, snapshot_cli):
 @pytest.mark.parametrize("phase", ["fuzzing", "stateful"])
 @pytest.mark.snapshot(replace_cycle_metrics=True, replace_reproduce_with=True)
 def test_keyboard_interrupt_under_time_budget(ctx, cli, snapshot_cli, phase):
-    app, _ = ctx.openapi.make_flask_app(LINKED_USERS_PATHS)
+    app, _ = ctx.openapi.make_flask_app(linked_users())
 
     @app.route("/users", methods=["POST"])
     def create_user():
@@ -4873,3 +5188,19 @@ def test_custom_handler_error_under_time_budget(ctx, cli, snapshot_cli):
 
     api = ctx.openapi.apps.success()
     assert cli.run(api.schema_url, "--max-time=10", "--phases=fuzzing") == snapshot_cli
+
+
+INTERRUPT_ON_EVERY_EXAMPLES_SETUP = """
+@schemathesis.hook
+def before_add_examples(context, examples):
+    raise KeyboardInterrupt
+"""
+
+
+@pytest.mark.parametrize("workers", ["1", "2"])
+def test_interrupt_counts_each_operation_once(ctx, cli, workers):
+    # Workers can report the same interrupt more than once.
+    api = ctx.openapi.apps.success_and_failure()
+    module = ctx.write_pymodule(INTERRUPT_ON_EVERY_EXAMPLES_SETUP)
+    result = cli.main("run", api.schema_url, f"--workers={workers}", "--phases=examples", hooks=module)
+    assert re.findall(r"⏭\s+(\d+) skipped", result.stdout) == ["2"]

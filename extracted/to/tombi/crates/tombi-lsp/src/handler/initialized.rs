@@ -1,0 +1,88 @@
+use serde_json::json;
+use tower_lsp_server::gen_lsp_types::{
+    DidChangeWatchedFilesRegistrationOptions, FileSystemWatcher, GlobPattern, InitializedParams,
+    Registration, WatchKind,
+};
+
+use crate::{
+    backend::{Backend, DiagnosticMode},
+    workspace_diagnostic::{WorkspaceDiagnosticOptions, push_workspace_diagnostics},
+};
+
+pub async fn handle_initialized(backend: &Backend, params: InitializedParams) {
+    log::info!("handle_initialized");
+    log::trace!("{:?}", params);
+
+    let startup_backend = backend.clone();
+    backend.spawn_background_task(async move {
+        log::info!("loading config in background...");
+        if let Err(error) = startup_backend.config_manager.load().await {
+            log::warn!("failed to load config: {error}");
+            return;
+        }
+
+        let diagnostic_mode = startup_backend.capabilities.read().await.diagnostic_mode;
+        match diagnostic_mode {
+            DiagnosticMode::Pull => {
+                log::info!("refreshing pull diagnostics after config load...");
+                startup_backend.refresh_pull_diagnostics().await;
+            }
+            DiagnosticMode::Push => {
+                let open_schema_document_uris = startup_backend
+                    .document_sources
+                    .read()
+                    .await
+                    .iter()
+                    .filter_map(|(uri, source)| source.version.is_some().then_some(uri.clone()))
+                    .collect::<Vec<_>>();
+
+                for text_document_uri in open_schema_document_uris {
+                    startup_backend.push_diagnostics(text_document_uri).await;
+                }
+
+                log::info!("pushing workspace diagnostics after config load...");
+                if let Err(error) = push_workspace_diagnostics(
+                    &startup_backend,
+                    &WorkspaceDiagnosticOptions {
+                        include_open_files: true,
+                    },
+                )
+                .await
+                {
+                    log::warn!("failed to push workspace diagnostics: {error}");
+                }
+            }
+        }
+    });
+
+    log::info!("registering workspace TOML watchers...");
+    if let Err(error) = register_workspace_toml_watcher(backend).await {
+        log::warn!("failed to register TOML file watchers: {error}");
+    }
+}
+
+async fn register_workspace_toml_watcher(
+    backend: &Backend,
+) -> Result<(), tower_lsp_server::jsonrpc::Error> {
+    let watcher = FileSystemWatcher {
+        glob_pattern: GlobPattern::Pattern("**/*.toml".to_string()),
+        kind: Some(WatchKind::Create | WatchKind::Change | WatchKind::Delete),
+    };
+    // Local JSON Schema files changed outside the editor.
+    let schema_watcher = FileSystemWatcher {
+        glob_pattern: GlobPattern::Pattern("**/*.json".to_string()),
+        kind: Some(WatchKind::Create | WatchKind::Change),
+    };
+
+    let options = DidChangeWatchedFilesRegistrationOptions {
+        watchers: vec![watcher, schema_watcher],
+    };
+
+    let registration = Registration {
+        id: "workspace-diagnostics.toml-watcher".to_string(),
+        method: "workspace/didChangeWatchedFiles".to_string(),
+        register_options: Some(json!(options)),
+    };
+
+    backend.client.register_capability(vec![registration]).await
+}

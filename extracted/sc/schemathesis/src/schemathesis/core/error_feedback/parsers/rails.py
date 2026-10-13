@@ -8,10 +8,11 @@ from schemathesis.core.error_feedback.parsers import PARSERS
 from schemathesis.core.error_feedback.parsers.extractors import (
     ClassificationResult,
     RegexHandler,
-    location_for_method,
+    location_for_parameter,
     numeric_bound,
     size_bound,
     size_bound_exact,
+    split_field_path,
 )
 from schemathesis.core.error_feedback.store import (
     BoundDirection,
@@ -75,8 +76,7 @@ def _walk_modern(body: ModernShape, path: ParameterPath = ()) -> Iterator[WalkPa
     for raw_key, value in body.items():
         if not isinstance(raw_key, str) or raw_key == _BASE_KEY:
             continue
-        # Rails dotted-key for nested attributes; split into segments.
-        key_path: ParameterPath = tuple(raw_key.split(".")) if "." in raw_key else (raw_key,)
+        key_path = split_field_path(raw_key)
         if not isinstance(value, list):
             continue
         for item in value:
@@ -245,7 +245,6 @@ class RailsParser:
         return _has_rails_vocabulary(messages)
 
     def parse(self, *, operation: APIOperation, body: object, case: Case) -> tuple[Observation, ...]:
-        location = location_for_method(operation.method)
         observations: list[Observation] = []
         for path, message in _walk_observations(_unwrap_ar_envelope(body)):
             classification = _classify_message(message)
@@ -255,7 +254,7 @@ class RailsParser:
             observations.append(
                 Observation(
                     operation_label=operation.label,
-                    location=location,
+                    location=location_for_parameter(operation, path, case),
                     parameter_path=path,
                     kind=kind,
                     raw_message=message,

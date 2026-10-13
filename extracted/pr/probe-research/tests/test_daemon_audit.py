@@ -498,11 +498,22 @@ def test_the_copy_is_written_with_no_question(tmp_path):
         (["notes", "sync"], False),  # the daemon's: under its key it would park the researcher's note
         (["notes", "sync", "--pull-only"], False),
         (["notes", "append", "--team", "x"], False),
+        # The open web from the shell, refused as `find_papers` is (AUDIT_REFUSED_TOOLS).
+        (["paper", "find", "why GRPO collapses"], False),
+        (["paper", "find", "--mode", "read", "--paper-id", "arxiv:2610.02140"], False),
+        (["paper", "list"], True),
     ],
 )
 def test_the_probe_commands_it_may_run(argv, runs):
     parsed = precheck.parse(argv)
     assert (tools.audit_probe_refusal(parsed) is None) is runs
+
+
+def test_the_open_web_from_the_shell_names_the_web_refusal():
+    from probe.daemon.agent import AUDIT_REFUSED_TOOLS, AUDIT_WEB_REFUSED
+
+    assert tools.audit_probe_refusal(precheck.parse(["paper", "find", "q"])) == AUDIT_WEB_REFUSED
+    assert "find_papers" in AUDIT_REFUSED_TOOLS, "the shell door mirrors a refused MCP tool"
 
 
 def test_notes_sync_names_who_does_it():

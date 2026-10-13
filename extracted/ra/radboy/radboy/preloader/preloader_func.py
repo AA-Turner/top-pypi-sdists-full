@@ -13142,7 +13142,7 @@ SBX_WTR_DSPLY=Column(Integer,default=0)
             blo=total_qty_blo_or_equal
             
         launch+=1
-        code=Control(ptext=f"Stage: {launch}\nText in Code/BarCode/Name/Desc/Note?",helpText="Text in Code/BarCode/Name/Desc/Note?",data="string")
+        code=Control(ptext=f"Stage: {launch}\nText in Code/BarCode/Name/Desc/Note?[comma ',' separated]",helpText="Text in Code/BarCode/Name/Desc/Note?",data="string")
         if code in [None,'NAN','nan','NaN','nAn']:
             return
         elif code in ['d',]:
@@ -23798,3 +23798,60 @@ holidays_menu={
 #TriedToWake
 def holidaysLogger(Model=Holidays,short_view=holidays_short_view,menu=holidays_menu):
     return ModelLogger(Model=Holidays,short_view=holidays_short_view,menu=holidays_menu)
+
+def list_dates_within_include_weekends():
+    try:
+        fields={
+            'start':{
+                'type':'datetime',
+                'default':None,
+                'help':'date to start your comma separated list of dates',
+                'ptext':'Start DTOE'
+            },
+            'end':{
+                'type':'datetime',
+                'default':None,
+                'help':'date to end your comma separated list of dates',
+                'ptext':'End DTOE'
+            },
+            'exclude_week_ends':{
+                'type':'boolean',
+                'default':False,
+                'help':'exclude dates that fall on a weekend',
+                'ptext':'Exclude weekends',
+            },
+            'exclude_dates':{
+                'type':'string',
+                'default':None,
+                'help':'exclude anything in this string',
+                'ptext':'Exclude Date/String'
+            }
+        }
+        fb=FormBuilder(data=fields,passThruText="Comma Separated List of Dates within a start and an End")
+        if fb in BooleanAnswers.NONE:
+            return
+        start=fb['start']
+        if start in [None,]:
+            return
+        end=fb['end']
+        if end in [None,]:
+            return
+        #date string list
+        dsl=[]
+        current=start
+        while current <= end:
+            if fb['exclude_week_ends'] == True:
+                if current.weekday() >= 5:
+                    current+=timedelta(days=1)
+                    continue
+            dts=current.strftime("%Y-%m-%d")
+            if fb['exclude_dates'] != None:
+                if dts in fb['exclude_dates']:
+                    current+=timedelta(days=1)
+                    continue
+            dsl.append(dts)
+            current+=timedelta(days=1)
+        print('Display Only','\n'.join(dsl),'End Display Only',sep='\n')
+        return ','.join(dsl)
+    except Exception as e:
+        print(e)

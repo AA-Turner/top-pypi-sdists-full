@@ -14,6 +14,7 @@ import schemathesis
 from schemathesis.config import OperationConfig
 from schemathesis.core.errors import NoLinksFound
 from schemathesis.core.failures import FailureGroup
+from schemathesis.core.transforms import deepclone
 from schemathesis.core.transport import Response
 from schemathesis.generation.meta import TestPhase
 from schemathesis.generation.modes import GenerationMode
@@ -109,6 +110,7 @@ schema.config.update(base_url="{api.base_url}")
 schema.config.generation.update(modes=[GenerationMode.POSITIVE])
 TestStateful = schema.as_state_machine().TestCase
 TestStateful.settings = settings(
+    # The bug needs a specific call sequence, which takes many scenarios to reach.
     max_examples=2000,
     deadline=None,
     suppress_health_check=list(HealthCheck),
@@ -174,6 +176,7 @@ def test_hidden_failure_app(transport, factory):
     with pytest.raises(TypeError, match="can only concatenate str"):
         state_machine.run(
             settings=settings(
+                # The bug needs a specific call sequence, which takes many scenarios to reach.
                 max_examples=2000,
                 deadline=None,
                 suppress_health_check=list(HealthCheck),
@@ -260,6 +263,7 @@ def test_dynamic_body(merge_body, ctx):
 
     state_machine.run(
         settings=settings(
+            # The linked call that carries the dynamic body is one step among many scenarios.
             max_examples=100,
             deadline=None,
             suppress_health_check=list(HealthCheck),
@@ -503,22 +507,16 @@ def test_state_machine_is_public_api_state_machine(ctx):
     assert issubclass(schema.as_state_machine(), schemathesis.stateful.APIStateMachine)
 
 
-def test_passing_transport_kwargs(ctx, mocker):
+# The server ignores the token, so the auth check re-sends requests without it and must keep the other options.
+def test_passing_transport_kwargs(ctx):
     api = ctx.openapi.apps.users_crud()
-    schema = schemathesis.openapi.from_dict(api.spec)
+    raw_schema = deepclone(api.spec)
+    raw_schema["components"]["securitySchemes"] = {"token": {"type": "apiKey", "in": "query", "name": "token"}}
+    raw_schema["security"] = [{"token": []}]
+    schema = schemathesis.openapi.from_dict(raw_schema)
     schema.config.update(base_url=api.base_url)
+    kwargs = {"params": {"token": "valid", "trace": "1"}}
 
-    mocker.patch(
-        "schemathesis.specs.openapi.checks.get_security_parameters",
-        return_value=[{"name": "token", "required": True, "in": "query"}],
-    )
-    mocked = mocker.patch("schemathesis.specs.openapi.checks._contains_auth")
-
-    # Not `Authorization`: credentials in a header the schema does not declare skip the auth check entirely
-    headers = {"X-Token": "SECRET!", "Content-Type": "application/json"}
-    kwargs = {"verify": False, "headers": headers}
-
-    # State machine should properly pass transport kwargs to `validate_response`
     class APIWorkflow(schema.as_state_machine()):
         def before_call(self, case) -> None:
             case.body = {"first_name": "foo", "last_name": "bar"}
@@ -532,7 +530,7 @@ def test_passing_transport_kwargs(ctx, mocker):
     except FailureGroup:
         pass
 
-    assert mocked.call_args.args[0]._transport_kwargs == kwargs
+    assert [request.query for request in api.requests if "token" not in request.query] == [{"trace": "1"}]
 
 
 @pytest.mark.parametrize(

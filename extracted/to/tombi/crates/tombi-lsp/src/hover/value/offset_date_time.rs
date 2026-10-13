@@ -1,0 +1,189 @@
+use tombi_comment_directive::value::{
+    OffsetDateTimeCommonFormatRules, OffsetDateTimeCommonLintRules,
+};
+use tombi_schema_store::{Accessor, CurrentSchema, OffsetDateTimeSchema, SchemaView};
+use tombi_x_keyword::StringFormat;
+
+use crate::{
+    HoverContent,
+    comment_directive::get_key_table_value_comment_directive_content_and_schema_uri,
+    hover::{
+        GetHoverContent, HoverValueContent,
+        all_of::get_all_of_hover_content,
+        any_of::get_any_of_hover_content,
+        comment::get_value_comment_directive_hover_content,
+        constraints::{ValueConstraints, build_enum_values},
+        display_value::DisplayValue,
+        merge_adjacent_hover_content,
+        one_of::get_one_of_hover_content,
+    },
+};
+use tombi_future::Boxable;
+
+impl GetHoverContent for tombi_document_tree_syntax::OffsetDateTime {
+    fn get_hover_content<'a: 'b, 'b>(
+        &'a self,
+        offset: tombi_text::Offset,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
+        accessors: &'a [Accessor],
+        current_schema: Option<&'a CurrentSchema<'a>>,
+        schema_context: &'a tombi_schema_store::SchemaContext,
+    ) -> tombi_future::BoxFuture<'b, Option<HoverContent>> {
+        async move {
+            if let Some((comment_directive_context, schema_uri)) =
+                get_key_table_value_comment_directive_content_and_schema_uri::<
+                    OffsetDateTimeCommonFormatRules,
+                    OffsetDateTimeCommonLintRules,
+                >(self.comment_directives(), offset, accessors)
+                && let Some(hover_content) =
+                    get_value_comment_directive_hover_content(comment_directive_context, schema_uri)
+                        .await
+            {
+                return Some(hover_content);
+            }
+
+            if let Some(current_schema) = current_schema {
+                match current_schema.schema_view.as_ref() {
+                    SchemaView::OffsetDateTime(offset_date_time_schema) => {
+                        let mut hover_content = offset_date_time_schema
+                            .get_hover_content(
+                                offset,
+                                keys,
+                                accessors,
+                                Some(current_schema),
+                                schema_context,
+                            )
+                            .await;
+
+                        if let Some(HoverContent::Value(hover_value_content)) =
+                            hover_content.as_mut()
+                        {
+                            hover_value_content.span = Some(self.span());
+                        }
+
+                        merge_adjacent_hover_content(
+                            self,
+                            offset,
+                            keys,
+                            accessors,
+                            Some(current_schema),
+                            schema_context,
+                            hover_content,
+                            offset_date_time_schema.one_of.as_deref(),
+                            offset_date_time_schema.any_of.as_deref(),
+                            offset_date_time_schema.all_of.as_deref(),
+                        )
+                        .await
+                    }
+                    SchemaView::OneOf(one_of_schema) => {
+                        get_one_of_hover_content(
+                            self,
+                            offset,
+                            keys,
+                            accessors,
+                            one_of_schema,
+                            current_schema,
+                            schema_context,
+                        )
+                        .await
+                    }
+                    SchemaView::AnyOf(any_of_schema) => {
+                        get_any_of_hover_content(
+                            self,
+                            offset,
+                            keys,
+                            accessors,
+                            any_of_schema,
+                            current_schema,
+                            schema_context,
+                        )
+                        .await
+                    }
+                    SchemaView::AllOf(all_of_schema) => {
+                        get_all_of_hover_content(
+                            self,
+                            offset,
+                            keys,
+                            accessors,
+                            all_of_schema,
+                            current_schema,
+                            schema_context,
+                        )
+                        .await
+                    }
+                    _ => None,
+                }
+            } else {
+                Some(HoverContent::Value(HoverValueContent {
+                    title: None,
+                    description: None,
+                    accessors: tombi_schema_store::Accessors::from(accessors.to_vec()),
+                    value_type: tombi_schema_store::ValueType::OffsetDateTime,
+                    constraints: None,
+                    schema_document_uri: None,
+                    span: Some(self.span()),
+                    schema_tooltip: None,
+                }))
+            }
+        }
+        .boxed()
+    }
+}
+
+impl GetHoverContent for OffsetDateTimeSchema {
+    fn get_hover_content<'a: 'b, 'b>(
+        &'a self,
+        _position: tombi_text::Offset,
+        _keys: &'a [tombi_document_tree_syntax::Key<'_>],
+        accessors: &'a [Accessor],
+        current_schema: Option<&'a CurrentSchema<'a>>,
+        schema_context: &'a tombi_schema_store::SchemaContext,
+    ) -> tombi_future::BoxFuture<'b, Option<HoverContent>> {
+        async move {
+            let has_string_format = schema_context.has_string_format(StringFormat::DateTime);
+
+            let value_type = if has_string_format {
+                tombi_schema_store::ValueType::AnyOf(vec![
+                    tombi_schema_store::ValueType::OffsetDateTime,
+                    tombi_schema_store::ValueType::String,
+                ])
+            } else {
+                tombi_schema_store::ValueType::OffsetDateTime
+            };
+
+            Some(HoverContent::Value(HoverValueContent {
+                title: self.title.clone(),
+                description: self.description.clone(),
+                accessors: tombi_schema_store::Accessors::from(accessors.to_vec()),
+                value_type,
+                constraints: Some(ValueConstraints {
+                    r#enum: build_enum_values(&self.const_value, &self.r#enum, |value| {
+                        DisplayValue::try_new_offset_date_time(value).ok()
+                    }),
+                    default: self
+                        .default
+                        .as_ref()
+                        .and_then(|value| DisplayValue::try_new_offset_date_time(value).ok()),
+                    examples: self.examples.as_ref().map(|examples| {
+                        examples
+                            .iter()
+                            .filter_map(|example| {
+                                DisplayValue::try_new_offset_date_time(example).ok()
+                            })
+                            .collect()
+                    }),
+                    format: if has_string_format {
+                        Some(StringFormat::DateTime)
+                    } else {
+                        None
+                    },
+                    ..Default::default()
+                }),
+                schema_document_uri: super::super::current_schema_link_uri(current_schema),
+                span: None,
+                schema_tooltip: None,
+            }))
+        }
+        .boxed()
+    }
+}

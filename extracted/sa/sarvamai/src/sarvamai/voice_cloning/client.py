@@ -6,9 +6,11 @@ from .. import core
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.speech_sample_rate import SpeechSampleRate
+from ..types.speech_stream_bitrate import SpeechStreamBitrate
 from ..types.voice_cloning_language import VoiceCloningLanguage
 from ..types.voice_cloning_output_audio_codec import VoiceCloningOutputAudioCodec
 from ..types.voice_cloning_response import VoiceCloningResponse
+from ..types.voice_cloning_stream_codec import VoiceCloningStreamCodec
 from ..types.voice_library_create_response import VoiceLibraryCreateResponse
 from ..types.voice_library_detail_response import VoiceLibraryDetailResponse
 from ..types.voice_library_list_response import VoiceLibraryListResponse
@@ -35,12 +37,14 @@ class VoiceCloningClient:
         """
         return self._raw_client
 
-    def text_to_speech(
+    def convert(
         self,
         *,
-        voice_id: str,
         text: str,
         language_code: VoiceCloningLanguage,
+        voice_id: typing.Optional[str] = OMIT,
+        ref_audio: typing.Optional[core.File] = OMIT,
+        ref_text: typing.Optional[str] = OMIT,
         pace: typing.Optional[float] = OMIT,
         output_audio_codec: typing.Optional[VoiceCloningOutputAudioCodec] = OMIT,
         speech_sample_rate: typing.Optional[SpeechSampleRate] = OMIT,
@@ -54,26 +58,25 @@ class VoiceCloningClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> VoiceCloningResponse:
         """
-        Generates speech using a saved cloned voice.
+        **Beta.** Generates speech in a cloned voice.
 
-        **Step 1:** Create a voice with `POST /voices/create` and save the returned `voice_id`.
+        Provide **exactly one** of:
+        - `voice_id` — a saved cloned voice from `POST /voices/create` (or Content Studio), or
+        - `ref_audio` — a reference audio clip uploaded with this request (optional `ref_text` transcript).
 
-        **Step 2:** Pass that `voice_id` with `text` and `language_code` to this endpoint. Reference audio is accepted only by `POST /voices/create`, not by this endpoint.
+        Sending both returns `400`. A saved `voice_id` avoids re-uploading the clip on every call.
 
         Accepts `multipart/form-data`.
 
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header (recommended); `Authorization: Bearer <key>` is also accepted.
 
-        The cloned voice is cross-lingual: the saved reference clip's language does not need to match `language_code`.
+        The cloned voice is cross-lingual: the reference clip's language does not need to match `language_code`.
 
         **Billing:** charged per character of `text` against the `text_to_speech_voice_cloning` API. See the [pricing page](https://docs.sarvam.ai/api/getting-started/pricing).
 
         Parameters
         ----------
-        voice_id : str
-            Required cloned voice ID (`svc-{uuid}`). Create one with `POST /voices/create`, or use a voice from the same organization's Content Studio Voice Library.
-
         text : str
             Text to synthesize in the cloned voice. Native scripts and code-mixed text are supported. Maximum 1000 characters; longer text is rejected with a 400. Split longer input client-side and synthesize it in parts.
 
@@ -93,6 +96,15 @@ class VoiceCloningClient:
             - `pa-IN`: Punjabi
             - `ta-IN`: Tamil
             - `te-IN`: Telugu
+
+        voice_id : typing.Optional[str]
+            Saved cloned voice ID (`svc-{uuid}`) from `POST /voices/create` or Content Studio. Exactly one of `ref_audio` or `voice_id` must be provided — sending both returns `400`. Prefer `voice_id` when you already saved the voice so you do not re-upload the clip.
+
+        ref_audio : typing.Optional[core.File]
+            See core.File for more documentation
+
+        ref_text : typing.Optional[str]
+            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
 
         pace : typing.Optional[float]
             Speech speed multiplier. `1.0` is natural speed; `0.5` to `2.0` is accepted. Speed is adjusted without changing pitch. Mutually exclusive with `max_audio_duration` - sending both returns a 400 error.
@@ -147,16 +159,18 @@ class VoiceCloningClient:
         client = SarvamAI(
             api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
         )
-        client.voice_cloning.text_to_speech(
+        client.voice_cloning.convert(
             voice_id="svc-123e4567-e89b-12d3-a456-426614174000",
             text="नमस्ते, मैं आपकी कैसे मदद कर सकता हूँ?",
             language_code="hi-IN",
         )
         """
-        _response = self._raw_client.text_to_speech(
-            voice_id=voice_id,
+        _response = self._raw_client.convert(
             text=text,
             language_code=language_code,
+            voice_id=voice_id,
+            ref_audio=ref_audio,
+            ref_text=ref_text,
             pace=pace,
             output_audio_codec=output_audio_codec,
             speech_sample_rate=speech_sample_rate,
@@ -171,6 +185,129 @@ class VoiceCloningClient:
         )
         return _response.data
 
+    def convert_stream(
+        self,
+        *,
+        text: str,
+        language_code: VoiceCloningLanguage,
+        voice_id: typing.Optional[str] = OMIT,
+        ref_audio: typing.Optional[core.File] = OMIT,
+        ref_text: typing.Optional[str] = OMIT,
+        pace: typing.Optional[float] = OMIT,
+        output_audio_codec: typing.Optional[VoiceCloningStreamCodec] = OMIT,
+        output_audio_bitrate: typing.Optional[SpeechStreamBitrate] = OMIT,
+        speech_sample_rate: typing.Optional[SpeechSampleRate] = OMIT,
+        enable_text_normalization: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.Iterator[bytes]:
+        """
+        **Beta.** Converts the input text into a streamed spoken audio response using a cloned voice.
+
+        Provide **exactly one** of:
+        - `voice_id` — a saved cloned voice from `POST /voices/create` (or Content Studio), or
+        - `ref_audio` — a reference audio clip uploaded with this request (optional `ref_text` transcript).
+
+        Sending both returns `400`. The response is a binary audio stream (not JSON), so you can begin playback as soon as the first sentence is ready.
+
+        Accepts `multipart/form-data`.
+
+        **Base URL:** `https://api.sarvam.ai`.
+        **Auth:** send your key in the `api-subscription-key` header (recommended); `Authorization: Bearer <key>` is also accepted.
+
+        **Streaming codecs:** `mp3` (default), `wav`, `linear16`, `mulaw`, `alaw`. `flac`, `aac`, and `opus` are not supported on this endpoint because each sentence would be a complete container that cannot be concatenated.
+
+        Quality checks (QC/VAD) and duration bounds (`min_audio_duration` / `max_audio_duration`) are not accepted — the stream path optimizes for time-to-first-byte.
+
+        **Billing:** charged per character of `text` against the `text_to_speech_voice_cloning` API. See the [pricing page](https://docs.sarvam.ai/api/getting-started/pricing).
+
+        Parameters
+        ----------
+        text : str
+            Text to synthesize in the cloned voice. Native scripts and code-mixed text are supported. Maximum 1000 characters; longer text is rejected with a 400. Split longer input client-side and synthesize it in parts.
+
+        language_code : VoiceCloningLanguage
+            BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning).
+
+            **Available Options:**
+            - `as-IN`: Assamese
+            - `bn-IN`: Bengali
+            - `en-IN`: English (Indian)
+            - `gu-IN`: Gujarati
+            - `hi-IN`: Hindi
+            - `kn-IN`: Kannada
+            - `ml-IN`: Malayalam
+            - `mr-IN`: Marathi
+            - `od-IN`: Odia
+            - `pa-IN`: Punjabi
+            - `ta-IN`: Tamil
+            - `te-IN`: Telugu
+
+        voice_id : typing.Optional[str]
+            Saved cloned voice ID (`svc-{uuid}`) from `POST /voices/create` or Content Studio. Exactly one of `ref_audio` or `voice_id` must be provided — sending both returns `400`. Prefer `voice_id` when you already saved the voice so you do not re-upload the clip.
+
+        ref_audio : typing.Optional[core.File]
+            See core.File for more documentation
+
+        ref_text : typing.Optional[str]
+            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
+
+        pace : typing.Optional[float]
+            Speech speed multiplier. `1.0` is natural speed; `0.5` to `2.0` is accepted. Speed is adjusted without changing pitch.
+
+        output_audio_codec : typing.Optional[VoiceCloningStreamCodec]
+            Audio codec for the streamed output. Default is `mp3`.
+
+            - `mp3`: Self-framing; clients can decode and play as chunks arrive. Recommended.
+            - `wav`: One RIFF header (unknown length), then raw PCM chunks.
+            - `linear16`: Raw 16-bit PCM (no header).
+            - `mulaw` / `alaw`: 8-bit telephony codecs for IVR pipelines.
+
+        output_audio_bitrate : typing.Optional[SpeechStreamBitrate]
+            Bitrate for lossy codecs (`mp3`). Default is `128k`. Options: `32k`, `64k`, `96k`, `128k`, `192k`.
+
+        speech_sample_rate : typing.Optional[SpeechSampleRate]
+            Output sample rate in Hz. Supported values are 8000, 16000, 22050, 24000, 32000, 44100, 48000. If omitted, the API returns 24000 Hz.
+
+        enable_text_normalization : typing.Optional[bool]
+            Enable pre-TTS text normalization: numbers, currencies and dates are converted to their spoken form before synthesis (e.g. `9840950950` becomes the spoken digit sequence). Defaults to the server-side setting.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
+
+        Returns
+        -------
+        typing.Iterator[bytes]
+            Success. Returns a streamed audio response in the requested format (e.g., `audio/mpeg` for MP3, `audio/wav` for WAV).
+
+        Examples
+        --------
+        from sarvamai import SarvamAI
+
+        client = SarvamAI(
+            api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
+        )
+        client.voice_cloning.convert_stream(
+            voice_id="svc-123e4567-e89b-12d3-a456-426614174000",
+            text="नमस्ते। यह एक स्ट्रीमिंग टेस्ट है।",
+            language_code="hi-IN",
+            output_audio_codec="mp3",
+        )
+        """
+        with self._raw_client.convert_stream(
+            text=text,
+            language_code=language_code,
+            voice_id=voice_id,
+            ref_audio=ref_audio,
+            ref_text=ref_text,
+            pace=pace,
+            output_audio_codec=output_audio_codec,
+            output_audio_bitrate=output_audio_bitrate,
+            speech_sample_rate=speech_sample_rate,
+            enable_text_normalization=enable_text_normalization,
+            request_options=request_options,
+        ) as r:
+            yield from r.data
+
     def create_voice(
         self,
         *,
@@ -182,7 +319,7 @@ class VoiceCloningClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> VoiceLibraryCreateResponse:
         """
-        Creates a cloned voice from a reference audio clip in **one shot**. The whole pipeline runs inline: the audio is stored, validated for quality, transcribed via ASR, and cloned - the response returns the new `voice_id` and the auto-generated transcript (`reference_text`) together. No polling or status endpoint is needed; the voice is ready to use immediately with POST /voices/clone.
+        **Beta.** Creates a cloned voice from a reference audio clip in **one shot**. The whole pipeline runs inline: the audio is stored, validated for quality, transcribed via ASR, and cloned - the response returns the new `voice_id` and the auto-generated transcript (`reference_text`) together. No polling or status endpoint is needed; the voice is ready to use immediately with POST /voices/clone.
 
         A background job improves the reference audio (noise reduction) after the voice is created; this does not block the response.
 
@@ -248,7 +385,7 @@ class VoiceCloningClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> VoiceLibraryListResponse:
         """
-        Lists the cloned voices in your workspace, newest first. Use the returned `id` with POST /voices/clone (`voice_id`) or GET /voices/{voice_id}.
+        **Beta.** Lists the cloned voices in your workspace, newest first. Use the returned `id` with POST /voices/clone (`voice_id`) or GET /voices/{voice_id}.
 
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header.
@@ -302,7 +439,7 @@ class VoiceCloningClient:
         self, voice_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> VoiceLibraryDetailResponse:
         """
-        Returns full details for one cloned voice, including its ASR transcript (`reference_text`) and time-limited signed URLs for the reference, recorded, and preview audio.
+        **Beta.** Returns full details for one cloned voice, including its ASR transcript (`reference_text`) and time-limited signed URLs for the reference, recorded, and preview audio.
 
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header.
@@ -336,7 +473,7 @@ class VoiceCloningClient:
 
     def delete_voice(self, voice_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
         """
-        Deletes a cloned voice: its audio assets are removed and the voice is no longer listed or usable for synthesis. This frees a slot against your subscription tier's voice limit.
+        **Beta.** Deletes a cloned voice: its audio assets are removed and the voice is no longer listed or usable for synthesis. On the free plan (capped at 5 voices), deleting a voice frees a slot. Paid plans are not capped.
 
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header. Returns `204 No Content` on success.
@@ -383,12 +520,14 @@ class AsyncVoiceCloningClient:
         """
         return self._raw_client
 
-    async def text_to_speech(
+    async def convert(
         self,
         *,
-        voice_id: str,
         text: str,
         language_code: VoiceCloningLanguage,
+        voice_id: typing.Optional[str] = OMIT,
+        ref_audio: typing.Optional[core.File] = OMIT,
+        ref_text: typing.Optional[str] = OMIT,
         pace: typing.Optional[float] = OMIT,
         output_audio_codec: typing.Optional[VoiceCloningOutputAudioCodec] = OMIT,
         speech_sample_rate: typing.Optional[SpeechSampleRate] = OMIT,
@@ -402,26 +541,25 @@ class AsyncVoiceCloningClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> VoiceCloningResponse:
         """
-        Generates speech using a saved cloned voice.
+        **Beta.** Generates speech in a cloned voice.
 
-        **Step 1:** Create a voice with `POST /voices/create` and save the returned `voice_id`.
+        Provide **exactly one** of:
+        - `voice_id` — a saved cloned voice from `POST /voices/create` (or Content Studio), or
+        - `ref_audio` — a reference audio clip uploaded with this request (optional `ref_text` transcript).
 
-        **Step 2:** Pass that `voice_id` with `text` and `language_code` to this endpoint. Reference audio is accepted only by `POST /voices/create`, not by this endpoint.
+        Sending both returns `400`. A saved `voice_id` avoids re-uploading the clip on every call.
 
         Accepts `multipart/form-data`.
 
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header (recommended); `Authorization: Bearer <key>` is also accepted.
 
-        The cloned voice is cross-lingual: the saved reference clip's language does not need to match `language_code`.
+        The cloned voice is cross-lingual: the reference clip's language does not need to match `language_code`.
 
         **Billing:** charged per character of `text` against the `text_to_speech_voice_cloning` API. See the [pricing page](https://docs.sarvam.ai/api/getting-started/pricing).
 
         Parameters
         ----------
-        voice_id : str
-            Required cloned voice ID (`svc-{uuid}`). Create one with `POST /voices/create`, or use a voice from the same organization's Content Studio Voice Library.
-
         text : str
             Text to synthesize in the cloned voice. Native scripts and code-mixed text are supported. Maximum 1000 characters; longer text is rejected with a 400. Split longer input client-side and synthesize it in parts.
 
@@ -441,6 +579,15 @@ class AsyncVoiceCloningClient:
             - `pa-IN`: Punjabi
             - `ta-IN`: Tamil
             - `te-IN`: Telugu
+
+        voice_id : typing.Optional[str]
+            Saved cloned voice ID (`svc-{uuid}`) from `POST /voices/create` or Content Studio. Exactly one of `ref_audio` or `voice_id` must be provided — sending both returns `400`. Prefer `voice_id` when you already saved the voice so you do not re-upload the clip.
+
+        ref_audio : typing.Optional[core.File]
+            See core.File for more documentation
+
+        ref_text : typing.Optional[str]
+            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
 
         pace : typing.Optional[float]
             Speech speed multiplier. `1.0` is natural speed; `0.5` to `2.0` is accepted. Speed is adjusted without changing pitch. Mutually exclusive with `max_audio_duration` - sending both returns a 400 error.
@@ -500,7 +647,7 @@ class AsyncVoiceCloningClient:
 
 
         async def main() -> None:
-            await client.voice_cloning.text_to_speech(
+            await client.voice_cloning.convert(
                 voice_id="svc-123e4567-e89b-12d3-a456-426614174000",
                 text="नमस्ते, मैं आपकी कैसे मदद कर सकता हूँ?",
                 language_code="hi-IN",
@@ -509,10 +656,12 @@ class AsyncVoiceCloningClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.text_to_speech(
-            voice_id=voice_id,
+        _response = await self._raw_client.convert(
             text=text,
             language_code=language_code,
+            voice_id=voice_id,
+            ref_audio=ref_audio,
+            ref_text=ref_text,
             pace=pace,
             output_audio_codec=output_audio_codec,
             speech_sample_rate=speech_sample_rate,
@@ -527,6 +676,138 @@ class AsyncVoiceCloningClient:
         )
         return _response.data
 
+    async def convert_stream(
+        self,
+        *,
+        text: str,
+        language_code: VoiceCloningLanguage,
+        voice_id: typing.Optional[str] = OMIT,
+        ref_audio: typing.Optional[core.File] = OMIT,
+        ref_text: typing.Optional[str] = OMIT,
+        pace: typing.Optional[float] = OMIT,
+        output_audio_codec: typing.Optional[VoiceCloningStreamCodec] = OMIT,
+        output_audio_bitrate: typing.Optional[SpeechStreamBitrate] = OMIT,
+        speech_sample_rate: typing.Optional[SpeechSampleRate] = OMIT,
+        enable_text_normalization: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.AsyncIterator[bytes]:
+        """
+        **Beta.** Converts the input text into a streamed spoken audio response using a cloned voice.
+
+        Provide **exactly one** of:
+        - `voice_id` — a saved cloned voice from `POST /voices/create` (or Content Studio), or
+        - `ref_audio` — a reference audio clip uploaded with this request (optional `ref_text` transcript).
+
+        Sending both returns `400`. The response is a binary audio stream (not JSON), so you can begin playback as soon as the first sentence is ready.
+
+        Accepts `multipart/form-data`.
+
+        **Base URL:** `https://api.sarvam.ai`.
+        **Auth:** send your key in the `api-subscription-key` header (recommended); `Authorization: Bearer <key>` is also accepted.
+
+        **Streaming codecs:** `mp3` (default), `wav`, `linear16`, `mulaw`, `alaw`. `flac`, `aac`, and `opus` are not supported on this endpoint because each sentence would be a complete container that cannot be concatenated.
+
+        Quality checks (QC/VAD) and duration bounds (`min_audio_duration` / `max_audio_duration`) are not accepted — the stream path optimizes for time-to-first-byte.
+
+        **Billing:** charged per character of `text` against the `text_to_speech_voice_cloning` API. See the [pricing page](https://docs.sarvam.ai/api/getting-started/pricing).
+
+        Parameters
+        ----------
+        text : str
+            Text to synthesize in the cloned voice. Native scripts and code-mixed text are supported. Maximum 1000 characters; longer text is rejected with a 400. Split longer input client-side and synthesize it in parts.
+
+        language_code : VoiceCloningLanguage
+            BCP-47 language code for the synthesized output. The cloned voice can speak any supported language, regardless of the reference clip's language (cross-lingual cloning).
+
+            **Available Options:**
+            - `as-IN`: Assamese
+            - `bn-IN`: Bengali
+            - `en-IN`: English (Indian)
+            - `gu-IN`: Gujarati
+            - `hi-IN`: Hindi
+            - `kn-IN`: Kannada
+            - `ml-IN`: Malayalam
+            - `mr-IN`: Marathi
+            - `od-IN`: Odia
+            - `pa-IN`: Punjabi
+            - `ta-IN`: Tamil
+            - `te-IN`: Telugu
+
+        voice_id : typing.Optional[str]
+            Saved cloned voice ID (`svc-{uuid}`) from `POST /voices/create` or Content Studio. Exactly one of `ref_audio` or `voice_id` must be provided — sending both returns `400`. Prefer `voice_id` when you already saved the voice so you do not re-upload the clip.
+
+        ref_audio : typing.Optional[core.File]
+            See core.File for more documentation
+
+        ref_text : typing.Optional[str]
+            Optional transcript of `ref_audio` (max 500 characters). Improves fidelity when provided. Omit or leave empty to let the API transcribe the clip. Ignored when `voice_id` is used.
+
+        pace : typing.Optional[float]
+            Speech speed multiplier. `1.0` is natural speed; `0.5` to `2.0` is accepted. Speed is adjusted without changing pitch.
+
+        output_audio_codec : typing.Optional[VoiceCloningStreamCodec]
+            Audio codec for the streamed output. Default is `mp3`.
+
+            - `mp3`: Self-framing; clients can decode and play as chunks arrive. Recommended.
+            - `wav`: One RIFF header (unknown length), then raw PCM chunks.
+            - `linear16`: Raw 16-bit PCM (no header).
+            - `mulaw` / `alaw`: 8-bit telephony codecs for IVR pipelines.
+
+        output_audio_bitrate : typing.Optional[SpeechStreamBitrate]
+            Bitrate for lossy codecs (`mp3`). Default is `128k`. Options: `32k`, `64k`, `96k`, `128k`, `192k`.
+
+        speech_sample_rate : typing.Optional[SpeechSampleRate]
+            Output sample rate in Hz. Supported values are 8000, 16000, 22050, 24000, 32000, 44100, 48000. If omitted, the API returns 24000 Hz.
+
+        enable_text_normalization : typing.Optional[bool]
+            Enable pre-TTS text normalization: numbers, currencies and dates are converted to their spoken form before synthesis (e.g. `9840950950` becomes the spoken digit sequence). Defaults to the server-side setting.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
+
+        Returns
+        -------
+        typing.AsyncIterator[bytes]
+            Success. Returns a streamed audio response in the requested format (e.g., `audio/mpeg` for MP3, `audio/wav` for WAV).
+
+        Examples
+        --------
+        import asyncio
+
+        from sarvamai import AsyncSarvamAI
+
+        client = AsyncSarvamAI(
+            api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.voice_cloning.convert_stream(
+                voice_id="svc-123e4567-e89b-12d3-a456-426614174000",
+                text="नमस्ते। यह एक स्ट्रीमिंग टेस्ट है।",
+                language_code="hi-IN",
+                output_audio_codec="mp3",
+            )
+
+
+        asyncio.run(main())
+        """
+        async with self._raw_client.convert_stream(
+            text=text,
+            language_code=language_code,
+            voice_id=voice_id,
+            ref_audio=ref_audio,
+            ref_text=ref_text,
+            pace=pace,
+            output_audio_codec=output_audio_codec,
+            output_audio_bitrate=output_audio_bitrate,
+            speech_sample_rate=speech_sample_rate,
+            enable_text_normalization=enable_text_normalization,
+            request_options=request_options,
+        ) as r:
+            async for _chunk in r.data:
+                yield _chunk
+
     async def create_voice(
         self,
         *,
@@ -538,7 +819,7 @@ class AsyncVoiceCloningClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> VoiceLibraryCreateResponse:
         """
-        Creates a cloned voice from a reference audio clip in **one shot**. The whole pipeline runs inline: the audio is stored, validated for quality, transcribed via ASR, and cloned - the response returns the new `voice_id` and the auto-generated transcript (`reference_text`) together. No polling or status endpoint is needed; the voice is ready to use immediately with POST /voices/clone.
+        **Beta.** Creates a cloned voice from a reference audio clip in **one shot**. The whole pipeline runs inline: the audio is stored, validated for quality, transcribed via ASR, and cloned - the response returns the new `voice_id` and the auto-generated transcript (`reference_text`) together. No polling or status endpoint is needed; the voice is ready to use immediately with POST /voices/clone.
 
         A background job improves the reference audio (noise reduction) after the voice is created; this does not block the response.
 
@@ -612,7 +893,7 @@ class AsyncVoiceCloningClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> VoiceLibraryListResponse:
         """
-        Lists the cloned voices in your workspace, newest first. Use the returned `id` with POST /voices/clone (`voice_id`) or GET /voices/{voice_id}.
+        **Beta.** Lists the cloned voices in your workspace, newest first. Use the returned `id` with POST /voices/clone (`voice_id`) or GET /voices/{voice_id}.
 
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header.
@@ -674,7 +955,7 @@ class AsyncVoiceCloningClient:
         self, voice_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> VoiceLibraryDetailResponse:
         """
-        Returns full details for one cloned voice, including its ASR transcript (`reference_text`) and time-limited signed URLs for the reference, recorded, and preview audio.
+        **Beta.** Returns full details for one cloned voice, including its ASR transcript (`reference_text`) and time-limited signed URLs for the reference, recorded, and preview audio.
 
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header.
@@ -716,7 +997,7 @@ class AsyncVoiceCloningClient:
 
     async def delete_voice(self, voice_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
         """
-        Deletes a cloned voice: its audio assets are removed and the voice is no longer listed or usable for synthesis. This frees a slot against your subscription tier's voice limit.
+        **Beta.** Deletes a cloned voice: its audio assets are removed and the voice is no longer listed or usable for synthesis. On the free plan (capped at 5 voices), deleting a voice frees a slot. Paid plans are not capped.
 
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header. Returns `204 No Content` on success.

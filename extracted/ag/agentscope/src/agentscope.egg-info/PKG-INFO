@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agentscope
-Version: 2.0.9
+Version: 2.0.10
 Summary: AgentScope: A Flexible yet Robust Multi-Agent Platform.
 Author-email: SysML team of Alibaba Tongyi Lab <gaodawei.gdw@alibaba-inc.com>
 License-Expression: Apache-2.0
@@ -64,6 +64,7 @@ Requires-Dist: fastapi; extra == "service"
 Requires-Dist: uvicorn; extra == "service"
 Requires-Dist: apscheduler; extra == "service"
 Requires-Dist: ag-ui-protocol>=0.1.10; extra == "service"
+Requires-Dist: aiortc>=1.14; extra == "service"
 Provides-Extra: storage-redis
 Requires-Dist: redis; extra == "storage-redis"
 Provides-Extra: storage-sql
@@ -95,7 +96,8 @@ Provides-Extra: tools
 Requires-Dist: ripgrep<15,>=14.1; extra == "tools"
 Provides-Extra: realtime
 Requires-Dist: websockets>=13; extra == "realtime"
-Requires-Dist: sounddevice; extra == "realtime"
+Provides-Extra: realtime-local
+Requires-Dist: sounddevice; extra == "realtime-local"
 Provides-Extra: tui
 Requires-Dist: textual<9,>=8.2; extra == "tui"
 Provides-Extra: a2a
@@ -151,6 +153,7 @@ Provides-Extra: full
 Requires-Dist: agentscope[models]; extra == "full"
 Requires-Dist: agentscope[classifiers]; extra == "full"
 Requires-Dist: agentscope[service]; extra == "full"
+Requires-Dist: agentscope[realtime]; extra == "full"
 Requires-Dist: agentscope[storage-redis]; extra == "full"
 Requires-Dist: agentscope[storage-sql]; extra == "full"
 Requires-Dist: agentscope[storage-s3]; extra == "full"
@@ -254,16 +257,16 @@ rather than constraining them with strict prompts and opinionated orchestrations
 
 ## News
 <!-- BEGIN NEWS -->
+- **[2026-10] `FEAT` `Experimental`:** Agent service supports realtime voice conversations over WebRTC, with text and voice sharing the same session history.
+- **[2026-09] `FEAT` `Experimental`:** SOP supported — run multi-step tasks as standard operating procedures, in both the framework and agent service. [Docs](https://docs.agentscope.io/latest/en/building-blocks/sop) | [Service](https://docs.agentscope.io/latest/en/deploy/sop)
+- **[2026-09] `FEAT`:** `TeamPipeline` supported — a leader agent delegates tasks to member agents. [Docs](https://docs.agentscope.io/latest/en/building-blocks/pipeline/team)
+- **[2026-09] `INTE`:** MiniMax chat models supported via `MiniMaxChatModel` (MiniMax-M3 by default).
 - **[2026-09] `FEAT`:** Model routing supported — use `ModelRouterMiddleware` to select an appropriate chat model for each reply.
 - **[2026-09] `INTE`:** Jev classifier model supported through the TypeSafe SDK via `JevClassifierModel`.
 - **[2026-09] `FEAT`:** [agentscope-skill](https://github.com/agentscope-ai/skills/tree/main/skills/agentscope-skill) now supports AgentScope v2.
 - **[2026-09] `INTE`:** Support DashScope, OpenAI, Gemini and xAI realtime APIs in `RealtimeAgent`. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/realtime) | [Docs](https://docs.agentscope.io/latest/en/building-blocks/realtime/speech-to-speech)
 - **[2026-09] `FEAT` `Experimental`:** Realtime voice agent supported. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/realtime) | [Docs](https://docs.agentscope.io/latest/en/building-blocks/realtime/overview)
 - **[2026-09] `FEAT`:** A2A protocol supported — chat with any remote A2A agent via `A2AAgent`. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/a2a) | [Docs](https://docs.agentscope.io/latest/en/building-blocks/a2a)
-- **[2026-08] `FEAT`:** Pipeline supported — run multiple agents by a fixed logic behind one event stream. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/pipeline) | [Docs](https://docs.agentscope.io/latest/en/building-blocks/pipeline/overview)
-- **[2026-08] `INTE`:** DingTalk channel supported. [Docs](https://docs.agentscope.io/latest/en/deploy/channel/dingtalk)
-- **[2026-08] `FEAT`:** Console supported — test and debug agents in the terminal. [Example](https://github.com/agentscope-ai/agentscope/tree/main/examples/console) | [Docs](https://docs.agentscope.io/latest/en/building-blocks/console)
-- **[2026-08] `INTE`:** Feishu (Lark) and Discord channels supported. [Feishu](https://docs.agentscope.io/latest/en/deploy/channel/feishu) | [Discord](https://docs.agentscope.io/latest/en/deploy/channel/discord)
 <!-- END NEWS -->
 
 [More news →](./docs/NEWS.md)

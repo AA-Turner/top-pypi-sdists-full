@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping
 from typing import Any
 
 from mechbench_compute import lexicon
+from mechbench_compute.adapters.read_lora_layers import read_lora_layers
 from mechbench_compute.adapters.read_trainer import read_trainer
 from mechbench_compute.distill import soft_ce
 from mechbench_compute.lexicon._base import DEFAULT_OUTPUT
+
+LAYER_OF = re.compile(r"(?:^|\.)layers\.(\d+)\.")
 
 
 def train_lora(ctx, model, params, groups: Mapping[str, list[Any]], batch: Mapping[str, int],
@@ -18,6 +22,9 @@ def train_lora(ctx, model, params, groups: Mapping[str, list[Any]], batch: Mappi
     alpha = float(lora_cfg.get("alpha", 16))
     target_modules = tuple(lora_cfg.get("target_modules")
                            or ("q_proj", "v_proj"))
+    n_layers = len(model.lm.model.layers)
+    layers = read_lora_layers(lora_cfg.get("layers", "all"), n_layers)
+    every = len(layers) == n_layers
     steps, lr, seed = int(methods["steps"]), float(methods["lr"]), int(methods["seed"])
     checkpoint_every = int(params.get("checkpoint_every", 50))
     kept_steps = read_kept_steps(params, steps, checkpoint_every)
@@ -37,14 +44,16 @@ def train_lora(ctx, model, params, groups: Mapping[str, list[Any]], batch: Mappi
 
     try:
         n_lora = trainer.apply_lora(model, rank, alpha, targets=target_modules,
-                                    seed=seed, keys=model.architecture.adapter_keys)
+                                    seed=seed, keys=model.architecture.adapter_keys,
+                                    layers=None if every else layers)
         lora = {"rank": rank, "alpha": alpha, "scale": alpha / rank,
-                "target_modules": list(target_modules), "params": n_lora}
+                "target_modules": list(target_modules),
+                **({} if every else {"layers": layers}), "params": n_lora}
+        if ctx.resume_state and "weights" in ctx.resume_state:
+            check_resume_state(ctx.resume_state, trainer.read_adapter_names(model))
         lineage = {"kind": "adapter/lora", "format": "safetensors",
                    "base_model": trained_on["base"], "trained_on": trained_on,
                    "lora": lora}
-        if kept_steps:
-            check_kept_size(len(trainer.read_adapter_bytes(model)), len(kept_steps))
         if ctx.on_start:
             ctx.on_start(steps)
         resumed_from = int(ctx.resume_state["step"]) if ctx.resume_state else 0
@@ -84,6 +93,20 @@ def train_lora(ctx, model, params, groups: Mapping[str, list[Any]], batch: Mappi
                 checkpoint_every=checkpoint_every)}
 
 
+def check_resume_state(state, names: list[str]) -> None:
+    saved = sorted(state["weights"])
+    if saved != sorted(names):
+        raise ValueError(
+            f"adapter/train: the saved training state holds {describe_weights(saved)} and this "
+            f"node's adapter {describe_weights(names)}: its `lora` differs from the run that "
+            f"saved it; restart the node")
+
+
+def describe_weights(names: list[str]) -> str:
+    layers = sorted({int(m.group(1)) for n in names if (m := LAYER_OF.search(n))})
+    return f"{len(names)} weights on layers {', '.join(map(str, layers))}"
+
+
 def read_kept_steps(params, steps: int, every: int) -> list[int]:
     if not params.get("keep_checkpoints", False):
         return []
@@ -92,17 +115,6 @@ def read_kept_steps(params, steps: int, every: int) -> list[int]:
             "adapter/train: keep_checkpoints keeps an adapter every "
             "`checkpoint_every` steps; set it above 0")
     return [*range(every, steps, every), steps]
-
-
-def check_kept_size(adapter_bytes: int, count: int) -> None:
-    from mechbench_compute.bench import MAX_OBJECT_BYTES
-
-    if adapter_bytes * count > MAX_OBJECT_BYTES:
-        raise ValueError(
-            f"adapter/train: {count} kept checkpoints of {adapter_bytes:,} bytes "
-            f"each are over the {MAX_OBJECT_BYTES:,}-byte object limit the "
-            f"collection is stored under; keep fewer with a larger "
-            f"`checkpoint_every` (at most {max(1, MAX_OBJECT_BYTES // adapter_bytes)} fit)")
 
 
 def restore_kept(kept_steps: list[int], resumed_from: int,

@@ -1,0 +1,222 @@
+Metadata-Version: 2.4
+Name: bigframes
+Version: 2.51.0
+Summary: BigQuery DataFrames -- scalable analytics and machine learning with BigQuery
+Home-page: https://dataframes.bigquery.dev
+Download-URL: https://github.com/google/bigframes/releases
+Author: Google LLC
+Author-email: bigframes-feedback@google.com
+License: Apache 2.0
+Project-URL: Source, https://github.com/google/bigframes
+Project-URL: Changelog, https://dataframes.bigquery.dev/changelog.html
+Project-URL: Issues, https://github.com/google/bigframes/issues
+Platform: Posix; MacOS X; Windows
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Internet
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: cloudpickle>=2.0.0
+Requires-Dist: fsspec>=2023.3.0
+Requires-Dist: gcsfs!=2025.5.0,!=2026.2.0,!=2026.3.0,>=2023.3.0
+Requires-Dist: geopandas>=0.12.2
+Requires-Dist: google-auth[pyopenssl]<3.0,>=2.15.0
+Requires-Dist: google-cloud-bigquery[bqstorage,pandas]>=3.42.0
+Requires-Dist: google-cloud-bigquery-storage<3.0.0,>=2.30.0
+Requires-Dist: google-cloud-functions>=1.20.2
+Requires-Dist: google-cloud-bigquery-connection>=1.18.2
+Requires-Dist: google-cloud-resource-manager>=1.14.2
+Requires-Dist: google-cloud-storage>=2.0.0
+Requires-Dist: google-crc32c<2.0.0,>=1.0.0
+Requires-Dist: grpc-google-iam-v1>=0.14.2
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: pandas>=1.5.3
+Requires-Dist: pandas-gbq>=0.26.1
+Requires-Dist: pyarrow>=23.0.1
+Requires-Dist: pydata-google-auth>=1.8.2
+Requires-Dist: requests>=2.27.1
+Requires-Dist: shapely>=1.8.5
+Requires-Dist: tabulate>=0.9
+Requires-Dist: humanize>=4.6.0
+Requires-Dist: matplotlib>=3.7.1
+Requires-Dist: db-dtypes>=1.4.2
+Requires-Dist: pyiceberg>=0.7.1
+Requires-Dist: atpublic<6,>=2.3
+Requires-Dist: python-dateutil<3,>=2.8.2
+Requires-Dist: pytz>=2022.7
+Requires-Dist: toolz<2,>=0.11
+Requires-Dist: typing-extensions<5,>=4.5.0
+Requires-Dist: rich<14,>=12.4.4
+Provides-Extra: tests
+Requires-Dist: freezegun; extra == "tests"
+Requires-Dist: pytest-snapshot; extra == "tests"
+Requires-Dist: google-cloud-bigtable>=2.30.0; extra == "tests"
+Requires-Dist: google-cloud-pubsub>=2.29.0; extra == "tests"
+Requires-Dist: tzdata; extra == "tests"
+Provides-Extra: polars
+Requires-Dist: polars<2.0.0,>=1.21.0; extra == "polars"
+Provides-Extra: scikit-learn
+Requires-Dist: scikit-learn>=1.2.2; extra == "scikit-learn"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: nox; extra == "dev"
+Requires-Dist: google-cloud-testutils; extra == "dev"
+Provides-Extra: anywidget
+Requires-Dist: anywidget>=0.9.18; extra == "anywidget"
+Requires-Dist: traitlets>=5.0.0; extra == "anywidget"
+Provides-Extra: all
+Requires-Dist: anywidget>=0.9.18; extra == "all"
+Requires-Dist: freezegun; extra == "all"
+Requires-Dist: google-cloud-bigtable>=2.30.0; extra == "all"
+Requires-Dist: google-cloud-pubsub>=2.29.0; extra == "all"
+Requires-Dist: google-cloud-testutils; extra == "all"
+Requires-Dist: nox; extra == "all"
+Requires-Dist: polars<2.0.0,>=1.21.0; extra == "all"
+Requires-Dist: pre-commit; extra == "all"
+Requires-Dist: pytest; extra == "all"
+Requires-Dist: pytest-snapshot; extra == "all"
+Requires-Dist: scikit-learn>=1.2.2; extra == "all"
+Requires-Dist: traitlets>=5.0.0; extra == "all"
+Requires-Dist: tzdata; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+BigQuery DataFrames (BigFrames)
+===============================
+
+
+|GA| |pypi| |versions|
+
+BigQuery DataFrames (also known as BigFrames) provides a Pythonic DataFrame
+and machine learning (ML) API powered by the BigQuery engine. It provides modules
+for many use cases, including:
+
+* `bigframes.pandas <https://dataframes.bigquery.dev/reference/api/bigframes.pandas.html>`_
+  is a pandas API for analytics. Many workloads can be
+  migrated from pandas to bigframes by just changing a few imports.
+* `bigframes.bigquery.ai <https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ai.html>`_
+  provides powerful AI functions, text generation, vector embeddings, and semantic search powered by Gemini.
+* `bigframes.ml <https://dataframes.bigquery.dev/reference/index.html#ml-apis>`_
+  is a scikit-learn-like API for ML.
+
+BigQuery DataFrames is an `open-source package <https://github.com/google/bigframes>`_.
+
+.. |GA| image:: https://img.shields.io/badge/support-GA-gold.svg
+   :target: https://github.com/googleapis/google-cloud-python/blob/main/README.rst#general-availability
+.. |pypi| image:: https://img.shields.io/pypi/v/bigframes.svg
+   :target: https://pypi.org/project/bigframes/
+.. |versions| image:: https://img.shields.io/pypi/pyversions/bigframes.svg
+   :target: https://pypi.org/project/bigframes/
+
+Why Use BigQuery DataFrames?
+----------------------------
+
+BigQuery DataFrames eliminates the "data movement bottleneck." Instead of downloading large datasets to a local environment, BigFrames translates your Python code into optimized SQL executed across BigQuery's distributed compute engine.
+
+* **Petabyte-Scale Scalability:** Effortlessly process datasets exceeding local memory constraints without provisioning or managing Spark or Ray clusters.
+* **Familiar Python Ecosystem:** Use the pandas operations you already know (``read_gbq``, ``groupby``, ``merge``, ``pivot_table``) directly on BigQuery tables.
+* **Generative AI & Multimodality:** Seamlessly leverage Gemini models, AI functions, multimodal processing (audio, video, PDF), vector embeddings, and vector search with ``bigframes.bigquery.ai``.
+* **Optimized Execution:** Take advantage of BigFrames partial ordering mode (``bpd.options.bigquery.ordering_mode = "partial"``) for considerable performance gains on analytical workloads.
+* **Enterprise Security:** Keep your data securely governed within the BigQuery security perimeter.
+* **Hybrid Flexibility:** Seamlessly transition between distributed BigQuery processing and local pandas analysis with ``to_pandas()`` and ``read_pandas()``.
+
+Getting started with BigQuery DataFrames
+----------------------------------------
+
+Notebooks
+~~~~~~~~~
+
+The easiest way to get started is to open a sample notebook in
+`Colab <https://colab.research.google.com/github/google/bigframes/blob/main/notebooks/getting_started/bq_dataframes_template.ipynb>`_
+or
+`BigQuery Studio <https://console.cloud.google.com/bigquery/import?url=https://github.com/google/bigframes/blob/main/notebooks/getting_started/bq_dataframes_template.ipynb>`_.
+More details can be found in the `BigFrames quickstart <https://cloud.google.com/bigquery/docs/dataframes-quickstart>`_
+and in the `introduction to notebooks <https://cloud.google.com/bigquery/docs/notebooks-introduction>`_.
+
+Local environment
+~~~~~~~~~~~~~~~~~
+
+To use BigFrames in your local development environment:
+
+1. Run ``pip install --upgrade bigframes`` to install the latest version.
+
+2. Set up `Application Default Credentials <https://cloud.google.com/docs/authentication/set-up-adc-local-dev-environment>`_
+   for your local development environment.
+
+3. Create a `Google Cloud project with the BigQuery API enabled <https://cloud.google.com/bigquery/docs/sandbox>`_.
+
+4. Use the ``bigframes`` package to query data.
+
+.. code-block:: python
+
+    import bigframes.pandas as bpd
+
+    bpd.options.bigquery.project = your_gcp_project_id  # Optional in BQ Studio.
+    bpd.options.bigquery.ordering_mode = "partial"  # Recommended for performance.
+    df = bpd.read_gbq("bigquery-public-data.usa_names.usa_1910_2013")
+    print(
+        df.groupby("name")
+        .agg({"number": "sum"})
+        .sort_values("number", ascending=False)
+        .head(10)
+        .to_pandas()
+    )
+
+Documentation
+-------------
+
+To learn more about BigQuery DataFrames, visit these pages
+
+* `Introduction to BigQuery DataFrames (BigFrames) <https://cloud.google.com/bigquery/docs/bigquery-dataframes-introduction>`_
+* `Sample notebooks <https://github.com/google/bigframes/tree/main/notebooks>`_
+* `API reference <https://dataframes.bigquery.dev/>`_
+* `Source code (GitHub) <https://github.com/google/bigframes>`_
+
+License
+-------
+
+BigQuery DataFrames is distributed with the `Apache-2.0 license
+<https://github.com/google/bigframes/blob/main/LICENSE>`_.
+
+It also contains code derived from the following third-party packages:
+
+* `Ibis <https://ibis-project.org/>`_
+* `pandas <https://pandas.pydata.org/>`_
+* `Python <https://www.python.org/>`_
+* `scikit-learn <https://scikit-learn.org/>`_
+* `XGBoost <https://xgboost.readthedocs.io/en/stable/>`_
+* `SQLGlot <https://sqlglot.com/sqlglot.html>`_
+
+For details, see the `third_party
+<https://github.com/google/bigframes/tree/main/third_party/bigframes_vendored>`_
+directory.
+
+
+Contact Us
+----------
+
+For further help and provide feedback, you can email us at `bigframes-feedback@google.com <https://mail.google.com/mail/?view=cm&fs=1&tf=1&to=bigframes-feedback@google.com>`_.

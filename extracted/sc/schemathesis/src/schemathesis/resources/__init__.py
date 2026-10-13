@@ -23,6 +23,12 @@ class PoolDraw:
     resource_field: str
     source_operation: str
     source_status: int
+    # Identity whose request produced the resource; `None` outside multi-identity auth.
+    source_identity: str | None = None
+    # The value was a parent path parameter of the source request, so that request referenced it, not created it.
+    source_input: bool = False
+    # Query of the source request, so a list it came from can be requested again as sent.
+    source_query: dict[str, Any] | None = None
 
 
 @dataclass(slots=True, frozen=True)

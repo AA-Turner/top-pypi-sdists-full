@@ -32,6 +32,7 @@ import evo.core.geometry as geometry
 from evo.core import lie_algebra as lie
 from evo.core import filters
 from evo.core.pose_cache import PoseCache
+from evo.core.sync_method import SyncMethod
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +64,15 @@ class PosePath3D(object):
         orientations_quat_wxyz: np.ndarray | None = None,
         poses_se3: typing.Sequence[np.ndarray] | None = None,
         meta: dict | None = None,
+        name: str | None = None,
     ):
         """
         :param positions_xyz: nx3 list of x,y,z positions
         :param orientations_quat_wxyz: nx4 list of quaternions (w,x,y,z format)
         :param poses_se3: list of SE(3) poses
         :param meta: optional metadata
+        :param name: optional name of the data source, e.g. a file path or a
+                     topic. Used as label in logging and other output.
         """
         self._cache = PoseCache(
             positions_xyz=positions_xyz,
@@ -78,6 +82,7 @@ class PosePath3D(object):
         if self._cache.num_poses == 0:
             raise TrajectoryException("pose data is empty")
         self.meta = {} if meta is None else meta
+        self.name = name
         self._projected = False
 
     def __str__(self) -> str:
@@ -353,7 +358,10 @@ class PosePath3D(object):
             return [self]
         jumps = self._jumps(dist)
         return [
-            PosePath3D(poses_se3=self.poses_se3[jumps[i] : jumps[i + 1]])
+            PosePath3D(
+                poses_se3=self.poses_se3[jumps[i] : jumps[i + 1]],
+                name=self.name,
+            )
             for i in range(len(jumps) - 1)
         ]
 
@@ -417,12 +425,13 @@ class PoseTrajectory3D(PosePath3D, object):
         timestamps: np.ndarray | None = None,
         poses_se3: typing.Sequence[np.ndarray] | None = None,
         meta: dict | None = None,
+        name: str | None = None,
     ):
         """
         :param timestamps: optional nx1 list of timestamps
         """
         super(PoseTrajectory3D, self).__init__(
-            positions_xyz, orientations_quat_wxyz, poses_se3, meta
+            positions_xyz, orientations_quat_wxyz, poses_se3, meta, name
         )
         # this is a bit ugly...
         if timestamps is None:
@@ -502,6 +511,89 @@ class PoseTrajectory3D(PosePath3D, object):
         )[0]
         self.reduce_to_ids(ids)
 
+    def interpolate(
+        self,
+        timestamps: np.ndarray,
+        extrapolate: bool = False,
+    ) -> "PoseTrajectory3D":
+        """
+        Interpolates the trajectory at the given timestamps using linear
+        interpolation for the positions and spherical linear interpolation
+        (slerp) for the orientations.
+
+        :param timestamps: timestamps at which to interpolate the poses
+        :param extrapolate: if False (default), timestamps outside of the
+                            trajectory's time range are clamped to the first
+                            or last pose; if True, the first/last segment is
+                            used to extrapolate linearly (positions) and via
+                            slerp (orientations)
+        :return: a new PoseTrajectory3D with the interpolated poses
+        """
+        if self.num_poses < 2:
+            raise TrajectoryException(
+                "can't interpolate a trajectory with less than two poses"
+            )
+        timestamps = np.asarray(timestamps, dtype=float)
+        if timestamps.ndim == 0:
+            timestamps = timestamps.reshape(1)
+
+        # Index of the first pose with a timestamp >= the requested one.
+        idx = np.searchsorted(self.timestamps, timestamps, side="left")
+        idx = np.clip(idx, 1, self.num_poses - 1)
+
+        t_prev = self.timestamps[idx - 1]
+        t_next = self.timestamps[idx]
+        dt = t_next - t_prev
+        frac = (timestamps - t_prev) / np.where(dt > 0.0, dt, 1.0)
+        frac = np.where(dt > 0.0, frac, 0.0)
+        if not extrapolate:
+            frac = np.clip(frac, 0.0, 1.0)
+
+        xyz = self.positions_xyz[idx - 1] + frac[:, None] * (
+            self.positions_xyz[idx] - self.positions_xyz[idx - 1]
+        )
+
+        quat_wxyz = self.orientations_quat_wxyz
+        quats = [
+            tr.quaternion_slerp(
+                quat_wxyz[idx[i] - 1], quat_wxyz[idx[i]], float(frac[i])
+            )
+            for i in range(len(timestamps))
+        ]
+        return PoseTrajectory3D(
+            xyz, np.array(quats), timestamps, meta=self.meta, name=self.name
+        )
+
+    def sync_with(
+        self,
+        other: "PoseTrajectory3D",
+        *,
+        sync_method: SyncMethod = SyncMethod.nearest_time,
+        max_diff: float = 0.01,
+        offset_2: float = 0.0,
+    ) -> tuple["PoseTrajectory3D", "PoseTrajectory3D"]:
+        """
+        Synchronizes this trajectory with another one in time, see
+        sync.associate_trajectories().
+        Doesn't modify the trajectories, synced copies are returned.
+
+        :param other: the other trajectory to sync with
+        :param sync_method: SyncMethod to use for the synchronization
+        :param max_diff: max. allowed absolute time difference for associating
+        :param offset_2: optional time offset of the other trajectory
+        :return: synced copies of (self, other)
+        """
+        # Imported here because the sync module imports this module.
+        from evo.core import sync
+
+        return sync.associate_trajectories(
+            self,
+            other,
+            sync_method=sync_method,
+            max_diff=max_diff,
+            offset_2=offset_2,
+        )
+
     def split_time_gaps(
         self, dt: float
     ) -> typing.Sequence["PoseTrajectory3D"]:
@@ -520,6 +612,7 @@ class PoseTrajectory3D(PosePath3D, object):
             PoseTrajectory3D(
                 timestamps=self.timestamps[gaps[i] : gaps[i + 1]],
                 poses_se3=self.poses_se3[gaps[i] : gaps[i + 1]],
+                name=self.name,
             )
             for i in range(len(gaps) - 1)
         ]
@@ -539,6 +632,7 @@ class PoseTrajectory3D(PosePath3D, object):
             PoseTrajectory3D(
                 timestamps=self.timestamps[jumps[i] : jumps[i + 1]],
                 poses_se3=self.poses_se3[jumps[i] : jumps[i + 1]],
+                name=self.name,
             )
             for i in range(len(jumps) - 1)
         ]
@@ -563,6 +657,7 @@ class PoseTrajectory3D(PosePath3D, object):
             PoseTrajectory3D(
                 timestamps=self.timestamps[jumps[i] : jumps[i + 1]],
                 poses_se3=self.poses_se3[jumps[i] : jumps[i + 1]],
+                name=self.name,
             )
             for i in range(len(jumps) - 1)
         ]
@@ -647,48 +742,6 @@ def calc_speed(
             "bad timestamps: " + str(t_1) + " & " + str(t_2)
         )
     return float(np.linalg.norm(xyz_2 - xyz_1) / (t_2 - t_1))
-
-
-def calc_angular_speed(
-    p_1: np.ndarray,
-    p_2: np.ndarray,
-    t_1: float,
-    t_2: float,
-    degrees: bool = False,
-) -> float:
-    """
-    :param p_1: pose at timestamp 1
-    :param p_2: pose at timestamp 2
-    :param t_1: timestamp 1
-    :param t_2: timestamp 2
-    :param degrees: set to True to return deg/s
-    :return: speed in rad/s
-    """
-    if (t_2 - t_1) <= 0:
-        raise TrajectoryException(
-            "bad timestamps: " + str(t_1) + " & " + str(t_2)
-        )
-    angle_1 = lie.so3_log(p_1[:3, :3], degrees)
-    angle_2 = lie.so3_log(p_2[:3, :3], degrees)
-    return (angle_2 - angle_1) / (t_2 - t_1)
-
-
-def xyz_quat_wxyz_to_se3_poses(
-    xyz: np.ndarray, quat: np.ndarray
-) -> typing.Sequence[np.ndarray]:
-    poses = [
-        lie.se3(lie.so3_from_se3(tr.quaternion_matrix(quat)), xyz)
-        for quat, xyz in zip(quat, xyz)
-    ]
-    return poses
-
-
-def se3_poses_to_xyz_quat_wxyz(
-    poses: typing.Sequence[np.ndarray],
-) -> tuple[np.ndarray, np.ndarray]:
-    xyz = np.array([pose[:3, 3] for pose in poses])
-    quat_wxyz = np.array([tr.quaternion_from_matrix(pose) for pose in poses])
-    return xyz, quat_wxyz
 
 
 def merge(trajectories: typing.Sequence[PoseTrajectory3D]) -> PoseTrajectory3D:

@@ -62,6 +62,12 @@ from typing import (
     cast,
 )
 
+from local_operator.session.runtime.types import (
+    JOURNAL_ORDER_CAPABILITY,
+    JOURNAL_ORDER_EVENT,
+    PEER_JOURNAL_SOURCE_CAPABILITY,
+)
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -1648,6 +1654,7 @@ class _ClientConn:
     #: frame; see ``DISPLAY_HISTORY_ENTRY_TIMES_CAPABILITY`` for what emitting it
     #: to a viewer that did not negotiate would do.
     entry_times: bool = False
+    journal_order: bool = False
     #: Whether this viewer negotiated the input-metadata carriage
     #: (``input-mode-v1``). While False, every message-bearing frame this
     #: connection receives sheds ``input_mode``/``input_path`` — the three page
@@ -2095,6 +2102,8 @@ class RuntimeServer:
         #: so the boot snapshot cannot drift toward the disk value it is
         #: compared against.
         self._boot_build = build
+        from local_operator.session.model_admission import native_chat_provider_ids
+
         self._record = SessionRecord(
             pid=os.getpid(),
             kind=kind,  # type: ignore[arg-type]
@@ -2196,6 +2205,20 @@ class RuntimeServer:
                 # paint as an unknown kind. No handle implements the op in the
                 # contract lane (C0), so no owner advertises it yet.
                 + ([SUPPLEMENTS_CAPABILITY] if hasattr(handle, SUPPLEMENTS_READ_OP) else [])
+                + (
+                    [JOURNAL_ORDER_CAPABILITY]
+                    if getattr(handle, "journal_order_supported", False)
+                    else []
+                )
+                # THE COMPLETE PEER-SOURCE STRING, same gate shape: advertised
+                # only by a build whose runtime serves the complete vocabulary
+                # (an attaching peer declares it only against this string, and
+                # its absence keeps every peer order request off the attach).
+                + (
+                    [PEER_JOURNAL_SOURCE_CAPABILITY]
+                    if getattr(handle, "peer_journal_source_supported", False)
+                    else []
+                )
                 # INPUT-MODE CARRIAGE, gated on the handle that would HONOUR it
                 # rather than advertised unconditionally: the reader of this
                 # string (the mobile stream) must never send the fields to an
@@ -2236,6 +2259,7 @@ class RuntimeServer:
             # The heartbeat republishes this same dataclass, so the stamp
             # rides every rewrite without a second code path.
             version=build.version,
+            native_provider_ids=native_chat_provider_ids(),
             source_ref=build.source_ref,
             # The tree THIS runtime imports from. Under the generation layout a
             # process belongs to exactly one generation and the record is where
@@ -3693,7 +3717,7 @@ class RuntimeServer:
             if conn.bind_token != token:
                 return
             payload = update.model_dump(mode="json") if hasattr(update, "model_dump") else update
-            self._relay_frontend_to(conn, payload)
+            self._relay_frontend_to(conn, payload, token)
 
         return on_update
 
@@ -3793,6 +3817,9 @@ class RuntimeServer:
             # field its page model would reject.
             conn.entry_times = bool(frame.get("display_history_entry_times")) and (
                 "display-history-entry-times-v1" in self._record.capabilities
+            )
+            conn.journal_order = bool(frame.get("journal_order")) and (
+                JOURNAL_ORDER_CAPABILITY in self._record.capabilities
             )
             # The input-metadata twin of the line above: a viewer built before
             # the carriage cannot name ``input_mode``, and one that does not
@@ -3917,6 +3944,12 @@ class RuntimeServer:
                     # bind's, when it lands) return early instead of relaying a
                     # second copy of every delta into this connection.
                     conn.bind_token += 1
+                    # Retire buffered edges in the SAME synchronous step. The
+                    # replacement atomic join's snapshot covers the old attempt;
+                    # replaying its pending q after replacement sync q is a gap.
+                    # Do this BEFORE joining: a new attempt's q+1 suffix must
+                    # survive the unchanged sync-then-pending flush below.
+                    conn.frontend_pending.clear()
                     # ...and its subscription is released as it lands. Registered
                     # BEFORE the off-loop call, not after: the released callback is
                     # attached to ``bind_task`` either way, and doing it first means
@@ -7970,17 +8003,24 @@ class RuntimeServer:
 
     # -- v5 frontend state relay ----------------------------------------------
 
-    def _relay_frontend_to(self, conn: _ClientConn, data: dict[str, Any]) -> None:
+    def _relay_frontend_to(self, conn: _ClientConn, data: dict[str, Any], token: int) -> None:
         loop = self._loop
         if loop is None or self._closed.is_set():
             return
         try:
-            loop.call_soon_threadsafe(self._relay_frontend_to_on_loop, conn, data)
+            loop.call_soon_threadsafe(self._relay_frontend_to_on_loop, conn, data, token)
         except RuntimeError:
             pass
 
-    def _relay_frontend_to_on_loop(self, conn: _ClientConn, data: dict[str, Any]) -> None:
-        if id(conn.writer) not in self._clients:
+    def _relay_frontend_to_on_loop(
+        self, conn: _ClientConn, data: dict[str, Any], token: int
+    ) -> None:
+        # Producer validation is only an optimization: retirement can occur
+        # after call_soon_threadsafe queued this delivery. Keep its CAPTURED
+        # generation, never stamp the current one onto an abandoned edge.
+        # This complements clearing pending at handoff: neither alone retires
+        # both the already scheduled and the already buffered old updates.
+        if conn.bind_token != token or id(conn.writer) not in self._clients:
             return
         from local_operator.session.frontend_state import filter_update_trajectories
 
@@ -8240,6 +8280,7 @@ class RuntimeServer:
             and conn.events_ready
             and not (conn.events_muted and event_type in EVENT_MUTE_DROP_TYPES)
             and not (supplement_event and not conn.supplements)
+            and not (event_type == JOURNAL_ORDER_EVENT and not conn.journal_order)
         ]
         if not recipients:
             return

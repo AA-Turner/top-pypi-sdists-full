@@ -587,6 +587,176 @@ _acq_wideband_check (void)
   return 0;
 }
 
+/* Full-span burst acquisition tiles coarse Doppler while retaining a
+ * coherent slow-time FFT inside every tile. This is the geometry needed by
+ * a long repeated preamble: the old wideband early-return forced D=1 and
+ * threw away the repetitions' coherent gain. */
+static int
+_acq_wideband_coherent_center_check (void)
+{
+  const double    PI  = acos (-1.0);
+  const size_t    spc = 2, sf = 7, nx = sf * spc, reps = 8;
+  const double    crate = 1.0e6, span = crate / (2.0 * (double)sf);
+  const size_t    windows = 5; /* du = 3.5 * native span */
+  dp_acq_state_t *a       = burst_from_code (CODE7, sf, reps, spc, crate, 60.0,
+                                             3.5 * span, 1e-2, 0.9, 0, 0.0);
+  DP_REQUIRE (a != NULL);
+  DP_CHECK (a->window_bins == windows);
+  DP_CHECK_MSG (a->coherent_bins > 1,
+                "wideband burst sizing retains coherent depth per tile");
+  DP_CHECK (a->coherent_bins <= reps);
+  DP_CHECK (a->frame_n == nx);
+  DP_CHECK (a->n == windows * a->coherent_bins * nx);
+  DP_CHECK (a->searched_bins == windows * a->coherent_bins);
+  DP_CHECK (a->n_noncoh == 1);
+  DP_CHECK (!a->underpowered);
+  DP_CHECK (fabs (a->doppler_res_hz
+                  - crate / ((double)sf * (double)a->coherent_bins))
+            < 1e-6);
+
+  const size_t    delay = 5;
+  float _Complex *block = malloc (a->coherent_bins * nx * sizeof *block);
+  DP_REQUIRE (block != NULL);
+  for (size_t epoch = 0; epoch < a->coherent_bins; epoch++)
+    for (size_t q = 0; q < nx; q++)
+      {
+        const size_t  src  = (q + nx - delay) % nx;
+        const uint8_t chip = CODE7[(src / spc) % sf];
+        /* DC in the centre tile; all D repetitions add coherently. */
+        const double phase = 2.0 * PI * 0.0 * (double)(epoch * nx + q);
+        block[epoch * nx + q]
+            = ((chip & 1u) ? -1.0f : 1.0f)
+              * (float _Complex) (cos (phase) + I * sin (phase));
+      }
+  acq_result_t hit[8];
+  const size_t nh = dp_acq_push (a, block, a->coherent_bins * nx, hit, 8);
+  DP_CHECK (nh == 1);
+  if (nh == 1)
+    {
+      DP_CHECK (hit[0].doppler_bin < windows * a->coherent_bins);
+      DP_CHECK (hit[0].code_phase == delay);
+      DP_CHECK (hit[0].test_stat > a->threshold);
+    }
+  free (block);
+  dp_acq_destroy (a);
+  return 0;
+}
+
+/* A BURST search tiled with a coherent depth INSIDE the tiles reports a hit's
+ * bin, its Hz and its hand-off on the one combined grid -- off the centre
+ * tile, and on a NEGATIVE one.
+ *
+ * #2210 gave the tiles a depth, so a hit's `doppler_bin` indexes
+ * window_bins * D rows of `doppler_res_hz = chip_rate/(sf*D)` in native FFT
+ * order (0 = DC, ascending, then wrapping negative). The existing tiled
+ * checks put the tone at DC or ask the continuous engine; this puts a tone
+ * at +1.2 and -1.2 native spans and at -1.9 (tile -2), exactly on a bin, and
+ * asserts the bin NUMBER the fold predicts, the Hz acq_bin_doppler_hz() makes
+ * of it, and what dp_acq_build_handoff() reports -- all three the one fold
+ * over acq_grid_bins(), so a fold over anything else (the depth, the tile
+ * count) reads these as a different bin or the wrong sign.
+ */
+static int
+_acq_tiled_burst_offcentre_check (void)
+{
+  const size_t    sf = 7, spc = 2, nx = sf * spc, reps = 8;
+  const double    crate = 1.0e6, fs = crate * (double)spc;
+  const double    span = crate / (2.0 * (double)sf);
+  dp_acq_state_t *a    = burst_from_code (CODE7, sf, reps, spc, crate, 60.0,
+                                          3.5 * span, 1e-3, 0.9, 0, 0.0);
+  DP_REQUIRE (a != NULL);
+  DP_REQUIRE (a->window_bins > 1 && a->coherent_bins > 1);
+  const size_t grid = acq_grid_bins (a);
+  DP_CHECK (grid == a->window_bins * a->coherent_bins);
+  const double res = a->doppler_res_hz;
+  DP_CHECK (fabs (res - crate / ((double)sf * (double)a->coherent_bins))
+            < 1e-6);
+
+  const double native = 2.0 * span; /* one tile's width, Hz */
+  const double want[] = { 1.2 * native, -1.2 * native, -1.9 * native };
+  for (size_t i = 0; i < sizeof want / sizeof *want; i++)
+    {
+      /* Exactly on a bin of the combined grid. */
+      const long   m = lround (want[i] / res);
+      const double f = (double)m * res;
+      const size_t expect_bin
+          = (size_t)(((m % (long)grid) + (long)grid) % (long)grid);
+
+      const size_t    len = 6 * a->coherent_bins * nx;
+      float _Complex *x   = malloc (len * sizeof *x);
+      DP_REQUIRE (x != NULL);
+      for (size_t k = 0; k < len; k++)
+        {
+          const double ph = 2.0 * M_PI * f * (double)k / fs;
+          x[k]            = ((CODE7[(k % nx) / spc] & 1u) ? -1.0f : 1.0f)
+                            * (float _Complex) (cos (ph) + I * sin (ph));
+        }
+      dp_acq_reset (a);
+      acq_result_t hit[8];
+      const size_t nh = dp_acq_push (a, x, len, hit, 8);
+      free (x);
+      DP_REQUIRE (nh >= 1);
+
+      DP_CHECK (hit[0].doppler_bin == expect_bin);
+      DP_CHECK (fabs (acq_bin_doppler_hz (a, hit[0].doppler_bin) - f) < 1e-6);
+      acq_handoff_t ho;
+      dp_acq_build_handoff (a, &hit[0], sf, spc, &ho);
+      DP_CHECK (fabs (ho.doppler_hz_est - f) < 1e-6);
+      DP_CHECK (ho.doppler_res_hz == res);
+      /* The sign survives, which a fold over the wrong count loses. */
+      DP_CHECK ((f < 0.0) == (ho.doppler_hz_est < 0.0));
+    }
+  dp_acq_destroy (a);
+  return 0;
+}
+
+/* A tiled burst search with NO design C/N0 is D = 1, as it always was.
+ *
+ * Only a stated C/N0 asks for a depth inside the tiles. Without one the
+ * sizer's "integrate the whole preamble" default would hand a tiled search
+ * d_max = reps: window_bins * reps epochs of buffer (sf 127, reps 64,
+ * du 10 * span: ~0.1 MB -> ~14.5 MB), a reps-epoch decision latency, and a
+ * blob carrying the block, for every default-built object. Checked on two
+ * geometries, one of them that one.
+ */
+static int
+_acq_wideband_default_depth_check (void)
+{
+  const struct
+  {
+    size_t sf, reps, spc;
+    double du_spans;
+  } g[] = { { 7, 8, 2, 3.5 }, { 127, 64, 1, 10.0 } };
+  for (size_t i = 0; i < sizeof g / sizeof *g; i++)
+    {
+      const double crate = 1.0e6;
+      const double span  = crate / (2.0 * (double)g[i].sf);
+      uint8_t     *code  = malloc (g[i].sf);
+      DP_REQUIRE (code != NULL);
+      for (size_t k = 0; k < g[i].sf; k++)
+        code[k] = (uint8_t)((k * 5u + (k >> 2)) & 1u);
+      dp_acq_state_t *none = burst_from_code (
+          code, g[i].sf, g[i].reps, g[i].spc, crate, ACQ_CN0_NONE,
+          g[i].du_spans * span, 1e-3, 0.9, 0, 0.0);
+      DP_REQUIRE (none != NULL);
+      DP_CHECK (none->window_bins > 1);
+      DP_CHECK (none->coherent_bins == 1);
+      /* No block buffers at all: the default object is the D = 1 engine. */
+      DP_CHECK (none->blk == NULL && none->blk_raw == NULL);
+      DP_CHECK (none->n == none->window_bins * none->code_bins);
+      /* And a stated C/N0 still buys depth (the point of the sizer). */
+      dp_acq_state_t *some
+          = burst_from_code (code, g[i].sf, g[i].reps, g[i].spc, crate, 60.0,
+                             g[i].du_spans * span, 1e-3, 0.9, 0, 0.0);
+      DP_REQUIRE (some != NULL);
+      DP_CHECK (some->window_bins == none->window_bins);
+      dp_acq_destroy (none);
+      dp_acq_destroy (some);
+      free (code);
+    }
+  return 0;
+}
+
 /* The hit's own chip_phase (filled in acq_report_peaks) and the hand-off
  * (dp_acq_build_handoff) are one helper, so for every real hit they agree
  * to rounding. Checked on a drifted emitter (a Doppler bin off DC, carrier
@@ -1850,6 +2020,60 @@ _acq_resume_check (void)
   return 0;
 }
 
+/* A coupled carrier is 0 or above half the sample rate, and the Doppler
+ * prior is finite (doppler#2103). A tiny carrier sent doppler / carrier to
+ * inf and the hand-off's seed phase to NaN, which a receiver then aborted
+ * on; a NaN or infinite prior reached a float-to-size conversion in the bin
+ * and window counts. Pinned at the edges: half the sample rate refused, the
+ * next double above it taken. Returns the number of failed checks. */
+static int
+carrier_and_prior_domain (void)
+{
+  int          fails = 0;
+  const double fs    = 2.0e6; /* 1 Mchip/s at 2 samples a chip */
+  struct
+  {
+    double hz;
+    int    ok;
+  } cases[] = {
+    { 0.0, 1 },      { 2.5e9, 1 },    { nextafter (0.5 * fs, INFINITY), 1 },
+    { 0.5 * fs, 0 }, { 1e-305, 0 },   { 5e-324, 0 },
+    { -1.0, 0 },     { INFINITY, 0 }, { NAN, 0 },
+  };
+  for (size_t k = 0; k < sizeof cases / sizeof *cases; k++)
+    if (dp_acq_carrier_freq_ok (cases[k].hz, fs) != cases[k].ok)
+      {
+        DP_TEST_ERR ("  carrier %g Hz: ok=%d\n", cases[k].hz, !cases[k].ok);
+        fails++;
+      }
+
+  dp_acq_state_t *c = dp_acq_create_continuous (CODE7, 7, 2, 1.0e6, 0.0, 60.0,
+                                                200.0e3, 1e-2, 0.9, 0, 1, 0.0);
+  if (!c)
+    return fails + 1;
+  /* The setter takes the predicate at the engine's own rate, and a refusal
+     keeps the carrier already set. */
+  fails += dp_acq_set_carrier_freq_hz (c, 2.5e9) != DP_OK;
+  fails += dp_acq_set_carrier_freq_hz (c, 1e-305) != DP_ERR_INVALID;
+  fails += dp_acq_set_carrier_freq_hz (c, 0.5 * fs) != DP_ERR_INVALID;
+  fails += c->carrier_freq_hz != 2.5e9;
+  dp_acq_destroy (c);
+
+  const double priors[] = { NAN, INFINITY };
+  for (size_t k = 0; k < 2; k++)
+    {
+      dp_acq_state_t *bad = dp_acq_create_continuous (
+          CODE7, 7, 2, 1.0e6, 0.0, 60.0, priors[k], 1e-2, 0.9, 0, 1, 0.0);
+      if (bad)
+        {
+          DP_TEST_ERR ("  doppler_uncertainty %g taken\n", priors[k]);
+          fails++;
+          dp_acq_destroy (bad);
+        }
+    }
+  return fails;
+}
+
 int
 main (void)
 {
@@ -2012,8 +2236,16 @@ main (void)
     DP_CHECK (wide != NULL);
     if (wide)
       {
-        DP_CHECK (wide->coherent_bins == 1);
+        /* 45 dB-Hz cannot meet pd=0.9 over 3 tiles at any depth, so the
+           sizer takes the best-effort fallback -- the whole preamble. Pinned
+           exactly: a depth inside the tiles is the point of #2210, and a
+           bound of >= 1 holds for every size_t the engine could return. */
+        DP_CHECK (wide->coherent_bins == 8);
+        DP_CHECK (wide->underpowered);
         DP_CHECK (wide->window_bins == 3); /* covers +/-2*span, odd */
+        DP_CHECK (wide->n
+                  == wide->window_bins * wide->coherent_bins
+                         * wide->code_bins);
         DP_CHECK (wide->window_bins % 2 == 1);
         dp_acq_destroy (wide);
       }
@@ -2196,6 +2428,9 @@ main (void)
   (void)_acq_band_edge_check ();
   (void)_acq_band_mask_check ();
   (void)_acq_wideband_check ();
+  (void)_acq_wideband_coherent_center_check ();
+  (void)_acq_wideband_default_depth_check ();
+  (void)_acq_tiled_burst_offcentre_check ();
   (void)_acq_hit_chip_phase_check ();
   (void)_acq_wideband_coverage_check ();
   (void)_acq_chunk_invariance_check ();
@@ -3113,6 +3348,9 @@ main (void)
     DP_CHECK (isinf (got[1])); /* perfect: none */
     DP_CHECK (isfinite (got[2]) && got[2] < 0.0 && got[2] > -40.0);
   }
+
+  /* A coupled carrier and the Doppler prior (doppler#2103). */
+  DP_CHECK (carrier_and_prior_domain () == 0);
 
   DP_TEST_END ("test_acq_core");
 }

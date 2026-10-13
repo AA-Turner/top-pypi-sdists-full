@@ -1,0 +1,555 @@
+use std::sync::Arc;
+
+use itertools::Either;
+use tombi_comment_directive::document::TombiDocumentDirectiveContent;
+use tombi_config::{Config, TomlVersion};
+use tombi_text::IntoLsp;
+use tower_lsp_server::gen_lsp_types::{
+    CodeActionParams, CodeActionResponse, CompletionParams, CompletionResponse, DeclarationParams,
+    DeclarationResponse, DefinitionParams, DefinitionResponse, DidChangeConfigurationParams,
+    DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams, DidSaveTextDocumentParams, DocumentDiagnosticParams,
+    DocumentDiagnosticReport, DocumentLink, DocumentLinkParams, DocumentSymbolParams,
+    DocumentSymbolResponse, FoldingRange, FoldingRangeParams, Hover, HoverParams, InitializeParams,
+    InitializeResult, InitializedParams, InlayHint, InlayHintParams, ReferenceParams,
+    SemanticTokens, SemanticTokensParams, TextDocumentIdentifier, TypeDefinitionParams,
+    TypeDefinitionResponse, WorkspaceDiagnosticParams, WorkspaceDiagnosticReport,
+};
+
+use crate::extension::IntoLsp as _;
+use crate::{
+    config_manager::{ConfigManager, ConfigSchemaStore, DefaultConfigSource},
+    document::DocumentSource,
+    goto_definition::{try_get_goto_declaration_response, try_get_goto_definition_response},
+    goto_type_definition::try_get_type_definition_response,
+    handler::{
+        AssociateSchemaParams, GetBuiltInSchemaParams, GetStatusResponse, GetTomlVersionResponse,
+        ListSchemasParams, ListSchemasResponse, RefreshCacheParams, TomlVersionSource,
+        handle_associate_schema, handle_code_action, handle_completion, handle_diagnostic,
+        handle_did_change, handle_did_change_configuration, handle_did_change_watched_files,
+        handle_did_close, handle_did_open, handle_did_save, handle_document_link,
+        handle_document_symbol, handle_folding_range, handle_formatting,
+        handle_get_built_in_schema, handle_get_status, handle_get_toml_version,
+        handle_goto_declaration, handle_goto_definition, handle_goto_type_definition, handle_hover,
+        handle_initialize, handle_initialized, handle_inlay_hint, handle_list_schemas,
+        handle_references, handle_refresh_cache, handle_semantic_tokens_full, handle_shutdown,
+        handle_update_config, handle_update_schema, handle_workspace_diagnostic, push_diagnostics,
+    },
+    references::try_get_reference_locations,
+    workspace_diagnostic::WorkspaceDiagnosticsCache,
+};
+
+use tombi_text::EncodingKind;
+
+#[derive(Debug, Clone)]
+pub struct Backend {
+    pub client: tower_lsp_server::Client,
+    pub capabilities: Arc<tokio::sync::RwLock<BackendCapabilities>>,
+    pub background_tasks: Arc<std::sync::Mutex<Vec<tombi_future::TaskHandle>>>,
+    pub document_sources:
+        Arc<tokio::sync::RwLock<tombi_hashmap::HashMap<tombi_uri::Uri, DocumentSource>>>,
+    opening_documents: Arc<
+        std::sync::Mutex<tombi_hashmap::HashMap<tombi_uri::Uri, tokio::sync::watch::Sender<bool>>>,
+    >,
+    pub config_manager: Arc<ConfigManager>,
+    pub workspace_diagnostics_cache: Arc<tokio::sync::RwLock<WorkspaceDiagnosticsCache>>,
+}
+
+#[derive(Debug)]
+pub struct BackendCapabilities {
+    pub encoding_kind: EncodingKind,
+    pub diagnostic_mode: DiagnosticMode,
+    pub workspace_diagnostic_refresh_support: bool,
+}
+
+/// Diagnostic Type
+///
+/// Many editors, such as VSCode, adopt the Pull diagnostic mode, but some specific editors adopt the Push mode.
+/// Therefore, it is necessary to support both modes.
+///
+/// See: https://github.com/tombi-toml/tombi/issues/711
+///
+/// For WorkspaceDiagnostic, Tombi supports only the Push model in order to avoid CPU spikes.
+///
+/// See: https://github.com/tombi-toml/tombi/issues/1070
+///
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiagnosticMode {
+    Push,
+    Pull,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Options {
+    pub offline: Option<bool>,
+    pub no_cache: Option<bool>,
+}
+
+impl Backend {
+    #[inline]
+    pub fn new(client: tower_lsp_server::Client, options: &Options) -> Self {
+        Self {
+            client,
+            capabilities: Arc::new(tokio::sync::RwLock::new(BackendCapabilities {
+                encoding_kind: EncodingKind::default(),
+                diagnostic_mode: DiagnosticMode::Push,
+                workspace_diagnostic_refresh_support: false,
+            })),
+            background_tasks: Default::default(),
+            document_sources: Default::default(),
+            opening_documents: Default::default(),
+            config_manager: Arc::new(ConfigManager::new(options)),
+            workspace_diagnostics_cache: Default::default(),
+        }
+    }
+
+    /// The snapshot of the document, which shares its text and trees with the stored one.
+    ///
+    /// `None` if the document is not open, or is being updated.
+    pub(crate) fn document_source(
+        &self,
+        text_document_uri: &tombi_uri::Uri,
+    ) -> Option<DocumentSource> {
+        self.document_sources
+            .try_read()
+            .ok()?
+            .get(text_document_uri)
+            .cloned()
+    }
+
+    pub(crate) fn begin_document_open(&self, text_document_uri: tombi_uri::Uri) {
+        let (ready, _) = tokio::sync::watch::channel(false);
+        self.opening_documents
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .insert(text_document_uri, ready);
+    }
+
+    pub(crate) fn finish_document_open(&self, text_document_uri: &tombi_uri::Uri) {
+        let ready = self
+            .opening_documents
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .remove(text_document_uri);
+        if let Some(ready) = ready {
+            ready.send_replace(true);
+        }
+    }
+
+    pub(crate) async fn wait_for_document_open(&self, text_document_uri: &tombi_uri::Uri) {
+        let ready = self
+            .opening_documents
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .get(text_document_uri)
+            .cloned();
+
+        if let Some(ready) = ready {
+            let mut ready = ready.subscribe();
+            let _ = ready.wait_for(|ready| *ready).await;
+        }
+    }
+
+    pub fn spawn_background_task(&self, task: impl Future<Output = ()> + Send + 'static) {
+        let mut background_tasks = self
+            .background_tasks
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        background_tasks.retain(|task| !task.is_finished());
+        background_tasks.push(tombi_future::spawn(task));
+    }
+
+    pub fn abort_background_tasks(&self) {
+        let mut background_tasks = self
+            .background_tasks
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+
+        for task in background_tasks.drain(..) {
+            task.abort();
+        }
+    }
+
+    #[inline]
+    pub async fn is_diagnostic_mode_push(&self) -> bool {
+        self.capabilities.read().await.diagnostic_mode == DiagnosticMode::Push
+    }
+
+    pub async fn refresh_pull_diagnostics(&self) {
+        {
+            let capabilities = self.capabilities.read().await;
+            if capabilities.diagnostic_mode != DiagnosticMode::Pull {
+                return;
+            }
+
+            if !capabilities.workspace_diagnostic_refresh_support {
+                log::debug!("client does not support workspace/diagnostic/refresh");
+                return;
+            }
+        }
+
+        if let Err(error) = self.client.workspace_diagnostic_refresh().await {
+            log::debug!("failed to request diagnostic refresh: {error}");
+        }
+    }
+
+    #[inline]
+    pub async fn config(&self, text_document_uri: &tombi_uri::Uri) -> Config {
+        self.config_manager
+            .config_schema_store_for_uri(text_document_uri)
+            .await
+            .config
+    }
+
+    #[inline]
+    pub async fn config_path(
+        &self,
+        text_document_uri: &tombi_uri::Uri,
+    ) -> Option<std::path::PathBuf> {
+        self.config_manager
+            .get_config_path_for_uri(text_document_uri)
+            .await
+    }
+
+    #[inline]
+    pub async fn text_document_toml_version(
+        &self,
+        text_document_uri: &tombi_uri::Uri,
+        root: &tombi_ast_syntax::Root<'_>,
+    ) -> TomlVersion {
+        self.text_document_toml_version_and_source(text_document_uri, root)
+            .await
+            .0
+    }
+
+    /// The TOML version of a parsed document, which is not parsed again.
+    pub async fn text_document_toml_version_and_source(
+        &self,
+        text_document_uri: &tombi_uri::Uri,
+        root: &tombi_ast_syntax::Root<'_>,
+    ) -> (TomlVersion, TomlVersionSource) {
+        let ConfigSchemaStore {
+            config,
+            schema_store,
+            ..
+        } = self
+            .config_manager
+            .config_schema_store_for_uri(text_document_uri)
+            .await;
+
+        if let Some(TombiDocumentDirectiveContent {
+            toml_version: Some(toml_version),
+            ..
+        }) = tombi_validator::comment_directive::get_tombi_document_comment_directive(root).await
+        {
+            return (toml_version, TomlVersionSource::Comment);
+        }
+
+        let source_schema = match schema_store
+            .resolve_source_schema_from_ast(root, Some(Either::Left(text_document_uri)))
+            .await
+        {
+            Ok(Some(schema)) => Some(schema),
+            Ok(None) => None,
+            Err(_) => None,
+        };
+
+        if let Some(toml_version) = source_schema
+            .as_ref()
+            .and_then(|schema| schema.toml_version())
+        {
+            return (toml_version, TomlVersionSource::Schema);
+        }
+
+        if let Some(toml_version) = config.toml_version {
+            return (toml_version, TomlVersionSource::Config);
+        }
+
+        let (source, default_config) = self.config_manager.default_config().await;
+        let toml_version_source = match source {
+            DefaultConfigSource::Editor => TomlVersionSource::Editor,
+            DefaultConfigSource::Default => TomlVersionSource::Default,
+        };
+
+        (
+            default_config.toml_version.unwrap_or_default(),
+            toml_version_source,
+        )
+    }
+
+    #[inline]
+    pub async fn get_status(
+        &self,
+        params: TextDocumentIdentifier,
+    ) -> Result<GetStatusResponse, tower_lsp_server::jsonrpc::Error> {
+        handle_get_status(self, params).await
+    }
+
+    #[inline]
+    pub async fn get_built_in_schema(
+        &self,
+        params: GetBuiltInSchemaParams,
+    ) -> Result<Option<String>, tower_lsp_server::jsonrpc::Error> {
+        handle_get_built_in_schema(self, params).await
+    }
+
+    #[inline]
+    pub async fn get_toml_version(
+        &self,
+        params: TextDocumentIdentifier,
+    ) -> Result<GetTomlVersionResponse, tower_lsp_server::jsonrpc::Error> {
+        handle_get_toml_version(self, params).await
+    }
+
+    #[inline]
+    pub async fn update_schema(
+        &self,
+        params: TextDocumentIdentifier,
+    ) -> Result<bool, tower_lsp_server::jsonrpc::Error> {
+        handle_update_schema(self, params).await
+    }
+
+    #[inline]
+    pub async fn update_config(
+        &self,
+        params: TextDocumentIdentifier,
+    ) -> Result<bool, tower_lsp_server::jsonrpc::Error> {
+        handle_update_config(self, params).await
+    }
+
+    #[inline]
+    pub async fn associate_schema(&self, params: AssociateSchemaParams) {
+        handle_associate_schema(self, params).await
+    }
+
+    #[inline]
+    pub async fn refresh_cache(
+        &self,
+        params: RefreshCacheParams,
+    ) -> Result<bool, tower_lsp_server::jsonrpc::Error> {
+        handle_refresh_cache(self, params).await
+    }
+
+    #[inline]
+    pub async fn list_schemas(
+        &self,
+        params: ListSchemasParams,
+    ) -> Result<ListSchemasResponse, tower_lsp_server::jsonrpc::Error> {
+        handle_list_schemas(self, params).await
+    }
+
+    #[inline]
+    pub async fn push_diagnostics(&self, text_document_uri: tombi_uri::Uri) {
+        push_diagnostics(self, text_document_uri).await
+    }
+}
+
+impl Drop for Backend {
+    fn drop(&mut self) {
+        self.abort_background_tasks();
+    }
+}
+
+impl tower_lsp_server::LanguageServer for Backend {
+    async fn initialize(
+        &self,
+        params: InitializeParams,
+    ) -> Result<InitializeResult, tower_lsp_server::jsonrpc::Error> {
+        handle_initialize(self, params).await
+    }
+
+    async fn initialized(&self, params: InitializedParams) {
+        handle_initialized(self, params).await
+    }
+
+    async fn shutdown(&self) -> Result<(), tower_lsp_server::jsonrpc::Error> {
+        handle_shutdown(self).await
+    }
+
+    async fn did_open(&self, params: DidOpenTextDocumentParams) {
+        handle_did_open(self, params).await
+    }
+
+    async fn did_close(&self, params: DidCloseTextDocumentParams) {
+        handle_did_close(self, params).await
+    }
+
+    async fn did_change(&self, params: DidChangeTextDocumentParams) {
+        handle_did_change(self, params).await
+    }
+
+    async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
+        handle_did_change_watched_files(self, params).await
+    }
+
+    async fn did_save(&self, params: DidSaveTextDocumentParams) {
+        handle_did_save(self, params).await
+    }
+
+    async fn did_change_configuration(&self, params: DidChangeConfigurationParams) {
+        handle_did_change_configuration(self, params).await
+    }
+
+    async fn completion(
+        &self,
+        params: CompletionParams,
+    ) -> Result<Option<CompletionResponse>, tower_lsp_server::jsonrpc::Error> {
+        let text_document_uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .clone()
+            .into();
+        let Some(document_source) = self.document_source(&text_document_uri) else {
+            return Ok(None);
+        };
+
+        handle_completion(self, params).await.map(|response| {
+            response.map(|items| {
+                CompletionResponse::CompletionItemList(
+                    items
+                        .into_iter()
+                        .map(|item| {
+                            item.into_lsp_type(
+                                document_source.line_index(),
+                                document_source.encoding_kind(),
+                            )
+                        })
+                        .collect(),
+                )
+            })
+        })
+    }
+
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokens>, tower_lsp_server::jsonrpc::Error> {
+        handle_semantic_tokens_full(self, params).await
+    }
+
+    async fn document_symbol(
+        &self,
+        params: DocumentSymbolParams,
+    ) -> Result<Option<DocumentSymbolResponse>, tower_lsp_server::jsonrpc::Error> {
+        handle_document_symbol(self, params).await
+    }
+
+    async fn document_link(
+        &self,
+        params: DocumentLinkParams,
+    ) -> Result<Option<Vec<DocumentLink>>, tower_lsp_server::jsonrpc::Error> {
+        handle_document_link(self, params).await
+    }
+
+    async fn hover(
+        &self,
+        params: HoverParams,
+    ) -> Result<Option<Hover>, tower_lsp_server::jsonrpc::Error> {
+        let text_document_uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .clone()
+            .into();
+        let Some(document_source) = self.document_source(&text_document_uri) else {
+            return Ok(None);
+        };
+
+        handle_hover(self, params).await.map(|response| {
+            response.map(|content| {
+                content.into_lsp(
+                    document_source.line_index(),
+                    document_source.encoding_kind(),
+                )
+            })
+        })
+    }
+
+    async fn inlay_hint(
+        &self,
+        params: InlayHintParams,
+    ) -> Result<Option<Vec<InlayHint>>, tower_lsp_server::jsonrpc::Error> {
+        let Some((hints, document_source)) = handle_inlay_hint(self, params).await? else {
+            return Ok(None);
+        };
+        let encoding = document_source.encoding_kind();
+
+        Ok(Some(
+            hints
+                .into_iter()
+                .map(|hint| hint.into_lsp_type(document_source.line_index(), encoding))
+                .collect(),
+        ))
+    }
+
+    async fn folding_range(
+        &self,
+        params: FoldingRangeParams,
+    ) -> Result<Option<Vec<FoldingRange>>, tower_lsp_server::jsonrpc::Error> {
+        handle_folding_range(self, params).await
+    }
+
+    async fn formatting(
+        &self,
+        params: tower_lsp_server::gen_lsp_types::DocumentFormattingParams,
+    ) -> Result<
+        Option<Vec<tower_lsp_server::gen_lsp_types::TextEdit>>,
+        tower_lsp_server::jsonrpc::Error,
+    > {
+        handle_formatting(self, params).await
+    }
+
+    async fn goto_definition(
+        &self,
+        params: DefinitionParams,
+    ) -> Result<Option<DefinitionResponse>, tower_lsp_server::jsonrpc::Error> {
+        try_get_goto_definition_response(self, handle_goto_definition(self, params).await?).await
+    }
+
+    async fn goto_type_definition(
+        &self,
+        params: TypeDefinitionParams,
+    ) -> Result<Option<TypeDefinitionResponse>, tower_lsp_server::jsonrpc::Error> {
+        try_get_type_definition_response(self, handle_goto_type_definition(self, params).await?)
+            .await
+    }
+
+    async fn goto_declaration(
+        &self,
+        params: DeclarationParams,
+    ) -> Result<Option<DeclarationResponse>, tower_lsp_server::jsonrpc::Error> {
+        try_get_goto_declaration_response(self, handle_goto_declaration(self, params).await?).await
+    }
+
+    async fn references(
+        &self,
+        params: ReferenceParams,
+    ) -> Result<
+        Option<Vec<tower_lsp_server::gen_lsp_types::Location>>,
+        tower_lsp_server::jsonrpc::Error,
+    > {
+        try_get_reference_locations(self, handle_references(self, params).await?).await
+    }
+
+    async fn code_action(
+        &self,
+        params: CodeActionParams,
+    ) -> Result<Option<Vec<CodeActionResponse>>, tower_lsp_server::jsonrpc::Error> {
+        handle_code_action(self, params).await
+    }
+
+    async fn diagnostic(
+        &self,
+        params: DocumentDiagnosticParams,
+    ) -> Result<DocumentDiagnosticReport, tower_lsp_server::jsonrpc::Error> {
+        handle_diagnostic(self, params).await
+    }
+
+    async fn workspace_diagnostic(
+        &self,
+        params: WorkspaceDiagnosticParams,
+    ) -> Result<WorkspaceDiagnosticReport, tower_lsp_server::jsonrpc::Error> {
+        handle_workspace_diagnostic(self, params).await
+    }
+}

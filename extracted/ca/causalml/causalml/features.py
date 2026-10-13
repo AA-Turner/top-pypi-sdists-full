@@ -243,7 +243,7 @@ def load_data(data, features, transformations={}):
         transformation (dict of (str, func)): transformations to be applied to features
 
     Returns:
-        X (numpy.matrix): a feature matrix
+        X (numpy.ndarray): a feature matrix
     """
 
     df = data[features].copy()
@@ -258,10 +258,28 @@ def load_data(data, features, transformations={}):
     cat_cols = [col for col in features if not pd.api.types.is_numeric_dtype(df[col])]
     num_cols = [col for col in features if col not in cat_cols]
 
-    logger.info("Applying one-hot-encoding to {}".format(cat_cols))
-    ohe = OneHotEncoder(min_obs=df.shape[0] * 0.001)
-    X_cat = ohe.fit_transform(df[cat_cols]).todense()
+    X_cat = None
+    if cat_cols:
+        logger.info("Applying one-hot-encoding to {}".format(cat_cols))
+        ohe = OneHotEncoder(min_obs=df.shape[0] * 0.001)
+        try:
+            X_cat = ohe.fit_transform(df[cat_cols])
+        except AssertionError:
+            # OneHotEncoder asserts when no column produced a non-empty
+            # encoding: every categorical column holds a single value, or all
+            # of their levels fall below min_obs. Under python -O that
+            # assertion is stripped and transform returns None instead of
+            # raising, so both outcomes end up here.
+            X_cat = None
 
-    X = np.hstack([df[num_cols].values, X_cat])
+        if X_cat is None:
+            logger.info("No categorical column produced an encoding")
+        else:
+            X_cat = X_cat.toarray()
+
+    if X_cat is None:
+        X = df[num_cols].values
+    else:
+        X = np.hstack([df[num_cols].values, X_cat])
 
     return X

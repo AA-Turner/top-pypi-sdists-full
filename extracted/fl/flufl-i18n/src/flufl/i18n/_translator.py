@@ -11,7 +11,7 @@ from flufl.i18n._expand import expand
 from flufl.i18n._substitute import Template, attrdict
 
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from gettext import NullTranslations
 
 

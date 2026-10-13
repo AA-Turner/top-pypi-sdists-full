@@ -79,18 +79,29 @@ def test_committed_browser_export_matches_canonical_artifact(config):
     # Every scientific input must still match the current canonical artifact.
     published = {
         **config,
-        "packageVersion": "1.0.0",
-        "packageDistribution": package_distribution("1.0.0", "1.0.0"),
+        "packageVersion": "1.0.0.post1",
+        "packageDistribution": package_distribution(
+            "1.0.0.post1", "1.0.0.post1"
+        ),
     }
     assert CONFIG.read_bytes() == encode_config(published)
     assert published["packageDistribution"] == {
         "status": "published",
-        "version": "1.0.0",
-        "publishedVersion": "1.0.0",
-        "pypiUrl": "https://pypi.org/project/spm-calculator/1.0.0/",
+        "version": "1.0.0.post1",
+        "publishedVersion": "1.0.0.post1",
+        "pypiUrl": "https://pypi.org/project/spm-calculator/1.0.0.post1/",
     }
-    assert config["packageVersion"] == "1.0.0.post1"
+    assert config["packageVersion"] == "1.0.1"
     assert config["packageDistribution"]["status"] == "local_preview"
+    assert {
+        key: value
+        for key, value in published.items()
+        if key not in {"packageVersion", "packageDistribution"}
+    } == {
+        key: value
+        for key, value in config.items()
+        if key not in {"packageVersion", "packageDistribution"}
+    }
     assert config["schemaVersion"] == 2
     assert config["forecast"]["schemaVersion"] == 2
     assert config["availableYears"] == list(YEARS)

@@ -22,6 +22,7 @@ from datetime import datetime
 from typing import Union
 
 from .literals import (
+    ComputeResourceTypeType,
     NetworkConnectorLastUpdateStatusReasonCodeType,
     NetworkConnectorLastUpdateStatusType,
     NetworkConnectorStateReasonCodeType,
@@ -41,6 +42,9 @@ __all__ = (
     "DeleteNetworkConnectorResponseTypeDef",
     "GetNetworkConnectorRequestTypeDef",
     "GetNetworkConnectorResponseTypeDef",
+    "ListNetworkConnectorVersionsRequestPaginateTypeDef",
+    "ListNetworkConnectorVersionsRequestTypeDef",
+    "ListNetworkConnectorVersionsResponseTypeDef",
     "ListNetworkConnectorsRequestPaginateTypeDef",
     "ListNetworkConnectorsRequestTypeDef",
     "ListNetworkConnectorsResponseTypeDef",
@@ -48,6 +52,7 @@ __all__ = (
     "NetworkConnectorConfigurationTypeDef",
     "NetworkConnectorConfigurationUnionTypeDef",
     "NetworkConnectorSummaryTypeDef",
+    "NetworkConnectorVersionSummaryTypeDef",
     "NetworkConnectorVpcEgressConfigurationOutputTypeDef",
     "NetworkConnectorVpcEgressConfigurationTypeDef",
     "PaginatorConfigTypeDef",
@@ -74,6 +79,23 @@ class PaginatorConfigTypeDef(TypedDict):
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
 
+class ListNetworkConnectorVersionsRequestTypeDef(TypedDict):
+    Identifier: str
+    State: NotRequired[NetworkConnectorStateType]
+    Marker: NotRequired[str]
+    MaxItems: NotRequired[int]
+
+class NetworkConnectorVersionSummaryTypeDef(TypedDict):
+    Arn: str
+    VersionArn: str
+    Name: str
+    Id: str
+    Version: int
+    State: NetworkConnectorStateType
+    StateReason: NotRequired[str]
+    StateReasonCode: NotRequired[NetworkConnectorStateReasonCodeType]
+    LastModified: NotRequired[datetime]
+
 class ListNetworkConnectorsRequestTypeDef(TypedDict):
     State: NotRequired[NetworkConnectorStateType]
     Marker: NotRequired[str]
@@ -88,6 +110,8 @@ NetworkConnectorSummaryTypeDef = TypedDict(
         "Type": Literal["VPC_EGRESS"],
         "State": NotRequired[NetworkConnectorStateType],
         "LastModified": NotRequired[datetime],
+        "LatestVersionArn": NotRequired[str],
+        "LatestVersion": NotRequired[int],
     },
 )
 
@@ -95,17 +119,27 @@ class NetworkConnectorVpcEgressConfigurationOutputTypeDef(TypedDict):
     SubnetIds: NotRequired[list[str]]
     SecurityGroupIds: NotRequired[list[str]]
     NetworkProtocol: NotRequired[NetworkProtocolType]
-    AssociatedComputeResourceTypes: NotRequired[list[Literal["MicroVm"]]]
+    AssociatedComputeResourceTypes: NotRequired[list[ComputeResourceTypeType]]
 
 class NetworkConnectorVpcEgressConfigurationTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
     SecurityGroupIds: NotRequired[Sequence[str]]
     NetworkProtocol: NotRequired[NetworkProtocolType]
-    AssociatedComputeResourceTypes: NotRequired[Sequence[Literal["MicroVm"]]]
+    AssociatedComputeResourceTypes: NotRequired[Sequence[ComputeResourceTypeType]]
+
+class ListNetworkConnectorVersionsRequestPaginateTypeDef(TypedDict):
+    Identifier: str
+    State: NotRequired[NetworkConnectorStateType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListNetworkConnectorsRequestPaginateTypeDef(TypedDict):
     State: NotRequired[NetworkConnectorStateType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListNetworkConnectorVersionsResponseTypeDef(TypedDict):
+    NetworkConnectorVersions: list[NetworkConnectorVersionSummaryTypeDef]
+    NextMarker: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ListNetworkConnectorsResponseTypeDef(TypedDict):
     NetworkConnectors: list[NetworkConnectorSummaryTypeDef]
@@ -122,6 +156,8 @@ class CreateNetworkConnectorResponseTypeDef(TypedDict):
     Arn: str
     Name: str
     Id: str
+    VersionArn: str
+    Version: int
     Configuration: NetworkConnectorConfigurationOutputTypeDef
     OperatorRole: str
     State: NetworkConnectorStateType
@@ -131,6 +167,8 @@ class DeleteNetworkConnectorResponseTypeDef(TypedDict):
     Arn: str
     Name: str
     Id: str
+    VersionArn: str
+    Version: int
     Configuration: NetworkConnectorConfigurationOutputTypeDef
     OperatorRole: str
     State: NetworkConnectorStateType
@@ -140,7 +178,10 @@ class GetNetworkConnectorResponseTypeDef(TypedDict):
     Arn: str
     Name: str
     Id: str
+    VersionArn: str
     Version: int
+    LatestVersionArn: str
+    LatestVersion: int
     Configuration: NetworkConnectorConfigurationOutputTypeDef
     OperatorRole: str
     State: NetworkConnectorStateType
@@ -156,6 +197,8 @@ class UpdateNetworkConnectorResponseTypeDef(TypedDict):
     Arn: str
     Name: str
     Id: str
+    VersionArn: str
+    Version: int
     OperatorRole: str
     Configuration: NetworkConnectorConfigurationOutputTypeDef
     State: NetworkConnectorStateType

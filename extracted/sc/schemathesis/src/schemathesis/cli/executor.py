@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from collections.abc import Callable
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 import click
@@ -30,9 +28,6 @@ if TYPE_CHECKING:
     from schemathesis.config import ProjectConfig
     from schemathesis.engine.events import EngineEvent, EventGenerator
 
-# Private until the HTML report is complete.
-HTML_REPORT_DIR_ENV_VAR = "SCHEMATHESIS_HTML_REPORT_DIR"
-
 
 class ExecutionContext(Protocol):
     exit_code: int
@@ -51,6 +46,7 @@ try:
         JsonReportHandler: ReportFormat.JSON,
         WfcReportHandler: ReportFormat.WFC,
         AllureHandler: ReportFormat.ALLURE,
+        HtmlReportHandler: ReportFormat.HTML,
     }
     _BUILT_IN_HANDLERS: tuple[type[EventHandler], ...] = (
         VcrHandler,
@@ -71,6 +67,7 @@ except ImportError:
         NdjsonHandler: ReportFormat.NDJSON,
         JsonReportHandler: ReportFormat.JSON,
         WfcReportHandler: ReportFormat.WFC,
+        HtmlReportHandler: ReportFormat.HTML,
     }
     _BUILT_IN_HANDLERS = (
         VcrHandler,
@@ -82,17 +79,6 @@ except ImportError:
         CrashHandler,
         HtmlReportHandler,
     )
-
-
-_REPORT_NAMES = {
-    ReportFormat.JUNIT: "JUnit",
-    ReportFormat.VCR: "VCR",
-    ReportFormat.HAR: "HAR",
-    ReportFormat.NDJSON: "NDJSON",
-    ReportFormat.JSON: "JSON",
-    ReportFormat.WFC: "WFC",
-    ReportFormat.ALLURE: "Allure",
-}
 
 
 def is_built_in_handler(handler: EventHandler) -> bool:
@@ -140,9 +126,10 @@ def initialize_report_handlers(
         allure_path = config.reports.get_path(ReportFormat.ALLURE)
         prepare_directory(allure_path)
         handlers.append(AllureHandler(output_dir=allure_path, config=config.output))
-    html_report_dir = os.environ.get(HTML_REPORT_DIR_ENV_VAR)
-    if html_report_dir:
-        handlers.append(HtmlReportHandler(Path(html_report_dir)))
+    if config.reports.html.enabled:
+        html_path = config.reports.get_path(ReportFormat.HTML)
+        prepare_directory(html_path)
+        handlers.append(HtmlReportHandler(html_path))
 
     if config.cache.enabled:
         handlers.append(
@@ -150,6 +137,7 @@ def initialize_report_handlers(
                 cache_directory=config.cache.directory,
                 schema_location=params.get("location") or "",
                 base_url=config.base_url or "",
+                tls_verify=config.tls_verify,
                 sanitization=config.output.sanitization,
             )
         )
@@ -166,7 +154,7 @@ def display_handler_error(handler: EventHandler, exc: Exception, config: Project
     if report_format is not None and isinstance(exc, OSError):
         path = config.reports.get_path(report_format)
         click.secho(
-            f"Failed to write {_REPORT_NAMES[report_format]} report to {path}: {exc.strerror or str(exc)}", fg="red"
+            f"Failed to write {report_format.display_name} report to {path}: {exc.strerror or str(exc)}", fg="red"
         )
         return
     is_built_in = is_built_in_handler(handler)

@@ -42,6 +42,7 @@ from ._decimate import decimate
 from ._decimate_volume import decimate_volume
 from ._error import estimate_error
 from ._feature_edges import feature_edges
+from ._fit_primitives import TYPES, fit_primitives, types_mask
 from ._gradient import gradient
 from ._helpers import _filetypes_from_path, _write_format_for_path, read, write
 from ._hessian import hessian
@@ -61,9 +62,11 @@ from ._refine import refine
 from ._region_ops import edit_regions
 from ._remesh import remesh
 from ._remesh_volume import remesh_volume
+from ._render import snapshot
 from ._reorder import reorder
 from ._repair import repair
 from ._sdf import compute_sdf
+from ._segment import segment
 from ._skin import extract_skin
 from ._slice import slice as _slice
 from ._smooth import smooth
@@ -157,6 +160,22 @@ _OP_TABLE = {
         "Inconsistent",
         "Region",
     ),
+    "Segment": (
+        "FeatureAngle",
+        "NormalTolerance",
+        "CurvatureTolerance",
+        "MinPatchCells",
+        "Region",
+        "Prefix",
+    ),
+    "FitPrimitives": (
+        "PatchData",
+        "Tolerance",
+        "Relative",
+        "MinInlierFraction",
+        "Types",
+        "MaxIterations",
+    ),
     "EditRegions": ("Edit", "Inputs", "Output", "Kind", "Dim", "Tag", "KeepInputs"),
     "RegionAdjacency": ("Regions",),
     "FindInterface": (
@@ -170,6 +189,67 @@ _OP_TABLE = {
     ),
     "SplitInterface": ("Region", "AddCohesive"),
     "QualityGate": ("Require", "MaxInverted", "MaxDegenerate"),
+    "Snapshot": (
+        "Path",
+        "Width",
+        "Height",
+        "Supersample",
+        "Cols",
+        "Rows",
+        "Encoding",
+        "ColorDepth",
+        "PngCompress",
+        "View",
+        "Azimuth",
+        "Elevation",
+        "Roll",
+        "Perspective",
+        "Fov",
+        "Zoom",
+        "Shading",
+        "Edges",
+        "FeatureAngle",
+        "Background",
+        "FillColor",
+        "ColorBy",
+        "Component",
+        "Cmap",
+        "VMin",
+        "VMax",
+        "Colorbar",
+        "Axes",
+        "ScaleBar",
+        "Reduce",
+        "Expr",
+        "ClipLow",
+        "ClipHigh",
+        "Symmetric",
+        "Scale",
+        "ScaleThreshold",
+        "Categorical",
+        "ColorRegions",
+        "CategoryEdges",
+        "Isolines",
+        "IsoLevels",
+        "Vectors",
+        "VectorCount",
+        "Warp",
+        "WarpScale",
+        "WarpOutline",
+        "Diagnostic",
+        "QualityMetric",
+        "Cutaway",
+        "CutawayTint",
+        "Streamlines",
+        "StreamSeeds",
+        "StreamLength",
+        "StreamColor",
+        "Theme",
+        "Scanlines",
+        "Bloom",
+        "Fringe",
+        "GridFloor",
+    ),
     "Repair": (
         "FixOrientation",
         "OrientOutward",
@@ -381,6 +461,136 @@ def _text(step, key, fallback):
     if not isinstance(v, str):
         raise _err(step["Op"], f"parameter '{key}' must be a string")
     return v
+
+
+def _snap_color(step, key):
+    if key not in step:
+        return None
+    from ._render import parse_color
+
+    try:
+        return parse_color(_text(step, key, ""))
+    except ValueError:
+        raise _err(
+            step["Op"], f"parameter '{key}' must be #rrggbb, #rrggbbaa or none"
+        ) from None
+
+
+def _snap_choice(step, key, names):
+    if key not in step:
+        return None
+    name = _text(step, key, "")
+    if name not in names:
+        raise _err(
+            step["Op"],
+            f"parameter '{key}' must be one of {', '.join(names)}, not '{name}'",
+        )
+    return name
+
+
+def _snapshot_options(step):
+    """The keyword arguments of `snapshot` from a Snapshot step's parameters,
+    with the defaults of the native engine's `pipe_snap_render_options`."""
+    iso_levels = _dvec(step, "IsoLevels")
+    flat_cut = _dvec(step, "Cutaway") or []
+    if len(flat_cut) % 6 != 0 or len(flat_cut) > 12:
+        raise _err(
+            step["Op"],
+            "parameter 'Cutaway' must be one or two planes of six numbers each "
+            "(a point, then the normal of the side kept)",
+        )
+    cutaway = [tuple(flat_cut[i : i + 6]) for i in range(0, len(flat_cut), 6)] or None
+    options = {
+        "width": int(_number(step, "Width", 320)),
+        "height": int(_number(step, "Height", 240)),
+        "supersample": int(_number(step, "Supersample", 1)),
+        "cols": int(_number(step, "Cols", 100)),
+        "rows": int(_number(step, "Rows", 40)),
+        "encoding": _snap_choice(
+            step, "Encoding", ("halfblock", "quadrant", "sextant", "braille", "ascii")
+        )
+        or "halfblock",
+        "color_depth": _snap_choice(
+            step, "ColorDepth", ("truecolor", "256", "16", "mono")
+        )
+        or "truecolor",
+        "png_compress": int(_number(step, "PngCompress", 0)),
+        "view": _text(step, "View", "") or None,
+        "azimuth": _number(step, "Azimuth", 45.0),
+        "elevation": _number(step, "Elevation", 35.264389682754654),
+        "roll": _number(step, "Roll", 0.0),
+        "projection": "perspective" if _flag(step, "Perspective", False) else None,
+        "fov": _number(step, "Fov", 30.0),
+        "zoom": _number(step, "Zoom", 1.0),
+        "shading": _snap_choice(step, "Shading", ("none", "flat", "smooth")),
+        "edges": _snap_choice(step, "Edges", ("none", "all", "feature")),
+        "feature_angle": _number(step, "FeatureAngle", 30.0),
+        "background": _snap_color(step, "Background"),
+        "fill_color": _snap_color(step, "FillColor"),
+        "color_by": _text(step, "ColorBy", "") or None,
+        "component": (
+            int(_number(step, "Component", 0)) if "Component" in step else None
+        ),
+        "theme": _snap_choice(step, "Theme", ("none", "synthwave")),
+        "cmap": _text(
+            step,
+            "Cmap",
+            "synthwave" if _text(step, "Theme", "none") == "synthwave" else "viridis",
+        ),
+        "scanlines": _flag(step, "Scanlines", False),
+        "bloom": _flag(step, "Bloom", False),
+        "fringe": _flag(step, "Fringe", False),
+        "grid_floor": _flag(step, "GridFloor", False),
+        "vmin": _number(step, "VMin", 0.0) if "VMin" in step else None,
+        "vmax": _number(step, "VMax", 0.0) if "VMax" in step else None,
+        "colorbar": _flag(step, "Colorbar", False),
+        "axes": _flag(step, "Axes", False),
+        "scale_bar": _flag(step, "ScaleBar", False),
+        "reduce": _text(step, "Reduce", "") or None,
+        "expr": _text(step, "Expr", "") or None,
+        "clip": (
+            (
+                _number(step, "ClipLow", 0.0) if "ClipLow" in step else None,
+                _number(step, "ClipHigh", 100.0) if "ClipHigh" in step else None,
+            )
+            if "ClipLow" in step or "ClipHigh" in step
+            else None
+        ),
+        "symmetric": _flag(step, "Symmetric", False),
+        "scale": _snap_choice(step, "Scale", ("linear", "log", "symlog")),
+        "scale_threshold": _number(step, "ScaleThreshold", 1.0),
+        "categorical": _flag(step, "Categorical", False),
+        "color_regions": _flag(step, "ColorRegions", False),
+        "category_edges": _flag(step, "CategoryEdges", False),
+        "isolines": int(_number(step, "Isolines", 0)),
+        "iso_levels": iso_levels if iso_levels else None,
+        "vectors": _text(step, "Vectors", "") or None,
+        "vector_count": int(_number(step, "VectorCount", 200)),
+        "warp": _text(step, "Warp", "") or None,
+        "warp_scale": _number(step, "WarpScale", 1.0),
+        "warp_outline": _flag(step, "WarpOutline", False),
+        "diagnostic": _snap_choice(
+            step,
+            "Diagnostic",
+            (
+                "none",
+                "quality",
+                "inverted",
+                "degenerate",
+                "orientation",
+                "free_edges",
+                "edge_length",
+            ),
+        ),
+        "quality_metric": _text(step, "QualityMetric", "") or None,
+        "cutaway": cutaway,
+        "cutaway_tint": _snap_color(step, "CutawayTint"),
+        "streamlines": _text(step, "Streamlines", "") or None,
+        "stream_seeds": int(_number(step, "StreamSeeds", 40)),
+        "stream_length": _number(step, "StreamLength", 0.5),
+        "stream_color": _snap_color(step, "StreamColor"),
+    }
+    return {k: v for k, v in options.items() if v is not None}
 
 
 def _dvec(step, key):
@@ -760,6 +970,54 @@ def _apply_step(mesh, step, steps, warnings):
         entry["NumBoundary"] = report["num_boundary"]
         entry["NumNonManifold"] = report["num_non_manifold"]
         entry["NumInconsistent"] = report["num_inconsistent"]
+    elif op == "Segment":
+        mesh, report = segment(
+            mesh,
+            feature_angle=_number(step, "FeatureAngle", 30.0),
+            normal_tolerance=_number(step, "NormalTolerance", 0.0),
+            curvature_tolerance=_number(step, "CurvatureTolerance", 0.0),
+            min_patch_cells=int(_number(step, "MinPatchCells", 1.0)),
+            region=_text(step, "Region", ""),
+            prefix=_text(step, "Prefix", "patch"),
+            return_report=True,
+        )
+        entry["NumPatches"] = report["num_patches"]
+        entry["NumMerged"] = report["num_merged"]
+        entry["NumFeatureEdges"] = report["num_feature_edges"]
+        entry["NumBoundaryEdges"] = report["num_boundary_edges"]
+    elif op == "FitPrimitives":
+        types = _svec(step, "Types")
+        try:
+            mask_types = tuple(types) if types else TYPES[1:]
+            if types:
+                types_mask(mask_types)
+        except ValueError:
+            bad = next(t for t in types if t not in TYPES[1:])
+            raise _err(op, f"unknown primitive type '{bad}' in 'Types'") from None
+        mesh, report = fit_primitives(
+            mesh,
+            patch_data=_text(step, "PatchData", "segment:patch"),
+            tolerance=_number(step, "Tolerance", 1e-3),
+            relative=_flag(step, "Relative", True),
+            min_inlier_fraction=_number(step, "MinInlierFraction", 0.9),
+            types=mask_types,
+            max_iterations=int(_number(step, "MaxIterations", 50.0)),
+            return_report=True,
+        )
+        entry["NumPatches"] = report["num_patches"]
+        for t in TYPES[1:]:
+            entry["Num" + t.capitalize()] = report["num_" + t]
+        entry["NumUnfitted"] = report["num_unfitted"]
+    elif op == "Snapshot":
+        # A side output, not a transform: the mesh passes through untouched and
+        # the frame is written to `Path` (.png, .txt, .ansi, .html or .cast).
+        path = _text(step, "Path", "")
+        if not path:
+            raise _err(step["Op"], "'Path' is required")
+        options = _snapshot_options(step)
+        snapshot(mesh, path, **options)
+        entry["Width"] = options["width"]
+        entry["Height"] = options["height"]
     elif op == "QualityGate":
         # A gate, not a transform: the mesh passes through untouched, and a
         # failed check stops the pipeline with the summary as the error.

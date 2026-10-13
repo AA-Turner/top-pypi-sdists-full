@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -9,20 +10,25 @@ except ImportError:
 from causalml.dataset import simulate_hidden_confounder
 from causalml.metrics import get_cumgain
 
+from .const import RANDOM_SEED
+
 
 @pytest.mark.torch
 def test_CEVAE():
-    y, X, treatment, tau, b, e = simulate_hidden_confounder(
-        n=10000, p=5, sigma=1.0, adj=0.0
+    np.random.seed(RANDOM_SEED)
+    torch.manual_seed(RANDOM_SEED)
+    y, X, treatment, tau, _, _ = simulate_hidden_confounder(
+        n=2000, p=5, sigma=1.0, adj=0.0
     )
 
     outcome_dist = "normal"
     latent_dim = 20
-    hidden_dim = 200
-    num_epochs = 50
+    hidden_dim = 64
+    num_epochs = 20
     batch_size = 100
     learning_rate = 1e-3
     learning_rate_decay = 0.1
+    num_samples = 200
 
     cevae = CEVAE(
         outcome_dist=outcome_dist,
@@ -32,6 +38,7 @@ def test_CEVAE():
         batch_size=batch_size,
         learning_rate=learning_rate,
         learning_rate_decay=learning_rate_decay,
+        num_samples=num_samples,
     )
 
     cevae.fit(
@@ -40,17 +47,16 @@ def test_CEVAE():
         y=torch.tensor(y, dtype=torch.float),
     )
 
-    # check the accuracy of the ite accuracy
     ite = cevae.predict(X).flatten()
 
-    auuc_metrics = pd.DataFrame(
-        {"ite": ite, "W": treatment, "y": y, "treatment_effect_col": tau}
-    )
+    auuc_metrics = pd.DataFrame({"ite": ite, "W": treatment, "y": y, "tau": tau})
 
     cumgain = get_cumgain(
         auuc_metrics, outcome_col="y", treatment_col="W", treatment_effect_col="tau"
     )
 
-    # Check if the cumulative gain when using the model's prediction is
-    # higher than it would be under random targeting
-    assert cumgain["ite"].sum() > cumgain["Random"].sum()
+    # Compare the model's cumulative gain with random targeting.
+    random_gain = np.linspace(
+        cumgain["ite"].iloc[0], cumgain["ite"].iloc[-1], cumgain.shape[0]
+    )
+    assert cumgain["ite"].sum() > random_gain.sum()

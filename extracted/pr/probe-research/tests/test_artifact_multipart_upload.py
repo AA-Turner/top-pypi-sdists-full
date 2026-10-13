@@ -783,3 +783,45 @@ def test_a_synchronous_upload_waits_past_the_servers_idle_takeover(
     with pytest.raises(errors.ConflictError):
         run.log_artifact("ckpt", path=str(big), strict=True)
     assert sum(slept) > 600, slept
+
+
+# -- 2026-10-12: the CLI's queued run upload, output capture, no-copy staging --
+
+
+def test_no_copy_staging_refuses_across_filesystems(mp_client, tmp_path, monkeypatch):
+    big = _sparse(tmp_path / "ckpt.pt", 70 * MiB)
+
+    def other_filesystem(src, dst):
+        raise OSError(errno.EXDEV, "Invalid cross-device link")
+
+    monkeypatch.setattr(multipart.os, "link", other_filesystem)
+    monkeypatch.setattr(multipart, "try_clone", lambda src, dst: False)
+    with pytest.raises(multipart.StageRefused, match="another filesystem"):
+        multipart.stage(mp_client.journal, str(big), "op-x", allow_copy=False)
+    assert multipart.stage(mp_client.journal, str(big), "op-y")["stage_mode"] == "copy"
+
+
+def test_a_missing_team_route_is_remembered_and_a_blip_is_not(mp_app, mp_client, tmp_path, monkeypatch):
+    """`supports_team_feature`: an older server's 404 is an answer (cached); a
+    5xx or a network error is "off" this time only, so a long-lived process is
+    not switched off for good by one blip."""
+    mp_app.team_features = None
+    calls = lambda: sum(1 for r in mp_app.requests if r.url.path == "/v1/teams/features")  # noqa: E731
+    assert mp_client.supports_team_feature("artifact_auto_multipart") is False
+    assert mp_client.supports_team_feature("artifact_auto_multipart") is False
+    assert calls() == 1
+
+    fresh = make_client(mp_app, tmp_spool=tmp_path / "outbox-fresh", async_writes=True)
+    real_get = fresh.transport.get
+
+    def blip(path, *a, **kw):
+        if path == "/v1/teams/features":
+            raise errors.ServerError("503", status=503)
+        return real_get(path, *a, **kw)
+
+    monkeypatch.setattr(fresh.transport, "get", blip)
+    mp_app.team_features = ("artifact_auto_multipart",)
+    assert fresh.supports_team_feature("artifact_auto_multipart") is False
+    monkeypatch.setattr(fresh.transport, "get", real_get)
+    assert fresh.supports_team_feature("artifact_auto_multipart") is True
+

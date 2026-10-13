@@ -3,7 +3,7 @@
 Python's ``open`` audit event never fires for a library that opens its files
 from C or Rust. `probe.sdk._readers` wraps the Python entry points of the ones
 that matter -- pyarrow.parquet, pyarrow.memory_map, h5py, safetensors -- and
-``torch.save`` (a write), lazily, and hands each path to the recorder. These
+``torch.save`` and safetensors' ``save_file`` (writes), lazily, and hands each path to the recorder. These
 tests pin that each wrapped reader records the files it OPENED (a dataset's
 files when they are read, never at construction), that h5py's mode says read
 or write, that ``torch.load`` is seen with no wrapper at all, that the same
@@ -370,6 +370,67 @@ def test_safetensors_torch_load_file_is_recorded(tmp_path) -> None:
     assert inputs.start("run-st-torch")
     assert st_torch.load_file(path)["w"].shape == (4,)
     assert list(_reads("run-st-torch")) == [str(path)]
+
+
+def test_safetensors_save_file_is_a_write(tmp_path) -> None:
+    """safetensors' `save_file` writes from Rust: unseen by the hook. The Hugging
+    Face Trainer saves `model.safetensors` with it, so without the wrapper a
+    later run loading those weights links to nobody."""
+    np = _lib("numpy")
+    st_numpy = _lib("safetensors.numpy")
+    path = tmp_path / "work" / "model.safetensors"
+    path.parent.mkdir(parents=True)
+    assert inputs.start("run-st-save")
+    st_numpy.save_file({"w": np.arange(4, dtype="float32")}, str(path))
+    st_numpy.save_file({"w": np.arange(5, dtype="float32")}, filename=path)  # by keyword: the final bytes count
+    got = inputs.collect_all("run-st-save", wait_s=5)
+    assert [(r["path"], r["content_hash"]) for r in got.outputs] == [(str(path), _sha(path))]
+    assert got.inputs == []  # a write is not a read
+
+
+def test_safetensors_torch_save_model_is_a_write_and_the_wrapper_pickles(tmp_path) -> None:
+    """`save_model` calls its module's `save_file`, so it is seen with no wrapper of
+    its own; the wrapper pickles by reference as the one object (multiprocessing)."""
+    import pickle
+
+    torch = _lib("torch")
+    st_torch = _lib("safetensors.torch")
+    path = tmp_path / "work" / "adapter.safetensors"
+    path.parent.mkdir(parents=True)
+    assert inputs.start("run-st-save-model")
+    assert hasattr(st_torch.save_file, "__probe_wrapped_by__")
+    assert pickle.loads(pickle.dumps(st_torch.save_file)) is st_torch.save_file
+    st_torch.save_model(torch.nn.Linear(2, 2), str(path))
+    got = inputs.collect_all("run-st-save-model", wait_s=5)
+    assert [(r["path"], r["content_hash"]) for r in got.outputs] == [(str(path), _sha(path))]
+
+
+def test_a_writer_imported_by_name_before_init_is_seen(tmp_path) -> None:
+    """transformers binds `from safetensors.torch import save_file as
+    safe_save_file` when it is imported, before `probe.init()`: install points
+    that module global at the wrapper too."""
+    _lib("safetensors.numpy")
+    weights = tmp_path / "work" / "early-write.safetensors"
+    weights.parent.mkdir(parents=True)
+    code = (
+        "import json, sys, types\n"
+        "import numpy as np\n"
+        "from safetensors.numpy import save_file as safe_save_file\n"
+        "user = types.ModuleType('early_writer')\n"
+        "user.safe_save_file = safe_save_file\n"
+        "sys.modules['early_writer'] = user\n"
+        "from probe.sdk import inputs\n"
+        "assert inputs.start('run-early-write')\n"
+        f"user.safe_save_file({{'w': np.arange(3, dtype='float32')}}, {str(weights)!r})\n"
+        "got = inputs.collect_all('run-early-write', wait_s=5)\n"
+        "print(json.dumps({'writes': [r['path'] for r in got.outputs],\n"
+        "                  'wrapped': hasattr(user.safe_save_file, '__probe_wrapped_by__')}))\n"
+    )
+    env = {**os.environ, "XDG_STATE_HOME": str(tmp_path / "state"), inputs.READS_ENV: "1"}
+    env.pop(inputs.CHILD_DIR_ENV, None)
+    out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    assert json.loads(out.stdout.strip().splitlines()[-1]) == {"writes": [str(weights)], "wrapped": True}
 
 
 # -- torch ----------------------------------------------------------------------------

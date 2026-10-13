@@ -29,50 +29,6 @@ _DecoratedTest = TypeVar("_DecoratedTest", bound="Callable")
 _TestDecorator = Callable[[_DecoratedTest], _DecoratedTest]
 
 
-# Taken from python3.9
-class BooleanOptionalAction(argparse.Action):
-    def __init__(
-        self,
-        option_strings,
-        dest,
-        default=None,
-        type=None,
-        choices=None,
-        required=False,
-        help=None,
-        metavar=None,
-    ):
-        _option_strings = []
-        for option_string in option_strings:
-            _option_strings.append(option_string)
-
-            if option_string.startswith("--"):
-                option_string = "--no-" + option_string[2:]
-                _option_strings.append(option_string)
-
-        if help is not None and default is not None:
-            help += f" (default: {default})"
-
-        super().__init__(
-            option_strings=_option_strings,
-            dest=dest,
-            nargs=0,
-            default=default,
-            type=type,
-            choices=choices,
-            required=required,
-            help=help,
-            metavar=metavar,
-        )
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        if option_string in self.option_strings:
-            setattr(namespace, self.dest, not option_string.startswith("--no-"))
-
-    def format_usage(self):
-        return " | ".join(self.option_strings)
-
-
 def pytest_addoption(parser):
     parser.addoption(
         "--valkey-url",
@@ -104,7 +60,7 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
-        "--uvloop", action=BooleanOptionalAction, help="Run tests with uvloop"
+        "--uvloop", action=argparse.BooleanOptionalAction, help="Run tests with uvloop"
     )
 
     parser.addoption(
@@ -244,7 +200,7 @@ def skip_ifmodversion_lt(min_version: str, module_name: str):
             check = version < mv
             return pytest.mark.skipif(check, reason="Valkey module version")
 
-    raise AttributeError(f"No valkey module named {module_name}")
+    return pytest.mark.skipif(True, reason=f"No valkey module named {module_name}")
 
 
 def skip_if_nocryptography() -> _TestDecorator:
@@ -480,6 +436,19 @@ def wait_for_command(client, monitor, command, key=None):
             return monitor_response
         if key in monitor_response["command"]:
             return None
+
+
+def wait_for_condition(
+    predicate: Callable[[], object], timeout: float = 10, interval: float = 0.1
+) -> None:
+    """Poll ``predicate`` until it returns a truthy value or ``timeout`` seconds
+    elapse. Raises AssertionError on timeout."""
+    deadline = time.monotonic() + timeout
+    while True:
+        if predicate():
+            return
+        assert time.monotonic() < deadline, "timed out waiting for condition"
+        time.sleep(interval)
 
 
 def is_resp2_connection(r):

@@ -209,6 +209,31 @@ def test_notes_follow_the_servers_version_rules():
     assert state["entities"][SVM]["notes"] == "v1 text" and state["entities"][CHOSEN]["notes"] == "caveat"
 
 
+def test_a_fork_is_served_like_the_servers():
+    """`experiment fork` (app/experiments/fork.py): a new experiment of the
+    source's project, its notes opening with the source line, linked
+    `forked_from` by the server -- and the link the wire refuses by hand."""
+    fake = _fake(T0 + 3600)
+    base = f"/v1/projects/{PROJECT}/experiments/{SVM}"
+    assert _call(fake, "PATCH", base, {"notes": "C=10 wins.", "base_version": 0}).status == 200
+    forked = _call(fake, "POST", f"{base}/fork", {"slug": "svm-rbf", "question": "Does an RBF kernel help?"})
+    assert forked.status == 201, forked.body
+    fid = forked.body["id"]
+    assert forked.body["fork"]["source_id"] == SVM and forked.body["project_id"] == PROJECT
+    notes = _call(fake, "GET", f"/v1/projects/{PROJECT}/experiments/{fid}").body["notes"]
+    assert notes.startswith("Forked from experiment `") and notes.endswith("C=10 wins.")
+    links = [e for e in fake.live_edges() if e["relation"] == "forked_from"]
+    assert [(e["source_id"], e["target_id"]) for e in links] == [(fid, SVM)]
+    inherited = _call(fake, "GET", f"/v1/projects/{PROJECT}/experiments/{fid}/inherited", query="kind=runs").body
+    assert [x["id"] for x in inherited["sources"]] == [SVM]
+    assert {r["id"] for r in inherited["items"]} == {CHOSEN, PCA_RUN}
+    by_hand = _call(fake, "POST", "/v1/edges", {"source_type": "project", "source_id": fid,
+                                                "relation": "forked_from", "target_type": "project",
+                                                "target_id": SVM})
+    assert by_hand.status == 422
+    assert not fake.unmapped
+
+
 def test_an_experiments_children_are_served_on_the_experiment_api():
     """What the tap's companion worker reads and writes for an experiment
     (X21b): its place, its detail and notes, its sub-notes, its files and an

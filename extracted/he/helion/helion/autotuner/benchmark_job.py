@@ -19,7 +19,23 @@ from .precompile_future import _load_compiled_fn
 from .precompile_future import _unload_compiled_fn
 
 if TYPE_CHECKING:
+    from ..runtime.kernel import CompiledConfig
     from .precompile_future import SerializedCompiledFunction
+
+
+class CompiledFunctionLoadError(Exception):
+    """The benchmark worker could not reconstruct a generated wrapper."""
+
+
+def _load_compiled_fn_for_worker(
+    fn_spec: SerializedCompiledFunction,
+) -> CompiledConfig:
+    try:
+        return _load_compiled_fn(fn_spec)
+    except Exception as error:
+        raise CompiledFunctionLoadError(
+            f"{type(error).__qualname__}: {error}"
+        ) from error
 
 
 @dataclasses.dataclass
@@ -29,24 +45,30 @@ class BenchmarkJob:
     warmup: int = 1
     rep: int = 50
     use_wall_clock: bool = False
+    fixed_repetitions: int | None = None
+    probe_long_kernel: bool = False
 
     def __call__(self) -> float:
         # Subprocess inherits parent stderr; capture so Triton runtime
         # diagnostics don't leak to the user's terminal.
         with capture_output():
-            fn = _load_compiled_fn(self.fn_spec)
+            fn = _load_compiled_fn_for_worker(self.fn_spec)
             try:
                 args = load_trusted_kernel_args(self.args_path)
                 bench = do_bench_generic if self.use_wall_clock else do_bench
                 # return_mode="median" guarantees a float return.
+                benchmark_fn = functools.partial(fn, *args)
+                result = bench(
+                    benchmark_fn,
+                    return_mode="median",
+                    warmup=self.warmup,
+                    rep=self.rep,
+                    fixed_repetitions=self.fixed_repetitions,
+                    probe_long_kernel=self.probe_long_kernel,
+                )
                 return cast(
                     "float",
-                    bench(
-                        functools.partial(fn, *args),
-                        return_mode="median",
-                        warmup=self.warmup,
-                        rep=self.rep,
-                    ),
+                    result,
                 )
             finally:
                 _unload_compiled_fn(fn)
@@ -70,11 +92,12 @@ class AccuracyCheckJob:
     baseline_path: str
     atol: float
     rtol: float
+    scale_atol: bool = False
 
     def __call__(self) -> AccuracyCheckResult:
         # Keep compile/launch diagnostics out of the autotune progress stream.
         with capture_output():
-            fn = _load_compiled_fn(self.fn_spec)
+            fn = _load_compiled_fn_for_worker(self.fn_spec)
             try:
                 args = load_trusted_kernel_args(self.args_path)
                 baseline_output = _load_trusted_baseline_output(self.baseline_path)
@@ -84,7 +107,13 @@ class AccuracyCheckJob:
                 _unload_compiled_fn(fn)
 
         try:
-            assert_close(output, baseline_output, atol=self.atol, rtol=self.rtol)
+            assert_close(
+                output,
+                baseline_output,
+                atol=self.atol,
+                rtol=self.rtol,
+                scale_atol_by_expected_rms=self.scale_atol,
+            )
         except AssertionError as e:
             return AccuracyCheckResult(ok=False, message=str(e))
         return AccuracyCheckResult(ok=True)

@@ -1,0 +1,256 @@
+use itertools::Either;
+use tombi_extension::{CommentContext, CompletionContent, CompletionHint};
+use tombi_text::IntoLsp;
+use tower_lsp_server::gen_lsp_types::{CompletionParams, TextDocumentPositionParams};
+
+use crate::{
+    backend,
+    completion::{
+        extract_keys_and_hint, find_completion_contents, get_comment_context,
+        get_document_comment_directive_completion_contents,
+    },
+    config_manager::ConfigSchemaStore,
+};
+
+pub async fn handle_completion(
+    backend: &backend::Backend,
+    params: CompletionParams,
+) -> Result<Option<Vec<CompletionContent>>, tower_lsp_server::jsonrpc::Error> {
+    log::trace!("{:?}", params);
+
+    let CompletionParams {
+        text_document_position_params:
+            TextDocumentPositionParams {
+                text_document,
+                position,
+            },
+        ..
+    } = params;
+
+    let text_document_uri = text_document.uri.into();
+
+    let ConfigSchemaStore {
+        config,
+        schema_store,
+        ..
+    } = backend
+        .config_manager
+        .config_schema_store_for_uri(&text_document_uri)
+        .await;
+
+    if !config
+        .lsp
+        .as_ref()
+        .and_then(|server| server.completion.as_ref())
+        .and_then(|completion| completion.enabled)
+        .unwrap_or_default()
+        .value()
+    {
+        log::debug!("`server.completion.enabled` is false");
+        return Ok(None);
+    }
+
+    if !config
+        .schema
+        .as_ref()
+        .and_then(|s| s.enabled)
+        .unwrap_or_default()
+        .value()
+    {
+        log::debug!("`schema.enabled` is false");
+        return Ok(None);
+    }
+
+    log::info!("handle_completion");
+
+    let Ok(document_sources) = backend.document_sources.try_read() else {
+        return Ok(None);
+    };
+    let Some(document_source) = document_sources.get(&text_document_uri) else {
+        log::trace!("document_source not found");
+        return Ok(None);
+    };
+
+    let root = document_source.ast();
+    let toml_version = document_source.toml_version;
+    let line_index = document_source.line_index();
+    let encoding = document_source.encoding_kind();
+
+    let source_schema = schema_store
+        .resolve_source_schema_from_ast(&root, Some(Either::Left(&text_document_uri)))
+        .await
+        .ok()
+        .flatten();
+
+    let document_tree = document_source.document_tree();
+    let offset: tombi_text::Offset = position.into_lsp(line_index, encoding);
+
+    let mut completion_items = Vec::new();
+
+    let comment_context = get_comment_context(&root, offset);
+    let (keys, completion_hint) = match &comment_context {
+        Some(CommentContext::DocumentDirective(comment)) => {
+            if let Some(comment_completion_contents) =
+                get_document_comment_directive_completion_contents(
+                    &root,
+                    comment,
+                    offset,
+                    &text_document_uri,
+                )
+                .await
+            {
+                return Ok(Some(comment_completion_contents));
+            }
+            let Some((keys, completion_hint)) = get_keys_and_completion_hint(
+                &root,
+                document_source.decoded(),
+                offset,
+                toml_version,
+                comment_context.as_ref(),
+            ) else {
+                return Ok(Some(Vec::new()));
+            };
+
+            (keys, completion_hint)
+        }
+        Some(CommentContext::ValueDirective(_)) | None => {
+            let Some((keys, completion_hint)) = get_keys_and_completion_hint(
+                &root,
+                document_source.decoded(),
+                offset,
+                toml_version,
+                comment_context.as_ref(),
+            ) else {
+                return Ok(Some(Vec::new()));
+            };
+
+            let strict =
+                tombi_validator::comment_directive::get_tombi_document_comment_directive(&root)
+                    .await
+                    .and_then(|directive| directive.schema.and_then(|schema| schema.strict));
+            let schema_context = tombi_schema_store::SchemaContext::from_source_schema(
+                toml_version,
+                source_schema.as_ref(),
+                &schema_store,
+                strict,
+            );
+
+            completion_items.extend(
+                find_completion_contents(
+                    document_tree,
+                    crate::CursorPosition::new(offset, line_index),
+                    &keys,
+                    &schema_context,
+                    completion_hint,
+                )
+                .await,
+            );
+
+            (keys, completion_hint)
+        }
+        Some(CommentContext::Normal(_)) => {
+            let Some((keys, completion_hint)) = get_keys_and_completion_hint(
+                &root,
+                document_source.decoded(),
+                offset,
+                toml_version,
+                comment_context.as_ref(),
+            ) else {
+                return Ok(Some(Vec::new()));
+            };
+
+            (keys, completion_hint)
+        }
+    };
+
+    let accessors = tombi_document_tree_syntax::get_accessors(document_tree, &keys, offset);
+    let offline = schema_store.offline();
+    let cache_options = schema_store.cache_options();
+    if config.tombi_extension_enabled()
+        && let Some(items) = tombi_extension_tombi::completion(
+            &text_document_uri,
+            document_tree,
+            offset,
+            &accessors,
+            toml_version,
+            completion_hint,
+            comment_context.is_some(),
+            config.tombi_extension_features(),
+        )
+        .await?
+    {
+        completion_items.extend(items);
+    }
+    if config.cargo_extension_enabled()
+        && let Some(items) = tombi_extension_cargo::completion(
+            &text_document_uri,
+            document_tree,
+            offset,
+            &accessors,
+            toml_version,
+            completion_hint,
+            comment_context.is_some(),
+            offline,
+            cache_options,
+            config.cargo_extension_features(),
+        )
+        .await?
+    {
+        completion_items.extend(items);
+    }
+    if config.nagi_sql_extension_enabled()
+        && let Some(items) = tombi_extension_nagi_sql::completion(
+            &text_document_uri,
+            document_tree,
+            offset,
+            &accessors,
+            completion_hint,
+            comment_context.is_some(),
+            config.nagi_sql_extension_features(),
+        )
+        .await?
+    {
+        completion_items.extend(items);
+    }
+    if config.pyproject_extension_enabled()
+        && let Some(items) = tombi_extension_pyproject::completion(
+            &text_document_uri,
+            document_tree,
+            offset,
+            &accessors,
+            toml_version,
+            completion_hint,
+            comment_context.is_some(),
+            config.pyproject_extension_features(),
+        )
+        .await?
+    {
+        completion_items.extend(items);
+    }
+
+    if comment_context.is_some() {
+        completion_items.retain(|item| item.in_comment);
+    }
+
+    Ok(Some(completion_items))
+}
+
+fn get_keys_and_completion_hint<'t>(
+    root: &tombi_ast_syntax::Root<'t>,
+    decoded: &'t tombi_ast_syntax::DecodedTextResolver,
+    offset: tombi_text::Offset,
+    toml_version: tombi_config::TomlVersion,
+    comment_context: Option<&CommentContext<tombi_ast_syntax::Comment<'_>>>,
+) -> Option<(
+    Vec<tombi_document_tree_syntax::Key<'t>>,
+    Option<CompletionHint>,
+)> {
+    let Some((keys, completion_hint)) =
+        extract_keys_and_hint(root, decoded, offset, toml_version, comment_context)
+    else {
+        log::trace!("keys and completion_hint not found");
+        return None;
+    };
+
+    Some((keys, completion_hint))
+}

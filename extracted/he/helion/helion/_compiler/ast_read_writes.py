@@ -6,11 +6,64 @@ import typing
 from typing import TYPE_CHECKING
 from typing import TypeVar
 
+from .ast_extension import ExtendedAST
+
 if TYPE_CHECKING:
     _A = TypeVar("_A", bound=ast.AST)
 
 
 HELION_LANE_LOOP_VAR_ATTR = "_helion_lane_loop_var"
+# On a CuTe atomic call: the lane variables of the synthetic lane loops along
+# whose tile axes the atomic is uniform (``cute/atomic_ops.py``); the lane-loop
+# distribution pins the atomic to their first lane when it runs inside them.
+HELION_ATOMIC_UNIFORM_LANES_ATTR = "_helion_atomic_uniform_lanes"
+# On a CuTe ``cute.arch.sync_threads()`` statement: the barrier ordering every
+# thread's accesses around a release / acquire atomic (``cute/atomic_ops.py``),
+# ``"release"`` before the atomic or ``"acquire"`` after it.  The lane-loop
+# distribution places it in that atomic's lane loops, as a fence of its own,
+# instead of pinning it inside every lane loop.
+HELION_FENCE_BARRIER_ATTR = "_helion_fence_barrier"
+# Set on a VecLaneWrapper's constexpr V-loop: the lane variable it is nested in.
+HELION_VEC_LANE_OF_ATTR = "_helion_vec_lane_of"
+# On a CuTe load or store call: the elements the tile program's access covers,
+# per tensor dimension, as ``(begin, end)`` SymPy bounds or None for a
+# dimension without a known interval (``language/memory_ops.py``,
+# ``_cute_access_regions``); the lane-loop distribution's barrier analysis
+# needs no barrier between accesses whose regions are apart.
+HELION_ACCESS_REGIONS_ATTR = "_helion_access_regions"
+# On a CuTe statement: the tensors whose accesses across the lanes of one lane
+# loop the emitter has already proven ordered as the program reads them (the
+# staging buffer of an ``hl.split`` exchange, ``cute/split_exchange.py``); the
+# lane-loop distribution's barrier analysis does not pair two such statements
+# on those tensors at the lane level.
+HELION_LANE_ORDERED_ATTR = "_helion_lane_ordered"
+# On a CuTe ``if`` statement: its condition is the same for every thread of the
+# CTA (``cute/block_uniform.py``), so a block-wide barrier may be placed inside
+# either side.
+HELION_BLOCK_UNIFORM_ATTR = "_helion_block_uniform"
+
+# Accessing these tensor attributes only reads host-side metadata, not tensor
+# storage.  Keep counting them as ordinary reads for liveness, but identify them
+# separately for analyses that specifically care about memory dependencies.
+# Keep this list conservative: unknown tensor attributes remain storage reads.
+_TENSOR_METADATA_ATTRIBUTES = frozenset(
+    {"device", "dim", "dtype", "ndim", "ndimension", "shape", "size", "stride"}
+)
+
+
+def _is_tensor_metadata_read(node: ast.Attribute) -> bool:
+    if (
+        not isinstance(node.ctx, ast.Load)
+        or node.attr not in _TENSOR_METADATA_ATTRIBUTES
+        or not isinstance(node.value, ExtendedAST)
+    ):
+        return False
+
+    # Import lazily: type_info imports CompileEnvironment, whose finalization
+    # imports this module after type propagation has annotated the AST.
+    from .type_info import TensorType
+
+    return isinstance(node.value._type_info, TensorType)
 
 
 # TODO(oulgen): This visitor is extremely primitive, does not consider alpha renaming or scopes
@@ -18,7 +71,12 @@ class _ReadWriteVisitor(ast.NodeVisitor):
     def __init__(self) -> None:
         super().__init__()
         self.rw = ReadWrites(
-            collections.Counter(), collections.Counter(), collections.Counter()
+            collections.Counter(),
+            collections.Counter(),
+            collections.Counter(),
+            collections.Counter(),
+            set(),
+            set(),
         )
 
     def _update(self, name: str, ctx: ast.expr_context) -> None:
@@ -30,6 +88,11 @@ class _ReadWriteVisitor(ast.NodeVisitor):
     def visit_Name(self, node: ast.Name) -> None:
         self._update(node.id, node.ctx)
 
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        if _is_tensor_metadata_read(node) and isinstance(node.value, ast.Name):
+            self.rw.tensor_metadata_reads[node.value.id] += 1
+        self.generic_visit(node)
+
     def visit_Subscript(self, node: ast.Subscript) -> None:
         if isinstance(node.value, ast.Name):
             self._update(node.value.id, node.ctx)
@@ -38,12 +101,12 @@ class _ReadWriteVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
-        # Detect atomic operations (hl.atomic_*) as writes to their first argument.
-        # e.g. hl.atomic_add(x, [i], value) means x is mutated in-place.
+        # Detect explicit memory/atomic operations as writes to their first
+        # argument.  e.g. hl.store(x, [i], value) and hl.atomic_add(x, ...).
         func = node.func
         if (
             isinstance(func, ast.Attribute)
-            and func.attr.startswith("atomic_")
+            and (func.attr == "store" or func.attr.startswith("atomic_"))
             and isinstance(func.value, ast.Name)
             and node.args
         ):
@@ -51,6 +114,18 @@ class _ReadWriteVisitor(ast.NodeVisitor):
             if isinstance(first_arg, ast.Name):
                 self.rw.writes[first_arg.id] += 1
                 self.rw.inplace_writes[first_arg.id] += 1
+                if func.attr.startswith("atomic_"):
+                    self.rw.atomic_reads.add(first_arg.id)
+        self.generic_visit(node)
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:
+        target = node.target
+        if isinstance(target, ast.Name):
+            self.rw.reads[target.id] += 1
+            self.rw.augassign_reads.add(target.id)
+        elif isinstance(target, ast.Subscript) and isinstance(target.value, ast.Name):
+            self.rw.reads[target.value.id] += 1
+            self.rw.augassign_reads.add(target.value.id)
         self.generic_visit(node)
 
     def visit_For(self, node: ast.For) -> None:
@@ -70,6 +145,16 @@ class ReadWrites(typing.NamedTuple):
     # methods inside kernels (e.g. x.copy_(), x.fill_()), the visitor should
     # be updated to detect those as well.
     inplace_writes: dict[str, int]
+    # Reads of tensor shape/type/device metadata do not access tensor storage.
+    # They remain present in ``reads`` for general dependency tracking.
+    tensor_metadata_reads: dict[str, int]
+    # AugAssign targets are reads semantically, but branch argument ordering
+    # historically placed them with writes. Keep that ordering stable while
+    # exposing the read to analyses that consume ``reads`` directly.
+    augassign_reads: set[str]
+    # Atomic operations are read-modify-writes even when the generic Name walk
+    # sees only the synthetic first-argument read paired with the in-place write.
+    atomic_reads: set[str]
 
     def __iter__(self) -> typing.Iterator[str]:
         return iter({**self.reads, **self.writes})
@@ -244,26 +329,15 @@ class _PureExpressionVisitor(ast.NodeVisitor):
     AST visitor that determines if an expression is guaranteed to be pure.
     """
 
+    def __init__(self, *, allow_compiler_shape_helpers: bool = False) -> None:
+        super().__init__()
+        self.allow_compiler_shape_helpers = allow_compiler_shape_helpers
+
     def generic_visit(self, node: ast.AST) -> None:
         # Anything without a specific visitor is not pure
         raise _NotPureException
 
     def visit_Constant(self, node: ast.Constant) -> None:
-        pass
-
-    def visit_Num(self, node: ast.Num) -> None:
-        pass
-
-    def visit_Str(self, node: ast.Str) -> None:
-        pass
-
-    def visit_Bytes(self, node: ast.Bytes) -> None:
-        pass
-
-    def visit_NameConstant(self, node: ast.NameConstant) -> None:
-        pass
-
-    def visit_Ellipsis(self, node: ast.Ellipsis) -> None:
         pass
 
     def visit_Name(self, node: ast.Name) -> None:
@@ -299,12 +373,28 @@ class _PureExpressionVisitor(ast.NodeVisitor):
         self.visit(node.value)
 
     def visit_Call(self, node: ast.Call) -> None:
-        # Math methods are all pure, so allow them
-        if not (
+        # Math methods and compiler-emitted integer shape helpers are pure.
+        is_math = (
             isinstance(node.func, ast.Attribute)
             and isinstance(node.func.value, ast.Name)
             and node.func.value.id == "math"
-        ):
+        )
+        is_triton_shape_helper = (
+            isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "triton"
+            and node.func.attr in {"cdiv", "next_power_of_2"}
+        )
+        # ``max`` clamps a dynamic reduction block to 1 (dynamic_rdim_size_expr).
+        is_backend_shape_helper = isinstance(node.func, ast.Name) and node.func.id in {
+            "_cdiv",
+            "_next_power_of_2",
+            "max",
+        }
+        is_compiler_shape_helper = (
+            is_triton_shape_helper or is_backend_shape_helper
+        ) and self.allow_compiler_shape_helpers
+        if not (is_math or is_compiler_shape_helper):
             raise _NotPureException
 
         # Recurse into children except for func
@@ -315,9 +405,15 @@ class _PureExpressionVisitor(ast.NodeVisitor):
             self.visit(keyword.value)
 
 
-def definitely_does_not_have_side_effects(expr: ast.expr) -> bool:
+def definitely_does_not_have_side_effects(
+    expr: ast.expr,
+    *,
+    allow_compiler_shape_helpers: bool = False,
+) -> bool:
     try:
-        _PureExpressionVisitor().visit(expr)
+        _PureExpressionVisitor(
+            allow_compiler_shape_helpers=allow_compiler_shape_helpers
+        ).visit(expr)
         return True
     except _NotPureException:
         return False

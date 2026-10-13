@@ -627,6 +627,161 @@ check_raises("validation/hook method must be callable", TypeError,
              lambda: normalise_hooks(hooks=[BadMethod()]))
 
 
+# ------------------------------------------------- docs/hooks/errors.md's table, executed
+# The "Configuration errors" table is the page's only statement about which bad configuration
+# raises what, and its `example` column is the part a reader copies. Row "non-callable event"
+# used to read `on_predict_start = 5`, which is the row beneath it: both raise
+# `on_predict_start must be callable, got int` from `_StartAdapter.__init__`, so the branch that
+# validates an event attribute on a `hooks=` entry (laya/hooks.py:186-190) was unreachable from
+# the page while the page still claimed it. This gate parses the table, calls
+# `normalise_hooks(<example>)` for every row exactly as the page spells it, and pins the message
+# each row produces -- a row whose example drifts onto another row's error fails here rather
+# than in a reader's terminal. Weight-free: `normalise_hooks` builds no model.
+import re as _re  # noqa: E402
+from pathlib import Path as _CfgPath  # noqa: E402
+
+_cfg_doc = _CfgPath(__file__).resolve().parents[1] / "docs" / "hooks" / "errors.md"
+_cfg_section = _cfg_doc.read_text(encoding="utf-8").split("## Configuration errors", 1)[1] \
+    .split("\n## ", 1)[0]
+_cfg_rows = [[c.strip() for c in line.strip().strip("|").split("|")]
+             for line in _cfg_section.split("\n") if line.strip().startswith("|")][2:]
+
+
+def _cfg_message(cells):
+    """The TypeError text one row's example raises, or 'NO ERROR' if it raises nothing."""
+    parts = _re.split(r"`\s*,\s*with\s*`", cells[2].strip("`"), maxsplit=1)
+    ns = {"normalise_hooks": normalise_hooks, "MyHook": type("MyHook", (), {})}
+    if len(parts) > 1:
+        exec(parts[1], ns)                       # the class or value the example needs
+    try:
+        eval("normalise_hooks(%s)" % parts[0], ns)
+    except TypeError as exc:
+        return str(exc)
+    return "NO ERROR"
+
+
+_cfg_events = "on_predict_start, on_predict_end, on_route, on_load, on_evict, on_error"
+_cfg_implements = ("hooks entries must implement at least one of %s; got %%s. "
+                   "Pass a plain callable as on_predict_start=/on_predict_end= instead."
+                   % _cfg_events)
+_CFG_EXPECT = [
+    ("class instead of instance", "hooks entries must be instances, not classes; got MyHook. "
+                                  "Instantiate it first."),
+    ("no lifecycle method", _cfg_implements % "object"),
+    ("non-callable event", "hooks entry BadMethod.on_predict_start must be callable, got int"),
+    ("non-callable convenience hook", "on_predict_start must be callable, got int"),
+    ("plain callable in `hooks=`", _cfg_implements % "function"),
+]
+
+_cfg_msgs = [_cfg_message(c) for c in _cfg_rows]
+check("errors.md's configuration table still names these five cases, in order",
+      [c[0] for c in _cfg_rows], [c for c, _ in _CFG_EXPECT])
+check("every row is raised at construction, as its column claims",
+      sorted({c[1] for c in _cfg_rows}), ["construction"])
+for (case, want), got in zip(_CFG_EXPECT, _cfg_msgs):
+    check("errors.md row %r reaches its own message" % case, got, want)
+check("the event-attribute row does not raise the convenience hook's error",
+      _cfg_msgs[2] == _cfg_msgs[3], False)
+def _cfg_check_id(msg):
+    """The check a message came from, with the `got <type>` token it embeds stripped."""
+    return msg.split("; got")[0]
+
+
+check("an object and a lambda trip the same check, and no two rows share a message",
+      [_cfg_check_id(_cfg_msgs[1]) == _cfg_check_id(_cfg_msgs[4]), len(set(_cfg_msgs))],
+      [True, 5])
+
+
+# ------------------------------------------- docs/hooks/patterns.md's audit hook actually runs
+# The "Audit log" block is that page's answer to "how do I record every decision", and a reader
+# pastes it as written. It imported `json` only, while the body it documents writes to
+# `sys.stdout`, so the first call raised NameError inside the hook -- and `hooks_raise` defaults
+# to True, so the recording hook failed the very request it was recording. `docs/hooks/examples.md`
+# carries the same hook and does import sys. The gate execs the block from the page with a stub
+# `laya` -- 10 of the page's 21 python blocks end in a bare `laya.load(...)` and none of those
+# imports it, so that is the page's own convention, not an accident here -- then installs the hook
+# it hands to `laya.load` through the real `normalise_hooks` + `dispatch` and calls it with a real
+# PredictContext over two states -- so what runs is the page's code on the library's path.
+import ast as _A  # noqa: E402
+import builtins as _B  # noqa: E402
+import contextlib as _CL  # noqa: E402
+import io as _IO  # noqa: E402
+import json as _JSON  # noqa: E402
+import types as _T  # noqa: E402
+from laya.hooks import dispatch as _dispatch  # noqa: E402
+from pathlib import Path as _DocPath  # noqa: E402
+
+_pat_doc = _DocPath(__file__).resolve().parents[1] / "docs" / "hooks" / "patterns.md"
+_pat_section = _pat_doc.read_text(encoding="utf-8").split("### Audit log", 1)[1]
+_pat_block = _pat_section.split("```python\n", 1)[1].split("\n```", 1)[0]
+
+
+def _pat_free_names(src):
+    """Names the block reads but never binds, builtins excluded."""
+    tree = _A.parse(src)
+    bound = set(dir(_B))
+    for node in _A.walk(tree):
+        if isinstance(node, (_A.Import, _A.ImportFrom)):
+            bound.update((a.asname or a.name).split(".")[0] for a in node.names)
+        elif isinstance(node, _A.Name) and isinstance(node.ctx, (_A.Store, _A.Del)):
+            bound.add(node.id)
+        elif isinstance(node, _A.arg):
+            bound.add(node.arg)
+        elif isinstance(node, (_A.FunctionDef, _A.AsyncFunctionDef, _A.ClassDef)):
+            bound.add(node.name)
+        elif isinstance(node, _A.ExceptHandler) and node.name:
+            bound.add(node.name)
+    return sorted({n.id for n in _A.walk(tree)
+                   if isinstance(n, _A.Name) and isinstance(n.ctx, _A.Load)} - bound)
+
+
+check("the audit block's only free name is the `laya` its `laya.load` line never imports",
+      _pat_free_names(_pat_block), ["laya"])
+
+_pat_registered = []
+_pat_ns = {"laya": _T.SimpleNamespace(load=lambda *a, **kw: _pat_registered.append(kw))}
+try:
+    exec(compile(_pat_block, "docs/hooks/patterns.md", "exec"), _pat_ns)
+    _pat_hooks = normalise_hooks(**_pat_registered[0])
+except Exception as _pat_exc:  # noqa: BLE001
+    _pat_hooks = []
+    _pat_install_error = "%s: %s" % (type(_pat_exc).__name__, _pat_exc)
+else:
+    _pat_install_error = None
+
+_pat_hook = next(iter(_pat_hooks), None)
+check("the block installs without raising, through the real normalise_hooks",
+      _pat_install_error, None)
+check("the page's `laya.load(...)` call carries exactly one keyword, `on_predict_end`",
+      [sorted(_pat_registered[0]) if _pat_registered else None], [["on_predict_end"]])
+check("it becomes exactly one hook, and it is the `audit` the block defines",
+      [len(_pat_hooks), getattr(_pat_hook, "fn", None) is _pat_ns.get("audit")], [1, True])
+
+_pat_ctx = PredictContext(states=["charged twice", "cancel my plan"], questions={})
+_pat_ctx.results = [{"answers": {"intent": "billing"}, "routing": {"model": "english"}, "usage": None},
+                    {"answers": {"intent": "support"}}]
+_pat_ctx.model = "english"
+_pat_ctx.usage = {"input_tokens": 30, "output_tokens": 0}
+_pat_ctx.elapsed_ms = 1.5
+_pat_out = _IO.StringIO()
+try:
+    with _CL.redirect_stdout(_pat_out):
+        _dispatch(_pat_hooks, "on_predict_end", _pat_ctx)
+    _pat_records = [line for line in _pat_out.getvalue().split("\n") if line]
+    _pat_error = None
+except Exception as _pat_exc:  # noqa: BLE001
+    _pat_records = []
+    _pat_error = "%s: %s" % (type(_pat_exc).__name__, _pat_exc)
+
+check("the page's hook records both states without raising", _pat_error, None)
+check("one JSON record per state", len(_pat_records), 2)
+check("each record parses, and carries the call's identity plus the state it describes",
+      [sorted(_JSON.loads(_pat_records[0])) if _pat_records else None],
+      [["answers", "call_elapsed_ms", "call_usage", "model", "routing", "run_id", "state", "usage"]])
+check("the second record is the second state",
+      _JSON.loads(_pat_records[1])["state"] if len(_pat_records) > 1 else None, "cancel my plan")
+
+
 # --------------------------------------------------------------- Router
 class RouteHook:
     def __init__(self):

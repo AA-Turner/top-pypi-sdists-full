@@ -15,8 +15,11 @@ from typing import Sequence
 
 import torch
 
+from ... import _compat
 from ... import exc
 from ..backend import Backend
+from ..backend import BackendState
+from ..backend import LauncherInfo
 from ..backend import log
 
 if TYPE_CHECKING:
@@ -48,13 +51,35 @@ def _triton_jit_supports_do_not_specialize() -> bool:
 class TritonBackend(Backend):
     """Triton code generation backend."""
 
+    def supports_block_ptr_indexing(self) -> bool:
+        from ..._compat import supports_block_ptr
+
+        # Triton >= 3.9 removed block pointers (triton-lang/triton#10833).
+        return supports_block_ptr()
+
     @property
     def name(self) -> str:
         return "triton"
 
     @property
-    def experimental(self) -> bool:
-        return False
+    def state(self) -> BackendState:
+        return BackendState.STABLE
+
+    @property
+    def supports_debug_dtype_asserts(self) -> bool:
+        return True
+
+    @property
+    def supports_eager_prepared_call(self) -> bool:
+        return True
+
+    @property
+    def supports_inductor_fusion(self) -> bool:
+        return True
+
+    @property
+    def dynamo_inline_capture_loses_view_writes(self) -> bool:
+        return True
 
     def transform_host_arg(
         self,
@@ -63,39 +88,45 @@ class TritonBackend(Backend):
         tensor_host_args: list[str],
     ) -> str:
         from ..device_function import TensorArg
+        from ..device_function import TensorDescriptorArg
 
         # Bind fp4x2 storage as uint8; Triton has no pointer type for the shell dtype.
         if (
             isinstance(arg, TensorArg)
+            and not isinstance(arg, TensorDescriptorArg)
             and arg.fake_value.dtype is torch.float4_e2m1fn_x2
         ):
             return f"{host_str}.view(torch.uint8)"
         return host_str
 
+    def tensor_descriptor_host_base(
+        self, fake_value: torch.Tensor, host_str: str
+    ) -> str:
+        # Triton's host descriptor does not recognize PyTorch's packed FP4
+        # shell dtype, but its byte view has the same storage geometry.
+        if fake_value.dtype is torch.float4_e2m1fn_x2:
+            return f"{host_str}.view(torch.uint8)"
+        return host_str
+
     def supports_config_key(self, key: str) -> bool:
+        if key == "host_tensor_descriptors":
+            return self.name == "triton" and _compat.supports_host_tensor_descriptor()
+        if key == "cross_loop_pipeline":
+            return self.name == "triton" and not _compat.is_hip()
         if key in ("load_cache_modifiers", "store_cache_modifiers"):
             return True
         if key == "waves_per_eu":
-            from ..._compat import is_hip
-
-            return is_hip()
+            return _compat.is_hip()
         if key == "matrix_instr_nonkdim":
-            from ..._compat import supports_amd_cdna_tunables
-
-            return supports_amd_cdna_tunables()
+            return _compat.supports_amd_cdna_tunables()
         if key == "xcd_remap":
-            from ..._compat import supports_amd_cdna_tunables
-
             # Accepted on all AMD CDNA.  On single-XCD devices it normalizes to a
             # no-op (ConfigSpec.normalize) and is excluded from the search space
             # (ConfigSpec.flat_config) rather than rejected.
-            return supports_amd_cdna_tunables()
+            return _compat.supports_amd_cdna_tunables()
 
-        from ..._compat import get_mtia_tunable_fragments
-        from ..._compat import supports_mtia_tunables
-
-        if key in get_mtia_tunable_fragments():
-            return supports_mtia_tunables()
+        if key in _compat.get_mtia_tunable_fragments():
+            return _compat.supports_mtia_tunables()
         return super().supports_config_key(key)
 
     def tunable_fragments(self) -> dict[str, ConfigSpecFragment]:
@@ -237,6 +268,11 @@ class TritonBackend(Backend):
     def cast_expr(self, expr_str: str, dtype_str: str) -> str:
         return f"tl.cast({expr_str}, {dtype_str})"
 
+    def join_cast_template(self) -> str | None:
+        # A 16-bit true division stays fp32 (the consumer casts), so a value
+        # can hold fp32 although its FX dtype is fp16/bf16.
+        return "{x}.to({like}.dtype)"
+
     def arange_expr(
         self,
         offsets_var: str,
@@ -315,6 +351,11 @@ class TritonBackend(Backend):
     def next_power_of_2_host_expr(self, expr: str) -> str:
         return f"triton.next_power_of_2({expr})"
 
+    def dynamic_rdim_size_expr(self, expr: str) -> str:
+        # As in static_rdim_size: an empty axis still needs a length-1 block,
+        # and triton.next_power_of_2(0) is 0.
+        return f"max({self.next_power_of_2_host_expr(expr)}, 1)"
+
     @property
     def function_decorator(self) -> str:
         return "triton.jit"
@@ -355,6 +396,19 @@ class TritonBackend(Backend):
         return "_default_launcher"
 
     @property
+    def dependency_free_launcher_info(self) -> LauncherInfo:
+        # get_num_sm / get_num_xcd / set_triton_allocator are launcher functions
+        # the generated host wrapper calls as ``helion.runtime.<fn>(``; the shim
+        # re-exports them (with the launcher) so those verbatim calls resolve.
+        return LauncherInfo(
+            launcher_module="helion.runtime.triton.launcher",
+            launcher_symbol="default_launcher",
+            launcher_alias="_default_launcher",
+            deps="torch + triton",
+            runtime_helper_names=("get_num_sm", "get_num_xcd", "set_triton_allocator"),
+        )
+
+    @property
     def library_imports(self) -> dict[str, str]:
         return {
             "math": "import math",
@@ -367,6 +421,11 @@ class TritonBackend(Backend):
             "triton_helpers": "from torch._inductor.runtime import triton_helpers",
             "tl_math": "from torch._inductor.runtime.triton_helpers import math as tl_math",
             "libdevice": "from torch._inductor.runtime.triton_compat import libdevice",
+            "_helion_tensor_descriptor": "from triton.tools.tensor_descriptor import TensorDescriptor as _helion_tensor_descriptor",
+            "helion_dist_utils": "from helion.runtime.triton import dist_utils as helion_dist_utils",
+            "helion_triton_helpers": "from helion.runtime.triton import helpers as helion_triton_helpers",
+            "nvshmem": "import torch.distributed._symmetric_memory._nvshmem_triton as nvshmem",
+            "requires_nvshmem": "from torch.distributed._symmetric_memory._nvshmem_triton import requires_nvshmem",
             "_default_launcher": "from helion.runtime import default_launcher as _default_launcher",
             "fast_dividef": "from triton.language.extra.libdevice import fast_dividef",
             "fast_expf": "from triton.language.extra.libdevice import fast_expf",
@@ -402,12 +461,37 @@ class TritonBackend(Backend):
         *,
         block_size_var: str | None = None,
         threads_in_group: int | None = None,
+        dtype: torch.dtype | None = None,
     ) -> str:
-        if reduction_type in {"sum", "max", "min"}:
-            return f"tl.{reduction_type}({input_name}, {dim})"
+        if dtype is not None and reduction_type in {"sum", "prod"}:
+            # Accumulate in the computation dtype (fp32 for fp16/bf16) as torch
+            # does; tl.sum of an fp16 tensor adds in fp16.
+            input_name = f"{input_name}.to({self.dtype_str(dtype)})"
+        if reduction_type == "sum":
+            return f"tl.sum({input_name}, {dim})"
+        if reduction_type in {"max", "min"}:
+            # tl.max/tl.min drop NaN; torch.amax/amin propagate it.
+            return (
+                f"helion_triton_helpers.{reduction_type}_propagate_nan"
+                f"({input_name}, {dim})"
+            )
         if reduction_type == "prod":
             return f"triton_helpers.prod({input_name}, {dim})"
         raise exc.BackendUnsupported(self.name, f"reduction {reduction_type!r}")
+
+    def reduction_combine_expr(
+        self,
+        reduction_type: str,
+        acc: str,
+        val: str,
+        dtype: torch.dtype,
+    ) -> str:
+        if reduction_type == "prod":
+            # Inductor's ops.mul casts the product to the reduction's output
+            # dtype; for an fp16 prod that would turn the fp32 loop-carried
+            # accumulator into fp16, which Triton rejects.
+            return f"{acc} * {val}.to({self.dtype_str(dtype)})"
+        return super().reduction_combine_expr(reduction_type, acc, val, dtype)
 
     def is_indexed_reduction(self, reduction_type: str) -> bool:
         return reduction_type in {"argmin", "argmax"}
@@ -423,6 +507,7 @@ class TritonBackend(Backend):
         block_size_var: str | None = None,
         index_dtype: torch.dtype | None = None,
         threads_in_group: int | None = None,
+        dtype: torch.dtype | None = None,
     ) -> str:
         helper = "max" if reduction_type == "argmax" else "min"
         return (
@@ -438,6 +523,7 @@ class TritonBackend(Backend):
         acc_index: str,
         value: str,
         index: str,
+        dtype: torch.dtype | None = None,
     ) -> list[str]:
         helper = "maximum" if reduction_type == "argmax" else "minimum"
         return [
@@ -454,17 +540,19 @@ class TritonBackend(Backend):
             f"tl.full([{', '.join(shape_dims)}], {value_expr}, {self.dtype_str(dtype)})"
         )
 
-    def launcher_keyword_args(self, config: Config, *, has_barrier: bool) -> list[str]:
-        from ..._compat import supports_maxnreg
-
+    def effective_num_warps(self, config: Config) -> int:
         # Workaround for triton bug: warp_specialize requires at least 4 warps
         # See: https://github.com/triton-lang/triton/issues/7354
         num_warps = config.num_warps
         if any(config.range_warp_specializes):
             num_warps = max(4, num_warps)
+        return num_warps
+
+    def launcher_keyword_args(self, config: Config, *, has_barrier: bool) -> list[str]:
+        from ..._compat import supports_maxnreg
 
         args = [
-            f"num_warps={num_warps}",
+            f"num_warps={self.effective_num_warps(config)}",
             f"num_stages={config.num_stages}",
             *(["launch_cooperative_grid=True"] if has_barrier else []),
         ] + [
@@ -505,6 +593,73 @@ class TritonBackend(Backend):
         out = [*args]
         if has_rng_ops:
             out.append("_rng_seed_buffer")
+        from ..compile_environment import CompileEnvironment
+        from ..device_function import DeviceFunction
+        from ..host_function import HostFunction
+
+        device_fn = DeviceFunction.current()
+        if device_fn.triton_remote_copy_signal_slots:
+            signal_dst = device_fn.triton_remote_copy_signal_dst
+            assert signal_dst is not None
+            process_group_name = CompileEnvironment.current().process_group_name
+            if process_group_name is None:
+                raise exc.BackendUnsupported(
+                    "triton", "remote copies require an active process group"
+                )
+            out.extend(
+                [
+                    f"_remote_copy_signal_dst={signal_dst}",
+                    f"_remote_copy_signal_slots_per_program={device_fn.triton_remote_copy_signal_slots}",
+                    f"_remote_copy_process_group_name={process_group_name!r}",
+                ]
+            )
+        if device_fn.triton_remote_barrier_signal_slots:
+            process_group_name = CompileEnvironment.current().process_group_name
+            if process_group_name is None:
+                raise exc.BackendUnsupported(
+                    "triton", "remote barriers require an active process group"
+                )
+            out.extend(
+                [
+                    f"_remote_barrier_signal_slots_per_program={device_fn.triton_remote_barrier_signal_slots}",
+                    f"_remote_barrier_process_group_name={process_group_name!r}",
+                ]
+            )
+        if device_fn.triton_remote_copy_scratch_specs:
+            specs = ", ".join(
+                f"({tensor}, {numel})"
+                for tensor, numel in device_fn.triton_remote_copy_scratch_specs
+            )
+            out.append(f"_remote_copy_scratch_specs=({specs},)")
+        if device_fn.triton_persistent_state_specs:
+            specs = ", ".join(
+                f"({tensor}, {numel}, {dtype}, {symmetric})"
+                for tensor, numel, dtype, symmetric in (
+                    device_fn.triton_persistent_state_specs
+                )
+            )
+            out.append(f"_persistent_state_specs=({specs},)")
+            if any(spec[3] for spec in device_fn.triton_persistent_state_specs):
+                process_group_name = CompileEnvironment.current().process_group_name
+                if process_group_name is None:
+                    raise exc.BackendUnsupported(
+                        "triton", "symmetric launch state requires a process group"
+                    )
+                out.append(
+                    f"_persistent_state_process_group_name={process_group_name!r}"
+                )
+                # Ranks compare the digest when they first allocate the state.
+                graph = HostFunction.current().device_ir.tile_dependency_graph
+                assert graph is not None
+                out.append(f"_persistent_state_rank_digest={graph.rank_digest()!r}")
+        env = CompileEnvironment.current()
+        if env.pdl_entry or env.pdl_exit:
+            out.append("launch_pdl=True")
+        if device_fn.triton_minimum_resident_programs is not None:
+            out.append(
+                "_minimum_resident_programs="
+                f"{device_fn.triton_minimum_resident_programs}"
+            )
         out.extend(self.launcher_keyword_args(config, has_barrier=has_barrier))
         return out
 

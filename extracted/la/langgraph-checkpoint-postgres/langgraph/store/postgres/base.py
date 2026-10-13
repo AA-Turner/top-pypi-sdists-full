@@ -7,7 +7,7 @@ import logging
 import re
 import threading
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime
 from typing import (
@@ -36,6 +36,7 @@ from langgraph.store.base import (
     ensure_embeddings,
     get_text_at_path,
     tokenize_path,
+    validate_op_namespace,
 )
 from psycopg import Capabilities, Connection, Cursor, Pipeline
 from psycopg.rows import DictRow, dict_row
@@ -354,7 +355,7 @@ class BasePostgresStore(Generic[C]):
                     (
                         _namespace_to_text(op.namespace),
                         op.key,
-                        Jsonb(cast(dict, op.value)),
+                        Jsonb(dict(cast(Mapping[str, Any], op.value))),
                     )
                 )
                 if op.ttl is not None:
@@ -1386,6 +1387,7 @@ def _group_ops(ops: Iterable[Op]) -> tuple[dict[type, list[tuple[int, Op]]], int
     grouped_ops: dict[type, list[tuple[int, Op]]] = defaultdict(list)
     tot = 0
     for idx, op in enumerate(ops):
+        validate_op_namespace(op)
         grouped_ops[type(op)].append((idx, op))
         tot += 1
     return grouped_ops, tot

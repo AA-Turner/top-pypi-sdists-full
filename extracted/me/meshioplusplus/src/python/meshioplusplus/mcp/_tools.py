@@ -76,6 +76,7 @@ from .. import (
     extract_surface,
     feature_edges,
     find_interface,
+    fit_primitives,
     geometry_descriptors,
     gradient,
     grid,
@@ -96,6 +97,7 @@ from .. import (
     region_adjacency,
     remesh,
     remesh_volume,
+    render_text,
     reorder,
     repair,
     resample_grid,
@@ -105,10 +107,11 @@ from .. import (
     scatter_grid,
 )
 from .. import screenshot as _screenshot_fn
-from .. import shrinkwrap
+from .. import segment, shrinkwrap
 from .. import slice as _slice_op
+from .. import smooth
+from .. import snapshot as _snapshot_fn
 from .. import (
-    smooth,
     sniff_format,
     sobolev_deform,
     split,
@@ -640,6 +643,7 @@ def tool_diff(
 _ASCII_VARIANT = {
     "ansys": {"binary": False},
     "flac3d": {"binary": False},
+    "frd": {"binary": False},
     "gmsh": {"binary": False},
     "mdpa": {"binary": False},
     "openfoam": {"binary": False},
@@ -653,6 +657,7 @@ _ASCII_VARIANT = {
 _BINARY_VARIANT = {
     "ansys": {"binary": True},
     "flac3d": {"binary": True},
+    "frd": {"binary": True},
     "gmsh": {"binary": True},
     "mdpa": {"binary": True},
     "openfoam": {"binary": True},
@@ -809,6 +814,7 @@ def tool_convert(
     write_grid_functions=False,
     elmer_halo=False,
     patran_results=None,
+    write_nurbs=None,
 ):
     """Convert between mesh formats, optionally selecting variant/compression.
 
@@ -826,7 +832,11 @@ def tool_convert(
     input mesh; ``patran_results`` (``{name: path}``) reads Patran 2.5 result
     files onto a Patran neutral input; ``write_grid_functions`` writes the data of an MFEM output as
     ``.gf`` files beside it. ``elmer_halo`` adds ElmerGrid's ``-halo`` layer to
-    the partitioning an Elmer output writes from ``partition:part``."""
+    the partitioning an Elmer output writes from ``partition:part``.
+
+    An MFEM NURBS input keeps its patches (``mesh.info["nurbs"]``), so an MFEM
+    output is written back as the NURBS mesh; ``write_nurbs=False`` writes the
+    sampled cells instead and ``True`` refuses anything else."""
     if grid_functions and patran_results:
         raise ValueError(
             "meshio++: mcp: grid_functions (MFEM) and patran_results (Patran) "
@@ -868,8 +878,11 @@ def tool_convert(
         try:
             candidates = _filetypes_from_path(pathlib.Path(str(output_path)))
             out_fmt = candidates[0] if candidates else None
-            # `.mesh` is Medit's first; asking for grid functions means MFEM.
-            if write_grid_functions and "mfem" in candidates:
+            # `.mesh` is Medit's first; asking for grid functions (or NURBS)
+            # means MFEM.
+            if (
+                write_grid_functions or write_nurbs is not None
+            ) and "mfem" in candidates:
                 out_fmt = output_format = "mfem"
         except Exception:
             out_fmt = None
@@ -891,6 +904,10 @@ def tool_convert(
         if out_fmt != "elmer":
             raise ValueError("meshio++: mcp: elmer_halo needs Elmer output")
         write_kwargs["halo"] = True
+    if write_nurbs is not None:
+        if out_fmt != "mfem":
+            raise ValueError("meshio++: mcp: write_nurbs needs MFEM (.mesh) output")
+        write_kwargs["nurbs"] = bool(write_nurbs)
     resolved = _store(mesh, output_path, output_format, **write_kwargs)
     return _result(resolved, mesh, output_format=out_fmt)
 
@@ -1869,6 +1886,89 @@ def tool_feature_edges(
         _store(out, output_path, output_format),
         out,
         num_edges=int(len(out.cells[0].data)) if out.cells else 0,
+        **{k: int(v) for k, v in report.items()},
+    )
+
+
+def tool_segment(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    feature_angle=30.0,
+    normal_tolerance=0.0,
+    curvature_tolerance=0.0,
+    min_patch_cells=1,
+    region="",
+    prefix="patch",
+):
+    """Split a surface into smooth patches by region growing, bounded by its
+    feature edges; written with cell data segment:patch, field data
+    segment:adjacency and one cell region per patch (<prefix>:<k>)."""
+    mesh = _load(input_path, input_format)
+    out, report = segment(
+        mesh,
+        feature_angle=feature_angle,
+        normal_tolerance=normal_tolerance,
+        curvature_tolerance=curvature_tolerance,
+        min_patch_cells=min_patch_cells,
+        region=region,
+        prefix=prefix,
+        return_report=True,
+    )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        **{k: int(v) for k, v in report.items()},
+    )
+
+
+def tool_fit_primitives(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    patch_data="segment:patch",
+    tolerance=1e-3,
+    relative=True,
+    min_inlier_fraction=0.9,
+    types=None,
+    max_iterations=50,
+):
+    """Fit a plane, sphere, cylinder, cone or torus to each patch of a surface;
+    written with cell data fit:type / fit:rms / fit:max and per-patch field
+    data fit:patch_*. The report carries one entry per patch."""
+    from .._fit_primitives import TYPES
+
+    mesh = _load(input_path, input_format)
+    out, report = fit_primitives(
+        mesh,
+        patch_data=patch_data,
+        tolerance=tolerance,
+        relative=relative,
+        min_inlier_fraction=min_inlier_fraction,
+        types=tuple(types) if types else TYPES[1:],
+        max_iterations=max_iterations,
+        return_report=True,
+    )
+    fd = out.field_data
+    patches = []
+    for i, pid in enumerate(fd["fit:patch_id"]):
+        params = fd["fit:patch_params"][i]
+        patches.append(
+            {
+                "patch": int(pid),
+                "type": TYPES[int(fd["fit:patch_type"][i])],
+                "params": [float(x) for x in params],
+                "rms": float(fd["fit:patch_rms"][i]),
+                "max": float(fd["fit:patch_max"][i]),
+                "fraction": float(fd["fit:patch_fraction"][i]),
+            }
+        )
+    return _result(
+        _store(out, output_path, output_format),
+        out,
+        patches=patches,
         **{k: int(v) for k, v in report.items()},
     )
 
@@ -3067,6 +3167,45 @@ def _sandbox_entry_paths(entry):
     return plan
 
 
+def _mcp_thumbnails(manifest, base, ids, thumbnail, render, step, width, height):
+    """Set, clear or draw the thumbnails of the entries ``ids``, inside the
+    sandbox: a given picture is stored relative to the manifest; a drawn one is
+    written to ``thumbnails/<id>.png`` beside it, after the entry's own plan
+    has been sandbox-checked (a hand-edited manifest can name anything)."""
+    from .._dataset import portable_relpath
+
+    if thumbnail is not None and render:
+        raise ValueError("meshio++: mcp: give thumbnail or render_thumbnail, not both")
+    if not ids or ids == "all" and not len(manifest):
+        raise ValueError(
+            "meshio++: mcp: thumbnails need entry_ids or all_entries (and entries)"
+        )
+    chosen = manifest.ids() if ids == "all" else list(ids)
+    if render:
+        for entry_id in chosen:
+            _sandbox_entry_paths(manifest[entry_id])
+            target = _resolve(
+                os.path.join(base, "thumbnails", f"{entry_id}.png"), for_write=True
+            )
+            manifest.render_thumbnail(
+                entry_id,
+                target,
+                step=int(step),
+                width=int(width),
+                height=int(height),
+            )
+        return
+    if len(chosen) != 1:
+        raise ValueError(
+            "meshio++: mcp: a given thumbnail applies to exactly one entry"
+        )
+    if thumbnail in ("", "none"):
+        manifest.set_thumbnail(chosen[0], None)
+        return
+    inside = _resolve(os.path.join(base, thumbnail), must_exist=True)
+    manifest.set_thumbnail(chosen[0], portable_relpath(inside, base))
+
+
 def _mcp_source_block(pattern, paths, base, fmt, times, time_from, sort):
     """One sandboxed source family -> a Source object stored relative to `base`.
 
@@ -3120,6 +3259,10 @@ def tool_dataset_add(
     group=None,
     notes=None,
     metadata=None,
+    thumbnail=None,
+    render_thumbnail=False,
+    thumbnail_width=256,
+    thumbnail_height=192,
 ):
     """Add a case to a dataset manifest (created if absent).
 
@@ -3163,11 +3306,23 @@ def tool_dataset_add(
         notes=notes,
         metadata=metadata,
     )
+    if thumbnail is not None or render_thumbnail:
+        _mcp_thumbnails(
+            manifest,
+            base,
+            [entry.id],
+            thumbnail,
+            render_thumbnail,
+            0,
+            thumbnail_width,
+            thumbnail_height,
+        )
     manifest.save(resolved_manifest)
     return _json_safe(
         {
             "manifest_path": resolved_manifest,
             "entry_id": entry.id,
+            "thumbnail": manifest[entry.id].thumbnail,
             "num_steps": len(entry.entries()),
             "num_target_steps": len(entry.target_entries()) if entry.target else None,
             "num_entries": len(manifest),
@@ -3215,13 +3370,21 @@ def tool_dataset_update(
     notes=None,
     metadata=None,
     drop_metadata=None,
+    thumbnail=None,
+    render_thumbnail=False,
+    thumbnail_step=0,
+    thumbnail_width=256,
+    thumbnail_height=192,
 ):
     """Curate a manifest: set splits (or assign by fractions), tag, annotate.
 
     entry_ids (or all_entries=true) selects; split/add_tags/remove_tags apply
     to the selection; assign_splits={"train": 0.8, ...} reassigns every entry
     deterministically (seed; by_group keeps groups together); group/notes/
-    metadata/drop_metadata need exactly one selected entry.
+    metadata/drop_metadata need exactly one selected entry. thumbnail (a PNG
+    under the manifest's directory; "none" clears it, one entry) or
+    render_thumbnail (draw each selected entry's step thumbnail_step) record
+    a picture of the case.
     """
     manifest, resolved_manifest = _load_manifest(manifest_path)
     ids = "all" if all_entries else list(entry_ids or ())
@@ -3246,6 +3409,17 @@ def tool_dataset_update(
             group=group,
             metadata=metadata,
             drop_metadata=drop_metadata or (),
+        )
+    if thumbnail is not None or render_thumbnail:
+        _mcp_thumbnails(
+            manifest,
+            os.path.dirname(resolved_manifest),
+            ids,
+            thumbnail,
+            render_thumbnail,
+            thumbnail_step,
+            thumbnail_width,
+            thumbnail_height,
         )
     manifest.save(resolved_manifest)
     return _json_safe(
@@ -3993,6 +4167,135 @@ def tool_screenshot(
     return _json_safe({"output_path": resolved, "size": [int(width), int(height)]})
 
 
+def tool_render_mesh(
+    input_path,
+    output_path=None,
+    input_format=None,
+    width=640,
+    height=480,
+    cols=100,
+    rows=40,
+    encoding="halfblock",
+    text_format="plain",
+    view=None,
+    azimuth=None,
+    elevation=None,
+    perspective=False,
+    zoom=None,
+    shading="flat",
+    edges="none",
+    color_by=None,
+    component=None,
+    cmap=None,
+    vmin=None,
+    vmax=None,
+    colorbar=False,
+    supersample=2,
+    background=None,
+    axes=False,
+    expr=None,
+    reduce=None,
+    clip=None,
+    symmetric=False,
+    scale=None,
+    categorical=False,
+    color_regions=False,
+    category_edges=False,
+    isolines=0,
+    vectors=None,
+    warp=None,
+    warp_scale=1.0,
+    warp_outline=False,
+    diagnostic=None,
+    quality_metric=None,
+    cutaway=None,
+    cutaway_tint=None,
+    streamlines=None,
+    stream_seeds=40,
+    stream_length=0.5,
+    stream_color=None,
+):
+    """Draw a mesh with the software rasterizer: no display, GPU or extra.
+    Without output_path, return it as text; with one, write the form its
+    extension names (.png, .txt, .ansi, .html, .cast)."""
+    from .._render import parse_color
+
+    mesh = _load(input_path, input_format)
+    options = {
+        "view": view,
+        "azimuth": azimuth,
+        "elevation": elevation,
+        "projection": "perspective" if perspective else None,
+        "zoom": zoom,
+        "shading": shading,
+        "edges": edges,
+        "color_by": color_by,
+        "component": component,
+        "cmap": cmap,
+        "vmin": vmin,
+        "vmax": vmax,
+        "colorbar": bool(colorbar) if color_by else None,
+        "supersample": supersample,
+        "background": None if background is None else parse_color(background),
+        "axes": bool(axes),
+        "expr": expr,
+        "reduce": reduce,
+        "clip": None if clip is None else tuple(clip),
+        "symmetric": bool(symmetric) or None,
+        "scale": scale,
+        "categorical": bool(categorical) or None,
+        "color_regions": bool(color_regions) or None,
+        "category_edges": bool(category_edges) or None,
+        "isolines": int(isolines) or None,
+        "vectors": vectors,
+        "warp": warp,
+        "warp_scale": float(warp_scale) if warp else None,
+        "warp_outline": bool(warp_outline) or None,
+        "diagnostic": diagnostic,
+        "quality_metric": quality_metric,
+        "cutaway": None if not cutaway else list(cutaway),
+        "cutaway_tint": None if cutaway_tint is None else parse_color(cutaway_tint),
+        "streamlines": streamlines,
+        "stream_seeds": int(stream_seeds) if streamlines else None,
+        "stream_length": float(stream_length) if streamlines else None,
+        "stream_color": None if stream_color is None else parse_color(stream_color),
+    }
+    options = {k: v for k, v in options.items() if v is not None}
+    if output_path is None:
+        if text_format not in ("plain", "ansi", "html"):
+            raise ValueError(
+                f"meshio++: render_mesh: text_format must be plain, ansi or html, not '{text_format}'"
+            )
+        text = render_text(
+            mesh,
+            cols=int(cols),
+            rows=int(rows),
+            encoding=encoding,
+            color_depth="mono" if text_format == "plain" else "truecolor",
+            format=text_format,
+            **options,
+        )
+        return _json_safe({"text": text, "cols": int(cols), "rows": int(rows)})
+    resolved = _resolve(output_path, for_write=True)
+    _snapshot_fn(
+        mesh,
+        resolved,
+        width=int(width),
+        height=int(height),
+        cols=int(cols),
+        rows=int(rows),
+        encoding=encoding,
+        **options,
+    )
+    return _json_safe(
+        {
+            "output_path": resolved,
+            "size": [int(width), int(height)],
+            "cells": [int(cols), int(rows)],
+        }
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Registry — the single source of truth                                       #
 # --------------------------------------------------------------------------- #
@@ -4093,6 +4396,14 @@ TOOL_REGISTRY = OrderedDict(
         (
             "feature_edges",
             {"fn": tool_feature_edges, "wraps": ("feature_edges",), "gated": None},
+        ),
+        (
+            "segment",
+            {"fn": tool_segment, "wraps": ("segment",), "gated": None},
+        ),
+        (
+            "fit_primitives",
+            {"fn": tool_fit_primitives, "wraps": ("fit_primitives",), "gated": None},
         ),
         (
             "region_adjacency",
@@ -4372,6 +4683,14 @@ TOOL_REGISTRY = OrderedDict(
         (
             "screenshot",
             {"fn": tool_screenshot, "wraps": ("screenshot",), "gated": "viewer"},
+        ),
+        (
+            "render_mesh",
+            {
+                "fn": tool_render_mesh,
+                "wraps": ("render_image", "render_text", "snapshot"),
+                "gated": None,
+            },
         ),
     ]
 )

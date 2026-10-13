@@ -108,6 +108,9 @@ __all__ = (
     "TcsType",
     "ThumbnailStateType",
     "TlsEncryptionTypeType",
+    "VideoColorimetryType",
+    "VideoMatrixCoefficientsType",
+    "VideoTransferCharacteristicsType",
     "WaiterName",
 )
 
@@ -220,7 +223,7 @@ RouterInputStateType = Literal[
     "STOPPING",
     "UPDATING",
 ]
-RouterInputTierType = Literal["INPUT_100", "INPUT_20", "INPUT_50"]
+RouterInputTierType = Literal["INPUT_100", "INPUT_20", "INPUT_250", "INPUT_50", "INPUT_500"]
 RouterInputTransitEncryptionKeyTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
 RouterInputTypeType = Literal[
     "FAILOVER", "MEDIACONNECT_FLOW", "MEDIALIVE_CHANNEL", "MERGE", "STANDARD"
@@ -243,7 +246,7 @@ RouterOutputStateType = Literal[
     "STOPPING",
     "UPDATING",
 ]
-RouterOutputTierType = Literal["OUTPUT_100", "OUTPUT_20", "OUTPUT_50"]
+RouterOutputTierType = Literal["OUTPUT_100", "OUTPUT_20", "OUTPUT_250", "OUTPUT_50", "OUTPUT_500"]
 RouterOutputTypeType = Literal["MEDIACONNECT_FLOW", "MEDIALIVE_INPUT", "STANDARD"]
 RoutingScopeType = Literal["GLOBAL", "REGIONAL"]
 ScanModeType = Literal["interlace", "progressive", "progressive-segmented-frame"]
@@ -255,6 +258,52 @@ TcsType = Literal[
 ]
 ThumbnailStateType = Literal["DISABLED", "ENABLED"]
 TlsEncryptionTypeType = Literal["PUBLIC"]
+VideoColorimetryType = Literal[
+    "BT2020",
+    "BT470BG",
+    "BT470M",
+    "BT601",
+    "BT709",
+    "GENERIC_FILM",
+    "SMPTE240M",
+    "SMPTE428",
+    "SMPTE431",
+    "SMPTE432",
+]
+VideoMatrixCoefficientsType = Literal[
+    "BT2020_CL",
+    "BT2020_NCL",
+    "BT2100_ICTCP",
+    "BT470BG",
+    "BT601",
+    "BT709",
+    "CHROMATICITY_DERIVED_CL",
+    "CHROMATICITY_DERIVED_NCL",
+    "FCC",
+    "IDENTITY",
+    "IPT_C2",
+    "SMPTE2085",
+    "SMPTE240M",
+    "YCGCO",
+]
+VideoTransferCharacteristicsType = Literal[
+    "BT1361_ECG",
+    "BT2020_10",
+    "BT2020_12",
+    "BT2100_HLG",
+    "BT2100_PQ",
+    "BT470BG",
+    "BT470M",
+    "BT601",
+    "BT709",
+    "IEC61966_2_1",
+    "IEC61966_2_4",
+    "LINEAR",
+    "LOG100",
+    "LOG316",
+    "SMPTE240M",
+    "SMPTE428",
+]
 MediaConnectServiceName = Literal["mediaconnect"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -619,6 +668,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

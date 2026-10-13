@@ -1430,6 +1430,22 @@ def text(title: str, lines: Sequence[str], prompt: str):
     return ask(question)
 
 
+def secret(title: str, lines: Sequence[str], prompt: str):
+    """`text`, with what is typed hidden: an API key never shows on screen or
+    in the terminal's scrollback."""
+    if not interactive():
+        page([title, *lines])
+        return None
+    import questionary
+
+    question = questionary.password(prompt, style=style(), qmark=qmark())
+    sectioned(
+        question, title=title, lines=lines, prompt=prompt,
+        instruction="paste or type · enter · esc back",
+    )
+    return ask(question)
+
+
 def rows() -> int:
     try:
         return shutil.get_terminal_size().lines

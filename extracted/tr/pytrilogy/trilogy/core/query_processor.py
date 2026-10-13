@@ -79,6 +79,7 @@ from trilogy.core.processing.concept_strategies_v4 import (
     search_concepts as search_concepts_v4,
 )
 from trilogy.core.processing.discovery_utility import (
+    connectivity_map,
     raise_if_disconnected_for,
     raise_if_filter_disconnected,
     raise_if_where_population_split,
@@ -89,7 +90,6 @@ from trilogy.core.processing.node_generators.select_helpers.datasource_injection
 )
 from trilogy.core.processing.nodes import (
     BuildCaches,
-    History,
     SelectNode,
     StrategyNode,
 )
@@ -121,7 +121,7 @@ from trilogy.core.statements.execute import (
     ProcessedQueryPersist,
 )
 from trilogy.hooks.base_hook import BaseHook
-from trilogy.utility import unique
+from trilogy.utility import gc_paused, unique
 
 LOGGER_PREFIX = "[QUERY BUILD]"
 
@@ -779,24 +779,28 @@ def _raise_if_disconnected(
     # A union column `_carry_order_by_concepts` hid for an ORDER BY over a
     # rowset handle renders at the union node the handle wraps: for
     # connectivity it IS the handle, which the visible outputs already reach.
+    # An existence subselect (`x in (<set>)`) is its own resolution scope,
+    # planned as an independent query, so its RHS concepts (with any FILTER's
+    # hidden content/condition concepts surfaced) must be connected on their
+    # own. A correlated filter across unmerged models (`b ? b = a`) otherwise
+    # plans a FROM-less feeder that fails at render.
+    existence = [
+        list(group)
+        for group in (conditions.existence_arguments if conditions else None) or ()
+        if group
+    ]
+    # every gate below reads the same graph with nothing excluded
+    comp_of = connectivity_map(build_environment, graph) if existence else None
     raise_if_disconnected_for(
         [c for c in build_statement.output_components if c.address not in carried],
         conditions,
         build_environment,
         graph,
         line_number=line_number,
+        comp_of=comp_of,
     )
-    if conditions is None:
-        return
-    # An existence subselect (`x in (<set>)`) is its own resolution scope,
-    # planned as an independent query, so its RHS concepts (with any FILTER's
-    # hidden content/condition concepts surfaced) must be connected on their
-    # own. A correlated filter across unmerged models (`b ? b = a`) otherwise
-    # plans a FROM-less feeder that fails at render.
-    for arg_group in conditions.existence_arguments or ():
-        if not arg_group:
-            continue
-        raise_if_filter_disconnected(list(arg_group), build_environment, graph)
+    for group in existence:
+        raise_if_filter_disconnected(group, build_environment, graph, comp_of=comp_of)
 
 
 def _having_presence_probes(
@@ -825,7 +829,7 @@ def _plan_query_node(
     build_environment: BuildEnvironment,
     graph: ReferenceGraph,
     conditions: BuildWhereClause | None,
-    history: History,
+    history: V4History,
     carried: set[str],
     staged_conditions: list[BuildWhereClause] | None = None,
 ) -> StrategyNode:
@@ -1045,7 +1049,7 @@ def _session_build_caches(
 def get_query_node(
     environment: Environment,
     statement: SelectLineage | MultiSelectLineage,
-    history: History | None = None,
+    history: V4History | None = None,
     scoped_joins: list[tuple[str, str, JoinType]] | None = None,
     build_lineage_sink: (
         list[BuildSelectLineage | BuildMultiSelectLineage] | None
@@ -1053,7 +1057,7 @@ def get_query_node(
 ) -> StrategyNode:
     if not statement.output_components:
         raise ValueError(f"Statement has no output components {statement}")
-    history = history or History(
+    history = history or V4History(
         base_environment=environment,
         build_caches=_session_build_caches(environment, scoped_joins),
     )
@@ -1072,7 +1076,6 @@ def get_query_node(
 
     base_factory = Factory(
         environment=environment,
-        build_cache=caches.build_cache,
         canonical_build_cache=caches.canonical_build_cache,
         grain_build_cache=caches.grain_build_cache,
         pseudonym_map=caches.pseudonym_map,
@@ -1089,7 +1092,6 @@ def get_query_node(
     # nested arms under the same scoped joins then reuse.
     baseline = environment.shared_baseline(
         caches.env_baselines,
-        build_cache=caches.build_cache,
         pseudonym_map=base_factory.pseudonym_map,
         grain_build_cache=base_factory.grain_build_cache,
         canonical_build_cache=caches.canonical_build_cache,
@@ -1099,7 +1101,6 @@ def get_query_node(
     build_environment = environment.materialize_delta(
         baseline,
         build_statement.local_concepts,
-        build_cache=caches.build_cache,
         pseudonym_map=base_factory.pseudonym_map,
         grain_build_cache=base_factory.grain_build_cache,
         canonical_build_cache=caches.canonical_build_cache,
@@ -1509,14 +1510,16 @@ def process_query(
     # owns the file instead).
     trace_path = plan_trace.env_output_path()
     if trace_path is None or plan_trace.active():
-        return _process_query(
-            environment, statement, hooks, having_alias, supports_full_join
-        )
+        with gc_paused():
+            return _process_query(
+                environment, statement, hooks, having_alias, supports_full_join
+            )
     plan_trace.start(str(statement))
     try:
-        return _process_query(
-            environment, statement, hooks, having_alias, supports_full_join
-        )
+        with gc_paused():
+            return _process_query(
+                environment, statement, hooks, having_alias, supports_full_join
+            )
     finally:
         trace = plan_trace.stop()
         if trace is not None:

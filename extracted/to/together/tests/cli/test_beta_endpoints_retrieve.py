@@ -61,13 +61,10 @@ def _deployment_body(**overrides: Any) -> dict[str, Any]:
 
 def _whoami_body(**overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
-        "api_key_id": "key-1",
-        "organization_id": "org-1",
-        "organization_name": "Acme",
-        "project_id": "proj",
-        "project_name": "My Project",
-        "project_slug": "my-project",
-        "user_id": "user-1",
+        "type": "project_api_key",
+        "api_key": {"id": "key-1"},
+        "organization": {"id": "org-1", "name": "Acme"},
+        "project": {"id": "proj", "name": "My Project", "slug": "my-project"},
     }
     body.update(overrides)
     return body
@@ -123,6 +120,41 @@ class TestBetaEndpointsRetrieve:
         assert payload["endpointId"] == "ep_1"
 
     @pytest.mark.respx(base_url=base_url)
+    def test_retrieve_deployment_prints_config_values(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
+        respx_mock.get("/projects/proj/endpoints").mock(
+            return_value=httpx.Response(
+                200,
+                json={"object": "list", "data": [_endpoint_body()], "next_cursor": None},
+            )
+        )
+        respx_mock.get("/projects/proj/endpoints/ep_1/deployments/dep_control").mock(
+            return_value=httpx.Response(200, json=_deployment_body(config="projects/public/configs/cr_1"))
+        )
+        config_route = respx_mock.get("/projects/public/configs/cr_1").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "id": "cr_1",
+                    "certifications": [],
+                    "projectId": "public",
+                    "referenceModel": "projects/proj/models/ml_control",
+                    "referenceModelId": "ml_control",
+                    "selectors": [
+                        {"key": "accelerator_type", "value": "nvidia-h100-80gb"},
+                        {"key": "adapter_mode", "value": "dynamic"},
+                    ],
+                },
+            )
+        )
+
+        result = cli_runner.invoke(["beta", "endpoints", "dep_control", "--project", "proj"])
+
+        assert result.exit_code == 0, result.output
+        assert config_route.call_count == 1
+        assert "accelerator_type: nvidia-h100-80gb" in result.output
+        assert "adapter_mode: dynamic" in result.output
+
+    @pytest.mark.respx(base_url=base_url)
     def test_implicit_retrieve_deployment_id(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
         respx_mock.get("/projects/proj/endpoints").mock(
             return_value=httpx.Response(
@@ -143,7 +175,7 @@ class TestBetaEndpointsRetrieve:
 
     @pytest.mark.respx(base_url=base_url)
     def test_retrieve_endpoint_by_name(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
-        respx_mock.get("/whoami").mock(return_value=httpx.Response(200, json=_whoami_body()))
+        respx_mock.get("/v3/whoami").mock(return_value=httpx.Response(200, json=_whoami_body()))
         respx_mock.get("/projects/proj/endpoints").mock(
             return_value=httpx.Response(
                 200,
@@ -169,6 +201,9 @@ class TestBetaEndpointsRetrieve:
         """GET only needs the model display name — it must not fail when the model has multiple configs."""
         respx_mock.get("/projects/proj/endpoints/ep_1").mock(return_value=httpx.Response(200, json=_endpoint_body()))
         _mock_endpoint_get_side_resources(respx_mock)
+        respx_mock.get("/projects/proj/endpoints/ep_1/deployments/dep_control/adapters").mock(
+            return_value=httpx.Response(200, json={"object": "list", "data": [], "next_cursor": None})
+        )
         respx_mock.get("/projects/proj/models/ml_control").mock(
             return_value=httpx.Response(
                 200,
@@ -190,8 +225,57 @@ class TestBetaEndpointsRetrieve:
         assert "control" in result.output
 
     @pytest.mark.respx(base_url=base_url)
+    def test_retrieve_endpoint_lists_deployment_adapters(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
+        respx_mock.get("/projects/proj/endpoints/ep_1").mock(return_value=httpx.Response(200, json=_endpoint_body()))
+        _mock_endpoint_get_side_resources(respx_mock)
+        respx_mock.get("/projects/proj/endpoints/ep_1/deployments/dep_control/adapters").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "object": "list",
+                    "data": [
+                        {
+                            "adapterModelId": f"ml_{name}",
+                            "adapterModel": f"projects/proj/models/ml_{name}",
+                            "desiredRevisionId": "rv_1",
+                            "etag": "etag",
+                            "perCluster": [],
+                        }
+                        for name in ("adapter_a", "adapter_b")
+                    ],
+                    "next_cursor": None,
+                },
+            )
+        )
+        for name in ("control", "adapter_a", "adapter_b"):
+            respx_mock.get(f"/projects/proj/models/ml_{name}").mock(
+                return_value=httpx.Response(
+                    200,
+                    json={
+                        "id": f"ml_{name}",
+                        "projectId": "proj",
+                        "organizationId": "org-1",
+                        "name": f"my-project/{name}",
+                        "visibility": "VISIBILITY_PRIVATE",
+                        "weights": {},
+                    },
+                )
+            )
+
+        result = cli_runner.invoke(["beta", "endpoints", "ep_1", "--project", "proj"])
+
+        assert result.exit_code == 0, result.output
+        # Names may wrap inside the Deployment cell, so check order rather than exact lines.
+        output = result.output
+        id_at = output.index("ID: dep_control")
+        first_at = output.index("my-project/adapter_a")
+        second_at = output.index("my-project/adapter_b")
+        assert id_at < first_at < second_at
+        assert output.count("Adapter:") == 2
+
+    @pytest.mark.respx(base_url=base_url)
     def test_implicit_retrieve_endpoint_by_name(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
-        respx_mock.get("/whoami").mock(return_value=httpx.Response(200, json=_whoami_body()))
+        respx_mock.get("/v3/whoami").mock(return_value=httpx.Response(200, json=_whoami_body()))
         respx_mock.get("/projects/proj/endpoints").mock(
             return_value=httpx.Response(
                 200,
@@ -210,7 +294,7 @@ class TestBetaEndpointsRetrieve:
 
     @pytest.mark.respx(base_url=base_url)
     def test_implicit_retrieve_deployment_by_name(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
-        respx_mock.get("/whoami").mock(return_value=httpx.Response(200, json=_whoami_body()))
+        respx_mock.get("/v3/whoami").mock(return_value=httpx.Response(200, json=_whoami_body()))
         # Name lookup as endpoint fails (no matching endpoint), then deployment name resolves.
         respx_mock.get("/projects/proj/endpoints").mock(
             return_value=httpx.Response(
@@ -235,7 +319,7 @@ class TestBetaEndpointsRetrieve:
         respx_mock: MockRouter,
         cli_runner: CliRunner,
     ) -> None:
-        respx_mock.get("/whoami").mock(return_value=httpx.Response(200, json=_whoami_body()))
+        respx_mock.get("/v3/whoami").mock(return_value=httpx.Response(200, json=_whoami_body()))
         respx_mock.get("/projects/proj/endpoints").mock(
             return_value=httpx.Response(
                 200,
@@ -440,7 +524,7 @@ class TestBetaEndpointsRetrieve:
 
     @pytest.mark.respx(base_url=base_url)
     def test_retrieve_deployment_by_ambiguous_name_errors(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
-        respx_mock.get("/whoami").mock(return_value=httpx.Response(200, json=_whoami_body()))
+        respx_mock.get("/v3/whoami").mock(return_value=httpx.Response(200, json=_whoami_body()))
         other = _endpoint_body(
             id="ep_2",
             name="my-project/other-endpoint",

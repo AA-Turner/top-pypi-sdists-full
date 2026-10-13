@@ -274,11 +274,13 @@ class _DocumentNav:
                 elif not tags:
                     yield child
 
-    def get_parent(self, el: bs4.Tag | None, no_iframe: bool = False) -> bs4.Tag | None:
+    def get_parent(self, el: bs4.Tag | None, no_iframe: bool = False, no_doc: bool = True) -> bs4.Tag | None:
         """Get parent."""
 
         parent = el.parent if el is not None else None
         if no_iframe and parent is not None and self.is_iframe(parent):  # pragma: no cover
+            parent = None
+        if no_doc and self.is_doc(parent):
             parent = None
         return parent
 
@@ -855,7 +857,7 @@ class CSSMatch(_DocumentNav):
             if key in self.sib_cache:
                 index = self.sib_cache[key]
                 if index >= 0:
-                    a, b = (index, start) if reverse else (start, index)
+                    a, b = (index + 1, start + 1) if reverse else (start, index)
                     return not within(el, parent, a, b)
                 else:
                     return False
@@ -1036,7 +1038,7 @@ class CSSMatch(_DocumentNav):
         incr = rincr = 0
 
         # Get the parent and use the ID for the cache key
-        parent = self.get_parent(el)
+        parent = self.get_parent(el, no_doc=False)
         pkey = id(parent) if self.enable_cache and parent else None
 
         # Test element against the `nth` selectors.
@@ -1334,7 +1336,7 @@ class CSSMatch(_DocumentNav):
                         found = True
                         parent = child
                         break
-                if not found:  # pragma: no cover
+                if found:  # pragma: no cover
                     break
 
             # Search meta tags

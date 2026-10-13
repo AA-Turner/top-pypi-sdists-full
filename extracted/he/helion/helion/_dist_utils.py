@@ -40,6 +40,11 @@ def all_gather_object(obj: T, process_group_name: str | None = None) -> list[T]:
     return object_list  # pyrefly: ignore
 
 
+def all_ranks_agree(flag: bool, process_group_name: str | None = None) -> bool:
+    """Whether ``flag`` holds on every rank of the group (one rank: ``flag``)."""
+    return all(all_gather_object(flag, process_group_name))
+
+
 def sync_object(obj: T, process_group_name: str | None = None) -> T:
     r"""
     Synchronize the number of repeations across all ranks.
@@ -93,7 +98,11 @@ def is_symm_mem_tensor(t: Tensor, process_group_name: str | None = None) -> bool
         return False
 
 
-def kernel_uses_symm_mem(args: tuple[object, ...]) -> bool:
+def kernel_uses_symm_mem(
+    args: tuple[object, ...],
+    *,
+    dist_initialized: bool | None = None,
+) -> bool:
     """Return True if this is a distributed kernel operating on symmetric memory.
 
     Helion's distributed-only compilation behavior (persistent-only PID types,
@@ -103,7 +112,9 @@ def kernel_uses_symm_mem(args: tuple[object, ...]) -> bool:
     that merely run inside a process where torch.distributed happens to be
     initialized (e.g. vLLM). See GitHub issue #3024.
     """
-    if not dist.is_initialized():
+    if dist_initialized is None:
+        dist_initialized = dist.is_initialized()
+    if not dist_initialized:
         return False
     if not hasattr(symm_mem, "is_symm_mem_tensor"):
         # Older PyTorch cannot cheaply detect symmetric-memory tensors without a

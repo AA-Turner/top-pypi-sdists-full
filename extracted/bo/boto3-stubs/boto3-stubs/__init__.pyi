@@ -391,6 +391,7 @@ from mypy_boto3_sagemaker_geospatial.client import SageMakergeospatialcapabiliti
 from mypy_boto3_sagemaker_metrics.client import SageMakerMetricsClient
 from mypy_boto3_sagemaker_runtime.client import SageMakerRuntimeClient
 from mypy_boto3_sagemakerjobruntime.client import SagemakerJobRuntimeServiceClient
+from mypy_boto3_sagemakertrainingsessionruntime.client import SageMakerTrainingSessionRuntimeClient
 from mypy_boto3_savingsplans.client import SavingsPlansClient
 from mypy_boto3_scheduler.client import EventBridgeSchedulerClient
 from mypy_boto3_schemas.client import SchemasClient
@@ -7008,6 +7009,24 @@ def client(
 ) -> SagemakerJobRuntimeServiceClient:
     """
     Create client for SagemakerJobRuntimeService service.
+    """
+
+@overload
+def client(
+    service_name: Literal["sagemakertrainingsessionruntime"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> SageMakerTrainingSessionRuntimeClient:
+    """
+    Create client for SageMakerTrainingSessionRuntime service.
     """
 
 @overload

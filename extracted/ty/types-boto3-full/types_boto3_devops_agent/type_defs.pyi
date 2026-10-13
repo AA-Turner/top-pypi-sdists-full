@@ -35,6 +35,7 @@ from .literals import (
     GitLabTokenTypeType,
     GoalStatusType,
     GoalTypeType,
+    IncludedDataType,
     IpAddressTypeType,
     MCPServerAuthorizationMethodType,
     NewRelicRegionType,
@@ -222,6 +223,7 @@ __all__ = (
     "MCPServerBearerTokenConfigTypeDef",
     "MCPServerConfigurationOutputTypeDef",
     "MCPServerConfigurationTypeDef",
+    "MCPServerCustomHeadersConfigTypeDef",
     "MCPServerDatadogConfigurationOutputTypeDef",
     "MCPServerDatadogConfigurationTypeDef",
     "MCPServerDetailsTypeDef",
@@ -404,6 +406,7 @@ class RegisteredMCPServerDetailsTypeDef(TypedDict):
     authorizationMethod: MCPServerAuthorizationMethodType
     description: NotRequired[str]
     apiKeyHeader: NotRequired[str]
+    customHeaderNames: NotRequired[list[str]]
 
 class RegisteredMCPServerSigV4DetailsTypeDef(TypedDict):
     name: str
@@ -668,6 +671,7 @@ class UsageMetricTypeDef(TypedDict):
 
 class GetAgentSpaceInputTypeDef(TypedDict):
     agentSpaceId: str
+    includedData: NotRequired[IncludedDataType]
 
 class GetAssetContentRequestTypeDef(TypedDict):
     agentSpaceId: str
@@ -753,6 +757,7 @@ class PaginatorConfigTypeDef(TypedDict):
 class ListAgentSpacesInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    includedData: NotRequired[IncludedDataType]
 
 class ListAssetFilesRequestTypeDef(TypedDict):
     agentSpaceId: str
@@ -867,6 +872,9 @@ class MCPServerBearerTokenConfigTypeDef(TypedDict):
     tokenName: str
     tokenValue: str
     authorizationHeader: NotRequired[str]
+
+class MCPServerCustomHeadersConfigTypeDef(TypedDict):
+    headers: Mapping[str, str]
 
 class MCPServerOAuth3LOConfigTypeDef(TypedDict):
     clientId: str
@@ -1360,6 +1368,7 @@ class GetAccountUsageOutputTypeDef(TypedDict):
     monthlyAccountEvaluationHours: UsageMetricTypeDef
     monthlyAccountSystemLearningHours: UsageMetricTypeDef
     monthlyAccountOnDemandHours: UsageMetricTypeDef
+    monthlyAccountGraderHours: UsageMetricTypeDef
     usagePeriodStartTime: datetime
     usagePeriodEndTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1395,6 +1404,7 @@ class JournalRecordTypeDef(TypedDict):
     userReference: NotRequired[UserReferenceTypeDef]
 
 class ListAgentSpacesInputPaginateTypeDef(TypedDict):
+    includedData: NotRequired[IncludedDataType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAssetFilesRequestPaginateTypeDef(TypedDict):
@@ -1479,6 +1489,7 @@ class MCPServerAuthorizationConfigTypeDef(TypedDict):
     oAuth3LO: NotRequired[MCPServerOAuth3LOConfigTypeDef]
     apiKey: NotRequired[MCPServerAPIKeyConfigTypeDef]
     bearerToken: NotRequired[MCPServerBearerTokenConfigTypeDef]
+    customHeaders: NotRequired[MCPServerCustomHeadersConfigTypeDef]
     authorizationDiscovery: NotRequired[MCPServerAuthorizationDiscoveryConfigTypeDef]
 
 class MCPServerConfigurationOutputTypeDef(TypedDict):

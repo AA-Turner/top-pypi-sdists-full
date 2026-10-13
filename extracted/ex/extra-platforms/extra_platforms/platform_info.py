@@ -32,8 +32,6 @@ import os
 import platform
 import re
 import shlex
-import shutil
-import subprocess
 from functools import cache
 
 TYPE_CHECKING = False
@@ -250,6 +248,11 @@ def _hostnamectl_os_release() -> dict[str, str]:
     :return: Dictionary of os-release fields, or empty dict when the identity
         cannot be read.
     """
+    # Deferred imports: keep shutil and subprocess off the import path of the
+    # package.
+    import shutil
+    import subprocess
+
     # Testing for the binary rather than for Linux covers a systemd-less
     # distribution too, and spares every other platform a subprocess it can only
     # fail to spawn.

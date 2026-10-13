@@ -11,6 +11,7 @@ from urllib.parse import urlencode, urlsplit, urlunsplit
 from pydantic import ValidationError
 from requests import Response
 
+from pyicloud.exceptions import PyiCloudException
 from pyicloud.session import PyiCloudSession
 
 from .base import CloudKitExtraMode, resolve_cloudkit_validation_extra
@@ -49,6 +50,10 @@ CloudKitDebugHook = Callable[[str, str, dict[str, Any], Response], None]
 
 _RATE_LIMITED = "HTTP 429: rate limited"
 
+# Zone-level error codes that mean "try again later" rather than a real failure.
+_RETRYABLE_ZONE_ERRORS = frozenset({"THROTTLED", "TRY_AGAIN_LATER", "ZONE_BUSY"})
+_AUTH_ZONE_ERRORS = frozenset({"AUTHENTICATION_FAILED", "AUTHENTICATION_REQUIRED"})
+
 
 def redact_cloudkit_url(url: str) -> str:
     """Return a CloudKit URL without query parameters or fragments."""
@@ -56,11 +61,11 @@ def redact_cloudkit_url(url: str) -> str:
     return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
 
 
-class CloudKitAuthError(Exception):
+class CloudKitAuthError(PyiCloudException):
     """Raised when Apple rejects a CloudKit request due to auth/session state."""
 
 
-class CloudKitRateLimited(Exception):
+class CloudKitRateLimited(PyiCloudException):
     """Raised when Apple rate-limits a CloudKit request."""
 
     def __init__(self, message: str, *, retry_after: float | None = None) -> None:
@@ -68,7 +73,7 @@ class CloudKitRateLimited(Exception):
         self.retry_after = retry_after
 
 
-class CloudKitApiError(Exception):
+class CloudKitApiError(PyiCloudException):
     """Raised for transport, validation, or server-side CloudKit failures."""
 
     def __init__(self, message: str, *, payload: Any | None = None) -> None:
@@ -265,6 +270,77 @@ class _CloudKitHTTP:
                     close()
 
 
+def _raise_for_zone_errors(data: Any) -> None:
+    """Raise if any zone in a /changes/zone response failed.
+
+    CloudKit answers HTTP 200 even when a zone could not be fetched, and puts a
+    "Zone Record Fetch Error Dictionary" (serverErrorCode, reason, and
+    sometimes retryAfter) in place of that zone's results. It has no syncToken
+    or records, so validating it as a zone fails with an opaque error.
+    """
+    zones = data.get("zones") if isinstance(data, dict) else None
+    if not isinstance(zones, list):
+        return
+
+    for zone in zones:
+        if not isinstance(zone, dict) or "serverErrorCode" not in zone:
+            continue
+
+        code = zone["serverErrorCode"]
+        message = f"Zone changes failed: {code}"
+        if reason := zone.get("reason"):
+            message = f"{message} ({reason})"
+
+        if code in _RETRYABLE_ZONE_ERRORS:
+            retry_after = None
+            if (raw_retry_after := zone.get("retryAfter")) is not None:
+                with suppress(TypeError, ValueError):
+                    retry_after = float(raw_retry_after)
+            raise CloudKitRateLimited(message, retry_after=retry_after)
+        if code in _AUTH_ZONE_ERRORS:
+            raise CloudKitAuthError(message)
+        raise CloudKitApiError(message, payload=data)
+
+
+def _raise_for_record_errors(data: Any) -> None:
+    """Raise when CloudKit reported a per-record failure inside a 200 response.
+
+    CloudKit answers ``200`` for a modify whose records were rejected, and puts
+    the reason in the record entry as a ``serverErrorCode``. Callers looking for
+    their record by name find an error entry instead, and every one of them
+    silently skipped it: a rejected write surfaced as a missing record, or as
+    nothing at all.
+
+    The raw JSON is inspected rather than the parsed model, so an error entry
+    that also carries record fields cannot be mistaken for a ``CKRecord`` and
+    skipped. Raising here means the reason Apple gave -- "Attempt to save
+    encrypted data in non encrypted field type", say -- reaches the caller
+    instead of being replaced by a guess about the response shape.
+    """
+
+    records = data.get("records") if isinstance(data, dict) else None
+    if not isinstance(records, list):
+        return
+
+    errors = [
+        record
+        for record in records
+        if isinstance(record, dict) and "serverErrorCode" in record
+    ]
+    if not errors:
+        return
+
+    detail = "; ".join(
+        f"{record.get('recordName') or '<unnamed>'}: {record['serverErrorCode']}"
+        + (f" ({record['reason']})" if record.get("reason") else "")
+        for record in errors
+    )
+    raise CloudKitApiError(
+        f"CloudKit rejected {len(errors)} record(s) -- {detail}",
+        payload=data,
+    )
+
+
 class CloudKitContainerClient:
     """Typed CloudKit client for a single container/environment/scope."""
 
@@ -386,6 +462,7 @@ class CloudKitContainerClient:
         while True:
             payload = req.model_dump(mode="json", exclude_none=True)
             data = self._http.post("/changes/zone", payload)
+            _raise_for_zone_errors(data)
             try:
                 envelope = self._validate_response(CKZoneChangesResponse, data)
             except ValidationError as exc:
@@ -413,6 +490,7 @@ class CloudKitContainerClient:
             resultsLimit=results_limit,
         ).model_dump(mode="json", exclude_none=True)
         data = self._http.post("/changes/zone", payload)
+        _raise_for_zone_errors(data)
         try:
             return self._validate_response(CKZoneChangesResponse, data)
         except ValidationError as exc:
@@ -428,7 +506,13 @@ class CloudKitContainerClient:
         zone_id: CKZoneIDReq,
         atomic: bool | None = None,
     ) -> CKModifyResponse:
-        """Send record modify operations and return the parsed response."""
+        """Send record modify operations and return the parsed response.
+
+        CloudKit answers ``200`` even when it rejected records, so a rejection
+        is raised as ``CloudKitApiError`` rather than returned. The batch is
+        therefore all-or-nothing to the caller: if any record fails, none of
+        the accepted records are returned, even for a non-atomic batch.
+        """
         payload = CKModifyRequest(
             operations=operations,
             zoneID=zone_id,
@@ -436,12 +520,14 @@ class CloudKitContainerClient:
         ).model_dump(mode="json", exclude_none=True)
         data = self._http.post("/records/modify", payload)
         try:
-            return self._validate_response(CKModifyResponse, data)
+            response = self._validate_response(CKModifyResponse, data)
         except ValidationError as exc:
             raise CloudKitApiError(
                 "Modify response validation failed",
                 payload=data,
             ) from exc
+        _raise_for_record_errors(data)
+        return response
 
     def zones_list(self) -> CKZoneListResponse:
         """List the container's zones and return the parsed response."""

@@ -121,32 +121,26 @@ def test_unloaded_importable_sdk_name_resolves_its_httpx_flavor(tmp_path: Path) 
 
 
 def test_capture_flavor_resolver_has_no_unresolved_dynamic_import() -> None:
-    """The provider scanner can statically inspect the complete resolver.
+    """The provider scanner must report NO UNRESOLVED_IMPORT for the resolver.
 
-    This intentionally fails against the former ``import_module(sdk)`` and
-    ``import_module(base_client_name)`` implementation while the preceding
-    test preserves the independent, unloaded arbitrary-SDK compatibility
-    contract.
+    Ruling of 2026-09-11 (d14d6a9484): the provider layer's own module-by-name
+    load (``_load_sdk_module``) is the layer doing its job, so a plain
+    ``import_module`` there is sanctioned and the scanner does not file it. The
+    former test banned the spelling itself, which contradicted that ruling and
+    failed on the sanctioned form. The fact that matters is what the scanner
+    reports, so ask the scanner.
     """
-    source_path = PROVIDERS_ROOT / "outbound_capture.py"
-    tree = ast.parse(source_path.read_text(), filename=str(source_path))
-    unresolved_dynamic_imports = [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and (
-            isinstance(node.func, ast.Name)
-            and node.func.id == "__import__"
-            or isinstance(node.func, ast.Attribute)
-            and node.func.attr == "import_module"
-        )
-    ]
+    from matrx_mandate_scan.adapters.python import scan_source
 
-    assert not unresolved_dynamic_imports, (
-        "outbound capture must not call import_module() or __import__() with "
-        "a computed SDK/base-client name; that produces an UNRESOLVED_IMPORT "
-        "finding in the provider scanner."
-    )
+    source_path = PROVIDERS_ROOT / "outbound_capture.py"
+    relative = "packages/matrx-ai/matrx_ai/providers/outbound_capture.py"
+    result = scan_source(source_path.read_text(), relative)
+    unresolved = [f"{f.line} {f.symbol}" for f in result.findings if f.code == "UNRESOLVED_IMPORT"]
+    assert not unresolved, f"outbound_capture files UNRESOLVED_IMPORT findings: {unresolved}"
+
+    # Proof the check can fail: the same load outside the provider layer IS reported.
+    outside = scan_source(source_path.read_text(), "aidream/services/x/loader.py")
+    assert any(f.code == "UNRESOLVED_IMPORT" for f in outside.findings)
 
 
 def test_every_sdk_call_site_declares_its_sdk() -> None:

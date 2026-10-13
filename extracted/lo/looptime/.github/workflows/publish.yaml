@@ -11,16 +11,18 @@ on:
 jobs:
   publish:
     name: Build and publish
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       id-token: write  # for trusted publishing
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
-          python-version: "3.14"
-      - run: pip install --upgrade pip build
-      - run: python -m build  # includes sdist & wheel by default
+          github-token: ${{ github.token }}
+          enable-cache: true
+          python-version: "3.15"
+          activate-environment: true
+      - run: uv build
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip_existing: true

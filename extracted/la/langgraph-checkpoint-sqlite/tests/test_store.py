@@ -1,7 +1,11 @@
+import math
 import os
+import random
 import re
 import tempfile
+import time
 import uuid
+from collections import Counter, defaultdict
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from typing import Any, Literal, cast
@@ -10,6 +14,7 @@ import pytest
 from langchain_core.embeddings import Embeddings
 from langgraph.store.base import (
     GetOp,
+    InvalidNamespaceError,
     Item,
     ListNamespacesOp,
     MatchCondition,
@@ -33,10 +38,6 @@ class CharacterEmbeddings(Embeddings):
 
     def __init__(self, dims: int = 50, seed: int = 42):
         """Initialize with embedding dimensions and random seed."""
-        import math
-        import random
-        from collections import defaultdict
-
         self._rng = random.Random(seed)
         self.dims = dims
         # Create projection vector for each character lazily
@@ -48,9 +49,6 @@ class CharacterEmbeddings(Embeddings):
 
     def _embed_one(self, text: str) -> list[float]:
         """Embed a single text."""
-        import math
-        from collections import Counter
-
         counts = Counter(text)
         total = sum(counts.values())
 
@@ -338,8 +336,6 @@ class TestSqliteStore:
 
             # Test update
             # Small delay to ensure the updated timestamp is different
-            import time
-
             time.sleep(0.01)
 
             updated_value = {"title": "Updated Document", "content": "Hello, Updated!"}
@@ -1440,3 +1436,51 @@ def test_list_namespaces_metacharacter_labels(store: SqliteStore) -> None:
         assert set(store.list_namespaces(prefix=[label, "child"], limit=100)) == {
             (label, "child"),
         }
+
+
+@pytest.mark.parametrize("namespace", [("foo.bar",), ("foo", ""), ("foo", 1)])
+@pytest.mark.parametrize(
+    "kind", ["get", "put", "delete", "search", "list_prefix", "list_suffix"]
+)
+def test_batch_rejects_invalid_namespace_labels(
+    store: SqliteStore, namespace: tuple, kind: str
+) -> None:
+    """Ops passed straight to `batch` must not reach another namespace.
+
+    Namespaces are stored dot-joined, so `("foo.bar",)` flattens to the same
+    text as `("foo", "bar")`. `BaseStore` methods validate labels themselves,
+    but `batch` takes ops as given.
+    """
+    op = {
+        "get": GetOp(namespace, "key"),
+        "put": PutOp(namespace, "key", {"changed": True}),
+        "delete": PutOp(namespace, "key", None),
+        "search": SearchOp(namespace),
+        "list_prefix": ListNamespacesOp((MatchCondition("prefix", namespace),)),
+        "list_suffix": ListNamespacesOp((MatchCondition("suffix", namespace),)),
+    }[kind]
+    store.put(("foo", "bar"), "key", {"original": True})
+
+    with pytest.raises(InvalidNamespaceError):
+        store.batch([PutOp(("valid",), "key", {}), op])
+
+    item = store.get(("foo", "bar"), "key")
+    assert item is not None and item.value == {"original": True}
+    # The whole batch is rejected before any SQL runs.
+    assert store.get(("valid",), "key") is None
+
+
+def test_batch_allows_empty_search_prefix_and_listing_wildcards(
+    store: SqliteStore,
+) -> None:
+    store.put(("foo", "bar"), "key", {"v": 1})
+
+    found, listed = store.batch(
+        [
+            SearchOp(()),
+            ListNamespacesOp((MatchCondition("prefix", ("foo", "*")),)),
+        ]
+    )
+
+    assert [item.namespace for item in found] == [("foo", "bar")]
+    assert listed == [("foo", "bar")]
